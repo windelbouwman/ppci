@@ -1,0 +1,130 @@
+
+
+.. toctree::
+  
+  ir
+
+Compiler
+========
+
+This chapter describes the design of the compiler.
+The compiler consists a frontend, mid-end and back-end. The frontend deals with
+source file parsing and semantics checking. The mid-end performs optimizations.
+This is optional. The back-end generates machine code. The front-end produces
+intermediate code. This is a simple representation of the source. The back-end
+can accept this kind of representation.
+
+.. graphviz::
+  
+   digraph x {
+   rankdir="LR"
+   1 [label="c3 source file"]
+   10 [label="c3 front end" ]
+   11 [label="language X front end" ]
+   20 [label="mid end" ]
+   30 [label="back end for X86" ]
+   31 [label="back end for ARM" ]
+   40 [label="object file"]
+   1 -> 10
+   10 -> 20 [label="IR-code"]
+   11 -> 20 [label="IR-code"]
+   20 -> 30 [label="IR-code"]
+   20 -> 31 [label="IR-code"]
+   30 -> 40
+   }
+
+
+IR-code
+-------
+
+The intermediate representation (IR) of a program de-couples the front end
+from the backend of the compiler.
+
+See :doc:`ir` for details about all the available instructions.
+
+
+C3 Front-end
+------------
+
+For the front-end a recursive descent parser is created for the c3 language.
+This is a subset of the C language with some additional features.
+
+.. graphviz::
+  
+   digraph c3 {
+   rankdir="LR"
+   1 [label="source text"]
+   10 [label="lexer" ]
+   20 [label="parser" ]
+   40 [label="code generation"]
+   99 [label="IR-code object"]
+   1 -> 10
+   10 -> 20
+   20 -> 40
+   40 -> 99
+   }
+
+.. autoclass:: ppci.c3.Lexer
+
+.. autoclass:: ppci.c3.Parser
+
+.. autoclass:: ppci.c3.CodeGenerator
+
+.. autoclass:: ppci.c3.Builder
+
+Back-end
+--------
+
+The back-end is more complicated. There are several steps to be taken here.
+
+1. Canonicalization
+2. Tree creation
+3. Instruction selection
+4. register allocation
+5. Instruction emission
+6. TODO: Peep hole optimization?
+
+.. automodule:: ppci.codegen
+   :members:
+
+Canonicalize
+~~~~~~~~~~~~
+
+During this phase, the IR-code is made simpler. Function calls are pulled pulled
+to top level and the frame pointer is introduced.
+
+Tree building
+~~~~~~~~~~~~~
+
+From IR-code a tree is generated which can be used to select instructions.
+
+Instruction selection
+~~~~~~~~~~~~~~~~~~~~~
+
+The instruction selection phase takes care of scheduling and instruction
+selection.  The output of this phase is a one frame per function with a flat
+list of abstract machine instructions.
+
+// .. autoclass:: ppci.irmach.Frame
+
+// .. autoclass:: ppci.irmach.AbstractInstruction
+
+To select instruction, a tree rewrite system is used. This is also called
+bottom up rewrite generator (BURG). See pyburg.
+
+
+Register allocation
+~~~~~~~~~~~~~~~~~~~
+
+The selected instructions are used to select correct registers.
+
+
+code emission
+~~~~~~~~~~~~~
+
+Code is emitted using the outputstream class. The assembler and compiler use
+this class to emit instructions to. The stream can output to object file
+or to a logger.
+
+.. autoclass:: ppci.outstream.OutputStream
+
