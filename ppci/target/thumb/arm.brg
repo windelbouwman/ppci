@@ -1,0 +1,32 @@
+
+from ppci.target.thumb.instructions import Orr, Lsl, Str2, Ldr2, Ldr3
+from ppci.target.thumb.instructions import B, Bl, Bgt, Blt, Beq, Bne
+from ppci.target.thumb.instructions import Mov2, Mov3, Sub3
+from ppci.target.thumb.instructions import Add3, Sub, Cmp, Sub2, Add2, Mul
+
+%%
+
+%terminal ADDI32 SUBI32 MULI32
+%terminal ORI32 SHLI32
+%terminal CONSTI32 MEMI32 REGI32 CALL
+%terminal MOVI32
+%terminal GLOBALADDRESS CONSTDATA
+
+%%
+
+
+reg: ADDI32(reg, reg) 2 'd = self.newTmp(); self.emit(Add3, dst=[d], src=[c0, c1]); return d'
+reg: SUBI32(reg, reg) 2 'd = self.newTmp(); self.emit(Sub3, dst=[d], src=[c0, c1]); return d'
+reg: ORI32(reg, reg)  2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Orr, dst=[], src=[d, c1]); return d'
+reg: SHLI32(reg, reg) 2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Lsl, dst=[], src=[d, c1]); return d'
+reg: MULI32(reg, reg) 2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Mul, dst=[d], src=[c1, d]); return d'
+
+reg: CONSTI32         3 'd = self.newTmp(); ln = self.selector.frame.addConstant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
+reg: MEMI32(reg)      4 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[0]); return d'
+reg: REGI32           1 'return tree.value'
+reg: CALL             1 'return self.selector.munchCall(tree.value)'
+
+
+stmt: MOVI32(MEMI32(addr), reg)    3   'self.emit(Str2, src=[c0, c1])'
+
+addr: reg 0 ''

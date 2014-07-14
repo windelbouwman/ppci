@@ -1,0 +1,93 @@
+
+import logging
+import io
+
+from . import outstream
+from .c3 import AstPrinter
+from . import logformat
+from .irutils import Writer
+
+class RstFormatter(logging.Formatter):
+    """ Formatter that tries to create an rst document """
+    def __init__(self):
+        super().__init__(fmt=logformat)
+
+    def format(self, record):
+        s = super().format(record)
+        s += '\n'
+        if hasattr(record, 'c3_ast'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            AstPrinter().printAst(record.c3_ast, f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'ircode'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            Writer('  ').write(record.ircode, f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'irfunc'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            Writer('  ').write_function(record.irfunc, f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'ppci_frame'):
+            f = io.StringIO()
+            frame = record.ppci_frame
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            print('  {}'.format(frame.name), file=f)
+            for i in frame.instructions:
+                print('   {}'.format(i),file=f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'ra_cfg'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. graphviz::', file=f)
+            print('', file=f)
+            print('  digraph G {', file=f)
+            print('    size="8,80";', file=f)
+            cfg = record.ra_cfg
+            cfg.to_dot(f)
+            print('  }', file=f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'ra_ig'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. graphviz::', file=f)
+            print('', file=f)
+            print('  digraph G {', file=f)
+            print('    ratio="compress";', file=f)
+            print('    size="8,80";', file=f)
+            ig = record.ra_ig
+            ig.to_dot(f)
+            print('  }', file=f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'zcc_outs'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            outstream.OutputStreamWriter('  ').dump(record.zcc_outs, f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        return s
+
