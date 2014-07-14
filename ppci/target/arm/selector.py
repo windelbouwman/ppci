@@ -3,7 +3,7 @@ from ppci.irmach import AbstractInstruction as makeIns
 from ppci.ir2tree import makeTree
 from .instructions import Str1, Mov2
 from .instructions import B, Bl, Blt, Bgt, Beq, Bne, Cmp2, Ble, Bge
-import pyburg
+from ppci import pyburg
 from ..basetarget import Nop
 from ..instructionselector import InstructionSelector
 

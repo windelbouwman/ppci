@@ -1,5 +1,5 @@
-from baselex import BaseLexer
-import pyyacc
+from .baselex import BaseLexer
+from . import pyyacc
 from . import make_num
 
 

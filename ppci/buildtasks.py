@@ -6,7 +6,7 @@ Task can depend upon one another.
 
 from .tasks import Task, TaskError, register_task
 from .buildfunctions import c3compile, link, assemble, fix_object, construct
-from pyyacc import ParserException
+from .pyyacc import ParserException
 from . import CompilerError
 
 

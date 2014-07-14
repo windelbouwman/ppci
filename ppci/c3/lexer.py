@@ -1,6 +1,6 @@
 import re
 from ppci import CompilerError, SourceLocation, Token, make_num
-from baselex import BaseLexer
+from ppci.baselex import BaseLexer
 
 """
  Lexical analyzer part. Splits the input character stream into tokens.

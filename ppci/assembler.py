@@ -1,7 +1,7 @@
 
 import re
-import pyyacc
-from baselex import BaseLexer
+from . import pyyacc
+from .baselex import BaseLexer
 from . import Token, CompilerError, SourceLocation, make_num
 from .target import Target, Label
 

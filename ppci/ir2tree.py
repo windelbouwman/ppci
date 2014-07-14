@@ -1,4 +1,4 @@
-from tree import Tree
+from .tree import Tree
 from . import ir
 
 """ Create a tree from ir code. """

@@ -1,7 +1,7 @@
 from ... import ir, same_dir
 from ppci.irmach import AbstractInstruction as makeIns
 from ppci.ir2tree import makeTree
-import pyburg
+from ppci import pyburg
 from ..basetarget import Nop
 from ..instructionselector import InstructionSelector
 from .instructions import Orr, Lsl, Str2, Ldr2, Ldr3
