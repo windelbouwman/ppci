@@ -2,8 +2,8 @@ import unittest
 import io
 import argparse
 
-from tree import Tree
-import pyburg
+from ppci.tree import Tree
+from ppci import pyburg
 
 
 class testBURG(unittest.TestCase):

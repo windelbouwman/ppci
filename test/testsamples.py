@@ -166,6 +166,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
             self.skipTest('Not running qemu tests')
 
     def do(self, src, expected_output):
+        march = "arm"
         startercode = """
         section reset
         mov sp, 0x30000   ; setup stack pointer
@@ -197,12 +198,12 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         }
         """
         # Construct binary file from snippet:
-        o1 = assemble(io.StringIO(startercode), 'arm')
+        o1 = assemble(io.StringIO(startercode), march)
         o2 = c3compile([
-            relpath('..', 'kernel', 'src', 'io.c3'),
+            relpath('data', 'io.c3'),
             io.StringIO(modarchcode),
-            io.StringIO(src)], [], 'arm')
-        o3 = link([o2, o1], io.StringIO(arch_mmap), 'arm')
+            io.StringIO(src)], [], march)
+        o3 = link([o2, o1], io.StringIO(arch_mmap), march)
 
         img_data = o3.get_image('image')
         sample_filename = 'testsample.bin'

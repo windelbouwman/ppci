@@ -16,9 +16,9 @@ class ArmMatcher(arm_matcher.Matcher):
     """ Matcher that derives from a burg spec generated matcher """
     def __init__(self, selector):
         super().__init__()
+        self.selector = selector
         self.newTmp = selector.newTmp
         self.emit = selector.emit
-        self.selector = selector
 
 
 class ArmInstructionSelector(InstructionSelector):

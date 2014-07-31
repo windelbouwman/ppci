@@ -1,6 +1,6 @@
 import unittest
-from pyyacc import Grammar, Item, ParserGenerationException, ParserException
-from pyyacc import EPS, EOF, calculate_first_sets
+from ppci.pyyacc import Grammar, Item, ParserGenerationException, ParserException
+from ppci.pyyacc import EPS, EOF, calculate_first_sets
 from ppci import Token, SourceLocation
 
 

@@ -1,4 +1,11 @@
 
+# Valid tree names:
+tree_names = ['ADDI32', 'SUBI32', 'MULI32', 'ADR',
+    'ORI32', 'SHLI32', 'SHRI32', 'ANDI32',
+'CONSTI32 CONSTDATA MEMI32 REGI32', 'CALL GLOBALADDRESS',
+'MOVI32']
+
+
 class Tree:
     """ Tree node with a name and possibly some child nodes """
     def __init__(self, name, *args):

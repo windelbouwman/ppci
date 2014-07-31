@@ -1,11 +1,9 @@
 import unittest
 import os
-import sys
 
-# TODO: import zcc
 from ppci.objectfile import ObjectFile
 import ppci
-import io
+from ppci import commands
 from ppci.target import target_list
 
 # Store testdir for safe switch back to directory:
@@ -17,10 +15,10 @@ def relpath(*args):
 
 class ZccBaseTestCase(unittest.TestCase):
     def callZcc(self, arg_list):
-        parser = zcc.make_parser()
+        parser = commands.make_parser()
         arg_list = ['--log', 'warn'] + arg_list
         args = parser.parse_args(arg_list)
-        self.assertEqual(0, zcc.main(args))
+        self.assertEqual(0, commands.main(args))
 
     def buildRecipe(self, recipe, targetlist=[]):
         arg_list = ['--buildfile', recipe] + targetlist
@@ -57,18 +55,12 @@ class ZccTestCase(ZccBaseTestCase):
         arg_list.append('thumb')
         self.callZcc(arg_list)
 
-    @unittest.skip('Too hard')
-    def testThumbKernel(self):
-        """ Build kernel using zcc: """
-        recipe = relpath('..', 'kernel', 'thumb.yaml')
-        self.buildRecipe(recipe)
-
     def testBurn2(self):
         recipe = relpath('..', 'examples', 'c3', 'build.xml')
         self.buildRecipe(recipe)
 
     def test_hello_A9_c3_recipe(self):
-        recipe = relpath('..', 'examples', 'qemu_a9_hello', 'build.xml')
+        recipe = relpath('data', 'realview-pb-a8', 'build.xml')
         self.buildRecipe(recipe)
 
     @unittest.skip('Skip because of logfile')
