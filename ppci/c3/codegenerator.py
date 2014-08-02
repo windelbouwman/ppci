@@ -122,6 +122,7 @@ class CodeGenerator:
                 self.gen_if_stmt(code)
             elif type(code) is ast.Return:
                 re = self.gen_expr_code(code.expr)
+                # TODO: handle return value??
                 # self.builder.emit(ir.Move(self.builder.fn.return_value, re))
                 self.builder.emit(ir.Jump(self.builder.fn.epiloog))
                 b = self.builder.newBlock()
@@ -140,7 +141,7 @@ class CodeGenerator:
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
         lval = self.gen_expr_code(code.lval)
-        rval = self.gen_expr_code(code.rval)
+        rval = self.make_rvalue_expr(code.rval)
         if not self.equal_types(code.lval.typ, code.rval.typ):
             raise SemanticError('Cannot assign {} to {}'
                                 .format(code.rval.typ, code.lval.typ),
@@ -318,6 +319,7 @@ class CodeGenerator:
             return self.gen_type_cast(expr)
         elif type(expr) is ast.Sizeof:
             # The type of this expression is int:
+            expr.lvalue = False  # This is not a location value..
             expr.typ = self.intType
             self.check_type(expr.query_typ)
             type_size = self.size_of(expr.query_typ)

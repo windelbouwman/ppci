@@ -111,12 +111,11 @@ class Dagger:
         tree = Tree('ADR', self.lut[node.e])
         self.lut[node] = tree
 
-    #@register(ir.GlobalVariable)
-    # TBD: this will never be reached??
+    @register(ir.GlobalVariable)
     def do_global(self, node):
-        tree = Tree('GLOBALADDRESS')
+        """ This tree is put into the lut for later use """
+        tree = Tree('GLOBALADDRESS', value=ir.label_name(node))
         self.lut[node] = tree
-        tree.value = ir.label_name(node)
 
     @register(ir.Call)
     def do_call(self, node):
@@ -147,6 +146,10 @@ class Dagger:
         self.dag = []
         frame.label_map = {}
 
+        # Construct trees for global variables:
+        for global_variable in irfunc.module.Variables:
+            self.f_map[type(global_variable)](self, global_variable)
+
         # Move paramters into registers:
         # parmoves = []
         for p in irfunc.arguments:
@@ -170,6 +173,7 @@ class Dagger:
                 self.f_map[type(instruction)](self, instruction)
 
         # Generate code for return statement:
+        # TODO: return value must be implemented in some way..
         # self.munchStm(ir.Move(self.frame.rv, f.return_value))
 
         return self.dag
