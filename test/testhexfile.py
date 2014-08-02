@@ -1,12 +1,9 @@
 import unittest
 import io
-# from utils import HexFile, HexFileException
+from ppci.utils.hexfile import HexFile, HexFileException
 
 
-class testHexFile(unittest.TestCase):
-    def setUp(self):
-        self.skipTest('TODO')
-
+class HexFileTestCase(unittest.TestCase):
     def saveload(self, hf):
         f = io.StringIO()
         hf.save(f)
