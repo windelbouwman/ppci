@@ -1,0 +1,22 @@
+
+%%
+
+%terminal ADDI ADDRLP ASGNI
+%terminal CNSTI CVCI IOI INDIRC
+
+%%
+
+stmt: ASGNI(disp, reg) 1 'self.tr(1) '
+stmt: reg 0 ' self.tr(2)'
+reg: ADDI(reg, rc) 1 'self.tr(3) '
+reg: CVCI(INDIRC(disp)) 1 'self.tr(4) '
+reg: IOI 0 'self.tr(5)'
+reg: disp 1 'self.tr(6)'
+disp: ADDI(reg, con) 1 'self.tr(7)'
+disp: ADDRLP 0 ' self.tr(8)'
+rc: con 0    ' self.tr(9)'
+rc: reg 0    'self.tr(10)'
+con: CNSTI 0 ' self.tr(11)'
+con: IOI 0   ' self.tr(12)'
+
+

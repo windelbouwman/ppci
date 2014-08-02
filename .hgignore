@@ -3,3 +3,4 @@ syntax: glob
 
 *.pyc
 *.o
+*.bin

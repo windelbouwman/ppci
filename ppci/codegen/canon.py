@@ -1,7 +1,7 @@
 from .. import ir
 
 
-def make(function, frame):
+def canonicalize(function, frame):
     """
         Create canonicalized version of the IR-code. This means:
         - Calls out of expressions.
@@ -11,9 +11,11 @@ def make(function, frame):
     # Move all parameters into registers
     parmoves = []
     for p in function.arguments:
-        pt = newTemp()
-        frame.parMap[p] = pt
-        parmoves.append(ir.Move(pt, frame.argLoc(p.num)))
+        # TODO: pt = newTemp()
+        #frame.parMap[p] = pt
+        # parmoves.append(ir.Move(pt, frame.argLoc(p.num)))
+        print(p.num)
+        pass
     function.entry.instructions = parmoves + function.entry.instructions
 
     # TODO: schedule here?

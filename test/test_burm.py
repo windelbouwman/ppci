@@ -8,10 +8,10 @@ from ppci import pyburg
 
 class testBURG(unittest.TestCase):
     def testSample4(self):
-        """ Test sample4 burg system """
+        """ Test sample4 burg system, from the fraser paper """
         # Generate matcher from spec:
         buf = io.StringIO()
-        args = argparse.Namespace(source=open('sample4.brg'), output=buf)
+        args = argparse.Namespace(source=open('data/sample4.brg'), output=buf)
         pyburg.main(args)
 
         # Execute generated script into global scope:
@@ -39,6 +39,7 @@ class testBURG(unittest.TestCase):
         mm = MyMatcher()
         mm.gen(t)
         self.assertSequenceEqual([8,8,4,11,9,3,1], mm.trace)
+
 
 if __name__ == '__main__':
     unittest.main()

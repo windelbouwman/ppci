@@ -127,7 +127,6 @@ child_nodes = {}
 child_nodes[ir.Binop] = ['a', 'b']
 child_nodes[ir.Add] = ['a', 'b']
 child_nodes[ir.Const] = []
-child_nodes[ir.Exp] = ['e']
 child_nodes[ir.Addr] = ['e']
 child_nodes[ir.GlobalVariable] = []
 child_nodes[ir.Parameter] = []

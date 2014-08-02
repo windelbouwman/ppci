@@ -12,6 +12,8 @@ class RstFormatter(logging.Formatter):
     def __init__(self):
         super().__init__(fmt=logformat)
 
+    # def print(self, *args):
+    #   print(*args, file=x)
     def format(self, record):
         s = super().format(record)
         s += '\n'
@@ -50,6 +52,16 @@ class RstFormatter(logging.Formatter):
             print('', file=f)
             print('  {}'.format(frame.name), file=f)
             for i in frame.instructions:
+                print('   {}'.format(i),file=f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
+        if hasattr(record, 'dag'):
+            f = io.StringIO()
+            dag = record.dag
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            for i in dag:
                 print('   {}'.format(i),file=f)
             print('', file=f)
             s += '\n' + f.getvalue()

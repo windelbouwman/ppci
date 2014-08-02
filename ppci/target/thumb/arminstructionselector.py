@@ -1,6 +1,5 @@
 from ... import ir, same_dir
 from ppci.irmach import AbstractInstruction as makeIns
-from ppci.ir2tree import makeTree
 from ppci import pyburg
 from ..basetarget import Nop
 from ..instructionselector import InstructionSelector
@@ -28,11 +27,6 @@ class ArmInstructionSelector(InstructionSelector):
     def __init__(self):
         super().__init__()
         self.matcher = ArmMatcher(self)
-
-    def munchExpr(self, e):
-        # Use BURG system here:
-        t = makeTree(e)
-        return self.matcher.gen(t)
 
     def munchCall(self, e):
         """ Generate code for call sequence """
@@ -71,9 +65,6 @@ class ArmInstructionSelector(InstructionSelector):
             # Generate expression code and discard the result.
             x = self.munchExpr(s.e)
             self.emit(Nop(), src=[x])
-        elif isinstance(s, ir.Jump):
-            tgt = self.targets[s.target]
-            self.emit(B(ir.label_name(s.target)), jumps=[tgt])
         elif isinstance(s, ir.CJump):
             a = self.munchExpr(s.a)
             b = self.munchExpr(s.b)

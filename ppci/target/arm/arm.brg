@@ -2,16 +2,27 @@
 from ppci.target.arm.instructions import Add1, Add2, Sub1, Mul1
 from ppci.target.arm.instructions import Ldr1, Ldr3, Adr
 from ppci.target.arm.instructions import And1, Lsr1, Lsl1, Mov1
+from ppci.target.arm.instructions import B, Bl, Blt, Bgt, Beq, Bne, Cmp2, Ble, Bge
+from ppci.target.arm.instructions import Str1
 from ppci.target.basetarget import LabelAddress
 
 %%
 
 %terminal ADDI32 SUBI32 MULI32 ADR
 %terminal ORI32 SHLI32 SHRI32 ANDI32
-%terminal CONSTI32 CONSTDATA MEMI32 REGI32 CALL GLOBALADDRESS
+%terminal CONSTI32 CONSTDATA MEMI32 REGI32
+%terminal CALL GLOBALADDRESS
 %terminal MOVI32
+%terminal JMP CJMP
 
 %%
+
+stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str1, others=[0], src=[c0, c1])'
+stm: MOVI32(reg, reg)         99 'self.selector.move(c0, c1)'
+stm: JMP                      2 'label, tgt = tree.value; self.emit(B(label), jumps=[tgt])'
+stm: CJMP(reg, reg)           2 'op, yes_label, yes_tgt, no_label, no_tgt = tree.value; opnames = {"<": Blt, ">":Bgt, "==":Beq, "!=":Bne, ">=":Bge}; Bop = opnames[op]; self.emit(Cmp2, src=[c0, c1]);self.emit(Bop(yes_label), jumps=[yes_tgt]); self.emit(B(no_label), jumps=[no_tgt])'
+
+stm: reg                      0 'pass'
 
 reg: ADDI32(reg, reg)         2 'd = self.newTmp(); self.emit(Add1, dst=[d], src=[c0, c1]); return d'
 reg: ADDI32(reg, cn)          2 'return tree.children[1].value < 256' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c0], others=[c1]); return d'
@@ -23,17 +34,17 @@ reg: SHRI32(reg, reg)         2 'd = self.newTmp(); self.emit(Lsr1, dst=[d], src
 
 reg: MEMI32(ADDI32(reg, cn))  2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[c1]); return d'
 reg: MEMI32(reg)              2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[0]); return d'
-reg: GLOBALADDRESS 21  'd = self.newTmp(); ln = self.selector.frame.add_constant(LabelAddress(tree.value)); self.emit(Ldr3, dst=[d], others=[ln]); return d'
+reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.add_constant(LabelAddress(tree.value)); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
-cn: CONSTI32 0 'return tree.value'
+cn: CONSTI32                  0 'return tree.value'
 
-reg: CONSTI32         6 'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
+reg: CONSTI32                 2 'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
-reg: CONSTI32         2 'return (type(tree.value) is int) and (tree.value < 256)' 'd = self.newTmp(); self.emit(Mov1, dst=[d], others=[tree.value]); return d'
+reg: CONSTI32                 2 'return (type(tree.value) is int) and (tree.value < 256)' 'd = self.newTmp(); self.emit(Mov1, dst=[d], others=[tree.value]); return d'
 
-reg: ADR(CONSTDATA)   2  'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.children[0].value); self.emit(Adr, dst=[d], others=[ln]); return d'
+reg: ADR(CONSTDATA)           2  'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.children[0].value); self.emit(Adr, dst=[d], others=[ln]); return d'
 
-reg: REGI32           1 'return tree.value'
+reg: REGI32                   1 'return tree.value'
 
-reg: CALL             1 'return self.selector.munchCall(tree.value)'
+reg: CALL                     1 'return self.selector.munchCall(tree.value)'
 

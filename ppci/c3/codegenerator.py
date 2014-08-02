@@ -117,7 +117,7 @@ class CodeGenerator:
             elif type(code) is ast.Assignment:
                 self.gen_assignment_stmt(code)
             elif type(code) is ast.ExpressionStatement:
-                self.builder.emit(ir.Exp(self.gen_expr_code(code.ex)))
+                self.gen_expr_code(code.ex)
             elif type(code) is ast.If:
                 self.gen_if_stmt(code)
             elif type(code) is ast.Return:
@@ -216,10 +216,8 @@ class CodeGenerator:
                 if not self.equal_types(expr.b.typ, self.boolType):
                     raise SemanticError('Must be boolean', expr.b.loc)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
-                ta = self.gen_expr_code(expr.a)
-                tb = self.gen_expr_code(expr.b)
-                ta = self.make_rvalue(expr.a.lvalue, ta)
-                tb = self.make_rvalue(expr.b.lvalue, tb)
+                ta = self.make_rvalue_expr(expr.a)
+                tb = self.make_rvalue_expr(expr.b)
                 if not self.equal_types(expr.a.typ, expr.b.typ):
                     raise SemanticError('Types unequal {} != {}'
                                         .format(expr.a.typ, expr.b.typ),
@@ -241,13 +239,17 @@ class CodeGenerator:
         if not self.equal_types(expr.typ, self.boolType):
             self.error('Condition must be boolean', expr.loc)
 
-    def make_rvalue(self, lval, x):
-        """ Inserts an extra load instruction when required """
-        if lval:
+    def make_rvalue_expr(self, expr):
+        """ Generate expression code and insert an extra load instruction
+            when required
+        """
+        x = self.gen_expr_code(expr)
+        if expr.lvalue:
             load_ins = ir.Load(x, 'loaded', ir.i32)
             self.builder.emit(load_ins)
             return load_ins
-        return x
+        else:
+            return x
 
     def gen_expr_code(self, expr):
         """ Generate code for an expression. Return the generated ir-value """
@@ -255,10 +257,8 @@ class CodeGenerator:
         if type(expr) is ast.Binop:
             expr.lvalue = False
             if expr.op in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
-                a_val = self.gen_expr_code(expr.a)
-                b_val = self.gen_expr_code(expr.b)
-                a_val = self.make_rvalue(expr.a.lvalue, a_val)
-                b_val = self.make_rvalue(expr.b.lvalue, b_val)
+                a_val = self.make_rvalue_expr(expr.a)
+                b_val = self.make_rvalue_expr(expr.b)
                 if self.equal_types(expr.a.typ, self.intType) and \
                         self.equal_types(expr.b.typ, self.intType):
                     expr.typ = expr.a.typ
@@ -362,7 +362,8 @@ class CodeGenerator:
     def gen_index_expr(self, expr):
         """ Array indexing """
         base = self.gen_expr_code(expr.base)
-        idx = self.gen_expr_code(expr.i)
+        idx = self.make_rvalue_expr(expr.i)
+
         base_typ = self.the_type(expr.base.typ)
         if not isinstance(base_typ, ast.ArrayType):
             raise SemanticError('Cannot index non-array type {}'
@@ -419,6 +420,10 @@ class CodeGenerator:
     def gen_type_cast(self, expr):
         """ Generate code for type casting """
         ar = self.gen_expr_code(expr.a)
+
+        # Retain lvalue property, TBD is this correct???:
+        expr.lvalue = expr.a.lvalue
+
         from_type = self.the_type(expr.a.typ)
         to_type = self.the_type(expr.to_type)
         if isinstance(from_type, ast.PointerType) and \
@@ -444,7 +449,8 @@ class CodeGenerator:
     def gen_function_call(self, expr):
         """ Generate code for a function call """
         # Evaluate the arguments:
-        args = [self.gen_expr_code(e) for e in expr.args]
+        args = [self.make_rvalue_expr(argument) for argument in expr.args]
+
         # Check arguments:
         tg = self.resolve_symbol(expr.proc)
         if type(tg) is not ast.Function:
@@ -462,7 +468,9 @@ class CodeGenerator:
                                     .format(arg.typ, at), arg.loc)
         # determine return type:
         expr.typ = ftyp.returntype
-        return ir.Call(fname, args)
+        call = ir.Call(fname, args, 'retval', ir.i32)
+        self.builder.emit(call)
+        return call
 
     def eval_constant(self, constant):
         """ Evaluates constant to its value """

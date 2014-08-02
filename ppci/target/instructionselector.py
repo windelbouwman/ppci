@@ -1,63 +1,32 @@
-from ppci import ir
-from ppci.irmach import AbstractInstruction, Temp
-from .basetarget import Label
-
-
-def genTemps():
-    n = 900
-    while True:
-        yield ir.Temp('t{}'.format(n))
-        n = n + 1
+from ppci.irmach import AbstractInstruction
 
 
 class InstructionSelector:
     """
-        Base instruction selector. This class must be overridden by
+        Base instruction selector. This class must be inherited by
         backends.
     """
-    def __init__(self):
-        self.temps = genTemps()
-
     def newTmp(self):
-        return self.temps.__next__()
+        return self.frame.new_virtual_register()
 
-    def munchFunction(self, f, frame):
+    def munch_dag(self, dag, frame):
+        """ Consume a dag and match it using the matcher to the frame """
         # Entry point for instruction selection
-        assert isinstance(f, ir.Function)
-        self.targets = {}
+
         # Enter a frame per function:
         self.frame = frame
 
-        # First define labels:
-        for bb in f.Blocks:
-            itgt = AbstractInstruction(Label(ir.label_name(bb)))
-            self.targets[bb] = itgt
-
-        # Generate code for all blocks:
-        for bb in f.Blocks:
-            self.emit2(self.targets[bb])
-            for i in bb.Instructions:
-                self.munchStm(i)
-
-        # Generate code for return statement:
-        self.munchStm(ir.Move(self.frame.rv, f.return_value))
+        # Template match all trees:
+        for root in dag:
+            if type(root) is AbstractInstruction:
+                self.emit(root)
+            else:
+                # Invoke dynamic programming matcher machinery:
+                self.matcher.gen(root)
 
     def move(self, dst, src):
         raise NotImplementedError('Not target implemented')
 
     def emit(self, *args, **kwargs):
-        """ Abstract instruction emitter """
-        i = AbstractInstruction(*args, **kwargs)
-        return self.emit2(i)
-
-    def emit2(self, i):
-        self.frame.instructions.append(i)
-        return i
-
-    def munchStm(self, s):
-        """ Implement this in the target specific back-end """
-        raise NotImplementedError()
-
-    def munchExpr(self, e):
-        """ Implement this in the target specific back-end """
-        raise NotImplementedError()
+        """ Abstract instruction emitter proxy """
+        return self.frame.emit(*args, **kwargs)

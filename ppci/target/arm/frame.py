@@ -1,5 +1,5 @@
 from ..basetarget import Label, Alignment, LabelAddress
-from ...irmach import AbstractInstruction, Frame, Temp
+from ...irmach import AbstractInstruction, Frame, VirtualRegister
 from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
 from .registers import R9, R10, R11, LR, PC, SP
@@ -11,12 +11,12 @@ class ArmFrame(Frame):
         # We use r7 as frame pointer.
         super().__init__(name)
         self.regs = [R0, R1, R2, R3, R4, R5, R6, R7, R8]
-        self.rv = Temp('special_RV')
-        self.p1 = Temp('special_P1')
-        self.p2 = Temp('special_P2')
-        self.p3 = Temp('special_P3')
-        self.p4 = Temp('special_P4')
-        self.fp = Temp('special_FP')
+        self.rv = VirtualRegister('special_RV')
+        self.p1 = VirtualRegister('special_P1')
+        self.p2 = VirtualRegister('special_P2')
+        self.p3 = VirtualRegister('special_P3')
+        self.p4 = VirtualRegister('special_P4')
+        self.fp = VirtualRegister('special_FP')
 
         # Output of the register allocator goes in here:
         self.tempMap = {}
@@ -28,7 +28,6 @@ class ArmFrame(Frame):
         self.tempMap[self.p4] = R4
         self.tempMap[self.fp] = R11
         self.locVars = {}
-        self.parMap = {}
         # Literal pool:
         self.constants = []
 
@@ -54,6 +53,7 @@ class ArmFrame(Frame):
         return self.locVars[lvar]
 
     def add_constant(self, value):
+        """ Add constant literal to constant pool """
         assert type(value) in [int, bytes, LabelAddress]
         lab_name = '{}_literal_{}'.format(self.name, len(self.constants))
         self.constants.append((lab_name, value))
@@ -63,10 +63,8 @@ class ArmFrame(Frame):
         """ Returns prologue instruction sequence """
         pre = [
             Label(self.name),                     # Label indication function
-            Push({LR, R11})
-            ]
-        pre.append(Sub(SP, SP, self.stacksize))  # Reserve stack space
-        pre += [
+            Push({LR, R11}),
+            Sub(SP, SP, self.stacksize),  # Reserve stack space
             Mov(R11, SP)                          # Setup frame pointer
             ]
         return pre

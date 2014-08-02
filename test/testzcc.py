@@ -28,7 +28,7 @@ class ZccBaseTestCase(unittest.TestCase):
 class ZccTestCase(ZccBaseTestCase):
     """ Tests the compiler driver """
     def setUp(self):
-        unittest.skip('TODO')
+        self.skipTest('TODO')
         os.chdir(testdir)
 
     def tearDown(self):

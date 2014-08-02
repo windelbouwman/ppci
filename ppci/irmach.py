@@ -10,25 +10,51 @@
 from .target import Instruction
 
 
+def genTemps():
+    n = 0
+    while True:
+        yield VirtualRegister('vreg{}'.format(n))
+        n = n + 1
+
+
 class Frame:
     """
         Activation record abstraction. This class contains a flattened
         function. Instructions are selected and scheduled at this stage.
-        Frames differ per machine.
+        Frames differ per machine. The only thing left to do for a frame
+        is register allocation.
     """
     def __init__(self, name):
         self.name = name
         self.instructions = []
         self.stacksize = 0
+        self.temps = genTemps()
 
     def __repr__(self):
         return 'Frame {}'.format(self.name)
 
+    def new_virtual_register(self):
+        """ Retrieve a new virtual register """
+        return self.temps.__next__()
 
-class Temp:
+    def emit(self, *args, **kwargs):
+        """ Append an abstract instruction to the end of this frame """
+        if len(args) == 1 and type(args[0]) is AbstractInstruction:
+            i = args[0]
+        else:
+            i = AbstractInstruction(*args, **kwargs)
+        self.instructions.append(i)
+        return i
+
+
+class VirtualRegister:
     """ Infinite register value """
     def __init__(self, name):
+        # TODO: have some value type here?
         self.name = name
+
+    def __repr__(self):
+        return 'vreg_{}'.format(self.name)
 
 
 class AbstractInstruction:

@@ -5,7 +5,7 @@ from ppci.codegen.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
 from ppci import ir
-from ppci.irmach import AbstractInstruction as AI
+from ppci.irmach import AbstractInstruction as AI, VirtualRegister
 from ppci.target import Nop
 
 
@@ -57,24 +57,22 @@ class DigraphTestCase(unittest.TestCase):
 
 class InterferenceGraphTestCase(unittest.TestCase):
     def testNormalUse(self):
-        t1 = ir.Temp('t1')
-        t2 = ir.Temp('t2')
-        t3 = ir.Temp('t3')
-        t4 = ir.Temp('t4')
-        t5 = ir.Temp('t5')
-        t6 = ir.Temp('t6')
+        """ Test if interference graph works """
+        t1 = VirtualRegister('t1')
+        t2 = VirtualRegister('t2')
+        t3 = VirtualRegister('t3')
         instrs = []
         instrs.append(AI(Nop, dst=[t1]))
         instrs.append(AI(Nop, dst=[t2]))
         instrs.append(AI(Nop, dst=[t3]))
         cfg = FlowGraph(instrs)
-        ig = InterferenceGraph(cfg)
+        InterferenceGraph(cfg)
 
     def testCombine(self):
-        t1 = ir.Temp('t1')
-        t2 = ir.Temp('t2')
-        t3 = ir.Temp('t3')
-        t4 = ir.Temp('t4')
+        t1 = VirtualRegister('t1')
+        t2 = VirtualRegister('t2')
+        t3 = VirtualRegister('t3')
+        t4 = VirtualRegister('t4')
         instrs = []
         instrs.append(AI(Nop, dst=[t1]))
         instrs.append(AI(Nop, dst=[t2]))

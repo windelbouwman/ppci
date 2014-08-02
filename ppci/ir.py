@@ -13,16 +13,21 @@ def label_name(dut):
     elif isinstance(dut, Module):
         return dut.name
     else:
-        raise NotImplementedError(str(dut))
+        raise NotImplementedError(str(dut) + str(type(dut)))
 
 
 class Typ:
-    def __init__(self):
-        pass
+    """ Type representation """
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
 
 
-i32 = Typ()
-i8 = Typ()
+i32 = Typ('i32')
+i8 = Typ('i8')
+
 
 class Module:
     """ Container unit for variables and functions. """
@@ -236,7 +241,8 @@ class Const(Expression):
 
 class Call(Expression):
     """ Call a function with some arguments """
-    def __init__(self, f, arguments):
+    def __init__(self, f, arguments, name, ty):
+        super().__init__(name, ty)
         assert type(f) is str
         self.f = f
         self.arguments = arguments
@@ -266,10 +272,9 @@ class Binop(Expression):
         return '{} = {} {} {}'.format(self.name, a, self.operation, b)
 
 
-class Add(Binop):
-    """ Add a and b """
-    def __init__(self, a, b, name, ty):
-        super().__init__(a, '+', b, name, ty)
+def Add(a, b, name, ty):
+    """ Substract b from a """
+    return Binop(a, '+', b, name, ty)
 
 
 def Sub(a, b):
@@ -355,7 +360,7 @@ class Addr(Expression):
         self.e = e
 
     def __repr__(self):
-        return '&{}'.format(self.e)
+        return '{} = &{}'.format(self.name, self.e.name)
 
 
 class Statement(Instruction):
@@ -363,14 +368,6 @@ class Statement(Instruction):
     @property
     def IsTerminator(self):
         return isinstance(self, LastStatement)
-
-
-class Exp(Statement):
-    def __init__(self, e):
-        self.e = e
-
-    def __repr__(self):
-        return '{}'.format(self.e)
 
 
 # Branching:

@@ -69,6 +69,7 @@ burg_parser = pyyacc.load_as_module(spec_file)
 
 
 class BurgLexer(baselex.BaseLexer):
+    """ Overridden base lexer to keep track of sections """
     def __init__(self):
         tok_spec = [
            ('id', r'[A-Za-z][A-Za-z\d_]*', lambda typ, val: (typ, val)),
@@ -216,6 +217,7 @@ class BurgGenerator:
             rule.num_nts = len(dummy)
             lf = 'lambda t: [{}]'.format(', '.join(kids), rule)
             pf = 'self.P{}'.format(rule.nr)
+            self.print('')
             self.print('        #  {}: {}'.format(rule.nr, rule))
             self.print('        self.kid_functions[{}] = {}'.format(rule.nr, lf))
             self.print('        self.nts_map[{}] = {}'.format(rule.nr, dummy))
@@ -228,12 +230,14 @@ class BurgGenerator:
             else:
                 args = ''
             # Create template function:
+            self.print('')
             self.print('    def P{}(self, tree{}):'.format(rule.nr, args))
             template = rule.template
             for t in template.split(';'):
                 self.print('        {}'.format(t.strip()))
             # Create acceptance function:
             if rule.acceptance:
+                self.print('')
                 self.print('    def A{}(self, tree):'.format(rule.nr))
                 for t in rule.acceptance.split(';'):
                     self.print('        {}'.format(t.strip()))

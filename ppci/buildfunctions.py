@@ -46,8 +46,11 @@ def fix_object(o):
     if isinstance(o, ObjectFile):
         return o
     elif isinstance(o, str):
-        with open(o, 'r') as f:
-            return load_object(f)
+        try:
+            with open(o, 'r') as f:
+                return load_object(f)
+        except OSError:
+            raise TaskError('Could not load {}'.format(o))
     else:
         raise TaskError('Cannot use {} as objectfile'.format(o))
 
@@ -59,8 +62,11 @@ def fix_layout(l):
         # Assume file handle
         return load_layout(l)
     elif isinstance(l, str):
-        with open(l, 'r') as f:
-            return load_layout(f)
+        try:
+            with open(l, 'r') as f:
+                return load_layout(f)
+        except OSError:
+            raise TaskError('Could not load {}'.format(l))
     else:
         raise TaskError('Cannot use {} as layout'.format(l))
 
@@ -70,7 +76,7 @@ def construct(buildfile, targets=[]):
     try:
         project = recipe_loader.load_file(buildfile)
     except OSError:
-        raise TaskError('Could not construct {}'.format(buildfile))
+        raise TaskError('Could not load {}'.format(buildfile))
         project = None
 
     if project:

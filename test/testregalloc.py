@@ -1,25 +1,22 @@
 import unittest
-import os
-import sys
-from ppci.irmach import AbstractInstruction as makeIns, Frame
+from ppci.irmach import AbstractInstruction as makeIns, Frame, VirtualRegister
 from ppci.codegen.registerallocator import RegisterAllocator
-from ppci import ir
 from ppci.target import Nop
 
 
-class RegAllocTestCase(unittest.TestCase):
+class RegisterAllocatorTestCase(unittest.TestCase):
     def setUp(self):
         self.ra = RegisterAllocator()
 
     def testRegAlloc(self):
         f = Frame('tst')
-        f.regs = [1,2,3,4,5,6] # for test use numbers!
+        f.regs = [1, 2,  3, 4, 5, 6]  # for test use numbers!
         f.tempMap = {}
-        t1 = ir.Temp('t1')
-        t2 = ir.Temp('t2')
-        t3 = ir.Temp('t3')
-        t4 = ir.Temp('t4')
-        t5 = ir.Temp('t5')
+        t1 = VirtualRegister('t1')
+        t2 = VirtualRegister('t2')
+        t3 = VirtualRegister('t3')
+        t4 = VirtualRegister('t4')
+        t5 = VirtualRegister('t5')
         f.instructions.append(makeIns(Nop, dst=[t1]))
         f.instructions.append(makeIns(Nop, dst=[t2]))
         f.instructions.append(makeIns(Nop, dst=[t3]))
@@ -35,14 +32,14 @@ class RegAllocTestCase(unittest.TestCase):
 
     def testRegCoalesc(self):
         f = Frame('tst')
-        f.regs = [1,2,3,4,5,6] # for test use numbers!
+        f.regs = [1, 2, 3, 4, 5, 6]  # for test use numbers!
         f.tempMap = {}
-        t1 = ir.Temp('t1')
-        t2 = ir.Temp('t2')
-        t3 = ir.Temp('t3')
-        t4 = ir.Temp('t4')
-        t5 = ir.Temp('t5')
-        t6 = ir.Temp('t6')
+        t1 = VirtualRegister('t1')
+        t2 = VirtualRegister('t2')
+        t3 = VirtualRegister('t3')
+        t4 = VirtualRegister('t4')
+        t5 = VirtualRegister('t5')
+        t6 = VirtualRegister('t6')
         f.instructions.append(makeIns(Nop, dst=[t1]))
         f.instructions.append(makeIns(Nop, dst=[t2]))
         f.instructions.append(makeIns(Nop, dst=[t3]))
@@ -58,4 +55,3 @@ class RegAllocTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

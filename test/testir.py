@@ -1,7 +1,6 @@
 import unittest
 import sys
 import io
-import ppci
 from ppci import ir
 from ppci import irutils
 from ppci.transform import ConstantFolder
@@ -9,7 +8,10 @@ from ppci.transform import ConstantFolder
 
 class IrCodeTestCase(unittest.TestCase):
     def testAdd(self):
-        v = ir.Add(ir.Const(1), ir.Const(2), "add", ir.i32)
+        """ See if the ir classes can be constructed """
+        v1 = ir.Const(1, 'const', ir.i32)
+        v2 = ir.Const(2, 'const', ir.i32)
+        ir.Add(v1, v2, "add", ir.i32)
 
 
 class IrBuilderTestCase(unittest.TestCase):
@@ -24,7 +26,7 @@ class IrBuilderTestCase(unittest.TestCase):
         bb = self.b.newBlock()
         self.b.emit(ir.Jump(bb))
         self.b.setBlock(bb)
-        self.b.emit(ir.Exp(ir.Const(0)))
+        self.b.emit(ir.Const(0, 'const', ir.i32))
         self.b.emit(ir.Jump(f.epiloog))
         # Run interpreter:
         # r = self.m.getFunction('add').call(1, 2)
@@ -69,11 +71,12 @@ class ConstantFolderTestCase(unittest.TestCase):
         bb = self.b.newBlock()
         self.b.emit(ir.Jump(bb))
         self.b.setBlock(bb)
-        v1 = ir.Const(5)
-        # self.b.emit(v1)
-        v2 = ir.Const(7)
+        v1 = ir.Const(5, 'const', ir.i32)
+        self.b.emit(v1)
+        v2 = ir.Const(7, 'const', ir.i32)
+        self.b.emit(v2)
         v3 = ir.Add(v1, v2, "add", ir.i32)
-        # self.b.emit(v3)
+        self.b.emit(v3)
         self.b.emit(ir.Jump(f.epiloog))
         self.cf.run(self.m)
 
@@ -81,8 +84,12 @@ class ConstantFolderTestCase(unittest.TestCase):
         f = self.b.new_function('test')
         self.b.setFunction(f)
         self.b.setBlock(self.b.newBlock())
-        v1 = ir.Const(12)
-        v3 = ir.Add(v1, ir.Const(0), "add", ir.i32)
+        v1 = ir.Const(12, 'const', ir.i32)
+        self.b.emit(v1)
+        v2 = ir.Const(0, 'const', ir.i32)
+        self.b.emit(v2)
+        v3 = ir.Add(v1, v2, "add", ir.i32)
+        self.b.emit(v3)
 
 
 class TestWriter(unittest.TestCase):
@@ -92,19 +99,18 @@ class TestWriter(unittest.TestCase):
         function = ir.Function('func1', module)
         f = io.StringIO()
         writer.write(module, f)
-        #print(f.getvalue())
         f2 = io.StringIO(f.getvalue())
         reader = irutils.Reader()
         module2 = reader.read(f2)
-        f = io.StringIO()
-        writer.write(module2, f)
-        #print(f.getvalue())
+        f3 = io.StringIO()
+        writer.write(module2, f3)
+        self.assertEqual(f3.getvalue(), f.getvalue())
 
 
 class TestReader(unittest.TestCase):
     def testAddExample(self):
         reader = irutils.Reader()
-        with open('../examples/pi/add.pi') as f:
+        with open('data/add.pi') as f:
             m = reader.read(f)
             self.assertTrue(m)
             #print(m)

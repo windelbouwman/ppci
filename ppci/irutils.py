@@ -39,9 +39,9 @@ class Writer:
         args = ','.join('i32 ' + str(a) for a in fn.arguments)
         print('{}function i32 {}({})'.format(self.extra_indent, fn.name, args), file=f)
         for bb in fn.Blocks:
-            print('{}  {}'.format(self.extra_indent, bb), file=f)
+            print('{} {}'.format(self.extra_indent, bb), file=f)
             for ins in bb.Instructions:
-                print('{}    {}'.format(self.extra_indent, ins), file=f)
+                print('{}  {}'.format(self.extra_indent, ins), file=f)
 
 
 class IrParseException(Exception):

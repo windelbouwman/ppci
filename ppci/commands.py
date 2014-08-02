@@ -4,7 +4,7 @@ import argparse
 import logging
 
 from ppci.report import RstFormatter
-from ppci.buildfunctions import construct
+from ppci.buildfunctions import construct, TaskError
 import ppci.buildtasks  # Include not used, but it registers build tasks.
 import ppci
 
@@ -27,7 +27,7 @@ def make_parser():
         help='Specify a file to write the compile report to',
         type=argparse.FileType('w'))
     parser.add_argument(
-        '--buildfile',
+        '-b', '--buildfile',
         help='use buildfile, otherwise build.xml is the default',
         default='build.xml')
 
@@ -48,7 +48,11 @@ def main(args):
         fh.setFormatter(RstFormatter())
         logging.getLogger().addHandler(fh)
 
-    res = construct(args.buildfile, args.targets)
+    try:
+        res = construct(args.buildfile, args.targets)
+    except TaskError as err:
+        logging.getLogger().error(str(err.msg))
+        res = 1
 
     if args.report:
         logging.getLogger().removeHandler(fh)

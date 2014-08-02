@@ -8,9 +8,9 @@ tree_names = ['ADDI32', 'SUBI32', 'MULI32', 'ADR',
 
 class Tree:
     """ Tree node with a name and possibly some child nodes """
-    def __init__(self, name, *args):
+    def __init__(self, name, *args, value=None):
         self.name = name
-        self.value = None
+        self.value = value
         self.children = args
 
     def __repr__(self):
@@ -60,5 +60,5 @@ class BaseMatcher:
     def apply_rules(self, tree, goal):
         rule = tree.state.get_rule(goal)
         results = [self.apply_rules(kid_tree, kid_goal)
-          for kid_tree, kid_goal in zip(self.kids(tree, rule), self.nts(rule))]
+                   for kid_tree, kid_goal in zip(self.kids(tree, rule), self.nts(rule))]
         return self.pat_f[rule](tree, *results)
