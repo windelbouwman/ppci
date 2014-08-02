@@ -7,6 +7,7 @@ setup(
     packages=find_packages(exclude=["*.test.*"]),
     url='https://bitbucket.org/windel/ppci',
     license='LICENSE.txt',
+    test_suite="test"
 )
 
 
