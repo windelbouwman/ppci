@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import sys
 import argparse
-from utils import HexFile
+from ppci.utils.hexfile import HexFile
 
 def hex2int(s):
     if s.startswith('0x'):
