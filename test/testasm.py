@@ -1,5 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
+import subprocess
+import io
 import unittest
 from ppci import CompilerError
 from ppci.assembler import AsmLexer
@@ -8,6 +10,32 @@ from ppci.outstream import BinaryOutputStream
 from ppci.target.basetarget import Label
 from ppci.buildfunctions import link
 from ppci.layout import Layout
+
+
+def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):
+    """ Helper function to feed source through gnu assembling tools """
+    prefix = 'arm-none-eabi-'
+    gas = '{}as'.format(prefix)
+    objdump = prefix + 'objdump'
+    print('assembling...')
+    p_as = subprocess.Popen([gas] + as_args, stdin=subprocess.PIPE)
+    p_as.communicate(input=source.encode('ascii'))
+    if p_as.returncode != 0:
+        raise Exception('{}'.format(p_as.returncode))
+
+    p_objdump = subprocess.Popen([objdump, '-d'], stdout=subprocess.PIPE)
+    output = p_objdump.communicate()[0].decode('ascii')
+    if p_objdump.returncode != 0:
+        raise Exception('{}'.format(p_objdump.returncode))
+    print(output)
+
+    p_objdump = subprocess.Popen([objdump, '-s', '-j', '.text'],
+                                 stdout=subprocess.PIPE)
+    output = p_objdump.communicate()[0].decode('ascii')
+    if p_objdump.returncode != 0:
+        raise Exception('{}'.format(p_objdump.returncode))
+    print(output)
+    return output
 
 
 class AssemblerLexingCase(unittest.TestCase):
@@ -37,7 +65,8 @@ class AssemblerLexingCase(unittest.TestCase):
 
     def testLex2(self):
         """ Test if lexer correctly maps some tokens """
-        asmline, toks = 'mov 3.13 0xC 13', ['ID', 'REAL', 'val5', 'val5', 'EOF']
+        asmline = 'mov 3.13 0xC 13'
+        toks = ['ID', 'REAL', 'val5', 'val5', 'EOF']
         self.do(asmline, toks)
 
     def testLex3(self):
@@ -58,14 +87,25 @@ class OustreamTestCase(unittest.TestCase):
 
 class AsmTestCaseBase(unittest.TestCase):
     """ Base testcase for assembly """
+    def setUp(self):
+        self.source = io.StringIO()
+        self.as_args = []
+        self.obj = ObjectFile()
+        self.ostream = BinaryOutputStream(self.obj)
+        self.ostream.select_section('code')
+
     def feed(self, line):
         self.assembler.assemble(line, self.ostream)
+        print(line, file=self.source)
 
     def check(self, hexstr, layout=Layout()):
         self.assembler.flush()
         self.obj = link([self.obj], layout, self.target)
         data = bytes(self.obj.get_section('code').data)
-        self.assertSequenceEqual(bytes.fromhex(hexstr), data)
+        if hexstr is None:
+            gnu_assemble(self.source.getvalue(), as_args=self.as_args)
+        else:
+            self.assertSequenceEqual(bytes.fromhex(hexstr), data)
 
 
 if __name__ == '__main__':

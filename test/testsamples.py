@@ -1,9 +1,17 @@
 import unittest
 import os
 import io
-from testemulation import runQemu, has_qemu
-from testzcc import relpath
+import logging
+from testemulation import runQemu, has_qemu, relpath
 from ppci.buildfunctions import assemble, c3compile, link
+from ppci.report import RstFormatter
+
+
+def enable_report_logger(filename):
+    logging.getLogger().setLevel(logging.DEBUG)
+    fh = logging.StreamHandler(filename)
+    fh.setFormatter(RstFormatter())
+    logging.getLogger().addHandler(fh)
 
 
 class Samples:
@@ -81,20 +89,20 @@ class Samples:
         snippet = """
          module sample;
          import io;
-         var int G;
+         var int MyGlob;
          function void do1()
          {
-            G = G + 1;
-            io.print2("G=", G);
+            MyGlob = MyGlob + 1;
+            io.print2("G=", MyGlob);
          }
          function void do5()
          {
-            G = G + 5;
-            io.print2("G=", G);
+            MyGlob = MyGlob + 5;
+            io.print2("G=", MyGlob);
          }
          function void start()
          {
-            G = 0;
+            MyGlob = 0;
             do1();
             do1();
             do5();
@@ -121,18 +129,6 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         B local_loop
         """
 
-        modarchcode = """
-        module arch;
-
-        function void putc(int c)
-        {
-            var int *UART0DR;
-            UART0DR = cast<int*>(0x10009000); // UART0 DR register
-            *UART0DR = c;
-        }
-
-        """
-
         arch_mmap = """
         MEMORY image LOCATION=0x10000 SIZE=0x10000 {
             SECTION(reset)
@@ -147,7 +143,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         o1 = assemble(io.StringIO(startercode), march)
         o2 = c3compile([
             relpath('data', 'io.c3'),
-            io.StringIO(modarchcode),
+            relpath('data', 'realview-pb-a8', 'arch.c3'),
             io.StringIO(src)], [], march)
         o3 = link([o2, o1], io.StringIO(arch_mmap), march)
 
@@ -156,11 +152,54 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         with open(sample_filename, 'wb') as f:
             f.write(img_data)
 
-        # Check bin file exists:
-        self.assertTrue(os.path.isfile(sample_filename))
-
         # Run bin file in emulator:
         res = runQemu(sample_filename, machine='vexpress-a9')
+        os.remove(sample_filename)
+        self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnCortexM3(unittest.TestCase, Samples):
+    def setUp(self):
+        if not has_qemu():
+            self.skipTest('Not running qemu tests')
+
+    def do(self, src, expected_output):
+        march = "thumb"
+        startercode = """
+        section reset
+        dcd 0x20000678
+        dcd 0x00000009
+        BL sample_start     ; Branch to sample start
+        local_loop:
+        B local_loop
+        """
+
+        arch_mmap = """
+        MEMORY image LOCATION=0x10000 SIZE=0x10000 {
+            SECTION(reset)
+            ALIGN(4)
+            SECTION(code)
+        }
+
+        MEMORY ram LOCATION=0x20000000 SIZE=0x100 {
+            SECTION(data)
+        }
+        """
+        # Construct binary file from snippet:
+        o1 = assemble(io.StringIO(startercode), march)
+        o2 = c3compile([
+            relpath('data', 'io.c3'),
+            relpath('data', 'lm3s6965evb', 'arch.c3'),
+            io.StringIO(src)], [], march)
+        o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+
+        img_data = o3.get_image('image')
+        sample_filename = 'testsample.bin'
+        with open(sample_filename, 'wb') as f:
+            f.write(img_data)
+
+        # Run bin file in emulator:
+        res = runQemu(sample_filename, machine='lm3s811evb')
         os.remove(sample_filename)
         self.assertEqual(expected_output, res)
 
@@ -197,5 +236,6 @@ class TestSamplesOnX86(unittest.TestCase, Samples):
 
 
 if __name__ == '__main__':
-    unittest.main()
-
+    with open('sample_report.rst', 'w') as report_file:
+        enable_report_logger(report_file)
+        unittest.main()

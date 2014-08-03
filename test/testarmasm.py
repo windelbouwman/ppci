@@ -1,7 +1,5 @@
 import unittest
 import io
-from ppci.outstream import BinaryOutputStream
-from ppci.objectfile import ObjectFile
 from testasm import AsmTestCaseBase
 from ppci.target.target_list import arm_target
 from ppci.layout import load_layout
@@ -10,10 +8,8 @@ from ppci.layout import load_layout
 class ArmAssemblerTestCase(AsmTestCaseBase):
     """ ARM-mode (not thumb-mode) instruction assembly test case """
     def setUp(self):
+        super().setUp()
         self.target = arm_target
-        self.obj = ObjectFile()
-        self.ostream = BinaryOutputStream(self.obj)
-        self.ostream.select_section('code')
         self.assembler = arm_target.assembler
         self.assembler.prepare()
 

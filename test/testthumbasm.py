@@ -1,21 +1,24 @@
+#!/usr/bin/env python
+
 import unittest
-from ppci.outstream import BinaryOutputStream
-from ppci.objectfile import ObjectFile
 from testasm import AsmTestCaseBase
 from ppci.target.target_list import thumb_target
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
     def setUp(self):
+        super().setUp()
+        self.as_args = ['-mthumb']
         self.target = thumb_target
-        self.obj = ObjectFile()
-        self.ostream = BinaryOutputStream(self.obj)
-        self.ostream.select_section('code')
         self.assembler = thumb_target.assembler
 
     def testMovImm8(self):
         self.feed('mov r4, 100')
         self.check('6424')
+
+    def testMovRegs(self):
+        self.feed('mov r0, r1')
+        # self.check(None)
 
     @unittest.skip
     def testMovExt(self):
@@ -59,6 +62,12 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('henkie: dcd 2')
         self.check('024F024E 01490000 01000000 02000000')
 
+    def testAdr(self):
+        self.feed('adr r2, x')
+        self.feed('adr r2, x')
+        self.feed('x: dcd 1')
+        self.check('00a200a2 01000000')
+
     def testBranch(self):
         self.feed('start: b henkie')
         self.feed('beq henkie')
@@ -71,7 +80,9 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('blt x')
         self.feed('bgt x')
         self.feed('x:')
-        self.check('00dbffdc')
+        self.feed('ble x')
+        self.feed('bge x')
+        self.check('00dbffdc feddfdda')
 
     def testBoff(self):
         self.feed('b henkie')
@@ -110,9 +121,21 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('sub r4, r1, 6')
         self.check('ab1e8c1f')
 
+    def testAnd(self):
+        self.feed('and r7, r1')
+        self.check('0f40')
+
+    def testOr(self):
+        self.feed('orr r7, r1')
+        self.check('0f43')
+
     def testLeftShift(self):
         self.feed('lsl r3, r5')
         self.check('ab40')
+
+    def testRightShift(self):
+        self.feed('lsr r2, r6')
+        self.check('f240')
 
     def testAddSp(self):
         self.feed('add sp,sp,8')
@@ -146,3 +169,6 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('b henkie')
         self.check('32b41519 94420198 049332bc a340ab42 f6d0f5d1 f4e7')
 
+
+if __name__ == '__main__':
+    unittest.main()

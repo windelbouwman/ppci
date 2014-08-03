@@ -92,6 +92,16 @@ class RstFormatter(logging.Formatter):
             print('  }', file=f)
             print('', file=f)
             s += '\n' + f.getvalue()
+        if hasattr(record, 'ins_list'):
+            f = io.StringIO()
+            print('', file=f)
+            print('', file=f)
+            print('.. code::', file=f)
+            print('', file=f)
+            for ins in record.ins_list:
+                print('   {}'.format(ins), file=f)
+            print('', file=f)
+            s += '\n' + f.getvalue()
         if hasattr(record, 'zcc_outs'):
             f = io.StringIO()
             print('', file=f)

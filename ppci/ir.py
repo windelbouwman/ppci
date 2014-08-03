@@ -249,7 +249,7 @@ class Call(Expression):
 
     def __repr__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return '{}({})'.format(self.f, args)
+        return '{} = {}({})'.format(self.name, self.f, args)
 
 
 # Data operations

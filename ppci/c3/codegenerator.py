@@ -470,7 +470,9 @@ class CodeGenerator:
                                     .format(arg.typ, at), arg.loc)
         # determine return type:
         expr.typ = ftyp.returntype
-        call = ir.Call(fname, args, 'retval', ir.i32)
+
+        expr.lvalue = False
+        call = ir.Call(fname, args, fname + '_rv', ir.i32)
         self.builder.emit(call)
         return call
 

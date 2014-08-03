@@ -135,6 +135,9 @@ class Dagger:
 
         # Store return value:
         rv = Tree('REGI32', value=self.frame.rv)
+        rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
+        self.dag.append(Tree('MOVI32', rv_copy, rv))
+        self.lut[node] = rv_copy
         # self.dag.append(Tree('MOVI32',
 
     def make_dag(self, irfunc, frame):

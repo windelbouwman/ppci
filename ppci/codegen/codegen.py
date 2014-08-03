@@ -7,8 +7,8 @@
 from .. import ir, irdag
 from ..irutils import Verifier
 from ..target import Target
-from .canon import canonicalize
 from .registerallocator import RegisterAllocator
+from ..outstream import MasterOutputStream, FunctionOutputStream
 import logging
 
 
@@ -27,7 +27,9 @@ class CodeGenerator:
 
     def generate_function(self, irfunc, outs):
         """ Generate code for one function into a frame """
-        self.logger.debug('Generating code for {}'.format(irfunc.name))
+        instruction_list = []
+        outs = MasterOutputStream([FunctionOutputStream(instruction_list.append), outs])
+        self.logger.debug('Generating {}-code for {}'.format(self.target, irfunc.name))
 
         # Create a frame for this function:
         frame = self.target.FrameClass(ir.label_name(irfunc))
@@ -51,7 +53,7 @@ class CodeGenerator:
         # Materialize the register allocated instructions into a stream of
         # real instructions.
         self.target.lower_frame_to_stream(frame, outs)
-        self.logger.debug('Instructions materialized')
+        self.logger.debug('Instructions materialized', extra={'ins_list': instruction_list})
 
     def generate(self, ircode, outs):
         """ Generate code into output stream """

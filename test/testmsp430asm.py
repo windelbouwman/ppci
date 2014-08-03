@@ -1,18 +1,14 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.objectfile import ObjectFile
-from ppci.outstream import BinaryOutputStream
 from ppci.target.target_list import msp430target
 from testasm import AsmTestCaseBase
 
 
 class Msp430AssemblerTestCase(AsmTestCaseBase):
     def setUp(self):
+        super().setUp()
         self.target = msp430target
-        self.obj = ObjectFile()
-        self.ostream = BinaryOutputStream(self.obj)
-        self.ostream.select_section('code')
         self.assembler = msp430target.assembler
 
     def testMov(self):

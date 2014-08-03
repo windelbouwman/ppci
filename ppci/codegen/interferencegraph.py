@@ -35,7 +35,6 @@ class InterferenceGraph(Graph):
 
         # Sort flowgraph nodes backwards:
         cfg_nodes = list(flowgraph.nodes)
-        self.logger.debug('CFG nodes: {}'.format(cfg_nodes))
         cfg_nodes.sort(reverse=True)
 
         # Dataflow fixed point iteration:

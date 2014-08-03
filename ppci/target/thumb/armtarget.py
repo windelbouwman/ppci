@@ -1,9 +1,8 @@
-import struct
 from ..basetarget import Register, Instruction, Target, Label, Alignment
-from .instructions import Add2, Sub, Sub3, Add3, Cmp, Lsl, Orr, Add, Cmp2, Sub2, Add2, Mul, And
+from .instructions import Add2, Sub, Sub3, Add3, Cmp, Lsl, Lsr, Orr, Add, Cmp2, Sub2, Mul, And
 from .instructions import Dcd, Pop, Push, Yield, Mov2, Mov3
-from .instructions import B, Bl, Bne, Beq, Blt, Bgt
-from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3
+from .instructions import B, Bl, Bne, Beq, Blt, Bgt, Ble, Bge
+from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3, Adr
 
 from .frame import ArmFrame
 from .arminstructionselector import ArmInstructionSelector
@@ -22,7 +21,14 @@ from ...assembler import BaseAssembler
 class ThumbAssembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
+        self.target.add_keyword('section')
+        self.target.add_instruction(['section', 'ID'],
+                lambda rhs: self.select_section(rhs[1].val))
         self.make_parser()
+
+    def select_section(self, name):
+        self.flush()
+        self.stream.select_section(name)
 
 
 class ThumbTarget(Target):
@@ -36,6 +42,7 @@ class ThumbTarget(Target):
         self.add_lowering(Str2, lambda im: Str2(im.src[1], im.src[0], im.others[0]))
         self.add_lowering(Ldr2, lambda im: Ldr2(im.dst[0], im.src[0], im.others[0]))
         self.add_lowering(Ldr3, lambda im: Ldr3(im.dst[0],  im.others[0]))
+        self.add_lowering(Adr, lambda im: Adr(im.dst[0],  im.others[0]))
         self.add_lowering(Mov3, lambda im: Mov3(im.dst[0],  im.others[0]))
         self.add_lowering(Add2, lambda im: Add2(im.dst[0], im.src[0], im.others[0]))
         self.add_lowering(Sub2, lambda im: Sub2(im.dst[0], im.src[0], im.others[0]))
@@ -46,9 +53,14 @@ class ThumbTarget(Target):
         self.add_lowering(And, lambda im: And(im.src[0], im.src[1]))
         self.add_lowering(Orr, lambda im: Orr(im.src[0], im.src[1]))
         self.add_lowering(Lsl, lambda im: Lsl(im.src[0], im.src[1]))
+        self.add_lowering(Lsr, lambda im: Lsr(im.src[0], im.src[1]))
         self.add_lowering(Cmp, lambda im: Cmp(im.src[0], im.src[1]))
 
         self.assembler = ThumbAssembler(self)
+
+    def emit_global(self, outs, lname):
+        outs.emit(Label(lname))
+        outs.emit(Dcd(0))
 
     def add_rules(self):
 
@@ -90,6 +102,18 @@ class ThumbTarget(Target):
         self.add_instruction(['lsl', 'reg8', ',', 'reg8'],
                 lambda rhs: Lsl(rhs[1], rhs[3]))
 
+        self.add_keyword('lsr')
+        self.add_instruction(['lsr', 'reg8', ',', 'reg8'],
+                lambda rhs: Lsr(rhs[1], rhs[3]))
+
+        self.add_keyword('orr')
+        self.add_instruction(['orr', 'reg8', ',', 'reg8'],
+                lambda rhs: Orr(rhs[1], rhs[3]))
+
+        self.add_keyword('and')
+        self.add_instruction(['and', 'reg8', ',', 'reg8'],
+                lambda rhs: And(rhs[1], rhs[3]))
+
         self.add_keyword('str')
         self.add_instruction(['str', 'reg8', ',', '[', 'reg8', '+', 'imm5', ']'],
                 lambda rhs: Str2(rhs[1], rhs[4], rhs[6]))
@@ -103,6 +127,10 @@ class ThumbTarget(Target):
 
         self.add_instruction(['ldr', 'reg8', ',', '[', 'sp', '+', 'imm8', ']'],
                 lambda rhs: Ldr1(rhs[1], rhs[6]))
+
+        self.add_keyword('adr')
+        self.add_instruction(['adr', 'reg8', ',', 'ID'],
+                lambda rhs: Adr(rhs[1], rhs[3].val))
 
         self.add_keyword('pop')
         self.add_instruction(['pop', 'reg_list'], lambda rhs: Pop(rhs[1]))
@@ -119,11 +147,15 @@ class ThumbTarget(Target):
         self.add_keyword('beq')
         self.add_keyword('bne')
         self.add_keyword('blt')
+        self.add_keyword('ble')
         self.add_keyword('bgt')
+        self.add_keyword('bge')
         self.add_instruction(['beq', 'ID'], lambda rhs: Beq(rhs[1].val))
         self.add_instruction(['bne', 'ID'], lambda rhs: Bne(rhs[1].val))
         self.add_instruction(['blt', 'ID'], lambda rhs: Blt(rhs[1].val))
+        self.add_instruction(['ble', 'ID'], lambda rhs: Ble(rhs[1].val))
         self.add_instruction(['bgt', 'ID'], lambda rhs: Bgt(rhs[1].val))
+        self.add_instruction(['bge', 'ID'], lambda rhs: Bge(rhs[1].val))
 
         self.add_keyword('align')
         self.add_instruction(['align', 'imm8'], lambda rhs: Alignment(rhs[1]))

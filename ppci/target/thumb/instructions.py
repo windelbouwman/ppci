@@ -1,4 +1,4 @@
-from ..basetarget import Register, Instruction, Target, Label
+from ..basetarget import Register, Instruction, LabelAddress
 from ..token import u16, u32
 from .armtoken import ThumbToken
 from ..arm.registers import R0, ArmRegister, SP
@@ -12,20 +12,44 @@ class ThumbInstruction(Instruction):
 
 class Dcd(ThumbInstruction):
     def __init__(self, expr):
-        if isinstance(expr, int):
+        if isinstance(expr, int) or isinstance(expr, LabelAddress):
             self.expr = expr
-            self.label = None
         else:
-            raise NotImplementedError()
+            raise NotImplementedError('{}'.format(expr))
 
     def encode(self):
-        return u32(self.expr)
+        if type(self.expr) is int:
+            return u32(self.expr)
+        else:
+            return u32(0)
 
     def relocations(self):
-        return []
+        if type(self.expr) is LabelAddress:
+            return [(self.expr.name, 'absaddr32')]
+        else:
+            return []
 
     def __repr__(self):
-        return 'DCD 0x{0:X}'.format(self.expr)
+        if type(self.expr) is int:
+            return 'DCD 0x{0:X}'.format(self.expr)
+        else:
+            return 'DCD ={}'.format(self.expr.name)
+
+
+class ConstantData(ThumbInstruction):
+    def __init__(self, v):
+        super().__init__()
+        assert isinstance(v, int)
+        self.v = v
+
+
+class Db(ConstantData):
+    def encode(self):
+        assert self.v < 256
+        return bytes([self.v])
+
+    def __repr__(self):
+        return 'DB {}'.format(hex(self.v))
 
 
 class nop_ins(ThumbInstruction):
@@ -60,15 +84,17 @@ class LS_imm5_base(ThumbInstruction):
         return self.token.encode()
 
     def __repr__(self):
-        mnemonic = "???"
-        return '{} {}, [{}, {}]'.format(mnemonic, self.rt, self.rn, self.imm5)
+        return '{} {}, [{}, {}]'.format(self.mnemonic, self.rt, self.rn,
+                                        self.imm5)
 
 
 class Str2(LS_imm5_base):
+    mnemonic = "STR"
     opcode = 0xC
 
 
 class Ldr2(LS_imm5_base):
+    mnemonic = "LDR"
     opcode = 0xD
 
 
@@ -128,9 +154,29 @@ class Str1(ls_sp_base_imm8):
     opcode = 0x90
 
 
+class Adr(ThumbInstruction):
+    def __init__(self, rd, label):
+        super().__init__()
+        self.rd = rd
+        self.label = label
+        self.token = ThumbToken()
+
+    def __repr__(self):
+        return 'ADR {}, {}'.format(self.rd, self.label)
+
+    def relocations(self):
+        return [(self.label, 'lit_add_8')]
+
+    def encode(self):
+        self.token[0:8] = 0  # Filled by linker
+        self.token[8:11] = self.rd.num
+        self.token[11:16] = 0b10100
+        return self.token.encode()
+
+
 class Mov3(ThumbInstruction):
     """ mov Rd, imm8, move immediate value into register """
-    opcode = 4 # 00100 Rd(3) imm8
+    opcode = 4   # 00100 Rd(3) imm8
     def __init__(self, rd, imm):
         assert imm < 256
         self.imm = imm
@@ -321,6 +367,10 @@ class Lsl(regreg_base):
     opcode = 0b0100000010
 
 
+class Lsr(regreg_base):
+    opcode = 0b0100000011
+
+
 class Cmp2(ThumbInstruction):
     """ cmp Rn, imm8 """
     opcode = 5 # 00101
@@ -408,8 +458,16 @@ class Blt(cond_base_ins):
     cond = 0b1011
 
 
+class Ble(cond_base_ins):
+    cond = 0b1101
+
+
 class Bgt(cond_base_ins):
     cond = 0b1100
+
+
+class Bge(cond_base_ins):
+    cond = 0b1010
 
 
 class Push(ThumbInstruction):
@@ -431,7 +489,6 @@ class Push(ThumbInstruction):
                 raise NotImplementedError('not implemented for {}'.format(n))
         at[9:16] = 0x5a
         return at.encode()
-
 
 
 def register_numbers(regs):

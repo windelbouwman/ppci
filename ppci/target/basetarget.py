@@ -178,9 +178,9 @@ def reloc(t):
 
 @reloc('lit_add_8')
 def apply_lit8(reloc, sym_value, section, reloc_value):
-    assert sym_value % 4 == 0
+    assert sym_value % 4 == 0, '{}: {} not multiple of 4'.format(reloc, sym_value)
     offset = (sym_value - (align(reloc_value + 2, 4)))
-    assert offset in range(0, 1024, 4), str(offset)+str( self.dst.sections)
+    assert offset in range(0, 1024, 4), str(offset)+str(self.dst.sections)
     rel8 = offset >> 2
     section.data[reloc.offset] = rel8
 

@@ -3,8 +3,6 @@
 import unittest
 from ppci.target.target_list import x86target
 from testasm import AsmTestCaseBase
-from ppci.outstream import BinaryOutputStream
-from ppci.objectfile import ObjectFile
 
 
 class AssemblerTestCase(AsmTestCaseBase):
@@ -13,10 +11,8 @@ class AssemblerTestCase(AsmTestCaseBase):
      Checks several assembly constructs agains their bytecodes
     """
     def setUp(self):
+        super().setUp()
         self.target = x86target
-        self.obj = ObjectFile()
-        self.ostream = BinaryOutputStream(self.obj)
-        self.ostream.select_section('code')
         self.assembler = self.target.assembler
         self.assembler.prepare()
 

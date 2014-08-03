@@ -4,6 +4,7 @@ from . import make_num
 
 
 class Layout:
+    """ Defines a layout for the linker to be used """
     def __init__(self):
         self.memories = []
 
@@ -41,6 +42,7 @@ class Input:
 
 
 class Section(Input):
+    """ Insert a section here """
     def __init__(self, section_name):
         self.section_name = section_name
 
@@ -49,6 +51,7 @@ class Section(Input):
 
 
 class Align(Input):
+    """ Align the current position to the given byte """
     def __init__(self, alignment):
         self.alignment = alignment
 
@@ -65,6 +68,7 @@ class SymbolDefinition(Input):
 
 
 class LayoutLexer(BaseLexer):
+    """ Lexer for layout files """
     def __init__(self):
         tok_spec = [
            ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
@@ -107,7 +111,8 @@ class LayoutParser:
         self.layout = layout
         self.p.parse(lexer)
 
-    def handle_mem(self, mem_tag, mem_name, loc_tag, eq1, loc, size_tag, eq2, size, lbrace, inps, rbrace):
+    def handle_mem(self, mem_tag, mem_name, loc_tag, eq1, loc, size_tag, eq2,
+                   size, lbrace, inps, rbrace):
         m = Memory(mem_name.val)
         m.size = size.val
         m.location = loc.val
@@ -132,9 +137,12 @@ class LayoutLoader:
 
     def load_layout(self, f):
         layout = Layout()
-        self.lexer.feed(f.read())  # TODO: perhaps the read is better in the lexer?
+
+        # TODO: perhaps the read is better in the lexer?
+        self.lexer.feed(f.read())
         self.parser.parse(self.lexer, layout)
         return layout
+
 
 # Single definition:
 _lloader = LayoutLoader()
@@ -142,4 +150,3 @@ _lloader = LayoutLoader()
 
 def load_layout(f):
     return _lloader.load_layout(f)
-

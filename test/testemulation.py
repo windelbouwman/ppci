@@ -5,10 +5,12 @@ import socket
 import time
 import shutil
 
-from testzcc import ZccBaseTestCase
+from testzcc import relpath
+from ppci.buildfunctions import construct
 
-# Store testdir for safe switch back to directory:
-testdir = os.path.dirname(os.path.abspath(__file__))
+
+qemu_app = 'qemu-system-arm'
+
 
 def tryrm(fn):
     try:
@@ -16,7 +18,6 @@ def tryrm(fn):
     except OSError:
         pass
 
-qemu_app = 'qemu-system-arm'
 
 def has_qemu():
     """ Determines if qemu is possible """
@@ -30,6 +31,9 @@ def runQemu(kernel, machine='lm3s811evb'):
 
     if not has_qemu():
         return ''
+    # Check bin file exists:
+    assert os.path.isfile(kernel)
+
     tryrm('qemucontrol.sock')
     tryrm('qemuserial.sock')
 
@@ -44,14 +48,14 @@ def runQemu(kernel, machine='lm3s811evb'):
     qemu_serial_serve.listen(0)
 
     args = [qemu_app, '-M', machine, '-m', '16M',
-        '-nographic',
-        '-kernel', kernel,
-        '-monitor', 'unix:qemucontrol.sock',
-        '-serial', 'unix:qemuserial.sock',
-        '-S']
+            '-nographic',
+            '-kernel', kernel,
+            '-monitor', 'unix:qemucontrol.sock',
+            '-serial', 'unix:qemuserial.sock',
+            '-S']
     p = subprocess.Popen(args)
 
-    #qemu_serial Give process some time to boot:
+    # qemu_serial Give process some time to boot:
     qemu_serial_serve.settimeout(3)
     qemu_control_serve.settimeout(3)
     qemu_serial, address_peer = qemu_serial_serve.accept()
@@ -67,7 +71,7 @@ def runQemu(kernel, machine='lm3s811evb'):
     for i in range(400):
         try:
             data += qemu_serial.recv(1)
-        except socket.timeout as e:
+        except socket.timeout:
             break
     data = data.decode('ascii', errors='ignore')
     # print(data)
@@ -94,29 +98,32 @@ def runQemu(kernel, machine='lm3s811evb'):
     return data
 
 
-class EmulationTestCase(ZccBaseTestCase):
+class EmulationTestCase(unittest.TestCase):
     """ Tests the compiler driver """
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running Qemu test')
 
     def testM3Bare(self):
-        self.skipTest('TODO')
         """ Build bare m3 binary and emulate it """
-        recipe = os.path.join(testdir, 'm3_bare', 'build.xml')
-        self.buildRecipe(recipe)
-        data = runQemu('m3_bare/bare.bin')
+        recipe = relpath('data', 'lm3s6965evb', 'build.xml')
+        construct(recipe)
+        if not has_qemu():
+            self.skipTest('Not running Qemu test')
+        data = runQemu('data/lm3s6965evb/bare.bin')
         self.assertEqual('Hello worle', data)
 
     def testA9Bare(self):
-        self.skipTest('TODO')
         """ Build vexpress cortex-A9 binary and emulate it """
-        recipe = os.path.join(testdir, '..', 'examples', 'qemu_a9_hello',
-            'build.xml')
-        self.buildRecipe(recipe)
-        data = runQemu('../examples/qemu_a9_hello/hello.bin',
-            machine='vexpress-a9')
+        recipe = relpath('data', 'realview-pb-a8', 'build.xml')
+        construct(recipe)
+        if not has_qemu():
+            self.skipTest('Not running Qemu test')
+        data = runQemu('data/realview-pb-a8/hello.bin',
+                       machine='vexpress-a9')
         self.assertEqual('Hello worle', data)
+
+    def testBurn2(self):
+        """ Compile the example for the stm32f4discovery board """
+        recipe = relpath('data', 'stm32f4xx', 'build.xml')
+        construct(recipe)
 
 
 if __name__ == '__main__':

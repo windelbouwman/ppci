@@ -1,12 +1,10 @@
-import logging
-import binascii
-from .target import Instruction, Alignment
-from .objectfile import ObjectFile
-
 """
  The output stream is a stream of instructions that can be output
  to a file or binary or hexfile.
 """
+
+import logging
+from .target import Instruction, Alignment
 
 
 class OutputStream:
@@ -39,6 +37,7 @@ class BinaryOutputStream(OutputStream):
             self.obj_file.add_symbol(sym, address, section.name)
         for sym, typ in relocs:
             self.obj_file.add_relocation(sym, address, typ, section.name)
+
         # Special case for align, TODO do this different?
         if type(item) is Alignment:
             while section.Size % item.align != 0:
@@ -49,7 +48,7 @@ class BinaryOutputStream(OutputStream):
 
 
 class DummyOutputStream(OutputStream):
-    """ Stream that implements the bare minimum and does nothing """
+    """ Stream that does nothing """
     def emit(self, item):
         pass
 
@@ -57,22 +56,29 @@ class DummyOutputStream(OutputStream):
         pass
 
 
-class LoggerOutputStream(OutputStream):
+class FunctionOutputStream(OutputStream):
+    """ Stream that emits a string to the given function """
+    def __init__(self, function):
+        self.function = function
+
+    def emit(self, item):
+        self.function(str(item))
+
+    def select_section(self, sname):
+        self.function('.section {}'.format(sname))
+
+
+class LoggerOutputStream(FunctionOutputStream):
     """ Stream that emits instructions as text in the log """
     def __init__(self):
         self.logger = logging.getLogger('LoggerOutputStream')
-
-    def emit(self, item):
-        self.logger.debug(str(item))
-
-    def select_section(self, sname):
-        self.logger.debug('.section {}'.format(sname))
+        super().__init__(self.logger.debug)
 
 
 class MasterOutputStream(OutputStream):
     """ Stream that emits to multiple sub streams """
-    def __init__(self, substreams=[]):
-        self.substreams = list(substreams)  # Use copy constructor!!!
+    def __init__(self, substreams=()):
+        self.substreams = list(substreams)   # Use copy constructor!!!
 
     def add_substream(self, output_stream):
         self.substreams.append(output_stream)

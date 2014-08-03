@@ -1,0 +1,19 @@
+
+<project name="Examples" default="all">
+
+    <target name="all" depends="burn2">
+    </target>
+
+    <property name="src" value="src" />
+    <property name="arch" value="arm"/>
+
+    <target name="burn2">
+        <assemble source="startup_stm32f4.asm" target="thumb" output="startup.o" />
+        <compile target="thumb" sources="burn2.c3" includes="stm32f4xx.c3" output="burn2.o" />
+        <link output="burn2.bin" layout="stm32f4.mmap" 
+            target="thumb"
+            objects="startup.o;burn2.o" />
+    </target>
+
+</project>
+

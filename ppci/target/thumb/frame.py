@@ -1,7 +1,6 @@
-from ... import ir
-from ..basetarget import Label, Alignment
-from ...irmach import AbstractInstruction, Frame
-from .instructions import Dcd, AddSp, SubSp, Push, Pop, Mov2
+from ..basetarget import Label, Alignment, LabelAddress
+from ...irmach import AbstractInstruction, Frame, VirtualRegister
+from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
 
 
@@ -11,12 +10,12 @@ class ArmFrame(Frame):
         # We use r7 as frame pointer.
         super().__init__(name)
         self.regs = [R0, R1, R2, R3, R4, R5, R6]
-        self.rv = ir.Temp('special_RV')
-        self.p1 = ir.Temp('special_P1')
-        self.p2 = ir.Temp('special_P2')
-        self.p3 = ir.Temp('special_P3')
-        self.p4 = ir.Temp('special_P4')
-        self.fp = ir.Temp('special_FP')
+        self.rv = VirtualRegister('special_RV')
+        self.p1 = VirtualRegister('special_P1')
+        self.p2 = VirtualRegister('special_P2')
+        self.p3 = VirtualRegister('special_P3')
+        self.p4 = VirtualRegister('special_P4')
+        self.fp = VirtualRegister('special_FP')
         # Pre-colored registers:
         self.tempMap = {}
         self.tempMap[self.rv] = R0
@@ -78,9 +77,20 @@ class ArmFrame(Frame):
             Pop({PC, R7}),
             Alignment(4)   # Align at 4 bytes
             ]
+
         # Add constant literals:
         for ln, v in self.constants:
-            post.extend([Label(ln), Dcd(v)])
+            if isinstance(v, int):
+                post.extend([Label(ln), Dcd(v)])
+            elif isinstance(v, LabelAddress):
+                post.extend([Label(ln), Dcd(v)])
+            elif isinstance(v, bytes):
+                post.append(Label(ln))
+                for c in v:
+                    post.append(Db(c))
+                post.append(Alignment(4))   # Align at 4 bytes
+            else:
+                raise Exception('Constant of type {} not supported'.format(v))
         return post
 
     def EntryExitGlue3(self):
