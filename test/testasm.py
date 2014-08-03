@@ -5,11 +5,11 @@ import io
 import unittest
 from ppci import CompilerError
 from ppci.assembler import AsmLexer
-from ppci.objectfile import ObjectFile
-from ppci.outstream import BinaryOutputStream
+from ppci.binutils.objectfile import ObjectFile
+from ppci.binutils.outstream import BinaryOutputStream
 from ppci.target.basetarget import Label
 from ppci.buildfunctions import link
-from ppci.layout import Layout
+from ppci.binutils.layout import Layout
 
 
 def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):

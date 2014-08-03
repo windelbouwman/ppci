@@ -3,7 +3,7 @@ import ppci
 from ppci.codegen import CodeGenerator
 from ppci import ir
 from ppci.target.target_list import thumb_target
-from ppci.outstream import BinaryOutputStream
+from ppci.binutils.outstream import BinaryOutputStream
 
 
 def genTestFunction():

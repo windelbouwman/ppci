@@ -2,7 +2,7 @@
 import logging
 import io
 
-from . import outstream
+from .binutils import outstream
 from .c3 import AstPrinter
 from . import logformat
 from .irutils import Writer

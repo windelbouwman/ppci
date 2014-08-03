@@ -1,6 +1,6 @@
 import logging
 from .objectfile import ObjectFile
-from . import CompilerError
+from .. import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
 
 

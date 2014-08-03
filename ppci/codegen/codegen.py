@@ -8,7 +8,7 @@ from .. import ir, irdag
 from ..irutils import Verifier
 from ..target import Target
 from .registerallocator import RegisterAllocator
-from ..outstream import MasterOutputStream, FunctionOutputStream
+from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 import logging
 
 

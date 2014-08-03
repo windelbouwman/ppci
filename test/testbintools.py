@@ -2,13 +2,12 @@ import unittest
 import sys
 import io
 from ppci.target.arm.token import ArmToken
-from ppci.linker import Linker
-from ppci.objectfile import ObjectFile, serialize, deserialize, load_object
+from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, load_object
 from ppci import CompilerError
 from ppci.tasks import TaskRunner, TaskError
 from ppci.buildtasks import EmptyTask
 from ppci.buildfunctions import link
-from ppci import layout
+from ppci.binutils import layout
 
 
 class TaskTestCase(unittest.TestCase):
@@ -47,7 +46,7 @@ class TokenTestCase(unittest.TestCase):
         at[2:4] = 0b11
         self.assertEqual(0xc, at.bit_value)
 
-    def testSetBits(self):
+    def testSetBits2(self):
         at = ArmToken()
         at[4:8] = 0b1100
         self.assertEqual(0xc0, at.bit_value)
@@ -70,7 +69,7 @@ class LinkerTestCase(unittest.TestCase):
         o2.get_section('.text')
         o2.add_symbol('a', 0, '.text')
         with self.assertRaises(CompilerError):
-            o3 = link([o1, o2], layout.Layout(), 'arm')
+            link([o1, o2], layout.Layout(), 'arm')
 
     def testRel8Relocation(self):
         o1 = ObjectFile()
@@ -79,7 +78,7 @@ class LinkerTestCase(unittest.TestCase):
         o2 = ObjectFile()
         o2.get_section('.text').add_data(bytes([0]*100))
         o2.add_symbol('a', 24, '.text')
-        o3 = link([o1, o2], layout.Layout(), 'arm')
+        link([o1, o2], layout.Layout(), 'arm')
 
     def testSymbolValues(self):
         o1 = ObjectFile()

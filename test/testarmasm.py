@@ -2,7 +2,7 @@ import unittest
 import io
 from testasm import AsmTestCaseBase
 from ppci.target.target_list import arm_target
-from ppci.layout import load_layout
+from ppci.binutils.layout import load_layout
 
 
 class ArmAssemblerTestCase(AsmTestCaseBase):

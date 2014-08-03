@@ -5,9 +5,15 @@ import socket
 import time
 import shutil
 
-from testzcc import relpath
 from ppci.buildfunctions import construct
 
+from ppci.target import target_list
+
+# Store testdir for safe switch back to directory:
+testdir = os.path.dirname(os.path.abspath(__file__))
+
+def relpath(*args):
+    return os.path.join(testdir, *args)
 
 qemu_app = 'qemu-system-arm'
 

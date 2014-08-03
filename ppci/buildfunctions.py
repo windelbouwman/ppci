@@ -11,11 +11,11 @@ from .c3 import Builder
 from .irutils import Verifier
 from .codegen import CodeGenerator
 from .transform import CleanPass, RemoveAddZero
-from .linker import Linker
-from .layout import Layout, load_layout
+from .binutils.linker import Linker
+from .binutils.layout import Layout, load_layout
 from .target.target_list import targets
-from .outstream import BinaryOutputStream
-from .objectfile import ObjectFile, load_object
+from .binutils.outstream import BinaryOutputStream
+from .binutils.objectfile import ObjectFile, load_object
 from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
