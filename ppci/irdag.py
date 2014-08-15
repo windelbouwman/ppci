@@ -142,12 +142,15 @@ class Dagger:
         # self.dag.append(Tree('MOVI32',
 
     def make_dag(self, irfunc, frame):
-        """ Create dag (directed acyclic graph) of nodes for the selection """
+        """ Create dag (directed acyclic graph) of nodes for the selection
+            this function makes a list of dags. One for each basic blocks.
+            one dag is a list of trees.
+        """
         assert isinstance(irfunc, ir.Function)
 
         self.lut = {}
         self.frame = frame
-        self.dag = []
+        dags = []
         frame.label_map = {}
 
         # Construct trees for global variables:
@@ -172,12 +175,14 @@ class Dagger:
 
         # Generate serie of trees for all blocks:
         for basic_block in irfunc.Blocks:
+            self.dag = []
             self.dag.append(frame.label_map[ir.label_name(basic_block)])
             for instruction in basic_block.Instructions:
                 self.f_map[type(instruction)](self, instruction)
+            dags.append(self.dag)
 
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..
         # self.munchStm(ir.Move(self.frame.rv, f.return_value))
 
-        return self.dag
+        return dags

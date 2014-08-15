@@ -1,11 +1,11 @@
 import types
-from ppci import CompilerError
 from ..bitfun import encode_imm32
 import struct
 
 """
   Base classes for defining a target
 """
+
 
 class Instruction:
     """ Base instruction class """
@@ -92,7 +92,7 @@ class Target:
         self.name = name
         self.desc = desc
         self.registers = []
-        self.byte_sizes = {'int' : 4}  # For front end!
+        self.byte_sizes = {'int': 4}  # For front end!
         self.byte_sizes['byte'] = 1
 
         # For lowering:
@@ -104,6 +104,9 @@ class Target:
 
         self.generate_base_rules()
         self.reloc_map = reloc_map  # TODO: make this target specific.
+
+    def __repr__(self):
+        return '{}-target'.format(self.name)
 
     def generate_base_rules(self):
         # Base rules for constants:
@@ -180,7 +183,7 @@ def reloc(t):
 def apply_lit8(reloc, sym_value, section, reloc_value):
     assert sym_value % 4 == 0, '{}: {} not multiple of 4'.format(reloc, sym_value)
     offset = (sym_value - (align(reloc_value + 2, 4)))
-    assert offset in range(0, 1024, 4), str(offset)+str(self.dst.sections)
+    assert offset in range(0, 1024, 4), str(offset)+str(section)+str(reloc)
     rel8 = offset >> 2
     section.data[reloc.offset] = rel8
 

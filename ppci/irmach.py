@@ -46,6 +46,8 @@ class Frame:
         self.instructions.append(i)
         return i
 
+    def between_blocks(self):
+        pass
 
 class VirtualRegister:
     """ Infinite register value """

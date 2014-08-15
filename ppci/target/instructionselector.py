@@ -9,7 +9,7 @@ class InstructionSelector:
     def newTmp(self):
         return self.frame.new_virtual_register()
 
-    def munch_dag(self, dag, frame):
+    def munch_dag(self, dags, frame):
         """ Consume a dag and match it using the matcher to the frame """
         # Entry point for instruction selection
 
@@ -17,12 +17,14 @@ class InstructionSelector:
         self.frame = frame
 
         # Template match all trees:
-        for root in dag:
-            if type(root) is AbstractInstruction:
-                self.emit(root)
-            else:
-                # Invoke dynamic programming matcher machinery:
-                self.matcher.gen(root)
+        for dag in dags:
+            for root in dag:
+                if type(root) is AbstractInstruction:
+                    self.emit(root)
+                else:
+                    # Invoke dynamic programming matcher machinery:
+                    self.matcher.gen(root)
+            frame.between_blocks()
 
     def move(self, dst, src):
         raise NotImplementedError('Not target implemented')

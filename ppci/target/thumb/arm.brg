@@ -26,6 +26,8 @@ stm: CJMP(reg, reg)           2 'op, yes_label, yes_tgt, no_label, no_tgt = tree
 stm: reg                      0 'pass'
 
 reg: ADDI32(reg, reg) 2 'd = self.newTmp(); self.emit(Add3, dst=[d], src=[c0, c1]); return d'
+reg: ADDI32(reg, cn)          2 'return tree.children[1].value < 8' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c0], others=[c1]); return d'
+reg: ADDI32(cn, reg)          2 'return tree.children[0].value < 8' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c1], others=[c0]); return d'
 reg: SUBI32(reg, reg) 2 'd = self.newTmp(); self.emit(Sub3, dst=[d], src=[c0, c1]); return d'
 
 reg: ORI32(reg, reg)          2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Orr, dst=[], src=[d, c1]); return d'
@@ -35,18 +37,19 @@ reg: SHLI32(reg, reg)         2 'd = self.newTmp(); self.selector.move(d, c0); s
 reg: SHRI32(reg, reg)         2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Lsr, dst=[], src=[d, c1]); return d'
 reg: MULI32(reg, reg) 2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Mul, dst=[d], src=[c1, d]); return d'
 
+cn: CONSTI32                  0 'return tree.value'
 
 reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.addConstant(LabelAddress(tree.value)); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
 reg: CONSTI32         3 'd = self.newTmp(); ln = self.selector.frame.addConstant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
+
 reg: ADR(CONSTDATA)           2  'd = self.newTmp(); ln = self.selector.frame.addConstant(tree.children[0].value); self.emit(Adr, dst=[d], others=[ln]); return d'
 
+reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
 reg: MEMI32(reg)      4 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[0]); return d'
 reg: REGI32           1 'return tree.value'
 reg: CALL             1 'return self.selector.munchCall(tree.value)'
 
-
-stmt: MOVI32(MEMI32(addr), reg)    3   'self.emit(Str2, src=[c0, c1])'
 
 addr: reg 0 ''

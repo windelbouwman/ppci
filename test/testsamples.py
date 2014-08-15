@@ -3,7 +3,7 @@ import os
 import io
 import logging
 from util import runQemu, has_qemu, relpath
-from ppci.buildfunctions import assemble, c3compile, link, objcopy
+from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.report import RstFormatter
 
 
@@ -113,13 +113,18 @@ class Samples:
         res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13])
         self.do(snippet, res)
 
+    def testBrainFuckHelloWorld(self):
+        """ Test brainfuck hello world program """
+        hello_world = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
+        self.do(hello_world, "Hello World!\n", lang='bf')
+
 
 class TestSamplesOnVexpress(unittest.TestCase, Samples):
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
 
-    def do(self, src, expected_output):
+    def do(self, src, expected_output, lang='c3'):
         march = "arm"
         startercode = """
         section reset
@@ -141,11 +146,20 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         """
         # Construct binary file from snippet:
         o1 = assemble(io.StringIO(startercode), march)
-        o2 = c3compile([
-            relpath('data', 'io.c3'),
-            relpath('data', 'realview-pb-a8', 'arch.c3'),
-            io.StringIO(src)], [], march)
-        o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+        if lang == 'c3':
+            o2 = c3compile([
+                relpath('data', 'io.c3'),
+                relpath('data', 'realview-pb-a8', 'arch.c3'),
+                io.StringIO(src)], [], march)
+            o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+        elif lang == 'bf':
+            obj = bfcompile(src, march)
+            o2 = c3compile([
+                relpath('data', 'realview-pb-a8', 'arch.c3')
+                ], [], march)
+            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
+        else:
+            raise Exception('language not implemented')
 
         sample_filename = 'testsample.bin'
         objcopy(o3, 'image', 'bin', sample_filename)
@@ -186,11 +200,20 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         """
         # Construct binary file from snippet:
         o1 = assemble(io.StringIO(startercode), march)
-        o2 = c3compile([
-            relpath('data', 'io.c3'),
-            relpath('data', 'lm3s6965evb', 'arch.c3'),
-            io.StringIO(src)], [], march)
-        o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+        if lang == 'c3':
+            o2 = c3compile([
+                relpath('data', 'io.c3'),
+                relpath('data', 'lm3s6965evb', 'arch.c3'),
+                io.StringIO(src)], [], march)
+            o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+        elif lang == 'bf':
+            obj = bfcompile(src, march)
+            o2 = c3compile([
+                relpath('data', 'lm3s6965evb', 'arch.c3')
+                ], [], march)
+            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
+        else:
+            raise Exception('language not implemented')
 
         sample_filename = 'testsample.bin'
         objcopy(o3, 'code', 'bin', sample_filename)
@@ -226,8 +249,6 @@ class TestSamplesOnX86(unittest.TestCase, Samples):
         res = runQemu(sample_filename, machine='vexpress-a9')
         os.remove(sample_filename)
         self.assertEqual(expected_output, res)
-
-# TODO: test samples on thumb target..
 
 
 if __name__ == '__main__':
