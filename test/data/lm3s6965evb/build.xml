@@ -9,6 +9,7 @@
         <objcopy
             objectfile="bare.o"
             imagename="flash"
+            format="bin"
             output="bare.bin" />
     </target>
 </project>

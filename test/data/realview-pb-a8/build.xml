@@ -10,6 +10,7 @@
         <objcopy
             objectfile="hello_all.o"
             imagename="flash"
+            format="bin"
             output="hello.bin" />
     </target>
 </project>

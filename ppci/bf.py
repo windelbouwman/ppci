@@ -115,7 +115,5 @@ class BrainFuckGenerator():
         # Jump to end of function:
         self.builder.emit(ir.Jump(ir_func.epiloog))
 
-        f = io.StringIO()
-        Writer().write(self.builder.m, f)
-        print(f.getvalue())
+        # Yield module
         return self.builder.m
