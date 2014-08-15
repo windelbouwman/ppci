@@ -6,7 +6,7 @@ Hexfile manipulation
 --------------------
 
 
-// .. autoclass:: utils.HexFile
+.. autoclass:: ppci.utils.hexfile.HexFile
 
 
 >>> from utils import HexFile
@@ -27,7 +27,7 @@ Yacc
 Burg
 ----
 
-// .. automodule:: pyburg
+.. automodule:: ppci.pyburg
 
 
 Machine descriptions

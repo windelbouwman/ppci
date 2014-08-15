@@ -4,4 +4,8 @@ syntax: glob
 *.pyc
 *.o
 *.bin
+*.hex
+*.elf
+*.log
 docs/build
+test/.coverage

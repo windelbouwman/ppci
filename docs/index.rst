@@ -5,8 +5,10 @@ Table of contents
 =================
 
 .. toctree::
-   compiler
-   utils
-   stlink
+    index
+    usage
+    stlink
+    compiler
+    utils
 
 
