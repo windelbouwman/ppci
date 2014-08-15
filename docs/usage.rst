@@ -14,6 +14,8 @@ or less taken from ant build files, which are also described using xml.
 Take for example the stm32f4 led project build file:
 
 .. literalinclude:: ../test/data/stm32f4xx/build.xml
+    :language: xml
+    :linenos:
 
 
 Building

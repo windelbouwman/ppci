@@ -5,7 +5,6 @@ Table of contents
 =================
 
 .. toctree::
-    index
     usage
     stlink
     compiler
