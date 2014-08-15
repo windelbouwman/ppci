@@ -16,7 +16,7 @@ class testBrainfuckBuilder(unittest.TestCase):
         """ Test brainfuck program """
         hello_world = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
         res = self.do(hello_world)
-        self.assertEqual("Hello world!\n", res)
+        self.assertEqual("Hello World!\n", res)
 
     def do(self, src):
         march = "arm"

@@ -18,5 +18,5 @@ suite = unittest.TestSuite()
 for test in loader.discover('.'):
     suite.addTest(test)
 
-unittest.TextTestRunner().run(suite)
+sys.exit(unittest.TextTestRunner().run(suite))
 
