@@ -11,28 +11,32 @@ def hex2int(s):
       return int(s, 16)
    raise ValueError('Hexadecimal value must begin with 0x')
 
-parser = argparse.ArgumentParser(
-   description='ST-link flash utility by Windel Bouwman')
-subparsers = parser.add_subparsers(title='commands', 
-         description='possible commands', dest='command')
 
-readparser = subparsers.add_parser('read', help='read flash contents')
-readparser.add_argument('filename', type=argparse.FileType('wb', 0))
-readparser.add_argument('address', type=hex2int)
-readparser.add_argument('size', type=hex2int)
+def make_parser():
+    parser = argparse.ArgumentParser(
+       description='ST-link flash utility by Windel Bouwman')
+    subparsers = parser.add_subparsers(title='commands', 
+             description='possible commands', dest='command')
 
-writeparser = subparsers.add_parser('write', help='write flash contents')
-writeparser.add_argument('filename', type=argparse.FileType('rb'))
-writeparser.add_argument('address', type=hex2int)
+    readparser = subparsers.add_parser('read', help='read flash contents')
+    readparser.add_argument('filename', type=argparse.FileType('wb', 0))
+    readparser.add_argument('address', type=hex2int)
+    readparser.add_argument('size', type=hex2int)
 
-hexwriteparser = subparsers.add_parser('hexwrite', help='write hexfile to flash')
-hexwriteparser.add_argument('hexfile', type=argparse.FileType('r'))
+    writeparser = subparsers.add_parser('write', help='write flash contents')
+    writeparser.add_argument('filename', type=argparse.FileType('rb'))
+    writeparser.add_argument('address', type=hex2int)
 
-verifyparser = subparsers.add_parser('verify', help='verify flash contents')
-verifyparser.add_argument('filename', type=argparse.FileType('rb'))
-verifyparser.add_argument('address', type=hex2int)
+    hexwriteparser = subparsers.add_parser('hexwrite', help='write hexfile to flash')
+    hexwriteparser.add_argument('hexfile', type=argparse.FileType('r'))
 
-eraseparser = subparsers.add_parser('erase', help='erase flash contents')
+    verifyparser = subparsers.add_parser('verify', help='verify flash contents')
+    verifyparser.add_argument('filename', type=argparse.FileType('rb'))
+    verifyparser.add_argument('address', type=hex2int)
+
+    eraseparser = subparsers.add_parser('erase', help='erase flash contents')
+    return parser
+
 
 args = parser.parse_args()
 if not args.command:
