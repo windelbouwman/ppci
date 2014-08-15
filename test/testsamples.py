@@ -162,7 +162,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
 
-    def do(self, src, expected_output):
+    def do(self, src, expected_output, lang="c3"):
         march = "thumb"
         startercode = """
         section reset
@@ -231,6 +231,6 @@ class TestSamplesOnX86(unittest.TestCase, Samples):
 
 
 if __name__ == '__main__':
-    with open('sample_report.rst', 'w') as report_file:
+    with open('sample_report.log', 'w') as report_file:
         enable_report_logger(report_file)
         unittest.main()

@@ -93,6 +93,7 @@ class CodeGenerator:
                 # Move parameter into local copy:
                 self.builder.emit(ir.Store(parameter, variable))
             elif sym.isLocal or isinstance(sym, ast.Variable):
+                # TODO: allocate space for variables
                 variable = ir.Alloc(sym.name, ir.i32)
                 self.builder.emit(variable)
             else:

@@ -63,7 +63,8 @@ class Dagger:
         fp = Tree("REGI32")
         fp.value = self.frame.fp
         offset = Tree("CONSTI32")
-        offset.value = self.frame.allocVar(node)
+        # TODO: check size and alignment?
+        offset.value = self.frame.allocVar(node, node.amount)
         tree = Tree('ADDI32', fp, offset)
         self.lut[node] = tree
 

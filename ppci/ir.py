@@ -277,9 +277,9 @@ def Add(a, b, name, ty):
     return Binop(a, '+', b, name, ty)
 
 
-def Sub(a, b):
+def Sub(a, b, name, ty):
     """ Substract b from a """
-    return Binop(a, '-', b)
+    return Binop(a, '-', b, name, ty)
 
 
 def Mul(a, b, name, ty):
@@ -287,9 +287,9 @@ def Mul(a, b, name, ty):
     return Binop(a, '*', b, name, ty)
 
 
-def Div(a, b):
+def Div(a, b, name, ty):
     """ Divide a in b pieces """
-    return Binop(a, '/', b)
+    return Binop(a, '/', b, name, ty)
 
 
 def Phi(User):
@@ -304,11 +304,13 @@ def Phi(User):
 
 class Alloc(Expression):
     """ Allocates space on the stack """
-    def __init__(self, name, ty):
+    def __init__(self, name, ty, num_elements=4):
         super().__init__(name, ty)
+        # self.num_elements = num_elements
+        self.amount = num_elements
 
     def __repr__(self):
-        return '{} = Alloc'.format(self.name)
+        return '{} = Alloc {} bytes'.format(self.name, self.amount)
 
 
 class Variable(Expression):

@@ -1,5 +1,4 @@
 module arch;
-import io;
 
 function void putc(int c)
 {

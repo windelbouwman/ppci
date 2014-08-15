@@ -8,6 +8,7 @@
 import logging
 from .target import Target
 from .c3 import Builder
+from .bf import BrainFuckGenerator
 from .irutils import Verifier
 from .codegen import CodeGenerator
 from .transform import CleanPass, RemoveAddZero
@@ -131,20 +132,14 @@ def c3toir(sources, includes, target):
     return ir_modules
 
 
-def ir_to_code(ircode):
-    pass
-
-
-def c3compile(sources, includes, target):
-    """ Compile a set of sources into binary format for the given target """
-    logger = logging.getLogger('c3c')
-    target = fix_target(target)
-    output = ObjectFile()
+def ir_to_code(ir_modules, target):
+    logger = logging.getLogger('ir_to_code')
     cg = CodeGenerator(target)
 
+    output = ObjectFile()
     output_stream = BinaryOutputStream(output)
 
-    for ircode in c3toir(sources, includes, target):
+    for ircode in ir_modules:
         Verifier().verify(ircode)
 
         # Optimization passes:
@@ -162,6 +157,19 @@ def c3compile(sources, includes, target):
         cg.generate(ircode, output_stream)
 
     return output
+
+
+def c3compile(sources, includes, target):
+    """ Compile a set of sources into binary format for the given target """
+    target = fix_target(target)
+    return ir_to_code(c3toir(sources, includes, target), target)
+
+
+def bfcompile(source, target):
+    """ Compile brainfuck source into binary format for the given target """
+    target = fix_target(target)
+    ircode = BrainFuckGenerator().generate(source)
+    return ir_to_code([ircode], target)
 
 
 def link(objects, layout, target):

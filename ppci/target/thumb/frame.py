@@ -44,10 +44,10 @@ class ArmFrame(Frame):
         else:
             raise NotImplementedError('No more than 4 parameters implemented')
 
-    def allocVar(self, lvar):
+    def allocVar(self, lvar, size):
         if lvar not in self.locVars:
             self.locVars[lvar] = self.stacksize
-            self.stacksize = self.stacksize + 4
+            self.stacksize = self.stacksize + size
         return self.locVars[lvar]
 
     def addConstant(self, value):

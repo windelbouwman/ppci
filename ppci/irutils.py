@@ -232,7 +232,6 @@ class Builder:
         self.loc = l
 
     def unique_name(self, pfx):
-        pass
         self.i += 1
         return pfx + str(self.i)
 
@@ -245,6 +244,7 @@ class Builder:
         if not self.bb:
             raise Exception('No basic block')
         self.bb.addInstruction(i)
+        return i
 
 
 class Verifier:

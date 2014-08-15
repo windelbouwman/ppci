@@ -116,6 +116,13 @@ class ObjectFile:
         section = self.get_section(symbol.section)
         return symbol.value + section.address
 
+    def __repr__(self):
+        return 'CodeObject of {} bytes'.format(self.byte_size)
+
+    @property
+    def byte_size(self):
+        return sum(len(image.data) for image in self.sections.values())
+
     def __eq__(self, other):
         return (self.symbols == other.symbols) and \
             (self.sections == other.sections) and \
