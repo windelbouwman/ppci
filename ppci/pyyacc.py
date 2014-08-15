@@ -6,12 +6,9 @@ import types
 import io
 import datetime
 import logging
-import argparse
 
 from ppci.baselex import BaseLexer, EPS, EOF
 from ppci import Token, SourceLocation
-
-
 
 
 class ParserGenerationException(Exception):
@@ -422,15 +419,16 @@ class LRParser:
 class XaccLexer(BaseLexer):
     def __init__(self):
         tok_spec = [
-           ('ID', r'[A-Za-z][A-Za-z\d_]*', lambda typ, val: (typ, val)),
-           ('STRING', r"'[^']*'", lambda typ, val: ('ID', val[1:-1])),
-           ('BRACEDCODE', r"\{[^\}]*\}", lambda typ, val: (typ, val)),
-           ('OTHER', r'[:;\|]', lambda typ, val: (val, val)),
-           ('SKIP', r'[ ]', None)
+            ('ID', r'[A-Za-z][A-Za-z\d_]*', lambda typ, val: (typ, val)),
+            ('STRING', r"'[^']*'", lambda typ, val: ('ID', val[1:-1])),
+            ('BRACEDCODE', r'\{[^\}]*\}', lambda typ, val: (typ, val)),
+            ('OTHER', r'[:;\|]', lambda typ, val: (val, val)),
+            ('SKIP', r'[ ]', None)
             ]
         super().__init__(tok_spec)
 
     def tokenize(self, txt):
+        self.line = 1
         lines = txt.split('\n')
         section = 0
         for line in lines:
@@ -594,8 +592,12 @@ class XaccGenerator:
         # Generate a function for each action:
         for rule in self.grammar.productions:
             num_symbols = len(rule.symbols)
-            args = ', '.join('arg{}'.format(n + 1) for n in range(num_symbols))
-            self.print('    def {}(self, {}):'.format(rule.f_name, args))
+            if num_symbols > 0:
+                args = ', '.join('arg{}'.format(n + 1) for n in range(num_symbols))
+                self.print('    def {}(self, {}):'.format(rule.f_name, args))
+            else:
+                self.print('    def {}(self):'.format(rule.f_name))
+
             if rule.f is None:
                 semantics = 'pass'
             else:
@@ -608,9 +610,9 @@ class XaccGenerator:
             self.print('')
 
 
-def main(args):
-    src = args.source.read()
-    args.source.close()
+def transform(f_in, f_out):
+    src = f_in.read()
+    f_in.close()
 
     # Construction of generator parts:
     lexer = XaccLexer()
@@ -620,17 +622,21 @@ def main(args):
     # Sequence source through the generator parts:
     lexer.feed(src)
     grammar = parser.parse_grammar(lexer)
-    generator.generate(grammar, parser.headers, args.output)
+    generator.generate(grammar, parser.headers, f_out)
+
+
+def main(args):
+    transform(args.source, args.output)
 
 
 def load_as_module(filename):
     """ Load a parser spec file, generate LR tables and create module """
     ob = io.StringIO()
-    args = argparse.Namespace(source=open(filename), output=ob)
-    main(args)
+    if hasattr(filename, 'read'):
+        transform(filename, ob)
+    else:
+        transform(open(filename), ob)
 
     parser_mod = types.ModuleType('generated_parser')
     exec(ob.getvalue(), parser_mod.__dict__)
     return parser_mod
-
-

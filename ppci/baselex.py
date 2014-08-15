@@ -44,7 +44,8 @@ class BaseLexer:
             self.pos = mo.end()
             mo = self.gettok(txt, self.pos)
         if len(txt) != self.pos:
-            raise CompilerError('Lex fault at {}'.format(txt[self.pos:]))
+            char = txt[self.pos]
+            raise CompilerError('Unexpected char: {0} (0x{1:X})'.format(char, ord(char)))
 
     def newline(self):
         """ Enters a new line """

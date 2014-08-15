@@ -1,0 +1,33 @@
+
+%tokens ID NUMBER fields of patterns constructors is to
+%tokens '=' '{' '}' ':' '[' ']' '_'
+
+%%
+
+sleddef: toplevels;
+
+toplevels: | toplevels toplevel;
+
+toplevel: fielddef
+        | patterns patternlist
+        | constructors conlist;
+
+
+fielddef: fields of ID fielddefs { self.spec.add_token(arg3.val, arg4) };
+
+fielddefs: { return [] } | fielddefs bitdef { arg1.append(arg2); return arg1 };
+
+bitdef: ID NUMBER ':' NUMBER { return (arg1.val, arg2.val, arg4.val) };
+dummy: '_';
+
+patternlist:  | patternlist pattern;
+pattern: pat_lhs is pat_rhs { self.spec.add_pattern(arg1, arg3) };
+pat_lhs: '[' pat_lhs_items ']' { return arg2 };
+pat_lhs_items: { return [] }
+             | pat_lhs_items pat_lhs_dst { arg1.append(arg2); return arg1 };
+pat_lhs_dst: ID { return arg1.val } | dummy { return arg1 };
+
+pat_rhs: ID '=' '{' NUMBER to NUMBER '}';
+
+conlist: ;
+

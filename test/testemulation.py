@@ -123,7 +123,7 @@ class EmulationTestCase(unittest.TestCase):
         if not has_qemu():
             self.skipTest('Not running Qemu test')
         data = runQemu('data/realview-pb-a8/hello.bin',
-                       machine='vexpress-a9')
+                       machine='realview-pb-a8')
         self.assertEqual('Hello worle', data)
 
     def testBurn2(self):

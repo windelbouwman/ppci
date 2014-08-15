@@ -1,6 +1,8 @@
 import unittest
-from ppci.pyyacc import Grammar, Item, ParserGenerationException, ParserException
-from ppci.pyyacc import EPS, EOF, calculate_first_sets
+import io
+from ppci.pyyacc import Grammar, Item, ParserGenerationException
+from ppci.pyyacc import ParserException, load_as_module
+from ppci.pyyacc import EPS, EOF, calculate_first_sets, transform
 from ppci import Token, SourceLocation
 
 
@@ -246,6 +248,29 @@ class testParserGenerator(unittest.TestCase):
 
         # 4. feed input:
         p.parse(genTokens(tokens))
+
+
+class testGrammarParser(unittest.TestCase):
+    def testLoadAsModule(self):
+        grammar = """
+        %tokens a b c
+        %%
+        res: aa { return arg1 };
+        aa: { return [] }
+          | aa a { arg1.append(arg2.val); return arg1};
+        """
+        i = io.StringIO(grammar)
+        o = io.StringIO()
+        transform(i, o)
+        # print(o.getvalue())
+
+        i2 = io.StringIO(grammar)
+        mod = load_as_module(i2)
+        parser = mod.Parser()
+        res = parser.parse(genTokens(['a', 'a', 'a']))
+        # print(res)
+        self.assertSequenceEqual(['a', 'a', 'a'], res)
+
 
 if __name__ == '__main__':
     unittest.main()

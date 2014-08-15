@@ -153,7 +153,8 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
             f.write(img_data)
 
         # Run bin file in emulator:
-        res = runQemu(sample_filename, machine='vexpress-a9')
+        # Somehow vexpress-a9 and realview-pb-a8 differ?
+        res = runQemu(sample_filename, machine='realview-pb-a8')
         os.remove(sample_filename)
         self.assertEqual(expected_output, res)
 
