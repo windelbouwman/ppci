@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='ppci',
     description="Pure python compiler infrastructure",
-    scripts=["bin/zcc.py", "bin/st-flash.py"],
+    scripts=["bin/zcc.py", "bin/st-flash.py", 'bin/hexutil.py'],
     version='0.0.1',
     author='Windel Bouwman',
     include_package_data=True,

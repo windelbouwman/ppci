@@ -13,72 +13,72 @@ class HexFileTestCase(unittest.TestCase):
 
     def testSave1(self):
         hf = HexFile()
-        hf.addRegion(0x8000, bytes.fromhex('aabbcc'))
+        hf.add_region(0x8000, bytes.fromhex('aabbcc'))
         self.saveload(hf)
 
     def testSave2(self):
         hf = HexFile()
-        hf.addRegion(0x8000, bytes.fromhex('aabbcc'))
-        hf.addRegion(0x118000, bytes.fromhex('aabbcc'))
+        hf.add_region(0x8000, bytes.fromhex('aabbcc'))
+        hf.add_region(0x118000, bytes.fromhex('aabbcc'))
         self.saveload(hf)
 
     def testSave3(self):
         hf = HexFile()
-        hf.addRegion(0x8000, bytes.fromhex('aabbcc'))
-        hf.addRegion(0xFFFE, bytes.fromhex('aabbcc'))
+        hf.add_region(0x8000, bytes.fromhex('aabbcc'))
+        hf.add_region(0xFFFE, bytes.fromhex('aabbcc'))
         self.saveload(hf)
 
     def testSave4(self):
         hf = HexFile()
-        hf.addRegion(0xF000, bytes.fromhex('ab')*0x10000)
+        hf.add_region(0xF000, bytes.fromhex('ab')*0x10000)
         self.saveload(hf)
 
     def testSave5(self):
         hf = HexFile()
-        hf.addRegion(0xF003, bytes.fromhex('ab')*0x10000)
+        hf.add_region(0xF003, bytes.fromhex('ab')*0x10000)
         self.saveload(hf)
 
     def testTwoRegions(self):
         hf = HexFile()
         hf2 = HexFile()
-        hf.addRegion(0x100, bytes.fromhex('abcd'))
-        hf.addRegion(0x200, bytes.fromhex('beef'))
-        hf2.addRegion(0x200, bytes.fromhex('beef'))
-        hf2.addRegion(0x100, bytes.fromhex('abcd'))
+        hf.add_region(0x100, bytes.fromhex('abcd'))
+        hf.add_region(0x200, bytes.fromhex('beef'))
+        hf2.add_region(0x200, bytes.fromhex('beef'))
+        hf2.add_region(0x100, bytes.fromhex('abcd'))
         self.assertEqual(hf, hf2)
 
     def testMerge(self):
         hf = HexFile()
-        hf.addRegion(0x10, bytes.fromhex('abcdab'))
-        hf.addRegion(0x13, bytes.fromhex('abcdab'))
+        hf.add_region(0x10, bytes.fromhex('abcdab'))
+        hf.add_region(0x13, bytes.fromhex('abcdab'))
         self.assertEqual(1, len(hf.regions))
 
     def testOverlapped(self):
         hf = HexFile()
-        hf.addRegion(0x10, bytes.fromhex('abcdab'))
+        hf.add_region(0x10, bytes.fromhex('abcdab'))
         with self.assertRaisesRegex(HexFileException, 'verlap'):
-            hf.addRegion(0x12, bytes.fromhex('abcdab'))
+            hf.add_region(0x12, bytes.fromhex('abcdab'))
 
     def testEqual(self):
         hf1 = HexFile()
         hf2 = HexFile()
-        hf1.addRegion(10, bytes.fromhex('aabbcc'))
-        hf2.addRegion(10, bytes.fromhex('aabbcc'))
+        hf1.add_region(10, bytes.fromhex('aabbcc'))
+        hf2.add_region(10, bytes.fromhex('aabbcc'))
         self.assertEqual(hf1, hf2)
 
     def testNotEqual(self):
         hf1 = HexFile()
         hf2 = HexFile()
-        hf1.addRegion(10, bytes.fromhex('aabbcc'))
-        hf2.addRegion(10, bytes.fromhex('aabbdc'))
+        hf1.add_region(10, bytes.fromhex('aabbcc'))
+        hf2.add_region(10, bytes.fromhex('aabbdc'))
         self.assertNotEqual(hf1, hf2)
 
     def testNotEqual2(self):
         hf1 = HexFile()
         hf2 = HexFile()
-        hf1.addRegion(10, bytes.fromhex('aabbcc'))
-        hf2.addRegion(10, bytes.fromhex('aabbcc'))
-        hf2.addRegion(22, bytes.fromhex('aabbcc'))
+        hf1.add_region(10, bytes.fromhex('aabbcc'))
+        hf2.add_region(10, bytes.fromhex('aabbcc'))
+        hf2.add_region(22, bytes.fromhex('aabbcc'))
         self.assertNotEqual(hf1, hf2)
 
     def testLoad(self):

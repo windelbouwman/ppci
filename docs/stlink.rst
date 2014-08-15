@@ -6,7 +6,7 @@ St link
 Programming the stm32f4 discovery board.
 
 Building
-========
+--------
 
 Compiling the stm32f4xx example project using the compiler toolchain:
 
@@ -25,7 +25,7 @@ Compiling the stm32f4xx example project using the compiler toolchain:
 
 
 Flashing
-========
+--------
 
 To flash an application using the st-link V2 debugger, use the following
 command:

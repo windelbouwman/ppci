@@ -1,10 +1,10 @@
-import os
 import struct
 import binascii
 
 DATA = 0
 EOF = 1
 EXTLINADR = 4
+
 
 class HexFileException(Exception):
     pass
@@ -25,6 +25,7 @@ def parseHexLine(line):
     data = nums[4:-1]
     return (address, typ, data)
 
+
 def makeHexLine(address, typ, data=bytes()):
     bytecount = len(data)
     nums = bytearray()
@@ -38,12 +39,14 @@ def makeHexLine(address, typ, data=bytes()):
     line = ':' + binascii.hexlify(nums).decode('ascii')
     return line
 
+
 def chunks(data, csize=16):
     idx = 0
     while idx < len(data):
         s = min(len(data) - idx, csize)
         yield data[idx:idx+s]
         idx += s
+
 
 def hexfields(f):
     for line in f:
@@ -67,11 +70,11 @@ class HexFile:
         for address, typ, data in hexfields(f):
             if endOfFile:
                 raise HexFileException('hexfile line after end of file record')
-            if typ == 0x0: # Data record
-                self.addRegion(address + ext, data)
-            elif typ == EXTLINADR: # Extended linear address record
+            if typ == DATA:
+                self.add_region(address + ext, data)
+            elif typ == EXTLINADR:
                 ext = (struct.unpack('>H', data[0:2])[0]) << 16
-            elif typ == EOF: # End of file record
+            elif typ == EOF:
                 if len(data) != 0:
                     raise HexFileException('end of file not empty')
                 endOfFile = True
@@ -96,7 +99,8 @@ class HexFile:
             return False
         return all(rs == ro for rs, ro in zip(regions, oregions))
 
-    def addRegion(self, address, data):
+    def add_region(self, address, data):
+        """ Add a chunk of data at the given address """
         r = HexFileRegion(address, data)
         self.regions.append(r)
         self.check()
@@ -116,27 +120,31 @@ class HexFile:
 
     def merge(self, other):
         for r in other.regions:
-            self.addRegion(r.address, r.data)
+            self.add_region(r.address, r.data)
+
+    def write_hex_line(self, address, typ, data=bytes()):
+        """ Write a single hexfile line """
+        print(makeHexLine(address, typ, data), file=self.f)
 
     def save(self, f):
-        def emit(address, typ, data=bytes()):
-            print(makeHexLine(address, typ, data), file=f)
+        """ Save hexfile to file-like object """
+        self.f = f
         for r in self.regions:
             ext = r.address & 0xFFFF0000
-            emit(0, EXTLINADR, struct.pack('>H', ext >> 16))
+            self.write_hex_line(0, EXTLINADR, struct.pack('>H', ext >> 16))
             address = r.address - ext
             for chunk in chunks(r.data):
                 if address >= 0x10000:
                     ext += 0x10000
-                    emit(0, EXTLINADR, struct.pack('>H', ext >> 16))
+                    self.write_hex_line(0, EXTLINADR, struct.pack('>H', ext >> 16))
                     address -= 0x10000
-                emit(address, DATA, chunk)
+                self.write_hex_line(address, DATA, chunk)
                 address += len(chunk)
-        emit(0, EOF)
+        self.write_hex_line(0, EOF)
 
 
 class HexFileRegion:
-    def __init__(self, address, data = bytes()):
+    def __init__(self, address, data=bytes()):
         self.address = address
         self.data = data
 

@@ -130,6 +130,8 @@ class ObjectFileTestCase(unittest.TestCase):
         o2.add_symbol('A2', 0x90, 'code')
         o1.add_symbol('A3', 0x90, 'code')
         o2.add_symbol('A3', 0x90, 'code')
+        o1.add_image('a', 0x0, bytes([1, 2, 3]))
+        o2.add_image('a', 0x0, bytes([1, 2, 3]))
         return o1, o2
 
     def testEquality(self):

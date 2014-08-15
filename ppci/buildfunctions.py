@@ -16,6 +16,7 @@ from .binutils.layout import Layout, load_layout
 from .target.target_list import targets
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
+from .utils.hexfile import HexFile
 from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
@@ -171,3 +172,22 @@ def link(objects, layout, target):
     linker = Linker(target)
     output_obj = linker.link(objects, layout)
     return output_obj
+
+
+def objcopy(obj, image_name, fmt, output_filename):
+    """ Copy some parts of an object file to an output """
+    if fmt not in ['bin', 'hex']:
+        raise TaskError('Only bin or hex formats supported')
+
+    obj = fix_object(obj)
+    image = obj.get_image(image_name)
+    if fmt == "bin":
+        with open(output_filename, 'wb') as output_file:
+            output_file.write(image.data)
+    elif fmt == "hex":
+        hf = HexFile()
+        hf.add_region(image.location, image.data)
+        with open(output_filename, 'w') as output_file:
+            hf.save(output_file)
+    else:
+        raise NotImplementedError("output format not implemented")

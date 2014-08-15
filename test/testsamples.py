@@ -3,7 +3,7 @@ import os
 import io
 import logging
 from testemulation import runQemu, has_qemu, relpath
-from ppci.buildfunctions import assemble, c3compile, link
+from ppci.buildfunctions import assemble, c3compile, link, objcopy
 from ppci.report import RstFormatter
 
 
@@ -147,10 +147,8 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
             io.StringIO(src)], [], march)
         o3 = link([o2, o1], io.StringIO(arch_mmap), march)
 
-        img_data = o3.get_image('image')
         sample_filename = 'testsample.bin'
-        with open(sample_filename, 'wb') as f:
-            f.write(img_data)
+        objcopy(o3, 'image', 'bin', sample_filename)
 
         # Run bin file in emulator:
         # Somehow vexpress-a9 and realview-pb-a8 differ?
@@ -176,7 +174,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         """
 
         arch_mmap = """
-        MEMORY image LOCATION=0x10000 SIZE=0x10000 {
+        MEMORY code LOCATION=0x10000 SIZE=0x10000 {
             SECTION(reset)
             ALIGN(4)
             SECTION(code)
@@ -194,10 +192,8 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
             io.StringIO(src)], [], march)
         o3 = link([o2, o1], io.StringIO(arch_mmap), march)
 
-        img_data = o3.get_image('image')
         sample_filename = 'testsample.bin'
-        with open(sample_filename, 'wb') as f:
-            f.write(img_data)
+        objcopy(o3, 'code', 'bin', sample_filename)
 
         # Run bin file in emulator:
         res = runQemu(sample_filename, machine='lm3s811evb')
@@ -220,10 +216,8 @@ class TestSamplesOnX86(unittest.TestCase, Samples):
             io.StringIO(src)], [], 'x86')
         o3 = link([o2, o1], io.StringIO(arch_mmap), 'x86')
 
-        img_data = o3.get_image('image')
         sample_filename = 'testsample.bin'
-        with open(sample_filename, 'wb') as f:
-            f.write(img_data)
+        objcopy(o3, 'image', 'bin', sample_filename)
 
         # Check bin file exists:
         self.assertTrue(os.path.isfile(sample_filename))

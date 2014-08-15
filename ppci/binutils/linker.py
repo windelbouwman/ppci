@@ -1,5 +1,5 @@
 import logging
-from .objectfile import ObjectFile
+from .objectfile import ObjectFile, Image
 from .. import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
 
@@ -43,6 +43,7 @@ class Linker:
         # Create sections with address:
         dst.images = {}
         for mem in layout.memories:
+            image = Image(mem.location)
             cur_addr = mem.location
             output_memory = bytearray()
             for memory_input in mem.inputs:
@@ -60,7 +61,8 @@ class Linker:
                         output_memory += bytes([0])
                 else:
                     print(memory_input)
-            dst.images[mem.name] = bytes(output_memory)
+            image.data = bytes(output_memory)
+            dst.images[mem.name] = image
 
     def do_relocations(self, dst):
         """ Perform the correct relocation as listed """

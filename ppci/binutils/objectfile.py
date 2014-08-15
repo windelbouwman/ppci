@@ -61,6 +61,16 @@ class Section:
             and (self.data == other.data)
 
 
+class Image:
+    def __init__(self, location, data=bytes()):
+        self.location = location
+        self.data = data
+
+    def __eq__(self, other):
+        return (self.location == other.location) \
+            and (self.data == other.data)
+
+
 class ObjectFile:
     """ Container for sections with compiled code or data.
         Also contains symbols and relocation entries """
@@ -90,12 +100,16 @@ class ObjectFile:
         return reloc
 
     def get_section(self, name):
-        if not name in self.sections:
+        if name not in self.sections:
             self.sections[name] = Section(name)
         return self.sections[name]
 
     def get_image(self, name):
         return self.images[name]
+
+    def add_image(self, name, location, data):
+        img = Image(location, data)
+        self.images[name] = img
 
     def get_symbol_value(self, name):
         symbol = self.find_symbol(name)
@@ -105,7 +119,8 @@ class ObjectFile:
     def __eq__(self, other):
         return (self.symbols == other.symbols) and \
             (self.sections == other.sections) and \
-            (self.relocations == other.relocations)
+            (self.relocations == other.relocations) and \
+            (self.images == other.images)
 
     def save(self, f):
         save_object(self, f)
@@ -121,6 +136,7 @@ def load_object(f):
 
 def bin2asc(data):
     return binascii.hexlify(data).decode('ascii')
+
 
 def asc2bin(data):
     return bytearray(binascii.unhexlify(data.encode('ascii')))
@@ -142,7 +158,10 @@ def serialize(x):
             res['relocations'].append(serialize(reloc))
         res['images'] = {}
         for image_name in x.images:
-            res['images'][image_name] = bin2asc(x.images[image_name])
+            res['images'][image_name] = serialize(x.images[image_name])
+    elif isinstance(x, Image):
+        res['data'] = bin2asc(x.data)
+        res['location'] = x.location
     elif isinstance(x, Section):
         res['name'] = x.name
         res['address'] = hex(x.address)
@@ -166,11 +185,12 @@ def deserialize(d):
         so.address = make_num(section['address'])
         so.data = asc2bin(section['data'])
     for reloc in d['relocations']:
-        obj.add_relocation(reloc['symbol'], make_num(reloc['offset']),
+        obj.add_relocation(
+            reloc['symbol'], make_num(reloc['offset']),
             reloc['type'], reloc['section'])
     for sym in d['symbols']:
         obj.add_symbol(sym['name'], make_num(sym['value']), sym['section'])
     for image_name in d['images']:
-        obj.images[image_name] = asc2bin(d['images'][image_name])
+        image = d['images'][image_name]
+        obj.add_image(image_name, image['location'], asc2bin(image['data']))
     return obj
-

@@ -8,11 +8,15 @@
     <property name="arch" value="arm"/>
 
     <target name="burn2">
-        <assemble source="startup_stm32f4.asm" target="thumb" output="startup.o" />
-        <compile target="thumb" sources="burn2.c3" includes="stm32f4xx.c3" output="burn2.o" />
+        <assemble source="startup_stm32f4.asm" target="thumb" 
+            output="startup.o" />
+        <compile target="thumb" sources="burn2.c3" includes="stm32f4xx.c3"
+            output="burn2.o" />
         <link output="burn2.elf" layout="stm32f4.mmap" 
             target="thumb"
             objects="startup.o;burn2.o" />
+        <objcopy objectfile="burn2.elf" imagename="flash" format="hex" 
+            output="burn2.hex" />
     </target>
 
 </project>

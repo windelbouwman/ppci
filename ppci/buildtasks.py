@@ -5,7 +5,8 @@ Task can depend upon one another.
 """
 
 from .tasks import Task, TaskError, register_task
-from .buildfunctions import c3compile, link, assemble, fix_object, construct
+from .buildfunctions import c3compile, link, assemble, construct
+from .buildfunctions import objcopy
 from .pyyacc import ParserException
 from . import CompilerError
 
@@ -104,12 +105,11 @@ class LinkTask(Task):
 
 @register_task("objcopy")
 class ObjCopyTask(Task):
+    """ Binary move parts of object code. """
     def run(self):
         image_name = self.get_argument('imagename')
         output_filename = self.relpath(self.get_argument('output'))
         object_filename = self.relpath(self.get_argument('objectfile'))
+        fmt = self.get_argument('format')
 
-        obj = fix_object(object_filename)
-        image = obj.get_image(image_name)
-        with open(output_filename, 'wb') as output_file:
-            output_file.write(image)
+        objcopy(object_filename, image_name, fmt, output_filename)
