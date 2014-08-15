@@ -29,12 +29,13 @@ Status
 +------------------------+---------------------------------------------+
 | Build status           | |dronestate|_                               |
 +------------------------+---------------------------------------------+
+| Documentation          | |docstate|_                                 |
++------------------------+---------------------------------------------+
 
 
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
 .. _dronestate: https://drone.io/bitbucket.org/windel/ppci
 
 
-.. image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-    :target: https://readthedocs.org/projects/ppci/?badge=latest
-    :alt: Documentation Status
+.. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
+.. _docstate: https://ppci.readthedocs.org/en/latest
