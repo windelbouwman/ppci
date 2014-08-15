@@ -8,6 +8,7 @@ type struct {
     int PUPDR;
     int IDR;
     int ODR;
+    int BSRR;
 }* GPIO_Type;
 
 type struct {
@@ -28,4 +29,16 @@ type struct {
     int reserved2;
     int APB1ENR, APB2ENR;
 }* RCC_Type;
+
+type struct {
+    int ISER0;
+    int ISER1;
+}* NVIC_Type;
+
+type struct {
+    int CTRL;
+    int LOAD;
+    int CURRENT;
+    int CALIB;
+}* Systick_Type;
 
