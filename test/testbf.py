@@ -3,7 +3,7 @@ import unittest
 import io
 import os
 from ppci.buildfunctions import bfcompile
-from testemulation import runQemu, has_qemu, relpath
+from util import runQemu, has_qemu, relpath
 from ppci.buildfunctions import assemble, c3compile, link, objcopy
 
 
