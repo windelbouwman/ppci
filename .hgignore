@@ -4,3 +4,4 @@ syntax: glob
 *.pyc
 *.o
 *.bin
+docs/build

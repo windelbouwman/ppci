@@ -6,7 +6,7 @@ Hexfile manipulation
 --------------------
 
 
-.. autoclass:: utils.HexFile
+// .. autoclass:: utils.HexFile
 
 
 >>> from utils import HexFile
@@ -21,13 +21,13 @@ Hexfile containing 3 bytes
 Yacc
 ----
 
-.. automodule:: yacc
+// .. automodule:: yacc
 
 
 Burg
 ----
 
-.. automodule:: pyburg
+// .. automodule:: pyburg
 
 
 Machine descriptions

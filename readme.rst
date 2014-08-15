@@ -34,3 +34,7 @@ Status
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
 .. _dronestate: https://drone.io/bitbucket.org/windel/ppci
 
+
+.. image:: https://readthedocs.org/projects/ppci/badge/?version=latest
+    :target: https://readthedocs.org/projects/ppci/?badge=latest
+    :alt: Documentation Status

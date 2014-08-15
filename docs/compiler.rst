@@ -64,13 +64,13 @@ This is a subset of the C language with some additional features.
    40 -> 99
    }
 
-.. autoclass:: ppci.c3.Lexer
+// .. autoclass:: ppci.c3.Lexer
 
-.. autoclass:: ppci.c3.Parser
+// .. autoclass:: ppci.c3.Parser
 
-.. autoclass:: ppci.c3.CodeGenerator
+// .. autoclass:: ppci.c3.CodeGenerator
 
-.. autoclass:: ppci.c3.Builder
+// .. autoclass:: ppci.c3.Builder
 
 Back-end
 --------
@@ -84,8 +84,8 @@ The back-end is more complicated. There are several steps to be taken here.
 5. Instruction emission
 6. TODO: Peep hole optimization?
 
-.. automodule:: ppci.codegen
-   :members:
+// .. automodule:: ppci.codegen
+//   :members:
 
 Canonicalize
 ~~~~~~~~~~~~
@@ -126,5 +126,5 @@ Code is emitted using the outputstream class. The assembler and compiler use
 this class to emit instructions to. The stream can output to object file
 or to a logger.
 
-.. autoclass:: ppci.outstream.OutputStream
+// .. autoclass:: ppci.outstream.OutputStream
 
