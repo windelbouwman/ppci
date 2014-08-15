@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import argparse, sys
+import argparse
+import sys
 from ppci.utils import stlink, stm32
 from ppci.utils import hexfile
 
