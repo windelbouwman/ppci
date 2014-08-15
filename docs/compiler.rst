@@ -64,13 +64,13 @@ This is a subset of the C language with some additional features.
    40 -> 99
    }
 
-// .. autoclass:: ppci.c3.Lexer
+.. autoclass:: ppci.c3.Lexer
 
-// .. autoclass:: ppci.c3.Parser
+.. autoclass:: ppci.c3.Parser
 
-// .. autoclass:: ppci.c3.CodeGenerator
+.. autoclass:: ppci.c3.CodeGenerator
 
-// .. autoclass:: ppci.c3.Builder
+.. autoclass:: ppci.c3.Builder
 
 Back-end
 --------
