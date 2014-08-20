@@ -10,6 +10,7 @@ module burn2;
 
 import stm32f4xx;
 import arch;
+import io;
 
 function int add(int a, int b)
 {
@@ -79,6 +80,7 @@ function void systick()
 
     // Test itm trace:
     arch.putc(65); // Send out 'A'
+    io.print2("Value = ", value);
 }
 
 

@@ -72,11 +72,13 @@ class STLink2(Interface):
          if self.CurrentMode == DEBUG_MODE:
             self.exitDebugMode()
          self.close()
+
    def __str__(self):
       if self.IsOpen:
          return 'STlink2 device version {0}'.format(self.Version)
       else:
          return 'STlink2 device'
+
    def open(self):
       if self.IsOpen:
          return
@@ -91,6 +93,7 @@ class STLink2(Interface):
       if self.CurrentMode != DEBUG_MODE:
          self.enterSwdMode()
       #self.reset()
+
    def close(self):
       if self.IsOpen:
          self.devHandle.close()
@@ -98,6 +101,7 @@ class STLink2(Interface):
    @property
    def IsOpen(self):
       return self.devHandle != None
+
    # modes:
    def getCurrentMode(self):
       cmd = bytearray(16)
@@ -106,6 +110,7 @@ class STLink2(Interface):
       return reply[0]
    CurrentMode = property(getCurrentMode)
    @property
+
    def CurrentModeString(self):
       modes = {DFU_MODE: 'dfu', MASS_MODE: 'massmode', DEBUG_MODE:'debug'}
       return modes[self.CurrentMode]
@@ -169,52 +174,60 @@ class STLink2(Interface):
 
    # debug commands:
    def step(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_STEPCORE
-      self.send_recv(cmd, 2)
+        cmd = bytearray(16)
+        cmd[0:2] = DEBUG_COMMAND, DEBUG_STEPCORE
+        self.send_recv(cmd, 2)
+
    def run(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_RUNCORE
-      self.send_recv(cmd, 2)
+        cmd = bytearray(16)
+        cmd[0:2] = DEBUG_COMMAND, DEBUG_RUNCORE
+        self.send_recv(cmd, 2)
+
    def halt(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_FORCEDEBUG
-      self.send_recv(cmd, 2)
+        cmd = bytearray(16)
+        cmd[0:2] = DEBUG_COMMAND, DEBUG_FORCEDEBUG
+        self.send_recv(cmd, 2)
    
    # Tracing:
    def traceEnable(self):
-      self.write_debug32(0xE000EDF0, 0xA05F0003)
+        """ Configure stlink to send trace data """
+        self.write_debug32(0xE000EDF0, 0xA05F0003)
 
-      # Enable TRCENA:
-      DEMCR = 0xE000EDFC
-      v = self.read_debug32(DEMCR)
-      v |= (1 << 24)
-      self.write_debug32(DEMCR, v)
+        # Enable TRCENA:
+        self.write_debug32(0xE000EDFC, 0x01000000)
 
-      # ?? Enable write??
-      self.write_debug32(0xE0002000, 0x2) #
+        # ?? Enable write??
+        self.write_debug32(0xE0002000, 0x2)
 
-      # DBGMCU_CR:
-      self.write_debug32(0xE0042004, 0x27) # Enable trace in async mode
+        # TODO: send other commands
 
-      # TPIU config:
-      self.write_debug32(0xE0040004, 0x00000001) # current port size register --> 1 == port size = 1
-      self.write_debug32(0xE0040010, 0x23) # random clock divider??
-      self.write_debug32(0xE00400F0, 0x2) # selected pin protocol (2 == NRZ)
-      self.write_debug32(0xE0040304, 0x100) # continuous formatting
-      
-      # ITM config:
-      self.write_debug32(0xE0000FB0, 0xC5ACCE55) # Unlock write access to ITM
-      self.write_debug32(0xE0000F80, 0x00010005) # ITM Enable, sync enable, ATB=1
-      self.write_debug32(0xE0000E00, 0xFFFFFFFF) # Enable all trace ports in ITM
-      self.write_debug32(0xE0000E40, 0x0000000F) # Set privilege mask for all 32 ports.
+        # DBGMCU_CR:
+        self.write_debug32(0xE0042004, 0x27)  # Enable trace in async mode
+
+        # TPIU config:
+        uc_freq = 16
+        st_freq = 2
+        divisor = int(uc_freq / st_freq) - 1
+        self.write_debug32(0xE0040004, 0x00000001)  # current port size register --> 1 == port size = 1
+        self.write_debug32(0xE0040010, divisor)  # random clock divider??
+        self.write_debug32(0xE00400F0, 0x2)  # selected pin protocol (2 == NRZ)
+        self.write_debug32(0xE0040304, 0x100)  # continuous formatting
+
+        # ITM config:
+        self.write_debug32(0xE0000FB0, 0xC5ACCE55)  # Unlock write access to ITM
+        self.write_debug32(0xE0000F80, 0x00010005)  # ITM Enable, sync enable, ATB=1
+        self.write_debug32(0xE0000E00, 0xFFFFFFFF)  # Enable all trace ports in ITM
+        self.write_debug32(0xE0000E40, 0x0000000F)  # Set privilege mask for all 32 ports.
+
    def writePort0(self, v32):
       self.write_debug32(0xE0000000, v32)
+
    def getTraceByteCount(self):
       cmd = bytearray(16)
       cmd[0:2] = DEBUG_COMMAND, 0x42
       reply = self.send_recv(cmd, 2)
       return struct.unpack('<H', reply[0:2])[0]
+
    def readTraceData(self):
       bsize = self.getTraceByteCount()
       if bsize > 0:

@@ -155,7 +155,8 @@ class Block:
         i2.parent = self
         self.instructions[idx] = i2
 
-    def removeInstruction(self, i):
+    def remove_instruction(self, i):
+        """ Remove instruction from block """
         i.parent = None
         #i.delete()
         self.instructions.remove(i)
@@ -200,31 +201,42 @@ class Block:
 # Instructions:
 class Instruction:
     """ Base class for all instructions that go into a basic block """
-    pass
+    def __init__(self):
+        # Create a collection to store the values this value uses.
+        # TODO: think of better naming..
+        self.parent = None
+        self.uses = set()
+
+    @property
+    def block(self):
+        return parent
+
+    def add_use(self, v):
+        """ Add v to the list of values used by this instruction """
+        assert isinstance(v, Value)
+        self.uses.add(v)
+        v.add_user(self)
 
 
 class Value(Instruction):
-    """ A value has a type and a name """
+    """ An instruction that results in a value has a type and a name """
     def __init__(self, name, ty):
+        super().__init__()
         assert isinstance(ty, Typ)
         self.name = name
         self.ty = ty
+        self.used_by = set()
+
+    def add_user(self, i):
+        """ Add a usage for this value """
+        self.used_by.add(i)
+
+    def used_in_blocks(self):
+        """ Returns a set of blocks where this value is used """
+        return set(i.parent for i in self.used_by)
 
 
-class User(Value):
-    """ Value that uses other values """
-    def __init__(self, name, ty):
-        super().__init__(name, ty)
-        # Create a collection to store the values this value uses.
-        # TODO: think of better naming..
-        self.uses = set()
-
-    def add_use(self, v):
-        assert isinstance(v, Value)
-        self.uses.add(v)
-
-
-class Expression(User):
+class Expression(Value):
     """ Base class for an expression """
     pass
 
@@ -246,6 +258,8 @@ class Call(Expression):
         assert type(f) is str
         self.f = f
         self.arguments = arguments
+        for arg in self.arguments:
+            self.add_use(arg)
 
     def __repr__(self):
         args = ', '.join(arg.name for arg in self.arguments)
@@ -266,6 +280,8 @@ class Binop(Expression):
         self.a = a
         self.b = b
         self.operation = operation
+        self.add_use(self.a)
+        self.add_use(self.b)
 
     def __repr__(self):
         a, b = self.a.name, self.b.name
@@ -292,7 +308,7 @@ def Div(a, b, name, ty):
     return Binop(a, '/', b, name, ty)
 
 
-def Phi(User):
+def Phi(Value):
     """ Imaginary phi instruction to make SSA possible. """
     def __init__(self, name, ty):
         super().__init__(name, ty)
@@ -300,6 +316,7 @@ def Phi(User):
 
     def add_input(self, value, block):
         self.inputs.append((value, block))
+        self.add_use(value)
 
 
 class Alloc(Expression):
@@ -338,6 +355,7 @@ class Load(Value):
         super().__init__(name, ty)
         assert isinstance(address, Value)
         self.address = address
+        self.add_use(self.address)
 
     def __repr__(self):
         return '{} = [{}]'.format(self.name, self.address.name)
@@ -346,10 +364,13 @@ class Load(Value):
 class Store(Instruction):
     """ Store a value into memory """
     def __init__(self, value, address):
+        super().__init__()
         assert isinstance(address, Value)
         assert isinstance(value, Value)
         self.address = address
+        self.add_use(self.address)
         self.value = value
+        self.add_use(self.value)
 
     def __repr__(self):
         return '[{}] = {}'.format(self.address.name, self.value.name)
@@ -407,10 +428,13 @@ class CJump(LastStatement):
     conditions = ['==', '<', '>', '>=', '<=', '!=']
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
+        super().__init__()
         assert cond in CJump.conditions
         self.a = a
         self.cond = cond
         self.b = b
+        self.add_use(a)
+        self.add_use(b)
         self.Targets = [lab_yes, lab_no]
 
     lab_yes = property(lambda s: s.Targets[0])

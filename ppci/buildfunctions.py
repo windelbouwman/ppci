@@ -12,6 +12,7 @@ from .bf import BrainFuckGenerator
 from .irutils import Verifier
 from .codegen import CodeGenerator
 from .transform import CleanPass, RemoveAddZero
+from .mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .target.target_list import targets
@@ -144,6 +145,7 @@ def ir_to_code(ir_modules, target):
 
         # Optimization passes:
         # CleanPass().run(ircode)
+        # Mem2RegPromotor().run(ircode)
         Verifier().verify(ircode)
         # RemoveAddZero().run(ircode)
         Verifier().verify(ircode)
