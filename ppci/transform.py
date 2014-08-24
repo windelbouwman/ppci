@@ -30,18 +30,18 @@ class FunctionPass:
         pass
 
 
-class BasicBlockPass(FunctionPass):
+class BlockPass(FunctionPass):
     def onFunction(self, f):
         for bb in f.Blocks:
-            self.onBasicBlock(bb)
+            self.onBlock(bb)
 
-    def onBasicBlock(self, bb):
+    def onBlock(self, bb):
         """ Override this virtual method """
         raise NotImplementedError()
 
 
-class InstructionPass(BasicBlockPass):
-    def onBasicBlock(self, bb):
+class InstructionPass(BlockPass):
+    def onBlock(self, bb):
         for ins in iter(bb.Instructions):
             self.onInstruction(ins)
 
@@ -50,8 +50,8 @@ class InstructionPass(BasicBlockPass):
         raise NotImplementedError()
 
 
-class BasePass(BasicBlockPass):
-    def onBasicBlock(self, bb):
+class BasePass(BlockPass):
+    def onBlock(self, bb):
         pass
 
 
@@ -73,8 +73,8 @@ class ConstantFolder(BasePass):
             return expr
 
 
-class DeadCodeDeleter(BasicBlockPass):
-    def onBasicBlock(self, bb):
+class DeadCodeDeleter(BlockPass):
+    def onBlock(self, bb):
         def instructionUsed(ins):
             if not type(ins) in [ImmLoad, BinaryOperator]:
                 return True
@@ -94,86 +94,49 @@ class DeadCodeDeleter(BasicBlockPass):
                 change = True
 
 
-class CommonSubexpressionElimination(BasicBlockPass):
-    def onBasicBlock(self, bb):
-        constMap = {}
-        to_remove = []
-        for i in bb.Instructions:
-            if isinstance(i, ImmLoad):
-                if i.value in constMap:
-                    t_new = constMap[i.value]
-                    t_old = i.target
-                    logging.debug('Replacing {} with {}'.format(t_old, t_new))
-                    t_old.replaceby(t_new)
-                    to_remove.append(i)
-                else:
-                    constMap[i.value] = i.target
-            elif isinstance(i, BinaryOperator):
-                k = (i.value1, i.operation, i.value2)
-                if k in constMap:
-                    t_old = i.result
-                    t_new = constMap[k]
-                    logging.debug('Replacing {} with {}'.format(t_old, t_new))
-                    t_old.replaceby(t_new)
-                    to_remove.append(i)
-                else:
-                    constMap[k] = i.result
-        for i in to_remove:
-            self.logger.debug('removing {}'.format(i))
-            bb.removeInstruction(i)
+class CommonSubexpressionEliminationPass(FunctionPass):
+    """ Replace common sub expressions with the previously defined one """
+    def onFunction(self, function):
+        for block in function.Blocks:
+            ins_map = {}
+            for i in block.Instructions:
+                if isinstance(i, ir.Binop):
+                    k = (i.a, i.operation, i.b)
+                    if k in ins_map:
+                        ins_new = ins_map[k]
+                        logging.debug('Replacing {} with {}'.format(i, ins_new))
+                        i.replace_by(ins_new)
+                    else:
+                        ins_map[k] = i
 
 
-child_nodes = {}
-child_nodes[ir.Binop] = ['a', 'b']
-child_nodes[ir.Add] = ['a', 'b']
-child_nodes[ir.Const] = []
-child_nodes[ir.Addr] = ['e']
-child_nodes[ir.GlobalVariable] = []
-child_nodes[ir.Parameter] = []
-child_nodes[ir.Jump] = []
-child_nodes[ir.Terminator] = []
-child_nodes[ir.Call] = ['arguments']
-child_nodes[ir.CJump] = ['a', 'b']
+class RemoveAddZeroPass(InstructionPass):
+    """ Replace additions with zero with the value itself """
+    def onInstruction(self, instruction):
+        if type(instruction) is ir.Binop:
+            if instruction.operation == '+':
+                if type(instruction.b) is ir.Const and instruction.b.value == 0:
+                    self.logger.debug('Folding {} to {}'.format(instruction, instruction.a))
+                    instruction.replace_by(instruction.a)
+            elif instruction.operation == '*':
+                if type(instruction.b) is ir.Const and instruction.b.value == 1:
+                    self.logger.debug('Multiple 1 {} to {}'.format(instruction, instruction.a))
+                    raise NotImplementedError()
 
 
-def apply_function(x, f):
-    """ Recursively apply function """
-    # Handle list:
-    if type(x) is list:
-        for i in range(len(x)):
-            x[i] = apply_function(x[i], f)
-        return x
-
-    # Normal node:
-    for child in child_nodes[type(x)]:
-        v = getattr(x, child)
-        v = apply_function(v, f)
-        assert not (v is None)
-        setattr(x, child, v)
-    # Apply function!
-    return f(x)
-
-
-class ExpressionFixer(InstructionPass):
-    def onInstruction(self, i):
-        apply_function(i, self.grok)
-
-
-class RemoveAddZero(ExpressionFixer):
-    def grok(self, v):
-        if type(v) is ir.Binop:
-            if v.operation == '+':
-                if type(v.b) is ir.Const and v.b.value == 0:
-                    self.logger.debug('Folding {} to {}'.format(v, v.a))
-                    return v.a
-            elif v.operation == '*':
-                if type(v.b) is ir.Const and v.b.value == 1:
-                    self.logger.debug('Multiple 1 {} to {}'.format(v, v.a))
-                    return v.a
-        return v
+class DeleteUnusedInstructionsPass(BlockPass):
+    """ Remove unused variables from a block """
+    def onBlock(self, block):
+        instructions = list(block.instructions)
+        for instruction in instructions:
+            if isinstance(instruction, ir.Value) and type(instruction) is not ir.Call:
+                if not instruction.is_used:
+                    self.logger.debug('Deleting unused: {}'.format(instruction))
+                    instruction.remove_from_block()
 
 
 class CleanPass(FunctionPass):
+    """ Glue blocks together if possible """
     def onFunction(self, f):
         self.remove_empty_blocks(f)
         self.remove_one_preds(f)

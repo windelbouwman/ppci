@@ -1,12 +1,14 @@
 
-
+import sys
 import argparse
 import logging
 
-from ppci.report import RstFormatter
-from ppci.buildfunctions import construct, TaskError
-import ppci.buildtasks  # Include not used, but it registers build tasks.
-import ppci
+from .report import RstFormatter
+from .buildfunctions import construct, bf2ir, optimize
+from .irutils import Writer
+from .tasks import TaskError
+from . import buildtasks  # Include not used, but it registers build tasks.
+from . import logformat
 
 
 def logLevel(s):
@@ -18,7 +20,7 @@ def logLevel(s):
 
 
 def make_parser():
-    parser = argparse.ArgumentParser(description='lcfos Compiler')
+    parser = argparse.ArgumentParser(description='ppci compiler')
 
     parser.add_argument('--log', help='Log level (INFO,DEBUG,[WARN])',
                         type=logLevel, default='INFO')
@@ -26,12 +28,31 @@ def make_parser():
         '--report',
         help='Specify a file to write the compile report to',
         type=argparse.FileType('w'))
-    parser.add_argument(
+
+    subparsers = parser.add_subparsers(
+        title='commands',
+        description='possible commands', dest='command')
+
+    build_parser = subparsers.add_parser('build', help='build project from xml description')
+    build_parser.add_argument(
         '-b', '--buildfile',
         help='use buildfile, otherwise build.xml is the default',
         default='build.xml')
+    build_parser.add_argument('targets', metavar='target', nargs='*')
 
-    parser.add_argument('targets', metavar='target', nargs='*')
+    bf2ir_parser = subparsers.add_parser('bf2ir', help='Compile brainfuck code into ir code.')
+    bf2ir_parser.add_argument('source', type=argparse.FileType('r'))
+    bf2ir_parser.add_argument('-o', '--output', help='output file',
+        type=argparse.FileType('w'), default=sys.stdout)
+
+    c32ir_parser = subparsers.add_parser('c32ir', help='Compile c3 code into ir code.')
+    c32ir_parser.add_argument('--target', help='target machine', default="arm")
+    c32ir_parser.add_argument('-o', '--output', help='output file',
+        type=argparse.FileType('w'), default=sys.stdout)
+    c32ir_parser.add_argument('-i', '--include', action='append',
+        help='include file', default=[])
+    c32ir_parser.add_argument('sources', metavar='source',
+        help='source file', nargs='+')
     return parser
 
 
@@ -39,7 +60,7 @@ def main(args):
     # Configure some logging:
     logging.getLogger().setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
-    ch.setFormatter(logging.Formatter(ppci.logformat))
+    ch.setFormatter(logging.Formatter(logformat))
     ch.setLevel(args.log)
     logging.getLogger().addHandler(ch)
 
@@ -49,7 +70,20 @@ def main(args):
         logging.getLogger().addHandler(fh)
 
     try:
-        res = construct(args.buildfile, args.targets)
+        res = 0
+        if args.command == 'build':
+            res = construct(args.buildfile, args.targets)
+        elif args.command == 'bf2ir':
+            ircode = bf2ir(args.source.read())
+            optimize(ircode)
+            Writer().write(ircode, args.output)
+        elif args.command == 'c3c':
+            res = c3toir(args.sources, args.include, args.target)
+            writer = ppci.irutils.Writer()
+            for ir_module in res:
+                writer.write(ir_module, args.output)
+        else:
+            raise Exception('command = {}'.format(args.command))
     except TaskError as err:
         logging.getLogger().error(str(err.msg))
         res = 1

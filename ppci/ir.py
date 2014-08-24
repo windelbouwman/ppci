@@ -75,6 +75,9 @@ class Function:
         self.epiloog = Block('epilog')
         self.epiloog.function = self
         self.epiloog.addInstruction(Terminator())
+        # Link entry to epilog:
+        self.entry.extra_successors.append(self.epiloog)
+
         self.arguments = []
         if module:
             module.add_function(self)
@@ -123,10 +126,11 @@ class Function:
         for b in self.Blocks:
             b.check()
 
-    def addParameter(self, p):
+    def add_parameter(self, p):
         assert type(p) is Parameter
         p.num = len(self.arguments)
         self.arguments.append(p)
+        # p.parent = self.entry
 
 
 class Block:
@@ -137,11 +141,17 @@ class Block:
         self.name = name
         self.function = function
         self.instructions = []
+        self.extra_successors = []
 
     parent = property(lambda s: s.function)
 
     def __repr__(self):
         return '{0}:'.format(self.name)
+
+    def insert_instruction(self, i):
+        """ Insert an instruction at the front of the block """
+        i.parent = self
+        self.instructions.insert(0, i)
 
     def addInstruction(self, i):
         i.parent = self
@@ -180,8 +190,8 @@ class Block:
 
     def getSuccessors(self):
         if not self.Empty:
-            return self.LastInstruction.Targets
-        return []
+            return self.LastInstruction.Targets + self.extra_successors
+        return [] + self.extra_successors
 
     Successors = property(getSuccessors)
 
@@ -197,6 +207,30 @@ class Block:
     def precedes(self, other):
         raise NotImplementedError()
 
+    def dominates(self, other):
+        cfg_info = self.function.cfg_info
+        return cfg_info.strictly_dominates(self, other)
+
+
+def VarUse(name):
+    """ Creates a property that also keeps track of usage """
+    def getter(self):
+        if name in self.var_map:
+            return self.var_map[name]
+        else:
+            return "Not set!"
+
+    def setter(self, value):
+        # If value was already set, remove usage
+        if name in self.var_map:
+            self.del_use(self.var_map[name])
+        # Place the value in the var map:
+        self.var_map[name] = value
+
+        # Add usage:
+        self.add_use(value)
+    return property(getter, setter)
+
 
 # Instructions:
 class Instruction:
@@ -204,18 +238,66 @@ class Instruction:
     def __init__(self):
         # Create a collection to store the values this value uses.
         # TODO: think of better naming..
+        self.var_map = {}
         self.parent = None
         self.uses = set()
 
     @property
     def block(self):
-        return parent
+        return self.parent
 
     def add_use(self, v):
         """ Add v to the list of values used by this instruction """
         assert isinstance(v, Value)
         self.uses.add(v)
         v.add_user(self)
+
+    def del_use(self, v):
+        assert isinstance(v, Value)
+        self.uses.remove(v)
+        v.del_user(self)
+
+    def replace_use(self, old, new):
+        # TODO: update reference
+        assert old in self.var_map.values()
+        for name in self.var_map:
+            if self.var_map[name] is old:
+                self.del_use(old)
+                self.var_map[name] = new
+                self.add_use(new)
+
+    def remove_from_block(self):
+        for use in list(self.uses):
+            self.del_use(use)
+        self.block.remove_instruction(self)
+
+    def dominates(self, other):
+        """ Checks if this instruction dominates another instruction """
+        if type(self) is Parameter or type(self) is GlobalVariable:
+            # TODO: hack, parameters dominate all other instructions..
+            return True
+        # All other instructions must have a containing block:
+        assert self.block is not None, '{} has no block'.format(self)
+
+        # Phis are special case:
+        if type(other) is Phi:
+            # TODO: hack, return True for now!!
+            for block in other.inputs:
+                if other.inputs[block] == self:
+                    # This is the queried dominance branch
+                    # Check if this instruction dominates the last instruction of this block
+                    return self.dominates(block.LastInstruction)
+            raise Exception('Cannot query dominance for this phi')
+        # For all other instructions follow these rules:
+        if self.block == other.block:
+            block = self.block
+            return block.instructions.index(self) < block.instructions.index(other)
+        else:
+            return self.block.dominates(other.block)
+
+    @property
+    def IsTerminator(self):
+        return isinstance(self, LastStatement)
 
 
 class Value(Instruction):
@@ -231,14 +313,32 @@ class Value(Instruction):
         """ Add a usage for this value """
         self.used_by.add(i)
 
+    def del_user(self, i):
+        """ Add a usage for this value """
+        self.used_by.remove(i)
+
     def used_in_blocks(self):
         """ Returns a set of blocks where this value is used """
-        return set(i.parent for i in self.used_by)
+        return set(i.block for i in self.used_by)
+
+    @property
+    def is_used(self):
+        return bool(len(self.used_by))
+
+    def replace_by(self, value):
+        """ Replace all uses of this value by another value """
+        for use in list(self.used_by):
+            use.replace_use(self, value)
 
 
 class Expression(Value):
     """ Base class for an expression """
     pass
+
+
+class Undefined(Value):
+    def __repr__(self):
+        return '{} = Undef'.format(self.name)
 
 
 class Const(Expression):
@@ -261,6 +361,9 @@ class Call(Expression):
         for arg in self.arguments:
             self.add_use(arg)
 
+    def replace_use(self, old, new):
+        raise NotImplementedError()
+
     def __repr__(self):
         args = ', '.join(arg.name for arg in self.arguments)
         return '{} = {}({})'.format(self.name, self.f, args)
@@ -270,18 +373,15 @@ class Call(Expression):
 class Binop(Expression):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '|', '&', '<<', '>>']
+    a = VarUse('a')
+    b = VarUse('b')
 
     def __init__(self, a, operation, b, name, ty):
         super().__init__(name, ty)
         assert operation in Binop.ops
-        #assert type(value1) is type(value2)
-        assert isinstance(a, Value), str(a)
-        assert isinstance(b, Value), str(b)
         self.a = a
         self.b = b
         self.operation = operation
-        self.add_use(self.a)
-        self.add_use(self.b)
 
     def __repr__(self):
         a, b = self.a.name, self.b.name
@@ -308,14 +408,23 @@ def Div(a, b, name, ty):
     return Binop(a, '/', b, name, ty)
 
 
-def Phi(Value):
+class Phi(Value):
     """ Imaginary phi instruction to make SSA possible. """
     def __init__(self, name, ty):
         super().__init__(name, ty)
-        self.inputs = []
+        self.inputs = {}
 
-    def add_input(self, value, block):
-        self.inputs.append((value, block))
+    def __repr__(self):
+        inputs = {b: v.name for b,v in self.inputs.items()}
+        return '{} = Phi {}'.format(self.name, inputs)
+
+    def replace_use(self, old, new):
+        raise NotImplementedError()
+
+    def set_incoming(self, block, value):
+        if block in self.inputs:
+            self.del_use(self.inputs[block])
+        self.inputs[block] = value
         self.add_use(value)
 
 
@@ -351,11 +460,10 @@ class Parameter(Variable):
 
 class Load(Value):
     """ Load a value from memory """
+    address = VarUse('address')
     def __init__(self, address, name, ty):
         super().__init__(name, ty)
-        assert isinstance(address, Value)
         self.address = address
-        self.add_use(self.address)
 
     def __repr__(self):
         return '{} = [{}]'.format(self.name, self.address.name)
@@ -363,14 +471,12 @@ class Load(Value):
 
 class Store(Instruction):
     """ Store a value into memory """
+    address = VarUse('address')
+    value = VarUse('value')
     def __init__(self, value, address):
         super().__init__()
-        assert isinstance(address, Value)
-        assert isinstance(value, Value)
         self.address = address
-        self.add_use(self.address)
         self.value = value
-        self.add_use(self.value)
 
     def __repr__(self):
         return '[{}] = {}'.format(self.address.name, self.value.name)
@@ -378,6 +484,7 @@ class Store(Instruction):
 
 class Addr(Expression):
     """ Address of label """
+    e = VarUse('e')
     def __init__(self, e, name, ty):
         super().__init__(name, ty)
         self.e = e
@@ -386,15 +493,11 @@ class Addr(Expression):
         return '{} = &{}'.format(self.name, self.e.name)
 
 
-class Statement(Instruction):
-    """ Base class for all instructions. """
-    @property
-    def IsTerminator(self):
-        return isinstance(self, LastStatement)
-
-
 # Branching:
-class LastStatement(Statement):
+class LastStatement(Instruction):
+    def __init__(self):
+        super().__init__()
+
     def changeTarget(self, old, new):
         idx = self.Targets.index(old)
         self.Targets[idx] = new
@@ -403,6 +506,7 @@ class LastStatement(Statement):
 class Terminator(LastStatement):
     """ Instruction that terminates the terminal block """
     def __init__(self):
+        super().__init__()
         self.Targets = []
 
     def __repr__(self):
@@ -412,6 +516,7 @@ class Terminator(LastStatement):
 class Jump(LastStatement):
     """ Jump statement to some target location """
     def __init__(self, target):
+        super().__init__()
         self.Targets = [target]
 
     def setTarget(self, t):
@@ -426,6 +531,8 @@ class Jump(LastStatement):
 class CJump(LastStatement):
     """ Conditional jump to true or false labels. """
     conditions = ['==', '<', '>', '>=', '<=', '!=']
+    a = VarUse('a')
+    b = VarUse('b')
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()
@@ -433,8 +540,6 @@ class CJump(LastStatement):
         self.a = a
         self.cond = cond
         self.b = b
-        self.add_use(a)
-        self.add_use(b)
         self.Targets = [lab_yes, lab_no]
 
     lab_yes = property(lambda s: s.Targets[0])

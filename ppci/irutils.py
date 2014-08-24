@@ -2,8 +2,10 @@
 """
     Some utilities for ir-code.
 """
+import logging
 import re
 from . import ir
+from .domtree import CfgInfo
 
 def dumpgv(m, outf):
     print('digraph G ', file=outf)
@@ -249,19 +251,26 @@ class Builder:
 
 class Verifier:
     """ Checks an ir module for correctness """
+    def __init__(self):
+        self.logger = logging.getLogger('verifier')
+
     def verify(self, module):
         """ Verifies a module for some sanity """
         assert isinstance(module, ir.Module)
         for f in module.Functions:
             self.verify_function(f)
+        self.logger.debug('Function OK')
 
     def verify_function(self, function):
         for b in function.Blocks:
             self.verify_block_termination(b)
 
+        self.logger.debug('Function structure OK')
         # Now we can build a dominator tree
-        for b in function.Blocks:
-            self.verify_block(b)
+        function.cfg_info = CfgInfo(function)
+        for block in function.Blocks:
+            assert block.function == function
+            self.verify_block(block)
 
     def verify_block_termination(self, block):
         assert not block.Empty
@@ -271,7 +280,11 @@ class Verifier:
 
     def verify_block(self, block):
         for instruction in block.Instructions:
-            self.verify_instruction(instruction)
+            self.verify_instruction(instruction, block)
 
-    def verify_instruction(self, instruction):
-        pass
+    def verify_instruction(self, instruction, block):
+        assert instruction.block == block
+        assert instruction in block.instructions
+        # Verify that all uses are defined before this instruction.
+        for value in instruction.uses:
+            assert value.dominates(instruction), "{} does not dominate {}".format(value, instruction)

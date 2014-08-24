@@ -141,6 +141,13 @@ class Dagger:
         self.lut[node] = rv_copy
         # self.dag.append(Tree('MOVI32',
 
+    @register(ir.Phi)
+    def do_phi(self, node):
+        # Phis are lifted elsewhere..
+        # Create a new vreg for this phi:
+        rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
+        self.lut[node] = rv_copy
+
     def make_dag(self, irfunc, frame):
         """ Create dag (directed acyclic graph) of nodes for the selection
             this function makes a list of dags. One for each basic blocks.
@@ -168,18 +175,31 @@ class Dagger:
             self.lut[p] = tree
 
         # First define labels:
-        for basic_block in irfunc.Blocks:
-            label_name = ir.label_name(basic_block)
+        for block in irfunc.Blocks:
+            block.dag = []
+            label_name = ir.label_name(block)
             itgt = AbstractInstruction(Label(label_name))
             frame.label_map[label_name] = itgt
+            block.dag.append(itgt)
+            dags.append(block.dag)
 
         # Generate serie of trees for all blocks:
-        for basic_block in irfunc.Blocks:
-            self.dag = []
-            self.dag.append(frame.label_map[ir.label_name(basic_block)])
-            for instruction in basic_block.Instructions:
+        for block in irfunc.Blocks:
+            self.dag = block.dag
+            for instruction in block.Instructions:
                 self.f_map[type(instruction)](self, instruction)
-            dags.append(self.dag)
+
+        # Construct out of SSA form (remove phi-s)
+        # Lift phis, append them to end of incoming blocks..
+        for block in irfunc.Blocks:
+            for instruction in block.Instructions:
+                if type(instruction) is ir.Phi:
+                    # Add moves to incoming branches:
+                    vreg = self.lut[instruction]
+                    for from_block, from_val in instruction.inputs.items():
+                        val = self.lut[from_val]
+                        tree = Tree('MOVI32', vreg, val)
+                        from_block.dag.append(tree)
 
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..

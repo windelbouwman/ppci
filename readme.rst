@@ -17,8 +17,6 @@ ppci can be installed from mercurial by using pip with virtualenv:
     $ source ppci_sandbox/bin/activate
     (ppci_sandbox)$ pip install hg+https://bitbucket.org/windel/ppci
     (ppci_sandbox)$ zcc.py -h
-      usage: zcc.py [-h] [--log LOG] [--report REPORT] [-b BUILDFILE]
-                    [target [target ...]]
     (ppci_sandbox)$ deactivate
     $
 

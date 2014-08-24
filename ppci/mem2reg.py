@@ -1,5 +1,6 @@
 from .transform import FunctionPass
-from .ir import Alloc, Load, Store
+from .ir import Alloc, Load, Store, Phi, i32, Undefined
+from .domtree import CfgInfo
 
 
 def isAllocPromotable(allocinst):
@@ -17,49 +18,13 @@ def isAllocPromotable(allocinst):
 class Mem2RegPromotor(FunctionPass):
     """ Tries to find alloc instructions only used by load and store
     instructions and replace them with values and phi nodes """
-    def promoteSingleBlock(self, alloc_inst):
-        """ Simple case in which no phi nodes need be placed """
-        block = alloc_inst.block
 
-        # Replace all loads with the value:
-        loads = [i for i in v.used_by if isinstance(i, Load)]
-        stores = [i for i in v.used_by if isinstance(i, Store)]
-        stores.sort(key=lambda s: s.Position)
-        stores.reverse()
-
-        for load in loads:
-            idx = load.Position
-            # Search upwards:
-            for store in stores:
-                if store.Position < load.Position:
-                    break
-            load.value.replaceby(store.value)
-            self.logger.debug('replaced {} with {}'.format(load, store.value))
-            block.removeInstruction(load)
-
-        # Remove store instructions:
-        for store in stores:
-            sv = store.value
-            self.logger.debug('removing {}'.format(store))
-            block.remove_instruction(store)
-            # assert sv.Used
-
-        # Remove alloca instruction:
-        assert not ai.value.Used, ai.value.used_by
-        block.removeInstruction(alloc_inst)
-
-    def promote(self, alloc_inst):
+    def promote(self, alloc_inst, cfg_info):
         """ Promote a single alloc instruction.
         Find load operations and replace them with assignments """
+        name = alloc_inst.name
+        cntr = 0
         self.logger.debug('Promoting {} to register'.format(alloc_inst))
-
-        # If only within one block:
-        if len(alloc_inst.used_in_blocks()) == 1:
-            self.logger.debug('{} only used in one block'.format(alloc_inst))
-            self.promoteSingleBlock(alloc_inst)
-            return
-
-        self.logger.debug('Multiple blocks use {}'.format(alloc_inst))
 
         loads = [i for i in alloc_inst.used_by if isinstance(i, Load)]
         stores = [i for i in alloc_inst.used_by if isinstance(i, Store)]
@@ -67,24 +32,89 @@ class Mem2RegPromotor(FunctionPass):
         self.logger.debug('Alloc used by {} load and {} stores'.
                           format(len(loads), len(stores)))
 
-        # Each store instruction can be removed (later).
-        # Instead of storing the value, we use it
-        # where the load would have been!
-        replMap = {}
+        # Step 1: place phi-functions where required:
+        # Each node in the df(x) requires a phi function, where x is a block where the variable is defined.
+        defining_blocks = set(st.block for st in stores)
+        self.logger.debug('Defining blocks: {}'.format(defining_blocks))
+
+        # Create worklist:
+        W = set(defining_blocks)
+        has_phi = set()
+        phis = list()
+        while W:
+            x = W.pop()
+            for y in cfg_info.df[x]:
+                if y not in has_phi:
+                    has_phi.add(y)
+                    W.add(y)
+                    phi_name = "phi_{}_{}".format(name, cntr)
+                    phi = Phi(phi_name, i32)
+                    phis.append(phi)
+                    cntr += 1
+                    self.logger.debug('Adding phi-node {} to {}'.format(phi, y))
+                    y.insert_instruction(phi)
+
+        # Create undefined value at start:
+        initial_value = Undefined('undef_{}'.format(name), i32)
+        cfg_info.f.entry.insert_instruction(initial_value)
+        # Step 2: renaming:
+        self.logger.debug('Renaming phase')
+
+        # Start a top down sweep over the dominator tree to visit all statements
+        stack = [initial_value]
+        def search(b):
+            # Crawl down block:
+            defs = 0
+            for a in b.Instructions:
+                if a in phis:
+                    stack.append(a)
+                    defs += 1
+                if a in stores:
+                    stack.append(a.value)
+                    defs += 1
+                if a in loads:
+                    # Replace all uses of a with cur_V
+                    a.replace_by(stack[-1])
+            # At the end of the block
+            # For all successors with phi functions, insert the proper variable:
+            for y in cfg_info.succ[b]:
+                for phi in (p for p in phis if p.block == y):
+                    phi.set_incoming(b, stack[-1])
+
+            # Recurse into children:
+            for y in cfg_info.children(b):
+                search(y)
+
+            # Cleanup stack:
+            for _ in range(defs):
+                stack.pop(-1)
+
+        search(cfg_info.f.entry)
+
+        # Check that all phis have the proper number of inputs.
+        for phi in phis:
+            assert len(phi.inputs) == len(cfg_info.pred[phi.block])
+
+        # Each store instruction can be removed.
         for store in stores:
-            replMap[store] = store.value
+            self.logger.debug('Removing {}'.format(store))
+            store.remove_from_block()
 
         # for each load, track back what the defining store
-        # was.
         for load in loads:
-            pass
-        raise Exception("Not implemented")
+            assert not load.is_used
+            self.logger.debug('Removing {}'.format(load))
+            load.remove_from_block()
+
+        # Finally the alloc instruction can be deleted:
+        assert not alloc_inst.is_used
+        alloc_inst.remove_from_block()
 
     def onFunction(self, f):
-        dom_tree = f.dominator_tree()
-        print(dom_tree)
+        self.cfg_info = CfgInfo(f)
+        self.logger.debug('cfg info created', extra={'cfg_info': self.cfg_info})
         for bb in f.Blocks:
             allocs = [i for i in bb.Instructions if isinstance(i, Alloc)]
             for alloc_inst in allocs:
                 if isAllocPromotable(alloc_inst):
-                    self.promote(alloc_inst)
+                    self.promote(alloc_inst, self.cfg_info)

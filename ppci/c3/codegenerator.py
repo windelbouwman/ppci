@@ -89,7 +89,7 @@ class CodeGenerator:
                 parameter = ir.Parameter(sym.name, ir.i32)
                 variable = ir.Alloc(sym.name + '_copy', ir.i32)
                 self.builder.emit(variable)
-                ir_function.addParameter(parameter)
+                ir_function.add_parameter(parameter)
                 # Move parameter into local copy:
                 self.builder.emit(ir.Store(parameter, variable))
             elif sym.isLocal or isinstance(sym, ast.Variable):

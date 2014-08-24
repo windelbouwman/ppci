@@ -13,6 +13,24 @@ class IrCodeTestCase(unittest.TestCase):
         v2 = ir.Const(2, 'const', ir.i32)
         ir.Add(v1, v2, "add", ir.i32)
 
+    def testUse(self):
+        """ Check if use def information is correctly administered """
+        c1 = ir.Const(1, 'one', ir.i32)
+        c2 = ir.Const(2, 'two', ir.i32)
+        c3 = ir.Const(3, 'three', ir.i32)
+        c4 = ir.Const(4, 'four', ir.i32)
+        add = ir.Add(c1, c2, 'add', ir.i32)
+        self.assertEqual({c1, c2}, add.uses)
+
+        # Replace usage by setting the variable:
+        add.a = c3
+        self.assertEqual({c3, c2}, add.uses)
+
+        # Replace use by changing value:
+        add.replace_use(c2, c4)
+        self.assertEqual({c3, c4}, add.uses)
+        self.assertEqual(c4, add.b)
+
 
 class IrBuilderTestCase(unittest.TestCase):
     def setUp(self):

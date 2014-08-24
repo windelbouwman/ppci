@@ -1,75 +1,128 @@
 
+from collections import namedtuple
 
-class DomTreeBuilder:
-    def dominator_tree(f):
+DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])
+
+class CfgInfo:
+    """ Calculate control flow graph info, such as dominators
+    dominator tree and dominance frontier """
+    def __init__(self, f):
+        # Store ir related info:
+        self.f = f
+        self.n0 = f.entry
+        self.N = set(f.Blocks)
+
+        self.pred = {}
+        self.succ = {}
+        for block in f.Blocks:
+            self.prepare(block)
+
+        # From here only succ and pred are relevant:
+        self.dom = {}
+        self.sdom = {}
+        self.calculate_dominators()
+
+        self.idom = {}
+        self.calculate_idom()
+
+        self.df = {}
+        self.calculate_df()
+
+    def __repr__(self):
+        return 'CfgInfo(pred={}\n, succ={}\n, dom={}\n)'.format(self.pred, self.succ, self.dom)
+
+    def prepare(self, block):
+        self.pred[block] = block.Predecessors
+        self.succ[block] = block.Successors
+
+    def calculate_dominators(self):
         """
-            Calculate the dominator tree of this function
+            Calculate the dominator sets iteratively
         """
-        n0 = f.entry
 
         # Initialize dom map:
-        dom = {}
-        dom[n0] = {n0}
-        N = set(f.Blocks)
-        for n in N - {n0}:
-            dom[n] = N
+        self.dom[self.n0] = {self.n0}
+        for n in self.N - {self.n0}:
+            self.dom[n] = self.N
 
         # Run fixed point algorithm:
         change = True
         while change:
             change = False
-            for n in N - {n0}:
+            for n in self.N - {self.n0}:
                 # Node n in dominatet by itself and by the intersection of
                 # the dominators of its predecessors
-                new_dom_n = set.union({n}, set.intersection(*(dom[p] for p in n.Predecessors)))
-                if new_dom_n != dom[n]:
+                pred_doms = list(self.dom[p] for p in self.pred[n])
+                if not pred_doms:
+                    # We cannot be here!
+                    # Always add entry as a predecessor of epilog to prevent this situation.
+                    print(self.pred[n], n)
+                    print(pred_doms)
+                    raise Exception()
+                new_dom_n = set.union({n}, set.intersection(*pred_doms))
+                if new_dom_n != self.dom[n]:
                     change = True
-                    dom[n] = new_dom_n
+                    self.dom[n] = new_dom_n
 
-        print(dom)
+        # Calculate the strict dominators:
+        for n in self.N - {self.n0}:
+            self.sdom[n] = self.dom[n] - {n}
 
-        # Now create dominator tree:
-        root = DTreeNode(n0)
-        cur = root
-        placed = {n0}
-        for n in list(N - placed):
-            dom[n].remove(n0)
-            if (dom[n] - placed) == {n}:
-                placed.add(n)
-                print('Bingo!', n)
+    def strictly_dominates(self, n1, n2):
+        """ Calculate if n1 strictly dominates n2 """
+        return n1 in self.sdom[n2]
 
-        print(root)
-        return dom
-
-
-class DomBuilder2:
-    def lengauer_tarjan(self, f):
-        """ Calculate dominators by using 
-            T. Lengauer and R. E. Tarjan algorithm from 1979.
+    def calculate_idom(self):
         """
-        self.n = 0
-        self.semi = {}
+            Calculate immediate dominator by choosing n from sdom(x) such that dom(n) == sdom(x)
+        """
+        for n in list(self.N - {self.n0}):
+            for x in self.sdom[n]:
+                if self.dom[x] == self.sdom[n]:
+                    # This must be the only definition of idom:
+                    assert n not in self.idom
+                    self.idom[n] = x
 
-        self.dfs()
+        # Create a tree:
+        self.tree_map = {}
+        for n in self.N:
+            self.tree_map[n] = DomTreeNode(n, list())
 
-    def dfs(self, vertex):
-        n = n + 1
-        semi[v] = n
-        vertex[n] = v
-        for w in v.succ:
-            if w not in semi:
-                parent[w] = v
-                self.dfs(w)
-                pred[w].add(v)
+        # Add all nodes except for the root node into the tree:
+        for n in self.N - {self.n0}:
+            parent = self.tree_map[self.idom[n]]
+            node = self.tree_map[n]
+            parent.children.append(node)
+        self.root_tree = self.tree_map[self.n0]
+
+    def bottom_up(self, node):
+        """ Generator that yields all nodes in bottom up way """
+        for c in node.children:
+            yield from self.bottom_up(c)
+        yield node.block
+
+    def children(self, n):
+        """ Return all children for node n """
+        tree = self.tree_map[n]
+        for c in tree.children:
+            yield c.block
+
+    def calculate_df(self):
+        """
+            Algorithm from Ron Cytron et al.
+
+            how to calculate the dominance frontier for all nodes using
+            the dominator tree.
+        """
+        for x in self.bottom_up(self.root_tree):
+            # Initialize dominance frontier to the empty set:
+            self.df[x] = set()
+            for y in self.succ[x]:
+                if self.idom[y] != x:
+                    self.df[x].add(y)   # Local rule for dominance frontier
+            for z in self.children(x):
+                for y in self.df[z]:
+                    if self.idom[y] != x:
+                        self.df[x].add(y)  # upwards rule
 
 
-class DTreeNode:
-    def __init__(self, node):
-        self.node = node
-        self.children = []
-
-    def add_child(self, tree):
-        self.children.append(tree)
-
-    def __repr__(self):
-        return "({}={})".format(self.node, self.children)

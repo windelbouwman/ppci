@@ -11,11 +11,12 @@ from .c3 import Builder
 from .bf import BrainFuckGenerator
 from .irutils import Verifier
 from .codegen import CodeGenerator
-from .transform import CleanPass, RemoveAddZero
+from .transform import CleanPass, DeleteUnusedInstructionsPass
+from .transform import RemoveAddZeroPass, CommonSubexpressionEliminationPass
 from .mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
-from .target.target_list import targets
+from .target import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile
@@ -29,8 +30,7 @@ def fix_target(tg):
     if isinstance(tg, Target):
         return tg
     elif isinstance(tg, str):
-        if tg in targets:
-            return targets[tg]
+        return get_target(tg)
     raise TaskError('Invalid target {}'.format(tg))
 
 
@@ -133,6 +133,34 @@ def c3toir(sources, includes, target):
     return ir_modules
 
 
+def optimize(ircode):
+    """
+        Run a bag of tricks against the ir-code.
+        This is an in-place operation!
+    """
+    verifier = Verifier()
+    verifier.verify(ircode)
+    # Optimization passes:
+    # CleanPass().run(ircode)
+
+    Mem2RegPromotor().run(ircode)
+    verifier.verify(ircode)
+
+    DeleteUnusedInstructionsPass().run(ircode)
+    verifier.verify(ircode)
+
+    RemoveAddZeroPass().run(ircode)
+    verifier.verify(ircode)
+
+    CommonSubexpressionEliminationPass().run(ircode)
+    verifier.verify(ircode)
+
+    DeleteUnusedInstructionsPass().run(ircode)
+    # CleanPass().run(ircode)
+
+    verifier.verify(ircode)
+
+
 def ir_to_code(ir_modules, target):
     logger = logging.getLogger('ir_to_code')
     cg = CodeGenerator(target)
@@ -143,14 +171,6 @@ def ir_to_code(ir_modules, target):
     for ircode in ir_modules:
         Verifier().verify(ircode)
 
-        # Optimization passes:
-        # CleanPass().run(ircode)
-        # Mem2RegPromotor().run(ircode)
-        Verifier().verify(ircode)
-        # RemoveAddZero().run(ircode)
-        Verifier().verify(ircode)
-        # CleanPass().run(ircode)
-        Verifier().verify(ircode)
 
         # Code generation:
         d = {'ircode': ircode}
@@ -167,10 +187,17 @@ def c3compile(sources, includes, target):
     return ir_to_code(c3toir(sources, includes, target), target)
 
 
+def bf2ir(source):
+    """ Compile brainfuck source into ir code """
+    ircode = BrainFuckGenerator().generate(source)
+    return ircode
+
+
 def bfcompile(source, target):
     """ Compile brainfuck source into binary format for the given target """
     target = fix_target(target)
-    ircode = BrainFuckGenerator().generate(source)
+    ircode = bf2ir(source)
+    optimize(ircode)
     return ir_to_code([ircode], target)
 
 

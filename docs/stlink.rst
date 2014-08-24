@@ -27,7 +27,7 @@ Compiling the stm32f4xx example project using the compiler toolchain:
 .. code:: bash
 
     $ cd ~/HG/ppci/test/data/stm32f4xx
-    $ zcc.py
+    $ zcc.py build
       2014-08-15 12:40:15,640|INFO|taskrunner|Target sequence: [Target "burn2", Target "all"]
       2014-08-15 12:40:15,640|INFO|taskrunner|Target burn2
       2014-08-15 12:40:15,640|INFO|taskrunner|Running Task "AssembleTask"

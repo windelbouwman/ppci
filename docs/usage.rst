@@ -25,12 +25,12 @@ To build the project, run zcc.py in the same directory:
 
 .. code:: bash
 
-    $ zcc.py
+    $ zcc.py build
 
 Or specify the buildfile:
 
 .. code:: bash
 
-    $ zcc.py -b test/data/stm32f4xx/build.xml
+    $ zcc.py build -b test/data/stm32f4xx/build.xml
 
 
