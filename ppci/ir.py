@@ -325,6 +325,10 @@ class Value(Instruction):
     def is_used(self):
         return bool(len(self.used_by))
 
+    @property
+    def use_count(self):
+        return len(self.used_by)
+
     def replace_by(self, value):
         """ Replace all uses of this value by another value """
         for use in list(self.used_by):

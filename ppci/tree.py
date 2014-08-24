@@ -16,9 +16,14 @@ class Tree:
     def __repr__(self):
         if self.children:
             ch = ', '.join(str(c) for c in self.children)
-            return '{}({})'.format(self.name, ch)
+            ch = '({})'.format(ch)
         else:
-            return '{}'.format(self.name)
+            ch = ''
+        if self.value is not None:
+            val = '[{}]'.format(self.value)
+        else:
+            val = ''
+        return '{}{}{}'.format(self.name, val, ch)
 
 
 class State:

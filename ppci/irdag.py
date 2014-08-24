@@ -1,4 +1,6 @@
 
+import logging
+
 from . import ir
 from .target.basetarget import Label
 from .irmach import AbstractInstruction, VirtualRegister
@@ -34,6 +36,8 @@ def make_map(cls):
 
 @make_map
 class Dagger:
+    def __init__(self):
+        self.logger = logging.getLogger('dag-creator')
 
     @register(ir.Jump)
     def do_jump(self, node):
@@ -105,7 +109,15 @@ class Dagger:
         a = self.lut[node.a]
         b = self.lut[node.b]
         tree = Tree(op, a, b)
-        self.lut[node] = tree
+        # Check if this binop is used more than once
+        # if so, create register copy:
+        if node.use_count > 1:
+            self.logger.debug('Binop {} used more than once'.format(node))
+            rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
+            self.dag.append(Tree('MOVI32', rv_copy, tree))
+            self.lut[node] = rv_copy
+        else:
+            self.lut[node] = tree
 
     @register(ir.Addr)
     def do_addr(self, node):
@@ -148,6 +160,16 @@ class Dagger:
         rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
         self.lut[node] = rv_copy
 
+    def only_arith(self, root):
+        """ Determine if a tree is only arithmatic all the way up """
+        return root.name in ['REGI32', 'ADDI32', 'SUBI32'] and all(self.only_arith(c) for c in root.children)
+
+    def split_dag(self, dag):
+        """ Split dag into forest of trees """
+        # self.
+        for root in dag:
+            print(root)
+
     def make_dag(self, irfunc, frame):
         """ Create dag (directed acyclic graph) of nodes for the selection
             this function makes a list of dags. One for each basic blocks.
@@ -189,6 +211,7 @@ class Dagger:
             for instruction in block.Instructions:
                 self.f_map[type(instruction)](self, instruction)
 
+        self.logger.debug('Lifting phi nodes')
         # Construct out of SSA form (remove phi-s)
         # Lift phis, append them to end of incoming blocks..
         for block in irfunc.Blocks:
@@ -199,7 +222,16 @@ class Dagger:
                     for from_block, from_val in instruction.inputs.items():
                         val = self.lut[from_val]
                         tree = Tree('MOVI32', vreg, val)
-                        from_block.dag.append(tree)
+                        # Insert before jump:
+                        from_block.dag.insert(-1, tree)
+
+        # Split dags into trees!
+        self.logger.debug('Splitting forest')
+        for dag in dags:
+            for dg in dag:
+                #self.split_dag(dg)
+                pass
+                # print(dg)
 
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..

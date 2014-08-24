@@ -52,17 +52,18 @@ class RstFormatter(logging.Formatter):
             print('', file=f)
             print('  {}'.format(frame.name), file=f)
             for i in frame.instructions:
-                print('   {}'.format(i),file=f)
+                print('   {}'.format(i), file=f)
             print('', file=f)
             s += '\n' + f.getvalue()
         if hasattr(record, 'dag'):
             f = io.StringIO()
-            dag = record.dag
+            dags = record.dag
             print('', file=f)
             print('.. code::', file=f)
             print('', file=f)
-            for i in dag:
-                print('   {}'.format(i),file=f)
+            for dag in dags:
+                for i in dag:
+                    print('   {}'.format(i), file=f)
             print('', file=f)
             s += '\n' + f.getvalue()
         if hasattr(record, 'ra_cfg'):

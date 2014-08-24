@@ -19,6 +19,7 @@ from ppci.irmach import AbstractInstruction
 %%
 
 stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str1, others=[0], src=[c0, c1])'
+stm: MOVI32(MEMI32(ADDI32(reg, cn)), reg) 2 'self.emit(Str1, others=[c1], src=[c0, c2])'
 stm: MOVI32(reg, reg)         99 'self.selector.move(c0, c1)'
 stm: JMP                      2 'label, tgt = tree.value; self.emit(B(label), jumps=[tgt])'
 stm: CJMP(reg, reg)           2 'op, yes_label, yes_tgt, no_label, no_tgt = tree.value; opnames = {"<": Blt, ">":Bgt, "==":Beq, "!=":Bne, ">=":Bge}; Bop = opnames[op]; self.emit(Cmp2, src=[c0, c1]); jmp_ins = AbstractInstruction(B(no_label), jumps=[no_tgt]);self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins]); self.emit(jmp_ins)'
