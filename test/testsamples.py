@@ -2,7 +2,7 @@ import unittest
 import os
 import io
 import logging
-from util import runQemu, has_qemu, relpath
+from util import runQemu, has_qemu, relpath, tryrm
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.report import RstFormatter
 
@@ -120,9 +120,14 @@ class Samples:
 
 
 class TestSamplesOnVexpress(unittest.TestCase, Samples):
+    sample_filename = 'testsample.bin'
+
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
+
+    def tearDown(self):
+        tryrm(self.sample_filename)
 
     def do(self, src, expected_output, lang='c3'):
         march = "arm"
@@ -161,20 +166,23 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         else:
             raise Exception('language not implemented')
 
-        sample_filename = 'testsample.bin'
-        objcopy(o3, 'image', 'bin', sample_filename)
+        objcopy(o3, 'image', 'bin', self.sample_filename)
 
         # Run bin file in emulator:
         # Somehow vexpress-a9 and realview-pb-a8 differ?
-        res = runQemu(sample_filename, machine='realview-pb-a8')
-        os.remove(sample_filename)
+        res = runQemu(self.sample_filename, machine='realview-pb-a8')
         self.assertEqual(expected_output, res)
 
 
 class TestSamplesOnCortexM3(unittest.TestCase, Samples):
+    sample_filename = 'testsample.bin'
+
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
+
+    def tearDown(self):
+        tryrm(self.sample_filename)
 
     def do(self, src, expected_output, lang="c3"):
         march = "thumb"
@@ -215,16 +223,16 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         else:
             raise Exception('language not implemented')
 
-        sample_filename = 'testsample.bin'
-        objcopy(o3, 'code', 'bin', sample_filename)
+        objcopy(o3, 'code', 'bin', self.sample_filename)
 
         # Run bin file in emulator:
-        res = runQemu(sample_filename, machine='lm3s811evb')
-        os.remove(sample_filename)
+        res = runQemu(self.sample_filename, machine='lm3s811evb')
         self.assertEqual(expected_output, res)
 
 
 class TestSamplesOnX86(unittest.TestCase, Samples):
+    sample_filename = 'testsample.bin'
+
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
@@ -239,7 +247,6 @@ class TestSamplesOnX86(unittest.TestCase, Samples):
             io.StringIO(src)], [], 'x86')
         o3 = link([o2, o1], io.StringIO(arch_mmap), 'x86')
 
-        sample_filename = 'testsample.bin'
         objcopy(o3, 'image', 'bin', sample_filename)
 
         # Check bin file exists:

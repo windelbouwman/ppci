@@ -112,7 +112,6 @@ class Dagger:
         # Check if this binop is used more than once
         # if so, create register copy:
         if node.use_count > 1:
-            self.logger.debug('Binop {} used more than once'.format(node))
             rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
             self.dag.append(Tree('MOVI32', rv_copy, tree))
             self.lut[node] = rv_copy
@@ -176,6 +175,7 @@ class Dagger:
             one dag is a list of trees.
         """
         assert isinstance(irfunc, ir.Function)
+        self.logger.debug('Creating selection dag for {}'.format(irfunc.name))
 
         self.lut = {}
         self.frame = frame

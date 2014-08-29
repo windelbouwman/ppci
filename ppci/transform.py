@@ -4,6 +4,8 @@
 
 import logging
 from . import ir
+
+
 # Standard passes:
 
 class FunctionPass:
@@ -50,13 +52,9 @@ class InstructionPass(BlockPass):
         raise NotImplementedError()
 
 
-class BasePass(BlockPass):
-    def onBlock(self, bb):
-        pass
-
-
 # Usefull transforms:
-class ConstantFolder(BasePass):
+class ConstantFolder(BlockPass):
+    """ Try to fold common constant expressions """
     def __init__(self):
         super().__init__()
         self.ops = {}
@@ -64,6 +62,14 @@ class ConstantFolder(BasePass):
         self.ops['-'] = lambda x, y: x - y
         self.ops['*'] = lambda x, y: x * y
         self.ops['<<'] = lambda x, y: x << y
+
+    def onBlock(self, block):
+        pass
+        for instruction in block.instructions:
+            if type(instruction) is ir.Binop:
+                if type(instruction.b) is ir.Binop and type(instruction.b.b) is ir.Const:
+                    # TODO
+                    pass
 
     def postExpr(self, expr):
         if type(i) is BinaryOperator and i.operation in self.ops.keys() and type(i.a) is Const and type(i.b) is Const:

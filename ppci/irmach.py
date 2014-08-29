@@ -77,6 +77,7 @@ class AbstractInstruction:
 
     def __gt__(self, other):
         """ To make the class fit for sorting """
+        # TODO: make this nicer..
         return str(self) > str(other)
 
     def __repr__(self):

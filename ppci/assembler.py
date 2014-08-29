@@ -17,6 +17,7 @@ def bit_type(value):
 
 
 class AsmLexer(BaseLexer):
+    """ Lexer capable of lexing a single line """
     def __init__(self, kws):
         tok_spec = [
            ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),

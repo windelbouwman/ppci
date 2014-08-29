@@ -85,6 +85,7 @@ def main(args):
         elif args.command == 'bf2hex':
             obj = bfcompile(args.source.read(), 'thumb')
             # TODO: link and hexwrite
+            raise NotImplementedError('TODO: writeout hex')
         elif args.command == 'c3c':
             res = c3toir(args.sources, args.include, args.target)
             writer = ppci.irutils.Writer()

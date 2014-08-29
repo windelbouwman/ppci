@@ -2,6 +2,7 @@ import logging
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 
+
 # Nifty first function:
 def first(x):
     """ Take the first element of a collection after sorting the things """
@@ -45,19 +46,22 @@ class RegisterAllocator:
     def Build(self):
         """ 1. Construct interference graph from instruction list """
         self.f.cfg = FlowGraph(self.f.instructions)
-        self.logger.debug('Constructed flowgraph', extra={'ra_cfg':self.f.cfg})
+        self.logger.debug('Constructed flowgraph with {} nodes'.format(len(self.f.cfg.nodes)), extra={'ra_cfg':self.f.cfg})
         self.f.ig = InterferenceGraph(self.f.cfg)
-        self.logger.debug('Constructed interferencegraph', extra={'ra_ig':self.f.ig})
+        self.logger.debug('Constructed interferencegraph with {} nodes'.format(len(self.f.ig.nodes)), extra={'ra_ig':self.f.ig})
 
-        self.Node = self.f.ig.getNode
+        self.Node = self.f.ig.get_node
+        self.ig = self.f.ig
 
         # Divide nodes into pre-colored and initial:
         pre_tmp = list(self.f.tempMap.keys())
         self.precolored = set(self.Node(tmp) for tmp in pre_tmp)
-        self.workSet = set(self.f.ig.nodes - self.precolored)
+        self.initial = set(self.ig.nodes - self.precolored)
 
+        # TODO: do not add the pre colored nodes at all.
         for n in self.precolored:
-            n.addDegree = 100 + len(self.f.ig.nodes) + self.K
+            # give pre colored nodes infinite degree:
+            n.addDegree = 100 + len(self.ig.nodes) + self.K
 
         # Initialize color map:
         self.color = {}
@@ -69,27 +73,6 @@ class RegisterAllocator:
             self.Node(mv.src[0]).moves.add(mv)
             self.Node(mv.dst[0]).moves.add(mv)
 
-    def NodeMoves(self, n):
-        return n.moves & (self.activeMoves | self.worklistMoves)
-
-    def MoveRelated(self, n):
-        return bool(self.NodeMoves(n))
-
-    @property
-    def SpillWorkSet(self):
-        c = lambda n: n.Degree >= self.K
-        return set(filter(c, self.workSet))
-
-    @property
-    def FreezeWorkSet(self):
-        c = lambda n: n.Degree < self.K and self.MoveRelated(n)
-        return set(filter(c, self.workSet))
-
-    @property
-    def SimplifyWorkSet(self):
-        c = lambda n: n.Degree < self.K and not self.MoveRelated(n)
-        return set(filter(c, self.workSet))
-
     def makeWorkList(self):
         """ Divide initial nodes into worklists """
         self.selectStack = []
@@ -98,13 +81,43 @@ class RegisterAllocator:
         for m in self.moves:
             self.worklistMoves.add(m)
 
+        self.spillWorklist = []
+        self.freezeWorklist = []
+        self.simplifyWorklist = []
+
+        while self.initial:
+            n = self.initial.pop()
+            if n.Degree >= self.K:
+                self.spillWorklist.append(n)
+            elif self.MoveRelated(n):
+                self.freezeWorklist.append(n)
+            else:
+                self.simplifyWorklist.append(n)
+
+    def NodeMoves(self, n):
+        return n.moves & (self.activeMoves | self.worklistMoves)
+
+    def MoveRelated(self, n):
+        return bool(self.NodeMoves(n))
+
     def Simplify(self):
         """ 2. Remove nodes from the graph """
-        n = first(self.SimplifyWorkSet)
-        self.workSet.remove(n)
+        self.logger.debug('Simplifying the graph')
+        n = self.simplifyWorklist.pop()
         self.selectStack.append(n)
-        # Pop out of graph:
-        self.f.ig.delNode(n)
+        # Pop out of graph, we place it back later:
+        self.ig.mask_node(n)
+        for m in n.Adjecent:
+            self.decrement_degree(m)
+
+    def decrement_degree(self, m):
+        if m.Degree == self.K - 1:
+            self.EnableMoves({m} | m.Adjecent)
+            self.spillWorklist.remove(m)
+            if self.MoveRelated(m):
+                self.freezeWorklist.append(m)
+            else:
+                self.simplifyWorklist.append(m)
 
     def EnableMoves(self, nodes):
         for n in nodes:
@@ -114,7 +127,12 @@ class RegisterAllocator:
                     self.worklistMoves.add(m)
 
     def Coalesc(self):
-        """ Coalesc conservative. """
+        self.logger.debug('Coalescing')
+        """ Coalesc moves conservative.
+            This means, merge the variables of a move into
+            one variable, and delete the move. But do this
+            only when no spill will occur.
+        """
         m = first(self.worklistMoves)
         x = self.Node(m.dst[0])
         y = self.Node(m.src[0])
@@ -122,14 +140,25 @@ class RegisterAllocator:
         self.worklistMoves.remove(m)
         if u is v:
             self.coalescedMoves.add(m)
-        elif v in self.precolored or self.f.ig.hasEdge(u, v):
+            self.add_worklist(u)
+        elif v in self.precolored or self.ig.has_edge(u, v):
             self.constrainedMoves.add(m)
-        elif u not in self.precolored and self.Conservative(u, v):
+            self.add_worklist(u)
+            self.add_worklist(v)
+        elif (u not in self.precolored and self.Conservative(u, v)):
             self.coalescedMoves.add(m)
-            self.workSet.remove(v)
-            self.f.ig.Combine(u, v)
+            self.Combine(u, v)
+            self.add_worklist(u)
         else:
             self.activeMoves.add(m)
+
+    def add_worklist(self, u):
+        if u not in self.precolored and not self.MoveRelated(u) and u.Degree < self.K:
+            self.freezeWorklist.remove(u)
+            self.simplifyWorklist.append(u)
+
+    def OK(self):
+        pass
 
     def Conservative(self, u, v):
         """ Briggs conservative criteria for coalesc """
@@ -138,9 +167,25 @@ class RegisterAllocator:
         k = len(list(filter(c, nodes)))
         return k < self.K
 
+    def Combine(self, u, v):
+        """ Combine u and v into one node, updating work lists """
+        if v in self.freezeWorklist:
+            self.freezeWorklist.remove(v)
+        else:
+            self.spillWorklist.remove(v)
+        self.ig.combine(u, v)
+        for t in u.Adjecent:
+            self.decrement_degree(t)
+        if u.Degree >= self.K and u in self.freezeWorklist:
+            self.freezeWorklist.remove(u)
+            self.spillWorklist.append(u)
+
     def Freeze(self):
-        """ Give up coalescing on some node """
-        u = first(self.FreezeWorkSet)
+        """ Give up coalescing on some node, move it to the simplify list
+            and freeze all moves associated with it.
+        """
+        u = self.freezeWorklist.pop()
+        self.simplifyWorklist.append(u)
         self.freezeMoves(u)
 
     def freezeMoves(self, u):
@@ -152,7 +197,11 @@ class RegisterAllocator:
                 sekf.worklistMoves.remove(m)
             self.frozenMoves.add(m)
             # Check other part of the move for still being move related:
-            v = m.src[0] if u is m.dst[0] else m.dst[0]
+            v = self.Node(m.src[0]) if u is self.Node(m.dst[0]) else self.Node(m.dst[0])
+            if v not in self.precolored and not self.MoveRelated(v) and v.Degree < self.K:
+                assert v in self.freezeWorklist, '{} not in freezeworklist'.format(v)
+                self.freezeWorklist.remove(v)
+                self.simplifyWorklist.append(v)
 
     def SelectSpill(self):
         raise NotImplementedError("Spill is not implemented")
@@ -186,16 +235,26 @@ class RegisterAllocator:
         self.InitData(f)
         self.Build()
         self.makeWorkList()
+        self.logger.debug('Starting iterative coloring')
         while True:
-            if self.SimplifyWorkSet:
+            # Test invariants:
+            assert all(u.Degree < self.K for u in self.simplifyWorklist)
+            assert all(not self.MoveRelated(u) for u in self.simplifyWorklist)
+            assert all(u.Degree < self.K for u in self.freezeWorklist)
+            assert all(self.MoveRelated(u) for u in self.freezeWorklist)
+            assert all(u.Degree >= self.K for u in self.spillWorklist)
+
+            # Run one of the possible steps:
+            if self.simplifyWorklist:
                 self.Simplify()
             elif self.worklistMoves:
                 self.Coalesc()
-            elif self.FreezeWorkSet:
+            elif self.freezeWorklist:
                 self.Freeze()
-            elif self.SpillWorkSet:
+            elif self.spillWorklist:
                 raise NotImplementedError('Spill not implemented')
             else:
                 break # Done!
+        self.logger.debug('Now assinging colors')
         self.AssignColors()
         self.ApplyColors()

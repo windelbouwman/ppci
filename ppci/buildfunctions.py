@@ -13,6 +13,7 @@ from .irutils import Verifier
 from .codegen import CodeGenerator
 from .transform import CleanPass, DeleteUnusedInstructionsPass
 from .transform import RemoveAddZeroPass, CommonSubexpressionEliminationPass
+from .transform import ConstantFolder
 from .mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
@@ -153,6 +154,9 @@ def optimize(ircode):
     verifier.verify(ircode)
 
     CommonSubexpressionEliminationPass().run(ircode)
+    verifier.verify(ircode)
+
+    ConstantFolder().run(ircode)
     verifier.verify(ircode)
 
     DeleteUnusedInstructionsPass().run(ircode)

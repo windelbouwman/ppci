@@ -37,11 +37,11 @@ class FlowGraph(DiGraph):
         for ins in instrs:
             n = self._map[ins]
             if prev:
-                self.addEdge(prev, n)
+                self.add_edge(prev, n)
             if ins.jumps:
                 prev = None
                 for j in ins.jumps:
                     to_n = self._map[j]
-                    self.addEdge(n, to_n)
+                    self.add_edge(n, to_n)
             else:
                 prev = n

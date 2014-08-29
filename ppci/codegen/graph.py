@@ -14,17 +14,24 @@ class Graph:
         if n not in self.adj_map:
             self.adj_map[n] = set()
 
-    def delNode(self, n):
+    def del_node(self, n):
         self.nodes.remove(n)
 
-    def addEdge(self, n, m):
+    def mask_node(self, n):
+        # For now, delete the node, but we can but it into a masked set?
+        self.del_node(n)
+
+    def unmask_node(self, n):
+        self.add_node(n)
+
+    def add_edge(self, n, m):
         """ Add an edge from n to m """
         self.edges.add((n, m))
         self.edges.add((m, n))
         self.adj_map[n].add(m)
         self.adj_map[m].add(n)
 
-    def hasEdge(self, n, m):
+    def has_edge(self, n, m):
         return (n, m) in self.edges
 
     def delEdge(self, n, m):
@@ -67,7 +74,7 @@ class DiGraph(Graph):
         self.suc_map = {}
         self.pre_map = {}
 
-    def addEdge(self, n, m):
+    def add_edge(self, n, m):
         """ Add a directed edge from n to m """
         assert n in self.nodes
         assert m in self.nodes
@@ -83,9 +90,6 @@ class DiGraph(Graph):
             self.suc_map[n] = set()
         if n not in self.pre_map:
             self.pre_map[n] = set()
-
-    def hasEdge(self, n, m):
-        return (n, m) in self.edges
 
     def successors(self, n):
         return self.suc_map[n] & self.nodes
