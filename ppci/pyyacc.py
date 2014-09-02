@@ -6,6 +6,7 @@ import types
 import io
 import datetime
 import logging
+from collections import namedtuple
 
 from ppci.baselex import BaseLexer, EPS, EOF
 from ppci import Token, SourceLocation
@@ -173,7 +174,7 @@ class Grammar:
                     addIt(Item(add_p, 0, b))
         return frozenset(itemset)
 
-    def initialItemSet(self):
+    def initial_item_set(self):
         """ Calculates the initial item set """
         iis = set()
         for p in self.productionsForName(self.start_symbol):
@@ -191,14 +192,19 @@ class Grammar:
                 next_set.add(item.shifted())
         return self.closure(next_set)
 
-    def genCanonicalSet(self, iis):
-        states = []
+    def add_state(self, s):
+        pass
+        
+    def gen_canonical_set(self, iis):
+        states = set()
         worklist = []
         transitions = {}
+        indici = {}
         def addSt(s):
-            if not (s in states):
+            if s not in states:
                 worklist.append(s)
-                states.append(s)
+                indici[s] = len(indici)
+                states.add(s)
         addSt(iis)
         while len(worklist) > 0:
             itemset = worklist.pop(0)
@@ -207,8 +213,8 @@ class Grammar:
                 if not nis:
                     continue
                 addSt(nis)
-                transitions[(states.index(itemset), symbol)] = states.index(nis)
-        return states, transitions
+                transitions[(indici[itemset], symbol)] = indici[nis]
+        return states, transitions, indici
 
     def checkSymbols(self):
         """ Checks no symbols are undefined """
@@ -231,10 +237,10 @@ class Grammar:
         self.checkSymbols()
         action_table = {}
         goto_table = {}
-        iis = self.initialItemSet()
+        iis = self.initial_item_set()
 
         # First generate all item sets by using the nextItemset function:
-        states, transitions = self.genCanonicalSet(iis)
+        states, transitions, indici = self.gen_canonical_set(iis)
 
         def setAction(state, t, action):
             assert isinstance(action, Action)
@@ -259,12 +265,13 @@ class Grammar:
 
         # Fill action table:
         for state in states:
+            state_nr = indici[state]
             # Detect conflicts:
             for item in state:
                 if item.IsShift and item.Next in self.terminals:
                     # Rule 1, a shift item:
-                    nextstate = transitions[(states.index(state), item.Next)]
-                    setAction(states.index(state), item.Next, Shift(nextstate))
+                    nextstate = transitions[(state_nr, item.Next)]
+                    setAction(state_nr, item.Next, Shift(nextstate))
                 if item.IsReduce:
                     if item.production.name == self.start_symbol and item.look_ahead == EOF:
                         # Rule 3: accept:
@@ -272,9 +279,9 @@ class Grammar:
                     else:
                         # Rule 2, reduce item:
                         act = Reduce(self.productions.index(item.production))
-                    setAction(states.index(state), item.look_ahead, act)
+                    setAction(state_nr, item.look_ahead, act)
             for nt in self.nonterminals:
-                key = (states.index(state), nt)
+                key = (state_nr, nt)
                 if key in transitions:
                     goto_table[key] = transitions[key]
         return action_table, goto_table

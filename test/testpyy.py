@@ -176,8 +176,8 @@ class testExpressionGrammar(unittest.TestCase):
         self.assertEqual(first['term'], {'identifier', '(', 'num'})
 
     def testCanonical(self):
-        s0 = self.g.initialItemSet()
-        s, gt = self.g.genCanonicalSet(s0)
+        s0 = self.g.initial_item_set()
+        s, gt, _ = self.g.gen_canonical_set(s0)
         # Must result in 12 sets:
         self.assertEqual(len(s), 24)
 
@@ -202,7 +202,7 @@ class testParserGenerator(unittest.TestCase):
 
     def testInitItemSet(self):
         p0, p1, p2, p3, p4 = self.g.productions
-        s0 = self.g.initialItemSet()
+        s0 = self.g.initial_item_set()
         self.assertEqual(len(s0), 9)    # 9 with the goal rule included!
         self.assertIn(Item(p0, 0, EOF), s0)
         self.assertIn(Item(p1, 0, EOF), s0)
@@ -215,8 +215,8 @@ class testParserGenerator(unittest.TestCase):
         self.assertIn(Item(p4, 0, '('), s0)
 
     def testCanonical(self):
-        s0 = self.g.initialItemSet()
-        s, gt = self.g.genCanonicalSet(s0)
+        s0 = self.g.initial_item_set()
+        s, gt, _ = self.g.gen_canonical_set(s0)
         # Must result in 12 sets:
         self.assertEqual(len(s), 12)
 
