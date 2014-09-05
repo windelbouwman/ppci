@@ -13,7 +13,7 @@ from .irutils import Verifier
 from .codegen import CodeGenerator
 from .transform import CleanPass, DeleteUnusedInstructionsPass
 from .transform import RemoveAddZeroPass, CommonSubexpressionEliminationPass
-from .transform import ConstantFolder
+from .transform import ConstantFolder, LoadAfterStorePass
 from .mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
@@ -24,6 +24,7 @@ from .utils.hexfile import HexFile
 from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
+from .common import CompilerError
 
 
 def fix_target(tg):
@@ -145,20 +146,10 @@ def optimize(ircode):
     # CleanPass().run(ircode)
 
     Mem2RegPromotor().run(ircode)
-    verifier.verify(ircode)
-
     DeleteUnusedInstructionsPass().run(ircode)
-    verifier.verify(ircode)
-
     RemoveAddZeroPass().run(ircode)
-    verifier.verify(ircode)
-
     CommonSubexpressionEliminationPass().run(ircode)
-    verifier.verify(ircode)
-
-    ConstantFolder().run(ircode)
-    verifier.verify(ircode)
-
+    LoadAfterStorePass().run(ircode)
     DeleteUnusedInstructionsPass().run(ircode)
     # CleanPass().run(ircode)
 
@@ -175,11 +166,8 @@ def ir_to_code(ir_modules, target):
     for ircode in ir_modules:
         Verifier().verify(ircode)
 
-
         # Code generation:
-        d = {'ircode': ircode}
-        logger.debug('Starting code generation for {}'.format(ircode), extra=d)
-
+        logger.debug('Starting code generation for {}'.format(ircode))
         cg.generate(ircode, output_stream)
 
     return output
@@ -211,7 +199,10 @@ def link(objects, layout, target):
     layout = fix_layout(layout)
     target = fix_target(target)
     linker = Linker(target)
-    output_obj = linker.link(objects, layout)
+    try:
+        output_obj = linker.link(objects, layout)
+    except CompilerError as err:
+        raise TaskError(err.msg)
     return output_obj
 
 

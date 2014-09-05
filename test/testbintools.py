@@ -3,7 +3,6 @@ import sys
 import io
 from ppci.target.arm.token import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, load_object
-from ppci import CompilerError
 from ppci.tasks import TaskRunner, TaskError
 from ppci.buildtasks import EmptyTask
 from ppci.buildfunctions import link
@@ -58,8 +57,8 @@ class LinkerTestCase(unittest.TestCase):
         o1.get_section('.text')
         o1.add_relocation('undefined_sym', 0, 'rel8', '.text')
         o2 = ObjectFile()
-        with self.assertRaises(CompilerError):
-            o3 = link([o1, o2], layout.Layout(), 'arm')
+        with self.assertRaises(TaskError):
+            link([o1, o2], layout.Layout(), 'arm')
 
     def testDuplicateSymbol(self):
         o1 = ObjectFile()
@@ -68,7 +67,7 @@ class LinkerTestCase(unittest.TestCase):
         o2 = ObjectFile()
         o2.get_section('.text')
         o2.add_symbol('a', 0, '.text')
-        with self.assertRaises(CompilerError):
+        with self.assertRaises(TaskError):
             link([o1, o2], layout.Layout(), 'arm')
 
     def testRel8Relocation(self):

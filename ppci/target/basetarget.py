@@ -256,7 +256,7 @@ def apply_ldr_imm12(reloc, sym_value, section, reloc_value):
     if offset < 0:
         offset = -offset
         U = 0
-    assert offset < 4096, str(sym) + str(section) + str(reloc)
+    assert offset < 4096, "{} < 4096 {} {} {}".format(offset, sym_value, section, reloc)
     section.data[reloc.offset+2] |= (U << 7)
     section.data[reloc.offset+1] |= (offset >> 8) & 0xF
     section.data[reloc.offset+0] = offset & 0xFF

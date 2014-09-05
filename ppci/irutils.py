@@ -7,6 +7,7 @@ import re
 from . import ir
 from .domtree import CfgInfo
 
+
 def dumpgv(m, outf):
     print('digraph G ', file=outf)
     print('{', file=outf)
@@ -26,6 +27,7 @@ def dumpgv(m, outf):
 
 
 class Writer:
+    """ Write ir-code to file """
     def __init__(self, extra_indent=''):
         self.extra_indent = extra_indent
 
@@ -39,10 +41,11 @@ class Writer:
 
     def write_function(self, fn, f):
         args = ','.join('i32 ' + str(a) for a in fn.arguments)
-        print('{}function i32 {}({})'.format(self.extra_indent, fn.name, args), file=f)
-        for bb in fn.Blocks:
-            print('{} {}'.format(self.extra_indent, bb), file=f)
-            for ins in bb.Instructions:
+        print('{}function i32 {}({})'
+              .format(self.extra_indent, fn.name, args), file=f)
+        for block in fn.blocks:
+            print('{} {}'.format(self.extra_indent, block), file=f)
+            for ins in block:
                 print('{}  {}'.format(self.extra_indent, ins), file=f)
 
 
@@ -51,6 +54,10 @@ class IrParseException(Exception):
 
 
 class Reader:
+    """ Read IR-code from file """
+    def __init__(self):
+        pass
+
     def read(self, f):
         """ Read ir code from file f """
         # Read lines from the file:
@@ -58,11 +65,11 @@ class Reader:
 
         # Create a regular expression for the lexing part:
         tok_spec = [
-           ('NUMBER', r'\d+'),
-           ('ID', r'[A-Za-z][A-Za-z\d_]*'),
-           ('SKIP2', r'  '),
-           ('SKIP1', r' '),
-           ('OTHER', r'[\.,=:;\-+*\[\]/\(\)]|>|<|{|}|&|\^|\|')
+            ('NUMBER', r'\d+'),
+            ('ID', r'[A-Za-z][A-Za-z\d_]*'),
+            ('SKIP2', r'  '),
+            ('SKIP1', r' '),
+            ('OTHER', r'[\.,=:;\-+*\[\]/\(\)]|>|<|{|}|&|\^|\|')
             ]
         tok_re = '|'.join('(?P<%s>%s)' % pair for pair in tok_spec)
         gettok = re.compile(tok_re).match
@@ -120,7 +127,8 @@ class Reader:
         if self.Peak == typ:
             return self.next_token()
         else:
-            raise IrParseException('Expected "{}" got "{}"'.format(typ, self.Peak))
+            raise IrParseException('Expected "{}" got "{}"'
+                                   .format(typ, self.Peak))
 
     def parse_module(self):
         """ Entry for recursive descent parser """
@@ -132,7 +140,8 @@ class Reader:
             if self.Peak == 'function':
                 module.add_function(self.parse_function())
             else:
-                raise IrParseException('Expected function got {}'.format(self.Peak))
+                raise IrParseException('Expected function got {}'
+                                       .format(self.Peak))
         return module
 
     def parse_function(self):
@@ -195,18 +204,36 @@ class NamedClassGenerator:
         return self.cls('{0}{1}'.format(prefix, self.nums.__next__()))
 
 
+def split_block(block, pos=None):
+    """ Split a basic block into two which are connected """
+    if pos is None:
+        pos = int(len(block) / 2)
+    rest = block.instructions[pos:]
+    block2 = ir.Block(block.name)
+    block.function.add_block(block2)
+    for instruction in rest:
+        block.remove_instruction(instruction)
+        block2.add_instruction(instruction)
+
+    # Add a jump to the original block:
+    block.add_instruction(ir.Jump(block2))
+    return block, block2
+
+
 class Builder:
     """ Base class for ir code generators """
     def __init__(self):
         self.prepare()
+        self.block = None
+        self.m = None
+        self.function = None
 
     def prepare(self):
         self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
-        self.bb = None
+        self.block = None
         self.m = None
-        self.fn = None
+        self.function = None
         self.loc = None
-        self.i = 0
 
     # Helpers:
     def setModule(self, m):
@@ -218,34 +245,29 @@ class Builder:
         return f
 
     def newBlock(self):
-        assert self.fn
-        b = self.newBlock2()
-        b.function = self.fn
-        return b
+        """ Create a new block and add it to the current function """
+        assert self.function is not None
+        block = self.newBlock2()
+        self.function.add_block(block)
+        return block
 
     def setFunction(self, f):
-        self.fn = f
-        self.bb = f.entry if f else None
+        self.function = f
+        self.block = f.entry if f else None
 
-    def setBlock(self, b):
-        self.bb = b
+    def setBlock(self, block):
+        self.block = block
 
     def setLoc(self, l):
         self.loc = l
 
-    def unique_name(self, pfx):
-        self.i += 1
-        return pfx + str(self.i)
-
     def emit(self, i):
+        """ Append an instruction to the current block """
         assert isinstance(i, ir.Instruction), str(i)
-        # TODO: unique names?
-        if isinstance(i, ir.Value):
-            i.name = self.unique_name(i.name)
         i.debugLoc = self.loc
-        if not self.bb:
+        if self.block is None:
             raise Exception('No basic block')
-        self.bb.addInstruction(i)
+        self.block.add_instruction(i)
         return i
 
 
@@ -256,35 +278,43 @@ class Verifier:
 
     def verify(self, module):
         """ Verifies a module for some sanity """
+        self.logger.debug('Verifying {}'.format(module))
         assert isinstance(module, ir.Module)
-        for f in module.Functions:
-            self.verify_function(f)
-        self.logger.debug('Function OK')
+        for function in module.Functions:
+            self.verify_function(function)
+        self.logger.debug('Module {} OK'.format(module))
 
     def verify_function(self, function):
-        for b in function.Blocks:
-            self.verify_block_termination(b)
+        """ Verify all blocks in the function """
+        self.name_map = {}
+        for block in function.blocks:
+            self.verify_block_termination(block)
 
-        self.logger.debug('Function structure OK')
         # Now we can build a dominator tree
         function.cfg_info = CfgInfo(function)
-        for block in function.Blocks:
+        for block in function:
             assert block.function == function
             self.verify_block(block)
 
     def verify_block_termination(self, block):
+        """ Verify that the block is terminated correctly """
         assert not block.Empty
         assert block.LastInstruction.IsTerminator
         for i in block.Instructions[:-1]:
             assert not isinstance(i, ir.LastStatement)
 
     def verify_block(self, block):
-        for instruction in block.Instructions:
+        """ Verify block for correctness """
+        for instruction in block:
             self.verify_instruction(instruction, block)
 
     def verify_instruction(self, instruction, block):
+        """ Verify that instruction belongs to block and that all uses
+            are preceeded by defs """
         assert instruction.block == block
         assert instruction in block.instructions
+
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
-            assert value.dominates(instruction), "{} does not dominate {}".format(value, instruction)
+            assert value.dominates(instruction), \
+                "{} does not dominate {}".format(value, instruction)

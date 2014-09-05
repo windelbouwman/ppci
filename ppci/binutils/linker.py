@@ -31,7 +31,7 @@ class Linker:
                 out_s = dst.get_section(sym.section)
                 value = offsets[sym.section] + sym.value
                 dst.add_symbol(sym.name, value, sym.section)
-                self.logger.debug('{} at 0x{:08X} in section {}'.format(sym.name, value, sym.section))
+                # self.logger.debug('{} at 0x{:08X} in section {}'.format(sym.name, value, sym.section))
 
             # Merge relocations:
             for reloc in iobj.relocations:

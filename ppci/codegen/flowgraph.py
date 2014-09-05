@@ -1,47 +1,142 @@
+import logging
 from .graph import DiGraph, DiNode
 
 
 class FlowGraphNode(DiNode):
-    """ A node in the flow graph """
+    """ A node in the flow graph. A node can contain more than one
+        instruction. """
     def __init__(self, g, ins):
         super().__init__(g)
-        self.ins = ins
-        self.uses = set(ins.src)
-        self.defs = set(ins.dst)
+        self.gen = set()
+        self.kill = set()
         self.live_in = set()
         self.live_out = set()
+        self.instructions = []
+
+        # Start with the instruction itself..
+        self.add_instruction(ins)
+
+    def add_instruction(self, ins):
+        """ Bundle the instruction into the current node. """
+        ins.gen = set(ins.src)
+        ins.kill = set(ins.dst)
+        self.instructions.append(ins)
+
+        # Combine gen and kill effects of the node and the new instruction:
+        self.gen = self.gen | (ins.gen - self.kill)
+        self.kill = self.kill | ins.kill
 
     def __repr__(self):
-        r = '{}'.format(self.ins)
-        if self.uses:
-            r += ' uses:' + ', '.join(str(u) for u in self.uses)
-        if self.defs:
-            r += ' defs:' + ', '.join(str(d) for d in self.defs)
+        r = 'CFG-node='
+        if self.gen:
+            r += ' gen:' + ', '.join(str(u) for u in self.gen)
+        if self.kill:
+            r += ' kill:' + ', '.join(str(d) for d in self.kill)
+        r += ' live_out={}'.format(self.live_out)
         return r
 
 
-
 class FlowGraph(DiGraph):
+    """ A directed graph containing nodes with linear lists of instructions """
     def __init__(self, instrs):
-        """ Create a flowgraph from a list of abstract instructions """
+        """ Create a flowgraph from a linear list of abstract instructions """
         super().__init__()
+        self.logger = logging.getLogger('flowgraph')
         self._map = {}
-        # Add nodes:
-        for ins in instrs:
-            n = FlowGraphNode(self, ins)
-            self._map[ins] = n
-            self.add_node(n)
+        leaders = {}
 
-        # Make edges:
-        prev = None
+        # Create leaders:
+        node = None
         for ins in instrs:
-            n = self._map[ins]
-            if prev:
-                self.add_edge(prev, n)
+            if node is None:
+                # Get the first node:
+                node = self.get_node(ins)
             if ins.jumps:
-                prev = None
                 for j in ins.jumps:
-                    to_n = self._map[j]
-                    self.add_edge(n, to_n)
+                    to_node = self.get_node(j)
+                    self.add_edge(node, to_node)
+                node = None
+
+        # Add between nodes and follow up nodes:
+        node = None
+        for ins in instrs:
+            if node is None:
+                node = self.get_node(ins)
             else:
-                prev = n
+                if self.has_node(ins):
+                    node2 = self.get_node(ins)
+                    self.add_edge(node, node2)
+                    node = node2
+
+        # Add other instruction into leader nodes:
+        node = None
+        for ins in instrs:
+            if self.has_node(ins):
+                # Node is a leader:
+                node = self.get_node(ins)
+            else:
+                # Node is not a leader:
+                node.add_instruction(ins)
+
+    def has_node(self, ins):
+        """ Return true if statement is a leader instruction """
+        return ins in self._map
+
+    def get_node(self, ins):
+        """ Get the node belonging to the instruction """
+        if ins not in self._map:
+            node = FlowGraphNode(self, ins)
+            self._map[ins] = node
+            self.add_node(node)
+        return self._map[ins]
+
+    def calculate_liveness(self):
+        """ Calculate liveness in CFG: """
+        ###
+        # Liveness:
+        #  in[n] = use[n] UNION (out[n] - def[n])
+        #  out[n] = for s in n.succ in union in[s]
+        ###
+        for node in self:
+            node.live_in = set()
+            node.live_out = set()
+
+        # Sort flowgraph nodes backwards:
+        cfg_nodes = list(self.nodes)
+
+        # Dataflow fixed point iteration over the nodes in the CFG:
+        n_iterations = 0
+        change = True
+        while change:
+            change = False
+            for node in cfg_nodes:
+                _in = node.live_in
+                _out = node.live_out
+                node.live_in = node.gen | (node.live_out - node.kill)
+                if node.Succ:
+                    node.live_out = set.union(*(s.live_in for s in node.Succ))
+                else:
+                    node.live_out = set()
+
+                # Record for change:
+                change = change or (_in != node.live_in) or \
+                    (_out != node.live_out)
+            n_iterations += 1
+
+        # In one pass fix all instructions:
+        for node in self:
+            assert len(node.instructions) > 0
+            ins2 = node.instructions[-1]
+            ins2.live_out = node.live_out  # Propagate into last instruction
+            ins2.live_in = ins2.gen | (ins2.live_out - ins2.kill)
+            if len(node.instructions) > 1:
+                for ins in reversed(node.instructions[:-1]):
+                    ins1 = ins
+
+                    ins1.live_out = ins2.live_in
+                    ins1.live_in = ins1.gen | (ins1.live_out - ins1.kill)
+
+                    ins2 = ins1
+
+        self.logger.debug('Iterations: {} * {}'
+                          .format(n_iterations, len(self)))

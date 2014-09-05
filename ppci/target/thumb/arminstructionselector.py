@@ -31,8 +31,9 @@ class ArmInstructionSelector(InstructionSelector):
     def munchCall(self, e):
         """ Generate code for call sequence """
         # Move arguments into proper locations:
-        reguses = []
-        self.emit(Bl(e.f), src=reguses, dst=[self.frame.rv])
+        label = e[0]
+        reguses = e[1]
+        self.emit(Bl(label), src=reguses, dst=[self.frame.rv])
         # d = self.newTmp()
         # self.move(d, self.frame.rv)
 

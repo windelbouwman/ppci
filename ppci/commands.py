@@ -2,13 +2,14 @@
 import sys
 import argparse
 import logging
+import io
 
 from .report import RstFormatter
-from .buildfunctions import construct, bf2ir, optimize, bfcompile, c3toir
+from .buildfunctions import construct, bf2ir, optimize, bfcompile, c3toir, c3compile
 from .irutils import Writer
 from .tasks import TaskError
 from . import buildtasks  # Include not used, but it registers build tasks.
-from . import logformat
+from . import logformat, machines
 
 
 def logLevel(s):
@@ -81,9 +82,24 @@ def main(args):
         elif args.command == 'bf2ir':
             ircode = bf2ir(args.source.read())
             optimize(ircode)
+            optimize(ircode)
+            optimize(ircode)
             Writer().write(ircode, args.output)
         elif args.command == 'bf2hex':
-            obj = bfcompile(args.source.read(), 'thumb')
+            march = "thumb"
+            obj = bfcompile(args.source.read(), march)
+            realpb_arch = """
+module arch;
+
+function void putc(int c)
+{
+    var int *UART0DR;
+    UART0DR = cast<int*>(0x10009000);
+    *UART0DR = c;
+}
+            """
+            o2 = c3compile([io.StringIO(realpb_arch)], [], march)
+            machines.wrap([obj, o2], march, "tst.bin")
             # TODO: link and hexwrite
             raise NotImplementedError('TODO: writeout hex')
         elif args.command == 'c3c':

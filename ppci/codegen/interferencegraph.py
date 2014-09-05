@@ -1,5 +1,6 @@
 import logging
 from .graph import Graph, Node
+from ..irmach import VirtualRegister
 
 
 class InterferenceGraphNode(Node):
@@ -11,9 +12,6 @@ class InterferenceGraphNode(Node):
 
     def __repr__(self):
         return '{}({})'.format(self.temps, self.color)
-
-    def __gt__(self, other):
-        return str(self.temps) > str(other.temps)
 
 
 class InterferenceGraph(Graph):
@@ -28,46 +26,22 @@ class InterferenceGraph(Graph):
         self.calculate_interference(flowgraph)
 
     def calculate_interference(self, flowgraph):
-        # Calculate liveness in CFG:
-        ###
-        # Liveness:
-        #  in[n] = use[n] UNION (out[n] - def[n])
-        #  out[n] = for s in n.succ in union in[s]
-        ###
-        for n in flowgraph.nodes:
-            n.live_in = set()
-            n.live_out = set()
+        """ Construct interference graph """
+        for n in flowgraph:
+            for ins in n.instructions:
+                # ins.live_out |= ins.
+                for tmp in ins.live_in:
+                    self.get_node(tmp)
 
-        # Sort flowgraph nodes backwards:
-        cfg_nodes = list(flowgraph.nodes)
-        cfg_nodes.sort(reverse=True)
+                # Live out and zero length defined variables:
+                live_and_def = ins.live_out | ins.kill
 
-        # Dataflow fixed point iteration:
-        n_iterations = 0
-        change = True
-        while change:
-            change = False
-            for n in cfg_nodes:
-                _in = n.live_in
-                _out = n.live_out
-                n.live_in = n.uses | (n.live_out - n.defs)
-                if n.Succ:
-                    n.live_out = set.union(*(s.live_in for s in n.Succ))
-                else:
-                    n.live_out = set()
-                n.live_out = n.live_out | n.defs
-                change = change or (_in != n.live_in) or (_out != n.live_out)
-            n_iterations += 1
-
-        self.logger.debug('Iterations: {} * {}'.format(n_iterations, len(cfg_nodes)))
-
-        # Construct interference graph:
-        for n in flowgraph.nodes:
-            for tmp in n.live_out:
-                n1 = self.get_node(tmp)
-                for tmp2 in (n.live_out - {tmp}):
-                    n2 = self.get_node(tmp2)
-                    self.add_edge(n1, n2)
+                # Add interfering edges:
+                for tmp in live_and_def:
+                    n1 = self.get_node(tmp)
+                    for tmp2 in (live_and_def - {tmp}):
+                        n2 = self.get_node(tmp2)
+                        self.add_edge(n1, n2)
 
     def to_dot(self, f):
         """ Generate graphviz dot representation """
@@ -83,14 +57,24 @@ class InterferenceGraph(Graph):
     def get_node(self, tmp):
         """ Get the node for a vreg """
         # Linear search
+        assert type(tmp) is VirtualRegister
         if tmp in self.temp_map:
             n = self.temp_map[tmp]
+            # TODO: make temps a set instead of list
             assert tmp in n.temps
         else:
             n = InterferenceGraphNode(self, tmp)
             self.add_node(n)
             self.temp_map[tmp] = n
         return n
+
+    def interfere(self, tmp1, tmp2):
+        """ Checks if tmp1 and tmp2 interfere """
+        assert type(tmp1) is VirtualRegister
+        assert type(tmp2) is VirtualRegister
+        node1 = self.get_node(tmp1)
+        node2 = self.get_node(tmp2)
+        return self.has_edge(node1, node2)
 
     def combine(self, n, m):
         """ Combine n and m into n and return n """

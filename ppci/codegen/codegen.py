@@ -5,10 +5,11 @@
 """
 
 from .. import ir, irdag
-from ..irutils import Verifier
+from ..irutils import Verifier, split_block
 from ..target import Target
 from .registerallocator import RegisterAllocator
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
+from ..binutils.outstream import TextOutputStream
 import logging
 
 
@@ -27,20 +28,31 @@ class CodeGenerator:
 
     def generate_function(self, irfunc, outs):
         """ Generate code for one function into a frame """
+        self.logger.info('Generating {}-code for {}'
+                         .format(self.target, irfunc.name))
         instruction_list = []
-        outs = MasterOutputStream([FunctionOutputStream(instruction_list.append), outs])
-        self.logger.debug('Generating {}-code for {}'.format(self.target, irfunc.name))
+        outs = MasterOutputStream([
+            FunctionOutputStream(instruction_list.append),
+            # TextOutputStream(),
+            outs])
 
         # Create a frame for this function:
         frame = self.target.FrameClass(ir.label_name(irfunc))
 
+        # Split too large basic blocks in smaller chunks (for literal pools):
+        # TODO: fix arbitrary number of 500. This works for arm and thumb..
+        for block in irfunc:
+            while len(block) > 500:
+                self.logger.debug('{} too large, splitting up'.format(block))
+                _, block = split_block(block, pos=500)
+
         # Create selection dag (directed acyclic graph):
         dag = self.dagger.make_dag(irfunc, frame)
-        self.logger.debug('DAG created', extra={'dag': dag})
+        self.logger.debug('DAG created')
 
         # Select instructions:
         self.ins_sel.munch_dag(dag, frame)
-        self.logger.debug('Selected instructions', extra={'ppci_frame': frame})
+        self.logger.debug('Selected instructions')
 
         # Do register allocation:
         self.register_allocator.allocFrame(frame)
@@ -53,7 +65,7 @@ class CodeGenerator:
         # Materialize the register allocated instructions into a stream of
         # real instructions.
         self.target.lower_frame_to_stream(frame, outs)
-        self.logger.debug('Instructions materialized', extra={'ins_list': instruction_list})
+        self.logger.debug('Instructions materialized')
 
     def generate(self, ircode, outs):
         """ Generate code into output stream """

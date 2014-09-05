@@ -30,6 +30,7 @@ class ArmFrame(Frame):
         self.locVars = {}
         # Literal pool:
         self.constants = []
+        self.literal_number = 0
 
     def argLoc(self, pos):
         """
@@ -54,8 +55,11 @@ class ArmFrame(Frame):
 
     def add_constant(self, value):
         """ Add constant literal to constant pool """
-        assert type(value) in [int, bytes, LabelAddress]
-        lab_name = '{}_literal_{}'.format(self.name, len(self.constants))
+        for lab_name, val in self.constants:
+            if value == val:
+                return lab_name
+        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
+        self.literal_number += 1
         self.constants.append((lab_name, value))
         return lab_name
 
@@ -69,31 +73,38 @@ class ArmFrame(Frame):
             ]
         return pre
 
+    def insert_litpool(self):
+        """ Insert the literal pool at the current position """
+        # Align at 4 bytes
+        self.emit(Alignment(4))
+        # Add constant literals:
+        while self.constants:
+            ln, v = self.constants.pop(0)
+            if isinstance(v, int):
+                self.emit(Label(ln))
+                self.emit(Dcd(v))
+            elif isinstance(v, LabelAddress):
+                self.emit(Label(ln))
+                self.emit(Dcd(v))
+            elif isinstance(v, bytes):
+                self.emit(Label(ln))
+                for c in v:
+                    self.emit(Db(c))
+                self.emit(Alignment(4))   # Align at 4 bytes
+            else:
+                raise Exception('Constant of type {} not supported'.format(v))
+
+    def between_blocks(self):
+        self.insert_litpool()
+
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        post = []
-        post.append(Add(SP, SP, self.stacksize))
-        post += [
-            Pop({PC, R11}),
-            Alignment(4)   # Align at 4 bytes
-            ]
-
-        # Add constant literals:
-        for ln, v in self.constants:
-            if isinstance(v, int):
-                post.extend([Label(ln), Dcd(v)])
-            elif isinstance(v, LabelAddress):
-                post.extend([Label(ln), Dcd(v)])
-            elif isinstance(v, bytes):
-                post.append(Label(ln))
-                for c in v:
-                    post.append(Db(c))
-                post.append(Alignment(4))   # Align at 4 bytes
-            else:
-                raise Exception('Constant of type {} not supported'.format(v))
-        return post
+        self.emit(Add(SP, SP, self.stacksize))
+        self.emit(Pop({PC, R11}))
+        self.insert_litpool()  # Add final literal pool
+        self.emit(Alignment(4))   # Align at 4 bytes
 
     def EntryExitGlue3(self):
         """
@@ -104,5 +115,4 @@ class ArmFrame(Frame):
             self.instructions.insert(index, AbstractInstruction(ins))
 
         # Postfix code:
-        for ins in self.epilogue():
-            self.instructions.append(AbstractInstruction(ins))
+        self.epilogue()

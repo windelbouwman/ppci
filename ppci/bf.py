@@ -4,10 +4,9 @@
 """
 
 import logging
-import io
 
 from . import ir
-from .irutils import Builder, Writer
+from .irutils import Builder
 
 
 class BrainFuckGenerator():
@@ -33,10 +32,10 @@ class BrainFuckGenerator():
 
         # Allocate space on stack for ptr register:
         ptr = self.builder.emit(ir.Alloc('ptr_addr', ir.i32))
-        
+
         # Allocate array:
         # TODO: increase size to 30000
-        data = self.builder.emit(ir.Alloc('data', ir.i32, 100))
+        data = self.builder.emit(ir.Alloc('data', ir.i32, 1000))
 
         # Locate '1' and '0' constants:
         one_ins = self.builder.emit(ir.Const(1, "one", ir.i32))

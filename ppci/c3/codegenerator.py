@@ -44,8 +44,7 @@ class CodeGenerator:
         self.intType = pkg.scope['int']
         self.boolType = pkg.scope['bool']
         self.pointerSize = 4
-        self.logger.debug('Generating ir-code for {}'.format(pkg.name),
-                          extra={'c3_ast': pkg})
+        self.logger.debug('Generating ir-code for {}'.format(pkg.name))
         self.varMap = {}    # Maps variables to storage locations.
         self.builder.m = ir.Module(pkg.name)
         try:
@@ -125,7 +124,7 @@ class CodeGenerator:
                 re = self.gen_expr_code(code.expr)
                 # TODO: handle return value??
                 # self.builder.emit(ir.Move(self.builder.fn.return_value, re))
-                self.builder.emit(ir.Jump(self.builder.fn.epiloog))
+                self.builder.emit(ir.Jump(self.builder.function.epiloog))
                 b = self.builder.newBlock()
                 self.builder.setBlock(b)
             elif type(code) is ast.While:

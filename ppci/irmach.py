@@ -49,6 +49,7 @@ class Frame:
     def between_blocks(self):
         pass
 
+
 class VirtualRegister:
     """ Infinite register value """
     def __init__(self, name):
@@ -75,17 +76,15 @@ class AbstractInstruction:
         self.others = tuple(others)
         self.ismove = ismove
 
-    def __gt__(self, other):
-        """ To make the class fit for sorting """
-        # TODO: make this nicer..
-        return str(self) > str(other)
-
     def __repr__(self):
         """ Substitutes source, dst and labels in the string """
         if isinstance(self.assem, Instruction):
-            x = str(self.assem)
+            cn = str(self.assem)
         else:
             cn = self.assem.__name__
-            x = '{}, def={}, use={}, other={}'
-            x = x.format(cn, self.dst, self.src, self.others)
-        return x
+        if hasattr(self, 'live_out'):
+            lo = self.live_out
+        else:
+            lo = 'None'
+        return '{}, def={}, use={}, other={}, live_out={}'.format(
+            cn, self.dst, self.src, self.others, lo)

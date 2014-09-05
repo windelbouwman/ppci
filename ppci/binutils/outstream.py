@@ -16,6 +16,20 @@ class OutputStream:
         raise NotImplementedError('Abstract base class')
 
 
+class TextOutputStream(OutputStream):
+    """ Output stream that writes to object file """
+    def __init__(self):
+        super().__init__()
+
+    def emit(self, item):
+        """ Encode instruction and add symbol and relocation information """
+        assert isinstance(item, Instruction), str(item) + str(type(item))
+        print(item)
+
+    def select_section(self, sname):
+        print('section {}'.format(sname))
+
+
 class BinaryOutputStream(OutputStream):
     """ Output stream that writes to object file """
     def __init__(self, obj_file):

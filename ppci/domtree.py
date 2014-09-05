@@ -3,6 +3,7 @@ from collections import namedtuple
 
 DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])
 
+
 class CfgInfo:
     """ Calculate control flow graph info, such as dominators
     dominator tree and dominance frontier """
@@ -10,11 +11,11 @@ class CfgInfo:
         # Store ir related info:
         self.f = f
         self.n0 = f.entry
-        self.N = set(f.Blocks)
+        self.N = set(f.blocks)
 
         self.pred = {}
         self.succ = {}
-        for block in f.Blocks:
+        for block in f.blocks:
             self.prepare(block)
 
         # From here only succ and pred are relevant:

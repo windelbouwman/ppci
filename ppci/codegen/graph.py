@@ -14,6 +14,13 @@ class Graph:
         if n not in self.adj_map:
             self.adj_map[n] = set()
 
+    def __iter__(self):
+        for node in self.nodes:
+            yield node
+
+    def __len__(self):
+        return len(self.nodes)
+
     def del_node(self, n):
         self.nodes.remove(n)
 
@@ -54,13 +61,13 @@ class Node:
     """
        Node in a graph.
     """
-    def __init__(self, g):
-        self.g = g
+    def __init__(self, graph):
+        self.graph = graph
         self.addDegree = 0    # Hack to increase degree
 
     @property
     def Adjecent(self):
-        return self.g.adjecent(self)
+        return self.graph.adjecent(self)
 
     @property
     def Degree(self):
@@ -101,11 +108,8 @@ class DiGraph(Graph):
 class DiNode(Node):
     @property
     def Succ(self):
-        return self.g.successors(self)
+        return self.graph.successors(self)
 
     @property
     def Pred(self):
-        return self.g.predecessors(self)
-
-    def __gt__(self, other):
-        return self in other.Succ
+        return self.graph.predecessors(self)

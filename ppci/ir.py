@@ -69,12 +69,20 @@ class Module:
 class Function:
     """ Represents a function. """
     def __init__(self, name, module=None):
+        self._blocks = None
+        # Variables used in uniquifying names:
+        self.defined_names = {}
+        self.unique_counter = 0
         self.name = name
+
+        # Create first blocks:
         self.entry = Block('entry')
-        self.entry.function = self
+        self.add_block(self.entry)
         self.epiloog = Block('epilog')
-        self.epiloog.function = self
-        self.epiloog.addInstruction(Terminator())
+        self.add_block(self.epiloog)
+        self.epiloog.add_instruction(Terminator())
+
+        # TODO: fix this other way?
         # Link entry to epilog:
         self.entry.extra_successors.append(self.epiloog)
 
@@ -86,29 +94,52 @@ class Function:
         args = ','.join(str(a) for a in self.arguments)
         return 'function i32 {}({})'.format(self.name, args)
 
+    def __iter__(self):
+        """ Iterate over all blocks in this function """
+        for block in self.blocks:
+            yield block
+
+    def make_unique_name(self, dut):
+        """ Check if the name of the given dut is unique
+            and if not make it so """
+        orig_name = dut.name
+        while dut.name in self.defined_names.keys():
+            dut.name = '{}_{}'.format(orig_name, self.unique_counter)
+            self.unique_counter += 1
+        self.defined_names[dut.name] = dut
+
     def add_block(self, bb):
-        #self.bbs.append(bb)
+        """ Add a block to this function """
+        # self.bbs.append(bb)
         bb.function = self
 
+        self.make_unique_name(bb)
+
+        # Mark cache as invalid:
+        self._blocks = None
+
     def removeBlock(self, bb):
-        #self.bbs.remove(bb)
+        # self.bbs.remove(bb)
         bb.function = None
 
     def getBlocks(self):
-        bbs = [self.entry]
-        worklist = [self.entry]
-        while worklist:
-            b = worklist.pop()
-            for sb in b.Successors:
-                if sb not in bbs:
-                    bbs.append(sb)
-                    worklist.append(sb)
-        bbs.remove(self.entry)
-        if self.epiloog in bbs:
-            bbs.remove(self.epiloog)
-        bbs.insert(0, self.entry)
-        bbs.append(self.epiloog)
-        return bbs
+        # Use a cache:
+        if self._blocks is None:
+            bbs = [self.entry]
+            worklist = [self.entry]
+            while worklist:
+                b = worklist.pop()
+                for sb in b.Successors:
+                    if sb not in bbs:
+                        bbs.append(sb)
+                        worklist.append(sb)
+            bbs.remove(self.entry)
+            if self.epiloog in bbs:
+                bbs.remove(self.epiloog)
+            bbs.insert(0, self.entry)
+            bbs.append(self.epiloog)
+            self._blocks = bbs
+        return self._blocks
 
     def findBasicBlock(self, name):
         for bb in self.bbs:
@@ -116,15 +147,11 @@ class Function:
                 return bb
         raise KeyError(name)
 
-    Blocks = property(getBlocks)
+    blocks = property(getBlocks)
 
     @property
     def Entry(self):
         return self.entry
-
-    def check(self):
-        for b in self.Blocks:
-            b.check()
 
     def add_parameter(self, p):
         assert type(p) is Parameter
@@ -148,15 +175,33 @@ class Block:
     def __repr__(self):
         return '{0}:'.format(self.name)
 
-    def insert_instruction(self, i):
-        """ Insert an instruction at the front of the block """
-        i.parent = self
-        self.instructions.insert(0, i)
+    def __iter__(self):
+        for instruction in self.instructions:
+            yield instruction
 
-    def addInstruction(self, i):
+    def __len__(self):
+        return len(self.instructions)
+
+    def unique_name(self, value):
+        self.function.make_unique_name(value)
+
+    def insert_instruction(self, i, before_instruction=None):
+        """ Insert an instruction at the front of the block """
+        if before_instruction is not None:
+            pos = self.instructions.index(before_instruction)
+        else:
+            pos = 0
+        i.parent = self
+        self.instructions.insert(pos, i)
+        if isinstance(i, Value):
+            self.unique_name(i)
+
+    def add_instruction(self, i):
         i.parent = self
         assert not isinstance(self.LastInstruction, LastStatement)
         self.instructions.append(i)
+        if isinstance(i, Value):
+            self.unique_name(i)
 
     def replaceInstruction(self, i1, i2):
         idx = self.instructions.index(i1)
@@ -168,8 +213,9 @@ class Block:
     def remove_instruction(self, i):
         """ Remove instruction from block """
         i.parent = None
-        #i.delete()
+        # i.delete()
         self.instructions.remove(i)
+        return i
 
     @property
     def Instructions(self):
@@ -182,7 +228,7 @@ class Block:
 
     @property
     def Empty(self):
-        return len(self.instructions) == 0
+        return len(self) == 0
 
     @property
     def FirstInstruction(self):
@@ -197,9 +243,9 @@ class Block:
 
     def getPredecessors(self):
         preds = []
-        for bb in self.parent.Blocks:
-            if self in bb.Successors:
-                preds.append(bb)
+        for block in self.parent.blocks:
+            if self in block.Successors:
+                preds.append(block)
         return preds
 
     Predecessors = property(getPredecessors)
@@ -271,6 +317,12 @@ class Instruction:
             self.del_use(use)
         self.block.remove_instruction(self)
 
+    @property
+    def position(self):
+        # if not hasattr(self, '_pos'):
+        self._pos = self.block.instructions.index(self)
+        return self._pos
+
     def dominates(self, other):
         """ Checks if this instruction dominates another instruction """
         if type(self) is Parameter or type(self) is GlobalVariable:
@@ -285,13 +337,13 @@ class Instruction:
             for block in other.inputs:
                 if other.inputs[block] == self:
                     # This is the queried dominance branch
-                    # Check if this instruction dominates the last instruction of this block
+                    # Check if this instruction dominates the last
+                    # instruction of this block
                     return self.dominates(block.LastInstruction)
             raise Exception('Cannot query dominance for this phi')
         # For all other instructions follow these rules:
         if self.block == other.block:
-            block = self.block
-            return block.instructions.index(self) < block.instructions.index(other)
+            return self.position < other.position
         else:
             return self.block.dominates(other.block)
 
@@ -357,20 +409,23 @@ class Const(Expression):
 
 class Call(Expression):
     """ Call a function with some arguments """
-    def __init__(self, f, arguments, name, ty):
+    def __init__(self, function, arguments, name, ty):
         super().__init__(name, ty)
-        assert type(f) is str
-        self.f = f
+        assert type(function) is str
+        self.function_name = function
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
 
     def replace_use(self, old, new):
-        raise NotImplementedError()
+        idx = self.arguments.index(old)
+        self.del_use(self.arguments[idx])
+        self.arguments[idx] = new
+        self.add_use(self.arguments[idx])
 
     def __repr__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return '{} = {}({})'.format(self.name, self.f, args)
+        return '{} = {}({})'.format(self.name, self.function_name, args)
 
 
 # Data operations
@@ -419,7 +474,7 @@ class Phi(Value):
         self.inputs = {}
 
     def __repr__(self):
-        inputs = {b: v.name for b,v in self.inputs.items()}
+        inputs = {block: value.name for block, value in self.inputs.items()}
         return '{} = Phi {}'.format(self.name, inputs)
 
     def replace_use(self, old, new):

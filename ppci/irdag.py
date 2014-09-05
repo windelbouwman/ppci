@@ -134,15 +134,16 @@ class Dagger:
         # This is the moment to move all parameters correctly!
         # For each argument get the frame location and introduce a move
         # instruction.
+        reg_uses = []
         for i, argument in enumerate(node.arguments):
             a = self.lut[argument]
             loc = self.frame.argLoc(i)
             loc_tree = Tree('REGI32', value=loc)
+            reg_uses.append(loc)
             self.dag.append(Tree('MOVI32', loc_tree, a))
 
         # Perform the actual call:
-        tree = Tree('CALL')
-        tree.value = node
+        tree = Tree('CALL', value=(node.function_name, reg_uses))
         self.dag.append(tree)
 
         # Store return value:
@@ -197,7 +198,7 @@ class Dagger:
             self.lut[p] = tree
 
         # First define labels:
-        for block in irfunc.Blocks:
+        for block in irfunc:
             block.dag = []
             label_name = ir.label_name(block)
             itgt = AbstractInstruction(Label(label_name))
@@ -205,8 +206,8 @@ class Dagger:
             block.dag.append(itgt)
             dags.append(block.dag)
 
-        # Generate serie of trees for all blocks:
-        for block in irfunc.Blocks:
+        # Generate series of trees for all blocks:
+        for block in irfunc:
             self.dag = block.dag
             for instruction in block.Instructions:
                 self.f_map[type(instruction)](self, instruction)
@@ -214,24 +215,23 @@ class Dagger:
         self.logger.debug('Lifting phi nodes')
         # Construct out of SSA form (remove phi-s)
         # Lift phis, append them to end of incoming blocks..
-        for block in irfunc.Blocks:
-            for instruction in block.Instructions:
+        for block in irfunc:
+            for instruction in block:
                 if type(instruction) is ir.Phi:
                     # Add moves to incoming branches:
                     vreg = self.lut[instruction]
                     for from_block, from_val in instruction.inputs.items():
                         val = self.lut[from_val]
                         tree = Tree('MOVI32', vreg, val)
-                        # Insert before jump:
+                        # Insert before jump (do not use append):
                         from_block.dag.insert(-1, tree)
 
         # Split dags into trees!
         self.logger.debug('Splitting forest')
         for dag in dags:
             for dg in dag:
-                #self.split_dag(dg)
+                # self.split_dag(dg)
                 pass
-                # print(dg)
 
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..
