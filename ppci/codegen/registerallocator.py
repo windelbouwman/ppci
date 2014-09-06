@@ -75,8 +75,8 @@ class RegisterAllocator:
         for mv in self.moves:
             src = self.Node(mv.src[0])
             dst = self.Node(mv.dst[0])
-            assert src in self.initial | self.precolored
-            assert dst in self.initial | self.precolored, str(dst)
+            # assert src in self.initial | self.precolored
+            # assert dst in self.initial | self.precolored, str(dst)
             src.moves.add(mv)
             dst.moves.add(mv)
 
@@ -110,7 +110,7 @@ class RegisterAllocator:
     def Simplify(self):
         """ 2. Remove nodes from the graph """
         n = self.simplifyWorklist.pop()
-        self.logger.debug('Simplifying the graph, taking out {}'.format(n))
+        # self.logger.debug('Simplifying the graph, taking out {}'.format(n))
         self.selectStack.append(n)
         # Pop out of graph, we place it back later:
         self.f.ig.mask_node(n)
@@ -142,7 +142,7 @@ class RegisterAllocator:
         m = first(self.worklistMoves)
         x = self.Node(m.dst[0])
         y = self.Node(m.src[0])
-        self.logger.debug('Coalescing {} and {}'.format(x, y))
+        # self.logger.debug('Coalescing {} and {}'.format(x, y))
         u, v = (y, x) if y in self.precolored else (x, y)
         self.worklistMoves.remove(m)
         if u is v:
@@ -150,18 +150,18 @@ class RegisterAllocator:
             self.coalescedMoves.add(m)
             self.add_worklist(u)
         elif v in self.precolored or self.f.ig.has_edge(u, v):
-            self.logger.debug('Constrained')
+            # self.logger.debug('Constrained')
             self.constrainedMoves.add(m)
             self.add_worklist(u)
             self.add_worklist(v)
         elif (u in self.precolored and all(self.Ok(t, u) for t in v.Adjecent)) or \
                 (u not in self.precolored and self.Conservative(u, v)):
-            self.logger.debug('Combining {} and {}'.format(u, v))
+            # self.logger.debug('Combining {} and {}'.format(u, v))
             self.coalescedMoves.add(m)
             self.Combine(u, v)
             self.add_worklist(u)
         else:
-            self.logger.debug('Active move?')
+            # self.logger.debug('Active move?')
             self.activeMoves.add(m)
 
     def add_worklist(self, u):
@@ -185,7 +185,7 @@ class RegisterAllocator:
 
     def Combine(self, u, v):
         """ Combine u and v into one node, updating work lists """
-        self.logger.debug('{} has degree {}'.format(v, v.Degree))
+        # self.logger.debug('{} has degree {}'.format(v, v.Degree))
         if v in self.freezeWorklist:
             self.freezeWorklist.remove(v)
         else:
@@ -275,7 +275,7 @@ class RegisterAllocator:
         self.makeWorkList()
         self.logger.debug('Starting iterative coloring')
         while True:
-            self.check_invariants()
+            # self.check_invariants()
 
             # Run one of the possible steps:
             if self.simplifyWorklist:
@@ -290,5 +290,4 @@ class RegisterAllocator:
                 break   # Done!
         self.logger.debug('Now assinging colors')
         self.AssignColors()
-        print(self.f.ig.nodes)
         self.ApplyColors()

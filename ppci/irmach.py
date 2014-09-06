@@ -82,9 +82,13 @@ class AbstractInstruction:
             cn = str(self.assem)
         else:
             cn = self.assem.__name__
+        return cn
+
+    @property
+    def long_repr(self):
         if hasattr(self, 'live_out'):
             lo = self.live_out
         else:
             lo = 'None'
         return '{}, def={}, use={}, other={}, live_out={}'.format(
-            cn, self.dst, self.src, self.others, lo)
+            str(self), self.dst, self.src, self.others, lo)

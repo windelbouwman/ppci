@@ -7,7 +7,7 @@ class Graph:
     def __init__(self):
         self.nodes = set()
         self.edges = set()
-        self.adj_map = {}
+        self.adj_map = dict()
 
     def add_node(self, n):
         self.nodes.add(n)
@@ -32,7 +32,7 @@ class Graph:
         self.add_node(n)
 
     def add_edge(self, n, m):
-        """ Add an edge from n to m """
+        """ Add an edge between n and m """
         self.edges.add((n, m))
         self.edges.add((m, n))
         self.adj_map[n].add(m)
@@ -41,9 +41,12 @@ class Graph:
     def has_edge(self, n, m):
         return (n, m) in self.edges
 
-    def delEdge(self, n, m):
+    def del_edge(self, n, m):
+        """ Delete edge between n and m """
         self.edges.remove((n, m))
         self.edges.remove((m, n))
+        self.adj_map[m].remove(n)
+        self.adj_map[n].remove(m)
 
     def adjecent(self, n):
         """ Return all nodes with edges to n """

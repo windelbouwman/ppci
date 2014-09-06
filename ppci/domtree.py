@@ -99,7 +99,8 @@ class CfgInfo:
     def bottom_up(self, node):
         """ Generator that yields all nodes in bottom up way """
         for c in node.children:
-            yield from self.bottom_up(c)
+            for cc in self.bottom_up(c):
+                yield cc
         yield node.block
 
     def children(self, n):

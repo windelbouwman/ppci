@@ -23,10 +23,10 @@ if __name__ == '__main__':
     logger.info('Starting profiling')
     loader = unittest.TestLoader()
     # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckQuine', module=testsamples)
-    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=testsamples)
+    suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=testsamples)
     tc = testsamples.TestSamplesOnVexpress()
-    tc.testBrainFuckHelloWorld()
-    
+    # tc.testBrainFuckHelloWorld()
+    # tc.testBrainFuckQuine()
 
     def runtests():
         unittest.TextTestRunner().run(suite)

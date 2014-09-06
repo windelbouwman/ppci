@@ -56,7 +56,7 @@ def runQemu(kernel, machine='lm3s811evb'):
             '-monitor', 'unix:qemucontrol.sock',
             '-serial', 'unix:qemuserial.sock',
             '-S']
-    p = subprocess.Popen(args)
+    p = subprocess.Popen(args, stderr=subprocess.DEVNULL)
 
     # qemu_serial Give process some time to boot:
     qemu_serial_serve.settimeout(3)

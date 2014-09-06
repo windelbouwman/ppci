@@ -6,7 +6,7 @@ from ..irmach import VirtualRegister
 class InterferenceGraphNode(Node):
     def __init__(self, g, varname):
         super().__init__(g)
-        self.temps = [varname]
+        self.temps = {varname}
         self.moves = set()
         self.color = None
 
@@ -60,7 +60,6 @@ class InterferenceGraph(Graph):
         assert type(tmp) is VirtualRegister
         if tmp in self.temp_map:
             n = self.temp_map[tmp]
-            # TODO: make temps a set instead of list
             assert tmp in n.temps
         else:
             n = InterferenceGraphNode(self, tmp)
@@ -79,7 +78,7 @@ class InterferenceGraph(Graph):
     def combine(self, n, m):
         """ Combine n and m into n and return n """
         # Copy associated moves and temporaries into n:
-        n.temps.extend(m.temps)
+        n.temps |= m.temps
         n.moves.update(m.moves)
 
         # Update local temp map:
@@ -87,14 +86,10 @@ class InterferenceGraph(Graph):
             self.temp_map[tmp] = n
 
         # Reroute all edges:
-        e1 = [e for e in self.edges if e[0] is m]
-        e2 = [e for e in self.edges if e[1] is m]
-        for e in e1:
-            self.edges.remove(e)
-            self.add_edge(n, e[1])
-        for e in e2:
-            self.edges.remove(e)
-            self.add_edge(n, e[0])
+        m_adjecent = set(self.adj_map[m])
+        for a in m_adjecent:
+            self.del_edge(m, a)
+            self.add_edge(n, a)
 
         # Remove node m:
         self.del_node(m)
