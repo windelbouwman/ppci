@@ -230,11 +230,13 @@ class Orr1(OpRegRegReg):
     mnemonic = 'ORR'
     opcode = 0b0001100
 
+Orr = Orr1
 
 class And1(OpRegRegReg):
     mnemonic = 'AND'
     opcode = 0b0000000
 
+And = And1
 
 class ShiftBase(ArmInstruction):
     """ ? rd, rn, rm """
@@ -262,11 +264,13 @@ class Lsr1(ShiftBase):
     mnemonic = 'LSR'
     opcode = 0b0011
 
+Lsr = Lsr1
 
 class Lsl1(ShiftBase):
     mnemonic = 'LSL'
     opcode = 0b0001
 
+Lsl = Lsl1
 
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
@@ -410,6 +414,7 @@ def LdrPseudo(rt, lab, add_lit):
     """ Ldr rt, =lab ==> ldr rt, [pc, offset in litpool] ... dcd lab """
     lit_lbl = add_lit(LabelAddress(lab))
     return Ldr(rt, lit_lbl)
+
 
 def Str(*args):
     if len(args) == 3 and isinstance(args[1], ArmRegister):

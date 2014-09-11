@@ -572,7 +572,7 @@ class XaccGenerator:
         self.print('from ppci import Token')
         self.print('')
         for h in self.headers:
-            print(h, file=output_file)
+            self.print(h)
         self.print('')
         self.print('class Parser(LRParser):')
         self.print('    def __init__(self):')

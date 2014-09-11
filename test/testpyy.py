@@ -272,5 +272,19 @@ class testGrammarParser(unittest.TestCase):
         self.assertSequenceEqual(['a', 'a', 'a'], res)
 
 
+    def testLoadAsWithHeader(self):
+        grammar = """
+        import logging
+        %tokens a b c
+        %%
+        res: aa { return arg1 };
+        aa: { return [] }
+          | aa a { arg1.append(arg2.val); return arg1};
+        """
+        i = io.StringIO(grammar)
+        o = io.StringIO()
+        transform(i, o)
+
+
 if __name__ == '__main__':
     unittest.main()
