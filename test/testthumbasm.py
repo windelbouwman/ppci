@@ -38,19 +38,19 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.check('70bd')
 
     def testStr5(self):
-        self.feed('str r4, [r1 + 0]')
+        self.feed('str r4, [r1, 0]')
         self.check('0c60')
 
     def testLdr5(self):
-        self.feed('ldr r4, [r0 + 0]')
+        self.feed('ldr r4, [r0, 0]')
         self.check('0468')
 
     def testLdrSpRel(self):
-        self.feed('ldr r0, [sp + 4]')
+        self.feed('ldr r0, [sp, 4]')
         self.check('0198')
 
     def testStrSpRel(self):
-        self.feed('str r0, [sp + 4]')
+        self.feed('str r0, [sp, 4]')
         self.check('0190')
 
     def testLdrPcRel(self):
@@ -159,8 +159,8 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('push {r1,r4,r5}')
         self.feed('add r5, r2, r4')
         self.feed('cmp r4, r2')
-        self.feed('ldr r0, [sp + 4]')
-        self.feed('str r3, [sp + 16]')
+        self.feed('ldr r0, [sp, 4]')
+        self.feed('str r3, [sp, 16]')
         self.feed('pop {r1, r4, r5}')
         self.feed('lsl r3, r4')
         self.feed('cmp r3, r5')

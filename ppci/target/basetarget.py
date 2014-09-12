@@ -1,6 +1,7 @@
 import types
 from ..bitfun import encode_imm32
 import struct
+import logging
 
 """
   Base classes for defining a target
@@ -89,6 +90,7 @@ class LabelAddress:
 
 class Target:
     def __init__(self, name, desc=''):
+        logging.getLogger().info('Creating {} target'.format(name))
         self.name = name
         self.desc = desc
         self.registers = []

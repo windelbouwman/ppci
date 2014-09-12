@@ -64,8 +64,11 @@ from ppci import baselex, pyyacc
 from ppci.tree import Tree
 
 # Generate parser on the fly:
-spec_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'burg.grammar')
-burg_parser = pyyacc.load_as_module(spec_file)
+# spec_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'burg.grammar')
+# burg_parser = pyyacc.load_as_module(spec_file)
+
+# load parser:
+from ppci import burg_parser
 
 
 class BurgLexer(baselex.BaseLexer):
