@@ -25,6 +25,7 @@ from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError
+from .ir2py import IrToPython
 
 
 def fix_target(tg):
@@ -145,11 +146,11 @@ def optimize(ircode):
     # Optimization passes:
     # CleanPass().run(ircode)
 
-    Mem2RegPromotor().run(ircode)
+    # Mem2RegPromotor().run(ircode)
     DeleteUnusedInstructionsPass().run(ircode)
     RemoveAddZeroPass().run(ircode)
-    CommonSubexpressionEliminationPass().run(ircode)
-    LoadAfterStorePass().run(ircode)
+    # CommonSubexpressionEliminationPass().run(ircode)
+    # LoadAfterStorePass().run(ircode)
     DeleteUnusedInstructionsPass().run(ircode)
     # CleanPass().run(ircode)
 
@@ -173,10 +174,18 @@ def ir_to_code(ir_modules, target):
     return output
 
 
+def ir_to_python(ircode, f):
+    """ Convert ir-code to python code """
+    IrToPython().generate(ircode, f)
+
+
 def c3compile(sources, includes, target):
     """ Compile a set of sources into binary format for the given target """
     target = fix_target(target)
-    return ir_to_code(c3toir(sources, includes, target), target)
+    ir_mods = list(c3toir(sources, includes, target))
+    for ircode in ir_mods:
+        optimize(ircode)
+    return ir_to_code(ir_mods, target)
 
 
 def bf2ir(source):
@@ -187,9 +196,9 @@ def bf2ir(source):
 
 def bfcompile(source, target):
     """ Compile brainfuck source into binary format for the given target """
-    target = fix_target(target)
     ircode = bf2ir(source)
     optimize(ircode)
+    target = fix_target(target)
     return ir_to_code([ircode], target)
 
 

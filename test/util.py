@@ -107,6 +107,14 @@ def runQemu(kernel, machine='lm3s811evb'):
     return data
 
 
+def run_python(kernel):
+    """ Run given file in python and capture output """
+    p = subprocess.Popen(['python', kernel], stdout=subprocess.PIPE)
+    outs, errs = p.communicate()
+    outs = outs.decode('ascii', errors='ignore')
+    return outs
+
+
 def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):
     """ Helper function to feed source through gnu assembling tools """
     prefix = 'arm-none-eabi-'

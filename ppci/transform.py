@@ -104,7 +104,7 @@ class RemoveAddZeroPass(InstructionPass):
             elif instruction.operation == '*':
                 if type(instruction.b) is ir.Const and instruction.b.value == 1:
                     # self.logger.debug('Multiple 1 {} to {}'.format(instruction, instruction.a))
-                    raise NotImplementedError()
+                    instruction.replace_by(instruction.a)
 
 
 class DeleteUnusedInstructionsPass(BlockPass):

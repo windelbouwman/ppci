@@ -1,9 +1,9 @@
 import unittest
-import os
 import io
 import logging
-from util import runQemu, has_qemu, relpath, tryrm
+from util import runQemu, has_qemu, relpath, tryrm, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
+from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
 from ppci.report import RstFormatter
 
 
@@ -306,31 +306,31 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnX86(unittest.TestCase, Samples):
-    sample_filename = 'testsample.bin'
+class TestSamplesOnPython(unittest.TestCase, Samples):
+    sample_filename = 'generated_code.py'
 
     def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
-        self.skipTest('No x86 target yet')
+        pass
 
-    def do(self, src, expected_output):
-        # Construct binary file from snippet:
-        o1 = assemble(io.StringIO(startercode), 'x86')
-        o2 = c3compile([
-            relpath('..', 'kernel', 'src', 'io.c3'),
-            io.StringIO(modarchcode),
-            io.StringIO(src)], [], 'x86')
-        o3 = link([o2, o1], io.StringIO(arch_mmap), 'x86')
+    def do(self, src, expected_output, lang='c3'):
+        if lang == 'c3':
+            ir_mods = list(c3toir([
+                relpath('data', 'io.c3'),
+                relpath('data', 'lm3s6965evb', 'arch.c3'),
+                io.StringIO(src)], [], "arm"))
+        elif lang == 'bf':
+            ir_mods = [bf2ir(src)]
 
-        objcopy(o3, 'image', 'bin', sample_filename)
-
-        # Check bin file exists:
-        self.assertTrue(os.path.isfile(sample_filename))
-
-        # Run bin file in emulator:
-        res = runQemu(sample_filename, machine='vexpress-a9')
-        os.remove(sample_filename)
+        with open(self.sample_filename, 'w') as f:
+            print('mem = list()', file=f)
+            for m in ir_mods:
+                ir_to_python(m, f)
+            # Add glue:
+            print('', file=f)
+            print('def arch_putc(c):', file=f)
+            print('    print(chr(c), end="")', file=f)
+            print('sample_start()', file=f)
+        res = run_python(self.sample_filename)
         self.assertEqual(expected_output, res)
 
 

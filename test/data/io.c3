@@ -27,6 +27,8 @@ function void print_int(int i)
     // int txt[20];
     var int b;
     var int c;
+    c = 0;
+    b = 0;
 
     for (b=28; b >= 0; b = b - 4)
     {

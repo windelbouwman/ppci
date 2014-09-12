@@ -1,11 +1,10 @@
 import types
-from ..bitfun import encode_imm32
-import struct
 import logging
 
 """
   Base classes for defining a target
 """
+
 
 class Instruction:
     """ Base instruction class """
@@ -157,5 +156,4 @@ class Target:
 
     def add_reloc(self, name, f):
         self.reloc_map[name] = f
-
 

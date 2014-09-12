@@ -200,7 +200,7 @@ class Block:
         i.parent = self
         assert not isinstance(self.LastInstruction, LastStatement)
         self.instructions.append(i)
-        if isinstance(i, Value):
+        if isinstance(i, Value) and self.function is not None:
             self.unique_name(i)
 
     def replaceInstruction(self, i1, i2):
@@ -267,6 +267,7 @@ def VarUse(name):
             return "Not set!"
 
     def setter(self, value):
+        assert isinstance(value, Value)
         # If value was already set, remove usage
         if name in self.var_map:
             self.del_use(self.var_map[name])
@@ -291,6 +292,10 @@ class Instruction:
     @property
     def block(self):
         return self.parent
+
+    @property
+    def function(self):
+        return self.block.function
 
     def add_use(self, v):
         """ Add v to the list of values used by this instruction """
@@ -357,6 +362,7 @@ class Value(Instruction):
     def __init__(self, name, ty):
         super().__init__()
         assert isinstance(ty, Typ)
+        assert isinstance(name, str)
         self.name = name
         self.ty = ty
         self.used_by = set()
@@ -402,6 +408,7 @@ class Const(Expression):
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
         self.value = value
+        assert type(value) in [int, float, bool, bytes], str(value)
 
     def __repr__(self):
         return '{} = Const {}'.format(self.name, self.value)
@@ -553,20 +560,46 @@ class Addr(Expression):
 
 
 # Branching:
+
+def BlockRef(name):
+    """ Creates a property that can be set and changed """
+    def getter(self):
+        if name in self.block_map:
+            return self.block_map[name]
+        else:
+            return "No such block!"
+
+    def setter(self, block):
+        assert isinstance(block, Block)
+        # If block was present, do something?
+        if name in self.block_map:
+            pass
+
+        # Use the new block:
+        self.block_map[name] = block
+
+    return property(getter, setter)
+
+
 class LastStatement(Instruction):
     def __init__(self):
         super().__init__()
+        self.block_map = {}
+
+    @property
+    def Targets(self):
+        return list(self.block_map.values())
 
     def changeTarget(self, old, new):
-        idx = self.Targets.index(old)
-        self.Targets[idx] = new
+        for name in self.block_map:
+            if self.block_map[name] is old:
+                self.block_map[name] = new
 
 
 class Terminator(LastStatement):
     """ Instruction that terminates the terminal block """
     def __init__(self):
         super().__init__()
-        self.Targets = []
 
     def __repr__(self):
         return 'Terminator'
@@ -574,14 +607,11 @@ class Terminator(LastStatement):
 
 class Jump(LastStatement):
     """ Jump statement to some target location """
+    target = BlockRef('target')
+
     def __init__(self, target):
         super().__init__()
-        self.Targets = [target]
-
-    def setTarget(self, t):
-        self.Targets[0] = t
-
-    target = property(lambda s: s.Targets[0], setTarget)
+        self.target = target
 
     def __repr__(self):
         return 'JUMP {}'.format(self.target.name)
@@ -592,6 +622,8 @@ class CJump(LastStatement):
     conditions = ['==', '<', '>', '>=', '<=', '!=']
     a = VarUse('a')
     b = VarUse('b')
+    lab_yes = BlockRef('lab_yes')
+    lab_no = BlockRef('lab_no')
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()
@@ -599,12 +631,10 @@ class CJump(LastStatement):
         self.a = a
         self.cond = cond
         self.b = b
-        self.Targets = [lab_yes, lab_no]
-
-    lab_yes = property(lambda s: s.Targets[0])
-    lab_no = property(lambda s: s.Targets[1])
+        self.lab_yes = lab_yes
+        self.lab_no = lab_no
 
     def __repr__(self):
         return 'IF {} {} {} THEN {} ELSE {}'\
-               .format(self.a.name,
-                       self.cond, self.b.name, self.lab_yes, self.lab_no)
+               .format(self.a.name, self.cond, self.b.name,
+                       self.lab_yes.name, self.lab_no.name)

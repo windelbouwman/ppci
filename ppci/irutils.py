@@ -4,7 +4,7 @@
 """
 import logging
 import re
-from . import ir
+from . import ir, Token
 from .domtree import CfgInfo
 
 
@@ -112,6 +112,7 @@ class Reader:
             return module
         except IrParseException as e:
             print(e)
+            raise Exception(str(e))
 
     def next_token(self):
         t = self.token
@@ -123,8 +124,14 @@ class Reader:
     def Peak(self):
         return self.token[0]
 
-    def Consume(self, typ):
+    @property
+    def PeakVal(self):
+        return self.token[1]
+
+    def Consume(self, typ, val=None):
         if self.Peak == typ:
+            if val is not None:
+                assert self.PeakVal == val
             return self.next_token()
         else:
             raise IrParseException('Expected "{}" got "{}"'
@@ -147,12 +154,22 @@ class Reader:
     def parse_function(self):
         self.Consume('function')
         self.parse_type()
+
+        # Setup maps:
+        self.val_map = {}
+        self.block_map = {}
+        self.resolve_worklist = []
+
         name = self.Consume('ID')[1]
         function = ir.Function(name)
         self.Consume('(')
         while self.Peak != ')':
-            self.parse_type()
-            self.Consume('ID')
+            ty = self.parse_type()
+            name = self.Consume('ID')[1]
+            ty = self.find_type(ty)
+            param = ir.Parameter(name, ty)
+            function.add_parameter(param)
+            self.add_val(param)
             if self.Peak != ',':
                 break
             else:
@@ -160,11 +177,18 @@ class Reader:
         self.Consume(')')
         self.Consume('eol')
         while self.Peak == 'SKIP1':
-            function.add_block(self.parse_block())
+            block = self.parse_block()
+            function.add_block(block)
+            self.block_map[block.name] = block
+
+        for ins, blocks in self.resolve_worklist:
+            for b in blocks:
+                b2 = self.find_block(b.name)
+                ins.changeTarget(b, b2)
         return function
 
     def parse_type(self):
-        self.Consume('ID')
+        return self.Consume('ID')[1]
 
     def parse_block(self):
         self.Consume('SKIP1')
@@ -173,15 +197,92 @@ class Reader:
         self.Consume(':')
         self.Consume('eol')
         while self.Peak == 'SKIP2':
-            self.parse_statement()
+            ins = self.parse_statement()
+            block.add_instruction(ins)
         return block
+
+    def add_val(self, v):
+        self.val_map[v.name] = v
+
+    def find_val(self, name):
+        return self.val_map[name]
+
+    def find_type(self, name):
+        ty_map = {'i32': ir.i32}
+        return ty_map[name]
+
+    def find_block(self, name):
+        return self.block_map[name]
+
+    def parse_assignment(self):
+        ty = self.Consume('ID')[1]
+        name = self.Consume('ID')[1]
+        self.Consume('=')
+        if self.Peak == 'ID':
+            a = self.Consume('ID')[1]
+            if self.Peak in ['+', '-']:
+                # Go for binop
+                op = self.Consume(self.Peak)[1]
+                b = self.Consume('ID')[1]
+                a = self.find_val(a)
+                ty = self.find_type(ty)
+                b = self.find_val(b)
+                ins = ir.Binop(a, op, b, name, ty)
+            else:
+                raise Exception()
+        elif self.Peak == 'NUMBER':
+            cn = self.Consume('NUMBER')[1]
+            ty = self.find_type(ty)
+            ins = ir.Const(cn, name, ty)
+        else:
+            raise Exception()
+        return ins
+
+    def parse_cjmp(self):
+        self.Consume('ID', 'cjmp')
+        a = self.Consume('ID')[1]
+        op = self.Consume(self.Peak)[0]
+        b = self.Consume('ID')[1]
+        L1 = self.Consume('ID')[1]
+        L2 = self.Consume('ID')[1]
+        L1 = ir.Block(L1)
+        L2 = ir.Block(L2)
+        a = self.find_val(a)
+        b = self.find_val(b)
+        ins = ir.CJump(a, op, b, L1, L2)
+        self.resolve_worklist.append((ins, (L1, L2)))
+        return ins
+
+    def parse_jmp(self):
+        self.Consume('ID', 'jmp')
+        L1 = self.Consume('ID')[1]
+        L1 = ir.Block(L1)
+        ins = ir.Jump(L1)
+        self.resolve_worklist.append((ins, (L1,)))
+        return ins
+
+    def parse_return(self):
+        self.Consume('ID', 'return')
+        val = self.find_val(self.Consume('ID')[1])
+        # TODO: what to do with return value?
+        ins = ir.Terminator()
+        return ins
 
     def parse_statement(self):
         self.Consume('SKIP2')
-        while self.Peak != 'eol':
-            # raise NotImplementedError()
-            self.next_token()
+        if self.Peak == 'ID' and self.PeakVal == 'jmp':
+            ins = self.parse_jmp()
+        elif self.Peak == 'ID' and self.PeakVal == 'cjmp':
+            ins = self.parse_cjmp()
+        elif self.Peak == 'ID' and self.PeakVal == 'return':
+            ins = self.parse_return()
+        elif self.Peak == 'ID' and self.PeakVal == 'store':
+            raise Exception()
+        else:
+            ins = self.parse_assignment()
+            self.add_val(ins)
         self.Consume('eol')
+        return ins
 
 
 # Constructing IR:
