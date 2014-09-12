@@ -21,5 +21,5 @@ def encode_imm32(v):
             val = v2 & 0xFF
             x = (rotation << 8) | val
             return x
-    raise Exception("Invalid value {}".format(v))
+    raise ValueError("Invalid value {}".format(v))
 

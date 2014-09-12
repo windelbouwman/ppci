@@ -6,6 +6,7 @@ from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3, Adr
 
 from .frame import ArmFrame
 from .arminstructionselector import ArmInstructionSelector
+from .relocations import reloc_map
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, SP, LR, PC
 from ..arm.registers import register_range
 from ...assembler import BaseAssembler
@@ -57,6 +58,7 @@ class ThumbTarget(Target):
         self.add_lowering(Cmp, lambda im: Cmp(im.src[0], im.src[1]))
 
         self.assembler = ThumbAssembler(self)
+        self.reloc_map = reloc_map
 
     def emit_global(self, outs, lname):
         outs.emit(Label(lname))

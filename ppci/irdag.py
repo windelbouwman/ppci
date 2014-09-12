@@ -64,8 +64,7 @@ class Dagger:
 
     @register(ir.Alloc)
     def do_alloc(self, node):
-        fp = Tree("REGI32")
-        fp.value = self.frame.fp
+        fp = Tree("REGI32", value=self.frame.fp)
         offset = Tree("CONSTI32")
         # TODO: check size and alignment?
         offset.value = self.frame.allocVar(node, node.amount)
@@ -157,6 +156,7 @@ class Dagger:
     def do_phi(self, node):
         # Phis are lifted elsewhere..
         # Create a new vreg for this phi:
+        # The incoming branches provided with a copy instruction further on.
         rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
         self.lut[node] = rv_copy
 

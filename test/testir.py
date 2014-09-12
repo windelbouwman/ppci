@@ -51,31 +51,6 @@ class IrBuilderTestCase(unittest.TestCase):
         #self.assertEqual(3, r)
 
 
-class PatternMatchTestCase(unittest.TestCase):
-    @unittest.skip('Not yet implemented')
-    def testSimpleTree(self):
-        t = ir.Term('x')
-        pat = ir.Binop(ir.Const(2), '+', t)
-        res, mp = ir.match_tree(ir.Binop(ir.Const(2), '+', 3), pat)
-        self.assertTrue(res)
-        self.assertIn(t, mp)
-        self.assertEqual(3, mp[t])
-
-    @unittest.skip('Not yet implemented')
-    def testSimpleTree2(self):
-        t = ir.Term('x')
-        t2 = ir.Term('y')
-        pat = ir.Binop(ir.Const(2), '+', ir.Binop(t, '-', t2))
-        res, mp = ir.match_tree(ir.Binop(ir.Const(2), '+', ir.Binop(2,'-',3)), pat)
-        self.assertTrue(res)
-        self.assertIn(t, mp)
-        self.assertEqual(2, mp[t])
-        self.assertIn(t2, mp)
-        self.assertEqual(3, mp[t2])
-        res, mp = ir.match_tree(ir.Const(2), pat)
-        self.assertFalse(res)
-
-
 class ConstantFolderTestCase(unittest.TestCase):
     def setUp(self):
         self.b = irutils.Builder()
@@ -89,12 +64,9 @@ class ConstantFolderTestCase(unittest.TestCase):
         bb = self.b.newBlock()
         self.b.emit(ir.Jump(bb))
         self.b.setBlock(bb)
-        v1 = ir.Const(5, 'const', ir.i32)
-        self.b.emit(v1)
-        v2 = ir.Const(7, 'const', ir.i32)
-        self.b.emit(v2)
-        v3 = ir.Add(v1, v2, "add", ir.i32)
-        self.b.emit(v3)
+        v1 = self.b.emit(ir.Const(5, 'const', ir.i32))
+        v2 = self.b.emit(ir.Const(7, 'const', ir.i32))
+        self.b.emit(ir.Add(v1, v2, "add", ir.i32))
         self.b.emit(ir.Jump(f.epiloog))
         self.cf.run(self.m)
 

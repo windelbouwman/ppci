@@ -37,11 +37,30 @@ class BrainFuckGenerator():
         # TODO: increase size to 30000
         data = self.builder.emit(ir.Alloc('data', ir.i32, 1000))
 
+
         # Locate '1' and '0' constants:
         one_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
         four_ins = self.builder.emit(ir.Const(4, "four", ir.i32))
         zero_ins = self.builder.emit(ir.Const(0, "zero", ir.i32))
+        array_size = self.builder.emit(ir.Const(1000, "array_max", ir.i32))
 
+        # Store initial value of ptr:
+        self.builder.emit(ir.Store(zero_ins, ptr))
+
+        # Initialize array to zero:
+        block3 = self.builder.newBlock()
+        block_init = self.builder.newBlock()
+        self.builder.emit(ir.Jump(block_init))
+
+        self.builder.setBlock(block_init)
+        ptr_val = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i32))
+        cell_addr = self.builder.emit(ir.Add(data, ptr_val, "cell_addr", ir.i32))
+        self.builder.emit(ir.Store(zero_ins, cell_addr))
+        add_ins = self.builder.emit(ir.Add(ptr_val, four_ins, "Added", ir.i32))
+        self.builder.emit(ir.Store(add_ins, ptr))
+        self.builder.emit(ir.CJump(add_ins, '==', array_size, block3, block_init))
+
+        self.builder.setBlock(block3)
         # Store initial value of ptr:
         self.builder.emit(ir.Store(zero_ins, ptr))
 

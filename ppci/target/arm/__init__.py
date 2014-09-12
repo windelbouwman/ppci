@@ -13,6 +13,7 @@ from .instructions import Mcr, Mrc
 from .instructions import LdrPseudo
 from .selector import ArmInstructionSelector
 from .frame import ArmFrame
+from .relocations import reloc_map
 from ...assembler import BaseAssembler
 
 
@@ -99,6 +100,8 @@ class ArmTarget(Target):
         self.add_lowering(And1, lambda im: And1(im.dst[0], im.src[0], im.src[1]))
         self.add_lowering(Mov1, lambda im: Mov1(im.dst[0], im.others[0]))
 
+        self.reloc_map = reloc_map
+
     def emit_global(self, outs, lname):
         outs.emit(Label(lname))
         outs.emit(Dcd(0))
@@ -141,17 +144,17 @@ class ArmTarget(Target):
 
         self.add_keyword('dcd')
         self.add_instruction(['dcd', 'imm32'],
-                lambda rhs: Dcd(rhs[1]))
+                             lambda rhs: Dcd(rhs[1]))
 
         self.add_keyword('mov')
         self.add_instruction(['mov', 'reg', ',', 'imm32'],
-                lambda rhs: Mov(rhs[1], rhs[3]))
+                             lambda rhs: Mov(rhs[1], rhs[3]))
         self.add_instruction(['mov', 'reg', ',', 'reg'],
-                lambda rhs: Mov(rhs[1], rhs[3]))
+                             lambda rhs: Mov(rhs[1], rhs[3]))
 
         self.add_keyword('cmp')
         self.add_instruction(['cmp', 'reg', ',', 'imm32'],
-                lambda rhs: Cmp(rhs[1], rhs[3]))
+                             lambda rhs: Cmp(rhs[1], rhs[3]))
         self.add_instruction(['cmp', 'reg', ',', 'reg'],
                 lambda rhs: Cmp(rhs[1], rhs[3]))
 
