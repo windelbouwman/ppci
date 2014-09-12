@@ -27,12 +27,12 @@ from ...assembler import BaseAssembler
 asmline: asmline2
        | asmline2 COMMENT;
 
-asmline2: label instr { self.assembler.emit(arg1) }
-        | label { self.assembler.emit(arg1) }
+asmline2: label instr
+        | label
         | instr
         | ;
 
-label: ID ':' { return Label(arg1.val) };
+label: ID ':' { self.assembler.emit(Label(arg1.val)) };
 
 instr: pseudoinstruction
      | instruction { self.assembler.emit(arg1) };

@@ -105,3 +105,29 @@ def runQemu(kernel, machine='lm3s811evb'):
 
     # Check that output was correct:
     return data
+
+
+def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):
+    """ Helper function to feed source through gnu assembling tools """
+    prefix = 'arm-none-eabi-'
+    gas = '{}as'.format(prefix)
+    objdump = prefix + 'objdump'
+    print('assembling...')
+    p_as = subprocess.Popen([gas] + as_args, stdin=subprocess.PIPE)
+    p_as.communicate(input=source.encode('ascii'))
+    if p_as.returncode != 0:
+        raise Exception('{}'.format(p_as.returncode))
+
+    p_objdump = subprocess.Popen([objdump, '-d'], stdout=subprocess.PIPE)
+    output = p_objdump.communicate()[0].decode('ascii')
+    if p_objdump.returncode != 0:
+        raise Exception('{}'.format(p_objdump.returncode))
+    print(output)
+
+    p_objdump = subprocess.Popen([objdump, '-s', '-j', '.text'],
+                                 stdout=subprocess.PIPE)
+    output = p_objdump.communicate()[0].decode('ascii')
+    if p_objdump.returncode != 0:
+        raise Exception('{}'.format(p_objdump.returncode))
+    print(output)
+    return output

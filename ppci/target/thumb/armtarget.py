@@ -1,14 +1,11 @@
 from ..basetarget import Register, Instruction, Target, Label, Alignment
 from .instructions import Add2, Sub, Sub3, Add3, Cmp, Lsl, Lsr, Orr, Add, Cmp2, Sub2, Mul, And
 from .instructions import Dcd, Pop, Push, Yield, Mov2, Mov3
-from .instructions import B, Bl, Bne, Beq, Blt, Bgt, Ble, Bge
 from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3, Adr
 
 from .frame import ArmFrame
 from .arminstructionselector import ArmInstructionSelector
 from .relocations import reloc_map
-from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, SP, LR, PC
-from ..arm.registers import register_range
 from ...assembler import BaseAssembler, AsmLexer
 
 from .parser import Parser
@@ -71,5 +68,4 @@ class ThumbTarget(Target):
     def emit_global(self, outs, lname):
         outs.emit(Label(lname))
         outs.emit(Dcd(0))
-
 
