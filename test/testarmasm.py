@@ -33,6 +33,11 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('add r12, r11, 300')
         self.check('4bcf8be2')
 
+    def testAdd2InvalidValue(self):
+        """ Test add instruction with invalid value """
+        with self.assertRaises(ValueError):
+            self.feed('add r12, r11, 30000')
+
     def testAdd1(self):
         self.feed('add r9, r7, r2')
         self.check('029087e0')

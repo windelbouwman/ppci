@@ -16,6 +16,7 @@ from .instructions import Lsr1, Lsl1, And1, Sub1
 from .instructions import B, Bl, Ble, Bgt, Beq, Blt, Cmp, Cmp2
 from .instructions import Push, Pop, Str, Ldr, Ldr3, Str1, Ldr1, Adr
 from .instructions import Mcr, Mrc
+from .relocations import reloc_map
 
 
 class ArmAssembler(BaseAssembler):
@@ -105,6 +106,8 @@ class ArmTarget(Target):
         self.add_lowering(Lsr1, lambda im: Lsr1(im.dst[0], im.src[0], im.src[1]))
         self.add_lowering(And1, lambda im: And1(im.dst[0], im.src[0], im.src[1]))
         self.add_lowering(Mov1, lambda im: Mov1(im.dst[0], im.others[0]))
+
+        self.reloc_map = reloc_map
 
     def emit_global(self, outs, lname):
         outs.emit(Label(lname))

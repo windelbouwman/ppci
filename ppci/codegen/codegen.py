@@ -28,7 +28,7 @@ class CodeGenerator:
 
     def generate_function(self, irfunc, outs):
         """ Generate code for one function into a frame """
-        self.logger.info('Generating {}-code for {}'
+        self.logger.info('Generating {} code for {}'
                          .format(self.target, irfunc.name))
         instruction_list = []
         outs = MasterOutputStream([

@@ -4,6 +4,7 @@ import subprocess
 import socket
 import time
 import shutil
+import logging
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
@@ -32,10 +33,13 @@ def has_qemu():
 def runQemu(kernel, machine='lm3s811evb'):
     """ Runs qemu on a given kernel file """
 
+    logger = logging.getLogger('runqemu')
     if not has_qemu():
         return ''
     # Check bin file exists:
     assert os.path.isfile(kernel)
+
+    logger.debug('Running qemu')
 
     tryrm('qemucontrol.sock')
     tryrm('qemuserial.sock')
@@ -93,6 +97,8 @@ def runQemu(kernel, machine='lm3s811evb'):
     qemu_serial.close()
     qemu_control_serve.close()
     qemu_serial_serve.close()
+
+    logger.debug('Qemu closed')
 
     tryrm('qemucontrol.sock')
     tryrm('qemuserial.sock')

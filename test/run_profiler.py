@@ -7,7 +7,7 @@ import logging
 import logging.handlers
 import shutil
 import os
-import testsamples
+
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
@@ -21,24 +21,20 @@ if __name__ == '__main__':
     logging.getLogger().addHandler(uh)
     logger = logging.getLogger('run')
     logger.info('Starting profiling')
+
+    # Load unittest:
     loader = unittest.TestLoader()
     # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckQuine', module=testsamples)
     suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=testsamples)
-    tc = testsamples.TestSamplesOnVexpress()
-    # tc.testBrainFuckHelloWorld()
-    # tc.testBrainFuckQuine()
 
     def runtests():
         unittest.TextTestRunner().run(suite)
 
-    # s = cProfile.run('runtests()',sort='cumtime')
     p = cProfile.Profile()
     s = p.run('runtests()')
     stats = pstats.Stats(p)
     stats.dump_stats('results.cprofile')
-    # stats.sort_stats('tottime')
     stats.sort_stats('cumtime')
-    # stats.print_stats(.1)
 
     # Convert result profile to kcachegrind format:
     if shutil.which('pyprof2calltree'):
