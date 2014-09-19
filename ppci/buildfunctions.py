@@ -146,7 +146,7 @@ def optimize(ircode):
     # Optimization passes:
     # CleanPass().run(ircode)
 
-    # Mem2RegPromotor().run(ircode)
+    Mem2RegPromotor().run(ircode)
     DeleteUnusedInstructionsPass().run(ircode)
     RemoveAddZeroPass().run(ircode)
     # CommonSubexpressionEliminationPass().run(ircode)
@@ -176,6 +176,7 @@ def ir_to_code(ir_modules, target):
 
 def ir_to_python(ircode, f):
     """ Convert ir-code to python code """
+    optimize(ircode)
     IrToPython().generate(ircode, f)
 
 
@@ -191,6 +192,7 @@ def c3compile(sources, includes, target):
 def bf2ir(source):
     """ Compile brainfuck source into ir code """
     ircode = BrainFuckGenerator().generate(source)
+    optimize(ircode)
     return ircode
 
 

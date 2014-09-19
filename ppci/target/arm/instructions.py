@@ -41,7 +41,7 @@ class Dcd(ArmInstruction):
 
     def __repr__(self):
         if type(self.v) is int:
-            return 'DCD 0x{}'.format(hex(self.v))
+            return 'DCD {}'.format(hex(self.v))
         else:
             return 'DCD ={}'.format(self.v.name)
 

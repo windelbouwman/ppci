@@ -81,8 +81,8 @@ class DiGraph(Graph):
     """ Directed graph. """
     def __init__(self):
         super().__init__()
-        self.suc_map = {}
-        self.pre_map = {}
+        self.suc_map = dict()
+        self.pre_map = dict()
 
     def add_edge(self, n, m):
         """ Add a directed edge from n to m """

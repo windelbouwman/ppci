@@ -165,7 +165,49 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertEqual(set(), b3.live_out)
 
         # Create interference graph:
-        ig = InterferenceGraph(cfg)
+        InterferenceGraph(cfg)
+
+    def testMultipleDefineInLoop(self):
+        """
+            Test if the following works:
+            entry:
+        I1:  x = 2
+        I2:  a = x
+        I3:  x = 3
+        I4:  b = x
+        I5:  c = b
+        I6:  cjmp I2, I7
+        I7:  nop
+        """
+        a = VirtualRegister('a')
+        b = VirtualRegister('b')
+        c = VirtualRegister('c')
+        x = VirtualRegister('x')
+        i1 = AI(Nop, dst=[x])
+        i2 = AI(Nop, src=[x], dst=[a])
+        i3 = AI(Nop, dst=[x])
+        i4 = AI(Nop, src=[x], dst=[b])
+        i5 = AI(Nop, src=[b], dst=[c])
+        i7 = AI(Nop)
+        i6 = AI(Nop, jumps=[i2, i7])
+        instrs = [i1, i2, i3, i4, i5, i6, i7]
+        cfg = FlowGraph(instrs)
+        cfg.calculate_liveness()
+
+        # Check that there are three nodes:
+        self.assertEqual(3, len(cfg))
+        self.assertTrue(cfg.has_node(i1))
+        self.assertTrue(cfg.has_node(i2))
+        self.assertTrue(cfg.has_node(i7))
+        # Get block 2:
+        b2 = cfg.get_node(i2)
+
+        # Check that block2 has two successors:
+        self.assertEqual(2, len(b2.Succ))
+        self.assertEqual(2, len(b2.Pred))
+
+        # Check that x is live at end of block 2
+        self.assertEqual({x}, b2.live_out)
 
     def testCombine(self):
         t1 = VirtualRegister('t1')

@@ -1,8 +1,5 @@
-from ... import ir, same_dir
-from .instructions import Mov2
-from .instructions import Bl
+from ... import same_dir
 from ppci import pyburg
-from ..basetarget import Nop
 from ..instructionselector import InstructionSelector
 
 # Import BURG spec for arm:
@@ -24,15 +21,3 @@ class ArmInstructionSelector(InstructionSelector):
     def __init__(self):
         super().__init__()
         self.matcher = ArmMatcher(self)
-
-    def munchCall(self, e):
-        """ Generate code for call sequence """
-        label = e[0]
-        reguses = e[1]
-        self.emit(Bl(label), src=reguses, dst=[self.frame.rv])
-        # d = self.newTmp()
-        # self.move(d, self.frame.rv)
-        # return d
-
-    def move(self, dst, src):
-        self.emit(Mov2, src=[src], dst=[dst], ismove=True)

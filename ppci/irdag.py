@@ -130,27 +130,24 @@ class Dagger:
 
     @register(ir.Call)
     def do_call(self, node):
-        # This is the moment to move all parameters correctly!
-        # For each argument get the frame location and introduce a move
-        # instruction.
-        reg_uses = []
-        for i, argument in enumerate(node.arguments):
+        # This is the moment to move all parameters to new temp registers.
+        args = []
+        for argument in node.arguments:
             a = self.lut[argument]
-            loc = self.frame.argLoc(i)
+            loc = self.frame.new_virtual_register()
             loc_tree = Tree('REGI32', value=loc)
-            reg_uses.append(loc)
+            args.append(loc)
             self.dag.append(Tree('MOVI32', loc_tree, a))
 
+        # New register for copy of result:
+        rv = self.frame.new_virtual_register()
+
         # Perform the actual call:
-        tree = Tree('CALL', value=(node.function_name, reg_uses))
+        tree = Tree('CALL', value=(node.function_name, args, rv))
         self.dag.append(tree)
 
-        # Store return value:
-        rv = Tree('REGI32', value=self.frame.rv)
-        rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
-        self.dag.append(Tree('MOVI32', rv_copy, rv))
-        self.lut[node] = rv_copy
-        # self.dag.append(Tree('MOVI32',
+        # When using the call as an expression, use copy of return value:
+        self.lut[node] = Tree('REGI32', value=rv)
 
     @register(ir.Phi)
     def do_phi(self, node):
@@ -162,7 +159,8 @@ class Dagger:
 
     def only_arith(self, root):
         """ Determine if a tree is only arithmatic all the way up """
-        return root.name in ['REGI32', 'ADDI32', 'SUBI32'] and all(self.only_arith(c) for c in root.children)
+        return root.name in ['REGI32', 'ADDI32', 'SUBI32'] and \
+            all(self.only_arith(c) for c in root.children)
 
     def split_dag(self, dag):
         """ Split dag into forest of trees """
@@ -187,16 +185,6 @@ class Dagger:
         for global_variable in irfunc.module.Variables:
             self.f_map[type(global_variable)](self, global_variable)
 
-        # Move paramters into registers:
-        # parmoves = []
-        for p in irfunc.arguments:
-            # TODO: pt = newTemp()
-            # frame.parMap[p] = pt
-            # parmoves.append(ir.Move(pt, frame.argLoc(p.num)))
-            tree = Tree('REGI32', value=frame.argLoc(p.num))
-            assert type(tree.value) is VirtualRegister
-            self.lut[p] = tree
-
         # First define labels:
         for block in irfunc:
             block.dag = []
@@ -205,6 +193,17 @@ class Dagger:
             frame.label_map[label_name] = itgt
             block.dag.append(itgt)
             dags.append(block.dag)
+
+        # Copy parameters into fresh temporaries:
+        entry_dag = irfunc.entry.dag
+        for p in irfunc.arguments:
+            param_tree = Tree('REGI32', value=frame.argLoc(p.num))
+            assert type(param_tree.value) is VirtualRegister
+            param_copy = Tree('REGI32')
+            param_copy.value = self.frame.new_virtual_register()
+            entry_dag.append(Tree('MOVI32', param_copy, param_tree))
+            # When refering the paramater, use the copied value:
+            self.lut[p] = param_copy
 
         # Generate series of trees for all blocks:
         for block in irfunc:

@@ -7,3 +7,8 @@ function void putc(int c)
     *UART0DR = c;
 }
 
+function void exit()
+{
+    putc(4); // End of transmission
+}
+

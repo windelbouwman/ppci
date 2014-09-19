@@ -1,6 +1,6 @@
 from ..basetarget import Label, Alignment, LabelAddress
 from ...irmach import AbstractInstruction, Frame, VirtualRegister
-from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db
+from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
 from .registers import R9, R10, R11, LR, PC, SP
 
@@ -10,7 +10,8 @@ class ArmFrame(Frame):
     def __init__(self, name):
         # We use r7 as frame pointer.
         super().__init__(name)
-        self.regs = [R0, R1, R2, R3, R4, R5, R6, R7, R8]
+        # Allocatable registers:
+        self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
         self.rv = VirtualRegister('special_RV')
         self.p1 = VirtualRegister('special_P1')
         self.p2 = VirtualRegister('special_P2')
@@ -31,6 +32,31 @@ class ArmFrame(Frame):
         # Literal pool:
         self.constants = []
         self.literal_number = 0
+
+    def gen_call(self, label, args, res_var):
+        """ Generate code for call sequence. This function saves registers
+            and moves arguments in the proper locations.
+        """
+        # TODO: what ABI to use?
+
+        # Caller save registers:
+        self.emit(Push([R0, R1, R2, R3, R4]))
+
+        # Setup parameters:
+        reg_uses = []
+        for i, arg in enumerate(args):
+            arg_loc = self.argLoc(i)
+            if type(arg_loc) is VirtualRegister:
+                reg_uses.append(arg_loc)
+                self.move(arg_loc, arg)
+            else:
+                raise NotImplementedError('Parameters in memory not impl')
+        self.emit(Bl(label), src=reg_uses, dst=[self.rv])
+        self.move(res_var, self.rv)
+        self.emit(Pop([R0, R1, R2, R3, R4]))
+
+    def move(self, dst, src):
+        self.emit(Mov2, src=[src], dst=[dst], ismove=True)
 
     def argLoc(self, pos):
         """
@@ -66,8 +92,10 @@ class ArmFrame(Frame):
     def prologue(self):
         """ Returns prologue instruction sequence """
         pre = [
-            Label(self.name),                     # Label indication function
+            # Label indication function:
+            Label(self.name),
             Push({LR, R11}),
+            Push({R5, R6, R7, R8, R9, R10}),  # Callee save registers!
             Sub(SP, SP, self.stacksize),  # Reserve stack space
             Mov(R11, SP)                          # Setup frame pointer
             ]
@@ -102,6 +130,7 @@ class ArmFrame(Frame):
             and add constant pool
         """
         self.emit(Add(SP, SP, self.stacksize))
+        self.emit(Pop({R5, R6, R7, R8, R9, R10}))
         self.emit(Pop({PC, R11}))
         self.insert_litpool()  # Add final literal pool
         self.emit(Alignment(4))   # Align at 4 bytes

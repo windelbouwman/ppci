@@ -90,5 +90,10 @@ class AbstractInstruction:
             lo = self.live_out
         else:
             lo = 'None'
-        return '{}, def={}, use={}, other={}, live_out={}'.format(
-            str(self), self.dst, self.src, self.others, lo)
+        if hasattr(self, 'live_in'):
+            li = self.live_in
+        else:
+            li = 'None'
+        return '{:25}, def={:20}, use={:20}, other={:20}, jumps={:20}, live_out={:40}, live_in={:40}'.format(
+            str(self), str(self.dst), str(self.src), str(self.others),
+            str(self.jumps), str(lo), str(li))

@@ -481,7 +481,7 @@ class Phi(Value):
         self.inputs = {}
 
     def __repr__(self):
-        inputs = {block: value.name for block, value in self.inputs.items()}
+        inputs = {block.name: value.name for block, value in self.inputs.items()}
         return '{} = Phi {}'.format(self.name, inputs)
 
     def replace_use(self, old, new):

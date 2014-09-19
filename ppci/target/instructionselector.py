@@ -26,8 +26,14 @@ class InstructionSelector:
                     self.matcher.gen(root)
             frame.between_blocks()
 
+    def munchCall(self, e):
+        """ Generate code for call sequence """
+        label, args, res_var = e
+        self.frame.gen_call(label, args, res_var)
+
     def move(self, dst, src):
-        raise NotImplementedError('Not target implemented')
+        """ Generate move """
+        self.frame.move(dst, src)
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """

@@ -1,6 +1,6 @@
 from ..basetarget import Label, Alignment, LabelAddress
 from ...irmach import AbstractInstruction, Frame, VirtualRegister
-from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2
+from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2, Bl
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
 
 
@@ -9,6 +9,7 @@ class ArmFrame(Frame):
     def __init__(self, name):
         # We use r7 as frame pointer.
         super().__init__(name)
+        # Registers usable by register allocator:
         self.regs = [R0, R1, R2, R3, R4, R5, R6]
         self.rv = VirtualRegister('special_RV')
         self.p1 = VirtualRegister('special_P1')
@@ -29,6 +30,29 @@ class ArmFrame(Frame):
         # Literal pool:
         self.constants = []
         self.literal_number = 0
+
+    def move(self, dst, src):
+        self.emit(Mov2, src=[src], dst=[dst], ismove=True)
+
+    def gen_call(self, label, args, res_var):
+        """ Generate code for call sequence """
+        # Caller save registers:
+        self.emit(Push({R0, R1, R2, R3, R4}))
+
+        # Copy args to correct positions:
+        reg_uses = []
+        for i, arg in enumerate(args):
+            arg_loc = self.argLoc(i)
+            if type(arg_loc) is VirtualRegister:
+                reg_uses.append(arg_loc)
+                self.move(arg_loc, arg)
+            else:
+                raise NotImplementedError('Parameters in memory not impl')
+        self.emit(Bl(label), src=reg_uses, dst=[self.rv])
+        self.move(res_var, self.rv)
+        self.emit(Pop({R0, R1, R2, R3, R4}))
+        # d = self.newTmp()
+        # self.move(d, self.frame.rv)
 
     def argLoc(self, pos):
         """
@@ -66,7 +90,8 @@ class ArmFrame(Frame):
         """ Returns prologue instruction sequence """
         pre = [
             Label(self.name),                     # Label indication function
-            Push({LR, R7})
+            Push({LR, R7}),
+            Push({R5, R6}),  # Callee save registers!
             ]
         if self.stacksize > 0:
             pre.append(SubSp(self.stacksize))  # Reserve stack space
@@ -107,6 +132,7 @@ class ArmFrame(Frame):
 
         if self.stacksize > 0:
             self.emit(AddSp(self.stacksize))
+        self.emit(Pop({R5, R6}))  # Callee save registers!
         self.emit(Pop({PC, R7}))
         self.insert_litpool()  # Add final literal pool
 

@@ -39,6 +39,7 @@ class IrToPython:
     def generate_function(self, fn):
         args = ','.join(a.name for a in fn.arguments)
         self.print(0, 'def {}_{}({}):'.format(self.mod_name, fn.name, args))
+        self.print(1, "prev_block = None")
         self.print(1, "current_block = 'entry'")
         self.print(1, 'while True:')
         for block in fn.blocks:
@@ -49,10 +50,13 @@ class IrToPython:
     def generate_instruction(self, ins):
         if isinstance(ins, ir.CJump):
             self.print(3, 'if {} {} {}:'.format(ins.a.name, ins.cond, ins.b.name))
+            self.print(4, 'prev_block = current_block')
             self.print(4, 'current_block = "{}"'.format(ins.lab_yes.name))
             self.print(3, 'else:')
+            self.print(4, 'prev_block = current_block')
             self.print(4, 'current_block = "{}"'.format(ins.lab_no.name))
         elif isinstance(ins, ir.Jump):
+            self.print(3, 'prev_block = current_block')
             self.print(3, 'current_block = "{}"'.format(ins.target.name))
         elif isinstance(ins, ir.Terminator):
             self.print(3, 'break')
@@ -79,6 +83,14 @@ class IrToPython:
             # TODO: fix string literals better
             assert type(ins.e.value) is bytes
             self.print(3, '{} = {}_{}'.format(ins.name, ins.function.name, ins.e.name))
+        elif isinstance(ins, ir.Phi):
+            self.print(3, 'if False:')
+            self.print(4, 'pass')
+            for inp in ins.inputs:
+                self.print(3, 'elif prev_block == "{}":'.format(inp.name))
+                self.print(4, '{} = {}'.format(ins.name, ins.inputs[inp].name))
+            self.print(3, 'else:')
+            self.print(4, 'raise RuntimeError(str(prev_block))')
         else:
             self.print(3, '{}'.format(ins))
             raise NotImplementedError()

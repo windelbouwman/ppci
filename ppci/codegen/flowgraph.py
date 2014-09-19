@@ -27,7 +27,11 @@ class FlowGraphNode(DiNode):
         self.kill = self.kill | ins.kill
 
     def __repr__(self):
-        r = 'CFG-node='
+        r = 'CFG-node({})'.format(len(self.instructions))
+        return r
+
+    @property
+    def longrepr(self):
         if self.gen:
             r += ' gen:' + ', '.join(str(u) for u in self.gen)
         if self.kill:
@@ -52,9 +56,10 @@ class FlowGraph(DiGraph):
                 # Get the first node:
                 node = self.get_node(ins)
             if ins.jumps:
+                # Do not create edges yet, as this would not
+                # result in correct flow graph:
                 for j in ins.jumps:
-                    to_node = self.get_node(j)
-                    self.add_edge(node, to_node)
+                    self.get_node(j)
                 node = None
 
         # Add between nodes and follow up nodes:
@@ -67,6 +72,11 @@ class FlowGraph(DiGraph):
                     node2 = self.get_node(ins)
                     self.add_edge(node, node2)
                     node = node2
+                if ins.jumps:
+                    for j in ins.jumps:
+                        to_node = self.get_node(j)
+                        self.add_edge(node, to_node)
+                    node = None
 
         # Add other instruction into leader nodes:
         node = None

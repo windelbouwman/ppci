@@ -11,7 +11,7 @@ testdir = os.path.dirname(os.path.abspath(__file__))
 
 
 def relpath(*args):
-    return os.path.join(testdir, *args)
+    return os.path.normpath(os.path.join(testdir, *args))
 
 qemu_app = 'qemu-system-arm'
 
@@ -77,7 +77,10 @@ def runQemu(kernel, machine='lm3s811evb'):
     data = bytearray()
     for i in range(400):
         try:
-            data += qemu_serial.recv(1)
+            c = qemu_serial.recv(1)
+            if c == bytes([4]):  # EOT (end of transmission)
+                break
+            data += c
         except socket.timeout:
             break
     data = data.decode('ascii', errors='ignore')

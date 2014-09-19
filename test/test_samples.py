@@ -211,6 +211,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         section reset
         mov sp, 0x30000   ; setup stack pointer
         BL sample_start     ; Branch to sample start
+        BL arch_exit  ; do exit stuff
         local_loop:
         B local_loop
         """
@@ -267,6 +268,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         dcd 0x20000678
         dcd 0x00000009
         BL sample_start     ; Branch to sample start
+        BL arch_exit  ; do exit stuff
         local_loop:
         B local_loop
         """

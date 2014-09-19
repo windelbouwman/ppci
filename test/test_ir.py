@@ -5,6 +5,7 @@ from ppci import ir
 from ppci import irutils
 from ppci.transform import ConstantFolder
 from ppci.buildfunctions import ir_to_python, bf2ir
+from util import relpath
 
 
 class IrCodeTestCase(unittest.TestCase):
@@ -102,7 +103,7 @@ class TestWriter(unittest.TestCase):
 class TestReader(unittest.TestCase):
     def testAddExample(self):
         reader = irutils.Reader()
-        with open('data/add.pi') as f:
+        with open(relpath('data', 'add.pi')) as f:
             m = reader.read(f)
             self.assertTrue(m)
             #print(m)
@@ -111,14 +112,14 @@ class TestReader(unittest.TestCase):
 class TestIrToPython(unittest.TestCase):
     def testAddExample(self):
         reader = irutils.Reader()
-        with open('data/add.pi') as f:
+        with open(relpath('data', 'add.pi')) as f:
             m = reader.read(f)
             writer = irutils.Writer()
             # writer.write(m, sys.stdout)
             # ir_to_python(m)
 
     def testBfExample(self):
-        with open('data/helloworld.bf') as f:
+        with open(relpath('data', 'helloworld.bf')) as f:
             src = f.read()
         m = bf2ir(src)
         with open('pyt_out.py', 'w') as f:
