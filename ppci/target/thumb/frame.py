@@ -37,24 +37,22 @@ class ArmFrame(Frame):
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence """
         # Caller save registers:
-        self.emit(Push({R0, R1, R2, R3, R4}))
+        self.emit(Push({R1, R2, R3, R4}))
 
         # Copy args to correct positions:
         reg_uses = []
         for i, arg in enumerate(args):
-            arg_loc = self.argLoc(i)
+            arg_loc = self.arg_loc(i)
             if type(arg_loc) is VirtualRegister:
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
             else:
                 raise NotImplementedError('Parameters in memory not impl')
         self.emit(Bl(label), src=reg_uses, dst=[self.rv])
+        self.emit(Pop({R1, R2, R3, R4}))
         self.move(res_var, self.rv)
-        self.emit(Pop({R0, R1, R2, R3, R4}))
-        # d = self.newTmp()
-        # self.move(d, self.frame.rv)
 
-    def argLoc(self, pos):
+    def arg_loc(self, pos):
         """
             Gets the function parameter location in IR-code format.
         """
@@ -94,7 +92,15 @@ class ArmFrame(Frame):
             Push({R5, R6}),  # Callee save registers!
             ]
         if self.stacksize > 0:
-            pre.append(SubSp(self.stacksize))  # Reserve stack space
+            ssize = self.stacksize
+            # subSp cannot handle large numbers:
+            while ssize > 0:
+                if ssize < 128:
+                    pre.append(SubSp(ssize))  # Reserve stack space
+                    ssize -= ssize
+                else:
+                    pre.append(SubSp(128))  # Reserve stack space
+                    ssize -= 128
         pre += [
             Mov2(R7, SP)                          # Setup frame pointer
             ]
@@ -131,7 +137,15 @@ class ArmFrame(Frame):
         constant pool """
 
         if self.stacksize > 0:
-            self.emit(AddSp(self.stacksize))
+            ssize = self.stacksize
+            # subSp cannot handle large numbers:
+            while ssize > 0:
+                if ssize < 128:
+                    self.emit(AddSp(ssize))
+                    ssize -= ssize
+                else:
+                    self.emit(AddSp(128))
+                    ssize -= 128
         self.emit(Pop({R5, R6}))  # Callee save registers!
         self.emit(Pop({PC, R7}))
         self.insert_litpool()  # Add final literal pool

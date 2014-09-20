@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import unittest
-from testasm import AsmTestCaseBase
+from test_asm import AsmTestCaseBase
 from ppci.target.target_list import thumb_target
 
 

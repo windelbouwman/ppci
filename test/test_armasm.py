@@ -1,6 +1,6 @@
 import unittest
 import io
-from testasm import AsmTestCaseBase
+from test_asm import AsmTestCaseBase
 from ppci.target.target_list import arm_target
 from ppci.binutils.layout import load_layout
 

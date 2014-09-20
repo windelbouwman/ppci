@@ -40,7 +40,7 @@ reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.add
 
 cn: CONSTI32                  0 'return tree.value'
 
-reg: CONSTI32                 2 'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
+reg: CONSTI32                 5 'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
 reg: CONSTI32                 2 'return (type(tree.value) is int) and (tree.value < 256)' 'd = self.newTmp(); self.emit(Mov1, dst=[d], others=[tree.value]); return d'
 

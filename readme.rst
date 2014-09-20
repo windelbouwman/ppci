@@ -2,8 +2,9 @@
 About
 =====
 
-This The pure-python-compiler-infrastruce (ppci).
-This project aims to implement a compiler toolset in pure python.
+This The pure-python-compiler-infrastructure (ppci). This project aims to
+implement a compiler toolset in python. As of now, the library can generate
+arm thumb code and arm code.
 
 Installation
 ============

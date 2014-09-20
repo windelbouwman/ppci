@@ -2,7 +2,7 @@ import unittest
 
 from ppci.buildfunctions import construct
 from ppci.target import target_list
-from util import relpath, has_qemu, runQemu
+from util import relpath, has_qemu, run_qemu
 
 
 class EmulationTestCase(unittest.TestCase):
@@ -14,7 +14,7 @@ class EmulationTestCase(unittest.TestCase):
         construct(recipe)
         if not has_qemu():
             self.skipTest('Not running Qemu test')
-        data = runQemu('data/lm3s6965evb/bare.bin')
+        data = run_qemu(relpath('data', 'lm3s6965evb', 'bare.bin'))
         self.assertEqual('Hello worle', data)
 
     def testA9Bare(self):
@@ -23,7 +23,7 @@ class EmulationTestCase(unittest.TestCase):
         construct(recipe)
         if not has_qemu():
             self.skipTest('Not running Qemu test')
-        data = runQemu('data/realview-pb-a8/hello.bin',
+        data = run_qemu(relpath('data', 'realview-pb-a8', 'hello.bin'),
                        machine='realview-pb-a8')
         self.assertEqual('Hello worle', data)
 

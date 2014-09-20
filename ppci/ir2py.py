@@ -77,7 +77,6 @@ class IrToPython:
             self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
         elif isinstance(ins, ir.Call):
             self.print(3, '{}'.format(ins))
-        # elif isinstance(ins, ir.Call):
         elif isinstance(ins, ir.Addr):
             # This is only used for string constants.. 
             # TODO: fix string literals better
@@ -91,6 +90,8 @@ class IrToPython:
                 self.print(4, '{} = {}'.format(ins.name, ins.inputs[inp].name))
             self.print(3, 'else:')
             self.print(4, 'raise RuntimeError(str(prev_block))')
+        elif isinstance(ins, ir.Return):
+            self.print(3, 'return {}'.format(ins.result.name))
         else:
             self.print(3, '{}'.format(ins))
             raise NotImplementedError()

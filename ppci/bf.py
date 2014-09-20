@@ -58,6 +58,11 @@ class BrainFuckGenerator():
         self.builder.emit(ir.Store(zero_ins, cell_addr))
         add_ins = self.builder.emit(ir.Add(ptr_val, four_ins, "Added", ir.i32))
         self.builder.emit(ir.Store(add_ins, ptr))
+
+        # Emit B: (for printf style debug purpose)
+        # charBins = self.builder.emit(ir.Const(66, "charB", ir.i32))
+        # self.builder.emit(ir.Call('arch_putc', [charBins], 'ign', ir.i32))
+
         self.builder.emit(ir.CJump(add_ins, '==', array_size, block3, block_init))
 
         self.builder.setBlock(block3)

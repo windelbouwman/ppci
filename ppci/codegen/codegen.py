@@ -80,7 +80,7 @@ class CodeGenerator:
         ins0 = frame.instructions[0]
         in0def = []
         for idx, arg in enumerate(irfunc.arguments):
-            arg_loc = frame.argLoc(idx)
+            arg_loc = frame.arg_loc(idx)
             if isinstance(arg_loc, irmach.VirtualRegister):
                 in0def.append(arg_loc)
         ins0.dst = tuple(in0def)
@@ -96,6 +96,10 @@ class CodeGenerator:
         # TODO: Peep-hole here?
 
         with open(log_file, 'a') as f:
+            for ins in frame.instructions:
+                if frame.cfg.has_node(ins):
+                    nde = frame.cfg.get_node(ins)
+                    print('ins: {} {}'.format(ins, nde.longrepr), file=f)
             self.dump_frame(frame, f)
 
         # Add label and return and stack adjustment:

@@ -32,11 +32,13 @@ class FlowGraphNode(DiNode):
 
     @property
     def longrepr(self):
+        r = str(self)
         if self.gen:
             r += ' gen:' + ', '.join(str(u) for u in self.gen)
         if self.kill:
             r += ' kill:' + ', '.join(str(d) for d in self.kill)
-        r += ' live_out={}'.format(self.live_out)
+        r += ' live_out={}, live_in={}'.format(self.live_out, self.live_in)
+        r += ', Succ={}, Pred={}'.format(self.Succ, self.Pred)
         return r
 
 
@@ -47,7 +49,6 @@ class FlowGraph(DiGraph):
         super().__init__()
         self.logger = logging.getLogger('flowgraph')
         self._map = {}
-        leaders = {}
 
         # Create leaders:
         node = None
@@ -65,18 +66,12 @@ class FlowGraph(DiGraph):
         # Add between nodes and follow up nodes:
         node = None
         for ins in instrs:
-            if node is None:
+            if self.has_node(ins):
                 node = self.get_node(ins)
-            else:
-                if self.has_node(ins):
-                    node2 = self.get_node(ins)
-                    self.add_edge(node, node2)
-                    node = node2
-                if ins.jumps:
-                    for j in ins.jumps:
-                        to_node = self.get_node(j)
-                        self.add_edge(node, to_node)
-                    node = None
+            if ins.jumps:
+                for j in ins.jumps:
+                    to_node = self.get_node(j)
+                    self.add_edge(node, to_node)
 
         # Add other instruction into leader nodes:
         node = None
@@ -85,7 +80,8 @@ class FlowGraph(DiGraph):
                 # Node is a leader:
                 node = self.get_node(ins)
             else:
-                # Node is not a leader:
+                # Node is not a leader, make sure we passed a leader already:
+                assert node is not None
                 node.add_instruction(ins)
 
     def has_node(self, ins):

@@ -2,7 +2,7 @@
 
 import unittest
 from ppci.target.target_list import x86target
-from testasm import AsmTestCaseBase
+from test_asm import AsmTestCaseBase
 
 
 class AssemblerTestCase(AsmTestCaseBase):

@@ -77,14 +77,12 @@ class CodeGenerator:
         self.builder.emit(ir.Jump(l2))
         self.builder.setBlock(l2)
 
-        # Generate storage for return value:
-        ir_function.return_value = ir.Alloc('ret_val', ir.i32)
-        self.builder.emit(ir_function.return_value)
         # generate room for locals:
-
         for sym in fn.innerScope:
             self.check_type(sym.typ)
             if sym.isParameter:
+                # For paramaters, allocate space and copy the value into
+                # memory. Later, the mem2reg pass will extract these values.
                 parameter = ir.Parameter(sym.name, ir.i32)
                 variable = ir.Alloc(sym.name + '_copy', ir.i32)
                 self.builder.emit(variable)
@@ -102,6 +100,7 @@ class CodeGenerator:
         self.gen_stmt(fn.body)
         # self.builder.emit(ir.Move(f.return_value, ir.Const(0)))
         self.builder.emit(ir.Jump(ir_function.epiloog))
+        self.builder.setBlock(ir_function.epiloog)
         self.builder.setFunction(None)
 
     def gen_stmt(self, code):
@@ -121,12 +120,7 @@ class CodeGenerator:
             elif type(code) is ast.If:
                 self.gen_if_stmt(code)
             elif type(code) is ast.Return:
-                re = self.gen_expr_code(code.expr)
-                # TODO: handle return value??
-                # self.builder.emit(ir.Move(self.builder.fn.return_value, re))
-                self.builder.emit(ir.Jump(self.builder.function.epiloog))
-                b = self.builder.newBlock()
-                self.builder.setBlock(b)
+                self.gen_return_stmt(code)
             elif type(code) is ast.While:
                 self.gen_while(code)
             elif type(code) is ast.For:
@@ -137,6 +131,15 @@ class CodeGenerator:
                 raise NotImplementedError('Unknown stmt {}'.format(code))
         except SemanticError as exc:
             self.error(exc.msg, exc.loc)
+
+    def gen_return_stmt(self, code):
+        """ Generate code for return statement """
+        re = self.gen_expr_code(code.expr)
+
+        # Store return value:
+        self.builder.emit(ir.Return(re))
+        block = self.builder.newBlock()
+        self.builder.setBlock(block)
 
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """

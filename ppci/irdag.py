@@ -46,6 +46,19 @@ class Dagger:
         tree.value = label_name, self.frame.label_map[label_name]
         self.dag.append(tree)
 
+    @register(ir.Return)
+    def do_return(self, node):
+        """ Move result into result register and jump to epilog """
+        res = self.lut[node.result]
+        rv = Tree("REGI32", value=self.frame.rv)
+        self.dag.append(Tree('MOVI32', rv, res))
+
+        # Jump to epilog:
+        tree = Tree('JMP')
+        label_name = ir.label_name(node.function.epiloog)
+        tree.value = label_name, self.frame.label_map[label_name]
+        self.dag.append(tree)
+
     @register(ir.CJump)
     def do_cjump(self, node):
         a = self.lut[node.a]
@@ -151,11 +164,13 @@ class Dagger:
 
     @register(ir.Phi)
     def do_phi(self, node):
-        # Phis are lifted elsewhere..
-        # Create a new vreg for this phi:
-        # The incoming branches provided with a copy instruction further on.
-        rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
-        self.lut[node] = rv_copy
+        """
+            Phis are lifted elsewhere..
+        Create a new vreg for this phi:
+        The incoming branches provided with a copy instruction further on.
+        """
+        phi_copy = Tree('REGI32', value=self.frame.new_virtual_register(twain=node.name))
+        self.lut[node] = phi_copy
 
     def only_arith(self, root):
         """ Determine if a tree is only arithmatic all the way up """
@@ -196,14 +211,14 @@ class Dagger:
 
         # Copy parameters into fresh temporaries:
         entry_dag = irfunc.entry.dag
-        for p in irfunc.arguments:
-            param_tree = Tree('REGI32', value=frame.argLoc(p.num))
+        for arg in irfunc.arguments:
+            param_tree = Tree('REGI32', value=frame.arg_loc(arg.num))
             assert type(param_tree.value) is VirtualRegister
             param_copy = Tree('REGI32')
-            param_copy.value = self.frame.new_virtual_register()
+            param_copy.value = self.frame.new_virtual_register(twain=arg.name)
             entry_dag.append(Tree('MOVI32', param_copy, param_tree))
             # When refering the paramater, use the copied value:
-            self.lut[p] = param_copy
+            self.lut[arg] = param_copy
 
         # Generate series of trees for all blocks:
         for block in irfunc:

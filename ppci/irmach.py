@@ -33,9 +33,11 @@ class Frame:
     def __repr__(self):
         return 'Frame {}'.format(self.name)
 
-    def new_virtual_register(self):
+    def new_virtual_register(self, twain=""):
         """ Retrieve a new virtual register """
-        return self.temps.__next__()
+        tmp = self.temps.__next__()
+        tmp.name += twain
+        return tmp
 
     def emit(self, *args, **kwargs):
         """ Append an abstract instruction to the end of this frame """
@@ -57,7 +59,7 @@ class VirtualRegister:
         self.name = name
 
     def __repr__(self):
-        return 'vreg_{}'.format(self.name)
+        return self.name
 
 
 class AbstractInstruction:

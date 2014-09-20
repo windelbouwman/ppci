@@ -30,7 +30,7 @@ def has_qemu():
     return bool(shutil.which(qemu_app))
 
 
-def runQemu(kernel, machine='lm3s811evb'):
+def run_qemu(kernel, machine='lm3s811evb'):
     """ Runs qemu on a given kernel file """
 
     logger = logging.getLogger('runqemu')
@@ -60,7 +60,7 @@ def runQemu(kernel, machine='lm3s811evb'):
             '-monitor', 'unix:qemucontrol.sock',
             '-serial', 'unix:qemuserial.sock',
             '-S']
-    p = subprocess.Popen(args, stderr=subprocess.DEVNULL)
+    p = subprocess.Popen(args)  # , stderr=subprocess.DEVNULL)
 
     # qemu_serial Give process some time to boot:
     qemu_serial_serve.settimeout(3)
@@ -75,7 +75,7 @@ def runQemu(kernel, machine='lm3s811evb'):
 
     # Receive all data:
     data = bytearray()
-    for i in range(400):
+    for i in range(1400):
         try:
             c = qemu_serial.recv(1)
             if c == bytes([4]):  # EOT (end of transmission)
@@ -84,7 +84,7 @@ def runQemu(kernel, machine='lm3s811evb'):
         except socket.timeout:
             break
     data = data.decode('ascii', errors='ignore')
-    # print(data)
+    # print('data', data)
 
     # Send quit command:
     qemu_control.send("quit\n".encode('ascii'))
@@ -112,8 +112,8 @@ def runQemu(kernel, machine='lm3s811evb'):
 
 def run_python(kernel):
     """ Run given file in python and capture output """
-    p = subprocess.Popen(['python', kernel], stdout=subprocess.PIPE)
-    outs, errs = p.communicate()
+    python_proc = subprocess.Popen(['python', kernel], stdout=subprocess.PIPE)
+    outs, _ = python_proc.communicate()
     outs = outs.decode('ascii', errors='ignore')
     return outs
 

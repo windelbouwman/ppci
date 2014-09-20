@@ -1,7 +1,7 @@
 import unittest
 import io
 import logging
-from util import runQemu, has_qemu, relpath, tryrm, run_python
+from util import run_qemu, has_qemu, relpath, tryrm, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
 from ppci.report import RstFormatter
@@ -113,7 +113,35 @@ class Samples:
         res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13])
         self.do(snippet, res)
 
-    @unittest.skip('Too slow')
+    def testFibo(self):
+        """ Test recursive function with fibonacci algorithm """
+        snippet = """
+         module sample;
+         import io;
+         function int fib(int x)
+         {
+            if (x < 3)
+            {
+                return 1;
+            }
+            else
+            {
+                return fib(x - 1) + fib(x - 2);
+            }
+         }
+
+         function void start()
+         {
+            var int i;
+            i = fib(13);
+            io.print2("fib(13)=", i);
+         }
+        """
+        # fib(13) == 233 == 0xe9
+        res = "fib(13)=0x000000E9\n"
+        self.do(snippet, res)
+
+    # @unittest.skip('Too slow')
     def testBrainFuckHelloWorld(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
@@ -247,7 +275,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
 
         # Run bin file in emulator:
         # Somehow vexpress-a9 and realview-pb-a8 differ?
-        res = runQemu(self.sample_filename, machine='realview-pb-a8')
+        res = run_qemu(self.sample_filename, machine='realview-pb-a8')
         self.assertEqual(expected_output, res)
 
 
@@ -259,13 +287,14 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
             self.skipTest('Not running qemu tests')
 
     def tearDown(self):
-        tryrm(self.sample_filename)
+        # tryrm(self.sample_filename)
+        pass
 
     def do(self, src, expected_output, lang="c3"):
         march = "thumb"
         startercode = """
         section reset
-        dcd 0x20000678
+        dcd 0x20000900
         dcd 0x00000009
         BL sample_start     ; Branch to sample start
         BL arch_exit  ; do exit stuff
@@ -304,7 +333,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         objcopy(o3, 'code', 'bin', self.sample_filename)
 
         # Run bin file in emulator:
-        res = runQemu(self.sample_filename, machine='lm3s811evb')
+        res = run_qemu(self.sample_filename, machine='lm3s811evb')
         self.assertEqual(expected_output, res)
 
 

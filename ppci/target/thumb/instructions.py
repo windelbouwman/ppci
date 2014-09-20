@@ -526,6 +526,7 @@ class Yield(ThumbInstruction):
 # add/sub SP:
 class addspsp_base(ThumbInstruction):
     def __init__(self, imm7):
+        assert imm7 < 512
         self.imm7 = imm7
         assert self.imm7 % 4 == 0
         self.imm7 >>= 2

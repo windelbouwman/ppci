@@ -112,8 +112,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         i3 = AI(Nop, dst=[d])  # d = 4
         i4 = AI(Nop, dst=[x])  # x = 100
         i6 = AI(Nop, dst=[c], src=[a, b])  # c = a + b
-        i7 = AI(Nop, dst=[d])  # d = 2
         i8 = AI(Nop, dst=[c])  # c = 4
+        i7 = AI(Nop, dst=[d], jumps=[i8])  # d = 2
         i9 = AI(Nop, src=[b, d, c])  # return b * d + c
         i5 = AI(Nop, src=[a, b], jumps=[i6, i8])  # if a > b
         instrs = [i1, i2, i3, i4, i5, i6, i7, i8, i9]
@@ -183,8 +183,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         b = VirtualRegister('b')
         c = VirtualRegister('c')
         x = VirtualRegister('x')
-        i1 = AI(Nop, dst=[x])
         i2 = AI(Nop, src=[x], dst=[a])
+        i1 = AI(Nop, dst=[x], jumps=[i2])
         i3 = AI(Nop, dst=[x])
         i4 = AI(Nop, src=[x], dst=[b])
         i5 = AI(Nop, src=[b], dst=[c])
@@ -208,6 +208,35 @@ class InterferenceGraphTestCase(unittest.TestCase):
 
         # Check that x is live at end of block 2
         self.assertEqual({x}, b2.live_out)
+
+    def testLoopVariable(self):
+        """
+            See if a variable defined at input and in block itself
+            is marked as live out!
+            Probably simpler variant of testMultipleDefineInLoop.
+        I1: x = 2
+        I2: use x
+        I3: x = 3
+        I4: jmp I5
+        I5: jmp I2
+        """
+        x = VirtualRegister('x')
+        i2 = AI(Nop, src=[x])
+        i1 = AI(Nop, dst=[x], jumps=[i2])
+        i3 = AI(Nop, dst=[x])
+        i5 = AI(Nop, jumps=[i2])
+        i4 = AI(Nop, jumps=[i5])
+        instrs = [i1, i2, i3, i4, i5]
+        cfg = FlowGraph(instrs)
+        cfg.calculate_liveness()
+
+        self.assertEqual(3, len(cfg))
+        b1 = cfg.get_node(i1)
+        b2 = cfg.get_node(i2)
+        b3 = cfg.get_node(i5)
+        self.assertEqual({x}, b1.live_out)
+        self.assertEqual({x}, b2.live_out)
+        self.assertEqual({x}, b3.live_out)
 
     def testCombine(self):
         t1 = VirtualRegister('t1')

@@ -527,6 +527,7 @@ class Parameter(Variable):
 class Load(Value):
     """ Load a value from memory """
     address = VarUse('address')
+
     def __init__(self, address, name, ty):
         super().__init__(name, ty)
         self.address = address
@@ -539,6 +540,7 @@ class Store(Instruction):
     """ Store a value into memory """
     address = VarUse('address')
     value = VarUse('value')
+
     def __init__(self, value, address):
         super().__init__()
         self.address = address
@@ -551,6 +553,7 @@ class Store(Instruction):
 class Addr(Expression):
     """ Address of label """
     e = VarUse('e')
+
     def __init__(self, e, name, ty):
         super().__init__(name, ty)
         self.e = e
@@ -605,8 +608,20 @@ class Terminator(LastStatement):
         return 'Terminator'
 
 
+class Return(LastStatement):
+    """ Return statement """
+    result = VarUse('result')
+
+    def __init__(self, result):
+        super().__init__()
+        self.result = result
+
+    def __repr__(self):
+        return 'Return {}'.format(self.result.name)
+
+
 class Jump(LastStatement):
-    """ Jump statement to some target location """
+    """ Jump statement to another block within the same function """
     target = BlockRef('target')
 
     def __init__(self, target):

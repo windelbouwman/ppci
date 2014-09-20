@@ -6,7 +6,16 @@ from .registers import R9, R10, R11, LR, PC, SP
 
 
 class ArmFrame(Frame):
-    """ Arm specific frame for functions. """
+    """ Arm specific frame for functions.
+
+        ABI:
+        pass arg1 in R1
+        pass arg2 in R2
+        pass arg3 in R3
+        pass arg4 in R4
+        return value in R0
+        R5 and above are callee save (the function that is called
+    """
     def __init__(self, name):
         # We use r7 as frame pointer.
         super().__init__(name)
@@ -36,29 +45,35 @@ class ArmFrame(Frame):
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence. This function saves registers
             and moves arguments in the proper locations.
+
         """
         # TODO: what ABI to use?
 
+
         # Caller save registers:
-        self.emit(Push([R0, R1, R2, R3, R4]))
+        # R0 is filled with return value, do not save it, it will conflict.
+        self.emit(Push([R1, R2, R3, R4]))
 
         # Setup parameters:
         reg_uses = []
         for i, arg in enumerate(args):
-            arg_loc = self.argLoc(i)
+            arg_loc = self.arg_loc(i)
             if type(arg_loc) is VirtualRegister:
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
             else:
                 raise NotImplementedError('Parameters in memory not impl')
         self.emit(Bl(label), src=reg_uses, dst=[self.rv])
+        self.emit(Pop([R1, R2, R3, R4]))
         self.move(res_var, self.rv)
-        self.emit(Pop([R0, R1, R2, R3, R4]))
+
+        # Restore caller save registers:
 
     def move(self, dst, src):
+        """ Generate a move from src to dst """
         self.emit(Mov2, src=[src], dst=[dst], ismove=True)
 
-    def argLoc(self, pos):
+    def arg_loc(self, pos):
         """
             Gets the function parameter location in IR-code format.
         """
