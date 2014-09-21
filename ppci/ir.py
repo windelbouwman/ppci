@@ -63,6 +63,7 @@ class Module:
 
     def add_function(self, f):
         """ Add a function to this module """
+        assert type(f) is Function
         self.functions.append(f)
         f.module = self
 

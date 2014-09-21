@@ -291,8 +291,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
             self.skipTest('Not running qemu tests')
 
     def tearDown(self):
-        # tryrm(self.sample_filename)
-        pass
+        tryrm(self.sample_filename)
 
     def do(self, src, expected_output, lang="c3"):
         march = "thumb"
