@@ -406,7 +406,9 @@ class Verifier:
 
     def verify_block(self, block):
         """ Verify block for correctness """
-        for instruction in block:
+        block.renumber_instructions()
+        for pos, instruction in enumerate(block):
+            assert pos == instruction._pos
             self.verify_instruction(instruction, block)
 
     def verify_instruction(self, instruction, block):

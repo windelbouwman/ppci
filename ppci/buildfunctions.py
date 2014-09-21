@@ -136,13 +136,14 @@ def c3toir(sources, includes, target):
     return ir_modules
 
 
-def optimize(ircode):
+def optimize(ircode, do_verify=False):
     """
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
     """
     verifier = Verifier()
-    verifier.verify(ircode)
+    if do_verify:
+        verifier.verify(ircode)
     # Optimization passes:
     # CleanPass().run(ircode)
 
@@ -154,7 +155,8 @@ def optimize(ircode):
     DeleteUnusedInstructionsPass().run(ircode)
     # CleanPass().run(ircode)
 
-    verifier.verify(ircode)
+    if do_verify:
+        verifier.verify(ircode)
 
 
 def ir_to_code(ir_modules, target):

@@ -135,7 +135,7 @@ class Dagger:
         tree = Tree('ADR', self.lut[node.e])
         self.lut[node] = tree
 
-    @register(ir.GlobalVariable)
+    @register(ir.Variable)
     def do_global(self, node):
         """ This tree is put into the lut for later use """
         tree = Tree('GLOBALADDRESS', value=ir.label_name(node))

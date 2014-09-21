@@ -54,7 +54,7 @@ class CodeGenerator:
             real_functions = list(filter(
                 lambda f: f.body, pkg.Functions))
             for v in pkg.innerScope.Variables:
-                v2 = ir.GlobalVariable(v.name, ir.i32)
+                v2 = ir.Variable(v.name, ir.i32)
                 self.varMap[v] = v2
                 if not v.isLocal:
                     self.builder.m.add_variable(v2)

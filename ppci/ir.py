@@ -8,7 +8,7 @@ def label_name(dut):
     if isinstance(dut, Block):
         f = dut.function
         return label_name(f) + '_' + dut.name
-    elif isinstance(dut, Function) or isinstance(dut, GlobalVariable):
+    elif isinstance(dut, Function) or isinstance(dut, Variable):
         return label_name(dut.module) + '_' + dut.name
     elif isinstance(dut, Module):
         return dut.name
@@ -17,16 +17,38 @@ def label_name(dut):
 
 
 class Typ:
-    """ Type representation """
+    """ Base class for all types """
+    pass
+
+
+class BuiltinType(Typ):
+    """ Built in type representation """
     def __init__(self, name):
         self.name = name
 
     def __repr__(self):
         return self.name
 
+    @property
+    def size(self):
+        # TODO: make this variable?
+        return 4
 
-i32 = Typ('i32')
-i8 = Typ('i8')
+
+i32 = BuiltinType('i32')
+i8 = BuiltinType('i8')
+
+
+class ArrayType(Typ):
+    """ Array specification """
+    def __init__(self, element_type, amount):
+        assert isinstance(element_type, Typ)
+        self.element_type = element_type
+        self.amount = amount
+
+    @property
+    def size(self):
+        return self.amount * self.element_type.size
 
 
 class Module:
@@ -45,7 +67,7 @@ class Module:
         f.module = self
 
     def add_variable(self, v):
-        assert type(v) is GlobalVariable
+        assert type(v) is Variable
         self.variables.append(v)
         v.module = self
 
@@ -185,20 +207,28 @@ class Block:
     def unique_name(self, value):
         self.function.make_unique_name(value)
 
+    def renumber_instructions(self):
+        """ Re-assign position number to instruction """
+        for pos, ins in enumerate(self.instructions):
+            ins._pos = pos
+
     def insert_instruction(self, i, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
-            pos = self.instructions.index(before_instruction)
+            assert self == before_instruction.block
+            pos = before_instruction._pos
         else:
             pos = 0
         i.parent = self
         self.instructions.insert(pos, i)
+        # self.renumber_instructions()
         if isinstance(i, Value):
             self.unique_name(i)
 
     def add_instruction(self, i):
         i.parent = self
         assert not isinstance(self.LastInstruction, LastStatement)
+        i._pos = len(self.instructions)
         self.instructions.append(i)
         if isinstance(i, Value) and self.function is not None:
             self.unique_name(i)
@@ -208,6 +238,7 @@ class Block:
         i1.parent = None
         i1.delete()
         i2.parent = self
+        i2._pos = i1._pos
         self.instructions[idx] = i2
 
     def remove_instruction(self, i):
@@ -215,6 +246,7 @@ class Block:
         i.parent = None
         # i.delete()
         self.instructions.remove(i)
+        # self.renumber_instructions()
         return i
 
     @property
@@ -324,21 +356,22 @@ class Instruction:
 
     @property
     def position(self):
+        """ Return numerical position in block """
         # if not hasattr(self, '_pos'):
         self._pos = self.block.instructions.index(self)
         return self._pos
 
     def dominates(self, other):
         """ Checks if this instruction dominates another instruction """
-        if type(self) is Parameter or type(self) is GlobalVariable:
-            # TODO: hack, parameters dominate all other instructions..
+        if type(self) is Parameter or type(self) is Variable:
+            # TODO: hack, parameters and globals dominate all other
+            # instructions..
             return True
         # All other instructions must have a containing block:
         assert self.block is not None, '{} has no block'.format(self)
 
         # Phis are special case:
         if type(other) is Phi:
-            # TODO: hack, return True for now!!
             for block in other.inputs:
                 if other.inputs[block] == self:
                     # This is the queried dominance branch
@@ -506,17 +539,8 @@ class Alloc(Expression):
 
 
 class Variable(Expression):
-    def __init__(self, name, ty):
-        super().__init__(name, ty)
-        self.name = name
-
     def __repr__(self):
-        return 'Var {}'.format(self.name)
-
-
-class GlobalVariable(Variable):
-    def __repr__(self):
-        return 'Global {}'.format(self.name)
+        return 'Variable {}'.format(self.name)
 
 
 class Parameter(Variable):

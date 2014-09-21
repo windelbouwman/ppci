@@ -2,7 +2,7 @@
 import cProfile
 import unittest
 import pstats
-import testsamples
+import test_samples
 import logging
 import logging.handlers
 import shutil
@@ -25,7 +25,8 @@ if __name__ == '__main__':
     # Load unittest:
     loader = unittest.TestLoader()
     # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckQuine', module=testsamples)
-    suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=testsamples)
+    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=testsamples)
+    suite = loader.loadTestsFromName('TestSamplesOnPython.testBrainFuckQuine', module=test_samples)
 
     def runtests():
         unittest.TextTestRunner().run(suite)

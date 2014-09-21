@@ -50,6 +50,9 @@ class Linker:
                 if type(memory_input) is Section:
                     section = dst.get_section(memory_input.section_name)
                     section.address = cur_addr
+                    self.logger.debug('Memory: {} Section: {} Address: 0x{:X} Size: 0x{:X}'
+                                      .format(mem.name, section.name,
+                                          section.address, section.Size))
                     cur_addr += section.Size
                     output_memory += section.data
                     # TODO: align sections
@@ -60,7 +63,7 @@ class Linker:
                         cur_addr += 1
                         output_memory += bytes([0])
                 else:
-                    print(memory_input)
+                    raise NotImplementedError(str(memory_input))
             image.data = bytes(output_memory)
             dst.images[mem.name] = image
 

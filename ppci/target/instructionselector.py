@@ -24,7 +24,7 @@ class InstructionSelector:
                 else:
                     # Invoke dynamic programming matcher machinery:
                     self.matcher.gen(root)
-            # frame.between_blocks()
+            frame.between_blocks()
 
     def munchCall(self, e):
         """ Generate code for call sequence """

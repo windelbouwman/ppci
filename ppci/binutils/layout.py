@@ -31,7 +31,8 @@ class Memory:
         self.inputs.append(inp)
 
     def __repr__(self):
-        return 'MEM {} loc={:08X} size={:08X}'.format(self.name, self.location, self.size) + str(self.inputs)
+        return 'MEM {} loc={:08X} size={:08X}'.format(
+            self.name, self.location, self.size) + str(self.inputs)
 
     def __eq__(self, other):
         return str(self) == str(other)

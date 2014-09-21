@@ -1,6 +1,7 @@
 import unittest
 import io
 import logging
+import re
 from util import run_qemu, has_qemu, relpath, tryrm, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
@@ -13,6 +14,10 @@ def enable_report_logger(filename):
     fh.setFormatter(RstFormatter())
     logging.getLogger().addHandler(fh)
 
+
+def only_bf(txt):
+    """ Strip a string from all characters, except brainfuck chars """
+    return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
 class Samples:
     def testPrint(self):
@@ -141,7 +146,6 @@ class Samples:
         res = "fib(13)=0x000000E9\n"
         self.do(snippet, res)
 
-    # @unittest.skip('Too slow')
     def testBrainFuckHelloWorld(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
@@ -220,7 +224,7 @@ class Samples:
         ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ++++++++<-]>>>>>]<<<<[-<+>[<-]>[>]<<[>++++++++++++++++++++++
         ++++++++++++++++++++++++<-]<<<]>>[[->>.<<]>>>>]"""
-        self.do(quine, quine, lang='bf')
+        self.do(quine, only_bf(quine), lang='bf')
 
 
 class TestSamplesOnVexpress(unittest.TestCase, Samples):
@@ -237,7 +241,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         march = "arm"
         startercode = """
         section reset
-        mov sp, 0x30000   ; setup stack pointer
+        mov sp, 0xF0000   ; setup stack pointer
         BL sample_start     ; Branch to sample start
         BL arch_exit  ; do exit stuff
         local_loop:
@@ -250,7 +254,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
             SECTION(code)
         }
 
-        MEMORY ram LOCATION=0x20000 SIZE=0x10000 {
+        MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
             SECTION(data)
         }
         """
