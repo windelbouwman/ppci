@@ -25,9 +25,14 @@ def tryrm(fn):
 
 def has_qemu():
     """ Determines if qemu is possible """
-    if not hasattr(shutil, 'which'):
-        return False
-    return bool(shutil.which(qemu_app))
+    if hasattr(shutil, 'which'):
+        return bool(shutil.which(qemu_app))
+    else:
+        try:
+            subprocess.check_call([qemu_app, '--version'])
+            return True
+        except:
+            return False
 
 
 def run_qemu(kernel, machine='lm3s811evb'):
