@@ -9,3 +9,4 @@ syntax: glob
 *.log
 docs/build
 test/.coverage
+.tox
