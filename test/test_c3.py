@@ -104,20 +104,31 @@ class testBuilder(unittest.TestCase):
     def testConstant(self):
         snip = """module C;
         const int a = 2;
-        """
-        self.expectOK(snip)
-
-    @unittest.skip('Not checked yet')
-    def testConstantMutual(self):
-        snip = """module C;
-        const int a = b + 1;
-        const int b = a + 1;
-        function void f()
+        function int reta()
         {
-          return b;
+            var int b;
+            b = a + 2;
+            return addone(a);
+        }
+        function int addone(int x)
+        {
+            return x + 1;
         }
         """
         self.expectOK(snip)
+
+    def testConstantMutual(self):
+        """ A circular dependency of constants must be fatal """
+        snip = """module C;
+        const int a = c + 1;
+        const int b = a + 1;
+        const int c = b + 1;
+        function void f()
+        {
+           return a;
+        }
+        """
+        self.expectErrors(snip, [2])
 
     def testPackageNotExists(self):
         p1 = """module p1;

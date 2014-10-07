@@ -36,6 +36,13 @@ class CodeGenerator:
         self.builder = irutils.Builder()
         self.diag = diag
 
+    def emit(self, instruction):
+        """
+            Emits the given instruction to the builder. Can be muted for constants
+        """
+        self.builder.emit(instruction)
+        return instruction
+
     def gencode(self, pkg):
         """ Generate code for a single module """
         self.builder.prepare()
@@ -46,6 +53,8 @@ class CodeGenerator:
         self.pointerSize = 4
         self.logger.debug('Generating ir-code for {}'.format(pkg.name))
         self.varMap = {}    # Maps variables to storage locations.
+        self.constMap = {}
+        self.const_workset = set()
         self.builder.m = ir.Module(pkg.name)
         try:
             for typ in pkg.Types:
@@ -58,6 +67,8 @@ class CodeGenerator:
                 self.varMap[v] = v2
                 if not v.isLocal:
                     self.builder.m.add_variable(v2)
+                else:
+                    raise NotImplementedError('TODO')
             for s in real_functions:
                 self.gen_function(s)
         except SemanticError as e:
@@ -74,7 +85,7 @@ class CodeGenerator:
         ir_function = self.builder.new_function(fn.name)
         self.builder.setFunction(ir_function)
         l2 = self.builder.newBlock()
-        self.builder.emit(ir.Jump(l2))
+        self.emit(ir.Jump(l2))
         self.builder.setBlock(l2)
 
         # generate room for locals:
@@ -85,21 +96,21 @@ class CodeGenerator:
                 # memory. Later, the mem2reg pass will extract these values.
                 parameter = ir.Parameter(sym.name, ir.i32)
                 variable = ir.Alloc(sym.name + '_copy', ir.i32)
-                self.builder.emit(variable)
+                self.emit(variable)
                 ir_function.add_parameter(parameter)
                 # Move parameter into local copy:
-                self.builder.emit(ir.Store(parameter, variable))
+                self.emit(ir.Store(parameter, variable))
             elif sym.isLocal or isinstance(sym, ast.Variable):
                 # TODO: allocate space for variables
                 variable = ir.Alloc(sym.name, ir.i32)
-                self.builder.emit(variable)
+                self.emit(variable)
             else:
                 raise NotImplementedError('{}'.format(sym))
             self.varMap[sym] = variable
 
         self.gen_stmt(fn.body)
-        # self.builder.emit(ir.Move(f.return_value, ir.Const(0)))
-        self.builder.emit(ir.Jump(ir_function.epiloog))
+        # self.emit(ir.Move(f.return_value, ir.Const(0)))
+        self.emit(ir.Jump(ir_function.epiloog))
         self.builder.setBlock(ir_function.epiloog)
         self.builder.setFunction(None)
 
@@ -137,7 +148,7 @@ class CodeGenerator:
         re = self.gen_expr_code(code.expr)
 
         # Store return value:
-        self.builder.emit(ir.Return(re))
+        self.emit(ir.Return(re))
         block = self.builder.newBlock()
         self.builder.setBlock(block)
 
@@ -153,7 +164,7 @@ class CodeGenerator:
             raise SemanticError('No valid lvalue {}'.format(code.lval),
                                 code.lval.loc)
         store_ins = ir.Store(rval, lval)
-        self.builder.emit(store_ins)
+        self.emit(store_ins)
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -163,10 +174,10 @@ class CodeGenerator:
         self.gen_cond_code(code.condition, true_block, bbfalse)
         self.builder.setBlock(true_block)
         self.gen_stmt(code.truestatement)
-        self.builder.emit(ir.Jump(final_block))
+        self.emit(ir.Jump(final_block))
         self.builder.setBlock(bbfalse)
         self.gen_stmt(code.falsestatement)
-        self.builder.emit(ir.Jump(final_block))
+        self.emit(ir.Jump(final_block))
         self.builder.setBlock(final_block)
 
     def gen_while(self, code):
@@ -174,12 +185,12 @@ class CodeGenerator:
         bbdo = self.builder.newBlock()
         test_block = self.builder.newBlock()
         final_block = self.builder.newBlock()
-        self.builder.emit(ir.Jump(test_block))
+        self.emit(ir.Jump(test_block))
         self.builder.setBlock(test_block)
         self.gen_cond_code(code.condition, bbdo, final_block)
         self.builder.setBlock(bbdo)
         self.gen_stmt(code.statement)
-        self.builder.emit(ir.Jump(test_block))
+        self.emit(ir.Jump(test_block))
         self.builder.setBlock(final_block)
 
     def gen_for_stmt(self, code):
@@ -188,13 +199,13 @@ class CodeGenerator:
         test_block = self.builder.newBlock()
         final_block = self.builder.newBlock()
         self.gen_stmt(code.init)
-        self.builder.emit(ir.Jump(test_block))
+        self.emit(ir.Jump(test_block))
         self.builder.setBlock(test_block)
         self.gen_cond_code(code.condition, bbdo, final_block)
         self.builder.setBlock(bbdo)
         self.gen_stmt(code.statement)
         self.gen_stmt(code.final)
-        self.builder.emit(ir.Jump(test_block))
+        self.emit(ir.Jump(test_block))
         self.builder.setBlock(final_block)
 
     def gen_cond_code(self, expr, bbtrue, bbfalse):
@@ -226,16 +237,16 @@ class CodeGenerator:
                     raise SemanticError('Types unequal {} != {}'
                                         .format(expr.a.typ, expr.b.typ),
                                         expr.loc)
-                self.builder.emit(ir.CJump(ta, expr.op, tb, bbtrue, bbfalse))
+                self.emit(ir.CJump(ta, expr.op, tb, bbtrue, bbfalse))
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
             expr.typ = self.boolType
         elif type(expr) is ast.Literal:
             self.gen_expr_code(expr)
             if expr.val:
-                self.builder.emit(ir.Jump(bbtrue))
+                self.emit(ir.Jump(bbtrue))
             else:
-                self.builder.emit(ir.Jump(bbfalse))
+                self.emit(ir.Jump(bbfalse))
         else:
             raise NotImplementedError('Unknown cond {}'.format(expr))
 
@@ -250,7 +261,7 @@ class CodeGenerator:
         x = self.gen_expr_code(expr)
         if expr.lvalue:
             load_ins = ir.Load(x, 'loaded', ir.i32)
-            self.builder.emit(load_ins)
+            self.emit(load_ins)
             return load_ins
         else:
             return x
@@ -274,9 +285,7 @@ class CodeGenerator:
                     raise SemanticError('Can only add integers', expr.loc)
             else:
                 raise NotImplementedError("Cannot use equality as expressions")
-            value = ir.Binop(a_val, expr.op, b_val, "op", ir.i32)
-            self.builder.emit(value)
-            return value
+            return self.emit(ir.Binop(a_val, expr.op, b_val, "op", ir.i32))
         elif type(expr) is ast.Unop:
             if expr.op == '&':
                 ra = self.gen_expr_code(expr.a)
@@ -292,13 +301,15 @@ class CodeGenerator:
             tg = self.resolve_symbol(expr)
             expr.kind = type(tg)
             expr.typ = tg.typ
+
             # This returns the dereferenced variable.
             if isinstance(tg, ast.Variable):
                 expr.lvalue = True
                 return self.varMap[tg]
             elif isinstance(tg, ast.Constant):
-                c_val = self.gen_expr_code(tg.value)
-                return self.eval_constant(c_val)
+                expr.lvalue = False
+                c_val = self.get_constant_value(tg)
+                return self.emit(ir.Const(c_val, tg.name, ir.i32))
             else:
                 raise NotImplementedError(str(tg))
         elif type(expr) is ast.Deref:
@@ -309,9 +320,7 @@ class CodeGenerator:
             if type(ptr_typ) is not ast.PointerType:
                 raise SemanticError('Cannot deref non-pointer', expr.loc)
             expr.typ = ptr_typ.ptype
-            load_ins = ir.Load(addr, 'loaded', ir.i32)
-            self.builder.emit(load_ins)
-            return load_ins
+            return self.emit(ir.Load(addr, 'loaded', ir.i32))
         elif type(expr) is ast.Member:
             return self.gen_member_expr(expr)
         elif type(expr) is ast.Index:
@@ -326,15 +335,28 @@ class CodeGenerator:
             expr.typ = self.intType
             self.check_type(expr.query_typ)
             type_size = self.size_of(expr.query_typ)
-            val = ir.Const(type_size, 'sizeof', ir.i32)
-            self.builder.emit(val)
-            return val
+            return self.emit(ir.Const(type_size, 'sizeof', ir.i32))
         elif type(expr) is ast.FunctionCall:
             return self.gen_function_call(expr)
         else:
             raise NotImplementedError('Unknown expr {}'.format(expr))
 
+    def get_constant_value(self, c):
+        """ Get the constant value, calculate if required """
+        assert isinstance(c, ast.Constant)
+        if c not in self.constMap:
+            if c in self.const_workset:
+                varnames = ', '.join(wc.name for wc in self.const_workset)
+                msg = 'Constant loop detected involving: {}'.format(varnames)
+                raise SemanticError(msg, c.loc)
+            self.const_workset.add(c)
+            c_val = self.gen_expr_code(c.value)
+            self.constMap[c] = self.eval_constant(c_val)
+            self.const_workset.remove(c)
+        return self.constMap[c]
+
     def gen_member_expr(self, expr):
+        """ Generate code for member expression such as struc.mem = 2 """
         base = self.gen_expr_code(expr.base)
         expr.lvalue = expr.base.lvalue
         basetype = self.the_type(expr.base.typ)
@@ -356,11 +378,11 @@ class CodeGenerator:
         # Calculate offset into struct:
         bt = self.the_type(expr.base.typ)
         offset = ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32)
-        self.builder.emit(offset)
+        self.emit(offset)
 
         # Calculate memory address of field:
         addr_ins = ir.Add(base, offset, "mem_addr", ir.i32)
-        self.builder.emit(addr_ins)
+        self.emit(addr_ins)
         # TODO: Load value when its an l value
         return addr_ins
 
@@ -388,15 +410,15 @@ class CodeGenerator:
 
         # Generate constant:
         e_size = ir.Const(element_size, 'element_size', ir.i32)
-        self.builder.emit(e_size)
+        self.emit(e_size)
 
         # Calculate offset:
         offset = ir.Mul(idx, e_size, "element_offset", ir.i32)
-        self.builder.emit(offset)
+        self.emit(offset)
 
         # Calculate address:
         addr = ir.Add(base, offset, "element_address", ir.i32)
-        self.builder.emit(addr)
+        self.emit(addr)
         return addr
 
     def gen_literal_expr(self, expr):
@@ -415,11 +437,11 @@ class CodeGenerator:
         if type(expr.val) is str:
             cval = pack_string(expr.val)
             txt_content = ir.Const(cval, 'strval', ir.i32)
-            self.builder.emit(txt_content)
+            self.emit(txt_content)
             value = ir.Addr(txt_content, 'addroftxt', ir.i32)
         else:
             value = ir.Const(expr.val, 'cnst', ir.i32)
-        self.builder.emit(value)
+        self.emit(value)
         return value
 
     def gen_type_cast(self, expr):
@@ -476,15 +498,23 @@ class CodeGenerator:
 
         expr.lvalue = False
         call = ir.Call(fname, args, fname + '_rv', ir.i32)
-        self.builder.emit(call)
+        self.emit(call)
         return call
 
     def eval_constant(self, constant):
         """ Evaluates constant to its value """
         if isinstance(constant, ir.Const):
-            return constant
-        else:
-            raise SemanticError('Cannot evaluate constant {}'.format(constant))
+            return constant.value
+        elif isinstance(constant, ir.Binop):
+            a = self.eval_constant(constant.a)
+            b = self.eval_constant(constant.b)
+            if constant.operation == '+':
+                return a + b
+            elif constant.operation == '-':
+                return a - b
+            elif constant.operation == '*':
+                return a * b
+        raise SemanticError('Cannot evaluate constant {}'.format(constant), None)
 
     def resolve_symbol(self, sym):
         """ Find out what is designated with x """

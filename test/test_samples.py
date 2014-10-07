@@ -118,6 +118,21 @@ class Samples:
         res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13])
         self.do(snippet, res)
 
+    def testConst(self):
+        snippet = """
+         module sample;
+         import io;
+         const int a = 1;
+         const int b = a + 6;
+         function void start()
+         {
+            io.print2("a=", a);
+            io.print2("b=", b);
+         }
+        """
+        res = "a=0x{0:08X}\nb=0x{1:08X}\n".format(1, 7)
+        self.do(snippet, res)
+
     def testFibo(self):
         """ Test recursive function with fibonacci algorithm """
         snippet = """
