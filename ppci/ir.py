@@ -359,6 +359,8 @@ class Instruction:
     def position(self):
         """ Return numerical position in block """
         # if not hasattr(self, '_pos'):
+        # TODO: the index function has O(n) complexity, this is
+        # an issue with frequent lookups.
         self._pos = self.block.instructions.index(self)
         return self._pos
 
