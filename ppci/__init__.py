@@ -3,7 +3,7 @@
 import sys
 import os
 
-version = '0.0.1'
+version = '0.0.2'
 
 # Assert python version:
 if sys.version_info.major != 3:

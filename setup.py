@@ -8,7 +8,7 @@ setup(
     description="Pure python compiler infrastructure",
     scripts=["bin/zcc.py", "bin/st-flash.py", 'bin/hexutil.py'],
     long_description=long_description,
-    version='0.0.1',
+    version='0.0.2',
     author='Windel Bouwman',
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
