@@ -52,6 +52,13 @@ Status
 +------------------------+---------------------------------------------+
 
 
+.. image:: https://pypip.in/download/ppci/badge.svg
+    :target: https://pypi.python.org/pypi/ppci
+
+.. image:: https://pypip.in/version/ppci/badge.svg
+    :target: https://pypi.python.org/pypi/ppci
+
+
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
 .. _dronestate: https://drone.io/bitbucket.org/windel/ppci
 
