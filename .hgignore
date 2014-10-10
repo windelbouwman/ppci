@@ -10,3 +10,5 @@ syntax: glob
 docs/build
 test/.coverage
 .tox
+build
+ppci.egg-info
