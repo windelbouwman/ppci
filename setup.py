@@ -8,12 +8,17 @@ setup(
     description="Pure python compiler infrastructure",
     scripts=["bin/zcc.py", "bin/st-flash.py", 'bin/hexutil.py'],
     long_description=long_description,
-    version='0.0.2',
+    version='0.0.1',
     author='Windel Bouwman',
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
     package_data = {'': ['*.grammar', "*.brg", "*.sled", "*.rst"]},
     url='https://bitbucket.org/windel/ppci',
     license='license.txt',
-    test_suite="test"
+    test_suite="test",
+    classifiers=[
+        'License :: OSI Approved :: BSD License',
+        'Development Status :: 2 - Pre-Alpha',
+        'Programming Language :: Python :: 3'
+    ]
 )
