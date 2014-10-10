@@ -19,6 +19,13 @@ setup(
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Development Status :: 2 - Pre-Alpha',
-        'Programming Language :: Python :: 3'
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.2',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Topic :: Software Development :: Compilers',
+        'Topic :: Software Development :: Embedded Systems',
+        'Programming Language :: Python :: Implementation :: PyPy',
+        'Programming Language :: Python :: Implementation :: CPython'
     ]
 )
