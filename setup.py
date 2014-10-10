@@ -8,7 +8,7 @@ setup(
     author='Windel Bouwman',
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
-    package_data = {'': ['*.grammar', "*.brg", "*.sled"]},
+    package_data = {'': ['*.grammar', "*.brg", "*.sled", "*.rst"]},
     url='https://bitbucket.org/windel/ppci',
     license='license.txt',
     test_suite="test"
