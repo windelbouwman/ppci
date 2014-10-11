@@ -2,6 +2,8 @@
 
 import argparse
 import sys
+import logging
+import time
 from ppci.utils import stlink, stm32
 from ppci.utils import hexfile
 
@@ -39,6 +41,8 @@ def make_parser():
     verifyparser.add_argument('address', type=hex2int)
 
     subparsers.add_parser('erase', help='erase flash contents')
+    subparsers.add_parser('info', help='read id of stlink')
+    subparsers.add_parser('trace', help='Trace data to stdout')
     return parser
 
 
@@ -48,18 +52,18 @@ def do_flashing(args):
     stl.open()
 
     # Enter the right mode:
-    if stl.CurrentMode == stlink.DFU_MODE:
+    if stl.CurrentMode == stl.DFU_MODE:
         stl.exitDfuMode()
 
-    if stl.CurrentMode != stlink.DEBUG_MODE:
+    if stl.CurrentMode != stl.DEBUG_MODE:
         stl.enterSwdMode()
 
     if stl.ChipId != 0x10016413:
         print('Only working on stm32f4discovery board for now.')
         sys.exit(2)
 
-    # Retrieve the connected device, if any:
-    dev = stl.createDevice()
+    # Create the device:
+    dev = stm32.Stm32F40x(stl)
 
     if args.command == 'read':
         dev_content = dev.readFlash(args.address, args.size)
@@ -78,15 +82,31 @@ def do_flashing(args):
         dev.verifyFlash(args.address, content)
     elif args.command == 'erase':
         dev.eraseFlash()
+    elif args.command == 'info':
+        print('stlink version: {}'.format(stl))
+    elif args.command == 'trace':
+        print('tracing')
+        stl.halt()
+        stl.reset()
+        stl.traceEnable()
+        stl.run()
+        for i in range(100):
+            td = stl.readTraceData()
+            print('trace data:', i, td)
+            time.sleep(0.1)
+
     else:
         print('unknown command', args.command)
 
     stl.reset()
     stl.run()
     stl.exitDebugMode()
+    stl._dev.reset()
 
 
 if __name__ == '__main__':
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
     parser = make_parser()
     args = parser.parse_args()
     if not args.command:

@@ -1,48 +1,29 @@
-import struct, time
-from .usb import UsbContext, UsbDevice
-from .devices import Interface, STLinkException, registerInterface
+import struct
+import time
+import logging
+
+import usb.core
+import usb.util
+from .devices import Interface
 from . import adi
 
 """
    More or less copied from:
      https://github.com/texane/stlink
+
    Tracing from:
      https://github.com/obe1line/stlink-trace
-
 """
-ST_VID, STLINK2_PID = 0x0483, 0x3748
 
-def checkDevice(device):
-   return device.VendorId == ST_VID and device.ProductId == STLINK2_PID
 
-DFU_MODE, MASS_MODE, DEBUG_MODE = 0, 1, 2
+class STLinkException(Exception):
+    """ Exception used for interfaces and devices """
+    pass
+
 
 CORE_RUNNING = 0x80
 CORE_HALTED = 0x81
 
-# Commands:
-GET_VERSION = 0xf1
-DEBUG_COMMAND = 0xf2
-DFU_COMMAND = 0xf3
-GET_CURRENT_MODE = 0xf5
-
-# dfu commands:
-DFU_EXIT = 0x7
-
-# debug commands:
-DEBUG_ENTER = 0x20
-DEBUG_EXIT = 0x21
-DEBUG_ENTER_SWD = 0xa3
-DEBUG_GETSTATUS = 0x01
-DEBUG_FORCEDEBUG = 0x02
-DEBUG_RESETSYS = 0x03
-DEBUG_READALLREGS = 0x04
-DEBUG_READREG = 0x5
-DEBUG_WRITEREG = 0x6
-DEBUG_READMEM_32BIT = 0x7
-DEBUG_WRITEMEM_32BIT = 0x8
-DEBUG_RUNCORE = 0x9
-DEBUG_STEPCORE = 0xa
 
 JTAG_WRITEDEBUG_32BIT = 0x35
 JTAG_READDEBUG_32BIT = 0x36
@@ -51,146 +32,202 @@ TRACE_GET_BYTE_COUNT = 0x42
 # cortex M3
 CM3_REG_CPUID = 0xE000ED00
 
-@registerInterface((ST_VID, STLINK2_PID))
+
 class STLink2(Interface):
-   """ STlink2 interface implementation. """
-   def __init__(self, stlink2=None):
-      self.devHandle = None
-      if not stlink2:
-         context = UsbContext()
-         stlink2s = list(filter(checkDevice, context.DeviceList))
-         if not stlink2s:
-            raise STLinkException('Could not find an ST link 2 interface')
-         if len(stlink2s) > 1:
-            print('More then one stlink2 found, picking first one')
-         stlink2 = stlink2s[0]
-      assert isinstance(stlink2, UsbDevice) # Nifty type checking
-      assert checkDevice(stlink2)
-      self.stlink2 = stlink2
-   def __del__(self):
-      if self.IsOpen:
-         if self.CurrentMode == DEBUG_MODE:
-            self.exitDebugMode()
-         self.close()
+    """ STlink2 interface implementation. """
+    ST_VID = 0x0483
+    STLINK2_PID = 0x3748
 
-   def __str__(self):
-      if self.IsOpen:
-         return 'STlink2 device version {0}'.format(self.Version)
-      else:
-         return 'STlink2 device'
+    DFU_MODE, MASS_MODE, DEBUG_MODE = 0, 1, 2
 
-   def open(self):
-      if self.IsOpen:
-         return
-      self.devHandle = self.stlink2.open()
-      if self.devHandle.Configuration != 1:
-         self.devHandle.Configuration = 1
-      self.devHandle.claimInterface(0)
+    # Commands:
+    GET_VERSION = 0xf1
+    DEBUG_COMMAND = 0xf2
+    DFU_COMMAND = 0xf3
+    GET_CURRENT_MODE = 0xf5
 
-      # First initialization:
-      if self.CurrentMode == DFU_MODE:
-         self.exitDfuMode()
-      if self.CurrentMode != DEBUG_MODE:
-         self.enterSwdMode()
-      #self.reset()
+    # dfu commands:
+    DFU_EXIT = 0x7
 
-   def close(self):
-      if self.IsOpen:
-         self.devHandle.close()
-         self.devHandle = None
-   @property
-   def IsOpen(self):
-      return self.devHandle != None
+    # debug commands:
+    DEBUG_ENTER = 0x20
+    DEBUG_EXIT = 0x21
+    DEBUG_ENTER_SWD = 0xa3
+    DEBUG_GETSTATUS = 0x01
+    DEBUG_FORCEDEBUG = 0x02
+    DEBUG_RESETSYS = 0x03
+    DEBUG_READALLREGS = 0x04
+    DEBUG_READREG = 0x5
+    DEBUG_WRITEREG = 0x6
+    DEBUG_READMEM_32BIT = 0x7
+    DEBUG_WRITEMEM_32BIT = 0x8
+    DEBUG_RUNCORE = 0x9
+    DEBUG_STEPCORE = 0xa
 
-   # modes:
-   def getCurrentMode(self):
-      cmd = bytearray(16)
-      cmd[0] = GET_CURRENT_MODE
-      reply = self.send_recv(cmd, 2) # Expect 2 bytes back
-      return reply[0]
-   CurrentMode = property(getCurrentMode)
-   @property
+    def __init__(self, stlink2=None):
+        self.logger = logging.getLogger('stlink2')
+        self._isOpen = False
+        if not stlink2:
+            stlink2 = usb.core.find(idVendor=self.ST_VID,
+                                    idProduct=self.STLINK2_PID)
+            if not stlink2:
+                raise STLinkException('Could not find an ST link 2 interface')
+        assert isinstance(stlink2, usb.core.Device)
+        self._dev = stlink2
 
-   def CurrentModeString(self):
-      modes = {DFU_MODE: 'dfu', MASS_MODE: 'massmode', DEBUG_MODE:'debug'}
-      return modes[self.CurrentMode]
-   def exitDfuMode(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DFU_COMMAND, DFU_EXIT
-      self.send_recv(cmd)
-   def enterSwdMode(self):
-      cmd = bytearray(16)
-      cmd[0:3] = DEBUG_COMMAND, DEBUG_ENTER, DEBUG_ENTER_SWD
-      self.send_recv(cmd)
-   def exitDebugMode(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_EXIT
-      self.send_recv(cmd)
-      
-   def getVersion(self):
-      cmd = bytearray(16)
-      cmd[0] = GET_VERSION
-      data = self.send_recv(cmd, 6) # Expect 6 bytes back
-      # Parse 6 bytes into various versions:
-      b0, b1, b2, b3, b4, b5 = data
-      stlink_v = b0 >> 4
-      jtag_v = ((b0 & 0xf) << 2) | (b1 >> 6)
-      swim_v = b1 & 0x3f
-      vid = (b3 << 8) | b2
-      pid = (b5 << 8) | b4
-      return 'stlink={0} jtag={1} swim={2} vid:pid={3:04X}:{4:04X}'.format(\
-         stlink_v, jtag_v, swim_v, vid, pid)
-   Version = property(getVersion)
-   
-   @property
-   def ChipId(self):
-      return self.read_debug32(0xE0042000)
-   @property
-   def CpuId(self):
-      u32 = self.read_debug32(CM3_REG_CPUID)
-      implementer_id = (u32 >> 24) & 0x7f
-      variant = (u32 >> 20) & 0xf
-      part = (u32 >> 4) & 0xfff
-      revision = u32 & 0xf
-      return implementer_id, variant, part, revision
-   def getStatus(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_GETSTATUS
-      reply = self.send_recv(cmd, 2)
-      return reply[0]
-   Status = property(getStatus)
-   @property
-   def StatusString(self):
-      s = self.Status
-      statii = {CORE_RUNNING: 'CORE RUNNING', CORE_HALTED: 'CORE HALTED'}
-      if s in statii:
-         return statii[s]
-      return 'Unknown status'
+    def __str__(self):
+        if self.IsOpen:
+            return 'STlink2 device version {0}'.format(self.Version)
+        else:
+            return 'STlink2 device'
 
-   def reset(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_RESETSYS
-      self.send_recv(cmd, 2)
+    def open(self):
+        if self.IsOpen:
+            return
+        self.logger.debug('Opening device')
+        self._dev.set_configuration()
+        for cfg in self._dev:
+            self.logger.debug('Cfg: {}'.format(cfg.bConfigurationValue))
+            for intf in cfg:
+                self.logger.debug('Intf: {}'.format(intf.bInterfaceNumber))
+                for ep in intf:
+                    self.logger.debug('EP: {}'.format(ep.bEndpointAddress))
+        cfg = self._dev.get_active_configuration()
 
-   # debug commands:
-   def step(self):
+        # Reset device??
+        self._dev.reset()
+
+        self._isOpen = True
+
+        # First initialization:
+        if self.CurrentMode == self.DFU_MODE:
+            self.exitDfuMode()
+        if self.CurrentMode != self.DEBUG_MODE:
+            self.enterSwdMode()
+        # self.reset()
+
+    def close(self):
+        if self.IsOpen:
+            self.logger.debug('Closing device')
+            self._isOpen = False
+
+    @property
+    def IsOpen(self):
+        return self._isOpen
+
+    # modes:
+    def getCurrentMode(self):
+        """ Get mode of stlink """
+        self.logger.debug('Get mode')
         cmd = bytearray(16)
-        cmd[0:2] = DEBUG_COMMAND, DEBUG_STEPCORE
+        cmd[0] = self.GET_CURRENT_MODE
+        reply = self.send_recv(cmd, 2)  # Expect 2 bytes back
+        return reply[0]
+    CurrentMode = property(getCurrentMode)
+
+    @property
+    def CurrentModeString(self):
+        modes = {self.DFU_MODE: 'dfu', self.MASS_MODE: 'massmode',
+                 self.DEBUG_MODE: 'debug'}
+        return modes[self.CurrentMode]
+
+    def exitDfuMode(self):
+        self.logger.info('Exit dfu mode')
+        cmd = bytearray(16)
+        cmd[0:2] = self.DFU_COMMAND, self.DFU_EXIT
+        self.send_recv(cmd)
+
+    def enterSwdMode(self):
+        self.logger.info('Enter swd mode')
+        cmd = bytearray(16)
+        cmd[0:3] = self.DEBUG_COMMAND, self.DEBUG_ENTER, self.DEBUG_ENTER_SWD
+        self.send_recv(cmd)
+
+    def exitDebugMode(self):
+        self.logger.debug('Exit debug mode')
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_EXIT
+        self.send_recv(cmd)
+
+    def get_version(self):
+        """ Get stlink version of hardware and firmware """
+        if hasattr(self, '_version'):
+            return self._version
+        self.logger.debug('Get stlink version')
+        cmd = bytearray(16)
+        cmd[0] = self.GET_VERSION
+        data = self.send_recv(cmd, 6)  # Expect 6 bytes back
+        # Parse 6 bytes into various versions:
+        b0, b1, b2, b3, b4, b5 = data
+        stlink_v = b0 >> 4
+        jtag_v = ((b0 & 0xf) << 2) | (b1 >> 6)
+        swim_v = b1 & 0x3f
+        vid = (b3 << 8) | b2
+        pid = (b5 << 8) | b4
+        self._version = 'stlink={0} jtag={1} swim={2} vid:pid={3:04X}:{4:04X}'.format(
+            stlink_v, jtag_v, swim_v, vid, pid)
+        return self._version
+
+    Version = property(get_version)
+
+    @property
+    def ChipId(self):
+        return self.read_debug32(0xE0042000)
+
+    @property
+    def CpuId(self):
+        u32 = self.read_debug32(CM3_REG_CPUID)
+        implementer_id = (u32 >> 24) & 0x7f
+        variant = (u32 >> 20) & 0xf
+        part = (u32 >> 4) & 0xfff
+        revision = u32 & 0xf
+        return implementer_id, variant, part, revision
+
+    def getStatus(self):
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_GETSTATUS
+        reply = self.send_recv(cmd, 2)
+        return reply[0]
+
+    Status = property(getStatus)
+
+    @property
+    def StatusString(self):
+        s = self.Status
+        statii = {CORE_RUNNING: 'CORE RUNNING', CORE_HALTED: 'CORE HALTED'}
+        if s in statii:
+            return statii[s]
+        return 'Unknown status'
+
+    def reset(self):
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_RESETSYS
         self.send_recv(cmd, 2)
 
-   def run(self):
+    # debug commands:
+    def step(self):
+        self.logger.info('Single step')
         cmd = bytearray(16)
-        cmd[0:2] = DEBUG_COMMAND, DEBUG_RUNCORE
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_STEPCORE
         self.send_recv(cmd, 2)
 
-   def halt(self):
+    def run(self):
+        self.logger.info('Run core')
         cmd = bytearray(16)
-        cmd[0:2] = DEBUG_COMMAND, DEBUG_FORCEDEBUG
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_RUNCORE
         self.send_recv(cmd, 2)
-   
-   # Tracing:
-   def traceEnable(self):
+
+    def halt(self):
+        self.logger.info('Halt core')
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_FORCEDEBUG
+        self.send_recv(cmd, 2)
+
+    # Tracing:
+    def traceEnable(self):
         """ Configure stlink to send trace data """
+        self.logger.info('Enable tracing')
+
         self.write_debug32(0xE000EDF0, 0xA05F0003)
 
         # Enable TRCENA:
@@ -205,8 +242,8 @@ class STLink2(Interface):
         self.write_debug32(0xE0042004, 0x27)  # Enable trace in async mode
 
         # TPIU config:
-        uc_freq = 16
-        st_freq = 2
+        uc_freq = 16  # uc frequency
+        st_freq = 2  # TODO: parameterize
         divisor = int(uc_freq / st_freq) - 1
         self.write_debug32(0xE0040004, 0x00000001)  # current port size register --> 1 == port size = 1
         self.write_debug32(0xE0040010, divisor)  # random clock divider??
@@ -219,77 +256,91 @@ class STLink2(Interface):
         self.write_debug32(0xE0000E00, 0xFFFFFFFF)  # Enable all trace ports in ITM
         self.write_debug32(0xE0000E40, 0x0000000F)  # Set privilege mask for all 32 ports.
 
-   def writePort0(self, v32):
-      self.write_debug32(0xE0000000, v32)
+    def writePort0(self, v32):
+        self.write_debug32(0xE0000000, v32)
 
-   def getTraceByteCount(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, 0x42
-      reply = self.send_recv(cmd, 2)
-      return struct.unpack('<H', reply[0:2])[0]
+    def getTraceByteCount(self):
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, 0x42
+        reply = self.send_recv(cmd, 2)
+        return struct.unpack('<H', reply[0:2])[0]
 
-   def readTraceData(self):
-      bsize = self.getTraceByteCount()
-      if bsize > 0:
-         td = self.recv_ep3(bsize)
-         print(td)
-      else:
-         print('no trace data')
+    def readTraceData(self):
+        bsize = self.getTraceByteCount()
+        if bsize > 0:
+            td = self.recv_ep3(bsize)
+            return td
+        return bytes()
 
-   # Helper 1 functions:
-   def write_debug32(self, address, value):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, JTAG_WRITEDEBUG_32BIT
-      cmd[2:10] = struct.pack('<II', address, value)
-      r = self.send_recv(cmd, 2)
-   def read_debug32(self, address):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, JTAG_READDEBUG_32BIT
-      cmd[2:6] = struct.pack('<I', address) # pack into u32 little endian
-      reply = self.send_recv(cmd, 8)
-      return struct.unpack('<I', reply[4:8])[0]
-   def write_reg(self, reg, value):
-      cmd = bytearray(16)
-      cmd[0:3] = DEBUG_COMMAND, DEBUG_WRITEREG, reg
-      cmd[3:7] = struct.pack('<I', value)
-      r = self.send_recv(cmd, 2)
-   def read_reg(self, reg):
-      cmd = bytearray(16)
-      cmd[0:3] = DEBUG_COMMAND, DEBUG_READREG, reg
-      reply = self.send_recv(cmd, 4)
-      return struct.unpack('<I', reply)[0]
-   def read_all_regs(self):
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_READALLREGS
-      reply = self.send_recv(cmd, 84)
-      fmt = '<' + 'I' * 21 # unpack 21 register values
-      return list(struct.unpack(fmt, reply))
-   def write_mem32(self, address, content):
-      assert len(content) % 4 == 0
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_WRITEMEM_32BIT
-      cmd[2:8] = struct.pack('<IH', address, len(content))
-      self.send_recv(cmd)
-      self.send_recv(content)
-   def read_mem32(self, address, length):
-      assert length % 4 == 0
-      cmd = bytearray(16)
-      cmd[0:2] = DEBUG_COMMAND, DEBUG_READMEM_32BIT
-      cmd[2:8] = struct.pack('<IH', address, length)
-      reply = self.send_recv(cmd, length) # expect memory back!
-      return reply
+    # Helper 1 functions:
+    def write_debug32(self, address, value):
+        self.logger.debug('write 0x{:08X} to 0x{:08X}'.format(value, address))
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, JTAG_WRITEDEBUG_32BIT
+        cmd[2:10] = struct.pack('<II', address, value)
+        self.send_recv(cmd, 2)
 
-   # Helper 2 functions:
-   def send_recv(self, tx, rxsize=0):
-      """ Helper function that transmits and receives data in bulk mode. """
-      # TODO: we could use here the non-blocking libusb api.
-      tx = bytes(tx)
-      #assert len(tx) == 16
-      self.devHandle.bulkWrite(2, tx) # write to endpoint 2
-      if rxsize > 0:
-         return self.devHandle.bulkRead(1, rxsize) # read from endpoint 1
-   def recv_ep3(self, rxsize):
-      return self.devHandle.bulkRead(3, rxsize)
+    def read_debug32(self, address):
+        self.logger.debug('read u32 from 0x{:08X}'.format(address))
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, JTAG_READDEBUG_32BIT
+        cmd[2:6] = struct.pack('<I', address)  # pack into u32 little endian
+        reply = self.send_recv(cmd, 8)
+        return struct.unpack('<I', reply[4:8])[0]
+
+    def write_reg(self, reg, value):
+        """ Set a register to a value """
+        self.logger.debug('reg {} <- 0x{:08x}'.format(reg, value))
+        cmd = bytearray(16)
+        cmd[0:3] = self.DEBUG_COMMAND, self.DEBUG_WRITEREG, reg
+        cmd[3:7] = struct.pack('<I', value)
+        self.send_recv(cmd, 2)
+
+    def read_reg(self, reg):
+        """ Read a register value """
+        cmd = bytearray(16)
+        cmd[0:3] = self.DEBUG_COMMAND, self.DEBUG_READREG, reg
+        reply = self.send_recv(cmd, 4)
+        return struct.unpack('<I', reply)[0]
+
+    def read_all_regs(self):
+        """ Read all register values """
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_READALLREGS
+        reply = self.send_recv(cmd, 84)
+        fmt = '<' + 'I' * 21  # unpack 21 register values
+        return list(struct.unpack(fmt, reply))
+
+    def write_mem32(self, address, content):
+        """ Write arbitrary memory address """
+        assert len(content) % 4 == 0
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_WRITEMEM_32BIT
+        cmd[2:8] = struct.pack('<IH', address, len(content))
+        self.send_recv(cmd)
+        self.send_recv(content)
+
+    def read_mem32(self, address, length):
+        self.logger.debug('read {} bytes at 0x{:08X}'.format(length, address))
+        assert length % 4 == 0
+        cmd = bytearray(16)
+        cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_READMEM_32BIT
+        cmd[2:8] = struct.pack('<IH', address, length)
+        reply = self.send_recv(cmd, length)  # expect memory back!
+        return reply
+
+    # Helper 2 functions:
+    def send_recv(self, tx, rxsize=0):
+        """ Helper function that transmits and receives data in bulk mode. """
+        tx = bytes(tx)
+        # assert len(tx) == 16
+        self._dev.write(0x2, tx)  # write to endpoint 2
+        if rxsize > 0:
+            return self._dev.read(0x81, rxsize)   # read from EP 1 | 0x80
+
+    def recv_ep3(self, rxsize):
+        return self._dev.read(0x83, rxsize)
+
 
 if __name__ == '__main__':
    # Test program
@@ -330,7 +381,7 @@ if __name__ == '__main__':
    time.sleep(0.1)
    td = sl.readTraceData()
    print('trace data:', td)
-   
+
    # Test CoreSight registers:
    idr4 = sl.read_debug32(0xE0041fd0)
    print('idr4 =', idr4)

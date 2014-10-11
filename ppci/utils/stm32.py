@@ -1,11 +1,12 @@
 import time
 import logging
-from .devices import Device, registerDevice, STLinkException, Interface
+from .devices import Device, registerDevice
 from . import stlink
 
 # F4 specifics:
 STM32_FLASH_BASE = 0x08000000
-STM32_SRAM_BASE  = 0x20000000
+STM32_SRAM_BASE = 0x20000000
+
 
 # flash registers:
 FLASH_F4_REGS_ADDR = 0x40023c00
@@ -22,17 +23,23 @@ FLASH_F4_CR_SNB = 3
 FLASH_F4_CR_SNB_MASK = 0x38
 FLASH_F4_SR_BSY = 16
 
+
+class STLinkException(Exception):
+    """ Exception used for interfaces and devices """
+    pass
+
+
 class Stm32F4(Device):
     """
       Implementation of the specifics of the STM32F4xx device series.
     """
     def __init__(self, iface):
-      super().__init__(iface)
-      self.logger = logging.getLogger('stm32')
+        super().__init__(iface)
+        self.logger = logging.getLogger('stm32')
 
     def __str__(self):
-      return 'STM32F4 device size=0x{1:X} id=0x{0:X}'.format(\
-         self.UID, self.FlashSize)
+        return 'STM32F4 device size=0x{1:X} id=0x{0:X}'.format(\
+            self.UID, self.FlashSize)
 
     def calculate_F4_sector(self, address):
       sectorstarts = []
@@ -48,32 +55,32 @@ class Stm32F4(Device):
       return sec, self.sectorsizes[sec]
 
     def calcSectors(self, address, size):
-      off = 0
-      sectors = []
-      while off < size:
-         sectornum, sectorsize = self.calculate_F4_sector(address + off)
-         sectors.append((sectornum, sectorsize))
-         off += sectorsize
-      return sectors
+        off = 0
+        sectors = []
+        while off < size:
+            sectornum, sectorsize = self.calculate_F4_sector(address + off)
+            sectors.append((sectornum, sectorsize))
+            off += sectorsize
+        return sectors
 
     # Device registers:
     @property
     def UID(self):
-      uid_base = 0x1FFF7A10
-      uid1 = self.iface.read_debug32(uid_base)
-      uid2 = self.iface.read_debug32(uid_base + 0x4)
-      uid3 = self.iface.read_debug32(uid_base + 0x8)
-      return (uid3 << 64) | (uid2 << 32) | uid1
+        uid_base = 0x1FFF7A10
+        uid1 = self.iface.read_debug32(uid_base)
+        uid2 = self.iface.read_debug32(uid_base + 0x4)
+        uid3 = self.iface.read_debug32(uid_base + 0x8)
+        return (uid3 << 64) | (uid2 << 32) | uid1
 
     @property
     def FlashSize(self):
-      f_id = self.iface.read_debug32(0x1FFF7A22)
-      f_id = f_id >> 16
-      return f_id * 1024
+        f_id = self.iface.read_debug32(0x1FFF7A22)
+        f_id = f_id >> 16
+        return f_id * 1024
 
     @property
     def Running(self):
-      return self.iface.Status == stlink.CORE_RUNNING
+        return self.iface.Status == stlink.CORE_RUNNING
 
     # flashing commands:
     def writeFlash(self, address, content):
@@ -183,12 +190,12 @@ class Stm32F4(Device):
         return self.Cr & mask == mask
 
     def unlockFlashIf(self):
-      FLASH_KEY1, FLASH_KEY2 = 0x45670123, 0xcdef89ab
-      if self.isFlashLocked():
-         self.iface.write_debug32(FLASH_F4_KEYR, FLASH_KEY1)
-         self.iface.write_debug32(FLASH_F4_KEYR, FLASH_KEY2)
-         if self.isFlashLocked():
-            raise STLinkException('Failed to unlock')
+        FLASH_KEY1, FLASH_KEY2 = 0x45670123, 0xcdef89ab
+        if self.isFlashLocked():
+            self.iface.write_debug32(FLASH_F4_KEYR, FLASH_KEY1)
+            self.iface.write_debug32(FLASH_F4_KEYR, FLASH_KEY2)
+            if self.isFlashLocked():
+                raise STLinkException('Failed to unlock')
 
     def lockFlash(self):
         self.Cr = self.Cr | (1 << FLASH_F4_CR_LOCK)
@@ -201,15 +208,15 @@ class Stm32F4(Device):
 
     def writeFlashCr(self, x):
         self.iface.write_debug32(FLASH_F4_CR, x)
-    
+
     Cr = property(readFlashCr, writeFlashCr)
 
     def writeFlashCrSnb(self, sector):
-      x = self.Cr
-      x &= ~FLASH_F4_CR_SNB_MASK
-      x |= sector << FLASH_F4_CR_SNB
-      x |= 1 << FLASH_F4_CR_SER
-      self.Cr = x
+        x = self.Cr
+        x &= ~FLASH_F4_CR_SNB_MASK
+        x |= sector << FLASH_F4_CR_SNB
+        x |= 1 << FLASH_F4_CR_SER
+        self.Cr = x
 
     def setFlashCrMer(self):
         self.Cr = self.Cr | (1 << FLASH_CR_MER)
@@ -250,15 +257,15 @@ class Stm32F4(Device):
 
 @registerDevice(0x10016413)
 class Stm32F40x(Stm32F4):
-   """ STM32F40x and STM32F41x device series """
-   def __init__(self, iface):
-      super().__init__(iface)
-      # Assert the proper size for this device:
-      assert self.FlashSize == 0x100000
-      """
+    """ STM32F40x and STM32F41x device series """
+    def __init__(self, iface):
+        super().__init__(iface)
+        # Assert the proper size for this device:
+        assert self.FlashSize == 0x100000
+        """
          from 0x8000000 to 0x80FFFFF
          4 sectors of 0x4000 (16 kB)
          1 sector of 0x10000 (64 kB)
          7 of 0x20000 (128 kB)
-      """
-      self.sectorsizes = [0x4000] * 4 + [0x10000] + [0x20000] * 7
+        """
+        self.sectorsizes = [0x4000] * 4 + [0x10000] + [0x20000] * 7
