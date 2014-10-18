@@ -1,8 +1,7 @@
 
 """
-    This module contains a set of handy functions to invoke compilation,
-        linking
-    and assembling.
+This module contains a set of handy functions to invoke compilation, linking
+and assembling.
 """
 
 import logging
@@ -78,6 +77,7 @@ def fix_layout(l):
 
 
 def construct(buildfile, targets=[]):
+    """ Construct the given buildfile """
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
@@ -112,7 +112,8 @@ def assemble(source, target):
 
 
 def c3toir(sources, includes, target):
-    """ Compile c3 sources to ir code """
+    """ Compile c3 sources to ir code using the includes and for the given
+    target """
     logger = logging.getLogger('c3c')
     logger.debug('C3 compilation started')
     target = fix_target(target)
@@ -160,6 +161,8 @@ def optimize(ircode, do_verify=True):
 
 
 def ir_to_code(ir_modules, target):
+    """ Translate the given list of IR-modules into object code for the given
+    target """
     logger = logging.getLogger('ir_to_code')
     cg = CodeGenerator(target)
 

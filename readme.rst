@@ -5,7 +5,7 @@ About
 This The pure-python-compiler-infrastructure (ppci). This project aims to
 implement a compiler toolset in python.
 
-** Warning: This project is far from complete and production ready **
+**Warning: This project is far from complete and production ready**
 
 The project contains the following:
 
@@ -19,17 +19,12 @@ The project contains the following:
 Installation
 ============
 
-ppci can be installed from mercurial by using pip with virtualenv:
+ppci can be installed using pip:
 
 .. code:: bash
 
-    $ cd ~
-    $ virtuelenv ppci_sandbox
-    $ source ppci_sandbox/bin/activate
-    (ppci_sandbox)$ pip install ppci
-    (ppci_sandbox)$ zcc.py -h
-    (ppci_sandbox)$ deactivate
-    $
+    $ pip install ppci
+
 
 Source
 ======
