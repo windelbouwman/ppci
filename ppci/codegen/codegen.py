@@ -64,9 +64,10 @@ class CodeGenerator:
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
         for block in irfunc:
-            while len(block) > 500:
+            max_block_len = 300
+            while len(block) > max_block_len:
                 self.logger.debug('{} too large, splitting up'.format(block))
-                _, block = split_block(block, pos=500)
+                _, block = split_block(block, pos=max_block_len)
 
         # Create selection dag (directed acyclic graph):
         dag = self.dagger.make_dag(irfunc, frame)

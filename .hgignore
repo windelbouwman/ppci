@@ -10,5 +10,7 @@ syntax: glob
 docs/build
 test/.coverage
 .tox
+.coverage
 build
+dist
 ppci.egg-info

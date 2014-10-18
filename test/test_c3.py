@@ -365,7 +365,7 @@ class testBuilder(unittest.TestCase):
             var int[100] x;
             var int a, b;
             a = 2;
-            b = x[a*2+9 - a] * x[22+12];
+            b = x[a*2+9 - a] * x[22+x[12]];
             x[1] = x[2];
          }
         """
@@ -396,16 +396,15 @@ class testBuilder(unittest.TestCase):
         """
         self.expectErrors(snippet, [7])
 
-    @unittest.skip('TODO')
     def testArrayFail3(self):
         snippet = """
          module testarray;
          function void t()
          {
-            var int c[20];
+            var int[20] c;
          }
         """
-        self.expectErrors(snippet, [7])
+        self.expectOK(snippet)
 
     def testStructCall(self):
         snippet = """
@@ -458,14 +457,14 @@ class testBuilder(unittest.TestCase):
         """
         self.expectErrors(snippet, [6])
 
-    @unittest.skip('TODO: Too hard')
     def testWrongVarUse(self):
         snippet = """
          module testsizeof;
 
          function void t()
          {
-            int a = 1;
+            var int a;
+            a = 1;
          }
         """
         self.expectOK(snippet)

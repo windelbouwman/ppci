@@ -19,6 +19,7 @@ def only_bf(txt):
     """ Strip a string from all characters, except brainfuck chars """
     return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
+
 class Samples:
     def testPrint(self):
         snippet = """
@@ -45,6 +46,22 @@ class Samples:
          }
         """
         res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
+        self.do(snippet, res)
+
+    def testLargeForLoopPrint(self):
+        snippet = """
+         module sample;
+         import io;
+         function void start()
+         {
+            var int i;
+            for (i=0; i<10000; i = i + 1)
+            {
+              io.print2("A = ", i);
+            }
+         }
+        """
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
         self.do(snippet, res)
 
     def testIfStatement(self):
@@ -167,25 +184,9 @@ class Samples:
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
         self.do(hello_world, "Hello World!\n", lang='bf')
 
-    @unittest.skip('Too slow')
+    @unittest.skip('Not functional yet')
     def testBrainFuckQuine(self):
         """ A quine is a program that outputs itself! """
-        quine1 = """->+>+++>>+>++>+>+++>>+>++>>>+>+>+>++>+>>>>+++>+>>++
-        >+>+++>>++>
-        ++>>+>>+>++>++>+>>>>+++>+>>>>++>++>>>>+>>++>+>+++>>>++>>++++
-        ++>>+>>++>+>>>>+++>>+++++>>+>+++>>>++>>++>>+>>++>+>+++>>>++>
-        >+++++++++++++>>+>>++>+>+++>+>+++>>>++>>++++>>+>>++>+>>>>+++
-        >>+++++>>>>++>>>>+>+>++>>+++>+>>>>+++>+>>>>+++>+>>>>+++>>++>
-        ++>+>+++>+>++>++>>>>>>++>+>+++>>>>>+++>>>++>+>+++>+>+>++>>>>
-        >>++>>>+>>>++>+>>>>+++>+>>>+>>++>+>++++++++++++++++++>>>>+>+
-        >>>+>>++>+>+++>>>++>>++++++++>>+>>++>+>>>>+++>>++++++>>>+>++
-        >>+++>+>+>++>+>+++>>>>>+++>>>+>+>>++>+>+++>>>++>>++++++++>>+
-        >>++>+>>>>+++>>++++>>+>+++>>>>>>++>+>+++>>+>++>>>>+>+>++>+>>
-        >>+++>>+++>>>+[[->>+<<]<+]+++++[->+++++++++<]>.[+]>>[<<+++++
-        ++[->+++++++++<]>-.------------------->-[-<.<+>>]<[+]<+>>>]<
-        <<[-[-[-[>>+<++++++[->+++++<]]>++++++++++++++<]>+++<]++++++[
-        ->+++++++<]>+<<<-[->>>++<<<]>[->>.<<]<<]"""
-
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
         +>>+++>>+>>+>>++>>++>>+>>+>>+>>+++>>+>>++++++>>+++++++++++++
         +++++++++++++++++++++++++++++++++++++++++++++++++>>+>>++>>++
@@ -295,6 +296,8 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
         # Run bin file in emulator:
         # Somehow vexpress-a9 and realview-pb-a8 differ?
         res = run_qemu(self.sample_filename, machine='realview-pb-a8')
+        # print('Actual:', res)
+        # print('Expect:', expected_output)
         self.assertEqual(expected_output, res)
 
 
@@ -359,7 +362,7 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
     sample_filename = 'generated_code.py'
 
     def setUp(self):
-        pass
+        tryrm(self.sample_filename)
 
     def do(self, src, expected_output, lang='c3'):
         if lang == 'c3':
@@ -381,6 +384,9 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
             print('sample_start()', file=f)
         res = run_python(self.sample_filename)
         self.assertEqual(expected_output, res)
+
+    def tearDown(self):
+        tryrm(self.sample_filename)
 
 
 if __name__ == '__main__':

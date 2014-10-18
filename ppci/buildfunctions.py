@@ -136,7 +136,7 @@ def c3toir(sources, includes, target):
     return ir_modules
 
 
-def optimize(ircode, do_verify=False):
+def optimize(ircode, do_verify=True):
     """
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
