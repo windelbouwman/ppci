@@ -6,8 +6,8 @@ Table of contents
 
 .. toctree::
     usage
-    stlink
     compiler
     utils
+    stlink
 
 

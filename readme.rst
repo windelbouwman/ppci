@@ -3,8 +3,18 @@ About
 =====
 
 This The pure-python-compiler-infrastructure (ppci). This project aims to
-implement a compiler toolset in python. As of now, the library can generate
-arm thumb code and arm code.
+implement a compiler toolset in python.
+
+** Warning: This project is far from complete and production ready **
+
+The project contains the following:
+
+- Language front-ends: Brainfuck, C3
+- Various code optimizers
+- Backends for various platforms: ARM, Thumb, Python
+- Assembler
+- Linker
+
 
 Installation
 ============
@@ -24,9 +34,10 @@ ppci can be installed from mercurial by using pip with virtualenv:
 Source
 ======
 
-Sourcecode is located at bitbucket:
+Sourcecode is located here:
 
-https://bitbucket.org/windel/ppci
+- https://bitbucket.org/windel/ppci
+- https://pikacode.com/windel/ppci/
 
 Documentation
 =============
@@ -37,43 +48,57 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 Status
 ======
 
-+------------------------+---------------------------------------------+
-| Topic                  | Status                                      |
-+========================+=============================================+
-| C3 language front-end  | Fairly complete                             |
-+------------------------+---------------------------------------------+
-| ARM code generation    | Bare minimum for hello world                |
-+------------------------+---------------------------------------------+
-| Thumb code generation  | Bare minimum for blinky on stm32f4discovery |
-+------------------------+---------------------------------------------+
-| Build status           | |dronestate|_                               |
-+------------------------+---------------------------------------------+
-| Documentation          | |docstate|_                                 |
-+------------------------+---------------------------------------------+
++-------------------------------+---------------------------------------------+
+| Topic                         | Status                                      |
++===============================+=============================================+
+| C3 language front-end         | Fairly complete                             |
++-------------------------------+---------------------------------------------+
+| Brainfuck language front-end  | Working                                     |
++-------------------------------+---------------------------------------------+
+| ARM code generation           | Bare minimum for hello world                |
++-------------------------------+---------------------------------------------+
+| Thumb code generation         | Bare minimum for blinky on stm32f4discovery |
++-------------------------------+---------------------------------------------+
+| Build status                  | |dronestate|_                               |
++-------------------------------+---------------------------------------------+
+| Development status            | |devstate|_                                 |
++-------------------------------+---------------------------------------------+
+| Documentation                 | |docstate|_                                 |
++-------------------------------+---------------------------------------------+
+| Current release               | |version|_                                  |
++-------------------------------+---------------------------------------------+
+| Python implementations        | |pyimpls|_                                  |
++-------------------------------+---------------------------------------------+
+| Python versions               | |pyversions|_                               |
++-------------------------------+---------------------------------------------+
+| License                       | |license|_                                  |
++-------------------------------+---------------------------------------------+
+| Downloads                     | |downloads|_                                |
++-------------------------------+---------------------------------------------+
 
 
-.. image:: https://pypip.in/download/ppci/badge.svg
-    :target: https://pypi.python.org/pypi/ppci
+.. |downloads| image:: https://pypip.in/download/ppci/badge.svg
+.. _downloads: https://pypi.python.org/pypi/ppci
 
 
-.. image:: https://pypip.in/version/ppci/badge.svg
-    :target: https://pypi.python.org/pypi/ppci
+.. |version| image:: https://pypip.in/version/ppci/badge.svg
+.. _version: https://pypi.python.org/pypi/ppci
 
 
-.. image:: https://pypip.in/license/ppci/badge.svg
-    :target: https://pypi.python.org/pypi/ppci
+.. |license| image:: https://pypip.in/license/ppci/badge.svg
+.. _license: https://pypi.python.org/pypi/ppci
 
 
-.. image:: https://pypip.in/status/ppci/badge.svg
-    :target: https://pypi.python.org/pypi/ppci
+.. |devstate| image:: https://pypip.in/status/ppci/badge.svg
+.. _devstate: https://pypi.python.org/pypi/ppci
 
 
-.. image:: https://pypip.in/py_versions/ppci/badge.svg
-    :target: https://pypi.python.org/pypi/ppci
+.. |pyversions| image:: https://pypip.in/py_versions/ppci/badge.svg
+.. _pyversions: https://pypi.python.org/pypi/ppci
 
 
-.. image:: https://pypip.in/implementation/ppci/badge.svg
-    :target: https://pypi.python.org/pypi/ppci
+.. |pyimpls| image:: https://pypip.in/implementation/ppci/badge.svg
+.. _pyimpls: https://pypi.python.org/pypi/ppci
 
 
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
