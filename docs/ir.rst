@@ -15,25 +15,11 @@ The IR-code is implemented in the ir package.
 
 A block contains a sequence of statements.
 
-// .. autoclass:: ppci.ir.Statement
-
-// .. autoclass:: ppci.ir.Move
-
-Jump instructions:
-
-// .. autoclass:: ppci.ir.Jump
-
-// .. autoclass:: ppci.ir.CJump
-
-Statements can contain again expressions.
-
-// .. autoclass:: ppci.ir.Expression
-
+.. autoclass:: ppci.ir.Load
+.. autoclass:: ppci.ir.Store
 .. autoclass:: ppci.ir.Const
-
-// .. autoclass:: ppci.ir.Binop
-
+.. autoclass:: ppci.ir.Binop
 .. autoclass:: ppci.ir.Call
-
-// .. autoclass:: ppci.ir.Eseq
+.. autoclass:: ppci.ir.Jump
+.. autoclass:: ppci.ir.CJump
 

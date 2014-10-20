@@ -21,10 +21,6 @@ class STLinkException(Exception):
     pass
 
 
-CORE_RUNNING = 0x80
-CORE_HALTED = 0x81
-
-
 JTAG_WRITEDEBUG_32BIT = 0x35
 JTAG_READDEBUG_32BIT = 0x36
 TRACE_GET_BYTE_COUNT = 0x42
@@ -39,6 +35,9 @@ class STLink2(Interface):
     STLINK2_PID = 0x3748
 
     DFU_MODE, MASS_MODE, DEBUG_MODE = 0, 1, 2
+
+    CORE_RUNNING = 0x80
+    CORE_HALTED = 0x81
 
     # Commands:
     GET_VERSION = 0xf1
@@ -94,9 +93,6 @@ class STLink2(Interface):
                     self.logger.debug('EP: {}'.format(ep.bEndpointAddress))
         cfg = self._dev.get_active_configuration()
 
-        # Reset device??
-        self._dev.reset()
-
         self._isOpen = True
 
         # First initialization:
@@ -104,11 +100,15 @@ class STLink2(Interface):
             self.exitDfuMode()
         if self.CurrentMode != self.DEBUG_MODE:
             self.enterSwdMode()
-        # self.reset()
+
+        self.logger.debug('Opening device succes!')
 
     def close(self):
         if self.IsOpen:
             self.logger.debug('Closing device')
+            # TODO: reset is required here?
+            self.exit_debug_mode()
+            self._dev.reset()
             self._isOpen = False
 
     @property
@@ -122,14 +122,18 @@ class STLink2(Interface):
         cmd = bytearray(16)
         cmd[0] = self.GET_CURRENT_MODE
         reply = self.send_recv(cmd, 2)  # Expect 2 bytes back
-        return reply[0]
+        mode = reply[0]
+        self.logger.debug('Mode is {}'.format(mode))
+        return mode
     CurrentMode = property(getCurrentMode)
 
     @property
     def CurrentModeString(self):
         modes = {self.DFU_MODE: 'dfu', self.MASS_MODE: 'massmode',
                  self.DEBUG_MODE: 'debug'}
-        return modes[self.CurrentMode]
+        mode = modes[self.CurrentMode]
+        self.logger.debug('Mode is {}'.format(mode))
+        return mode
 
     def exitDfuMode(self):
         self.logger.info('Exit dfu mode')
@@ -138,12 +142,12 @@ class STLink2(Interface):
         self.send_recv(cmd)
 
     def enterSwdMode(self):
-        self.logger.info('Enter swd mode')
+        self.logger.debug('Enter swd mode')
         cmd = bytearray(16)
         cmd[0:3] = self.DEBUG_COMMAND, self.DEBUG_ENTER, self.DEBUG_ENTER_SWD
         self.send_recv(cmd)
 
-    def exitDebugMode(self):
+    def exit_debug_mode(self):
         self.logger.debug('Exit debug mode')
         cmd = bytearray(16)
         cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_EXIT
@@ -164,8 +168,8 @@ class STLink2(Interface):
         swim_v = b1 & 0x3f
         vid = (b3 << 8) | b2
         pid = (b5 << 8) | b4
-        self._version = 'stlink={0} jtag={1} swim={2} vid:pid={3:04X}:{4:04X}'.format(
-            stlink_v, jtag_v, swim_v, vid, pid)
+        self._version = 'stlink={} jtag={} swim={} vid:pid={:04X}:{:04X}'\
+                        .format(stlink_v, jtag_v, swim_v, vid, pid)
         return self._version
 
     Version = property(get_version)
@@ -183,23 +187,26 @@ class STLink2(Interface):
         revision = u32 & 0xf
         return implementer_id, variant, part, revision
 
-    def getStatus(self):
+    def get_status(self):
         cmd = bytearray(16)
         cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_GETSTATUS
         reply = self.send_recv(cmd, 2)
         return reply[0]
 
-    Status = property(getStatus)
+    Status = property(get_status)
 
     @property
     def StatusString(self):
         s = self.Status
-        statii = {CORE_RUNNING: 'CORE RUNNING', CORE_HALTED: 'CORE HALTED'}
+        statii = {self.CORE_RUNNING: 'CORE RUNNING',
+                  self.CORE_HALTED: 'CORE HALTED'}
         if s in statii:
             return statii[s]
         return 'Unknown status'
 
     def reset(self):
+        """ Resets the core """
+        self.logger.info('Reset core')
         cmd = bytearray(16)
         cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_RESETSYS
         self.send_recv(cmd, 2)
@@ -228,33 +235,61 @@ class STLink2(Interface):
         """ Configure stlink to send trace data """
         self.logger.info('Enable tracing')
 
+        # Set DHCSR to C_HALT and C_DEBUGEN
         self.write_debug32(0xE000EDF0, 0xA05F0003)
 
         # Enable TRCENA:
         self.write_debug32(0xE000EDFC, 0x01000000)
 
-        # ?? Enable write??
+        # ?? Enable write?? PF_CTRL
         self.write_debug32(0xE0002000, 0x2)
 
         # TODO: send other commands
 
-        # DBGMCU_CR:
+        # DBGMCU_CR enable asynchronous transmission:
         self.write_debug32(0xE0042004, 0x27)  # Enable trace in async mode
 
         # TPIU config:
         uc_freq = 16  # uc frequency
-        st_freq = 2  # TODO: parameterize
-        divisor = int(uc_freq / st_freq) - 1
-        self.write_debug32(0xE0040004, 0x00000001)  # current port size register --> 1 == port size = 1
-        self.write_debug32(0xE0040010, divisor)  # random clock divider??
+        stlink_freq = 2  # TODO: parameterize the stlink frequency
+        divisor = int(uc_freq / stlink_freq) - 1
+        self.logger.debug('uController frequency: {} MHz'.format(uc_freq))
+        self.logger.debug('stlink frequency: {} MHz'.format(stlink_freq))
+
+        # current port size register --> 1 == port size = 1
+        self.write_debug32(0xE0040004, 0x00000001)
+
+        # random clock divider??
+        self.write_debug32(0xE0040010, divisor)
+
+        # self.magicCommand41()
+        self.magicCommand40()
+
         self.write_debug32(0xE00400F0, 0x2)  # selected pin protocol (2 == NRZ)
-        self.write_debug32(0xE0040304, 0x100)  # continuous formatting
+
+        # continuous formatting:
+        self.write_debug32(0xE0040304, 0x100)  # or 0x100?
 
         # ITM config:
-        self.write_debug32(0xE0000FB0, 0xC5ACCE55)  # Unlock write access to ITM
-        self.write_debug32(0xE0000F80, 0x00010005)  # ITM Enable, sync enable, ATB=1
-        self.write_debug32(0xE0000E00, 0xFFFFFFFF)  # Enable all trace ports in ITM
-        self.write_debug32(0xE0000E40, 0x0000000F)  # Set privilege mask for all 32 ports.
+        # Unlock write access to ITM:
+        self.write_debug32(0xE0000FB0, 0xC5ACCE55)
+
+        # ITM Enable, sync enable, ATB=1:
+        self.write_debug32(0xE0000E80, 0x00010005)
+
+        # Enable all trace ports in ITM:
+        self.write_debug32(0xE0000E00, 0xFFFFFFFF)
+
+        # Set privilege mask for all 32 ports:
+        self.write_debug32(0xE0000E40, 0x0000000F)
+
+    def magicCommand40(self):
+        """ Magic command detected with wireshark, no idea what it is!
+            Apparently this enables tracing?
+        """
+        cmd = bytearray(16)
+        cmd[0:7] = self.DEBUG_COMMAND, 0x40, 0x00, 0x10, 0x80, 0x84, 0x1e
+        self.send_recv(cmd, 2)
 
     def writePort0(self, v32):
         self.write_debug32(0xE0000000, v32)
@@ -263,12 +298,15 @@ class STLink2(Interface):
         cmd = bytearray(16)
         cmd[0:2] = self.DEBUG_COMMAND, 0x42
         reply = self.send_recv(cmd, 2)
-        return struct.unpack('<H', reply[0:2])[0]
+        data_size = struct.unpack('<H', reply[0:2])[0]
+        self.logger.debug('{} pending trace data bytes'.format(data_size))
+        return data_size
 
     def readTraceData(self):
         bsize = self.getTraceByteCount()
         if bsize > 0:
             td = self.recv_ep3(bsize)
+            td = bytes(td)
             return td
         return bytes()
 
@@ -290,21 +328,27 @@ class STLink2(Interface):
 
     def write_reg(self, reg, value):
         """ Set a register to a value """
-        self.logger.debug('reg {} <- 0x{:08x}'.format(reg, value))
+        assert self.Status == self.CORE_HALTED
+        self.logger.debug('reg {} <- 0x{:08X}'.format(reg, value))
         cmd = bytearray(16)
         cmd[0:3] = self.DEBUG_COMMAND, self.DEBUG_WRITEREG, reg
         cmd[3:7] = struct.pack('<I', value)
-        self.send_recv(cmd, 2)
+        ret = self.send_recv(cmd, 2)
+        print(ret)
 
     def read_reg(self, reg):
         """ Read a register value """
+        assert self.Status == self.CORE_HALTED
         cmd = bytearray(16)
         cmd[0:3] = self.DEBUG_COMMAND, self.DEBUG_READREG, reg
         reply = self.send_recv(cmd, 4)
-        return struct.unpack('<I', reply)[0]
+        val = struct.unpack('<I', reply)[0]
+        self.logger.debug('Read reg {} ==> {:0X}'.format(reg, val))
+        return val
 
     def read_all_regs(self):
         """ Read all register values """
+        self.logger.debug('Reading all registers')
         cmd = bytearray(16)
         cmd[0:2] = self.DEBUG_COMMAND, self.DEBUG_READALLREGS
         reply = self.send_recv(cmd, 84)
@@ -360,20 +404,6 @@ if __name__ == '__main__':
 
    print('status: {0}'.format(sl.StatusString))
 
-   # test registers:
-   sl.write_reg(0, 0xdeadbeef)
-   sl.write_reg(1, 0xcafebabe)
-   sl.write_reg(2, 0xc0ffee)
-   sl.write_reg(3, 0x1337)
-   sl.write_reg(5, 0x1332)
-   sl.write_reg(6, 0x12345)
-   assert sl.read_reg(3) == 0x1337
-   assert sl.read_reg(5) == 0x1332
-   assert sl.read_reg(6) == 0x12345
-   regs = sl.read_all_regs()
-   for i in range(len(regs)):
-      print('R{0}=0x{1:X}'.format(i, regs[i]))
-
    print('tracing')
    sl.traceEnable()
    sl.run()
@@ -422,9 +452,6 @@ if __name__ == '__main__':
    print('TPIU_DEVID: {0:X}'.format(devid))
    devtype = sl.read_debug32(0xE0040FCC)
    print('TPIU_TYPEID: {0:X}'.format(devtype))
-
-   sl.exitDebugMode()
-   print('mode at end:', sl.CurrentModeString)
 
    sl.close()
    print('Test succes!')

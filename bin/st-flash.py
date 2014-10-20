@@ -47,16 +47,10 @@ def make_parser():
 
 
 def do_flashing(args):
+    """ Perform the action as given by the args """
     # In any command case, open a device:
     stl = stlink.STLink2()
     stl.open()
-
-    # Enter the right mode:
-    if stl.CurrentMode == stl.DFU_MODE:
-        stl.exitDfuMode()
-
-    if stl.CurrentMode != stl.DEBUG_MODE:
-        stl.enterSwdMode()
 
     if stl.ChipId != 0x10016413:
         print('Only working on stm32f4discovery board for now.')
@@ -85,23 +79,20 @@ def do_flashing(args):
     elif args.command == 'info':
         print('stlink version: {}'.format(stl))
     elif args.command == 'trace':
-        print('tracing')
         stl.halt()
         stl.reset()
         stl.traceEnable()
         stl.run()
         for i in range(100):
-            td = stl.readTraceData()
-            print('trace data:', i, td)
+            trace_data = stl.readTraceData()
+            print('trace data:', i, trace_data)
             time.sleep(0.1)
-
     else:
         print('unknown command', args.command)
 
     stl.reset()
     stl.run()
-    stl.exitDebugMode()
-    stl._dev.reset()
+    stl.close()
 
 
 if __name__ == '__main__':
