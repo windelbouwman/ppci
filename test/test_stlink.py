@@ -1,6 +1,7 @@
 
 import unittest
 from ppci.utils import stlink
+import usb.core
 
 
 class StLink2TestCase(unittest.TestCase):
@@ -10,6 +11,8 @@ class StLink2TestCase(unittest.TestCase):
             self.stlink.open()
             self.stlink.reset()
         except stlink.STLinkException as e:
+            self.skipTest('Skipping: {}'.format(e))
+        except usb.core.USBError as e:
             self.skipTest('Skipping: {}'.format(e))
 
     def tearDown(self):
