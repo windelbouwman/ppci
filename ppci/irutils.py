@@ -4,7 +4,7 @@
 """
 import logging
 import re
-from . import ir, Token
+from . import ir
 from .domtree import CfgInfo
 
 
@@ -31,22 +31,26 @@ class Writer:
     def __init__(self, extra_indent=''):
         self.extra_indent = extra_indent
 
+    def print(self, txt):
+        print(txt, file=self.f)
+
     def write(self, ir, f):
         """ Write ir-code to file f """
-        print('{}{}'.format(self.extra_indent, ir), file=f)
+        self.f = f
+        self.print('{}{}'.format(self.extra_indent, ir))
         for v in ir.Variables:
-            print('{}{}'.format(self.extra_indent, v), file=f)
+            self.print('{}{}'.format(self.extra_indent, v))
         for function in ir.Functions:
-            self.write_function(function, f)
+            self.write_function(function)
 
-    def write_function(self, fn, f):
+    def write_function(self, fn):
         args = ','.join('i32 ' + str(a) for a in fn.arguments)
-        print('{}function i32 {}({})'
-              .format(self.extra_indent, fn.name, args), file=f)
+        self.print('{}function i32 {}({})'
+                   .format(self.extra_indent, fn.name, args))
         for block in fn.blocks:
-            print('{} {}'.format(self.extra_indent, block), file=f)
+            self.print('{} {}'.format(self.extra_indent, block))
             for ins in block:
-                print('{}  {}'.format(self.extra_indent, ins), file=f)
+                self.print('{}  {}'.format(self.extra_indent, ins))
 
 
 class IrParseException(Exception):
@@ -383,7 +387,6 @@ class Verifier:
         assert isinstance(module, ir.Module)
         for function in module.Functions:
             self.verify_function(function)
-        self.logger.debug('Module {} OK'.format(module))
 
     def verify_function(self, function):
         """ Verify all blocks in the function """

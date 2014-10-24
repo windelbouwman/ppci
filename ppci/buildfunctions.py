@@ -8,11 +8,13 @@ import logging
 from .target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
-from .irutils import Verifier
+from .irutils import Verifier, Writer
 from .codegen import CodeGenerator
-from .transform import CleanPass, DeleteUnusedInstructionsPass
-from .transform import RemoveAddZeroPass, CommonSubexpressionEliminationPass
-from .transform import ConstantFolder, LoadAfterStorePass
+from .transform import DeleteUnusedInstructionsPass
+from .transform import RemoveAddZeroPass
+from .transform import CommonSubexpressionEliminationPass
+from .transform import ConstantFolder
+from .transform import LoadAfterStorePass
 from .mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
@@ -137,34 +139,39 @@ def c3toir(sources, includes, target):
     return ir_modules
 
 
-def optimize(ircode, do_verify=False):
+def optimize(ircode, do_verify=True):
     """
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
     """
+    # Create the verifier:
     verifier = Verifier()
-    if do_verify:
-        verifier.verify(ircode)
+
     # Optimization passes:
-    # CleanPass().run(ircode)
+    passes = [Mem2RegPromotor(),
+              RemoveAddZeroPass(),
+              ConstantFolder(),
+              CommonSubexpressionEliminationPass(),
+              # LoadAfterStorePass(),
+              DeleteUnusedInstructionsPass()]
 
-    Mem2RegPromotor().run(ircode)
-    DeleteUnusedInstructionsPass().run(ircode)
-    RemoveAddZeroPass().run(ircode)
-    # CommonSubexpressionEliminationPass().run(ircode)
-    # LoadAfterStorePass().run(ircode)
-    DeleteUnusedInstructionsPass().run(ircode)
-    # CleanPass().run(ircode)
+    # Brute force 3 times:
+    for _ in range(3):
+        for pas in passes:
+            if do_verify:
+                verifier.verify(ircode)
+            pas.run(ircode)
 
+    # One last verify:
     if do_verify:
         verifier.verify(ircode)
 
 
-def ir_to_code(ir_modules, target):
+def ir_to_code(ir_modules, target, lst_file=None):
     """ Translate the given list of IR-modules into object code for the given
     target """
     logger = logging.getLogger('ir_to_code')
-    cg = CodeGenerator(target)
+    code_generator = CodeGenerator(target)
 
     output = ObjectFile()
     output_stream = BinaryOutputStream(output)
@@ -174,7 +181,7 @@ def ir_to_code(ir_modules, target):
 
         # Code generation:
         logger.debug('Starting code generation for {}'.format(ircode))
-        cg.generate(ircode, output_stream)
+        code_generator.generate(ircode, output_stream, dump_file=lst_file)
 
     return output
 
@@ -185,19 +192,29 @@ def ir_to_python(ircode, f):
     IrToPython().generate(ircode, f)
 
 
-def c3compile(sources, includes, target):
+def c3compile(sources, includes, target, lst_file=None):
     """ Compile a set of sources into binary format for the given target """
     target = fix_target(target)
     ir_mods = list(c3toir(sources, includes, target))
+    if lst_file:
+        print('C3 compilation listings for {}'.format(sources), file=lst_file)
+
     for ircode in ir_mods:
         optimize(ircode)
-    return ir_to_code(ir_mods, target)
+
+    # Write output to listings file:
+    if lst_file:
+        print('After optimization {}'.format(ir_mods), file=lst_file)
+        writer = Writer()
+        for ir_module in ir_mods:
+            writer.write(ir_module, lst_file)
+    obj = ir_to_code(ir_mods, target, lst_file=lst_file)
+    return obj
 
 
 def bf2ir(source):
     """ Compile brainfuck source into ir code """
     ircode = BrainFuckGenerator().generate(source)
-    optimize(ircode)
     return ircode
 
 
@@ -233,9 +250,9 @@ def objcopy(obj, image_name, fmt, output_filename):
         with open(output_filename, 'wb') as output_file:
             output_file.write(image.data)
     elif fmt == "hex":
-        hf = HexFile()
-        hf.add_region(image.location, image.data)
+        hexfile = HexFile()
+        hexfile.add_region(image.location, image.data)
         with open(output_filename, 'w') as output_file:
-            hf.save(output_file)
+            hexfile.save(output_file)
     else:
         raise NotImplementedError("output format not implemented")

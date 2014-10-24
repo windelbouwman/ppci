@@ -113,9 +113,10 @@ class CodeGenerator:
         for ins in instruction_list:
             self.print(ins)
 
-    def generate(self, ircode, outs):
+    def generate(self, ircode, outs, dump_file=None):
         """ Generate code into output stream """
         assert isinstance(ircode, ir.Module)
+        self.dump_file = dump_file
 
         # Generate code for global variables:
         outs.select_section('data')

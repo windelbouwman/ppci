@@ -53,7 +53,7 @@ class InstructionPass(BlockPass):
 
 
 # Usefull transforms:
-class ConstantFolder(InstructionPass):
+class ConstantFolder(BlockPass):
     """ Try to fold common constant expressions """
     def __init__(self):
         super().__init__()
@@ -63,35 +63,85 @@ class ConstantFolder(InstructionPass):
         self.ops['*'] = lambda x, y: x * y
         self.ops['<<'] = lambda x, y: x << y
 
-    def onInstruction(self, instruction):
-        if type(instruction) is ir.Binop:
-            if type(instruction.a) is ir.Binop and instruction.a.operation == '+' and type(instruction.a.b) is ir.Const and (instruction.operation == '+') and type(instruction.b) is ir.Const:
-                # Now we can replace x = (y+5)+5 with x = y + 10
-                # self.logger.debug('Folding stuff')
-                cn = ir.Const(instruction.b.value + instruction.a.b.value, 'new_fold', ir.i32)
-                block = instruction.block
-                block.insert_instruction(cn, before_instruction=instruction)
-                instruction.a = instruction.a.a
-                instruction.b = cn
+    def onBlock(self, block):
+        instructions = list(block)
+        count = 0
+        for instruction in instructions:
+            if type(instruction) is ir.Binop:
+                if type(instruction.a) is ir.Const and \
+                        (instruction.operation in self.ops) and \
+                        type(instruction.b) is ir.Const:
+                    # Now we can replace x = (4+5) with x = 9
+                    a = instruction.a.value
+                    b = instruction.b.value
+                    v = self.ops[instruction.operation](a, b)
+                    cn = ir.Const(v, 'new_fold', ir.i32)
+                    block = instruction.block
+                    block.insert_instruction(cn, before_instruction=instruction)
+                    instruction.replace_by(cn)
+                    count += 1
+
+                if type(instruction.a) is ir.Binop and \
+                        instruction.a.operation == '+' and \
+                        type(instruction.a.b) is ir.Const and \
+                        (instruction.operation == '+') and \
+                        type(instruction.b) is ir.Const:
+                    # Now we can replace x = (y+5)+5 with x = y + 10
+                    # self.logger.debug('Folding stuff')
+                    a = instruction.a.b.value
+                    b = instruction.b.value
+                    cn = ir.Const(a + b, 'new_fold', ir.i32)
+                    block = instruction.block
+                    block.insert_instruction(cn, before_instruction=instruction)
+                    instruction.a = instruction.a.a
+                    instruction.b = cn
+                    count += 1
+
+                if type(instruction.a) is ir.Binop and \
+                        instruction.a.operation == '-' and \
+                        type(instruction.a.b) is ir.Const and \
+                        instruction.operation == '-' and \
+                        type(instruction.b) is ir.Const:
+                    # Now we can replace x = (y-5)-5 with x = y - 10
+                    a = instruction.a.b.value
+                    b = instruction.b.value
+                    cn = ir.Const(a + b, 'new_fold', ir.i32)
+                    block = instruction.block
+                    block.insert_instruction(cn, before_instruction=instruction)
+                    instruction.a = instruction.a.a
+                    instruction.b = cn
+                    count += 1
+
+        if count > 0:
+            self.logger.debug('Folded {} expressions'.format(count))
 
 
 class CommonSubexpressionEliminationPass(BlockPass):
     """ Replace common sub expressions with the previously defined one """
     def onBlock(self, block):
         ins_map = {}
+        stats = 0
         for i in block:
             if isinstance(i, ir.Binop):
                 k = (i.a, i.operation, i.b)
-                if k in ins_map:
-                    ins_new = ins_map[k]
-                    # self.logger.debug('Replacing {} by {}'.format(i, ins_new))
-                    i.replace_by(ins_new)
-                else:
-                    ins_map[k] = i
+            elif isinstance(i, ir.Const):
+                k = (i.value,)
+            else:
+                continue
+            if k in ins_map:
+                ins_new = ins_map[k]
+                i.replace_by(ins_new)
+                stats += 1
+            else:
+                ins_map[k] = i
+        if stats > 0:
+            self.logger.debug('Replaced {} instructions'.format(stats))
 
 
 class RemoveAddZeroPass(InstructionPass):
-    """ Replace additions with zero with the value itself """
+    """ Replace additions with zero with the value itself
+        Replace multiplication by 1 with value itself.
+    """
     def onInstruction(self, instruction):
         if type(instruction) is ir.Binop:
             if instruction.operation == '+':
@@ -110,12 +160,15 @@ class RemoveAddZeroPass(InstructionPass):
 class DeleteUnusedInstructionsPass(BlockPass):
     """ Remove unused variables from a block """
     def onBlock(self, block):
+        count = 0
         instructions = list(block.instructions)
         for instruction in instructions:
             if isinstance(instruction, ir.Value) and type(instruction) is not ir.Call:
                 if not instruction.is_used:
-                    # self.logger.debug('Deleting unused: {}'.format(instruction))
                     instruction.remove_from_block()
+                    count += 1
+        if count > 0:
+            self.logger.debug('Deleted {} unused instructions'.format(count))
 
 
 class LoadAfterStorePass(BlockPass):
@@ -147,20 +200,29 @@ class LoadAfterStorePass(BlockPass):
 
     def onBlock(self, block):
         instructions = list(block)
+
+        # Replace loads after store of same address by the stored value:
+        count = 0
         for instruction in instructions:
             if isinstance(instruction, ir.Load):
                 # Find store instruction preceeding this load:
                 store = self.find_store_backwards(instructions, instruction)
                 if store is not None:
-                    # self.logger.debug('Replacing load {} after store'.format(instruction.name))
                     instruction.replace_by(store.value)
-                    instruction.remove_from_block()
+                    count += 1
+                    # TODO: after one try, the instructions are different
+                    # reload of instructions required?
+                    break
+        if count > 0:
+            self.logger.debug('Replaced {} loads after store'.format(count))
+
+    def todo_when_volatile(self):
+        # TODO: assume volatile memory stores always!
         # Replace stores to the same location:
         for instruction in instructions:
             if isinstance(instruction, ir.Store):
                 store = self.find_store_backwards(instructions, instruction, stop_on=[ir.Call, ir.Store, ir.Load])
                 if store is not None:
-                    # self.logger.debug('Removing store {} later overwritten'.format(store))
                     store.remove_from_block()
 
 

@@ -2,6 +2,8 @@
 """
 Defines task classes that can compile, link etc..
 Task can depend upon one another.
+These task are wrappers around the functions provided in the buildfunctions
+module
 """
 
 from .tasks import Task, TaskError, register_task
@@ -55,14 +57,14 @@ class AssembleTask(Task):
 
         try:
             output = assemble(source, target)
-        except ParserException as e:
-            raise TaskError('Error during assembly:' + str(e))
-        except CompilerError as e:
-            raise TaskError('Error during assembly:' + str(e))
-        except OSError as e:
-            raise TaskError('Error:' + str(e))
-        with open(output_filename, 'w') as f:
-            output.save(f)
+        except ParserException as err:
+            raise TaskError('Error during assembly:' + str(err))
+        except CompilerError as err:
+            raise TaskError('Error during assembly:' + str(err))
+        except OSError as err:
+            raise TaskError('Error:' + str(err))
+        with open(output_filename, 'w') as output_file:
+            output.save(output_file)
         self.logger.debug('Assembling finished')
 
 
@@ -77,8 +79,16 @@ class C3cTask(Task):
             includes = self.open_file_set(self.arguments['includes'])
         else:
             includes = []
+        if 'listing' in self.arguments:
+            lst_file = self.relpath(self.arguments['listing'])
+            lst_file = open(lst_file, 'w')
+        else:
+            lst_file = None
 
-        output = c3compile(sources, includes, target)
+        output = c3compile(sources, includes, target, lst_file=lst_file)
+        if lst_file is not None:
+            lst_file.close()
+
         # Store output:
         with open(output_filename, 'w') as output_file:
             output.save(output_file)
@@ -95,8 +105,8 @@ class LinkTask(Task):
 
         try:
             output_obj = link(objects, layout, target)
-        except CompilerError as e:
-            raise TaskError(e.msg)
+        except CompilerError as err:
+            raise TaskError(err.msg)
 
         # Store output:
         with open(output_filename, 'w') as output_file:

@@ -374,6 +374,9 @@ class Instruction:
         v.del_user(self)
 
     def replace_use(self, old, new):
+        """ replace value usage 'old' with new value, updating the def-use
+            information.
+        """
         # TODO: update reference
         assert old in self.var_map.values()
         for name in self.var_map:
@@ -495,9 +498,9 @@ class Call(Expression):
 
     def replace_use(self, old, new):
         idx = self.arguments.index(old)
-        self.del_use(self.arguments[idx])
+        self.del_use(old)
         self.arguments[idx] = new
-        self.add_use(self.arguments[idx])
+        self.add_use(new)
 
     def __repr__(self):
         args = ', '.join(arg.name for arg in self.arguments)
@@ -555,7 +558,13 @@ class Phi(Value):
         return '{} = Phi {}'.format(self.name, inputs)
 
     def replace_use(self, old, new):
-        raise NotImplementedError()
+        """ Replace old value reference by new value reference """
+        assert old in self.inputs.values()
+        for inp in self.inputs:
+            if self.inputs[inp] == old:
+                self.del_use(old)
+                self.inputs[inp] = new
+                self.add_use(new)
 
     def set_incoming(self, block, value):
         if block in self.inputs:
