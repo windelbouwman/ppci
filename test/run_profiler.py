@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Load unittest:
     loader = unittest.TestLoader()
     suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckQuine', module=test_samples)
-    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=testsamples)
+    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=test_samples)
     # suite = loader.loadTestsFromName('TestSamplesOnPython.testBrainFuckQuine', module=test_samples)
 
     def runtests():

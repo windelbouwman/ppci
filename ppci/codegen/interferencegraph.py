@@ -85,12 +85,5 @@ class InterferenceGraph(Graph):
         for tmp in m.temps:
             self.temp_map[tmp] = n
 
-        # Reroute all edges:
-        m_adjecent = set(self.adj_map[m])
-        for a in m_adjecent:
-            self.del_edge(m, a)
-            self.add_edge(n, a)
-
-        # Remove node m:
-        self.del_node(m)
+        super().combine(n, m)
         return n

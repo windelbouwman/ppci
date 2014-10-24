@@ -82,12 +82,6 @@ class Module:
 
     Functions = property(get_functions)
 
-    def find_function(self, name):
-        for f in self.funcs:
-            if f.name == name:
-                return f
-        raise KeyError(name)
-
 
 class Function:
     """ Represents a function. """
@@ -183,6 +177,44 @@ class Function:
         # p.parent = self.entry
 
 
+class FastList:
+    """
+        List drop-in replacement that supports cached index operation.
+        So the first time the index is complexity O(n), the second time
+        O(1). When the list is modified, the cache is cleared.
+    """
+    def __init__(self):
+        self._items = []
+        self._index_map = {}
+
+    def __iter__(self):
+        return self._items.__iter__()
+
+    def __len__(self):
+        return self._items.__len__()
+
+    def __getitem__(self, key):
+        return self._items.__getitem__(key)
+
+    def append(self, i):
+        self._index_map.clear()
+        self._items.append(i)
+
+    def insert(self, pos, i):
+        self._index_map.clear()
+        self._items.insert(pos, i)
+
+    def remove(self, i):
+        self._index_map.clear()
+        self._items.remove(i)
+
+    def index(self, i):
+        """ Second time the lookup of index is done in O(1) """
+        if i not in self._index_map:
+            self._index_map[i] = self._items.index(i)
+        return self._index_map[i]
+
+
 class Block:
     """
         Uninterrupted sequence of instructions with a label at the start.
@@ -190,7 +222,7 @@ class Block:
     def __init__(self, name, function=None):
         self.name = name
         self.function = function
-        self.instructions = []
+        self.instructions = FastList()
         self.extra_successors = []
 
     parent = property(lambda s: s.function)
@@ -362,6 +394,7 @@ class Instruction:
         # TODO: the index function has O(n) complexity, this is
         # an issue with frequent lookups.
         self._pos = self.block.instructions.index(self)
+        # print(len(self.block))
         return self._pos
 
     def dominates(self, other):
@@ -517,7 +550,8 @@ class Phi(Value):
         self.inputs = {}
 
     def __repr__(self):
-        inputs = {block.name: value.name for block, value in self.inputs.items()}
+        inputs = {block.name: value.name
+                  for block, value in self.inputs.items()}
         return '{} = Phi {}'.format(self.name, inputs)
 
     def replace_use(self, old, new):

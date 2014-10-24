@@ -4,18 +4,21 @@ import unittest
 from ppci.codegen.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
-from ppci import ir
 from ppci.irmach import AbstractInstruction as AI, VirtualRegister
 from ppci.target import Nop
 
 
 class GraphTestCase(unittest.TestCase):
+    """ Test if graph works.
+        - Add nodes
+        - add edges
+        - mask and unmask nodes
+        - combine nodes.
+    """
     def testEdge(self):
         g = Graph()
         n1 = Node(g)
-        g.add_node(n1)
         n2 = Node(g)
-        g.add_node(n2)
         g.add_edge(n1, n2)
         self.assertTrue(g.has_edge(n2, n1))
         self.assertTrue(g.has_edge(n1, n2))
@@ -25,16 +28,78 @@ class GraphTestCase(unittest.TestCase):
     def testDegree(self):
         g = Graph()
         n1 = Node(g)
-        g.add_node(n1)
         n2 = Node(g)
-        g.add_node(n2)
         n3 = Node(g)
-        g.add_node(n3)
         g.add_edge(n1, n2)
         g.add_edge(n1, n3)
         self.assertEqual(2, n1.Degree)
         self.assertEqual(1, n2.Degree)
         g.del_node(n2)
+        self.assertEqual(1, n1.Degree)
+
+    def testDegreeAfterCombine(self):
+        g = Graph()
+        n1 = Node(g)
+        n2 = Node(g)
+        n3 = Node(g)
+        g.add_edge(n1, n2)
+        g.add_edge(n1, n3)
+        g.add_edge(n2, n3)
+        self.assertEqual(2, n1.Degree)
+        self.assertEqual(2, n2.Degree)
+        self.assertEqual(2, n3.Degree)
+        g.combine(n2, n3)
+        self.assertEqual(1, n1.Degree)
+        self.assertEqual(1, n2.Degree)
+
+    def testDegreeWithDoubleAddEdge(self):
+        g = Graph()
+        n1 = Node(g)
+        n2 = Node(g)
+        n3 = Node(g)
+        g.add_edge(n1, n2)
+        g.add_edge(n1, n3)
+        g.add_edge(n1, n3)
+        self.assertEqual(2, n1.Degree)
+        self.assertEqual(1, n2.Degree)
+
+    def testDegreeMaskUnMask(self):
+        g = Graph()
+        n1 = Node(g)
+        n2 = Node(g)
+        n3 = Node(g)
+        g.add_edge(n1, n2)
+        g.add_edge(n1, n3)
+        self.assertEqual(2, n1.Degree)
+        self.assertEqual(1, n2.Degree)
+        g.mask_node(n2)
+        g.mask_node(n3)
+        self.assertEqual(0, n1.Degree)
+        g.unmask_node(n2)
+        g.unmask_node(n3)
+        self.assertEqual(2, n1.Degree)
+
+    def testDegreeMaskUnMaskCombine(self):
+        """ Test the combination of masking and combining
+            difficult case!
+        """
+        g = Graph()
+        n1 = Node(g)
+        n2 = Node(g)
+        n3 = Node(g)
+        n4 = Node(g)
+        g.add_edge(n1, n2)
+        g.add_edge(n1, n3)
+        g.add_edge(n1, n4)
+        g.add_edge(n2, n4)
+        self.assertEqual(3, n1.Degree)
+        g.mask_node(n2)
+        g.mask_node(n3)
+        g.mask_node(n4)
+        self.assertEqual(0, n1.Degree)
+        g.unmask_node(n3)
+        g.combine(n3, n4)
+        g.combine(n3, n2)
         self.assertEqual(1, n1.Degree)
 
 
@@ -44,9 +109,6 @@ class DigraphTestCase(unittest.TestCase):
         a = DiNode(g)
         b = DiNode(g)
         c = DiNode(g)
-        g.add_node(a)
-        g.add_node(b)
-        g.add_node(c)
         g.add_edge(a, b)
         g.add_edge(b, c)
         self.assertEqual({b}, a.Succ)

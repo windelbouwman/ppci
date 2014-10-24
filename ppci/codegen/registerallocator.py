@@ -235,7 +235,7 @@ class RegisterAllocator:
         """ Add nodes back to the graph to color it. """
         while self.selectStack:
             node = self.selectStack.pop(-1)  # Start with the last added
-            self.f.ig.add_node(node)
+            self.f.ig.unmask_node(node)
             takenregs = set(self.color[m] for m in node.Adjecent)
             okColors = self.regs - takenregs
             if okColors:
