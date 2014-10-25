@@ -16,6 +16,8 @@ function void main()
   *UART0DR = 108;
   *UART0DR = 101;
 
+  // EOT:
+  *UART0DR = 4;
     while(true) {}
 }
 
