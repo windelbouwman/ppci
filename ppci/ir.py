@@ -585,6 +585,7 @@ class Alloc(Expression):
 
 
 class Variable(Expression):
+    """ Global variable """
     def __repr__(self):
         return 'Variable {}'.format(self.name)
 
@@ -598,9 +599,10 @@ class Load(Value):
     """ Load a value from memory """
     address = VarUse('address')
 
-    def __init__(self, address, name, ty):
+    def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
         self.address = address
+        self.volatile = volatile
 
     def __repr__(self):
         return '{} = [{}]'.format(self.name, self.address.name)
@@ -611,10 +613,11 @@ class Store(Instruction):
     address = VarUse('address')
     value = VarUse('value')
 
-    def __init__(self, value, address):
+    def __init__(self, value, address, volatile=False):
         super().__init__()
         self.address = address
         self.value = value
+        self.volatile = volatile
 
     def __repr__(self):
         return '[{}] = {}'.format(self.address.name, self.value.name)

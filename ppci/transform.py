@@ -182,8 +182,10 @@ class LoadAfterStorePass(BlockPass):
         [x] = a
         c = a + 2
     """
-    def find_store_backwards(self, instructions, i, stop_on=[ir.Call, ir.Store]):
+    def find_store_backwards(self, i, stop_on=[ir.Call, ir.Store]):
         """ Go back from this instruction to beginning """
+        block = i.block
+        instructions = block.instructions
         pos = instructions.index(i)
         for x in range(pos - 1, 0, -1):
             i2 = instructions[x]
@@ -199,20 +201,18 @@ class LoadAfterStorePass(BlockPass):
         return None
 
     def onBlock(self, block):
-        instructions = list(block)
+        load_instructions = [ins for ins in block if isinstance(ins, ir.Load)]
 
         # Replace loads after store of same address by the stored value:
         count = 0
-        for instruction in instructions:
-            if isinstance(instruction, ir.Load):
-                # Find store instruction preceeding this load:
-                store = self.find_store_backwards(instructions, instruction)
-                if store is not None:
-                    instruction.replace_by(store.value)
-                    count += 1
-                    # TODO: after one try, the instructions are different
-                    # reload of instructions required?
-                    break
+        for load in load_instructions:
+            # Find store instruction preceeding this load:
+            store = self.find_store_backwards(load)
+            if store is not None:
+                load.replace_by(store.value)
+                count += 1
+                # TODO: after one try, the instructions are different
+                # reload of instructions required?
         if count > 0:
             self.logger.debug('Replaced {} loads after store'.format(count))
 

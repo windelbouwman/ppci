@@ -2,10 +2,17 @@ import unittest
 import io
 import logging
 import re
+import string
 from util import run_qemu, has_qemu, relpath, tryrm, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
 from ppci.report import RstFormatter
+
+
+def make_filename(s):
+    """ Remove all invalid characters from a string for a valid filename """
+    valid_chars = string.ascii_letters
+    return ''.join(c for c in s if c in valid_chars)
 
 
 def enable_report_logger(filename):
@@ -244,14 +251,10 @@ class Samples:
 
 
 class TestSamplesOnVexpress(unittest.TestCase, Samples):
-    sample_filename = 'testsample.bin'
 
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
-
-    def tearDown(self):
-        tryrm(self.sample_filename)
 
     def do(self, src, expected_output, lang='c3'):
         march = "arm"
@@ -274,28 +277,37 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
             SECTION(data)
         }
         """
+
+        # Determine base names:
+        base_filename = make_filename(self.id())
+        list_filename = base_filename + '.lst'
+        sample_filename = base_filename + '.bin'
+
         # Construct binary file from snippet:
         o1 = assemble(io.StringIO(startercode), march)
+        lst_file = open(list_filename, 'w')
         if lang == 'c3':
             o2 = c3compile([
                 relpath('data', 'io.c3'),
                 relpath('data', 'realview-pb-a8', 'arch.c3'),
-                io.StringIO(src)], [], march)
+                io.StringIO(src)], [], march, lst_file=lst_file)
             o3 = link([o2, o1], io.StringIO(arch_mmap), march)
         elif lang == 'bf':
-            obj = bfcompile(src, march)
+            obj = bfcompile(src, march, lst_file=lst_file)
             o2 = c3compile([
                 relpath('data', 'realview-pb-a8', 'arch.c3')
-                ], [], march)
-            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
+                ], [], march, lst_file=lst_file)
+            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march,
+                      lst_file=lst_file)
         else:
             raise Exception('language not implemented')
 
-        objcopy(o3, 'image', 'bin', self.sample_filename)
+        objcopy(o3, 'image', 'bin', sample_filename)
+        lst_file.close()
 
         # Run bin file in emulator:
         # Somehow vexpress-a9 and realview-pb-a8 differ?
-        res = run_qemu(self.sample_filename, machine='realview-pb-a8')
+        res = run_qemu(sample_filename, machine='realview-pb-a8')
         # print('Actual:', res)
         # print('Expect:', expected_output)
         self.assertEqual(expected_output, res)

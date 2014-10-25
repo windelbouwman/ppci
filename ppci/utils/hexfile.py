@@ -4,6 +4,7 @@ import binascii
 DATA = 0
 EOF = 1
 EXTLINADR = 4
+STARTADDR = 5
 
 
 class HexFileException(Exception):
@@ -12,7 +13,9 @@ class HexFileException(Exception):
 
 def parseHexLine(line):
     """ Parses a hexfile line into three parts """
-    line = line[1:] # Remove ':'
+    # Remove ':'
+    line = line[1:]
+
     nums = bytes.fromhex(line)
     bytecount = nums[0]
     if len(nums) != bytecount + 5:
@@ -50,11 +53,16 @@ def chunks(data, csize=16):
 
 def hexfields(f):
     for line in f:
-        line = line.strip() # Strip spaces and newlines
+        # Strip spaces and newlines:
+        line = line.strip()
+
         if not line:
-            continue # Skip empty lines
+            # Skip empty lines
+            continue
+
         if line[0] != ':':
-            continue # Skip lines that do not start with a ':'
+            # Skip lines that do not start with a ':'
+            continue
         yield parseHexLine(line)
 
 
@@ -78,17 +86,18 @@ class HexFile:
                 if len(data) != 0:
                     raise HexFileException('end of file not empty')
                 endOfFile = True
-            elif typ == 0x5: # Start address record (where IP goes after loading)
+            elif typ == STARTADDR:
                 self.startAddress = struct.unpack('>I', data[0:4])[0]
             else:
-                raise HexFileException('record type {0} not implemented'.format(typ))
+                raise HexFileException(
+                    'record type {0} not implemented'.format(typ))
 
     def __repr__(self):
         size = sum(r.Size for r in self.regions)
         return 'Hexfile containing {} bytes'.format(size)
 
     def dump(self, outf):
-        print(self,file=outf)
+        print(self, file=outf)
         for r in self.regions:
             print(r, file=outf)
 
@@ -136,7 +145,8 @@ class HexFile:
             for chunk in chunks(r.data):
                 if address >= 0x10000:
                     ext += 0x10000
-                    self.write_hex_line(0, EXTLINADR, struct.pack('>H', ext >> 16))
+                    self.write_hex_line(
+                        0, EXTLINADR, struct.pack('>H', ext >> 16))
                     address -= 0x10000
                 self.write_hex_line(address, DATA, chunk)
                 address += len(chunk)
@@ -149,7 +159,8 @@ class HexFileRegion:
         self.data = data
 
     def __repr__(self):
-        return 'Region at 0x{:08X} of {} bytes'.format(self.address, len(self.data))
+        return 'Region at 0x{:08X} of {} bytes'.format(
+            self.address, len(self.data))
 
     def __eq__(self, other):
         return (self.address, self.data) == (other.address, other.data)

@@ -152,7 +152,7 @@ def optimize(ircode, do_verify=True):
               RemoveAddZeroPass(),
               ConstantFolder(),
               CommonSubexpressionEliminationPass(),
-              # LoadAfterStorePass(),
+              LoadAfterStorePass(),
               DeleteUnusedInstructionsPass()]
 
     # Brute force 3 times:
@@ -218,15 +218,23 @@ def bf2ir(source):
     return ircode
 
 
-def bfcompile(source, target):
+def bfcompile(source, target, lst_file=None):
     """ Compile brainfuck source into binary format for the given target """
+    if lst_file:
+        print('brainfuck compilation listings', file=lst_file)
     ircode = bf2ir(source)
     optimize(ircode)
+
+    if lst_file:
+        print('After optimization {}'.format(ircode), file=lst_file)
+        writer = Writer()
+        writer.write(ircode, lst_file)
+
     target = fix_target(target)
-    return ir_to_code([ircode], target)
+    return ir_to_code([ircode], target, lst_file=lst_file)
 
 
-def link(objects, layout, target):
+def link(objects, layout, target, lst_file=None):
     """ Links the iterable of objects into one using the given layout """
     objects = list(map(fix_object, objects))
     layout = fix_layout(layout)

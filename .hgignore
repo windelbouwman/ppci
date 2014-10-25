@@ -4,12 +4,14 @@ syntax: glob
 *.pyc
 *.o
 *.bin
+*.lst
 *.hex
 *.elf
 *.log
 docs/build
 test/.coverage
 .tox
+.cache
 .coverage
 build
 dist

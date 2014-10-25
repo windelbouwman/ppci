@@ -39,6 +39,15 @@ class Dagger:
     def __init__(self):
         self.logger = logging.getLogger('dag-creator')
 
+    def copy_val(self, node, tree):
+        """ Copy value into new temporary if node is used more than once """
+        if node.use_count > 1:
+            rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
+            self.dag.append(Tree('MOVI32', rv_copy, tree))
+            self.lut[node] = rv_copy
+        else:
+            self.lut[node] = tree
+
     @register(ir.Jump)
     def do_jump(self, node):
         tree = Tree('JMP')
@@ -88,7 +97,9 @@ class Dagger:
     def do_load(self, node):
         address = self.lut[node.address]
         tree = Tree('MEMI32', address)
-        self.lut[node] = tree
+
+        # Create copy if required:
+        self.copy_val(node, tree)
 
     @register(ir.Store)
     def do_store(self, node):
@@ -121,14 +132,10 @@ class Dagger:
         a = self.lut[node.a]
         b = self.lut[node.b]
         tree = Tree(op, a, b)
+
         # Check if this binop is used more than once
         # if so, create register copy:
-        if node.use_count > 1:
-            rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
-            self.dag.append(Tree('MOVI32', rv_copy, tree))
-            self.lut[node] = rv_copy
-        else:
-            self.lut[node] = tree
+        self.copy_val(node, tree)
 
     @register(ir.Addr)
     def do_addr(self, node):
