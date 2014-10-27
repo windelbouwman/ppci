@@ -14,6 +14,8 @@ class StLink2TestCase(unittest.TestCase):
             self.skipTest('Skipping: {}'.format(e))
         except usb.core.USBError as e:
             self.skipTest('Skipping: {}'.format(e))
+        except ValueError as e:
+            self.skipTest('Skipping: {}'.format(e))
 
     def tearDown(self):
         self.stlink.close()
