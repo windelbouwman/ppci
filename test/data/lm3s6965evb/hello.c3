@@ -2,7 +2,7 @@ module hello;
 
 function void main()
 {
-  var int* UART0DR;
+  var int volatile * UART0DR;
   UART0DR = cast<int*>(0x4000C000 + 0x000); // UART0 Data register
   *UART0DR = 72;
   *UART0DR = 101;

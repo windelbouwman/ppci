@@ -1,7 +1,7 @@
 from ..basetarget import Register, Instruction, Target, Label, Alignment
 from .instructions import Add2, Sub, Sub3, Add3, Cmp, Lsl, Lsr, Orr, Add, Cmp2, Sub2, Mul, And
 from .instructions import Dcd, Pop, Push, Yield, Mov2, Mov3
-from .instructions import B, Bl, Bne, Beq, Blt, Bgt, Ble, Bge
+from .instructions import B, Bl, Bne, Beq, Blt, Bgt, Ble, Bge, Bw
 from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3, Adr
 
 from .frame import ArmFrame
@@ -16,7 +16,7 @@ from ...assembler import BaseAssembler
 %tokens dcd yield
 %tokens nop mov cmp add sub mul
 %tokens lsl lsr orr and
-%tokens push pop b bl blt ble bgt beq bne bge
+%tokens push pop b bl blt ble bgt beq bne bge bw
 %tokens ldr str adr
 %tokens ',' ID '{' '}' '-' '[' ']' '=' ':'
 %tokens val32 val16 val12 val8 val5 val3 COMMENT
@@ -88,6 +88,7 @@ instruction: and reg8 ',' reg8 { return And(arg2, arg4) };
 instruction: orr reg8 ',' reg8 { return Orr(arg2, arg4) };
 
 instruction: b ID { return B(arg2.val) };
+instruction: bw ID { return Bw(arg2.val) };
 instruction: bl ID { return Bl(arg2.val) };
 instruction: beq ID { return Beq(arg2.val) };
 instruction: bne ID { return Bne(arg2.val) };

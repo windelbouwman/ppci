@@ -383,7 +383,7 @@ class Verifier:
 
     def verify(self, module):
         """ Verifies a module for some sanity """
-        self.logger.debug('Verifying {}'.format(module))
+        self.logger.debug('Verifying {} ({})'.format(module, module.stats()))
         assert isinstance(module, ir.Module)
         for function in module.Functions:
             self.verify_function(function)
@@ -409,9 +409,7 @@ class Verifier:
 
     def verify_block(self, block):
         """ Verify block for correctness """
-        block.renumber_instructions()
-        for pos, instruction in enumerate(block):
-            assert pos == instruction._pos
+        for instruction in block:
             self.verify_instruction(instruction, block)
 
     def verify_instruction(self, instruction, block):

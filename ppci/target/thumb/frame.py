@@ -36,8 +36,6 @@ class ArmFrame(Frame):
 
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence """
-        # Caller save registers:
-        self.emit(Push({R1, R2, R3, R4}))
 
         # Copy args to correct positions:
         reg_uses = []
@@ -48,6 +46,8 @@ class ArmFrame(Frame):
                 self.move(arg_loc, arg)
             else:
                 raise NotImplementedError('Parameters in memory not impl')
+        # Caller save registers:
+        self.emit(Push({R1, R2, R3, R4}))
         self.emit(Bl(label), src=reg_uses, dst=[self.rv])
         self.emit(Pop({R1, R2, R3, R4}))
         self.move(res_var, self.rv)

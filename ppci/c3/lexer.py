@@ -1,4 +1,3 @@
-import re
 from ppci import CompilerError, SourceLocation, Token, make_num
 from ppci.baselex import BaseLexer
 
@@ -10,6 +9,7 @@ keywords = ['and', 'or', 'not', 'true', 'false',
             'else', 'if', 'while', 'for', 'return',
             'switch', 'case', 'default',
             'function', 'var', 'type', 'const',
+            'volatile',
             'struct', 'cast', 'sizeof',
             'import', 'module']
 

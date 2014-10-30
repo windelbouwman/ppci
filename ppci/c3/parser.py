@@ -143,6 +143,9 @@ class Parser:
         else:
             theT = self.PostFixId()
 
+        # Check for the volatile modifier:
+        theT.volatile = self.hasConsumed('volatile')
+
         # Check for pointer or array suffix:
         while self.Peak in ['*', '[']:
             if self.hasConsumed('*'):

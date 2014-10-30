@@ -85,6 +85,9 @@ class LabelAddress:
     def __init__(self, name):
         self.name = name
 
+    def __eq__(self, other):
+        return type(self) is type(other) and self.name == other.name
+
 
 class Target:
     def __init__(self, name, desc=''):

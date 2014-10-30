@@ -21,14 +21,16 @@ class ThumbAssembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
         kws = [
-                "repeat", "endrepeat", "section", "align",
-                "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "sp", "lr", "pc",
-                "dcd", "yield",
-                "nop", "mov", "cmp", "add", "sub", "mul",
-                "lsl", "lsr", "orr", "and",
-                "push", "pop", "b", "bl", "blt", "ble", "bgt", "beq", "bne", "bge",
-                "ldr", "str", "adr"
-              ]
+            "repeat", "endrepeat", "section", "align",
+            "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+            "r10", "r11", "r12", "sp", "lr", "pc",
+            "dcd", "yield",
+            "nop", "mov", "cmp", "add", "sub", "mul",
+            "lsl", "lsr", "orr", "and",
+            "push", "pop", "b", "bl", "blt", "ble", "bgt", "beq",
+            "bne", "bge", 'bw',
+            "ldr", "str", "adr"
+            ]
         self.lexer = AsmLexer(kws)
         self.parser = Parser()
         self.parser.assembler = self

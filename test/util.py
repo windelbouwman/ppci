@@ -49,19 +49,21 @@ def run_qemu(kernel, machine='lm3s811evb'):
 
     # Listen to the control socket:
     qemu_control_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    qemu_control_serve.bind(('', 33331))
+    qemu_control_serve.bind(('', 0))  # Using 0 as port for autoselect port
+    ctrl_port = qemu_control_serve.getsockname()[1]
     qemu_control_serve.listen(0)
 
     # Listen to the serial output:
     qemu_serial_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    qemu_serial_serve.bind(('', 33332))
+    qemu_serial_serve.bind(('', 0))
+    ser_port = qemu_serial_serve.getsockname()[1]
     qemu_serial_serve.listen(0)
 
     args = [qemu_app, '-M', machine, '-m', '16M',
             '-nographic',
             '-kernel', kernel,
-            '-monitor', 'tcp:localhost:33331',
-            '-serial', 'tcp:localhost:33332',
+            '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
+            '-serial', 'tcp:localhost:{}'.format(ser_port),
             '-S']
     qemu_process = subprocess.Popen(args)  # , stderr=subprocess.DEVNULL)
 

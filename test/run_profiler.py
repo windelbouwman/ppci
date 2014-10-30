@@ -18,7 +18,7 @@ if __name__ == '__main__':
     logging.getLogger().addHandler(ch)
     uh = logging.handlers.DatagramHandler('localhost', 9021)
     uh.setLevel(logging.DEBUG)
-    logging.getLogger().addHandler(uh)
+    # logging.getLogger().addHandler(uh)
     logger = logging.getLogger('run')
     logger.info('Starting profiling')
 

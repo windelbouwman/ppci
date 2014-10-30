@@ -87,7 +87,6 @@ class ConstantFolder(BlockPass):
                         (instruction.operation == '+') and \
                         type(instruction.b) is ir.Const:
                     # Now we can replace x = (y+5)+5 with x = y + 10
-                    # self.logger.debug('Folding stuff')
                     a = instruction.a.b.value
                     b = instruction.b.value
                     cn = ir.Const(a + b, 'new_fold', ir.i32)
@@ -201,7 +200,12 @@ class LoadAfterStorePass(BlockPass):
         return None
 
     def onBlock(self, block):
-        load_instructions = [ins for ins in block if isinstance(ins, ir.Load)]
+        self.replace_load_after_store(block)
+        self.remove_redundant_stores(block)
+
+    def replace_load_after_store(self, block):
+        """ Replace load after store with the value of the store """
+        load_instructions = [ins for ins in block if isinstance(ins, ir.Load) and not ins.volatile]
 
         # Replace loads after store of same address by the stored value:
         count = 0
@@ -216,14 +220,20 @@ class LoadAfterStorePass(BlockPass):
         if count > 0:
             self.logger.debug('Replaced {} loads after store'.format(count))
 
-    def todo_when_volatile(self):
+    def remove_redundant_stores(self, block):
+        """ From two stores to the same address remove the previous one """
+        store_instructions = [i for i in block if isinstance(i, ir.Store) and not i.volatile]
+
+        count = 0
         # TODO: assume volatile memory stores always!
         # Replace stores to the same location:
-        for instruction in instructions:
-            if isinstance(instruction, ir.Store):
-                store = self.find_store_backwards(instructions, instruction, stop_on=[ir.Call, ir.Store, ir.Load])
-                if store is not None:
-                    store.remove_from_block()
+        for store in store_instructions:
+            store_prev = self.find_store_backwards(store, stop_on=[ir.Call, ir.Store, ir.Load])
+            if store_prev is not None and not store_prev.volatile:
+                store_prev.remove_from_block()
+
+        if count > 0:
+            self.logger.debug('Replaced {} redundant stores'.format(count))
 
 
 class CleanPass(FunctionPass):

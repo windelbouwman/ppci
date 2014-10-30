@@ -408,14 +408,31 @@ class B(jumpBase_ins):
     def relocations(self):
         return [(self.target, 'wrap_new11')]
 
+
+class Bw(jumpBase_ins):
+    # Same encoding as Bl, longer jumps are possible with this function!
+    def encode(self):
+        imm11 = 0
+        imm10 = 0
+        j1 = 1
+        j2 = 1
+        s = 0
+        h1 = (0b11110 << 11) | (s << 10) | imm10
+        h2 = (0b1001 << 12) | (j1 << 13) | (j2 << 11) | imm11
+        return u16(h1) + u16(h2)
+
+    def relocations(self):
+        return [(self.target, 'bl_imm11_imm10')]
+
+
 class Bl(jumpBase_ins):
     def encode(self):
         imm11 = 0
         imm10 = 0
-        j1 = 1 # TODO: what do these mean?
+        j1 = 1  # TODO: what do these mean?
         j2 = 1
         s = 0
-        h1 = (0b11110 << 11) | (s << 10) | imm10 
+        h1 = (0b11110 << 11) | (s << 10) | imm10
         h2 = (0b1101 << 12) | (j1 << 13) | (j2 << 11) | imm11
         return u16(h1) + u16(h2)
 

@@ -191,7 +191,7 @@ class Samples:
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
         self.do(hello_world, "Hello World!\n", lang='bf')
 
-    @unittest.skip('Not functional yet')
+    # @unittest.skip('Not functional yet')
     def testBrainFuckQuine(self):
         """ A quine is a program that outputs itself! """
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
@@ -314,20 +314,15 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples):
 
 
 class TestSamplesOnCortexM3(unittest.TestCase, Samples):
-    sample_filename = 'testsample.bin'
-
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
-
-    def tearDown(self):
-        tryrm(self.sample_filename)
 
     def do(self, src, expected_output, lang="c3"):
         march = "thumb"
         startercode = """
         section reset
-        dcd 0x20000900
+        dcd 0x20001000
         dcd 0x00000009
         BL sample_start     ; Branch to sample start
         BL arch_exit  ; do exit stuff
@@ -346,27 +341,37 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
             SECTION(data)
         }
         """
+
+        # Determine base names:
+        base_filename = make_filename(self.id())
+        list_filename = base_filename + '.lst'
+        sample_filename = base_filename + '.bin'
+
+        # Open listings file:
+        lst_file = open(list_filename, 'w')
+
         # Construct binary file from snippet:
         o1 = assemble(io.StringIO(startercode), march)
         if lang == 'c3':
             o2 = c3compile([
                 relpath('data', 'io.c3'),
                 relpath('data', 'lm3s6965evb', 'arch.c3'),
-                io.StringIO(src)], [], march)
+                io.StringIO(src)], [], march, lst_file=lst_file)
             o3 = link([o2, o1], io.StringIO(arch_mmap), march)
         elif lang == 'bf':
-            obj = bfcompile(src, march)
+            obj = bfcompile(src, march, lst_file=lst_file)
             o2 = c3compile([
                 relpath('data', 'lm3s6965evb', 'arch.c3')
-                ], [], march)
+                ], [], march, lst_file=lst_file)
             o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
         else:
             raise Exception('language not implemented')
 
-        objcopy(o3, 'code', 'bin', self.sample_filename)
+        objcopy(o3, 'code', 'bin', sample_filename)
+        lst_file.close()
 
         # Run bin file in emulator:
-        res = run_qemu(self.sample_filename, machine='lm3s811evb')
+        res = run_qemu(sample_filename, machine='lm3s811evb')
         self.assertEqual(expected_output, res)
 
 

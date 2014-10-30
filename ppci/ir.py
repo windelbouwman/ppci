@@ -82,6 +82,16 @@ class Module:
 
     Functions = property(get_functions)
 
+    def stats(self):
+        """ Returns a string with statistic information such as block count """
+        num_functions = len(self.Functions)
+        num_blocks = sum(len(f.blocks) for f in self.Functions)
+        num_instructions = sum(f.num_instructions() for f in self.Functions)
+        return "functions: {}, blocks: {}, instructions: {}" \
+            .format(num_functions,
+                    num_blocks,
+                    num_instructions)
+
 
 class Function:
     """ Represents a function. """
@@ -176,6 +186,9 @@ class Function:
         self.arguments.append(p)
         # p.parent = self.entry
 
+    def num_instructions(self):
+        return sum(len(block) for block in self.blocks)
+
 
 class FastList:
     """
@@ -214,6 +227,14 @@ class FastList:
             self._index_map[i] = self._items.index(i)
         return self._index_map[i]
 
+    def first_to_occur(self, i1, i2):
+        """ Find the first occurence of either i1 or i2 """
+        for i in self._items:
+            if i is i1:
+                return i1
+            if i is i2:
+                return i2
+
 
 class Block:
     """
@@ -240,28 +261,21 @@ class Block:
     def unique_name(self, value):
         self.function.make_unique_name(value)
 
-    def renumber_instructions(self):
-        """ Re-assign position number to instruction """
-        for pos, ins in enumerate(self.instructions):
-            ins._pos = pos
-
     def insert_instruction(self, i, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
             assert self == before_instruction.block
-            pos = before_instruction._pos
+            pos = before_instruction.position
         else:
             pos = 0
         i.parent = self
         self.instructions.insert(pos, i)
-        # self.renumber_instructions()
         if isinstance(i, Value):
             self.unique_name(i)
 
     def add_instruction(self, i):
         i.parent = self
         assert not isinstance(self.LastInstruction, LastStatement)
-        i._pos = len(self.instructions)
         self.instructions.append(i)
         if isinstance(i, Value) and self.function is not None:
             self.unique_name(i)
@@ -271,7 +285,6 @@ class Block:
         i1.parent = None
         i1.delete()
         i2.parent = self
-        i2._pos = i1._pos
         self.instructions[idx] = i2
 
     def remove_instruction(self, i):
@@ -393,12 +406,7 @@ class Instruction:
     @property
     def position(self):
         """ Return numerical position in block """
-        # if not hasattr(self, '_pos'):
-        # TODO: the index function has O(n) complexity, this is
-        # an issue with frequent lookups.
-        self._pos = self.block.instructions.index(self)
-        # print(len(self.block))
-        return self._pos
+        return self.block.instructions.index(self)
 
     def dominates(self, other):
         """ Checks if this instruction dominates another instruction """
@@ -420,6 +428,7 @@ class Instruction:
             raise Exception('Cannot query dominance for this phi')
         # For all other instructions follow these rules:
         if self.block == other.block:
+            # fi = self.block.instructions.first_to_occur(self, other)
             return self.position < other.position
         else:
             return self.block.dominates(other.block)

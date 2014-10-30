@@ -146,8 +146,6 @@ class CodeGenerator:
     def gen_return_stmt(self, code):
         """ Generate code for return statement """
         re = self.gen_expr_code(code.expr)
-
-        # Store return value:
         self.emit(ir.Return(re))
         block = self.builder.newBlock()
         self.builder.setBlock(block)
@@ -163,7 +161,10 @@ class CodeGenerator:
         if not code.lval.lvalue:
             raise SemanticError('No valid lvalue {}'.format(code.lval),
                                 code.lval.loc)
-        store_ins = ir.Store(rval, lval)
+        # TODO: for now treat all stores as volatile..
+        # TODO: determine volatile properties from type??
+        volatile = True
+        store_ins = ir.Store(rval, lval, volatile=volatile)
         self.emit(store_ins)
 
     def gen_if_stmt(self, code):
