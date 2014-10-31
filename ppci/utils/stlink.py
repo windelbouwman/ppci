@@ -235,10 +235,16 @@ class STLink2(Interface):
         """ Configure stlink to send trace data """
         self.logger.info('Enable tracing')
 
+        # Debug halting control and status register
         # Set DHCSR to C_HALT and C_DEBUGEN
+        # Bits 31..16: Must be 0xA05F when writing
+        # Bit 1: Halt core
+        # Bit 0: debug enable
         self.write_debug32(0xE000EDF0, 0xA05F0003)
 
         # Enable TRCENA:
+        # Debug exception and monitor control register (DEMCR)
+        # Bit 24: trace enable
         self.write_debug32(0xE000EDFC, 0x01000000)
 
         # ?? Enable write?? PF_CTRL
@@ -249,7 +255,7 @@ class STLink2(Interface):
         # DBGMCU_CR enable asynchronous transmission:
         self.write_debug32(0xE0042004, 0x27)  # Enable trace in async mode
 
-        # TPIU config:
+        # TPIU config (see stm32f4xx reference manual chapter 38.17)
         uc_freq = 16  # uc frequency
         stlink_freq = 2  # TODO: parameterize the stlink frequency
         divisor = int(uc_freq / stlink_freq) - 1
@@ -265,22 +271,39 @@ class STLink2(Interface):
         # self.magicCommand41()
         self.magicCommand40()
 
-        self.write_debug32(0xE00400F0, 0x2)  # selected pin protocol (2 == NRZ)
+        # Select pin protocol
+        # bits 0..1:
+        # - 00: Sync trace Port mode
+        # - 01: Serial wire output (manchester)
+        # - 10: Serial wire output NRZ
+        # - 11: reserved
+        self.write_debug32(0xE00400F0, 0x2)
 
-        # continuous formatting:
+        # continuous formatting (default 0x102)
+        # Bit 8: TrigIn always 1 to indicate triggers are indicated
+        # Bit 1: EnFCont: See page 1690 of stm32f4xx reference manual
         self.write_debug32(0xE0040304, 0x100)  # or 0x100?
 
-        # ITM config:
+        # ITM config (see stm32f4xx reference manual chapter 38.14):
         # Unlock write access to ITM:
         self.write_debug32(0xE0000FB0, 0xC5ACCE55)
 
-        # ITM Enable, sync enable, ATB=1:
+        # ITM Enable, sync enable, ATB=1 (identifies the source of the data):
+        # Bits 22-16: 7 bits ATB id which identifies the source of trace data
+        # Bit 2 = SYNCENA: enable the DWT to generate sync triggers
+        # Bit 1 = TSENA Timestamp enable
+        # Bit 0 = ITMENA global enable of ITM
         self.write_debug32(0xE0000E80, 0x00010005)
 
         # Enable all trace ports in ITM:
+        # Each bit enables the stimulus port
         self.write_debug32(0xE0000E00, 0xFFFFFFFF)
 
         # Set privilege mask for all 32 ports:
+        # Bit 3: mask to enable ports 24..31
+        # Bit 2: mask to enable ports 16..23
+        # Bit 1: mask to enable ports 8..15
+        # Bit 0: mask to enable ports 0..7
         self.write_debug32(0xE0000E40, 0x0000000F)
 
     def magicCommand40(self):
@@ -305,10 +328,18 @@ class STLink2(Interface):
     def readTraceData(self):
         bsize = self.getTraceByteCount()
         if bsize > 0:
-            td = self.recv_ep3(bsize)
-            td = bytes(td)
-            return td
-        return bytes()
+            trace_data = bytes(self.recv_ep3(bsize))
+            self.logger.debug('Got trace data: {}'.format(trace_data))
+
+            # Process trace data, assume this format:
+            # \x03 'chardata' \x00 \x00 \x00
+            txt = ''
+            for i in range(0, len(trace_data), 5):
+                # print(trace_data[i], chr(trace_data[i + 1]))
+                assert 3 == trace_data[i]
+                txt += chr(trace_data[i + 1])
+            return txt
+        return ''
 
     # Helper 1 functions:
     def write_debug32(self, address, value):

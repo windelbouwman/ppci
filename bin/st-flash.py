@@ -84,8 +84,9 @@ def do_flashing(args):
         stl.traceEnable()
         stl.run()
         for i in range(100):
-            trace_data = stl.readTraceData()
-            print('trace data:', i, trace_data)
+            txt = stl.readTraceData()
+            if txt:
+                print(txt)
             time.sleep(0.1)
     else:
         print('unknown command', args.command)
