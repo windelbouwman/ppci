@@ -191,7 +191,6 @@ class Samples:
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
         self.do(hello_world, "Hello World!\n", lang='bf')
 
-    # @unittest.skip('Not functional yet')
     def testBrainFuckQuine(self):
         """ A quine is a program that outputs itself! """
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
@@ -248,6 +247,107 @@ class Samples:
         ++++++++<-]>>>>>]<<<<[-<+>[<-]>[>]<<[>++++++++++++++++++++++
         ++++++++++++++++++++++++<-]<<<]>>[[->>.<<]>>>>]"""
         self.do(quine, only_bf(quine), lang='bf')
+
+    def testBrainFuckSierPinski(self):
+        """ Test sierpinski triangle """
+        code = """
+                                        >
+                                       + +
+                                      +   +
+                                     [ < + +
+                                    +       +
+                                   + +     + +
+                                  >   -   ]   >
+                                 + + + + + + + +
+                                [               >
+                               + +             + +
+                              <   -           ]   >
+                             > + + >         > > + >
+                            >       >       +       <
+                           < <     < <     < <     < <
+                          <   [   -   [   -   >   +   <
+                         ] > [ - < + > > > . < < ] > > >
+                        [                               [
+                       - >                             + +
+                      +   +                           +   +
+                     + + [ >                         + + + +
+                    <       -                       ]       >
+                   . <     < [                     - >     + <
+                  ]   +   >   [                   -   >   +   +
+                 + + + + + + + +                 < < + > ] > . [
+                -               ]               >               ]
+               ] +             < <             < [             - [
+              -   >           +   <           ]   +           >   [
+             - < + >         > > - [         - > + <         ] + + >
+            [       -       <       -       >       ]       <       <
+           < ]     < <     < <     ] +     + +     + +     + +     + +
+          +   .   +   +   +   .   [   -   ]   <   ]   +   +   +   +   +
+        """
+        sier = """                                *    
+\r                               * *    
+\r                              *   *    
+\r                             * * * *    
+\r                            *       *    
+\r                           * *     * *    
+\r                          *   *   *   *    
+\r                         * * * * * * * *    
+\r                        *               *    
+\r                       * *             * *    
+\r                      *   *           *   *    
+\r                     * * * *         * * * *    
+\r                    *       *       *       *    
+\r                   * *     * *     * *     * *    
+\r                  *   *   *   *   *   *   *   *    
+\r                 * * * * * * * * * * * * * * * *    
+\r                *                               *    
+\r               * *                             * *    
+\r              *   *                           *   *    
+\r             * * * *                         * * * *    
+\r            *       *                       *       *    
+\r           * *     * *                     * *     * *    
+\r          *   *   *   *                   *   *   *   *    
+\r         * * * * * * * *                 * * * * * * * *    
+\r        *               *               *               *    
+\r       * *             * *             * *             * *    
+\r      *   *           *   *           *   *           *   *    
+\r     * * * *         * * * *         * * * *         * * * *    
+\r    *       *       *       *       *       *       *       *    
+\r   * *     * *     * *     * *     * *     * *     * *     * *    
+\r  *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *    
+\r * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *    \n\r"""
+        self.do(code, sier, lang='bf')
+
+    @unittest.skip('Not possible on cortex M3')
+    def testBrainFuckBottlesOfBeer(self):
+        """ Test bottles of beer song text """
+        hello_world = """
+        >>>>>++++++++[<+++++++++>-]<+[>>[>]+[<]<-]>++++++++++[<+++++
+        +++++>-]<[>>[+>]<[<]<-]<++++++++[>++++++++[>>->->->>>>>>>>>>
+        >->>>->>>>>>->->->->>->>>->>>>->>>>>->->>>>>>->>>>->>>>>->->
+        >>>>->>>->>>>>>>->-[<]<-]>>++>++>->>+>++>++>+>>>>++>>->+>>->
+        >>>++>>+>+>+>--->>->+>+>->++>>>->++>>+>+>+>--->>-->>+>>->+>+
+        >>->>+>++>+>+>->+>>++>++>->>++>->>++>+>++>+>>+>---[<]<<-]>>>
+        ++++>++++>+++>--->++>->->->>[-]>->-->[-]>+++>++>+>+++>--->>>
+        --->[-]>+>+>+>--->[-]>+++>++>+>+++>->+++>>+++>++>---->->->+>
+        --->[-]>->---->-->>+++>++>+>>+++>->++>++>+>->+++>+++>---->--
+        >-->+++>++++>->+++>---->--->++>>+>->->---[[<]<]+++++++++[<+<
+        +++++++++++>>-]<<[>>>>>[<]>[.>]>--[>.>]<[<<]>++>>>[.>]>[>]>[
+        .>]<[[<]<]>>[.>]>--[>.>]<[<<]>++>>>[.>]>[.>]>[>]>[.>]<[[<]<]
+        <<[<]>>>+<[>-]>[>]<[+++++++++[<+<->>>>>+<<<-]+<<[>>-]>>>[<]<
+        <<++++++++++>>[>>[-]+<<-]>>-<<]>>>-[>]>-<<[<]>[.>]>--[>.>]<[
+        <<]>++>>>[.>]>[>]>[.>]<.[[<]<]<<[<]>>-<-]
+        """
+        # Construct beer song:
+        couplettes = []
+        for n in range(99, 2, -1):
+            couplet = "{0} bottles of beer on the wall.\n{0} bottles of beer...\nTake one down, pass it around,\n{1} bottles of beer on the wall.\n".format(n, n-1)
+            couplettes.append(couplet)
+        couplet = "2 bottles of beer on the wall.\n2 bottles of beer...\nTake one down, pass it around,\n1 bottle of beer on the wall.\n"
+        couplettes.append(couplet)
+        couplet = "1 bottle of beer on the wall.\n1 bottle of beer...\nTake one down, pass it around,\n0 bottles of beer on the wall.\n"
+        couplettes.append(couplet)
+        song_text = '\n'.join(couplettes) + '\n'
+        self.do(hello_world, song_text, lang='bf')
 
 
 class TestSamplesOnVexpress(unittest.TestCase, Samples):
