@@ -5,7 +5,8 @@ import logging
 import io
 
 from .report import RstFormatter
-from .buildfunctions import construct, bf2ir, optimize, bfcompile, c3toir, c3compile
+from .buildfunctions import construct, bf2ir, optimize, bfcompile, c3toir
+from .buildfunctions import c3compile
 from .irutils import Writer
 from .tasks import TaskError
 from . import buildtasks  # Include not used, but it registers build tasks.
@@ -34,7 +35,8 @@ def make_parser():
         title='commands',
         description='possible commands', dest='command')
 
-    build_parser = subparsers.add_parser('build',
+    build_parser = subparsers.add_parser(
+        'build',
         help='build project from xml description')
     build_parser.add_argument(
         '-b', '--buildfile',
@@ -42,17 +44,21 @@ def make_parser():
         default='build.xml')
     build_parser.add_argument('targets', metavar='target', nargs='*')
 
-    bf2ir_parser = subparsers.add_parser('bf2ir', help='Compile brainfuck code into ir code.')
+    bf2ir_parser = subparsers.add_parser(
+        'bf2ir', help='Compile brainfuck code into ir code.')
     bf2ir_parser.add_argument('source', type=argparse.FileType('r'))
-    bf2ir_parser.add_argument('-o', '--output', help='output file',
-                              type=argparse.FileType('w'), default=sys.stdout)
+    bf2ir_parser.add_argument(
+        '-o', '--output', help='output file',
+        type=argparse.FileType('w'), default=sys.stdout)
 
-    bf2hex_parser = subparsers.add_parser('bf2hex', help='Compile brainfuck code into hexfile for stm32f4.')
+    bf2hex_parser = subparsers.add_parser(
+        'bf2hex', help='Compile brainfuck code into hexfile for stm32f4.')
     bf2hex_parser.add_argument('source', type=argparse.FileType('r'))
     bf2hex_parser.add_argument('-o', '--output', help='output file',
                                type=argparse.FileType('w'))
 
-    c32ir_parser = subparsers.add_parser('c32ir', help='Compile c3 code into ir code.')
+    c32ir_parser = subparsers.add_parser(
+        'c32ir', help='Compile c3 code into ir code.')
     c32ir_parser.add_argument('--target', help='target machine', default="arm")
     c32ir_parser.add_argument('-o', '--output', help='output file',
                               type=argparse.FileType('w'), default=sys.stdout)
@@ -88,14 +94,14 @@ def main(args):
             march = "thumb"
             obj = bfcompile(args.source.read(), march)
             realpb_arch = """
-module arch;
+                module arch;
 
-function void putc(int c)
-{
-    var int *UART0DR;
-    UART0DR = cast<int*>(0x10009000);
-    *UART0DR = c;
-}
+                function void putc(int c)
+                {
+                    var int *UART0DR;
+                    UART0DR = cast<int*>(0x10009000);
+                    *UART0DR = c;
+                }
             """
             o2 = c3compile([io.StringIO(realpb_arch)], [], march)
             machines.wrap([obj, o2], march, "tst.bin")

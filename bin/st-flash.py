@@ -28,8 +28,8 @@ def make_parser():
     readparser.add_argument('size', type=hex2int)
 
     writeparser = subparsers.add_parser('write', help='write flash contents')
-    writeparser.add_argument('filename', type=argparse.FileType('rb'))
     writeparser.add_argument('address', type=hex2int)
+    writeparser.add_argument('filename', type=argparse.FileType('rb'))
 
     hexwriteparser = subparsers.add_parser(
         'hexwrite', help='write hexfile to flash')
@@ -83,7 +83,7 @@ def do_flashing(args):
         stl.reset()
         stl.traceEnable()
         stl.run()
-        for i in range(100):
+        for _ in range(100):
             txt = stl.readTraceData()
             if txt:
                 print(txt)

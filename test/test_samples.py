@@ -17,7 +17,7 @@ def make_filename(s):
     output_dir = relpath('listings')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    valid_chars = string.ascii_letters
+    valid_chars = string.ascii_letters + string.digits
     basename = ''.join(c for c in s if c in valid_chars)
     return os.path.join(output_dir, basename)
 
@@ -464,18 +464,11 @@ class TestSamplesOnCortexM3(unittest.TestCase, BinSamples):
 
 
 class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
-    def setUp(self):
-        self.skipTest('TODO')
-        pass
-
     march = "thumb"
     startercode = """
     section reset
     DCD 0x20000678  ; Setup stack pointer
     DCD 0x08000009  ; Reset vector, jump to address 8
-    B burn2_main          ; Branch to main (this is actually in the interrupt vector)
-    dcd 0x20001000
-    dcd 0x00000009
     BL sample_start     ; Branch to sample start
     BL arch_exit  ; do exit stuff
     local_loop:
@@ -483,11 +476,15 @@ class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
     """
 
     arch_mmap = """
-    MEMORY code LOCATION=0x08000000 SIZE=0x10000 {
-     SECTION(code)
+    MEMORY code LOCATION=0x08000000 SIZE=0x100000
+    {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
     }
 
-    MEMORY ram LOCATION=0x20000000 SIZE=0x10000 {
+    MEMORY ram LOCATION=0x20001000 SIZE=0x18000
+    {
      SECTION(data)
     }
     """
@@ -497,7 +494,10 @@ class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
         # Run bin file in emulator:
         # res = run_qemu(sample_filename, machine='lm3s811evb')
         # self.assertEqual(expected_output, res)
-        pass
+        self.skipTest('To be implemented')
+        self.stlink.flash(sample_filename)
+        res = self.stlink.trace(stop_on_char=bytes([4]))
+        return res
 
 
 class TestSamplesOnPython(unittest.TestCase, Samples):
