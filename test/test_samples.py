@@ -3,16 +3,23 @@ import io
 import logging
 import re
 import string
-from util import run_qemu, has_qemu, relpath, tryrm, run_python
+import os
+from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
 from ppci.report import RstFormatter
 
 
 def make_filename(s):
-    """ Remove all invalid characters from a string for a valid filename """
+    """ Remove all invalid characters from a string for a valid filename.
+        And create a directory if none present.
+    """
+    output_dir = relpath('listings')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     valid_chars = string.ascii_letters
-    return ''.join(c for c in s if c in valid_chars)
+    basename = ''.join(c for c in s if c in valid_chars)
+    return os.path.join(output_dir, basename)
 
 
 def enable_report_logger(filename):
@@ -28,6 +35,7 @@ def only_bf(txt):
 
 
 class Samples:
+
     def testPrint(self):
         snippet = """
          module sample;
@@ -350,97 +358,14 @@ class Samples:
         self.do(hello_world, song_text, lang='bf')
 
 
-class TestSamplesOnVexpress(unittest.TestCase, Samples):
-
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
-
-    def do(self, src, expected_output, lang='c3'):
-        march = "arm"
-        startercode = """
-        section reset
-        mov sp, 0xF0000   ; setup stack pointer
-        BL sample_start     ; Branch to sample start
-        BL arch_exit  ; do exit stuff
-        local_loop:
-        B local_loop
-        """
-
-        arch_mmap = """
-        MEMORY image LOCATION=0x10000 SIZE=0x10000 {
-            SECTION(reset)
-            SECTION(code)
-        }
-
-        MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
-            SECTION(data)
-        }
-        """
-
-        # Determine base names:
-        base_filename = make_filename(self.id())
-        list_filename = base_filename + '.lst'
-        sample_filename = base_filename + '.bin'
-
-        # Construct binary file from snippet:
-        o1 = assemble(io.StringIO(startercode), march)
-        lst_file = open(list_filename, 'w')
-        if lang == 'c3':
-            o2 = c3compile([
-                relpath('data', 'io.c3'),
-                relpath('data', 'realview-pb-a8', 'arch.c3'),
-                io.StringIO(src)], [], march, lst_file=lst_file)
-            o3 = link([o2, o1], io.StringIO(arch_mmap), march)
-        elif lang == 'bf':
-            obj = bfcompile(src, march, lst_file=lst_file)
-            o2 = c3compile([
-                relpath('data', 'realview-pb-a8', 'arch.c3')
-                ], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march,
-                      lst_file=lst_file)
-        else:
-            raise Exception('language not implemented')
-
-        objcopy(o3, 'image', 'bin', sample_filename)
-        lst_file.close()
-
-        # Run bin file in emulator:
-        # Somehow vexpress-a9 and realview-pb-a8 differ?
-        res = run_qemu(sample_filename, machine='realview-pb-a8')
-        # print('Actual:', res)
-        # print('Expect:', expected_output)
-        self.assertEqual(expected_output, res)
-
-
-class TestSamplesOnCortexM3(unittest.TestCase, Samples):
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
+class BinSamples(Samples):
 
     def do(self, src, expected_output, lang="c3"):
-        march = "thumb"
-        startercode = """
-        section reset
-        dcd 0x20001000
-        dcd 0x00000009
-        BL sample_start     ; Branch to sample start
-        BL arch_exit  ; do exit stuff
-        local_loop:
-        B local_loop
-        """
-
-        arch_mmap = """
-        MEMORY code LOCATION=0x10000 SIZE=0x10000 {
-            SECTION(reset)
-            ALIGN(4)
-            SECTION(code)
-        }
-
-        MEMORY ram LOCATION=0x20000000 SIZE=0x100 {
-            SECTION(data)
-        }
-        """
+        """ Generic do function """
+        march = self.march
+        startercode = self.startercode
+        arch_mmap = self.arch_mmap
+        arch_c3 = self.arch_c3
 
         # Determine base names:
         base_filename = make_filename(self.id())
@@ -455,13 +380,13 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         if lang == 'c3':
             o2 = c3compile([
                 relpath('data', 'io.c3'),
-                relpath('data', 'lm3s6965evb', 'arch.c3'),
+                arch_c3,
                 io.StringIO(src)], [], march, lst_file=lst_file)
             o3 = link([o2, o1], io.StringIO(arch_mmap), march)
         elif lang == 'bf':
             obj = bfcompile(src, march, lst_file=lst_file)
             o2 = c3compile([
-                relpath('data', 'lm3s6965evb', 'arch.c3')
+                arch_c3
                 ], [], march, lst_file=lst_file)
             o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
         else:
@@ -471,17 +396,115 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples):
         lst_file.close()
 
         # Run bin file in emulator:
-        res = run_qemu(sample_filename, machine='lm3s811evb')
+        res = self.run_sample(sample_filename)
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnPython(unittest.TestCase, Samples):
-    sample_filename = 'generated_code.py'
+class TestSamplesOnVexpress(unittest.TestCase, BinSamples):
+
+    march = "arm"
+    startercode = """
+    section reset
+    mov sp, 0xF0000   ; setup stack pointer
+    BL sample_start     ; Branch to sample start
+    BL arch_exit  ; do exit stuff
+    local_loop:
+    B local_loop
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x10000 SIZE=0x10000 {
+        SECTION(reset)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
+        SECTION(data)
+    }
+    """
+    arch_c3 = relpath('data', 'realview-pb-a8', 'arch.c3')
 
     def setUp(self):
-        tryrm(self.sample_filename)
+        if not has_qemu():
+            self.skipTest('Not running qemu tests')
 
+    def run_sample(self, sample_filename):
+        # Run bin file in emulator:
+        return run_qemu(sample_filename, machine='realview-pb-a8')
+
+
+class TestSamplesOnCortexM3(unittest.TestCase, BinSamples):
+    def setUp(self):
+        if not has_qemu():
+            self.skipTest('Not running qemu tests')
+
+    march = "thumb"
+    startercode = """
+    section reset
+    dcd 0x20001000
+    dcd 0x00000009
+    BL sample_start     ; Branch to sample start
+    BL arch_exit  ; do exit stuff
+    local_loop:
+    B local_loop
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x10000 SIZE=0x10000 {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000000 SIZE=0x100 {
+        SECTION(data)
+    }
+    """
+    arch_c3 = relpath('data', 'lm3s6965evb', 'arch.c3')
+
+    def run_sample(self, sample_filename):
+        # Run bin file in emulator:
+        return run_qemu(sample_filename, machine='lm3s811evb')
+
+
+class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
+    def setUp(self):
+        self.skipTest('TODO')
+        pass
+
+    march = "thumb"
+    startercode = """
+    section reset
+    DCD 0x20000678  ; Setup stack pointer
+    DCD 0x08000009  ; Reset vector, jump to address 8
+    B burn2_main          ; Branch to main (this is actually in the interrupt vector)
+    dcd 0x20001000
+    dcd 0x00000009
+    BL sample_start     ; Branch to sample start
+    BL arch_exit  ; do exit stuff
+    local_loop:
+    B local_loop
+    """
+
+    arch_mmap = """
+    MEMORY code LOCATION=0x08000000 SIZE=0x10000 {
+     SECTION(code)
+    }
+
+    MEMORY ram LOCATION=0x20000000 SIZE=0x10000 {
+     SECTION(data)
+    }
+    """
+    arch_c3 = relpath('data', 'stm32f4xx', 'arch.c3')
+
+    def run_sample(self, sample_filename):
+        # Run bin file in emulator:
+        # res = run_qemu(sample_filename, machine='lm3s811evb')
+        # self.assertEqual(expected_output, res)
+        pass
+
+
+class TestSamplesOnPython(unittest.TestCase, Samples):
     def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        sample_filename = base_filename + '.py'
+
         if lang == 'c3':
             ir_mods = list(c3toir([
                 relpath('data', 'io.c3'),
@@ -490,7 +513,7 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
         elif lang == 'bf':
             ir_mods = [bf2ir(src)]
 
-        with open(self.sample_filename, 'w') as f:
+        with open(sample_filename, 'w') as f:
             print('mem = list()', file=f)
             for m in ir_mods:
                 ir_to_python(m, f)
@@ -499,11 +522,8 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
             print('def arch_putc(c):', file=f)
             print('    print(chr(c), end="")', file=f)
             print('sample_start()', file=f)
-        res = run_python(self.sample_filename)
+        res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
-
-    def tearDown(self):
-        tryrm(self.sample_filename)
 
 
 if __name__ == '__main__':

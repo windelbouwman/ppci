@@ -17,3 +17,7 @@ function void putc(int c)
 
 }
 
+function void exit()
+{
+    putc(4); // End of transmission
+}

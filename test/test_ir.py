@@ -118,6 +118,7 @@ class TestIrToPython(unittest.TestCase):
             # writer.write(m, sys.stdout)
             # ir_to_python(m)
 
+    @unittest.skip('redundant with test_samples')
     def testBfExample(self):
         with open(relpath('data', 'helloworld.bf')) as f:
             src = f.read()

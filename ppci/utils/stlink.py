@@ -1,5 +1,4 @@
 import struct
-import time
 import logging
 
 import usb.core
@@ -256,7 +255,7 @@ class STLink2(Interface):
         self.write_debug32(0xE0042004, 0x27)  # Enable trace in async mode
 
         # TPIU config (see stm32f4xx reference manual chapter 38.17)
-        uc_freq = 16  # uc frequency
+        uc_freq = 16  # uc frequency # TODO: parameterize?
         stlink_freq = 2  # TODO: parameterize the stlink frequency
         divisor = int(uc_freq / stlink_freq) - 1
         self.logger.debug('uController frequency: {} MHz'.format(uc_freq))
@@ -434,14 +433,6 @@ if __name__ == '__main__':
    print('cpu: {0}'.format(sl.CpuId))
 
    print('status: {0}'.format(sl.StatusString))
-
-   print('tracing')
-   sl.traceEnable()
-   sl.run()
-   sl.writePort0(0x1337) # For test
-   time.sleep(0.1)
-   td = sl.readTraceData()
-   print('trace data:', td)
 
    # Test CoreSight registers:
    idr4 = sl.read_debug32(0xE0041fd0)
