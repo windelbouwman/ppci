@@ -79,6 +79,7 @@ def do_flashing(args):
     elif args.command == 'info':
         print('stlink version: {}'.format(stl))
     elif args.command == 'trace':
+        stlink_trace()
         stl.halt()
         stl.reset()
         stl.traceEnable()

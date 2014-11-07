@@ -5,6 +5,8 @@ and assembling.
 """
 
 import logging
+import time
+import sys
 from .target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
@@ -22,6 +24,7 @@ from .target import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile
+from .utils import stlink
 from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
@@ -264,3 +267,31 @@ def objcopy(obj, image_name, fmt, output_filename):
             hexfile.save(output_file)
     else:
         raise NotImplementedError("output format not implemented")
+
+
+def stlink_flash(image, location):
+    pass
+
+
+def stlink_trace(output=sys.stdout):
+    """ Open st-link and log trace data """
+    stl = stlink.STLink2()
+    stl.open()
+
+    # Reset core, enable tracing and release the core:
+    stl.halt()
+    stl.reset()
+    stl.traceEnable()
+    stl.run()
+
+    # Log data:
+    for _ in range(100):
+        txt = stl.readTraceData()
+        if txt:
+            print(txt)
+        time.sleep(0.1)
+
+    # Release the st-link:
+    stl.reset()
+    stl.run()
+    stl.close()
