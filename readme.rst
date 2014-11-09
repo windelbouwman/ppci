@@ -2,18 +2,16 @@
 About
 =====
 
-This The pure-python-compiler-infrastructure (ppci). This project aims to
-implement a compiler toolset in python.
-
-**Warning: This project is far from complete and production ready**
-
-The project contains the following:
+The pure-python-compiler-infrastructure (ppci) is a compiler suite written in
+pure python. The project contains the following:
 
 - Language front-ends: Brainfuck, C3
 - Various code optimizers
 - Backends for various platforms: ARM, Thumb, Python
 - Assembler
 - Linker
+
+**Warning: This project is in pre-alpha state and not for use in production!**
 
 
 Installation

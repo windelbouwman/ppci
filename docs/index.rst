@@ -10,5 +10,6 @@ Table of contents
     compiler
     utils
     stlink
+    specificationlang
 
 

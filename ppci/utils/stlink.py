@@ -72,6 +72,7 @@ class STLink2(Interface):
                 raise STLinkException('Could not find an ST link 2 interface')
         assert isinstance(stlink2, usb.core.Device)
         self._dev = stlink2
+        self.trace_data = bytes()
 
     def __str__(self):
         if self.IsOpen:
@@ -325,18 +326,28 @@ class STLink2(Interface):
         return data_size
 
     def readTraceData(self):
+        """ Read existing trace data and process it """
         bsize = self.getTraceByteCount()
         if bsize > 0:
-            trace_data = bytes(self.recv_ep3(bsize))
-            self.logger.debug('Got trace data: {}'.format(trace_data))
+            new_data = bytes(self.recv_ep3(bsize))
+            self.logger.debug('Got trace data: {} bytes'.format(len(new_data)))
+
+            # Append the new data to existing data:
+            self.trace_data = self.trace_data + new_data
 
             # Process trace data, assume this format:
             # \x03 'chardata' \x00 \x00 \x00
+            # \x03 is the record seperation character.
+            packets = self.trace_data.split(bytes([3]))
             txt = ''
-            for i in range(0, len(trace_data), 5):
-                # print(trace_data[i], chr(trace_data[i + 1]))
-                assert 3 == trace_data[i]
-                txt += chr(trace_data[i + 1])
+            for packet in packets:
+                if len(packet) == 4:
+                    txt += chr(packet[0])
+                elif len(packet) == 0:
+                    pass
+                else:
+                    # TODO: fix this in a better way?
+                    self.trace_data = packet
             return txt
         return ''
 

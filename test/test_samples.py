@@ -7,6 +7,7 @@ import os
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
+from ppci.buildfunctions import stlink_run_sram_and_trace
 from ppci.report import RstFormatter
 
 
@@ -464,11 +465,19 @@ class TestSamplesOnCortexM3(unittest.TestCase, BinSamples):
 
 
 class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
+    """
+        The stm32f4 discovery board has the following memory:
+        0x2001 c000 - 0x2001 ffff SRAM2
+        0x2000 0000 - 0x2001 bfff SRAM1
+
+        For the test samples we choose the following scheme:
+        0x2000 0000 - 0x2000 1000 -> code  [4 k]
+        0x2000 1000 - 0x2000 2000 -> stack [4 k]
+        0x2000 2000 - 0x2001 ffff -> data  [120 k]
+    """
     march = "thumb"
     startercode = """
     section reset
-    DCD 0x20000678  ; Setup stack pointer
-    DCD 0x08000009  ; Reset vector, jump to address 8
     BL sample_start     ; Branch to sample start
     BL arch_exit  ; do exit stuff
     local_loop:
@@ -476,16 +485,16 @@ class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
     """
 
     arch_mmap = """
-    MEMORY code LOCATION=0x08000000 SIZE=0x100000
+    MEMORY code LOCATION=0x20000000 SIZE=0x1000
     {
         SECTION(reset)
         ALIGN(4)
         SECTION(code)
     }
 
-    MEMORY ram LOCATION=0x20001000 SIZE=0x18000
+    MEMORY ram LOCATION=0x20002000 SIZE=0x1E000
     {
-     SECTION(data)
+        SECTION(data)
     }
     """
     arch_c3 = relpath('data', 'stm32f4xx', 'arch.c3')
@@ -494,10 +503,12 @@ class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
         # Run bin file in emulator:
         # res = run_qemu(sample_filename, machine='lm3s811evb')
         # self.assertEqual(expected_output, res)
-        self.skipTest('To be implemented')
-        self.stlink.flash(sample_filename)
-        res = self.stlink.trace(stop_on_char=bytes([4]))
-        return res
+        self.skipTest('Not functional yet')
+        with open(sample_filename, 'rb') as f:
+            image = f.read()
+        out = io.StringIO()
+        stlink_run_sram_and_trace(image, output=out)
+        return out.getvalue()
 
 
 class TestSamplesOnPython(unittest.TestCase, Samples):
