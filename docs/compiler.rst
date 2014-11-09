@@ -1,8 +1,7 @@
 
 
 .. toctree::
-  
-  ir
+    ir
 
 Compiler
 ========

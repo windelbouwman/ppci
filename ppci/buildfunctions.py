@@ -149,6 +149,7 @@ def optimize(ircode, do_verify=False):
     """
     # Create the verifier:
     verifier = Verifier()
+    # verifier.verify(ircode)
 
     # Optimization passes:
     passes = [Mem2RegPromotor(),
@@ -226,12 +227,20 @@ def bfcompile(source, target, lst_file=None):
     if lst_file:
         print('brainfuck compilation listings', file=lst_file)
     ircode = bf2ir(source)
+    if lst_file:
+        print('Before optimization {}'.format(ircode), file=lst_file)
+        writer = Writer()
+        print('==========================', file=lst_file)
+        writer.write(ircode, lst_file)
+        print('==========================', file=lst_file)
     optimize(ircode)
 
     if lst_file:
         print('After optimization {}'.format(ircode), file=lst_file)
         writer = Writer()
+        print('==========================', file=lst_file)
         writer.write(ircode, lst_file)
+        print('==========================', file=lst_file)
 
     target = fix_target(target)
     return ir_to_code([ircode], target, lst_file=lst_file)

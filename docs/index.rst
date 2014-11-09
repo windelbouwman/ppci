@@ -1,15 +1,14 @@
 
-.. include:: ../readme.rst
 
 Table of contents
 =================
 
 .. toctree::
+    intro
     usage
     api
     compiler
     utils
-    stlink
     specificationlang
 
 
