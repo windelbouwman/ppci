@@ -7,8 +7,8 @@ Table of contents
     intro
     usage
     api
-    compiler
     utils
+    compiler
     specificationlang
 
 

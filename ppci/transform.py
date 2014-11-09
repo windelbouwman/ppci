@@ -8,10 +8,18 @@ from . import ir
 
 # Standard passes:
 
-class FunctionPass:
+class ModulePass:
+    """ Base class of all optimizing passes. Subclass this class
+    to implement your own optimization pass
+    """
     def __init__(self):
         self.logger = logging.getLogger(str(self.__class__.__name__))
 
+    def prepare(self):
+        pass
+
+
+class FunctionPass(ModulePass):
     def run(self, ir_module):
         """ Main entry point for the pass """
         self.logger.debug('Running pass {}'.format(self.__class__.__name__))
@@ -27,9 +35,6 @@ class FunctionPass:
     def onFunction(self, f):
         """ Override this virtual method """
         raise NotImplementedError()
-
-    def prepare(self):
-        pass
 
 
 class BlockPass(FunctionPass):
@@ -116,7 +121,7 @@ class ConstantFolder(BlockPass):
 
 
 class CommonSubexpressionEliminationPass(BlockPass):
-    """ Replace common sub expressions with the previously defined one """
+    """ Replace common sub expressions with the previously defined one. """
     def onBlock(self, block):
         ins_map = {}
         stats = 0
@@ -138,21 +143,18 @@ class CommonSubexpressionEliminationPass(BlockPass):
 
 
 class RemoveAddZeroPass(InstructionPass):
-    """ Replace additions with zero with the value itself
+    """ Replace additions with zero with the value itself.
         Replace multiplication by 1 with value itself.
     """
     def onInstruction(self, instruction):
         if type(instruction) is ir.Binop:
             if instruction.operation == '+':
                 if type(instruction.b) is ir.Const and instruction.b.value == 0:
-                    # self.logger.debug('Folding {} to {}'.format(instruction, instruction.a))
                     instruction.replace_by(instruction.a)
                 elif type(instruction.a) is ir.Const and instruction.a.value == 0:
-                    # self.logger.debug('Folding {} to {}'.format(instruction, instruction.b))
                     instruction.replace_by(instruction.b)
             elif instruction.operation == '*':
                 if type(instruction.b) is ir.Const and instruction.b.value == 1:
-                    # self.logger.debug('Multiple 1 {} to {}'.format(instruction, instruction.a))
                     instruction.replace_by(instruction.a)
 
 
@@ -172,14 +174,19 @@ class DeleteUnusedInstructionsPass(BlockPass):
 
 class LoadAfterStorePass(BlockPass):
     """ Remove load after store to the same location.
-        [x] = a
-        b = [x]
-        c = b + 2
 
-        transforms into:
+.. code::
 
-        [x] = a
-        c = a + 2
+    [x] = a
+    b = [x]
+    c = b + 2
+
+transforms into:
+
+.. code::
+
+    [x] = a
+    c = a + 2
     """
     def find_store_backwards(self, i, stop_on=[ir.Call, ir.Store]):
         """ Go back from this instruction to beginning """

@@ -11,17 +11,18 @@ from .irutils import Builder
 
 class BrainFuckGenerator():
     """ Brainfuck is a language that is so simple, the entire front-end can
-    be implemented in one pass
+    be implemented in one pass.
     """
     def __init__(self):
         self.logger = logging.getLogger('bfgen')
         self.builder = Builder()
 
-    def generate(self, src):
+    def generate(self, src, module_name='sample'):
+        """ Takes a brainfuck program and returns the IR-code module """
         self.logger.info('Generating IR-code from brainfuck')
 
         # Assembler code will call sample_start
-        self.builder.m = ir.Module('sample')
+        self.builder.m = ir.Module(module_name)
 
         ir_func = self.builder.new_function('start')
         self.builder.setFunction(ir_func)

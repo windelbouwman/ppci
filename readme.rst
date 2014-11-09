@@ -14,10 +14,6 @@ pure python. The project contains the following:
 
 **Warning: This project is in pre-alpha state and not for use in production!**
 
-
-Installation
-============
-
 ppci can be installed using pip:
 
 .. code:: bash
@@ -25,22 +21,14 @@ ppci can be installed using pip:
     $ pip install ppci
 
 
-Source
-======
-
 Sourcecode is located here:
 
 - https://bitbucket.org/windel/ppci
 - https://pikacode.com/windel/ppci/
 
-Documentation
-=============
 
 Documentation can be found on read the docs: http://ppci.readthedocs.org/
 
-
-Status
-======
 
 +-------------------------------+---------------------------------------------+
 | Topic                         | Status                                      |
