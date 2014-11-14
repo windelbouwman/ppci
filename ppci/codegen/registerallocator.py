@@ -21,11 +21,13 @@ class RegisterAllocator:
         These nodes can be colored when added back.
 
         The process consists of the following steps:
+
         - build interference graph from the instruction list
         - remove low degree non move related nodes.
         - (optional) coalesc registers to remove redundant moves
         - (optional) spill registers
         - select registers
+
     """
     def __init__(self):
         self.logger = logging.getLogger('registerallocator')

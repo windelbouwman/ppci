@@ -5,7 +5,7 @@
 """
 
 from .. import ir, irdag, irmach
-from ..irutils import Verifier, split_block, Writer
+from ..irutils import Verifier, split_block
 from ..target import Target
 from .registerallocator import RegisterAllocator
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
@@ -13,7 +13,8 @@ import logging
 
 
 class CodeGenerator:
-    """ Generic code generator """
+    """ Generic code generator.
+    """
     def __init__(self, target):
         # TODO: schedule traces in better order.
         # This is optional!

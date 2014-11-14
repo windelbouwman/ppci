@@ -113,6 +113,8 @@ class Function:
         # Link entry to epilog:
         self.entry.extra_successors.append(self.epiloog)
 
+        # TODO: cfg info as a property?
+
         self.arguments = []
         if module:
             module.add_function(self)
@@ -135,21 +137,26 @@ class Function:
             self.unique_counter += 1
         self.defined_names[dut.name] = dut
 
-    def add_block(self, bb):
+    def add_block(self, block):
         """ Add a block to this function """
         # self.bbs.append(bb)
-        bb.function = self
+        block.function = self
 
-        self.make_unique_name(bb)
+        self.make_unique_name(block)
 
         # Mark cache as invalid:
         self._blocks = None
 
-    def removeBlock(self, bb):
+    def remove_block(self, block):
+        """ Remove a block from this function """
         # self.bbs.remove(bb)
-        bb.function = None
+        block.function = None
 
-    def getBlocks(self):
+        # Mark cache as invalid:
+        self._blocks = None
+
+    def get_blocks(self):
+        """ Get all the blocks contained in this function """
         # Use a cache:
         if self._blocks is None:
             bbs = [self.entry]
@@ -168,25 +175,28 @@ class Function:
             self._blocks = bbs
         return self._blocks
 
-    def findBasicBlock(self, name):
-        for bb in self.bbs:
-            if bb.name == name:
-                return bb
-        raise KeyError(name)
+    blocks = property(get_blocks)
 
-    blocks = property(getBlocks)
+    @property
+    def special_blocks(self):
+        """ Return iterable of special blocks. For now the entry block and
+            the epilog.
+        """
+        return (self.entry, self.epiloog)
 
     @property
     def Entry(self):
         return self.entry
 
-    def add_parameter(self, p):
-        assert type(p) is Parameter
-        p.num = len(self.arguments)
-        self.arguments.append(p)
+    def add_parameter(self, parameter):
+        """ Add an argument to this function """
+        assert type(parameter) is Parameter
+        parameter.num = len(self.arguments)
+        self.arguments.append(parameter)
         # p.parent = self.entry
 
     def num_instructions(self):
+        """ Count the number of instructions contained in this function """
         return sum(len(block) for block in self.blocks)
 
 
@@ -312,6 +322,11 @@ class Block:
     def FirstInstruction(self):
         return self.instructions[0]
 
+    @property
+    def phis(self):
+        """ Return all phi instructions of this block """
+        return [i for i in self.instructions if type(i) is Phi]
+
     def getSuccessors(self):
         if not self.Empty:
             return self.LastInstruction.Targets + self.extra_successors
@@ -332,8 +347,24 @@ class Block:
         raise NotImplementedError()
 
     def dominates(self, other):
+        """ Check if this block dominates other block """
         cfg_info = self.function.cfg_info
         return cfg_info.strictly_dominates(self, other)
+
+    def change_target(self, old, new):
+        """ Change the target of this block from old to new """
+        self.LastInstruction.change_target(old, new)
+
+    def replace_incoming(self, block, new_blocks):
+        """
+            For each phi node in the block, change the incoming branch of
+            block into new block with the same variable.
+        """
+        for phi in self.phis:
+            value = phi.get_value(block)
+            for b2 in new_blocks:
+                phi.set_incoming(b2, value)
+            phi.del_incoming(block)
 
 
 def VarUse(name):
@@ -581,6 +612,15 @@ class Phi(Value):
         self.inputs[block] = value
         self.add_use(value)
 
+    def get_value(self, block):
+        """ Get the value for the incoming branch """
+        return self.inputs[block]
+
+    def del_incoming(self, block):
+        """ Remove incoming branch from this phi node and delete the usage """
+        value = self.inputs.pop(block)
+        self.del_use(value)
+
 
 class Alloc(Expression):
     """ Allocates space on the stack """
@@ -675,7 +715,8 @@ class LastStatement(Instruction):
     def Targets(self):
         return list(self.block_map.values())
 
-    def changeTarget(self, old, new):
+    def change_target(self, old, new):
+        """ Change the target old into new """
         for name in self.block_map:
             if self.block_map[name] is old:
                 self.block_map[name] = new

@@ -17,6 +17,7 @@ from .transform import RemoveAddZeroPass
 from .transform import CommonSubexpressionEliminationPass
 from .transform import ConstantFolder
 from .transform import LoadAfterStorePass
+from .transform import CleanPass
 from .mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
@@ -157,7 +158,8 @@ def optimize(ircode, do_verify=False):
               ConstantFolder(),
               CommonSubexpressionEliminationPass(),
               LoadAfterStorePass(),
-              DeleteUnusedInstructionsPass()]
+              DeleteUnusedInstructionsPass(),
+              CleanPass()]
 
     # Brute force 3 times:
     for _ in range(3):
@@ -228,7 +230,9 @@ def bfcompile(source, target, lst_file=None):
         print('brainfuck compilation listings', file=lst_file)
     ircode = bf2ir(source)
     if lst_file:
-        print('Before optimization {}'.format(ircode), file=lst_file)
+        print(
+            'Before optimization {} {}'.format(ircode, ircode.stats()),
+            file=lst_file)
         writer = Writer()
         print('==========================', file=lst_file)
         writer.write(ircode, lst_file)
@@ -236,7 +240,9 @@ def bfcompile(source, target, lst_file=None):
     optimize(ircode)
 
     if lst_file:
-        print('After optimization {}'.format(ircode), file=lst_file)
+        print(
+            'After optimization {} {}'.format(ircode, ircode.stats()),
+            file=lst_file)
         writer = Writer()
         print('==========================', file=lst_file)
         writer.write(ircode, lst_file)

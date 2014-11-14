@@ -188,7 +188,7 @@ class Reader:
         for ins, blocks in self.resolve_worklist:
             for b in blocks:
                 b2 = self.find_block(b.name)
-                ins.changeTarget(b, b2)
+                ins.change_target(b, b2)
         return function
 
     def parse_type(self):
@@ -309,12 +309,12 @@ class NamedClassGenerator:
         return self.cls('{0}{1}'.format(prefix, self.nums.__next__()))
 
 
-def split_block(block, pos=None):
+def split_block(block, pos=None, newname='splitblock'):
     """ Split a basic block into two which are connected """
     if pos is None:
         pos = int(len(block) / 2)
     rest = block.instructions[pos:]
-    block2 = ir.Block(block.name)
+    block2 = ir.Block(newname)
     block.function.add_block(block2)
     for instruction in rest:
         block.remove_instruction(instruction)

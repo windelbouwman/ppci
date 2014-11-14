@@ -67,7 +67,6 @@ class Generator:
                 self.print('    {} = bit_range({}, {})'.format(f_name, s, e + 1))
             self.print('')
             self.print('')
-                
 
     def generate(self, spec):
         self.spec = spec
@@ -82,4 +81,3 @@ def sled_main(args):
     spec = p.parse(l)
     x = Generator()
     x.generate(spec)
-

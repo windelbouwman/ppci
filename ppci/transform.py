@@ -175,18 +175,18 @@ class DeleteUnusedInstructionsPass(BlockPass):
 class LoadAfterStorePass(BlockPass):
     """ Remove load after store to the same location.
 
-.. code::
+        .. code::
 
-    [x] = a
-    b = [x]
-    c = b + 2
+            [x] = a
+            b = [x]
+            c = b + 2
 
-transforms into:
+        transforms into:
 
-.. code::
+        .. code::
 
-    [x] = a
-    c = a + 2
+            [x] = a
+            c = a + 2
     """
     def find_store_backwards(self, i, stop_on=[ir.Call, ir.Store]):
         """ Go back from this instruction to beginning """
@@ -244,47 +244,108 @@ transforms into:
 
 
 class CleanPass(FunctionPass):
-    """ Glue blocks together if possible """
+    """ Glue blocks together if a block has only one predecessor.
+
+
+        Remove blocks with a single jump in it.
+
+            .. code::
+
+            jump A
+            A:
+            jump B
+            B:
+
+            Transforms into:
+
+            .. code::
+
+            jump B
+            B:
+
+    """
     def onFunction(self, f):
         self.remove_empty_blocks(f)
         self.remove_one_preds(f)
 
-    def remove_empty_blocks(self, f):
-        """ Remove empty basic blocks from function. """
-        # If a block only contains a branch, it can be removed:
-        empty = lambda b: type(b.FirstInstruction) is ir.Jump
-        empty_blocks = list(filter(empty, f.Blocks))
-        for b in empty_blocks:
-            # Update predecessors
-            preds = b.Predecessors
-            if b not in preds + [f.entry]:
-                # Do not remove if preceeded by itself
-                tgt = b.LastInstruction.target
-                for pred in preds:
-                      pred.LastInstruction.changeTarget(b, tgt)
-                self.logger.debug('Removing empty block: {}'.format(b))
-                f.removeBlock(b)
+    def find_empty_blocks(self, function):
+        """ Look for all blocks containing only a jump in it """
+        empty_blocks = []
+        for block in function:
+            if block in function.special_blocks:
+                continue
+            if type(block.FirstInstruction) is ir.Jump:
+                empty_blocks.append(block)
+        return empty_blocks
 
-    def remove_one_preds(self, f):
+    def remove_empty_blocks(self, function):
+        """ Remove empty basic blocks from function. """
+        stat = 0
+        for block in self.find_empty_blocks(function):
+            predecessors = block.Predecessors
+            successors = block.Successors
+
+            # Do not remove if preceeded by itself:
+            if block in predecessors:
+                continue
+
+            # Update successor incoming blocks:
+            for succ in successors:
+                succ.replace_incoming(block, predecessors)
+
+            # Change the target of predecessors:
+            tgt = block.LastInstruction.target
+            for pred in predecessors:
+                pred.change_target(block, tgt)
+
+            # Remove block:
+            function.remove_block(block)
+            stat += 1
+        self.logger.debug('Removed {} empty blocks'.format(stat))
+
+    def find_single_predecessor_block(self, function):
+        """ Find a block with a single predecessor """
+        for block in function:
+            preds = block.Predecessors
+
+            # Check for amount of predecessors:
+            if len(preds) != 1:
+                continue
+
+            # We have only one predessor:
+            pred = preds[0]
+
+            # Skip loops to self:
+            if block is pred:
+                continue
+
+            # Skip entry and epilog related blocks:
+            if block in function.special_blocks or pred in function.special_blocks:
+                continue
+
+            if type(pred.LastInstruction) is ir.Jump:
+                return block
+
+    def remove_one_preds(self, function):
         """ Remove basic blocks with only one predecessor """
         change = True
         while change:
             change = False
-            for block in f.Blocks:
-                preds = block.Predecessors
-                if len(preds) == 1 and block not in preds and type(preds[0].LastInstruction) is ir.Jump and block is not f.epiloog:
-                    self.glue_blocks(preds[0], block, f)
-                    change = True
+            block = self.find_single_predecessor_block(function)
+            if block is not None:
+                print('Gluing {}'.format(block))
+                self.glue_blocks(preds[0], block, f)
+                change = True
+                break
 
-    def glue_blocks(self, block1, block2, f):
+    def glue_blocks(self, block1, block2):
         """ Glue two blocks together into the first block """
-        self.logger.debug('Merging {} and {}'.format(block1.name, block2.name))
-
         # Remove the last jump:
         block1.removeInstruction(block1.LastInstruction)
 
         # Copy all instructions to block1:
         for instruction in block2.Instructions:
             block1.addInstruction(instruction)
+
         # This does not work somehow:
         #block2.parent.removeBlock(block2)

@@ -12,7 +12,7 @@ intermediate code. This is a simple representation of the source. The back-end
 can accept this kind of representation.
 
 .. graphviz::
-  
+ 
    digraph x {
    rankdir="LR"
    1 [label="c3 source file"]
@@ -30,17 +30,6 @@ can accept this kind of representation.
    30 -> 40
    }
 
-
-IR-code
--------
-
-The intermediate representation (IR) of a program de-couples the front end
-from the backend of the compiler.
-
-See :doc:`ir` for details about all the available instructions.
-
-.. toctree::
-    ir
 
 C3 Front-end
 ------------
@@ -79,6 +68,17 @@ The compiler has a front-end for the brainfuck language.
 
 .. autoclass:: ppci.bf.BrainFuckGenerator
 
+IR-code
+-------
+
+The intermediate representation (IR) of a program de-couples the front end
+from the backend of the compiler.
+
+See :doc:`ir` for details about all the available instructions.
+
+.. toctree::
+    ir
+
 Optimalization
 --------------
 
@@ -111,19 +111,29 @@ The back-end is more complicated. There are several steps to be taken here.
 #. Instruction emission
 #. TODO: Peep hole optimization?
 
-// .. automodule:: ppci.codegen
-//   :members:
+.. toctree::
+    specificationlang
+
+Code generator
+~~~~~~~~~~~~~~
+
+.. automodule:: ppci.codegen.codegen
 
 Canonicalize
 ~~~~~~~~~~~~
 
-During this phase, the IR-code is made simpler. Function calls are pulled pulled
-to top level and the frame pointer is introduced.
+During this phase, the IR-code is made simpler. Also unsupported
+operations are rewritten into function calls. For example soft floating
+point is introduced here.
+
 
 Tree building
 ~~~~~~~~~~~~~
 
 From IR-code a tree is generated which can be used to select instructions.
+
+.. automodule:: ppci.irdag
+
 
 Instruction selection
 ~~~~~~~~~~~~~~~~~~~~~
@@ -132,9 +142,9 @@ The instruction selection phase takes care of scheduling and instruction
 selection.  The output of this phase is a one frame per function with a flat
 list of abstract machine instructions.
 
-// .. autoclass:: ppci.irmach.Frame
+.. autoclass:: ppci.irmach.Frame
 
-// .. autoclass:: ppci.irmach.AbstractInstruction
+.. autoclass:: ppci.irmach.AbstractInstruction
 
 To select instruction, a tree rewrite system is used. This is also called
 bottom up rewrite generator (BURG). See pyburg.
@@ -145,6 +155,8 @@ Register allocation
 
 The selected instructions are used to select correct registers.
 
+.. autoclass:: ppci.codegen.registerallocator.RegisterAllocator
+
 
 code emission
 ~~~~~~~~~~~~~
@@ -153,5 +165,6 @@ Code is emitted using the outputstream class. The assembler and compiler use
 this class to emit instructions to. The stream can output to object file
 or to a logger.
 
-// .. autoclass:: ppci.outstream.OutputStream
+.. autoclass:: ppci.binutils.outstream.OutputStream
+
 
