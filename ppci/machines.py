@@ -34,5 +34,5 @@ def wrap_arm(objs, filename):
 def wrap(objs, machine, filename):
     if machine == "arm":
         return wrap_arm(objs, filename)
-    raise Exception()
+    raise NotImplementedError('machine {} not implemented'.format(machine))
 
