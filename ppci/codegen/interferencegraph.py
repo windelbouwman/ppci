@@ -4,6 +4,8 @@ from ..irmach import VirtualRegister
 
 
 class InterferenceGraphNode(Node):
+    __slots__ = ['temps', 'move']
+
     def __init__(self, g, varname):
         super().__init__(g)
         self.temps = {varname}

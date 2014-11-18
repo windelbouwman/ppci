@@ -299,6 +299,7 @@ class CleanPass(FunctionPass):
                 pred.change_target(block, tgt)
 
             # Remove block:
+            block.LastInstruction.delete()
             function.remove_block(block)
             stat += 1
         self.logger.debug('Removed {} empty blocks'.format(stat))

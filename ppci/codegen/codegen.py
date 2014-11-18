@@ -89,8 +89,8 @@ class CodeGenerator:
         ins0.dst = tuple(in0def)
 
         # Dump current state to file:
-        self.print('Selected instructions')
-        self.dump_frame(frame)
+        #self.print('Selected instructions')
+        #self.dump_frame(frame)
 
         # Do register allocation:
         self.register_allocator.allocFrame(frame)

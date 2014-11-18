@@ -359,8 +359,7 @@ class Samples:
         self.do(hello_world, song_text, lang='bf')
 
 
-class BinSamples(Samples):
-
+class DoMixin:
     def do(self, src, expected_output, lang="c3"):
         """ Generic do function """
         march = self.march
@@ -401,7 +400,7 @@ class BinSamples(Samples):
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnVexpress(unittest.TestCase, BinSamples):
+class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
 
     march = "arm"
     startercode = """
@@ -432,7 +431,7 @@ class TestSamplesOnVexpress(unittest.TestCase, BinSamples):
         return run_qemu(sample_filename, machine='realview-pb-a8')
 
 
-class TestSamplesOnCortexM3(unittest.TestCase, BinSamples):
+class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     def setUp(self):
         if not has_qemu():
             self.skipTest('Not running qemu tests')
@@ -463,8 +462,11 @@ class TestSamplesOnCortexM3(unittest.TestCase, BinSamples):
         # Run bin file in emulator:
         return run_qemu(sample_filename, machine='lm3s811evb')
 
+    def testBrainFuckQuine(self):
+        self.skipTest('Not possible yet')
 
-class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
+
+class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
     """
         The stm32f4 discovery board has the following memory:
         0x2001 c000 - 0x2001 ffff SRAM2
@@ -509,6 +511,9 @@ class TestSamplesOnSTM32F407(unittest.TestCase, BinSamples):
         out = io.StringIO()
         stlink_run_sram_and_trace(image, output=out)
         return out.getvalue()
+
+    def testBrainFuckQuine(self):
+        self.skipTest('Not possible yet')
 
 
 class TestSamplesOnPython(unittest.TestCase, Samples):

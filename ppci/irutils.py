@@ -402,7 +402,7 @@ class Verifier:
 
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
-        assert not block.Empty
+        assert not block.empty
         assert block.LastInstruction.IsTerminator
         for i in block.Instructions[:-1]:
             assert not isinstance(i, ir.LastStatement)

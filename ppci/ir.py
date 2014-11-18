@@ -112,6 +112,7 @@ class Function:
         # TODO: fix this other way?
         # Link entry to epilog:
         self.entry.extra_successors.append(self.epiloog)
+        self.epiloog.extra_preds.append(self.entry)
 
         # TODO: cfg info as a property?
 
@@ -206,6 +207,8 @@ class FastList:
         So the first time the index is complexity O(n), the second time
         O(1). When the list is modified, the cache is cleared.
     """
+    __slots__ = ['_items', '_index_map']
+
     def __init__(self):
         self._items = []
         self._index_map = {}
@@ -255,6 +258,8 @@ class Block:
         self.function = function
         self.instructions = FastList()
         self.extra_successors = []
+        self.extra_preds = []
+        self._preds = set()
 
     parent = property(lambda s: s.function)
 
@@ -302,7 +307,6 @@ class Block:
         i.parent = None
         # i.delete()
         self.instructions.remove(i)
-        # self.renumber_instructions()
         return i
 
     @property
@@ -311,11 +315,12 @@ class Block:
 
     @property
     def LastInstruction(self):
-        if not self.Empty:
+        if not self.empty:
             return self.instructions[-1]
 
     @property
-    def Empty(self):
+    def empty(self):
+        """ Determines whether the block is empty or not """
         return len(self) == 0
 
     @property
@@ -327,21 +332,26 @@ class Block:
         """ Return all phi instructions of this block """
         return [i for i in self.instructions if type(i) is Phi]
 
-    def getSuccessors(self):
-        if not self.Empty:
+    def get_successors(self):
+        if not self.empty:
             return self.LastInstruction.Targets + self.extra_successors
         return [] + self.extra_successors
 
-    Successors = property(getSuccessors)
+    Successors = property(get_successors)
 
-    def getPredecessors(self):
+    def get_predecessors(self):
+        b = set(i.block for i in self._preds)
+        b |= set(self.extra_preds)
+        # return list(b)
         preds = []
         for block in self.parent.blocks:
             if self in block.Successors:
                 preds.append(block)
+        a = set(preds)
+        # assert a == b, '{} {}!={}'.format(self, a, b)
         return preds
 
-    Predecessors = property(getPredecessors)
+    Predecessors = property(get_predecessors)
 
     def precedes(self, other):
         raise NotImplementedError()
@@ -367,7 +377,7 @@ class Block:
             phi.del_incoming(block)
 
 
-def VarUse(name):
+def var_use(name):
     """ Creates a property that also keeps track of usage """
     def getter(self):
         if name in self.var_map:
@@ -551,8 +561,8 @@ class Call(Expression):
 class Binop(Expression):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '|', '&', '<<', '>>']
-    a = VarUse('a')
-    b = VarUse('b')
+    a = var_use('a')
+    b = var_use('b')
 
     def __init__(self, a, operation, b, name, ty):
         super().__init__(name, ty)
@@ -646,7 +656,7 @@ class Parameter(Variable):
 
 class Load(Value):
     """ Load a value from memory """
-    address = VarUse('address')
+    address = var_use('address')
 
     def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
@@ -659,8 +669,8 @@ class Load(Value):
 
 class Store(Instruction):
     """ Store a value into memory """
-    address = VarUse('address')
-    value = VarUse('value')
+    address = var_use('address')
+    value = var_use('value')
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
@@ -674,7 +684,7 @@ class Store(Instruction):
 
 class Addr(Expression):
     """ Address of label """
-    e = VarUse('e')
+    e = var_use('e')
 
     def __init__(self, e, name, ty):
         super().__init__(name, ty)
@@ -692,16 +702,11 @@ def BlockRef(name):
         if name in self.block_map:
             return self.block_map[name]
         else:
-            return "No such block!"
+            raise KeyError("No such block!")
 
     def setter(self, block):
         assert isinstance(block, Block)
-        # If block was present, do something?
-        if name in self.block_map:
-            pass
-
-        # Use the new block:
-        self.block_map[name] = block
+        self.set_target_block(name, block)
 
     return property(getter, setter)
 
@@ -711,6 +716,21 @@ class LastStatement(Instruction):
         super().__init__()
         self.block_map = {}
 
+    def set_target_block(self, name, block):
+        # If block was present, do something?
+        if name in self.block_map:
+            self.block_map[name]._preds.remove(self)
+
+        # Use the new block:
+        self.block_map[name] = block
+        self.block_map[name]._preds.add(self)
+
+    def delete(self):
+        """ Clear references """
+        while self.block_map:
+            _, block = self.block_map.popitem()
+            block._preds.remove(self)
+
     @property
     def Targets(self):
         return list(self.block_map.values())
@@ -719,7 +739,7 @@ class LastStatement(Instruction):
         """ Change the target old into new """
         for name in self.block_map:
             if self.block_map[name] is old:
-                self.block_map[name] = new
+                self.set_target_block(name, new)
 
 
 class Terminator(LastStatement):
@@ -733,7 +753,7 @@ class Terminator(LastStatement):
 
 class Return(LastStatement):
     """ Return statement """
-    result = VarUse('result')
+    result = var_use('result')
 
     def __init__(self, result):
         super().__init__()
@@ -758,8 +778,8 @@ class Jump(LastStatement):
 class CJump(LastStatement):
     """ Conditional jump to true or false labels. """
     conditions = ['==', '<', '>', '>=', '<=', '!=']
-    a = VarUse('a')
-    b = VarUse('b')
+    a = var_use('a')
+    b = var_use('b')
     lab_yes = BlockRef('lab_yes')
     lab_no = BlockRef('lab_no')
 

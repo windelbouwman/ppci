@@ -67,6 +67,10 @@ class AbstractInstruction:
         Abstract machine instruction class. This is a very simple
         abstraction of machine instructions.
     """
+    __slots__ = [
+        'assem', 'ops', 'src', 'dst', 'jumps', 'others', 'ismove',
+        'gen', 'kill', 'live_out', 'live_in']
+
     def __init__(self, cls, ops=(), src=(), dst=(), jumps=(), others=(),
                  ismove=False):
         assert type(cls) is type or isinstance(cls, Instruction), str(cls)

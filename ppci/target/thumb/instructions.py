@@ -410,6 +410,7 @@ class B(jumpBase_ins):
 
 
 class Bw(jumpBase_ins):
+    """ Encoding T4 """
     # Same encoding as Bl, longer jumps are possible with this function!
     def encode(self):
         imm11 = 0
@@ -426,6 +427,7 @@ class Bw(jumpBase_ins):
 
 
 class Bl(jumpBase_ins):
+    """ Branch with link """
     def encode(self):
         imm11 = 0
         imm10 = 0
@@ -453,7 +455,7 @@ class cond_base_ins(jumpBase_ins):
 class cond_base_ins_long(jumpBase_ins):
     """ Encoding T3 """
     def encode(self):
-        j1 = 1 # TODO: what do these mean?
+        j1 = 1  # TODO: what do these mean?
         j2 = 1
         h1 = (0b11110 << 11) | (self.cond << 6)
         h2 = (0b1101 << 12) | (j1 << 13) | (j2 << 11)
@@ -512,6 +514,7 @@ def register_numbers(regs):
     for r in regs:
         yield r.num
 
+
 class Pop(ThumbInstruction):
     def __init__(self, regs):
         assert type(regs) is set
@@ -531,7 +534,6 @@ class Pop(ThumbInstruction):
                 raise NotImplementedError('not implemented for this register')
         self.token[9:16] = 0x5E
         return self.token.encode()
-
 
 
 class Yield(ThumbInstruction):

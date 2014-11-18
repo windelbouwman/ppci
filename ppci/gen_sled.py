@@ -36,27 +36,24 @@ def pattern(*args):
     return p
 
 
-def constructor(name, parts, assignment):
-    c = Constructor(name)
-    c.parts = parts
-    c.assignment = assignment
-    return c
-
-
 class Token:
     def __init__(self, width):
         self.fields = []
         self.name = 'todo'
 
+    def add_field(self, name, start, end):
+        f = Field(self, name, start, end)
+        self.fields.append(f)
+        return f
+
 
 class Field:
     """ Specific bit field """
-    def __init__(self, token, start, end):
-        self.name = None
+    def __init__(self, token, name, start, end):
+        self.name = name
         self.token = token
         self.start = start
         self.end = end
-        self.token.fields.append(self)
 
     def __repr__(self):
         return 'fld{}-{}'.format(self.start, self.end)
@@ -126,26 +123,15 @@ def assign(a, b):
 
 class Constructor:
     """ Contrapt instruction form bit assignment or other constructors """
-    def __init__(self, name):
+    def __init__(self, name, tokens):
         self.name = name
-        self.parts = []
+        self.tokens = tokens
+        self.syntax = None
+        self.parameters = []
+        self.field_assignments = []
 
     def __repr__(self):
         return 'con {}'.format(self.parts)
-
-    def __xor__(self, other):
-        c = Constructor()
-        for p1 in self.parts:
-            if type(p1) is str:
-                c.parts.append(p1)
-            elif type(p1) is dict:
-                for pat1 in p1.values():
-                    for p2 in other.parts:
-                        print('expand', pat1, p2)
-            elif type(p1) is Constructor:
-                c.parts.append(p1)
-        print(self, other)
-        return c
 
     @property
     def args(self):
@@ -155,6 +141,45 @@ class Constructor:
                 if p.pattern.multiple:
                     a.append(p.bitfield.name)
         return a
+
+    def add_parameter(self, name, typ):
+        self.parameters.append(name)
+        return name
+
+    def assign(self, field, value):
+        self.field_assignments.append((field, value))
+
+    def __call__(self, *args):
+        """ Create new instance """
+        assert len(args) == len(self.parameters)
+        for arg, fp in zip(args, self.parameters):
+            pass
+
+        # Construct new type:
+        i_tp = type(self.name, (), {})
+
+        # Create constructor:
+        def init(s):
+            s.tokens = self.tokens
+        setattr(i_tp, '__init__', init)
+
+        # Create encode function:
+        def encode(s):
+            for field, val in self.field_assignments:
+                # print(field.name, val)
+                setattr(s.tokens[0], field.name, val)
+                # s.token = 2
+            return bytes().join(t.encode() for t in s.tokens)
+        setattr(i_tp, 'encode', encode)
+
+        # Create repr function:
+        def repr(s):
+            return ' '.join(self.syntax)
+        setattr(i_tp, '__repr__', repr)
+
+        # Return the new instance:
+        i = i_tp()
+        return i
 
 
 class Spec:
@@ -203,10 +228,10 @@ class Generator:
     def gen_assignment(self, a):
         for lhs, rhs in a.assignment_map.items():
             if lhs.name:
-                lhs2 = lhs.name
+                lhs2 = '.{}'.format(lhs.name)
             else:
                 lhs2 = '[{}:{}]'.format(lhs.start, lhs.end)
-            self.print('        self.token.{} = {}'.format(lhs2, rhs.value))
+            self.print('        self.token{} = {}'.format(lhs2, rhs.value))
 
     def gen_instructions(self):
         for constructor in self.spec.constructors:

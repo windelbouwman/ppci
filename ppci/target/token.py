@@ -31,11 +31,15 @@ def bit_range(b, e):
 
 
 class Token:
+    # __slots__ = ['a']
+
     def __init__(self, bitsize):
         self.bitsize = bitsize
         self.bit_value = 0
+        self.mask = (1 << self.bitsize) - 1
 
     def set_bit(self, i, value):
+        """ Sets a specific bit in this token """
         value = bool(value)
         assert i in range(0, self.bitsize)
         mask = 1 << i
@@ -53,9 +57,11 @@ class Token:
         elif type(key) is slice:
             assert key.step is None
             bits = key.stop - key.start
-            assert value < (2**bits)
-            value_bits = val2bit(value, bits)
-            for i in range(key.start, key.stop):
-                self.set_bit(i, value_bits[i - key.start])
+            assert bits > 0
+            limit = 1 << bits
+            assert value < limit
+            mask = self.mask ^ ((limit - 1) << key.start)
+            self.bit_value &= mask
+            self.bit_value |= value << key.start
         else:
             raise KeyError()

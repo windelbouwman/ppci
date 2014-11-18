@@ -4,6 +4,8 @@ class Graph:
        Generic graph base class.
        Can dump to graphiz dot format for example!
     """
+    __slots__ = ['nodes', 'edges', 'masked_nodes', 'adj_map', 'degree_map']
+
     def __init__(self):
         self.nodes = set()
         self.edges = set()

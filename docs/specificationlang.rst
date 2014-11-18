@@ -65,6 +65,8 @@ the permutations.
 Example specifications
 ----------------------
 
+For a complete overview of ADL (Architecture Description Language) see [overview]_.
+
 llvm
 ~~~~
 
@@ -215,3 +217,4 @@ The following information must be captured in the specification file:
 
 
 .. [sled] http://www.cs.tufts.edu/~nr/toolkit/
+.. [overview]   http://esl.cise.ufl.edu/Publications/iee05.pdf
