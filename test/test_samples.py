@@ -326,7 +326,6 @@ class Samples:
 \r * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *    \n\r"""
         self.do(code, sier, lang='bf')
 
-    @unittest.skip('Not possible on cortex M3')
     def testBrainFuckBottlesOfBeer(self):
         """ Test bottles of beer song text """
         hello_world = """
@@ -465,6 +464,8 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     def testBrainFuckQuine(self):
         self.skipTest('Not possible yet')
 
+    def testBrainFuckBottlesOfBeer(self):
+        self.skipTest('Not possible yet')
 
 class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
     """
@@ -513,6 +514,9 @@ class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
         return out.getvalue()
 
     def testBrainFuckQuine(self):
+        self.skipTest('Not possible yet')
+
+    def testBrainFuckBottlesOfBeer(self):
         self.skipTest('Not possible yet')
 
 

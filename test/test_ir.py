@@ -118,18 +118,6 @@ class TestIrToPython(unittest.TestCase):
             # writer.write(m, sys.stdout)
             # ir_to_python(m)
 
-    @unittest.skip('redundant with test_samples')
-    def testBfExample(self):
-        with open(relpath('data', 'helloworld.bf')) as f:
-            src = f.read()
-        m = bf2ir(src)
-        with open('pyt_out.py', 'w') as f:
-            ir_to_python(m, f)
-            # Add glue:
-            print('def arch_putc(c):', file=f)
-            print('    print(chr(c), end="")', file=f)
-            print('start()', file=f)
-
 
 if __name__ == '__main__':
     unittest.main()
