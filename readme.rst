@@ -42,6 +42,7 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 | Thumb code generation         | Bare minimum for blinky on stm32f4discovery |
 +-------------------------------+---------------------------------------------+
 | Build status                  | |dronestate|_                               |
+|                               | |appveyor|_                                 |
 +-------------------------------+---------------------------------------------+
 | Development status            | |devstate|_                                 |
 +-------------------------------+---------------------------------------------+
@@ -85,6 +86,10 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
 .. _dronestate: https://drone.io/bitbucket.org/windel/ppci
+
+
+.. |appveyor| image:: https://ci.appveyor.com/api/projects/status/h0h5huliflrac65o?svg=true
+.. _appveyor: https://ci.appveyor.com/project/WindelBouwman/ppci-786
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
