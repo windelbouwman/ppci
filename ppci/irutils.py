@@ -394,6 +394,11 @@ class Verifier:
         for block in function.blocks:
             self.verify_block_termination(block)
 
+        # Verify predecessor and successor:
+        for block in function.blocks:
+            preds = set(b for b in function.blocks if block in b.Successors)
+            assert preds == set(block.Predecessors)
+
         # Now we can build a dominator tree
         function.cfg_info = CfgInfo(function)
         for block in function:

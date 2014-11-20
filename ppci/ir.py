@@ -6,8 +6,8 @@ Intermediate representation (IR) code classes.
 def label_name(dut):
     """ Returns the assembly code label name """
     if isinstance(dut, Block):
-        f = dut.function
-        return label_name(f) + '_' + dut.name
+        function = dut.function
+        return label_name(function) + '_' + dut.name
     elif isinstance(dut, Function) or isinstance(dut, Variable):
         return label_name(dut.module) + '_' + dut.name
     elif isinstance(dut, Module):
@@ -333,6 +333,7 @@ class Block:
         return [i for i in self.instructions if type(i) is Phi]
 
     def get_successors(self):
+        """ Get the direct successors of this block """
         if not self.empty:
             return self.LastInstruction.Targets + self.extra_successors
         return [] + self.extra_successors
@@ -342,14 +343,10 @@ class Block:
     def get_predecessors(self):
         b = set(i.block for i in self._preds)
         b |= set(self.extra_preds)
-        # return list(b)
-        preds = []
-        for block in self.parent.blocks:
-            if self in block.Successors:
-                preds.append(block)
-        a = set(preds)
-        # assert a == b, '{} {}!={}'.format(self, a, b)
-        return preds
+
+        # Make sure we have only active blocks:
+        b &= set(self.parent.blocks)
+        return list(b)
 
     Predecessors = property(get_predecessors)
 
@@ -410,10 +407,12 @@ class Instruction:
 
     @property
     def block(self):
+        """ The block in which this instruction is contained """
         return self.parent
 
     @property
     def function(self):
+        """ Return the function this instruction is part of """
         return self.block.function
 
     def add_use(self, v):
@@ -695,8 +694,7 @@ class Addr(Expression):
 
 
 # Branching:
-
-def BlockRef(name):
+def block_ref(name):
     """ Creates a property that can be set and changed """
     def getter(self):
         if name in self.block_map:
@@ -765,7 +763,7 @@ class Return(LastStatement):
 
 class Jump(LastStatement):
     """ Jump statement to another block within the same function """
-    target = BlockRef('target')
+    target = block_ref('target')
 
     def __init__(self, target):
         super().__init__()
@@ -780,8 +778,8 @@ class CJump(LastStatement):
     conditions = ['==', '<', '>', '>=', '<=', '!=']
     a = var_use('a')
     b = var_use('b')
-    lab_yes = BlockRef('lab_yes')
-    lab_no = BlockRef('lab_no')
+    lab_yes = block_ref('lab_yes')
+    lab_no = block_ref('lab_no')
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()

@@ -467,6 +467,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     def testBrainFuckBottlesOfBeer(self):
         self.skipTest('Not possible yet')
 
+
 class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
     """
         The stm32f4 discovery board has the following memory:

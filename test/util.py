@@ -1,5 +1,6 @@
 
 import os
+import sys
 import subprocess
 import socket
 import time
@@ -118,7 +119,9 @@ def run_qemu(kernel, machine='lm3s811evb'):
 
 def run_python(kernel):
     """ Run given file in python and capture output """
-    python_proc = subprocess.Popen(['python', kernel], stdout=subprocess.PIPE)
+    python_proc = subprocess.Popen(
+        [sys.executable, kernel],
+        stdout=subprocess.PIPE)
     outs, _ = python_proc.communicate()
     outs = outs.decode('ascii', errors='ignore')
     outs = outs.replace(os.linesep, '\n')
