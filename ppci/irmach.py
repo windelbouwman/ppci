@@ -73,7 +73,7 @@ class AbstractInstruction:
 
     def __init__(self, cls, ops=(), src=(), dst=(), jumps=(), others=(),
                  ismove=False):
-        assert type(cls) is type or isinstance(cls, Instruction), str(cls)
+        assert isinstance(cls, type) or isinstance(cls, Instruction), str(cls) + str(type(cls))
         self.assem = cls
         self.ops = tuple(ops)
         self.src = tuple(src)

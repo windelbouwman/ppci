@@ -3,6 +3,63 @@ import sys
 from ppci.gen_sled import Spec, Generator, pattern, Constructor
 from ppci.gen_sled import Token
 
+from ppci.target.basetarget import InsMeta
+
+
+
+AL = 0xE
+
+
+class Instruction(metaclass=InsMeta):
+    def encode(self):
+        print('ENC')
+        for a in ['opcode']:
+            print(a)
+
+
+class ArmToken(Token):
+    def __init__(self):
+        super().__init__(32)
+
+
+class ArmInstruction(Instruction):
+    args = []
+    tokens = [ArmToken]
+
+
+class Register:
+    def __init__(self, v):
+        self.value = v
+
+
+class Arith(ArmInstruction):
+    args = [('rd', Register), ('rn', Register), ('rm', Register)]
+    cond = AL
+
+
+class Add(Arith):
+    syntax = ['add', 0, ',', 1, ',', 2]
+    opcode = 2
+
+
+class Sub(Arith):
+    syntax = ['sub', 0, ',', 1, ',', 2]
+    opcode = 4
+
+
+r0 = Register(0)
+r2 = Register(2)
+
+ins = ArmInstruction()
+sub1 = Sub(r0, r2, r2)
+add1 = Add(r2, r0, r0)
+add2 = Add(r0, r0, r0)
+print(ins.encode())
+print(sub1.encode())
+print(sub1.rd)
+print(add1.encode())
+print(add2.encode(), add2)
+
 
 class SledTestCase(unittest.TestCase):
     def testSpecApi(self):
@@ -36,7 +93,7 @@ class SledTestCase(unittest.TestCase):
         rd = add.add_parameter('rd', reg)
         add.syntax = ['add', rn, ',', rm, ',', rd]
         add.assign(S, 1)
-        add.assign(opcode, 0x100)
+        add.assign(opcode, 0b100)
         add.assign(cond, 0xe)
         spec.add_constructor(add)
 
@@ -52,6 +109,14 @@ class SledTestCase(unittest.TestCase):
         # Generated code usage:
         #parse("add r1, r2, r0")
         #decode(0xe0821000)
+        #sub = instruction('sub')
+        #sub.assign(opcode, 0b10)
+        #sub.assign(cond, 0xe)
+        #print(sub.field, type(sub))
+        #mul = instruction('mul')
+        #mul.assign(opcode, 0b1110)
+        #mul.assign(cond, 0xe)
+        #print(mul.field, type(mul))
 
 
 if __name__ == '__main__':

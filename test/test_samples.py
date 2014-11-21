@@ -7,7 +7,10 @@ import os
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
-from ppci.buildfunctions import stlink_run_sram_and_trace
+try:
+    from ppci.utils.stlink import stlink_run_sram_and_trace
+except ImportError:
+    stlink_run_sram_and_trace = None
 from ppci.report import RstFormatter
 
 
@@ -479,6 +482,10 @@ class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
         0x2000 1000 - 0x2000 2000 -> stack [4 k]
         0x2000 2000 - 0x2001 ffff -> data  [120 k]
     """
+    def setUp(self):
+        if stlink_run_sram_and_trace is None:
+            self.skipTest('stlink not loaded')
+
     march = "thumb"
     startercode = """
     section reset

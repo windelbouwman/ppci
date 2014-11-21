@@ -1,11 +1,16 @@
 
 import unittest
-from ppci.utils import stlink
-import usb.core
+try:
+    from ppci.utils import stlink
+    import usb.core
+except ImportError:
+    stlink = None
 
 
 class StLink2TestCase(unittest.TestCase):
     def setUp(self):
+        if stlink is None:
+            self.skipTest('Stlink not imported')
         try:
             self.stlink = stlink.STLink2()
             self.stlink.open()

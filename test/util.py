@@ -66,7 +66,11 @@ def run_qemu(kernel, machine='lm3s811evb'):
             '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
             '-serial', 'tcp:localhost:{}'.format(ser_port),
             '-S']
-    qemu_process = subprocess.Popen(args)  # , stderr=subprocess.DEVNULL)
+    if hasattr(subprocess, 'DEVNULL'):
+        qemu_process = subprocess.Popen(args, stderr=subprocess.DEVNULL)
+    else:
+        # pypy3 has no dev null:
+        qemu_process = subprocess.Popen(args)
 
     # qemu_serial Give process some time to boot:
     qemu_serial_serve.settimeout(3)

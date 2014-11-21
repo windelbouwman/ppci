@@ -6,7 +6,45 @@ import logging
 """
 
 
-class Instruction:
+class InsMeta(type):
+    """
+        Meta class to make the creation of instructions less
+        repetitive. This meta class automatically generates
+        the following methods:
+        __init__
+        __repr__
+    """
+    def __init__(cls, name, bases, attrs):
+        super(InsMeta, cls).__init__(name, bases, attrs)
+        print('META init', name, bases, attrs)
+
+        # Generate constructor from args:
+        if hasattr(cls, 'args'):
+            formal_args = getattr(cls, 'args')
+
+            def _init_(self, *args):
+                assert len(args) == len(formal_args)
+                setattr(self, 'token', cls.tokens[0]())
+                for fa, a in zip(formal_args, args):
+                    setattr(self, fa[0], a)
+            setattr(cls, '__init__', _init_)
+
+        # Define repr method:
+        if hasattr(cls, 'syntax'):
+            syntax = getattr(cls, 'syntax')
+
+            def _repr_(self):
+                s2 = []
+                for st in syntax:
+                    if type(st) is str:
+                        s2.append(st)
+                    else:
+                        s2.append(str(st))
+                return ' '.join(s2)
+            setattr(cls, '__repr__', _repr_)
+
+
+class Instruction(metaclass=InsMeta):
     """ Base instruction class """
     def encode(self):
         return bytes()
@@ -159,4 +197,3 @@ class Target:
 
     def add_reloc(self, name, f):
         self.reloc_map[name] = f
-

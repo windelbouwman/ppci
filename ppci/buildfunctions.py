@@ -5,8 +5,6 @@ and assembling.
 """
 
 import logging
-import time
-import sys
 from .target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
@@ -25,7 +23,6 @@ from .target import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile
-from .utils import stlink, stm32
 from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
@@ -282,93 +279,3 @@ def objcopy(obj, image_name, fmt, output_filename):
             hexfile.save(output_file)
     else:
         raise NotImplementedError("output format not implemented")
-
-
-def stlink_flash(location, image):
-    """ Flash image to location """
-    stl = stlink.STLink2()
-    stl.open()
-
-    if stl.ChipId != 0x10016413:
-        print('Only working on stm32f4discovery board for now.')
-        sys.exit(2)
-
-    # Create the device:
-    dev = stm32.Stm32F40x(stl)
-    dev.writeFlash(location, image)
-    stl.reset()
-    stl.run()
-    stl.close()
-
-
-def stlink_info():
-    """ Display info about stlink dongle """
-    stl = stlink.STLink2()
-    stl.open()
-    print('stlink version: {}'.format(stl))
-    stl.reset()
-    stl.run()
-    stl.close()
-
-
-
-def stlink_trace(output=sys.stdout, stop_on_char=chr(4)):
-    """ Open st-link and log trace data """
-    stl = stlink.STLink2()
-    stl.open()
-
-    # Reset core, enable tracing and release the core:
-    stl.halt()
-    stl.reset()
-    stl.traceEnable()
-    stl.run()
-
-    # Log data:
-    for _ in range(100):
-        txt = stl.readTraceData()
-        if txt:
-            print(txt, file=output)
-        if stop_on_char in txt:
-            break
-        time.sleep(0.1)
-
-    # Release the st-link:
-    stl.reset()
-    stl.run()
-    stl.close()
-
-
-def stlink_run_sram_and_trace(image, output=sys.stdout, stop_on_char=chr(4)):
-    """ Open st-link, put image in ram and trace data """
-    stl = stlink.STLink2()
-    stl.open()
-
-    # Reset core, enable tracing and release the core:
-    stl.halt()
-    stl.reset()
-
-    stl.write_reg(13, 0x20002000)  # SP = 0x2000 2000
-    stl.write_reg(15, 0x20000001)  # set PC to start of program.
-
-    # Place the image into ram:
-    stl.write_mem32(0x20000000, image)
-
-    stl.traceEnable()
-    stl.run()
-
-    # Log data:
-    for _ in range(100):
-        txt = stl.readTraceData()
-        if txt:
-            if stop_on_char in txt:
-                txt = txt[:txt.index(stop_on_char)]
-                print(txt, file=output, end='')
-                break
-            else:
-                print(txt, file=output, end='')
-        time.sleep(0.1)
-
-    # Release the st-link:
-    stl.reset()
-    stl.run()
-    stl.close()

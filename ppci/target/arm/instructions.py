@@ -6,10 +6,15 @@ from .token import ArmToken
 from .registers import R0, SP, ArmRegister
 
 
+# Condition patterns:
+EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL = range(15)
+
 
 # Instructions:
 
 class ArmInstruction(Instruction):
+    tokens = [ArmToken]
+
     def __init__(self):
         self.token = ArmToken()
 
@@ -66,11 +71,7 @@ def Mov(*args):
 
 class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
-    def __init__(self, reg, imm):
-        super().__init__()
-        assert type(imm) is int
-        self.reg = reg
-        self.imm = imm
+    args = [('reg', None), ('imm', int)]
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -86,10 +87,7 @@ class Mov1(ArmInstruction):
 
 
 class Mov2(ArmInstruction):
-    def __init__(self, rd, rm):
-        super().__init__()
-        self.rd = rd
-        self.rm = rm
+    args = [('rd', None), ('rm', None)]
 
     def encode(self):
         self.token[0:4] = self.rm.num
@@ -116,11 +114,7 @@ def Cmp(*args):
 
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
-    def __init__(self, reg, imm):
-        super().__init__()
-        assert type(imm) is int
-        self.reg = reg
-        self.imm = imm
+    args = [('reg', None), ('imm', int)]
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -135,10 +129,7 @@ class Cmp1(ArmInstruction):
 
 class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
-    def __init__(self, rn, rm):
-        super().__init__()
-        self.rn = rn
-        self.rm = rm
+    args = [('rn', None), ('rm', None)]
 
     def encode(self):
         self.token.Rn = self.rn.num
@@ -161,6 +152,7 @@ def Add(*args):
             return Add2(args[0], args[1], args[2])
     raise Exception()
 
+
 def Sub(*args):
     if len(args) == 3 and isinstance(args[0], ArmRegister) and \
             isinstance(args[1], ArmRegister):
@@ -176,11 +168,7 @@ def Mul(*args):
 
 
 class Mul1(ArmInstruction):
-    def __init__(self, rd, rn, rm):
-        super().__init__()
-        self.rd = rd
-        self.rn = rn
-        self.rm = rm
+    args = [('rd', None), ('rn', None), ('rm', None)]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -204,12 +192,12 @@ class OpRegRegReg(ArmInstruction):
         self.token[0:4] = self.rm.num
         self.token[4] = 0
         self.token[5:7] = 0
-        self.token[7:12] = 0 # Shift
+        self.token[7:12] = 0  # Shift
         self.token.Rd = self.rd.num
         self.token.Rn = self.rn.num
-        self.token.S = 0 # Set flags
+        self.token.S = 0  # Set flags
         self.token[21:28] = self.opcode
-        self.token.cond = 0xE # Always!
+        self.token.cond = AL  # Always!
         return self.token.encode()
 
     def __repr__(self):
@@ -232,28 +220,26 @@ class Orr1(OpRegRegReg):
 
 Orr = Orr1
 
+
 class And1(OpRegRegReg):
     mnemonic = 'AND'
     opcode = 0b0000000
 
 And = And1
 
+
 class ShiftBase(ArmInstruction):
     """ ? rd, rn, rm """
-    def __init__(self, rd, rn, rm):
-        super().__init__()
-        self.rd = rd
-        self.rn = rn
-        self.rm = rm
+    args = [('rd', None), ('rn', None), ('rm', None)]
 
     def encode(self):
         self.token[0:4] = self.rn.num
         self.token[4:8] = self.opcode
         self.token[8:12] = self.rm.num
         self.token[12:16] = self.rd.num
-        self.token.S = 0 # Set flags
+        self.token.S = 0  # Set flags
         self.token[21:28] = 0b1101
-        self.token.cond = 0xE # Always!
+        self.token.cond = 0xE  # Always!
         return self.token.encode()
 
     def __repr__(self):
@@ -266,11 +252,13 @@ class Lsr1(ShiftBase):
 
 Lsr = Lsr1
 
+
 class Lsl1(ShiftBase):
     mnemonic = 'LSL'
     opcode = 0b0001
 
 Lsl = Lsl1
+
 
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
@@ -325,34 +313,41 @@ class BranchBaseRoot(ArmInstruction):
         return '{} {}'.format(mnemonic, self.target)
 
 
-EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL = range(15)
-
 class BranchBase(BranchBaseRoot):
     opcode = 0b1010
+
 
 class BranchLinkBase(BranchBaseRoot):
     opcode = 0b1011
 
+
 class Bl(BranchLinkBase):
     cond = AL
+
 
 class B(BranchBase):
     cond = AL
 
+
 class Beq(BranchBase):
     cond = EQ
+
 
 class Bgt(BranchBase):
     cond = GT
 
+
 class Bge(BranchBase):
     cond = GE
+
 
 class Ble(BranchBase):
     cond = LE
 
+
 class Blt(BranchBase):
     cond = LT
+
 
 class Bne(BranchBase):
     cond = NE
@@ -425,11 +420,7 @@ def Str(*args):
 
 
 class LdrStrBase(ArmInstruction):
-    def __init__(self, rt, rn, offset):
-        super().__init__()
-        self.rt = rt
-        self.rn = rn
-        self.offset = offset
+    args = [('rt', None), ('rn', None), ('offset', None)]
 
     def encode(self):
         self.token.cond = AL
@@ -447,7 +438,7 @@ class LdrStrBase(ArmInstruction):
         return self.token.encode()
 
     def __repr__(self):
-        return '{} {}, [{}, {}]'.format(self.mnemonic, self.rt, self.rn, 
+        return '{} {}, [{}, {}]'.format(self.mnemonic, self.rt, self.rn,
                 hex(self.offset))
 
 
