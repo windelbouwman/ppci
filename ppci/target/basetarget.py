@@ -6,6 +6,14 @@ import logging
 """
 
 
+class Isa:
+    def __init__(self):
+        self.lower_funcs = {}
+
+    def register_instruction(self, i):
+        pass
+
+
 class InsMeta(type):
     """
         Meta class to make the creation of instructions less
@@ -23,8 +31,11 @@ class InsMeta(type):
             formal_args = getattr(cls, 'args')
 
             def _init_(self, *args):
-                assert len(args) == len(formal_args)
+                # Construct token:
                 setattr(self, 'token', cls.tokens[0]())
+
+                # Set parameters:
+                assert len(args) == len(formal_args)
                 for fa, a in zip(formal_args, args):
                     assert isinstance(a, fa[1])
                     setattr(self, fa[0], a)
@@ -32,28 +43,38 @@ class InsMeta(type):
 
         # Define repr method:
         if hasattr(cls, 'syntax'):
-            syntax = getattr(cls, 'syntax')
-
-            def _repr_(self):
-                s2 = []
-                for st in syntax:
-                    if type(st) is str:
-                        s2.append(st)
-                    else:
-                        s2.append(str(st))
-                return ' '.join(s2)
-            setattr(cls, '__repr__', _repr_)
+            pass
 
             # Register assembler rule:
-
 
         # Register lowering functions:
         if hasattr(cls, 'from_im'):
             cls.isa.lower_funcs[cls] = cls.from_im
 
+        # Register instruction with isa:
+        if hasattr(cls, 'isa'):
+            cls.isa.register_instruction(cls)
+
 
 class Instruction(metaclass=InsMeta):
     """ Base instruction class """
+    def _get_repr(self, st):
+        """ Get the repr of a syntax part. Can be str or int, in refering
+            to an element in the args list """
+        if type(st) is str:
+            return st
+        elif type(st) is int:
+            arg = self.args[st][0]
+            return str(getattr(self, arg))
+        else:
+            raise Exception()
+
+    def __repr__(self):
+        if hasattr(self, 'syntax'):
+            return ' '.join(self._get_repr(st) for st in self.syntax)
+        else:
+            return super().__repr__()
+
     def encode(self):
         return bytes()
 

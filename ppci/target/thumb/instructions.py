@@ -1,4 +1,4 @@
-from ..basetarget import Register, Instruction, LabelAddress
+from ..basetarget import Register, Instruction, LabelAddress, Isa
 from ..token import u16, u32
 from .armtoken import ThumbToken
 from ..arm.registers import R0, ArmRegister, SP
@@ -7,7 +7,8 @@ from ..arm.registers import R0, ArmRegister, SP
 # Instructions:
 
 class ThumbInstruction(Instruction):
-    pass
+    tokens = [ThumbToken]
+    isa = Isa()
 
 
 class Dcd(ThumbInstruction):
@@ -99,9 +100,7 @@ class Ldr2(LS_imm5_base):
 
 
 class ls_sp_base_imm8(ThumbInstruction):
-    def __init__(self, rt, offset):
-        self.rt = rt
-        self.offset = offset
+    args = [('rt', ArmRegister), ('offset', int)]
 
     def encode(self):
         rt = self.rt.num
@@ -126,9 +125,7 @@ def Ldr(*args):
 
 class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
-    def __init__(self, rt, label):
-        self.rt = rt
-        self.label = label
+    args = [('rt', ArmRegister), ('label', str)]
 
     def relocations(self):
         return [(self.label, 'lit_add_8')]
@@ -155,14 +152,8 @@ class Str1(ls_sp_base_imm8):
 
 
 class Adr(ThumbInstruction):
-    def __init__(self, rd, label):
-        super().__init__()
-        self.rd = rd
-        self.label = label
-        self.token = ThumbToken()
-
-    def __repr__(self):
-        return 'ADR {}, {}'.format(self.rd, self.label)
+    args = [('rd', ArmRegister), ('label', str)]
+    syntax = ['adr', 0, ',', 1]
 
     def relocations(self):
         return [(self.label, 'lit_add_8')]
@@ -218,7 +209,6 @@ class regregimm3_base(ThumbInstruction):
         return '{} {}, {}, {}'.format(mnemonic, self.rd, self.rn, self.imm3)
 
 
-
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
     opcode = 0b0001110
@@ -255,10 +245,7 @@ def Add(*args):
 
 class regregreg_base(ThumbInstruction):
     """ ??? Rd, Rn, Rm """
-    def __init__(self, rd, rn, rm):
-        self.rd = rd
-        self.rn = rn
-        self.rm = rm
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
 
     def encode(self):
         at = ThumbToken()
@@ -286,10 +273,8 @@ class Sub3(regregreg_base):
 
 class Mov2(ThumbInstruction):
     """ mov rd, rm """
-    mnemonic = 'MOV'
-    def __init__(self, rd, rm):
-        self.rd = rd
-        self.rm = rm
+    args = [('rd', ArmRegister), ('rm', ArmRegister)]
+    syntax = ['mov', 0, ',', 1]
 
     def encode(self):
         at = ThumbToken()
@@ -302,16 +287,11 @@ class Mov2(ThumbInstruction):
         at[7] = D
         return at.encode()
 
-    def __repr__(self):
-        return '{} {}, {}'.format(self.mnemonic, self.rd, self.rm)
-
 
 class Mul(ThumbInstruction):
     """ mul Rn, Rdm """
-    mnemonic = 'MUL'
-    def __init__(self, rn, rdm):
-        self.rn = rn
-        self.rdm = rdm
+    args = [('rd', ArmRegister), ('rdm', ArmRegister)]
+    syntax = ['mul', 0, ',', 1]
 
     def encode(self):
         at = ThumbToken()
@@ -322,9 +302,6 @@ class Mul(ThumbInstruction):
         at[6:16] = opcode
         at[3:6] = rn
         return at.encode()
-
-    def __repr__(self):
-        return '{} {}, {}'.format(self.mnemonic, self.rn, self.rdm)
 
 
 class regreg_base(ThumbInstruction):
@@ -374,9 +351,8 @@ class Lsr(regreg_base):
 class Cmp2(ThumbInstruction):
     """ cmp Rn, imm8 """
     opcode = 5 # 00101
-    def __init__(self, rn, imm):
-        self.rn = rn
-        self.imm = imm
+    args = [('rn', ArmRegister), ('imm', int)]
+    syntax = ['cmp', 0, ',', 1]
 
     def encode(self):
         at = ThumbToken()
@@ -389,10 +365,7 @@ class Cmp2(ThumbInstruction):
 # Jumping:
 
 class jumpBase_ins(ThumbInstruction):
-    def __init__(self, target_label):
-        assert type(target_label) is str
-        self.target = target_label
-        self.offset = 0
+    args = [('target', str)]
 
     def __repr__(self):
         mnemonic = self.__class__.__name__
@@ -400,6 +373,8 @@ class jumpBase_ins(ThumbInstruction):
 
 
 class B(jumpBase_ins):
+    syntax = ['b', 0]
+
     def encode(self):
         h = (0b11100 << 11) | 0
         # | 1 # 1 to enable thumb mode
@@ -410,8 +385,11 @@ class B(jumpBase_ins):
 
 
 class Bw(jumpBase_ins):
-    """ Encoding T4 """
-    # Same encoding as Bl, longer jumps are possible with this function!
+    """ Encoding T4
+        Same encoding as Bl, longer jumps are possible with this function!
+    """
+    syntax = ['bw', 0]
+
     def encode(self):
         imm11 = 0
         imm10 = 0
@@ -428,6 +406,8 @@ class Bw(jumpBase_ins):
 
 class Bl(jumpBase_ins):
     """ Branch with link """
+    syntax = ['bl', 0]
+
     def encode(self):
         imm11 = 0
         imm10 = 0
@@ -490,9 +470,7 @@ class Bge(cond_base_ins):
 
 
 class Push(ThumbInstruction):
-    def __init__(self, regs):
-        assert type(regs) is set
-        self.regs = regs
+    args = [('regs', set)]
 
     def __repr__(self):
         return 'Push {{{}}}'.format(self.regs)
@@ -516,10 +494,7 @@ def register_numbers(regs):
 
 
 class Pop(ThumbInstruction):
-    def __init__(self, regs):
-        assert type(regs) is set
-        self.regs = regs
-        self.token = ThumbToken()
+    args = [('regs', set)]
 
     def __repr__(self):
         return 'Pop {{{}}}'.format(self.regs)
@@ -537,6 +512,8 @@ class Pop(ThumbInstruction):
 
 
 class Yield(ThumbInstruction):
+    syntax = ['yield']
+
     def encode(self):
         return u16(0xbf10)
 

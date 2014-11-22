@@ -60,6 +60,11 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 +-------------------------------+---------------------------------------------+
 
 
+.. raw:: html
+
+    <script type="text/javascript" src="http://www.openhub.net/p/720341/widgets/project_basic_stats.js"></script>
+
+
 .. |downloads| image:: https://pypip.in/download/ppci/badge.svg
 .. _downloads: https://pypi.python.org/pypi/ppci
 

@@ -1,13 +1,9 @@
 
-from ..basetarget import Instruction, LabelAddress
+from ..basetarget import Instruction, LabelAddress, Isa
 from ...bitfun import encode_imm32
 from .registers import R0, SP, ArmRegister
 from ..token import Token, u32, bit_range
 
-
-class Isa:
-    def __init__(self):
-        self.lower_funcs = {}
 
 isa = Isa()
 
@@ -328,9 +324,7 @@ class Sub2(OpRegRegImm):
 # Branches:
 
 class BranchBaseRoot(ArmInstruction):
-    def __init__(self, target):
-        super().__init__()
-        self.target = target
+    args = [('target', str)]
 
     def encode(self):
         self.token.cond = self.cond
@@ -339,10 +333,6 @@ class BranchBaseRoot(ArmInstruction):
 
     def relocations(self):
         return [(self.target, 'b_imm24')]
-
-    def __repr__(self):
-        mnemonic = self.__class__.__name__
-        return '{} {}'.format(mnemonic, self.target)
 
 
 class BranchBase(BranchBaseRoot):
@@ -355,34 +345,42 @@ class BranchLinkBase(BranchBaseRoot):
 
 class Bl(BranchLinkBase):
     cond = AL
+    syntax = ['bl', 0]
 
 
 class B(BranchBase):
     cond = AL
+    syntax = ['b', 0]
 
 
 class Beq(BranchBase):
     cond = EQ
+    syntax = ['beq', 0]
 
 
 class Bgt(BranchBase):
     cond = GT
+    syntax = ['bgt', 0]
 
 
 class Bge(BranchBase):
     cond = GE
+    syntax = ['bge', 0]
 
 
 class Ble(BranchBase):
     cond = LE
+    syntax = ['ble', 0]
 
 
 class Blt(BranchBase):
     cond = LT
+    syntax = ['blt', 0]
 
 
 class Bne(BranchBase):
     cond = NE
+    syntax = ['bne', 0]
 
 # Memory:
 

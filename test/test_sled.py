@@ -3,18 +3,10 @@ import sys
 from ppci.gen_sled import Spec, Generator, pattern, Constructor
 from ppci.gen_sled import Token
 
-from ppci.target.basetarget import InsMeta
-
+from ppci.target.basetarget import Instruction
 
 
 AL = 0xE
-
-
-class Instruction(metaclass=InsMeta):
-    def encode(self):
-        print('ENC')
-        for a in ['opcode']:
-            print(a)
 
 
 class ArmToken(Token):

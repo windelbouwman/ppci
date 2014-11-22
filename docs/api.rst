@@ -23,3 +23,24 @@ buildfunctions module
 .. automodule:: ppci.buildfunctions
    :members:
 
+ir
+--
+
+.. automodule:: ppci.ir
+   :members:
+
+c3
+--
+
+.. automodule:: ppci.c3
+   :members:
+
+.. automodule:: ppci.c3.parser
+   :members:
+
+ppci
+----
+
+.. automodule:: ppci
+   :members:
+   :undoc-members:

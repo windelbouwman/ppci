@@ -2,7 +2,7 @@
     X86 target descriptions and encodings.
 """
 
-from ..basetarget import Register, Instruction
+from ..basetarget import Register, Instruction, Isa
 from .registers import regs64, X86Register
 
 from ..token import Token, u32, u8, bit_range
@@ -124,7 +124,13 @@ def reljump(distance):
       return nearjump(distance)
 
 
-class Push(Instruction):
+class X86Instruction(Instruction):
+    """ Base instruction for all x86 instructions """
+    tokens = [ModRmToken]
+    isa = Isa()
+
+
+class Push(X86Instruction):
     def __init__(self, reg):
         assert(reg in regs64), str(reg)
         self.reg = reg
@@ -137,7 +143,7 @@ class Push(Instruction):
         return bytes(code)
 
 
-class Pop(Instruction):
+class Pop(X86Instruction):
     def __init__(self, reg):
         assert(reg in regs64), str(reg)
         self.reg = reg
@@ -185,7 +191,7 @@ def call(distance):
       Error('Cannot call to {0}'.format(distance))
 
 
-class Ret(Instruction):
+class Ret(X86Instruction):
     def __init__(self):
         pass
 
@@ -193,7 +199,7 @@ class Ret(Instruction):
         return [ 0xc3 ]
 
 
-class Inc(Instruction):
+class Inc(X86Instruction):
     def __init__(self, reg):
         assert(reg in regs64), str(reg)
         self.rex = RexToken(w=1, b=reg.rexbit)
@@ -301,7 +307,7 @@ def leareg64(rega, m):
    return pre + [opcode] + post
 
 
-class Mov1(Instruction):
+class Mov1(X86Instruction):
     """ Mov r64 to r64 """
     def __init__(self, dst, src):
         assert src in regs64, str(src)
@@ -337,7 +343,7 @@ def Xor(rega, regb):
     return Xor1(rega, regb)
 
 
-class Xor1(Instruction):
+class Xor1(X86Instruction):
     def __init__(self, a, b):
         self.rex = RexToken(w=1, r=b.rexbit, b=a.rexbit)
         self.mod_rm = ModRmToken(mod=3, rm=a.regbits, reg=b.regbits)
