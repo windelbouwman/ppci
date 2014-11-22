@@ -1,6 +1,6 @@
 
 from ..basetarget import Target, Label
-from .instructions import LdrPseudo
+from .instructions import LdrPseudo, isa
 from .selector import ArmInstructionSelector
 from .frame import ArmFrame
 from ...assembler import BaseAssembler, AsmLexer
@@ -93,19 +93,11 @@ class ArmTarget(Target):
         self.FrameClass = ArmFrame
         self.assembler = ArmAssembler(self)
 
-        self.add_lowering(Ldr3, lambda im: Ldr3(im.dst[0], im.others[0]))
-        self.add_lowering(Str1, lambda im: Str1(im.src[1], im.src[0], im.others[0]))
-        self.add_lowering(Ldr1, lambda im: Ldr1(im.dst[0], im.src[0], im.others[0]))
+        # Grab lowerings from isa:
+        for k, v in isa.lower_funcs.items():
+            self.add_lowering(k, v)
+
         self.add_lowering(Adr, lambda im: Adr(im.dst[0], im.others[0]))
-        self.add_lowering(Mov2, lambda im: Mov2(im.dst[0], im.src[0]))
-        self.add_lowering(Cmp2, lambda im: Cmp2(im.src[0], im.src[1]))
-        self.add_lowering(Add1, lambda im: Add1(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(Add2, lambda im: Add2(im.dst[0], im.src[0], im.others[0]))
-        self.add_lowering(Sub1, lambda im: Sub1(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(Mul1, lambda im: Mul1(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(Lsr1, lambda im: Lsr1(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(And1, lambda im: And1(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(Mov1, lambda im: Mov1(im.dst[0], im.others[0]))
 
         self.reloc_map = reloc_map
 

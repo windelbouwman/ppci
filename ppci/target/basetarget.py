@@ -26,6 +26,7 @@ class InsMeta(type):
                 assert len(args) == len(formal_args)
                 setattr(self, 'token', cls.tokens[0]())
                 for fa, a in zip(formal_args, args):
+                    assert isinstance(a, fa[1])
                     setattr(self, fa[0], a)
             setattr(cls, '__init__', _init_)
 
@@ -42,6 +43,13 @@ class InsMeta(type):
                         s2.append(str(st))
                 return ' '.join(s2)
             setattr(cls, '__repr__', _repr_)
+
+            # Register assembler rule:
+
+
+        # Register lowering functions:
+        if hasattr(cls, 'from_im'):
+            cls.isa.lower_funcs[cls] = cls.from_im
 
 
 class Instruction(metaclass=InsMeta):

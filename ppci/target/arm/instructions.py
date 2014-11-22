@@ -1,10 +1,32 @@
 
 from ..basetarget import Instruction, LabelAddress
 from ...bitfun import encode_imm32
-
-from .token import ArmToken
 from .registers import R0, SP, ArmRegister
+from ..token import Token, u32, bit_range
 
+
+class Isa:
+    def __init__(self):
+        self.lower_funcs = {}
+
+isa = Isa()
+
+# Tokens:
+
+class ArmToken(Token):
+    def __init__(self):
+        super().__init__(32)
+
+    cond = bit_range(28, 32)
+    S = bit_range(20, 21)
+    Rd = bit_range(12, 16)
+    Rn = bit_range(16, 20)
+    Rm = bit_range(0, 4)
+
+    def encode(self):
+        return u32(self.bit_value)
+
+# Patterns:
 
 # Condition patterns:
 EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL = range(15)
@@ -14,6 +36,7 @@ EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL = range(15)
 
 class ArmInstruction(Instruction):
     tokens = [ArmToken]
+    isa = isa
 
     def __init__(self):
         self.token = ArmToken()
@@ -71,7 +94,8 @@ def Mov(*args):
 
 class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
-    args = [('reg', None), ('imm', int)]
+    args = [('reg', ArmRegister), ('imm', int)]
+    syntax = ['mov', 0, ',', 1]
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -82,12 +106,14 @@ class Mov1(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    def __repr__(self):
-        return 'Mov {}, {}'.format(self.reg, self.imm)
+    @staticmethod
+    def from_im(im):
+        return Mov1(im.dst[0], im.others[0])
 
 
 class Mov2(ArmInstruction):
-    args = [('rd', None), ('rm', None)]
+    args = [('rd', ArmRegister), ('rm', ArmRegister)]
+    syntax = ['mov', 0, ',', 1]
 
     def encode(self):
         self.token[0:4] = self.rm.num
@@ -99,8 +125,9 @@ class Mov2(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    def __repr__(self):
-        return 'MOV {}, {}'.format(self.rd, self.rm)
+    @staticmethod
+    def from_im(im):
+        return Mov2(im.dst[0], im.src[0])
 
 
 def Cmp(*args):
@@ -114,7 +141,8 @@ def Cmp(*args):
 
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
-    args = [('reg', None), ('imm', int)]
+    args = [('reg', ArmRegister), ('imm', int)]
+    syntax = ['cmp', 0, ',', 1]
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -123,13 +151,11 @@ class Cmp1(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    def __repr__(self):
-        return 'CMP {}, {}'.format(self.reg, self.imm)
-
 
 class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
-    args = [('rn', None), ('rm', None)]
+    args = [('rn', ArmRegister), ('rm', ArmRegister)]
+    syntax = ['cmp', 0, ',', 1]
 
     def encode(self):
         self.token.Rn = self.rn.num
@@ -139,9 +165,9 @@ class Cmp2(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    def __repr__(self):
-        return 'CMP {}, {}'.format(self.rn, self.rm)
-
+    @staticmethod
+    def from_im(im):
+        return Cmp2(im.src[0], im.src[1])
 
 def Add(*args):
     if len(args) == 3 and isinstance(args[0], ArmRegister) and \
@@ -168,7 +194,7 @@ def Mul(*args):
 
 
 class Mul1(ArmInstruction):
-    args = [('rd', None), ('rn', None), ('rm', None)]
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -179,14 +205,14 @@ class Mul1(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
+    @staticmethod
+    def from_im(im):
+        return Mul1(im.dst[0], im.src[0], im.src[1])
+
 
 class OpRegRegReg(ArmInstruction):
     """ add rd, rn, rm """
-    def __init__(self, rd, rn, rm, shift=0):
-        super().__init__()
-        self.rd = rd
-        self.rn = rn
-        self.rm = rm
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
 
     def encode(self):
         self.token[0:4] = self.rm.num
@@ -200,37 +226,46 @@ class OpRegRegReg(ArmInstruction):
         self.token.cond = AL  # Always!
         return self.token.encode()
 
-    def __repr__(self):
-        return '{} {}, {}, {}'.format(self.mnemonic, self.rd, self.rn, self.rm)
-
 
 class Add1(OpRegRegReg):
-    mnemonic = 'ADD'
+    syntax = ['add', 0, ',', 1, ',', 2]
     opcode = 0b0000100
+
+    @staticmethod
+    def from_im(im):
+        return Add1(im.dst[0], im.src[0], im.src[1])
 
 
 class Sub1(OpRegRegReg):
-    mnemonic = 'SUB'
+    syntax = ['sub', 0, ',', 1, ',', 2]
     opcode = 0b0000010
+
+    @staticmethod
+    def from_im(im):
+        return Sub1(im.dst[0], im.src[0], im.src[1])
 
 
 class Orr1(OpRegRegReg):
-    mnemonic = 'ORR'
+    syntax = ['orr', 0, ',', 1, ',', 2]
     opcode = 0b0001100
 
 Orr = Orr1
 
 
 class And1(OpRegRegReg):
-    mnemonic = 'AND'
+    syntax = ['and', 0, ',', 1, ',', 2]
     opcode = 0b0000000
+
+    @staticmethod
+    def from_im(im):
+        return And1(im.dst[0], im.src[0], im.src[1])
 
 And = And1
 
 
 class ShiftBase(ArmInstruction):
     """ ? rd, rn, rm """
-    args = [('rd', None), ('rn', None), ('rm', None)]
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -242,35 +277,32 @@ class ShiftBase(ArmInstruction):
         self.token.cond = 0xE  # Always!
         return self.token.encode()
 
-    def __repr__(self):
-        return '{} {}, {}, {}'.format(self.mnemonic, self.rd, self.rn, self.rm)
-
 
 class Lsr1(ShiftBase):
-    mnemonic = 'LSR'
     opcode = 0b0011
+    syntax = ['lsr', 0, ',', 1, ',', 2]
+
+    @staticmethod
+    def from_im(im):
+        return Lsr1(im.dst[0], im.src[0], im.src[1])
+
 
 Lsr = Lsr1
 
 
 class Lsl1(ShiftBase):
-    mnemonic = 'LSL'
     opcode = 0b0001
+    syntax = ['lsl', 0, ',', 1, ',', 2]
 
 Lsl = Lsl1
 
 
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
-    def __init__(self, rd, rn, imm):
-        super().__init__()
-        self.rd = rd
-        self.rn = rn
-        self.imm2 = encode_imm32(imm)
-        self.imm = imm
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('imm', int)]
 
     def encode(self):
-        self.token[0:12] = self.imm2
+        self.token[0:12] = encode_imm32(self.imm)
         self.token.Rd = self.rd.num
         self.token.Rn = self.rn.num
         self.token.S = 0 # Set flags
@@ -278,19 +310,19 @@ class OpRegRegImm(ArmInstruction):
         self.token.cond = 0xE # Always!
         return self.token.encode()
 
-    def __repr__(self):
-        return '{} {}, {}, {}'.format(self.mnemonic, self.rd, self.rn, self.imm)
-
 
 class Add2(OpRegRegImm):
-    mnemonic = 'ADD'
     opcode = 0b0010100
+    syntax = ['add', 0, ',', 1, ',', 2]
+
+    @staticmethod
+    def from_im(im):
+        return Add2(im.dst[0], im.src[0], im.others[0])
 
 
 class Sub2(OpRegRegImm):
-    mnemonic = 'SUB'
     opcode = 0b0010010
-
+    syntax = ['sub', 0, ',', 1, ',', 2]
 
 
 # Branches:
@@ -420,7 +452,7 @@ def Str(*args):
 
 
 class LdrStrBase(ArmInstruction):
-    args = [('rt', None), ('rn', None), ('offset', None)]
+    args = [('rt', ArmRegister), ('rn', ArmRegister), ('offset', int)]
 
     def encode(self):
         self.token.cond = AL
@@ -447,21 +479,24 @@ class Str1(LdrStrBase):
     bit20 = 0
     mnemonic = 'STR'
 
+    @staticmethod
+    def from_im(im):
+        return Str1(im.src[1], im.src[0], im.others[0])
+
 
 class Ldr1(LdrStrBase):
     opcode = 0b010
     bit20 = 1
     mnemonic = 'LDR'
 
+    @staticmethod
+    def from_im(im):
+        return Ldr1(im.dst[0], im.src[0], im.others[0])
+
 
 class Adr(ArmInstruction):
-    def __init__(self, rd, label):
-        super().__init__()
-        self.rd = rd
-        self.label = label
-
-    def __repr__(self):
-        return 'ADR {}, {}'.format(self.rd, self.label)
+    args = [('rd', ArmRegister), ('label', str)]
+    syntax = ['adr', 0, ',', 1]
 
     def relocations(self):
         return [(self.label, 'adr_imm12')]
@@ -480,13 +515,8 @@ class Ldr3(ArmInstruction):
         LDR rt, label
         encoding A1
     """
-    def __init__(self, rt, label):
-        super().__init__()
-        self.rt = rt
-        self.label = label
-
-    def __repr__(self):
-        return 'LDR {}, {}'.format(self.rt, self.label)
+    args = [('rt', ArmRegister), ('label', str)]
+    syntax = ['ldr', 0, ',', 1]
 
     def relocations(self):
         return [(self.label, 'ldr_imm12')]
@@ -498,6 +528,10 @@ class Ldr3(ArmInstruction):
         self.token[16:23] = 0b0011111
         self.token[24:28] = 0b0101
         return self.token.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Ldr3(im.dst[0], im.others[0])
 
 
 class McrBase(ArmInstruction):

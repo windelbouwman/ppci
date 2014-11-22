@@ -1,7 +1,7 @@
 import unittest
 import sys
 import io
-from ppci.target.arm.token import ArmToken
+from ppci.target.arm.instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, load_object
 from ppci.tasks import TaskRunner, TaskError, Project, Target
 from ppci.buildtasks import EmptyTask
