@@ -1,4 +1,4 @@
-from ..basetarget import Label, Alignment, LabelAddress
+from ..basetarget import Label, Alignment
 from ...irmach import AbstractInstruction, Frame, VirtualRegister
 from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2, Bl
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
@@ -118,7 +118,7 @@ class ArmFrame(Frame):
             if isinstance(v, int):
                 self.emit(Label(ln))
                 self.emit(Dcd(v))
-            elif isinstance(v, LabelAddress):
+            elif isinstance(v, str):
                 self.emit(Label(ln))
                 self.emit(Dcd(v))
             elif isinstance(v, bytes):

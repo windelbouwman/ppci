@@ -95,7 +95,7 @@ def calculate_first_sets(grammar):
 
 class Grammar:
     """ Defines a grammar of a language """
-    def __init__(self, terminals):
+    def __init__(self, terminals=set()):
         self.terminals = set(terminals)
         self.nonterminals = set()
         self.productions = []
@@ -104,6 +104,16 @@ class Grammar:
 
     def __repr__(self):
         return 'Grammar with {} rules'.format(len(self.productions))
+
+    def add_terminals(self, names):
+        for name in names:
+            self.add_terminal(name)
+
+    def add_terminal(self, name):
+        """ Add a terminal name """
+        if name in self.nonterminals:
+            raise ParserGenerationException("Cannot redefine non-terminal {0} as terminal".format(name))
+        self.terminals.add(name)
 
     def add_production(self, name, symbols, f=None):
         """ Add a production rule to the grammar """

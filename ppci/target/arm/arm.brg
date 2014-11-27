@@ -4,7 +4,6 @@ from ppci.target.arm.instructions import Ldr1, Ldr3, Adr
 from ppci.target.arm.instructions import And1, Lsr1, Lsl1, Mov1
 from ppci.target.arm.instructions import B, Bl, Blt, Bgt, Beq, Bne, Cmp2, Ble, Bge
 from ppci.target.arm.instructions import Str1
-from ppci.target.basetarget import LabelAddress
 from ppci.irmach import AbstractInstruction
 
 %%
@@ -36,7 +35,7 @@ reg: SHRI32(reg, reg)         2 'd = self.newTmp(); self.emit(Lsr1, dst=[d], src
 
 reg: MEMI32(ADDI32(reg, cn))  2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[c1]); return d'
 reg: MEMI32(reg)              2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[0]); return d'
-reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.add_constant(LabelAddress(tree.value)); self.emit(Ldr3, dst=[d], others=[ln]); return d'
+reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
 cn: CONSTI32                  0 'return tree.value'
 

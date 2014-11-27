@@ -1,56 +1,61 @@
-from ..basetarget import Register, Instruction, LabelAddress, Isa
+from ..basetarget import Register, Instruction, Isa
 from ..token import u16, u32
 from .armtoken import ThumbToken
 from ..arm.registers import R0, ArmRegister, SP
 
 
 # Instructions:
+isa = Isa()
 
 class ThumbInstruction(Instruction):
+    """ Base of all thumb instructions.
+    """
     tokens = [ThumbToken]
-    isa = Isa()
+    isa = isa
 
 
-class Dcd(ThumbInstruction):
-    def __init__(self, expr):
-        if isinstance(expr, int) or isinstance(expr, LabelAddress):
-            self.expr = expr
-        else:
-            raise NotImplementedError('{}'.format(expr))
+def Dcd(v):
+    if type(v) is str:
+        return Dcd2(v)
+    elif type(v) is int:
+        return Dcd1(v)
+    else:
+        raise NotImplementedError()
+
+
+class Dcd1(ThumbInstruction):
+    args = [('v', int)]
+    syntax = ['dcd', 0]
 
     def encode(self):
-        if type(self.expr) is int:
-            return u32(self.expr)
-        else:
-            return u32(0)
+        return u32(self.v)
+
+
+class Dcd2(ThumbInstruction):
+    args = [('v', str)]
+    syntax = ['dcd', '=', 0]
+
+    def encode(self):
+        return u32(0)
 
     def relocations(self):
-        if type(self.expr) is LabelAddress:
-            return [(self.expr.name, 'absaddr32')]
-        else:
-            return []
-
-    def __repr__(self):
-        if type(self.expr) is int:
-            return 'DCD 0x{0:X}'.format(self.expr)
-        else:
-            return 'DCD ={}'.format(self.expr.name)
+        return [(self.v, 'absaddr32')]
 
 
-class ConstantData(ThumbInstruction):
+class ConstantData():
     def __init__(self, v):
         super().__init__()
         assert isinstance(v, int)
         self.v = v
 
 
-class Db(ConstantData):
+class Db(ThumbInstruction):
+    args = [('v', int)]
+    syntax = ['db', 0]
+
     def encode(self):
         assert self.v < 256
         return bytes([self.v])
-
-    def __repr__(self):
-        return 'DB {}'.format(hex(self.v))
 
 
 class nop_ins(ThumbInstruction):
@@ -257,17 +262,14 @@ class regregreg_base(ThumbInstruction):
         at[9:16] = self.opcode
         return at.encode()
 
-    def __repr__(self):
-        return '{} {}, {}, {}'.format(self.mnemonic, self.rd, self.rn, self.rm)
-
 
 class Add3(regregreg_base):
-    mnemonic = 'ADD'
+    syntax = ['add', 0, ',', 1, ',', 2]
     opcode = 0b0001100
 
 
 class Sub3(regregreg_base):
-    mnemonic = 'SUB'
+    syntax = ['sub', 0, ',', 1, ',', 2]
     opcode = 0b0001101
 
 
@@ -306,9 +308,7 @@ class Mul(ThumbInstruction):
 
 class regreg_base(ThumbInstruction):
     """ ??? Rdn, Rm """
-    def __init__(self, rdn, rm):
-        self.rdn = rdn
-        self.rm = rm
+    args = [('rdn', ArmRegister), ('rm', ArmRegister)]
 
     def encode(self):
         at = ThumbToken()
@@ -318,33 +318,35 @@ class regreg_base(ThumbInstruction):
         at[6:16] = self.opcode
         return at.encode()
 
-    def __repr__(self):
-        mnemonic = self.__class__.__name__
-        return '{} {}, {}'.format(mnemonic, self.rdn, self.rm)
-
 
 class movregreg_ins(regreg_base):
     """ mov Rd, Rm (reg8 operands) """
+    syntax = ['mov', 0, ',', 1]
     opcode = 0
 
 
 class And(regreg_base):
+    syntax = ['and', 0, ',', 1]
     opcode = 0b0100000000
 
 
 class Orr(regreg_base):
+    syntax = ['orr', 0, ',', 1]
     opcode = 0b0100001100
 
 
 class Cmp(regreg_base):
+    syntax = ['cmp', 0, ',', 1]
     opcode = 0b0100001010
 
 
 class Lsl(regreg_base):
+    syntax = ['lsl', 0, ',', 1]
     opcode = 0b0100000010
 
 
 class Lsr(regreg_base):
+    syntax = ['lsr', 0, ',', 1]
     opcode = 0b0100000011
 
 
@@ -355,11 +357,10 @@ class Cmp2(ThumbInstruction):
     syntax = ['cmp', 0, ',', 1]
 
     def encode(self):
-        at = ThumbToken()
-        at[0:8] = self.imm
-        at[8:11] = self.rn.num
-        at[11:16] = self.opcode
-        return at.encode()
+        self.token[0:8] = self.imm
+        self.token[8:11] = self.rn.num
+        self.token[11:16] = self.opcode
+        return self.token.encode()
 
 
 # Jumping:
@@ -446,46 +447,52 @@ class cond_base_ins_long(jumpBase_ins):
 
 
 class Beq(cond_base_ins):
+    syntax = ['beq', 0]
     cond = 0
 
 
 class Bne(cond_base_ins):
+    syntax = ['bne', 0]
     cond = 1
 
 
 class Blt(cond_base_ins):
+    syntax = ['blt', 0]
     cond = 0b1011
 
 
 class Ble(cond_base_ins):
+    syntax = ['ble', 0]
     cond = 0b1101
 
 
 class Bgt(cond_base_ins):
+    syntax = ['bgt', 0]
     cond = 0b1100
 
 
 class Bge(cond_base_ins):
+    syntax = ['bge', 0]
     cond = 0b1010
 
 
 class Push(ThumbInstruction):
     args = [('regs', set)]
+    syntax = ['push', 0]
 
     def __repr__(self):
         return 'Push {{{}}}'.format(self.regs)
 
     def encode(self):
-        at = ThumbToken()
         for n in register_numbers(self.regs):
             if n < 8:
-                at[n] = 1
+                self.token[n] = 1
             elif n == 14:
-                at[8] = 1
+                self.token[8] = 1
             else:
                 raise NotImplementedError('not implemented for {}'.format(n))
-        at[9:16] = 0x5a
-        return at.encode()
+        self.token[9:16] = 0x5a
+        return self.token.encode()
 
 
 def register_numbers(regs):
@@ -495,6 +502,7 @@ def register_numbers(regs):
 
 class Pop(ThumbInstruction):
     args = [('regs', set)]
+    syntax = ['pop', 0]
 
     def __repr__(self):
         return 'Pop {{{}}}'.format(self.regs)

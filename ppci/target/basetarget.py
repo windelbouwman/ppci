@@ -9,9 +9,11 @@ import logging
 class Isa:
     def __init__(self):
         self.lower_funcs = {}
+        self.instructions = []
+        self.typ2nt = {}
 
     def register_instruction(self, i):
-        pass
+        self.instructions.append(i)
 
 
 class InsMeta(type):
@@ -24,7 +26,7 @@ class InsMeta(type):
     """
     def __init__(cls, name, bases, attrs):
         super(InsMeta, cls).__init__(name, bases, attrs)
-        print('META init', name, bases, attrs)
+        # print('META init', name, bases, attrs)
 
         # Generate constructor from args:
         if hasattr(cls, 'args'):
@@ -37,14 +39,13 @@ class InsMeta(type):
                 # Set parameters:
                 assert len(args) == len(formal_args)
                 for fa, a in zip(formal_args, args):
-                    assert isinstance(a, fa[1])
+                    assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
                     setattr(self, fa[0], a)
             setattr(cls, '__init__', _init_)
 
         # Define repr method:
         if hasattr(cls, 'syntax'):
             pass
-
             # Register assembler rule:
 
         # Register lowering functions:
@@ -58,6 +59,9 @@ class InsMeta(type):
 
 class Instruction(metaclass=InsMeta):
     """ Base instruction class """
+    def _get_tp(self, st):
+        pass
+
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or int, in refering
             to an element in the args list """
@@ -148,14 +152,6 @@ class Register:
         return self.num > other.num
 
 
-class LabelAddress:
-    def __init__(self, name):
-        self.name = name
-
-    def __eq__(self, other):
-        return type(self) is type(other) and self.name == other.name
-
-
 class Target:
     def __init__(self, name, desc=''):
         logging.getLogger().info('Creating {} target'.format(name))
@@ -168,47 +164,8 @@ class Target:
         # For lowering:
         self.lower_functions = {}
 
-        # For assembler:
-        self.assembler_rules = []
-        self.asm_keywords = []
-
-        self.generate_base_rules()
-
     def __repr__(self):
         return '{}-target'.format(self.name)
-
-    def generate_base_rules(self):
-        # Base rules for constants:
-        self.add_rule('imm32', ['val32'], lambda x: x[0].val)
-        self.add_rule('imm32', ['imm16'], lambda x: x[0])
-
-        self.add_rule('imm16', ['val16'], lambda x: x[0].val)
-        self.add_rule('imm16', ['imm12'], lambda x: x[0])
-
-        self.add_rule('imm12', ['val12'], lambda x: x[0].val)
-        self.add_rule('imm12', ['imm8'], lambda x: x[0])
-
-        self.add_rule('imm8', ['val8'], lambda x: x[0].val)
-        self.add_rule('imm8', ['imm5'], lambda x: x[0])
-
-        self.add_rule('imm5', ['val5'], lambda x: x[0].val)
-        self.add_rule('imm5', ['imm3'], lambda x: x[0])
-
-        self.add_rule('imm3', ['val3'], lambda x: x[0].val)
-
-    def add_keyword(self, kw):
-        self.asm_keywords.append(kw)
-
-    def add_instruction(self, rhs, f):
-        self.add_rule('instruction', rhs, f)
-
-    def add_rule(self, lhs, rhs, f):
-        if type(f) is int:
-            f2 = lambda x: f
-        else:
-            f2 = f
-        assert type(f2) in [types.FunctionType, types.MethodType]
-        self.assembler_rules.append((lhs, rhs, f2))
 
     def lower_frame_to_stream(self, frame, outs):
         """ Lower instructions from frame to output stream """

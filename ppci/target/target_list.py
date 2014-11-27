@@ -14,6 +14,6 @@ thumb_target = ThumbTarget()
 x86target = X86Target()
 msp430target = Msp430Target()
 
-target_list = [arm_target, thumb_target, x86target, msp430target]
+target_list = [arm_target, thumb_target, msp430target]
 targets = {t.name: t for t in target_list}
 targetnames = list(targets.keys())

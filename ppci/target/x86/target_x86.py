@@ -8,16 +8,6 @@ from .instructions import Mov, Inc, Xor, Push, Pop
 class X86Assembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
-        self.make_parser()
-
-
-class X86Target(Target):
-    """ x86 target containing assembler, linker"""
-    def __init__(self):
-        super().__init__('x86')
-
-        for reg in regs64:
-            self.add_keyword(reg.name)
 
         self.add_rule('reg', ['rax'], lambda rhs: rax)
         self.add_rule('reg', ['rcx'], lambda rhs: rcx)
@@ -35,6 +25,9 @@ class X86Target(Target):
         self.add_rule('reg', ['r13'], lambda rhs: r13)
         self.add_rule('reg', ['r14'], lambda rhs: r14)
         self.add_rule('reg', ['r15'], lambda rhs: r15)
+
+        for reg in regs64:
+            self.add_keyword(reg.name)
 
         self.add_keyword('mov')
         self.add_instruction(['mov', 'reg', ',', 'reg'],
@@ -55,5 +48,14 @@ class X86Target(Target):
         self.add_keyword('pop')
         self.add_instruction(['pop', 'reg'],
                              lambda rhs: Pop(rhs[1]))
+
+        # Generate parser from grammar:
+        self.parser.do_gen3()
+
+
+class X86Target(Target):
+    """ x86 target containing assembler, linker"""
+    def __init__(self):
+        super().__init__('x86')
 
         self.assembler = X86Assembler(self)

@@ -1,11 +1,15 @@
 
-from ..basetarget import Instruction, LabelAddress, Isa
+from ..basetarget import Instruction, Isa
 from ...bitfun import encode_imm32
 from .registers import R0, SP, ArmRegister
 from ..token import Token, u32, bit_range
 
 
 isa = Isa()
+isa.typ2nt[ArmRegister] = 'reg'
+isa.typ2nt[int] = 'imm32'
+isa.typ2nt[str] = 'strrr'
+isa.typ2nt[set] = 'reg_list'
 
 # Tokens:
 
@@ -44,30 +48,33 @@ class ConstantData(ArmInstruction):
         assert isinstance(v, int)
         self.v = v
 
+def Dcd(v):
+    if type(v) is int:
+        return Dcd1(v)
+    elif type(v) is str:
+        return Dcd2(v)
+    else:
+        raise NotImplementedError()
 
-class Dcd(ArmInstruction):
-    def __init__(self, v):
-        super().__init__()
-        assert isinstance(v, int) or isinstance(v, LabelAddress)
-        self.v = v
+class Dcd1(ArmInstruction):
+    args = [('v', int)]
+    syntax = ['dcd', 0]
 
     def encode(self):
-        if type(self.v) is int:
-            self.token[0:32] = self.v
-        else:
-            self.token[0:32] = 0
+        self.token[0:32] = self.v
+        return self.token.encode()
+
+
+class Dcd2(ArmInstruction):
+    args = [('v', str)]
+    syntax = ['dcd', '=', 0]
+
+    def encode(self):
+        self.token[0:32] = 0
         return self.token.encode()
 
     def relocations(self):
-        if type(self.v) is LabelAddress:
-            return [(self.v.name, 'absaddr32')]
-        return []
-
-    def __repr__(self):
-        if type(self.v) is int:
-            return 'DCD {}'.format(hex(self.v))
-        else:
-            return 'DCD ={}'.format(self.v.name)
+        return [(self.v, 'absaddr32')]
 
 
 class Db(ConstantData):
@@ -191,6 +198,7 @@ def Mul(*args):
 
 class Mul1(ArmInstruction):
     args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    syntax = ['mul', 0, ',', 1, ',', 2]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -392,9 +400,8 @@ def reg_list_to_mask(reg_list):
 
 
 class Push(ArmInstruction):
-    def __init__(self, register_set):
-        super().__init__()
-        self.reg_list = register_set
+    args = [('reg_list', set)]
+    syntax = ['push', 0]
 
     def encode(self):
         self.token.cond = AL
@@ -403,23 +410,16 @@ class Push(ArmInstruction):
         self.token[0:16] = reg_list_to_mask(self.reg_list)
         return self.token.encode()
 
-    def __repr__(self):
-        return 'PUSH {}'.format(self.reg_list)
-
 
 class Pop(ArmInstruction):
-    def __init__(self, register_set):
-        super().__init__()
-        self.reg_list = register_set
+    args = [('reg_list', set)]
+    syntax = ['pop', 0]
 
     def encode(self):
         self.token.cond = AL
         self.token[16:28] = 0b100010111101
         self.token[0:16] = reg_list_to_mask(self.reg_list)
         return self.token.encode()
-
-    def __repr__(self):
-        return 'POP {}'.format(self.reg_list)
 
 
 def Ldr(*args):
@@ -437,7 +437,7 @@ def Ldr(*args):
 
 def LdrPseudo(rt, lab, add_lit):
     """ Ldr rt, =lab ==> ldr rt, [pc, offset in litpool] ... dcd lab """
-    lit_lbl = add_lit(LabelAddress(lab))
+    lit_lbl = add_lit(lab)
     return Ldr(rt, lit_lbl)
 
 
@@ -467,15 +467,12 @@ class LdrStrBase(ArmInstruction):
             self.token[0:12] = -self.offset
         return self.token.encode()
 
-    def __repr__(self):
-        return '{} {}, [{}, {}]'.format(self.mnemonic, self.rt, self.rn,
-                hex(self.offset))
-
+# instruction: str reg ',' '[' 'reg' ',' 'reg' ']' { return Str(arg2, arg5, arg7) };
 
 class Str1(LdrStrBase):
     opcode = 0b010
     bit20 = 0
-    mnemonic = 'STR'
+    syntax = ['str', 0, ',', '[', 1, ',', 2, ']']
 
     @staticmethod
     def from_im(im):
@@ -485,7 +482,7 @@ class Str1(LdrStrBase):
 class Ldr1(LdrStrBase):
     opcode = 0b010
     bit20 = 1
-    mnemonic = 'LDR'
+    syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
 
     @staticmethod
     def from_im(im):
@@ -534,14 +531,8 @@ class Ldr3(ArmInstruction):
 
 class McrBase(ArmInstruction):
     """ Mov arm register to coprocessor register """
-    def __init__(self, coproc, opc1, rt, crn, crm, opc2):
-        super().__init__()
-        self.coproc = coproc
-        self.opc1 = opc1
-        self.rt = rt
-        self.crn = crn
-        self.crm = crm
-        self.opc2 = opc2
+    args = [('coproc', int), ('opc1', int), ('rt', ArmRegister), ('crn', int),
+            ('crm', int), ('opc2', int)]
 
     def encode(self):
         self.token[0:4] = self.crm

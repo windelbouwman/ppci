@@ -15,10 +15,9 @@ class Reg8Op(ArmRegister):
 
 
 def get_register(n):
-    for x in registers:
-        if x.num == n:
-            return x
-    raise Exception('No register found with this number')
+    """ Based on a number, get the corresponding register """
+    return num2regmap[n]
+
 
 def register_range(a, b):
     """ Return set of registers from a to b """
@@ -47,3 +46,5 @@ LR = ArmRegister(14, 'lr')
 PC = ArmRegister(15, 'pc')
 
 registers = [R0, R1, R2, R3, R4, R5, R6, R7, SP, LR, PC]
+num2regmap = {r.num: r for r in registers}
+

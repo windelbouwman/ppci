@@ -1,4 +1,4 @@
-from ..basetarget import Label, Alignment, LabelAddress
+from ..basetarget import Label, Alignment
 from ...irmach import AbstractInstruction, Frame, VirtualRegister
 from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
@@ -52,7 +52,7 @@ class ArmFrame(Frame):
 
         # Caller save registers:
         # R0 is filled with return value, do not save it, it will conflict.
-        self.emit(Push([R1, R2, R3, R4]))
+        self.emit(Push({R1, R2, R3, R4}))
 
         # Setup parameters:
         reg_uses = []
@@ -64,7 +64,7 @@ class ArmFrame(Frame):
             else:
                 raise NotImplementedError('Parameters in memory not impl')
         self.emit(Bl(label), src=reg_uses, dst=[self.rv])
-        self.emit(Pop([R1, R2, R3, R4]))
+        self.emit(Pop({R1, R2, R3, R4}))
         self.move(res_var, self.rv)
 
         # Restore caller save registers:
@@ -99,6 +99,7 @@ class ArmFrame(Frame):
         for lab_name, val in self.constants:
             if value == val:
                 return lab_name
+        assert type(value) in [str, int, bytes], str(value)
         lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
         self.literal_number += 1
         self.constants.append((lab_name, value))
@@ -126,7 +127,7 @@ class ArmFrame(Frame):
             if isinstance(v, int):
                 self.emit(Label(ln))
                 self.emit(Dcd(v))
-            elif isinstance(v, LabelAddress):
+            elif isinstance(v, str):
                 self.emit(Label(ln))
                 self.emit(Dcd(v))
             elif isinstance(v, bytes):

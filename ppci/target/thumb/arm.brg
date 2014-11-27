@@ -4,7 +4,6 @@ from ppci.target.thumb.instructions import Str2, Ldr2, Ldr3, Adr
 from ppci.target.thumb.instructions import B, Bl, Bgt, Blt, Beq, Bne, Bge, Bw
 from ppci.target.thumb.instructions import Mov2, Mov3, Sub3
 from ppci.target.thumb.instructions import Add3, Sub, Cmp, Sub2, Add2, Mul
-from ppci.target.basetarget import LabelAddress
 from ppci.irmach import AbstractInstruction
 
 %%
@@ -39,7 +38,7 @@ reg: MULI32(reg, reg) 2 'd = self.newTmp(); self.selector.move(d, c0); self.emit
 
 cn: CONSTI32                  0 'return tree.value'
 
-reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.addConstant(LabelAddress(tree.value)); self.emit(Ldr3, dst=[d], others=[ln]); return d'
+reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.addConstant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
 reg: CONSTI32         3 'd = self.newTmp(); ln = self.selector.frame.addConstant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
