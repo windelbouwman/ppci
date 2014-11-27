@@ -3,7 +3,7 @@ import types
 from ..basetarget import Register, Instruction, Target
 from ppci import CompilerError
 from .registers import r10, r11, r12, r13, r14, r15
-from .instructions import Reti, Mov, Add
+from .instructions import Reti, Mov, Add, isa
 from ...assembler import BaseAssembler
 
 
@@ -39,7 +39,7 @@ class Msp430Assembler(BaseAssembler):
             lambda rhs: Add(rhs[1], rhs[3]))
 
         self.add_keyword('reti')
-        self.add_instruction(['reti'], lambda rhs: Reti())
+        self.gen_asm_parser(isa)
 
 
 class Msp430Target(Target):

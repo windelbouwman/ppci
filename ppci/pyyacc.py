@@ -205,7 +205,7 @@ class Grammar:
 
     def add_state(self, s):
         pass
-        
+
     def gen_canonical_set(self, iis):
         states = set()
         worklist = []

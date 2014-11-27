@@ -1,6 +1,5 @@
 from ..basetarget import Register, Instruction, Target, Label, Alignment
-from .instructions import Add2, Sub, Sub3, Add3, Cmp, Lsl, Lsr, Orr, Add, Cmp2, Sub2, Mul, And
-from .instructions import Dcd, Pop, Push, Yield, Mov2, Mov3
+from .instructions import Dcd
 from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3, Adr
 from .instructions import isa
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
@@ -82,19 +81,10 @@ class ThumbTarget(Target):
         self.add_lowering(Str2, lambda im: Str2(im.src[1], im.src[0], im.others[0]))
         self.add_lowering(Ldr2, lambda im: Ldr2(im.dst[0], im.src[0], im.others[0]))
         self.add_lowering(Ldr3, lambda im: Ldr3(im.dst[0],  im.others[0]))
-        self.add_lowering(Adr, lambda im: Adr(im.dst[0],  im.others[0]))
-        self.add_lowering(Mov3, lambda im: Mov3(im.dst[0],  im.others[0]))
-        self.add_lowering(Add2, lambda im: Add2(im.dst[0], im.src[0], im.others[0]))
-        self.add_lowering(Sub2, lambda im: Sub2(im.dst[0], im.src[0], im.others[0]))
-        self.add_lowering(Mov2, lambda im: Mov2(im.dst[0], im.src[0]))
-        self.add_lowering(Add3, lambda im: Add3(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(Sub3, lambda im: Sub3(im.dst[0], im.src[0], im.src[1]))
-        self.add_lowering(Mul, lambda im: Mul(im.src[0], im.dst[0]))
-        self.add_lowering(And, lambda im: And(im.src[0], im.src[1]))
-        self.add_lowering(Orr, lambda im: Orr(im.src[0], im.src[1]))
-        self.add_lowering(Lsl, lambda im: Lsl(im.src[0], im.src[1]))
-        self.add_lowering(Lsr, lambda im: Lsr(im.src[0], im.src[1]))
-        self.add_lowering(Cmp, lambda im: Cmp(im.src[0], im.src[1]))
+
+        # Grab lowerings from isa:
+        for k, v in isa.lower_funcs.items():
+            self.add_lowering(k, v)
 
         self.assembler = ThumbAssembler(self)
         self.reloc_map = reloc_map

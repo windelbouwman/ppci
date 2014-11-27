@@ -1,4 +1,4 @@
-from ..basetarget import Register, Instruction, Isa
+from ..basetarget import Instruction, Isa
 from ..token import u16, u32
 from .armtoken import ThumbToken
 from ..arm.registers import R0, ArmRegister, SP
@@ -136,9 +136,6 @@ class Ldr3(ThumbInstruction):
         h = (0x9 << 11) | (rt << 8) | imm8
         return u16(h)
 
-    def __repr__(self):
-        return 'LDR {}, {}'.format(self.rt, self.label)
-
 
 class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
@@ -165,6 +162,10 @@ class Adr(ThumbInstruction):
         self.token[11:16] = 0b10100
         return self.token.encode()
 
+    @staticmethod
+    def from_im(im):
+        return Adr(im.dst[0], im.others[0])
+
 
 class Mov3(ThumbInstruction):
     """ mov Rd, imm8, move immediate value into register """
@@ -179,6 +180,9 @@ class Mov3(ThumbInstruction):
         self.token[11:16] = self.opcode
         return self.token.encode()
 
+    @staticmethod
+    def from_im(im):
+        return Mov3(im.dst[0], im.others[0])
 
 # Arithmatics:
 
@@ -195,21 +199,25 @@ class regregimm3_base(ThumbInstruction):
         self.token[9:16] = self.opcode
         return self.token.encode()
 
-    def __repr__(self):
-        mnemonic = self.__class__.__name__
-        return '{} {}, {}, {}'.format(mnemonic, self.rd, self.rn, self.imm3)
-
 
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
     syntax = ['add', 0, ',', 1, ',', 2]
     opcode = 0b0001110
 
+    @staticmethod
+    def from_im(im):
+        return Add2(im.dst[0], im.src[0], im.others[0])
+
 
 class Sub2(regregimm3_base):
     """ sub Rd, Rn, imm3 """
     syntax = ['sub', 0, ',', 1, ',', 2]
     opcode = 0b0001111
+
+    @staticmethod
+    def from_im(im):
+        return Sub2(im.dst[0], im.src[0], im.others[0])
 
 
 def Sub(*args):
@@ -255,10 +263,18 @@ class Add3(regregreg_base):
     syntax = ['add', 0, ',', 1, ',', 2]
     opcode = 0b0001100
 
+    @staticmethod
+    def from_im(im):
+        return Add3(im.dst[0], im.src[0], im.src[1])
+
 
 class Sub3(regregreg_base):
     syntax = ['sub', 0, ',', 1, ',', 2]
     opcode = 0b0001101
+
+    @staticmethod
+    def from_im(im):
+        return Sub3(im.dst[0], im.src[0], im.src[1])
 
 
 class Mov2(ThumbInstruction):
@@ -267,15 +283,18 @@ class Mov2(ThumbInstruction):
     syntax = ['mov', 0, ',', 1]
 
     def encode(self):
-        at = ThumbToken()
-        at.rd = self.rd.num & 0x7
+        self.token.rd = self.rd.num & 0x7
         D = (self.rd.num >> 3) & 0x1
         Rm = self.rm.num
         opcode = 0b01000110
-        at[8:16] = opcode
-        at[3:7] = Rm
-        at[7] = D
-        return at.encode()
+        self.token[8:16] = opcode
+        self.token[3:7] = Rm
+        self.token[7] = D
+        return self.token.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Mov2(im.dst[0], im.src[0])
 
 
 class Mul(ThumbInstruction):
@@ -284,14 +303,17 @@ class Mul(ThumbInstruction):
     syntax = ['mul', 0, ',', 1]
 
     def encode(self):
-        at = ThumbToken()
         rn = self.rn.num
-        at.rd = self.rdm.num
+        self.token.rd = self.rdm.num
         opcode = 0b0100001101
         #h = (opcode << 6) | (rn << 3) | rdm
-        at[6:16] = opcode
-        at[3:6] = rn
-        return at.encode()
+        self.token[6:16] = opcode
+        self.token[3:6] = rn
+        return self.token.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Mul(im.src[0], im.dst[0])
 
 
 class regreg_base(ThumbInstruction):
@@ -299,42 +321,61 @@ class regreg_base(ThumbInstruction):
     args = [('rdn', ArmRegister), ('rm', ArmRegister)]
 
     def encode(self):
-        at = ThumbToken()
-        at.rd = self.rdn.num
+        self.token.rd = self.rdn.num
         rm = self.rm.num
-        at[3:6] = rm
-        at[6:16] = self.opcode
-        return at.encode()
+        self.token[3:6] = rm
+        self.token[6:16] = self.opcode
+        return self.token.encode()
 
 
 class And(regreg_base):
     syntax = ['and', 0, ',', 1]
     opcode = 0b0100000000
 
+    @staticmethod
+    def from_im(im):
+        return And(im.src[0], im.src[1])
+
 
 class Orr(regreg_base):
     syntax = ['orr', 0, ',', 1]
     opcode = 0b0100001100
+
+    @staticmethod
+    def from_im(im):
+        return Orr(im.src[0], im.src[1])
 
 
 class Cmp(regreg_base):
     syntax = ['cmp', 0, ',', 1]
     opcode = 0b0100001010
 
+    @staticmethod
+    def from_im(im):
+        return Cmp(im.src[0], im.src[1])
+
 
 class Lsl(regreg_base):
     syntax = ['lsl', 0, ',', 1]
     opcode = 0b0100000010
+
+    @staticmethod
+    def from_im(im):
+        return Lsl(im.src[0], im.src[1])
 
 
 class Lsr(regreg_base):
     syntax = ['lsr', 0, ',', 1]
     opcode = 0b0100000011
 
+    @staticmethod
+    def from_im(im):
+        return Lsr(im.src[0], im.src[1])
+
 
 class Cmp2(ThumbInstruction):
     """ cmp Rn, imm8 """
-    opcode = 5 # 00101
+    opcode = 5   # 00101
     args = [('rn', ArmRegister), ('imm', int)]
     syntax = ['cmp', 0, ',', 1]
 

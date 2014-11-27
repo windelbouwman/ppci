@@ -1,8 +1,10 @@
 
-from ..basetarget import Register, Instruction, Target
+from ..basetarget import Register, Instruction, Target, Isa
 from ..token import Token, u16, bit_range
 from .registers import Msp430Register
 
+isa = Isa()
+isa.typ2nt[Msp430Register] = 'reg'
 
 class Msp430Token(Token):
     def __init__(self):
@@ -53,12 +55,17 @@ class Msp430SourceOperand(Msp430Operand):
 
 
 class Msp430Instruction(Instruction):
+    isa = isa
     b = 0
+    tokens = [Msp430Token]
+
     def __init__(self):
         self.token = Msp430Token()
 
 
 class Reti(Msp430Instruction):
+    syntax = ['reti']
+
     def encode(self):
         self.token[0:16] = 0x1300
         return self.token.encode()
