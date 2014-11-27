@@ -6,6 +6,11 @@ from ..arm.registers import R0, ArmRegister, SP
 
 # Instructions:
 isa = Isa()
+isa.typ2nt[ArmRegister] = 'reg'
+isa.typ2nt[int] = 'imm32'
+isa.typ2nt[str] = 'strrr'
+isa.typ2nt[set] = 'reg_list'
+
 
 class ThumbInstruction(Instruction):
     """ Base of all thumb instructions.
@@ -70,37 +75,29 @@ class nop_ins(ThumbInstruction):
 
 class LS_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    def __init__(self, rt, rn, imm5):
-        assert imm5 % 4 == 0
-        self.imm5 = imm5 >> 2
-        self.rn = rn
-        self.rt = rt
-        assert self.rn.num < 8
-        assert self.rt.num < 8
-        self.token = ThumbToken()
+    args = [('rt', ArmRegister), ('rn', ArmRegister), ('imm5', int)]
 
     def encode(self):
+        assert self.imm5 % 4 == 0
+        assert self.rn.num < 8
+        assert self.rt.num < 8
         Rn = self.rn.num
         Rt = self.rt.num
-        imm5 = self.imm5
+        imm5 = self.imm5 >> 2
         self.token[0:3] = Rt
         self.token[3:6] = Rn
         self.token[6:11] = imm5
         self.token[11:16] = self.opcode
         return self.token.encode()
 
-    def __repr__(self):
-        return '{} {}, [{}, {}]'.format(self.mnemonic, self.rt, self.rn,
-                                        self.imm5)
-
 
 class Str2(LS_imm5_base):
-    mnemonic = "STR"
+    syntax = ['str', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0xC
 
 
 class Ldr2(LS_imm5_base):
-    mnemonic = "LDR"
+    syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0xD
 
 
@@ -115,10 +112,6 @@ class ls_sp_base_imm8(ThumbInstruction):
         h = (self.opcode << 8) | (rt << 8) | imm8
         return u16(h)
 
-    def __repr__(self):
-        mnemonic = self.__class__.__name__
-        return '{} {}, [sp,#{}]'.format(mnemonic, self.rt, self.offset)
-
 
 def Ldr(*args):
     if len(args) == 2 and isinstance(args[0], ArmRegister) \
@@ -131,6 +124,7 @@ def Ldr(*args):
 class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
     args = [('rt', ArmRegister), ('label', str)]
+    syntax = ['ldr', 0, ',', 1]
 
     def relocations(self):
         return [(self.label, 'lit_add_8')]
@@ -149,11 +143,13 @@ class Ldr3(ThumbInstruction):
 class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
     opcode = 0x98
+    syntax = ['ldr', 0, ',', '[', 'sp', ',', 1, ']']
 
 
 class Str1(ls_sp_base_imm8):
     """ str Rt, [SP, imm8] """
     opcode = 0x90
+    syntax = ['str', 0, ',', '[', 'sp', ',', 1, ']']
 
 
 class Adr(ThumbInstruction):
@@ -173,11 +169,8 @@ class Adr(ThumbInstruction):
 class Mov3(ThumbInstruction):
     """ mov Rd, imm8, move immediate value into register """
     opcode = 4   # 00100 Rd(3) imm8
-    def __init__(self, rd, imm):
-        assert imm < 256
-        self.imm = imm
-        self.rd = rd
-        self.token = ThumbToken()
+    args = [('rd', ArmRegister), ('imm', int)]
+    syntax = ['mov', 0, ',', 1]
 
     def encode(self):
         rd = self.rd.num
@@ -186,22 +179,15 @@ class Mov3(ThumbInstruction):
         self.token[11:16] = self.opcode
         return self.token.encode()
 
-    def __repr__(self):
-        return 'MOV {}, {}'.format(self.rd, self.imm)
-
 
 # Arithmatics:
 
 
 class regregimm3_base(ThumbInstruction):
-    def __init__(self, rd, rn, imm3):
-        self.rd = rd
-        self.rn = rn
-        assert imm3 < 8
-        self.imm3 = imm3
-        self.token = ThumbToken()
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('imm3', int)]
 
     def encode(self):
+        assert self.imm3 < 8
         rd = self.rd.num
         self.token[0:3] = rd
         self.token[3:6] = self.rn.num
@@ -216,11 +202,13 @@ class regregimm3_base(ThumbInstruction):
 
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
+    syntax = ['add', 0, ',', 1, ',', 2]
     opcode = 0b0001110
 
 
 class Sub2(regregimm3_base):
     """ sub Rd, Rn, imm3 """
+    syntax = ['sub', 0, ',', 1, ',', 2]
     opcode = 0b0001111
 
 
@@ -274,7 +262,7 @@ class Sub3(regregreg_base):
 
 
 class Mov2(ThumbInstruction):
-    """ mov rd, rm """
+    """ mov rd, rm (all registers, also > r7 """
     args = [('rd', ArmRegister), ('rm', ArmRegister)]
     syntax = ['mov', 0, ',', 1]
 
@@ -317,12 +305,6 @@ class regreg_base(ThumbInstruction):
         at[3:6] = rm
         at[6:16] = self.opcode
         return at.encode()
-
-
-class movregreg_ins(regreg_base):
-    """ mov Rd, Rm (reg8 operands) """
-    syntax = ['mov', 0, ',', 1]
-    opcode = 0
 
 
 class And(regreg_base):
@@ -525,27 +507,22 @@ class Yield(ThumbInstruction):
     def encode(self):
         return u16(0xbf10)
 
-# misc:
 
-# add/sub SP:
 class addspsp_base(ThumbInstruction):
-    def __init__(self, imm7):
-        assert imm7 < 512
-        self.imm7 = imm7
-        assert self.imm7 % 4 == 0
-        self.imm7 >>= 2
+    """ add/sub SP with imm7 << 2 """
+    args = [('imm7', int)]
 
     def encode(self):
-        return u16((self.opcode << 7) | self.imm7)
-
-    def __repr__(self):
-        mnemonic = self.__class__.__name__
-        return '{} sp, sp, {}'.format(mnemonic, self.imm7 << 2)
+        assert self.imm7 < 512
+        assert self.imm7 % 4 == 0
+        return u16((self.opcode << 7) | self.imm7 >> 2)
 
 
 class AddSp(addspsp_base):
+    syntax = ['add', 'sp', ',', 'sp', ',', 0]
     opcode = 0b101100000
 
 
 class SubSp(addspsp_base):
+    syntax = ['sub', 'sp', ',', 'sp', ',', 0]
     opcode = 0b101100001

@@ -131,6 +131,7 @@ class Grammar:
         """
         def a(el):
             return [el]
+
         def b(ls, el):
             ls.append(el)
             return ls
@@ -269,7 +270,9 @@ class Grammar:
                     else:
                         a1 = str(action)
                         a2 = str(action2)
-                        raise ParserGenerationException('LR construction conflict {0} vs {1}'.format(a1, a2))
+                        prod = self.productions[action.rule]
+                        prod2 = self.productions[action2.rule]
+                        raise ParserGenerationException('LR construction conflict {} vs {} ({} vs {})'.format(a1, a2, prod, prod2))
             else:
                 action_table[key] = action
 
@@ -305,8 +308,7 @@ class Production:
         self.f = f
 
     def __repr__(self):
-        action = ' ' + str(self.f) if self.f else ''
-        return '{0} -> {1}'.format(self.name, self.symbols) + action
+        return '{0} -> {1}'.format(self.name, self.symbols)
 
 
 class Item:
@@ -386,7 +388,7 @@ class LRParser:
         while stack != [0, self.start_symbol, 0]:
             state = stack[-1]   # top of stack
             key = (state, look_ahead.typ)
-            if not key in self.action_table:
+            if key not in self.action_table:
                 raise ParserException('Error parsing at character {0}'.format(look_ahead))
             action = self.action_table[key]
             if type(action) is Reduce:

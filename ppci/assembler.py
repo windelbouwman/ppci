@@ -1,9 +1,9 @@
 
-import re
 from . import pyyacc
 from .baselex import BaseLexer
 from . import Token, CompilerError, SourceLocation, make_num
 from .target import Target, Label
+from .target.basetarget import Alignment
 
 
 def bit_type(value):
@@ -84,13 +84,9 @@ class AsmParser:
         self.add_rule('imm5', ['imm3'], lambda rhs: rhs[0])
         self.add_rule('imm3', ['val3'], lambda rhs: rhs[0].val)
 
-        #g.add_production('instruction', [])
         g.start_symbol = 'asmline'
         self.emit = emit
         # print('length of table:', len(self.p.action_table))
-
-    def do_gen3(self):
-        self.p = self.g.generate_parser()
 
     def add_rule(self, prod, rhs, f):
         """ Helper function to add a rule, why this is required? """
@@ -123,6 +119,8 @@ class AsmParser:
 
     def parse(self, lexer):
         """ Entry function to parser """
+        if not hasattr(self, 'p'):
+            self.p = self.g.generate_parser()
         self.p.parse(lexer)
 
 
@@ -134,10 +132,13 @@ class BaseAssembler:
         self.inMacro = False
         self.parser = AsmParser(self.emit)
         self.lexer = AsmLexer()
+
+        # Common parser rules:
         self.add_keyword('repeat')
         self.add_keyword('endrepeat')
         self.add_keyword('section')
-
+        self.add_keyword('align')
+        self.add_instruction(['align', 'imm8'], lambda rhs: Alignment(rhs[1]))
 
     def add_keyword(self, kw):
         self.parser.g.add_terminal(kw)
@@ -174,9 +175,6 @@ class BaseAssembler:
                         raise Exception()
                 cls = i
                 self.gen_i_rule(cls, arg_idx, rhs)
-
-    def add_instruction(self, rhs, f):
-        self.parser.add_rule('instruction', rhs, f)
 
     def prepare(self):
         self.inMacro = False

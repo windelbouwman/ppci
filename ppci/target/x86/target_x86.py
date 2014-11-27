@@ -49,9 +49,6 @@ class X86Assembler(BaseAssembler):
         self.add_instruction(['pop', 'reg'],
                              lambda rhs: Pop(rhs[1]))
 
-        # Generate parser from grammar:
-        self.parser.do_gen3()
-
 
 class X86Target(Target):
     """ x86 target containing assembler, linker"""

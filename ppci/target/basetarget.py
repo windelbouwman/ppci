@@ -7,6 +7,15 @@ import logging
 
 
 class Isa:
+    """
+        Container type for an instruction set.
+        Contains a list of instructions, mappings from intermediate code
+        to instructions.
+
+        Isa's can be merged into new isa's which can be used to define target.
+        For example the arm without FPU can be combined with the FPU isa
+        to expand the supported functions.
+    """
     def __init__(self):
         self.lower_funcs = {}
         self.instructions = []
@@ -54,7 +63,7 @@ class InsMeta(type):
 
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
-            cls.isa.register_instruction(cls)
+            cls.isa.instructions.append(cls)
 
 
 class Instruction(metaclass=InsMeta):

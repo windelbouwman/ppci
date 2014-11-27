@@ -12,7 +12,6 @@ isa.typ2nt[str] = 'strrr'
 isa.typ2nt[set] = 'reg_list'
 
 # Tokens:
-
 class ArmToken(Token):
     def __init__(self):
         super().__init__(32)
@@ -390,7 +389,6 @@ class Bne(BranchBase):
     cond = NE
     syntax = ['bne', 0]
 
-# Memory:
 
 def reg_list_to_mask(reg_list):
     mask = 0
@@ -406,7 +404,6 @@ class Push(ArmInstruction):
     def encode(self):
         self.token.cond = AL
         self.token[16:28] = 0b100100101101
-        reg_list = 0
         self.token[0:16] = reg_list_to_mask(self.reg_list)
         return self.token.encode()
 
@@ -550,7 +547,9 @@ class McrBase(ArmInstruction):
 
 class Mcr(McrBase):
     b20 = 0
+    syntax = ['mcr', 0, ',', 1, ',', 2, ',', 3, ',', 4, ',', 5]
 
 
 class Mrc(McrBase):
     b20 = 1
+    syntax = ['mrc', 0, ',', 1, ',', 2, ',', 3, ',', 4, ',', 5]

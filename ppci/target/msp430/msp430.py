@@ -40,13 +40,11 @@ class Msp430Assembler(BaseAssembler):
 
         self.add_keyword('reti')
         self.add_instruction(['reti'], lambda rhs: Reti())
-        self.parser.do_gen3()
 
 
 class Msp430Target(Target):
     def __init__(self):
         super().__init__('msp430')
-
 
         self.assembler = Msp430Assembler(self)
 
@@ -56,5 +54,4 @@ class Msp430Target(Target):
         self.registers.append(r13)
         self.registers.append(r14)
         self.registers.append(r15)
-
 

@@ -3,16 +3,13 @@ from ..basetarget import Target, Label
 from .instructions import LdrPseudo, isa
 from .selector import ArmInstructionSelector
 from .frame import ArmFrame
-from ...assembler import BaseAssembler, AsmLexer, AsmParser
+from ...assembler import BaseAssembler
 
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC
 from ..arm.registers import register_range
 
 from .instructions import Dcd, Mov, Mov1, Add, Add2, Sub, Orr1, Mul, Mov2
-from .instructions import Add1, Mul1
-from .instructions import Lsr1, Lsl1, And1, Sub1
-from .instructions import B, Bl, Ble, Bgt, Beq, Blt, Cmp, Cmp2
 from .instructions import Push, Pop, Str, Ldr, Ldr3, Str1, Ldr1, Adr
 from .instructions import Mcr, Mrc
 from .relocations import reloc_map
@@ -39,8 +36,6 @@ class ArmAssembler(BaseAssembler):
         self.add_extra_rules(self.parser)
         self.parser.g.add_terminals(kws)
         self.lexer.kws |= set(kws)
-
-        self.parser.do_gen3()
 
         self.lit_pool = []
         self.lit_counter = 0
