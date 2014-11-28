@@ -1,4 +1,4 @@
 
 
-from .armtarget import ThumbTarget
+from .target import ThumbTarget
 

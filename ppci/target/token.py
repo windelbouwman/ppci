@@ -31,7 +31,7 @@ def bit_range(b, e):
 
 
 class Token:
-    # __slots__ = ['a']
+    __slots__ = ['mask', 'bitsize', 'bit_value']
 
     def __init__(self, bitsize):
         self.bitsize = bitsize
