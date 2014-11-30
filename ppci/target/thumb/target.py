@@ -1,6 +1,5 @@
 from ..basetarget import Register, Instruction, Target, Label, Alignment
-from .instructions import Dcd
-from .instructions import Ldr, Str2, Ldr2, Str1, Ldr1, Ldr3, Adr
+from .instructions import Dcd, Ldr3
 from .instructions import isa
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC, register_range
@@ -29,7 +28,7 @@ class ThumbAssembler(BaseAssembler):
             "lsl", "lsr", "orr", "and",
             "push", "pop", "b", "bl", "blt", "ble", "bgt", "beq",
             "bne", "bge", 'bw',
-            "ldr", "str", "adr"
+            "ldr", "str", "adr", "strb", "ldrb"
             ]
         self.parser.assembler = self
         self.gen_asm_parser(isa)
@@ -78,8 +77,6 @@ class ThumbTarget(Target):
         self.FrameClass = ArmFrame
 
         # Add lowering options:
-        self.add_lowering(Str2, lambda im: Str2(im.src[1], im.src[0], im.others[0]))
-        self.add_lowering(Ldr2, lambda im: Ldr2(im.dst[0], im.src[0], im.others[0]))
         self.add_lowering(Ldr3, lambda im: Ldr3(im.dst[0],  im.others[0]))
 
         # Grab lowerings from isa:

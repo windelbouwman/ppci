@@ -11,6 +11,7 @@ isa.typ2nt[int] = 'imm32'
 isa.typ2nt[str] = 'strrr'
 isa.typ2nt[set] = 'reg_list'
 
+
 # Tokens:
 class ArmToken(Token):
     def __init__(self):
@@ -54,6 +55,7 @@ def Dcd(v):
         return Dcd2(v)
     else:
         raise NotImplementedError()
+
 
 class Dcd1(ArmInstruction):
     args = [('v', int)]
@@ -277,7 +279,7 @@ class ShiftBase(ArmInstruction):
         self.token[12:16] = self.rd.num
         self.token.S = 0  # Set flags
         self.token[21:28] = 0b1101
-        self.token.cond = 0xE  # Always!
+        self.token.cond = AL
         return self.token.encode()
 
 
@@ -308,9 +310,9 @@ class OpRegRegImm(ArmInstruction):
         self.token[0:12] = encode_imm32(self.imm)
         self.token.Rd = self.rd.num
         self.token.Rn = self.rn.num
-        self.token.S = 0 # Set flags
+        self.token.S = 0  # Set flags
         self.token[21:28] = self.opcode
-        self.token.cond = 0xE # Always!
+        self.token.cond = AL
         return self.token.encode()
 
 
@@ -453,6 +455,7 @@ class LdrStrBase(ArmInstruction):
         self.token.cond = AL
         self.token.Rn = self.rn.num
         self.token[25:28] = self.opcode
+        self.token[22] = self.bit22
         self.token[20] = self.bit20
         self.token[12:16] = self.rt.num
         self.token[24] = 1  # Index
@@ -465,10 +468,10 @@ class LdrStrBase(ArmInstruction):
         return self.token.encode()
 
 # instruction: str reg ',' '[' 'reg' ',' 'reg' ']' { return Str(arg2, arg5, arg7) };
-
 class Str1(LdrStrBase):
     opcode = 0b010
     bit20 = 0
+    bit22 = 0
     syntax = ['str', 0, ',', '[', 1, ',', 2, ']']
 
     @staticmethod
@@ -479,11 +482,36 @@ class Str1(LdrStrBase):
 class Ldr1(LdrStrBase):
     opcode = 0b010
     bit20 = 1
+    bit22 = 0
     syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
 
     @staticmethod
     def from_im(im):
         return Ldr1(im.dst[0], im.src[0], im.others[0])
+
+
+class Strb(LdrStrBase):
+    """ ldrb rt, [rn, offset] # Store byte at address """
+    opcode = 0b010
+    bit20 = 0
+    bit22 = 1
+    syntax = ['strb', 0, ',', '[', 1, ',', 2, ']']
+
+    @staticmethod
+    def from_im(im):
+        return Strb(im.src[1], im.src[0], im.others[0])
+
+
+class Ldrb(LdrStrBase):
+    """ ldrb rt, [rn, offset] """
+    opcode = 0b010
+    bit20 = 1
+    bit22 = 1
+    syntax = ['ldrb', 0, ',', '[', 1, ',', 2, ']']
+
+    @staticmethod
+    def from_im(im):
+        return Ldrb(im.dst[0], im.src[0], im.others[0])
 
 
 class Adr(ArmInstruction):

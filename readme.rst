@@ -46,6 +46,8 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 +-------------------------------+---------------------------------------------+
 | Development status            | |devstate|_                                 |
 +-------------------------------+---------------------------------------------+
+| Open hub                      | openhub_                                    |
++-------------------------------+---------------------------------------------+
 | Documentation                 | |docstate|_                                 |
 +-------------------------------+---------------------------------------------+
 | Current release               | |version|_                                  |
@@ -60,10 +62,7 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 +-------------------------------+---------------------------------------------+
 
 
-.. raw:: html
-
-    <script type="text/javascript" src="http://www.openhub.net/p/720341/widgets/project_basic_stats.js"></script>
-
+.. _openhub: https://www.openhub.net/p/ppci
 
 .. |downloads| image:: https://pypip.in/download/ppci/badge.svg
 .. _downloads: https://pypi.python.org/pypi/ppci

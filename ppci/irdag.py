@@ -33,6 +33,8 @@ def make_map(cls):
     setattr(cls, 'f_map', f_map)
     return cls
 
+def type_postfix(t):
+    return str(t).upper()
 
 @make_map
 class Dagger:
@@ -96,7 +98,8 @@ class Dagger:
     @register(ir.Load)
     def do_load(self, node):
         address = self.lut[node.address]
-        tree = Tree('MEMI32', address)
+        assert node.ty in [ir.i32, ir.i8]
+        tree = Tree('MEM'+type_postfix(node.ty), address)
 
         # Create copy if required:
         self.copy_val(node, tree)
@@ -105,7 +108,9 @@ class Dagger:
     def do_store(self, node):
         address = self.lut[node.address]
         value = self.lut[node.value]
-        tree = Tree('MOVI32', Tree('MEMI32', address), value)
+        assert node.value.ty in [ir.i32, ir.i8]
+        ty = type_postfix(node.value.ty)
+        tree = Tree('MOV'+ty, Tree('MEM'+ty, address), value)
         self.dag.append(tree)
 
     @register(ir.Const)
@@ -127,8 +132,8 @@ class Dagger:
     def do_binop(self, node):
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
                  '*': 'MUL', '&': 'AND', '>>': 'SHR'}
-        op = names[node.operation] + str(node.ty).upper()
-        assert node.ty == ir.i32
+        op = names[node.operation] + 'I32'
+        assert node.ty in [ir.i32, ir.i8]
         a = self.lut[node.a]
         b = self.lut[node.b]
         tree = Tree(op, a, b)

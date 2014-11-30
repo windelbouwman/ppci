@@ -9,9 +9,7 @@ from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC
 from ..arm.registers import register_range
 
-from .instructions import Dcd, Mov, Mov1, Add, Add2, Sub, Orr1, Mul, Mov2
-from .instructions import Push, Pop, Str, Ldr, Ldr3, Str1, Ldr1, Adr
-from .instructions import Mcr, Mrc
+from .instructions import Dcd, Adr, Mcr, Mrc
 from .relocations import reloc_map
 
 
@@ -20,17 +18,19 @@ class ArmAssembler(BaseAssembler):
         super().__init__(target)
 
         kws = [
-                "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "sp", "lr", "pc",
-                "dcd",
-                "nop", "mov", "cmp", "add", "sub", "mul",
-                "lsl", "lsr", "orr", "and",
-                "push", "pop", "b", "bl",
-                "blt", "ble", "bgt", "beq", "bge", "bne",
-                "ldr", "str", "adr",
-                "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10", "c11", "c12", "c13", "c14", "c15",
-                "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15",
-                "mcr", "mrc"
-              ]
+            "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+            "r10", "r11", "r12", "sp", "lr", "pc",
+            "dcd",
+            "nop", "mov", "cmp", "add", "sub", "mul",
+            "lsl", "lsr", "orr", "and",
+            "push", "pop", "b", "bl",
+            "blt", "ble", "bgt", "beq", "bge", "bne",
+            "ldr", "str", "adr", 'ldrb', 'strb',
+            "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9",
+            "c10", "c11", "c12", "c13", "c14", "c15",
+            "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15",
+            "mcr", "mrc"
+            ]
         self.parser.assembler = self
         self.gen_asm_parser(isa)
         self.add_extra_rules(self.parser)
@@ -104,7 +104,6 @@ class ArmAssembler(BaseAssembler):
             lambda rhs: Mcr(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
         parser.add_rule('instruction', ['mrc', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
             lambda rhs: Mrc(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
-
 
     def select_section(self, name):
         self.flush()

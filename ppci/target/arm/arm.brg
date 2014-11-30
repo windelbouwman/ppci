@@ -3,7 +3,7 @@ from ppci.target.arm.instructions import Add1, Add2, Sub1, Mul1
 from ppci.target.arm.instructions import Ldr1, Ldr3, Adr
 from ppci.target.arm.instructions import And1, Lsr1, Lsl1, Mov1
 from ppci.target.arm.instructions import B, Bl, Blt, Bgt, Beq, Bne, Cmp2, Ble, Bge
-from ppci.target.arm.instructions import Str1
+from ppci.target.arm.instructions import Str1, Strb, Ldrb
 from ppci.irmach import AbstractInstruction
 
 %%
@@ -11,6 +11,7 @@ from ppci.irmach import AbstractInstruction
 %terminal ADDI32 SUBI32 MULI32 ADR
 %terminal ORI32 SHLI32 SHRI32 ANDI32
 %terminal CONSTI32 CONSTDATA MEMI32 REGI32
+%terminal MEMI8 MOVI8
 %terminal CALL GLOBALADDRESS
 %terminal MOVI32
 %terminal JMP CJMP
@@ -18,6 +19,7 @@ from ppci.irmach import AbstractInstruction
 %%
 
 stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str1, others=[0], src=[c0, c1])'
+stm: MOVI8(MEMI8(reg), reg)   2 'self.emit(Strb, others=[0], src=[c0, c1])'
 stm: MOVI32(MEMI32(ADDI32(reg, cn)), reg) 2 'self.emit(Str1, others=[c1], src=[c0, c2])'
 stm: MOVI32(reg, reg)         99 'self.selector.move(c0, c1)'
 stm: JMP                      2 'label, tgt = tree.value; self.emit(B(label), jumps=[tgt])'
@@ -35,6 +37,7 @@ reg: SHRI32(reg, reg)         2 'd = self.newTmp(); self.emit(Lsr1, dst=[d], src
 
 reg: MEMI32(ADDI32(reg, cn))  2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[c1]); return d'
 reg: MEMI32(reg)              2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[0]); return d'
+reg: MEMI8(reg)               2 'd = self.newTmp(); self.emit(Ldrb, dst=[d], src=[c0], others=[0]); return d'
 reg: GLOBALADDRESS            2 'd = self.newTmp(); ln = self.selector.frame.add_constant(tree.value); self.emit(Ldr3, dst=[d], others=[ln]); return d'
 
 cn: CONSTI32                  0 'return tree.value'

@@ -100,6 +100,14 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldr r5, [r3, 87]')
         self.check('575093e5')
 
+    def testStrb(self):
+        self.feed('strb r2, [r8, 11]')
+        self.check('0b20c8e5')
+
+    def testLdrb(self):
+        self.feed('ldrb r5, [r3, 87]')
+        self.check('5750d3e5')
+
     def testLdrLabel(self):
         self.feed('ldr r5, lab1')
         self.feed('ldr r11, lab1')

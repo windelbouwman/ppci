@@ -35,7 +35,7 @@ class BrainFuckGenerator():
         ptr_var = self.builder.emit(ir.Alloc('ptr_addr', ir.i32))
 
         # Construct global array:
-        array_type = ir.ArrayType(ir.i32, 30000)
+        array_type = ir.ArrayType(ir.i8, 30000)
         data = ir.Variable('data', array_type)
         self.builder.m.add_variable(data)
 
@@ -89,15 +89,15 @@ class BrainFuckGenerator():
                 # data[ptr]++;
                 if cell_addr is None:
                     cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i32))
-                add_ins = self.builder.emit(ir.Add(val_ins, one_ins, "Added", ir.i32))
+                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
+                add_ins = self.builder.emit(ir.Add(val_ins, one_ins, "Added", ir.i8))
                 self.builder.emit(ir.Store(add_ins, cell_addr))
             elif c == '-':
                 # data[ptr]--;
                 if cell_addr is None:
                     cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i32))
-                sub_ins = self.builder.emit(ir.Sub(val_ins, one_ins, "Sub", ir.i32))
+                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
+                sub_ins = self.builder.emit(ir.Sub(val_ins, one_ins, "Sub", ir.i8))
                 self.builder.emit(ir.Store(sub_ins, cell_addr))
             elif c == '.':
                 # putc(data[ptr])

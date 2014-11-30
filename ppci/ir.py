@@ -97,6 +97,7 @@ class Function:
     """ Represents a function. """
     def __init__(self, name, module=None):
         self._blocks = None
+
         # Variables used in uniquifying names:
         self.defined_names = {}
         self.unique_counter = 0

@@ -1,6 +1,6 @@
 
 from ppci.target.thumb.instructions import Orr, Lsl, Lsr, And
-from ppci.target.thumb.instructions import Str2, Ldr2, Ldr3, Adr
+from ppci.target.thumb.instructions import Str2, Ldr2, Ldr3, Adr, Strb, Ldrb
 from ppci.target.thumb.instructions import B, Bl, Bgt, Blt, Beq, Bne, Bge, Bw
 from ppci.target.thumb.instructions import Mov2, Mov3, Sub3
 from ppci.target.thumb.instructions import Add3, Sub, Cmp, Sub2, Add2, Mul
@@ -11,6 +11,7 @@ from ppci.irmach import AbstractInstruction
 %terminal ADDI32 SUBI32 MULI32 ADR
 %terminal ORI32 SHLI32 SHRI32 ANDI32
 %terminal CONSTI32 CONSTDATA MEMI32 REGI32
+%terminal MOVI8 MEMI8
 %terminal CALL GLOBALADDRESS
 %terminal MOVI32
 %terminal JMP CJMP
@@ -18,6 +19,7 @@ from ppci.irmach import AbstractInstruction
 %%
 
 stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str2, others=[0], src=[c0, c1])'
+stm: MOVI8(MEMI8(reg), reg)   2 'self.emit(Strb, others=[0], src=[c0, c1])'
 stm: MOVI32(reg, reg)         99 'self.selector.move(c0, c1)'
 stm: JMP                      2 'label, tgt = tree.value; self.emit(Bw(label), jumps=[tgt])'
 stm: CJMP(reg, reg)           2 'op, yes_label, yes_tgt, no_label, no_tgt = tree.value; opnames = {"<": Blt, ">":Bgt, "==":Beq, "!=":Bne, ">=": Bge}; Bop = opnames[op]; jmp_ins = AbstractInstruction(Bw(no_label), jumps=[no_tgt]); self.emit(Cmp, src=[c0, c1]);self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins]); self.emit(jmp_ins)'
@@ -47,6 +49,7 @@ reg: ADR(CONSTDATA)           2  'd = self.newTmp(); ln = self.selector.frame.ad
 
 reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
 reg: MEMI32(reg)      4 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[0]); return d'
+reg: MEMI8(reg)       4 'd = self.newTmp(); self.emit(Ldrb, dst=[d], src=[c0], others=[0]); return d'
 reg: REGI32           1 'return tree.value'
 reg: CALL             1 'return self.selector.munchCall(tree.value)'
 

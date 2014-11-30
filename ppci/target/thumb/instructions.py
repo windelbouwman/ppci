@@ -106,10 +106,36 @@ class Str2(LS_imm5_base):
     syntax = ['str', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0xC
 
+    @staticmethod
+    def from_im(im):
+        return Str2(im.src[1], im.src[0], im.others[0])
+
 
 class Ldr2(LS_imm5_base):
     syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0xD
+
+    @staticmethod
+    def from_im(im):
+        return Ldr2(im.dst[0], im.src[0], im.others[0])
+
+
+class Strb(LS_imm5_base):
+    syntax = ['strb', 0, ',', '[', 1, ',', 2, ']']
+    opcode = 0xE
+
+    @staticmethod
+    def from_im(im):
+        return Strb(im.src[1], im.src[0], im.others[0])
+
+
+class Ldrb(LS_imm5_base):
+    syntax = ['ldrb', 0, ',', '[', 1, ',', 2, ']']
+    opcode = 0b01111
+
+    @staticmethod
+    def from_im(im):
+        return Ldrb(im.dst[0], im.src[0], im.others[0])
 
 
 class ls_sp_base_imm8(ThumbInstruction):
