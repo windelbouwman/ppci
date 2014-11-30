@@ -120,7 +120,24 @@ class Ldr2(LS_imm5_base):
         return Ldr2(im.dst[0], im.src[0], im.others[0])
 
 
-class Strb(LS_imm5_base):
+class LS_byte_imm5_base(ThumbInstruction):
+    """ ??? Rt, [Rn, imm5] """
+    args = [('rt', ArmRegister), ('rn', ArmRegister), ('imm5', int)]
+
+    def encode(self):
+        assert self.rn.num < 8
+        assert self.rt.num < 8
+        Rn = self.rn.num
+        Rt = self.rt.num
+        imm5 = self.imm5
+        self.token[0:3] = Rt
+        self.token[3:6] = Rn
+        self.token[6:11] = imm5
+        self.token[11:16] = self.opcode
+        return self.token.encode()
+
+
+class Strb(LS_byte_imm5_base):
     syntax = ['strb', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0xE
 
@@ -129,7 +146,7 @@ class Strb(LS_imm5_base):
         return Strb(im.src[1], im.src[0], im.others[0])
 
 
-class Ldrb(LS_imm5_base):
+class Ldrb(LS_byte_imm5_base):
     syntax = ['ldrb', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0b01111
 
