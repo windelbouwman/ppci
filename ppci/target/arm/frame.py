@@ -1,6 +1,6 @@
 from ..basetarget import Label, Alignment
 from ...irmach import AbstractInstruction, Frame, VirtualRegister
-from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl
+from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl, RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
 from .registers import R9, R10, R11, LR, PC, SP
 
@@ -49,10 +49,9 @@ class ArmFrame(Frame):
         """
         # TODO: what ABI to use?
 
-
         # Caller save registers:
         # R0 is filled with return value, do not save it, it will conflict.
-        self.emit(Push({R1, R2, R3, R4}))
+        self.emit(Push(RegisterSet({R1, R2, R3, R4})))
 
         # Setup parameters:
         reg_uses = []
@@ -64,7 +63,7 @@ class ArmFrame(Frame):
             else:
                 raise NotImplementedError('Parameters in memory not impl')
         self.emit(Bl(label), src=reg_uses, dst=[self.rv])
-        self.emit(Pop({R1, R2, R3, R4}))
+        self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
         self.move(res_var, self.rv)
 
         # Restore caller save registers:
@@ -110,8 +109,8 @@ class ArmFrame(Frame):
         pre = [
             # Label indication function:
             Label(self.name),
-            Push({LR, R11}),
-            Push({R5, R6, R7, R8, R9, R10}),  # Callee save registers!
+            Push(RegisterSet({LR, R11})),
+            Push(RegisterSet({R5, R6, R7, R8, R9, R10})),  # Callee save registers!
             Sub(SP, SP, self.stacksize),  # Reserve stack space
             Mov(R11, SP)                          # Setup frame pointer
             ]
@@ -146,8 +145,8 @@ class ArmFrame(Frame):
             and add constant pool
         """
         self.emit(Add(SP, SP, self.stacksize))
-        self.emit(Pop({R5, R6, R7, R8, R9, R10}))
-        self.emit(Pop({PC, R11}))
+        self.emit(Pop(RegisterSet({R5, R6, R7, R8, R9, R10})))
+        self.emit(Pop(RegisterSet({PC, R11})))
         self.insert_litpool()  # Add final literal pool
         self.emit(Alignment(4))   # Align at 4 bytes
 

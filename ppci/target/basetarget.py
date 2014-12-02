@@ -44,6 +44,8 @@ class InsMeta(type):
             def _init_(self, *args):
                 # Construct token:
                 setattr(self, 'token', cls.tokens[0]())
+                for x, ct in enumerate(cls.tokens):
+                    setattr(self, 'token{}'.format(x + 1), ct())
 
                 # Set parameters:
                 assert len(args) == len(formal_args)
@@ -51,11 +53,6 @@ class InsMeta(type):
                     assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
                     setattr(self, fa[0], a)
             setattr(cls, '__init__', _init_)
-
-        # Define repr method:
-        if hasattr(cls, 'syntax'):
-            pass
-            # Register assembler rule:
 
         # Register lowering functions:
         if hasattr(cls, 'from_im'):

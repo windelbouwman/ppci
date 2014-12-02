@@ -2,7 +2,8 @@ from ..basetarget import Target
 from ...assembler import BaseAssembler
 from .registers import rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, regs64
-from .instructions import Mov, Inc, Xor, Push, Pop
+from .instructions import Mov
+from .instructions import isa, reloc_map
 
 
 class X86Assembler(BaseAssembler):
@@ -26,28 +27,25 @@ class X86Assembler(BaseAssembler):
         self.add_rule('reg', ['r14'], lambda rhs: r14)
         self.add_rule('reg', ['r15'], lambda rhs: r15)
 
+        self.parser.add_rule('strrr', ['ID'], lambda rhs: rhs[0].val)
+
         for reg in regs64:
             self.add_keyword(reg.name)
 
+        # Add isa instructions:
+        self.gen_asm_parser(isa)
+
+        self.add_keyword('jmp')
+        self.add_keyword('call')
+        self.add_keyword('jmpshort')
         self.add_keyword('mov')
-        self.add_instruction(['mov', 'reg', ',', 'reg'],
-                             lambda rhs: Mov(rhs[1], rhs[3]))
-
         self.add_keyword('xor')
-        self.add_instruction(['xor', 'reg', ',', 'reg'],
-                             lambda rhs: Xor(rhs[1], rhs[3]))
-
         self.add_keyword('inc')
-        self.add_instruction(['inc', 'reg'],
-                             lambda rhs: Inc(rhs[1]))
-
         self.add_keyword('push')
-        self.add_instruction(['push', 'reg'],
-                             lambda rhs: Push(rhs[1]))
-
         self.add_keyword('pop')
-        self.add_instruction(['pop', 'reg'],
-                             lambda rhs: Pop(rhs[1]))
+        self.add_keyword('add')
+        self.add_keyword('sub')
+        self.add_keyword('cmp')
 
 
 class X86Target(Target):
@@ -55,4 +53,5 @@ class X86Target(Target):
     def __init__(self):
         super().__init__('x86')
 
+        self.reloc_map = reloc_map
         self.assembler = X86Assembler(self)

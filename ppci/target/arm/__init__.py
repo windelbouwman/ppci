@@ -9,7 +9,9 @@ from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC
 from ..arm.registers import register_range
 
-from .instructions import Dcd, Adr, Mcr, Mrc
+from .instructions import Dcd, Mov, Mov1, Add, Add2, Sub, Orr1, Mul, Mov2
+from .instructions import Push, Pop, Str, Ldr, Ldr3, Str1, Ldr1, Adr
+from .instructions import Dcd, Adr, Mcr, Mrc, RegisterSet
 from .relocations import reloc_map
 
 
@@ -65,9 +67,9 @@ class ArmAssembler(BaseAssembler):
         # Implement register list syntaxis:
         parser.add_rule('reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
         parser.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
-        parser.add_rule('reg_list_inner', ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
-        parser.add_rule('reg_or_range', ['reg'], lambda rhs: set([rhs[0]]))
-        parser.add_rule('reg_or_range', ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
+        parser.add_rule('reg_list_inner', ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: RegisterSet(rhs[0] | rhs[2]))
+        parser.add_rule('reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
+        parser.add_rule('reg_or_range', ['reg', '-', 'reg'], lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:

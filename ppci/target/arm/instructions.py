@@ -5,11 +5,15 @@ from .registers import R0, SP, ArmRegister
 from ..token import Token, u32, bit_range
 
 
+class RegisterSet(set):
+    pass
+
+
 isa = Isa()
 isa.typ2nt[ArmRegister] = 'reg'
 isa.typ2nt[int] = 'imm32'
 isa.typ2nt[str] = 'strrr'
-isa.typ2nt[set] = 'reg_list'
+isa.typ2nt[RegisterSet] = 'reg_list'
 
 
 # Tokens:
@@ -118,6 +122,7 @@ class Mov1(ArmInstruction):
 class Mov2(ArmInstruction):
     args = [('rd', ArmRegister), ('rm', ArmRegister)]
     syntax = ['mov', 0, ',', 1]
+    # bindings = [Binding(0:4, Arg), ()]
 
     def encode(self):
         self.token[0:4] = self.rm.num
@@ -400,7 +405,7 @@ def reg_list_to_mask(reg_list):
 
 
 class Push(ArmInstruction):
-    args = [('reg_list', set)]
+    args = [('reg_list', RegisterSet)]
     syntax = ['push', 0]
 
     def encode(self):
@@ -411,7 +416,7 @@ class Push(ArmInstruction):
 
 
 class Pop(ArmInstruction):
-    args = [('reg_list', set)]
+    args = [('reg_list', RegisterSet)]
     syntax = ['pop', 0]
 
     def encode(self):

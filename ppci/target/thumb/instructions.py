@@ -30,6 +30,10 @@ class ThumbInstruction(Instruction):
     isa = isa
 
 
+class LongThumbInstruction(ThumbInstruction):
+    tokens = [ThumbToken, ThumbToken]
+
+
 def Dcd(v):
     if type(v) is str:
         return Dcd2(v)
@@ -445,10 +449,6 @@ class Cmp2(ThumbInstruction):
 class jumpBase_ins(ThumbInstruction):
     args = [('target', str)]
 
-    def __repr__(self):
-        mnemonic = self.__class__.__name__
-        return '{} {}'.format(mnemonic, self.target)
-
 
 class B(jumpBase_ins):
     syntax = ['b', 0]
@@ -462,39 +462,42 @@ class B(jumpBase_ins):
         return [(self.target, 'wrap_new11')]
 
 
-class Bw(jumpBase_ins):
+class Bw(LongThumbInstruction):
     """ Encoding T4
         Same encoding as Bl, longer jumps are possible with this function!
     """
     syntax = ['bw', 0]
+    args = [('target', str)]
 
     def encode(self):
-        imm11 = 0
-        imm10 = 0
         j1 = 1
         j2 = 1
-        s = 0
-        h1 = (0b11110 << 11) | (s << 10) | imm10
-        h2 = (0b1001 << 12) | (j1 << 13) | (j2 << 11) | imm11
-        return u16(h1) + u16(h2)
+        self.token[11:16] = 0b11110
+        self.token2[13] = j1
+        self.token2[11] = j2
+        self.token2[12] = 1
+        self.token2[15] = 1
+        return self.token.encode() + self.token2.encode()
 
     def relocations(self):
         return [(self.target, 'bl_imm11_imm10')]
 
 
-class Bl(jumpBase_ins):
+class Bl(LongThumbInstruction):
     """ Branch with link """
     syntax = ['bl', 0]
+    args = [('target', str)]
 
     def encode(self):
-        imm11 = 0
-        imm10 = 0
         j1 = 1  # TODO: what do these mean?
         j2 = 1
-        s = 0
-        h1 = (0b11110 << 11) | (s << 10) | imm10
-        h2 = (0b1101 << 12) | (j1 << 13) | (j2 << 11) | imm11
-        return u16(h1) + u16(h2)
+        self.token[11:16] = 0b11110
+        self.token2[13] = j1
+        self.token2[11] = j2
+        self.token2[12] = 1
+        self.token2[14] = 1
+        self.token2[15] = 1
+        return self.token.encode() + self.token2.encode()
 
     def relocations(self):
         return [(self.target, 'bl_imm11_imm10')]

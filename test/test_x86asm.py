@@ -22,31 +22,28 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('inc rcx')
         self.check('48 89 d8 48 31 d9 48 ff c1')
 
-    @unittest.skip('not implemented')
     def testJumpingAround(self):
         """ Check all kind of assembler cases """
-        assert(assembler.shortjump(5) == [0xeb, 0x5])
-        assert(assembler.shortjump(-2) == [0xeb, 0xfc])
-        assert(assembler.shortjump(10,'GE') == [0x7d, 0xa])
-        assert(assembler.nearjump(5) == [0xe9, 0x5,0x0,0x0,0x0])
-        assert(assembler.nearjump(-2) == [0xe9, 0xf9, 0xff,0xff,0xff])
-        assert(assembler.nearjump(10,'LE') == [0x0f, 0x8e, 0xa,0x0,0x0,0x0])
+        self.feed('jmp a')
+        self.feed('a: jmp a')
+        self.feed('jmp a')
+        self.check('e9 00 00 00 00   e9 fb ff ff ff   e9 f6 ff ff ff')
 
-    @unittest.skip('not implemented')
     def testCall(self):
         self.feed('call r10')
-        self.check('')
         self.feed('call rcx')
-        # assert(assembler.call('r10') == [0x41, 0xff, 0xd2])
-        # assert(assembler.call('rcx') == [0xff, 0xd1])
+        self.feed('call b')
+        self.feed('b: call b')
+        self.feed('call b')
+        self.check('41 ff d2 40 ff d1  e8 0000 0000 e8 fbff ffff e8 f6ff ffff')
 
-    def testXOR(self):
+    def testXor(self):
         self.feed('xor rax, rax')
         self.feed('xor r9, r8')
         self.feed('xor rbx, r11')
         self.check('48 31 c0 4d 31 c1 4c 31 db')
 
-    def testINC(self):
+    def testInc(self):
         self.feed('inc r11')
         self.feed('inc rcx')
         self.check('49 ff c3 48 ff c1')
@@ -63,7 +60,6 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('pop r12')
         self.check('5b 5d 41 5c')
 
-    @unittest.skip('not implemented')
     def testAsmLoads(self):
         self.feed('mov rbx, r14')
         self.feed('mov r12, r8')
@@ -83,7 +79,7 @@ class AssemblerTestCase(AsmTestCaseBase):
 
       assert(assembler.mov('r11', ['RIP', 0xf]) == [0x4c,0x8b,0x1d,0x0f,0x0,0x0,0x0])
 
-    @unittest.skip
+    @unittest.skip('todo')
     def testAsmMemStores(self):
       assert(assembler.mov(['rbp', 0x13],'rbx') == [0x48,0x89,0x5d,0x13])
       assert(assembler.mov(['r12', 0x12],'r9') == [0x4d,0x89,0x4c,0x24,0x12])
@@ -95,7 +91,7 @@ class AssemblerTestCase(AsmTestCaseBase):
 
       assert(assembler.mov(['RIP', 0xf], 'r9') == [0x4c,0x89,0x0d,0x0f,0x0,0x0,0x0])
 
-    @unittest.skip
+    @unittest.skip('todo')
     def testAsmMOV8(self):
       assert(assembler.mov(['rbp', -8], 'al') == [0x88, 0x45, 0xf8])
       assert(assembler.mov(['r11', 9], 'cl') == [0x41, 0x88, 0x4b, 0x09])
@@ -103,40 +99,44 @@ class AssemblerTestCase(AsmTestCaseBase):
       assert(assembler.mov(['rbx'], 'al') == [0x88, 0x03])
       assert(assembler.mov(['r11'], 'dl') == [0x41, 0x88, 0x13])
 
-    @unittest.skip
+    @unittest.skip('todo')
     def testAsmLea(self):
       assert(assembler.leareg64('r11', ['RIP', 0xf]) == [0x4c,0x8d,0x1d,0x0f,0x0,0x0,0x0])
       assert(assembler.leareg64('rsi', ['RIP', 0x7]) == [0x48,0x8d,0x35,0x07,0x0,0x0,0x0])
 
       assert(assembler.leareg64('rcx', ['rbp', -8]) == [0x48,0x8d,0x4d,0xf8])
 
-    @unittest.skip
-    def testAssemblerCMP(self):
-      assert(assembler.cmpreg64('rdi', 'r13') == [0x4c, 0x39, 0xef])
-      assert(assembler.cmpreg64('rbx', 'r14') == [0x4c, 0x39, 0xf3])
-      assert(assembler.cmpreg64('r12', 'r9')  == [0x4d, 0x39, 0xcc])
+    def testAssemblerCmp(self):
+        self.feed('cmp rdi, r13')
+        self.feed('cmp rbx, r14')
+        self.feed('cmp r12, r9')
+        self.check('4c 39 ef 4c 39 f3 4d 39 cc')
 
-      assert(assembler.cmpreg64('rdi', 1)  == [0x48, 0x83, 0xff, 0x01])
-      assert(assembler.cmpreg64('r11', 2)  == [0x49, 0x83, 0xfb, 0x02])
+        # assert(assembler.cmpreg64('rdi', 1)  == [0x48, 0x83, 0xff, 0x01])
+        # assert(assembler.cmpreg64('r11', 2)  == [0x49, 0x83, 0xfb, 0x02])
 
-    @unittest.skip
-    def testAssemblerADD(self):
-      assert(assembler.addreg64('rbx', 'r13') == [0x4c, 0x01, 0xeb])
-      assert(assembler.addreg64('rax', 'rbx') == [0x48, 0x01, 0xd8])
-      assert(assembler.addreg64('r12', 'r13') == [0x4d, 0x01, 0xec])
+    def testAssemblerAddRegs(self):
+        self.feed('add rbx, r13')
+        self.feed('add rax, rbx')
+        self.feed('add r12, r13')
+        self.check('4c 01 eb 48 01 d8 4d 01 ec')
 
-      assert(assembler.addreg64('rbx', 0x13) == [0x48, 0x83, 0xc3, 0x13])
-      assert(assembler.addreg64('r11', 0x1234567) == [0x49, 0x81, 0xc3, 0x67, 0x45,0x23,0x1])
-      assert(assembler.addreg64('rsp', 0x33) == [0x48, 0x83, 0xc4, 0x33])
+    def testAssemblerAddRegInt(self):
+        self.feed('add rbx, 0x13')
+        self.feed('add r11, 0x1234567')
+        self.feed('add rsp, 0x33')
+        self.check('48 81 c3 13 00 00 00   49 81 c3 67 45 23 01   48 81 c4 33 00 00 00')
 
-    @unittest.skip
-    def testAssemblerSUB(self):
-      assert(assembler.subreg64('rdx', 'r14') == [0x4c, 0x29, 0xf2])
-      assert(assembler.subreg64('r15', 'rbx') == [0x49, 0x29, 0xdf])
-      assert(assembler.subreg64('r8', 'r9') == [0x4d, 0x29, 0xc8])
+    def testAssemblerSubRegs(self):
+        self.feed('sub rdx, r14')
+        self.feed('sub r15, rbx')
+        self.feed('sub r8, r9')
+        self.check('4c 29 f2 49 29 df 4d 29 c8')
 
-      assert(assembler.subreg64('rsp', 0x123456) == [0x48, 0x81, 0xec, 0x56,0x34,0x12,0x0])
-      assert(assembler.subreg64('rsp', 0x12) == [0x48, 0x83, 0xec, 0x12])
+    def testAssemblerSubRegInt(self):
+        self.feed('sub rsp, 0x123456')
+        self.feed('sub rsp, 0x12')
+        self.check('48 81 ec 56 34 12 00  48 81 ec 12 00 00 00')
 
     @unittest.skip
     def testAssemblerIDIV(self):

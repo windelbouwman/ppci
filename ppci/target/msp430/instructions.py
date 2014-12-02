@@ -144,7 +144,10 @@ def oneOpIns(mne, opc):
     ins_cls = type(mne + '_ins', (OneOpArith,), members)
 
 
-oneOpIns('rrc', 0)
+class rrr_ins(OneOpArith):
+    opcode = 0
+
+
 oneOpIns('swpb', 1)
 oneOpIns('rra', 2)
 oneOpIns('sxt', 3)

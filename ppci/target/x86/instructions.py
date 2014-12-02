@@ -2,16 +2,46 @@
     X86 target descriptions and encodings.
 """
 
+import struct
 from ..basetarget import Register, Instruction, Isa
 from .registers import regs64, X86Register
 
 from ..token import Token, u32, u8, bit_range
 
+isa = Isa()
+isa.typ2nt[str] = 'strrr'
+isa.typ2nt[int] = 'imm32'
+isa.typ2nt[X86Register] = 'reg'
 
 modrm = {'rax': 0, 'rbx': 1}
 
 # Table 3.1 of the intel manual:
 # use REX.W on the table below:
+
+reloc_map = {}
+
+
+def reloc(t):
+    def f(c):
+        reloc_map[t] = c
+    return f
+
+
+def wrap_negative(x, bits):
+    b = struct.unpack('<I', struct.pack('<i', x))[0]
+    mask = (1 << bits) - 1
+    return b & mask
+
+
+@reloc('jmp32')
+def apply_b_jmp32(reloc, sym_value, section, reloc_value):
+    offset = (sym_value - (reloc_value + 5))
+    rel24 = wrap_negative(offset, 32)
+    section.data[reloc.offset+4] = (rel24 >> 24) & 0xFF
+    section.data[reloc.offset+3] = (rel24 >> 16) & 0xFF
+    section.data[reloc.offset+2] = (rel24 >> 8) & 0xFF
+    section.data[reloc.offset+1] = rel24 & 0xFF
+
 
 
 # Helper functions:
@@ -22,12 +52,13 @@ def imm64(x):
    x = x & 0xFFFFFFFFFFFFFFFF
    return [ (x >> (p*8)) & 0xFF for p in range(8) ]
 
+
 def imm32(x):
    """ represent 32 bits integer in little endian 4 bytes"""
    if x < 0:
       x = x + (1 << 32)
    x = x & 0xFFFFFFFF
-   return [ (x >> (p*8)) & 0xFF for p in range(4) ]
+   return bytes([ (x >> (p*8)) & 0xFF for p in range(4) ])
 
 
 def imm8(x):
@@ -37,13 +68,26 @@ def imm8(x):
     return [ x ]
 
 
+class ByteToken(Token):
+    def __init__(self):
+        super().__init__(8)
+
+    def encode(self):
+        return u8(self.bit_value)
+
+
+class OpcodeToken(Token):
+    def __init__(self):
+        super().__init__(8)
+
+    def encode(self):
+        return u8(self.bit_value)
+
+
 class ModRmToken(Token):
     """ Construct the modrm byte from its components """
     def __init__(self, mod=0, rm=0, reg=0):
         super().__init__(8)
-        assert(mod <= 3)
-        assert(rm <= 7)
-        assert(reg <= 7)
         self.mod = mod
         self.rm = rm
         self.reg = reg
@@ -60,10 +104,6 @@ class RexToken(Token):
     """ Create a REX prefix byte """
     def __init__(self, w=0, r=0, x=0, b=0):
         super().__init__(8)
-        assert(w <= 1)
-        assert(r <= 1)
-        assert(x <= 1)
-        assert(b <= 1)
         self.w = w
         self.r = r
         self.x = x
@@ -88,52 +128,52 @@ def sib(ss=0, index=0, base=0):
 tttn = {'L':0xc,'G':0xf,'NE':0x5,'GE':0xd,'LE':0xe, 'E':0x4}
 
 # Actual instructions:
-def nearjump(distance, condition=None):
-   """ jmp imm32 """
-   lim = (1<<30)
-   if abs(distance) > lim:
-      Error('near jump cannot jump over more than {0} bytes'.format(lim))
-   if condition:
-      if distance < 0:
-         distance -= 6 # Skip own instruction
-      opcode = 0x80 | tttn[condition] # Jcc imm32
-      return [0x0F, opcode] + imm32(distance)
-   else:
-      if distance < 0:
-         distance -= 5 # Skip own instruction
-      return [ 0xE9 ] + imm32(distance)
-
-def shortjump(distance, condition=None):
-   """ jmp imm8 """
-   lim = 118
-   if abs(distance) > lim:
-      Error('short jump cannot jump over more than {0} bytes'.format(lim))
-   if distance < 0:
-      distance -= 2 # Skip own instruction
-   if condition:
-      opcode = 0x70 | tttn[condition] # Jcc rel8
-   else:
-      opcode = 0xeb # jmp rel8
-   return [opcode] + imm8(distance)
-
-# Helper that determines jump type:
-def reljump(distance):
-   if abs(distance) < 110:
-      return shortjump(distance)
-   else:
-      return nearjump(distance)
-
-
 class X86Instruction(Instruction):
     """ Base instruction for all x86 instructions """
     tokens = [ModRmToken]
-    isa = Isa()
+    isa = isa
+
+
+class NearJump(X86Instruction):
+    """ jmp imm32 """
+    args = [('target', str)]
+    syntax = ['jmp', 0]
+    tokens = [OpcodeToken]
+
+    def encode(self):
+        #opcode = 0x80 | tttn[condition] # Jcc imm32
+        #return [0x0F, opcode] + imm32(distance)
+        #if distance < 0:
+        # distance -= 5 # Skip own instruction
+        self.token1[0:8] = 0xe9
+        return self.token1.encode() + imm32(0)
+
+    def relocations(self):
+        return [(self.target, 'jmp32')]
+
+
+class ShortJump(X86Instruction):
+    """ jmp imm8 """
+    tokens = [OpcodeToken, ByteToken]
+    syntax = ['jmpshort', 0]
+    args = [('target', str)]
+
+    def encode(self):
+        lim = 118
+        if abs(distance) > lim:
+          Error('short jump cannot jump over more than {0} bytes'.format(lim))
+        if distance < 0:
+          distance -= 2 # Skip own instruction
+        if condition:
+          opcode = 0x70 | tttn[condition] # Jcc rel8
+        else:
+          opcode = 0xeb # jmp rel8
+        return [opcode] + imm8(distance)
 
 
 class Push(X86Instruction):
-    def __init__(self, reg):
-        assert(reg in regs64), str(reg)
-        self.reg = reg
+    args = [('reg', X86Register)]
+    syntax = ['push', 0]
 
     def encode(self):
         code = []
@@ -144,9 +184,8 @@ class Push(X86Instruction):
 
 
 class Pop(X86Instruction):
-    def __init__(self, reg):
-        assert(reg in regs64), str(reg)
-        self.reg = reg
+    args = [('reg', X86Register)]
+    syntax = ['pop', 0]
 
     def encode(self):
         code = []
@@ -156,24 +195,47 @@ class Pop(X86Instruction):
         return bytes(code)
 
 
-def pop(reg):
-   if reg in regs64:
-      if rexbit[reg] == 1:
-         rexprefix = rex(b=1)
-         opcode = 0x58 + regs64[reg]
-         return [rexprefix, opcode]
-      else:
-         opcode = 0x58 + regs64[reg]
-         return [ opcode ]
-   else:
-      Error('pop for {0} not implemented'.format(reg))
-
-def INT(number):
+def Int(number):
    opcode = 0xcd
    return [opcode] + imm8(number)
 
+
 def syscall():
    return [0x0F, 0x05]
+
+
+class CallReg(X86Instruction):
+    syntax = ['call', 0]
+    args = [('reg', X86Register)]
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+
+    def encode(self):
+        self.token1.b = self.reg.rexbit
+        self.token2[0:8] = 0xFF # 0xFF /2 == call r/m64
+        self.token3.mod = 3
+        self.token3.reg = 2
+        self.token3.rm = self.reg.regbits
+        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+
+        if rexbit[reg] == 1:
+         rexprefix = rex(b=rexbit[reg])
+         return [rexprefix, opcode, mod_rm]
+        else:
+         return [opcode, mod_rm]
+
+class Call(X86Instruction):
+    """ jmp imm32 """
+    args = [('target', str)]
+    syntax = ['call', 0]
+    tokens = [OpcodeToken]
+
+    def encode(self):
+        self.token1[0:8] = 0xe8
+        return self.token1.encode() + imm32(0)
+
+    def relocations(self):
+        return [(self.target, 'jmp32')]
+
 
 def call(distance):
    if type(distance) is int:
@@ -200,15 +262,17 @@ class Ret(X86Instruction):
 
 
 class Inc(X86Instruction):
-    def __init__(self, reg):
-        assert(reg in regs64), str(reg)
-        self.rex = RexToken(w=1, b=reg.rexbit)
-        self.opcode = 0xff
-        self.mod_rm = ModRmToken(mod=3, rm=reg.regbits)
+    args = [('reg', X86Register)]
+    syntax = ['inc', 0]
+    tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
-        code = bytes([self.opcode])
-        return self.rex.encode() + code + self.mod_rm.encode()
+        self.token1.w = 1
+        self.token1.b = self.reg.rexbit
+        self.token2[0:8] = 0xff
+        self.token3.mod = 3
+        self.token3.rm = self.reg.regbits
+        return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
 
 def prepost8(r8, rm8):
@@ -242,6 +306,7 @@ def prepost8(r8, rm8):
    else:
       Error('Not supporting move with reg8 {0}'.format(r8))
    return pre, post
+
 
 def prepost(r64, rm64):
    assert(r64 in regs64)
@@ -309,16 +374,21 @@ def leareg64(rega, m):
 
 class Mov1(X86Instruction):
     """ Mov r64 to r64 """
-    def __init__(self, dst, src):
-        assert src in regs64, str(src)
-        assert dst in regs64, str(dst)
-        self.rex = RexToken(w=1, r=dst.rexbit, b=src.rexbit)
-        self.mod_rm = ModRmToken(mod=3, rm=dst.regbits, reg=src.regbits)
+    syntax = ['mov', 0, ',', 1]
+    args = [('reg1', X86Register), ('reg2', X86Register)]
+    tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
-        opcode = 0x89 # mov r/m64, r64
-        code = bytes([opcode])
-        return self.rex.encode() + code + self.mod_rm.encode()
+        dst = self.reg1
+        src = self.reg2
+        self.token1.w = 1
+        self.token1.r = src.rexbit
+        self.token1.b = dst.rexbit
+        self.token2[0:8] = 0x89 # mov r/m64, r64
+        self.token3.mod = 3
+        self.token3.rm = dst.regbits
+        self.token3.reg = src.regbits
+        return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
 
 def Mov(dst, src):
@@ -326,8 +396,6 @@ def Mov(dst, src):
         pre = [rex(w=1, b=rexbit[rega])]
         opcode = 0xb8 + regs64[rega]
         post = imm64(regb)
-    elif type(src) is X86Register:
-        return Mov1(dst, src)
     elif type(src) is str:
       if rega in regs64:
          opcode = 0x8b # mov r64, r/m64
@@ -343,61 +411,65 @@ def Xor(rega, regb):
     return Xor1(rega, regb)
 
 
-class Xor1(X86Instruction):
-    def __init__(self, a, b):
-        self.rex = RexToken(w=1, r=b.rexbit, b=a.rexbit)
-        self.mod_rm = ModRmToken(mod=3, rm=a.regbits, reg=b.regbits)
+class regregbase(X86Instruction):
+    args = [('reg1', X86Register), ('reg2', X86Register)]
+    tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
-        opcode = 0x31  # XOR r/m64, r64
-        # Alternative is 0x33 XOR r64, r/m64
-        code = bytes([opcode])
-        return self.rex.encode() + code + self.mod_rm.encode()
+        self.token.w = 1
+        self.token.r = self.reg2.rexbit
+        self.token.b = self.reg1.rexbit
+        self.token2[0:8] = self.opcode
+        self.token3.mod = 3
+        self.token3.rm = self.reg1.regbits
+        self.token3.reg = self.reg2.regbits
+        return self.token.encode() + self.token2.encode() + self.token3.encode()
 
 
-# integer arithmatic:
-def addreg64(rega, regb):
-   if regb in regs64:
-      pre, post = prepost(regb, rega)
-      opcode = 0x01 # ADD r/m64, r64
-      return pre + [opcode] + post
-   elif type(regb) is int:
-      if regb < 100:
-         rexprefix = rex(w=1, b=rexbit[rega])
-         opcode = 0x83 # add r/m, imm8
-         mod_rm = modrm(3, rm=regs64[rega], reg=0)
-         return [rexprefix, opcode, mod_rm]+imm8(regb)
-      elif regb < (1<<31):
-         rexprefix = rex(w=1, b=rexbit[rega])
-         opcode = 0x81 # add r/m64, imm32
-         mod_rm = modrm(3, rm=regs64[rega], reg=0)
-         return [rexprefix, opcode, mod_rm]+imm32(regb)
-      else:
-         Error('Constant value too large!')
-   else:
-      Error('unknown second operand!'.format(regb))
+class regint32base(X86Instruction):
+    args = [('reg', X86Register), ('imm', int)]
+    tokens = [RexToken, OpcodeToken, ModRmToken]
 
-def subreg64(rega, regb):
-   if regb in regs64:
-      pre, post = prepost(regb, rega)
-      opcode = 0x29 # SUB r/m64, r64
-      return pre + [opcode] + post
-   elif type(regb) is int:
-      if regb < 100:
-         rexprefix = rex(w=1, b=rexbit[rega])
-         opcode = 0x83 # sub r/m, imm8
-         mod_rm = modrm(3, rm=regs64[rega], reg=5)
-         return [rexprefix, opcode, mod_rm]+imm8(regb)
-      elif regb < (1<<31):
-         rexprefix = rex(w=1, b=rexbit[rega])
-         opcode = 0x81 # sub r/m64, imm32
-         mod_rm = modrm(3, rm=regs64[rega], reg=5)
-         return [rexprefix, opcode, mod_rm]+imm32(regb)
-      else:
-         Error('Constant value too large!')
+    def encode(self):
+        self.token.w = 1
+        self.token.b = self.reg.rexbit
+        self.token2[0:8] = self.opcode
+        self.token3.mod = 3
+        self.token3.rm = self.reg.regbits
+        self.token3.reg = self.reg_code
+        return self.token.encode() + self.token2.encode() + self.token3.encode() + imm32(self.imm)
 
-   else:
-      Error('unknown second operand!'.format(regb))
+
+class Xor1(regregbase):
+    syntax = ['xor', 0, ',', 1]
+    opcode = 0x31  # XOR r/m64, r64
+    # Alternative is 0x33 XOR r64, r/m64
+
+class Cmp(regregbase):
+    syntax = ['cmp', 0, ',', 1]
+    opcode = 0x39 # CMP r/m64, r64
+
+class Add(regregbase):
+    syntax = ['add', 0, ',', 1]
+    opcode = 0x01  # Add r/m64, r64
+
+
+class Add2(regint32base):
+    syntax = ['add', 0, ',', 1]
+    opcode = 0x81 # add r/m64, imm32
+    reg_code = 0
+
+
+class Sub(regregbase):
+    syntax = ['sub', 0, ',', 1]
+    opcode = 0x29  # Sub r/m64, r64
+
+
+class Sub2(regint32base):
+    syntax = ['sub', 0, ',', 1]
+    opcode = 0x81 # add r/m64, imm32
+    reg_code = 5
+
 
 def idivreg64(reg):
    rexprefix = rex(w=1, b=rexbit[reg])
@@ -405,11 +477,13 @@ def idivreg64(reg):
    mod_rm = modrm(3, rm=regs64[reg], reg=7)
    return [rexprefix, opcode, mod_rm]
 
+
 def imulreg64_rax(reg):
    rexprefix = rex(w=1, b=rexbit[reg])
    opcode = 0xf7 # IMUL r/m64
    mod_rm = modrm(3, rm=regs64[reg], reg=5)
    return [rexprefix, opcode, mod_rm]
+
 
 def imulreg64(rega, regb):
    pre, post = prepost(rega, regb)
@@ -420,8 +494,6 @@ def imulreg64(rega, regb):
 
 def cmpreg64(rega, regb):
    if regb in regs64:
-      pre, post = prepost(regb, rega)
-      opcode = 0x39 # CMP r/m64, r64
       return pre + [opcode] + post
    elif type(regb) is int:
       rexprefix = rex(w=1, b=rexbit[rega])
