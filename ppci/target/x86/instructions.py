@@ -478,27 +478,23 @@ def idivreg64(reg):
    return [rexprefix, opcode, mod_rm]
 
 
-def imulreg64_rax(reg):
-   rexprefix = rex(w=1, b=rexbit[reg])
-   opcode = 0xf7 # IMUL r/m64
-   mod_rm = modrm(3, rm=regs64[reg], reg=5)
-   return [rexprefix, opcode, mod_rm]
+class Imul(X86Instruction):
+    """ Multiply
+        imul reg1, reg2
+    """
+    args = [('reg1', X86Register), ('reg2', X86Register)]
+    syntax = ['imul', 0, ',', 1]
+    tokens = [RexToken, OpcodeToken, OpcodeToken, ModRmToken]
+    opcode = 0x0f # IMUL r64, r/m64
+    opcode2 = 0xaf
 
-
-def imulreg64(rega, regb):
-   pre, post = prepost(rega, regb)
-   opcode = 0x0f # IMUL r64, r/m64
-   opcode2 = 0xaf
-   return pre + [opcode, opcode2] + post
-
-
-def cmpreg64(rega, regb):
-   if regb in regs64:
-      return pre + [opcode] + post
-   elif type(regb) is int:
-      rexprefix = rex(w=1, b=rexbit[rega])
-      opcode = 0x83 # CMP r/m64, imm8
-      mod_rm = modrm(3, rm=regs64[rega], reg=7)
-      return [rexprefix, opcode, mod_rm] + imm8(regb)
-   else:
-      Error('not implemented cmp64')
+    def encode(self):
+        self.token.w = 1
+        self.token.r = self.reg1.rexbit
+        self.token.b = self.reg2.rexbit
+        self.token2[0:8] = self.opcode
+        self.token3[0:8] = self.opcode2
+        self.token4.mod = 3
+        self.token4.rm = self.reg2.regbits
+        self.token4.reg = self.reg1.regbits
+        return self.token.encode() + self.token2.encode() + self.token3.encode() + self.token4.encode()

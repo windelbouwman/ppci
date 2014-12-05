@@ -138,23 +138,23 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('sub rsp, 0x12')
         self.check('48 81 ec 56 34 12 00  48 81 ec 12 00 00 00')
 
-    @unittest.skip
+    @unittest.skip('todo')
     def testAssemblerIDIV(self):
       assert(assembler.idivreg64('r11') == [0x49, 0xf7, 0xfb])
       assert(assembler.idivreg64('rcx') == [0x48, 0xf7, 0xf9])
       assert(assembler.idivreg64('rsp') == [0x48, 0xf7, 0xfc])
 
-    @unittest.skip
     def testAssemblerIMUL(self):
-      assert(assembler.imulreg64_rax('rdi') == [0x48, 0xf7, 0xef])
-      assert(assembler.imulreg64_rax('r10') == [0x49, 0xf7, 0xea])
-      assert(assembler.imulreg64_rax('rdx') == [0x48, 0xf7, 0xea])
+        #assert(assembler.imulreg64_rax('rdi') == [0x48, 0xf7, 0xef])
+        #assert(assembler.imulreg64_rax('r10') == [0x49, 0xf7, 0xea])
+        #assert(assembler.imulreg64_rax('rdx') == [0x48, 0xf7, 0xea])
 
-      assert(assembler.imulreg64('r11', 'rdi') == [0x4c, 0xf, 0xaf, 0xdf])
-      assert(assembler.imulreg64('r12', 'rbx') == [0x4c, 0xf, 0xaf, 0xe3])
-      # nasm generates this machine code: 0x4d, 0x6b, 0xff, 0xee
-      # This also works: 4D0FAFFE (another variant?? )
-      assert(assembler.imulreg64('r15', 'r14') == [0x4d, 0x0f, 0xaf, 0xfe])
+        self.feed('imul r11, rdi')
+        self.feed('imul r12, rbx')
+        self.check('4c 0f af df  4c 0f af e3')
+        # nasm generates this machine code: 0x4d, 0x6b, 0xff, 0xee
+        # This also works: 4D0FAFFE (another variant?? )
+        #assert(assembler.imulreg64('r15', 'r14') == [0x4d, 0x0f, 0xaf, 0xfe])
 
 
 if __name__ == '__main__':

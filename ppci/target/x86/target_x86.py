@@ -46,6 +46,7 @@ class X86Assembler(BaseAssembler):
         self.add_keyword('add')
         self.add_keyword('sub')
         self.add_keyword('cmp')
+        self.add_keyword('imul')
 
 
 class X86Target(Target):
