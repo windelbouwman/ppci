@@ -9,8 +9,6 @@ from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC
 from ..arm.registers import register_range
 
-from .instructions import Dcd, Mov, Mov1, Add, Add2, Sub, Orr1, Mul, Mov2
-from .instructions import Push, Pop, Str, Ldr, Ldr3, Str1, Ldr1, Adr
 from .instructions import Dcd, Adr, Mcr, Mrc, RegisterSet
 from .relocations import reloc_map
 
@@ -22,7 +20,7 @@ class ArmAssembler(BaseAssembler):
         kws = [
             "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
             "r10", "r11", "r12", "sp", "lr", "pc",
-            "dcd",
+            "dcd", 'db',
             "nop", "mov", "cmp", "add", "sub", "mul",
             "lsl", "lsr", "orr", "and",
             "push", "pop", "b", "bl",
@@ -65,15 +63,26 @@ class ArmAssembler(BaseAssembler):
         parser.add_rule('strrr', ['ID'], lambda rhs: rhs[0].val)
 
         # Implement register list syntaxis:
-        parser.add_rule('reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
+        parser.add_rule(
+            'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
         parser.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
-        parser.add_rule('reg_list_inner', ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: RegisterSet(rhs[0] | rhs[2]))
-        parser.add_rule('reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
-        parser.add_rule('reg_or_range', ['reg', '-', 'reg'], lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
+        parser.add_rule(
+            'reg_list_inner',
+            ['reg_or_range', ',', 'reg_list_inner'],
+            lambda rhs: RegisterSet(rhs[0] | rhs[2]))
+        parser.add_rule(
+            'reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
+        parser.add_rule(
+            'reg_or_range',
+            ['reg', '-', 'reg'],
+            lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:
-        parser.add_rule('instruction', ['ldr', 'reg', ',', '=', 'ID'], lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
+        parser.add_rule(
+            'instruction',
+            ['ldr', 'reg', ',', '=', 'ID'],
+            lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
         # Strange mrc and mcr instructions:
         parser.add_rule('coreg', ['c0'], lambda rhs: 0)
@@ -102,9 +111,14 @@ class ArmAssembler(BaseAssembler):
         parser.add_rule('coproc', ['p14'], lambda rhs: 14)
         parser.add_rule('coproc', ['p15'], lambda rhs: 15)
 
-        parser.add_rule('instruction', ['mcr', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
+        parser.add_rule(
+            'instruction',
+            ['mcr', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
             lambda rhs: Mcr(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
-        parser.add_rule('instruction', ['mrc', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
+
+        parser.add_rule(
+            'instruction',
+            ['mrc', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
             lambda rhs: Mrc(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
 
     def select_section(self, name):
@@ -148,4 +162,3 @@ class ArmTarget(Target):
     def emit_global(self, outs, lname):
         outs.emit(Label(lname))
         outs.emit(Dcd(0))
-

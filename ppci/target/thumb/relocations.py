@@ -73,9 +73,15 @@ def apply_b_imm11_imm6(reloc, sym_value, section, reloc_value):
     imm32 = wrap_negative(offset >> 1, 32)
     imm11 = imm32 & 0x7FF
     imm6 = (imm32 >> 11) & 0x3F
-    s = (imm32 >> 24) & 0x1
+    s = (imm32 >> 17) & 0x1
+    # TODO: determine i1 and i2 better!
+    i1 = s
+    i2 = s
+    j1 = i1
+    j2 = i2
     section.data[reloc.offset + 2] = imm11 & 0xFF
     section.data[reloc.offset + 3] |= (imm11 >> 8) & 0x7
+    section.data[reloc.offset + 3] |= (j1 << 5) | (j2 << 3)
     section.data[reloc.offset] |= imm6
     section.data[reloc.offset + 1] |= (s << 2)
 

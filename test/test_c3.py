@@ -539,7 +539,8 @@ class testBuilder(unittest.TestCase):
         """
         self.expectOK(snippet)
 
-    def testPointerArithmatic(self):
+    def test_pointer_arithmatic(self):
+        """ Check if pointer arithmatic works """
         snippet = """
          module testpointerarithmatic;
          function void t()

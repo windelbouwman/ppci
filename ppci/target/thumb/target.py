@@ -28,6 +28,7 @@ class ThumbAssembler(BaseAssembler):
             "lsl", "lsr", "orr", "and",
             "push", "pop", "b", "bl", "blt", "ble", "bgt", "beq",
             "bne", "bge", 'bw',
+            "beqw", "bnew",
             "ldr", "str", "adr", "strb", "ldrb"
             ]
         self.parser.assembler = self

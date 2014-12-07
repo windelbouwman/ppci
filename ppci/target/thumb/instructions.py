@@ -516,14 +516,24 @@ class cond_base_ins(jumpBase_ins):
 class cond_base_ins_long(jumpBase_ins):
     """ Encoding T3 """
     def encode(self):
-        j1 = 1  # TODO: what do these mean?
-        j2 = 1
+        j1 = 0  # TODO: what do these mean?
+        j2 = 0
         h1 = (0b11110 << 11) | (self.cond << 6)
-        h2 = (0b1101 << 12) | (j1 << 13) | (j2 << 11)
+        h2 = (0b1000 << 12) | (j1 << 13) | (j2 << 11)
         return u16(h1) + u16(h2)
 
     def relocations(self):
         return [(self.target, 'b_imm11_imm6')]
+
+
+class Beqw(cond_base_ins_long):
+    syntax = ['beqw', 0]
+    cond = 0
+
+
+class Bnew(cond_base_ins_long):
+    syntax = ['bnew', 0]
+    cond = 1
 
 
 class Beq(cond_base_ins):

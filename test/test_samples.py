@@ -351,11 +351,18 @@ class Samples:
         # Construct beer song:
         couplettes = []
         for n in range(99, 2, -1):
-            couplet = "{0} bottles of beer on the wall.\n{0} bottles of beer...\nTake one down, pass it around,\n{1} bottles of beer on the wall.\n".format(n, n-1)
+            couplet = "{0} bottles of beer on the wall.\n".format(n, n-1)
+            couplet += "{0} bottles of beer...\n".format(n, n-1)
+            couplet += "Take one down, pass it around,\n"
+            couplet += "{1} bottles of beer on the wall.\n".format(n, n-1)
             couplettes.append(couplet)
-        couplet = "2 bottles of beer on the wall.\n2 bottles of beer...\nTake one down, pass it around,\n1 bottle of beer on the wall.\n"
+        couplet = "2 bottles of beer on the wall.\n2 bottles of beer...\n"
+        couplet += "Take one down, pass it around,\n"
+        couplet += "1 bottle of beer on the wall.\n"
         couplettes.append(couplet)
-        couplet = "1 bottle of beer on the wall.\n1 bottle of beer...\nTake one down, pass it around,\n0 bottles of beer on the wall.\n"
+        couplet = "1 bottle of beer on the wall.\n1 bottle of beer...\n"
+        couplet += "Take one down, pass it around,\n"
+        couplet += "0 bottles of beer on the wall.\n"
         couplettes.append(couplet)
         song_text = '\n'.join(couplettes) + '\n'
         self.do(hello_world, song_text, lang='bf')
@@ -464,12 +471,6 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         # Run bin file in emulator:
         return run_qemu(sample_filename, machine='lm3s811evb')
 
-    def testBrainFuckQuine(self):
-        self.skipTest('Not possible yet')
-
-    def testBrainFuckBottlesOfBeer(self):
-        self.skipTest('Not possible yet')
-
 
 class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
     """
@@ -520,12 +521,6 @@ class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
         out = io.StringIO()
         stlink_run_sram_and_trace(image, output=out)
         return out.getvalue()
-
-    def testBrainFuckQuine(self):
-        self.skipTest('Not possible yet')
-
-    def testBrainFuckBottlesOfBeer(self):
-        self.skipTest('Not possible yet')
 
 
 class TestSamplesOnPython(unittest.TestCase, Samples):

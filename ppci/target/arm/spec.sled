@@ -1,9 +1,0 @@
-
-
-fields of ArmToken cond 28:31 op1 24:27 rm 0:3 rd 12:15 rn 16:19
-
-patterns
- [ EQ NE _ _ _ _ _ _ _ _ GE LT GT LE AL _ ] is cond = { 0 to 15 }
-
-constructors
- and rd "," rn "," rm : AL & op1 = 2

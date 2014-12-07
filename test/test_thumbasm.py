@@ -20,7 +20,7 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('mov r0, r1')
         # self.check(None)
 
-    @unittest.skip
+    @unittest.skip('todo')
     def testMovExt(self):
         self.feed('mov r3, sp')
         self.check('')
@@ -68,7 +68,8 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('x: dcd 1')
         self.check('00a200a2 01000000')
 
-    def testBranch(self):
+    def test_branch(self):
+        """ Test conditional branches """
         self.feed('start: b henkie')
         self.feed('beq henkie')
         self.feed('bne henkie')
@@ -76,7 +77,15 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('eof: b eof')
         self.check('01e000d0 ffd1fbe7 fee7')
 
-    def testConditions(self):
+    def test_long_branch(self):
+        """ Check if long branches work """
+        self.feed('bnew x')
+        self.feed('beqw x')
+        self.feed('x: bnew x')
+        self.feed('beqw x')
+        self.check('40f00280 00f00080 7ff4feaf 3ff4fcaf')
+
+    def test_conditions(self):
         self.feed('blt x')
         self.feed('bgt x')
         self.feed('x:')
@@ -84,7 +93,8 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('bge x')
         self.check('00dbffdc feddfdda')
 
-    def testBoff(self):
+    def test_b_off(self):
+        """ Test offset of branch instruction """
         self.feed('b henkie')
         self.feed('b henkie')
         self.feed('b henkie')

@@ -1,8 +1,8 @@
 
 from ..basetarget import Instruction, Isa
 from ...bitfun import encode_imm32
-from .registers import R0, SP, ArmRegister
-from ..token import Token, u32, bit_range
+from .registers import ArmRegister
+from ..token import Token, u32, u8, bit_range
 
 
 class RegisterSet(set):
@@ -30,6 +30,14 @@ class ArmToken(Token):
     def encode(self):
         return u32(self.bit_value)
 
+
+class ByteToken(Token):
+    def __init__(self):
+        super().__init__(8)
+
+    def encode(self):
+        return u8(self.bit_value)
+
 # Patterns:
 
 # Condition patterns:
@@ -42,15 +50,6 @@ class ArmInstruction(Instruction):
     tokens = [ArmToken]
     isa = isa
 
-    def __init__(self):
-        self.token = ArmToken()
-
-
-class ConstantData(ArmInstruction):
-    def __init__(self, v):
-        super().__init__()
-        assert isinstance(v, int)
-        self.v = v
 
 def Dcd(v):
     if type(v) is int:
@@ -82,13 +81,15 @@ class Dcd2(ArmInstruction):
         return [(self.v, 'absaddr32')]
 
 
-class Db(ConstantData):
+class Db(ArmInstruction):
+    tokens = [ByteToken]
+    args = [('v', int)]
+    syntax = ['db', 0]
+
     def encode(self):
         assert self.v < 256
-        return bytes([self.v])
-
-    def __repr__(self):
-        return 'DB {}'.format(hex(self.v))
+        self.token[0:8] = self.v
+        return self.token.encode()
 
 
 def Mov(*args):
@@ -177,6 +178,7 @@ class Cmp2(ArmInstruction):
     @staticmethod
     def from_im(im):
         return Cmp2(im.src[0], im.src[1])
+
 
 def Add(*args):
     if len(args) == 3 and isinstance(args[0], ArmRegister) and \
@@ -472,7 +474,7 @@ class LdrStrBase(ArmInstruction):
             self.token[0:12] = -self.offset
         return self.token.encode()
 
-# instruction: str reg ',' '[' 'reg' ',' 'reg' ']' { return Str(arg2, arg5, arg7) };
+
 class Str1(LdrStrBase):
     opcode = 0b010
     bit20 = 0
