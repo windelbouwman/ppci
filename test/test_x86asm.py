@@ -37,6 +37,16 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('call b')
         self.check('41 ff d2 40 ff d1  e8 0000 0000 e8 fbff ffff e8 f6ff ffff')
 
+    def test_ret(self):
+        self.feed('ret')
+        self.check('c3')
+
+    def test_int(self):
+        """ Test interrupt """
+        self.feed('int 0x2')
+        self.feed('int 0x11')
+        self.check('cd02 cd11')
+
     def testXor(self):
         self.feed('xor rax, rax')
         self.feed('xor r9, r8')
@@ -54,7 +64,7 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('push r12')
         self.check('55 53 41 54')
 
-    def testPop(self):
+    def test_pop(self):
         self.feed('pop rbx')
         self.feed('pop rbp')
         self.feed('pop r12')
@@ -68,16 +78,17 @@ class AssemblerTestCase(AsmTestCaseBase):
 
     @unittest.skip('not implemented')
     def testAsmMemLoads(self):
-      assert(assembler.mov('rax', ['r8','r15',0x11]) == [0x4b,0x8b,0x44,0x38,0x11])
-      assert(assembler.mov('r13', ['rbp','rcx',0x23]) == [0x4c,0x8b,0x6c,0xd,0x23])
+        self.feed('mov rax, [r8 + r15 * 1 + 0x11]')
+        self.check('4b 8b 44 38 11')
+        #assert(assembler.mov('r13', ['rbp','rcx',0x23]) == [0x4c,0x8b,0x6c,0xd,0x23])
 
-      assert(assembler.mov('r9', ['rbp',-0x33]) == [0x4c,0x8b,0x4d,0xcd])
-      #assert(assembler.movreg64('rbx', ['rax']) == [0x48, 0x8b,0x18])
+        #assert(assembler.mov('r9', ['rbp',-0x33]) == [0x4c,0x8b,0x4d,0xcd])
+        #assert(assembler.movreg64('rbx', ['rax']) == [0x48, 0x8b,0x18])
 
-      assert(assembler.mov('rax', [0xb000]) == [0x48,0x8b,0x4,0x25,0x0,0xb0,0x0,0x0])
-      assert(assembler.mov('r11', [0xa0]) == [0x4c,0x8b,0x1c,0x25,0xa0,0x0,0x0,0x0])
+        #assert(assembler.mov('rax', [0xb000]) == [0x48,0x8b,0x4,0x25,0x0,0xb0,0x0,0x0])
+        #assert(assembler.mov('r11', [0xa0]) == [0x4c,0x8b,0x1c,0x25,0xa0,0x0,0x0,0x0])
 
-      assert(assembler.mov('r11', ['RIP', 0xf]) == [0x4c,0x8b,0x1d,0x0f,0x0,0x0,0x0])
+        # assert(assembler.mov('r11', ['RIP', 0xf]) == [0x4c,0x8b,0x1d,0x0f,0x0,0x0,0x0])
 
     @unittest.skip('todo')
     def testAsmMemStores(self):

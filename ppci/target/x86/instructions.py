@@ -13,7 +13,6 @@ isa.typ2nt[str] = 'strrr'
 isa.typ2nt[int] = 'imm32'
 isa.typ2nt[X86Register] = 'reg'
 
-modrm = {'rax': 0, 'rbx': 1}
 
 # Table 3.1 of the intel manual:
 # use REX.W on the table below:
@@ -167,7 +166,7 @@ class ShortJump(X86Instruction):
         if condition:
           opcode = 0x70 | tttn[condition] # Jcc rel8
         else:
-          opcode = 0xeb # jmp rel8
+          opcode = 0xeb  # jmp rel8
         return [opcode] + imm8(distance)
 
 
@@ -195,9 +194,15 @@ class Pop(X86Instruction):
         return bytes(code)
 
 
-def Int(number):
-   opcode = 0xcd
-   return [opcode] + imm8(number)
+class Int(X86Instruction):
+    syntax = ['int', 0]
+    args = [('nr', int)]
+    tokens = [OpcodeToken, ByteToken]
+
+    def encode(self):
+        self.token1[0:8] = 0xcd
+        self.token2[0:8] = self.nr
+        return self.token1.encode() + self.token2.encode()
 
 
 def syscall():
@@ -211,17 +216,13 @@ class CallReg(X86Instruction):
 
     def encode(self):
         self.token1.b = self.reg.rexbit
-        self.token2[0:8] = 0xFF # 0xFF /2 == call r/m64
+        self.token2[0:8] = 0xFF  # 0xFF /2 == call r/m64
         self.token3.mod = 3
         self.token3.reg = 2
         self.token3.rm = self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+        return self.token1.encode() + self.token2.encode() + \
+            self.token3.encode()
 
-        if rexbit[reg] == 1:
-         rexprefix = rex(b=rexbit[reg])
-         return [rexprefix, opcode, mod_rm]
-        else:
-         return [opcode, mod_rm]
 
 class Call(X86Instruction):
     """ jmp imm32 """
@@ -237,28 +238,14 @@ class Call(X86Instruction):
         return [(self.target, 'jmp32')]
 
 
-def call(distance):
-   if type(distance) is int:
-      return [0xe8]+imm32(distance)
-   elif type(distance) is str and distance in regs64:
-      reg = distance
-      opcode = 0xFF # 0xFF /2 == call r/m64
-      mod_rm = modrm(mod=3, reg=2, rm=regs64[reg])
-      if rexbit[reg] == 1:
-         rexprefix = rex(b=rexbit[reg])
-         return [rexprefix, opcode, mod_rm]
-      else:
-         return [opcode, mod_rm]
-   else:
-      Error('Cannot call to {0}'.format(distance))
-
-
 class Ret(X86Instruction):
-    def __init__(self):
-        pass
+    args = []
+    syntax = ['ret']
+    tokens = [OpcodeToken]
 
     def encode(self):
-        return [ 0xc3 ]
+        self.token1[0:8] = 0xc3
+        return self.token1.encode()
 
 
 class Inc(X86Instruction):
@@ -384,21 +371,25 @@ class Mov1(X86Instruction):
         self.token1.w = 1
         self.token1.r = src.rexbit
         self.token1.b = dst.rexbit
-        self.token2[0:8] = 0x89 # mov r/m64, r64
+        self.token2[0:8] = 0x89  # mov r/m64, r64
         self.token3.mod = 3
         self.token3.rm = dst.regbits
         self.token3.reg = src.regbits
         return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
 
-def Mov(dst, src):
+class Mov3a(X86Instruction):
+    opcode = 0x8b  # mov r64, r/m64
+    pass
+
+
+def Mov3(dst, src):
     if type(src) is int:
         pre = [rex(w=1, b=rexbit[rega])]
         opcode = 0xb8 + regs64[rega]
         post = imm64(regb)
     elif type(src) is str:
       if rega in regs64:
-         opcode = 0x8b # mov r64, r/m64
          pre, post = prepost(rega, regb)
       else:
          raise Exception('Unknown register {0}'.format(rega))

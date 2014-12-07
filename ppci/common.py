@@ -7,6 +7,7 @@ import logging
    Source location structures
 """
 
+
 class Token:
     """
         Token is used in the lexical analyzer. The lexical analyzer takes
@@ -19,7 +20,7 @@ class Token:
         self.loc = loc
 
     def __repr__(self):
-        return 'Token({0}, {1})'.format(self.typ, self.val)
+        return 'Token({}, {}, {})'.format(self.typ, self.val, self.loc)
 
 
 class SourceLocation:
@@ -30,7 +31,7 @@ class SourceLocation:
         self.length = ln
 
     def __repr__(self):
-        return '{}, {}, {}'.format(self.filename, self.row, self.col)
+        return '({}, {}, {})'.format(self.filename, self.row, self.col)
 
 
 SourceRange = namedtuple('SourceRange', ['p1', 'p2'])
@@ -95,18 +96,18 @@ class DiagnosticsManager:
             ro, co = e.row, e.col
             prerow = ro - 2
             if prerow < 1:
-               prerow = 1
+                prerow = 1
             afterrow = ro + 3
             if afterrow > len(lines):
-               afterrow = len(lines)
+                afterrow = len(lines)
 
             # print preceding source lines:
             for r in range(prerow, ro):
-               printLine(r, lines[r-1])
+                printLine(r, lines[r-1])
             # print source line containing error:
             printLine(ro, lines[ro-1])
             print(' '*(len(str(ro)+':')+co-1) + '^ Error: {0}'.format(e.msg))
             # print trailing source line:
             for r in range(ro+1, afterrow+1):
-              printLine(r, lines[r-1])
+                printLine(r, lines[r-1])
         print('==============')

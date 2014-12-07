@@ -29,11 +29,12 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('yield')
         self.check('10bf')
 
-    def testPush(self):
+    def test_push(self):
         self.feed('push {r2,r3,lr}')
         self.check('0cb5')
 
-    def testPop(self):
+    def test_pop(self):
+        """ test pop instruction """
         self.feed('pop {r4-r6, pc}')
         self.check('70bd')
 
@@ -77,7 +78,7 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('eof: b eof')
         self.check('01e000d0 ffd1fbe7 fee7')
 
-    def test_long_branch(self):
+    def test_long_conditional_branch(self):
         """ Check if long branches work """
         self.feed('bnew x')
         self.feed('beqw x')
@@ -85,7 +86,18 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('beqw x')
         self.check('40f00280 00f00080 7ff4feaf 3ff4fcaf')
 
+    def test_long_branch(self):
+        """ Check if long and short branch works """
+        self.feed('b x')
+        self.feed('bw x')
+        self.feed('bw x')
+        self.feed('x: bw x')
+        self.feed('bw x')
+        self.feed('b x')
+        self.check('03e0 00f002b8 00f000b8 fff7febf fff7fcbf fae7')
+
     def test_conditions(self):
+        """ Check conditional jumping around """
         self.feed('blt x')
         self.feed('bgt x')
         self.feed('x:')
@@ -109,7 +121,7 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('b henkie')
         self.check('05e004e0 03e002e0 01e000e0 ffe7fee7 fde7fce7 fbe7')
 
-    def testBl(self):
+    def test_bl(self):
         self.feed('bl henkie')
         self.feed('bl henkie')
         self.feed('henkie:')

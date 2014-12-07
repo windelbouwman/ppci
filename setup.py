@@ -6,7 +6,10 @@ with open('readme.rst') as f:
 setup(
     name='ppci',
     description="Pure python compiler infrastructure",
-    scripts=["bin/zcc.py", "bin/st-flash.py", 'bin/hexutil.py'],
+    scripts=[
+        "bin/ppci-build.py",
+        "bin/ppci-asm.py",
+        "bin/st-flash.py", 'bin/hexutil.py'],
     long_description=long_description,
     version='0.0.3',
     author='Windel Bouwman',

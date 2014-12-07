@@ -1,8 +1,11 @@
+"""
+    X86-64 target description.
+"""
+
 from ..basetarget import Target
 from ...assembler import BaseAssembler
 from .registers import rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, regs64
-from .instructions import Mov
 from .instructions import isa, reloc_map
 
 
@@ -37,6 +40,8 @@ class X86Assembler(BaseAssembler):
 
         self.add_keyword('jmp')
         self.add_keyword('call')
+        self.add_keyword('ret')
+        self.add_keyword('int')
         self.add_keyword('jmpshort')
         self.add_keyword('mov')
         self.add_keyword('xor')
