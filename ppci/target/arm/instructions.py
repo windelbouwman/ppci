@@ -536,6 +536,10 @@ class Adr(ArmInstruction):
         self.token[25] = 1
         return self.token.encode()
 
+    @staticmethod
+    def from_im(im):
+        return Adr(im.dst[0], im.others[0])
+
 
 class Ldr3(ArmInstruction):
     """ Load PC relative constant value

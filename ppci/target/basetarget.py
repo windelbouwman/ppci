@@ -17,7 +17,6 @@ class Isa:
         to expand the supported functions.
     """
     def __init__(self):
-        self.lower_funcs = {}
         self.instructions = []
         self.typ2nt = {}
 
@@ -53,10 +52,6 @@ class InsMeta(type):
                     assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
                     setattr(self, fa[0], a)
             setattr(cls, '__init__', _init_)
-
-        # Register lowering functions:
-        if hasattr(cls, 'from_im'):
-            cls.isa.lower_funcs[cls] = cls.from_im
 
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
@@ -167,9 +162,6 @@ class Target:
         self.byte_sizes = {'int': 4}  # For front end!
         self.byte_sizes['byte'] = 1
 
-        # For lowering:
-        self.lower_functions = {}
-
     def __repr__(self):
         return '{}-target'.format(self.name)
 
@@ -179,13 +171,10 @@ class Target:
             if isinstance(im.assem, Instruction):
                 outs.emit(im.assem)
             else:
-                # TODO assert isinstance(Abs
-                ins = self.lower_functions[im.assem](im)
+                assert isinstance(im.assem, InsMeta)
+                # Construct the instruction with from_im method:
+                ins = im.assem.from_im(im)
                 outs.emit(ins)
-
-    def add_lowering(self, cls, f):
-        """ Add a function to the table of lowering options for this target """
-        self.lower_functions[cls] = f
 
     def add_reloc(self, name, f):
         self.reloc_map[name] = f

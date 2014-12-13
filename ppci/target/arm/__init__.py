@@ -150,13 +150,6 @@ class ArmTarget(Target):
         self.FrameClass = ArmFrame
 
         self.assembler = ArmAssembler(self)
-
-        # Grab lowerings from isa:
-        for k, v in isa.lower_funcs.items():
-            self.add_lowering(k, v)
-
-        self.add_lowering(Adr, lambda im: Adr(im.dst[0], im.others[0]))
-
         self.reloc_map = reloc_map
 
     def emit_global(self, outs, lname):

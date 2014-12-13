@@ -115,6 +115,32 @@ class Str2(LS_imm5_base):
         return Str2(im.src[1], im.src[0], im.others[0])
 
 
+#############3
+# Experiments:
+# stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str2, others=[0], src=[c0, c1])'
+def pattern(*args, **kwargs):
+    return lambda f: f
+
+pattern(
+    'stm: MOVI32(MEMI32(reg), reg)',
+    cost=2,
+    f=lambda c0, c1: emit(Str2, others=[0], src=[c0, c1])
+    )
+
+class Matcher:
+    @pattern('a', cost=2)
+    def P1(self):
+        self.emit()
+
+
+# stm: MOVI32(MEMI32(reg), reg) 2 
+# 'self.emit(Str2, others=[0], src=[c0, c1])'
+class Str2Pattern:
+    cost = 2
+    pattern = 'stm: MOVI32(MEMI32(reg), reg)'
+
+###############
+
 class Ldr2(LS_imm5_base):
     syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
     opcode = 0xD
@@ -193,6 +219,10 @@ class Ldr3(ThumbInstruction):
         imm8 = 0
         h = (0x9 << 11) | (rt << 8) | imm8
         return u16(h)
+
+    @staticmethod
+    def from_im(im):
+        return Ldr3(im.dst[0],  im.others[0])
 
 
 class Ldr1(ls_sp_base_imm8):

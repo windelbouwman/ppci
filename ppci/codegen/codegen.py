@@ -1,4 +1,3 @@
-
 """
     Target independent code generator part. The target is provided when
     the generator is created.

@@ -77,13 +77,6 @@ class ThumbTarget(Target):
         self.ins_sel = ArmInstructionSelector()
         self.FrameClass = ArmFrame
 
-        # Add lowering options:
-        self.add_lowering(Ldr3, lambda im: Ldr3(im.dst[0],  im.others[0]))
-
-        # Grab lowerings from isa:
-        for k, v in isa.lower_funcs.items():
-            self.add_lowering(k, v)
-
         self.assembler = ThumbAssembler(self)
         self.reloc_map = reloc_map
 
