@@ -1,4 +1,27 @@
 from ppci.irmach import AbstractInstruction
+from ppci.tree import State, Tree, from_string
+from ppci.pyburg import BurgSystem
+
+
+def pattern(non_term, tree, cost=0):
+    """
+        Decorator function that marks the method as a pattern implementation
+    """
+    if type(tree) is str:
+        tree = from_string(tree)
+
+    assert type(tree) is Tree
+
+    def wrapper(function):
+        """
+            Wrapper for function that does not modify function, but attaches
+            the attributes tree and cost to it
+        """
+        setattr(function, '$non_term', non_term)
+        setattr(function, '$tree', tree)
+        setattr(function, '$cost', cost)
+        return function
+    return wrapper
 
 
 class InstructionSelector:
@@ -6,6 +29,26 @@ class InstructionSelector:
         Base instruction selector. This class must be inherited by
         backends.
     """
+    def __init__(self):
+        # Generate burm table of rules:
+        self.sys = BurgSystem()
+
+        # Add all possible terminals:
+        terminals = ["ADDI32", "SUBI32", "MULI32", "ADR", "ORI32", "SHLI32",
+                     "SHRI32", "ANDI32", "CONSTI32", "CONSTDATA", "MEMI32",
+                     "REGI32", "MOVI8", "MEMI8", "CALL", "GLOBALADDRESS",
+                     "MOVI32", "JMP", "CJMP"]
+        for terminal in terminals:
+            self.sys.add_terminal(terminal)
+
+        # Find all member functions in the subclass:
+        for name, method in self.__class__.__dict__.items():
+            if hasattr(method, '$cost'):
+                non_term = getattr(method, '$non_term')
+                tree = getattr(method, '$tree')
+                cost = getattr(method, '$cost')
+                self.sys.add_rule(non_term, tree, cost, None, method)
+
     def newTmp(self):
         return self.frame.new_virtual_register()
 
@@ -23,7 +66,7 @@ class InstructionSelector:
                     self.emit(root)
                 else:
                     # Invoke dynamic programming matcher machinery:
-                    self.matcher.gen(root)
+                    self.gen(root)
             frame.between_blocks()
 
     def munchCall(self, e):
@@ -38,3 +81,89 @@ class InstructionSelector:
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
         return self.frame.emit(*args, **kwargs)
+
+    # Matcher parts:
+    def gen(self, tree):
+        self.burm_label(tree)
+        if not tree.state.has_goal("stm"):
+            raise Exception("Tree {} not covered".format(tree))
+        return self.apply_rules(tree, "stm")
+
+    def burm_label(self, tree):
+        """ Label all nodes in the tree bottom up """
+        for c in tree.children:
+            self.burm_label(c)
+        self.burm_state(tree)
+
+    def burm_state(self, tree):
+        """ Check all rules for matching with this subtree and
+            check if a state can be determined """
+        tree.state = State()
+        for rule in self.sys.rules:
+            if self.tree_terminal_equal(tree, rule.tree):
+                nts = self.nts(rule.nr)
+                kids = self.kids(tree, rule.nr)
+                if all(x.state.has_goal(y) for x, y in zip(kids, nts)):
+                    cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
+                    cost = cost + rule.cost
+                    tree.state.set_cost(rule.non_term, cost, rule.nr)
+
+                    # TODO: chain rules!!!
+
+    def apply_rules(self, tree, goal):
+        """ Apply all selected instructions to the tree """
+        rule = tree.state.get_rule(goal)
+        results = [self.apply_rules(kid_tree, kid_goal)
+                   for kid_tree, kid_goal in
+                   zip(self.kids(tree, rule), self.nts(rule))]
+        # Get the function to call:
+        rule_f = self.sys.get_rule(rule).template
+        return rule_f(self, tree, *results)
+
+    def kids(self, tree, rule):
+        """ Determine the kid trees for a rule """
+        template_tree = self.sys.get_rule(rule).tree
+        return self.get_kids(tree, template_tree)
+
+    def nts(self, rule):
+        """ Get the open ends of this rules pattern """
+        template_tree = self.sys.get_rule(rule).tree
+        return self.get_nts(template_tree)
+
+    # Could be in burg system?
+    def tree_terminal_equal(self, t1, t2):
+        """ Check if the terminals of a tree match """
+        if t1.name in self.sys.terminals and t2.name in self.sys.terminals:
+            if t1.name == t2.name:
+                # match children:
+                return all(self.tree_terminal_equal(a, b) for a, b in
+                           zip(t1.children, t2.children))
+            else:
+                return False
+        else:
+            # We hit an open end
+            return True
+
+    def get_kids(self, tree, template_tree):
+        """ Get the kids of a tree given a template that matched """
+        kids = []
+        if template_tree.name in self.sys.non_terminals:
+            assert len(template_tree.children) == 0
+            kids.append(tree)
+        else:
+            for t, tt in zip(tree.children, template_tree.children):
+                kids.extend(self.get_kids(t, tt))
+        return kids
+
+    def get_nts(self, template_tree):
+        """ Get the names of the non terminals of a template """
+        nts = []
+        if template_tree.name in self.sys.non_terminals:
+            assert len(template_tree.children) == 0
+            nts.append(template_tree.name)
+        else:
+            for tt in template_tree.children:
+                nts.extend(self.get_nts(tt))
+        return nts
+
+    # End of convenience

@@ -3,7 +3,7 @@ import io
 import os
 import argparse
 
-from ppci.tree import Tree
+from ppci.tree import Tree, from_string
 from ppci import pyburg
 
 brg_file = os.path.join(os.path.dirname(__file__), 'data', 'sample4.brg')
@@ -41,6 +41,29 @@ class testBURG(unittest.TestCase):
         mm = MyMatcher()
         mm.gen(t)
         self.assertSequenceEqual([8,8,4,11,9,3,1], mm.trace)
+
+
+class TreeTestCase(unittest.TestCase):
+    def test_structural_equal(self):
+        """ Check for equalness of trees """
+        t1 = Tree('MOV', Tree('ADD', Tree('reg'), Tree('reg')), Tree('reg'))
+        t2 = Tree('MOV', Tree('ADD', Tree('reg'), Tree('reg')), Tree('reg'))
+        self.assertTrue(t1.structural_equal(t2))
+        self.assertTrue(t2.structural_equal(t1))
+
+    def test_structural_unequal(self):
+        """ Check if unequal is detected """
+        t1 = Tree('MOV', Tree('ADD', Tree('reg'), Tree('reg')), Tree('reg'))
+        t2 = Tree('MOV2', Tree('ADD', Tree('reg'), Tree('reg')), Tree('reg'))
+        t3 = Tree('MOV', Tree('ADD', Tree('reg'), Tree('reg')))
+        self.assertFalse(t1.structural_equal(t2))
+        self.assertFalse(t1.structural_equal(t3))
+
+    def test_fromstring(self):
+        """ Check parsing from string """
+        t1 = from_string('MOV(ADD(reg,reg),reg)')
+        t2 = Tree('MOV', Tree('ADD', Tree('reg'), Tree('reg')), Tree('reg'))
+        self.assertTrue(t1.structural_equal(t2))
 
 
 if __name__ == '__main__':

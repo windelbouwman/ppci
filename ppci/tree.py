@@ -1,10 +1,5 @@
 
-# Valid tree names:
-tree_names = ['ADDI32', 'SUBI32', 'MULI32', 'ADR',
-    'ADDI8', 'SUBI8',
-    'ORI32', 'SHLI32', 'SHRI32', 'ANDI32',
-'CONSTI32 CONSTDATA MEMI32 REGI32', 'CALL GLOBALADDRESS',
-'MOVI32']
+from ppci.baselex import BaseLexer
 
 
 class Tree:
@@ -28,6 +23,66 @@ class Tree:
             val = ''
         return '{}{}{}'.format(self.name, val, ch)
 
+    def structural_equal(self, other):
+        return self.name == other.name and \
+            len(self.children) == len(other.children) and \
+            all(a.structural_equal(b) for a, b in
+                zip(self.children, other.children))
+
+
+class TreeLexer(BaseLexer):
+    def __init__(self):
+        tok_spec = [
+            ('ID', r'[A-Za-z][A-Za-z\d_]*', lambda typ, val: (typ, val)),
+            ('SKIP', r'[ \t]', None),
+            ('LEESTEKEN', r'[,\(\)]', lambda typ, val: (val, val))
+            ]
+        super().__init__(tok_spec)
+
+
+class TreeParser:
+    def __init__(self):
+        self.lexer = TreeLexer()
+        self.peak = None
+
+    def pop(self):
+        t = self.peak
+        self.peak = self.lexer.next_token()
+        return t
+
+    def consume(self, typ):
+        t = self.pop()
+        assert t.typ == typ
+        return t
+
+    def has_consumed(self, typ):
+        if self.peak.typ == typ:
+            self.pop()
+            return True
+        return False
+
+    def parse(self, s):
+        self.lexer.feed(s)
+        self.peak = self.lexer.next_token()
+        return self.parse_tree()
+
+    def parse_tree(self):
+        name = self.consume('ID').val
+        children = []
+        if self.has_consumed('('):
+            children.append(self.parse_tree())
+            while self.has_consumed(','):
+                children.append(self.parse_tree())
+            self.consume(')')
+        return Tree(name, *children)
+
+tree_parser = TreeParser()
+
+
+def from_string(s):
+    """ Create tree from string definition """
+    return tree_parser.parse(s)
+
 
 class State:
     """ State used to label tree nodes """
@@ -44,6 +99,9 @@ class State:
         return self.labels[goal][1]
 
     def set_cost(self, goal, cost, rule):
+        """
+            Mark that this tree can be matched with a rule for a certain cost
+        """
         if self.has_goal(goal):
             if self.get_cost(goal) > cost:
                 self.labels[goal] = (cost, rule)

@@ -21,3 +21,6 @@ class ArmInstructionSelector(InstructionSelector):
     def __init__(self):
         super().__init__()
         self.matcher = ArmMatcher(self)
+
+    def gen(self, tree):
+        self.matcher.gen(tree)

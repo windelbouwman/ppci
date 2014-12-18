@@ -1,6 +1,8 @@
 from ..basetarget import Instruction, Isa
 from ..token import u16, u32
-from ..arm.registers import R0, ArmRegister, SP
+from ..arm.registers import ArmRegister, SP
+from ..instructionselector import InstructionSelector, pattern
+from ...irmach import AbstractInstruction
 
 from ..token import Token, bit_range
 
@@ -118,27 +120,27 @@ class Str2(LS_imm5_base):
 #############3
 # Experiments:
 # stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str2, others=[0], src=[c0, c1])'
-def pattern(*args, **kwargs):
-    return lambda f: f
-
-pattern(
-    'stm: MOVI32(MEMI32(reg), reg)',
-    cost=2,
-    f=lambda c0, c1: emit(Str2, others=[0], src=[c0, c1])
-    )
-
-class Matcher:
-    @pattern('a', cost=2)
-    def P1(self):
-        self.emit()
-
-
-# stm: MOVI32(MEMI32(reg), reg) 2 
-# 'self.emit(Str2, others=[0], src=[c0, c1])'
-class Str2Pattern:
-    cost = 2
-    pattern = 'stm: MOVI32(MEMI32(reg), reg)'
-
+#def pattern(*args, **kwargs):
+#    return lambda f: f
+#
+#pattern(
+#    'stm: MOVI32(MEMI32(reg), reg)',
+#    cost=2,
+#    f=lambda c0, c1: emit(Str2, others=[0], src=[c0, c1])
+#    )
+#
+#class Matcher:
+#    @pattern('a', cost=2)
+#    def P1(self):
+#        self.emit()
+#
+#
+## stm: MOVI32(MEMI32(reg), reg) 2 
+## 'self.emit(Str2, others=[0], src=[c0, c1])'
+#class Str2Pattern:
+#    cost = 2
+#    pattern = 'stm: MOVI32(MEMI32(reg), reg)'
+#
 ###############
 
 class Ldr2(LS_imm5_base):
@@ -664,3 +666,137 @@ class AddSp(addspsp_base):
 class SubSp(addspsp_base):
     syntax = ['sub', 'sp', ',', 'sp', ',', 0]
     opcode = 0b101100001
+
+
+# Define instruction selector:
+
+class ThumbInstructionSelector(InstructionSelector):
+    """ Instruction selector for the thumb architecture """
+
+    @pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=1)
+    def P1(self, tree, c0, c1):
+        self.emit(Str2, others=[0], src=[c0, c1])
+
+    @pattern('stm', 'JMP', cost=2)
+    def P3(self, tree):
+        label, tgt = tree.value
+        self.emit(Bw(label), jumps=[tgt])
+
+    @pattern('reg', 'REGI32', cost=0)
+    def P4(self, tree):
+        return tree.value
+
+    @pattern('reg', 'ADDI32(reg,reg)', cost=1)
+    def P5(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Add3, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('stm', 'MOVI32(REGI32,cn)', cost=2)
+    def P7(self, tree, c0):
+        ln = self.frame.addConstant(c0)
+        r = tree.children[0].value
+        self.emit(Ldr3, dst=[r], others=[ln])
+
+    @pattern('cn', 'CONSTI32', cost=0)
+    def P8(self, tree):
+        return tree.value
+
+    @pattern('reg', 'GLOBALADDRESS', cost=2)
+    def P9(self, tree):
+        d = self.newTmp()
+        ln = self.frame.addConstant(tree.value)
+        self.emit(Ldr3, dst=[d], others=[ln])
+        return d
+
+    @pattern('reg', 'CONSTI32', cost=3)
+    def P10(self, tree):
+        d = self.newTmp()
+        ln = self.frame.addConstant(tree.value)
+        self.emit(Ldr3, dst=[d], others=[ln])
+        return d
+
+    @pattern('stm', 'MOVI32(REGI32,reg)', cost=1)
+    def P11(self, tree, c0):
+        r = tree.children[0].value
+        self.move(r, c0)
+
+    @pattern('stm', 'CJMP(reg,reg)', cost=3)
+    def P12(self, tree, c0, c1):
+        op, yes_label, yes_tgt, no_label, no_tgt = tree.value
+        opnames = {"<": Blt, ">": Bgt, "==": Beqw, "!=": Bnew, ">=": Bge}
+        Bop = opnames[op]
+        jmp_ins = AbstractInstruction(Bw(no_label), jumps=[no_tgt])
+        self.emit(Cmp, src=[c0, c1])
+        self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins])
+        self.emit(jmp_ins)
+
+    @pattern('stm', 'MOVI8(MEMI8(reg),reg)', cost=1)
+    def P13(self, tree, c0, c1):
+        self.emit(Strb, others=[0], src=[c0, c1])
+
+    @pattern('reg', 'MEMI8(reg)', cost=1)
+    def P14(self, tree, c0):
+        d = self.newTmp()
+        self.emit(Ldrb, dst=[d], src=[c0], others=[0])
+        return d
+
+    @pattern('reg', 'MEMI32(reg)', cost=1)
+    def P15(self, tree, c0):
+        d = self.newTmp()
+        self.emit(Ldr2, dst=[d], src=[c0], others=[0])
+        return d
+
+    @pattern('reg', 'CALL', cost=1)
+    def P16(self, tree):
+        return self.munchCall(tree.value)
+
+    # TODO: fix this double otherwise, by extra token kind IGNR(CALL(..))
+    @pattern('stm', 'CALL', cost=1)
+    def P17(self, tree):
+        return self.munchCall(tree.value)
+
+    @pattern('reg', 'SUBI32(reg,reg)', cost=1)
+    def P18(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Sub3, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'ADR(CONSTDATA)', cost=2)
+    def P19(self, tree):
+        d = self.newTmp()
+        ln = self.frame.addConstant(tree.children[0].value)
+        self.emit(Adr, dst=[d], others=[ln])
+        return d
+
+    @pattern('reg', 'SHRI32(reg, reg)', cost=1)
+    def P20(self, tree, c0, c1):
+        d = self.newTmp()
+        self.move(d, c0)
+        self.emit(Lsr, dst=[], src=[d, c1])
+        return d
+
+    @pattern('reg', 'ORI32(reg, reg)', cost=1)
+    def P21(self, tree, c0, c1):
+        d = self.newTmp()
+        self.move(d, c0)
+        self.emit(Orr, dst=[], src=[d, c1])
+        return d
+
+    @pattern('reg', 'ANDI32(reg, reg)', cost=1)
+    def P22(self, tree, c0, c1):
+        d = self.newTmp()
+        self.move(d, c0)
+        self.emit(And, dst=[], src=[d, c1])
+        return d
+
+    @pattern('reg', 'SHLI32(reg, reg)', cost=1)
+    def P23(self, tree, c0, c1):
+        d = self.newTmp()
+        self.move(d, c0)
+        self.emit(Lsl, dst=[], src=[d, c1])
+        return d
+
+#reg: MULI32(reg, reg) 2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Mul, dst=[d], src=[c1, d]); return d'
+#reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
+#addr: reg 0 ''

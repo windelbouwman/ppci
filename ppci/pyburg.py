@@ -147,11 +147,11 @@ class BurgSystem:
         return (s.name for s in self.symbols.values() if type(s) is t)
 
     terminals = property(lambda s: s.symType(Term))
-
     non_terminals = property(lambda s: s.symType(Nonterm))
 
     def add_rule(self, non_term, tree, cost, acceptance, template):
-        template = template.strip()
+        if type(template) is str:
+            template = template.strip()
         if not template:
             template = 'pass'
         rule = Rule(non_term, tree, cost, acceptance, template)
@@ -160,6 +160,13 @@ class BurgSystem:
         self.non_term(rule.non_term)
         self.rules.append(rule)
         rule.nr = len(self.rules)
+        return rule
+
+    def get_rule(self, nr):
+        """ Get a rule by rule number """
+        rule = self.rules[nr - 1]
+        assert rule.nr == nr
+        return rule
 
     def non_term(self, name):
         if name in self.terminals:

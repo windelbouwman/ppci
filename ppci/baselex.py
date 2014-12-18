@@ -12,7 +12,8 @@ class BaseLexer:
         source position accounting.
     """
     def __init__(self, tok_spec):
-        tok_re = '|'.join('(?P<{}>{})'.format(pair[0], pair[1]) for pair in tok_spec)
+        tok_re = '|'.join(
+            '(?P<{}>{})'.format(pair[0], pair[1]) for pair in tok_spec)
         self.gettok = re.compile(tok_re).match
         self.func_map = {pair[0]: pair[2] for pair in tok_spec}
         self.filename = None
@@ -45,7 +46,8 @@ class BaseLexer:
             mo = self.gettok(txt, self.pos)
         if len(txt) != self.pos:
             char = txt[self.pos]
-            raise CompilerError('Unexpected char: {0} (0x{1:X})'.format(char, ord(char)))
+            raise CompilerError(
+                'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)))
 
     def newline(self):
         """ Enters a new line """

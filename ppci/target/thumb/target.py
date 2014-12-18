@@ -5,7 +5,7 @@ from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC, register_range
 
 from .frame import ArmFrame
-from .arminstructionselector import ArmInstructionSelector
+from .instructions import ThumbInstructionSelector
 from .relocations import reloc_map
 from ...assembler import BaseAssembler
 
@@ -74,7 +74,7 @@ class ThumbAssembler(BaseAssembler):
 class ThumbTarget(Target):
     def __init__(self):
         super().__init__('thumb')
-        self.ins_sel = ArmInstructionSelector()
+        self.ins_sel = ThumbInstructionSelector()
         self.FrameClass = ArmFrame
 
         self.assembler = ThumbAssembler(self)
