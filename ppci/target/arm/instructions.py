@@ -3,6 +3,8 @@ from ..basetarget import Instruction, Isa
 from ...bitfun import encode_imm32
 from .registers import ArmRegister
 from ..token import Token, u32, u8, bit_range
+from ..instructionselector import InstructionSelector, pattern
+from ...irmach import AbstractInstruction
 
 
 class RegisterSet(set):
@@ -592,3 +594,112 @@ class Mcr(McrBase):
 class Mrc(McrBase):
     b20 = 1
     syntax = ['mrc', 0, ',', 1, ',', 2, ',', 3, ',', 4, ',', 5]
+
+
+class ArmInstructionSelector(InstructionSelector):
+    """ Instruction selector for the arm architecture """
+
+    @pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=2)
+    def P1(self, tree, c0, c1):
+        self.emit(Str1, others=[0], src=[c0, c1])
+
+    @pattern('stm', 'MOVI8(MEMI8(reg), reg)', cost=2)
+    def P2(self, tree, c0, c1):
+        self.emit(Strb, others=[0], src=[c0, c1])
+
+    @pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
+    def P3(self, tree, c0):
+        self.move(tree.children[0].value, c0)
+    # stm: MOVI32(MEMI32(ADDI32(reg, cn)), reg) 2 'self.emit(Str1, others=[c1], src=[c0, c2])'
+
+    @pattern('stm', 'JMP', cost=2)
+    def P5(self, tree):
+        label, tgt = tree.value
+        self.emit(B(label), jumps=[tgt])
+
+    @pattern('reg', 'REGI32', cost=0)
+    def P6(self, tree):
+        return tree.value
+
+    @pattern('reg', 'CONSTI32', cost=4)
+    def P7(self, tree):
+        d = self.newTmp()
+        ln = self.frame.add_constant(tree.value)
+        self.emit(Ldr3, dst=[d], others=[ln])
+        return d
+
+    @pattern('stm', 'CJMP(reg, reg)', cost=2)
+    def P8(self, tree, c0, c1):
+        op, yes_label, yes_tgt, no_label, no_tgt = tree.value
+        opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
+        Bop = opnames[op]
+        self.emit(Cmp2, src=[c0, c1])
+        jmp_ins = AbstractInstruction(B(no_label), jumps=[no_tgt])
+        self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins])
+        self.emit(jmp_ins)
+#
+    @pattern('reg', 'ADDI32(reg, reg)', cost=2)
+    def P9(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Add1, dst=[d], src=[c0, c1])
+        return d
+
+    #reg: ADDI32(reg, cn)          2 'return tree.children[1].value < 256' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c0], others=[c1]); return d'
+    #reg: ADDI32(cn, reg)          2 'return tree.children[0].value < 256' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c1], others=[c0]); return d'
+
+    @pattern('reg', 'SUBI32(reg, reg)', cost=2)
+    def P12(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Sub1, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'GLOBALADDRESS', cost=4)
+    def P13(self, tree):
+        d = self.newTmp()
+        ln = self.frame.add_constant(tree.value)
+        self.emit(Ldr3, dst=[d], others=[ln])
+        return d
+
+    @pattern('reg', 'MEMI8(reg)', cost=2)
+    def P14(self, tree, c0):
+        d = self.newTmp()
+        self.emit(Ldrb, dst=[d], src=[c0], others=[0])
+        return d
+
+    @pattern('reg', 'MEMI32(reg)', cost=2)
+    def P15(self, tree, c0):
+        d = self.newTmp()
+        self.emit(Ldr1, dst=[d], src=[c0], others=[0])
+        return d
+
+    @pattern('reg', 'CALL', cost=2)
+    def P16(self, tree):
+        return self.munchCall(tree.value)
+
+    @pattern('stm', 'CALL', cost=2)
+    def P17(self, tree):
+        self.munchCall(tree.value)
+
+    @pattern('reg', 'ADR(CONSTDATA)', cost=2)
+    def P18(self, tree):
+        d = self.newTmp()
+        ln = self.frame.add_constant(tree.children[0].value)
+        self.emit(Adr, dst=[d], others=[ln])
+        return d
+
+    @pattern('reg', 'ANDI32(reg, reg)', cost=2)
+    def P19(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(And1, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'SHRI32(reg, reg)', cost=2)
+    def P20(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Lsr1, dst=[d], src=[c0, c1])
+        return d
+
+# reg: MULI32(reg, reg)         2 'd = self.newTmp(); self.emit(Mul1, dst=[d], src=[c0, c1]); return d'
+# reg: MEMI32(ADDI32(reg, cn))  2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[c1]); return d'
+# cn: CONSTI32                  0 'return tree.value'
+# reg: CONSTI32                 2 'return (type(tree.value) is int) and (tree.value < 256)' 'd = self.newTmp(); self.emit(Mov1, dst=[d], others=[tree.value]); return d'

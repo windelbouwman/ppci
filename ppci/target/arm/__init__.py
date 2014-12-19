@@ -1,7 +1,7 @@
 
 from ..basetarget import Target, Label
 from .instructions import LdrPseudo, isa
-from .selector import ArmInstructionSelector
+from .instructions import ArmInstructionSelector
 from .frame import ArmFrame
 from ...assembler import BaseAssembler
 
