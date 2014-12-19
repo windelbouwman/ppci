@@ -189,6 +189,41 @@ class BurgSystem:
     def add_terminal(self, terminal):
         self.install(terminal, Term)
 
+    def tree_terminal_equal(self, t1, t2):
+        """ Check if the terminals of a tree match """
+        if t1.name in self.terminals and t2.name in self.terminals:
+            if t1.name == t2.name:
+                # match children:
+                return all(self.tree_terminal_equal(a, b) for a, b in
+                           zip(t1.children, t2.children))
+            else:
+                return False
+        else:
+            # We hit an open end
+            return True
+
+    def get_kids(self, tree, template_tree):
+        """ Get the kids of a tree given a template that matched """
+        kids = []
+        if template_tree.name in self.non_terminals:
+            assert len(template_tree.children) == 0
+            kids.append(tree)
+        else:
+            for t, tt in zip(tree.children, template_tree.children):
+                kids.extend(self.get_kids(t, tt))
+        return kids
+
+    def get_nts(self, template_tree):
+        """ Get the names of the non terminals of a template """
+        nts = []
+        if template_tree.name in self.non_terminals:
+            assert len(template_tree.children) == 0
+            nts.append(template_tree.name)
+        else:
+            for tt in template_tree.children:
+                nts.extend(self.get_nts(tt))
+        return nts
+
 
 class BurgError(Exception):
     pass

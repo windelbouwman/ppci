@@ -84,6 +84,8 @@ class InstructionSelector:
 
     # Matcher parts:
     def gen(self, tree):
+        """ Generate code for a given tree. The tree will be tiled with
+            patterns and the corresponding code will be emitted """
         self.burm_label(tree)
         if not tree.state.has_goal("stm"):
             raise Exception("Tree {} not covered".format(tree))
@@ -91,16 +93,16 @@ class InstructionSelector:
 
     def burm_label(self, tree):
         """ Label all nodes in the tree bottom up """
-        for c in tree.children:
-            self.burm_label(c)
-        self.burm_state(tree)
+        for child_tree in tree.children:
+            self.burm_label(child_tree)
 
-    def burm_state(self, tree):
-        """ Check all rules for matching with this subtree and
-            check if a state can be determined """
+        # Now the child nodes have been labeled, assign a state to the tree:
         tree.state = State()
+
+        # Check all rules for matching with this subtree and
+        # check if a state can be determined
         for rule in self.sys.rules:
-            if self.tree_terminal_equal(tree, rule.tree):
+            if self.sys.tree_terminal_equal(tree, rule.tree):
                 nts = self.nts(rule.nr)
                 kids = self.kids(tree, rule.nr)
                 if all(x.state.has_goal(y) for x, y in zip(kids, nts)):
@@ -123,47 +125,9 @@ class InstructionSelector:
     def kids(self, tree, rule):
         """ Determine the kid trees for a rule """
         template_tree = self.sys.get_rule(rule).tree
-        return self.get_kids(tree, template_tree)
+        return self.sys.get_kids(tree, template_tree)
 
     def nts(self, rule):
         """ Get the open ends of this rules pattern """
         template_tree = self.sys.get_rule(rule).tree
-        return self.get_nts(template_tree)
-
-    # Could be in burg system?
-    def tree_terminal_equal(self, t1, t2):
-        """ Check if the terminals of a tree match """
-        if t1.name in self.sys.terminals and t2.name in self.sys.terminals:
-            if t1.name == t2.name:
-                # match children:
-                return all(self.tree_terminal_equal(a, b) for a, b in
-                           zip(t1.children, t2.children))
-            else:
-                return False
-        else:
-            # We hit an open end
-            return True
-
-    def get_kids(self, tree, template_tree):
-        """ Get the kids of a tree given a template that matched """
-        kids = []
-        if template_tree.name in self.sys.non_terminals:
-            assert len(template_tree.children) == 0
-            kids.append(tree)
-        else:
-            for t, tt in zip(tree.children, template_tree.children):
-                kids.extend(self.get_kids(t, tt))
-        return kids
-
-    def get_nts(self, template_tree):
-        """ Get the names of the non terminals of a template """
-        nts = []
-        if template_tree.name in self.sys.non_terminals:
-            assert len(template_tree.children) == 0
-            nts.append(template_tree.name)
-        else:
-            for tt in template_tree.children:
-                nts.extend(self.get_nts(tt))
-        return nts
-
-    # End of convenience
+        return self.sys.get_nts(template_tree)
