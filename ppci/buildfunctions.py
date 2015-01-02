@@ -198,9 +198,14 @@ def ir_to_python(ircode, f):
 def c3compile(sources, includes, target, lst_file=None):
     """ Compile a set of sources into binary format for the given target """
     target = fix_target(target)
+    writer = Writer()
     ir_mods = list(c3toir(sources, includes, target))
     if lst_file:
         print('C3 compilation listings for {}'.format(sources), file=lst_file)
+        print('Before optimization {}'.format(ir_mods), file=lst_file)
+        for ir_module in ir_mods:
+            writer.write(ir_module, lst_file)
+        print('============', file=lst_file)
 
     for ircode in ir_mods:
         optimize(ircode)
@@ -208,9 +213,9 @@ def c3compile(sources, includes, target, lst_file=None):
     # Write output to listings file:
     if lst_file:
         print('After optimization {}'.format(ir_mods), file=lst_file)
-        writer = Writer()
         for ir_module in ir_mods:
             writer.write(ir_module, lst_file)
+        print('============', file=lst_file)
     obj = ir_to_code(ir_mods, target, lst_file=lst_file)
     return obj
 

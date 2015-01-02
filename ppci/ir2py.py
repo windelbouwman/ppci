@@ -21,11 +21,12 @@ class IrToPython:
         self.mod_name = ir_mod.name
         self.string_literals = []
         self.print(0, '')
+        self.print(0, 'import struct')
         self.print(0, '# Module {}'.format(ir_mod.name))
         # Allocate room for global variables:
         for var in ir_mod.Variables:
             self.print(0, '{} = len(mem)'.format(var.name))
-            self.print(0, 'mem.extend([0]*{})'.format(var.ty.size))
+            self.print(0, 'mem.extend([0]*{})'.format(var.amount))
 
         # Generate functions:
         for function in ir_mod.Functions:
@@ -75,9 +76,22 @@ class IrToPython:
         elif isinstance(ins, ir.Binop):
             self.print(3, '{} = {} {} {}'.format(
                 ins.name, ins.a.name, ins.operation, ins.b.name))
+            # Implement wrapping around zero:
+            if ins.ty.byte_size == 1:
+                self.print(3, 'if {} < 0:'.format(ins.name))
+                self.print(4, '{} += 256'.format(ins.name))
+                self.print(3, 'if {} > 255:'.format(ins.name))
+                self.print(4, '{} -= 256'.format(ins.name))
         elif isinstance(ins, ir.Store):
-            self.print(3, 'mem[{}] = {}'
-                       .format(ins.address.name, ins.value.name))
+            # print(ins
+            if ins.value.ty.byte_size == 4:
+                self.print(3, 'mem[{0}:{0}+4] = list(struct.pack("I",{1}))'
+                           .format(ins.address.name, ins.value.name))
+            elif ins.value.ty.byte_size == 1:
+                self.print(3, 'mem[{0}:{0}+1] = list(struct.pack("B",{1}))'
+                           .format(ins.address.name, ins.value.name))
+            else:
+                raise NotImplementedError()
         elif isinstance(ins, ir.Load):
             self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
         elif isinstance(ins, ir.Call):

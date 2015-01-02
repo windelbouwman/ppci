@@ -59,6 +59,7 @@ import os
 import io
 import types
 import argparse
+from functools import lru_cache
 from ppci import Token, SourceLocation
 from ppci import baselex, pyyacc
 from ppci.tree import Tree
@@ -200,6 +201,8 @@ class BurgSystem:
                 return False
         else:
             # We hit an open end
+            assert t1.name in self.non_terminals or \
+                t2.name in self.non_terminals
             return True
 
     def get_kids(self, tree, template_tree):
@@ -213,6 +216,7 @@ class BurgSystem:
                 kids.extend(self.get_kids(t, tt))
         return kids
 
+    # @lru_cache()
     def get_nts(self, template_tree):
         """ Get the names of the non terminals of a template """
         nts = []
@@ -223,6 +227,22 @@ class BurgSystem:
             for tt in template_tree.children:
                 nts.extend(self.get_nts(tt))
         return nts
+
+    def check_tree_defined(self, tree):
+        """ Check if all names in a tree are defined """
+        for name in tree.get_defined_names():
+            if name not in self.symbols.keys():
+                raise BurgError("{} not defined".format(name))
+
+    def check(self):
+        """ Run sanity checks on this burg system """
+        for rule in self.rules:
+            print(rule.tree)
+            self.check_tree_defined(rule.tree)
+        # Check burg system for completeness:
+        # print(self.sys.non_terminals)
+
+        # TODO: check if all possible code can be covered.
 
 
 class BurgError(Exception):

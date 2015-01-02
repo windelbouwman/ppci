@@ -34,13 +34,14 @@ class Writer:
     def print(self, txt):
         print(txt, file=self.f)
 
-    def write(self, ir, f):
+    def write(self, module, f):
         """ Write ir-code to file f """
+        assert type(module) is ir.Module
         self.f = f
-        self.print('{}{}'.format(self.extra_indent, ir))
-        for v in ir.Variables:
+        self.print('{}{}'.format(self.extra_indent, module))
+        for v in module.Variables:
             self.print('{}{}'.format(self.extra_indent, v))
-        for function in ir.Functions:
+        for function in module.Functions:
             self.write_function(function)
 
     def write_function(self, fn):

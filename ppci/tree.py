@@ -29,6 +29,13 @@ class Tree:
             all(a.structural_equal(b) for a, b in
                 zip(self.children, other.children))
 
+    def get_defined_names(self):
+        """ Returns a set of all names defined by this tree """
+        names = set([self.name])
+        for c in self.children:
+            names = names | c.get_defined_names()
+        return names
+
 
 class TreeLexer(BaseLexer):
     def __init__(self):

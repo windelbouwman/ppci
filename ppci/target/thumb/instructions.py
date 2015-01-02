@@ -692,6 +692,12 @@ class ThumbInstructionSelector(InstructionSelector):
         self.emit(Add3, dst=[d], src=[c0, c1])
         return d
 
+    @pattern('reg', 'ADDI8(reg,reg)', cost=1)
+    def P5_2(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Add3, dst=[d], src=[c0, c1])
+        return d
+
     @pattern('stm', 'MOVI32(REGI32,cn)', cost=2)
     def P7(self, tree, c0):
         ln = self.frame.addConstant(c0)
@@ -758,6 +764,12 @@ class ThumbInstructionSelector(InstructionSelector):
 
     @pattern('reg', 'SUBI32(reg,reg)', cost=1)
     def P18(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Sub3, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'SUBI8(reg,reg)', cost=1)
+    def P18_2(self, tree, c0, c1):
         d = self.newTmp()
         self.emit(Sub3, dst=[d], src=[c0, c1])
         return d

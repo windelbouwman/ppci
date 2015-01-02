@@ -152,8 +152,8 @@ class Parser:
                 theT = PointerType(theT)
             elif self.hasConsumed('['):
                 if self.Peak == ']':
-                    size = 0
-                    self.Consume(']')
+                    loc = self.Consume(']').loc
+                    size = Literal(0, loc)
                 else:
                     size = self.Expression()
                     self.Consume(']')
@@ -224,7 +224,7 @@ class Parser:
             self.Consume(';')
             f.body = None
         else:
-            f.body = self.parseCompound()
+            f.body = self.parse_compound()
         self.currentPart = savePart
 
     def parse_if(self):
@@ -232,8 +232,8 @@ class Parser:
         self.Consume('(')
         condition = self.Expression()
         self.Consume(')')
-        yes = self.Statement()
-        no = self.Statement() if self.hasConsumed('else') else Empty()
+        yes = self.parse_statement()
+        no = self.parse_statement() if self.hasConsumed('else') else Empty()
         return If(condition, yes, no, loc)
 
     def parse_switch(self):
@@ -248,19 +248,19 @@ class Parser:
         self.Consume('(')
         condition = self.Expression()
         self.Consume(')')
-        statements = self.Statement()
+        statements = self.parse_statement()
         return While(condition, statements, loc)
 
     def parse_for(self):
         loc = self.Consume('for').loc
         self.Consume('(')
-        init = self.Statement()
+        init = self.parse_statement()
         self.Consume(';')
         condition = self.Expression()
         self.Consume(';')
-        final = self.Statement()
+        final = self.parse_statement()
         self.Consume(')')
-        statements = self.Statement()
+        statements = self.parse_statement()
         return For(init, condition, final, statements, loc)
 
     def parseReturn(self):
@@ -272,15 +272,15 @@ class Parser:
         self.Consume(';')
         return Return(expr, loc)
 
-    def parseCompound(self):
+    def parse_compound(self):
         self.Consume('{')
         statements = []
         while not self.hasConsumed('}'):
-            statements.append(self.Statement())
+            statements.append(self.parse_statement())
         return Compound(statements)
 
-    def Statement(self):
-        # Determine statement type based on the pending token:
+    def parse_statement(self):
+        """ Determine statement type based on the pending token """
         if self.Peak == 'if':
             return self.parse_if()
         elif self.Peak == 'while':
@@ -290,7 +290,7 @@ class Parser:
         elif self.Peak == 'switch':
             return self.parse_switch()
         elif self.Peak == '{':
-            return self.parseCompound()
+            return self.parse_compound()
         elif self.hasConsumed(';'):
             return Empty()
         elif self.Peak == 'var':

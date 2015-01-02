@@ -23,32 +23,23 @@ class Typ:
 
 class BuiltinType(Typ):
     """ Built in type representation """
-    def __init__(self, name):
+    def __init__(self, name, byte_size):
         self.name = name
+        self.byte_size = byte_size
 
     def __repr__(self):
         return self.name
 
     @property
     def size(self):
-        # TODO: make this variable?
-        return 4
+        """ The size in bytes of this type """
+        return self.byte_size
 
 
-i32 = BuiltinType('i32')
-i8 = BuiltinType('i8')
-
-
-class ArrayType(Typ):
-    """ Array specification """
-    def __init__(self, element_type, amount):
-        assert isinstance(element_type, Typ)
-        self.element_type = element_type
-        self.amount = amount
-
-    @property
-    def size(self):
-        return self.amount * self.element_type.size
+double = BuiltinType('double', 8)
+i32 = BuiltinType('i32', 4)
+i8 = BuiltinType('i8', 1)
+ptr = BuiltinType('ptr', 4)
 
 
 class Module:
@@ -520,6 +511,19 @@ class Expression(Value):
     pass
 
 
+class Cast(Expression):
+    """ Base type conversion instruction """
+    INTTOPTR = 0
+    PTRTOINT = 1
+    BYTETOINT = 2
+    INTTOBYTE = 3
+
+    def __init__(self, value, method, name, ty):
+        super().__init__(name, ty)
+        self.value = value
+        self.method = method
+
+
 class Undefined(Value):
     def __repr__(self):
         return '{} = Undef'.format(self.name)
@@ -533,7 +537,8 @@ class Const(Expression):
         assert type(value) in [int, float, bool, bytes], str(value)
 
     def __repr__(self):
-        return '{} = Const {}'.format(self.name, self.value)
+        ty = self.ty
+        return '{} = Const {} {}'.format(self.name, ty, self.value)
 
 
 class Call(Expression):
@@ -634,22 +639,31 @@ class Phi(Value):
 
 class Alloc(Expression):
     """ Allocates space on the stack """
-    def __init__(self, name, ty, num_elements=4):
-        super().__init__(name, ty)
-        # self.num_elements = num_elements
-        self.amount = num_elements
+    def __init__(self, name, amount):
+        super().__init__(name, ptr)
+        assert type(amount) is int
+        self.amount = amount
 
     def __repr__(self):
         return '{} = Alloc {} bytes'.format(self.name, self.amount)
 
 
 class Variable(Expression):
-    """ Global variable """
+    """ Global variable, reserves room in the data area. Has name and size """
+    def __init__(self, name, amount):
+        super().__init__(name, ptr)
+        assert type(amount) is int
+        self.amount = amount
+
     def __repr__(self):
         return 'Variable {}'.format(self.name)
 
 
-class Parameter(Variable):
+class Parameter(Expression):
+    """ Parameter of a function """
+    def __init__(self, name, ty):
+        super().__init__(name, ty)
+
     def __repr__(self):
         return 'Param {}'.format(self.name)
 
@@ -664,7 +678,8 @@ class Load(Value):
         self.volatile = volatile
 
     def __repr__(self):
-        return '{} = [{}]'.format(self.name, self.address.name)
+        ty = self.ty
+        return '{} = load {} {}'.format(self.name, ty, self.address.name)
 
 
 class Store(Instruction):
@@ -679,7 +694,10 @@ class Store(Instruction):
         self.volatile = volatile
 
     def __repr__(self):
-        return '[{}] = {}'.format(self.address.name, self.value.name)
+        ty = self.value.ty
+        val = self.value.name
+        ptr = self.address.name
+        return 'store {} {}, {}'.format(ty, val, ptr)
 
 
 class Addr(Expression):

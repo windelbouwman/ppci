@@ -34,9 +34,15 @@ class InstructionSelector:
         self.sys = BurgSystem()
 
         # Add all possible terminals:
-        terminals = ["ADDI32", "SUBI32", "MULI32", "ADR", "ORI32", "SHLI32",
-                     "SHRI32", "ANDI32", "CONSTI32", "CONSTDATA", "MEMI32",
-                     "REGI32", "MOVI8", "MEMI8", "CALL", "GLOBALADDRESS",
+        terminals = ["ADDI32", "SUBI32", "MULI32",
+                     "ADDI8", "SUBI8",
+                     "ADR", "ORI32", "SHLI32",
+                     "SHRI32", "ANDI32", "CONSTI32",
+                     "CONSTDATA",
+                     "MEMI32",
+                     "REGI32",
+                     "MOVI8", "MEMI8",
+                     "CALL", "GLOBALADDRESS",
                      "MOVI32", "JMP", "CJMP"]
         for terminal in terminals:
             self.sys.add_terminal(terminal)
@@ -48,6 +54,8 @@ class InstructionSelector:
                 tree = getattr(method, '$tree')
                 cost = getattr(method, '$cost')
                 self.sys.add_rule(non_term, tree, cost, None, method)
+
+        self.sys.check()
 
     def newTmp(self):
         return self.frame.new_virtual_register()
@@ -86,6 +94,7 @@ class InstructionSelector:
     def gen(self, tree):
         """ Generate code for a given tree. The tree will be tiled with
             patterns and the corresponding code will be emitted """
+        self.sys.check_tree_defined(tree)
         self.burm_label(tree)
         if not tree.state.has_goal("stm"):
             raise Exception("Tree {} not covered".format(tree))

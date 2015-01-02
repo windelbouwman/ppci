@@ -38,7 +38,8 @@ class CodeGenerator:
 
     def emit(self, instruction):
         """
-            Emits the given instruction to the builder. Can be muted for constants
+            Emits the given instruction to the builder.
+            Can be muted for constants.
         """
         self.builder.emit(instruction)
         return instruction
@@ -62,8 +63,9 @@ class CodeGenerator:
             # Only generate function if function contains a body:
             real_functions = list(filter(
                 lambda f: f.body, pkg.Functions))
+            # Generate room for global variables:
             for v in pkg.innerScope.Variables:
-                v2 = ir.Variable(v.name, ir.i32)
+                v2 = ir.Variable(v.name, self.size_of(v.typ))
                 self.varMap[v] = v2
                 if not v.isLocal:
                     self.builder.m.add_variable(v2)
@@ -77,38 +79,46 @@ class CodeGenerator:
             return self.builder.m
 
     def error(self, msg, loc=None):
+        """ Emit error to diagnostic system and mark package as invalid """
         self.pkg.ok = False
         self.diag.error(msg, loc)
 
-    def gen_function(self, fn):
+    def gen_function(self, function):
+        """ Generate code for a function. This involves creating room
+            for parameters on the stack, and generating code for the function
+            body.
+        """
         # TODO: handle arguments
-        ir_function = self.builder.new_function(fn.name)
+        ir_function = self.builder.new_function(function.name)
         self.builder.setFunction(ir_function)
-        l2 = self.builder.newBlock()
-        self.emit(ir.Jump(l2))
-        self.builder.setBlock(l2)
+        first_block = self.builder.newBlock()
+        self.emit(ir.Jump(first_block))
+        self.builder.setBlock(first_block)
 
         # generate room for locals:
-        for sym in fn.innerScope:
+        for sym in function.innerScope:
             self.check_type(sym.typ)
             if sym.isParameter:
+                # TODO: parameters are now always integers?
+                parameter = ir.Parameter(sym.name, ir.i32)
                 # For paramaters, allocate space and copy the value into
                 # memory. Later, the mem2reg pass will extract these values.
-                parameter = ir.Parameter(sym.name, ir.i32)
-                variable = ir.Alloc(sym.name + '_copy', ir.i32)
+                variable = ir.Alloc(sym.name + '_copy', self.size_of(sym.typ))
                 self.emit(variable)
+
+                # Define parameter for function:
                 ir_function.add_parameter(parameter)
+
                 # Move parameter into local copy:
                 self.emit(ir.Store(parameter, variable))
             elif sym.isLocal or isinstance(sym, ast.Variable):
-                # TODO: allocate space for variables
-                variable = ir.Alloc(sym.name, ir.i32)
+                variable = ir.Alloc(sym.name, self.size_of(sym.typ))
                 self.emit(variable)
             else:
                 raise NotImplementedError('{}'.format(sym))
             self.varMap[sym] = variable
 
-        self.gen_stmt(fn.body)
+        self.gen_stmt(function.body)
         # self.emit(ir.Move(f.return_value, ir.Const(0)))
         self.emit(ir.Jump(ir_function.epiloog))
         self.builder.setBlock(ir_function.epiloog)
@@ -136,8 +146,6 @@ class CodeGenerator:
                 self.gen_while(code)
             elif type(code) is ast.For:
                 self.gen_for_stmt(code)
-            elif type(code) is ast.Switch:
-                raise NotImplementedError('Unknown stmt {}'.format(code))
             else:
                 raise NotImplementedError('Unknown stmt {}'.format(code))
         except SemanticError as exc:
@@ -154,6 +162,7 @@ class CodeGenerator:
         """ Generate code for assignment statement """
         lval = self.gen_expr_code(code.lval)
         rval = self.make_rvalue_expr(code.rval)
+        # TODO: coerce?
         if not self.equal_types(code.lval.typ, code.rval.typ):
             raise SemanticError('Cannot assign {} to {}'
                                 .format(code.rval.typ, code.lval.typ),
@@ -164,8 +173,7 @@ class CodeGenerator:
         # TODO: for now treat all stores as volatile..
         # TODO: determine volatile properties from type??
         volatile = True
-        store_ins = ir.Store(rval, lval, volatile=volatile)
-        self.emit(store_ins)
+        return self.emit(ir.Store(rval, lval, volatile=volatile))
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -303,6 +311,8 @@ class CodeGenerator:
             expr.kind = type(tg)
             expr.typ = tg.typ
 
+            # print(expr.typ, tg)
+
             # This returns the dereferenced variable.
             if isinstance(tg, ast.Variable):
                 expr.lvalue = True
@@ -351,10 +361,16 @@ class CodeGenerator:
                 msg = 'Constant loop detected involving: {}'.format(varnames)
                 raise SemanticError(msg, c.loc)
             self.const_workset.add(c)
-            c_val = self.gen_expr_code(c.value)
-            self.constMap[c] = self.eval_constant(c_val)
+            self.constMap[c] = self.eval_const(c.value)
             self.const_workset.remove(c)
         return self.constMap[c]
+
+    def eval_const(self, expr):
+        """ Evaluates a constant expression. This is done by first generating
+            ir-code, to check for types, and then evaluating this code """
+        # TODO: do not emit code here?
+        c_val = self.gen_expr_code(expr)
+        return self.eval_ir_expr(c_val)
 
     def gen_member_expr(self, expr):
         """ Generate code for member expression such as struc.mem = 2 """
@@ -382,10 +398,8 @@ class CodeGenerator:
         self.emit(offset)
 
         # Calculate memory address of field:
-        addr_ins = ir.Add(base, offset, "mem_addr", ir.i32)
-        self.emit(addr_ins)
         # TODO: Load value when its an l value
-        return addr_ins
+        return self.emit(ir.Add(base, offset, "mem_addr", ir.i32))
 
     def gen_index_expr(self, expr):
         """ Array indexing """
@@ -418,9 +432,7 @@ class CodeGenerator:
         self.emit(offset)
 
         # Calculate address:
-        addr = ir.Add(base, offset, "element_address", ir.i32)
-        self.emit(addr)
-        return addr
+        return self.emit(ir.Add(base, offset, "element_address", ir.i32))
 
     def gen_literal_expr(self, expr):
         """ Generate code for literal """
@@ -440,10 +452,18 @@ class CodeGenerator:
             txt_content = ir.Const(cval, 'strval', ir.i32)
             self.emit(txt_content)
             value = ir.Addr(txt_content, 'addroftxt', ir.i32)
-        else:
+        elif type(expr.val) is int:
             value = ir.Const(expr.val, 'cnst', ir.i32)
-        self.emit(value)
-        return value
+        elif type(expr.val) is bool:
+            # For booleans, use the integer as storage class:
+            v = int(expr.val)
+            value = ir.Const(v, 'bool_cnst', ir.i32)
+        elif type(expr.val) is float:
+            v = float(expr.val)
+            value = ir.Const(v, 'bool_cnst', ir.double)
+        else:
+            raise NotImplementedError()
+        return self.emit(value)
 
     def gen_type_cast(self, expr):
         """ Generate code for type casting """
@@ -454,6 +474,7 @@ class CodeGenerator:
 
         from_type = self.the_type(expr.a.typ)
         to_type = self.the_type(expr.to_type)
+        # print(from_type, to_type)
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):
             expr.typ = expr.to_type
@@ -470,6 +491,10 @@ class CodeGenerator:
                 type(to_type) is ast.BaseType and to_type.name == 'int':
             expr.typ = expr.to_type
             return ar
+        elif type(from_type) is ast.BaseType and from_type.name == 'int' and \
+                type(to_type) is ast.BaseType and to_type.name == 'byte':
+            expr.typ = expr.to_type
+            return self.emit(ir.Cast(ar, ir.Cast.INTTOBYTE, 'bytecast', ir.i8))
         else:
             raise SemanticError('Cannot cast {} to {}'
                                 .format(from_type, to_type), expr.loc)
@@ -502,20 +527,21 @@ class CodeGenerator:
         self.emit(call)
         return call
 
-    def eval_constant(self, constant):
-        """ Evaluates constant to its value """
+    def eval_ir_expr(self, constant):
+        """ Evaluates ir-code constant to its value """
         if isinstance(constant, ir.Const):
             return constant.value
         elif isinstance(constant, ir.Binop):
-            a = self.eval_constant(constant.a)
-            b = self.eval_constant(constant.b)
+            a = self.eval_ir_expr(constant.a)
+            b = self.eval_ir_expr(constant.b)
             if constant.operation == '+':
                 return a + b
             elif constant.operation == '-':
                 return a - b
             elif constant.operation == '*':
                 return a * b
-        raise SemanticError('Cannot evaluate constant {}'.format(constant), None)
+        raise SemanticError('Cannot evaluate constant {}'
+                            .format(constant), None)
 
     def resolve_symbol(self, sym):
         """ Find out what is designated with x """
@@ -541,11 +567,15 @@ class CodeGenerator:
         """ Determine the byte size of a type """
         typ = self.the_type(typ)
         if type(typ) is ast.BaseType:
-            return typ.bytesize
+            return typ.byte_size
         elif type(typ) is ast.StructureType:
             return sum(self.size_of(mem.typ) for mem in typ.mems)
         elif type(typ) is ast.ArrayType:
-            return typ.size * self.size_of(typ.element_type)
+            if isinstance(typ.size, ast.Expression):
+                num = self.eval_const(typ.size)
+            else:
+                num = int(typ.size)
+            return num * self.size_of(typ.element_type)
         elif type(typ) is ast.PointerType:
             return self.pointerSize
         else:

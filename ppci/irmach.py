@@ -82,6 +82,10 @@ class AbstractInstruction:
         self.others = tuple(others)
         self.ismove = ismove
 
+        # Check src and dst to be virtual registers:
+        if isinstance(cls, type):
+            assert all(isinstance(u, VirtualRegister) for u in self.src)
+
     def __repr__(self):
         """ Substitutes source, dst and labels in the string """
         if isinstance(self.assem, Instruction):

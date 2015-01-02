@@ -83,7 +83,7 @@ class Samples:
         res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
         self.do(snippet, res)
 
-    def testIfStatement(self):
+    def test_if_statement(self):
         snippet = """
          module sample;
          import io;
@@ -102,6 +102,26 @@ class Samples:
          }
         """
         res = "Wow"
+        self.do(snippet, res)
+
+    def test_complex_variables(self):
+        """ Test local variables of complex type """
+        snippet = """
+         module sample;
+         import io;
+         function void start()
+         {
+            var int[10] x;
+            var int[10] y;
+            y[1] = 0x11;
+            y[2] = 0x33;
+            x[1] = 0x44;
+            x[2] = 0x55;
+            io.print2("y[1]=", y[1]);
+            io.print2("x[1]=", x[1]);
+         }
+        """
+        res = "y[1]=0x00000011\nx[1]=0x00000044\n"
         self.do(snippet, res)
 
     def testParameterPassing4(self):
@@ -125,6 +145,31 @@ class Samples:
         res += "c=0x{0:08X}\n".format(66)
         res += "d=0x{0:08X}\n".format(0x1337)
         self.do(snippet, res)
+
+    @unittest.skip('Fix this!')
+    def test_pointer_fu(self):
+        """ Check if 8 bits pointer assignments work with 32 bit pointers.
+            This test is architecture dependent!
+        """
+        snippet = """
+         module sample;
+         import io;
+         function void start()
+         {
+            var int w;
+            var int* pw;
+            var byte* pb;
+            var byte* pb2;
+            pw = &w;
+            pb = cast<byte*>(pw);
+            pb2 = cast<byte*>(cast<int>(pb) + 2);
+            *pw = 0x11223344;
+            *pb = cast<byte>(0x88);
+            *pb2 = cast<byte>(0x66);
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x11663388")
 
     def testGlobalVariable(self):
         snippet = """
@@ -295,38 +340,38 @@ class Samples:
            < ]     < <     < <     ] +     + +     + +     + +     + +
           +   .   +   +   +   .   [   -   ]   <   ]   +   +   +   +   +
         """
-        sier = """                                *    
-\r                               * *    
-\r                              *   *    
-\r                             * * * *    
-\r                            *       *    
-\r                           * *     * *    
-\r                          *   *   *   *    
-\r                         * * * * * * * *    
-\r                        *               *    
-\r                       * *             * *    
-\r                      *   *           *   *    
-\r                     * * * *         * * * *    
-\r                    *       *       *       *    
-\r                   * *     * *     * *     * *    
-\r                  *   *   *   *   *   *   *   *    
-\r                 * * * * * * * * * * * * * * * *    
-\r                *                               *    
-\r               * *                             * *    
-\r              *   *                           *   *    
-\r             * * * *                         * * * *    
-\r            *       *                       *       *    
-\r           * *     * *                     * *     * *    
-\r          *   *   *   *                   *   *   *   *    
-\r         * * * * * * * *                 * * * * * * * *    
-\r        *               *               *               *    
-\r       * *             * *             * *             * *    
-\r      *   *           *   *           *   *           *   *    
-\r     * * * *         * * * *         * * * *         * * * *    
-\r    *       *       *       *       *       *       *       *    
-\r   * *     * *     * *     * *     * *     * *     * *     * *    
-\r  *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *    
-\r * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *    \n\r"""
+        sier = "                                *    \n"
+        sier += "\r                               * *    \n"
+        sier += "\r                              *   *    \n"
+        sier += "\r                             * * * *    \n"
+        sier += "\r                            *       *    \n"
+        sier += "\r                           * *     * *    \n"
+        sier += "\r                          *   *   *   *    \n"
+        sier += "\r                         * * * * * * * *    \n"
+        sier += "\r                        *               *    \n"
+        sier += "\r                       * *             * *    \n"
+        sier += "\r                      *   *           *   *    \n"
+        sier += "\r                     * * * *         * * * *    \n"
+        sier += "\r                    *       *       *       *    \n"
+        sier += "\r                   * *     * *     * *     * *    \n"
+        sier += "\r                  *   *   *   *   *   *   *   *    \n"
+        sier += "\r                 * * * * * * * * * * * * * * * *    \n"
+        sier += "\r                *                               *    \n"
+        sier += "\r               * *                             * *    \n"
+        sier += "\r              *   *                           *   *    \n"
+        sier += "\r             * * * *                         * * * *    \n"
+        sier += "\r            *       *                       *       *    \n"
+        sier += "\r           * *     * *                     * *     * *    \n"
+        sier += "\r          *   *   *   *                   *   *   *   *    \n"
+        sier += "\r         * * * * * * * *                 * * * * * * * *    \n"
+        sier += "\r        *               *               *               *    \n"
+        sier += "\r       * *             * *             * *             * *    \n"
+        sier += "\r      *   *           *   *           *   *           *   *    \n"
+        sier += "\r     * * * *         * * * *         * * * *         * * * *    \n"
+        sier += "\r    *       *       *       *       *       *       *       *    \n"
+        sier += "\r   * *     * *     * *     * *     * *     * *     * *     * *    \n"
+        sier += "\r  *   *   *   *   *   *   *   *   *   *   *   *   *   *   *   *    \n"
+        sier += "\r * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *    \n\r"
         self.do(code, sier, lang='bf')
 
     def testBrainFuckBottlesOfBeer(self):

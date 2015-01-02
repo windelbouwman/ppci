@@ -67,8 +67,9 @@ class NamedType(Type, Symbol):
 
 class BaseType(NamedType):
     """ Built in type """
-    def __init__(self, name):
+    def __init__(self, name, byte_size):
         super().__init__(name)
+        self.byte_size = byte_size
 
     def __repr__(self):
         return '{}'.format(self.name)
@@ -400,6 +401,7 @@ class Switch(Statement):
 
 
 class While(Statement):
+    """ While statement """
     def __init__(self, condition, statement, loc):
         super().__init__(loc)
         self.condition = condition
@@ -410,6 +412,7 @@ class While(Statement):
 
 
 class For(Statement):
+    """ For statement with a start, condition and final statement """
     def __init__(self, init, condition, final, statement, loc):
         super().__init__(loc)
         self.init = init

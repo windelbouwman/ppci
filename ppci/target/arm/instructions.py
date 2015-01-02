@@ -610,6 +610,7 @@ class ArmInstructionSelector(InstructionSelector):
     @pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
     def P3(self, tree, c0):
         self.move(tree.children[0].value, c0)
+
     # stm: MOVI32(MEMI32(ADDI32(reg, cn)), reg) 2 'self.emit(Str1, others=[c1], src=[c0, c2])'
 
     @pattern('stm', 'JMP', cost=2)
@@ -637,9 +638,15 @@ class ArmInstructionSelector(InstructionSelector):
         jmp_ins = AbstractInstruction(B(no_label), jumps=[no_tgt])
         self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins])
         self.emit(jmp_ins)
-#
+
     @pattern('reg', 'ADDI32(reg, reg)', cost=2)
     def P9(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Add1, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'ADDI8(reg, reg)', cost=2)
+    def P9_2(self, tree, c0, c1):
         d = self.newTmp()
         self.emit(Add1, dst=[d], src=[c0, c1])
         return d
@@ -649,6 +656,13 @@ class ArmInstructionSelector(InstructionSelector):
 
     @pattern('reg', 'SUBI32(reg, reg)', cost=2)
     def P12(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Sub1, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'SUBI8(reg, reg)', cost=2)
+    def P12_2(self, tree, c0, c1):
+        # TODO: temporary fix this with an 32 bits sub
         d = self.newTmp()
         self.emit(Sub1, dst=[d], src=[c0, c1])
         return d

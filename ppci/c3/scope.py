@@ -36,30 +36,33 @@ class Scope:
     def Functions(self):
         return [s for s in self.Syms if type(s) is Function]
 
-    def getSymbol(self, name):
+    def get_symbol(self, name):
+        """ Get symbol from this or parent scope """
         if name in self.symbols:
             return self.symbols[name]
         # Look for symbol:
         elif self.parent:
-            return self.parent.getSymbol(name)
+            return self.parent.get_symbol(name)
         else:
             raise KeyError(name)
 
     def __getitem__(self, key):
-        return self.getSymbol(key)
+        return self.get_symbol(key)
 
-    def hasSymbol(self, name):
+    def has_symbol(self, name):
+        """ Check if name is a defined symbol in this or parent scope """
         if name in self.symbols:
             return True
         elif self.parent:
-            return self.parent.hasSymbol(name)
+            return self.parent.has_symbol(name)
         else:
             return False
 
     def __contains__(self, name):
-        return self.hasSymbol(name)
+        return self.has_symbol(name)
 
-    def addSymbol(self, sym):
+    def add_symbol(self, sym):
+        """ Add a symbol to this scope """
         assert sym.name not in self.symbols
         assert isinstance(sym, Symbol)
         self.symbols[sym.name] = sym
@@ -69,24 +72,29 @@ class Scope:
 
 
 def createTopScope(target):
+    """ Create a scope that is the root of the scope tree. This includes
+        the built-in types """
     scope = Scope()
-    for tn in ['u64', 'u32', 'u16', 'u8']:
-        scope.addSymbol(BaseType(tn))
+
+    # stdlib types:
+    scope.add_symbol(BaseType('uint64_t', 8))
+    scope.add_symbol(BaseType('uint32_t', 4))
+    scope.add_symbol(BaseType('uint16_t', 2))
+    scope.add_symbol(BaseType('uint8_t', 1))
+
     # buildin types:
-    intType = BaseType('int')
-    intType.bytesize = target.byte_sizes['int']
-    scope.addSymbol(intType)
-    scope.addSymbol(BaseType('double'))
-    scope.addSymbol(BaseType('void'))
-    scope.addSymbol(BaseType('bool'))
-    byteType = BaseType('byte')
-    byteType.bytesize = target.byte_sizes['byte']
-    scope.addSymbol(byteType)
+    int_type = BaseType('int', target.byte_sizes['int'])
+    scope.add_symbol(int_type)
+    scope.add_symbol(BaseType('double', 8))
+    scope.add_symbol(BaseType('void', 0))
+    scope.add_symbol(BaseType('bool', 1))
+    byte_type = BaseType('byte', 1)
+    scope.add_symbol(byte_type)
 
     # Construct string type from others:
-    ln = StructField('len', intType)
-    txt = StructField('txt', ArrayType(byteType, 0))
-    strType = DefinedType('string', PointerType(StructureType([ln, txt])),
-                          None)
-    scope.addSymbol(strType)
+    len_field = StructField('len', int_type)
+    txt = StructField('txt', ArrayType(byte_type, 0))
+    string_type = PointerType(StructureType([len_field, txt]))
+    string_def_type = DefinedType('string', string_type, None)
+    scope.add_symbol(string_def_type)
     return scope

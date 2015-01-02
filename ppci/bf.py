@@ -32,11 +32,10 @@ class BrainFuckGenerator():
         self.builder.setBlock(block1)
 
         # Allocate space on stack for ptr register:
-        ptr_var = self.builder.emit(ir.Alloc('ptr_addr', ir.i32))
+        ptr_var = self.builder.emit(ir.Alloc('ptr_addr', ir.i32.byte_size))
 
         # Construct global array:
-        array_type = ir.ArrayType(ir.i8, 30000)
-        data = ir.Variable('data', array_type)
+        data = ir.Variable('data', 30000 * ir.i32.byte_size)
         self.builder.m.add_variable(data)
 
         # Locate '1' and '0' constants:
@@ -103,7 +102,7 @@ class BrainFuckGenerator():
                 # putc(data[ptr])
                 if cell_addr is None:
                     cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i32))
+                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
                 self.builder.emit(ir.Call('arch_putc', [val_ins], 'ign', ir.i32))
             elif c == ',':
                 # data[ptr] = getchar()
@@ -129,7 +128,7 @@ class BrainFuckGenerator():
 
                 # Create test, jump to exit when *ptr == 0:
                 cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i32))
+                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
                 self.builder.emit(ir.CJump(val_ins, '==', zero_ins, exit, body))
 
                 # Set body as current block:

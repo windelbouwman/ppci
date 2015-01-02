@@ -33,8 +33,10 @@ def make_map(cls):
     setattr(cls, 'f_map', f_map)
     return cls
 
+
 def type_postfix(t):
     return str(t).upper()
+
 
 @make_map
 class Dagger:
@@ -99,7 +101,7 @@ class Dagger:
     def do_load(self, node):
         address = self.lut[node.address]
         assert node.ty in [ir.i32, ir.i8]
-        tree = Tree('MEM'+type_postfix(node.ty), address)
+        tree = Tree('MEM' + type_postfix(node.ty), address)
 
         # Create copy if required:
         self.copy_val(node, tree)
@@ -110,7 +112,7 @@ class Dagger:
         value = self.lut[node.value]
         assert node.value.ty in [ir.i32, ir.i8]
         ty = type_postfix(node.value.ty)
-        tree = Tree('MOV'+ty, Tree('MEM'+ty, address), value)
+        tree = Tree('MOV' + ty, Tree('MEM' + ty, address), value)
         self.dag.append(tree)
 
     @register(ir.Const)
@@ -132,8 +134,8 @@ class Dagger:
     def do_binop(self, node):
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
                  '*': 'MUL', '&': 'AND', '>>': 'SHR'}
-        op = names[node.operation] + 'I32'
         assert node.ty in [ir.i32, ir.i8]
+        op = names[node.operation] + type_postfix(node.ty)
         a = self.lut[node.a]
         b = self.lut[node.b]
         tree = Tree(op, a, b)
@@ -146,6 +148,12 @@ class Dagger:
     def do_addr(self, node):
         tree = Tree('ADR', self.lut[node.e])
         self.lut[node] = tree
+
+    @register(ir.Cast)
+    def do_cast(self, node):
+        assert node.method == ir.Cast.INTTOBYTE
+        v = self.lut[node.value]
+        self.lut[node] = v
 
     @register(ir.Variable)
     def do_global(self, node):
@@ -181,7 +189,9 @@ class Dagger:
         Create a new vreg for this phi:
         The incoming branches provided with a copy instruction further on.
         """
-        phi_copy = Tree('REGI32', value=self.frame.new_virtual_register(twain=node.name))
+        phi_copy = Tree(
+            'REGI32',
+            value=self.frame.new_virtual_register(twain=node.name))
         self.lut[node] = phi_copy
 
     def only_arith(self, root):

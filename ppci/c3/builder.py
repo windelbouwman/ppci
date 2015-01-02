@@ -46,17 +46,17 @@ class ScopeFiller(C3Pass):
             if i not in self.packages:
                 self.error('Cannot import {}'.format(i))
                 continue
-            pkg.scope.addSymbol(self.packages[i])
+            pkg.scope.add_symbol(self.packages[i])
 
     @property
     def CurrentScope(self):
         return self.scopeStack[-1]
 
     def addSymbol(self, sym):
-        if self.CurrentScope.hasSymbol(sym.name):
+        if self.CurrentScope.has_symbol(sym.name):
             self.error('Redefinition of {0}'.format(sym.name), sym.loc)
         else:
-            self.CurrentScope.addSymbol(sym)
+            self.CurrentScope.add_symbol(sym)
 
     def enterScope(self, sym):
         # Attach scope to references:

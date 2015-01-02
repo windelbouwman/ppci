@@ -38,6 +38,7 @@ class CodeGenerator:
                 self.print("- {}".format(root))
 
     def dump_frame(self, frame):
+        """ Dump frame to file for debug purposes """
         self.print("Frame:")
         self.print(frame)
         for ins in frame.instructions:
@@ -48,8 +49,7 @@ class CodeGenerator:
         self.logger.info('Generating {} code for {}'
                          .format(self.target, irfunc.name))
 
-        # log_file = 'log_{}.txt'.format(irfunc.name)
-        self.print("Log for {}".format(irfunc))
+        self.print("========= Log for {} ==========".format(irfunc))
         self.print("Target: {}".format(self.target))
         # Writer().write_function(irfunc, f)
 
@@ -88,8 +88,8 @@ class CodeGenerator:
         ins0.dst = tuple(in0def)
 
         # Dump current state to file:
-        #self.print('Selected instructions')
-        #self.dump_frame(frame)
+        self.print('Selected instructions')
+        self.dump_frame(frame)
 
         # Do register allocation:
         self.register_allocator.allocFrame(frame)
@@ -112,6 +112,8 @@ class CodeGenerator:
 
         for ins in instruction_list:
             self.print(ins)
+
+        self.print("===============================")
 
     def generate(self, ircode, outs, dump_file=None):
         """ Generate code into output stream """
