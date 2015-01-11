@@ -421,8 +421,15 @@ class Verifier:
     def verify_instruction(self, instruction, block):
         """ Verify that instruction belongs to block and that all uses
             are preceeded by defs """
+
+        # Check that instruction is contained in block:
         assert instruction.block == block
         assert instruction in block.instructions
+
+        # Check that binop operands are of same type:
+        if isinstance(instruction, ir.Binop):
+            assert instruction.ty == instruction.a.ty
+            assert instruction.ty == instruction.b.ty
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:

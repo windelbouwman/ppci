@@ -15,6 +15,7 @@ class SemanticError(Exception):
 
 def pack_string(txt):
     """ Pack a string using 4 bytes length followed by text data """
+    # TODO: this is probably machine depending?
     length = struct.pack('<I', len(txt))
     data = txt.encode('ascii')
     return length + data
@@ -50,6 +51,7 @@ class CodeGenerator:
         assert type(pkg) is ast.Package
         self.pkg = pkg
         self.intType = pkg.scope['int']
+        self.doubleType = pkg.scope['double']
         self.boolType = pkg.scope['bool']
         self.pointerSize = 4
         self.logger.debug('Generating ir-code for {}'.format(pkg.name))
@@ -123,6 +125,22 @@ class CodeGenerator:
         self.emit(ir.Jump(ir_function.epiloog))
         self.builder.setBlock(ir_function.epiloog)
         self.builder.setFunction(None)
+
+    def get_ir_type(self, cty):
+        """ Given a certain type, get the corresponding ir-type """
+        cty = self.the_type(cty)
+        if self.equal_types(cty, self.intType):
+            return ir.i32
+        elif self.equal_types(cty, self.doubleType):
+            # TODO: implement true floating point.
+            return ir.i32
+        elif self.equal_types(cty, self.boolType):
+            # Implement booleans as integers:
+            return ir.i32
+        elif isinstance(cty, ast.PointerType):
+            return ir.ptr
+        else:
+            raise SemanticError('Cannot determine type for {}'.format(cty))
 
     def gen_stmt(self, code):
         """ Generate code for a statement """
@@ -203,7 +221,7 @@ class CodeGenerator:
         self.builder.setBlock(final_block)
 
     def gen_for_stmt(self, code):
-        """ Generate for statement code """
+        """ Generate for-loop code """
         bbdo = self.builder.newBlock()
         test_block = self.builder.newBlock()
         final_block = self.builder.newBlock()
@@ -265,36 +283,26 @@ class CodeGenerator:
 
     def make_rvalue_expr(self, expr):
         """ Generate expression code and insert an extra load instruction
-            when required
+            when required.
+            This means that the value can be used in an expression or as
+            a parameter.
         """
-        x = self.gen_expr_code(expr)
+        value = self.gen_expr_code(expr)
         if expr.lvalue:
-            load_ins = ir.Load(x, 'loaded', ir.i32)
-            self.emit(load_ins)
-            return load_ins
+            # Determine loaded type:
+            load_ty = self.get_ir_type(expr.typ)
+
+            # Load the value:
+            return self.emit(ir.Load(value, 'loaded', load_ty))
         else:
-            return x
+            # The value is already an rvalue:
+            return value
 
     def gen_expr_code(self, expr):
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
         if type(expr) is ast.Binop:
-            expr.lvalue = False
-            if expr.op in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
-                a_val = self.make_rvalue_expr(expr.a)
-                b_val = self.make_rvalue_expr(expr.b)
-                if self.equal_types(expr.a.typ, self.intType) and \
-                        self.equal_types(expr.b.typ, self.intType):
-                    expr.typ = expr.a.typ
-                elif self.equal_types(expr.b.typ, self.intType) and \
-                        type(expr.a.typ) is ast.PointerType:
-                    # Special case for pointer arithmatic TODO: coerce!
-                    expr.typ = expr.a.typ
-                else:
-                    raise SemanticError('Can only add integers', expr.loc)
-            else:
-                raise NotImplementedError("Cannot use equality as expressions")
-            return self.emit(ir.Binop(a_val, expr.op, b_val, "op", ir.i32))
+            return self.gen_binop(expr)
         elif type(expr) is ast.Unop:
             if expr.op == '&':
                 ra = self.gen_expr_code(expr.a)
@@ -310,8 +318,6 @@ class CodeGenerator:
             tg = self.resolve_symbol(expr)
             expr.kind = type(tg)
             expr.typ = tg.typ
-
-            # print(expr.typ, tg)
 
             # This returns the dereferenced variable.
             if isinstance(tg, ast.Variable):
@@ -331,7 +337,8 @@ class CodeGenerator:
             if type(ptr_typ) is not ast.PointerType:
                 raise SemanticError('Cannot deref non-pointer', expr.loc)
             expr.typ = ptr_typ.ptype
-            return self.emit(ir.Load(addr, 'loaded', ir.i32))
+            load_ty = self.get_ir_type(ptr_typ)
+            return self.emit(ir.Load(addr, 'deref', load_ty))
         elif type(expr) is ast.Member:
             return self.gen_member_expr(expr)
         elif type(expr) is ast.Index:
@@ -351,6 +358,26 @@ class CodeGenerator:
             return self.gen_function_call(expr)
         else:
             raise NotImplementedError('Unknown expr {}'.format(expr))
+
+    def gen_binop(self, expr):
+        """ Generate code for binary operation """
+        expr.lvalue = False
+        if expr.op in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
+            a_val = self.make_rvalue_expr(expr.a)
+            b_val = self.make_rvalue_expr(expr.b)
+            if self.equal_types(expr.a.typ, self.intType) and \
+                    self.equal_types(expr.b.typ, self.intType):
+                expr.typ = expr.a.typ
+            elif self.equal_types(expr.b.typ, self.intType) and \
+                    type(expr.a.typ) is ast.PointerType:
+                # Special case for pointer arithmatic TODO: coerce!
+                b_val = self.emit(ir.IntToPtr(b_val, 'coerce'))
+                expr.typ = expr.a.typ
+            else:
+                raise SemanticError('Can only add integers', expr.loc)
+        else:
+            raise NotImplementedError("Cannot use equality as expressions")
+        return self.emit(ir.Binop(a_val, expr.op, b_val, "op", a_val.ty))
 
     def get_constant_value(self, c):
         """ Get the constant value, calculate if required """
@@ -394,12 +421,12 @@ class CodeGenerator:
         # assert type(base) is ir.Mem, type(base)
         # Calculate offset into struct:
         bt = self.the_type(expr.base.typ)
-        offset = ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32)
-        self.emit(offset)
+        offset = self.emit(ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32))
+        offset = self.emit(ir.IntToPtr(offset, 'offset'))
 
         # Calculate memory address of field:
         # TODO: Load value when its an l value
-        return self.emit(ir.Add(base, offset, "mem_addr", ir.i32))
+        return self.emit(ir.Add(base, offset, "mem_addr", ir.ptr))
 
     def gen_index_expr(self, expr):
         """ Array indexing """
@@ -424,15 +451,14 @@ class CodeGenerator:
         expr.lvalue = True
 
         # Generate constant:
-        e_size = ir.Const(element_size, 'element_size', ir.i32)
-        self.emit(e_size)
+        e_size = self.emit(ir.Const(element_size, 'element_size', ir.i32))
 
         # Calculate offset:
-        offset = ir.Mul(idx, e_size, "element_offset", ir.i32)
-        self.emit(offset)
+        offset = self.emit(ir.Mul(idx, e_size, "element_offset", ir.i32))
+        offset = self.emit(ir.IntToPtr(offset, 'elem_offset'))
 
         # Calculate address:
-        return self.emit(ir.Add(base, offset, "element_address", ir.i32))
+        return self.emit(ir.Add(base, offset, "element_address", ir.ptr))
 
     def gen_literal_expr(self, expr):
         """ Generate code for literal """
@@ -482,11 +508,11 @@ class CodeGenerator:
         elif self.equal_types(self.intType, from_type) and \
                 isinstance(to_type, ast.PointerType):
             expr.typ = expr.to_type
-            return ar
+            return self.emit(ir.IntToPtr(ar, 'int2ptr'))
         elif self.equal_types(self.intType, to_type) \
                 and isinstance(from_type, ast.PointerType):
             expr.typ = expr.to_type
-            return ar
+            return self.emit(ir.PtrToInt(ar, 'ptr2int'))
         elif type(from_type) is ast.BaseType and from_type.name == 'byte' and \
                 type(to_type) is ast.BaseType and to_type.name == 'int':
             expr.typ = expr.to_type
@@ -523,6 +549,7 @@ class CodeGenerator:
         expr.typ = ftyp.returntype
 
         expr.lvalue = False
+        # TODO: for now, always return i32?
         call = ir.Call(fname, args, fname + '_rv', ir.i32)
         self.emit(call)
         return call

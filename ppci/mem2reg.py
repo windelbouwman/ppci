@@ -3,16 +3,30 @@ from .ir import Alloc, Load, Store, Phi, i32, Undefined
 from .domtree import CfgInfo
 
 
-def isAllocPromotable(allocinst):
+def isAllocPromotable(alloc_inst):
     """ Check if alloc value is only used by load and store operations. """
     # TODO: check that all load and stores are 32 bits and the alloc is 
     # 4 bytes.
-    assert type(allocinst) is Alloc
-    if allocinst.amount != 4:
+    assert type(alloc_inst) is Alloc
+    if alloc_inst.amount != 4:
         return False
-    if len(allocinst.used_by) == 0:
+    if len(alloc_inst.used_by) == 0:
         return False
-    return all(type(use) in [Load, Store] for use in allocinst.used_by)
+    if not all(type(use) in [Load, Store] for use in alloc_inst.used_by):
+        return False
+    loads = [i for i in alloc_inst.used_by if isinstance(i, Load)]
+    stores = [i for i in alloc_inst.used_by if isinstance(i, Store)]
+
+    # Check for types:
+    load_types = [load.ty for load in loads]
+    store_types = [store.value.ty for store in stores]
+    all_types = load_types + store_types
+    assert len(all_types) > 0
+    if not all(all_types[0] is ty for ty in all_types):
+        return False
+    # TODO: check types of load and stores.
+    # if not all(
+    return True
 
 
 class Mem2RegPromotor(FunctionPass):
@@ -31,6 +45,13 @@ class Mem2RegPromotor(FunctionPass):
         self.logger.debug('Alloc used by {} load and {} stores'.
                           format(len(loads), len(stores)))
 
+        # Determine the type of the phi node:
+        load_types = [load.ty for load in loads]
+        store_types = [store.value.ty for store in stores]
+        all_types = load_types + store_types
+        assert len(all_types) > 0
+        phi_ty = all_types[0]
+
         # Step 1: place phi-functions where required:
         # Each node in the df(x) requires a phi function, where x is a block where the variable is defined.
         defining_blocks = set(st.block for st in stores)
@@ -46,13 +67,13 @@ class Mem2RegPromotor(FunctionPass):
                     has_phi.add(y)
                     W.add(y)
                     phi_name = "phi_{}".format(name)
-                    phi = Phi(phi_name, i32)
+                    phi = Phi(phi_name, phi_ty)
                     phis.append(phi)
                     # self.logger.debug('Adding phi-node {} to {}'.format(phi, y))
                     y.insert_instruction(phi)
 
         # Create undefined value at start:
-        initial_value = Undefined('undef_{}'.format(name), i32)
+        initial_value = Undefined('undef_{}'.format(name), phi_ty)
         cfg_info.f.entry.insert_instruction(initial_value)
         # Step 2: renaming:
 

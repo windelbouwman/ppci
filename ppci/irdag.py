@@ -34,8 +34,9 @@ def make_map(cls):
     return cls
 
 
+postfix_map = {ir.i32: "I32", ir.ptr: "I32", ir.i8: 'I8'}
 def type_postfix(t):
-    return str(t).upper()
+    return postfix_map[t]
 
 
 @make_map
@@ -100,7 +101,6 @@ class Dagger:
     @register(ir.Load)
     def do_load(self, node):
         address = self.lut[node.address]
-        assert node.ty in [ir.i32, ir.i8]
         tree = Tree('MEM' + type_postfix(node.ty), address)
 
         # Create copy if required:
@@ -110,7 +110,6 @@ class Dagger:
     def do_store(self, node):
         address = self.lut[node.address]
         value = self.lut[node.value]
-        assert node.value.ty in [ir.i32, ir.i8]
         ty = type_postfix(node.value.ty)
         tree = Tree('MOV' + ty, Tree('MEM' + ty, address), value)
         self.dag.append(tree)
@@ -134,7 +133,6 @@ class Dagger:
     def do_binop(self, node):
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
                  '*': 'MUL', '&': 'AND', '>>': 'SHR'}
-        assert node.ty in [ir.i32, ir.i8]
         op = names[node.operation] + type_postfix(node.ty)
         a = self.lut[node.a]
         b = self.lut[node.b]
@@ -149,10 +147,16 @@ class Dagger:
         tree = Tree('ADR', self.lut[node.e])
         self.lut[node] = tree
 
-    @register(ir.Cast)
-    def do_cast(self, node):
-        assert node.method == ir.Cast.INTTOBYTE
-        v = self.lut[node.value]
+    @register(ir.IntToByte)
+    def do_int_to_byte_cast(self, node):
+        # TODO: add some logic here?
+        v = self.lut[node.src]
+        self.lut[node] = v
+
+    @register(ir.IntToPtr)
+    def do_int_to_ptr_cast(self, node):
+        # TODO: add some logic here?
+        v = self.lut[node.src]
         self.lut[node] = v
 
     @register(ir.Variable)

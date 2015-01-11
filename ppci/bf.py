@@ -40,7 +40,9 @@ class BrainFuckGenerator():
 
         # Locate '1' and '0' constants:
         one_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
+        one_ins = self.builder.emit(ir.IntToByte(one_ins, "val_inc"))
         four_ins = self.builder.emit(ir.Const(4, "four", ir.i32))
+        four_ins = self.builder.emit(ir.IntToPtr(four_ins, "ptr_incr"))
         zero_ins = self.builder.emit(ir.Const(0, "zero", ir.i32))
         array_size = self.builder.emit(ir.Const(1000, "array_max", ir.i32))
 
@@ -53,17 +55,17 @@ class BrainFuckGenerator():
         self.builder.emit(ir.Jump(block_init))
 
         self.builder.setBlock(block_init)
-        ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.i32))
-        cell_addr = self.builder.emit(ir.Add(data, ptr_val, "cell_addr", ir.i32))
+        ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.ptr))
+        cell_addr = self.builder.emit(ir.Add(data, ptr_val, "cell_addr", ir.ptr))
         self.builder.emit(ir.Store(zero_ins, cell_addr))
-        add_ins = self.builder.emit(ir.Add(ptr_val, four_ins, "Added", ir.i32))
+        add_ins = self.builder.emit(ir.Add(ptr_val, four_ins, "Added", ir.ptr))
         self.builder.emit(ir.Store(add_ins, ptr_var))
         self.builder.emit(ir.CJump(add_ins, '==', array_size, block3, block_init))
 
         self.builder.setBlock(block3)
 
         # Start with ptr as zero:
-        ptr = zero_ins
+        ptr = self.builder.emit(ir.IntToPtr(zero_ins, "ptr_zero"))
 
         # A stack of all nested loops:
         loops = []
@@ -78,30 +80,30 @@ class BrainFuckGenerator():
         for c in src:
             if c == '>':
                 # ptr++;
-                ptr = self.builder.emit(ir.Add(ptr, four_ins, "ptr", ir.i32))
+                ptr = self.builder.emit(ir.Add(ptr, four_ins, "ptr", ir.ptr))
                 cell_addr = None
             elif c == '<':
                 # ptr--;
-                ptr = self.builder.emit(ir.Sub(ptr, four_ins, "ptr", ir.i32))
+                ptr = self.builder.emit(ir.Sub(ptr, four_ins, "ptr", ir.ptr))
                 cell_addr = None
             elif c == '+':
                 # data[ptr]++;
                 if cell_addr is None:
-                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
+                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
                 val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
                 add_ins = self.builder.emit(ir.Add(val_ins, one_ins, "Added", ir.i8))
                 self.builder.emit(ir.Store(add_ins, cell_addr))
             elif c == '-':
                 # data[ptr]--;
                 if cell_addr is None:
-                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
+                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
                 val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
                 sub_ins = self.builder.emit(ir.Sub(val_ins, one_ins, "Sub", ir.i8))
                 self.builder.emit(ir.Store(sub_ins, cell_addr))
             elif c == '.':
                 # putc(data[ptr])
                 if cell_addr is None:
-                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
+                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
                 val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
                 self.builder.emit(ir.Call('arch_putc', [val_ins], 'ign', ir.i32))
             elif c == ',':
@@ -114,7 +116,7 @@ class BrainFuckGenerator():
                 current_block = self.builder.block
 
                 # Register phi node into entry:
-                ptr_phi = ir.Phi('ptr_phi', ir.i32)
+                ptr_phi = ir.Phi('ptr_phi', ir.ptr)
                 ptr_phi.set_incoming(current_block, ptr)
                 phi_map[entry] = ptr_phi
 
@@ -127,7 +129,7 @@ class BrainFuckGenerator():
                 ptr = ptr_phi
 
                 # Create test, jump to exit when *ptr == 0:
-                cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.i32))
+                cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
                 val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
                 self.builder.emit(ir.CJump(val_ins, '==', zero_ins, exit, body))
 

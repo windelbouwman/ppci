@@ -379,11 +379,13 @@ def var_use(name):
         # If value was already set, remove usage
         if name in self.var_map:
             self.del_use(self.var_map[name])
+
         # Place the value in the var map:
         self.var_map[name] = value
 
         # Add usage:
         self.add_use(value)
+
     return property(getter, setter)
 
 
@@ -518,10 +520,37 @@ class Cast(Expression):
     BYTETOINT = 2
     INTTOBYTE = 3
 
+    src = var_use('src')
+
+    from_map = {INTTOPTR: i32, PTRTOINT: ptr, BYTETOINT: i8, INTTOBYTE: i32}
+    to_map = {INTTOPTR: ptr, PTRTOINT: i32, BYTETOINT: i32, INTTOBYTE: i8}
+
     def __init__(self, value, method, name, ty):
         super().__init__(name, ty)
-        self.value = value
+        self.src = value
         self.method = method
+        assert self.to_map[method] == ty
+        assert self.from_map[method] == value.ty
+
+
+class IntToPtr(Cast):
+    def __init__(self, value, name):
+        super().__init__(value, self.INTTOPTR, name, ptr)
+
+
+class PtrToInt(Cast):
+    def __init__(self, value, name):
+        super().__init__(value, self.PTRTOINT, name, i32)
+
+
+class IntToByte(Cast):
+    def __init__(self, value, name):
+        super().__init__(value, self.INTTOBYTE, name, i8)
+
+
+class ByteToInt(Cast):
+    def __init__(self, value, name):
+        super().__init__(value, self.BYTETOINT, name, i32)
 
 
 class Undefined(Value):
@@ -572,6 +601,7 @@ class Binop(Expression):
     def __init__(self, a, operation, b, name, ty):
         super().__init__(name, ty)
         assert operation in Binop.ops
+        assert a.ty is b.ty
         self.a = a
         self.b = b
         self.operation = operation
@@ -622,6 +652,8 @@ class Phi(Value):
                 self.add_use(new)
 
     def set_incoming(self, block, value):
+        """ Set the value for the phi node when entering through block """
+        assert value.ty == self.ty
         if block in self.inputs:
             self.del_use(self.inputs[block])
         self.inputs[block] = value
@@ -674,6 +706,7 @@ class Load(Value):
 
     def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
+        assert address.ty == ptr
         self.address = address
         self.volatile = volatile
 
@@ -689,6 +722,7 @@ class Store(Instruction):
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
+        assert address.ty == ptr
         self.address = address
         self.value = value
         self.volatile = volatile

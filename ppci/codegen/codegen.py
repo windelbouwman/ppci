@@ -64,7 +64,7 @@ class CodeGenerator:
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
         for block in irfunc:
-            max_block_len = 300
+            max_block_len = 200
             while len(block) > max_block_len:
                 self.logger.debug('{} too large, splitting up'.format(block))
                 _, block = split_block(block, pos=max_block_len)

@@ -82,6 +82,8 @@ class IrToPython:
                 self.print(4, '{} += 256'.format(ins.name))
                 self.print(3, 'if {} > 255:'.format(ins.name))
                 self.print(4, '{} -= 256'.format(ins.name))
+        elif isinstance(ins, ir.Cast):
+            self.print(3, '{} = {}'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Store):
             # print(ins
             if ins.value.ty.byte_size == 4:
