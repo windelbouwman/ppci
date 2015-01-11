@@ -53,6 +53,7 @@ class CodeGenerator:
         self.intType = pkg.scope['int']
         self.doubleType = pkg.scope['double']
         self.boolType = pkg.scope['bool']
+        self.byteType = pkg.scope['byte']
         self.pointerSize = 4
         self.logger.debug('Generating ir-code for {}'.format(pkg.name))
         self.varMap = {}    # Maps variables to storage locations.
@@ -126,7 +127,7 @@ class CodeGenerator:
         self.builder.setBlock(ir_function.epiloog)
         self.builder.setFunction(None)
 
-    def get_ir_type(self, cty):
+    def get_ir_type(self, cty, loc):
         """ Given a certain type, get the corresponding ir-type """
         cty = self.the_type(cty)
         if self.equal_types(cty, self.intType):
@@ -137,10 +138,12 @@ class CodeGenerator:
         elif self.equal_types(cty, self.boolType):
             # Implement booleans as integers:
             return ir.i32
+        elif self.equal_types(cty, self.byteType):
+            return ir.i8
         elif isinstance(cty, ast.PointerType):
             return ir.ptr
         else:
-            raise SemanticError('Cannot determine type for {}'.format(cty))
+            raise SemanticError('Cannot determine the load type for {}'.format(cty), loc)
 
     def gen_stmt(self, code):
         """ Generate code for a statement """
@@ -290,7 +293,8 @@ class CodeGenerator:
         value = self.gen_expr_code(expr)
         if expr.lvalue:
             # Determine loaded type:
-            load_ty = self.get_ir_type(expr.typ)
+            load_ty = self.get_ir_type(expr.typ, expr.loc)
+            print('make r:', expr.typ)
 
             # Load the value:
             return self.emit(ir.Load(value, 'loaded', load_ty))
@@ -306,9 +310,9 @@ class CodeGenerator:
         elif type(expr) is ast.Unop:
             if expr.op == '&':
                 ra = self.gen_expr_code(expr.a)
-                expr.typ = ast.PointerType(expr.a.typ)
                 if not expr.a.lvalue:
                     raise SemanticError('No valid lvalue', expr.a.loc)
+                expr.typ = ast.PointerType(expr.a.typ)
                 expr.lvalue = False
                 return ra
             else:
@@ -330,15 +334,7 @@ class CodeGenerator:
             else:
                 raise NotImplementedError(str(tg))
         elif type(expr) is ast.Deref:
-            # dereference pointer type:
-            addr = self.gen_expr_code(expr.ptr)
-            ptr_typ = self.the_type(expr.ptr.typ)
-            expr.lvalue = True
-            if type(ptr_typ) is not ast.PointerType:
-                raise SemanticError('Cannot deref non-pointer', expr.loc)
-            expr.typ = ptr_typ.ptype
-            load_ty = self.get_ir_type(ptr_typ)
-            return self.emit(ir.Load(addr, 'deref', load_ty))
+            return self.gen_dereference(expr)
         elif type(expr) is ast.Member:
             return self.gen_member_expr(expr)
         elif type(expr) is ast.Index:
@@ -359,8 +355,22 @@ class CodeGenerator:
         else:
             raise NotImplementedError('Unknown expr {}'.format(expr))
 
+    def gen_dereference(self, expr):
+        """ dereference pointer type: """
+        assert type(expr) is ast.Deref
+        addr = self.gen_expr_code(expr.ptr)
+        ptr_typ = self.the_type(expr.ptr.typ)
+        expr.lvalue = True
+        if type(ptr_typ) is not ast.PointerType:
+            raise SemanticError('Cannot deref non-pointer', expr.loc)
+        expr.typ = ptr_typ.ptype
+        # TODO: why not load the pointed to type?
+        load_ty = self.get_ir_type(ptr_typ, expr.loc)
+        return self.emit(ir.Load(addr, 'deref', load_ty))
+
     def gen_binop(self, expr):
         """ Generate code for binary operation """
+        assert type(expr) is ast.Binop
         expr.lvalue = False
         if expr.op in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
             a_val = self.make_rvalue_expr(expr.a)
@@ -448,6 +458,7 @@ class CodeGenerator:
         element_type = self.the_type(base_typ.element_type)
         element_size = self.size_of(element_type)
         expr.typ = base_typ.element_type
+        print(expr.typ, base_typ)
         expr.lvalue = True
 
         # Generate constant:
@@ -493,10 +504,9 @@ class CodeGenerator:
 
     def gen_type_cast(self, expr):
         """ Generate code for type casting """
-        ar = self.gen_expr_code(expr.a)
-
-        # Retain lvalue property, TBD is this correct???:
-        expr.lvalue = expr.a.lvalue
+        # When type casting, the rvalue property is lost.
+        ar = self.make_rvalue_expr(expr.a)
+        expr.lvalue = False
 
         from_type = self.the_type(expr.a.typ)
         to_type = self.the_type(expr.to_type)
@@ -516,11 +526,11 @@ class CodeGenerator:
         elif type(from_type) is ast.BaseType and from_type.name == 'byte' and \
                 type(to_type) is ast.BaseType and to_type.name == 'int':
             expr.typ = expr.to_type
-            return ar
+            return self.emit(ir.ByteToInt(ar, 'byte2int'))
         elif type(from_type) is ast.BaseType and from_type.name == 'int' and \
                 type(to_type) is ast.BaseType and to_type.name == 'byte':
             expr.typ = expr.to_type
-            return self.emit(ir.Cast(ar, ir.Cast.INTTOBYTE, 'bytecast', ir.i8))
+            return self.emit(ir.IntToByte(ar, 'bytecast'))
         else:
             raise SemanticError('Cannot cast {} to {}'
                                 .format(from_type, to_type), expr.loc)

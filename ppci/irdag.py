@@ -159,6 +159,12 @@ class Dagger:
         v = self.lut[node.src]
         self.lut[node] = v
 
+    @register(ir.ByteToInt)
+    def do_byte_to_int_cast(self, node):
+        # TODO: add some logic here?
+        v = self.lut[node.src]
+        self.lut[node] = v
+
     @register(ir.Variable)
     def do_global(self, node):
         """ This tree is put into the lut for later use """

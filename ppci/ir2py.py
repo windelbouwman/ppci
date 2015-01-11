@@ -23,6 +23,13 @@ class IrToPython:
         self.print(0, '')
         self.print(0, 'import struct')
         self.print(0, '# Module {}'.format(ir_mod.name))
+        # Generate helper:
+        self.print(0, 'def wrap_byte(v):')
+        self.print(1, 'if v < 0:')
+        self.print(2, 'v += 256')
+        self.print(1, 'if v > 255:')
+        self.print(2, 'v -= 256')
+        self.print(1, 'return v')
         # Allocate room for global variables:
         for var in ir_mod.Variables:
             self.print(0, '{} = len(mem)'.format(var.name))
@@ -78,10 +85,7 @@ class IrToPython:
                 ins.name, ins.a.name, ins.operation, ins.b.name))
             # Implement wrapping around zero:
             if ins.ty.byte_size == 1:
-                self.print(3, 'if {} < 0:'.format(ins.name))
-                self.print(4, '{} += 256'.format(ins.name))
-                self.print(3, 'if {} > 255:'.format(ins.name))
-                self.print(4, '{} -= 256'.format(ins.name))
+                self.print(3, '{0} = wrap_byte({0})'.format(ins.name))
         elif isinstance(ins, ir.Cast):
             self.print(3, '{} = {}'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Store):
@@ -95,7 +99,12 @@ class IrToPython:
             else:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Load):
-            self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
+            if ins.ty.byte_size == 1:
+                self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
+            elif ins.ty.byte_size == 4:
+                self.print(3, '{0}, = struct.unpack("I", bytes(mem[{1}:{1}+4]))'.format(ins.name, ins.address.name))
+            else:
+                raise NotImplementedError()
         elif isinstance(ins, ir.Call):
             self.print(3, '{}'.format(ins))
         elif isinstance(ins, ir.Addr):
