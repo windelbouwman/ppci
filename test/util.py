@@ -36,7 +36,7 @@ def has_qemu():
             return False
 
 
-def run_qemu(kernel, machine='lm3s811evb'):
+def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     """ Runs qemu on a given kernel file """
 
     logger = logging.getLogger('runqemu')
@@ -97,6 +97,20 @@ def run_qemu(kernel, machine='lm3s811evb'):
     data = data.decode('ascii', errors='ignore')
     logger.debug('Received {} characters'.format(len(data)))
     # print('data', data)
+
+    # Perform a memory dump:
+    # TODO
+    if dump_file and dump_range:
+        # TODO: dump file must not contain '/':
+        dump_file = os.path.basename(dump_file)
+        dump_cmd = 'pmemsave 0x{:x} 0x{:x} dumpfile.bin\n'.format(
+                        dump_range[0], dump_range[1], dump_file)
+        print(dump_cmd)
+
+        qemu_serial.send(dump_cmd.encode('ascii'))
+        time.sleep(0.2)
+    else:
+        print('No mem dump')
 
     # Send quit command:
     qemu_control.send("quit\n".encode('ascii'))

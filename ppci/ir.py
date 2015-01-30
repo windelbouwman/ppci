@@ -529,8 +529,8 @@ class Cast(Expression):
         super().__init__(name, ty)
         self.src = value
         self.method = method
-        assert self.to_map[method] == ty
-        assert self.from_map[method] == value.ty
+        assert self.to_map[method] is ty
+        assert self.from_map[method] is value.ty
 
 
 class IntToPtr(Cast):
@@ -706,7 +706,7 @@ class Load(Value):
 
     def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
-        assert address.ty == ptr
+        assert address.ty is ptr
         self.address = address
         self.volatile = volatile
 
@@ -722,7 +722,7 @@ class Store(Instruction):
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
-        assert address.ty == ptr
+        assert address.ty is ptr
         self.address = address
         self.value = value
         self.volatile = volatile

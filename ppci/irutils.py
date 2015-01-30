@@ -428,8 +428,15 @@ class Verifier:
 
         # Check that binop operands are of same type:
         if isinstance(instruction, ir.Binop):
-            assert instruction.ty == instruction.a.ty
-            assert instruction.ty == instruction.b.ty
+            assert instruction.ty is instruction.a.ty
+            assert instruction.ty is instruction.b.ty
+        elif isinstance(instruction, ir.Load):
+            assert instruction.address.ty is ir.ptr
+        elif isinstance(instruction, ir.Store):
+            assert instruction.address.ty is ir.ptr
+        elif isinstance(instruction, ir.Phi):
+            for inp_val in instruction.inputs.values():
+                assert instruction.ty is inp_val.ty
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:

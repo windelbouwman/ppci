@@ -294,7 +294,7 @@ class CodeGenerator:
         if expr.lvalue:
             # Determine loaded type:
             load_ty = self.get_ir_type(expr.typ, expr.loc)
-            print('make r:', expr.typ)
+            # print('make r:', expr.typ)
 
             # Load the value:
             return self.emit(ir.Load(value, 'loaded', load_ty))
@@ -458,7 +458,7 @@ class CodeGenerator:
         element_type = self.the_type(base_typ.element_type)
         element_size = self.size_of(element_type)
         expr.typ = base_typ.element_type
-        print(expr.typ, base_typ)
+        # print(expr.typ, base_typ)
         expr.lvalue = True
 
         # Generate constant:
