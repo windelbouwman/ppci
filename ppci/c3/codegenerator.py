@@ -294,7 +294,6 @@ class CodeGenerator:
         if expr.lvalue:
             # Determine loaded type:
             load_ty = self.get_ir_type(expr.typ, expr.loc)
-            # print('make r:', expr.typ)
 
             # Load the value:
             return self.emit(ir.Load(value, 'loaded', load_ty))

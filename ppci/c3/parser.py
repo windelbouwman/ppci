@@ -1,3 +1,7 @@
+"""
+    This module contains the parsing parts for the c3 language
+"""
+
 import logging
 from .. import CompilerError
 from .astnodes import Member, Literal, TypeCast, Unop, Binop
@@ -8,8 +12,7 @@ from .astnodes import StructureType, DefinedType, PointerType, ArrayType
 from .astnodes import Constant, Variable, Sizeof
 from .astnodes import StructField, Deref, Index
 from .astnodes import Package
-from .astnodes import Identifier
-from .astnodes import FunctionCall
+from .astnodes import Identifier, FunctionCall
 
 
 class Parser:
@@ -19,67 +22,62 @@ class Parser:
         self.diag = diag
 
     def parseSource(self, tokens):
+        """ Parse a module from tokens """
         self.logger.debug('Parsing source')
         self.tokens = tokens
         self.token = self.tokens.__next__()
         try:
-            self.parse_package()
+            self.parse_module()
             self.logger.debug('Parsing complete')
             self.mod.ok = True  # Valid until proven wrong :)
             return self.mod
         except CompilerError as e:
             self.diag.addDiag(e)
 
-    def Error(self, msg):
+    def error(self, msg):
+        """ Raise an error at the current location """
         raise CompilerError(msg, self.token.loc)
 
     # Lexer helpers:
-    def Consume(self, typ):
+    def consume(self, typ):
+        """ Assert that the next token is typ, and if so, return it """
         if self.Peak == typ:
             return self.NextToken()
         else:
-            self.Error('Excected: "{0}", got "{1}"'.format(typ, self.Peak))
+            self.error('Excected: "{0}", got "{1}"'.format(typ, self.Peak))
 
     @property
     def Peak(self):
         return self.token.typ
 
-    @property
-    def CurLoc(self):
-        return self.token.loc
-
-    def hasConsumed(self, typ):
+    def has_consumed(self, typ):
+        """ Checks if the look-ahead token is of type typ, and if so
+            eats the token and returns true """
         if self.Peak == typ:
-            self.Consume(typ)
+            self.consume(typ)
             return True
         return False
 
     def NextToken(self):
-        t = self.token
-        if t.typ != 'EOF':
+        tok = self.token
+        if tok.typ != 'EOF':
             self.token = self.tokens.__next__()
-        return t
+        return tok
 
     def addDeclaration(self, decl):
         self.currentPart.add_declaration(decl)
 
-    def parseImport(self):
-        self.Consume('import')
-        name = self.Consume('ID').val
-        self.mod.imports.append(name)
-        self.Consume(';')
-
-    def parse_package(self):
-        """ Parse a package definition """
-        self.Consume('module')
-        name = self.Consume('ID')
-        self.Consume(';')
+    def parse_module(self):
+        """ Parse a module definition """
+        self.consume('module')
+        name = self.consume('ID')
+        self.consume(';')
         self.logger.debug('Parsing package {}'.format(name.val))
         self.mod = Package(name.val, name.loc)
         self.currentPart = self.mod
         while self.Peak != 'EOF':
             self.parse_top_level()
-        self.Consume('EOF')
+        self.consume('EOF')
 
     def parse_top_level(self):
         """ Parse toplevel declaration """
@@ -89,193 +87,219 @@ class Parser:
             self.parse_variable_def()
             # TODO handle variable initialization
         elif self.Peak == 'const':
-            self.parseConstDef()
+            self.parse_const_def()
         elif self.Peak == 'type':
             self.parse_type_def()
         elif self.Peak == 'import':
-            self.parseImport()
+            self.parse_import()
         else:
-            self.Error('Expected function, var, const or type')
+            self.error('Expected function, var, const or type')
+
+    def parse_import(self):
+        """ Parse import construct """
+        self.consume('import')
+        name = self.consume('ID').val
+        self.mod.imports.append(name)
+        self.consume(';')
 
     def parseDesignator(self):
         """ A designator designates an object with a name. """
-        name = self.Consume('ID')
+        name = self.consume('ID')
         return Identifier(name.val, name.loc)
 
     def parseIdSequence(self):
-        ids = [self.Consume('ID')]
-        while self.hasConsumed(','):
-            ids.append(self.Consume('ID'))
+        ids = [self.consume('ID')]
+        while self.has_consumed(','):
+            ids.append(self.consume('ID'))
         return ids
 
     # Type system
     def PostFixId(self):
         pfe = self.PrimaryExpression_Id()
-        while self.Peak in ['.']:
-            if self.hasConsumed('.'):
-                field = self.Consume('ID')
-                pfe = Member(pfe, field.val, field.loc)
-            else:
-                raise Exception()
+        while self.has_consumed('.'):
+            field = self.consume('ID')
+            pfe = Member(pfe, field.val, field.loc)
         return pfe
 
     def PrimaryExpression_Id(self):
         if self.Peak == 'ID':
             return self.parseDesignator()
-        self.Error('Expected ID, got {0}'.format(self.Peak))
+        self.error('Expected ID, got {0}'.format(self.Peak))
 
     def parse_type_spec(self):
         """ Parse type specification """
         if self.Peak == 'struct':
-            self.Consume('struct')
-            self.Consume('{')
+            self.consume('struct')
+            self.consume('{')
             mems = []
             while self.Peak != '}':
                 mem_t = self.parse_type_spec()
                 for i in self.parseIdSequence():
                     mems.append(StructField(i.val, mem_t))
-                self.Consume(';')
-            self.Consume('}')
+                self.consume(';')
+            self.consume('}')
             theT = StructureType(mems)
         elif self.Peak == 'enum':
             # TODO)
-            raise NotImplementedError()
+            raise NotImplementedError('enum not yet implemented')
         else:
             theT = self.PostFixId()
 
         # Check for the volatile modifier:
-        theT.volatile = self.hasConsumed('volatile')
+        theT.volatile = self.has_consumed('volatile')
 
         # Check for pointer or array suffix:
         while self.Peak in ['*', '[']:
-            if self.hasConsumed('*'):
+            if self.has_consumed('*'):
                 theT = PointerType(theT)
-            elif self.hasConsumed('['):
+            elif self.has_consumed('['):
                 if self.Peak == ']':
-                    loc = self.Consume(']').loc
+                    loc = self.consume(']').loc
                     size = Literal(0, loc)
                 else:
-                    size = self.Expression()
-                    self.Consume(']')
+                    size = self.parse_expression()
+                    self.consume(']')
                 theT = ArrayType(theT, size)
             else:
                 raise Exception()
         return theT
 
     def parse_type_def(self):
-        self.Consume('type')
+        """ Parse a type definition """
+        self.consume('type')
         newtype = self.parse_type_spec()
-        typename = self.Consume('ID')
+        typename = self.consume('ID')
         self.logger.debug('Parsing type {}'.format(typename.val))
-        self.Consume(';')
-        df = DefinedType(typename.val, newtype, typename.loc)
-        self.addDeclaration(df)
+        self.consume(';')
+        typedef = DefinedType(typename.val, newtype, typename.loc)
+        self.addDeclaration(typedef)
 
     # Variable declarations:
     def parse_variable_def(self):
         """ Parse variable declaration """
-        self.Consume('var')
+        self.consume('var')
         t = self.parse_type_spec()
         for name in self.parseIdSequence():
             v = Variable(name.val, t)
             v.loc = name.loc
             self.addDeclaration(v)
-        self.Consume(';')
+        self.consume(';')
 
-    def parseConstDef(self):
-        self.Consume('const')
+    def parse_const_def(self):
+        """ Parse a constant definition """
+        self.consume('const')
         t = self.parse_type_spec()
         while True:
-            name = self.Consume('ID')
-            self.Consume('=')
-            val = self.Expression()
+            name = self.consume('ID')
+            self.consume('=')
+            val = self.parse_expression()
             c = Constant(name.val, t, val)
             self.addDeclaration(c)
             c.loc = name.loc
-            if not self.hasConsumed(','):
+            if not self.has_consumed(','):
                 break
-        self.Consume(';')
+        self.consume(';')
+
+    def parse_variable_or_function_def(self):
+        """ Parse either a variable declaration or a function.
+            Both functions and variable declarations start with:
+            function:
+                <type_spec> <name> '('
+            variable:
+                <type_spec> <name> [',' <name>] ';'
+        """
+        # TODO
+        pass
 
     def parse_function_def(self):
-        loc = self.Consume('function').loc
+        """ Parse function definition """
+        loc = self.consume('function').loc
         returntype = self.parse_type_spec()
-        fname = self.Consume('ID').val
+        fname = self.consume('ID').val
         self.logger.debug('Parsing function {}'.format(fname))
         f = Function(fname, loc)
         self.addDeclaration(f)
         savePart = self.currentPart
         self.currentPart = f
-        self.Consume('(')
+        self.consume('(')
         parameters = []
-        if not self.hasConsumed(')'):
+        if not self.has_consumed(')'):
             while True:
                 typ = self.parse_type_spec()
-                name = self.Consume('ID')
+                name = self.consume('ID')
                 param = FormalParameter(name.val, typ)
                 param.loc = name.loc
                 self.addDeclaration(param)
                 parameters.append(param)
-                if not self.hasConsumed(','):
+                if not self.has_consumed(','):
                     break
-            self.Consume(')')
+            self.consume(')')
         paramtypes = [p.typ for p in parameters]
         f.typ = FunctionType(paramtypes, returntype)
         if self.Peak == ';':
-            self.Consume(';')
+            self.consume(';')
             f.body = None
         else:
             f.body = self.parse_compound()
         self.currentPart = savePart
 
     def parse_if(self):
-        loc = self.Consume('if').loc
-        self.Consume('(')
-        condition = self.Expression()
-        self.Consume(')')
-        yes = self.parse_statement()
-        no = self.parse_statement() if self.hasConsumed('else') else Empty()
-        return If(condition, yes, no, loc)
+        """ Parse if statement """
+        loc = self.consume('if').loc
+        self.consume('(')
+        condition = self.parse_expression()
+        self.consume(')')
+        true_code = self.parse_statement()
+        if self.has_consumed('else'):
+            false_code = self.parse_statement()
+        else:
+            false_code = Empty()
+        return If(condition, true_code, false_code, loc)
 
     def parse_switch(self):
-        loc = self.Consume('switch').loc
-        self.Consume('(')
-        condition = self.Expression()
-        self.Consume(')')
-        return Switch(condition, loc)
+        """ Parse the switch construct """
+        raise NotImplementedError('switch not yet implemented')
+        # loc = self.consume('switch').loc
+        # self.consume('(')
+        # condition = self.parse_expression()
+        # self.consume(')')
 
     def parse_while(self):
-        loc = self.Consume('while').loc
-        self.Consume('(')
-        condition = self.Expression()
-        self.Consume(')')
+        """ Parses a while statement """
+        loc = self.consume('while').loc
+        self.consume('(')
+        condition = self.parse_expression()
+        self.consume(')')
         statements = self.parse_statement()
         return While(condition, statements, loc)
 
     def parse_for(self):
-        loc = self.Consume('for').loc
-        self.Consume('(')
+        """ Parse a for statement """
+        loc = self.consume('for').loc
+        self.consume('(')
         init = self.parse_statement()
-        self.Consume(';')
-        condition = self.Expression()
-        self.Consume(';')
+        self.consume(';')
+        condition = self.parse_expression()
+        self.consume(';')
         final = self.parse_statement()
-        self.Consume(')')
+        self.consume(')')
         statements = self.parse_statement()
         return For(init, condition, final, statements, loc)
 
     def parseReturn(self):
-        loc = self.Consume('return').loc
+        loc = self.consume('return').loc
         if self.Peak == ';':
             expr = Literal(0, loc)
         else:
-            expr = self.Expression()
-        self.Consume(';')
+            expr = self.parse_expression()
+        self.consume(';')
         return Return(expr, loc)
 
     def parse_compound(self):
-        self.Consume('{')
+        """ Parse a compound statement, which is bounded by '{' and '}' """
+        self.consume('{')
         statements = []
-        while not self.hasConsumed('}'):
+        while not self.has_consumed('}'):
             statements.append(self.parse_statement())
         return Compound(statements)
 
@@ -291,7 +315,7 @@ class Parser:
             return self.parse_switch()
         elif self.Peak == '{':
             return self.parse_compound()
-        elif self.hasConsumed(';'):
+        elif self.has_consumed(';'):
             return Empty()
         elif self.Peak == 'var':
             self.parse_variable_def()
@@ -302,10 +326,11 @@ class Parser:
             x = self.UnaryExpression()
             if self.Peak == '=':
                 # We enter assignment mode here.
-                loc = self.Consume('=').loc
-                rhs = self.Expression()
+                loc = self.consume('=').loc
+                rhs = self.parse_expression()
                 return Assignment(x, rhs, loc)
             else:
+                # Must be call statement!
                 return ExpressionStatement(x, x.loc)
 
     # Expression section:
@@ -314,161 +339,179 @@ class Parser:
     # and this:
     # a = 2 < x : 4 ? 1;
 
-    def Expression(self):
-        exp = self.LogicalAndExpression()
+    def parse_expression(self):
+        """ Parse an expression.
+            There are some levels of precedence:
+            1. logical or
+            2. logical and
+            3. equality
+            4. shift operations
+            5. addition and substraction
+            6. mul
+
+            # TODO: replace this with 'local binding power'
+        """
+        lhs = self.parse_logical_and_expression()
         while self.Peak == 'or':
-            loc = self.Consume('or').loc
-            e2 = self.LogicalAndExpression()
-            exp = Binop(exp, 'or', e2, loc)
-        return exp
+            loc = self.consume('or').loc
+            expr_rhs = self.parse_logical_and_expression()
+            lhs = Binop(lhs, 'or', expr_rhs, loc)
+        return lhs
 
-    def LogicalAndExpression(self):
-        o = self.EqualityExpression()
+    def parse_logical_and_expression(self):
+        """ Parse sequence of and expressions """
+        lhs = self.parse_equality_expression()
         while self.Peak == 'and':
-            loc = self.Consume('and').loc
-            o2 = self.EqualityExpression()
-            o = Binop(o, 'and', o2, loc)
-        return o
+            loc = self.consume('and').loc
+            rhs = self.parse_equality_expression()
+            lhs = Binop(lhs, 'and', rhs, loc)
+        return lhs
 
-    def EqualityExpression(self):
-        ee = self.SimpleExpression()
+    def parse_equality_expression(self):
+        """ Parse an value comparison """
+        lhs = self.parse_simple_expression()
         while self.Peak in ['<', '==', '>', '>=', '<=', '!=']:
-            op = self.Consume(self.Peak)
-            ee2 = self.SimpleExpression()
-            ee = Binop(ee, op.typ, ee2, op.loc)
-        return ee
+            operation = self.consume(self.Peak)
+            rhs = self.parse_simple_expression()
+            lhs = Binop(lhs, operation.typ, rhs, operation.loc)
+        return lhs
 
-    def SimpleExpression(self):
+    def parse_simple_expression(self):
         """ Shift operations before + and - ? """
-        e = self.AddExpression()
+        lhs = self.AddExpression()
         while self.Peak in ['>>', '<<']:
-            op = self.Consume(self.Peak)
-            e2 = self.AddExpression()
-            e = Binop(e, op.typ, e2, op.loc)
-        return e
+            op = self.consume(self.Peak)
+            rhs = self.AddExpression()
+            lhs = Binop(lhs, op.typ, rhs, op.loc)
+        return lhs
 
     def AddExpression(self):
-        e = self.Term()
+        lhs = self.parse_term()
         while self.Peak in ['+', '-']:
-            op = self.Consume(self.Peak)
-            e2 = self.Term()
-            e = Binop(e, op.typ, e2, op.loc)
-        return e
+            op = self.consume(self.Peak)
+            rhs = self.parse_term()
+            lhs = Binop(lhs, op.typ, rhs, op.loc)
+        return lhs
 
-    def Term(self):
-        t = self.BitwiseOr()
+    def parse_term(self):
+        """ Parse a term in an expression """
+        lhs = self.parse_bitwise_or()
         while self.Peak in ['*', '/']:
-            op = self.Consume(self.Peak)
-            t2 = self.BitwiseOr()
-            t = Binop(t, op.typ, t2, op.loc)
-        return t
+            op = self.consume(self.Peak)
+            rhs = self.parse_bitwise_or()
+            lhs = Binop(lhs, op.typ, rhs, op.loc)
+        return lhs
 
-    def BitwiseOr(self):
-        a = self.BitwiseAnd()
+    def parse_bitwise_or(self):
+        """ Parse bitwise or """
+        lhs = self.BitwiseAnd()
         while self.Peak == '|':
-            op = self.Consume(self.Peak)
-            b = self.BitwiseAnd()
-            a = Binop(a, op.typ, b, op.loc)
-        return a
+            op = self.consume(self.Peak)
+            rhs = self.BitwiseAnd()
+            lhs = Binop(lhs, op.typ, rhs, op.loc)
+        return lhs
 
     def BitwiseAnd(self):
-        a = self.CastExpression()
+        lhs = self.parse_cast_expression()
         while self.Peak == '&':
-            op = self.Consume(self.Peak)
-            b = self.CastExpression()
-            a = Binop(a, op.typ, b, op.loc)
-        return a
+            op = self.consume(self.Peak)
+            b = self.parse_cast_expression()
+            lhs = Binop(lhs, op.typ, b, op.loc)
+        return lhs
 
     # Domain of unary expressions:
 
-    def CastExpression(self):
+    def parse_cast_expression(self):
         """
           the C-style type cast conflicts with '(' expr ')'
           so introduce extra keyword 'cast'
         """
         if self.Peak == 'cast':
-            loc = self.Consume('cast').loc
-            self.Consume('<')
+            loc = self.consume('cast').loc
+            self.consume('<')
             t = self.parse_type_spec()
-            self.Consume('>')
-            self.Consume('(')
-            ce = self.Expression()
-            self.Consume(')')
+            self.consume('>')
+            self.consume('(')
+            ce = self.parse_expression()
+            self.consume(')')
             return TypeCast(t, ce, loc)
         elif self.Peak == 'sizeof':
-            return self.sizeof_expression()
+            return self.parse_sizeof_expression()
         else:
             return self.UnaryExpression()
 
-    def sizeof_expression(self):
+    def parse_sizeof_expression(self):
         """ Compiler internal function to determine size of a type """
-        loc = self.Consume('sizeof').loc
-        self.Consume('(')
+        loc = self.consume('sizeof').loc
+        self.consume('(')
         typ = self.parse_type_spec()
-        self.Consume(')')
+        self.consume(')')
         return Sizeof(typ, loc)
 
     def UnaryExpression(self):
         if self.Peak in ['&', '*']:
-            op = self.Consume(self.Peak)
-            ce = self.CastExpression()
+            op = self.consume(self.Peak)
+            ce = self.parse_cast_expression()
             if op.val == '*':
                 return Deref(ce, op.loc)
             else:
                 return Unop(op.typ, ce, op.loc)
         else:
-            return self.PostFixExpression()
+            return self.parse_postfix_expression()
 
-    def PostFixExpression(self):
-        pfe = self.PrimaryExpression()
+    def parse_postfix_expression(self):
+        """ Parse postfix expression """
+        pfe = self.parse_primary_expression()
         while self.Peak in ['[', '.', '->', '(', '++']:
-            if self.hasConsumed('['):
-                i = self.Expression()
-                self.Consume(']')
+            if self.has_consumed('['):
+                i = self.parse_expression()
+                self.consume(']')
                 pfe = Index(pfe, i, i.loc)
-            elif self.hasConsumed('->'):
-                field = self.Consume('ID')
+            elif self.has_consumed('->'):
+                field = self.consume('ID')
                 pfe = Deref(pfe, pfe.loc)
                 pfe = Member(pfe, field.val, field.loc)
-            elif self.hasConsumed('.'):
-                field = self.Consume('ID')
+            elif self.has_consumed('.'):
+                field = self.consume('ID')
                 pfe = Member(pfe, field.val, field.loc)
             elif self.Peak == '++':
-                loc = self.Consume('++').loc
+                loc = self.consume('++').loc
                 pfe = Unop('++', pfe, loc)
-            elif self.hasConsumed('('):
+            elif self.has_consumed('('):
                 # Function call
                 args = []
-                if not self.hasConsumed(')'):
-                    args.append(self.Expression())
-                    while self.hasConsumed(','):
-                        args.append(self.Expression())
-                    self.Consume(')')
+                if not self.has_consumed(')'):
+                    args.append(self.parse_expression())
+                    while self.has_consumed(','):
+                        args.append(self.parse_expression())
+                    self.consume(')')
                 pfe = FunctionCall(pfe, args, pfe.loc)
             else:
                 raise Exception()
         return pfe
 
-    def PrimaryExpression(self):
-        if self.hasConsumed('('):
-            e = self.Expression()
-            self.Consume(')')
-            return e
+    def parse_primary_expression(self):
+        """ Literal and parenthesis expression parsing """
+        if self.has_consumed('('):
+            expr = self.parse_expression()
+            self.consume(')')
         elif self.Peak == 'NUMBER':
-            val = self.Consume('NUMBER')
-            return Literal(val.val, val.loc)
+            val = self.consume('NUMBER')
+            expr = Literal(val.val, val.loc)
         elif self.Peak == 'REAL':
-            val = self.Consume('REAL')
-            return Literal(val.val, val.loc)
+            val = self.consume('REAL')
+            expr = Literal(val.val, val.loc)
         elif self.Peak == 'true':
-            val = self.Consume('true')
-            return Literal(True, val.loc)
+            val = self.consume('true')
+            expr = Literal(True, val.loc)
         elif self.Peak == 'false':
-            val = self.Consume('false')
-            return Literal(False, val.loc)
+            val = self.consume('false')
+            expr = Literal(False, val.loc)
         elif self.Peak == 'STRING':
-            val = self.Consume('STRING')
-            return Literal(val.val, val.loc)
+            val = self.consume('STRING')
+            expr = Literal(val.val, val.loc)
         elif self.Peak == 'ID':
-            return self.parseDesignator()
-        self.Error('Expected NUM, ID or (expr), got {0}'.format(self.Peak))
+            expr = self.parseDesignator()
+        else:
+            self.error('Expected NUM, ID or (expr), got {0}'.format(self.Peak))
+        return expr
