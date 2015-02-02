@@ -1,10 +1,15 @@
+"""
+    Entry point when building c3 sources.
+"""
+
 import logging
+import collections
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import createTopScope, Scope
-from .visitor import AstPrinter, Visitor
-from .astnodes import Package, Function, Identifier, Symbol
+from .visitor import Visitor
+from .astnodes import Module, Function, Identifier, Symbol
 
 
 class C3Pass:
@@ -22,15 +27,16 @@ class C3Pass:
 
 
 class ScopeFiller(C3Pass):
-    scoped_types = [Package, Function]
+    """ Pass that fills the scopes with symbols """
+    scoped_types = [Module, Function]
 
     def __init__(self, diag, topScope, packages):
         super().__init__(diag)
         self.topScope = topScope
         self.packages = packages
 
-    """ Scope is attached to the correct modules. """
-    def addScope(self, pkg):
+    def add_scope(self, pkg):
+        """ Scope is attached to the correct modules. """
         self.logger.debug('Adding scoping to package {}'.format(pkg.name))
         self.pkg = pkg
         # Prepare top level scope and set scope to all objects:
@@ -41,6 +47,7 @@ class ScopeFiller(C3Pass):
         assert len(self.scopeStack) == 2
 
         self.logger.debug('Resolving imports for package {}'.format(pkg.name))
+
         # Handle imports:
         for i in pkg.imports:
             if i not in self.packages:
@@ -89,25 +96,28 @@ class Builder:
         self.logger = logging.getLogger('c3')
         self.diag = diag
         self.lexer = Lexer(diag)
-        self.parser = Parser(diag)
-        self.cg = CodeGenerator(diag)
-        self.topScope = createTopScope(target)  # Scope with built in types
+        self.parser = Parser(diag, self)
+        self.codegen = CodeGenerator(diag)
+        self.top_scope = createTopScope(target)  # Scope with built in types
 
-    def build(self, srcs, imps=[]):
+    def get_module(self, name):
+        """ Gets or creates the module with the given name """
+        if name not in self.modules:
+            self.modules[name] = Module(name, None)
+        return self.modules[name]
+
+    def build(self, srcs, imps=()):
         """ Create IR-code from sources """
-        self.logger.debug('Building {} source files'.format(len(srcs + imps)))
-        iter(srcs)  # Check if srcs are iterable
-        iter(imps)
+        assert isinstance(srcs, collections.Iterable)
+        assert isinstance(imps, collections.Iterable)
+        self.logger.debug('Building {} source files'.format(len(srcs)))
+        self.logger.debug('Using {} includes'.format(len(imps)))
         self.ok = True
-        self.pkgs = {}
+        self.modules = {}
 
         # Lexing and parsing stage (phase 1)
-        def doParse(src):
-            tokens = self.lexer.lex(src)
-            pkg = self.parser.parseSource(tokens)
-            return pkg
-        s_pkgs = list(map(doParse, srcs))
-        i_pkgs = list(map(doParse, imps))
+        s_pkgs = [self.do_parse(src) for src in srcs]
+        i_pkgs = [self.do_parse(src) for src in imps]
         all_pkgs = s_pkgs + i_pkgs
         if not all(all_pkgs):
             self.ok = False
@@ -116,14 +126,8 @@ class Builder:
 
         self.logger.debug('Parsed {} packages'.format(len(all_pkgs)))
 
-        # Fix scopes and package refs (phase 1.5)
-        packages = {pkg.name: pkg for pkg in all_pkgs}
-        self.pkgs = packages
+        self.fill_scopes(all_pkgs)
 
-        scopeFiller = ScopeFiller(self.diag, self.topScope, packages)
-        # Fix scopes:
-        for pkg in all_pkgs:
-            scopeFiller.addScope(pkg)
         if not all(pkg.ok for pkg in all_pkgs):
             self.ok = False
             self.logger.debug('Scope filling failed')
@@ -132,8 +136,23 @@ class Builder:
         # Generate intermediate code (phase 2)
         # Only return ircode when everything is OK
         for pkg in s_pkgs:
-            yield self.cg.gencode(pkg)
+            yield self.codegen.gencode(pkg)
         if not all(pkg.ok for pkg in all_pkgs):
             self.logger.debug('Code generation failed')
             self.ok = False
         self.logger.debug('C3 build complete!')
+
+    def do_parse(self, src):
+        """ Lexing and parsing stage (phase 1) """
+        tokens = self.lexer.lex(src)
+        pkg = self.parser.parse_source(tokens)
+        return pkg
+
+    def fill_scopes(self, all_pkgs):
+        """ Fix scopes and package refs (phase 1.5) """
+        packages = {pkg.name: pkg for pkg in all_pkgs}
+
+        scopeFiller = ScopeFiller(self.diag, self.top_scope, packages)
+        # Fix scopes:
+        for pkg in all_pkgs:
+            scopeFiller.add_scope(pkg)

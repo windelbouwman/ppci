@@ -48,7 +48,7 @@ class CodeGenerator:
     def gencode(self, pkg):
         """ Generate code for a single module """
         self.builder.prepare()
-        assert type(pkg) is ast.Package
+        assert type(pkg) is ast.Module
         self.pkg = pkg
         self.intType = pkg.scope['int']
         self.doubleType = pkg.scope['double']
@@ -583,8 +583,8 @@ class CodeGenerator:
         """ Find out what is designated with x """
         if type(sym) is ast.Member:
             base = self.resolve_symbol(sym.base)
-            if type(base) is not ast.Package:
-                raise SemanticError('Base is not a package', sym.loc)
+            if type(base) is not ast.Module:
+                raise SemanticError('Base is not a module', sym.loc)
             scope = base.innerScope
             name = sym.field
         elif type(sym) is ast.Identifier:

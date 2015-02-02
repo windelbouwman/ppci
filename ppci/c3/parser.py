@@ -11,17 +11,17 @@ from .astnodes import FunctionType, Function, FormalParameter
 from .astnodes import StructureType, DefinedType, PointerType, ArrayType
 from .astnodes import Constant, Variable, Sizeof
 from .astnodes import StructField, Deref, Index
-from .astnodes import Package
 from .astnodes import Identifier, FunctionCall
 
 
 class Parser:
     """ Parses sourcecode into an abstract syntax tree (AST) """
-    def __init__(self, diag):
+    def __init__(self, diag, module_provider):
         self.logger = logging.getLogger('c3')
         self.diag = diag
+        self.module_provider = module_provider
 
-    def parseSource(self, tokens):
+    def parse_source(self, tokens):
         """ Parse a module from tokens """
         self.logger.debug('Parsing source')
         self.tokens = tokens
@@ -73,7 +73,7 @@ class Parser:
         name = self.consume('ID')
         self.consume(';')
         self.logger.debug('Parsing package {}'.format(name.val))
-        self.mod = Package(name.val, name.loc)
+        self.mod = self.module_provider.get_module(name.val)  # , name.loc)
         self.currentPart = self.mod
         while self.Peak != 'EOF':
             self.parse_top_level()
@@ -85,7 +85,6 @@ class Parser:
             self.parse_function_def()
         elif self.Peak == 'var':
             self.parse_variable_def()
-            # TODO handle variable initialization
         elif self.Peak == 'const':
             self.parse_const_def()
         elif self.Peak == 'type':
@@ -102,7 +101,7 @@ class Parser:
         self.mod.imports.append(name)
         self.consume(';')
 
-    def parseDesignator(self):
+    def parse_designator(self):
         """ A designator designates an object with a name. """
         name = self.consume('ID')
         return Identifier(name.val, name.loc)
@@ -115,16 +114,11 @@ class Parser:
 
     # Type system
     def PostFixId(self):
-        pfe = self.PrimaryExpression_Id()
+        pfe = self.parse_designator()
         while self.has_consumed('.'):
             field = self.consume('ID')
             pfe = Member(pfe, field.val, field.loc)
         return pfe
-
-    def PrimaryExpression_Id(self):
-        if self.Peak == 'ID':
-            return self.parseDesignator()
-        self.error('Expected ID, got {0}'.format(self.Peak))
 
     def parse_type_spec(self):
         """ Parse type specification """
@@ -138,20 +132,19 @@ class Parser:
                     mems.append(StructField(i.val, mem_t))
                 self.consume(';')
             self.consume('}')
-            theT = StructureType(mems)
+            the_type = StructureType(mems)
         elif self.Peak == 'enum':
-            # TODO)
             raise NotImplementedError('enum not yet implemented')
         else:
-            theT = self.PostFixId()
+            the_type = self.PostFixId()
 
         # Check for the volatile modifier:
-        theT.volatile = self.has_consumed('volatile')
+        the_type.volatile = self.has_consumed('volatile')
 
         # Check for pointer or array suffix:
         while self.Peak in ['*', '[']:
             if self.has_consumed('*'):
-                theT = PointerType(theT)
+                the_type = PointerType(the_type)
             elif self.has_consumed('['):
                 if self.Peak == ']':
                     loc = self.consume(']').loc
@@ -159,10 +152,10 @@ class Parser:
                 else:
                     size = self.parse_expression()
                     self.consume(']')
-                theT = ArrayType(theT, size)
+                the_type = ArrayType(the_type, size)
             else:
                 raise Exception()
-        return theT
+        return the_type
 
     def parse_type_def(self):
         """ Parse a type definition """
@@ -177,25 +170,24 @@ class Parser:
     # Variable declarations:
     def parse_variable_def(self):
         """ Parse variable declaration """
+        # TODO handle variable initialization?
         self.consume('var')
-        t = self.parse_type_spec()
+        var_type = self.parse_type_spec()
         for name in self.parseIdSequence():
-            v = Variable(name.val, t)
-            v.loc = name.loc
-            self.addDeclaration(v)
+            var = Variable(name.val, var_type, name.loc)
+            self.addDeclaration(var)
         self.consume(';')
 
     def parse_const_def(self):
         """ Parse a constant definition """
         self.consume('const')
-        t = self.parse_type_spec()
+        typ = self.parse_type_spec()
         while True:
             name = self.consume('ID')
             self.consume('=')
             val = self.parse_expression()
-            c = Constant(name.val, t, val)
-            self.addDeclaration(c)
-            c.loc = name.loc
+            constant = Constant(name.val, typ, val, name.loc)
+            self.addDeclaration(constant)
             if not self.has_consumed(','):
                 break
         self.consume(';')
@@ -227,8 +219,7 @@ class Parser:
             while True:
                 typ = self.parse_type_spec()
                 name = self.consume('ID')
-                param = FormalParameter(name.val, typ)
-                param.loc = name.loc
+                param = FormalParameter(name.val, typ, name.loc)
                 self.addDeclaration(param)
                 parameters.append(param)
                 if not self.has_consumed(','):
@@ -511,7 +502,7 @@ class Parser:
             val = self.consume('STRING')
             expr = Literal(val.val, val.loc)
         elif self.Peak == 'ID':
-            expr = self.parseDesignator()
+            expr = self.parse_designator()
         else:
             self.error('Expected NUM, ID or (expr), got {0}'.format(self.Peak))
         return expr

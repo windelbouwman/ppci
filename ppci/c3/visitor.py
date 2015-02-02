@@ -17,7 +17,7 @@ class Visitor:
             self.f_pre(node)
 
         # Descent into subnodes:
-        if type(node) is Package:
+        if type(node) is Module:
             for decl in node.declarations:
                 self.do(decl)
         elif type(node) is Function:

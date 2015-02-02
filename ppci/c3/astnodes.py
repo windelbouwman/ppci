@@ -28,7 +28,7 @@ class Symbol(Node):
 
 
 # Modules
-class Package(Symbol):
+class Module(Symbol):
     def __init__(self, name, loc):
         super().__init__(name)
         self.loc = loc
@@ -159,35 +159,31 @@ class DefinedType(NamedType):
 
 class Constant(Symbol):
     """ Constant definition """
-    def __init__(self, name, typ, value):
+    def __init__(self, name, typ, value, loc):
         super().__init__(name)
         self.typ = typ
         self.value = value
+        self.loc = loc
 
     def __repr__(self):
         return 'CONSTANT {0} = {1}'.format(self.name, self.value)
 
 
 class Variable(Symbol):
-    def __init__(self, name, typ):
+    def __init__(self, name, typ, loc):
         super().__init__(name)
         self.typ = typ
         self.isLocal = False
         self.isParameter = False
+        self.loc = loc
 
     def __repr__(self):
         return 'Var {} [{}]'.format(self.name, self.typ)
 
 
-class LocalVariable(Variable):
-    def __init__(self, name, typ):
-        super().__init__(name, typ)
-        self.isLocal = True
-
-
 class FormalParameter(Variable):
-    def __init__(self, name, typ):
-        super().__init__(name, typ)
+    def __init__(self, name, typ, loc):
+        super().__init__(name, typ, loc)
         self.isParameter = True
 
 
@@ -229,6 +225,7 @@ class Deref(Expression):
 
 
 class TypeCast(Expression):
+    """ Type cast expression to another type """
     def __init__(self, to_type, x, loc):
         super().__init__(loc)
         self.to_type = to_type
@@ -360,6 +357,7 @@ class Return(Statement):
 
 
 class Assignment(Statement):
+    """ Assignment statement with a left hand side and right hand side """
     def __init__(self, lval, rval, loc):
         super().__init__(loc)
         assert isinstance(lval, Expression)
@@ -372,6 +370,7 @@ class Assignment(Statement):
 
 
 class ExpressionStatement(Statement):
+    """ When an expression is used as a statement """
     def __init__(self, ex, loc):
         super().__init__(loc)
         self.ex = ex
@@ -381,6 +380,7 @@ class ExpressionStatement(Statement):
 
 
 class If(Statement):
+    """ If statement """
     def __init__(self, condition, truestatement, falsestatement, loc):
         super().__init__(loc)
         self.condition = condition

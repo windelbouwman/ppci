@@ -40,7 +40,8 @@ class testLexer(unittest.TestCase):
         self.check(snippet, toks)
 
 
-class testBuilder(unittest.TestCase):
+class BuildTestCase(unittest.TestCase):
+    """ Test if various snippets build correctly """
     def setUp(self):
         self.diag = DiagnosticsManager()
         self.builder = Builder(self.diag, SimpleTarget())
@@ -49,7 +50,7 @@ class testBuilder(unittest.TestCase):
         nh = logging.NullHandler()
         logging.getLogger().addHandler(nh)
 
-    def makeFileList(self, snippet):
+    def make_file_list(self, snippet):
         """ Try to make a list with opened files """
         if type(snippet) is list:
             l2 = []
@@ -70,40 +71,51 @@ class testBuilder(unittest.TestCase):
             self.diag.printErrors()
         self.assertSequenceEqual(rows, actualErrors)
 
-    def expectOK(self, snippet):
+    def expect_ok(self, snippet):
         """ Expect a snippet to be OK """
-        ircode = list(self.builder.build(self.makeFileList(snippet)))
+        ircode = list(self.builder.build(self.make_file_list(snippet)))
         if len(self.diag.diags) > 0:
             self.diag.printErrors()
         self.assertTrue(all(ircode))
         self.assertEqual(0, len(self.diag.diags))
         return ircode
 
-    def testPackage(self):
-        p1 = """module p1;
+    def test_module(self):
+        """ Test module idea """
+        src1 = """module p1;
         type int A;
         """
-        p2 = """module p2;
+        src2 = """module mod2;
         import p1;
         var p1.A b;
         """
-        self.expectOK([p1, p2])
+        self.expect_ok([src1, src2])
 
-    @unittest.skip('FIX this!')
+    def test_module_distributed(self):
+        """ Check if a single module can be build from two source files """
+        src1 = """module p1;
+        type int A;
+        """
+        src2 = """module p1;
+        var A b;
+        """
+        self.expect_ok([src1, src2])
+
     def test_package_mutual(self):
         """ Check if two packages can import eachother """
-        p1 = """module p1;
-        import p2;
+        src1 = """module mod1;
+        import mod2;
         type int A;
-        var p2.B b;
+        var mod2.B b;
         """
-        p2 = """module p2;
-        import p1;
-        var p1.A a;
+        src2 = """module mod2;
+        import mod1;
+        type int B;
+        var mod1.A a;
         """
-        self.expectOK([p1, p2])
+        self.expect_ok([src1, src2])
 
-    def testConstant(self):
+    def test_constant(self):
         snip = """module C;
         const int a = 2;
         function int reta()
@@ -112,14 +124,15 @@ class testBuilder(unittest.TestCase):
             b = a + 2;
             return addone(a);
         }
+
         function int addone(int x)
         {
             return x + 1;
         }
         """
-        self.expectOK(snip)
+        self.expect_ok(snip)
 
-    def testConstantMutual(self):
+    def test_constant_mutual(self):
         """ A circular dependency of constants must be fatal """
         snip = """module C;
         const int a = c + 1;
@@ -132,11 +145,12 @@ class testBuilder(unittest.TestCase):
         """
         self.expectErrors(snip, [2])
 
-    def testPackageNotExists(self):
-        p1 = """module p1;
+    def test_module_does_not_exist(self):
+        """ Check if importing an undefined module raises an error """
+        src1 = """module p1;
         import p23;
         """
-        self.expectErrors(p1, [0])
+        self.expectErrors(src1, [0])
 
     def testFunctArgs(self):
         snippet = """
@@ -158,7 +172,7 @@ class testBuilder(unittest.TestCase):
             return;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testReturn2(self):
         snippet = """
@@ -168,7 +182,7 @@ class testBuilder(unittest.TestCase):
             return 2;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testExpressions(self):
         snippet = """
@@ -195,7 +209,7 @@ class testBuilder(unittest.TestCase):
             c = b * a - 3;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testEmpty(self):
         snippet = """
@@ -207,7 +221,8 @@ class testBuilder(unittest.TestCase):
         snippet = ""
         self.expectErrors(snippet, [1])
 
-    def testRedefine(self):
+    def test_redefine(self):
+        """ Check if redefining a symbol results in error """
         snippet = """
         module test;
         var int a;
@@ -229,7 +244,7 @@ class testBuilder(unittest.TestCase):
          }
         }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testWhile2(self):
         snippet = """
@@ -245,7 +260,7 @@ class testBuilder(unittest.TestCase):
          }
         }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testIf(self):
         snippet = """
@@ -269,7 +284,7 @@ class testBuilder(unittest.TestCase):
          return b;
         }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testAndCondition(self):
         snippet = """
@@ -279,7 +294,7 @@ class testBuilder(unittest.TestCase):
          }
         }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testOrCondition(self):
         snippet = """
@@ -289,7 +304,7 @@ class testBuilder(unittest.TestCase):
          }
         }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testNonBoolCondition(self):
         snippet = """
@@ -313,7 +328,7 @@ class testBuilder(unittest.TestCase):
             b = a + 2;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testLocalVariable(self):
         snippet = """
@@ -325,7 +340,7 @@ class testBuilder(unittest.TestCase):
             b = a + 2;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testUnknownType(self):
         snippet = """module testlocalvar;
@@ -346,7 +361,7 @@ class testBuilder(unittest.TestCase):
             a.y = a.x + 2;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testStruct2(self):
         """ Select struct member from non struct type """
@@ -371,7 +386,7 @@ class testBuilder(unittest.TestCase):
             x[1] = x[2];
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testArrayFail(self):
         snippet = """
@@ -406,7 +421,7 @@ class testBuilder(unittest.TestCase):
             var int[20] c;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testStructCall(self):
         snippet = """
@@ -434,7 +449,7 @@ class testBuilder(unittest.TestCase):
          {
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testSizeof1(self):
         snippet = """
@@ -446,7 +461,7 @@ class testBuilder(unittest.TestCase):
             a = sizeof(int*);
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testSizeof2(self):
         snippet = """
@@ -469,7 +484,7 @@ class testBuilder(unittest.TestCase):
             a = 1;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testPointerType1(self):
         snippet = """
@@ -483,7 +498,7 @@ class testBuilder(unittest.TestCase):
             a = *pa + *pa * 8;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testPointerType(self):
         snippet = """
@@ -498,7 +513,7 @@ class testBuilder(unittest.TestCase):
             *pa = 22;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def test_pointer_type_incorrect(self):
         """ Test invalid pointer assignments """
@@ -530,7 +545,7 @@ class testBuilder(unittest.TestCase):
             *b = cast<byte>(2);
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testPointerTypeIr2(self):
         """ Test pointer to struct """
@@ -545,7 +560,7 @@ class testBuilder(unittest.TestCase):
             a->y = a->x - 14;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def test_pointer_arithmatic(self):
         """ Check if pointer arithmatic works """
@@ -557,7 +572,7 @@ class testBuilder(unittest.TestCase):
             *(pa+2) = 2;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testWrongCast(self):
         snippet = """
@@ -589,7 +604,7 @@ class testBuilder(unittest.TestCase):
             a = a->next;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
     def testInfiniteStruct(self):
         """
@@ -628,7 +643,8 @@ class testBuilder(unittest.TestCase):
         """
         self.expectErrors(snippet, [0])
 
-    def testComplexType(self):
+    def test_complex_type(self):
+        """ Test if a complex typedef works """
         snippet = """
          module testpointer;
          type int my_int;
@@ -661,7 +677,7 @@ class testBuilder(unittest.TestCase):
             msp->P1.x = a * x->P1.y;
          }
         """
-        self.expectOK(snippet)
+        self.expect_ok(snippet)
 
 
 if __name__ == '__main__':
