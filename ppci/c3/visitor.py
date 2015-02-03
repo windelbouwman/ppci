@@ -1,4 +1,8 @@
-from .astnodes import *
+"""
+    Visitor class.
+"""
+
+from . import astnodes as ast
 
 
 class Visitor:
@@ -17,78 +21,78 @@ class Visitor:
             self.f_pre(node)
 
         # Descent into subnodes:
-        if type(node) is Module:
+        if type(node) is ast.Module:
             for decl in node.declarations:
                 self.do(decl)
-        elif type(node) is Function:
+        elif type(node) is ast.Function:
             for s in node.declarations:
                 self.do(s)
             self.do(node.typ)
             if node.body:
                 self.do(node.body)
-        elif type(node) is Compound:
-            for s in node.statements:
-                self.do(s)
-        elif type(node) is If:
+        elif type(node) is ast.Compound:
+            for statement in node.statements:
+                self.do(statement)
+        elif type(node) is ast.If:
             self.do(node.condition)
             self.do(node.truestatement)
             self.do(node.falsestatement)
-        elif type(node) is While:
+        elif type(node) is ast.While:
             self.do(node.condition)
             self.do(node.statement)
-        elif type(node) is For:
+        elif type(node) is ast.For:
             self.do(node.init)
             self.do(node.condition)
             self.do(node.final)
             self.do(node.statement)
-        elif type(node) is Assignment:
+        elif type(node) is ast.Assignment:
             self.do(node.lval)
             self.do(node.rval)
-        elif type(node) is FunctionCall:
+        elif type(node) is ast.FunctionCall:
             for arg in node.args:
                 self.do(arg)
             self.do(node.proc)
-        elif type(node) is Return:
+        elif type(node) is ast.Return:
             self.do(node.expr)
-        elif type(node) is Binop:
+        elif type(node) is ast.Binop:
             self.do(node.a)
             self.do(node.b)
-        elif type(node) is Unop:
+        elif type(node) is ast.Unop:
             self.do(node.a)
-        elif type(node) is ExpressionStatement:
+        elif type(node) is ast.ExpressionStatement:
             self.do(node.ex)
-        elif type(node) is TypeCast:
+        elif type(node) is ast.TypeCast:
             self.do(node.a)
             self.do(node.to_type)
-        elif type(node) is Sizeof:
+        elif type(node) is ast.Sizeof:
             self.do(node.query_typ)
-        elif type(node) is Member:
+        elif type(node) is ast.Member:
             self.do(node.base)
-        elif type(node) is Index:
+        elif type(node) is ast.Index:
             self.do(node.base)
             self.do(node.i)
-        elif type(node) is Deref:
+        elif type(node) is ast.Deref:
             self.do(node.ptr)
-        elif type(node) is Constant:
+        elif type(node) is ast.Constant:
             self.do(node.typ)
             self.do(node.value)
-        elif type(node) is DefinedType:
+        elif type(node) is ast.DefinedType:
             self.do(node.typ)
-        elif isinstance(node, Variable):
+        elif isinstance(node, ast.Variable):
             self.do(node.typ)
-        elif type(node) is PointerType:
+        elif type(node) is ast.PointerType:
             self.do(node.ptype)
-        elif type(node) is StructureType:
-            for m in node.mems:
-                self.do(m.typ)
-        elif type(node) is ArrayType:
+        elif type(node) is ast.StructureType:
+            for member in node.mems:
+                self.do(member.typ)
+        elif type(node) is ast.ArrayType:
             self.do(node.element_type)
             self.do(node.size)
-        elif type(node) is FunctionType:
-            for pt in node.parametertypes:
-                self.do(pt)
+        elif type(node) is ast.FunctionType:
+            for param_type in node.parametertypes:
+                self.do(param_type)
             self.do(node.returntype)
-        elif type(node) in [Identifier, Literal, Empty]:
+        elif type(node) in [ast.Identifier, ast.Literal, ast.Empty]:
             # Those nodes do not have child nodes.
             pass
         else:

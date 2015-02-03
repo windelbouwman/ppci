@@ -7,7 +7,7 @@ import collections
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
-from .scope import createTopScope, Scope
+from .scope import Scope, Context
 from .visitor import Visitor
 from .astnodes import Module, Function, Identifier, Symbol
 
@@ -30,17 +30,12 @@ class ScopeFiller(C3Pass):
     """ Pass that fills the scopes with symbols """
     scoped_types = [Module, Function]
 
-    def __init__(self, diag, topScope, packages):
-        super().__init__(diag)
-        self.topScope = topScope
-        self.packages = packages
-
-    def add_scope(self, pkg):
+    def add_scope(self, pkg, context):
         """ Scope is attached to the correct modules. """
         self.logger.debug('Adding scoping to package {}'.format(pkg.name))
         self.pkg = pkg
         # Prepare top level scope and set scope to all objects:
-        self.scopeStack = [self.topScope]
+        self.scopeStack = [context.scope]
         modScope = Scope(self.CurrentScope)
         self.scopeStack.append(modScope)
         self.visit(pkg, self.enterScope, self.quitScope)
@@ -50,13 +45,14 @@ class ScopeFiller(C3Pass):
 
         # Handle imports:
         for i in pkg.imports:
-            if i not in self.packages:
+            if context.has_module(i):
+                pkg.scope.add_symbol(context.get_module(i))
+            else:
                 self.error('Cannot import {}'.format(i))
-                continue
-            pkg.scope.add_symbol(self.packages[i])
 
     @property
     def CurrentScope(self):
+        """ Gets the current scope """
         return self.scopeStack[-1]
 
     def addSymbol(self, sym):
@@ -96,63 +92,57 @@ class Builder:
         self.logger = logging.getLogger('c3')
         self.diag = diag
         self.lexer = Lexer(diag)
-        self.parser = Parser(diag, self)
+        self.parser = Parser(diag)
+        self.sema = None
         self.codegen = CodeGenerator(diag)
-        self.top_scope = createTopScope(target)  # Scope with built in types
-
-    def get_module(self, name):
-        """ Gets or creates the module with the given name """
-        if name not in self.modules:
-            self.modules[name] = Module(name, None)
-        return self.modules[name]
+        self.target = target
 
     def build(self, srcs, imps=()):
-        """ Create IR-code from sources """
+        """ Create IR-code from sources. Raises compiler error when something
+            goes wrong. Returns a list of ir-code modules.
+        """
         assert isinstance(srcs, collections.Iterable)
         assert isinstance(imps, collections.Iterable)
         self.logger.debug('Building {} source files'.format(len(srcs)))
         self.logger.debug('Using {} includes'.format(len(imps)))
-        self.ok = True
-        self.modules = {}
+
+        # Create a context where the modules can live:
+        context = Context(self.target)
 
         # Lexing and parsing stage (phase 1)
-        s_pkgs = [self.do_parse(src) for src in srcs]
-        i_pkgs = [self.do_parse(src) for src in imps]
-        all_pkgs = s_pkgs + i_pkgs
-        if not all(all_pkgs):
-            self.ok = False
-            self.logger.debug('Parsing failed')
-            return
+        for src in srcs:
+            self.do_parse(src, context)
+        for src in imps:
+            self.do_parse(src, context)
 
-        self.logger.debug('Parsed {} packages'.format(len(all_pkgs)))
+        self.logger.debug('Parsing complete')
 
-        self.fill_scopes(all_pkgs)
+        self.fill_scopes(context)
 
-        if not all(pkg.ok for pkg in all_pkgs):
-            self.ok = False
-            self.logger.debug('Scope filling failed')
-            return
+        # Semantic checkers:
+        self.semantic(context)
 
         # Generate intermediate code (phase 2)
         # Only return ircode when everything is OK
-        for pkg in s_pkgs:
-            yield self.codegen.gencode(pkg)
-        if not all(pkg.ok for pkg in all_pkgs):
-            self.logger.debug('Code generation failed')
-            self.ok = False
+        ir_modules = []
+        for pkg in context.modules:
+            ir_modules.append(self.codegen.gencode(pkg, context))
         self.logger.debug('C3 build complete!')
+        return ir_modules
 
-    def do_parse(self, src):
+    def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """
         tokens = self.lexer.lex(src)
-        pkg = self.parser.parse_source(tokens)
-        return pkg
+        self.parser.parse_source(tokens, context)
 
-    def fill_scopes(self, all_pkgs):
+    def fill_scopes(self, context):
         """ Fix scopes and package refs (phase 1.5) """
-        packages = {pkg.name: pkg for pkg in all_pkgs}
+        scope_filler = ScopeFiller(self.diag)
 
-        scopeFiller = ScopeFiller(self.diag, self.top_scope, packages)
         # Fix scopes:
-        for pkg in all_pkgs:
-            scopeFiller.add_scope(pkg)
+        for pkg in context.modules:
+            scope_filler.add_scope(pkg, context)
+
+    def semantic(self, context):
+        # TODO
+        pass

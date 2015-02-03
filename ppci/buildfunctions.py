@@ -86,7 +86,6 @@ def construct(buildfile, targets=[]):
         project = recipe_loader.load_file(buildfile)
     except OSError:
         raise TaskError('Could not load {}'.format(buildfile))
-        project = None
 
     if project:
         runner = TaskRunner()
@@ -125,16 +124,11 @@ def c3toir(sources, includes, target):
     diag = DiagnosticsManager()
     c3b = Builder(diag, target)
 
-    ir_modules = []
-    for ircode in c3b.build(sources, includes):
-        if not ircode:
-            # Something went wrong, do not continue the code generation
-            continue
-
-        Verifier().verify(ircode)
-        ir_modules.append(ircode)
-
-    if not c3b.ok:
+    try:
+        ir_modules = c3b.build(sources, includes)
+        for ircode in ir_modules:
+            Verifier().verify(ircode)
+    except CompilerError:
         diag.printErrors()
         raise TaskError('Compile errors')
     return ir_modules

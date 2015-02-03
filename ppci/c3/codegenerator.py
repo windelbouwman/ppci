@@ -3,14 +3,7 @@ import struct
 from .. import ir
 from .. import irutils
 from . import astnodes as ast
-
-
-class SemanticError(Exception):
-    """ Error thrown when a semantic issue is observed """
-    def __init__(self, msg, loc):
-        super().__init__()
-        self.msg = msg
-        self.loc = loc
+from .scope import SemanticError
 
 
 def pack_string(txt):
@@ -45,11 +38,13 @@ class CodeGenerator:
         self.builder.emit(instruction)
         return instruction
 
-    def gencode(self, pkg):
+    def gencode(self, pkg, context):
         """ Generate code for a single module """
-        self.builder.prepare()
         assert type(pkg) is ast.Module
+        self.context = context
+        self.builder.prepare()
         self.pkg = pkg
+        self.ok = True
         self.intType = pkg.scope['int']
         self.doubleType = pkg.scope['double']
         self.boolType = pkg.scope['bool']
@@ -61,7 +56,7 @@ class CodeGenerator:
         self.const_workset = set()
         self.builder.m = ir.Module(pkg.name)
         try:
-            for typ in pkg.Types:
+            for typ in pkg.types:
                 self.check_type(typ)
             # Only generate function if function contains a body:
             real_functions = list(filter(
@@ -78,12 +73,13 @@ class CodeGenerator:
                 self.gen_function(s)
         except SemanticError as e:
             self.error(e.msg, e.loc)
-        if self.pkg.ok:
-            return self.builder.m
+        if not self.ok:
+            raise SemanticError("Errors occurred", None)
+        return self.builder.m
 
     def error(self, msg, loc=None):
         """ Emit error to diagnostic system and mark package as invalid """
-        self.pkg.ok = False
+        self.ok = False
         self.diag.error(msg, loc)
 
     def gen_function(self, function):
@@ -318,7 +314,7 @@ class CodeGenerator:
                 raise NotImplementedError('Unknown unop {0}'.format(expr.op))
         elif type(expr) is ast.Identifier:
             # Generate code for this identifier.
-            tg = self.resolve_symbol(expr)
+            tg = self.context.resolve_symbol(expr)
             expr.kind = type(tg)
             expr.typ = tg.typ
 
@@ -430,7 +426,8 @@ class CodeGenerator:
         # assert type(base) is ir.Mem, type(base)
         # Calculate offset into struct:
         bt = self.the_type(expr.base.typ)
-        offset = self.emit(ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32))
+        offset = self.emit(
+            ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32))
         offset = self.emit(ir.IntToPtr(offset, 'offset'))
 
         # Calculate memory address of field:
@@ -540,7 +537,7 @@ class CodeGenerator:
         args = [self.make_rvalue_expr(argument) for argument in expr.args]
 
         # Check arguments:
-        tg = self.resolve_symbol(expr.proc)
+        tg = self.context.resolve_symbol(expr.proc)
         if type(tg) is not ast.Function:
             raise SemanticError('cannot call {}'.format(tg))
         ftyp = tg.typ
@@ -579,26 +576,6 @@ class CodeGenerator:
         raise SemanticError('Cannot evaluate constant {}'
                             .format(constant), None)
 
-    def resolve_symbol(self, sym):
-        """ Find out what is designated with x """
-        if type(sym) is ast.Member:
-            base = self.resolve_symbol(sym.base)
-            if type(base) is not ast.Module:
-                raise SemanticError('Base is not a module', sym.loc)
-            scope = base.innerScope
-            name = sym.field
-        elif type(sym) is ast.Identifier:
-            scope = sym.scope
-            name = sym.target
-        else:
-            raise NotImplementedError(str(sym))
-        if name in scope:
-            sym = scope[name]
-        else:
-            raise SemanticError('{} undefined'.format(name), sym.loc)
-        assert isinstance(sym, ast.Symbol)
-        return sym
-
     def size_of(self, typ):
         """ Determine the byte size of a type """
         typ = self.the_type(typ)
@@ -626,7 +603,7 @@ class CodeGenerator:
             if reveil_defined:
                 t = self.the_type(t.typ)
         elif type(t) in [ast.Identifier, ast.Member]:
-            t = self.the_type(self.resolve_symbol(t), reveil_defined)
+            t = self.the_type(self.context.resolve_symbol(t), reveil_defined)
         elif isinstance(t, ast.Type):
             pass
         else:

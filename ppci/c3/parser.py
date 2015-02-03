@@ -16,23 +16,21 @@ from .astnodes import Identifier, FunctionCall
 
 class Parser:
     """ Parses sourcecode into an abstract syntax tree (AST) """
-    def __init__(self, diag, module_provider):
+    def __init__(self, diag):
         self.logger = logging.getLogger('c3')
         self.diag = diag
-        self.module_provider = module_provider
 
-    def parse_source(self, tokens):
+    def parse_source(self, tokens, context):
         """ Parse a module from tokens """
         self.logger.debug('Parsing source')
         self.tokens = tokens
         self.token = self.tokens.__next__()
         try:
-            self.parse_module()
+            self.parse_module(context)
             self.logger.debug('Parsing complete')
-            self.mod.ok = True  # Valid until proven wrong :)
-            return self.mod
-        except CompilerError as e:
-            self.diag.addDiag(e)
+        except CompilerError as ex:
+            self.diag.addDiag(ex)
+            raise
 
     def error(self, msg):
         """ Raise an error at the current location """
@@ -67,13 +65,13 @@ class Parser:
     def addDeclaration(self, decl):
         self.currentPart.add_declaration(decl)
 
-    def parse_module(self):
+    def parse_module(self, context):
         """ Parse a module definition """
         self.consume('module')
         name = self.consume('ID')
         self.consume(';')
         self.logger.debug('Parsing package {}'.format(name.val))
-        self.mod = self.module_provider.get_module(name.val)  # , name.loc)
+        self.mod = context.get_module(name.val)  # , name.loc)
         self.currentPart = self.mod
         while self.Peak != 'EOF':
             self.parse_top_level()
@@ -106,7 +104,8 @@ class Parser:
         name = self.consume('ID')
         return Identifier(name.val, name.loc)
 
-    def parseIdSequence(self):
+    def parse_id_sequence(self):
+        """ Parse a sequence of id's """
         ids = [self.consume('ID')]
         while self.has_consumed(','):
             ids.append(self.consume('ID'))
@@ -128,7 +127,7 @@ class Parser:
             mems = []
             while self.Peak != '}':
                 mem_t = self.parse_type_spec()
-                for i in self.parseIdSequence():
+                for i in self.parse_id_sequence():
                     mems.append(StructField(i.val, mem_t))
                 self.consume(';')
             self.consume('}')
@@ -173,7 +172,7 @@ class Parser:
         # TODO handle variable initialization?
         self.consume('var')
         var_type = self.parse_type_spec()
-        for name in self.parseIdSequence():
+        for name in self.parse_id_sequence():
             var = Variable(name.val, var_type, name.loc)
             self.addDeclaration(var)
         self.consume(';')

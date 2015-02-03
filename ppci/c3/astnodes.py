@@ -23,12 +23,14 @@ class Symbol(Node):
         self.refs.append(r)
 
     @property
-    def References(self):
+    def references(self):
+        """ Gets the things referring to this symbol """
         return self.refs
 
 
 # Modules
 class Module(Symbol):
+    """ A module contains functions, types, consts and global variables """
     def __init__(self, name, loc):
         super().__init__(name)
         self.loc = loc
@@ -41,8 +43,9 @@ class Module(Symbol):
             decl.package = self
 
     @property
-    def Types(self):
-        return self.innerScope.Types
+    def types(self):
+        """ Gets the types in this module """
+        return self.innerScope.types
 
     @property
     def Functions(self):

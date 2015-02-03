@@ -1,6 +1,19 @@
+"""
+    This file contains the scope and context classes.
+    Scopes are used for scoping modules, functions.
+    A context is the space where the whole program lives.
+"""
+
 from .astnodes import Constant, Variable, Function, BaseType, Symbol
 from .astnodes import ArrayType, StructureType, DefinedType, PointerType
 from .astnodes import StructField
+from . import astnodes as ast
+from ..common import CompilerError
+
+
+class SemanticError(CompilerError):
+    """ Error thrown when a semantic issue is observed """
+    pass
 
 
 class Scope:
@@ -12,7 +25,7 @@ class Scope:
 
     def __iter__(self):
         # Iterate in a deterministic manner:
-        return iter(self.Constants + self.Variables + self.Functions)
+        return iter(self.constants + self.Variables + self.Functions)
 
     @property
     def Syms(self):
@@ -21,11 +34,13 @@ class Scope:
         return sorted(syms, key=lambda v: v.name)
 
     @property
-    def Types(self):
+    def types(self):
+        """ Returns all the types in this scope """
         return [s for s in self.Syms if isinstance(s, DefinedType)]
 
     @property
-    def Constants(self):
+    def constants(self):
+        """ All defined constants in this scope """
         return [s for s in self.Syms if type(s) is Constant]
 
     @property
@@ -98,3 +113,47 @@ def createTopScope(target):
     string_def_type = DefinedType('string', string_type, None)
     scope.add_symbol(string_def_type)
     return scope
+
+
+class Context:
+    """ A context is the space where all modules live in.
+        It is actually the container of modules and the top
+        level scope.
+    """
+    def __init__(self, target):
+        self.scope = createTopScope(target)
+        self.module_map = {}
+
+    def has_module(self, name):
+        return name in self.module_map
+
+    def get_module(self, name):
+        """ Gets or creates the module with the given name """
+        if name not in self.module_map:
+            self.module_map[name] = ast.Module(name, None)
+        return self.module_map[name]
+
+    @property
+    def modules(self):
+        return self.module_map.values()
+
+    def resolve_symbol(self, sym):
+        """ Find out what is designated with x """
+        if type(sym) is ast.Member:
+            base = self.resolve_symbol(sym.base)
+            if type(base) is not ast.Module:
+                raise SemanticError('Base is not a module', sym.loc)
+            scope = base.innerScope
+            name = sym.field
+        elif type(sym) is ast.Identifier:
+            scope = sym.scope
+            name = sym.target
+        else:
+            raise NotImplementedError(str(sym))
+
+        if name in scope:
+            sym = scope[name]
+        else:
+            raise SemanticError('{} undefined'.format(name), sym.loc)
+        assert isinstance(sym, ast.Symbol)
+        return sym

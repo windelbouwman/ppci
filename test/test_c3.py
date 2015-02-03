@@ -6,7 +6,8 @@ from ppci.target import SimpleTarget
 from ppci import DiagnosticsManager, CompilerError
 
 
-class testLexer(unittest.TestCase):
+class LexerTestCase(unittest.TestCase):
+    """ Test lexer """
     def setUp(self):
         diag = DiagnosticsManager()
         self.l = Lexer(diag)
@@ -40,7 +41,7 @@ class testLexer(unittest.TestCase):
         self.check(snippet, toks)
 
 
-class BuildTestCase(unittest.TestCase):
+class BuildTestCaseBase(unittest.TestCase):
     """ Test if various snippets build correctly """
     def setUp(self):
         self.diag = DiagnosticsManager()
@@ -53,41 +54,62 @@ class BuildTestCase(unittest.TestCase):
     def make_file_list(self, snippet):
         """ Try to make a list with opened files """
         if type(snippet) is list:
-            l2 = []
-            for s in snippet:
-                if type(s) is str:
-                    l2.append(io.StringIO(s))
+            files = []
+            for src in snippet:
+                if type(src) is str:
+                    files.append(io.StringIO(src))
                 else:
-                    l2.append(s)
-            return l2
+                    files.append(src)
+            return files
         else:
             return [io.StringIO(snippet)]
 
-    def expectErrors(self, snippet, rows):
+    def build(self, snippet):
+        """ Try to build a snippet """
+        try:
+            return list(self.builder.build(self.make_file_list(snippet)))
+        except CompilerError:
+            pass
+
+    def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
-        list(self.builder.build([io.StringIO(snippet)]))
-        actualErrors = [err.row for err in self.diag.diags]
-        if rows != actualErrors:
+        self.build(snippet)
+        actual_errors = [err.row for err in self.diag.diags]
+        if rows != actual_errors:
             self.diag.printErrors()
-        self.assertSequenceEqual(rows, actualErrors)
+        self.assertSequenceEqual(rows, actual_errors)
 
     def expect_ok(self, snippet):
         """ Expect a snippet to be OK """
-        ircode = list(self.builder.build(self.make_file_list(snippet)))
+        ircode = self.build(snippet)
         if len(self.diag.diags) > 0:
             self.diag.printErrors()
         self.assertTrue(all(ircode))
         self.assertEqual(0, len(self.diag.diags))
-        return ircode
+
+
+class ModuleTestCase(BuildTestCaseBase):
+    """ Module related tests """
+    def test_empty(self):
+        """ Check what happens when an empty file is supplied """
+        snippet = """
+        module A
+        """
+        self.expect_errors(snippet, [3])
+
+    def test_empty2(self):
+        """ Check what an empty source file does """
+        snippet = ""
+        self.expect_errors(snippet, [1])
 
     def test_module(self):
         """ Test module idea """
-        src1 = """module p1;
+        src1 = """module mod1;
         type int A;
         """
         src2 = """module mod2;
-        import p1;
-        var p1.A b;
+        import mod1;
+        var mod1.A b;
         """
         self.expect_ok([src1, src2])
 
@@ -115,7 +137,18 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok([src1, src2])
 
+    def test_module_does_not_exist(self):
+        """ Check if importing an undefined module raises an error """
+        src1 = """module p1;
+        import p23;
+        """
+        self.expect_errors(src1, [0])
+
+
+class ConstantTestCase(BuildTestCaseBase):
+    """ Testcase for constants """
     def test_constant(self):
+        """ Test good usage of constant """
         snip = """module C;
         const int a = 2;
         function int reta()
@@ -143,16 +176,12 @@ class BuildTestCase(unittest.TestCase):
            return a;
         }
         """
-        self.expectErrors(snip, [2])
+        self.expect_errors(snip, [2])
 
-    def test_module_does_not_exist(self):
-        """ Check if importing an undefined module raises an error """
-        src1 = """module p1;
-        import p23;
-        """
-        self.expectErrors(src1, [0])
 
-    def testFunctArgs(self):
+class FunctionTestCase(BuildTestCaseBase):
+    """ Test function syntax """
+    def test_function_args(self):
         snippet = """
          module testargs;
          function void t2(int a, double b)
@@ -162,9 +191,9 @@ class BuildTestCase(unittest.TestCase):
             t2(1, 1.2);
          }
         """
-        self.expectErrors(snippet, [5, 6])
+        self.expect_errors(snippet, [5, 6])
 
-    def testReturn(self):
+    def test_return(self):
         snippet = """
          module testreturn;
          function void t()
@@ -174,7 +203,8 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testReturn2(self):
+    def test_return2(self):
+        """ Test the return of a value """
         snippet = """
          module testreturn;
          function int t()
@@ -184,6 +214,9 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
+
+class ExpressionTestCase(BuildTestCaseBase):
+    """ Test various expressions """
     def testExpressions(self):
         snippet = """
          module test;
@@ -196,7 +229,7 @@ class BuildTestCase(unittest.TestCase):
             c = a;
          }
         """
-        self.expectErrors(snippet, [8, 9])
+        self.expect_errors(snippet, [8, 9])
 
     def testExpression1(self):
         snippet = """
@@ -211,16 +244,6 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testEmpty(self):
-        snippet = """
-        module A
-        """
-        self.expectErrors(snippet, [3])
-
-    def testEmpty2(self):
-        snippet = ""
-        self.expectErrors(snippet, [1])
-
     def test_redefine(self):
         """ Check if redefining a symbol results in error """
         snippet = """
@@ -229,9 +252,12 @@ class BuildTestCase(unittest.TestCase):
         var int b;
         var int a;
         """
-        self.expectErrors(snippet, [5])
+        self.expect_errors(snippet, [5])
 
-    def testWhile(self):
+
+class StatementTestCase(BuildTestCaseBase):
+    """ Testcase for statements """
+    def test_while(self):
         snippet = """
         module tstwhile;
         function void t()
@@ -246,7 +272,7 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testWhile2(self):
+    def test_while2(self):
         snippet = """
         module tstwhile;
         function void t()
@@ -262,7 +288,7 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testIf(self):
+    def test_if(self):
         snippet = """
         module tstIFF;
         function void t(int b)
@@ -314,21 +340,7 @@ class BuildTestCase(unittest.TestCase):
          }
         }
         """
-        self.expectErrors(snippet, [4])
-
-    def testTypeDef(self):
-        snippet = """
-         module testtypedef;
-         type int my_int;
-         function void t()
-         {
-            var my_int a;
-            var int b;
-            a = 2;
-            b = a + 2;
-         }
-        """
-        self.expect_ok(snippet)
+        self.expect_errors(snippet, [4])
 
     def testLocalVariable(self):
         snippet = """
@@ -349,9 +361,10 @@ class BuildTestCase(unittest.TestCase):
             var int2 a;
          }
         """
-        self.expectErrors(snippet, [4])
+        self.expect_errors(snippet, [4])
 
-    def testStruct1(self):
+    def test_struct1(self):
+        """ Test struct syntax """
         snippet = """
          module teststruct1;
          function void t()
@@ -363,7 +376,7 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testStruct2(self):
+    def test_struct2(self):
         """ Select struct member from non struct type """
         snippet = """
          module teststruct1;
@@ -372,7 +385,7 @@ class BuildTestCase(unittest.TestCase):
             a.z = 2;
          }
         """
-        self.expectErrors(snippet, [5])
+        self.expect_errors(snippet, [5])
 
     def testArray(self):
         snippet = """
@@ -399,9 +412,10 @@ class BuildTestCase(unittest.TestCase):
             x[1] = x[c];
          }
         """
-        self.expectErrors(snippet, [8])
+        self.expect_errors(snippet, [8])
 
-    def testArrayFail2(self):
+    def test_array_fail2(self):
+        """ Check that non-array cannot be indexed """
         snippet = """
          module testarray;
          function void t()
@@ -411,7 +425,7 @@ class BuildTestCase(unittest.TestCase):
             c = x[2];
          }
         """
-        self.expectErrors(snippet, [7])
+        self.expect_errors(snippet, [7])
 
     def testArrayFail3(self):
         snippet = """
@@ -432,9 +446,10 @@ class BuildTestCase(unittest.TestCase):
             a.x(9);
          }
         """
-        self.expectErrors(snippet, [6])
+        self.expect_errors(snippet, [6])
 
-    def testString(self):
+    def test_string(self):
+        """ Test string literals """
         snippet = """
          module teststring;
          function void t()
@@ -451,7 +466,25 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testSizeof1(self):
+
+class TypeTestCase(BuildTestCaseBase):
+    """ Test type related syntax """
+    def test_typedef(self):
+        """ Check if a type can be defined """
+        snippet = """
+         module testtypedef;
+         type int my_int;
+         function void t()
+         {
+            var my_int a;
+            var int b;
+            a = 2;
+            b = a + 2;
+         }
+        """
+        self.expect_ok(snippet)
+
+    def test_sizeof1(self):
         snippet = """
          module testsizeof;
 
@@ -463,7 +496,8 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testSizeof2(self):
+    def test_sizeof2(self):
+        """ Sizeof must not be assignable """
         snippet = """
          module testsizeof2;
 
@@ -472,7 +506,7 @@ class BuildTestCase(unittest.TestCase):
             sizeof(int*) = 2;
          }
         """
-        self.expectErrors(snippet, [6])
+        self.expect_errors(snippet, [6])
 
     def testWrongVarUse(self):
         snippet = """
@@ -486,7 +520,8 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testPointerType1(self):
+    def test_pointer_type1(self):
+        """ Check if pointers work """
         snippet = """
          module testpointer1;
          var int* pa;
@@ -500,7 +535,8 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testPointerType(self):
+    def test_pointer_type(self):
+        """ Check if pointers work """
         snippet = """
          module testpointer;
          var int* pa, pb;
@@ -529,7 +565,7 @@ class BuildTestCase(unittest.TestCase):
             **pa = 22; // Cannot deref int
          }
         """
-        self.expectErrors(snippet, [6, 8, 9, 10])
+        self.expect_errors(snippet, [6, 8, 9, 10])
 
     def test_pointer_to_basetype(self):
         """ Test pointer """
@@ -574,7 +610,7 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testWrongCast(self):
+    def test_wrong_cast(self):
         snippet = """
          module testptr_ir;
          type struct {int x,y;}* gpio;
@@ -584,9 +620,9 @@ class BuildTestCase(unittest.TestCase):
             *cast<gpio>(*a);
          }
         """
-        self.expectErrors(snippet, [7])
+        self.expect_errors(snippet, [7])
 
-    def testLinkedList(self):
+    def test_linked_list(self):
         """
             Test if a struct can contain a field with a pointer to itself
         """
@@ -606,7 +642,7 @@ class BuildTestCase(unittest.TestCase):
         """
         self.expect_ok(snippet)
 
-    def testInfiniteStruct(self):
+    def test_infinite_struct(self):
         """
             Test if a struct can contain a field with itself as type?
             This should not be possible!
@@ -620,9 +656,9 @@ class BuildTestCase(unittest.TestCase):
          } list_t;
 
         """
-        self.expectErrors(snippet, [0])
+        self.expect_errors(snippet, [0])
 
-    def testMutualStructs(self):
+    def test_mutual_structs(self):
         """
             Test if two structs can contain each other!
             This should not be possible!
@@ -641,7 +677,7 @@ class BuildTestCase(unittest.TestCase):
          } B;
 
         """
-        self.expectErrors(snippet, [0])
+        self.expect_errors(snippet, [0])
 
     def test_complex_type(self):
         """ Test if a complex typedef works """
