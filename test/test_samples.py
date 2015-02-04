@@ -146,10 +146,10 @@ class Samples:
         res += "d=0x{0:08X}\n".format(0x1337)
         self.do(snippet, res)
 
-    @unittest.skip('Fix this!')
     def test_pointer_fu(self):
         """ Check if 8 bits pointer assignments work with 32 bit pointers.
             This test is architecture dependent!
+            Assume little endianess.
         """
         snippet = """
          module sample;
@@ -162,14 +162,14 @@ class Samples:
             var byte* pb2;
             pw = &w;
             pb = cast<byte*>(pw);
-            pb2 = cast<byte*>(cast<int>(pb) + 2);
+            pb2 = pb + 2;
             *pw = 0x11223344;
-            *pb = cast<byte>(0x88);
-            *pb2 = cast<byte>(0x66);
+            *pb = 0x88;
+            *pb2 = 0x66;
             io.print2("w=", w);
          }
         """
-        self.do(snippet, "w=0x11663388")
+        self.do(snippet, "w=0x11663388\n")
 
     def testGlobalVariable(self):
         snippet = """
@@ -199,7 +199,7 @@ class Samples:
         res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13])
         self.do(snippet, res)
 
-    def testConst(self):
+    def test_const(self):
         snippet = """
          module sample;
          import io;
@@ -214,7 +214,7 @@ class Samples:
         res = "a=0x{0:08X}\nb=0x{1:08X}\n".format(1, 7)
         self.do(snippet, res)
 
-    def testFibo(self):
+    def test_fibo(self):
         """ Test recursive function with fibonacci algorithm """
         snippet = """
          module sample;
@@ -248,7 +248,7 @@ class Samples:
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
         self.do(hello_world, "Hello World!\n", lang='bf')
 
-    @unittest.skip('not working')
+    # @unittest.skip('not working')
     def testBrainFuckQuine(self):
         """ A quine is a program that outputs itself! """
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
@@ -457,7 +457,6 @@ class DoMixin:
 
 
 class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
-
     march = "arm"
     startercode = """
     section reset

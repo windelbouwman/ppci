@@ -110,7 +110,7 @@ class InstructionSelector:
 
         # Check all rules for matching with this subtree and
         # check if a state can be determined
-        for rule in self.sys.rules:
+        for rule in self.sys.get_rules_for_root(tree.name):
             if self.sys.tree_terminal_equal(tree, rule.tree):
                 nts = self.nts(rule.nr)
                 kids = self.kids(tree, rule.nr)

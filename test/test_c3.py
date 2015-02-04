@@ -4,6 +4,7 @@ import io
 from ppci.c3 import Builder, Lexer
 from ppci.target import SimpleTarget
 from ppci import DiagnosticsManager, CompilerError
+from ppci.irutils import Verifier
 
 
 class LexerTestCase(unittest.TestCase):
@@ -85,6 +86,9 @@ class BuildTestCaseBase(unittest.TestCase):
         if len(self.diag.diags) > 0:
             self.diag.printErrors()
         self.assertTrue(ircode)
+        verifier = Verifier()
+        for mod in ircode:
+            verifier.verify(mod)
         self.assertEqual(0, len(self.diag.diags))
 
 

@@ -198,6 +198,9 @@ class CodeGenerator:
         elif self.context.equal_types(self.context.intType, typ) and \
                 isinstance(wanted_typ, ast.PointerType):
             return self.emit(ir.IntToPtr(ir_val, 'coerce'))
+        elif self.context.equal_types(self.context.intType, typ) and \
+                self.context.equal_types(self.context.byteType, wanted_typ):
+            return self.emit(ir.IntToByte(ir_val, 'coerce'))
         else:
             raise SemanticError(
                 "Cannot use {} as {}".format(typ, wanted_typ), loc)
@@ -262,23 +265,17 @@ class CodeGenerator:
             Implement sequential logical operators. """
         if type(expr) is ast.Binop:
             if expr.op == 'or':
-                l2 = self.builder.newBlock()
-                self.gen_cond_code(expr.a, bbtrue, l2)
-                if not self.context.equal_types(expr.a.typ, self.context.boolType):
-                    raise SemanticError('Must be boolean', expr.a.loc)
-                self.builder.setBlock(l2)
+                # Implement sequential logic:
+                second_block = self.builder.newBlock()
+                self.gen_cond_code(expr.a, bbtrue, second_block)
+                self.builder.setBlock(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
-                if not self.context.equal_types(expr.b.typ, self.context.boolType):
-                    raise SemanticError('Must be boolean', expr.b.loc)
             elif expr.op == 'and':
-                l2 = self.builder.newBlock()
-                self.gen_cond_code(expr.a, l2, bbfalse)
-                if not self.context.equal_types(expr.a.typ, self.context.boolType):
-                    self.error('Must be boolean', expr.a.loc)
-                self.builder.setBlock(l2)
+                # Implement sequential logic:
+                second_block = self.builder.newBlock()
+                self.gen_cond_code(expr.a, second_block, bbfalse)
+                self.builder.setBlock(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
-                if not self.context.equal_types(expr.b.typ, self.context.boolType):
-                    raise SemanticError('Must be boolean', expr.b.loc)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 ta = self.make_rvalue_expr(expr.a)
                 tb = self.make_rvalue_expr(expr.b)
@@ -324,17 +321,9 @@ class CodeGenerator:
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
         if type(expr) is ast.Binop:
-            return self.gen_binop(expr)
+            value = self.gen_binop(expr)
         elif type(expr) is ast.Unop:
-            if expr.op == '&':
-                ra = self.gen_expr_code(expr.a)
-                if not expr.a.lvalue:
-                    raise SemanticError('No valid lvalue', expr.a.loc)
-                expr.typ = ast.PointerType(expr.a.typ)
-                expr.lvalue = False
-                return ra
-            else:
-                raise NotImplementedError('Unknown unop {0}'.format(expr.op))
+            value = self.gen_unop(expr)
         elif type(expr) is ast.Identifier:
             # Generate code for this identifier.
             target = self.context.resolve_symbol(expr)
@@ -351,15 +340,15 @@ class CodeGenerator:
             else:
                 raise NotImplementedError(str(target))
         elif type(expr) is ast.Deref:
-            return self.gen_dereference(expr)
+            value = self.gen_dereference(expr)
         elif type(expr) is ast.Member:
-            return self.gen_member_expr(expr)
+            value = self.gen_member_expr(expr)
         elif type(expr) is ast.Index:
-            return self.gen_index_expr(expr)
+            value = self.gen_index_expr(expr)
         elif type(expr) is ast.Literal:
-            return self.gen_literal_expr(expr)
+            value = self.gen_literal_expr(expr)
         elif type(expr) is ast.TypeCast:
-            return self.gen_type_cast(expr)
+            value = self.gen_type_cast(expr)
         elif type(expr) is ast.Sizeof:
             # The type of this expression is int:
             expr.lvalue = False  # This is not a location value..
@@ -368,9 +357,10 @@ class CodeGenerator:
             type_size = self.context.size_of(expr.query_typ)
             return self.emit(ir.Const(type_size, 'sizeof', ir.i32))
         elif type(expr) is ast.FunctionCall:
-            return self.gen_function_call(expr)
+            value = self.gen_function_call(expr)
         else:
             raise NotImplementedError('Unknown expr {}'.format(expr))
+        return value
 
     def gen_dereference(self, expr):
         """ dereference pointer type: """
@@ -384,6 +374,17 @@ class CodeGenerator:
         # TODO: why not load the pointed to type?
         load_ty = self.get_ir_type(ptr_typ, expr.loc)
         return self.emit(ir.Load(addr, 'deref', load_ty))
+
+    def gen_unop(self, expr):
+        if expr.op == '&':
+            ra = self.gen_expr_code(expr.a)
+            if not expr.a.lvalue:
+                raise SemanticError('No valid lvalue', expr.a.loc)
+            expr.typ = ast.PointerType(expr.a.typ)
+            expr.lvalue = False
+            return ra
+        else:
+            raise NotImplementedError('Unknown unop {0}'.format(expr.op))
 
     def gen_binop(self, expr):
         """ Generate code for binary operation """

@@ -68,52 +68,83 @@ class ConstantFolder(BlockPass):
         self.ops['*'] = lambda x, y: x * y
         self.ops['<<'] = lambda x, y: x << y
 
+    def is_const(self, value):
+        """ Determine if a value can be evaluated as a constant value """
+        if type(value) is ir.Const:
+            return True
+        elif isinstance(value, ir.Cast):
+            return self.is_const(value.src)
+        elif isinstance(value, ir.Binop):
+            return value.operation in self.ops and \
+                self.is_const(value.a) and self.is_const(value.b)
+        else:
+            return False
+
+    def eval_const(self, value):
+        """ Evaluate expression, and return a new const instance """
+        if type(value) is ir.Const:
+            return value
+        elif type(value) is ir.Binop:
+            a = self.eval_const(value.a)
+            b = self.eval_const(value.b)
+            assert a.ty is b.ty
+            v = self.ops[value.operation](a.value, b.value)
+            cn = ir.Const(v, 'new_fold', a.ty)
+            return cn
+        elif type(value) is ir.IntToPtr:
+            c_val = self.eval_const(value.src)
+            return ir.Const(c_val.value, "const_ptr", value.ty)
+        elif type(value) is ir.IntToByte:
+            c_val = self.eval_const(value.src)
+            return ir.Const(c_val.value, "cnst_byte", value.ty)
+        else:
+            raise NotImplementedError(str(value))
+
     def onBlock(self, block):
         instructions = list(block)
         count = 0
         for instruction in instructions:
             if type(instruction) is ir.Binop:
-                if type(instruction.a) is ir.Const and \
-                        (instruction.operation in self.ops) and \
-                        type(instruction.b) is ir.Const:
+                if self.is_const(instruction):
                     # Now we can replace x = (4+5) with x = 9
-                    a = instruction.a.value
-                    b = instruction.b.value
-                    v = self.ops[instruction.operation](a, b)
-                    cn = ir.Const(v, 'new_fold', ir.i32)
+                    cn = self.eval_const(instruction)
                     block = instruction.block
                     block.insert_instruction(cn, before_instruction=instruction)
                     instruction.replace_by(cn)
                     count += 1
-
-                if type(instruction.a) is ir.Binop and \
+                elif type(instruction.a) is ir.Binop and \
                         instruction.a.operation == '+' and \
-                        type(instruction.a.b) is ir.Const and \
+                        self.is_const(instruction.a.b) and \
                         (instruction.operation == '+') and \
-                        type(instruction.b) is ir.Const:
+                        self.is_const(instruction.b):
                     # Now we can replace x = (y+5)+5 with x = y + 10
-                    a = instruction.a.b.value
-                    b = instruction.b.value
-                    cn = ir.Const(a + b, 'new_fold', ir.i32)
+                    a = self.eval_const(instruction.a.b)
+                    b = self.eval_const(instruction.b)
+                    assert a.ty is b.ty
+                    cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
                     block = instruction.block
                     block.insert_instruction(cn, before_instruction=instruction)
                     instruction.a = instruction.a.a
                     instruction.b = cn
+                    assert instruction.ty is cn.ty
+                    assert instruction.ty is instruction.a.ty
                     count += 1
-
-                if type(instruction.a) is ir.Binop and \
+                elif type(instruction.a) is ir.Binop and \
                         instruction.a.operation == '-' and \
-                        type(instruction.a.b) is ir.Const and \
+                        self.is_const(instruction.a.b) and \
                         instruction.operation == '-' and \
-                        type(instruction.b) is ir.Const:
+                        self.is_const(instruction.b):
                     # Now we can replace x = (y-5)-5 with x = y - 10
-                    a = instruction.a.b.value
-                    b = instruction.b.value
-                    cn = ir.Const(a + b, 'new_fold', ir.i32)
+                    a = self.eval_const(instruction.a.b)
+                    b = self.eval_const(instruction.b)
+                    assert a.ty is b.ty
+                    cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
                     block = instruction.block
                     block.insert_instruction(cn, before_instruction=instruction)
                     instruction.a = instruction.a.a
                     instruction.b = cn
+                    assert instruction.ty is cn.ty
+                    assert instruction.ty is instruction.a.ty
                     count += 1
 
         if count > 0:
@@ -127,9 +158,9 @@ class CommonSubexpressionEliminationPass(BlockPass):
         stats = 0
         for i in block:
             if isinstance(i, ir.Binop):
-                k = (i.a, i.operation, i.b)
+                k = (i.a, i.operation, i.b, i.ty)
             elif isinstance(i, ir.Const):
-                k = (i.value,)
+                k = (i.value, i.ty)
             else:
                 continue
             if k in ins_map:

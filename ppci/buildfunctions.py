@@ -141,7 +141,7 @@ def optimize(ircode, do_verify=False):
     """
     # Create the verifier:
     verifier = Verifier()
-    # verifier.verify(ircode)
+    verifier.verify(ircode)
 
     # Optimization passes:
     passes = [Mem2RegPromotor(),
@@ -157,7 +157,9 @@ def optimize(ircode, do_verify=False):
         for pas in passes:
             if do_verify:
                 verifier.verify(ircode)
+            # verifier.verify(ircode)
             pas.run(ircode)
+            # verifier.verify(ircode)
 
     # One last verify:
     if do_verify:

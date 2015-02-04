@@ -68,9 +68,6 @@ from ppci.tree import Tree
 spec_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'burg.grammar')
 burg_parser = pyyacc.load_as_module(spec_file)
 
-# load parser:
-# from ppci import burg_parser
-
 
 class BurgLexer(baselex.BaseLexer):
     """ Overridden base lexer to keep track of sections """
@@ -142,6 +139,7 @@ class BurgSystem:
     def __init__(self):
         self.rules = []
         self.symbols = {}
+        self.rule_map = {}
         self.goal = None
 
     def symType(self, t):
@@ -161,6 +159,9 @@ class BurgSystem:
         self.non_term(rule.non_term)
         self.rules.append(rule)
         rule.nr = len(self.rules)
+
+        # Register the rule in the rule map:
+        self.rule_map[tree.name].append(rule)
         return rule
 
     def get_rule(self, nr):
@@ -168,6 +169,10 @@ class BurgSystem:
         rule = self.rules[nr - 1]
         assert rule.nr == nr
         return rule
+
+    def get_rules_for_root(self, name):
+        """ Get only the rules for a given root name """
+        return self.rule_map[name]
 
     def non_term(self, name):
         if name in self.terminals:
@@ -185,6 +190,7 @@ class BurgSystem:
             assert type(self.symbols[name]) is t
         else:
             self.symbols[name] = t(name)
+            self.rule_map[name] = list()
         return self.symbols[name]
 
     def add_terminal(self, terminal):
@@ -216,7 +222,6 @@ class BurgSystem:
                 kids.extend(self.get_kids(t, tt))
         return kids
 
-    # @lru_cache()
     def get_nts(self, template_tree):
         """ Get the names of the non terminals of a template """
         nts = []
@@ -237,7 +242,6 @@ class BurgSystem:
     def check(self):
         """ Run sanity checks on this burg system """
         for rule in self.rules:
-            print(rule.tree)
             self.check_tree_defined(rule.tree)
         # Check burg system for completeness:
         # print(self.sys.non_terminals)
