@@ -84,7 +84,7 @@ class BuildTestCaseBase(unittest.TestCase):
         ircode = self.build(snippet)
         if len(self.diag.diags) > 0:
             self.diag.printErrors()
-        self.assertTrue(all(ircode))
+        self.assertTrue(ircode)
         self.assertEqual(0, len(self.diag.diags))
 
 
@@ -551,6 +551,19 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_pointer_coercion(self):
+        """ Check coercion """
+        snippet = """
+         module testcoerce;
+         var int* pa;
+         function void t()
+         {
+            pa = 22;
+            pa = pa - 23;
+         }
+        """
+        self.expect_ok(snippet)
+
     def test_pointer_type_incorrect(self):
         """ Test invalid pointer assignments """
         snippet = """
@@ -558,14 +571,14 @@ class TypeTestCase(BuildTestCaseBase):
          var int* pa;
          function void t(int a, double b)
          {
-            pa = 2; // type conflict
+            pa = 2; // this is OK due to coercion
             pa = &a;
             pa = &2; // No valid lvalue
             &a = pa; // No valid lvalue
             **pa = 22; // Cannot deref int
          }
         """
-        self.expect_errors(snippet, [6, 8, 9, 10])
+        self.expect_errors(snippet, [8, 9, 10])
 
     def test_pointer_to_basetype(self):
         """ Test pointer """

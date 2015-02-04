@@ -62,7 +62,7 @@ class Parser:
             self.token = self.tokens.__next__()
         return tok
 
-    def addDeclaration(self, decl):
+    def add_declaration(self, decl):
         self.currentPart.add_declaration(decl)
 
     def parse_module(self, context):
@@ -112,15 +112,9 @@ class Parser:
         return ids
 
     # Type system
-    def PostFixId(self):
-        pfe = self.parse_designator()
-        while self.has_consumed('.'):
-            field = self.consume('ID')
-            pfe = Member(pfe, field.val, field.loc)
-        return pfe
-
     def parse_type_spec(self):
         """ Parse type specification """
+        # Parse the first part of a type spec:
         if self.Peak == 'struct':
             self.consume('struct')
             self.consume('{')
@@ -135,7 +129,11 @@ class Parser:
         elif self.Peak == 'enum':
             raise NotImplementedError('enum not yet implemented')
         else:
-            the_type = self.PostFixId()
+            # The type is identified by an identifier:
+            the_type = self.parse_designator()
+            while self.has_consumed('.'):
+                field = self.consume('ID')
+                the_type = Member(the_type, field.val, field.loc)
 
         # Check for the volatile modifier:
         the_type.volatile = self.has_consumed('volatile')
@@ -164,7 +162,7 @@ class Parser:
         self.logger.debug('Parsing type {}'.format(typename.val))
         self.consume(';')
         typedef = DefinedType(typename.val, newtype, typename.loc)
-        self.addDeclaration(typedef)
+        self.add_declaration(typedef)
 
     # Variable declarations:
     def parse_variable_def(self):
@@ -174,7 +172,7 @@ class Parser:
         var_type = self.parse_type_spec()
         for name in self.parse_id_sequence():
             var = Variable(name.val, var_type, name.loc)
-            self.addDeclaration(var)
+            self.add_declaration(var)
         self.consume(';')
 
     def parse_const_def(self):
@@ -186,7 +184,7 @@ class Parser:
             self.consume('=')
             val = self.parse_expression()
             constant = Constant(name.val, typ, val, name.loc)
-            self.addDeclaration(constant)
+            self.add_declaration(constant)
             if not self.has_consumed(','):
                 break
         self.consume(';')
@@ -209,7 +207,7 @@ class Parser:
         fname = self.consume('ID').val
         self.logger.debug('Parsing function {}'.format(fname))
         f = Function(fname, loc)
-        self.addDeclaration(f)
+        self.add_declaration(f)
         savePart = self.currentPart
         self.currentPart = f
         self.consume('(')
@@ -219,7 +217,7 @@ class Parser:
                 typ = self.parse_type_spec()
                 name = self.consume('ID')
                 param = FormalParameter(name.val, typ, name.loc)
-                self.addDeclaration(param)
+                self.add_declaration(param)
                 parameters.append(param)
                 if not self.has_consumed(','):
                     break
@@ -246,14 +244,6 @@ class Parser:
             false_code = Empty()
         return If(condition, true_code, false_code, loc)
 
-    def parse_switch(self):
-        """ Parse the switch construct """
-        raise NotImplementedError('switch not yet implemented')
-        # loc = self.consume('switch').loc
-        # self.consume('(')
-        # condition = self.parse_expression()
-        # self.consume(')')
-
     def parse_while(self):
         """ Parses a while statement """
         loc = self.consume('while').loc
@@ -276,7 +266,8 @@ class Parser:
         statements = self.parse_statement()
         return For(init, condition, final, statements, loc)
 
-    def parseReturn(self):
+    def parse_return(self):
+        """ Parse a return statement """
         loc = self.consume('return').loc
         if self.Peak == ';':
             expr = Literal(0, loc)
@@ -301,8 +292,6 @@ class Parser:
             return self.parse_while()
         elif self.Peak == 'for':
             return self.parse_for()
-        elif self.Peak == 'switch':
-            return self.parse_switch()
         elif self.Peak == '{':
             return self.parse_compound()
         elif self.has_consumed(';'):
@@ -311,7 +300,7 @@ class Parser:
             self.parse_variable_def()
             return Empty()
         elif self.Peak == 'return':
-            return self.parseReturn()
+            return self.parse_return()
         else:
             x = self.UnaryExpression()
             if self.Peak == '=':
@@ -426,17 +415,14 @@ class Parser:
             self.consume(')')
             return TypeCast(t, ce, loc)
         elif self.Peak == 'sizeof':
-            return self.parse_sizeof_expression()
+            # Compiler internal function to determine size of a type
+            loc = self.consume('sizeof').loc
+            self.consume('(')
+            typ = self.parse_type_spec()
+            self.consume(')')
+            return Sizeof(typ, loc)
         else:
             return self.UnaryExpression()
-
-    def parse_sizeof_expression(self):
-        """ Compiler internal function to determine size of a type """
-        loc = self.consume('sizeof').loc
-        self.consume('(')
-        typ = self.parse_type_spec()
-        self.consume(')')
-        return Sizeof(typ, loc)
 
     def UnaryExpression(self):
         if self.Peak in ['&', '*']:

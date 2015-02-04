@@ -48,8 +48,8 @@ class Module(Symbol):
         return self.innerScope.types
 
     @property
-    def Functions(self):
-        return self.innerScope.Functions
+    def functions(self):
+        return self.innerScope.functions
 
     def __repr__(self):
         return 'MODULE {}'.format(self.name)
@@ -392,15 +392,6 @@ class If(Statement):
 
     def __repr__(self):
         return 'IF-statement'
-
-
-class Switch(Statement):
-    def __init__(self, condition, loc):
-        super().__init__(loc)
-        self.condition = condition
-
-    def __repr__(self):
-        return 'Switch on {}'.format(self.condition)
 
 
 class While(Statement):

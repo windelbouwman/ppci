@@ -25,10 +25,10 @@ class Scope:
 
     def __iter__(self):
         # Iterate in a deterministic manner:
-        return iter(self.constants + self.Variables + self.Functions)
+        return iter(self.constants + self.variables + self.functions)
 
     @property
-    def Syms(self):
+    def syms(self):
         """ Get all the symbols defined in this scope """
         syms = self.symbols.values()
         return sorted(syms, key=lambda v: v.name)
@@ -36,20 +36,22 @@ class Scope:
     @property
     def types(self):
         """ Returns all the types in this scope """
-        return [s for s in self.Syms if isinstance(s, DefinedType)]
+        return [s for s in self.syms if isinstance(s, DefinedType)]
 
     @property
     def constants(self):
         """ All defined constants in this scope """
-        return [s for s in self.Syms if type(s) is Constant]
+        return [s for s in self.syms if type(s) is Constant]
 
     @property
-    def Variables(self):
-        return [s for s in self.Syms if isinstance(s, Variable)]
+    def variables(self):
+        """ All variables defined in the current scope """
+        return [s for s in self.syms if isinstance(s, Variable)]
 
     @property
-    def Functions(self):
-        return [s for s in self.Syms if type(s) is Function]
+    def functions(self):
+        """ Gets all the functions in the current scope """
+        return [s for s in self.syms if type(s) is Function]
 
     def get_symbol(self, name):
         """ Get symbol from this or parent scope """
@@ -86,7 +88,7 @@ class Scope:
         return 'Scope with {} symbols'.format(len(self.symbols))
 
 
-def createTopScope(target):
+def create_top_scope(target):
     """ Create a scope that is the root of the scope tree. This includes
         the built-in types """
     scope = Scope()
@@ -121,10 +123,18 @@ class Context:
         level scope.
     """
     def __init__(self, target):
-        self.scope = createTopScope(target)
+        self.scope = create_top_scope(target)
         self.module_map = {}
+        self.const_map = {}
+        self.const_workset = set()
+        self.intType = self.scope['int']
+        self.doubleType = self.scope['double']
+        self.boolType = self.scope['bool']
+        self.byteType = self.scope['byte']
+        self.pointerSize = 4
 
     def has_module(self, name):
+        """ Check if a module with the given name exists """
         return name in self.module_map
 
     def get_module(self, name):
@@ -135,6 +145,7 @@ class Context:
 
     @property
     def modules(self):
+        """ Get all the modules in this context """
         return self.module_map.values()
 
     def resolve_symbol(self, sym):
@@ -157,3 +168,183 @@ class Context:
             raise SemanticError('{} undefined'.format(name), sym.loc)
         assert isinstance(sym, ast.Symbol)
         return sym
+
+    def get_constant_value(self, const):
+        """ Get the constant value, calculate if required """
+        assert isinstance(const, ast.Constant)
+        if const not in self.const_map:
+            if const in self.const_workset:
+                varnames = ', '.join(wc.name for wc in self.const_workset)
+                msg = 'Constant loop detected involving: {}'.format(varnames)
+                raise SemanticError(msg, const.loc)
+            self.const_workset.add(const)
+            self.const_map[const] = self.eval_const(const.value)
+            self.const_workset.remove(const)
+        return self.const_map[const]
+
+    def eval_const(self, expr):
+        """ Evaluates a constant expression. This is done by first generating
+            ir-code, to check for types, and then evaluating this code """
+        # TODO: do not emit code here?
+
+        # TODO: check types!!
+        assert isinstance(expr, ast.Expression)
+        if isinstance(expr, ast.Literal):
+            return expr.val
+        elif isinstance(expr, ast.Binop):
+            a = self.eval_const(expr.a)
+            b = self.eval_const(expr.b)
+            if expr.op == '+':
+                return a + b
+            elif expr.op == '-':
+                return a - b
+            elif expr.op == '*':
+                return a * b
+        elif isinstance(expr, ast.Identifier):
+            target = self.resolve_symbol(expr)
+            if isinstance(target, ast.Constant):
+                return self.get_constant_value(target)
+            else:
+                raise SemanticError('Cannot evaluate {}'.format(expr), None)
+        else:
+            raise SemanticError('Cannot evaluate constant {}'
+                                .format(expr), None)
+
+    def get_common_type(self, a, b):
+        """ Determine the greatest common type.
+            This is used for coercing binary operators.
+            For example
+                int + float -> float
+                byte + int -> int
+                byte + byte -> byte
+                pointer to x + int -> pointer to x
+        """
+        table = {
+            (self.intType, self.intType): self.intType,
+            (self.intType, self.byteType): self.intType,
+            (self.byteType, self.intType): self.intType,
+            (self.byteType, self.byteType): self.byteType,
+            (self.intType, ast.PointerType): self.intType,
+            }
+        loc = a.loc
+        typ_a = self.the_type(a.typ)
+        typ_b = self.the_type(b.typ)
+        # Handle pointers:
+        if isinstance(typ_a, ast.PointerType) and \
+                self.equal_types(typ_b, self.intType):
+            return typ_a
+
+        # Handle non-pointers:
+        key = (typ_a, typ_b)
+        if key not in table:
+            raise SemanticError(
+                "Types {} and {} do not commute".format(typ_a, typ_b), loc)
+        return table[(typ_a, typ_b)]
+
+    def the_type(self, typ, reveil_defined=True):
+        """ Recurse until a 'real' type is found
+            When reveil_defined is True, defined types are resolved to
+            their backing types.
+        """
+        if type(typ) is ast.DefinedType:
+            if reveil_defined:
+                typ = self.the_type(typ.typ)
+        elif type(typ) in [ast.Identifier, ast.Member]:
+            typ = self.the_type(self.resolve_symbol(typ), reveil_defined)
+        elif isinstance(typ, ast.Type):
+            pass
+        else:
+            raise NotImplementedError(str(typ))
+        assert isinstance(typ, ast.Type)
+        return typ
+
+    def size_of(self, typ):
+        """ Determine the byte size of a type """
+        typ = self.the_type(typ)
+        if type(typ) is ast.BaseType:
+            return typ.byte_size
+        elif type(typ) is ast.StructureType:
+            return sum(self.size_of(mem.typ) for mem in typ.mems)
+        elif type(typ) is ast.ArrayType:
+            if isinstance(typ.size, ast.Expression):
+                num = self.eval_const(typ.size)
+            else:
+                num = int(typ.size)
+            return num * self.size_of(typ.element_type)
+        elif type(typ) is ast.PointerType:
+            return self.pointerSize
+        else:
+            raise NotImplementedError(str(typ))
+
+    def equal_types(self, a, b, byname=False):
+        """ Compare types a and b for structural equavalence.
+            if byname is True stop on defined types.
+        """
+        # Recurse into named types:
+        a = self.the_type(a, not byname)
+        b = self.the_type(b, not byname)
+
+        # Check types for sanity:
+        self.check_type(a)
+        self.check_type(b)
+
+        # Do structural equivalence check:
+        if type(a) is type(b):
+            if type(a) is ast.BaseType:
+                return a.name == b.name
+            elif type(a) is ast.PointerType:
+                # If a pointed type is detected, stop structural
+                # equivalence:
+                return self.equal_types(a.ptype, b.ptype, byname=True)
+            elif type(a) is ast.StructureType:
+                if len(a.mems) != len(b.mems):
+                    return False
+                return all(self.equal_types(am.typ, bm.typ) for am, bm in
+                           zip(a.mems, b.mems))
+            elif type(a) is ast.ArrayType:
+                return self.equal_types(a.element_type, b.element_type)
+            elif type(a) is ast.DefinedType:
+                # Try by name in case of defined types:
+                return a.name == b.name
+            else:
+                raise NotImplementedError('{} not implemented'.format(type(a)))
+        return False
+
+    def check_type(self, t, first=True, byname=False):
+        """ Determine struct offsets and check for recursiveness by using
+            mark and sweep algorithm.
+            The calling function could call this function with first set
+            to clear the marks.
+        """
+
+        # Reset the mark and sweep:
+        if first:
+            self.got_types = set()
+
+        # Resolve the type:
+        t = self.the_type(t, not byname)
+
+        # Check for recursion:
+        if t in self.got_types:
+            raise SemanticError('Recursive data type {}'.format(t), None)
+
+        if type(t) is ast.BaseType:
+            pass
+        elif type(t) is ast.PointerType:
+            # If a pointed type is detected, stop structural
+            # equivalence:
+            self.check_type(t.ptype, first=False, byname=True)
+        elif type(t) is ast.StructureType:
+            self.got_types.add(t)
+            # Setup offsets of fields. Is this the right place?:
+            offset = 0
+            for struct_member in t.mems:
+                self.check_type(struct_member.typ, first=False)
+                struct_member.offset = offset
+                offset = offset + self.size_of(struct_member.typ)
+        elif type(t) is ast.ArrayType:
+            self.check_type(t.element_type, first=False)
+        elif type(t) is ast.DefinedType:
+            pass
+        else:
+            raise NotImplementedError('{} not implemented'.format(type(t)))

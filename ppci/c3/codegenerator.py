@@ -1,3 +1,7 @@
+"""
+    This module contains the code generation class.
+"""
+
 import logging
 import struct
 from .. import ir
@@ -12,6 +16,15 @@ def pack_string(txt):
     length = struct.pack('<I', len(txt))
     data = txt.encode('ascii')
     return length + data
+
+
+class Analyzer:
+    """ Type checker and other constraints """
+    def check_module(self, mod, context):
+        pass
+
+    def check_binop(self, expr):
+        pass
 
 
 class CodeGenerator:
@@ -29,6 +42,8 @@ class CodeGenerator:
         self.logger = logging.getLogger('c3cgen')
         self.builder = irutils.Builder()
         self.diag = diag
+        self.context = None
+        self.analyzer = Analyzer()
 
     def emit(self, instruction):
         """
@@ -38,41 +53,31 @@ class CodeGenerator:
         self.builder.emit(instruction)
         return instruction
 
-    def gencode(self, pkg, context):
+    def gencode(self, mod, context):
         """ Generate code for a single module """
-        assert type(pkg) is ast.Module
+        assert type(mod) is ast.Module
         self.context = context
         self.builder.prepare()
-        self.pkg = pkg
         self.ok = True
-        self.intType = pkg.scope['int']
-        self.doubleType = pkg.scope['double']
-        self.boolType = pkg.scope['bool']
-        self.byteType = pkg.scope['byte']
-        self.pointerSize = 4
-        self.logger.debug('Generating ir-code for {}'.format(pkg.name))
+        self.logger.debug('Generating ir-code for {}'.format(mod.name))
         self.varMap = {}    # Maps variables to storage locations.
-        self.constMap = {}
-        self.const_workset = set()
-        self.builder.m = ir.Module(pkg.name)
+        self.builder.m = ir.Module(mod.name)
         try:
-            for typ in pkg.types:
-                self.check_type(typ)
+            for typ in mod.types:
+                self.context.check_type(typ)
             # Only generate function if function contains a body:
             real_functions = list(filter(
-                lambda f: f.body, pkg.Functions))
+                lambda f: f.body, mod.functions))
             # Generate room for global variables:
-            for v in pkg.innerScope.Variables:
-                v2 = ir.Variable(v.name, self.size_of(v.typ))
-                self.varMap[v] = v2
-                if not v.isLocal:
-                    self.builder.m.add_variable(v2)
-                else:
-                    raise NotImplementedError('TODO')
-            for s in real_functions:
-                self.gen_function(s)
-        except SemanticError as e:
-            self.error(e.msg, e.loc)
+            for var in mod.innerScope.variables:
+                ir_var = ir.Variable(var.name, self.context.size_of(var.typ))
+                self.varMap[var] = ir_var
+                assert not var.isLocal
+                self.builder.m.add_variable(ir_var)
+            for func in real_functions:
+                self.gen_function(func)
+        except SemanticError as ex:
+            self.error(ex.msg, ex.loc)
         if not self.ok:
             raise SemanticError("Errors occurred", None)
         return self.builder.m
@@ -96,23 +101,23 @@ class CodeGenerator:
 
         # generate room for locals:
         for sym in function.innerScope:
-            self.check_type(sym.typ)
+            self.context.check_type(sym.typ)
+            var_name = 'var_{}'.format(sym.name)
+            variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
+            self.emit(variable)
             if sym.isParameter:
                 # TODO: parameters are now always integers?
-                parameter = ir.Parameter(sym.name, ir.i32)
-                # For paramaters, allocate space and copy the value into
-                # memory. Later, the mem2reg pass will extract these values.
-                variable = ir.Alloc(sym.name + '_copy', self.size_of(sym.typ))
-                self.emit(variable)
 
                 # Define parameter for function:
+                parameter = ir.Parameter(sym.name, ir.i32)
                 ir_function.add_parameter(parameter)
 
+                # For paramaters, allocate space and copy the value into
+                # memory. Later, the mem2reg pass will extract these values.
                 # Move parameter into local copy:
                 self.emit(ir.Store(parameter, variable))
-            elif sym.isLocal or isinstance(sym, ast.Variable):
-                variable = ir.Alloc(sym.name, self.size_of(sym.typ))
-                self.emit(variable)
+            elif isinstance(sym, ast.Variable):
+                pass
             else:
                 raise NotImplementedError('{}'.format(sym))
             self.varMap[sym] = variable
@@ -125,21 +130,22 @@ class CodeGenerator:
 
     def get_ir_type(self, cty, loc):
         """ Given a certain type, get the corresponding ir-type """
-        cty = self.the_type(cty)
-        if self.equal_types(cty, self.intType):
+        cty = self.context.the_type(cty)
+        if self.context.equal_types(cty, self.context.intType):
             return ir.i32
-        elif self.equal_types(cty, self.doubleType):
+        elif self.context.equal_types(cty, self.context.doubleType):
             # TODO: implement true floating point.
             return ir.i32
-        elif self.equal_types(cty, self.boolType):
+        elif self.context.equal_types(cty, self.context.boolType):
             # Implement booleans as integers:
             return ir.i32
-        elif self.equal_types(cty, self.byteType):
+        elif self.context.equal_types(cty, self.context.byteType):
             return ir.i8
         elif isinstance(cty, ast.PointerType):
             return ir.ptr
         else:
-            raise SemanticError('Cannot determine the load type for {}'.format(cty), loc)
+            raise SemanticError(
+                'Cannot determine the load type for {}'.format(cty), loc)
 
     def gen_stmt(self, code):
         """ Generate code for a statement """
@@ -147,14 +153,17 @@ class CodeGenerator:
             assert isinstance(code, ast.Statement)
             self.builder.setLoc(code.loc)
             if type(code) is ast.Compound:
-                for s in code.statements:
-                    self.gen_stmt(s)
+                for statement in code.statements:
+                    self.gen_stmt(statement)
             elif type(code) is ast.Empty:
                 pass
             elif type(code) is ast.Assignment:
                 self.gen_assignment_stmt(code)
             elif type(code) is ast.ExpressionStatement:
                 self.gen_expr_code(code.ex)
+                # Check that this is always a void function call
+                if not isinstance(code.ex, ast.FunctionCall):
+                    raise SemanticError('Not a call expression', code.ex.loc)
             elif type(code) is ast.If:
                 self.gen_if_stmt(code)
             elif type(code) is ast.Return:
@@ -170,23 +179,37 @@ class CodeGenerator:
 
     def gen_return_stmt(self, code):
         """ Generate code for return statement """
-        re = self.gen_expr_code(code.expr)
-        self.emit(ir.Return(re))
+        ret_val = self.make_rvalue_expr(code.expr)
+        self.emit(ir.Return(ret_val))
         block = self.builder.newBlock()
         self.builder.setBlock(block)
+
+    def do_coerce(self, ir_val, typ, wanted_typ, loc):
+        """ Try to convert expression into the given type
+            ir_val: the value to convert
+            typ: the type of the value
+            wanted_typ: the type that it must be
+            loc: the location where this is needed.
+            Raises an error is the conversion cannot be done.
+        """
+        if self.context.equal_types(typ, wanted_typ):
+            # no cast required
+            return ir_val
+        elif self.context.equal_types(self.context.intType, typ) and \
+                isinstance(wanted_typ, ast.PointerType):
+            return self.emit(ir.IntToPtr(ir_val, 'coerce'))
+        else:
+            raise SemanticError(
+                "Cannot use {} as {}".format(typ, wanted_typ), loc)
 
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
         lval = self.gen_expr_code(code.lval)
         rval = self.make_rvalue_expr(code.rval)
-        # TODO: coerce?
-        if not self.equal_types(code.lval.typ, code.rval.typ):
-            raise SemanticError('Cannot assign {} to {}'
-                                .format(code.rval.typ, code.lval.typ),
-                                code.loc)
+        rval = self.do_coerce(rval, code.rval.typ, code.lval.typ, code.loc)
         if not code.lval.lvalue:
-            raise SemanticError('No valid lvalue {}'.format(code.lval),
-                                code.lval.loc)
+            raise SemanticError(
+                'No valid lvalue {}'.format(code.lval), code.lval.loc)
         # TODO: for now treat all stores as volatile..
         # TODO: determine volatile properties from type??
         volatile = True
@@ -241,32 +264,32 @@ class CodeGenerator:
             if expr.op == 'or':
                 l2 = self.builder.newBlock()
                 self.gen_cond_code(expr.a, bbtrue, l2)
-                if not self.equal_types(expr.a.typ, self.boolType):
+                if not self.context.equal_types(expr.a.typ, self.context.boolType):
                     raise SemanticError('Must be boolean', expr.a.loc)
                 self.builder.setBlock(l2)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
-                if not self.equal_types(expr.b.typ, self.boolType):
+                if not self.context.equal_types(expr.b.typ, self.context.boolType):
                     raise SemanticError('Must be boolean', expr.b.loc)
             elif expr.op == 'and':
                 l2 = self.builder.newBlock()
                 self.gen_cond_code(expr.a, l2, bbfalse)
-                if not self.equal_types(expr.a.typ, self.boolType):
+                if not self.context.equal_types(expr.a.typ, self.context.boolType):
                     self.error('Must be boolean', expr.a.loc)
                 self.builder.setBlock(l2)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
-                if not self.equal_types(expr.b.typ, self.boolType):
+                if not self.context.equal_types(expr.b.typ, self.context.boolType):
                     raise SemanticError('Must be boolean', expr.b.loc)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 ta = self.make_rvalue_expr(expr.a)
                 tb = self.make_rvalue_expr(expr.b)
-                if not self.equal_types(expr.a.typ, expr.b.typ):
+                if not self.context.equal_types(expr.a.typ, expr.b.typ):
                     raise SemanticError('Types unequal {} != {}'
                                         .format(expr.a.typ, expr.b.typ),
                                         expr.loc)
                 self.emit(ir.CJump(ta, expr.op, tb, bbtrue, bbfalse))
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
-            expr.typ = self.boolType
+            expr.typ = self.context.boolType
         elif type(expr) is ast.Literal:
             self.gen_expr_code(expr)
             if expr.val:
@@ -277,7 +300,7 @@ class CodeGenerator:
             raise NotImplementedError('Unknown cond {}'.format(expr))
 
         # Check that the condition is a boolean value:
-        if not self.equal_types(expr.typ, self.boolType):
+        if not self.context.equal_types(expr.typ, self.context.boolType):
             self.error('Condition must be boolean', expr.loc)
 
     def make_rvalue_expr(self, expr):
@@ -314,20 +337,19 @@ class CodeGenerator:
                 raise NotImplementedError('Unknown unop {0}'.format(expr.op))
         elif type(expr) is ast.Identifier:
             # Generate code for this identifier.
-            tg = self.context.resolve_symbol(expr)
-            expr.kind = type(tg)
-            expr.typ = tg.typ
+            target = self.context.resolve_symbol(expr)
+            expr.typ = target.typ
 
             # This returns the dereferenced variable.
-            if isinstance(tg, ast.Variable):
+            if isinstance(target, ast.Variable):
                 expr.lvalue = True
-                return self.varMap[tg]
-            elif isinstance(tg, ast.Constant):
+                return self.varMap[target]
+            elif isinstance(target, ast.Constant):
                 expr.lvalue = False
-                c_val = self.get_constant_value(tg)
-                return self.emit(ir.Const(c_val, tg.name, ir.i32))
+                c_val = self.context.get_constant_value(target)
+                return self.emit(ir.Const(c_val, target.name, ir.i32))
             else:
-                raise NotImplementedError(str(tg))
+                raise NotImplementedError(str(target))
         elif type(expr) is ast.Deref:
             return self.gen_dereference(expr)
         elif type(expr) is ast.Member:
@@ -341,9 +363,9 @@ class CodeGenerator:
         elif type(expr) is ast.Sizeof:
             # The type of this expression is int:
             expr.lvalue = False  # This is not a location value..
-            expr.typ = self.intType
-            self.check_type(expr.query_typ)
-            type_size = self.size_of(expr.query_typ)
+            expr.typ = self.context.intType
+            self.context.check_type(expr.query_typ)
+            type_size = self.context.size_of(expr.query_typ)
             return self.emit(ir.Const(type_size, 'sizeof', ir.i32))
         elif type(expr) is ast.FunctionCall:
             return self.gen_function_call(expr)
@@ -354,7 +376,7 @@ class CodeGenerator:
         """ dereference pointer type: """
         assert type(expr) is ast.Deref
         addr = self.gen_expr_code(expr.ptr)
-        ptr_typ = self.the_type(expr.ptr.typ)
+        ptr_typ = self.context.the_type(expr.ptr.typ)
         expr.lvalue = True
         if type(ptr_typ) is not ast.PointerType:
             raise SemanticError('Cannot deref non-pointer', expr.loc)
@@ -367,48 +389,30 @@ class CodeGenerator:
         """ Generate code for binary operation """
         assert type(expr) is ast.Binop
         expr.lvalue = False
-        if expr.op in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
-            a_val = self.make_rvalue_expr(expr.a)
-            b_val = self.make_rvalue_expr(expr.b)
-            if self.equal_types(expr.a.typ, self.intType) and \
-                    self.equal_types(expr.b.typ, self.intType):
-                expr.typ = expr.a.typ
-            elif self.equal_types(expr.b.typ, self.intType) and \
-                    type(expr.a.typ) is ast.PointerType:
-                # Special case for pointer arithmatic TODO: coerce!
-                b_val = self.emit(ir.IntToPtr(b_val, 'coerce'))
-                expr.typ = expr.a.typ
-            else:
-                raise SemanticError('Can only add integers', expr.loc)
-        else:
-            raise NotImplementedError("Cannot use equality as expressions")
-        return self.emit(ir.Binop(a_val, expr.op, b_val, "op", a_val.ty))
+        a_val = self.make_rvalue_expr(expr.a)
+        b_val = self.make_rvalue_expr(expr.b)
+        self.analyzer.check_binop(expr)
 
-    def get_constant_value(self, c):
-        """ Get the constant value, calculate if required """
-        assert isinstance(c, ast.Constant)
-        if c not in self.constMap:
-            if c in self.const_workset:
-                varnames = ', '.join(wc.name for wc in self.const_workset)
-                msg = 'Constant loop detected involving: {}'.format(varnames)
-                raise SemanticError(msg, c.loc)
-            self.const_workset.add(c)
-            self.constMap[c] = self.eval_const(c.value)
-            self.const_workset.remove(c)
-        return self.constMap[c]
+        # Get best type for result:
+        common_type = self.context.get_common_type(expr.a, expr.b)
+        expr.typ = common_type
 
-    def eval_const(self, expr):
-        """ Evaluates a constant expression. This is done by first generating
-            ir-code, to check for types, and then evaluating this code """
-        # TODO: do not emit code here?
-        c_val = self.gen_expr_code(expr)
-        return self.eval_ir_expr(c_val)
+        # TODO: check if operation can be performed on shift and bitwise
+        if expr.op not in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
+            raise SemanticError("Cannot use {}".format(expr.op))
+
+        # Perform type coercion:
+        # TODO: use ir-types, or ast types?
+        a_val = self.do_coerce(a_val, expr.a.typ, common_type, expr.loc)
+        b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
+
+        return self.emit(ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
 
     def gen_member_expr(self, expr):
         """ Generate code for member expression such as struc.mem = 2 """
         base = self.gen_expr_code(expr.base)
         expr.lvalue = expr.base.lvalue
-        basetype = self.the_type(expr.base.typ)
+        basetype = self.context.the_type(expr.base.typ)
         if type(basetype) is ast.StructureType:
             if basetype.hasField(expr.field):
                 expr.typ = basetype.fieldType(expr.field)
@@ -425,7 +429,7 @@ class CodeGenerator:
 
         # assert type(base) is ir.Mem, type(base)
         # Calculate offset into struct:
-        bt = self.the_type(expr.base.typ)
+        bt = self.context.the_type(expr.base.typ)
         offset = self.emit(
             ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32))
         offset = self.emit(ir.IntToPtr(offset, 'offset'))
@@ -439,20 +443,19 @@ class CodeGenerator:
         base = self.gen_expr_code(expr.base)
         idx = self.make_rvalue_expr(expr.i)
 
-        base_typ = self.the_type(expr.base.typ)
+        base_typ = self.context.the_type(expr.base.typ)
         if not isinstance(base_typ, ast.ArrayType):
             raise SemanticError('Cannot index non-array type {}'
                                 .format(base_typ),
                                 expr.base.loc)
-        idx_type = self.the_type(expr.i.typ)
-        if not self.equal_types(idx_type, self.intType):
-            raise SemanticError('Index must be int not {}'
-                                .format(idx_type), expr.i.loc)
+
+        # Make sure the index is an integer:
+        idx = self.do_coerce(idx, expr.i.typ, self.context.intType, expr.i.loc)
 
         # Base address must be a location value:
         assert expr.base.lvalue
-        element_type = self.the_type(base_typ.element_type)
-        element_size = self.size_of(element_type)
+        element_type = self.context.the_type(base_typ.element_type)
+        element_size = self.context.size_of(element_type)
         expr.typ = base_typ.element_type
         # print(expr.typ, base_typ)
         expr.lvalue = True
@@ -475,7 +478,7 @@ class CodeGenerator:
                    bool: 'bool',
                    str: 'string'}
         if type(expr.val) in typemap:
-            expr.typ = self.pkg.scope[typemap[type(expr.val)]]
+            expr.typ = self.context.scope[typemap[type(expr.val)]]
         else:
             raise SemanticError('Unknown literal type {}'
                                 .format(expr.val), expr.loc)
@@ -504,28 +507,23 @@ class CodeGenerator:
         ar = self.make_rvalue_expr(expr.a)
         expr.lvalue = False
 
-        from_type = self.the_type(expr.a.typ)
-        to_type = self.the_type(expr.to_type)
-        # print(from_type, to_type)
+        from_type = self.context.the_type(expr.a.typ)
+        to_type = self.context.the_type(expr.to_type)
+        expr.typ = expr.to_type
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):
-            expr.typ = expr.to_type
             return ar
-        elif self.equal_types(self.intType, from_type) and \
+        elif self.context.equal_types(self.context.intType, from_type) and \
                 isinstance(to_type, ast.PointerType):
-            expr.typ = expr.to_type
             return self.emit(ir.IntToPtr(ar, 'int2ptr'))
-        elif self.equal_types(self.intType, to_type) \
+        elif self.context.equal_types(self.context.intType, to_type) \
                 and isinstance(from_type, ast.PointerType):
-            expr.typ = expr.to_type
             return self.emit(ir.PtrToInt(ar, 'ptr2int'))
         elif type(from_type) is ast.BaseType and from_type.name == 'byte' and \
                 type(to_type) is ast.BaseType and to_type.name == 'int':
-            expr.typ = expr.to_type
             return self.emit(ir.ByteToInt(ar, 'byte2int'))
         elif type(from_type) is ast.BaseType and from_type.name == 'int' and \
                 type(to_type) is ast.BaseType and to_type.name == 'byte':
-            expr.typ = expr.to_type
             return self.emit(ir.IntToByte(ar, 'bytecast'))
         else:
             raise SemanticError('Cannot cast {} to {}'
@@ -548,7 +546,7 @@ class CodeGenerator:
                                 .format(fname, len(ptypes), len(expr.args)),
                                 expr.loc)
         for arg, at in zip(expr.args, ptypes):
-            if not self.equal_types(arg.typ, at):
+            if not self.context.equal_types(arg.typ, at):
                 raise SemanticError('Got {}, expected {}'
                                     .format(arg.typ, at), arg.loc)
         # determine return type:
@@ -559,127 +557,3 @@ class CodeGenerator:
         call = ir.Call(fname, args, fname + '_rv', ir.i32)
         self.emit(call)
         return call
-
-    def eval_ir_expr(self, constant):
-        """ Evaluates ir-code constant to its value """
-        if isinstance(constant, ir.Const):
-            return constant.value
-        elif isinstance(constant, ir.Binop):
-            a = self.eval_ir_expr(constant.a)
-            b = self.eval_ir_expr(constant.b)
-            if constant.operation == '+':
-                return a + b
-            elif constant.operation == '-':
-                return a - b
-            elif constant.operation == '*':
-                return a * b
-        raise SemanticError('Cannot evaluate constant {}'
-                            .format(constant), None)
-
-    def size_of(self, typ):
-        """ Determine the byte size of a type """
-        typ = self.the_type(typ)
-        if type(typ) is ast.BaseType:
-            return typ.byte_size
-        elif type(typ) is ast.StructureType:
-            return sum(self.size_of(mem.typ) for mem in typ.mems)
-        elif type(typ) is ast.ArrayType:
-            if isinstance(typ.size, ast.Expression):
-                num = self.eval_const(typ.size)
-            else:
-                num = int(typ.size)
-            return num * self.size_of(typ.element_type)
-        elif type(typ) is ast.PointerType:
-            return self.pointerSize
-        else:
-            raise NotImplementedError(str(typ))
-
-    def the_type(self, t, reveil_defined=True):
-        """ Recurse until a 'real' type is found
-            When reveil_defined is True, defined types are resolved to
-            their backing types.
-        """
-        if type(t) is ast.DefinedType:
-            if reveil_defined:
-                t = self.the_type(t.typ)
-        elif type(t) in [ast.Identifier, ast.Member]:
-            t = self.the_type(self.context.resolve_symbol(t), reveil_defined)
-        elif isinstance(t, ast.Type):
-            pass
-        else:
-            raise NotImplementedError(str(t))
-        assert isinstance(t, ast.Type)
-        return t
-
-    def equal_types(self, a, b, byname=False):
-        """ Compare types a and b for structural equavalence.
-            if byname is True stop on defined types.
-        """
-        # Recurse into named types:
-        a = self.the_type(a, not byname)
-        b = self.the_type(b, not byname)
-
-        # Check types for sanity:
-        self.check_type(a)
-        self.check_type(b)
-
-        # Do structural equivalence check:
-        if type(a) is type(b):
-            if type(a) is ast.BaseType:
-                return a.name == b.name
-            elif type(a) is ast.PointerType:
-                # If a pointed type is detected, stop structural
-                # equivalence:
-                return self.equal_types(a.ptype, b.ptype, byname=True)
-            elif type(a) is ast.StructureType:
-                if len(a.mems) != len(b.mems):
-                    return False
-                return all(self.equal_types(am.typ, bm.typ) for am, bm in
-                           zip(a.mems, b.mems))
-            elif type(a) is ast.ArrayType:
-                return self.equal_types(a.element_type, b.element_type)
-            elif type(a) is ast.DefinedType:
-                # Try by name in case of defined types:
-                return a.name == b.name
-            else:
-                raise NotImplementedError('{} not implemented'.format(type(a)))
-        return False
-
-    def check_type(self, t, first=True, byname=False):
-        """ Determine struct offsets and check for recursiveness by using
-            mark and sweep algorithm.
-            The calling function could call this function with first set
-            to clear the marks.
-        """
-
-        # Reset the mark and sweep:
-        if first:
-            self.got_types = set()
-
-        # Resolve the type:
-        t = self.the_type(t, not byname)
-
-        # Check for recursion:
-        if t in self.got_types:
-            raise SemanticError('Recursive data type {}'.format(t), None)
-
-        if type(t) is ast.BaseType:
-            pass
-        elif type(t) is ast.PointerType:
-            # If a pointed type is detected, stop structural
-            # equivalence:
-            self.check_type(t.ptype, first=False, byname=True)
-        elif type(t) is ast.StructureType:
-            self.got_types.add(t)
-            # Setup offsets of fields. Is this the right place?:
-            offset = 0
-            for struct_member in t.mems:
-                self.check_type(struct_member.typ, first=False)
-                struct_member.offset = offset
-                offset = offset + self.size_of(struct_member.typ)
-        elif type(t) is ast.ArrayType:
-            self.check_type(t.element_type, first=False)
-        elif type(t) is ast.DefinedType:
-            pass
-        else:
-            raise NotImplementedError('{} not implemented'.format(type(t)))
