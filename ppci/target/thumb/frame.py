@@ -84,6 +84,9 @@ class ArmFrame(Frame):
         self.constants.append((lab_name, value))
         return lab_name
 
+    def round_up(self, s):
+        return s + (4 - s % 4)
+
     def prologue(self):
         """ Returns prologue instruction sequence """
         pre = [
@@ -92,7 +95,8 @@ class ArmFrame(Frame):
             Push({R5, R6}),  # Callee save registers!
             ]
         if self.stacksize > 0:
-            ssize = self.stacksize
+            ssize = self.round_up(self.stacksize)
+
             # subSp cannot handle large numbers:
             while ssize > 0:
                 if ssize < 128:
@@ -137,7 +141,7 @@ class ArmFrame(Frame):
         constant pool """
 
         if self.stacksize > 0:
-            ssize = self.stacksize
+            ssize = self.round_up(self.stacksize)
             # subSp cannot handle large numbers:
             while ssize > 0:
                 if ssize < 128:

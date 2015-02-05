@@ -100,7 +100,10 @@ class Dagger:
 
     @register(ir.Load)
     def do_load(self, node):
-        address = self.lut[node.address]
+        if isinstance(node.address, ir.Variable):
+            address = Tree('GLOBALADDRESS', value=ir.label_name(node.address))
+        else:
+            address = self.lut[node.address]
         tree = Tree('MEM' + type_postfix(node.ty), address)
 
         # Create copy if required:
