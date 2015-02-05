@@ -1,0 +1,17 @@
+
+<project name="Snake" default="snake">
+
+    <target name="snake">
+        <assemble source="startup_stm32f4.asm" target="thumb" 
+            output="startup.o" />
+        <compile target="thumb" sources="snake.c3;arch.c3;io.c3" includes="stm32f4xx.c3"
+            output="snake.o" />
+        <link output="snake.elf" layout="stm32f4.mmap" 
+            target="thumb"
+            objects="startup.o;snake.o" />
+        <objcopy objectfile="snake.elf" imagename="flash" format="hex" 
+            output="snake.hex" />
+    </target>
+
+</project>
+

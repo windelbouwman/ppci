@@ -13,16 +13,9 @@ class IrToPython:
         print(*args, file=self.f)
 
     def header(self):
-        self.print(0, 'mem = list()')
-
-    def generate(self, ir_mod, f):
-        """ Write ir-code to file f """
-        self.f = f
-        self.mod_name = ir_mod.name
-        self.string_literals = []
-        self.print(0, '')
         self.print(0, 'import struct')
-        self.print(0, '# Module {}'.format(ir_mod.name))
+        self.print(0, '')
+        self.print(0, 'mem = list()')
         # Generate helper:
         self.print(0, 'def wrap_byte(v):')
         self.print(1, 'if v < 0:')
@@ -30,6 +23,15 @@ class IrToPython:
         self.print(1, 'if v > 255:')
         self.print(2, 'v -= 256')
         self.print(1, 'return v')
+        self.print(0, '')
+
+    def generate(self, ir_mod, f):
+        """ Write ir-code to file f """
+        self.f = f
+        self.mod_name = ir_mod.name
+        self.string_literals = []
+        self.print(0, '')
+        self.print(0, '# Module {}'.format(ir_mod.name))
         # Allocate room for global variables:
         for var in ir_mod.Variables:
             self.print(0, '{} = len(mem)'.format(var.name))
@@ -45,6 +47,7 @@ class IrToPython:
                 lit.function.name, lit.name))
             for val in lit.value:
                 self.print(0, "mem.append({})".format(val))
+        self.print(0, '')
 
     def generate_function(self, fn):
         args = ','.join(a.name for a in fn.arguments)
@@ -56,6 +59,7 @@ class IrToPython:
             self.print(2, 'if current_block == "{}":'.format(block.name))
             for ins in block:
                 self.generate_instruction(ins)
+        self.print(0, '')
 
     def generate_instruction(self, ins):
         if isinstance(ins, ir.CJump):

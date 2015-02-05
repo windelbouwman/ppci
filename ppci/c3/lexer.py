@@ -1,5 +1,7 @@
-from ppci import CompilerError, SourceLocation, Token, make_num
+import re
+from ppci import SourceLocation, Token, make_num
 from ppci.baselex import BaseLexer
+from .astnodes import Assignment
 
 """
  Lexical analyzer part. Splits the input character stream into tokens.
@@ -18,6 +20,14 @@ class Lexer(BaseLexer):
     """ Generates a sequence of token from an input stream """
     def __init__(self, diag):
         self.diag = diag
+
+        # Construct the tricky string of possible glyphs:
+        ops = []
+        ops.extend(Assignment.operators)
+        op_txt2 = '|'.join(re.escape(op) for op in ops)
+        op_txt = r'==|->|<<|>>|!=|' + op_txt2
+        op_txt += r'|\+\+|[\.,=:;\-+*\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
+        print(op_txt)
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+',
@@ -29,9 +39,7 @@ class Lexer(BaseLexer):
             ('COMMENTS', r'//.*', None),
             ('LONGCOMMENTBEGIN', r'\/\*', self.handle_comment_start),
             ('LONGCOMMENTEND', r'\*\/', self.handle_comment_stop),
-            ('LEESTEKEN',
-             r'==|->|<<|>>|!=|\+\+|[\.,=:;\-+*\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|',
-             lambda typ, val: (val, val)),
+            ('LEESTEKEN', op_txt, lambda typ, val: (val, val)),
             ('STRING', r'".*?"', lambda typ, val: (typ, val[1:-1]))
             ]
         super().__init__(tok_spec)

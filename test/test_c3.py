@@ -198,6 +198,7 @@ class FunctionTestCase(BuildTestCaseBase):
         self.expect_errors(snippet, [5, 6])
 
     def test_return(self):
+        """ Test return of void """
         snippet = """
          module testreturn;
          function void t()
@@ -221,7 +222,7 @@ class FunctionTestCase(BuildTestCaseBase):
 
 class ExpressionTestCase(BuildTestCaseBase):
     """ Test various expressions """
-    def testExpressions(self):
+    def test_expressions(self):
         snippet = """
          module test;
          function void t(int a, double b)
@@ -235,7 +236,7 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [8, 9])
 
-    def testExpression1(self):
+    def test_expression1(self):
         snippet = """
          module testexpr1;
          function void t()
@@ -261,11 +262,28 @@ class ExpressionTestCase(BuildTestCaseBase):
 
 class StatementTestCase(BuildTestCaseBase):
     """ Testcase for statements """
+    def test_assignments(self):
+        """ Check if normal assignments and |= &= assignments work """
+        snippet = """
+        module test;
+        function void tst()
+        {
+         var int i;
+         i = 2;
+         i |= 0xf00;
+         i &= 0xf;
+         i += 22;
+         i -= 15;
+         i *= 33;
+        }
+        """
+        self.expect_ok(snippet)
+
     def test_while(self):
         snippet = """
         module tstwhile;
         function void t()
-         {
+        {
          var int i;
          i = 0;
          while (i < 1054)
@@ -280,7 +298,7 @@ class StatementTestCase(BuildTestCaseBase):
         snippet = """
         module tstwhile;
         function void t()
-         {
+        {
          while(true)
          {
          }
@@ -296,7 +314,7 @@ class StatementTestCase(BuildTestCaseBase):
         snippet = """
         module tstIFF;
         function void t(int b)
-         {
+        {
          var int a;
          a = 2;
          if (a > b)
@@ -316,37 +334,43 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def testAndCondition(self):
+    def test_and_condition(self):
         snippet = """
         module tst;
-        function void t() {
-         if (4 > 3 and 1 < 10) {
+        function void t()
+        {
+         if (4 > 3 and 1 < 10)
+         {
          }
         }
         """
         self.expect_ok(snippet)
 
-    def testOrCondition(self):
+    def test_or_condition(self):
         snippet = """
         module tst;
-        function void t() {
-         if (3 > 4 or 3 < 10) {
+        function void t()
+        {
+         if (3 > 4 or 3 < 10)
+         {
          }
         }
         """
         self.expect_ok(snippet)
 
-    def testNonBoolCondition(self):
+    def test_non_bool_condition(self):
         snippet = """
         module tst;
-        function void t() {
-         if (3+3) {
+        function void t()
+        {
+         if (3+3)
+         {
          }
         }
         """
-        self.expect_errors(snippet, [4])
+        self.expect_errors(snippet, [5])
 
-    def testLocalVariable(self):
+    def test_local_variable(self):
         snippet = """
          module testlocalvar;
          function void t()
@@ -358,40 +382,7 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def testUnknownType(self):
-        snippet = """module testlocalvar;
-         function void t()
-         {
-            var int2 a;
-         }
-        """
-        self.expect_errors(snippet, [4])
-
-    def test_struct1(self):
-        """ Test struct syntax """
-        snippet = """
-         module teststruct1;
-         function void t()
-         {
-            var struct {int x, y;} a;
-            a.x = 2;
-            a.y = a.x + 2;
-         }
-        """
-        self.expect_ok(snippet)
-
-    def test_struct2(self):
-        """ Select struct member from non struct type """
-        snippet = """
-         module teststruct1;
-         function void t() {
-            var int a;
-            a.z = 2;
-         }
-        """
-        self.expect_errors(snippet, [5])
-
-    def testArray(self):
+    def test_array(self):
         snippet = """
          module testarray;
          function void t()
@@ -405,7 +396,7 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def testArrayFail(self):
+    def test_array_fail(self):
         snippet = """
          module testarray;
          function void t()
@@ -431,7 +422,7 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [7])
 
-    def testArrayFail3(self):
+    def test_array_fail3(self):
         snippet = """
          module testarray;
          function void t()
@@ -441,7 +432,8 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def testStructCall(self):
+    def test_struct_call(self):
+        """ A struct type cannot be called """
         snippet = """
          module teststruct1;
          function void t()
@@ -512,7 +504,7 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [6])
 
-    def testWrongVarUse(self):
+    def test_wrong_var_use(self):
         snippet = """
          module testsizeof;
 
@@ -523,6 +515,41 @@ class TypeTestCase(BuildTestCaseBase):
          }
         """
         self.expect_ok(snippet)
+
+    def test_unknown_type(self):
+        """ Check if an unknown type is detected """
+        snippet = """module testlocalvar;
+         function void t()
+         {
+            var int2 a;
+         }
+        """
+        self.expect_errors(snippet, [4])
+
+    def test_struct1(self):
+        """ Test struct syntax """
+        snippet = """
+         module teststruct1;
+         function void t()
+         {
+            var struct {int x, y;} a;
+            a.x = 2;
+            a.y = a.x + 2;
+         }
+        """
+        self.expect_ok(snippet)
+
+    def test_struct2(self):
+        """ Select struct member from non struct type """
+        snippet = """
+         module teststruct1;
+         function void t()
+         {
+            var int a;
+            a.z = 2;
+         }
+        """
+        self.expect_errors(snippet, [6])
 
     def test_pointer_type1(self):
         """ Check if pointers work """
@@ -600,7 +627,7 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def testPointerTypeIr2(self):
+    def test_pointer_type_ir2(self):
         """ Test pointer to struct """
         snippet = """
          module testptr_ir;
@@ -628,6 +655,7 @@ class TypeTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_wrong_cast(self):
+        """ See if a wrong cast cannot be done """
         snippet = """
          module testptr_ir;
          type struct {int x,y;}* gpio;
@@ -667,7 +695,8 @@ class TypeTestCase(BuildTestCaseBase):
         snippet = """
          module testnestedstruct;
 
-         type struct {
+         type struct
+         {
             int x;
             list_t inner;
          } list_t;
@@ -683,12 +712,14 @@ class TypeTestCase(BuildTestCaseBase):
         snippet = """
          module testnestedstruct;
 
-         type struct {
+         type struct
+         {
             int x;
             B other;
          } A;
 
-         type struct {
+         type struct
+         {
             int x;
             A other;
          } B;

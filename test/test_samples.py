@@ -12,6 +12,7 @@ try:
 except ImportError:
     stlink_run_sram_and_trace = None
 from ppci.report import RstFormatter
+from ppci.ir2py import IrToPython
 
 
 def make_filename(s):
@@ -590,7 +591,9 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
             ir_mods = [bf2ir(src)]
 
         with open(sample_filename, 'w') as f:
-            print('mem = list()', file=f)
+            i2p = IrToPython()
+            i2p.f = f
+            i2p.header()
             for m in ir_mods:
                 ir_to_python(m, f)
             # Add glue:

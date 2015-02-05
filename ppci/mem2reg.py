@@ -24,8 +24,6 @@ def isAllocPromotable(alloc_inst):
     assert len(all_types) > 0
     if not all(all_types[0] is ty for ty in all_types):
         return False
-    # TODO: check types of load and stores.
-    # if not all(
     return True
 
 

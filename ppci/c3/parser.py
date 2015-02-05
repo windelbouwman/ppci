@@ -278,10 +278,16 @@ class Parser:
 
     def parse_compound(self):
         """ Parse a compound statement, which is bounded by '{' and '}' """
-        self.consume('{')
+        cb1 = self.consume('{')
         statements = []
-        while not self.has_consumed('}'):
+        while self.Peak != '}':
             statements.append(self.parse_statement())
+        cb2 = self.consume('}')
+
+        # Enforce styling:
+        if cb1.loc.col != cb2.loc.col:
+            self.error('Braces not in same column!')
+
         return Compound(statements)
 
     def parse_statement(self):
@@ -303,11 +309,12 @@ class Parser:
             return self.parse_return()
         else:
             x = self.UnaryExpression()
-            if self.Peak == '=':
+            if self.Peak in Assignment.operators:
                 # We enter assignment mode here.
-                loc = self.consume('=').loc
+                operator = self.Peak
+                loc = self.consume(operator).loc
                 rhs = self.parse_expression()
-                return Assignment(x, rhs, loc)
+                return Assignment(x, rhs, loc, operator)
             else:
                 # Must be call statement!
                 return ExpressionStatement(x, x.loc)

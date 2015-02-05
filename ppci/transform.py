@@ -109,7 +109,8 @@ class ConstantFolder(BlockPass):
                     # Now we can replace x = (4+5) with x = 9
                     cn = self.eval_const(instruction)
                     block = instruction.block
-                    block.insert_instruction(cn, before_instruction=instruction)
+                    block.insert_instruction(
+                        cn, before_instruction=instruction)
                     instruction.replace_by(cn)
                     count += 1
                 elif type(instruction.a) is ir.Binop and \
@@ -123,7 +124,8 @@ class ConstantFolder(BlockPass):
                     assert a.ty is b.ty
                     cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
                     block = instruction.block
-                    block.insert_instruction(cn, before_instruction=instruction)
+                    block.insert_instruction(
+                        cn, before_instruction=instruction)
                     instruction.a = instruction.a.a
                     instruction.b = cn
                     assert instruction.ty is cn.ty
@@ -140,13 +142,13 @@ class ConstantFolder(BlockPass):
                     assert a.ty is b.ty
                     cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
                     block = instruction.block
-                    block.insert_instruction(cn, before_instruction=instruction)
+                    block.insert_instruction(
+                        cn, before_instruction=instruction)
                     instruction.a = instruction.a.a
                     instruction.b = cn
                     assert instruction.ty is cn.ty
                     assert instruction.ty is instruction.a.ty
                     count += 1
-
         if count > 0:
             self.logger.debug('Folded {} expressions'.format(count))
 

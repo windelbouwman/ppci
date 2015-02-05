@@ -201,18 +201,56 @@ class CodeGenerator:
         elif self.context.equal_types(self.context.intType, typ) and \
                 self.context.equal_types(self.context.byteType, wanted_typ):
             return self.emit(ir.IntToByte(ir_val, 'coerce'))
+        elif self.context.equal_types(self.context.byteType, typ) and \
+                self.context.equal_types(self.context.intType, wanted_typ):
+            return self.emit(ir.ByteToInt(ir_val, 'coerce'))
         else:
             raise SemanticError(
-                "Cannot use {} as {}".format(typ, wanted_typ), loc)
+                "Cannot use '{}' as '{}'".format(typ, wanted_typ), loc)
+
+    def is_simple_type(self, typ):
+        """ Determines if the given type is a simple type """
+        typ = self.context.the_type(typ)
+        if isinstance(typ, ast.PointerType):
+            return True
+        elif isinstance(typ, ast.BaseType):
+            return True
+        return False
 
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
+        # Evaluate left hand side:
         lval = self.gen_expr_code(code.lval)
-        rval = self.make_rvalue_expr(code.rval)
-        rval = self.do_coerce(rval, code.rval.typ, code.lval.typ, code.loc)
+
+        # Check that the left hand side is a simple type:
+        if not self.is_simple_type(code.lval.typ):
+            raise SemanticError(
+                'Cannot assign to complex type {}'.format(code.lval.typ),
+                code.loc)
+
+        # Check that left hand is an lvalue:
         if not code.lval.lvalue:
             raise SemanticError(
                 'No valid lvalue {}'.format(code.lval), code.lval.loc)
+
+        # Evaluate right hand side (and make it rightly typed):
+        rval = self.make_rvalue_expr(code.rval)
+        rval = self.do_coerce(rval, code.rval.typ, code.lval.typ, code.loc)
+
+        # Implement short hands (+=, -= etc):
+        if code.is_shorthand:
+            # In case of '+=', evaluate the left hand side once, and use
+            # the value twice. Once as an lvalue, once as rvalue.
+            # Determine loaded type:
+            load_ty = self.get_ir_type(code.lval.typ, code.lval.loc)
+
+            # We know, the left hand side is an lvalue, so load it:
+            lval_ld = self.emit(ir.Load(lval, 'assign_op_load', load_ty))
+
+            # Now construct the rvalue:
+            oper = code.shorthand_operator
+            rval = self.emit(ir.Binop(lval_ld, oper, rval, "binop", rval.ty))
+
         # TODO: for now treat all stores as volatile..
         # TODO: determine volatile properties from type??
         volatile = True
@@ -332,11 +370,11 @@ class CodeGenerator:
             # This returns the dereferenced variable.
             if isinstance(target, ast.Variable):
                 expr.lvalue = True
-                return self.varMap[target]
+                value = self.varMap[target]
             elif isinstance(target, ast.Constant):
                 expr.lvalue = False
                 c_val = self.context.get_constant_value(target)
-                return self.emit(ir.Const(c_val, target.name, ir.i32))
+                value = self.emit(ir.Const(c_val, target.name, ir.i32))
             else:
                 raise NotImplementedError(str(target))
         elif type(expr) is ast.Deref:
@@ -355,11 +393,13 @@ class CodeGenerator:
             expr.typ = self.context.intType
             self.context.check_type(expr.query_typ)
             type_size = self.context.size_of(expr.query_typ)
-            return self.emit(ir.Const(type_size, 'sizeof', ir.i32))
+            value = self.emit(ir.Const(type_size, 'sizeof', ir.i32))
         elif type(expr) is ast.FunctionCall:
             value = self.gen_function_call(expr)
         else:
             raise NotImplementedError('Unknown expr {}'.format(expr))
+
+        # TODO: do rvalue trick here?
         return value
 
     def gen_dereference(self, expr):
@@ -376,6 +416,7 @@ class CodeGenerator:
         return self.emit(ir.Load(addr, 'deref', load_ty))
 
     def gen_unop(self, expr):
+        """ Generate code for unary operator """
         if expr.op == '&':
             ra = self.gen_expr_code(expr.a)
             if not expr.a.lvalue:
@@ -392,7 +433,6 @@ class CodeGenerator:
         expr.lvalue = False
         a_val = self.make_rvalue_expr(expr.a)
         b_val = self.make_rvalue_expr(expr.b)
-        self.analyzer.check_binop(expr)
 
         # Get best type for result:
         common_type = self.context.get_common_type(expr.a, expr.b)
@@ -532,29 +572,32 @@ class CodeGenerator:
 
     def gen_function_call(self, expr):
         """ Generate code for a function call """
-        # Evaluate the arguments:
-        args = [self.make_rvalue_expr(argument) for argument in expr.args]
+        # Lookup the function in question:
+        target_func = self.context.resolve_symbol(expr.proc)
+        if type(target_func) is not ast.Function:
+            raise SemanticError('cannot call {}'.format(target_func))
+        ftyp = target_func.typ
+        fname = target_func.package.name + '_' + target_func.name
 
         # Check arguments:
-        tg = self.context.resolve_symbol(expr.proc)
-        if type(tg) is not ast.Function:
-            raise SemanticError('cannot call {}'.format(tg))
-        ftyp = tg.typ
-        fname = tg.package.name + '_' + tg.name
         ptypes = ftyp.parametertypes
         if len(expr.args) != len(ptypes):
             raise SemanticError('{} requires {} arguments, {} given'
                                 .format(fname, len(ptypes), len(expr.args)),
                                 expr.loc)
-        for arg, at in zip(expr.args, ptypes):
-            if not self.context.equal_types(arg.typ, at):
-                raise SemanticError('Got {}, expected {}'
-                                    .format(arg.typ, at), arg.loc)
+
+        # Evaluate the arguments:
+        args = []
+        for arg_expr, arg_typ in zip(expr.args, ptypes):
+            arg_val = self.make_rvalue_expr(arg_expr)
+            arg_val = self.do_coerce(
+                arg_val, arg_expr.typ, arg_typ, arg_expr.loc)
+            args.append(arg_val)
+
         # determine return type:
         expr.typ = ftyp.returntype
 
         expr.lvalue = False
+
         # TODO: for now, always return i32?
-        call = ir.Call(fname, args, fname + '_rv', ir.i32)
-        self.emit(call)
-        return call
+        return self.emit(ir.Call(fname, args, fname + '_rv', ir.i32))

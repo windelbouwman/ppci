@@ -248,7 +248,7 @@ class Member(Expression):
         self.field = field
 
     def __repr__(self):
-        return 'MEMBER {}.{}'.format(self.base, self.field)
+        return '{}.{}'.format(self.base, self.field)
 
 
 class Index(Expression):
@@ -361,15 +361,28 @@ class Return(Statement):
 
 class Assignment(Statement):
     """ Assignment statement with a left hand side and right hand side """
-    def __init__(self, lval, rval, loc):
+    operators = ('=', '|=', '&=', '+=', '-=', '*=')
+
+    def __init__(self, lval, rval, loc, operator='='):
         super().__init__(loc)
+        assert operator in self.operators
         assert isinstance(lval, Expression)
         assert isinstance(rval, Expression)
         self.lval = lval
         self.rval = rval
+        self.operator = operator
 
     def __repr__(self):
         return 'ASSIGNMENT'
+
+    @property
+    def is_shorthand(self):
+        return len(self.operator) > 1
+
+    @property
+    def shorthand_operator(self):
+        """ Get the operator from '-=' to '-' """
+        return self.operator[:-1]
 
 
 class ExpressionStatement(Statement):

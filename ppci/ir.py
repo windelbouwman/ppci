@@ -36,6 +36,7 @@ class BuiltinType(Typ):
         return self.byte_size
 
 
+# The builtin types:
 double = BuiltinType('double', 8)
 i32 = BuiltinType('i32', 4)
 i8 = BuiltinType('i8', 1)
@@ -52,16 +53,17 @@ class Module:
     def __repr__(self):
         return 'module {0}'.format(self.name)
 
-    def add_function(self, f):
+    def add_function(self, function):
         """ Add a function to this module """
-        assert type(f) is Function
-        self.functions.append(f)
-        f.module = self
+        assert type(function) is Function
+        self.functions.append(function)
+        function.module = self
 
-    def add_variable(self, v):
-        assert type(v) is Variable
-        self.variables.append(v)
-        v.module = self
+    def add_variable(self, variable):
+        """ Add a variable to this module """
+        assert type(variable) is Variable
+        self.variables.append(variable)
+        variable.module = self
 
     def get_variables(self):
         return self.variables
@@ -215,10 +217,12 @@ class FastList:
         return self._items.__getitem__(key)
 
     def append(self, i):
+        """ Append an item """
         self._index_map.clear()
         self._items.append(i)
 
     def insert(self, pos, i):
+        """ Insert an item """
         self._index_map.clear()
         self._items.insert(pos, i)
 
@@ -281,6 +285,7 @@ class Block:
             self.unique_name(i)
 
     def add_instruction(self, i):
+        """ Add an instruction to the end of this block """
         i.parent = self
         assert not isinstance(self.LastInstruction, LastStatement)
         self.instructions.append(i)
@@ -369,12 +374,14 @@ class Block:
 def var_use(name):
     """ Creates a property that also keeps track of usage """
     def getter(self):
+        """ Gets the value """
         if name in self.var_map:
             return self.var_map[name]
         else:
-            return "Not set!"
+            raise KeyError(name)
 
     def setter(self, value):
+        """ Sets the value """
         assert isinstance(value, Value)
         # If value was already set, remove usage
         if name in self.var_map:
@@ -496,10 +503,12 @@ class Value(Instruction):
 
     @property
     def is_used(self):
-        return bool(len(self.used_by))
+        """ Determine whether this value is used anywhere """
+        return bool(self.use_count)
 
     @property
     def use_count(self):
+        """ Determine how often this values is used """
         return len(self.used_by)
 
     def replace_by(self, value):

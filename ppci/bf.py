@@ -44,10 +44,11 @@ class BrainFuckGenerator():
         four_ins = self.builder.emit(ir.Const(4, "four", ir.i32))
         four_ins = self.builder.emit(ir.IntToPtr(four_ins, "ptr_incr"))
         zero_ins = self.builder.emit(ir.Const(0, "zero", ir.i32))
+        zero_ptr = self.builder.emit(ir.IntToPtr(zero_ins, "zero_ptr"))
         array_size = self.builder.emit(ir.Const(1000, "array_max", ir.i32))
 
         # Store initial value of ptr:
-        self.builder.emit(ir.Store(zero_ins, ptr_var))
+        self.builder.emit(ir.Store(zero_ptr, ptr_var))
 
         # Initialize array to zero:
         block3 = self.builder.newBlock()
