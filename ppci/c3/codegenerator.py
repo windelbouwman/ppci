@@ -485,6 +485,9 @@ class CodeGenerator:
                 expr.lvalue = True
                 expr.typ = target.typ
                 value = self.context.var_map[target]
+            elif isinstance(target, ast.Module):
+                # TODO: resolve this issue together with above identifier expr
+                return target
             else:
                 raise NotImplementedError(str(target))
             return value

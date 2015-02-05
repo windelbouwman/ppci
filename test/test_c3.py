@@ -171,6 +171,7 @@ class ModuleTestCase(BuildTestCaseBase):
         {
             m1.A = 1;
             m1.t();
+            m1.m2.m1.m2.A = 3;
         }
         """
         self.expect_ok([src1, src2])
