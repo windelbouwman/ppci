@@ -94,8 +94,9 @@ class IrToPython:
             self.print(3, '{} = {}'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Store):
             # print(ins
+            # TODO: improve this mess? Helper functions?
             if ins.value.ty.byte_size == 4:
-                self.print(3, 'mem[{0}:{0}+4] = list(struct.pack("I",{1}))'
+                self.print(3, 'mem[{0}:{0}+4] = list(struct.pack("i",{1}))'
                            .format(ins.address.name, ins.value.name))
             elif ins.value.ty.byte_size == 1:
                 self.print(3, 'mem[{0}:{0}+1] = list(struct.pack("B",{1}))'
@@ -106,7 +107,7 @@ class IrToPython:
             if ins.ty.byte_size == 1:
                 self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
             elif ins.ty.byte_size == 4:
-                self.print(3, '{0}, = struct.unpack("I", bytes(mem[{1}:{1}+4]))'.format(ins.name, ins.address.name))
+                self.print(3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'.format(ins.name, ins.address.name))
             else:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Call):

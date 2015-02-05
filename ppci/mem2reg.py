@@ -3,7 +3,7 @@ from .ir import Alloc, Load, Store, Phi, i32, Undefined
 from .domtree import CfgInfo
 
 
-def isAllocPromotable(alloc_inst):
+def is_alloc_promotable(alloc_inst):
     """ Check if alloc value is only used by load and store operations. """
     # TODO: check that all load and stores are 32 bits and the alloc is 
     # 4 bytes.
@@ -16,6 +16,12 @@ def isAllocPromotable(alloc_inst):
         return False
     loads = [i for i in alloc_inst.used_by if isinstance(i, Load)]
     stores = [i for i in alloc_inst.used_by if isinstance(i, Store)]
+
+    # Check for volatile:
+    if any(store.volatile for store in stores):
+        return False
+    if any(load.volatile for load in loads):
+        return False
 
     # Check for types:
     load_types = [load.ty for load in loads]
@@ -130,5 +136,5 @@ class Mem2RegPromotor(FunctionPass):
         for block in f.blocks:
             allocs = [i for i in block if isinstance(i, Alloc)]
             for alloc_inst in allocs:
-                if isAllocPromotable(alloc_inst):
+                if is_alloc_promotable(alloc_inst):
                     self.promote(alloc_inst, self.cfg_info)

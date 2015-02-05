@@ -157,7 +157,7 @@ class DefinedType(NamedType):
         self.loc = loc
 
     def __repr__(self):
-        return 'Named type {0} of type {1}'.format(self.name, self.typ)
+        return '"{0}" -> "{1}"'.format(self.name, self.typ)
 
 
 class Constant(Symbol):

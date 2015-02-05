@@ -127,10 +127,6 @@ class Context:
         self.module_map = {}
         self.const_map = {}
         self.const_workset = set()
-        self.intType = self.scope['int']
-        self.doubleType = self.scope['double']
-        self.boolType = self.scope['bool']
-        self.byteType = self.scope['byte']
         self.pointerSize = 4
 
     def has_module(self, name):
@@ -142,6 +138,11 @@ class Context:
         if name not in self.module_map:
             self.module_map[name] = ast.Module(name, None)
         return self.module_map[name]
+
+    def get_type(self, name):
+        """ Get the type with the given name """
+        typ = self.scope[name]
+        return typ
 
     @property
     def modules(self):
@@ -219,19 +220,21 @@ class Context:
                 byte + byte -> byte
                 pointer to x + int -> pointer to x
         """
+        intType = self.get_type('int')
+        byteType = self.get_type('byte')
         table = {
-            (self.intType, self.intType): self.intType,
-            (self.intType, self.byteType): self.intType,
-            (self.byteType, self.intType): self.intType,
-            (self.byteType, self.byteType): self.byteType,
-            (self.intType, ast.PointerType): self.intType,
+            (intType, intType): intType,
+            (intType, byteType): intType,
+            (byteType, intType): intType,
+            (byteType, byteType): byteType,
+            (intType, ast.PointerType): intType,
             }
         loc = a.loc
         typ_a = self.the_type(a.typ)
         typ_b = self.the_type(b.typ)
         # Handle pointers:
         if isinstance(typ_a, ast.PointerType) and \
-                self.equal_types(typ_b, self.intType):
+                self.equal_types(typ_b, 'int'):
             return typ_a
 
         # Handle non-pointers:
@@ -246,12 +249,19 @@ class Context:
             When reveil_defined is True, defined types are resolved to
             their backing types.
         """
+        # Convenience:
+        if type(typ) is str:
+            typ = self.get_type(typ)
+
+        # Find the type:
         if type(typ) is ast.DefinedType:
             if reveil_defined:
                 typ = self.the_type(typ.typ)
         elif type(typ) in [ast.Identifier, ast.Member]:
             typ = self.the_type(self.resolve_symbol(typ), reveil_defined)
         elif isinstance(typ, ast.Type):
+            # This case also catches the defined type!
+            # TODO: make this if sequence less error prone..
             pass
         else:
             raise NotImplementedError(str(typ))
@@ -261,6 +271,7 @@ class Context:
     def size_of(self, typ):
         """ Determine the byte size of a type """
         typ = self.the_type(typ)
+
         if type(typ) is ast.BaseType:
             return typ.byte_size
         elif type(typ) is ast.StructureType:

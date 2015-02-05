@@ -27,7 +27,7 @@ class Lexer(BaseLexer):
         op_txt2 = '|'.join(re.escape(op) for op in ops)
         op_txt = r'==|->|<<|>>|!=|' + op_txt2
         op_txt += r'|\+\+|[\.,=:;\-+*\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
-        print(op_txt)
+        # print(op_txt)
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+',

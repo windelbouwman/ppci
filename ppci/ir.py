@@ -37,7 +37,7 @@ class BuiltinType(Typ):
 
 
 # The builtin types:
-double = BuiltinType('double', 8)
+f64 = BuiltinType('f64', 8)
 i32 = BuiltinType('i32', 4)
 i8 = BuiltinType('i8', 1)
 ptr = BuiltinType('ptr', 4)

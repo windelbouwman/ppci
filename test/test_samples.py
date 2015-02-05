@@ -41,7 +41,8 @@ def only_bf(txt):
 
 class Samples:
 
-    def testPrint(self):
+    def test_print(self):
+        """ Test if print statement works """
         snippet = """
          module sample;
          import io;
@@ -52,7 +53,7 @@ class Samples:
         """
         self.do(snippet, "Hello world")
 
-    def testForLoopPrint(self):
+    def test_for_loop_print(self):
         snippet = """
          module sample;
          import io;
@@ -68,7 +69,8 @@ class Samples:
         res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
         self.do(snippet, res)
 
-    def testLargeForLoopPrint(self):
+    def test_large_for_loop_print(self):
+        """ This test actually tests the qemu pipe system """
         snippet = """
          module sample;
          import io;
@@ -125,7 +127,7 @@ class Samples:
         res = "y[1]=0x00000011\nx[1]=0x00000044\n"
         self.do(snippet, res)
 
-    def testParameterPassing4(self):
+    def test_parameter_passing4(self):
         snippet = """
          module sample;
          import io;
@@ -161,18 +163,20 @@ class Samples:
             var int* pw;
             var byte* pb;
             var byte* pb2;
+            var byte** ppb;
             pw = &w;
             pb = cast<byte*>(pw);
             pb2 = pb + 2;
             *pw = 0x11223344;
             *pb = 0x88;
-            *pb2 = 0x66;
+            ppb = &pb2;
+            **ppb = 0x66; // double pointer hackzzz
             io.print2("w=", w);
          }
         """
         self.do(snippet, "w=0x11663388\n")
 
-    def testGlobalVariable(self):
+    def test_global_variable(self):
         snippet = """
          module sample;
          import io;
@@ -182,11 +186,18 @@ class Samples:
             MyGlob = MyGlob + 1;
             io.print2("G=", MyGlob);
          }
+
          function void do5()
          {
             MyGlob = MyGlob + 5;
             io.print2("G=", MyGlob);
          }
+
+         function int* get_ptr()
+         {
+            return &MyGlob;
+         }
+
          function void start()
          {
             MyGlob = 0;
@@ -195,9 +206,12 @@ class Samples:
             do5();
             do1();
             do5();
+            *(get_ptr()) += 2;
+            *(get_ptr()) += 8;
+            do5();
          }
         """
-        res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13])
+        res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13, 28])
         self.do(snippet, res)
 
     def test_const(self):
