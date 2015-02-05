@@ -53,6 +53,18 @@ class CodeGenerator:
         self.builder.emit(instruction)
         return instruction
 
+    def gen_globals(self, module, context):
+        """ Generate global variables and modules """
+        m = ir.Module(module.name)
+        context.var_map[module] = m
+
+        # Generate room for global variables:
+        for var in module.innerScope.variables:
+            ir_var = ir.Variable(var.name, context.size_of(var.typ))
+            context.var_map[var] = ir_var
+            assert not var.isLocal
+            m.add_variable(ir_var)
+
     def gencode(self, mod, context):
         """ Generate code for a single module """
         assert type(mod) is ast.Module
@@ -60,8 +72,7 @@ class CodeGenerator:
         self.builder.prepare()
         self.ok = True
         self.logger.debug('Generating ir-code for {}'.format(mod.name))
-        self.varMap = {}    # Maps variables to storage locations.
-        self.builder.m = ir.Module(mod.name)
+        self.builder.m = self.context.var_map[mod]
         try:
             for typ in mod.types:
                 self.context.check_type(typ)
@@ -70,10 +81,8 @@ class CodeGenerator:
                 lambda f: f.body, mod.functions))
             # Generate room for global variables:
             for var in mod.innerScope.variables:
-                ir_var = ir.Variable(var.name, self.context.size_of(var.typ))
-                self.varMap[var] = ir_var
-                assert not var.isLocal
-                self.builder.m.add_variable(ir_var)
+                # See above!
+                pass
             for func in real_functions:
                 self.gen_function(func)
         except SemanticError as ex:
@@ -119,7 +128,7 @@ class CodeGenerator:
                 pass
             else:
                 raise NotImplementedError('{}'.format(sym))
-            self.varMap[sym] = variable
+            self.context.var_map[sym] = variable
 
         self.gen_stmt(function.body)
         # self.emit(ir.Move(f.return_value, ir.Const(0)))
@@ -367,16 +376,20 @@ class CodeGenerator:
         elif type(expr) is ast.Identifier:
             # Generate code for this identifier.
             target = self.context.resolve_symbol(expr)
-            expr.typ = target.typ
 
             # This returns the dereferenced variable.
             if isinstance(target, ast.Variable):
                 expr.lvalue = True
-                value = self.varMap[target]
+                expr.typ = target.typ
+                value = self.context.var_map[target]
             elif isinstance(target, ast.Constant):
                 expr.lvalue = False
+                expr.typ = target.typ
                 c_val = self.context.get_constant_value(target)
                 value = self.emit(ir.Const(c_val, target.name, ir.i32))
+            elif isinstance(target, ast.Module):
+                # TODO: ugly construct here --> do not return a non-ir-value
+                return target
             else:
                 raise NotImplementedError(str(target))
         elif type(expr) is ast.Deref:
@@ -460,11 +473,27 @@ class CodeGenerator:
         return self.emit(ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
 
     def gen_member_expr(self, expr):
-        """ Generate code for member expression such as struc.mem = 2 """
+        """ Generate code for member expression such as struc.mem = 2
+            This could also be a module deref!
+        """
         base = self.gen_expr_code(expr.base)
+        if isinstance(base, ast.Module):
+            # Damn, we are referring something inside another module!
+            # Invoke scope machinery!
+            target = self.context.resolve_symbol(expr)
+            if isinstance(target, ast.Variable):
+                expr.lvalue = True
+                expr.typ = target.typ
+                value = self.context.var_map[target]
+            else:
+                raise NotImplementedError(str(target))
+            return value
+
+        # The base is a valid expression:
         expr.lvalue = expr.base.lvalue
         basetype = self.context.the_type(expr.base.typ)
         if type(basetype) is ast.StructureType:
+            self.context.check_type(basetype)
             if basetype.hasField(expr.field):
                 expr.typ = basetype.fieldType(expr.field)
             else:

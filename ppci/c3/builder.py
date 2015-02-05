@@ -122,6 +122,10 @@ class Builder:
         # Semantic checkers:
         self.semantic(context)
 
+        # Phase 1.9
+        for module in context.modules:
+            self.codegen.gen_globals(module, context)
+
         # Generate intermediate code (phase 2)
         # Only return ircode when everything is OK
         ir_modules = []

@@ -126,6 +126,7 @@ class Context:
         self.scope = create_top_scope(target)
         self.module_map = {}
         self.const_map = {}
+        self.var_map = {}    # Maps variables to storage locations.
         self.const_workset = set()
         self.pointerSize = 4
 
@@ -348,6 +349,7 @@ class Context:
         elif type(t) is ast.StructureType:
             self.got_types.add(t)
             # Setup offsets of fields. Is this the right place?:
+            # TODO: move this struct offset calculation.
             offset = 0
             for struct_member in t.mems:
                 self.check_type(struct_member.typ, first=False)

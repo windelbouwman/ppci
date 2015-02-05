@@ -19,10 +19,12 @@ class LexerTestCase(unittest.TestCase):
             list(self.l.lex(snippet))
 
     def check(self, snippet, toks):
+        """ Convenience function """
         toks2 = list(tok.typ for tok in self.l.lex(io.StringIO(snippet)))
         self.assertSequenceEqual(toks, toks2)
 
-    def testBlockComment(self):
+    def test_block_comment(self):
+        """ See if block comment works """
         snippet = """
           /* Demo */
           var int x = 0;
@@ -30,7 +32,8 @@ class LexerTestCase(unittest.TestCase):
         toks = ['var', 'ID', 'ID', '=', 'NUMBER', ';', 'EOF']
         self.check(snippet, toks)
 
-    def testBlockCommentMultiLine(self):
+    def test_block_comment_multi_line(self):
+        """ Test block comment over multiple lines """
         snippet = """
           /* Demo
           bla1
@@ -49,8 +52,8 @@ class BuildTestCaseBase(unittest.TestCase):
         self.builder = Builder(self.diag, SimpleTarget())
         self.diag.clear()
         # Add a null logging handler to disable warning log messages:
-        nh = logging.NullHandler()
-        logging.getLogger().addHandler(nh)
+        null_handler = logging.NullHandler()
+        logging.getLogger().addHandler(null_handler)
 
     def make_file_list(self, snippet):
         """ Try to make a list with opened files """
@@ -147,6 +150,30 @@ class ModuleTestCase(BuildTestCaseBase):
         import p23;
         """
         self.expect_errors(src1, [0])
+
+    def test_module_references(self):
+        """ Check if membership variables work as expected """
+        src1 = """
+        module m1;
+        import m2;
+        var int A;
+        function void t()
+        {
+            m2.A = 2;
+            m2.t();
+        }
+        """
+        src2 = """
+        module m2;
+        import m1;
+        var int A;
+        function void t()
+        {
+            m1.A = 1;
+            m1.t();
+        }
+        """
+        self.expect_ok([src1, src2])
 
 
 class ConstantTestCase(BuildTestCaseBase):

@@ -31,7 +31,7 @@ function void init(int pin)
 
 
     // Enable the clock to port D:
-    RCC->AHB1ENR |= (1 << 3);
+    stm32f4xx.RCC->AHB1ENR |= (1 << 3);
 
     // Memory mapped control registers:
 
