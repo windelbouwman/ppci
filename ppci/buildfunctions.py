@@ -92,6 +92,8 @@ def construct(buildfile, targets=[]):
         res = runner.run(project, targets)
     else:
         res = 1
+        # TODO: fix strange return code. 1 means error?
+        # TODO: use exceptions instead..
 
     return res
 

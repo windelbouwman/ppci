@@ -11,7 +11,7 @@ class EmulationTestCase(unittest.TestCase):
     def testM3Bare(self):
         """ Build bare m3 binary and emulate it """
         recipe = relpath('data', 'lm3s6965evb', 'build.xml')
-        construct(recipe)
+        self.assertEqual(0, construct(recipe))
         if not has_qemu():
             self.skipTest('Not running Qemu test')
         data = run_qemu(relpath('data', 'lm3s6965evb', 'bare.bin'))
@@ -20,7 +20,7 @@ class EmulationTestCase(unittest.TestCase):
     def testA9Bare(self):
         """ Build vexpress cortex-A9 binary and emulate it """
         recipe = relpath('data', 'realview-pb-a8', 'build.xml')
-        construct(recipe)
+        self.assertEqual(0, construct(recipe))
         if not has_qemu():
             self.skipTest('Not running Qemu test')
         data = run_qemu(relpath('data', 'realview-pb-a8', 'hello.bin'),
@@ -30,7 +30,7 @@ class EmulationTestCase(unittest.TestCase):
     def testBurn2(self):
         """ Compile the example for the stm32f4discovery board """
         recipe = relpath('data', 'stm32f4xx', 'build.xml')
-        construct(recipe)
+        self.assertEqual(0, construct(recipe))
 
 
 if __name__ == '__main__':

@@ -18,6 +18,8 @@ function void main()
 
 // End of transmission:
   *UART0DR = 4;
-    while(true) {}
+    while(true)
+    {
+    }
 }
 
