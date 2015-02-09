@@ -46,11 +46,11 @@ ins = ArmInstruction()
 sub1 = Sub(r0, r2, r2)
 add1 = Add(r2, r0, r0)
 add2 = Add(r0, r0, r0)
-print(ins.encode())
-print(sub1.encode())
-print(sub1.rd)
-print(add1.encode())
-print(add2.encode(), add2)
+# print(ins.encode())
+# print(sub1.encode())
+# print(sub1.rd)
+# print(add1.encode())
+# print(add2.encode(), add2)
 
 
 class SledTestCase(unittest.TestCase):

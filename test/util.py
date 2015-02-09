@@ -88,6 +88,8 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     while True:
         try:
             data_byte = qemu_serial.recv(1)
+            if len(data_byte) == 0:
+                raise Exception('Connection gone loco?')
             if data_byte == bytes([4]):  # EOT (end of transmission)
                 break
             data += data_byte

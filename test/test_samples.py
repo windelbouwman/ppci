@@ -257,14 +257,14 @@ class Samples:
         res = "fib(13)=0x000000E9\n"
         self.do(snippet, res)
 
-    def testBrainFuckHelloWorld(self):
+    def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
         self.do(hello_world, "Hello World!\n", lang='bf')
 
-    # @unittest.skip('not working')
-    def testBrainFuckQuine(self):
+    @unittest.skip('too slow test')
+    def test_brain_fuck_quine(self):
         """ A quine is a program that outputs itself! """
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
         +>>+++>>+>>+>>++>>++>>+>>+>>+>>+++>>+>>++++++>>+++++++++++++
@@ -506,14 +506,14 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
 
 class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     def setUp(self):
-        self.skipTest('Tests got broken!')
+        # self.skipTest('Tests got broken!')
         if not has_qemu():
             self.skipTest('Not running qemu tests')
 
     march = "thumb"
     startercode = """
     section reset
-    dcd 0x200F0000
+    dcd 0x2000f000
     dcd 0x00000009
     BL sample_start     ; Branch to sample start
     BL arch_exit  ; do exit stuff
@@ -521,7 +521,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     B local_loop
     """
     arch_mmap = """
-    MEMORY code LOCATION=0x10000 SIZE=0x10000 {
+    MEMORY code LOCATION=0x0 SIZE=0x10000 {
         SECTION(reset)
         ALIGN(4)
         SECTION(code)
@@ -536,7 +536,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         # Run bin file in emulator:
         dump_file = sample_filename.split('.')[0] + '.dump'
         return run_qemu(
-            sample_filename, machine='lm3s811evb',
+            sample_filename, machine='lm3s6965evb', # lm3s811evb
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
 
 
