@@ -18,15 +18,6 @@ def pack_string(txt):
     return length + data
 
 
-class Analyzer:
-    """ Type checker and other constraints """
-    def check_module(self, mod, context):
-        pass
-
-    def check_binop(self, expr):
-        pass
-
-
 class CodeGenerator:
     """
       Generates intermediate (IR) code from a package. The entry function is
@@ -43,7 +34,6 @@ class CodeGenerator:
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
-        self.analyzer = Analyzer()
 
     def emit(self, instruction):
         """
@@ -55,15 +45,15 @@ class CodeGenerator:
 
     def gen_globals(self, module, context):
         """ Generate global variables and modules """
-        m = ir.Module(module.name)
-        context.var_map[module] = m
+        ir_module = ir.Module(module.name)
+        context.var_map[module] = ir_module
 
         # Generate room for global variables:
         for var in module.innerScope.variables:
             ir_var = ir.Variable(var.name, context.size_of(var.typ))
             context.var_map[var] = ir_var
             assert not var.isLocal
-            m.add_variable(ir_var)
+            ir_module.add_variable(ir_var)
 
     def gencode(self, mod, context):
         """ Generate code for a single module """
@@ -74,17 +64,13 @@ class CodeGenerator:
         self.logger.debug('Generating ir-code for {}'.format(mod.name))
         self.builder.m = self.context.var_map[mod]
         try:
+            # Check defined types of this module:
             for typ in mod.types:
                 self.context.check_type(typ)
             # Only generate function if function contains a body:
-            real_functions = list(filter(
-                lambda f: f.body, mod.functions))
-            # Generate room for global variables:
-            for var in mod.innerScope.variables:
-                # See above!
-                pass
-            for func in real_functions:
-                self.gen_function(func)
+            for func in mod.functions:
+                if func.body:
+                    self.gen_function(func)
         except SemanticError as ex:
             self.error(ex.msg, ex.loc)
         if not self.ok:
@@ -114,10 +100,11 @@ class CodeGenerator:
             variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
             self.emit(variable)
             if sym.isParameter:
-                # TODO: parameters are now always integers?
+                # Parameters can only be simple types (pass by value)
+                param_ir_typ = self.get_ir_type(sym.typ, sym.loc)
 
                 # Define parameter for function:
-                parameter = ir.Parameter(sym.name, ir.i32)
+                parameter = ir.Parameter(sym.name, param_ir_typ)
                 ir_function.add_parameter(parameter)
 
                 # For paramaters, allocate space and copy the value into
@@ -447,6 +434,17 @@ class CodeGenerator:
             expr.typ = ast.PointerType(expr.a.typ)
             expr.lvalue = False
             return ra
+        elif expr.op == '+':
+            ra = self.make_rvalue_expr(expr.a)
+            expr.typ = expr.a.typ
+            expr.lvalue = False
+            return ra
+        elif expr.op == '-':
+            ra = self.make_rvalue_expr(expr.a)
+            expr.typ = expr.a.typ
+            expr.lvalue = False
+            # TODO:
+            return self.emit(ir.Unop('-', ra, 'unary_minus', ra.ty))
         else:
             raise NotImplementedError('Unknown unop {0}'.format(expr.op))
 
@@ -512,9 +510,9 @@ class CodeGenerator:
 
         # assert type(base) is ir.Mem, type(base)
         # Calculate offset into struct:
-        bt = self.context.the_type(expr.base.typ)
+        base_type = self.context.the_type(expr.base.typ)
         offset = self.emit(
-            ir.Const(bt.fieldOffset(expr.field), 'offset', ir.i32))
+            ir.Const(base_type.fieldOffset(expr.field), 'offset', ir.i32))
         offset = self.emit(ir.IntToPtr(offset, 'offset'))
 
         # Calculate memory address of field:

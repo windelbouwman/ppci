@@ -620,6 +620,19 @@ class Binop(Expression):
         return '{} = {} {} {}'.format(self.name, a, self.operation, b)
 
 
+class Unop(Expression):
+    """ Unary operation """
+    ops = ['-']
+    a = var_use('a')
+
+    def __init__(self, operation, a, name, ty):
+        super().__init__(name, ty)
+        assert operation in self.ops
+        self.operation = operation
+        assert a.ty is ty
+        self.a = a
+
+
 def Add(a, b, name, ty):
     """ Substract b from a """
     return Binop(a, '+', b, name, ty)

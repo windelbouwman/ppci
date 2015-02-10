@@ -214,16 +214,21 @@ class ConstantTestCase(BuildTestCaseBase):
 class FunctionTestCase(BuildTestCaseBase):
     """ Test function syntax """
     def test_function_args(self):
+        """ Test function arguments """
         snippet = """
          module testargs;
-         function void t2(int a, double b)
+         function void t1(int a, double b)
          {
-            t2(2, 2);
-            t2(2);
-            t2(1, 1.2);
+            t1(2, 2);
+            t1(2);
+            t1(1, 1.2);
+         }
+
+         function void t2(struct {int a; int b;} x)
+         {
          }
         """
-        self.expect_errors(snippet, [5, 6])
+        self.expect_errors(snippet, [5, 6, 10])
 
     def test_return(self):
         """ Test return of void """
@@ -265,6 +270,7 @@ class ExpressionTestCase(BuildTestCaseBase):
         self.expect_errors(snippet, [8, 9])
 
     def test_expression1(self):
+        """ Test some other expressions """
         snippet = """
          module testexpr1;
          function void t()
@@ -273,6 +279,20 @@ class ExpressionTestCase(BuildTestCaseBase):
             a = 1;
             b = a * 2 + a * a;
             c = b * a - 3;
+         }
+        """
+        self.expect_ok(snippet)
+
+    def test_unary_minus(self):
+        """ Check if a = -1 works """
+        snippet = """
+         module testunaryminus;
+         function void t()
+         {
+            var int a, b, c;
+            a = -11;
+            b = -a * -2 + - a * a;
+            c = b * a - -3;
          }
         """
         self.expect_ok(snippet)

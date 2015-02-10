@@ -206,7 +206,7 @@ def c3compile(sources, includes, target, lst_file=None):
         print('============', file=lst_file)
 
     for ircode in ir_mods:
-        optimize(ircode)
+        optimize(ircode, )
 
     # Write output to listings file:
     if lst_file:

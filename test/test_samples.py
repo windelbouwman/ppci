@@ -69,6 +69,7 @@ class Samples:
         res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
         self.do(snippet, res)
 
+    @unittest.skip('actually tests qemu pipe, not ppci')
     def test_large_for_loop_print(self):
         """ This test actually tests the qemu pipe system """
         snippet = """

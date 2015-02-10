@@ -7,11 +7,6 @@ from .irmach import AbstractInstruction, VirtualRegister
 from .tree import Tree
 
 
-class SelectionDagNode:
-    def __init__(self):
-        pass
-
-
 NODE_ATTR = '%nodetype'
 
 
@@ -34,9 +29,10 @@ def make_map(cls):
     return cls
 
 
-postfix_map = {ir.i32: "I32", ir.ptr: "I32", ir.i8: 'I8'}
-def type_postfix(t):
-    return postfix_map[t]
+def type_postfix(typ):
+    """ Determine the name of the dag item """
+    postfix_map = {ir.i32: "I32", ir.ptr: "I32", ir.i8: 'I8'}
+    return postfix_map[typ]
 
 
 @make_map
@@ -143,6 +139,14 @@ class Dagger:
 
         # Check if this binop is used more than once
         # if so, create register copy:
+        self.copy_val(node, tree)
+
+    @register(ir.Unop)
+    def do_unop(self, node):
+        names = {'-': 'NEG'}
+        op = names[node.operation] + type_postfix(node.ty)
+        a = self.lut[node.a]
+        tree = Tree(op, a)
         self.copy_val(node, tree)
 
     @register(ir.Addr)

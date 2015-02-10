@@ -308,7 +308,7 @@ class Parser:
         elif self.Peak == 'return':
             return self.parse_return()
         else:
-            x = self.UnaryExpression()
+            x = self.parse_unary_expression()
             if self.Peak in Assignment.operators:
                 # We enter assignment mode here.
                 operator = self.Peak
@@ -415,12 +415,12 @@ class Parser:
         if self.Peak == 'cast':
             loc = self.consume('cast').loc
             self.consume('<')
-            t = self.parse_type_spec()
+            to_type = self.parse_type_spec()
             self.consume('>')
             self.consume('(')
             ce = self.parse_expression()
             self.consume(')')
-            return TypeCast(t, ce, loc)
+            return TypeCast(to_type, ce, loc)
         elif self.Peak == 'sizeof':
             # Compiler internal function to determine size of a type
             loc = self.consume('sizeof').loc
@@ -429,10 +429,11 @@ class Parser:
             self.consume(')')
             return Sizeof(typ, loc)
         else:
-            return self.UnaryExpression()
+            return self.parse_unary_expression()
 
-    def UnaryExpression(self):
-        if self.Peak in ['&', '*']:
+    def parse_unary_expression(self):
+        """ Handle unary plus, minus and pointer magic """
+        if self.Peak in ['&', '*', '-', '+']:
             op = self.consume(self.Peak)
             ce = self.parse_cast_expression()
             if op.val == '*':
@@ -445,7 +446,7 @@ class Parser:
     def parse_postfix_expression(self):
         """ Parse postfix expression """
         pfe = self.parse_primary_expression()
-        while self.Peak in ['[', '.', '->', '(', '++']:
+        while self.Peak in ['[', '.', '->', '(']:
             if self.has_consumed('['):
                 i = self.parse_expression()
                 self.consume(']')
@@ -457,9 +458,6 @@ class Parser:
             elif self.has_consumed('.'):
                 field = self.consume('ID')
                 pfe = Member(pfe, field.val, field.loc)
-            elif self.Peak == '++':
-                loc = self.consume('++').loc
-                pfe = Unop('++', pfe, loc)
             elif self.has_consumed('('):
                 # Function call
                 args = []

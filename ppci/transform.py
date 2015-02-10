@@ -88,6 +88,7 @@ class ConstantFolder(BlockPass):
             a = self.eval_const(value.a)
             b = self.eval_const(value.b)
             assert a.ty is b.ty
+            assert a.ty is value.ty
             v = self.ops[value.operation](a.value, b.value)
             cn = ir.Const(v, 'new_fold', a.ty)
             return cn
@@ -253,6 +254,9 @@ class LoadAfterStorePass(BlockPass):
             # Find store instruction preceeding this load:
             store = self.find_store_backwards(load)
             if store is not None:
+                # print(load, store)
+                # Assert type equivalence:
+                assert load.ty is store.value.ty
                 load.replace_by(store.value)
                 count += 1
                 # TODO: after one try, the instructions are different
@@ -335,7 +339,8 @@ class CleanPass(FunctionPass):
             block.LastInstruction.delete()
             function.remove_block(block)
             stat += 1
-        self.logger.debug('Removed {} empty blocks'.format(stat))
+        if stat > 0:
+            self.logger.debug('Removed {} empty blocks'.format(stat))
 
     def find_single_predecessor_block(self, function):
         """ Find a block with a single predecessor """
