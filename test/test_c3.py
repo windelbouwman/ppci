@@ -227,8 +227,13 @@ class FunctionTestCase(BuildTestCaseBase):
          function void t2(struct {int a; int b;} x)
          {
          }
+
+         function int t3()
+         {
+            t3();
+         }
         """
-        self.expect_errors(snippet, [5, 6, 10])
+        self.expect_errors(snippet, [5, 6, 10, 16])
 
     def test_return(self):
         """ Test return of void """

@@ -7,7 +7,10 @@ def u16(h):
 
 
 def u32(x):
-    return struct.pack('<I', x)
+    if x < 0:
+        return struct.pack('<i', x)
+    else:
+        return struct.pack('<I', x)
 
 
 def u8(x):

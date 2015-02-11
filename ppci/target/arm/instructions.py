@@ -713,7 +713,12 @@ class ArmInstructionSelector(InstructionSelector):
         self.emit(Lsr1, dst=[d], src=[c0, c1])
         return d
 
-# reg: MULI32(reg, reg)         2 'd = self.newTmp(); self.emit(Mul1, dst=[d], src=[c0, c1]); return d'
+    @pattern('reg', 'MULI32(reg, reg)', cost=10)
+    def P21(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Mul1, dst=[d], src=[c0, c1])
+        return d
+
 # reg: MEMI32(ADDI32(reg, cn))  2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[c1]); return d'
 # cn: CONSTI32                  0 'return tree.value'
 # reg: CONSTI32                 2 'return (type(tree.value) is int) and (tree.value < 256)' 'd = self.newTmp(); self.emit(Mov1, dst=[d], others=[tree.value]); return d'

@@ -388,15 +388,19 @@ class Mov2(ThumbInstruction):
 
 
 class Mul(ThumbInstruction):
-    """ mul Rn, Rdm """
-    args = [('rd', ArmRegister), ('rdm', ArmRegister)]
+    """
+        mul Rn, Rdm
+
+        multiply Rn and Rm and store the result in Rd
+        Rd and Rm are the same register.
+    """
+    args = [('rn', ArmRegister), ('rdm', ArmRegister)]
     syntax = ['mul', 0, ',', 1]
 
     def encode(self):
         rn = self.rn.num
         self.token.rd = self.rdm.num
         opcode = 0b0100001101
-        #h = (opcode << 6) | (rn << 3) | rdm
         self.token[6:16] = opcode
         self.token[3:6] = rn
         return self.token.encode()
@@ -404,6 +408,17 @@ class Mul(ThumbInstruction):
     @staticmethod
     def from_im(im):
         return Mul(im.src[0], im.dst[0])
+
+
+class Rsb_imm_t1(ThumbInstruction):
+    """ rsbs rd, rn, #0 """
+    args = [('rd', ArmRegister), ('rn', ArmRegister)]
+    # TODO: what is the syntax for constant 0?
+    syntax = ['rsb', 0, ',', 1, ',']
+
+    def encode(self):
+        raise NotImplementedError()
+        return self.token.encode()
 
 
 class regreg_base(ThumbInstruction):
@@ -809,6 +824,12 @@ class ThumbInstructionSelector(InstructionSelector):
         self.emit(Lsl, dst=[], src=[d, c1])
         return d
 
-#reg: MULI32(reg, reg) 2 'd = self.newTmp(); self.selector.move(d, c0); self.emit(Mul, dst=[d], src=[c1, d]); return d'
+    @pattern('reg', 'MULI32(reg, reg)', cost=5)
+    def P24(self, tree, c0, c1):
+        d = self.newTmp()
+        self.move(d, c0)
+        self.emit(Mul, dst=[d], src=[c1, d])
+        return d
+
 #reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
 #addr: reg 0 ''

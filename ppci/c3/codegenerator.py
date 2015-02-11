@@ -34,6 +34,7 @@ class CodeGenerator:
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
+        self.module_ok = False
 
     def emit(self, instruction):
         """
@@ -60,26 +61,31 @@ class CodeGenerator:
         assert type(mod) is ast.Module
         self.context = context
         self.builder.prepare()
-        self.ok = True
+        self.module_ok = True
         self.logger.debug('Generating ir-code for {}'.format(mod.name))
         self.builder.m = self.context.var_map[mod]
         try:
             # Check defined types of this module:
             for typ in mod.types:
                 self.context.check_type(typ)
+
             # Only generate function if function contains a body:
             for func in mod.functions:
                 if func.body:
-                    self.gen_function(func)
+                    # Try per function, in case of error, continue with next
+                    try:
+                        self.gen_function(func)
+                    except SemanticError as ex:
+                        self.error(ex.msg, ex.loc)
         except SemanticError as ex:
             self.error(ex.msg, ex.loc)
-        if not self.ok:
+        if not self.module_ok:
             raise SemanticError("Errors occurred", None)
         return self.builder.m
 
     def error(self, msg, loc=None):
         """ Emit error to diagnostic system and mark package as invalid """
-        self.ok = False
+        self.module_ok = False
         self.diag.error(msg, loc)
 
     def gen_function(self, function):
@@ -129,8 +135,7 @@ class CodeGenerator:
         if self.context.equal_types(cty, 'int'):
             return ir.i32
         elif self.context.equal_types(cty, 'double'):
-            # TODO: implement true floating point.
-            return ir.i32
+            return ir.f64
         elif self.context.equal_types(cty, 'void'):
             # TODO: how to handle void?
             return ir.i32
@@ -162,6 +167,8 @@ class CodeGenerator:
                 # Check that this is always a void function call
                 if not isinstance(code.ex, ast.FunctionCall):
                     raise SemanticError('Not a call expression', code.ex.loc)
+                if not self.context.equal_types('void', code.ex.typ):
+                    raise SemanticError('Can only call void functions', code.ex.loc)
             elif type(code) is ast.If:
                 self.gen_if_stmt(code)
             elif type(code) is ast.Return:
@@ -428,23 +435,25 @@ class CodeGenerator:
     def gen_unop(self, expr):
         """ Generate code for unary operator """
         if expr.op == '&':
-            ra = self.gen_expr_code(expr.a)
+            rhs = self.gen_expr_code(expr.a)
             if not expr.a.lvalue:
                 raise SemanticError('No valid lvalue', expr.a.loc)
             expr.typ = ast.PointerType(expr.a.typ)
             expr.lvalue = False
-            return ra
+            return rhs
         elif expr.op == '+':
-            ra = self.make_rvalue_expr(expr.a)
+            rhs = self.make_rvalue_expr(expr.a)
             expr.typ = expr.a.typ
             expr.lvalue = False
-            return ra
+            return rhs
         elif expr.op == '-':
-            ra = self.make_rvalue_expr(expr.a)
+            rhs = self.make_rvalue_expr(expr.a)
             expr.typ = expr.a.typ
             expr.lvalue = False
-            # TODO:
-            return self.emit(ir.Unop('-', ra, 'unary_minus', ra.ty))
+
+            # Implement unary operator with sneaky trick using 0 - v binop:
+            zero = self.emit(ir.Const(0, 'zero', rhs.ty))
+            return self.emit(ir.Binop(zero, '-', rhs, 'unary_minus', rhs.ty))
         else:
             raise NotImplementedError('Unknown unop {0}'.format(expr.op))
 

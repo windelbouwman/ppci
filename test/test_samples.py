@@ -60,13 +60,18 @@ class Samples:
          function void start()
          {
             var int i;
+            var int b;
+            b = 2;
             for (i=0; i<10; i = i + 1)
             {
               io.print2("A = ", i);
+              b *= i + 1;
             }
+            io.print2("B = ", b);
          }
         """
         res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
+        res += "B = 0x006EBE00\n"
         self.do(snippet, res)
 
     @unittest.skip('actually tests qemu pipe, not ppci')

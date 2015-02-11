@@ -141,14 +141,6 @@ class Dagger:
         # if so, create register copy:
         self.copy_val(node, tree)
 
-    @register(ir.Unop)
-    def do_unop(self, node):
-        names = {'-': 'NEG'}
-        op = names[node.operation] + type_postfix(node.ty)
-        a = self.lut[node.a]
-        tree = Tree(op, a)
-        self.copy_val(node, tree)
-
     @register(ir.Addr)
     def do_addr(self, node):
         tree = Tree('ADR', self.lut[node.e])

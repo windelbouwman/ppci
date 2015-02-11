@@ -24,7 +24,7 @@ class ThumbAssembler(BaseAssembler):
             "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
             "r10", "r11", "r12", "sp", "lr", "pc",
             "dcd", "yield", 'db',
-            "nop", "mov", "cmp", "add", "sub", "mul",
+            "nop", "mov", "cmp", "add", "sub", "mul", "rsb",
             "lsl", "lsr", "orr", "and",
             "push", "pop", "b", "bl", "blt", "ble", "bgt", "beq",
             "bne", "bge", 'bw',
