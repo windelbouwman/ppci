@@ -187,6 +187,8 @@ class Samples:
          module sample;
          import io;
          var int MyGlob;
+         var struct {int a; int b;}[10] cplx1;
+         var struct {int a; int b;}[10] cplx2;
          function void do1()
          {
             MyGlob = MyGlob + 1;
@@ -215,9 +217,15 @@ class Samples:
             *(get_ptr()) += 2;
             *(get_ptr()) += 8;
             do5();
+            cplx1[1].b = 2;
+            cplx2[1].a = 22;
+            io.print2("cplx1 1 b =", cplx1[1].b);
+            io.print2("cplx2 1 a =", cplx2[1].a);
          }
         """
         res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13, 28])
+        res += "cplx1 1 b =0x00000002\n"
+        res += "cplx2 1 a =0x00000016\n"
         self.do(snippet, res)
 
     def test_const(self):
@@ -511,6 +519,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
 
 
 class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
+    """ The lm3s811 has 64 k memory """
     def setUp(self):
         # self.skipTest('Tests got broken!')
         if not has_qemu():
@@ -532,7 +541,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         ALIGN(4)
         SECTION(code)
     }
-    MEMORY ram LOCATION=0x20000000 SIZE=0xA0000 {
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
         SECTION(data)
     }
     """

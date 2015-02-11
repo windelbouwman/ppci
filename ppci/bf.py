@@ -34,18 +34,21 @@ class BrainFuckGenerator():
         # Allocate space on stack for ptr register:
         ptr_var = self.builder.emit(ir.Alloc('ptr_addr', ir.i32.byte_size))
 
+        bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable('data', 30000 * ir.i32.byte_size)
+        data = ir.Variable('data', bf_mem_size * ir.i8.byte_size)
+        print(data)
         self.builder.m.add_variable(data)
 
         # Locate '1' and '0' constants:
-        one_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
-        one_ins = self.builder.emit(ir.IntToByte(one_ins, "val_inc"))
-        four_ins = self.builder.emit(ir.Const(4, "four", ir.i32))
-        four_ins = self.builder.emit(ir.IntToPtr(four_ins, "ptr_incr"))
+        one_i32_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
+        one_ins = self.builder.emit(ir.IntToByte(one_i32_ins, "val_inc"))
+        prc_inc = self.builder.emit(ir.IntToPtr(one_i32_ins, "ptr_incr"))
         zero_ins = self.builder.emit(ir.Const(0, "zero", ir.i32))
         zero_ptr = self.builder.emit(ir.IntToPtr(zero_ins, "zero_ptr"))
-        array_size = self.builder.emit(ir.Const(1000, "array_max", ir.i32))
+        zero_byte = self.builder.emit(ir.IntToByte(zero_ins, "zero_ptr"))
+        array_size = self.builder.emit(
+            ir.Const(bf_mem_size, "array_max", ir.ptr))
 
         # Store initial value of ptr:
         self.builder.emit(ir.Store(zero_ptr, ptr_var))
@@ -59,14 +62,14 @@ class BrainFuckGenerator():
         ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.ptr))
         cell_addr = self.builder.emit(ir.Add(data, ptr_val, "cell_addr", ir.ptr))
         self.builder.emit(ir.Store(zero_ins, cell_addr))
-        add_ins = self.builder.emit(ir.Add(ptr_val, four_ins, "Added", ir.ptr))
+        add_ins = self.builder.emit(ir.Add(ptr_val, prc_inc, "Added", ir.ptr))
         self.builder.emit(ir.Store(add_ins, ptr_var))
         self.builder.emit(ir.CJump(add_ins, '==', array_size, block3, block_init))
 
         self.builder.setBlock(block3)
 
         # Start with ptr as zero:
-        ptr = self.builder.emit(ir.IntToPtr(zero_ins, "ptr_zero"))
+        ptr = zero_ptr
 
         # A stack of all nested loops:
         loops = []
@@ -81,11 +84,11 @@ class BrainFuckGenerator():
         for c in src:
             if c == '>':
                 # ptr++;
-                ptr = self.builder.emit(ir.Add(ptr, four_ins, "ptr", ir.ptr))
+                ptr = self.builder.emit(ir.Add(ptr, prc_inc, "ptr", ir.ptr))
                 cell_addr = None
             elif c == '<':
                 # ptr--;
-                ptr = self.builder.emit(ir.Sub(ptr, four_ins, "ptr", ir.ptr))
+                ptr = self.builder.emit(ir.Sub(ptr, prc_inc, "ptr", ir.ptr))
                 cell_addr = None
             elif c == '+':
                 # data[ptr]++;
@@ -132,7 +135,7 @@ class BrainFuckGenerator():
                 # Create test, jump to exit when *ptr == 0:
                 cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
                 val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
-                self.builder.emit(ir.CJump(val_ins, '==', zero_ins, exit, body))
+                self.builder.emit(ir.CJump(val_ins, '==', zero_byte, exit, body))
 
                 # Set body as current block:
                 self.builder.setBlock(body)

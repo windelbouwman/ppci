@@ -94,6 +94,15 @@ class Db(ArmInstruction):
         return self.token.encode()
 
 
+class Ds(ArmInstruction):
+    tokens = []
+    args = [('v', int)]
+    syntax = ['ds', 0]
+
+    def encode(self):
+        return bytes([0] * self.v)
+
+
 def Mov(*args):
     if len(args) == 2:
         if isinstance(args[1], int):

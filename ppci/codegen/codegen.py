@@ -122,9 +122,8 @@ class CodeGenerator:
 
         # Generate code for global variables:
         outs.select_section('data')
-        for global_variable in ircode.Variables:
-            # TODO: account for variable size?
-            self.target.emit_global(outs, ir.label_name(global_variable))
+        for var in ircode.Variables:
+            self.target.emit_global(outs, ir.label_name(var), var.amount)
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.

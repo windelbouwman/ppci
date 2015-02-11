@@ -80,6 +80,15 @@ class Db(ThumbInstruction):
         return bytes([self.v])
 
 
+class Ds(ThumbInstruction):
+    tokens = []
+    args = [('v', int)]
+    syntax = ['ds', 0]
+
+    def encode(self):
+        return bytes([0] * self.v)
+
+
 class nop_ins(ThumbInstruction):
     def encode(self):
         return bytes()

@@ -1,9 +1,8 @@
-import types
-import logging
-
 """
   Base classes for defining a target
 """
+
+import logging
 
 
 class Isa:
@@ -21,6 +20,7 @@ class Isa:
         self.typ2nt = {}
 
     def register_instruction(self, i):
+        """ Register an instruction into this ISA """
         self.instructions.append(i)
 
 
@@ -42,7 +42,8 @@ class InsMeta(type):
 
             def _init_(self, *args):
                 # Construct token:
-                setattr(self, 'token', cls.tokens[0]())
+                if len(cls.tokens) > 0:
+                    setattr(self, 'token', cls.tokens[0]())
                 for x, ct in enumerate(cls.tokens):
                     setattr(self, 'token{}'.format(x + 1), ct())
 

@@ -31,7 +31,8 @@ class Linker:
                 out_s = dst.get_section(sym.section)
                 value = offsets[sym.section] + sym.value
                 dst.add_symbol(sym.name, value, sym.section)
-                # self.logger.debug('{} at 0x{:08X} in section {}'.format(sym.name, value, sym.section))
+                # self.logger.debug('{} at 0x{:08X} in section {}'
+                # .format(sym.name, value, sym.section))
 
             # Merge relocations:
             for reloc in iobj.relocations:
@@ -50,9 +51,10 @@ class Linker:
                 if type(memory_input) is Section:
                     section = dst.get_section(memory_input.section_name)
                     section.address = cur_addr
-                    self.logger.debug('Memory: {} Section: {} Address: 0x{:X} Size: 0x{:X}'
-                                      .format(mem.name, section.name,
-                                          section.address, section.Size))
+                    self.logger.debug(
+                        'Memory: {} Section: {} Address: 0x{:X} Size: 0x{:X}'
+                        .format(mem.name, section.name,
+                                section.address, section.Size))
                     cur_addr += section.Size
                     output_memory += section.data
                     # TODO: align sections
@@ -64,7 +66,12 @@ class Linker:
                         output_memory += bytes([0])
                 else:
                     raise NotImplementedError(str(memory_input))
+            # Check that the memory fits!
             image.data = bytes(output_memory)
+            if image.size > mem.size:
+                raise CompilerError(
+                    'Memory exceeds size ({} > {})'
+                    .format(image.size, mem.size))
             dst.images[mem.name] = image
 
     def do_relocations(self, dst):
@@ -72,7 +79,8 @@ class Linker:
         for reloc in dst.relocations:
             # Lookup symbol:
             if reloc.sym not in dst.symbols:
-                raise CompilerError('Undefined reference "{}"'.format(reloc.sym))
+                raise CompilerError(
+                    'Undefined reference "{}"'.format(reloc.sym))
 
             sym_value = dst.get_symbol_value(reloc.sym)
             section = dst.get_section(reloc.section)
@@ -84,7 +92,8 @@ class Linker:
                 f = self.target.reloc_map[reloc.typ]
                 f(reloc, sym_value, section, reloc_value)
             else:
-                raise NotImplementedError('Unknown relocation type {}'.format(reloc.typ))
+                raise NotImplementedError(
+                    'Unknown relocation type {}'.format(reloc.typ))
 
     def link(self, objs, layout):
         """ Link together the given object files using the layout """

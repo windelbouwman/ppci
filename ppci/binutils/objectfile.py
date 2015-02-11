@@ -70,6 +70,10 @@ class Image:
         return (self.location == other.location) \
             and (self.data == other.data)
 
+    @property
+    def size(self):
+        return len(self.data)
+
 
 class ObjectFile:
     """ Container for sections with compiled code or data.

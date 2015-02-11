@@ -710,7 +710,7 @@ class Variable(Expression):
         self.amount = amount
 
     def __repr__(self):
-        return 'Variable {}'.format(self.name)
+        return 'Variable {} ({} bytes)'.format(self.name, self.amount)
 
 
 class Parameter(Expression):

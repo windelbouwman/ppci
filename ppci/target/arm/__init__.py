@@ -9,7 +9,7 @@ from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
 from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC
 from ..arm.registers import register_range
 
-from .instructions import Dcd, Adr, Mcr, Mrc, RegisterSet
+from .instructions import Dcd, Ds, Mcr, Mrc, RegisterSet
 from .relocations import reloc_map
 
 
@@ -20,7 +20,7 @@ class ArmAssembler(BaseAssembler):
         kws = [
             "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
             "r10", "r11", "r12", "sp", "lr", "pc",
-            "dcd", 'db',
+            "dcd", 'db', 'ds',
             "nop", "mov", "cmp", "add", "sub", "mul",
             "lsl", "lsr", "orr", "and",
             "push", "pop", "b", "bl",
@@ -152,6 +152,12 @@ class ArmTarget(Target):
         self.assembler = ArmAssembler(self)
         self.reloc_map = reloc_map
 
-    def emit_global(self, outs, lname):
+    def emit_global(self, outs, lname, amount):
+        # TODO: alignment?
         outs.emit(Label(lname))
-        outs.emit(Dcd(0))
+        if amount == 4:
+            outs.emit(Dcd(0))
+        elif amount > 0:
+            outs.emit(Ds(amount))
+        else:
+            raise NotImplementedError()

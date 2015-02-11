@@ -437,6 +437,8 @@ class Verifier:
         elif isinstance(instruction, ir.Phi):
             for inp_val in instruction.inputs.values():
                 assert instruction.ty is inp_val.ty
+        elif isinstance(instruction, ir.CJump):
+            assert instruction.a.ty is instruction.b.ty
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
