@@ -522,7 +522,6 @@ class CodeGenerator:
         offset = self.emit(ir.IntToPtr(offset, 'offset'))
 
         # Calculate memory address of field:
-        # TODO: Load value when its an l value
         return self.emit(ir.Add(base, offset, "mem_addr", ir.ptr))
 
     def gen_index_expr(self, expr):

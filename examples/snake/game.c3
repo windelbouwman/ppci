@@ -1,6 +1,6 @@
 
 module game;
-import arch;
+import bsp;
 
 const int max_body_len = 10;
 const int grid_size = 10;
@@ -23,6 +23,18 @@ type int[grid_size][grid_size] map_t;
 var body_t body;
 var map_t map;
 var map_t render;
+
+function void init()
+{
+    var int i;
+    for (i = 0; i < grid_size; i += 1)
+    {
+        map[i][0] = 1;
+        map[i][9] = 1;
+        map[0][i] = 1;
+        map[9][i] = 1;
+    }
+}
 
 function void increment_ptr(int* ptr)
 {
@@ -110,10 +122,10 @@ function void print_render()
     {
         for (x = 0; x < grid_size; x += 1)
         {
-            arch.putc(render[x][y]);
+            bsp.putc(render[x][y]);
         }
 
-        arch.putc(10);
+        bsp.putc(10);
     }
 }
 

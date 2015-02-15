@@ -5,8 +5,8 @@ import sys
 import logging
 from ppci.utils import stlink, stm32
 from ppci.utils import hexfile
-from ppci.buildfunctions import stlink_trace, stlink_flash, stlink_info
-from ppci.buildfunctions import stlink_run_sram_and_trace
+from ppci.utils.stlink import stlink_trace, stlink_flash, stlink_info
+from ppci.utils.stlink import stlink_run_sram_and_trace
 
 
 def hex2int(s):

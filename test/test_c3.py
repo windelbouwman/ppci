@@ -120,6 +120,15 @@ class ModuleTestCase(BuildTestCaseBase):
         """
         self.expect_ok([src1, src2])
 
+    def test_module_with_function(self):
+        """ Test if a function can have the same name as the module. """
+        src1 = """module mod1;
+        function void mod1()
+        {
+        }
+        """
+        self.expect_ok(src1)
+
     def test_module_distributed(self):
         """ Check if a single module can be build from two source files """
         src1 = """module p1;

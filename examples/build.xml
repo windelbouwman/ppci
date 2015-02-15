@@ -1,0 +1,18 @@
+
+<project name="Snake" default="snake">
+
+    <target name="snake">
+        <assemble source="lm3s6965/startup.asm" target="thumb" 
+            output="startup.o" />
+        <compile target="thumb" 
+            sources="snake/main.c3;lm3s6965/bsp.c3;snake/io.c3;snake/game.c3"
+            output="snake.o" />
+        <link output="snake.elf" layout="lm3s6965/memlayout.mmap" 
+            target="thumb"
+            objects="startup.o;snake.o" />
+        <objcopy objectfile="snake.elf" imagename="flash" format="bin" 
+            output="snake.bin" />
+    </target>
+
+</project>
+

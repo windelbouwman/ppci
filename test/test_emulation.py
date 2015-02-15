@@ -35,7 +35,7 @@ class EmulationTestCase(unittest.TestCase):
     # @unittest.skip('A real world example, hence contains errors :)')
     def test_snake(self):
         """ Compile the snake example """
-        recipe = relpath('..', 'examples', 'stm32f429discovery', 'build.xml')
+        recipe = relpath('..', 'examples', 'build.xml')
         self.assertEqual(0, construct(recipe))
 
 if __name__ == '__main__':

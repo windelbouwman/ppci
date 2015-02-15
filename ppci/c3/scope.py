@@ -66,11 +66,11 @@ class Scope:
     def __getitem__(self, key):
         return self.get_symbol(key)
 
-    def has_symbol(self, name):
+    def has_symbol(self, name, include_parent=True):
         """ Check if name is a defined symbol in this or parent scope """
         if name in self.symbols:
             return True
-        elif self.parent:
+        elif self.parent and include_parent:
             return self.parent.has_symbol(name)
         else:
             return False
@@ -187,7 +187,6 @@ class Context:
     def eval_const(self, expr):
         """ Evaluates a constant expression. This is done by first generating
             ir-code, to check for types, and then evaluating this code """
-        # TODO: do not emit code here?
 
         # TODO: check types!!
         assert isinstance(expr, ast.Expression)

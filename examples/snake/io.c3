@@ -1,10 +1,10 @@
 module io;
-import arch;
+import bsp;
 
 function void println(string txt)
 {
     print(txt);
-    arch.putc(10); // Newline!
+    bsp.putc(10); // Newline!
 }
 
 function void print(string txt)
@@ -14,7 +14,7 @@ function void print(string txt)
 
     while (i < txt->len)
     {
-        arch.putc(txt->txt[i]);
+        bsp.putc(txt->txt[i]);
         i = i + 1;
     }
 }
@@ -35,15 +35,15 @@ function void print_int(int i)
         c = (i >> b) & 0xF;
         if (c < 10)
         {
-            arch.putc( 48 + c );
+            bsp.putc( 48 + c );
         }
         else
         {
-            arch.putc( 65 - 10 + c );
+            bsp.putc( 65 - 10 + c );
         }
     }
 
-    arch.putc(10); // Newline!
+    bsp.putc(10); // Newline!
 }
 
 function void print2(string label, int value)

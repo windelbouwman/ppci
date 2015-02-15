@@ -36,9 +36,9 @@ class ScopeFiller(C3Pass):
         self.pkg = pkg
         # Prepare top level scope and set scope to all objects:
         self.scopeStack = [context.scope]
-        modScope = Scope(self.CurrentScope)
-        self.scopeStack.append(modScope)
-        self.visit(pkg, self.enterScope, self.quitScope)
+        mod_scope = Scope(self.current_scope)
+        self.scopeStack.append(mod_scope)
+        self.visit(pkg, self.enter_scope, self.quitScope)
         assert len(self.scopeStack) == 2
 
         self.logger.debug('Resolving imports for package {}'.format(pkg.name))
@@ -51,31 +51,32 @@ class ScopeFiller(C3Pass):
                 self.error('Cannot import {}'.format(i))
 
     @property
-    def CurrentScope(self):
+    def current_scope(self):
         """ Gets the current scope """
         return self.scopeStack[-1]
 
-    def addSymbol(self, sym):
-        if self.CurrentScope.has_symbol(sym.name):
+    def add_symbol(self, sym):
+        """ Add a symbol to the current scope """
+        if self.current_scope.has_symbol(sym.name, include_parent=False):
             self.error('Redefinition of {0}'.format(sym.name), sym.loc)
         else:
-            self.CurrentScope.add_symbol(sym)
+            self.current_scope.add_symbol(sym)
 
-    def enterScope(self, sym):
-        # Attach scope to references:
+    def enter_scope(self, sym):
+        # Attach scope to references, so they can be looked up:
         if type(sym) is Identifier:
-            sym.scope = self.CurrentScope
+            sym.scope = self.current_scope
 
         # Add symbols to current scope:
         if isinstance(sym, Symbol):
-            self.addSymbol(sym)
-            sym.scope = self.CurrentScope
+            self.add_symbol(sym)
+            sym.scope = self.current_scope
 
         # Create subscope for items creating a scope:
         if type(sym) in self.scoped_types:
-            newScope = Scope(self.CurrentScope)
-            self.scopeStack.append(newScope)
-            sym.innerScope = self.CurrentScope
+            scope = Scope(self.current_scope)
+            self.scopeStack.append(scope)
+            sym.innerScope = self.current_scope
 
     def quitScope(self, sym):
         # Pop out of scope:
@@ -119,9 +120,6 @@ class Builder:
 
         self.fill_scopes(context)
 
-        # Semantic checkers:
-        self.semantic(context)
-
         # Phase 1.9
         for module in context.modules:
             self.codegen.gen_globals(module, context)
@@ -146,7 +144,3 @@ class Builder:
         # Fix scopes:
         for pkg in context.modules:
             scope_filler.add_scope(pkg, context)
-
-    def semantic(self, context):
-        # TODO
-        pass
