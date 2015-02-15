@@ -105,14 +105,11 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     if dump_file and dump_range:
         # TODO: dump file must not contain '/':
         dump_file = os.path.basename(dump_file)
-        dump_cmd = 'pmemsave 0x{:x} 0x{:x} dumpfile.bin\n'.format(
-                        dump_range[0], dump_range[1], dump_file)
-        print(dump_cmd)
+        dump_cmd = 'pmemsave 0x{:x} 0x{:x} {}\n' \
+            .format(dump_range[0], dump_range[1], dump_file)
 
         qemu_serial.send(dump_cmd.encode('ascii'))
         time.sleep(0.2)
-    else:
-        print('No mem dump')
 
     # Send quit command:
     qemu_control.send("quit\n".encode('ascii'))

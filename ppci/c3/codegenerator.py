@@ -62,7 +62,7 @@ class CodeGenerator:
         self.context = context
         self.builder.prepare()
         self.module_ok = True
-        self.logger.debug('Generating ir-code for {}'.format(mod.name))
+        self.logger.info('Generating ir-code for {}'.format(mod.name))
         self.builder.m = self.context.var_map[mod]
         try:
             # Check defined types of this module:
@@ -168,7 +168,8 @@ class CodeGenerator:
                 if not isinstance(code.ex, ast.FunctionCall):
                     raise SemanticError('Not a call expression', code.ex.loc)
                 if not self.context.equal_types('void', code.ex.typ):
-                    raise SemanticError('Can only call void functions', code.ex.loc)
+                    raise SemanticError(
+                        'Can only call void functions', code.ex.loc)
             elif type(code) is ast.If:
                 self.gen_if_stmt(code)
             elif type(code) is ast.Return:
@@ -184,7 +185,7 @@ class CodeGenerator:
 
     def gen_return_stmt(self, code):
         """ Generate code for return statement """
-        ret_val = self.make_rvalue_expr(code.expr)
+        ret_val = self.gen_expr_code(code.expr, rvalue=True)
         self.emit(ir.Return(ret_val))
         block = self.builder.newBlock()
         self.builder.setBlock(block)
@@ -239,7 +240,7 @@ class CodeGenerator:
                 'No valid lvalue {}'.format(code.lval), code.lval.loc)
 
         # Evaluate right hand side (and make it rightly typed):
-        rval = self.make_rvalue_expr(code.rval)
+        rval = self.gen_expr_code(code.rval, rvalue=True)
         rval = self.do_coerce(rval, code.rval.typ, code.lval.typ, code.loc)
 
         # Implement short hands (+=, -= etc):
@@ -250,11 +251,11 @@ class CodeGenerator:
             load_ty = self.get_ir_type(code.lval.typ, code.lval.loc)
 
             # We know, the left hand side is an lvalue, so load it:
-            lval_ld = self.emit(ir.Load(lval, 'assign_op_load', load_ty))
+            lhs_ld = self.emit(ir.Load(lval, 'assign_op_load', load_ty))
 
             # Now construct the rvalue:
             oper = code.shorthand_operator
-            rval = self.emit(ir.Binop(lval_ld, oper, rval, "binop", rval.ty))
+            rval = self.emit(ir.Binop(lhs_ld, oper, rval, "binop", rval.ty))
 
         # TODO: for now treat all stores as volatile..
         # TODO: determine volatile properties from type??
@@ -320,13 +321,13 @@ class CodeGenerator:
                 self.builder.setBlock(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
-                ta = self.make_rvalue_expr(expr.a)
-                tb = self.make_rvalue_expr(expr.b)
+                lhs = self.gen_expr_code(expr.a, rvalue=True)
+                rhs = self.gen_expr_code(expr.b, rvalue=True)
                 if not self.context.equal_types(expr.a.typ, expr.b.typ):
                     raise SemanticError('Types unequal {} != {}'
                                         .format(expr.a.typ, expr.b.typ),
                                         expr.loc)
-                self.emit(ir.CJump(ta, expr.op, tb, bbtrue, bbfalse))
+                self.emit(ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse))
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
             expr.typ = self.context.get_type('bool')
@@ -343,24 +344,7 @@ class CodeGenerator:
         if not self.context.equal_types(expr.typ, 'bool'):
             self.error('Condition must be boolean', expr.loc)
 
-    def make_rvalue_expr(self, expr):
-        """ Generate expression code and insert an extra load instruction
-            when required.
-            This means that the value can be used in an expression or as
-            a parameter.
-        """
-        value = self.gen_expr_code(expr)
-        if expr.lvalue:
-            # Determine loaded type:
-            load_ty = self.get_ir_type(expr.typ, expr.loc)
-
-            # Load the value:
-            return self.emit(ir.Load(value, 'loaded', load_ty))
-        else:
-            # The value is already an rvalue:
-            return value
-
-    def gen_expr_code(self, expr):
+    def gen_expr_code(self, expr, rvalue=False):
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
         if type(expr) is ast.Binop:
@@ -408,7 +392,21 @@ class CodeGenerator:
         else:
             raise NotImplementedError('Unknown expr {}'.format(expr))
 
-        # TODO: do rvalue trick here?
+        # do rvalue trick here, create a r-value when required:
+        if rvalue and expr.lvalue:
+            # Generate expression code and insert an extra load instruction
+            # when required.
+            # This means that the value can be used in an expression or as
+            # a parameter.
+
+            # Determine loaded type:
+            load_ty = self.get_ir_type(expr.typ, expr.loc)
+
+            # Load the value:
+            value = self.emit(ir.Load(value, 'loaded', load_ty))
+
+            # This expression is no longer an lvalue
+            expr.lvalue = False
         return value
 
     def gen_dereference(self, expr):
@@ -442,12 +440,12 @@ class CodeGenerator:
             expr.lvalue = False
             return rhs
         elif expr.op == '+':
-            rhs = self.make_rvalue_expr(expr.a)
+            rhs = self.gen_expr_code(expr.a, rvalue=True)
             expr.typ = expr.a.typ
             expr.lvalue = False
             return rhs
         elif expr.op == '-':
-            rhs = self.make_rvalue_expr(expr.a)
+            rhs = self.gen_expr_code(expr.a, rvalue=True)
             expr.typ = expr.a.typ
             expr.lvalue = False
 
@@ -461,8 +459,8 @@ class CodeGenerator:
         """ Generate code for binary operation """
         assert type(expr) is ast.Binop
         expr.lvalue = False
-        a_val = self.make_rvalue_expr(expr.a)
-        b_val = self.make_rvalue_expr(expr.b)
+        a_val = self.gen_expr_code(expr.a, rvalue=True)
+        b_val = self.gen_expr_code(expr.b, rvalue=True)
 
         # Get best type for result:
         common_type = self.context.get_common_type(expr.a, expr.b)
@@ -517,7 +515,6 @@ class CodeGenerator:
         # expr must be lvalue because we handle with addresses of variables
         assert expr.lvalue
 
-        # assert type(base) is ir.Mem, type(base)
         # Calculate offset into struct:
         base_type = self.context.the_type(expr.base.typ)
         offset = self.emit(
@@ -531,7 +528,7 @@ class CodeGenerator:
     def gen_index_expr(self, expr):
         """ Array indexing """
         base = self.gen_expr_code(expr.base)
-        idx = self.make_rvalue_expr(expr.i)
+        idx = self.gen_expr_code(expr.i, rvalue=True)
 
         base_typ = self.context.the_type(expr.base.typ)
         if not isinstance(base_typ, ast.ArrayType):
@@ -547,7 +544,6 @@ class CodeGenerator:
         element_type = self.context.the_type(base_typ.element_type)
         element_size = self.context.size_of(element_type)
         expr.typ = base_typ.element_type
-        # print(expr.typ, base_typ)
         expr.lvalue = True
 
         # Generate constant:
@@ -582,11 +578,11 @@ class CodeGenerator:
             value = ir.Const(expr.val, 'cnst', ir.i32)
         elif type(expr.val) is bool:
             # For booleans, use the integer as storage class:
-            v = int(expr.val)
-            value = ir.Const(v, 'bool_cnst', ir.i32)
+            val = int(expr.val)
+            value = ir.Const(val, 'bool_cnst', ir.i32)
         elif type(expr.val) is float:
-            v = float(expr.val)
-            value = ir.Const(v, 'bool_cnst', ir.f64)
+            val = float(expr.val)
+            value = ir.Const(val, 'bool_cnst', ir.f64)
         else:
             raise NotImplementedError()
         return self.emit(value)
@@ -594,7 +590,7 @@ class CodeGenerator:
     def gen_type_cast(self, expr):
         """ Generate code for type casting """
         # When type casting, the rvalue property is lost.
-        ar = self.make_rvalue_expr(expr.a)
+        ar = self.gen_expr_code(expr.a, rvalue=True)
         expr.lvalue = False
 
         from_type = self.context.the_type(expr.a.typ)
@@ -638,7 +634,7 @@ class CodeGenerator:
         # Evaluate the arguments:
         args = []
         for arg_expr, arg_typ in zip(expr.args, ptypes):
-            arg_val = self.make_rvalue_expr(arg_expr)
+            arg_val = self.gen_expr_code(arg_expr, rvalue=True)
             arg_val = self.do_coerce(
                 arg_val, arg_expr.typ, arg_typ, arg_expr.loc)
             args.append(arg_val)
@@ -649,7 +645,9 @@ class CodeGenerator:
         # Return type will never be an lvalue:
         expr.lvalue = False
 
-        assert self.is_simple_type(ftyp.returntype)
+        if not self.is_simple_type(ftyp.returntype):
+            raise SemanticError(
+                'Return value can only be a simple type', expr.loc)
 
         # Determine return type:
         ret_typ = self.get_ir_type(expr.typ, expr.loc)

@@ -37,7 +37,6 @@ class BrainFuckGenerator():
         bf_mem_size = 30000
         # Construct global array:
         data = ir.Variable('data', bf_mem_size * ir.i8.byte_size)
-        print(data)
         self.builder.m.add_variable(data)
 
         # Locate '1' and '0' constants:

@@ -1,7 +1,10 @@
 
 module game;
+import arch;
 
 const int max_body_len = 10;
+const int grid_size = 10;
+const int UP = 0, LEFT = 1, DOWN = 2, RIGHT = 3;
 
 type struct {
     struct
@@ -14,10 +17,12 @@ type struct {
     int direction;
 } body_t;
 
-type int[10][10] map_t;
+type int[grid_size][grid_size] map_t;
 
+// Global variables with state info:
 var body_t body;
 var map_t map;
+var map_t render;
 
 function void increment_ptr(int* ptr)
 {
@@ -28,32 +33,33 @@ function void increment_ptr(int* ptr)
     }
 }
 
-function void step()
+// Advance the snake one step
+function void step_snake()
 {
     var int x, y, dx, dy;
 
     x = body.elements[body.head].x;
     y = body.elements[body.head].y;
 
-    if (body.direction == 0)
+    if (body.direction == UP)
     {
         dx = 0;
         dy = -1;
     }
 
-    if (body.direction == 1)
+    if (body.direction == LEFT)
     {
         dx = -1;
         dy = 0;
     }
 
-    if (body.direction == 2)
+    if (body.direction == DOWN)
     {
         dx = 0;
         dy = 1;
     }
 
-    if (body.direction == 3)
+    if (body.direction == RIGHT)
     {
         dx = 1;
         dy = 0;
@@ -67,5 +73,55 @@ function void step()
 
     body.elements[body.head].x = x;
     body.elements[body.head].y = y;
+}
+
+// Copy map and snake to display
+function void make_output()
+{
+    var int x, y;
+
+    // Blit map to render:
+    for (x = 0; x < grid_size; x += 1)
+    {
+        for (y = 0; y < grid_size; y += 1)
+        {
+            if (map[x][y] == 0)
+            {
+                render[x][y] = 32;
+            }
+            else
+            {
+                render[x][y] = 65;
+            }
+        }
+    }
+
+    // TODO:
+    // Render snake to render:
+    //
+}
+
+function void print_render()
+{
+    var int x, y;
+
+    // Blit map to render:
+    for (y = 0; y < grid_size; y += 1)
+    {
+        for (x = 0; x < grid_size; x += 1)
+        {
+            arch.putc(render[x][y]);
+        }
+
+        arch.putc(10);
+    }
+}
+
+// Perform all actions for a tick in the game
+function void single_step()
+{
+    step_snake();
+    make_output();
+    print_render();
 }
 

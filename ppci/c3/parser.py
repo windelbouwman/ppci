@@ -206,10 +206,10 @@ class Parser:
         returntype = self.parse_type_spec()
         fname = self.consume('ID').val
         self.logger.debug('Parsing function {}'.format(fname))
-        f = Function(fname, loc)
-        self.add_declaration(f)
+        func = Function(fname, loc)
+        self.add_declaration(func)
         savePart = self.currentPart
-        self.currentPart = f
+        self.currentPart = func
         self.consume('(')
         parameters = []
         if not self.has_consumed(')'):
@@ -223,12 +223,12 @@ class Parser:
                     break
             self.consume(')')
         paramtypes = [p.typ for p in parameters]
-        f.typ = FunctionType(paramtypes, returntype)
+        func.typ = FunctionType(paramtypes, returntype)
         if self.Peak == ';':
             self.consume(';')
-            f.body = None
+            func.body = None
         else:
-            f.body = self.parse_compound()
+            func.body = self.parse_compound()
         self.currentPart = savePart
 
     def parse_if(self):
