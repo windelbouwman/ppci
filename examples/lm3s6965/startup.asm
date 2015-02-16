@@ -1,8 +1,20 @@
 
 section reset
-dcd 0x2000f000
-dcd 0x00000009
-BL bsp_boot  ; Branch to bsp boot
-BL bsp_exit  ; do exit stuff
+dcd 0x2000f000 ; 0x0
+dcd 0x00000009 ; reset vector 0x4
+BL bsp_boot  ; Branch to bsp boot // 0x8
+BL bsp_exit  ; do exit stuff 0xc
 local_loop:
-B local_loop
+BW local_loop ; 0x10
+dcd 0 ; 0x14
+dcd 0 ; 0x18
+dcd 0 ; 0x1c
+dcd 0 ; 0x20
+dcd 0 ; 0x24
+dcd 0 ; 0x28
+dcd 0 ; 0x2c
+dcd 0 ; 0x30
+dcd 0 ; 0x34
+dcd 0 ; 0x38
+dcd 0x00000041 ; 0x3c systick
+BW bsp_systick_isr

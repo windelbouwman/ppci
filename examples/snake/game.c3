@@ -1,9 +1,9 @@
-
 module game;
 import bsp;
+import io;
 
 const int max_body_len = 10;
-const int grid_size = 10;
+const int grid_size = 20;
 const int UP = 0, LEFT = 1, DOWN = 2, RIGHT = 3;
 
 type struct {
@@ -30,9 +30,9 @@ function void init()
     for (i = 0; i < grid_size; i += 1)
     {
         map[i][0] = 1;
-        map[i][9] = 1;
+        map[i][grid_size-1] = 1;
         map[0][i] = 1;
-        map[9][i] = 1;
+        map[grid_size-1][i] = 1;
     }
 }
 
@@ -111,22 +111,42 @@ function void make_output()
     // TODO:
     // Render snake to render:
     //
+
+    render[10][10] = 66;
 }
 
 function void print_render()
 {
     var int x, y;
 
+    // Move to home:
+    bsp.putc(27); // escape character
+    io.print("[H"); // vt100 move to home
+
+    // Set color:
+    bsp.putc(27);
+    io.print("[2;32m");
+
+    io.print("Welcome to snake!");
+    io.print_int(bsp.global_tick);
+    bsp.putc(10);
+
     // Blit map to render:
     for (y = 0; y < grid_size; y += 1)
     {
         for (x = 0; x < grid_size; x += 1)
         {
+            // Put character two times for aspect ratio:
+            bsp.putc(render[x][y]);
             bsp.putc(render[x][y]);
         }
 
         bsp.putc(10);
     }
+
+    // Reset attribute:
+    bsp.putc(27);
+    io.print("[0m");
 }
 
 // Perform all actions for a tick in the game

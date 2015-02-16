@@ -15,9 +15,15 @@ function void main()
 
     game.init();
 
+    var int t;
+    t = 0;
     while(true)
     {
-        game.single_step();
+        if (bsp.global_tick > t)
+        {
+            game.single_step();
+            t = bsp.global_tick;
+        }
     }
 }
 
