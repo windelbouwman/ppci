@@ -277,11 +277,18 @@ class Unop(Expression):
 
 class Binop(Expression):
     """ Expression taking two operands and one operator """
+    arithmatic_ops = ('+', '-', '*', '/', '>>', '<<', '&', '|')
+    logical_ops = ('and', 'or')
+    compare_ops = ('==', '!=', '<', '>', '<=', '>=')
+    cond_ops = logical_ops + compare_ops
+    all_ops = arithmatic_ops + cond_ops
+
     def __init__(self, a, op, b, loc):
         super().__init__(loc)
         assert isinstance(a, Expression), type(a)
         assert isinstance(b, Expression)
         assert isinstance(op, str)
+        assert op in self.all_ops
         self.a = a
         self.b = b
         self.op = op   # Operation: '+', '-', '*', '/', 'mod'

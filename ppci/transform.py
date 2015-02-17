@@ -319,7 +319,7 @@ class CleanPass(FunctionPass):
         """ Remove empty basic blocks from function. """
         stat = 0
         for block in self.find_empty_blocks(function):
-            predecessors = block.Predecessors
+            predecessors = block.predecessors
             successors = block.Successors
 
             # Do not remove if preceeded by itself:
@@ -331,12 +331,12 @@ class CleanPass(FunctionPass):
                 succ.replace_incoming(block, predecessors)
 
             # Change the target of predecessors:
-            tgt = block.LastInstruction.target
+            tgt = block.last_instruction.target
             for pred in predecessors:
                 pred.change_target(block, tgt)
 
             # Remove block:
-            block.LastInstruction.delete()
+            block.last_instruction.delete()
             function.remove_block(block)
             stat += 1
         if stat > 0:
@@ -345,7 +345,7 @@ class CleanPass(FunctionPass):
     def find_single_predecessor_block(self, function):
         """ Find a block with a single predecessor """
         for block in function:
-            preds = block.Predecessors
+            preds = block.predecessors
 
             # Check for amount of predecessors:
             if len(preds) != 1:
@@ -359,10 +359,13 @@ class CleanPass(FunctionPass):
                 continue
 
             # Skip entry and epilog related blocks:
-            if block in function.special_blocks or pred in function.special_blocks:
+            if block in function.special_blocks:
                 continue
 
-            if type(pred.LastInstruction) is ir.Jump:
+            if pred in function.special_blocks:
+                continue
+
+            if type(pred.last_instruction) is ir.Jump:
                 return block
 
     def remove_one_preds(self, function):
@@ -372,19 +375,20 @@ class CleanPass(FunctionPass):
             change = False
             block = self.find_single_predecessor_block(function)
             if block is not None:
-                print('Gluing {}'.format(block))
-                self.glue_blocks(preds[0], block, f)
+                preds = block.predecessors
+                self.glue_blocks(preds[0], block)
                 change = True
+                # TODO: break, do this only once for now..
                 break
 
     def glue_blocks(self, block1, block2):
         """ Glue two blocks together into the first block """
+        self.logger.debug('Glueing {} and {}'.format(block1, block2))
         # Remove the last jump:
-        block1.removeInstruction(block1.LastInstruction)
+        block1.remove_instruction(block1.last_instruction)
 
         # Copy all instructions to block1:
-        for instruction in block2.Instructions:
-            block1.addInstruction(instruction)
+        for instruction in block2:
+            block1.add_instruction(instruction)
 
-        # This does not work somehow:
-        #block2.parent.removeBlock(block2)
+        block1.function.remove_block(block2)

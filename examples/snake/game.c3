@@ -14,6 +14,8 @@ type struct {
     }[max_body_len] elements;
     int head;
     int tail;
+    int length;
+    int new_length;
     int direction;
 } body_t;
 
@@ -34,6 +36,13 @@ function void init()
         map[0][i] = 1;
         map[grid_size-1][i] = 1;
     }
+
+    body.head = 0;
+    body.tail = 0;
+    body.length = 0;
+    body.new_length = 5;
+    body.elements[body.head].x = grid_size >> 1;
+    body.elements[body.head].y = grid_size >> 1;
 }
 
 function void increment_ptr(int* ptr)
@@ -53,35 +62,33 @@ function void step_snake()
     x = body.elements[body.head].x;
     y = body.elements[body.head].y;
 
-    if (body.direction == UP)
+    if (body.direction == UP and y > 0)
     {
-        dx = 0;
-        dy = -1;
+        y -= 1;
     }
 
-    if (body.direction == LEFT)
+    if (body.direction == LEFT and x > 0)
     {
-        dx = -1;
-        dy = 0;
+        x -= 1;
     }
 
-    if (body.direction == DOWN)
+    if (body.direction == DOWN and y < grid_size - 1)
     {
-        dx = 0;
-        dy = 1;
+        y += 1;
     }
 
-    if (body.direction == RIGHT)
+    if (body.direction == RIGHT and x < grid_size - 1)
     {
-        dx = 1;
-        dy = 0;
+        x += 1;
     }
 
-    x += dx;
-    y += dy;
-
+    body.length += 1;
     increment_ptr(&body.head);
-    increment_ptr(&body.tail);
+    while (body.length > body.new_length)
+    {
+        body.length -= 1;
+        increment_ptr(&body.tail);
+    }
 
     body.elements[body.head].x = x;
     body.elements[body.head].y = y;
@@ -90,7 +97,7 @@ function void step_snake()
 // Copy map and snake to display
 function void make_output()
 {
-    var int x, y;
+    var int x, y, i;
 
     // Blit map to render:
     for (x = 0; x < grid_size; x += 1)
@@ -110,9 +117,17 @@ function void make_output()
 
     // TODO:
     // Render snake to render:
-    //
+    for (i = body.tail; i != body.head; increment_ptr(&i))
+    {
+        x = body.elements[i].x;
+        y = body.elements[i].y;
+        render[x][y] = 67;
+    }
 
-    render[10][10] = 66;
+    // The head:
+    x = body.elements[body.head].x;
+    y = body.elements[body.head].y;
+    render[x][y] = 66;
 }
 
 function void print_render()
@@ -149,9 +164,17 @@ function void print_render()
     io.print("[0m");
 }
 
+var int key_press;
 // Perform all actions for a tick in the game
 function void single_step()
 {
+    if (bsp.get_key(&key_press))
+    {
+        if (key_press == 65)
+        {
+            body.direction = DOWN;
+        }
+    }
     step_snake();
     make_output();
     print_render();

@@ -23,6 +23,16 @@ class Isa:
         """ Register an instruction into this ISA """
         self.instructions.append(i)
 
+    def calc_kws(self):
+        """ Calculate which keywords are used in assembler syntax """
+        kws = set()
+        for i in self.instructions:
+            if hasattr(i, 'syntax'):
+                for s in i.syntax:
+                    if type(s) is str and s.isalnum():
+                        kws.add(s)
+        return kws
+
 
 class InsMeta(type):
     """

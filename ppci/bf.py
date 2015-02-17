@@ -163,7 +163,7 @@ class BrainFuckGenerator():
             raise Exception('[ requires matching ]')
 
         # Jump to end of function:
-        self.builder.emit(ir.Jump(ir_func.epiloog))
+        self.builder.emit(ir.Jump(ir_func.epilog))
 
         # Yield module
         return self.builder.m

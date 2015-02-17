@@ -99,14 +99,14 @@ class Function:
         # Create first blocks:
         self.entry = Block('entry')
         self.add_block(self.entry)
-        self.epiloog = Block('epilog')
-        self.add_block(self.epiloog)
-        self.epiloog.add_instruction(Terminator())
+        self.epilog = Block('epilog')
+        self.add_block(self.epilog)
+        self.epilog.add_instruction(Terminator())
 
         # TODO: fix this other way?
         # Link entry to epilog:
-        self.entry.extra_successors.append(self.epiloog)
-        self.epiloog.extra_preds.append(self.entry)
+        self.entry.extra_successors.append(self.epilog)
+        self.epilog.extra_preds.append(self.entry)
 
         # TODO: cfg info as a property?
 
@@ -163,10 +163,10 @@ class Function:
                         bbs.append(sb)
                         worklist.append(sb)
             bbs.remove(self.entry)
-            if self.epiloog in bbs:
-                bbs.remove(self.epiloog)
+            if self.epilog in bbs:
+                bbs.remove(self.epilog)
             bbs.insert(0, self.entry)
-            bbs.append(self.epiloog)
+            bbs.append(self.epilog)
             self._blocks = bbs
         return self._blocks
 
@@ -177,7 +177,7 @@ class Function:
         """ Return iterable of special blocks. For now the entry block and
             the epilog.
         """
-        return (self.entry, self.epiloog)
+        return (self.entry, self.epilog)
 
     @property
     def Entry(self):
@@ -287,10 +287,12 @@ class Block:
     def add_instruction(self, i):
         """ Add an instruction to the end of this block """
         i.parent = self
-        assert not isinstance(self.LastInstruction, LastStatement)
+        assert not isinstance(self.last_instruction, LastStatement)
         self.instructions.append(i)
         if isinstance(i, Value) and self.function is not None:
             self.unique_name(i)
+        if isinstance(i, Return):
+            self.function.epilog._preds.add(i)
 
     def replaceInstruction(self, i1, i2):
         idx = self.instructions.index(i1)
@@ -311,7 +313,8 @@ class Block:
         return self.instructions
 
     @property
-    def LastInstruction(self):
+    def last_instruction(self):
+        """ Gets the last instruction from the block """
         if not self.empty:
             return self.instructions[-1]
 
@@ -332,7 +335,7 @@ class Block:
     def get_successors(self):
         """ Get the direct successors of this block """
         if not self.empty:
-            return self.LastInstruction.Targets + self.extra_successors
+            return self.last_instruction.targets + self.extra_successors
         return [] + self.extra_successors
 
     Successors = property(get_successors)
@@ -345,7 +348,7 @@ class Block:
         b &= set(self.parent.blocks)
         return list(b)
 
-    Predecessors = property(get_predecessors)
+    predecessors = property(get_predecessors)
 
     def precedes(self, other):
         raise NotImplementedError()
@@ -357,7 +360,7 @@ class Block:
 
     def change_target(self, old, new):
         """ Change the target of this block from old to new """
-        self.LastInstruction.change_target(old, new)
+        self.last_instruction.change_target(old, new)
 
     def replace_incoming(self, block, new_blocks):
         """
@@ -465,7 +468,7 @@ class Instruction:
                     # This is the queried dominance branch
                     # Check if this instruction dominates the last
                     # instruction of this block
-                    return self.dominates(block.LastInstruction)
+                    return self.dominates(block.last_instruction)
             raise Exception('Cannot query dominance for this phi')
         # For all other instructions follow these rules:
         if self.block == other.block:
@@ -778,6 +781,7 @@ def block_ref(name):
             raise KeyError("No such block!")
 
     def setter(self, block):
+        """ Sets the block reference """
         assert isinstance(block, Block)
         self.set_target_block(name, block)
 
@@ -785,6 +789,42 @@ def block_ref(name):
 
 
 class LastStatement(Instruction):
+    pass
+
+
+class Terminator(LastStatement):
+    """ Instruction that terminates the terminal block """
+    def __init__(self):
+        super().__init__()
+        self.targets = []
+
+    def __repr__(self):
+        return 'Terminator'
+
+
+class Return(LastStatement):
+    """ Return statement. This instruction terminates a block and has as
+        target the epilog block of a function.
+    """
+    result = var_use('result')
+
+    def __init__(self, result):
+        super().__init__()
+        self.result = result
+
+    def __repr__(self):
+        return 'Return {}'.format(self.result.name)
+
+    @property
+    def targets(self):
+        """ Gets a list of targets, in case of a return, this list only
+            contains the epilog block!
+        """
+        return [self.function.epilog]
+
+
+class JumpBase(LastStatement):
+    """ Base of all jumping instructions """
     def __init__(self):
         super().__init__()
         self.block_map = {}
@@ -805,7 +845,8 @@ class LastStatement(Instruction):
             block._preds.remove(self)
 
     @property
-    def Targets(self):
+    def targets(self):
+        """ Gets a list of targets that this instruction jumps to """
         return list(self.block_map.values())
 
     def change_target(self, old, new):
@@ -815,28 +856,7 @@ class LastStatement(Instruction):
                 self.set_target_block(name, new)
 
 
-class Terminator(LastStatement):
-    """ Instruction that terminates the terminal block """
-    def __init__(self):
-        super().__init__()
-
-    def __repr__(self):
-        return 'Terminator'
-
-
-class Return(LastStatement):
-    """ Return statement """
-    result = var_use('result')
-
-    def __init__(self, result):
-        super().__init__()
-        self.result = result
-
-    def __repr__(self):
-        return 'Return {}'.format(self.result.name)
-
-
-class Jump(LastStatement):
+class Jump(JumpBase):
     """ Jump statement to another block within the same function """
     target = block_ref('target')
 
@@ -848,7 +868,7 @@ class Jump(LastStatement):
         return 'JUMP {}'.format(self.target.name)
 
 
-class CJump(LastStatement):
+class CJump(JumpBase):
     """ Conditional jump to true or false labels. """
     conditions = ['==', '<', '>', '>=', '<=', '!=']
     a = var_use('a')

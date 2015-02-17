@@ -33,7 +33,7 @@ class CfgInfo:
         return 'CfgInfo(pred={}\n, succ={}\n, dom={}\n)'.format(self.pred, self.succ, self.dom)
 
     def prepare(self, block):
-        self.pred[block] = block.Predecessors
+        self.pred[block] = block.predecessors
         self.succ[block] = block.Successors
 
     def calculate_dominators(self):

@@ -398,7 +398,7 @@ class Verifier:
         # Verify predecessor and successor:
         for block in function.blocks:
             preds = set(b for b in function.blocks if block in b.Successors)
-            assert preds == set(block.Predecessors)
+            assert preds == set(block.predecessors)
 
         # Now we can build a dominator tree
         function.cfg_info = CfgInfo(function)
@@ -409,7 +409,7 @@ class Verifier:
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
         assert not block.empty
-        assert block.LastInstruction.IsTerminator
+        assert block.last_instruction.IsTerminator
         for i in block.Instructions[:-1]:
             assert not isinstance(i, ir.LastStatement)
 

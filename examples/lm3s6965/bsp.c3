@@ -37,6 +37,19 @@ function void putc(byte c)
     UART0->DR = c;
 }
 
+function bool get_key(int* k)
+{
+    if (UART0->FR & 0x10 == 0)
+    {
+        *k = UART0->DR;
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
 function void boot()
 {
     // Init pins

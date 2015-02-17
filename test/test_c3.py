@@ -267,6 +267,69 @@ class FunctionTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
 
+class ConditionTestCase(BuildTestCaseBase):
+    def test_and_condition(self):
+        """ Test logical 'and' """
+        snippet = """
+        module tst;
+        function void t()
+        {
+         if (4 > 3 and 1 < 10)
+         {
+         }
+        }
+        """
+        self.expect_ok(snippet)
+
+    def test_or_condition(self):
+        snippet = """
+        module tst;
+        function void t()
+        {
+         if (3 > 4 or 3 < 10)
+         {
+         }
+        }
+        """
+        self.expect_ok(snippet)
+
+    def test_non_bool_condition(self):
+        snippet = """
+        module tst;
+        function void t()
+        {
+         if (3+3)
+         {
+         }
+        }
+        """
+        self.expect_errors(snippet, [5])
+
+    def test_expression_as_condition(self):
+        """ Test if an expression as a condition works """
+        snippet = """
+        module tst;
+        function bool yes()
+        {
+            return true;
+        }
+
+        function void t()
+        {
+         if (yes())
+         {
+         }
+         while(yes() or 1 == 2)
+         {
+         }
+         if (false == yes())
+         {
+         }
+        }
+        """
+        self.expect_ok(snippet)
+
+
 class ExpressionTestCase(BuildTestCaseBase):
     """ Test various expressions """
     def test_expressions(self):
@@ -395,42 +458,6 @@ class StatementTestCase(BuildTestCaseBase):
         }
         """
         self.expect_ok(snippet)
-
-    def test_and_condition(self):
-        snippet = """
-        module tst;
-        function void t()
-        {
-         if (4 > 3 and 1 < 10)
-         {
-         }
-        }
-        """
-        self.expect_ok(snippet)
-
-    def test_or_condition(self):
-        snippet = """
-        module tst;
-        function void t()
-        {
-         if (3 > 4 or 3 < 10)
-         {
-         }
-        }
-        """
-        self.expect_ok(snippet)
-
-    def test_non_bool_condition(self):
-        snippet = """
-        module tst;
-        function void t()
-        {
-         if (3+3)
-         {
-         }
-        }
-        """
-        self.expect_errors(snippet, [5])
 
     def test_local_variable(self):
         snippet = """

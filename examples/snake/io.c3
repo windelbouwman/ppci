@@ -30,7 +30,7 @@ function void print_int(int i)
     c = 0;
     b = 0;
 
-    for (b=28; b >= 0; b = b - 4)
+    for (b = 28; b >= 0; b = b - 4)
     {
         c = (i >> b) & 0xF;
         if (c < 10)

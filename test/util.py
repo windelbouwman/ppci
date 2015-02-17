@@ -73,8 +73,8 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
         qemu_process = subprocess.Popen(args)
 
     # qemu_serial Give process some time to boot:
-    qemu_serial_serve.settimeout(3)
-    qemu_control_serve.settimeout(3)
+    qemu_serial_serve.settimeout(5)
+    qemu_control_serve.settimeout(5)
     qemu_serial, _ = qemu_serial_serve.accept()
     qemu_control, _ = qemu_control_serve.accept()
 
@@ -115,7 +115,7 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     qemu_control.send("quit\n".encode('ascii'))
     if hasattr(subprocess, 'TimeoutExpired'):
         try:
-            qemu_process.wait(timeout=3)
+            qemu_process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             qemu_process.kill()
     else:

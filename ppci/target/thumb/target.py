@@ -20,16 +20,10 @@ from ...assembler import BaseAssembler
 class ThumbAssembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
-        kws = [
+        kws = list(isa.calc_kws())
+        kws += [
             "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
-            "r10", "r11", "r12", "sp", "lr", "pc",
-            "dcd", "yield", 'db', 'ds',
-            "nop", "mov", "cmp", "add", "sub", "mul", "rsb",
-            "lsl", "lsr", "orr", "and",
-            "push", "pop", "b", "bl", "blt", "ble", "bgt", "beq",
-            "bne", "bge", 'bw',
-            "beqw", "bnew",
-            "ldr", "str", "adr", "strb", "ldrb"
+            "r10", "r11", "r12", "sp", "lr", "pc"
             ]
         self.parser.assembler = self
         self.gen_asm_parser(isa)

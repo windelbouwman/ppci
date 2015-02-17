@@ -65,7 +65,7 @@ class Dagger:
 
         # Jump to epilog:
         tree = Tree('JMP')
-        label_name = ir.label_name(node.function.epiloog)
+        label_name = ir.label_name(node.function.epilog)
         tree.value = label_name, self.frame.label_map[label_name]
         self.dag.append(tree)
 

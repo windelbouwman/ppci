@@ -47,7 +47,7 @@ class IrBuilderTestCase(unittest.TestCase):
         self.b.emit(ir.Jump(bb))
         self.b.setBlock(bb)
         self.b.emit(ir.Const(0, 'const', ir.i32))
-        self.b.emit(ir.Jump(f.epiloog))
+        self.b.emit(ir.Jump(f.epilog))
         # Run interpreter:
         # r = self.m.getFunction('add').call(1, 2)
         #self.assertEqual(3, r)
@@ -69,7 +69,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         v1 = self.b.emit(ir.Const(5, 'const', ir.i32))
         v2 = self.b.emit(ir.Const(7, 'const', ir.i32))
         self.b.emit(ir.Add(v1, v2, "add", ir.i32))
-        self.b.emit(ir.Jump(f.epiloog))
+        self.b.emit(ir.Jump(f.epilog))
         self.cf.run(self.m)
 
     def testAdd0(self):
