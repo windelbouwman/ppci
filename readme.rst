@@ -4,7 +4,8 @@ About
 =====
 
 The pure-python-compiler-infrastructure (ppci) is a compiler suite written in
-pure python. The project contains the following:
+pure python. You can use it to compile sources written in a custom language
+(c3) to machine code. The project contains the following:
 
 - Language front-ends: Brainfuck, C3
 - Various code optimizers
@@ -12,7 +13,7 @@ pure python. The project contains the following:
 - Assembler
 - Linker
 
-**Warning: This project is in pre-alpha state and not for use in production!**
+**Warning: This project is in alpha state and not read for production use!**
 
 ppci can be installed using pip:
 
@@ -31,8 +32,6 @@ Documentation can be found on read the docs: http://ppci.readthedocs.org/
 
 
 +-------------------------------+---------------------------------------------+
-| Topic                         | Status                                      |
-+===============================+=============================================+
 | C3 language front-end         | Fairly complete                             |
 +-------------------------------+---------------------------------------------+
 | Brainfuck language front-end  | Working                                     |
