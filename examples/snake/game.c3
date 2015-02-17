@@ -2,7 +2,7 @@ module game;
 import bsp;
 import io;
 
-const int max_body_len = 10;
+const int max_body_len = 50;
 const int grid_size = 20;
 const int UP = 0, LEFT = 1, DOWN = 2, RIGHT = 3;
 
@@ -21,10 +21,15 @@ type struct {
 
 type int[grid_size][grid_size] map_t;
 
+type struct {
+    int decimator;
+} game_t;
+
 // Global variables with state info:
 var body_t body;
 var map_t map;
 var map_t render;
+var game_t game;
 
 function void init()
 {
@@ -40,9 +45,10 @@ function void init()
     body.head = 0;
     body.tail = 0;
     body.length = 0;
-    body.new_length = 5;
+    body.new_length = 10;
     body.elements[body.head].x = grid_size >> 1;
     body.elements[body.head].y = grid_size >> 1;
+    game.decimator = 0;
 }
 
 function void increment_ptr(int* ptr)
@@ -144,6 +150,8 @@ function void print_render()
 
     io.print("Welcome to snake!");
     io.print_int(bsp.global_tick);
+    io.print("Key:");
+    io.print_int(key_press);
     bsp.putc(10);
 
     // Blit map to render:
@@ -168,14 +176,41 @@ var int key_press;
 // Perform all actions for a tick in the game
 function void single_step()
 {
+    // Handle input:
     if (bsp.get_key(&key_press))
     {
-        if (key_press == 65)
+        // asd-w navigation:
+        if (key_press == 65 or key_press == 97)
+        {
+            body.direction = LEFT;
+        }
+
+        if (key_press == 87 or key_press == 119)
+        {
+            body.direction = UP;
+        }
+
+        if (key_press == 83 or key_press == 115)
         {
             body.direction = DOWN;
         }
+
+        if (key_press == 68 or key_press == 100)
+        {
+            body.direction = RIGHT;
+        }
     }
-    step_snake();
+
+    // Step snake:
+    if (game.decimator > 0)
+    {
+        game.decimator -= 1;
+    }
+    else
+    {
+        game.decimator = 3;
+        step_snake();
+    }
     make_output();
     print_render();
 }
