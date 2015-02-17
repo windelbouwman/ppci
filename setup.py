@@ -1,7 +1,9 @@
 from setuptools import setup, find_packages
+import ppci
 
 with open('readme.rst') as f:
     long_description = f.read()
+
 
 setup(
     name='ppci',
@@ -11,11 +13,11 @@ setup(
         "bin/ppci-asm.py",
         "bin/st-flash.py", 'bin/hexutil.py'],
     long_description=long_description,
-    version='0.0.3',
+    version=ppci.version,
     author='Windel Bouwman',
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
-    package_data={'': ['*.grammar', "*.brg", "*.sled", "*.rst"]},
+    package_data={'': ['*.grammar', "*.sled", "*.rst"]},
     url='https://bitbucket.org/windel/ppci',
     license='BSD',
     test_suite="test",
