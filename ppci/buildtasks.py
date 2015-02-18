@@ -63,6 +63,8 @@ class AssembleTask(Task):
             raise TaskError('Error during assembly:' + str(err))
         except OSError as err:
             raise TaskError('Error:' + str(err))
+        # Write results:
+        self.ensure_path(output_filename)
         with open(output_filename, 'w') as output_file:
             output.save(output_file)
         self.logger.debug('Assembling finished')

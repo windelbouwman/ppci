@@ -126,6 +126,12 @@ class Task:
         basedir = self.get_property('basedir')
         return os.path.join(basedir, filename)
 
+    def ensure_path(self, filename):
+        """ Make sure that the path to a filename exists """
+        directory_name = os.path.dirname(filename)
+        if not os.path.exists(directory_name):
+            os.makedirs(directory_name)
+
     def open_file_set(self, s):
         """ Creates a list of open file handles. s can be one of these:
             - A string like "a.c3"
