@@ -830,9 +830,15 @@ class JumpBase(LastStatement):
         self.block_map = {}
 
     def set_target_block(self, name, block):
-        # If block was present, do something?
+        """ Set the target 'name' to block. Take into account that a block
+            may already be pointed, so remove this reference!
+        """
+        # If block was present, remove this instruction from the block preds:
         if name in self.block_map:
-            self.block_map[name]._preds.remove(self)
+            old_block = self.block_map[name]
+            # check if old_block occurs only once in the block_map:
+            if list(self.block_map.values()).count(old_block) == 1:
+                old_block._preds.remove(self)
 
         # Use the new block:
         self.block_map[name] = block

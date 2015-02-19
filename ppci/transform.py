@@ -327,8 +327,8 @@ class CleanPass(FunctionPass):
                 continue
 
             # Update successor incoming blocks:
-            for succ in successors:
-                succ.replace_incoming(block, predecessors)
+            for successor in successors:
+                successor.replace_incoming(block, predecessors)
 
             # Change the target of predecessors:
             tgt = block.last_instruction.target

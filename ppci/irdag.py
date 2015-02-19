@@ -1,4 +1,8 @@
-
+"""
+    The process of instruction selection is preceeded by the creation of
+    a selection dag (directed acyclic graph). The dagger take ir-code as
+    input and produces such a dag for instruction selection.
+"""
 import logging
 
 from . import ir
@@ -152,14 +156,20 @@ class Dagger:
         v = self.lut[node.src]
         self.lut[node] = v
 
+    @register(ir.ByteToInt)
+    def do_byte_to_int_cast(self, node):
+        # TODO: add some logic here?
+        v = self.lut[node.src]
+        self.lut[node] = v
+
     @register(ir.IntToPtr)
     def do_int_to_ptr_cast(self, node):
         # TODO: add some logic here?
         v = self.lut[node.src]
         self.lut[node] = v
 
-    @register(ir.ByteToInt)
-    def do_byte_to_int_cast(self, node):
+    @register(ir.PtrToInt)
+    def do_ptr_to_int_cast(self, node):
         # TODO: add some logic here?
         v = self.lut[node.src]
         self.lut[node] = v

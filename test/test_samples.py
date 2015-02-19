@@ -40,6 +40,7 @@ def only_bf(txt):
 
 
 class Samples:
+    """ Collection of snippets with expected output """
 
     def test_print(self):
         """ Test if print statement works """
@@ -164,6 +165,40 @@ class Samples:
          }
         """
         res = "Wow"
+        self.do(snippet, res)
+
+    def test_bug1(self):
+        """ Strange bug was found here """
+        snippet = """
+         module sample;
+         var int x;
+         function void start()
+         {
+            var int i;
+            i = 0;
+
+            if (x != i)
+            {
+            }
+         }
+        """
+        res = ""
+        self.do(snippet, res)
+
+    def test_bug2(self):
+        """ Test pointer arithmatic """
+        snippet = """
+         module sample;
+         var int* x;
+         function void start()
+         {
+            var int i;
+            x = 10;
+            x += 15;
+            i = cast<int>(x);
+         }
+        """
+        res = ""
         self.do(snippet, res)
 
     def test_complex_variables(self):
