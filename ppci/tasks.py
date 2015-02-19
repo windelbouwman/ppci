@@ -139,10 +139,13 @@ class Task:
             - A string like "a.c3;src/*.c3"
         """
         assert type(s) is str
-        fns = []
+        file_names = []
         for part in s.split(';'):
-            fns += glob.glob(self.relpath(part))
-        return fns
+            new_files = glob.glob(self.relpath(part))
+            if not new_files:
+                raise TaskError('{} not found'.format(part))
+            file_names += new_files
+        return file_names
 
     def run(self):
         raise NotImplementedError("Implement this abstract method!")

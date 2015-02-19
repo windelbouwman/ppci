@@ -251,7 +251,7 @@ def bfcompile(source, target, lst_file=None):
 
 def link(objects, layout, target, lst_file=None):
     """ Links the iterable of objects into one using the given layout """
-    objects = list(map(fix_object, objects))
+    objects = [fix_object(obj) for obj in objects]
     layout = fix_layout(layout)
     target = fix_target(target)
     linker = Linker(target)
