@@ -79,23 +79,20 @@ def fix_layout(l):
         raise TaskError('Cannot use {} as layout'.format(l))
 
 
-def construct(buildfile, targets=[]):
-    """ Construct the given buildfile """
+def construct(buildfile, targets=()):
+    """ Construct the given buildfile. Raise task error if something goes wrong
+    """
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
     except OSError:
         raise TaskError('Could not load {}'.format(buildfile))
 
-    if project:
-        runner = TaskRunner()
-        res = runner.run(project, targets)
-    else:
-        res = 1
-        # TODO: fix strange return code. 1 means error?
-        # TODO: use exceptions instead..
+    if not project:
+        raise TaskError('No project loaded')
 
-    return res
+    runner = TaskRunner()
+    runner.run(project, list(targets))
 
 
 def assemble(source, target):

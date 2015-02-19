@@ -69,11 +69,30 @@ def make_parser():
     return parser
 
 
+class ColoredFormatter(logging.Formatter):
+    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+    colors = {
+        'INFO': GREEN,
+        'WARNING': YELLOW,
+        'ERROR': RED
+    }
+
+    def format(self, record):
+        reset_seq = '\033[0m'
+        color_seq = '\033[1;%dm'
+        levelname = record.levelname
+        msg = super().format(record)
+        if levelname in self.colors:
+            color = color_seq % (30 + self.colors[levelname])
+            msg = color + msg + reset_seq
+        return msg
+
+
 def main(args):
     # Configure some logging:
     logging.getLogger().setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
-    ch.setFormatter(logging.Formatter(logformat))
+    ch.setFormatter(ColoredFormatter(logformat))
     ch.setLevel(args.log)
     logging.getLogger().addHandler(ch)
 

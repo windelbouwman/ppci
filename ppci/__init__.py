@@ -15,8 +15,8 @@ from .common import CompilerError, DiagnosticsManager
 
 logformat='%(asctime)s|%(levelname)s|%(name)s|%(message)s'
 
-def same_dir(full_path, filename):
-    return os.path.join(os.path.dirname(os.path.abspath(full_path)), filename)
+#def same_dir(full_path, filename):
+#    return os.path.join(os.path.dirname(os.path.abspath(full_path)), filename)
 
 
 def make_num(txt):

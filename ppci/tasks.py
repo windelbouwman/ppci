@@ -167,38 +167,35 @@ class TaskRunner:
             else:
                 target_list = []
 
-        try:
-            if not target_list:
-                self.logger.info('Done!')
-                return 0
+        if not target_list:
+            self.logger.info('No targets to run!')
+            return
 
-            # Check for loops:
-            for target in target_list:
-                project.check_target(target)
+        # Check for loops:
+        for target in target_list:
+            project.check_target(target)
 
-            # Calculate all dependencies:
-            target_list = set.union(*[project.dependencies(t) for t in target_list]).union(set(target_list))
-            # Lookup actual targets:
-            target_list = [project.get_target(target_name) for target_name in target_list]
-            target_list.sort()
+        # Calculate all dependencies:
+        target_list = set.union(*[project.dependencies(t) for t in target_list]).union(set(target_list))
 
-            self.logger.info('Target sequence: {}'.format(target_list))
+        # Lookup actual targets:
+        target_list = [project.get_target(target_name) for target_name in target_list]
+        target_list.sort()
 
-            # Run tasks:
-            for target in target_list:
-                self.logger.info('Target {}'.format(target.name))
-                for task in target.tasks:
-                    if type(task) is tuple:
-                        tname, props = task
-                        for arg in props:
-                            props[arg] = project.expand_macros(props[arg])
-                        task = task_map[tname](target, props)
-                        self.logger.info('Running {}'.format(task))
-                        task.run()
-                    else:
-                        raise Exception()
-            self.logger.info('Done!')
-        except TaskError as e:
-            self.logger.error(str(e.msg))
-            return 1
-        return 0
+        self.logger.info('Target sequence: {}'.format(target_list))
+
+        # Run tasks:
+        for target in target_list:
+            self.logger.info('Target {} Started'.format(target.name))
+            for task in target.tasks:
+                if type(task) is tuple:
+                    tname, props = task
+                    for arg in props:
+                        props[arg] = project.expand_macros(props[arg])
+                    task = task_map[tname](target, props)
+                    self.logger.info('Running {}'.format(task))
+                    task.run()
+                else:
+                    raise Exception()
+            self.logger.info('Target {} Ready'.format(target.name))
+        self.logger.info('Done!')
