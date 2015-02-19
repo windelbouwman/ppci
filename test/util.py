@@ -139,7 +139,7 @@ def run_python(kernel):
     python_proc = subprocess.Popen(
         [sys.executable, kernel],
         stdout=subprocess.PIPE)
-    outs, _ = python_proc.communicate(timeout=5)
+    outs, _ = python_proc.communicate(timeout=10)
     outs = outs.decode('ascii', errors='ignore')
     outs = outs.replace(os.linesep, '\n')
     return outs

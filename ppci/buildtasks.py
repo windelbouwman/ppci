@@ -92,6 +92,7 @@ class C3cTask(Task):
             lst_file.close()
 
         # Store output:
+        self.ensure_path(output_filename)
         with open(output_filename, 'w') as output_file:
             output.save(output_file)
 
@@ -111,6 +112,7 @@ class LinkTask(Task):
             raise TaskError(err.msg)
 
         # Store output:
+        self.ensure_path(output_filename)
         with open(output_filename, 'w') as output_file:
             output_obj.save(output_file)
 
