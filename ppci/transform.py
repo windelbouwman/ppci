@@ -22,7 +22,6 @@ class ModulePass:
 class FunctionPass(ModulePass):
     def run(self, ir_module):
         """ Main entry point for the pass """
-        self.logger.debug('Running pass {}'.format(self.__class__.__name__))
         self.prepare()
         if isinstance(ir_module, ir.Module):
             for f in ir_module.Functions:
@@ -48,8 +47,8 @@ class BlockPass(FunctionPass):
 
 
 class InstructionPass(BlockPass):
-    def onBlock(self, bb):
-        for ins in iter(bb.Instructions):
+    def onBlock(self, block):
+        for ins in iter(block.Instructions):
             self.onInstruction(ins)
 
     def onInstruction(self, ins):
