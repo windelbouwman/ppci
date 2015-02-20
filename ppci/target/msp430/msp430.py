@@ -1,7 +1,4 @@
-import struct
-import types
 from ..basetarget import Register, Instruction, Target
-from ppci import CompilerError
 from .registers import r10, r11, r12, r13, r14, r15
 from .instructions import Reti, Mov, Add, isa
 from ...assembler import BaseAssembler

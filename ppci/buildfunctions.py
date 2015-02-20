@@ -23,10 +23,9 @@ from .target import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile
-from . import DiagnosticsManager
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
-from .common import CompilerError
+from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
 
 
@@ -138,6 +137,9 @@ def optimize(ircode, do_verify=False):
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
     """
+    logger = logging.getLogger('optimize')
+    logger.info('Optimizing module {}'.format(ircode.name))
+
     # Create the verifier:
     verifier = Verifier()
     verifier.verify(ircode)

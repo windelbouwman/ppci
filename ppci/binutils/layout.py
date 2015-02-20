@@ -1,6 +1,6 @@
 from ..baselex import BaseLexer
 from .. import pyyacc
-from .. import make_num
+from ..common import make_num
 
 
 class Layout:

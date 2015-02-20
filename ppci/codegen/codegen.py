@@ -46,7 +46,7 @@ class CodeGenerator:
 
     def generate_function(self, irfunc, outs):
         """ Generate code for one function into a frame """
-        self.logger.info('Generating {} code for {}'
+        self.logger.info('Generating {} code for function {}'
                          .format(self.target, irfunc.name))
 
         self.print("========= Log for {} ==========".format(irfunc))
@@ -119,6 +119,9 @@ class CodeGenerator:
         """ Generate code into output stream """
         assert isinstance(ircode, ir.Module)
         self.dump_file = dump_file
+
+        self.logger.info('Generating {} code for module {}'
+                         .format(self.target, ircode.name))
 
         # Generate code for global variables:
         outs.select_section('data')

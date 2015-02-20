@@ -10,7 +10,7 @@ from .tasks import Task, TaskError, register_task
 from .buildfunctions import c3compile, link, assemble, construct
 from .buildfunctions import objcopy
 from .pyyacc import ParserException
-from . import CompilerError
+from .common import CompilerError
 
 
 @register_task("empty")
@@ -63,6 +63,7 @@ class AssembleTask(Task):
             raise TaskError('Error during assembly:' + str(err))
         except OSError as err:
             raise TaskError('Error:' + str(err))
+
         # Write results:
         self.ensure_path(output_filename)
         with open(output_filename, 'w') as output_file:

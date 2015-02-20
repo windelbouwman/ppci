@@ -1,11 +1,19 @@
-from collections import namedtuple
-import logging
-
 """
    Error handling routines
    Diagnostic utils
    Source location structures
 """
+
+
+from collections import namedtuple
+import logging
+
+
+def make_num(txt):
+    if txt.startswith('0x'):
+        return int(txt[2:], 16)
+    else:
+        return int(txt)
 
 
 class Token:
@@ -24,6 +32,7 @@ class Token:
 
 
 class SourceLocation:
+    """ A location that refers to a position in a source file """
     def __init__(self, filename, row, col, ln):
         self.filename = filename
         self.row = row

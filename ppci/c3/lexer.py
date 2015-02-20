@@ -1,11 +1,11 @@
-import re
-from ppci import SourceLocation, Token, make_num
-from ppci.baselex import BaseLexer
-from .astnodes import Assignment
-
 """
  Lexical analyzer part. Splits the input character stream into tokens.
 """
+
+import re
+from ..common import SourceLocation, Token, make_num
+from ..baselex import BaseLexer
+from .astnodes import Assignment
 
 keywords = ['and', 'or', 'not', 'true', 'false',
             'else', 'if', 'while', 'for', 'return',

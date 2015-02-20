@@ -3,7 +3,7 @@ import io
 from ppci.pyyacc import Grammar, Item, ParserGenerationException
 from ppci.pyyacc import ParserException, load_as_module
 from ppci.pyyacc import EPS, EOF, calculate_first_sets, transform
-from ppci import Token, SourceLocation
+from ppci.common import Token, SourceLocation
 
 
 class genTokens:

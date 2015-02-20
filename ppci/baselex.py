@@ -1,6 +1,6 @@
 
 import re
-from ppci import Token, CompilerError, SourceLocation
+from .common import Token, CompilerError, SourceLocation
 
 EPS = 'EPS'
 EOF = 'EOF'

@@ -3,7 +3,7 @@ import logging
 import io
 from ppci.c3 import Builder, Lexer
 from ppci.target import SimpleTarget
-from ppci import DiagnosticsManager, CompilerError
+from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
 
 
@@ -70,14 +70,12 @@ class BuildTestCaseBase(unittest.TestCase):
 
     def build(self, snippet):
         """ Try to build a snippet """
-        try:
-            return list(self.builder.build(self.make_file_list(snippet)))
-        except CompilerError:
-            pass
+        return list(self.builder.build(self.make_file_list(snippet)))
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
-        self.build(snippet)
+        with self.assertRaises(CompilerError):
+            self.build(snippet)
         actual_errors = [err.row for err in self.diag.diags]
         if rows != actual_errors:
             self.diag.printErrors()
@@ -266,8 +264,24 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_parameter_redefine(self):
+        """ Check if a parameter and variable with the same name result in
+            error
+        """
+        snippet = """
+         module testreturn;
+         function int t(int x)
+         {
+            var int x;
+         }
+        """
+        self.expect_errors(snippet, [5])
+
 
 class ConditionTestCase(BuildTestCaseBase):
+    """ Test conditional logic, such as and and or in if and while statements
+        and == and >=. Also test boolean assignments
+    """
     def test_and_condition(self):
         """ Test logical 'and' """
         snippet = """
@@ -676,10 +690,12 @@ class TypeTestCase(BuildTestCaseBase):
         snippet = """
          module testcoerce;
          var int* pa;
+         var byte* pb;
          function void t()
          {
             pa = 22;
             pa = pa - 23;
+            pa = pb;
          }
         """
         self.expect_ok(snippet)

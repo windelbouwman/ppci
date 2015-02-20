@@ -3,7 +3,7 @@
 """
 
 import logging
-from .. import CompilerError
+from ..common import CompilerError
 from .astnodes import Member, Literal, TypeCast, Unop, Binop
 from .astnodes import Assignment, ExpressionStatement, Compound
 from .astnodes import Return, While, If, Empty, For

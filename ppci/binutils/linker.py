@@ -1,6 +1,6 @@
 import logging
 from .objectfile import ObjectFile, Image
-from .. import CompilerError
+from ..common import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
 
 

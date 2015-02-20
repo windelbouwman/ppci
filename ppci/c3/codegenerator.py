@@ -199,6 +199,10 @@ class CodeGenerator:
         if self.context.equal_types(typ, wanted_typ):
             # no cast required
             return ir_val
+        elif isinstance(wanted_typ, ast.PointerType) and \
+                isinstance(typ, ast.PointerType):
+            # Pointers are pointers, no matter the pointed data.
+            return ir_val
         elif self.context.equal_types('int', typ) and \
                 isinstance(wanted_typ, ast.PointerType):
             return self.emit(ir.IntToPtr(ir_val, 'coerce'))

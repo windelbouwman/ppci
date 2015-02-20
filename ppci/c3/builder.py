@@ -7,7 +7,7 @@ import collections
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
-from .scope import Scope, Context
+from .scope import Scope, Context, SemanticError
 from .visitor import Visitor
 from .astnodes import Module, Function, Identifier, Symbol
 
@@ -17,9 +17,10 @@ class C3Pass:
         self.diag = diag
         self.logger = logging.getLogger('c3')
         self.visitor = Visitor()
+        self.run_ok = True
 
     def error(self, msg, loc=None):
-        self.pkg.ok = False
+        self.run_ok = False
         self.diag.error(msg, loc)
 
     def visit(self, pkg, pre, post):
@@ -33,7 +34,7 @@ class ScopeFiller(C3Pass):
     def add_scope(self, pkg, context):
         """ Scope is attached to the correct modules. """
         self.logger.debug('Adding scoping to package {}'.format(pkg.name))
-        self.pkg = pkg
+        self.run_ok = True
         # Prepare top level scope and set scope to all objects:
         self.scopeStack = [context.scope]
         mod_scope = Scope(self.current_scope)
@@ -49,6 +50,10 @@ class ScopeFiller(C3Pass):
                 pkg.scope.add_symbol(context.get_module(i))
             else:
                 self.error('Cannot import {}'.format(i))
+
+        # Raise an error when something went wrong.
+        if not self.run_ok:
+            raise SemanticError('Errors during symbol checks')
 
     @property
     def current_scope(self):

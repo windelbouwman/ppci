@@ -2,7 +2,7 @@
 
 import io
 import unittest
-from ppci import CompilerError
+from ppci.common import CompilerError
 from ppci.assembler import AsmLexer
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream

@@ -59,8 +59,7 @@ import os
 import io
 import types
 import argparse
-from functools import lru_cache
-from ppci import Token, SourceLocation
+from ppci.common import Token, SourceLocation
 from ppci import baselex, pyyacc
 from ppci.tree import Tree
 

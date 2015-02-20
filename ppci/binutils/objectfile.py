@@ -6,7 +6,7 @@ is code, symbol table and relocation information.
 
 import json
 import binascii
-from .. import CompilerError, make_num
+from ..common import CompilerError, make_num
 
 
 class Symbol:
