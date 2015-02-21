@@ -407,8 +407,7 @@ class StatementTestCase(BuildTestCaseBase):
         module test;
         function void tst()
         {
-         var int i;
-         i = 2;
+         var int i = 2;
          i |= 0xf00;
          i &= 0xf;
          i += 22;
@@ -419,6 +418,7 @@ class StatementTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_while(self):
+        """ Test the while statement """
         snippet = """
         module tstwhile;
         function void t()

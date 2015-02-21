@@ -54,6 +54,7 @@ class CodeGenerator:
             ir_var = ir.Variable(var.name, context.size_of(var.typ))
             context.var_map[var] = ir_var
             assert not var.isLocal
+            assert not var.ival
             ir_module.add_variable(ir_var)
 
     def gencode(self, mod, context):

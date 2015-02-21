@@ -173,12 +173,14 @@ class Constant(Symbol):
 
 
 class Variable(Symbol):
+    """ A variable, either global or local """
     def __init__(self, name, typ, loc):
         super().__init__(name)
         self.typ = typ
         self.isLocal = False
         self.isParameter = False
         self.loc = loc
+        self.ival = None
 
     def __repr__(self):
         return 'Var {} [{}]'.format(self.name, self.typ)

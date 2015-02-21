@@ -165,15 +165,26 @@ class Parser:
         self.add_declaration(typedef)
 
     # Variable declarations:
-    def parse_variable_def(self):
-        """ Parse variable declaration """
-        # TODO handle variable initialization?
+    def parse_variable_def(self, allow_init=False):
+        """ Parse variable declaration, optionally with initialization. """
         self.consume('var')
         var_type = self.parse_type_spec()
-        for name in self.parse_id_sequence():
+        statements = []
+        while True:
+            name = self.consume('ID')
             var = Variable(name.val, var_type, name.loc)
+            # Munch initial value:
+            if allow_init and self.Peak == '=':
+                loc = self.consume('=').loc
+                rhs = self.parse_expression()
+                lhs = Identifier(name.val, name.loc)
+                statements.append(Assignment(lhs, rhs, loc, '='))
             self.add_declaration(var)
+            if not self.has_consumed(','):
+                break
         self.consume(';')
+        if allow_init:
+            return Compound(statements)
 
     def parse_const_def(self):
         """ Parse a constant definition """
@@ -303,8 +314,7 @@ class Parser:
         elif self.has_consumed(';'):
             return Empty()
         elif self.Peak == 'var':
-            self.parse_variable_def()
-            return Empty()
+            return self.parse_variable_def(allow_init=True)
         elif self.Peak == 'return':
             return self.parse_return()
         else:

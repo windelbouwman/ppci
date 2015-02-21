@@ -76,8 +76,7 @@ class Samples:
          function void start()
          {
             var int i;
-            var int b;
-            b = 2;
+            var int b = 2;
             for (i=0; i<10; i = i + 1)
             {
               io.print2("A = ", i);
