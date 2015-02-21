@@ -1,7 +1,7 @@
 
 from . import pyyacc
 from .baselex import BaseLexer
-from .common import Token, CompilerError, SourceLocation, make_num
+from .common import make_num
 from .target import Target, Label
 from .target.basetarget import Alignment
 
@@ -20,14 +20,15 @@ class AsmLexer(BaseLexer):
     """ Lexer capable of lexing a single line """
     def __init__(self, kws=()):
         tok_spec = [
-           ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
-           ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
-           ('NUMBER', r'\d+', self.handle_number),
-           ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
-           ('SKIP', r'[ \t]', None),
-           ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{', lambda typ, val: (val, val)),
-           ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
-           ('COMMENT', r";.*", None)
+            ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
+            ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
+            ('NUMBER', r'\d+', self.handle_number),
+            ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
+            ('SKIP', r'[ \t]', None),
+            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
+                lambda typ, val: (val, val)),
+            ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
+            ('COMMENT', r";.*", None)
         ]
         super().__init__(tok_spec)
         self.kws = set(kws)
@@ -37,9 +38,9 @@ class AsmLexer(BaseLexer):
             typ = val.lower()
         return (typ, val)
 
-    def add_keyword(self, kw):
+    def add_keyword(self, keyword):
         """ Add a keyword """
-        self.kws.add(kw)
+        self.kws.add(keyword)
 
     def handle_number(self, typ, val):
         val = make_num(val)
@@ -53,7 +54,8 @@ class AsmParser:
         # Construct a parser given a grammar:
         tokens2 = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
                    pyyacc.EPS, 'COMMENT', '{', '}',
-                   pyyacc.EOF, 'val32', 'val16', 'val12', 'val8', 'val5', 'val3']
+                   pyyacc.EOF,
+                   'val32', 'val16', 'val12', 'val8', 'val5', 'val3']
         g = pyyacc.Grammar(tokens2)
         self.g = g
 
@@ -67,9 +69,6 @@ class AsmParser:
 
         # Pseudo instructions:
         g.add_production('label', ['ID', ':'], self.p_label)
-        g.add_production('instruction', ['repeat', 'imm32'], self.p_repeat)
-        g.add_production('instruction', ['endrepeat'], self.p_endrepeat)
-        g.add_production('instruction', ['section', 'ID'], self.p_section)
 
         # Add handy rules:
         self.add_rule('imm32', ['val32'], lambda rhs: rhs[0].val)
@@ -108,15 +107,6 @@ class AsmParser:
         lab = Label(lname.val)
         self.emit(lab)
 
-    def p_repeat(self, repeat, count):
-        self.assembler.begin_repeat(count)
-
-    def p_endrepeat(self, endrepeat):
-        self.assembler.end_repeat()
-
-    def p_section(self, section_kw, name):
-        self.assembler.select_section(name.val)
-
     def parse(self, lexer):
         """ Entry function to parser """
         if not hasattr(self, 'p'):
@@ -139,10 +129,13 @@ class BaseAssembler:
         self.add_keyword('section')
         self.add_keyword('align')
         self.add_instruction(['align', 'imm8'], lambda rhs: Alignment(rhs[1]))
+        self.add_instruction(['repeat', 'imm32'], self.p_repeat)
+        self.add_instruction(['endrepeat'], self.p_endrepeat)
+        self.add_instruction(['section', 'ID'], self.p_section)
 
-    def add_keyword(self, kw):
-        self.parser.g.add_terminal(kw)
-        self.lexer.add_keyword(kw)
+    def add_keyword(self, keyword):
+        self.parser.g.add_terminal(keyword)
+        self.lexer.add_keyword(keyword)
 
     def add_instruction(self, rhs, f):
         self.parser.add_instruction(rhs, f)
@@ -205,10 +198,25 @@ class BaseAssembler:
         for line in asmsrc.split('\n'):
             self.parse_line(line)
 
-    # Macro language handlers:
+    # Parser handlers:
+    def p_repeat(self, rhs):
+        self.begin_repeat(rhs[1])
+
+    def p_endrepeat(self, rhs):
+        self.end_repeat()
+
+    def p_section(self, rhs):
+        self.select_section(rhs[1].val)
+
+    def select_section(self, name):
+        """ Switch to another section section in the instruction stream """
+        self.flush()
+        self.stream.select_section(name)
+
     def flush(self):
         pass
 
+    # Macro language handlers:
     def begin_repeat(self, count):
         """ Handle begin of repeat macro """
         assert not self.inMacro
@@ -221,4 +229,3 @@ class BaseAssembler:
         self.inMacro = False
         for rec in self.recording * self.rep_count:
             self.emit(*rec)
-

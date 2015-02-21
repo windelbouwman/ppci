@@ -60,10 +60,6 @@ class ThumbAssembler(BaseAssembler):
         parser.add_rule('reg_or_range', ['reg'], lambda rhs: set([rhs[0]]))
         parser.add_rule('reg_or_range', ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
-    def select_section(self, name):
-        self.flush()
-        self.stream.select_section(name)
-
 
 class ThumbTarget(Target):
     def __init__(self):

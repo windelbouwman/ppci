@@ -1,5 +1,6 @@
 
 <project name="Snake" default="snake">
+    <import name="ppci.buildtasks" />
 
     <target name="snake">
         <assemble source="lm3s6965/startup.asm" target="thumb" 

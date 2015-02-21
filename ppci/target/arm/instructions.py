@@ -95,6 +95,7 @@ class Db(ArmInstruction):
 
 
 class Ds(ArmInstruction):
+    """ Reserve x amount of zero bytes (same as resb in nasm) """
     tokens = []
     args = [('v', int)]
     syntax = ['ds', 0]

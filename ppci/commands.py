@@ -1,4 +1,6 @@
-
+"""
+    Contains the command line interface functions.
+"""
 import sys
 import argparse
 import logging
@@ -9,7 +11,6 @@ from .buildfunctions import construct, bf2ir, optimize, bfcompile, c3toir
 from .buildfunctions import c3compile
 from .irutils import Writer
 from .tasks import TaskError
-from . import buildtasks  # Include not used, but it registers build tasks.
 from . import logformat, machines
 
 
@@ -104,7 +105,7 @@ def main(args):
     try:
         res = 0
         if args.command == 'build':
-            res = construct(args.buildfile, args.targets)
+            construct(args.buildfile, args.targets)
         elif args.command == 'bf2ir':
             ircode = bf2ir(args.source.read())
             optimize(ircode)

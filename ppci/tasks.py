@@ -10,12 +10,14 @@ import glob
 
 
 task_map = {}
+
+
 def register_task(name):
     """ Decorator that registers a task class """
-    def f(cls):
+    def wrapper(cls):
         task_map[name] = cls
         return cls
-    return f
+    return wrapper
 
 
 class TaskError(Exception):
@@ -34,17 +36,20 @@ class Project:
         self.macro_regex = re.compile('\$\{([^\}]+)\}')
 
     def set_property(self, name, value):
+        """ Set a property in this project """
         self.properties[name] = value
 
     def get_property(self, name):
+        """ Get a property in this project """
         if name not in self.properties:
             raise TaskError('Property "{}" not found'.format(name))
         return self.properties[name]
 
-    def add_target(self, t):
-        if t.name in self.targets:
-            raise TaskError("Duplicate target '{}'".format(t.name))
-        self.targets[t.name] = t
+    def add_target(self, target):
+        """ Add a target to the project """
+        if target.name in self.targets:
+            raise TaskError("Duplicate target '{}'".format(target.name))
+        self.targets[target.name] = target
 
     def get_target(self, target_name):
         if target_name not in self.targets:
@@ -112,7 +117,6 @@ class Task:
         self.target = target
         self.name = self.__class__.__name__
         self.arguments = kwargs
-        self.subs = sub_elements
 
     def get_argument(self, name):
         if name not in self.arguments:
@@ -148,6 +152,7 @@ class Task:
         return file_names
 
     def run(self):
+        """ Implement this method when creating a custom task """
         raise NotImplementedError("Implement this abstract method!")
 
     def __repr__(self):
@@ -158,6 +163,13 @@ class TaskRunner:
     """ Basic task runner that can run some tasks in sequence """
     def __init__(self):
         self.logger = logging.getLogger('taskrunner')
+
+    def get_task(self, name):
+        """ Tries to load the task type """
+        if name in task_map:
+            return task_map[name]
+        else:
+            raise TaskError('Task "{}" could not be found'.format(name))
 
     def run(self, project, targets=[]):
         """ Try to run a project """
@@ -179,10 +191,14 @@ class TaskRunner:
             project.check_target(target)
 
         # Calculate all dependencies:
-        target_list = set.union(*[project.dependencies(t) for t in target_list]).union(set(target_list))
+        # TODO: make this understandable:
+        target_list = set.union(
+            *[project.dependencies(t) for t in target_list])\
+            .union(set(target_list))
 
         # Lookup actual targets:
-        target_list = [project.get_target(target_name) for target_name in target_list]
+        target_list = [project.get_target(target_name)
+                       for target_name in target_list]
         target_list.sort()
 
         self.logger.info('Target sequence: {}'.format(target_list))
@@ -195,10 +211,10 @@ class TaskRunner:
                     tname, props = task
                     for arg in props:
                         props[arg] = project.expand_macros(props[arg])
-                    task = task_map[tname](target, props)
+                    task = self.get_task(tname)(target, props)
                     self.logger.info('Running {}'.format(task))
                     task.run()
                 else:
                     raise Exception()
             self.logger.info('Target {} Ready'.format(target.name))
-        self.logger.info('Done!')
+        self.logger.info('All targets done!')

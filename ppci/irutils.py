@@ -444,3 +444,5 @@ class Verifier:
         for value in instruction.uses:
             assert value.dominates(instruction), \
                 "{} does not dominate {}".format(value, instruction)
+            # Check that a value is not undefined:
+            assert not isinstance(value, ir.Undefined)

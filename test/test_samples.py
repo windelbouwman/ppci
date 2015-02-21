@@ -54,6 +54,21 @@ class Samples:
         """
         self.do(snippet, "Hello world")
 
+    @unittest.skip('fix this bug')
+    def test_uninitialized_local(self):
+        snippet = """
+         module sample;
+         import io;
+         var int b;
+         function void start()
+         {
+            io.print("Hello world");
+            var int x;
+            b = x;
+         }
+        """
+        self.do(snippet, "Hello world")
+
     def test_for_loop_print(self):
         snippet = """
          module sample;
@@ -222,6 +237,7 @@ class Samples:
         self.do(snippet, res)
 
     def test_parameter_passing4(self):
+        """ Check that parameter passing works as expected """
         snippet = """
          module sample;
          import io;
@@ -232,15 +248,21 @@ class Samples:
             io.print2("c=", c);
             io.print2("d=", d);
          }
+         function void dump2(int a, int b, int c, int d)
+         {
+            dump(a,b,c,d);
+         }
          function void start()
          {
             dump(4,55,66,0x1337);
+            dump2(4,55,66,0x1337);
          }
         """
         res = "a=0x{0:08X}\n".format(4)
         res += "b=0x{0:08X}\n".format(55)
         res += "c=0x{0:08X}\n".format(66)
         res += "d=0x{0:08X}\n".format(0x1337)
+        res = res + res
         self.do(snippet, res)
 
     def test_pointer_fu(self):
@@ -501,7 +523,6 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
 class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     """ The lm3s811 has 64 k memory """
     def setUp(self):
-        # self.skipTest('Tests got broken!')
         if not has_qemu():
             self.skipTest('Not running qemu tests')
 

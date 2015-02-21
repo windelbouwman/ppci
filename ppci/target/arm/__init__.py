@@ -121,10 +121,6 @@ class ArmAssembler(BaseAssembler):
             ['mrc', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
             lambda rhs: Mrc(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
 
-    def select_section(self, name):
-        self.flush()
-        self.stream.select_section(name)
-
     def flush(self):
         if self.inMacro:
             raise Exception()
