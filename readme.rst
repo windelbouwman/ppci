@@ -59,7 +59,9 @@ Sourcecode is located here:
 - https://pikacode.com/windel/ppci/
 
 
-Documentation can be found on read the docs: http://ppci.readthedocs.org/
+Documentation can be found here:
+
+- http://ppci.readthedocs.org/
 
 
 +-------------------------------+---------------------------------------------+

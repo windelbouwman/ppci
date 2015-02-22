@@ -9,10 +9,10 @@ As an example language, the c3 language was created. As pointed out clearly
 c2lang_, the C language is widely used, but has some strange contraptions:
 
 - The include file system. This results in lots of code duplication and file
-creation.
+  creation.
 - The comma statement: x = a(),2; assigns 2 to x.
 - C is difficult to parse with a simple parser. The parser has to know what
-a symbol is when it is parsed.
+  a symbol is when it is parsed.
 - Etc...
 
 For these reasons (and of course, for fun), C3 was created.
