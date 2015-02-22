@@ -4,17 +4,17 @@
 import sys
 import argparse
 import logging
-import io
 
 from .report import RstFormatter
-from .buildfunctions import construct, bf2ir, optimize, bfcompile, c3toir
+from .buildfunctions import construct
 from .buildfunctions import c3compile
-from .irutils import Writer
+from .buildfunctions import assemble
 from .tasks import TaskError
-from . import logformat, machines
+from . import version
+from .common import logformat
 
 
-def logLevel(s):
+def log_level(s):
     """ Converts a string to a valid logging level """
     numeric_level = getattr(logging, s.upper(), None)
     if not isinstance(numeric_level, int):
@@ -22,55 +22,21 @@ def logLevel(s):
     return numeric_level
 
 
-def make_parser():
-    parser = argparse.ArgumentParser(description='ppci compiler')
-
-    parser.add_argument('--log', help='Log level (INFO,DEBUG,[WARN])',
-                        type=logLevel, default='INFO')
+def add_common_parser_options(parser):
+    """ Add some common parser arguments to the parser """
+    parser.add_argument('--log', help='Log level (INFO,DEBUG,WARN)',
+                        type=log_level, default='INFO')
     parser.add_argument(
         '--report',
         help='Specify a file to write the compile report to',
         type=argparse.FileType('w'))
-
-    subparsers = parser.add_subparsers(
-        title='commands',
-        description='possible commands', dest='command')
-
-    build_parser = subparsers.add_parser(
-        'build',
-        help='build project from xml description')
-    build_parser.add_argument(
-        '-b', '--buildfile',
-        help='use buildfile, otherwise build.xml is the default',
-        default='build.xml')
-    build_parser.add_argument('targets', metavar='target', nargs='*')
-
-    bf2ir_parser = subparsers.add_parser(
-        'bf2ir', help='Compile brainfuck code into ir code.')
-    bf2ir_parser.add_argument('source', type=argparse.FileType('r'))
-    bf2ir_parser.add_argument(
-        '-o', '--output', help='output file',
-        type=argparse.FileType('w'), default=sys.stdout)
-
-    bf2hex_parser = subparsers.add_parser(
-        'bf2hex', help='Compile brainfuck code into hexfile for stm32f4.')
-    bf2hex_parser.add_argument('source', type=argparse.FileType('r'))
-    bf2hex_parser.add_argument('-o', '--output', help='output file',
-                               type=argparse.FileType('w'))
-
-    c32ir_parser = subparsers.add_parser(
-        'c32ir', help='Compile c3 code into ir code.')
-    c32ir_parser.add_argument('--target', help='target machine', default="arm")
-    c32ir_parser.add_argument('-o', '--output', help='output file',
-                              type=argparse.FileType('w'), default=sys.stdout)
-    c32ir_parser.add_argument('-i', '--include', action='append',
-                              help='include file', default=[])
-    c32ir_parser.add_argument('sources', metavar='source',
-                              help='source file', nargs='+')
-    return parser
+    parser.add_argument(
+        '--verbose', '-v', action='count', default=0,
+        help='Increase verbosity of the output')
 
 
 class ColoredFormatter(logging.Formatter):
+    """ Custom formatter that makes vt100 coloring to log messages """
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     colors = {
         'INFO': GREEN,
@@ -89,58 +55,108 @@ class ColoredFormatter(logging.Formatter):
         return msg
 
 
-def main(args):
-    # Configure some logging:
-    logging.getLogger().setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setFormatter(ColoredFormatter(logformat))
-    ch.setLevel(args.log)
-    logging.getLogger().addHandler(ch)
+def build():
+    """ Run the build command from command line. Used by ppci-build.py """
+    parser = argparse.ArgumentParser(
+        description='ppci {} compiler'.format(version))
 
-    if args.report:
-        fh = logging.StreamHandler(args.report)
-        fh.setFormatter(RstFormatter())
-        logging.getLogger().addHandler(fh)
-
-    try:
-        res = 0
-        if args.command == 'build':
+    add_common_parser_options(parser)
+    parser.add_argument(
+        '-f', '--buildfile',
+        help='use buildfile, otherwise build.xml is the default',
+        default='build.xml')
+    parser.add_argument('targets', metavar='target', nargs='*')
+    args = parser.parse_args()
+    logger = logging.getLogger()
+    with LogSetup(args):
+        logger.info(parser.description)
+        logger.debug('Arguments: {}'.format(args))
+        try:
             construct(args.buildfile, args.targets)
-        elif args.command == 'bf2ir':
-            ircode = bf2ir(args.source.read())
-            optimize(ircode)
-            Writer().write(ircode, args.output)
-        elif args.command == 'bf2hex':
-            march = "thumb"
-            obj = bfcompile(args.source.read(), march)
-            realpb_arch = """
-                module arch;
+        except TaskError as err:
+            logging.getLogger().error(str(err.msg))
+            sys.exit(1)
 
-                function void putc(int c)
-                {
-                    var int *UART0DR;
-                    UART0DR = cast<int*>(0x10009000);
-                    *UART0DR = c;
-                }
-            """
-            o2 = c3compile([io.StringIO(realpb_arch)], [], march)
-            machines.wrap([obj, o2], march, "tst.bin")
-            # TODO: link and hexwrite
-            raise NotImplementedError('TODO: writeout hex')
-        elif args.command == 'c3c':
-            res = c3toir(args.sources, args.include, args.target)
-            writer = Writer()
-            for ir_module in res:
-                writer.write(ir_module, args.output)
-        else:
-            raise Exception('command = {}'.format(args.command))
-    except TaskError as err:
-        logging.getLogger().error(str(err.msg))
-        res = 1
 
-    if args.report:
-        logging.getLogger().removeHandler(fh)
-        args.report.close()
+def c3c():
+    """ Run c3 compile task """
+    parser = argparse.ArgumentParser(
+        description='ppci {} compiler'.format(version))
+    add_common_parser_options(parser)
 
-    logging.getLogger().removeHandler(ch)
-    return res
+    parser.add_argument('--target', help='target machine', required=True)
+    parser.add_argument('--output', '-o', help='output file',
+                        type=argparse.FileType('w'),
+                        default=sys.stdout)
+    parser.add_argument('-i', '--include', action='append',
+                        help='include file', default=[])
+    parser.add_argument('sources', metavar='source',
+                        help='source file', nargs='+')
+    args = parser.parse_args()
+    with LogSetup(args):
+        logging.getLogger().info(parser.description)
+        try:
+            # Compile sources:
+            obj = c3compile(args.sources, args.include, args.target)
+
+            # Write object file to disk:
+            obj.save(args.output)
+            args.output.close()
+        except TaskError as err:
+            logging.getLogger().error(str(err.msg))
+            sys.exit(1)
+
+
+def asm():
+    """ Run asm from command line """
+    parser = argparse.ArgumentParser(description="Assembler")
+    add_common_parser_options(parser)
+    parser.add_argument('sourcefile', type=argparse.FileType('r'),
+                        help='the source file to assemble')
+    parser.add_argument('--target', help='target machine', required=True)
+    args = parser.parse_args()
+    with LogSetup(args):
+        logging.getLogger().info(parser.description)
+        try:
+            # Assemble source:
+            obj = assemble(args.sourcefile, args.target)
+
+            # Write object file to disk:
+            obj.save(args.output)
+            args.output.close()
+        except TaskError as err:
+            logging.getLogger().error(str(err.msg))
+            sys.exit(1)
+
+
+class LogSetup:
+    """ Context manager that attaches logging to a snippet """
+    def __init__(self, args):
+        self.args = args
+        self.console_handler = None
+        self.file_handler = None
+        self.logger = logging.getLogger()
+
+    def __enter__(self):
+        self.logger.setLevel(logging.DEBUG)
+        self.console_handler = logging.StreamHandler()
+        self.console_handler.setFormatter(ColoredFormatter(logformat))
+        self.console_handler.setLevel(self.args.log)
+        self.logger.addHandler(self.console_handler)
+
+        if self.args.verbose > 0:
+            self.console_handler.setLevel(logging.DEBUG)
+
+        if self.args.report:
+            self.file_handler = logging.StreamHandler(self.args.report)
+            self.file_handler.setFormatter(RstFormatter())
+            self.logger.addHandler(self.file_handler)
+        self.logger.debug('Loggers attached')
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.logger.debug('Removing loggers')
+        if self.args.report:
+            self.logger.removeHandler(self.file_handler)
+            self.args.report.close()
+
+        self.logger.removeHandler(self.console_handler)

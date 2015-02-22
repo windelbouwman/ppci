@@ -41,7 +41,7 @@ class Property(Task):
 class ConstructTask(Task):
     """ Builds another build description file (build.xml) """
     def run(self):
-        project = self.get_argument('file')
+        project = self.relpath(self.get_argument('file'))
         construct(project)
 
 

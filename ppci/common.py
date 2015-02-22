@@ -9,6 +9,9 @@ from collections import namedtuple
 import logging
 
 
+logformat = '%(asctime)s | %(levelname)6s | %(name)10.10s | %(message)s'
+
+
 def make_num(txt):
     if txt.startswith('0x'):
         return int(txt[2:], 16)

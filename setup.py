@@ -10,7 +10,7 @@ setup(
     description="Pure python compiler infrastructure",
     scripts=[
         "bin/ppci-build.py",
-        "bin/ppci-asm.py",
+        "bin/ppci-asm.py", "bin/ppci-c3c.py",
         "bin/st-flash.py", 'bin/hexutil.py'],
     long_description=long_description,
     version=ppci.version,

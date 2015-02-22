@@ -4,8 +4,9 @@ import io
 
 from .binutils import outstream
 from .c3 import AstPrinter
-from . import logformat
+from .common import logformat
 from .irutils import Writer
+
 
 class RstFormatter(logging.Formatter):
     """ Formatter that tries to create an rst document """
@@ -137,4 +138,3 @@ def generate_sphinx_docs():
         mastertoctree = text,
     )
     quickstart.generate(d)
-

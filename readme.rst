@@ -15,12 +15,34 @@ pure python. You can use it to compile sources written in a custom language
 
 **Warning: This project is in alpha state and not read for production use!**
 
+Installation
+------------
+
 ppci can be installed using pip:
 
 .. code:: bash
 
     $ pip install ppci
 
+Usage
+-----
+
+To invoke the builder, you can use the following command:
+
+.. code:: bash
+
+    $ ppci-build.py -h
+
+To use only the compiler, use:
+
+.. code:: bash
+
+    $ ppci-c3c.py -h
+
+Instead of using the command line tools, you can also use the :doc:`api`.
+
+References
+----------
 
 Sourcecode is located here:
 

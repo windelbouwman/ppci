@@ -79,7 +79,9 @@ def fix_layout(l):
 
 
 def construct(buildfile, targets=()):
-    """ Construct the given buildfile. Raise task error if something goes wrong
+    """
+        Construct the given buildfile.
+        Raise task error if something goes wrong
     """
     recipe_loader = RecipeLoader()
     try:
