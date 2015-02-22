@@ -3,15 +3,16 @@
 About
 =====
 
-The ppci project is a compiler suite written entirely in
+The ppci project is a compiler, assembler, linker and build-system written 
+entirely in
 python. The project contains everything from language front-end to code
 generation.
-As an example, it contains a front-end for the c3 language which was inspired
-by c and c2.
+It contains a front-end for the c3 language, can optimize this code
+and generate ARM-code.
 
 The project contains the following:
 
-- Language front-ends: Brainfuck, C3
+- Language front-ends: Brainfuck, :doc:`c3`
 - Various code optimizers
 - Backends for various platforms: ARM, Thumb, Python
 - Assembler
@@ -49,7 +50,7 @@ This runs the snake demo on an emulated lm3s demo board and displays
 the game to the console.
 
 
-Instead of using the command line tools(:doc:`usage`), you can also
+Instead of using the :doc:`usage`, you can also
 use the :doc:`api`.
 
 Links
