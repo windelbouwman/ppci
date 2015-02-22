@@ -265,11 +265,18 @@ class Index(Expression):
 
 
 class Unop(Expression):
-    """ Operation on one operand """
+    """ Operation on one operand, typically 'op' 'expr' """
+    arithmatic_ops = ('+', '-')
+    logical_ops = ('not',)
+    pointer_ops = ('&',)
+    cond_ops = logical_ops
+    all_ops = cond_ops + pointer_ops + arithmatic_ops
+
     def __init__(self, op, a, loc):
         super().__init__(loc)
         assert isinstance(a, Expression)
         assert isinstance(op, str)
+        assert op in self.all_ops
         self.a = a
         self.op = op
 

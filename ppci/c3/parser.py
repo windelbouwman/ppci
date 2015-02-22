@@ -444,7 +444,7 @@ class Parser:
 
     def parse_unary_expression(self):
         """ Handle unary plus, minus and pointer magic """
-        if self.Peak in ['&', '*', '-', '+']:
+        if self.Peak in ['&', '*', '-', '+', 'not']:
             op = self.consume(self.Peak)
             ce = self.parse_cast_expression()
             if op.val == '*':

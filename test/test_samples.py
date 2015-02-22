@@ -155,9 +155,10 @@ class Samples:
             key = 1;
             var int k;
             print_bool(getkey(&k) and true);
+            print_bool(not no());
          }
         """
-        res = "tftf"
+        res = "tftft"
         self.do(snippet, res)
 
     def test_if_statement(self):

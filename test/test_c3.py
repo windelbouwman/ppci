@@ -312,7 +312,7 @@ class ConditionTestCase(BuildTestCaseBase):
         module tst;
         function void t()
         {
-         if (3+3)
+         if (3 + 3)
          {
          }
         }

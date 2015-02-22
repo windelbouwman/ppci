@@ -348,6 +348,10 @@ class CodeGenerator:
                 self.emit(ir.Jump(bbtrue))
             else:
                 self.emit(ir.Jump(bbfalse))
+        elif isinstance(expr, ast.Unop) and expr.op == 'not':
+            # In case of not, simply swap true and false!
+            self.gen_cond_code(expr.a, bbfalse, bbtrue)
+            expr.typ = self.context.get_type('bool')
         elif isinstance(expr, ast.Expression):
             # Evaluate expression, make sure it is boolean and compare it
             # with true:
@@ -366,7 +370,9 @@ class CodeGenerator:
     def gen_expr_code(self, expr, rvalue=False):
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
-        if type(expr) is ast.Binop:
+        if self.is_bool(expr):
+            value = self.gen_bool_expr(expr)
+        elif type(expr) is ast.Binop:
             value = self.gen_binop(expr)
         elif type(expr) is ast.Unop:
             value = self.gen_unop(expr)
@@ -474,53 +480,71 @@ class CodeGenerator:
         else:
             raise NotImplementedError('Unknown unop {0}'.format(expr.op))
 
+    def is_bool(self, expr):
+        """ Check if an expression is a boolean type """
+        if isinstance(expr, ast.Binop) and expr.op in ast.Binop.cond_ops:
+            return True
+        elif isinstance(expr, ast.Unop) and expr.op in ast.Unop.cond_ops:
+            return True
+        else:
+            return False
+
+    def gen_bool_expr(self, expr):
+        """ Generate code for cases where a boolean value is assigned """
+        # In case of boolean assignment like:
+        # 'var bool x = true or false;'
+
+        # Use condition machinery:
+        true_block = self.builder.newBlock()
+        false_block = self.builder.newBlock()
+        final_block = self.builder.newBlock()
+        self.gen_cond_code(expr, true_block, false_block)
+
+        # True path:
+        self.builder.setBlock(true_block)
+        true_val = self.emit(ir.Const(1, 'true', ir.i32))
+        self.emit(ir.Jump(final_block))
+
+        # False path:
+        self.builder.setBlock(false_block)
+        false_val = self.emit(ir.Const(0, 'false', ir.i32))
+        self.emit(ir.Jump(final_block))
+
+        # Final path:
+        self.builder.setBlock(final_block)
+        phi = self.emit(ir.Phi('bool_res', ir.i32))
+        phi.set_incoming(false_block, false_val)
+        phi.set_incoming(true_block, true_val)
+
+        # This is for sure no lvalue:
+        expr.lvalue = False
+        return phi
+
     def gen_binop(self, expr):
         """ Generate code for binary operation """
         assert type(expr) is ast.Binop
+        assert expr.op not in ast.Binop.cond_ops
         expr.lvalue = False
 
-        # In case of boolean assignment like:
-        # 'var bool x = true or false;'
-        # Use condition machinery:
-        if expr.op in ast.Binop.cond_ops:
-            true_block = self.builder.newBlock()
-            false_block = self.builder.newBlock()
-            final_block = self.builder.newBlock()
-            self.gen_cond_code(expr, true_block, false_block)
-            # True path:
-            self.builder.setBlock(true_block)
-            true_val = self.emit(ir.Const(1, 'true', ir.i32))
-            self.emit(ir.Jump(final_block))
-            # False path:
-            self.builder.setBlock(false_block)
-            false_val = self.emit(ir.Const(0, 'false', ir.i32))
-            self.emit(ir.Jump(final_block))
-            # Final path:
-            self.builder.setBlock(final_block)
-            phi = self.emit(ir.Phi('bool_res', ir.i32))
-            phi.set_incoming(false_block, false_val)
-            phi.set_incoming(true_block, true_val)
-            return phi
-        else:
-            # Dealing with simple arithmatic
-            a_val = self.gen_expr_code(expr.a, rvalue=True)
-            b_val = self.gen_expr_code(expr.b, rvalue=True)
+        # Dealing with simple arithmatic
+        a_val = self.gen_expr_code(expr.a, rvalue=True)
+        b_val = self.gen_expr_code(expr.b, rvalue=True)
 
-            # Get best type for result:
-            common_type = self.context.get_common_type(expr.a, expr.b)
-            expr.typ = common_type
+        # Get best type for result:
+        common_type = self.context.get_common_type(expr.a, expr.b)
+        expr.typ = common_type
 
-            # TODO: check if operation can be performed on shift and bitwise
-            if expr.op not in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
-                raise SemanticError("Cannot use {}".format(expr.op))
+        # TODO: check if operation can be performed on shift and bitwise
+        if expr.op not in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
+            raise SemanticError("Cannot use {}".format(expr.op))
 
-            # Perform type coercion:
-            # TODO: use ir-types, or ast types?
-            a_val = self.do_coerce(a_val, expr.a.typ, common_type, expr.loc)
-            b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
+        # Perform type coercion:
+        # TODO: use ir-types, or ast types?
+        a_val = self.do_coerce(a_val, expr.a.typ, common_type, expr.loc)
+        b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
 
-            return self.emit(
-                ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
+        return self.emit(
+            ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
 
     def gen_member_expr(self, expr):
         """ Generate code for member expression such as struc.mem = 2
