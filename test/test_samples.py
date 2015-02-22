@@ -166,8 +166,7 @@ class Samples:
          import io;
          function void start()
          {
-            var int i;
-            i = 13;
+            var int i = 13;
             if (i*7 < 100)
             {
                 io.print("Wow");
@@ -188,9 +187,7 @@ class Samples:
          var int x;
          function void start()
          {
-            var int i;
-            i = 0;
-
+            var int i = 0;
             if (x != i)
             {
             }
@@ -213,6 +210,34 @@ class Samples:
          }
         """
         res = ""
+        self.do(snippet, res)
+
+    def test_bug3(self):
+        """ Apparently function arguments get sorted by name??? """
+        snippet = """
+         module sample;
+         import io;
+         var int b;
+         function void cpy(byte* dst, byte* src, int size)
+         {
+            io.print2("to=", cast<int>(dst));
+            io.print2("from=", cast<int>(src));
+            io.print2("size=", size);
+         }
+         function void start()
+         {
+            var byte[4] data;
+            data[0] = 4;
+            data[1] = 3;
+            data[2] = 0;
+            data[3] = 0;
+            var byte* image_ptr = &data[0];
+            var int x = *cast<int*>(image_ptr);
+            io.print2("x=", x);
+            cpy(1, 2, x);
+         }
+        """
+        res = "x=0x00000304\nto=0x00000001\nfrom=0x00000002\nsize=0x00000304\n"
         self.do(snippet, res)
 
     def test_complex_variables(self):

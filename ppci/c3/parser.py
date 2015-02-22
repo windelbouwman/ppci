@@ -235,6 +235,7 @@ class Parser:
             self.consume(')')
         paramtypes = [p.typ for p in parameters]
         func.typ = FunctionType(paramtypes, returntype)
+        func.parameters = parameters
         if self.Peak == ';':
             self.consume(';')
             func.body = None

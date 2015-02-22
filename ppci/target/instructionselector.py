@@ -3,7 +3,7 @@ from ppci.tree import State, Tree, from_string
 from ppci.pyburg import BurgSystem
 
 
-def pattern(non_term, tree, cost=0):
+def pattern(non_term, tree, cost=0, condition=None):
     """
         Decorator function that marks the method as a pattern implementation
     """
@@ -20,6 +20,7 @@ def pattern(non_term, tree, cost=0):
         setattr(function, '$non_term', non_term)
         setattr(function, '$tree', tree)
         setattr(function, '$cost', cost)
+        setattr(function, '$condition', condition)
         return function
     return wrapper
 
@@ -53,7 +54,8 @@ class InstructionSelector:
                 non_term = getattr(method, '$non_term')
                 tree = getattr(method, '$tree')
                 cost = getattr(method, '$cost')
-                self.sys.add_rule(non_term, tree, cost, None, method)
+                condition = getattr(method, '$condition')
+                self.sys.add_rule(non_term, tree, cost, condition, method)
 
         self.sys.check()
 
@@ -114,7 +116,10 @@ class InstructionSelector:
             if self.sys.tree_terminal_equal(tree, rule.tree):
                 nts = self.nts(rule.nr)
                 kids = self.kids(tree, rule.nr)
-                if all(x.state.has_goal(y) for x, y in zip(kids, nts)):
+                accept = True
+                if rule.acceptance:
+                    accept = rule.acceptance(tree)
+                if all(x.state.has_goal(y) for x, y in zip(kids, nts)) and accept:
                     cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
                     cost = cost + rule.cost
                     tree.state.set_cost(rule.non_term, cost, rule.nr)

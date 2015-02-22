@@ -639,6 +639,15 @@ class ArmInstructionSelector(InstructionSelector):
         self.emit(Ldr3, dst=[d], others=[ln])
         return d
 
+    @pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
+    def P23(self, tree):
+        d = self.newTmp()
+        c0 = tree.value
+        assert isinstance(c0, int)
+        assert c0 < 256 and c0 >= 0
+        self.emit(Mov1, dst=[d], others=[c0])
+        return d
+
     @pattern('stm', 'CJMP(reg, reg)', cost=2)
     def P8(self, tree, c0, c1):
         op, yes_label, yes_tgt, no_label, no_tgt = tree.value
@@ -661,8 +670,23 @@ class ArmInstructionSelector(InstructionSelector):
         self.emit(Add1, dst=[d], src=[c0, c1])
         return d
 
-    #reg: ADDI32(reg, cn)          2 'return tree.children[1].value < 256' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c0], others=[c1]); return d'
-    #reg: ADDI32(cn, reg)          2 'return tree.children[0].value < 256' 'd = self.newTmp(); self.emit(Add2, dst=[d], src=[c1], others=[c0]); return d'
+    @pattern(
+        'reg', 'ADDI32(reg, CONSTI32)', cost=2,
+        condition=lambda t: t.children[1].value < 256)
+    def P9_3a(self, tree, c0):
+        d = self.newTmp()
+        c1 = tree.children[1].value
+        self.emit(Add2, dst=[d], src=[c0], others=[c1])
+        return d
+
+    @pattern(
+        'reg', 'ADDI32(CONSTI32, reg)', cost=2,
+        condition=lambda t: t.children[0].value < 256)
+    def P9_3b(self, tree, c0):
+        d = self.newTmp()
+        c1 = tree.children[0].value
+        self.emit(Add2, dst=[d], src=[c0], others=[c1])
+        return d
 
     @pattern('reg', 'SUBI32(reg, reg)', cost=2)
     def P12(self, tree, c0, c1):
@@ -729,6 +753,11 @@ class ArmInstructionSelector(InstructionSelector):
         self.emit(Mul1, dst=[d], src=[c0, c1])
         return d
 
-# reg: MEMI32(ADDI32(reg, cn))  2 'd = self.newTmp(); self.emit(Ldr1, dst=[d], src=[c0], others=[c1]); return d'
-# cn: CONSTI32                  0 'return tree.value'
-# reg: CONSTI32                 2 'return (type(tree.value) is int) and (tree.value < 256)' 'd = self.newTmp(); self.emit(Mov1, dst=[d], others=[tree.value]); return d'
+    @pattern('reg', 'MEMI32(ADDI32(reg, CONSTI32))', cost=2)
+    def P22(self, tree, c0):
+        d = self.newTmp()
+        c1 = tree.children[0].children[1].value
+        assert isinstance(c1, int)
+        self.emit(Ldr1, dst=[d], src=[c0], others=[c1])
+        return d
+

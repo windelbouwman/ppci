@@ -100,6 +100,19 @@ class CodeGenerator:
         self.emit(ir.Jump(first_block))
         self.builder.setBlock(first_block)
 
+        # generate parameters:
+        param_map = {}
+        for param in function.parameters:
+            self.context.check_type(param.typ)
+
+            # Parameters can only be simple types (pass by value)
+            param_ir_typ = self.get_ir_type(param.typ, param.loc)
+
+            # Define parameter for function:
+            ir_parameter = ir.Parameter(param.name, param_ir_typ)
+            ir_function.add_parameter(ir_parameter)
+            param_map[param] = ir_parameter
+
         # generate room for locals:
         for sym in function.innerScope:
             self.context.check_type(sym.typ)
@@ -107,12 +120,8 @@ class CodeGenerator:
             variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
             self.emit(variable)
             if sym.isParameter:
-                # Parameters can only be simple types (pass by value)
-                param_ir_typ = self.get_ir_type(sym.typ, sym.loc)
-
-                # Define parameter for function:
-                parameter = ir.Parameter(sym.name, param_ir_typ)
-                ir_function.add_parameter(parameter)
+                # Get the parameter from earlier:
+                parameter = param_map[sym]
 
                 # For paramaters, allocate space and copy the value into
                 # memory. Later, the mem2reg pass will extract these values.
@@ -125,7 +134,6 @@ class CodeGenerator:
             self.context.var_map[sym] = variable
 
         self.gen_stmt(function.body)
-        # self.emit(ir.Move(f.return_value, ir.Const(0)))
         self.emit(ir.Jump(ir_function.epilog))
         self.builder.setFunction(None)
 
