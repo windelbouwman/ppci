@@ -1,0 +1,48 @@
+
+C3
+==
+
+Introduction
+------------
+
+As an example language, the c3 language was created. As pointed out clearly
+c2lang_, the C language is widely used, but has some strange contraptions:
+
+- The include file system. This results in lots of code duplication and file
+creation.
+- The comma statement: x = a(),2; assigns 2 to x.
+- C is difficult to parse with a simple parser. The parser has to know what
+a symbol is when it is parsed.
+- Etc...
+
+For these reasons (and of course, for fun), C3 was created.
+
+Example
+-------
+
+The hello world example in c3:
+
+.. code::
+
+    module hello;
+    import io;
+
+    function void main()
+    {
+        io.println("Hello world");
+    }
+
+Language reference
+------------------
+
+Modules
+~~~~~~~
+
+Modules in C3 live in file, and can be defined in multiple files. Modules can
+import each other by using the import statement.
+
+Types
+~~~~~
+
+
+.. _c2lang: http://c2lang.org/

@@ -3,9 +3,13 @@
 About
 =====
 
-The pure-python-compiler-infrastructure (ppci) is a compiler suite written in
-pure python. You can use it to compile sources written in a custom language
-(c3) to machine code. The project contains the following:
+The ppci project is a compiler suite written entirely in
+python. The project contains everything from language front-end to code
+generation.
+As an example, it contains a front-end for the c3 language which was inspired
+by c and c2.
+
+The project contains the following:
 
 - Language front-ends: Brainfuck, C3
 - Various code optimizers
@@ -27,22 +31,29 @@ ppci can be installed using pip:
 Usage
 -----
 
-To invoke the builder, you can use the following command:
+To invoke the builder and compile the snake demo, use the following:
 
 .. code:: bash
 
-    $ ppci-build.py -h
+    $ ppci-build.py -f examples/build.xml
 
-To use only the compiler, use:
+If the compilation was succesful, the snake demo compiled into
+'examples/snake.bin'. This is a binary file with ARM-code which can be run
+in qemu as follows:
 
 .. code:: bash
 
-    $ ppci-c3c.py -h
+    $ qemu-system-arm -M lm3s6965evb -kernel snake.bin -serial stdio
 
-Instead of using the command line tools, you can also use the :doc:`api`.
+This runs the snake demo on an emulated lm3s demo board and displays
+the game to the console.
 
-References
-----------
+
+Instead of using the command line tools(:doc:`usage`), you can also
+use the :doc:`api`.
+
+Links
+-----
 
 Sourcecode is located here:
 
@@ -53,14 +64,6 @@ Sourcecode is located here:
 Documentation can be found on read the docs: http://ppci.readthedocs.org/
 
 
-+-------------------------------+---------------------------------------------+
-| C3 language front-end         | Fairly complete                             |
-+-------------------------------+---------------------------------------------+
-| Brainfuck language front-end  | Working                                     |
-+-------------------------------+---------------------------------------------+
-| ARM code generation           | Bare minimum for hello world                |
-+-------------------------------+---------------------------------------------+
-| Thumb code generation         | Bare minimum for blinky on stm32f4discovery |
 +-------------------------------+---------------------------------------------+
 | Build status                  | |dronestate|_                               |
 |                               | |appveyor|_                                 |
