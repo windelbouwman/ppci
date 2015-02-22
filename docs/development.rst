@@ -10,5 +10,6 @@ PYTHONPATH
 
 .. code:: bash
 
+    $ export PYTHONPATH=your_ppci_root
     $ cd docs
     $ sphinx-build -b html . build

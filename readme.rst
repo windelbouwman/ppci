@@ -1,7 +1,7 @@
 
 
-About
-=====
+Introduction
+============
 
 The ppci project is a compiler, assembler, linker and build-system written 
 entirely in
@@ -20,17 +20,14 @@ The project contains the following:
 
 **Warning: This project is in alpha state and not read for production use!**
 
-Installation
-------------
+Quick guide
+-----------
 
 ppci can be installed using pip:
 
 .. code:: bash
 
     $ pip install ppci
-
-Usage
------
 
 To invoke the builder and compile the snake demo, use the following:
 
