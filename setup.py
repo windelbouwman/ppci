@@ -11,7 +11,7 @@ setup(
     scripts=[
         "bin/ppci-build.py",
         "bin/ppci-asm.py", "bin/ppci-c3c.py",
-        "bin/st-flash.py", 'bin/hexutil.py'],
+        "bin/st-flash.py", 'bin/ppci-hexutil.py'],
     long_description=long_description,
     version=ppci.version,
     author='Windel Bouwman',

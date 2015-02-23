@@ -15,8 +15,9 @@ class Node:
 class Symbol(Node):
     """ Symbol is the base class for all named things like variables,
         functions, constants and types and modules """
-    def __init__(self, name):
+    def __init__(self, name, public):
         self.name = name
+        self.public = public
         self.refs = []
 
     def addRef(self, r):
@@ -32,7 +33,7 @@ class Symbol(Node):
 class Module(Symbol):
     """ A module contains functions, types, consts and global variables """
     def __init__(self, name, loc):
-        super().__init__(name)
+        super().__init__(name, True)
         self.loc = loc
         self.declarations = []
         self.imports = []
@@ -65,7 +66,7 @@ class NamedType(Type, Symbol):
         and built in types. That is why this class derives from both Type
         and Symbol. """
     def __init__(self, name):
-        Symbol.__init__(self, name)
+        super().__init__(name, True)
 
 
 class BaseType(NamedType):
@@ -76,6 +77,11 @@ class BaseType(NamedType):
 
     def __repr__(self):
         return '{}'.format(self.name)
+
+
+class EnumType:
+    # TODO
+    pass
 
 
 class FunctionType(Type):
@@ -116,19 +122,23 @@ class StructureType(Type):
         self.mems = mems
         assert all(type(mem) is StructField for mem in mems)
 
-    def hasField(self, name):
+    def has_field(self, name):
+        """ Check if the struct type has a member with name """
         for mem in self.mems:
             if name == mem.name:
                 return True
         return False
 
-    def fieldType(self, name):
-        return self.findField(name).typ
+    def field_type(self, name):
+        """ Get the field type of field name """
+        return self.find_field(name).typ
 
-    def fieldOffset(self, name):
-        return self.findField(name).offset
+    def field_offset(self, name):
+        """ Determine the offset of the field in the struct """
+        return self.find_field(name).offset
 
-    def findField(self, name):
+    def find_field(self, name):
+        """ Looks up a field in the struct type """
         for mem in self.mems:
             if name == mem.name:
                 return mem
@@ -163,7 +173,7 @@ class DefinedType(NamedType):
 class Constant(Symbol):
     """ Constant definition """
     def __init__(self, name, typ, value, loc):
-        super().__init__(name)
+        super().__init__(name, True)
         self.typ = typ
         self.value = value
         self.loc = loc
@@ -174,8 +184,8 @@ class Constant(Symbol):
 
 class Variable(Symbol):
     """ A variable, either global or local """
-    def __init__(self, name, typ, loc):
-        super().__init__(name)
+    def __init__(self, name, typ, public, loc):
+        super().__init__(name, public)
         self.typ = typ
         self.isLocal = False
         self.isParameter = False
@@ -188,20 +198,25 @@ class Variable(Symbol):
 
 class FormalParameter(Variable):
     def __init__(self, name, typ, loc):
-        super().__init__(name, typ, loc)
+        super().__init__(name, typ, True, loc)
         self.isParameter = True
 
 
 # Procedure types
 class Function(Symbol):
     """ Actual implementation of a function """
-    def __init__(self, name, loc):
-        super().__init__(name)
+    def __init__(self, name, public, loc):
+        super().__init__(name, public)
         self.loc = loc
         self.declarations = []
 
     def add_declaration(self, decl):
         self.declarations.append(decl)
+
+    @property
+    def package22(self):
+        """ Gets the package that this """
+        pass
 
     def __repr__(self):
         return 'Func {}'.format(self.name)
@@ -214,6 +229,7 @@ class Expression(Node):
 
 
 class Sizeof(Expression):
+    """ Sizeof built-in contraption """
     def __init__(self, typ, loc):
         super().__init__(loc)
         self.query_typ = typ
@@ -268,7 +284,7 @@ class Unop(Expression):
     """ Operation on one operand, typically 'op' 'expr' """
     arithmatic_ops = ('+', '-')
     logical_ops = ('not',)
-    pointer_ops = ('&',)
+    pointer_ops = ('&', '*')
     cond_ops = logical_ops
     all_ops = cond_ops + pointer_ops + arithmatic_ops
 
@@ -309,8 +325,9 @@ class Binop(Expression):
 class Identifier(Expression):
     """ Reference to some identifier, can be anything from package, variable
         function or type, any named thing! """
-    def __init__(self, target, loc):
+    def __init__(self, target, scope, loc):
         super().__init__(loc)
+        self.scope = scope
         self.target = target
 
     def __repr__(self):

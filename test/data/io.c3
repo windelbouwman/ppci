@@ -7,7 +7,7 @@ function void println(string txt)
     arch.putc(10); // Newline!
 }
 
-function void print(string txt)
+public function void print(string txt)
 {
     var int i;
     i = 0;
@@ -46,7 +46,7 @@ function void print_int(int i)
     arch.putc(10); // Newline!
 }
 
-function void print2(string label, int value)
+public function void print2(string label, int value)
 {
     print(label);
     print_int(value);

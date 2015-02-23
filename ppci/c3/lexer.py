@@ -7,17 +7,16 @@ from ..common import SourceLocation, Token, make_num
 from ..baselex import BaseLexer
 from .astnodes import Assignment
 
-keywords = ['and', 'or', 'not', 'true', 'false',
-            'else', 'if', 'while', 'for', 'return',
-            'switch', 'case', 'default',
-            'function', 'var', 'type', 'const',
-            'volatile',
-            'struct', 'cast', 'sizeof',
-            'import', 'module']
-
 
 class Lexer(BaseLexer):
     """ Generates a sequence of token from an input stream """
+    keywords = ['and', 'or', 'not', 'true', 'false',
+                'else', 'if', 'while', 'for', 'return',
+                'function', 'var', 'type', 'const',
+                'volatile',
+                'struct', 'cast', 'sizeof',
+                'import', 'module', 'public']
+
     def __init__(self, diag):
         self.diag = diag
 
@@ -70,6 +69,6 @@ class Lexer(BaseLexer):
         yield Token('EOF', 'EOF', loc)
 
     def handle_id(self, typ, val):
-        if val in keywords:
+        if val in self.keywords:
             typ = val
         return typ, val

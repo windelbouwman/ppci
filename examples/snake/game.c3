@@ -31,7 +31,7 @@ var map_t map;
 var map_t render;
 var game_t game;
 
-function void init()
+public function void init()
 {
     var int i;
     for (i = 0; i < grid_size; i += 1)
@@ -174,7 +174,7 @@ function void print_render()
 
 var int key_press;
 // Perform all actions for a tick in the game
-function void single_step()
+public function void single_step()
 {
     // Handle input:
     if (bsp.get_key(&key_press))

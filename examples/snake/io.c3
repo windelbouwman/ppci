@@ -1,13 +1,13 @@
 module io;
 import bsp;
 
-function void println(string txt)
+public function void println(string txt)
 {
     print(txt);
     bsp.putc(10); // Newline!
 }
 
-function void print(string txt)
+public function void print(string txt)
 {
     var int i;
     i = 0;
@@ -20,7 +20,7 @@ function void print(string txt)
 }
 
 // Print integer in hexadecimal notation:
-function void print_int(int i)
+public function void print_int(int i)
 {
     print("0x");
 

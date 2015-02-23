@@ -23,12 +23,6 @@ buildfunctions module
 .. automodule:: ppci.buildfunctions
    :members:
 
-ir
---
-
-.. automodule:: ppci.ir
-   :members:
-
 c3
 --
 

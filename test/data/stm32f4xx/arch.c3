@@ -1,6 +1,6 @@
 module arch;
 
-function void putc(int c)
+public function void putc(int c)
 {
     // Route data over ITM trace port.
     // 0xE000 0000 is the base address for the streaming case.

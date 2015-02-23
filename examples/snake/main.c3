@@ -9,7 +9,7 @@ import io;
 import game;
 
 
-function void main()
+public function void main()
 {
     io.println("Welcome to snake!");
 

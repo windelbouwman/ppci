@@ -7,86 +7,7 @@ import collections
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
-from .scope import Scope, Context, SemanticError
-from .visitor import Visitor
-from .astnodes import Module, Function, Identifier, Symbol
-
-
-class C3Pass:
-    def __init__(self, diag):
-        self.diag = diag
-        self.logger = logging.getLogger('c3')
-        self.visitor = Visitor()
-        self.run_ok = True
-
-    def error(self, msg, loc=None):
-        self.run_ok = False
-        self.diag.error(msg, loc)
-
-    def visit(self, pkg, pre, post):
-        self.visitor.visit(pkg, pre, post)
-
-
-class ScopeFiller(C3Pass):
-    """ Pass that fills the scopes with symbols """
-    scoped_types = [Module, Function]
-
-    def add_scope(self, pkg, context):
-        """ Scope is attached to the correct modules. """
-        self.logger.debug('Adding scoping to package {}'.format(pkg.name))
-        self.run_ok = True
-        # Prepare top level scope and set scope to all objects:
-        self.scopeStack = [context.scope]
-        mod_scope = Scope(self.current_scope)
-        self.scopeStack.append(mod_scope)
-        self.visit(pkg, self.enter_scope, self.quitScope)
-        assert len(self.scopeStack) == 2
-
-        self.logger.debug('Resolving imports for package {}'.format(pkg.name))
-
-        # Handle imports:
-        for i in pkg.imports:
-            if context.has_module(i):
-                pkg.scope.add_symbol(context.get_module(i))
-            else:
-                self.error('Cannot import {}'.format(i))
-
-        # Raise an error when something went wrong.
-        if not self.run_ok:
-            raise SemanticError('Errors during symbol checks')
-
-    @property
-    def current_scope(self):
-        """ Gets the current scope """
-        return self.scopeStack[-1]
-
-    def add_symbol(self, sym):
-        """ Add a symbol to the current scope """
-        if self.current_scope.has_symbol(sym.name, include_parent=False):
-            self.error('Redefinition of {0}'.format(sym.name), sym.loc)
-        else:
-            self.current_scope.add_symbol(sym)
-
-    def enter_scope(self, sym):
-        # Attach scope to references, so they can be looked up:
-        if type(sym) is Identifier:
-            sym.scope = self.current_scope
-
-        # Add symbols to current scope:
-        if isinstance(sym, Symbol):
-            self.add_symbol(sym)
-            sym.scope = self.current_scope
-
-        # Create subscope for items creating a scope:
-        if type(sym) in self.scoped_types:
-            scope = Scope(self.current_scope)
-            self.scopeStack.append(scope)
-            sym.innerScope = self.current_scope
-
-    def quitScope(self, sym):
-        # Pop out of scope:
-        if type(sym) in self.scoped_types:
-            self.scopeStack.pop(-1)
+from .scope import Context, SemanticError
 
 
 class Builder:
@@ -115,21 +36,33 @@ class Builder:
         # Create a context where the modules can live:
         context = Context(self.target)
 
-        # Lexing and parsing stage (phase 1)
+        # Phase 1: Lexing and parsing stage
         for src in srcs:
             self.do_parse(src, context)
         for src in imps:
             self.do_parse(src, context)
 
-        self.logger.debug('Parsing complete')
-
-        self.fill_scopes(context)
+        # Phase 1.8: Handle imports:
+        self.logger.debug('Resolving imports')
+        try:
+            for mod in context.modules:
+                for imp in mod.imports:
+                    if context.has_module(imp):
+                        if mod.innerScope.has_symbol(imp):
+                            raise SemanticError("Redefine of {}".format(imp))
+                        mod.innerScope.add_symbol(context.get_module(imp))
+                    else:
+                        msg = 'Cannot import {}'.format(imp)
+                        raise SemanticError(msg)
+        except SemanticError as ex:
+            self.diag.error(ex.msg, None)
+            raise
 
         # Phase 1.9
         for module in context.modules:
             self.codegen.gen_globals(module, context)
 
-        # Generate intermediate code (phase 2)
+        # Phase 2: Generate intermediate code
         # Only return ircode when everything is OK
         ir_modules = []
         for pkg in context.modules:
@@ -141,11 +74,3 @@ class Builder:
         """ Lexing and parsing stage (phase 1) """
         tokens = self.lexer.lex(src)
         self.parser.parse_source(tokens, context)
-
-    def fill_scopes(self, context):
-        """ Fix scopes and package refs (phase 1.5) """
-        scope_filler = ScopeFiller(self.diag)
-
-        # Fix scopes:
-        for pkg in context.modules:
-            scope_filler.add_scope(pkg, context)

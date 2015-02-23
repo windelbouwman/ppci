@@ -137,7 +137,9 @@ class Context:
     def get_module(self, name):
         """ Gets or creates the module with the given name """
         if name not in self.module_map:
-            self.module_map[name] = ast.Module(name, None)
+            module = ast.Module(name, None)
+            module.innerScope = Scope(self.scope)
+            self.module_map[name] = module
         return self.module_map[name]
 
     def get_type(self, name):
@@ -150,24 +152,34 @@ class Context:
         """ Get all the modules in this context """
         return self.module_map.values()
 
-    def resolve_symbol(self, sym):
+    def resolve_symbol(self, ref):
         """ Find out what is designated with x """
-        if type(sym) is ast.Member:
-            base = self.resolve_symbol(sym.base)
+        if type(ref) is ast.Member:
+            base = self.resolve_symbol(ref.base)
             if type(base) is not ast.Module:
-                raise SemanticError('Base is not a module', sym.loc)
+                raise SemanticError('Base is not a module', ref.loc)
             scope = base.innerScope
-            name = sym.field
-        elif type(sym) is ast.Identifier:
-            scope = sym.scope
-            name = sym.target
-        else:
-            raise NotImplementedError(str(sym))
+            name = ref.field
 
-        if name in scope:
-            sym = scope[name]
+            # Take into account access attribute!
+            if scope.has_symbol(name):
+                sym = scope.get_symbol(name)
+                if not sym.public:
+                    raise SemanticError(
+                        'Cannot access private {}'.format(name), ref.loc)
+            else:
+                raise SemanticError('{} undefined'.format(name), ref.loc)
+        elif type(ref) is ast.Identifier:
+            # Simple identifier, try to lookup!
+            scope = ref.scope
+            name = ref.target
+            if scope.has_symbol(name):
+                sym = scope[name]
+            else:
+                raise SemanticError('{} undefined'.format(name), ref.loc)
         else:
-            raise SemanticError('{} undefined'.format(name), sym.loc)
+            raise NotImplementedError(str(ref))
+
         assert isinstance(sym, ast.Symbol)
         return sym
 

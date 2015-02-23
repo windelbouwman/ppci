@@ -571,8 +571,8 @@ class CodeGenerator:
         basetype = self.context.the_type(expr.base.typ)
         if type(basetype) is ast.StructureType:
             self.context.check_type(basetype)
-            if basetype.hasField(expr.field):
-                expr.typ = basetype.fieldType(expr.field)
+            if basetype.has_field(expr.field):
+                expr.typ = basetype.field_type(expr.field)
             else:
                 raise SemanticError('{} does not contain field {}'
                                     .format(basetype, expr.field),
@@ -587,7 +587,7 @@ class CodeGenerator:
         # Calculate offset into struct:
         base_type = self.context.the_type(expr.base.typ)
         offset = self.emit(
-            ir.Const(base_type.fieldOffset(expr.field), 'offset', ir.i32))
+            ir.Const(base_type.field_offset(expr.field), 'offset', ir.i32))
         offset = self.emit(ir.IntToPtr(offset, 'offset'))
 
         # Calculate memory address of field:
@@ -632,7 +632,7 @@ class CodeGenerator:
                    bool: 'bool',
                    str: 'string'}
         if type(expr.val) in typemap:
-            expr.typ = self.context.scope[typemap[type(expr.val)]]
+            expr.typ = self.context.get_type(typemap[type(expr.val)])
         else:
             raise SemanticError('Unknown literal type {}'
                                 .format(expr.val), expr.loc)

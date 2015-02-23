@@ -137,6 +137,16 @@ class ModuleTestCase(BuildTestCaseBase):
         """
         self.expect_ok([src1, src2])
 
+    def test_module_double_import(self):
+        """ Check redefine causes error """
+        src1 = """module p1;
+        """
+        src2 = """module p2;
+        import p1;
+        import p1;
+        """
+        self.expect_errors([src1, src2], [0])
+
     def test_package_mutual(self):
         """ Check if two packages can import eachother """
         src1 = """module mod1;
@@ -164,7 +174,7 @@ class ModuleTestCase(BuildTestCaseBase):
         module m1;
         import m2;
         var int A;
-        function void t()
+        public function void t()
         {
             m2.A = 2;
             m2.t();
@@ -174,7 +184,7 @@ class ModuleTestCase(BuildTestCaseBase):
         module m2;
         import m1;
         var int A;
-        function void t()
+        public function void t()
         {
             m1.A = 1;
             m1.t();
@@ -401,6 +411,16 @@ class ExpressionTestCase(BuildTestCaseBase):
 
 class StatementTestCase(BuildTestCaseBase):
     """ Testcase for statements """
+    def test_empty_twice(self):
+        snippet = """
+        module tst;
+        function void t()
+        {
+            ;;;
+        }
+        """
+        self.expect_ok(snippet)
+
     def test_assignments(self):
         """ Check if normal assignments and |= &= assignments work """
         snippet = """

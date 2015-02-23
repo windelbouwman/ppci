@@ -26,7 +26,7 @@ var nvic_t* NVIC;
 
 var int global_tick;
 
-function void putc(byte c)
+public function void putc(byte c)
 {
     // Wait for busy:
     while (UART0->FR & 0x8 == 0x8)
@@ -37,7 +37,7 @@ function void putc(byte c)
     UART0->DR = c;
 }
 
-function bool get_key(int* k)
+public function bool get_key(int* k)
 {
     if (UART0->FR & 0x10 == 0)
     {

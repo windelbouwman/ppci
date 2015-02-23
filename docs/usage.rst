@@ -34,8 +34,8 @@ Or specify the buildfile:
 ppci-c3c.py
 -----------
 
-Instead of relying on a build system, the c3 compiler can also be activated
-stand alone.
+Instead of relying on a build system, the :doc:`c3` compiler can also be
+activated stand alone.
 
 .. code:: bash
 
@@ -45,3 +45,9 @@ ppci-asm.py
 -----------
 
 Invoke the assembler.
+
+ppci-hexutil.py
+---------------
+
+Utility to handle hex files.
+
