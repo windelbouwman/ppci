@@ -71,11 +71,7 @@ def build():
     with LogSetup(args):
         logger.info(parser.description)
         logger.debug('Arguments: {}'.format(args))
-        try:
-            construct(args.buildfile, args.targets)
-        except TaskError as err:
-            logging.getLogger().error(str(err.msg))
-            sys.exit(1)
+        construct(args.buildfile, args.targets)
 
 
 def c3c():
@@ -95,16 +91,13 @@ def c3c():
     args = parser.parse_args()
     with LogSetup(args):
         logging.getLogger().info(parser.description)
-        try:
-            # Compile sources:
-            obj = c3compile(args.sources, args.include, args.target)
 
-            # Write object file to disk:
-            obj.save(args.output)
-            args.output.close()
-        except TaskError as err:
-            logging.getLogger().error(str(err.msg))
-            sys.exit(1)
+        # Compile sources:
+        obj = c3compile(args.sources, args.include, args.target)
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
 
 
 def asm():
@@ -117,16 +110,13 @@ def asm():
     args = parser.parse_args()
     with LogSetup(args):
         logging.getLogger().info(parser.description)
-        try:
-            # Assemble source:
-            obj = assemble(args.sourcefile, args.target)
 
-            # Write object file to disk:
-            obj.save(args.output)
-            args.output.close()
-        except TaskError as err:
-            logging.getLogger().error(str(err.msg))
-            sys.exit(1)
+        # Assemble source:
+        obj = assemble(args.sourcefile, args.target)
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
 
 
 class LogSetup:
@@ -154,9 +144,21 @@ class LogSetup:
         self.logger.debug('Loggers attached')
 
     def __exit__(self, exc_type, exc_value, traceback):
+        # Check if a task error was raised:
+        if isinstance(exc_value, TaskError):
+            logging.getLogger().error(str(exc_value.msg))
+            err = True
+        else:
+            err = False
+
         self.logger.debug('Removing loggers')
         if self.args.report:
             self.logger.removeHandler(self.file_handler)
             self.args.report.close()
 
         self.logger.removeHandler(self.console_handler)
+
+        # exit code when error:
+        if err:
+            sys.exit(1)
+            return True

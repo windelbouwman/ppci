@@ -6,11 +6,11 @@ Introduction
 ------------
 
 As an example language, the c3 language was created. As pointed out clearly
-c2lang_, the C language is widely used, but has some strange contraptions:
+in c2lang_, the C language is widely used, but has some strange contraptions:
 
-- The include file system. This results in lots of code duplication and file
-  creation.
-- The comma statement: x = a(),2; assigns 2 to x.
+- The include system. This results in lots of code duplication and file
+  creation. Why would you need filenames in source code?
+- The comma statement: x = a(), 2; assigns 2 to x, after calling function a.
 - C is difficult to parse with a simple parser. The parser has to know what
   a symbol is when it is parsed.
 - Etc...
@@ -41,8 +41,102 @@ Modules
 Modules in C3 live in file, and can be defined in multiple files. Modules can
 import each other by using the import statement.
 
+For example:
+
+`pkg1.c3`:
+
+.. code::
+
+    module pkg1;
+    import pkg2;
+
+
+`pkg2.c3`:
+
+.. code ::
+
+    module pkg2;
+    import pkg1;
+
+
+Functions
+~~~~~~~~~
+
+Function can be defined by using the function keyword, followed by a type
+and the function name.
+
+.. code::
+
+    module example;
+
+    function void compute()
+    {
+    }
+
+    function void main()
+    {
+        main();
+    }
+
+Variables
+~~~~~~~~~
+
+Variables require the var keyword, and can be either global are function local.
+
+.. code::
+
+    module example;
+
+    var int global_var;
+
+    function void compute()
+    {
+        var int x = global_var + 13;
+        global_var = 200 - x;
+    }
+
+
 Types
 ~~~~~
+
+Types can be specified when a variable is declared, and also typedeffed.
+
+.. code::
+
+    module example;
+    var int number;
+    var int* ptr_num;
+    type int* ptr_num_t;
+    var ptr_num_t number2;
+
+
+If statement
+~~~~~~~~~~~~
+
+The following code example demonstrates the if statement. The else part
+is optional.
+
+.. code::
+
+    module example;
+
+    function void compute(int a)
+    {
+        var int b = 10;
+        if (a > 100)
+        {
+            b += a;
+        }
+
+        if (b > 50)
+        {
+            b += 1000;
+        }
+        else
+        {
+            b = 2;
+        }
+    }
 
 
 .. _c2lang: http://c2lang.org/

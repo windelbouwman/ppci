@@ -2,6 +2,24 @@
 Development
 ===========
 
+This chapter descibes how to develop on ppci.
+
+Running the testsuite
+---------------------
+
+To run the unit tests with the compiler, use pytest:
+
+.. code:: bash
+
+    $ pytest -v test/
+
+In order to test ppci versus different versions of python, tox is used. To
+run tox, simply run in the root directory:
+
+.. code:: bash
+
+    $ tox
+
 
 Building the docs
 -----------------
