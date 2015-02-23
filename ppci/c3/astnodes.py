@@ -35,13 +35,7 @@ class Module(Symbol):
     def __init__(self, name, loc):
         super().__init__(name, True)
         self.loc = loc
-        self.declarations = []
         self.imports = []
-
-    def add_declaration(self, decl):
-        self.declarations.append(decl)
-        if isinstance(decl, Function):
-            decl.package = self
 
     @property
     def types(self):
@@ -65,14 +59,14 @@ class NamedType(Type, Symbol):
     """ Some types are named, for example a user defined type (typedef)
         and built in types. That is why this class derives from both Type
         and Symbol. """
-    def __init__(self, name):
-        super().__init__(name, True)
+    def __init__(self, name, public):
+        super().__init__(name, public)
 
 
 class BaseType(NamedType):
     """ Built in type """
     def __init__(self, name, byte_size):
-        super().__init__(name)
+        super().__init__(name, True)
         self.byte_size = byte_size
 
     def __repr__(self):
@@ -160,9 +154,9 @@ class ArrayType(Type):
 
 class DefinedType(NamedType):
     """ A named type indicating another type """
-    def __init__(self, name, typ, loc):
+    def __init__(self, name, typ, public, loc):
         assert isinstance(name, str)
-        super().__init__(name)
+        super().__init__(name, public)
         self.typ = typ
         self.loc = loc
 
@@ -208,14 +202,10 @@ class Function(Symbol):
     def __init__(self, name, public, loc):
         super().__init__(name, public)
         self.loc = loc
-        self.declarations = []
-
-    def add_declaration(self, decl):
-        self.declarations.append(decl)
 
     @property
     def package22(self):
-        """ Gets the package that this """
+        """ Gets the package that this function is in. TODO """
         pass
 
     def __repr__(self):

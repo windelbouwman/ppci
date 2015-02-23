@@ -99,7 +99,7 @@ class Parser:
         elif self.peak == 'const':
             self.parse_const_def()
         elif self.peak == 'type':
-            self.parse_type_def()
+            self.parse_type_def(public=public)
         elif self.peak == 'import' and not public:
             self.parse_import()
         else:
@@ -167,13 +167,13 @@ class Parser:
                 raise Exception()
         return the_type
 
-    def parse_type_def(self):
+    def parse_type_def(self, public=True):
         """ Parse a type definition """
         self.consume('type')
         newtype = self.parse_type_spec()
         typename = self.consume('ID')
         self.consume(';')
-        typedef = DefinedType(typename.val, newtype, typename.loc)
+        typedef = DefinedType(typename.val, newtype, public, typename.loc)
         self.add_symbol(typedef)
 
     def parse_variable_def(self, allow_init=False, public=True):

@@ -372,51 +372,31 @@ class CodeGenerator:
         assert isinstance(expr, ast.Expression)
         if self.is_bool(expr):
             value = self.gen_bool_expr(expr)
-        elif type(expr) is ast.Binop:
-            value = self.gen_binop(expr)
-        elif type(expr) is ast.Unop:
-            value = self.gen_unop(expr)
-        elif type(expr) is ast.Identifier:
-            # Generate code for this identifier.
-            target = self.context.resolve_symbol(expr)
-
-            # This returns the dereferenced variable.
-            if isinstance(target, ast.Variable):
-                expr.lvalue = True
-                expr.typ = target.typ
-                value = self.context.var_map[target]
-            elif isinstance(target, ast.Constant):
-                expr.lvalue = False
-                expr.typ = target.typ
-                c_val = self.context.get_constant_value(target)
-                value = self.emit(ir.Const(c_val, target.name, ir.i32))
-            elif isinstance(target, ast.Module):
-                # TODO: ugly construct here --> do not return a non-ir-value
-                return target
-            else:
-                raise NotImplementedError(str(target))
-        elif type(expr) is ast.Deref:
-            value = self.gen_dereference(expr)
-        elif type(expr) is ast.Member:
-            value = self.gen_member_expr(expr)
-        elif type(expr) is ast.Index:
-            value = self.gen_index_expr(expr)
-        elif type(expr) is ast.Literal:
-            value = self.gen_literal_expr(expr)
-        elif type(expr) is ast.TypeCast:
-            value = self.gen_type_cast(expr)
-        elif type(expr) is ast.Sizeof:
-            # The type of this expression is int:
-            expr.lvalue = False  # This is not a location value..
-            expr.typ = self.context.get_type('int')
-            self.context.check_type(expr.query_typ)
-            type_size = self.context.size_of(expr.query_typ)
-            value = self.emit(ir.Const(type_size, 'sizeof', ir.i32))
-        elif type(expr) is ast.FunctionCall:
-            value = self.gen_function_call(expr)
         else:
-            raise NotImplementedError('Unknown expr {}'.format(expr))
+            if type(expr) is ast.Binop:
+                value = self.gen_binop(expr)
+            elif type(expr) is ast.Unop:
+                value = self.gen_unop(expr)
+            elif type(expr) is ast.Identifier:
+                value = self.gen_identifier(expr)
+            elif type(expr) is ast.Deref:
+                value = self.gen_dereference(expr)
+            elif type(expr) is ast.Member:
+                value = self.gen_member_expr(expr)
+            elif type(expr) is ast.Index:
+                value = self.gen_index_expr(expr)
+            elif type(expr) is ast.Literal:
+                value = self.gen_literal_expr(expr)
+            elif type(expr) is ast.TypeCast:
+                value = self.gen_type_cast(expr)
+            elif type(expr) is ast.Sizeof:
+                value = self.gen_sizeof(expr)
+            elif type(expr) is ast.FunctionCall:
+                value = self.gen_function_call(expr)
+            else:
+                raise NotImplementedError('Unknown expr {}'.format(expr))
 
+        assert isinstance(value, ir.Value)
         # do rvalue trick here, create a r-value when required:
         if rvalue and expr.lvalue:
             # Generate expression code and insert an extra load instruction
@@ -433,6 +413,17 @@ class CodeGenerator:
             # This expression is no longer an lvalue
             expr.lvalue = False
         return value
+
+    def gen_sizeof(self, expr):
+        # This is not a location value..
+        expr.lvalue = False
+
+        # The type of this expression is int:
+        expr.typ = self.context.get_type('int')
+
+        self.context.check_type(expr.query_typ)
+        type_size = self.context.size_of(expr.query_typ)
+        return self.emit(ir.Const(type_size, 'sizeof', ir.i32))
 
     def gen_dereference(self, expr):
         """ dereference pointer type, which means *(expr) """
@@ -529,6 +520,8 @@ class CodeGenerator:
         # Dealing with simple arithmatic
         a_val = self.gen_expr_code(expr.a, rvalue=True)
         b_val = self.gen_expr_code(expr.b, rvalue=True)
+        assert isinstance(a_val, ir.Value)
+        assert isinstance(b_val, ir.Value)
 
         # Get best type for result:
         common_type = self.context.get_common_type(expr.a, expr.b)
@@ -546,12 +539,41 @@ class CodeGenerator:
         return self.emit(
             ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
 
+    def gen_identifier(self, expr):
+        """ Generate code for when an identifier was referenced """
+        # Generate code for this identifier.
+        target = self.context.resolve_symbol(expr)
+
+        # This returns the dereferenced variable.
+        if isinstance(target, ast.Variable):
+            expr.lvalue = True
+            expr.typ = target.typ
+            value = self.context.var_map[target]
+        elif isinstance(target, ast.Constant):
+            expr.lvalue = False
+            expr.typ = target.typ
+            c_val = self.context.get_constant_value(target)
+            value = self.emit(ir.Const(c_val, target.name, ir.i32))
+        else:
+            raise SemanticError(
+                'Cannot use {} in expression'.format(target), expr.loc)
+        return value
+
+    def is_module_ref(self, expr):
+        """ Determine whether a module is referenced """
+        if isinstance(expr, ast.Member):
+            if isinstance(expr.base, ast.Identifier):
+                target = self.context.resolve_symbol(expr.base)
+                return isinstance(target, ast.Module)
+            elif isinstance(expr, ast.Member):
+                return self.is_module_ref(expr.base)
+        return False
+
     def gen_member_expr(self, expr):
         """ Generate code for member expression such as struc.mem = 2
             This could also be a module deref!
         """
-        base = self.gen_expr_code(expr.base)
-        if isinstance(base, ast.Module):
+        if self.is_module_ref(expr):
             # Damn, we are referring something inside another module!
             # Invoke scope machinery!
             target = self.context.resolve_symbol(expr)
@@ -559,14 +581,14 @@ class CodeGenerator:
                 expr.lvalue = True
                 expr.typ = target.typ
                 value = self.context.var_map[target]
-            elif isinstance(target, ast.Module):
-                # TODO: resolve this issue together with above identifier expr
-                return target
             else:
                 raise NotImplementedError(str(target))
             return value
 
+        base = self.gen_expr_code(expr.base)
+
         # The base is a valid expression:
+        assert isinstance(base, ir.Value)
         expr.lvalue = expr.base.lvalue
         basetype = self.context.the_type(expr.base.typ)
         if type(basetype) is ast.StructureType:

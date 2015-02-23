@@ -110,7 +110,7 @@ class ModuleTestCase(BuildTestCaseBase):
     def test_module(self):
         """ Test module idea """
         src1 = """module mod1;
-        type int A;
+        public type int A;
         """
         src2 = """module mod2;
         import mod1;
@@ -151,12 +151,12 @@ class ModuleTestCase(BuildTestCaseBase):
         """ Check if two packages can import eachother """
         src1 = """module mod1;
         import mod2;
-        type int A;
+        public type int A;
         var mod2.B b;
         """
         src2 = """module mod2;
         import mod1;
-        type int B;
+        public type int B;
         var mod1.A a;
         """
         self.expect_ok([src1, src2])
@@ -167,6 +167,19 @@ class ModuleTestCase(BuildTestCaseBase):
         import p23;
         """
         self.expect_errors(src1, [0])
+
+    def test_module_as_arithmatic(self):
+        """ Using module in arithmatic is an error """
+        src1 = """module p1;
+        import mod2;
+        function void p()
+        {
+            var int a = mod2 + 2;
+        }
+        """
+        src2 = """module mod2;
+        """
+        self.expect_errors([src1, src2], [5])
 
     def test_module_references(self):
         """ Check if membership variables work as expected """
@@ -405,6 +418,17 @@ class ExpressionTestCase(BuildTestCaseBase):
         var int a;
         var int b;
         var int a;
+        """
+        self.expect_errors(snippet, [5])
+
+    def test_type_in_expression(self):
+        """ Check if arithmatic with types generates errors """
+        snippet = """module test;
+        var int a;
+         function void t()
+         {
+            var int a = 2 + int;
+         }
         """
         self.expect_errors(snippet, [5])
 

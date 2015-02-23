@@ -112,7 +112,7 @@ def create_top_scope(target):
     len_field = StructField('len', int_type)
     txt = StructField('txt', ArrayType(byte_type, 0))
     string_type = PointerType(StructureType([len_field, txt]))
-    string_def_type = DefinedType('string', string_type, None)
+    string_def_type = DefinedType('string', string_type, True, None)
     scope.add_symbol(string_def_type)
     return scope
 

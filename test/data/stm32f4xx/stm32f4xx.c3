@@ -1,7 +1,7 @@
 
 module stm32f4xx;
 
-type struct {
+public type struct {
     int MODER;
     int OTYPER;
     int OSPEEDR;
@@ -11,7 +11,7 @@ type struct {
     int BSRR;
 }* GPIO_Type;
 
-type struct {
+public type struct {
     int CR;
     int PLLCFGR;
     int CFGR;
@@ -30,12 +30,12 @@ type struct {
     int APB1ENR, APB2ENR;
 }* RCC_Type;
 
-type struct {
+public type struct {
     int ISER0;
     int ISER1;
 }* NVIC_Type;
 
-type struct {
+public type struct {
     int CTRL;
     int LOAD;
     int CURRENT;
