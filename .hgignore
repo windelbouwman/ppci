@@ -8,7 +8,7 @@ syntax: glob
 *.hex
 *.elf
 *.log
-docs/build
+docs/_build
 test/.coverage
 test/listings
 .tox

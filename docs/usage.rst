@@ -4,6 +4,7 @@ Command line tools
 
 This section describes the usage of some commandline tools installed with ppci.
 
+.. _ppci-build:
 
 ppci-build.py
 -------------

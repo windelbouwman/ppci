@@ -138,5 +138,44 @@ is optional.
         }
     }
 
+While statement
+~~~~~~~~~~~~~~~
+
+The while statement can be used as follows:
+
+.. code::
+
+    module example;
+
+    function void compute(int a)
+    {
+        var int b = 10;
+        while (b > a)
+        {
+            b -= 1;
+        }
+    }
+
+For statement
+~~~~~~~~~~~~~
+
+The for statement works like in C. The first item
+is initialized before the loop. The second is the condition
+for the loop. The third part is executed when one run of the
+loop is done.
+
+.. code::
+
+    module example;
+
+    function void compute(int a)
+    {
+        var int b = 0;
+        for (b = 100; b > a; b -= 1)
+        {
+            // Do something here!
+        }
+    }
+
 
 .. _c2lang: http://c2lang.org/

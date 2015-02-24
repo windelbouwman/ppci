@@ -4,6 +4,12 @@ Development
 
 This chapter descibes how to develop on ppci.
 
+Communication
+-------------
+
+Join the #ppci irc channel on freenode!
+
+
 Running the testsuite
 ---------------------
 

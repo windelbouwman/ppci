@@ -10,6 +10,8 @@ For example to assemble, compile, link and objcopy, code could look like:
 .. code-block:: python
    :linenos:
 
+    from ppci.buildfunctions import assemble, c3compile, link, objcopy
+
     march = "thumb"
     o1 = assemble('start.asm', march)
     o2 = c3compile(['source_code.c3'], [], march)
@@ -22,19 +24,3 @@ buildfunctions module
 
 .. automodule:: ppci.buildfunctions
    :members:
-
-c3
---
-
-.. automodule:: ppci.c3
-   :members:
-
-.. automodule:: ppci.c3.parser
-   :members:
-
-ppci
-----
-
-.. automodule:: ppci
-   :members:
-   :undoc-members:
