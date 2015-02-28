@@ -234,6 +234,72 @@ class Mul1(ArmInstruction):
         return Mul1(im.dst[0], im.src[0], im.src[1])
 
 
+class Sdiv(ArmInstruction):
+    """ Encoding A1
+        rd = rn / rm
+    """
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    syntax = ['sdiv', 0, ',', 1, ',', 2]
+
+    def encode(self):
+        self.token[0:4] = self.rn.num
+        self.token[4:8] = 0b0001
+        self.token[8:12] = self.rm.num
+        self.token[12:16] = 0b1111
+        self.token[16:20] = self.rd.num
+        self.token[20:28] = 0b1110001
+        self.token.cond = AL
+        return self.token.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Sdiv(im.dst[0], im.src[0], im.src[1])
+
+
+class Udiv(ArmInstruction):
+    """ Encoding A1
+        rd = rn / rm
+    """
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    syntax = ['udiv', 0, ',', 1, ',', 2]
+
+    def encode(self):
+        self.token[0:4] = self.rn.num
+        self.token[4:8] = 0b0001
+        self.token[8:12] = self.rm.num
+        self.token[12:16] = 0b1111
+        self.token[16:20] = self.rd.num
+        self.token[20:28] = 0b1110011
+        self.token.cond = AL
+        return self.token.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Udiv(im.dst[0], im.src[0], im.src[1])
+
+
+class Mls(ArmInstruction):
+    """ Multiply substract
+        Semantics:
+        rd = ra - rn * rm
+    """
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister), ('ra', ArmRegister)]
+    syntax = ['mls', 0, ',', 1, ',', 2, ',', 3]
+
+    def encode(self):
+        self.token[0:4] = self.rn.num
+        self.token[4:8] = 0b1001
+        self.token[8:12] = self.rm.num
+        self.token[12:16] = self.ra.num
+        self.token[16:20] = self.rd.num
+        self.token[20:28] = 0b00000110
+        self.token.cond = AL
+        return self.token.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Mls(im.dst[0], im.src[0], im.src[1], im.src[2])
+
 class OpRegRegReg(ArmInstruction):
     """ add rd, rn, rm """
     args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
@@ -285,6 +351,16 @@ class And1(OpRegRegReg):
         return And1(im.dst[0], im.src[0], im.src[1])
 
 And = And1
+
+
+class Eor1(OpRegRegReg):
+    """ Encoding A1 """
+    syntax = ['eor', 0, ',', 1, ',', 2]
+    opcode = 0b0000001
+
+    @staticmethod
+    def from_im(im):
+        return Eor1(im.dst[0], im.src[0], im.src[1])
 
 
 class ShiftBase(ArmInstruction):
@@ -395,6 +471,9 @@ class Bge(BranchBase):
     cond = GE
     syntax = ['bge', 0]
 
+class Bls(BranchBase):
+    cond = LS
+    syntax = ['bls', 0]
 
 class Ble(BranchBase):
     cond = LE
@@ -722,11 +801,13 @@ class ArmInstructionSelector(InstructionSelector):
 
     @pattern('reg', 'CALL', cost=2)
     def P16(self, tree):
-        return self.munchCall(tree.value)
+        label, args, res_var = tree.value
+        self.frame.gen_call(label, args, res_var)
 
     @pattern('stm', 'CALL', cost=2)
     def P17(self, tree):
-        self.munchCall(tree.value)
+        label, args, res_var = tree.value
+        self.frame.gen_call(label, args, res_var)
 
     @pattern('reg', 'ADR(CONSTDATA)', cost=2)
     def P18(self, tree):
@@ -761,3 +842,43 @@ class ArmInstructionSelector(InstructionSelector):
         self.emit(Ldr1, dst=[d], src=[c0], others=[c1])
         return d
 
+    @pattern('reg', 'DIVI32(reg, reg)', cost=10)
+    def P23(self, tree, c0, c1):
+        d = self.newTmp()
+        # Generate call into runtime lib function!
+        self.frame.gen_call('__sdiv', [c0, c1], d)
+        return d
+
+    @pattern('reg', 'REMI32(reg, reg)', cost=10)
+    def P24(self, tree, c0, c1):
+        # Implement remainder as a combo of div and mls (multiply substract)
+        d = self.newTmp()
+        self.frame.gen_call('__sdiv', [c0, c1], d)
+        d2 = self.newTmp()
+        self.emit(Mls, dst=[d2], src=[d, c1, c0])
+        return d2
+
+    @pattern('reg', 'XORI32(reg, reg)', cost=2)
+    def P25(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Eor1, dst=[d], src=[c0, c1])
+        return d
+
+# TODO: implement DIVI32 by library call.
+# TODO: Do that here, or in irdag?
+
+class MachineThatHasDivOps:
+    @pattern('reg', 'DIVI32(reg, reg)', cost=10)
+    def P23(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Udiv, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'REMI32(reg, reg)', cost=10)
+    def P24(self, tree, c0, c1):
+        # Implement remainder as a combo of div and mls (multiply substract)
+        d = self.newTmp()
+        self.emit(Udiv, dst=[d], src=[c0, c1])
+        d2 = self.newTmp()
+        self.emit(Mls, dst=[d2], src=[d, c1, c0])
+        return d2

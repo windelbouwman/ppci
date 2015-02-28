@@ -23,7 +23,7 @@ class AsmLexer(BaseLexer):
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
-            ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
+            ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
                 lambda typ, val: (val, val)),

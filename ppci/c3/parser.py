@@ -394,7 +394,7 @@ class Parser:
     def parse_term(self):
         """ Parse a term in an expression """
         lhs = self.parse_bitwise_or()
-        while self.peak in ['*', '/']:
+        while self.peak in ['*', '/', '%']:
             op = self.consume(self.peak)
             rhs = self.parse_bitwise_or()
             lhs = Binop(lhs, op.typ, rhs, op.loc)
@@ -411,7 +411,7 @@ class Parser:
 
     def BitwiseAnd(self):
         lhs = self.parse_cast_expression()
-        while self.peak == '&':
+        while self.peak in ['&', '^']:
             op = self.consume(self.peak)
             b = self.parse_cast_expression()
             lhs = Binop(lhs, op.typ, b, op.loc)

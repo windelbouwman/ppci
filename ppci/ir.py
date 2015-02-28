@@ -606,7 +606,7 @@ class Call(Expression):
 # Data operations
 class Binop(Expression):
     """ Generic binary operation """
-    ops = ['+', '-', '*', '/', '|', '&', '<<', '>>']
+    ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
     a = var_use('a')
     b = var_use('b')
 

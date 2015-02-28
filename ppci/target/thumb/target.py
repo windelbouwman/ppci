@@ -79,3 +79,8 @@ class ThumbTarget(Target):
             outs.emit(Ds(amount))
         else:
             raise NotImplementedError()
+
+    def get_runtime_src(self):
+        """ No runtime for thumb required yet .. """
+        return """
+        """

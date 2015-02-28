@@ -528,7 +528,7 @@ class CodeGenerator:
         expr.typ = common_type
 
         # TODO: check if operation can be performed on shift and bitwise
-        if expr.op not in ['+', '-', '*', '/', '<<', '>>', '|', '&']:
+        if expr.op not in ['+', '-', '*', '/', '%', '<<', '>>', '|', '&', '^']:
             raise SemanticError("Cannot use {}".format(expr.op))
 
         # Perform type coercion:

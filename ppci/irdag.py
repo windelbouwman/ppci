@@ -135,7 +135,8 @@ class Dagger:
     @register(ir.Binop)
     def do_binop(self, node):
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
-                 '*': 'MUL', '&': 'AND', '>>': 'SHR'}
+                 '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
+                 '%': 'REM', '^': 'XOR'}
         op = names[node.operation] + type_postfix(node.ty)
         a = self.lut[node.a]
         b = self.lut[node.b]

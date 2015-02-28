@@ -5,6 +5,7 @@ and assembling.
 """
 
 import logging
+import io
 from .target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
@@ -113,6 +114,14 @@ def assemble(source, target):
     return output
 
 
+def get_compiler_rt_lib(target):
+    """ Gets the runtime for the compiler. Returns an object with the compiler
+    runtime for the given target """
+    target = fix_target(target)
+    src = target.get_runtime_src()
+    return assemble(io.StringIO(src), target)
+
+
 def c3toir(sources, includes, target):
     """ Compile c3 sources to ir code using the includes and for the given
     target """
@@ -128,7 +137,8 @@ def c3toir(sources, includes, target):
         ir_modules = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
-    except CompilerError:
+    except CompilerError as ex:
+        diag.error(ex.msg, ex.loc)
         diag.printErrors()
         raise TaskError('Compile errors')
     return ir_modules

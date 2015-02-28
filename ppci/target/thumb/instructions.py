@@ -419,6 +419,27 @@ class Mul(ThumbInstruction):
         return Mul(im.src[0], im.dst[0])
 
 
+class Sdiv(LongThumbInstruction):
+    """ Signed division.
+        Encoding T1
+    """
+    syntax = ['sdiv', 0, ',', 1, ',', 2]
+    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    def encode(self):
+        self.token[11:16] = 0b11111
+        self.token[4:11] = 0b0111001
+        self.token[0:4] = self.rn.num
+        self.token2[12:16] = 0b1111
+        self.token2[8:12] = self.rd.num
+        self.token2[4:8] = 0b1111
+        self.token2[0:4] = self.rm.num
+        return self.token.encode() + self.token2.encode()
+
+    @staticmethod
+    def from_im(im):
+        return Sdiv(im.dst[0], im.src[0], im.src[1])
+
+
 class Rsb_imm_t1(ThumbInstruction):
     """ rsbs rd, rn, #0 """
     args = [('rd', ArmRegister), ('rn', ArmRegister)]
@@ -458,6 +479,15 @@ class Orr(regreg_base):
     @staticmethod
     def from_im(im):
         return Orr(im.src[0], im.src[1])
+
+
+class Eor(regreg_base):
+    syntax = ['eor', 0, ',', 1]
+    opcode = 0b0100000001
+
+    @staticmethod
+    def from_im(im):
+        return Eor(im.src[0], im.src[1])
 
 
 class Cmp(regreg_base):
@@ -800,12 +830,14 @@ class ThumbInstructionSelector(InstructionSelector):
 
     @pattern('reg', 'CALL', cost=1)
     def P16(self, tree):
-        return self.munchCall(tree.value)
+        label, args, res_var = tree.value
+        self.frame.gen_call(label, args, res_var)
 
     # TODO: fix this double otherwise, by extra token kind IGNR(CALL(..))
     @pattern('stm', 'CALL', cost=1)
     def P17(self, tree):
-        return self.munchCall(tree.value)
+        label, args, res_var = tree.value
+        self.frame.gen_call(label, args, res_var)
 
     @pattern('reg', 'SUBI32(reg,reg)', cost=1)
     def P18(self, tree, c0, c1):
@@ -859,6 +891,31 @@ class ThumbInstructionSelector(InstructionSelector):
         d = self.newTmp()
         self.move(d, c0)
         self.emit(Mul, dst=[d], src=[c1, d])
+        return d
+
+    @pattern('reg', 'DIVI32(reg, reg)', cost=10)
+    def P25(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Sdiv, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'REMI32(reg, reg)', cost=10)
+    def P26(self, tree, c0, c1):
+        d2 = self.newTmp()
+        self.emit(Sdiv, dst=[d2], src=[c0, c1])
+        # Multiply result by divider:
+        self.emit(Mul, dst=[d2], src=[c1, d2])
+
+        # Substract from divident:
+        d = self.newTmp()
+        self.emit(Sub3, dst=[d], src=[c0, d2])
+        return d
+
+    @pattern('reg', 'XORI32(reg, reg)', cost=10)
+    def P27(self, tree, c0, c1):
+        d = self.newTmp()
+        self.move(d, c0)
+        self.emit(Eor, dst=[], src=[d, c1])
         return d
 
 #reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'

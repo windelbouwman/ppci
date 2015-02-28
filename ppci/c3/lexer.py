@@ -5,7 +5,7 @@
 import re
 from ..common import SourceLocation, Token, make_num
 from ..baselex import BaseLexer
-from .astnodes import Assignment
+from .astnodes import Assignment, Binop
 
 
 class Lexer(BaseLexer):
@@ -25,7 +25,7 @@ class Lexer(BaseLexer):
         ops.extend(Assignment.operators)
         op_txt2 = '|'.join(re.escape(op) for op in ops)
         op_txt = r'==|->|<<|>>|!=|' + op_txt2
-        op_txt += r'|\+\+|[\.,=:;\-+*\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
+        op_txt += r'|\+\+|[\.,=:;\-+*%\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
         # print(op_txt)
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),

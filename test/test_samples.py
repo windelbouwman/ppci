@@ -6,7 +6,7 @@ import string
 import os
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
-from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
+from ppci.buildfunctions import c3toir, bf2ir, ir_to_python, get_compiler_rt_lib
 try:
     from ppci.utils.stlink import stlink_run_sram_and_trace
 except ImportError:
@@ -317,6 +317,44 @@ class Samples:
         """
         self.do(snippet, "w=0x11663388\n")
 
+    def test_arithmatic_operations(self):
+        """
+            Check arithmatics
+        """
+        snippet = """
+         module sample;
+         import io;
+         var int x;
+         function void set_x(int v)
+         {
+            x = v;
+         }
+
+         var int d;
+
+         function void start()
+         {
+            var int w;
+            d = 2;
+            set_x(13);
+            w = x / d;
+            io.print2("w=", w);
+
+            w = x - d;
+            io.print2("w=", w);
+
+            w = x % d;
+            io.print2("w=", w);
+
+            w = x + d;
+            io.print2("w=", w);
+
+            w = x ^ 0xf;
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x00000006\nw=0x0000000B\nw=0x00000001\nw=0x0000000F\nw=0x00000002\n")
+
     def test_global_variable(self):
         snippet = """
          module sample;
@@ -489,18 +527,19 @@ class DoMixin:
 
         # Construct binary file from snippet:
         o1 = assemble(io.StringIO(startercode), march)
+        o3 = get_compiler_rt_lib(march)
         if lang == 'c3':
             o2 = c3compile([
                 relpath('data', 'io.c3'),
                 arch_c3,
                 io.StringIO(src)], [], march, lst_file=lst_file)
-            o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+            o3 = link([o2, o1, o3], io.StringIO(arch_mmap), march)
         elif lang == 'bf':
             obj = bfcompile(src, march, lst_file=lst_file)
             o2 = c3compile([
                 arch_c3
                 ], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
+            o3 = link([o2, o1, obj, o3], io.StringIO(arch_mmap), march)
         else:
             raise Exception('language not implemented')
 
