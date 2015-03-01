@@ -1,5 +1,6 @@
 
 from ..basetarget import Instruction, Isa
+from ..basetarget import register_argument, value_argument
 from ...bitfun import encode_imm32
 from .registers import ArmRegister
 from ..token import Token, u32, u8, bit_range
@@ -163,8 +164,9 @@ def Cmp(*args):
 
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
-    args = [('reg', ArmRegister), ('imm', int)]
-    syntax = ['cmp', 0, ',', 1]
+    reg = register_argument('reg', ArmRegister)
+    imm = value_argument('imm')
+    syntax = ['cmp', reg, ',', imm]
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)

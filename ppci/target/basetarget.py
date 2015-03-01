@@ -44,25 +44,6 @@ class InsMeta(type):
     """
     def __init__(cls, name, bases, attrs):
         super(InsMeta, cls).__init__(name, bases, attrs)
-        # print('META init', name, bases, attrs)
-
-        # Generate constructor from args:
-        if hasattr(cls, 'args'):
-            formal_args = getattr(cls, 'args')
-
-            def _init_(self, *args):
-                # Construct token:
-                if len(cls.tokens) > 0:
-                    setattr(self, 'token', cls.tokens[0]())
-                for x, ct in enumerate(cls.tokens):
-                    setattr(self, 'token{}'.format(x + 1), ct())
-
-                # Set parameters:
-                assert len(args) == len(formal_args)
-                for fa, a in zip(formal_args, args):
-                    assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
-                    setattr(self, fa[0], a)
-            setattr(cls, '__init__', _init_)
 
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
@@ -71,6 +52,34 @@ class InsMeta(type):
 
 class Instruction(metaclass=InsMeta):
     """ Base instruction class """
+    def __init__(self, *args):
+        """ Base instruction constructor. Takes an arbitrary amount of
+            arguments and tries to fit them on the args or syntax fields
+        """
+        # Generate constructor from args:
+        if hasattr(self, 'args'):
+            formal_args = getattr(self, 'args')
+        elif hasattr(self, 'syntax'):
+            formal_args = []
+            for st in self.syntax:
+                if type(st) is InstructionProperty:
+                    formal_args.append((st._name, st._cls))
+        else:
+            formal_args = None
+
+        if formal_args is not None:
+            # Set parameters:
+            assert len(args) == len(formal_args)
+            for fa, a in zip(formal_args, args):
+                assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
+                setattr(self, fa[0], a)
+
+        # Construct token:
+        if len(self.tokens) > 0:
+            setattr(self, 'token', self.tokens[0]())
+        for x, ct in enumerate(self.tokens):
+            setattr(self, 'token{}'.format(x + 1), ct())
+
     def _get_tp(self, st):
         pass
 
@@ -84,6 +93,16 @@ class Instruction(metaclass=InsMeta):
             return str(getattr(self, arg))
         else:
             raise Exception()
+
+    @classmethod
+    def get_argclass(self, arg):
+        """ Given an argument, determine its class """
+        if type(arg) is int:
+            return self.args[arg][1]
+        elif type(arg) is InstructionProperty:
+            return arg._cls
+        else:
+            raise NotImplementedError(str(arg))
 
     def __repr__(self):
         if hasattr(self, 'syntax'):
@@ -162,6 +181,40 @@ class Register:
 
     def __gt__(self, other):
         return self.num > other.num
+
+
+class InstructionProperty(property):
+    """ Custom derived property that implements the descriptor protocol
+        by inheriting property
+    """
+    def __init__(self, name, cls, getter, setter):
+        self._name = name
+        self._cls = cls
+        super().__init__(getter, setter)
+
+
+def register_argument(name, cls):
+    """ Create a property for an instruction. When an instruction has
+        an register parameter, use this function to create the property.
+        The name is the name that will be shown in the usage.
+        The cls is the type of register that this function must take.
+    """
+    # Construct a private backing field for the property:
+    private_field = '_{}'.format(name)
+
+    def getter(self):
+        return getattr(self, private_field)
+
+    def setter(self, value):
+        assert isinstance(value, cls)
+        setattr(self, private_field, value)
+
+    return InstructionProperty(name, cls, getter, setter)
+
+
+def value_argument(name):
+    # Construct a private backing field for the property:
+    return register_argument(name, int)
 
 
 class Target:

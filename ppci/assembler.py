@@ -3,7 +3,7 @@ from . import pyyacc
 from .baselex import BaseLexer
 from .common import make_num
 from .target import Target, Label
-from .target.basetarget import Alignment
+from .target.basetarget import Alignment, InstructionProperty
 
 
 def bit_type(value):
@@ -159,13 +159,14 @@ class BaseAssembler:
                 rhs = []
                 arg_idx = []
                 for idx, st in enumerate(i.syntax):
-                    if type(st) is int:
-                        rhs.append(isa.typ2nt[i.args[st][1]])
+                    if type(st) is int or type(st) is InstructionProperty:
+                        arg_cls = i.get_argclass(st)
+                        rhs.append(isa.typ2nt[arg_cls])
                         arg_idx.append(idx)
                     elif type(st) is str:
                         rhs.append(st)
                     else:
-                        raise Exception()
+                        raise NotImplementedError('{}'.format(type(st)))
                 cls = i
                 self.gen_i_rule(cls, arg_idx, rhs)
 
