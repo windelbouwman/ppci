@@ -527,19 +527,18 @@ class DoMixin:
 
         # Construct binary file from snippet:
         o1 = assemble(io.StringIO(startercode), march)
-        o3 = get_compiler_rt_lib(march)
         if lang == 'c3':
             o2 = c3compile([
                 relpath('data', 'io.c3'),
                 arch_c3,
                 io.StringIO(src)], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, o3], io.StringIO(arch_mmap), march)
+            o3 = link([o2, o1], io.StringIO(arch_mmap), march, use_runtime=True)
         elif lang == 'bf':
             obj = bfcompile(src, march, lst_file=lst_file)
             o2 = c3compile([
                 arch_c3
                 ], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, obj, o3], io.StringIO(arch_mmap), march)
+            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march, use_runtime=True)
         else:
             raise Exception('language not implemented')
 

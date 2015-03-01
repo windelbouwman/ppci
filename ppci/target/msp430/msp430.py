@@ -52,3 +52,5 @@ class Msp430Target(Target):
         self.registers.append(r14)
         self.registers.append(r15)
 
+    def get_runtime_src(self):
+        return ''

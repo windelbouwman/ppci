@@ -339,6 +339,10 @@ class Orr1(OpRegRegReg):
     syntax = ['orr', 0, ',', 1, ',', 2]
     opcode = 0b0001100
 
+    @staticmethod
+    def from_im(im):
+        return Orr1(im.dst[0], im.src[0], im.src[1])
+
 Orr = Orr1
 
 
@@ -393,6 +397,10 @@ Lsr = Lsr1
 class Lsl1(ShiftBase):
     opcode = 0b0001
     syntax = ['lsl', 0, ',', 1, ',', 2]
+
+    @staticmethod
+    def from_im(im):
+        return Lsl1(im.dst[0], im.src[0], im.src[1])
 
 Lsl = Lsl1
 
@@ -822,10 +830,22 @@ class ArmInstructionSelector(InstructionSelector):
         self.emit(And1, dst=[d], src=[c0, c1])
         return d
 
+    @pattern('reg', 'ORI32(reg, reg)', cost=2)
+    def P19_b(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Orr1, dst=[d], src=[c0, c1])
+        return d
+
     @pattern('reg', 'SHRI32(reg, reg)', cost=2)
     def P20(self, tree, c0, c1):
         d = self.newTmp()
         self.emit(Lsr1, dst=[d], src=[c0, c1])
+        return d
+
+    @pattern('reg', 'SHLI32(reg, reg)', cost=2)
+    def P20_b(self, tree, c0, c1):
+        d = self.newTmp()
+        self.emit(Lsl1, dst=[d], src=[c0, c1])
         return d
 
     @pattern('reg', 'MULI32(reg, reg)', cost=10)
