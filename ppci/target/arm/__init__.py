@@ -1,5 +1,5 @@
 
-from ..basetarget import Target, Label
+from .. import Target, Label
 from .instructions import LdrPseudo, isa
 from .instructions import ArmInstructionSelector
 from .frame import ArmFrame

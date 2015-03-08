@@ -1,8 +1,7 @@
-from ..basetarget import Instruction, Isa
+from .. import Instruction, Isa, register_argument
 from ..token import u16, u32
 from ..arm.registers import ArmRegister, SP
 from ..instructionselector import InstructionSelector, pattern
-from ...irmach import AbstractInstruction
 
 from ..token import Token, bit_range
 
@@ -101,7 +100,8 @@ class nop_ins(ThumbInstruction):
 
 class LS_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    args = [('rt', ArmRegister), ('rn', ArmRegister), ('imm5', int)]
+    rn = register_argument('rn', ArmRegister, read=True)
+    imm5 = register_argument('imm5', int)
 
     def encode(self):
         assert self.imm5 % 4 == 0
@@ -118,52 +118,49 @@ class LS_imm5_base(ThumbInstruction):
 
 
 class Str2(LS_imm5_base):
-    syntax = ['str', 0, ',', '[', 1, ',', 2, ']']
+    rt = register_argument('rt', ArmRegister, read=True)
+    syntax = [
+        'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']']
     opcode = 0xC
 
-    @staticmethod
-    def from_im(im):
-        return Str2(im.src[1], im.src[0], im.others[0])
 
-
-#############3
+#############
 # Experiments:
 # stm: MOVI32(MEMI32(reg), reg) 2 'self.emit(Str2, others=[0], src=[c0, c1])'
-#def pattern(*args, **kwargs):
+# def pattern(*args, **kwargs):
 #    return lambda f: f
 #
-#pattern(
+# pattern(
 #    'stm: MOVI32(MEMI32(reg), reg)',
 #    cost=2,
 #    f=lambda c0, c1: emit(Str2, others=[0], src=[c0, c1])
 #    )
 #
-#class Matcher:
+# class Matcher:
 #    @pattern('a', cost=2)
 #    def P1(self):
 #        self.emit()
 #
 #
-## stm: MOVI32(MEMI32(reg), reg) 2 
-## 'self.emit(Str2, others=[0], src=[c0, c1])'
-#class Str2Pattern:
+# # stm: MOVI32(MEMI32(reg), reg) 2
+# # 'self.emit(Str2, others=[0], src=[c0, c1])'
+# class Str2Pattern:
 #    cost = 2
 #    pattern = 'stm: MOVI32(MEMI32(reg), reg)'
 #
 ###############
 
 class Ldr2(LS_imm5_base):
-    syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
+    rt = register_argument('rt', ArmRegister, write=True)
+    syntax = [
+        'ldr', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']']
     opcode = 0xD
-
-    @staticmethod
-    def from_im(im):
-        return Ldr2(im.dst[0], im.src[0], im.others[0])
 
 
 class LS_byte_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    args = [('rt', ArmRegister), ('rn', ArmRegister), ('imm5', int)]
+    rn = register_argument('rn', ArmRegister, read=True)
+    imm5 = register_argument('imm5', int)
 
     def encode(self):
         assert self.rn.num < 8
@@ -179,25 +176,23 @@ class LS_byte_imm5_base(ThumbInstruction):
 
 
 class Strb(LS_byte_imm5_base):
-    syntax = ['strb', 0, ',', '[', 1, ',', 2, ']']
+    rt = register_argument('rt', ArmRegister, read=True)
+    syntax = [
+        'strb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
+        LS_byte_imm5_base.imm5, ']']
     opcode = 0xE
-
-    @staticmethod
-    def from_im(im):
-        return Strb(im.src[1], im.src[0], im.others[0])
 
 
 class Ldrb(LS_byte_imm5_base):
-    syntax = ['ldrb', 0, ',', '[', 1, ',', 2, ']']
+    rt = register_argument('rt', ArmRegister, write=True)
+    syntax = [
+        'ldrb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
+        LS_byte_imm5_base.imm5, ']']
     opcode = 0b01111
-
-    @staticmethod
-    def from_im(im):
-        return Ldrb(im.dst[0], im.src[0], im.others[0])
 
 
 class ls_sp_base_imm8(ThumbInstruction):
-    args = [('rt', ArmRegister), ('offset', int)]
+    offset = register_argument('offset', int)
 
     def encode(self):
         rt = self.rt.num
@@ -218,8 +213,9 @@ def Ldr(*args):
 
 class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
-    args = [('rt', ArmRegister), ('label', str)]
-    syntax = ['ldr', 0, ',', 1]
+    rt = register_argument('rt', ArmRegister, write=True)
+    label = register_argument('label', str)
+    syntax = ['ldr', rt, ',', label]
 
     def relocations(self):
         return [(self.label, 'lit_add_8')]
@@ -231,26 +227,25 @@ class Ldr3(ThumbInstruction):
         h = (0x9 << 11) | (rt << 8) | imm8
         return u16(h)
 
-    @staticmethod
-    def from_im(im):
-        return Ldr3(im.dst[0],  im.others[0])
-
 
 class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
+    rt = register_argument('rt', ArmRegister, write=True)
     opcode = 0x98
-    syntax = ['ldr', 0, ',', '[', 'sp', ',', 1, ']']
+    syntax = ['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']']
 
 
 class Str1(ls_sp_base_imm8):
     """ str Rt, [SP, imm8] """
+    rt = register_argument('rt', ArmRegister, read=True)
     opcode = 0x90
-    syntax = ['str', 0, ',', '[', 'sp', ',', 1, ']']
+    syntax = ['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']']
 
 
 class Adr(ThumbInstruction):
-    args = [('rd', ArmRegister), ('label', str)]
-    syntax = ['adr', 0, ',', 1]
+    rd = register_argument('rd', ArmRegister, write=True)
+    label = register_argument('label', str)
+    syntax = ['adr', rd, ',', label]
 
     def relocations(self):
         return [(self.label, 'lit_add_8')]
@@ -261,16 +256,13 @@ class Adr(ThumbInstruction):
         self.token[11:16] = 0b10100
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Adr(im.dst[0], im.others[0])
-
 
 class Mov3(ThumbInstruction):
     """ mov Rd, imm8, move immediate value into register """
     opcode = 4   # 00100 Rd(3) imm8
-    args = [('rd', ArmRegister), ('imm', int)]
-    syntax = ['mov', 0, ',', 1]
+    rd = register_argument('rd', ArmRegister, write=True)
+    imm = register_argument('imm', int)
+    syntax = ['mov', rd, ',', imm]
 
     def encode(self):
         rd = self.rd.num
@@ -279,15 +271,13 @@ class Mov3(ThumbInstruction):
         self.token[11:16] = self.opcode
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Mov3(im.dst[0], im.others[0])
-
 # Arithmatics:
 
 
 class regregimm3_base(ThumbInstruction):
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('imm3', int)]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    imm3 = register_argument('imm3', int)
 
     def encode(self):
         assert self.imm3 < 8
@@ -301,22 +291,18 @@ class regregimm3_base(ThumbInstruction):
 
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
-    syntax = ['add', 0, ',', 1, ',', 2]
+    syntax = [
+        'add', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
+        regregimm3_base.imm3]
     opcode = 0b0001110
-
-    @staticmethod
-    def from_im(im):
-        return Add2(im.dst[0], im.src[0], im.others[0])
 
 
 class Sub2(regregimm3_base):
     """ sub Rd, Rn, imm3 """
-    syntax = ['sub', 0, ',', 1, ',', 2]
+    syntax = [
+        'sub', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
+        regregimm3_base.imm3]
     opcode = 0b0001111
-
-    @staticmethod
-    def from_im(im):
-        return Sub2(im.dst[0], im.src[0], im.others[0])
 
 
 def Sub(*args):
@@ -345,7 +331,9 @@ def Add(*args):
 
 class regregreg_base(ThumbInstruction):
     """ ??? Rd, Rn, Rm """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
 
     def encode(self):
         at = ThumbToken()
@@ -359,27 +347,24 @@ class regregreg_base(ThumbInstruction):
 
 
 class Add3(regregreg_base):
-    syntax = ['add', 0, ',', 1, ',', 2]
+    syntax = [
+        'add', regregreg_base.rd, ',', regregreg_base.rn, ',',
+        regregreg_base.rm]
     opcode = 0b0001100
-
-    @staticmethod
-    def from_im(im):
-        return Add3(im.dst[0], im.src[0], im.src[1])
 
 
 class Sub3(regregreg_base):
-    syntax = ['sub', 0, ',', 1, ',', 2]
+    syntax = [
+        'sub', regregreg_base.rd, ',', regregreg_base.rn, ',',
+        regregreg_base.rm]
     opcode = 0b0001101
-
-    @staticmethod
-    def from_im(im):
-        return Sub3(im.dst[0], im.src[0], im.src[1])
 
 
 class Mov2(ThumbInstruction):
     """ mov rd, rm (all registers, also > r7 """
-    args = [('rd', ArmRegister), ('rm', ArmRegister)]
-    syntax = ['mov', 0, ',', 1]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['mov', rd, ',', rm]
 
     def encode(self):
         self.token.rd = self.rd.num & 0x7
@@ -391,10 +376,6 @@ class Mov2(ThumbInstruction):
         self.token[7] = D
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Mov2(im.dst[0], im.src[0])
-
 
 class Mul(ThumbInstruction):
     """
@@ -403,8 +384,9 @@ class Mul(ThumbInstruction):
         multiply Rn and Rm and store the result in Rd
         Rd and Rm are the same register.
     """
-    args = [('rn', ArmRegister), ('rdm', ArmRegister)]
-    syntax = ['mul', 0, ',', 1]
+    rn = register_argument('rn', ArmRegister, read=True)
+    rdm = register_argument('rdm', ArmRegister, read=True, write=True)
+    syntax = ['mul', rn, ',', rdm]
 
     def encode(self):
         rn = self.rn.num
@@ -414,17 +396,16 @@ class Mul(ThumbInstruction):
         self.token[3:6] = rn
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Mul(im.src[0], im.dst[0])
-
 
 class Sdiv(LongThumbInstruction):
     """ Signed division.
         Encoding T1
     """
-    syntax = ['sdiv', 0, ',', 1, ',', 2]
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['sdiv', rd, ',', rn, ',', rm]
+
     def encode(self):
         self.token[11:16] = 0b11111
         self.token[4:11] = 0b0111001
@@ -434,10 +415,6 @@ class Sdiv(LongThumbInstruction):
         self.token2[4:8] = 0b1111
         self.token2[0:4] = self.rm.num
         return self.token.encode() + self.token2.encode()
-
-    @staticmethod
-    def from_im(im):
-        return Sdiv(im.dst[0], im.src[0], im.src[1])
 
 
 class Rsb_imm_t1(ThumbInstruction):
@@ -453,7 +430,8 @@ class Rsb_imm_t1(ThumbInstruction):
 
 class regreg_base(ThumbInstruction):
     """ ??? Rdn, Rm """
-    args = [('rdn', ArmRegister), ('rm', ArmRegister)]
+    rdn = register_argument('rdn', ArmRegister, write=True, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
 
     def encode(self):
         self.token.rd = self.rdn.num
@@ -464,64 +442,41 @@ class regreg_base(ThumbInstruction):
 
 
 class And(regreg_base):
-    syntax = ['and', 0, ',', 1]
+    syntax = ['and', regreg_base.rdn, ',', regreg_base.rm]
     opcode = 0b0100000000
-
-    @staticmethod
-    def from_im(im):
-        return And(im.src[0], im.src[1])
 
 
 class Orr(regreg_base):
-    syntax = ['orr', 0, ',', 1]
+    syntax = ['orr', regreg_base.rdn, ',', regreg_base.rm]
     opcode = 0b0100001100
-
-    @staticmethod
-    def from_im(im):
-        return Orr(im.src[0], im.src[1])
 
 
 class Eor(regreg_base):
-    syntax = ['eor', 0, ',', 1]
+    syntax = ['eor', regreg_base.rdn, ',', regreg_base.rm]
     opcode = 0b0100000001
-
-    @staticmethod
-    def from_im(im):
-        return Eor(im.src[0], im.src[1])
 
 
 class Cmp(regreg_base):
-    syntax = ['cmp', 0, ',', 1]
+    syntax = ['cmp', regreg_base.rdn, ',', regreg_base.rm]
     opcode = 0b0100001010
-
-    @staticmethod
-    def from_im(im):
-        return Cmp(im.src[0], im.src[1])
 
 
 class Lsl(regreg_base):
-    syntax = ['lsl', 0, ',', 1]
+    syntax = ['lsl', regreg_base.rdn, ',', regreg_base.rm]
     opcode = 0b0100000010
-
-    @staticmethod
-    def from_im(im):
-        return Lsl(im.src[0], im.src[1])
 
 
 class Lsr(regreg_base):
-    syntax = ['lsr', 0, ',', 1]
+    syntax = ['lsr', regreg_base.rdn, ',', regreg_base.rm]
     opcode = 0b0100000011
-
-    @staticmethod
-    def from_im(im):
-        return Lsr(im.src[0], im.src[1])
 
 
 class Cmp2(ThumbInstruction):
     """ cmp Rn, imm8 """
     opcode = 5   # 00101
-    args = [('rn', ArmRegister), ('imm', int)]
-    syntax = ['cmp', 0, ',', 1]
+    rn = register_argument('rn', ArmRegister, read=True)
+    imm = register_argument('imm', int)
+    syntax = ['cmp', rn, ',', imm]
 
     def encode(self):
         self.token[0:8] = self.imm
@@ -750,12 +705,12 @@ class ThumbInstructionSelector(InstructionSelector):
 
     @pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=1)
     def P1(self, tree, c0, c1):
-        self.emit(Str2, others=[0], src=[c0, c1])
+        self.emit(Str2(c1, c0, 0))
 
     @pattern('stm', 'JMP', cost=2)
     def P3(self, tree):
         label, tgt = tree.value
-        self.emit(Bw(label), jumps=[tgt])
+        self.emit(Bw(label, jumps=[tgt]))
 
     @pattern('reg', 'REGI32', cost=0)
     def P4(self, tree):
@@ -764,20 +719,20 @@ class ThumbInstructionSelector(InstructionSelector):
     @pattern('reg', 'ADDI32(reg,reg)', cost=1)
     def P5(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Add3, dst=[d], src=[c0, c1])
+        self.emit(Add3(d, c0, c1))
         return d
 
     @pattern('reg', 'ADDI8(reg,reg)', cost=1)
     def P5_2(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Add3, dst=[d], src=[c0, c1])
+        self.emit(Add3(d, c0, c1))
         return d
 
     @pattern('stm', 'MOVI32(REGI32,cn)', cost=2)
     def P7(self, tree, c0):
         ln = self.frame.addConstant(c0)
         r = tree.children[0].value
-        self.emit(Ldr3, dst=[r], others=[ln])
+        self.emit(Ldr3(r, ln))
 
     @pattern('cn', 'CONSTI32', cost=0)
     def P8(self, tree):
@@ -787,14 +742,14 @@ class ThumbInstructionSelector(InstructionSelector):
     def P9(self, tree):
         d = self.newTmp()
         ln = self.frame.addConstant(tree.value)
-        self.emit(Ldr3, dst=[d], others=[ln])
+        self.emit(Ldr3(d, ln))
         return d
 
     @pattern('reg', 'CONSTI32', cost=3)
     def P10(self, tree):
         d = self.newTmp()
         ln = self.frame.addConstant(tree.value)
-        self.emit(Ldr3, dst=[d], others=[ln])
+        self.emit(Ldr3(d, ln))
         return d
 
     @pattern('stm', 'MOVI32(REGI32,reg)', cost=1)
@@ -807,25 +762,25 @@ class ThumbInstructionSelector(InstructionSelector):
         op, yes_label, yes_tgt, no_label, no_tgt = tree.value
         opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
         Bop = opnames[op]
-        jmp_ins = AbstractInstruction(Bw(no_label), jumps=[no_tgt])
-        self.emit(Cmp, src=[c0, c1])
-        self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins])
+        jmp_ins = Bw(no_label, jumps=[no_tgt])
+        self.emit(Cmp(c0, c1))
+        self.emit(Bop(yes_label, jumps=[yes_tgt, jmp_ins]))
         self.emit(jmp_ins)
 
     @pattern('stm', 'MOVI8(MEMI8(reg),reg)', cost=1)
     def P13(self, tree, c0, c1):
-        self.emit(Strb, others=[0], src=[c0, c1])
+        self.emit(Strb(c1, c0, 0))
 
     @pattern('reg', 'MEMI8(reg)', cost=1)
     def P14(self, tree, c0):
         d = self.newTmp()
-        self.emit(Ldrb, dst=[d], src=[c0], others=[0])
+        self.emit(Ldrb(d, c0, 0))
         return d
 
     @pattern('reg', 'MEMI32(reg)', cost=1)
     def P15(self, tree, c0):
         d = self.newTmp()
-        self.emit(Ldr2, dst=[d], src=[c0], others=[0])
+        self.emit(Ldr2(d, c0, 0))
         return d
 
     @pattern('reg', 'CALL', cost=1)
@@ -842,81 +797,82 @@ class ThumbInstructionSelector(InstructionSelector):
     @pattern('reg', 'SUBI32(reg,reg)', cost=1)
     def P18(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Sub3, dst=[d], src=[c0, c1])
+        self.emit(Sub3(d, c0, c1))
         return d
 
     @pattern('reg', 'SUBI8(reg,reg)', cost=1)
     def P18_2(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Sub3, dst=[d], src=[c0, c1])
+        self.emit(Sub3(d, c0, c1))
         return d
 
     @pattern('reg', 'ADR(CONSTDATA)', cost=2)
     def P19(self, tree):
         d = self.newTmp()
         ln = self.frame.addConstant(tree.children[0].value)
-        self.emit(Adr, dst=[d], others=[ln])
+        self.emit(Adr(d, ln))
         return d
 
     @pattern('reg', 'SHRI32(reg, reg)', cost=1)
     def P20(self, tree, c0, c1):
         d = self.newTmp()
         self.move(d, c0)
-        self.emit(Lsr, dst=[], src=[d, c1])
+        self.emit(Lsr(d, c1))
         return d
 
     @pattern('reg', 'ORI32(reg, reg)', cost=1)
     def P21(self, tree, c0, c1):
         d = self.newTmp()
         self.move(d, c0)
-        self.emit(Orr, dst=[], src=[d, c1])
+        self.emit(Orr(d, c1))
         return d
 
     @pattern('reg', 'ANDI32(reg, reg)', cost=1)
     def P22(self, tree, c0, c1):
         d = self.newTmp()
         self.move(d, c0)
-        self.emit(And, dst=[], src=[d, c1])
+        self.emit(And(d, c1))
         return d
 
     @pattern('reg', 'SHLI32(reg, reg)', cost=1)
     def P23(self, tree, c0, c1):
         d = self.newTmp()
         self.move(d, c0)
-        self.emit(Lsl, dst=[], src=[d, c1])
+        self.emit(Lsl(d, c1))
         return d
 
     @pattern('reg', 'MULI32(reg, reg)', cost=5)
     def P24(self, tree, c0, c1):
         d = self.newTmp()
         self.move(d, c0)
-        self.emit(Mul, dst=[d], src=[c1, d])
+        # Attention: multiply takes the second argument as use and def:
+        self.emit(Mul(c1, d))
         return d
 
     @pattern('reg', 'DIVI32(reg, reg)', cost=10)
     def P25(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Sdiv, dst=[d], src=[c0, c1])
+        self.emit(Sdiv(d, c0, c1))
         return d
 
     @pattern('reg', 'REMI32(reg, reg)', cost=10)
     def P26(self, tree, c0, c1):
         d2 = self.newTmp()
-        self.emit(Sdiv, dst=[d2], src=[c0, c1])
+        self.emit(Sdiv(d2, c0, c1))
         # Multiply result by divider:
-        self.emit(Mul, dst=[d2], src=[c1, d2])
+        self.emit(Mul(c1, d2))
 
         # Substract from divident:
         d = self.newTmp()
-        self.emit(Sub3, dst=[d], src=[c0, d2])
+        self.emit(Sub3(d, c0, d2))
         return d
 
     @pattern('reg', 'XORI32(reg, reg)', cost=10)
     def P27(self, tree, c0, c1):
         d = self.newTmp()
         self.move(d, c0)
-        self.emit(Eor, dst=[], src=[d, c1])
+        self.emit(Eor(d, c1))
         return d
 
-#reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
-#addr: reg 0 ''
+# reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
+# addr: reg 0 ''

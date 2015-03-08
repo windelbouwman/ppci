@@ -1,4 +1,4 @@
-from ppci.irmach import AbstractInstruction
+from ppci.target import Instruction
 from ppci.tree import State, Tree, from_string
 from ppci.pyburg import BurgSystem
 
@@ -74,7 +74,7 @@ class InstructionSelector:
         # Template match all trees:
         for dag in dags:
             for root in dag:
-                if type(root) is AbstractInstruction:
+                if isinstance(root, Instruction):
                     self.emit(root)
                 else:
                     # Invoke dynamic programming matcher machinery:

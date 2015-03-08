@@ -1,5 +1,5 @@
 
-from ..basetarget import Register, Instruction, Target, Isa
+from .. import Register, Instruction, Target, Isa
 from ..token import Token, u16, bit_range
 from .registers import Msp430Register
 
@@ -138,10 +138,10 @@ class OneOpArith(Msp430Instruction):
         return pack_ins(h1)
 
 
-def oneOpIns(mne, opc):
+def oneOpIns(mne, opcode):
     """ Helper function to define a one operand arithmetic instruction """
-    members = {'opcode': opc}
-    ins_cls = type(mne + '_ins', (OneOpArith,), members)
+    members = {'opcode': opcode}
+    return type(mne + '_ins', (OneOpArith,), members)
 
 
 class rrr_ins(OneOpArith):
@@ -188,23 +188,14 @@ class TwoOpArith(Msp430Instruction):
 
 def twoOpIns(mne, opc):
     """ Helper function to define a two operand arithmetic instruction """
-    members = {'opcode': opc}
-    ins_cls = type(mne + '_ins', (TwoOpArith,), members)
+    syntax = [mne]
+    members = {'opcode': opc, 'syntax': syntax}
+    return type(mne + '_ins', (TwoOpArith,), members)
 
 
-class Mov(TwoOpArith):
-    """ Moves the source to the destination """
-    opcode = 4
-
-
-# This is equivalent to the helper function twoOpIns:
-class Add(TwoOpArith):
-    """ Adds the source to the destination """
-    mnemonic = 'add'
-    opcode = 5
-
-
-twoOpIns('addc', 6)
+Mov = twoOpIns('mov', 4)
+Add = twoOpIns('add', 5)
+Addc = twoOpIns('addc', 6)
 twoOpIns('subc', 7)
 twoOpIns('sub', 8)
 

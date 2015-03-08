@@ -1,4 +1,4 @@
-from ..basetarget import Register, Instruction, Target, Label, Alignment
+from .. import Register, Instruction, Target, Label, Alignment
 from .instructions import Dcd, Ldr3, Ds
 from .instructions import isa
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7

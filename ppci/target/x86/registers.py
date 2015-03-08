@@ -1,13 +1,13 @@
 """
     Contains register definitions for x86 target.
 """
-from ..basetarget import Register
+from .. import Register
 
 
 class X86Register(Register):
     def __init__(self, num, name):
         super().__init__(name)
-        self.num = num
+        self._num = num
 
     def __repr__(self):
         return 'x86reg {}'.format(self.name)

@@ -1,4 +1,4 @@
-from ..basetarget import Register, Instruction, Target
+from .. import Register, Instruction, Target
 from .registers import r10, r11, r12, r13, r14, r15
 from .instructions import Reti, Mov, Add, isa
 from ...assembler import BaseAssembler
@@ -9,6 +9,7 @@ from ...assembler import BaseAssembler
 class Msp430Assembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
+        kws = list(isa.calc_kws())
 
         # Registers:
         self.add_keyword('r10')
@@ -37,6 +38,8 @@ class Msp430Assembler(BaseAssembler):
 
         self.add_keyword('reti')
         self.gen_asm_parser(isa)
+        self.parser.g.add_terminals(kws)
+        self.lexer.kws |= set(kws)
 
 
 class Msp430Target(Target):

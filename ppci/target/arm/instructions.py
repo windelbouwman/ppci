@@ -1,11 +1,10 @@
 
-from ..basetarget import Instruction, Isa
-from ..basetarget import register_argument, value_argument
+from .. import Instruction, Isa, InsMeta
+from .. import register_argument, value_argument
 from ...bitfun import encode_imm32
 from .registers import ArmRegister
 from ..token import Token, u32, u8, bit_range
 from ..instructionselector import InstructionSelector, pattern
-from ...irmach import AbstractInstruction
 
 
 class RegisterSet(set):
@@ -116,27 +115,24 @@ def Mov(*args):
 
 class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
-    args = [('reg', ArmRegister), ('imm', int)]
-    syntax = ['mov', 0, ',', 1]
+    rd = register_argument('rd', ArmRegister, write=True)
+    imm = register_argument('imm', int)
+    syntax = ['mov', rd, ',', imm]
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
-        self.token.Rd = self.reg.num
+        self.token.Rd = self.rd.num
         self.token[16:20] = 0
         self.token[20] = 0  # Set flags
         self.token[21:28] = 0b0011101
         self.token.cond = AL
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Mov1(im.dst[0], im.others[0])
-
 
 class Mov2(ArmInstruction):
-    args = [('rd', ArmRegister), ('rm', ArmRegister)]
-    syntax = ['mov', 0, ',', 1]
-    # bindings = [Binding(0:4, Arg), ()]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['mov', rd, ',', rm]
 
     def encode(self):
         self.token[0:4] = self.rm.num
@@ -147,10 +143,6 @@ class Mov2(ArmInstruction):
         self.token[21:28] = 0xD
         self.token.cond = AL
         return self.token.encode()
-
-    @staticmethod
-    def from_im(im):
-        return Mov2(im.dst[0], im.src[0])
 
 
 def Cmp(*args):
@@ -164,7 +156,7 @@ def Cmp(*args):
 
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
-    reg = register_argument('reg', ArmRegister)
+    reg = register_argument('reg', ArmRegister, read=True)
     imm = value_argument('imm')
     syntax = ['cmp', reg, ',', imm]
 
@@ -178,8 +170,9 @@ class Cmp1(ArmInstruction):
 
 class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
-    args = [('rn', ArmRegister), ('rm', ArmRegister)]
-    syntax = ['cmp', 0, ',', 1]
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['cmp', rn, ',', rm]
 
     def encode(self):
         self.token.Rn = self.rn.num
@@ -188,10 +181,6 @@ class Cmp2(ArmInstruction):
         self.token[20:28] = 0b10101
         self.token.cond = AL
         return self.token.encode()
-
-    @staticmethod
-    def from_im(im):
-        return Cmp2(im.src[0], im.src[1])
 
 
 def Add(*args):
@@ -219,8 +208,10 @@ def Mul(*args):
 
 
 class Mul1(ArmInstruction):
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
-    syntax = ['mul', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['mul', rd, ',', rn, ',', rm]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -231,17 +222,15 @@ class Mul1(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Mul1(im.dst[0], im.src[0], im.src[1])
-
 
 class Sdiv(ArmInstruction):
     """ Encoding A1
         rd = rn / rm
     """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
-    syntax = ['sdiv', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['sdiv', rd, ',', rn, ',', rm]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -253,17 +242,15 @@ class Sdiv(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Sdiv(im.dst[0], im.src[0], im.src[1])
-
 
 class Udiv(ArmInstruction):
     """ Encoding A1
         rd = rn / rm
     """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
-    syntax = ['udiv', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = ['udiv', rd, ',', rn, ',', rm]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -275,18 +262,17 @@ class Udiv(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Udiv(im.dst[0], im.src[0], im.src[1])
-
 
 class Mls(ArmInstruction):
     """ Multiply substract
         Semantics:
         rd = ra - rn * rm
     """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister), ('ra', ArmRegister)]
-    syntax = ['mls', 0, ',', 1, ',', 2, ',', 3]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    ra = register_argument('ra', ArmRegister, read=True)
+    syntax = ['mls', rd, ',', rn, ',', rm, ',', ra]
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -298,14 +284,9 @@ class Mls(ArmInstruction):
         self.token.cond = AL
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Mls(im.dst[0], im.src[0], im.src[1], im.src[2])
 
 class OpRegRegReg(ArmInstruction):
     """ add rd, rn, rm """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
-
     def encode(self):
         self.token[0:4] = self.rm.num
         self.token[4] = 0
@@ -319,59 +300,29 @@ class OpRegRegReg(ArmInstruction):
         return self.token.encode()
 
 
-class Add1(OpRegRegReg):
-    syntax = ['add', 0, ',', 1, ',', 2]
-    opcode = 0b0000100
+def make_regregreg(mnemonic, opcode):
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = [mnemonic, rd, ',', rn, ',', rm]
+    members = {
+        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode}
+    return type(mnemonic + '_ins', (OpRegRegReg,), members)
 
-    @staticmethod
-    def from_im(im):
-        return Add1(im.dst[0], im.src[0], im.src[1])
-
-
-class Sub1(OpRegRegReg):
-    syntax = ['sub', 0, ',', 1, ',', 2]
-    opcode = 0b0000010
-
-    @staticmethod
-    def from_im(im):
-        return Sub1(im.dst[0], im.src[0], im.src[1])
-
-
-class Orr1(OpRegRegReg):
-    syntax = ['orr', 0, ',', 1, ',', 2]
-    opcode = 0b0001100
-
-    @staticmethod
-    def from_im(im):
-        return Orr1(im.dst[0], im.src[0], im.src[1])
-
+Add1 = make_regregreg('add', 0b0000100)
+Sub1 = make_regregreg('sub', 0b0000010)
+Orr1 = make_regregreg('orr', 0b0001100)
 Orr = Orr1
-
-
-class And1(OpRegRegReg):
-    syntax = ['and', 0, ',', 1, ',', 2]
-    opcode = 0b0000000
-
-    @staticmethod
-    def from_im(im):
-        return And1(im.dst[0], im.src[0], im.src[1])
-
+And1 = make_regregreg('and', 0b0000000)
 And = And1
-
-
-class Eor1(OpRegRegReg):
-    """ Encoding A1 """
-    syntax = ['eor', 0, ',', 1, ',', 2]
-    opcode = 0b0000001
-
-    @staticmethod
-    def from_im(im):
-        return Eor1(im.dst[0], im.src[0], im.src[1])
+Eor1 = make_regregreg('eor', 0b0000001)
 
 
 class ShiftBase(ArmInstruction):
     """ ? rd, rn, rm """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('rm', ArmRegister)]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -386,11 +337,7 @@ class ShiftBase(ArmInstruction):
 
 class Lsr1(ShiftBase):
     opcode = 0b0011
-    syntax = ['lsr', 0, ',', 1, ',', 2]
-
-    @staticmethod
-    def from_im(im):
-        return Lsr1(im.dst[0], im.src[0], im.src[1])
+    syntax = ['lsr', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm]
 
 
 Lsr = Lsr1
@@ -398,18 +345,17 @@ Lsr = Lsr1
 
 class Lsl1(ShiftBase):
     opcode = 0b0001
-    syntax = ['lsl', 0, ',', 1, ',', 2]
+    syntax = ['lsl', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm]
 
-    @staticmethod
-    def from_im(im):
-        return Lsl1(im.dst[0], im.src[0], im.src[1])
 
 Lsl = Lsl1
 
 
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
-    args = [('rd', ArmRegister), ('rn', ArmRegister), ('imm', int)]
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    imm = register_argument('imm', int)
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -423,22 +369,18 @@ class OpRegRegImm(ArmInstruction):
 
 class Add2(OpRegRegImm):
     opcode = 0b0010100
-    syntax = ['add', 0, ',', 1, ',', 2]
-
-    @staticmethod
-    def from_im(im):
-        return Add2(im.dst[0], im.src[0], im.others[0])
+    syntax = ['add', OpRegRegImm.rd, ',', OpRegRegImm.rn, ',', OpRegRegImm.imm]
 
 
 class Sub2(OpRegRegImm):
     opcode = 0b0010010
-    syntax = ['sub', 0, ',', 1, ',', 2]
+    syntax = ['sub', OpRegRegImm.rd, ',', OpRegRegImm.rn, ',', OpRegRegImm.imm]
 
 
 # Branches:
 
 class BranchBaseRoot(ArmInstruction):
-    args = [('target', str)]
+    target = register_argument('target', str)
 
     def encode(self):
         self.token.cond = self.cond
@@ -459,45 +401,47 @@ class BranchLinkBase(BranchBaseRoot):
 
 class Bl(BranchLinkBase):
     cond = AL
-    syntax = ['bl', 0]
+    syntax = ['bl', BranchBaseRoot.target]
 
 
 class B(BranchBase):
     cond = AL
-    syntax = ['b', 0]
+    syntax = ['b', BranchBaseRoot.target]
 
 
 class Beq(BranchBase):
     cond = EQ
-    syntax = ['beq', 0]
+    syntax = ['beq', BranchBaseRoot.target]
 
 
 class Bgt(BranchBase):
     cond = GT
-    syntax = ['bgt', 0]
+    syntax = ['bgt', BranchBaseRoot.target]
 
 
 class Bge(BranchBase):
     cond = GE
-    syntax = ['bge', 0]
+    syntax = ['bge', BranchBaseRoot.target]
+
 
 class Bls(BranchBase):
     cond = LS
-    syntax = ['bls', 0]
+    syntax = ['bls', BranchBaseRoot.target]
+
 
 class Ble(BranchBase):
     cond = LE
-    syntax = ['ble', 0]
+    syntax = ['ble', BranchBaseRoot.target]
 
 
 class Blt(BranchBase):
     cond = LT
-    syntax = ['blt', 0]
+    syntax = ['blt', BranchBaseRoot.target]
 
 
 class Bne(BranchBase):
     cond = NE
-    syntax = ['bne', 0]
+    syntax = ['bne', BranchBaseRoot.target]
 
 
 def reg_list_to_mask(reg_list):
@@ -557,7 +501,8 @@ def Str(*args):
 
 
 class LdrStrBase(ArmInstruction):
-    args = [('rt', ArmRegister), ('rn', ArmRegister), ('offset', int)]
+    rn = register_argument('rn', ArmRegister, read=True)
+    offset = register_argument('offset', int)
 
     def encode(self):
         self.token.cond = AL
@@ -577,54 +522,51 @@ class LdrStrBase(ArmInstruction):
 
 
 class Str1(LdrStrBase):
+    rt = register_argument('rt', ArmRegister, read=True)
     opcode = 0b010
     bit20 = 0
     bit22 = 0
-    syntax = ['str', 0, ',', '[', 1, ',', 2, ']']
-
-    @staticmethod
-    def from_im(im):
-        return Str1(im.src[1], im.src[0], im.others[0])
+    syntax = [
+        'str', rt, ',', '[', LdrStrBase.rn, ',',
+        LdrStrBase.offset, ']']
 
 
 class Ldr1(LdrStrBase):
+    rt = register_argument('rt', ArmRegister, write=True)
     opcode = 0b010
     bit20 = 1
     bit22 = 0
-    syntax = ['ldr', 0, ',', '[', 1, ',', 2, ']']
-
-    @staticmethod
-    def from_im(im):
-        return Ldr1(im.dst[0], im.src[0], im.others[0])
+    syntax = [
+        'ldr', rt, ',', '[', LdrStrBase.rn, ',',
+        LdrStrBase.offset, ']']
 
 
 class Strb(LdrStrBase):
     """ ldrb rt, [rn, offset] # Store byte at address """
+    rt = register_argument('rt', ArmRegister, read=True)
     opcode = 0b010
     bit20 = 0
     bit22 = 1
-    syntax = ['strb', 0, ',', '[', 1, ',', 2, ']']
-
-    @staticmethod
-    def from_im(im):
-        return Strb(im.src[1], im.src[0], im.others[0])
+    syntax = [
+        'strb', rt, ',', '[', LdrStrBase.rn, ',',
+        LdrStrBase.offset, ']']
 
 
 class Ldrb(LdrStrBase):
     """ ldrb rt, [rn, offset] """
+    rt = register_argument('rt', ArmRegister, write=True)
     opcode = 0b010
     bit20 = 1
     bit22 = 1
-    syntax = ['ldrb', 0, ',', '[', 1, ',', 2, ']']
-
-    @staticmethod
-    def from_im(im):
-        return Ldrb(im.dst[0], im.src[0], im.others[0])
+    syntax = [
+        'ldrb', rt, ',', '[', LdrStrBase.rn, ',',
+        LdrStrBase.offset, ']']
 
 
 class Adr(ArmInstruction):
-    args = [('rd', ArmRegister), ('label', str)]
-    syntax = ['adr', 0, ',', 1]
+    rd = register_argument('rd', ArmRegister, write=True)
+    label = register_argument('label', str)
+    syntax = ['adr', rd, ',', label]
 
     def relocations(self):
         return [(self.label, 'adr_imm12')]
@@ -637,18 +579,15 @@ class Adr(ArmInstruction):
         self.token[25] = 1
         return self.token.encode()
 
-    @staticmethod
-    def from_im(im):
-        return Adr(im.dst[0], im.others[0])
-
 
 class Ldr3(ArmInstruction):
     """ Load PC relative constant value
         LDR rt, label
         encoding A1
     """
-    args = [('rt', ArmRegister), ('label', str)]
-    syntax = ['ldr', 0, ',', 1]
+    rt = register_argument('rt', ArmRegister, write=True)
+    label = register_argument('label', str)
+    syntax = ['ldr', rt, ',', label]
 
     def relocations(self):
         return [(self.label, 'ldr_imm12')]
@@ -660,10 +599,6 @@ class Ldr3(ArmInstruction):
         self.token[16:23] = 0b0011111
         self.token[24:28] = 0b0101
         return self.token.encode()
-
-    @staticmethod
-    def from_im(im):
-        return Ldr3(im.dst[0], im.others[0])
 
 
 class McrBase(ArmInstruction):
@@ -700,22 +635,30 @@ class ArmInstructionSelector(InstructionSelector):
 
     @pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=2)
     def P1(self, tree, c0, c1):
-        self.emit(Str1, others=[0], src=[c0, c1])
+        self.emit(Str1(c1, c0, 0))
+
+    @pattern(
+        'stm', 'MOVI32(MEMI32(ADDI32(reg, CONSTI32)), reg)',
+        cost=2,
+        condition=lambda t: t.children[0].children[0].children[1].value < 256)
+    def P1_b(self, tree, c0, c1):
+        # TODO: something strange here: when enabeling this rule, programs
+        # compile correctly...
+        offset = tree.children[0].children[0].children[1].value
+        self.emit(Str1(c1, c0, offset))
 
     @pattern('stm', 'MOVI8(MEMI8(reg), reg)', cost=2)
     def P2(self, tree, c0, c1):
-        self.emit(Strb, others=[0], src=[c0, c1])
+        self.emit(Strb(c1, c0, 0))
 
     @pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
     def P3(self, tree, c0):
         self.move(tree.children[0].value, c0)
 
-    # stm: MOVI32(MEMI32(ADDI32(reg, cn)), reg) 2 'self.emit(Str1, others=[c1], src=[c0, c2])'
-
     @pattern('stm', 'JMP', cost=2)
     def P5(self, tree):
         label, tgt = tree.value
-        self.emit(B(label), jumps=[tgt])
+        self.emit(B(label, jumps=[tgt]))
 
     @pattern('reg', 'REGI32', cost=0)
     def P6(self, tree):
@@ -725,7 +668,7 @@ class ArmInstructionSelector(InstructionSelector):
     def P7(self, tree):
         d = self.newTmp()
         ln = self.frame.add_constant(tree.value)
-        self.emit(Ldr3, dst=[d], others=[ln])
+        self.emit(Ldr3(d, ln))
         return d
 
     @pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
@@ -734,7 +677,7 @@ class ArmInstructionSelector(InstructionSelector):
         c0 = tree.value
         assert isinstance(c0, int)
         assert c0 < 256 and c0 >= 0
-        self.emit(Mov1, dst=[d], others=[c0])
+        self.emit(Mov1(d, c0))
         return d
 
     @pattern('stm', 'CJMP(reg, reg)', cost=2)
@@ -742,21 +685,21 @@ class ArmInstructionSelector(InstructionSelector):
         op, yes_label, yes_tgt, no_label, no_tgt = tree.value
         opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
         Bop = opnames[op]
-        self.emit(Cmp2, src=[c0, c1])
-        jmp_ins = AbstractInstruction(B(no_label), jumps=[no_tgt])
-        self.emit(Bop(yes_label), jumps=[yes_tgt, jmp_ins])
+        self.emit(Cmp2(c0, c1))
+        jmp_ins = B(no_label, jumps=[no_tgt])
+        self.emit(Bop(yes_label, jumps=[yes_tgt, jmp_ins]))
         self.emit(jmp_ins)
 
     @pattern('reg', 'ADDI32(reg, reg)', cost=2)
     def P9(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Add1, dst=[d], src=[c0, c1])
+        self.emit(Add1(d, c0, c1))
         return d
 
     @pattern('reg', 'ADDI8(reg, reg)', cost=2)
     def P9_2(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Add1, dst=[d], src=[c0, c1])
+        self.emit(Add1(d, c0, c1))
         return d
 
     @pattern(
@@ -765,7 +708,7 @@ class ArmInstructionSelector(InstructionSelector):
     def P9_3a(self, tree, c0):
         d = self.newTmp()
         c1 = tree.children[1].value
-        self.emit(Add2, dst=[d], src=[c0], others=[c1])
+        self.emit(Add2(d, c0, c1))
         return d
 
     @pattern(
@@ -774,39 +717,39 @@ class ArmInstructionSelector(InstructionSelector):
     def P9_3b(self, tree, c0):
         d = self.newTmp()
         c1 = tree.children[0].value
-        self.emit(Add2, dst=[d], src=[c0], others=[c1])
+        self.emit(Add2(d, c0, c1))
         return d
 
     @pattern('reg', 'SUBI32(reg, reg)', cost=2)
     def P12(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Sub1, dst=[d], src=[c0, c1])
+        self.emit(Sub1(d, c0, c1))
         return d
 
     @pattern('reg', 'SUBI8(reg, reg)', cost=2)
     def P12_2(self, tree, c0, c1):
         # TODO: temporary fix this with an 32 bits sub
         d = self.newTmp()
-        self.emit(Sub1, dst=[d], src=[c0, c1])
+        self.emit(Sub1(d, c0, c1))
         return d
 
     @pattern('reg', 'GLOBALADDRESS', cost=4)
     def P13(self, tree):
         d = self.newTmp()
         ln = self.frame.add_constant(tree.value)
-        self.emit(Ldr3, dst=[d], others=[ln])
+        self.emit(Ldr3(d, ln))
         return d
 
     @pattern('reg', 'MEMI8(reg)', cost=2)
     def P14(self, tree, c0):
         d = self.newTmp()
-        self.emit(Ldrb, dst=[d], src=[c0], others=[0])
+        self.emit(Ldrb(d, c0, 0))
         return d
 
     @pattern('reg', 'MEMI32(reg)', cost=2)
     def P15(self, tree, c0):
         d = self.newTmp()
-        self.emit(Ldr1, dst=[d], src=[c0], others=[0])
+        self.emit(Ldr1(d, c0, 0))
         return d
 
     @pattern('reg', 'CALL', cost=2)
@@ -823,37 +766,37 @@ class ArmInstructionSelector(InstructionSelector):
     def P18(self, tree):
         d = self.newTmp()
         ln = self.frame.add_constant(tree.children[0].value)
-        self.emit(Adr, dst=[d], others=[ln])
+        self.emit(Adr(d, ln))
         return d
 
     @pattern('reg', 'ANDI32(reg, reg)', cost=2)
     def P19(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(And1, dst=[d], src=[c0, c1])
+        self.emit(And1(d, c0, c1))
         return d
 
     @pattern('reg', 'ORI32(reg, reg)', cost=2)
     def P19_b(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Orr1, dst=[d], src=[c0, c1])
+        self.emit(Orr1(d, c0, c1))
         return d
 
     @pattern('reg', 'SHRI32(reg, reg)', cost=2)
     def P20(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Lsr1, dst=[d], src=[c0, c1])
+        self.emit(Lsr1(d, c0, c1))
         return d
 
     @pattern('reg', 'SHLI32(reg, reg)', cost=2)
     def P20_b(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Lsl1, dst=[d], src=[c0, c1])
+        self.emit(Lsl1(d, c0, c1))
         return d
 
     @pattern('reg', 'MULI32(reg, reg)', cost=10)
     def P21(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Mul1, dst=[d], src=[c0, c1])
+        self.emit(Mul1(d, c0, c1))
         return d
 
     @pattern('reg', 'MEMI32(ADDI32(reg, CONSTI32))', cost=2)
@@ -861,29 +804,29 @@ class ArmInstructionSelector(InstructionSelector):
         d = self.newTmp()
         c1 = tree.children[0].children[1].value
         assert isinstance(c1, int)
-        self.emit(Ldr1, dst=[d], src=[c0], others=[c1])
+        self.emit(Ldr1(d, c0, c1))
         return d
 
     @pattern('reg', 'DIVI32(reg, reg)', cost=10)
-    def P23(self, tree, c0, c1):
+    def P24_a(self, tree, c0, c1):
         d = self.newTmp()
         # Generate call into runtime lib function!
         self.frame.gen_call('__sdiv', [c0, c1], d)
         return d
 
     @pattern('reg', 'REMI32(reg, reg)', cost=10)
-    def P24(self, tree, c0, c1):
+    def P24_b(self, tree, c0, c1):
         # Implement remainder as a combo of div and mls (multiply substract)
         d = self.newTmp()
         self.frame.gen_call('__sdiv', [c0, c1], d)
         d2 = self.newTmp()
-        self.emit(Mls, dst=[d2], src=[d, c1, c0])
+        self.emit(Mls(d2, d, c1, c0))
         return d2
 
     @pattern('reg', 'XORI32(reg, reg)', cost=2)
     def P25(self, tree, c0, c1):
         d = self.newTmp()
-        self.emit(Eor1, dst=[d], src=[c0, c1])
+        self.emit(Eor1(d, c0, c1))
         return d
 
 # TODO: implement DIVI32 by library call.

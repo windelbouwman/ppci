@@ -2,7 +2,7 @@ import unittest
 import logging
 import io
 from ppci.c3 import Builder, Lexer
-from ppci.target import SimpleTarget
+from ppci.target.example import SimpleTarget
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
 

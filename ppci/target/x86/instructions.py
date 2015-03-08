@@ -3,7 +3,7 @@
 """
 
 import struct
-from ..basetarget import Register, Instruction, Isa
+from .. import Register, Instruction, Isa
 from .registers import regs64, X86Register
 
 from ..token import Token, u32, u8, bit_range

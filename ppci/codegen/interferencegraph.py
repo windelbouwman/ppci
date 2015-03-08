@@ -1,16 +1,15 @@
 import logging
 from .graph import Graph, Node
-from ..irmach import VirtualRegister
+from ..target import Register
 
 
 class InterferenceGraphNode(Node):
-    __slots__ = ['temps', 'move']
 
     def __init__(self, g, varname):
         super().__init__(g)
         self.temps = {varname}
         self.moves = set()
-        self.color = None
+        self.color = varname.color
 
     def __repr__(self):
         return '{}({})'.format(self.temps, self.color)
@@ -57,22 +56,21 @@ class InterferenceGraph(Graph):
             print('{} interferes: {}'.format(node, node.Adjecent))
 
     def get_node(self, tmp):
-        """ Get the node for a vreg """
-        # Linear search
-        assert type(tmp) is VirtualRegister
+        """ Get the node for a register """
+        assert isinstance(tmp, Register)
         if tmp in self.temp_map:
-            n = self.temp_map[tmp]
-            assert tmp in n.temps
+            node = self.temp_map[tmp]
+            assert tmp in node.temps
         else:
-            n = InterferenceGraphNode(self, tmp)
-            self.add_node(n)
-            self.temp_map[tmp] = n
-        return n
+            node = InterferenceGraphNode(self, tmp)
+            self.add_node(node)
+            self.temp_map[tmp] = node
+        return node
 
     def interfere(self, tmp1, tmp2):
         """ Checks if tmp1 and tmp2 interfere """
-        assert type(tmp1) is VirtualRegister
-        assert type(tmp2) is VirtualRegister
+        assert isinstance(tmp1, Register)
+        assert isinstance(tmp2, Register)
         node1 = self.get_node(tmp1)
         node2 = self.get_node(tmp2)
         return self.has_edge(node1, node2)

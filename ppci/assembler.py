@@ -3,7 +3,7 @@ from . import pyyacc
 from .baselex import BaseLexer
 from .common import make_num
 from .target import Target, Label
-from .target.basetarget import Alignment, InstructionProperty
+from .target import Alignment, InstructionProperty
 
 
 def bit_type(value):

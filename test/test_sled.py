@@ -3,7 +3,7 @@ import sys
 from ppci.gen_sled import Spec, Generator, pattern, Constructor
 from ppci.gen_sled import Token
 
-from ppci.target.basetarget import Instruction
+from ppci.target import Instruction
 
 
 AL = 0xE

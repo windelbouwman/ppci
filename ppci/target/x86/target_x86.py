@@ -2,7 +2,7 @@
     X86-64 target description.
 """
 
-from ..basetarget import Target
+from .. import Target
 from ...assembler import BaseAssembler
 from .registers import rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, regs64

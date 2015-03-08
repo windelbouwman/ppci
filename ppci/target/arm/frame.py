@@ -1,8 +1,9 @@
-from ..basetarget import Label, Alignment
-from ...irmach import AbstractInstruction, Frame, VirtualRegister
-from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl, RegisterSet
+from .. import Label, Alignment
+from ...irmach import Frame
+from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl
+from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
-from .registers import R9, R10, R11, LR, PC, SP
+from .registers import R9, R10, R11, LR, PC, SP, ArmRegister
 
 
 class ArmFrame(Frame):
@@ -21,26 +22,21 @@ class ArmFrame(Frame):
         super().__init__(name)
         # Allocatable registers:
         self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
-        self.rv = VirtualRegister('special_RV')
-        self.p1 = VirtualRegister('special_P1')
-        self.p2 = VirtualRegister('special_P2')
-        self.p3 = VirtualRegister('special_P3')
-        self.p4 = VirtualRegister('special_P4')
-        self.fp = VirtualRegister('special_FP')
+        self.rv = R0
+        self.p1 = R1
+        self.p2 = R2
+        self.p3 = R3
+        self.p4 = R4
+        self.fp = R11
 
-        # Output of the register allocator goes in here:
-        self.tempMap = {}
-        # Pre-colored registers:
-        self.tempMap[self.rv] = R0
-        self.tempMap[self.p1] = R1
-        self.tempMap[self.p2] = R2
-        self.tempMap[self.p3] = R3
-        self.tempMap[self.p4] = R4
-        self.tempMap[self.fp] = R11
         self.locVars = {}
         # Literal pool:
         self.constants = []
         self.literal_number = 0
+
+    def new_virtual_register(self, twain=""):
+        """ Retrieve a new virtual register """
+        return super().new_virtual_register(ArmRegister, twain=twain)
 
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence. This function saves registers
@@ -57,12 +53,13 @@ class ArmFrame(Frame):
         reg_uses = []
         for i, arg in enumerate(args):
             arg_loc = self.arg_loc(i)
-            if type(arg_loc) is VirtualRegister:
+            if isinstance(arg_loc, ArmRegister):
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
             else:
                 raise NotImplementedError('Parameters in memory not impl')
-        self.emit(Bl(label), src=reg_uses, dst=[self.rv])
+        a = self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
+        print(a, a.src, a.dst)
         self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
         self.move(res_var, self.rv)
 
@@ -70,7 +67,7 @@ class ArmFrame(Frame):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        self.emit(Mov2, src=[src], dst=[dst], ismove=True)
+        self.emit(Mov2(dst, src, ismove=True))
 
     def arg_loc(self, pos):
         """
@@ -110,7 +107,8 @@ class ArmFrame(Frame):
             # Label indication function:
             Label(self.name),
             Push(RegisterSet({LR, R11})),
-            Push(RegisterSet({R5, R6, R7, R8, R9, R10})),  # Callee save registers!
+            # Callee save registers:
+            Push(RegisterSet({R5, R6, R7, R8, R9, R10})),
             Sub(SP, SP, self.stacksize),  # Reserve stack space
             Mov(R11, SP)                          # Setup frame pointer
             ]
@@ -146,7 +144,7 @@ class ArmFrame(Frame):
         """
         self.emit(Add(SP, SP, self.stacksize))
         self.emit(Pop(RegisterSet({R5, R6, R7, R8, R9, R10})))
-        self.emit(Pop(RegisterSet({PC, R11})))
+        self.emit(Pop(RegisterSet({PC, R11}), src=[self.rv]))
         self.insert_litpool()  # Add final literal pool
         self.emit(Alignment(4))   # Align at 4 bytes
 
@@ -156,7 +154,7 @@ class ArmFrame(Frame):
             return instruction and the stack pointer adjustment for the frame.
         """
         for index, ins in enumerate(self.prologue()):
-            self.instructions.insert(index, AbstractInstruction(ins))
+            self.instructions.insert(index, ins)
 
         # Postfix code:
         self.epilogue()
