@@ -1,5 +1,7 @@
-
-from .. import Instruction, Isa, InsMeta
+"""
+    Definitions of arm instructions.
+"""
+from .. import Instruction, Isa
 from .. import register_argument, value_argument
 from ...bitfun import encode_imm32
 from .registers import ArmRegister
@@ -353,10 +355,6 @@ Lsl = Lsl1
 
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    imm = register_argument('imm', int)
-
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
         self.token.Rd = self.rd.num
@@ -367,14 +365,17 @@ class OpRegRegImm(ArmInstruction):
         return self.token.encode()
 
 
-class Add2(OpRegRegImm):
-    opcode = 0b0010100
-    syntax = ['add', OpRegRegImm.rd, ',', OpRegRegImm.rn, ',', OpRegRegImm.imm]
+def make_regregimm(mnemonic, opcode):
+    rd = register_argument('rd', ArmRegister, write=True)
+    rn = register_argument('rn', ArmRegister, read=True)
+    imm = register_argument('imm', int)
+    syntax = [mnemonic, rd, ',', rn, ',', imm]
+    members = {
+        'syntax': syntax, 'rd': rd, 'rn': rn, 'imm': imm, 'opcode': opcode}
+    return type(mnemonic + '_ins', (OpRegRegImm,), members)
 
-
-class Sub2(OpRegRegImm):
-    opcode = 0b0010010
-    syntax = ['sub', OpRegRegImm.rd, ',', OpRegRegImm.rn, ',', OpRegRegImm.imm]
+Add2 = make_regregimm('add', 0b0010100)
+Sub2 = make_regregimm('sub', 0b0010010)
 
 
 # Branches:
@@ -404,44 +405,21 @@ class Bl(BranchLinkBase):
     syntax = ['bl', BranchBaseRoot.target]
 
 
-class B(BranchBase):
-    cond = AL
-    syntax = ['b', BranchBaseRoot.target]
+def make_branch(mnemonic, cond):
+    target = register_argument('target', str)
+    syntax = [mnemonic, target]
+    members = {
+        'syntax': syntax, 'target': target, 'cond': cond}
+    return type(mnemonic + '_ins', (BranchBase,), members)
 
-
-class Beq(BranchBase):
-    cond = EQ
-    syntax = ['beq', BranchBaseRoot.target]
-
-
-class Bgt(BranchBase):
-    cond = GT
-    syntax = ['bgt', BranchBaseRoot.target]
-
-
-class Bge(BranchBase):
-    cond = GE
-    syntax = ['bge', BranchBaseRoot.target]
-
-
-class Bls(BranchBase):
-    cond = LS
-    syntax = ['bls', BranchBaseRoot.target]
-
-
-class Ble(BranchBase):
-    cond = LE
-    syntax = ['ble', BranchBaseRoot.target]
-
-
-class Blt(BranchBase):
-    cond = LT
-    syntax = ['blt', BranchBaseRoot.target]
-
-
-class Bne(BranchBase):
-    cond = NE
-    syntax = ['bne', BranchBaseRoot.target]
+B = make_branch('b', AL)
+Beq = make_branch('beq', EQ)
+Bgt = make_branch('bgt', GT)
+Bge = make_branch('bge', GE)
+Bls = make_branch('bls', LS)
+Ble = make_branch('ble', LE)
+Blt = make_branch('blt', LT)
+Bne = make_branch('bne', NE)
 
 
 def reg_list_to_mask(reg_list):
@@ -831,6 +809,7 @@ class ArmInstructionSelector(InstructionSelector):
 
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?
+
 
 class MachineThatHasDivOps:
     @pattern('reg', 'DIVI32(reg, reg)', cost=10)

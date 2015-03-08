@@ -2,7 +2,6 @@ from .. import Instruction, Isa, register_argument
 from ..token import u16, u32
 from ..arm.registers import ArmRegister, SP
 from ..instructionselector import InstructionSelector, pattern
-
 from ..token import Token, bit_range
 
 
@@ -430,9 +429,6 @@ class Rsb_imm_t1(ThumbInstruction):
 
 class regreg_base(ThumbInstruction):
     """ ??? Rdn, Rm """
-    rdn = register_argument('rdn', ArmRegister, write=True, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-
     def encode(self):
         self.token.rd = self.rdn.num
         rm = self.rm.num
@@ -441,34 +437,20 @@ class regreg_base(ThumbInstruction):
         return self.token.encode()
 
 
-class And(regreg_base):
-    syntax = ['and', regreg_base.rdn, ',', regreg_base.rm]
-    opcode = 0b0100000000
+def make_regreg(mnemonic, opcode):
+    rdn = register_argument('rdn', ArmRegister, write=True, read=True)
+    rm = register_argument('rm', ArmRegister, read=True)
+    syntax = [mnemonic, rdn, ',', rm]
+    members = {'syntax': syntax, 'rdn': rdn, 'rm': rm, 'opcode': opcode}
+    return type(mnemonic + '_ins', (regreg_base,), members)
 
 
-class Orr(regreg_base):
-    syntax = ['orr', regreg_base.rdn, ',', regreg_base.rm]
-    opcode = 0b0100001100
-
-
-class Eor(regreg_base):
-    syntax = ['eor', regreg_base.rdn, ',', regreg_base.rm]
-    opcode = 0b0100000001
-
-
-class Cmp(regreg_base):
-    syntax = ['cmp', regreg_base.rdn, ',', regreg_base.rm]
-    opcode = 0b0100001010
-
-
-class Lsl(regreg_base):
-    syntax = ['lsl', regreg_base.rdn, ',', regreg_base.rm]
-    opcode = 0b0100000010
-
-
-class Lsr(regreg_base):
-    syntax = ['lsr', regreg_base.rdn, ',', regreg_base.rm]
-    opcode = 0b0100000011
+And = make_regreg('and', 0b0100000000)
+Orr = make_regreg('orr', 0b0100001100)
+Eor = make_regreg('eor', 0b0100000001)
+Cmp = make_regreg('cmp', 0b0100001010)
+Lsl = make_regreg('lsl', 0b0100000010)
+Lsr = make_regreg('lsr', 0b0100000011)
 
 
 class Cmp2(ThumbInstruction):
