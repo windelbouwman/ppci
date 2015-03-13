@@ -110,6 +110,9 @@ def asm(args=None):
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
     parser.add_argument('--target', help='target machine', required=True)
+    parser.add_argument('--output', '-o', help='output file',
+                        type=argparse.FileType('w'),
+                        default=sys.stdout)
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
@@ -164,4 +167,3 @@ class LogSetup:
         # exit code when error:
         if err:
             sys.exit(1)
-            return True

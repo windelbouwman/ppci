@@ -28,11 +28,12 @@ class Parser:
         self.tokens = tokens
         self.token = self.tokens.__next__()
         try:
-            self.parse_module(context)
+            module = self.parse_module(context)
             self.logger.debug('Parsing complete')
         except CompilerError as ex:
-            self.diag.addDiag(ex)
+            self.diag.add_diag(ex)
             raise
+        return module
 
     def error(self, msg, loc=None):
         """ Raise an error at the current location """
@@ -85,6 +86,7 @@ class Parser:
         while self.peak != 'EOF':
             self.parse_top_level()
         self.consume('EOF')
+        return self.mod
 
     def parse_top_level(self):
         """ Parse toplevel declaration """

@@ -71,30 +71,38 @@ class DiagnosticsManager:
         self.sources = {}
         self.logger = logging.getLogger('diagnostics')
 
-    def addSource(self, name, src):
+    def add_source(self, name, src):
+        """ Add a source for error reporting """
         self.logger.debug('Adding source, filename="{}"'.format(name))
         self.sources[name] = src
 
-    def addDiag(self, d):
+    def add_diag(self, d):
+        """ Add a diagnostic message """
         self.logger.error(str(d.msg))
         self.diags.append(d)
 
     def error(self, msg, loc):
-        self.addDiag(CompilerError(msg, loc))
+        self.add_diag(CompilerError(msg, loc))
 
     def clear(self):
         del self.diags[:]
         self.sources.clear()
 
-    def printErrors(self):
+    def print_errors(self):
+        """ Print all errors reported """
         if len(self.diags) > 0:
             print('{0} Errors'.format(len(self.diags)))
             for d in self.diags:
-                self.printError(d)
+                self.print_error(d)
 
-    def printError(self, e):
-        def printLine(row, txt):
-            print(str(row) + ':' + txt)
+    def print_line(self, row, lines):
+        """ Print a single source line """
+        if row in range(len(lines)):
+            txt = lines[row - 1]
+            print('{:5}:{}'.format(row, txt))
+
+    def print_error(self, e):
+        """ Print a single error in a nice formatted way """
         print('==============')
         if not e.loc:
             print('Error: {0}'.format(e))
@@ -115,11 +123,13 @@ class DiagnosticsManager:
 
             # print preceding source lines:
             for r in range(prerow, ro):
-                printLine(r, lines[r-1])
+                self.print_line(r, lines)
+
             # print source line containing error:
-            printLine(ro, lines[ro-1])
-            print(' '*(len(str(ro)+':')+co-1) + '^ Error: {0}'.format(e.msg))
+            self.print_line(ro, lines)
+            print(' '*(6+co-1) + '^ Error: {0}'.format(e.msg))
+
             # print trailing source line:
             for r in range(ro+1, afterrow+1):
-                printLine(r, lines[r-1])
+                self.print_line(r, lines)
         print('==============')

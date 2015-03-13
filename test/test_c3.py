@@ -1,7 +1,8 @@
 import unittest
 import logging
 import io
-from ppci.c3 import Builder, Lexer
+from ppci.c3 import Builder, Lexer, Parser, AstPrinter
+from ppci.c3.scope import Context
 from ppci.target.example import SimpleTarget
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
@@ -43,6 +44,33 @@ class LexerTestCase(unittest.TestCase):
         """
         toks = ['var', 'ID', 'ID', '=', 'NUMBER', ';', 'EOF']
         self.check(snippet, toks)
+
+
+class AstPrinterTestCase(unittest.TestCase):
+    def test_print(self):
+        """ See if the ast can be printed using the visitor pattern """
+        snippet = """
+        module tstwhile;
+        function void t()
+        {
+         var int i;
+         i = 0;
+         while (i < 1054)
+         {
+            i = i + 3;
+         }
+        }
+        """
+        diag = DiagnosticsManager()
+        lexer = Lexer(diag)
+        parser = Parser(diag)
+        context = Context(SimpleTarget())
+        tokens = lexer.lex(io.StringIO(snippet))
+        ast = parser.parse_source(tokens, context)
+        printer = AstPrinter()
+        f = io.StringIO()
+        printer.printAst(ast, f)
+        self.assertTrue(f.getvalue())
 
 
 class BuildTestCaseBase(unittest.TestCase):

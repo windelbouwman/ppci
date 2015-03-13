@@ -139,7 +139,7 @@ def c3toir(sources, includes, target):
             Verifier().verify(ircode)
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
-        diag.printErrors()
+        diag.print_errors()
         raise TaskError('Compile errors')
     return ir_modules
 

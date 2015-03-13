@@ -5,7 +5,7 @@
 import re
 from ..common import SourceLocation, Token, make_num
 from ..baselex import BaseLexer
-from .astnodes import Assignment, Binop
+from .astnodes import Assignment
 
 
 class Lexer(BaseLexer):
@@ -47,7 +47,7 @@ class Lexer(BaseLexer):
         filename = input_file.name if hasattr(input_file, 'name') else ''
         s = input_file.read()
         input_file.close()
-        self.diag.addSource(filename, s)
+        self.diag.add_source(filename, s)
         self.filename = filename
         return self.tokenize(s)
 

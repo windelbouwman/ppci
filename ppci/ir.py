@@ -236,14 +236,6 @@ class FastList:
             self._index_map[i] = self._items.index(i)
         return self._index_map[i]
 
-    def first_to_occur(self, i1, i2):
-        """ Find the first occurence of either i1 or i2 """
-        for i in self._items:
-            if i is i1:
-                return i1
-            if i is i2:
-                return i2
-
 
 class Block:
     """

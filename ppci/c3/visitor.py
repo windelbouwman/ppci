@@ -22,10 +22,10 @@ class Visitor:
 
         # Descent into subnodes:
         if type(node) is ast.Module:
-            for decl in node.declarations:
+            for decl in node.innerScope:
                 self.do(decl)
         elif type(node) is ast.Function:
-            for s in node.declarations:
+            for s in node.innerScope:
                 self.do(s)
             self.do(node.typ)
             if node.body:
