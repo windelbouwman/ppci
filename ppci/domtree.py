@@ -30,7 +30,8 @@ class CfgInfo:
         self.calculate_df()
 
     def __repr__(self):
-        return 'CfgInfo(pred={}\n, succ={}\n, dom={}\n)'.format(self.pred, self.succ, self.dom)
+        return 'CfgInfo(pred={}\n, succ={}\n, dom={}\n)'.format(
+            self.pred, self.succ, self.dom)
 
     def prepare(self, block):
         self.pred[block] = block.predecessors
@@ -56,7 +57,8 @@ class CfgInfo:
                 pred_doms = list(self.dom[p] for p in self.pred[n])
                 if not pred_doms:
                     # We cannot be here!
-                    # Always add entry as a predecessor of epilog to prevent this situation.
+                    # Always add entry as a predecessor of epilog to prevent
+                    # this situation.
                     print(self.pred[n], n)
                     print(pred_doms)
                     raise Exception()
@@ -75,7 +77,8 @@ class CfgInfo:
 
     def calculate_idom(self):
         """
-            Calculate immediate dominator by choosing n from sdom(x) such that dom(n) == sdom(x)
+            Calculate immediate dominator by choosing n from sdom(x) such
+            that dom(n) == sdom(x)
         """
         for n in list(self.N - {self.n0}):
             for x in self.sdom[n]:
@@ -126,5 +129,3 @@ class CfgInfo:
                 for y in self.df[z]:
                     if self.idom[y] != x:
                         self.df[x].add(y)  # upwards rule
-
-

@@ -1,11 +1,11 @@
 from .transform import FunctionPass
-from .ir import Alloc, Load, Store, Phi, i32, Undefined
+from .ir import Alloc, Load, Store, Phi, Undefined
 from .domtree import CfgInfo
 
 
 def is_alloc_promotable(alloc_inst):
     """ Check if alloc value is only used by load and store operations. """
-    # TODO: check that all load and stores are 32 bits and the alloc is 
+    # TODO: check that all load and stores are 32 bits and the alloc is
     # 4 bytes.
     assert type(alloc_inst) is Alloc
     if alloc_inst.amount != 4:
@@ -57,7 +57,8 @@ class Mem2RegPromotor(FunctionPass):
         phi_ty = all_types[0]
 
         # Step 1: place phi-functions where required:
-        # Each node in the df(x) requires a phi function, where x is a block where the variable is defined.
+        # Each node in the df(x) requires a phi function,
+        # where x is a block where the variable is defined.
         defining_blocks = set(st.block for st in stores)
 
         # Create worklist:
@@ -73,7 +74,6 @@ class Mem2RegPromotor(FunctionPass):
                     phi_name = "phi_{}".format(name)
                     phi = Phi(phi_name, phi_ty)
                     phis.append(phi)
-                    # self.logger.debug('Adding phi-node {} to {}'.format(phi, y))
                     y.insert_instruction(phi)
 
         # Create undefined value at start:
@@ -81,8 +81,10 @@ class Mem2RegPromotor(FunctionPass):
         cfg_info.f.entry.insert_instruction(initial_value)
         # Step 2: renaming:
 
-        # Start a top down sweep over the dominator tree to visit all statements
+        # Start a top down sweep over the dominator tree to visit all
+        # statements
         stack = [initial_value]
+
         def search(b):
             # Crawl down block:
             defs = 0
@@ -97,7 +99,8 @@ class Mem2RegPromotor(FunctionPass):
                     # Replace all uses of a with cur_V
                     a.replace_by(stack[-1])
             # At the end of the block
-            # For all successors with phi functions, insert the proper variable:
+            # For all successors with phi functions, insert the proper
+            # variable:
             for y in cfg_info.succ[b]:
                 for phi in (p for p in phis if p.block == y):
                     phi.set_incoming(b, stack[-1])

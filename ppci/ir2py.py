@@ -110,9 +110,12 @@ class IrToPython:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Load):
             if ins.ty.byte_size == 1:
-                self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
+                self.print(
+                    3, '{} = mem[{}]'.format(ins.name, ins.address.name))
             elif ins.ty.byte_size == 4:
-                self.print(3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'.format(ins.name, ins.address.name))
+                self.print(
+                    3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'
+                    .format(ins.name, ins.address.name))
             else:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Call):

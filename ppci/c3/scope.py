@@ -224,7 +224,8 @@ class Context:
             if self.equal_types('int', expr.to_type):
                 return int(a)
             else:
-                raise NotImplementedError('Casting to {} not implemented'.format(expr.to_type))
+                raise NotImplementedError(
+                    'Casting to {} not implemented'.format(expr.to_type))
         elif isinstance(expr, ast.Identifier):
             target = self.resolve_symbol(expr)
             if isinstance(target, ast.Constant):
