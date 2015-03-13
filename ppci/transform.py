@@ -253,7 +253,6 @@ class LoadAfterStorePass(BlockPass):
             # Find store instruction preceeding this load:
             store = self.find_store_backwards(load)
             if store is not None:
-                # print(load, store)
                 # Assert type equivalence:
                 assert load.ty is store.value.ty
                 load.replace_by(store.value)

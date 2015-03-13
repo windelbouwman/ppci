@@ -59,7 +59,6 @@ class RegisterAllocator:
                           .format(len(self.f.ig.nodes)))
 
         self.Node = self.f.ig.get_node
-        print(self.f.ig.nodes)
 
         # Divide nodes into pre-colored and initial:
         self.precolored = set(node for node in self.f.ig.nodes if

@@ -59,7 +59,6 @@ class ArmFrame(Frame):
             else:
                 raise NotImplementedError('Parameters in memory not impl')
         a = self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
-        print(a, a.src, a.dst)
         self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
         self.move(res_var, self.rv)
 

@@ -95,7 +95,7 @@ class SledTestCase(unittest.TestCase):
 
         # Create new instance:
         add1 = add(r1, r2, r0)
-        print('new ins:', add1)
+        # print('new ins:', add1)
         #self.assertEqual(bytes([0xe, 0x82, 0x10, 0x0]), add1.encode())
 
         # Generate things?
