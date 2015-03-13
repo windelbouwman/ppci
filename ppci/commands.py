@@ -2,6 +2,7 @@
     Contains the command line interface functions.
 """
 import sys
+import platform
 import argparse
 import logging
 
@@ -12,6 +13,10 @@ from .buildfunctions import assemble
 from .tasks import TaskError
 from . import version
 from .common import logformat
+
+
+description = 'ppci {} compiler on {} {}'.format(
+    version, platform.python_implementation(), platform.python_version())
 
 
 def log_level(s):
@@ -39,7 +44,7 @@ class ColoredFormatter(logging.Formatter):
     """ Custom formatter that makes vt100 coloring to log messages """
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     colors = {
-        'INFO': GREEN,
+        'INFO': WHITE,
         'WARNING': YELLOW,
         'ERROR': RED
     }
@@ -57,8 +62,7 @@ class ColoredFormatter(logging.Formatter):
 
 def build():
     """ Run the build command from command line. Used by ppci-build.py """
-    parser = argparse.ArgumentParser(
-        description='ppci {} compiler'.format(version))
+    parser = argparse.ArgumentParser(description=description)
 
     add_common_parser_options(parser)
     parser.add_argument(
@@ -69,15 +73,14 @@ def build():
     args = parser.parse_args()
     logger = logging.getLogger()
     with LogSetup(args):
-        logger.info(parser.description)
+        logger.info(description)
         logger.debug('Arguments: {}'.format(args))
         construct(args.buildfile, args.targets)
 
 
 def c3c():
     """ Run c3 compile task """
-    parser = argparse.ArgumentParser(
-        description='ppci {} compiler'.format(version))
+    parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
 
     parser.add_argument('--target', help='target machine', required=True)
@@ -90,7 +93,7 @@ def c3c():
                         help='source file', nargs='+')
     args = parser.parse_args()
     with LogSetup(args):
-        logging.getLogger().info(parser.description)
+        logging.getLogger().info(description)
 
         # Compile sources:
         obj = c3compile(args.sources, args.include, args.target)
@@ -102,14 +105,14 @@ def c3c():
 
 def asm():
     """ Run asm from command line """
-    parser = argparse.ArgumentParser(description="Assembler")
+    parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
     parser.add_argument('--target', help='target machine', required=True)
     args = parser.parse_args()
     with LogSetup(args):
-        logging.getLogger().info(parser.description)
+        logging.getLogger().info(description)
 
         # Assemble source:
         obj = assemble(args.sourcefile, args.target)
