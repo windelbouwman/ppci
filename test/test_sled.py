@@ -3,7 +3,7 @@ import sys
 from ppci.gen_sled import Spec, Generator, pattern, Constructor
 from ppci.gen_sled import Token
 
-from ppci.target import Instruction
+from ppci.target import Instruction, register_argument
 
 
 AL = 0xE
@@ -15,7 +15,6 @@ class ArmToken(Token):
 
 
 class ArmInstruction(Instruction):
-    args = []
     tokens = [ArmToken]
 
 
@@ -25,17 +24,22 @@ class Register:
 
 
 class Arith(ArmInstruction):
-    args = [('rd', Register), ('rn', Register), ('rm', Register)]
     cond = AL
 
 
 class Add(Arith):
-    syntax = ['add', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', Register, write=True)
+    rn = register_argument('rn', Register, read=True)
+    rm = register_argument('rm', Register, read=True)
+    syntax = ['add', rd, ',', rn, ',', rm]
     opcode = 2
 
 
 class Sub(Arith):
-    syntax = ['sub', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', Register, write=True)
+    rn = register_argument('rn', Register, read=True)
+    rm = register_argument('rm', Register, read=True)
+    syntax = ['sub', rd, ',', rn, ',', rm]
     opcode = 4
 
 

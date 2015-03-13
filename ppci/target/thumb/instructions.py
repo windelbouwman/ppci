@@ -44,16 +44,16 @@ def Dcd(v):
 
 
 class Dcd1(ThumbInstruction):
-    args = [('v', int)]
-    syntax = ['dcd', 0]
+    v = register_argument('v', int)
+    syntax = ['dcd', v]
 
     def encode(self):
         return u32(self.v)
 
 
 class Dcd2(ThumbInstruction):
-    args = [('v', str)]
-    syntax = ['dcd', '=', 0]
+    v = register_argument('v', str)
+    syntax = ['dcd', '=', v]
 
     def encode(self):
         return u32(0)
@@ -70,8 +70,8 @@ class ConstantData():
 
 
 class Db(ThumbInstruction):
-    args = [('v', int)]
-    syntax = ['db', 0]
+    v = register_argument('v', int)
+    syntax = ['db', v]
 
     def encode(self):
         assert self.v < 256
@@ -80,8 +80,8 @@ class Db(ThumbInstruction):
 
 class Ds(ThumbInstruction):
     tokens = []
-    args = [('v', int)]
-    syntax = ['ds', 0]
+    v = register_argument('v', int)
+    syntax = ['ds', v]
 
     def encode(self):
         return bytes([0] * self.v)
@@ -416,17 +416,6 @@ class Sdiv(LongThumbInstruction):
         return self.token.encode() + self.token2.encode()
 
 
-class Rsb_imm_t1(ThumbInstruction):
-    """ rsbs rd, rn, #0 """
-    args = [('rd', ArmRegister), ('rn', ArmRegister)]
-    # TODO: what is the syntax for constant 0?
-    syntax = ['rsb', 0, ',', 1, ',']
-
-    def encode(self):
-        raise NotImplementedError()
-        return self.token.encode()
-
-
 class regreg_base(ThumbInstruction):
     """ ??? Rdn, Rm """
     def encode(self):
@@ -469,12 +458,10 @@ class Cmp2(ThumbInstruction):
 
 # Jumping:
 
-class jumpBase_ins(ThumbInstruction):
-    args = [('target', str)]
 
-
-class B(jumpBase_ins):
-    syntax = ['b', 0]
+class B(ThumbInstruction):
+    target = register_argument('target', str)
+    syntax = ['b', target]
 
     def encode(self):
         h = (0b11100 << 11) | 0
@@ -489,8 +476,8 @@ class Bw(LongThumbInstruction):
     """ Encoding T4
         Same encoding as Bl, longer jumps are possible with this function!
     """
-    syntax = ['bw', 0]
-    args = [('target', str)]
+    target = register_argument('target', str)
+    syntax = ['bw', target]
 
     def encode(self):
         j1 = 1
@@ -508,8 +495,8 @@ class Bw(LongThumbInstruction):
 
 class Bl(LongThumbInstruction):
     """ Branch with link """
-    syntax = ['bl', 0]
-    args = [('target', str)]
+    target = register_argument('target', str)
+    syntax = ['bl', target]
 
     def encode(self):
         j1 = 1  # TODO: what do these mean?
@@ -526,7 +513,7 @@ class Bl(LongThumbInstruction):
         return [(self.target, 'bl_imm11_imm10')]
 
 
-class cond_base_ins(jumpBase_ins):
+class cond_base_ins(ThumbInstruction):
     def encode(self):
         imm8 = 0
         h = (0b1101 << 12) | (self.cond << 8) | imm8
@@ -536,38 +523,24 @@ class cond_base_ins(jumpBase_ins):
         return [(self.target, 'rel8')]
 
 
-class Beq(cond_base_ins):
-    syntax = ['beq', 0]
-    cond = 0
+def make_cond_branch(mnemonic, cond):
+    target = register_argument('target', str)
+    syntax = [mnemonic, target]
+    members = {
+        'syntax': syntax, 'target': target, 'cond': cond}
+    return type(mnemonic + '_ins', (cond_base_ins,), members)
 
 
-class Bne(cond_base_ins):
-    syntax = ['bne', 0]
-    cond = 1
-
-
-class Blt(cond_base_ins):
-    syntax = ['blt', 0]
-    cond = 0b1011
-
-
-class Ble(cond_base_ins):
-    syntax = ['ble', 0]
-    cond = 0b1101
-
-
-class Bgt(cond_base_ins):
-    syntax = ['bgt', 0]
-    cond = 0b1100
-
-
-class Bge(cond_base_ins):
-    syntax = ['bge', 0]
-    cond = 0b1010
+Beq = make_cond_branch('beq', 0)
+Bne = make_cond_branch('bne', 1)
+Blt = make_cond_branch('blt', 0b1011)
+Ble = make_cond_branch('ble', 0b1101)
+Bgt = make_cond_branch('bgt', 0b1100)
+Bge = make_cond_branch('bge', 0b1010)
 
 
 # Long conditional jumps:
-class cond_base_ins_long(jumpBase_ins):
+class cond_base_ins_long(LongThumbInstruction):
     """ Encoding T3 """
     def encode(self):
         j1 = 0  # TODO: what do these mean?
@@ -580,39 +553,25 @@ class cond_base_ins_long(jumpBase_ins):
         return [(self.target, 'b_imm11_imm6')]
 
 
-class Beqw(cond_base_ins_long):
-    syntax = ['beqw', 0]
-    cond = 0
+def make_long_cond_branch(mnemonic, cond):
+    target = register_argument('target', str)
+    syntax = [mnemonic, target]
+    members = {
+        'syntax': syntax, 'target': target, 'cond': cond}
+    return type(mnemonic + '_ins', (cond_base_ins_long,), members)
 
 
-class Bnew(cond_base_ins_long):
-    syntax = ['bnew', 0]
-    cond = 1
-
-
-class Bltw(cond_base_ins_long):
-    syntax = ['bltw', 0]
-    cond = 0b1011
-
-
-class Blew(cond_base_ins_long):
-    syntax = ['blew', 0]
-    cond = 0b1101
-
-
-class Bgtw(cond_base_ins_long):
-    syntax = ['bgtw', 0]
-    cond = 0b1100
-
-
-class Bgew(cond_base_ins_long):
-    syntax = ['bgew', 0]
-    cond = 0b1010
+Beqw = make_long_cond_branch('beqw', 0)
+Bnew = make_long_cond_branch('bnew', 1)
+Bltw = make_long_cond_branch('bltw', 0b1011)
+Blew = make_long_cond_branch('blew', 0b1101)
+Bgtw = make_long_cond_branch('bgtw', 0b1100)
+Bgew = make_long_cond_branch('bgew', 0b1010)
 
 
 class Push(ThumbInstruction):
-    args = [('regs', set)]
-    syntax = ['push', 0]
+    regs = register_argument('regs', set)
+    syntax = ['push', regs]
 
     def __repr__(self):
         return 'Push {{{}}}'.format(self.regs)
@@ -635,8 +594,8 @@ def register_numbers(regs):
 
 
 class Pop(ThumbInstruction):
-    args = [('regs', set)]
-    syntax = ['pop', 0]
+    regs = register_argument('regs', set)
+    syntax = ['pop', regs]
 
     def __repr__(self):
         return 'Pop {{{}}}'.format(self.regs)
@@ -662,7 +621,7 @@ class Yield(ThumbInstruction):
 
 class addspsp_base(ThumbInstruction):
     """ add/sub SP with imm7 << 2 """
-    args = [('imm7', int)]
+    imm7 = register_argument('imm7', int)
 
     def encode(self):
         assert self.imm7 < 512
@@ -671,12 +630,12 @@ class addspsp_base(ThumbInstruction):
 
 
 class AddSp(addspsp_base):
-    syntax = ['add', 'sp', ',', 'sp', ',', 0]
+    syntax = ['add', 'sp', ',', 'sp', ',', addspsp_base.imm7]
     opcode = 0b101100000
 
 
 class SubSp(addspsp_base):
-    syntax = ['sub', 'sp', ',', 'sp', ',', 0]
+    syntax = ['sub', 'sp', ',', 'sp', ',', addspsp_base.imm7]
     opcode = 0b101100001
 
 

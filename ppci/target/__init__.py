@@ -147,9 +147,7 @@ class Instruction(metaclass=InsMeta):
             arguments and tries to fit them on the args or syntax fields
         """
         # Generate constructor from args:
-        if hasattr(self, 'args'):
-            formal_args = getattr(self, 'args')
-        elif hasattr(self, 'syntax'):
+        if hasattr(self, 'syntax'):
             formal_args = []
             for st in self.syntax:
                 if type(st) is InstructionProperty:
@@ -186,9 +184,6 @@ class Instruction(metaclass=InsMeta):
             to an element in the args list """
         if type(st) is str:
             return st
-        elif type(st) is int:
-            arg = self.args[st][0]
-            return str(getattr(self, arg))
         elif type(st) is InstructionProperty:
             return str(st.__get__(self))
         else:
@@ -197,9 +192,7 @@ class Instruction(metaclass=InsMeta):
     @classmethod
     def get_argclass(self, arg):
         """ Given an argument, determine its class """
-        if type(arg) is int:
-            return self.args[arg][1]
-        elif type(arg) is InstructionProperty:
+        if type(arg) is InstructionProperty:
             return arg._cls
         else:
             raise NotImplementedError(str(arg))

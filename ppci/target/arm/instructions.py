@@ -65,8 +65,8 @@ def Dcd(v):
 
 
 class Dcd1(ArmInstruction):
-    args = [('v', int)]
-    syntax = ['dcd', 0]
+    v = register_argument('v', int)
+    syntax = ['dcd', v]
 
     def encode(self):
         self.token[0:32] = self.v
@@ -74,8 +74,8 @@ class Dcd1(ArmInstruction):
 
 
 class Dcd2(ArmInstruction):
-    args = [('v', str)]
-    syntax = ['dcd', '=', 0]
+    v = register_argument('v', str)
+    syntax = ['dcd', '=', v]
 
     def encode(self):
         self.token[0:32] = 0
@@ -87,8 +87,8 @@ class Dcd2(ArmInstruction):
 
 class Db(ArmInstruction):
     tokens = [ByteToken]
-    args = [('v', int)]
-    syntax = ['db', 0]
+    v = register_argument('v', int)
+    syntax = ['db', v]
 
     def encode(self):
         assert self.v < 256
@@ -99,8 +99,8 @@ class Db(ArmInstruction):
 class Ds(ArmInstruction):
     """ Reserve x amount of zero bytes (same as resb in nasm) """
     tokens = []
-    args = [('v', int)]
-    syntax = ['ds', 0]
+    v = register_argument('v', int)
+    syntax = ['ds', v]
 
     def encode(self):
         return bytes([0] * self.v)
@@ -430,8 +430,8 @@ def reg_list_to_mask(reg_list):
 
 
 class Push(ArmInstruction):
-    args = [('reg_list', RegisterSet)]
-    syntax = ['push', 0]
+    reg_list = register_argument('reg_list', RegisterSet)
+    syntax = ['push', reg_list]
 
     def encode(self):
         self.token.cond = AL
@@ -441,8 +441,8 @@ class Push(ArmInstruction):
 
 
 class Pop(ArmInstruction):
-    args = [('reg_list', RegisterSet)]
-    syntax = ['pop', 0]
+    reg_list = register_argument('reg_list', RegisterSet)
+    syntax = ['pop', reg_list]
 
     def encode(self):
         self.token.cond = AL
@@ -581,9 +581,6 @@ class Ldr3(ArmInstruction):
 
 class McrBase(ArmInstruction):
     """ Mov arm register to coprocessor register """
-    args = [('coproc', int), ('opc1', int), ('rt', ArmRegister), ('crn', int),
-            ('crm', int), ('opc2', int)]
-
     def encode(self):
         self.token[0:4] = self.crm
         self.token[4] = 1
@@ -599,13 +596,25 @@ class McrBase(ArmInstruction):
 
 
 class Mcr(McrBase):
+    coproc = register_argument('coproc', int)
+    opc1 = register_argument('opc1', int)
+    rt = register_argument('rt', ArmRegister, read=True)
+    crn = register_argument('crn', int)
+    crm = register_argument('crm', int)
+    opc2 = register_argument('opc2', int)
     b20 = 0
-    syntax = ['mcr', 0, ',', 1, ',', 2, ',', 3, ',', 4, ',', 5]
+    syntax = ['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]
 
 
 class Mrc(McrBase):
+    coproc = register_argument('coproc', int)
+    opc1 = register_argument('opc1', int)
+    rt = register_argument('rt', ArmRegister, write=True)
+    crn = register_argument('crn', int)
+    crm = register_argument('crm', int)
+    opc2 = register_argument('opc2', int)
     b20 = 1
-    syntax = ['mrc', 0, ',', 1, ',', 2, ',', 3, ',', 4, ',', 5]
+    syntax = ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]
 
 
 class ArmInstructionSelector(InstructionSelector):
