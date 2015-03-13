@@ -1,5 +1,4 @@
-from .. import Label, Alignment
-from ...irmach import Frame
+from .. import Label, Alignment, Frame
 from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl
 from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
@@ -58,7 +57,7 @@ class ArmFrame(Frame):
                 self.move(arg_loc, arg)
             else:
                 raise NotImplementedError('Parameters in memory not impl')
-        a = self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
+        self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
         self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
         self.move(res_var, self.rv)
 

@@ -60,7 +60,7 @@ class ColoredFormatter(logging.Formatter):
         return msg
 
 
-def build():
+def build(args=None):
     """ Run the build command from command line. Used by ppci-build.py """
     parser = argparse.ArgumentParser(description=description)
 
@@ -70,7 +70,7 @@ def build():
         help='use buildfile, otherwise build.xml is the default',
         default='build.xml')
     parser.add_argument('targets', metavar='target', nargs='*')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     logger = logging.getLogger()
     with LogSetup(args):
         logger.info(description)
@@ -78,7 +78,7 @@ def build():
         construct(args.buildfile, args.targets)
 
 
-def c3c():
+def c3c(args=None):
     """ Run c3 compile task """
     parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
@@ -91,7 +91,7 @@ def c3c():
                         help='include file', default=[])
     parser.add_argument('sources', metavar='source',
                         help='source file', nargs='+')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 
@@ -103,14 +103,14 @@ def c3c():
         args.output.close()
 
 
-def asm():
+def asm(args=None):
     """ Run asm from command line """
     parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
     parser.add_argument('--target', help='target machine', required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 

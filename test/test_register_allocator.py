@@ -1,7 +1,6 @@
 import unittest
-from ppci.irmach import Frame
 from ppci.codegen.registerallocator import RegisterAllocator
-from ppci.target import Register
+from ppci.target import Register, Frame
 from ppci.target.example import Def, Use, Add, Mov
 
 

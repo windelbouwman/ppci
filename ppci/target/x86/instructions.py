@@ -261,103 +261,6 @@ class Inc(X86Instruction):
         return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
 
-def prepost8(r8, rm8):
-   assert(r8 in regs8)
-   pre = []
-   if type(rm8) is list:
-      # TODO: merge mem access with prepost for 64 bits
-      if len(rm8) == 1:
-         base, = rm8
-         if type(base) is str and base in regs64:
-            assert(not base in ['rbp', 'rsp', 'r12', 'r13'])
-            mod_rm = modrm(mod=0, rm=regs64[base], reg=regs8[r8])
-            if rexbit[base] == 1:
-               pre.append(rex(b=1))
-            post = [mod_rm]
-         else:
-            Error('One arg of type {0} not implemented'.format(base))
-      elif len(rm8) == 2:
-         base, offset = rm8
-         assert(type(offset) is int)
-         assert(base in regs64)
-
-         if base == 'rsp' or base == 'r12':
-            Error('Cannot use rsp or r12 as base yet')
-         if rexbit[base] == 1:
-            pre.append( rex(b=1) )
-         mod_rm = modrm(mod=1, rm=regs64[base], reg=regs8[r8])
-         post = [mod_rm] + imm8(offset)
-      else:
-         Error('not supporting prepost8 with list len {0}'.format(len(rm8)))
-   else:
-      Error('Not supporting move with reg8 {0}'.format(r8))
-   return pre, post
-
-
-def prepost(r64, rm64):
-   assert(r64 in regs64)
-   if type(rm64) is list:
-      if len(rm64) == 3:
-            base, index, disp = rm64
-            assert(base in regs64)
-            assert(index in regs64)
-            assert(type(disp) is int)
-            # Assert that no special cases are used:
-            # TODO: swap base and index to avoid special cases
-            # TODO: exploit special cases and make better code
-            assert(index != 'rsp')
-
-            rexprefix = rex(w=1, r=rexbit[r64], x=rexbit[index], b=rexbit[base])
-            # mod=1 and rm=4 indicates a SIB byte: [--][--]+imm8
-            mod_rm = modrm(mod=1, rm=4, reg=regs64[r64])
-            si_b = sib(ss=0, index=regs64[index], base=regs64[base])
-            return [rexprefix], [mod_rm, si_b] + imm8(disp)
-      elif len(rm64) == 2:
-         base, offset = rm64
-         assert(type(offset) is int)
-         if base == 'RIP':
-            # RIP pointer relative addressing mode!
-            rexprefix = rex(w=1, r=rexbit[r64])
-            mod_rm = modrm(mod=0, rm=5, reg=regs64[r64])
-            return [rexprefix], [mod_rm] + imm32(offset)
-         else:
-            assert(base in regs64)
-
-            if base == 'rsp' or base == 'r12':
-               # extended function that uses SIB byte
-               rexprefix = rex(w=1, r=rexbit[r64], b=rexbit[base])
-               # rm=4 indicates a SIB byte follows
-               mod_rm = modrm(mod=1, rm=4, reg=regs64[r64])
-               # index=4 indicates that index is not used
-               si_b = sib(ss=0, index=4, base=regs64[base])
-               return [rexprefix], [mod_rm, si_b] + imm8(offset)
-            else:
-               rexprefix = rex(w=1, r=rexbit[r64], b=rexbit[base])
-               mod_rm = modrm(mod=1, rm=regs64[base], reg=regs64[r64])
-               return [rexprefix], [mod_rm] + imm8(offset)
-      elif len(rm64) == 1:
-         offset = rm64[0]
-         if type(offset) is int:
-            rexprefix = rex(w=1, r=rexbit[r64])
-            mod_rm = modrm(mod=0, rm=4,reg=regs64[r64])
-            si_b = sib(ss=0, index=4,base=5) # 0x25
-            return [rexprefix], [mod_rm, si_b] + imm32(offset)
-         else:
-            Error('Memory reference of type {0} not implemented'.format(offset))
-      else:
-         Error('Memory reference not implemented')
-   elif rm64 in regs64:
-      rexprefix = rex(w=1, r=rexbit[r64], b=rexbit[rm64])
-      mod_rm = modrm(3, rm=regs64[rm64], reg=regs64[r64])
-      return [rexprefix], [mod_rm]
-
-
-def leareg64(rega, m):
-   opcode = 0x8d # lea r64, m
-   pre, post = prepost(rega, m)
-   return pre + [opcode] + post
-
-
 class Mov1(X86Instruction):
     """ Mov r64 to r64 """
     reg1 = register_argument('reg1', X86Register, write=True)
@@ -464,13 +367,6 @@ Add2 = make_regimm('add', 0x81, 0)
 Sub2 = make_regimm('sub', 0x81, 5)
 
 
-def idivreg64(reg):
-   rexprefix = rex(w=1, b=rexbit[reg])
-   opcode = 0xf7 # IDIV r/m64
-   mod_rm = modrm(3, rm=regs64[reg], reg=7)
-   return [rexprefix, opcode, mod_rm]
-
-
 class Imul(X86Instruction):
     """ Multiply
         imul reg1, reg2
@@ -479,7 +375,7 @@ class Imul(X86Instruction):
     reg2 = register_argument('reg2', X86Register, read=True)
     syntax = ['imul', reg1, ',', reg2]
     tokens = [RexToken, OpcodeToken, OpcodeToken, ModRmToken]
-    opcode = 0x0f # IMUL r64, r/m64
+    opcode = 0x0f  # IMUL r64, r/m64
     opcode2 = 0xaf
 
     def encode(self):
@@ -491,4 +387,5 @@ class Imul(X86Instruction):
         self.token4.mod = 3
         self.token4.rm = self.reg2.regbits
         self.token4.reg = self.reg1.regbits
-        return self.token.encode() + self.token2.encode() + self.token3.encode() + self.token4.encode()
+        return self.token.encode() + self.token2.encode() + \
+            self.token3.encode() + self.token4.encode()

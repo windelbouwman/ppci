@@ -70,7 +70,7 @@ class BuildTestCaseBase(unittest.TestCase):
 
     def build(self, snippet):
         """ Try to build a snippet """
-        return list(self.builder.build(self.make_file_list(snippet)))
+        return self.builder.build(self.make_file_list(snippet))
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
@@ -609,6 +609,17 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_expression_statement(self):
+        """ Make sure an expression cannot be a statement """
+        snippet = """
+         module teststruct1;
+         function void t()
+         {
+            2;
+         }
+        """
+        self.expect_errors(snippet, [5])
+
 
 class TypeTestCase(BuildTestCaseBase):
     """ Test type related syntax """
@@ -628,6 +639,7 @@ class TypeTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_sizeof1(self):
+        """ Check basic behavior of sizeof """
         snippet = """
          module testsizeof;
 
@@ -911,6 +923,23 @@ class TypeTestCase(BuildTestCaseBase):
          }
         """
         self.expect_ok(snippet)
+
+    def test_complex_type_assignment(self):
+        """ Complex type cannot be assigned """
+        snippet = """
+         module test;
+
+         type struct {
+          int x, y;
+         } point;
+
+         function void t()
+         {
+            var point a, b;
+            a = b;
+         }
+        """
+        self.expect_errors(snippet, [11])
 
 
 if __name__ == '__main__':
