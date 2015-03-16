@@ -202,14 +202,6 @@ class ls_sp_base_imm8(ThumbInstruction):
         return u16(h)
 
 
-def Ldr(*args):
-    if len(args) == 2 and isinstance(args[0], ArmRegister) \
-            and isinstance(args[1], str):
-        return Ldr3(*args)
-    else:
-        raise Exception()
-
-
 class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
     rt = register_argument('rt', ArmRegister, write=True)
@@ -302,30 +294,6 @@ class Sub2(regregimm3_base):
         'sub', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
         regregimm3_base.imm3]
     opcode = 0b0001111
-
-
-def Sub(*args):
-    if len(args) == 3 and args[0] is SP and args[1] is SP and \
-            isinstance(args[2], int) and args[2] < 256:
-        return SubSp(args[2])
-    elif len(args) == 3 and isinstance(args[0], ArmRegister) and \
-            isinstance(args[1], ArmRegister) and isinstance(args[2], int) and \
-            args[2] < 8:
-        return Sub2(args[0], args[1], args[2])
-    else:
-        raise Exception()
-
-
-def Add(*args):
-    if len(args) == 3 and args[0] is SP and args[1] is SP and \
-            isinstance(args[2], int) and args[2] < 256:
-        return AddSp(args[2])
-    elif len(args) == 3 and isinstance(args[0], ArmRegister) and \
-            isinstance(args[1], ArmRegister) and isinstance(args[2], int) and \
-            args[2] < 8:
-        return Add2(args[0], args[1], args[2])
-    else:
-        raise Exception()
 
 
 class regregreg_base(ThumbInstruction):
