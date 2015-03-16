@@ -12,7 +12,7 @@ and generate ARM-code.
 
 The project contains the following:
 
-- Language front-ends: Brainfuck, :doc:`c3`
+- Language front-ends: Brainfuck, c3
 - Various code optimizers
 - Backends for various platforms: ARM, Thumb, Python
 - Assembler
@@ -47,8 +47,8 @@ This runs the snake demo on an emulated lm3s demo board and displays
 the game to the console.
 
 
-Instead of using the :doc:`usage`, you can also
-use the :doc:`api`.
+Instead of using the command line tools, you can also
+use the api.
 
 Links
 -----
