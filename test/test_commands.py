@@ -1,7 +1,7 @@
 import unittest
 import shlex
 import tempfile
-from ppci.commands import c3c, build, asm
+from ppci.commands import c3c, build, asm, hexutil
 from ppci.common import DiagnosticsManager, SourceLocation
 
 
@@ -34,6 +34,11 @@ class CommandsTestCase(unittest.TestCase):
     def test_asm_command_help(self):
         with self.assertRaises(SystemExit) as cm:
             asm(shlex.split('-h'))
+        self.assertEqual(0, cm.exception.code)
+
+    def test_hexutil_help(self):
+        with self.assertRaises(SystemExit) as cm:
+            hexutil(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
 
 

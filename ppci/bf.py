@@ -5,6 +5,7 @@
 
 import logging
 from . import ir
+from .common import CompilerError
 from .irutils import Builder
 
 
@@ -173,7 +174,7 @@ class BrainFuckGenerator():
             else:
                 pass
         if loops:
-            raise Exception('[ requires matching ]')
+            raise CompilerError('[ requires matching ]')
 
         # Jump to end of function:
         self.builder.emit(ir.Jump(ir_func.epilog))

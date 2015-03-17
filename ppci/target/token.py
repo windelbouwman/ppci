@@ -1,4 +1,3 @@
-
 import struct
 
 
@@ -26,11 +25,17 @@ def val2bit(v, bits):
 
 def bit_range(b, e):
     """ Property generator function """
-    getter = lambda s: s[b:e]
+    def getter(s):
+        return s[b:e]
 
     def setter(s, v):
         s[b:e] = v
     return property(getter, setter)
+
+
+def bit(b):
+    """ Return a property that sets a single bit """
+    return bit_range(b, b + 1)
 
 
 class Token:

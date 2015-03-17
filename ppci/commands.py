@@ -10,6 +10,7 @@ from .report import RstFormatter
 from .buildfunctions import construct
 from .buildfunctions import c3compile
 from .buildfunctions import assemble
+from .utils.hexfile import HexFile
 from .tasks import TaskError
 from . import version
 from .common import logformat
@@ -123,6 +124,67 @@ def asm(args=None):
         # Write object file to disk:
         obj.save(args.output)
         args.output.close()
+
+
+def hexutil(args=None):
+    def hex2int(s):
+        if s.startswith('0x'):
+            s = s[2:]
+            return int(s, 16)
+        raise ValueError('Hexadecimal value must begin with 0x')
+
+    parser = argparse.ArgumentParser(
+       description='hexfile manipulation tool by Windel Bouwman')
+    subparsers = parser.add_subparsers(
+        title='commands',
+        description='possible commands', dest='command')
+
+    p = subparsers.add_parser('info', help='dump info about hexfile')
+    p.add_argument('hexfile', type=argparse.FileType('r'))
+
+    p = subparsers.add_parser('new', help='create a hexfile')
+    p.add_argument('hexfile', type=argparse.FileType('w'))
+    p.add_argument('address', type=hex2int, help="hex address of the data")
+    p.add_argument(
+        'datafile', type=argparse.FileType('rb'), help='binary file to add')
+
+    p = subparsers.add_parser('merge', help='merge two hexfiles into a third')
+    p.add_argument('hexfile1', type=argparse.FileType('r'), help="hexfile 1")
+    p.add_argument('hexfile2', type=argparse.FileType('r'), help="hexfile 2")
+    p.add_argument(
+        'rhexfile', type=argparse.FileType('w'), help="resulting hexfile")
+
+    args = parser.parse_args(args)
+    if not args.command:
+        parser.print_usage()
+        sys.exit(1)
+
+    if args.command == 'info':
+        hexfile = HexFile()
+        hexfile.load(args.hexfile)
+        print(hexfile)
+        for region in hexfile.regions:
+            print(region)
+    elif args.command == 'new':
+        hexfile = HexFile()
+        data = args.datafile.read()
+        hexfile.add_region(args.address, data)
+        hexfile.save(args.hexfile)
+    elif args.command == 'merge':
+        # Load first hexfile:
+        hexfile1 = HexFile()
+        hexfile1.load(args.hexfile1)
+
+        # Load second hexfile:
+        hexfile2 = HexFile()
+        hexfile2.load(args.hexfile2)
+
+        hexfile = HexFile()
+        hexfile.merge(hexfile1)
+        hexfile.merge(hexfile2)
+        hexfile.save(args.rhexfile)
+    else:
+        raise NotImplementedError()
 
 
 class LogSetup:
