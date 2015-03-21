@@ -617,57 +617,6 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
 
 
-class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
-    """
-        The stm32f4 discovery board has the following memory:
-        0x2001 c000 - 0x2001 ffff SRAM2
-        0x2000 0000 - 0x2001 bfff SRAM1
-
-        For the test samples we choose the following scheme:
-        0x2000 0000 - 0x2000 1000 -> code  [4 k]
-        0x2000 1000 - 0x2000 2000 -> stack [4 k]
-        0x2000 2000 - 0x2001 ffff -> data  [120 k]
-    """
-    def setUp(self):
-        if stlink_run_sram_and_trace is None:
-            self.skipTest('stlink not loaded')
-
-    march = "thumb"
-    startercode = """
-    section reset
-    BL sample_start     ; Branch to sample start
-    BL arch_exit  ; do exit stuff
-    local_loop:
-    B local_loop
-    """
-
-    arch_mmap = """
-    MEMORY code LOCATION=0x20000000 SIZE=0x1000
-    {
-        SECTION(reset)
-        ALIGN(4)
-        SECTION(code)
-    }
-
-    MEMORY ram LOCATION=0x20002000 SIZE=0x1E000
-    {
-        SECTION(data)
-    }
-    """
-    arch_c3 = relpath('data', 'stm32f4xx', 'arch.c3')
-
-    def run_sample(self, sample_filename):
-        # Run bin file in emulator:
-        # res = run_qemu(sample_filename, machine='lm3s811evb')
-        # self.assertEqual(expected_output, res)
-        self.skipTest('Not functional yet')
-        with open(sample_filename, 'rb') as f:
-            image = f.read()
-        out = io.StringIO()
-        stlink_run_sram_and_trace(image, output=out)
-        return out.getvalue()
-
-
 class TestSamplesOnPython(unittest.TestCase, Samples):
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
