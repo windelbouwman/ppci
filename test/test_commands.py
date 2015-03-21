@@ -37,9 +37,27 @@ class CommandsTestCase(unittest.TestCase):
         self.assertEqual(0, cm.exception.code)
 
     def test_hexutil_help(self):
+        """ Check hexutil help message """
         with self.assertRaises(SystemExit) as cm:
             hexutil(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
+
+    def test_hexutil_no_command(self):
+        """ No command given """
+        with self.assertRaises(SystemExit) as cm:
+            hexutil(shlex.split(''))
+        self.assertEqual(1, cm.exception.code)
+
+    def test_hexutil(self):
+        """ Create three hexfiles and manipulate those """
+        _, file1 = tempfile.mkstemp()
+        _, file2 = tempfile.mkstemp()
+        _, file3 = tempfile.mkstemp()
+        datafile = 'examples/build.xml'
+        hexutil(shlex.split('new {} 0x10000000 {}'.format(file1, datafile)))
+        hexutil(shlex.split('info {}'.format(file1)))
+        hexutil(shlex.split('new {} 0x20000000 {}'.format(file2, datafile)))
+        hexutil(shlex.split('merge {} {} {}'.format(file1, file2, file3)))
 
 
 class DiagnosticsTestCase(unittest.TestCase):

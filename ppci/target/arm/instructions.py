@@ -451,31 +451,10 @@ class Pop(ArmInstruction):
         return self.token.encode()
 
 
-def Ldr(*args):
-    """ Convenience function that creates the correct instruction """
-    if len(args) == 3:
-        if isinstance(args[1], ArmRegister):
-            return Ldr1(*args)
-    elif len(args) == 2:
-        if isinstance(args[1], ArmRegister):
-            return Ldr1(args[0], args[1], 0)
-        elif isinstance(args[1], str):
-            return Ldr3(*args)
-    raise Exception()
-
-
 def LdrPseudo(rt, lab, add_lit):
     """ Ldr rt, =lab ==> ldr rt, [pc, offset in litpool] ... dcd lab """
     lit_lbl = add_lit(lab)
-    return Ldr(rt, lit_lbl)
-
-
-def Str(*args):
-    if len(args) == 3 and isinstance(args[1], ArmRegister):
-        return Str1(*args)
-    elif len(args) == 2 and isinstance(args[1], ArmRegister):
-        return Str1(args[0], args[1], 0)
-    raise Exception()
+    return Ldr3(rt, lit_lbl)
 
 
 class LdrStrBase(ArmInstruction):

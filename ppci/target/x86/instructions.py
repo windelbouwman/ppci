@@ -285,25 +285,6 @@ class Mov3a(X86Instruction):
     opcode = 0x8b  # mov r64, r/m64
 
 
-def Mov3(dst, src):
-    if type(src) is int:
-        pre = [rex(w=1, b=rexbit[rega])]
-        opcode = 0xb8 + regs64[rega]
-        post = imm64(regb)
-    elif type(src) is str:
-      if rega in regs64:
-         pre, post = prepost(rega, regb)
-      else:
-         raise Exception('Unknown register {0}'.format(rega))
-    else:
-        raise Exception('Move of this kind {0}, {1} not implemented'.format(rega, regb))
-    return pre + [opcode] + post
-
-
-def Xor(rega, regb):
-    return Xor1(rega, regb)
-
-
 class regregbase(X86Instruction):
     args = [('reg1', X86Register), ('reg2', X86Register)]
     tokens = [RexToken, OpcodeToken, ModRmToken]

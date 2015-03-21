@@ -7,7 +7,6 @@ import os
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
-from ppci.report import RstFormatter
 from ppci.ir2py import IrToPython
 
 stlink_run_sram_and_trace = None
@@ -28,7 +27,6 @@ def make_filename(s):
 def enable_report_logger(filename):
     logging.getLogger().setLevel(logging.DEBUG)
     fh = logging.StreamHandler(filename)
-    fh.setFormatter(RstFormatter())
     logging.getLogger().addHandler(fh)
 
 

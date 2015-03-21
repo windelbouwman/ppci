@@ -6,7 +6,6 @@ import platform
 import argparse
 import logging
 
-from .report import RstFormatter
 from .buildfunctions import construct
 from .buildfunctions import c3compile
 from .buildfunctions import assemble
@@ -207,7 +206,6 @@ class LogSetup:
 
         if self.args.report:
             self.file_handler = logging.StreamHandler(self.args.report)
-            self.file_handler.setFormatter(RstFormatter())
             self.logger.addHandler(self.file_handler)
         self.logger.debug('Loggers attached')
 

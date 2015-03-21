@@ -20,11 +20,10 @@ class Builder:
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.sema = None
         self.codegen = CodeGenerator(diag)
         self.target = target
 
-    def build(self, srcs, imps=()):
+    def build(self, srcs, imps=(), return_context=False):
         """ Create IR-code from sources. Raises compiler error when something
             goes wrong. Returns a list of ir-code modules.
         """
@@ -68,7 +67,10 @@ class Builder:
         for pkg in context.modules:
             ir_modules.append(self.codegen.gencode(pkg, context))
         self.logger.debug('C3 build complete!')
-        return ir_modules
+        if return_context:
+            return ir_modules, context
+        else:
+            return ir_modules
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """

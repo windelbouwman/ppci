@@ -133,13 +133,6 @@ class Graph:
         """ Return all unmasked nodes with edges to n """
         return self.adj_map[n] - self.masked_nodes
 
-    def to_dot(self, f):
-        """ Generate graphviz dot representation """
-        for n in self.nodes:
-            print('  {} [label="{}" shape=box3d];'.format(id(n), n), file=f)
-        for n, m in self.edges:
-            print('  {} -> {};'.format(id(n), id(m)), file=f)
-
 
 class Node:
     """

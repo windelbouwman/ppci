@@ -98,7 +98,14 @@ class BuildTestCaseBase(unittest.TestCase):
 
     def build(self, snippet):
         """ Try to build a snippet """
-        return self.builder.build(self.make_file_list(snippet))
+        srcs = self.make_file_list(snippet)
+        modules, context = self.builder.build(srcs, return_context=True)
+        printer = AstPrinter()
+        for mod in context.modules:
+            f = io.StringIO()
+            printer.printAst(mod, f)
+
+        return modules
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
@@ -106,7 +113,7 @@ class BuildTestCaseBase(unittest.TestCase):
             self.build(snippet)
         actual_errors = [err.row for err in self.diag.diags]
         if rows != actual_errors:
-            self.diag.printErrors()
+            self.diag.print_errors()
         self.assertSequenceEqual(rows, actual_errors)
 
     def expect_ok(self, snippet):
@@ -134,6 +141,12 @@ class ModuleTestCase(BuildTestCaseBase):
         """ Check what an empty source file does """
         snippet = ""
         self.expect_errors(snippet, [1])
+
+    def test_incorrect_top_level(self):
+        """ See what an incorrect top level statement does """
+        snippet = """module tst;
+        foo bar;"""
+        self.expect_errors(snippet, [2])
 
     def test_module(self):
         """ Test module idea """
@@ -188,6 +201,17 @@ class ModuleTestCase(BuildTestCaseBase):
         var mod1.A a;
         """
         self.expect_ok([src1, src2])
+
+    def test_no_access_to_private(self):
+        """ Check if private members are protected """
+        src1 = """module mod1;
+        type int A;
+        """
+        src2 = """module mod2;
+        import mod1;
+        var mod1.A a;
+        """
+        self.expect_errors([src1, src2], [])
 
     def test_module_does_not_exist(self):
         """ Check if importing an undefined module raises an error """
@@ -328,6 +352,14 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [5])
 
+    def test_prototype_function(self):
+        """ Check if a prototype function works good """
+        snippet = """
+         module tst;
+         function int t(int x);
+        """
+        self.expect_ok(snippet)
+
 
 class ConditionTestCase(BuildTestCaseBase):
     """ Test conditional logic, such as and and or in if and while statements
@@ -439,6 +471,20 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_unary_plus(self):
+        """ Check if a = +1 works """
+        snippet = """
+         module testunaryplus;
+         function void t()
+         {
+            var int a, b, c;
+            a = + 11;
+            b = -a * + 2 + - a * a;
+            c = b * a - +3;
+         }
+        """
+        self.expect_ok(snippet)
+
     def test_redefine(self):
         """ Check if redefining a symbol results in error """
         snippet = """
@@ -472,6 +518,16 @@ class StatementTestCase(BuildTestCaseBase):
         }
         """
         self.expect_ok(snippet)
+
+    def test_compound_brace_columns(self):
+        """ Check strict column style braces """
+        snippet = """
+        module tst;
+        function void t()
+        {
+         }
+        """
+        self.expect_errors(snippet, [6])
 
     def test_assignments(self):
         """ Check if normal assignments and |= &= assignments work """
