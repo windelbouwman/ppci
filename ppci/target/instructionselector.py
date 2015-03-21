@@ -1,4 +1,4 @@
-from ppci.irmach import AbstractInstruction
+from ppci.target import Instruction
 from ppci.tree import State, Tree, from_string
 from ppci.pyburg import BurgSystem
 
@@ -36,13 +36,15 @@ class InstructionSelector:
 
         # Add all possible terminals:
         terminals = ["ADDI32", "SUBI32", "MULI32",
-                     "ADDI8", "SUBI8",
+                     "DIVI32", 'REMI32',
                      "ADR", "ORI32", "SHLI32",
-                     "SHRI32", "ANDI32", "CONSTI32",
+                     "SHRI32", "ANDI32", "XORI32",
+                     "CONSTI32",
                      "CONSTDATA",
                      "MEMI32",
                      "REGI32",
                      "MOVI8", "MEMI8",
+                     "ADDI8", "SUBI8",
                      "CALL", "GLOBALADDRESS",
                      "MOVI32", "JMP", "CJMP"]
         for terminal in terminals:
@@ -72,17 +74,12 @@ class InstructionSelector:
         # Template match all trees:
         for dag in dags:
             for root in dag:
-                if type(root) is AbstractInstruction:
+                if isinstance(root, Instruction):
                     self.emit(root)
                 else:
                     # Invoke dynamic programming matcher machinery:
                     self.gen(root)
             frame.between_blocks()
-
-    def munchCall(self, e):
-        """ Generate code for call sequence """
-        label, args, res_var = e
-        self.frame.gen_call(label, args, res_var)
 
     def move(self, dst, src):
         """ Generate move """

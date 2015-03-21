@@ -6,8 +6,7 @@
 import logging
 
 from . import ir
-from .target.basetarget import Label
-from .irmach import AbstractInstruction, VirtualRegister
+from .target import Label, Register
 from .tree import Tree
 
 
@@ -135,7 +134,8 @@ class Dagger:
     @register(ir.Binop)
     def do_binop(self, node):
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
-                 '*': 'MUL', '&': 'AND', '>>': 'SHR'}
+                 '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
+                 '%': 'REM', '^': 'XOR'}
         op = names[node.operation] + type_postfix(node.ty)
         a = self.lut[node.a]
         b = self.lut[node.b]
@@ -245,7 +245,7 @@ class Dagger:
         for block in irfunc:
             block.dag = []
             label_name = ir.label_name(block)
-            itgt = AbstractInstruction(Label(label_name))
+            itgt = Label(label_name)
             frame.label_map[label_name] = itgt
             block.dag.append(itgt)
             dags.append(block.dag)
@@ -254,7 +254,7 @@ class Dagger:
         entry_dag = irfunc.entry.dag
         for arg in irfunc.arguments:
             param_tree = Tree('REGI32', value=frame.arg_loc(arg.num))
-            assert type(param_tree.value) is VirtualRegister
+            assert isinstance(param_tree.value, Register)
             param_copy = Tree('REGI32')
             param_copy.value = self.frame.new_virtual_register(twain=arg.name)
             entry_dag.append(Tree('MOVI32', param_copy, param_tree))

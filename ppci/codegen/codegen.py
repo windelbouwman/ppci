@@ -3,9 +3,11 @@
     the generator is created.
 """
 
-from .. import ir, irdag, irmach
+from .. import ir
+from ..irdag import Dagger
 from ..irutils import Verifier, split_block
 from ..target import Target
+from ..target import RegisterUseDef, Register
 from .registerallocator import RegisterAllocator
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 import logging
@@ -20,17 +22,19 @@ class CodeGenerator:
         assert isinstance(target, Target), target
         self.logger = logging.getLogger('codegen')
         self.target = target
-        self.dagger = irdag.Dagger()
+        self.dagger = Dagger()
         self.ins_sel = target.ins_sel
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
         self.dump_file = None
 
     def print(self, *args):
+        """ Convenience helper for printing to dumpfile """
         if self.dump_file:
             print(*args, file=self.dump_file)
 
     def dump_dag(self, dags):
+        """ Write selection dag to dumpfile """
         self.print("Selection dag:")
         for dag in dags:
             self.print('Dag:')
@@ -39,10 +43,9 @@ class CodeGenerator:
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
-        self.print("Frame:")
         self.print(frame)
         for ins in frame.instructions:
-            self.print('$ {}'.format(ins.long_repr))
+            self.print('$ {}'.format(ins))
 
     def generate_function(self, irfunc, outs):
         """ Generate code for one function into a frame """
@@ -79,13 +82,13 @@ class CodeGenerator:
         self.logger.debug('Selected instructions')
 
         # Define arguments live at first instruction:
+        frame.instructions.insert(0, RegisterUseDef())
         ins0 = frame.instructions[0]
-        in0def = []
+        assert type(ins0) is RegisterUseDef
         for idx, _ in enumerate(irfunc.arguments):
             arg_loc = frame.arg_loc(idx)
-            if isinstance(arg_loc, irmach.VirtualRegister):
-                in0def.append(arg_loc)
-        ins0.dst = tuple(in0def)
+            if isinstance(arg_loc, Register):
+                ins0.add_def(arg_loc)
 
         # Dump current state to file:
         self.print('Selected instructions')

@@ -18,8 +18,8 @@ class FlowGraphNode(DiNode):
 
     def add_instruction(self, ins):
         """ Bundle the instruction into the current node. """
-        ins.gen = set(ins.src)
-        ins.kill = set(ins.dst)
+        ins.gen = set(ins.used_registers)
+        ins.kill = set(ins.defined_registers)
         self.instructions.append(ins)
 
         # Combine gen and kill effects of the node and the new instruction:
@@ -49,6 +49,8 @@ class FlowGraph(DiGraph):
         super().__init__()
         self.logger = logging.getLogger('flowgraph')
         self._map = {}
+
+        # TODO: make this very tricky part of code better readable!!!
 
         # Create leaders:
         node = None
@@ -90,11 +92,13 @@ class FlowGraph(DiGraph):
 
     def get_node(self, ins):
         """ Get the node belonging to the instruction """
-        if ins not in self._map:
+        if ins in self._map:
+            node = self._map[ins]
+        else:
             node = FlowGraphNode(self, ins)
             self._map[ins] = node
             self.add_node(node)
-        return self._map[ins]
+        return node
 
     def calculate_liveness(self):
         """ Calculate liveness in CFG: """

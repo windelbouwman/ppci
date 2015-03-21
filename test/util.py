@@ -139,7 +139,13 @@ def run_python(kernel):
     python_proc = subprocess.Popen(
         [sys.executable, kernel],
         stdout=subprocess.PIPE)
-    outs, _ = python_proc.communicate(timeout=60)
+
+    # PYPY hack:
+    if 'pypy' in sys.executable:
+        outs, _ = python_proc.communicate()
+    else:
+        outs, _ = python_proc.communicate(timeout=60)
+
     outs = outs.decode('ascii', errors='ignore')
     outs = outs.replace(os.linesep, '\n')
     return outs

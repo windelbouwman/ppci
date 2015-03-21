@@ -6,10 +6,12 @@ def rotate_right(v, n):
     mask_bits = v & mask
     return (v >> n) | (mask_bits << (32 - n))
 
+
 def rotate_left(v, n):
     assert n >= 0
     assert n < 32
     return rotate_right(v, 32 - n)
+
 
 def encode_imm32(v):
     """ Bundle 32 bit value into 4 bits rotation and 8 bits value
@@ -22,4 +24,3 @@ def encode_imm32(v):
             x = (rotation << 8) | val
             return x
     raise ValueError("Invalid value {}".format(v))
-

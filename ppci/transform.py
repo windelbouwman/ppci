@@ -182,12 +182,15 @@ class RemoveAddZeroPass(InstructionPass):
     def onInstruction(self, instruction):
         if type(instruction) is ir.Binop:
             if instruction.operation == '+':
-                if type(instruction.b) is ir.Const and instruction.b.value == 0:
+                if type(instruction.b) is ir.Const \
+                        and instruction.b.value == 0:
                     instruction.replace_by(instruction.a)
-                elif type(instruction.a) is ir.Const and instruction.a.value == 0:
+                elif type(instruction.a) is ir.Const \
+                        and instruction.a.value == 0:
                     instruction.replace_by(instruction.b)
             elif instruction.operation == '*':
-                if type(instruction.b) is ir.Const and instruction.b.value == 1:
+                if type(instruction.b) is ir.Const \
+                        and instruction.b.value == 1:
                     instruction.replace_by(instruction.a)
 
 
@@ -197,7 +200,8 @@ class DeleteUnusedInstructionsPass(BlockPass):
         count = 0
         instructions = list(block.instructions)
         for instruction in instructions:
-            if isinstance(instruction, ir.Value) and type(instruction) is not ir.Call:
+            if isinstance(instruction, ir.Value) \
+                    and type(instruction) is not ir.Call:
                 if not instruction.is_used:
                     instruction.remove_from_block()
                     count += 1
@@ -245,7 +249,9 @@ class LoadAfterStorePass(BlockPass):
 
     def replace_load_after_store(self, block):
         """ Replace load after store with the value of the store """
-        load_instructions = [ins for ins in block if isinstance(ins, ir.Load) and not ins.volatile]
+        load_instructions = [
+            ins for ins in block if isinstance(ins, ir.Load) and
+            not ins.volatile]
 
         # Replace loads after store of same address by the stored value:
         count = 0
@@ -253,7 +259,6 @@ class LoadAfterStorePass(BlockPass):
             # Find store instruction preceeding this load:
             store = self.find_store_backwards(load)
             if store is not None:
-                # print(load, store)
                 # Assert type equivalence:
                 assert load.ty is store.value.ty
                 load.replace_by(store.value)
@@ -265,13 +270,15 @@ class LoadAfterStorePass(BlockPass):
 
     def remove_redundant_stores(self, block):
         """ From two stores to the same address remove the previous one """
-        store_instructions = [i for i in block if isinstance(i, ir.Store) and not i.volatile]
+        store_instructions = [
+            i for i in block if isinstance(i, ir.Store) and not i.volatile]
 
         count = 0
         # TODO: assume volatile memory stores always!
         # Replace stores to the same location:
         for store in store_instructions:
-            store_prev = self.find_store_backwards(store, stop_on=[ir.Call, ir.Store, ir.Load])
+            store_prev = self.find_store_backwards(
+                store, stop_on=[ir.Call, ir.Store, ir.Load])
             if store_prev is not None and not store_prev.volatile:
                 store_prev.remove_from_block()
 

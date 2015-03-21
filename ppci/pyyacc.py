@@ -231,7 +231,8 @@ class Grammar:
         for production in self.productions:
             for symbol in production.symbols:
                 if symbol not in self.Symbols:
-                    raise ParserGenerationException('Symbol {0} undefined'.format(symbol))
+                    raise ParserGenerationException(
+                        'Symbol {0} undefined'.format(symbol))
 
     def generate_parser(self):
         """ Generates a parser from the grammar """
@@ -264,7 +265,8 @@ class Grammar:
                         # Automatically resolve and do the shift action!
                         # Simple, but almost always what you want!!
                         action_table[key] = action
-                    elif isinstance(action2, Shift) and isinstance(action, Reduce):
+                    elif isinstance(action2, Shift) and \
+                            isinstance(action, Reduce):
                         pass
                     else:
                         a1 = str(action)
@@ -388,7 +390,8 @@ class LRParser:
             state = stack[-1]   # top of stack
             key = (state, look_ahead.typ)
             if key not in self.action_table:
-                raise ParserException('Error parsing at character {0}'.format(look_ahead))
+                raise ParserException(
+                    'Error parsing at character {0}'.format(look_ahead))
             action = self.action_table[key]
             if type(action) is Reduce:
                 f_args = []
@@ -430,7 +433,7 @@ class LRParser:
                 break
         # At exit, the stack must be 1 long
         # TODO: fix that this holds:
-        #assert stack == [0, self.start_symbol, 0]
+        # assert stack == [0, self.start_symbol, 0]
         return ret_val
 
 

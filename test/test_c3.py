@@ -1,8 +1,9 @@
 import unittest
 import logging
 import io
-from ppci.c3 import Builder, Lexer
-from ppci.target import SimpleTarget
+from ppci.c3 import Builder, Lexer, Parser, AstPrinter
+from ppci.c3.scope import Context
+from ppci.target.example import SimpleTarget
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
 
@@ -45,6 +46,33 @@ class LexerTestCase(unittest.TestCase):
         self.check(snippet, toks)
 
 
+class AstPrinterTestCase(unittest.TestCase):
+    def test_print(self):
+        """ See if the ast can be printed using the visitor pattern """
+        snippet = """
+        module tstwhile;
+        function void t()
+        {
+         var int i;
+         i = 0;
+         while (i < 1054)
+         {
+            i = i + 3;
+         }
+        }
+        """
+        diag = DiagnosticsManager()
+        lexer = Lexer(diag)
+        parser = Parser(diag)
+        context = Context(SimpleTarget())
+        tokens = lexer.lex(io.StringIO(snippet))
+        ast = parser.parse_source(tokens, context)
+        printer = AstPrinter()
+        f = io.StringIO()
+        printer.printAst(ast, f)
+        self.assertTrue(f.getvalue())
+
+
 class BuildTestCaseBase(unittest.TestCase):
     """ Test if various snippets build correctly """
     def setUp(self):
@@ -70,7 +98,7 @@ class BuildTestCaseBase(unittest.TestCase):
 
     def build(self, snippet):
         """ Try to build a snippet """
-        return list(self.builder.build(self.make_file_list(snippet)))
+        return self.builder.build(self.make_file_list(snippet))
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
@@ -609,6 +637,17 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_expression_statement(self):
+        """ Make sure an expression cannot be a statement """
+        snippet = """
+         module teststruct1;
+         function void t()
+         {
+            2;
+         }
+        """
+        self.expect_errors(snippet, [5])
+
 
 class TypeTestCase(BuildTestCaseBase):
     """ Test type related syntax """
@@ -628,6 +667,7 @@ class TypeTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_sizeof1(self):
+        """ Check basic behavior of sizeof """
         snippet = """
          module testsizeof;
 
@@ -911,6 +951,23 @@ class TypeTestCase(BuildTestCaseBase):
          }
         """
         self.expect_ok(snippet)
+
+    def test_complex_type_assignment(self):
+        """ Complex type cannot be assigned """
+        snippet = """
+         module test;
+
+         type struct {
+          int x, y;
+         } point;
+
+         function void t()
+         {
+            var point a, b;
+            a = b;
+         }
+        """
+        self.expect_errors(snippet, [11])
 
 
 if __name__ == '__main__':

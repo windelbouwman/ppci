@@ -292,7 +292,7 @@ class Unop(Expression):
 
 class Binop(Expression):
     """ Expression taking two operands and one operator """
-    arithmatic_ops = ('+', '-', '*', '/', '>>', '<<', '&', '|')
+    arithmatic_ops = ('+', '-', '*', '/', '%', '>>', '<<', '&', '|', '^')
     logical_ops = ('and', 'or')
     compare_ops = ('==', '!=', '<', '>', '<=', '>=')
     cond_ops = logical_ops + compare_ops

@@ -1,10 +1,11 @@
 
-from ..basetarget import Register
+from .. import Register
+
 
 class Msp430Register(Register):
     def __init__(self, num, name):
         super().__init__(name)
-        self.num = num
+        self._num = num
 
 # 8 bit registers:
 PCB = Msp430Register(0, 'r0')

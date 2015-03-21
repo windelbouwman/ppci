@@ -4,8 +4,8 @@
 """
 
 import logging
-
 from . import ir
+from .common import CompilerError
 from .irutils import Builder
 
 
@@ -59,11 +59,13 @@ class BrainFuckGenerator():
 
         self.builder.setBlock(block_init)
         ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.ptr))
-        cell_addr = self.builder.emit(ir.Add(data, ptr_val, "cell_addr", ir.ptr))
+        cell_addr = self.builder.emit(
+            ir.Add(data, ptr_val, "cell_addr", ir.ptr))
         self.builder.emit(ir.Store(zero_ins, cell_addr))
         add_ins = self.builder.emit(ir.Add(ptr_val, prc_inc, "Added", ir.ptr))
         self.builder.emit(ir.Store(add_ins, ptr_var))
-        self.builder.emit(ir.CJump(add_ins, '==', array_size, block3, block_init))
+        self.builder.emit(
+            ir.CJump(add_ins, '==', array_size, block3, block_init))
 
         self.builder.setBlock(block3)
 
@@ -92,23 +94,32 @@ class BrainFuckGenerator():
             elif c == '+':
                 # data[ptr]++;
                 if cell_addr is None:
-                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
-                add_ins = self.builder.emit(ir.Add(val_ins, one_ins, "Added", ir.i8))
+                    cell_addr = self.builder.emit(
+                        ir.Add(data, ptr, "cell_addr", ir.ptr))
+                val_ins = self.builder.emit(
+                    ir.Load(cell_addr, "ptr_val", ir.i8))
+                add_ins = self.builder.emit(
+                    ir.Add(val_ins, one_ins, "Added", ir.i8))
                 self.builder.emit(ir.Store(add_ins, cell_addr))
             elif c == '-':
                 # data[ptr]--;
                 if cell_addr is None:
-                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
-                sub_ins = self.builder.emit(ir.Sub(val_ins, one_ins, "Sub", ir.i8))
+                    cell_addr = self.builder.emit(
+                        ir.Add(data, ptr, "cell_addr", ir.ptr))
+                val_ins = self.builder.emit(
+                    ir.Load(cell_addr, "ptr_val", ir.i8))
+                sub_ins = self.builder.emit(
+                    ir.Sub(val_ins, one_ins, "Sub", ir.i8))
                 self.builder.emit(ir.Store(sub_ins, cell_addr))
             elif c == '.':
                 # putc(data[ptr])
                 if cell_addr is None:
-                    cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
-                self.builder.emit(ir.Call('arch_putc', [val_ins], 'ign', ir.i32))
+                    cell_addr = self.builder.emit(
+                        ir.Add(data, ptr, "cell_addr", ir.ptr))
+                val_ins = self.builder.emit(
+                    ir.Load(cell_addr, "ptr_val", ir.i8))
+                self.builder.emit(
+                    ir.Call('arch_putc', [val_ins], 'ign', ir.i32))
             elif c == ',':
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')
@@ -132,9 +143,12 @@ class BrainFuckGenerator():
                 ptr = ptr_phi
 
                 # Create test, jump to exit when *ptr == 0:
-                cell_addr = self.builder.emit(ir.Add(data, ptr, "cell_addr", ir.ptr))
-                val_ins = self.builder.emit(ir.Load(cell_addr, "ptr_val", ir.i8))
-                self.builder.emit(ir.CJump(val_ins, '==', zero_byte, exit, body))
+                cell_addr = self.builder.emit(
+                    ir.Add(data, ptr, "cell_addr", ir.ptr))
+                val_ins = self.builder.emit(
+                    ir.Load(cell_addr, "ptr_val", ir.i8))
+                self.builder.emit(
+                    ir.CJump(val_ins, '==', zero_byte, exit, body))
 
                 # Set body as current block:
                 self.builder.setBlock(body)
@@ -160,7 +174,7 @@ class BrainFuckGenerator():
             else:
                 pass
         if loops:
-            raise Exception('[ requires matching ]')
+            raise CompilerError('[ requires matching ]')
 
         # Jump to end of function:
         self.builder.emit(ir.Jump(ir_func.epilog))

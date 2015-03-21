@@ -3,7 +3,7 @@
 """
 
 import struct
-from ..basetarget import Register, Instruction, Isa
+from .. import Instruction, Isa, register_argument
 from .registers import regs64, X86Register
 
 from ..token import Token, u32, u8, bit_range
@@ -135,8 +135,8 @@ class X86Instruction(Instruction):
 
 class NearJump(X86Instruction):
     """ jmp imm32 """
-    args = [('target', str)]
-    syntax = ['jmp', 0]
+    target = register_argument('target', str)
+    syntax = ['jmp', target]
     tokens = [OpcodeToken]
 
     def encode(self):
@@ -154,8 +154,8 @@ class NearJump(X86Instruction):
 class ShortJump(X86Instruction):
     """ jmp imm8 """
     tokens = [OpcodeToken, ByteToken]
-    syntax = ['jmpshort', 0]
-    args = [('target', str)]
+    target = register_argument('target', str)
+    syntax = ['jmpshort', target]
 
     def encode(self):
         lim = 118
@@ -171,8 +171,8 @@ class ShortJump(X86Instruction):
 
 
 class Push(X86Instruction):
-    args = [('reg', X86Register)]
-    syntax = ['push', 0]
+    reg = register_argument('reg', X86Register, read=True)
+    syntax = ['push', reg]
 
     def encode(self):
         code = []
@@ -183,8 +183,8 @@ class Push(X86Instruction):
 
 
 class Pop(X86Instruction):
-    args = [('reg', X86Register)]
-    syntax = ['pop', 0]
+    reg = register_argument('reg', X86Register, write=True)
+    syntax = ['pop', reg]
 
     def encode(self):
         code = []
@@ -195,8 +195,8 @@ class Pop(X86Instruction):
 
 
 class Int(X86Instruction):
-    syntax = ['int', 0]
-    args = [('nr', int)]
+    nr = register_argument('nr', int)
+    syntax = ['int', nr]
     tokens = [OpcodeToken, ByteToken]
 
     def encode(self):
@@ -210,8 +210,8 @@ def syscall():
 
 
 class CallReg(X86Instruction):
-    syntax = ['call', 0]
-    args = [('reg', X86Register)]
+    reg = register_argument('reg', X86Register, read=True)
+    syntax = ['call', reg]
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -226,8 +226,8 @@ class CallReg(X86Instruction):
 
 class Call(X86Instruction):
     """ jmp imm32 """
-    args = [('target', str)]
-    syntax = ['call', 0]
+    target = register_argument('target', str)
+    syntax = ['call', target]
     tokens = [OpcodeToken]
 
     def encode(self):
@@ -239,7 +239,6 @@ class Call(X86Instruction):
 
 
 class Ret(X86Instruction):
-    args = []
     syntax = ['ret']
     tokens = [OpcodeToken]
 
@@ -249,8 +248,8 @@ class Ret(X86Instruction):
 
 
 class Inc(X86Instruction):
-    args = [('reg', X86Register)]
-    syntax = ['inc', 0]
+    reg = register_argument('reg', X86Register, read=True, write=True)
+    syntax = ['inc', reg]
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -262,107 +261,11 @@ class Inc(X86Instruction):
         return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
 
-def prepost8(r8, rm8):
-   assert(r8 in regs8)
-   pre = []
-   if type(rm8) is list:
-      # TODO: merge mem access with prepost for 64 bits
-      if len(rm8) == 1:
-         base, = rm8
-         if type(base) is str and base in regs64:
-            assert(not base in ['rbp', 'rsp', 'r12', 'r13'])
-            mod_rm = modrm(mod=0, rm=regs64[base], reg=regs8[r8])
-            if rexbit[base] == 1:
-               pre.append(rex(b=1))
-            post = [mod_rm]
-         else:
-            Error('One arg of type {0} not implemented'.format(base))
-      elif len(rm8) == 2:
-         base, offset = rm8
-         assert(type(offset) is int)
-         assert(base in regs64)
-
-         if base == 'rsp' or base == 'r12':
-            Error('Cannot use rsp or r12 as base yet')
-         if rexbit[base] == 1:
-            pre.append( rex(b=1) )
-         mod_rm = modrm(mod=1, rm=regs64[base], reg=regs8[r8])
-         post = [mod_rm] + imm8(offset)
-      else:
-         Error('not supporting prepost8 with list len {0}'.format(len(rm8)))
-   else:
-      Error('Not supporting move with reg8 {0}'.format(r8))
-   return pre, post
-
-
-def prepost(r64, rm64):
-   assert(r64 in regs64)
-   if type(rm64) is list:
-      if len(rm64) == 3:
-            base, index, disp = rm64
-            assert(base in regs64)
-            assert(index in regs64)
-            assert(type(disp) is int)
-            # Assert that no special cases are used:
-            # TODO: swap base and index to avoid special cases
-            # TODO: exploit special cases and make better code
-            assert(index != 'rsp')
-
-            rexprefix = rex(w=1, r=rexbit[r64], x=rexbit[index], b=rexbit[base])
-            # mod=1 and rm=4 indicates a SIB byte: [--][--]+imm8
-            mod_rm = modrm(mod=1, rm=4, reg=regs64[r64])
-            si_b = sib(ss=0, index=regs64[index], base=regs64[base])
-            return [rexprefix], [mod_rm, si_b] + imm8(disp)
-      elif len(rm64) == 2:
-         base, offset = rm64
-         assert(type(offset) is int)
-         if base == 'RIP':
-            # RIP pointer relative addressing mode!
-            rexprefix = rex(w=1, r=rexbit[r64])
-            mod_rm = modrm(mod=0, rm=5, reg=regs64[r64])
-            return [rexprefix], [mod_rm] + imm32(offset)
-         else:
-            assert(base in regs64)
-
-            if base == 'rsp' or base == 'r12':
-               # extended function that uses SIB byte
-               rexprefix = rex(w=1, r=rexbit[r64], b=rexbit[base])
-               # rm=4 indicates a SIB byte follows
-               mod_rm = modrm(mod=1, rm=4, reg=regs64[r64])
-               # index=4 indicates that index is not used
-               si_b = sib(ss=0, index=4, base=regs64[base])
-               return [rexprefix], [mod_rm, si_b] + imm8(offset)
-            else:
-               rexprefix = rex(w=1, r=rexbit[r64], b=rexbit[base])
-               mod_rm = modrm(mod=1, rm=regs64[base], reg=regs64[r64])
-               return [rexprefix], [mod_rm] + imm8(offset)
-      elif len(rm64) == 1:
-         offset = rm64[0]
-         if type(offset) is int:
-            rexprefix = rex(w=1, r=rexbit[r64])
-            mod_rm = modrm(mod=0, rm=4,reg=regs64[r64])
-            si_b = sib(ss=0, index=4,base=5) # 0x25
-            return [rexprefix], [mod_rm, si_b] + imm32(offset)
-         else:
-            Error('Memory reference of type {0} not implemented'.format(offset))
-      else:
-         Error('Memory reference not implemented')
-   elif rm64 in regs64:
-      rexprefix = rex(w=1, r=rexbit[r64], b=rexbit[rm64])
-      mod_rm = modrm(3, rm=regs64[rm64], reg=regs64[r64])
-      return [rexprefix], [mod_rm]
-
-
-def leareg64(rega, m):
-   opcode = 0x8d # lea r64, m
-   pre, post = prepost(rega, m)
-   return pre + [opcode] + post
-
-
 class Mov1(X86Instruction):
     """ Mov r64 to r64 """
-    syntax = ['mov', 0, ',', 1]
-    args = [('reg1', X86Register), ('reg2', X86Register)]
+    reg1 = register_argument('reg1', X86Register, write=True)
+    reg2 = register_argument('reg2', X86Register, read=True)
+    syntax = ['mov', reg1, ',', reg2]
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -380,7 +283,6 @@ class Mov1(X86Instruction):
 
 class Mov3a(X86Instruction):
     opcode = 0x8b  # mov r64, r/m64
-    pass
 
 
 def Mov3(dst, src):
@@ -417,8 +319,29 @@ class regregbase(X86Instruction):
         return self.token.encode() + self.token2.encode() + self.token3.encode()
 
 
+def make_regreg(mnemonic, opcode):
+    reg1 = register_argument('reg1', X86Register, write=True, read=True)
+    reg2 = register_argument('reg2', X86Register, read=True)
+    syntax = [mnemonic, reg1, ',', reg2]
+    members = {
+        'syntax': syntax, 'reg1': reg1, 'reg2': reg2, 'opcode': opcode}
+    return type(mnemonic + '_ins', (regregbase,), members)
+
+
+# opcode = 0x31  # XOR r/m64, r64
+Xor1 = make_regreg('xor', 0x31)
+Add = make_regreg('add', 0x1)
+Sub = make_regreg('sub', 0x29)
+
+
+class Cmp(regregbase):
+    reg1 = register_argument('reg1', X86Register, write=True, read=True)
+    reg2 = register_argument('reg2', X86Register, read=True)
+    syntax = ['cmp', reg1, ',', reg2]
+    opcode = 0x39  # CMP r/m64, r64
+
+
 class regint32base(X86Instruction):
-    args = [('reg', X86Register), ('imm', int)]
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -431,52 +354,28 @@ class regint32base(X86Instruction):
         return self.token.encode() + self.token2.encode() + self.token3.encode() + imm32(self.imm)
 
 
-class Xor1(regregbase):
-    syntax = ['xor', 0, ',', 1]
-    opcode = 0x31  # XOR r/m64, r64
-    # Alternative is 0x33 XOR r64, r/m64
+def make_regimm(mnemonic, opcode, reg_code):
+    reg = register_argument('reg', X86Register, write=True, read=True)
+    imm = register_argument('imm', int)
+    syntax = [mnemonic, reg, ',', imm]
+    members = {
+        'syntax': syntax, 'reg': reg, 'imm': imm, 'opcode': opcode,
+        'reg_code': reg_code}
+    return type(mnemonic + '_ins', (regint32base,), members)
 
-class Cmp(regregbase):
-    syntax = ['cmp', 0, ',', 1]
-    opcode = 0x39 # CMP r/m64, r64
-
-class Add(regregbase):
-    syntax = ['add', 0, ',', 1]
-    opcode = 0x01  # Add r/m64, r64
-
-
-class Add2(regint32base):
-    syntax = ['add', 0, ',', 1]
-    opcode = 0x81 # add r/m64, imm32
-    reg_code = 0
-
-
-class Sub(regregbase):
-    syntax = ['sub', 0, ',', 1]
-    opcode = 0x29  # Sub r/m64, r64
-
-
-class Sub2(regint32base):
-    syntax = ['sub', 0, ',', 1]
-    opcode = 0x81 # add r/m64, imm32
-    reg_code = 5
-
-
-def idivreg64(reg):
-   rexprefix = rex(w=1, b=rexbit[reg])
-   opcode = 0xf7 # IDIV r/m64
-   mod_rm = modrm(3, rm=regs64[reg], reg=7)
-   return [rexprefix, opcode, mod_rm]
+Add2 = make_regimm('add', 0x81, 0)
+Sub2 = make_regimm('sub', 0x81, 5)
 
 
 class Imul(X86Instruction):
     """ Multiply
         imul reg1, reg2
     """
-    args = [('reg1', X86Register), ('reg2', X86Register)]
-    syntax = ['imul', 0, ',', 1]
+    reg1 = register_argument('reg1', X86Register, write=True, read=True)
+    reg2 = register_argument('reg2', X86Register, read=True)
+    syntax = ['imul', reg1, ',', reg2]
     tokens = [RexToken, OpcodeToken, OpcodeToken, ModRmToken]
-    opcode = 0x0f # IMUL r64, r/m64
+    opcode = 0x0f  # IMUL r64, r/m64
     opcode2 = 0xaf
 
     def encode(self):
@@ -488,4 +387,5 @@ class Imul(X86Instruction):
         self.token4.mod = 3
         self.token4.rm = self.reg2.regbits
         self.token4.reg = self.reg1.regbits
-        return self.token.encode() + self.token2.encode() + self.token3.encode() + self.token4.encode()
+        return self.token.encode() + self.token2.encode() + \
+            self.token3.encode() + self.token4.encode()

@@ -1,10 +1,11 @@
 
-from ..basetarget import Register, Instruction, Target, Isa
-from ..token import Token, u16, bit_range
+from .. import Register, Instruction, Target, Isa
+from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register
 
 isa = Isa()
 isa.typ2nt[Msp430Register] = 'reg'
+
 
 class Msp430Token(Token):
     def __init__(self):
@@ -15,12 +16,13 @@ class Msp430Token(Token):
     register = bit_range(0, 4)
     destination = bit_range(0, 4)
     source = bit_range(8, 12)
-    bw = bit_range(6, 7)  # TODO: actually a single bit!
-    Ad = bit_range(7, 8)  # TODO: actually a single bit!
+    bw = bit(6)
+    Ad = bit(7)
     As = bit_range(4, 6)
 
     def encode(self):
         return u16(self.bit_value)
+
 
 REGISTER_MODE = 1
 SYMBOLIC_MODE = 3
@@ -28,8 +30,10 @@ ABSOLUTE_MODE = 4
 #TODO: add more modes!
 IMMEDIATE_MODE = 7
 
+
 class Msp430Operand:
     pass
+
 
 class Msp430DestinationOperand(Msp430Operand):
     def __init__(self, param):
@@ -138,10 +142,10 @@ class OneOpArith(Msp430Instruction):
         return pack_ins(h1)
 
 
-def oneOpIns(mne, opc):
+def oneOpIns(mne, opcode):
     """ Helper function to define a one operand arithmetic instruction """
-    members = {'opcode': opc}
-    ins_cls = type(mne + '_ins', (OneOpArith,), members)
+    members = {'opcode': opcode}
+    return type(mne + '_ins', (OneOpArith,), members)
 
 
 class rrr_ins(OneOpArith):
@@ -188,23 +192,14 @@ class TwoOpArith(Msp430Instruction):
 
 def twoOpIns(mne, opc):
     """ Helper function to define a two operand arithmetic instruction """
-    members = {'opcode': opc}
-    ins_cls = type(mne + '_ins', (TwoOpArith,), members)
+    syntax = [mne]
+    members = {'opcode': opc, 'syntax': syntax}
+    return type(mne + '_ins', (TwoOpArith,), members)
 
 
-class Mov(TwoOpArith):
-    """ Moves the source to the destination """
-    opcode = 4
-
-
-# This is equivalent to the helper function twoOpIns:
-class Add(TwoOpArith):
-    """ Adds the source to the destination """
-    mnemonic = 'add'
-    opcode = 5
-
-
-twoOpIns('addc', 6)
+Mov = twoOpIns('mov', 4)
+Add = twoOpIns('add', 5)
+Addc = twoOpIns('addc', 6)
 twoOpIns('subc', 7)
 twoOpIns('sub', 8)
 

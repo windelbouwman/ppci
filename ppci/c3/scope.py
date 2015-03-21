@@ -213,6 +213,19 @@ class Context:
                 return a - b
             elif expr.op == '*':
                 return a * b
+            elif expr.op == '/':
+                return a / b
+            elif expr.op == '%':
+                return a % b
+            else:
+                raise NotImplementedError()
+        elif isinstance(expr, ast.TypeCast):
+            a = self.eval_const(expr.a)
+            if self.equal_types('int', expr.to_type):
+                return int(a)
+            else:
+                raise NotImplementedError(
+                    'Casting to {} not implemented'.format(expr.to_type))
         elif isinstance(expr, ast.Identifier):
             target = self.resolve_symbol(expr)
             if isinstance(target, ast.Constant):
@@ -293,6 +306,7 @@ class Context:
                 num = self.eval_const(typ.size)
             else:
                 num = int(typ.size)
+            assert isinstance(num, int)
             return num * self.size_of(typ.element_type)
         elif type(typ) is ast.PointerType:
             return self.pointerSize

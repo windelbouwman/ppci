@@ -4,8 +4,8 @@ import unittest
 from ppci.codegen.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
-from ppci.irmach import AbstractInstruction as AI, VirtualRegister
 from ppci.target import Nop
+from ppci.target.example import Def, Use, DefUse, Add, Cmp, Use3, Register
 
 
 class GraphTestCase(unittest.TestCase):
@@ -118,24 +118,24 @@ class DigraphTestCase(unittest.TestCase):
 
 
 class InterferenceGraphTestCase(unittest.TestCase):
-    def testNormalUse(self):
+    def test_normal_use(self):
         """ Test if interference graph works """
-        t1 = VirtualRegister('t1')
-        t2 = VirtualRegister('t2')
-        t3 = VirtualRegister('t3')
-        t4 = VirtualRegister('t4')
+        t1 = Register('t1')
+        t2 = Register('t2')
+        t3 = Register('t3')
+        t4 = Register('t4')
         instrs = []
-        instrs.append(AI(Nop, dst=[t1]))  # t1 is live
-        instrs.append(AI(Nop, dst=[t2]))  # t1, t2 is live
-        instrs.append(AI(Nop, src=[t2], dst=[t3]))  # t2, t1, t3 live
-        instrs.append(AI(Nop, src=[t1], dst=[t4]))  # t1, t3, t4 live
+        instrs.append(Def(t1))  # t1 is live
+        instrs.append(Def(t2))  # t1, t2 is live
+        instrs.append(DefUse(t3, t2))  # t2, t1, t3 live
+        instrs.append(DefUse(t4, t1))  # t1, t3, t4 live
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
         ig = InterferenceGraph(cfg)
         self.assertTrue(ig.interfere(t1, t2))
         self.assertFalse(ig.interfere(t2, t4))
 
-    def testLoopCfg(self):
+    def test_loop_cfg(self):
         """ Test two blocks in a loop
             a:
             t1 = t4
@@ -147,14 +147,14 @@ class InterferenceGraphTestCase(unittest.TestCase):
             jmp a
 
         """
-        t1 = VirtualRegister('t1')
-        t2 = VirtualRegister('t2')
-        t3 = VirtualRegister('t3')
-        t4 = VirtualRegister('t4')
-        i1 = AI(Nop, dst=[t1], src=[t4])  # t1 is live
-        i3 = AI(Nop, src=[t2], dst=[t3])  # t2, t1, t3 live
-        i2 = AI(Nop, dst=[t2], jumps=[i3])  # t1, t2 is live
-        i4 = AI(Nop, src=[t1], dst=[t4], jumps=[i1])  # t1, t3, t4 live
+        t1 = Register('t1')
+        t2 = Register('t2')
+        t3 = Register('t3')
+        t4 = Register('t4')
+        i1 = DefUse(t1, t4)  # t1 is live
+        i3 = DefUse(t3, t2)  # t2, t1, t3 live
+        i2 = Def(t2, jumps=[i3])  # t1, t2 is live
+        i4 = DefUse(t4, t1, jumps=[i1])  # t1, t3, t4 live
         instrs = [i1, i2, i3, i4]
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
@@ -162,22 +162,22 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertTrue(ig.interfere(t1, t2))
         self.assertFalse(ig.interfere(t2, t4))
 
-    def testMultipleSuccessors(self):
+    def test_multiple_successors(self):
         """ Example from wikipedia about liveness """
-        a = VirtualRegister('a')
-        b = VirtualRegister('b')
-        c = VirtualRegister('c')
-        d = VirtualRegister('d')
-        x = VirtualRegister('x')
-        i1 = AI(Nop, dst=[a])  # a = 3
-        i2 = AI(Nop, dst=[b])  # b = 5
-        i3 = AI(Nop, dst=[d])  # d = 4
-        i4 = AI(Nop, dst=[x])  # x = 100
-        i6 = AI(Nop, dst=[c], src=[a, b])  # c = a + b
-        i8 = AI(Nop, dst=[c])  # c = 4
-        i7 = AI(Nop, dst=[d], jumps=[i8])  # d = 2
-        i9 = AI(Nop, src=[b, d, c])  # return b * d + c
-        i5 = AI(Nop, src=[a, b], jumps=[i6, i8])  # if a > b
+        a = Register('a')
+        b = Register('b')
+        c = Register('c')
+        d = Register('d')
+        x = Register('x')
+        i1 = Def(a)  # a = 3
+        i2 = Def(b)  # b = 5
+        i3 = Def(d)  # d = 4
+        i4 = Def(x)  # x = 100
+        i6 = Add(c, a, b)  # c = a + b
+        i8 = Def(c)  # c = 4
+        i7 = Def(d, jumps=[i8])  # d = 2
+        i9 = Use3(b, d, c)  # return b * d + c
+        i5 = Cmp(a, b, jumps=[i6, i8])  # if a > b
         instrs = [i1, i2, i3, i4, i5, i6, i7, i8, i9]
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
@@ -229,7 +229,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         # Create interference graph:
         InterferenceGraph(cfg)
 
-    def testMultipleDefineInLoop(self):
+    def test_multiple_define_in_loop(self):
         """
             Test if the following works:
             entry:
@@ -241,17 +241,17 @@ class InterferenceGraphTestCase(unittest.TestCase):
         I6:  cjmp I2, I7
         I7:  nop
         """
-        a = VirtualRegister('a')
-        b = VirtualRegister('b')
-        c = VirtualRegister('c')
-        x = VirtualRegister('x')
-        i2 = AI(Nop, src=[x], dst=[a])
-        i1 = AI(Nop, dst=[x], jumps=[i2])
-        i3 = AI(Nop, dst=[x])
-        i4 = AI(Nop, src=[x], dst=[b])
-        i5 = AI(Nop, src=[b], dst=[c])
-        i7 = AI(Nop)
-        i6 = AI(Nop, jumps=[i2, i7])
+        a = Register('a')
+        b = Register('b')
+        c = Register('c')
+        x = Register('x')
+        i2 = DefUse(a, x)
+        i1 = Def(x, jumps=[i2])
+        i3 = Def(x)
+        i4 = DefUse(b, x)
+        i5 = DefUse(c, b)
+        i7 = Nop()
+        i6 = Nop(jumps=[i2, i7])
         instrs = [i1, i2, i3, i4, i5, i6, i7]
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
@@ -271,7 +271,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         # Check that x is live at end of block 2
         self.assertEqual({x}, b2.live_out)
 
-    def testLoopVariable(self):
+    def test_loop_variable(self):
         """
             See if a variable defined at input and in block itself
             is marked as live out!
@@ -282,12 +282,13 @@ class InterferenceGraphTestCase(unittest.TestCase):
         I4: jmp I5
         I5: jmp I2
         """
-        x = VirtualRegister('x')
-        i2 = AI(Nop, src=[x])
-        i1 = AI(Nop, dst=[x], jumps=[i2])
-        i3 = AI(Nop, dst=[x])
-        i5 = AI(Nop, jumps=[i2])
-        i4 = AI(Nop, jumps=[i5])
+        x = Register('x')
+        i2 = Use(x)
+        i1 = Def(x, jumps=[i2])
+        i3 = Def(x)
+        i5 = Nop(jumps=[i2])
+        i4 = Nop(jumps=[i5])
+        self.assertSequenceEqual([x], i1.defined_registers)
         instrs = [i1, i2, i3, i4, i5]
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
@@ -296,23 +297,24 @@ class InterferenceGraphTestCase(unittest.TestCase):
         b1 = cfg.get_node(i1)
         b2 = cfg.get_node(i2)
         b3 = cfg.get_node(i5)
+        self.assertEqual(3, len(cfg))
         self.assertEqual({x}, b1.live_out)
         self.assertEqual({x}, b2.live_out)
         self.assertEqual({x}, b3.live_out)
 
-    def testCombine(self):
-        t1 = VirtualRegister('t1')
-        t2 = VirtualRegister('t2')
-        t3 = VirtualRegister('t3')
-        t4 = VirtualRegister('t4')
+    def test_combine(self):
+        t1 = Register('t1')
+        t2 = Register('t2')
+        t3 = Register('t3')
+        t4 = Register('t4')
         instrs = []
-        instrs.append(AI(Nop, dst=[t1]))
-        instrs.append(AI(Nop, dst=[t2]))
-        instrs.append(AI(Nop, dst=[t3]))
-        instrs.append(AI(Nop, dst=[t4], src=[t3]))
-        instrs.append(AI(Nop, src=[t4]))
-        instrs.append(AI(Nop, src=[t1]))
-        instrs.append(AI(Nop, src=[t2]))
+        instrs.append(Def(t1))
+        instrs.append(Def(t2))
+        instrs.append(Def(t3))
+        instrs.append(DefUse(t4, t3))
+        instrs.append(Use(t4))
+        instrs.append(Use(t1))
+        instrs.append(Use(t2))
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
         ig = InterferenceGraph(cfg)

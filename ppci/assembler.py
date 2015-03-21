@@ -3,7 +3,7 @@ from . import pyyacc
 from .baselex import BaseLexer
 from .common import make_num
 from .target import Target, Label
-from .target.basetarget import Alignment
+from .target import Alignment, InstructionProperty
 
 
 def bit_type(value):
@@ -23,7 +23,7 @@ class AsmLexer(BaseLexer):
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
-            ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
+            ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
                 lambda typ, val: (val, val)),
@@ -159,13 +159,14 @@ class BaseAssembler:
                 rhs = []
                 arg_idx = []
                 for idx, st in enumerate(i.syntax):
-                    if type(st) is int:
-                        rhs.append(isa.typ2nt[i.args[st][1]])
+                    if type(st) is int or type(st) is InstructionProperty:
+                        arg_cls = i.get_argclass(st)
+                        rhs.append(isa.typ2nt[arg_cls])
                         arg_idx.append(idx)
                     elif type(st) is str:
                         rhs.append(st)
                     else:
-                        raise Exception()
+                        raise NotImplementedError('{}'.format(type(st)))
                 cls = i
                 self.gen_i_rule(cls, arg_idx, rhs)
 

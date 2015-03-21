@@ -7,12 +7,10 @@ import os
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
-try:
-    from ppci.utils.stlink import stlink_run_sram_and_trace
-except ImportError:
-    stlink_run_sram_and_trace = None
 from ppci.report import RstFormatter
 from ppci.ir2py import IrToPython
+
+stlink_run_sram_and_trace = None
 
 
 def make_filename(s):
@@ -317,6 +315,44 @@ class Samples:
         """
         self.do(snippet, "w=0x11663388\n")
 
+    def test_arithmatic_operations(self):
+        """
+            Check arithmatics
+        """
+        snippet = """
+         module sample;
+         import io;
+         var int x;
+         function void set_x(int v)
+         {
+            x = v;
+         }
+
+         var int d;
+
+         function void start()
+         {
+            var int w;
+            d = 2;
+            set_x(13);
+            w = x / d;
+            io.print2("w=", w);
+
+            w = x - d;
+            io.print2("w=", w);
+
+            w = x % d;
+            io.print2("w=", w);
+
+            w = x + d;
+            io.print2("w=", w);
+
+            w = x ^ 0xf;
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x00000006\nw=0x0000000B\nw=0x00000001\nw=0x0000000F\nw=0x00000002\n")
+
     def test_global_variable(self):
         snippet = """
          module sample;
@@ -494,13 +530,13 @@ class DoMixin:
                 relpath('data', 'io.c3'),
                 arch_c3,
                 io.StringIO(src)], [], march, lst_file=lst_file)
-            o3 = link([o2, o1], io.StringIO(arch_mmap), march)
+            o3 = link([o2, o1], io.StringIO(arch_mmap), march, use_runtime=True)
         elif lang == 'bf':
             obj = bfcompile(src, march, lst_file=lst_file)
             o2 = c3compile([
                 arch_c3
                 ], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march)
+            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march, use_runtime=True)
         else:
             raise Exception('language not implemented')
 
@@ -579,57 +615,6 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         return run_qemu(
             sample_filename, machine='lm3s6965evb', # lm3s811evb
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
-
-
-class TestSamplesOnSTM32F407(unittest.TestCase, Samples, DoMixin):
-    """
-        The stm32f4 discovery board has the following memory:
-        0x2001 c000 - 0x2001 ffff SRAM2
-        0x2000 0000 - 0x2001 bfff SRAM1
-
-        For the test samples we choose the following scheme:
-        0x2000 0000 - 0x2000 1000 -> code  [4 k]
-        0x2000 1000 - 0x2000 2000 -> stack [4 k]
-        0x2000 2000 - 0x2001 ffff -> data  [120 k]
-    """
-    def setUp(self):
-        if stlink_run_sram_and_trace is None:
-            self.skipTest('stlink not loaded')
-
-    march = "thumb"
-    startercode = """
-    section reset
-    BL sample_start     ; Branch to sample start
-    BL arch_exit  ; do exit stuff
-    local_loop:
-    B local_loop
-    """
-
-    arch_mmap = """
-    MEMORY code LOCATION=0x20000000 SIZE=0x1000
-    {
-        SECTION(reset)
-        ALIGN(4)
-        SECTION(code)
-    }
-
-    MEMORY ram LOCATION=0x20002000 SIZE=0x1E000
-    {
-        SECTION(data)
-    }
-    """
-    arch_c3 = relpath('data', 'stm32f4xx', 'arch.c3')
-
-    def run_sample(self, sample_filename):
-        # Run bin file in emulator:
-        # res = run_qemu(sample_filename, machine='lm3s811evb')
-        # self.assertEqual(expected_output, res)
-        self.skipTest('Not functional yet')
-        with open(sample_filename, 'rb') as f:
-            image = f.read()
-        out = io.StringIO()
-        stlink_run_sram_and_trace(image, output=out)
-        return out.getvalue()
 
 
 class TestSamplesOnPython(unittest.TestCase, Samples):

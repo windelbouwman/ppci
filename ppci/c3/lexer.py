@@ -25,7 +25,7 @@ class Lexer(BaseLexer):
         ops.extend(Assignment.operators)
         op_txt2 = '|'.join(re.escape(op) for op in ops)
         op_txt = r'==|->|<<|>>|!=|' + op_txt2
-        op_txt += r'|\+\+|[\.,=:;\-+*\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
+        op_txt += r'|\+\+|[\.,=:;\-+*%\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
         # print(op_txt)
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
@@ -47,7 +47,7 @@ class Lexer(BaseLexer):
         filename = input_file.name if hasattr(input_file, 'name') else ''
         s = input_file.read()
         input_file.close()
-        self.diag.addSource(filename, s)
+        self.diag.add_source(filename, s)
         self.filename = filename
         return self.tokenize(s)
 

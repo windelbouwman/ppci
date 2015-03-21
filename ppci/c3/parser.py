@@ -28,11 +28,12 @@ class Parser:
         self.tokens = tokens
         self.token = self.tokens.__next__()
         try:
-            self.parse_module(context)
+            module = self.parse_module(context)
             self.logger.debug('Parsing complete')
         except CompilerError as ex:
-            self.diag.addDiag(ex)
+            self.diag.add_diag(ex)
             raise
+        return module
 
     def error(self, msg, loc=None):
         """ Raise an error at the current location """
@@ -85,6 +86,7 @@ class Parser:
         while self.peak != 'EOF':
             self.parse_top_level()
         self.consume('EOF')
+        return self.mod
 
     def parse_top_level(self):
         """ Parse toplevel declaration """
@@ -394,7 +396,7 @@ class Parser:
     def parse_term(self):
         """ Parse a term in an expression """
         lhs = self.parse_bitwise_or()
-        while self.peak in ['*', '/']:
+        while self.peak in ['*', '/', '%']:
             op = self.consume(self.peak)
             rhs = self.parse_bitwise_or()
             lhs = Binop(lhs, op.typ, rhs, op.loc)
@@ -411,7 +413,7 @@ class Parser:
 
     def BitwiseAnd(self):
         lhs = self.parse_cast_expression()
-        while self.peak == '&':
+        while self.peak in ['&', '^']:
             op = self.consume(self.peak)
             b = self.parse_cast_expression()
             lhs = Binop(lhs, op.typ, b, op.loc)

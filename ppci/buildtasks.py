@@ -108,7 +108,7 @@ class LinkTask(Task):
         output_filename = self.relpath(self.get_argument('output'))
 
         try:
-            output_obj = link(objects, layout, target)
+            output_obj = link(objects, layout, target, use_runtime=True)
         except CompilerError as err:
             raise TaskError(err.msg)
 

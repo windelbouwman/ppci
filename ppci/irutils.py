@@ -8,24 +8,6 @@ from . import ir
 from .domtree import CfgInfo
 
 
-def dumpgv(m, outf):
-    print('digraph G ', file=outf)
-    print('{', file=outf)
-    for f in m.Functions:
-        print('{} [label="{}" shape=box3d]'.format(id(f), f), file=outf)
-        for bb in f.Blocks:
-            contents = str(bb) + '\n'
-            contents += '\n'.join([str(i) for i in bb.Instructions])
-            print('{0} [shape=note label="{1}"];'
-                  .format(id(bb), contents), file=outf)
-            for successor in bb.Successors:
-                print('"{}" -> "{}"'.format(id(bb), id(successor)), file=outf)
-
-        print('"{}" -> "{}" [label="entry"]'
-              .format(id(f), id(f.entry)), file=outf)
-    print('}', file=outf)
-
-
 class Writer:
     """ Write ir-code to file """
     def __init__(self, extra_indent=''):

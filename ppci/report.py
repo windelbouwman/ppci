@@ -114,27 +114,3 @@ class RstFormatter(logging.Formatter):
             print('', file=f)
             s += '\n' + f.getvalue()
         return s
-
-
-def generate_sphinx_docs():
-    """ Generate report and convert it to pdf directly """
-    from sphinx import quickstart
-    d = dict(
-        path = 'build',
-        sep  = False,
-        dot  = '_',
-        project = opts.header,
-        author = 'Author',
-        version = '0',
-        release = '0',
-        suffix = '.rst',
-        master = 'index',
-        epub = False,
-        ext_autodoc = True,
-        ext_viewcode = True,
-        makefile = True,
-        batchfile = True,
-        mastertocmaxdepth = 1,
-        mastertoctree = text,
-    )
-    quickstart.generate(d)

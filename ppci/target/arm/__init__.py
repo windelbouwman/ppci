@@ -1,5 +1,5 @@
 
-from ..basetarget import Target, Label
+from .. import Target, Label
 from .instructions import LdrPseudo, isa
 from .instructions import ArmInstructionSelector
 from .frame import ArmFrame
@@ -16,20 +16,15 @@ from .relocations import reloc_map
 class ArmAssembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
-
-        kws = [
+        kws = list(isa.calc_kws())
+        kws += [
             "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
             "r10", "r11", "r12", "sp", "lr", "pc",
             "dcd", 'db', 'ds',
             "nop", "mov", "cmp", "add", "sub", "mul",
-            "lsl", "lsr", "orr", "and",
-            "push", "pop", "b", "bl",
-            "blt", "ble", "bgt", "beq", "bge", "bne",
-            "ldr", "str", "adr", 'ldrb', 'strb',
             "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9",
             "c10", "c11", "c12", "c13", "c14", "c15",
             "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15",
-            "mcr", "mrc"
             ]
         self.parser.assembler = self
         self.gen_asm_parser(isa)
@@ -157,3 +152,43 @@ class ArmTarget(Target):
             outs.emit(Ds(amount))
         else:
             raise NotImplementedError()
+
+    def get_runtime_src(self):
+        """ Implement compiler runtime functions """
+        # TODO: redesign this whole thing
+        src = """
+        __sdiv:
+        ; Divide r1 by r2
+        ; R4 is a work register.
+        ; r0 is the quotient
+        mov r0, 0       ; Initialize the result
+        mov r3, 1
+
+        mov r4, r2      ; mov divisor into temporary register.
+
+        ; Blow up part: blow up divisor until it is larger than the divident.
+        __sdiv_inc:
+        cmp r4, r1      ; If r4 < r1, then, shift left once more.
+        bls __sdiv_lsl
+        b __sdiv_dec
+        __sdiv_lsl:
+        lsl r4, r4, r3
+        b __sdiv_inc
+
+        ; Repeatedly substract shifted versions of divisor
+        __sdiv_dec:
+        cmp r1, r4      ; Can we substract the current temp value?
+        blt __sdiv_skip
+        sub r1, r1, r4  ; Substract temp from divisor
+        add r0, r0, 1   ; Add 1 to result
+        __sdiv_skip:
+        lsr r4, r4, r3  ; Shift right one
+        lsl r0, r0, r3  ; Shift result left.
+        __skip_check:
+        cmp r4, r2      ; Is temp less than divisor?
+        bgt __sdiv_dec  ; If so, repeat.
+
+        mov pc, lr      ; Return from function.
+        """
+        return src
+

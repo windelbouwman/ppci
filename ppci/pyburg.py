@@ -36,7 +36,8 @@ The 'a' in the example above indicates an open connection to a next tree
 pattern.
 
 
-In the example above 'reg' is a non-terminal. ADDI32 is a terminal. non-terminals
+In the example above 'reg' is a non-terminal. ADDI32 is a terminal.
+non-terminals
 cannot have child nodes. A special case occurs in this case:
 
     reg -> rc
@@ -48,7 +49,8 @@ The generated matcher uses dynamic programming to find the best match of the
 tree. This strategy consists of two steps:
 
   - label: During this phase the given tree is traversed in a bottom up way.
-    each node is labelled with a possible matching rule and the corresponding cost.
+    each node is labelled with a possible matching rule and the corresponding
+    cost.
   - select: In this step, the tree is traversed again, selecting at each point
     the cheapest way to get to the goal.
 
@@ -64,7 +66,8 @@ from ppci import baselex, pyyacc
 from ppci.tree import Tree
 
 # Generate parser on the fly:
-spec_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'burg.grammar')
+spec_file = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'burg.grammar')
 burg_parser = pyyacc.load_as_module(spec_file)
 
 
@@ -99,7 +102,8 @@ class BurgLexer(baselex.BaseLexer):
                 if section == 0:
                     header_lines.append(line)
                 else:
-                    # we could use yield from below, but python 3.2 does not work then:
+                    # we could use yield from below, but python 3.2 does not
+                    # work then:
                     for tk in super().tokenize(line):
                         yield tk
 
@@ -359,7 +363,6 @@ class BurgGenerator:
                 k.extend(kf)
             return k, nts
 
-
     def emittest(self, tree, prefix):
         """ Generate condition for a tree pattern """
         ct = (c for c in tree.children if c.name not in self.system.non_terminals)
@@ -373,11 +376,12 @@ class BurgGenerator:
 
 def make_argument_parser():
     """ Constructs an argument parser """
-    parser = argparse.ArgumentParser(description='pyburg bottom up rewrite system generator compiler compiler')
-    parser.add_argument('source', type=argparse.FileType('r'), \
-      help='the parser specification')
-    parser.add_argument('-o', '--output', type=argparse.FileType('w'), \
-        default=sys.stdout)
+    parser = argparse.ArgumentParser(
+        description='pyburg bottom up rewrite system generator')
+    parser.add_argument(
+        'source', type=argparse.FileType('r'), help='the parser specification')
+    parser.add_argument(
+        '-o', '--output', type=argparse.FileType('w'), default=sys.stdout)
     return parser
 
 

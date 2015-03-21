@@ -1,4 +1,8 @@
 
+"""
+    Python back-end.
+"""
+
 from . import ir
 
 
@@ -85,7 +89,8 @@ class IrToPython:
             else:
                 self.print(3, '{} = {}'.format(ins.name, ins.value))
         elif isinstance(ins, ir.Binop):
-            self.print(3, '{} = {} {} {}'.format(
+            # Assume int for now.
+            self.print(3, '{} = int({} {} {})'.format(
                 ins.name, ins.a.name, ins.operation, ins.b.name))
             # Implement wrapping around zero:
             if ins.ty.byte_size == 1:
@@ -105,9 +110,12 @@ class IrToPython:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Load):
             if ins.ty.byte_size == 1:
-                self.print(3, '{} = mem[{}]'.format(ins.name, ins.address.name))
+                self.print(
+                    3, '{} = mem[{}]'.format(ins.name, ins.address.name))
             elif ins.ty.byte_size == 4:
-                self.print(3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'.format(ins.name, ins.address.name))
+                self.print(
+                    3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'
+                    .format(ins.name, ins.address.name))
             else:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Call):

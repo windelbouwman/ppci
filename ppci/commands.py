@@ -2,6 +2,7 @@
     Contains the command line interface functions.
 """
 import sys
+import platform
 import argparse
 import logging
 
@@ -9,9 +10,14 @@ from .report import RstFormatter
 from .buildfunctions import construct
 from .buildfunctions import c3compile
 from .buildfunctions import assemble
+from .utils.hexfile import HexFile
 from .tasks import TaskError
 from . import version
 from .common import logformat
+
+
+description = 'ppci {} compiler on {} {}'.format(
+    version, platform.python_implementation(), platform.python_version())
 
 
 def log_level(s):
@@ -39,7 +45,7 @@ class ColoredFormatter(logging.Formatter):
     """ Custom formatter that makes vt100 coloring to log messages """
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     colors = {
-        'INFO': GREEN,
+        'INFO': WHITE,
         'WARNING': YELLOW,
         'ERROR': RED
     }
@@ -55,10 +61,9 @@ class ColoredFormatter(logging.Formatter):
         return msg
 
 
-def build():
+def build(args=None):
     """ Run the build command from command line. Used by ppci-build.py """
-    parser = argparse.ArgumentParser(
-        description='ppci {} compiler'.format(version))
+    parser = argparse.ArgumentParser(description=description)
 
     add_common_parser_options(parser)
     parser.add_argument(
@@ -66,18 +71,17 @@ def build():
         help='use buildfile, otherwise build.xml is the default',
         default='build.xml')
     parser.add_argument('targets', metavar='target', nargs='*')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     logger = logging.getLogger()
     with LogSetup(args):
-        logger.info(parser.description)
+        logger.info(description)
         logger.debug('Arguments: {}'.format(args))
         construct(args.buildfile, args.targets)
 
 
-def c3c():
+def c3c(args=None):
     """ Run c3 compile task """
-    parser = argparse.ArgumentParser(
-        description='ppci {} compiler'.format(version))
+    parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
 
     parser.add_argument('--target', help='target machine', required=True)
@@ -88,9 +92,9 @@ def c3c():
                         help='include file', default=[])
     parser.add_argument('sources', metavar='source',
                         help='source file', nargs='+')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(parser.description)
+        logging.getLogger().info(description)
 
         # Compile sources:
         obj = c3compile(args.sources, args.include, args.target)
@@ -100,16 +104,19 @@ def c3c():
         args.output.close()
 
 
-def asm():
+def asm(args=None):
     """ Run asm from command line """
-    parser = argparse.ArgumentParser(description="Assembler")
+    parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
     parser.add_argument('--target', help='target machine', required=True)
-    args = parser.parse_args()
+    parser.add_argument('--output', '-o', help='output file',
+                        type=argparse.FileType('w'),
+                        default=sys.stdout)
+    args = parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(parser.description)
+        logging.getLogger().info(description)
 
         # Assemble source:
         obj = assemble(args.sourcefile, args.target)
@@ -117,6 +124,67 @@ def asm():
         # Write object file to disk:
         obj.save(args.output)
         args.output.close()
+
+
+def hexutil(args=None):
+    def hex2int(s):
+        if s.startswith('0x'):
+            s = s[2:]
+            return int(s, 16)
+        raise ValueError('Hexadecimal value must begin with 0x')
+
+    parser = argparse.ArgumentParser(
+       description='hexfile manipulation tool by Windel Bouwman')
+    subparsers = parser.add_subparsers(
+        title='commands',
+        description='possible commands', dest='command')
+
+    p = subparsers.add_parser('info', help='dump info about hexfile')
+    p.add_argument('hexfile', type=argparse.FileType('r'))
+
+    p = subparsers.add_parser('new', help='create a hexfile')
+    p.add_argument('hexfile', type=argparse.FileType('w'))
+    p.add_argument('address', type=hex2int, help="hex address of the data")
+    p.add_argument(
+        'datafile', type=argparse.FileType('rb'), help='binary file to add')
+
+    p = subparsers.add_parser('merge', help='merge two hexfiles into a third')
+    p.add_argument('hexfile1', type=argparse.FileType('r'), help="hexfile 1")
+    p.add_argument('hexfile2', type=argparse.FileType('r'), help="hexfile 2")
+    p.add_argument(
+        'rhexfile', type=argparse.FileType('w'), help="resulting hexfile")
+
+    args = parser.parse_args(args)
+    if not args.command:
+        parser.print_usage()
+        sys.exit(1)
+
+    if args.command == 'info':
+        hexfile = HexFile()
+        hexfile.load(args.hexfile)
+        print(hexfile)
+        for region in hexfile.regions:
+            print(region)
+    elif args.command == 'new':
+        hexfile = HexFile()
+        data = args.datafile.read()
+        hexfile.add_region(args.address, data)
+        hexfile.save(args.hexfile)
+    elif args.command == 'merge':
+        # Load first hexfile:
+        hexfile1 = HexFile()
+        hexfile1.load(args.hexfile1)
+
+        # Load second hexfile:
+        hexfile2 = HexFile()
+        hexfile2.load(args.hexfile2)
+
+        hexfile = HexFile()
+        hexfile.merge(hexfile1)
+        hexfile.merge(hexfile2)
+        hexfile.save(args.rhexfile)
+    else:
+        raise NotImplementedError()
 
 
 class LogSetup:
@@ -161,4 +229,3 @@ class LogSetup:
         # exit code when error:
         if err:
             sys.exit(1)
-            return True

@@ -86,7 +86,6 @@ class Graph:
         # deg = len(self.adjecent(node))
         deg2 = self.degree_map[node]
         # TODO: use the degree_map here!
-        # print('get degree', deg, deg2)
         # assert deg == deg2, '{} != {}'.format(deg, deg2)
         return deg2
 

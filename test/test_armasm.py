@@ -55,7 +55,12 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('and r4, r8, r6')
         self.check('029000e0 064008e0')
 
-    def testOrr1(self):
+    def test_sdiv(self):
+        self.feed('sdiv r2, r5, r4')
+        self.feed('sdiv r3, r1, r9')
+        self.check('15f412e7 11f913e7')
+
+    def test_orr1(self):
         self.feed('orr r8, r7, r6')
         self.check('068087e1')
 
@@ -166,11 +171,32 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('mrc p14, 0, r1, c8, c7, 0')
         self.check('101f12ee 171e18ee')
 
-    def testRepeat(self):
+    def test_repeat(self):
+        """ Check if macro repeat works correctly """
         self.feed('repeat 0x5')
         self.feed('dcd 0x11')
         self.feed('endrepeat')
         self.check('11000000 11000000 11000000 11000000 11000000')
+
+    @unittest.skip('Fix lsr postfix')
+    def test_div_routine(self):
+        self.feed('div:')
+        self.feed('  mov r4, r2')
+        self.feed('  cmp r4, r1, lsr #1')
+        self.feed('div_90:')
+        self.feed('  movls r4, r4, lsl #1')
+        self.feed('  cmp r4, r1, lsr #1')
+        self.feed('  bls div_90')
+        self.feed('  mov r3, #0')
+        self.feed('div_91:')
+        self.feed('  cmp r1, r4')
+        self.feed('  subcs r1, r1, r4')
+        self.feed('  adc r3, r3, r3')
+        self.feed('  mov r4, r4, lsr #1')
+        self.feed('  cmp r4, r2')
+        self.feed('  bhs div_91')
+        self.check('0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3 040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a')
+
 
 
 if __name__ == '__main__':

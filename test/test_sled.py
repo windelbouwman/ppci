@@ -1,9 +1,9 @@
 import unittest
 import sys
-from ppci.gen_sled import Spec, Generator, pattern, Constructor
+from ppci.gen_sled import Spec, pattern, Constructor
 from ppci.gen_sled import Token
 
-from ppci.target.basetarget import Instruction
+from ppci.target import Instruction, register_argument
 
 
 AL = 0xE
@@ -15,7 +15,6 @@ class ArmToken(Token):
 
 
 class ArmInstruction(Instruction):
-    args = []
     tokens = [ArmToken]
 
 
@@ -25,17 +24,22 @@ class Register:
 
 
 class Arith(ArmInstruction):
-    args = [('rd', Register), ('rn', Register), ('rm', Register)]
     cond = AL
 
 
 class Add(Arith):
-    syntax = ['add', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', Register, write=True)
+    rn = register_argument('rn', Register, read=True)
+    rm = register_argument('rm', Register, read=True)
+    syntax = ['add', rd, ',', rn, ',', rm]
     opcode = 2
 
 
 class Sub(Arith):
-    syntax = ['sub', 0, ',', 1, ',', 2]
+    rd = register_argument('rd', Register, write=True)
+    rn = register_argument('rn', Register, read=True)
+    rm = register_argument('rm', Register, read=True)
+    syntax = ['sub', rd, ',', rn, ',', rm]
     opcode = 4
 
 
@@ -54,7 +58,7 @@ add2 = Add(r0, r0, r0)
 
 
 class SledTestCase(unittest.TestCase):
-    def testSpecApi(self):
+    def test_spec_api(self):
         """ Drive the cpu spec api.
             Take as an example the arm add instruction.
         """
@@ -91,12 +95,10 @@ class SledTestCase(unittest.TestCase):
 
         # Create new instance:
         add1 = add(r1, r2, r0)
-        print('new ins:', add1)
+        # print('new ins:', add1)
         #self.assertEqual(bytes([0xe, 0x82, 0x10, 0x0]), add1.encode())
 
         # Generate things?
-        sg = Generator()
-        #target = sg.generate(spec)
 
         # Generated code usage:
         #parse("add r1, r2, r0")

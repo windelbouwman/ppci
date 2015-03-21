@@ -28,15 +28,17 @@ class RegisterAllocator:
         - (optional) spill registers
         - select registers
 
+        TODO: Implement different register classes
     """
     def __init__(self):
         self.logger = logging.getLogger('registerallocator')
 
     def InitData(self, f):
         self.f = f
+
         # Register information:
-        self.regs = set(f.regs)
-        self.K = len(self.regs)
+        self.reg_colors = set(reg.color for reg in f.regs)
+        self.K = len(self.reg_colors)
 
         # Move related sets:
         self.coalescedMoves = set()
@@ -59,8 +61,8 @@ class RegisterAllocator:
         self.Node = self.f.ig.get_node
 
         # Divide nodes into pre-colored and initial:
-        pre_tmp = list(self.f.tempMap.keys())
-        self.precolored = set(self.Node(tmp) for tmp in pre_tmp)
+        self.precolored = set(node for node in self.f.ig.nodes if
+            node.color is not None)
         self.initial = set(self.f.ig.nodes - self.precolored)
 
         # TODO: do not add the pre colored nodes at all.
@@ -70,17 +72,21 @@ class RegisterAllocator:
 
         # Initialize color map:
         self.color = {}
-        for tmp, color in self.f.tempMap.items():
-            self.color[self.Node(tmp)] = color
+        for node in self.precolored:
+            self.color[node] = node.color
 
         self.moves = [i for i in self.f.instructions if i.ismove]
         for mv in self.moves:
-            src = self.Node(mv.src[0])
-            dst = self.Node(mv.dst[0])
+            src = self.Node(mv.used_registers[0])
+            dst = self.Node(mv.defined_registers[0])
             # assert src in self.initial | self.precolored
             # assert dst in self.initial | self.precolored, str(dst)
             src.moves.add(mv)
             dst.moves.add(mv)
+
+    def has_edge(self, t, r):
+        """ Helper function to make has edge simpler """
+        return self.f.ig.has_edge(t, r)
 
     def makeWorkList(self):
         """ Divide initial nodes into worklists """
@@ -142,25 +148,25 @@ class RegisterAllocator:
             only when no spill will occur.
         """
         m = first(self.worklistMoves)
-        x = self.Node(m.dst[0])
-        y = self.Node(m.src[0])
+        x = self.Node(m.defined_registers[0])
+        y = self.Node(m.used_registers[0])
         # self.logger.debug('Coalescing {} and {}'.format(x, y))
         u, v = (y, x) if y in self.precolored else (x, y)
         self.worklistMoves.remove(m)
         if u is v:
-            self.logger.debug('u == v')
             self.coalescedMoves.add(m)
             self.add_worklist(u)
-        elif v in self.precolored or self.f.ig.has_edge(u, v):
+        elif v in self.precolored or self.has_edge(u, v):
             # self.logger.debug('Constrained')
             self.constrainedMoves.add(m)
             self.add_worklist(u)
             self.add_worklist(v)
-        elif (u in self.precolored and all(self.Ok(t, u) for t in v.Adjecent)) or \
-                (u not in self.precolored and self.Conservative(u, v)):
+        elif (u in self.precolored and
+                all(self.Ok(t, u) for t in v.Adjecent)) or \
+                (u not in self.precolored and self.conservative(u, v)):
             # self.logger.debug('Combining {} and {}'.format(u, v))
             self.coalescedMoves.add(m)
-            self.Combine(u, v)
+            self.combine(u, v)
             self.add_worklist(u)
         else:
             # self.logger.debug('Active move?')
@@ -176,16 +182,15 @@ class RegisterAllocator:
         """ Implement coalescing testing with pre-colored register """
         return t.Degree < self.K or \
             t in self.precolored or \
-            self.f.ig.has_edge(t, r)
+            self.has_edge(t, r)
 
-    def Conservative(self, u, v):
+    def conservative(self, u, v):
         """ Briggs conservative criteria for coalesc """
         nodes = u.Adjecent | v.Adjecent
-        c = lambda n: n.Degree >= self.K
-        k = len(list(filter(c, nodes)))
+        k = len(list(filter(lambda n: n.Degree >= self.K, nodes)))
         return k < self.K
 
-    def Combine(self, u, v):
+    def combine(self, u, v):
         """ Combine u and v into one node, updating work lists """
         # self.logger.debug('{} has degree {}'.format(v, v.Degree))
         if v in self.freezeWorklist:
@@ -233,29 +238,33 @@ class RegisterAllocator:
     def SelectSpill(self):
         raise NotImplementedError("Spill is not implemented")
 
-    def AssignColors(self):
+    def assign_colors(self):
         """ Add nodes back to the graph to color it. """
         while self.selectStack:
             node = self.selectStack.pop(-1)  # Start with the last added
             self.f.ig.unmask_node(node)
             takenregs = set(self.color[m] for m in node.Adjecent)
-            okColors = self.regs - takenregs
+            okColors = self.reg_colors - takenregs
             if okColors:
                 self.color[node] = first(okColors)
                 node.color = self.color[node]
+                assert type(node.color) is int
             else:
                 raise NotImplementedError('Spill required here!')
 
     def ApplyColors(self):
+        """ Assign colors to registers """
         # Remove coalesced moves:
         for mv in self.coalescedMoves:
             self.f.instructions.remove(mv)
 
-        # Use allocated registers:
-        lookup = lambda t: self.color[self.Node(t)]
-        for i in self.f.instructions:
-            i.src = tuple(map(lookup, i.src))
-            i.dst = tuple(map(lookup, i.dst))
+        # Apply all colors:
+        for node in self.f.ig:
+            for reg in node.temps:
+                if reg.is_colored:
+                    assert reg.color == node.color
+                else:
+                    reg.set_color(node.color)
 
     def check_invariants(self):
         """ Test invariants """
@@ -291,5 +300,5 @@ class RegisterAllocator:
             else:
                 break   # Done!
         self.logger.debug('Now assinging colors')
-        self.AssignColors()
+        self.assign_colors()
         self.ApplyColors()

@@ -1,5 +1,4 @@
-from ..basetarget import Label, Alignment
-from ...irmach import AbstractInstruction, Frame, VirtualRegister
+from .. import Label, Alignment, Frame
 from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2, Bl
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
 
@@ -11,20 +10,13 @@ class ArmFrame(Frame):
         super().__init__(name)
         # Registers usable by register allocator:
         self.regs = [R0, R1, R2, R3, R4, R5, R6]
-        self.rv = VirtualRegister('special_RV')
-        self.p1 = VirtualRegister('special_P1')
-        self.p2 = VirtualRegister('special_P2')
-        self.p3 = VirtualRegister('special_P3')
-        self.p4 = VirtualRegister('special_P4')
-        self.fp = VirtualRegister('special_FP')
-        # Pre-colored registers:
-        self.tempMap = {}
-        self.tempMap[self.rv] = R0
-        self.tempMap[self.p1] = R1
-        self.tempMap[self.p2] = R2
-        self.tempMap[self.p3] = R3
-        self.tempMap[self.p4] = R4
-        self.tempMap[self.fp] = R7
+        self.rv = R0
+        self.p1 = R1
+        self.p2 = R2
+        self.p3 = R3
+        self.p4 = R4
+        self.fp = R7
+
         self.locVars = {}
         self.parMap = {}
         # Literal pool:
@@ -32,7 +24,11 @@ class ArmFrame(Frame):
         self.literal_number = 0
 
     def move(self, dst, src):
-        self.emit(Mov2, src=[src], dst=[dst], ismove=True)
+        self.emit(Mov2(dst, src, ismove=True))
+
+    def new_virtual_register(self, twain=""):
+        """ Retrieve a new virtual register """
+        return super().new_virtual_register(type(R0), twain=twain)
 
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence """
@@ -41,14 +37,14 @@ class ArmFrame(Frame):
         reg_uses = []
         for i, arg in enumerate(args):
             arg_loc = self.arg_loc(i)
-            if type(arg_loc) is VirtualRegister:
+            if type(arg_loc) is type(R0):
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
             else:
                 raise NotImplementedError('Parameters in memory not impl')
         # Caller save registers:
         self.emit(Push({R1, R2, R3, R4}))
-        self.emit(Bl(label), src=reg_uses, dst=[self.rv])
+        self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
         self.emit(Pop({R1, R2, R3, R4}))
         self.move(res_var, self.rv)
 
@@ -160,7 +156,7 @@ class ArmFrame(Frame):
             return instruction and the stack pointer adjustment for the frame.
         """
         for index, ins in enumerate(self.prologue()):
-            self.instructions.insert(index, AbstractInstruction(ins))
+            self.instructions.insert(index, ins)
 
         # Postfix code (this uses the emit function):
         self.epilogue()
