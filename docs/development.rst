@@ -43,3 +43,9 @@ PYTHONPATH
     $ export PYTHONPATH=your_ppci_root
     $ cd docs
     $ sphinx-build -b html . build
+
+Alternatively the tox docs environment can be used:
+
+.. code:: bash
+
+    $ tox -e docs

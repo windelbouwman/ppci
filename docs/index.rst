@@ -26,6 +26,7 @@ Table of contents
     :maxdepth: 2
 
     self
+    installation
     usage
     c3
     buildxml
