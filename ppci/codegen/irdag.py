@@ -5,8 +5,8 @@
 """
 import logging
 
-from . import ir
-from .target import Label, Register
+from .. import ir
+from ..target import Label, Register
 from .tree import Tree
 
 

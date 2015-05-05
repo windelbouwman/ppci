@@ -3,7 +3,7 @@
 """
 
 import logging
-from . import ir
+from .. import ir
 
 
 # Standard passes:

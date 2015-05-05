@@ -63,7 +63,7 @@ import types
 import argparse
 from ppci.common import Token, SourceLocation
 from ppci import baselex, pyyacc
-from ppci.tree import Tree
+from ppci.codegen.tree import Tree
 
 # Generate parser on the fly:
 spec_file = os.path.join(
@@ -275,7 +275,7 @@ class BurgGenerator:
         self.system = system
 
         self.print('#!/usr/bin/python')
-        self.print('from ppci.tree import Tree, BaseMatcher, State')
+        self.print('from ppci.codegen.tree import Tree, BaseMatcher, State')
         for header in self.system.header_lines:
             self.print(header)
         self.print()

@@ -7,11 +7,7 @@ from ppci.binutils.layout import load_layout
 
 class ArmAssemblerTestCase(AsmTestCaseBase):
     """ ARM-mode (not thumb-mode) instruction assembly test case """
-    def setUp(self):
-        super().setUp()
-        self.target = arm_target
-        self.assembler = arm_target.assembler
-        self.assembler.prepare()
+    target = arm_target
 
     def testMovImm(self):
         self.feed('mov r4, 100')

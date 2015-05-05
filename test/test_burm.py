@@ -3,10 +3,11 @@ import io
 import os
 import argparse
 
-from ppci.tree import Tree, from_string
+from ppci.codegen.tree import Tree, from_string
 from ppci import pyburg
 
 brg_file = os.path.join(os.path.dirname(__file__), 'data', 'sample4.brg')
+
 
 class testBURG(unittest.TestCase):
     def testSample4(self):

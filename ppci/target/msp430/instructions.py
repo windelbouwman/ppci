@@ -1,10 +1,11 @@
 
-from .. import Register, Instruction, Target, Isa
+from .. import Instruction, Isa, register_argument
 from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register
 
 isa = Isa()
 isa.typ2nt[Msp430Register] = 'reg'
+isa.typ2nt[str] = 'strrr'
 
 
 class Msp430Token(Token):
@@ -35,7 +36,7 @@ class Msp430Operand:
     pass
 
 
-class Msp430DestinationOperand(Msp430Operand):
+class DestinationOperand(Msp430Operand):
     def __init__(self, param):
         if isinstance(param, Msp430Register):
             self.reg = param.num
@@ -43,9 +44,18 @@ class Msp430DestinationOperand(Msp430Operand):
         else:
             raise Exception()
 
+isa.typ2nt[DestinationOperand] = 'dst'
 
-class Msp430SourceOperand(Msp430Operand):
-    def __init__(self, param):
+
+def optional(x):
+    pass
+
+
+class SourceOperand(Msp430Operand):
+    # TODO: make this work!
+    syntax = ['reg'], [optional('@'), 'reg']
+
+    def __init__(self, param, auto_inc=False, deref=False):
         if isinstance(param, Msp430Register):
             self.reg = param.num
             self.As = 0
@@ -57,22 +67,12 @@ class Msp430SourceOperand(Msp430Operand):
         else:
             raise Exception()
 
+isa.typ2nt[SourceOperand] = 'src'
 
 class Msp430Instruction(Instruction):
     isa = isa
     b = 0
     tokens = [Msp430Token]
-
-    def __init__(self):
-        self.token = Msp430Token()
-
-
-class Reti(Msp430Instruction):
-    syntax = ['reti']
-
-    def encode(self):
-        self.token[0:16] = 0x1300
-        return self.token.encode()
 
 
 #########################
@@ -80,10 +80,6 @@ class Reti(Msp430Instruction):
 #########################
 
 class JumpInstruction(Msp430Instruction):
-    def __init__(self, target):
-        super().__init__()
-        self.target = target
-
     def encode(self):
         self.token.condition = self.condition
         self.token.offset = 0
@@ -94,36 +90,21 @@ class JumpInstruction(Msp430Instruction):
         return [(self.target, 'msp_reloc')]
 
 
-class Jnz(JumpInstruction):
-    condition = 0
+def create_jump_instruction(name, condition):
+    label = register_argument('target', str)
+    syntax = [name, label]
+    members = {'syntax': syntax, 'label': label, 'condition': condition}
+    return type(name + '_ins', (JumpInstruction, ), members)
 
 
-class Jz(JumpInstruction):
-    condition = 1
-
-
-class Jnc(JumpInstruction):
-    condition = 2
-
-
-class Jc(JumpInstruction):
-    condition = 3
-
-
-class Jn(JumpInstruction):
-    condition = 4
-
-
-class Jge(JumpInstruction):
-    condition = 5
-
-
-class Jl(JumpInstruction):
-    condition = 6
-
-
-class Jmp(JumpInstruction):
-    condition = 7
+Jne = create_jump_instruction('jne', 0)
+Jz = create_jump_instruction('jz', 1)
+Jnc = create_jump_instruction('jnc', 2)
+Jc = create_jump_instruction('jc', 3)
+Jn = create_jump_instruction('jn', 4)
+Jge = create_jump_instruction('jge', 5)
+Jl = create_jump_instruction('jl', 6)
+Jmp = create_jump_instruction('jmp', 7)
 
 
 #########################
@@ -132,9 +113,6 @@ class Jmp(JumpInstruction):
 
 
 class OneOpArith(Msp430Instruction):
-    def __init__(self, op1):
-        self.op1 = op1
-
     def encode(self):
         # TODO:
         bits[15:10] = '00100'
@@ -148,15 +126,20 @@ def oneOpIns(mne, opcode):
     return type(mne + '_ins', (OneOpArith,), members)
 
 
-class rrr_ins(OneOpArith):
-    opcode = 0
+Rrr = oneOpIns('rrc', 0)
+Swpb = oneOpIns('swpb', 1)
+Rra = oneOpIns('rra', 2)
+Sxt = oneOpIns('sxt', 3)
+Push = oneOpIns('push', 4)
+Call = oneOpIns('call', 5)
 
 
-oneOpIns('swpb', 1)
-oneOpIns('rra', 2)
-oneOpIns('sxt', 3)
-oneOpIns('push', 4)
-oneOpIns('call', 5)
+class Reti(Msp430Instruction):
+    syntax = ['reti']
+
+    def encode(self):
+        self.token[0:16] = 0x1300
+        return self.token.encode()
 
 
 #########################
@@ -165,11 +148,6 @@ oneOpIns('call', 5)
 
 
 class TwoOpArith(Msp430Instruction):
-    def __init__(self, src, dst):
-        super().__init__()
-        self.src = Msp430SourceOperand(src)
-        self.dst = Msp430DestinationOperand(dst)
-
     def encode(self):
         """
             Smart things have been done by MSP430 designers.
@@ -181,7 +159,7 @@ class TwoOpArith(Msp430Instruction):
             different modes.
         """
         # TODO: Make memory also possible
-        self.token.bw = self.b # When b=1, the operation is byte mode
+        self.token.bw = self.b  # When b=1, the operation is byte mode
         self.token.As = self.src.As
         self.token.Ad = self.dst.Ad
         self.token.destination = self.dst.reg
@@ -192,25 +170,22 @@ class TwoOpArith(Msp430Instruction):
 
 def twoOpIns(mne, opc):
     """ Helper function to define a two operand arithmetic instruction """
-    syntax = [mne]
-    members = {'opcode': opc, 'syntax': syntax}
+    src = register_argument('src', SourceOperand)
+    dst = register_argument('dst', DestinationOperand)
+    syntax = [mne, src, ',', dst]
+    members = {'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax}
     return type(mne + '_ins', (TwoOpArith,), members)
 
 
 Mov = twoOpIns('mov', 4)
 Add = twoOpIns('add', 5)
 Addc = twoOpIns('addc', 6)
-twoOpIns('subc', 7)
-twoOpIns('sub', 8)
-
-
-class Cmp(TwoOpArith):
-    opcode = 9
-
-
-twoOpIns('dadd', 10)
-twoOpIns('bit', 11)
-twoOpIns('bic', 12)
-twoOpIns('bis', 13)
-twoOpIns('xor', 14)
-twoOpIns('and', 15)
+Subc = twoOpIns('subc', 7)
+Sub = twoOpIns('sub', 8)
+Cmp = twoOpIns('cmp', 9)
+Dadd = twoOpIns('dadd', 10)
+Bit = twoOpIns('bit', 11)
+Bic = twoOpIns('bic', 12)
+Bis = twoOpIns('bis', 13)
+Xor = twoOpIns('xor', 14)
+And = twoOpIns('and', 15)

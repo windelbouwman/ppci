@@ -68,6 +68,10 @@ class AsmTestCaseBase(unittest.TestCase):
         self.ostream = BinaryOutputStream(self.obj)
         self.ostream.select_section('code')
 
+        # Prep assembler!
+        self.assembler = self.target.assembler
+        self.assembler.prepare()
+
     def feed(self, line):
         self.assembler.assemble(line, self.ostream)
         print(line, file=self.source)

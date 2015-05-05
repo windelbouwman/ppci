@@ -11,13 +11,13 @@ from .c3 import Builder
 from .bf import BrainFuckGenerator
 from .irutils import Verifier, Writer
 from .codegen import CodeGenerator
-from .transform import DeleteUnusedInstructionsPass
-from .transform import RemoveAddZeroPass
-from .transform import CommonSubexpressionEliminationPass
-from .transform import ConstantFolder
-from .transform import LoadAfterStorePass
-from .transform import CleanPass
-from .mem2reg import Mem2RegPromotor
+from .opt.transform import DeleteUnusedInstructionsPass
+from .opt.transform import RemoveAddZeroPass
+from .opt.transform import CommonSubexpressionEliminationPass
+from .opt.transform import ConstantFolder
+from .opt.transform import LoadAfterStorePass
+from .opt.transform import CleanPass
+from .opt.mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .target import get_target

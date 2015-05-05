@@ -6,11 +6,11 @@ from ppci.target.target_list import thumb_target
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
+    target = thumb_target
+
     def setUp(self):
         super().setUp()
         self.as_args = ['-mthumb']
-        self.target = thumb_target
-        self.assembler = thumb_target.assembler
 
     def testMovImm8(self):
         self.feed('mov r4, 100')

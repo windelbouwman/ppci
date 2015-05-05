@@ -4,7 +4,7 @@
 """
 
 from .. import ir
-from ..irdag import Dagger
+from .irdag import Dagger
 from ..irutils import Verifier, split_block
 from ..target import Target
 from ..target import RegisterUseDef, Register

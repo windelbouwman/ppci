@@ -1,6 +1,6 @@
 from .transform import FunctionPass
-from .ir import Alloc, Load, Store, Phi, Undefined
-from .domtree import CfgInfo
+from ..ir import Alloc, Load, Store, Phi, Undefined
+from ..domtree import CfgInfo
 
 
 def is_alloc_promotable(alloc_inst):

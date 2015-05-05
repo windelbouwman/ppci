@@ -9,8 +9,6 @@ from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
 from ppci.ir2py import IrToPython
 
-stlink_run_sram_and_trace = None
-
 
 def make_filename(s):
     """ Remove all invalid characters from a string for a valid filename.

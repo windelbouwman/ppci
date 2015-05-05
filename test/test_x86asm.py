@@ -10,11 +10,7 @@ class AssemblerTestCase(AsmTestCaseBase):
     test methods start with 'test*'
      Checks several assembly constructs agains their bytecodes
     """
-    def setUp(self):
-        super().setUp()
-        self.target = x86target
-        self.assembler = self.target.assembler
-        self.assembler.prepare()
+    target = x86target
 
     def testX86(self):
         self.feed('mov rax, rbx')

@@ -1,5 +1,5 @@
 from ppci.target import Instruction
-from ppci.tree import State, Tree, from_string
+from ppci.codegen.tree import State, Tree, from_string
 from ppci.pyburg import BurgSystem
 
 
