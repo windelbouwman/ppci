@@ -46,11 +46,14 @@ class InstructionProperty(property):
     """ Custom derived property that implements the descriptor protocol
         by inheriting property
     """
-    def __init__(self, name, cls, getter, setter, read=False, write=False):
+    def __init__(
+            self, name, cls, getter, setter, read=False, write=False,
+            default_value=None):
         self._name = name
         self._cls = cls
         self._read = read
         self._write = write
+        self._default_value = default_value
         super().__init__(getter, setter)
 
     def __repr__(self):
@@ -61,7 +64,7 @@ class RegisterProperty(InstructionProperty):
     pass
 
 
-def register_argument(name, cls, read=False, write=False):
+def register_argument(name, cls, read=False, write=False, default_value=None):
     """ Create a property for an instruction. When an instruction has
         an register parameter, use this function to create the property.
         The name is the name that will be shown in the usage.
@@ -82,7 +85,7 @@ def register_argument(name, cls, read=False, write=False):
 
     return InstructionProperty(
         name, cls, getter, setter,
-        read=read, write=write)
+        read=read, write=write, default_value=default_value)
 
 
 def value_argument(name):
@@ -166,8 +169,8 @@ class Instruction(metaclass=InsMeta):
         if hasattr(self, 'tokens'):
             if len(self.tokens) > 0:
                 setattr(self, 'token', self.tokens[0]())
-            for x, ct in enumerate(self.tokens):
-                setattr(self, 'token{}'.format(x + 1), ct())
+            for position, token_cls in enumerate(self.tokens):
+                setattr(self, 'token{}'.format(position + 1), token_cls())
 
         # Initialize the jumps this instruction makes:
         self.jumps = []
@@ -188,14 +191,6 @@ class Instruction(metaclass=InsMeta):
             return str(st.__get__(self))
         else:
             raise Exception()
-
-    @classmethod
-    def get_argclass(self, arg):
-        """ Given an argument, determine its class """
-        if type(arg) is InstructionProperty:
-            return arg._cls
-        else:
-            raise NotImplementedError(str(arg))
 
     @property
     def properties(self):
@@ -311,6 +306,7 @@ class Label(PseudoInstruction):
 
 
 class Comment(PseudoInstruction):
+    """ Comment instruction. Does nothing, only contains comments """
     def __init__(self, txt):
         super().__init__()
         self.txt = txt

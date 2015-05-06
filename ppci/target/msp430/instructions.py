@@ -1,10 +1,11 @@
 
 from .. import Instruction, Isa, register_argument
 from ..token import Token, u16, bit_range, bit
-from .registers import Msp430Register
+from .registers import Msp430Register, r0
 
 isa = Isa()
 isa.typ2nt[Msp430Register] = 'reg'
+isa.typ2nt[int] = 'imm16'
 isa.typ2nt[str] = 'strrr'
 
 
@@ -25,26 +26,24 @@ class Msp430Token(Token):
         return u16(self.bit_value)
 
 
-REGISTER_MODE = 1
-SYMBOLIC_MODE = 3
-ABSOLUTE_MODE = 4
-#TODO: add more modes!
-IMMEDIATE_MODE = 7
-
-
 class Msp430Operand:
     pass
 
 
 class DestinationOperand(Msp430Operand):
-    def __init__(self, param):
-        if isinstance(param, Msp430Register):
-            self.reg = param.num
-            self.Ad = 0
-        else:
-            raise Exception()
+    reg = register_argument('reg', Msp430Register, read=True)
+    imm = register_argument('imm', int)
+    Ad = register_argument('Ad', int, default_value=0)
+    syntaxi = 'dst', [
+        ([reg], {Ad: 0}),
+        ([imm, '(', reg, ')'], {Ad: 1}),
+        ]
 
-isa.typ2nt[DestinationOperand] = 'dst'
+    @property
+    def extra_bytes(self):
+        if (self.Ad == 1):
+            return u16(self.imm)
+        return bytes()
 
 
 def optional(x):
@@ -52,22 +51,23 @@ def optional(x):
 
 
 class SourceOperand(Msp430Operand):
-    # TODO: make this work!
-    syntax = ['reg'], [optional('@'), 'reg']
+    reg = register_argument('reg', Msp430Register, read=True)
+    imm = register_argument('imm', int)
+    As = register_argument('As', int, default_value=0)
+    syntaxi = 'src', [
+        ([reg], {As: 0}),
+        ([imm, '(', reg, ')'], {As: 1}),
+        (['@', reg], {As: 2}),
+        (['@', reg, '+'], {As: 3}),
+        (['#', imm], {As: 3, reg: r0}),  # Equivalent to @PC+
+        ]
 
-    def __init__(self, param, auto_inc=False, deref=False):
-        if isinstance(param, Msp430Register):
-            self.reg = param.num
-            self.As = 0
-            self.extra_bytes = bytes()
-        elif isinstance(param, int):
-            self.reg = 0
-            self.As = 3
-            self.extra_bytes = u16(param)
-        else:
-            raise Exception()
+    @property
+    def extra_bytes(self):
+        if (self.As == 1) or (self.As == 3 and self.reg == r0):
+            return u16(self.imm)
+        return bytes()
 
-isa.typ2nt[SourceOperand] = 'src'
 
 class Msp430Instruction(Instruction):
     isa = isa
@@ -162,10 +162,10 @@ class TwoOpArith(Msp430Instruction):
         self.token.bw = self.b  # When b=1, the operation is byte mode
         self.token.As = self.src.As
         self.token.Ad = self.dst.Ad
-        self.token.destination = self.dst.reg
-        self.token.source = self.src.reg
+        self.token.destination = self.dst.reg.num
+        self.token.source = self.src.reg.num
         self.token.opcode = self.opcode
-        return self.token.encode() + self.src.extra_bytes
+        return self.token.encode() + self.src.extra_bytes + self.dst.extra_bytes
 
 
 def twoOpIns(mne, opc):

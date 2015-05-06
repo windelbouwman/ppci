@@ -30,8 +30,6 @@ class X86Assembler(BaseAssembler):
         self.add_rule('reg', ['r14'], lambda rhs: r14)
         self.add_rule('reg', ['r15'], lambda rhs: r15)
 
-        self.parser.add_rule('strrr', ['ID'], lambda rhs: rhs[0].val)
-
         for reg in regs64:
             self.add_keyword(reg.name)
 

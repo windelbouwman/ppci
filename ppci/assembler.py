@@ -25,7 +25,7 @@ class AsmLexer(BaseLexer):
             ('NUMBER', r'\d+', self.handle_number),
             ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
             ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
+            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)#@]|>=|<=|<>|>|<|}|{',
                 lambda typ, val: (val, val)),
             ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
             ('COMMENT', r";.*", None)
@@ -53,7 +53,7 @@ class AsmParser:
     def __init__(self, emit):
         # Construct a parser given a grammar:
         tokens2 = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
-                   pyyacc.EPS, 'COMMENT', '{', '}',
+                   pyyacc.EPS, 'COMMENT', '{', '}', '#', '@', '(', ')',
                    pyyacc.EOF,
                    'val32', 'val16', 'val12', 'val8', 'val5', 'val3']
         g = pyyacc.Grammar(tokens2)
@@ -82,6 +82,9 @@ class AsmParser:
         self.add_rule('imm5', ['val5'], lambda rhs: rhs[0].val)
         self.add_rule('imm5', ['imm3'], lambda rhs: rhs[0])
         self.add_rule('imm3', ['val3'], lambda rhs: rhs[0].val)
+
+        # For labels used in jumps etc..:
+        self.add_rule('strrr', ['ID'], lambda rhs: rhs[0].val)
 
         g.start_symbol = 'asmline'
         self.emit = emit
@@ -134,22 +137,78 @@ class BaseAssembler:
         self.add_instruction(['section', 'ID'], self.p_section)
 
     def add_keyword(self, keyword):
+        """ Add a keyword to the grammar """
         self.parser.g.add_terminal(keyword)
         self.lexer.add_keyword(keyword)
 
     def add_instruction(self, rhs, f):
+        """ Add an instruction to the grammar """
         self.parser.add_instruction(rhs, f)
 
     def add_rule(self, lhs, rhs, f):
         self.parser.add_rule(lhs, rhs, f)
 
+    # Functions to automate the adding of instructions to asm syntax:
     def gen_i_rule(self, cls, arg_idx, rhs):
+        """ Generate rule ... """
         # We must use function call here, otherwise the closure does not work..
-        def f(*args):
-            args = args[0]  # Extract tuple??
+        def f(args):
             usable = [args[ix] for ix in arg_idx]
             return cls(*usable)
         self.add_instruction(rhs, f)
+
+    def make_arg_func(self, cls, nt, rhs, otherz, isa):
+        """ Construct a rule for rhs <- nt
+            Take the syntax, lookup properties to strings.
+            Construct a sequence of only strings
+            Create a function that maps the correct properties to
+            the newly created class.
+            Apply other properties.
+        """
+        rhs2 = []
+        prop_list = []
+        for idx, rhs_part in enumerate(rhs):
+            if type(rhs_part) is str:
+                rhs2.append(rhs_part)
+            elif type(rhs_part) is InstructionProperty:
+                arg_cls = rhs_part._cls
+                rhs2.append(self.get_parameter_nt(isa, arg_cls))
+                prop_list.append((idx, rhs_part))
+            else:
+                raise Exception(str(rhs_part))
+
+        def cs(args):
+            # Create new class:
+            x = cls()
+
+            # Set from parameters:
+            for idx, prop in prop_list:
+                setattr(x, prop._name, args[idx])
+
+            # Apply other rules:
+            for prop, val in otherz.items():
+                setattr(x, prop._name, val)
+            return x
+        self.add_rule(nt, rhs2, cs)
+
+    def get_parameter_nt(self, isa, arg_cls):
+        """ Get parameter non terminal """
+        if arg_cls in isa.typ2nt:
+            return isa.typ2nt[arg_cls]
+
+        # arg not found, try syntaxi:
+        if hasattr(arg_cls, 'syntaxi'):
+            nt, rules = arg_cls.syntaxi
+
+            # Store nt for later:
+            isa.typ2nt[arg_cls] = nt
+
+            # Add rules:
+            for rhs, otherz in rules:
+                self.make_arg_func(arg_cls, nt, rhs, otherz, isa)
+            return nt
+        else:
+            raise KeyError(arg_cls)
 
     def gen_asm_parser(self, isa):
         """ Generate assembly rules from isa """
@@ -159,9 +218,9 @@ class BaseAssembler:
                 rhs = []
                 arg_idx = []
                 for idx, st in enumerate(i.syntax):
-                    if type(st) is int or type(st) is InstructionProperty:
-                        arg_cls = i.get_argclass(st)
-                        rhs.append(isa.typ2nt[arg_cls])
+                    if type(st) is InstructionProperty:
+                        arg_cls = st._cls
+                        rhs.append(self.get_parameter_nt(isa, arg_cls))
                         arg_idx.append(idx)
                     elif type(st) is str:
                         rhs.append(st)

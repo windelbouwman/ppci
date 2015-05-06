@@ -55,8 +55,6 @@ class ArmAssembler(BaseAssembler):
         parser.add_rule('reg', ['lr'], lambda rhs: LR)
         parser.add_rule('reg', ['pc'], lambda rhs: PC)
 
-        parser.add_rule('strrr', ['ID'], lambda rhs: rhs[0].val)
-
         # Implement register list syntaxis:
         parser.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])

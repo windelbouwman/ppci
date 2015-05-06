@@ -1,7 +1,7 @@
 import struct
-from .. import Register, Instruction, Target
+from .. import Target
 from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
-from .instructions import isa, SourceOperand, DestinationOperand
+from .instructions import isa
 from ...assembler import BaseAssembler
 
 
@@ -31,19 +31,12 @@ class Msp430Assembler(BaseAssembler):
         self.add_rule('reg', ['r7'], lambda rhs: r7)
         self.add_rule('reg', ['r8'], lambda rhs: r8)
         self.add_rule('reg', ['r9'], lambda rhs: r9)
-
         self.add_rule('reg', ['r10'], lambda rhs: r10)
         self.add_rule('reg', ['r11'], lambda rhs: r11)
         self.add_rule('reg', ['r12'], lambda rhs: r12)
         self.add_rule('reg', ['r13'], lambda rhs: r13)
         self.add_rule('reg', ['r14'], lambda rhs: r14)
         self.add_rule('reg', ['r15'], lambda rhs: r15)
-
-        # For label:
-        self.add_rule('strrr', ['ID'], lambda rhs: rhs[0].val)
-        self.add_rule('src', ['reg'], lambda rhs: SourceOperand(rhs[0]))
-        self.add_rule('src', ['imm16'], lambda rhs: SourceOperand(rhs[0]))
-        self.add_rule('dst', ['reg'], lambda rhs: DestinationOperand(rhs[0]))
 
         self.gen_asm_parser(isa)
         self.parser.g.add_terminals(kws)

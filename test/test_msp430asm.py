@@ -9,13 +9,20 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
     """ Test the msp430 assembler """
     target = msp430target
 
-    def testMov(self):
+    def test_mov(self):
+        """ Test move """
         self.feed("mov r14, r15")
         self.check('0F4E')
 
-    def testMov1337(self):
-        self.feed("mov 0x1337, r12")
+    def test_mov_1337(self):
+        """ Test the move of an absolute value """
+        self.feed("mov # 0x1337, r12")
         self.check('3C40 3713')
+
+    def test_mov_indirect(self):
+        """ Test the move of memory values """
+        self.feed("mov # 0x1337, 0x123(r12)")
+        self.check('bC40 3713 2301')
 
     def test_add(self):
         """ Test add instruction """
@@ -31,6 +38,11 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         """ Test sub instruction """
         self.feed("cmp r6, r7")
         self.check('0796')
+
+    def test_bit(self):
+        """ Test bit instruction """
+        self.feed("bit r8, r9")
+        self.check('09b8')
 
     def test_reti(self):
         """ Test return from interrupt """
