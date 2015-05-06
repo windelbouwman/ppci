@@ -23,6 +23,7 @@ install:
 
   # Install Python (from the official .msi of http://python.org) and pip when
   # not already installed.
+  - ps: "choco install graphviz"
   - "powershell ./appveyor/install.ps1"
 
   # Prepend newly installed Python to the PATH of this build (this cannot be
