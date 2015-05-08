@@ -119,7 +119,7 @@ class BrainFuckGenerator():
                 val_ins = self.builder.emit(
                     ir.Load(cell_addr, "ptr_val", ir.i8))
                 self.builder.emit(
-                    ir.Call('arch_putc', [val_ins], 'ign', ir.i32))
+                    ir.Call('bsp_putc', [val_ins], 'ign', ir.i32))
             elif c == ',':
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')

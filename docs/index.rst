@@ -26,6 +26,7 @@ Table of contents
     :maxdepth: 2
 
     self
+    quickstart
     installation
     usage
     c3

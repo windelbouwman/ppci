@@ -1,4 +1,4 @@
-module arch;
+module bsp;
 
 public function void putc(int c)
 {

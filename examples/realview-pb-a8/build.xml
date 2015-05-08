@@ -3,7 +3,10 @@
 
     <target name="hello">
         <assemble source="startup_a9.asm" target="arm" output="start.o" />
-        <compile target="arm" sources='hello.c3;arch.c3;../io.c3' output="hello.o" />
+        <compile 
+            target="arm"
+            sources='hello.c3;arch.c3;../../librt/io.c3'
+            output="hello.o" />
         <link objects="start.o;hello.o" output="hello_all.o"
             target="arm"
             layout="memory.mmap" />

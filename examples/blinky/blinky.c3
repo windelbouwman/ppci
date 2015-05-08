@@ -9,7 +9,7 @@ the board has 4 leds on PD12, PD13, PD14 and PD15
 module burn2;
 
 import stm32f4xx;
-import arch;
+import bsp;
 import io;
 
 function int add(int a, int b)
@@ -79,7 +79,7 @@ function void systick()
     }
 
     // Test itm trace:
-    arch.putc(65); // Send out 'A'
+    bsp.putc(65); // Send out 'A'
     io.print2("Value = ", value);
 }
 

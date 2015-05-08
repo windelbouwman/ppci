@@ -523,7 +523,7 @@ class DoMixin:
         o1 = assemble(io.StringIO(startercode), march)
         if lang == 'c3':
             o2 = c3compile([
-                relpath('data', 'io.c3'),
+                relpath('..', 'librt', 'io.c3'),
                 arch_c3,
                 io.StringIO(src)], [], march, lst_file=lst_file)
             o3 = link([o2, o1], io.StringIO(arch_mmap), march, use_runtime=True)
@@ -550,7 +550,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
     section reset
     mov sp, 0xF0000   ; setup stack pointer
     BL sample_start     ; Branch to sample start
-    BL arch_exit  ; do exit stuff
+    BL bsp_exit  ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -563,7 +563,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
         SECTION(data)
     }
     """
-    arch_c3 = relpath('data', 'realview-pb-a8', 'arch.c3')
+    arch_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
 
     def setUp(self):
         if not has_qemu():
@@ -589,7 +589,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
     dcd 0x2000f000
     dcd 0x00000009
     BL sample_start     ; Branch to sample start
-    BL arch_exit  ; do exit stuff
+    BL bsp_exit  ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -603,7 +603,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         SECTION(data)
     }
     """
-    arch_c3 = relpath('data', 'lm3s6965evb', 'arch.c3')
+    arch_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
 
     def run_sample(self, sample_filename):
         # Run bin file in emulator:
@@ -620,8 +620,8 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
 
         if lang == 'c3':
             ir_mods = list(c3toir([
-                relpath('data', 'io.c3'),
-                relpath('data', 'lm3s6965evb', 'arch.c3'),
+                relpath('..', 'librt', 'io.c3'),
+                relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
                 io.StringIO(src)], [], "arm"))
         elif lang == 'bf':
             ir_mods = [bf2ir(src)]
@@ -634,7 +634,7 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
                 ir_to_python(m, f)
             # Add glue:
             print('', file=f)
-            print('def arch_putc(c):', file=f)
+            print('def bsp_putc(c):', file=f)
             print('    print(chr(c), end="")', file=f)
             print('sample_start()', file=f)
         res = run_python(sample_filename)

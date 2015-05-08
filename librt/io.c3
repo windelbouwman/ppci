@@ -46,7 +46,7 @@ public function void print_int(int i)
     bsp.putc(10); // Newline!
 }
 
-function void print2(string label, int value)
+public function void print2(string label, int value)
 {
     print(label);
     print_int(value);

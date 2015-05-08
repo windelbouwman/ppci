@@ -13,7 +13,7 @@ This command can be used to construct build files (see :doc:`buildxml`).
 
 Take for example the stm32f4 led project build file:
 
-.. literalinclude:: ../test/data/stm32f4xx/build.xml
+.. literalinclude:: ../examples/blinky/build.xml
     :language: xml
     :linenos:
 
