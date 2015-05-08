@@ -23,7 +23,7 @@ install:
 
   # Install Python (from the official .msi of http://python.org) and pip when
   # not already installed.
-  - ps: "choco install graphviz"
+  # - ps: "choco install graphviz"
   - "powershell ./appveyor/install.ps1"
 
   # Prepend newly installed Python to the PATH of this build (this cannot be
@@ -45,18 +45,4 @@ build: false  # Not a C# project, build stuff at the test step instead.
 
 test_script:
   # Build the compiled extension and run the project tests
-  - "%CMD_IN_ENV% python -m tox"
-
-after_test:
-  # If tests are successful, create a whl package for the project.
-  - "%CMD_IN_ENV% python setup.py sdist"
-  - ps: "ls dist"
-
-artifacts:
-  # Archive the generated wheel package in the ci.appveyor.com build report.
-  - path: dist\*
-
-#on_success:
-#  - TODO: upload the content of dist/*.whl to a public wheelhouse
-#
-
+  - "%CMD_IN_ENV% python -m tox -e py34"
