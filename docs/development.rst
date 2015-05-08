@@ -9,6 +9,26 @@ Communication
 
 Join the #ppci irc channel on freenode!
 
+Source code
+-----------
+
+The sourcecode of the project is located at these repositories:
+
+- https://bitbucket.org/windel/ppci
+- https://pikacode.com/windel/ppci/
+
+Continuous integration
+----------------------
+
+The compiler is tested for linux:
+
+- https://drone.io/bitbucket.org/windel/ppci
+
+
+and for windows:
+
+- https://ci.appveyor.com/project/WindelBouwman/ppci-786
+
 
 Running the testsuite
 ---------------------
@@ -49,3 +69,5 @@ Alternatively the tox docs environment can be used:
 .. code:: bash
 
     $ tox -e docs
+
+
