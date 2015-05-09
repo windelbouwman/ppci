@@ -266,7 +266,7 @@ class RegisterAllocator:
                 else:
                     reg.set_color(node.color)
 
-    def check_invariants(self):
+    def check_invariants(self):  # pragma: no cover
         """ Test invariants """
         # When changing the code, these asserts validate the worklists.
         assert all(u.Degree < self.K for u in self.simplifyWorklist)
@@ -295,7 +295,7 @@ class RegisterAllocator:
                 self.Coalesc()
             elif self.freezeWorklist:
                 self.Freeze()
-            elif self.spillWorklist:
+            elif self.spillWorklist:  # pragma: no cover
                 raise NotImplementedError('Spill not implemented')
             else:
                 break   # Done!

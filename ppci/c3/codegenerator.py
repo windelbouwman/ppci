@@ -129,8 +129,8 @@ class CodeGenerator:
                 self.emit(ir.Store(parameter, variable))
             elif isinstance(sym, ast.Variable):
                 pass
-            else:
-                raise NotImplementedError('{}'.format(sym))
+            else:  # pragma: no cover
+                raise NotImplementedError(str(sym))
             self.context.var_map[sym] = variable
 
         self.gen_stmt(function.body)
@@ -186,8 +186,8 @@ class CodeGenerator:
                 self.gen_while(code)
             elif type(code) is ast.For:
                 self.gen_for_stmt(code)
-            else:
-                raise NotImplementedError('Unknown stmt {}'.format(code))
+            else:  # pragma: no cover
+                raise NotImplementedError(str(code))
         except SemanticError as exc:
             self.error(exc.msg, exc.loc)
 
@@ -360,8 +360,8 @@ class CodeGenerator:
                 self.error('Condition must be boolean', expr.loc)
             true_val = self.emit(ir.Const(1, "true", ir.i32))
             self.emit(ir.CJump(value, '==', true_val, bbtrue, bbfalse))
-        else:
-            raise NotImplementedError('Unknown cond {}'.format(expr))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr))
 
         # Check that the condition is a boolean value:
         if not self.context.equal_types(expr.typ, 'bool'):
@@ -393,8 +393,8 @@ class CodeGenerator:
                 value = self.gen_sizeof(expr)
             elif type(expr) is ast.FunctionCall:
                 value = self.gen_function_call(expr)
-            else:
-                raise NotImplementedError('Unknown expr {}'.format(expr))
+            else:  # pragma: no cover
+                raise NotImplementedError(str(expr))
 
         assert isinstance(value, ir.Value)
         # do rvalue trick here, create a r-value when required:
@@ -468,8 +468,8 @@ class CodeGenerator:
             # Implement unary operator with sneaky trick using 0 - v binop:
             zero = self.emit(ir.Const(0, 'zero', rhs.ty))
             return self.emit(ir.Binop(zero, '-', rhs, 'unary_minus', rhs.ty))
-        else:
-            raise NotImplementedError('Unknown unop {0}'.format(expr.op))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr.op))
 
     def is_bool(self, expr):
         """ Check if an expression is a boolean type """
@@ -581,7 +581,7 @@ class CodeGenerator:
                 expr.lvalue = True
                 expr.typ = target.typ
                 value = self.context.var_map[target]
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(str(target))
             return value
 
@@ -673,8 +673,8 @@ class CodeGenerator:
         elif type(expr.val) is float:
             val = float(expr.val)
             value = ir.Const(val, 'bool_cnst', ir.f64)
-        else:
-            raise NotImplementedError()
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr.val))
         return self.emit(value)
 
     def gen_type_cast(self, expr):

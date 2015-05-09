@@ -75,9 +75,6 @@ class Scope:
         else:
             return False
 
-    def __contains__(self, name):
-        return self.has_symbol(name)
-
     def add_symbol(self, sym):
         """ Add a symbol to this scope """
         assert sym.name not in self.symbols

@@ -60,7 +60,7 @@ def Dcd(v):
         return Dcd1(v)
     elif type(v) is str:
         return Dcd2(v)
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -147,15 +147,6 @@ class Mov2(ArmInstruction):
         return self.token.encode()
 
 
-def Cmp(*args):
-    if len(args) == 2:
-        if isinstance(args[1], int):
-            return Cmp1(*args)
-        elif isinstance(args[1], ArmRegister):
-            return Cmp2(*args)
-    raise Exception()
-
-
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
     reg = register_argument('reg', ArmRegister, read=True)
@@ -203,10 +194,6 @@ def Sub(*args):
         elif isinstance(args[2], int):
             return Sub2(args[0], args[1], args[2])
     raise Exception()
-
-
-def Mul(*args):
-    return Mul1(args[0], args[1], args[2])
 
 
 class Mul1(ArmInstruction):
@@ -717,11 +704,6 @@ class ArmInstructionSelector(InstructionSelector):
         d = self.newTmp()
         self.emit(Ldr1(d, c0, 0))
         return d
-
-    @pattern('reg', 'CALL', cost=2)
-    def P16(self, tree):
-        label, args, res_var = tree.value
-        self.frame.gen_call(label, args, res_var)
 
     @pattern('stm', 'CALL', cost=2)
     def P17(self, tree):

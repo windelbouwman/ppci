@@ -203,11 +203,6 @@ class Function(Symbol):
         super().__init__(name, public)
         self.loc = loc
 
-    @property
-    def package22(self):
-        """ Gets the package that this function is in. TODO """
-        pass
-
     def __repr__(self):
         return 'Func {}'.format(self.name)
 

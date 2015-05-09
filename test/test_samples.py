@@ -503,48 +503,57 @@ class Samples:
         self.do(quine, only_bf(quine), lang='bf')
 
 
-class DoMixin:
-    def do(self, src, expected_output, lang="c3"):
-        """ Generic do function """
-        march = self.march
-        startercode = self.startercode
-        arch_mmap = self.arch_mmap
-        arch_c3 = self.arch_c3
-
-        # Determine base names:
+class BuildMixin:
+    def build(self, src, lang='c3'):
         base_filename = make_filename(self.id())
         list_filename = base_filename + '.lst'
-        sample_filename = base_filename + '.bin'
-
         # Open listings file:
         lst_file = open(list_filename, 'w')
 
-        # Construct binary file from snippet:
-        o1 = assemble(io.StringIO(startercode), march)
+        startercode = self.startercode
+        arch_mmap = self.arch_mmap
+        arch_c3 = self.bsp_c3
+        o1 = assemble(io.StringIO(startercode), self.march)
         if lang == 'c3':
             o2 = c3compile([
                 relpath('..', 'librt', 'io.c3'),
                 arch_c3,
-                io.StringIO(src)], [], march, lst_file=lst_file)
-            o3 = link([o2, o1], io.StringIO(arch_mmap), march, use_runtime=True)
+                io.StringIO(src)], [], self.march, lst_file=lst_file)
+            o3 = link(
+                [o2, o1], io.StringIO(arch_mmap), self.march,
+                use_runtime=True)
         elif lang == 'bf':
-            obj = bfcompile(src, march, lst_file=lst_file)
-            o2 = c3compile([
-                arch_c3
-                ], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march, use_runtime=True)
+            obj = bfcompile(src, self.march, lst_file=lst_file)
+            o2 = c3compile(
+                [arch_c3], [], self.march, lst_file=lst_file)
+            o3 = link(
+                [o2, o1, obj],
+                io.StringIO(arch_mmap),
+                self.march, use_runtime=True)
         else:
             raise Exception('language not implemented')
-
-        objcopy(o3, 'code', 'bin', sample_filename)
         lst_file.close()
+        return o3
+
+
+class DoMixin:
+    def do(self, src, expected_output, lang="c3"):
+        """ Generic do function """
+
+        # Determine base names:
+        base_filename = make_filename(self.id())
+        sample_filename = base_filename + '.bin'
+
+        # Construct binary file from snippet:
+        o3 = self.build(src, lang)
+        objcopy(o3, 'code', 'bin', sample_filename)
 
         # Run bin file in emulator:
         res = self.run_sample(sample_filename)
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
+class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin, BuildMixin):
     march = "arm"
     startercode = """
     section reset
@@ -563,7 +572,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
         SECTION(data)
     }
     """
-    arch_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
 
     def setUp(self):
         if not has_qemu():
@@ -577,7 +586,7 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
             dump_file=dump_file, dump_range=(0x20000, 0xf0000))
 
 
-class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
+class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin, BuildMixin):
     """ The lm3s811 has 64 k memory """
     def setUp(self):
         if not has_qemu():
@@ -603,7 +612,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         SECTION(data)
     }
     """
-    arch_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
+    bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
 
     def run_sample(self, sample_filename):
         # Run bin file in emulator:
@@ -639,6 +648,28 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
             print('sample_start()', file=f)
         res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
+
+
+@unittest.skip('to be implemented')
+class TestSamplesOnMsp430(unittest.TestCase, Samples, BuildMixin):
+    march = "msp430"
+    startercode = """
+    section reset
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x0 SIZE=0x10000 {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        SECTION(data)
+    }
+    """
+    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+
+    def do(self, src, expected_output, lang='c3'):
+        self.build(src, lang)
 
 
 if __name__ == '__main__':

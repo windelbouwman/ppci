@@ -44,13 +44,6 @@ def apply_b_jmp32(reloc, sym_value, section, reloc_value):
 
 
 # Helper functions:
-def imm64(x):
-   """ represent 64 bits integer in little endian 8 bytes"""
-   if x < 0:
-      x = x + (1 << 64)
-   x = x & 0xFFFFFFFFFFFFFFFF
-   return [ (x >> (p*8)) & 0xFF for p in range(8) ]
-
 
 def imm32(x):
    """ represent 32 bits integer in little endian 4 bytes"""
@@ -58,13 +51,6 @@ def imm32(x):
       x = x + (1 << 32)
    x = x & 0xFFFFFFFF
    return bytes([ (x >> (p*8)) & 0xFF for p in range(4) ])
-
-
-def imm8(x):
-    if x < 0:
-        x = x + (1 << 8)
-    x = x & 0xFF
-    return [ x ]
 
 
 class ByteToken(Token):

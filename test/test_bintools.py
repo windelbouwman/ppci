@@ -4,9 +4,11 @@ import io
 from ppci.target.arm.instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize
 from ppci.binutils.objectfile import load_object
+from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.tasks import TaskError
 from ppci.buildfunctions import link
 from ppci.binutils import layout
+from ppci.target.example import Mov, R0, R1
 
 
 class TokenTestCase(unittest.TestCase):
@@ -19,6 +21,18 @@ class TokenTestCase(unittest.TestCase):
         at = ArmToken()
         at[4:8] = 0b1100
         self.assertEqual(0xc0, at.bit_value)
+
+
+class OutstreamTestCase(unittest.TestCase):
+    def test_dummy_stream(self):
+        stream = DummyOutputStream()
+        stream.select_section('code')
+        stream.emit(Mov(R1, R0))
+
+    def test_text_stream(self):
+        stream = TextOutputStream()
+        stream.select_section('code')
+        stream.emit(Mov(R1, R0))
 
 
 class LinkerTestCase(unittest.TestCase):

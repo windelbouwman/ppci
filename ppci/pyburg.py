@@ -385,17 +385,6 @@ def make_argument_parser():
     return parser
 
 
-def load_as_module(filename):
-    """ Load a parser spec file, generate LR tables and create module """
-    ob = io.StringIO()
-    args = argparse.Namespace(source=open(filename), output=ob)
-    main(args)
-
-    matcher_mod = types.ModuleType('generated_matcher')
-    exec(ob.getvalue(), matcher_mod.__dict__)
-    return matcher_mod
-
-
 def main(args):
     src = args.source.read()
     args.source.close()

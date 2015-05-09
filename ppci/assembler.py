@@ -149,12 +149,29 @@ class BaseAssembler:
         self.parser.add_rule(lhs, rhs, f)
 
     # Functions to automate the adding of instructions to asm syntax:
-    def gen_i_rule(self, cls, arg_idx, rhs):
+    def make_str_rhs(self, isa, rhs):
+        """ Determine what parts of rhs are non-string and resolve """
+        rhs2 = []
+        prop_list = []
+        for idx, rhs_part in enumerate(rhs):
+            if type(rhs_part) is str:
+                rhs2.append(rhs_part)
+            elif type(rhs_part) is InstructionProperty:
+                arg_cls = rhs_part._cls
+                rhs2.append(self.get_parameter_nt(isa, arg_cls))
+                prop_list.append((idx, rhs_part))
+            else:  # pragma: no cover
+                raise NotImplementedError(str(rhs_part))
+        return rhs2, prop_list
+
+    def gen_i_rule(self, isa, ins_cls):  # cls, arg_idx, rhs):
         """ Generate rule ... """
         # We must use function call here, otherwise the closure does not work..
+        rhs, arg_idx = self.make_str_rhs(isa, ins_cls.syntax)
+
         def f(args):
-            usable = [args[ix] for ix in arg_idx]
-            return cls(*usable)
+            usable = [args[ix] for ix, _ in arg_idx]
+            return ins_cls(*usable)
         self.add_instruction(rhs, f)
 
     def make_arg_func(self, cls, nt, rhs, otherz, isa):
@@ -165,17 +182,8 @@ class BaseAssembler:
             the newly created class.
             Apply other properties.
         """
-        rhs2 = []
-        prop_list = []
-        for idx, rhs_part in enumerate(rhs):
-            if type(rhs_part) is str:
-                rhs2.append(rhs_part)
-            elif type(rhs_part) is InstructionProperty:
-                arg_cls = rhs_part._cls
-                rhs2.append(self.get_parameter_nt(isa, arg_cls))
-                prop_list.append((idx, rhs_part))
-            else:
-                raise Exception(str(rhs_part))
+
+        rhs2, prop_list = self.make_str_rhs(isa, rhs)
 
         def cs(args):
             # Create new class:
@@ -207,7 +215,7 @@ class BaseAssembler:
             for rhs, otherz in rules:
                 self.make_arg_func(arg_cls, nt, rhs, otherz, isa)
             return nt
-        else:
+        else:  # pragma: no cover
             raise KeyError(arg_cls)
 
     def gen_asm_parser(self, isa):
@@ -215,19 +223,7 @@ class BaseAssembler:
         # Loop over all isa instructions, extracting the syntax rules:
         for i in isa.instructions:
             if hasattr(i, 'syntax'):
-                rhs = []
-                arg_idx = []
-                for idx, st in enumerate(i.syntax):
-                    if type(st) is InstructionProperty:
-                        arg_cls = st._cls
-                        rhs.append(self.get_parameter_nt(isa, arg_cls))
-                        arg_idx.append(idx)
-                    elif type(st) is str:
-                        rhs.append(st)
-                    else:
-                        raise NotImplementedError('{}'.format(type(st)))
-                cls = i
-                self.gen_i_rule(cls, arg_idx, rhs)
+                self.gen_i_rule(isa, i)
 
     def prepare(self):
         self.inMacro = False
@@ -252,11 +248,12 @@ class BaseAssembler:
             asmsrc2 = asmsrc.read()
             asmsrc.close()
             asmsrc = asmsrc2
-        # TODO: use generic newline??
-        # TODO: the bothersome newline ...
         self.stream = stream
+
+        # Split lines on \n.
+        # Strip remaining \r if present.
         for line in asmsrc.split('\n'):
-            self.parse_line(line)
+            self.parse_line(line.strip())
 
     # Parser handlers:
     def p_repeat(self, rhs):

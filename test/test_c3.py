@@ -782,7 +782,7 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def test_struct2(self):
+    def test_nonstruct_member(self):
         """ Select struct member from non struct type """
         snippet = """
          module teststruct1;
@@ -793,6 +793,21 @@ class TypeTestCase(BuildTestCaseBase):
          }
         """
         self.expect_errors(snippet, [6])
+
+    def test_struct_unequal(self):
+        """ Select struct member from non struct type """
+        snippet = """
+         module teststruct1;
+         type struct { int a, b; } T1;
+         type struct { int a; } T2;
+         function void t()
+         {
+            var T1* a;
+            var T2* b;
+            b = a;
+         }
+        """
+        self.expect_ok(snippet)
 
     def test_pointer_type1(self):
         """ Check if pointers work """

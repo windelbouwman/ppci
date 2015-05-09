@@ -10,6 +10,7 @@ from ..target import Instruction, Alignment
 class OutputStream:
     """ Interface to generator code with. """
     def emit(self, item):  # pragma: no cover
+        """ Encode instruction and add symbol and relocation information """
         raise NotImplementedError('Abstract base class')
 
     def select_section(self, sname):  # pragma: no cover
@@ -18,11 +19,7 @@ class OutputStream:
 
 class TextOutputStream(OutputStream):
     """ Output stream that writes to object file """
-    def __init__(self):
-        super().__init__()
-
     def emit(self, item):
-        """ Encode instruction and add symbol and relocation information """
         assert isinstance(item, Instruction), str(item) + str(type(item))
         print(item)
 

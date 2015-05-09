@@ -164,24 +164,29 @@ def hexutil(args=None):
         print(hexfile)
         for region in hexfile.regions:
             print(region)
+        args.hexfile.close()
     elif args.command == 'new':
         hexfile = HexFile()
         data = args.datafile.read()
         hexfile.add_region(args.address, data)
         hexfile.save(args.hexfile)
+        args.hexfile.close()
     elif args.command == 'merge':
         # Load first hexfile:
         hexfile1 = HexFile()
         hexfile1.load(args.hexfile1)
+        args.hexfile1.close()
 
         # Load second hexfile:
         hexfile2 = HexFile()
         hexfile2.load(args.hexfile2)
+        args.hexfile2.close()
 
         hexfile = HexFile()
         hexfile.merge(hexfile1)
         hexfile.merge(hexfile2)
         hexfile.save(args.rhexfile)
+        args.rhexfile.close()
     else:
         raise NotImplementedError()
 

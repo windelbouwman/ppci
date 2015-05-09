@@ -11,6 +11,9 @@ class SimpleTarget(Target):
     def __init__(self):
         super().__init__('SimpleTarget')
 
+R0 = Register('r0')
+R1 = Register('r1')
+R2 = Register('r2')
 
 class TestInstruction(Instruction):
     """ Base class for all example instructions """

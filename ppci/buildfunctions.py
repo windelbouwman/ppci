@@ -90,6 +90,7 @@ def construct(buildfile, targets=()):
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
+        buildfile.close()
     except OSError:
         raise TaskError('Could not load {}'.format(buildfile))
     except xml.parsers.expat.ExpatError:
@@ -299,5 +300,5 @@ def objcopy(obj, image_name, fmt, output_filename):
         hexfile.add_region(image.location, image.data)
         with open(output_filename, 'w') as output_file:
             hexfile.save(output_file)
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
