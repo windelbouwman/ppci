@@ -1,3 +1,4 @@
+import struct
 
 
 def rotate_right(v, n):
@@ -24,3 +25,16 @@ def encode_imm32(v):
             x = (rotation << 8) | val
             return x
     raise ValueError("Invalid value {}".format(v))
+
+
+def align(x, m):
+    """ Increase x to a multiple of m """
+    while ((x % m) != 0):
+        x = x + 1
+    return x
+
+
+def wrap_negative(x, bits):
+    b = struct.unpack('<I', struct.pack('<i', x))[0]
+    mask = (1 << bits) - 1
+    return b & mask

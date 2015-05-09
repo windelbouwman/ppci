@@ -9,10 +9,10 @@ from ..target import Instruction, Alignment
 
 class OutputStream:
     """ Interface to generator code with. """
-    def emit(self, item):
+    def emit(self, item):  # pragma: no cover
         raise NotImplementedError('Abstract base class')
 
-    def select_section(self, sname):
+    def select_section(self, sname):  # pragma: no cover
         raise NotImplementedError('Abstract base class')
 
 

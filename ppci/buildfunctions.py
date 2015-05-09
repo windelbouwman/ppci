@@ -6,6 +6,7 @@ and assembling.
 
 import logging
 import io
+import xml
 from .target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
@@ -84,11 +85,15 @@ def construct(buildfile, targets=()):
         Construct the given buildfile.
         Raise task error if something goes wrong
     """
+    # Ensure file:
+    buildfile = fix_file(buildfile)
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
     except OSError:
         raise TaskError('Could not load {}'.format(buildfile))
+    except xml.parsers.expat.ExpatError:
+        raise TaskError('Invalid xml')
 
     if not project:
         raise TaskError('No project loaded')

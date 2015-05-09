@@ -120,7 +120,7 @@ class BrainFuckGenerator():
                     ir.Load(cell_addr, "ptr_val", ir.i8))
                 self.builder.emit(
                     ir.Call('bsp_putc', [val_ins], 'ign', ir.i32))
-            elif c == ',':
+            elif c == ',':  # pragma: no cover
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')
             elif c == '[':
@@ -171,8 +171,6 @@ class BrainFuckGenerator():
 
                 # Set ptr to phi value front entry:
                 ptr = ptr_phi
-            else:
-                pass
         if loops:
             raise CompilerError('[ requires matching ]')
 

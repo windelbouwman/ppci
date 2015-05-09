@@ -1,11 +1,6 @@
 
-import struct
+from ...bitfun import align, wrap_negative
 
-
-def align(x, m):
-    while ((x % m) != 0):
-        x = x + 1
-    return x
 
 reloc_map = {}
 
@@ -14,12 +9,6 @@ def reloc(t):
     def f(c):
         reloc_map[t] = c
     return f
-
-
-def wrap_negative(x, bits):
-    b = struct.unpack('<I', struct.pack('<i', x))[0]
-    mask = (1 << bits) - 1
-    return b & mask
 
 
 @reloc('lit_add_8')

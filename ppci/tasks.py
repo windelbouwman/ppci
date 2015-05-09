@@ -52,6 +52,7 @@ class Project:
         self.targets[target.name] = target
 
     def get_target(self, target_name):
+        assert isinstance(target_name, str)
         if target_name not in self.targets:
             raise TaskError('target "{}" not found'.format(target_name))
         return self.targets[target_name]
@@ -151,7 +152,7 @@ class Task:
             file_names += new_files
         return file_names
 
-    def run(self):
+    def run(self):  # pragma: no cover
         """ Implement this method when creating a custom task """
         raise NotImplementedError("Implement this abstract method!")
 
@@ -206,15 +207,11 @@ class TaskRunner:
         # Run tasks:
         for target in target_list:
             self.logger.info('Target {} Started'.format(target.name))
-            for task in target.tasks:
-                if type(task) is tuple:
-                    tname, props = task
-                    for arg in props:
-                        props[arg] = project.expand_macros(props[arg])
-                    task = self.get_task(tname)(target, props)
-                    self.logger.info('Running {}'.format(task))
-                    task.run()
-                else:
-                    raise Exception()
+            for tname, props in target.tasks:
+                for arg in props:
+                    props[arg] = project.expand_macros(props[arg])
+                task = self.get_task(tname)(target, props)
+                self.logger.info('Running {}'.format(task))
+                task.run()
             self.logger.info('Target {} Ready'.format(target.name))
         self.logger.info('All targets done!')

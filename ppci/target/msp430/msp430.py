@@ -1,8 +1,8 @@
-import struct
 from .. import Target
 from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
 from .instructions import isa
 from ...assembler import BaseAssembler
+from ...bitfun import align, wrap_negative
 
 
 # Create the target class (singleton):
@@ -41,18 +41,6 @@ class Msp430Assembler(BaseAssembler):
         self.gen_asm_parser(isa)
         self.parser.g.add_terminals(kws)
         self.lexer.kws |= set(kws)
-
-
-def align(x, m):
-    while ((x % m) != 0):
-        x = x + 1
-    return x
-
-
-def wrap_negative(x, bits):
-    b = struct.unpack('<I', struct.pack('<i', x))[0]
-    mask = (1 << bits) - 1
-    return b & mask
 
 
 def apply_rel10bit(reloc, sym_value, section, reloc_value):

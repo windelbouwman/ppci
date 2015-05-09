@@ -132,7 +132,7 @@ class InsMeta(type):
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
             assert isinstance(cls.isa, Isa)
-            cls.isa.instructions.append(cls)
+            cls.isa.register_instruction(cls)
 
 
 class Instruction(metaclass=InsMeta):

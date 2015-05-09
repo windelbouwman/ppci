@@ -23,15 +23,11 @@ class FunctionPass(ModulePass):
     def run(self, ir_module):
         """ Main entry point for the pass """
         self.prepare()
-        if isinstance(ir_module, ir.Module):
-            for f in ir_module.Functions:
-                self.onFunction(f)
-        elif isinstance(ir_module, ir.Function):
-            self.onFunction(ir_module)
-        else:
-            raise Exception()
+        assert isinstance(ir_module, ir.Module)
+        for f in ir_module.Functions:
+            self.onFunction(f)
 
-    def onFunction(self, f):
+    def onFunction(self, f):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
@@ -41,7 +37,7 @@ class BlockPass(FunctionPass):
         for block in f.blocks:
             self.onBlock(block)
 
-    def onBlock(self, bb):
+    def onBlock(self, bb):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
@@ -51,7 +47,7 @@ class InstructionPass(BlockPass):
         for ins in iter(block.Instructions):
             self.onInstruction(ins)
 
-    def onInstruction(self, ins):
+    def onInstruction(self, ins):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
@@ -97,7 +93,7 @@ class ConstantFolder(BlockPass):
         elif type(value) is ir.IntToByte:
             c_val = self.eval_const(value.src)
             return ir.Const(c_val.value, "cnst_byte", value.ty)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(value))
 
     def onBlock(self, block):

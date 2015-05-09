@@ -24,7 +24,7 @@ class EmptyTask(Task):
 class EchoTask(Task):
     """ Simple task that echoes a message """
     def run(self):
-        message = self.arguments['message']
+        message = self.get_argument('message')
         print(message)
 
 

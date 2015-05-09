@@ -2,43 +2,11 @@ import unittest
 import sys
 import io
 from ppci.target.arm.instructions import ArmToken
-from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, load_object
-from ppci.tasks import TaskRunner, TaskError, Project, Target
-from ppci.buildtasks import EmptyTask
+from ppci.binutils.objectfile import ObjectFile, serialize, deserialize
+from ppci.binutils.objectfile import load_object
+from ppci.tasks import TaskError
 from ppci.buildfunctions import link
 from ppci.binutils import layout
-
-
-class TaskTestCase(unittest.TestCase):
-    def testCircular(self):
-        proj = Project('testproject')
-        t1 = Target('t1', proj)
-        t2 = Target('t2', proj)
-        t1.add_dependency(t2.name)
-        t2.add_dependency(t1.name)
-        with self.assertRaises(TaskError):
-            proj.check_target(t1)
-
-    def testCircularDeeper(self):
-        proj = Project('testproject')
-        t1 = Target('t1', proj)
-        t2 = Target('t2', proj)
-        t3 = Target('t3', proj)
-        t1.add_dependency(t2)
-        t2.add_dependency(t3)
-        t3.add_dependency(t1.name)
-        with self.assertRaises(TaskError):
-            proj.check_target(t1)
-
-    def testSort(self):
-        proj = Project('testproject')
-        t1 = Target('t1', proj)
-        t2 = Target('t2', proj)
-        t1.add_dependency(t2.name)
-        proj.add_target(t1)
-        proj.add_target(t2)
-        runner = TaskRunner()
-        runner.run(proj, ['t1'])
 
 
 class TokenTestCase(unittest.TestCase):

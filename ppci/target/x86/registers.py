@@ -9,9 +9,6 @@ class X86Register(Register):
         super().__init__(name)
         self._num = num
 
-    def __repr__(self):
-        return 'x86reg {}'.format(self.name)
-
     @property
     def rexbit(self):
         return (self.num >> 3) & 0x1
