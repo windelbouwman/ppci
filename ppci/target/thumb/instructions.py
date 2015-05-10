@@ -537,6 +537,24 @@ Bgtw = make_long_cond_branch('bgtw', 0b1100)
 Bgew = make_long_cond_branch('bgew', 0b1010)
 
 
+def push_bit_pos(n):
+    if n < 8:
+        return n
+    elif n == 14:
+        return 8
+    else:  # pragma: no cover
+        raise NotImplementedError('not implemented for {}'.format(n))
+
+
+def pop_bit_pos(n):
+    if n < 8:
+        return n
+    elif n == 15:
+        return 8
+    else:  # pragma: no cover
+        raise NotImplementedError('not implemented for {}'.format(n))
+
+
 class Push(ThumbInstruction):
     regs = register_argument('regs', set)
     syntax = ['push', regs]
@@ -546,12 +564,7 @@ class Push(ThumbInstruction):
 
     def encode(self):
         for n in register_numbers(self.regs):
-            if n < 8:
-                self.token[n] = 1
-            elif n == 14:
-                self.token[8] = 1
-            else:
-                raise NotImplementedError('not implemented for {}'.format(n))
+            self.token[push_bit_pos(n)] = 1
         self.token[9:16] = 0x5a
         return self.token.encode()
 
@@ -570,12 +583,7 @@ class Pop(ThumbInstruction):
 
     def encode(self):
         for n in register_numbers(self.regs):
-            if n < 8:
-                self.token[n] = 1
-            elif n == 15:
-                self.token[8] = 1
-            else:
-                raise NotImplementedError('not implemented for this register')
+            self.token[pop_bit_pos(n)] = 1
         self.token[9:16] = 0x5E
         return self.token.encode()
 
@@ -691,11 +699,6 @@ class ThumbInstructionSelector(InstructionSelector):
         d = self.newTmp()
         self.emit(Ldr2(d, c0, 0))
         return d
-
-    @pattern('reg', 'CALL', cost=1)
-    def P16(self, tree):
-        label, args, res_var = tree.value
-        self.frame.gen_call(label, args, res_var)
 
     # TODO: fix this double otherwise, by extra token kind IGNR(CALL(..))
     @pattern('stm', 'CALL', cost=1)

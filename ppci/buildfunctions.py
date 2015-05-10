@@ -90,11 +90,12 @@ def construct(buildfile, targets=()):
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
-        buildfile.close()
     except OSError:
         raise TaskError('Could not load {}'.format(buildfile))
     except xml.parsers.expat.ExpatError:
         raise TaskError('Invalid xml')
+    finally:
+        buildfile.close()
 
     if not project:
         raise TaskError('No project loaded')

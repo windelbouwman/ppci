@@ -1,6 +1,8 @@
 import unittest
 import shlex
 import tempfile
+import io
+from unittest.mock import patch
 from ppci.commands import c3c, build, asm, hexutil
 from ppci.common import DiagnosticsManager, SourceLocation
 
@@ -11,15 +13,21 @@ class CommandsTestCase(unittest.TestCase):
         build(shlex.split(
             '-v --report {} -f examples/build.xml'.format(report_file)))
 
-    def test_build_command_help(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_build_command_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
             build(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
 
-    def test_c3c_command(self):
+    def test_c3c_command_fails(self):
         with self.assertRaises(SystemExit) as cm:
             c3c(shlex.split('--target arm examples/snake/game.c3'))
         self.assertEqual(1, cm.exception.code)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_c3c_command_succes(self, mock_stdout):
+        """ Capture stdout. Important because it is closed by the command! """
+        c3c(shlex.split('--target arm examples/stm32f4/bsp.c3'))
 
     def test_c3c_command_help(self):
         with self.assertRaises(SystemExit) as cm:
@@ -31,10 +39,12 @@ class CommandsTestCase(unittest.TestCase):
         src = 'examples/lm3s6965/startup.asm'
         asm(shlex.split('--target thumb -o {} {}'.format(obj_file, src)))
 
-    def test_asm_command_help(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_asm_command_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
             asm(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
+        self.assertTrue('source file to assemble' in mock_stdout.getvalue())
 
     def test_hexutil_help(self):
         """ Check hexutil help message """

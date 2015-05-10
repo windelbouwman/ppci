@@ -127,8 +127,8 @@ class Dagger:
         elif type(node.value) is bool:
             tree = Tree('CONSTI32')
             tree.value = int(node.value)
-        else:
-            raise Exception('{} not implemented'.format(type(node.value)))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(type(node.value)))
         self.lut[node] = tree
 
     @register(ir.Binop)

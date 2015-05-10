@@ -38,9 +38,6 @@ class Register:
     def is_colored(self):
         return self.color is not None
 
-    def __gt__(self, other):
-        return self.num > other.num
-
 
 class InstructionProperty(property):
     """ Custom derived property that implements the descriptor protocol
@@ -179,18 +176,15 @@ class Instruction(metaclass=InsMeta):
         # Set several properties:
         self.__dict__.update(kwargs)
 
-    def _get_tp(self, st):
-        pass
-
     def _get_repr(self, st):
-        """ Get the repr of a syntax part. Can be str or int, in refering
-            to an element in the args list """
+        """ Get the repr of a syntax part. Can be str or prop class,
+            in refering to an element in the args list """
         if type(st) is str:
             return st
         elif type(st) is InstructionProperty:
             return str(st.__get__(self))
-        else:
-            raise Exception()
+        else:  # pragma: no cover
+            raise NotImplementedError(str(st))
 
     @property
     def properties(self):
@@ -245,7 +239,9 @@ class Instruction(metaclass=InsMeta):
         else:
             return super().__repr__()
 
+    # Interface methods:
     def encode(self):
+        """ Encode the instruction into binary form """
         return bytes()
 
     def relocations(self):
@@ -311,29 +307,20 @@ class Comment(PseudoInstruction):
         super().__init__()
         self.txt = txt
 
-    def encode(self):
-        return bytes()
-
     def __repr__(self):
         return '; {}'.format(self.txt)
 
 
 class Alignment(PseudoInstruction):
+    """ Instruction to indicate alignment. Encodes to nothing, but is
+        used in the linker to enforce multiple of x byte alignment
+    """
     def __init__(self, a):
         super().__init__()
         self.align = a
 
     def __repr__(self):
         return 'ALIGN({})'.format(self.align)
-
-    def encode(self):
-        pad = []
-        # TODO
-        address = 0
-        while (address % self.align) != 0:
-            address += 1
-            pad.append(0)
-        return bytes(pad)
 
 
 def generate_temps():
@@ -376,6 +363,7 @@ class Frame:
 
 
 class Target:
+    """ Base class for all targets """
     def __init__(self, name, desc=''):
         logging.getLogger().info('Creating {} target'.format(name))
         self.name = name
@@ -393,6 +381,3 @@ class Target:
             assert isinstance(ins, Instruction)
             assert ins.is_colored, str(ins)
             outs.emit(ins)
-
-    def add_reloc(self, name, f):
-        self.reloc_map[name] = f

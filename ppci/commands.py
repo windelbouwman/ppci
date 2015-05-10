@@ -100,7 +100,10 @@ def c3c(args=None):
 
         # Write object file to disk:
         obj.save(args.output)
-        args.output.close()
+
+        # Attention! Closing the output file may close stdout!
+        if args.output != sys.stdout:
+            args.output.close()
 
 
 def asm(args=None):
@@ -122,7 +125,9 @@ def asm(args=None):
 
         # Write object file to disk:
         obj.save(args.output)
-        args.output.close()
+
+        # Attention! Closing the output file may close stdout!
+        # args.output.close()
 
 
 def hexutil(args=None):
@@ -187,7 +192,7 @@ def hexutil(args=None):
         hexfile.merge(hexfile2)
         hexfile.save(args.rhexfile)
         args.rhexfile.close()
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError()
 
 
