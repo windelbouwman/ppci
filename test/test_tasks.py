@@ -1,5 +1,6 @@
 import io
 import unittest
+from unittest.mock import patch
 from ppci.buildfunctions import construct
 from ppci.buildtasks import EmptyTask
 from ppci.tasks import TaskRunner, TaskError, Project, Target
@@ -57,7 +58,8 @@ class RecipeTestCase(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "Invalid xml"):
             construct(io.StringIO(recipe))
 
-    def test_recipe(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_recipe(self, mock_stdout):
         recipe = """
         <project>
             <target name="init">
@@ -69,6 +71,7 @@ class RecipeTestCase(unittest.TestCase):
         """
 
         construct(io.StringIO(recipe), ["init"])
+        self.assertIn("Hello", mock_stdout.getvalue())
 
     def test_missing_property(self):
         recipe = """

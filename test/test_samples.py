@@ -574,13 +574,11 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin, BuildMixin):
     """
     bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
 
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
-
     def run_sample(self, sample_filename):
         # Run bin file in emulator:
         dump_file = sample_filename.split('.')[0] + '.dump'
+        if not has_qemu():
+            self.skipTest('Not running qemu tests')
         return run_qemu(
             sample_filename, machine='realview-pb-a8',
             dump_file=dump_file, dump_range=(0x20000, 0xf0000))
@@ -588,9 +586,6 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin, BuildMixin):
 
 class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin, BuildMixin):
     """ The lm3s811 has 64 k memory """
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
 
     march = "thumb"
     startercode = """
@@ -617,6 +612,8 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin, BuildMixin):
     def run_sample(self, sample_filename):
         # Run bin file in emulator:
         dump_file = sample_filename.split('.')[0] + '.dump'
+        if not has_qemu():
+            self.skipTest('Not running qemu tests')
         return run_qemu(
             sample_filename, machine='lm3s6965evb', # lm3s811evb
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))

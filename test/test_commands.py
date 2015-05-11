@@ -8,7 +8,8 @@ from ppci.common import DiagnosticsManager, SourceLocation
 
 
 class CommandsTestCase(unittest.TestCase):
-    def test_build_command(self):
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_build_command(self, mock_stderr):
         _, report_file = tempfile.mkstemp()
         build(shlex.split(
             '-v --report {} -f examples/build.xml'.format(report_file)))
@@ -18,23 +19,30 @@ class CommandsTestCase(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             build(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
+        self.assertIn('build', mock_stdout.getvalue())
 
-    def test_c3c_command_fails(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_c3c_command_fails(self, mock_stdout, mock_stderr):
         with self.assertRaises(SystemExit) as cm:
             c3c(shlex.split('--target arm examples/snake/game.c3'))
         self.assertEqual(1, cm.exception.code)
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_c3c_command_succes(self, mock_stdout):
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_c3c_command_succes(self, mock_stdout, mock_stderr):
         """ Capture stdout. Important because it is closed by the command! """
         c3c(shlex.split('--target arm examples/stm32f4/bsp.c3'))
 
-    def test_c3c_command_help(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_c3c_command_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
             c3c(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
+        self.assertIn('compiler', mock_stdout.getvalue())
 
-    def test_asm_command(self):
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp()
         src = 'examples/lm3s6965/startup.asm'
         asm(shlex.split('--target thumb -o {} {}'.format(obj_file, src)))
@@ -44,21 +52,26 @@ class CommandsTestCase(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             asm(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
-        self.assertTrue('source file to assemble' in mock_stdout.getvalue())
+        self.assertIn('assemble', mock_stdout.getvalue())
 
-    def test_hexutil_help(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_hexutil_help(self, mock_stdout):
         """ Check hexutil help message """
         with self.assertRaises(SystemExit) as cm:
             hexutil(shlex.split('-h'))
         self.assertEqual(0, cm.exception.code)
+        self.assertIn('info,new,merge', mock_stdout.getvalue())
 
-    def test_hexutil_no_command(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_hexutil_no_command(self, mock_stdout):
         """ No command given """
         with self.assertRaises(SystemExit) as cm:
             hexutil(shlex.split(''))
         self.assertEqual(1, cm.exception.code)
+        self.assertIn('info,new,merge', mock_stdout.getvalue())
 
-    def test_hexutil(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_hexutil(self, mock_stdout):
         """ Create three hexfiles and manipulate those """
         _, file1 = tempfile.mkstemp()
         _, file2 = tempfile.mkstemp()
@@ -71,7 +84,8 @@ class CommandsTestCase(unittest.TestCase):
 
 
 class DiagnosticsTestCase(unittest.TestCase):
-    def test_error_reporting(self):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_error_reporting(self, mock_stdout):
         """ Simulate some errors into the diagnostics system """
         filename = 'examples/snake/game.c3'
         diag = DiagnosticsManager()

@@ -173,6 +173,7 @@ def hexutil(args=None):
     elif args.command == 'new':
         hexfile = HexFile()
         data = args.datafile.read()
+        args.datafile.close()
         hexfile.add_region(args.address, data)
         hexfile.save(args.hexfile)
         args.hexfile.close()
