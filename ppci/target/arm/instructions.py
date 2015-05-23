@@ -14,7 +14,6 @@ class RegisterSet(set):
 
 
 isa = Isa()
-isa.typ2nt[ArmRegister] = 'reg'
 isa.typ2nt[int] = 'imm32'
 isa.typ2nt[str] = 'strrr'
 isa.typ2nt[RegisterSet] = 'reg_list'

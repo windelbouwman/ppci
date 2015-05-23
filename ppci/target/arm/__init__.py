@@ -36,25 +36,6 @@ class ArmAssembler(BaseAssembler):
         self.lit_counter = 0
 
     def add_extra_rules(self, parser):
-        parser.add_rule('reg', ['r0'], lambda rhs: R0)
-        parser.add_rule('reg', ['r1'], lambda rhs: R1)
-        parser.add_rule('reg', ['r2'], lambda rhs: R2)
-        parser.add_rule('reg', ['r3'], lambda rhs: R3)
-        parser.add_rule('reg', ['r4'], lambda rhs: R4)
-        parser.add_rule('reg', ['r5'], lambda rhs: R5)
-        parser.add_rule('reg', ['r6'], lambda rhs: R6)
-        parser.add_rule('reg', ['r7'], lambda rhs: R7)
-
-        parser.add_rule('reg', ['r8'], lambda rhs: R8)
-        parser.add_rule('reg', ['r9'], lambda rhs: R9)
-        parser.add_rule('reg', ['r10'], lambda rhs: R10)
-        parser.add_rule('reg', ['r11'], lambda rhs: R11)
-        parser.add_rule('reg', ['r12'], lambda rhs: R12)
-
-        parser.add_rule('reg', ['sp'], lambda rhs: SP)
-        parser.add_rule('reg', ['lr'], lambda rhs: LR)
-        parser.add_rule('reg', ['pc'], lambda rhs: PC)
-
         # Implement register list syntaxis:
         parser.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])

@@ -13,6 +13,25 @@ class ArmRegister(Register):
         else:
             return self.name
 
+    syntaxi = 'reg', [
+        (['r0'], lambda: R0),
+        (['r1'], lambda: R1),
+        (['r2'], lambda: R2),
+        (['r3'], lambda: R3),
+        (['r4'], lambda: R4),
+        (['r5'], lambda: R5),
+        (['r6'], lambda: R6),
+        (['r7'], lambda: R7),
+        (['r8'], lambda: R8),
+        (['r9'], lambda: R9),
+        (['r10'], lambda: R10),
+        (['r11'], lambda: R11),
+        (['r12'], lambda: R12),
+        (['sp'], lambda: SP),
+        (['lr'], lambda: LR),
+        (['pc'], lambda: PC)
+        ]
+
 
 class Reg8Op(ArmRegister):
     pass

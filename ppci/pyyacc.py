@@ -102,7 +102,7 @@ class Grammar:
         self.start_symbol = None
 
     def __repr__(self):
-        return 'Grammar with {} rules'.format(len(self.productions))
+        return 'Grammar with {} rules and {} terminals'.format(len(self.productions), len(self.terminals))
 
     def add_terminals(self, names):
         for name in names:
@@ -236,6 +236,8 @@ class Grammar:
 
     def generate_parser(self):
         """ Generates a parser from the grammar """
+        logger = logging.getLogger('yacc')
+        logger.debug('Generating parser from {}'.format(self))
         action_table, goto_table = self.generate_tables()
         p = LRParser(action_table, goto_table, self.start_symbol)
         p.grammar = self
@@ -243,8 +245,10 @@ class Grammar:
 
     def generate_tables(self):
         """ Generate parsing tables """
+        # If no start symbol set, pick the first one!
         if not self.start_symbol:
             self.start_symbol = self.productions[0].name
+
         self.checkSymbols()
         action_table = {}
         goto_table = {}
@@ -569,7 +573,7 @@ class XaccGenerator:
         self.output_file = output_file
         self.grammar = grammar
         self.headers = headers
-        self.logger.info('Generating parser for grammar {}'.format(grammar))
+        self.logger.debug('Generating parser for {}'.format(grammar))
         self.action_table, self.goto_table = grammar.generate_tables()
         self.generate_python_script()
 

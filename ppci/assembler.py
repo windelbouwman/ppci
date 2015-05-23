@@ -1,5 +1,5 @@
 
-from . import pyyacc
+from .pyyacc import Grammar, EPS, EOF
 from .baselex import BaseLexer
 from .common import make_num
 from .target import Target, Label
@@ -53,10 +53,10 @@ class AsmParser:
     def __init__(self, emit):
         # Construct a parser given a grammar:
         tokens2 = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
-                   pyyacc.EPS, 'COMMENT', '{', '}', '#', '@', '(', ')',
-                   pyyacc.EOF,
+                   EPS, 'COMMENT', '{', '}', '#', '@', '(', ')',
+                   EOF,
                    'val32', 'val16', 'val12', 'val8', 'val5', 'val3']
-        g = pyyacc.Grammar(tokens2)
+        g = Grammar(tokens2)
         self.g = g
 
         # Global structure of assembly line:
@@ -92,6 +92,7 @@ class AsmParser:
 
     def add_rule(self, prod, rhs, f):
         """ Helper function to add a rule, why this is required? """
+        print(prod, rhs)
         if prod == 'instruction':
             def f_wrap(*args):
                 i = f(args)
@@ -187,20 +188,26 @@ class BaseAssembler:
 
         def cs(args):
             # Create new class:
-            x = cls()
+            if type(otherz) is dict:
+                # Otherz is a dictionary with extra settings for the class
+                x = cls()
+                # Apply other rules:
+                for prop, val in otherz.items():
+                    setattr(x, prop._name, val)
+            else:
+                # Otherz is a function generating the class:
+                x = otherz()
 
-            # Set from parameters:
+            # Set from parameters in syntax:
             for idx, prop in prop_list:
                 setattr(x, prop._name, args[idx])
 
-            # Apply other rules:
-            for prop, val in otherz.items():
-                setattr(x, prop._name, val)
             return x
         self.add_rule(nt, rhs2, cs)
 
     def get_parameter_nt(self, isa, arg_cls):
         """ Get parameter non terminal """
+        # Lookup in isa map:
         if arg_cls in isa.typ2nt:
             return isa.typ2nt[arg_cls]
 
@@ -215,8 +222,9 @@ class BaseAssembler:
             for rhs, otherz in rules:
                 self.make_arg_func(arg_cls, nt, rhs, otherz, isa)
             return nt
-        else:  # pragma: no cover
-            raise KeyError(arg_cls)
+
+        # pragma: no cover
+        raise KeyError(arg_cls)
 
     def gen_asm_parser(self, isa):
         """ Generate assembly rules from isa """
@@ -224,6 +232,8 @@ class BaseAssembler:
         for i in isa.instructions:
             if hasattr(i, 'syntax'):
                 self.gen_i_rule(isa, i)
+
+    # End of generating functions
 
     def prepare(self):
         self.inMacro = False

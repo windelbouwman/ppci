@@ -365,7 +365,7 @@ class Frame:
 class Target:
     """ Base class for all targets """
     def __init__(self, name, desc=''):
-        logging.getLogger().info('Creating {} target'.format(name))
+        logging.getLogger('target').debug('Creating {} target'.format(name))
         self.name = name
         self.desc = desc
         self.registers = []
