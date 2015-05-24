@@ -3,10 +3,6 @@ from ..isa import Register, Syntax
 
 
 class ArmRegister(Register):
-    def __init__(self, name, num=None):
-        super().__init__(name)
-        self._num = num
-
     def __repr__(self):
         if self.is_colored:
             return '{}={}'.format(self.name, self.color)
@@ -71,3 +67,67 @@ PC = ArmRegister('pc', num=15)
 registers = [R0, R1, R2, R3, R4, R5, R6, R7, SP, LR, PC]
 num2regmap = {r.num: r for r in registers}
 
+
+class Coreg(Register):
+
+    syntaxi = 'coreg', [
+        Syntax(['c0'], new_func=lambda: c0),
+        Syntax(['c1'], new_func=lambda: c1),
+        Syntax(['c2'], new_func=lambda: c2),
+        Syntax(['c3'], new_func=lambda: c3),
+        Syntax(['c4'], new_func=lambda: c4),
+        Syntax(['c5'], new_func=lambda: c5),
+        Syntax(['c6'], new_func=lambda: c6),
+        Syntax(['c7'], new_func=lambda: c7),
+        Syntax(['c8'], new_func=lambda: c8),
+        Syntax(['c9'], new_func=lambda: c9),
+        Syntax(['c10'], new_func=lambda: c10),
+        Syntax(['c11'], new_func=lambda: c11),
+        Syntax(['c12'], new_func=lambda: c12),
+        Syntax(['c13'], new_func=lambda: c13),
+        Syntax(['c14'], new_func=lambda: c14),
+        Syntax(['c15'], new_func=lambda: c15),
+        ]
+
+c0 = Coreg('c0', 0)
+c1 = Coreg('c1', 1)
+c2 = Coreg('c2', 2)
+c3 = Coreg('c3', 3)
+c4 = Coreg('c4', 4)
+c5 = Coreg('c5', 5)
+c6 = Coreg('c6', 6)
+c7 = Coreg('c7', 7)
+c8 = Coreg('c8', 8)
+c9 = Coreg('c9', 9)
+c10 = Coreg('c10', 10)
+c11 = Coreg('c11', 11)
+c12 = Coreg('c12', 12)
+c13 = Coreg('c13', 13)
+c14 = Coreg('c14', 14)
+c15 = Coreg('c15', 15)
+
+
+class Coproc:
+    def __init__(self, name, num):
+        self.num = num
+
+    syntaxi = 'coproc', [
+        Syntax(['p8'], new_func=lambda: p8),
+        Syntax(['p9'], new_func=lambda: p9),
+        Syntax(['p10'], new_func=lambda: p10),
+        Syntax(['p11'], new_func=lambda: p11),
+        Syntax(['p12'], new_func=lambda: p12),
+        Syntax(['p13'], new_func=lambda: p13),
+        Syntax(['p14'], new_func=lambda: p14),
+        Syntax(['p15'], new_func=lambda: p15),
+        ]
+
+
+p8 = Coproc('p8', 8)
+p9 = Coproc('p9', 9)
+p10 = Coproc('p10', 10)
+p11 = Coproc('p11', 11)
+p12 = Coproc('p12', 12)
+p13 = Coproc('p13', 13)
+p14 = Coproc('p14', 14)
+p15 = Coproc('p15', 15)

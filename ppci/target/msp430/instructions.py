@@ -4,8 +4,6 @@ from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register, r0
 
 isa = Isa()
-isa.typ2nt[int] = 'imm16'
-isa.typ2nt[str] = 'strrr'
 
 
 class Msp430Token(Token):

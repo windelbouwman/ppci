@@ -9,8 +9,6 @@ from .registers import X86Register
 from ..token import Token, u32, u8, bit_range
 
 isa = Isa()
-isa.typ2nt[str] = 'strrr'
-isa.typ2nt[int] = 'imm32'
 
 
 # Table 3.1 of the intel manual:

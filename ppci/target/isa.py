@@ -96,7 +96,6 @@ class Isa:
     """
     def __init__(self):
         self.instructions = []
-        self.typ2nt = {}
 
     def register_instruction(self, i):
         """ Register an instruction into this ISA """

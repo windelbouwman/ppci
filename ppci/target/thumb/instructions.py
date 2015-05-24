@@ -17,9 +17,6 @@ class ThumbToken(Token):
 
 # Instructions:
 isa = Isa()
-isa.typ2nt[int] = 'imm32'
-isa.typ2nt[str] = 'strrr'
-isa.typ2nt[set] = 'reg_list'
 
 
 class ThumbInstruction(Instruction):

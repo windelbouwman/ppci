@@ -7,89 +7,43 @@ from ...assembler import BaseAssembler
 
 from ..arm.registers import register_range
 
-from .instructions import Dcd, Ds, Mcr, Mrc, RegisterSet
+from .instructions import Dcd, Ds, RegisterSet
 from .relocations import reloc_map
 
 
 class ArmAssembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
-        kws = list(isa.calc_kws())
-        kws += [
-            "dcd", 'db', 'ds',
-            "nop", "mov", "cmp", "add", "sub", "mul",
-            "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9",
-            "c10", "c11", "c12", "c13", "c14", "c15",
-            "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15",
-            ]
         self.parser.assembler = self
+        self.add_extra_rules()
         self.gen_asm_parser(isa)
-        self.add_extra_rules(self.parser)
-        self.parser.g.add_terminals(kws)
-        self.lexer.kws |= set(kws)
 
         self.lit_pool = []
         self.lit_counter = 0
 
-    def add_extra_rules(self, parser):
+    def add_extra_rules(self):
         # Implement register list syntaxis:
-        parser.add_rule(
+        self.typ2nt[RegisterSet] = 'reg_list'
+        self.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
-        parser.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
-        parser.add_rule(
+        self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
+        self.add_rule(
             'reg_list_inner',
             ['reg_or_range', ',', 'reg_list_inner'],
             lambda rhs: RegisterSet(rhs[0] | rhs[2]))
-        parser.add_rule(
+        self.add_rule(
             'reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
-        parser.add_rule(
+        self.add_rule(
             'reg_or_range',
             ['reg', '-', 'reg'],
             lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:
-        parser.add_rule(
+        self.add_rule(
             'instruction',
             ['ldr', 'reg', ',', '=', 'ID'],
             lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
-
-        # Strange mrc and mcr instructions:
-        parser.add_rule('coreg', ['c0'], lambda rhs: 0)
-        parser.add_rule('coreg', ['c1'], lambda rhs: 1)
-        parser.add_rule('coreg', ['c2'], lambda rhs: 2)
-        parser.add_rule('coreg', ['c3'], lambda rhs: 3)
-        parser.add_rule('coreg', ['c4'], lambda rhs: 4)
-        parser.add_rule('coreg', ['c5'], lambda rhs: 5)
-        parser.add_rule('coreg', ['c6'], lambda rhs: 6)
-        parser.add_rule('coreg', ['c7'], lambda rhs: 7)
-        parser.add_rule('coreg', ['c8'], lambda rhs: 8)
-        parser.add_rule('coreg', ['c9'], lambda rhs: 9)
-        parser.add_rule('coreg', ['c10'], lambda rhs: 10)
-        parser.add_rule('coreg', ['c11'], lambda rhs: 11)
-        parser.add_rule('coreg', ['c12'], lambda rhs: 12)
-        parser.add_rule('coreg', ['c13'], lambda rhs: 13)
-        parser.add_rule('coreg', ['c14'], lambda rhs: 14)
-        parser.add_rule('coreg', ['c15'], lambda rhs: 15)
-
-        parser.add_rule('coproc', ['p8'], lambda rhs: 8)
-        parser.add_rule('coproc', ['p9'], lambda rhs: 9)
-        parser.add_rule('coproc', ['p10'], lambda rhs: 10)
-        parser.add_rule('coproc', ['p11'], lambda rhs: 11)
-        parser.add_rule('coproc', ['p12'], lambda rhs: 12)
-        parser.add_rule('coproc', ['p13'], lambda rhs: 13)
-        parser.add_rule('coproc', ['p14'], lambda rhs: 14)
-        parser.add_rule('coproc', ['p15'], lambda rhs: 15)
-
-        parser.add_rule(
-            'instruction',
-            ['mcr', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
-            lambda rhs: Mcr(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
-
-        parser.add_rule(
-            'instruction',
-            ['mrc', 'coproc', ',', 'imm3', ',', 'reg', ',', 'coreg', ',', 'coreg', ',', 'imm3'],
-            lambda rhs: Mrc(rhs[1], rhs[3], rhs[5], rhs[7], rhs[9], rhs[11]))
 
     def flush(self):
         if self.inMacro:

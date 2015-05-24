@@ -40,7 +40,7 @@ class AssemblerLexingCase(unittest.TestCase):
     def testLex2(self):
         """ Test if lexer correctly maps some tokens """
         asmline = 'mov 3.13 0xC 13'
-        toks = ['ID', 'REAL', 'val5', 'val5', 'EOF']
+        toks = ['ID', 'REAL', 'NUMBER', 'NUMBER', 'EOF']
         self.do(asmline, toks)
 
     def testLex3(self):

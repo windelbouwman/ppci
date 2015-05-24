@@ -4,7 +4,7 @@
 from ..isa import Instruction, Isa
 from ..isa import register_argument, value_argument
 from ...bitfun import encode_imm32
-from .registers import ArmRegister
+from .registers import ArmRegister, Coreg, Coproc
 from ..token import Token, u32, u8, bit_range
 from ..instructionselector import InstructionSelector, pattern
 
@@ -14,9 +14,6 @@ class RegisterSet(set):
 
 
 isa = Isa()
-isa.typ2nt[int] = 'imm32'
-isa.typ2nt[str] = 'strrr'
-isa.typ2nt[RegisterSet] = 'reg_list'
 
 
 # Tokens:
@@ -547,12 +544,12 @@ class Ldr3(ArmInstruction):
 class McrBase(ArmInstruction):
     """ Mov arm register to coprocessor register """
     def encode(self):
-        self.token[0:4] = self.crm
+        self.token[0:4] = self.crm.num
         self.token[4] = 1
         self.token[5:8] = self.opc2
-        self.token[8:12] = self.coproc
+        self.token[8:12] = self.coproc.num
         self.token[12:16] = self.rt.num
-        self.token[16:20] = self.crn
+        self.token[16:20] = self.crn.num
         self.token[20] = self.b20
         self.token[21:24] = self.opc1
         self.token[24:28] = 0b1110
@@ -561,22 +558,22 @@ class McrBase(ArmInstruction):
 
 
 class Mcr(McrBase):
-    coproc = register_argument('coproc', int)
+    coproc = register_argument('coproc', Coproc)
     opc1 = register_argument('opc1', int)
     rt = register_argument('rt', ArmRegister, read=True)
-    crn = register_argument('crn', int)
-    crm = register_argument('crm', int)
+    crn = register_argument('crn', Coreg, read=True)
+    crm = register_argument('crm', Coreg, read=True)
     opc2 = register_argument('opc2', int)
     b20 = 0
     syntax = ['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]
 
 
 class Mrc(McrBase):
-    coproc = register_argument('coproc', int)
+    coproc = register_argument('coproc', Coproc)
     opc1 = register_argument('opc1', int)
     rt = register_argument('rt', ArmRegister, write=True)
-    crn = register_argument('crn', int)
-    crm = register_argument('crm', int)
+    crn = register_argument('crn', Coreg, read=True)
+    crm = register_argument('crm', Coreg, read=True)
     opc2 = register_argument('opc2', int)
     b20 = 1
     syntax = ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]

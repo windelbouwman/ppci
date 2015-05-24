@@ -19,15 +19,13 @@ from ...assembler import BaseAssembler
 class ThumbAssembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
-        kws = list(isa.calc_kws())
         self.parser.assembler = self
-        self.gen_asm_parser(isa)
         self.add_extra_rules(self.parser)
-        self.parser.g.add_terminals(kws)
-        self.lexer.kws |= set(kws)
+        self.gen_asm_parser(isa)
 
     def add_extra_rules(self, parser):
         # Implement register list syntaxis:
+        self.typ2nt[set] = 'reg_list'
         parser.add_rule('reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
         parser.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
         parser.add_rule('reg_list_inner', ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])

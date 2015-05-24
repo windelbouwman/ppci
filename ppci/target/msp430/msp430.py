@@ -10,10 +10,7 @@ from ...bitfun import align, wrap_negative
 class Msp430Assembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
-        kws = list(isa.calc_kws())
         self.gen_asm_parser(isa)
-        self.parser.g.add_terminals(kws)
-        self.lexer.kws |= set(kws)
 
 
 def apply_rel10bit(reloc, sym_value, section, reloc_value):
