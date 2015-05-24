@@ -6,8 +6,9 @@
 from .. import ir
 from .irdag import Dagger
 from ..irutils import Verifier, split_block
-from ..target import Target
-from ..target import RegisterUseDef, Register
+from ..target.target import Target
+from ..target.target import RegisterUseDef
+from ..target.isa import Register
 from .registerallocator import RegisterAllocator
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 import logging

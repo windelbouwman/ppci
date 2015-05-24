@@ -1,6 +1,7 @@
+
 import logging
 from .graph import Graph, Node
-from ..target import Register
+from ..target.isa import Register
 
 
 class InterferenceGraphNode(Node):

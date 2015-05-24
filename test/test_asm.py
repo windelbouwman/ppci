@@ -6,7 +6,7 @@ from ppci.common import CompilerError
 from ppci.assembler import AsmLexer
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
-from ppci.target import Label
+from ppci.target.target import Label
 from ppci.buildfunctions import link
 from ppci.binutils.layout import Layout
 from util import gnu_assemble

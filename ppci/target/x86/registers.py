@@ -1,7 +1,7 @@
 """
     Contains register definitions for x86 target.
 """
-from .. import Register
+from ..isa import Register, Syntax
 
 
 class X86Register(Register):
@@ -16,6 +16,26 @@ class X86Register(Register):
     @property
     def regbits(self):
         return self.num & 0x7
+
+    syntaxi = 'reg', [
+        Syntax(['rax'], new_func=lambda: rax),
+        Syntax(['rcx'], new_func=lambda: rcx),
+        Syntax(['rdx'], new_func=lambda: rdx),
+        Syntax(['rbx'], new_func=lambda: rbx),
+        Syntax(['rsp'], new_func=lambda: rsp),
+        Syntax(['rbp'], new_func=lambda: rbp),
+        Syntax(['rsi'], new_func=lambda: rsi),
+        Syntax(['rdi'], new_func=lambda: rdi),
+
+        Syntax(['r8'], new_func=lambda: r8),
+        Syntax(['r9'], new_func=lambda: r9),
+        Syntax(['r10'], new_func=lambda: r10),
+        Syntax(['r11'], new_func=lambda: r11),
+        Syntax(['r12'], new_func=lambda: r12),
+        Syntax(['r13'], new_func=lambda: r13),
+        Syntax(['r14'], new_func=lambda: r14),
+        Syntax(['r15'], new_func=lambda: r15),
+        ]
 
 # Calculation of the rexb bit:
 # rexbit = {'rax': 0, 'rcx':0, 'rdx':0, 'rbx': 0, 'rsp': 0, 'rbp': 0, 'rsi':0,

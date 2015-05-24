@@ -1,6 +1,6 @@
-from .. import Instruction, Isa, register_argument
+from ..isa import Instruction, Isa, register_argument
 from ..token import u16, u32
-from ..arm.registers import ArmRegister, SP
+from ..arm.registers import ArmRegister
 from ..instructionselector import InstructionSelector, pattern
 from ..token import Token, bit_range
 
@@ -17,7 +17,6 @@ class ThumbToken(Token):
 
 # Instructions:
 isa = Isa()
-isa.typ2nt[ArmRegister] = 'reg'
 isa.typ2nt[int] = 'imm32'
 isa.typ2nt[str] = 'strrr'
 isa.typ2nt[set] = 'reg_list'

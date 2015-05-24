@@ -39,8 +39,7 @@ def bit(b):
 
 
 class Token:
-    __slots__ = ['mask', 'bitsize', 'bit_value']
-
+    """ A token in a stream """
     def __init__(self, bitsize):
         self.bitsize = bitsize
         self.bit_value = 0

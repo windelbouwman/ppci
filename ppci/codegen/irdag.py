@@ -6,7 +6,8 @@
 import logging
 
 from .. import ir
-from ..target import Label, Register
+from ..target.target import Label
+from ..target.isa import Register
 from .tree import Tree
 
 

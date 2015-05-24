@@ -4,7 +4,7 @@ import unittest
 from ppci.codegen.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
-from ppci.target import Nop
+from ppci.target.target import Nop
 from ppci.target.example import Def, Use, DefUse, Add, Cmp, Use3, Register
 
 

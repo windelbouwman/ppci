@@ -1,12 +1,10 @@
 
-from .. import Target, Label
+from ..target import Target, Label
 from .instructions import LdrPseudo, isa
 from .instructions import ArmInstructionSelector
 from .frame import ArmFrame
 from ...assembler import BaseAssembler
 
-from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7
-from ..arm.registers import R8, R9, R10, R11, R12, SP, LR, PC
 from ..arm.registers import register_range
 
 from .instructions import Dcd, Ds, Mcr, Mrc, RegisterSet
@@ -18,8 +16,6 @@ class ArmAssembler(BaseAssembler):
         super().__init__(target)
         kws = list(isa.calc_kws())
         kws += [
-            "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
-            "r10", "r11", "r12", "sp", "lr", "pc",
             "dcd", 'db', 'ds',
             "nop", "mov", "cmp", "add", "sub", "mul",
             "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9",

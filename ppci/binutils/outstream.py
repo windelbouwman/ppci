@@ -4,7 +4,8 @@
 """
 
 import logging
-from ..target import Instruction, Alignment
+from ..target.isa import Instruction
+from ..target.target import Alignment
 
 
 class OutputStream:

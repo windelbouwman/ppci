@@ -241,6 +241,7 @@ class Grammar:
         action_table, goto_table = self.generate_tables()
         p = LRParser(action_table, goto_table, self.start_symbol)
         p.grammar = self
+        logger.debug('Parser generated')
         return p
 
     def generate_tables(self):

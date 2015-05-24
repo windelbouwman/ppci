@@ -2,8 +2,8 @@
 from .pyyacc import Grammar, EPS, EOF
 from .baselex import BaseLexer
 from .common import make_num
-from .target import Target, Label
-from .target import Alignment, InstructionProperty
+from .target.target import Target, Label, Alignment
+from .target.isa import InstructionProperty, Syntax
 
 
 def bit_type(value):
@@ -157,6 +157,7 @@ class BaseAssembler:
         for idx, rhs_part in enumerate(rhs):
             if type(rhs_part) is str:
                 rhs2.append(rhs_part)
+                self.add_keyword(rhs_part)
             elif type(rhs_part) is InstructionProperty:
                 arg_cls = rhs_part._cls
                 rhs2.append(self.get_parameter_nt(isa, arg_cls))
@@ -175,7 +176,7 @@ class BaseAssembler:
             return ins_cls(*usable)
         self.add_instruction(rhs, f)
 
-    def make_arg_func(self, cls, nt, rhs, otherz, isa):
+    def make_arg_func(self, cls, nt, stx, isa):
         """ Construct a rule for rhs <- nt
             Take the syntax, lookup properties to strings.
             Construct a sequence of only strings
@@ -183,20 +184,22 @@ class BaseAssembler:
             the newly created class.
             Apply other properties.
         """
+        assert isinstance(stx, Syntax)
 
-        rhs2, prop_list = self.make_str_rhs(isa, rhs)
+        rhs2, prop_list = self.make_str_rhs(isa, stx.syntax)
 
         def cs(args):
             # Create new class:
-            if type(otherz) is dict:
-                # Otherz is a dictionary with extra settings for the class
-                x = cls()
-                # Apply other rules:
-                for prop, val in otherz.items():
-                    setattr(x, prop._name, val)
+            if stx.new_func:
+                # Use a function to create the class:
+                x = stx.new_func()
             else:
-                # Otherz is a function generating the class:
-                x = otherz()
+                x = cls()
+
+            if stx.set_props:
+                # Apply other rules:
+                for prop, val in stx.set_props.items():
+                    setattr(x, prop._name, val)
 
             # Set from parameters in syntax:
             for idx, prop in prop_list:
@@ -219,8 +222,8 @@ class BaseAssembler:
             isa.typ2nt[arg_cls] = nt
 
             # Add rules:
-            for rhs, otherz in rules:
-                self.make_arg_func(arg_cls, nt, rhs, otherz, isa)
+            for stx in rules:
+                self.make_arg_func(arg_cls, nt, stx, isa)
             return nt
 
         # pragma: no cover

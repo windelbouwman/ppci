@@ -17,3 +17,7 @@ msp430target = Msp430Target()
 target_list = [arm_target, thumb_target, msp430target]
 targets = {t.name: t for t in target_list}
 targetnames = list(targets.keys())
+
+
+def get_target(name):
+    return targets[name]

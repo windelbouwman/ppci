@@ -7,7 +7,7 @@ and assembling.
 import logging
 import io
 import xml
-from .target import Target
+from .target.target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
 from .irutils import Verifier, Writer
@@ -21,7 +21,7 @@ from .opt.transform import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
-from .target import get_target
+from .target.target_list import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile

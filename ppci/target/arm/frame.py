@@ -1,4 +1,5 @@
-from .. import Label, Alignment, Frame
+from ..target import Label, Alignment
+from ..target import Frame
 from .instructions import Dcd, Add, Sub, Push, Pop, Mov, Db, Mov2, Bl
 from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8

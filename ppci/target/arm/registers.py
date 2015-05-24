@@ -1,5 +1,5 @@
 
-from .. import Register
+from ..isa import Register, Syntax
 
 
 class ArmRegister(Register):
@@ -14,22 +14,22 @@ class ArmRegister(Register):
             return self.name
 
     syntaxi = 'reg', [
-        (['r0'], lambda: R0),
-        (['r1'], lambda: R1),
-        (['r2'], lambda: R2),
-        (['r3'], lambda: R3),
-        (['r4'], lambda: R4),
-        (['r5'], lambda: R5),
-        (['r6'], lambda: R6),
-        (['r7'], lambda: R7),
-        (['r8'], lambda: R8),
-        (['r9'], lambda: R9),
-        (['r10'], lambda: R10),
-        (['r11'], lambda: R11),
-        (['r12'], lambda: R12),
-        (['sp'], lambda: SP),
-        (['lr'], lambda: LR),
-        (['pc'], lambda: PC)
+        Syntax(['r0'], new_func=lambda: R0),
+        Syntax(['r1'], new_func=lambda: R1),
+        Syntax(['r2'], new_func=lambda: R2),
+        Syntax(['r3'], new_func=lambda: R3),
+        Syntax(['r4'], new_func=lambda: R4),
+        Syntax(['r5'], new_func=lambda: R5),
+        Syntax(['r6'], new_func=lambda: R6),
+        Syntax(['r7'], new_func=lambda: R7),
+        Syntax(['r8'], new_func=lambda: R8),
+        Syntax(['r9'], new_func=lambda: R9),
+        Syntax(['r10'], new_func=lambda: R10),
+        Syntax(['r11'], new_func=lambda: R11),
+        Syntax(['r12'], new_func=lambda: R12),
+        Syntax(['sp'], new_func=lambda: SP),
+        Syntax(['lr'], new_func=lambda: LR),
+        Syntax(['pc'], new_func=lambda: PC)
         ]
 
 

@@ -1,10 +1,9 @@
 
-from .. import Instruction, Isa, register_argument
+from ..isa import Instruction, Isa, register_argument, Syntax
 from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register, r0
 
 isa = Isa()
-isa.typ2nt[Msp430Register] = 'reg'
 isa.typ2nt[int] = 'imm16'
 isa.typ2nt[str] = 'strrr'
 
@@ -35,8 +34,8 @@ class DestinationOperand(Msp430Operand):
     imm = register_argument('imm', int)
     Ad = register_argument('Ad', int, default_value=0)
     syntaxi = 'dst', [
-        ([reg], {Ad: 0}),
-        ([imm, '(', reg, ')'], {Ad: 1}),
+        Syntax([reg], set_props={Ad: 0}),
+        Syntax([imm, '(', reg, ')'], set_props={Ad: 1}),
         ]
 
     @property
@@ -46,20 +45,16 @@ class DestinationOperand(Msp430Operand):
         return bytes()
 
 
-def optional(x):
-    pass
-
-
 class SourceOperand(Msp430Operand):
     reg = register_argument('reg', Msp430Register, read=True)
     imm = register_argument('imm', int)
     As = register_argument('As', int, default_value=0)
     syntaxi = 'src', [
-        ([reg], {As: 0}),
-        ([imm, '(', reg, ')'], {As: 1}),
-        (['@', reg], {As: 2}),
-        (['@', reg, '+'], {As: 3}),
-        (['#', imm], {As: 3, reg: r0}),  # Equivalent to @PC+
+        Syntax([reg], set_props={As: 0}),
+        Syntax([imm, '(', reg, ')'], set_props={As: 1}),
+        Syntax(['@', reg], set_props={As: 2}),
+        Syntax(['@', reg, '+'], set_props={As: 3}),
+        Syntax(['#', imm], set_props={As: 3, reg: r0}),  # Equivalent to @PC+
         ]
 
     @property

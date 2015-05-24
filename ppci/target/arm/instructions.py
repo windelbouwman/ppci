@@ -1,8 +1,8 @@
 """
     Definitions of arm instructions.
 """
-from .. import Instruction, Isa
-from .. import register_argument, value_argument
+from ..isa import Instruction, Isa
+from ..isa import register_argument, value_argument
 from ...bitfun import encode_imm32
 from .registers import ArmRegister
 from ..token import Token, u32, u8, bit_range

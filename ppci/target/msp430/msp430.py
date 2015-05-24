@@ -1,5 +1,5 @@
-from .. import Target
-from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
+from ..target import Target
+from .registers import r10, r11, r12, r13, r14, r15
 from .instructions import isa
 from ...assembler import BaseAssembler
 from ...bitfun import align, wrap_negative
@@ -11,33 +11,6 @@ class Msp430Assembler(BaseAssembler):
     def __init__(self, target):
         super().__init__(target)
         kws = list(isa.calc_kws())
-
-        # Registers:
-        self.add_keyword('r4')
-        self.add_keyword('r5')
-        self.add_keyword('r6')
-        self.add_keyword('r7')
-        self.add_keyword('r8')
-        self.add_keyword('r9')
-        self.add_keyword('r10')
-        self.add_keyword('r11')
-        self.add_keyword('r12')
-        self.add_keyword('r13')
-        self.add_keyword('r14')
-        self.add_keyword('r15')
-        self.add_rule('reg', ['r4'], lambda rhs: r4)
-        self.add_rule('reg', ['r5'], lambda rhs: r5)
-        self.add_rule('reg', ['r6'], lambda rhs: r6)
-        self.add_rule('reg', ['r7'], lambda rhs: r7)
-        self.add_rule('reg', ['r8'], lambda rhs: r8)
-        self.add_rule('reg', ['r9'], lambda rhs: r9)
-        self.add_rule('reg', ['r10'], lambda rhs: r10)
-        self.add_rule('reg', ['r11'], lambda rhs: r11)
-        self.add_rule('reg', ['r12'], lambda rhs: r12)
-        self.add_rule('reg', ['r13'], lambda rhs: r13)
-        self.add_rule('reg', ['r14'], lambda rhs: r14)
-        self.add_rule('reg', ['r15'], lambda rhs: r15)
-
         self.gen_asm_parser(isa)
         self.parser.g.add_terminals(kws)
         self.lexer.kws |= set(kws)

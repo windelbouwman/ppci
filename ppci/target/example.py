@@ -3,8 +3,9 @@
     and serves as a minimal example.
 """
 
-from . import Instruction, Target
-from . import register_argument, Register
+from .isa import Instruction
+from .target import Target
+from .isa import register_argument, Register
 
 
 class SimpleTarget(Target):
@@ -14,6 +15,7 @@ class SimpleTarget(Target):
 R0 = Register('r0')
 R1 = Register('r1')
 R2 = Register('r2')
+
 
 class TestInstruction(Instruction):
     """ Base class for all example instructions """
