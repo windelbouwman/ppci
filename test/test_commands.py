@@ -5,14 +5,16 @@ import io
 from unittest.mock import patch
 from ppci.commands import c3c, build, asm, hexutil
 from ppci.common import DiagnosticsManager, SourceLocation
+from util import relpath
 
 
 class CommandsTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_build_command(self, mock_stderr):
         _, report_file = tempfile.mkstemp()
+        build_file = relpath('..', 'examples', 'build.xml')
         build(shlex.split(
-            '-v --report {} -f examples/build.xml'.format(report_file)))
+            '-v --report {} -f {}'.format(report_file, build_file)))
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_build_command_help(self, mock_stdout):
@@ -24,15 +26,17 @@ class CommandsTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_c3c_command_fails(self, mock_stdout, mock_stderr):
+        c3_file = relpath('..', 'examples', 'snake', 'game.c3')
         with self.assertRaises(SystemExit) as cm:
-            c3c(shlex.split('--target arm examples/snake/game.c3'))
+            c3c(shlex.split('--target arm {}'.format(c3_file)))
         self.assertEqual(1, cm.exception.code)
 
     @patch('sys.stdout', new_callable=io.StringIO)
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_c3c_command_succes(self, mock_stdout, mock_stderr):
         """ Capture stdout. Important because it is closed by the command! """
-        c3c(shlex.split('--target arm examples/stm32f4/bsp.c3'))
+        c3_file = relpath('..', 'examples', 'stm32f4', 'bsp.c3')
+        c3c(shlex.split('--target arm {}'.format(c3_file)))
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_c3c_command_help(self, mock_stdout):
@@ -44,7 +48,7 @@ class CommandsTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp()
-        src = 'examples/lm3s6965/startup.asm'
+        src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
         asm(shlex.split('--target thumb -o {} {}'.format(obj_file, src)))
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -76,7 +80,7 @@ class CommandsTestCase(unittest.TestCase):
         _, file1 = tempfile.mkstemp()
         _, file2 = tempfile.mkstemp()
         _, file3 = tempfile.mkstemp()
-        datafile = 'examples/build.xml'
+        datafile = relpath('..', 'examples', 'build.xml')
         hexutil(shlex.split('new {} 0x10000000 {}'.format(file1, datafile)))
         hexutil(shlex.split('info {}'.format(file1)))
         hexutil(shlex.split('new {} 0x20000000 {}'.format(file2, datafile)))
@@ -87,7 +91,7 @@ class DiagnosticsTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_error_reporting(self, mock_stdout):
         """ Simulate some errors into the diagnostics system """
-        filename = 'examples/snake/game.c3'
+        filename = relpath('..', 'examples', 'snake', 'game.c3')
         diag = DiagnosticsManager()
         with open(filename, 'r') as f:
             src = f.read()
