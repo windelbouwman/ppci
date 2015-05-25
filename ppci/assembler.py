@@ -51,48 +51,24 @@ class AsmLexer(BaseLexer):
 
 class AsmParser:
     """ Base parser for assembler language """
-    def __init__(self, emit):
+    def __init__(self):
         # Construct a parser given a grammar:
         tokens2 = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
                    EPS, 'COMMENT', '{', '}', '#', '@', '(', ')', EOF]
-        g = Grammar(tokens2)
-        self.g = g
+        self.g = Grammar(tokens2)
 
         # Global structure of assembly line:
-        g.add_production('asmline', ['asmline2'])
-        g.add_production('asmline', ['asmline2', 'COMMENT'])
-        g.add_production('asmline2', ['label', 'instruction'])
-        g.add_production('asmline2', ['instruction'])
-        g.add_production('asmline2', ['label'])
-        g.add_production('asmline2', [])
-
-        # Pseudo instructions:
-        g.add_production('label', ['ID', ':'], self.p_label)
-
-        g.start_symbol = 'asmline'
-        self.emit = emit
-        # print('length of table:', len(self.p.action_table))
+        self.g.add_production('asmline', ['asmline2'])
+        self.g.add_production('asmline', ['asmline2', 'COMMENT'])
+        self.g.add_production('asmline2', ['label', 'instruction'])
+        self.g.add_production('asmline2', ['instruction'])
+        self.g.add_production('asmline2', ['label'])
+        self.g.add_production('asmline2', [])
+        self.g.start_symbol = 'asmline'
 
     def add_rule(self, prod, rhs, f):
         """ Helper function to add a rule, why this is required? """
-        print(prod, rhs)
-        if prod == 'instruction':
-            def f_wrap(*args):
-                i = f(args)
-                if i:
-                    self.emit(i)
-        else:
-            def f_wrap(*args):
-                return f(args)
-        self.g.add_production(prod, rhs, f_wrap)
-
-    def add_instruction(self, rhs, f):
-        self.add_rule('instruction', rhs, f)
-
-    # Parser handlers:
-    def p_label(self, lname, _):
-        lab = Label(lname.val)
-        self.emit(lab)
+        self.g.add_production(prod, rhs, f)
 
     def parse(self, lexer):
         """ Entry function to parser """
@@ -107,7 +83,7 @@ class BaseAssembler:
         assert isinstance(target, Target)
         self.target = target
         self.inMacro = False
-        self.parser = AsmParser(self.emit)
+        self.parser = AsmParser()
         self.lexer = AsmLexer()
         self.typ2nt = {}
 
@@ -123,6 +99,7 @@ class BaseAssembler:
         self.add_instruction(['repeat', 'imm'], self.p_repeat)
         self.add_instruction(['endrepeat'], self.p_endrepeat)
         self.add_instruction(['section', 'str'], self.p_section)
+        self.add_rule('label', ['ID', ':'], self.p_label)
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
@@ -132,10 +109,19 @@ class BaseAssembler:
     def add_instruction(self, rhs, f):
         """ Add an instruction to the grammar """
         rhs2, _ = self.make_str_rhs(rhs)
-        self.parser.add_instruction(rhs2, f)
+        self.add_rule('instruction', rhs2, f)
 
     def add_rule(self, lhs, rhs, f):
-        self.parser.add_rule(lhs, rhs, f)
+        print(lhs, rhs)
+        if lhs == 'instruction':
+            def f_wrap(*args):
+                i = f(args)
+                if i:
+                    self.emit(i)
+        else:
+            def f_wrap(*args):
+                return f(args)
+        self.parser.add_rule(lhs, rhs, f_wrap)
 
     # Functions to automate the adding of instructions to asm syntax:
     def make_str_rhs(self, rhs):
@@ -269,6 +255,11 @@ class BaseAssembler:
 
     def p_section(self, rhs):
         self.select_section(rhs[1])
+
+    # Parser handlers:
+    def p_label(self, rhs):
+        lab = Label(rhs[0].val)
+        self.emit(lab)
 
     def select_section(self, name):
         """ Switch to another section section in the instruction stream """
