@@ -25,9 +25,10 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('jmp a')
         self.check('e9 00 00 00 00   e9 fb ff ff ff   e9 f6 ff ff ff')
 
-    def testCall(self):
-        self.feed('call r10')
-        self.feed('call rcx')
+    def test_call(self):
+        """ Test call instruction """
+        self.feed('call *r10')
+        self.feed('call *rcx')
         self.feed('call b')
         self.feed('b: call b')
         self.feed('call b')

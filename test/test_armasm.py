@@ -174,6 +174,12 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('endrepeat')
         self.check('11000000 11000000 11000000 11000000 11000000')
 
+    def test_mnemonic_as_label(self):
+        """ It should be possible to use mnemonics as labels """
+        self.feed('cmp:')
+        self.feed('b cmp')
+        self.check('feffffea')
+
     @unittest.skip('Fix lsr postfix')
     def test_div_routine(self):
         self.feed('div:')
@@ -191,8 +197,8 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('  mov r4, r4, lsr #1')
         self.feed('  cmp r4, r2')
         self.feed('  bhs div_91')
-        self.check('0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3 040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a')
-
+        self.check("""0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3
+            040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a""")
 
 
 if __name__ == '__main__':

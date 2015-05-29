@@ -188,13 +188,9 @@ class Int(X86Instruction):
         return self.token1.encode() + self.token2.encode()
 
 
-def syscall():
-   return [0x0F, 0x05]
-
-
 class CallReg(X86Instruction):
     reg = register_argument('reg', X86Register, read=True)
-    syntax = ['call', reg]
+    syntax = ['call', '*', reg]
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -208,7 +204,7 @@ class CallReg(X86Instruction):
 
 
 class Call(X86Instruction):
-    """ jmp imm32 """
+    """ call a function """
     target = register_argument('target', str)
     syntax = ['call', target]
     tokens = [OpcodeToken]

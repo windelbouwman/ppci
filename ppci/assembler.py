@@ -1,19 +1,13 @@
 
+import re
 from .pyyacc import Grammar, EPS, EOF
 from .baselex import BaseLexer
 from .common import make_num
 from .target.target import Target, Label, Alignment
 from .target.isa import InstructionProperty, Syntax
 
-
-def bit_type(value):
-    assert value < (2**32)
-    assert value >= 0
-    t = 'val32'
-    for n in [16, 12, 8, 5, 3]:
-        if value < (2**n):
-            t = 'val{}'.format(n)
-    return t
+id_regex = r'[A-Za-z_][A-Za-z\d_]*'
+id_matcher = re.compile(id_regex)
 
 
 class AsmLexer(BaseLexer):
@@ -23,7 +17,7 @@ class AsmLexer(BaseLexer):
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
-            ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
+            ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)#@]|>=|<=|<>|>|<|}|{',
                 lambda typ, val: (val, val)),
@@ -36,7 +30,7 @@ class AsmLexer(BaseLexer):
     def handle_id(self, typ, val):
         if val.lower() in self.kws:
             typ = val.lower()
-        return (typ, val)
+        return typ, val
 
     def add_keyword(self, keyword):
         """ Add a keyword """
@@ -44,7 +38,6 @@ class AsmLexer(BaseLexer):
 
     def handle_number(self, typ, val):
         val = make_num(val)
-        # typ = bit_type(val)
         typ = 'NUMBER'
         return typ, val
 
@@ -66,13 +59,10 @@ class AsmParser:
         self.g.add_production('asmline2', [])
         self.g.start_symbol = 'asmline'
 
-    def add_rule(self, prod, rhs, f):
-        """ Helper function to add a rule, why this is required? """
-        self.g.add_production(prod, rhs, f)
-
     def parse(self, lexer):
         """ Entry function to parser """
         if not hasattr(self, 'p'):
+            print(self.g)
             self.p = self.g.generate_parser()
         self.p.parse(lexer)
 
@@ -99,12 +89,19 @@ class BaseAssembler:
         self.add_instruction(['repeat', 'imm'], self.p_repeat)
         self.add_instruction(['endrepeat'], self.p_endrepeat)
         self.add_instruction(['section', 'str'], self.p_section)
-        self.add_rule('label', ['ID', ':'], self.p_label)
+        self.add_rule('label', ['str', ':'], self.p_label)
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
-        self.parser.g.add_terminal(keyword)
-        self.lexer.add_keyword(keyword)
+        if keyword not in self.lexer.kws:
+            self.parser.g.add_terminal(keyword)
+            self.lexer.add_keyword(keyword)
+
+            # Add a rule that allows keywords to be used as identifiers
+            # Since there are a lot of short mnemonic, the chance that someone
+            # will use a keyword as a label, is large.
+            if id_matcher.match(keyword):
+                self.add_rule('str', [keyword], lambda rhs: keyword)
 
     def add_instruction(self, rhs, f):
         """ Add an instruction to the grammar """
@@ -112,6 +109,7 @@ class BaseAssembler:
         self.add_rule('instruction', rhs2, f)
 
     def add_rule(self, lhs, rhs, f):
+        """ Helper function to add a rule, why this is required? """
         print(lhs, rhs)
         if lhs == 'instruction':
             def f_wrap(*args):
@@ -121,7 +119,7 @@ class BaseAssembler:
         else:
             def f_wrap(*args):
                 return f(args)
-        self.parser.add_rule(lhs, rhs, f_wrap)
+        self.parser.g.add_production(lhs, rhs, f_wrap)
 
     # Functions to automate the adding of instructions to asm syntax:
     def make_str_rhs(self, rhs):
@@ -133,6 +131,7 @@ class BaseAssembler:
                 rhs2.append(rhs_part)
 
                 # Check if string is registered, if not, we have a new keyword
+                # TODO: this is potentially error prone..
                 if rhs_part not in self.parser.g.nonterminals:
                     self.add_keyword(rhs_part)
                 # rhs2.append('ID')
@@ -258,7 +257,7 @@ class BaseAssembler:
 
     # Parser handlers:
     def p_label(self, rhs):
-        lab = Label(rhs[0].val)
+        lab = Label(rhs[0])
         self.emit(lab)
 
     def select_section(self, name):

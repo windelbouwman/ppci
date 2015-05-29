@@ -293,7 +293,7 @@ class Grammar:
                     # Rule 1, a shift item:
                     nextstate = transitions[(state_nr, item.Next)]
                     setAction(state_nr, item.Next, Shift(nextstate))
-                if item.IsReduce:
+                if item.is_reduce:
                     if item.production.name == self.start_symbol and item.look_ahead == EOF:
                         # Rule 3: accept:
                         act = Accept(self.productions.index(item.production))
@@ -347,7 +347,7 @@ class Item:
         return self._hash
 
     @property
-    def IsReduce(self):
+    def is_reduce(self):
         """ Check if this item has the dot at the end """
         return not self._is_shift
 
@@ -373,7 +373,7 @@ class Item:
         postdot = ' '.join(prod.symbols[self.dotpos:])
         name = prod.name
         args = (name, predot, postdot, self.look_ahead)
-        return '[{0} -> {1} . {2} -> {3}]'.format(*args)
+        return '[{} -> {} . {} -> {}]'.format(*args)
 
 
 class LRParser:
