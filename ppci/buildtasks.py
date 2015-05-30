@@ -9,7 +9,7 @@ module
 from .tasks import Task, TaskError, register_task
 from .buildfunctions import c3compile, link, assemble, construct
 from .buildfunctions import objcopy
-from .pyyacc import ParserException
+from .pcc.common import ParserException
 from .common import CompilerError
 
 

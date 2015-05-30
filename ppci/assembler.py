@@ -1,7 +1,8 @@
 
 import re
-from .pyyacc import Grammar, EPS, EOF
-from .baselex import BaseLexer
+from .pcc.grammar import Grammar
+from .pcc.lr import LrParserBuilder
+from .baselex import BaseLexer, EPS, EOF
 from .common import make_num
 from .target.target import Target, Label, Alignment
 from .target.isa import InstructionProperty, Syntax
@@ -46,9 +47,10 @@ class AsmParser:
     """ Base parser for assembler language """
     def __init__(self):
         # Construct a parser given a grammar:
-        tokens2 = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
-                   EPS, 'COMMENT', '{', '}', '#', '@', '(', ')', EOF]
-        self.g = Grammar(tokens2)
+        terminals = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
+                     EPS, 'COMMENT', '{', '}', '#', '@', '(', ')', EOF]
+        self.g = Grammar()
+        self.g.add_terminals(terminals)
 
         # Global structure of assembly line:
         self.g.add_production('asmline', ['asmline2'])
@@ -63,7 +65,7 @@ class AsmParser:
         """ Entry function to parser """
         if not hasattr(self, 'p'):
             print(self.g)
-            self.p = self.g.generate_parser()
+            self.p = LrParserBuilder(self.g).generate_parser()
         self.p.parse(lexer)
 
 

@@ -1,5 +1,6 @@
-from ..baselex import BaseLexer
-from .. import pyyacc
+from ..baselex import BaseLexer, EOF, EPS
+from ..pcc.grammar import Grammar
+from ..pcc.lr import LrParserBuilder
 from ..common import make_num
 
 
@@ -76,11 +77,13 @@ class LayoutLexer(BaseLexer):
            ('NUMBER', r'\d+', self.handle_number),
            ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
            ('SKIP', r'[ \t\r\n]', None),
-           ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{', lambda typ, val: (val, val)),
+           ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
+               lambda typ, val: (val, val)),
            ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
         ]
         super().__init__(tok_spec)
-        self.kws = ['MEMORY', 'ALIGN', 'LOCATION','SECTION','SIZE', 'DEFINESYMBOL']
+        self.kws = [
+            'MEMORY', 'ALIGN', 'LOCATION', 'SECTION', 'SIZE', 'DEFINESYMBOL']
 
     def handle_id(self, typ, val):
         if val in self.kws:
@@ -95,18 +98,26 @@ class LayoutLexer(BaseLexer):
 
 class LayoutParser:
     def __init__(self, kws):
-        toks = ['ID', 'NUMBER', '{', '}', '.', ':', '=', '(', ')', pyyacc.EPS, pyyacc.EOF] + kws
-        g = pyyacc.Grammar(toks)
+        toks = [
+            'ID', 'NUMBER', '{', '}', '.', ':', '=', '(', ')', EPS, EOF
+            ] + kws
+        g = Grammar()
+        g.add_terminals(toks)
         g.add_production('layout', ['mem_list'])
         g.add_one_or_more('mem', 'mem_list')
-        g.add_production('mem', ['MEMORY', 'ID', 'LOCATION', '=', 'NUMBER', 'SIZE', '=', 'NUMBER', '{', 'input_list', '}'], self.handle_mem)
+        g.add_production('mem', [
+            'MEMORY', 'ID', 'LOCATION', '=', 'NUMBER', 'SIZE', '=',
+            'NUMBER', '{', 'input_list', '}'], self.handle_mem)
         g.add_one_or_more('input', 'input_list')
-        g.add_production('input', ['ALIGN', '(', 'NUMBER', ')'], self.handle_align)
-        g.add_production('input', ['SECTION', '(', 'ID', ')'], self.handle_section)
-        g.add_production('input', ['DEFINESYMBOL', '(', 'ID', ')'], self.handle_defsym)
+        g.add_production(
+            'input', ['ALIGN', '(', 'NUMBER', ')'], self.handle_align)
+        g.add_production(
+            'input', ['SECTION', '(', 'ID', ')'], self.handle_section)
+        g.add_production(
+            'input', ['DEFINESYMBOL', '(', 'ID', ')'], self.handle_defsym)
 
         g.start_symbol = 'layout'
-        self.p = g.generate_parser()
+        self.p = LrParserBuilder(g).generate_parser()
 
     def parse(self, lexer, layout):
         self.layout = layout
