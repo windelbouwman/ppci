@@ -45,9 +45,8 @@ class Item:
         self.dotpos = dotpos
         assert self.dotpos <= len(self.production.symbols)
         self.look_ahead = look_ahead
-        self._is_shift = self.dotpos < len(self.production.symbols)
-        self.IsShift = self._is_shift
-        if self.IsShift:
+        self.is_shift = self.dotpos < len(self.production.symbols)
+        if self.is_shift:
             self.Next = self.production.symbols[self.dotpos]
         self._data = (self.production, self.dotpos, self.look_ahead)
         self._hash = self._data.__hash__()
@@ -63,11 +62,11 @@ class Item:
     @property
     def is_reduce(self):
         """ Check if this item has the dot at the end """
-        return not self._is_shift
+        return not self.is_shift
 
     def can_shift_over(self, symbol):
         """ Determines if this item can shift over the given symbol """
-        return self._is_shift and self.Next == symbol
+        return self.is_shift and self.Next == symbol
 
     def shifted(self):
         """ Creates a new item that is shifted one position """
@@ -90,14 +89,14 @@ class Item:
         return '[{} -> {} . {} -> {}]'.format(*args)
 
 
-class LRParser:
+class LrParser:
     """ LR parser automata. This class takes goto and action table
         and can then process a sequence of tokens.
     """
-    def __init__(self, action_table, goto_table, start_symbol):
+    def __init__(self, grammar, action_table, goto_table):
         self.action_table = action_table
         self.goto_table = goto_table
-        self.start_symbol = start_symbol
+        self.grammar = grammar
 
     def parse(self, lexer):
         """ Parse an iterable with tokens """
@@ -106,8 +105,9 @@ class LRParser:
         r_data_stack = []
         look_ahead = lexer.next_token()
         assert type(look_ahead) is Token
+
         # TODO: exit on this condition:
-        while stack != [0, self.start_symbol, 0]:
+        while stack != [0, self.grammar.start_symbol, 0]:
             state = stack[-1]   # top of stack
             key = (state, look_ahead.typ)
             if key not in self.action_table:
@@ -154,7 +154,7 @@ class LRParser:
                 break
         # At exit, the stack must be 1 long
         # TODO: fix that this holds:
-        # assert stack == [0, self.start_symbol, 0]
+        # assert stack == [0, self.grammar.start_symbol, 0]
         return ret_val
 
 
@@ -194,8 +194,11 @@ def calculate_first_sets(grammar):
 
 
 class LrParserBuilder:
-    """ Construct goto and action tables according to LALR algorithm """
+    """
+        Construct goto and action tables according to LALR algorithm
+    """
     def __init__(self, grammar):
+        self.logger = logging.getLogger('pcc')
         self.grammar = grammar
         self._first = None  # Cached first set
 
@@ -229,7 +232,7 @@ class LrParserBuilder:
         # Start of algorithm:
         while worklist:
             item = worklist.pop(0)
-            if not item.IsShift:
+            if not item.is_shift:
                 continue
             if not (item.Next in self.grammar.nonterminals):
                 continue
@@ -259,14 +262,12 @@ class LrParserBuilder:
 
     def generate_parser(self):
         """ Generates a parser from the grammar """
-        logger = logging.getLogger('yacc')
-        logger.debug('Generating parser from {}'.format(self))
+        self.logger.debug('Generating parser from {}'.format(self.grammar))
         action_table, goto_table = self.generate_tables()
-        p = LRParser(action_table, goto_table, self.grammar.start_symbol)
-        p.grammar = self.grammar
-        logger.debug('Parser generated')
-        logger.debug('Goto table: {}'.format(len(goto_table)))
-        logger.debug('Action table: {}'.format(len(action_table)))
+        p = LrParser(self.grammar, action_table, goto_table)
+        self.logger.debug('Parser generated')
+        self.logger.debug('Goto table: {}'.format(len(goto_table)))
+        self.logger.debug('Action table: {}'.format(len(action_table)))
         return p
 
     def gen_canonical_set(self, iis):
@@ -283,7 +284,7 @@ class LrParserBuilder:
         addSt(iis)
         while len(worklist) > 0:
             itemset = worklist.pop(0)
-            for symbol in self.grammar.Symbols:
+            for symbol in self.grammar.symbols:
                 nis = self.next_item_set(itemset, symbol)
                 if not nis:
                     continue
@@ -334,7 +335,7 @@ class LrParserBuilder:
             state_nr = indici[state]
             # Detect conflicts:
             for item in state:
-                if item.IsShift and item.Next in self.grammar.terminals:
+                if item.is_shift and item.Next in self.grammar.terminals:
                     # Rule 1, a shift item:
                     nextstate = transitions[(state_nr, item.Next)]
                     setAction(state_nr, item.Next, Shift(nextstate))

@@ -12,7 +12,8 @@ from ppci.pcc.lr import LrParserBuilder
 from ppci.baselex import EOF
 
 
-class genTokens:
+class gen_tokens:
+    """ Helper that generates tokens from a list of strings """
     def __init__(self, lst):
         def tokGen():
             loc = SourceLocation('', 0, 0, 0)
@@ -32,7 +33,7 @@ class genTokens:
 
 class testLR(unittest.TestCase):
     """ Test basic LR(1) parser generator constructs """
-    def testSimpleGrammar(self):
+    def test_simple_grammar(self):
         # 1. define a simple grammar:
         g = Grammar()
         g.add_terminals(['identifier', '(', ')', '+', '*'])
@@ -45,14 +46,14 @@ class testLR(unittest.TestCase):
         g.add_production('factor', ['identifier'])
         g.start_symbol = 'input'
         # 2. define input:
-        tokens = genTokens(
+        tokens = gen_tokens(
             ['identifier', '+', 'identifier', '+', 'identifier'])
         # 3. build parser:
         p = LrParserBuilder(g).generate_parser()
         # 4. feed input:
         p.parse(tokens)
 
-    def testReduceReduceConflict(self):
+    def test_reduce_reduce_conflict(self):
         """ Check if a reduce-reduce conflict is detected """
         # Define a grammar with an obvious reduce-reduce conflict:
         g = Grammar()
@@ -66,7 +67,7 @@ class testLR(unittest.TestCase):
         with self.assertRaises(ParserGenerationException):
             LrParserBuilder(g).generate_parser()
 
-    def testShiftReduceConflict(self):
+    def test_shift_reduce_conflict(self):
         """ Must be handled automatically by doing shift """
         g = Grammar()
         g.add_terminals([EOF, 'if', 'then', 'else', 'ass'])
@@ -78,10 +79,10 @@ class testLR(unittest.TestCase):
         g.start_symbol = 'stmt'
         p = LrParserBuilder(g).generate_parser()
         # Ambiguous program:
-        tokens = genTokens(['if', 'then', 'if', 'then', 'ass', 'else', 'ass'])
+        tokens = gen_tokens(['if', 'then', 'if', 'then', 'ass', 'else', 'ass'])
         p.parse(tokens)
 
-    def testUndefinedTerminal(self):
+    def test_undefined_terminal(self):
         """ Test correct behavior when a terminal is undefined """
         g = Grammar()
         g.add_terminals(['b'])
@@ -103,14 +104,14 @@ class testLR(unittest.TestCase):
         g.start_symbol = 'goal'
         LrParserBuilder(g).generate_parser()
 
-    def testEmpty(self):
+    def test_empty(self):
         """ Test empty token stream """
         g = Grammar()
         g.add_terminals([','])
         g.add_production('input', [','])
         g.start_symbol = 'input'
         p = LrParserBuilder(g).generate_parser()
-        tokens = genTokens([])
+        tokens = gen_tokens([])
         with self.assertRaises(ParserException):
             p.parse(tokens)
 
@@ -123,7 +124,7 @@ class testLR(unittest.TestCase):
         g.add_production('optional_a', [])
         g.start_symbol = 'input'
         p = LrParserBuilder(g).generate_parser()
-        tokens = genTokens(['b'])
+        tokens = gen_tokens(['b'])
         p.parse(tokens)
 
     def test_eps2(self):
@@ -136,9 +137,9 @@ class testLR(unittest.TestCase):
         g.add_production('op1', ['id'])
         g.start_symbol = 'input'
         p = LrParserBuilder(g).generate_parser()
-        tokens = genTokens(['id', ':', 'id', 'id'])   # i.e. "lab_0: inc rax" 
+        tokens = gen_tokens(['id', ':', 'id', 'id'])   # i.e. "lab_0: inc rax"
         p.parse(tokens)
-        tokens = genTokens(['id', 'id'])   # i.e. "inc rax"
+        tokens = gen_tokens(['id', 'id'])   # i.e. "inc rax"
         p.parse(tokens)
 
     def test_eps_sequence(self):
@@ -149,9 +150,9 @@ class testLR(unittest.TestCase):
         g.add_production('aas', ['aas', 'a'])
         g.start_symbol = 'aas'
         p = LrParserBuilder(g).generate_parser()
-        tokens = genTokens(['a', 'a', 'a'])
+        tokens = gen_tokens(['a', 'a', 'a'])
         p.parse(tokens)
-        tokens = genTokens([])
+        tokens = gen_tokens([])
         p.parse(tokens)
 
     def test_cb(self):
@@ -167,7 +168,7 @@ class testLR(unittest.TestCase):
         g.add_production('goal', ['a', 'c', 'b'], cb)
         g.start_symbol = 'goal'
         p = LrParserBuilder(g).generate_parser()
-        tokens = genTokens(['a', 'c', 'b'])
+        tokens = gen_tokens(['a', 'c', 'b'])
         p.parse(tokens)
         self.assertTrue(self.cb_called)
 
@@ -269,7 +270,7 @@ class testParserGenerator(unittest.TestCase):
         self.assertEqual(len(p.action_table), 19)
 
         # 4. feed input:
-        p.parse(genTokens(tokens))
+        p.parse(gen_tokens(tokens))
 
 
 class testGrammarParser(unittest.TestCase):
@@ -289,11 +290,11 @@ class testGrammarParser(unittest.TestCase):
         i2 = io.StringIO(grammar)
         mod = load_as_module(i2)
         parser = mod.Parser()
-        res = parser.parse(genTokens(['a', 'a', 'a']))
+        res = parser.parse(gen_tokens(['a', 'a', 'a']))
         # print(res)
         self.assertSequenceEqual(['a', 'a', 'a'], res)
 
-    def testLoadAsWithHeader(self):
+    def test_load_as_with_header(self):
         grammar = """
         import logging
         %tokens a b c
