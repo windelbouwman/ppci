@@ -70,11 +70,53 @@ class Grammar:
                 break
 
             # Process the first occasion:
-            eps = eps[0]
-            print(eps)
+            eps_rule = eps[0]
+            print(eps_rule)
 
-            # Remove the rule
-            self.productions.remove(eps)
+            # Remove the epsilon-rule
+            self.productions.remove(eps_rule)
+
+            # For each rule containing the empty production, create new rules:
+            for rule in self.productions:
+                if eps_rule.name in rule.symbols:
+                    self.create_combinations(rule, eps_rule.name)
+
+    def create_combinations(self, rule, non_terminal):
+        """ Create n copies of rule where nt is removed.
+            For example replace:
+            A -> B C B
+            by:
+            A -> B C B
+            A -> B C
+            A -> C B
+            A -> C
+            if:
+            B -> epsilon
+        """
+        count = rule.symbols.count(non_terminal)
+        # TODO: refactor this restriction:
+        assert count == 1
+
+        rhs = []
+        for x in rule.symbols:
+            if x == non_terminal:
+                pass
+            else:
+                rhs.append(x)
+        self.add_production(rule.name, rhs, semantics)
+        # self.productions.remove(rule)
+
+    @property
+    def is_normal(self):
+        """ Check if this grammar is normal.
+            Which means:
+            - No empty productions (epsilon productions)
+        """
+        # If the grammar contains an epsilon production, it is not normal:
+        if any(rule.is_epsilon for rule in self.productions):
+            return False
+
+        return True
 
     def check_symbols(self):
         """ Checks no symbols are undefined """

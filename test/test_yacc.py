@@ -31,7 +31,7 @@ class gen_tokens:
         return t
 
 
-class testLR(unittest.TestCase):
+class LrParserBuilderTestCase(unittest.TestCase):
     """ Test basic LR(1) parser generator constructs """
     def test_simple_grammar(self):
         # 1. define a simple grammar:
@@ -273,14 +273,14 @@ class testParserGenerator(unittest.TestCase):
         p.parse(gen_tokens(tokens))
 
 
-class testGrammarParser(unittest.TestCase):
+class GrammarParserTestCase(unittest.TestCase):
     def test_load_as_module(self):
         grammar = """
         %tokens a b c
         %%
-        res: aa { return arg1 };
-        aa: { return [] }
-          | aa a { arg1.append(arg2.val); return arg1};
+        res: aa { res = arg1 };
+        aa: { res = [] }
+          | aa a { arg1.append(arg2.val); res = arg1};
         """
         i = io.StringIO(grammar)
         o = io.StringIO()
@@ -291,8 +291,13 @@ class testGrammarParser(unittest.TestCase):
         mod = load_as_module(i2)
         parser = mod.Parser()
         res = parser.parse(gen_tokens(['a', 'a', 'a']))
-        # print(res)
         self.assertSequenceEqual(['a', 'a', 'a'], res)
+
+        res = parser.parse(gen_tokens([]))
+        self.assertSequenceEqual([], res)
+
+        res = parser.parse(gen_tokens(['a', 'a', 'a', 'a']))
+        self.assertSequenceEqual(['a', 'a', 'a', 'a'], res)
 
     def test_load_as_with_header(self):
         grammar = """

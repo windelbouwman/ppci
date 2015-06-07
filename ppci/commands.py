@@ -9,6 +9,7 @@ import logging
 from .buildfunctions import construct
 from .buildfunctions import c3compile
 from .buildfunctions import assemble
+from .pyyacc import transform
 from .utils.hexfile import HexFile
 from .tasks import TaskError
 from . import version
@@ -128,6 +129,56 @@ def asm(args=None):
 
         # Attention! Closing the output file may close stdout!
         # args.output.close()
+
+
+def yacc_cmd(args=None):
+    """
+    Parser generator utility. This script can generate a python script from a
+    grammar description.
+
+    Invoke the script on a grammar specification file:
+
+    .. code::
+
+        $ ./yacc.py test.x -o test_parser.py
+
+    And use the generated parser by deriving a user class:
+
+
+    .. code::
+
+        import test_parser
+        class MyParser(test_parser.Parser):
+            pass
+        p = MyParser()
+        p.parse()
+
+
+    Alternatively you can load the parser on the fly:
+
+    .. code::
+
+        import yacc
+        parser_mod = yacc.load_as_module('mygrammar.x')
+        class MyParser(parser_mod.Parser):
+            pass
+        p = MyParser()
+        p.parse()
+
+    """
+    parser = argparse.ArgumentParser(description='xacc compiler compiler')
+    add_common_parser_options(parser)
+    parser.add_argument(
+        'source', type=argparse.FileType('r'), help='the parser specification')
+    parser.add_argument(
+        '-o', '--output', type=argparse.FileType('w'), default=sys.stdout)
+
+    parser = argparse.ArgumentParser(description=description)
+
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+        transform(args.source, args.output)
 
 
 def hexutil(args=None):

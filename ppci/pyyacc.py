@@ -7,10 +7,10 @@ import io
 import datetime
 import logging
 
-from ppci.baselex import BaseLexer
-from ppci.common import Token, SourceLocation
-from ppci.pcc.grammar import Grammar
-from ppci.pcc.lr import LrParserBuilder
+from .baselex import BaseLexer
+from .common import Token, SourceLocation
+from .pcc.grammar import Grammar
+from .pcc.lr import LrParserBuilder
 
 
 class XaccLexer(BaseLexer):
@@ -171,11 +171,15 @@ class XaccGenerator:
         self.print('    def __init__(self):')
         # Generate rules:
         self.print('        grammar = Grammar()')
-        self.print('        grammar.add_terminals({})'.format(self.grammar.terminals))
-        self.print('        grammar.start_symbol = "{}"'.format(self.grammar.start_symbol))
+        self.print('        grammar.add_terminals({})'.format(
+            self.grammar.terminals))
+        self.print('        grammar.start_symbol = "{}"'.format(
+            self.grammar.start_symbol))
         for rule_number, rule in enumerate(self.grammar.productions):
             rule.f_name = 'action_{}_{}'.format(rule.name, rule_number)
-            self.print('        grammar.add_production("{}", {}, self.{})'.format(rule.name, rule.symbols, rule.f_name))
+            self.print(
+                '        grammar.add_production("{}", {}, self.{})'
+                .format(rule.name, rule.symbols, rule.f_name))
         # Fill action table:
         self.print('        action_table = {}')
         for state in self.action_table:
@@ -189,7 +193,9 @@ class XaccGenerator:
             to = self.goto_table[state_number]
             self.print('        goto_table[{}] = {}'.format(state_number, to))
         self.print('')
-        self.print('        super().__init__(grammar, action_table, goto_table)')
+        self.print(
+            '        super().__init__(grammar, action_table, goto_table)')
+        self.print('')
 
         # Generate a function for each action:
         for rule in self.grammar.productions:
@@ -200,15 +206,21 @@ class XaccGenerator:
             else:
                 self.print('    def {}(self):'.format(rule.f_name))
 
+            self.print('        res = None')
             if rule.f is None:
                 semantics = 'pass'
-            else:
+            elif type(rule.f) is str:
                 semantics = str(rule.f)
                 if semantics.strip() == '':
                     semantics = 'pass'
+            else:
+                raise NotImplementedError()
             for n in range(num_symbols):
-                semantics = semantics.replace('${}'.format(n + 1), 'arg{}'.format(n + 1))
+                semantics = semantics.replace(
+                    '${}'.format(n + 1), 'arg{}'.format(n + 1))
+            # semantics = semantics.replace('$$', 'res')
             self.print('        {}'.format(semantics))
+            self.print('        return res')
             self.print('')
 
 
@@ -225,10 +237,6 @@ def transform(f_in, f_out):
     lexer.feed(src)
     grammar = parser.parse_grammar(lexer)
     generator.generate(grammar, parser.headers, f_out)
-
-
-def main(args):
-    transform(args.source, args.output)
 
 
 def load_as_module(filename):
