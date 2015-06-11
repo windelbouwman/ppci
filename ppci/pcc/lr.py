@@ -13,7 +13,7 @@ class Action:
 
 
 class Shift(Action):
-    """ Shift action. Shift over the next token and go to a certain state """
+    """ Shift over the next token and go to the given state """
     def __init__(self, to_state):
         self.to_state = to_state
 
@@ -22,7 +22,7 @@ class Shift(Action):
 
 
 class Reduce(Action):
-    """ Reduce according to a rule """
+    """ Reduce according to the given rule """
     def __init__(self, rule):
         self.rule = rule
 
@@ -97,6 +97,7 @@ class State:
     def __init__(self, items, number):
         self.items = items
         self.number = number
+        self.actions = {}
 
 
 class LrParser:
@@ -288,6 +289,7 @@ class LrParserBuilder:
         return p
 
     def gen_canonical_set(self, iis):
+        """ Create all LR1 states """
         states = set()
         worklist = []
         transitions = {}
@@ -300,7 +302,7 @@ class LrParserBuilder:
                 states.add(s)
         addSt(iis)
 
-        while len(worklist) > 0:
+        while worklist:
             itemset = worklist.pop(0)
             for symbol in self.grammar.symbols:
                 nis = self.next_item_set(itemset, symbol)
@@ -354,6 +356,7 @@ class LrParserBuilder:
         # First generate all item sets by using the nextItemset function:
         states, transitions, indici = self.gen_canonical_set(iis)
         self.logger.debug('Number of states: {}'.format(len(states)))
+        self.logger.debug('Number of transitions: {}'.format(len(transitions)))
 
         # Fill action table:
         for state in states:
