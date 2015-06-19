@@ -2,6 +2,7 @@
 import re
 from .pcc.grammar import Grammar
 from .pcc.lr import LrParserBuilder
+from .pcc.earley import EarleyParser
 from .baselex import BaseLexer, EPS, EOF
 from .common import make_num
 from .target.target import Target, Label, Alignment
@@ -55,43 +56,59 @@ class AsmParser:
         # Global structure of assembly line:
         self.g.add_production('asmline', ['asmline2'])
         self.g.add_production('asmline', ['asmline2', 'COMMENT'])
-        self.g.add_production('asmline2', ['label', 'instruction'])
-        self.g.add_production('asmline2', ['instruction'])
-        self.g.add_production('asmline2', ['label'])
+        self.g.add_production('asmline2', ['label', 'instruction'], self.handle_two_ins)
+        self.g.add_production('asmline2', ['instruction'], self.handle_one_ins)
+        self.g.add_production('asmline2', ['label'], self.handle_one_ins)
         self.g.add_production('asmline2', [])
         self.g.start_symbol = 'asmline'
+
+    def handle_one_ins(self, i):
+        if i:
+            self.emit(i)
+
+    def handle_two_ins(self, i1, i2):
+        if i1:
+            self.emit(i1)
+        if i2:
+            self.emit(i2)
 
     def parse(self, lexer):
         """ Entry function to parser """
         if not hasattr(self, 'p'):
-            print(self.g)
-            self.p = LrParserBuilder(self.g).generate_parser()
+            # print(self.g)
+            # self.p = LrParserBuilder(self.g).generate_parser()
+            self.p = EarleyParser(self.g)
         self.p.parse(lexer)
 
 
 class BaseAssembler:
     """ Assembler base class, inherited by assemblers specific for a target """
+    str_id = '$str$'
+    int_id = '$int$'
+
     def __init__(self, target):
         assert isinstance(target, Target)
         self.target = target
         self.inMacro = False
         self.parser = AsmParser()
+        self.parser.emit = self.emit
         self.lexer = AsmLexer()
         self.typ2nt = {}
 
         # Register basic types:
-        self.typ2nt[int] = 'imm'
-        self.typ2nt[str] = 'str'
-        self.add_rule('str', ['ID'], lambda rhs: rhs[0].val)
-        self.add_rule('imm', ['NUMBER'], lambda rhs: rhs[0].val)
+        self.typ2nt[int] = self.int_id
+        self.typ2nt[str] = self.str_id
+        self.add_rule(self.str_id, ['ID'], lambda rhs: rhs[0].val)
+        self.add_rule(self.int_id, ['NUMBER'], lambda rhs: rhs[0].val)
 
         # Common parser rules:
         # num = register_argument('amount',
-        self.add_instruction(['align', 'imm'], lambda rhs: Alignment(rhs[1]))
-        self.add_instruction(['repeat', 'imm'], self.p_repeat)
+        self.add_instruction(
+            ['align', self.int_id], lambda rhs: Alignment(rhs[1]))
+        self.add_instruction(['repeat', self.int_id], self.p_repeat)
         self.add_instruction(['endrepeat'], self.p_endrepeat)
-        self.add_instruction(['section', 'str'], self.p_section)
-        self.add_rule('label', ['str', ':'], self.p_label)
+        self.add_instruction(['section', self.str_id], self.p_section)
+        self.add_rule('label', [self.str_id, ':'], self.p_label)
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
@@ -103,7 +120,7 @@ class BaseAssembler:
             # Since there are a lot of short mnemonic, the chance that someone
             # will use a keyword as a label, is large.
             if id_matcher.match(keyword):
-                self.add_rule('str', [keyword], lambda rhs: keyword)
+                self.add_rule(self.str_id, [keyword], lambda rhs: keyword)
 
     def add_instruction(self, rhs, f):
         """ Add an instruction to the grammar """
@@ -112,15 +129,8 @@ class BaseAssembler:
 
     def add_rule(self, lhs, rhs, f):
         """ Helper function to add a rule, why this is required? """
-        print(lhs, rhs)
-        if lhs == 'instruction':
-            def f_wrap(*args):
-                i = f(args)
-                if i:
-                    self.emit(i)
-        else:
-            def f_wrap(*args):
-                return f(args)
+        def f_wrap(*args):
+            return f(args)
         self.parser.g.add_production(lhs, rhs, f_wrap)
 
     # Functions to automate the adding of instructions to asm syntax:
@@ -136,7 +146,6 @@ class BaseAssembler:
                 # TODO: this is potentially error prone..
                 if rhs_part not in self.parser.g.nonterminals:
                     self.add_keyword(rhs_part)
-                # rhs2.append('ID')
             elif type(rhs_part) is InstructionProperty:
                 arg_cls = rhs_part._cls
                 rhs2.append(self.get_parameter_nt(arg_cls))
@@ -259,8 +268,7 @@ class BaseAssembler:
 
     # Parser handlers:
     def p_label(self, rhs):
-        lab = Label(rhs[0])
-        self.emit(lab)
+        return Label(rhs[0])
 
     def select_section(self, name):
         """ Switch to another section section in the instruction stream """

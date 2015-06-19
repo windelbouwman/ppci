@@ -1,6 +1,6 @@
 from ..isa import Instruction, Isa, register_argument
 from ..token import u16, u32
-from ..arm.registers import ArmRegister
+from ..arm.registers import ArmRegister, Reg8Op
 from ..instructionselector import InstructionSelector, pattern
 from ..token import Token, bit_range
 
@@ -95,7 +95,7 @@ class nop_ins(ThumbInstruction):
 
 class LS_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    rn = register_argument('rn', ArmRegister, read=True)
+    rn = register_argument('rn', Reg8Op, read=True)
     imm5 = register_argument('imm5', int)
 
     def encode(self):
@@ -113,7 +113,7 @@ class LS_imm5_base(ThumbInstruction):
 
 
 class Str2(LS_imm5_base):
-    rt = register_argument('rt', ArmRegister, read=True)
+    rt = register_argument('rt', Reg8Op, read=True)
     syntax = [
         'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']']
     opcode = 0xC
@@ -262,8 +262,8 @@ class Mov3(ThumbInstruction):
 
 
 class regregimm3_base(ThumbInstruction):
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
+    rd = register_argument('rd', Reg8Op, write=True)
+    rn = register_argument('rn', Reg8Op, read=True)
     imm3 = register_argument('imm3', int)
 
     def encode(self):

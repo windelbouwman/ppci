@@ -30,7 +30,16 @@ class ArmRegister(Register):
 
 
 class Reg8Op(ArmRegister):
-    pass
+    syntaxi = '$loreg$', [
+        Syntax(['r0'], new_func=lambda: R0),
+        Syntax(['r1'], new_func=lambda: R1),
+        Syntax(['r2'], new_func=lambda: R2),
+        Syntax(['r3'], new_func=lambda: R3),
+        Syntax(['r4'], new_func=lambda: R4),
+        Syntax(['r5'], new_func=lambda: R5),
+        Syntax(['r6'], new_func=lambda: R6),
+        Syntax(['r7'], new_func=lambda: R7)
+        ]
 
 
 def get_register(n):

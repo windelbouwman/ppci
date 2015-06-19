@@ -95,28 +95,32 @@ class EarleyParser:
     def predict(self, item, col):
         """ Add all rules for a certain non-terminal """
         nx = item.nxt
-        print('Predict:', item)
+        # print('Predict:', item)
         assert self.grammar.is_nonterminal(nx)
         for rule in self.grammar.productions_for_name(nx):
             new_item = Item(rule, 0, col.i)
-            print(' > add ', new_item)
+            # print(' > add ', new_item)
             col.add(new_item)
 
     def scan(self, item, col):
         """ Check if the item can be shifted into the next column """
         if item.nxt == col.token.typ:
-            print('scan:', item, col.token.typ)
+            # print('scan:', item, col.token.typ)
             col.add(item.shifted())
 
     def complete(self, completed_item, start_col, current_column):
         """ Complete a rule, check if any other rules can be shifted! """
         assert completed_item.is_reduce
-        print('Complete', completed_item)
-        for item in start_col:
+        # print('Complete', completed_item)
+        worklist = list(start_col)
+        while worklist:
+            item = worklist.pop(0)
             if item.is_shift and item.nxt == completed_item.rule.name:
                 new_item = item.shifted()
-                print(' > add ', new_item)
+                # print(' > add ', new_item)
                 current_column.add(new_item)
+                if current_column is start_col:
+                    worklist.append(new_item)
 
     def parse(self, tokens):
         """ Parse the given token string """
@@ -125,11 +129,10 @@ class EarleyParser:
         columns = [Column(i, tok) for i, tok in enumerate(make_tokens(tokens))]
         for rule in self.grammar.productions_for_name(self.grammar.start_symbol):
             columns[0].add(Item(rule, 0, 0))
-        print('Start:', self.grammar.start_symbol)
 
         # Loop through all input.
         for col in columns:
-            print(col)
+            # print(col)
             processed_items = set()
             while processed_items != col.items:
                 item = iter(col.items - processed_items).__next__()
@@ -141,7 +144,7 @@ class EarleyParser:
                 else:
                     self.complete(item, columns[item.origin], col)
                 processed_items.add(item)
-        self.dump_parse(columns)
+        # self.dump_parse(columns)
 
         # Check if the parse was a success:
         last_column = columns[-1]
@@ -156,7 +159,7 @@ class EarleyParser:
 
     def make_tree(self, columns, nt):
         """ Make a parse tree """
-        print('Top tree item:', nt)
+        # print('Top tree item:', nt)
         tree, end = self.walk(columns, len(columns) - 1, nt)
         assert end == 0
         return tree
@@ -165,8 +168,9 @@ class EarleyParser:
         for item in columns[end]:
             if item.rule.name == nt and item.is_reduce:
                 # We found an item
+                # print(item)
                 r = []
-                print(item)
+                # assert len(item.rule.symbols) > 0
                 for x in reversed(item.rule.symbols):
                     if self.grammar.is_nonterminal(x):
                         x, end = self.walk(columns, end, x)
@@ -174,14 +178,15 @@ class EarleyParser:
                     else:
                         r.insert(0, columns[end].token)
                         end -= 1
-                r.reverse()
-                print(r)
+                # print(r)
+
                 # Apply semantics, if any!
                 if item.rule.f:
-                    res = item.rule.f(r)
+                    res = item.rule.f(*r)
                 else:
                     res = None
                 return res, end
+        raise Exception()
 
     def dump_parse(self, columns):
         print("Parse result:")

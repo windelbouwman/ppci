@@ -280,31 +280,47 @@ class testParserGenerator(unittest.TestCase):
 
 
 class EarleyParserTestCase(unittest.TestCase):
-    def setUp(self):
-        self.grammar = Grammar()
-        self.grammar.add_terminals(
-            ['EOF', 'identifier', '(', ')', '+', '*', 'num'])
-        self.grammar.add_production(
-            'input', ['expression'], lambda rhs: rhs[0])
-        self.grammar.add_production(
-            'expression', ['term'], lambda rhs: rhs[0])
-        self.grammar.add_production(
-            'expression', ['expression', '+', 'term'],
-            lambda rhs: rhs[0] + rhs[2])
-        self.grammar.add_production('term', ['factor'], lambda rhs: rhs[0])
-        self.grammar.add_production(
-            'term', ['term', '*', 'factor'], lambda rhs: rhs[0] * rhs[2])
-        self.grammar.add_production(
-            'factor', ['(', 'expression', ')'], lambda rhs: rhs[1])
-        self.grammar.add_production('factor', ['identifier'])
-        self.grammar.add_production('factor', ['num'], lambda rhs: rhs[0].val)
-        self.grammar.start_symbol = 'input'
-
     def test1(self):
-        parser = EarleyParser(self.grammar)
+        grammar = Grammar()
+        grammar.add_terminals(
+            ['EOF', 'identifier', '(', ')', '+', '*', 'num'])
+        grammar.add_production(
+            'input', ['expression'], lambda rhs: rhs)
+        grammar.add_production(
+            'expression', ['term'], lambda rhs: rhs)
+        grammar.add_production(
+            'expression', ['expression', '+', 'term'],
+            lambda rh1, rh2, rh3: rh1 + rh3)
+        grammar.add_production('term', ['factor'], lambda rhs: rhs)
+        grammar.add_production(
+            'term', ['term', '*', 'factor'], lambda rh1, rh2, rh3: rh1 * rh3)
+        grammar.add_production(
+            'factor', ['(', 'expression', ')'], lambda rh1, rh2, rh3: rh2)
+        grammar.add_production('factor', ['identifier'])
+        grammar.add_production('factor', ['num'], lambda rhs: rhs.val)
+        grammar.start_symbol = 'input'
+        parser = EarleyParser(grammar)
         result = parser.parse(gen_tokens(
             [('num', 7), '*', ('num', 11), '+', ('num', 3)]))
         self.assertEqual(80, result)
+
+    def test_cb(self):
+        """ Test callback of one rule and order or parameters """
+        self.cb_called = False
+
+        def cb(a, c, b):
+            self.cb_called = True
+            self.assertEqual(a.val, 'a')
+            self.assertEqual(b.val, 'b')
+            self.assertEqual(c.val, 'c')
+        g = Grammar()
+        g.add_terminals(['a', 'b', 'c'])
+        g.add_production('goal', ['a', 'c', 'b'], cb)
+        g.start_symbol = 'goal'
+        p = EarleyParser(g)
+        tokens = gen_tokens(['a', 'c', 'b'])
+        p.parse(tokens)
+        self.assertTrue(self.cb_called)
 
 
 class GrammarParserTestCase(unittest.TestCase):
