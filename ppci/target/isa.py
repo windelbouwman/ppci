@@ -142,7 +142,7 @@ class Instruction(metaclass=InsMeta):
         # Generate constructor from args:
         if hasattr(self, 'syntax'):
             formal_args = []
-            for st in self.syntax:
+            for st in getattr(self, 'syntax'):
                 if type(st) is InstructionProperty:
                     formal_args.append((st._name, st._cls))
         else:
@@ -263,5 +263,3 @@ class Syntax:
         self.syntax = syntax
         self.new_func = new_func
         self.set_props = set_props
-
-

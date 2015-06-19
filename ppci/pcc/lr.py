@@ -86,8 +86,7 @@ class Item:
         prod = self.production
         predot = ' '.join(prod.symbols[0:self.dotpos])
         postdot = ' '.join(prod.symbols[self.dotpos:])
-        name = prod.name
-        args = (name, predot, postdot, self.look_ahead)
+        args = (prod.name, predot, postdot, self.look_ahead)
         return '[{} -> {} . {} -> {}]'.format(*args)
 
 

@@ -58,6 +58,14 @@ class Grammar:
         """ Get all the symbols defined by this grammar """
         return self.nonterminals | self.terminals
 
+    def is_terminal(self, name):
+        """ Check if a name is a terminal """
+        return name in self.terminals
+
+    def is_nonterminal(self, name):
+        """ Check if a name is a non-terminal """
+        return name in self.nonterminals
+
     def rewrite_eps_productions(self):
         """ Make the grammar free of empty productions.
             Do this by permutating all combinations of rules that would
@@ -138,7 +146,7 @@ class Production:
     """
     def __init__(self, name, symbols, semantics):
         self.name = name
-        self.symbols = symbols
+        self.symbols = tuple(symbols)
         self.f = semantics
 
     def __repr__(self):

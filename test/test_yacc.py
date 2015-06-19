@@ -9,6 +9,7 @@ from ppci.pcc.lr import calculate_first_sets
 from ppci.pyyacc import transform
 from ppci.common import Token, SourceLocation
 from ppci.pcc.lr import LrParserBuilder
+from ppci.pcc.earley import EarleyParser
 from ppci.baselex import EOF
 
 
@@ -18,7 +19,11 @@ class gen_tokens:
         def tokGen():
             loc = SourceLocation('', 0, 0, 0)
             for t in lst:
-                yield Token(t, t, loc)
+                if isinstance(t, tuple):
+                    t, v = t
+                else:
+                    t, v = t, t
+                yield Token(t, v, loc)
             while True:
                 yield Token(EOF, EOF, loc)
         self.tokens = tokGen()
@@ -158,6 +163,7 @@ class LrParserBuilderTestCase(unittest.TestCase):
     def test_cb(self):
         """ Test callback of one rule and order or parameters """
         self.cb_called = False
+
         def cb(a, c, b):
             self.cb_called = True
             self.assertEqual(a.val, 'a')
@@ -271,6 +277,34 @@ class testParserGenerator(unittest.TestCase):
 
         # 4. feed input:
         p.parse(gen_tokens(tokens))
+
+
+class EarleyParserTestCase(unittest.TestCase):
+    def setUp(self):
+        self.grammar = Grammar()
+        self.grammar.add_terminals(
+            ['EOF', 'identifier', '(', ')', '+', '*', 'num'])
+        self.grammar.add_production(
+            'input', ['expression'], lambda rhs: rhs[0])
+        self.grammar.add_production(
+            'expression', ['term'], lambda rhs: rhs[0])
+        self.grammar.add_production(
+            'expression', ['expression', '+', 'term'],
+            lambda rhs: rhs[0] + rhs[2])
+        self.grammar.add_production('term', ['factor'], lambda rhs: rhs[0])
+        self.grammar.add_production(
+            'term', ['term', '*', 'factor'], lambda rhs: rhs[0] * rhs[2])
+        self.grammar.add_production(
+            'factor', ['(', 'expression', ')'], lambda rhs: rhs[1])
+        self.grammar.add_production('factor', ['identifier'])
+        self.grammar.add_production('factor', ['num'], lambda rhs: rhs[0].val)
+        self.grammar.start_symbol = 'input'
+
+    def test1(self):
+        parser = EarleyParser(self.grammar)
+        result = parser.parse(gen_tokens(
+            [('num', 7), '*', ('num', 11), '+', ('num', 3)]))
+        self.assertEqual(80, result)
 
 
 class GrammarParserTestCase(unittest.TestCase):

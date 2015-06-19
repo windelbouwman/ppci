@@ -8,6 +8,7 @@ from util import relpath
 
 
 class CommandsTestCase(unittest.TestCase):
+    """ Test the various command-line utilities """
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_build_command(self, mock_stderr):
         _, report_file = tempfile.mkstemp()
