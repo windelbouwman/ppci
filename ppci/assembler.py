@@ -19,6 +19,7 @@ class AsmLexer(BaseLexer):
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
+            ('LABEL', id_regex + ':', lambda typ, val: (typ, val)),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)#@]|>=|<=|<>|>|<|}|{',
@@ -56,19 +57,21 @@ class AsmParser:
         # Global structure of assembly line:
         self.g.add_production('asmline', ['asmline2'])
         self.g.add_production('asmline', ['asmline2', 'COMMENT'])
-        self.g.add_production('asmline2', ['label', 'instruction'], self.handle_two_ins)
-        self.g.add_production('asmline2', ['instruction'], self.handle_one_ins)
-        self.g.add_production('asmline2', ['label'], self.handle_one_ins)
+        self.g.add_production('asmline2', ['LABEL', 'instruction'], self.handle_label_ins)
+        self.g.add_production('asmline2', ['instruction'], self.handle_ins)
+        self.g.add_production('asmline2', ['LABEL'], self.handle_label)
         self.g.add_production('asmline2', [])
         self.g.start_symbol = 'asmline'
 
-    def handle_one_ins(self, i):
+    def handle_ins(self, i):
         if i:
             self.emit(i)
 
-    def handle_two_ins(self, i1, i2):
-        if i1:
-            self.emit(i1)
+    def handle_label(self, i1):
+        self.emit(Label(i1.val[:-1]))
+
+    def handle_label_ins(self, i1, i2):
+        self.emit(Label(i1.val[:-1]))
         if i2:
             self.emit(i2)
 
@@ -108,7 +111,6 @@ class BaseAssembler:
         self.add_instruction(['repeat', self.int_id], self.p_repeat)
         self.add_instruction(['endrepeat'], self.p_endrepeat)
         self.add_instruction(['section', self.str_id], self.p_section)
-        self.add_rule('label', [self.str_id, ':'], self.p_label)
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
@@ -267,9 +269,6 @@ class BaseAssembler:
         self.select_section(rhs[1])
 
     # Parser handlers:
-    def p_label(self, rhs):
-        return Label(rhs[0])
-
     def select_section(self, name):
         """ Switch to another section section in the instruction stream """
         self.flush()
