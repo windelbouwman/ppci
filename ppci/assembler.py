@@ -1,7 +1,11 @@
+"""
+    This module contains the generic assembly language processor. The
+    Assembler class can be created and provided with one or more isa's.
+    These can then be assembled.
+"""
 
 import re
 from .pcc.grammar import Grammar
-from .pcc.lr import LrParserBuilder
 from .pcc.earley import EarleyParser
 from .baselex import BaseLexer, EPS, EOF
 from .common import make_num
@@ -60,6 +64,7 @@ class AsmParser:
         self.g.add_production('asmline2', ['LABEL', 'instruction'], self.handle_label_ins)
         self.g.add_production('asmline2', ['instruction'], self.handle_ins)
         self.g.add_production('asmline2', ['LABEL'], self.handle_label)
+        self.g.add_production('asmline2', ['directive'])
         self.g.add_production('asmline2', [])
         self.g.start_symbol = 'asmline'
 
@@ -78,8 +83,6 @@ class AsmParser:
     def parse(self, lexer):
         """ Entry function to parser """
         if not hasattr(self, 'p'):
-            # print(self.g)
-            # self.p = LrParserBuilder(self.g).generate_parser()
             self.p = EarleyParser(self.g)
         self.p.parse(lexer)
 
@@ -91,7 +94,7 @@ class BaseAssembler:
 
     def __init__(self, target):
         assert isinstance(target, Target)
-        self.target = target
+        # self.target = target
         self.inMacro = False
         self.parser = AsmParser()
         self.parser.emit = self.emit
@@ -108,9 +111,12 @@ class BaseAssembler:
         # num = register_argument('amount',
         self.add_instruction(
             ['align', self.int_id], lambda rhs: Alignment(rhs[1]))
-        self.add_instruction(['repeat', self.int_id], self.p_repeat)
-        self.add_instruction(['endrepeat'], self.p_endrepeat)
-        self.add_instruction(['section', self.str_id], self.p_section)
+        self.add_rule('directive', ['repeat', self.int_id], self.p_repeat)
+        self.add_rule('directive', ['endrepeat'], self.p_endrepeat)
+        self.add_rule('directive', ['section', self.str_id], self.p_section)
+        self.add_keyword('repeat')
+        self.add_keyword('endrepeat')
+        self.add_keyword('section')
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """

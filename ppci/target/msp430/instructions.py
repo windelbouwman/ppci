@@ -2,6 +2,7 @@
 from ..isa import Instruction, Isa, register_argument, Syntax
 from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register, r0
+from ...bitfun import align, wrap_negative
 
 isa = Isa()
 
@@ -72,6 +73,18 @@ class Msp430Instruction(Instruction):
 # Jump instructions:
 #########################
 
+@isa.register_relocation
+def apply_rel10bit(reloc, sym_value, section, reloc_value):
+    """ Apply 10 bit signed relocation """
+    assert sym_value % 2 == 0
+    offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
+    assert offset in range(-511, 511, 1), str(offset) + str(reloc)
+    imm10 = wrap_negative(offset, 10)
+    section.data[reloc.offset] = imm10 & 0xff
+    cmd = section.data[reloc.offset + 1] & 0xfc
+    section.data[reloc.offset + 1] = cmd | (imm10 >> 8)
+
+
 class JumpInstruction(Msp430Instruction):
     def encode(self):
         self.token.condition = self.condition
@@ -80,7 +93,7 @@ class JumpInstruction(Msp430Instruction):
         return self.token.encode()
 
     def relocations(self):
-        return [(self.target, 'msp_reloc')]
+        return [(self.target, apply_rel10bit)]
 
 
 def create_jump_instruction(name, condition):

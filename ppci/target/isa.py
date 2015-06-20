@@ -96,6 +96,7 @@ class Isa:
     """
     def __init__(self):
         self.instructions = []
+        self.relocation_map = {}
 
     def register_instruction(self, i):
         """ Register an instruction into this ISA """
@@ -110,6 +111,12 @@ class Isa:
                     if type(s) is str and s.isalnum():
                         kws.add(s)
         return kws
+
+    def register_relocation(self, relocation):
+        """ Register a relocation into this isa """
+        name = relocation.__name__
+        self.relocation_map[name] = relocation
+        return relocation
 
 
 class InsMeta(type):

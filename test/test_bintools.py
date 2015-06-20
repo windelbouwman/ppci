@@ -41,7 +41,7 @@ class LinkerTestCase(unittest.TestCase):
     def testUndefinedReference(self):
         o1 = ObjectFile()
         o1.get_section('.text')
-        o1.add_relocation('undefined_sym', 0, 'rel8', '.text')
+        o1.add_relocation('undefined_sym', 0, 'apply_rel8', '.text')
         o2 = ObjectFile()
         with self.assertRaises(TaskError):
             link([o1, o2], layout.Layout(), 'arm')
@@ -59,7 +59,7 @@ class LinkerTestCase(unittest.TestCase):
     def testRel8Relocation(self):
         o1 = ObjectFile()
         o1.get_section('.text').add_data(bytes([0]*100))
-        o1.add_relocation('a', 0, 'rel8', '.text')
+        o1.add_relocation('a', 0, 'apply_rel8', '.text')
         o2 = ObjectFile()
         o2.get_section('.text').add_data(bytes([0]*100))
         o2.add_symbol('a', 24, '.text')

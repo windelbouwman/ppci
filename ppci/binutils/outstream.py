@@ -42,13 +42,12 @@ class BinaryOutputStream(OutputStream):
         section = self.currentSection
         address = self.currentSection.Size
         b = item.encode()
-        syms = item.symbols()
-        relocs = item.relocations()
         section.add_data(b)
-        for sym in syms:
+        for sym in item.symbols():
             self.obj_file.add_symbol(sym, address, section.name)
-        for sym, typ in relocs:
-            self.obj_file.add_relocation(sym, address, typ, section.name)
+        for sym, typ in item.relocations():
+            typ_name = typ.__name__
+            self.obj_file.add_relocation(sym, address, typ_name, section.name)
 
         # Special case for align, TODO do this different?
         if type(item) is Alignment:

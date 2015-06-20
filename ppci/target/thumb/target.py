@@ -5,7 +5,6 @@ from ..arm.registers import register_range
 
 from .frame import ArmFrame
 from .instructions import ThumbInstructionSelector
-from .relocations import reloc_map
 from ...assembler import BaseAssembler
 
 
@@ -40,11 +39,11 @@ class ThumbAssembler(BaseAssembler):
 class ThumbTarget(Target):
     def __init__(self):
         super().__init__('thumb')
+        self.isa = isa
         self.ins_sel = ThumbInstructionSelector()
         self.FrameClass = ArmFrame
 
         self.assembler = ThumbAssembler(self)
-        self.reloc_map = reloc_map
 
     def emit_global(self, outs, lname, amount):
         # TODO: alignment?

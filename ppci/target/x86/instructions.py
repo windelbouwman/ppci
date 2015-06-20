@@ -5,6 +5,7 @@
 import struct
 from ..isa import Instruction, Isa, register_argument
 from .registers import X86Register
+from ...bitfun import wrap_negative
 
 from ..token import Token, u32, u8, bit_range
 
@@ -14,22 +15,8 @@ isa = Isa()
 # Table 3.1 of the intel manual:
 # use REX.W on the table below:
 
-reloc_map = {}
 
-
-def reloc(t):
-    def f(c):
-        reloc_map[t] = c
-    return f
-
-
-def wrap_negative(x, bits):
-    b = struct.unpack('<I', struct.pack('<i', x))[0]
-    mask = (1 << bits) - 1
-    return b & mask
-
-
-@reloc('jmp32')
+@isa.register_relocation
 def apply_b_jmp32(reloc, sym_value, section, reloc_value):
     offset = (sym_value - (reloc_value + 5))
     rel24 = wrap_negative(offset, 32)
@@ -131,7 +118,7 @@ class NearJump(X86Instruction):
         return self.token1.encode() + imm32(0)
 
     def relocations(self):
-        return [(self.target, 'jmp32')]
+        return [(self.target, apply_b_jmp32)]
 
 
 class ShortJump(X86Instruction):
@@ -214,7 +201,7 @@ class Call(X86Instruction):
         return self.token1.encode() + imm32(0)
 
     def relocations(self):
-        return [(self.target, 'jmp32')]
+        return [(self.target, apply_b_jmp32)]
 
 
 class Ret(X86Instruction):

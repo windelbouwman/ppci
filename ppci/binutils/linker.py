@@ -88,12 +88,8 @@ class Linker:
             # Determine location in memory of reloc patchup position:
             reloc_value = section.address + reloc.offset
 
-            if reloc.typ in self.target.reloc_map:
-                f = self.target.reloc_map[reloc.typ]
-                f(reloc, sym_value, section, reloc_value)
-            else:
-                raise NotImplementedError(
-                    'Unknown relocation type {}'.format(reloc.typ))
+            f = self.target.get_reloc(reloc.typ)
+            f(reloc, sym_value, section, reloc_value)
 
     def link(self, objs, layout):
         """ Link together the given object files using the layout """

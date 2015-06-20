@@ -26,7 +26,7 @@ if __name__ == '__main__':
     loader = unittest.TestLoader()
     suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_hello_world', module=test_samples)
     # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=test_samples)
-    # suite = loader.loadTestsFromName('TestSamplesOnPython.testBrainFuckQuine', module=test_samples)
+    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_quine', module=test_samples)
 
     def runtests():
         unittest.TextTestRunner().run(suite)

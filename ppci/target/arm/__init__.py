@@ -8,7 +8,6 @@ from ...assembler import BaseAssembler
 from ..arm.registers import register_range
 
 from .instructions import Dcd, Ds, RegisterSet
-from .relocations import reloc_map
 
 
 class ArmAssembler(BaseAssembler):
@@ -70,11 +69,10 @@ class ArmAssembler(BaseAssembler):
 class ArmTarget(Target):
     def __init__(self):
         super().__init__('arm')
+        self.isa = isa
         self.ins_sel = ArmInstructionSelector()
         self.FrameClass = ArmFrame
-
         self.assembler = ArmAssembler(self)
-        self.reloc_map = reloc_map
 
     def emit_global(self, outs, lname, amount):
         # TODO: alignment?
@@ -124,4 +122,3 @@ class ArmTarget(Target):
         mov pc, lr      ; Return from function.
         """
         return src
-

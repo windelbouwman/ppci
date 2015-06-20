@@ -3,6 +3,8 @@ from ..token import u16, u32
 from ..arm.registers import ArmRegister, Reg8Op
 from ..instructionselector import InstructionSelector, pattern
 from ..token import Token, bit_range
+from .relocations import apply_lit8, apply_wrap_new11, apply_b_imm11_imm6
+from .relocations import apply_rel8, apply_bl_imm11, apply_absaddr32
 
 
 class ThumbToken(Token):
@@ -17,6 +19,13 @@ class ThumbToken(Token):
 
 # Instructions:
 isa = Isa()
+
+isa.register_relocation(apply_rel8)
+isa.register_relocation(apply_lit8)
+isa.register_relocation(apply_wrap_new11)
+isa.register_relocation(apply_b_imm11_imm6)
+isa.register_relocation(apply_bl_imm11)
+isa.register_relocation(apply_absaddr32)
 
 
 class ThumbInstruction(Instruction):
@@ -55,7 +64,7 @@ class Dcd2(ThumbInstruction):
         return u32(0)
 
     def relocations(self):
-        return [(self.v, 'absaddr32')]
+        return [(self.v, apply_absaddr32)]
 
 
 class ConstantData():
@@ -205,7 +214,7 @@ class Ldr3(ThumbInstruction):
     syntax = ['ldr', rt, ',', label]
 
     def relocations(self):
-        return [(self.label, 'lit_add_8')]
+        return [(self.label, apply_lit8)]
 
     def encode(self):
         rt = self.rt.num
@@ -235,7 +244,7 @@ class Adr(ThumbInstruction):
     syntax = ['adr', rd, ',', label]
 
     def relocations(self):
-        return [(self.label, 'lit_add_8')]
+        return [(self.label, apply_lit8)]
 
     def encode(self):
         self.token[0:8] = 0  # Filled by linker
@@ -433,7 +442,7 @@ class B(ThumbInstruction):
         return u16(h)
 
     def relocations(self):
-        return [(self.target, 'wrap_new11')]
+        return [(self.target, apply_wrap_new11)]
 
 
 class Bw(LongThumbInstruction):
@@ -454,7 +463,7 @@ class Bw(LongThumbInstruction):
         return self.token.encode() + self.token2.encode()
 
     def relocations(self):
-        return [(self.target, 'bl_imm11_imm10')]
+        return [(self.target, apply_bl_imm11)]
 
 
 class Bl(LongThumbInstruction):
@@ -474,7 +483,7 @@ class Bl(LongThumbInstruction):
         return self.token.encode() + self.token2.encode()
 
     def relocations(self):
-        return [(self.target, 'bl_imm11_imm10')]
+        return [(self.target, apply_bl_imm11)]
 
 
 class cond_base_ins(ThumbInstruction):
@@ -484,7 +493,7 @@ class cond_base_ins(ThumbInstruction):
         return u16(h)
 
     def relocations(self):
-        return [(self.target, 'rel8')]
+        return [(self.target, apply_rel8)]
 
 
 def make_cond_branch(mnemonic, cond):
@@ -514,7 +523,7 @@ class cond_base_ins_long(LongThumbInstruction):
         return u16(h1) + u16(h2)
 
     def relocations(self):
-        return [(self.target, 'b_imm11_imm6')]
+        return [(self.target, apply_b_imm11_imm6)]
 
 
 def make_long_cond_branch(mnemonic, cond):

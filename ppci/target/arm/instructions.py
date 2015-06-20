@@ -7,6 +7,8 @@ from ...bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc
 from ..token import Token, u32, u8, bit_range
 from ..instructionselector import InstructionSelector, pattern
+from .relocations import apply_b_imm24, apply_absaddr32, apply_rel8
+from .relocations import apply_ldr_imm12, apply_adr_imm12
 
 
 class RegisterSet(set):
@@ -14,6 +16,12 @@ class RegisterSet(set):
 
 
 isa = Isa()
+
+isa.register_relocation(apply_adr_imm12)
+isa.register_relocation(apply_b_imm24)
+isa.register_relocation(apply_absaddr32)
+isa.register_relocation(apply_ldr_imm12)
+isa.register_relocation(apply_rel8)
 
 
 # Tokens:
@@ -78,7 +86,7 @@ class Dcd2(ArmInstruction):
         return self.token.encode()
 
     def relocations(self):
-        return [(self.v, 'absaddr32')]
+        return [(self.v, apply_absaddr32)]
 
 
 class Db(ArmInstruction):
@@ -372,7 +380,7 @@ class BranchBaseRoot(ArmInstruction):
         return self.token.encode()
 
     def relocations(self):
-        return [(self.target, 'b_imm24')]
+        return [(self.target, apply_b_imm24)]
 
 
 class BranchBase(BranchBaseRoot):
@@ -509,7 +517,7 @@ class Adr(ArmInstruction):
     syntax = ['adr', rd, ',', label]
 
     def relocations(self):
-        return [(self.label, 'adr_imm12')]
+        return [(self.label, apply_adr_imm12)]
 
     def encode(self):
         self.token.cond = AL
@@ -530,7 +538,7 @@ class Ldr3(ArmInstruction):
     syntax = ['ldr', rt, ',', label]
 
     def relocations(self):
-        return [(self.label, 'ldr_imm12')]
+        return [(self.label, apply_ldr_imm12)]
 
     def encode(self):
         self.token.cond = AL

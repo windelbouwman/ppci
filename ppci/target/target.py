@@ -15,6 +15,10 @@ class Target:
     def __repr__(self):
         return '{}-target'.format(self.name)
 
+    def get_reloc(self, name):
+        """ Retrieve a relocation identified by a name """
+        return self.isa.relocation_map[name]
+
     def lower_frame_to_stream(self, frame, outs):
         """ Lower instructions from frame to output stream """
         for ins in frame.instructions:
