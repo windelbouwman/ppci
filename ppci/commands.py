@@ -215,9 +215,7 @@ def hexutil(args=None):
     if args.command == 'info':
         hexfile = HexFile()
         hexfile.load(args.hexfile)
-        print(hexfile)
-        for region in hexfile.regions:
-            print(region)
+        hexfile.dump()
         args.hexfile.close()
     elif args.command == 'new':
         hexfile = HexFile()

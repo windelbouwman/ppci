@@ -120,19 +120,23 @@ Jmp = create_jump_instruction('jmp', 7)
 
 class OneOpArith(Msp430Instruction):
     def encode(self):
-        # TODO:
-        bits[15:10] = '00100'
-        h1 = (self.opcode << 4)
-        return pack_ins(h1)
+        self.token[10:16] = 0b000100
+        self.token[7:10] = self.opcode
+        self.token.bw = self.b
+        self.token.As = self.src.As
+        self.token.register = self.src.reg.num
+        return self.token.encode() + self.src.extra_bytes
 
 
 def oneOpIns(mne, opcode):
     """ Helper function to define a one operand arithmetic instruction """
-    members = {'opcode': opcode}
+    src = register_argument('src', SourceOperand)
+    syntax = [mne, src]
+    members = {'opcode': opcode, 'syntax': syntax, 'src': src}
     return type(mne + '_ins', (OneOpArith,), members)
 
 
-Rrr = oneOpIns('rrc', 0)
+Rrc = oneOpIns('rrc', 0)
 Swpb = oneOpIns('swpb', 1)
 Rra = oneOpIns('rra', 2)
 Sxt = oneOpIns('sxt', 3)

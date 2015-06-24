@@ -235,7 +235,7 @@ class RegisterAllocator:
                 self.freezeWorklist.remove(v)
                 self.simplifyWorklist.append(v)
 
-    def SelectSpill(self):
+    def SelectSpill(self):  # pragma: no cover
         raise NotImplementedError("Spill is not implemented")
 
     def assign_colors(self):
@@ -249,7 +249,7 @@ class RegisterAllocator:
                 self.color[node] = first(okColors)
                 node.color = self.color[node]
                 assert type(node.color) is int
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError('Spill required here!')
 
     def ApplyColors(self):

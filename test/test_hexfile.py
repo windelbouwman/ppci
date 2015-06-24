@@ -11,29 +11,29 @@ class HexFileTestCase(unittest.TestCase):
         hf2.load(io.StringIO(f.getvalue()))
         self.assertEqual(hf, hf2)
 
-    def testSave1(self):
+    def test_save1(self):
         hf = HexFile()
         hf.add_region(0x8000, bytes.fromhex('aabbcc'))
         self.saveload(hf)
 
-    def testSave2(self):
+    def test_save2(self):
         hf = HexFile()
         hf.add_region(0x8000, bytes.fromhex('aabbcc'))
         hf.add_region(0x118000, bytes.fromhex('aabbcc'))
         self.saveload(hf)
 
-    def testSave3(self):
+    def test_save3(self):
         hf = HexFile()
         hf.add_region(0x8000, bytes.fromhex('aabbcc'))
         hf.add_region(0xFFFE, bytes.fromhex('aabbcc'))
         self.saveload(hf)
 
-    def testSave4(self):
+    def test_save4(self):
         hf = HexFile()
         hf.add_region(0xF000, bytes.fromhex('ab')*0x10000)
         self.saveload(hf)
 
-    def testSave5(self):
+    def test_save5(self):
         hf = HexFile()
         hf.add_region(0xF003, bytes.fromhex('ab')*0x10000)
         self.saveload(hf)
@@ -81,23 +81,50 @@ class HexFileTestCase(unittest.TestCase):
         hf2.add_region(22, bytes.fromhex('aabbcc'))
         self.assertNotEqual(hf1, hf2)
 
-    def testLoad(self):
+    def test_load(self):
         hf = HexFile()
-        dummyhex = """:01400000aa15"""
+        dummyhex = """
+         :01400000aa15
+
+         w00t
+        """
         f = io.StringIO(dummyhex)
         hf.load(f)
         self.assertEqual(1, len(hf.regions))
         self.assertEqual(0x4000, hf.regions[0].address)
         self.assertSequenceEqual(bytes.fromhex('aa'), hf.regions[0].data)
 
-    def testIncorrectCrc(self):
+    def test_incorrect_crc(self):
         hf = HexFile()
         txt = ":01400000aabb"
         f = io.StringIO(txt)
         with self.assertRaisesRegex(HexFileException, 'crc'):
             hf.load(f)
 
-    def testIncorrectLength(self):
+    def test_startaddress(self):
+        hf = HexFile()
+        txt = ":04000005aabbccdde9"
+        f = io.StringIO(txt)
+        hf.load(f)
+        self.assertEqual(0xaabbccdd, hf.start_address)
+
+    def test_non_empty_eof(self):
+        hf = HexFile()
+        txt = ":04000001aabbccdded"
+        f = io.StringIO(txt)
+        with self.assertRaisesRegex(HexFileException, 'end of file not empty'):
+            hf.load(f)
+
+    def test_data_after_eof(self):
+        hf = HexFile()
+        txt = """:00000001FF
+        :04000001aabbccdded
+        """
+        f = io.StringIO(txt)
+        with self.assertRaisesRegex(HexFileException, 'after end of file'):
+            hf.load(f)
+
+    def test_incorrect_length(self):
         hf = HexFile()
         txt = ":0140002200aabb"
         f = io.StringIO(txt)

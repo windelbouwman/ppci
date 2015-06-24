@@ -44,6 +44,26 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed("bit r8, r9")
         self.check('09b8')
 
+    def test_rrc(self):
+        """ Test rrc """
+        self.feed("rrc r7")
+        self.check('0710')
+
+    def test_rra(self):
+        """ Test rra """
+        self.feed("rra 0x1234(r6)")
+        self.check('1611 3412')
+
+    def test_sxt(self):
+        """ Test sxt """
+        self.feed("sxt @r4")
+        self.check('a411')
+
+    def test_push(self):
+        """ Test push """
+        self.feed("push @r13+")
+        self.check('3d12')
+
     def test_reti(self):
         """ Test return from interrupt """
         self.feed("reti")

@@ -130,5 +130,15 @@ class DiagnosticsTestCase(unittest.TestCase):
         diag.add_source(filename, src)
         diag.error('Test1', SourceLocation(filename, 1, 2, 1))
         diag.error('Test2', SourceLocation(filename, 1000, 2, 1))
+        diag.error('Test2', SourceLocation("other.c", 1000, 2, 1))
         diag.error('Test3', None)
         diag.print_errors()
+
+    def test_error_repr(self):
+        diag = DiagnosticsManager()
+        diag.error('A', None)
+        self.assertTrue(str(diag.diags))
+
+
+if __name__ == '__main__':
+    unittest.main()

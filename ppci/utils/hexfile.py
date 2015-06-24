@@ -1,5 +1,6 @@
 import struct
 import binascii
+import sys
 
 DATA = 0
 EOF = 1
@@ -70,7 +71,7 @@ class HexFile:
     """ Represents an intel hexfile """
     def __init__(self):
         self.regions = []
-        self.startAddress = 0
+        self.start_address = 0
 
     def load(self, f):
         endOfFile = False
@@ -87,16 +88,16 @@ class HexFile:
                     raise HexFileException('end of file not empty')
                 endOfFile = True
             elif typ == STARTADDR:
-                self.startAddress = struct.unpack('>I', data[0:4])[0]
-            else:
-                raise HexFileException(
+                self.start_address = struct.unpack('>I', data[0:4])[0]
+            else:  # pragma: no cover
+                raise NotImplementedError(
                     'record type {0} not implemented'.format(typ))
 
     def __repr__(self):
         size = sum(r.Size for r in self.regions)
         return 'Hexfile containing {} bytes'.format(size)
 
-    def dump(self, outf):
+    def dump(self, outf=sys.stdout):
         print(self, file=outf)
         for r in self.regions:
             print(r, file=outf)
