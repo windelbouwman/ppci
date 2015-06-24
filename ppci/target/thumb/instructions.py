@@ -44,7 +44,7 @@ def Dcd(v):
         return Dcd2(v)
     elif type(v) is int:
         return Dcd1(v)
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -67,14 +67,8 @@ class Dcd2(ThumbInstruction):
         return [(self.v, apply_absaddr32)]
 
 
-class ConstantData():
-    def __init__(self, v):
-        super().__init__()
-        assert isinstance(v, int)
-        self.v = v
-
-
 class Db(ThumbInstruction):
+    """ A single data byte """
     v = register_argument('v', int)
     syntax = ['db', v]
 
@@ -84,6 +78,7 @@ class Db(ThumbInstruction):
 
 
 class Ds(ThumbInstruction):
+    """ Reserve an amount of space """
     tokens = []
     v = register_argument('v', int)
     syntax = ['ds', v]
@@ -93,11 +88,10 @@ class Ds(ThumbInstruction):
 
 
 class nop_ins(ThumbInstruction):
+    syntax = ['nop']
+
     def encode(self):
         return bytes()
-
-    def __repr__(self):
-        return 'NOP'
 
 
 # Memory related

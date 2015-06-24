@@ -2,26 +2,39 @@ import unittest
 import tempfile
 import io
 from unittest.mock import patch
-from ppci.commands import c3c, build, asm, hexutil
+from ppci.commands import c3c, build, asm, hexutil, yacc_cmd
 from ppci.common import DiagnosticsManager, SourceLocation
 from util import relpath
 
 
-class CommandsTestCase(unittest.TestCase):
-    """ Test the various command-line utilities """
+class BuildTestCase(unittest.TestCase):
+    """ Test the build command-line utility """
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_build_command(self, mock_stderr):
+        """ Test normal use """
         _, report_file = tempfile.mkstemp()
         build_file = relpath('..', 'examples', 'build.xml')
         build(['-v', '--report', report_file, '-f', build_file])
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_build_command_help(self, mock_stdout):
+    def test_help(self, mock_stdout):
+        """ Test help function """
         with self.assertRaises(SystemExit) as cm:
             build(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('build', mock_stdout.getvalue())
 
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_invalid_log_level(self, mock_stderr):
+        """ Test invalid log level """
+        with self.assertRaises(SystemExit) as cm:
+            build(['--log', 'blabla'])
+        self.assertEqual(2, cm.exception.code)
+        self.assertIn('invalid log_level value', mock_stderr.getvalue())
+
+
+class C3cTestCase(unittest.TestCase):
+    """ Test the c3c command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_c3c_command_fails(self, mock_stdout, mock_stderr):
@@ -44,6 +57,8 @@ class CommandsTestCase(unittest.TestCase):
         self.assertEqual(0, cm.exception.code)
         self.assertIn('compiler', mock_stdout.getvalue())
 
+
+class AsmTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp()
@@ -57,6 +72,8 @@ class CommandsTestCase(unittest.TestCase):
         self.assertEqual(0, cm.exception.code)
         self.assertIn('assemble', mock_stdout.getvalue())
 
+
+class HexutilTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_help(self, mock_stdout):
         """ Check hexutil help message """
@@ -84,6 +101,22 @@ class CommandsTestCase(unittest.TestCase):
         hexutil(['info', file1])
         hexutil(['new', file2, '0x20000000', datafile])
         hexutil(['merge', file1, file2, file3])
+
+
+class YaccTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            yacc_cmd(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('compiler compiler', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_normal_use(self, mock_stdout):
+        """ Test normal yacc use """
+        grammar_file = relpath('..', 'ppci', 'burg.grammar')
+        yacc_cmd([grammar_file])
+        self.assertIn('Automatically generated', mock_stdout.getvalue())
 
 
 class DiagnosticsTestCase(unittest.TestCase):

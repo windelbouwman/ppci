@@ -74,15 +74,15 @@ class Msp430Instruction(Instruction):
 #########################
 
 @isa.register_relocation
-def apply_rel10bit(reloc, sym_value, section, reloc_value):
+def apply_rel10bit(sym_value, data, reloc_value):
     """ Apply 10 bit signed relocation """
     assert sym_value % 2 == 0
     offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
-    assert offset in range(-511, 511, 1), str(offset) + str(reloc)
+    assert offset in range(-511, 511, 1), str(offset)
     imm10 = wrap_negative(offset, 10)
-    section.data[reloc.offset] = imm10 & 0xff
-    cmd = section.data[reloc.offset + 1] & 0xfc
-    section.data[reloc.offset + 1] = cmd | (imm10 >> 8)
+    data[0] = imm10 & 0xff
+    cmd = data[1] & 0xfc
+    data[1] = cmd | (imm10 >> 8)
 
 
 class JumpInstruction(Msp430Instruction):

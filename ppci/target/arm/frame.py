@@ -56,7 +56,7 @@ class ArmFrame(Frame):
             if isinstance(arg_loc, ArmRegister):
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
         self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
         self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
@@ -80,7 +80,7 @@ class ArmFrame(Frame):
             return self.p3
         elif pos == 3:
             return self.p4
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError('No more than 4 parameters implemented')
 
     def allocVar(self, lvar, size):
@@ -131,7 +131,7 @@ class ArmFrame(Frame):
                 for c in v:
                     self.emit(Db(c))
                 self.emit(Alignment(4))   # Align at 4 bytes
-            else:
+            else:  # pragma: no cover
                 raise Exception('Constant of type {} not supported'.format(v))
 
     def between_blocks(self):

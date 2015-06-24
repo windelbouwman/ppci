@@ -106,7 +106,7 @@ class IrToPython:
             elif ins.value.ty.byte_size == 1:
                 self.print(3, 'mem[{0}:{0}+1] = list(struct.pack("B",{1}))'
                            .format(ins.address.name, ins.value.name))
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError()
         elif isinstance(ins, ir.Load):
             if ins.ty.byte_size == 1:
@@ -116,7 +116,7 @@ class IrToPython:
                 self.print(
                     3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'
                     .format(ins.name, ins.address.name))
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError()
         elif isinstance(ins, ir.Call):
             self.print(3, '{}'.format(ins))
@@ -136,6 +136,6 @@ class IrToPython:
             self.print(4, 'raise RuntimeError(str(prev_block))')
         elif isinstance(ins, ir.Return):
             self.print(3, 'return {}'.format(ins.result.name))
-        else:
+        else:  # pragma: no cover
             self.print(3, '{}'.format(ins))
             raise NotImplementedError()

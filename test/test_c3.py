@@ -769,6 +769,18 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [4])
 
+    def test_enum(self):
+        """ Test enum syntax """
+        snippet = """
+         module testenum;
+         function void t()
+         {
+            var enum a;
+         }
+        """
+        with self.assertRaises(NotImplementedError):
+            self.expect_ok(snippet)
+
     def test_struct1(self):
         """ Test struct syntax """
         snippet = """

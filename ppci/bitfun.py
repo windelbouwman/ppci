@@ -108,5 +108,5 @@ class BitView:
 
                 # Set bits:
                 self.data[idx] |= bits
-        else:
+        else:  # pragma: no cover
             raise KeyError()

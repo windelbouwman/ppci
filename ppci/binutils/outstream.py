@@ -40,7 +40,7 @@ class BinaryOutputStream(OutputStream):
         assert isinstance(item, Instruction), str(item) + str(type(item))
         assert self.currentSection
         section = self.currentSection
-        address = self.currentSection.Size
+        address = self.currentSection.size
         b = item.encode()
         section.add_data(b)
         for sym in item.symbols():
@@ -50,9 +50,11 @@ class BinaryOutputStream(OutputStream):
             self.obj_file.add_relocation(sym, address, typ_name, section.name)
 
         # Special case for align, TODO do this different?
-        if type(item) is Alignment:
-            while section.Size % item.align != 0:
+        if isinstance(item, Alignment):
+            while section.size % item.align != 0:
                 section.add_data(bytes([0]))
+            if item.align > self.currentSection.alignment:
+                self.currentSection.alignment = item.align
 
     def select_section(self, sname):
         self.currentSection = self.obj_file.get_section(sname)

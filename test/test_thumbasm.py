@@ -143,19 +143,23 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('sub r4, r1, 6')
         self.check('ab1e8c1f')
 
-    def testAnd(self):
+    def test_and(self):
         self.feed('and r7, r1')
         self.check('0f40')
 
-    def testOr(self):
+    def test_or(self):
         self.feed('orr r7, r1')
         self.check('0f43')
 
-    def testLeftShift(self):
+    def test_nop(self):
+        self.feed('nop')
+        self.check('')
+
+    def test_left_shift(self):
         self.feed('lsl r3, r5')
         self.check('ab40')
 
-    def testRightShift(self):
+    def test_right_shift(self):
         self.feed('lsr r2, r6')
         self.check('f240')
 

@@ -71,6 +71,8 @@ class SymbolDefinition(Input):
 
 class LayoutLexer(BaseLexer):
     """ Lexer for layout files """
+    kws = ['MEMORY', 'ALIGN', 'LOCATION', 'SECTION', 'SIZE', 'DEFINESYMBOL']
+
     def __init__(self):
         tok_spec = [
            ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
@@ -82,8 +84,6 @@ class LayoutLexer(BaseLexer):
            ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
         ]
         super().__init__(tok_spec)
-        self.kws = [
-            'MEMORY', 'ALIGN', 'LOCATION', 'SECTION', 'SIZE', 'DEFINESYMBOL']
 
     def handle_id(self, typ, val):
         if val in self.kws:

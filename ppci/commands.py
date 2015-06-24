@@ -173,8 +173,6 @@ def yacc_cmd(args=None):
     parser.add_argument(
         '-o', '--output', type=argparse.FileType('w'), default=sys.stdout)
 
-    parser = argparse.ArgumentParser(description=description)
-
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)

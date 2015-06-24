@@ -222,8 +222,7 @@ class BaseAssembler:
                 self.make_arg_func(arg_cls, nt, stx)
             return nt
 
-        # pragma: no cover
-        raise KeyError(arg_cls)
+        raise KeyError(arg_cls)  # pragma: no cover
 
     def gen_asm_parser(self, isa):
         """ Generate assembly rules from isa """

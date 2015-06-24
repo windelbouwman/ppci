@@ -2,7 +2,6 @@
     X86 target descriptions and encodings.
 """
 
-import struct
 from ..isa import Instruction, Isa, register_argument
 from .registers import X86Register
 from ...bitfun import wrap_negative
@@ -17,14 +16,13 @@ isa = Isa()
 
 
 @isa.register_relocation
-def apply_b_jmp32(reloc, sym_value, section, reloc_value):
+def apply_b_jmp32(sym_value, data, reloc_value):
     offset = (sym_value - (reloc_value + 5))
     rel24 = wrap_negative(offset, 32)
-    section.data[reloc.offset+4] = (rel24 >> 24) & 0xFF
-    section.data[reloc.offset+3] = (rel24 >> 16) & 0xFF
-    section.data[reloc.offset+2] = (rel24 >> 8) & 0xFF
-    section.data[reloc.offset+1] = rel24 & 0xFF
-
+    data[4] = (rel24 >> 24) & 0xFF
+    data[3] = (rel24 >> 16) & 0xFF
+    data[2] = (rel24 >> 8) & 0xFF
+    data[1] = rel24 & 0xFF
 
 
 # Helper functions:

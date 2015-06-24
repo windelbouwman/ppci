@@ -95,7 +95,7 @@ class InstructionSelector:
             patterns and the corresponding code will be emitted """
         self.sys.check_tree_defined(tree)
         self.burm_label(tree)
-        if not tree.state.has_goal("stm"):
+        if not tree.state.has_goal("stm"):  # pragma: no cover
             raise Exception("Tree {} not covered".format(tree))
         return self.apply_rules(tree, "stm")
 

@@ -14,7 +14,7 @@ class Lexer(BaseLexer):
                 'else', 'if', 'while', 'for', 'return',
                 'function', 'var', 'type', 'const',
                 'volatile',
-                'struct', 'cast', 'sizeof',
+                'struct', 'cast', 'sizeof', 'enum',
                 'import', 'module', 'public']
 
     def __init__(self, diag):

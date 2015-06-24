@@ -158,15 +158,11 @@ class Parser:
             if self.has_consumed('*'):
                 the_type = PointerType(the_type)
             elif self.has_consumed('['):
-                if self.peak == ']':
-                    loc = self.consume(']').loc
-                    size = Literal(0, loc)
-                else:
-                    size = self.parse_expression()
-                    self.consume(']')
+                size = self.parse_expression()
+                self.consume(']')
                 the_type = ArrayType(the_type, size)
-            else:
-                raise Exception()
+            else:  # pragma: no cover
+                raise RuntimeError()
         return the_type
 
     def parse_type_def(self, public=True):
@@ -481,8 +477,8 @@ class Parser:
                         args.append(self.parse_expression())
                     self.consume(')')
                 pfe = FunctionCall(pfe, args, pfe.loc)
-            else:
-                raise Exception()
+            else:  # pragma: no cover
+                raise RuntimeError()
         return pfe
 
     def parse_primary_expression(self):
