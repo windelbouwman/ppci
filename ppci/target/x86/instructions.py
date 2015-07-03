@@ -25,14 +25,14 @@ def apply_b_jmp32(sym_value, data, reloc_value):
     data[1] = rel24 & 0xFF
 
 
-# Helper functions:
+@isa.register_relocation
+def apply_b_jmp8(sym_value, data, reloc_value):
+    offset = (sym_value - (reloc_value + 2))
+    rel8 = wrap_negative(offset, 8)
+    data[1] = rel8
 
-def imm32(x):
-   """ represent 32 bits integer in little endian 4 bytes"""
-   if x < 0:
-      x = x + (1 << 32)
-   x = x & 0xFFFFFFFF
-   return bytes([ (x >> (p*8)) & 0xFF for p in range(4) ])
+
+# Helper functions:
 
 
 class ByteToken(Token):
@@ -86,13 +86,21 @@ class RexToken(Token):
         return u8(self.bit_value)
 
 
-def sib(ss=0, index=0, base=0):
-   assert(ss <= 3)
-   assert(index <= 7)
-   assert(base <= 7)
-   return (ss << 6) | (index << 3) | base
+class Imm32Token(Token):
+    def __init__(self):
+        super().__init__(32)
 
-tttn = {'L':0xc,'G':0xf,'NE':0x5,'GE':0xd,'LE':0xe, 'E':0x4}
+    def encode(self):
+        return u32(self.bit_value)
+
+
+# def sib(ss=0, index=0, base=0):
+#   assert(ss <= 3)
+#   assert(index <= 7)
+#   assert(base <= 7)
+#   return (ss << 6) | (index << 3) | base
+
+# tttn = {'L':0xc,'G':0xf,'NE':0x5,'GE':0xd,'LE':0xe, 'E':0x4}
 
 # Actual instructions:
 class X86Instruction(Instruction):
@@ -105,7 +113,7 @@ class NearJump(X86Instruction):
     """ jmp imm32 """
     target = register_argument('target', str)
     syntax = ['jmp', target]
-    tokens = [OpcodeToken]
+    tokens = [OpcodeToken, Imm32Token]
 
     def encode(self):
         #opcode = 0x80 | tttn[condition] # Jcc imm32
@@ -113,7 +121,7 @@ class NearJump(X86Instruction):
         #if distance < 0:
         # distance -= 5 # Skip own instruction
         self.token1[0:8] = 0xe9
-        return self.token1.encode() + imm32(0)
+        return self.token1.encode() + self.token2.encode()
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
@@ -126,16 +134,11 @@ class ShortJump(X86Instruction):
     syntax = ['jmpshort', target]
 
     def encode(self):
-        lim = 118
-        if abs(distance) > lim:
-          Error('short jump cannot jump over more than {0} bytes'.format(lim))
-        if distance < 0:
-          distance -= 2 # Skip own instruction
-        if condition:
-          opcode = 0x70 | tttn[condition] # Jcc rel8
-        else:
-          opcode = 0xeb  # jmp rel8
-        return [opcode] + imm8(distance)
+        opcode = 0xeb  # jmp rel8
+        return bytes([opcode, 0])
+
+    def relocations(self):
+        return [(self.target, apply_b_jmp8)]
 
 
 class Push(X86Instruction):
@@ -192,11 +195,11 @@ class Call(X86Instruction):
     """ call a function """
     target = register_argument('target', str)
     syntax = ['call', target]
-    tokens = [OpcodeToken]
+    tokens = [OpcodeToken, Imm32Token]
 
     def encode(self):
         self.token1[0:8] = 0xe8
-        return self.token1.encode() + imm32(0)
+        return self.token1.encode() + self.token2.encode()
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
@@ -287,7 +290,7 @@ class Cmp(regregbase):
 
 
 class regint32base(X86Instruction):
-    tokens = [RexToken, OpcodeToken, ModRmToken]
+    tokens = [RexToken, OpcodeToken, ModRmToken, Imm32Token]
 
     def encode(self):
         self.token.w = 1
@@ -296,7 +299,8 @@ class regint32base(X86Instruction):
         self.token3.mod = 3
         self.token3.rm = self.reg.regbits
         self.token3.reg = self.reg_code
-        return self.token.encode() + self.token2.encode() + self.token3.encode() + imm32(self.imm)
+        self.token4[0:32] = wrap_negative(self.imm, 32)
+        return self.token.encode() + self.token2.encode() + self.token3.encode() + self.token4.encode()
 
 
 def make_regimm(mnemonic, opcode, reg_code):

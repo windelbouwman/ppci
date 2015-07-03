@@ -105,9 +105,9 @@ class MasterOutputStream(OutputStream):
             output_stream.select_section(sname)
 
 
-def BinaryAndLoggingStream(output):
+def binary_and_logging_stream(output):
     """ Create a stream object that both logs and writes to an object file """
-    o2 = BinaryOutputStream(output)
-    o1 = LoggerOutputStream()
-    ostream = MasterOutputStream([o1, o2])
+    stream1 = BinaryOutputStream(output)
+    stream2 = LoggerOutputStream()
+    ostream = MasterOutputStream([stream1, stream2])
     return ostream

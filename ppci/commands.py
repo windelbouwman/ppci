@@ -11,6 +11,7 @@ from .buildfunctions import c3compile
 from .buildfunctions import assemble
 from .pyyacc import transform
 from .utils.hexfile import HexFile
+from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version
 from .common import logformat
@@ -103,8 +104,8 @@ def c3c(args=None):
         obj.save(args.output)
 
         # Attention! Closing the output file may close stdout!
-        if args.output != sys.stdout:
-            args.output.close()
+        # if args.output != sys.stdout:
+        #    args.output.close()
 
 
 def asm(args=None):
@@ -129,6 +130,21 @@ def asm(args=None):
 
         # Attention! Closing the output file may close stdout!
         # args.output.close()
+
+
+def objdump(args=None):
+    """ Dump info of an object file """
+    parser = argparse.ArgumentParser(description=description)
+    add_common_parser_options(parser)
+
+    parser.add_argument('obj', help='object file', type=argparse.FileType('r'))
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+
+        obj = load_object(args.obj)
+        args.obj.close()
+        print_object(obj)
 
 
 def yacc_cmd(args=None):

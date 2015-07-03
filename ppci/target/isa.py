@@ -102,16 +102,6 @@ class Isa:
         """ Register an instruction into this ISA """
         self.instructions.append(i)
 
-    def calc_kws(self):
-        """ Calculate which keywords are used in assembler syntax """
-        kws = set()
-        for i in self.instructions:
-            if hasattr(i, 'syntax'):
-                for s in i.syntax:
-                    if type(s) is str and s.isalnum():
-                        kws.add(s)
-        return kws
-
     def register_relocation(self, relocation):
         """ Register a relocation into this isa """
         name = relocation.__name__
@@ -249,9 +239,6 @@ class Instruction(metaclass=InsMeta):
 
     def symbols(self):
         return []
-
-    def literals(self, add_literal):
-        pass
 
 
 class Syntax:

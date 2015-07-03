@@ -203,6 +203,16 @@ def load_object(f):
     return deserialize(json.load(f))
 
 
+def print_object(obj):
+    print(obj)
+    for section in obj.sections:
+        print(section)
+    for symbol in obj.symbols:
+        print(symbol)
+    for reloc in obj.relocations:
+        print(reloc)
+
+
 def bin2asc(data):
     """ Encode binary data as ascii """
     return binascii.hexlify(data).decode('ascii')

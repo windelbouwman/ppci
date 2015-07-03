@@ -2,7 +2,7 @@ import unittest
 import tempfile
 import io
 from unittest.mock import patch
-from ppci.commands import c3c, build, asm, hexutil, yacc_cmd
+from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump
 from ppci.common import DiagnosticsManager, SourceLocation
 from util import relpath
 
@@ -66,11 +66,28 @@ class AsmTestCase(unittest.TestCase):
         asm(['--target', 'thumb', '-o', obj_file, src])
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_asm_command_help(self, mock_stdout):
+    def test_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
             asm(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('assemble', mock_stdout.getvalue())
+
+
+class ObjdumpTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            objdump(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('object file', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_command(self, mock_stdout):
+        _, obj_file = tempfile.mkstemp()
+        src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
+        asm(['--target', 'thumb', '-o', obj_file, src])
+        objdump([obj_file])
+        self.assertIn('SECTION', mock_stdout.getvalue())
 
 
 class HexutilTestCase(unittest.TestCase):
@@ -81,6 +98,15 @@ class HexutilTestCase(unittest.TestCase):
             hexutil(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('info,new,merge', mock_stdout.getvalue())
+
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_hexutil_address_format(self, mock_stderr):
+        _, file1 = tempfile.mkstemp()
+        datafile = relpath('..', 'examples', 'build.xml')
+        with self.assertRaises(SystemExit) as cm:
+            hexutil(['new', file1, '10000000', datafile])
+        self.assertEqual(2, cm.exception.code)
+        self.assertIn('argument address', mock_stderr.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_no_command(self, mock_stdout):

@@ -6,6 +6,7 @@ from ppci.target.arm.instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
+from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
 from ppci.buildfunctions import link
 from ppci.binutils import layout
@@ -34,6 +35,12 @@ class OutstreamTestCase(unittest.TestCase):
     def test_text_stream(self, mock_stdout):
         """ Test output to stdout """
         stream = TextOutputStream()
+        stream.select_section('code')
+        stream.emit(Mov(R1, R0))
+
+    def test_binary_and_logstream(self):
+        object1 = ObjectFile()
+        stream = binary_and_logging_stream(object1)
         stream.select_section('code')
         stream.emit(Mov(R1, R0))
 

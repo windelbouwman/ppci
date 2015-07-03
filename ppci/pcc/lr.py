@@ -5,9 +5,6 @@ from .common import ParserException, ParserGenerationException
 
 
 class Action:
-    def __repr__(self):
-        return 'Action'
-
     def __eq__(self, other):
         return str(self) == str(other)
 

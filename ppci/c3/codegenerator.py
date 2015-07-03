@@ -710,7 +710,7 @@ class CodeGenerator:
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
         if type(target_func) is not ast.Function:
-            raise SemanticError('cannot call {}'.format(target_func))
+            raise SemanticError('cannot call {}'.format(target_func), expr.loc)
         ftyp = target_func.typ
         fname = target_func.package.name + '_' + target_func.name
 

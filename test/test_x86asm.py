@@ -18,12 +18,14 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('inc rcx')
         self.check('48 89 d8 48 31 d9 48 ff c1')
 
-    def testJumpingAround(self):
+    def test_jumping_around(self):
         """ Check all kind of assembler cases """
+        self.feed('jmpshort a')
         self.feed('jmp a')
         self.feed('a: jmp a')
         self.feed('jmp a')
-        self.check('e9 00 00 00 00   e9 fb ff ff ff   e9 f6 ff ff ff')
+        self.feed('jmpshort a')
+        self.check('eb 05 e9 00000000   e9 fbffffff   e9 f6ffffff eb f4')
 
     def test_call(self):
         """ Test call instruction """

@@ -81,7 +81,7 @@ class ArmTarget(Target):
             outs.emit(Dcd(0))
         elif amount > 0:
             outs.emit(Ds(amount))
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError()
 
     def get_runtime_src(self):

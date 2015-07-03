@@ -317,6 +317,19 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [5, 6, 10, 16])
 
+    def test_call_of_non_function(self):
+        """ Test if the call to a non-function type raises an error """
+        snippet = """
+         module testreturn;
+         var int x;
+         function void t()
+         {
+            x();
+            return;
+         }
+        """
+        self.expect_errors(snippet, [6])
+
     def test_return(self):
         """ Test return of void """
         snippet = """
@@ -338,6 +351,18 @@ class FunctionTestCase(BuildTestCaseBase):
          }
         """
         self.expect_ok(snippet)
+
+    def test_return_complex_type(self):
+        """ Test the return of a complex value, this is not allowed """
+        snippet = """
+         module testreturn;
+         function struct {int a;int b;} t()
+         {
+            var int a = t();
+            return 2;
+         }
+        """
+        self.expect_errors(snippet, [5])
 
     def test_parameter_redefine(self):
         """ Check if a parameter and variable with the same name result in
