@@ -55,7 +55,7 @@ class CfgInfo:
                 # Node n in dominatet by itself and by the intersection of
                 # the dominators of its predecessors
                 pred_doms = list(self.dom[p] for p in self.pred[n])
-                if not pred_doms:
+                if not pred_doms:  # pragma: no cover
                     # We cannot be here!
                     # Always add entry as a predecessor of epilog to prevent
                     # this situation.

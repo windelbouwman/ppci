@@ -122,7 +122,7 @@ class EarleyParser:
                 if current_column is start_col:
                     worklist.append(new_item)
 
-    def parse(self, tokens):
+    def parse(self, tokens, debug_dump=False):
         """ Parse the given token string """
 
         # Create the state stack:
@@ -153,6 +153,9 @@ class EarleyParser:
                 break
         else:
             raise RuntimeError('Parsing failed')
+
+        if debug_dump:
+            self.dump_parse(columns)
 
         # Reconstruct the parse tree:
         return self.make_tree(columns, self.grammar.start_symbol)
@@ -186,7 +189,7 @@ class EarleyParser:
                 else:
                     res = None
                 return res, end
-        raise Exception()
+        raise RuntimeError("Unable build tree")  # pragma: no cover
 
     def dump_parse(self, columns):
         print("Parse result:")

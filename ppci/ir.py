@@ -12,7 +12,7 @@ def label_name(dut):
         return label_name(dut.module) + '_' + dut.name
     elif isinstance(dut, Module):
         return dut.name
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(dut) + str(type(dut)))
 
 
@@ -179,10 +179,6 @@ class Function:
         """
         return (self.entry, self.epilog)
 
-    @property
-    def Entry(self):
-        return self.entry
-
     def add_parameter(self, parameter):
         """ Add an argument to this function """
         assert type(parameter) is Parameter
@@ -342,9 +338,6 @@ class Block:
 
     predecessors = property(get_predecessors)
 
-    def precedes(self, other):
-        raise NotImplementedError()
-
     def dominates(self, other):
         """ Check if this block dominates other block """
         cfg_info = self.function.cfg_info
@@ -372,7 +365,7 @@ def var_use(name):
         """ Gets the value """
         if name in self.var_map:
             return self.var_map[name]
-        else:
+        else:  # pragma: no cover
             raise KeyError(name)
 
     def setter(self, value):
@@ -461,7 +454,7 @@ class Instruction:
                     # Check if this instruction dominates the last
                     # instruction of this block
                     return self.dominates(block.last_instruction)
-            raise Exception('Cannot query dominance for this phi')
+            raise RuntimeError('Cannot query dominance for this phi')  # pragma: no cover
         # For all other instructions follow these rules:
         if self.block == other.block:
             # fi = self.block.instructions.first_to_occur(self, other)
@@ -643,11 +636,6 @@ def Mul(a, b, name, ty):
     return Binop(a, '*', b, name, ty)
 
 
-def Div(a, b, name, ty):
-    """ Divide a in b pieces """
-    return Binop(a, '/', b, name, ty)
-
-
 class Phi(Value):
     """ Imaginary phi instruction to make SSA possible. """
     def __init__(self, name, ty):
@@ -769,7 +757,7 @@ def block_ref(name):
     def getter(self):
         if name in self.block_map:
             return self.block_map[name]
-        else:
+        else:  # pragma: no cover
             raise KeyError("No such block!")
 
     def setter(self, block):

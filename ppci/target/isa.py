@@ -1,7 +1,6 @@
 """
 Isa related classes.
 These can be used to define an instruction set.
-
 """
 
 
@@ -30,6 +29,7 @@ class Register:
 
     @property
     def is_colored(self):
+        """ Determine whether the register is colored """
         return self.color is not None
 
 

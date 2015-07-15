@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 import io
 from ppci.pcc.grammar import Grammar
 from ppci.pcc.common import ParserGenerationException
@@ -321,6 +322,28 @@ class EarleyParserTestCase(unittest.TestCase):
         tokens = gen_tokens(['a', 'c', 'b'])
         p.parse(tokens)
         self.assertTrue(self.cb_called)
+
+    def test_invalid_parse(self):
+        """ Check what happens when """
+        g = Grammar()
+        g.add_terminals(['a', 'b', 'c'])
+        g.add_production('goal', ['a', 'c', 'b'])
+        g.start_symbol = 'goal'
+        p = EarleyParser(g)
+        tokens = gen_tokens(['d'])
+        with self.assertRaises(RuntimeError):
+            p.parse(tokens)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_dump_parse(self, mock_stdout):
+        """ Test the debug dump of the parser """
+        g = Grammar()
+        g.add_terminals(['a', 'b', 'c'])
+        g.add_production('goal', ['a', 'c', 'b'])
+        g.start_symbol = 'goal'
+        p = EarleyParser(g)
+        tokens = gen_tokens(['a', 'c', 'b'])
+        p.parse(tokens, debug_dump=True)
 
 
 class GrammarParserTestCase(unittest.TestCase):

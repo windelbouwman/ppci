@@ -12,9 +12,14 @@ class SimpleTarget(Target):
     def __init__(self):
         super().__init__('SimpleTarget')
 
-R0 = Register('r0')
-R1 = Register('r1')
-R2 = Register('r2')
+
+R0 = Register('r0', 0)
+R1 = Register('r1', 1)
+R2 = Register('r2', 2)
+R3 = Register('r3', 3)
+R4 = Register('r4', 4)
+R5 = Register('r5', 5)
+R6 = Register('r6', 6)
 
 
 class TestInstruction(Instruction):

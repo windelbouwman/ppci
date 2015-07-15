@@ -34,6 +34,7 @@ class RegisterAllocator:
         self.logger = logging.getLogger('registerallocator')
 
     def InitData(self, f):
+        """ Initialize data structures """
         self.f = f
 
         # Register information:
@@ -57,8 +58,6 @@ class RegisterAllocator:
         self.f.ig = InterferenceGraph(self.f.cfg)
         self.logger.debug('Constructed interferencegraph with {} nodes'
                           .format(len(self.f.ig.nodes)))
-
-        self.Node = self.f.ig.get_node
 
         # Divide nodes into pre-colored and initial:
         self.precolored = set(node for node in self.f.ig.nodes if
@@ -84,18 +83,22 @@ class RegisterAllocator:
             src.moves.add(mv)
             dst.moves.add(mv)
 
+    def Node(self, vreg):
+        return self.f.ig.get_node(vreg)
+
     def has_edge(self, t, r):
-        """ Helper function to make has edge simpler """
+        """ Helper function to check for an interfering edge """
         return self.f.ig.has_edge(t, r)
 
     def makeWorkList(self):
         """ Divide initial nodes into worklists """
         self.selectStack = []
 
-        # Fill initial move set:
+        # Fill initial move set, try to remove all moves:
         for m in self.moves:
             self.worklistMoves.add(m)
 
+        # Make worklists for nodes:
         self.spillWorklist = []
         self.freezeWorklist = []
         self.simplifyWorklist = []
@@ -113,12 +116,12 @@ class RegisterAllocator:
         return n.moves & (self.activeMoves | self.worklistMoves)
 
     def MoveRelated(self, n):
+        """ Check if a node is used by move instructions """
         return bool(self.NodeMoves(n))
 
     def Simplify(self):
         """ 2. Remove nodes from the graph """
         n = self.simplifyWorklist.pop()
-        # self.logger.debug('Simplifying the graph, taking out {}'.format(n))
         self.selectStack.append(n)
         # Pop out of graph, we place it back later:
         self.f.ig.mask_node(n)
@@ -126,6 +129,10 @@ class RegisterAllocator:
             self.decrement_degree(m)
 
     def decrement_degree(self, m):
+        """ If a node was lowered in degree, check if there are nodes that
+            can be moved from the spill list to the freeze of simplify
+            list
+        """
         if m.Degree == self.K - 1 and m in self.spillWorklist:
             self.EnableMoves({m} | m.Adjecent)
             self.spillWorklist.remove(m)
@@ -142,46 +149,49 @@ class RegisterAllocator:
                     self.worklistMoves.add(m)
 
     def Coalesc(self):
-        """ Coalesc moves conservative.
+        """ 3. Coalesc moves conservative.
             This means, merge the variables of a move into
             one variable, and delete the move. But do this
             only when no spill will occur.
         """
-        m = first(self.worklistMoves)
+        # Remove the move from the worklist:
+        m = self.worklistMoves.pop()
         x = self.Node(m.defined_registers[0])
         y = self.Node(m.used_registers[0])
-        # self.logger.debug('Coalescing {} and {}'.format(x, y))
         u, v = (y, x) if y in self.precolored else (x, y)
-        self.worklistMoves.remove(m)
+        print('u,v', u, v)
         if u is v:
+            # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
             self.add_worklist(u)
         elif v in self.precolored or self.has_edge(u, v):
-            # self.logger.debug('Constrained')
+            # Both u and v are precolored
+            # or there is an interfering edge
+            # between the two nodes:
             self.constrainedMoves.add(m)
             self.add_worklist(u)
             self.add_worklist(v)
         elif (u in self.precolored and
                 all(self.Ok(t, u) for t in v.Adjecent)) or \
                 (u not in self.precolored and self.conservative(u, v)):
-            # self.logger.debug('Combining {} and {}'.format(u, v))
+            print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.Adjecent)
             self.coalescedMoves.add(m)
             self.combine(u, v)
             self.add_worklist(u)
         else:
-            # self.logger.debug('Active move?')
             self.activeMoves.add(m)
 
     def add_worklist(self, u):
-        if u not in self.precolored and not self.MoveRelated(u)\
-                and u.Degree < self.K:
+        if (u not in self.precolored) and (not self.MoveRelated(u))\
+                and (u.Degree < self.K):
             self.freezeWorklist.remove(u)
             self.simplifyWorklist.append(u)
 
     def Ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
-        return t.Degree < self.K or \
-            t in self.precolored or \
+        print('ok', t,r)
+        return (t.Degree < self.K) or \
+            (t in self.precolored) or \
             self.has_edge(t, r)
 
     def conservative(self, u, v):
@@ -213,6 +223,7 @@ class RegisterAllocator:
         """ Give up coalescing on some node, move it to the simplify list
             and freeze all moves associated with it.
         """
+        print('freeze')
         u = self.freezeWorklist.pop()
         self.simplifyWorklist.append(u)
         self.freezeMoves(u)
@@ -252,12 +263,13 @@ class RegisterAllocator:
             else:  # pragma: no cover
                 raise NotImplementedError('Spill required here!')
 
-    def ApplyColors(self):
-        """ Assign colors to registers """
+    def remove_redundant_moves(self):
         # Remove coalesced moves:
         for mv in self.coalescedMoves:
             self.f.instructions.remove(mv)
 
+    def ApplyColors(self):
+        """ Assign colors to registers """
         # Apply all colors:
         for node in self.f.ig:
             for reg in node.temps:
@@ -301,4 +313,5 @@ class RegisterAllocator:
                 break   # Done!
         self.logger.debug('Now assinging colors')
         self.assign_colors()
+        self.remove_redundant_moves()
         self.ApplyColors()

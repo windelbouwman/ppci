@@ -183,6 +183,7 @@ class LayoutFileTestCase(unittest.TestCase):
             MEMORY flash LOCATION=0x1000 SIZE=0x3000 {
               SECTION(code)
               ALIGN(4)
+              DEFINESYMBOL(x)
             }
         """
         layout1 = layout.load_layout(io.StringIO(spec))
@@ -192,8 +193,10 @@ class LayoutFileTestCase(unittest.TestCase):
         m.size = 0x3000
         m.add_input(layout.Section('code'))
         m.add_input(layout.Align(4))
+        m.add_input(layout.SymbolDefinition('x'))
         layout2.add_memory(m)
         self.assertEqual(layout2, layout1)
+        self.assertEqual(str(layout1), str(layout2))
 
 
 if __name__ == '__main__':
