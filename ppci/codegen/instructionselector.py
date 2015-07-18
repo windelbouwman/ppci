@@ -1,5 +1,5 @@
-from ppci.target.isa import Instruction
-from ppci.codegen.tree import State
+from ..target.isa import Instruction
+from .tree import State
 from ppci.pyburg import BurgSystem
 
 

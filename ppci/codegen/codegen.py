@@ -10,7 +10,7 @@ from ..target.target import Target
 from ..target.target import RegisterUseDef
 from ..target.isa import Register
 from .registerallocator import RegisterAllocator
-from ..target.instructionselector import InstructionSelector
+from .instructionselector import InstructionSelector
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 import logging
 
