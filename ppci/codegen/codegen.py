@@ -10,6 +10,7 @@ from ..target.target import Target
 from ..target.target import RegisterUseDef
 from ..target.isa import Register
 from .registerallocator import RegisterAllocator
+from ..target.instructionselector import InstructionSelector
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 import logging
 
@@ -24,7 +25,7 @@ class CodeGenerator:
         self.logger = logging.getLogger('codegen')
         self.target = target
         self.dagger = Dagger()
-        self.ins_sel = target.ins_sel
+        self.ins_sel = InstructionSelector(target.isa)
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
         self.dump_file = None

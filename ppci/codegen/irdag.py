@@ -8,7 +8,7 @@ import logging
 from .. import ir
 from ..target.target import Label
 from ..target.isa import Register
-from .tree import Tree
+from ..utils.tree import Tree
 
 
 NODE_ATTR = '%nodetype'

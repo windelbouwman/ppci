@@ -6,7 +6,6 @@ from ..isa import register_argument, value_argument
 from ...bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc
 from ..token import Token, u32, u8, bit_range
-from ..instructionselector import InstructionSelector, pattern
 from .relocations import apply_b_imm24, apply_absaddr32, apply_rel8
 from .relocations import apply_ldr_imm12, apply_adr_imm12
 
@@ -587,212 +586,238 @@ class Mrc(McrBase):
     syntax = ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]
 
 
-class ArmInstructionSelector(InstructionSelector):
-    """ Instruction selector for the arm architecture """
+# Instruction selection patterns:
+@isa.pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=2)
+def _(self, tree, c0, c1):
+    self.emit(Str1(c1, c0, 0))
 
-    @pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=2)
-    def P1(self, tree, c0, c1):
-        self.emit(Str1(c1, c0, 0))
 
-    @pattern(
-        'stm', 'MOVI32(MEMI32(ADDI32(reg, CONSTI32)), reg)',
-        cost=2,
-        condition=lambda t: t.children[0].children[0].children[1].value < 256)
-    def P1_b(self, tree, c0, c1):
-        # TODO: something strange here: when enabeling this rule, programs
-        # compile correctly...
-        offset = tree.children[0].children[0].children[1].value
-        self.emit(Str1(c1, c0, offset))
+@isa.pattern(
+    'stm', 'MOVI32(MEMI32(ADDI32(reg, CONSTI32)), reg)',
+    cost=2,
+    condition=lambda t: t.children[0].children[0].children[1].value < 256)
+def _(self, tree, c0, c1):
+    # TODO: something strange here: when enabeling this rule, programs
+    # compile correctly...
+    offset = tree.children[0].children[0].children[1].value
+    self.emit(Str1(c1, c0, offset))
 
-    @pattern('stm', 'MOVI8(MEMI8(reg), reg)', cost=2)
-    def P2(self, tree, c0, c1):
-        self.emit(Strb(c1, c0, 0))
 
-    @pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
-    def P3(self, tree, c0):
-        self.move(tree.children[0].value, c0)
+@isa.pattern('stm', 'MOVI8(MEMI8(reg), reg)', cost=2)
+def _(self, tree, c0, c1):
+    self.emit(Strb(c1, c0, 0))
 
-    @pattern('stm', 'JMP', cost=2)
-    def P5(self, tree):
-        label, tgt = tree.value
-        self.emit(B(label, jumps=[tgt]))
 
-    @pattern('reg', 'REGI32', cost=0)
-    def P6(self, tree):
-        return tree.value
+@isa.pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
+def _(self, tree, c0):
+    self.move(tree.children[0].value, c0)
 
-    @pattern('reg', 'CONSTI32', cost=4)
-    def P7(self, tree):
-        d = self.newTmp()
-        ln = self.frame.add_constant(tree.value)
-        self.emit(Ldr3(d, ln))
-        return d
 
-    @pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
-    def P23(self, tree):
-        d = self.newTmp()
-        c0 = tree.value
-        assert isinstance(c0, int)
-        assert c0 < 256 and c0 >= 0
-        self.emit(Mov1(d, c0))
-        return d
+@isa.pattern('stm', 'JMP', cost=2)
+def _(self, tree):
+    label, tgt = tree.value
+    self.emit(B(label, jumps=[tgt]))
 
-    @pattern('stm', 'CJMP(reg, reg)', cost=2)
-    def P8(self, tree, c0, c1):
-        op, yes_label, yes_tgt, no_label, no_tgt = tree.value
-        opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
-        Bop = opnames[op]
-        self.emit(Cmp2(c0, c1))
-        jmp_ins = B(no_label, jumps=[no_tgt])
-        self.emit(Bop(yes_label, jumps=[yes_tgt, jmp_ins]))
-        self.emit(jmp_ins)
 
-    @pattern('reg', 'ADDI32(reg, reg)', cost=2)
-    def P9(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Add1(d, c0, c1))
-        return d
+@isa.pattern('reg', 'REGI32', cost=0)
+def _(self, tree):
+    return tree.value
 
-    @pattern('reg', 'ADDI8(reg, reg)', cost=2)
-    def P9_2(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Add1(d, c0, c1))
-        return d
 
-    @pattern(
-        'reg', 'ADDI32(reg, CONSTI32)', cost=2,
-        condition=lambda t: t.children[1].value < 256)
-    def P9_3a(self, tree, c0):
-        d = self.newTmp()
-        c1 = tree.children[1].value
-        self.emit(Add2(d, c0, c1))
-        return d
+@isa.pattern('reg', 'CONSTI32', cost=4)
+def _(self, tree):
+    d = self.newTmp()
+    ln = self.frame.add_constant(tree.value)
+    self.emit(Ldr3(d, ln))
+    return d
 
-    @pattern(
-        'reg', 'ADDI32(CONSTI32, reg)', cost=2,
-        condition=lambda t: t.children[0].value < 256)
-    def P9_3b(self, tree, c0):
-        d = self.newTmp()
-        c1 = tree.children[0].value
-        self.emit(Add2(d, c0, c1))
-        return d
 
-    @pattern('reg', 'SUBI32(reg, reg)', cost=2)
-    def P12(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Sub1(d, c0, c1))
-        return d
+@isa.pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
+def _(self, tree):
+    d = self.newTmp()
+    c0 = tree.value
+    assert isinstance(c0, int)
+    assert c0 < 256 and c0 >= 0
+    self.emit(Mov1(d, c0))
+    return d
 
-    @pattern('reg', 'SUBI8(reg, reg)', cost=2)
-    def P12_2(self, tree, c0, c1):
-        # TODO: temporary fix this with an 32 bits sub
-        d = self.newTmp()
-        self.emit(Sub1(d, c0, c1))
-        return d
 
-    @pattern('reg', 'GLOBALADDRESS', cost=4)
-    def P13(self, tree):
-        d = self.newTmp()
-        ln = self.frame.add_constant(tree.value)
-        self.emit(Ldr3(d, ln))
-        return d
+@isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    op, yes_label, yes_tgt, no_label, no_tgt = tree.value
+    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
+    Bop = opnames[op]
+    self.emit(Cmp2(c0, c1))
+    jmp_ins = B(no_label, jumps=[no_tgt])
+    self.emit(Bop(yes_label, jumps=[yes_tgt, jmp_ins]))
+    self.emit(jmp_ins)
 
-    @pattern('reg', 'MEMI8(reg)', cost=2)
-    def P14(self, tree, c0):
-        d = self.newTmp()
-        self.emit(Ldrb(d, c0, 0))
-        return d
 
-    @pattern('reg', 'MEMI32(reg)', cost=2)
-    def P15(self, tree, c0):
-        d = self.newTmp()
-        self.emit(Ldr1(d, c0, 0))
-        return d
+@isa.pattern('reg', 'ADDI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Add1(d, c0, c1))
+    return d
 
-    @pattern('stm', 'CALL', cost=2)
-    def P17(self, tree):
-        label, args, res_var = tree.value
-        self.frame.gen_call(label, args, res_var)
 
-    @pattern('reg', 'ADR(CONSTDATA)', cost=2)
-    def P18(self, tree):
-        d = self.newTmp()
-        ln = self.frame.add_constant(tree.children[0].value)
-        self.emit(Adr(d, ln))
-        return d
+@isa.pattern('reg', 'ADDI8(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Add1(d, c0, c1))
+    return d
 
-    @pattern('reg', 'ANDI32(reg, reg)', cost=2)
-    def P19(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(And1(d, c0, c1))
-        return d
 
-    @pattern('reg', 'ORI32(reg, reg)', cost=2)
-    def P19_b(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Orr1(d, c0, c1))
-        return d
+@isa.pattern(
+    'reg', 'ADDI32(reg, CONSTI32)', cost=2,
+    condition=lambda t: t.children[1].value < 256)
+def _(self, tree, c0):
+    d = self.newTmp()
+    c1 = tree.children[1].value
+    self.emit(Add2(d, c0, c1))
+    return d
 
-    @pattern('reg', 'SHRI32(reg, reg)', cost=2)
-    def P20(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Lsr1(d, c0, c1))
-        return d
 
-    @pattern('reg', 'SHLI32(reg, reg)', cost=2)
-    def P20_b(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Lsl1(d, c0, c1))
-        return d
+@isa.pattern(
+    'reg', 'ADDI32(CONSTI32, reg)', cost=2,
+    condition=lambda t: t.children[0].value < 256)
+def _(self, tree, c0):
+    d = self.newTmp()
+    c1 = tree.children[0].value
+    self.emit(Add2(d, c0, c1))
+    return d
 
-    @pattern('reg', 'MULI32(reg, reg)', cost=10)
-    def P21(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Mul1(d, c0, c1))
-        return d
 
-    @pattern('reg', 'MEMI32(ADDI32(reg, CONSTI32))', cost=2)
-    def P22(self, tree, c0):
-        d = self.newTmp()
-        c1 = tree.children[0].children[1].value
-        assert isinstance(c1, int)
-        self.emit(Ldr1(d, c0, c1))
-        return d
+@isa.pattern('reg', 'SUBI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Sub1(d, c0, c1))
+    return d
 
-    @pattern('reg', 'DIVI32(reg, reg)', cost=10)
-    def P24_a(self, tree, c0, c1):
-        d = self.newTmp()
-        # Generate call into runtime lib function!
-        self.frame.gen_call('__sdiv', [c0, c1], d)
-        return d
 
-    @pattern('reg', 'REMI32(reg, reg)', cost=10)
-    def P24_b(self, tree, c0, c1):
-        # Implement remainder as a combo of div and mls (multiply substract)
-        d = self.newTmp()
-        self.frame.gen_call('__sdiv', [c0, c1], d)
-        d2 = self.newTmp()
-        self.emit(Mls(d2, d, c1, c0))
-        return d2
+@isa.pattern('reg', 'SUBI8(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    # TODO: temporary fix this with an 32 bits sub
+    d = self.newTmp()
+    self.emit(Sub1(d, c0, c1))
+    return d
 
-    @pattern('reg', 'XORI32(reg, reg)', cost=2)
-    def P25(self, tree, c0, c1):
-        d = self.newTmp()
-        self.emit(Eor1(d, c0, c1))
-        return d
+
+@isa.pattern('reg', 'GLOBALADDRESS', cost=4)
+def _(self, tree):
+    d = self.newTmp()
+    ln = self.frame.add_constant(tree.value)
+    self.emit(Ldr3(d, ln))
+    return d
+
+
+@isa.pattern('reg', 'MEMI8(reg)', cost=2)
+def _(self, tree, c0):
+    d = self.newTmp()
+    self.emit(Ldrb(d, c0, 0))
+    return d
+
+
+@isa.pattern('reg', 'MEMI32(reg)', cost=2)
+def _(self, tree, c0):
+    d = self.newTmp()
+    self.emit(Ldr1(d, c0, 0))
+    return d
+
+
+@isa.pattern('stm', 'CALL', cost=2)
+def _(self, tree):
+    label, args, res_var = tree.value
+    self.frame.gen_call(label, args, res_var)
+
+
+@isa.pattern('reg', 'ADR(CONSTDATA)', cost=2)
+def _(self, tree):
+    d = self.newTmp()
+    ln = self.frame.add_constant(tree.children[0].value)
+    self.emit(Adr(d, ln))
+    return d
+
+
+@isa.pattern('reg', 'ANDI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(And1(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'ORI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Orr1(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'SHRI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Lsr1(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'SHLI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Lsl1(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'MULI32(reg, reg)', cost=10)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Mul1(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'MEMI32(ADDI32(reg, CONSTI32))', cost=2)
+def _(self, tree, c0):
+    d = self.newTmp()
+    c1 = tree.children[0].children[1].value
+    assert isinstance(c1, int)
+    self.emit(Ldr1(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    # Generate call into runtime lib function!
+    self.frame.gen_call('__sdiv', [c0, c1], d)
+    return d
+
+
+@isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
+def _(self, tree, c0, c1):
+    # Implement remainder as a combo of div and mls (multiply substract)
+    d = self.newTmp()
+    self.frame.gen_call('__sdiv', [c0, c1], d)
+    d2 = self.newTmp()
+    self.emit(Mls(d2, d, c1, c0))
+    return d2
+
+
+@isa.pattern('reg', 'XORI32(reg, reg)', cost=2)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Eor1(d, c0, c1))
+    return d
 
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?
 
 
-class MachineThatHasDivOps:
-    @pattern('reg', 'DIVI32(reg, reg)', cost=10)
+class MachineThatHasDivOps:  # pragma: no cover
+    # @isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
     def P23(self, tree, c0, c1):
         d = self.newTmp()
         self.emit(Udiv, dst=[d], src=[c0, c1])
         return d
 
-    @pattern('reg', 'REMI32(reg, reg)', cost=10)
+    # @isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
     def P24(self, tree, c0, c1):
         # Implement remainder as a combo of div and mls (multiply substract)
         d = self.newTmp()

@@ -1,12 +1,9 @@
 
 from ..target import Target, Label
 from .instructions import LdrPseudo, isa
-from .instructions import ArmInstructionSelector
 from .frame import ArmFrame
 from ...assembler import BaseAssembler
-
 from ..arm.registers import register_range
-
 from .instructions import Dcd, Ds, RegisterSet
 
 
@@ -70,7 +67,6 @@ class ArmTarget(Target):
     def __init__(self):
         super().__init__('arm')
         self.isa = isa
-        self.ins_sel = ArmInstructionSelector()
         self.FrameClass = ArmFrame
         self.assembler = ArmAssembler(self)
 

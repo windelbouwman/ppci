@@ -3,6 +3,13 @@ Isa related classes.
 These can be used to define an instruction set.
 """
 
+from collections import namedtuple
+from ..utils.tree import Tree, from_string
+
+
+Pattern = namedtuple(
+    'Pattern', ['non_term', 'tree', 'cost', 'condition', 'method'])
+
 
 class Register:
     """ Baseclass of all registers types """
@@ -97,6 +104,7 @@ class Isa:
     def __init__(self):
         self.instructions = []
         self.relocation_map = {}
+        self.patterns = []
 
     def register_instruction(self, i):
         """ Register an instruction into this ISA """
@@ -107,6 +115,29 @@ class Isa:
         name = relocation.__name__
         self.relocation_map[name] = relocation
         return relocation
+
+    def register_pattern(self, pattern):
+        """ Add a pattern to this isa """
+        self.patterns.append(pattern)
+
+    def pattern(self, non_term, tree, cost=0, condition=None):
+        """
+            Decorator function that adds a pattern.
+        """
+        if type(tree) is str:
+            tree = from_string(tree)
+
+        assert type(tree) is Tree
+        assert isinstance(cost, int)
+
+        def wrapper(function):
+            """
+                Wrapper for function that does not modify function
+            """
+            pat = Pattern(non_term, tree, cost, condition, function)
+            self.register_pattern(pat)
+            return function
+        return wrapper
 
 
 class InsMeta(type):

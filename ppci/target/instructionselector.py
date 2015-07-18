@@ -1,28 +1,6 @@
 from ppci.target.isa import Instruction
-from ppci.codegen.tree import State, Tree, from_string
+from ppci.codegen.tree import State
 from ppci.pyburg import BurgSystem
-
-
-def pattern(non_term, tree, cost=0, condition=None):
-    """
-        Decorator function that marks the method as a pattern implementation
-    """
-    if type(tree) is str:
-        tree = from_string(tree)
-
-    assert type(tree) is Tree
-
-    def wrapper(function):
-        """
-            Wrapper for function that does not modify function, but attaches
-            the attributes tree and cost to it
-        """
-        setattr(function, '$non_term', non_term)
-        setattr(function, '$tree', tree)
-        setattr(function, '$cost', cost)
-        setattr(function, '$condition', condition)
-        return function
-    return wrapper
 
 
 class InstructionSelector:
@@ -30,7 +8,7 @@ class InstructionSelector:
         Base instruction selector. This class must be inherited by
         backends.
     """
-    def __init__(self):
+    def __init__(self, isa):
         # Generate burm table of rules:
         self.sys = BurgSystem()
 
@@ -51,13 +29,10 @@ class InstructionSelector:
             self.sys.add_terminal(terminal)
 
         # Find all member functions in the subclass:
-        for name, method in self.__class__.__dict__.items():
-            if hasattr(method, '$cost'):
-                non_term = getattr(method, '$non_term')
-                tree = getattr(method, '$tree')
-                cost = getattr(method, '$cost')
-                condition = getattr(method, '$condition')
-                self.sys.add_rule(non_term, tree, cost, condition, method)
+        for pattern in isa.patterns:
+            self.sys.add_rule(
+                pattern.non_term, pattern.tree, pattern.cost,
+                pattern.condition, pattern.method)
 
         self.sys.check()
 

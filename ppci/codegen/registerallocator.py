@@ -159,7 +159,7 @@ class RegisterAllocator:
         x = self.Node(m.defined_registers[0])
         y = self.Node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
-        print('u,v', u, v)
+        # print('u,v', u, v)
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
@@ -174,7 +174,7 @@ class RegisterAllocator:
         elif (u in self.precolored and
                 all(self.Ok(t, u) for t in v.Adjecent)) or \
                 (u not in self.precolored and self.conservative(u, v)):
-            print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.Adjecent)
+            # print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.Adjecent)
             self.coalescedMoves.add(m)
             self.combine(u, v)
             self.add_worklist(u)
@@ -189,7 +189,7 @@ class RegisterAllocator:
 
     def Ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
-        print('ok', t,r)
+        # print('ok', t,r)
         return (t.Degree < self.K) or \
             (t in self.precolored) or \
             self.has_edge(t, r)
