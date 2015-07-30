@@ -108,6 +108,7 @@ def assemble(source, target):
     """ Invoke the assembler on the given source, returns an object containing
         the output. """
     logger = logging.getLogger('assemble')
+    diag = DiagnosticsManager()
     target = fix_target(target)
     source = fix_file(source)
     output = ObjectFile()
@@ -115,9 +116,14 @@ def assemble(source, target):
     logger.debug('Assembling into code section')
     ostream = BinaryOutputStream(output)
     ostream.select_section('code')
-    assembler.prepare()
-    assembler.assemble(source, ostream)
-    assembler.flush()
+    try:
+        assembler.prepare()
+        assembler.assemble(source, ostream, diag)
+        assembler.flush()
+    except CompilerError as ex:
+        diag.error(ex.msg, ex.loc)
+        diag.print_errors()
+        raise TaskError('Errors during assembling')
     return output
 
 

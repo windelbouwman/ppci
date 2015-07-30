@@ -114,7 +114,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldr r11, lab1')
         self.feed('ldr r10, lab1')
         self.feed('lab1:')
-        self.feed('dcd 0x12345566')
+        self.feed('dd 0x12345566')
         self.check('04509fe5 00b09fe5 04a01fe5 66553412')
 
     def testAdr(self):
@@ -170,7 +170,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
     def test_repeat(self):
         """ Check if macro repeat works correctly """
         self.feed('repeat 0x5')
-        self.feed('dcd 0x11')
+        self.feed('dd 0x11')
         self.feed('endrepeat')
         self.check('11000000 11000000 11000000 11000000 11000000')
 

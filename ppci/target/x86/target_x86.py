@@ -13,4 +13,4 @@ class X86Target(Target):
         super().__init__('x86')
         self.isa = isa
         self.assembler = BaseAssembler(self)
-        self.assembler.gen_asm_parser(isa)
+        self.assembler.gen_asm_parser()

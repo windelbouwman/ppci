@@ -152,6 +152,7 @@ class EarleyParser:
             if item.is_reduce and item.rule.name == self.grammar.start_symbol and item.origin == 0:
                 break
         else:
+            # self.dump_parse(columns)
             raise RuntimeError('Parsing failed')
 
         if debug_dump:

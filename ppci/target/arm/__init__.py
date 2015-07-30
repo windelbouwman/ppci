@@ -1,10 +1,11 @@
 
 from ..target import Target, Label
 from .instructions import LdrPseudo, isa
+from ..data_instructions import data_isa
 from .frame import ArmFrame
 from ...assembler import BaseAssembler
 from ..arm.registers import register_range
-from .instructions import Dcd, Ds, RegisterSet
+from .instructions import dcd, RegisterSet
 
 
 class ArmAssembler(BaseAssembler):
@@ -12,7 +13,7 @@ class ArmAssembler(BaseAssembler):
         super().__init__(target)
         self.parser.assembler = self
         self.add_extra_rules()
-        self.gen_asm_parser(isa)
+        self.gen_asm_parser()
 
         self.lit_pool = []
         self.lit_counter = 0
@@ -24,11 +25,14 @@ class ArmAssembler(BaseAssembler):
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
         self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
 
-        #self.add_rule(
+        # self.add_rule(
         #    'reg_list_inner',
         #    ['reg_or_range', ',', 'reg_list_inner'],
         #    lambda rhs: RegisterSet(rhs[0] | rhs[2]))
-        self.add_rule('reg_list_inner', ['reg_list_inner', ',', 'reg_or_range'], lambda rhs: RegisterSet(rhs[0] | rhs[2]))
+        self.add_rule(
+            'reg_list_inner',
+            ['reg_list_inner', ',', 'reg_or_range'],
+            lambda rhs: RegisterSet(rhs[0] | rhs[2]))
 
         self.add_rule(
             'reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
@@ -36,7 +40,6 @@ class ArmAssembler(BaseAssembler):
             'reg_or_range',
             ['reg', '-', 'reg'],
             lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
-
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:
@@ -59,26 +62,16 @@ class ArmAssembler(BaseAssembler):
         self.lit_counter += 1
         label_name = "_lit_{}".format(self.lit_counter)
         self.lit_pool.append(Label(label_name))
-        self.lit_pool.append(Dcd(v))
+        self.lit_pool.append(dcd(v))
         return label_name
 
 
 class ArmTarget(Target):
     def __init__(self):
         super().__init__('arm')
-        self.isa = isa
+        self.isa = isa + data_isa
         self.FrameClass = ArmFrame
         self.assembler = ArmAssembler(self)
-
-    def emit_global(self, outs, lname, amount):
-        # TODO: alignment?
-        outs.emit(Label(lname))
-        if amount == 4:
-            outs.emit(Dcd(0))
-        elif amount > 0:
-            outs.emit(Ds(amount))
-        else:  # pragma: no cover
-            raise NotImplementedError()
 
     def get_runtime_src(self):
         """ Implement compiler runtime functions """

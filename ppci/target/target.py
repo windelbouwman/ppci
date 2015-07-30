@@ -1,5 +1,5 @@
 import logging
-from .isa import Instruction
+from .isa import Instruction, register_argument
 
 
 class Target:
@@ -19,12 +19,13 @@ class Target:
         """ Retrieve a relocation identified by a name """
         return self.isa.relocation_map[name]
 
-    def lower_frame_to_stream(self, frame, outs):
-        """ Lower instructions from frame to output stream """
-        for ins in frame.instructions:
-            assert isinstance(ins, Instruction)
-            assert ins.is_colored, str(ins)
-            outs.emit(ins)
+    def emit_global(self, outs, lname, amount):
+        # TODO: alignment?
+        outs.emit(Label(lname))
+        if amount > 0:
+            outs.emit(Ds(amount))
+        else:  # pragma: no cover
+            raise NotImplementedError()
 
 
 class Nop(Instruction):
@@ -34,6 +35,16 @@ class Nop(Instruction):
 
     def __repr__(self):
         return 'NOP'
+
+
+class Ds(Instruction):
+    """ Reserve x amount of zero bytes (same as resb in nasm) """
+    tokens = []
+    v = register_argument('v', int)
+    syntax = ['ds', v]
+
+    def encode(self):
+        return bytes([0] * self.v)
 
 
 class RegisterUseDef(Nop):

@@ -75,7 +75,10 @@ def register_argument(name, cls, read=False, write=False, default_value=None):
         assert read or write
 
     def getter(self):
-        return getattr(self, private_field)
+        if hasattr(self, private_field):
+            return getattr(self, private_field)
+        else:
+            return default_value
 
     def setter(self, value):
         assert isinstance(value, cls)
@@ -106,6 +109,15 @@ class Isa:
         self.relocation_map = {}
         self.patterns = []
 
+    def __add__(self, other):
+        assert isinstance(other, Isa)
+        isa3 = Isa()
+        isa3.instructions = self.instructions + other.instructions
+        isa3.patterns = self.patterns + other.patterns
+        isa3.relocation_map = self.relocation_map.copy()
+        isa3.relocation_map.update(other.relocation_map)
+        return isa3
+
     def register_instruction(self, i):
         """ Register an instruction into this ISA """
         self.instructions.append(i)
@@ -127,7 +139,7 @@ class Isa:
         if type(tree) is str:
             tree = from_string(tree)
 
-        assert type(tree) is Tree
+        assert isinstance(tree, Tree)
         assert isinstance(cost, int)
 
         def wrapper(function):

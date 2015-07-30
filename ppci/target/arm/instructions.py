@@ -3,6 +3,7 @@
 """
 from ..isa import Instruction, Isa
 from ..isa import register_argument, value_argument
+from ..data_instructions import Dd
 from ...bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc
 from ..token import Token, u32, u8, bit_range
@@ -38,13 +39,6 @@ class ArmToken(Token):
         return u32(self.bit_value)
 
 
-class ByteToken(Token):
-    def __init__(self):
-        super().__init__(8)
-
-    def encode(self):
-        return u8(self.bit_value)
-
 # Patterns:
 
 # Condition patterns:
@@ -58,22 +52,13 @@ class ArmInstruction(Instruction):
     isa = isa
 
 
-def Dcd(v):
+def dcd(v):
     if type(v) is int:
-        return Dcd1(v)
+        return Dd(v)
     elif type(v) is str:
         return Dcd2(v)
     else:  # pragma: no cover
         raise NotImplementedError()
-
-
-class Dcd1(ArmInstruction):
-    v = register_argument('v', int)
-    syntax = ['dcd', v]
-
-    def encode(self):
-        self.token[0:32] = self.v
-        return self.token.encode()
 
 
 class Dcd2(ArmInstruction):
@@ -86,27 +71,6 @@ class Dcd2(ArmInstruction):
 
     def relocations(self):
         return [(self.v, apply_absaddr32)]
-
-
-class Db(ArmInstruction):
-    tokens = [ByteToken]
-    v = register_argument('v', int)
-    syntax = ['db', v]
-
-    def encode(self):
-        assert self.v < 256
-        self.token[0:8] = self.v
-        return self.token.encode()
-
-
-class Ds(ArmInstruction):
-    """ Reserve x amount of zero bytes (same as resb in nasm) """
-    tokens = []
-    v = register_argument('v', int)
-    syntax = ['ds', v]
-
-    def encode(self):
-        return bytes([0] * self.v)
 
 
 def Mov(*args):

@@ -1,5 +1,6 @@
 from ..target import Label, Alignment, Frame
-from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2, Bl
+from .instructions import dcd, AddSp, SubSp, Push, Pop, Mov2, Bl
+from ..data_instructions import Db
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
 
 
@@ -63,7 +64,7 @@ class ArmFrame(Frame):
         else:  # pragma: no cover
             raise NotImplementedError('No more than 4 parameters implemented')
 
-    def allocVar(self, lvar, size):
+    def alloc_var(self, lvar, size):
         if lvar not in self.locVars:
             self.locVars[lvar] = self.stacksize
             self.stacksize = self.stacksize + size
@@ -117,10 +118,10 @@ class ArmFrame(Frame):
             ln, v = self.constants.pop(0)
             if isinstance(v, int):
                 self.emit(Label(ln))
-                self.emit(Dcd(v))
+                self.emit(dcd(v))
             elif isinstance(v, str):
                 self.emit(Label(ln))
-                self.emit(Dcd(v))
+                self.emit(dcd(v))
             elif isinstance(v, bytes):
                 self.emit(Label(ln))
                 for c in v:

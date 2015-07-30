@@ -3,9 +3,6 @@ from ..isa import Register, Syntax
 
 
 class Msp430Register(Register):
-    def __init__(self, num, name):
-        super().__init__(name)
-        self._num = num
     syntaxi = 'reg', [
         Syntax(['r0'], new_func=lambda: r0),
         Syntax(['r1'], new_func=lambda: r1),
@@ -27,24 +24,25 @@ class Msp430Register(Register):
         ]
 
 # 8 bit registers:
-PCB = Msp430Register(0, 'r0')
+PCB = Msp430Register('r0', num=0)
 rpc = PCB
 r0 = PCB
-r1 = Msp430Register(1, 'r1')
+PC = r0
+r1 = Msp430Register('r1', num=1)
 SP = r1  # Stack pointer
-r2 = Msp430Register(2, 'r2')
+r2 = Msp430Register('r2', num=2)
 SR = r2  # Status register
-r3 = Msp430Register(3, 'r3')
+r3 = Msp430Register('r3', num=3)
 CG = r3  # Constant generator
-r4 = Msp430Register(4, 'r4')
-r5 = Msp430Register(5, 'r5')
-r6 = Msp430Register(6, 'r6')
-r7 = Msp430Register(7, 'r7')
-r8 = Msp430Register(8, 'r8')
-r9 = Msp430Register(9, 'r9')
-r10 = Msp430Register(10, 'r10')
-r11 = Msp430Register(11, 'r11')
-r12 = Msp430Register(12, 'r12')
-r13 = Msp430Register(13, 'r13')
-r14 = Msp430Register(14, 'r14')
-r15 = Msp430Register(15, 'r15')
+r4 = Msp430Register('r4', num=4)
+r5 = Msp430Register('r5', num=5)
+r6 = Msp430Register('r6', num=6)
+r7 = Msp430Register('r7', num=7)
+r8 = Msp430Register('r8', num=8)
+r9 = Msp430Register('r9', num=9)
+r10 = Msp430Register('r10', num=10)
+r11 = Msp430Register('r11', num=11)
+r12 = Msp430Register('r12', num=12)
+r13 = Msp430Register('r13', num=13)
+r14 = Msp430Register('r14', num=14)
+r15 = Msp430Register('r15', num=15)

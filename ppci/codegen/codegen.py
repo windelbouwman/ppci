@@ -8,7 +8,7 @@ from .irdag import Dagger
 from ..irutils import Verifier, split_block
 from ..target.target import Target
 from ..target.target import RegisterUseDef
-from ..target.isa import Register
+from ..target.isa import Register, Instruction
 from .registerallocator import RegisterAllocator
 from .instructionselector import InstructionSelector
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
@@ -112,7 +112,11 @@ class CodeGenerator:
 
         # Materialize the register allocated instructions into a stream of
         # real instructions.
-        self.target.lower_frame_to_stream(frame, outs)
+        for ins in frame.instructions:
+            assert isinstance(ins, Instruction)
+            assert ins.is_colored, str(ins)
+            outs.emit(ins)
+
         self.logger.debug('Instructions materialized')
 
         for ins in instruction_list:

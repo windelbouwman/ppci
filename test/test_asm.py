@@ -2,7 +2,7 @@
 
 import io
 import unittest
-from ppci.common import CompilerError
+from ppci.common import CompilerError, DiagnosticsManager
 from ppci.assembler import AsmLexer
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
@@ -67,13 +67,14 @@ class AsmTestCaseBase(unittest.TestCase):
         self.obj = ObjectFile()
         self.ostream = BinaryOutputStream(self.obj)
         self.ostream.select_section('code')
+        self.diag = DiagnosticsManager()
 
         # Prep assembler!
         self.assembler = self.target.assembler
         self.assembler.prepare()
 
     def feed(self, line):
-        self.assembler.assemble(line, self.ostream)
+        self.assembler.assemble(line, self.ostream, self.diag)
         print(line, file=self.source)
 
     def check(self, hexstr, layout=Layout()):

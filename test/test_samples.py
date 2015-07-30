@@ -33,7 +33,7 @@ def only_bf(txt):
     return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
 
-class Samples:
+class SamplesMixin:
     """ Collection of snippets with expected output """
 
     def test_print(self):
@@ -553,7 +553,7 @@ class DoMixin:
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin, BuildMixin):
+class TestSamplesOnVexpress(unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
     march = "arm"
     startercode = """
     section reset
@@ -584,14 +584,14 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin, BuildMixin):
             dump_file=dump_file, dump_range=(0x20000, 0xf0000))
 
 
-class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin, BuildMixin):
+class TestSamplesOnCortexM3(unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     march = "thumb"
     startercode = """
     section reset
-    dcd 0x2000f000
-    dcd 0x00000009
+    dd 0x2000f000
+    dd 0x00000009
     BL sample_start     ; Branch to sample start
     BL bsp_exit  ; do exit stuff
     local_loop:
@@ -619,7 +619,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin, BuildMixin):
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
 
 
-class TestSamplesOnPython(unittest.TestCase, Samples):
+class TestSamplesOnPython(unittest.TestCase, SamplesMixin):
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
         sample_filename = base_filename + '.py'
@@ -648,7 +648,7 @@ class TestSamplesOnPython(unittest.TestCase, Samples):
 
 
 @unittest.skip('to be implemented')
-class TestSamplesOnMsp430(unittest.TestCase, Samples, BuildMixin):
+class TestSamplesOnMsp430(unittest.TestCase, SamplesMixin, BuildMixin):
     march = "msp430"
     startercode = """
     section reset

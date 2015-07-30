@@ -59,14 +59,14 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldr r6, henkie')
         self.feed('ldr r1, henkie')
         self.feed('align 4')
-        self.feed('dcd 1')
-        self.feed('henkie: dcd 2')
+        self.feed('dd 1')
+        self.feed('henkie: dd 2')
         self.check('024F024E 01490000 01000000 02000000')
 
     def testAdr(self):
         self.feed('adr r2, x')
         self.feed('adr r2, x')
-        self.feed('x: dcd 1')
+        self.feed('x: dd 1')
         self.check('00a200a2 01000000')
 
     def test_branch(self):

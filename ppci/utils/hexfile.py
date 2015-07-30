@@ -97,10 +97,12 @@ class HexFile:
         size = sum(r.Size for r in self.regions)
         return 'Hexfile containing {} bytes'.format(size)
 
-    def dump(self, outf=sys.stdout):
+    def dump(self, outf=sys.stdout, contents=False):
         print(self, file=outf)
-        for r in self.regions:
-            print(r, file=outf)
+        for region in self.regions:
+            print(region, file=outf)
+            # for x in range(len(
+            print(binascii.hexlify(region.data))
 
     def __eq__(self, other):
         regions = self.regions
@@ -129,8 +131,8 @@ class HexFile:
                     raise HexFileException('Overlapping regions')
 
     def merge(self, other):
-        for r in other.regions:
-            self.add_region(r.address, r.data)
+        for region in other.regions:
+            self.add_region(region.address, region.data)
 
     def write_hex_line(self, address, typ, data=bytes()):
         """ Write a single hexfile line """

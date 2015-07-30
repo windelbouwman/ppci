@@ -11,6 +11,7 @@ from .baselex import BaseLexer, EPS, EOF
 from .common import make_num
 from .target.target import Target, Label, Alignment
 from .target.isa import InstructionProperty, Syntax
+from .common import CompilerError, SourceLocation
 
 id_regex = r'[A-Za-z_][A-Za-z\d_]*'
 id_matcher = re.compile(id_regex)
@@ -26,7 +27,7 @@ class AsmLexer(BaseLexer):
             ('LABEL', id_regex + ':', lambda typ, val: (typ, val)),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)#@]|>=|<=|<>|>|<|}|{',
+            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
                 lambda typ, val: (val, val)),
             ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
             ('COMMENT', r";.*", None)
@@ -94,7 +95,7 @@ class BaseAssembler:
 
     def __init__(self, target):
         assert isinstance(target, Target)
-        # self.target = target
+        self.target = target
         self.inMacro = False
         self.parser = AsmParser()
         self.parser.emit = self.emit
@@ -224,10 +225,10 @@ class BaseAssembler:
 
         raise KeyError(arg_cls)  # pragma: no cover
 
-    def gen_asm_parser(self, isa):
+    def gen_asm_parser(self):
         """ Generate assembly rules from isa """
         # Loop over all isa instructions, extracting the syntax rules:
-        for i in isa.instructions:
+        for i in self.target.isa.instructions:
             if hasattr(i, 'syntax'):
                 self.gen_i_rule(i)
 
@@ -245,22 +246,35 @@ class BaseAssembler:
     # Top level interface:
     def parse_line(self, line):
         """ Parse line into assembly instructions """
-        self.lexer.feed(line)
-        self.parser.parse(self.lexer)
+        try:
+            self.lexer.feed(line)
+            self.parser.parse(self.lexer)
+        except RuntimeError:
+            loc = SourceLocation(self.filename, self.line_no, 1, 0)
+            raise CompilerError('Unable to assemble: {}'.format(line), loc)
 
-    def assemble(self, asmsrc, stream):
+    def assemble(self, asmsrc, stream, diag):
         """ Assemble the source snippet into the given output stream """
+        self.stream = stream
+
+        self.filename = None
         if type(asmsrc) is str:
             pass
         elif hasattr(asmsrc, 'read'):
+            if hasattr(asmsrc, 'name'):
+                self.filename = asmsrc.name
             asmsrc2 = asmsrc.read()
             asmsrc.close()
             asmsrc = asmsrc2
-        self.stream = stream
+
+        if self.filename:
+            diag.add_source(self.filename, asmsrc)
 
         # Split lines on \n.
         # Strip remaining \r if present.
+        self.line_no = 0
         for line in asmsrc.split('\n'):
+            self.line_no += 1
             self.parse_line(line.strip())
 
     # Parser handlers:

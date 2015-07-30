@@ -1,6 +1,6 @@
 from ..target import Target, Label
-from .instructions import Dcd, Ds
 from .instructions import isa
+from ..data_instructions import data_isa
 from ..arm.registers import register_range
 from .frame import ArmFrame
 from ...assembler import BaseAssembler
@@ -18,7 +18,7 @@ class ThumbAssembler(BaseAssembler):
         super().__init__(target)
         self.parser.assembler = self
         self.add_extra_rules()
-        self.gen_asm_parser(isa)
+        self.gen_asm_parser()
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
@@ -37,19 +37,9 @@ class ThumbAssembler(BaseAssembler):
 class ThumbTarget(Target):
     def __init__(self):
         super().__init__('thumb')
-        self.isa = isa
+        self.isa = isa + data_isa
         self.FrameClass = ArmFrame
         self.assembler = ThumbAssembler(self)
-
-    def emit_global(self, outs, lname, amount):
-        # TODO: alignment?
-        outs.emit(Label(lname))
-        if amount == 4:
-            outs.emit(Dcd(0))
-        elif amount > 0:
-            outs.emit(Ds(amount))
-        else:  # pragma: no cover
-            raise NotImplementedError()
 
     def get_runtime_src(self):
         """ No runtime for thumb required yet .. """

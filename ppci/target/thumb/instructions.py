@@ -1,5 +1,6 @@
 from ..isa import Instruction, Isa, register_argument
 from ..token import u16, u32
+from ..data_instructions import Dd
 from ..arm.registers import ArmRegister, Reg8Op
 from ..token import Token, bit_range
 from .relocations import apply_lit8, apply_wrap_new11, apply_b_imm11_imm6
@@ -38,21 +39,13 @@ class LongThumbInstruction(ThumbInstruction):
     tokens = [ThumbToken, ThumbToken]
 
 
-def Dcd(v):
+def dcd(v):
     if type(v) is str:
         return Dcd2(v)
     elif type(v) is int:
-        return Dcd1(v)
+        return Dd(v)
     else:  # pragma: no cover
         raise NotImplementedError()
-
-
-class Dcd1(ThumbInstruction):
-    v = register_argument('v', int)
-    syntax = ['dcd', v]
-
-    def encode(self):
-        return u32(self.v)
 
 
 class Dcd2(ThumbInstruction):
@@ -64,26 +57,6 @@ class Dcd2(ThumbInstruction):
 
     def relocations(self):
         return [(self.v, apply_absaddr32)]
-
-
-class Db(ThumbInstruction):
-    """ A single data byte """
-    v = register_argument('v', int)
-    syntax = ['db', v]
-
-    def encode(self):
-        assert self.v < 256
-        return bytes([self.v])
-
-
-class Ds(ThumbInstruction):
-    """ Reserve an amount of space """
-    tokens = []
-    v = register_argument('v', int)
-    syntax = ['ds', v]
-
-    def encode(self):
-        return bytes([0] * self.v)
 
 
 class nop_ins(ThumbInstruction):

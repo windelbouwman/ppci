@@ -1,7 +1,7 @@
 
 from ..isa import Instruction, Isa, register_argument, Syntax
-from ..token import Token, u16, bit_range, bit
-from .registers import Msp430Register, r0
+from ..token import Token, u16, bit_range, bit, u8
+from .registers import Msp430Register, r0, r2, SP, PC
 from ...bitfun import align, wrap_negative
 
 isa = Isa()
@@ -24,6 +24,16 @@ class Msp430Token(Token):
         return u16(self.bit_value)
 
 
+class Imm16Token(Token):
+    value = bit_range(0, 16)
+
+    def __init__(self):
+        super().__init__(16)
+
+    def encode(self):
+        return u16(self.bit_value)
+
+
 class Msp430Operand:
     pass
 
@@ -31,26 +41,39 @@ class Msp430Operand:
 class DestinationOperand(Msp430Operand):
     reg = register_argument('reg', Msp430Register, read=True)
     imm = register_argument('imm', int)
+    addr = register_argument('addr', str, default_value='')
     Ad = register_argument('Ad', int, default_value=0)
     syntaxi = 'dst', [
         Syntax([reg], set_props={Ad: 0}),
+        Syntax(['&', addr], set_props={Ad: 1, reg: r2}),  # absolute address
         Syntax([imm, '(', reg, ')'], set_props={Ad: 1}),
         ]
 
     @property
     def extra_bytes(self):
-        if (self.Ad == 1):
+        if self.addr != '':
+            return u16(0)
+        elif (self.Ad == 1):
             return u16(self.imm)
         return bytes()
+
+
+def reg_dst(reg):
+    dst = DestinationOperand()
+    dst.reg = reg
+    dst.Ad = 0
+    return dst
 
 
 class SourceOperand(Msp430Operand):
     reg = register_argument('reg', Msp430Register, read=True)
     imm = register_argument('imm', int)
     As = register_argument('As', int, default_value=0)
+    addr = register_argument('addr', str, default_value='')
     syntaxi = 'src', [
         Syntax([reg], set_props={As: 0}),
         Syntax([imm, '(', reg, ')'], set_props={As: 1}),
+        Syntax(['&', addr], set_props={As: 1, reg: r2}),  # absolute address
         Syntax(['@', reg], set_props={As: 2}),
         Syntax(['@', reg, '+'], set_props={As: 3}),
         Syntax(['#', imm], set_props={As: 3, reg: r0}),  # Equivalent to @PC+
@@ -58,9 +81,31 @@ class SourceOperand(Msp430Operand):
 
     @property
     def extra_bytes(self):
-        if (self.As == 1) or (self.As == 3 and self.reg == r0):
+        if self.addr != '':
+            return u16(0)
+        elif (self.As == 1) or (self.As == 3 and self.reg == r0):
             return u16(self.imm)
         return bytes()
+
+
+def const_source(value):
+    src = SourceOperand()
+    src.As = 3
+    src.imm = value
+    src.reg = r0
+    return src
+
+
+def reg_src(reg, memref=False, incr=False):
+    src = SourceOperand()
+    if memref and incr:
+        src.As = 3
+    elif memref and not incr:
+        src.As = 2
+    else:
+        src.As = 0
+    src.reg = reg
+    return src
 
 
 class Msp430Instruction(Instruction):
@@ -85,6 +130,23 @@ def apply_rel10bit(sym_value, data, reloc_value):
     data[1] = cmd | (imm10 >> 8)
 
 
+@isa.register_relocation
+def apply_abs16_imm1(sym_value, data, reloc_value):
+    """ Lookup address and assign to 16 bit """
+    assert sym_value % 2 == 0
+    data[2] = sym_value & 0xff
+    data[3] = (sym_value >> 8) & 0xff
+
+
+@isa.register_relocation
+def apply_abs16_imm2(sym_value, data, reloc_value):
+    """ Lookup address and assign to 16 bit """
+    # TODO: merge this with imm2 variant
+    assert sym_value % 2 == 0
+    data[4] = sym_value & 0xff
+    data[5] = (sym_value >> 8) & 0xff
+
+
 class JumpInstruction(Msp430Instruction):
     def encode(self):
         self.token.condition = self.condition
@@ -93,7 +155,7 @@ class JumpInstruction(Msp430Instruction):
         return self.token.encode()
 
     def relocations(self):
-        return [(self.target, apply_rel10bit)]
+        yield (self.target, apply_rel10bit)
 
 
 def create_jump_instruction(name, condition):
@@ -126,6 +188,9 @@ class OneOpArith(Msp430Instruction):
         self.token.As = self.src.As
         self.token.register = self.src.reg.num
         return self.token.encode() + self.src.extra_bytes
+
+    def relocations(self):
+        return []
 
 
 def oneOpIns(mne, opcode):
@@ -177,6 +242,15 @@ class TwoOpArith(Msp430Instruction):
         self.token.opcode = self.opcode
         return self.token.encode() + self.src.extra_bytes + self.dst.extra_bytes
 
+    def relocations(self):
+        if self.src.addr != '':
+            yield (self.src.addr, apply_abs16_imm1)
+        if self.dst.addr != '':
+            if self.src.addr != '':
+                yield (self.dst.addr, apply_abs16_imm2)
+            else:
+                yield (self.dst.addr, apply_abs16_imm1)
+
 
 def twoOpIns(mne, opc):
     """ Helper function to define a two operand arithmetic instruction """
@@ -199,3 +273,49 @@ Bic = twoOpIns('bic', 12)
 Bis = twoOpIns('bis', 13)
 Xor = twoOpIns('xor', 14)
 And = twoOpIns('and', 15)
+
+
+# pseudo instructions:
+def ret():
+    return Mov(SourceOperand(reg=SP, As=3), PC)
+
+# -- for instruction selection:
+
+@isa.pattern('stm', 'JMP', cost=2)
+def _(self, tree):
+    label, tgt = tree.value
+    self.emit(Jmp(label, jumps=[tgt]))
+
+
+@isa.pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
+def _(self, tree, c0):
+    dst = tree.children[0].value
+    self.emit(Mov(reg_src(c0), reg_dst(dst)))
+
+
+@isa.pattern('reg', 'CONSTI32', cost=4)
+def _(self, tree):
+    dst = self.newTmp()
+    cnst = tree.value
+    self.emit(Mov(const_source(cnst), reg_dst(dst)))
+    return dst
+
+
+@isa.pattern('reg', 'REGI32', cost=0)
+def _(self, tree):
+    return tree.value
+
+
+# TODO: this is a what strange construct:
+@isa.pattern('stm', 'CALL', cost=2)
+def _(self, tree):
+    label, args, res_var = tree.value
+    self.frame.gen_call(label, args, res_var)
+
+
+#@isa.pattern('reg', 'GLOBALADDRESS', cost=4)
+#def _(self, tree):
+#    d = self.newTmp()
+#    ln = self.frame.add_constant(tree.value)
+#    self.emit(Ldr3(d, ln))
+#    return d

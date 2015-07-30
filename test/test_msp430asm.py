@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 import unittest
+import io
 from ppci.target.target_list import msp430target
+from ppci.binutils.layout import load_layout
 from test_asm import AsmTestCaseBase
 
 
@@ -23,6 +25,23 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         """ Test the move of memory values """
         self.feed("mov # 0x1337, 0x123(r12)")
         self.check('bC40 3713 2301')
+
+    def test_mov_global(self):
+        """ Store at global location (absolute address) """
+        self.feed('a:')
+        self.feed('dw 0')
+        self.feed('b:')
+        self.feed('dw 0')
+        self.feed('mov &a, r0')
+        self.feed('mov r0, &b')
+        self.feed('mov &a, &b')
+        spec = """
+            MEMORY flash LOCATION=0xf800 SIZE=0x100 {
+                SECTION(code)
+            }
+        """
+        layout = load_layout(io.StringIO(spec))
+        self.check('0000 0000 1042 00f8 8240 02f8 9242 00f8 02f8', layout)
 
     def test_add(self):
         """ Test add instruction """
