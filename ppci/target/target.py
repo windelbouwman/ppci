@@ -9,7 +9,8 @@ class Target:
         self.name = name
         self.desc = desc
         self.registers = []
-        self.byte_sizes = {'int': 4}  # For front end!
+        self.byte_sizes = {}
+        self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['byte'] = 1
 
     def __repr__(self):

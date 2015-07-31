@@ -1,6 +1,6 @@
 
 import logging
-from .graph import Graph, Node
+from ..utils.graph import Graph, Node
 from ..target.isa import Register
 
 

@@ -607,14 +607,14 @@ def P4(self, tree):
 
 @isa.pattern('reg', 'ADDI32(reg,reg)', cost=1)
 def P5(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Add3(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'ADDI8(reg,reg)', cost=1)
 def P5_2(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Add3(d, c0, c1))
     return d
 
@@ -633,7 +633,7 @@ def P8(self, tree):
 
 @isa.pattern('reg', 'GLOBALADDRESS', cost=2)
 def P9(self, tree):
-    d = self.newTmp()
+    d = self.new_temp()
     ln = self.frame.addConstant(tree.value)
     self.emit(Ldr3(d, ln))
     return d
@@ -641,7 +641,7 @@ def P9(self, tree):
 
 @isa.pattern('reg', 'CONSTI32', cost=3)
 def P10(self, tree):
-    d = self.newTmp()
+    d = self.new_temp()
     ln = self.frame.addConstant(tree.value)
     self.emit(Ldr3(d, ln))
     return d
@@ -671,14 +671,14 @@ def P13(self, tree, c0, c1):
 
 @isa.pattern('reg', 'MEMI8(reg)', cost=1)
 def P14(self, tree, c0):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Ldrb(d, c0, 0))
     return d
 
 
 @isa.pattern('reg', 'MEMI32(reg)', cost=1)
 def P15(self, tree, c0):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Ldr2(d, c0, 0))
     return d
 
@@ -691,21 +691,21 @@ def P17(self, tree):
 
 @isa.pattern('reg', 'SUBI32(reg,reg)', cost=1)
 def P18(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Sub3(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'SUBI8(reg,reg)', cost=1)
 def P18_2(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Sub3(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'ADR(CONSTDATA)', cost=2)
 def P19(self, tree):
-    d = self.newTmp()
+    d = self.new_temp()
     ln = self.frame.addConstant(tree.children[0].value)
     self.emit(Adr(d, ln))
     return d
@@ -713,7 +713,7 @@ def P19(self, tree):
 
 @isa.pattern('reg', 'SHRI32(reg, reg)', cost=1)
 def P20(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.move(d, c0)
     self.emit(Lsr(d, c1))
     return d
@@ -721,7 +721,7 @@ def P20(self, tree, c0, c1):
 
 @isa.pattern('reg', 'ORI32(reg, reg)', cost=1)
 def P21(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.move(d, c0)
     self.emit(Orr(d, c1))
     return d
@@ -729,7 +729,7 @@ def P21(self, tree, c0, c1):
 
 @isa.pattern('reg', 'ANDI32(reg, reg)', cost=1)
 def P22(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.move(d, c0)
     self.emit(And(d, c1))
     return d
@@ -737,7 +737,7 @@ def P22(self, tree, c0, c1):
 
 @isa.pattern('reg', 'SHLI32(reg, reg)', cost=1)
 def P23(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.move(d, c0)
     self.emit(Lsl(d, c1))
     return d
@@ -745,7 +745,7 @@ def P23(self, tree, c0, c1):
 
 @isa.pattern('reg', 'MULI32(reg, reg)', cost=5)
 def P24(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.move(d, c0)
     # Attention: multiply takes the second argument as use and def:
     self.emit(Mul(c1, d))
@@ -754,27 +754,27 @@ def P24(self, tree, c0, c1):
 
 @isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
 def P25(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Sdiv(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
 def P26(self, tree, c0, c1):
-    d2 = self.newTmp()
+    d2 = self.new_temp()
     self.emit(Sdiv(d2, c0, c1))
     # Multiply result by divider:
     self.emit(Mul(c1, d2))
 
     # Substract from divident:
-    d = self.newTmp()
+    d = self.new_temp()
     self.emit(Sub3(d, c0, d2))
     return d
 
 
 @isa.pattern('reg', 'XORI32(reg, reg)', cost=10)
 def P27(self, tree, c0, c1):
-    d = self.newTmp()
+    d = self.new_temp()
     self.move(d, c0)
     self.emit(Eor(d, c1))
     return d

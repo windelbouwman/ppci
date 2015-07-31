@@ -25,7 +25,7 @@ class CodeGenerator:
         self.logger = logging.getLogger('codegen')
         self.target = target
         self.dagger = Dagger()
-        self.ins_sel = InstructionSelector(target.isa)
+        self.instruction_selector = InstructionSelector(target.isa)
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
         self.dump_file = None
@@ -80,7 +80,7 @@ class CodeGenerator:
         self.dump_dag(dag)
 
         # Select instructions:
-        self.ins_sel.munch_dag(dag, frame)
+        self.instruction_selector.munch_dag(dag, frame)
         self.logger.debug('Selected instructions')
 
         # Define arguments live at first instruction:

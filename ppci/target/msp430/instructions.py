@@ -287,7 +287,7 @@ def _(self, tree):
     self.emit(Jmp(label, jumps=[tgt]))
 
 
-@isa.pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
+@isa.pattern('stm', 'MOVI16(REGI16, reg)', cost=2)
 def _(self, tree, c0):
     dst = tree.children[0].value
     self.emit(Mov(reg_src(c0), reg_dst(dst)))
@@ -301,7 +301,7 @@ def _(self, tree):
     return dst
 
 
-@isa.pattern('reg', 'REGI32', cost=0)
+@isa.pattern('reg', 'REGI16', cost=0)
 def _(self, tree):
     return tree.value
 
@@ -312,6 +312,12 @@ def _(self, tree):
     label, args, res_var = tree.value
     self.frame.gen_call(label, args, res_var)
 
+
+@isa.pattern('reg', 'MULI32(reg, reg)', cost=10)
+def _(self, tree, c0, c1):
+    d = self.newTmp()
+    self.emit(Mul1(d, c0, c1))
+    return d
 
 #@isa.pattern('reg', 'GLOBALADDRESS', cost=4)
 #def _(self, tree):

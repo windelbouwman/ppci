@@ -3,8 +3,8 @@
     a selection dag (directed acyclic graph). The dagger take ir-code as
     input and produces such a dag for instruction selection.
 """
-import logging
 
+import logging
 from .. import ir
 from ..target.target import Label
 from ..target.isa import Register
@@ -37,6 +37,23 @@ def type_postfix(typ):
     """ Determine the name of the dag item """
     postfix_map = {ir.i32: "I32", ir.ptr: "I32", ir.i8: 'I8'}
     return postfix_map[typ]
+
+
+class Dag:
+    """ Directed acyclic graph of to be selected instructions """
+    def __init__(self):
+        self.lut = {}
+
+    def get_node(self, value):
+        return self.lut[value]
+
+    def add_node(self, node):
+        pass
+
+
+class DagNode:
+    def __init__(self):
+        self.deps = []
 
 
 @make_map
@@ -134,6 +151,7 @@ class Dagger:
 
     @register(ir.Binop)
     def do_binop(self, node):
+        """ Visit a binary operator and create a DAG node """
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
                  '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
                  '%': 'REM', '^': 'XOR'}
