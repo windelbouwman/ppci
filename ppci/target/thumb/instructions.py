@@ -596,8 +596,8 @@ def P1(self, tree, c0, c1):
 
 @isa.pattern('stm', 'JMP', cost=2)
 def P3(self, tree):
-    label, tgt = tree.value
-    self.emit(Bw(label, jumps=[tgt]))
+    label = tree.value
+    self.emit(Bw(label.name, jumps=[label]))
 
 
 @isa.pattern('reg', 'REGI32', cost=0)
@@ -655,12 +655,12 @@ def P11(self, tree, c0):
 
 @isa.pattern('stm', 'CJMP(reg,reg)', cost=3)
 def P12(self, tree, c0, c1):
-    op, yes_label, yes_tgt, no_label, no_tgt = tree.value
+    op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
     Bop = opnames[op]
-    jmp_ins = Bw(no_label, jumps=[no_tgt])
+    jmp_ins = Bw(no_label.name, jumps=[no_label])
     self.emit(Cmp(c0, c1))
-    self.emit(Bop(yes_label, jumps=[yes_tgt, jmp_ins]))
+    self.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     self.emit(jmp_ins)
 
 
@@ -681,6 +681,7 @@ def P15(self, tree, c0):
     d = self.new_temp()
     self.emit(Ldr2(d, c0, 0))
     return d
+
 
 # TODO: fix this double otherwise, by extra token kind IGNR(CALL(..))
 @isa.pattern('stm', 'CALL', cost=1)

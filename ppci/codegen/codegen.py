@@ -15,8 +15,7 @@ import logging
 
 
 class CodeGenerator:
-    """ Generic code generator.
-    """
+    """ Generic code generator. """
     def __init__(self, target):
         # TODO: schedule traces in better order.
         # This is optional!
@@ -106,8 +105,7 @@ class CodeGenerator:
         # Materialize the register allocated instructions into a stream of
         # real instructions.
         for ins in frame.instructions:
-            assert isinstance(ins, Instruction)
-            assert ins.is_colored, str(ins)
+            assert isinstance(ins, Instruction) and ins.is_colored, str(ins)
             outs.emit(ins)
 
         self.logger.debug('Instructions materialized')

@@ -11,7 +11,7 @@ import logging
 from ..target.isa import Register
 from ..utils.tree import Tree
 from ..target.target import Label
-from .irdag import DagBuilder
+from .irdag import DagBuilder, FunctionInfo
 from .tree import State
 from .. import ir
 from ppci.pyburg import BurgSystem
@@ -162,29 +162,28 @@ class InstructionSelector:
         # Create a context that can emit instructions:
         context = InstructionContext(frame)
 
-        frame.label_map = {}
-        frame.lut = {}
+        # Create a function info that carries global function info:
+        function_info = FunctionInfo(frame)
 
         # First define labels and phis:
         for ir_block in ir_function:
             ir_block.dag = []
 
             # Put label into map:
-            label_name = ir.label_name(ir_block)
-            itgt = Label(label_name)
-            frame.label_map[label_name] = itgt
+            label = Label(ir.label_name(ir_block))
+            function_info.label_map[ir_block] = label
 
             # Create phi copy:
             for phi in ir_block.phis:
                 phi_copy = Tree(
                     'REGI32',
                     value=frame.new_virtual_register(twain=phi.name))
-                frame.lut[phi] = phi_copy
+                function_info.lut[phi] = phi_copy
 
         # Construct trees for global variables:
         for global_variable in ir_function.module.Variables:
             tree = Tree('GLOBALADDRESS', value=ir.label_name(global_variable))
-            frame.lut[global_variable] = tree
+            function_info.lut[global_variable] = tree
 
         # Copy parameters into fresh temporaries:
         entry_dag = ir_function.entry.dag
@@ -195,32 +194,23 @@ class InstructionSelector:
             param_copy.value = frame.new_virtual_register(twain=arg.name)
             entry_dag.append(Tree('MOVI32', param_copy, param_tree))
             # When refering the paramater, use the copied value:
-            frame.lut[arg] = param_copy
+            function_info.lut[arg] = param_copy
 
         # Process one basic block at a time:
         for ir_block in ir_function:
             # emit label of block:
-            label_name = ir.label_name(ir_block)
-            label = frame.label_map[label_name]
+            label = function_info.label_map[ir_block]
             context.emit(label)
 
             # Create selection dag (directed acyclic graph):
-            dag = self.dag_builder.make_dag(ir_block, frame)
-
-            # Copy values to phi nodes in other blocks:
-            # TODO: this can be improved:
-            for succ_block in ir_block.successors:
-                for phi in succ_block.phis:
-                    vreg = frame.lut[phi]
-                    for from_block, from_val in phi.inputs.items():
-                        if from_block is ir_block:
-                            val = frame.lut[from_val]
-                            tree = Tree('MOVI32', vreg, val)
-                            # Insert before jump (do not use append):
-                            from_block.dag.insert(-1, tree)
+            dag = self.dag_builder.make_dag(ir_block, function_info)
 
             # Eat dag:
             self.munch_dag(context, dag)
 
             # Emit code between blocks:
             frame.between_blocks()
+
+        # Generate code for return statement:
+        # TODO: return value must be implemented in some way..
+        # self.munchStm(ir.Move(self.frame.rv, f.return_value))

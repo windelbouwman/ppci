@@ -579,8 +579,8 @@ def _(context, tree, c0):
 
 @isa.pattern('stm', 'JMP', cost=2)
 def _(context, tree):
-    label, tgt = tree.value
-    context.emit(B(label, jumps=[tgt]))
+    tgt = tree.value
+    context.emit(B(tgt.name, jumps=[tgt]))
 
 
 @isa.pattern('reg', 'REGI32', cost=0)
@@ -608,12 +608,12 @@ def _(context, tree):
 
 @isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    op, yes_label, yes_tgt, no_label, no_tgt = tree.value
+    op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
     Bop = opnames[op]
     context.emit(Cmp2(c0, c1))
-    jmp_ins = B(no_label, jumps=[no_tgt])
-    context.emit(Bop(yes_label, jumps=[yes_tgt, jmp_ins]))
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
 
 

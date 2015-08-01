@@ -53,8 +53,18 @@ class Dag:
 
 
 class DagNode:
-    def __init__(self):
+    def __init__(self, name, children=()):
+        self.name = name
         self.deps = []
+
+
+class FunctionInfo:
+    """ Keeps track of global function data when generating code for part
+    of a functions. """
+    def __init__(self, frame):
+        self.frame = frame
+        self.lut = {}
+        self.label_map = {}
 
 
 @make_map
@@ -65,42 +75,40 @@ class DagBuilder:
     def copy_val(self, node, tree):
         """ Copy value into new temporary if node is used more than once """
         if node.use_count > 1:
-            rv_copy = Tree('REGI32', value=self.frame.new_virtual_register())
+            rv_copy = Tree(
+                'REGI32',
+                value=self.function_info.frame.new_virtual_register())
             self.dag.append(Tree('MOVI32', rv_copy, tree))
-            self.lut[node] = rv_copy
+            self.function_info.lut[node] = rv_copy
         else:
-            self.lut[node] = tree
+            self.function_info.lut[node] = tree
 
     @register(ir.Jump)
     def do_jump(self, node):
         tree = Tree('JMP')
-        label_name = ir.label_name(node.target)
-        tree.value = label_name, self.frame.label_map[label_name]
+        tree.value = self.function_info.label_map[node.target]
         self.dag.append(tree)
 
     @register(ir.Return)
     def do_return(self, node):
         """ Move result into result register and jump to epilog """
-        res = self.lut[node.result]
-        rv = Tree("REGI32", value=self.frame.rv)
+        res = self.function_info.lut[node.result]
+        rv = Tree("REGI32", value=self.function_info.frame.rv)
         self.dag.append(Tree('MOVI32', rv, res))
 
         # Jump to epilog:
         tree = Tree('JMP')
-        label_name = ir.label_name(node.function.epilog)
-        tree.value = label_name, self.frame.label_map[label_name]
+        tree.value = self.function_info.label_map[node.function.epilog]
         self.dag.append(tree)
 
     @register(ir.CJump)
     def do_cjump(self, node):
-        a = self.lut[node.a]
-        b = self.lut[node.b]
+        a = self.function_info.lut[node.a]
+        b = self.function_info.lut[node.b]
         op = node.cond
-        yes_label_name = ir.label_name(node.lab_yes)
-        no_label_name = ir.label_name(node.lab_no)
         tree = Tree('CJMP', a, b)
-        tree.value = op, yes_label_name, self.frame.label_map[yes_label_name],\
-            no_label_name, self.frame.label_map[no_label_name]
+        tree.value = op, self.function_info.label_map[node.lab_yes],\
+            self.function_info.label_map[node.lab_no]
         self.dag.append(tree)
 
     @register(ir.Terminator)
@@ -109,19 +117,19 @@ class DagBuilder:
 
     @register(ir.Alloc)
     def do_alloc(self, node):
-        fp = Tree("REGI32", value=self.frame.fp)
+        fp = Tree("REGI32", value=self.function_info.frame.fp)
         offset = Tree("CONSTI32")
         # TODO: check alignment?
-        offset.value = self.frame.alloc_var(node, node.amount)
+        offset.value = self.function_info.frame.alloc_var(node, node.amount)
         tree = Tree('ADDI32', fp, offset)
-        self.lut[node] = tree
+        self.function_info.lut[node] = tree
 
     @register(ir.Load)
     def do_load(self, node):
         if isinstance(node.address, ir.Variable):
             address = Tree('GLOBALADDRESS', value=ir.label_name(node.address))
         else:
-            address = self.lut[node.address]
+            address = self.function_info.lut[node.address]
         tree = Tree('MEM' + type_postfix(node.ty), address)
 
         # Create copy if required:
@@ -129,8 +137,9 @@ class DagBuilder:
 
     @register(ir.Store)
     def do_store(self, node):
-        address = self.lut[node.address]
-        value = self.lut[node.value]
+        """ Create a DAG node for the store operation """
+        address = self.function_info.lut[node.address]
+        value = self.function_info.lut[node.value]
         ty = type_postfix(node.value.ty)
         tree = Tree('MOV' + ty, Tree('MEM' + ty, address), value)
         self.dag.append(tree)
@@ -148,7 +157,7 @@ class DagBuilder:
             tree.value = int(node.value)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node.value)))
-        self.lut[node] = tree
+        self.function_info.lut[node] = tree
 
     @register(ir.Binop)
     def do_binop(self, node):
@@ -157,8 +166,8 @@ class DagBuilder:
                  '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
                  '%': 'REM', '^': 'XOR'}
         op = names[node.operation] + type_postfix(node.ty)
-        a = self.lut[node.a]
-        b = self.lut[node.b]
+        a = self.function_info.lut[node.a]
+        b = self.function_info.lut[node.b]
         tree = Tree(op, a, b)
 
         # Check if this binop is used more than once
@@ -167,53 +176,53 @@ class DagBuilder:
 
     @register(ir.Addr)
     def do_addr(self, node):
-        tree = Tree('ADR', self.lut[node.e])
-        self.lut[node] = tree
+        tree = Tree('ADR', self.function_info.lut[node.e])
+        self.function_info.lut[node] = tree
 
     @register(ir.IntToByte)
     def do_int_to_byte_cast(self, node):
         # TODO: add some logic here?
-        v = self.lut[node.src]
-        self.lut[node] = v
+        v = self.function_info.lut[node.src]
+        self.function_info.lut[node] = v
 
     @register(ir.ByteToInt)
     def do_byte_to_int_cast(self, node):
         # TODO: add some logic here?
-        v = self.lut[node.src]
-        self.lut[node] = v
+        v = self.function_info.lut[node.src]
+        self.function_info.lut[node] = v
 
     @register(ir.IntToPtr)
     def do_int_to_ptr_cast(self, node):
         # TODO: add some logic here?
-        v = self.lut[node.src]
-        self.lut[node] = v
+        v = self.function_info.lut[node.src]
+        self.function_info.lut[node] = v
 
     @register(ir.PtrToInt)
     def do_ptr_to_int_cast(self, node):
         # TODO: add some logic here?
-        v = self.lut[node.src]
-        self.lut[node] = v
+        v = self.function_info.lut[node.src]
+        self.function_info.lut[node] = v
 
     @register(ir.Call)
     def do_call(self, node):
         # This is the moment to move all parameters to new temp registers.
         args = []
         for argument in node.arguments:
-            a = self.lut[argument]
-            loc = self.frame.new_virtual_register()
+            a = self.function_info.lut[argument]
+            loc = self.function_info.frame.new_virtual_register()
             loc_tree = Tree('REGI32', value=loc)
             args.append(loc)
             self.dag.append(Tree('MOVI32', loc_tree, a))
 
         # New register for copy of result:
-        rv = self.frame.new_virtual_register()
+        rv = self.function_info.frame.new_virtual_register()
 
         # Perform the actual call:
         tree = Tree('CALL', value=(node.function_name, args, rv))
         self.dag.append(tree)
 
         # When using the call as an expression, use copy of return value:
-        self.lut[node] = Tree('REGI32', value=rv)
+        self.function_info.lut[node] = Tree('REGI32', value=rv)
 
     @register(ir.Phi)
     def do_phi(self, node):
@@ -225,23 +234,32 @@ class DagBuilder:
         return root.name in ['REGI32', 'ADDI32', 'SUBI32'] and \
             all(self.only_arith(c) for c in root.children)
 
-    def make_dag(self, ir_block, frame):
+    def copy_phis_of_successors(self, ir_block):
+        """ When a terminator instruction is encountered, handle the copy
+        of phi values into the expected virtual register """
+        # Copy values to phi nodes in other blocks:
+        for succ_block in ir_block.successors:
+            for phi in succ_block.phis:
+                vreg = self.function_info.lut[phi]
+                from_val = phi.get_value(ir_block)
+                val = self.function_info.lut[from_val]
+                tree = Tree('MOVI32', vreg, val)
+                self.dag.append(tree)
+
+    def make_dag(self, ir_block, function_info):
         """ Create dag (directed acyclic graph) from a basic block.
             The resulting dag can be used for instruction selection.
         """
         assert isinstance(ir_block, ir.Block)
         self.logger.debug('Creating dag for {}'.format(ir_block.name))
 
-        self.frame = frame
-        self.lut = frame.lut
+        self.function_info = function_info
         self.dag = ir_block.dag
 
         # Generate series of trees:
         for instruction in ir_block:
+            if isinstance(instruction, ir.LastStatement):
+                self.copy_phis_of_successors(ir_block)
             self.f_map[type(instruction)](self, instruction)
-
-        # Generate code for return statement:
-        # TODO: return value must be implemented in some way..
-        # self.munchStm(ir.Move(self.frame.rv, f.return_value))
 
         return self.dag
