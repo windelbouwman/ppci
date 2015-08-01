@@ -35,7 +35,7 @@ class CfgInfo:
 
     def prepare(self, block):
         self.pred[block] = block.predecessors
-        self.succ[block] = block.Successors
+        self.succ[block] = block.successors
 
     def calculate_dominators(self):
         """

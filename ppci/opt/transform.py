@@ -322,7 +322,7 @@ class CleanPass(FunctionPass):
         stat = 0
         for block in self.find_empty_blocks(function):
             predecessors = block.predecessors
-            successors = block.Successors
+            successors = block.successors
 
             # Do not remove if preceeded by itself:
             if block in predecessors:

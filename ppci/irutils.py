@@ -379,7 +379,7 @@ class Verifier:
 
         # Verify predecessor and successor:
         for block in function.blocks:
-            preds = set(b for b in function.blocks if block in b.Successors)
+            preds = set(b for b in function.blocks if block in b.successors)
             assert preds == set(block.predecessors)
 
         # Now we can build a dominator tree

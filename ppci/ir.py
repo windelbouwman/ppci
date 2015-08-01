@@ -158,7 +158,7 @@ class Function:
             worklist = [self.entry]
             while worklist:
                 b = worklist.pop()
-                for sb in b.Successors:
+                for sb in b.successors:
                     if sb not in bbs:
                         bbs.append(sb)
                         worklist.append(sb)
@@ -318,7 +318,7 @@ class Block:
     @property
     def phis(self):
         """ Return all phi instructions of this block """
-        return [i for i in self.instructions if type(i) is Phi]
+        return [i for i in self.instructions if isinstance(i, Phi)]
 
     def get_successors(self):
         """ Get the direct successors of this block """
@@ -326,7 +326,7 @@ class Block:
             return self.last_instruction.targets + self.extra_successors
         return [] + self.extra_successors
 
-    Successors = property(get_successors)
+    successors = property(get_successors)
 
     def get_predecessors(self):
         b = set(i.block for i in self._preds)

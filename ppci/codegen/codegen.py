@@ -4,7 +4,6 @@
 """
 
 from .. import ir
-from .irdag import Dagger
 from ..irutils import Verifier, split_block
 from ..target.target import Target
 from ..target.target import RegisterUseDef
@@ -24,7 +23,6 @@ class CodeGenerator:
         assert isinstance(target, Target), target
         self.logger = logging.getLogger('codegen')
         self.target = target
-        self.dagger = Dagger()
         self.instruction_selector = InstructionSelector(target.isa)
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
@@ -74,13 +72,8 @@ class CodeGenerator:
                 self.logger.debug('{} too large, splitting up'.format(block))
                 _, block = split_block(block, pos=max_block_len)
 
-        # Create selection dag (directed acyclic graph):
-        dag = self.dagger.make_dag(irfunc, frame)
-        self.logger.debug('DAG created')
-        self.dump_dag(dag)
-
         # Select instructions:
-        self.instruction_selector.munch_dag(dag, frame)
+        self.instruction_selector.select(irfunc, frame)
         self.logger.debug('Selected instructions')
 
         # Define arguments live at first instruction:

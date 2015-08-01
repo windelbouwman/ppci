@@ -2,12 +2,12 @@
     The process of instruction selection is preceeded by the creation of
     a selection dag (directed acyclic graph). The dagger take ir-code as
     input and produces such a dag for instruction selection.
+
+    A DAG represents the logic (computation) of a single basic block.
 """
 
 import logging
 from .. import ir
-from ..target.target import Label
-from ..target.isa import Register
 from ..utils.tree import Tree
 
 
@@ -43,6 +43,7 @@ class Dag:
     """ Directed acyclic graph of to be selected instructions """
     def __init__(self):
         self.lut = {}
+        self.roots = []
 
     def get_node(self, value):
         return self.lut[value]
@@ -57,9 +58,9 @@ class DagNode:
 
 
 @make_map
-class Dagger:
+class DagBuilder:
     def __init__(self):
-        self.logger = logging.getLogger('dag-creator')
+        self.logger = logging.getLogger('dag-builder')
 
     def copy_val(self, node, tree):
         """ Copy value into new temporary if node is used more than once """
@@ -110,7 +111,7 @@ class Dagger:
     def do_alloc(self, node):
         fp = Tree("REGI32", value=self.frame.fp)
         offset = Tree("CONSTI32")
-        # TODO: check size and alignment?
+        # TODO: check alignment?
         offset.value = self.frame.alloc_var(node, node.amount)
         tree = Tree('ADDI32', fp, offset)
         self.lut[node] = tree
@@ -193,12 +194,6 @@ class Dagger:
         v = self.lut[node.src]
         self.lut[node] = v
 
-    @register(ir.Variable)
-    def do_global(self, node):
-        """ This tree is put into the lut for later use """
-        tree = Tree('GLOBALADDRESS', value=ir.label_name(node))
-        self.lut[node] = tree
-
     @register(ir.Call)
     def do_call(self, node):
         # This is the moment to move all parameters to new temp registers.
@@ -222,93 +217,31 @@ class Dagger:
 
     @register(ir.Phi)
     def do_phi(self, node):
-        """
-            Phis are lifted elsewhere..
-        Create a new vreg for this phi:
-        The incoming branches provided with a copy instruction further on.
-        """
-        phi_copy = Tree(
-            'REGI32',
-            value=self.frame.new_virtual_register(twain=node.name))
-        self.lut[node] = phi_copy
+        """ Phis are lifted elsewhere. """
+        pass
 
     def only_arith(self, root):
         """ Determine if a tree is only arithmatic all the way up """
         return root.name in ['REGI32', 'ADDI32', 'SUBI32'] and \
             all(self.only_arith(c) for c in root.children)
 
-    def split_dag(self, dag):
-        """ Split dag into forest of trees """
-        # self.
-        for root in dag:
-            print(root)
-
-    def make_dag(self, irfunc, frame):
-        """ Create dag (directed acyclic graph) of nodes for the selection
-            this function makes a list of dags. One for each basic blocks.
-            one dag is a list of trees.
+    def make_dag(self, ir_block, frame):
+        """ Create dag (directed acyclic graph) from a basic block.
+            The resulting dag can be used for instruction selection.
         """
-        assert isinstance(irfunc, ir.Function)
-        self.logger.debug('Creating selection dag for {}'.format(irfunc.name))
+        assert isinstance(ir_block, ir.Block)
+        self.logger.debug('Creating dag for {}'.format(ir_block.name))
 
-        self.lut = {}
         self.frame = frame
-        dags = []
-        frame.label_map = {}
+        self.lut = frame.lut
+        self.dag = ir_block.dag
 
-        # Construct trees for global variables:
-        for global_variable in irfunc.module.Variables:
-            self.f_map[type(global_variable)](self, global_variable)
-
-        # First define labels:
-        for block in irfunc:
-            block.dag = []
-            label_name = ir.label_name(block)
-            itgt = Label(label_name)
-            frame.label_map[label_name] = itgt
-            block.dag.append(itgt)
-            dags.append(block.dag)
-
-        # Copy parameters into fresh temporaries:
-        entry_dag = irfunc.entry.dag
-        for arg in irfunc.arguments:
-            param_tree = Tree('REGI32', value=frame.arg_loc(arg.num))
-            assert isinstance(param_tree.value, Register)
-            param_copy = Tree('REGI32')
-            param_copy.value = self.frame.new_virtual_register(twain=arg.name)
-            entry_dag.append(Tree('MOVI32', param_copy, param_tree))
-            # When refering the paramater, use the copied value:
-            self.lut[arg] = param_copy
-
-        # Generate series of trees for all blocks:
-        for block in irfunc:
-            self.dag = block.dag
-            for instruction in block.Instructions:
-                self.f_map[type(instruction)](self, instruction)
-
-        self.logger.debug('Lifting phi nodes')
-        # Construct out of SSA form (remove phi-s)
-        # Lift phis, append them to end of incoming blocks..
-        for block in irfunc:
-            for instruction in block:
-                if type(instruction) is ir.Phi:
-                    # Add moves to incoming branches:
-                    vreg = self.lut[instruction]
-                    for from_block, from_val in instruction.inputs.items():
-                        val = self.lut[from_val]
-                        tree = Tree('MOVI32', vreg, val)
-                        # Insert before jump (do not use append):
-                        from_block.dag.insert(-1, tree)
-
-        # Split dags into trees!
-        self.logger.debug('Splitting forest')
-        for dag in dags:
-            for dg in dag:
-                # self.split_dag(dg)
-                pass
+        # Generate series of trees:
+        for instruction in ir_block:
+            self.f_map[type(instruction)](self, instruction)
 
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..
         # self.munchStm(ir.Move(self.frame.rv, f.return_value))
 
-        return dags
+        return self.dag
