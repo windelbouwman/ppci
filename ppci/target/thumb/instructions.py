@@ -589,94 +589,94 @@ class SubSp(addspsp_base):
 #
 ###############
 
-@isa.pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=1)
-def P1(self, tree, c0, c1):
+@isa.pattern('stm', 'STRI32(reg, reg)', cost=1)
+def _(self, tree, c0, c1):
     self.emit(Str2(c1, c0, 0))
 
 
 @isa.pattern('stm', 'JMP', cost=2)
-def P3(self, tree):
+def _(self, tree):
     label = tree.value
     self.emit(Bw(label.name, jumps=[label]))
 
 
 @isa.pattern('reg', 'REGI32', cost=0)
-def P4(self, tree):
+def _(self, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'ADDI32(reg,reg)', cost=1)
-def P5(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.emit(Add3(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'ADDI8(reg,reg)', cost=1)
-def P5_2(self, tree, c0, c1):
-    d = self.new_temp()
-    self.emit(Add3(d, c0, c1))
+def _(context, tree, c0, c1):
+    d = context.new_temp()
+    context.emit(Add3(d, c0, c1))
     return d
 
 
-@isa.pattern('stm', 'MOVI32(REGI32,cn)', cost=2)
-def P7(self, tree, c0):
-    ln = self.frame.addConstant(c0)
+@isa.pattern('stm', 'MOVI32(REGI32, cn)', cost=2)
+def _(context, tree, c0):
+    ln = context.frame.addConstant(c0)
     r = tree.children[0].value
-    self.emit(Ldr3(r, ln))
+    context.emit(Ldr3(r, ln))
 
 
 @isa.pattern('cn', 'CONSTI32', cost=0)
-def P8(self, tree):
+def _(context, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'GLOBALADDRESS', cost=2)
-def P9(self, tree):
-    d = self.new_temp()
-    ln = self.frame.addConstant(tree.value)
-    self.emit(Ldr3(d, ln))
+def _(context, tree):
+    d = context.new_temp()
+    ln = context.frame.addConstant(tree.value)
+    context.emit(Ldr3(d, ln))
     return d
 
 
 @isa.pattern('reg', 'CONSTI32', cost=3)
-def P10(self, tree):
-    d = self.new_temp()
-    ln = self.frame.addConstant(tree.value)
-    self.emit(Ldr3(d, ln))
+def _(context, tree):
+    d = context.new_temp()
+    ln = context.frame.addConstant(tree.value)
+    context.emit(Ldr3(d, ln))
     return d
 
 
 @isa.pattern('stm', 'MOVI32(REGI32,reg)', cost=1)
-def P11(self, tree, c0):
+def P11(context, tree, c0):
     r = tree.children[0].value
-    self.move(r, c0)
+    context.move(r, c0)
 
 
 @isa.pattern('stm', 'CJMP(reg,reg)', cost=3)
-def P12(self, tree, c0, c1):
+def P12(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
     Bop = opnames[op]
     jmp_ins = Bw(no_label.name, jumps=[no_label])
-    self.emit(Cmp(c0, c1))
-    self.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
-    self.emit(jmp_ins)
+    context.emit(Cmp(c0, c1))
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
 
 
-@isa.pattern('stm', 'MOVI8(MEMI8(reg),reg)', cost=1)
-def P13(self, tree, c0, c1):
-    self.emit(Strb(c1, c0, 0))
+@isa.pattern('stm', 'STRI8(reg,reg)', cost=1)
+def P13(context, tree, c0, c1):
+    context.emit(Strb(c1, c0, 0))
 
 
-@isa.pattern('reg', 'MEMI8(reg)', cost=1)
-def P14(self, tree, c0):
-    d = self.new_temp()
-    self.emit(Ldrb(d, c0, 0))
+@isa.pattern('reg', 'LDRI8(reg)', cost=1)
+def P14(context, tree, c0):
+    d = context.new_temp()
+    context.emit(Ldrb(d, c0, 0))
     return d
 
 
-@isa.pattern('reg', 'MEMI32(reg)', cost=1)
+@isa.pattern('reg', 'LDRI32(reg)', cost=1)
 def P15(self, tree, c0):
     d = self.new_temp()
     self.emit(Ldr2(d, c0, 0))

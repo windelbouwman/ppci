@@ -28,6 +28,12 @@ class Tree:
             val = ''
         return '{}{}{}'.format(self.name, val, ch)
 
+    def set_child(self, index, new_value):
+        """ Set the n'th child to a new value """
+        c2 = list(self.children)
+        c2[index] = new_value
+        self.children = tuple(c2)
+
     def structural_equal(self, other):
         return self.name == other.name and \
             len(self.children) == len(other.children) and \

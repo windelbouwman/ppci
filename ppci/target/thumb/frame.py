@@ -87,9 +87,9 @@ class ArmFrame(Frame):
     def prologue(self):
         """ Returns prologue instruction sequence """
         pre = [
-            Label(self.name),                     # Label indication function
+            Label(self.name),  # Label indication function
             Push({LR, R7}),
-            Push({R5, R6}),  # Callee save registers!
+            Push({R5, R6}),    # Callee save registers!
             ]
         if self.stacksize > 0:
             ssize = self.round_up(self.stacksize)
@@ -151,14 +151,3 @@ class ArmFrame(Frame):
         self.emit(Pop({R5, R6}))  # Callee save registers!
         self.emit(Pop({PC, R7}))
         self.insert_litpool()  # Add final literal pool
-
-    def EntryExitGlue3(self):
-        """
-            Add code for the prologue and the epilogue. Add a label, the
-            return instruction and the stack pointer adjustment for the frame.
-        """
-        for index, ins in enumerate(self.prologue()):
-            self.instructions.insert(index, ins)
-
-        # Postfix code (this uses the emit function):
-        self.epilogue()

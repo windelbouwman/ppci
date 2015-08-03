@@ -551,25 +551,25 @@ class Mrc(McrBase):
 
 
 # Instruction selection patterns:
-@isa.pattern('stm', 'MOVI32(MEMI32(reg), reg)', cost=2)
+@isa.pattern('stm', 'STRI32(reg, reg)', cost=2)
 def _(self, tree, c0, c1):
     self.emit(Str1(c1, c0, 0))
 
 
 @isa.pattern(
-    'stm', 'MOVI32(MEMI32(ADDI32(reg, CONSTI32)), reg)',
+    'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
     cost=2,
-    condition=lambda t: t.children[0].children[0].children[1].value < 256)
-def _(self, tree, c0, c1):
+    condition=lambda t: t.children[0].children[1].value < 256)
+def _(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
     # compile correctly...
-    offset = tree.children[0].children[0].children[1].value
-    self.emit(Str1(c1, c0, offset))
+    offset = tree.children[0].children[1].value
+    context.emit(Str1(c1, c0, offset))
 
 
-@isa.pattern('stm', 'MOVI8(MEMI8(reg), reg)', cost=2)
-def _(self, tree, c0, c1):
-    self.emit(Strb(c1, c0, 0))
+@isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
+def _(context, tree, c0, c1):
+    context.emit(Strb(c1, c0, 0))
 
 
 @isa.pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
@@ -674,14 +674,14 @@ def _(context, tree):
     return d
 
 
-@isa.pattern('reg', 'MEMI8(reg)', cost=2)
+@isa.pattern('reg', 'LDRI8(reg)', cost=2)
 def _(context, tree, c0):
     d = context.new_temp()
     context.emit(Ldrb(d, c0, 0))
     return d
 
 
-@isa.pattern('reg', 'MEMI32(reg)', cost=2)
+@isa.pattern('reg', 'LDRI32(reg)', cost=2)
 def _(context, tree, c0):
     d = context.new_temp()
     context.emit(Ldr1(d, c0, 0))
@@ -737,7 +737,7 @@ def _(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'MEMI32(ADDI32(reg, CONSTI32))', cost=2)
+@isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', cost=2)
 def _(context, tree, c0):
     d = context.new_temp()
     c1 = tree.children[0].children[1].value

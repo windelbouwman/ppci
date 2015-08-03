@@ -19,7 +19,6 @@ class ArmFrame(Frame):
         R5 and above are callee save (the function that is called
     """
     def __init__(self, name):
-        # We use r7 as frame pointer.
         super().__init__(name)
         # Allocatable registers:
         self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
@@ -103,16 +102,13 @@ class ArmFrame(Frame):
 
     def prologue(self):
         """ Returns prologue instruction sequence """
-        pre = [
-            # Label indication function:
-            Label(self.name),
-            Push(RegisterSet({LR, R11})),
-            # Callee save registers:
-            Push(RegisterSet({R5, R6, R7, R8, R9, R10})),
-            Sub(SP, SP, self.stacksize),  # Reserve stack space
-            Mov(R11, SP)                          # Setup frame pointer
-            ]
-        return pre
+        # Label indication function:
+        yield Label(self.name)
+        yield Push(RegisterSet({LR, R11}))
+        # Callee save registers:
+        yield Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
+        yield Sub(SP, SP, self.stacksize)  # Reserve stack space
+        yield Mov(R11, SP)                 # Setup frame pointer
 
     def insert_litpool(self):
         """ Insert the literal pool at the current position """
@@ -147,14 +143,3 @@ class ArmFrame(Frame):
         self.emit(Pop(RegisterSet({PC, R11}), src=[self.rv]))
         self.insert_litpool()  # Add final literal pool
         self.emit(Alignment(4))   # Align at 4 bytes
-
-    def EntryExitGlue3(self):
-        """
-            Add code for the prologue and the epilogue. Add a label, the
-            return instruction and the stack pointer adjustment for the frame.
-        """
-        for index, ins in enumerate(self.prologue()):
-            self.instructions.insert(index, ins)
-
-        # Postfix code:
-        self.epilogue()

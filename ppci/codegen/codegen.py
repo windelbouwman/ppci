@@ -46,6 +46,17 @@ class CodeGenerator:
         for ins in frame.instructions:
             self.print('$ {}'.format(ins))
 
+    def entry_exit_glue(self, frame):
+        """
+            Add code for the prologue and the epilogue. Add a label, the
+            return instruction and the stack pointer adjustment for the frame.
+        """
+        for index, ins in enumerate(frame.prologue()):
+            frame.instructions.insert(index, ins)
+
+        # Postfix code (this uses the emit function):
+        frame.epilogue()
+
     def generate_function(self, irfunc, outs):
         """ Generate code for one function into a frame """
         self.logger.info('Generating {} code for function {}'
@@ -97,10 +108,11 @@ class CodeGenerator:
             if frame.cfg.has_node(ins):
                 nde = frame.cfg.get_node(ins)
                 self.print('ins: {} {}'.format(ins, nde.longrepr))
-        self.dump_frame(frame)
 
         # Add label and return and stack adjustment:
-        frame.EntryExitGlue3()
+        self.entry_exit_glue(frame)
+
+        self.dump_frame(frame)
 
         # Materialize the register allocated instructions into a stream of
         # real instructions.

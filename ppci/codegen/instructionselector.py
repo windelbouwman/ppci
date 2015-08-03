@@ -5,16 +5,19 @@
     Selecting instructions from a DAG is a NP-complete problem. The simplest
     strategy is to split the DAG into a forest of trees and match these
     trees.
+
+    Another solution may be: PBQP (Partitioned Boolean Quadratic Programming)
 """
 
 import logging
-from ..target.isa import Register
-from ..utils.tree import Tree
-from ..target.target import Label
+from collections import namedtuple
 from .irdag import DagBuilder, FunctionInfo
+from ..utils.tree import Tree
 from .tree import State
 from .. import ir
 from ppci.pyburg import BurgSystem
+
+TreeUse = namedtuple('TreeUse', ['parent', 'child_index'])
 
 
 class InstructionContext:
@@ -109,16 +112,15 @@ class InstructionSelector:
         # Add all possible terminals:
         terminals = ["ADDI32", "SUBI32", "MULI32", "DIVI32", 'REMI32',
                      "ADDI16", "SUBI16", "MULI16", "DIVI16", "REMI16",
-                     "ADDI8", "SUBI8",
+                     "ADDI8", "SUBI8", "MULI8", "DIVI8", 'REMI8',
                      "ORI32", "SHLI32", "SHRI32", "ANDI32", "XORI32",
                      "ORI16", "SHLI16", "SHRI16", "ANDI16", "XORI16",
                      "ORI8", "SHLI8", "SHRI8", "ANDI8", "XORI8",
-                     "MOVI32", "MEMI32", "REGI32",
-                     "MOVI16", "MEMI16", "REGI16",
-                     "MOVI8", "MEMI8", "REGI8",
+                     "MOVI32", "REGI32", "LDRI32", "STRI32",
+                     "MOVI16", "REGI16", "LDRI16", "STRI32",
+                     "MOVI8", "REGI8", "LDRI8", "STRI8",
                      "ADR",
-                     "CONSTI32",
-                     "CONSTDATA",
+                     "CONSTI32", "CONSTDATA",
                      "CALL", "GLOBALADDRESS",
                      "JMP", "CJMP"]
         for terminal in terminals:
@@ -133,25 +135,71 @@ class InstructionSelector:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def split_dag(self, dag):
-        """ Split dag into forest of trees """
-        # self.
-        for root in dag:
-            print(root)
+    def copy_tree(self, tree, frame):
+        """ Copy value into new temporary if node is used more than once """
+        rv_copy = Tree(
+            'REGI32',
+            value=frame.new_virtual_register())
+        return Tree('MOVI32', rv_copy, tree), rv_copy
 
-    def munch_dag(self, context, dag):
-        """ Consume a dag and match it using the matcher to the frame """
+    def determine_use(self, use_map, tree):
+        """ Determine the use of the children of tree """
+        # Create an entry in the use map:
+        if tree not in use_map:
+            use_map[tree] = []
+        for i, child in enumerate(tree.children):
+            self.determine_use(use_map, child)
+            use_map[child].append(TreeUse(tree, i))
+
+    def do_split(self, use_map, tree, dag2, frame):
+        for child in tree.children:
+            self.do_split(use_map, child, dag2, frame)
+            if child.name in ['CONSTI32', 'REGI32', 'GLOBALADDRESS', 'CONSTDATA']:
+                # Skip multiple used constants, regs etc..
+                continue
+            if len(use_map[child]) > 1:
+                # Create a copy and update other trees:
+                dag3, new_val = self.copy_tree(child, frame)
+                dag2.append(dag3)
+                for par, idx in use_map[child]:
+                    par.set_child(idx, new_val)
+
+    def split_dag(self, dag, frame):
+        """ Split dag into forest of trees """
         # TODO: split dag into forest!
         # Split dags into trees!
         self.logger.debug('Splitting forest')
-        for dg in dag:
-            # self.split_dag(dg)
-            pass
+        use_map = {}
 
-        # Template match all trees:
+        # First determine the usages:
         for root in dag:
+            self.determine_use(use_map, root)
+
+        # split up the tree if required:
+        dag2 = []
+        for root in dag:
+            self.do_split(use_map, root, dag2, frame)
+            dag2.append(root)
+        return dag2
+
+    def munch_dag(self, context, dag):
+        """ Consume a dag and match it using the matcher to the frame.
+            DAG matching is NP-complete.
+
+            The simplest strategy is to
+            split the dag into a forest of trees. Then, the DAG is reduced
+            to only trees, which can be matched.
+
+            A different approach is use 0-1 programming, like the NOLTIS algo.
+
+            TODO: implement different strategies.
+        """
+        dag = self.split_dag(dag, context.frame)
+
+        # Match all splitted trees:
+        for tree in dag:
             # Invoke dynamic programming matcher machinery:
-            self.tree_selector.gen(context, root)
+            self.tree_selector.gen(context, tree)
 
     def select(self, ir_function, frame):
         """ Select instructions of function into a frame """
@@ -165,42 +213,13 @@ class InstructionSelector:
         # Create a function info that carries global function info:
         function_info = FunctionInfo(frame)
 
-        # First define labels and phis:
-        for ir_block in ir_function:
-            ir_block.dag = []
-
-            # Put label into map:
-            label = Label(ir.label_name(ir_block))
-            function_info.label_map[ir_block] = label
-
-            # Create phi copy:
-            for phi in ir_block.phis:
-                phi_copy = Tree(
-                    'REGI32',
-                    value=frame.new_virtual_register(twain=phi.name))
-                function_info.lut[phi] = phi_copy
-
-        # Construct trees for global variables:
-        for global_variable in ir_function.module.Variables:
-            tree = Tree('GLOBALADDRESS', value=ir.label_name(global_variable))
-            function_info.lut[global_variable] = tree
-
-        # Copy parameters into fresh temporaries:
-        entry_dag = ir_function.entry.dag
-        for arg in ir_function.arguments:
-            param_tree = Tree('REGI32', value=frame.arg_loc(arg.num))
-            assert isinstance(param_tree.value, Register)
-            param_copy = Tree('REGI32')
-            param_copy.value = frame.new_virtual_register(twain=arg.name)
-            entry_dag.append(Tree('MOVI32', param_copy, param_tree))
-            # When refering the paramater, use the copied value:
-            function_info.lut[arg] = param_copy
+        # Determine required function info:
+        self.dag_builder.prepare_function_info(function_info, ir_function)
 
         # Process one basic block at a time:
         for ir_block in ir_function:
             # emit label of block:
-            label = function_info.label_map[ir_block]
-            context.emit(label)
+            context.emit(function_info.label_map[ir_block])
 
             # Create selection dag (directed acyclic graph):
             dag = self.dag_builder.make_dag(ir_block, function_info)

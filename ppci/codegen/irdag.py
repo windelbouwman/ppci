@@ -9,9 +9,11 @@
 import logging
 from .. import ir
 from ..utils.tree import Tree
+from ..target.isa import Register
+from ..target.target import Label
 
 
-NODE_ATTR = '%nodetype'
+NODE_ATTR = '$nodetype$$$'
 
 
 def register(tp):
@@ -35,14 +37,13 @@ def make_map(cls):
 
 def type_postfix(typ):
     """ Determine the name of the dag item """
-    postfix_map = {ir.i32: "I32", ir.ptr: "I32", ir.i8: 'I8'}
+    postfix_map = {ir.i32: "I32", ir.i16: "I16", ir.ptr: "I32", ir.i8: 'I8'}
     return postfix_map[typ]
 
 
 class Dag:
     """ Directed acyclic graph of to be selected instructions """
     def __init__(self):
-        self.lut = {}
         self.roots = []
 
     def get_node(self, value):
@@ -55,6 +56,7 @@ class Dag:
 class DagNode:
     def __init__(self, name, children=()):
         self.name = name
+        self.children = children
         self.deps = []
 
 
@@ -63,7 +65,7 @@ class FunctionInfo:
     of a functions. """
     def __init__(self, frame):
         self.frame = frame
-        self.lut = {}
+        self.value_map = {}  # mapping from ir-value to dag node
         self.label_map = {}
 
 
@@ -71,17 +73,6 @@ class FunctionInfo:
 class DagBuilder:
     def __init__(self):
         self.logger = logging.getLogger('dag-builder')
-
-    def copy_val(self, node, tree):
-        """ Copy value into new temporary if node is used more than once """
-        if node.use_count > 1:
-            rv_copy = Tree(
-                'REGI32',
-                value=self.function_info.frame.new_virtual_register())
-            self.dag.append(Tree('MOVI32', rv_copy, tree))
-            self.function_info.lut[node] = rv_copy
-        else:
-            self.function_info.lut[node] = tree
 
     @register(ir.Jump)
     def do_jump(self, node):
@@ -92,7 +83,7 @@ class DagBuilder:
     @register(ir.Return)
     def do_return(self, node):
         """ Move result into result register and jump to epilog """
-        res = self.function_info.lut[node.result]
+        res = self.function_info.value_map[node.result]
         rv = Tree("REGI32", value=self.function_info.frame.rv)
         self.dag.append(Tree('MOVI32', rv, res))
 
@@ -103,8 +94,9 @@ class DagBuilder:
 
     @register(ir.CJump)
     def do_cjump(self, node):
-        a = self.function_info.lut[node.a]
-        b = self.function_info.lut[node.b]
+        """ Process conditional jump into dag """
+        a = self.function_info.value_map[node.a]
+        b = self.function_info.value_map[node.b]
         op = node.cond
         tree = Tree('CJMP', a, b)
         tree.value = op, self.function_info.label_map[node.lab_yes],\
@@ -122,42 +114,48 @@ class DagBuilder:
         # TODO: check alignment?
         offset.value = self.function_info.frame.alloc_var(node, node.amount)
         tree = Tree('ADDI32', fp, offset)
-        self.function_info.lut[node] = tree
+        self.function_info.value_map[node] = tree
 
     @register(ir.Load)
     def do_load(self, node):
+        """ Create dag node for load operation """
         if isinstance(node.address, ir.Variable):
+            # A global variable may be contained in another module
+            # That is why it is created here, and not in the prepare step
             address = Tree('GLOBALADDRESS', value=ir.label_name(node.address))
         else:
-            address = self.function_info.lut[node.address]
-        tree = Tree('MEM' + type_postfix(node.ty), address)
+            address = self.function_info.value_map[node.address]
+        tree = Tree('LDR' + type_postfix(node.ty), address)
 
-        # Create copy if required:
-        self.copy_val(node, tree)
+        # Copy load always to register:
+        vreg = self.function_info.frame.new_virtual_register()
+        reg_tree = Tree('REGI32', value=vreg)
+        self.dag.append(Tree('MOVI32', reg_tree, tree))
+
+        self.function_info.value_map[node] = reg_tree
 
     @register(ir.Store)
     def do_store(self, node):
         """ Create a DAG node for the store operation """
-        address = self.function_info.lut[node.address]
-        value = self.function_info.lut[node.value]
-        ty = type_postfix(node.value.ty)
-        tree = Tree('MOV' + ty, Tree('MEM' + ty, address), value)
+        address = self.function_info.value_map[node.address]
+        value = self.function_info.value_map[node.value]
+        tree = Tree('STR' + type_postfix(node.value.ty), address, value)
         self.dag.append(tree)
 
     @register(ir.Const)
     def do_const(self, node):
-        if type(node.value) is bytes:
+        if isinstance(node.value, bytes):
             tree = Tree('CONSTDATA')
             tree.value = node.value
-        elif type(node.value) is int:
+        elif isinstance(node.value, int):
             tree = Tree('CONSTI32')
             tree.value = node.value
-        elif type(node.value) is bool:
+        elif isinstance(node.value, bool):
             tree = Tree('CONSTI32')
             tree.value = int(node.value)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node.value)))
-        self.function_info.lut[node] = tree
+        self.function_info.value_map[node] = tree
 
     @register(ir.Binop)
     def do_binop(self, node):
@@ -166,63 +164,60 @@ class DagBuilder:
                  '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
                  '%': 'REM', '^': 'XOR'}
         op = names[node.operation] + type_postfix(node.ty)
-        a = self.function_info.lut[node.a]
-        b = self.function_info.lut[node.b]
+        a = self.function_info.value_map[node.a]
+        b = self.function_info.value_map[node.b]
         tree = Tree(op, a, b)
-
-        # Check if this binop is used more than once
-        # if so, create register copy:
-        self.copy_val(node, tree)
+        self.function_info.value_map[node] = tree
 
     @register(ir.Addr)
     def do_addr(self, node):
-        tree = Tree('ADR', self.function_info.lut[node.e])
-        self.function_info.lut[node] = tree
+        tree = Tree('ADR', self.function_info.value_map[node.e])
+        self.function_info.value_map[node] = tree
 
     @register(ir.IntToByte)
     def do_int_to_byte_cast(self, node):
         # TODO: add some logic here?
-        v = self.function_info.lut[node.src]
-        self.function_info.lut[node] = v
+        value = self.function_info.value_map[node.src]
+        self.function_info.value_map[node] = value
 
     @register(ir.ByteToInt)
     def do_byte_to_int_cast(self, node):
         # TODO: add some logic here?
-        v = self.function_info.lut[node.src]
-        self.function_info.lut[node] = v
+        value = self.function_info.value_map[node.src]
+        self.function_info.value_map[node] = value
 
     @register(ir.IntToPtr)
     def do_int_to_ptr_cast(self, node):
         # TODO: add some logic here?
-        v = self.function_info.lut[node.src]
-        self.function_info.lut[node] = v
+        value = self.function_info.value_map[node.src]
+        self.function_info.value_map[node] = value
 
     @register(ir.PtrToInt)
     def do_ptr_to_int_cast(self, node):
         # TODO: add some logic here?
-        v = self.function_info.lut[node.src]
-        self.function_info.lut[node] = v
+        value = self.function_info.value_map[node.src]
+        self.function_info.value_map[node] = value
 
     @register(ir.Call)
     def do_call(self, node):
         # This is the moment to move all parameters to new temp registers.
         args = []
         for argument in node.arguments:
-            a = self.function_info.lut[argument]
+            a = self.function_info.value_map[argument]
             loc = self.function_info.frame.new_virtual_register()
             loc_tree = Tree('REGI32', value=loc)
             args.append(loc)
             self.dag.append(Tree('MOVI32', loc_tree, a))
 
         # New register for copy of result:
-        rv = self.function_info.frame.new_virtual_register()
+        ret_val = self.function_info.frame.new_virtual_register()
 
         # Perform the actual call:
-        tree = Tree('CALL', value=(node.function_name, args, rv))
+        tree = Tree('CALL', value=(node.function_name, args, ret_val))
         self.dag.append(tree)
 
         # When using the call as an expression, use copy of return value:
-        self.function_info.lut[node] = Tree('REGI32', value=rv)
+        self.function_info.value_map[node] = Tree('REGI32', value=ret_val)
 
     @register(ir.Phi)
     def do_phi(self, node):
@@ -240,11 +235,43 @@ class DagBuilder:
         # Copy values to phi nodes in other blocks:
         for succ_block in ir_block.successors:
             for phi in succ_block.phis:
-                vreg = self.function_info.lut[phi]
+                vreg = self.function_info.value_map[phi]
                 from_val = phi.get_value(ir_block)
-                val = self.function_info.lut[from_val]
+                val = self.function_info.value_map[from_val]
                 tree = Tree('MOVI32', vreg, val)
                 self.dag.append(tree)
+
+    def entry_block_special_case(self, function_info, dag, ir_function):
+        # TODO: maybe this can be done different
+        # Copy parameters into fresh temporaries:
+        for arg in ir_function.arguments:
+            param_tree = Tree(
+                'REGI32', value=function_info.frame.arg_loc(arg.num))
+            assert isinstance(param_tree.value, Register)
+            vreg = function_info.frame.new_virtual_register(twain=arg.name)
+            param_copy = Tree('REGI32', value=vreg)
+            dag.append(Tree('MOVI32', param_copy, param_tree))
+            # When refering the paramater, use the copied value:
+            function_info.value_map[arg] = param_copy
+
+    def prepare_function_info(self, function_info, ir_function):
+        """ Fill function info with labels for all basic blocks """
+        # First define labels and phis:
+        for ir_block in ir_function:
+            # Put label into map:
+            function_info.label_map[ir_block] = Label(ir.label_name(ir_block))
+
+            # Create phi virtual registers:
+            for phi in ir_block.phis:
+                vreg = function_info.frame.new_virtual_register(
+                    twain=phi.name)
+                phi_copy = Tree('REGI32', value=vreg)
+                function_info.value_map[phi] = phi_copy
+
+        # Construct trees for global variables:
+        for global_variable in ir_function.module.Variables:
+            tree = Tree('GLOBALADDRESS', value=ir.label_name(global_variable))
+            function_info.value_map[global_variable] = tree
 
     def make_dag(self, ir_block, function_info):
         """ Create dag (directed acyclic graph) from a basic block.
@@ -254,10 +281,16 @@ class DagBuilder:
         self.logger.debug('Creating dag for {}'.format(ir_block.name))
 
         self.function_info = function_info
-        self.dag = ir_block.dag
+        self.dag = []
+
+        # Emit extra dag for parameters when entry block:
+        if ir_block is ir_block.function.entry:
+            self.entry_block_special_case(
+                function_info, self.dag, ir_block.function)
 
         # Generate series of trees:
         for instruction in ir_block:
+            # In case of last statement, first perform phi-lifting:
             if isinstance(instruction, ir.LastStatement):
                 self.copy_phis_of_successors(ir_block)
             self.f_map[type(instruction)](self, instruction)
