@@ -531,6 +531,21 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [5])
 
+    @unittest.skip('Fix this')
+    def test_uninitialized_local(self):
+        """ When a variable is not initialized before it is used, an error
+            is expected """
+        snippet = """
+         module test;
+         var int b;
+         function void start()
+         {
+            var int x;
+            b = x;
+         }
+        """
+        self.expect_errors(snippet, [0])
+
 
 class StatementTestCase(BuildTestCaseBase):
     """ Testcase for statements """

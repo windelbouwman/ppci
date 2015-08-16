@@ -52,13 +52,18 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     qemu_control_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     qemu_control_serve.bind(('', 0))  # Using 0 as port for autoselect port
     ctrl_port = qemu_control_serve.getsockname()[1]
-    qemu_control_serve.listen(0)
+
+    # Allow a queue of connections, since we start qemu first, then accept
+    # the connection.
+    qemu_control_serve.listen(1)
 
     # Listen to the serial output:
     qemu_serial_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     qemu_serial_serve.bind(('', 0))
     ser_port = qemu_serial_serve.getsockname()[1]
-    qemu_serial_serve.listen(0)
+    qemu_serial_serve.listen(1)
+
+    logger.debug('Listening on {} for data'.format(ser_port))
 
     args = [qemu_app, '-M', machine, '-m', '16M',
             '-nographic',
@@ -67,7 +72,7 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
             '-serial', 'tcp:localhost:{}'.format(ser_port),
             '-S']
     if hasattr(subprocess, 'DEVNULL'):
-        qemu_process = subprocess.Popen(args, stderr=subprocess.DEVNULL)
+        qemu_process = subprocess.Popen(args) # stderr=subprocess.DEVNULL)
     else:
         # pypy3 has no dev null:
         qemu_process = subprocess.Popen(args)
@@ -89,7 +94,7 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
         try:
             data_byte = qemu_serial.recv(1)
             if len(data_byte) == 0:
-                raise Exception('Connection gone loco?')
+                raise RuntimeError('Connection gone loco?')
             if data_byte == bytes([4]):  # EOT (end of transmission)
                 break
             data += data_byte

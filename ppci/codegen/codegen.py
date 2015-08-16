@@ -8,8 +8,11 @@ from ..irutils import Verifier, split_block
 from ..target.target import Target
 from ..target.target import RegisterUseDef
 from ..target.isa import Register, Instruction
+from .selectiongraph import SelectionGraph
+from .irdag import SelectionGraphBuilder, FunctionInfo, prepare_function_info
+from .instructionselector import InstructionSelector1
+from .instructionscheduler import InstructionScheduler
 from .registerallocator import RegisterAllocator
-from .instructionselector import InstructionSelector
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 import logging
 
@@ -17,120 +20,108 @@ import logging
 class CodeGenerator:
     """ Generic code generator. """
     def __init__(self, target):
-        # TODO: schedule traces in better order.
-        # This is optional!
         assert isinstance(target, Target), target
         self.logger = logging.getLogger('codegen')
         self.target = target
-        self.instruction_selector = InstructionSelector(target.isa)
+        self.sgraph_builder = SelectionGraphBuilder()
+        self.instruction_selector = InstructionSelector1(target.isa)
+        self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
-        self.dump_file = None
 
-    def print(self, *args):
-        """ Convenience helper for printing to dumpfile """
-        if self.dump_file:
-            print(*args, file=self.dump_file)
-
-    def dump_dag(self, dags):
-        """ Write selection dag to dumpfile """
-        self.print("Selection dag:")
-        for dag in dags:
-            self.print('Dag:')
-            for root in dag:
-                self.print("- {}".format(root))
-
-    def dump_frame(self, frame):
-        """ Dump frame to file for debug purposes """
-        self.print(frame)
-        for ins in frame.instructions:
-            self.print('$ {}'.format(ins))
-
-    def entry_exit_glue(self, frame):
+    def emit_frame_to_stream(self, frame, outs):
         """
             Add code for the prologue and the epilogue. Add a label, the
             return instruction and the stack pointer adjustment for the frame.
+            At this point we know how much stack space must be reserved for
+            locals and what registers should be saved.
         """
-        for index, ins in enumerate(frame.prologue()):
-            frame.instructions.insert(index, ins)
+        # Materialize the register allocated instructions into a stream of
+        # real instructions.
+        self.logger.debug('Emitting instructions')
+
+        # Prefix code:
+        for instruction in frame.prologue():
+            outs.emit(instruction)
+
+        for ins in frame.instructions:
+            assert isinstance(ins, Instruction) and ins.is_colored, str(ins)
+            outs.emit(ins)
 
         # Postfix code (this uses the emit function):
-        frame.epilogue()
+        for instruction in frame.epilogue():
+            outs.emit(instruction)
 
-    def generate_function(self, irfunc, outs):
+    def select_and_schedule(self, ir_function, frame, reporter):
+        self.logger.debug('Selecting instructions')
+
+        # Create a object that carries global function info:
+        function_info = FunctionInfo(frame)
+        prepare_function_info(function_info, ir_function)
+
+        tree_method = True
+        if tree_method:
+            self.instruction_selector.select(ir_function, frame, function_info, reporter)
+        else:
+            # Build a graph:
+            self.sgraph_builder.build(ir_function, function_info)
+            reporter.message('Selection graph')
+            reporter.dump_sgraph(sgraph)
+
+            # Schedule instructions:
+            self.instruction_scheduler.schedule(sgraph, frame)
+
+    def define_arguments_live(self, frame, arguments):
+        frame.instructions.insert(0, RegisterUseDef())
+        ins0 = frame.instructions[0]
+        assert type(ins0) is RegisterUseDef
+        for idx, _ in enumerate(arguments):
+            arg_loc = frame.arg_loc(idx)
+            if isinstance(arg_loc, Register):
+                ins0.add_def(arg_loc)
+
+    def generate_function(self, ir_function, outs, reporter):
         """ Generate code for one function into a frame """
         self.logger.info('Generating {} code for function {}'
-                         .format(self.target, irfunc.name))
+                         .format(self.target, ir_function.name))
 
-        self.print("========= Log for {} ==========".format(irfunc))
-        self.print("Target: {}".format(self.target))
-        # Writer().write_function(irfunc, f)
-
+        reporter.function_header(ir_function, self.target)
         instruction_list = []
         outs = MasterOutputStream([
             FunctionOutputStream(instruction_list.append),
             outs])
 
-        # Create a frame for this function:
-        frame = self.target.FrameClass(ir.label_name(irfunc))
-
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
-        for block in irfunc:
+        for block in ir_function:
             max_block_len = 200
             while len(block) > max_block_len:
                 self.logger.debug('{} too large, splitting up'.format(block))
                 _, block = split_block(block, pos=max_block_len)
 
-        # Select instructions:
-        self.instruction_selector.select(irfunc, frame)
-        self.logger.debug('Selected instructions')
+        # Create a frame for this function:
+        frame = self.target.FrameClass(ir.label_name(ir_function))
+
+        # Select instructions and schedule them:
+        self.select_and_schedule(ir_function, frame, reporter)
+
+        reporter.message('Selected instruction for {}'.format(ir_function))
+        reporter.dump_frame(frame)
 
         # Define arguments live at first instruction:
-        frame.instructions.insert(0, RegisterUseDef())
-        ins0 = frame.instructions[0]
-        assert type(ins0) is RegisterUseDef
-        for idx, _ in enumerate(irfunc.arguments):
-            arg_loc = frame.arg_loc(idx)
-            if isinstance(arg_loc, Register):
-                ins0.add_def(arg_loc)
-
-        # Dump current state to file:
-        self.print('Selected instructions')
-        self.dump_frame(frame)
+        self.define_arguments_live(frame, ir_function.arguments)
 
         # Do register allocation:
-        self.register_allocator.allocFrame(frame)
-        self.logger.debug('Registers allocated, now adding final glue')
+        self.register_allocator.alloc_frame(frame)
         # TODO: Peep-hole here?
 
-        for ins in frame.instructions:
-            if frame.cfg.has_node(ins):
-                nde = frame.cfg.get_node(ins)
-                self.print('ins: {} {}'.format(ins, nde.longrepr))
-
         # Add label and return and stack adjustment:
-        self.entry_exit_glue(frame)
+        self.emit_frame_to_stream(frame, outs)
+        reporter.function_footer(instruction_list)
 
-        self.dump_frame(frame)
-
-        # Materialize the register allocated instructions into a stream of
-        # real instructions.
-        for ins in frame.instructions:
-            assert isinstance(ins, Instruction) and ins.is_colored, str(ins)
-            outs.emit(ins)
-
-        self.logger.debug('Instructions materialized')
-
-        for ins in instruction_list:
-            self.print(ins)
-
-        self.print("===============================")
-
-    def generate(self, ircode, outs, dump_file=None):
+    def generate(self, ircode, outs, reporter):
         """ Generate code into output stream """
         assert isinstance(ircode, ir.Module)
-        self.dump_file = dump_file
 
         self.logger.info('Generating {} code for module {}'
                          .format(self.target, ircode.name))
@@ -145,4 +136,4 @@ class CodeGenerator:
         # Each frame has a flat list of abstract instructions.
         outs.select_section('code')
         for function in ircode.Functions:
-            self.generate_function(function, outs)
+            self.generate_function(function, outs, reporter)

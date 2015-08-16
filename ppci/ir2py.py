@@ -1,9 +1,13 @@
-
 """
-    Python back-end.
+    Python back-end. Generates python code from ir-code.
 """
 
 from . import ir
+
+
+def literal_label(lit):
+    """ Invent a nice label name for the given literal """
+    return '{}_{}'.format(lit.function.name, lit.name)
 
 
 class IrToPython:
@@ -33,7 +37,7 @@ class IrToPython:
         """ Write ir-code to file f """
         self.f = f
         self.mod_name = ir_mod.name
-        self.string_literals = []
+        self.literals = []
         self.print(0, '')
         self.print(0, '# Module {}'.format(ir_mod.name))
         # Allocate room for global variables:
@@ -45,11 +49,10 @@ class IrToPython:
         for function in ir_mod.Functions:
             self.generate_function(function)
 
-        # TODO: fix this mess with string literals
-        for lit in self.string_literals:
-            self.print(0, "{}_{} = len(mem)".format(
-                lit.function.name, lit.name))
-            for val in lit.value:
+        # emit labeled literals:
+        for lit in self.literals:
+            self.print(0, "{} = len(mem)".format(literal_label(lit)))
+            for val in lit.data:
                 self.print(0, "mem.append({})".format(val))
         self.print(0, '')
 
@@ -84,10 +87,11 @@ class IrToPython:
             self.print(3, '{} = len(mem)'.format(ins.name))
             self.print(3, 'mem.extend([0]*{})'.format(ins.amount))
         elif isinstance(ins, ir.Const):
-            if type(ins.value) is bytes:
-                self.string_literals.append(ins)
-            else:
-                self.print(3, '{} = {}'.format(ins.name, ins.value))
+            self.print(3, '{} = {}'.format(ins.name, ins.value))
+        elif isinstance(ins, ir.LiteralData):
+            assert isinstance(ins.data, bytes)
+            self.literals.append(ins)
+            self.print(3, '{} = {}'.format(ins.name, literal_label(ins)))
         elif isinstance(ins, ir.Binop):
             # Assume int for now.
             self.print(3, '{} = int({} {} {})'.format(
@@ -120,12 +124,6 @@ class IrToPython:
                 raise NotImplementedError()
         elif isinstance(ins, ir.Call):
             self.print(3, '{}'.format(ins))
-        elif isinstance(ins, ir.Addr):
-            # This is only used for string constants.
-            # TODO: fix string literals better
-            assert type(ins.e.value) is bytes
-            self.print(3, '{} = {}_{}'.format(
-                ins.name, ins.function.name, ins.e.name))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')
             self.print(4, 'pass')

@@ -1,3 +1,9 @@
+"""
+    This file implements memory to register promotion. When a memory location
+    is only used by store and load, the stored value can also be stored
+    into a register, to improve performance.
+"""
+
 from .transform import FunctionPass
 from ..ir import Alloc, Load, Store, Phi, Undefined
 from ..domtree import CfgInfo
@@ -12,10 +18,18 @@ def is_alloc_promotable(alloc_inst):
         return False
     if len(alloc_inst.used_by) == 0:
         return False
-    if not all(type(use) in [Load, Store] for use in alloc_inst.used_by):
+
+    # Check if alloc is only used by load and store instructions:
+    if not all(isinstance(use, (Load, Store)) for use in alloc_inst.used_by):
         return False
+
+    # Extract loads and stores:
     loads = [i for i in alloc_inst.used_by if isinstance(i, Load)]
     stores = [i for i in alloc_inst.used_by if isinstance(i, Store)]
+
+    # Check if the alloc is used as a value instead of an address:
+    if any(store.value is alloc_inst for store in stores):
+        return False
 
     # Check for volatile:
     if any(store.volatile for store in stores):
@@ -37,6 +51,33 @@ class Mem2RegPromotor(FunctionPass):
     """ Tries to find alloc instructions only used by load and store
     instructions and replace them with values and phi nodes """
 
+    def place_phi_nodes(self, stores, phi_ty, name, cfg_info):
+        """
+         Step 1: place phi-functions where required:
+         Each node in the df(x) requires a phi function,
+         where x is a block where the variable is defined.
+        """
+        defining_blocks = set(st.block for st in stores)
+
+        # Create worklist:
+        W = set(defining_blocks)
+
+        # TODO: hack to prevent phi from being inserted into block at end:
+        has_phi = set([cfg_info.function.epilog])
+
+        phis = list()
+        while W:
+            defining_block = W.pop()
+            for frontier_block in cfg_info.df[defining_block]:
+                if frontier_block not in has_phi:
+                    has_phi.add(frontier_block)
+                    W.add(frontier_block)
+                    phi_name = "phi_{}".format(name)
+                    phi = Phi(phi_name, phi_ty)
+                    phis.append(phi)
+                    frontier_block.insert_instruction(phi)
+        return phis
+
     def promote(self, alloc_inst, cfg_info):
         """ Promote a single alloc instruction.
         Find load operations and replace them with assignments """
@@ -56,29 +97,11 @@ class Mem2RegPromotor(FunctionPass):
         assert len(all_types) > 0
         phi_ty = all_types[0]
 
-        # Step 1: place phi-functions where required:
-        # Each node in the df(x) requires a phi function,
-        # where x is a block where the variable is defined.
-        defining_blocks = set(st.block for st in stores)
-
-        # Create worklist:
-        W = set(defining_blocks)
-        has_phi = set()
-        phis = list()
-        while W:
-            x = W.pop()
-            for y in cfg_info.df[x]:
-                if y not in has_phi:
-                    has_phi.add(y)
-                    W.add(y)
-                    phi_name = "phi_{}".format(name)
-                    phi = Phi(phi_name, phi_ty)
-                    phis.append(phi)
-                    y.insert_instruction(phi)
+        phis = self.place_phi_nodes(stores, phi_ty, name, cfg_info)
 
         # Create undefined value at start:
         initial_value = Undefined('undef_{}'.format(name), phi_ty)
-        cfg_info.f.entry.insert_instruction(initial_value)
+        cfg_info.function.entry.insert_instruction(initial_value)
         # Step 2: renaming:
 
         # Start a top down sweep over the dominator tree to visit all
@@ -113,7 +136,7 @@ class Mem2RegPromotor(FunctionPass):
             for _ in range(defs):
                 stack.pop(-1)
 
-        search(cfg_info.f.entry)
+        search(cfg_info.function.entry)
 
         # Check that all phis have the proper number of inputs.
         for phi in phis:
@@ -134,7 +157,7 @@ class Mem2RegPromotor(FunctionPass):
         assert not alloc_inst.is_used
         alloc_inst.remove_from_block()
 
-    def onFunction(self, f):
+    def on_function(self, f):
         self.cfg_info = CfgInfo(f)
         for block in f.blocks:
             allocs = [i for i in block if isinstance(i, Alloc)]

@@ -107,39 +107,42 @@ class ArmFrame(Frame):
         yield Push(RegisterSet({LR, R11}))
         # Callee save registers:
         yield Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
-        yield Sub(SP, SP, self.stacksize)  # Reserve stack space
+        if self.stacksize > 0:
+            yield Sub(SP, SP, self.stacksize)  # Reserve stack space
         yield Mov(R11, SP)                 # Setup frame pointer
 
     def insert_litpool(self):
-        """ Insert the literal pool at the current position """
+        """ Generate instruction for the current literals """
         # Align at 4 bytes
-        self.emit(Alignment(4))
+        if self.constants:
+            yield Alignment(4)
+
         # Add constant literals:
         while self.constants:
-            ln, v = self.constants.pop(0)
-            if isinstance(v, int):
-                self.emit(Label(ln))
-                self.emit(dcd(v))
-            elif isinstance(v, str):
-                self.emit(Label(ln))
-                self.emit(dcd(v))
-            elif isinstance(v, bytes):
-                self.emit(Label(ln))
-                for c in v:
-                    self.emit(Db(c))
-                self.emit(Alignment(4))   # Align at 4 bytes
+            label, value = self.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int) or isinstance(value, str):
+                yield dcd(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
             else:  # pragma: no cover
-                raise Exception('Constant of type {} not supported'.format(v))
+                raise NotImplementedError('Constant of type {}'.format(value))
 
     def between_blocks(self):
-        self.insert_litpool()
+        for ins in self.insert_litpool():
+            self.emit(ins)
 
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        self.emit(Add(SP, SP, self.stacksize))
-        self.emit(Pop(RegisterSet({R5, R6, R7, R8, R9, R10})))
-        self.emit(Pop(RegisterSet({PC, R11}), src=[self.rv]))
-        self.insert_litpool()  # Add final literal pool
-        self.emit(Alignment(4))   # Align at 4 bytes
+        if self.stacksize > 0:
+            yield Add(SP, SP, self.stacksize)
+        yield Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
+        yield Pop(RegisterSet({PC, R11}), src=[self.rv])
+        # Add final literal pool:
+        for instruction in self.insert_litpool():
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes

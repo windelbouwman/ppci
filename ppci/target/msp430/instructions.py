@@ -313,11 +313,28 @@ def _(self, tree):
     self.frame.gen_call(label, args, res_var)
 
 
-@isa.pattern('reg', 'MULI32(reg, reg)', cost=10)
+@isa.pattern('reg', 'MULI16(reg, reg)', cost=10)
 def _(self, tree, c0, c1):
     d = self.newTmp()
     self.emit(Mul1(d, c0, c1))
     return d
+
+
+@isa.pattern('reg', 'ANDI16(reg, reg)', cost=10)
+def _(context, tree, c0, c1):
+    d = self.newTmp()
+    context.emit(Mov(c0, d))
+    context.emit(And(c1, d))
+    return d
+
+
+@isa.pattern('stm', 'STRI16(ANDI16(LDRI16(reg1), reg), reg1)', cost=10)
+def _(context, tree, c0, c1):
+    d = self.newTmp()
+    context.emit(Mov(c0, d))
+    context.emit(And(c1, d, As=3))
+    return d
+
 
 #@isa.pattern('reg', 'GLOBALADDRESS', cost=4)
 #def _(self, tree):

@@ -268,9 +268,8 @@ class CodeGenerator:
             oper = code.shorthand_operator
             rval = self.emit(ir.Binop(lhs_ld, oper, rval, "binop", rval.ty))
 
-        # TODO: for now treat all stores as volatile..
-        # TODO: determine volatile properties from type??
-        volatile = True
+        # Determine volatile property from left-hand-side type:
+        volatile = code.lval.typ.volatile
         return self.emit(ir.Store(rval, lval, volatile=volatile))
 
     def gen_if_stmt(self, code):
@@ -397,6 +396,7 @@ class CodeGenerator:
                 raise NotImplementedError(str(expr))
 
         assert isinstance(value, ir.Value)
+
         # do rvalue trick here, create a r-value when required:
         if rvalue and expr.lvalue:
             # Generate expression code and insert an extra load instruction
@@ -659,20 +659,16 @@ class CodeGenerator:
             raise SemanticError('Unknown literal type {}'
                                 .format(expr.val), expr.loc)
         # Construct correct const value:
-        if type(expr.val) is str:
+        if isinstance(expr.val, str):
             cval = pack_string(expr.val)
-            txt_content = ir.Const(cval, 'strval', ir.i32)
-            self.emit(txt_content)
-            value = ir.Addr(txt_content, 'addroftxt', ir.i32)
-        elif type(expr.val) is int:
-            value = ir.Const(expr.val, 'cnst', ir.i32)
-        elif type(expr.val) is bool:
+            value = ir.LiteralData(cval, 'strval')
+        elif isinstance(expr.val, int):  # boolean is a subclass of int!
             # For booleans, use the integer as storage class:
             val = int(expr.val)
-            value = ir.Const(val, 'bool_cnst', ir.i32)
-        elif type(expr.val) is float:
+            value = ir.Const(val, 'cnst', ir.i32)
+        elif isinstance(expr.val, float):
             val = float(expr.val)
-            value = ir.Const(val, 'bool_cnst', ir.f64)
+            value = ir.Const(val, 'cnst', ir.f64)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.val))
         return self.emit(value)

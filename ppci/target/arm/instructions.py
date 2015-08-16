@@ -12,7 +12,9 @@ from .relocations import apply_ldr_imm12, apply_adr_imm12
 
 
 class RegisterSet(set):
-    pass
+    def __repr__(self):
+        reg_names = sorted(str(r) for r in self)
+        return ', '.join(reg_names)
 
 
 isa = Isa()
@@ -572,9 +574,10 @@ def _(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
 
-@isa.pattern('stm', 'MOVI32(REGI32, reg)', cost=2)
+@isa.pattern('reg', 'MOVI32(reg)', cost=2)
 def _(context, tree, c0):
-    context.move(tree.children[0].value, c0)
+    context.move(tree.value, c0)
+    return tree.value
 
 
 @isa.pattern('stm', 'JMP', cost=2)
@@ -666,7 +669,7 @@ def _(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'GLOBALADDRESS', cost=4)
+@isa.pattern('reg', 'LABEL', cost=4)
 def _(context, tree):
     d = context.new_temp()
     ln = context.frame.add_constant(tree.value)
@@ -688,18 +691,11 @@ def _(context, tree, c0):
     return d
 
 
-@isa.pattern('stm', 'CALL', cost=2)
+@isa.pattern('reg', 'CALL', cost=2)
 def _(context, tree):
     label, args, res_var = tree.value
     context.frame.gen_call(label, args, res_var)
-
-
-@isa.pattern('reg', 'ADR(CONSTDATA)', cost=2)
-def _(context, tree):
-    d = context.new_temp()
-    ln = context.frame.add_constant(tree.children[0].value)
-    context.emit(Adr(d, ln))
-    return d
+    return res_var
 
 
 @isa.pattern('reg', 'ANDI32(reg, reg)', cost=2)

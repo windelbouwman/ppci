@@ -7,15 +7,15 @@ DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])
 class CfgInfo:
     """ Calculate control flow graph info, such as dominators
     dominator tree and dominance frontier """
-    def __init__(self, f):
+    def __init__(self, function):
         # Store ir related info:
-        self.f = f
-        self.n0 = f.entry
-        self.N = set(f.blocks)
+        self.function = function
+        self.n0 = function.entry
+        self.N = set(function.blocks)
 
         self.pred = {}
         self.succ = {}
-        for block in f.blocks:
+        for block in function.blocks:
             self.prepare(block)
 
         # From here only succ and pred are relevant:

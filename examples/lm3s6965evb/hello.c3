@@ -2,6 +2,7 @@ module hello;
 
 function void main()
 {
+  // A non-volatile pointer to a volatile integer:
   var int volatile * UART0DR;
   UART0DR = cast<int*>(0x4000C000 + 0x000); // UART0 Data register
   *UART0DR = 72;

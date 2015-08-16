@@ -2,7 +2,7 @@ from ..target import Target, Label
 from .instructions import isa
 from ..data_instructions import data_isa
 from ..arm.registers import register_range
-from .frame import ArmFrame
+from .frame import ThumbFrame
 from ...assembler import BaseAssembler
 
 
@@ -38,7 +38,7 @@ class ThumbTarget(Target):
     def __init__(self):
         super().__init__('thumb')
         self.isa = isa + data_isa
-        self.FrameClass = ArmFrame
+        self.FrameClass = ThumbFrame
         self.assembler = ThumbAssembler(self)
 
     def get_runtime_src(self):

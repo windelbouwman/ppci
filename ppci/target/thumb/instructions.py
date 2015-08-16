@@ -619,38 +619,27 @@ def _(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('stm', 'MOVI32(REGI32, cn)', cost=2)
-def _(context, tree, c0):
-    ln = context.frame.addConstant(c0)
-    r = tree.children[0].value
-    context.emit(Ldr3(r, ln))
-
-
-@isa.pattern('cn', 'CONSTI32', cost=0)
-def _(context, tree):
-    return tree.value
-
-
-@isa.pattern('reg', 'GLOBALADDRESS', cost=2)
+@isa.pattern('reg', 'LABEL', cost=2)
 def _(context, tree):
     d = context.new_temp()
-    ln = context.frame.addConstant(tree.value)
+    ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
 
 
-@isa.pattern('reg', 'CONSTI32', cost=3)
+@isa.pattern('reg', 'CONSTI32', cost=4)
 def _(context, tree):
     d = context.new_temp()
-    ln = context.frame.addConstant(tree.value)
+    ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
 
 
-@isa.pattern('stm', 'MOVI32(REGI32,reg)', cost=1)
+@isa.pattern('reg', 'MOVI32(reg)', cost=1)
 def P11(context, tree, c0):
-    r = tree.children[0].value
-    context.move(r, c0)
+    reg = tree.value
+    context.move(reg, c0)
+    return reg
 
 
 @isa.pattern('stm', 'CJMP(reg,reg)', cost=3)
@@ -683,11 +672,11 @@ def P15(self, tree, c0):
     return d
 
 
-# TODO: fix this double otherwise, by extra token kind IGNR(CALL(..))
-@isa.pattern('stm', 'CALL', cost=1)
-def P17(self, tree):
+@isa.pattern('reg', 'CALL', cost=10)
+def _(self, tree):
     label, args, res_var = tree.value
     self.frame.gen_call(label, args, res_var)
+    return res_var
 
 
 @isa.pattern('reg', 'SUBI32(reg,reg)', cost=1)
@@ -701,14 +690,6 @@ def P18(self, tree, c0, c1):
 def P18_2(self, tree, c0, c1):
     d = self.new_temp()
     self.emit(Sub3(d, c0, c1))
-    return d
-
-
-@isa.pattern('reg', 'ADR(CONSTDATA)', cost=2)
-def P19(self, tree):
-    d = self.new_temp()
-    ln = self.frame.addConstant(tree.children[0].value)
-    self.emit(Adr(d, ln))
     return d
 
 

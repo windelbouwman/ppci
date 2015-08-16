@@ -30,7 +30,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Add(t4, t1, t2))
         f.instructions.append(Add(t5, t4, t3))
         f.instructions.append(Use(t5))
-        self.ra.allocFrame(f)
+        self.ra.alloc_frame(f)
         self.conflict(t1, t2)
         self.conflict(t2, t3)
 
@@ -52,7 +52,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Add(t5, t4, t5))
         f.instructions.append(Mov(t6, t5))
         f.instructions.append(Use(t6))
-        self.ra.allocFrame(f)
+        self.ra.alloc_frame(f)
         self.conflict(t1, t2)
         self.conflict(t2, t3)
         self.conflict(t1, t3)
@@ -77,7 +77,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Def(t2))
         f.instructions.append(Add(t4, t2, t3))
         f.instructions.append(Use(t4))
-        self.ra.allocFrame(f)
+        self.ra.alloc_frame(f)
 
         # Check t1 and t2 are pre-colored:
         self.assertEqual({self.ra.Node(R0)}, self.ra.precolored)
@@ -104,7 +104,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Def(t4))
         f.instructions.append(Add(t5, t4, R1))
         f.instructions.append(Use(t5))
-        self.ra.allocFrame(f)
+        self.ra.alloc_frame(f)
 
         self.assertEqual(set(), self.ra.coalescedMoves)
         #self.assertEqual({move}, self.ra.frozenMoves)

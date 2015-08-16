@@ -15,6 +15,9 @@ class ModulePass:
     def __init__(self):
         self.logger = logging.getLogger(str(self.__class__.__name__))
 
+    def __repr__(self):
+        return self.__class__.__name__
+
     def prepare(self):
         pass
 
@@ -25,29 +28,29 @@ class FunctionPass(ModulePass):
         self.prepare()
         assert isinstance(ir_module, ir.Module)
         for f in ir_module.Functions:
-            self.onFunction(f)
+            self.on_function(f)
 
-    def onFunction(self, f):  # pragma: no cover
+    def on_function(self, f):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
 
 class BlockPass(FunctionPass):
-    def onFunction(self, f):
+    def on_function(self, f):
         for block in f.blocks:
-            self.onBlock(block)
+            self.on_block(block)
 
-    def onBlock(self, bb):  # pragma: no cover
+    def on_block(self, bb):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
 
 class InstructionPass(BlockPass):
-    def onBlock(self, block):
+    def on_block(self, block):
         for ins in iter(block.Instructions):
-            self.onInstruction(ins)
+            self.on_instruction(ins)
 
-    def onInstruction(self, ins):  # pragma: no cover
+    def on_instruction(self, ins):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
@@ -96,20 +99,20 @@ class ConstantFolder(BlockPass):
         else:  # pragma: no cover
             raise NotImplementedError(str(value))
 
-    def onBlock(self, block):
+    def on_block(self, block):
         instructions = list(block)
         count = 0
         for instruction in instructions:
-            if type(instruction) is ir.Binop:
-                if self.is_const(instruction):
-                    # Now we can replace x = (4+5) with x = 9
-                    cn = self.eval_const(instruction)
-                    block = instruction.block
-                    block.insert_instruction(
-                        cn, before_instruction=instruction)
-                    instruction.replace_by(cn)
-                    count += 1
-                elif type(instruction.a) is ir.Binop and \
+            if not isinstance(instruction, ir.Const) and \
+                    self.is_const(instruction):
+                # Now we can replace x = (4+5) with x = 9
+                cnst = self.eval_const(instruction)
+                block.insert_instruction(cnst, before_instruction=instruction)
+                instruction.replace_by(cnst)
+                count += 1
+            else:
+                if type(instruction) is ir.Binop and \
+                        type(instruction.a) is ir.Binop and \
                         instruction.a.operation == '+' and \
                         self.is_const(instruction.a.b) and \
                         (instruction.operation == '+') and \
@@ -119,7 +122,6 @@ class ConstantFolder(BlockPass):
                     b = self.eval_const(instruction.b)
                     assert a.ty is b.ty
                     cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
-                    block = instruction.block
                     block.insert_instruction(
                         cn, before_instruction=instruction)
                     instruction.a = instruction.a.a
@@ -127,7 +129,8 @@ class ConstantFolder(BlockPass):
                     assert instruction.ty is cn.ty
                     assert instruction.ty is instruction.a.ty
                     count += 1
-                elif type(instruction.a) is ir.Binop and \
+                elif type(instruction) is ir.Binop and \
+                        type(instruction.a) is ir.Binop and \
                         instruction.a.operation == '-' and \
                         self.is_const(instruction.a.b) and \
                         instruction.operation == '-' and \
@@ -137,7 +140,6 @@ class ConstantFolder(BlockPass):
                     b = self.eval_const(instruction.b)
                     assert a.ty is b.ty
                     cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
-                    block = instruction.block
                     block.insert_instruction(
                         cn, before_instruction=instruction)
                     instruction.a = instruction.a.a
@@ -151,7 +153,7 @@ class ConstantFolder(BlockPass):
 
 class CommonSubexpressionEliminationPass(BlockPass):
     """ Replace common sub expressions with the previously defined one. """
-    def onBlock(self, block):
+    def on_block(self, block):
         ins_map = {}
         stats = 0
         for i in block:
@@ -175,7 +177,7 @@ class RemoveAddZeroPass(InstructionPass):
     """ Replace additions with zero with the value itself.
         Replace multiplication by 1 with value itself.
     """
-    def onInstruction(self, instruction):
+    def on_instruction(self, instruction):
         if type(instruction) is ir.Binop:
             if instruction.operation == '+':
                 if type(instruction.b) is ir.Const \
@@ -192,7 +194,7 @@ class RemoveAddZeroPass(InstructionPass):
 
 class DeleteUnusedInstructionsPass(BlockPass):
     """ Remove unused variables from a block """
-    def onBlock(self, block):
+    def on_block(self, block):
         count = 0
         instructions = list(block.instructions)
         for instruction in instructions:
@@ -221,14 +223,14 @@ class LoadAfterStorePass(BlockPass):
             [x] = a
             c = a + 2
     """
-    def find_store_backwards(self, i, stop_on=[ir.Call, ir.Store]):
+    def find_store_backwards(self, i, ty, stop_on=[ir.Call, ir.Store]):
         """ Go back from this instruction to beginning """
         block = i.block
         instructions = block.instructions
         pos = instructions.index(i)
         for x in range(pos - 1, 0, -1):
             i2 = instructions[x]
-            if type(i2) is ir.Store:
+            if type(i2) is ir.Store and ty is i2.value.ty:
                 # Got first store!
                 if i2.address is i.address:
                     return i2
@@ -239,7 +241,7 @@ class LoadAfterStorePass(BlockPass):
                 return None
         return None
 
-    def onBlock(self, block):
+    def on_block(self, block):
         self.replace_load_after_store(block)
         self.remove_redundant_stores(block)
 
@@ -253,7 +255,7 @@ class LoadAfterStorePass(BlockPass):
         count = 0
         for load in load_instructions:
             # Find store instruction preceeding this load:
-            store = self.find_store_backwards(load)
+            store = self.find_store_backwards(load, load.ty)
             if store is not None:
                 # Assert type equivalence:
                 assert load.ty is store.value.ty
@@ -274,7 +276,7 @@ class LoadAfterStorePass(BlockPass):
         # Replace stores to the same location:
         for store in store_instructions:
             store_prev = self.find_store_backwards(
-                store, stop_on=[ir.Call, ir.Store, ir.Load])
+                store, store.value.ty, stop_on=[ir.Call, ir.Store, ir.Load])
             if store_prev is not None and not store_prev.volatile:
                 store_prev.remove_from_block()
 
@@ -303,7 +305,7 @@ class CleanPass(FunctionPass):
             B:
 
     """
-    def onFunction(self, f):
+    def on_function(self, f):
         self.remove_empty_blocks(f)
         self.remove_one_preds(f)
 
@@ -385,7 +387,9 @@ class CleanPass(FunctionPass):
 
     def glue_blocks(self, block1, block2):
         """ Glue two blocks together into the first block """
-        self.logger.debug('Glueing {} and {}'.format(block1, block2))
+        self.logger.debug(
+            'Inserting {1} at the end of {0}'.format(block1.name, block2.name))
+
         # Remove the last jump:
         block1.remove_instruction(block1.last_instruction)
 
@@ -393,4 +397,9 @@ class CleanPass(FunctionPass):
         for instruction in block2:
             block1.add_instruction(instruction)
 
+        # Replace incoming info:
+        for successor in block2.successors:
+            successor.replace_incoming(block2, [block1])
+
+        # Remove block from function:
         block1.function.remove_block(block2)

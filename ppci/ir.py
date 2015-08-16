@@ -2,6 +2,8 @@
 Intermediate representation (IR) code classes.
 """
 
+from binascii import hexlify
+
 
 def label_name(dut):
     """ Returns the assembly code label name """
@@ -261,17 +263,17 @@ class Block:
     def unique_name(self, value):
         self.function.make_unique_name(value)
 
-    def insert_instruction(self, i, before_instruction=None):
+    def insert_instruction(self, instruction, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
             assert self == before_instruction.block
             pos = before_instruction.position
         else:
             pos = 0
-        i.parent = self
-        self.instructions.insert(pos, i)
-        if isinstance(i, Value):
-            self.unique_name(i)
+        instruction.parent = self
+        self.instructions.insert(pos, instruction)
+        if isinstance(instruction, Value):
+            self.unique_name(instruction)
 
     def add_instruction(self, i):
         """ Add an instruction to the end of this block """
@@ -530,6 +532,9 @@ class Cast(Expression):
         assert self.to_map[method] is ty
         assert self.from_map[method] is value.ty
 
+    def __repr__(self):
+        return '{} = cast {} {}'.format(self.name, self.ty, self.src.name)
+
 
 class IntToPtr(Cast):
     def __init__(self, value, name):
@@ -561,11 +566,23 @@ class Const(Expression):
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
         self.value = value
-        assert type(value) in [int, float, bool, bytes], str(value)
+        assert type(value) in [int, float], str(value)
 
     def __repr__(self):
-        ty = self.ty
-        return '{} = Const {} {}'.format(self.name, ty, self.value)
+        return '{} = Const {} {}'.format(self.name, self.ty, self.value)
+
+
+class LiteralData(Expression):
+    """ Instruction that contains labeled data. When generating code for this
+        instruction, a label and its data is emitted in the literal area
+    """
+    def __init__(self, data, name):
+        super().__init__(name, ptr)
+        self.data = data
+        assert type(data) in [bytes], str(data)
+
+    def __repr__(self):
+        return '{} = Literal {}'.format(self.name, hexlify(self.data))
 
 
 class Call(Expression):

@@ -273,7 +273,7 @@ class BurgGenerator:
         self.system = system
 
         self.print('#!/usr/bin/python')
-        self.print('from ppci.codegen.tree import BaseMatcher, State')
+        self.print('from ppci.codegen.treematcher import BaseMatcher, State')
         self.print('from ppci.utils.tree import Tree')
         for header in self.system.header_lines:
             self.print(header)

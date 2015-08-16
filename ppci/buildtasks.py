@@ -7,6 +7,8 @@ module
 """
 
 from .tasks import Task, TaskError, register_task
+from .reporting import DummyReportGenerator, HtmlReportGenerator
+from .reporting import complete_report
 from .buildfunctions import c3compile, link, assemble, construct
 from .buildfunctions import objcopy
 from .pcc.common import ParserException
@@ -82,13 +84,21 @@ class C3cTask(Task):
             includes = self.open_file_set(self.arguments['includes'])
         else:
             includes = []
+
+        reporter = DummyReportGenerator()
         if 'listing' in self.arguments:
             lst_file = self.relpath(self.arguments['listing'])
             lst_file = open(lst_file, 'w')
         else:
             lst_file = None
 
-        output = c3compile(sources, includes, target, lst_file=lst_file)
+        if 'report' in self.arguments:
+            report_file = self.relpath(self.arguments['report'])
+            reporter = HtmlReportGenerator(open(report_file, 'w'))
+
+        with complete_report(reporter):
+            output = c3compile(sources, includes, target, reporter=reporter)
+
         if lst_file is not None:
             lst_file.close()
 

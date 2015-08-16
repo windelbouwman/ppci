@@ -10,7 +10,8 @@ import xml
 from .target.target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
-from .irutils import Verifier, Writer
+from .irutils import Verifier
+from .reporting import DummyReportGenerator
 from .codegen import CodeGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
@@ -135,7 +136,7 @@ def get_compiler_rt_lib(target):
     return assemble(io.StringIO(src), target)
 
 
-def c3toir(sources, includes, target):
+def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
     """ Compile c3 sources to ir code using the includes and for the given
     target """
     logger = logging.getLogger('c3c')
@@ -154,92 +155,96 @@ def c3toir(sources, includes, target):
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
         raise TaskError('Compile errors')
+
+    reporter.message('C3 compilation listings for {}'.format(sources))
+    for ir_module in ir_modules:
+        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.dump_ir(ir_module)
+
     return ir_modules
 
 
-def optimize(ircode, do_verify=False):
+def optimize(ir_module, reporter=DummyReportGenerator()):
     """
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
     """
     logger = logging.getLogger('optimize')
-    logger.info('Optimizing module {}'.format(ircode.name))
+    logger.info('Optimizing module {}'.format(ir_module.name))
 
     # Create the verifier:
     verifier = Verifier()
-    verifier.verify(ircode)
 
-    # Optimization passes:
-    passes = [Mem2RegPromotor(),
-              RemoveAddZeroPass(),
-              ConstantFolder(),
-              CommonSubexpressionEliminationPass(),
-              LoadAfterStorePass(),
-              DeleteUnusedInstructionsPass(),
-              CleanPass()]
+    # Optimization passes (bag of tricks):
+    opt_passes = [Mem2RegPromotor(),
+                  RemoveAddZeroPass(),
+                  ConstantFolder(),
+                  CommonSubexpressionEliminationPass(),
+                  LoadAfterStorePass(),
+                  DeleteUnusedInstructionsPass(),
+                  CleanPass()] * 3
 
-    # Brute force 3 times:
-    for _ in range(3):
-        for pas in passes:
-            if do_verify:
-                verifier.verify(ircode)
-            # verifier.verify(ircode)
-            pas.run(ircode)
-            # verifier.verify(ircode)
-
-    # One last verify:
-    if do_verify:
-        verifier.verify(ircode)
+    # Run the passes over the module:
+    for opt_pass in opt_passes:
+        verifier.verify(ir_module)
+        opt_pass.run(ir_module)
+        reporter.message('{} after {}:'.format(ir_module, opt_pass))
+        reporter.dump_ir(ir_module)
+        verifier.verify(ir_module)
 
 
-def ir_to_code(ir_modules, target, lst_file=None):
+def ir_to_code(ir_modules, target, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
     target """
     logger = logging.getLogger('ir_to_code')
     code_generator = CodeGenerator(target)
+    verifier = Verifier()
 
     output = ObjectFile()
     output_stream = BinaryOutputStream(output)
 
-    for ircode in ir_modules:
-        Verifier().verify(ircode)
+    for ir_module in ir_modules:
+        verifier.verify(ir_module)
 
         # Code generation:
-        logger.debug('Starting code generation for {}'.format(ircode))
-        code_generator.generate(ircode, output_stream, dump_file=lst_file)
+        logger.debug('Starting code generation for {}'.format(ir_module))
+        code_generator.generate(ir_module, output_stream, reporter=reporter)
 
+    reporter.message('All modules generated!')
     return output
 
 
-def ir_to_python(ircode, f):
+def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
     """ Convert ir-code to python code """
-    optimize(ircode)
-    IrToPython().generate(ircode, f)
+    generator = IrToPython()
+    generator.f = f
+    generator.header()
+    for ir_module in ir_modules:
+        optimize(ir_module, reporter=reporter)
+        reporter.message('Optimized module:')
+        reporter.dump_ir(ir_module)
+        generator.generate(ir_module, f)
+    # Add glue:
+    print('', file=f)
+    print('def bsp_putc(c):', file=f)
+    print('    print(chr(c), end="")', file=f)
+    print('sample_start()', file=f)
 
 
-def c3compile(sources, includes, target, lst_file=None):
+def c3compile(sources, includes, target, reporter=DummyReportGenerator()):
     """ Compile a set of sources into binary format for the given target """
     target = fix_target(target)
-    writer = Writer()
-    ir_mods = list(c3toir(sources, includes, target))
-    if lst_file:
-        print('C3 compilation listings for {}'.format(sources), file=lst_file)
-        print('Before optimization {}'.format(ir_mods), file=lst_file)
-        for ir_module in ir_mods:
-            writer.write(ir_module, lst_file)
-        print('============', file=lst_file)
+    ir_modules = list(c3toir(sources, includes, target, reporter=reporter))
 
-    for ircode in ir_mods:
-        optimize(ircode, )
+    for ircode in ir_modules:
+        optimize(ircode, reporter=reporter)
 
     # Write output to listings file:
-    if lst_file:
-        print('After optimization {}'.format(ir_mods), file=lst_file)
-        for ir_module in ir_mods:
-            writer.write(ir_module, lst_file)
-        print('============', file=lst_file)
-    obj = ir_to_code(ir_mods, target, lst_file=lst_file)
-    return obj
+    reporter.message('After optimization')
+    for ir_module in ir_modules:
+        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.dump_ir(ir_module)
+    return ir_to_code(ir_modules, target, reporter=reporter)
 
 
 def bf2ir(source):
@@ -248,35 +253,23 @@ def bf2ir(source):
     return ircode
 
 
-def bfcompile(source, target, lst_file=None):
+def bfcompile(source, target, reporter=DummyReportGenerator()):
     """ Compile brainfuck source into binary format for the given target """
-    if lst_file:
-        print('brainfuck compilation listings', file=lst_file)
-    ircode = bf2ir(source)
-    if lst_file:
-        print(
-            'Before optimization {} {}'.format(ircode, ircode.stats()),
-            file=lst_file)
-        writer = Writer()
-        print('==========================', file=lst_file)
-        writer.write(ircode, lst_file)
-        print('==========================', file=lst_file)
-    optimize(ircode)
-
-    if lst_file:
-        print(
-            'After optimization {} {}'.format(ircode, ircode.stats()),
-            file=lst_file)
-        writer = Writer()
-        print('==========================', file=lst_file)
-        writer.write(ircode, lst_file)
-        print('==========================', file=lst_file)
+    reporter.message('brainfuck compilation listings')
+    ir_module = bf2ir(source)
+    reporter.message(
+        'Before optimization {} {}'.format(ir_module, ir_module.stats()))
+    reporter.dump_ir(ir_module)
+    optimize(ir_module)
+    reporter.message(
+        'After optimization {} {}'.format(ir_module, ir_module.stats()))
+    reporter.dump_ir(ir_module)
 
     target = fix_target(target)
-    return ir_to_code([ircode], target, lst_file=lst_file)
+    return ir_to_code([ir_module], target, reporter=reporter)
 
 
-def link(objects, layout, target, lst_file=None, use_runtime=False):
+def link(objects, layout, target, use_runtime=False):
     """ Links the iterable of objects into one using the given layout """
     objects = [fix_object(obj) for obj in objects]
     layout = fix_layout(layout)

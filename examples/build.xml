@@ -7,7 +7,7 @@
             output="startup.o" />
         <compile target="thumb" 
             sources="snake/main.c3;lm3s6965/bsp.c3;../librt/io.c3;snake/game.c3"
-            output="snake.o" />
+            output="snake.o" report="snake_report.html"/>
         <link output="snake.elf" layout="lm3s6965/memlayout.mmap" 
             target="thumb"
             objects="startup.o;snake.o" />

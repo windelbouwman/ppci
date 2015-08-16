@@ -13,27 +13,28 @@ class Writer:
     def __init__(self, extra_indent=''):
         self.extra_indent = extra_indent
 
-    def print(self, txt):
-        print(txt, file=self.f)
+    def print(self, *txt):
+        print(self.extra_indent + ''.join(txt), file=self.f)
 
     def write(self, module, f):
         """ Write ir-code to file f """
         assert type(module) is ir.Module
         self.f = f
-        self.print('{}{}'.format(self.extra_indent, module))
+        self.print('{}'.format(module))
         for v in module.Variables:
-            self.print('{}{}'.format(self.extra_indent, v))
+            self.print()
+            self.print('{}'.format(v))
         for function in module.Functions:
+            self.print()
             self.write_function(function)
 
     def write_function(self, fn):
         args = ','.join('i32 ' + str(a) for a in fn.arguments)
-        self.print('{}function i32 {}({})'
-                   .format(self.extra_indent, fn.name, args))
+        self.print('function i32 {}({})'.format(fn.name, args))
         for block in fn.blocks:
-            self.print('{} {}'.format(self.extra_indent, block))
+            self.print('  {}'.format(block))
             for ins in block:
-                self.print('{}  {}'.format(self.extra_indent, ins))
+                self.print('    {}'.format(ins))
 
 
 class IrParseException(Exception):
@@ -359,6 +360,10 @@ class Builder:
         return i
 
 
+class IrFormError(Exception):
+    pass
+
+
 class Verifier:
     """ Checks an ir module for correctness """
     def __init__(self):
@@ -374,13 +379,19 @@ class Verifier:
     def verify_function(self, function):
         """ Verify all blocks in the function """
         self.name_map = {}
-        for block in function.blocks:
+        for block in function:
             self.verify_block_termination(block)
 
         # Verify predecessor and successor:
-        for block in function.blocks:
+        for block in function:
             preds = set(b for b in function.blocks if block in b.successors)
             assert preds == set(block.predecessors)
+
+        # Check that phi's have inputs for each predecessor:
+        for block in function:
+            for phi in block.phis:
+                for predecessor in block.predecessors:
+                    phi.get_value(predecessor)
 
         # Now we can build a dominator tree
         function.cfg_info = CfgInfo(function)
@@ -427,4 +438,5 @@ class Verifier:
             assert value.dominates(instruction), \
                 "{} does not dominate {}".format(value, instruction)
             # Check that a value is not undefined:
-            assert not isinstance(value, ir.Undefined)
+            if isinstance(value, ir.Undefined):
+                raise IrFormError('{} used uninitialized'.format(value))

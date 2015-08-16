@@ -105,6 +105,9 @@ function void make_output()
 {
     var int x, y, i;
 
+    y = 0;
+    x = 0;
+
     // Blit map to render:
     for (x = 0; x < grid_size; x += 1)
     {
@@ -139,6 +142,9 @@ function void make_output()
 function void print_render()
 {
     var int x, y;
+
+    x = 0;
+    y = 0;
 
     // Move to home:
     bsp.putc(27); // escape character

@@ -8,6 +8,7 @@ from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
 from ppci.ir2py import IrToPython
+from ppci.reporting import HtmlReportGenerator, complete_report
 
 
 def make_filename(s):
@@ -44,21 +45,6 @@ class SamplesMixin:
          function void start()
          {
             io.print("Hello world");
-         }
-        """
-        self.do(snippet, "Hello world")
-
-    @unittest.skip('fix this bug')
-    def test_uninitialized_local(self):
-        snippet = """
-         module sample;
-         import io;
-         var int b;
-         function void start()
-         {
-            io.print("Hello world");
-            var int x;
-            b = x;
          }
         """
         self.do(snippet, "Hello world")
@@ -506,33 +492,32 @@ class SamplesMixin:
 class BuildMixin:
     def build(self, src, lang='c3'):
         base_filename = make_filename(self.id())
-        list_filename = base_filename + '.lst'
-        # Open listings file:
-        lst_file = open(list_filename, 'w')
+        list_filename = base_filename + '.html'
 
         startercode = self.startercode
         arch_mmap = self.arch_mmap
         arch_c3 = self.bsp_c3
-        o1 = assemble(io.StringIO(startercode), self.march)
-        if lang == 'c3':
-            o2 = c3compile([
-                relpath('..', 'librt', 'io.c3'),
-                arch_c3,
-                io.StringIO(src)], [], self.march, lst_file=lst_file)
-            o3 = link(
-                [o2, o1], io.StringIO(arch_mmap), self.march,
-                use_runtime=True)
-        elif lang == 'bf':
-            obj = bfcompile(src, self.march, lst_file=lst_file)
-            o2 = c3compile(
-                [arch_c3], [], self.march, lst_file=lst_file)
-            o3 = link(
-                [o2, o1, obj],
-                io.StringIO(arch_mmap),
-                self.march, use_runtime=True)
-        else:
-            raise Exception('language not implemented')
-        lst_file.close()
+        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        with complete_report(report_generator) as reporter:
+            o1 = assemble(io.StringIO(startercode), self.march)
+            if lang == 'c3':
+                o2 = c3compile([
+                    relpath('..', 'librt', 'io.c3'),
+                    arch_c3,
+                    io.StringIO(src)], [], self.march, reporter=reporter)
+                o3 = link(
+                    [o2, o1], io.StringIO(arch_mmap), self.march,
+                    use_runtime=True)
+            elif lang == 'bf':
+                obj = bfcompile(src, self.march, reporter=reporter)
+                o2 = c3compile(
+                    [arch_c3], [], self.march, reporter=reporter)
+                o3 = link(
+                    [o2, o1, obj],
+                    io.StringIO(arch_mmap),
+                    self.march, use_runtime=True)
+            else:
+                raise Exception('language not implemented')
         return o3
 
 
@@ -553,7 +538,8 @@ class DoMixin:
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnVexpress(unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
+class TestSamplesOnVexpress(
+        unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
     march = "arm"
     startercode = """
     section reset
@@ -584,7 +570,8 @@ class TestSamplesOnVexpress(unittest.TestCase, SamplesMixin, DoMixin, BuildMixin
             dump_file=dump_file, dump_range=(0x20000, 0xf0000))
 
 
-class TestSamplesOnCortexM3(unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
+class TestSamplesOnCortexM3(
+        unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     march = "thumb"
@@ -615,7 +602,7 @@ class TestSamplesOnCortexM3(unittest.TestCase, SamplesMixin, DoMixin, BuildMixin
         if not has_qemu():
             self.skipTest('Not running qemu tests')
         return run_qemu(
-            sample_filename, machine='lm3s6965evb', # lm3s811evb
+            sample_filename, machine='lm3s6965evb',  # lm3s811evb
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
 
 
@@ -623,26 +610,20 @@ class TestSamplesOnPython(unittest.TestCase, SamplesMixin):
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
         sample_filename = base_filename + '.py'
+        list_filename = base_filename + '.html'
 
-        if lang == 'c3':
-            ir_mods = list(c3toir([
-                relpath('..', 'librt', 'io.c3'),
-                relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
-                io.StringIO(src)], [], "arm"))
-        elif lang == 'bf':
-            ir_mods = [bf2ir(src)]
+        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        with complete_report(report_generator) as reporter:
+            if lang == 'c3':
+                ir_modules = list(c3toir([
+                    relpath('..', 'librt', 'io.c3'),
+                    relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
+                    io.StringIO(src)], [], "arm", reporter=reporter))
+            elif lang == 'bf':
+                ir_modules = [bf2ir(src)]
 
-        with open(sample_filename, 'w') as f:
-            i2p = IrToPython()
-            i2p.f = f
-            i2p.header()
-            for m in ir_mods:
-                ir_to_python(m, f)
-            # Add glue:
-            print('', file=f)
-            print('def bsp_putc(c):', file=f)
-            print('    print(chr(c), end="")', file=f)
-            print('sample_start()', file=f)
+            with open(sample_filename, 'w') as f:
+                ir_to_python(ir_modules, f, reporter=reporter)
         res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
 

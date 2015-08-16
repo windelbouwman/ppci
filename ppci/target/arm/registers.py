@@ -5,6 +5,7 @@ from ..isa import Register, Syntax
 class ArmRegister(Register):
     def __repr__(self):
         if self.is_colored:
+            return get_register(self.color).name
             return '{}={}'.format(self.name, self.color)
         else:
             return self.name
@@ -70,7 +71,9 @@ SP = ArmRegister('SP', num=13)
 LR = ArmRegister('LR', num=14)
 PC = ArmRegister('PC', num=15)
 
-registers = [R0, R1, R2, R3, R4, R5, R6, R7, SP, LR, PC]
+registers_low = [R0, R1, R2, R3, R4, R5, R6, R7]
+registers_high = [R8, R9, R10, R11, R12, SP, LR, PC]
+registers = registers_low + registers_high
 num2regmap = {r.num: r for r in registers}
 
 

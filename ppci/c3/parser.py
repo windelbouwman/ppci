@@ -128,7 +128,15 @@ class Parser:
 
     # Type system
     def parse_type_spec(self):
-        """ Parse type specification """
+        """ Parse type specification. Type specs are read from right to left.
+
+        A variable spec is given by:
+        var [typeSpec] [modifiers] [pointer/array suffix] variable_name
+
+        For example:
+        var int volatile * ptr;
+        creates a pointer to a volatile integer.
+        """
         # Parse the first part of a type spec:
         if self.peak == 'struct':
             self.consume('struct')
@@ -150,7 +158,7 @@ class Parser:
                 field = self.consume('ID')
                 the_type = Member(the_type, field.val, field.loc)
 
-        # Check for the volatile modifier:
+        # Check for the volatile modifier (this is a suffix):
         the_type.volatile = self.has_consumed('volatile')
 
         # Check for pointer or array suffix:
@@ -163,6 +171,9 @@ class Parser:
                 the_type = ArrayType(the_type, size)
             else:  # pragma: no cover
                 raise RuntimeError()
+
+            # Check (again) for the volatile modifier:
+            the_type.volatile = self.has_consumed('volatile')
         return the_type
 
     def parse_type_def(self, public=True):

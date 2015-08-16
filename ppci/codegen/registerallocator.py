@@ -237,7 +237,8 @@ class RegisterAllocator:
                 self.worklistMoves.remove(m)
             self.frozenMoves.add(m)
             # Check other part of the move for still being move related:
-            src, dst = self.Node(m.src[0]), self.Node(m.dst[0])
+            src = self.Node(m.used_registers[0])
+            dst = self.Node(m.defined_registers[0])
             v = src if u is dst else dst
             if v not in self.precolored and not self.MoveRelated(v) \
                     and v.Degree < self.K:
@@ -291,7 +292,7 @@ class RegisterAllocator:
         assert self.activeMoves & self.worklistMoves & self.coalescedMoves \
             & self.constrainedMoves & self.frozenMoves == set()
 
-    def allocFrame(self, f):
+    def alloc_frame(self, f):
         """ Do iterated register allocation for a single stack frame. """
         self.InitData(f)
         self.Build()

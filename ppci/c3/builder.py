@@ -8,6 +8,8 @@ from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
+from ..irutils import Verifier, IrFormError
+from ..opt.mem2reg import Mem2RegPromotor
 
 
 class Builder:
@@ -21,6 +23,7 @@ class Builder:
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
         self.codegen = CodeGenerator(diag)
+        self.verifier = Verifier()
         self.target = target
 
     def build(self, srcs, imps=(), return_context=False):
@@ -66,11 +69,28 @@ class Builder:
         ir_modules = []
         for pkg in context.modules:
             ir_modules.append(self.codegen.gencode(pkg, context))
+
+        # Hack to check for undefined variables:
+        try:
+            for ir_module in ir_modules:
+                self.check_control_flow(ir_module)
+        except SemanticError as ex:
+            self.diag.error(ex.msg, None)
+            raise
+
         self.logger.debug('C3 build complete!')
         if return_context:
             return ir_modules, context
         else:
             return ir_modules
+
+    def check_control_flow(self, ir_module):
+        pas = Mem2RegPromotor()
+        try:
+            # pas.run(ir_module)
+            self.verifier.verify(ir_module)
+        except IrFormError as ex:
+            raise SemanticError(str(ex))
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """

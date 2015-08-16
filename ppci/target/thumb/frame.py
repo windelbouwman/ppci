@@ -4,7 +4,7 @@ from ..data_instructions import Db
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
 
 
-class ArmFrame(Frame):
+class ThumbFrame(Frame):
     """ Arm specific frame for functions. """
     def __init__(self, name):
         # We use r7 as frame pointer.
@@ -70,7 +70,7 @@ class ArmFrame(Frame):
             self.stacksize = self.stacksize + size
         return self.locVars[lvar]
 
-    def addConstant(self, value):
+    def add_constant(self, value):
         """ Add a constant to this frame """
         # Check if the constant is already in this frame!
         for lab_name, val in self.constants:
@@ -86,53 +86,45 @@ class ArmFrame(Frame):
 
     def prologue(self):
         """ Returns prologue instruction sequence """
-        pre = [
-            Label(self.name),  # Label indication function
-            Push({LR, R7}),
-            Push({R5, R6}),    # Callee save registers!
-            ]
+        yield Label(self.name)  # Label indication function
+        yield Push({LR, R7})
+        yield Push({R5, R6})    # Callee save registers!
         if self.stacksize > 0:
             ssize = self.round_up(self.stacksize)
 
             # subSp cannot handle large numbers:
             while ssize > 0:
                 if ssize < 128:
-                    pre.append(SubSp(ssize))  # Reserve stack space
+                    yield SubSp(ssize)  # Reserve stack space
                     ssize -= ssize
                 else:
-                    pre.append(SubSp(128))  # Reserve stack space
+                    yield SubSp(128)  # Reserve stack space
                     ssize -= 128
-        pre += [
-            Mov2(R7, SP)                          # Setup frame pointer
-            ]
-        return pre
+        yield Mov2(R7, SP)                          # Setup frame pointer
 
     def insert_litpool(self):
         """ Insert the literal pool at the current position """
         # Align at 4 bytes
-        self.emit(Alignment(4))
+        yield Alignment(4)
 
         # Add constant literals:
-        # TODO: pop constants from pool
         while self.constants:
-            ln, v = self.constants.pop(0)
-            if isinstance(v, int):
-                self.emit(Label(ln))
-                self.emit(dcd(v))
-            elif isinstance(v, str):
-                self.emit(Label(ln))
-                self.emit(dcd(v))
-            elif isinstance(v, bytes):
-                self.emit(Label(ln))
-                for c in v:
-                    self.emit(Db(c))
-                self.emit(Alignment(4))   # Align at 4 bytes
+            label, value = self.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int):
+                yield dcd(value)
+            elif isinstance(value, str):
+                yield dcd(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
             else:  # pragma: no cover
-                raise NotImplementedError(
-                    'Constant of type {} not supported'.format(v))
+                raise NotImplementedError('{} not supported'.format(value))
 
     def between_blocks(self):
-        self.insert_litpool()
+        for instruction in self.insert_litpool():
+            self.emit(instruction)
 
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer and add
@@ -143,11 +135,11 @@ class ArmFrame(Frame):
             # subSp cannot handle large numbers:
             while ssize > 0:
                 if ssize < 128:
-                    self.emit(AddSp(ssize))
+                    yield AddSp(ssize)
                     ssize -= ssize
                 else:
-                    self.emit(AddSp(128))
+                    yield AddSp(128)
                     ssize -= 128
-        self.emit(Pop({R5, R6}))  # Callee save registers!
-        self.emit(Pop({PC, R7}))
-        self.insert_litpool()  # Add final literal pool
+        yield Pop({R5, R6})  # Callee save registers!
+        yield Pop({PC, R7})
+        yield from self.insert_litpool()  # Add final literal pool
