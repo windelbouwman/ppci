@@ -61,45 +61,32 @@ Sourcecode is located here:
 
 Documentation can be found here:
 
-- http://ppci.readthedocs.org/
+- http://ppci.rtfd.org/
 
 
-+-------------------------------+---------------------------------------------+
-| Build status                  | |dronestate|_                               |
-|                               | |appveyor|_                                 |
-+-------------------------------+---------------------------------------------+
-| Development status            | |devstate|_                                 |
-+-------------------------------+---------------------------------------------+
-| Open hub                      | openhub_                                    |
-+-------------------------------+---------------------------------------------+
-| Documentation                 | |docstate|_                                 |
-+-------------------------------+---------------------------------------------+
-| Current release               | |version|_                                  |
-+-------------------------------+---------------------------------------------+
-| Python implementations        | |pyimpls|_                                  |
-+-------------------------------+---------------------------------------------+
-| Python versions               | |pyversions|_                               |
-+-------------------------------+---------------------------------------------+
-| License                       | |license|_                                  |
-+-------------------------------+---------------------------------------------+
-| Downloads                     | |downloads|_                                |
-+-------------------------------+---------------------------------------------+
-
-
+|dronestate|_
+|appveyor|_
+|devstate|_
+|docstate|_
+|version|_
+|pyimpls|_
+|pyversions|_
+|license|_
+|downloads|_
 |coveralls|_
 
+openhub_
 
 .. |coveralls| image:: https://coveralls.io/repos/windel/ppci/badge.svg?branch=master&service=bitbucket
 .. _coveralls: https://coveralls.io/bitbucket/windel/ppci?branch=master
 
-
 .. _openhub: https://www.openhub.net/p/ppci
 
-.. |downloads| image:: https://pypip.in/download/ppci/badge.svg
+.. |downloads| image:: https://img.shields.io/pypi/dm/ppci.png
 .. _downloads: https://pypi.python.org/pypi/ppci
 
 
-.. |version| image:: https://pypip.in/version/ppci/badge.svg
+.. |version| image:: https://img.shields.io/pypi/v/ppci.png
 .. _version: https://pypi.python.org/pypi/ppci
 
 
