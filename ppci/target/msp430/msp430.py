@@ -3,7 +3,7 @@ from .registers import r10, r11, r12, r13, r14, r15
 from .instructions import isa
 from ..data_instructions import data_isa
 from .frame import Msp430Frame
-from ...assembler import BaseAssembler
+from ...binutils.assembler import BaseAssembler
 
 
 class Msp430Target(Target):

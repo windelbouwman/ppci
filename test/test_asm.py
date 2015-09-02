@@ -3,7 +3,7 @@
 import io
 import unittest
 from ppci.common import CompilerError, DiagnosticsManager
-from ppci.assembler import AsmLexer
+from ppci.binutils.assembler import AsmLexer
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.target.target import Label

@@ -1,6 +1,9 @@
 """
     Definitions of arm instructions.
 """
+
+# pylint: disable=no-member,invalid-name
+
 from ..isa import Instruction, Isa
 from ..isa import register_argument, value_argument
 from ..data_instructions import Dd

@@ -1,5 +1,10 @@
 import unittest
-from unittest.mock import patch
+
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
 import io
 from ppci.pcc.grammar import Grammar
 from ppci.pcc.common import ParserGenerationException

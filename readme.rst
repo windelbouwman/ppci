@@ -86,6 +86,13 @@ Documentation can be found here:
 +-------------------------------+---------------------------------------------+
 
 
+|coveralls|_
+
+
+.. |coveralls| image:: https://coveralls.io/repos/windel/ppci/badge.svg?branch=master&service=bitbucket
+.. _coveralls: https://coveralls.io/bitbucket/windel/ppci?branch=master
+
+
 .. _openhub: https://www.openhub.net/p/ppci
 
 .. |downloads| image:: https://pypip.in/download/ppci/badge.svg
@@ -96,19 +103,19 @@ Documentation can be found here:
 .. _version: https://pypi.python.org/pypi/ppci
 
 
-.. |license| image:: https://pypip.in/license/ppci/badge.svg
+.. |license| image:: https://img.shields.io/pypi/l/ppci.png
 .. _license: https://pypi.python.org/pypi/ppci
 
 
-.. |devstate| image:: https://pypip.in/status/ppci/badge.svg
+.. |devstate| image:: https://img.shields.io/pypi/status/ppci.png
 .. _devstate: https://pypi.python.org/pypi/ppci
 
 
-.. |pyversions| image:: https://pypip.in/py_versions/ppci/badge.svg
+.. |pyversions| image:: https://img.shields.io/pypi/pyversions/ppci.png
 .. _pyversions: https://pypi.python.org/pypi/ppci
 
 
-.. |pyimpls| image:: https://pypip.in/implementation/ppci/badge.svg
+.. |pyimpls| image:: https://img.shields.io/pypi/implementation/ppci.png
 .. _pyimpls: https://pypi.python.org/pypi/ppci
 
 

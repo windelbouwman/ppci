@@ -143,11 +143,11 @@ class BurgSystem:
         self.rule_map = {}
         self.goal = None
 
-    def symType(self, t):
+    def sym_of_type(self, t):
         return (s.name for s in self.symbols.values() if type(s) is t)
 
-    terminals = property(lambda s: s.symType(Term))
-    non_terminals = property(lambda s: s.symType(Nonterm))
+    terminals = property(lambda s: s.sym_of_type(Term))
+    non_terminals = property(lambda s: s.sym_of_type(Nonterm))
 
     def add_rule(self, non_term, tree, cost, acceptance, template):
         if type(template) is str:
@@ -184,6 +184,9 @@ class BurgSystem:
 
     def tree(self, name, *args):
         return Tree(name, *args)
+
+    def chain_rules_for_nt(self, nt):
+        return self.symbols[nt].chain_rules
 
     def install(self, name, t):
         assert type(name) is str

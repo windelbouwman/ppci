@@ -1,6 +1,8 @@
 
 from ..isa import Register, Syntax
 
+# pylint: disable=invalid-name
+
 
 class ArmRegister(Register):
     def __repr__(self):

@@ -12,6 +12,7 @@ docs/_build
 test/.coverage
 test/listings
 .tox
+*report.html
 .cache
 .coverage
 htmlcov

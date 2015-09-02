@@ -87,15 +87,12 @@ class SelectionGraphBuilder:
             sgnode.add_input(self.current_token)
         self.current_token = sgnode.new_output('ctrl', kind=SGValue.CONTROL)
 
-    def mem_chain(self):
-        pass
-
     def new_node(self, name, *args, value=None):
         """ Create a new selection graph node, and add it to the graph """
         sgnode = SGNode(name)
         sgnode.add_inputs(*args)
         sgnode.value = value
-        sgnode.block = self.current_block
+        sgnode.group = self.current_block
         self.sgraph.add_node(sgnode)
         return sgnode
 
@@ -105,14 +102,7 @@ class SelectionGraphBuilder:
         self.function_info.value_map[node] = sgvalue
 
     def get_value(self, node):
-        value = self.function_info.value_map[node]
-        if self.current_block is node.block or node.block is None or value.node.name.startswith('CONST'):
-            pass
-        else:
-            print(node, node.block)
-            if not value.vreg:
-                value.vreg = self.function_info.frame.new_virtual_register(value.name)
-        return value
+        return self.function_info.value_map[node]
 
     @register(ir.Return)
     def do_return(self, node):
@@ -131,11 +121,11 @@ class SelectionGraphBuilder:
     @register(ir.CJump)
     def do_cjump(self, node):
         """ Process conditional jump into dag """
-        a = self.get_value(node.a)
-        b = self.get_value(node.b)
-        op = node.cond
-        sgnode = self.new_node('CJMP', a, b)
-        sgnode.value = op, self.function_info.label_map[node.lab_yes],\
+        lhs = self.get_value(node.a)
+        rhs = self.get_value(node.b)
+        cond = node.cond
+        sgnode = self.new_node('CJMP', lhs, rhs)
+        sgnode.value = cond, self.function_info.label_map[node.lab_yes],\
             self.function_info.label_map[node.lab_no]
         self.chain(sgnode)
 
@@ -245,10 +235,10 @@ class SelectionGraphBuilder:
         args = []
         inputs = []
         for argument in node.arguments:
-            a = self.get_value(argument)
+            arg_val = self.get_value(argument)
             loc = self.function_info.frame.new_virtual_register()
             args.append(loc)
-            arg_sgnode = self.new_node('MOVI32', a, value=loc)
+            arg_sgnode = self.new_node('MOVI32', arg_val, value=loc)
             self.chain(arg_sgnode)
             # inputs.append(arg_sgnode.new_output('x'))
 

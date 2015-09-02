@@ -1,7 +1,12 @@
 import unittest
 import sys
 import io
-from unittest.mock import patch
+
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
 from ppci.target.arm.instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.objectfile import load_object

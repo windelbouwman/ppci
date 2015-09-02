@@ -142,4 +142,7 @@ class ThumbFrame(Frame):
                     ssize -= 128
         yield Pop({R5, R6})  # Callee save registers!
         yield Pop({PC, R7})
-        yield from self.insert_litpool()  # Add final literal pool
+
+        # Add final literal pool
+        for instruction in self.insert_litpool():
+            yield instruction

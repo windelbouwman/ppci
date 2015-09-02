@@ -95,10 +95,10 @@ class CodeGenerator:
             body.
         """
         ir_function = self.builder.new_function(function.name)
-        self.builder.setFunction(ir_function)
-        first_block = self.builder.newBlock()
+        self.builder.set_function(ir_function)
+        first_block = self.builder.new_block()
         self.emit(ir.Jump(first_block))
-        self.builder.setBlock(first_block)
+        self.builder.set_block(first_block)
 
         # generate parameters:
         param_map = {}
@@ -135,7 +135,7 @@ class CodeGenerator:
 
         self.gen_stmt(function.body)
         self.emit(ir.Jump(ir_function.epilog))
-        self.builder.setFunction(None)
+        self.builder.set_function(None)
 
     def get_ir_type(self, cty, loc):
         """ Given a certain type, get the corresponding ir-type """
@@ -162,7 +162,7 @@ class CodeGenerator:
         """ Generate code for a statement """
         try:
             assert isinstance(code, ast.Statement)
-            self.builder.setLoc(code.loc)
+            self.builder.set_loc(code.loc)
             if type(code) is ast.Compound:
                 for statement in code.statements:
                     self.gen_stmt(statement)
@@ -195,7 +195,7 @@ class CodeGenerator:
         """ Generate code for return statement """
         ret_val = self.gen_expr_code(code.expr, rvalue=True)
         self.emit(ir.Return(ret_val))
-        self.builder.setBlock(self.builder.newBlock())
+        self.builder.set_block(self.builder.new_block())
 
     def do_coerce(self, ir_val, typ, wanted_typ, loc):
         """ Try to convert expression into the given type
@@ -274,45 +274,45 @@ class CodeGenerator:
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
-        true_block = self.builder.newBlock()
-        bbfalse = self.builder.newBlock()
-        final_block = self.builder.newBlock()
+        true_block = self.builder.new_block()
+        bbfalse = self.builder.new_block()
+        final_block = self.builder.new_block()
         self.gen_cond_code(code.condition, true_block, bbfalse)
-        self.builder.setBlock(true_block)
+        self.builder.set_block(true_block)
         self.gen_stmt(code.truestatement)
         self.emit(ir.Jump(final_block))
-        self.builder.setBlock(bbfalse)
+        self.builder.set_block(bbfalse)
         self.gen_stmt(code.falsestatement)
         self.emit(ir.Jump(final_block))
-        self.builder.setBlock(final_block)
+        self.builder.set_block(final_block)
 
     def gen_while(self, code):
         """ Generate code for while statement """
-        bbdo = self.builder.newBlock()
-        test_block = self.builder.newBlock()
-        final_block = self.builder.newBlock()
+        bbdo = self.builder.new_block()
+        test_block = self.builder.new_block()
+        final_block = self.builder.new_block()
         self.emit(ir.Jump(test_block))
-        self.builder.setBlock(test_block)
+        self.builder.set_block(test_block)
         self.gen_cond_code(code.condition, bbdo, final_block)
-        self.builder.setBlock(bbdo)
+        self.builder.set_block(bbdo)
         self.gen_stmt(code.statement)
         self.emit(ir.Jump(test_block))
-        self.builder.setBlock(final_block)
+        self.builder.set_block(final_block)
 
     def gen_for_stmt(self, code):
         """ Generate for-loop code """
-        bbdo = self.builder.newBlock()
-        test_block = self.builder.newBlock()
-        final_block = self.builder.newBlock()
+        bbdo = self.builder.new_block()
+        test_block = self.builder.new_block()
+        final_block = self.builder.new_block()
         self.gen_stmt(code.init)
         self.emit(ir.Jump(test_block))
-        self.builder.setBlock(test_block)
+        self.builder.set_block(test_block)
         self.gen_cond_code(code.condition, bbdo, final_block)
-        self.builder.setBlock(bbdo)
+        self.builder.set_block(bbdo)
         self.gen_stmt(code.statement)
         self.gen_stmt(code.final)
         self.emit(ir.Jump(test_block))
-        self.builder.setBlock(final_block)
+        self.builder.set_block(final_block)
 
     def gen_cond_code(self, expr, bbtrue, bbfalse):
         """ Generate conditional logic.
@@ -320,15 +320,15 @@ class CodeGenerator:
         if type(expr) is ast.Binop:
             if expr.op == 'or':
                 # Implement sequential logic:
-                second_block = self.builder.newBlock()
+                second_block = self.builder.new_block()
                 self.gen_cond_code(expr.a, bbtrue, second_block)
-                self.builder.setBlock(second_block)
+                self.builder.set_block(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op == 'and':
                 # Implement sequential logic:
-                second_block = self.builder.newBlock()
+                second_block = self.builder.new_block()
                 self.gen_cond_code(expr.a, second_block, bbfalse)
-                self.builder.setBlock(second_block)
+                self.builder.set_block(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 lhs = self.gen_expr_code(expr.a, rvalue=True)
@@ -486,23 +486,23 @@ class CodeGenerator:
         # 'var bool x = true or false;'
 
         # Use condition machinery:
-        true_block = self.builder.newBlock()
-        false_block = self.builder.newBlock()
-        final_block = self.builder.newBlock()
+        true_block = self.builder.new_block()
+        false_block = self.builder.new_block()
+        final_block = self.builder.new_block()
         self.gen_cond_code(expr, true_block, false_block)
 
         # True path:
-        self.builder.setBlock(true_block)
+        self.builder.set_block(true_block)
         true_val = self.emit(ir.Const(1, 'true', ir.i32))
         self.emit(ir.Jump(final_block))
 
         # False path:
-        self.builder.setBlock(false_block)
+        self.builder.set_block(false_block)
         false_val = self.emit(ir.Const(0, 'false', ir.i32))
         self.emit(ir.Jump(final_block))
 
         # Final path:
-        self.builder.setBlock(final_block)
+        self.builder.set_block(final_block)
         phi = self.emit(ir.Phi('bool_res', ir.i32))
         phi.set_incoming(false_block, false_val)
         phi.set_incoming(true_block, true_val)

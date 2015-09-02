@@ -3,7 +3,7 @@ from .instructions import isa
 from ..data_instructions import data_isa
 from ..arm.registers import register_range
 from .frame import ThumbFrame
-from ...assembler import BaseAssembler
+from ...binutils.assembler import BaseAssembler
 
 
 """ Thumb target description. """

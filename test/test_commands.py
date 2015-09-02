@@ -1,7 +1,12 @@
 import unittest
 import tempfile
 import io
-from unittest.mock import patch
+
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
 from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump
 from ppci.common import DiagnosticsManager, SourceLocation
 from util import relpath

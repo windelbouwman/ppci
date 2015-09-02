@@ -3,7 +3,7 @@
 """
 
 from ..target import Target
-from ...assembler import BaseAssembler
+from ...binutils.assembler import BaseAssembler
 from .instructions import isa
 
 

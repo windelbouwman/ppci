@@ -5,13 +5,13 @@
 """
 
 import re
-from .pcc.grammar import Grammar
-from .pcc.earley import EarleyParser
-from .baselex import BaseLexer, EPS, EOF
-from .common import make_num
-from .target.target import Target, Label, Alignment
-from .target.isa import InstructionProperty, Syntax
-from .common import CompilerError, SourceLocation
+from ..pcc.grammar import Grammar
+from ..pcc.earley import EarleyParser
+from ..baselex import BaseLexer, EPS, EOF
+from ..common import make_num
+from ..target.target import Target, Label, Alignment
+from ..target.isa import InstructionProperty, Syntax
+from ..common import CompilerError, SourceLocation
 
 id_regex = r'[A-Za-z_][A-Za-z\d_]*'
 id_matcher = re.compile(id_regex)

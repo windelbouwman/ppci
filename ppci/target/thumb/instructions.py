@@ -1,3 +1,7 @@
+"""
+    Thumb instruction definitions
+"""
+
 from ..isa import Instruction, Isa, register_argument
 from ..token import u16, u32
 from ..data_instructions import Dd
@@ -5,6 +9,8 @@ from ..arm.registers import ArmRegister, Reg8Op
 from ..token import Token, bit_range
 from .relocations import apply_lit8, apply_wrap_new11, apply_b_imm11_imm6
 from .relocations import apply_rel8, apply_bl_imm11, apply_absaddr32
+
+# pylint: disable=no-member,invalid-name
 
 
 class ThumbToken(Token):

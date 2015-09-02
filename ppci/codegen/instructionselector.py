@@ -10,15 +10,11 @@
 """
 
 import logging
-from collections import namedtuple
 from .irdag import SelectionGraphBuilder
-from .selectiongraph import SGValue
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
 from ppci.pyburg import BurgSystem
-
-TreeUse = namedtuple('TreeUse', ['parent', 'child_index'])
 
 
 # Add all possible terminals:
@@ -66,12 +62,8 @@ class TreeSelector:
         self.sys.check_tree_defined(tree)
         self.burm_label(tree)
 
-        # TODO: hack until chain rules work:
-        if tree.state.has_goal('reg'):
-            return self.apply_rules(context, tree, "reg")
-
         if not tree.state.has_goal("stm"):  # pragma: no cover
-            raise Exception("Tree {} not covered".format(tree))
+            raise RuntimeError("Tree {} not covered".format(tree))
         return self.apply_rules(context, tree, "stm")
 
     def burm_label(self, tree):
@@ -101,7 +93,9 @@ class TreeSelector:
                     cost = cost + rule.cost
                     tree.state.set_cost(rule.non_term, cost, rule.nr)
 
-                    # TODO: chain rules!!!
+                    # Also set cost for chain rules here:
+                    for cr in self.sys.chain_rules_for_nt(rule.non_term):
+                        tree.state.set_cost(cr.non_term, cost + cr.cost, cr.nr)
 
     def apply_rules(self, context, tree, goal):
         """ Apply all selected instructions to the tree """
@@ -125,7 +119,10 @@ class TreeSelector:
 
 
 class DagSplitter:
-    """ Class that can split a DAG into a series of trees """
+    """ Class that splits a DAG into a series of trees. This series is sorted
+        such that data dependencies are met. The trees can henceforth be
+        used to match trees.
+    """
     def __init__(self):
         self.logger = logging.getLogger('dag-splitter')
 
@@ -160,30 +157,44 @@ class DagSplitter:
         # Create data for data dependencies:
         children = []
         for inp in node.data_inputs:
+            if (inp.node.group is node.group) or \
+                    (inp.node.group is None) or \
+                    inp.node.name.startswith('CONST'):
+                res = self.traverse_back(inp.node)
+            else:
+                if not inp.vreg:
+                    vreg = self.frame.new_virtual_register(inp.name)
+                    inp.vreg = vreg
+
             # If the input value has a vreg, use it:
             if inp.vreg:
                 # In case on the same block, traverse back:
-                if inp.node.block is node.block:
-                    self.traverse_back(inp.node)
                 children.append(Tree('REGI32', value=inp.vreg))
             else:
-                res = self.traverse_back(inp.node)
                 children.append(res)
 
         # Create a tree node:
         tree = Tree(node.name, *children, value=node.value)
 
+        # Determine if the node should be copied to register:
+        for data_output in node.data_outputs:
+            # Skip constants:
+            if node.name.startswith('CONST'):
+                continue
+
+            # Check if value is used more then once:
+            if (len(data_output.users) > 1) or node.volatile or \
+                    any(u.group is not node.group for u in data_output.users):
+                if not data_output.vreg:
+                    vreg = self.frame.new_virtual_register(data_output.name)
+                    data_output.vreg = vreg
+
+        # Handle outputs:
         if len(node.data_outputs) == 0:
             # If the tree was volatile, it must be emitted
             if node.volatile:
                 self.trees.append(tree)
         else:
-            data_output = node.data_outputs[0]
-            # Check if value is used more then once:
-            if ((len(data_output.users) > 1) or node.volatile) and not node.name.startswith('CONST'):
-                if not data_output.vreg:
-                    data_output.vreg = self.frame.new_virtual_register(data_output.name)
-
             # If the output has a vreg, put the value in:
             if data_output.vreg:
                 tree = Tree('MOVI32', tree, value=data_output.vreg)
@@ -205,7 +216,6 @@ class DagSplitter:
             This function can be looped over and yields a series
             of somehow topologically sorted trees.
         """
-        # TODO: split dag into forest!
         # Split dags into trees!
         self.logger.debug('Splitting forest')
 
@@ -235,6 +245,10 @@ class InstructionSelector1:
         # Generate burm table of rules:
         self.sys = BurgSystem()
 
+        # Allow register results as root rule:
+        # by adding a chain rule 'stm -> reg'
+        self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
+
         for terminal in terminals:
             self.sys.add_terminal(terminal)
 
@@ -247,7 +261,7 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def munch_dag(self, context, dag, reporter):
+    def munch_dag(self, context, root, reporter):
         """ Consume a dag and match it using the matcher to the frame.
             DAG matching is NP-complete.
 
@@ -259,12 +273,15 @@ class InstructionSelector1:
 
             TODO: implement different strategies.
         """
+
         # Match all splitted trees:
-        for tree in self.dag_splitter.split_dag(dag, context.frame):
+        for tree in self.dag_splitter.split_dag(root, context.frame):
             reporter.message(str(tree))
-            # Invoke dynamic programming matcher machinery:
+
             if tree.name in ['EXIT', 'ENTRY']:
                 continue
+
+            # Invoke dynamic programming matcher machinery:
             self.tree_selector.gen(context, tree)
 
     def select(self, ir_function, frame, function_info, reporter):

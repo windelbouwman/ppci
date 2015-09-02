@@ -38,14 +38,14 @@ class IrBuilderTestCase(unittest.TestCase):
     def setUp(self):
         self.b = irutils.Builder()
         self.m = ir.Module('test')
-        self.b.setModule(self.m)
+        self.b.set_module(self.m)
 
     def testBuilder(self):
         f = self.b.new_function('add')
-        self.b.setFunction(f)
-        bb = self.b.newBlock()
+        self.b.set_function(f)
+        bb = self.b.new_block()
         self.b.emit(ir.Jump(bb))
-        self.b.setBlock(bb)
+        self.b.set_block(bb)
         self.b.emit(ir.Const(0, 'const', ir.i32))
         self.b.emit(ir.Jump(f.epilog))
         # Run interpreter:
@@ -58,14 +58,14 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.b = irutils.Builder()
         self.cf = ConstantFolder()
         self.m = ir.Module('test')
-        self.b.setModule(self.m)
+        self.b.set_module(self.m)
 
     def testBuilder(self):
         f = self.b.new_function('test')
-        self.b.setFunction(f)
-        bb = self.b.newBlock()
+        self.b.set_function(f)
+        bb = self.b.new_block()
         self.b.emit(ir.Jump(bb))
-        self.b.setBlock(bb)
+        self.b.set_block(bb)
         v1 = self.b.emit(ir.Const(5, 'const', ir.i32))
         v2 = self.b.emit(ir.Const(7, 'const', ir.i32))
         self.b.emit(ir.Add(v1, v2, "add", ir.i32))
@@ -74,8 +74,8 @@ class ConstantFolderTestCase(unittest.TestCase):
 
     def testAdd0(self):
         f = self.b.new_function('test')
-        self.b.setFunction(f)
-        self.b.setBlock(self.b.newBlock())
+        self.b.set_function(f)
+        self.b.set_block(self.b.new_block())
         v1 = ir.Const(12, 'const', ir.i32)
         self.b.emit(v1)
         v2 = ir.Const(0, 'const', ir.i32)

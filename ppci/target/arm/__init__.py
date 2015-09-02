@@ -3,7 +3,7 @@ from ..target import Target, Label
 from .instructions import LdrPseudo, isa
 from ..data_instructions import data_isa
 from .frame import ArmFrame
-from ...assembler import BaseAssembler
+from ...binutils.assembler import BaseAssembler
 from ..arm.registers import register_range
 from .instructions import dcd, RegisterSet
 

@@ -325,7 +325,7 @@ class Builder:
         self.loc = None
 
     # Helpers:
-    def setModule(self, m):
+    def set_module(self, m):
         self.m = m
 
     def new_function(self, name):
@@ -333,21 +333,21 @@ class Builder:
         self.m.add_function(f)
         return f
 
-    def newBlock(self):
+    def new_block(self):
         """ Create a new block and add it to the current function """
         assert self.function is not None
         block = self.newBlock2()
         self.function.add_block(block)
         return block
 
-    def setFunction(self, f):
+    def set_function(self, f):
         self.function = f
         self.block = f.entry if f else None
 
-    def setBlock(self, block):
+    def set_block(self, block):
         self.block = block
 
-    def setLoc(self, l):
+    def set_loc(self, l):
         self.loc = l
 
     def emit(self, i):

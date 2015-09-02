@@ -110,6 +110,10 @@ class SGNode:
         return [out for out in self.outputs if out.kind == kind]
 
     @property
+    def values(self):
+        return self.inputs + self.outputs
+
+    @property
     def data_outputs(self):
         return self.outputs_of_type(SGValue.DATA)
 
@@ -137,4 +141,4 @@ class SGNode:
 
     @property
     def volatile(self):
-        return any(v.kind != SGValue.DATA for v in self.inputs + self.outputs)
+        return any(v.kind != SGValue.DATA for v in self.values)

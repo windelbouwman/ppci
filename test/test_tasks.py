@@ -1,6 +1,11 @@
 import io
 import unittest
-from unittest.mock import patch
+
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
 from ppci.buildfunctions import construct
 from ppci.buildtasks import EmptyTask
 from ppci.tasks import TaskRunner, TaskError, Project, Target
