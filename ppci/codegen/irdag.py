@@ -35,17 +35,6 @@ def make_map(cls):
     return cls
 
 
-def type_postfix(typ):
-    """ Determine the name of the dag item """
-    postfix_map = {ir.i32: "I32", ir.i16: "I16", ir.ptr: "I32", ir.i8: 'I8'}
-    return postfix_map[typ]
-
-
-def make_opcode(opcode, typ):
-    """ Generate typed opcode from opcode and type """
-    return opcode + type_postfix(typ)
-
-
 def prepare_function_info(function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
@@ -73,14 +62,21 @@ class FunctionInfo:
 
 @make_map
 class SelectionGraphBuilder:
-    def __init__(self):
+    def __init__(self, target):
         self.logger = logging.getLogger('selection-graph-builder')
+        self.postfix_map = {ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
+        tp_map = {4: 'I32', 2: 'I16'}
+        self.postfix_map[ir.ptr] = tp_map[target.byte_sizes['ptr']]
 
     @register(ir.Jump)
     def do_jump(self, node):
         sgnode = self.new_node('JMP')
         sgnode.value = self.function_info.label_map[node.target]
         self.chain(sgnode)
+
+    def make_opcode(self, opcode, typ):
+        """ Generate typed opcode from opcode and type """
+        return opcode + self.postfix_map[typ]
 
     def chain(self, sgnode):
         if self.current_token is not None:
@@ -109,7 +105,7 @@ class SelectionGraphBuilder:
         """ Move result into result register and jump to epilog """
         res = self.get_value(node.result)
         vreg = self.function_info.frame.rv
-        opcode = make_opcode('MOV', node.result.ty)
+        opcode = self.make_opcode('MOV', node.result.ty)
         mov_node = self.new_node(opcode, res, value=vreg)
         self.chain(mov_node)
 
@@ -137,12 +133,12 @@ class SelectionGraphBuilder:
     @register(ir.Alloc)
     def do_alloc(self, node):
         # TODO: check alignment?
-        fp = self.new_node("REGI32", value=self.function_info.frame.fp)
+        fp = self.new_node(self.make_opcode("REG", ir.ptr), value=self.function_info.frame.fp)
         fp_output = fp.new_output('fp')
-        offset = self.new_node("CONSTI32")
+        offset = self.new_node(self.make_opcode("CONST", ir.ptr))
         offset.value = self.function_info.frame.alloc_var(node, node.amount)
         offset_output = offset.new_output('offset')
-        sgnode = self.new_node('ADDI32', fp_output, offset_output)
+        sgnode = self.new_node(self.make_opcode('ADD', ir.ptr), fp_output, offset_output)
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output('alloc'))
 
@@ -161,7 +157,7 @@ class SelectionGraphBuilder:
     def do_load(self, node):
         """ Create dag node for load operation """
         address = self.get_address(node.address)
-        sgnode = self.new_node('LDR' + type_postfix(node.ty), address)
+        sgnode = self.new_node(self.make_opcode('LDR', node.ty), address)
         # Make sure a data dependence is added to this node
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output(node.name))
@@ -171,14 +167,14 @@ class SelectionGraphBuilder:
         """ Create a DAG node for the store operation """
         address = self.get_address(node.address)
         value = self.get_value(node.value)
-        opcode = 'STR' + type_postfix(node.value.ty)
+        opcode = self.make_opcode('STR', node.value.ty)
         sgnode = self.new_node(opcode, address, value)
         self.chain(sgnode)
 
     @register(ir.Const)
     def do_const(self, node):
         if isinstance(node.value, int):
-            name = 'CONSTI32'
+            name = self.make_opcode('CONST', node.ty)
             value = node.value
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node.value)))
@@ -199,32 +195,14 @@ class SelectionGraphBuilder:
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
                  '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
                  '%': 'REM', '^': 'XOR'}
-        op = names[node.operation] + type_postfix(node.ty)
+        op = self.make_opcode(names[node.operation], node.ty)
         a = self.get_value(node.a)
         b = self.get_value(node.b)
         sgnode = self.new_node(op, a, b)
         self.add_map(node, sgnode.new_output(node.name))
 
-    @register(ir.IntToByte)
+    @register(ir.Cast)
     def do_int_to_byte_cast(self, node):
-        # TODO: add some logic here?
-        value = self.get_value(node.src)
-        self.add_map(node, value)
-
-    @register(ir.ByteToInt)
-    def do_byte_to_int_cast(self, node):
-        # TODO: add some logic here?
-        value = self.get_value(node.src)
-        self.add_map(node, value)
-
-    @register(ir.IntToPtr)
-    def do_int_to_ptr_cast(self, node):
-        # TODO: add some logic here?
-        value = self.get_value(node.src)
-        self.add_map(node, value)
-
-    @register(ir.PtrToInt)
-    def do_ptr_to_int_cast(self, node):
         # TODO: add some logic here?
         value = self.get_value(node.src)
         self.add_map(node, value)
@@ -238,7 +216,8 @@ class SelectionGraphBuilder:
             arg_val = self.get_value(argument)
             loc = self.function_info.frame.new_virtual_register()
             args.append(loc)
-            arg_sgnode = self.new_node('MOVI32', arg_val, value=loc)
+            opcode = self.make_opcode('MOV', argument.ty)
+            arg_sgnode = self.new_node(opcode, arg_val, value=loc)
             self.chain(arg_sgnode)
             # inputs.append(arg_sgnode.new_output('x'))
 
@@ -261,7 +240,7 @@ class SelectionGraphBuilder:
     def do_phi(self, node):
         """ Refer to the correct copy of the phi node """
         vreg = self.function_info.phi_map[node]
-        sgnode = self.new_node('REGI32', value=vreg)
+        sgnode = self.new_node(self.make_opcode('REG', node.ty), value=vreg)
         output = sgnode.new_output(node.name)
         output.vreg = vreg
         self.add_map(node, output)
@@ -275,7 +254,7 @@ class SelectionGraphBuilder:
                 vreg = self.function_info.phi_map[phi]
                 from_val = phi.get_value(ir_block)
                 val = self.get_value(from_val)
-                opcode = make_opcode('MOV', phi.ty)
+                opcode = self.make_opcode('MOV', phi.ty)
                 sgnode = self.new_node(opcode, val, value=vreg)
                 self.chain(sgnode)
 
@@ -285,7 +264,8 @@ class SelectionGraphBuilder:
         # Copy parameters into fresh temporaries:
         for arg in ir_function.arguments:
             param_node = self.new_node(
-                'REGI32', value=function_info.frame.arg_loc(arg.num))
+                self.make_opcode('REG', arg.ty),
+                value=function_info.frame.arg_loc(arg.num))
             assert isinstance(param_node.value, Register)
             output = param_node.new_output(arg.name)
             vreg = function_info.frame.new_virtual_register(twain=arg.name)
@@ -300,7 +280,6 @@ class SelectionGraphBuilder:
             The resulting dag can be used for instruction selection.
         """
         assert isinstance(ir_block, ir.Block)
-        self.logger.debug('Creating dag for {}'.format(ir_block.name))
 
         self.current_block = ir_block
 

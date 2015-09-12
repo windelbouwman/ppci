@@ -153,9 +153,7 @@ class Isa:
 
 
 class InsMeta(type):
-    """
-        Meta class to register an instruction within an isa class.
-    """
+    """ Meta class to register an instruction within an isa class. """
     def __init__(cls, name, bases, attrs):
         super(InsMeta, cls).__init__(name, bases, attrs)
 
@@ -165,7 +163,76 @@ class InsMeta(type):
             cls.isa.register_instruction(cls)
 
 
-class Instruction(metaclass=InsMeta):
+class Constructor:
+    """ Instruction, or part of an instruction.
+        An instruction is a special subclass of a constructor. It is final
+        , in other words, it cannot be used in Constructors. An instruction
+        can also be materialized, where as constructors are parts of an
+        instruction.
+        A constructor can contain a syntax and can be initialized by using
+        this syntax.
+    """
+    syntax = None
+
+    def __init__(self, *args):
+        # Generate constructor from args:
+        if self.syntax:
+            formal_args = []
+            for st in self.syntax.syntax:
+                if type(st) is InstructionProperty:
+                    formal_args.append((st._name, st._cls))
+
+            # Set parameters:
+            assert len(args) == len(formal_args)
+            for fa, a in zip(formal_args, args):
+                assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
+                setattr(self, fa[0], a)
+
+            # Set additional properties as specified by syntax:
+            for prop, val in self.syntax.set_props.items():
+                prop.__set__(self, val)
+
+    def _get_repr(self, st):
+        """ Get the repr of a syntax part. Can be str or prop class,
+            in refering to an element in the args list """
+        if type(st) is str:
+            return st
+        elif type(st) is InstructionProperty:
+            return str(st.__get__(self))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(st))
+
+    def __repr__(self):
+        if self.syntax:
+            return ' '.join(self._get_repr(st) for st in self.syntax.syntax)
+        else:
+            return super().__repr__()
+
+    @property
+    def properties(self):
+        """ Return all properties available into this syntax """
+        if not self.syntax:
+            return
+        for st in self.syntax.syntax:
+            if type(st) is InstructionProperty:
+                yield st
+
+    @property
+    def leaves(self):
+        """ recursively yield all properties used, expanding composite
+        props.
+        All properties and the objects on which those properties can be getted
+        are returned.
+        """
+        for prop in self.properties:
+            if issubclass(prop._cls, Constructor):
+                for propcls in prop.__get__(self).leaves:
+                    yield propcls
+            else:
+                yield prop, self
+
+
+class Instruction(Constructor, metaclass=InsMeta):
     """ Base instruction class. Instructions are automatically added to an
         isa object. Instructions are created in the following ways:
         - From python code, by using the instruction directly:
@@ -174,26 +241,15 @@ class Instruction(metaclass=InsMeta):
         - By the instruction selector. This is done via pattern matching rules
 
         Instructions can then be emitted to output streams.
+
+        An instruction can be colored or not. When all its used registers
+        are colored, the instruction is also colored.
     """
     def __init__(self, *args, **kwargs):
         """ Base instruction constructor. Takes an arbitrary amount of
             arguments and tries to fit them on the args or syntax fields
         """
-        # Generate constructor from args:
-        if hasattr(self, 'syntax'):
-            formal_args = []
-            for st in getattr(self, 'syntax'):
-                if type(st) is InstructionProperty:
-                    formal_args.append((st._name, st._cls))
-        else:
-            formal_args = None
-
-        if formal_args is not None:
-            # Set parameters:
-            assert len(args) == len(formal_args)
-            for fa, a in zip(formal_args, args):
-                assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
-                setattr(self, fa[0], a)
+        super().__init__(*args)
 
         # Construct token:
         if hasattr(self, 'tokens'):
@@ -206,71 +262,47 @@ class Instruction(metaclass=InsMeta):
         self.jumps = []
         self.ismove = False
 
+        # TODO: some instructions, like call, use several registers.
+        # Probably this can be handled better:
+        self.extra_uses = []
+        self.extra_defs = []
+
         # Set several properties:
-        self.__dict__.update(kwargs)
-
-    def _get_repr(self, st):
-        """ Get the repr of a syntax part. Can be str or prop class,
-            in refering to an element in the args list """
-        if type(st) is str:
-            return st
-        elif type(st) is InstructionProperty:
-            return str(st.__get__(self))
-        else:  # pragma: no cover
-            raise NotImplementedError(str(st))
-
-    @property
-    def properties(self):
-        if not hasattr(self, 'syntax'):
-            return
-        for st in self.syntax:
-            if type(st) is InstructionProperty:
-                yield st
+        for k, v in kwargs.items():
+            assert hasattr(self, k)
+            setattr(self, k, v)
 
     @property
     def used_registers(self):
         """ Return a set of all registers used by this instruction """
-        # TODO: fix this ugly override!!!
-        if 'src' in self.__dict__:
-            return self.__dict__['src']
-        if '_src' in self.__dict__:
-            return self.__dict__['_src']
         s = []
-        for p in self.properties:
+        for p, o in self.leaves:
             if p._read:
-                s.append(p.__get__(self))
+                s.append(p.__get__(o))
+        s.extend(self.extra_uses)
         return s
 
     @property
     def defined_registers(self):
         """ Return a set of all defined registers """
-        if 'dst' in self.__dict__:
-            return self.__dict__['dst']
-        if '_dst' in self.__dict__:
-            return self.__dict__['_dst']
         s = []
-        for p in self.properties:
+        for p, o in self.leaves:
             if p._write:
-                s.append(p.__get__(self))
+                s.append(p.__get__(o))
+        s.extend(self.extra_defs)
         return s
 
     @property
     def registers(self):
-        for p in self.properties:
+        """ Determine all registers used by this instruction """
+        for p, o in self.leaves:
             if issubclass(p._cls, Register):
-                yield p.__get__(self)
+                yield p.__get__(o)
 
     @property
     def is_colored(self):
         """ Determine whether all registers of this instruction are colored """
         return all(reg.is_colored for reg in self.registers)
-
-    def __repr__(self):
-        if hasattr(self, 'syntax'):
-            syntax = getattr(self, 'syntax')
-            return ' '.join(self._get_repr(st) for st in syntax)
-        else:
-            return super().__repr__()
 
     # Interface methods:
     def encode(self):
@@ -295,8 +327,11 @@ class Syntax:
         The set_props property can be used to set additional properties
         after creating the instruction.
     """
-    def __init__(self, syntax, new_func=None, set_props=None):
+    def __init__(self, syntax, new_func=None, set_props={}):
         assert isinstance(syntax, list)
         self.syntax = syntax
         self.new_func = new_func
         self.set_props = set_props
+
+    def __repr__(self):
+        return '{}'.format(self.syntax)

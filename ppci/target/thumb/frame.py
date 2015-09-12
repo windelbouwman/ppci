@@ -45,7 +45,7 @@ class ThumbFrame(Frame):
                 raise NotImplementedError('Parameters in memory not impl')
         # Caller save registers:
         self.emit(Push({R1, R2, R3, R4}))
-        self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
+        self.emit(Bl(label, extra_uses=reg_uses, extra_defs=[self.rv]))
         self.emit(Pop({R1, R2, R3, R4}))
         self.move(res_var, self.rv)
 

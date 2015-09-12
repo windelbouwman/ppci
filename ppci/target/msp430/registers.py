@@ -3,6 +3,7 @@ from ..isa import Register, Syntax
 
 
 class Msp430Register(Register):
+    bitsize = 16
     syntaxi = 'reg', [
         Syntax(['r0'], new_func=lambda: r0),
         Syntax(['r1'], new_func=lambda: r1),
@@ -22,6 +23,13 @@ class Msp430Register(Register):
         Syntax(['r14'], new_func=lambda: r14),
         Syntax(['r15'], new_func=lambda: r15),
         ]
+
+    def __repr__(self):
+        if self.is_colored:
+            return 'R{}'.format(self.color)
+        else:
+            return self.name
+
 
 # 8 bit registers:
 PCB = Msp430Register('r0', num=0)

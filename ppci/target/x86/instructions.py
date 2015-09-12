@@ -2,7 +2,7 @@
     X86 target descriptions and encodings.
 """
 
-from ..isa import Instruction, Isa, register_argument
+from ..isa import Instruction, Isa, register_argument, Syntax
 from .registers import X86Register
 from ...bitfun import wrap_negative
 
@@ -112,7 +112,7 @@ class X86Instruction(Instruction):
 class NearJump(X86Instruction):
     """ jmp imm32 """
     target = register_argument('target', str)
-    syntax = ['jmp', target]
+    syntax = Syntax(['jmp', target])
     tokens = [OpcodeToken, Imm32Token]
 
     def encode(self):
@@ -131,7 +131,7 @@ class ShortJump(X86Instruction):
     """ jmp imm8 """
     tokens = [OpcodeToken, ByteToken]
     target = register_argument('target', str)
-    syntax = ['jmpshort', target]
+    syntax = Syntax(['jmpshort', target])
 
     def encode(self):
         opcode = 0xeb  # jmp rel8
@@ -143,7 +143,7 @@ class ShortJump(X86Instruction):
 
 class Push(X86Instruction):
     reg = register_argument('reg', X86Register, read=True)
-    syntax = ['push', reg]
+    syntax = Syntax(['push', reg])
 
     def encode(self):
         code = []
@@ -155,7 +155,7 @@ class Push(X86Instruction):
 
 class Pop(X86Instruction):
     reg = register_argument('reg', X86Register, write=True)
-    syntax = ['pop', reg]
+    syntax = Syntax(['pop', reg])
 
     def encode(self):
         code = []
@@ -167,7 +167,7 @@ class Pop(X86Instruction):
 
 class Int(X86Instruction):
     nr = register_argument('nr', int)
-    syntax = ['int', nr]
+    syntax = Syntax(['int', nr])
     tokens = [OpcodeToken, ByteToken]
 
     def encode(self):
@@ -178,7 +178,7 @@ class Int(X86Instruction):
 
 class CallReg(X86Instruction):
     reg = register_argument('reg', X86Register, read=True)
-    syntax = ['call', '*', reg]
+    syntax = Syntax(['call', '*', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -194,7 +194,7 @@ class CallReg(X86Instruction):
 class Call(X86Instruction):
     """ call a function """
     target = register_argument('target', str)
-    syntax = ['call', target]
+    syntax = Syntax(['call', target])
     tokens = [OpcodeToken, Imm32Token]
 
     def encode(self):
@@ -206,7 +206,7 @@ class Call(X86Instruction):
 
 
 class Ret(X86Instruction):
-    syntax = ['ret']
+    syntax = Syntax(['ret'])
     tokens = [OpcodeToken]
 
     def encode(self):
@@ -216,7 +216,7 @@ class Ret(X86Instruction):
 
 class Inc(X86Instruction):
     reg = register_argument('reg', X86Register, read=True, write=True)
-    syntax = ['inc', reg]
+    syntax = Syntax(['inc', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -232,7 +232,7 @@ class Mov1(X86Instruction):
     """ Mov r64 to r64 """
     reg1 = register_argument('reg1', X86Register, write=True)
     reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = ['mov', reg1, ',', reg2]
+    syntax = Syntax(['mov', reg1, ',', reg2])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -270,7 +270,7 @@ class regregbase(X86Instruction):
 def make_regreg(mnemonic, opcode):
     reg1 = register_argument('reg1', X86Register, write=True, read=True)
     reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = [mnemonic, reg1, ',', reg2]
+    syntax = Syntax([mnemonic, reg1, ',', reg2])
     members = {
         'syntax': syntax, 'reg1': reg1, 'reg2': reg2, 'opcode': opcode}
     return type(mnemonic + '_ins', (regregbase,), members)
@@ -285,7 +285,7 @@ Sub = make_regreg('sub', 0x29)
 class Cmp(regregbase):
     reg1 = register_argument('reg1', X86Register, write=True, read=True)
     reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = ['cmp', reg1, ',', reg2]
+    syntax = Syntax(['cmp', reg1, ',', reg2])
     opcode = 0x39  # CMP r/m64, r64
 
 
@@ -306,7 +306,7 @@ class regint32base(X86Instruction):
 def make_regimm(mnemonic, opcode, reg_code):
     reg = register_argument('reg', X86Register, write=True, read=True)
     imm = register_argument('imm', int)
-    syntax = [mnemonic, reg, ',', imm]
+    syntax = Syntax([mnemonic, reg, ',', imm])
     members = {
         'syntax': syntax, 'reg': reg, 'imm': imm, 'opcode': opcode,
         'reg_code': reg_code}
@@ -322,7 +322,7 @@ class Imul(X86Instruction):
     """
     reg1 = register_argument('reg1', X86Register, write=True, read=True)
     reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = ['imul', reg1, ',', reg2]
+    syntax = Syntax(['imul', reg1, ',', reg2])
     tokens = [RexToken, OpcodeToken, OpcodeToken, ModRmToken]
     opcode = 0x0f  # IMUL r64, r/m64
     opcode2 = 0xaf

@@ -2,7 +2,7 @@
     Thumb instruction definitions
 """
 
-from ..isa import Instruction, Isa, register_argument
+from ..isa import Instruction, Isa, register_argument, Syntax
 from ..token import u16, u32
 from ..data_instructions import Dd
 from ..arm.registers import ArmRegister, Reg8Op
@@ -56,7 +56,7 @@ def dcd(v):
 
 class Dcd2(ThumbInstruction):
     v = register_argument('v', str)
-    syntax = ['dcd', '=', v]
+    syntax = Syntax(['dcd', '=', v])
 
     def encode(self):
         return u32(0)
@@ -66,7 +66,7 @@ class Dcd2(ThumbInstruction):
 
 
 class nop_ins(ThumbInstruction):
-    syntax = ['nop']
+    syntax = Syntax(['nop'])
 
     def encode(self):
         return bytes()
@@ -95,15 +95,15 @@ class LS_imm5_base(ThumbInstruction):
 
 class Str2(LS_imm5_base):
     rt = register_argument('rt', Reg8Op, read=True)
-    syntax = [
-        'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']']
+    syntax = Syntax([
+        'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
     opcode = 0xC
 
 
 class Ldr2(LS_imm5_base):
     rt = register_argument('rt', ArmRegister, write=True)
-    syntax = [
-        'ldr', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']']
+    syntax = Syntax([
+        'ldr', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
     opcode = 0xD
 
 
@@ -127,17 +127,17 @@ class LS_byte_imm5_base(ThumbInstruction):
 
 class Strb(LS_byte_imm5_base):
     rt = register_argument('rt', ArmRegister, read=True)
-    syntax = [
+    syntax = Syntax([
         'strb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
-        LS_byte_imm5_base.imm5, ']']
+        LS_byte_imm5_base.imm5, ']'])
     opcode = 0xE
 
 
 class Ldrb(LS_byte_imm5_base):
     rt = register_argument('rt', ArmRegister, write=True)
-    syntax = [
+    syntax = Syntax([
         'ldrb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
-        LS_byte_imm5_base.imm5, ']']
+        LS_byte_imm5_base.imm5, ']'])
     opcode = 0b01111
 
 
@@ -157,7 +157,7 @@ class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
     rt = register_argument('rt', ArmRegister, write=True)
     label = register_argument('label', str)
-    syntax = ['ldr', rt, ',', label]
+    syntax = Syntax(['ldr', rt, ',', label])
 
     def relocations(self):
         return [(self.label, apply_lit8)]
@@ -174,20 +174,20 @@ class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
     rt = register_argument('rt', ArmRegister, write=True)
     opcode = 0x98
-    syntax = ['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']']
+    syntax = Syntax(['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
 
 
 class Str1(ls_sp_base_imm8):
     """ str Rt, [SP, imm8] """
     rt = register_argument('rt', ArmRegister, read=True)
     opcode = 0x90
-    syntax = ['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']']
+    syntax = Syntax(['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
 
 
 class Adr(ThumbInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     label = register_argument('label', str)
-    syntax = ['adr', rd, ',', label]
+    syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
         return [(self.label, apply_lit8)]
@@ -204,7 +204,7 @@ class Mov3(ThumbInstruction):
     opcode = 4   # 00100 Rd(3) imm8
     rd = register_argument('rd', ArmRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = ['mov', rd, ',', imm]
+    syntax = Syntax(['mov', rd, ',', imm])
 
     def encode(self):
         rd = self.rd.num
@@ -233,17 +233,17 @@ class regregimm3_base(ThumbInstruction):
 
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
-    syntax = [
+    syntax = Syntax([
         'add', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
-        regregimm3_base.imm3]
+        regregimm3_base.imm3])
     opcode = 0b0001110
 
 
 class Sub2(regregimm3_base):
     """ sub Rd, Rn, imm3 """
-    syntax = [
+    syntax = Syntax([
         'sub', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
-        regregimm3_base.imm3]
+        regregimm3_base.imm3])
     opcode = 0b0001111
 
 
@@ -265,16 +265,16 @@ class regregreg_base(ThumbInstruction):
 
 
 class Add3(regregreg_base):
-    syntax = [
+    syntax = Syntax([
         'add', regregreg_base.rd, ',', regregreg_base.rn, ',',
-        regregreg_base.rm]
+        regregreg_base.rm])
     opcode = 0b0001100
 
 
 class Sub3(regregreg_base):
-    syntax = [
+    syntax = Syntax([
         'sub', regregreg_base.rd, ',', regregreg_base.rn, ',',
-        regregreg_base.rm]
+        regregreg_base.rm])
     opcode = 0b0001101
 
 
@@ -282,7 +282,7 @@ class Mov2(ThumbInstruction):
     """ mov rd, rm (all registers, also > r7 """
     rd = register_argument('rd', ArmRegister, write=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['mov', rd, ',', rm]
+    syntax = Syntax(['mov', rd, ',', rm])
 
     def encode(self):
         self.token.rd = self.rd.num & 0x7
@@ -304,7 +304,7 @@ class Mul(ThumbInstruction):
     """
     rn = register_argument('rn', ArmRegister, read=True)
     rdm = register_argument('rdm', ArmRegister, read=True, write=True)
-    syntax = ['mul', rn, ',', rdm]
+    syntax = Syntax(['mul', rn, ',', rdm])
 
     def encode(self):
         rn = self.rn.num
@@ -322,7 +322,7 @@ class Sdiv(LongThumbInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['sdiv', rd, ',', rn, ',', rm]
+    syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
 
     def encode(self):
         self.token[11:16] = 0b11111
@@ -348,7 +348,7 @@ class regreg_base(ThumbInstruction):
 def make_regreg(mnemonic, opcode):
     rdn = register_argument('rdn', ArmRegister, write=True, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = [mnemonic, rdn, ',', rm]
+    syntax = Syntax([mnemonic, rdn, ',', rm])
     members = {'syntax': syntax, 'rdn': rdn, 'rm': rm, 'opcode': opcode}
     return type(mnemonic + '_ins', (regreg_base,), members)
 
@@ -366,7 +366,7 @@ class Cmp2(ThumbInstruction):
     opcode = 5   # 00101
     rn = register_argument('rn', ArmRegister, read=True)
     imm = register_argument('imm', int)
-    syntax = ['cmp', rn, ',', imm]
+    syntax = Syntax(['cmp', rn, ',', imm])
 
     def encode(self):
         self.token[0:8] = self.imm
@@ -380,7 +380,7 @@ class Cmp2(ThumbInstruction):
 
 class B(ThumbInstruction):
     target = register_argument('target', str)
-    syntax = ['b', target]
+    syntax = Syntax(['b', target])
 
     def encode(self):
         h = (0b11100 << 11) | 0
@@ -396,7 +396,7 @@ class Bw(LongThumbInstruction):
         Same encoding as Bl, longer jumps are possible with this function!
     """
     target = register_argument('target', str)
-    syntax = ['bw', target]
+    syntax = Syntax(['bw', target])
 
     def encode(self):
         j1 = 1
@@ -415,7 +415,7 @@ class Bw(LongThumbInstruction):
 class Bl(LongThumbInstruction):
     """ Branch with link """
     target = register_argument('target', str)
-    syntax = ['bl', target]
+    syntax = Syntax(['bl', target])
 
     def encode(self):
         j1 = 1  # TODO: what do these mean?
@@ -444,7 +444,7 @@ class cond_base_ins(ThumbInstruction):
 
 def make_cond_branch(mnemonic, cond):
     target = register_argument('target', str)
-    syntax = [mnemonic, target]
+    syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
     return type(mnemonic + '_ins', (cond_base_ins,), members)
@@ -474,7 +474,7 @@ class cond_base_ins_long(LongThumbInstruction):
 
 def make_long_cond_branch(mnemonic, cond):
     target = register_argument('target', str)
-    syntax = [mnemonic, target]
+    syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
     return type(mnemonic + '_ins', (cond_base_ins_long,), members)
@@ -508,7 +508,7 @@ def pop_bit_pos(n):
 
 class Push(ThumbInstruction):
     regs = register_argument('regs', set)
-    syntax = ['push', regs]
+    syntax = Syntax(['push', regs])
 
     def __repr__(self):
         return 'Push {{{}}}'.format(self.regs)
@@ -527,7 +527,7 @@ def register_numbers(regs):
 
 class Pop(ThumbInstruction):
     regs = register_argument('regs', set)
-    syntax = ['pop', regs]
+    syntax = Syntax(['pop', regs])
 
     def __repr__(self):
         return 'Pop {{{}}}'.format(self.regs)
@@ -540,7 +540,7 @@ class Pop(ThumbInstruction):
 
 
 class Yield(ThumbInstruction):
-    syntax = ['yield']
+    syntax = Syntax(['yield'])
 
     def encode(self):
         return u16(0xbf10)
@@ -557,12 +557,12 @@ class addspsp_base(ThumbInstruction):
 
 
 class AddSp(addspsp_base):
-    syntax = ['add', 'sp', ',', 'sp', ',', addspsp_base.imm7]
+    syntax = Syntax(['add', 'sp', ',', 'sp', ',', addspsp_base.imm7])
     opcode = 0b101100000
 
 
 class SubSp(addspsp_base):
-    syntax = ['sub', 'sp', ',', 'sp', ',', addspsp_base.imm7]
+    syntax = Syntax(['sub', 'sp', ',', 'sp', ',', addspsp_base.imm7])
     opcode = 0b101100001
 
 
@@ -611,6 +611,11 @@ def _(self, tree):
     return tree.value
 
 
+@isa.pattern('reg', 'REGI8', cost=0)
+def _(self, tree):
+    return tree.value
+
+
 @isa.pattern('reg', 'ADDI32(reg,reg)', cost=1)
 def _(self, tree, c0, c1):
     d = self.new_temp()
@@ -641,15 +646,30 @@ def _(context, tree):
     return d
 
 
+@isa.pattern('reg', 'CONSTI8', cost=4)
+def _(context, tree):
+    d = context.new_temp()
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Ldr3(d, ln))
+    return d
+
+
 @isa.pattern('reg', 'MOVI32(reg)', cost=1)
-def P11(context, tree, c0):
+def _(context, tree, c0):
+    reg = tree.value
+    context.move(reg, c0)
+    return reg
+
+
+@isa.pattern('reg', 'MOVI8(reg)', cost=1)
+def _(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
     return reg
 
 
 @isa.pattern('stm', 'CJMP(reg,reg)', cost=3)
-def P12(context, tree, c0, c1):
+def _(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
     Bop = opnames[op]
@@ -660,19 +680,19 @@ def P12(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI8(reg,reg)', cost=1)
-def P13(context, tree, c0, c1):
+def _(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
 
 @isa.pattern('reg', 'LDRI8(reg)', cost=1)
-def P14(context, tree, c0):
+def _(context, tree, c0):
     d = context.new_temp()
     context.emit(Ldrb(d, c0, 0))
     return d
 
 
 @isa.pattern('reg', 'LDRI32(reg)', cost=1)
-def P15(self, tree, c0):
+def _(self, tree, c0):
     d = self.new_temp()
     self.emit(Ldr2(d, c0, 0))
     return d
@@ -686,21 +706,21 @@ def _(self, tree):
 
 
 @isa.pattern('reg', 'SUBI32(reg,reg)', cost=1)
-def P18(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.emit(Sub3(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'SUBI8(reg,reg)', cost=1)
-def P18_2(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.emit(Sub3(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'SHRI32(reg, reg)', cost=1)
-def P20(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.move(d, c0)
     self.emit(Lsr(d, c1))
@@ -708,7 +728,7 @@ def P20(self, tree, c0, c1):
 
 
 @isa.pattern('reg', 'ORI32(reg, reg)', cost=1)
-def P21(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.move(d, c0)
     self.emit(Orr(d, c1))
@@ -716,7 +736,7 @@ def P21(self, tree, c0, c1):
 
 
 @isa.pattern('reg', 'ANDI32(reg, reg)', cost=1)
-def P22(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.move(d, c0)
     self.emit(And(d, c1))
@@ -724,7 +744,7 @@ def P22(self, tree, c0, c1):
 
 
 @isa.pattern('reg', 'SHLI32(reg, reg)', cost=1)
-def P23(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.move(d, c0)
     self.emit(Lsl(d, c1))
@@ -732,7 +752,7 @@ def P23(self, tree, c0, c1):
 
 
 @isa.pattern('reg', 'MULI32(reg, reg)', cost=5)
-def P24(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.move(d, c0)
     # Attention: multiply takes the second argument as use and def:
@@ -741,14 +761,14 @@ def P24(self, tree, c0, c1):
 
 
 @isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
-def P25(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.emit(Sdiv(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
-def P26(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d2 = self.new_temp()
     self.emit(Sdiv(d2, c0, c1))
     # Multiply result by divider:
@@ -761,11 +781,8 @@ def P26(self, tree, c0, c1):
 
 
 @isa.pattern('reg', 'XORI32(reg, reg)', cost=10)
-def P27(self, tree, c0, c1):
+def _(self, tree, c0, c1):
     d = self.new_temp()
     self.move(d, c0)
     self.emit(Eor(d, c1))
     return d
-
-# reg: MEMI32(ADDI32(reg, cn))  1 'return tree.children[0].children[1].value < 32' 'd = self.newTmp(); self.emit(Ldr2, dst=[d], src=[c0], others=[c1]); return d'
-# addr: reg 0 ''

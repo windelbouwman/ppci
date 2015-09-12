@@ -5,6 +5,7 @@ from ..isa import Register, Syntax
 
 
 class ArmRegister(Register):
+    bitsize = 32
     def __repr__(self):
         if self.is_colored:
             return get_register(self.color).name

@@ -10,7 +10,6 @@
 """
 
 import logging
-from .irdag import SelectionGraphBuilder
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
@@ -25,9 +24,11 @@ terminals = ("ADDI32", "SUBI32", "MULI32", "DIVI32", 'REMI32',
              "ORI16", "SHLI16", "SHRI16", "ANDI16", "XORI16",
              "ORI8", "SHLI8", "SHRI8", "ANDI8", "XORI8",
              "MOVI32", "REGI32", "LDRI32", "STRI32",
-             "MOVI16", "REGI16", "LDRI16", "STRI32",
+             "MOVI16", "REGI16", "LDRI16", "STRI16",
              "MOVI8", "REGI8", "LDRI8", "STRI8",
              "CONSTI32",
+             "CONSTI16",
+             'CONSTI8',
              "CALL", "LABEL",
              "JMP", "CJMP",
              "EXIT", "ENTRY")
@@ -49,6 +50,11 @@ class InstructionContext:
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
         return self.frame.emit(*args, **kwargs)
+
+
+def make_op(op, vreg):
+    typ = 'I{}'.format(vreg.bitsize)
+    return '{}{}'.format(op, typ)
 
 
 class TreeSelector:
@@ -168,8 +174,7 @@ class DagSplitter:
 
             # If the input value has a vreg, use it:
             if inp.vreg:
-                # In case on the same block, traverse back:
-                children.append(Tree('REGI32', value=inp.vreg))
+                children.append(Tree(make_op('REG', inp.vreg), value=inp.vreg))
             else:
                 children.append(res)
 
@@ -196,10 +201,12 @@ class DagSplitter:
                 self.trees.append(tree)
         else:
             # If the output has a vreg, put the value in:
+            data_output = node.data_outputs[0]
             if data_output.vreg:
-                tree = Tree('MOVI32', tree, value=data_output.vreg)
+                vreg = data_output.vreg
+                tree = Tree(make_op('MOV', vreg), tree, value=vreg)
                 self.trees.append(tree)
-                tree = Tree('REGI32', value=data_output.vreg)
+                tree = Tree(make_op('REG', vreg), value=vreg)
             elif node.volatile:
                 self.trees.append(tree)
 
@@ -216,9 +223,6 @@ class DagSplitter:
             This function can be looped over and yields a series
             of somehow topologically sorted trees.
         """
-        # Split dags into trees!
-        self.logger.debug('Splitting forest')
-
         self.trees = []
         self.node_map = {}
         self.frame = frame
@@ -237,8 +241,8 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa):
-        self.dag_builder = SelectionGraphBuilder()
+    def __init__(self, isa, dag_builder):
+        self.dag_builder = dag_builder
         self.dag_splitter = DagSplitter()
         self.logger = logging.getLogger('instruction-selector')
 

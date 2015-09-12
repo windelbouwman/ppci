@@ -10,6 +10,7 @@ class Msp430Target(Target):
     def __init__(self):
         super().__init__('msp430')
         self.byte_sizes['int'] = 2  # For front end!
+        self.byte_sizes['ptr'] = 2  # For front end!
         self.isa = isa + data_isa
         self.assembler = BaseAssembler(self)
         self.assembler.gen_asm_parser()

@@ -7,7 +7,6 @@ import os
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
-from ppci.ir2py import IrToPython
 from ppci.reporting import HtmlReportGenerator, complete_report
 
 
@@ -34,9 +33,8 @@ def only_bf(txt):
     return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
 
-class SamplesMixin:
+class SimpleSamples:
     """ Collection of snippets with expected output """
-
     def test_print(self):
         """ Test if print statement works """
         snippet = """
@@ -49,6 +47,9 @@ class SamplesMixin:
         """
         self.do(snippet, "Hello world")
 
+
+class I32Samples:
+    """ 32-bit samples """
     def test_for_loop_print(self):
         snippet = """
          module sample;
@@ -496,14 +497,14 @@ class BuildMixin:
 
         startercode = self.startercode
         arch_mmap = self.arch_mmap
-        arch_c3 = self.bsp_c3
+        bsp_c3 = self.bsp_c3
         report_generator = HtmlReportGenerator(open(list_filename, 'w'))
         with complete_report(report_generator) as reporter:
             o1 = assemble(io.StringIO(startercode), self.march)
             if lang == 'c3':
                 o2 = c3compile([
                     relpath('..', 'librt', 'io.c3'),
-                    arch_c3,
+                    bsp_c3,
                     io.StringIO(src)], [], self.march, reporter=reporter)
                 o3 = link(
                     [o2, o1], io.StringIO(arch_mmap), self.march,
@@ -511,7 +512,7 @@ class BuildMixin:
             elif lang == 'bf':
                 obj = bfcompile(src, self.march, reporter=reporter)
                 o2 = c3compile(
-                    [arch_c3], [], self.march, reporter=reporter)
+                    [bsp_c3], [], self.march, reporter=reporter)
                 o3 = link(
                     [o2, o1, obj],
                     io.StringIO(arch_mmap),
@@ -539,7 +540,7 @@ class DoMixin:
 
 
 class TestSamplesOnVexpress(
-        unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
+        unittest.TestCase, SimpleSamples, I32Samples, DoMixin, BuildMixin):
     march = "arm"
     startercode = """
     section reset
@@ -571,7 +572,7 @@ class TestSamplesOnVexpress(
 
 
 class TestSamplesOnCortexM3(
-        unittest.TestCase, SamplesMixin, DoMixin, BuildMixin):
+        unittest.TestCase, SimpleSamples, I32Samples, DoMixin, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     march = "thumb"
@@ -606,7 +607,7 @@ class TestSamplesOnCortexM3(
             dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
 
 
-class TestSamplesOnPython(unittest.TestCase, SamplesMixin):
+class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
         sample_filename = base_filename + '.py'
@@ -628,8 +629,7 @@ class TestSamplesOnPython(unittest.TestCase, SamplesMixin):
         self.assertEqual(expected_output, res)
 
 
-@unittest.skip('to be implemented')
-class TestSamplesOnMsp430(unittest.TestCase, SamplesMixin, BuildMixin):
+class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "msp430"
     startercode = """
     section reset
@@ -644,7 +644,19 @@ class TestSamplesOnMsp430(unittest.TestCase, SamplesMixin, BuildMixin):
         SECTION(data)
     }
     """
-    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+    bsp_c3 = io.StringIO("""
+    module bsp;
+
+    public function void putc(byte c)
+    {
+    }
+
+    function void exit()
+    {
+        putc(4); // End of transmission
+    }
+
+    """)
 
     def do(self, src, expected_output, lang='c3'):
         self.build(src, lang)

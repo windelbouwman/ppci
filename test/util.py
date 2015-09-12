@@ -26,6 +26,8 @@ def tryrm(fn):
 
 def has_qemu():
     """ Determines if qemu is possible """
+    if 'RUNQEMU' not in os.environ:
+        return False
     if hasattr(shutil, 'which'):
         return bool(shutil.which(qemu_app))
     else:

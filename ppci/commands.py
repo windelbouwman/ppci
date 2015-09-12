@@ -129,6 +129,7 @@ def asm(args=None):
         obj.save(args.output)
 
         # Attention! Closing the output file may close stdout!
+        args.output.flush()
         # args.output.close()
 
 

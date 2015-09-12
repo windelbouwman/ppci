@@ -18,7 +18,7 @@ The project contains the following:
 - Assembler
 - Linker
 
-**Warning: This project is in alpha state and not read for production use!**
+**Warning: This project is in alpha state and not ready for production use!**
 
 Quick guide
 -----------
@@ -115,4 +115,4 @@ openhub_
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-.. _docstate: https://ppci.readthedocs.org/en/latest
+.. _docstate: https://ppci.rtfd.org/en/latest

@@ -3,14 +3,14 @@
 
 For example:
 
-dw 0 -> 00
-db 0 -> 0000
+db 0 -> 00
+dw 0 -> 0000
 dd 2 -> 02000000
 
 """
 
 from .isa import Instruction, Isa, register_argument, Syntax
-from .token import Token, u16, bit_range, bit, u8, u32
+from .token import Token, u16, bit_range, u8, u32
 
 data_isa = Isa()
 
@@ -52,7 +52,7 @@ class DataInstruction(Instruction):
 class Db(DataInstruction):
     tokens = [ByteToken]
     v = register_argument('v', int)
-    syntax = ['db', v]
+    syntax = Syntax(['db', v])
 
     def encode(self):
         self.token.value = self.v
@@ -62,7 +62,7 @@ class Db(DataInstruction):
 class Dw(DataInstruction):
     tokens = [WordToken]
     v = register_argument('v', int)
-    syntax = ['dw', v]
+    syntax = Syntax(['dw', v])
 
     def encode(self):
         self.token.value = self.v
@@ -72,7 +72,7 @@ class Dw(DataInstruction):
 class Dd(DataInstruction):
     tokens = [DwordToken]
     v = register_argument('v', int)
-    syntax = ['dd', v]
+    syntax = Syntax(['dd', v])
 
     def encode(self):
         self.token.value = self.v
@@ -83,7 +83,7 @@ class Ds(DataInstruction):
     """ Reserve an amount of space """
     tokens = []
     v = register_argument('v', int)
-    syntax = ['ds', v]
+    syntax = Syntax(['ds', v])
 
     def encode(self):
         return bytes([0] * self.v)

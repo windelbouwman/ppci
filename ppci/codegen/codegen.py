@@ -8,7 +8,6 @@ from ..irutils import Verifier, split_block
 from ..target.target import Target
 from ..target.target import RegisterUseDef
 from ..target.isa import Register, Instruction
-from .selectiongraph import SelectionGraph
 from .irdag import SelectionGraphBuilder, FunctionInfo, prepare_function_info
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
@@ -23,13 +22,13 @@ class CodeGenerator:
         assert isinstance(target, Target), target
         self.logger = logging.getLogger('codegen')
         self.target = target
-        self.sgraph_builder = SelectionGraphBuilder()
-        self.instruction_selector = InstructionSelector1(target.isa)
+        self.sgraph_builder = SelectionGraphBuilder(target)
+        self.instruction_selector = InstructionSelector1(target.isa, self.sgraph_builder)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
 
-    def emit_frame_to_stream(self, frame, outs):
+    def emit_frame_to_stream(self, frame, output_stream):
         """
             Add code for the prologue and the epilogue. Add a label, the
             return instruction and the stack pointer adjustment for the frame.
@@ -42,15 +41,15 @@ class CodeGenerator:
 
         # Prefix code:
         for instruction in frame.prologue():
-            outs.emit(instruction)
+            output_stream.emit(instruction)
 
         for ins in frame.instructions:
             assert isinstance(ins, Instruction) and ins.is_colored, str(ins)
-            outs.emit(ins)
+            output_stream.emit(ins)
 
         # Postfix code (this uses the emit function):
         for instruction in frame.epilogue():
-            outs.emit(instruction)
+            output_stream.emit(instruction)
 
     def select_and_schedule(self, ir_function, frame, reporter):
         self.logger.debug('Selecting instructions')
@@ -80,16 +79,16 @@ class CodeGenerator:
             if isinstance(arg_loc, Register):
                 ins0.add_def(arg_loc)
 
-    def generate_function(self, ir_function, outs, reporter):
+    def generate_function(self, ir_function, output_stream, reporter):
         """ Generate code for one function into a frame """
         self.logger.info('Generating {} code for function {}'
                          .format(self.target, ir_function.name))
 
         reporter.function_header(ir_function, self.target)
         instruction_list = []
-        outs = MasterOutputStream([
+        output_stream = MasterOutputStream([
             FunctionOutputStream(instruction_list.append),
-            outs])
+            output_stream])
 
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
@@ -116,10 +115,10 @@ class CodeGenerator:
         # TODO: Peep-hole here?
 
         # Add label and return and stack adjustment:
-        self.emit_frame_to_stream(frame, outs)
+        self.emit_frame_to_stream(frame, output_stream)
         reporter.function_footer(instruction_list)
 
-    def generate(self, ircode, outs, reporter):
+    def generate(self, ircode, output_stream, reporter):
         """ Generate code into output stream """
         assert isinstance(ircode, ir.Module)
 
@@ -127,13 +126,13 @@ class CodeGenerator:
                          .format(self.target, ircode.name))
 
         # Generate code for global variables:
-        outs.select_section('data')
+        output_stream.select_section('data')
         for var in ircode.Variables:
-            self.target.emit_global(outs, ir.label_name(var), var.amount)
+            self.target.emit_global(output_stream, ir.label_name(var), var.amount)
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
         # Each frame has a flat list of abstract instructions.
-        outs.select_section('code')
+        output_stream.select_section('code')
         for function in ircode.Functions:
-            self.generate_function(function, outs, reporter)
+            self.generate_function(function, output_stream, reporter)

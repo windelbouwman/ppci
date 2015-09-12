@@ -30,6 +30,7 @@ class ArmFrame(Frame):
         self.fp = R11
 
         self.locVars = {}
+
         # Literal pool:
         self.constants = []
         self.literal_number = 0
@@ -58,7 +59,7 @@ class ArmFrame(Frame):
                 self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
-        self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
+        self.emit(Bl(label, extra_uses=reg_uses, extra_defs=[self.rv]))
         self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
         self.move(res_var, self.rv)
 
@@ -111,7 +112,7 @@ class ArmFrame(Frame):
             yield Sub(SP, SP, self.stacksize)  # Reserve stack space
         yield Mov(R11, SP)                 # Setup frame pointer
 
-    def insert_litpool(self):
+    def litpool(self):
         """ Generate instruction for the current literals """
         # Align at 4 bytes
         if self.constants:
@@ -131,7 +132,7 @@ class ArmFrame(Frame):
                 raise NotImplementedError('Constant of type {}'.format(value))
 
     def between_blocks(self):
-        for ins in self.insert_litpool():
+        for ins in self.litpool():
             self.emit(ins)
 
     def epilogue(self):
@@ -141,8 +142,8 @@ class ArmFrame(Frame):
         if self.stacksize > 0:
             yield Add(SP, SP, self.stacksize)
         yield Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
-        yield Pop(RegisterSet({PC, R11}), src=[self.rv])
+        yield Pop(RegisterSet({PC, R11}), extra_uses=[self.rv])
         # Add final literal pool:
-        for instruction in self.insert_litpool():
+        for instruction in self.litpool():
             yield instruction
         yield Alignment(4)   # Align at 4 bytes

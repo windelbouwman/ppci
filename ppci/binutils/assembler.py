@@ -62,7 +62,9 @@ class AsmParser:
         # Global structure of assembly line:
         self.g.add_production('asmline', ['asmline2'])
         self.g.add_production('asmline', ['asmline2', 'COMMENT'])
-        self.g.add_production('asmline2', ['LABEL', 'instruction'], self.handle_label_ins)
+        self.g.add_production(
+            'asmline2',
+            ['LABEL', 'instruction'], self.handle_label_ins)
         self.g.add_production('asmline2', ['instruction'], self.handle_ins)
         self.g.add_production('asmline2', ['LABEL'], self.handle_label)
         self.g.add_production('asmline2', ['directive'])
@@ -166,7 +168,7 @@ class BaseAssembler:
     def gen_i_rule(self, ins_cls):
         """ Generate rule ... """
         # We must use function call here, otherwise the closure does not work..
-        rhs, arg_idx = self.make_str_rhs(ins_cls.syntax)
+        rhs, arg_idx = self.make_str_rhs(ins_cls.syntax.syntax)
 
         def f(args):
             usable = [args[ix] for ix, _ in arg_idx]
@@ -191,16 +193,8 @@ class BaseAssembler:
                 # Use a function to create the class:
                 x = stx.new_func()
             else:
-                x = cls()
-
-            if stx.set_props:
-                # Apply other rules:
-                for prop, val in stx.set_props.items():
-                    setattr(x, prop._name, val)
-
-            # Set from parameters in syntax:
-            for idx, prop in prop_list:
-                setattr(x, prop._name, args[idx])
+                usable = [args[ix] for ix, _ in prop_list]
+                x = cls(*usable)
 
             return x
         self.add_rule(nt, rhs2, cs)
@@ -212,16 +206,33 @@ class BaseAssembler:
             return self.typ2nt[arg_cls]
 
         # arg not found, try syntaxi:
+        # This means, find all subclasses of this composite type, and use
+        # these syntaxes.
         if hasattr(arg_cls, 'syntaxi'):
-            nt, rules = arg_cls.syntaxi
+            syntaxi = arg_cls.syntaxi
+            # TODO: figure a nice way for this:
+            if isinstance(syntaxi, tuple):
+                # In case of a tuple, the options are not subclasses, but
+                # listed in the tuple:
+                nt, rules = arg_cls.syntaxi
 
-            # Store nt for later:
-            self.typ2nt[arg_cls] = nt
+                # Store nt for later:
+                self.typ2nt[arg_cls] = nt
 
-            # Add rules:
-            for stx in rules:
-                self.make_arg_func(arg_cls, nt, stx)
-            return nt
+                # Add rules:
+                for stx in rules:
+                    self.make_arg_func(arg_cls, nt, stx)
+                return nt
+            else:
+                nt = arg_cls.syntaxi
+
+                # Store nt for later:
+                self.typ2nt[arg_cls] = nt
+
+                # Add rules:
+                for subcon in arg_cls.__subclasses__():
+                    self.make_arg_func(subcon, nt, subcon.syntax)
+                return nt
 
         raise KeyError(arg_cls)  # pragma: no cover
 
@@ -229,7 +240,7 @@ class BaseAssembler:
         """ Generate assembly rules from isa """
         # Loop over all isa instructions, extracting the syntax rules:
         for i in self.target.isa.instructions:
-            if hasattr(i, 'syntax'):
+            if i.syntax:
                 self.gen_i_rule(i)
 
     # End of generating functions

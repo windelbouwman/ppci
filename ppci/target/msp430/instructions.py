@@ -1,5 +1,8 @@
+"""
+Definitions of msp430 instruction set.
+"""
 
-from ..isa import Instruction, Isa, register_argument, Syntax
+from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from ..token import Token, u16, bit_range, bit, u8
 from .registers import Msp430Register, r0, r2, SP, PC
 from ...bitfun import align, wrap_negative
@@ -37,20 +40,12 @@ class Imm16Token(Token):
         return u16(self.bit_value)
 
 
-class Msp430Operand:
-    pass
-
-
-class DestinationOperand(Msp430Operand):
-    reg = register_argument('reg', Msp430Register, read=True)
+class Dst(Constructor):
+    reg = register_argument('reg', Msp430Register, write=True)
     imm = register_argument('imm', int)
     addr = register_argument('addr', str, default_value='')
     Ad = register_argument('Ad', int, default_value=0)
-    syntaxi = 'dst', [
-        Syntax([reg], set_props={Ad: 0}),
-        Syntax(['&', addr], set_props={Ad: 1, reg: r2}),  # absolute address
-        Syntax([imm, '(', reg, ')'], set_props={Ad: 1}),
-        ]
+    syntaxi = 'dst'
 
     @property
     def extra_bytes(self):
@@ -61,26 +56,26 @@ class DestinationOperand(Msp430Operand):
         return bytes()
 
 
-def reg_dst(reg):
-    dst = DestinationOperand()
-    dst.reg = reg
-    dst.Ad = 0
-    return dst
+class RegDst(Dst):
+    syntax = Syntax([Dst.reg], set_props={Dst.Ad: 0})
 
 
-class SourceOperand(Msp430Operand):
+class AddrDst(Dst):
+    """  absolute address """
+    syntax = Syntax(['&', Dst.addr], set_props={Dst.Ad: 1, Dst.reg: r2})
+
+
+class MemDst(Dst):
+    """  register offset memory access, for example: 0x88(R8) """
+    syntax = Syntax([Dst.imm, '(', Dst.reg, ')'], set_props={Dst.Ad: 1})
+
+
+class Src(Constructor):
     reg = register_argument('reg', Msp430Register, read=True)
     imm = register_argument('imm', int)
     As = register_argument('As', int, default_value=0)
     addr = register_argument('addr', str, default_value='')
-    syntaxi = 'src', [
-        Syntax([reg], set_props={As: 0}),
-        Syntax([imm, '(', reg, ')'], set_props={As: 1}),
-        Syntax(['&', addr], set_props={As: 1, reg: r2}),  # absolute address
-        Syntax(['@', reg], set_props={As: 2}),
-        Syntax(['@', reg, '+'], set_props={As: 3}),
-        Syntax(['#', imm], set_props={As: 3, reg: r0}),  # Equivalent to @PC+
-        ]
+    syntaxi = 'src'
 
     @property
     def extra_bytes(self):
@@ -91,30 +86,51 @@ class SourceOperand(Msp430Operand):
         return bytes()
 
 
-def const_source(value):
-    src = SourceOperand()
-    src.As = 3
-    src.imm = value
-    src.reg = r0
-    return src
+class ConstSrc(Src):
+    """ Equivalent to @PC+ """
+    syntax = Syntax(['#', Src.imm], set_props={Src.As: 3, Src.reg: r0})
 
 
-def reg_src(reg, memref=False, incr=False):
-    src = SourceOperand()
-    if memref and incr:
-        src.As = 3
-    elif memref and not incr:
-        src.As = 2
-    else:
-        src.As = 0
-    src.reg = reg
-    return src
+class RegSrc(Src):
+    """ Simply refer to a register """
+    syntax = Syntax([Src.reg], set_props={Src.As: 0})
+
+
+class AdrSrc(Src):
+    """ absolute address """
+    syntax = Syntax(['&', Src.addr], set_props={Src.As: 1, Src.reg: r2})
+
+
+class MemSrc(Src):
+    syntax = Syntax(['@', Src.reg], set_props={Src.As: 2})
+
+
+class MemSrcInc(Src):
+    syntax = Syntax(['@', Src.reg, '+'], set_props={Src.As: 3})
+
+
+class MemSrcOffset(Src):
+    syntax = Syntax([Src.imm, '(', Src.reg, ')'], set_props={Src.As: 1})
 
 
 class Msp430Instruction(Instruction):
     isa = isa
     b = 0
     tokens = [Msp430Token]
+
+
+# Data instructions:
+
+class Dcd2(Msp430Instruction):
+    v = register_argument('v', str)
+    syntax = Syntax(['dcd', '=', v])
+
+    def encode(self):
+        self.token[0:16] = 0
+        return self.token.encode()
+
+    def relocations(self):
+        return [(self.v, apply_abs16_imm0)]
 
 
 #########################
@@ -131,6 +147,14 @@ def apply_rel10bit(sym_value, data, reloc_value):
     data[0] = imm10 & 0xff
     cmd = data[1] & 0xfc
     data[1] = cmd | (imm10 >> 8)
+
+
+@isa.register_relocation
+def apply_abs16_imm0(sym_value, data, reloc_value):
+    """ Lookup address and assign to 16 bit """
+    assert sym_value % 2 == 0
+    data[0] = sym_value & 0xff
+    data[1] = (sym_value >> 8) & 0xff
 
 
 @isa.register_relocation
@@ -162,9 +186,9 @@ class JumpInstruction(Msp430Instruction):
 
 
 def create_jump_instruction(name, condition):
-    label = register_argument('target', str)
-    syntax = [name, label]
-    members = {'syntax': syntax, 'label': label, 'condition': condition}
+    target = register_argument('target', str)
+    syntax = Syntax([name, target])
+    members = {'syntax': syntax, 'target': target, 'condition': condition}
     return type(name + '_ins', (JumpInstruction, ), members)
 
 
@@ -198,8 +222,8 @@ class OneOpArith(Msp430Instruction):
 
 def oneOpIns(mne, opcode):
     """ Helper function to define a one operand arithmetic instruction """
-    src = register_argument('src', SourceOperand)
-    syntax = [mne, src]
+    src = register_argument('src', Src)
+    syntax = Syntax([mne, src])
     members = {'opcode': opcode, 'syntax': syntax, 'src': src}
     return type(mne + '_ins', (OneOpArith,), members)
 
@@ -213,7 +237,7 @@ Call = oneOpIns('call', 5)
 
 
 class Reti(Msp430Instruction):
-    syntax = ['reti']
+    syntax = Syntax(['reti'])
 
     def encode(self):
         self.token[0:16] = 0x1300
@@ -255,16 +279,17 @@ class TwoOpArith(Msp430Instruction):
                 yield (self.dst.addr, apply_abs16_imm1)
 
 
-def twoOpIns(mne, opc):
+def twoOpIns(mne, opc, b=0):
     """ Helper function to define a two operand arithmetic instruction """
-    src = register_argument('src', SourceOperand)
-    dst = register_argument('dst', DestinationOperand)
-    syntax = [mne, src, ',', dst]
+    src = register_argument('src', Src)
+    dst = register_argument('dst', Dst)
+    syntax = Syntax([mne, src, ',', dst])
     members = {'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax}
     return type(mne + '_ins', (TwoOpArith,), members)
 
 
 Mov = twoOpIns('mov', 4)
+Movb = twoOpIns('movb', 4, b=1)
 Add = twoOpIns('add', 5)
 Addc = twoOpIns('addc', 6)
 Subc = twoOpIns('subc', 7)
@@ -280,27 +305,72 @@ And = twoOpIns('and', 15)
 
 # pseudo instructions:
 def ret():
-    return Mov(SourceOperand(reg=SP, As=3), PC)
+    return pop(PC)
+
+
+def pop(dst):
+    """ Pop value from stack """
+    return Mov(MemSrcInc(SP), RegDst(dst))
+
+
+def push(src):
+    return Push(RegSrc(src))
+
+
+def call(label):
+    return Call(AdrSrc(label))
+
+
+def mov(src, dst):
+    """ Register to register move """
+    return Mov(RegSrc(src), RegDst(dst), ismove=True)
+
 
 # -- for instruction selection:
 
 @isa.pattern('stm', 'JMP', cost=2)
 def _(self, tree):
-    label, tgt = tree.value
-    self.emit(Jmp(label, jumps=[tgt]))
+    tgt = tree.value
+    print(tgt)
+    self.emit(Jmp(tgt.name, jumps=[tgt]))
 
 
-@isa.pattern('stm', 'MOVI16(REGI16, reg)', cost=2)
+@isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
+def _(context, tree, lhs, rhs):
+    op, true_tgt, false_tgt = tree.value
+    opnames = {"<": Jl, ">": Jc, "==": Jz, "!=": Jne, ">=": Jge}
+    op = opnames[op]
+    jmp_ins = Jmp(false_tgt.name, jumps=[false_tgt])
+    context.emit(Cmp(RegSrc(lhs), RegDst(rhs)))
+    context.emit(op(true_tgt.name, jumps=[true_tgt, jmp_ins]))
+    context.emit(jmp_ins)
+
+
+@isa.pattern('reg', 'MOVI16(reg)', cost=2)
 def _(self, tree, c0):
-    dst = tree.children[0].value
-    self.emit(Mov(reg_src(c0), reg_dst(dst)))
+    dst = tree.value
+    self.emit(mov(c0, dst))
 
 
-@isa.pattern('reg', 'CONSTI32', cost=4)
+@isa.pattern('reg', 'MOVI8(reg)', cost=2)
+def _(self, tree, c0):
+    dst = tree.value
+    self.emit(mov(c0, dst))
+
+
+@isa.pattern('reg', 'CONSTI16', cost=4)
 def _(self, tree):
-    dst = self.newTmp()
+    dst = self.new_temp()
     cnst = tree.value
-    self.emit(Mov(const_source(cnst), reg_dst(dst)))
+    self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
+    return dst
+
+
+@isa.pattern('reg', 'CONSTI8', cost=4)
+def _(self, tree):
+    dst = self.new_temp()
+    cnst = tree.value
+    self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
     return dst
 
 
@@ -309,11 +379,16 @@ def _(self, tree):
     return tree.value
 
 
-# TODO: this is a what strange construct:
-@isa.pattern('stm', 'CALL', cost=2)
+@isa.pattern('reg', 'REGI8', cost=0)
+def _(self, tree):
+    return tree.value
+
+
+@isa.pattern('reg', 'CALL', cost=2)
 def _(self, tree):
     label, args, res_var = tree.value
     self.frame.gen_call(label, args, res_var)
+    return res_var
 
 
 @isa.pattern('reg', 'MULI16(reg, reg)', cost=10)
@@ -323,25 +398,66 @@ def _(self, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'ANDI16(reg, reg)', cost=10)
+@isa.pattern('reg', 'ANDI16(reg, reg)', cost=4)
 def _(context, tree, c0, c1):
-    d = self.newTmp()
-    context.emit(Mov(c0, d))
-    context.emit(And(c1, d))
+    dst = context.new_temp()
+    context.emit(mov(c0, dst))
+    context.emit(And(RegSrc(c1), RegDst(dst)))
+    return dst
+
+
+@isa.pattern('reg', 'SHRI16(reg, reg)', cost=4)
+def _(context, tree, c0, c1):
+    d = context.new_temp()
+    #context.emit(Mov(c0, RegDst(d)))
+    #context.emit(Shr(c1, RegDst(d)))
+    # TODO!
     return d
 
 
-@isa.pattern('stm', 'STRI16(ANDI16(LDRI16(reg1), reg), reg1)', cost=10)
+@isa.pattern('reg', 'ADDI16(reg, reg)', cost=4)
 def _(context, tree, c0, c1):
-    d = self.newTmp()
-    context.emit(Mov(c0, d))
-    context.emit(And(c1, d, As=3))
+    d = context.new_temp()
+    context.emit(mov(c0, d))
+    context.emit(Add(RegSrc(c1), RegDst(d)))
     return d
 
 
-#@isa.pattern('reg', 'GLOBALADDRESS', cost=4)
-#def _(self, tree):
-#    d = self.newTmp()
-#    ln = self.frame.add_constant(tree.value)
-#    self.emit(Ldr3(d, ln))
-#    return d
+@isa.pattern('reg', 'SUBI16(reg, reg)', cost=4)
+def _(context, tree, c0, c1):
+    d = context.new_temp()
+    context.emit(mov(c0, d))
+    context.emit(Sub(RegSrc(c1), RegDst(d)))
+    return d
+
+
+@isa.pattern('stm', 'STRI16(reg, reg)', cost=2)
+def _(context, tree, c0, c1):
+    context.emit(Mov(RegSrc(c1), MemDst(0, c0)))
+
+
+@isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
+def _(context, tree, c0, c1):
+    context.emit(Movb(RegSrc(c1), MemDst(0, c0)))
+
+
+@isa.pattern('reg', 'LDRI16(reg)', cost=2)
+def _(context, tree, c0):
+    d = context.new_temp()
+    context.emit(Mov(MemSrc(c0), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg', 'LDRI8(reg)', cost=2)
+def _(context, tree, c0):
+    d = context.new_temp()
+    context.emit(Movb(MemSrc(c0), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg', 'LABEL', cost=2)
+def _(context, tree):
+    d = context.new_temp()
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Mov(AdrSrc(ln), RegDst(d)))
+    return d

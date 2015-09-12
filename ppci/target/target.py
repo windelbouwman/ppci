@@ -1,5 +1,6 @@
 import logging
-from .isa import Instruction, register_argument
+from .isa import Instruction
+from .data_instructions import Ds
 
 
 class Target:
@@ -11,6 +12,7 @@ class Target:
         self.registers = []
         self.byte_sizes = {}
         self.byte_sizes['int'] = 4  # For front end!
+        self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
 
     def __repr__(self):
@@ -36,16 +38,6 @@ class Nop(Instruction):
 
     def __repr__(self):
         return 'NOP'
-
-
-class Ds(Instruction):
-    """ Reserve x amount of zero bytes (same as resb in nasm) """
-    tokens = []
-    v = register_argument('v', int)
-    syntax = ['ds', v]
-
-    def encode(self):
-        return bytes([0] * self.v)
 
 
 class RegisterUseDef(Nop):

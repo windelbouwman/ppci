@@ -29,8 +29,7 @@ class Writer:
             self.write_function(function)
 
     def write_function(self, fn):
-        args = ','.join('i32 ' + str(a) for a in fn.arguments)
-        self.print('function i32 {}({})'.format(fn.name, args))
+        self.print('{}'.format(fn))
         for block in fn.blocks:
             self.print('  {}'.format(block))
             for ins in block:
@@ -314,23 +313,23 @@ class Builder:
     def __init__(self):
         self.prepare()
         self.block = None
-        self.m = None
+        self.module = None
         self.function = None
 
     def prepare(self):
         self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
         self.block = None
-        self.m = None
+        self.module = None
         self.function = None
         self.loc = None
 
     # Helpers:
-    def set_module(self, m):
-        self.m = m
+    def set_module(self, module):
+        self.module = module
 
     def new_function(self, name):
         f = ir.Function(name)
-        self.m.add_function(f)
+        self.module.add_function(f)
         return f
 
     def new_block(self):
@@ -371,7 +370,6 @@ class Verifier:
 
     def verify(self, module):
         """ Verifies a module for some sanity """
-        self.logger.debug('Verifying {} ({})'.format(module, module.stats()))
         assert isinstance(module, ir.Module)
         for function in module.Functions:
             self.verify_function(function)
@@ -403,7 +401,7 @@ class Verifier:
         """ Verify that the block is terminated correctly """
         assert not block.empty
         assert block.last_instruction.IsTerminator
-        for i in block.Instructions[:-1]:
+        for i in block.instructions[:-1]:
             assert not isinstance(i, ir.LastStatement)
 
     def verify_block(self, block):

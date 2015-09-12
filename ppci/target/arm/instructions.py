@@ -4,7 +4,7 @@
 
 # pylint: disable=no-member,invalid-name
 
-from ..isa import Instruction, Isa
+from ..isa import Instruction, Isa, Syntax
 from ..isa import register_argument, value_argument
 from ..data_instructions import Dd
 from ...bitfun import encode_imm32
@@ -68,7 +68,7 @@ def dcd(v):
 
 class Dcd2(ArmInstruction):
     v = register_argument('v', str)
-    syntax = ['dcd', '=', v]
+    syntax = Syntax(['dcd', '=', v])
 
     def encode(self):
         self.token[0:32] = 0
@@ -91,7 +91,7 @@ class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
     rd = register_argument('rd', ArmRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = ['mov', rd, ',', imm]
+    syntax = Syntax(['mov', rd, ',', imm])
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -106,7 +106,7 @@ class Mov1(ArmInstruction):
 class Mov2(ArmInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['mov', rd, ',', rm]
+    syntax = Syntax(['mov', rd, ',', rm])
 
     def encode(self):
         self.token[0:4] = self.rm.num
@@ -123,7 +123,7 @@ class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
     reg = register_argument('reg', ArmRegister, read=True)
     imm = value_argument('imm')
-    syntax = ['cmp', reg, ',', imm]
+    syntax = Syntax(['cmp', reg, ',', imm])
 
     def encode(self):
         self.token[0:12] = encode_imm32(self.imm)
@@ -137,7 +137,7 @@ class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['cmp', rn, ',', rm]
+    syntax = Syntax(['cmp', rn, ',', rm])
 
     def encode(self):
         self.token.Rn = self.rn.num
@@ -172,7 +172,7 @@ class Mul1(ArmInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['mul', rd, ',', rn, ',', rm]
+    syntax = Syntax(['mul', rd, ',', rn, ',', rm])
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -191,7 +191,7 @@ class Sdiv(ArmInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['sdiv', rd, ',', rn, ',', rm]
+    syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -211,7 +211,7 @@ class Udiv(ArmInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = ['udiv', rd, ',', rn, ',', rm]
+    syntax = Syntax(['udiv', rd, ',', rn, ',', rm])
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -233,7 +233,7 @@ class Mls(ArmInstruction):
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
     ra = register_argument('ra', ArmRegister, read=True)
-    syntax = ['mls', rd, ',', rn, ',', rm, ',', ra]
+    syntax = Syntax(['mls', rd, ',', rn, ',', rm, ',', ra])
 
     def encode(self):
         self.token[0:4] = self.rn.num
@@ -265,7 +265,7 @@ def make_regregreg(mnemonic, opcode):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = [mnemonic, rd, ',', rn, ',', rm]
+    syntax = Syntax([mnemonic, rd, ',', rn, ',', rm])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode}
     return type(mnemonic + '_ins', (OpRegRegReg,), members)
@@ -298,7 +298,7 @@ class ShiftBase(ArmInstruction):
 
 class Lsr1(ShiftBase):
     opcode = 0b0011
-    syntax = ['lsr', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm]
+    syntax = Syntax(['lsr', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
 
 
 Lsr = Lsr1
@@ -306,7 +306,7 @@ Lsr = Lsr1
 
 class Lsl1(ShiftBase):
     opcode = 0b0001
-    syntax = ['lsl', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm]
+    syntax = Syntax(['lsl', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
 
 
 Lsl = Lsl1
@@ -328,7 +328,7 @@ def make_regregimm(mnemonic, opcode):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     imm = register_argument('imm', int)
-    syntax = [mnemonic, rd, ',', rn, ',', imm]
+    syntax = Syntax([mnemonic, rd, ',', rn, ',', imm])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'imm': imm, 'opcode': opcode}
     return type(mnemonic + '_ins', (OpRegRegImm,), members)
@@ -361,12 +361,12 @@ class BranchLinkBase(BranchBaseRoot):
 
 class Bl(BranchLinkBase):
     cond = AL
-    syntax = ['bl', BranchBaseRoot.target]
+    syntax = Syntax(['bl', BranchBaseRoot.target])
 
 
 def make_branch(mnemonic, cond):
     target = register_argument('target', str)
-    syntax = [mnemonic, target]
+    syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
     return type(mnemonic + '_ins', (BranchBase,), members)
@@ -390,7 +390,7 @@ def reg_list_to_mask(reg_list):
 
 class Push(ArmInstruction):
     reg_list = register_argument('reg_list', RegisterSet)
-    syntax = ['push', reg_list]
+    syntax = Syntax(['push', reg_list])
 
     def encode(self):
         self.token.cond = AL
@@ -401,7 +401,7 @@ class Push(ArmInstruction):
 
 class Pop(ArmInstruction):
     reg_list = register_argument('reg_list', RegisterSet)
-    syntax = ['pop', reg_list]
+    syntax = Syntax(['pop', reg_list])
 
     def encode(self):
         self.token.cond = AL
@@ -442,9 +442,9 @@ class Str1(LdrStrBase):
     opcode = 0b010
     bit20 = 0
     bit22 = 0
-    syntax = [
+    syntax = Syntax([
         'str', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']']
+        LdrStrBase.offset, ']'])
 
 
 class Ldr1(LdrStrBase):
@@ -452,9 +452,9 @@ class Ldr1(LdrStrBase):
     opcode = 0b010
     bit20 = 1
     bit22 = 0
-    syntax = [
+    syntax = Syntax([
         'ldr', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']']
+        LdrStrBase.offset, ']'])
 
 
 class Strb(LdrStrBase):
@@ -463,9 +463,9 @@ class Strb(LdrStrBase):
     opcode = 0b010
     bit20 = 0
     bit22 = 1
-    syntax = [
+    syntax = Syntax([
         'strb', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']']
+        LdrStrBase.offset, ']'])
 
 
 class Ldrb(LdrStrBase):
@@ -474,15 +474,15 @@ class Ldrb(LdrStrBase):
     opcode = 0b010
     bit20 = 1
     bit22 = 1
-    syntax = [
+    syntax = Syntax([
         'ldrb', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']']
+        LdrStrBase.offset, ']'])
 
 
 class Adr(ArmInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     label = register_argument('label', str)
-    syntax = ['adr', rd, ',', label]
+    syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
         return [(self.label, apply_adr_imm12)]
@@ -503,7 +503,7 @@ class Ldr3(ArmInstruction):
     """
     rt = register_argument('rt', ArmRegister, write=True)
     label = register_argument('label', str)
-    syntax = ['ldr', rt, ',', label]
+    syntax = Syntax(['ldr', rt, ',', label])
 
     def relocations(self):
         return [(self.label, apply_ldr_imm12)]
@@ -541,7 +541,7 @@ class Mcr(McrBase):
     crm = register_argument('crm', Coreg, read=True)
     opc2 = register_argument('opc2', int)
     b20 = 0
-    syntax = ['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]
+    syntax = Syntax(['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
 
 
 class Mrc(McrBase):
@@ -552,7 +552,7 @@ class Mrc(McrBase):
     crm = register_argument('crm', Coreg, read=True)
     opc2 = register_argument('opc2', int)
     b20 = 1
-    syntax = ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2]
+    syntax = Syntax(['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
 
 
 # Instruction selection patterns:
@@ -583,6 +583,12 @@ def _(context, tree, c0):
     return tree.value
 
 
+@isa.pattern('reg', 'MOVI8(reg)', cost=2)
+def _(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
 @isa.pattern('stm', 'JMP', cost=2)
 def _(context, tree):
     tgt = tree.value
@@ -590,6 +596,11 @@ def _(context, tree):
 
 
 @isa.pattern('reg', 'REGI32', cost=0)
+def _(context, tree):
+    return tree.value
+
+
+@isa.pattern('reg', 'REGI8', cost=0)
 def _(context, tree):
     return tree.value
 
@@ -603,6 +614,16 @@ def _(context, tree):
 
 
 @isa.pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
+def _(context, tree):
+    d = context.new_temp()
+    c0 = tree.value
+    assert isinstance(c0, int)
+    assert c0 < 256 and c0 >= 0
+    context.emit(Mov1(d, c0))
+    return d
+
+
+@isa.pattern('reg', 'CONSTI8', cost=2, condition=lambda t: t.value < 256)
 def _(context, tree):
     d = context.new_temp()
     c0 = tree.value

@@ -47,38 +47,29 @@ def fix_file(f):
         # Assume this is a file like object
         return f
     elif isinstance(f, str):
-        return open(f, 'r')
+        try:
+            return open(f, 'r')
+        except FileNotFoundError:
+            raise TaskError('Cannot open {}'.format(f))
     else:
-        raise TaskError('cannot use {} as input'.format(f))
+        raise TaskError('Cannot open {}'.format(f))
 
 
 def fix_object(o):
+    """ Try hard to load an object """
     if isinstance(o, ObjectFile):
         return o
-    elif isinstance(o, str):
-        try:
-            with open(o, 'r') as f:
-                return load_object(f)
-        except OSError:
-            raise TaskError('Could not load {}'.format(o))
     else:
-        raise TaskError('Cannot use {} as objectfile'.format(o))
+        f = fix_file(o)
+        return load_object(f)
 
 
 def fix_layout(l):
     if isinstance(l, Layout):
         return l
-    elif hasattr(l, 'read'):
-        # Assume file handle
-        return load_layout(l)
-    elif isinstance(l, str):
-        try:
-            with open(l, 'r') as f:
-                return load_layout(f)
-        except OSError:
-            raise TaskError('Could not load {}'.format(l))
     else:
-        raise TaskError('Cannot use {} as layout'.format(l))
+        f = fix_file(l)
+        return load_layout(f)
 
 
 def construct(buildfile, targets=()):
@@ -175,7 +166,7 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     # Create the verifier:
     verifier = Verifier()
 
-    # Optimization passes (bag of tricks):
+    # Optimization passes (bag of tricks) run them three times:
     opt_passes = [Mem2RegPromotor(),
                   RemoveAddZeroPass(),
                   ConstantFolder(),
@@ -185,15 +176,17 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
                   CleanPass()] * 3
 
     # Run the passes over the module:
+    verifier.verify(ir_module)
     for opt_pass in opt_passes:
-        verifier.verify(ir_module)
         opt_pass.run(ir_module)
-        reporter.message('{} after {}:'.format(ir_module, opt_pass))
-        reporter.dump_ir(ir_module)
-        verifier.verify(ir_module)
+    verifier.verify(ir_module)
+
+    # Dump report:
+    reporter.message('{} after optimization:'.format(ir_module))
+    reporter.dump_ir(ir_module)
 
 
-def ir_to_code(ir_modules, target, reporter=DummyReportGenerator()):
+def ir_to_object(ir_modules, target, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
     target """
     logger = logging.getLogger('ir_to_code')
@@ -224,6 +217,7 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
         reporter.message('Optimized module:')
         reporter.dump_ir(ir_module)
         generator.generate(ir_module, f)
+
     # Add glue:
     print('', file=f)
     print('def bsp_putc(c):', file=f)
@@ -244,7 +238,7 @@ def c3compile(sources, includes, target, reporter=DummyReportGenerator()):
     for ir_module in ir_modules:
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
-    return ir_to_code(ir_modules, target, reporter=reporter)
+    return ir_to_object(ir_modules, target, reporter=reporter)
 
 
 def bf2ir(source):
@@ -266,7 +260,7 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
     reporter.dump_ir(ir_module)
 
     target = fix_target(target)
-    return ir_to_code([ir_module], target, reporter=reporter)
+    return ir_to_object([ir_module], target, reporter=reporter)
 
 
 def link(objects, layout, target, use_runtime=False):

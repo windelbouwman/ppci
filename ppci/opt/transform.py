@@ -27,8 +27,8 @@ class FunctionPass(ModulePass):
         """ Main entry point for the pass """
         self.prepare()
         assert isinstance(ir_module, ir.Module)
-        for f in ir_module.Functions:
-            self.on_function(f)
+        for function in ir_module.Functions:
+            self.on_function(function)
 
     def on_function(self, f):  # pragma: no cover
         """ Override this virtual method """
@@ -40,15 +40,15 @@ class BlockPass(FunctionPass):
         for block in f.blocks:
             self.on_block(block)
 
-    def on_block(self, bb):  # pragma: no cover
+    def on_block(self, block):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
 
 class InstructionPass(BlockPass):
     def on_block(self, block):
-        for ins in iter(block.Instructions):
-            self.on_instruction(ins)
+        for instruction in block:
+            self.on_instruction(instruction)
 
     def on_instruction(self, ins):  # pragma: no cover
         """ Override this virtual method """
@@ -90,12 +90,9 @@ class ConstantFolder(BlockPass):
             v = self.ops[value.operation](a.value, b.value)
             cn = ir.Const(v, 'new_fold', a.ty)
             return cn
-        elif type(value) is ir.IntToPtr:
+        elif type(value) is ir.Cast:
             c_val = self.eval_const(value.src)
-            return ir.Const(c_val.value, "const_ptr", value.ty)
-        elif type(value) is ir.IntToByte:
-            c_val = self.eval_const(value.src)
-            return ir.Const(c_val.value, "cnst_byte", value.ty)
+            return ir.Const(c_val.value, "casted", value.ty)
         else:  # pragma: no cover
             raise NotImplementedError(str(value))
 
@@ -315,7 +312,7 @@ class CleanPass(FunctionPass):
         for block in function:
             if block in function.special_blocks:
                 continue
-            if type(block.FirstInstruction) is ir.Jump:
+            if type(block.first_instruction) is ir.Jump:
                 empty_blocks.append(block)
         return empty_blocks
 

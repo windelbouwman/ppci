@@ -123,12 +123,8 @@ class TextReportGenerator(TextWritingReporter):
 @contextmanager
 def collapseable(html_generator, title):
     guid = html_generator.new_guid()
-    html_generator.print('<div class="well">')
-    #html_generator.print('<span>{}'.format(title))
-    #html_generator.print('<button type="button" class="btn btn-info" data-toggle="collapse" data-target="#{}">Show</button></span>'.format(guid))
-    #html_generator.print('<div class="collapse" id="{}">'.format(guid))
+    html_generator.print('<div class="code">')
     yield html_generator
-    # html_generator.print('</div>')
     html_generator.print('</div>')
 
 
@@ -143,33 +139,19 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def header(self):
         header = """<html><head>
-  <!-- Latest compiled and minified CSS -->
-  <link rel="stylesheet"
-  href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
-
-  <!-- jQuery library -->
-  <script
-  src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
-  </script>
-
-  <!-- Latest compiled JavaScript -->
-  <script 
-  src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js">
-  </script>
-
   <style>
-  .body {
-    margin: auto;
-    width: 800px;
-  }
   .graphdiv {
     width: 500px;
     height: 500px;
     border: 1px solid gray;
   }
+  .code {
+   padding: 10px;
+   border: 1px solid black;
+  }
   </style>
  </head>
- <body><div class="body container">
+ <body><div>
  <h1>Compilation report</h1>
  <p>
  This is an automatically generated report with a full log of compilation.
@@ -213,25 +195,6 @@ class HtmlReportGenerator(TextWritingReporter):
         LayeredLayout().generate(graph)
         graph.to_svg(self.dump_file)
 
-    def render_graph2(self, graph):
-        guid = self.new_guid()
-        # self.print(sgraph.nodes)
-        self.print('<div id="{}" class="graphdiv">'.format(guid))
-        self.print('</div><script type="text/javascript">')
-        self.print("var nodes = new vis.DataSet([")
-        for node in graph.nodes:
-            self.print("{{id: {}, label: '{}'}},".format(node.nid, node.label))
-        self.print("]);")
-        self.print("var edges = new vis.DataSet([")
-        for edge in graph.edges:
-            self.print("{{from: {}, to: {}, arrows: 'to', color: '{}' }},".format(edge.src, edge.dst, edge.color))
-        self.print("]);")
-        self.print("var container = document.getElementById('{}');".format(guid))
-        self.print("var data = { nodes: nodes, edges: edges };")
-        self.print("var options = {};")
-        self.print("var network = new vis.Network(container, data, options);")
-        self.print("</script>")
-
     def dump_sgraph(self, sgraph):
         graph = Graph()
         node_map = {}  # Mapping from SGNode to id of vis
@@ -264,11 +227,20 @@ class HtmlReportGenerator(TextWritingReporter):
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
         with collapseable(self, 'Frame'):
-            self.print('<p><div class="codeblock"><pre>')
+            self.print('<p><div class="codeblock">')
             self.print(frame)
+            self.print('<table border="1">')
+            self.print('<tr><th>ins</th><th>use</th><th>def</th><th>jump</th></tr>')
             for ins in frame.instructions:
-                self.print('$ {}'.format(ins))
-            self.print('</pre></div></p>')
+                self.print('<tr>')
+                self.print('<td>$ {}</td>'.format(ins))
+                self.print('<td>{}</td>'.format(ins.used_registers))
+                self.print('<td>{}</td>'.format(ins.defined_registers))
+                x2 = 'MOVE' if ins.ismove else ''
+                self.print('<td>{} {}</td>'.format(ins.jumps, x2))
+                self.print('</tr>')
+            self.print("</table>")
+            self.print('</div></p>')
 
     def dump_cfg_nodes(self, frame):
         for ins in frame.instructions:

@@ -118,8 +118,8 @@ class Function:
             module.add_function(self)
 
     def __repr__(self):
-        args = ','.join(str(a) for a in self.arguments)
-        return 'function i32 {}({})'.format(self.name, args)
+        args = ','.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        return 'function XXX {}({})'.format(self.name, args)
 
     def __iter__(self):
         """ Iterate over all blocks in this function """
@@ -300,10 +300,6 @@ class Block:
         return i
 
     @property
-    def Instructions(self):
-        return self.instructions
-
-    @property
     def last_instruction(self):
         """ Gets the last instruction from the block """
         if not self.empty:
@@ -315,7 +311,7 @@ class Block:
         return len(self) == 0
 
     @property
-    def FirstInstruction(self):
+    def first_instruction(self):
         return self.instructions[0]
 
     @property
@@ -325,9 +321,8 @@ class Block:
 
     def get_successors(self):
         """ Get the direct successors of this block """
-        if not self.empty:
-            return self.last_instruction.targets + self.extra_successors
-        return [] + self.extra_successors
+        successors = self.last_instruction.targets if not self.empty else []
+        return successors + self.extra_successors
 
     successors = property(get_successors)
 
@@ -515,45 +510,27 @@ class Expression(Value):
 
 class Cast(Expression):
     """ Base type conversion instruction """
-    INTTOPTR = 0
-    PTRTOINT = 1
-    BYTETOINT = 2
-    INTTOBYTE = 3
-
     src = var_use('src')
 
-    from_map = {INTTOPTR: i32, PTRTOINT: ptr, BYTETOINT: i8, INTTOBYTE: i32}
-    to_map = {INTTOPTR: ptr, PTRTOINT: i32, BYTETOINT: i32, INTTOBYTE: i8}
-
-    def __init__(self, value, method, name, ty):
+    def __init__(self, value, name, ty):
         super().__init__(name, ty)
+        assert isinstance(ty, Typ)
         self.src = value
-        self.method = method
-        assert self.to_map[method] is ty
-        assert self.from_map[method] is value.ty
 
     def __repr__(self):
         return '{} = cast {} {}'.format(self.name, self.ty, self.src.name)
 
 
-class IntToPtr(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.INTTOPTR, name, ptr)
+def to_ptr(value, name):
+    return Cast(value, name, ptr)
 
 
-class PtrToInt(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.PTRTOINT, name, i32)
+def to_i32(value, name):
+    return Cast(value, name, i32)
 
 
-class IntToByte(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.INTTOBYTE, name, i8)
-
-
-class ByteToInt(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.BYTETOINT, name, i32)
+def to_i8(value, name):
+    return Cast(value, name, i8)
 
 
 class Undefined(Value):
