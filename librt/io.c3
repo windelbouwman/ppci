@@ -19,6 +19,20 @@ public function void print(string txt)
     }
 }
 
+// Print a sub part of a string
+public function void print_sub(string txt, int start, int end)
+{
+    var int i;
+    i = 0;
+
+    i = start;
+    while (i < end)
+    {
+        bsp.putc(txt->txt[i]);
+        i = i + 1;
+    }
+}
+
 // Print integer in hexadecimal notation:
 public function void print_int(int i)
 {

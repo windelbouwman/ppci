@@ -307,8 +307,8 @@ class Parser:
         cb2 = self.consume('}')
 
         # Enforce styling:
-        if cb1.loc.col != cb2.loc.col:
-            self.error('Braces not in same column!')
+        # if cb1.loc.col != cb2.loc.col:
+        #    self.error('Braces not in same column!')
 
         return Compound(statements)
 

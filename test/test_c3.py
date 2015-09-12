@@ -559,6 +559,7 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    @unittest.skip('This should be configurable')
     def test_compound_brace_columns(self):
         """ Check strict column style braces """
         snippet = """
