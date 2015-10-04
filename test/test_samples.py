@@ -502,9 +502,11 @@ class BuildMixin:
         list_filename = base_filename + '.html'
 
         startercode = self.startercode
-        arch_mmap = self.arch_mmap
-        bsp_c3 = self.bsp_c3
         report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        if hasattr(self, 'bsp_c3_src'):
+            bsp_c3 = io.StringIO(getattr(self, 'bsp_c3_src'))
+        else:
+            bsp_c3 = self.bsp_c3
         with complete_report(report_generator) as reporter:
             o1 = assemble(io.StringIO(startercode), self.march)
             if lang == 'c3':
@@ -513,7 +515,7 @@ class BuildMixin:
                     bsp_c3,
                     io.StringIO(src)], [], self.march, reporter=reporter)
                 o3 = link(
-                    [o2, o1], io.StringIO(arch_mmap), self.march,
+                    [o2, o1], io.StringIO(self.arch_mmap), self.march,
                     use_runtime=True)
             elif lang == 'bf':
                 obj = bfcompile(src, self.march, reporter=reporter)
@@ -521,7 +523,7 @@ class BuildMixin:
                     [bsp_c3], [], self.march, reporter=reporter)
                 o3 = link(
                     [o2, o1, obj],
-                    io.StringIO(arch_mmap),
+                    io.StringIO(self.arch_mmap),
                     self.march, use_runtime=True)
             else:
                 raise Exception('language not implemented')
@@ -648,7 +650,7 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         SECTION(data)
     }
     """
-    bsp_c3 = io.StringIO("""
+    bsp_c3_src = """
     module bsp;
 
     public function void putc(byte c)
@@ -659,7 +661,37 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
     {
         putc(4); // End of transmission
     }
+    """
 
+    def do(self, src, expected_output, lang='c3'):
+        self.build(src, lang)
+
+
+@unittest.skip('WIP')
+class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
+    march = "x86"
+    startercode = """
+    section reset
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x0 SIZE=0x10000 {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        SECTION(data)
+    }
+    """
+    bsp_c3 = io.StringIO("""
+    module bsp;
+
+    public function void putc(byte c);
+
+    function void exit()
+    {
+        putc(4); // End of transmission
+    }
     """)
 
     def do(self, src, expected_output, lang='c3'):

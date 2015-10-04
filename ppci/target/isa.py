@@ -17,6 +17,8 @@ class Register:
         assert type(name) is str
         self.name = name
         self._num = num
+        if num is not None:
+            assert isinstance(num, int)
 
     def __repr__(self):
         return 'reg_{}'.format(self.name)
@@ -183,7 +185,9 @@ class Constructor:
                     formal_args.append((st._name, st._cls))
 
             # Set parameters:
-            assert len(args) == len(formal_args)
+            if len(args) != len(formal_args):
+                raise AssertionError(
+                    '{} given, but expected {}'.format(args, formal_args))
             for fa, a in zip(formal_args, args):
                 assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
                 setattr(self, fa[0], a)
@@ -191,6 +195,8 @@ class Constructor:
             # Set additional properties as specified by syntax:
             for prop, val in self.syntax.set_props.items():
                 prop.__set__(self, val)
+        #else:
+        #    raise NotImplementedError('Calling constructor without syntax')
 
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or prop class,
@@ -327,11 +333,12 @@ class Syntax:
         The set_props property can be used to set additional properties
         after creating the instruction.
     """
-    def __init__(self, syntax, new_func=None, set_props={}):
+    def __init__(self, syntax, new_func=None, set_props={}, priority=0):
         assert isinstance(syntax, list)
         self.syntax = syntax
         self.new_func = new_func
         self.set_props = set_props
+        self.priority = priority
 
     def __repr__(self):
         return '{}'.format(self.syntax)

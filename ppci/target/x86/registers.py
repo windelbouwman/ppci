@@ -5,9 +5,7 @@ from ..isa import Register, Syntax
 
 
 class X86Register(Register):
-    def __init__(self, num, name):
-        super().__init__(name)
-        self._num = num
+    bitsize = 64
 
     @property
     def rexbit(self):
@@ -46,23 +44,23 @@ class X86Register(Register):
 # regs32 = {'eax': 0, 'ecx':1, 'edx':2, 'ebx': 3, 'esp': 4, 'ebp': 5, 'esi':6,
 # 'edi':7}
 # regs8 = {'al':0,'cl':1,'dl':2,'bl':3,'ah':4,'ch':5,'dh':6,'bh':7}
-rax = X86Register(0, 'rax')
-rcx = X86Register(1, 'rcx')
-rdx = X86Register(2, 'rdx')
-rbx = X86Register(3, 'rbx')
-rsp = X86Register(4, 'rsp')
-rbp = X86Register(5, 'rbp')
-rsi = X86Register(6, 'rsi')
-rdi = X86Register(7, 'rdi')
+rax = X86Register('rax', 0)
+rcx = X86Register('rcx', 1)
+rdx = X86Register('rdx', 2)
+rbx = X86Register('rbx', 3)
+rsp = X86Register('rsp', 4)
+rbp = X86Register('rbp', 5)
+rsi = X86Register('rsi', 6)
+rdi = X86Register('rdi', 7)
 
-r8 = X86Register(8, 'r8')
-r9 = X86Register(9, 'r9')
-r10 = X86Register(10, 'r10')
-r11 = X86Register(11, 'r11')
-r12 = X86Register(12, 'r12')
-r13 = X86Register(13, 'r13')
-r14 = X86Register(14, 'r14')
-r15 = X86Register(15, 'r15')
+r8 = X86Register('r8', 8)
+r9 = X86Register('r9', 9)
+r10 = X86Register('r10', 10)
+r11 = X86Register('r11', 11)
+r12 = X86Register('r12', 12)
+r13 = X86Register('r13', 13)
+r14 = X86Register('r14', 14)
+r15 = X86Register('r15', 15)
 
 low_regs = {rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi}
 

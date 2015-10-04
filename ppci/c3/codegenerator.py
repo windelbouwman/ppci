@@ -12,7 +12,7 @@ from .scope import SemanticError
 
 def pack_string(txt, context):
     """ Pack a string using 4 bytes length followed by text data """
-    mapping = {4: '<I', 2: '<H'}
+    mapping = {4: '<I', 2: '<H', 8: '<Q'}
     fmt = mapping[context.get_type('int').byte_size]
     length = struct.pack(fmt, len(txt))
     data = txt.encode('ascii')
@@ -143,7 +143,7 @@ class CodeGenerator:
         return self.get_ir_type(expr.typ, expr.loc)
 
     def get_ir_int(self):
-        mapping = {4: ir.i32, 2: ir.i16}
+        mapping = {4: ir.i32, 2: ir.i16, 8: ir.i64}
         return mapping[self.context.get_type('int').byte_size]
 
     def get_ir_type(self, cty, loc):

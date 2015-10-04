@@ -83,6 +83,7 @@ class AsmTestCaseBase(unittest.TestCase):
         data = bytes(self.obj.get_section('code').data)
         if hexstr is None:
             gnu_assemble(self.source.getvalue(), as_args=self.as_args)
+            self.fail('Implement this test-case')
         else:
             self.assertSequenceEqual(bytes.fromhex(hexstr), data)
 

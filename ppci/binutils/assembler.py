@@ -239,9 +239,15 @@ class BaseAssembler:
     def gen_asm_parser(self):
         """ Generate assembly rules from isa """
         # Loop over all isa instructions, extracting the syntax rules:
-        for i in self.target.isa.instructions:
-            if i.syntax:
-                self.gen_i_rule(i)
+        instructions = [i for i in self.target.isa.instructions if i.syntax]
+
+        # Sort instructions by syntax weight:
+        # TODO: this sorting does not seem to do anything!
+        instructions.sort(key=lambda x: x.syntax.priority)
+
+        # Generate rules for instructions:
+        for ins in instructions:
+            self.gen_i_rule(ins)
 
     # End of generating functions
 

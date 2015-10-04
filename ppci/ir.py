@@ -40,6 +40,7 @@ class BuiltinType(Typ):
 
 # The builtin types:
 f64 = BuiltinType('f64', 8)
+i64 = BuiltinType('i64', 8)
 i32 = BuiltinType('i32', 4)
 i16 = BuiltinType('i16', 2)
 i8 = BuiltinType('i8', 1)

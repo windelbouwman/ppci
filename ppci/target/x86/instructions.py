@@ -2,7 +2,7 @@
     X86 target descriptions and encodings.
 """
 
-from ..isa import Instruction, Isa, register_argument, Syntax
+from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from .registers import X86Register
 from ...bitfun import wrap_negative
 
@@ -62,6 +62,19 @@ class ModRmToken(Token):
     mod = bit_range(6, 8)
     rm = bit_range(0, 3)
     reg = bit_range(3, 6)
+
+    def encode(self):
+        return u8(self.bit_value)
+
+
+class SibToken(Token):
+    def __init__(self, ss=0):
+        super().__init__(8)
+        self.ss = ss
+
+    ss = bit_range(6, 8)
+    index = bit_range(3, 6)
+    base = bit_range(0, 3)
 
     def encode(self):
         return u8(self.bit_value)
@@ -228,65 +241,96 @@ class Inc(X86Instruction):
         return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
 
-class Mov1(X86Instruction):
-    """ Mov r64 to r64 """
-    reg1 = register_argument('reg1', X86Register, write=True)
-    reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = Syntax(['mov', reg1, ',', reg2])
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-    def encode(self):
-        dst = self.reg1
-        src = self.reg2
-        self.token1.w = 1
-        self.token1.r = src.rexbit
-        self.token1.b = dst.rexbit
-        self.token2[0:8] = 0x89  # mov r/m64, r64
-        self.token3.mod = 3
-        self.token3.rm = dst.regbits
-        self.token3.reg = src.regbits
-        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+class Rm(Constructor):
+    syntaxi = 'rm0123'
 
 
-class Mov3a(X86Instruction):
-    opcode = 0x8b  # mov r64, r/m64
+class Rm0(Rm):
+    """ Memory access at memory in register """
+    reg_rm = register_argument('reg_rm', X86Register, read=True)
+    syntax = Syntax(['[', reg_rm, ']'])
+    mod = 0
 
 
-class regregbase(X86Instruction):
-    args = [('reg1', X86Register), ('reg2', X86Register)]
-    tokens = [RexToken, OpcodeToken, ModRmToken]
+class Rm1(Rm):
+    """ register with 8 bit displacement """
+    reg_rm = register_argument('reg_rm', X86Register, read=True)
+    disp = register_argument('disp', int)
+    syntax = Syntax(['[', reg_rm, ',', disp, ']'])
+    mod = 1
+
+
+class Rm2(Rm):
+    """ register with 32 bit displacement """
+    reg_rm = register_argument('reg_rm', X86Register, read=True)
+    disp = register_argument('disp', int)
+    syntax = Syntax(['[', reg_rm, ',', disp, ']'])
+    mod = 2
+
+
+class RmRegister(Rm):
+    """ Register access """
+    reg_rm = register_argument('reg_rm', X86Register, read=True)
+    syntax = Syntax([reg_rm])
+    mod = 3
+
+
+class rmregbase(X86Instruction):
+    tokens = [RexToken, OpcodeToken, ModRmToken, SibToken]
 
     def encode(self):
         self.token.w = 1
-        self.token.r = self.reg2.rexbit
-        self.token.b = self.reg1.rexbit
+        self.token.r = self.reg.rexbit
+        self.token.b = self.rm1.reg_rm.rexbit
         self.token2[0:8] = self.opcode
-        self.token3.mod = 3
-        self.token3.rm = self.reg1.regbits
-        self.token3.reg = self.reg2.regbits
-        return self.token.encode() + self.token2.encode() + self.token3.encode()
+        self.token3.mod = self.rm1.mod
+        self.token3.rm = self.rm1.reg_rm.regbits
+        self.token3.reg = self.reg.regbits
+        sib = bytes()
+        if self.rm1.reg_rm.num == 12 and self.rm1.mod != 3:
+            self.token4.ss = 0
+            self.token.x = 0
+            self.token4.index = 4
+            self.token4.base = self.rm1.reg_rm.regbits
+            sib = self.token4.encode()
+        extra = list()
+        if self.rm1.mod == 1:
+            extra += [self.rm1.disp]
+        return self.token.encode() + self.token2.encode() + \
+            self.token3.encode() + sib + bytes(extra)
 
 
-def make_regreg(mnemonic, opcode):
-    reg1 = register_argument('reg1', X86Register, write=True, read=True)
-    reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = Syntax([mnemonic, reg1, ',', reg2])
+def make_rm_reg(mnemonic, opcode):
+    rm1 = register_argument('rm1', Rm)
+    reg = register_argument('reg', X86Register, read=True)
+    syntax = Syntax([mnemonic, rm1, ',', reg], priority=2)
     members = {
-        'syntax': syntax, 'reg1': reg1, 'reg2': reg2, 'opcode': opcode}
-    return type(mnemonic + '_ins', (regregbase,), members)
+        'syntax': syntax, 'rm1': rm1, 'reg': reg, 'opcode': opcode}
+    return type(mnemonic + '_ins', (rmregbase,), members)
 
 
-# opcode = 0x31  # XOR r/m64, r64
-Xor1 = make_regreg('xor', 0x31)
-Add = make_regreg('add', 0x1)
-Sub = make_regreg('sub', 0x29)
+def make_reg_rm(mnemonic, opcode):
+    rm1 = register_argument('rm1', Rm)
+    reg = register_argument('reg', X86Register, write=True, read=True)
+    syntax = Syntax([mnemonic, reg, ',', rm1])
+    members = {
+        'syntax': syntax, 'rm1': rm1, 'reg': reg, 'opcode': opcode}
+    return type(mnemonic + '_ins', (rmregbase,), members)
 
 
-class Cmp(regregbase):
-    reg1 = register_argument('reg1', X86Register, write=True, read=True)
-    reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = Syntax(['cmp', reg1, ',', reg2])
-    opcode = 0x39  # CMP r/m64, r64
+Add1 = make_rm_reg('add', 0x1)
+Add2 = make_reg_rm('add', 0x3)
+Or1 = make_rm_reg('or', 0x9)
+And1 = make_rm_reg('and', 0x21)
+And2 = make_reg_rm('and', 0x23)
+Sub1 = make_rm_reg('sub', 0x29)
+Sub2 = make_reg_rm('sub', 0x2b)
+Xor1 = make_rm_reg('xor', 0x31)  # opcode = 0x31  # XOR r/m64, r64
+Xor2 = make_reg_rm('xor', 0x33)
+Cmp = make_rm_reg('cmp', 0x39)
+Mov1 = make_rm_reg('mov', 0x89)  # mov r/m64, r64
+Mov2 = make_reg_rm('mov', 0x8b)  # mov r64, r/m64
+Lea = make_reg_rm('lea', 0x8d)
 
 
 class regint32base(X86Instruction):
@@ -312,8 +356,8 @@ def make_regimm(mnemonic, opcode, reg_code):
         'reg_code': reg_code}
     return type(mnemonic + '_ins', (regint32base,), members)
 
-Add2 = make_regimm('add', 0x81, 0)
-Sub2 = make_regimm('sub', 0x81, 5)
+Add3 = make_regimm('add', 0x81, 0)
+Sub3 = make_regimm('sub', 0x81, 5)
 
 
 class Imul(X86Instruction):
@@ -338,3 +382,53 @@ class Imul(X86Instruction):
         self.token4.reg = self.reg1.regbits
         return self.token.encode() + self.token2.encode() + \
             self.token3.encode() + self.token4.encode()
+
+
+@isa.pattern('stm', 'JMP', cost=2)
+def _(context, tree):
+    tgt = tree.value
+    context.emit(NearJump(tgt.name, jumps=[tgt]))
+
+
+@isa.pattern('reg64', 'CALL', cost=10)
+def _(context, tree):
+    tgt, args, rv = tree.value
+    # TODO!!
+    return rv
+
+
+@isa.pattern('reg8', 'MOVI8(reg8)', cost=2)
+def _(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
+@isa.pattern('reg64', 'MOVI64(reg64)', cost=2)
+def _(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
+@isa.pattern('reg64', 'REGI64', cost=0)
+def _(context, tree):
+    return tree.value
+
+
+@isa.pattern('reg64', 'MOVI64(LABEL)', cost=2)
+def _(context, tree):
+    # TODO!
+    src = context.new_tmp()
+    context.emit(Lea(tree.value, Rm2(src, 100)))
+    return tree.value
+
+
+@isa.pattern('reg64', 'MOVI8(CONSTI8)', cost=2)
+def _(context, tree):
+    # context.emit(Movi8(reg))
+    return tree.value
+
+
+@isa.pattern('reg64', 'MOVI64(CONSTI64)', cost=2)
+def _(context, tree):
+    # context.emit(Movi8(reg))
+    return tree.value

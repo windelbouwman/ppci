@@ -55,15 +55,18 @@ class Column:
         self.i = i
         self.token = token
         self.items = set()
+        self.item_list = list()
 
     def __iter__(self):
-        return iter(self.items)
+        return iter(self.item_list)
 
     def __repr__(self):
         return 'Column at {}'.format(self.token)
 
     def add(self, item):
-        self.items.add(item)
+        if item not in self.items:
+            self.items.add(item)
+            self.item_list.append(item)
 
 
 def make_tokens(tokens):
@@ -95,29 +98,24 @@ class EarleyParser:
     def predict(self, item, col):
         """ Add all rules for a certain non-terminal """
         nx = item.nxt
-        # print('Predict:', item)
         assert self.grammar.is_nonterminal(nx)
         for rule in self.grammar.productions_for_name(nx):
             new_item = Item(rule, 0, col.i)
-            # print(' > add ', new_item)
             col.add(new_item)
 
     def scan(self, item, col):
         """ Check if the item can be shifted into the next column """
         if item.nxt == col.token.typ:
-            # print('scan:', item, col.token.typ)
             col.add(item.shifted())
 
     def complete(self, completed_item, start_col, current_column):
         """ Complete a rule, check if any other rules can be shifted! """
         assert completed_item.is_reduce
-        # print('Complete', completed_item)
         worklist = list(start_col)
         while worklist:
             item = worklist.pop(0)
             if item.is_shift and item.nxt == completed_item.rule.name:
                 new_item = item.shifted()
-                # print(' > add ', new_item)
                 current_column.add(new_item)
                 if current_column is start_col:
                     worklist.append(new_item)
@@ -144,7 +142,6 @@ class EarleyParser:
                 else:
                     self.complete(item, columns[item.origin], col)
                 processed_items.add(item)
-        # self.dump_parse(columns)
 
         # Check if the parse was a success:
         last_column = columns[-1]

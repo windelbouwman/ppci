@@ -7,6 +7,7 @@
 
 from contextlib import contextmanager
 import io
+from . import ir
 from .irutils import Writer
 from .utils.graph2svg import Graph, LayeredLayout
 from .codegen.selectiongraph import SGValue
@@ -170,14 +171,26 @@ class HtmlReportGenerator(TextWritingReporter):
         self.print('<p>{}</p>'.format(msg))
 
     def dump_ir(self, ir_module):
-        title = 'Module {}'.format(ir_module.name)
-        with collapseable(self, title):
-            self.print('<pre>')
-            writer = Writer()
-            f = io.StringIO()
-            writer.write(ir_module, f)
-            self.print(f.getvalue())
-            self.print('</pre>')
+        if isinstance(ir_module, ir.Module):
+            title = 'Module {}'.format(ir_module.name)
+            with collapseable(self, title):
+                self.print('<pre>')
+                writer = Writer()
+                f = io.StringIO()
+                writer.write(ir_module, f)
+                self.print(f.getvalue())
+                self.print('</pre>')
+        elif isinstance(ir_module, ir.Function):
+            title = 'Function {}'.format(ir_module.name)
+            with collapseable(self, title):
+                self.print('<pre>')
+                writer = Writer()
+                writer.f = f = io.StringIO()
+                writer.write_function(ir_module)
+                self.print(f.getvalue())
+                self.print('</pre>')
+        else:
+            raise NotImplementedError()
 
     def function_header(self, irfunc, target):
         self.print("<h3> Log for {} </h3>".format(irfunc))

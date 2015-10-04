@@ -16,19 +16,15 @@ from .. import ir
 from ppci.pyburg import BurgSystem
 
 
+size_classes = [8, 16, 32, 64]
+ops = [
+    'ADD', 'SUB', 'MUL', 'DIV', 'REM',
+    'OR', 'SHL', 'SHR', 'AND', 'XOR',
+    'MOV', 'REG', 'LDR', 'STR', 'CONST']
+
 # Add all possible terminals:
-terminals = ("ADDI32", "SUBI32", "MULI32", "DIVI32", 'REMI32',
-             "ADDI16", "SUBI16", "MULI16", "DIVI16", "REMI16",
-             "ADDI8", "SUBI8", "MULI8", "DIVI8", 'REMI8',
-             "ORI32", "SHLI32", "SHRI32", "ANDI32", "XORI32",
-             "ORI16", "SHLI16", "SHRI16", "ANDI16", "XORI16",
-             "ORI8", "SHLI8", "SHRI8", "ANDI8", "XORI8",
-             "MOVI32", "REGI32", "LDRI32", "STRI32",
-             "MOVI16", "REGI16", "LDRI16", "STRI16",
-             "MOVI8", "REGI8", "LDRI8", "STRI8",
-             "CONSTI32",
-             "CONSTI16",
-             'CONSTI8',
+
+terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
              "CALL", "LABEL",
              "JMP", "CJMP",
              "EXIT", "ENTRY")
@@ -251,7 +247,9 @@ class InstructionSelector1:
 
         # Allow register results as root rule:
         # by adding a chain rule 'stm -> reg'
+        # TODO: chain rules or register classes as root?
         self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
+        self.sys.add_rule('stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
 
         for terminal in terminals:
             self.sys.add_terminal(terminal)

@@ -64,8 +64,9 @@ class FunctionInfo:
 class SelectionGraphBuilder:
     def __init__(self, target):
         self.logger = logging.getLogger('selection-graph-builder')
-        self.postfix_map = {ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
-        tp_map = {4: 'I32', 2: 'I16'}
+        self.postfix_map = {
+            ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
+        tp_map = {4: 'I32', 2: 'I16', 8: 'I64'}
         self.postfix_map[ir.ptr] = tp_map[target.byte_sizes['ptr']]
 
     @register(ir.Jump)

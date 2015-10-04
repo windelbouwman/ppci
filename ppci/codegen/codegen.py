@@ -85,6 +85,7 @@ class CodeGenerator:
                          .format(self.target, ir_function.name))
 
         reporter.function_header(ir_function, self.target)
+        reporter.dump_ir(ir_function)
         instruction_list = []
         output_stream = MasterOutputStream([
             FunctionOutputStream(instruction_list.append),
