@@ -14,6 +14,7 @@ from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
 from ppci.pyburg import BurgSystem
+from .irdag import DagSplitter
 
 
 size_classes = [8, 16, 32, 64]
@@ -35,9 +36,9 @@ class InstructionContext:
     def __init__(self, frame):
         self.frame = frame
 
-    def new_temp(self):
+    def new_reg(self, cls):
         """ Generate a new temporary """
-        return self.frame.new_virtual_register()
+        return self.frame.new_reg(cls)
 
     def move(self, dst, src):
         """ Generate move """
@@ -46,11 +47,6 @@ class InstructionContext:
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
         return self.frame.emit(*args, **kwargs)
-
-
-def make_op(op, vreg):
-    typ = 'I{}'.format(vreg.bitsize)
-    return '{}{}'.format(op, typ)
 
 
 class TreeSelector:
@@ -120,126 +116,15 @@ class TreeSelector:
         return self.sys.get_nts(template_tree)
 
 
-class DagSplitter:
-    """ Class that splits a DAG into a series of trees. This series is sorted
-        such that data dependencies are met. The trees can henceforth be
-        used to match trees.
-    """
-    def __init__(self):
-        self.logger = logging.getLogger('dag-splitter')
-
-    def traverse_back(self, node):
-        """
-        Traverse the graph backwards from the given node, creating a tree
-        and optionally adding this tree to the list of generated trees
-        """
-
-        # if node is already processed, stop:
-        if node in self.node_map:
-            return self.node_map[node]
-
-        # Stop on entry node:
-        if node.name == 'ENTRY':
-            tree = Tree(node.name, value=node.value)
-            self.node_map[node] = tree
-            self.trees.append(tree)
-            return tree
-
-        # For now assert that nodes can only max 1 data value:
-        assert len(node.data_outputs) <= 1
-
-        # Make sure control dependencies are satisfied first:
-        for inp in node.control_inputs:
-            self.traverse_back(inp.node)
-
-        # Second, process memory dependencies:
-        for inp in node.memory_inputs:
-            self.traverse_back(inp.node)
-
-        # Create data for data dependencies:
-        children = []
-        for inp in node.data_inputs:
-            if (inp.node.group is node.group) or \
-                    (inp.node.group is None) or \
-                    inp.node.name.startswith('CONST'):
-                res = self.traverse_back(inp.node)
-            else:
-                if not inp.vreg:
-                    vreg = self.frame.new_virtual_register(inp.name)
-                    inp.vreg = vreg
-
-            # If the input value has a vreg, use it:
-            if inp.vreg:
-                children.append(Tree(make_op('REG', inp.vreg), value=inp.vreg))
-            else:
-                children.append(res)
-
-        # Create a tree node:
-        tree = Tree(node.name, *children, value=node.value)
-
-        # Determine if the node should be copied to register:
-        for data_output in node.data_outputs:
-            # Skip constants:
-            if node.name.startswith('CONST'):
-                continue
-
-            # Check if value is used more then once:
-            if (len(data_output.users) > 1) or node.volatile or \
-                    any(u.group is not node.group for u in data_output.users):
-                if not data_output.vreg:
-                    vreg = self.frame.new_virtual_register(data_output.name)
-                    data_output.vreg = vreg
-
-        # Handle outputs:
-        if len(node.data_outputs) == 0:
-            # If the tree was volatile, it must be emitted
-            if node.volatile:
-                self.trees.append(tree)
-        else:
-            # If the output has a vreg, put the value in:
-            data_output = node.data_outputs[0]
-            if data_output.vreg:
-                vreg = data_output.vreg
-                tree = Tree(make_op('MOV', vreg), tree, value=vreg)
-                self.trees.append(tree)
-                tree = Tree(make_op('REG', vreg), value=vreg)
-            elif node.volatile:
-                self.trees.append(tree)
-
-        # Store for later and prevent multi coverage of dag:
-        self.node_map[node] = tree
-
-        return tree
-
-    def split_dag(self, root, frame):
-        """ Split dag into forest of trees.
-            The approach here is to start at the exit of the flowgraph
-            and go back to the beginning.
-
-            This function can be looped over and yields a series
-            of somehow topologically sorted trees.
-        """
-        self.trees = []
-        self.node_map = {}
-        self.frame = frame
-
-        assert len(root.outputs) == 0
-
-        # First determine the usages:
-        self.traverse_back(root)
-
-        return self.trees
-
-
 class InstructionSelector1:
     """ Instruction selector which takes in a DAG and puts instructions
         into a frame.
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, dag_builder):
+    def __init__(self, isa, target, dag_builder):
         self.dag_builder = dag_builder
-        self.dag_splitter = DagSplitter()
+        self.dag_splitter = DagSplitter(target)
         self.logger = logging.getLogger('instruction-selector')
 
         # Generate burm table of rules:
@@ -249,7 +134,8 @@ class InstructionSelector1:
         # by adding a chain rule 'stm -> reg'
         # TODO: chain rules or register classes as root?
         self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
-        self.sys.add_rule('stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
+        self.sys.add_rule(
+            'stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
 
         for terminal in terminals:
             self.sys.add_terminal(terminal)

@@ -627,7 +627,7 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
                     relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
                     io.StringIO(src)], [], "arm", reporter=reporter))
             elif lang == 'bf':
-                ir_modules = [bf2ir(src)]
+                ir_modules = [bf2ir(src, 'arm')]
 
             with open(sample_filename, 'w') as f:
                 ir_to_python(ir_modules, f, reporter=reporter)
@@ -667,7 +667,7 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang)
 
 
-@unittest.skip('WIP')
+# @unittest.skip('WIP')
 class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "x86"
     startercode = """
@@ -683,16 +683,18 @@ class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
         SECTION(data)
     }
     """
-    bsp_c3 = io.StringIO("""
+    bsp_c3_src = """
     module bsp;
 
-    public function void putc(byte c);
+    public function void putc(byte c)
+    {
+    }
 
     function void exit()
     {
         putc(4); // End of transmission
     }
-    """)
+    """
 
     def do(self, src, expected_output, lang='c3'):
         self.build(src, lang)

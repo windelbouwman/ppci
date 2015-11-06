@@ -21,7 +21,7 @@ class Register:
             assert isinstance(num, int)
 
     def __repr__(self):
-        return 'reg_{}'.format(self.name)
+        return '{}'.format(self.name)
 
     @property
     def num(self):

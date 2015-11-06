@@ -35,9 +35,33 @@ class X86Register(Register):
         Syntax(['r15'], new_func=lambda: r15),
         ]
 
+
+class LowRegister(Register):
+    bitsize = 64
+
+    @property
+    def rexbit(self):
+        return (self.num >> 3) & 0x1
+
+    @property
+    def regbits(self):
+        return self.num & 0x7
+
+    syntaxi = 'reg8', [
+        Syntax(['al'], new_func=lambda: al),
+        Syntax(['cl'], new_func=lambda: cl),
+        Syntax(['dl'], new_func=lambda: dl),
+        Syntax(['bl'], new_func=lambda: bl)
+        ]
+
 # Calculation of the rexb bit:
 # rexbit = {'rax': 0, 'rcx':0, 'rdx':0, 'rbx': 0, 'rsp': 0, 'rbp': 0, 'rsi':0,
 # 'rdi':0,'r8':1,'r9':1,'r10':1,'r11':1,'r12':1,'r13':1,'r14':1,'r15':1}
+
+al = LowRegister('al', 0)
+cl = LowRegister('cl', 1)
+dl = LowRegister('dl', 2)
+bl = LowRegister('bl', 3)
 
 # regs64 = {'rax': 0,'rcx':1,'rdx':2,'rbx':3,'rsp':4,'rbp':5,'rsi':6,'rdi':7,
 # 'r8':0,'r9':1,'r10':2,'r11':3,'r12':4,'r13':5,'r14':6,'r15':7}

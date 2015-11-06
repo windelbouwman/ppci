@@ -360,7 +360,7 @@ def _(self, tree, c0):
 
 @isa.pattern('reg', 'CONSTI16', cost=4)
 def _(self, tree):
-    dst = self.new_temp()
+    dst = self.new_reg(Msp430Register)
     cnst = tree.value
     self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
     return dst
@@ -368,7 +368,7 @@ def _(self, tree):
 
 @isa.pattern('reg', 'CONSTI8', cost=4)
 def _(self, tree):
-    dst = self.new_temp()
+    dst = self.new_reg(Msp430Register)
     cnst = tree.value
     self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
     return dst
@@ -400,7 +400,7 @@ def _(self, tree, c0, c1):
 
 @isa.pattern('reg', 'ANDI16(reg, reg)', cost=4)
 def _(context, tree, c0, c1):
-    dst = context.new_temp()
+    dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
     context.emit(And(RegSrc(c1), RegDst(dst)))
     return dst
@@ -408,7 +408,7 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('reg', 'SHRI16(reg, reg)', cost=4)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(Msp430Register)
     #context.emit(Mov(c0, RegDst(d)))
     #context.emit(Shr(c1, RegDst(d)))
     # TODO!
@@ -417,7 +417,7 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('reg', 'ADDI16(reg, reg)', cost=4)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Add(RegSrc(c1), RegDst(d)))
     return d
@@ -425,7 +425,7 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('reg', 'SUBI16(reg, reg)', cost=4)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Sub(RegSrc(c1), RegDst(d)))
     return d
@@ -443,21 +443,21 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('reg', 'LDRI16(reg)', cost=2)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(Msp430Register)
     context.emit(Mov(MemSrc(c0), RegDst(d)))
     return d
 
 
 @isa.pattern('reg', 'LDRI8(reg)', cost=2)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(Msp430Register)
     context.emit(Movb(MemSrc(c0), RegDst(d)))
     return d
 
 
 @isa.pattern('reg', 'LABEL', cost=2)
 def _(context, tree):
-    d = context.new_temp()
+    d = context.new_reg(Msp430Register)
     ln = context.frame.add_constant(tree.value)
     context.emit(Mov(AdrSrc(ln), RegDst(d)))
     return d

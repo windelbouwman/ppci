@@ -6,7 +6,7 @@
 from .arm import ArmTarget
 from .thumb import ThumbTarget
 from .msp430.msp430 import Msp430Target
-from .x86.target_x86 import X86Target
+from .x86.target import X86Target
 
 # Instance:
 arm_target = ArmTarget()

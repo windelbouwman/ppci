@@ -25,26 +25,20 @@ class Typ:
 
 class BuiltinType(Typ):
     """ Built in type representation """
-    def __init__(self, name, byte_size):
+    def __init__(self, name):
         self.name = name
-        self.byte_size = byte_size
 
     def __repr__(self):
         return self.name
 
-    @property
-    def size(self):
-        """ The size in bytes of this type """
-        return self.byte_size
-
 
 # The builtin types:
-f64 = BuiltinType('f64', 8)
-i64 = BuiltinType('i64', 8)
-i32 = BuiltinType('i32', 4)
-i16 = BuiltinType('i16', 2)
-i8 = BuiltinType('i8', 1)
-ptr = BuiltinType('ptr', 4)
+f64 = BuiltinType('f64')
+i64 = BuiltinType('i64')
+i32 = BuiltinType('i32')
+i16 = BuiltinType('i16')
+i8 = BuiltinType('i8')
+ptr = BuiltinType('ptr')
 
 
 class Module:
@@ -547,7 +541,7 @@ class Const(Expression):
         assert type(value) in [int, float], str(value)
 
     def __repr__(self):
-        return '{} = Const {} {}'.format(self.name, self.ty, self.value)
+        return '{} {} = Const {}'.format(self.ty, self.name, self.value)
 
 
 class LiteralData(Expression):
@@ -600,8 +594,8 @@ class Binop(Expression):
         self.operation = operation
 
     def __repr__(self):
-        a, b = self.a.name, self.b.name
-        return '{} = {} {} {}'.format(self.name, a, self.operation, b)
+        a, b, ty = self.a.name, self.b.name, self.ty
+        return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
 
 
 class Unop(Expression):
@@ -733,18 +727,6 @@ class Store(Instruction):
         val = self.value.name
         ptr = self.address.name
         return 'store {} {}, {}'.format(ty, val, ptr)
-
-
-class Addr(Expression):
-    """ Address of label """
-    e = var_use('e')
-
-    def __init__(self, e, name, ty):
-        super().__init__(name, ty)
-        self.e = e
-
-    def __repr__(self):
-        return '{} = &{}'.format(self.name, self.e.name)
 
 
 # Branching:

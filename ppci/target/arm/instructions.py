@@ -607,7 +607,7 @@ def _(context, tree):
 
 @isa.pattern('reg', 'CONSTI32', cost=4)
 def _(context, tree):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
@@ -615,7 +615,7 @@ def _(context, tree):
 
 @isa.pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
 def _(context, tree):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     c0 = tree.value
     assert isinstance(c0, int)
     assert c0 < 256 and c0 >= 0
@@ -625,7 +625,7 @@ def _(context, tree):
 
 @isa.pattern('reg', 'CONSTI8', cost=2, condition=lambda t: t.value < 256)
 def _(context, tree):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     c0 = tree.value
     assert isinstance(c0, int)
     assert c0 < 256 and c0 >= 0
@@ -646,14 +646,14 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('reg', 'ADDI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Add1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'ADDI8(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Add1(d, c0, c1))
     return d
 
@@ -662,7 +662,7 @@ def _(context, tree, c0, c1):
     'reg', 'ADDI32(reg, CONSTI32)', cost=2,
     condition=lambda t: t.children[1].value < 256)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     c1 = tree.children[1].value
     context.emit(Add2(d, c0, c1))
     return d
@@ -672,7 +672,7 @@ def _(context, tree, c0):
     'reg', 'ADDI32(CONSTI32, reg)', cost=2,
     condition=lambda t: t.children[0].value < 256)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     c1 = tree.children[0].value
     context.emit(Add2(d, c0, c1))
     return d
@@ -680,7 +680,7 @@ def _(context, tree, c0):
 
 @isa.pattern('reg', 'SUBI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Sub1(d, c0, c1))
     return d
 
@@ -688,14 +688,14 @@ def _(context, tree, c0, c1):
 @isa.pattern('reg', 'SUBI8(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
     # TODO: temporary fix this with an 32 bits sub
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Sub1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'LABEL', cost=4)
 def _(context, tree):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
@@ -703,14 +703,14 @@ def _(context, tree):
 
 @isa.pattern('reg', 'LDRI8(reg)', cost=2)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Ldrb(d, c0, 0))
     return d
 
 
 @isa.pattern('reg', 'LDRI32(reg)', cost=2)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Ldr1(d, c0, 0))
     return d
 
@@ -724,42 +724,42 @@ def _(context, tree):
 
 @isa.pattern('reg', 'ANDI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(And1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'ORI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Orr1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'SHRI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Lsr1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'SHLI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Lsl1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'MULI32(reg, reg)', cost=10)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Mul1(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', cost=2)
 def _(context, tree, c0):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     c1 = tree.children[0].children[1].value
     assert isinstance(c1, int)
     context.emit(Ldr1(d, c0, c1))
@@ -768,7 +768,7 @@ def _(context, tree, c0):
 
 @isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
     context.frame.gen_call('__sdiv', [c0, c1], d)
     return d
@@ -777,16 +777,16 @@ def _(context, tree, c0, c1):
 @isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
 def _(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.frame.gen_call('__sdiv', [c0, c1], d)
-    d2 = context.new_temp()
+    d2 = context.new_reg(ArmRegister)
     context.emit(Mls(d2, d, c1, c0))
     return d2
 
 
 @isa.pattern('reg', 'XORI32(reg, reg)', cost=2)
 def _(context, tree, c0, c1):
-    d = context.new_temp()
+    d = context.new_reg(ArmRegister)
     context.emit(Eor1(d, c0, c1))
     return d
 
@@ -797,15 +797,15 @@ def _(context, tree, c0, c1):
 class MachineThatHasDivOps:  # pragma: no cover
     # @isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
     def P23(self, tree, c0, c1):
-        d = self.new_temp()
+        d = self.new_reg(ArmRegister)
         self.emit(Udiv, dst=[d], src=[c0, c1])
         return d
 
     # @isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
     def P24(self, tree, c0, c1):
         # Implement remainder as a combo of div and mls (multiply substract)
-        d = self.new_temp()
+        d = self.new_reg(ArmRegister)
         self.emit(Udiv, dst=[d], src=[c0, c1])
-        d2 = self.new_temp()
+        d2 = self.new_reg(ArmRegister)
         self.emit(Mls, dst=[d2], src=[d, c1, c0])
         return d2

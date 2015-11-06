@@ -27,10 +27,6 @@ class ThumbFrame(Frame):
     def move(self, dst, src):
         self.emit(Mov2(dst, src, ismove=True))
 
-    def new_virtual_register(self, twain=""):
-        """ Retrieve a new virtual register """
-        return super().new_virtual_register(type(R0), twain=twain)
-
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence """
 

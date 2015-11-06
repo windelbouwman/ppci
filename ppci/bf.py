@@ -13,8 +13,9 @@ class BrainFuckGenerator():
     """ Brainfuck is a language that is so simple, the entire front-end can
     be implemented in one pass.
     """
-    def __init__(self):
+    def __init__(self, target):
         self.logger = logging.getLogger('bfgen')
+        self.target = target
         self.builder = Builder()
 
     def generate(self, src, module_name='sample', function_name='start'):
@@ -32,11 +33,12 @@ class BrainFuckGenerator():
         self.builder.set_block(block1)
 
         # Allocate space on stack for ptr register:
-        ptr_var = self.builder.emit(ir.Alloc('ptr_addr', ir.i32.byte_size))
+        ptr_var = self.builder.emit(
+            ir.Alloc('ptr_addr', self.target.get_size(ir.i32)))
 
         bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable('data', bf_mem_size * ir.i8.byte_size)
+        data = ir.Variable('data', bf_mem_size * self.target.get_size(ir.i8))
         self.builder.module.add_variable(data)
 
         # Locate '1' and '0' constants:

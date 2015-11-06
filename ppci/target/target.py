@@ -1,6 +1,7 @@
 import logging
-from .isa import Instruction
+from .isa import Instruction, Register
 from .data_instructions import Ds
+from ..ir import i8, i16, i32, i64, ptr
 
 
 class Target:
@@ -14,9 +15,25 @@ class Target:
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
+        self.value_classes = {}
 
     def __repr__(self):
         return '{}-target'.format(self.name)
+
+    def get_reg_class(self, bitsize=None, ty=None):
+        """ Look for a register class """
+        if bitsize:
+            ty = {8: i8, 16: i16, 32: i32, 64: i64}[bitsize]
+        if ty:
+            return self.value_classes[ty]
+        raise NotImplementedError()
+
+    def get_size(self, ty):
+        """ Get type of ir type """
+        if ty is ptr:
+            return self.byte_sizes['ptr']
+        else:
+            return {i8: 1, i16: 2, i32: 4, i64: 8}[ty]
 
     def get_reloc(self, name):
         """ Retrieve a relocation identified by a name """
@@ -29,6 +46,9 @@ class Target:
             outs.emit(Ds(amount))
         else:  # pragma: no cover
             raise NotImplementedError()
+
+    def get_runtime_src(self):
+        return ''
 
 
 class Nop(Instruction):
@@ -120,13 +140,16 @@ class Frame:
         self.instructions = []
         self.stacksize = 0
         self.temps = generate_temps()
+        self.register_classes = {}
 
     def __repr__(self):
         return 'Frame {}'.format(self.name)
 
-    def new_virtual_register(self, cls, twain=""):
+    def new_reg(self, cls, twain=""):
         """ Retrieve a new virtual register """
         tmp_name = self.temps.__next__() + twain
+        assert issubclass(cls, Register)
+        # cls = self.register_classes[bit_size]
         tmp = cls(tmp_name)
         return tmp
 

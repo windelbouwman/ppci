@@ -3,10 +3,10 @@
 """
 
 from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
-from .registers import X86Register
+from .registers import X86Register, rcx, LowRegister, al, rax
 from ...bitfun import wrap_negative
 
-from ..token import Token, u32, u8, bit_range
+from ..token import Token, u32, u8, u64, bit_range
 
 isa = Isa()
 
@@ -138,6 +138,42 @@ class NearJump(X86Instruction):
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
+
+
+class ConditionalJump(X86Instruction):
+    """ j?? imm32 """
+    target = register_argument('target', str)
+    tokens = [OpcodeToken, OpcodeToken, Imm32Token]
+
+    def encode(self):
+        #opcode = 0x80 | tttn[condition] # Jcc imm32
+        #return [0x0F, opcode] + imm32(distance)
+        #if distance < 0:
+        # distance -= 5 # Skip own instruction
+        self.token1[0:8] = 0xF
+        self.token2[0:8] = self.opcode
+        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+
+    def relocations(self):
+        return [(self.target, apply_b_jmp32)]
+
+
+def make_cjump(mnemonic, opcode):
+    syntax = Syntax([mnemonic, ConditionalJump.target])
+    members = {'syntax': syntax, 'opcode': opcode}
+    return type(mnemonic + '_ins', (ConditionalJump,), members)
+
+Jb = make_cjump('jb', 0x82)
+Jae = make_cjump('jae', 0x83)
+Je = make_cjump('jz', 0x84)
+Jne = make_cjump('jne', 0x85)
+Jbe = make_cjump('jbe', 0x86)
+Ja = make_cjump('ja', 0x87)
+
+Jl = make_cjump('jl', 0x8c)
+Jge = make_cjump('jge', 0x8d)
+Jle = make_cjump('jle', 0x8e)
+Jg = make_cjump('jg', 0x8f)
 
 
 class ShortJump(X86Instruction):
@@ -300,37 +336,41 @@ class rmregbase(X86Instruction):
             self.token3.encode() + sib + bytes(extra)
 
 
-def make_rm_reg(mnemonic, opcode):
+def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True, reg_class=X86Register):
     rm1 = register_argument('rm1', Rm)
-    reg = register_argument('reg', X86Register, read=True)
+    reg = register_argument('reg', reg_class, read=True)
     syntax = Syntax([mnemonic, rm1, ',', reg], priority=2)
     members = {
         'syntax': syntax, 'rm1': rm1, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
 
 
-def make_reg_rm(mnemonic, opcode):
+def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True, reg_class=X86Register):
     rm1 = register_argument('rm1', Rm)
-    reg = register_argument('reg', X86Register, write=True, read=True)
+    reg = register_argument('reg', reg_class, write=write_op1, read=read_op1)
     syntax = Syntax([mnemonic, reg, ',', rm1])
     members = {
         'syntax': syntax, 'rm1': rm1, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
 
 
-Add1 = make_rm_reg('add', 0x1)
-Add2 = make_reg_rm('add', 0x3)
-Or1 = make_rm_reg('or', 0x9)
-And1 = make_rm_reg('and', 0x21)
-And2 = make_reg_rm('and', 0x23)
-Sub1 = make_rm_reg('sub', 0x29)
-Sub2 = make_reg_rm('sub', 0x2b)
-Xor1 = make_rm_reg('xor', 0x31)  # opcode = 0x31  # XOR r/m64, r64
-Xor2 = make_reg_rm('xor', 0x33)
-Cmp = make_rm_reg('cmp', 0x39)
-Mov1 = make_rm_reg('mov', 0x89)  # mov r/m64, r64
-Mov2 = make_reg_rm('mov', 0x8b)  # mov r64, r/m64
-Lea = make_reg_rm('lea', 0x8d)
+AddRmReg = make_rm_reg('add', 0x1)
+AddRegRm = make_reg_rm('add', 0x3)
+OrRmReg = make_rm_reg('or', 0x9)
+AndRmReg = make_rm_reg('and', 0x21)
+AndRegRm = make_reg_rm('and', 0x23)
+SubRmReg = make_rm_reg('sub', 0x29)
+SubRegRm = make_reg_rm('sub', 0x2b)
+XorRmReg = make_rm_reg('xor', 0x31)  # opcode = 0x31  # XOR r/m64, r64
+XorRegRm = make_reg_rm('xor', 0x33)
+CmpRmReg = make_rm_reg('cmp', 0x39, write_op1=False)
+MovRmReg8 = make_rm_reg('mov', 0x88, read_op1=False, reg_class=LowRegister)  # mov r/m8, r8
+MovRmReg = make_rm_reg('mov', 0x89, read_op1=False)  # mov r/m64, r64
+MovRegRm8 = make_reg_rm('mov', 0x8a, read_op1=False, reg_class=LowRegister)  # mov r8, r/m8
+MovRegRm = make_reg_rm('mov', 0x8b, read_op1=False)  # mov r64, r/m64
+
+# TODO: implement lea otherwise?
+Lea = make_reg_rm('lea', 0x8d, read_op1=False)
 
 
 class regint32base(X86Instruction):
@@ -356,8 +396,41 @@ def make_regimm(mnemonic, opcode, reg_code):
         'reg_code': reg_code}
     return type(mnemonic + '_ins', (regint32base,), members)
 
-Add3 = make_regimm('add', 0x81, 0)
-Sub3 = make_regimm('sub', 0x81, 5)
+AddImm = make_regimm('add', 0x81, 0)
+AndImm = make_regimm('and', 0x81, 4)
+SubImm = make_regimm('sub', 0x81, 5)
+XorImm = make_regimm('xor', 0x81, 6)
+CmpImm = make_regimm('cmp', 0x81, 7)
+
+
+class shift_cl_base(X86Instruction):
+    rm = register_argument('rm', Rm)
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+    opcode = 0xd3
+
+    def encode(self):
+        self.token1.w = 1
+        self.token1.b = self.rm.reg_rm.rexbit
+        self.token2[0:8] = self.opcode
+        self.token3.mod = self.rm.mod
+        self.token3.rm = self.rm.reg_rm.regbits
+        self.token3.reg = self.r
+        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+
+
+class ShrCl(shift_cl_base):
+    r = 5
+    syntax = Syntax(['shr', shift_cl_base.rm, ',', 'cl'])
+
+
+class ShlCl(shift_cl_base):
+    r = 6
+    syntax = Syntax(['shl', shift_cl_base.rm, ',', 'cl'])
+
+
+class SarCl(shift_cl_base):
+    r = 7
+    syntax = Syntax(['sar', shift_cl_base.rm, ',', 'cl'])
 
 
 class Imul(X86Instruction):
@@ -384,29 +457,132 @@ class Imul(X86Instruction):
             self.token3.encode() + self.token4.encode()
 
 
+class MovImm(X86Instruction):
+    """ Mov immediate into register """
+    reg = register_argument('reg', X86Register, write=True)
+    imm = register_argument('imm', int)
+    syntax = Syntax(['mov', reg, ',', imm])
+    tokens = [RexToken, OpcodeToken]
+    opcode = 0xb8  # mov r64, imm64
+
+    def encode(self):
+        self.token1.w = 1
+        self.token1.r = self.reg.rexbit
+        self.token2[0:8] = self.opcode + self.reg.regbits
+        return self.token.encode() + self.token2.encode() + u64(self.imm)
+
+
 @isa.pattern('stm', 'JMP', cost=2)
 def _(context, tree):
     tgt = tree.value
     context.emit(NearJump(tgt.name, jumps=[tgt]))
 
 
+@isa.pattern('stm', 'CJMP(reg64, reg64)', cost=2)
+def _(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge}
+    Bop = opnames[op]
+    context.emit(CmpRmReg(RmRegister(c0), c1))
+    jmp_ins = NearJump(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+
 @isa.pattern('reg64', 'CALL', cost=10)
 def _(context, tree):
-    tgt, args, rv = tree.value
-    # TODO!!
-    return rv
+    label, args, res_var = tree.value
+    context.frame.gen_call(label, args, res_var)
+    return res_var
 
 
-@isa.pattern('reg8', 'MOVI8(reg8)', cost=2)
-def _(context, tree, c0):
-    context.move(tree.value, c0)
-    return tree.value
-
-
+@isa.pattern('reg64', 'MOVI8(reg64)', cost=2)
 @isa.pattern('reg64', 'MOVI64(reg64)', cost=2)
 def _(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
+
+
+@isa.pattern('reg64', 'LDRI64(reg64)', cost=2)
+def _(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.emit(MovRegRm(d, Rm0(c0)))
+    return d
+
+
+@isa.pattern('reg64', 'LDRI8(reg64)', cost=2)
+def _(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.emit(MovRegRm8(al, Rm0(c0)))
+    context.move(d, rax)
+    return d
+
+
+@isa.pattern('stm', 'STRI64(reg64, reg64)', cost=2)
+def _(context, tree, c0, c1):
+    context.emit(MovRmReg(Rm0(c0), c1))
+
+
+@isa.pattern('stm', 'STRI8(reg64, reg64)', cost=2)
+def _(context, tree, c0, c1):
+    context.emit(MovRmReg8(Rm0(c0), c1))
+
+
+@isa.pattern('reg64', 'ADDI64(reg64, reg64)', cost=2)
+def _(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AddRegRm(d, RmRegister(c1)))
+    return d
+
+
+@isa.pattern('reg64', 'ADDI64(reg64, CONSTI64)', cost=8)
+def _(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AddImm(d, tree.children[1].value))
+    return d
+
+
+@isa.pattern('reg64', 'ADDI64(CONSTI64, reg64)', cost=8)
+def _(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AddImm(d, tree.children[0].value))
+    return d
+
+
+@isa.pattern('reg64', 'SUBI64(reg64, reg64)', cost=4)
+def _(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(SubRegRm(d, RmRegister(c1)))
+    return d
+
+
+@isa.pattern('reg64', 'ANDI64(reg64, reg64)', cost=4)
+def _(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AndRegRm(d, RmRegister(c1)))
+    return d
+
+
+@isa.pattern('reg64', 'ANDI64(reg64, CONSTI64)', cost=10)
+def _(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AndImm(d, tree.children[1].value))
+    return d
+
+
+@isa.pattern('reg64', 'SHRI64(reg64, reg64)', cost=2)
+def _(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.move(rcx, c1)
+    context.emit(ShrCl(RmRegister(d)))
+    return d
 
 
 @isa.pattern('reg64', 'REGI64', cost=0)
@@ -417,18 +593,20 @@ def _(context, tree):
 @isa.pattern('reg64', 'MOVI64(LABEL)', cost=2)
 def _(context, tree):
     # TODO!
-    src = context.new_tmp()
+    src = context.new_reg(X86Register)
     context.emit(Lea(tree.value, Rm2(src, 100)))
     return tree.value
 
 
-@isa.pattern('reg64', 'MOVI8(CONSTI8)', cost=2)
+@isa.pattern('reg64', 'CONSTI64', cost=11)
 def _(context, tree):
-    # context.emit(Movi8(reg))
-    return tree.value
+    d = context.new_reg(X86Register)
+    context.emit(MovImm(d, tree.value))
+    return d
 
 
-@isa.pattern('reg64', 'MOVI64(CONSTI64)', cost=2)
+@isa.pattern('reg64', 'CONSTI8', cost=11)
 def _(context, tree):
-    # context.emit(Movi8(reg))
-    return tree.value
+    d = context.new_reg(X86Register)
+    context.emit(MovImm(d, tree.value))
+    return d

@@ -241,16 +241,17 @@ def c3compile(sources, includes, target, reporter=DummyReportGenerator()):
     return ir_to_object(ir_modules, target, reporter=reporter)
 
 
-def bf2ir(source):
+def bf2ir(source, target):
     """ Compile brainfuck source into ir code """
-    ircode = BrainFuckGenerator().generate(source)
+    target = fix_target(target)
+    ircode = BrainFuckGenerator(target).generate(source)
     return ircode
 
 
 def bfcompile(source, target, reporter=DummyReportGenerator()):
     """ Compile brainfuck source into binary format for the given target """
     reporter.message('brainfuck compilation listings')
-    ir_module = bf2ir(source)
+    ir_module = bf2ir(source, target)
     reporter.message(
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)

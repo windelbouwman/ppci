@@ -3,6 +3,7 @@
     the generator is created.
 """
 
+import logging
 from .. import ir
 from ..irutils import Verifier, split_block
 from ..target.target import Target
@@ -13,7 +14,6 @@ from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
 from .registerallocator import RegisterAllocator
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
-import logging
 
 
 class CodeGenerator:
@@ -23,7 +23,8 @@ class CodeGenerator:
         self.logger = logging.getLogger('codegen')
         self.target = target
         self.sgraph_builder = SelectionGraphBuilder(target)
-        self.instruction_selector = InstructionSelector1(target.isa, self.sgraph_builder)
+        self.instruction_selector = InstructionSelector1(
+            target.isa, target, self.sgraph_builder)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
@@ -56,11 +57,12 @@ class CodeGenerator:
 
         # Create a object that carries global function info:
         function_info = FunctionInfo(frame)
-        prepare_function_info(function_info, ir_function)
+        prepare_function_info(self.target, function_info, ir_function)
 
         tree_method = True
         if tree_method:
-            self.instruction_selector.select(ir_function, frame, function_info, reporter)
+            self.instruction_selector.select(
+                ir_function, frame, function_info, reporter)
         else:
             # Build a graph:
             self.sgraph_builder.build(ir_function, function_info)
@@ -129,7 +131,8 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.Variables:
-            self.target.emit_global(output_stream, ir.label_name(var), var.amount)
+            self.target.emit_global(
+                output_stream, ir.label_name(var), var.amount)
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.

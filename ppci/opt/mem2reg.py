@@ -41,8 +41,9 @@ def is_alloc_promotable(alloc_inst):
 
     # Check that the alloc has the right amount of bytes:
     phi_type = all_types[0]
-    if alloc_inst.amount != phi_type.byte_size:
-        return False
+    # TODO: re-enable this check, but it requires target knowledge?
+    #if alloc_inst.amount != phi_type.byte_size:
+    #    return False
 
     return True
 

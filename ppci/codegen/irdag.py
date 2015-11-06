@@ -7,10 +7,12 @@
 """
 
 import logging
+import re
 from .. import ir
 from ..target.isa import Register
 from ..target.target import Label
 from .selectiongraph import SGNode, SGValue, SelectionGraph
+from ..utils.tree import Tree
 
 
 NODE_ATTR = '$nodetype$$$'
@@ -25,6 +27,11 @@ def register(tp):
     return reg_f
 
 
+def make_op(op, vreg):
+    typ = 'I{}'.format(vreg.bitsize)
+    return '{}{}'.format(op, typ)
+
+
 def make_map(cls):
     f_map = {}
     for name, func in list(cls.__dict__.items()):
@@ -35,17 +42,17 @@ def make_map(cls):
     return cls
 
 
-def prepare_function_info(function_info, ir_function):
+def prepare_function_info(target, function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
     for ir_block in ir_function:
         # Put label into map:
         function_info.label_map[ir_block] = Label(ir.label_name(ir_block))
 
-        # Create phi virtual registers:
+        # Create virtual registers for phi-nodes:
         for phi in ir_block.phis:
-            vreg = function_info.frame.new_virtual_register(
-                twain=phi.name)
+            vreg = function_info.frame.new_reg(
+                target.get_reg_class(ty=phi.ty), twain=phi.name)
             function_info.phi_map[phi] = vreg
 
 
@@ -63,11 +70,11 @@ class FunctionInfo:
 @make_map
 class SelectionGraphBuilder:
     def __init__(self, target):
+        self.target = target
         self.logger = logging.getLogger('selection-graph-builder')
         self.postfix_map = {
             ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
-        tp_map = {4: 'I32', 2: 'I16', 8: 'I64'}
-        self.postfix_map[ir.ptr] = tp_map[target.byte_sizes['ptr']]
+        self.postfix_map[ir.ptr] = 'I{}'.format(target.byte_sizes['ptr'] * 8)
 
     @register(ir.Jump)
     def do_jump(self, node):
@@ -134,12 +141,15 @@ class SelectionGraphBuilder:
     @register(ir.Alloc)
     def do_alloc(self, node):
         # TODO: check alignment?
-        fp = self.new_node(self.make_opcode("REG", ir.ptr), value=self.function_info.frame.fp)
+        fp = self.new_node(
+            self.make_opcode("REG", ir.ptr),
+            value=self.function_info.frame.fp)
         fp_output = fp.new_output('fp')
         offset = self.new_node(self.make_opcode("CONST", ir.ptr))
         offset.value = self.function_info.frame.alloc_var(node, node.amount)
         offset_output = offset.new_output('offset')
-        sgnode = self.new_node(self.make_opcode('ADD', ir.ptr), fp_output, offset_output)
+        sgnode = self.new_node(
+            self.make_opcode('ADD', ir.ptr), fp_output, offset_output)
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output('alloc'))
 
@@ -215,7 +225,8 @@ class SelectionGraphBuilder:
         inputs = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
-            loc = self.function_info.frame.new_virtual_register()
+            loc = self.function_info.frame.new_reg(
+                self.target.value_classes[argument.ty])
             args.append(loc)
             opcode = self.make_opcode('MOV', argument.ty)
             arg_sgnode = self.new_node(opcode, arg_val, value=loc)
@@ -223,7 +234,8 @@ class SelectionGraphBuilder:
             # inputs.append(arg_sgnode.new_output('x'))
 
         # New register for copy of result:
-        ret_val = self.function_info.frame.new_virtual_register()
+        ret_val = self.function_info.frame.new_reg(
+            self.target.value_classes[node.ty], '{}_result'.format(node.name))
 
         # Perform the actual call:
         sgnode = self.new_node(
@@ -264,12 +276,17 @@ class SelectionGraphBuilder:
         # TODO: maybe this can be done different
         # Copy parameters into fresh temporaries:
         for arg in ir_function.arguments:
+            loc = function_info.frame.arg_loc(arg.num)
+            # TODO: byte value are not always passed in byte registers..
+            #
+            tp_pf = 'REGI{}'.format(loc.bitsize)
             param_node = self.new_node(
-                self.make_opcode('REG', arg.ty),
-                value=function_info.frame.arg_loc(arg.num))
-            assert isinstance(param_node.value, Register)
+                tp_pf,
+                value=loc)
+            assert isinstance(loc, Register)
             output = param_node.new_output(arg.name)
-            vreg = function_info.frame.new_virtual_register(twain=arg.name)
+            vreg = function_info.frame.new_reg(
+                self.target.value_classes[arg.ty], twain=arg.name)
             output.vreg = vreg
             self.chain(param_node)
 
@@ -329,3 +346,127 @@ class SelectionGraphBuilder:
 
         self.sgraph.check()
         return self.sgraph
+
+
+class DagSplitter:
+    """ Class that splits a DAG into a series of trees. This series is sorted
+        such that data dependencies are met. The trees can henceforth be
+        used to match trees.
+    """
+    def __init__(self, target):
+        self.logger = logging.getLogger('dag-splitter')
+        self.target = target
+
+    def get_reg_class(self, data_flow):
+        """ Determine the register class suited for this data flow line """
+        op = data_flow.node.name
+        if op == 'LABEL':
+            return self.target.get_reg_class(ty=ir.ptr)
+        assert 'I' in op
+        bitsize = int(re.search('I(\d+)', op).group(1))
+        return self.target.get_reg_class(bitsize=bitsize)
+
+    def traverse_back(self, node):
+        """
+        Traverse the graph backwards from the given node, creating a tree
+        and optionally adding this tree to the list of generated trees
+        """
+
+        # if node is already processed, stop:
+        if node in self.node_map:
+            return self.node_map[node]
+
+        # Stop on entry node:
+        if node.name == 'ENTRY':
+            tree = Tree(node.name, value=node.value)
+            self.node_map[node] = tree
+            self.trees.append(tree)
+            return tree
+
+        # For now assert that nodes can only max 1 data value:
+        assert len(node.data_outputs) <= 1
+
+        # Make sure control dependencies are satisfied first:
+        for inp in node.control_inputs:
+            self.traverse_back(inp.node)
+
+        # Second, process memory dependencies:
+        for inp in node.memory_inputs:
+            self.traverse_back(inp.node)
+
+        # Create data for data dependencies:
+        children = []
+        for inp in node.data_inputs:
+            if (inp.node.group is node.group) or \
+                    (inp.node.group is None) or \
+                    inp.node.name.startswith('CONST'):
+                res = self.traverse_back(inp.node)
+            else:
+                if not inp.vreg:
+                    cls = self.get_reg_class(inp)
+                    vreg = self.frame.new_reg(cls, inp.name)
+                    inp.vreg = vreg
+
+            # If the input value has a vreg, use it:
+            if inp.vreg:
+                children.append(Tree(make_op('REG', inp.vreg), value=inp.vreg))
+            else:
+                children.append(res)
+
+        # Create a tree node:
+        tree = Tree(node.name, *children, value=node.value)
+
+        # Determine if the node should be copied to register:
+        for data_output in node.data_outputs:
+            # Skip constants:
+            if node.name.startswith('CONST'):
+                continue
+
+            # Check if value is used more then once:
+            if (len(data_output.users) > 1) or node.volatile or \
+                    any(u.group is not node.group for u in data_output.users):
+                if not data_output.vreg:
+                    cls = self.get_reg_class(data_output)
+                    vreg = self.frame.new_reg(cls, data_output.name)
+                    data_output.vreg = vreg
+
+        # Handle outputs:
+        if len(node.data_outputs) == 0:
+            # If the tree was volatile, it must be emitted
+            if node.volatile:
+                self.trees.append(tree)
+        else:
+            # If the output has a vreg, put the value in:
+            data_output = node.data_outputs[0]
+            if data_output.vreg:
+                vreg = data_output.vreg
+                tree = Tree(make_op('MOV', vreg), tree, value=vreg)
+                self.trees.append(tree)
+                tree = Tree(make_op('REG', vreg), value=vreg)
+            elif node.volatile:
+                self.trees.append(tree)
+
+        # Store for later and prevent multi coverage of dag:
+        self.node_map[node] = tree
+
+        return tree
+
+    def split_dag(self, root, frame):
+        """ Split dag into forest of trees.
+            The approach here is to start at the exit of the flowgraph
+            and go back to the beginning.
+
+            This function can be looped over and yields a series
+            of somehow topologically sorted trees.
+        """
+        self.trees = []
+        self.node_map = {}
+        self.frame = frame
+
+        assert len(root.outputs) == 0
+
+        # First determine the usages:
+        self.traverse_back(root)
+
+        return self.trees
+

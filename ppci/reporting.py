@@ -6,6 +6,7 @@
 """
 
 from contextlib import contextmanager
+from datetime import datetime
 import io
 from . import ir
 from .irutils import Writer
@@ -159,6 +160,7 @@ class HtmlReportGenerator(TextWritingReporter):
  </p>
         """
         self.print(header)
+        self.message(datetime.today().ctime())
 
     def footer(self):
         footer = """

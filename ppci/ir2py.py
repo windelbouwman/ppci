@@ -97,26 +97,26 @@ class IrToPython:
             self.print(3, '{} = int({} {} {})'.format(
                 ins.name, ins.a.name, ins.operation, ins.b.name))
             # Implement wrapping around zero:
-            if ins.ty.byte_size == 1:
+            if ins.ty is ir.i8:
                 self.print(3, '{0} = wrap_byte({0})'.format(ins.name))
         elif isinstance(ins, ir.Cast):
             self.print(3, '{} = {}'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Store):
             # print(ins
             # TODO: improve this mess? Helper functions?
-            if ins.value.ty.byte_size == 4:
+            if ins.value.ty is ir.i32 or ins.value.ty is ir.ptr:
                 self.print(3, 'mem[{0}:{0}+4] = list(struct.pack("i",{1}))'
                            .format(ins.address.name, ins.value.name))
-            elif ins.value.ty.byte_size == 1:
+            elif ins.value.ty is ir.i8:
                 self.print(3, 'mem[{0}:{0}+1] = list(struct.pack("B",{1}))'
                            .format(ins.address.name, ins.value.name))
             else:  # pragma: no cover
                 raise NotImplementedError()
         elif isinstance(ins, ir.Load):
-            if ins.ty.byte_size == 1:
+            if ins.ty is ir.i8:
                 self.print(
                     3, '{} = mem[{}]'.format(ins.name, ins.address.name))
-            elif ins.ty.byte_size == 4:
+            elif ins.ty is ir.i32 or ins.ty is ir.ptr:
                 self.print(
                     3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'
                     .format(ins.name, ins.address.name))

@@ -1,6 +1,8 @@
 
 from ..target import Target, Label
 from .instructions import LdrPseudo, isa
+from .registers import ArmRegister
+from ...ir import i8, i32, ptr
 from ..data_instructions import data_isa
 from .frame import ArmFrame
 from ...binutils.assembler import BaseAssembler
@@ -72,6 +74,9 @@ class ArmTarget(Target):
         self.isa = isa + data_isa
         self.FrameClass = ArmFrame
         self.assembler = ArmAssembler(self)
+        self.value_classes[i8] = ArmRegister
+        self.value_classes[i32] = ArmRegister
+        self.value_classes[ptr] = ArmRegister
 
     def get_runtime_src(self):
         """ Implement compiler runtime functions """

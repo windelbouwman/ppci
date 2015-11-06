@@ -12,6 +12,13 @@ def u32(x):
         return struct.pack('<I', x)
 
 
+def u64(x):
+    if x < 0:
+        return struct.pack('<q', x)
+    else:
+        return struct.pack('<Q', x)
+
+
 def u8(x):
     return struct.pack('<B', x)
 

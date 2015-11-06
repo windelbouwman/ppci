@@ -1,7 +1,8 @@
 from ..target import Target, Label
 from .instructions import isa
 from ..data_instructions import data_isa
-from ..arm.registers import register_range
+from ..arm.registers import register_range, ArmRegister, Reg8Op
+from ...ir import i8, i32, ptr
 from .frame import ThumbFrame
 from ...binutils.assembler import BaseAssembler
 
@@ -40,6 +41,9 @@ class ThumbTarget(Target):
         self.isa = isa + data_isa
         self.FrameClass = ThumbFrame
         self.assembler = ThumbAssembler(self)
+        self.value_classes[i32] = Reg8Op
+        self.value_classes[i8] = Reg8Op
+        self.value_classes[ptr] = Reg8Op
 
     def get_runtime_src(self):
         """ No runtime for thumb required yet .. """
