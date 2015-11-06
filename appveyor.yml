@@ -11,4 +11,4 @@ install:
 build: false
 
 test_script:
-  - "python -m tox -e py34,py35"
+  - "python -m tox -e py33,py34,py35"
