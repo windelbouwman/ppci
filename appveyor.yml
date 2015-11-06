@@ -1,10 +1,9 @@
+environment:
+  PYTHON: "C:\\Python34"
+
 install:
   - ECHO "Filesystem root:"
   - ps: "ls \"C:/\""
-
-  # Install Python (from the official .msi of http://python.org) and pip when
-  # not already installed.
-  # - "powershell ./appveyor/install.ps1"
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
   - "python --version"
   - "pip install tox"
