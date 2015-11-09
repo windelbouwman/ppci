@@ -263,6 +263,15 @@ class Ret(X86Instruction):
         return self.token1.encode()
 
 
+class Syscall(X86Instruction):
+    syntax = Syntax(['syscall'])
+    tokens = [OpcodeToken]
+
+    def encode(self):
+        self.token1[0:8] = 0x05
+        return bytes([0x0F]) + self.token1.encode()
+
+
 class Inc(X86Instruction):
     reg = register_argument('reg', X86Register, read=True, write=True)
     syntax = Syntax(['inc', reg])
@@ -302,6 +311,13 @@ class Rm2(Rm):
     disp = register_argument('disp', int)
     syntax = Syntax(['[', reg_rm, ',', disp, ']'])
     mod = 2
+
+
+class Rm4(Rm):
+    """ absolute address access """
+    l = register_argument('l', str)
+    syntax = Syntax(['[', l, ']'])
+    mod = 4
 
 
 class RmRegister(Rm):
@@ -469,7 +485,7 @@ class MovImm(X86Instruction):
         self.token1.w = 1
         self.token1.r = self.reg.rexbit
         self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token.encode() + self.token2.encode() + u64(self.imm)
+        return self.token1.encode() + self.token2.encode() + u64(self.imm)
 
 
 @isa.pattern('stm', 'JMP', cost=2)
@@ -496,6 +512,7 @@ def _(context, tree):
     return res_var
 
 
+# TODO: this should not be required (the MOVI8)
 @isa.pattern('reg64', 'MOVI8(reg64)', cost=2)
 @isa.pattern('reg64', 'MOVI64(reg64)', cost=2)
 def _(context, tree, c0):

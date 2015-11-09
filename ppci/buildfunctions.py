@@ -26,6 +26,7 @@ from .target.target_list import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile
+from .utils.elffile import ElfFile
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
@@ -282,15 +283,22 @@ def link(objects, layout, target, use_runtime=False):
 
 def objcopy(obj, image_name, fmt, output_filename):
     """ Copy some parts of an object file to an output """
-    if fmt not in ['bin', 'hex']:
-        raise TaskError('Only bin or hex formats supported')
+    if fmt not in ['bin', 'hex', 'elf']:
+        raise TaskError('Only bin, elf and hex formats supported')
 
     obj = fix_object(obj)
-    image = obj.get_image(image_name)
     if fmt == "bin":
+        image = obj.get_image(image_name)
         with open(output_filename, 'wb') as output_file:
             output_file.write(image.data)
+    elif fmt == "elf":
+        elf_file = ElfFile()
+        for section in obj.sections:
+            elf_file.add_section(section.data)
+        with open(output_filename, 'wb') as output_file:
+            elf_file.save(output_file)
     elif fmt == "hex":
+        image = obj.get_image(image_name)
         hexfile = HexFile()
         hexfile.add_region(image.location, image.data)
         with open(output_filename, 'w') as output_file:

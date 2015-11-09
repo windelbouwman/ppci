@@ -4,8 +4,19 @@
 from ..isa import Register, Syntax
 
 
+def get_register(n):
+    """ Based on a number, get the corresponding register """
+    return num2regmap[n]
+
+
 class X86Register(Register):
     bitsize = 64
+
+    def __repr__(self):
+        if self.is_colored:
+            return get_register(self.color).name
+        else:
+            return self.name
 
     @property
     def rexbit(self):
@@ -88,4 +99,7 @@ r15 = X86Register('r15', 15)
 
 low_regs = {rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi}
 
-regs64 = {r8, r9, r10, r11, r12, r13, r14, r15} | low_regs
+high_regs = {r8, r9, r10, r11, r12, r13, r14, r15}
+full_registers = high_regs | low_regs
+
+num2regmap = {r.num: r for r in full_registers}

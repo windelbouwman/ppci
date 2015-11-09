@@ -4,6 +4,10 @@ import logging
 import re
 import string
 import os
+import stat
+import platform
+import subprocess
+from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
@@ -667,7 +671,6 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang)
 
 
-# @unittest.skip('WIP')
 class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "x86"
     startercode = """
@@ -698,6 +701,34 @@ class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
 
     def do(self, src, expected_output, lang='c3'):
         self.build(src, lang)
+
+
+def has_linux():
+    return platform.machine() == 'x86_64' and platform.system() == 'Linux'
+
+
+@unittest.skipIf(not has_linux(), 'no suitable linux found')
+class LinuxTests(unittest.TestCase):
+    """ Run tests against the linux syscall api """
+    def test_exit42(self):
+        """
+            ; exit with code 42:
+            ; syscall 60 = exit
+        """
+        src = io.StringIO("""
+            section code
+            mov rax, 60
+            mov rdi, 42
+            syscall
+            """)
+        obj = assemble(src, 'x86')
+        handle, exe = mkstemp()
+        os.close(handle)
+        st = os.stat(exe)
+        os.chmod(exe, st.st_mode | stat.S_IEXEC)
+        objcopy(obj, 'prog', 'elf', exe)
+        result = subprocess.run(exe, timeout=10)
+        self.assertEqual(42, result.returncode)
 
 
 if __name__ == '__main__':

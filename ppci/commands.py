@@ -13,7 +13,7 @@ from .pyyacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
-from . import version
+from . import version, buildfunctions
 from .common import logformat
 
 
@@ -114,7 +114,7 @@ def asm(args=None):
     add_common_parser_options(parser)
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
-    parser.add_argument('--target', help='target machine', required=True)
+    parser.add_argument('--target', '-t', help='target machine', required=True)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
                         default=sys.stdout)
@@ -146,6 +146,27 @@ def objdump(args=None):
         obj = load_object(args.obj)
         args.obj.close()
         print_object(obj)
+
+
+def objcopy(args=None):
+    """ Copy from binary format 1 to binary format 2 """
+    parser = argparse.ArgumentParser(description=description)
+    add_common_parser_options(parser)
+
+    parser.add_argument(
+        'input', help='input file', type=argparse.FileType('r'))
+    parser.add_argument(
+        'output', help='output file')
+    parser.add_argument(
+        '--output-format', '-O', help='output file format')
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+
+        # Read object from file:
+        obj = load_object(args.input)
+        args.input.close()
+        buildfunctions.objcopy(obj, 'code', args.output_format, args.output)
 
 
 def yacc_cmd(args=None):

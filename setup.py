@@ -35,7 +35,10 @@ setup(
     description="Pure python compiler infrastructure",
     scripts=[
         "bin/ppci-build.py",
-        "bin/ppci-asm.py", "bin/ppci-c3c.py",
+        "bin/ppci-asm.py",
+        "bin/ppci-c3c.py",
+        "bin/ppci-objdump.py",
+        "bin/ppci-objcopy.py",
         'bin/ppci-hexutil.py'],
     long_description=long_description,
     version=ppci.version,
@@ -54,6 +57,9 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Compilers',
         'Topic :: Software Development :: Embedded Systems',
     ]

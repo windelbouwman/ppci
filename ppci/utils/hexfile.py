@@ -73,11 +73,14 @@ class HexFile:
         self.regions = []
         self.start_address = 0
 
-    def load(self, f):
-        endOfFile = False
+    @staticmethod
+    def load(open_file):
+        """ Load a hexfile from file """
+        self = HexFile()
+        end_of_file = False
         ext = 0
-        for address, typ, data in hexfields(f):
-            if endOfFile:
+        for address, typ, data in hexfields(open_file):
+            if end_of_file:
                 raise HexFileException('hexfile line after end of file record')
             if typ == DATA:
                 self.add_region(address + ext, data)
@@ -86,12 +89,13 @@ class HexFile:
             elif typ == EOF:
                 if len(data) != 0:
                     raise HexFileException('end of file not empty')
-                endOfFile = True
+                end_of_file = True
             elif typ == STARTADDR:
                 self.start_address = struct.unpack('>I', data[0:4])[0]
             else:  # pragma: no cover
                 raise NotImplementedError(
                     'record type {0} not implemented'.format(typ))
+        return self
 
     def __repr__(self):
         size = sum(r.Size for r in self.regions)
@@ -101,7 +105,6 @@ class HexFile:
         print(self, file=outf)
         for region in self.regions:
             print(region, file=outf)
-            # for x in range(len(
             print(binascii.hexlify(region.data))
 
     def __eq__(self, other):
@@ -113,8 +116,8 @@ class HexFile:
 
     def add_region(self, address, data):
         """ Add a chunk of data at the given address """
-        r = HexFileRegion(address, data)
-        self.regions.append(r)
+        region = HexFileRegion(address, data)
+        self.regions.append(region)
         self.check()
 
     def check(self):

@@ -73,7 +73,7 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov rbx, r14')
         self.feed('mov r12, r8')
         self.feed('mov rdi, rsp')
-        self.check('4c 89 f3 4d 89 c4 48 89 e7')
+        self.check('4c89f3 4d89c4 4889e7')
 
     def test_asm_mem_loads(self):
         #self.feed('mov rax, [r8 + r15 + 0x11]')

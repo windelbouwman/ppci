@@ -7,8 +7,7 @@ class HexFileTestCase(unittest.TestCase):
     def saveload(self, hf):
         f = io.StringIO()
         hf.save(f)
-        hf2 = HexFile()
-        hf2.load(io.StringIO(f.getvalue()))
+        hf2 = HexFile.load(io.StringIO(f.getvalue()))
         self.assertEqual(hf, hf2)
 
     def test_save1(self):
@@ -82,54 +81,48 @@ class HexFileTestCase(unittest.TestCase):
         self.assertNotEqual(hf1, hf2)
 
     def test_load(self):
-        hf = HexFile()
         dummyhex = """
          :01400000aa15
 
          w00t
         """
         f = io.StringIO(dummyhex)
-        hf.load(f)
+        hf = HexFile.load(f)
         self.assertEqual(1, len(hf.regions))
         self.assertEqual(0x4000, hf.regions[0].address)
         self.assertSequenceEqual(bytes.fromhex('aa'), hf.regions[0].data)
 
     def test_incorrect_crc(self):
-        hf = HexFile()
         txt = ":01400000aabb"
         f = io.StringIO(txt)
         with self.assertRaisesRegex(HexFileException, 'crc'):
-            hf.load(f)
+            HexFile.load(f)
 
     def test_startaddress(self):
-        hf = HexFile()
         txt = ":04000005aabbccdde9"
         f = io.StringIO(txt)
-        hf.load(f)
+        hf = HexFile.load(f)
         self.assertEqual(0xaabbccdd, hf.start_address)
 
     def test_non_empty_eof(self):
-        hf = HexFile()
         txt = ":04000001aabbccdded"
         f = io.StringIO(txt)
         with self.assertRaisesRegex(HexFileException, 'end of file not empty'):
-            hf.load(f)
+            HexFile.load(f)
 
     def test_data_after_eof(self):
-        hf = HexFile()
         txt = """:00000001FF
         :04000001aabbccdded
         """
         f = io.StringIO(txt)
         with self.assertRaisesRegex(HexFileException, 'after end of file'):
-            hf.load(f)
+            HexFile.load(f)
 
     def test_incorrect_length(self):
-        hf = HexFile()
         txt = ":0140002200aabb"
         f = io.StringIO(txt)
         with self.assertRaisesRegex(HexFileException, 'count'):
-            hf.load(f)
+            HexFile.load(f)
 
 if __name__ == '__main__':
     unittest.main()
