@@ -727,8 +727,11 @@ class LinuxTests(unittest.TestCase):
         st = os.stat(exe)
         os.chmod(exe, st.st_mode | stat.S_IEXEC)
         objcopy(obj, 'prog', 'elf', exe)
-        result = subprocess.run(exe, timeout=10)
-        self.assertEqual(42, result.returncode)
+        if hasattr(subprocess, 'TimeoutExpired'):
+            returncode = subprocess.call(exe, timeout=10)
+        else:
+            returncode = subprocess.call(exe)
+        self.assertEqual(42, returncode)
 
 
 if __name__ == '__main__':
