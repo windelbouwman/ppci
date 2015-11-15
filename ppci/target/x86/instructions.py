@@ -313,11 +313,11 @@ class Rm2(Rm):
     mod = 2
 
 
-class Rm4(Rm):
-    """ absolute address access """
-    l = register_argument('l', str)
-    syntax = Syntax(['[', l, ']'])
-    mod = 4
+#class Rm4(Rm):
+#    """ absolute address access """
+#    l = register_argument('l', str)
+#    syntax = Syntax(['[', l, ']'])
+#    mod = 4
 
 
 class RmRegister(Rm):

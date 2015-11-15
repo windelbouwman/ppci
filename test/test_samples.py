@@ -4,7 +4,6 @@ import logging
 import re
 import string
 import os
-import stat
 import platform
 import subprocess
 from tempfile import mkstemp
@@ -501,7 +500,7 @@ class I32Samples:
 
 
 class BuildMixin:
-    def build(self, src, lang='c3'):
+    def build(self, src, lang='c3', bin_format='bin'):
         base_filename = make_filename(self.id())
         list_filename = base_filename + '.html'
 
@@ -511,6 +510,7 @@ class BuildMixin:
             bsp_c3 = io.StringIO(getattr(self, 'bsp_c3_src'))
         else:
             bsp_c3 = self.bsp_c3
+
         with complete_report(report_generator) as reporter:
             o1 = assemble(io.StringIO(startercode), self.march)
             if lang == 'c3':
@@ -518,42 +518,27 @@ class BuildMixin:
                     relpath('..', 'librt', 'io.c3'),
                     bsp_c3,
                     io.StringIO(src)], [], self.march, reporter=reporter)
-                o3 = link(
-                    [o2, o1], io.StringIO(self.arch_mmap), self.march,
-                    use_runtime=True)
+                objs = [o1, o2]
             elif lang == 'bf':
-                obj = bfcompile(src, self.march, reporter=reporter)
+                o3 = bfcompile(src, self.march, reporter=reporter)
                 o2 = c3compile(
                     [bsp_c3], [], self.march, reporter=reporter)
-                o3 = link(
-                    [o2, o1, obj],
-                    io.StringIO(self.arch_mmap),
-                    self.march, use_runtime=True)
+                objs = [o1, o2, o3]
             else:
                 raise Exception('language not implemented')
-        return o3
-
-
-class DoMixin:
-    def do(self, src, expected_output, lang="c3"):
-        """ Generic do function """
+            obj = link(
+                objs,
+                io.StringIO(self.arch_mmap),
+                self.march, use_runtime=True, reporter=reporter)
 
         # Determine base names:
-        base_filename = make_filename(self.id())
-        sample_filename = base_filename + '.bin'
-
-        # Construct binary file from snippet:
-        o3 = self.build(src, lang)
-        objcopy(o3, 'code', 'bin', sample_filename)
-
-        # Run bin file in emulator:
-        if has_qemu():
-            res = self.run_sample(sample_filename)
-            self.assertEqual(expected_output, res)
+        sample_filename = make_filename(self.id()) + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
+        return sample_filename
 
 
 class TestSamplesOnVexpress(
-        unittest.TestCase, SimpleSamples, I32Samples, DoMixin, BuildMixin):
+        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     maxDiff = None
     march = "arm"
     startercode = """
@@ -575,16 +560,18 @@ class TestSamplesOnVexpress(
     """
     bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
 
-    def run_sample(self, sample_filename):
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        sample_filename = self.build(src, lang)
+
         # Run bin file in emulator:
-        dump_file = sample_filename.split('.')[0] + '.dump'
-        return run_qemu(
-            sample_filename, machine='realview-pb-a8',
-            dump_file=dump_file, dump_range=(0x20000, 0xf0000))
+        if has_qemu():
+            res = run_qemu(sample_filename, machine='realview-pb-a8')
+            self.assertEqual(expected_output, res)
 
 
 class TestSamplesOnCortexM3(
-        unittest.TestCase, SimpleSamples, I32Samples, DoMixin, BuildMixin):
+        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     march = "thumb"
@@ -609,12 +596,15 @@ class TestSamplesOnCortexM3(
     """
     bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
 
-    def run_sample(self, sample_filename):
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        sample_filename = self.build(src, lang)
+
         # Run bin file in emulator:
-        dump_file = sample_filename.split('.')[0] + '.dump'
-        return run_qemu(
-            sample_filename, machine='lm3s6965evb',  # lm3s811evb
-            dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
+        if has_qemu():
+            res = run_qemu(sample_filename, machine='lm3s6965evb')
+            # lm3s811evb
+            self.assertEqual(expected_output, res)
 
 
 class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
@@ -671,13 +661,35 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang)
 
 
-class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "x86"
     startercode = """
     section reset
+
+    start:
+        call sample_start
+        call bsp_exit
+
+    bsp_putc:
+            mov rax, 1 ; 1=sys_write
+            mov rdi, 1 ; file descriptor
+            mov rsi, 123 ; char* buf
+            mov rdx, 1 ; count
+            syscall
+            ret
+
+    bsp_exit:
+            mov rax, 60
+            mov rdi, 42
+            syscall
+            ret
+
+    section data
+        char_to_print:
+        db 0
     """
     arch_mmap = """
-    MEMORY code LOCATION=0x0 SIZE=0x10000 {
+    MEMORY code LOCATION=0x40000 SIZE=0x10000 {
         SECTION(reset)
         ALIGN(4)
         SECTION(code)
@@ -688,32 +700,31 @@ class TestSamplesOnX86(unittest.TestCase, SimpleSamples, BuildMixin):
     """
     bsp_c3_src = """
     module bsp;
-
-    public function void putc(byte c)
-    {
-    }
-
-    function void exit()
-    {
-        putc(4); // End of transmission
-    }
+    public function void putc(byte c);
+    function void exit();
     """
 
     def do(self, src, expected_output, lang='c3'):
-        self.build(src, lang)
+        exe = self.build(src, lang, bin_format='elf')
+        if has_linux() and False:
+            if hasattr(subprocess, 'TimeoutExpired'):
+                res = subprocess.call(exe, timeout=10)
+            else:
+                res = subprocess.call(exe)
+            self.assertEqual(expected_output, res)
 
 
 def has_linux():
     return platform.machine() == 'x86_64' and platform.system() == 'Linux'
 
 
-@unittest.skipIf(not has_linux(), 'no suitable linux found')
+@unittest.skipIf(not has_linux(), 'no 64 bit linux found')
 class LinuxTests(unittest.TestCase):
     """ Run tests against the linux syscall api """
     def test_exit42(self):
         """
             ; exit with code 42:
-            ; syscall 60 = exit
+            ; syscall 60 = exit, rax is first argument, rdi second
         """
         src = io.StringIO("""
             section code
@@ -721,12 +732,16 @@ class LinuxTests(unittest.TestCase):
             mov rdi, 42
             syscall
             """)
+        mmap = """
+        MEMORY code LOCATION=0x40000 SIZE=0x10000 {
+            SECTION(code)
+        }
+        """
         obj = assemble(src, 'x86')
         handle, exe = mkstemp()
         os.close(handle)
-        st = os.stat(exe)
-        os.chmod(exe, st.st_mode | stat.S_IEXEC)
-        objcopy(obj, 'prog', 'elf', exe)
+        obj2 = link([obj], io.StringIO(mmap), 'x86')
+        objcopy(obj2, 'prog', 'elf', exe)
         if hasattr(subprocess, 'TimeoutExpired'):
             returncode = subprocess.call(exe, timeout=10)
         else:

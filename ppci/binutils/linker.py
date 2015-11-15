@@ -7,8 +7,9 @@ from .layout import Layout, Section, SymbolDefinition, Align
 class Linker:
     """ Merges the sections of several object files and
         performs relocation """
-    def __init__(self, target):
+    def __init__(self, target, reporter):
         self.logger = logging.getLogger('Linker')
+        self.reporter = reporter
         self.target = target
 
     def merge_objects(self, input_objects, dst):
@@ -112,6 +113,8 @@ class Linker:
         assert isinstance(input_objects, list)
         assert isinstance(layout, Layout)
 
+        self.reporter.heading(2, 'Linking')
+
         # Create new object file to store output:
         dst = ObjectFile()
 
@@ -124,4 +127,9 @@ class Linker:
         # Perform relocations:
         self.do_relocations(dst)
 
+        for section in dst.sections:
+            self.reporter.message('{} at {}'.format(section, section.address))
+        for image in dst.images:
+            self.reporter.message('{} at {}'.format(image, image.location))
+        self.reporter.message('Linking complete')
         return dst

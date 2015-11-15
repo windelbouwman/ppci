@@ -6,6 +6,8 @@ and assembling.
 
 import logging
 import io
+import os
+import stat
 import xml
 from .target.target import Target
 from .c3 import Builder
@@ -265,7 +267,8 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
     return ir_to_object([ir_module], target, reporter=reporter)
 
 
-def link(objects, layout, target, use_runtime=False):
+def link(objects, layout, target, use_runtime=False,
+         reporter=DummyReportGenerator()):
     """ Links the iterable of objects into one using the given layout """
     objects = [fix_object(obj) for obj in objects]
     layout = fix_layout(layout)
@@ -273,7 +276,7 @@ def link(objects, layout, target, use_runtime=False):
     if use_runtime:
         lib_rt = get_compiler_rt_lib(target)
         objects.append(lib_rt)
-    linker = Linker(target)
+    linker = Linker(target, reporter)
     try:
         output_obj = linker.link(objects, layout)
     except CompilerError as err:
@@ -293,10 +296,10 @@ def objcopy(obj, image_name, fmt, output_filename):
             output_file.write(image.data)
     elif fmt == "elf":
         elf_file = ElfFile()
-        for section in obj.sections:
-            elf_file.add_section(section.data)
         with open(output_filename, 'wb') as output_file:
-            elf_file.save(output_file)
+            elf_file.save(output_file, obj)
+        st = os.stat(output_filename)
+        os.chmod(output_filename, st.st_mode | stat.S_IEXEC)
     elif fmt == "hex":
         image = obj.get_image(image_name)
         hexfile = HexFile()

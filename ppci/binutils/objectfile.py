@@ -77,6 +77,9 @@ class Section:
             and (self.data == other.data) and \
             (self.alignment == other.alignment)
 
+    def __hash__(self):
+        return id(self)
+
 
 class Image:
     def __init__(self, name, location):
@@ -88,6 +91,12 @@ class Image:
         return (self.location == other.location) \
             and (self.sections == other.sections) \
             and (self.name == other.name)
+
+    def __repr__(self):
+        return 'IMG {} {} 0x{:08X}'.format(self.name, self.size, self.location)
+
+    def __hash__(self):
+        return id(self)
 
     @property
     def data(self):
