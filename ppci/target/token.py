@@ -63,7 +63,16 @@ class Token:
             self.bit_value &= (~mask)
 
     def __getitem__(self, key):
-        return False
+        if type(key) is slice:
+            assert key.step is None
+            bits = key.stop - key.start
+            assert bits > 0
+            limit = 1 << bits
+            mask = (limit - 1) << key.start
+            value = (self.bit_value & mask) >> key.start
+            return value
+        else:
+            raise KeyError(key)
 
     def __setitem__(self, key, value):
         if type(key) is int:
@@ -78,4 +87,4 @@ class Token:
             self.bit_value &= mask
             self.bit_value |= value << key.start
         else:
-            raise KeyError()
+            raise KeyError(key)

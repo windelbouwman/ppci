@@ -298,8 +298,8 @@ def objcopy(obj, image_name, fmt, output_filename):
         elf_file = ElfFile()
         with open(output_filename, 'wb') as output_file:
             elf_file.save(output_file, obj)
-        st = os.stat(output_filename)
-        os.chmod(output_filename, st.st_mode | stat.S_IEXEC)
+        status = os.stat(output_filename)
+        os.chmod(output_filename, status.st_mode | stat.S_IEXEC)
     elif fmt == "hex":
         image = obj.get_image(image_name)
         hexfile = HexFile()

@@ -126,8 +126,8 @@ class Dcd2(Msp430Instruction):
     syntax = Syntax(['dcd', '=', v])
 
     def encode(self):
-        self.token[0:16] = 0
-        return self.token.encode()
+        self.token1[0:16] = 0
+        return self.token1.encode()
 
     def relocations(self):
         return [(self.v, apply_abs16_imm0)]
@@ -176,10 +176,10 @@ def apply_abs16_imm2(sym_value, data, reloc_value):
 
 class JumpInstruction(Msp430Instruction):
     def encode(self):
-        self.token.condition = self.condition
-        self.token.offset = 0
-        self.token[13] = 1
-        return self.token.encode()
+        self.token1.condition = self.condition
+        self.token1.offset = 0
+        self.token1[13] = 1
+        return self.token1.encode()
 
     def relocations(self):
         yield (self.target, apply_rel10bit)
@@ -209,12 +209,12 @@ Jmp = create_jump_instruction('jmp', 7)
 
 class OneOpArith(Msp430Instruction):
     def encode(self):
-        self.token[10:16] = 0b000100
-        self.token[7:10] = self.opcode
-        self.token.bw = self.b
-        self.token.As = self.src.As
-        self.token.register = self.src.reg.num
-        return self.token.encode() + self.src.extra_bytes
+        self.token1[10:16] = 0b000100
+        self.token1[7:10] = self.opcode
+        self.token1.bw = self.b
+        self.token1.As = self.src.As
+        self.token1.register = self.src.reg.num
+        return self.token1.encode() + self.src.extra_bytes
 
     def relocations(self):
         return []
@@ -240,8 +240,8 @@ class Reti(Msp430Instruction):
     syntax = Syntax(['reti'])
 
     def encode(self):
-        self.token[0:16] = 0x1300
-        return self.token.encode()
+        self.token1[0:16] = 0x1300
+        return self.token1.encode()
 
 
 #########################
@@ -261,13 +261,13 @@ class TwoOpArith(Msp430Instruction):
             different modes.
         """
         # TODO: Make memory also possible
-        self.token.bw = self.b  # When b=1, the operation is byte mode
-        self.token.As = self.src.As
-        self.token.Ad = self.dst.Ad
-        self.token.destination = self.dst.reg.num
-        self.token.source = self.src.reg.num
-        self.token.opcode = self.opcode
-        return self.token.encode() + self.src.extra_bytes + self.dst.extra_bytes
+        self.token1.bw = self.b  # When b=1, the operation is byte mode
+        self.token1.As = self.src.As
+        self.token1.Ad = self.dst.Ad
+        self.token1.destination = self.dst.reg.num
+        self.token1.source = self.src.reg.num
+        self.token1.opcode = self.opcode
+        return self.token1.encode() + self.src.extra_bytes + self.dst.extra_bytes
 
     def relocations(self):
         if self.src.addr != '':

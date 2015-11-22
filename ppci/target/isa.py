@@ -175,6 +175,7 @@ class Constructor:
         this syntax.
     """
     syntax = None
+    patterns = None
 
     def __init__(self, *args):
         # Generate constructor from args:
@@ -214,6 +215,33 @@ class Constructor:
         else:
             return super().__repr__()
 
+    def set_patterns(self, tokens):
+        """ Fill tokens with the specified bit patterns """
+        if self.patterns:
+            for pattern in self.patterns:
+                value = 0
+                if isinstance(pattern, VariablePattern):
+                    value = pattern.prop.__get__(self)
+                elif isinstance(pattern, FixedPattern):
+                    value = pattern.value
+                else:
+                    raise NotImplementedError(str(pattern))
+                self.set_field(tokens, pattern.field, value)
+
+        self.set_user_patterns(tokens)
+
+    def set_user_patterns(self, tokens):
+        """ User hook for extra patterns """
+        pass
+
+    def set_field(self, tokens, field, value):
+        """ Set a given field in one of the given tokens """
+        for token in tokens:
+            if hasattr(token, field):
+                setattr(token, field, value)
+                return
+        raise KeyError(field)
+
     @property
     def properties(self):
         """ Return all properties available into this syntax """
@@ -237,6 +265,16 @@ class Constructor:
             else:
                 yield prop, self
 
+    @property
+    def non_leaves(self):
+        for prop in self.properties:
+            if issubclass(prop._cls, Constructor):
+                s2 = prop.__get__(self)
+                for nl in s2.non_leaves:
+                    yield nl
+                yield s2
+        yield self
+
 
 class Instruction(Constructor, metaclass=InsMeta):
     """ Base instruction class. Instructions are automatically added to an
@@ -259,8 +297,6 @@ class Instruction(Constructor, metaclass=InsMeta):
 
         # Construct token:
         if hasattr(self, 'tokens'):
-            if len(self.tokens) > 0:
-                setattr(self, 'token', self.tokens[0]())
             for position, token_cls in enumerate(self.tokens):
                 setattr(self, 'token{}'.format(position + 1), token_cls())
 
@@ -310,16 +346,54 @@ class Instruction(Constructor, metaclass=InsMeta):
         """ Determine whether all registers of this instruction are colored """
         return all(reg.is_colored for reg in self.registers)
 
+    def set_all_patterns(self):
+        """ Look for all patterns and apply them to the tokens """
+        assert hasattr(self, 'patterns')
+        tokens = self.get_tokens()
+        for nl in self.non_leaves:
+            nl.set_patterns(tokens)
+
+    def get_tokens(self):
+        assert hasattr(self, 'tokens')
+        N = len(self.tokens)
+        tokens = [getattr(self, 'token{}'.format(n+1)) for n in range(N)]
+        return tokens
+
     # Interface methods:
     def encode(self):
-        """ Encode the instruction into binary form """
-        return bytes()
+        """ Encode the instruction into binary form, returns bytes for this
+        instruction. """
+
+        self.set_all_patterns()
+        tokens = self.get_tokens()
+
+        r = bytes()
+        for token in tokens:
+            r += token.encode()
+        return r
 
     def relocations(self):
         return []
 
     def symbols(self):
         return []
+
+
+class BitPattern:
+    def __init__(self, field):
+        self.field = field
+
+
+class FixedPattern(BitPattern):
+    def __init__(self, field, value):
+        super().__init__(field)
+        self.value = value
+
+
+class VariablePattern(BitPattern):
+    def __init__(self, field, prop):
+        super().__init__(field)
+        self.prop = prop
 
 
 class Syntax:

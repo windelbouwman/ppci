@@ -86,6 +86,9 @@ class PseudoInstruction(Instruction):
     def __init__(self):
         super().__init__()
 
+    def encode(self):
+        return bytes()
+
 
 class Label(PseudoInstruction):
     def __init__(self, name):

@@ -109,6 +109,7 @@ class BaseAssembler:
         self.typ2nt[str] = self.str_id
         self.add_rule(self.str_id, ['ID'], lambda rhs: rhs[0].val)
         self.add_rule(self.int_id, ['NUMBER'], lambda rhs: rhs[0].val)
+        self.add_rule(self.int_id, ['-', 'NUMBER'], lambda rhs: -rhs[1].val)
 
         # Common parser rules:
         # num = register_argument('amount',
@@ -133,16 +134,16 @@ class BaseAssembler:
             if id_matcher.match(keyword):
                 self.add_rule(self.str_id, [keyword], lambda rhs: keyword)
 
-    def add_instruction(self, rhs, f):
+    def add_instruction(self, rhs, f, priority=0):
         """ Add an instruction to the grammar """
         rhs2, _ = self.make_str_rhs(rhs)
-        self.add_rule('instruction', rhs2, f)
+        self.add_rule('instruction', rhs2, f, priority=priority)
 
-    def add_rule(self, lhs, rhs, f):
+    def add_rule(self, lhs, rhs, f, priority=0):
         """ Helper function to add a rule, why this is required? """
         def f_wrap(*args):
             return f(args)
-        self.parser.g.add_production(lhs, rhs, f_wrap)
+        self.parser.g.add_production(lhs, rhs, f_wrap, priority=priority)
 
     # Functions to automate the adding of instructions to asm syntax:
     def make_str_rhs(self, rhs):
@@ -173,7 +174,7 @@ class BaseAssembler:
         def f(args):
             usable = [args[ix] for ix, _ in arg_idx]
             return ins_cls(*usable)
-        self.add_instruction(rhs, f)
+        self.add_instruction(rhs, f, priority=ins_cls.syntax.priority)
 
     def make_arg_func(self, cls, nt, stx):
         """ Construct a rule for rhs <- nt
@@ -197,7 +198,7 @@ class BaseAssembler:
                 x = cls(*usable)
 
             return x
-        self.add_rule(nt, rhs2, cs)
+        self.add_rule(nt, rhs2, cs, stx.priority)
 
     def get_parameter_nt(self, arg_cls):
         """ Get parameter non terminal """
@@ -241,10 +242,6 @@ class BaseAssembler:
         # Loop over all isa instructions, extracting the syntax rules:
         instructions = [i for i in self.target.isa.instructions if i.syntax]
 
-        # Sort instructions by syntax weight:
-        # TODO: this sorting does not seem to do anything!
-        instructions.sort(key=lambda x: x.syntax.priority)
-
         # Generate rules for instructions:
         for ins in instructions:
             self.gen_i_rule(ins)
@@ -266,7 +263,8 @@ class BaseAssembler:
         try:
             self.lexer.feed(line)
             self.parser.parse(self.lexer)
-        except RuntimeError:
+        except CompilerError as ex:
+            print(ex)
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
             raise CompilerError('Unable to assemble: {}'.format(line), loc)
 

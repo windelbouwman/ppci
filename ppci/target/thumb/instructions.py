@@ -86,11 +86,11 @@ class LS_imm5_base(ThumbInstruction):
         Rn = self.rn.num
         Rt = self.rt.num
         imm5 = self.imm5 >> 2
-        self.token[0:3] = Rt
-        self.token[3:6] = Rn
-        self.token[6:11] = imm5
-        self.token[11:16] = self.opcode
-        return self.token.encode()
+        self.token1[0:3] = Rt
+        self.token1[3:6] = Rn
+        self.token1[6:11] = imm5
+        self.token1[11:16] = self.opcode
+        return self.token1.encode()
 
 
 class Str2(LS_imm5_base):
@@ -118,11 +118,11 @@ class LS_byte_imm5_base(ThumbInstruction):
         Rn = self.rn.num
         Rt = self.rt.num
         imm5 = self.imm5
-        self.token[0:3] = Rt
-        self.token[3:6] = Rn
-        self.token[6:11] = imm5
-        self.token[11:16] = self.opcode
-        return self.token.encode()
+        self.token1[0:3] = Rt
+        self.token1[3:6] = Rn
+        self.token1[6:11] = imm5
+        self.token1[11:16] = self.opcode
+        return self.token1.encode()
 
 
 class Strb(LS_byte_imm5_base):
@@ -193,10 +193,10 @@ class Adr(ThumbInstruction):
         return [(self.label, apply_lit8)]
 
     def encode(self):
-        self.token[0:8] = 0  # Filled by linker
-        self.token[8:11] = self.rd.num
-        self.token[11:16] = 0b10100
-        return self.token.encode()
+        self.token1[0:8] = 0  # Filled by linker
+        self.token1[8:11] = self.rd.num
+        self.token1[11:16] = 0b10100
+        return self.token1.encode()
 
 
 class Mov3(ThumbInstruction):
@@ -208,10 +208,10 @@ class Mov3(ThumbInstruction):
 
     def encode(self):
         rd = self.rd.num
-        self.token[8:11] = rd
-        self.token[0:8] = self.imm
-        self.token[11:16] = self.opcode
-        return self.token.encode()
+        self.token1[8:11] = rd
+        self.token1[0:8] = self.imm
+        self.token1[11:16] = self.opcode
+        return self.token1.encode()
 
 # Arithmatics:
 
@@ -224,11 +224,11 @@ class regregimm3_base(ThumbInstruction):
     def encode(self):
         assert self.imm3 < 8
         rd = self.rd.num
-        self.token[0:3] = rd
-        self.token[3:6] = self.rn.num
-        self.token[6:9] = self.imm3
-        self.token[9:16] = self.opcode
-        return self.token.encode()
+        self.token1[0:3] = rd
+        self.token1[3:6] = self.rn.num
+        self.token1[6:9] = self.imm3
+        self.token1[9:16] = self.opcode
+        return self.token1.encode()
 
 
 class Add2(regregimm3_base):
@@ -285,14 +285,14 @@ class Mov2(ThumbInstruction):
     syntax = Syntax(['mov', rd, ',', rm])
 
     def encode(self):
-        self.token.rd = self.rd.num & 0x7
+        self.token1.rd = self.rd.num & 0x7
         D = (self.rd.num >> 3) & 0x1
         Rm = self.rm.num
         opcode = 0b01000110
-        self.token[8:16] = opcode
-        self.token[3:7] = Rm
-        self.token[7] = D
-        return self.token.encode()
+        self.token1[8:16] = opcode
+        self.token1[3:7] = Rm
+        self.token1[7] = D
+        return self.token1.encode()
 
 
 class Mul(ThumbInstruction):
@@ -308,11 +308,11 @@ class Mul(ThumbInstruction):
 
     def encode(self):
         rn = self.rn.num
-        self.token.rd = self.rdm.num
+        self.token1.rd = self.rdm.num
         opcode = 0b0100001101
-        self.token[6:16] = opcode
-        self.token[3:6] = rn
-        return self.token.encode()
+        self.token1[6:16] = opcode
+        self.token1[3:6] = rn
+        return self.token1.encode()
 
 
 class Sdiv(LongThumbInstruction):
@@ -325,24 +325,24 @@ class Sdiv(LongThumbInstruction):
     syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token[11:16] = 0b11111
-        self.token[4:11] = 0b0111001
-        self.token[0:4] = self.rn.num
+        self.token1[11:16] = 0b11111
+        self.token1[4:11] = 0b0111001
+        self.token1[0:4] = self.rn.num
         self.token2[12:16] = 0b1111
         self.token2[8:12] = self.rd.num
         self.token2[4:8] = 0b1111
         self.token2[0:4] = self.rm.num
-        return self.token.encode() + self.token2.encode()
+        return self.token1.encode() + self.token2.encode()
 
 
 class regreg_base(ThumbInstruction):
     """ ??? Rdn, Rm """
     def encode(self):
-        self.token.rd = self.rdn.num
+        self.token1.rd = self.rdn.num
         rm = self.rm.num
-        self.token[3:6] = rm
-        self.token[6:16] = self.opcode
-        return self.token.encode()
+        self.token1[3:6] = rm
+        self.token1[6:16] = self.opcode
+        return self.token1.encode()
 
 
 def make_regreg(mnemonic, opcode):
@@ -369,10 +369,10 @@ class Cmp2(ThumbInstruction):
     syntax = Syntax(['cmp', rn, ',', imm])
 
     def encode(self):
-        self.token[0:8] = self.imm
-        self.token[8:11] = self.rn.num
-        self.token[11:16] = self.opcode
-        return self.token.encode()
+        self.token1[0:8] = self.imm
+        self.token1[8:11] = self.rn.num
+        self.token1[11:16] = self.opcode
+        return self.token1.encode()
 
 
 # Jumping:
@@ -401,12 +401,12 @@ class Bw(LongThumbInstruction):
     def encode(self):
         j1 = 1
         j2 = 1
-        self.token[11:16] = 0b11110
+        self.token1[11:16] = 0b11110
         self.token2[13] = j1
         self.token2[11] = j2
         self.token2[12] = 1
         self.token2[15] = 1
-        return self.token.encode() + self.token2.encode()
+        return self.token1.encode() + self.token2.encode()
 
     def relocations(self):
         return [(self.target, apply_bl_imm11)]
@@ -420,13 +420,13 @@ class Bl(LongThumbInstruction):
     def encode(self):
         j1 = 1  # TODO: what do these mean?
         j2 = 1
-        self.token[11:16] = 0b11110
+        self.token1[11:16] = 0b11110
         self.token2[13] = j1
         self.token2[11] = j2
         self.token2[12] = 1
         self.token2[14] = 1
         self.token2[15] = 1
-        return self.token.encode() + self.token2.encode()
+        return self.token1.encode() + self.token2.encode()
 
     def relocations(self):
         return [(self.target, apply_bl_imm11)]
@@ -515,9 +515,9 @@ class Push(ThumbInstruction):
 
     def encode(self):
         for n in register_numbers(self.regs):
-            self.token[push_bit_pos(n)] = 1
-        self.token[9:16] = 0x5a
-        return self.token.encode()
+            self.token1[push_bit_pos(n)] = 1
+        self.token1[9:16] = 0x5a
+        return self.token1.encode()
 
 
 def register_numbers(regs):
@@ -534,9 +534,9 @@ class Pop(ThumbInstruction):
 
     def encode(self):
         for n in register_numbers(self.regs):
-            self.token[pop_bit_pos(n)] = 1
-        self.token[9:16] = 0x5E
-        return self.token.encode()
+            self.token1[pop_bit_pos(n)] = 1
+        self.token1[9:16] = 0x5E
+        return self.token1.encode()
 
 
 class Yield(ThumbInstruction):

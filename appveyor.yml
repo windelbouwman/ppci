@@ -2,7 +2,6 @@ environment:
   PYTHON: "C:\\Python34"
 
 install:
-  - ECHO "Filesystem root:"
   - ps: "ls \"C:/\""
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
   - "python --version"

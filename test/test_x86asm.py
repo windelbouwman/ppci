@@ -112,11 +112,17 @@ class AssemblerTestCase(AsmTestCaseBase):
         # assert(assembler.mov(['rbx'], 'al') == [0x88, 0x03])
         # assert(assembler.mov(['r11'], 'dl') == [0x41, 0x88, 0x13])
 
-    @unittest.skip('todo')
     def test_lea(self):
         self.feed('lea r11, [RIP, 0xf]')
         self.feed('lea rsi, [RIP, 0x7]')
         self.feed('lea rcx, [rbp, -8]')
+        self.check('4c8d1d0f000000  488d3507000000 488d4df8')
+
+    @unittest.skip('todo')
+    def test_lea_label(self):
+        self.feed('lea r11, [a]')
+        self.feed('a: lea rsi, [a]')
+        self.feed('lea rcx, [a]')
         self.check('4c8d1d0f000000  488d3507000000 488d4df8')
 
     def test_cmp(self):

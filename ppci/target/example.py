@@ -24,7 +24,7 @@ R6 = Register('r6', 6)
 
 class TestInstruction(Instruction):
     """ Base class for all example instructions """
-    pass
+    tokens = []
 
 
 class Def(TestInstruction):

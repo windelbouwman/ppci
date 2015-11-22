@@ -90,6 +90,9 @@ class EarleyParser:
           parsings
         - complete: when we have scanned something according to a rule, this
           rule can be applied.
+
+        When an earley parse is complete, the parse can be back-tracked to
+        yield the resulting parse tree or the syntax tree.
     """
     def __init__(self, grammar):
         self.grammar = grammar
@@ -166,27 +169,33 @@ class EarleyParser:
         return tree
 
     def walk(self, columns, end, nt):
-        for item in columns[end]:
-            if item.rule.name == nt and item.is_reduce:
-                # We found an item
-                # print(item)
-                r = []
-                # assert len(item.rule.symbols) > 0
-                for x in reversed(item.rule.symbols):
-                    if self.grammar.is_nonterminal(x):
-                        x, end = self.walk(columns, end, x)
-                        r.insert(0, x)
-                    else:
-                        r.insert(0, columns[end].token)
-                        end -= 1
-                # print(r)
-
-                # Apply semantics, if any!
-                if item.rule.f:
-                    res = item.rule.f(*r)
+        """ Process the parsed columns back to a parse tree """
+        items = columns[end]
+        items = filter(lambda i: i.rule.name == nt and i.is_reduce, items)
+        items = sorted(items, key=lambda i: i.rule.priority)
+        if items:
+            # for item in columns[end]:
+            # if item.rule.name == nt and item.is_reduce:
+            item = items[0]
+            # We found an item
+            # print(item)
+            r = []
+            # assert len(item.rule.symbols) > 0
+            for x in reversed(item.rule.symbols):
+                if self.grammar.is_nonterminal(x):
+                    x, end = self.walk(columns, end, x)
+                    r.insert(0, x)
                 else:
-                    res = None
-                return res, end
+                    r.insert(0, columns[end].token)
+                    end -= 1
+            # print(r)
+
+            # Apply semantics, if any!
+            if item.rule.f:
+                res = item.rule.f(*r)
+            else:
+                res = None
+            return res, end
         raise RuntimeError("Unable build tree")  # pragma: no cover
 
     def dump_parse(self, columns):

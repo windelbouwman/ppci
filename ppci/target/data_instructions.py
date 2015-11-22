@@ -9,7 +9,7 @@ dd 2 -> 02000000
 
 """
 
-from .isa import Instruction, Isa, register_argument, Syntax
+from .isa import Instruction, Isa, register_argument, Syntax, VariablePattern
 from .token import Token, u16, bit_range, u8, u32
 
 data_isa = Isa()
@@ -53,30 +53,21 @@ class Db(DataInstruction):
     tokens = [ByteToken]
     v = register_argument('v', int)
     syntax = Syntax(['db', v])
-
-    def encode(self):
-        self.token.value = self.v
-        return self.token.encode()
+    patterns = [VariablePattern('value', v)]
 
 
 class Dw(DataInstruction):
     tokens = [WordToken]
     v = register_argument('v', int)
     syntax = Syntax(['dw', v])
-
-    def encode(self):
-        self.token.value = self.v
-        return self.token.encode()
+    patterns = [VariablePattern('value', v)]
 
 
 class Dd(DataInstruction):
     tokens = [DwordToken]
     v = register_argument('v', int)
     syntax = Syntax(['dd', v])
-
-    def encode(self):
-        self.token.value = self.v
-        return self.token.encode()
+    patterns = [VariablePattern('value', v)]
 
 
 class Ds(DataInstruction):

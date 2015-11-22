@@ -25,9 +25,9 @@ class Grammar:
                 "Cannot redefine non-terminal {0} as terminal".format(name))
         self.terminals.add(name)
 
-    def add_production(self, name, symbols, semantics=None):
+    def add_production(self, name, symbols, semantics=None, priority=0):
         """ Add a production rule to the grammar """
-        production = Production(name, symbols, semantics)
+        production = Production(name, symbols, semantics, priority=priority)
         self.productions.append(production)
         if name in self.terminals:
             raise ParserGenerationException(
@@ -144,10 +144,11 @@ class Production:
         contains a function that must be called when this rule is applied.
         The right hand side may contain terminals and non-terminals.
     """
-    def __init__(self, name, symbols, semantics):
+    def __init__(self, name, symbols, semantics, priority=0):
         self.name = name
         self.symbols = tuple(symbols)
         self.f = semantics
+        self.priority = priority
 
     def __repr__(self):
         return '{0} -> {1}'.format(self.name, self.symbols)
