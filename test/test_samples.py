@@ -671,22 +671,25 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
         call bsp_exit
 
     bsp_putc:
+            mov [0x20000000], rdi ; store char passed in rdi
+
             mov rax, 1 ; 1=sys_write
             mov rdi, 1 ; file descriptor
-            mov rsi, 123 ; char* buf
+            mov rsi, char_to_print ; char* buf
             mov rdx, 1 ; count
             syscall
             ret
 
     bsp_exit:
             mov rax, 60
-            mov rdi, 42
+            mov rdi, 0
             syscall
             ret
 
     section data
         char_to_print:
-        db 0
+        dd 0
+        dd 0
     """
     arch_mmap = """
     MEMORY code LOCATION=0x40000 SIZE=0x10000 {
@@ -706,11 +709,12 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
 
     def do(self, src, expected_output, lang='c3'):
         exe = self.build(src, lang, bin_format='elf')
-        if has_linux() and False:
+        if has_linux():
             if hasattr(subprocess, 'TimeoutExpired'):
-                res = subprocess.call(exe, timeout=10)
+                res = subprocess.check_output(exe, timeout=10)
             else:
-                res = subprocess.call(exe)
+                res = subprocess.check_output(exe)
+            res = res.decode('ascii')
             self.assertEqual(expected_output, res)
 
 

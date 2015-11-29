@@ -18,6 +18,7 @@ class ElfSection:
 SH_FMT = '<IIQQQQIIQQ'
 E_FMT = '<HHIQQQIHHHHHH'
 P_FMT = '<IIQQQQQQ'
+SYM_FMT = '<IBBHQQ'
 
 SHN_UNDEF = 0
 
@@ -31,6 +32,18 @@ SHT_NOTE = 0x7
 SHF_WRITE = 0x1
 SHF_ALLOC = 0x2
 SHF_EXECINSTR = 0x4
+
+
+class StringTable:
+    def __init__(self):
+        self.strtab = bytes([0])
+        self.names = {}
+
+    def get_name(self, name):
+        if name not in self.names:
+            self.names[name] = len(self.strtab)
+            self.strtab += name.encode('ascii') + bytes([0])
+        return self.names[name]
 
 
 class ElfFile:
@@ -79,28 +92,42 @@ class ElfFile:
         # Determine offsets into file:
         tmp_offset = 64 + e_phnum * e_phentsize
 
-        # Align to pages of 0x1000 (4096) bytes
-        inter_spacing = 0x1000 - (tmp_offset % 0x1000)
-        tmp_offset += inter_spacing
-
+        # Determine offsets into the file of sections and images:
         offsets = {}
+        pre_padding = {}
         for image in obj.images:
+            # Align to pages of 0x1000 (4096) bytes
+            inter_spacing = 0x1000 - (tmp_offset % 0x1000)
+            tmp_offset += inter_spacing
+            pre_padding[image] = inter_spacing
+
             offsets[image] = tmp_offset
             for section in image.sections:
                 a = section.address - image.location
                 offsets[section] = tmp_offset + a
             tmp_offset += image.size
 
-        strtab = bytes([0])
-        names = {}
-        for section in obj.sections:
-            if section.name not in names:
-                names[section.name] = len(strtab)
-                strtab += section.name.encode('ascii') + bytes([0])
-        # TODO: insert extra sections here
+        # Make the string table:
+        string_table = StringTable()
+        section_numbers = {}
+        for i, section in enumerate(obj.sections):
+            string_table.get_name(section.name)
+            section_numbers[section.name] = i + 1
+        string_table.get_name('.symtab')
+        string_table.get_name('.strtab')
 
+        # Create symbol table:
+        symtab_offset = tmp_offset
+        symtab_entsize = struct.calcsize(SYM_FMT)
+        symtab_size = (len(obj.symbols) + 1) * symtab_entsize
+        for symbol in obj.symbols:
+            string_table.get_name(symbol.name)
+        tmp_offset += symtab_size
+
+        # Reserve space for string table:
         strtab_offset = tmp_offset
-        tmp_offset += len(strtab)
+        strtab_size = len(string_table.strtab)
+        tmp_offset += strtab_size
         e_shoff = tmp_offset  # section header offset
 
         # Write rest of header
@@ -114,33 +141,71 @@ class ElfFile:
         assert 64 == e_ehsize  # size of this header
         e_shentsize = struct.calcsize(SH_FMT)  # size of section header
         assert 64 == e_shentsize
-        e_shnum = len(obj.sections) + 2
+        e_shnum = len(obj.sections) + 3
         e_shstrndx = len(obj.sections) + 1  # Index into table with strings
+        # symtab is at +2
+
+        # Write rest of header:
         f.write(struct.pack(
             E_FMT, e_type, e_machine,
             e_version, e_entry, e_phoff, e_shoff, e_flags, e_ehsize,
             e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx))
 
+        # Program headers:
         for image in obj.images:
+            if image.name == 'code':
+                p_flags = 5
+            else:
+                p_flags = 6
             self.write_program_header(
                 f, f_offset=offsets[image], vaddr=image.location,
-                size=image.size)
-        f.write(bytes(inter_spacing))
+                size=image.size, p_flags=p_flags)
+
+        # Write actually program data:
         for image in obj.images:
+            f.write(bytes(pre_padding[image]))
             f.write(image.data)
-        f.write(strtab)   # symbols
+
+        # Symbol table:
+        f.write(bytes(symtab_entsize))  # Null symtab element
+        for symbol in obj.symbols:
+            st_name = string_table.get_name(symbol.name)
+            st_info = 0
+            st_shndx = section_numbers[symbol.section]
+            st_value = symbol.value + obj.get_section(symbol.section).address
+            self.write_symbol_table_entry(
+                f, st_name, st_info, 0, st_shndx, st_value)
+
+        # String table:
+        f.write(string_table.strtab)
+
+        # Sections:
         f.write(bytes(e_shentsize))  # Null section all zeros
         for section in obj.sections:
             self.write_section_header(
                 f, offsets[section], vaddr=section.address,
-                size=section.size, typ=SHT_PROGBITS, name=names[section.name],
+                sh_size=section.size, sh_type=SHT_PROGBITS,
+                name=string_table.get_name(section.name),
                 sh_flags=SHF_EXECINSTR | SHF_ALLOC)
+        assert strtab_size == len(string_table.strtab)
         self.write_section_header(
-            f, strtab_offset, size=len(strtab), typ=SHT_STRTAB)
+            f, strtab_offset, sh_size=strtab_size, sh_type=SHT_STRTAB,
+            sh_flags=SHF_ALLOC, name=string_table.get_name('.strtab'))
+        self.write_section_header(
+            f, symtab_offset, sh_size=symtab_size, sh_type=SHT_SYMTAB,
+            sh_entsize=symtab_entsize, sh_flags=SHF_ALLOC, sh_link=e_shstrndx,
+            name=string_table.get_name('.symtab'))
 
-    def write_program_header(self, f, f_offset=0, vaddr=0, size=0):
+    def write_symbol_table_entry(
+            self, f, st_name, st_info, st_other,
+            st_shndx, st_value, st_size=0):
+        f.write(
+            struct.pack(
+                SYM_FMT, st_name, st_info, st_other, st_shndx,
+                st_value, st_size))
+
+    def write_program_header(self, f, f_offset=0, vaddr=0, size=0, p_flags=4):
         p_type = 1  # 1=load
-        p_flags = 5  # r,w,x
         p_offset = f_offset  # Load all file into memory!
         p_vaddr = vaddr
         p_paddr = vaddr
@@ -154,17 +219,13 @@ class ElfFile:
             p_align))
 
     def write_section_header(
-            self, f, offset, vaddr=0, size=0, typ=SHT_NULL,
-            name=0, sh_flags=0):
+            self, f, offset, vaddr=0, sh_size=0, sh_type=SHT_NULL,
+            name=0, sh_flags=0, sh_entsize=0, sh_link=0):
         sh_name = name  # Index into string table
-        sh_type = typ
         sh_addr = vaddr  # address in memory, else, 0
         sh_offset = offset  # Offset in file
-        sh_size = size  # Size of the section
-        sh_link = 0
         sh_info = 0
         sh_addralign = 4
-        sh_entsize = 0
         f.write(struct.pack(
             SH_FMT, sh_name, sh_type, sh_flags, sh_addr,
             sh_offset, sh_size, sh_link, sh_info, sh_addralign, sh_entsize))

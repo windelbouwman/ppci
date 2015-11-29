@@ -1,7 +1,8 @@
-from ..target import Label, Alignment, Frame
+from ..target import Label, Alignment, Frame, VCall
 from .instructions import dcd, AddSp, SubSp, Push, Pop, Mov2, Bl
 from ..data_instructions import Db
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
+from ..arm.registers import get_register
 
 
 class ThumbFrame(Frame):
@@ -27,6 +28,9 @@ class ThumbFrame(Frame):
     def move(self, dst, src):
         self.emit(Mov2(dst, src, ismove=True))
 
+    def get_register(self, color):
+        return get_register(color)
+
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence """
 
@@ -40,10 +44,26 @@ class ThumbFrame(Frame):
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
         # Caller save registers:
-        self.emit(Push({R1, R2, R3, R4}))
-        self.emit(Bl(label, extra_uses=reg_uses, extra_defs=[self.rv]))
-        self.emit(Pop({R1, R2, R3, R4}))
+        self.emit(
+            VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
         self.move(res_var, self.rv)
+
+    def make_call(self, vcall):
+        # Now we now what variables are live:
+        live_regs = self.live_regs_over(vcall)
+        register_set = set(live_regs)
+
+        # Caller save registers:
+        if register_set:
+            yield Push(register_set)
+
+        # Make the call:
+        yield Bl(vcall.function_name)
+        # R0 is filled with return value, do not save it, it will conflict.
+
+        # Restore caller save registers:
+        if register_set:
+            yield Pop(register_set)
 
     def arg_loc(self, pos):
         """

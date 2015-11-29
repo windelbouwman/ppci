@@ -33,12 +33,12 @@ class RegisterAllocator:
     def __init__(self):
         self.logger = logging.getLogger('registerallocator')
 
-    def InitData(self, f):
+    def init_data(self, frame):
         """ Initialize data structures """
-        self.f = f
+        self.frame = frame
 
         # Register information:
-        self.reg_colors = set(reg.color for reg in f.regs)
+        self.reg_colors = set(reg.color for reg in frame.regs)
         self.K = len(self.reg_colors)
 
         # Move related sets:
@@ -50,31 +50,31 @@ class RegisterAllocator:
 
     def Build(self):
         """ 1. Construct interference graph from instruction list """
-        self.f.cfg = FlowGraph(self.f.instructions)
+        self.frame.cfg = FlowGraph(self.frame.instructions)
         self.logger.debug('Constructed flowgraph with {} nodes'
-                          .format(len(self.f.cfg.nodes)))
+                          .format(len(self.frame.cfg.nodes)))
 
-        self.f.cfg.calculate_liveness()
-        self.f.ig = InterferenceGraph(self.f.cfg)
+        self.frame.cfg.calculate_liveness()
+        self.frame.ig = InterferenceGraph(self.frame.cfg)
         self.logger.debug('Constructed interferencegraph with {} nodes'
-                          .format(len(self.f.ig.nodes)))
+                          .format(len(self.frame.ig.nodes)))
 
         # Divide nodes into pre-colored and initial:
-        self.precolored = set(node for node in self.f.ig.nodes if
+        self.precolored = set(node for node in self.frame.ig.nodes if
             node.color is not None)
-        self.initial = set(self.f.ig.nodes - self.precolored)
+        self.initial = set(self.frame.ig.nodes - self.precolored)
 
         # TODO: do not add the pre colored nodes at all.
         for n in self.precolored:
             # give pre colored nodes infinite degree:
-            n.addDegree = 100 + len(self.f.ig.nodes) + self.K
+            n.addDegree = 100 + len(self.frame.ig.nodes) + self.K
 
         # Initialize color map:
         self.color = {}
         for node in self.precolored:
             self.color[node] = node.color
 
-        self.moves = [i for i in self.f.instructions if i.ismove]
+        self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
             src = self.Node(mv.used_registers[0])
             dst = self.Node(mv.defined_registers[0])
@@ -84,11 +84,11 @@ class RegisterAllocator:
             dst.moves.add(mv)
 
     def Node(self, vreg):
-        return self.f.ig.get_node(vreg)
+        return self.frame.ig.get_node(vreg)
 
     def has_edge(self, t, r):
         """ Helper function to check for an interfering edge """
-        return self.f.ig.has_edge(t, r)
+        return self.frame.ig.has_edge(t, r)
 
     def makeWorkList(self):
         """ Divide initial nodes into worklists """
@@ -124,7 +124,7 @@ class RegisterAllocator:
         n = self.simplifyWorklist.pop()
         self.selectStack.append(n)
         # Pop out of graph, we place it back later:
-        self.f.ig.mask_node(n)
+        self.frame.ig.mask_node(n)
         for m in n.Adjecent:
             self.decrement_degree(m)
 
@@ -207,7 +207,7 @@ class RegisterAllocator:
             self.freezeWorklist.remove(v)
         else:
             self.spillWorklist.remove(v)
-        self.f.ig.combine(u, v)
+        self.frame.ig.combine(u, v)
 
         # See if any adjecent nodes dropped in degree by merging u and v
         # This can happen when u and v both interfered with t.
@@ -254,7 +254,7 @@ class RegisterAllocator:
         """ Add nodes back to the graph to color it. """
         while self.selectStack:
             node = self.selectStack.pop(-1)  # Start with the last added
-            self.f.ig.unmask_node(node)
+            self.frame.ig.unmask_node(node)
             takenregs = set(self.color[m] for m in node.Adjecent)
             okColors = self.reg_colors - takenregs
             if okColors:
@@ -267,12 +267,12 @@ class RegisterAllocator:
     def remove_redundant_moves(self):
         # Remove coalesced moves:
         for mv in self.coalescedMoves:
-            self.f.instructions.remove(mv)
+            self.frame.instructions.remove(mv)
 
     def ApplyColors(self):
         """ Assign colors to registers """
         # Apply all colors:
-        for node in self.f.ig:
+        for node in self.frame.ig:
             for reg in node.temps:
                 if reg.is_colored:
                     assert reg.color == node.color
@@ -292,9 +292,9 @@ class RegisterAllocator:
         assert self.activeMoves & self.worklistMoves & self.coalescedMoves \
             & self.constrainedMoves & self.frozenMoves == set()
 
-    def alloc_frame(self, f):
+    def alloc_frame(self, frame):
         """ Do iterated register allocation for a single stack frame. """
-        self.InitData(f)
+        self.init_data(frame)
         self.Build()
         self.makeWorkList()
         self.logger.debug('Starting iterative coloring')

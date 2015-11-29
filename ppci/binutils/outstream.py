@@ -14,6 +14,11 @@ class OutputStream:
         """ Encode instruction and add symbol and relocation information """
         raise NotImplementedError('Abstract base class')
 
+    def emit_all(self, items):
+        """ Emit an iterable of items """
+        for item in items:
+            self.emit(item)
+
     def select_section(self, sname):  # pragma: no cover
         raise NotImplementedError('Abstract base class')
 

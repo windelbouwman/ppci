@@ -230,7 +230,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 }
             edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
             edge2.set_color(color_map[edge.kind])
-        self.render_graph(graph)
+        # self.render_graph(graph)
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
@@ -251,8 +251,12 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print('<td>$ {}</td>'.format(ins))
                 self.print('<td>{}</td>'.format(ins.used_registers))
                 self.print('<td>{}</td>'.format(ins.defined_registers))
-                x2 = 'MOVE' if ins.ismove else ''
-                self.print('<td>{} {}</td>'.format(ins.jumps, x2))
+                self.print('<td>')
+                if ins.jumps:
+                    self.print('{}'.format(ins.jumps))
+                if ins.ismove:
+                    self.print('MOVE')
+                self.print('</td>')
                 self.print('</tr>')
             self.print("</table>")
             self.print('</div></p>')

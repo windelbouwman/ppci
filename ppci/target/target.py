@@ -60,26 +60,42 @@ class Nop(Instruction):
         return 'NOP'
 
 
-class RegisterUseDef(Nop):
+class VirtualInstruction(Instruction):
+    """
+        Virtual instructions are instructions used during code generation
+        and can never be encoded into a stream.
+    """
+    def encode(self):
+        raise RuntimeError('Cannot encode virtual instruction')
+
+
+class RegisterUseDef(VirtualInstruction):
     """ Magic instruction that can be used to define and use registers """
-    def __init__(self):
-        super().__init__()
-        self._src = set()
-        self._dst = set()
+    def __repr__(self):
+        return 'VUseDef'
 
     def add_use(self, reg):
-        self._src.add(reg)
+        self.extra_uses.append(reg)
 
     def add_uses(self, uses):
-        for u in uses:
-            self.add_use(u)
+        for use in uses:
+            self.add_use(use)
 
     def add_def(self, reg):
-        self._dst.add(reg)
+        self.extra_defs.append(reg)
 
     def add_defs(self, defs):
-        for d in defs:
-            self.add_def(d)
+        for df in defs:
+            self.add_def(df)
+
+
+class VCall(VirtualInstruction):
+    def __init__(self, function_name, **kwargs):
+        super().__init__(**kwargs)
+        self.function_name = function_name
+
+    def __repr__(self):
+        return 'VCALL {}'.format(self.function_name)
 
 
 class PseudoInstruction(Instruction):
@@ -147,6 +163,25 @@ class Frame:
 
     def __repr__(self):
         return 'Frame {}'.format(self.name)
+
+    def live_regs_over(self, instruction):
+        """ Determine what registers are live along an instruction.
+        Useful to determine if registers must be saved when making a call """
+        # print(self.cfg._map)
+        # assert self.cfg.has_node(instruction)
+        # fg_node = self.cfg.get_node(instruction)
+        # print('live in and out', fg_node.live_in, fg_node.live_out)
+
+        # Get register colors from interference graph:
+        live_regs = []
+        for tmp in instruction.live_in & instruction.live_out:
+            # print(tmp)
+            n = self.ig.get_node(tmp)
+            live_regs.append(self.get_register(n.color))
+        return live_regs
+
+    def get_register(self, color):
+        raise NotImplementedError('get_register')
 
     def new_reg(self, cls, twain=""):
         """ Retrieve a new virtual register """

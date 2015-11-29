@@ -7,7 +7,8 @@ import logging
 from .. import ir
 from ..irutils import Verifier, split_block
 from ..target.target import Target
-from ..target.target import RegisterUseDef
+from ..target.target import RegisterUseDef, VirtualInstruction
+from ..target.target import VCall
 from ..target.isa import Register, Instruction
 from .irdag import SelectionGraphBuilder, FunctionInfo, prepare_function_info
 from .instructionselector import InstructionSelector1
@@ -41,16 +42,28 @@ class CodeGenerator:
         self.logger.debug('Emitting instructions')
 
         # Prefix code:
-        for instruction in frame.prologue():
-            output_stream.emit(instruction)
+        output_stream.emit_all(frame.prologue())
 
-        for ins in frame.instructions:
-            assert isinstance(ins, Instruction) and ins.is_colored, str(ins)
-            output_stream.emit(ins)
+        for instruction in frame.instructions:
+            assert isinstance(instruction, Instruction), str(instruction)
 
-        # Postfix code (this uses the emit function):
-        for instruction in frame.epilogue():
-            output_stream.emit(instruction)
+            if isinstance(instruction, VirtualInstruction):
+                # Process virtual instructions
+                if isinstance(instruction, VCall):
+                    # We now know what variables are live at this point
+                    # and possibly need to be saved.
+                    output_stream.emit_all(frame.make_call(instruction))
+                elif isinstance(instruction, RegisterUseDef):
+                    pass
+                else:  # pragma: no cover
+                    raise NotImplementedError(str(instruction))
+            else:
+                # Real instructions:
+                assert instruction.is_colored, str(instruction)
+                output_stream.emit(instruction)
+
+        # Postfix code, like register restore and stack adjust:
+        output_stream.emit_all(frame.epilogue())
 
     def select_and_schedule(self, ir_function, frame, reporter):
         self.logger.debug('Selecting instructions')
@@ -107,11 +120,11 @@ class CodeGenerator:
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame, reporter)
 
-        reporter.message('Selected instruction for {}'.format(ir_function))
-        reporter.dump_frame(frame)
-
         # Define arguments live at first instruction:
         self.define_arguments_live(frame, ir_function.arguments)
+
+        reporter.message('Selected instruction for {}'.format(ir_function))
+        reporter.dump_frame(frame)
 
         # Do register allocation:
         self.register_allocator.alloc_frame(frame)

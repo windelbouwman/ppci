@@ -1,10 +1,10 @@
 from ..target import Label, Alignment
-from ..target import Frame
+from ..target import Frame, VCall
 from .instructions import dcd, Add, Sub, Push, Pop, Mov, Mov2, Bl
 from ..data_instructions import Db
 from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
-from .registers import R9, R10, R11, LR, PC, SP, ArmRegister
+from .registers import R9, R10, R11, LR, PC, SP, ArmRegister, get_register
 
 
 class ArmFrame(Frame):
@@ -46,10 +46,6 @@ class ArmFrame(Frame):
         """
         # TODO: what ABI to use?
 
-        # Caller save registers:
-        # R0 is filled with return value, do not save it, it will conflict.
-        self.emit(Push(RegisterSet({R1, R2, R3, R4})))
-
         # Setup parameters:
         reg_uses = []
         for i, arg in enumerate(args):
@@ -59,11 +55,30 @@ class ArmFrame(Frame):
                 self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
-        self.emit(Bl(label, extra_uses=reg_uses, extra_defs=[self.rv]))
-        self.emit(Pop(RegisterSet({R1, R2, R3, R4})))
+        # self.emit(Bl(label, ))
+        self.emit(
+            VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
         self.move(res_var, self.rv)
 
+    def make_call(self, vcall):
+        """ Implement actual call and save / restore live registers """
+        # R0 is filled with return value, do not save it, it will conflict.
+        # Now we now what variables are live:
+        live_regs = self.live_regs_over(vcall)
+        register_set = set(live_regs)
+
+        # Caller save registers:
+        if register_set:
+            yield Push(RegisterSet(register_set))
+
+        yield Bl(vcall.function_name)
+
         # Restore caller save registers:
+        if register_set:
+            yield Pop(RegisterSet(register_set))
+
+    def get_register(self, color):
+        return get_register(color)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

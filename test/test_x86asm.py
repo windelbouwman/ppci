@@ -25,7 +25,15 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('a: jmp a')
         self.feed('jmp a')
         self.feed('jmpshort a')
-        self.check('eb 05 e9 00000000   e9 fbffffff   e9 f6ffffff eb f4')
+        self.check('eb05 e900000000 e9fbffffff e9f6ffffff ebf4')
+
+    def test_conditional_jumping_around(self):
+        """ Check all kind of assembler cases """
+        self.feed('jz a')
+        self.feed('jne a')
+        self.feed('a: jge a')
+        self.feed('jg a')
+        self.check('0f84 06000000 0f85 00000000 0f8d faffffff 0f8f f4ffffff')
 
     def test_call(self):
         """ Test call instruction """
@@ -90,9 +98,11 @@ class AssemblerTestCase(AsmTestCaseBase):
         # assert(assembler.mov('r11', ['RIP', 0xf]) == [0x4c,0x8b,0x1d,0x0f,0x0,0x0,0x0])
 
     def test_mem_stores(self):
+        """ Test store to memory """
         self.feed('mov [rbp, 0x13], rbx')
         self.feed('mov [rcx, 0x11], r14')
-        self.check('48895d13 4c897111')
+        self.feed('mov [0x20000000], rdi')
+        self.check('48895d13 4c897111 48893C2500000020')
 
     def test_weird_r12_encoding(self):
         self.feed('mov [r12, 0x12], r9')

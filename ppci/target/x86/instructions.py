@@ -25,6 +25,14 @@ def apply_b_jmp32(sym_value, data, reloc_value):
     data[2] = (rel24 >> 8) & 0xFF
     data[1] = rel24 & 0xFF
 
+@isa.register_relocation
+def apply_bc_jmp32(sym_value, data, reloc_value):
+    offset = (sym_value - (reloc_value + 6))
+    rel24 = wrap_negative(offset, 32)
+    data[5] = (rel24 >> 24) & 0xFF
+    data[4] = (rel24 >> 16) & 0xFF
+    data[3] = (rel24 >> 8) & 0xFF
+    data[2] = rel24 & 0xFF
 
 @isa.register_relocation
 def apply_b_jmp8(sym_value, data, reloc_value):
@@ -34,9 +42,17 @@ def apply_b_jmp8(sym_value, data, reloc_value):
 
 
 @isa.register_relocation
-def apply_r64(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 5))
+def apply_abs64(sym_value, data, reloc_value):
+    offset = sym_value
     abs64 = wrap_negative(offset, 64)
+    data[9] = (abs64 >> 56) & 0xFF
+    data[8] = (abs64 >> 48) & 0xFF
+    data[7] = (abs64 >> 40) & 0xFF
+    data[6] = (abs64 >> 32) & 0xFF
+    data[5] = (abs64 >> 24) & 0xFF
+    data[4] = (abs64 >> 16) & 0xFF
+    data[3] = (abs64 >> 8) & 0xFF
+    data[2] = abs64 & 0xFF
 
 # Helper functions:
 
@@ -165,7 +181,7 @@ class ConditionalJump(X86Instruction):
         return self.token1.encode() + self.token2.encode() + self.token3.encode()
 
     def relocations(self):
-        return [(self.target, apply_b_jmp32)]
+        return [(self.target, apply_bc_jmp32)]
 
 
 def make_cjump(mnemonic, opcode):
@@ -321,7 +337,7 @@ class Rm1(Rm):
     """ register with 8 bit displacement """
     reg_rm = register_argument('reg_rm', X86Register, read=True)
     disp = register_argument('disp', int)
-    syntax = Syntax(['[', reg_rm, ',', disp, ']'])
+    syntax = Syntax(['[', reg_rm, ',', disp, ']'], priority=2)
     patterns = [FixedPattern('mod', 1)]
 
     def set_user_patterns(self, tokens):
@@ -340,7 +356,7 @@ class Rm2(Rm):
     """ register with 32 bit displacement """
     reg_rm = register_argument('reg_rm', X86Register, read=True)
     disp = register_argument('disp', int)
-    syntax = Syntax(['[', reg_rm, ',', disp, ']'])
+    syntax = Syntax(['[', reg_rm, ',', disp, ']'], priority=5)
     patterns = [FixedPattern('mod', 2)]
 
     def set_user_patterns(self, tokens):
@@ -360,7 +376,8 @@ class Rm0_Rip(Rm):
     disp = register_argument('disp', int)
     syntax = Syntax(['[', 'rip', ',', disp, ']'])
     patterns = [
-        FixedPattern('mod', 0), FixedPattern('rm', 5),
+        FixedPattern('mod', 0),
+        FixedPattern('rm', 5),
         FixedPattern('b', 0)]
 
     def set_user_patterns(self, tokens):
@@ -371,8 +388,32 @@ class Rm4(Rm):
     """ absolute address access """
     l = register_argument('l', str)
     syntax = Syntax(['[', l, ']'], priority=2)
-    mod = 4
-    patterns = []
+    patterns = [
+        FixedPattern('mod', 0),
+        FixedPattern('rm', 4),
+        FixedPattern('index', 4),
+        FixedPattern('x', 0),
+        FixedPattern('b', 0)]
+
+    # TODO
+    def set_user_patterns(self, tokens):
+        raise NotImplementedError('Rm4')
+
+
+class Rm5(Rm):
+    """ absolute address access """
+    l = register_argument('l', int)
+    syntax = Syntax(['[', l, ']'], priority=2)
+    patterns = [
+        FixedPattern('mod', 0),
+        FixedPattern('rm', 4),
+        FixedPattern('index', 4),
+        FixedPattern('base', 5),
+        FixedPattern('x', 0),
+        FixedPattern('b', 0)]
+
+    def set_user_patterns(self, tokens):
+        self.set_field(tokens, 'disp32', wrap_negative(self.l, 32))
 
 
 class RmRegister(Rm):
@@ -410,9 +451,13 @@ class rmregbase(X86Instruction):
             r += self.token5.encode()
         if self.token3.mod == 2:
             r += self.token6.encode()
+        # Rip relative addressing mode
         if self.token3.mod == 0 and self.token3.rm == 5:
-            # Rip relative addressing mode
             r += self.token6.encode()
+
+        if self.token3.mod == 0 and self.token3.rm == 4:
+            if self.token4.base == 5:
+                r += self.token6.encode()
         return r
 
 
@@ -565,7 +610,7 @@ class MovAdr(X86Instruction):
         return self.token1.encode() + self.token2.encode() + u64(0)
 
     def relocations(self):
-        return [(self.imm, apply_r64)]
+        return [(self.imm, apply_abs64)]
 
 
 @isa.pattern('stm', 'JMP', cost=2)
@@ -610,6 +655,7 @@ def _(context, tree, c0):
 @isa.pattern('reg64', 'LDRI8(reg64)', cost=2)
 def _(context, tree, c0):
     d = context.new_reg(X86Register)
+    context.emit(XorRegRm(rax, RmRegister(rax)))
     context.emit(MovRegRm8(al, Rm0(c0)))
     context.move(d, rax)
     return d
@@ -622,7 +668,8 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('stm', 'STRI8(reg64, reg64)', cost=2)
 def _(context, tree, c0, c1):
-    context.emit(MovRmReg8(Rm0(c0), c1))
+    context.move(rax, c1)
+    context.emit(MovRmReg8(Rm0(c0), al))
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', cost=2)
@@ -690,7 +737,7 @@ def _(context, tree):
 @isa.pattern('reg64', 'MOVI64(LABEL)', cost=2)
 def _(context, tree):
     label = tree.children[0].value
-    context.emit(Lea(tree.value, Rm4(label)))
+    context.emit(MovAdr(tree.value, label))
     return tree.value
 
 

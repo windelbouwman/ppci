@@ -1,7 +1,7 @@
-from ..target import Frame, Label
+from ..target import Frame, Label, VCall
 from .registers import rax, rbx, rcx, rdx, rbp, rsp
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
-from .registers import rdi, rsi
+from .registers import rdi, rsi, get_register
 from ..data_instructions import Db
 from .instructions import MovRegRm, RmRegister, Push, Pop, SubImm, AddImm
 from .instructions import Call, Ret
@@ -25,7 +25,7 @@ class X86Frame(Frame):
     def __init__(self, name):
         super().__init__(name)
         # Allocatable registers:
-        self.regs = [r8, r9, r10, r11, r13, r14]
+        self.regs = [r8, r9, r10, r11, r14, r15]
         self.rv = rax
         self.p1 = rdi
         self.p2 = rsi
@@ -35,8 +35,12 @@ class X86Frame(Frame):
         self.p6 = r9
         self.fp = rbp
 
+        self.callee_save = (rbx, r12, r13, r14, r15)
+
         self.register_classes[8] = X86Register
         self.register_classes[64] = X86Register
+
+        self.used_regs = set()
 
         self.locVars = {}
 
@@ -47,10 +51,7 @@ class X86Frame(Frame):
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence. This function saves registers
             and moves arguments in the proper locations.
-
         """
-        # Caller save registers:
-        # R0 is filled with return value, do not save it, it will conflict.
 
         # Setup parameters:
         reg_uses = []
@@ -61,10 +62,27 @@ class X86Frame(Frame):
                 self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
-        self.emit(Call(label, extra_uses=reg_uses, extra_defs=[self.rv]))
+        self.emit(
+            VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
         self.move(res_var, self.rv)
 
+    def make_call(self, vcall):
+        # R0 is filled with return value, do not save it, it will conflict.
+        # Now we now what variables are live
+        live_regs = self.live_regs_over(vcall)
+
+        # Caller save registers:
+        for register in live_regs:
+            yield Push(register)
+
+        yield Call(vcall.function_name)
+
         # Restore caller save registers:
+        for register in reversed(live_regs):
+            yield Pop(register)
+
+    def get_register(self, color):
+        return get_register(color)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -102,21 +120,26 @@ class X86Frame(Frame):
         self.constants.append((lab_name, value))
         return lab_name
 
+    def is_used(self, register):
+        """ Check if a register is used by this frame """
+        return register in self.used_regs
+
     def prologue(self):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(self.name)
+
         yield Push(rbp)
-        yield Push(rbx)
-        yield Push(r12)
-        yield Push(r13)
-        yield Push(r14)
-        yield Push(r15)
+        yield MovRegRm(rbp, RmRegister(rsp))
+
         # Callee save registers:
-        # TODO
+        for reg in self.callee_save:
+            if self.is_used(reg):
+                yield Push(reg)
+
+        # Reserve stack space
         if self.stacksize > 0:
-            yield SubImm(rsp, self.stacksize)  # Reserve stack space
-        # yield Mov(R11, SP)                 # Setup frame pointer
+            yield SubImm(rsp, self.stacksize)
 
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer
@@ -124,12 +147,20 @@ class X86Frame(Frame):
         """
         if self.stacksize > 0:
             yield AddImm(rsp, self.stacksize)
+
         # Pop save registers back:
-        yield Pop(r15)
-        yield Pop(r14)
-        yield Pop(r13)
-        yield Pop(r12)
-        yield Pop(rbx)
+        for reg in reversed(self.callee_save):
+            if self.is_used(reg):
+                yield Pop(reg)
+
         yield Pop(rbp)
         yield Ret()
+
         # Add final literal pool:
+        for label, value in self.constants:
+            yield Label(label)
+            if isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+            else:  # pragma: no cover
+                raise NotImplementedError('Constant of type {}'.format(value))
