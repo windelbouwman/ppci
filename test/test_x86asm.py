@@ -58,7 +58,7 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('xor rax, rax')
         self.feed('xor r9, r8')
         self.feed('xor rbx, r11')
-        self.check('48 31 c0 4d 31 c1 4c 31 db')
+        self.check('4831c0 4d31c1 4c31db')
 
     def test_inc(self):
         self.feed('inc r11')
@@ -90,12 +90,21 @@ class AssemblerTestCase(AsmTestCaseBase):
 
         #assert(assembler.mov('r9', ['rbp',-0x33]) == [0x4c,0x8b,0x4d,0xcd])
         self.feed('mov rbx, [rax]')
-        self.check('48 8b 18')
+        self.check('488b18')
 
         # assert(assembler.mov('rax', [0xb000]) == [0x48,0x8b,0x4,0x25,0x0,0xb0,0x0,0x0])
         # assert(assembler.mov('r11', [0xa0]) == [0x4c,0x8b,0x1c,0x25,0xa0,0x0,0x0,0x0])
 
         # assert(assembler.mov('r11', ['RIP', 0xf]) == [0x4c,0x8b,0x1d,0x0f,0x0,0x0,0x0])
+
+    def test_mov_imm(self):
+        self.feed('mov r8, 91')
+        self.feed('mov r9, 100')
+        self.check('49b8 5B00000000000000 49b9 6400000000000000')
+
+    def test_mov_label_address(self):
+        self.feed('label_x: mov r8, label_x')
+        self.check('49b8 00000000 00000000')
 
     def test_mem_stores(self):
         """ Test store to memory """

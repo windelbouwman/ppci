@@ -590,7 +590,7 @@ class MovImm(X86Instruction):
 
     def encode(self):
         self.token1.w = 1
-        self.token1.r = self.reg.rexbit
+        self.token1.b = self.reg.rexbit
         self.token2[0:8] = self.opcode + self.reg.regbits
         return self.token1.encode() + self.token2.encode() + u64(self.imm)
 
@@ -605,7 +605,7 @@ class MovAdr(X86Instruction):
 
     def encode(self):
         self.token1.w = 1
-        self.token1.r = self.reg.rexbit
+        self.token1.b = self.reg.rexbit
         self.token2[0:8] = self.opcode + self.reg.regbits
         return self.token1.encode() + self.token2.encode() + u64(0)
 
@@ -739,6 +739,14 @@ def _(context, tree):
     label = tree.children[0].value
     context.emit(MovAdr(tree.value, label))
     return tree.value
+
+
+@isa.pattern('reg64', 'LABEL', cost=2)
+def _(context, tree):
+    label = tree.value
+    d = context.new_reg(X86Register)
+    context.emit(MovAdr(d, label))
+    return d
 
 
 @isa.pattern('reg64', 'CONSTI64', cost=11)

@@ -2,6 +2,10 @@
 from ..isa import Register, Syntax
 
 
+def get_register(color):
+    return num2reg[color]
+
+
 class Msp430Register(Register):
     bitsize = 16
     syntaxi = 'reg', [
@@ -54,3 +58,7 @@ r12 = Msp430Register('r12', num=12)
 r13 = Msp430Register('r13', num=13)
 r14 = Msp430Register('r14', num=14)
 r15 = Msp430Register('r15', num=15)
+
+all_registers = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
+
+num2reg = {r.num: r for r in all_registers}

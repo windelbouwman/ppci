@@ -50,51 +50,24 @@ class SimpleSamples:
         """
         self.do(snippet, "Hello world")
 
-
-class I32Samples:
-    """ 32-bit samples """
-
-    def test_for_loop_print(self):
+    def test_if_statement(self):
         snippet = """
          module sample;
          import io;
          function void start()
          {
-            var int i;
-            var int b = 2;
-            for (i=0; i<10; i = i + 1)
+            var int i = 13;
+            if (i*7 < 100)
             {
-              io.print2("A = ", i);
-              b *= i + 1;
+                io.print("Wow");
             }
-            io.print2("B = ", b);
-         }
-        """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
-        res += "B = 0x006EBE00\n"
-        self.do(snippet, res)
-
-    def test_c3_quine(self):
-        """ Quine in the c3 language """
-        src = """module sample;import io;import bsp;function void start(){var string x="module sample;import io;import bsp;function void start(){var string x=;io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}";io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}"""
-        self.do(src, src)
-
-    @unittest.skip('actually tests qemu pipe, not ppci')
-    def test_large_for_loop_print(self):
-        """ This test actually tests the qemu pipe system """
-        snippet = """
-         module sample;
-         import io;
-         function void start()
-         {
-            var int i;
-            for (i=0; i<10000; i = i + 1)
+            else
             {
-              io.print2("A = ", i);
+                io.print("Outch");
             }
          }
         """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
+        res = "Wow"
         self.do(snippet, res)
 
     def test_boolean_exotics(self):
@@ -151,24 +124,51 @@ class I32Samples:
         res = "tftft"
         self.do(snippet, res)
 
-    def test_if_statement(self):
+
+class I32Samples:
+    """ 32-bit samples """
+
+    def test_for_loop_print(self):
         snippet = """
          module sample;
          import io;
          function void start()
          {
-            var int i = 13;
-            if (i*7 < 100)
+            var int i;
+            var int b = 2;
+            for (i=0; i<10; i = i + 1)
             {
-                io.print("Wow");
+              io.print2("A = ", i);
+              b *= i + 1;
             }
-            else
+            io.print2("B = ", b);
+         }
+        """
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
+        res += "B = 0x006EBE00\n"
+        self.do(snippet, res)
+
+    def test_c3_quine(self):
+        """ Quine in the c3 language """
+        src = """module sample;import io;import bsp;function void start(){var string x="module sample;import io;import bsp;function void start(){var string x=;io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}";io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}"""
+        self.do(src, src)
+
+    @unittest.skip('actually tests qemu pipe, not ppci')
+    def test_large_for_loop_print(self):
+        """ This test actually tests the qemu pipe system """
+        snippet = """
+         module sample;
+         import io;
+         function void start()
+         {
+            var int i;
+            for (i=0; i<10000; i = i + 1)
             {
-                io.print("Outch");
+              io.print2("A = ", i);
             }
          }
         """
-        res = "Wow"
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
         self.do(snippet, res)
 
     def test_bug1(self):

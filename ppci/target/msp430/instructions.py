@@ -331,7 +331,6 @@ def mov(src, dst):
 @isa.pattern('stm', 'JMP', cost=2)
 def _(self, tree):
     tgt = tree.value
-    print(tgt)
     self.emit(Jmp(tgt.name, jumps=[tgt]))
 
 

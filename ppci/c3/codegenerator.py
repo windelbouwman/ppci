@@ -158,7 +158,7 @@ class CodeGenerator:
             return ir.ptr
         elif self.context.equal_types(cty, 'bool'):
             # Implement booleans as integers:
-            return ir.i32
+            return self.get_ir_int()
         elif self.context.equal_types(cty, 'byte'):
             return ir.i8
         elif isinstance(cty, ast.PointerType):

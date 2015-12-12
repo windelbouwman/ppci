@@ -1,8 +1,8 @@
-from ..target import Frame, Label, Alignment
+from ..target import Frame, Label, Alignment, VCall
 from ..data_instructions import Db, Dw
 from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
-from .registers import Msp430Register
-from .instructions import ret, push, call, pop, Dcd2
+from .registers import Msp430Register, get_register
+from .instructions import ret, push, call, pop, Dcd2, mov
 
 
 class Msp430Frame(Frame):
@@ -30,17 +30,41 @@ class Msp430Frame(Frame):
         self.literal_number = 0
 
     def gen_call(self, label, args, res_var):
-        # Caller save registers:
         # R0 is filled with return value, do not save it, it will conflict.
-        #self.emit(push(r6))
-        #self.emit(push(r7))
-        #self.emit(push(r8))
-        #self.emit(push(r9))
-        self.emit(call(label))
-        #self.emit(pop(r9))
-        #self.emit(pop(r8))
-        #self.emit(pop(r7))
-        #self.emit(pop(r6))
+
+        # Setup parameters:
+        reg_uses = []
+        for i, arg in enumerate(args):
+            arg_loc = self.arg_loc(i)
+            if isinstance(arg_loc, Msp430Register):
+                reg_uses.append(arg_loc)
+                self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        self.emit(VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
+        self.move(res_var, self.rv)
+
+    def make_call(self, vcall):
+        # TODO: calling convention!
+        live_regs = self.live_regs_over(vcall)
+
+        # Caller save registers:
+        for register in live_regs:
+            yield push(register)
+
+        yield call(vcall.function_name)
+
+        # Restore caller save registers:
+        for register in reversed(live_regs):
+            yield pop(register)
+
+    def get_register(self, color):
+        return get_register(color)
+
+    def move(self, dst, src):
+        """ Generate a move from src to dst """
+        self.emit(mov(src, dst))
 
     def new_virtual_register(self, twain=""):
         """ Retrieve a new virtual register """

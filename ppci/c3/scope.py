@@ -101,7 +101,7 @@ def create_top_scope(target):
     scope.add_symbol(int_type)
     scope.add_symbol(BaseType('double', 8))
     scope.add_symbol(BaseType('void', 0))
-    scope.add_symbol(BaseType('bool', 1))
+    scope.add_symbol(BaseType('bool', target.byte_sizes['int']))
     byte_type = BaseType('byte', 1)
     scope.add_symbol(byte_type)
 
