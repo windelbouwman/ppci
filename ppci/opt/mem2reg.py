@@ -137,7 +137,7 @@ class Mem2RegPromotor(FunctionPass):
         phis = self.place_phi_nodes(stores, phi_ty, name, cfg_info)
 
         # Create undefined value at start:
-        initial_value = Undefined('undef_{}'.format(name), phi_ty)
+        initial_value = Undefined('und_{}'.format(name), phi_ty, loc=alloc.loc)
         cfg_info.function.entry.insert_instruction(initial_value)
 
         self.rename(initial_value, phis, loads, stores, cfg_info)

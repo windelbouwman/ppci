@@ -13,7 +13,7 @@ from ppci.pcc.common import ParserException
 from ppci.pyyacc import load_as_module
 from ppci.pcc.lr import calculate_first_sets
 from ppci.pyyacc import transform
-from ppci.common import Token, SourceLocation
+from ppci.common import Token, SourceLocation, CompilerError
 from ppci.pcc.lr import LrParserBuilder
 from ppci.pcc.earley import EarleyParser
 from ppci.baselex import EOF
@@ -336,7 +336,7 @@ class EarleyParserTestCase(unittest.TestCase):
         g.start_symbol = 'goal'
         p = EarleyParser(g)
         tokens = gen_tokens(['d'])
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(CompilerError):
             p.parse(tokens)
 
     @patch('sys.stdout', new_callable=io.StringIO)

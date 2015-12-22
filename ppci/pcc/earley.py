@@ -8,6 +8,8 @@ And the book:
 Parsing Techniques: A Practical Guide (2nd edition)
 """
 
+from ..common import ParseError
+
 
 class Item:
     """ Partially parsed grammar rule """
@@ -153,7 +155,7 @@ class EarleyParser:
                 break
         else:
             # self.dump_parse(columns)
-            raise RuntimeError('Parsing failed')
+            raise ParseError('Parsing failed')
 
         if debug_dump:
             self.dump_parse(columns)

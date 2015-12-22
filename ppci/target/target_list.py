@@ -4,6 +4,7 @@
 """
 
 from .arm import ArmTarget
+from .avr import AvrTarget
 from .thumb import ThumbTarget
 from .msp430.msp430 import Msp430Target
 from .x86.target import X86Target
@@ -13,8 +14,9 @@ arm_target = ArmTarget()
 thumb_target = ThumbTarget()
 x86target = X86Target()
 msp430target = Msp430Target()
+avr_target = AvrTarget()
 
-target_list = [arm_target, thumb_target, msp430target, x86target]
+target_list = [arm_target, thumb_target, msp430target, x86target, avr_target]
 targets = {t.name: t for t in target_list}
 targetnames = list(targets.keys())
 

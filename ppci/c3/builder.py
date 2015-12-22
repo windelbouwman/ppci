@@ -4,11 +4,12 @@
 
 import logging
 import collections
+from ..common import CompilerError
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ..irutils import Verifier, IrFormError
+from ..irutils import Verifier
 from ..opt.mem2reg import Mem2RegPromotor
 
 
@@ -57,7 +58,7 @@ class Builder:
                         msg = 'Cannot import {}'.format(imp)
                         raise SemanticError(msg)
         except SemanticError as ex:
-            self.diag.error(ex.msg, None)
+            self.diag.error(ex.msg, ex.loc)
             raise
 
         # Phase 1.9
@@ -74,8 +75,8 @@ class Builder:
         try:
             for ir_module in ir_modules:
                 self.check_control_flow(ir_module)
-        except SemanticError as ex:
-            self.diag.error(ex.msg, None)
+        except CompilerError as ex:
+            self.diag.error(ex.msg, ex.loc)
             raise
 
         self.logger.debug('C3 build complete!')
@@ -86,11 +87,8 @@ class Builder:
 
     def check_control_flow(self, ir_module):
         pas = Mem2RegPromotor()
-        try:
-            # pas.run(ir_module)
-            self.verifier.verify(ir_module)
-        except IrFormError as ex:
-            raise SemanticError(str(ex))
+        pas.run(ir_module)
+        self.verifier.verify(ir_module)
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """

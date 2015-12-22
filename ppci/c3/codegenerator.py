@@ -118,7 +118,8 @@ class CodeGenerator:
         for sym in function.innerScope:
             self.context.check_type(sym.typ)
             var_name = 'var_{}'.format(sym.name)
-            variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
+            variable = ir.Alloc(
+                var_name, self.context.size_of(sym.typ), loc=sym.loc)
             self.emit(variable)
             if sym.isParameter:
                 # Get the parameter from earlier:
@@ -700,7 +701,7 @@ class CodeGenerator:
             return self.emit(ir.Cast(ar, 'ptr2int', self.get_ir_int()))
         elif type(from_type) is ast.BaseType and from_type.name == 'byte' and \
                 type(to_type) is ast.BaseType and to_type.name == 'int':
-            return self.emit(ir.to_int(ar, 'byte2int'))
+            return self.emit(ir.Cast(ar, 'byte2int', self.get_ir_int()))
         elif type(from_type) is ast.BaseType and from_type.name == 'int' and \
                 type(to_type) is ast.BaseType and to_type.name == 'byte':
             return self.emit(ir.to_i8(ar, 'bytecast'))

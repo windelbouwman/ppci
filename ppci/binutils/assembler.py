@@ -8,7 +8,7 @@ import re
 from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..baselex import BaseLexer, EPS, EOF
-from ..common import make_num
+from ..common import make_num, ParseError
 from ..target.target import Target, Label, Alignment
 from ..target.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
@@ -264,7 +264,6 @@ class BaseAssembler:
             self.lexer.feed(line)
             self.parser.parse(self.lexer)
         except CompilerError as ex:
-            print(ex)
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
             raise CompilerError('Unable to assemble: {}'.format(line), loc)
 

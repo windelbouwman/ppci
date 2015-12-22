@@ -33,6 +33,11 @@ class Register:
     def color(self):
         return self._num
 
+    @property
+    def bit_pattern(self):
+        """ Use these bits when encoding this register """
+        return self._num
+
     def set_color(self, color):
         self._num = color
 
@@ -222,6 +227,8 @@ class Constructor:
                 value = 0
                 if isinstance(pattern, VariablePattern):
                     value = pattern.prop.__get__(self)
+                elif isinstance(pattern, SubPattern):
+                    value = pattern.prop.__get__(self).bit_pattern
                 elif isinstance(pattern, FixedPattern):
                     value = pattern.value
                 else:
@@ -391,6 +398,12 @@ class FixedPattern(BitPattern):
 
 
 class VariablePattern(BitPattern):
+    def __init__(self, field, prop):
+        super().__init__(field)
+        self.prop = prop
+
+
+class SubPattern(BitPattern):
     def __init__(self, field, prop):
         super().__init__(field)
         self.prop = prop

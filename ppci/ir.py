@@ -380,12 +380,13 @@ def var_use(name):
 # Instructions:
 class Instruction:
     """ Base class for all instructions that go into a basic block """
-    def __init__(self):
+    def __init__(self, loc=None):
         # Create a collection to store the values this value uses.
         # TODO: think of better naming..
         self.var_map = {}
         self.parent = None
         self.uses = set()
+        self.loc = loc
 
     @property
     def block(self):
@@ -462,8 +463,8 @@ class Instruction:
 
 class Value(Instruction):
     """ An instruction that results in a value has a type and a name """
-    def __init__(self, name, ty):
-        super().__init__()
+    def __init__(self, name, ty, loc=None):
+        super().__init__(loc=loc)
         assert isinstance(ty, Typ)
         assert isinstance(name, str)
         self.name = name
@@ -559,8 +560,8 @@ class LiteralData(Expression):
 
 class Call(Expression):
     """ Call a function with some arguments """
-    def __init__(self, function, arguments, name, ty):
-        super().__init__(name, ty)
+    def __init__(self, function, arguments, name, ty, loc=None):
+        super().__init__(name, ty, loc=loc)
         assert type(function) is str
         self.function_name = function
         self.arguments = arguments
@@ -585,8 +586,8 @@ class Binop(Expression):
     a = var_use('a')
     b = var_use('b')
 
-    def __init__(self, a, operation, b, name, ty):
-        super().__init__(name, ty)
+    def __init__(self, a, operation, b, name, ty, loc=None):
+        super().__init__(name, ty, loc=loc)
         assert operation in Binop.ops
         assert a.ty is b.ty
         self.a = a
@@ -666,8 +667,8 @@ class Phi(Value):
 
 class Alloc(Expression):
     """ Allocates space on the stack """
-    def __init__(self, name, amount):
-        super().__init__(name, ptr)
+    def __init__(self, name, amount, loc=None):
+        super().__init__(name, ptr, loc=loc)
         assert type(amount) is int
         self.amount = amount
 

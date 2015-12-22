@@ -1,0 +1,24 @@
+<project name="arduino" default="blinky">
+    <import name="ppci.buildtasks" />
+
+    <target name="blinky">
+        <assemble
+            source="boot.asm"
+            target="avr"
+            output="boot.o" />
+        <compile
+            target="avr"
+            sources="blinky.c3"
+            output="main.o"
+            report="report.html"/>
+        <link
+            output="blinky.elf" layout="avr.mmap"
+            target="avr"
+            objects="boot.o;main.o" />
+        <objcopy
+            objectfile="blinky.elf"
+            imagename="flash"
+            format="bin"
+            output="blinky.bin" />
+    </target>
+</project>

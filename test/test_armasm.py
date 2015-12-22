@@ -9,15 +9,15 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
     """ ARM-mode (not thumb-mode) instruction assembly test case """
     target = arm_target
 
-    def testMovImm(self):
+    def test_mov_imm(self):
         self.feed('mov r4, 100')
         self.check('6440a0e3')
 
-    def testMovImm2(self):
+    def test_mov_imm2(self):
         self.feed('mov sp, 0x6000')
         self.check('06daa0e3')
 
-    def testMovReg(self):
+    def test_mov_reg(self):
         self.feed('mov r3, sp')
         self.feed('mov pc, lr')
         self.feed('mov pc, r2')
@@ -25,7 +25,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('mov r5, r6')
         self.check('0d30a0e1 0ef0a0e1 02f0a0e1 04d0a0e1 0650a0e1')
 
-    def testAdd2(self):
+    def test_add2(self):
         self.feed('add r12, r11, 300')
         self.check('4bcf8be2')
 
@@ -34,15 +34,15 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         with self.assertRaises(ValueError):
             self.feed('add r12, r11, 30000')
 
-    def testAdd1(self):
+    def test_add1(self):
         self.feed('add r9, r7, r2')
         self.check('029087e0')
 
-    def testSub1(self):
+    def test_sub1(self):
         self.feed('sub r5, r6, r2')
         self.check('025046e0')
 
-    def testSub2(self):
+    def test_sub2(self):
         self.feed('sub r0, r1, 0x80000001')
         self.check('060141e2')
 

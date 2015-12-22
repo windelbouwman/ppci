@@ -32,6 +32,11 @@ class EmulationTestCase(unittest.TestCase):
         recipe = relpath('..', 'examples', 'blinky', 'build.xml')
         construct(recipe)
 
+    @unittest.skip('todo')
+    def test_arduino(self):
+        recipe = relpath('..', 'examples', 'arduino', 'build.xml')
+        construct(recipe)
+
     def test_snake(self):
         """ Compile the snake example """
         recipe = relpath('..', 'examples', 'build.xml')

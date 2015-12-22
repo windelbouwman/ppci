@@ -6,6 +6,7 @@ import logging
 import re
 from . import ir
 from .domtree import CfgInfo
+from .common import IrFormError
 
 
 class Writer:
@@ -359,10 +360,6 @@ class Builder:
         return i
 
 
-class IrFormError(Exception):
-    pass
-
-
 class Verifier:
     """ Checks an ir module for correctness """
     def __init__(self):
@@ -437,4 +434,5 @@ class Verifier:
                 "{} does not dominate {}".format(value, instruction)
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
-                raise IrFormError('{} used uninitialized'.format(value))
+                raise IrFormError(
+                    '{} used uninitialized'.format(value), loc=value.loc)

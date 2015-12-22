@@ -14,7 +14,7 @@ class LexerTestCase(unittest.TestCase):
         diag = DiagnosticsManager()
         self.l = Lexer(diag)
 
-    def testUnexpectedCharacter(self):
+    def test_unexpected_character(self):
         snippet = io.StringIO(""" var s \u6c34 """)
         with self.assertRaises(CompilerError):
             list(self.l.lex(snippet))
@@ -99,13 +99,13 @@ class BuildTestCaseBase(unittest.TestCase):
     def build(self, snippet):
         """ Try to build a snippet """
         srcs = self.make_file_list(snippet)
-        modules, context = self.builder.build(srcs, return_context=True)
+        ir_modules, context = self.builder.build(srcs, return_context=True)
         printer = AstPrinter()
         for mod in context.modules:
             f = io.StringIO()
             printer.printAst(mod, f)
 
-        return modules
+        return ir_modules
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
@@ -120,7 +120,7 @@ class BuildTestCaseBase(unittest.TestCase):
         """ Expect a snippet to be OK """
         ircode = self.build(snippet)
         if len(self.diag.diags) > 0:
-            self.diag.printErrors()
+            self.diag.print_errors()
         self.assertTrue(ircode)
         verifier = Verifier()
         for mod in ircode:
@@ -531,20 +531,21 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [5])
 
-    @unittest.skip('Fix this')
+    # @unittest.skip('Fix this')
     def test_uninitialized_local(self):
         """ When a variable is not initialized before it is used, an error
             is expected """
         snippet = """
          module test;
          var int b;
-         function void start()
+         function int start()
          {
             var int x;
             b = x;
+            return x;
          }
         """
-        self.expect_errors(snippet, [0])
+        self.expect_errors(snippet, [6])
 
 
 class StatementTestCase(BuildTestCaseBase):
@@ -558,17 +559,6 @@ class StatementTestCase(BuildTestCaseBase):
         }
         """
         self.expect_ok(snippet)
-
-    @unittest.skip('This should be configurable')
-    def test_compound_brace_columns(self):
-        """ Check strict column style braces """
-        snippet = """
-        module tst;
-        function void t()
-        {
-         }
-        """
-        self.expect_errors(snippet, [6])
 
     def test_assignments(self):
         """ Check if normal assignments and |= &= assignments work """
@@ -962,6 +952,7 @@ class TypeTestCase(BuildTestCaseBase):
          function void t()
          {
             var int* pa;
+            pa = 0;
             *(pa+2) = 2;
          }
         """
@@ -980,6 +971,17 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [7])
 
+    def test_integer_casting(self):
+        snippet = """
+         module testptr_ir;
+         function void test(string txt)
+         {
+            var int x;
+            x = cast<int>(txt->txt[1]);
+         }
+        """
+        self.expect_ok(snippet)
+
     def test_linked_list(self):
         """
             Test if a struct can contain a field with a pointer to itself
@@ -995,6 +997,9 @@ class TypeTestCase(BuildTestCaseBase):
          function void t()
          {
             var list_t* a;
+            var list_t b;
+            a = &b;
+            a->next = a;
             a = a->next;
          }
         """
@@ -1064,6 +1069,7 @@ class TypeTestCase(BuildTestCaseBase):
             var my_struct *msp;
 
             var my_struct u, v;
+            msp = &u;
             var point *pt;
 
             pt = &msp->P1;
