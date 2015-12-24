@@ -25,6 +25,17 @@ class AvrRegister(Register):
         Syntax(['r18'], new_func=lambda: r18),
         Syntax(['r19'], new_func=lambda: r19),
         Syntax(['r20'], new_func=lambda: r20),
+        Syntax(['r21'], new_func=lambda: r21),
+        Syntax(['r22'], new_func=lambda: r22),
+        Syntax(['r23'], new_func=lambda: r23),
+        Syntax(['r24'], new_func=lambda: r24),
+        Syntax(['r25'], new_func=lambda: r25),
+        Syntax(['r26'], new_func=lambda: r26),
+        Syntax(['r27'], new_func=lambda: r27),
+        Syntax(['r28'], new_func=lambda: r28),
+        Syntax(['r29'], new_func=lambda: r29),
+        Syntax(['r30'], new_func=lambda: r30),
+        Syntax(['r31'], new_func=lambda: r31),
         ]
 
 
@@ -55,3 +66,26 @@ r17 = AvrRegister('r17', num=17)
 r18 = AvrRegister('r18', num=18)
 r19 = AvrRegister('r19', num=19)
 r20 = AvrRegister('r20', num=20)
+r21 = AvrRegister('r21', num=21)
+r22 = AvrRegister('r22', num=22)
+r23 = AvrRegister('r23', num=23)
+
+r24 = AvrRegister('r24', num=24)
+r25 = AvrRegister('r25', num=25)
+r26 = AvrRegister('r26', num=26)
+r27 = AvrRegister('r27', num=27)
+r28 = AvrRegister('r28', num=28)
+r29 = AvrRegister('r29', num=29)
+r30 = AvrRegister('r30', num=30)
+r31 = AvrRegister('r31', num=31)
+
+
+all_regs = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
+            r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
+            r28, r29, r30, r31]
+
+num_reg_map = {r.num: r for r in all_regs}
+
+
+def get_register(n):
+    return num_reg_map[n]

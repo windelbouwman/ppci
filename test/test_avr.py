@@ -30,6 +30,50 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("ret")
         self.check('0895')
 
+    def test_reti(self):
+        self.feed("reti")
+        self.check('1895')
+
+    def test_ldi(self):
+        self.feed("ldi r26, 0xcb")
+        self.feed("ldi r17, 50")
+        self.check('abec 12e3')
+
+    def test_in(self):
+        self.feed("in r13, 5")
+        self.feed("in r25, 57")
+        self.check('d5b0 99b7')
+
+    def test_out(self):
+        self.feed("out 12, r15")
+        self.feed("out 55, r24")
+        self.check('fcb8 87bf')
+
+    def test_push(self):
+        self.feed("push r30")
+        self.feed("push r3")
+        self.check('ef93 3f92')
+
+    def test_pop(self):
+        self.feed("pop r29")
+        self.feed("pop r9")
+        self.check('df91 9f90')
+
+    def test_rjmp(self):
+        self.feed("rjmp a")
+        self.feed("rjmp a")
+        self.feed("a: rjmp a")
+        self.feed("rjmp a")
+        self.check('01c0 00c0 ffcf fecf')
+
+    @unittest.skip('todo')
+    def test_jmp(self):
+        self.feed("jmp a")
+        self.feed("jmp a")
+        self.feed("a: jmp a")
+        self.feed("jmp a")
+        self.check('01c0 00c0 ffcf fecf')
+
 
 if __name__ == '__main__':
     unittest.main()

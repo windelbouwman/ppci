@@ -6,10 +6,10 @@ from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
-from .instructions import Add, Sub
+from .instructions import Add, Sub, Push, Pop
 from .registers import AvrRegister
 from .registers import r0, r1, r2, r3, r4, r5, r6, r7, r8
-# from .registers import get_register
+from .registers import get_register
 
 
 class AvrTarget(Target):
@@ -57,7 +57,6 @@ class AvrFrame(Frame):
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence. This function saves registers
             and moves arguments in the proper locations.
-
         """
         # TODO: what ABI to use?
 
@@ -132,15 +131,13 @@ class AvrFrame(Frame):
         return lab_name
 
     def prologue(self):
-        """ Returns prologue instruction sequence """
+        """ Generate the prologue instruction sequence """
         # Label indication function:
         yield Label(self.name)
-        yield Push(RegisterSet({LR, R11}))
-        # Callee save registers:
-        yield Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
-        if self.stacksize > 0:
-            yield Sub(SP, SP, self.stacksize)  # Reserve stack space
-        yield Mov(R11, SP)                 # Setup frame pointer
+        yield Push(r0)
+        #if self.stacksize > 0:
+        #    yield Sub(SP, SP, self.stacksize)  # Reserve stack space
+        # yield Mov(R11, SP)                 # Setup frame pointer
 
     def litpool(self):
         """ Generate instruction for the current literals """
@@ -171,8 +168,7 @@ class AvrFrame(Frame):
         """
         if self.stacksize > 0:
             yield Add(SP, SP, self.stacksize)
-        yield Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
-        yield Pop(RegisterSet({PC, R11}), extra_uses=[self.rv])
+        yield Pop(r0)
         # Add final literal pool:
         for instruction in self.litpool():
             yield instruction

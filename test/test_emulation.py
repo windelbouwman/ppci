@@ -11,28 +11,25 @@ class EmulationTestCase(unittest.TestCase):
         """ Build bare m3 binary and emulate it """
         recipe = relpath('..', 'examples', 'lm3s6965evb', 'build.xml')
         construct(recipe)
-        if not has_qemu():
-            self.skipTest('Not running Qemu test')
-        data = run_qemu(relpath('..', 'examples', 'lm3s6965evb', 'bare.bin'))
-        self.assertEqual('Hello worle', data)
+        if has_qemu():
+            bin_file = relpath('..', 'examples', 'lm3s6965evb', 'bare.bin')
+            data = run_qemu(bin_file)
+            self.assertEqual('Hello worle', data)
 
     def test_a9_bare(self):
         """ Build vexpress cortex-A9 binary and emulate it """
         recipe = relpath('..', 'examples', 'realview-pb-a8', 'build.xml')
         construct(recipe)
-        if not has_qemu():
-            self.skipTest('Not running Qemu test')
-        data = run_qemu(
-            relpath('..', 'examples', 'realview-pb-a8', 'hello.bin'),
-            machine='realview-pb-a8')
-        self.assertEqual('Hello worle', data)
+        if has_qemu():
+            bin_file = relpath('..', 'examples', 'realview-pb-a8', 'hello.bin')
+            data = run_qemu(bin_file, machine='realview-pb-a8')
+            self.assertEqual('Hello worle', data)
 
     def test_blinky(self):
         """ Compile the example for the stm32f4discovery board """
         recipe = relpath('..', 'examples', 'blinky', 'build.xml')
         construct(recipe)
 
-    @unittest.skip('todo')
     def test_arduino(self):
         recipe = relpath('..', 'examples', 'arduino', 'build.xml')
         construct(recipe)
