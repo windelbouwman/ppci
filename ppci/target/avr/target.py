@@ -6,7 +6,7 @@ from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
-from .instructions import Add, Sub, Push, Pop
+from .instructions import Add, Sub, Push, Pop, Mov, Call
 from .registers import AvrRegister
 from .registers import r0, r1, r2, r3, r4, r5, r6, r7, r8
 from .registers import get_register
@@ -23,7 +23,11 @@ class AvrTarget(Target):
         self.FrameClass = AvrFrame
         self.assembler = BaseAssembler(self)
         self.assembler.gen_asm_parser()
+        # TODO: make it possible to choose between 16 and 8 bit int type size
+        self.byte_sizes['int'] = 1
+        self.byte_sizes['ptr'] = 2
         self.value_classes[i8] = AvrRegister
+        self.value_classes[i32] = AvrRegister
         self.value_classes[ptr] = AvrRegister
 
     def get_runtime_src(self):
@@ -64,7 +68,7 @@ class AvrFrame(Frame):
         reg_uses = []
         for i, arg in enumerate(args):
             arg_loc = self.arg_loc(i)
-            if isinstance(arg_loc, ArmRegister):
+            if isinstance(arg_loc, AvrRegister):
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
             else:  # pragma: no cover
@@ -85,7 +89,7 @@ class AvrFrame(Frame):
         if register_set:
             yield Push(RegisterSet(register_set))
 
-        yield Bl(vcall.function_name)
+        yield Call(vcall.function_name)
 
         # Restore caller save registers:
         if register_set:
@@ -96,7 +100,7 @@ class AvrFrame(Frame):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        self.emit(Mov2(dst, src, ismove=True))
+        self.emit(Mov(dst, src, ismove=True))
 
     def arg_loc(self, pos):
         """

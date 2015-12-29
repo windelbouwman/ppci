@@ -37,3 +37,19 @@ rjmp label1
 ; sei  ; enable interrupts
 rjmp main_main
 
+
+; Assembly functions:
+main_on:
+ldi r16, 32
+out 0x5, r16
+ret
+
+main_off:
+ldi r16, 0
+out 0x5, r16
+ret
+
+main_delay:
+ret
+
+

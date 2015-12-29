@@ -2,7 +2,7 @@ from ..isa import Instruction, Isa, register_argument, Syntax
 from ..isa import FixedPattern, SubPattern, VariablePattern
 from ..token import Token, u16, bit_range, bit, bit_concat
 from ...bitfun import wrap_negative
-from .registers import AvrRegister
+from .registers import AvrRegister, r16
 
 
 class AvrToken(Token):
@@ -108,9 +108,18 @@ class Rjmp(AvrInstruction):
         return [(self.lab, relsigned12bit)]
 
 
+class Call(AvrInstruction):
+    lab = register_argument('lab', str)
+    syntax = Syntax(['call', lab])
+    patterns = [FixedPattern('n3', 0xd)]
+
+    def relocations(self):
+        return [(self.lab, relsigned12bit)]
+
+
 class Mov(AvrInstruction):
     tokens = [AvrToken1]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
+    rd = register_argument('rd', AvrRegister, write=True)
     rr = register_argument('rr', AvrRegister, read=True)
     syntax = Syntax(['mov', rd, ',', rr])
     patterns = [
@@ -194,7 +203,28 @@ class Out(AvrInstruction):
         VariablePattern('a', na)]
 
 
-@avr_isa.pattern('stm', 'JMP', cost=1)
+@avr_isa.pattern('stm', 'JMP', cost=2)
 def _(context, tree):
     tgt = tree.value
     context.emit(Rjmp(tgt.name, jumps=[tgt]))
+
+
+@avr_isa.pattern('reg', 'CALL', cost=2)
+def _(context, tree):
+    label, args, res_var = tree.value
+    context.frame.gen_call(label, args, res_var)
+    return res_var
+
+
+@avr_isa.pattern('reg', 'MOVI8(reg)', cost=2)
+def _(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
+@avr_isa.pattern('reg', 'CONSTI8', cost=2)
+def _(context, tree):
+    d = context.new_reg(AvrRegister)
+    context.emit(Ldi(r16, tree.value))
+    context.move(d, r16)
+    return d

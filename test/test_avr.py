@@ -66,6 +66,13 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("rjmp a")
         self.check('01c0 00c0 ffcf fecf')
 
+    def test_call(self):
+        self.feed("call a")
+        self.feed("call a")
+        self.feed("a: call a")
+        self.feed("call a")
+        self.check('01d0 00d0 ffdf fedf')
+
     @unittest.skip('todo')
     def test_jmp(self):
         self.feed("jmp a")

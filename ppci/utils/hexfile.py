@@ -12,7 +12,7 @@ class HexFileException(Exception):
     pass
 
 
-def parseHexLine(line):
+def parse_hex_line(line):
     """ Parses a hexfile line into three parts """
     # Remove ':'
     line = line[1:]
@@ -30,7 +30,8 @@ def parseHexLine(line):
     return (address, typ, data)
 
 
-def makeHexLine(address, typ, data=bytes()):
+def make_hex_line(address, typ, data=bytes()):
+    """ Create an ascii hex line out of data, address and record type """
     bytecount = len(data)
     nums = bytearray()
     nums.append(bytecount)
@@ -64,7 +65,7 @@ def hexfields(f):
         if line[0] != ':':
             # Skip lines that do not start with a ':'
             continue
-        yield parseHexLine(line)
+        yield parse_hex_line(line)
 
 
 class HexFile:
@@ -101,10 +102,10 @@ class HexFile:
         size = sum(r.Size for r in self.regions)
         return 'Hexfile containing {} bytes'.format(size)
 
-    def dump(self, outf=sys.stdout, contents=False):
-        print(self, file=outf)
+    def dump(self, contents=False):
+        print(self)
         for region in self.regions:
-            print(region, file=outf)
+            print(region)
             print(binascii.hexlify(region.data))
 
     def __eq__(self, other):
@@ -139,7 +140,7 @@ class HexFile:
 
     def write_hex_line(self, address, typ, data=bytes()):
         """ Write a single hexfile line """
-        print(makeHexLine(address, typ, data), file=self.f)
+        print(make_hex_line(address, typ, data), file=self.f)
 
     def save(self, f):
         """ Save hexfile to file-like object """

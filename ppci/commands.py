@@ -251,8 +251,7 @@ def hexutil(args=None):
         sys.exit(1)
 
     if args.command == 'info':
-        hexfile = HexFile()
-        hexfile.load(args.hexfile)
+        hexfile = HexFile.load(args.hexfile)
         hexfile.dump()
         args.hexfile.close()
     elif args.command == 'new':
@@ -264,13 +263,11 @@ def hexutil(args=None):
         args.hexfile.close()
     elif args.command == 'merge':
         # Load first hexfile:
-        hexfile1 = HexFile()
-        hexfile1.load(args.hexfile1)
+        hexfile1 = HexFile.load(args.hexfile1)
         args.hexfile1.close()
 
         # Load second hexfile:
-        hexfile2 = HexFile()
-        hexfile2.load(args.hexfile2)
+        hexfile2 = HexFile.load(args.hexfile2)
         args.hexfile2.close()
 
         hexfile = HexFile()

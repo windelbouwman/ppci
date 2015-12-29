@@ -144,7 +144,7 @@ class CodeGenerator:
         return self.get_ir_type(expr.typ, expr.loc)
 
     def get_ir_int(self):
-        mapping = {4: ir.i32, 2: ir.i16, 8: ir.i64}
+        mapping = {1: ir.i8, 2: ir.i16, 4: ir.i32, 8: ir.i64}
         return mapping[self.context.get_type('int').byte_size]
 
     def get_ir_type(self, cty, loc):

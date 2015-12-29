@@ -3,6 +3,13 @@ from ..isa import Register, Syntax
 
 class AvrRegister(Register):
     bitsize = 8
+
+    def __repr__(self):
+        if self.is_colored:
+            return get_register(self.color).name
+        else:
+            return self.name
+
     syntaxi = 'reg', [
         Syntax(['r0'], new_func=lambda: r0),
         Syntax(['r1'], new_func=lambda: r1),

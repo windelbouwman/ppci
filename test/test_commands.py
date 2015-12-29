@@ -121,16 +121,26 @@ class HexutilTestCase(unittest.TestCase):
         self.assertNotEqual(0, cm.exception.code)
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_hexutil(self, mock_stdout):
+    def test_hexutil_merge(self, mock_stdout):
         """ Create three hexfiles and manipulate those """
         _, file1 = tempfile.mkstemp()
         _, file2 = tempfile.mkstemp()
         _, file3 = tempfile.mkstemp()
-        datafile = relpath('..', 'examples', 'build.xml')
+        datafile = relpath('..', 'docs', 'logo', 'logo.png')
         hexutil(['new', file1, '0x10000000', datafile])
-        hexutil(['info', file1])
         hexutil(['new', file2, '0x20000000', datafile])
         hexutil(['merge', file1, file2, file3])
+        hexutil(['info', file3])
+        self.assertIn("Hexfile containing 2832 bytes", mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_hexutil_info(self, mock_stdout):
+        """ Create three hexfiles and manipulate those """
+        _, file1 = tempfile.mkstemp()
+        datafile = relpath('..', 'docs', 'logo', 'logo.png')
+        hexutil(['new', file1, '0x10000000', datafile])
+        hexutil(['info', file1])
+        self.assertIn("Hexfile containing 1416 bytes", mock_stdout.getvalue())
 
 
 class YaccTestCase(unittest.TestCase):
