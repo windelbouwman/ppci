@@ -2,9 +2,6 @@
 Quickstart
 ==========
 
-This is a quick guide for the impatient, to try out what you can do with the
-ppci project.
-
 Install ppci in a virtual environment:
 
 .. code:: bash
@@ -17,18 +14,36 @@ Install ppci in a virtual environment:
 
 If ppci installed correcly, you will get a help message.
 
-Download the examples bundle project here :download:`examples.zip`.
+Download and unzip the examples bundle project here :download:`examples.zip`.
 
-Unzip the examples and build the blinky project.
+
+stm32f4 example
+---------------
+
+To build the blinky project do the following:
 
 .. code:: bash
 
-    (sandbox) $ unzip examples.zip
-    (sandbox) $ ppci-build.py -f examples/blinky/build.xml
-    ...
-    (sandbox) $ ls examples/blinky/blinky.hex
+    $ cd examples/blinky
+    $ ppci-build.py
+    $ ls blinky.hex
 
 Flash the hexfile using your flashtool of choice on the stm32f4discovery board
 and enjoy the magic.
 
+arduino example
+---------------
+
+To build the arduino blink led example, first build the example:
+
+.. code:: bash
+
+    $ cd examples/arduino
+    $ ppci-build.py
+
+Next flash the hexfile using avrdude for example:
+
+.. code:: bash
+
+    $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 

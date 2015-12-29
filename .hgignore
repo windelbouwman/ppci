@@ -9,6 +9,7 @@ syntax: glob
 *.elf
 *.log
 docs/_build
+docs/examples.zip
 test/.coverage
 test/listings
 .tox

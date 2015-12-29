@@ -2,24 +2,16 @@
 Installation
 ============
 
-ppci is a python package an can be installed with pip:
+ppci can be installed with pip:
 
 .. code:: bash
 
     $ pip install ppci
 
-The usage of pip and virtualenv is recommended.
+To check if the installation was successful, run the following command:
 
-Alternatively python package can be downloaded from PyPI
+.. code:: bash
 
-https://pypi.python.org/pypi/ppci
+    $ ppci-build.py -h
 
-From source
------------
-
-The latest sourcecode is located here:
-
-- https://bitbucket.org/windel/ppci
-- https://pikacode.com/windel/ppci/
-
-
+If all is well, the help message for the ppci build tool appears.

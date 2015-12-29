@@ -25,31 +25,39 @@ out 0x3d, r16   ; SPL
 
 ; Setup pb5 as output:
 ldi r16, 32
-ldi r17, 0
 out 0x4, r16
-
-; Toggle pb5 as fast as possible:
-label1:
-out 0x5, r16
-out 0x5, r17
-rjmp label1
 
 ; sei  ; enable interrupts
 rjmp main_main
 
 
 ; Assembly functions:
+
+; pb5 on
 main_on:
 ldi r16, 32
 out 0x5, r16
 ret
 
+; pb5 off
 main_off:
 ldi r16, 0
 out 0x5, r16
 ret
 
+; delay x times 10 ms:
 main_delay:
+    mov r20, r1
+L1: ldi r19, 16
+L2: ldi r18, 100
+L3: ldi r17, 50  ; 50 x 2 instructions
+L4: dec r17
+    brne L4
+    dec r18
+    brne L3
+    dec r19
+    brne L2
+    dec r20
+    brne L1
 ret
-
 

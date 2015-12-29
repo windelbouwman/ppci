@@ -59,6 +59,16 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("pop r9")
         self.check('df91 9f90')
 
+    def test_inc(self):
+        self.feed("inc r28")
+        self.feed("inc r2")
+        self.check('c395 2394')
+
+    def test_dec(self):
+        self.feed("dec r27")
+        self.feed("dec r1")
+        self.check('ba95 1a94')
+
     def test_rjmp(self):
         self.feed("rjmp a")
         self.feed("rjmp a")
@@ -72,6 +82,21 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("a: call a")
         self.feed("call a")
         self.check('01d0 00d0 ffdf fedf')
+
+    def test_brne(self):
+        self.feed("brne a")
+        self.feed("brne a")
+        self.feed("a: brne a")
+        self.feed("brne a")
+        self.check('09f4 01f4 f9f7 f1f7')
+
+    @unittest.skip('todo')
+    def test_breq(self):
+        self.feed("breq a")
+        self.feed("breq a")
+        self.feed("a: breq a")
+        self.feed("breq a")
+        self.check('09f4 01f4 f9f7 f1f7')
 
     @unittest.skip('todo')
     def test_jmp(self):

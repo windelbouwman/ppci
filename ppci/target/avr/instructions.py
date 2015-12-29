@@ -43,6 +43,10 @@ class AvrToken4(AvrToken):
     k = bit_concat(bit_range(8, 12), bit_range(0, 4))
 
 
+class AvrToken5(AvrToken):
+    op = bit_range(11, 16)
+    b = bit_concat(bit(10), bit_range(0, 3))
+
 avr_isa = Isa()
 
 
@@ -89,7 +93,6 @@ class And(AvrInstruction):
 
 @avr_isa.register_relocation
 def relsigned12bit(sym_value, data, reloc_value):
-    """ Apply 10 bit signed relocation """
     assert sym_value % 2 == 0
     assert reloc_value % 2 == 0
     offset = (sym_value - reloc_value - 2) // 2
@@ -115,6 +118,52 @@ class Call(AvrInstruction):
 
     def relocations(self):
         return [(self.lab, relsigned12bit)]
+
+
+@avr_isa.register_relocation
+def relsigned7bit(sym_value, data, reloc_value):
+    """ Apply 7 bit signed relocation """
+    assert sym_value % 2 == 0
+    assert reloc_value % 2 == 0
+    offset = (sym_value - reloc_value - 2) // 2
+    assert offset in range(-63, 64), str(offset)
+    imm7 = wrap_negative(offset, 7)
+    data[0] = (data[0] & 0x7) | ((imm7 & 0x1f) << 3)
+    data[1] = (data[1] & 0xfc) | ((imm7 >> 5) & 0x3)
+
+
+class Brne(AvrInstruction):
+    """ Branch when not equal (Z flag is cleared) """
+    tokens = [AvrToken5]
+    lab = register_argument('lab', str)
+    syntax = Syntax(['brne', lab])
+    patterns = [
+        FixedPattern('op', 0b11110),
+        FixedPattern('b', 0b1001),
+        ]
+
+    def relocations(self):
+        return [(self.lab, relsigned7bit)]
+
+
+class Inc(AvrInstruction):
+    tokens = [AvrToken2]
+    rd = register_argument('rd', AvrRegister, write=True, read=True)
+    syntax = Syntax(['inc', rd])
+    patterns = [
+        FixedPattern('op', 0b1001010),
+        FixedPattern('n0', 0b0011),
+        SubPattern('d', rd)]
+
+
+class Dec(AvrInstruction):
+    tokens = [AvrToken2]
+    rd = register_argument('rd', AvrRegister, write=True, read=True)
+    syntax = Syntax(['dec', rd])
+    patterns = [
+        FixedPattern('op', 0b1001010),
+        FixedPattern('n0', 0b1010),
+        SubPattern('d', rd)]
 
 
 class Mov(AvrInstruction):

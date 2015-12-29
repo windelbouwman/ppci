@@ -10,6 +10,10 @@ def zip_examples(app):
         "examples/blinky/*.asm",
         "examples/blinky/*.mmap",
         "examples/blinky/build.xml",
+        "examples/arduino/build.xml",
+        "examples/arduino/*.c3",
+        "examples/arduino/*.asm",
+        "examples/arduino/*.mmap",
         "librt/*.c3"]
     my_path = os.path.dirname(os.path.abspath(__file__))
     root_path = os.path.abspath(os.path.join(my_path, '..', '..'))
