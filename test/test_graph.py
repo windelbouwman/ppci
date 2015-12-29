@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.codegen.graph import Graph, Node, DiGraph, DiNode
+from ppci.utils.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
-from ppci.target import Nop
+from ppci.target.target import Nop
 from ppci.target.example import Def, Use, DefUse, Add, Cmp, Use3, Register
 
 
@@ -15,7 +15,7 @@ class GraphTestCase(unittest.TestCase):
         - mask and unmask nodes
         - combine nodes.
     """
-    def testEdge(self):
+    def test_edge(self):
         g = Graph()
         n1 = Node(g)
         n2 = Node(g)
@@ -25,7 +25,7 @@ class GraphTestCase(unittest.TestCase):
         g.del_node(n1)
         g.del_node(n2)
 
-    def testDegree(self):
+    def test_degree(self):
         g = Graph()
         n1 = Node(g)
         n2 = Node(g)
@@ -320,6 +320,9 @@ class InterferenceGraphTestCase(unittest.TestCase):
         ig = InterferenceGraph(cfg)
         ig.combine(ig.get_node(t4), ig.get_node(t3))
         self.assertIs(ig.get_node(t4), ig.get_node(t3))
+
+        # For repr called:
+        self.assertTrue(str(ig.get_node(t4)))
 
 
 if __name__ == '__main__':

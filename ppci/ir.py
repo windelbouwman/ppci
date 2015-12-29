@@ -2,6 +2,8 @@
 Intermediate representation (IR) code classes.
 """
 
+from binascii import hexlify
+
 
 def label_name(dut):
     """ Returns the assembly code label name """
@@ -12,7 +14,7 @@ def label_name(dut):
         return label_name(dut.module) + '_' + dut.name
     elif isinstance(dut, Module):
         return dut.name
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(dut) + str(type(dut)))
 
 
@@ -23,24 +25,20 @@ class Typ:
 
 class BuiltinType(Typ):
     """ Built in type representation """
-    def __init__(self, name, byte_size):
+    def __init__(self, name):
         self.name = name
-        self.byte_size = byte_size
 
     def __repr__(self):
         return self.name
 
-    @property
-    def size(self):
-        """ The size in bytes of this type """
-        return self.byte_size
-
 
 # The builtin types:
-f64 = BuiltinType('f64', 8)
-i32 = BuiltinType('i32', 4)
-i8 = BuiltinType('i8', 1)
-ptr = BuiltinType('ptr', 4)
+f64 = BuiltinType('f64')
+i64 = BuiltinType('i64')
+i32 = BuiltinType('i32')
+i16 = BuiltinType('i16')
+i8 = BuiltinType('i8')
+ptr = BuiltinType('ptr')
 
 
 class Module:
@@ -115,8 +113,8 @@ class Function:
             module.add_function(self)
 
     def __repr__(self):
-        args = ','.join(str(a) for a in self.arguments)
-        return 'function i32 {}({})'.format(self.name, args)
+        args = ','.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        return 'function XXX {}({})'.format(self.name, args)
 
     def __iter__(self):
         """ Iterate over all blocks in this function """
@@ -158,7 +156,7 @@ class Function:
             worklist = [self.entry]
             while worklist:
                 b = worklist.pop()
-                for sb in b.Successors:
+                for sb in b.successors:
                     if sb not in bbs:
                         bbs.append(sb)
                         worklist.append(sb)
@@ -178,10 +176,6 @@ class Function:
             the epilog.
         """
         return (self.entry, self.epilog)
-
-    @property
-    def Entry(self):
-        return self.entry
 
     def add_parameter(self, parameter):
         """ Add an argument to this function """
@@ -264,17 +258,17 @@ class Block:
     def unique_name(self, value):
         self.function.make_unique_name(value)
 
-    def insert_instruction(self, i, before_instruction=None):
+    def insert_instruction(self, instruction, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
             assert self == before_instruction.block
             pos = before_instruction.position
         else:
             pos = 0
-        i.parent = self
-        self.instructions.insert(pos, i)
-        if isinstance(i, Value):
-            self.unique_name(i)
+        instruction.parent = self
+        self.instructions.insert(pos, instruction)
+        if isinstance(instruction, Value):
+            self.unique_name(instruction)
 
     def add_instruction(self, i):
         """ Add an instruction to the end of this block """
@@ -301,10 +295,6 @@ class Block:
         return i
 
     @property
-    def Instructions(self):
-        return self.instructions
-
-    @property
     def last_instruction(self):
         """ Gets the last instruction from the block """
         if not self.empty:
@@ -316,21 +306,20 @@ class Block:
         return len(self) == 0
 
     @property
-    def FirstInstruction(self):
+    def first_instruction(self):
         return self.instructions[0]
 
     @property
     def phis(self):
         """ Return all phi instructions of this block """
-        return [i for i in self.instructions if type(i) is Phi]
+        return [i for i in self.instructions if isinstance(i, Phi)]
 
     def get_successors(self):
         """ Get the direct successors of this block """
-        if not self.empty:
-            return self.last_instruction.targets + self.extra_successors
-        return [] + self.extra_successors
+        successors = self.last_instruction.targets if not self.empty else []
+        return successors + self.extra_successors
 
-    Successors = property(get_successors)
+    successors = property(get_successors)
 
     def get_predecessors(self):
         b = set(i.block for i in self._preds)
@@ -341,9 +330,6 @@ class Block:
         return list(b)
 
     predecessors = property(get_predecessors)
-
-    def precedes(self, other):
-        raise NotImplementedError()
 
     def dominates(self, other):
         """ Check if this block dominates other block """
@@ -372,7 +358,7 @@ def var_use(name):
         """ Gets the value """
         if name in self.var_map:
             return self.var_map[name]
-        else:
+        else:  # pragma: no cover
             raise KeyError(name)
 
     def setter(self, value):
@@ -394,12 +380,13 @@ def var_use(name):
 # Instructions:
 class Instruction:
     """ Base class for all instructions that go into a basic block """
-    def __init__(self):
+    def __init__(self, loc=None):
         # Create a collection to store the values this value uses.
         # TODO: think of better naming..
         self.var_map = {}
         self.parent = None
         self.uses = set()
+        self.loc = loc
 
     @property
     def block(self):
@@ -461,7 +448,7 @@ class Instruction:
                     # Check if this instruction dominates the last
                     # instruction of this block
                     return self.dominates(block.last_instruction)
-            raise Exception('Cannot query dominance for this phi')
+            raise RuntimeError('Cannot query dominance for this phi')  # pragma: no cover
         # For all other instructions follow these rules:
         if self.block == other.block:
             # fi = self.block.instructions.first_to_occur(self, other)
@@ -476,8 +463,8 @@ class Instruction:
 
 class Value(Instruction):
     """ An instruction that results in a value has a type and a name """
-    def __init__(self, name, ty):
-        super().__init__()
+    def __init__(self, name, ty, loc=None):
+        super().__init__(loc=loc)
         assert isinstance(ty, Typ)
         assert isinstance(name, str)
         self.name = name
@@ -519,42 +506,27 @@ class Expression(Value):
 
 class Cast(Expression):
     """ Base type conversion instruction """
-    INTTOPTR = 0
-    PTRTOINT = 1
-    BYTETOINT = 2
-    INTTOBYTE = 3
-
     src = var_use('src')
 
-    from_map = {INTTOPTR: i32, PTRTOINT: ptr, BYTETOINT: i8, INTTOBYTE: i32}
-    to_map = {INTTOPTR: ptr, PTRTOINT: i32, BYTETOINT: i32, INTTOBYTE: i8}
-
-    def __init__(self, value, method, name, ty):
+    def __init__(self, value, name, ty):
         super().__init__(name, ty)
+        assert isinstance(ty, Typ)
         self.src = value
-        self.method = method
-        assert self.to_map[method] is ty
-        assert self.from_map[method] is value.ty
+
+    def __repr__(self):
+        return '{} = cast {} {}'.format(self.name, self.ty, self.src.name)
 
 
-class IntToPtr(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.INTTOPTR, name, ptr)
+def to_ptr(value, name):
+    return Cast(value, name, ptr)
 
 
-class PtrToInt(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.PTRTOINT, name, i32)
+def to_i32(value, name):
+    return Cast(value, name, i32)
 
 
-class IntToByte(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.INTTOBYTE, name, i8)
-
-
-class ByteToInt(Cast):
-    def __init__(self, value, name):
-        super().__init__(value, self.BYTETOINT, name, i32)
+def to_i8(value, name):
+    return Cast(value, name, i8)
 
 
 class Undefined(Value):
@@ -567,17 +539,29 @@ class Const(Expression):
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
         self.value = value
-        assert type(value) in [int, float, bool, bytes], str(value)
+        assert type(value) in [int, float], str(value)
 
     def __repr__(self):
-        ty = self.ty
-        return '{} = Const {} {}'.format(self.name, ty, self.value)
+        return '{} {} = Const {}'.format(self.ty, self.name, self.value)
+
+
+class LiteralData(Expression):
+    """ Instruction that contains labeled data. When generating code for this
+        instruction, a label and its data is emitted in the literal area
+    """
+    def __init__(self, data, name):
+        super().__init__(name, ptr)
+        self.data = data
+        assert type(data) in [bytes], str(data)
+
+    def __repr__(self):
+        return '{} = Literal {}'.format(self.name, hexlify(self.data))
 
 
 class Call(Expression):
     """ Call a function with some arguments """
-    def __init__(self, function, arguments, name, ty):
-        super().__init__(name, ty)
+    def __init__(self, function, arguments, name, ty, loc=None):
+        super().__init__(name, ty, loc=loc)
         assert type(function) is str
         self.function_name = function
         self.arguments = arguments
@@ -602,8 +586,8 @@ class Binop(Expression):
     a = var_use('a')
     b = var_use('b')
 
-    def __init__(self, a, operation, b, name, ty):
-        super().__init__(name, ty)
+    def __init__(self, a, operation, b, name, ty, loc=None):
+        super().__init__(name, ty, loc=loc)
         assert operation in Binop.ops
         assert a.ty is b.ty
         self.a = a
@@ -611,8 +595,8 @@ class Binop(Expression):
         self.operation = operation
 
     def __repr__(self):
-        a, b = self.a.name, self.b.name
-        return '{} = {} {} {}'.format(self.name, a, self.operation, b)
+        a, b, ty = self.a.name, self.b.name, self.ty
+        return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
 
 
 class Unop(Expression):
@@ -641,11 +625,6 @@ def Sub(a, b, name, ty):
 def Mul(a, b, name, ty):
     """ Multiply a by b """
     return Binop(a, '*', b, name, ty)
-
-
-def Div(a, b, name, ty):
-    """ Divide a in b pieces """
-    return Binop(a, '/', b, name, ty)
 
 
 class Phi(Value):
@@ -688,8 +667,8 @@ class Phi(Value):
 
 class Alloc(Expression):
     """ Allocates space on the stack """
-    def __init__(self, name, amount):
-        super().__init__(name, ptr)
+    def __init__(self, name, amount, loc=None):
+        super().__init__(name, ptr, loc=loc)
         assert type(amount) is int
         self.amount = amount
 
@@ -751,25 +730,13 @@ class Store(Instruction):
         return 'store {} {}, {}'.format(ty, val, ptr)
 
 
-class Addr(Expression):
-    """ Address of label """
-    e = var_use('e')
-
-    def __init__(self, e, name, ty):
-        super().__init__(name, ty)
-        self.e = e
-
-    def __repr__(self):
-        return '{} = &{}'.format(self.name, self.e.name)
-
-
 # Branching:
 def block_ref(name):
     """ Creates a property that can be set and changed """
     def getter(self):
         if name in self.block_map:
             return self.block_map[name]
-        else:
+        else:  # pragma: no cover
             raise KeyError("No such block!")
 
     def setter(self, block):

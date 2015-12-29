@@ -1,5 +1,6 @@
 import struct
 import binascii
+import sys
 
 DATA = 0
 EOF = 1
@@ -11,7 +12,7 @@ class HexFileException(Exception):
     pass
 
 
-def parseHexLine(line):
+def parse_hex_line(line):
     """ Parses a hexfile line into three parts """
     # Remove ':'
     line = line[1:]
@@ -29,7 +30,8 @@ def parseHexLine(line):
     return (address, typ, data)
 
 
-def makeHexLine(address, typ, data=bytes()):
+def make_hex_line(address, typ, data=bytes()):
+    """ Create an ascii hex line out of data, address and record type """
     bytecount = len(data)
     nums = bytearray()
     nums.append(bytecount)
@@ -63,20 +65,23 @@ def hexfields(f):
         if line[0] != ':':
             # Skip lines that do not start with a ':'
             continue
-        yield parseHexLine(line)
+        yield parse_hex_line(line)
 
 
 class HexFile:
     """ Represents an intel hexfile """
     def __init__(self):
         self.regions = []
-        self.startAddress = 0
+        self.start_address = 0
 
-    def load(self, f):
-        endOfFile = False
+    @staticmethod
+    def load(open_file):
+        """ Load a hexfile from file """
+        self = HexFile()
+        end_of_file = False
         ext = 0
-        for address, typ, data in hexfields(f):
-            if endOfFile:
+        for address, typ, data in hexfields(open_file):
+            if end_of_file:
                 raise HexFileException('hexfile line after end of file record')
             if typ == DATA:
                 self.add_region(address + ext, data)
@@ -85,21 +90,23 @@ class HexFile:
             elif typ == EOF:
                 if len(data) != 0:
                     raise HexFileException('end of file not empty')
-                endOfFile = True
+                end_of_file = True
             elif typ == STARTADDR:
-                self.startAddress = struct.unpack('>I', data[0:4])[0]
-            else:
-                raise HexFileException(
+                self.start_address = struct.unpack('>I', data[0:4])[0]
+            else:  # pragma: no cover
+                raise NotImplementedError(
                     'record type {0} not implemented'.format(typ))
+        return self
 
     def __repr__(self):
         size = sum(r.Size for r in self.regions)
         return 'Hexfile containing {} bytes'.format(size)
 
-    def dump(self, outf):
-        print(self, file=outf)
-        for r in self.regions:
-            print(r, file=outf)
+    def dump(self, contents=False):
+        print(self)
+        for region in self.regions:
+            print(region)
+            print(binascii.hexlify(region.data))
 
     def __eq__(self, other):
         regions = self.regions
@@ -110,8 +117,8 @@ class HexFile:
 
     def add_region(self, address, data):
         """ Add a chunk of data at the given address """
-        r = HexFileRegion(address, data)
-        self.regions.append(r)
+        region = HexFileRegion(address, data)
+        self.regions.append(region)
         self.check()
 
     def check(self):
@@ -128,12 +135,12 @@ class HexFile:
                     raise HexFileException('Overlapping regions')
 
     def merge(self, other):
-        for r in other.regions:
-            self.add_region(r.address, r.data)
+        for region in other.regions:
+            self.add_region(region.address, region.data)
 
     def write_hex_line(self, address, typ, data=bytes()):
         """ Write a single hexfile line """
-        print(makeHexLine(address, typ, data), file=self.f)
+        print(make_hex_line(address, typ, data), file=self.f)
 
     def save(self, f):
         """ Save hexfile to file-like object """

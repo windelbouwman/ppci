@@ -6,8 +6,8 @@
         <assemble source="lm3s6965/startup.asm" target="thumb" 
             output="startup.o" />
         <compile target="thumb" 
-            sources="snake/main.c3;lm3s6965/bsp.c3;snake/io.c3;snake/game.c3"
-            output="snake.o" />
+            sources="snake/main.c3;lm3s6965/bsp.c3;../librt/io.c3;snake/game.c3"
+            output="snake.o" report="snake_report.html"/>
         <link output="snake.elf" layout="lm3s6965/memlayout.mmap" 
             target="thumb"
             objects="startup.o;snake.o" />

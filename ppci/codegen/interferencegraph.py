@@ -1,6 +1,7 @@
+
 import logging
-from .graph import Graph, Node
-from ..target import Register
+from ..utils.graph import Graph, Node
+from ..target.isa import Register
 
 
 class InterferenceGraphNode(Node):
@@ -43,17 +44,6 @@ class InterferenceGraph(Graph):
                     for tmp2 in (live_and_def - {tmp}):
                         n2 = self.get_node(tmp2)
                         self.add_edge(n1, n2)
-
-    def to_dot(self, f):
-        """ Generate graphviz dot representation """
-        for n in self.nodes:
-            print('  {} [label="{}" shape=box3d];'.format(id(n), n), file=f)
-        for n, m in self.edges:
-            print('  {} -> {};'.format(id(n), id(m)), file=f)
-
-    def to_txt(self):
-        for node in self.nodes:
-            print('{} interferes: {}'.format(node, node.Adjecent))
 
     def get_node(self, tmp):
         """ Get the node for a register """

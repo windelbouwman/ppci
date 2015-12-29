@@ -1,5 +1,5 @@
 import logging
-from .graph import DiGraph, DiNode
+from ..utils.graph import DiGraph, DiNode
 
 
 class FlowGraphNode(DiNode):

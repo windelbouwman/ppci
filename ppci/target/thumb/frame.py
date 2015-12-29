@@ -1,9 +1,11 @@
-from .. import Label, Alignment, Frame
-from .instructions import Dcd, Db, AddSp, SubSp, Push, Pop, Mov2, Bl
+from ..target import Label, Alignment, Frame, VCall
+from .instructions import dcd, AddSp, SubSp, Push, Pop, Mov2, Bl
+from ..data_instructions import Db
 from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
+from ..arm.registers import get_register
 
 
-class ArmFrame(Frame):
+class ThumbFrame(Frame):
     """ Arm specific frame for functions. """
     def __init__(self, name):
         # We use r7 as frame pointer.
@@ -26,9 +28,8 @@ class ArmFrame(Frame):
     def move(self, dst, src):
         self.emit(Mov2(dst, src, ismove=True))
 
-    def new_virtual_register(self, twain=""):
-        """ Retrieve a new virtual register """
-        return super().new_virtual_register(type(R0), twain=twain)
+    def get_register(self, color):
+        return get_register(color)
 
     def gen_call(self, label, args, res_var):
         """ Generate code for call sequence """
@@ -40,13 +41,29 @@ class ArmFrame(Frame):
             if type(arg_loc) is type(R0):
                 reg_uses.append(arg_loc)
                 self.move(arg_loc, arg)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
         # Caller save registers:
-        self.emit(Push({R1, R2, R3, R4}))
-        self.emit(Bl(label, src=reg_uses, dst=[self.rv]))
-        self.emit(Pop({R1, R2, R3, R4}))
+        self.emit(
+            VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
         self.move(res_var, self.rv)
+
+    def make_call(self, vcall):
+        # Now we now what variables are live:
+        live_regs = self.live_regs_over(vcall)
+        register_set = set(live_regs)
+
+        # Caller save registers:
+        if register_set:
+            yield Push(register_set)
+
+        # Make the call:
+        yield Bl(vcall.function_name)
+        # R0 is filled with return value, do not save it, it will conflict.
+
+        # Restore caller save registers:
+        if register_set:
+            yield Pop(register_set)
 
     def arg_loc(self, pos):
         """
@@ -60,16 +77,16 @@ class ArmFrame(Frame):
             return self.p3
         elif pos == 3:
             return self.p4
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError('No more than 4 parameters implemented')
 
-    def allocVar(self, lvar, size):
+    def alloc_var(self, lvar, size):
         if lvar not in self.locVars:
             self.locVars[lvar] = self.stacksize
             self.stacksize = self.stacksize + size
         return self.locVars[lvar]
 
-    def addConstant(self, value):
+    def add_constant(self, value):
         """ Add a constant to this frame """
         # Check if the constant is already in this frame!
         for lab_name, val in self.constants:
@@ -85,52 +102,45 @@ class ArmFrame(Frame):
 
     def prologue(self):
         """ Returns prologue instruction sequence """
-        pre = [
-            Label(self.name),                     # Label indication function
-            Push({LR, R7}),
-            Push({R5, R6}),  # Callee save registers!
-            ]
+        yield Label(self.name)  # Label indication function
+        yield Push({LR, R7})
+        yield Push({R5, R6})    # Callee save registers!
         if self.stacksize > 0:
             ssize = self.round_up(self.stacksize)
 
             # subSp cannot handle large numbers:
             while ssize > 0:
                 if ssize < 128:
-                    pre.append(SubSp(ssize))  # Reserve stack space
+                    yield SubSp(ssize)  # Reserve stack space
                     ssize -= ssize
                 else:
-                    pre.append(SubSp(128))  # Reserve stack space
+                    yield SubSp(128)  # Reserve stack space
                     ssize -= 128
-        pre += [
-            Mov2(R7, SP)                          # Setup frame pointer
-            ]
-        return pre
+        yield Mov2(R7, SP)                          # Setup frame pointer
 
     def insert_litpool(self):
         """ Insert the literal pool at the current position """
         # Align at 4 bytes
-        self.emit(Alignment(4))
+        yield Alignment(4)
 
         # Add constant literals:
-        # TODO: pop constants from pool
         while self.constants:
-            ln, v = self.constants.pop(0)
-            if isinstance(v, int):
-                self.emit(Label(ln))
-                self.emit(Dcd(v))
-            elif isinstance(v, str):
-                self.emit(Label(ln))
-                self.emit(Dcd(v))
-            elif isinstance(v, bytes):
-                self.emit(Label(ln))
-                for c in v:
-                    self.emit(Db(c))
-                self.emit(Alignment(4))   # Align at 4 bytes
-            else:
-                raise Exception('Constant of type {} not supported'.format(v))
+            label, value = self.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int):
+                yield dcd(value)
+            elif isinstance(value, str):
+                yield dcd(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError('{} not supported'.format(value))
 
     def between_blocks(self):
-        self.insert_litpool()
+        for instruction in self.insert_litpool():
+            self.emit(instruction)
 
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer and add
@@ -141,22 +151,14 @@ class ArmFrame(Frame):
             # subSp cannot handle large numbers:
             while ssize > 0:
                 if ssize < 128:
-                    self.emit(AddSp(ssize))
+                    yield AddSp(ssize)
                     ssize -= ssize
                 else:
-                    self.emit(AddSp(128))
+                    yield AddSp(128)
                     ssize -= 128
-        self.emit(Pop({R5, R6}))  # Callee save registers!
-        self.emit(Pop({PC, R7}))
-        self.insert_litpool()  # Add final literal pool
+        yield Pop({R5, R6})  # Callee save registers!
+        yield Pop({PC, R7})
 
-    def EntryExitGlue3(self):
-        """
-            Add code for the prologue and the epilogue. Add a label, the
-            return instruction and the stack pointer adjustment for the frame.
-        """
-        for index, ins in enumerate(self.prologue()):
-            self.instructions.insert(index, ins)
-
-        # Postfix code (this uses the emit function):
-        self.epilogue()
+        # Add final literal pool
+        for instruction in self.insert_litpool():
+            yield instruction

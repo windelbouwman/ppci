@@ -58,12 +58,10 @@ tree. This strategy consists of two steps:
 
 import sys
 import os
-import io
-import types
 import argparse
 from ppci.common import Token, SourceLocation
 from ppci import baselex, pyyacc
-from ppci.tree import Tree
+from ppci.utils.tree import Tree
 
 # Generate parser on the fly:
 spec_file = os.path.join(
@@ -145,11 +143,11 @@ class BurgSystem:
         self.rule_map = {}
         self.goal = None
 
-    def symType(self, t):
+    def sym_of_type(self, t):
         return (s.name for s in self.symbols.values() if type(s) is t)
 
-    terminals = property(lambda s: s.symType(Term))
-    non_terminals = property(lambda s: s.symType(Nonterm))
+    terminals = property(lambda s: s.sym_of_type(Term))
+    non_terminals = property(lambda s: s.sym_of_type(Nonterm))
 
     def add_rule(self, non_term, tree, cost, acceptance, template):
         if type(template) is str:
@@ -186,6 +184,9 @@ class BurgSystem:
 
     def tree(self, name, *args):
         return Tree(name, *args)
+
+    def chain_rules_for_nt(self, nt):
+        return self.symbols[nt].chain_rules
 
     def install(self, name, t):
         assert type(name) is str
@@ -275,7 +276,8 @@ class BurgGenerator:
         self.system = system
 
         self.print('#!/usr/bin/python')
-        self.print('from ppci.tree import Tree, BaseMatcher, State')
+        self.print('from ppci.codegen.treematcher import BaseMatcher, State')
+        self.print('from ppci.utils.tree import Tree')
         for header in self.system.header_lines:
             self.print(header)
         self.print()
@@ -383,17 +385,6 @@ def make_argument_parser():
     parser.add_argument(
         '-o', '--output', type=argparse.FileType('w'), default=sys.stdout)
     return parser
-
-
-def load_as_module(filename):
-    """ Load a parser spec file, generate LR tables and create module """
-    ob = io.StringIO()
-    args = argparse.Namespace(source=open(filename), output=ob)
-    main(args)
-
-    matcher_mod = types.ModuleType('generated_matcher')
-    exec(ob.getvalue(), matcher_mod.__dict__)
-    return matcher_mod
 
 
 def main(args):

@@ -1,6 +1,6 @@
 
-C3
-==
+C3 language
+===========
 
 Introduction
 ------------
@@ -18,7 +18,7 @@ in c2lang_, the C language is widely used, but has some strange contraptions:
 For these reasons (and of course, for fun), C3 was created.
 
 Example
--------
+~~~~~~~
 
 The hello world example in c3:
 

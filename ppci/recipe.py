@@ -13,12 +13,21 @@ class RecipeLoader:
     """ Loads a recipe into a runner from a dictionary or file """
     def load_file(self, recipe_file):
         """ Loads a build configuration from file """
-        recipe_dir = os.path.abspath(os.path.dirname(recipe_file))
-        # Allow loading of custom tasks:
-        sys.path.insert(0, recipe_dir)
+        assert hasattr(recipe_file, 'read')
+        if hasattr(recipe_file, 'name'):
+            recipe_filename = recipe_file.name
+            recipe_dir = os.path.abspath(os.path.dirname(recipe_filename))
+            # Allow loading of custom tasks:
+            sys.path.insert(0, recipe_dir)
+        else:
+            recipe_dir = None
+
+        # Load the recipe:
         dom = xml.dom.minidom.parse(recipe_file)
         project = self.load_project(dom)
-        project.set_property('basedir', recipe_dir)
+
+        if recipe_dir:
+            project.set_property('basedir', recipe_dir)
         return project
 
     def load_project(self, elem):

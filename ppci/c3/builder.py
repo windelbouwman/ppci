@@ -4,10 +4,13 @@
 
 import logging
 import collections
+from ..common import CompilerError
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
+from ..irutils import Verifier
+from ..opt.mem2reg import Mem2RegPromotor
 
 
 class Builder:
@@ -20,11 +23,11 @@ class Builder:
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.sema = None
         self.codegen = CodeGenerator(diag)
+        self.verifier = Verifier()
         self.target = target
 
-    def build(self, srcs, imps=()):
+    def build(self, srcs, imps=(), return_context=False):
         """ Create IR-code from sources. Raises compiler error when something
             goes wrong. Returns a list of ir-code modules.
         """
@@ -55,7 +58,7 @@ class Builder:
                         msg = 'Cannot import {}'.format(imp)
                         raise SemanticError(msg)
         except SemanticError as ex:
-            self.diag.error(ex.msg, None)
+            self.diag.error(ex.msg, ex.loc)
             raise
 
         # Phase 1.9
@@ -67,8 +70,25 @@ class Builder:
         ir_modules = []
         for pkg in context.modules:
             ir_modules.append(self.codegen.gencode(pkg, context))
+
+        # Hack to check for undefined variables:
+        try:
+            for ir_module in ir_modules:
+                self.check_control_flow(ir_module)
+        except CompilerError as ex:
+            self.diag.error(ex.msg, ex.loc)
+            raise
+
         self.logger.debug('C3 build complete!')
-        return ir_modules
+        if return_context:
+            return ir_modules, context
+        else:
+            return ir_modules
+
+    def check_control_flow(self, ir_module):
+        pas = Mem2RegPromotor()
+        pas.run(ir_module)
+        self.verifier.verify(ir_module)
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """

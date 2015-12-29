@@ -128,7 +128,15 @@ class Parser:
 
     # Type system
     def parse_type_spec(self):
-        """ Parse type specification """
+        """ Parse type specification. Type specs are read from right to left.
+
+        A variable spec is given by:
+        var [typeSpec] [modifiers] [pointer/array suffix] variable_name
+
+        For example:
+        var int volatile * ptr;
+        creates a pointer to a volatile integer.
+        """
         # Parse the first part of a type spec:
         if self.peak == 'struct':
             self.consume('struct')
@@ -150,7 +158,7 @@ class Parser:
                 field = self.consume('ID')
                 the_type = Member(the_type, field.val, field.loc)
 
-        # Check for the volatile modifier:
+        # Check for the volatile modifier (this is a suffix):
         the_type.volatile = self.has_consumed('volatile')
 
         # Check for pointer or array suffix:
@@ -158,15 +166,14 @@ class Parser:
             if self.has_consumed('*'):
                 the_type = PointerType(the_type)
             elif self.has_consumed('['):
-                if self.peak == ']':
-                    loc = self.consume(']').loc
-                    size = Literal(0, loc)
-                else:
-                    size = self.parse_expression()
-                    self.consume(']')
+                size = self.parse_expression()
+                self.consume(']')
                 the_type = ArrayType(the_type, size)
-            else:
-                raise Exception()
+            else:  # pragma: no cover
+                raise RuntimeError()
+
+            # Check (again) for the volatile modifier:
+            the_type.volatile = self.has_consumed('volatile')
         return the_type
 
     def parse_type_def(self, public=True):
@@ -300,8 +307,8 @@ class Parser:
         cb2 = self.consume('}')
 
         # Enforce styling:
-        if cb1.loc.col != cb2.loc.col:
-            self.error('Braces not in same column!')
+        # if cb1.loc.col != cb2.loc.col:
+        #    self.error('Braces not in same column!')
 
         return Compound(statements)
 
@@ -481,8 +488,8 @@ class Parser:
                         args.append(self.parse_expression())
                     self.consume(')')
                 pfe = FunctionCall(pfe, args, pfe.loc)
-            else:
-                raise Exception()
+            else:  # pragma: no cover
+                raise RuntimeError()
         return pfe
 
     def parse_primary_expression(self):

@@ -18,7 +18,7 @@ The project contains the following:
 - Assembler
 - Linker
 
-**Warning: This project is in alpha state and not read for production use!**
+**Warning: This project is in alpha state and not ready for production use!**
 
 Quick guide
 -----------
@@ -61,54 +61,48 @@ Sourcecode is located here:
 
 Documentation can be found here:
 
-- http://ppci.readthedocs.org/
+- http://ppci.rtfd.org/
 
 
-+-------------------------------+---------------------------------------------+
-| Build status                  | |dronestate|_                               |
-|                               | |appveyor|_                                 |
-+-------------------------------+---------------------------------------------+
-| Development status            | |devstate|_                                 |
-+-------------------------------+---------------------------------------------+
-| Open hub                      | openhub_                                    |
-+-------------------------------+---------------------------------------------+
-| Documentation                 | |docstate|_                                 |
-+-------------------------------+---------------------------------------------+
-| Current release               | |version|_                                  |
-+-------------------------------+---------------------------------------------+
-| Python implementations        | |pyimpls|_                                  |
-+-------------------------------+---------------------------------------------+
-| Python versions               | |pyversions|_                               |
-+-------------------------------+---------------------------------------------+
-| License                       | |license|_                                  |
-+-------------------------------+---------------------------------------------+
-| Downloads                     | |downloads|_                                |
-+-------------------------------+---------------------------------------------+
+|dronestate|_
+|appveyor|_
+|devstate|_
+|docstate|_
+|version|_
+|pyimpls|_
+|pyversions|_
+|license|_
+|downloads|_
+|coveralls|_
 
+openhub_
+
+.. |coveralls| image:: https://coveralls.io/repos/windel/ppci/badge.svg?branch=master&service=bitbucket
+.. _coveralls: https://coveralls.io/bitbucket/windel/ppci?branch=master
 
 .. _openhub: https://www.openhub.net/p/ppci
 
-.. |downloads| image:: https://pypip.in/download/ppci/badge.svg
+.. |downloads| image:: https://img.shields.io/pypi/dm/ppci.png
 .. _downloads: https://pypi.python.org/pypi/ppci
 
 
-.. |version| image:: https://pypip.in/version/ppci/badge.svg
+.. |version| image:: https://img.shields.io/pypi/v/ppci.png
 .. _version: https://pypi.python.org/pypi/ppci
 
 
-.. |license| image:: https://pypip.in/license/ppci/badge.svg
+.. |license| image:: https://img.shields.io/pypi/l/ppci.png
 .. _license: https://pypi.python.org/pypi/ppci
 
 
-.. |devstate| image:: https://pypip.in/status/ppci/badge.svg
+.. |devstate| image:: https://img.shields.io/pypi/status/ppci.png
 .. _devstate: https://pypi.python.org/pypi/ppci
 
 
-.. |pyversions| image:: https://pypip.in/py_versions/ppci/badge.svg
+.. |pyversions| image:: https://img.shields.io/pypi/pyversions/ppci.png
 .. _pyversions: https://pypi.python.org/pypi/ppci
 
 
-.. |pyimpls| image:: https://pypip.in/implementation/ppci/badge.svg
+.. |pyimpls| image:: https://img.shields.io/pypi/implementation/ppci.png
 .. _pyimpls: https://pypi.python.org/pypi/ppci
 
 
@@ -121,4 +115,4 @@ Documentation can be found here:
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-.. _docstate: https://ppci.readthedocs.org/en/latest
+.. _docstate: https://ppci.rtfd.org/en/latest

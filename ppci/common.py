@@ -65,6 +65,14 @@ class CompilerError(Exception):
         return '"{}"'.format(self.msg)
 
 
+class IrFormError(CompilerError):
+    pass
+
+
+class ParseError(CompilerError):
+    pass
+
+
 class DiagnosticsManager:
     def __init__(self):
         self.diags = []

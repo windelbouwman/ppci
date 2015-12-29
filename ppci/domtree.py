@@ -7,15 +7,15 @@ DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])
 class CfgInfo:
     """ Calculate control flow graph info, such as dominators
     dominator tree and dominance frontier """
-    def __init__(self, f):
+    def __init__(self, function):
         # Store ir related info:
-        self.f = f
-        self.n0 = f.entry
-        self.N = set(f.blocks)
+        self.function = function
+        self.n0 = function.entry
+        self.N = set(function.blocks)
 
         self.pred = {}
         self.succ = {}
-        for block in f.blocks:
+        for block in function.blocks:
             self.prepare(block)
 
         # From here only succ and pred are relevant:
@@ -35,7 +35,7 @@ class CfgInfo:
 
     def prepare(self, block):
         self.pred[block] = block.predecessors
-        self.succ[block] = block.Successors
+        self.succ[block] = block.successors
 
     def calculate_dominators(self):
         """
@@ -55,7 +55,7 @@ class CfgInfo:
                 # Node n in dominatet by itself and by the intersection of
                 # the dominators of its predecessors
                 pred_doms = list(self.dom[p] for p in self.pred[n])
-                if not pred_doms:
+                if not pred_doms:  # pragma: no cover
                     # We cannot be here!
                     # Always add entry as a predecessor of epilog to prevent
                     # this situation.

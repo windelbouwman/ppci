@@ -6,6 +6,7 @@ import logging
 import re
 from . import ir
 from .domtree import CfgInfo
+from .common import IrFormError
 
 
 class Writer:
@@ -13,27 +14,27 @@ class Writer:
     def __init__(self, extra_indent=''):
         self.extra_indent = extra_indent
 
-    def print(self, txt):
-        print(txt, file=self.f)
+    def print(self, *txt):
+        print(self.extra_indent + ''.join(txt), file=self.f)
 
     def write(self, module, f):
         """ Write ir-code to file f """
         assert type(module) is ir.Module
         self.f = f
-        self.print('{}{}'.format(self.extra_indent, module))
+        self.print('{}'.format(module))
         for v in module.Variables:
-            self.print('{}{}'.format(self.extra_indent, v))
+            self.print()
+            self.print('{}'.format(v))
         for function in module.Functions:
+            self.print()
             self.write_function(function)
 
     def write_function(self, fn):
-        args = ','.join('i32 ' + str(a) for a in fn.arguments)
-        self.print('{}function i32 {}({})'
-                   .format(self.extra_indent, fn.name, args))
+        self.print('{}'.format(fn))
         for block in fn.blocks:
-            self.print('{} {}'.format(self.extra_indent, block))
+            self.print('  {}'.format(block))
             for ins in block:
-                self.print('{}  {}'.format(self.extra_indent, ins))
+                self.print('    {}'.format(ins))
 
 
 class IrParseException(Exception):
@@ -313,40 +314,40 @@ class Builder:
     def __init__(self):
         self.prepare()
         self.block = None
-        self.m = None
+        self.module = None
         self.function = None
 
     def prepare(self):
         self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
         self.block = None
-        self.m = None
+        self.module = None
         self.function = None
         self.loc = None
 
     # Helpers:
-    def setModule(self, m):
-        self.m = m
+    def set_module(self, module):
+        self.module = module
 
     def new_function(self, name):
         f = ir.Function(name)
-        self.m.add_function(f)
+        self.module.add_function(f)
         return f
 
-    def newBlock(self):
+    def new_block(self):
         """ Create a new block and add it to the current function """
         assert self.function is not None
         block = self.newBlock2()
         self.function.add_block(block)
         return block
 
-    def setFunction(self, f):
+    def set_function(self, f):
         self.function = f
         self.block = f.entry if f else None
 
-    def setBlock(self, block):
+    def set_block(self, block):
         self.block = block
 
-    def setLoc(self, l):
+    def set_loc(self, l):
         self.loc = l
 
     def emit(self, i):
@@ -366,7 +367,6 @@ class Verifier:
 
     def verify(self, module):
         """ Verifies a module for some sanity """
-        self.logger.debug('Verifying {} ({})'.format(module, module.stats()))
         assert isinstance(module, ir.Module)
         for function in module.Functions:
             self.verify_function(function)
@@ -374,13 +374,19 @@ class Verifier:
     def verify_function(self, function):
         """ Verify all blocks in the function """
         self.name_map = {}
-        for block in function.blocks:
+        for block in function:
             self.verify_block_termination(block)
 
         # Verify predecessor and successor:
-        for block in function.blocks:
-            preds = set(b for b in function.blocks if block in b.Successors)
+        for block in function:
+            preds = set(b for b in function.blocks if block in b.successors)
             assert preds == set(block.predecessors)
+
+        # Check that phi's have inputs for each predecessor:
+        for block in function:
+            for phi in block.phis:
+                for predecessor in block.predecessors:
+                    phi.get_value(predecessor)
 
         # Now we can build a dominator tree
         function.cfg_info = CfgInfo(function)
@@ -392,7 +398,7 @@ class Verifier:
         """ Verify that the block is terminated correctly """
         assert not block.empty
         assert block.last_instruction.IsTerminator
-        for i in block.Instructions[:-1]:
+        for i in block.instructions[:-1]:
             assert not isinstance(i, ir.LastStatement)
 
     def verify_block(self, block):
@@ -427,4 +433,6 @@ class Verifier:
             assert value.dominates(instruction), \
                 "{} does not dominate {}".format(value, instruction)
             # Check that a value is not undefined:
-            assert not isinstance(value, ir.Undefined)
+            if isinstance(value, ir.Undefined):
+                raise IrFormError(
+                    '{} used uninitialized'.format(value), loc=value.loc)

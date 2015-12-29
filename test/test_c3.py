@@ -14,7 +14,7 @@ class LexerTestCase(unittest.TestCase):
         diag = DiagnosticsManager()
         self.l = Lexer(diag)
 
-    def testUnexpectedCharacter(self):
+    def test_unexpected_character(self):
         snippet = io.StringIO(""" var s \u6c34 """)
         with self.assertRaises(CompilerError):
             list(self.l.lex(snippet))
@@ -98,7 +98,14 @@ class BuildTestCaseBase(unittest.TestCase):
 
     def build(self, snippet):
         """ Try to build a snippet """
-        return self.builder.build(self.make_file_list(snippet))
+        srcs = self.make_file_list(snippet)
+        ir_modules, context = self.builder.build(srcs, return_context=True)
+        printer = AstPrinter()
+        for mod in context.modules:
+            f = io.StringIO()
+            printer.printAst(mod, f)
+
+        return ir_modules
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
@@ -106,14 +113,14 @@ class BuildTestCaseBase(unittest.TestCase):
             self.build(snippet)
         actual_errors = [err.row for err in self.diag.diags]
         if rows != actual_errors:
-            self.diag.printErrors()
+            self.diag.print_errors()
         self.assertSequenceEqual(rows, actual_errors)
 
     def expect_ok(self, snippet):
         """ Expect a snippet to be OK """
         ircode = self.build(snippet)
         if len(self.diag.diags) > 0:
-            self.diag.printErrors()
+            self.diag.print_errors()
         self.assertTrue(ircode)
         verifier = Verifier()
         for mod in ircode:
@@ -134,6 +141,12 @@ class ModuleTestCase(BuildTestCaseBase):
         """ Check what an empty source file does """
         snippet = ""
         self.expect_errors(snippet, [1])
+
+    def test_incorrect_top_level(self):
+        """ See what an incorrect top level statement does """
+        snippet = """module tst;
+        foo bar;"""
+        self.expect_errors(snippet, [2])
 
     def test_module(self):
         """ Test module idea """
@@ -188,6 +201,17 @@ class ModuleTestCase(BuildTestCaseBase):
         var mod1.A a;
         """
         self.expect_ok([src1, src2])
+
+    def test_no_access_to_private(self):
+        """ Check if private members are protected """
+        src1 = """module mod1;
+        type int A;
+        """
+        src2 = """module mod2;
+        import mod1;
+        var mod1.A a;
+        """
+        self.expect_errors([src1, src2], [])
 
     def test_module_does_not_exist(self):
         """ Check if importing an undefined module raises an error """
@@ -293,6 +317,19 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [5, 6, 10, 16])
 
+    def test_call_of_non_function(self):
+        """ Test if the call to a non-function type raises an error """
+        snippet = """
+         module testreturn;
+         var int x;
+         function void t()
+         {
+            x();
+            return;
+         }
+        """
+        self.expect_errors(snippet, [6])
+
     def test_return(self):
         """ Test return of void """
         snippet = """
@@ -315,6 +352,18 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_return_complex_type(self):
+        """ Test the return of a complex value, this is not allowed """
+        snippet = """
+         module testreturn;
+         function struct {int a;int b;} t()
+         {
+            var int a = t();
+            return 2;
+         }
+        """
+        self.expect_errors(snippet, [5])
+
     def test_parameter_redefine(self):
         """ Check if a parameter and variable with the same name result in
             error
@@ -327,6 +376,14 @@ class FunctionTestCase(BuildTestCaseBase):
          }
         """
         self.expect_errors(snippet, [5])
+
+    def test_prototype_function(self):
+        """ Check if a prototype function works good """
+        snippet = """
+         module tst;
+         function int t(int x);
+        """
+        self.expect_ok(snippet)
 
 
 class ConditionTestCase(BuildTestCaseBase):
@@ -439,6 +496,20 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_unary_plus(self):
+        """ Check if a = +1 works """
+        snippet = """
+         module testunaryplus;
+         function void t()
+         {
+            var int a, b, c;
+            a = + 11;
+            b = -a * + 2 + - a * a;
+            c = b * a - +3;
+         }
+        """
+        self.expect_ok(snippet)
+
     def test_redefine(self):
         """ Check if redefining a symbol results in error """
         snippet = """
@@ -459,6 +530,22 @@ class ExpressionTestCase(BuildTestCaseBase):
          }
         """
         self.expect_errors(snippet, [5])
+
+    # @unittest.skip('Fix this')
+    def test_uninitialized_local(self):
+        """ When a variable is not initialized before it is used, an error
+            is expected """
+        snippet = """
+         module test;
+         var int b;
+         function int start()
+         {
+            var int x;
+            b = x;
+            return x;
+         }
+        """
+        self.expect_errors(snippet, [6])
 
 
 class StatementTestCase(BuildTestCaseBase):
@@ -713,6 +800,18 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [4])
 
+    def test_enum(self):
+        """ Test enum syntax """
+        snippet = """
+         module testenum;
+         function void t()
+         {
+            var enum a;
+         }
+        """
+        with self.assertRaises(NotImplementedError):
+            self.expect_ok(snippet)
+
     def test_struct1(self):
         """ Test struct syntax """
         snippet = """
@@ -726,7 +825,7 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def test_struct2(self):
+    def test_nonstruct_member(self):
         """ Select struct member from non struct type """
         snippet = """
          module teststruct1;
@@ -737,6 +836,21 @@ class TypeTestCase(BuildTestCaseBase):
          }
         """
         self.expect_errors(snippet, [6])
+
+    def test_struct_unequal(self):
+        """ Select struct member from non struct type """
+        snippet = """
+         module teststruct1;
+         type struct { int a, b; } T1;
+         type struct { int a; } T2;
+         function void t()
+         {
+            var T1* a;
+            var T2* b;
+            b = a;
+         }
+        """
+        self.expect_ok(snippet)
 
     def test_pointer_type1(self):
         """ Check if pointers work """
@@ -838,6 +952,7 @@ class TypeTestCase(BuildTestCaseBase):
          function void t()
          {
             var int* pa;
+            pa = 0;
             *(pa+2) = 2;
          }
         """
@@ -856,6 +971,17 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [7])
 
+    def test_integer_casting(self):
+        snippet = """
+         module testptr_ir;
+         function void test(string txt)
+         {
+            var int x;
+            x = cast<int>(txt->txt[1]);
+         }
+        """
+        self.expect_ok(snippet)
+
     def test_linked_list(self):
         """
             Test if a struct can contain a field with a pointer to itself
@@ -871,6 +997,9 @@ class TypeTestCase(BuildTestCaseBase):
          function void t()
          {
             var list_t* a;
+            var list_t b;
+            a = &b;
+            a->next = a;
             a = a->next;
          }
         """
@@ -940,6 +1069,7 @@ class TypeTestCase(BuildTestCaseBase):
             var my_struct *msp;
 
             var my_struct u, v;
+            msp = &u;
             var point *pt;
 
             pt = &msp->P1;

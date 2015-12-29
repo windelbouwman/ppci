@@ -1,9 +1,8 @@
-
 import re
 from .common import Token, CompilerError, SourceLocation
 
-EPS = 'EPS'
 EOF = 'EOF'
+EPS = 'EPS'
 
 
 class BaseLexer:

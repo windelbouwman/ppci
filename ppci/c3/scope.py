@@ -75,9 +75,6 @@ class Scope:
         else:
             return False
 
-    def __contains__(self, name):
-        return self.has_symbol(name)
-
     def add_symbol(self, sym):
         """ Add a symbol to this scope """
         assert sym.name not in self.symbols
@@ -104,7 +101,7 @@ def create_top_scope(target):
     scope.add_symbol(int_type)
     scope.add_symbol(BaseType('double', 8))
     scope.add_symbol(BaseType('void', 0))
-    scope.add_symbol(BaseType('bool', 1))
+    scope.add_symbol(BaseType('bool', target.byte_sizes['int']))
     byte_type = BaseType('byte', 1)
     scope.add_symbol(byte_type)
 
@@ -169,7 +166,7 @@ class Context:
                         'Cannot access private {}'.format(name), ref.loc)
             else:
                 raise SemanticError('{} undefined'.format(name), ref.loc)
-        elif type(ref) is ast.Identifier:
+        elif isinstance(ref, ast.Identifier):
             # Simple identifier, try to lookup!
             scope = ref.scope
             name = ref.target
@@ -177,7 +174,7 @@ class Context:
                 sym = scope[name]
             else:
                 raise SemanticError('{} undefined'.format(name), ref.loc)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(ref))
 
         assert isinstance(sym, ast.Symbol)
@@ -288,7 +285,7 @@ class Context:
             # This case also catches the defined type!
             # TODO: make this if sequence less error prone..
             pass
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         assert isinstance(typ, ast.Type)
         return typ
@@ -310,7 +307,7 @@ class Context:
             return num * self.size_of(typ.element_type)
         elif type(typ) is ast.PointerType:
             return self.pointerSize
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
     def equal_types(self, a, b, byname=False):
@@ -343,7 +340,7 @@ class Context:
             elif type(a) is ast.DefinedType:
                 # Try by name in case of defined types:
                 return a.name == b.name
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError('{} not implemented'.format(type(a)))
         return False
 
@@ -384,5 +381,5 @@ class Context:
             self.check_type(t.element_type, first=False)
         elif type(t) is ast.DefinedType:
             pass
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError('{} not implemented'.format(type(t)))

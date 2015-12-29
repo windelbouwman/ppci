@@ -9,12 +9,13 @@ syntax: glob
 *.elf
 *.log
 docs/_build
+docs/examples.zip
 test/.coverage
 test/listings
 .tox
+*report.html
 .cache
 .coverage
-build
 htmlcov
 dist
 ppci.egg-info

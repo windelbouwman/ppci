@@ -4,13 +4,13 @@ import logging
 import re
 import string
 import os
+import platform
+import subprocess
+from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
-from ppci.report import RstFormatter
-from ppci.ir2py import IrToPython
-
-stlink_run_sram_and_trace = None
+from ppci.reporting import HtmlReportGenerator, complete_report
 
 
 def make_filename(s):
@@ -28,7 +28,6 @@ def make_filename(s):
 def enable_report_logger(filename):
     logging.getLogger().setLevel(logging.DEBUG)
     fh = logging.StreamHandler(filename)
-    fh.setFormatter(RstFormatter())
     logging.getLogger().addHandler(fh)
 
 
@@ -37,9 +36,8 @@ def only_bf(txt):
     return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
 
-class Samples:
+class SimpleSamples:
     """ Collection of snippets with expected output """
-
     def test_print(self):
         """ Test if print statement works """
         snippet = """
@@ -52,57 +50,24 @@ class Samples:
         """
         self.do(snippet, "Hello world")
 
-    @unittest.skip('fix this bug')
-    def test_uninitialized_local(self):
-        snippet = """
-         module sample;
-         import io;
-         var int b;
-         function void start()
-         {
-            io.print("Hello world");
-            var int x;
-            b = x;
-         }
-        """
-        self.do(snippet, "Hello world")
-
-    def test_for_loop_print(self):
+    def test_if_statement(self):
         snippet = """
          module sample;
          import io;
          function void start()
          {
-            var int i;
-            var int b = 2;
-            for (i=0; i<10; i = i + 1)
+            var int i = 13;
+            if (i*7 < 100)
             {
-              io.print2("A = ", i);
-              b *= i + 1;
+                io.print("Wow");
             }
-            io.print2("B = ", b);
-         }
-        """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
-        res += "B = 0x006EBE00\n"
-        self.do(snippet, res)
-
-    @unittest.skip('actually tests qemu pipe, not ppci')
-    def test_large_for_loop_print(self):
-        """ This test actually tests the qemu pipe system """
-        snippet = """
-         module sample;
-         import io;
-         function void start()
-         {
-            var int i;
-            for (i=0; i<10000; i = i + 1)
+            else
             {
-              io.print2("A = ", i);
+                io.print("Outch");
             }
          }
         """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
+        res = "Wow"
         self.do(snippet, res)
 
     def test_boolean_exotics(self):
@@ -159,24 +124,51 @@ class Samples:
         res = "tftft"
         self.do(snippet, res)
 
-    def test_if_statement(self):
+
+class I32Samples:
+    """ 32-bit samples """
+
+    def test_for_loop_print(self):
         snippet = """
          module sample;
          import io;
          function void start()
          {
-            var int i = 13;
-            if (i*7 < 100)
+            var int i;
+            var int b = 2;
+            for (i=0; i<10; i = i + 1)
             {
-                io.print("Wow");
+              io.print2("A = ", i);
+              b *= i + 1;
             }
-            else
+            io.print2("B = ", b);
+         }
+        """
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
+        res += "B = 0x006EBE00\n"
+        self.do(snippet, res)
+
+    def test_c3_quine(self):
+        """ Quine in the c3 language """
+        src = """module sample;import io;import bsp;function void start(){var string x="module sample;import io;import bsp;function void start(){var string x=;io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}";io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}"""
+        self.do(src, src)
+
+    @unittest.skip('actually tests qemu pipe, not ppci')
+    def test_large_for_loop_print(self):
+        """ This test actually tests the qemu pipe system """
+        snippet = """
+         module sample;
+         import io;
+         function void start()
+         {
+            var int i;
+            for (i=0; i<10000; i = i + 1)
             {
-                io.print("Outch");
+              io.print2("A = ", i);
             }
          }
         """
-        res = "Wow"
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
         self.do(snippet, res)
 
     def test_bug1(self):
@@ -507,54 +499,53 @@ class Samples:
         self.do(quine, only_bf(quine), lang='bf')
 
 
-class DoMixin:
-    def do(self, src, expected_output, lang="c3"):
-        """ Generic do function """
-        march = self.march
+class BuildMixin:
+    def build(self, src, lang='c3', bin_format='bin'):
+        base_filename = make_filename(self.id())
+        list_filename = base_filename + '.html'
+
         startercode = self.startercode
-        arch_mmap = self.arch_mmap
-        arch_c3 = self.arch_c3
+        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        if hasattr(self, 'bsp_c3_src'):
+            bsp_c3 = io.StringIO(getattr(self, 'bsp_c3_src'))
+        else:
+            bsp_c3 = self.bsp_c3
+
+        with complete_report(report_generator) as reporter:
+            o1 = assemble(io.StringIO(startercode), self.march)
+            if lang == 'c3':
+                o2 = c3compile([
+                    relpath('..', 'librt', 'io.c3'),
+                    bsp_c3,
+                    io.StringIO(src)], [], self.march, reporter=reporter)
+                objs = [o1, o2]
+            elif lang == 'bf':
+                o3 = bfcompile(src, self.march, reporter=reporter)
+                o2 = c3compile(
+                    [bsp_c3], [], self.march, reporter=reporter)
+                objs = [o1, o2, o3]
+            else:
+                raise Exception('language not implemented')
+            obj = link(
+                objs,
+                io.StringIO(self.arch_mmap),
+                self.march, use_runtime=True, reporter=reporter)
 
         # Determine base names:
-        base_filename = make_filename(self.id())
-        list_filename = base_filename + '.lst'
-        sample_filename = base_filename + '.bin'
-
-        # Open listings file:
-        lst_file = open(list_filename, 'w')
-
-        # Construct binary file from snippet:
-        o1 = assemble(io.StringIO(startercode), march)
-        if lang == 'c3':
-            o2 = c3compile([
-                relpath('data', 'io.c3'),
-                arch_c3,
-                io.StringIO(src)], [], march, lst_file=lst_file)
-            o3 = link([o2, o1], io.StringIO(arch_mmap), march, use_runtime=True)
-        elif lang == 'bf':
-            obj = bfcompile(src, march, lst_file=lst_file)
-            o2 = c3compile([
-                arch_c3
-                ], [], march, lst_file=lst_file)
-            o3 = link([o2, o1, obj], io.StringIO(arch_mmap), march, use_runtime=True)
-        else:
-            raise Exception('language not implemented')
-
-        objcopy(o3, 'code', 'bin', sample_filename)
-        lst_file.close()
-
-        # Run bin file in emulator:
-        res = self.run_sample(sample_filename)
-        self.assertEqual(expected_output, res)
+        sample_filename = make_filename(self.id()) + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
+        return sample_filename
 
 
-class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
+class TestSamplesOnVexpress(
+        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
+    maxDiff = None
     march = "arm"
     startercode = """
     section reset
     mov sp, 0xF0000   ; setup stack pointer
     BL sample_start     ; Branch to sample start
-    BL arch_exit  ; do exit stuff
+    BL bsp_exit  ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -567,33 +558,29 @@ class TestSamplesOnVexpress(unittest.TestCase, Samples, DoMixin):
         SECTION(data)
     }
     """
-    arch_c3 = relpath('data', 'realview-pb-a8', 'arch.c3')
+    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
 
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        sample_filename = self.build(src, lang)
 
-    def run_sample(self, sample_filename):
         # Run bin file in emulator:
-        dump_file = sample_filename.split('.')[0] + '.dump'
-        return run_qemu(
-            sample_filename, machine='realview-pb-a8',
-            dump_file=dump_file, dump_range=(0x20000, 0xf0000))
+        if has_qemu():
+            res = run_qemu(sample_filename, machine='realview-pb-a8')
+            self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
+class TestSamplesOnCortexM3(
+        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
-    def setUp(self):
-        if not has_qemu():
-            self.skipTest('Not running qemu tests')
 
     march = "thumb"
     startercode = """
     section reset
-    dcd 0x2000f000
-    dcd 0x00000009
+    dd 0x2000f000
+    dd 0x00000009
     BL sample_start     ; Branch to sample start
-    BL arch_exit  ; do exit stuff
+    BL bsp_exit  ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -607,42 +594,163 @@ class TestSamplesOnCortexM3(unittest.TestCase, Samples, DoMixin):
         SECTION(data)
     }
     """
-    arch_c3 = relpath('data', 'lm3s6965evb', 'arch.c3')
+    bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
 
-    def run_sample(self, sample_filename):
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        sample_filename = self.build(src, lang)
+
         # Run bin file in emulator:
-        dump_file = sample_filename.split('.')[0] + '.dump'
-        return run_qemu(
-            sample_filename, machine='lm3s6965evb', # lm3s811evb
-            dump_file=dump_file, dump_range=(0x20000000, 0x20010000))
+        if has_qemu():
+            res = run_qemu(sample_filename, machine='lm3s6965evb')
+            # lm3s811evb
+            self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnPython(unittest.TestCase, Samples):
+class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
         sample_filename = base_filename + '.py'
+        list_filename = base_filename + '.html'
 
-        if lang == 'c3':
-            ir_mods = list(c3toir([
-                relpath('data', 'io.c3'),
-                relpath('data', 'lm3s6965evb', 'arch.c3'),
-                io.StringIO(src)], [], "arm"))
-        elif lang == 'bf':
-            ir_mods = [bf2ir(src)]
+        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        with complete_report(report_generator) as reporter:
+            if lang == 'c3':
+                ir_modules = list(c3toir([
+                    relpath('..', 'librt', 'io.c3'),
+                    relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
+                    io.StringIO(src)], [], "arm", reporter=reporter))
+            elif lang == 'bf':
+                ir_modules = [bf2ir(src, 'arm')]
 
-        with open(sample_filename, 'w') as f:
-            i2p = IrToPython()
-            i2p.f = f
-            i2p.header()
-            for m in ir_mods:
-                ir_to_python(m, f)
-            # Add glue:
-            print('', file=f)
-            print('def arch_putc(c):', file=f)
-            print('    print(chr(c), end="")', file=f)
-            print('sample_start()', file=f)
+            with open(sample_filename, 'w') as f:
+                ir_to_python(ir_modules, f, reporter=reporter)
         res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
+    march = "msp430"
+    startercode = """
+    section reset
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x0 SIZE=0x10000 {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        SECTION(data)
+    }
+    """
+    bsp_c3_src = """
+    module bsp;
+
+    public function void putc(byte c)
+    {
+    }
+
+    function void exit()
+    {
+        putc(4); // End of transmission
+    }
+    """
+
+    def do(self, src, expected_output, lang='c3'):
+        self.build(src, lang)
+
+
+class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
+    march = "x86"
+    startercode = """
+    section reset
+
+    start:
+        call sample_start
+        call bsp_exit
+
+    bsp_putc:
+            mov [0x20000000], rdi ; store char passed in rdi
+
+            mov rax, 1 ; 1=sys_write
+            mov rdi, 1 ; file descriptor
+            mov rsi, char_to_print ; char* buf
+            mov rdx, 1 ; count
+            syscall
+            ret
+
+    bsp_exit:
+            mov rax, 60
+            mov rdi, 0
+            syscall
+            ret
+
+    section data
+        char_to_print:
+        dd 0
+        dd 0
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x40000 SIZE=0x10000 {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        SECTION(data)
+    }
+    """
+    bsp_c3_src = """
+    module bsp;
+    public function void putc(byte c);
+    function void exit();
+    """
+
+    def do(self, src, expected_output, lang='c3'):
+        exe = self.build(src, lang, bin_format='elf')
+        if has_linux():
+            if hasattr(subprocess, 'TimeoutExpired'):
+                res = subprocess.check_output(exe, timeout=10)
+            else:
+                res = subprocess.check_output(exe)
+            res = res.decode('ascii')
+            self.assertEqual(expected_output, res)
+
+
+def has_linux():
+    return platform.machine() == 'x86_64' and platform.system() == 'Linux'
+
+
+@unittest.skipIf(not has_linux(), 'no 64 bit linux found')
+class LinuxTests(unittest.TestCase):
+    """ Run tests against the linux syscall api """
+    def test_exit42(self):
+        """
+            ; exit with code 42:
+            ; syscall 60 = exit, rax is first argument, rdi second
+        """
+        src = io.StringIO("""
+            section code
+            mov rax, 60
+            mov rdi, 42
+            syscall
+            """)
+        mmap = """
+        MEMORY code LOCATION=0x40000 SIZE=0x10000 {
+            SECTION(code)
+        }
+        """
+        obj = assemble(src, 'x86')
+        handle, exe = mkstemp()
+        os.close(handle)
+        obj2 = link([obj], io.StringIO(mmap), 'x86')
+        objcopy(obj2, 'prog', 'elf', exe)
+        if hasattr(subprocess, 'TimeoutExpired'):
+            returncode = subprocess.call(exe, timeout=10)
+        else:
+            returncode = subprocess.call(exe)
+        self.assertEqual(42, returncode)
 
 
 if __name__ == '__main__':

@@ -6,14 +6,16 @@ import platform
 import argparse
 import logging
 
-from .report import RstFormatter
 from .buildfunctions import construct
 from .buildfunctions import c3compile
 from .buildfunctions import assemble
+from .pyyacc import transform
 from .utils.hexfile import HexFile
+from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
-from . import version
+from . import version, buildfunctions
 from .common import logformat
+from .target.target_list import target_names
 
 
 description = 'ppci {} compiler on {} {}'.format(
@@ -84,7 +86,8 @@ def c3c(args=None):
     parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
 
-    parser.add_argument('--target', help='target machine', required=True)
+    parser.add_argument(
+        '--target', help='target machine', required=True, choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
                         default=sys.stdout)
@@ -101,7 +104,10 @@ def c3c(args=None):
 
         # Write object file to disk:
         obj.save(args.output)
-        args.output.close()
+
+        # Attention! Closing the output file may close stdout!
+        # if args.output != sys.stdout:
+        #    args.output.close()
 
 
 def asm(args=None):
@@ -110,7 +116,9 @@ def asm(args=None):
     add_common_parser_options(parser)
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
-    parser.add_argument('--target', help='target machine', required=True)
+    parser.add_argument(
+        '--target', '-t', help='target machine', required=True,
+        choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
                         default=sys.stdout)
@@ -123,7 +131,94 @@ def asm(args=None):
 
         # Write object file to disk:
         obj.save(args.output)
-        args.output.close()
+
+        # Attention! Closing the output file may close stdout!
+        args.output.flush()
+        # args.output.close()
+
+
+def objdump(args=None):
+    """ Dump info of an object file """
+    parser = argparse.ArgumentParser(description=description)
+    add_common_parser_options(parser)
+
+    parser.add_argument('obj', help='object file', type=argparse.FileType('r'))
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+
+        obj = load_object(args.obj)
+        args.obj.close()
+        print_object(obj)
+
+
+def objcopy(args=None):
+    """ Copy from binary format 1 to binary format 2 """
+    parser = argparse.ArgumentParser(description=description)
+    add_common_parser_options(parser)
+
+    parser.add_argument(
+        'input', help='input file', type=argparse.FileType('r'))
+    parser.add_argument(
+        'output', help='output file')
+    parser.add_argument(
+        '--output-format', '-O', help='output file format')
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+
+        # Read object from file:
+        obj = load_object(args.input)
+        args.input.close()
+        buildfunctions.objcopy(obj, 'code', args.output_format, args.output)
+
+
+def yacc_cmd(args=None):
+    """
+    Parser generator utility. This script can generate a python script from a
+    grammar description.
+
+    Invoke the script on a grammar specification file:
+
+    .. code::
+
+        $ ./yacc.py test.x -o test_parser.py
+
+    And use the generated parser by deriving a user class:
+
+
+    .. code::
+
+        import test_parser
+        class MyParser(test_parser.Parser):
+            pass
+        p = MyParser()
+        p.parse()
+
+
+    Alternatively you can load the parser on the fly:
+
+    .. code::
+
+        import yacc
+        parser_mod = yacc.load_as_module('mygrammar.x')
+        class MyParser(parser_mod.Parser):
+            pass
+        p = MyParser()
+        p.parse()
+
+    """
+    parser = argparse.ArgumentParser(description='xacc compiler compiler')
+    add_common_parser_options(parser)
+    parser.add_argument(
+        'source', type=argparse.FileType('r'), help='the parser specification')
+    parser.add_argument(
+        '-o', '--output', type=argparse.FileType('w'), default=sys.stdout)
+
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+        transform(args.source, args.output)
 
 
 def hexutil(args=None):
@@ -160,30 +255,31 @@ def hexutil(args=None):
         sys.exit(1)
 
     if args.command == 'info':
-        hexfile = HexFile()
-        hexfile.load(args.hexfile)
-        print(hexfile)
-        for region in hexfile.regions:
-            print(region)
+        hexfile = HexFile.load(args.hexfile)
+        hexfile.dump()
+        args.hexfile.close()
     elif args.command == 'new':
         hexfile = HexFile()
         data = args.datafile.read()
+        args.datafile.close()
         hexfile.add_region(args.address, data)
         hexfile.save(args.hexfile)
+        args.hexfile.close()
     elif args.command == 'merge':
         # Load first hexfile:
-        hexfile1 = HexFile()
-        hexfile1.load(args.hexfile1)
+        hexfile1 = HexFile.load(args.hexfile1)
+        args.hexfile1.close()
 
         # Load second hexfile:
-        hexfile2 = HexFile()
-        hexfile2.load(args.hexfile2)
+        hexfile2 = HexFile.load(args.hexfile2)
+        args.hexfile2.close()
 
         hexfile = HexFile()
         hexfile.merge(hexfile1)
         hexfile.merge(hexfile2)
         hexfile.save(args.rhexfile)
-    else:
+        args.rhexfile.close()
+    else:  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -207,7 +303,6 @@ class LogSetup:
 
         if self.args.report:
             self.file_handler = logging.StreamHandler(self.args.report)
-            self.file_handler.setFormatter(RstFormatter())
             self.logger.addHandler(self.file_handler)
         self.logger.debug('Loggers attached')
 

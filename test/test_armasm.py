@@ -7,21 +7,17 @@ from ppci.binutils.layout import load_layout
 
 class ArmAssemblerTestCase(AsmTestCaseBase):
     """ ARM-mode (not thumb-mode) instruction assembly test case """
-    def setUp(self):
-        super().setUp()
-        self.target = arm_target
-        self.assembler = arm_target.assembler
-        self.assembler.prepare()
+    target = arm_target
 
-    def testMovImm(self):
+    def test_mov_imm(self):
         self.feed('mov r4, 100')
         self.check('6440a0e3')
 
-    def testMovImm2(self):
+    def test_mov_imm2(self):
         self.feed('mov sp, 0x6000')
         self.check('06daa0e3')
 
-    def testMovReg(self):
+    def test_mov_reg(self):
         self.feed('mov r3, sp')
         self.feed('mov pc, lr')
         self.feed('mov pc, r2')
@@ -29,7 +25,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('mov r5, r6')
         self.check('0d30a0e1 0ef0a0e1 02f0a0e1 04d0a0e1 0650a0e1')
 
-    def testAdd2(self):
+    def test_add2(self):
         self.feed('add r12, r11, 300')
         self.check('4bcf8be2')
 
@@ -38,15 +34,15 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         with self.assertRaises(ValueError):
             self.feed('add r12, r11, 30000')
 
-    def testAdd1(self):
+    def test_add1(self):
         self.feed('add r9, r7, r2')
         self.check('029087e0')
 
-    def testSub1(self):
+    def test_sub1(self):
         self.feed('sub r5, r6, r2')
         self.check('025046e0')
 
-    def testSub2(self):
+    def test_sub2(self):
         self.feed('sub r0, r1, 0x80000001')
         self.check('060141e2')
 
@@ -118,7 +114,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldr r11, lab1')
         self.feed('ldr r10, lab1')
         self.feed('lab1:')
-        self.feed('dcd 0x12345566')
+        self.feed('dd 0x12345566')
         self.check('04509fe5 00b09fe5 04a01fe5 66553412')
 
     def testAdr(self):
@@ -174,9 +170,15 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
     def test_repeat(self):
         """ Check if macro repeat works correctly """
         self.feed('repeat 0x5')
-        self.feed('dcd 0x11')
+        self.feed('dd 0x11')
         self.feed('endrepeat')
         self.check('11000000 11000000 11000000 11000000 11000000')
+
+    def test_mnemonic_as_label(self):
+        """ It should be possible to use mnemonics as labels """
+        self.feed('cmp:')
+        self.feed('b cmp')
+        self.check('feffffea')
 
     @unittest.skip('Fix lsr postfix')
     def test_div_routine(self):
@@ -195,8 +197,8 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('  mov r4, r4, lsr #1')
         self.feed('  cmp r4, r2')
         self.feed('  bhs div_91')
-        self.check('0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3 040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a')
-
+        self.check("""0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3
+            040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a""")
 
 
 if __name__ == '__main__':

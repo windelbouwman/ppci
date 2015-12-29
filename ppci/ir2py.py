@@ -1,9 +1,13 @@
-
 """
-    Python back-end.
+    Python back-end. Generates python code from ir-code.
 """
 
 from . import ir
+
+
+def literal_label(lit):
+    """ Invent a nice label name for the given literal """
+    return '{}_{}'.format(lit.function.name, lit.name)
 
 
 class IrToPython:
@@ -33,7 +37,7 @@ class IrToPython:
         """ Write ir-code to file f """
         self.f = f
         self.mod_name = ir_mod.name
-        self.string_literals = []
+        self.literals = []
         self.print(0, '')
         self.print(0, '# Module {}'.format(ir_mod.name))
         # Allocate room for global variables:
@@ -45,11 +49,10 @@ class IrToPython:
         for function in ir_mod.Functions:
             self.generate_function(function)
 
-        # TODO: fix this mess with string literals
-        for lit in self.string_literals:
-            self.print(0, "{}_{} = len(mem)".format(
-                lit.function.name, lit.name))
-            for val in lit.value:
+        # emit labeled literals:
+        for lit in self.literals:
+            self.print(0, "{} = len(mem)".format(literal_label(lit)))
+            for val in lit.data:
                 self.print(0, "mem.append({})".format(val))
         self.print(0, '')
 
@@ -84,48 +87,43 @@ class IrToPython:
             self.print(3, '{} = len(mem)'.format(ins.name))
             self.print(3, 'mem.extend([0]*{})'.format(ins.amount))
         elif isinstance(ins, ir.Const):
-            if type(ins.value) is bytes:
-                self.string_literals.append(ins)
-            else:
-                self.print(3, '{} = {}'.format(ins.name, ins.value))
+            self.print(3, '{} = {}'.format(ins.name, ins.value))
+        elif isinstance(ins, ir.LiteralData):
+            assert isinstance(ins.data, bytes)
+            self.literals.append(ins)
+            self.print(3, '{} = {}'.format(ins.name, literal_label(ins)))
         elif isinstance(ins, ir.Binop):
             # Assume int for now.
             self.print(3, '{} = int({} {} {})'.format(
                 ins.name, ins.a.name, ins.operation, ins.b.name))
             # Implement wrapping around zero:
-            if ins.ty.byte_size == 1:
+            if ins.ty is ir.i8:
                 self.print(3, '{0} = wrap_byte({0})'.format(ins.name))
         elif isinstance(ins, ir.Cast):
             self.print(3, '{} = {}'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Store):
             # print(ins
             # TODO: improve this mess? Helper functions?
-            if ins.value.ty.byte_size == 4:
+            if ins.value.ty is ir.i32 or ins.value.ty is ir.ptr:
                 self.print(3, 'mem[{0}:{0}+4] = list(struct.pack("i",{1}))'
                            .format(ins.address.name, ins.value.name))
-            elif ins.value.ty.byte_size == 1:
+            elif ins.value.ty is ir.i8:
                 self.print(3, 'mem[{0}:{0}+1] = list(struct.pack("B",{1}))'
                            .format(ins.address.name, ins.value.name))
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError()
         elif isinstance(ins, ir.Load):
-            if ins.ty.byte_size == 1:
+            if ins.ty is ir.i8:
                 self.print(
                     3, '{} = mem[{}]'.format(ins.name, ins.address.name))
-            elif ins.ty.byte_size == 4:
+            elif ins.ty is ir.i32 or ins.ty is ir.ptr:
                 self.print(
                     3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'
                     .format(ins.name, ins.address.name))
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError()
         elif isinstance(ins, ir.Call):
             self.print(3, '{}'.format(ins))
-        elif isinstance(ins, ir.Addr):
-            # This is only used for string constants.
-            # TODO: fix string literals better
-            assert type(ins.e.value) is bytes
-            self.print(3, '{} = {}_{}'.format(
-                ins.name, ins.function.name, ins.e.name))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')
             self.print(4, 'pass')
@@ -136,6 +134,6 @@ class IrToPython:
             self.print(4, 'raise RuntimeError(str(prev_block))')
         elif isinstance(ins, ir.Return):
             self.print(3, 'return {}'.format(ins.result.name))
-        else:
+        else:  # pragma: no cover
             self.print(3, '{}'.format(ins))
             raise NotImplementedError()

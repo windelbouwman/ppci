@@ -6,11 +6,11 @@ from ppci.target.target_list import thumb_target
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
+    target = thumb_target
+
     def setUp(self):
         super().setUp()
         self.as_args = ['-mthumb']
-        self.target = thumb_target
-        self.assembler = thumb_target.assembler
 
     def testMovImm8(self):
         self.feed('mov r4, 100')
@@ -59,14 +59,14 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldr r6, henkie')
         self.feed('ldr r1, henkie')
         self.feed('align 4')
-        self.feed('dcd 1')
-        self.feed('henkie: dcd 2')
+        self.feed('dd 1')
+        self.feed('henkie: dd 2')
         self.check('024F024E 01490000 01000000 02000000')
 
     def testAdr(self):
         self.feed('adr r2, x')
         self.feed('adr r2, x')
-        self.feed('x: dcd 1')
+        self.feed('x: dd 1')
         self.check('00a200a2 01000000')
 
     def test_branch(self):
@@ -143,19 +143,23 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('sub r4, r1, 6')
         self.check('ab1e8c1f')
 
-    def testAnd(self):
+    def test_and(self):
         self.feed('and r7, r1')
         self.check('0f40')
 
-    def testOr(self):
+    def test_or(self):
         self.feed('orr r7, r1')
         self.check('0f43')
 
-    def testLeftShift(self):
+    def test_nop(self):
+        self.feed('nop')
+        self.check('')
+
+    def test_left_shift(self):
         self.feed('lsl r3, r5')
         self.check('ab40')
 
-    def testRightShift(self):
+    def test_right_shift(self):
         self.feed('lsr r2, r6')
         self.check('f240')
 

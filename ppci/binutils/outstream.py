@@ -4,25 +4,28 @@
 """
 
 import logging
-from ..target import Instruction, Alignment
+from ..target.isa import Instruction
+from ..target.target import Alignment
 
 
 class OutputStream:
     """ Interface to generator code with. """
-    def emit(self, item):
+    def emit(self, item):  # pragma: no cover
+        """ Encode instruction and add symbol and relocation information """
         raise NotImplementedError('Abstract base class')
 
-    def select_section(self, sname):
+    def emit_all(self, items):
+        """ Emit an iterable of items """
+        for item in items:
+            self.emit(item)
+
+    def select_section(self, sname):  # pragma: no cover
         raise NotImplementedError('Abstract base class')
 
 
 class TextOutputStream(OutputStream):
     """ Output stream that writes to object file """
-    def __init__(self):
-        super().__init__()
-
     def emit(self, item):
-        """ Encode instruction and add symbol and relocation information """
         assert isinstance(item, Instruction), str(item) + str(type(item))
         print(item)
 
@@ -42,20 +45,21 @@ class BinaryOutputStream(OutputStream):
         assert isinstance(item, Instruction), str(item) + str(type(item))
         assert self.currentSection
         section = self.currentSection
-        address = self.currentSection.Size
+        address = self.currentSection.size
         b = item.encode()
-        syms = item.symbols()
-        relocs = item.relocations()
         section.add_data(b)
-        for sym in syms:
+        for sym in item.symbols():
             self.obj_file.add_symbol(sym, address, section.name)
-        for sym, typ in relocs:
-            self.obj_file.add_relocation(sym, address, typ, section.name)
+        for sym, typ in item.relocations():
+            typ_name = typ.__name__
+            self.obj_file.add_relocation(sym, address, typ_name, section.name)
 
         # Special case for align, TODO do this different?
-        if type(item) is Alignment:
-            while section.Size % item.align != 0:
+        if isinstance(item, Alignment):
+            while section.size % item.align != 0:
                 section.add_data(bytes([0]))
+            if item.align > self.currentSection.alignment:
+                self.currentSection.alignment = item.align
 
     def select_section(self, sname):
         self.currentSection = self.obj_file.get_section(sname)
@@ -106,9 +110,9 @@ class MasterOutputStream(OutputStream):
             output_stream.select_section(sname)
 
 
-def BinaryAndLoggingStream(output):
+def binary_and_logging_stream(output):
     """ Create a stream object that both logs and writes to an object file """
-    o2 = BinaryOutputStream(output)
-    o1 = LoggerOutputStream()
-    ostream = MasterOutputStream([o1, o2])
+    stream1 = BinaryOutputStream(output)
+    stream2 = LoggerOutputStream()
+    ostream = MasterOutputStream([stream1, stream2])
     return ostream

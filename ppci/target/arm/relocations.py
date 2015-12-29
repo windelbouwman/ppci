@@ -1,49 +1,25 @@
 
-from ...bitfun import encode_imm32
-import struct
-reloc_map = {}
+from ...bitfun import encode_imm32, align, wrap_negative, BitView
 
 
-def reloc(t):
-    def f(c):
-        reloc_map[t] = c
-    return f
-
-
-def align(x, m):
-    while ((x % m) != 0):
-        x = x + 1
-    return x
-
-
-def wrap_negative(x, bits):
-    b = struct.unpack('<I', struct.pack('<i', x))[0]
-    mask = (1 << bits) - 1
-    return b & mask
-
-
-@reloc('rel8')
-def apply_rel8(reloc, sym_value, section, reloc_value):
+def apply_rel8(sym_value, data, reloc_value):
     assert sym_value % 2 == 0
     offset = sym_value - (align(reloc_value, 2) + 4)
-    assert offset in range(-256, 254, 2), str(offset) + str(reloc)
+    assert offset in range(-256, 254, 2), str(offset)
     imm8 = wrap_negative(offset >> 1, 8)
-    section.data[reloc.offset] = imm8
+    data[0] = imm8
 
 
-@reloc('b_imm24')
-def apply_b_imm24(reloc, sym_value, section, reloc_value):
+def apply_b_imm24(sym_value, data, reloc_value):
     assert sym_value % 4 == 0
     assert reloc_value % 4 == 0
     offset = (sym_value - (reloc_value + 8))
     rel24 = wrap_negative(offset >> 2, 24)
-    section.data[reloc.offset+2] = (rel24 >> 16) & 0xFF
-    section.data[reloc.offset+1] = (rel24 >> 8) & 0xFF
-    section.data[reloc.offset+0] = rel24 & 0xFF
+    bv = BitView(data, 0, 3)
+    bv[0:24] = rel24
 
 
-@reloc('ldr_imm12')
-def apply_ldr_imm12(reloc, sym_value, section, reloc_value):
+def apply_ldr_imm12(sym_value, data, reloc_value):
     assert sym_value % 4 == 0
     assert reloc_value % 4 == 0
     offset = (sym_value - (reloc_value + 8))
@@ -51,15 +27,14 @@ def apply_ldr_imm12(reloc, sym_value, section, reloc_value):
     if offset < 0:
         offset = -offset
         U = 0
-    assert offset < 4096, "{} < 4096 {} {} {}".format(
-        offset, sym_value, section, reloc)
-    section.data[reloc.offset+2] |= (U << 7)
-    section.data[reloc.offset+1] |= (offset >> 8) & 0xF
-    section.data[reloc.offset+0] = offset & 0xFF
+    assert offset < 4096, "{} < 4096 {} {}".format(
+        offset, sym_value, data)
+    data[2] |= (U << 7)
+    data[1] |= (offset >> 8) & 0xF
+    data[0] = offset & 0xFF
 
 
-@reloc('adr_imm12')
-def apply_adr_imm12(reloc, sym_value, section, reloc_value):
+def apply_adr_imm12(sym_value, data, reloc_value):
     assert sym_value % 4 == 0
     assert reloc_value % 4 == 0
     offset = (sym_value - (reloc_value + 8))
@@ -69,17 +44,14 @@ def apply_adr_imm12(reloc, sym_value, section, reloc_value):
         U = 1
     assert offset < 4096
     offset = encode_imm32(offset)
-    section.data[reloc.offset+2] |= (U << 6)
-    section.data[reloc.offset+1] |= (offset >> 8) & 0xF
-    section.data[reloc.offset+0] = offset & 0xFF
+    data[2] |= (U << 6)
+    data[1] |= (offset >> 8) & 0xF
+    data[0] = offset & 0xFF
 
 
-@reloc('absaddr32')
-def apply_absaddr32(reloc, sym_value, section, reloc_value):
+def apply_absaddr32(sym_value, data, reloc_value):
     assert sym_value % 4 == 0
     assert reloc_value % 4 == 0
     offset = sym_value
-    section.data[reloc.offset+3] = (offset >> 24) & 0xFF
-    section.data[reloc.offset+2] = (offset >> 16) & 0xFF
-    section.data[reloc.offset+1] = (offset >> 8) & 0xFF
-    section.data[reloc.offset+0] = offset & 0xFF
+    bv = BitView(data, 0, 4)
+    bv[0:32] = offset

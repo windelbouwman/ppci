@@ -2,11 +2,11 @@
 
 import io
 import unittest
-from ppci.common import CompilerError
-from ppci.assembler import AsmLexer
+from ppci.common import CompilerError, DiagnosticsManager
+from ppci.binutils.assembler import AsmLexer
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
-from ppci.target import Label
+from ppci.target.target import Label
 from ppci.buildfunctions import link
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
@@ -34,13 +34,13 @@ class AssemblerLexingCase(unittest.TestCase):
     def testLex1(self):
         """ Test if lexer correctly maps some tokens """
         asmline = 'lab1: mov rax, rbx '
-        toks = ['ID', ':', 'ID', 'ID', ',', 'ID', 'EOF']
+        toks = ['LABEL', 'ID', 'ID', ',', 'ID', 'EOF']
         self.do(asmline, toks)
 
     def testLex2(self):
         """ Test if lexer correctly maps some tokens """
         asmline = 'mov 3.13 0xC 13'
-        toks = ['ID', 'REAL', 'val5', 'val5', 'EOF']
+        toks = ['ID', 'REAL', 'NUMBER', 'NUMBER', 'EOF']
         self.do(asmline, toks)
 
     def testLex3(self):
@@ -67,9 +67,14 @@ class AsmTestCaseBase(unittest.TestCase):
         self.obj = ObjectFile()
         self.ostream = BinaryOutputStream(self.obj)
         self.ostream.select_section('code')
+        self.diag = DiagnosticsManager()
+
+        # Prep assembler!
+        self.assembler = self.target.assembler
+        self.assembler.prepare()
 
     def feed(self, line):
-        self.assembler.assemble(line, self.ostream)
+        self.assembler.assemble(line, self.ostream, self.diag)
         print(line, file=self.source)
 
     def check(self, hexstr, layout=Layout()):
@@ -78,6 +83,7 @@ class AsmTestCaseBase(unittest.TestCase):
         data = bytes(self.obj.get_section('code').data)
         if hexstr is None:
             gnu_assemble(self.source.getvalue(), as_args=self.as_args)
+            self.fail('Implement this test-case')
         else:
             self.assertSequenceEqual(bytes.fromhex(hexstr), data)
 
