@@ -15,6 +15,7 @@ from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version, buildfunctions
 from .common import logformat
+from .target.target_list import target_names
 
 
 description = 'ppci {} compiler on {} {}'.format(
@@ -85,7 +86,8 @@ def c3c(args=None):
     parser = argparse.ArgumentParser(description=description)
     add_common_parser_options(parser)
 
-    parser.add_argument('--target', help='target machine', required=True)
+    parser.add_argument(
+        '--target', help='target machine', required=True, choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
                         default=sys.stdout)
@@ -114,7 +116,9 @@ def asm(args=None):
     add_common_parser_options(parser)
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
-    parser.add_argument('--target', '-t', help='target machine', required=True)
+    parser.add_argument(
+        '--target', '-t', help='target machine', required=True,
+        choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
                         default=sys.stdout)

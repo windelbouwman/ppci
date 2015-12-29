@@ -18,7 +18,7 @@ avr_target = AvrTarget()
 
 target_list = [arm_target, thumb_target, msp430target, x86target, avr_target]
 targets = {t.name: t for t in target_list}
-targetnames = list(targets.keys())
+target_names = tuple(targets.keys())
 
 
 def get_target(name):
