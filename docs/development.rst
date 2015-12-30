@@ -30,6 +30,18 @@ and for windows:
 - https://ci.appveyor.com/project/WindelBouwman/ppci-786
 
 
+Code metrics
+------------
+
+Code coverage is reported to the codecov service:
+
+- https://codecov.io/bitbucket/windel/ppci?branch=default
+
+Other code metrics are listed at openhub:
+
+- https://www.openhub.net/p/ppci
+
+
 Running the testsuite
 ---------------------
 
@@ -37,7 +49,7 @@ To run the unit tests with the compiler, use pytest:
 
 .. code:: bash
 
-    $ pytest -v test/
+    $ python -m pytest -v test/
 
 Or use the unittest module:
 
@@ -71,3 +83,16 @@ Alternatively the tox docs environment can be used:
     $ tox -e docs
 
 
+Release procedure
+-----------------
+
+Make sure all tests pass before a release.
+
+
+Package and upload the python package with:
+
+.. code:: bash
+
+    $ python setup.py sdist upload
+
+Increase the version number.

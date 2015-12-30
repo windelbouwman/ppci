@@ -44,21 +44,12 @@ This runs the snake demo on an emulated lm3s demo board and displays
 the game to the console.
 
 
-Instead of using the command line tools, you can also
-use the api.
-
-Links
------
-
-Sourcecode is located here:
-
-- https://bitbucket.org/windel/ppci
-- https://pikacode.com/windel/ppci/
-
+Documentation
+-------------
 
 Documentation can be found here:
 
-- http://ppci.rtfd.org/
+- http://ppci.readthedocs.org/
 
 
 |dronestate|_
@@ -72,12 +63,10 @@ Documentation can be found here:
 |license|_
 |downloads|_
 
-openhub_
 
 .. |codecov| image:: https://codecov.io/bitbucket/windel/ppci/coverage.svg?branch=default
 .. _codecov: https://codecov.io/bitbucket/windel/ppci?branch=default
 
-.. _openhub: https://www.openhub.net/p/ppci
 
 .. |downloads| image:: https://img.shields.io/pypi/dm/ppci.png
 .. _downloads: https://pypi.python.org/pypi/ppci
