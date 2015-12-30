@@ -26,7 +26,6 @@ To build the blinky project do the following:
 
     $ cd examples/blinky
     $ ppci-build.py
-    $ ls blinky.hex
 
 Flash the hexfile using your flashtool of choice on the stm32f4discovery board
 and enjoy the magic.
@@ -34,16 +33,11 @@ and enjoy the magic.
 arduino example
 ---------------
 
-To build the arduino blink led example, first build the example:
+To build and the arduino blink led example, follow the following commands:
 
 .. code:: bash
 
     $ cd examples/arduino
     $ ppci-build.py
-
-Next flash the hexfile using avrdude for example:
-
-.. code:: bash
-
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 

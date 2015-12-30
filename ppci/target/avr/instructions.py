@@ -20,6 +20,15 @@ class AvrToken(Token):
         return u16(self.bit_value)
 
 
+class Imm16Token(Token):
+    def __init__(self):
+        super().__init__(16)
+    imm = bit_range(0, 16)
+
+    def encode(self):
+        return u16(self.bit_value)
+
+
 class AvrToken1(AvrToken):
     op = bit_range(10, 16)
     r = bit_concat(bit(9), bit_range(0, 4))
@@ -197,6 +206,30 @@ class Pop(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class Sts(AvrInstruction):
+    tokens = [AvrToken2, Imm16Token]
+    rd = register_argument('rd', AvrRegister, read=True)
+    imm = register_argument('imm', int)
+    syntax = Syntax(['sts', imm, ',', rd])
+    patterns = [
+        FixedPattern('op', 0b1001001),
+        FixedPattern('n0', 0x0),
+        SubPattern('d', rd),
+        VariablePattern('imm', imm)]
+
+
+class Lds(AvrInstruction):
+    tokens = [AvrToken2, Imm16Token]
+    rd = register_argument('rd', AvrRegister, read=True)
+    imm = register_argument('imm', int)
+    syntax = Syntax(['lds', rd, ',', imm])
+    patterns = [
+        FixedPattern('op', 0b1001000),
+        FixedPattern('n0', 0x0),
+        SubPattern('d', rd),
+        VariablePattern('imm', imm)]
+
+
 class Nop(AvrInstruction):
     syntax = Syntax(['nop'])
     patterns = [FixedPattern('w0', 0)]
@@ -265,10 +298,28 @@ def _(context, tree):
     return res_var
 
 
+@avr_isa.pattern('reg', 'REGI8', cost=0)
+def _(context, tree):
+    return tree.value
+
+
+@avr_isa.pattern('reg16', 'REGI16', cost=0)
+def _(context, tree):
+    return tree.value
+
+
 @avr_isa.pattern('reg', 'MOVI8(reg)', cost=2)
 def _(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
+
+
+@avr_isa.pattern('reg', 'LDRI8(reg16)', cost=2)
+def _(context, tree, c0):
+    context.move(tree.value, c0)
+    d = context.new_reg(AvrRegister)
+    context.emit(Ld(d))
+    return d
 
 
 @avr_isa.pattern('reg', 'CONSTI8', cost=2)

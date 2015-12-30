@@ -59,6 +59,16 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("pop r9")
         self.check('df91 9f90')
 
+    def test_lds(self):
+        self.feed("lds r26, 0xabcd")
+        self.feed("lds r8, 0x1234")
+        self.check('a091cdab 80903412')
+
+    def test_sts(self):
+        self.feed("sts 0x9a54, r25")
+        self.feed("sts 0x5678, r7")
+        self.check('9093549a 70927856')
+
     def test_inc(self):
         self.feed("inc r28")
         self.feed("inc r2")

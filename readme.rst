@@ -43,6 +43,17 @@ in qemu as follows:
 This runs the snake demo on an emulated lm3s demo board and displays
 the game to the console.
 
+Python API
+----------
+
+Example of api usage:
+
+.. code-block:: python
+
+    >>> from ppci.target.x86 import instructions, registers
+    >>> i = instructions.Pop(registers.rbx)
+    >>> i.encode()
+    b'['
 
 Documentation
 -------------

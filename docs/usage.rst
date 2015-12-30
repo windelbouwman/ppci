@@ -2,7 +2,7 @@
 Command line tools
 ==================
 
-This section describes the usage of some commandline tools installed with ppci.
+This section describes the usage the commandline tools installed with ppci.
 
 .. _ppci-build:
 
@@ -46,6 +46,12 @@ ppci-asm.py
 -----------
 
 Invoke the assembler.
+
+ppci-objcopy.py
+---------------
+
+Objcopy utility to manipulate binary files.
+
 
 ppci-hexutil.py
 ---------------

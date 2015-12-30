@@ -7,7 +7,7 @@ from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
 from .instructions import Add, Sub, Push, Pop, Mov, Call
-from .registers import AvrRegister
+from .registers import AvrRegister, AvrPseudo16Register
 from .registers import r0, r1, r2, r3, r4, r5, r6, r7, r8
 from .registers import get_register
 

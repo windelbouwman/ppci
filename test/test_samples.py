@@ -661,6 +661,32 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang)
 
 
+@unittest.skip('todo')
+class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
+    march = "avr"
+    startercode = """
+    section reset
+    """
+    arch_mmap = """
+        MEMORY flash LOCATION=0x0 SIZE=0x8000 {  SECTION(code) }
+        MEMORY ram LOCATION=0x100 SIZE=0x800 {  SECTION(data) }
+        """
+    bsp_c3_src = """
+    module bsp;
+    public function void putc(byte c)
+    {
+    }
+
+    function void exit()
+    {
+        putc(4); // End of transmission
+    }
+    """
+
+    def do(self, src, expected_output, lang='c3'):
+        self.build(src, lang)
+
+
 class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "x86"
     startercode = """

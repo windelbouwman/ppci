@@ -202,7 +202,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'ppci.tex', 'ppci Documentation',
+  ('index_latex', 'ppci.tex', 'ppci Documentation',
    'Windel Bouwman', 'manual', True),
 ]
 

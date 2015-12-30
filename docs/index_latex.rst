@@ -1,13 +1,8 @@
 
-.. include:: introduction.rst
-
-Table of contents
-=================
-
 .. toctree::
     :maxdepth: 2
 
-    self
+    introduction
     quickstart
     installation
     usage
@@ -16,4 +11,3 @@ Table of contents
     api
     compiler
     development
-

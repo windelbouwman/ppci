@@ -46,6 +46,14 @@ class AvrRegister(Register):
         ]
 
 
+class AvrPseudo16Register(Register):
+    """
+        To be able to use 16 bit values, use this imaginary register type
+        containing a pair of real registers.
+    """
+    bitsize = 16
+
+
 #for i in range(32):
 #    reg_name = 'r{}'.format(i)
 #    globals()['r{}'.format(i)] = AvrRegister(reg_name, num=i)
