@@ -3,20 +3,17 @@
 Introduction
 ============
 
-The ppci project is a compiler, assembler, linker and build-system written 
-entirely in
-python. The project contains everything from language front-end to code
-generation.
-It contains a front-end for the c3 language, can optimize this code
-and generate ARM-code.
+The ppci (Pure python compiler infrastructure) project is a compiler
+written entirely in python.
 
 The project contains the following:
 
 - Language front-ends: Brainfuck, c3
 - Various code optimizers
-- Backends for various platforms: ARM, Thumb, Python
+- Backends for various platforms: ARM, Thumb, Python, X86, AVR
 - Assembler
 - Linker
+- Build system
 
 **Warning: This project is in alpha state and not ready for production use!**
 
@@ -66,6 +63,7 @@ Documentation can be found here:
 
 |dronestate|_
 |appveyor|_
+|codecov|_
 |devstate|_
 |docstate|_
 |version|_
@@ -73,12 +71,11 @@ Documentation can be found here:
 |pyversions|_
 |license|_
 |downloads|_
-|coveralls|_
 
 openhub_
 
-.. |coveralls| image:: https://coveralls.io/repos/windel/ppci/badge.svg?branch=master&service=bitbucket
-.. _coveralls: https://coveralls.io/bitbucket/windel/ppci?branch=master
+.. |codecov| image:: https://codecov.io/bitbucket/windel/ppci/coverage.svg?branch=default
+.. _codecov: https://codecov.io/bitbucket/windel/ppci?branch=default
 
 .. _openhub: https://www.openhub.net/p/ppci
 
