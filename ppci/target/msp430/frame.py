@@ -1,8 +1,8 @@
-from ..target import Frame, Label, Alignment, VCall
+from ..target import Frame, Label, Alignment
 from ..data_instructions import Db, Dw
 from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import Msp430Register, get_register
-from .instructions import ret, push, call, pop, Dcd2, mov
+from .instructions import ret, push, call, pop, Dcd2
 
 
 class Msp430Frame(Frame):
@@ -12,38 +12,16 @@ class Msp430Frame(Frame):
         pass arg2 in R12
         return value in R10
     """
-    def __init__(self, name):
-        # We use r7 as frame pointer.
-        super().__init__(name)
+    def __init__(self, name, arg_locs, live_in, rv, live_out):
+        super().__init__(name, arg_locs, live_in, rv, live_out)
 
         # Allocatable registers:
-        self.regs = [r4, r5, r6, r7, r8, r9, r11, r12, r13, r14]
+        self.regs = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14]
 
-        self.rv = r10
-        self.p1 = r11
-        self.p2 = r12
-        self.p3 = r13
-        self.p4 = r14
         self.fp = r15
         self.locVars = {}
         self.constants = []
         self.literal_number = 0
-
-    def gen_call(self, label, args, res_var):
-        # R0 is filled with return value, do not save it, it will conflict.
-
-        # Setup parameters:
-        reg_uses = []
-        for i, arg in enumerate(args):
-            arg_loc = self.arg_loc(i)
-            if isinstance(arg_loc, Msp430Register):
-                reg_uses.append(arg_loc)
-                self.move(arg_loc, arg)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-        self.emit(VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
-        self.move(res_var, self.rv)
 
     def make_call(self, vcall):
         # TODO: calling convention!
@@ -61,10 +39,6 @@ class Msp430Frame(Frame):
 
     def get_register(self, color):
         return get_register(color)
-
-    def move(self, dst, src):
-        """ Generate a move from src to dst """
-        self.emit(mov(src, dst))
 
     def new_virtual_register(self, twain=""):
         """ Retrieve a new virtual register """
@@ -121,16 +95,3 @@ class Msp430Frame(Frame):
         # Add final literal pool:
         for instruction in self.litpool():
             yield instruction
-
-    def arg_loc(self, pos):
-        """ Gets the function parameter location. """
-        if pos == 0:
-            return self.p1
-        elif pos == 1:
-            return self.p2
-        elif pos == 2:
-            return self.p3
-        elif pos == 3:
-            return self.p4
-        else:  # pragma: no cover
-            raise NotImplementedError('No more than 4 parameters implemented')

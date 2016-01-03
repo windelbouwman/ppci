@@ -632,8 +632,8 @@ def _(context, tree, c0, c1):
 
 @isa.pattern('reg64', 'CALL', cost=10)
 def _(context, tree):
-    label, args, res_var = tree.value
-    context.frame.gen_call(label, args, res_var)
+    label, arg_types, ret_type, args, res_var = tree.value
+    context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 

@@ -640,9 +640,7 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         ALIGN(4)
         SECTION(code)
     }
-    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
-        SECTION(data)
-    }
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 { SECTION(data) }
     """
     bsp_c3_src = """
     module bsp;
@@ -661,14 +659,14 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang)
 
 
-@unittest.skip('todo')
+# @unittest.skip('todo')
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "avr"
     startercode = """
     section reset
     """
     arch_mmap = """
-        MEMORY flash LOCATION=0x0 SIZE=0x8000 {  SECTION(code) }
+        MEMORY code LOCATION=0x0 SIZE=0x8000 {  SECTION(code) }
         MEMORY ram LOCATION=0x100 SIZE=0x800 {  SECTION(data) }
         """
     bsp_c3_src = """

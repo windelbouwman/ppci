@@ -7,16 +7,11 @@ from ..arm.registers import get_register
 
 class ThumbFrame(Frame):
     """ Arm specific frame for functions. """
-    def __init__(self, name):
-        # We use r7 as frame pointer.
-        super().__init__(name)
+    def __init__(self, name, arg_locs, live_in, rv, live_out):
+        super().__init__(name, arg_locs, live_in, rv, live_out)
         # Registers usable by register allocator:
+        # We use r7 as frame pointer.
         self.regs = [R0, R1, R2, R3, R4, R5, R6]
-        self.rv = R0
-        self.p1 = R1
-        self.p2 = R2
-        self.p3 = R3
-        self.p4 = R4
         self.fp = R7
 
         self.locVars = {}
@@ -25,28 +20,8 @@ class ThumbFrame(Frame):
         self.constants = []
         self.literal_number = 0
 
-    def move(self, dst, src):
-        self.emit(Mov2(dst, src, ismove=True))
-
     def get_register(self, color):
         return get_register(color)
-
-    def gen_call(self, label, args, res_var):
-        """ Generate code for call sequence """
-
-        # Copy args to correct positions:
-        reg_uses = []
-        for i, arg in enumerate(args):
-            arg_loc = self.arg_loc(i)
-            if type(arg_loc) is type(R0):
-                reg_uses.append(arg_loc)
-                self.move(arg_loc, arg)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-        # Caller save registers:
-        self.emit(
-            VCall(label, extra_uses=reg_uses, extra_defs=[self.rv]))
-        self.move(res_var, self.rv)
 
     def make_call(self, vcall):
         # Now we now what variables are live:
@@ -64,21 +39,6 @@ class ThumbFrame(Frame):
         # Restore caller save registers:
         if register_set:
             yield Pop(register_set)
-
-    def arg_loc(self, pos):
-        """
-            Gets the function parameter location in IR-code format.
-        """
-        if pos == 0:
-            return self.p1
-        elif pos == 1:
-            return self.p2
-        elif pos == 2:
-            return self.p3
-        elif pos == 3:
-            return self.p4
-        else:  # pragma: no cover
-            raise NotImplementedError('No more than 4 parameters implemented')
 
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:

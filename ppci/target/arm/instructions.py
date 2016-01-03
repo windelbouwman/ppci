@@ -13,6 +13,9 @@ from ..token import Token, u32, u8, bit_range
 from .relocations import apply_b_imm24, apply_absaddr32, apply_rel8
 from .relocations import apply_ldr_imm12, apply_adr_imm12
 
+# TODO: do not use ir stuff here!
+from ...ir import i32
+
 
 class RegisterSet(set):
     def __repr__(self):
@@ -717,8 +720,8 @@ def _(context, tree, c0):
 
 @isa.pattern('reg', 'CALL', cost=2)
 def _(context, tree):
-    label, args, res_var = tree.value
-    context.frame.gen_call(label, args, res_var)
+    label, arg_types, ret_type, args, res_var = tree.value
+    context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
@@ -770,7 +773,7 @@ def _(context, tree, c0):
 def _(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
-    context.frame.gen_call('__sdiv', [c0, c1], d)
+    context.gen_call('__sdiv', [i32, i32], i32, [c0, c1], d)
     return d
 
 
@@ -778,7 +781,7 @@ def _(context, tree, c0, c1):
 def _(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(ArmRegister)
-    context.frame.gen_call('__sdiv', [c0, c1], d)
+    context.gen_call('__sdiv', [i32, i32], i32, [c0, c1], d)
     d2 = context.new_reg(ArmRegister)
     context.emit(Mls(d2, d, c1, c0))
     return d2

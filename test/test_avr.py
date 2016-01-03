@@ -22,9 +22,37 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("add r11, r7")
         self.check('b70c')
 
+    def test_adc(self):
+        self.feed("adc r21, r22")
+        self.check('561f')
+
     def test_sub(self):
         self.feed("sub r1, r1")
         self.check('1118')
+
+    def test_sbc(self):
+        self.feed("sbc r2, r3")
+        self.check('2308')
+
+    def test_and(self):
+        self.feed("and r18, r6")
+        self.check('2621')
+
+    def test_or(self):
+        self.feed("or r12, r26")
+        self.check('ca2a')
+
+    def test_eor(self):
+        self.feed("eor r13, r21")
+        self.check('d526')
+
+    def test_cp(self):
+        self.feed("cp r12, r20")
+        self.check('c416')
+
+    def test_cpc(self):
+        self.feed("cpc r11, r19")
+        self.check('b306')
 
     def test_ret(self):
         self.feed("ret")
@@ -58,6 +86,19 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("pop r29")
         self.feed("pop r9")
         self.check('df91 9f90')
+
+    def test_ld(self):
+        """ Test ld using X register """
+        self.feed("ld r23, X")
+        self.feed("ld r2, X")
+        self.feed("ld r3, x+")
+        self.feed("ld r4, -x")
+        self.check('7c91 2c90 3d90 4e90')
+
+    def test_st(self):
+        self.feed("st X, r22")
+        self.feed("st X, r5")
+        self.check('6c93 5c92')
 
     def test_lds(self):
         self.feed("lds r26, 0xabcd")
@@ -100,13 +141,27 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("brne a")
         self.check('09f4 01f4 f9f7 f1f7')
 
-    @unittest.skip('todo')
     def test_breq(self):
         self.feed("breq a")
         self.feed("breq a")
         self.feed("a: breq a")
         self.feed("breq a")
-        self.check('09f4 01f4 f9f7 f1f7')
+        self.check('09f0 01f0 f9f3 f1f3')
+
+    def test_brlt(self):
+        self.feed("brlt a")
+        self.feed("brlt a")
+        self.feed("a: brlt a")
+        self.feed("brlt a")
+        self.check('0cf0 04f0 fcf3 f4f3')
+
+    def test_ldi_address(self):
+        """ Test if lo and hi loads from a relocatable constant work """
+        self.feed("a: ldi r16, lo(a)")
+        self.feed("ldi r16, hi(a)")
+        spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
+        layout = load_layout(io.StringIO(spec))
+        self.check('04e3 02e1', layout=layout)
 
     @unittest.skip('todo')
     def test_jmp(self):

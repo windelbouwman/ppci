@@ -1,4 +1,1 @@
-
-
 from .target import ThumbTarget
-

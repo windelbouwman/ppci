@@ -53,10 +53,23 @@ class AvrPseudo16Register(Register):
     """
     bitsize = 16
 
+    def __init__(self, name, hi=None, lo=None):
+        super().__init__(name)
+        if not hi:
+            hi = AvrRegister(name + '_hi')
+        if not lo:
+            lo = AvrRegister(name + '_lo')
+        self._hi = hi
+        self._lo = lo
 
-#for i in range(32):
-#    reg_name = 'r{}'.format(i)
-#    globals()['r{}'.format(i)] = AvrRegister(reg_name, num=i)
+    @property
+    def hi(self):
+        return self._hi
+
+    @property
+    def lo(self):
+        return self._lo
+
 
 r0 = AvrRegister('r0', num=0)
 r1 = AvrRegister('r1', num=1)
@@ -94,6 +107,9 @@ r29 = AvrRegister('r29', num=29)
 r30 = AvrRegister('r30', num=30)
 r31 = AvrRegister('r31', num=31)
 
+X = AvrPseudo16Register('X', hi=r27, lo=r26)
+Y = AvrPseudo16Register('Y', hi=r29, lo=r28)
+Z = AvrPseudo16Register('Z', hi=r31, lo=r30)
 
 all_regs = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
             r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,

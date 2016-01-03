@@ -237,9 +237,10 @@ class SelectionGraphBuilder:
         ret_val = self.function_info.frame.new_reg(
             self.target.value_classes[node.ty], '{}_result'.format(node.name))
 
+        arg_types = [argument.ty for argument in node.arguments]
         # Perform the actual call:
         sgnode = self.new_node(
-            'CALL', value=(node.function_name, args, ret_val))
+            'CALL', value=(node.function_name, arg_types, node.ty, args, ret_val))
         for i in inputs:
             sgnode.add_input(i)
         self.chain(sgnode)
@@ -276,7 +277,7 @@ class SelectionGraphBuilder:
         # TODO: maybe this can be done different
         # Copy parameters into fresh temporaries:
         for arg in ir_function.arguments:
-            loc = function_info.frame.arg_loc(arg.num)
+            loc = function_info.frame.arg_locs[arg.num]
             # TODO: byte value are not always passed in byte registers..
             #
             tp_pf = 'REGI{}'.format(loc.bitsize)

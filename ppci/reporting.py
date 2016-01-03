@@ -151,12 +151,12 @@ class HtmlReportGenerator(TextWritingReporter):
    padding: 10px;
    border: 1px solid black;
   }
+  body {font-family:sans-serif;}
   </style>
  </head>
  <body><div>
  <h1>Compilation report</h1>
- <p>
- This is an automatically generated report with a full log of compilation.
+ <p>This is an automatically generated report with a full log of compilation.
  </p>
         """
         self.print(header)

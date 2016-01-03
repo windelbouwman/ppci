@@ -514,7 +514,7 @@ class Cast(Expression):
         self.src = value
 
     def __repr__(self):
-        return '{} = cast {} {}'.format(self.name, self.ty, self.src.name)
+        return '{} {} = cast {}'.format(self.ty, self.name, self.src.name)
 
 
 def to_ptr(value, name):
@@ -542,7 +542,7 @@ class Const(Expression):
         assert type(value) in [int, float], str(value)
 
     def __repr__(self):
-        return '{} {} = Const {}'.format(self.ty, self.name, self.value)
+        return '{} {} = {}'.format(self.ty, self.name, self.value)
 
 
 class LiteralData(Expression):
@@ -560,10 +560,10 @@ class LiteralData(Expression):
 
 class Call(Expression):
     """ Call a function with some arguments """
-    def __init__(self, function, arguments, name, ty, loc=None):
+    def __init__(self, function_name, arguments, name, ty, loc=None):
         super().__init__(name, ty, loc=loc)
-        assert type(function) is str
-        self.function_name = function
+        assert type(function_name) is str
+        self.function_name = function_name
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
@@ -636,7 +636,7 @@ class Phi(Value):
     def __repr__(self):
         inputs = {block.name: value.name
                   for block, value in self.inputs.items()}
-        return '{} = Phi {}'.format(self.name, inputs)
+        return '{} {} = Phi {}'.format(self.ty, self.name, inputs)
 
     def replace_use(self, old, new):
         """ Replace old value reference by new value reference """
@@ -693,7 +693,7 @@ class Parameter(Expression):
         super().__init__(name, ty)
 
     def __repr__(self):
-        return 'Param {}'.format(self.name)
+        return 'Parameter {} {}'.format(self.ty, self.name)
 
 
 class Load(Value):
@@ -707,8 +707,7 @@ class Load(Value):
         self.volatile = volatile
 
     def __repr__(self):
-        ty = self.ty
-        return '{} = load {} {}'.format(self.name, ty, self.address.name)
+        return '{} {} = load {}'.format(self.ty, self.name, self.address.name)
 
 
 class Store(Instruction):

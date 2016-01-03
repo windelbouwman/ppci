@@ -154,8 +154,12 @@ class Frame:
         Frames differ per machine. The only thing left to do for a frame
         is register allocation.
     """
-    def __init__(self, name):
+    def __init__(self, name, arg_locs, live_in, rv, live_out):
         self.name = name
+        self.arg_locs = arg_locs
+        self.live_in = live_in
+        self.rv = rv
+        self.live_out = live_out
         self.instructions = []
         self.stacksize = 0
         self.temps = generate_temps()

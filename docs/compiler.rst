@@ -11,6 +11,8 @@ This is optional. The back-end generates machine code. The front-end produces
 intermediate code. This is a simple representation of the source. The back-end
 can accept this kind of representation.
 
+The compiler is greatly influenced by the `LLVM<http://www.llvm.org>`_ design.
+
 .. graphviz::
  
    digraph x {
