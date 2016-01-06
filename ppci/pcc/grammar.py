@@ -151,7 +151,7 @@ class Production:
         self.priority = priority
 
     def __repr__(self):
-        return '{0} -> {1}'.format(self.name, self.symbols)
+        return '{} -> {} P_{}'.format(self.name, self.symbols, self.priority)
 
     @property
     def is_epsilon(self):

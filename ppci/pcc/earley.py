@@ -48,7 +48,12 @@ class Item:
         return self.__hash__() == other.__hash__()
 
     def __hash__(self):
-        return (self.rule.name, self.rule.symbols, self.dot, self.origin).__hash__()
+        return (
+            self.rule.name,
+            self.rule.symbols,
+            self.rule.priority,
+            self.dot,
+            self.origin).__hash__()
 
 
 class Column:
@@ -175,30 +180,27 @@ class EarleyParser:
         items = columns[end]
         items = filter(lambda i: i.rule.name == nt and i.is_reduce, items)
         items = sorted(items, key=lambda i: i.rule.priority)
-        if items:
-            # for item in columns[end]:
-            # if item.rule.name == nt and item.is_reduce:
-            item = items[0]
-            # We found an item
-            # print(item)
-            r = []
-            # assert len(item.rule.symbols) > 0
-            for x in reversed(item.rule.symbols):
-                if self.grammar.is_nonterminal(x):
-                    x, end = self.walk(columns, end, x)
-                    r.insert(0, x)
-                else:
-                    r.insert(0, columns[end].token)
-                    end -= 1
-            # print(r)
+        if not items:
+            raise RuntimeError("Unable build tree")  # pragma: no cover
 
-            # Apply semantics, if any!
-            if item.rule.f:
-                res = item.rule.f(*r)
+        # We found an item
+        item = items[0]
+        r = []
+        # assert len(item.rule.symbols) > 0
+        for x in reversed(item.rule.symbols):
+            if self.grammar.is_nonterminal(x):
+                x, end = self.walk(columns, end, x)
+                r.insert(0, x)
             else:
-                res = None
-            return res, end
-        raise RuntimeError("Unable build tree")  # pragma: no cover
+                r.insert(0, columns[end].token)
+                end -= 1
+
+        # Apply semantics, if any!
+        if item.rule.f:
+            res = item.rule.f(*r)
+        else:
+            res = None
+        return res, end
 
     def dump_parse(self, columns):
         print("Parse result:")

@@ -234,7 +234,7 @@ class testParserGenerator(unittest.TestCase):
         for nt in ['list', 'pair', 'goal']:
             self.assertEqual(pb.first[nt], {'('})
 
-    def testInitItemSet(self):
+    def test_init_item_set(self):
         p0, p1, p2, p3, p4 = self.g.productions
         s0 = LrParserBuilder(self.g).initial_item_set()
         self.assertEqual(len(s0), 9)    # 9 with the goal rule included!
@@ -286,7 +286,7 @@ class testParserGenerator(unittest.TestCase):
 
 
 class EarleyParserTestCase(unittest.TestCase):
-    def test1(self):
+    def test_expression_grammar(self):
         grammar = Grammar()
         grammar.add_terminals(
             ['EOF', 'identifier', '(', ')', '+', '*', 'num'])
@@ -309,6 +309,30 @@ class EarleyParserTestCase(unittest.TestCase):
         result = parser.parse(gen_tokens(
             [('num', 7), '*', ('num', 11), '+', ('num', 3)]))
         self.assertEqual(80, result)
+
+    def test_ambiguous_grammar(self):
+        """
+            Test if ambiguous grammar is handled correctly by priorities
+        """
+        # TODO: check that ambiguous grammars have different priorities!
+        grammar = Grammar()
+        grammar.add_terminals(['mov', 'num', '+'])
+        grammar.add_production(
+            'expr', ['num', '+', 'num'],
+            lambda rh1, _, rh3: rh1.val + rh3.val,
+            priority=3)
+        grammar.add_production(
+            'expr', ['num', '+', 'num'],
+            lambda rh1, _, rh3: rh1.val + rh3.val + 1,
+            priority=2)
+        grammar.add_production(
+            'ins', ['mov', 'expr'],
+            lambda _, rh2: rh2,
+            priority=2)
+        grammar.start_symbol = 'ins'
+        parser = EarleyParser(grammar)
+        result = parser.parse(gen_tokens(['mov', ('num', 1), '+', ('num', 1)]))
+        self.assertEqual(3, result)
 
     def test_cb(self):
         """ Test callback of one rule and order or parameters """
