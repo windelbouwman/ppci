@@ -17,36 +17,24 @@ The project contains the following:
 
 **Warning: This project is in alpha state and not ready for production use!**
 
-Quick guide
------------
+Command line tools
+------------------
 
-ppci can be installed using pip:
+Use it to build projects, like the snake example:
 
 .. code:: bash
 
     $ pip install ppci
-
-To invoke the builder and compile the snake demo, use the following:
-
-.. code:: bash
-
     $ ppci-build.py -f examples/build.xml
-
-If the compilation was succesful, the snake demo compiled into
-'examples/snake.bin'. This is a binary file with ARM-code which can be run
-in qemu as follows:
-
-.. code:: bash
-
     $ qemu-system-arm -M lm3s6965evb -kernel snake.bin -serial stdio
 
-This runs the snake demo on an emulated lm3s demo board and displays
+This runs the snake demo on an emulated (qemu) lm3s demo board and displays
 the game to the console.
 
 Python API
 ----------
 
-Example of api usage:
+Or use the rich api:
 
 .. code-block:: python
 
