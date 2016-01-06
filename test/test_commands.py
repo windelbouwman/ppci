@@ -7,7 +7,7 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump
+from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
 from ppci.common import DiagnosticsManager, SourceLocation
 from util import relpath
 
@@ -92,6 +92,25 @@ class ObjdumpTestCase(unittest.TestCase):
         src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
         asm(['--target', 'thumb', '-o', obj_file, src])
         objdump([obj_file])
+        self.assertIn('SECTION', mock_stdout.getvalue())
+
+
+class ObjcopyTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            objcopy(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('format', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @unittest.skip('TODO')
+    def test_command(self, mock_stdout):
+        _, obj_file = tempfile.mkstemp()
+        _, bin_file = tempfile.mkstemp()
+        src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
+        asm(['--target', 'thumb', '-o', obj_file, src])
+        objcopy(['-O', 'bin', obj_file, bin_file])
         self.assertIn('SECTION', mock_stdout.getvalue())
 
 

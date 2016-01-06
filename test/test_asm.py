@@ -3,10 +3,11 @@
 import io
 import unittest
 from ppci.common import CompilerError, DiagnosticsManager
-from ppci.binutils.assembler import AsmLexer
+from ppci.binutils.assembler import AsmLexer, BaseAssembler
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.target.target import Label
+from ppci.target.example import SimpleTarget
 from ppci.buildfunctions import link
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
@@ -25,25 +26,25 @@ class AssemblerLexingCase(unittest.TestCase):
             output.append(self.lexer.next_token().typ)
         self.assertSequenceEqual(toks, output)
 
-    def testLex0(self):
+    def test_lex_0(self):
         """ Check if the lexer is OK """
         asmline = 'mov rax, rbx '
         toks = ['ID', 'ID', ',', 'ID', 'EOF']
         self.do(asmline, toks)
 
-    def testLex1(self):
+    def test_lex_1(self):
         """ Test if lexer correctly maps some tokens """
         asmline = 'lab1: mov rax, rbx '
         toks = ['LABEL', 'ID', 'ID', ',', 'ID', 'EOF']
         self.do(asmline, toks)
 
-    def testLex2(self):
+    def test_lex_2(self):
         """ Test if lexer correctly maps some tokens """
         asmline = 'mov 3.13 0xC 13'
         toks = ['ID', 'REAL', 'NUMBER', 'NUMBER', 'EOF']
         self.do(asmline, toks)
 
-    def testLex3(self):
+    def test_invalid_token(self):
         """ Test if lexer fails on a token that is invalid """
         asmline = '0z4: mov rax, rbx $ '
         with self.assertRaises(CompilerError):
@@ -51,12 +52,25 @@ class AssemblerLexingCase(unittest.TestCase):
 
 
 class OustreamTestCase(unittest.TestCase):
-    def test1(self):
+    def test_normal_use(self):
         obj = ObjectFile()
         o = BinaryOutputStream(obj)
         o.select_section('.text')
         o.emit(Label('a'))
         self.assertSequenceEqual(bytes(), obj.get_section('.text').data)
+
+
+class AssemblerTestCase(unittest.TestCase):
+    def test_parse_failure(self):
+        """ Check the error reporting of the assembler """
+        target = SimpleTarget()
+        obj = ObjectFile()
+        ostream = BinaryOutputStream(obj)
+        ostream.select_section('code')
+        diag = DiagnosticsManager()
+        assembler = BaseAssembler(target)
+        with self.assertRaises(CompilerError):
+            assembler.assemble('abc def', ostream, diag)
 
 
 class AsmTestCaseBase(unittest.TestCase):

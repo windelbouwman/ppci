@@ -611,11 +611,6 @@ def _(self, tree):
     return tree.value
 
 
-@isa.pattern('reg', 'REGI8', cost=0)
-def _(self, tree):
-    return tree.value
-
-
 @isa.pattern('reg', 'ADDI32(reg,reg)', cost=1)
 def _(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)

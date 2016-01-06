@@ -231,7 +231,7 @@ class Constructor:
                     value = pattern.prop.__get__(self).bit_pattern
                 elif isinstance(pattern, FixedPattern):
                     value = pattern.value
-                else:
+                else:  # pragma: no cover
                     raise NotImplementedError(str(pattern))
                 self.set_field(tokens, pattern.field, value)
 
