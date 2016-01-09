@@ -36,6 +36,7 @@ setup(
     description="Pure python compiler infrastructure",
     scripts=[
         "bin/ppci-build.py",
+        "bin/ppci-ld.py",
         "bin/ppci-asm.py",
         "bin/ppci-c3c.py",
         "bin/ppci-objdump.py",

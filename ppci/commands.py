@@ -87,7 +87,8 @@ def c3c(args=None):
     add_common_parser_options(parser)
 
     parser.add_argument(
-        '--target', help='target machine', required=True, choices=target_names)
+        '--target', '-t', help='target machine', required=True,
+        choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
                         default=sys.stdout)
@@ -137,6 +138,31 @@ def asm(args=None):
         # args.output.close()
 
 
+def link(args=None):
+    """ Run asm from command line """
+    parser = argparse.ArgumentParser(description=description)
+    add_common_parser_options(parser)
+    parser.add_argument(
+        'obj', type=argparse.FileType('r'), nargs='+',
+        help='the object to link')
+    parser.add_argument(
+        '--target', '-t', help='target machine', required=True,
+        choices=target_names)
+    parser.add_argument(
+        '--layout', '-L', help='memory layout', required=True,
+        type=argparse.FileType('r'))
+    parser.add_argument('--output', '-o', help='output file',
+                        type=argparse.FileType('w'),
+                        default='a.out')
+    args = parser.parse_args(args)
+    with LogSetup(args):
+        logging.getLogger().info(description)
+        obj = buildfunctions.link(args.obj, args.layout, args.target)
+        obj.save(args.output)
+        args.output.flush()
+        # args.output.close()
+
+
 def objdump(args=None):
     """ Dump info of an object file """
     parser = argparse.ArgumentParser(description=description)
@@ -160,6 +186,8 @@ def objcopy(args=None):
     parser.add_argument(
         'input', help='input file', type=argparse.FileType('r'))
     parser.add_argument(
+        '--segment', '-S', help='segment to copy', required=True)
+    parser.add_argument(
         'output', help='output file')
     parser.add_argument(
         '--output-format', '-O', help='output file format')
@@ -170,7 +198,8 @@ def objcopy(args=None):
         # Read object from file:
         obj = load_object(args.input)
         args.input.close()
-        buildfunctions.objcopy(obj, 'code', args.output_format, args.output)
+        buildfunctions.objcopy(
+            obj, args.segment, args.output_format, args.output)
 
 
 def yacc_cmd(args=None):

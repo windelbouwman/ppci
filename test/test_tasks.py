@@ -1,5 +1,7 @@
 import io
+import os
 import unittest
+import tempfile
 
 try:
     from unittest.mock import patch
@@ -8,7 +10,7 @@ except ImportError:
 
 from ppci.buildfunctions import construct
 from ppci.buildtasks import EmptyTask
-from ppci.tasks import TaskRunner, TaskError, Project, Target
+from ppci.tasks import TaskRunner, TaskError, Project, Target, Task
 
 
 class TaskTestCase(unittest.TestCase):
@@ -55,6 +57,23 @@ class TaskTestCase(unittest.TestCase):
         proj.add_target(t2)
         runner = TaskRunner()
         runner.run(proj, ['t1'])
+
+    def test_ensure_path(self):
+        empty_dir = tempfile.mkdtemp()
+        txt_filename = os.path.join('a', 'b', 'c.txt')
+        full_path = os.path.join(empty_dir, txt_filename)
+        task = Task(None, None)
+        task.ensure_path(full_path)
+        self.assertTrue(os.path.isdir(os.path.dirname(full_path)))
+
+    def test_open_fileset(self):
+        empty_dir = tempfile.mkdtemp()
+        project = Project('a')
+        project.set_property('basedir', empty_dir)
+        target = Target('t1', project)
+        task = Task(target, None)
+        with self.assertRaisesRegex(TaskError, 'not found'):
+            task.open_file_set('*.asm')
 
 
 class RecipeTestCase(unittest.TestCase):
@@ -130,3 +149,7 @@ class RecipeTestCase(unittest.TestCase):
         """
 
         construct(io.StringIO(recipe))
+
+
+if __name__ == '__main__':
+    unittest.main()

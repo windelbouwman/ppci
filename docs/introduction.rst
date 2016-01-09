@@ -7,12 +7,9 @@ written entirely in python.
 
 The project contains the following:
 
+- A compiler, an assembler, a linker and a build system
 - Language front-ends: Brainfuck, :doc:`c3`
-- Various code optimizers
-- Backends for various platforms: ARM, Thumb, Python, X86, AVR
-- Assembler
-- Linker
-- Build system
+- Backends for various platforms: ARM, Thumb, Python, X86, AVR, MSP430
 
 An example usage of the low level encoding api:
 

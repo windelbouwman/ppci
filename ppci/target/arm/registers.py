@@ -9,7 +9,6 @@ class ArmRegister(Register):
     def __repr__(self):
         if self.is_colored:
             return get_register(self.color).name
-            return '{}={}'.format(self.name, self.color)
         else:
             return self.name
 

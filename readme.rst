@@ -3,17 +3,14 @@
 Introduction
 ============
 
-The ppci (Pure python compiler infrastructure) project is a compiler
+The ppci (pure python compiler infrastructure) project is a compiler
 written entirely in python.
 
 The project contains the following:
 
+- A Compiler, an assembler, a linker and a build system
 - Language front-ends: Brainfuck, c3
-- Various code optimizers
-- Backends for various platforms: ARM, Thumb, Python, X86, AVR
-- Assembler
-- Linker
-- Build system
+- Backends: arm, avr, thumb, python, msp430, x86
 
 **Warning: This project is in alpha state and not ready for production use!**
 

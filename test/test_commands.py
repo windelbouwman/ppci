@@ -8,7 +8,9 @@ except ImportError:
     from mock import patch
 
 from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
+from ppci.commands import link
 from ppci.common import DiagnosticsManager, SourceLocation
+from ppci.binutils.objectfile import ObjectFile, Section, Image
 from util import relpath
 
 
@@ -104,14 +106,49 @@ class ObjcopyTestCase(unittest.TestCase):
         self.assertIn('format', mock_stdout.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    @unittest.skip('TODO')
     def test_command(self, mock_stdout):
         _, obj_file = tempfile.mkstemp()
         _, bin_file = tempfile.mkstemp()
-        src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['--target', 'thumb', '-o', obj_file, src])
-        objcopy(['-O', 'bin', obj_file, bin_file])
-        self.assertIn('SECTION', mock_stdout.getvalue())
+        obj = ObjectFile()
+        data = bytes(range(100))
+        section = Section('.text')
+        section.add_data(data)
+        image = Image('code2', 0)
+        image.sections.append(section)
+        obj.add_section(section)
+        obj.add_image(image)
+        with open(obj_file, 'w') as f:
+            obj.save(f)
+        objcopy(['-O', 'bin', '-S', 'code2', obj_file, bin_file])
+        with open(bin_file, 'rb') as f:
+            exported_data = f.read()
+        self.assertEqual(data, exported_data)
+
+
+class LinkCommandTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            link(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('obj', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_command(self, mock_stdout):
+        _, obj1 = tempfile.mkstemp()
+        _, obj2 = tempfile.mkstemp()
+        _, obj3 = tempfile.mkstemp()
+        asm_src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
+        mmap = relpath('..', 'examples', 'lm3s6965', 'memlayout.mmap')
+        c3_srcs = [
+            relpath('..', 'examples', 'snake', 'main.c3'),
+            relpath('..', 'examples', 'snake', 'game.c3'),
+            relpath('..', 'librt', 'io.c3'),
+            relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
+            ]
+        asm(['-t', 'thumb', '-o', obj1, asm_src])
+        c3c(['-t', 'thumb', '-o', obj2] + c3_srcs)
+        link(['-o', obj3, '-t', 'thumb', '-L', mmap, obj1, obj2])
 
 
 class HexutilTestCase(unittest.TestCase):
