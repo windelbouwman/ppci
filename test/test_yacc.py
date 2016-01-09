@@ -6,7 +6,7 @@ except ImportError:
     from mock import patch
 
 import io
-from ppci.pcc.grammar import Grammar
+from ppci.pcc.grammar import Grammar, print_grammar
 from ppci.pcc.common import ParserGenerationException
 from ppci.pcc.lr import Item
 from ppci.pcc.common import ParserException
@@ -185,7 +185,39 @@ class LrParserBuilderTestCase(unittest.TestCase):
         self.assertTrue(self.cb_called)
 
 
-class testExpressionGrammar(unittest.TestCase):
+class GrammarTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_print(self, mock_stdout):
+        grammar = Grammar()
+        grammar.add_terminal('a')
+        grammar.add_production('b', ['a', 'a'])
+        print_grammar(grammar)
+        self.assertTrue(mock_stdout.getvalue())
+
+    def test_redefine_non_terminal(self):
+        grammar = Grammar()
+        grammar.add_terminal('a')
+        self.assertTrue(grammar.is_terminal('a'))
+        grammar.add_production('b', ['a', 'a'])
+        with self.assertRaises(ParserGenerationException):
+            grammar.add_terminal('b')
+
+    def test_rewrite_epsilons(self):
+        """ Test grammar rewriting. This involves the removal of epsilon
+        rules. """
+        grammar = Grammar()
+        grammar.add_terminals(['a', 'b', 'c'])
+        grammar.add_production('X', [])
+        grammar.add_production('X', ['c'])
+        grammar.add_production('Y', ['X', 'a'])
+        self.assertFalse(grammar.is_normal)
+        self.assertEqual(1, len(grammar.productions_for_name('Y')))
+        grammar.rewrite_eps_productions()
+        self.assertEqual(2, len(grammar.productions_for_name('Y')))
+        self.assertTrue(grammar.is_normal)
+
+
+class ExpressionGrammarTestCase(unittest.TestCase):
     def setUp(self):
         g = Grammar()
         g.add_terminals(['EOF', 'identifier', '(', ')', '+', '*', 'num'])
@@ -214,7 +246,7 @@ class testExpressionGrammar(unittest.TestCase):
         self.assertEqual(len(s), 24)
 
 
-class testParserGenerator(unittest.TestCase):
+class ParserGeneratorTestCase(unittest.TestCase):
     """ Tests several parts of the parser generator """
     def setUp(self):
         g = Grammar()

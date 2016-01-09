@@ -15,6 +15,7 @@ from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
 from ppci.buildfunctions import link
 from ppci.binutils import layout
+from ppci.utils.elffile import ElfFile
 from ppci.target.example import Mov, R0, R1
 
 
@@ -180,6 +181,15 @@ class ObjectFileTestCase(unittest.TestCase):
         object1, object2 = self.make_twins()
         object3 = deserialize(serialize(object1))
         self.assertEqual(object3, object1)
+
+
+class ElfFileTestCase(unittest.TestCase):
+    def test_save_load(self):
+        ef1 = ElfFile()
+        f = io.BytesIO()
+        ef1.save(f, ObjectFile())
+        f2 = io.BytesIO(f.getvalue())
+        ElfFile.load(f2)
 
 
 class LayoutFileTestCase(unittest.TestCase):

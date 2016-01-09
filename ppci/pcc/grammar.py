@@ -79,7 +79,6 @@ class Grammar:
 
             # Process the first occasion:
             eps_rule = eps[0]
-            print(eps_rule)
 
             # Remove the epsilon-rule
             self.productions.remove(eps_rule)
@@ -111,7 +110,7 @@ class Grammar:
                 pass
             else:
                 rhs.append(x)
-        self.add_production(rule.name, rhs, semantics)
+        self.add_production(rule.name, rhs)
         # self.productions.remove(rule)
 
     @property

@@ -69,7 +69,7 @@ class AstPrinterTestCase(unittest.TestCase):
         ast = parser.parse_source(tokens, context)
         printer = AstPrinter()
         f = io.StringIO()
-        printer.printAst(ast, f)
+        printer.print_ast(ast, f)
         self.assertTrue(f.getvalue())
 
 
@@ -103,7 +103,7 @@ class BuildTestCaseBase(unittest.TestCase):
         printer = AstPrinter()
         for mod in context.modules:
             f = io.StringIO()
-            printer.printAst(mod, f)
+            printer.print_ast(mod, f)
 
         return ir_modules
 
@@ -602,6 +602,21 @@ class StatementTestCase(BuildTestCaseBase):
          }
 
          while(false)
+         {
+         }
+        }
+        """
+        self.expect_ok(snippet)
+
+    def test_for(self):
+        """ Test the while statement """
+        snippet = """
+        module tstfor;
+        function void t()
+        {
+         var int i;
+         i = 0;
+         for (i=0; i < 1054; i=i+1)
          {
          }
         }

@@ -95,6 +95,7 @@ class Adc(AvrInstruction):
 
 
 class Cp(AvrInstruction):
+    """ Compare """
     tokens = [AvrArithmaticToken]
     rd = register_argument('rd', AvrRegister, read=True)
     rr = register_argument('rr', AvrRegister, read=True)
@@ -106,6 +107,7 @@ class Cp(AvrInstruction):
 
 
 class Cpc(AvrInstruction):
+    """ Compare with carry """
     tokens = [AvrArithmaticToken]
     rd = register_argument('rd', AvrRegister, read=True)
     rr = register_argument('rr', AvrRegister, read=True)
@@ -394,6 +396,7 @@ class St(AvrInstruction):
 
 
 class StPostInc(AvrInstruction):
+    """ Store register value at memory X location and post increment X """
     tokens = [AvrToken2]
     rd = register_argument('rd', AvrRegister, read=True)
     syntax = Syntax(['st', 'x', '+', ',', rd])
