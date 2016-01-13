@@ -1,8 +1,8 @@
 
-<project name="hello" default="hello">
+<project name="snake" default="snake">
     <import name="ppci.buildtasks" />
 
-    <target name="hello">
+    <target name="snake">
         <assemble
             target="x86"
             source="../glue.asm"
@@ -10,21 +10,21 @@
 
         <compile
             target="x86"
-            sources="hello.c3;../../../librt/io.c3;../bsp.c3"
+            sources="../../snake/*.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.o"
             report="report.html"/>
 
         <link
             target="x86"
-            output="hello.elf"
-            layout="../linux64.mmap"
+            output="snake.elf"
+            layout="linux64.mmap"
             objects="glue.o;rest.o" />
 
         <objcopy
-            objectfile="hello.elf"
+            objectfile="snake.elf"
             imagename="flash"
             format="elf"
-            output="hello" />
+            output="snake" />
     </target>
 
 </project>

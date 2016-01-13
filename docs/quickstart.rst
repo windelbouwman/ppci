@@ -50,7 +50,7 @@ Linux
 
 Instead of for a board you can compile into a native linux binary:
 
-..code:: bash
+.. code:: bash
 
     $ cd examples/linux64/hello
     $ ppci-build.py
