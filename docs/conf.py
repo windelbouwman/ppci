@@ -32,6 +32,7 @@ sys.path.append(os.path.abspath('exts'))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'zipexamples'
 ]
@@ -262,3 +263,40 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+
+from pygments.lexer import RegexLexer
+from pygments import token
+from ppci import c3
+
+# TODO: fix this lexer:
+
+class C3Lexer(RegexLexer):
+    name = 'c3'
+    aliases = ['c3']
+    filenames = ['*.c3']
+    tokens = {
+        'root': [
+            (r'\s+', token.Text),
+            (r'function', token.Keyword.Reserved),
+            (r'[a-z]+', token.Name),
+            (r'.*', token.Text)
+        ]
+    }
+
+from sphinx.highlighting import lexers
+from sphinx import directives
+
+
+class C3CodeDirective(directives.CodeBlock):
+    def run(self):
+        r = super().run()
+        #c3code = r.textnode.text
+        #print(c3code, type(c3code))
+        return r
+
+
+def setup(app):
+    # pass
+    app.add_directive('c3code', C3CodeDirective)
+    #lexers['c3'] = C3Lexer()

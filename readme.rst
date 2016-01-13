@@ -10,7 +10,7 @@ The project contains the following:
 
 - A Compiler, an assembler, a linker and a build system
 - Language front-ends: Brainfuck, c3
-- Backends: arm, avr, thumb, python, msp430, x86
+- Backends: ARM, AVR, MSP430, X86-64
 
 **Warning: This project is in alpha state and not ready for production use!**
 
@@ -39,6 +39,17 @@ Or use the rich api:
     >>> i = instructions.Pop(registers.rbx)
     >>> i.encode()
     b'['
+
+.. code-block:: python
+
+    >>> import io
+    >>> from ppci.buildfunctions import assemble
+    >>> source_file = io.StringIO("""section code
+    ... mov rax, 60
+    ... mov rdi, 42""")
+    >>> obj = assemble(source_file, 'x86')
+    >>> obj.get_section('code').data
+    bytearray(b'H\xb8<\x00\x00\x00\x00\x00\x00\x00H\xbf*\x00\x00\x00\x00\x00\x00\x00')
 
 Documentation
 -------------

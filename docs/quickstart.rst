@@ -41,3 +41,35 @@ To build and the arduino blink led example, follow the following commands:
     $ ppci-build.py
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 
+
+X86-64 example
+--------------
+
+Linux
+~~~~~
+
+Instead of for a board you can compile into a native linux binary:
+
+..code:: bash
+
+    $ cd examples/linux64/hello
+    $ ppci-build.py
+    $ ./hello
+
+Windows
+~~~~~~~
+
+TODO
+
+Mac
+~~~
+
+TODO
+
+msp430 example
+--------------
+
+
+Flash program:
+
+http://www.ti.com/tool/msp430-flasher

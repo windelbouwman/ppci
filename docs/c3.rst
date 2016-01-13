@@ -22,7 +22,7 @@ Example
 
 The hello world example in c3:
 
-.. code::
+.. c3code:: c3
 
     module hello;
     import io;

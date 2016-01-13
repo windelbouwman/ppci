@@ -659,7 +659,6 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang)
 
 
-# @unittest.skip('todo')
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "avr"
     startercode = """

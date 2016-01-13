@@ -115,7 +115,6 @@ class MemSrcOffset(Src):
 
 class Msp430Instruction(Instruction):
     isa = isa
-    b = 0
     tokens = [Msp430Token]
 
 
@@ -220,20 +219,20 @@ class OneOpArith(Msp430Instruction):
         return []
 
 
-def oneOpIns(mne, opcode):
+def one_op_instruction(mne, opcode, b=0):
     """ Helper function to define a one operand arithmetic instruction """
     src = register_argument('src', Src)
     syntax = Syntax([mne, src])
-    members = {'opcode': opcode, 'syntax': syntax, 'src': src}
+    members = {'opcode': opcode, 'syntax': syntax, 'src': src, 'b': b}
     return type(mne + '_ins', (OneOpArith,), members)
 
 
-Rrc = oneOpIns('rrc', 0)
-Swpb = oneOpIns('swpb', 1)
-Rra = oneOpIns('rra', 2)
-Sxt = oneOpIns('sxt', 3)
-Push = oneOpIns('push', 4)
-Call = oneOpIns('call', 5)
+Rrc = one_op_instruction('rrc', 0)
+Swpb = one_op_instruction('swpb', 1)
+Rra = one_op_instruction('rra', 2)
+Sxt = one_op_instruction('sxt', 3)
+Push = one_op_instruction('push', 4)
+Call = one_op_instruction('call', 5)
 
 
 class Reti(Msp430Instruction):
@@ -267,7 +266,8 @@ class TwoOpArith(Msp430Instruction):
         self.token1.destination = self.dst.reg.num
         self.token1.source = self.src.reg.num
         self.token1.opcode = self.opcode
-        return self.token1.encode() + self.src.extra_bytes + self.dst.extra_bytes
+        return self.token1.encode() + self.src.extra_bytes + \
+            self.dst.extra_bytes
 
     def relocations(self):
         if self.src.addr != '':
@@ -279,28 +279,34 @@ class TwoOpArith(Msp430Instruction):
                 yield (self.dst.addr, apply_abs16_imm1)
 
 
-def twoOpIns(mne, opc, b=0):
+def two_op_ins(mne, opc, b=0):
     """ Helper function to define a two operand arithmetic instruction """
     src = register_argument('src', Src)
     dst = register_argument('dst', Dst)
+    mne += '.b' if b else '.w'
     syntax = Syntax([mne, src, ',', dst])
-    members = {'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax}
+    members = {'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax, 'b': b}
     return type(mne + '_ins', (TwoOpArith,), members)
 
 
-Mov = twoOpIns('mov', 4)
-Movb = twoOpIns('movb', 4, b=1)
-Add = twoOpIns('add', 5)
-Addc = twoOpIns('addc', 6)
-Subc = twoOpIns('subc', 7)
-Sub = twoOpIns('sub', 8)
-Cmp = twoOpIns('cmp', 9)
-Dadd = twoOpIns('dadd', 10)
-Bit = twoOpIns('bit', 11)
-Bic = twoOpIns('bic', 12)
-Bis = twoOpIns('bis', 13)
-Xor = twoOpIns('xor', 14)
-And = twoOpIns('and', 15)
+Mov = two_op_ins('mov', 4)
+Movb = two_op_ins('mov', 4, b=1)
+Add = two_op_ins('add', 5)
+Addc = two_op_ins('addc', 6)
+Subc = two_op_ins('subc', 7)
+Sub = two_op_ins('sub', 8)
+Cmp = two_op_ins('cmp', 9)
+Dadd = two_op_ins('dadd', 10)
+Bit = two_op_ins('bit', 11)
+Bitb = two_op_ins('bit', 11, b=1)
+Bic = two_op_ins('bic', 12)
+Bicb = two_op_ins('bic', 12, b=1)
+Bis = two_op_ins('bis', 13)
+Bisb = two_op_ins('bis', 13, b=1)
+Xor = two_op_ins('xor', 14)
+Xorb = two_op_ins('xor', 14, b=1)
+And = two_op_ins('and', 15)
+Andb = two_op_ins('and', 15, b=1)
 
 
 # pseudo instructions:

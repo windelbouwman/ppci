@@ -10,6 +10,7 @@ syntax: glob
 *.log
 docs/_build
 docs/examples.zip
+examples/linux64/hello/hello
 test/.coverage
 test/listings
 .tox

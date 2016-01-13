@@ -1,0 +1,30 @@
+<project name="arduino" default="blinky">
+    <import name="ppci.buildtasks" />
+
+    <target name="blinky">
+        <assemble
+            source="boot.asm"
+            target="msp430"
+            output="boot.o" />
+        <compile
+            target="msp430"
+            sources="blinky.c3"
+            output="main.o"
+            report="report.html"/>
+        <link
+            output="blinky.elf"
+            layout="msp430.mmap"
+            target="msp430"
+            objects="boot.o" />
+        <objcopy
+            objectfile="blinky.elf"
+            imagename="flash"
+            format="hex"
+            output="blinky.hex" />
+        <objcopy
+            objectfile="blinky.elf"
+            imagename="flash"
+            format="bin"
+            output="blinky.bin" />
+    </target>
+</project>
