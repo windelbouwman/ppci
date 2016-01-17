@@ -562,7 +562,8 @@ class CodeGenerator:
             expr.lvalue = False
             expr.typ = target.typ
             c_val = self.context.get_constant_value(target)
-            value = self.emit(ir.Const(c_val, target.name, ir.i32))
+            c_typ = self.get_ir_type(target.typ, expr.loc)
+            value = self.emit(ir.Const(c_val, target.name, c_typ))
         else:
             raise SemanticError(
                 'Cannot use {} in expression'.format(target), expr.loc)

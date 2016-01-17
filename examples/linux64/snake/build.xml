@@ -17,7 +17,7 @@
         <link
             target="x86"
             output="snake.elf"
-            layout="linux64.mmap"
+            layout="../linux64.mmap"
             objects="glue.o;rest.o" />
 
         <objcopy

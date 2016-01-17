@@ -51,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'ppci'
-copyright = '2015, Windel Bouwman'
+copyright = '2016, Windel Bouwman'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

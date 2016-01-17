@@ -39,5 +39,10 @@ class EmulationTestCase(unittest.TestCase):
         recipe = relpath('..', 'examples', 'build.xml')
         construct(recipe)
 
+    def test_linux64_snake(self):
+        """ Compile the snake example """
+        recipe = relpath('..', 'examples', 'linux64', 'snake', 'build.xml')
+        construct(recipe)
+
 if __name__ == '__main__':
     unittest.main()

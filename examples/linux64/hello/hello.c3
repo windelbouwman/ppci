@@ -1,7 +1,7 @@
-module sample;
+module main;
 import io;
 
-function void start()
+function void main()
 {
    io.println("Hello world");
 }

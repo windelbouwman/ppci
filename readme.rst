@@ -108,4 +108,4 @@ Documentation can be found here:
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-.. _docstate: https://ppci.rtfd.org/en/latest
+.. _docstate: https://ppci.readthedocs.org/en/latest

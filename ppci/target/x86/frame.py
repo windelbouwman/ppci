@@ -17,7 +17,7 @@ class X86Frame(Frame):
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
         # Allocatable registers:
-        self.regs = [r8, r9, r10, r11, r14, r15]
+        self.regs = [rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]
         self.fp = rbp
 
         self.callee_save = (rbx, r12, r13, r14, r15)

@@ -704,6 +704,14 @@ def _(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg64', 'MULI64(reg64, reg64)', cost=4)
+def _(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(Imul(d, c1))
+    return d
+
+
 @isa.pattern('reg64', 'ANDI64(reg64, reg64)', cost=4)
 def _(context, tree, c0, c1):
     d = context.new_reg(X86Register)

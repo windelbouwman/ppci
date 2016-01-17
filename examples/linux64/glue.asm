@@ -2,7 +2,7 @@
 section reset
 
 start:
-    call sample_start
+    call main_main
     call bsp_exit
 
 bsp_putc:
