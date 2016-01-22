@@ -9,27 +9,21 @@ This section describes the usage the commandline tools installed with ppci.
 ppci-build.py
 -------------
 
-This command can be used to construct build files (see :doc:`buildxml`).
+This command can be used to construct :doc:`build files<buildxml>`.
 
-Take for example the stm32f4 led project build file:
-
-.. literalinclude:: ../examples/blinky/build.xml
-    :language: xml
-    :linenos:
-
-
-To build this project, run ppci-build.py in the same directory:
+Take for example the stm32f4 blinky project. To build this project,
+run ppci-build.py in the project folder:
 
 .. code:: bash
 
-    $ cd test/data/stm32f4xx
+    $ cd examples/blinky
     $ ppci-build.py
 
-Or specify the buildfile:
+Or specify the buildfile a the command line:
 
 .. code:: bash
 
-    $ ppci-build.py -f test/data/stm32f4xx/build.xml
+    $ ppci-build.py -f examples/blinky/build.xml
 
 
 ppci-c3c.py
@@ -41,6 +35,7 @@ activated stand alone.
 .. code:: bash
 
     $ ppci-c3c.py --target arm examples/snake/game.c3
+
 
 ppci-asm.py
 -----------

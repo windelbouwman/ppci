@@ -4,7 +4,6 @@
 
     introduction
     quickstart
-    installation
     usage
     c3
     buildxml

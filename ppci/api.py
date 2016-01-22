@@ -80,7 +80,7 @@ def fix_layout(l):
 def construct(buildfile, targets=()):
     """
         Construct the given buildfile.
-        Raise task error if something goes wrong
+        Raise task error if something goes wrong.
     """
     # Ensure file:
     buildfile = fix_file(buildfile)
@@ -102,8 +102,11 @@ def construct(buildfile, targets=()):
 
 
 def asm(source, march):
-    """ Invoke the assembler on the given source, returns an object containing
-        the output. """
+    """ Assemble the given source for machine march.
+
+    source can be a filename or a file like object.
+    march can be a machine instance or a string indicating the target.
+    """
     logger = logging.getLogger('assemble')
     diag = DiagnosticsManager()
     assembler = fix_target(march).assembler

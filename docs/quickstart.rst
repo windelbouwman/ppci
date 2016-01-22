@@ -2,7 +2,12 @@
 Quickstart
 ==========
 
-Install ppci in a virtual environment:
+Installation
+------------
+
+Install ppci in a `virtualenv`_ environment:
+
+.. _virtualenv: https://virtualenv.readthedocs.org/
 
 .. code:: bash
 

@@ -2,10 +2,10 @@
 Api
 ===
 
-Instead of using the commandline, it is also possible to use the build
-functions of ppci via the buildfunctions.
-
-For example to assemble, compile, link and objcopy the msp430 blinky example
+Instead of using the :doc:`commandline<usage>`, it is also possible to use
+ppci api.
+For
+example to assemble, compile, link and objcopy the msp430 blinky example
 project:
 
 .. testsetup::

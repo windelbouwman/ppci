@@ -9,11 +9,11 @@ Table of contents
 
     self
     quickstart
-    installation
     usage
     c3
     buildxml
     api
     compiler
     development
+    faq
 
