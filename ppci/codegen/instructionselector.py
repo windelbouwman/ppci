@@ -13,7 +13,7 @@ import logging
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
-from ppci.pyburg import BurgSystem
+from .burg import BurgSystem
 from .irdag import DagSplitter
 
 

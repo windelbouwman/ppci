@@ -1,5 +1,5 @@
 
-from ...bitfun import encode_imm32, align, wrap_negative, BitView
+from ...utils.bitfun import encode_imm32, align, wrap_negative, BitView
 
 
 def apply_rel8(sym_value, data, reloc_value):

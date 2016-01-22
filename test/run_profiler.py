@@ -1,5 +1,5 @@
 
-import cProfile
+from cProfile import Profile
 import unittest
 import pstats
 import test_samples
@@ -26,14 +26,14 @@ if __name__ == '__main__':
     # Load unittest:
     loader = unittest.TestLoader()
     # suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_hello_world', module=test_samples)
-    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.testBrainFuckHelloWorld', module=test_samples)
+    suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_hello_world', module=test_samples)
     # suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_quine', module=test_samples)
-    suite = loader.loadTestsFromName('BuildTestCase.test_build_command', module=test_commands)
+    # suite = loader.loadTestsFromName('BuildTestCase.test_build_command', module=test_commands)
 
     def runtests():
         unittest.TextTestRunner().run(suite)
 
-    p = cProfile.Profile()
+    p = Profile()
     s = p.run('runtests()')
     stats = pstats.Stats(p)
     stats.dump_stats('results.cprofile')

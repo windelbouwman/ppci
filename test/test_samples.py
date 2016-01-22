@@ -10,7 +10,7 @@ from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python
 from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
 from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
-from ppci.reporting import HtmlReportGenerator, complete_report
+from ppci.utils.reporting import HtmlReportGenerator, complete_report
 
 
 def make_filename(s):

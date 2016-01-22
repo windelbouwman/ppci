@@ -1,5 +1,5 @@
 
-from ...bitfun import align, wrap_negative, BitView
+from ...utils.bitfun import align, wrap_negative, BitView
 
 
 def apply_lit8(sym_value, data, reloc_value):

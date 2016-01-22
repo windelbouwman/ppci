@@ -8,10 +8,10 @@
 from contextlib import contextmanager
 from datetime import datetime
 import io
-from . import ir
-from .irutils import Writer
-from .utils.graph2svg import Graph, LayeredLayout
-from .codegen.selectiongraph import SGValue
+from .. import ir
+from ..irutils import Writer
+from .graph2svg import Graph, LayeredLayout
+from ..codegen.selectiongraph import SGValue
 
 
 class ReportGenerator:

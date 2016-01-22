@@ -4,7 +4,7 @@ Implementation of tree structure. Including a parser that can
 parse tree structures from text.
 
 """
-from ppci.baselex import BaseLexer
+from ppci.pcc.baselex import BaseLexer
 
 
 class Tree:

@@ -5,7 +5,7 @@ Definitions of msp430 instruction set.
 from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from ..token import Token, u16, bit_range, bit, u8
 from .registers import Msp430Register, r0, r2, SP, PC
-from ...bitfun import align, wrap_negative
+from ...utils.bitfun import align, wrap_negative
 
 # pylint: disable=no-member,invalid-name
 

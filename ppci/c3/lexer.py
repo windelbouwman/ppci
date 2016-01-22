@@ -4,7 +4,7 @@
 
 import re
 from ..common import SourceLocation, Token, make_num
-from ..baselex import BaseLexer
+from ..pcc.baselex import BaseLexer
 from .astnodes import Assignment
 
 

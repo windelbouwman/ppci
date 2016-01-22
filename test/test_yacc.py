@@ -10,13 +10,12 @@ from ppci.pcc.grammar import Grammar, print_grammar
 from ppci.pcc.common import ParserGenerationException
 from ppci.pcc.lr import Item
 from ppci.pcc.common import ParserException
-from ppci.pyyacc import load_as_module
+from ppci.pcc.yacc import load_as_module, transform
 from ppci.pcc.lr import calculate_first_sets
-from ppci.pyyacc import transform
 from ppci.common import Token, SourceLocation, CompilerError
 from ppci.pcc.lr import LrParserBuilder
 from ppci.pcc.earley import EarleyParser
-from ppci.baselex import EOF
+from ppci.pcc.baselex import EOF
 
 
 class gen_tokens:

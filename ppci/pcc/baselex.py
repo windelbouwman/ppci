@@ -1,5 +1,5 @@
 import re
-from .common import Token, CompilerError, SourceLocation
+from ..common import Token, CompilerError, SourceLocation
 
 EOF = 'EOF'
 EPS = 'EPS'

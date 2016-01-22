@@ -1,7 +1,7 @@
 from ..isa import Instruction, Isa, register_argument, Syntax
 from ..isa import FixedPattern, SubPattern, VariablePattern
 from ..token import Token, u16, bit_range, bit, bit_concat
-from ...bitfun import wrap_negative
+from ...utils.bitfun import wrap_negative
 from .registers import AvrRegister, r16, AvrPseudo16Register, X
 
 

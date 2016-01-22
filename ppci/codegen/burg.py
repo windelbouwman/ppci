@@ -60,13 +60,13 @@ import sys
 import os
 import argparse
 from ppci.common import Token, SourceLocation
-from ppci import baselex, pyyacc
+from ppci.pcc import baselex, yacc
 from ppci.utils.tree import Tree
 
 # Generate parser on the fly:
 spec_file = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), 'burg.grammar')
-burg_parser = pyyacc.load_as_module(spec_file)
+    os.path.dirname(os.path.abspath(__file__)), '..', 'burg.grammar')
+burg_parser = yacc.load_as_module(spec_file)
 
 
 class BurgLexer(baselex.BaseLexer):

@@ -7,7 +7,7 @@
 import re
 from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
-from ..baselex import BaseLexer, EPS, EOF
+from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num, ParseError
 from ..target.target import Target, Label, Alignment
 from ..target.isa import InstructionProperty, Syntax

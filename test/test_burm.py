@@ -4,7 +4,7 @@ import os
 import argparse
 
 from ppci.utils.tree import Tree, from_string
-from ppci import pyburg
+from ppci.codegen import burg
 
 brg_file = os.path.join(os.path.dirname(__file__), 'data', 'sample4.brg')
 
@@ -15,7 +15,7 @@ class BurgTestCase(unittest.TestCase):
         # Generate matcher from spec:
         buf = io.StringIO()
         args = argparse.Namespace(source=open(brg_file), output=buf)
-        pyburg.main(args)
+        burg.main(args)
 
         # Execute generated script into global scope:
         exec(buf.getvalue(), globals())
@@ -41,7 +41,7 @@ class BurgTestCase(unittest.TestCase):
         # Match tree:
         mm = MyMatcher()
         mm.gen(t)
-        self.assertSequenceEqual([8,8,4,11,9,3,1], mm.trace)
+        self.assertSequenceEqual([8, 8, 4, 11, 9, 3, 1], mm.trace)
 
 
 class TreeTestCase(unittest.TestCase):

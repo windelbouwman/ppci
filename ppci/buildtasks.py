@@ -7,8 +7,8 @@ module
 """
 
 from .tasks import Task, TaskError, register_task
-from .reporting import DummyReportGenerator, HtmlReportGenerator
-from .reporting import complete_report
+from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
+from .utils.reporting import complete_report
 from .buildfunctions import c3compile, link, assemble, construct
 from .buildfunctions import objcopy
 from .pcc.common import ParserException

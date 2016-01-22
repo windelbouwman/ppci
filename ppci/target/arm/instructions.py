@@ -7,7 +7,7 @@
 from ..isa import Instruction, Isa, Syntax
 from ..isa import register_argument, value_argument
 from ..data_instructions import Dd
-from ...bitfun import encode_imm32
+from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc
 from ..token import Token, u32, u8, bit_range
 from .relocations import apply_b_imm24, apply_absaddr32, apply_rel8

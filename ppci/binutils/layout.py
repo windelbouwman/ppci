@@ -1,4 +1,4 @@
-from ..baselex import BaseLexer, EOF, EPS
+from ..pcc.baselex import BaseLexer, EOF, EPS
 from ..pcc.grammar import Grammar
 from ..pcc.lr import LrParserBuilder
 from ..common import make_num

@@ -8,9 +8,9 @@ import datetime
 import logging
 
 from .baselex import BaseLexer
-from .common import Token, SourceLocation
-from .pcc.grammar import Grammar
-from .pcc.lr import LrParserBuilder
+from ..common import Token, SourceLocation
+from .grammar import Grammar
+from .lr import LrParserBuilder
 
 
 class XaccLexer(BaseLexer):

@@ -13,7 +13,7 @@ from .target.target import Target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
 from .irutils import Verifier
-from .reporting import DummyReportGenerator
+from .utils.reporting import DummyReportGenerator
 from .codegen import CodeGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
@@ -58,13 +58,13 @@ def fix_file(f):
         raise TaskError('Cannot open {}'.format(f))
 
 
-def fix_object(o):
+def fix_object(obj):
     """ Try hard to load an object """
-    if isinstance(o, ObjectFile):
-        return o
-    else:
-        f = fix_file(o)
-        return load_object(f)
+    if not isinstance(obj, ObjectFile):
+        f = fix_file(obj)
+        obj = load_object(f)
+        f.close()
+    return obj
 
 
 def fix_layout(l):
@@ -72,7 +72,9 @@ def fix_layout(l):
         return l
     else:
         f = fix_file(l)
-        return load_layout(f)
+        layout = load_layout(f)
+        f.close()
+        return layout
 
 
 def construct(buildfile, targets=()):

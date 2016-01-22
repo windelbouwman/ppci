@@ -9,7 +9,7 @@ import logging
 from .buildfunctions import construct
 from .buildfunctions import c3compile
 from .buildfunctions import assemble
-from .pyyacc import transform
+from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
@@ -91,7 +91,7 @@ def c3c(args=None):
         choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
-                        default=sys.stdout)
+                        required=True)
     parser.add_argument('-i', '--include', action='append',
                         help='include file', default=[])
     parser.add_argument('sources', metavar='source',
@@ -107,8 +107,7 @@ def c3c(args=None):
         obj.save(args.output)
 
         # Attention! Closing the output file may close stdout!
-        # if args.output != sys.stdout:
-        #    args.output.close()
+        args.output.close()
 
 
 def asm(args=None):
@@ -122,7 +121,7 @@ def asm(args=None):
         choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
-                        default=sys.stdout)
+                        required=True)
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
@@ -134,8 +133,7 @@ def asm(args=None):
         obj.save(args.output)
 
         # Attention! Closing the output file may close stdout!
-        args.output.flush()
-        # args.output.close()
+        args.output.close()
 
 
 def link(args=None):
@@ -153,14 +151,13 @@ def link(args=None):
         type=argparse.FileType('r'))
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
-                        default='a.out')
+                        required=True)
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
         obj = buildfunctions.link(args.obj, args.layout, args.target)
         obj.save(args.output)
-        args.output.flush()
-        # args.output.close()
+        args.output.close()
 
 
 def objdump(args=None):
@@ -242,12 +239,13 @@ def yacc_cmd(args=None):
     parser.add_argument(
         'source', type=argparse.FileType('r'), help='the parser specification')
     parser.add_argument(
-        '-o', '--output', type=argparse.FileType('w'), default=sys.stdout)
+        '-o', '--output', type=argparse.FileType('w'), required=True)
 
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
         transform(args.source, args.output)
+        args.output.close()
 
 
 def hexutil(args=None):
