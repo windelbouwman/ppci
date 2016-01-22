@@ -8,8 +8,8 @@ import platform
 import subprocess
 from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python
-from ppci.buildfunctions import assemble, c3compile, link, objcopy, bfcompile
-from ppci.buildfunctions import c3toir, bf2ir, ir_to_python
+from ppci.api import asm, c3c, link, objcopy, bfcompile
+from ppci.api import c3toir, bf2ir, ir_to_python
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
 
 
@@ -512,16 +512,16 @@ class BuildMixin:
             bsp_c3 = self.bsp_c3
 
         with complete_report(report_generator) as reporter:
-            o1 = assemble(io.StringIO(startercode), self.march)
+            o1 = asm(io.StringIO(startercode), self.march)
             if lang == 'c3':
-                o2 = c3compile([
+                o2 = c3c([
                     relpath('..', 'librt', 'io.c3'),
                     bsp_c3,
                     io.StringIO(src)], [], self.march, reporter=reporter)
                 objs = [o1, o2]
             elif lang == 'bf':
                 o3 = bfcompile(src, self.march, reporter=reporter)
-                o2 = c3compile(
+                o2 = c3c(
                     [bsp_c3], [], self.march, reporter=reporter)
                 objs = [o1, o2, o3]
             else:
@@ -764,7 +764,7 @@ class LinuxTests(unittest.TestCase):
             SECTION(code)
         }
         """
-        obj = assemble(src, 'x86_64')
+        obj = asm(src, 'x86_64')
         handle, exe = mkstemp()
         os.close(handle)
         obj2 = link([obj], io.StringIO(mmap), 'x86_64')

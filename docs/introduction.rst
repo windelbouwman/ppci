@@ -25,10 +25,10 @@ An other example:
 .. doctest::
 
     >>> import io
-    >>> from ppci.buildfunctions import assemble
+    >>> from ppci.api import asm
     >>> source_file = io.StringIO("""section code
     ... mov rax, 60
     ... mov rdi, 42""")
-    >>> obj = assemble(source_file, 'x86_64')
+    >>> obj = asm(source_file, 'x86_64')
     >>> obj.get_section('code').data
     bytearray(b'H\xb8<\x00\x00\x00\x00\x00\x00\x00H\xbf*\x00\x00\x00\x00\x00\x00\x00')

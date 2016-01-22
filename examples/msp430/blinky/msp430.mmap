@@ -3,7 +3,7 @@ MEMORY flash LOCATION=0xc000 SIZE=0x3000 {
  SECTION(code)
 }
 
-MEMORY vect31 LOCATION=0xfffe SIZE=0x2 {
+MEMORY vect31 LOCATION=0xfffe SIZE=0x200 {
  SECTION(reset)
 }
 

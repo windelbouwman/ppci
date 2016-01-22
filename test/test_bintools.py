@@ -13,7 +13,7 @@ from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
-from ppci.buildfunctions import link
+from ppci.api import link
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
 from ppci.arch.example import Mov, R0, R1

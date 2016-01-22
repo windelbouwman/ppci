@@ -8,7 +8,7 @@ from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.target import Label
 from ppci.arch.example import SimpleTarget
-from ppci.buildfunctions import link
+from ppci.api import link
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
 

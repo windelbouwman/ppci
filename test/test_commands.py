@@ -49,7 +49,7 @@ class C3cTestCase(unittest.TestCase):
         c3_file = relpath('..', 'examples', 'snake', 'game.c3')
         _, obj_file = tempfile.mkstemp(suffix='.obj')
         with self.assertRaises(SystemExit) as cm:
-            c3c(['--target', 'arm', c3_file, '-o', obj_file])
+            c3c(['-m', 'arm', c3_file, '-o', obj_file])
         self.assertEqual(1, cm.exception.code)
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -58,7 +58,7 @@ class C3cTestCase(unittest.TestCase):
         """ Capture stdout. Important because it is closed by the command! """
         c3_file = relpath('..', 'examples', 'stm32f4', 'bsp.c3')
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        c3c(['--target', 'arm', c3_file, '-o', obj_file])
+        c3c(['-m', 'arm', c3_file, '-o', obj_file])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_c3c_command_help(self, mock_stdout):
@@ -153,7 +153,7 @@ class LinkCommandTestCase(unittest.TestCase):
             relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
             ]
         asm(['-t', 'thumb', '-o', obj1, asm_src])
-        c3c(['-t', 'thumb', '-o', obj2] + c3_srcs)
+        c3c(['-m', 'thumb', '-o', obj2] + c3_srcs)
         link(['-o', obj3, '-t', 'thumb', '-L', mmap, obj1, obj2])
 
 

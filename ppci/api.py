@@ -101,15 +101,14 @@ def construct(buildfile, targets=()):
     runner.run(project, list(targets))
 
 
-def assemble(source, target):
+def asm(source, march):
     """ Invoke the assembler on the given source, returns an object containing
         the output. """
     logger = logging.getLogger('assemble')
     diag = DiagnosticsManager()
-    target = fix_target(target)
+    assembler = fix_target(march).assembler
     source = fix_file(source)
     output = ObjectFile()
-    assembler = target.assembler
     logger.debug('Assembling into code section')
     ostream = BinaryOutputStream(output)
     ostream.select_section('code')
@@ -129,7 +128,7 @@ def get_compiler_rt_lib(target):
     runtime for the given target """
     target = fix_target(target)
     src = target.get_runtime_src()
-    return assemble(io.StringIO(src), target)
+    return asm(io.StringIO(src), target)
 
 
 def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
@@ -230,7 +229,7 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
     print('sample_start()', file=f)
 
 
-def c3compile(sources, includes, target, reporter=DummyReportGenerator()):
+def c3c(sources, includes, target, reporter=DummyReportGenerator()):
     """ Compile a set of sources into binary format for the given target """
     target = fix_target(target)
     ir_modules = list(c3toir(sources, includes, target, reporter=reporter))

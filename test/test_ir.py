@@ -4,7 +4,6 @@ import io
 from ppci import ir
 from ppci import irutils
 from ppci.opt.transform import ConstantFolder
-from ppci.buildfunctions import ir_to_python, bf2ir
 from util import relpath
 
 

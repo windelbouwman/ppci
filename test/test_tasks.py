@@ -8,8 +8,8 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.buildfunctions import construct
-from ppci.buildtasks import EmptyTask
+from ppci.api import construct
+import ppci.buildtasks
 from ppci.tasks import TaskRunner, TaskError, Project, Target, Task
 
 

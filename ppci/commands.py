@@ -6,14 +6,11 @@ import platform
 import argparse
 import logging
 
-from .buildfunctions import construct
-from .buildfunctions import c3compile
-from .buildfunctions import assemble
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
-from . import version, buildfunctions
+from . import version, api
 from .common import logformat
 from .arch.target_list import target_names
 
@@ -78,7 +75,7 @@ def build(args=None):
     with LogSetup(args):
         logger.info(description)
         logger.debug('Arguments: {}'.format(args))
-        construct(args.buildfile, args.targets)
+        api.construct(args.buildfile, args.targets)
 
 
 def c3c(args=None):
@@ -87,7 +84,7 @@ def c3c(args=None):
     add_common_parser_options(parser)
 
     parser.add_argument(
-        '--target', '-t', help='target machine', required=True,
+        '--machine', '-m', help='target machine', required=True,
         choices=target_names)
     parser.add_argument('--output', '-o', help='output file',
                         type=argparse.FileType('w'),
@@ -101,7 +98,7 @@ def c3c(args=None):
         logging.getLogger().info(description)
 
         # Compile sources:
-        obj = c3compile(args.sources, args.include, args.target)
+        obj = api.c3c(args.sources, args.include, args.machine)
 
         # Write object file to disk:
         obj.save(args.output)
@@ -127,7 +124,7 @@ def asm(args=None):
         logging.getLogger().info(description)
 
         # Assemble source:
-        obj = assemble(args.sourcefile, args.target)
+        obj = api.asm(args.sourcefile, args.target)
 
         # Write object file to disk:
         obj.save(args.output)
@@ -155,7 +152,7 @@ def link(args=None):
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
-        obj = buildfunctions.link(args.obj, args.layout, args.target)
+        obj = api.link(args.obj, args.layout, args.target)
         obj.save(args.output)
         args.output.close()
 
@@ -195,8 +192,7 @@ def objcopy(args=None):
         # Read object from file:
         obj = load_object(args.input)
         args.input.close()
-        buildfunctions.objcopy(
-            obj, args.segment, args.output_format, args.output)
+        api.objcopy(obj, args.segment, args.output_format, args.output)
 
 
 def yacc_cmd(args=None):
