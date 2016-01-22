@@ -27,17 +27,26 @@ def log_level(s):
     return numeric_level
 
 
-def add_common_parser_options(parser):
-    """ Add some common parser arguments to the parser """
-    parser.add_argument('--log', help='Log level (INFO,DEBUG,WARN)',
-                        type=log_level, default='INFO')
-    parser.add_argument(
-        '--report',
-        help='Specify a file to write the compile report to',
-        type=argparse.FileType('w'))
-    parser.add_argument(
-        '--verbose', '-v', action='count', default=0,
-        help='Increase verbosity of the output')
+base_parser = argparse.ArgumentParser(add_help=False)
+base_parser.add_argument(
+    '--log', help='Log level (INFO,DEBUG,WARN)', metavar='log-level',
+    type=log_level, default='INFO')
+base_parser.add_argument(
+    '--report', metavar='report-file',
+    help='Specify a file to write the compile report to',
+    type=argparse.FileType('w'))
+base_parser.add_argument(
+    '--verbose', '-v', action='count', default=0,
+    help='Increase verbosity of the output')
+
+
+base2_parser = argparse.ArgumentParser(add_help=False)
+base2_parser.add_argument(
+    '--machine', '-m', help='target machine', required=True,
+    choices=target_names)
+base2_parser.add_argument(
+    '--output', '-o', help='output file', metavar='output-file',
+    type=argparse.FileType('w'), required=True)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -62,9 +71,8 @@ class ColoredFormatter(logging.Formatter):
 
 def build(args=None):
     """ Run the build command from command line. Used by ppci-build.py """
-    parser = argparse.ArgumentParser(description=description)
-
-    add_common_parser_options(parser)
+    parser = argparse.ArgumentParser(
+        description=description, parents=[base_parser])
     parser.add_argument(
         '-f', '--buildfile',
         help='use buildfile, otherwise build.xml is the default',
@@ -80,16 +88,9 @@ def build(args=None):
 
 def c3c(args=None):
     """ Run c3 compile task """
-    parser = argparse.ArgumentParser(description=description)
-    add_common_parser_options(parser)
-
-    parser.add_argument(
-        '--machine', '-m', help='target machine', required=True,
-        choices=target_names)
-    parser.add_argument('--output', '-o', help='output file',
-                        type=argparse.FileType('w'),
-                        required=True)
-    parser.add_argument('-i', '--include', action='append',
+    parser = argparse.ArgumentParser(
+        description=description, parents=[base_parser, base2_parser])
+    parser.add_argument('-i', '--include', action='append', metavar='include',
                         help='include file', default=[])
     parser.add_argument('sources', metavar='source',
                         help='source file', nargs='+')
@@ -109,22 +110,16 @@ def c3c(args=None):
 
 def asm(args=None):
     """ Run asm from command line """
-    parser = argparse.ArgumentParser(description=description)
-    add_common_parser_options(parser)
+    parser = argparse.ArgumentParser(
+        description=description, parents=[base_parser, base2_parser])
     parser.add_argument('sourcefile', type=argparse.FileType('r'),
                         help='the source file to assemble')
-    parser.add_argument(
-        '--target', '-t', help='target machine', required=True,
-        choices=target_names)
-    parser.add_argument('--output', '-o', help='output file',
-                        type=argparse.FileType('w'),
-                        required=True)
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 
         # Assemble source:
-        obj = api.asm(args.sourcefile, args.target)
+        obj = api.asm(args.sourcefile, args.machine)
 
         # Write object file to disk:
         obj.save(args.output)
@@ -135,33 +130,26 @@ def asm(args=None):
 
 def link(args=None):
     """ Run asm from command line """
-    parser = argparse.ArgumentParser(description=description)
-    add_common_parser_options(parser)
+    parser = argparse.ArgumentParser(
+        description=description, parents=[base_parser, base2_parser])
     parser.add_argument(
         'obj', type=argparse.FileType('r'), nargs='+',
         help='the object to link')
     parser.add_argument(
-        '--target', '-t', help='target machine', required=True,
-        choices=target_names)
-    parser.add_argument(
         '--layout', '-L', help='memory layout', required=True,
-        type=argparse.FileType('r'))
-    parser.add_argument('--output', '-o', help='output file',
-                        type=argparse.FileType('w'),
-                        required=True)
+        type=argparse.FileType('r'), metavar='layout-file')
     args = parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
-        obj = api.link(args.obj, args.layout, args.target)
+        obj = api.link(args.obj, args.layout, args.machine)
         obj.save(args.output)
         args.output.close()
 
 
 def objdump(args=None):
     """ Dump info of an object file """
-    parser = argparse.ArgumentParser(description=description)
-    add_common_parser_options(parser)
-
+    parser = argparse.ArgumentParser(
+        description=description, parents=[base_parser])
     parser.add_argument('obj', help='object file', type=argparse.FileType('r'))
     args = parser.parse_args(args)
     with LogSetup(args):
@@ -174,9 +162,8 @@ def objdump(args=None):
 
 def objcopy(args=None):
     """ Copy from binary format 1 to binary format 2 """
-    parser = argparse.ArgumentParser(description=description)
-    add_common_parser_options(parser)
-
+    parser = argparse.ArgumentParser(
+        description=description, parents=[base_parser])
     parser.add_argument(
         'input', help='input file', type=argparse.FileType('r'))
     parser.add_argument(
@@ -230,8 +217,8 @@ def yacc_cmd(args=None):
         p.parse()
 
     """
-    parser = argparse.ArgumentParser(description='xacc compiler compiler')
-    add_common_parser_options(parser)
+    parser = argparse.ArgumentParser(
+        description='xacc compiler compiler', parents=[base_parser])
     parser.add_argument(
         'source', type=argparse.FileType('r'), help='the parser specification')
     parser.add_argument(

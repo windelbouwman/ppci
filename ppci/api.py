@@ -10,6 +10,7 @@ import os
 import stat
 import xml
 from .arch.target import Target
+from .arch.target_list import get_target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
 from .irutils import Verifier
@@ -24,7 +25,6 @@ from .opt.transform import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
-from .arch.target_list import get_target
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .utils.hexfile import HexFile
@@ -271,16 +271,16 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
     return ir_to_object([ir_module], target, reporter=reporter)
 
 
-def link(objects, layout, target, use_runtime=False,
+def link(objects, layout, march, use_runtime=False,
          reporter=DummyReportGenerator()):
     """ Links the iterable of objects into one using the given layout """
     objects = [fix_object(obj) for obj in objects]
     layout = fix_layout(layout)
-    target = fix_target(target)
+    march = fix_target(march)
     if use_runtime:
-        lib_rt = get_compiler_rt_lib(target)
+        lib_rt = get_compiler_rt_lib(march)
         objects.append(lib_rt)
-    linker = Linker(target, reporter)
+    linker = Linker(march, reporter)
     try:
         output_obj = linker.link(objects, layout)
     except CompilerError as err:

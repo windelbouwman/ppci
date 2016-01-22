@@ -2,16 +2,17 @@
 Introduction
 ============
 
-The ppci (Pure python compiler infrastructure) project is a compiler
+The ppci (pure python compiler infrastructure) project is a compiler
 written entirely in python.
 
-The project contains the following:
+The project contains:
 
-- A compiler, an assembler, a linker and a build system
-- Language front-ends: Brainfuck, :doc:`c3`
-- Backends for various platforms: ARM, Thumb, Python, X86, AVR, MSP430
+- A :ref:`compiler<ppci-c3c>`, an :ref:`assembler<ppci-asm>`,
+  a :ref:`linker<ppci-ld>` and a :ref:`build system<ppci-build>`
+- Language front-ends: Brainfuck, :doc:`c3<c3>`
+- Backends for various platforms: arm, avr, msp430, python, thumb, x86_64
 
-An example usage of the low level encoding api:
+An example usage of the low level encoding :doc:`api<api>`:
 
 .. doctest::
 
@@ -32,3 +33,6 @@ An other example:
     >>> obj = asm(source_file, 'x86_64')
     >>> obj.get_section('code').data
     bytearray(b'H\xb8<\x00\x00\x00\x00\x00\x00\x00H\xbf*\x00\x00\x00\x00\x00\x00\x00')
+
+.. warning::
+    This project is in alpha state and not ready for production use!

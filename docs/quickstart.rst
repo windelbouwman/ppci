@@ -47,7 +47,7 @@ To build and the arduino blink led example, follow the following commands:
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 
 
-X86-64 example
+x86_64 example
 --------------
 
 Linux

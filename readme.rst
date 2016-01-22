@@ -10,14 +10,15 @@ The project contains the following:
 
 - A Compiler, an assembler, a linker and a build system
 - Language front-ends: Brainfuck, c3
-- Backends: ARM, AVR, MSP430, X86-64
+- Backends: arm, avr, msp430, x86_64
 
-**Warning: This project is in alpha state and not ready for production use!**
+.. warning::
+    This project is in alpha state and not ready for production use!
 
 Command line tools
 ------------------
 
-Use it to build projects, like the snake example:
+Use it to build projects:
 
 .. code:: bash
 
@@ -28,10 +29,10 @@ Use it to build projects, like the snake example:
 This runs the snake demo on an emulated (qemu) lm3s demo board and displays
 the game to the console.
 
-Python API
-----------
+Api
+---
 
-Or use the rich api:
+Or use the api:
 
 .. code-block:: python
 
@@ -62,9 +63,9 @@ Documentation can be found here:
 |dronestate|_
 |appveyor|_
 |codecov|_
-|devstate|_
 |docstate|_
 |version|_
+|devstate|_
 |pyimpls|_
 |pyversions|_
 |license|_

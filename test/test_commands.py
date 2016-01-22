@@ -73,7 +73,7 @@ class AsmTestCase(unittest.TestCase):
     def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
         src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['--target', 'thumb', '-o', obj_file, src])
+        asm(['-m', 'thumb', '-o', obj_file, src])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -95,7 +95,7 @@ class ObjdumpTestCase(unittest.TestCase):
     def test_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
         src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['--target', 'thumb', '-o', obj_file, src])
+        asm(['-m', 'thumb', '-o', obj_file, src])
         with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
             objdump([obj_file])
             self.assertIn('SECTION', mock_stdout.getvalue())
@@ -152,9 +152,9 @@ class LinkCommandTestCase(unittest.TestCase):
             relpath('..', 'librt', 'io.c3'),
             relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
             ]
-        asm(['-t', 'thumb', '-o', obj1, asm_src])
+        asm(['-m', 'thumb', '-o', obj1, asm_src])
         c3c(['-m', 'thumb', '-o', obj2] + c3_srcs)
-        link(['-o', obj3, '-t', 'thumb', '-L', mmap, obj1, obj2])
+        link(['-o', obj3, '-m', 'thumb', '-L', mmap, obj1, obj2])
 
 
 class HexutilTestCase(unittest.TestCase):
