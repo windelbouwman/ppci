@@ -3,7 +3,7 @@ import logging
 import io
 from ppci.c3 import Builder, Lexer, Parser, AstPrinter
 from ppci.c3.scope import Context
-from ppci.target.example import SimpleTarget
+from ppci.arch.example import SimpleTarget
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
 

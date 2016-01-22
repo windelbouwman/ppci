@@ -15,7 +15,7 @@ from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version, buildfunctions
 from .common import logformat
-from .target.target_list import target_names
+from .arch.target_list import target_names
 
 
 description = 'ppci {} compiler on {} {}'.format(

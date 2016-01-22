@@ -15,9 +15,9 @@ from .frame import X86Frame
 
 
 class X86Target(Target):
-    """ x86 target """
+    """ x86_64 target """
     def __init__(self):
-        super().__init__('x86')
+        super().__init__('x86_64')
         self.value_classes[i64] = X86Register
         self.value_classes[ptr] = X86Register
         self.value_classes[i8] = X86Register

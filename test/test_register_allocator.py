@@ -1,8 +1,8 @@
 import unittest
 from ppci.codegen.registerallocator import RegisterAllocator
-from ppci.target.isa import Register
-from ppci.target.target import Frame
-from ppci.target.example import Def, Use, Add, Mov, R0, R1
+from ppci.arch.isa import Register
+from ppci.arch.target import Frame
+from ppci.arch.example import Def, Use, Add, Mov, R0, R1
 
 
 class RegisterAllocatorTestCase(unittest.TestCase):

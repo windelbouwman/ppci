@@ -201,8 +201,6 @@ class Constructor:
             # Set additional properties as specified by syntax:
             for prop, val in self.syntax.set_props.items():
                 prop.__set__(self, val)
-        #else:
-        #    raise NotImplementedError('Calling constructor without syntax')
 
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or prop class,

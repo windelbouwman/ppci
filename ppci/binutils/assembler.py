@@ -9,8 +9,8 @@ from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num, ParseError
-from ..target.target import Target, Label, Alignment
-from ..target.isa import InstructionProperty, Syntax
+from ..arch.target import Target, Label, Alignment
+from ..arch.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
 
 id_regex = r'[A-Za-z_][A-Za-z\d_\.]*'

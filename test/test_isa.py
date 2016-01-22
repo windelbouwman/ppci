@@ -1,6 +1,5 @@
 import unittest
-import io
-from ppci.target.isa import Instruction, Syntax, register_argument
+from ppci.arch.isa import Instruction, Syntax, register_argument
 
 
 class TestInstruction1(Instruction):

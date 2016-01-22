@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.target.target_list import x86target
+from ppci.arch.target_list import x86target
 from test_asm import AsmTestCaseBase
 
 

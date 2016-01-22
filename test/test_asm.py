@@ -6,8 +6,8 @@ from ppci.common import CompilerError, DiagnosticsManager
 from ppci.binutils.assembler import AsmLexer, BaseAssembler
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
-from ppci.target.target import Label
-from ppci.target.example import SimpleTarget
+from ppci.arch.target import Label
+from ppci.arch.example import SimpleTarget
 from ppci.buildfunctions import link
 from ppci.binutils.layout import Layout
 from util import gnu_assemble

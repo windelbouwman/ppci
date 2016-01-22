@@ -685,7 +685,7 @@ class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
 
 
 class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
-    march = "x86"
+    march = "x86_64"
     startercode = """
     section reset
 
@@ -764,10 +764,10 @@ class LinuxTests(unittest.TestCase):
             SECTION(code)
         }
         """
-        obj = assemble(src, 'x86')
+        obj = assemble(src, 'x86_64')
         handle, exe = mkstemp()
         os.close(handle)
-        obj2 = link([obj], io.StringIO(mmap), 'x86')
+        obj2 = link([obj], io.StringIO(mmap), 'x86_64')
         objcopy(obj2, 'prog', 'elf', exe)
         if hasattr(subprocess, 'TimeoutExpired'):
             returncode = subprocess.call(exe, timeout=10)

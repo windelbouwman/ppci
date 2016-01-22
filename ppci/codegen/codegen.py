@@ -6,10 +6,9 @@
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..target.target import Target
-from ..target.target import RegisterUseDef, VirtualInstruction
-from ..target.target import VCall
-from ..target.isa import Register, Instruction
+from ..arch.target import Target, VCall
+from ..arch.target import RegisterUseDef, VirtualInstruction
+from ..arch.isa import Instruction
 from .irdag import SelectionGraphBuilder, FunctionInfo, prepare_function_info
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler

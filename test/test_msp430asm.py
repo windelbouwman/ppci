@@ -2,7 +2,7 @@
 
 import unittest
 import io
-from ppci.target.target_list import msp430target
+from ppci.arch.target_list import msp430target
 from ppci.binutils.layout import load_layout
 from test_asm import AsmTestCaseBase
 

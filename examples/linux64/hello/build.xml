@@ -4,18 +4,18 @@
 
     <target name="hello">
         <assemble
-            target="x86"
+            target="x86_64"
             source="../glue.asm"
             output="glue.o" />
 
         <compile
-            target="x86"
+            target="x86_64"
             sources="hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.o"
             report="report.html"/>
 
         <link
-            target="x86"
+            target="x86_64"
             output="hello.elf"
             layout="../linux64.mmap"
             objects="glue.o;rest.o" />
