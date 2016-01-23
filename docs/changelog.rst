@@ -2,6 +2,13 @@
 Changelog
 =========
 
+Release 0.2.0 (Jan 23, 2016)
+----------------------------
+
+* Added linker (ppci-ld.py) command
+* Rename `buildfunctions` to `api`
+* Rename `target` to `arch`
+
 Release 0.1.0 (Dec 29, 2015)
 ----------------------------
 
