@@ -26,17 +26,8 @@ Or specify the buildfile a the command line:
     $ ppci-build.py -f examples/blinky/build.xml
 
 
-``--help, -h``
-
-    Display usage help.
-
-``--verbose, -v``
-
-    Increase verbosity of output. Can be given multiple times.
-
-``--buildfile, -f``
-
-    Specify the file to use as build file.
+.. autoprogram:: ppci.commands:build_parser
+    :prog: ppci-build.py
 
 
 .. _ppci-c3c:
@@ -51,75 +42,26 @@ activated stand alone.
 
     $ ppci-c3c.py --machine arm examples/snake/game.c3
 
-``--help, -h``
 
-    Display the usage of the c3 compiler.
-
-``--verbose, -v``
-
-    Increase verbosity of output. Can be given multiple times.
+.. autoprogram:: ppci.commands:c3c_parser
+    :prog: ppci-c3c.py
 
 
 .. _ppci-asm:
 
-ppci-asm.py
------------
-
-Invoke the assembler.
-
-``sourcefile``
-
-    The sourcefile to assemble.
-
-``--help, -h``
-
-    Display the usage of the assembler.
-
-``--verbose, -v``
-
-    Increase verbosity of output. Can be given multiple times.
-
-``--machine, -m``
-
-    Specify the target machine.
-
-``--output, -o``
-
-    The filename of the output.
-
+.. autoprogram:: ppci.commands:asm_parser
+    :prog: ppci-asm.py
 
 .. _ppci-ld:
 
-ppci-ld.py
-----------
+.. autoprogram:: ppci.commands:link_parser
+    :prog: ppci-ld.py
 
-Linker
+.. autoprogram:: ppci.commands:objcopy_parser
+    :prog: ppci-objcopy.py
 
-``--help, -h``
+.. autoprogram:: ppci.commands:objdump_parser
+    :prog: ppci-objdump.py
 
-    Display usage help.
-
-``--verbose, -v``
-
-    Increase verbosity of output. Can be given multiple times.
-
-
-ppci-objcopy.py
----------------
-
-Objcopy utility to manipulate binary files.
-
-``--help, -h``
-
-    Display usage help.
-
-``--verbose, -v``
-
-    Increase verbosity of output. Can be given multiple times.
-
-
-ppci-hexutil.py
----------------
-
-Utility to handle hex files.
-
+.. autoprogram:: ppci.commands:hexutil_parser
+    :prog: ppci-hexutil.py

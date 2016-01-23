@@ -69,16 +69,18 @@ class ColoredFormatter(logging.Formatter):
         return msg
 
 
+build_parser = argparse.ArgumentParser(
+    description=description, parents=[base_parser])
+build_parser.add_argument(
+    '-f', '--buildfile',
+    help='use buildfile, otherwise build.xml is the default',
+    default='build.xml')
+build_parser.add_argument('targets', metavar='target', nargs='*')
+
+
 def build(args=None):
     """ Run the build command from command line. Used by ppci-build.py """
-    parser = argparse.ArgumentParser(
-        description=description, parents=[base_parser])
-    parser.add_argument(
-        '-f', '--buildfile',
-        help='use buildfile, otherwise build.xml is the default',
-        default='build.xml')
-    parser.add_argument('targets', metavar='target', nargs='*')
-    args = parser.parse_args(args)
+    args = build_parser.parse_args(args)
     logger = logging.getLogger()
     with LogSetup(args):
         logger.info(description)
@@ -86,15 +88,18 @@ def build(args=None):
         api.construct(args.buildfile, args.targets)
 
 
+c3c_parser = argparse.ArgumentParser(
+    description=description, parents=[base_parser, base2_parser])
+c3c_parser.add_argument(
+    '-i', '--include', action='append', metavar='include',
+    help='include file', default=[])
+c3c_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+')
+
+
 def c3c(args=None):
     """ Run c3 compile task """
-    parser = argparse.ArgumentParser(
-        description=description, parents=[base_parser, base2_parser])
-    parser.add_argument('-i', '--include', action='append', metavar='include',
-                        help='include file', default=[])
-    parser.add_argument('sources', metavar='source',
-                        help='source file', nargs='+')
-    args = parser.parse_args(args)
+    args = c3c_parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 
@@ -108,13 +113,16 @@ def c3c(args=None):
         args.output.close()
 
 
+asm_parser = argparse.ArgumentParser(
+    description=description, parents=[base_parser, base2_parser])
+asm_parser.add_argument(
+    'sourcefile', type=argparse.FileType('r'),
+    help='the source file to assemble')
+
+
 def asm(args=None):
     """ Run asm from command line """
-    parser = argparse.ArgumentParser(
-        description=description, parents=[base_parser, base2_parser])
-    parser.add_argument('sourcefile', type=argparse.FileType('r'),
-                        help='the source file to assemble')
-    args = parser.parse_args(args)
+    args = asm_parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 
@@ -127,18 +135,19 @@ def asm(args=None):
         # Attention! Closing the output file may close stdout!
         args.output.close()
 
+link_parser = argparse.ArgumentParser(
+    description=description, parents=[base_parser, base2_parser])
+link_parser.add_argument(
+    'obj', type=argparse.FileType('r'), nargs='+',
+    help='the object to link')
+link_parser.add_argument(
+    '--layout', '-L', help='memory layout', required=True,
+    type=argparse.FileType('r'), metavar='layout-file')
+
 
 def link(args=None):
     """ Run asm from command line """
-    parser = argparse.ArgumentParser(
-        description=description, parents=[base_parser, base2_parser])
-    parser.add_argument(
-        'obj', type=argparse.FileType('r'), nargs='+',
-        help='the object to link')
-    parser.add_argument(
-        '--layout', '-L', help='memory layout', required=True,
-        type=argparse.FileType('r'), metavar='layout-file')
-    args = parser.parse_args(args)
+    args = link_parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
         obj = api.link(args.obj, args.layout, args.machine)
@@ -146,12 +155,15 @@ def link(args=None):
         args.output.close()
 
 
+objdump_parser = argparse.ArgumentParser(
+    description=description, parents=[base_parser])
+objdump_parser.add_argument(
+    'obj', help='object file', type=argparse.FileType('r'))
+
+
 def objdump(args=None):
     """ Dump info of an object file """
-    parser = argparse.ArgumentParser(
-        description=description, parents=[base_parser])
-    parser.add_argument('obj', help='object file', type=argparse.FileType('r'))
-    args = parser.parse_args(args)
+    args = objdump_parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 
@@ -159,20 +171,21 @@ def objdump(args=None):
         args.obj.close()
         print_object(obj)
 
+objcopy_parser = argparse.ArgumentParser(
+    description=description, parents=[base_parser])
+objcopy_parser.add_argument(
+    'input', help='input file', type=argparse.FileType('r'))
+objcopy_parser.add_argument(
+    '--segment', '-S', help='segment to copy', required=True)
+objcopy_parser.add_argument(
+    'output', help='output file')
+objcopy_parser.add_argument(
+    '--output-format', '-O', help='output file format')
+
 
 def objcopy(args=None):
     """ Copy from binary format 1 to binary format 2 """
-    parser = argparse.ArgumentParser(
-        description=description, parents=[base_parser])
-    parser.add_argument(
-        'input', help='input file', type=argparse.FileType('r'))
-    parser.add_argument(
-        '--segment', '-S', help='segment to copy', required=True)
-    parser.add_argument(
-        'output', help='output file')
-    parser.add_argument(
-        '--output-format', '-O', help='output file format')
-    args = parser.parse_args(args)
+    args = objcopy_parser.parse_args(args)
     with LogSetup(args):
         logging.getLogger().info(description)
 
@@ -231,37 +244,38 @@ def yacc_cmd(args=None):
         args.output.close()
 
 
+def hex2int(s):
+    if s.startswith('0x'):
+        s = s[2:]
+        return int(s, 16)
+    raise ValueError('Hexadecimal value must begin with 0x')
+
+hexutil_parser = argparse.ArgumentParser(
+   description='hexfile manipulation tool by Windel Bouwman')
+subparsers = hexutil_parser.add_subparsers(
+    title='commands',
+    description='possible commands', dest='command')
+
+p = subparsers.add_parser('info', help='dump info about hexfile')
+p.add_argument('hexfile', type=argparse.FileType('r'))
+
+p = subparsers.add_parser('new', help='create a hexfile')
+p.add_argument('hexfile', type=argparse.FileType('w'))
+p.add_argument('address', type=hex2int, help="hex address of the data")
+p.add_argument(
+    'datafile', type=argparse.FileType('rb'), help='binary file to add')
+
+p = subparsers.add_parser('merge', help='merge two hexfiles into a third')
+p.add_argument('hexfile1', type=argparse.FileType('r'), help="hexfile 1")
+p.add_argument('hexfile2', type=argparse.FileType('r'), help="hexfile 2")
+p.add_argument(
+    'rhexfile', type=argparse.FileType('w'), help="resulting hexfile")
+
+
 def hexutil(args=None):
-    def hex2int(s):
-        if s.startswith('0x'):
-            s = s[2:]
-            return int(s, 16)
-        raise ValueError('Hexadecimal value must begin with 0x')
-
-    parser = argparse.ArgumentParser(
-       description='hexfile manipulation tool by Windel Bouwman')
-    subparsers = parser.add_subparsers(
-        title='commands',
-        description='possible commands', dest='command')
-
-    p = subparsers.add_parser('info', help='dump info about hexfile')
-    p.add_argument('hexfile', type=argparse.FileType('r'))
-
-    p = subparsers.add_parser('new', help='create a hexfile')
-    p.add_argument('hexfile', type=argparse.FileType('w'))
-    p.add_argument('address', type=hex2int, help="hex address of the data")
-    p.add_argument(
-        'datafile', type=argparse.FileType('rb'), help='binary file to add')
-
-    p = subparsers.add_parser('merge', help='merge two hexfiles into a third')
-    p.add_argument('hexfile1', type=argparse.FileType('r'), help="hexfile 1")
-    p.add_argument('hexfile2', type=argparse.FileType('r'), help="hexfile 2")
-    p.add_argument(
-        'rhexfile', type=argparse.FileType('w'), help="resulting hexfile")
-
-    args = parser.parse_args(args)
+    args = hexutil_parser.parse_args(args)
     if not args.command:
-        parser.print_usage()
+        hexutil_parser.print_usage()
         sys.exit(1)
 
     if args.command == 'info':

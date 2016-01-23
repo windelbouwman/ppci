@@ -31,6 +31,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
+    'sphinxcontrib.autoprogram',
     'zipexamples'
 ]
 
