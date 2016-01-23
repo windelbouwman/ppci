@@ -106,6 +106,17 @@ def asm(source, march):
 
     source can be a filename or a file like object.
     march can be a machine instance or a string indicating the target.
+
+    For example:
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import asm
+        >>> source_file = io.StringIO("db 0x77")
+        >>> obj = asm(source_file, 'arm')
+        >>> print(obj)
+        CodeObject of 1 bytes
     """
     logger = logging.getLogger('assemble')
     diag = DiagnosticsManager()
@@ -233,7 +244,20 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
 
 
 def c3c(sources, includes, target, reporter=DummyReportGenerator()):
-    """ Compile a set of sources into binary format for the given target """
+    """
+        Compile a set of sources into binary format for the given target.
+
+        For example:
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import c3c
+        >>> source_file = io.StringIO("module main; var int a;")
+        >>> obj = c3c([source_file], [], 'arm')
+        >>> print(obj)
+        CodeObject of 4 bytes
+    """
     target = fix_target(target)
     ir_modules = list(c3toir(sources, includes, target, reporter=reporter))
 

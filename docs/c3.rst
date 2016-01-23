@@ -17,12 +17,9 @@ in c2lang_, the C language is widely used, but has some strange contraptions:
 
 For these reasons (and of course, for fun), C3 was created.
 
-Example
-~~~~~~~
-
 The hello world example in c3:
 
-.. c3code:: c3
+.. code::
 
     module hello;
     import io;
@@ -53,7 +50,7 @@ For example:
 
 `pkg2.c3`:
 
-.. code ::
+.. code::
 
     module pkg2;
     import pkg1;

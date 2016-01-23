@@ -12,7 +12,7 @@ run ppci-build.py in the project folder:
     $ cd examples/blinky
     $ ppci-build.py
 
-This command can be used to construct :doc:`build files<buildxml>`.
+This command is used to construct :doc:`build files<buildxml>`.
 
 Or specify the buildfile a the command line:
 
@@ -27,23 +27,19 @@ activated stand alone.
 
     $ ppci-c3c.py --machine arm examples/snake/game.c3
 
-.. _ppci-build:
-
-.. autoprogram:: ppci.commands:build_parser
-    :prog: ppci-build.py
-
 .. _ppci-c3c:
-
 .. autoprogram:: ppci.commands:c3c_parser
     :prog: ppci-c3c.py
 
-.. _ppci-asm:
+.. _ppci-build:
+.. autoprogram:: ppci.commands:build_parser
+    :prog: ppci-build.py
 
+.. _ppci-asm:
 .. autoprogram:: ppci.commands:asm_parser
     :prog: ppci-asm.py
 
 .. _ppci-ld:
-
 .. autoprogram:: ppci.commands:link_parser
     :prog: ppci-ld.py
 

@@ -15,7 +15,7 @@ from .common import logformat
 from .arch.target_list import target_names
 
 
-description = 'ppci {} compiler on {} {}'.format(
+version_text = 'ppci {} compiler on {} {}'.format(
     version, platform.python_implementation(), platform.python_version())
 
 
@@ -29,8 +29,8 @@ def log_level(s):
 
 base_parser = argparse.ArgumentParser(add_help=False)
 base_parser.add_argument(
-    '--log', help='Log level (INFO,DEBUG,WARN)', metavar='log-level',
-    type=log_level, default='INFO')
+    '--log', help='Log level (info,debug,warn)', metavar='log-level',
+    type=log_level, default='info')
 base_parser.add_argument(
     '--report', metavar='report-file',
     help='Specify a file to write the compile report to',
@@ -38,6 +38,9 @@ base_parser.add_argument(
 base_parser.add_argument(
     '--verbose', '-v', action='count', default=0,
     help='Increase verbosity of the output')
+base_parser.add_argument(
+    '--version', '-V', action='version', version=version_text,
+    help='Display version and exit')
 
 
 base2_parser = argparse.ArgumentParser(add_help=False)
@@ -69,10 +72,13 @@ class ColoredFormatter(logging.Formatter):
         return msg
 
 
+build_description = """
+Build utility. Use this to execute build files.
+"""
 build_parser = argparse.ArgumentParser(
-    description=description, parents=[base_parser])
+    description=build_description, parents=[base_parser])
 build_parser.add_argument(
-    '-f', '--buildfile',
+    '-f', '--buildfile', metavar='build-file',
     help='use buildfile, otherwise build.xml is the default',
     default='build.xml')
 build_parser.add_argument('targets', metavar='target', nargs='*')
@@ -81,15 +87,17 @@ build_parser.add_argument('targets', metavar='target', nargs='*')
 def build(args=None):
     """ Run the build command from command line. Used by ppci-build.py """
     args = build_parser.parse_args(args)
-    logger = logging.getLogger()
     with LogSetup(args):
-        logger.info(description)
-        logger.debug('Arguments: {}'.format(args))
         api.construct(args.buildfile, args.targets)
 
 
+c3c_description = """
+C3 compiler. Use this compiler to produce object files from c3 sources and c3
+includes. C3 includes have the same format as c3 source files, but do not
+result in any code.
+"""
 c3c_parser = argparse.ArgumentParser(
-    description=description, parents=[base_parser, base2_parser])
+    description=c3c_description, parents=[base_parser, base2_parser])
 c3c_parser.add_argument(
     '-i', '--include', action='append', metavar='include',
     help='include file', default=[])
@@ -101,20 +109,19 @@ def c3c(args=None):
     """ Run c3 compile task """
     args = c3c_parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(description)
-
         # Compile sources:
         obj = api.c3c(args.sources, args.include, args.machine)
 
         # Write object file to disk:
         obj.save(args.output)
-
-        # Attention! Closing the output file may close stdout!
         args.output.close()
 
 
+asm_description = """
+Assembler utility.
+"""
 asm_parser = argparse.ArgumentParser(
-    description=description, parents=[base_parser, base2_parser])
+    description=asm_description, parents=[base_parser, base2_parser])
 asm_parser.add_argument(
     'sourcefile', type=argparse.FileType('r'),
     help='the source file to assemble')
@@ -124,19 +131,19 @@ def asm(args=None):
     """ Run asm from command line """
     args = asm_parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(description)
-
         # Assemble source:
         obj = api.asm(args.sourcefile, args.machine)
 
         # Write object file to disk:
         obj.save(args.output)
-
-        # Attention! Closing the output file may close stdout!
         args.output.close()
 
+link_description = """
+Linker. Use the linker to combine several object files and a memory layout
+to produce another resulting object file with images.
+"""
 link_parser = argparse.ArgumentParser(
-    description=description, parents=[base_parser, base2_parser])
+    description=link_description, parents=[base_parser, base2_parser])
 link_parser.add_argument(
     'obj', type=argparse.FileType('r'), nargs='+',
     help='the object to link')
@@ -149,14 +156,15 @@ def link(args=None):
     """ Run asm from command line """
     args = link_parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(description)
         obj = api.link(args.obj, args.layout, args.machine)
         obj.save(args.output)
         args.output.close()
 
-
+objdump_description = """
+Objdump utility to display the contents of object files.
+"""
 objdump_parser = argparse.ArgumentParser(
-    description=description, parents=[base_parser])
+    description=objdump_description, parents=[base_parser])
 objdump_parser.add_argument(
     'obj', help='object file', type=argparse.FileType('r'))
 
@@ -165,14 +173,15 @@ def objdump(args=None):
     """ Dump info of an object file """
     args = objdump_parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(description)
-
         obj = load_object(args.obj)
         args.obj.close()
         print_object(obj)
 
+objcopy_description = """
+Objcopy utility to manipulate object files.
+"""
 objcopy_parser = argparse.ArgumentParser(
-    description=description, parents=[base_parser])
+    description=objcopy_description, parents=[base_parser])
 objcopy_parser.add_argument(
     'input', help='input file', type=argparse.FileType('r'))
 objcopy_parser.add_argument(
@@ -187,8 +196,6 @@ def objcopy(args=None):
     """ Copy from binary format 1 to binary format 2 """
     args = objcopy_parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(description)
-
         # Read object from file:
         obj = load_object(args.input)
         args.input.close()
@@ -239,7 +246,6 @@ def yacc_cmd(args=None):
 
     args = parser.parse_args(args)
     with LogSetup(args):
-        logging.getLogger().info(description)
         transform(args.source, args.output)
         args.output.close()
 
@@ -329,6 +335,7 @@ class LogSetup:
             self.file_handler = logging.StreamHandler(self.args.report)
             self.logger.addHandler(self.file_handler)
         self.logger.debug('Loggers attached')
+        self.logger.info(version_text)
 
     def __exit__(self, exc_type, exc_value, traceback):
         # Check if a task error was raised:

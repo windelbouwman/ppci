@@ -72,7 +72,7 @@ release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = []
+exclude_patterns = ['index_latex.rst', 'introduction.rst']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -210,7 +210,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index_latex', 'ppci.tex', 'ppci Documentation',
+  ('index', 'ppci.tex', 'ppci Documentation',
    'Windel Bouwman', 'manual', True),
 ]
 

@@ -69,6 +69,9 @@ class ArmAssembler(BaseAssembler):
 
 
 class ArmTarget(Target):
+    """
+        Arm machine class.
+    """
     def __init__(self):
         super().__init__('arm')
         self.isa = isa + data_isa

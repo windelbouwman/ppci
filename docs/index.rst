@@ -5,14 +5,13 @@ Table of contents
 =================
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 4
 
     self
     quickstart
     usage
-    c3
-    buildxml
     api
+    reference
     compiler
     development
     faq
