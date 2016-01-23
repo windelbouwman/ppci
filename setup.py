@@ -48,7 +48,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
     package_data={'': ['*.grammar', "*.sled", "*.rst"]},
-    url='https://bitbucket.org/windel/ppci',
+    url='https://ppci.readthedocs.org/',
     license='BSD',
     test_suite="test",
     tests_require=['tox'],

@@ -245,9 +245,9 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
 
 def c3c(sources, includes, target, reporter=DummyReportGenerator()):
     """
-        Compile a set of sources into binary format for the given target.
+    Compile a set of sources into binary format for the given target.
 
-        For example:
+    For example:
 
     .. doctest::
 

@@ -11,7 +11,7 @@ Install ppci in a `virtualenv`_ environment:
 
 .. code:: bash
 
-    $ python -m venv sandbox
+    $ virtualenv sandbox
     $ source sandbox/bin/activate
     (sandbox) $ pip install ppci
     (sandbox) $ ppci-build.py -h

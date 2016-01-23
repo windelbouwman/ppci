@@ -15,4 +15,5 @@ Table of contents
     compiler
     development
     faq
+    changelog
 

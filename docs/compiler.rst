@@ -80,10 +80,6 @@ from the backend of the compiler.
 
 See :doc:`ir` for details about all the available instructions.
 
-.. toctree::
-    :hidden:
-
-    ir
 
 Optimalization
 --------------
