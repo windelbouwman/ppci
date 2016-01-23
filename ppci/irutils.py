@@ -9,6 +9,9 @@ from .domtree import CfgInfo
 from .common import IrFormError
 
 
+IR_FORMAT_INDENT = 2
+
+
 class Writer:
     """ Write ir-code to file """
     def __init__(self, extra_indent=''):
@@ -55,8 +58,7 @@ class Reader:
         tok_spec = [
             ('NUMBER', r'\d+'),
             ('ID', r'[A-Za-z][A-Za-z\d_]*'),
-            ('SKIP2', r'  '),
-            ('SKIP1', r' '),
+            ('SKIP', r' +'),
             ('OTHER', r'[\.,=:;\-+*\[\]/\(\)]|>|<|{|}|&|\^|\|')
             ]
         tok_re = '|'.join('(?P<%s>%s)' % pair for pair in tok_spec)
@@ -78,8 +80,15 @@ class Reader:
                     elif typ == 'OTHER':
                         typ = val
                         yield (typ, val)
-                    elif typ in ['SKIP1', 'SKIP2']:
+                    elif typ == 'SKIP':
                         if first:
+                            assert len(val) % IR_FORMAT_INDENT == 0
+                            if len(val) == IR_FORMAT_INDENT:
+                                typ = 'SKIP1'
+                            elif len(val) == IR_FORMAT_INDENT * 2:
+                                typ = 'SKIP2'
+                            else:
+                                raise Exception()
                             yield (typ, val)
                     elif typ == 'NUMBER':
                         yield (typ, int(val))
@@ -266,6 +275,9 @@ class Reader:
             ins = self.parse_return()
         elif self.Peak == 'ID' and self.PeakVal == 'store':
             raise Exception()
+        elif self.Peak == 'ID' and self.PeakVal == 'Terminator':
+            self.Consume('ID')
+            ins = ir.Terminator()
         else:
             ins = self.parse_assignment()
             self.add_val(ins)

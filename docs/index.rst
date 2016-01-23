@@ -1,20 +1,19 @@
 
+.. include:: introduction.rst
 
 Table of contents
 =================
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 4
 
     self
-    introduction
     quickstart
-    installation
     usage
-    c3
-    buildxml
     api
-    utils
+    reference
     compiler
     development
+    faq
+    changelog
 

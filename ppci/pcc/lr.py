@@ -1,5 +1,5 @@
 import logging
-from ..baselex import EPS, EOF
+from .baselex import EPS, EOF
 from ..common import Token
 from .common import ParserException, ParserGenerationException
 

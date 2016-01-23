@@ -12,7 +12,7 @@ from .scope import SemanticError
 
 def pack_string(txt, context):
     """ Pack a string using 4 bytes length followed by text data """
-    mapping = {4: '<I', 2: '<H', 8: '<Q'}
+    mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
     fmt = mapping[context.get_type('int').byte_size]
     length = struct.pack(fmt, len(txt))
     data = txt.encode('ascii')
@@ -562,7 +562,8 @@ class CodeGenerator:
             expr.lvalue = False
             expr.typ = target.typ
             c_val = self.context.get_constant_value(target)
-            value = self.emit(ir.Const(c_val, target.name, ir.i32))
+            c_typ = self.get_ir_type(target.typ, expr.loc)
+            value = self.emit(ir.Const(c_val, target.name, c_typ))
         else:
             raise SemanticError(
                 'Cannot use {} in expression'.format(target), expr.loc)

@@ -6,10 +6,9 @@
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..target.target import Target
-from ..target.target import RegisterUseDef, VirtualInstruction
-from ..target.target import VCall
-from ..target.isa import Register, Instruction
+from ..arch.target import Target, VCall
+from ..arch.target import RegisterUseDef, VirtualInstruction
+from ..arch.isa import Instruction
 from .irdag import SelectionGraphBuilder, FunctionInfo, prepare_function_info
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
@@ -86,13 +85,10 @@ class CodeGenerator:
             self.instruction_scheduler.schedule(sgraph, frame)
 
     def define_arguments_live(self, frame, arguments):
-        frame.instructions.insert(0, RegisterUseDef())
-        ins0 = frame.instructions[0]
-        assert type(ins0) is RegisterUseDef
-        for idx, _ in enumerate(arguments):
-            arg_loc = frame.arg_loc(idx)
-            if isinstance(arg_loc, Register):
-                ins0.add_def(arg_loc)
+        ins0 = RegisterUseDef()
+        frame.instructions.insert(0, ins0)
+        for r in frame.live_in:
+            ins0.add_def(r)
 
     def generate_function(self, ir_function, output_stream, reporter):
         """ Generate code for one function into a frame """
@@ -115,7 +111,10 @@ class CodeGenerator:
                 _, block = split_block(block, pos=max_block_len)
 
         # Create a frame for this function:
-        frame = self.target.FrameClass(ir.label_name(ir_function))
+        arg_types = [arg.ty for arg in ir_function.arguments]
+        arg_locs, live_in, rv, live_out = self.target.determine_arg_locations(arg_types, None)
+        frame_name = ir.label_name(ir_function)
+        frame = self.target.FrameClass(frame_name, arg_locs, live_in, rv, live_out)
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame, reporter)

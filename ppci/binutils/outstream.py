@@ -4,8 +4,8 @@
 """
 
 import logging
-from ..target.isa import Instruction
-from ..target.target import Alignment
+from ..arch.isa import Instruction
+from ..arch.target import Alignment
 
 
 class OutputStream:
@@ -97,9 +97,6 @@ class MasterOutputStream(OutputStream):
     """ Stream that emits to multiple sub streams """
     def __init__(self, substreams=()):
         self.substreams = list(substreams)   # Use copy constructor!!!
-
-    def add_substream(self, output_stream):
-        self.substreams.append(output_stream)
 
     def emit(self, item):
         for output_stream in self.substreams:

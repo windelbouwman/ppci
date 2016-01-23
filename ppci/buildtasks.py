@@ -7,10 +7,9 @@ module
 """
 
 from .tasks import Task, TaskError, register_task
-from .reporting import DummyReportGenerator, HtmlReportGenerator
-from .reporting import complete_report
-from .buildfunctions import c3compile, link, assemble, construct
-from .buildfunctions import objcopy
+from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
+from .utils.reporting import complete_report
+from .api import c3c, link, asm, construct, objcopy
 from .pcc.common import ParserException
 from .common import CompilerError
 
@@ -58,7 +57,7 @@ class AssembleTask(Task):
         output_filename = self.relpath(self.get_argument('output'))
 
         try:
-            output = assemble(source, target)
+            output = asm(source, target)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:
@@ -97,7 +96,7 @@ class C3cTask(Task):
             reporter = HtmlReportGenerator(open(report_file, 'w'))
 
         with complete_report(reporter):
-            output = c3compile(sources, includes, target, reporter=reporter)
+            output = c3c(sources, includes, target, reporter=reporter)
 
         if lst_file is not None:
             lst_file.close()

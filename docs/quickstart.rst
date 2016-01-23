@@ -2,11 +2,16 @@
 Quickstart
 ==========
 
-Install ppci in a virtual environment:
+Installation
+------------
+
+Install ppci in a `virtualenv`_ environment:
+
+.. _virtualenv: https://virtualenv.readthedocs.org/
 
 .. code:: bash
 
-    $ python -m venv sandbox
+    $ virtualenv sandbox
     $ source sandbox/bin/activate
     (sandbox) $ pip install ppci
     (sandbox) $ ppci-build.py -h
@@ -26,7 +31,6 @@ To build the blinky project do the following:
 
     $ cd examples/blinky
     $ ppci-build.py
-    $ ls blinky.hex
 
 Flash the hexfile using your flashtool of choice on the stm32f4discovery board
 and enjoy the magic.
@@ -34,16 +38,43 @@ and enjoy the magic.
 arduino example
 ---------------
 
-To build the arduino blink led example, first build the example:
+To build and the arduino blink led example, follow the following commands:
 
 .. code:: bash
 
     $ cd examples/arduino
     $ ppci-build.py
+    $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 
-Next flash the hexfile using avrdude for example:
+
+x86_64 example
+--------------
+
+Linux
+~~~~~
+
+Instead of for a board you can compile into a native linux binary:
 
 .. code:: bash
 
-    $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
+    $ cd examples/linux64/hello
+    $ ppci-build.py
+    $ ./hello
 
+Windows
+~~~~~~~
+
+TODO
+
+Mac
+~~~
+
+TODO
+
+msp430 example
+--------------
+
+
+Flash program:
+
+http://www.ti.com/tool/msp430-flasher

@@ -13,7 +13,7 @@ import logging
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
-from ppci.pyburg import BurgSystem
+from .burg import BurgSystem
 from .irdag import DagSplitter
 
 
@@ -33,16 +33,22 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
 
 class InstructionContext:
     """ Usable to patterns when emitting code """
-    def __init__(self, frame):
+    def __init__(self, frame, target):
         self.frame = frame
+        self.target = target
 
     def new_reg(self, cls):
-        """ Generate a new temporary """
+        """ Generate a new temporary of a given class """
         return self.frame.new_reg(cls)
 
     def move(self, dst, src):
         """ Generate move """
-        self.frame.move(dst, src)
+        self.emit(self.target.move(dst, src))
+
+    def gen_call(self, label, arg_types, res_type, args, res_var):
+        """ generate call for function into self """
+        for instruction in self.target.gen_call(label, arg_types, res_type, args, res_var):
+            self.emit(instruction)
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
@@ -124,6 +130,7 @@ class InstructionSelector1:
     """
     def __init__(self, isa, target, dag_builder):
         self.dag_builder = dag_builder
+        self.target = target
         self.dag_splitter = DagSplitter(target)
         self.logger = logging.getLogger('instruction-selector')
 
@@ -179,7 +186,7 @@ class InstructionSelector1:
             'Creating selection dag for {}'.format(ir_function.name))
 
         # Create a context that can emit instructions:
-        context = InstructionContext(frame)
+        context = InstructionContext(frame, self.target)
 
         # Create selection dag (directed acyclic graph):
         sdag = self.dag_builder.build(ir_function, function_info)

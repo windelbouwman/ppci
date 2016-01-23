@@ -1,26 +1,35 @@
 
-API
+Api
 ===
 
-Instead of using the commandline, it is also possible to use the build
-functions of ppci via the buildfunctions.
+Instead of using the :doc:`commandline<usage>`, it is also possible to use
+ppci api.
+For
+example to assemble, compile, link and objcopy the msp430 blinky example
+project:
 
-For example to assemble, compile, link and objcopy, code could look like:
+.. testsetup::
 
-.. code-block:: python
-   :linenos:
+    import os
+    os.chdir('..')
 
-    from ppci.buildfunctions import assemble, c3compile, link, objcopy
+.. testcleanup::
 
-    march = "thumb"
-    o1 = assemble('start.asm', march)
-    o2 = c3compile(['source_code.c3'], [], march)
-    o3 = link([o2, o1], 'mem.ld', march)
-    objcopy(o3, 'code', 'bin', 'output.bin')
+    import os
+    os.chdir('docs')
+
+.. doctest::
+
+    >>> from ppci.api import asm, c3c, link, objcopy
+    >>> march = "msp430"
+    >>> o1 = asm('examples/msp430/blinky/boot.asm', march)
+    >>> o2 = c3c(['examples/msp430/blinky/blinky.c3'], [], march)
+    >>> o3 = link([o2, o1], 'examples/msp430/blinky/msp430.mmap', march)
+    >>> objcopy(o3, 'flash', 'hex', 'blinky_msp430.hex')
 
 
-buildfunctions module
----------------------
+api module
+----------
 
-.. automodule:: ppci.buildfunctions
+.. automodule:: ppci.api
    :members:

@@ -2,7 +2,7 @@
 
 import unittest
 from test_asm import AsmTestCaseBase
-from ppci.target.target_list import thumb_target
+from ppci.arch.target_list import thumb_target
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
@@ -129,16 +129,16 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('bl henkie')
         self.check('00f0 02f8 00f0 00f8 fff7 feff fff7 fcff')
 
-    def testCmpRegReg(self):
+    def test_cmp_reg_reg(self):
         self.feed('cmp r0, r1')
         self.check('8842')
 
-    def testAddimm3(self):
+    def test_add_imm3(self):
         self.feed('add r3, r5, 2')
         self.feed('add r4, r1, 6')
         self.check('ab1c8c1d')
 
-    def testSubImm3(self):
+    def test_sub_imm3(self):
         self.feed('sub r3, r5, 2')
         self.feed('sub r4, r1, 6')
         self.check('ab1e8c1f')
@@ -163,24 +163,24 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('lsr r2, r6')
         self.check('f240')
 
-    def testAddSp(self):
+    def test_add_sp(self):
         self.feed('add sp,sp,8')
         self.feed('add sp,sp,16')
         self.check('02b004b0')
 
-    def testSubSp(self):
+    def test_sub_sp(self):
         self.feed('sub sp,sp,32')
         self.feed('sub sp,sp,4')
         self.check('88b081b0')
 
-    def testSequence1(self):
+    def test_sequence1(self):
         self.feed('mov r5, 3')
         self.feed('add r4, r5, 0')
         self.feed('loop: add r6, r4, 7')
         self.feed('cmp r6, 5')
         self.check('0325 2c1c e61d 052e')
 
-    def testSequence2(self):
+    def test_sequence2(self):
         self.feed('henkie:')
         self.feed('push {r1,r4,r5}')
         self.feed('add r5, r2, r4')

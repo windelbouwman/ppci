@@ -24,15 +24,14 @@ sys.path.append(os.path.abspath('exts'))
 
 # -- General configuration ------------------------------------------------
 
-# If your documentation needs a minimal Sphinx version, state it here.
-#needs_sphinx = '1.0'
-
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
+    'sphinxcontrib.autoprogram',
     'zipexamples'
 ]
 
@@ -50,7 +49,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'ppci'
-copyright = '2015, Windel Bouwman'
+copyright = '2016, Windel Bouwman'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -73,7 +72,7 @@ release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = []
+exclude_patterns = ['index_latex.rst', 'introduction.rst']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -104,12 +103,14 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'scrolls'
+html_theme = 'alabaster'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
+html_theme_options = {
+    'github_button': False,
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
@@ -149,7 +150,14 @@ html_logo = 'logo/logo.png'
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-#html_sidebars = {}
+html_sidebars = {
+    '**': [
+        'about.html',
+        'navigation.html',
+        'searchbox.html',
+        'donate.html'
+    ]
+}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -262,3 +270,40 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+
+from pygments.lexer import RegexLexer
+from pygments import token
+from ppci import c3
+
+# TODO: fix this lexer:
+
+class C3Lexer(RegexLexer):
+    name = 'c3'
+    aliases = ['c3']
+    filenames = ['*.c3']
+    tokens = {
+        'root': [
+            (r'\s+', token.Text),
+            (r'function', token.Keyword.Reserved),
+            (r'[a-z]+', token.Name),
+            (r'.*', token.Text)
+        ]
+    }
+
+from sphinx.highlighting import lexers
+from sphinx import directives
+
+
+class C3CodeDirective(directives.CodeBlock):
+    def run(self):
+        r = super().run()
+        #c3code = r.textnode.text
+        #print(c3code, type(c3code))
+        return r
+
+
+def setup(app):
+    # pass
+    app.add_directive('c3code', C3CodeDirective)
+    #lexers['c3'] = C3Lexer()

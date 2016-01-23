@@ -1,6 +1,6 @@
 import unittest
 
-from ppci.buildfunctions import construct
+from ppci.api import construct
 from util import relpath, has_qemu, run_qemu
 
 
@@ -25,9 +25,13 @@ class EmulationTestCase(unittest.TestCase):
             data = run_qemu(bin_file, machine='realview-pb-a8')
             self.assertEqual('Hello worle', data)
 
-    def test_blinky(self):
+    def test_stm32f4_blinky(self):
         """ Compile the example for the stm32f4discovery board """
         recipe = relpath('..', 'examples', 'blinky', 'build.xml')
+        construct(recipe)
+
+    def test_msp430_blinky(self):
+        recipe = relpath('..', 'examples', 'msp430', 'blinky', 'build.xml')
         construct(recipe)
 
     def test_arduino(self):
@@ -37,6 +41,11 @@ class EmulationTestCase(unittest.TestCase):
     def test_snake(self):
         """ Compile the snake example """
         recipe = relpath('..', 'examples', 'build.xml')
+        construct(recipe)
+
+    def test_linux64_snake(self):
+        """ Compile the snake example """
+        recipe = relpath('..', 'examples', 'linux64', 'snake', 'build.xml')
         construct(recipe)
 
 if __name__ == '__main__':

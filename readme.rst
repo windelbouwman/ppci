@@ -3,84 +3,78 @@
 Introduction
 ============
 
-The ppci project is a compiler, assembler, linker and build-system written 
-entirely in
-python. The project contains everything from language front-end to code
-generation.
-It contains a front-end for the c3 language, can optimize this code
-and generate ARM-code.
+The ppci (pure python compiler infrastructure) project is a compiler
+written entirely in python.
 
 The project contains the following:
 
+- A Compiler, an assembler, a linker and a build system
 - Language front-ends: Brainfuck, c3
-- Various code optimizers
-- Backends for various platforms: ARM, Thumb, Python
-- Assembler
-- Linker
+- Backends: arm, avr, msp430, x86_64
 
-**Warning: This project is in alpha state and not ready for production use!**
+.. warning::
+    This project is in alpha state and not ready for production use!
 
-Quick guide
------------
+Command line tools
+------------------
 
-ppci can be installed using pip:
+Use it to build projects:
 
 .. code:: bash
 
     $ pip install ppci
-
-To invoke the builder and compile the snake demo, use the following:
-
-.. code:: bash
-
     $ ppci-build.py -f examples/build.xml
-
-If the compilation was succesful, the snake demo compiled into
-'examples/snake.bin'. This is a binary file with ARM-code which can be run
-in qemu as follows:
-
-.. code:: bash
-
     $ qemu-system-arm -M lm3s6965evb -kernel snake.bin -serial stdio
 
-This runs the snake demo on an emulated lm3s demo board and displays
+This runs the snake demo on an emulated (qemu) lm3s demo board and displays
 the game to the console.
 
+Api
+---
 
-Instead of using the command line tools, you can also
-use the api.
+Or use the api:
 
-Links
------
+.. code-block:: python
 
-Sourcecode is located here:
+    >>> from ppci.arch.x86_64 import instructions, registers
+    >>> i = instructions.Pop(registers.rbx)
+    >>> i.encode()
+    b'['
 
-- https://bitbucket.org/windel/ppci
-- https://pikacode.com/windel/ppci/
+.. code-block:: python
 
+    >>> import io
+    >>> from ppci.api import asm
+    >>> source_file = io.StringIO("""section code
+    ... mov rax, 60
+    ... mov rdi, 42""")
+    >>> obj = asm(source_file, 'x86_64')
+    >>> obj.get_section('code').data
+    bytearray(b'H\xb8<\x00\x00\x00\x00\x00\x00\x00H\xbf*\x00\x00\x00\x00\x00\x00\x00')
+
+Documentation
+-------------
 
 Documentation can be found here:
 
-- http://ppci.rtfd.org/
+- http://ppci.readthedocs.org/
 
 
 |dronestate|_
 |appveyor|_
-|devstate|_
+|codecov|_
 |docstate|_
 |version|_
+|devstate|_
 |pyimpls|_
 |pyversions|_
 |license|_
 |downloads|_
-|coveralls|_
 
-openhub_
 
-.. |coveralls| image:: https://coveralls.io/repos/windel/ppci/badge.svg?branch=master&service=bitbucket
-.. _coveralls: https://coveralls.io/bitbucket/windel/ppci?branch=master
+.. |codecov| image:: https://codecov.io/bitbucket/windel/ppci/coverage.svg?branch=default
+.. _codecov: https://codecov.io/bitbucket/windel/ppci?branch=default
 
-.. _openhub: https://www.openhub.net/p/ppci
 
 .. |downloads| image:: https://img.shields.io/pypi/dm/ppci.png
 .. _downloads: https://pypi.python.org/pypi/ppci
@@ -115,4 +109,4 @@ openhub_
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-.. _docstate: https://ppci.rtfd.org/en/latest
+.. _docstate: https://ppci.readthedocs.org/en/latest

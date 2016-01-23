@@ -1,14 +1,8 @@
-import io
+import os
 import unittest
+import tempfile
 
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
-from ppci.buildfunctions import construct
-from ppci.buildtasks import EmptyTask
-from ppci.tasks import TaskRunner, TaskError, Project, Target
+from ppci.tasks import TaskRunner, TaskError, Project, Target, Task
 
 
 class TaskTestCase(unittest.TestCase):
@@ -56,77 +50,23 @@ class TaskTestCase(unittest.TestCase):
         runner = TaskRunner()
         runner.run(proj, ['t1'])
 
+    def test_ensure_path(self):
+        empty_dir = tempfile.mkdtemp()
+        txt_filename = os.path.join('a', 'b', 'c.txt')
+        full_path = os.path.join(empty_dir, txt_filename)
+        task = Task(None, None)
+        task.ensure_path(full_path)
+        self.assertTrue(os.path.isdir(os.path.dirname(full_path)))
 
-class RecipeTestCase(unittest.TestCase):
-    def test_bad_xml(self):
-        recipe = """<project>"""
-        with self.assertRaisesRegex(TaskError, "Invalid xml"):
-            construct(io.StringIO(recipe))
+    def test_open_fileset(self):
+        empty_dir = tempfile.mkdtemp()
+        project = Project('a')
+        project.set_property('basedir', empty_dir)
+        target = Target('t1', project)
+        task = Task(target, None)
+        with self.assertRaisesRegex(TaskError, 'not found'):
+            task.open_file_set('*.asm')
 
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_recipe(self, mock_stdout):
-        recipe = """
-        <project>
-            <target name="init">
-                <property name="a" value="Hello" />
-                <empty />
-                <echo message="${a}" />
-            </target>
-        </project>
-        """
 
-        construct(io.StringIO(recipe), ["init"])
-        self.assertIn("Hello", mock_stdout.getvalue())
-
-    def test_missing_property(self):
-        recipe = """
-        <project>
-            <target name="init">
-                <echo message="${nonexisting}" />
-            </target>
-        </project>
-        """
-
-        with self.assertRaisesRegex(TaskError, 'Property .* not found'):
-            construct(io.StringIO(recipe), ["init"])
-
-    def test_missing_argument(self):
-        recipe = """
-        <project>
-            <target name="init">
-                <echo />
-            </target>
-        </project>
-        """
-
-        with self.assertRaisesRegex(TaskError, 'attribute .* not'):
-            construct(io.StringIO(recipe), ["init"])
-
-    def test_unknown_task(self):
-        recipe = """
-        <project>
-            <target name="init">
-                <domagic />
-            </target>
-        </project>
-        """
-
-        with self.assertRaisesRegex(TaskError, 'Task .* not be found'):
-            construct(io.StringIO(recipe), ["init"])
-
-    def test_nonexisting_target(self):
-        recipe = """
-        <project>
-        </project>
-        """
-
-        with self.assertRaisesRegex(TaskError, 'target .* not found'):
-            construct(io.StringIO(recipe), ["init"])
-
-    def test_no_targets(self):
-        recipe = """
-        <project>
-        </project>
-        """
-
-        construct(io.StringIO(recipe))
+if __name__ == '__main__':
+    unittest.main()

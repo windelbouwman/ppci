@@ -14,6 +14,11 @@ def zip_examples(app):
         "examples/arduino/*.c3",
         "examples/arduino/*.asm",
         "examples/arduino/*.mmap",
+        "examples/linux64/*.mmap",
+        "examples/linux64/*.asm",
+        "examples/linux64/*.c3",
+        "examples/linux64/hello/*.c3",
+        "examples/linux64/hello/build.xml",
         "librt/*.c3"]
     my_path = os.path.dirname(os.path.abspath(__file__))
     root_path = os.path.abspath(os.path.join(my_path, '..', '..'))

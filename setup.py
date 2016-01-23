@@ -3,6 +3,7 @@ from setuptools.command.test import test as TestCommand
 import sys
 import ppci
 
+
 with open('readme.rst') as f:
     long_description = f.read()
 
@@ -35,6 +36,7 @@ setup(
     description="Pure python compiler infrastructure",
     scripts=[
         "bin/ppci-build.py",
+        "bin/ppci-ld.py",
         "bin/ppci-asm.py",
         "bin/ppci-c3c.py",
         "bin/ppci-objdump.py",
@@ -46,7 +48,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
     package_data={'': ['*.grammar', "*.sled", "*.rst"]},
-    url='https://bitbucket.org/windel/ppci',
+    url='https://ppci.readthedocs.org/',
     license='BSD',
     test_suite="test",
     tests_require=['tox'],

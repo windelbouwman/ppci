@@ -1,6 +1,6 @@
 import unittest
-from ppci.buildfunctions import bf2ir
-from ppci.target.example import SimpleTarget
+from ppci.api import bf2ir
+from ppci.arch.example import SimpleTarget
 from ppci.common import CompilerError
 
 

@@ -95,8 +95,8 @@ class Visitor:
         elif type(node) in [ast.Identifier, ast.Literal, ast.Empty]:
             # Those nodes do not have child nodes.
             pass
-        else:
-            raise Exception('Could not visit "{0}"'.format(node))
+        else:  # pragma: no cover
+            raise NotImplementedError('Could not visit "{0}"'.format(node))
 
         # run post function
         if self.f_post:
@@ -105,7 +105,7 @@ class Visitor:
 
 class AstPrinter:
     """ Prints an AST as text """
-    def printAst(self, pkg, f):
+    def print_ast(self, pkg, f):
         self.indent = 2
         self.f = f
         visitor = Visitor()

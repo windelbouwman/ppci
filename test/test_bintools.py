@@ -7,15 +7,16 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.target.arm.instructions import ArmToken
+from ppci.arch.arm.instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
-from ppci.buildfunctions import link
+from ppci.api import link
 from ppci.binutils import layout
-from ppci.target.example import Mov, R0, R1
+from ppci.utils.elffile import ElfFile
+from ppci.arch.example import Mov, R0, R1
 
 
 class TokenTestCase(unittest.TestCase):
@@ -180,6 +181,15 @@ class ObjectFileTestCase(unittest.TestCase):
         object1, object2 = self.make_twins()
         object3 = deserialize(serialize(object1))
         self.assertEqual(object3, object1)
+
+
+class ElfFileTestCase(unittest.TestCase):
+    def test_save_load(self):
+        ef1 = ElfFile()
+        f = io.BytesIO()
+        ef1.save(f, ObjectFile())
+        f2 = io.BytesIO(f.getvalue())
+        ElfFile.load(f2)
 
 
 class LayoutFileTestCase(unittest.TestCase):

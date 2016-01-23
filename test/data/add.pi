@@ -2,22 +2,22 @@
 module addmod
 
 function i32 add(i32 a, i32 b)
- init:
-  i32 c = a + b
-  return c
+  init:
+    i32 c = a + b
+    return c
 
 function void test()
- init:
-  i32 a = 2
-  i32 c1 = 3
-  cjmp a > c1 L1 L2
- L1:
-  i32 b1 = 3
-  jmp L3
- L2:
-  i32 c2 = 6
-  i32 b2 = c2 + a
-  jmp L3
- L3:
-  return a
+  init:
+    i32 a = 2
+    i32 c1 = 3
+    cjmp a > c1 L1 L2
+  L1:
+    i32 b1 = 3
+    jmp L3
+  L2:
+    i32 c2 = 6
+    i32 b2 = c2 + a
+    jmp L3
+  L3:
+    return a
 

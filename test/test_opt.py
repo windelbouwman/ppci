@@ -51,6 +51,26 @@ class Mem2RegTestCase(unittest.TestCase):
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
+    def test_volatile_not_lifted(self):
+        """ Volatile allocs must persist """
+        alloc = self.builder.emit(ir.Alloc('A', 1))
+        cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
+        self.builder.emit(ir.Store(cnst, alloc))
+        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8, volatile=True))
+        self.builder.emit(ir.Jump(self.function.epilog))
+        self.mem2reg.run(self.module)
+        self.assertIn(alloc, self.function.entry.instructions)
+
+    def test_different_type_not_lifted(self):
+        """ different types must persist """
+        alloc = self.builder.emit(ir.Alloc('A', 1))
+        cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
+        self.builder.emit(ir.Store(cnst, alloc))
+        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
+        self.builder.emit(ir.Jump(self.function.epilog))
+        self.mem2reg.run(self.module)
+        self.assertIn(alloc, self.function.entry.instructions)
+
     def test_store_uses_alloc_as_value(self):
         """ When only stores and loads use the alloc, the store can use the
         alloc as a value. In this case, the store must remain """

@@ -1,8 +1,8 @@
 import unittest
 from ppci.codegen.registerallocator import RegisterAllocator
-from ppci.target.isa import Register
-from ppci.target.target import Frame
-from ppci.target.example import Def, Use, Add, Mov, R0, R1
+from ppci.arch.isa import Register
+from ppci.arch.target import Frame
+from ppci.arch.example import Def, Use, Add, Mov, R0, R1
 
 
 class RegisterAllocatorTestCase(unittest.TestCase):
@@ -11,13 +11,15 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         Possible cases: freeze of move, spill of register
     """
     def setUp(self):
-        self.ra = RegisterAllocator()
+        self.register_allocator = RegisterAllocator()
 
     def conflict(self, ta, tb):
-        self.assertNotEqual(self.ra.Node(ta).color, self.ra.Node(tb).color)
+        color_a = self.register_allocator.Node(ta).color
+        color_b = self.register_allocator.Node(tb).color
+        self.assertNotEqual(color_a, color_b)
 
     def test_register_allocation(self):
-        f = Frame('tst')
+        f = Frame('tst', [], [], None, [])
         t1 = Register('t1')
         t2 = Register('t2')
         t3 = Register('t3')
@@ -30,13 +32,13 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Add(t4, t1, t2))
         f.instructions.append(Add(t5, t4, t3))
         f.instructions.append(Use(t5))
-        self.ra.alloc_frame(f)
+        self.register_allocator.alloc_frame(f)
         self.conflict(t1, t2)
         self.conflict(t2, t3)
 
     def test_register_coalescing(self):
         """ Register coalescing happens when a move can be eliminated """
-        f = Frame('tst')
+        f = Frame('tst', [], [], None, [])
         t1 = Register('t1')
         t2 = Register('t2')
         t3 = Register('t3')
@@ -52,7 +54,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Add(t5, t4, t5))
         f.instructions.append(Mov(t6, t5))
         f.instructions.append(Use(t6))
-        self.ra.alloc_frame(f)
+        self.register_allocator.alloc_frame(f)
         self.conflict(t1, t2)
         self.conflict(t2, t3)
         self.conflict(t1, t3)
@@ -65,7 +67,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
 
             The move can then not be coalesced, and will be frozen.
         """
-        f = Frame('tst')
+        f = Frame('tst', [], [], None, [])
         t1 = R0
         t2 = R0
         t3 = Register('t3')
@@ -77,20 +79,20 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Def(t2))
         f.instructions.append(Add(t4, t2, t3))
         f.instructions.append(Use(t4))
-        self.ra.alloc_frame(f)
+        self.register_allocator.alloc_frame(f)
 
         # Check t1 and t2 are pre-colored:
-        self.assertEqual({self.ra.Node(R0)}, self.ra.precolored)
-        self.assertEqual(set(), self.ra.coalescedMoves)
-        self.assertEqual({move}, self.ra.constrainedMoves)
+        self.assertEqual({self.register_allocator.Node(R0)}, self.register_allocator.precolored)
+        self.assertEqual(set(), self.register_allocator.coalescedMoves)
+        self.assertEqual({move}, self.register_allocator.constrainedMoves)
         self.conflict(t2, t3)
-        self.assertEqual(set(), self.ra.frozenMoves)
+        self.assertEqual(set(), self.register_allocator.frozenMoves)
         self.assertIn(move, f.instructions)
 
     def test_freeze(self):
         """ Create a situation where no select and no coalesc is possible
         """
-        f = Frame('tst')
+        f = Frame('tst', [], [], None, [])
         t1 = Register('t1')
         t2 = Register('t2')
         t3 = Register('t3')
@@ -104,9 +106,9 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f.instructions.append(Def(t4))
         f.instructions.append(Add(t5, t4, R1))
         f.instructions.append(Use(t5))
-        self.ra.alloc_frame(f)
+        self.register_allocator.alloc_frame(f)
 
-        self.assertEqual(set(), self.ra.coalescedMoves)
+        self.assertEqual(set(), self.register_allocator.coalescedMoves)
         #self.assertEqual({move}, self.ra.frozenMoves)
         self.conflict(R1, R0)
 

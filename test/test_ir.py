@@ -4,18 +4,17 @@ import io
 from ppci import ir
 from ppci import irutils
 from ppci.opt.transform import ConstantFolder
-from ppci.buildfunctions import ir_to_python, bf2ir
 from util import relpath
 
 
 class IrCodeTestCase(unittest.TestCase):
-    def testAdd(self):
+    def test_add(self):
         """ See if the ir classes can be constructed """
         v1 = ir.Const(1, 'const', ir.i32)
         v2 = ir.Const(2, 'const', ir.i32)
         ir.Add(v1, v2, "add", ir.i32)
 
-    def testUse(self):
+    def test_use(self):
         """ Check if use def information is correctly administered """
         c1 = ir.Const(1, 'one', ir.i32)
         c2 = ir.Const(2, 'two', ir.i32)
@@ -40,7 +39,7 @@ class IrBuilderTestCase(unittest.TestCase):
         self.m = ir.Module('test')
         self.b.set_module(self.m)
 
-    def testBuilder(self):
+    def test_builder(self):
         f = self.b.new_function('add')
         self.b.set_function(f)
         bb = self.b.new_block()
@@ -60,7 +59,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.m = ir.Module('test')
         self.b.set_module(self.m)
 
-    def testBuilder(self):
+    def test_builder(self):
         f = self.b.new_function('test')
         self.b.set_function(f)
         bb = self.b.new_block()
@@ -72,7 +71,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.b.emit(ir.Jump(f.epilog))
         self.cf.run(self.m)
 
-    def testAdd0(self):
+    def test_add0(self):
         f = self.b.new_function('test')
         self.b.set_function(f)
         self.b.set_block(self.b.new_block())
@@ -85,38 +84,33 @@ class ConstantFolderTestCase(unittest.TestCase):
 
 
 class TestWriter(unittest.TestCase):
-    def testWrite(self):
+    def test_write(self):
         writer = irutils.Writer()
         module = ir.Module('mod1')
-        function = ir.Function('func1', module)
+        ir.Function('func1', module)
         f = io.StringIO()
         writer.write(module, f)
         f2 = io.StringIO(f.getvalue())
         reader = irutils.Reader()
-        # TODO: fix read back
-        #module2 = reader.read(f2)
-        #f3 = io.StringIO()
-        #writer.write(module2, f3)
-        #self.assertEqual(f3.getvalue(), f.getvalue())
+        module2 = reader.read(f2)
+        f3 = io.StringIO()
+        writer.write(module2, f3)
+        self.assertEqual(f3.getvalue(), f.getvalue())
 
 
 class TestReader(unittest.TestCase):
-    def testAddExample(self):
+    def test_add_example(self):
         reader = irutils.Reader()
         with open(relpath('data', 'add.pi')) as f:
             m = reader.read(f)
             self.assertTrue(m)
-            #print(m)
 
 
 class TestIrToPython(unittest.TestCase):
-    def testAddExample(self):
+    def test_add_example(self):
         reader = irutils.Reader()
         with open(relpath('data', 'add.pi')) as f:
-            m = reader.read(f)
-            writer = irutils.Writer()
-            # writer.write(m, sys.stdout)
-            # ir_to_python(m)
+            reader.read(f)
 
 
 if __name__ == '__main__':

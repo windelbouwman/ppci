@@ -79,7 +79,6 @@ class Grammar:
 
             # Process the first occasion:
             eps_rule = eps[0]
-            print(eps_rule)
 
             # Remove the epsilon-rule
             self.productions.remove(eps_rule)
@@ -111,7 +110,7 @@ class Grammar:
                 pass
             else:
                 rhs.append(x)
-        self.add_production(rule.name, rhs, semantics)
+        self.add_production(rule.name, rhs)
         # self.productions.remove(rule)
 
     @property
@@ -151,7 +150,7 @@ class Production:
         self.priority = priority
 
     def __repr__(self):
-        return '{0} -> {1}'.format(self.name, self.symbols)
+        return '{} -> {} P_{}'.format(self.name, self.symbols, self.priority)
 
     @property
     def is_epsilon(self):

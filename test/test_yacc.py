@@ -6,17 +6,16 @@ except ImportError:
     from mock import patch
 
 import io
-from ppci.pcc.grammar import Grammar
+from ppci.pcc.grammar import Grammar, print_grammar
 from ppci.pcc.common import ParserGenerationException
 from ppci.pcc.lr import Item
 from ppci.pcc.common import ParserException
-from ppci.pyyacc import load_as_module
+from ppci.pcc.yacc import load_as_module, transform
 from ppci.pcc.lr import calculate_first_sets
-from ppci.pyyacc import transform
 from ppci.common import Token, SourceLocation, CompilerError
 from ppci.pcc.lr import LrParserBuilder
 from ppci.pcc.earley import EarleyParser
-from ppci.baselex import EOF
+from ppci.pcc.baselex import EOF
 
 
 class gen_tokens:
@@ -185,7 +184,39 @@ class LrParserBuilderTestCase(unittest.TestCase):
         self.assertTrue(self.cb_called)
 
 
-class testExpressionGrammar(unittest.TestCase):
+class GrammarTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_print(self, mock_stdout):
+        grammar = Grammar()
+        grammar.add_terminal('a')
+        grammar.add_production('b', ['a', 'a'])
+        print_grammar(grammar)
+        self.assertTrue(mock_stdout.getvalue())
+
+    def test_redefine_non_terminal(self):
+        grammar = Grammar()
+        grammar.add_terminal('a')
+        self.assertTrue(grammar.is_terminal('a'))
+        grammar.add_production('b', ['a', 'a'])
+        with self.assertRaises(ParserGenerationException):
+            grammar.add_terminal('b')
+
+    def test_rewrite_epsilons(self):
+        """ Test grammar rewriting. This involves the removal of epsilon
+        rules. """
+        grammar = Grammar()
+        grammar.add_terminals(['a', 'b', 'c'])
+        grammar.add_production('X', [])
+        grammar.add_production('X', ['c'])
+        grammar.add_production('Y', ['X', 'a'])
+        self.assertFalse(grammar.is_normal)
+        self.assertEqual(1, len(grammar.productions_for_name('Y')))
+        grammar.rewrite_eps_productions()
+        self.assertEqual(2, len(grammar.productions_for_name('Y')))
+        self.assertTrue(grammar.is_normal)
+
+
+class ExpressionGrammarTestCase(unittest.TestCase):
     def setUp(self):
         g = Grammar()
         g.add_terminals(['EOF', 'identifier', '(', ')', '+', '*', 'num'])
@@ -214,7 +245,7 @@ class testExpressionGrammar(unittest.TestCase):
         self.assertEqual(len(s), 24)
 
 
-class testParserGenerator(unittest.TestCase):
+class ParserGeneratorTestCase(unittest.TestCase):
     """ Tests several parts of the parser generator """
     def setUp(self):
         g = Grammar()
@@ -234,7 +265,7 @@ class testParserGenerator(unittest.TestCase):
         for nt in ['list', 'pair', 'goal']:
             self.assertEqual(pb.first[nt], {'('})
 
-    def testInitItemSet(self):
+    def test_init_item_set(self):
         p0, p1, p2, p3, p4 = self.g.productions
         s0 = LrParserBuilder(self.g).initial_item_set()
         self.assertEqual(len(s0), 9)    # 9 with the goal rule included!
@@ -286,7 +317,7 @@ class testParserGenerator(unittest.TestCase):
 
 
 class EarleyParserTestCase(unittest.TestCase):
-    def test1(self):
+    def test_expression_grammar(self):
         grammar = Grammar()
         grammar.add_terminals(
             ['EOF', 'identifier', '(', ')', '+', '*', 'num'])
@@ -309,6 +340,30 @@ class EarleyParserTestCase(unittest.TestCase):
         result = parser.parse(gen_tokens(
             [('num', 7), '*', ('num', 11), '+', ('num', 3)]))
         self.assertEqual(80, result)
+
+    def test_ambiguous_grammar(self):
+        """
+            Test if ambiguous grammar is handled correctly by priorities
+        """
+        # TODO: check that ambiguous grammars have different priorities!
+        grammar = Grammar()
+        grammar.add_terminals(['mov', 'num', '+'])
+        grammar.add_production(
+            'expr', ['num', '+', 'num'],
+            lambda rh1, _, rh3: rh1.val + rh3.val,
+            priority=3)
+        grammar.add_production(
+            'expr', ['num', '+', 'num'],
+            lambda rh1, _, rh3: rh1.val + rh3.val + 1,
+            priority=2)
+        grammar.add_production(
+            'ins', ['mov', 'expr'],
+            lambda _, rh2: rh2,
+            priority=2)
+        grammar.start_symbol = 'ins'
+        parser = EarleyParser(grammar)
+        result = parser.parse(gen_tokens(['mov', ('num', 1), '+', ('num', 1)]))
+        self.assertEqual(3, result)
 
     def test_cb(self):
         """ Test callback of one rule and order or parameters """

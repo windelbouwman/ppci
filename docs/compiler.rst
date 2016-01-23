@@ -11,6 +11,10 @@ This is optional. The back-end generates machine code. The front-end produces
 intermediate code. This is a simple representation of the source. The back-end
 can accept this kind of representation.
 
+The compiler is greatly influenced by the `LLVM`_ design.
+
+.. _llvm: http://www.llvm.org
+
 .. graphviz::
  
    digraph x {
@@ -76,10 +80,6 @@ from the backend of the compiler.
 
 See :doc:`ir` for details about all the available instructions.
 
-.. toctree::
-    :hidden:
-
-    ir
 
 Optimalization
 --------------

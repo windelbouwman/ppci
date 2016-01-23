@@ -7,15 +7,18 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump
+from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
+from ppci.commands import link
 from ppci.common import DiagnosticsManager, SourceLocation
+from ppci.binutils.objectfile import ObjectFile, Section, Image
 from util import relpath
 
 
 class BuildTestCase(unittest.TestCase):
     """ Test the build command-line utility """
+    @patch('sys.stdout', new_callable=io.StringIO)
     @patch('sys.stderr', new_callable=io.StringIO)
-    def test_build_command(self, mock_stderr):
+    def test_build_command(self, mock_stdout, mock_stderr):
         """ Test normal use """
         _, report_file = tempfile.mkstemp()
         build_file = relpath('..', 'examples', 'build.xml')
@@ -44,8 +47,9 @@ class C3cTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_c3c_command_fails(self, mock_stdout, mock_stderr):
         c3_file = relpath('..', 'examples', 'snake', 'game.c3')
+        _, obj_file = tempfile.mkstemp(suffix='.obj')
         with self.assertRaises(SystemExit) as cm:
-            c3c(['--target', 'arm', c3_file])
+            c3c(['-m', 'arm', c3_file, '-o', obj_file])
         self.assertEqual(1, cm.exception.code)
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -53,7 +57,8 @@ class C3cTestCase(unittest.TestCase):
     def test_c3c_command_succes(self, mock_stdout, mock_stderr):
         """ Capture stdout. Important because it is closed by the command! """
         c3_file = relpath('..', 'examples', 'stm32f4', 'bsp.c3')
-        c3c(['--target', 'arm', c3_file])
+        _, obj_file = tempfile.mkstemp(suffix='.obj')
+        c3c(['-m', 'arm', c3_file, '-o', obj_file])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_c3c_command_help(self, mock_stdout):
@@ -66,9 +71,9 @@ class C3cTestCase(unittest.TestCase):
 class AsmTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_asm_command(self, mock_stderr):
-        _, obj_file = tempfile.mkstemp()
+        _, obj_file = tempfile.mkstemp(suffix='.obj')
         src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['--target', 'thumb', '-o', obj_file, src])
+        asm(['-m', 'thumb', '-o', obj_file, src])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -86,13 +91,70 @@ class ObjdumpTestCase(unittest.TestCase):
         self.assertEqual(0, cm.exception.code)
         self.assertIn('object file', mock_stdout.getvalue())
 
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_command(self, mock_stdout):
-        _, obj_file = tempfile.mkstemp()
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_command(self, mock_stderr):
+        _, obj_file = tempfile.mkstemp(suffix='.obj')
         src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['--target', 'thumb', '-o', obj_file, src])
-        objdump([obj_file])
-        self.assertIn('SECTION', mock_stdout.getvalue())
+        asm(['-m', 'thumb', '-o', obj_file, src])
+        with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+            objdump([obj_file])
+            self.assertIn('SECTION', mock_stdout.getvalue())
+
+
+class ObjcopyTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            objcopy(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('format', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_command(self, mock_stdout, mock_stderr):
+        _, obj_file = tempfile.mkstemp(suffix='.obj')
+        _, bin_file = tempfile.mkstemp(suffix='.bin')
+        obj = ObjectFile()
+        data = bytes(range(100))
+        section = Section('.text')
+        section.add_data(data)
+        image = Image('code2', 0)
+        image.sections.append(section)
+        obj.add_section(section)
+        obj.add_image(image)
+        with open(obj_file, 'w') as f:
+            obj.save(f)
+        objcopy(['-O', 'bin', '-S', 'code2', obj_file, bin_file])
+        with open(bin_file, 'rb') as f:
+            exported_data = f.read()
+        self.assertEqual(data, exported_data)
+
+
+class LinkCommandTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            link(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('obj', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_command(self, mock_stdout, mock_stderr):
+        _, obj1 = tempfile.mkstemp(suffix='.obj')
+        _, obj2 = tempfile.mkstemp(suffix='.obj')
+        _, obj3 = tempfile.mkstemp(suffix='.obj')
+        asm_src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
+        mmap = relpath('..', 'examples', 'lm3s6965', 'memlayout.mmap')
+        c3_srcs = [
+            relpath('..', 'examples', 'snake', 'main.c3'),
+            relpath('..', 'examples', 'snake', 'game.c3'),
+            relpath('..', 'librt', 'io.c3'),
+            relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
+            ]
+        asm(['-m', 'thumb', '-o', obj1, asm_src])
+        c3c(['-m', 'thumb', '-o', obj2] + c3_srcs)
+        link(['-o', obj3, '-m', 'thumb', '-L', mmap, obj1, obj2])
 
 
 class HexutilTestCase(unittest.TestCase):
@@ -106,7 +168,7 @@ class HexutilTestCase(unittest.TestCase):
 
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_hexutil_address_format(self, mock_stderr):
-        _, file1 = tempfile.mkstemp()
+        _, file1 = tempfile.mkstemp(suffix='.hex')
         datafile = relpath('..', 'examples', 'build.xml')
         with self.assertRaises(SystemExit) as cm:
             hexutil(['new', file1, '10000000', datafile])
@@ -123,9 +185,9 @@ class HexutilTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_merge(self, mock_stdout):
         """ Create three hexfiles and manipulate those """
-        _, file1 = tempfile.mkstemp()
-        _, file2 = tempfile.mkstemp()
-        _, file3 = tempfile.mkstemp()
+        _, file1 = tempfile.mkstemp(suffix='file1.hex', prefix='file1')
+        _, file2 = tempfile.mkstemp(suffix='file2.hex', prefix='file2')
+        _, file3 = tempfile.mkstemp(suffix='file3.hex', prefix='file3')
         datafile = relpath('..', 'docs', 'logo', 'logo.png')
         hexutil(['new', file1, '0x10000000', datafile])
         hexutil(['new', file2, '0x20000000', datafile])
@@ -135,8 +197,7 @@ class HexutilTestCase(unittest.TestCase):
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_info(self, mock_stdout):
-        """ Create three hexfiles and manipulate those """
-        _, file1 = tempfile.mkstemp()
+        _, file1 = tempfile.mkstemp(suffix='file1.hex', prefix='file1')
         datafile = relpath('..', 'docs', 'logo', 'logo.png')
         hexutil(['new', file1, '0x10000000', datafile])
         hexutil(['info', file1])
@@ -152,11 +213,15 @@ class YaccTestCase(unittest.TestCase):
         self.assertIn('compiler compiler', mock_stdout.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_normal_use(self, mock_stdout):
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_normal_use(self, mock_stdout, mock_stderr):
         """ Test normal yacc use """
         grammar_file = relpath('..', 'ppci', 'burg.grammar')
-        yacc_cmd([grammar_file])
-        self.assertIn('Automatically generated', mock_stdout.getvalue())
+        _, file1 = tempfile.mkstemp()
+        yacc_cmd([grammar_file, '-o', file1])
+        with open(file1, 'r') as f:
+            content = f.read()
+        self.assertIn('Automatically generated', content)
 
 
 class DiagnosticsTestCase(unittest.TestCase):
@@ -181,4 +246,4 @@ class DiagnosticsTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=2)

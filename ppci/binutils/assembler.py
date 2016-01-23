@@ -7,13 +7,13 @@
 import re
 from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
-from ..baselex import BaseLexer, EPS, EOF
+from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num, ParseError
-from ..target.target import Target, Label, Alignment
-from ..target.isa import InstructionProperty, Syntax
+from ..arch.target import Target, Label, Alignment
+from ..arch.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
 
-id_regex = r'[A-Za-z_][A-Za-z\d_]*'
+id_regex = r'[A-Za-z_][A-Za-z\d_\.]*'
 id_matcher = re.compile(id_regex)
 
 
@@ -27,7 +27,7 @@ class AsmLexer(BaseLexer):
             ('LABEL', id_regex + ':', lambda typ, val: (typ, val)),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
+            ('LEESTEKEN', r':=|[,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
                 lambda typ, val: (val, val)),
             ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
             ('COMMENT', r";.*", None)
