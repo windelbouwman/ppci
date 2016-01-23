@@ -93,6 +93,13 @@ Package and upload the python package with:
 
 .. code:: bash
 
+    $ hg update release
+    $ hg merge default
+    $ tox
+    $ hg tag x.y.z
+    $ hg update x.y.z
     $ python setup.py sdist upload
+    $ hg update default
+    $ hg merge release
 
 Increase the version number.
