@@ -6,6 +6,7 @@ from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from ..token import Token, u16, bit_range, bit, u8
 from .registers import Msp430Register, r0, r2, SP, PC
 from ...utils.bitfun import align, wrap_negative
+from ...ir import i16
 
 # pylint: disable=no-member,invalid-name
 
@@ -399,7 +400,16 @@ def _(context, tree):
 @isa.pattern('reg', 'MULI16(reg, reg)', cost=10)
 def _(self, tree, c0, c1):
     d = self.newTmp()
-    self.emit(Mul1(d, c0, c1))
+    # TODO
+    return d
+
+
+@isa.pattern('reg', 'DIVI16(reg, reg)', cost=10)
+def _(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
+    # Generate call into runtime lib function!
+    # context.gen_call('__sdiv', [i16, i16], i16, [c0, c1], d)
+    # TODO
     return d
 
 

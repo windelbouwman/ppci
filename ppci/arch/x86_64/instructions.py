@@ -1,10 +1,12 @@
 """
     X86 target descriptions and encodings.
+
+    See for a reference: http://ref.x86asm.net/coder64.html
 """
 
 from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from ..isa import FixedPattern, VariablePattern
-from .registers import X86Register, rcx, LowRegister, al, rax
+from .registers import X86Register, rcx, LowRegister, al, rax, rdx
 from ...utils.bitfun import wrap_negative
 
 from ..token import Token, u32, u8, u64, bit_range
@@ -580,6 +582,26 @@ class Imul(X86Instruction):
             self.token3.encode() + self.token4.encode()
 
 
+class Idiv(X86Instruction):
+    """
+        idiv reg1
+    """
+    reg1 = register_argument('reg1', X86Register, read=True)
+    syntax = Syntax(['idiv', reg1])
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+    opcode = 0xf7  # 0xf7 /7 = idiv r/m64
+
+    def encode(self):
+        self.token1.w = 1
+        self.token1.b = self.reg1.rexbit
+        self.token2[0:8] = self.opcode
+        self.token3.mod = 3
+        self.token3.rm = self.reg1.regbits
+        self.token3.reg = 7
+        return self.token1.encode() + self.token2.encode() + \
+            self.token3.encode()
+
+
 class MovImm(X86Instruction):
     """ Mov immediate into register """
     reg = register_argument('reg', X86Register, write=True)
@@ -709,6 +731,16 @@ def _(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(Imul(d, c1))
+    return d
+
+
+@isa.pattern('reg64', 'DIVI64(reg64, reg64)', cost=14)
+def _(context, tree, c0, c1):
+    context.move(rax, c0)
+    context.emit(MovImm(rdx, 0))
+    context.emit(Idiv(c1))
+    d = context.new_reg(X86Register)
+    context.move(d, rax)
     return d
 
 

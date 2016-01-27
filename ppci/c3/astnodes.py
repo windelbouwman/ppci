@@ -20,8 +20,9 @@ class Symbol(Node):
         self.public = public
         self.refs = []
 
-    def addRef(self, r):
-        self.refs.append(r)
+    def add_ref(self, ref):
+        """ Add a reference """
+        self.refs.append(ref)
 
     @property
     def references(self):
@@ -32,19 +33,21 @@ class Symbol(Node):
 # Modules
 class Module(Symbol):
     """ A module contains functions, types, consts and global variables """
-    def __init__(self, name, loc):
+    def __init__(self, name, inner_scope, loc):
         super().__init__(name, True)
         self.loc = loc
         self.imports = []
+        self.inner_scope = inner_scope
 
     @property
     def types(self):
         """ Gets the types in this module """
-        return self.innerScope.types
+        return self.inner_scope.types
 
     @property
     def functions(self):
-        return self.innerScope.functions
+        """ Gets all the functions that are defined in this module """
+        return self.inner_scope.functions
 
     def __repr__(self):
         return 'MODULE {}'.format(self.name)

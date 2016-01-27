@@ -124,6 +124,33 @@ class SimpleSamples:
         res = "tftft"
         self.do(snippet, res)
 
+    def test_associativity_of_arithmatic(self):
+        """
+            Check arithmatics operator associativity
+        """
+        snippet = """
+         module sample;
+         import io;
+
+         function void start()
+         {
+            var int w;
+            var int d;
+            var int x;
+            d = 2;
+            x = 10;
+
+            // 100 / 10 / 2 = 10 / 2 = 5, not 100 / 5 = 20
+            w = 100 / x / d;
+            io.print2("w=", w);
+
+            // 100 - 10 - 2 = 88 = 0x58
+            w = 100 - x - d;
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x00000005\nw=0x00000058\n")
+
 
 class I32Samples:
     """ 32-bit samples """

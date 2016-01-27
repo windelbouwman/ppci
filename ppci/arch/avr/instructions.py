@@ -639,6 +639,13 @@ def _(context, tree, c0, c1):
     return d
 
 
+@avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', cost=8)
+def _(context, tree, c0, c1):
+    d = context.new_reg(AvrPseudo16Register)
+    # TODO
+    return d
+
+
 @avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', cost=8)
 def _(context, tree, c0, c1):
     """
