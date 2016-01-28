@@ -85,10 +85,10 @@ class BuildTestCaseBase(unittest.TestCase):
 
     def make_file_list(self, snippet):
         """ Try to make a list with opened files """
-        if type(snippet) is list:
+        if isinstance(snippet, list):
             files = []
             for src in snippet:
-                if type(src) is str:
+                if isinstance(src, str):
                     files.append(io.StringIO(src))
                 else:
                     files.append(src)
@@ -97,13 +97,13 @@ class BuildTestCaseBase(unittest.TestCase):
             return [io.StringIO(snippet)]
 
     def build(self, snippet):
-        """ Try to build a snippet """
+        """ Try to build a snippet and also print it to test the printer """
         srcs = self.make_file_list(snippet)
-        ir_modules, context = self.builder.build(srcs, return_context=True)
+        context, ir_modules = self.builder.build(srcs)
         printer = AstPrinter()
         for mod in context.modules:
-            f = io.StringIO()
-            printer.print_ast(mod, f)
+            output_file = io.StringIO()
+            printer.print_ast(mod, output_file)
 
         return ir_modules
 

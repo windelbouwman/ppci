@@ -17,6 +17,19 @@ The sourcecode of the project is located at these repositories:
 - https://bitbucket.org/windel/ppci
 - https://pikacode.com/windel/ppci/
 
+To check out the latest code and work use the development version use these
+commands to checkout the source code and setup ppci such that you can use it
+without having to setup your python path.
+
+.. code:: bash
+
+    $ mkdir HG
+    $ cd HG
+    $ hg clone https://bitbucket.org/windel/ppci
+    $ cd ppci
+    $ sudo python setup.py develop
+
+
 Continuous integration
 ----------------------
 

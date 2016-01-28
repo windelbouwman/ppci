@@ -21,78 +21,78 @@ class Visitor:
             self.f_pre(node)
 
         # Descent into subnodes:
-        if type(node) is ast.Module:
-            for decl in node.innerScope:
+        if isinstance(node, ast.Module):
+            for decl in node.inner_scope:
                 self.do(decl)
-        elif type(node) is ast.Function:
-            for s in node.innerScope:
-                self.do(s)
+        elif isinstance(node, ast.Function):
+            for symbol in node.inner_scope:
+                self.do(symbol)
             self.do(node.typ)
             if node.body:
                 self.do(node.body)
-        elif type(node) is ast.Compound:
+        elif isinstance(node, ast.Compound):
             for statement in node.statements:
                 self.do(statement)
-        elif type(node) is ast.If:
+        elif isinstance(node, ast.If):
             self.do(node.condition)
             self.do(node.truestatement)
             self.do(node.falsestatement)
-        elif type(node) is ast.While:
+        elif isinstance(node, ast.While):
             self.do(node.condition)
             self.do(node.statement)
-        elif type(node) is ast.For:
+        elif isinstance(node, ast.For):
             self.do(node.init)
             self.do(node.condition)
             self.do(node.final)
             self.do(node.statement)
-        elif type(node) is ast.Assignment:
+        elif isinstance(node, ast.Assignment):
             self.do(node.lval)
             self.do(node.rval)
-        elif type(node) is ast.FunctionCall:
+        elif isinstance(node, ast.FunctionCall):
             for arg in node.args:
                 self.do(arg)
             self.do(node.proc)
-        elif type(node) is ast.Return:
+        elif isinstance(node, ast.Return):
             self.do(node.expr)
-        elif type(node) is ast.Binop:
+        elif isinstance(node, ast.Binop):
             self.do(node.a)
             self.do(node.b)
-        elif type(node) is ast.Unop:
+        elif isinstance(node, ast.Unop):
             self.do(node.a)
-        elif type(node) is ast.ExpressionStatement:
+        elif isinstance(node, ast.ExpressionStatement):
             self.do(node.ex)
-        elif type(node) is ast.TypeCast:
+        elif isinstance(node, ast.TypeCast):
             self.do(node.a)
             self.do(node.to_type)
-        elif type(node) is ast.Sizeof:
+        elif isinstance(node, ast.Sizeof):
             self.do(node.query_typ)
-        elif type(node) is ast.Member:
+        elif isinstance(node, ast.Member):
             self.do(node.base)
-        elif type(node) is ast.Index:
+        elif isinstance(node, ast.Index):
             self.do(node.base)
             self.do(node.i)
-        elif type(node) is ast.Deref:
+        elif isinstance(node, ast.Deref):
             self.do(node.ptr)
-        elif type(node) is ast.Constant:
+        elif isinstance(node, ast.Constant):
             self.do(node.typ)
             self.do(node.value)
-        elif type(node) is ast.DefinedType:
+        elif isinstance(node, ast.DefinedType):
             self.do(node.typ)
         elif isinstance(node, ast.Variable):
             self.do(node.typ)
-        elif type(node) is ast.PointerType:
+        elif isinstance(node, ast.PointerType):
             self.do(node.ptype)
-        elif type(node) is ast.StructureType:
+        elif isinstance(node, ast.StructureType):
             for member in node.mems:
                 self.do(member.typ)
-        elif type(node) is ast.ArrayType:
+        elif isinstance(node, ast.ArrayType):
             self.do(node.element_type)
             self.do(node.size)
-        elif type(node) is ast.FunctionType:
+        elif isinstance(node, ast.FunctionType):
             for param_type in node.parametertypes:
                 self.do(param_type)
             self.do(node.returntype)
-        elif type(node) in [ast.Identifier, ast.Literal, ast.Empty]:
+        elif isinstance(node, (ast.Identifier, ast.Literal, ast.Empty)):
             # Those nodes do not have child nodes.
             pass
         else:  # pragma: no cover

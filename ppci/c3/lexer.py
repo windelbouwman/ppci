@@ -19,6 +19,7 @@ class Lexer(BaseLexer):
 
     def __init__(self, diag):
         self.diag = diag
+        self.incomment = False
 
         # Construct the tricky string of possible glyphs:
         ops = []

@@ -88,9 +88,9 @@ class Parser:
         self.consume('module')
         name = self.consume('ID')
         self.consume(';')
-        self.logger.debug('Parsing package {}'.format(name.val))
+        self.logger.debug('Parsing package %s', name.val)
         self.mod = context.get_module(name.val)
-        self.current_scope = self.mod.innerScope
+        self.current_scope = self.mod.inner_scope
         while self.peak != 'EOF':
             self.parse_top_level()
         self.consume('EOF')
@@ -233,12 +233,12 @@ class Parser:
         loc = self.consume('function').loc
         returntype = self.parse_type_spec()
         fname = self.consume('ID').val
-        self.logger.debug('Parsing function {}'.format(fname))
+        self.logger.debug('Parsing function %s', fname)
         func = Function(fname, public, loc)
         self.add_symbol(func)
-        func.innerScope = Scope(self.current_scope)
+        func.inner_scope = Scope(self.current_scope)
         func.package = self.mod
-        self.current_scope = func.innerScope
+        self.current_scope = func.inner_scope
         self.consume('(')
         parameters = []
         if not self.has_consumed(')'):

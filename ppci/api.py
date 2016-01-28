@@ -157,7 +157,7 @@ def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
     c3b = Builder(diag, target)
 
     try:
-        ir_modules = c3b.build(sources, includes)
+        _, ir_modules = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
     except CompilerError as ex:

@@ -176,11 +176,12 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('sub rsp, 0x12')
         self.check('4881ec56341200 4881ec12000000')
 
-    @unittest.skip('todo')
     def test_idiv(self):
-        assert(assembler.idivreg64('r11') == [0x49, 0xf7, 0xfb])
-        assert(assembler.idivreg64('rcx') == [0x48, 0xf7, 0xf9])
-        assert(assembler.idivreg64('rsp') == [0x48, 0xf7, 0xfc])
+        """ Test integer divide """
+        self.feed('idiv r11')
+        self.feed('idiv rcx')
+        self.feed('idiv rsp')
+        self.check('49f7fb 48f7f9 48f7fc')
 
     def test_imul(self):
         #assert(assembler.imulreg64_rax('rdi') == [0x48, 0xf7, 0xef])

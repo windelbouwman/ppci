@@ -27,14 +27,17 @@ class Builder:
         self.verifier = Verifier()
         self.target = target
 
-    def build(self, srcs, imps=(), return_context=False):
-        """ Create IR-code from sources. Raises compiler error when something
-            goes wrong. Returns a list of ir-code modules.
+    def build(self, srcs, imps=()):
+        """
+            Create IR-code from sources. Raises compiler error when something
+            goes wrong.
+            Returns a context where modules are living in and a list of
+            generated ir modules.
         """
         assert isinstance(srcs, collections.Iterable)
         assert isinstance(imps, collections.Iterable)
-        self.logger.debug('Building {} source files'.format(len(srcs)))
-        self.logger.debug('Using {} includes'.format(len(imps)))
+        self.logger.debug('Building %d source files', len(srcs))
+        self.logger.debug('Using %d includes', len(imps))
 
         # Create a context where the modules can live:
         context = Context(self.target)
@@ -51,9 +54,9 @@ class Builder:
             for mod in context.modules:
                 for imp in mod.imports:
                     if context.has_module(imp):
-                        if mod.innerScope.has_symbol(imp):
+                        if mod.inner_scope.has_symbol(imp):
                             raise SemanticError("Redefine of {}".format(imp))
-                        mod.innerScope.add_symbol(context.get_module(imp))
+                        mod.inner_scope.add_symbol(context.get_module(imp))
                     else:
                         msg = 'Cannot import {}'.format(imp)
                         raise SemanticError(msg)
@@ -80,10 +83,7 @@ class Builder:
             raise
 
         self.logger.debug('C3 build complete!')
-        if return_context:
-            return ir_modules, context
-        else:
-            return ir_modules
+        return context, ir_modules
 
     def check_control_flow(self, ir_module):
         pas = Mem2RegPromotor()
