@@ -597,6 +597,35 @@ class TestSamplesOnVexpress(
             self.assertEqual(expected_output, res)
 
 
+class TestSamplesOnRiscv(
+        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
+    maxDiff = None
+    march = "riscv"
+    startercode = """
+    section reset
+    mov sp, 0xF00   ; setup stack pointer 
+    JAL lr,sample_start     ; Branch to sample start LR
+    JAL lr,bsp_exit  ; do exit stuff LR
+    local_loop:
+    J local_loop
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x10000 SIZE=0x10000 {
+        SECTION(reset)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
+        SECTION(data)
+    }
+    """
+    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+    
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        sample_filename = self.build(src, lang)
+       
+       
+
 class TestSamplesOnCortexM3(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
