@@ -27,7 +27,7 @@ class FunctionPass(ModulePass):
         """ Main entry point for the pass """
         self.prepare()
         assert isinstance(ir_module, ir.Module)
-        for function in ir_module.Functions:
+        for function in ir_module.functions:
             self.on_function(function)
 
     def on_function(self, f):  # pragma: no cover

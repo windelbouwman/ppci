@@ -73,7 +73,9 @@ class ArmTarget(Target):
         Arm machine class.
     """
     def __init__(self):
-        super().__init__('arm')
+        super().__init__(
+            'arm',
+            options=('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2'))
         self.isa = isa + data_isa
         self.FrameClass = ArmFrame
         self.assembler = ArmAssembler(self)

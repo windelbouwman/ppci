@@ -333,7 +333,7 @@ class SelectionGraphBuilder:
         self.current_block = None
 
         # Create maps for global variables:
-        for variable in ir_function.module.Variables:
+        for variable in ir_function.module.variables:
             val = self.new_node('LABEL', value=ir.label_name(variable))
             self.add_map(variable, val.new_output(variable.name))
 

@@ -5,6 +5,8 @@ Then it is checked
 Finally code is generated from it.
 """
 
+# pylint: disable=R0903
+
 
 class Node:
     """ Base class of all nodes in a AST """
@@ -105,7 +107,7 @@ class PointerType(Type):
 class StructField:
     """ Field of a struct type """
     def __init__(self, name, typ):
-        assert type(name) is str
+        assert isinstance(name, str)
         self.name = name
         self.typ = typ
 
@@ -117,7 +119,7 @@ class StructureType(Type):
     """ Struct type consisting of several named members """
     def __init__(self, mems):
         self.mems = mems
-        assert all(type(mem) is StructField for mem in mems)
+        assert all(isinstance(mem, StructField) for mem in mems)
 
     def has_field(self, name):
         """ Check if the struct type has a member with name """
@@ -212,6 +214,7 @@ class Function(Symbol):
 
 # Operations / Expressions:
 class Expression(Node):
+    """ Expression base class """
     def __init__(self, loc):
         self.loc = loc
 
@@ -224,6 +227,7 @@ class Sizeof(Expression):
 
 
 class Deref(Expression):
+    """ Data pointer dereference """
     def __init__(self, ptr, loc):
         super().__init__(loc)
         assert isinstance(ptr, Expression)
@@ -364,14 +368,14 @@ class Compound(Statement):
     def __init__(self, statements):
         super().__init__(None)
         self.statements = statements
-        for s in self.statements:
-            assert isinstance(s, Statement)
+        assert all(isinstance(s, Statement) for s in self.statements)
 
     def __repr__(self):
         return 'COMPOUND STATEMENT'
 
 
 class Return(Statement):
+    """ Return statement """
     def __init__(self, expr, loc):
         super().__init__(loc)
         self.expr = expr
@@ -398,6 +402,7 @@ class Assignment(Statement):
 
     @property
     def is_shorthand(self):
+        """ Determine whether this assignment is a short hand like '+=' """
         return len(self.operator) > 1
 
     @property

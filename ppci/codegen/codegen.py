@@ -142,7 +142,7 @@ class CodeGenerator:
 
         # Generate code for global variables:
         output_stream.select_section('data')
-        for var in ircode.Variables:
+        for var in ircode.variables:
             self.target.emit_global(
                 output_stream, ir.label_name(var), var.amount)
 
@@ -150,5 +150,5 @@ class CodeGenerator:
         # Munch program into a bunch of frames. One frame per function.
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section('code')
-        for function in ircode.Functions:
+        for function in ircode.functions:
             self.generate_function(function, output_stream, reporter)

@@ -2,6 +2,8 @@
 Intermediate representation (IR) code classes.
 """
 
+# pylint: disable=R0903
+
 from binascii import hexlify
 
 
@@ -45,39 +47,41 @@ class Module:
     """ Container unit for variables and functions. """
     def __init__(self, name):
         self.name = name
-        self.functions = []
-        self.variables = []
+        self._functions = []
+        self._variables = []
 
     def __repr__(self):
         return 'module {0}'.format(self.name)
 
     def add_function(self, function):
         """ Add a function to this module """
-        assert type(function) is Function
-        self.functions.append(function)
+        assert isinstance(function, Function)
+        self._functions.append(function)
         function.module = self
 
     def add_variable(self, variable):
         """ Add a variable to this module """
-        assert type(variable) is Variable
-        self.variables.append(variable)
+        assert isinstance(variable, Variable)
+        self._variables.append(variable)
         variable.module = self
 
     def get_variables(self):
-        return self.variables
+        """ Get all variables of this module """
+        return self._variables
 
-    Variables = property(get_variables)
+    variables = property(get_variables)
 
     def get_functions(self):
-        return self.functions
+        """ Get all functions of this module """
+        return self._functions
 
-    Functions = property(get_functions)
+    functions = property(get_functions)
 
     def stats(self):
         """ Returns a string with statistic information such as block count """
-        num_functions = len(self.Functions)
-        num_blocks = sum(len(f.blocks) for f in self.Functions)
-        num_instructions = sum(f.num_instructions() for f in self.Functions)
+        num_functions = len(self.functions)
+        num_blocks = sum(len(f.blocks) for f in self.functions)
+        num_instructions = sum(f.num_instructions() for f in self.functions)
         return "functions: {}, blocks: {}, instructions: {}" \
             .format(num_functions,
                     num_blocks,
@@ -437,6 +441,7 @@ class Instruction:
             # TODO: hack, parameters and globals dominate all other
             # instructions..
             return True
+
         # All other instructions must have a containing block:
         assert self.block is not None, '{} has no block'.format(self)
 
@@ -448,7 +453,8 @@ class Instruction:
                     # Check if this instruction dominates the last
                     # instruction of this block
                     return self.dominates(block.last_instruction)
-            raise RuntimeError('Cannot query dominance for this phi')  # pragma: no cover
+            # pragma: no cover
+            raise RuntimeError('Cannot query dominance for this phi')
         # For all other instructions follow these rules:
         if self.block == other.block:
             # fi = self.block.instructions.first_to_occur(self, other)

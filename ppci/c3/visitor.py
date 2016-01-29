@@ -10,15 +10,19 @@ class Visitor:
         Visitor that can visit all nodes in the AST
         and run pre and post functions.
     """
-    def visit(self, node, f_pre=None, f_post=None):
-        self.f_pre = f_pre
-        self.f_post = f_post
+    def __init__(self, pre=None, post=None):
+        self.pre = pre
+        self.post = post
+
+    def visit(self, node):
+        """ Visit a node and all its descendants """
         self.do(node)
 
     def do(self, node):
+        """ Visit a single node """
         # Run pre function:
-        if self.f_pre:
-            self.f_pre(node)
+        if self.pre:
+            self.pre(node)
 
         # Descent into subnodes:
         if isinstance(node, ast.Module):
@@ -99,8 +103,8 @@ class Visitor:
             raise NotImplementedError('Could not visit "{0}"'.format(node))
 
         # run post function
-        if self.f_post:
-            self.f_post(node)
+        if self.post:
+            self.post(node)
 
 
 class AstPrinter:
@@ -108,12 +112,12 @@ class AstPrinter:
     def print_ast(self, pkg, f):
         self.indent = 2
         self.f = f
-        visitor = Visitor()
-        visitor.visit(pkg, self.print1, self.print2)
+        visitor = Visitor(self.print1, self.print2)
+        visitor.visit(pkg)
 
     def print1(self, node):
         print(' ' * self.indent + str(node), file=self.f)
         self.indent += 2
 
-    def print2(self, node):
+    def print2(self, _):
         self.indent -= 2

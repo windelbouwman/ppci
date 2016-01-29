@@ -179,7 +179,7 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
         This is an in-place operation!
     """
     logger = logging.getLogger('optimize')
-    logger.info('Optimizing module {}'.format(ir_module.name))
+    logger.info('Optimizing module %s', ir_module.name)
 
     # Create the verifier:
     verifier = Verifier()
@@ -204,11 +204,11 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     reporter.dump_ir(ir_module)
 
 
-def ir_to_object(ir_modules, target, reporter=DummyReportGenerator()):
+def ir_to_object(ir_modules, march, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
     target """
     logger = logging.getLogger('ir_to_code')
-    code_generator = CodeGenerator(target)
+    code_generator = CodeGenerator(march)
     verifier = Verifier()
 
     output = ObjectFile()
@@ -218,7 +218,7 @@ def ir_to_object(ir_modules, target, reporter=DummyReportGenerator()):
         verifier.verify(ir_module)
 
         # Code generation:
-        logger.debug('Starting code generation for {}'.format(ir_module))
+        logger.debug('Starting code generation for %s', ir_module.name)
         code_generator.generate(ir_module, output_stream, reporter=reporter)
 
     reporter.message('All modules generated!')
@@ -243,7 +243,7 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
     print('sample_start()', file=f)
 
 
-def c3c(sources, includes, target, reporter=DummyReportGenerator()):
+def c3c(sources, includes, march, reporter=DummyReportGenerator()):
     """
     Compile a set of sources into binary format for the given target.
 
@@ -258,8 +258,8 @@ def c3c(sources, includes, target, reporter=DummyReportGenerator()):
         >>> print(obj)
         CodeObject of 4 bytes
     """
-    target = fix_target(target)
-    ir_modules = list(c3toir(sources, includes, target, reporter=reporter))
+    march = fix_target(march)
+    ir_modules = list(c3toir(sources, includes, march, reporter=reporter))
 
     for ircode in ir_modules:
         optimize(ircode, reporter=reporter)
@@ -269,7 +269,7 @@ def c3c(sources, includes, target, reporter=DummyReportGenerator()):
     for ir_module in ir_modules:
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
-    return ir_to_object(ir_modules, target, reporter=reporter)
+    return ir_to_object(ir_modules, march, reporter=reporter)
 
 
 def bf2ir(source, target):

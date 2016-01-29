@@ -10,9 +10,9 @@ The project contains:
 - A :ref:`compiler<ppci-c3c>`, an :ref:`assembler<ppci-asm>`,
   a :ref:`linker<ppci-ld>` and a :ref:`build system<ppci-build>`
 - Language front-ends: Brainfuck, :doc:`c3<c3>`
-- Backends for various platforms: :ref:`arm`, :ref:`avr`, :ref:`msp430`,
-  python, thumb,
-  :ref:`x86_64`
+- Backends for various platforms: :ref:`6500<mos6500>`, :ref:`arm`,
+  :ref:`avr`,
+  :ref:`msp430`, python, thumb, :ref:`ricv-v<riscv>`, :ref:`x86_64`
 
 An example usage of the low level encoding :doc:`api<api>`:
 

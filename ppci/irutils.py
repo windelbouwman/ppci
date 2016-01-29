@@ -25,10 +25,10 @@ class Writer:
         assert type(module) is ir.Module
         self.f = f
         self.print('{}'.format(module))
-        for v in module.Variables:
+        for v in module.variables:
             self.print()
             self.print('{}'.format(v))
-        for function in module.Functions:
+        for function in module.functions:
             self.print()
             self.write_function(function)
 
@@ -380,7 +380,7 @@ class Verifier:
     def verify(self, module):
         """ Verifies a module for some sanity """
         assert isinstance(module, ir.Module)
-        for function in module.Functions:
+        for function in module.functions:
             self.verify_function(function)
 
     def verify_function(self, function):

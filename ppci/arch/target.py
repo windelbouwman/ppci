@@ -6,16 +6,26 @@ from ..ir import i8, i16, i32, i64, ptr
 
 class Target:
     """ Base class for all targets """
-    def __init__(self, name, desc=''):
-        logging.getLogger('target').debug('Creating {} target'.format(name))
+    def __init__(self, name, desc='', options=()):
+        logging.getLogger('target').debug('Creating %s target', name)
         self.name = name
         self.desc = desc
+        self.options = options
+        self.option_settings = {o: False for o in options}
         self.registers = []
         self.byte_sizes = {}
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
         self.value_classes = {}
+
+    def enable_option(self, name):
+        """ Enable a target option """
+        self.option_settings[name] = True
+
+    def disable_option(self, name):
+        """ Disable a target option """
+        self.option_settings[name] = False
 
     def __repr__(self):
         return '{}-target'.format(self.name)
@@ -28,12 +38,12 @@ class Target:
             return self.value_classes[ty]
         raise NotImplementedError()
 
-    def get_size(self, ty):
+    def get_size(self, typ):
         """ Get type of ir type """
-        if ty is ptr:
+        if typ is ptr:
             return self.byte_sizes['ptr']
         else:
-            return {i8: 1, i16: 2, i32: 4, i64: 8}[ty]
+            return {i8: 1, i16: 2, i32: 4, i64: 8}[typ]
 
     def get_reloc(self, name):
         """ Retrieve a relocation identified by a name """
