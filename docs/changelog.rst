@@ -2,10 +2,10 @@
 Changelog
 =========
 
-Upcoming
---------
+Release 0.3.0 (Upcoming)
+------------------------
 
-* Add risc v architecture
+* Added risc v architecture
 
 Release 0.2.0 (Jan 23, 2016)
 ----------------------------

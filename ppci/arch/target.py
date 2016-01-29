@@ -21,10 +21,12 @@ class Target:
 
     def enable_option(self, name):
         """ Enable a target option """
+        assert name in self.options
         self.option_settings[name] = True
 
     def disable_option(self, name):
         """ Disable a target option """
+        assert name in self.options
         self.option_settings[name] = False
 
     def __repr__(self):
