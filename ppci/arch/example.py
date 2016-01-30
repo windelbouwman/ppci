@@ -9,8 +9,7 @@ from .isa import register_argument, Register
 
 
 class SimpleTarget(Target):
-    def __init__(self):
-        super().__init__('SimpleTarget')
+    name = 'simple'
 
 
 R0 = Register('r0', 0)

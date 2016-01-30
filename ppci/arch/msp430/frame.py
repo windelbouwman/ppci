@@ -1,7 +1,7 @@
 from ..target import Frame, Label, Alignment
-from ..data_instructions import Db, Dw
+from ..data_instructions import Db
 from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
-from .registers import Msp430Register, get_register
+from .registers import get_register
 from .instructions import ret, push, call, pop, Dcd2
 
 
@@ -40,10 +40,6 @@ class Msp430Frame(Frame):
     def get_register(self, color):
         return get_register(color)
 
-    def new_virtual_register(self, twain=""):
-        """ Retrieve a new virtual register """
-        return super().new_virtual_register(Msp430Register, twain=twain)
-
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:
             self.locVars[lvar] = self.stacksize
@@ -55,7 +51,7 @@ class Msp430Frame(Frame):
         for lab_name, val in self.constants:
             if value == val:
                 return lab_name
-        assert type(value) in [str, int, bytes], str(value)
+        assert isinstance(value, (str, bytes)), str(value)
         lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
         self.literal_number += 1
         self.constants.append((lab_name, value))
@@ -71,9 +67,7 @@ class Msp430Frame(Frame):
         while self.constants:
             label, value = self.constants.pop(0)
             yield Label(label)
-            if isinstance(value, int):
-                yield Dw(value)
-            elif isinstance(value, str):
+            if isinstance(value, str):
                 yield Dcd2(value)
             elif isinstance(value, bytes):
                 for byte in value:

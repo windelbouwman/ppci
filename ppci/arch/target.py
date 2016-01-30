@@ -6,28 +6,30 @@ from ..ir import i8, i16, i32, i64, ptr
 
 class Target:
     """ Base class for all targets """
-    def __init__(self, name, desc='', options=()):
-        logging.getLogger('target').debug('Creating %s target', name)
-        self.name = name
-        self.desc = desc
-        self.options = options
-        self.option_settings = {o: False for o in options}
+    name = None
+    desc = None
+    option_names = ()
+
+    def __init__(self, options=None):
+        """
+            Create a new machine instance with possibly some extra machine
+            options.
+
+            options is a tuple with which options to enable.
+        """
+        logging.getLogger('target').debug('Creating %s target', self.name)
+        self.option_settings = {o: False for o in self.option_names}
+        if options:
+            assert isinstance(options, tuple)
+            for option_name in options:
+                assert option_name in self.option_names
+                self.option_settings[option_name] = True
         self.registers = []
         self.byte_sizes = {}
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
         self.value_classes = {}
-
-    def enable_option(self, name):
-        """ Enable a target option """
-        assert name in self.options
-        self.option_settings[name] = True
-
-    def disable_option(self, name):
-        """ Disable a target option """
-        assert name in self.options
-        self.option_settings[name] = False
 
     def has_option(self, name):
         """ Check for an option setting selected """

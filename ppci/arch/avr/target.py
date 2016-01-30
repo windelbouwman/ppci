@@ -20,8 +20,10 @@ class AvrTarget(Target):
         Check this site for good info:
         - https://gcc.gnu.org/wiki/avr-gcc
     """
-    def __init__(self):
-        super().__init__('avr')
+    name = 'avr'
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.isa = avr_isa + data_isa
         self.FrameClass = AvrFrame
         self.assembler = BaseAssembler()
@@ -120,10 +122,6 @@ class AvrFrame(Frame):
         self.constants = []
         self.literal_number = 0
 
-    def new_virtual_register(self, twain=""):
-        """ Retrieve a new virtual register """
-        return super().new_virtual_register(AvrRegister, twain=twain)
-
     def make_call(self, vcall):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
@@ -187,9 +185,7 @@ class AvrFrame(Frame):
         while self.constants:
             label, value = self.constants.pop(0)
             yield Label(label)
-            if isinstance(value, int) or isinstance(value, str):
-                yield dcd(value)
-            elif isinstance(value, bytes):
+            if isinstance(value, bytes):
                 for byte in value:
                     yield Db(byte)
                 yield Alignment(4)   # Align at 4 bytes

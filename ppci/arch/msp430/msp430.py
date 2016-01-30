@@ -8,8 +8,11 @@ from ...binutils.assembler import BaseAssembler
 
 
 class Msp430Target(Target):
-    def __init__(self):
-        super().__init__('msp430')
+    """ Texas Instruments msp430 target architecture """
+    name = 'msp430'
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.byte_sizes['int'] = 2
         self.byte_sizes['ptr'] = 2
         self.value_classes[i16] = Msp430Register
@@ -33,7 +36,8 @@ class Msp430Target(Target):
         return mov(src, dst)
 
     def gen_call(self, label, arg_types, ret_type, args, res_var):
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(arg_types, ret_type)
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, ret_type)
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):

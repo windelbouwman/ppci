@@ -90,50 +90,24 @@ class ThumbAssembler(BaseAssembler):
 
 
 class ArmTarget(Target):
-    """
-        Arm machine class.
-    """
-    def __init__(self):
-        super().__init__(
-            'arm',
-            options=('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2'))
-        self.arm_isa = arm_isa + data_isa
-        self.thumb_isa = thumb_isa + data_isa
-        self.arm_assembler = ArmAssembler()
-        self.arm_assembler.gen_asm_parser(self.arm_isa)
-        self.thumb_assembler = ThumbAssembler()
-        self.thumb_assembler.gen_asm_parser(self.thumb_isa)
+    """ Arm machine class. """
+    name = 'arm'
+    option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
+        if self.has_option('thumb'):
+            self.assembler = ThumbAssembler()
+            self.isa = thumb_isa + data_isa
+            self.FrameClass = ThumbFrame
+        else:
+            self.isa = arm_isa + data_isa
+            self.assembler = ArmAssembler()
+            self.FrameClass = ArmFrame
+        self.assembler.gen_asm_parser(self.isa)
         self.value_classes[i32] = Reg8Op
         self.value_classes[i8] = Reg8Op
         self.value_classes[ptr] = Reg8Op
-
-    @property
-    def assembler(self):
-        if self.has_option('thumb'):
-            return self.thumb_assembler
-        else:
-            return self.arm_assembler
-
-    @property
-    def isa(self):
-        if self.has_option('thumb'):
-            return self.thumb_isa
-        else:
-            return self.arm_isa
-
-    def get_reloc(self, name):
-        """ Retrieve a relocation identified by a name """
-        if self.has_option('thumb'):
-            return self.thumb_isa.relocation_map[name]
-        else:
-            return self.arm_isa.relocation_map[name]
-
-    @property
-    def FrameClass(self):
-        if self.has_option('thumb'):
-            return ThumbFrame
-        else:
-            return ArmFrame
 
     def get_runtime_src(self):
         """ Implement compiler runtime functions """

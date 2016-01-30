@@ -68,12 +68,8 @@ base2_parser.add_argument(
 
 def get_arch(args):
     """ Determine the intended machine target and select the proper options """
-    target = api.get_target(args.machine)
-    for mo in args.mtune:
-        if mo.startswith('no-'):
-            target.disable_option(mo[3:])
-        else:
-            target.enable_option(mo)
+    options = tuple(args.mtune)
+    target = api.get_target(args.machine, options=options)
     return target
 
 

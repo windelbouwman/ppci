@@ -13,8 +13,11 @@ from .frame import X86Frame
 
 class X86_64Target(Target):
     """ x86_64 target """
-    def __init__(self):
-        super().__init__('x86_64')
+    name = 'x86_64'
+    option_names = ('sse2', 'sse3')
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.value_classes[i64] = X86Register
         self.value_classes[ptr] = X86Register
         self.value_classes[i8] = X86Register

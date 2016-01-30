@@ -36,11 +36,19 @@ from .ir2py import IrToPython
 
 
 def fix_target(tg):
-    """ Try to return an instance of the Target class """
+    """ Try to return an instance of the Target class.
+        form of:
+            arch:option1:option2
+    """
     if isinstance(tg, Target):
         return tg
     elif isinstance(tg, str):
-        return get_target(tg)
+        if ':' in tg:
+            # We have target with options attached
+            l = tg.split(':')
+            return get_target(l[0], tuple(l[1:]))
+        else:
+            return get_target(tg)
     raise TaskError('Invalid target {}'.format(tg))
 
 

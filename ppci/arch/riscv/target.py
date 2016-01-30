@@ -70,8 +70,10 @@ class RiscvAssembler(BaseAssembler):
 
 
 class RiscvTarget(Target):
-    def __init__(self):
-        super().__init__('riscv')
+    name = 'riscv'
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.isa = isa + data_isa
         self.FrameClass = RiscvFrame
         self.assembler = RiscvAssembler()

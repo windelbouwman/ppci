@@ -3,6 +3,7 @@
     Contains a list of instantiated targets.
 """
 
+from functools import lru_cache
 from .arm import ArmTarget
 from .avr import AvrTarget
 from .msp430.msp430 import Msp430Target
@@ -10,45 +11,24 @@ from .x86_64 import X86_64Target
 from .mos6500 import Mos6500Target
 from .riscv import RiscvTarget
 
-# Instance:
-arm_target = ArmTarget()
-x86_64target = X86_64Target()
-msp430target = Msp430Target()
-avr_target = AvrTarget()
-mos6500 = Mos6500Target()
-riscv_target = RiscvTarget()
+
+target_classes = [
+    ArmTarget,
+    AvrTarget,
+    Mos6500Target,
+    Msp430Target,
+    RiscvTarget,
+    X86_64Target]
 
 
-target_list = [
-    arm_target,
-    msp430target,
-    avr_target,
-    mos6500,
-    riscv_target,
-    x86_64target]
-
-targets = {t.name: t for t in target_list}
-target_names = tuple(sorted(targets.keys()))
+target_class_map = {t.name: t for t in target_classes}
+target_names = tuple(sorted(target_class_map.keys()))
 
 
-def get_target(name):
-    """ Get a target by its name. Possibly arch options can be given in the
-        form of:
-            arch:option1:option2
-    """
-    if ':' in name:
-        # We have target with options attached
-        l = name.split(':')
-        target = get_target(l[0])
-        for option in l[1:]:
-            if option.startswith('no-'):
-                target.disable_option(option[3:])
-            else:
-                target.enable_option(option)
-    else:
-        target = targets[name]
-        # Reset options:
-        # TODO: refactor this so it is more robuust.
-        for option in target.options:
-            target.disable_option(option)
+@lru_cache(maxsize=30)
+def get_target(name, options=None):
+    """ Get a target by its name. Possibly arch options can be given. """
+    # Create the instance!
+    target = target_class_map[name](options=options)
+    print('NEW', target)
     return target
