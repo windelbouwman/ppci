@@ -87,37 +87,37 @@ class RiscvTarget(Target):
         # TODO: redesign this whole thing
         src = """
         __sdiv:
-        ; Divide r10 by r11
-        ; R28 is a work register.
-        ; r14 is the quotient
-        mov r14, 0       ; Initialize the result
-        mov r28, r11      ; mov divisor into temporary register.
+        ; Divide x10 by x11
+        ; x28 is a work register.
+        ; x14 is the quotient
+        mov x14, 0       ; Initialize the result
+        mov x28, x11      ; mov divisor into temporary register.
 
         ; Blow up part: blow up divisor until it is larger than the divident.
         __sdiv_inc:
-        ;cmp r4, r10      ; If r4 < r1, then, shift left once more.
-        blt r28 ,sp,__sdiv_lsl
+        ;cmp x4, x10      ; If x4 < x1, then, shift left once more.
+        blt x28 ,sp,__sdiv_lsl
         j __sdiv_dec
         __sdiv_lsl:
-        slli r28, r28, 1
+        slli x28, x28, 1
         j __sdiv_inc
 
         ; Repeatedly substract shifted versions of divisor
         __sdiv_dec:
-        ;cmp sp, r4      ; Can we substract the current temp value?
-        blt sp,r28,__sdiv_skip
-        sub sp, sp, r28  ; Substract temp from divisor
-        add r14, r14, 1   ; Add 1 to result
+        ;cmp sp, x4      ; Can we substract the current temp value?
+        blt sp,x28,__sdiv_skip
+        sub sp, sp, x28  ; Substract temp from divisor
+        add x14, x14, 1   ; Add 1 to result
         __sdiv_skip:
-        srli r28, r28, 1  ; Shift right one
-        slli r14, r14, 1  ; Shift result left.
+        srli x28, x28, 1  ; Shift right one
+        slli x14, x14, 1  ; Shift result left.
         __skip_check:
-        ;cmp r4, sp      ; Is temp less than divisor?
-        bgt  r28,sp,__sdiv_dec  ; If so, repeat.
+        ;cmp x4, sp      ; Is temp less than divisor?
+        bgt  x28,sp,__sdiv_dec  ; If so, repeat.
 
         ;mov pc, lr      ; Return from function.
         
-        jalr r0,lr,0
+        jalr x0,ra,0
         """
         return src
 
