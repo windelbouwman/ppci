@@ -20,7 +20,7 @@ Status: 70%
 
 .. automodule:: ppci.arch.arm
 
-.. autoclass:: ppci.arch.arm.target.ArmTarget
+.. autoclass:: ppci.arch.arm.ArmTarget
 
 
 
@@ -43,6 +43,7 @@ msp430
 
 Status: 20%
 
+.. autoclass:: ppci.arch.msp430.Msp430Target
 
 
 .. _riscv:
@@ -64,5 +65,5 @@ x86_64
 Status: 60%
 
 
-.. autoclass:: ppci.arch.x86_64.target.X86Target
+.. autoclass:: ppci.arch.x86_64.X86_64Target
 

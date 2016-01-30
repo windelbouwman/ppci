@@ -35,21 +35,20 @@ from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
 
 
-def fix_target(tg):
+def fix_target(target_name):
     """ Try to return an instance of the Target class.
-        form of:
-            arch:option1:option2
+        target_name can be in the form of arch:option1:option2
     """
-    if isinstance(tg, Target):
-        return tg
-    elif isinstance(tg, str):
-        if ':' in tg:
+    if isinstance(target_name, Target):
+        return target_name
+    elif isinstance(target_name, str):
+        if ':' in target_name:
             # We have target with options attached
-            l = tg.split(':')
+            l = target_name.split(':')
             return get_target(l[0], tuple(l[1:]))
         else:
-            return get_target(tg)
-    raise TaskError('Invalid target {}'.format(tg))
+            return get_target(target_name)
+    raise TaskError('Invalid target {}'.format(target_name))
 
 
 def fix_file(f):
