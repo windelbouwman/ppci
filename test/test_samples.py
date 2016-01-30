@@ -604,8 +604,8 @@ class TestSamplesOnRiscv(
     startercode = """
     section reset
     mov sp, 0xF00   ; setup stack pointer 
-    JAL lr,sample_start     ; Branch to sample start LR
-    JAL lr,bsp_exit  ; do exit stuff LR
+    JAL ra,sample_start     ; Branch to sample start LR
+    JAL ra,bsp_exit  ; do exit stuff LR
     local_loop:
     J local_loop
     """
