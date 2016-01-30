@@ -381,31 +381,31 @@ def _(self, tree):
 
 
 @isa.pattern('reg', 'REGI16', cost=0)
-def _(self, tree):
+def pattern_reg16(self, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'REGI8', cost=0)
-def _(self, tree):
+def pattern_reg8(self, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'CALL', cost=2)
-def _(context, tree):
+def pattern_call(context, tree):
     label, arg_types, ret_type, args, res_var = tree.value
     context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
 @isa.pattern('reg', 'MULI16(reg, reg)', cost=10)
-def _(self, tree, c0, c1):
-    d = self.newTmp()
+def pattern_mul16(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
     # TODO
     return d
 
 
 @isa.pattern('reg', 'DIVI16(reg, reg)', cost=10)
-def _(context, tree, c0, c1):
+def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     # Generate call into runtime lib function!
     # context.gen_call('__sdiv', [i16, i16], i16, [c0, c1], d)
@@ -414,7 +414,7 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'ANDI16(reg, reg)', cost=4)
-def _(context, tree, c0, c1):
+def pattern_and16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
     context.emit(And(RegSrc(c1), RegDst(dst)))
@@ -422,7 +422,7 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'SHRI16(reg, reg)', cost=4)
-def _(context, tree, c0, c1):
+def pattern_shr16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     #context.emit(Mov(c0, RegDst(d)))
     #context.emit(Shr(c1, RegDst(d)))

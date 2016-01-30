@@ -6,15 +6,12 @@ from ..target import Target, VCall
 from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
-from .instructions import isa
-from .instructions import MovRegRm, RmRegister
-from .registers import rax, rbx, rcx, rdx, rbp, rsp
-from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
-from .registers import rdi, rsi, get_register
+from .instructions import MovRegRm, RmRegister, isa
+from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
 from .frame import X86Frame
 
 
-class X86Target(Target):
+class X86_64Target(Target):
     """ x86_64 target """
     def __init__(self):
         super().__init__('x86_64')
@@ -68,7 +65,8 @@ class X86Target(Target):
             and moves arguments in the proper locations.
         """
 
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(arg_types, ret_type)
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, ret_type)
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):

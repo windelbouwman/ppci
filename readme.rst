@@ -13,7 +13,8 @@ The project contains the following:
 - Backends: 6500, arm, avr, msp430, risc-v, x86_64
 
 .. warning::
-    This project is in alpha state and not ready for production use!
+
+    **This project is in alpha state and not ready for production use!**
 
 Command line tools
 ------------------

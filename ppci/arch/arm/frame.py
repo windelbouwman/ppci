@@ -1,6 +1,6 @@
 from ..target import Label, Alignment
 from ..target import Frame
-from .instructions import Add, Sub, Push, Pop, Mov, Bl
+from .instructions import Add2, Sub2, Push, Pop, Mov2, Bl
 from ..data_instructions import Db, Dd, Dcd2
 from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
@@ -73,8 +73,8 @@ class ArmFrame(Frame):
         # Callee save registers:
         yield Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
         if self.stacksize > 0:
-            yield Sub(SP, SP, self.stacksize)  # Reserve stack space
-        yield Mov(R11, SP)                 # Setup frame pointer
+            yield Sub2(SP, SP, self.stacksize)  # Reserve stack space
+        yield Mov2(R11, SP)                 # Setup frame pointer
 
     def litpool(self):
         """ Generate instruction for the current literals """
@@ -106,7 +106,7 @@ class ArmFrame(Frame):
             and add constant pool
         """
         if self.stacksize > 0:
-            yield Add(SP, SP, self.stacksize)
+            yield Add2(SP, SP, self.stacksize)
         yield Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
         yield Pop(RegisterSet({PC, R11}), extra_uses=[self.rv])
         # Add final literal pool:

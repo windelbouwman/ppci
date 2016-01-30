@@ -6,10 +6,9 @@
 
 from ..isa import Instruction, Isa, Syntax
 from ..isa import register_argument, value_argument
-from ..data_instructions import Dd, Dcd2
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
-from ..token import Token, u32, u16, bit_range
+from ..token import Token, u32, bit_range
 from .relocations import apply_b_imm24, apply_rel8
 from .relocations import apply_ldr_imm12, apply_adr_imm12
 
@@ -40,16 +39,6 @@ class ArmToken(Token):
         return u32(self.bit_value)
 
 
-class ThumbToken(Token):
-    def __init__(self):
-        super().__init__(16)
-
-    rd = bit_range(0, 3)
-
-    def encode(self):
-        return u16(self.bit_value)
-
-
 # Patterns:
 
 # Condition patterns:
@@ -61,24 +50,6 @@ EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL = range(15)
 class ArmInstruction(Instruction):
     tokens = [ArmToken]
     isa = arm_isa
-
-
-def dcd(v):
-    if type(v) is int:
-        return Dd(v)
-    elif type(v) is str:
-        return Dcd2(v)
-    else:  # pragma: no cover
-        raise NotImplementedError()
-
-
-def Mov(*args):
-    if len(args) == 2:
-        if isinstance(args[1], int):
-            return Mov1(*args)
-        elif isinstance(args[1], ArmRegister):
-            return Mov2(*args)
-    raise Exception()
 
 
 class Mov1(ArmInstruction):
@@ -98,6 +69,7 @@ class Mov1(ArmInstruction):
 
 
 class Mov2(ArmInstruction):
+    """ Mov register to register """
     rd = register_argument('rd', ArmRegister, write=True)
     rm = register_argument('rm', ArmRegister, read=True)
     syntax = Syntax(['mov', rd, ',', rm])
@@ -142,26 +114,6 @@ class Cmp2(ArmInstruction):
         return self.token1.encode()
 
 
-def Add(*args):
-    if len(args) == 3 and isinstance(args[0], ArmRegister) and \
-            isinstance(args[1], ArmRegister):
-        if isinstance(args[2], ArmRegister):
-            return Add1(args[0], args[1], args[2])
-        elif isinstance(args[2], int):
-            return Add2(args[0], args[1], args[2])
-    raise Exception()
-
-
-def Sub(*args):
-    if len(args) == 3 and isinstance(args[0], ArmRegister) and \
-            isinstance(args[1], ArmRegister):
-        if isinstance(args[2], ArmRegister):
-            return Sub1(args[0], args[1], args[2])
-        elif isinstance(args[2], int):
-            return Sub2(args[0], args[1], args[2])
-    raise Exception()
-
-
 class Mul1(ArmInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
@@ -181,6 +133,8 @@ class Mul1(ArmInstruction):
 class Sdiv(ArmInstruction):
     """ Encoding A1
         rd = rn / rm
+
+        This instruction is not always present
     """
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
@@ -256,6 +210,7 @@ class OpRegRegReg(ArmInstruction):
 
 
 def make_regregreg(mnemonic, opcode):
+    """ Create a new instruction class with three registers as operands """
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
@@ -263,6 +218,7 @@ def make_regregreg(mnemonic, opcode):
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode}
     return type(mnemonic + '_ins', (OpRegRegReg,), members)
+
 
 Add1 = make_regregreg('add', 0b0000100)
 Sub1 = make_regregreg('sub', 0b0000010)
@@ -439,8 +395,7 @@ class Str1(LdrStrBase):
     bit20 = 0
     bit22 = 0
     syntax = Syntax([
-        'str', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']'])
+        'str', rt, ',', '[', LdrStrBase.rn, ',', LdrStrBase.offset, ']'])
 
 
 class Ldr1(LdrStrBase):
@@ -449,8 +404,7 @@ class Ldr1(LdrStrBase):
     bit20 = 1
     bit22 = 0
     syntax = Syntax([
-        'ldr', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']'])
+        'ldr', rt, ',', '[', LdrStrBase.rn, ',', LdrStrBase.offset, ']'])
 
 
 class Strb(LdrStrBase):
@@ -530,6 +484,7 @@ class McrBase(ArmInstruction):
 
 
 class Mcr(McrBase):
+    """ Move from register to co processor register """
     coproc = register_argument('coproc', Coproc)
     opc1 = register_argument('opc1', int)
     rt = register_argument('rt', ArmRegister, read=True)
@@ -537,7 +492,8 @@ class Mcr(McrBase):
     crm = register_argument('crm', Coreg, read=True)
     opc2 = register_argument('opc2', int)
     b20 = 0
-    syntax = Syntax(['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
+    syntax = Syntax(
+        ['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
 
 
 class Mrc(McrBase):
@@ -548,12 +504,13 @@ class Mrc(McrBase):
     crm = register_argument('crm', Coreg, read=True)
     opc2 = register_argument('opc2', int)
     b20 = 1
-    syntax = Syntax(['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
+    syntax = Syntax(
+        ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
 
 
 # Instruction selection patterns:
 @arm_isa.pattern('stm', 'STRI32(reg, reg)', cost=2)
-def _(self, tree, c0, c1):
+def pattern_str32(self, tree, c0, c1):
     self.emit(Str1(c1, c0, 0))
 
 
@@ -561,7 +518,7 @@ def _(self, tree, c0, c1):
     'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
     cost=2,
     condition=lambda t: t.children[0].children[1].value < 256)
-def _(context, tree, c0, c1):
+def pattern_str32_1(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
     # compile correctly...
     offset = tree.children[0].children[1].value
@@ -569,40 +526,40 @@ def _(context, tree, c0, c1):
 
 
 @arm_isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
-def _(context, tree, c0, c1):
+def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
 
 @arm_isa.pattern('reg', 'MOVI32(reg)', cost=2)
-def _(context, tree, c0):
+def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
 @arm_isa.pattern('reg', 'MOVI8(reg)', cost=2)
-def _(context, tree, c0):
+def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
 @arm_isa.pattern('stm', 'JMP', cost=2)
-def _(context, tree):
+def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(B(tgt.name, jumps=[tgt]))
 
 
 @arm_isa.pattern('reg', 'REGI32', cost=0)
-def _(context, tree):
+def pattern_reg32(context, tree):
     return tree.value
 
 
 @arm_isa.pattern('reg', 'REGI8', cost=0)
-def _(context, tree):
+def pattern_reg8(context, tree):
     return tree.value
 
 
 @arm_isa.pattern('reg', 'CONSTI32', cost=4)
-def _(context, tree):
+def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
@@ -610,7 +567,7 @@ def _(context, tree):
 
 
 @arm_isa.pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
-def _(context, tree):
+def pattern_const32_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
     assert isinstance(c0, int)
@@ -620,7 +577,7 @@ def _(context, tree):
 
 
 @arm_isa.pattern('reg', 'CONSTI8', cost=2, condition=lambda t: t.value < 256)
-def _(context, tree):
+def pattern_const8_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
     assert isinstance(c0, int)
@@ -630,7 +587,7 @@ def _(context, tree):
 
 
 @arm_isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
-def _(context, tree, c0, c1):
+def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
     Bop = opnames[op]
@@ -726,14 +683,14 @@ def pattern_and(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'ORI32(reg, reg)', cost=2)
-def _(context, tree, c0, c1):
+def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Orr1(d, c0, c1))
     return d
 
 
 @arm_isa.pattern('reg', 'SHRI32(reg, reg)', cost=2)
-def _(context, tree, c0, c1):
+def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsr1(d, c0, c1))
     return d
@@ -789,19 +746,21 @@ def pattern_xor32(context, tree, c0, c1):
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?
 
+isa_with_div = Isa()
 
-class MachineThatHasDivOps:  # pragma: no cover
-    # @isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
-    def P23(self, tree, c0, c1):
-        d = self.new_reg(ArmRegister)
-        self.emit(Udiv, dst=[d], src=[c0, c1])
-        return d
 
-    # @isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
-    def P24(self, tree, c0, c1):
-        # Implement remainder as a combo of div and mls (multiply substract)
-        d = self.new_reg(ArmRegister)
-        self.emit(Udiv, dst=[d], src=[c0, c1])
-        d2 = self.new_reg(ArmRegister)
-        self.emit(Mls, dst=[d2], src=[d, c1, c0])
-        return d2
+@isa_with_div.pattern('reg', 'DIVI32(reg, reg)', cost=10)
+def pattern_23(self, tree, c0, c1):
+    d = self.new_reg(ArmRegister)
+    self.emit(Udiv, dst=[d], src=[c0, c1])
+    return d
+
+
+@isa_with_div.pattern('reg', 'REMI32(reg, reg)', cost=10)
+def pattern_24(self, tree, c0, c1):
+    # Implement remainder as a combo of div and mls (multiply substract)
+    d = self.new_reg(ArmRegister)
+    self.emit(Udiv, dst=[d], src=[c0, c1])
+    d2 = self.new_reg(ArmRegister)
+    self.emit(Mls, dst=[d2], src=[d, c1, c0])
+    return d2

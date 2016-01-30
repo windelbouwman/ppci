@@ -179,7 +179,6 @@ class Frame:
         self.instructions = []
         self.stacksize = 0
         self.temps = generate_temps()
-        self.register_classes = {}
 
     def __repr__(self):
         return 'Frame {}'.format(self.name)

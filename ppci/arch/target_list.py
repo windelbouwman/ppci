@@ -6,13 +6,13 @@
 from .arm import ArmTarget
 from .avr import AvrTarget
 from .msp430.msp430 import Msp430Target
-from .x86_64.target import X86Target
+from .x86_64 import X86_64Target
 from .mos6500 import Mos6500Target
 from .riscv import RiscvTarget
 
 # Instance:
 arm_target = ArmTarget()
-x86_64target = X86Target()
+x86_64target = X86_64Target()
 msp430target = Msp430Target()
 avr_target = AvrTarget()
 mos6500 = Mos6500Target()
@@ -32,7 +32,10 @@ target_names = tuple(sorted(targets.keys()))
 
 
 def get_target(name):
-    """ Get a target by its name """
+    """ Get a target by its name. Possibly arch options can be given in the
+        form of:
+            arch:option1:option2
+    """
     if ':' in name:
         # We have target with options attached
         l = name.split(':')
@@ -45,6 +48,7 @@ def get_target(name):
     else:
         target = targets[name]
         # Reset options:
+        # TODO: refactor this so it is more robuust.
         for option in target.options:
             target.disable_option(option)
     return target

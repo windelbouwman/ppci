@@ -151,6 +151,43 @@ class SimpleSamples:
         """
         self.do(snippet, "w=0x00000005\nw=0x00000058\n")
 
+    def test_large_local_stack(self):
+        """ Check large local stack frame (larger than 128 bytes) """
+        snippet = """
+         module sample;
+         import io;
+
+         const int buffer_size = 150;
+
+         function int heavy_stuff()
+         {
+            var int[buffer_size] buffer;
+            var int i;
+            var int result;
+            result = 0;
+            for (i = 0; i< buffer_size; i += 1)
+            {
+              buffer[i] = i;
+            }
+
+            for (i = 0; i< buffer_size; i += 1)
+            {
+              result += buffer[i] * 3;
+            }
+
+            return result;
+         }
+
+         function void start()
+         {
+            var int w;
+            w = heavy_stuff();
+
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x000082F5\n")
+
 
 class I32Samples:
     """ 32-bit samples """

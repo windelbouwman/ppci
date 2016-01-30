@@ -577,19 +577,19 @@ def _(context, tree):
 
 
 @avr_isa.pattern('reg16', 'REGI16', cost=0)
-def _(context, tree):
+def pattern_reg16(context, tree):
     assert isinstance(tree.value, AvrPseudo16Register)
     return tree.value
 
 
 @avr_isa.pattern('reg', 'MOVI8(reg)', cost=2)
-def _(context, tree, c0):
+def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
 @avr_isa.pattern('reg', 'MOVI8(reg16)', cost=2)
-def _(context, tree, c0):
+def pattern_mov8_16(context, tree, c0):
     context.move(tree.value, c0.lo)
     return tree.value
 
@@ -602,7 +602,7 @@ def _(context, tree, c0):
 
 
 @avr_isa.pattern('reg', 'ADDI8(reg, reg)', cost=4)
-def _(context, tree, c0, c1):
+def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(AvrRegister)
     context.move(d, c0)
     context.emit(Add(d, c1))
@@ -610,7 +610,7 @@ def _(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', cost=8)
-def _(context, tree, c0, c1):
+def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
     context.move(d.hi, c0.hi)
@@ -620,7 +620,7 @@ def _(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', cost=8)
-def _(context, tree, c0, c1):
+def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
     context.move(d.hi, c0.hi)
@@ -630,7 +630,7 @@ def _(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', cost=8)
-def _(context, tree, c0, c1):
+def pattern_and16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
     context.move(d.hi, c0.hi)
@@ -640,7 +640,14 @@ def _(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', cost=8)
-def _(context, tree, c0, c1):
+def pattern_div16(context, tree, c0, c1):
+    d = context.new_reg(AvrPseudo16Register)
+    # TODO
+    return d
+
+
+@avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', cost=8)
+def pattern_mul16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     # TODO
     return d
@@ -667,7 +674,7 @@ def _(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg', 'LDRI8(reg16)', cost=2)
-def _(context, tree, c0):
+def pattern_ldr8(context, tree, c0):
     context.move(X.hi, c0.hi)
     context.move(X.lo, c0.lo)
     d = context.new_reg(AvrRegister)
@@ -676,7 +683,7 @@ def _(context, tree, c0):
 
 
 @avr_isa.pattern('reg16', 'LDRI16(reg16)', cost=8)
-def _(context, tree, c0):
+def pattern_ldr16(context, tree, c0):
     d = context.new_reg(AvrPseudo16Register)
     context.move(X.hi, c0.hi)
     context.move(X.lo, c0.lo)

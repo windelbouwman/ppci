@@ -1,5 +1,5 @@
 from ..target import Frame, Label
-from .registers import rax, rbx, rcx, rdx, rbp, rsp
+from .registers import rbx, rcx, rdx, rbp, rsp
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
 from .registers import rdi, rsi, get_register
 from ..data_instructions import Db
@@ -21,9 +21,6 @@ class X86Frame(Frame):
         self.fp = rbp
 
         self.callee_save = (rbx, r12, r13, r14, r15)
-
-        self.register_classes[8] = X86Register
-        self.register_classes[64] = X86Register
 
         self.used_regs = set()
 
@@ -78,7 +75,6 @@ class X86Frame(Frame):
         yield Label(self.name)
 
         yield Push(rbp)
-        yield MovRegRm(rbp, RmRegister(rsp))
 
         # Callee save registers:
         for reg in self.callee_save:
@@ -88,6 +84,8 @@ class X86Frame(Frame):
         # Reserve stack space
         if self.stacksize > 0:
             yield SubImm(rsp, self.stacksize)
+
+        yield MovRegRm(rbp, RmRegister(rsp))
 
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer

@@ -1,10 +1,9 @@
 from ..target import Target, Label, VCall
 from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
-from .registers import ArmRegister, register_range, Reg8Op
+from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
 from .registers import R0, R1, R2, R3, R4
 from .instructions import LdrPseudo, arm_isa
-from .instructions import RegisterSet
 from .thumb_instructions import thumb_isa
 from . import thumb_instructions
 from . import instructions
@@ -104,7 +103,6 @@ class ArmTarget(Target):
         self.arm_assembler.gen_asm_parser(self.arm_isa)
         self.thumb_assembler = ThumbAssembler()
         self.thumb_assembler.gen_asm_parser(self.thumb_isa)
-        # self.assembler = ThumbAssembler(self)
         self.value_classes[i32] = Reg8Op
         self.value_classes[i8] = Reg8Op
         self.value_classes[ptr] = Reg8Op
@@ -142,6 +140,10 @@ class ArmTarget(Target):
         # TODO: redesign this whole thing
         if self.has_option('thumb'):
             return ''
+
+        # See also:
+        # https://en.wikipedia.org/wiki/Horner%27s_method#Application
+
         src = """
         __sdiv:
         ; Divide r1 by r2
