@@ -47,11 +47,3 @@ def apply_adr_imm12(sym_value, data, reloc_value):
     data[2] |= (U << 6)
     data[1] |= (offset >> 8) & 0xF
     data[0] = offset & 0xFF
-
-
-def apply_absaddr32(sym_value, data, reloc_value):
-    assert sym_value % 4 == 0
-    assert reloc_value % 4 == 0
-    offset = sym_value
-    bv = BitView(data, 0, 4)
-    bv[0:32] = offset

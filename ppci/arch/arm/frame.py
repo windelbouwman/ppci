@@ -1,7 +1,7 @@
 from ..target import Label, Alignment
 from ..target import Frame
-from .instructions import dcd, Add, Sub, Push, Pop, Mov, Mov2, Bl
-from ..data_instructions import Db
+from .instructions import Add, Sub, Push, Pop, Mov, Bl
+from ..data_instructions import Db, Dd, Dcd2
 from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
 from .registers import R9, R10, R11, LR, PC, SP, ArmRegister, get_register
@@ -86,8 +86,10 @@ class ArmFrame(Frame):
         while self.constants:
             label, value = self.constants.pop(0)
             yield Label(label)
-            if isinstance(value, int) or isinstance(value, str):
-                yield dcd(value)
+            if isinstance(value, int):
+                yield Dd(value)
+            elif isinstance(value, str):
+                yield Dcd2(value)
             elif isinstance(value, bytes):
                 for byte in value:
                     yield Db(byte)

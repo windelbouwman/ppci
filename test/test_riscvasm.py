@@ -1,13 +1,10 @@
 import unittest
-import io
 from test_asm import AsmTestCaseBase
-from ppci.arch.target_list import riscv_target
-from ppci.binutils.layout import load_layout
 
 
 class RiscvAssemblerTestCase(AsmTestCaseBase):
     """ Riscv-mode instruction assembly test case """
-    target = riscv_target
+    march = 'riscv'
 
     def test_mov_reg_reg(self):
         self.feed('mov r4, r5')
@@ -109,35 +106,35 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
     def test_add_imm(self):
         self.feed('addi r6, r7, 5')
         self.check('13 83 53 00')
-        
+
     def test_setless_imm(self):
         self.feed('slti r6, r7, -5')
         self.check('13 A3 B3 FF')
-        
+
     def test_setless_immunsigned(self):
         self.feed('sltiu r6, r7, 5')
         self.check('13 B3 53 00')
-        
+
     def test_xori(self):
         self.feed('xori r6, r7, 5')
         self.check('13 C3 53 00')
-        
+
     def test_ori(self):
         self.feed('ori r6, r7, 5')
         self.check('13 E3 53 00')
-        
+
     def test_andi(self):
         self.feed('andi r6, r7, 5')
         self.check('13 F3 53 00')
-        
+
     def test_shiftleftlog_imm(self):
         self.feed('slli r6, r7, 5')
         self.check('13 93 53 00')
-        
+
     def test_shiftrightlog_imm(self):
         self.feed('srli r6, r7, 5')
         self.check('13 D3 53 00')
-    
+
     def test_shiftrightarith_imm(self):
         self.feed('srai r6, r7, 5')
         self.check('13 D3 53 40')
@@ -153,51 +150,51 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
     def test_shiftleftlog(self):
         self.feed('sll r4, r7, r5')
         self.check('33 92 53 00')
-        
+
     def test_setless(self):
         self.feed('slt r4, r7, r5')
         self.check('33 A2 53 00')
-        
+
     def test_setless(self):
         self.feed('slt r4, r7, r5')
         self.check('33 A2 53 00')
-        
+
     def test_setlessunsigned(self):
         self.feed('sltu r4, r7, r5')
         self.check('33 B2 53 00')
-    
+
     def test_xor(self):
         self.feed('xor r4, r7, r5')
         self.check('33 C2 53 00')
-    
+
     def test_shiftrightlog(self):
         self.feed('srl r4, r7, r5')
         self.check('33 D2 53 00')
-    
+
     def test_shiftrightarith(self):
         self.feed('sra r4, r7, r5')
         self.check('33 D2 53 40')    
-    
+
     def test_or(self):
         self.feed('or r4, r7, r5')
         self.check('33 E2 53 00')
-        
+
     def test_and(self):
         self.feed('and r4, r7, r5')
         self.check('33 F2 53 00')
-        
+
     def test_readcycle(self):
         self.feed('rdcycle r4')
         self.check('73 22 00 c0')
-        
+
     def test_readcycle_high(self):
         self.feed('rdcycleh r4')
         self.check('73 22 00 c8')
-        
+
     def test_readtime(self):
         self.feed('rdtime r4')
         self.check('73 22 10 c0')
-        
+
     def test_readtime_high(self):
         self.feed('rdtimeh r4')
         self.check('73 22 10 c8')
@@ -205,11 +202,11 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
     def test_read_instr(self):
         self.feed('rdinstret r4')
         self.check('73 22 20 c0')
-        
+
     def test_read_instrhigh(self):
         self.feed('rdinstreth r4')
         self.check('73 22 20 c8')
 
-    
+
 if __name__ == '__main__':
     unittest.main()

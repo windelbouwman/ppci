@@ -11,6 +11,7 @@ dd 2 -> 02000000
 
 from .isa import Instruction, Isa, register_argument, Syntax, VariablePattern
 from .token import Token, u16, bit_range, u8, u32
+from ..utils.bitfun import BitView
 
 data_isa = Isa()
 
@@ -68,6 +69,27 @@ class Dd(DataInstruction):
     v = register_argument('v', int)
     syntax = Syntax(['dd', v])
     patterns = [VariablePattern('value', v)]
+
+
+def apply_absaddr32(sym_value, data, reloc_value):
+    assert sym_value % 4 == 0
+    assert reloc_value % 4 == 0
+    offset = sym_value
+    bv = BitView(data, 0, 4)
+    bv[0:32] = offset
+
+data_isa.register_relocation(apply_absaddr32)
+
+
+class Dcd2(DataInstruction):
+    v = register_argument('v', str)
+    syntax = Syntax(['dcd', '=', v])
+
+    def encode(self):
+        return u32(0)
+
+    def relocations(self):
+        return [(self.v, apply_absaddr32)]
 
 
 class Ds(DataInstruction):

@@ -2,30 +2,29 @@
 
 import unittest
 from test_asm import AsmTestCaseBase
-from ppci.arch.target_list import thumb_target
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
-    target = thumb_target
+    march = 'arm:thumb'
 
     def setUp(self):
         super().setUp()
         self.as_args = ['-mthumb']
 
-    def testMovImm8(self):
+    def test_mov_imm8(self):
         self.feed('mov r4, 100')
         self.check('6424')
 
-    def testMovRegs(self):
+    def test_mov_regs(self):
         self.feed('mov r0, r1')
         # self.check(None)
 
     @unittest.skip('todo')
-    def testMovExt(self):
+    def test_mov_ext(self):
         self.feed('mov r3, sp')
         self.check('')
 
-    def testYield(self):
+    def test_yield(self):
         self.feed('yield')
         self.check('10bf')
 

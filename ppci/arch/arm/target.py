@@ -1,21 +1,23 @@
 from ..target import Target, Label, VCall
-from .instructions import LdrPseudo, isa, Mov2
-from .registers import ArmRegister
-from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
 from ...ir import i8, i32, ptr
-from ..data_instructions import data_isa
-from .frame import ArmFrame
 from ...binutils.assembler import BaseAssembler
-from ..arm.registers import register_range
-from .instructions import dcd, RegisterSet
+from .registers import ArmRegister, register_range, Reg8Op
+from .registers import R0, R1, R2, R3, R4
+from .instructions import LdrPseudo, arm_isa
+from .instructions import RegisterSet
+from .thumb_instructions import thumb_isa
+from . import thumb_instructions
+from . import instructions
+from ..data_instructions import data_isa, Dcd2
+from .frame import ArmFrame
+from .thumb_frame import ThumbFrame
 
 
 class ArmAssembler(BaseAssembler):
-    def __init__(self, target):
-        super().__init__(target)
+    def __init__(self):
+        super().__init__()
         self.parser.assembler = self
         self.add_extra_rules()
-        self.gen_asm_parser()
 
         self.lit_pool = []
         self.lit_counter = 0
@@ -51,7 +53,7 @@ class ArmAssembler(BaseAssembler):
             lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
     def flush(self):
-        if self.inMacro:
+        if self.in_macro:
             raise Exception()
         while self.lit_pool:
             i = self.lit_pool.pop(0)
@@ -64,8 +66,28 @@ class ArmAssembler(BaseAssembler):
         self.lit_counter += 1
         label_name = "_lit_{}".format(self.lit_counter)
         self.lit_pool.append(Label(label_name))
-        self.lit_pool.append(dcd(v))
+        self.lit_pool.append(Dcd2(v))
         return label_name
+
+
+class ThumbAssembler(BaseAssembler):
+    def __init__(self):
+        super().__init__()
+        self.parser.assembler = self
+        self.add_extra_rules()
+
+    def add_extra_rules(self):
+        # Implement register list syntaxis:
+        self.typ2nt[set] = 'reg_list'
+        self.add_rule('reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
+        self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
+
+        # For a left right parser, or right left parser, this is important:
+        self.add_rule('reg_list_inner', ['reg_list_inner', ',', 'reg_or_range'], lambda rhs: rhs[0] | rhs[2])
+        # self.add_rule('reg_list_inner', ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
+
+        self.add_rule('reg_or_range', ['reg'], lambda rhs: set([rhs[0]]))
+        self.add_rule('reg_or_range', ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
 class ArmTarget(Target):
@@ -76,16 +98,50 @@ class ArmTarget(Target):
         super().__init__(
             'arm',
             options=('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2'))
-        self.isa = isa + data_isa
-        self.FrameClass = ArmFrame
-        self.assembler = ArmAssembler(self)
-        self.value_classes[i8] = ArmRegister
-        self.value_classes[i32] = ArmRegister
-        self.value_classes[ptr] = ArmRegister
+        self.arm_isa = arm_isa + data_isa
+        self.thumb_isa = thumb_isa + data_isa
+        self.arm_assembler = ArmAssembler()
+        self.arm_assembler.gen_asm_parser(self.arm_isa)
+        self.thumb_assembler = ThumbAssembler()
+        self.thumb_assembler.gen_asm_parser(self.thumb_isa)
+        # self.assembler = ThumbAssembler(self)
+        self.value_classes[i32] = Reg8Op
+        self.value_classes[i8] = Reg8Op
+        self.value_classes[ptr] = Reg8Op
+
+    @property
+    def assembler(self):
+        if self.has_option('thumb'):
+            return self.thumb_assembler
+        else:
+            return self.arm_assembler
+
+    @property
+    def isa(self):
+        if self.has_option('thumb'):
+            return self.thumb_isa
+        else:
+            return self.arm_isa
+
+    def get_reloc(self, name):
+        """ Retrieve a relocation identified by a name """
+        if self.has_option('thumb'):
+            return self.thumb_isa.relocation_map[name]
+        else:
+            return self.arm_isa.relocation_map[name]
+
+    @property
+    def FrameClass(self):
+        if self.has_option('thumb'):
+            return ThumbFrame
+        else:
+            return ArmFrame
 
     def get_runtime_src(self):
         """ Implement compiler runtime functions """
         # TODO: redesign this whole thing
+        if self.has_option('thumb'):
+            return ''
         src = """
         __sdiv:
         ; Divide r1 by r2
@@ -124,15 +180,17 @@ class ArmTarget(Target):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return Mov2(dst, src, ismove=True)
+        if self.has_option('thumb'):
+            return thumb_instructions.Mov2(dst, src, ismove=True)
+        else:
+            return instructions.Mov2(dst, src, ismove=True)
 
     def gen_call(self, label, arg_types, ret_type, args, res_var):
         """ Generate code for call sequence. This function saves registers
             and moves arguments in the proper locations.
-
         """
-        # TODO: what ABI to use?
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(arg_types, ret_type)
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, ret_type)
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
@@ -153,6 +211,8 @@ class ArmTarget(Target):
             pass arg4 in R4
             return value in R0
         """
+        # TODO: what ABI to use?
+        # Perhaps follow the arm ABI spec?
         l = []
         live_in = set()
         regs = [R1, R2, R3, R4]

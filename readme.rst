@@ -46,11 +46,12 @@ Or use the api:
     >>> import io
     >>> from ppci.api import asm
     >>> source_file = io.StringIO("""section code
-    ... mov rax, 60
+    ... pop rbx
+    ... push r10
     ... mov rdi, 42""")
     >>> obj = asm(source_file, 'x86_64')
     >>> obj.get_section('code').data
-    bytearray(b'H\xb8<\x00\x00\x00\x00\x00\x00\x00H\xbf*\x00\x00\x00\x00\x00\x00\x00')
+    bytearray(b'[ARH\xbf*\x00\x00\x00\x00\x00\x00\x00')
 
 Documentation
 -------------

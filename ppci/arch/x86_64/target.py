@@ -24,9 +24,9 @@ class X86Target(Target):
         self.byte_sizes['int'] = 8  # For front end!
         self.byte_sizes['ptr'] = 8  # For front end!
         self.isa = isa + data_isa
-        self.assembler = BaseAssembler(self)
+        self.assembler = BaseAssembler()
+        self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
-        self.assembler.gen_asm_parser()
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

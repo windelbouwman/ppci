@@ -619,18 +619,17 @@ class TestSamplesOnRiscv(
     }
     """
     bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
-    
+
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        sample_filename = self.build(src, lang)
-       
-       
+        self.build(src, lang)
+
 
 class TestSamplesOnCortexM3(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
-    march = "thumb"
+    march = "arm:thumb"
     startercode = """
     section reset
     dd 0x2000f000

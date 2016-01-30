@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.arch.target_list import x86target
 from test_asm import AsmTestCaseBase
 
 
@@ -10,7 +9,7 @@ class AssemblerTestCase(AsmTestCaseBase):
     test methods start with 'test*'
      Checks several assembly constructs agains their bytecodes
     """
-    target = x86target
+    march = 'x86_64'
 
     def test_x86(self):
         self.feed('mov rax, rbx')

@@ -29,6 +29,10 @@ class Target:
         assert name in self.options
         self.option_settings[name] = False
 
+    def has_option(self, name):
+        """ Check for an option setting selected """
+        return self.option_settings[name]
+
     def __repr__(self):
         return '{}-target'.format(self.name)
 

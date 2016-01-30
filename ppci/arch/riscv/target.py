@@ -13,11 +13,10 @@ from .instructions import dcd, RegisterSet
 
 
 class RiscvAssembler(BaseAssembler):
-    def __init__(self, target):
-        super().__init__(target)
+    def __init__(self):
+        super().__init__()
         self.parser.assembler = self
         self.add_extra_rules()
-        self.gen_asm_parser()
 
         self.lit_pool = []
         self.lit_counter = 0
@@ -53,7 +52,7 @@ class RiscvAssembler(BaseAssembler):
             lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
     def flush(self):
-        if self.inMacro:
+        if self.in_macro:
             raise Exception()
         while self.lit_pool:
             i = self.lit_pool.pop(0)
@@ -75,7 +74,8 @@ class RiscvTarget(Target):
         super().__init__('riscv')
         self.isa = isa + data_isa
         self.FrameClass = RiscvFrame
-        self.assembler = RiscvAssembler(self)
+        self.assembler = RiscvAssembler()
+        self.assembler.gen_asm_parser(self.isa)
         self.value_classes[i8] = RiscvRegister
         self.value_classes[i32] = RiscvRegister
         self.value_classes[ptr] = RiscvRegister

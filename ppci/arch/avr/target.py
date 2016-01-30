@@ -24,8 +24,8 @@ class AvrTarget(Target):
         super().__init__('avr')
         self.isa = avr_isa + data_isa
         self.FrameClass = AvrFrame
-        self.assembler = BaseAssembler(self)
-        self.assembler.gen_asm_parser()
+        self.assembler = BaseAssembler()
+        self.assembler.gen_asm_parser(self.isa)
         # TODO: make it possible to choose between 16 and 8 bit int type size
         self.byte_sizes['int'] = 2
         self.byte_sizes['i16'] = 2

@@ -8,14 +8,19 @@
     <property name="arch" value="arm"/>
 
     <target name="blinky">
-        <assemble source="startup_stm32f4.asm" target="thumb" 
+        <assemble
+            source="startup_stm32f4.asm"
+            target="arm:thumb"
             output="obj/startup.o" />
-        <compile target="thumb"
+        <compile
+            target="arm:thumb"
             sources="blinky.c3;arch.c3;../../librt/io.c3"
             includes="stm32f4xx.c3"
             output="obj/blinky.o" />
-        <link output="obj/blinky.elf" layout="stm32f4.mmap"
-            target="thumb"
+        <link
+            output="obj/blinky.elf"
+            layout="stm32f4.mmap"
+            target="arm:thumb"
             objects="obj/startup.o;obj/blinky.o" />
         <objcopy objectfile="obj/blinky.elf"
             imagename="flash"

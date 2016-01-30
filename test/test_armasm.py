@@ -1,13 +1,12 @@
 import unittest
 import io
 from test_asm import AsmTestCaseBase
-from ppci.arch.target_list import arm_target
 from ppci.binutils.layout import load_layout
 
 
 class ArmAssemblerTestCase(AsmTestCaseBase):
     """ ARM-mode (not thumb-mode) instruction assembly test case """
-    target = arm_target
+    march = 'arm'
 
     def test_mov_imm(self):
         self.feed('mov r4, 100')
@@ -46,7 +45,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('sub r0, r1, 0x80000001')
         self.check('060141e2')
 
-    def testAnd1(self):
+    def test_and1(self):
         self.feed('and r9, r0, r2')
         self.feed('and r4, r8, r6')
         self.check('029000e0 064008e0')
@@ -85,27 +84,27 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.check('030000ea 020000da 010000ca 0000000a ffffffeb feffffea \
                     fdffffda fcffffca fbffff0a faffffeb')
 
-    def testPush(self):
+    def test_push(self):
         self.feed('push {r11,r5,r4,lr}')
         self.check('30482de9')
 
-    def testPop(self):
+    def test_pop(self):
         self.feed('pop {r4,r5,r6}')
         self.check('7000bde8')
 
-    def testStr(self):
+    def test_str(self):
         self.feed('str r9, [r2, 33]')
         self.check('219082e5')
 
-    def testLdr(self):
+    def test_ldr(self):
         self.feed('ldr r5, [r3, 87]')
         self.check('575093e5')
 
-    def testStrb(self):
+    def test_strb(self):
         self.feed('strb r2, [r8, 11]')
         self.check('0b20c8e5')
 
-    def testLdrb(self):
+    def test_ldrb(self):
         self.feed('ldrb r5, [r3, 87]')
         self.check('5750d3e5')
 

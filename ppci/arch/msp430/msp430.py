@@ -16,8 +16,8 @@ class Msp430Target(Target):
         self.value_classes[ptr] = Msp430Register
         self.value_classes[i8] = Msp430Register
         self.isa = isa + data_isa
-        self.assembler = BaseAssembler(self)
-        self.assembler.gen_asm_parser()
+        self.assembler = BaseAssembler()
+        self.assembler.gen_asm_parser(self.isa)
 
         self.FrameClass = Msp430Frame
 

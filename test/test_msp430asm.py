@@ -2,14 +2,13 @@
 
 import unittest
 import io
-from ppci.arch.target_list import msp430target
 from ppci.binutils.layout import load_layout
 from test_asm import AsmTestCaseBase
 
 
 class Msp430AssemblerTestCase(AsmTestCaseBase):
     """ Test the msp430 assembler """
-    target = msp430target
+    march = 'msp430'
 
     def test_mov(self):
         """ Test move """

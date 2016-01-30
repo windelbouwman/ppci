@@ -2,13 +2,12 @@
 
 import unittest
 import io
-from ppci.arch.target_list import avr_target
 from ppci.binutils.layout import load_layout
 from test_asm import AsmTestCaseBase
 
 
 class AvrAssemblerTestCase(AsmTestCaseBase):
-    target = avr_target
+    march = 'avr'
 
     def test_nop(self):
         self.feed("nop")

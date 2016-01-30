@@ -8,8 +8,8 @@ import re
 from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
-from ..common import make_num, ParseError
-from ..arch.target import Target, Label, Alignment
+from ..common import make_num
+from ..arch.target import Label, Alignment
 from ..arch.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
 
@@ -45,6 +45,7 @@ class AsmLexer(BaseLexer):
         self.kws.add(keyword)
 
     def handle_number(self, typ, val):
+        """ Handle a number during lexing """
         val = make_num(val)
         typ = 'NUMBER'
         return typ, val
@@ -95,10 +96,9 @@ class BaseAssembler:
     str_id = '$str$'
     int_id = '$int$'
 
-    def __init__(self, target):
-        assert isinstance(target, Target)
-        self.target = target
-        self.inMacro = False
+    def __init__(self):
+        self.in_macro = False
+        self.stream = None
         self.parser = AsmParser()
         self.parser.emit = self.emit
         self.lexer = AsmLexer()
@@ -237,10 +237,10 @@ class BaseAssembler:
 
         raise KeyError(arg_cls)  # pragma: no cover
 
-    def gen_asm_parser(self):
+    def gen_asm_parser(self, isa):
         """ Generate assembly rules from isa """
         # Loop over all isa instructions, extracting the syntax rules:
-        instructions = [i for i in self.target.isa.instructions if i.syntax]
+        instructions = [i for i in isa.instructions if i.syntax]
 
         # Generate rules for instructions:
         for ins in instructions:
@@ -249,10 +249,10 @@ class BaseAssembler:
     # End of generating functions
 
     def prepare(self):
-        self.inMacro = False
+        self.in_macro = False
 
     def emit(self, *args):
-        if self.inMacro:
+        if self.in_macro:
             self.recording.append(args)
         else:
             self.stream.emit(*args)
@@ -263,7 +263,7 @@ class BaseAssembler:
         try:
             self.lexer.feed(line)
             self.parser.parse(self.lexer)
-        except CompilerError as ex:
+        except CompilerError:
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
             raise CompilerError('Unable to assemble: {}'.format(line), loc)
 
@@ -272,7 +272,7 @@ class BaseAssembler:
         self.stream = stream
 
         self.filename = None
-        if type(asmsrc) is str:
+        if isinstance(asmsrc, str):
             pass
         elif hasattr(asmsrc, 'read'):
             if hasattr(asmsrc, 'name'):
@@ -313,13 +313,13 @@ class BaseAssembler:
     # Macro language handlers:
     def begin_repeat(self, count):
         """ Handle begin of repeat macro """
-        assert not self.inMacro
-        self.inMacro = True
+        assert not self.in_macro
+        self.in_macro = True
         self.rep_count = count
         self.recording = []
 
     def end_repeat(self):
-        assert self.inMacro
-        self.inMacro = False
+        assert self.in_macro
+        self.in_macro = False
         for rec in self.recording * self.rep_count:
             self.emit(*rec)
