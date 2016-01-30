@@ -20,11 +20,8 @@ public function void main()
     t = 0;
     while(true)
     {
-        if (bsp.global_tick > t)
-        {
-            game.single_step();
-            t = bsp.global_tick;
-        }
+        game.single_step();
+        bsp.sleep(100);
     }
 }
 

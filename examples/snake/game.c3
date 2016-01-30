@@ -155,7 +155,6 @@ function void print_render()
     io.print("[2;32m");
 
     io.print("Welcome to snake!");
-    io.print_int(bsp.global_tick);
     io.print("Key:");
     io.print_int(key_press);
     bsp.putc(10);

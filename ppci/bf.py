@@ -18,7 +18,7 @@ class BrainFuckGenerator():
         self.target = target
         self.builder = Builder()
 
-    def generate(self, src, module_name='sample', function_name='start'):
+    def generate(self, src, module_name='main', function_name='main'):
         """ Takes a brainfuck program and returns the IR-code module """
         self.logger.info('Generating IR-code from brainfuck')
 

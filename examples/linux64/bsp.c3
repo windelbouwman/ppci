@@ -1,6 +1,12 @@
 module bsp;
 
 public function void putc(byte c);
+
+public function void sleep(int ms)
+{
+    // TODO
+}
+
 function void exit();
 
 var int global_tick;

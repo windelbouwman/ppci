@@ -243,12 +243,6 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
         reporter.dump_ir(ir_module)
         generator.generate(ir_module, f)
 
-    # Add glue:
-    print('', file=f)
-    print('def bsp_putc(c):', file=f)
-    print('    print(chr(c), end="")', file=f)
-    print('sample_start()', file=f)
-
 
 def c3c(sources, includes, march, reporter=DummyReportGenerator()):
     """

@@ -71,7 +71,7 @@ class AvrTarget(Target):
                 l.append(r)
                 live_in.add(hi_reg)
                 live_in.add(lo_reg)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(str(s))
         return l, tuple(live_in), rv, tuple(live_out)
 

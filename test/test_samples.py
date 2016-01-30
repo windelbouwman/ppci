@@ -37,13 +37,16 @@ def only_bf(txt):
 
 
 class SimpleSamples:
-    """ Collection of snippets with expected output """
+    """ Collection of snippets with expected output. No integer size is
+        assumed here. So should run on 64 and 32 and 16 bit machines.
+    """
+
     def test_print(self):
         """ Test if print statement works """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             io.print("Hello world");
          }
@@ -52,9 +55,9 @@ class SimpleSamples:
 
     def test_if_statement(self):
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int i = 13;
             if (i*7 < 100)
@@ -73,7 +76,7 @@ class SimpleSamples:
     def test_boolean_exotics(self):
         """ Test boolean use in different ways """
         snippet = """
-         module sample;
+         module main;
          import io;
          function void print_bool(bool v)
          {
@@ -108,7 +111,7 @@ class SimpleSamples:
             return true;
          }
 
-         function void start()
+         function void main()
          {
             var bool tv;
             print_bool(true);
@@ -129,10 +132,10 @@ class SimpleSamples:
             Check arithmatics operator associativity
         """
         snippet = """
-         module sample;
+         module main;
          import io;
 
-         function void start()
+         function void main()
          {
             var int w;
             var int d;
@@ -154,7 +157,7 @@ class SimpleSamples:
     def test_large_local_stack(self):
         """ Check large local stack frame (larger than 128 bytes) """
         snippet = """
-         module sample;
+         module main;
          import io;
 
          const int buffer_size = 150;
@@ -178,7 +181,7 @@ class SimpleSamples:
             return result;
          }
 
-         function void start()
+         function void main()
          {
             var int w;
             w = heavy_stuff();
@@ -188,15 +191,11 @@ class SimpleSamples:
         """
         self.do(snippet, "w=0x000082F5\n")
 
-
-class I32Samples:
-    """ 32-bit samples """
-
     def test_for_loop_print(self):
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int i;
             var int b = 2;
@@ -214,33 +213,45 @@ class I32Samples:
 
     def test_c3_quine(self):
         """ Quine in the c3 language """
-        src = """module sample;import io;import bsp;function void start(){var string x="module sample;import io;import bsp;function void start(){var string x=;io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}";io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}"""
+        self.maxDiff = None
+        src = ('module main;import io;import bsp;function void main()'
+               '{var string x="module main;import io;import bsp;'
+               'function void main(){var string x=;io.print_sub(x,0,67);'
+               'bsp.putc(34);io.print(x);bsp.putc(34);'
+               'io.print_sub(x,67,151);}"'
+               ';io.print_sub(x,0,67);bsp.putc(34);io.print(x);bsp.putc(34);'
+               'io.print_sub(x,67,151);}')
         self.do(src, src)
 
-    @unittest.skip('actually tests qemu pipe, not ppci')
+
+class I32Samples:
+    """ 32-bit samples """
+
     def test_large_for_loop_print(self):
-        """ This test actually tests the qemu pipe system """
+        """ This test actually tests the qemu pipe system when values go
+            beyond 1000 loops.
+        """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int i;
-            for (i=0; i<10000; i = i + 1)
+            for (i=0; i<100; i = i + 1)
             {
               io.print2("A = ", i);
             }
          }
         """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(100))
         self.do(snippet, res)
 
     def test_bug1(self):
         """ Strange bug was found here """
         snippet = """
-         module sample;
+         module main;
          var int x;
-         function void start()
+         function void main()
          {
             var int i = 0;
             if (x != i)
@@ -254,9 +265,9 @@ class I32Samples:
     def test_bug2(self):
         """ Test pointer arithmatic """
         snippet = """
-         module sample;
+         module main;
          var int* x;
-         function void start()
+         function void main()
          {
             var int i;
             x = 10;
@@ -270,7 +281,7 @@ class I32Samples:
     def test_bug3(self):
         """ Apparently function arguments get sorted by name??? """
         snippet = """
-         module sample;
+         module main;
          import io;
          var int b;
          function void cpy(byte* dst, byte* src, int size)
@@ -279,7 +290,7 @@ class I32Samples:
             io.print2("from=", cast<int>(src));
             io.print2("size=", size);
          }
-         function void start()
+         function void main()
          {
             var byte[4] data;
             data[0] = 4;
@@ -298,9 +309,9 @@ class I32Samples:
     def test_complex_variables(self):
         """ Test local variables of complex type """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int[10] x;
             var int[10] y;
@@ -318,7 +329,7 @@ class I32Samples:
     def test_parameter_passing4(self):
         """ Check that parameter passing works as expected """
         snippet = """
-         module sample;
+         module main;
          import io;
          function void dump(int a, int b, int c, int d)
          {
@@ -331,7 +342,7 @@ class I32Samples:
          {
             dump(a,b,c,d);
          }
-         function void start()
+         function void main()
          {
             dump(4,55,66,0x1337);
             dump2(4,55,66,0x1337);
@@ -350,9 +361,9 @@ class I32Samples:
             Assume little endianess.
         """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int w;
             var int* pw;
@@ -376,7 +387,7 @@ class I32Samples:
             Check arithmatics
         """
         snippet = """
-         module sample;
+         module main;
          import io;
          var int x;
          function void set_x(int v)
@@ -386,7 +397,7 @@ class I32Samples:
 
          var int d;
 
-         function void start()
+         function void main()
          {
             var int w;
             d = 2;
@@ -411,7 +422,7 @@ class I32Samples:
 
     def test_global_variable(self):
         snippet = """
-         module sample;
+         module main;
          import io;
          var int MyGlob;
          var struct {int a; int b;}[10] cplx1;
@@ -433,7 +444,7 @@ class I32Samples:
             return &MyGlob;
          }
 
-         function void start()
+         function void main()
          {
             MyGlob = 0;
             do1();
@@ -457,11 +468,11 @@ class I32Samples:
 
     def test_const(self):
         snippet = """
-         module sample;
+         module main;
          import io;
          const int a = 1;
          const int b = a + 6;
-         function void start()
+         function void main()
          {
             io.print2("a=", a);
             io.print2("b=", b);
@@ -473,7 +484,7 @@ class I32Samples:
     def test_fibo(self):
         """ Test recursive function with fibonacci algorithm """
         snippet = """
-         module sample;
+         module main;
          import io;
          function int fib(int x)
          {
@@ -487,7 +498,7 @@ class I32Samples:
             }
          }
 
-         function void start()
+         function void main()
          {
             var int i;
             i = fib(13);
@@ -608,8 +619,8 @@ class TestSamplesOnVexpress(
     startercode = """
     section reset
     mov sp, 0xF0000   ; setup stack pointer
-    BL sample_start     ; Branch to sample start
-    BL bsp_exit  ; do exit stuff
+    BL main_main      ; Branch to sample start
+    BL bsp_exit       ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -640,9 +651,9 @@ class TestSamplesOnRiscv(
     march = "riscv"
     startercode = """
     section reset
-    mov sp, 0xF00   ; setup stack pointer 
-    JAL lr,sample_start     ; Branch to sample start LR
-    JAL lr,bsp_exit  ; do exit stuff LR
+    mov sp, 0xF00        ; setup stack pointer 
+    JAL lr,main_main     ; Branch to sample start LR
+    JAL lr,bsp_exit      ; do exit stuff LR
     local_loop:
     J local_loop
     """
@@ -671,8 +682,8 @@ class TestSamplesOnCortexM3(
     section reset
     dd 0x2000f000
     dd 0x00000009
-    BL sample_start     ; Branch to sample start
-    BL bsp_exit  ; do exit stuff
+    BL main_main     ; Branch to sample start
+    BL bsp_exit      ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -706,17 +717,27 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
         list_filename = base_filename + '.html'
 
         report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        bsp = io.StringIO("""
+           module bsp;
+           public function void putc(byte c);
+           // var int global_tick; """)
         with complete_report(report_generator) as reporter:
             if lang == 'c3':
                 ir_modules = list(c3toir([
-                    relpath('..', 'librt', 'io.c3'),
-                    relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
+                    relpath('..', 'librt', 'io.c3'), bsp,
                     io.StringIO(src)], [], "arm", reporter=reporter))
             elif lang == 'bf':
                 ir_modules = [bf2ir(src, 'arm')]
 
             with open(sample_filename, 'w') as f:
                 ir_to_python(ir_modules, f, reporter=reporter)
+
+                # Add glue:
+                print('', file=f)
+                print('def bsp_putc(c):', file=f)
+                print('    print(chr(c), end="")', file=f)
+                print('main_main()', file=f)
+
         res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
 
@@ -773,7 +794,7 @@ class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     """
 
     def do(self, src, expected_output, lang='c3'):
-        self.build(src, lang)
+        self.build(src, lang=lang, bin_format='hex')
 
 
 class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
@@ -782,7 +803,7 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     section reset
 
     start:
-        call sample_start
+        call main_main
         call bsp_exit
 
     bsp_putc:
@@ -819,7 +840,7 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     bsp_c3_src = """
     module bsp;
     public function void putc(byte c);
-    function void exit();
+    // function void exit();
     """
 
     def do(self, src, expected_output, lang='c3'):

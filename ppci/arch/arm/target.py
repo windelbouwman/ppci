@@ -52,8 +52,7 @@ class ArmAssembler(BaseAssembler):
             lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
     def flush(self):
-        if self.in_macro:
-            raise Exception()
+        assert not self.in_macro
         while self.lit_pool:
             i = self.lit_pool.pop(0)
             self.emit(i)

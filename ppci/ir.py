@@ -437,7 +437,7 @@ class Instruction:
 
     def dominates(self, other):
         """ Checks if this instruction dominates another instruction """
-        if type(self) is Parameter or type(self) is Variable:
+        if isinstance(self, (Parameter, Variable)):
             # TODO: hack, parameters and globals dominate all other
             # instructions..
             return True
@@ -446,7 +446,7 @@ class Instruction:
         assert self.block is not None, '{} has no block'.format(self)
 
         # Phis are special case:
-        if type(other) is Phi:
+        if isinstance(other, Phi):
             for block in other.inputs:
                 if other.inputs[block] == self:
                     # This is the queried dominance branch
@@ -568,7 +568,7 @@ class Call(Expression):
     """ Call a function with some arguments """
     def __init__(self, function_name, arguments, name, ty, loc=None):
         super().__init__(name, ty, loc=loc)
-        assert type(function_name) is str
+        assert isinstance(function_name, str)
         self.function_name = function_name
         self.arguments = arguments
         for arg in self.arguments:
@@ -686,7 +686,7 @@ class Variable(Expression):
     """ Global variable, reserves room in the data area. Has name and size """
     def __init__(self, name, amount):
         super().__init__(name, ptr)
-        assert type(amount) is int
+        assert isinstance(amount, int)
         self.amount = amount
 
     def __repr__(self):
