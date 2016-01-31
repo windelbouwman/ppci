@@ -15,11 +15,13 @@ bsp_putc:
         syscall
         ret
 
-bsp_exit:
-        mov rax, 60
-        mov rdi, 0
-        syscall
-        ret
+bsp_syscall:
+    mov rax, rdi ; abi param 1
+    mov rdi, rsi ; abi param 2
+    mov rsi, rdx ; abi param 3
+    mov rdx, rcx ; abi param 4
+    syscall
+    ret
 
 section data
     char_to_print:
