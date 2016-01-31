@@ -6,7 +6,7 @@ from ..target import Target, VCall
 from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
-from .instructions import MovRegRm, RmRegister, isa
+from .instructions import MovRegRm, RmReg, isa
 from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
 from .frame import X86Frame
 
@@ -30,7 +30,7 @@ class X86_64Target(Target):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return MovRegRm(dst, RmRegister(src), ismove=True)
+        return MovRegRm(dst, RmReg(src), ismove=True)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine locations

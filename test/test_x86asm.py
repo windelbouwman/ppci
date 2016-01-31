@@ -112,17 +112,22 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov [0x20000000], rdi')
         self.check('48895d13 4c897111 48893C2500000020')
 
+    def test_mem_store2(self):
+        """ Test rbp without offset results correctly """
+        self.feed('mov [rbp], rcx')
+        self.feed('mov [r12], rax')
+        self.check('48894d00 49890424')
+
     def test_weird_r12_encoding(self):
         self.feed('mov [r12, 0x12], r9')
-        self.check('4d894c2412')
-
-        # assert(assembler.mov([0xab], 'rbx') == [0x48,0x89,0x1c,0x25,0xab,0x0,0x0,0x0])
-        # assert(assembler.mov([0xcd], 'r13') == [0x4c,0x89,0x2c,0x25,0xcd,0x0,0x0,0x0])
-
-        # assert(assembler.mov(['RIP', 0xf], 'r9') == [0x4c,0x89,0x0d,0x0f,0x0,0x0,0x0])
+        self.feed('mov [0xab], rbx')
+        self.feed('mov [0xcd], r13')
+        self.feed('mov [rip, 0xf], r9')
+        self.check(
+            '4d894c2412 48891c25ab000000 4c892c25cd000000 4c890d0f000000')
 
     @unittest.skip('todo')
-    def testAsmMOV8(self):
+    def test_asm_mov8(self):
         self.feed('mov [rbp, -8], al')
         self.check('8845f8')
         # assert(assembler.mov(['r11', 9], 'cl') == [0x41, 0x88, 0x4b, 0x09])

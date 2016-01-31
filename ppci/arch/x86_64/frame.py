@@ -3,7 +3,7 @@ from .registers import rbx, rcx, rdx, rbp, rsp
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
 from .registers import rdi, rsi, get_register
 from ..data_instructions import Db
-from .instructions import MovRegRm, RmRegister, Push, Pop, SubImm, AddImm
+from .instructions import MovRegRm, RmReg, Push, Pop, SubImm, AddImm
 from .instructions import Call, Ret
 
 
@@ -85,7 +85,7 @@ class X86Frame(Frame):
         if self.stacksize > 0:
             yield SubImm(rsp, self.stacksize)
 
-        yield MovRegRm(rbp, RmRegister(rsp))
+        yield MovRegRm(rbp, RmReg(rsp))
 
     def epilogue(self):
         """ Return epilogue sequence for a frame. Adjust frame pointer
