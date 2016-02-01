@@ -183,7 +183,7 @@ class Function:
 
     def add_parameter(self, parameter):
         """ Add an argument to this function """
-        assert type(parameter) is Parameter
+        assert isinstance(parameter, Parameter)
         parameter.num = len(self.arguments)
         self.arguments.append(parameter)
         # p.parent = self.entry

@@ -1,8 +1,7 @@
 import unittest
 from ppci.codegen.registerallocator import RegisterAllocator
-from ppci.arch.isa import Register
 from ppci.arch.target import Frame
-from ppci.arch.example import Def, Use, Add, Mov, R0, R1
+from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 
 
 class RegisterAllocatorTestCase(unittest.TestCase):
@@ -20,12 +19,12 @@ class RegisterAllocatorTestCase(unittest.TestCase):
 
     def test_register_allocation(self):
         f = Frame('tst', [], [], None, [])
-        t1 = Register('t1')
-        t2 = Register('t2')
-        t3 = Register('t3')
-        t4 = Register('t4')
-        t5 = Register('t5')
-        f.regs = [Register('t{}'.format(v), v) for v in range(7)]
+        t1 = ExampleRegister('t1')
+        t2 = ExampleRegister('t2')
+        t3 = ExampleRegister('t3')
+        t4 = ExampleRegister('t4')
+        t5 = ExampleRegister('t5')
+        f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -39,13 +38,13 @@ class RegisterAllocatorTestCase(unittest.TestCase):
     def test_register_coalescing(self):
         """ Register coalescing happens when a move can be eliminated """
         f = Frame('tst', [], [], None, [])
-        t1 = Register('t1')
-        t2 = Register('t2')
-        t3 = Register('t3')
-        t4 = Register('t4')
-        t5 = Register('t5')
-        t6 = Register('t6')
-        f.regs = [Register('t{}'.format(v), v) for v in range(7)]
+        t1 = ExampleRegister('t1')
+        t2 = ExampleRegister('t2')
+        t3 = ExampleRegister('t3')
+        t4 = ExampleRegister('t4')
+        t5 = ExampleRegister('t5')
+        t6 = ExampleRegister('t6')
+        f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -70,9 +69,9 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f = Frame('tst', [], [], None, [])
         t1 = R0
         t2 = R0
-        t3 = Register('t3')
-        t4 = Register('t4')
-        f.regs = [Register('R{}'.format(v), v) for v in range(3)]
+        t3 = ExampleRegister('t3')
+        t4 = ExampleRegister('t4')
+        f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
         f.instructions.append(Def(t1))
         move = Mov(t3, t1, ismove=True)
         f.instructions.append(move)
@@ -82,7 +81,9 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         self.register_allocator.alloc_frame(f)
 
         # Check t1 and t2 are pre-colored:
-        self.assertEqual({self.register_allocator.Node(R0)}, self.register_allocator.precolored)
+        self.assertEqual(
+            {self.register_allocator.Node(R0)},
+            self.register_allocator.precolored)
         self.assertEqual(set(), self.register_allocator.coalescedMoves)
         self.assertEqual({move}, self.register_allocator.constrainedMoves)
         self.conflict(t2, t3)
@@ -93,13 +94,9 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         """ Create a situation where no select and no coalesc is possible
         """
         f = Frame('tst', [], [], None, [])
-        t1 = Register('t1')
-        t2 = Register('t2')
-        t3 = Register('t3')
-        t4 = Register('t4')
-        t5 = Register('t5')
-        t6 = Register('t6')
-        f.regs = [Register('R{}'.format(v), v) for v in range(3)]
+        t4 = ExampleRegister('t4')
+        t5 = ExampleRegister('t5')
+        f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
         f.instructions.append(Def(R0))
         move = Mov(R1, R0, ismove=True)
         f.instructions.append(move)
@@ -109,7 +106,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         self.register_allocator.alloc_frame(f)
 
         self.assertEqual(set(), self.register_allocator.coalescedMoves)
-        #self.assertEqual({move}, self.ra.frozenMoves)
+        # self.assertEqual({move}, self.register_allocator.frozenMoves)
         self.conflict(R1, R0)
 
     def test_spill(self):

@@ -355,22 +355,46 @@ class RmMemDisp(Rm):
     syntax = Syntax(['[', reg, ',', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
+        if self.disp <= 255 and self.disp >= -128:
+            self.set_field(tokens, 'mod', 1)
+            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+        else:
+            self.set_field(tokens, 'mod', 2)
+            self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+
         if self.reg.regbits == 4:
             # SIB mode:
-            self.set_field(tokens, 'mod', 1)
             self.set_field(tokens, 'b', self.reg.rexbit)
             self.set_field(tokens, 'rm', 4)
             self.set_field(tokens, 'ss', 0)
             self.set_field(tokens, 'x', 0)
             self.set_field(tokens, 'index', 4)  # No index
             self.set_field(tokens, 'base', self.reg.regbits)
-            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
         else:
             # Normal mode:
-            self.set_field(tokens, 'mod', 1)
             self.set_field(tokens, 'b', self.reg.rexbit)
             self.set_field(tokens, 'rm', self.reg.regbits)
-            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+
+
+class RmMemDisp2(Rm):
+    """ memory access with base, index and displacement """
+    regb = register_argument('regb', X86Register, read=True)
+    regi = register_argument('regi', X86Register, read=True)
+    disp = register_argument('disp', int)
+    syntax = Syntax(['[', regb, ',', regi, ',', disp, ']'], priority=2)
+
+    def set_user_patterns(self, tokens):
+        # assert self.regb.regbits != 5
+        assert self.regi.regbits != 4
+        # SIB mode:
+        self.set_field(tokens, 'mod', 1)
+        self.set_field(tokens, 'b', self.regb.rexbit)
+        self.set_field(tokens, 'rm', 4)
+        self.set_field(tokens, 'ss', 0)
+        self.set_field(tokens, 'x', self.regi.rexbit)
+        self.set_field(tokens, 'index', self.regi.regbits)
+        self.set_field(tokens, 'base', self.regb.regbits)
+        self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
 
 
 class RmRip(Rm):
@@ -693,6 +717,12 @@ def pattern_ldr8(context, tree, c0):
 @isa.pattern('stm', 'STRI64(reg64, reg64)', cost=2)
 def pattern_str64(context, tree, c0, c1):
     context.emit(MovRmReg(RmMem(c0), c1))
+
+
+@isa.pattern('stm', 'STRI64(ADDI64(reg64, CONSTI64), reg64)', cost=4)
+def pattern_str64_2(context, tree, c0, c1):
+    cnst = tree.children[0].children[1].value
+    context.emit(MovRmReg(RmMemDisp(c0, cnst), c1))
 
 
 @isa.pattern('stm', 'STRI8(reg64, reg64)', cost=2)

@@ -76,7 +76,9 @@ function void systick_isr()
 public function void sleep(int ms)
 {
     var int x = global_tick + ms;
-    while (x > global_tick) {}
+    while (x > global_tick)
+    {
+    }
 }
 
 function void exit()

@@ -53,6 +53,19 @@ class Target:
         else:
             return {i8: 1, i16: 2, i32: 4, i64: 8}[typ]
 
+    def new_frame(self, frame_name, function):
+        """ Create a new frame with name frame_name for an ir-function """
+        arg_types = [arg.ty for arg in function.arguments]
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, None)
+        frame = self.FrameClass(
+            frame_name, arg_locs, live_in, rv, live_out)
+        return frame
+
+    def determine_arg_locations(self, arg_types, ret_type):
+        """ Determine argument location for a given function """
+        raise NotImplementedError('Implement this')
+
     def get_reloc(self, name):
         """ Retrieve a relocation identified by a name """
         return self.isa.relocation_map[name]

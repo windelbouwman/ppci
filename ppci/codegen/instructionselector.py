@@ -15,6 +15,7 @@ from .treematcher import State
 from .. import ir
 from .burg import BurgSystem
 from .irdag import DagSplitter
+from .irdag import FunctionInfo, prepare_function_info
 
 
 size_classes = [8, 16, 32, 64]
@@ -47,7 +48,8 @@ class InstructionContext:
 
     def gen_call(self, label, arg_types, res_type, args, res_var):
         """ generate call for function into self """
-        for instruction in self.target.gen_call(label, arg_types, res_type, args, res_var):
+        for instruction in self.target.gen_call(
+                label, arg_types, res_type, args, res_var):
             self.emit(instruction)
 
     def emit(self, *args, **kwargs):
@@ -129,10 +131,10 @@ class InstructionSelector1:
         This one does selection and scheduling combined.
     """
     def __init__(self, isa, target, dag_builder):
+        self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = dag_builder
         self.target = target
         self.dag_splitter = DagSplitter(target)
-        self.logger = logging.getLogger('instruction-selector')
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
@@ -156,34 +158,14 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def munch_dag(self, context, root, reporter):
-        """ Consume a dag and match it using the matcher to the frame.
-            DAG matching is NP-complete.
-
-            The simplest strategy is to
-            split the dag into a forest of trees. Then, the DAG is reduced
-            to only trees, which can be matched.
-
-            A different approach is use 0-1 programming, like the NOLTIS algo.
-
-            TODO: implement different strategies.
-        """
-
-        # Match all splitted trees:
-        for tree in self.dag_splitter.split_dag(root, context.frame):
-            reporter.message(str(tree))
-
-            if tree.name in ['EXIT', 'ENTRY']:
-                continue
-
-            # Invoke dynamic programming matcher machinery:
-            self.tree_selector.gen(context, tree)
-
-    def select(self, ir_function, frame, function_info, reporter):
+    def select(self, ir_function, frame, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.Function)
-        self.logger.debug(
-            'Creating selection dag for {}'.format(ir_function.name))
+        self.logger.debug('Creating selection dag for %s', ir_function.name)
+
+        # Create a object that carries global function info:
+        function_info = FunctionInfo(frame)
+        prepare_function_info(self.target, function_info, ir_function)
 
         # Create a context that can emit instructions:
         context = InstructionContext(frame, self.target)
@@ -210,3 +192,26 @@ class InstructionSelector1:
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..
         # self.munchStm(ir.Move(self.frame.rv, f.return_value))
+
+    def munch_dag(self, context, root, reporter):
+        """ Consume a dag and match it using the matcher to the frame.
+            DAG matching is NP-complete.
+
+            The simplest strategy is to
+            split the dag into a forest of trees. Then, the DAG is reduced
+            to only trees, which can be matched.
+
+            A different approach is use 0-1 programming, like the NOLTIS algo.
+
+            TODO: implement different strategies.
+        """
+
+        # Match all splitted trees:
+        for tree in self.dag_splitter.split_dag(root, context.frame):
+            reporter.message(str(tree))
+
+            if tree.name in ['EXIT', 'ENTRY']:
+                continue
+
+            # Invoke dynamic programming matcher machinery:
+            self.tree_selector.gen(context, tree)

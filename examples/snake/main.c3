@@ -16,8 +16,6 @@ public function void main()
     game.init();
     game.single_step();
 
-    var int t;
-    t = 0;
     while(true)
     {
         game.single_step();

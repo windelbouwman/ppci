@@ -9,7 +9,7 @@ from collections import namedtuple
 import logging
 
 
-logformat = '%(asctime)s | %(levelname)6s | %(name)10.10s | %(message)s'
+logformat = '%(asctime)s | %(levelname)8s | %(name)10.10s | %(message)s'
 
 
 def make_num(txt):
