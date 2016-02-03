@@ -1,6 +1,6 @@
 from ..target import Label, Alignment
 from ..target import Frame
-from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw
+from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw, Blr
 from ..data_instructions import Db
 from .instructions import RegisterSet
 from .registers import R0, LR, SP, FP
@@ -17,6 +17,7 @@ class RiscvFrame(Frame):
         # Allocatable registers:
         self.regs = [R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27]
         self.fp = FP
+        self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
         self.locVars = {}
 
@@ -30,17 +31,11 @@ class RiscvFrame(Frame):
 
     def make_call(self, vcall):
         """ Implement actual call and save / restore live registers """
-        # R0 is filled with return value, do not save it, it will conflict.
         # Now we now what variables are live:
         live_regs = self.live_regs_over(vcall)
-        #register_set = set(live_regs)
-
         # Caller save registers:
-        #if register_set:
-            #yield Push(RegisterSet(register_set))
         i = 0
         for register in live_regs:
-            #yield Push(register)
             yield Sw(SP,register,i)
             i-= 4
         yield Add(SP, SP, i)
@@ -48,13 +43,10 @@ class RiscvFrame(Frame):
         yield Bl(LR, vcall.function_name)
 
         # Restore caller save registers:
-        #if register_set:
-            #yield Pop(RegisterSet(register_set))
         i = 0
         for register in reversed(live_regs):
             yield Lw(SP,register,i)
             i+= 4
-            #yield Pop(register)
         yield Add(SP, SP, i)
 
     def get_register(self, color):
@@ -81,14 +73,12 @@ class RiscvFrame(Frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(self.name)
-        #yield Push(RegisterSet({LR, R11}))
-        i = 0
-        for register in RegisterSet({LR, SP}):
-            #Push(register)
-            yield Sw(SP,register,i)
-            i+= 4
         # Callee save registers:
-        #yield Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
+        i = 0
+        for register in self.callee_save:
+            yield Sw(SP,register,i)
+            i-= 4
+        Add(SP, SP, i)
         if self.stacksize > 0:
             yield Sub(SP, SP, self.stacksize)  # Reserve stack space
         yield Mov(FP, SP)                 # Setup frame pointer
@@ -122,13 +112,13 @@ class RiscvFrame(Frame):
         """
         if self.stacksize > 0:
             yield Add(SP, SP, self.stacksize)
-        #yield Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
+        # Callee saved registers:
         i = 0
-        for register in RegisterSet({LR, SP}):
-            #Pop(register)
+        for register in reversed(self.callee_save):
             yield Lw(SP,register,i)
             i+= 4
-        #yield Pop(RegisterSet({PC, R11}), extra_uses=[self.rv])
+        Add(SP, SP, i)
+        yield(Blr(R0, LR, 0))
         # Add final literal pool:
         for instruction in self.litpool():
             yield instruction

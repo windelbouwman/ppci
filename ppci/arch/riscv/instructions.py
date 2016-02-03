@@ -302,9 +302,9 @@ class B(RiscvInstruction):
 
 
 class Blr(RiscvInstruction):
-    offset = register_argument('offset', int)
     rd = register_argument('rd', RiscvRegister, write=True)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
+    offset = register_argument('offset', int)
     syntax = Syntax(['jalr',rd,',',rs1,',',offset])
     def encode(self):
         self.token1[0:7] = 0b1100111
@@ -313,6 +313,7 @@ class Blr(RiscvInstruction):
         self.token1[15:20] = self.rs1.num
         self.token1[20:32] = self.offset
         return self.token1.encode()
+
 
 class Lui(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
@@ -392,7 +393,10 @@ class LdrStrBase(RiscvInstruction):
 
 class StrBase(RiscvInstruction):
     def encode(self):
-        imml5 = wrap_negative(self.offset, 5)
+        if (self.offset<0):
+            imml5 = -self.offset&0x1f
+        else:
+            imml5 = self.offset&0x1f
         immh7 = wrap_negative(self.offset>>5,7)
         self.token1[0:7]=0b0100011
         self.token1[7:12]=imml5
