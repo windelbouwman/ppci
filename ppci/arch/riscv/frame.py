@@ -36,18 +36,20 @@ class RiscvFrame(Frame):
         # Caller save registers:
         i = 0
         for register in live_regs:
-            yield Sw(SP,register,i)
+            yield Sw(SP, register, i)
             i-= 4
         yield Add(SP, SP, i)
 
         yield Bl(LR, vcall.function_name)
 
         # Restore caller save registers:
+        
         i = 0
         for register in reversed(live_regs):
-            yield Lw(SP,register,i)
             i+= 4
+            yield Lw(register, SP, i)
         yield Add(SP, SP, i)
+        
 
     def get_register(self, color):
         return get_register(color)
@@ -115,8 +117,8 @@ class RiscvFrame(Frame):
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):
-            yield Lw(SP,register,i)
             i+= 4
+            yield Lw(register, SP, i)
         Add(SP, SP, i)
         yield(Blr(R0, LR, 0))
         # Add final literal pool:

@@ -11,8 +11,8 @@ from ...utils.bitfun import wrap_negative
 from .registers import RiscvRegister, SP
 from ..token import Token, u32, u8, bit_range
 from .relocations import apply_absaddr32
-from .relocations import apply_b_imm12, apply_b_imm20
-from .relocations import apply_ldr_imm12
+from .relocations import apply_b_imm12, apply_b_imm20, apply_abs32_imm20, apply_abs32_imm12
+
 
 # TODO: do not use ir stuff here!
 from ...ir import i32
@@ -29,7 +29,8 @@ isa = Isa()
 isa.register_relocation(apply_b_imm12)
 isa.register_relocation(apply_b_imm20)
 isa.register_relocation(apply_absaddr32)
-isa.register_relocation(apply_ldr_imm12)
+isa.register_relocation(apply_abs32_imm20)
+isa.register_relocation(apply_abs32_imm12)
 
 
 
@@ -325,6 +326,34 @@ class Lui(RiscvInstruction):
         self.token1[7:12] = self.rd.num
         self.token1[12:32] = imm20
         return self.token1.encode()
+        
+class Adru(RiscvInstruction):
+    rd = register_argument('rd', RiscvRegister, write=True)
+    label = register_argument('label', str)
+    syntax = Syntax(['lui',rd,',', label])
+    def encode(self):
+        self.token1[0:7] = 0b0110111
+        self.token1[7:12] = self.rd.num
+        self.token1[12:32] = 0
+        return self.token1.encode()
+    def relocations(self):
+        return [(self.label, apply_abs32_imm20)]
+
+class Adrl(RiscvInstruction):
+    rd = register_argument('rd', RiscvRegister, write=True)
+    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    label = register_argument('label', str)
+    syntax = Syntax(['addi', rd, ',', rs1, ',', label])
+    def encode(self):
+        self.token1[0:7] = 0b0010011
+        self.token1[7:12] = self.rd.num
+        self.token1[12:15] = 0
+        self.token1[15:20] = self.rs1.num
+        self.token1[20:32] = 0
+        return self.token1.encode()
+    def relocations(self):
+        return [(self.label, apply_abs32_imm12)]
+    
 
 class Auipc(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
@@ -364,11 +393,6 @@ def reg_list_to_mask(reg_list):
 
 
 
-
-def LdrPseudo(rt, lab, add_lit):
-    """ Ldr rt, =lab ==> ldr rt, [pc, offset in litpool] ... dcd lab """
-    lit_lbl = add_lit(lab)
-    return Ldr3(rt, lit_lbl)
 
 
 class LdrStrBase(RiscvInstruction):
@@ -428,8 +452,8 @@ class LdrBase(RiscvInstruction):
         return self.token1.encode()
 
 def make_ldr(mnemonic, func):
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
     rd = register_argument('rd', RiscvRegister, write=True)
+    rs1 = register_argument('rs1', RiscvRegister, read=True)
     offset = register_argument('offset', int)
     syntax = Syntax([mnemonic, rd,',',rs1,',',offset])
     members = {'syntax': syntax,'func':func, 'offset': offset, 'rd':rd, 'rs1':rs1}
@@ -470,23 +494,6 @@ class Ldrb(LdrStrBase):
 
 
 
-class Ldr3(RiscvInstruction):
-    """ Load PC relative constant value
-        LDR rt, label
-        encoding A1
-    """
-    rd = register_argument('rd', RiscvRegister, write=True)
-    label = register_argument('label', str)
-    syntax = Syntax(['lw', rd, ',', label])
-    
-    def encode(self):
-        self.token1[0:7]=0b0000011
-        self.token1[7:12]=self.rd.num
-        self.token1[12:15]=0b010
-        self.token1[15:32]=0
-        return self.token1.encode()
-    def relocations(self):
-        return [(self.label, apply_ldr_imm12)]
 
 class MextBase(RiscvInstruction):
     def encode(self):
@@ -653,7 +660,8 @@ def _(context, tree, c0, c1):
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
-    context.emit(Ldr3(d, ln))
+    context.emit(Adru(d,ln))
+    context.emit(Adrl(d,d, ln))
     return d
 
 
