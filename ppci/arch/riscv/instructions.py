@@ -259,6 +259,15 @@ Rdtimehi =      make_sm('rdtimeh',   0b110010000001)
 Rdinstreti =    make_sm('rdinstret', 0b110000000010)
 Rdinstrethi =   make_sm('rdinstreth',0b110010000010)
 
+class Sbreak(RiscvInstruction):
+    syntax = Syntax(['sbreak'])
+    def encode(self):
+        self.token1[0:7] = 0b1110011
+        self.token1[7:20] = 0
+        self.token1[20:32] = 0b000000000001
+        return self.token1.encode()
+
+
 
 class BranchBase(RiscvInstruction):
     target = register_argument('target', str)
@@ -395,30 +404,10 @@ def reg_list_to_mask(reg_list):
 
 
 
-class LdrStrBase(RiscvInstruction):
-    rn = register_argument('rn', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
-
-    def encode(self):
-        self.token1.cond = AL
-        self.token1.Rn = self.rn.num
-        self.token1[25:28] = self.opcode
-        self.token1[22] = self.bit22
-        self.token1[20] = self.bit20
-        self.token1[12:16] = self.rt.num
-        self.token1[24] = 1  # Index
-        if self.offset >= 0:
-            self.token1[23] = 1  # U == 1 'add'
-            self.token1[0:12] = self.offset
-        else:
-            self.token1[23] = 0
-            self.token1[0:12] = -self.offset
-        return self.token1.encode()
-
 class StrBase(RiscvInstruction):
     def encode(self):
         if (self.offset<0):
-            imml5 = -self.offset&0x1f
+            imml5 = wrap_negative(-((-self.offset)&0x1f),5)
         else:
             imml5 = self.offset&0x1f
         immh7 = wrap_negative(self.offset>>5,7)
@@ -464,34 +453,6 @@ Lh = make_ldr('lh', 0b001)
 Lw = make_ldr('lw', 0b010)
 Lbu = make_ldr('lbu', 0b100)
 Lhu = make_ldr('lhu', 0b101)
-
-class Push(Sw):
-    syntax = Syntax(['push', Sw.rs2], set_props={Sw.offset:0,Sw.rs1:SP})
-
-class Pop(Lw):
-    syntax = Syntax(['pop', Lw.rd], set_props={Lw.offset:0,Lw.rs1:SP})
-
-
-class Ldr1(LdrStrBase):
-    rt = register_argument('rt', RiscvRegister, write=True)
-    opcode = 0b010
-    bit20 = 1
-    bit22 = 0
-    syntax = Syntax([
-        'ldr', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']'])
-
-
-
-class Ldrb(LdrStrBase):
-    rt = register_argument('rt', RiscvRegister, write=True)
-    opcode = 0b010
-    bit20 = 1
-    bit22 = 1
-    syntax = Syntax([
-        'ldrb', rt, ',', '[', LdrStrBase.rn, ',',
-        LdrStrBase.offset, ']'])
-
 
 
 
@@ -656,12 +617,13 @@ def _(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'LABEL', cost=4)
+@isa.pattern('reg', 'LABEL', cost=6)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Adru(d,ln))
     context.emit(Adrl(d,d, ln))
+    context.emit(Lw(d, d, 0))
     return d
 
 

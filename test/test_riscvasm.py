@@ -6,6 +6,9 @@ from test_asm import AsmTestCaseBase
 class RiscvAssemblerTestCase(AsmTestCaseBase):
     """ Riscv-mode instruction assembly test case """
     march = 'riscv'
+    def test_sbreak(self):
+        self.feed('sbreak')
+        self.check('73 00 10 00')
 
     def test_mov_alias(self):
         self.feed('mov x4, sp')
