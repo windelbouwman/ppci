@@ -156,9 +156,7 @@ class RiscvTarget(Target):
             r = regs.pop(0)
             l.append(r)
             live_in.add(r)
-        live_in.add(LR)
         live_out = set()
         rv = R10
         live_out.add(rv)
-        live_out.add(LR)
         return l, tuple(live_in), rv, tuple(live_out)
