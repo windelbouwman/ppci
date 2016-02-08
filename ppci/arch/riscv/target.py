@@ -87,16 +87,15 @@ class RiscvTarget(Target):
         # TODO: redesign this whole thing
         src = """
         __sdiv:
-        ; Divide x10 by x11
+        ; Divide x11 by x12
         ; x28 is a work register.
         ; x14 is the quotient
         mov x14, 0       ; Initialize the result
-        mov x28, x11      ; mov divisor into temporary register.
+        mov x28, x12      ; mov divisor into temporary register.
 
         ; Blow up part: blow up divisor until it is larger than the divident.
         __sdiv_inc:
-        ;cmp x4, x10      ; If x4 < x1, then, shift left once more.
-        blt x28 ,sp,__sdiv_lsl
+        blt x28 , x11,__sdiv_lsl ; If x28 < x11, then, shift left once more.
         j __sdiv_dec
         __sdiv_lsl:
         slli x28, x28, 1
@@ -104,19 +103,16 @@ class RiscvTarget(Target):
 
         ; Repeatedly substract shifted versions of divisor
         __sdiv_dec:
-        ;cmp sp, x4      ; Can we substract the current temp value?
-        blt sp,x28,__sdiv_skip
-        sub sp, sp, x28  ; Substract temp from divisor
+        blt x11, x28, __sdiv_skip
+        sub x11, x11, x28  ; Substract temp from divisor
         add x14, x14, 1   ; Add 1 to result
         __sdiv_skip:
-        srli x28, x28, 1  ; Shift right one
+        srai x28, x28, 1  ; Shift right one
         slli x14, x14, 1  ; Shift result left.
         __skip_check:
-        ;cmp x4, sp      ; Is temp less than divisor?
-        bgt  x28,sp,__sdiv_dec  ; If so, repeat.
-
-        ;mov pc, lr      ; Return from function.
+        bgt  x28, x12, __sdiv_dec  ;  Is temp less than divisor?, if so, repeat.
         
+        mov x10, x14
         jalr x0,ra,0
         """
         return src
@@ -151,7 +147,7 @@ class RiscvTarget(Target):
         """
         l = []
         live_in = set()
-        regs = [R10, R11, R12, R13, R14, R15, R16, R17]
+        regs = [R11, R12, R13, R14, R15, R16, R17]
         for a in arg_types:
             r = regs.pop(0)
             l.append(r)

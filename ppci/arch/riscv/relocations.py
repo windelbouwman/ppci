@@ -10,7 +10,7 @@ def apply_b_imm12(sym_value, data, reloc_value):
     rel12 = wrap_negative(offset >> 1, 12)
     bv = BitView(data, 0, 4)
     bv[8:12] = rel12 & 0xF
-    bv[25:31] = rel12>>4 & 0x2F
+    bv[25:31] = rel12>>4 & 0x3F
     bv[7:8] = rel12>>10 & 0x1
     bv[31:32] = rel12>>11 & 0x1
 

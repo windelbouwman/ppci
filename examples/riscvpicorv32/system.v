@@ -11,7 +11,7 @@ module system (
 	parameter FAST_MEMORY = 1;
 
 	// 4096 32bit words = 16kB memory
-	parameter MEM_SIZE = 4096;
+	parameter MEM_SIZE = 8192;
 
 	wire mem_valid;
 	wire mem_instr;

@@ -274,10 +274,11 @@ class BranchBase(RiscvInstruction):
     def encode(self):
         self.token1[0:7] = 0b1100011
         self.token1[12:15] = self.cond
-        self.token1[15:20] = self.rn.num
         if self.invert==True: 
-            self.token1[20:25] = -self.rm.num
+            self.token1[15:20] =  self.rm.num
+            self.token1[20:25] =  self.rn.num
         else:
+            self.token1[15:20] = self.rn.num
             self.token1[20:25] = self.rm.num
         return self.token1.encode()
 
@@ -386,12 +387,15 @@ def make_branch(mnemonic, cond, invert):
 
 
 Beq = make_branch('beq',0b000, False)
-Bgt = make_branch('bgt', 0b100, True)
-Bge = make_branch('bge', 0b101, False)
-Bgeu = make_branch('bgeu', 0b111, False)
+Bne = make_branch('bne', 0b001, False)
 Blt = make_branch('blt', 0b100, False)
 Bltu = make_branch('bltu', 0b110, False)
-Bne = make_branch('bne', 0b001, False)
+Bge = make_branch('bge', 0b101, False)
+Bgeu = make_branch('bgeu', 0b111, False)
+
+Bgt = make_branch('bgt', 0b100, True)
+
+
 
 
 def reg_list_to_mask(reg_list):
