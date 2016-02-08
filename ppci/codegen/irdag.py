@@ -391,8 +391,7 @@ class DagSplitter:
         """ Split a forest of trees into a sorted series of trees for each
             block.
         """
-        self.mark_spanning_values(sgraph, function_info)
-        frame = function_info.frame
+        self.assign_vregs(sgraph, function_info)
         for ir_block in ir_function:
             nodes = sgraph.get_group(ir_block)
             # Get rid of ENTRY and EXIT:
@@ -400,9 +399,15 @@ class DagSplitter:
                 filter(
                     lambda x: x.name not in ['ENTRY', 'EXIT', 'TRM'], nodes))
 
-            sorted_nodes = topological_sort(nodes)
-            trees = self.make_trees(sorted_nodes, frame)
+            trees = self.make_trees(nodes)
             function_info.block_trees[ir_block] = trees
+
+    def assign_vregs(self, sgraph, function_info):
+        """ Give vreg values to values that cross block boundaries """
+        frame = function_info.frame
+        for node in sgraph:
+            if node.group:
+                self.check_vreg(node, frame)
 
     def check_vreg(self, node, frame):
         """ Determine whether a node node needs a virtual register """
@@ -421,79 +426,51 @@ class DagSplitter:
                     vreg = frame.new_reg(cls, data_output.name)
                     data_output.vreg = vreg
 
-    def mark_spanning_values(self, sgraph, function_info):
-        """ Give vreg values to values that cross block boundaries """
-        frame = function_info.frame
-        for node in sgraph:
-            if node.group:
-                self.check_vreg(node, frame)
-
-    def split_dag(self, root, frame):
-        """ Split dag into forest of trees.
-            The approach here is to start at the exit of the flowgraph
-            and go back to the beginning.
-
-            This function can be looped over and yields a series
-            of somehow topologically sorted trees.
-        """
-        self.trees = []
-        self.node_map = {}
-        self.frame = frame
-
-        assert len(root.outputs) == 0
-
-        # First determine the usages:
-        self.traverse_back(root)
-
-        return self.trees
-
-    def make_trees(self, sorted_nodes, frame):
-        self.trees = []
-        self.node_map = {}
+    def make_trees(self, nodes):
+        """ Create a tree from a list of sorted nodes. """
+        sorted_nodes = topological_sort(nodes)
+        trees = []
+        node_map = {}
         for node in sorted_nodes:
-            self.node_to_tree(node)
-        return self.trees
+            assert len(node.data_outputs) <= 1
 
-    def node_to_tree(self, node):
-        """ Create a tree from a node """
-        # For now assert that nodes can only max 1 data value:
-        assert len(node.data_outputs) <= 1
+            # Determine data dependencies:
+            children = []
+            for inp in node.data_inputs:
+                if inp.vreg:
+                    # If the input value has a vreg, use it
+                    child_tree = Tree(make_op('REG', inp.vreg), value=inp.vreg)
+                elif inp.node.name.startswith('CONST'):
+                    # If the node is a constant, use that
+                    child_tree = Tree(inp.node.name, value=inp.node.value)
+                elif inp.node.name == 'LABEL':
+                    child_tree = Tree(inp.node.name, value=inp.node.value)
+                else:
+                    child_tree = node_map[inp.node]
+                children.append(child_tree)
 
-        children = []
-        for inp in node.data_inputs:
-            # If the input value has a vreg, use it, otherwise value must be
-            # calculated:
-            if inp.vreg:
-                ct = Tree(make_op('REG', inp.vreg), value=inp.vreg)
-            elif inp.node.name.startswith('CONST'):
-                ct = Tree(inp.node.name, value=inp.node.value)
-            elif inp.node.name == 'LABEL':
-                ct = Tree(inp.node.name, value=inp.node.value)
+            # Create a tree node:
+            tree = Tree(node.name, *children, value=node.value)
+
+            # Handle outputs:
+            if len(node.data_outputs) == 0:
+                # If the tree was volatile, it must be emitted
+                if node.volatile:
+                    trees.append(tree)
             else:
-                ct = self.node_map[inp.node]
-            children.append(ct)
+                # If the output has a vreg, put the value in:
+                data_output = node.data_outputs[0]
+                if data_output.vreg:
+                    vreg = data_output.vreg
+                    tree = Tree(make_op('MOV', vreg), tree, value=vreg)
+                    trees.append(tree)
+                    tree = Tree(make_op('REG', vreg), value=vreg)
+                elif node.volatile:
+                    trees.append(tree)
 
-        # Create a tree node:
-        tree = Tree(node.name, *children, value=node.value)
-
-        # Handle outputs:
-        if len(node.data_outputs) == 0:
-            # If the tree was volatile, it must be emitted
-            if node.volatile:
-                self.trees.append(tree)
-        else:
-            # If the output has a vreg, put the value in:
-            data_output = node.data_outputs[0]
-            if data_output.vreg:
-                vreg = data_output.vreg
-                tree = Tree(make_op('MOV', vreg), tree, value=vreg)
-                self.trees.append(tree)
-                tree = Tree(make_op('REG', vreg), value=vreg)
-            elif node.volatile:
-                self.trees.append(tree)
-
-        # Store for later:
-        self.node_map[node] = tree
+            # Store for later:
+            node_map[node] = tree
+        return trees
 
     def get_reg_class(self, data_flow):
         """ Determine the register class suited for this data flow line """
