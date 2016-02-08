@@ -130,9 +130,9 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, target, dag_builder):
+    def __init__(self, isa, target, sgraph_builder):
         self.logger = logging.getLogger('instruction-selector')
-        self.dag_builder = dag_builder
+        self.dag_builder = sgraph_builder
         self.target = target
         self.dag_splitter = DagSplitter(target)
 
@@ -171,10 +171,13 @@ class InstructionSelector1:
         context = InstructionContext(frame, self.target)
 
         # Create selection dag (directed acyclic graph):
-        sdag = self.dag_builder.build(ir_function, function_info)
-
+        sgraph = self.dag_builder.build(ir_function, function_info)
         reporter.message('Selection graph for {}'.format(ir_function))
-        reporter.dump_sgraph(sdag)
+        reporter.dump_sgraph(sgraph)
+
+        # Split the selection graph into trees:
+        self.dag_splitter.split_into_trees(sgraph, ir_function, function_info)
+        reporter.dump_trees(ir_function, function_info)
 
         # Process one basic block at a time:
         for ir_block in ir_function:
@@ -182,9 +185,8 @@ class InstructionSelector1:
             context.emit(function_info.label_map[ir_block])
 
             # Eat dag:
-            reporter.message(str(ir_block))
-            root = function_info.block_roots[ir_block]
-            self.munch_dag(context, root, reporter)
+            trees = function_info.block_trees[ir_block]
+            self.munch_trees(context, trees)
 
             # Emit code between blocks:
             frame.between_blocks()
@@ -193,7 +195,7 @@ class InstructionSelector1:
         # TODO: return value must be implemented in some way..
         # self.munchStm(ir.Move(self.frame.rv, f.return_value))
 
-    def munch_dag(self, context, root, reporter):
+    def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.
             DAG matching is NP-complete.
 
@@ -207,11 +209,6 @@ class InstructionSelector1:
         """
 
         # Match all splitted trees:
-        for tree in self.dag_splitter.split_dag(root, context.frame):
-            reporter.message(str(tree))
-
-            if tree.name in ['EXIT', 'ENTRY']:
-                continue
-
+        for tree in trees:
             # Invoke dynamic programming matcher machinery:
             self.tree_selector.gen(context, tree)

@@ -23,7 +23,15 @@ class SelectionGraph:
         return value.src()
 
     def add_node(self, node):
+        """ Add a node to the graph """
         self.nodes.add(node)
+        if hasattr(node, 'group'):
+            self.groups.add(getattr(node, 'group'))
+
+    def get_group(self, group):
+        """ Get all nodes of a group """
+        assert group in self.groups
+        return set(node for node in self.nodes if node.group == group)
 
     @property
     def edges(self):
@@ -38,6 +46,9 @@ class SelectionGraph:
         for edge in self.edges:
             assert edge.src in self.nodes
             assert edge.dst in self.nodes
+
+    def __iter__(self):
+        return iter(self.nodes)
 
 
 class SGValue:
@@ -68,6 +79,9 @@ class SGValue:
     def add_use(self, use):
         self.users.append(use)
 
+    def __repr__(self):
+        return 'SGValue(name={},vreg={})'.format(self.name, self.vreg)
+
 
 class SGNode:
     """ A single node in the selection graph. A node has an operation name
@@ -92,6 +106,7 @@ class SGNode:
         return False
 
     def inputs_of_type(self, kind):
+        """ Return all inputs of a given type """
         return [inp for inp in self.inputs if inp.kind == kind]
 
     @property
@@ -117,22 +132,29 @@ class SGNode:
     def data_outputs(self):
         return self.outputs_of_type(SGValue.DATA)
 
-    def add_input(self, x):
-        assert isinstance(x, SGValue)
-        self.inputs.append(x)
-        x.add_use(self)
+    def add_input(self, inp):
+        """ Add a single input to this node """
+        assert isinstance(inp, SGValue)
+        self.inputs.append(inp)
+        inp.add_use(self)
 
     def add_inputs(self, *args):
+        """ Add a series of inputs """
         for inp in args:
             self.add_input(inp)
 
     def new_output(self, name, kind=SGValue.DATA):
+        """ Create a new output value with a name and the given kind """
         val = SGValue(name, kind, self)
         self.add_output(val)
         return val
 
     def usages(self):
         return len(self.outputs)
+
+    @property
+    def children(self):
+        return [u for o in self.outputs for u in o.users]
 
     def add_output(self, x):
         assert isinstance(x, SGValue)

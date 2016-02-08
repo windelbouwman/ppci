@@ -67,6 +67,7 @@ class IrDagTestCase(unittest.TestCase):
         builder.set_block(block14)
         loaded2 = builder.emit(ir.Load(global_tick, 'loaded2', ir.i32))
         builder.emit(ir.CJump(binop, '>', loaded2, block14, function.epilog))
+        # print('module:')
         print_module(module)
 
         # Target generation
@@ -75,13 +76,19 @@ class IrDagTestCase(unittest.TestCase):
         function_info = FunctionInfo(frame)
         prepare_function_info(target, function_info, function)
         dag_builder = SelectionGraphBuilder(target)
-        dag_builder.build(function, function_info)
+        sgraph = dag_builder.build(function, function_info)
         dag_splitter = DagSplitter(target)
+
+        print(function_info.value_map)
         for b in function:
-            root = function_info.block_roots[b]
-            print(root)
-            for tree in dag_splitter.split_dag(root, frame):
-                print(tree)
+            # root = function_info.block_roots[b]
+            #print('root=', root)
+            #for tree in dag_splitter.split_into_trees(root, frame):
+            #    print('tree=', tree)
+            pass
+        # sg_value = function_info.value_map[binop]
+        # print(function_info.value_map)
+        # self.assertTrue(sg_value.vreg)
 
 
 if __name__ == '__main__':

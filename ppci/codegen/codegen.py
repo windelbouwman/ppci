@@ -33,8 +33,9 @@ class CodeGenerator:
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
-        self.logger.info('Generating {} code for module {}'
-                         .format(self.target, ircode.name))
+        self.logger.info(
+            'Generating %s code for module %s',
+            str(self.target), ircode.name)
 
         # Generate code for global variables:
         output_stream.select_section('data')
@@ -67,7 +68,7 @@ class CodeGenerator:
         for block in ir_function:
             max_block_len = 200
             while len(block) > max_block_len:
-                self.logger.debug('{} too large, splitting up'.format(block))
+                self.logger.debug('%s too large, splitting up', str(block))
                 _, block = split_block(block, pos=max_block_len)
 
         # Create a frame for this function:
@@ -78,7 +79,7 @@ class CodeGenerator:
         self.select_and_schedule(ir_function, frame, reporter)
 
         # Define arguments live at first instruction:
-        self.define_arguments_live(frame, ir_function.arguments)
+        self.define_arguments_live(frame)
 
         reporter.message('Selected instruction for {}'.format(ir_function))
         reporter.dump_frame(frame)
@@ -92,6 +93,7 @@ class CodeGenerator:
         reporter.function_footer(instruction_list)
 
     def select_and_schedule(self, ir_function, frame, reporter):
+        """ Perform instruction selection and scheduling """
         self.logger.debug('Selecting instructions')
 
         tree_method = True
@@ -142,8 +144,9 @@ class CodeGenerator:
         # Postfix code, like register restore and stack adjust:
         output_stream.emit_all(frame.epilogue())
 
-    def define_arguments_live(self, frame, arguments):
+    def define_arguments_live(self, frame):
+        """ Prepend a special instruction in front of the frame """
         ins0 = RegisterUseDef()
         frame.instructions.insert(0, ins0)
-        for r in frame.live_in:
-            ins0.add_def(r)
+        for register in frame.live_in:
+            ins0.add_def(register)

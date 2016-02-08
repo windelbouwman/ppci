@@ -117,7 +117,7 @@ class Function:
             module.add_function(self)
 
     def __repr__(self):
-        args = ','.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
         return 'function XXX {}({})'.format(self.name, args)
 
     def __iter__(self):
