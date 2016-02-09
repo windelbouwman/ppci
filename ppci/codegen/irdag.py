@@ -65,6 +65,7 @@ class FunctionInfo:
         self.label_map = {}
         self.phi_map = {}  # mapping from phi node to vreg
         self.block_trees = {}  # Mapping from block to tree serie for block
+        self.block_tails = {}
 
 
 @make_map
@@ -111,7 +112,9 @@ class SelectionGraphBuilder:
         self.current_block = ir_block
 
         # Create start node:
-        self.current_token = self.new_node('ENTRY').new_output(
+        entry_node = self.new_node('ENTRY')
+        entry_node.value = ir_block
+        self.current_token = entry_node.new_output(
             'token', kind=SGValue.CONTROL)
 
         # Emit extra dag for parameters when entry block:
@@ -126,6 +129,9 @@ class SelectionGraphBuilder:
 
             # Dispatch the handler depending on type:
             self.f_map[type(instruction)](self, instruction)
+
+        # Save tail node of this block:
+        function_info.block_tails[ir_block] = self.current_token.node
 
         # Create end node:
         sgnode = self.new_node('EXIT')
@@ -351,10 +357,8 @@ class SelectionGraphBuilder:
             self.add_map(arg, output)
 
 
-def topological_sort(nodes):
-    """ Sort nodes topological, use Tarjan algorithm here
-        See: https://en.wikipedia.org/wiki/Topological_sorting
-    """
+def topological_sort_modified(nodes, start):
+    """ Modified topological sort, start at the end and work back """
     unmarked = set(nodes)
     marked = set()
     temp_marked = set()
@@ -362,19 +366,40 @@ def topological_sort(nodes):
 
     def visit(n):
         # print(n)
+        if n not in nodes:
+            return
         assert n not in temp_marked, 'DAG has cycles'
         if n in unmarked:
             temp_marked.add(n)
-            for m in n.children:
-                visit(m)
+
+            # 1 satisfy control dependencies:
+            for inp in n.control_inputs:
+                visit(inp.node)
+
+            # 2 memory dependencies:
+            for inp in n.memory_inputs:
+                visit(inp.node)
+
+            # 3 data dependencies:
+            for inp in n.data_inputs:
+                visit(inp.node)
             temp_marked.remove(n)
             marked.add(n)
             unmarked.remove(n)
-            L.insert(0, n)
+            L.append(n)
 
+    # Start to visit with pre-knowledge of the last node!
+    visit(start)
     while unmarked:
-        n = next(iter(unmarked))
-        visit(n)
+        node = next(iter(unmarked))
+        visit(node)
+
+    # Hack: move tail again to tail:
+    if L:
+        if L[-1] is not start:
+            L.remove(start)
+            L.append(start)
+            print('re-tailing :)')
     return L
 
 
@@ -399,7 +424,8 @@ class DagSplitter:
                 filter(
                     lambda x: x.name not in ['ENTRY', 'EXIT', 'TRM'], nodes))
 
-            trees = self.make_trees(nodes)
+            tail_node = function_info.block_tails[ir_block]
+            trees = self.make_trees(nodes, tail_node)
             function_info.block_trees[ir_block] = trees
 
     def assign_vregs(self, sgraph, function_info):
@@ -426,9 +452,9 @@ class DagSplitter:
                     vreg = frame.new_reg(cls, data_output.name)
                     data_output.vreg = vreg
 
-    def make_trees(self, nodes):
+    def make_trees(self, nodes, tail_node):
         """ Create a tree from a list of sorted nodes. """
-        sorted_nodes = topological_sort(nodes)
+        sorted_nodes = topological_sort_modified(nodes, tail_node)
         trees = []
         node_map = {}
         for node in sorted_nodes:

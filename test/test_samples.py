@@ -509,7 +509,6 @@ class I32Samples:
         res = "fib(13)=0x000000E9\n"
         self.do(snippet, res)
 
-    @unittest.skip('yield too many issues')
     def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
