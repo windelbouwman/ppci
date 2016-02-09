@@ -208,10 +208,12 @@ class IBase(RiscvInstruction):
         self.token1[7:12] = self.rd.num
         self.token1[12:15] = self.func
         self.token1[15:20] = self.rs1.num
-        if self.invert==True:
-            imm12 = wrap_negative(-self.imm, 12)
-        else:
+        if(self.invert==True):
+            self.imm=-self.imm
+        if(self.imm<0):
             imm12 = wrap_negative(self.imm, 12)
+        else:
+            imm12 = self.imm&0xFFF
         self.token1[20:32] = imm12
         return self.token1.encode()
 
@@ -331,7 +333,10 @@ class Lui(RiscvInstruction):
     imm = register_argument('imm', int)
     syntax = Syntax(['lui',rd,',', imm])
     def encode(self):
-        imm20 = wrap_negative(self.imm>>12,20)
+        if self.imm<0:
+            imm20 = wrap_negative(self.imm>>12,20)
+        else:
+            imm20 = self.imm>>12
         self.token1[0:7] = 0b0110111
         self.token1[7:12] = self.rd.num
         self.token1[12:32] = imm20
@@ -539,6 +544,7 @@ def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
     context.emit(Lui(d, c0))
+    context.emit(Add2(d, d, c0))
     return d
 
 
