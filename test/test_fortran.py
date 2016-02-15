@@ -1,5 +1,7 @@
 import unittest
-from ppci.fortran import FortranParser
+import glob
+from ppci.fortran import FortranParser, Printer
+from util import relpath
 
 example = """
 C234567890
@@ -29,13 +31,26 @@ class FortranTestCase(unittest.TestCase):
         self.parser = FortranParser()
 
     def do(self, src):
-        self.parser.parse(src)
+        print('======')
+        p = self.parser.parse(src)
+        Printer().print(p)
+        print('======')
 
     def test_hello_world(self):
         self.do(hello_world_src)
 
     def test_example(self):
         self.do(example)
+
+    @unittest.skip('todo')
+    def test_samples(self):
+        pat = relpath('FORTRAN', '*.FOR')
+        for src in sorted(glob.iglob(pat)):
+            print(src)
+            with open(src) as f:
+                srccode = f.read()
+            self.do(srccode)
+
 
 if __name__ == '__main__':
     unittest.main()

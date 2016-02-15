@@ -13,6 +13,7 @@ from .arch.target import Target
 from .arch.target_list import get_target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
+from .fortran import FortranBuilder
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .codegen import CodeGenerator
@@ -278,6 +279,13 @@ def bf2ir(source, target):
     target = fix_target(target)
     ircode = BrainFuckGenerator(target).generate(source)
     return ircode
+
+
+def fortran_to_ir(source):
+    """ Translate fortran source into IR-code """
+    builder = FortranBuilder()
+    ir_modules = builder.build(source)
+    return ir_modules
 
 
 def bfcompile(source, target, reporter=DummyReportGenerator()):
