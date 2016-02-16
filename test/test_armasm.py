@@ -28,7 +28,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('add r12, r11, 300')
         self.check('4bcf8be2')
 
-    def testAdd2InvalidValue(self):
+    def test_add2_invalid_value(self):
         """ Test add instruction with invalid value """
         with self.assertRaises(ValueError):
             self.feed('add r12, r11, 30000')
@@ -38,8 +38,11 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.check('029087e0')
 
     def test_sub1(self):
+        """ Test substraction """
         self.feed('sub r5, r6, r2')
-        self.check('025046e0')
+        self.feed('subcc r5, r6, r2')
+        self.feed('subne r5, r6, r2')
+        self.check('025046e0 02504630 02504610')
 
     def test_sub2(self):
         self.feed('sub r0, r1, 0x80000001')
@@ -59,17 +62,18 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('orr r8, r7, r6')
         self.check('068087e1')
 
-    def testLsl(self):
+    def test_lsl(self):
         self.feed('lsl r11, r5, r3')
         self.feed('lsl r4, r8, r6')
         self.check('15b3a0e1 1846a0e1')
 
-    def testLsr(self):
+    def test_lsr(self):
         self.feed('lsr r9, r0, r2')
         self.feed('lsr r4, r8, r6')
         self.check('3092a0e1 3846a0e1')
 
-    def testBranches(self):
+    def test_nranches(self):
+        """ Test several branch instructions """
         self.feed("""b sjakie
         ble sjakie
         bgt sjakie
@@ -81,8 +85,9 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         bgt sjakie
         beq sjakie
         bl sjakie""")
-        self.check('030000ea 020000da 010000ca 0000000a ffffffeb feffffea \
-                    fdffffda fcffffca fbffff0a faffffeb')
+        self.check(
+            '030000ea 020000da 010000ca 0000000a ffffffeb feffffea'
+            'fdffffda fcffffca fbffff0a faffffeb')
 
     def test_push(self):
         self.feed('push {r11,r5,r4,lr}')
@@ -108,7 +113,8 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldrb r5, [r3, 87]')
         self.check('5750d3e5')
 
-    def testLdrLabel(self):
+    def test_ldr_label(self):
+        """ Test if loading from a label works """
         self.feed('ldr r5, lab1')
         self.feed('ldr r11, lab1')
         self.feed('ldr r10, lab1')
@@ -116,7 +122,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('dd 0x12345566')
         self.check('04509fe5 00b09fe5 04a01fe5 66553412')
 
-    def testAdr(self):
+    def test_adr(self):
         self.feed('adr r5, cval')
         self.feed('adr r9, cval')
         self.feed('adr r8, cval')
@@ -135,33 +141,30 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         """ Link code at 0x10000 and check if symbol was correctly patched """
         self.feed('ldr r8, =a')
         self.feed('a:')
-        spec = """
-            MEMORY flash LOCATION=0x10000 SIZE=0x10000 {
-                SECTION(code)
-            }
-        """
+        spec = "MEMORY flash LOCATION=0x10000 SIZE=0x10000 { SECTION(code) }"
         layout = load_layout(io.StringIO(spec))
         self.check('04801fe5 04000100', layout)
 
-    def testCmp(self):
+    def test_cmp(self):
+        """ Test the compare function """
         self.feed('cmp r4, r11')
         self.feed('cmp r5, 0x50000')
         self.check('0b0054e1 050855e3')
 
-    def testSequence1(self):
+    def test_sequence1(self):
         self.feed('sub r4,r5,23')
         self.feed('blt x')
         self.feed('x:')
         self.feed('mul r4,r5,r2')
         self.check('174045e2 ffffffba 950204e0')
 
-    def testMcr(self):
+    def test_mcr(self):
         """ Test move coprocessor register from arm register """
         self.feed('mcr p15, 0, r1, c2, c0, 0')
         self.feed('mcr p14, 0, r1, c8, c7, 0')
         self.check('101f02ee 171e08ee')
 
-    def testMrc(self):
+    def test_mrc(self):
         self.feed('mrc p15, 0, r1, c2, c0, 0')
         self.feed('mrc p14, 0, r1, c8, c7, 0')
         self.check('101f12ee 171e18ee')
@@ -179,25 +182,26 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('b cmp')
         self.check('feffffea')
 
-    @unittest.skip('Fix lsr postfix')
     def test_div_routine(self):
+        """ Test nifty division routine """
         self.feed('div:')
         self.feed('  mov r4, r2')
-        self.feed('  cmp r4, r1, lsr #1')
+        self.feed('  cmp r4, r1, lsr 1')
         self.feed('div_90:')
-        self.feed('  movls r4, r4, lsl #1')
-        self.feed('  cmp r4, r1, lsr #1')
+        self.feed('  movls r4, r4, lsl 1')
+        self.feed('  cmp r4, r1, lsr 1')
         self.feed('  bls div_90')
-        self.feed('  mov r3, #0')
+        self.feed('  mov r3, 0')
         self.feed('div_91:')
         self.feed('  cmp r1, r4')
         self.feed('  subcs r1, r1, r4')
         self.feed('  adc r3, r3, r3')
-        self.feed('  mov r4, r4, lsr #1')
+        self.feed('  mov r4, r4, lsr 1')
         self.feed('  cmp r4, r2')
         self.feed('  bhs div_91')
-        self.check("""0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3
-            040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a""")
+        self.check(
+            "0240a0e1 a10054e1 8440a091 a10054e1 fcffff9a 0030a0e3"
+            "040051e1 04104120 0330a3e0 a440a0e1 020054e1 f9ffff2a")
 
 
 if __name__ == '__main__':

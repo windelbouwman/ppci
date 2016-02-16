@@ -55,7 +55,20 @@ class Assignment(Statement):
 
 
 class Continue(Statement):
-    pass
+    """ Continue statement """
+    def __repr__(self):
+        return 'CONTINUE'
+
+
+class Format(Statement):
+    """ Format statement """
+    def __repr__(self):
+        return 'FORMAT (...)'
+
+
+class GoTo(Statement):
+    def __init__(self, loc):
+        super().__init__(loc)
 
 
 class IfArith(Statement):
@@ -88,6 +101,12 @@ class Read(Statement):
     def __repr__(self):
         args2 = ', '.join(map(str, self.args))
         return 'READ {}, {}'.format(self.fmt, args2)
+
+
+class Stop(Statement):
+    def __init__(self, msg, loc):
+        super().__init__(loc)
+        self.msg = msg
 
 
 class Write(Statement):
@@ -146,11 +165,14 @@ KEYWORDS = (
     'CONTINUE',
     'DO',
     'END',
-    'GOTO',
+    'FORMAT',
+    'GO',
     'IF',
     'PRINT',
     'PROGRAM',
     'READ',
+    'STOP',
+    'TO',
     'WRITE')
 
 
@@ -164,7 +186,7 @@ class FortranLexer(BaseLexer):
         73-80  unused
     """
     def __init__(self):
-        op_txt = r'[,=+*/\(\)]'
+        op_txt = r'[,=+\-*/\(\)]'
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
@@ -175,6 +197,7 @@ class FortranLexer(BaseLexer):
             ('STRING2', r"'[^']*'", lambda typ, val: ('STRING', val[1:-1]))
             ]
         super().__init__(tok_spec)
+        # TODO: hollerith strings are special case
 
     def handle_id(self, typ, val):
         if val in KEYWORDS + TYPES:
@@ -289,7 +312,7 @@ class FortranParser:
         if self.peak == 'LABEL':
             label = self.consume('LABEL')
             # TODO: use it!
-            print(label)
+            print('label=', label.val)
         if self.peak == 'CONTINUE':
             return self.parse_continue()
         elif self.peak == 'DO':
@@ -298,12 +321,16 @@ class FortranParser:
             return self.parse_end()
         elif self.peak == 'FORMAT':
             return self.parse_format()
+        elif self.peak == 'GO':
+            return self.parse_go()
         elif self.peak == 'IF':
             return self.parse_if()
         elif self.peak == 'PRINT':
             return self.parse_print()
         elif self.peak == 'READ':
             return self.parse_read()
+        elif self.peak == 'STOP':
+            return self.parse_stop()
         elif self.peak == 'WRITE':
             return self.parse_write()
         elif self.peak == 'ID':
@@ -326,7 +353,10 @@ class FortranParser:
         self.consume('END')
 
     def parse_format(self):
-        self.consume('FORMAT')
+        loc = self.consume('FORMAT').loc
+        self.consume('(')
+        self.consume(')')
+        return Format(loc)
 
     def parse_continue(self):
         loc = self.consume('CONTINUE').loc
@@ -335,6 +365,13 @@ class FortranParser:
     def parse_do(self):
         self.consume('DO')
         raise NotImplementedError()
+
+    def parse_go(self):
+        """ Parse go to syntax """
+        loc = self.consume('GO').loc
+        self.consume('TO')
+        target = self.consume('NUMBER')
+        return GoTo(loc)
 
     def parse_if(self):
         loc = self.consume('IF').loc
@@ -370,6 +407,12 @@ class FortranParser:
             args.append(arg)
         return Read(fmt, args, loc)
 
+    def parse_stop(self):
+        loc = self.consume('STOP').loc
+        if self.peak == 'STRING':
+            self.consume('STRING')
+        return Stop('', loc)
+
     def parse_write(self):
         loc = self.consume('WRITE').loc
         if self.has_consumed('('):
@@ -380,6 +423,9 @@ class FortranParser:
         else:
             raise NotImplementedError()
         args = []
+        if self.peak != 'EOL':
+            arg = self.parse_term()
+            args.append(arg)
         while self.has_consumed(','):
             arg = self.parse_term()
             args.append(arg)

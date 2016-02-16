@@ -158,7 +158,8 @@ class ArmTarget(Target):
         if self.has_option('thumb'):
             return thumb_instructions.Mov2(dst, src, ismove=True)
         else:
-            return instructions.Mov2(dst, src, ismove=True)
+            return instructions.Mov2(
+                dst, src, instructions.NoShift(), ismove=True)
 
     def gen_call(self, label, arg_types, ret_type, args, res_var):
         """ Generate code for call sequence. This function saves registers

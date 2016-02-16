@@ -14,6 +14,7 @@ examples/linux64/hello/hello
 examples/linux64/snake/snake
 test/.coverage
 test/listings
+test/FORTRAN
 .tox
 *report.html
 .cache
