@@ -13,6 +13,7 @@ from .thumb_frame import ThumbFrame
 
 
 class ArmAssembler(BaseAssembler):
+    """ Assembler for the arm instruction set """
     def __init__(self):
         super().__init__()
         self.parser.assembler = self
@@ -77,15 +78,23 @@ class ThumbAssembler(BaseAssembler):
     def add_extra_rules(self):
         # Implement register list syntaxis:
         self.typ2nt[set] = 'reg_list'
-        self.add_rule('reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
+        self.add_rule(
+            'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
         self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
 
         # For a left right parser, or right left parser, this is important:
-        self.add_rule('reg_list_inner', ['reg_list_inner', ',', 'reg_or_range'], lambda rhs: rhs[0] | rhs[2])
-        # self.add_rule('reg_list_inner', ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
+        self.add_rule(
+            'reg_list_inner',
+            ['reg_list_inner', ',', 'reg_or_range'],
+            lambda rhs: rhs[0] | rhs[2])
+        # self.add_rule(
+        # 'reg_list_inner',
+        # ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
 
         self.add_rule('reg_or_range', ['reg'], lambda rhs: set([rhs[0]]))
-        self.add_rule('reg_or_range', ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
+        self.add_rule(
+            'reg_or_range',
+            ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
 class ArmTarget(Target):
@@ -124,7 +133,7 @@ class ArmTarget(Target):
            ; r0 is the quotient
            mov r4, r2         ; mov divisor into temporary register.
 
-           ; Blow up part: blow up divisor until it is larger than the divident.
+           ; Blow up divisor until it is larger than the divident.
            cmp r4, r1, lsr 1  ; If r4 < r1, then, shift left once more.
         __sdiv_inc:
            movls r4, r4, lsl 1
