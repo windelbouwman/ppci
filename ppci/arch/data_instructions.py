@@ -64,6 +64,25 @@ class Dw(DataInstruction):
     patterns = [VariablePattern('value', v)]
 
 
+class Dw2(DataInstruction):
+    tokens = [WordToken]
+    v = register_argument('v', str)
+    syntax = Syntax(['dw', v])
+
+    def relocations(self):
+        return [(self.v, apply_absaddr16)]
+
+
+def apply_absaddr16(sym_value, data, reloc_value):
+    assert sym_value % 2 == 0
+    assert reloc_value % 2 == 0
+    offset = sym_value
+    bv = BitView(data, 0, 2)
+    bv[0:16] = offset
+
+data_isa.register_relocation(apply_absaddr16)
+
+
 class Dd(DataInstruction):
     tokens = [DwordToken]
     v = register_argument('v', int)

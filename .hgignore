@@ -8,6 +8,7 @@ syntax: glob
 *.hex
 *.elf
 *.log
+*.vcd
 docs/_build
 docs/examples.zip
 examples/linux64/hello/hello

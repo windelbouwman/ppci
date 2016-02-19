@@ -15,7 +15,7 @@ from .registers import r24, r25, X, Y, Z
 from .registers import get_register
 
 
-class AvrTarget(Target):
+class AvrArch(Target):
     """
         Check this site for good info:
         - https://gcc.gnu.org/wiki/avr-gcc

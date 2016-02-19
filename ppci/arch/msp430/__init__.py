@@ -1,4 +1,4 @@
 
 # Stub to make this a package
-from .target import Msp430Target
+from .arch import Msp430Arch
 

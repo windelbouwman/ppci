@@ -104,9 +104,13 @@ class Image:
         data = bytearray()
         current_address = self.location
         for section in self.sections:
-            while section.address != current_address:
-                data += bytes([0])
-                current_address += 1
+            if section.address < current_address:
+                raise ValueError('sections overlap!!')
+            if section.address > current_address:
+                delta = section.address - current_address
+                data += bytes([0] * delta)
+                current_address += delta
+            assert section.address == current_address
             data += section.data
             current_address += section.size
         return data
@@ -118,6 +122,18 @@ class Image:
 
     def add_section(self, section):
         self.sections.append(section)
+
+
+def merge_memories(mem1, mem2, name):
+    """ Merge two memories into a new one """
+    # TODO: pick location based on address?
+    location = mem1.location
+    mem3 = Image(name, location)
+    for s in mem1.sections:
+        mem3.add_section(s)
+    for s in mem2.sections:
+        mem3.add_section(s)
+    return mem3
 
 
 class ObjectFile:
@@ -203,8 +219,8 @@ class ObjectFile:
         save_object(self, f)
 
 
-def save_object(o, f):
-    json.dump(serialize(o), f, indent=2, sort_keys=True)
+def save_object(obj, f):
+    json.dump(serialize(obj), f, indent=2, sort_keys=True)
 
 
 def load_object(f):
@@ -228,6 +244,7 @@ def bin2asc(data):
 
 
 def asc2bin(data):
+    """ Decode ascii into binary """
     return bytearray(binascii.unhexlify(data.encode('ascii')))
 
 
@@ -271,6 +288,7 @@ def serialize(x):
 
 
 def deserialize(d):
+    """ Create an object file from data """
     obj = ObjectFile()
     for section in d['sections']:
         so = Section(section['name'])

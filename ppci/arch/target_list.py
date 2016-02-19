@@ -5,8 +5,8 @@
 
 from functools import lru_cache
 from .arm import ArmTarget
-from .avr import AvrTarget
-from .msp430 import Msp430Target
+from .avr import AvrArch
+from .msp430 import Msp430Arch
 from .x86_64 import X86_64Target
 from .mos6500 import Mos6500Target
 from .riscv import RiscvTarget
@@ -14,9 +14,9 @@ from .riscv import RiscvTarget
 
 target_classes = [
     ArmTarget,
-    AvrTarget,
+    AvrArch,
     Mos6500Target,
-    Msp430Target,
+    Msp430Arch,
     RiscvTarget,
     X86_64Target]
 

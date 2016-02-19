@@ -7,7 +7,7 @@ from .frame import Msp430Frame
 from ...binutils.assembler import BaseAssembler
 
 
-class Msp430Target(Target):
+class Msp430Arch(Target):
     """ Texas Instruments msp430 target architecture """
     name = 'msp430'
 
