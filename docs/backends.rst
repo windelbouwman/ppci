@@ -20,7 +20,7 @@ Status: 70%
 
 .. automodule:: ppci.arch.arm
 
-.. autoclass:: ppci.arch.arm.ArmTarget
+.. autoclass:: ppci.arch.arm.ArmArch
 
 
 
@@ -31,7 +31,7 @@ avr
 
 Status: 20%
 
-.. autoclass:: ppci.arch.avr.AvrTarget
+.. autoclass:: ppci.arch.avr.AvrArch
 
 
 
@@ -43,7 +43,7 @@ msp430
 
 Status: 20%
 
-.. autoclass:: ppci.arch.msp430.Msp430Target
+.. autoclass:: ppci.arch.msp430.Msp430Arch
 
 
 .. _riscv:
@@ -79,5 +79,5 @@ For a good list of linux system calls, refer:
 
 http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
-.. autoclass:: ppci.arch.x86_64.X86_64Target
+.. autoclass:: ppci.arch.x86_64.X86_64Arch
 

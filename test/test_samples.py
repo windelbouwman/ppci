@@ -11,6 +11,7 @@ from util import run_qemu, has_qemu, relpath, run_python
 from ppci.api import asm, c3c, link, objcopy, bfcompile
 from ppci.api import c3toir, bf2ir, ir_to_python
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
+from ppci.binutils.objectfile import merge_memories
 
 
 def make_filename(s):
@@ -53,7 +54,44 @@ class SimpleSamples:
         """
         self.do(snippet, "Hello world")
 
+    def test_sw_div(self):
+        """ Test software division algorithm """
+        snippet = """
+        module main;
+        import io;
+        function int sdiv(int num, int den)
+        {
+          var int res = 0;
+          var int tmp = den;
+          while (tmp < num)
+          {
+            tmp = tmp << 1;
+          }
+
+          while (tmp > den)
+          {
+            if (num >= tmp)
+            {
+              num -= tmp;
+              res += 1;
+            }
+            tmp = tmp >> 1;
+            res = res << 1;
+          }
+          return res;
+        }
+
+        function void main()
+        {
+          io.print2("10/5=", sdiv(10, 5));
+          io.print2("13/6=", sdiv(13, 6));
+          io.print2("31/7=", sdiv(31, 7));
+        }
+        """
+        self.do(snippet, '10/5=0x00000002\n13/6=0x00000002\n31/7=0x00000004\n')
+
     def test_if_statement(self):
+        """ Test if the if statement is works """
         snippet = """
          module main;
          import io;
@@ -418,7 +456,10 @@ class I32Samples:
             io.print2("w=", w);
          }
         """
-        self.do(snippet, "w=0x00000006\nw=0x0000000B\nw=0x00000001\nw=0x0000000F\nw=0x00000002\n")
+        self.do(
+            snippet,
+            "w=0x00000006\nw=0x0000000B\nw=0x00000001\n"
+            "w=0x0000000F\nw=0x00000002\n")
 
     def test_global_variable(self):
         snippet = """
@@ -576,6 +617,7 @@ class I32Samples:
 
 class BuildMixin:
     def build(self, src, lang='c3', bin_format='bin'):
+        """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
         list_filename = base_filename + '.html'
 
@@ -606,10 +648,7 @@ class BuildMixin:
                 io.StringIO(self.arch_mmap),
                 self.march, use_runtime=True, reporter=reporter)
 
-        # Determine base names:
-        sample_filename = make_filename(self.id()) + '.' + bin_format
-        objcopy(obj, 'code', bin_format, sample_filename)
-        return sample_filename
+        return obj, base_filename
 
 
 class TestSamplesOnVexpress(
@@ -637,7 +676,10 @@ class TestSamplesOnVexpress(
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        sample_filename = self.build(src, lang)
+        obj, base_filename = self.build(src, lang)
+        bin_format = 'bin'
+        sample_filename = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
 
         # Run bin file in emulator:
         if has_qemu():
@@ -701,7 +743,10 @@ class TestSamplesOnCortexM3(
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        sample_filename = self.build(src, lang)
+        obj, base_filename = self.build(src, lang)
+        bin_format = 'bin'
+        sample_filename = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
 
         # Run bin file in emulator:
         if has_qemu():
@@ -745,31 +790,67 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
 class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "msp430"
     startercode = """
-    section reset
+      section reset_vector
+        dw 0 ; 0
+        dw 0 ; 1
+        dw 0 ; 2
+        dw 0 ; 3
+        dw 0 ; 4
+        dw 0 ; 5
+        dw 0 ; 6
+        dw 0 ; 7
+        dw 0 ; 8
+        dw 0 ; 9
+        dw 0 ; 10
+        dw 0 ; 11
+        dw 0 ; 12
+        dw 0 ; 13
+        dw 0 ; 14
+        dw reset_handler ; 15 = reset
+
+      section code
+        reset_handler:
+          mov.w #0x980, sp       ; setup stack pointer
+          call #main_main        ; Enter main
+          call #bsp_exit         ; Call exit cleaning
+        end_inf_loop:
+          jmp end_inf_loop
+
+        bsp_putc:
+          mov.b r12, 0x67(r2)  ; write to uart0 tx buf
+          ret
     """
     arch_mmap = """
-    MEMORY code LOCATION=0x0 SIZE=0x10000 {
-        SECTION(reset)
-        ALIGN(4)
-        SECTION(code)
-    }
-    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 { SECTION(data) }
+        MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
+        MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
+        MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
     """
     bsp_c3_src = """
-    module bsp;
+        module bsp;
 
-    public function void putc(byte c)
-    {
-    }
-
-    function void exit()
-    {
-        putc(4); // End of transmission
-    }
+        public function void putc(byte c);
+        function void exit()
+        {
+            putc(4); // End of transmission
+        }
     """
 
     def do(self, src, expected_output, lang='c3'):
-        self.build(src, lang)
+        obj, base_filename = self.build(src, lang)
+        # TODO
+        flash = obj.get_image('flash')
+        ivect = obj.get_image('vector16')
+        rom = merge_memories(flash, ivect, 'rom')
+        rom_data = rom.data
+        assert len(rom_data) % 2 == 0
+
+        with open(base_filename + '.bin', 'wb') as f:
+            f.write(rom_data)
+
+        with open(base_filename + '.mem', 'w') as f:
+            for i in range(len(rom_data) // 2):
+                w = rom_data[2*i:2*i+2]
+                print('%02x%02x' % (w[1], w[0]), file=f)
 
 
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
@@ -844,7 +925,11 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     """
 
     def do(self, src, expected_output, lang='c3'):
-        exe = self.build(src, lang, bin_format='elf')
+        bin_format = 'elf'
+        obj, base_filename = self.build(src, lang)
+        exe = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, exe)
+
         if has_linux():
             if hasattr(subprocess, 'TimeoutExpired'):
                 res = subprocess.check_output(exe, timeout=10)

@@ -86,6 +86,7 @@ class Msp430Frame(Frame):
             and add constant pool
         """
         yield ret()
+
         # Add final literal pool:
         for instruction in self.litpool():
             yield instruction

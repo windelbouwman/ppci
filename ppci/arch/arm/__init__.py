@@ -5,4 +5,4 @@ Arm machine specifics. The arm target has several options:
 
 """
 
-from .target import ArmTarget
+from .arch import ArmArch

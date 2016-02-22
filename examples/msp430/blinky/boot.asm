@@ -19,7 +19,7 @@ dw 0 ; 11
 dw 0 ; 12
 dw 0 ; 13
 dw 0 ; 14
-dw reset ; 15 = reset
+dw reset_handler ; 15 = reset
 
 
 ; P1IN  0x20
@@ -34,14 +34,29 @@ dw reset ; 15 = reset
 
 section code
 
-reset:
+reset_handler:
 
   mov.w #0x280, sp       ; setup stack pointer
   bis.b #0x41, 0x22(r2)  ; config P1.0 and P1.6 as output
+
+  ; Send char a to output:
+  mov.b #0x41, 0x67(r2)
+  mov.b #0x42, 0x67(r2)
+  mov.b #0x43, 0x67(r2)
 
 main:
   xor.b #0x41, 0x21(r2)
 
 wait:
+  mov.b #0x4, 0x67(r2)  ; end of transmission
   jmp main
 
+
+main_on:
+  ret
+
+main_off:
+  ret
+
+main_delay:
+  ret

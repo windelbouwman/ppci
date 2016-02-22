@@ -806,6 +806,15 @@ def pattern_shr64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg64', 'SHLI64(reg64, reg64)', cost=2)
+def pattern_shr64(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.move(rcx, c1)
+    context.emit(ShlCl(RmReg(d)))
+    return d
+
+
 @isa.pattern('reg64', 'REGI64', cost=0)
 def pattern_reg64_(context, tree):
     return tree.value

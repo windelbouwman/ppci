@@ -63,6 +63,21 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed("bit.w r8, r9")
         self.check('09b8')
 
+    def test_clrc(self):
+        """ Test clear carry """
+        self.feed("clrc")
+        self.check('12c3')
+
+    def test_clrn(self):
+        """ Test clear negative flag """
+        self.feed("clrn")
+        self.check('22c2')
+
+    def test_clrz(self):
+        """ Test clear zero flag """
+        self.feed("clrz")
+        self.check('22c3')
+
     def test_rrc(self):
         """ Test rrc """
         self.feed("rrc r7")
@@ -82,6 +97,28 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         """ Test push """
         self.feed("push @r13+")
         self.check('3d12')
+
+    def test_pop(self):
+        """ Test pop (emulated as mov @sp+, dst ) """
+        self.feed("pop r6")
+        self.check('3641')
+
+    def test_nop(self):
+        """ Test nop ( mov #0, r3 ) """
+        self.feed("nop")
+        self.check('0343')
+
+    def test_ret(self):
+        """ Test ret ( mov @sp+, pc ) """
+        self.feed("ret")
+        self.check('3041')
+
+    def test_call(self):
+        """ Test call """
+        self.feed("call #a")
+        self.feed("call #a")
+        self.feed("a: call #a")
+        self.check('b0120800 b0120800 b0120800')
 
     def test_reti(self):
         """ Test return from interrupt """

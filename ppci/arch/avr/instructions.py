@@ -2,6 +2,7 @@ from ..isa import Instruction, Isa, register_argument, Syntax
 from ..isa import FixedPattern, SubPattern, VariablePattern
 from ..token import Token, u16, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative
+from ...ir import i16
 from .registers import AvrRegister, r16, AvrPseudo16Register, X
 
 
@@ -553,9 +554,14 @@ def _(context, tree):
 
 
 @avr_isa.pattern('stm', 'CJMP(reg16, reg16)', cost=10)
-def _(context, tree, c0, c1):
+def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"==": Breq, "!=": Brne, '<': Brlt, '>=': Brge}
+    opnames = {
+        "==": Breq,
+        "!=": Brne,
+        '<': Brlt,
+        '>': Brge,  # TODO: fix this!
+        '>=': Brge}
     Bop = opnames[op]
     context.emit(Cp(c0.lo, c1.lo))
     context.emit(Cpc(c0.lo, c1.lo))
@@ -565,14 +571,14 @@ def _(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'CALL', cost=2)
-def _(context, tree):
+def pattern_call(context, tree):
     label, arg_types, ret_type, args, res_var = tree.value
     context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
 @avr_isa.pattern('reg', 'REGI8', cost=0)
-def _(context, tree):
+def pattern_reg8(context, tree):
     return tree.value
 
 
@@ -595,7 +601,7 @@ def pattern_mov8_16(context, tree, c0):
 
 
 @avr_isa.pattern('stm', 'MOVI16(reg16)', cost=4)
-def _(context, tree, c0):
+def pattern_mov16(context, tree, c0):
     context.move(tree.value.lo, c0.lo)
     context.move(tree.value.hi, c0.hi)
     return tree.value
@@ -654,22 +660,29 @@ def pattern_mul16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', cost=8)
-def _(context, tree, c0, c1):
-    """
-        Implement arbitrary shift right by a loop.
-    """
+def pattern_shr16(context, tree, c0, c1):
+    """ invoke runtime """
     d = context.new_reg(AvrPseudo16Register)
-    cntr = context.new_reg(AvrRegister)
-    context.move(d.lo, c0.lo)
-    context.move(d.hi, c0.hi)
-    context.move(cntr, c1.lo)
+    # cntr = context.new_reg(AvrRegister)
+    context.gen_call('__shr16', [i16, i16], i16, [c0, c1], d)
+    #context.move(d.lo, c0.lo)
+    #context.move(d.hi, c0.hi)
+    #context.move(cntr, c1.lo)
     # context.emit(Label('a'))
-    context.emit(Lsr(d.hi))
-    context.emit(Ror(d.lo))
-    context.emit(Dec(cntr))
+    #context.emit(Lsr(d.hi))
+    #context.emit(Ror(d.lo))
+    #context.emit(Dec(cntr))
 
     # TODO: fix this!
     # context.emit(Brne('a'))
+    return d
+
+
+@avr_isa.pattern('reg16', 'SHLI16(reg16, reg16)', cost=8)
+def pattern_shl16(context, tree, c0, c1):
+    """ invoke runtime """
+    d = context.new_reg(AvrPseudo16Register)
+    context.gen_call('__shl16', [i16, i16], i16, [c0, c1], d)
     return d
 
 
@@ -693,7 +706,7 @@ def pattern_ldr16(context, tree, c0):
 
 
 @avr_isa.pattern('stm', 'STRI16(reg16, reg16)', cost=8)
-def _(context, tree, c0, c1):
+def pattern_str16(context, tree, c0, c1):
     context.move(X.hi, c0.hi)
     context.move(X.lo, c0.lo)
     context.emit(StPostInc(c1.lo))

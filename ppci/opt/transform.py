@@ -302,9 +302,9 @@ class CleanPass(FunctionPass):
             B:
 
     """
-    def on_function(self, f):
-        self.remove_empty_blocks(f)
-        self.remove_one_preds(f)
+    def on_function(self, function):
+        self.remove_empty_blocks(function)
+        self.remove_one_preds(function)
 
     def find_empty_blocks(self, function):
         """ Look for all blocks containing only a jump in it """
@@ -312,7 +312,7 @@ class CleanPass(FunctionPass):
         for block in function:
             if block in function.special_blocks:
                 continue
-            if type(block.first_instruction) is ir.Jump:
+            if isinstance(block.first_instruction, ir.Jump):
                 empty_blocks.append(block)
         return empty_blocks
 

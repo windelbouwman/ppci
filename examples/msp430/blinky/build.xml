@@ -15,7 +15,7 @@
             output="blinky.elf"
             layout="msp430.mmap"
             target="msp430"
-            objects="boot.o" />
+            objects="boot.o;main.o" />
         <objcopy
             objectfile="blinky.elf"
             imagename="flash"

@@ -1,5 +1,10 @@
+"""
+    ARM architecture definition.
+"""
+import io
 from ..target import Target, Label, VCall
 from ...ir import i8, i32, ptr
+from ...api import asm
 from ...binutils.assembler import BaseAssembler
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
 from .registers import R0, R1, R2, R3, R4
@@ -16,7 +21,7 @@ class ArmAssembler(BaseAssembler):
     """ Assembler for the arm instruction set """
     def __init__(self):
         super().__init__()
-        self.parser.assembler = self
+        # self.parser.assembler = self
         self.add_extra_rules()
 
         self.lit_pool = []
@@ -97,7 +102,7 @@ class ThumbAssembler(BaseAssembler):
             ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
-class ArmTarget(Target):
+class ArmArch(Target):
     """ Arm machine class. """
     name = 'arm'
     option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
@@ -117,41 +122,39 @@ class ArmTarget(Target):
         self.value_classes[i8] = Reg8Op
         self.value_classes[ptr] = Reg8Op
 
-    def get_runtime_src(self):
+    def get_runtime(self):
         """ Implement compiler runtime functions """
-        # TODO: redesign this whole thing
         if self.has_option('thumb'):
-            return ''
+            asm_src = ''
+        else:
+            # See also:
+            # https://en.wikipedia.org/wiki/Horner%27s_method#Application
+            asm_src = """
+            __sdiv:
+               ; Divide r1 by r2
+               ; R4 is a work register.
+               ; r0 is the quotient
+               mov r4, r2         ; mov divisor into temporary register.
 
-        # See also:
-        # https://en.wikipedia.org/wiki/Horner%27s_method#Application
+               ; Blow up divisor until it is larger than the divident.
+               cmp r4, r1, lsr 1  ; If r4 < r1, then, shift left once more.
+            __sdiv_inc:
+               movls r4, r4, lsl 1
+               cmp r4, r1, lsr 1
+               bls __sdiv_inc
+               mov r0, 0          ; Initialize the result
+                                  ; Repeatedly substract shifted divisor
+            __sdiv_dec:
+               cmp r1, r4         ; Can we substract the current temp value?
+               subcs r1, r1, r4   ; Substract temp from divisor if carry
+               adc r0, r0, r0     ; double (shift left) and add carry
+               mov r4, r4, lsr 1  ; Shift right one
+               cmp r4, r2         ; Is temp less than divisor?
+               bhs __sdiv_dec     ; If so, repeat.
 
-        src = """
-        __sdiv:
-           ; Divide r1 by r2
-           ; R4 is a work register.
-           ; r0 is the quotient
-           mov r4, r2         ; mov divisor into temporary register.
-
-           ; Blow up divisor until it is larger than the divident.
-           cmp r4, r1, lsr 1  ; If r4 < r1, then, shift left once more.
-        __sdiv_inc:
-           movls r4, r4, lsl 1
-           cmp r4, r1, lsr 1
-           bls __sdiv_inc
-           mov r0, 0          ; Initialize the result
-                              ; Repeatedly substract shifted divisor
-        __sdiv_dec:
-           cmp r1, r4         ; Can we substract the current temp value?
-           subcs r1, r1, r4   ; Substract temp from divisor if carry
-           adc r0, r0, r0     ; double (shift left) and add carry
-           mov r4, r4, lsr 1  ; Shift right one
-           cmp r4, r2         ; Is temp less than divisor?
-           bhs __sdiv_dec     ; If so, repeat.
-
-           mov pc, lr         ; Return from function.
-        """
-        return src
+               mov pc, lr         ; Return from function.
+            """
+        return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

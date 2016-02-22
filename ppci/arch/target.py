@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 from .isa import Instruction, Register
 from .data_instructions import Ds
 from ..ir import i8, i16, i32, i64, ptr
@@ -78,8 +79,16 @@ class Target:
         else:  # pragma: no cover
             raise NotImplementedError()
 
-    def get_runtime_src(self):
-        return ''
+    def get_runtime(self):
+        raise NotImplementedError('Implement this')
+
+    @lru_cache(maxsize=30)
+    def get_compiler_rt_lib(self):
+        """ Gets the runtime for the compiler. Returns an object with the compiler
+        runtime for the given target """
+        return self.get_runtime()
+
+    runtime = property(get_compiler_rt_lib)
 
 
 class Nop(Instruction):

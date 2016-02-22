@@ -182,7 +182,7 @@ class Constructor:
     syntax = None
     patterns = ()
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         # Generate constructor from args:
         if self.syntax:
             formal_args = []
@@ -201,6 +201,10 @@ class Constructor:
             # Set additional properties as specified by syntax:
             for prop, val in self.syntax.set_props.items():
                 prop.__set__(self, val)
+
+        for pname, pval in kwargs.items():
+            # print('\n\n\n===', pname, pval)
+            setattr(self, pname, pval)
 
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or prop class,
@@ -434,3 +438,12 @@ class Syntax:
 
     def __repr__(self):
         return '{}'.format(self.syntax)
+
+
+class Relocation:
+    """
+        Contains information on the relocation to apply.
+    """
+    def __init__(self, label_prop, reloc_function):
+        self.a = label_prop
+        self.reloc_function = reloc_function

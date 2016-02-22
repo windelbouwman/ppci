@@ -1,7 +1,9 @@
 """
-    X86-64 target description.
+    X86-64 architecture description.
 """
 
+import io
+from ... import api
 from ..target import Target, VCall
 from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
@@ -11,8 +13,8 @@ from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
 from .frame import X86Frame
 
 
-class X86_64Target(Target):
-    """ x86_64 target """
+class X86_64Arch(Target):
+    """ x86_64 architecture """
     name = 'x86_64'
     option_names = ('sse2', 'sse3')
 
@@ -31,6 +33,10 @@ class X86_64Target(Target):
     def move(self, dst, src):
         """ Generate a move from src to dst """
         return MovRegRm(dst, RmReg(src), ismove=True)
+
+    def get_runtime(self):
+        asm_src = ''
+        return api.asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine locations

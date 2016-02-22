@@ -1,36 +1,78 @@
+"""
+    Optimalization tests.
+"""
 import unittest
+import io
 import sys
 from ppci import ir
 from ppci import irutils
 from ppci.irutils import Verifier
 from ppci.opt.mem2reg import Mem2RegPromotor
+from ppci.opt.transform import CleanPass
 
 
-class CleanTestCase(unittest.TestCase):
-    def setUp(self):
-        self.b = irutils.Builder()
-        self.m = ir.Module('test')
-        self.b.set_module(self.m)
-        self.verifier = Verifier()
-
-    def test_glue_blocks(self):
-        f = self.b.new_function('add')
-        self.b.set_function(f)
-
-
-class Mem2RegTestCase(unittest.TestCase):
-    """ Test the memory to register lifter """
+class OptTestCase(unittest.TestCase):
+    """ Base testcase that prepares a module, builder and verifier """
     def setUp(self):
         self.builder = irutils.Builder()
         self.module = ir.Module('test')
         self.builder.set_module(self.module)
-        self.function = self.builder.new_function('add')
+        self.function = self.builder.new_function('testfunction')
         self.builder.set_function(self.function)
         self.verifier = Verifier()
-        self.mem2reg = Mem2RegPromotor()
+
+    def dump(self):
+        writer = irutils.Writer()
+        iof = io.StringIO()
+        writer.write(self.module, iof)
+        print(iof.getvalue())
 
     def tearDown(self):
         self.verifier.verify(self.module)
+
+
+class CleanTestCase(OptTestCase):
+    """ Test the clean pass for correct function """
+    def setUp(self):
+        super().setUp()
+        self.clean_pass = CleanPass()
+
+    def test_glue_blocks(self):
+        self.builder.emit(ir.Jump(self.function.epilog))
+
+    def test_glue_with_phi(self):
+        """
+            After replacing the predecessor, the use info of a phi is messed
+            up.
+        """
+        block1 = self.builder.new_block()
+        block4 = self.builder.new_block()  # This one must be eliminated
+        block6 = self.builder.new_block()
+        self.builder.emit(ir.Jump(block1))
+        self.builder.set_block(block1)
+        cnst = self.builder.emit(ir.Const(0, 'const', ir.i16))
+        self.builder.emit(ir.Jump(block4))
+        self.builder.set_block(block4)
+        self.builder.emit(ir.Jump(block6))
+        self.builder.set_block(block6)
+        phi = self.builder.emit(ir.Phi('res24', ir.i16))
+        phi.set_incoming(block4, cnst)
+        cnst2 = self.builder.emit(ir.Const(2, 'cnst2', ir.i16))
+        binop = self.builder.emit(ir.Add(phi, cnst2, 'binop', ir.i16))
+        phi.set_incoming(block6, binop)
+        self.builder.emit(ir.Jump(block6))
+        self.verifier.verify(self.module)
+
+        # Act:
+        self.clean_pass.run(self.module)
+        self.assertNotIn(block4, self.function)
+
+
+class Mem2RegTestCase(OptTestCase):
+    """ Test the memory to register lifter """
+    def setUp(self):
+        super().setUp()
+        self.mem2reg = Mem2RegPromotor()
 
     def test_normal_use(self):
         alloc = self.builder.emit(ir.Alloc('A', 4))

@@ -17,4 +17,5 @@ Table of contents
     faq
     todo
     changelog
+    links
 

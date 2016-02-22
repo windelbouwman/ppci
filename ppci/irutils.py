@@ -398,7 +398,9 @@ class Verifier:
         for block in function:
             for phi in block.phis:
                 for predecessor in block.predecessors:
-                    phi.get_value(predecessor)
+                    used_value = phi.get_value(predecessor)
+                    # Check that phi 'use' info is good:
+                    assert used_value in phi.uses
 
         # Now we can build a dominator tree
         function.cfg_info = CfgInfo(function)

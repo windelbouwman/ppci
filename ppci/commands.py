@@ -15,7 +15,7 @@ from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version, api
 from .common import logformat
-from .arch.target_list import target_names
+from .arch.target_list import target_names, get_arch
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -66,11 +66,10 @@ base2_parser.add_argument(
     type=argparse.FileType('w'), required=True, action=OnceAction)
 
 
-def get_arch(args):
+def get_arch_from_args(args):
     """ Determine the intended machine target and select the proper options """
     options = tuple(args.mtune)
-    target = api.get_target(args.machine, options=options)
-    return target
+    return get_arch(args.machine, options=options)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -131,7 +130,7 @@ def c3c(args=None):
     args = c3c_parser.parse_args(args)
     with LogSetup(args):
         # Compile sources:
-        march = get_arch(args)
+        march = get_arch_from_args(args)
         obj = api.c3c(args.sources, args.include, march)
 
         # Write object file to disk:
@@ -154,7 +153,7 @@ def asm(args=None):
     args = asm_parser.parse_args(args)
     with LogSetup(args):
         # Assemble source:
-        march = get_arch(args)
+        march = get_arch_from_args(args)
         obj = api.asm(args.sourcefile, march)
 
         # Write object file to disk:
@@ -179,7 +178,7 @@ def link(args=None):
     """ Run asm from command line """
     args = link_parser.parse_args(args)
     with LogSetup(args):
-        march = get_arch(args)
+        march = get_arch_from_args(args)
         obj = api.link(args.obj, args.layout, march)
         obj.save(args.output)
         args.output.close()

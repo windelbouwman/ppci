@@ -8,6 +8,7 @@ verilog/bench/io_cell.v
 +incdir+verilog/periph/
 verilog/periph/omsp_gpio.v
 verilog/periph/omsp_timerA.v
+verilog/periph/omsp_uart.v
 verilog/periph/template_periph_8b.v
 verilog/periph/template_periph_16b.v
 

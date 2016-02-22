@@ -337,6 +337,8 @@ class Block:
 
     def dominates(self, other):
         """ Check if this block dominates other block """
+        assert self.function is not None
+        assert self in self.function.blocks
         cfg_info = self.function.cfg_info
         return cfg_info.strictly_dominates(self, other)
 
@@ -351,9 +353,13 @@ class Block:
         """
         for phi in self.phis:
             value = phi.get_value(block)
+            # First delete old incoming, to delete usage, do this now, not at
+            # the end. If we do this at the end, we trash the newly added use.
+            phi.del_incoming(block)
+
+            # Add new incoming blocks:
             for b2 in new_blocks:
                 phi.set_incoming(b2, value)
-            phi.del_incoming(block)
 
 
 def var_use(name):
@@ -444,6 +450,7 @@ class Instruction:
 
         # All other instructions must have a containing block:
         assert self.block is not None, '{} has no block'.format(self)
+        assert self in self.block.instructions
 
         # Phis are special case:
         if isinstance(other, Phi):

@@ -88,8 +88,8 @@
 //`define DMEM_SIZE_5_KB
 //`define DMEM_SIZE_4_KB
 //`define DMEM_SIZE_2p5_KB
-//`define DMEM_SIZE_2_KB
-`define DMEM_SIZE_1_KB
+`define DMEM_SIZE_2_KB
+//`define DMEM_SIZE_1_KB
 //`define DMEM_SIZE_512_B
 //`define DMEM_SIZE_256_B
 //`define DMEM_SIZE_128_B

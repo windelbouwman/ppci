@@ -1,4 +1,4 @@
 
 # Make this a package.
 
-from .target import X86_64Target
+from .arch import X86_64Arch

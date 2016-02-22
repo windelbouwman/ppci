@@ -1,3 +1,8 @@
+"""
+    AVR architecture.
+"""
+import io
+from ... import api
 from ..target import Target, Label
 from ..target import Alignment
 from ..target import Frame, VCall
@@ -37,10 +42,15 @@ class AvrArch(Target):
         self.value_classes[i16] = AvrPseudo16Register
         self.value_classes[ptr] = AvrPseudo16Register
 
-    def get_runtime_src(self):
-        """ No runtime for thumb required yet .. """
-        return """
+    def get_runtime(self):
+        asm_src = """
+            __shr16:
+                ; TODO
+                ret
+            __shl16:
+                ret
         """
+        return api.asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine location for argument """
@@ -113,7 +123,12 @@ class AvrFrame(Frame):
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
         # Allocatable registers:
-        self.regs = [r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14]
+        # TODO: the registers are not always possible, for example:
+        # ldi r16, 0xaa
+        self.regs = [
+            r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
+            r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25]
+        # r27, r28, r29, r30, r31]
         self.fp = Y
 
         self.locVars = {}

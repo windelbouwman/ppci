@@ -3,8 +3,9 @@ Definitions of msp430 instruction set.
 """
 
 from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
+from ..isa import Relocation
 from ..token import Token, u16, bit_range, bit, u8
-from .registers import Msp430Register, r0, r2, SP, PC
+from .registers import Msp430Register, r0, r2, r3, SP, PC
 from ...utils.bitfun import align, wrap_negative
 from ...ir import i16
 
@@ -39,6 +40,44 @@ class Imm16Token(Token):
 
     def encode(self):
         return u16(self.bit_value)
+
+
+# Relocation functions:
+@isa.register_relocation
+def apply_rel10bit(sym_value, data, reloc_value):
+    """ Apply 10 bit signed relocation """
+    assert sym_value % 2 == 0
+    offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
+    assert offset in range(-511, 511, 1), str(offset)
+    imm10 = wrap_negative(offset, 10)
+    data[0] = imm10 & 0xff
+    cmd = data[1] & 0xfc
+    data[1] = cmd | (imm10 >> 8)
+
+
+@isa.register_relocation
+def apply_abs16_imm0(sym_value, data, reloc_value):
+    """ Lookup address and assign to 16 bit """
+    assert sym_value % 2 == 0
+    data[0] = sym_value & 0xff
+    data[1] = (sym_value >> 8) & 0xff
+
+
+@isa.register_relocation
+def apply_abs16_imm1(sym_value, data, reloc_value):
+    """ Lookup address and assign to 16 bit """
+    assert sym_value % 2 == 0
+    data[2] = sym_value & 0xff
+    data[3] = (sym_value >> 8) & 0xff
+
+
+@isa.register_relocation
+def apply_abs16_imm2(sym_value, data, reloc_value):
+    """ Lookup address and assign to 16 bit """
+    # TODO: merge this with imm2 variant
+    assert sym_value % 2 == 0
+    data[4] = sym_value & 0xff
+    data[5] = (sym_value >> 8) & 0xff
 
 
 class Dst(Constructor):
@@ -76,12 +115,14 @@ class Src(Constructor):
     imm = register_argument('imm', int)
     As = register_argument('As', int, default_value=0)
     addr = register_argument('addr', str, default_value='')
-    syntaxi = 'src'
+    syntaxi = '$src$'
 
     @property
     def extra_bytes(self):
         if self.addr != '':
             return u16(0)
+        elif self.reg == r3:
+            return bytes()
         elif (self.As == 1) or (self.As == 3 and self.reg == r0):
             return u16(self.imm)
         return bytes()
@@ -90,6 +131,39 @@ class Src(Constructor):
 class ConstSrc(Src):
     """ Equivalent to @PC+ """
     syntax = Syntax(['#', Src.imm], set_props={Src.As: 3, Src.reg: r0})
+
+
+class ConstLabelSrc(Src):
+    """ Equivalent to @PC+ """
+    syntax = Syntax(['#', Src.addr], set_props={Src.As: 3, Src.reg: r0})
+    # TODO: reloc here? this should be implemented something like this:
+    relocations = (
+        Relocation(Src.addr, apply_abs16_imm0),
+    )
+
+
+class SmallConstSrc(Src):
+    """ Equivalent to @PC+ """
+    syntax = Syntax(['#', Src.imm], priority=2, set_props={Src.reg: r3})
+
+
+def small_const_src(x):
+    """ Helper to generate small integer constants """
+    assert x in (-1, 0, 1, 2, 4, 8)
+    if x == -1:
+        return SmallConstSrc(-1, reg=r3, As=3)
+    elif x == 0:
+        return SmallConstSrc(0, reg=r3, As=0)
+    elif x == 1:
+        return SmallConstSrc(1, reg=r3, As=1)
+    elif x == 2:
+        return SmallConstSrc(2, reg=r3, As=2)
+    elif x == 4:
+        return SmallConstSrc(4, reg=r2, As=2)
+    elif x == 8:
+        return SmallConstSrc(8, reg=r2, As=3)
+    else:
+        raise NotImplementedError()
 
 
 class RegSrc(Src):
@@ -103,10 +177,12 @@ class AdrSrc(Src):
 
 
 class MemSrc(Src):
+    """ Memory content """
     syntax = Syntax(['@', Src.reg], set_props={Src.As: 2})
 
 
 class MemSrcInc(Src):
+    """ Memory content post increment """
     syntax = Syntax(['@', Src.reg, '+'], set_props={Src.As: 3})
 
 
@@ -136,43 +212,6 @@ class Dcd2(Msp430Instruction):
 #########################
 # Jump instructions:
 #########################
-
-@isa.register_relocation
-def apply_rel10bit(sym_value, data, reloc_value):
-    """ Apply 10 bit signed relocation """
-    assert sym_value % 2 == 0
-    offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
-    assert offset in range(-511, 511, 1), str(offset)
-    imm10 = wrap_negative(offset, 10)
-    data[0] = imm10 & 0xff
-    cmd = data[1] & 0xfc
-    data[1] = cmd | (imm10 >> 8)
-
-
-@isa.register_relocation
-def apply_abs16_imm0(sym_value, data, reloc_value):
-    """ Lookup address and assign to 16 bit """
-    assert sym_value % 2 == 0
-    data[0] = sym_value & 0xff
-    data[1] = (sym_value >> 8) & 0xff
-
-
-@isa.register_relocation
-def apply_abs16_imm1(sym_value, data, reloc_value):
-    """ Lookup address and assign to 16 bit """
-    assert sym_value % 2 == 0
-    data[2] = sym_value & 0xff
-    data[3] = (sym_value >> 8) & 0xff
-
-
-@isa.register_relocation
-def apply_abs16_imm2(sym_value, data, reloc_value):
-    """ Lookup address and assign to 16 bit """
-    # TODO: merge this with imm2 variant
-    assert sym_value % 2 == 0
-    data[4] = sym_value & 0xff
-    data[5] = (sym_value >> 8) & 0xff
-
 
 class JumpInstruction(Msp430Instruction):
     def encode(self):
@@ -217,20 +256,26 @@ class OneOpArith(Msp430Instruction):
         return self.token1.encode() + self.src.extra_bytes
 
     def relocations(self):
-        return []
+        # TODO: re design this:
+        if self.src.addr != '':
+            yield (self.src.addr, apply_abs16_imm1)
 
 
 def one_op_instruction(mne, opcode, b=0):
     """ Helper function to define a one operand arithmetic instruction """
     src = register_argument('src', Src)
+    if b:
+        mne += '.b'
     syntax = Syntax([mne, src])
     members = {'opcode': opcode, 'syntax': syntax, 'src': src, 'b': b}
     return type(mne + '_ins', (OneOpArith,), members)
 
 
-Rrc = one_op_instruction('rrc', 0)
+Rrcw = one_op_instruction('rrc', 0, b=0)
+Rrcb = one_op_instruction('rrc', 0, b=1)
 Swpb = one_op_instruction('swpb', 1)
-Rra = one_op_instruction('rra', 2)
+Rraw = one_op_instruction('rra', 2, b=0)
+Rrab = one_op_instruction('rra', 2, b=1)
 Sxt = one_op_instruction('sxt', 3)
 Push = one_op_instruction('push', 4)
 Call = one_op_instruction('call', 5)
@@ -300,9 +345,9 @@ Cmp = two_op_ins('cmp', 9)
 Dadd = two_op_ins('dadd', 10)
 Bit = two_op_ins('bit', 11)
 Bitb = two_op_ins('bit', 11, b=1)
-Bic = two_op_ins('bic', 12)
+Bicw = two_op_ins('bic', 12)
 Bicb = two_op_ins('bic', 12, b=1)
-Bis = two_op_ins('bis', 13)
+Bisw = two_op_ins('bis', 13)
 Bisb = two_op_ins('bis', 13, b=1)
 Xor = two_op_ins('xor', 14)
 Xorb = two_op_ins('xor', 14, b=1)
@@ -320,12 +365,33 @@ def pop(dst):
     return Mov(MemSrcInc(SP), RegDst(dst))
 
 
+def nop():
+    """ no op implemented as mov #0, r3 """
+    return Mov(small_const_src(0), RegDst(r3))
+
+
+def clrc():
+    """ clear carry implemented as bic #1, sr """
+    return Bicw(small_const_src(1), RegDst(r2))
+
+
+def clrn():
+    """ clear negative implemented as bic #4, sr """
+    return Bicw(small_const_src(4), RegDst(r2))
+
+
+def clrz():
+    """ clear zero implemented as bic #2, sr """
+    return Bicw(small_const_src(2), RegDst(r2))
+
+
 def push(src):
     return Push(RegSrc(src))
 
 
 def call(label):
-    return Call(AdrSrc(label))
+    assert isinstance(label, str)
+    return Call(ConstLabelSrc(label))
 
 
 def mov(src, dst):
@@ -342,7 +408,7 @@ def _(self, tree):
 
 
 @isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
-def _(context, tree, lhs, rhs):
+def pattern_cjmp(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
     opnames = {"<": Jl, ">": Jc, "==": Jz, "!=": Jne, ">=": Jge}
     op = opnames[op]
@@ -353,19 +419,19 @@ def _(context, tree, lhs, rhs):
 
 
 @isa.pattern('reg', 'MOVI16(reg)', cost=2)
-def _(self, tree, c0):
+def pattern_mov16(self, tree, c0):
     dst = tree.value
     self.emit(mov(c0, dst))
 
 
 @isa.pattern('reg', 'MOVI8(reg)', cost=2)
-def _(self, tree, c0):
+def pattern_mov8(self, tree, c0):
     dst = tree.value
     self.emit(mov(c0, dst))
 
 
 @isa.pattern('reg', 'CONSTI16', cost=4)
-def _(self, tree):
+def pattern_const16(self, tree):
     dst = self.new_reg(Msp430Register)
     cnst = tree.value
     self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
@@ -373,7 +439,7 @@ def _(self, tree):
 
 
 @isa.pattern('reg', 'CONSTI8', cost=4)
-def _(self, tree):
+def pattern_const8(self, tree):
     dst = self.new_reg(Msp430Register)
     cnst = tree.value
     self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
@@ -400,16 +466,14 @@ def pattern_call(context, tree):
 @isa.pattern('reg', 'MULI16(reg, reg)', cost=10)
 def pattern_mul16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    # TODO
+    context.gen_call('msp430_runtime___mul', [i16, i16], i16, [c0, c1], d)
     return d
 
 
 @isa.pattern('reg', 'DIVI16(reg, reg)', cost=10)
 def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    # Generate call into runtime lib function!
-    # context.gen_call('__sdiv', [i16, i16], i16, [c0, c1], d)
-    # TODO
+    context.gen_call('msp430_runtime___div', [i16, i16], i16, [c0, c1], d)
     return d
 
 
@@ -424,14 +488,19 @@ def pattern_and16(context, tree, c0, c1):
 @isa.pattern('reg', 'SHRI16(reg, reg)', cost=4)
 def pattern_shr16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    #context.emit(Mov(c0, RegDst(d)))
-    #context.emit(Shr(c1, RegDst(d)))
-    # TODO!
+    context.gen_call('__shr', [i16, i16], i16, [c0, c1], d)
+    return d
+
+
+@isa.pattern('reg', 'SHLI16(reg, reg)', cost=4)
+def pattern_shl16(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
+    context.gen_call('__shl', [i16, i16], i16, [c0, c1], d)
     return d
 
 
 @isa.pattern('reg', 'ADDI16(reg, reg)', cost=4)
-def _(context, tree, c0, c1):
+def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Add(RegSrc(c1), RegDst(d)))
@@ -439,7 +508,7 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'SUBI16(reg, reg)', cost=4)
-def _(context, tree, c0, c1):
+def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Sub(RegSrc(c1), RegDst(d)))
@@ -447,31 +516,31 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI16(reg, reg)', cost=2)
-def _(context, tree, c0, c1):
+def pattern_str16(context, tree, c0, c1):
     context.emit(Mov(RegSrc(c1), MemDst(0, c0)))
 
 
 @isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
-def _(context, tree, c0, c1):
+def pattern_str8(context, tree, c0, c1):
     context.emit(Movb(RegSrc(c1), MemDst(0, c0)))
 
 
 @isa.pattern('reg', 'LDRI16(reg)', cost=2)
-def _(context, tree, c0):
+def pattern_ldr16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Mov(MemSrc(c0), RegDst(d)))
     return d
 
 
 @isa.pattern('reg', 'LDRI8(reg)', cost=2)
-def _(context, tree, c0):
+def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Movb(MemSrc(c0), RegDst(d)))
     return d
 
 
 @isa.pattern('reg', 'LABEL', cost=2)
-def _(context, tree):
+def pattern_label(context, tree):
     d = context.new_reg(Msp430Register)
     ln = context.frame.add_constant(tree.value)
     context.emit(Mov(AdrSrc(ln), RegDst(d)))

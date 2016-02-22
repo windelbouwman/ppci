@@ -11,17 +11,12 @@ from ...utils.bitfun import wrap_negative
 from .registers import RiscvRegister, SP
 from ..token import Token, u32, u8, bit_range
 from .relocations import apply_absaddr32
-from .relocations import apply_b_imm12, apply_b_imm20, apply_abs32_imm20, apply_abs32_imm12
+from .relocations import apply_b_imm12, apply_b_imm20, apply_abs32_imm20
+from .relocations import apply_abs32_imm12
 
 
 # TODO: do not use ir stuff here!
 from ...ir import i32
-
-
-class RegisterSet(set):
-    def __repr__(self):
-        reg_names = sorted(str(r) for r in self)
-        return ', '.join(reg_names)
 
 
 isa = Isa()

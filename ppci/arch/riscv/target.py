@@ -1,55 +1,27 @@
+"""
+    RISC-V architecture.
+"""
 
-
+import io
+from ... import api
 from ..target import Target, Label, VCall
 from .instructions import isa, Mov2
 from .registers import RiscvRegister
-from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, R13, R14,R15, R16, R17, R28, LR
+from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12
+from .registers import R13, R14, R15, R16, R17, R28, LR
 from ...ir import i8, i32, ptr
 from ..data_instructions import data_isa
 from .frame import RiscvFrame
 from ...binutils.assembler import BaseAssembler
 from ..riscv.registers import register_range
-from .instructions import dcd, RegisterSet
+from .instructions import dcd
 
 
 class RiscvAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
-        self.parser.assembler = self
-        self.add_extra_rules()
-
         self.lit_pool = []
         self.lit_counter = 0
-
-    def add_extra_rules(self):
-        # Implement register list syntaxis:
-        self.typ2nt[RegisterSet] = 'reg_list'
-        self.add_rule(
-            'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
-        self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
-
-        # self.add_rule(
-        #    'reg_list_inner',
-        #    ['reg_or_range', ',', 'reg_list_inner'],
-        #    lambda rhs: RegisterSet(rhs[0] | rhs[2]))
-        self.add_rule(
-            'reg_list_inner',
-            ['reg_list_inner', ',', 'reg_or_range'],
-            lambda rhs: RegisterSet(rhs[0] | rhs[2]))
-
-        self.add_rule(
-            'reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
-        self.add_rule(
-            'reg_or_range',
-            ['reg', '-', 'reg'],
-            lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
-
-        # Ldr pseudo instruction:
-        # TODO: fix the add_literal other way:
-        self.add_rule(
-            'instruction',
-            ['ldr', 'reg', ',', '=', 'ID'],
-            lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
     def flush(self):
         if self.in_macro:
@@ -82,10 +54,9 @@ class RiscvTarget(Target):
         self.value_classes[i32] = RiscvRegister
         self.value_classes[ptr] = RiscvRegister
 
-    def get_runtime_src(self):
+    def get_runtime(self):
         """ Implement compiler runtime functions """
-        # TODO: redesign this whole thing
-        src = """
+        asm_src = """
         __sdiv:
         ; Divide x11 by x12
         ; x28 is a work register.
@@ -110,12 +81,12 @@ class RiscvTarget(Target):
         srai x28, x28, 1  ; Shift right one
         slli x14, x14, 1  ; Shift result left.
         __skip_check:
-        bgt  x28, x12, __sdiv_dec  ;  Is temp less than divisor?, if so, repeat.
-        
+        bgt  x28, x12, __sdiv_dec  ; Is temp less than divisor?, if so, repeat.
+
         mov x10, x14
         jalr x0,ra,0
         """
-        return src
+        return api.asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -127,7 +98,8 @@ class RiscvTarget(Target):
 
         """
         # TODO: what ABI to use?
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(arg_types, ret_type)
+        arg_locs, live_in, rv, live_out = self.determine_arg_locations(
+            arg_types, ret_type)
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
