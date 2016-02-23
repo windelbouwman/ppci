@@ -14,6 +14,7 @@ class IrToPython:
     """ Can generate python script from ir-code """
     def __init__(self):
         self.f = None
+        self.stack_size = 0
 
     def print(self, level, *args):
         """ Print args to current file with level indents """
@@ -23,7 +24,7 @@ class IrToPython:
     def header(self):
         self.print(0, 'import struct')
         self.print(0, '')
-        self.print(0, 'mem = list()')
+        self.print(0, 'mem = bytearray()')
         # Generate helper:
         self.print(0, 'def wrap_byte(v):')
         self.print(1, 'if v < 0:')
@@ -38,15 +39,15 @@ class IrToPython:
         self.f = f
         self.mod_name = ir_mod.name
         self.literals = []
-        self.print(0, '')
+        self.print(0)
         self.print(0, '# Module {}'.format(ir_mod.name))
         # Allocate room for global variables:
-        for var in ir_mod.Variables:
+        for var in ir_mod.variables:
             self.print(0, '{} = len(mem)'.format(var.name))
-            self.print(0, 'mem.extend([0]*{})'.format(var.amount))
+            self.print(0, 'mem.extend(bytes({}))'.format(var.amount))
 
         # Generate functions:
-        for function in ir_mod.Functions:
+        for function in ir_mod.functions:
             self.generate_function(function)
 
         # emit labeled literals:
@@ -54,9 +55,11 @@ class IrToPython:
             self.print(0, "{} = len(mem)".format(literal_label(lit)))
             for val in lit.data:
                 self.print(0, "mem.append({})".format(val))
-        self.print(0, '')
+        self.print(0)
 
     def generate_function(self, fn):
+        """ Generate a function to python code """
+        self.stack_size = 0
         args = ','.join(a.name for a in fn.arguments)
         self.print(0, 'def {}_{}({}):'.format(self.mod_name, fn.name, args))
         self.print(1, "prev_block = None")
@@ -66,9 +69,16 @@ class IrToPython:
             self.print(2, 'if current_block == "{}":'.format(block.name))
             for ins in block:
                 self.generate_instruction(ins)
-        self.print(0, '')
+        self.reset_stack(1)
+        self.print(0)
+
+    def reset_stack(self, level):
+        while self.stack_size > 0:
+            self.stack_size -= 1
+            self.print(level, 'mem.pop()')
 
     def generate_instruction(self, ins):
+        """ Generate python code for this instruction """
         if isinstance(ins, ir.CJump):
             self.print(3, 'if {} {} {}:'.format(
                 ins.a.name, ins.cond, ins.b.name))
@@ -83,9 +93,9 @@ class IrToPython:
         elif isinstance(ins, ir.Terminator):
             self.print(3, 'break')
         elif isinstance(ins, ir.Alloc):
-            # TODO: strap stack on function exit.
             self.print(3, '{} = len(mem)'.format(ins.name))
-            self.print(3, 'mem.extend([0]*{})'.format(ins.amount))
+            self.print(3, 'mem.extend(bytes({}))'.format(ins.amount))
+            self.stack_size += ins.amount
         elif isinstance(ins, ir.Const):
             self.print(3, '{} = {}'.format(ins.name, ins.value))
         elif isinstance(ins, ir.LiteralData):
@@ -102,26 +112,21 @@ class IrToPython:
         elif isinstance(ins, ir.Cast):
             self.print(3, '{} = {}'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Store):
-            # print(ins
-            # TODO: improve this mess? Helper functions?
-            if ins.value.ty is ir.i32 or ins.value.ty is ir.ptr:
-                self.print(3, 'mem[{0}:{0}+4] = list(struct.pack("i",{1}))'
-                           .format(ins.address.name, ins.value.name))
-            elif ins.value.ty is ir.i8:
-                self.print(3, 'mem[{0}:{0}+1] = list(struct.pack("B",{1}))'
-                           .format(ins.address.name, ins.value.name))
-            else:  # pragma: no cover
-                raise NotImplementedError()
+            store_formats = {
+                ir.ptr: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
+                ir.i32: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
+                ir.i8: 'mem[{0}:{0}+1] = struct.pack("B",{1})'
+            }
+            fmt = store_formats[ins.value.ty]
+            self.print(3, fmt.format(ins.address.name, ins.value.name))
         elif isinstance(ins, ir.Load):
-            if ins.ty is ir.i8:
-                self.print(
-                    3, '{} = mem[{}]'.format(ins.name, ins.address.name))
-            elif ins.ty is ir.i32 or ins.ty is ir.ptr:
-                self.print(
-                    3, '{0}, = struct.unpack("i", bytes(mem[{1}:{1}+4]))'
-                    .format(ins.name, ins.address.name))
-            else:  # pragma: no cover
-                raise NotImplementedError()
+            load_formats = {
+                ir.i32: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
+                ir.ptr: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
+                ir.i8: '{0} = mem[{1}]'
+            }
+            fmt = load_formats[ins.ty]
+            self.print(3, fmt.format(ins.name, ins.address.name))
         elif isinstance(ins, ir.Call):
             self.print(3, '{}'.format(ins))
         elif isinstance(ins, ir.Phi):
@@ -133,6 +138,7 @@ class IrToPython:
             self.print(3, 'else:')
             self.print(4, 'raise RuntimeError(str(prev_block))')
         elif isinstance(ins, ir.Return):
+            self.reset_stack(3)
             self.print(3, 'return {}'.format(ins.result.name))
         else:  # pragma: no cover
             self.print(3, '{}'.format(ins))

@@ -5,17 +5,15 @@ and assembling.
 """
 
 import logging
-import io
 import os
 import stat
 import xml
 from .arch.target import Target
-from .arch.target_list import get_target
 from .c3 import Builder
 from .bf import BrainFuckGenerator
+from .fortran import FortranBuilder
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
-from .codegen import CodeGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
 from .opt.transform import CommonSubexpressionEliminationPass
@@ -23,6 +21,7 @@ from .opt.transform import ConstantFolder
 from .opt.transform import LoadAfterStorePass
 from .opt.transform import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
+from .codegen import CodeGenerator
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream
@@ -35,13 +34,23 @@ from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
 
 
-def fix_target(tg):
-    """ Try to return an instance of the Target class """
-    if isinstance(tg, Target):
-        return tg
-    elif isinstance(tg, str):
-        return get_target(tg)
-    raise TaskError('Invalid target {}'.format(tg))
+def fix_target(target_name):
+    """ Try to return an instance of the Target class.
+        target_name can be in the form of arch:option1:option2
+    """
+    # TODO: this is ugly, but is works:
+    from .arch.target_list import get_arch
+    # TODO: fix this recursive import different
+    if isinstance(target_name, Target):
+        return target_name
+    elif isinstance(target_name, str):
+        if ':' in target_name:
+            # We have target with options attached
+            l = target_name.split(':')
+            return get_arch(l[0], options=tuple(l[1:]))
+        else:
+            return get_arch(target_name)
+    raise TaskError('Invalid target {}'.format(target_name))
 
 
 def fix_file(f):
@@ -137,14 +146,6 @@ def asm(source, march):
     return output
 
 
-def get_compiler_rt_lib(target):
-    """ Gets the runtime for the compiler. Returns an object with the compiler
-    runtime for the given target """
-    target = fix_target(target)
-    src = target.get_runtime_src()
-    return asm(io.StringIO(src), target)
-
-
 def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
     """ Compile c3 sources to ir code using the includes and for the given
     target """
@@ -157,7 +158,7 @@ def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
     c3b = Builder(diag, target)
 
     try:
-        ir_modules = c3b.build(sources, includes)
+        _, ir_modules = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
     except CompilerError as ex:
@@ -179,7 +180,7 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
         This is an in-place operation!
     """
     logger = logging.getLogger('optimize')
-    logger.info('Optimizing module {}'.format(ir_module.name))
+    logger.info('Optimizing module %s', ir_module.name)
 
     # Create the verifier:
     verifier = Verifier()
@@ -197,18 +198,21 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     verifier.verify(ir_module)
     for opt_pass in opt_passes:
         opt_pass.run(ir_module)
+        # reporter.message('{} after {}:'.format(ir_module, opt_pass))
+        # reporter.dump_ir(ir_module)
     verifier.verify(ir_module)
 
     # Dump report:
     reporter.message('{} after optimization:'.format(ir_module))
+    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
 
 
-def ir_to_object(ir_modules, target, reporter=DummyReportGenerator()):
+def ir_to_object(ir_modules, march, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
     target """
     logger = logging.getLogger('ir_to_code')
-    code_generator = CodeGenerator(target)
+    code_generator = CodeGenerator(march)
     verifier = Verifier()
 
     output = ObjectFile()
@@ -218,7 +222,7 @@ def ir_to_object(ir_modules, target, reporter=DummyReportGenerator()):
         verifier.verify(ir_module)
 
         # Code generation:
-        logger.debug('Starting code generation for {}'.format(ir_module))
+        logger.debug('Starting code generation for %s', ir_module.name)
         code_generator.generate(ir_module, output_stream, reporter=reporter)
 
     reporter.message('All modules generated!')
@@ -236,14 +240,8 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
         reporter.dump_ir(ir_module)
         generator.generate(ir_module, f)
 
-    # Add glue:
-    print('', file=f)
-    print('def bsp_putc(c):', file=f)
-    print('    print(chr(c), end="")', file=f)
-    print('sample_start()', file=f)
 
-
-def c3c(sources, includes, target, reporter=DummyReportGenerator()):
+def c3c(sources, includes, march, reporter=DummyReportGenerator()):
     """
     Compile a set of sources into binary format for the given target.
 
@@ -258,18 +256,13 @@ def c3c(sources, includes, target, reporter=DummyReportGenerator()):
         >>> print(obj)
         CodeObject of 4 bytes
     """
-    target = fix_target(target)
-    ir_modules = list(c3toir(sources, includes, target, reporter=reporter))
+    march = fix_target(march)
+    ir_modules = list(c3toir(sources, includes, march, reporter=reporter))
 
     for ircode in ir_modules:
         optimize(ircode, reporter=reporter)
 
-    # Write output to listings file:
-    reporter.message('After optimization')
-    for ir_module in ir_modules:
-        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
-        reporter.dump_ir(ir_module)
-    return ir_to_object(ir_modules, target, reporter=reporter)
+    return ir_to_object(ir_modules, march, reporter=reporter)
 
 
 def bf2ir(source, target):
@@ -279,31 +272,44 @@ def bf2ir(source, target):
     return ircode
 
 
+def fortran_to_ir(source):
+    """ Translate fortran source into IR-code """
+    builder = FortranBuilder()
+    ir_modules = builder.build(source)
+    return ir_modules
+
+
 def bfcompile(source, target, reporter=DummyReportGenerator()):
     """ Compile brainfuck source into binary format for the given target """
     reporter.message('brainfuck compilation listings')
+    target = fix_target(target)
     ir_module = bf2ir(source, target)
     reporter.message(
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
-    optimize(ir_module)
-    reporter.message(
-        'After optimization {} {}'.format(ir_module, ir_module.stats()))
-    reporter.dump_ir(ir_module)
-
-    target = fix_target(target)
+    optimize(ir_module, reporter=reporter)
     return ir_to_object([ir_module], target, reporter=reporter)
 
 
-def link(objects, layout, march, use_runtime=False,
-         reporter=DummyReportGenerator()):
-    """ Links the iterable of objects into one using the given layout """
+def fortrancompile(sources, target, reporter=DummyReportGenerator()):
+    """ Compile fortran code to target """
+    # TODO!
+    ir_modules = fortran_to_ir(sources[0])
+    return ir_to_object(ir_modules, target, reporter=reporter)
+
+
+def link(
+        objects, layout, march,
+        use_runtime=False, partial_link=False,
+        reporter=DummyReportGenerator()):
+    """ Links the iterable of objects into one using the given layout.
+
+    """
     objects = [fix_object(obj) for obj in objects]
     layout = fix_layout(layout)
     march = fix_target(march)
     if use_runtime:
-        lib_rt = get_compiler_rt_lib(march)
-        objects.append(lib_rt)
+        objects.append(march.runtime)
     linker = Linker(march, reporter)
     try:
         output_obj = linker.link(objects, layout)

@@ -72,8 +72,8 @@ class AsmTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['-m', 'thumb', '-o', obj_file, src])
+        src = relpath('..', 'examples', 'arduino', 'boot.asm')
+        asm(['-m', 'avr', '-o', obj_file, src])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -94,8 +94,8 @@ class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        asm(['-m', 'thumb', '-o', obj_file, src])
+        src = relpath('..', 'examples', 'arduino', 'boot.asm')
+        asm(['-m', 'avr', '-o', obj_file, src])
         with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
             objdump([obj_file])
             self.assertIn('SECTION', mock_stdout.getvalue())
@@ -152,9 +152,12 @@ class LinkCommandTestCase(unittest.TestCase):
             relpath('..', 'librt', 'io.c3'),
             relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
             ]
-        asm(['-m', 'thumb', '-o', obj1, asm_src])
-        c3c(['-m', 'thumb', '-o', obj2] + c3_srcs)
-        link(['-o', obj3, '-m', 'thumb', '-L', mmap, obj1, obj2])
+        asm(['-m', 'arm', '--mtune', 'thumb', '-o', obj1, asm_src])
+        # TODO: this should raise an error? combining thumb with arm code?
+        c3c(['-m', 'arm', '--mtune', 'thumb', '-o', obj2] + c3_srcs)
+        link(
+            ['-o', obj3, '-m', 'arm', '--mtune',
+             'thumb', '-L', mmap, obj1, obj2])
 
 
 class HexutilTestCase(unittest.TestCase):

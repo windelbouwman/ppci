@@ -1,16 +1,14 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.arch.target_list import x86target
 from test_asm import AsmTestCaseBase
 
 
 class AssemblerTestCase(AsmTestCaseBase):
     """
-    test methods start with 'test*'
      Checks several assembly constructs agains their bytecodes
     """
-    target = x86target
+    march = 'x86_64'
 
     def test_x86(self):
         self.feed('mov rax, rbx')
@@ -84,18 +82,17 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.check('4c89f3 4d89c4 4889e7')
 
     def test_asm_mem_loads(self):
-        #self.feed('mov rax, [r8 + r15 + 0x11]')
-        #self.check('4b 8b 44 38 11')
-        #assert(assembler.mov('r13', ['rbp','rcx',0x23]) == [0x4c,0x8b,0x6c,0xd,0x23])
-
-        #assert(assembler.mov('r9', ['rbp',-0x33]) == [0x4c,0x8b,0x4d,0xcd])
+        self.feed('mov rax, [r8, r15, 0x11]')
+        self.feed('mov r13, [rbp, rcx, 0x23]')
+        self.feed('mov r9, [rbp, -0x33]')
         self.feed('mov rbx, [rax]')
-        self.check('488b18')
-
-        # assert(assembler.mov('rax', [0xb000]) == [0x48,0x8b,0x4,0x25,0x0,0xb0,0x0,0x0])
-        # assert(assembler.mov('r11', [0xa0]) == [0x4c,0x8b,0x1c,0x25,0xa0,0x0,0x0,0x0])
-
-        # assert(assembler.mov('r11', ['RIP', 0xf]) == [0x4c,0x8b,0x1d,0x0f,0x0,0x0,0x0])
+        self.feed('mov r11, [rip, 0xf]')
+        self.feed('mov rax, [0xb000]')
+        self.feed('mov r11, [0xa0]')
+        self.feed('mov r14, [r9, 0xabcdef]')
+        self.check(('4b8b443811 4c8b6c0d23'
+                    '4c8b4dcd 488b18 4c8b1d0f000000 488b042500b00000'
+                    '4c8b1c25a0000000 4d8bb1efcdab00'))
 
     def test_mov_imm(self):
         self.feed('mov r8, 91')
@@ -113,23 +110,26 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov [0x20000000], rdi')
         self.check('48895d13 4c897111 48893C2500000020')
 
+    def test_mem_store2(self):
+        """ Test rbp without offset results correctly """
+        self.feed('mov [rbp], rcx')
+        self.feed('mov [r12], rax')
+        self.check('48894d00 49890424')
+
     def test_weird_r12_encoding(self):
         self.feed('mov [r12, 0x12], r9')
-        self.check('4d894c2412')
+        self.feed('mov [0xab], rbx')
+        self.feed('mov [0xcd], r13')
+        self.feed('mov [rip, 0xf], r9')
+        self.check(
+            '4d894c2412 48891c25ab000000 4c892c25cd000000 4c890d0f000000')
 
-        # assert(assembler.mov([0xab], 'rbx') == [0x48,0x89,0x1c,0x25,0xab,0x0,0x0,0x0])
-        # assert(assembler.mov([0xcd], 'r13') == [0x4c,0x89,0x2c,0x25,0xcd,0x0,0x0,0x0])
-
-        # assert(assembler.mov(['RIP', 0xf], 'r9') == [0x4c,0x89,0x0d,0x0f,0x0,0x0,0x0])
-
-    @unittest.skip('todo')
-    def testAsmMOV8(self):
+    def test_asm_mov8(self):
         self.feed('mov [rbp, -8], al')
-        self.check('8845f8')
-        # assert(assembler.mov(['r11', 9], 'cl') == [0x41, 0x88, 0x4b, 0x09])
-
-        # assert(assembler.mov(['rbx'], 'al') == [0x88, 0x03])
-        # assert(assembler.mov(['r11'], 'dl') == [0x41, 0x88, 0x13])
+        self.feed('mov [r11, 9], cl')
+        self.feed('mov [rbx], al')
+        self.feed('mov [r11], dl')
+        self.check('488845f8 49884b09 488803 498813')
 
     def test_lea(self):
         self.feed('lea r11, [RIP, 0xf]')
@@ -176,20 +176,21 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('sub rsp, 0x12')
         self.check('4881ec56341200 4881ec12000000')
 
-    @unittest.skip('todo')
     def test_idiv(self):
-        assert(assembler.idivreg64('r11') == [0x49, 0xf7, 0xfb])
-        assert(assembler.idivreg64('rcx') == [0x48, 0xf7, 0xf9])
-        assert(assembler.idivreg64('rsp') == [0x48, 0xf7, 0xfc])
+        """ Test integer divide """
+        self.feed('idiv r11')
+        self.feed('idiv rcx')
+        self.feed('idiv rsp')
+        self.check('49f7fb 48f7f9 48f7fc')
 
     def test_imul(self):
-        #assert(assembler.imulreg64_rax('rdi') == [0x48, 0xf7, 0xef])
-        #assert(assembler.imulreg64_rax('r10') == [0x49, 0xf7, 0xea])
-        #assert(assembler.imulreg64_rax('rdx') == [0x48, 0xf7, 0xea])
+        # assert(assembler.imulreg64_rax('rdi') == [0x48, 0xf7, 0xef])
+        # assert(assembler.imulreg64_rax('r10') == [0x49, 0xf7, 0xea])
+        # assert(assembler.imulreg64_rax('rdx') == [0x48, 0xf7, 0xea])
 
         self.feed('imul r11, rdi')
         self.feed('imul r12, rbx')
-        self.check('4c 0f af df  4c 0f af e3')
+        self.check('4c0fafdf 4c0fafe3')
         # nasm generates this machine code: 0x4d, 0x6b, 0xff, 0xee
         # This also works: 4D0FAFFE (another variant?? )
         # assert(assembler.imulreg64('r15', 'r14') == [0x4d, 0x0f, 0xaf, 0xfe])

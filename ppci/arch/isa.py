@@ -180,9 +180,9 @@ class Constructor:
         this syntax.
     """
     syntax = None
-    patterns = None
+    patterns = ()
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         # Generate constructor from args:
         if self.syntax:
             formal_args = []
@@ -202,6 +202,10 @@ class Constructor:
             for prop, val in self.syntax.set_props.items():
                 prop.__set__(self, val)
 
+        for pname, pval in kwargs.items():
+            # print('\n\n\n===', pname, pval)
+            setattr(self, pname, pval)
+
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or prop class,
             in refering to an element in the args list """
@@ -220,18 +224,9 @@ class Constructor:
 
     def set_patterns(self, tokens):
         """ Fill tokens with the specified bit patterns """
-        if self.patterns:
-            for pattern in self.patterns:
-                value = 0
-                if isinstance(pattern, VariablePattern):
-                    value = pattern.prop.__get__(self)
-                elif isinstance(pattern, SubPattern):
-                    value = pattern.prop.__get__(self).bit_pattern
-                elif isinstance(pattern, FixedPattern):
-                    value = pattern.value
-                else:  # pragma: no cover
-                    raise NotImplementedError(str(pattern))
-                self.set_field(tokens, pattern.field, value)
+        for pattern in self.patterns:
+            value = pattern.get_value(self)
+            self.set_field(tokens, pattern.field, value)
 
         self.set_user_patterns(tokens)
 
@@ -385,14 +380,24 @@ class Instruction(Constructor, metaclass=InsMeta):
 
 
 class BitPattern:
+    """ Base bit pattern class. A bit mapping is a mapping of a field
+        to a value of some kind.
+    """
     def __init__(self, field):
         self.field = field
 
+    def get_value(self, objref):
+        raise NotImplementedError('Implement this for your pattern')
+
 
 class FixedPattern(BitPattern):
+    """ Bind a field to a fixed value """
     def __init__(self, field, value):
         super().__init__(field)
         self.value = value
+
+    def get_value(self, objref):
+        return self.value
 
 
 class VariablePattern(BitPattern):
@@ -400,11 +405,17 @@ class VariablePattern(BitPattern):
         super().__init__(field)
         self.prop = prop
 
+    def get_value(self, objref):
+        return self.prop.__get__(objref)
+
 
 class SubPattern(BitPattern):
     def __init__(self, field, prop):
         super().__init__(field)
         self.prop = prop
+
+    def get_value(self, objref):
+        return self.prop.__get__(objref).bit_pattern
 
 
 class Syntax:
@@ -427,3 +438,12 @@ class Syntax:
 
     def __repr__(self):
         return '{}'.format(self.syntax)
+
+
+class Relocation:
+    """
+        Contains information on the relocation to apply.
+    """
+    def __init__(self, label_prop, reloc_function):
+        self.a = label_prop
+        self.reloc_function = reloc_function

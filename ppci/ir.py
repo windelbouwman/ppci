@@ -2,6 +2,8 @@
 Intermediate representation (IR) code classes.
 """
 
+# pylint: disable=R0903
+
 from binascii import hexlify
 
 
@@ -45,39 +47,41 @@ class Module:
     """ Container unit for variables and functions. """
     def __init__(self, name):
         self.name = name
-        self.functions = []
-        self.variables = []
+        self._functions = []
+        self._variables = []
 
     def __repr__(self):
         return 'module {0}'.format(self.name)
 
     def add_function(self, function):
         """ Add a function to this module """
-        assert type(function) is Function
-        self.functions.append(function)
+        assert isinstance(function, Function)
+        self._functions.append(function)
         function.module = self
 
     def add_variable(self, variable):
         """ Add a variable to this module """
-        assert type(variable) is Variable
-        self.variables.append(variable)
+        assert isinstance(variable, Variable)
+        self._variables.append(variable)
         variable.module = self
 
     def get_variables(self):
-        return self.variables
+        """ Get all variables of this module """
+        return self._variables
 
-    Variables = property(get_variables)
+    variables = property(get_variables)
 
     def get_functions(self):
-        return self.functions
+        """ Get all functions of this module """
+        return self._functions
 
-    Functions = property(get_functions)
+    functions = property(get_functions)
 
     def stats(self):
         """ Returns a string with statistic information such as block count """
-        num_functions = len(self.Functions)
-        num_blocks = sum(len(f.blocks) for f in self.Functions)
-        num_instructions = sum(f.num_instructions() for f in self.Functions)
+        num_functions = len(self.functions)
+        num_blocks = sum(len(f.blocks) for f in self.functions)
+        num_instructions = sum(f.num_instructions() for f in self.functions)
         return "functions: {}, blocks: {}, instructions: {}" \
             .format(num_functions,
                     num_blocks,
@@ -113,7 +117,7 @@ class Function:
             module.add_function(self)
 
     def __repr__(self):
-        args = ','.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
         return 'function XXX {}({})'.format(self.name, args)
 
     def __iter__(self):
@@ -179,7 +183,7 @@ class Function:
 
     def add_parameter(self, parameter):
         """ Add an argument to this function """
-        assert type(parameter) is Parameter
+        assert isinstance(parameter, Parameter)
         parameter.num = len(self.arguments)
         self.arguments.append(parameter)
         # p.parent = self.entry
@@ -333,6 +337,8 @@ class Block:
 
     def dominates(self, other):
         """ Check if this block dominates other block """
+        assert self.function is not None
+        assert self in self.function.blocks
         cfg_info = self.function.cfg_info
         return cfg_info.strictly_dominates(self, other)
 
@@ -347,9 +353,13 @@ class Block:
         """
         for phi in self.phis:
             value = phi.get_value(block)
+            # First delete old incoming, to delete usage, do this now, not at
+            # the end. If we do this at the end, we trash the newly added use.
+            phi.del_incoming(block)
+
+            # Add new incoming blocks:
             for b2 in new_blocks:
                 phi.set_incoming(b2, value)
-            phi.del_incoming(block)
 
 
 def var_use(name):
@@ -433,22 +443,25 @@ class Instruction:
 
     def dominates(self, other):
         """ Checks if this instruction dominates another instruction """
-        if type(self) is Parameter or type(self) is Variable:
+        if isinstance(self, (Parameter, Variable)):
             # TODO: hack, parameters and globals dominate all other
             # instructions..
             return True
+
         # All other instructions must have a containing block:
         assert self.block is not None, '{} has no block'.format(self)
+        assert self in self.block.instructions
 
         # Phis are special case:
-        if type(other) is Phi:
+        if isinstance(other, Phi):
             for block in other.inputs:
                 if other.inputs[block] == self:
                     # This is the queried dominance branch
                     # Check if this instruction dominates the last
                     # instruction of this block
                     return self.dominates(block.last_instruction)
-            raise RuntimeError('Cannot query dominance for this phi')  # pragma: no cover
+            # pragma: no cover
+            raise RuntimeError('Cannot query dominance for this phi')
         # For all other instructions follow these rules:
         if self.block == other.block:
             # fi = self.block.instructions.first_to_occur(self, other)
@@ -562,7 +575,7 @@ class Call(Expression):
     """ Call a function with some arguments """
     def __init__(self, function_name, arguments, name, ty, loc=None):
         super().__init__(name, ty, loc=loc)
-        assert type(function_name) is str
+        assert isinstance(function_name, str)
         self.function_name = function_name
         self.arguments = arguments
         for arg in self.arguments:
@@ -680,7 +693,7 @@ class Variable(Expression):
     """ Global variable, reserves room in the data area. Has name and size """
     def __init__(self, name, amount):
         super().__init__(name, ptr)
-        assert type(amount) is int
+        assert isinstance(amount, int)
         self.amount = amount
 
     def __repr__(self):

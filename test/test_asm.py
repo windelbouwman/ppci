@@ -7,8 +7,7 @@ from ppci.binutils.assembler import AsmLexer, BaseAssembler
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.target import Label
-from ppci.arch.example import SimpleTarget
-from ppci.api import link
+from ppci.api import link, fix_target
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
 
@@ -69,12 +68,11 @@ class OustreamTestCase(unittest.TestCase):
 class AssemblerTestCase(unittest.TestCase):
     def test_parse_failure(self):
         """ Check the error reporting of the assembler """
-        target = SimpleTarget()
         obj = ObjectFile()
         ostream = BinaryOutputStream(obj)
         ostream.select_section('code')
         diag = DiagnosticsManager()
-        assembler = BaseAssembler(target)
+        assembler = BaseAssembler()
         with self.assertRaises(CompilerError):
             assembler.assemble('abc def', ostream, diag)
 
@@ -90,7 +88,8 @@ class AsmTestCaseBase(unittest.TestCase):
         self.diag = DiagnosticsManager()
 
         # Prep assembler!
-        self.assembler = self.target.assembler
+        target = fix_target(self.march)
+        self.assembler = target.assembler
         self.assembler.prepare()
 
     def feed(self, line):
@@ -99,7 +98,8 @@ class AsmTestCaseBase(unittest.TestCase):
 
     def check(self, hexstr, layout=Layout()):
         self.assembler.flush()
-        self.obj = link([self.obj], layout, self.target)
+        target = fix_target(self.march)
+        self.obj = link([self.obj], layout, target)
         data = bytes(self.obj.get_section('code').data)
         if hexstr is None:
             gnu_assemble(self.source.getvalue(), as_args=self.as_args)

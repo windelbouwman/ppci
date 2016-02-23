@@ -2,30 +2,29 @@
 
 import unittest
 from test_asm import AsmTestCaseBase
-from ppci.arch.target_list import thumb_target
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
-    target = thumb_target
+    march = 'arm:thumb'
 
     def setUp(self):
         super().setUp()
         self.as_args = ['-mthumb']
 
-    def testMovImm8(self):
+    def test_mov_imm8(self):
         self.feed('mov r4, 100')
         self.check('6424')
 
-    def testMovRegs(self):
+    def test_mov_regs(self):
         self.feed('mov r0, r1')
         # self.check(None)
 
     @unittest.skip('todo')
-    def testMovExt(self):
+    def test_mov_ext(self):
         self.feed('mov r3, sp')
         self.check('')
 
-    def testYield(self):
+    def test_yield(self):
         self.feed('yield')
         self.check('10bf')
 
@@ -38,23 +37,23 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('pop {r4-r6, pc}')
         self.check('70bd')
 
-    def testStr5(self):
+    def test_str5(self):
         self.feed('str r4, [r1, 0]')
         self.check('0c60')
 
-    def testLdr5(self):
+    def test_ldr5(self):
         self.feed('ldr r4, [r0, 0]')
         self.check('0468')
 
-    def testLdrSpRel(self):
+    def test_ldr_sp_rel(self):
         self.feed('ldr r0, [sp, 4]')
         self.check('0198')
 
-    def testStrSpRel(self):
+    def test_str_sp_rel(self):
         self.feed('str r0, [sp, 4]')
         self.check('0190')
 
-    def testLdrPcRel(self):
+    def test_ldr_pc_rel(self):
         self.feed('ldr r7, henkie')
         self.feed('ldr r6, henkie')
         self.feed('ldr r1, henkie')
@@ -63,7 +62,7 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('henkie: dd 2')
         self.check('024F024E 01490000 01000000 02000000')
 
-    def testAdr(self):
+    def test_adr(self):
         self.feed('adr r2, x')
         self.feed('adr r2, x')
         self.feed('x: dd 1')

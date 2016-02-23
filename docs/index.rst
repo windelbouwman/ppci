@@ -15,5 +15,7 @@ Table of contents
     compiler
     development
     faq
+    todo
     changelog
+    links
 

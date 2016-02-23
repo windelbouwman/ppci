@@ -1,1 +1,1 @@
-from .target import AvrTarget
+from .arch import AvrArch

@@ -1,36 +1,42 @@
 """
-    X86-64 target description.
+    X86-64 architecture description.
 """
 
+import io
+from ... import api
 from ..target import Target, VCall
 from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
-from .instructions import isa
-from .instructions import MovRegRm, RmRegister
-from .registers import rax, rbx, rcx, rdx, rbp, rsp
-from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
-from .registers import rdi, rsi, get_register
+from .instructions import MovRegRm, RmReg, isa
+from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
 from .frame import X86Frame
 
 
-class X86Target(Target):
-    """ x86_64 target """
-    def __init__(self):
-        super().__init__('x86_64')
+class X86_64Arch(Target):
+    """ x86_64 architecture """
+    name = 'x86_64'
+    option_names = ('sse2', 'sse3')
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.value_classes[i64] = X86Register
         self.value_classes[ptr] = X86Register
         self.value_classes[i8] = X86Register
         self.byte_sizes['int'] = 8  # For front end!
         self.byte_sizes['ptr'] = 8  # For front end!
         self.isa = isa + data_isa
-        self.assembler = BaseAssembler(self)
+        self.assembler = BaseAssembler()
+        self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
-        self.assembler.gen_asm_parser()
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return MovRegRm(dst, RmRegister(src), ismove=True)
+        return MovRegRm(dst, RmReg(src), ismove=True)
+
+    def get_runtime(self):
+        asm_src = ''
+        return api.asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine locations
@@ -68,7 +74,8 @@ class X86Target(Target):
             and moves arguments in the proper locations.
         """
 
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(arg_types, ret_type)
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, ret_type)
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):

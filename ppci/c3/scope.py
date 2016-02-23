@@ -41,7 +41,7 @@ class Scope:
     @property
     def constants(self):
         """ All defined constants in this scope """
-        return [s for s in self.syms if type(s) is Constant]
+        return [s for s in self.syms if isinstance(s, Constant)]
 
     @property
     def variables(self):
@@ -51,7 +51,7 @@ class Scope:
     @property
     def functions(self):
         """ Gets all the functions in the current scope """
-        return [s for s in self.syms if type(s) is Function]
+        return [s for s in self.syms if isinstance(s, Function)]
 
     def get_symbol(self, name):
         """ Get symbol from this or parent scope """
@@ -125,7 +125,7 @@ class Context:
         self.const_map = {}
         self.var_map = {}    # Maps variables to storage locations.
         self.const_workset = set()
-        self.pointerSize = 4
+        self.pointerSize = 4  # TODO: this must be variable!
 
     def has_module(self, name):
         """ Check if a module with the given name exists """
@@ -134,8 +134,7 @@ class Context:
     def get_module(self, name):
         """ Gets or creates the module with the given name """
         if name not in self.module_map:
-            module = ast.Module(name, None)
-            module.innerScope = Scope(self.scope)
+            module = ast.Module(name, Scope(self.scope), None)
             self.module_map[name] = module
         return self.module_map[name]
 
@@ -151,11 +150,11 @@ class Context:
 
     def resolve_symbol(self, ref):
         """ Find out what is designated with x """
-        if type(ref) is ast.Member:
+        if isinstance(ref, ast.Member):
             base = self.resolve_symbol(ref.base)
-            if type(base) is not ast.Module:
+            if not isinstance(base, ast.Module):
                 raise SemanticError('Base is not a module', ref.loc)
-            scope = base.innerScope
+            scope = base.inner_scope
             name = ref.field
 
             # Take into account access attribute!
@@ -272,14 +271,14 @@ class Context:
             their backing types.
         """
         # Convenience:
-        if type(typ) is str:
+        if isinstance(typ, str):
             typ = self.get_type(typ)
 
         # Find the type:
-        if type(typ) is ast.DefinedType:
+        if isinstance(typ, ast.DefinedType):
             if reveil_defined:
                 typ = self.the_type(typ.typ)
-        elif type(typ) in [ast.Identifier, ast.Member]:
+        elif isinstance(typ, (ast.Identifier, ast.Member)):
             typ = self.the_type(self.resolve_symbol(typ), reveil_defined)
         elif isinstance(typ, ast.Type):
             # This case also catches the defined type!
@@ -294,18 +293,18 @@ class Context:
         """ Determine the byte size of a type """
         typ = self.the_type(typ)
 
-        if type(typ) is ast.BaseType:
+        if isinstance(typ, ast.BaseType):
             return typ.byte_size
-        elif type(typ) is ast.StructureType:
+        elif isinstance(typ, ast.StructureType):
             return sum(self.size_of(mem.typ) for mem in typ.mems)
-        elif type(typ) is ast.ArrayType:
+        elif isinstance(typ, ast.ArrayType):
             if isinstance(typ.size, ast.Expression):
                 num = self.eval_const(typ.size)
             else:
                 num = int(typ.size)
             assert isinstance(num, int)
             return num * self.size_of(typ.element_type)
-        elif type(typ) is ast.PointerType:
+        elif isinstance(typ, ast.PointerType):
             return self.pointerSize
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
@@ -324,20 +323,20 @@ class Context:
 
         # Do structural equivalence check:
         if type(a) is type(b):
-            if type(a) is ast.BaseType:
+            if isinstance(a, ast.BaseType):
                 return a.name == b.name
-            elif type(a) is ast.PointerType:
+            elif isinstance(a, ast.PointerType):
                 # If a pointed type is detected, stop structural
                 # equivalence:
                 return self.equal_types(a.ptype, b.ptype, byname=True)
-            elif type(a) is ast.StructureType:
+            elif isinstance(a, ast.StructureType):
                 if len(a.mems) != len(b.mems):
                     return False
                 return all(self.equal_types(am.typ, bm.typ) for am, bm in
                            zip(a.mems, b.mems))
-            elif type(a) is ast.ArrayType:
+            elif isinstance(a, ast.ArrayType):
                 return self.equal_types(a.element_type, b.element_type)
-            elif type(a) is ast.DefinedType:
+            elif isinstance(a, ast.DefinedType):
                 # Try by name in case of defined types:
                 return a.name == b.name
             else:  # pragma: no cover
@@ -362,13 +361,13 @@ class Context:
         if t in self.got_types:
             raise SemanticError('Recursive data type {}'.format(t), None)
 
-        if type(t) is ast.BaseType:
+        if isinstance(t, ast.BaseType):
             pass
-        elif type(t) is ast.PointerType:
+        elif isinstance(t, ast.PointerType):
             # If a pointed type is detected, stop structural
             # equivalence:
             self.check_type(t.ptype, first=False, byname=True)
-        elif type(t) is ast.StructureType:
+        elif isinstance(t, ast.StructureType):
             self.got_types.add(t)
             # Setup offsets of fields. Is this the right place?:
             # TODO: move this struct offset calculation.
@@ -377,9 +376,9 @@ class Context:
                 self.check_type(struct_member.typ, first=False)
                 struct_member.offset = offset
                 offset = offset + self.size_of(struct_member.typ)
-        elif type(t) is ast.ArrayType:
+        elif isinstance(t, ast.ArrayType):
             self.check_type(t.element_type, first=False)
-        elif type(t) is ast.DefinedType:
+        elif isinstance(t, ast.DefinedType):
             pass
         else:  # pragma: no cover
             raise NotImplementedError('{} not implemented'.format(type(t)))

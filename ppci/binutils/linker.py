@@ -1,3 +1,6 @@
+"""
+    Linker utility.
+"""
 import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
@@ -11,6 +14,33 @@ class Linker:
         self.logger = logging.getLogger('Linker')
         self.reporter = reporter
         self.target = target
+
+    def link(self, input_objects, layout, partial_link=False):
+        """ Link together the given object files using the layout """
+        assert isinstance(input_objects, list)
+        assert isinstance(layout, Layout)
+
+        self.reporter.heading(2, 'Linking')
+
+        # Create new object file to store output:
+        dst = ObjectFile()
+
+        # First merge all sections into output sections:
+        self.merge_objects(input_objects, dst)
+
+        if not partial_link:
+            # Apply layout rules:
+            self.layout_sections(dst, layout)
+
+            # Perform relocations:
+            self.do_relocations(dst)
+
+        for section in dst.sections:
+            self.reporter.message('{} at {}'.format(section, section.address))
+        for image in dst.images:
+            self.reporter.message('{} at {}'.format(image, image.location))
+        self.reporter.message('Linking complete')
+        return dst
 
     def merge_objects(self, input_objects, dst):
         """ Merge object files into a single object file """
@@ -107,29 +137,3 @@ class Linker:
             data = section.data[reloc.offset:]
             f(sym_value, data, reloc_value)
             section.data[reloc.offset:] = data
-
-    def link(self, input_objects, layout):
-        """ Link together the given object files using the layout """
-        assert isinstance(input_objects, list)
-        assert isinstance(layout, Layout)
-
-        self.reporter.heading(2, 'Linking')
-
-        # Create new object file to store output:
-        dst = ObjectFile()
-
-        # First merge all sections into output sections:
-        self.merge_objects(input_objects, dst)
-
-        # Apply layout rules:
-        self.layout_sections(dst, layout)
-
-        # Perform relocations:
-        self.do_relocations(dst)
-
-        for section in dst.sections:
-            self.reporter.message('{} at {}'.format(section, section.address))
-        for image in dst.images:
-            self.reporter.message('{} at {}'.format(image, image.location))
-        self.reporter.message('Linking complete')
-        return dst

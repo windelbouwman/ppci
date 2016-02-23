@@ -5,7 +5,7 @@ from ppci.utils.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
 from ppci.arch.target import Nop
-from ppci.arch.example import Def, Use, DefUse, Add, Cmp, Use3, Register
+from ppci.arch.example import Def, Use, DefUse, Add, Cmp, Use3, ExampleRegister
 
 
 class GraphTestCase(unittest.TestCase):
@@ -120,10 +120,10 @@ class DigraphTestCase(unittest.TestCase):
 class InterferenceGraphTestCase(unittest.TestCase):
     def test_normal_use(self):
         """ Test if interference graph works """
-        t1 = Register('t1')
-        t2 = Register('t2')
-        t3 = Register('t3')
-        t4 = Register('t4')
+        t1 = ExampleRegister('t1')
+        t2 = ExampleRegister('t2')
+        t3 = ExampleRegister('t3')
+        t4 = ExampleRegister('t4')
         instrs = []
         instrs.append(Def(t1))  # t1 is live
         instrs.append(Def(t2))  # t1, t2 is live
@@ -147,10 +147,10 @@ class InterferenceGraphTestCase(unittest.TestCase):
             jmp a
 
         """
-        t1 = Register('t1')
-        t2 = Register('t2')
-        t3 = Register('t3')
-        t4 = Register('t4')
+        t1 = ExampleRegister('t1')
+        t2 = ExampleRegister('t2')
+        t3 = ExampleRegister('t3')
+        t4 = ExampleRegister('t4')
         i1 = DefUse(t1, t4)  # t1 is live
         i3 = DefUse(t3, t2)  # t2, t1, t3 live
         i2 = Def(t2, jumps=[i3])  # t1, t2 is live
@@ -164,11 +164,11 @@ class InterferenceGraphTestCase(unittest.TestCase):
 
     def test_multiple_successors(self):
         """ Example from wikipedia about liveness """
-        a = Register('a')
-        b = Register('b')
-        c = Register('c')
-        d = Register('d')
-        x = Register('x')
+        a = ExampleRegister('a')
+        b = ExampleRegister('b')
+        c = ExampleRegister('c')
+        d = ExampleRegister('d')
+        x = ExampleRegister('x')
         i1 = Def(a)  # a = 3
         i2 = Def(b)  # b = 5
         i3 = Def(d)  # d = 4
@@ -241,10 +241,10 @@ class InterferenceGraphTestCase(unittest.TestCase):
         I6:  cjmp I2, I7
         I7:  nop
         """
-        a = Register('a')
-        b = Register('b')
-        c = Register('c')
-        x = Register('x')
+        a = ExampleRegister('a')
+        b = ExampleRegister('b')
+        c = ExampleRegister('c')
+        x = ExampleRegister('x')
         i2 = DefUse(a, x)
         i1 = Def(x, jumps=[i2])
         i3 = Def(x)
@@ -282,7 +282,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         I4: jmp I5
         I5: jmp I2
         """
-        x = Register('x')
+        x = ExampleRegister('x')
         i2 = Use(x)
         i1 = Def(x, jumps=[i2])
         i3 = Def(x)
@@ -303,10 +303,10 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertEqual({x}, b3.live_out)
 
     def test_combine(self):
-        t1 = Register('t1')
-        t2 = Register('t2')
-        t3 = Register('t3')
-        t4 = Register('t4')
+        t1 = ExampleRegister('t1')
+        t2 = ExampleRegister('t2')
+        t3 = ExampleRegister('t3')
+        t4 = ExampleRegister('t4')
         instrs = []
         instrs.append(Def(t1))
         instrs.append(Def(t2))

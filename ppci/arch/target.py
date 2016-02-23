@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 from .isa import Instruction, Register
 from .data_instructions import Ds
 from ..ir import i8, i16, i32, i64, ptr
@@ -6,16 +7,34 @@ from ..ir import i8, i16, i32, i64, ptr
 
 class Target:
     """ Base class for all targets """
-    def __init__(self, name, desc=''):
-        logging.getLogger('target').debug('Creating {} target'.format(name))
-        self.name = name
-        self.desc = desc
+    name = None
+    desc = None
+    option_names = ()
+
+    def __init__(self, options=None):
+        """
+            Create a new machine instance with possibly some extra machine
+            options.
+
+            options is a tuple with which options to enable.
+        """
+        logging.getLogger('target').debug('Creating %s target', self.name)
+        self.option_settings = {o: False for o in self.option_names}
+        if options:
+            assert isinstance(options, tuple)
+            for option_name in options:
+                assert option_name in self.option_names
+                self.option_settings[option_name] = True
         self.registers = []
         self.byte_sizes = {}
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
         self.value_classes = {}
+
+    def has_option(self, name):
+        """ Check for an option setting selected """
+        return self.option_settings[name]
 
     def __repr__(self):
         return '{}-target'.format(self.name)
@@ -28,12 +47,25 @@ class Target:
             return self.value_classes[ty]
         raise NotImplementedError()
 
-    def get_size(self, ty):
+    def get_size(self, typ):
         """ Get type of ir type """
-        if ty is ptr:
+        if typ is ptr:
             return self.byte_sizes['ptr']
         else:
-            return {i8: 1, i16: 2, i32: 4, i64: 8}[ty]
+            return {i8: 1, i16: 2, i32: 4, i64: 8}[typ]
+
+    def new_frame(self, frame_name, function):
+        """ Create a new frame with name frame_name for an ir-function """
+        arg_types = [arg.ty for arg in function.arguments]
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, None)
+        frame = self.FrameClass(
+            frame_name, arg_locs, live_in, rv, live_out)
+        return frame
+
+    def determine_arg_locations(self, arg_types, ret_type):
+        """ Determine argument location for a given function """
+        raise NotImplementedError('Implement this')
 
     def get_reloc(self, name):
         """ Retrieve a relocation identified by a name """
@@ -47,8 +79,16 @@ class Target:
         else:  # pragma: no cover
             raise NotImplementedError()
 
-    def get_runtime_src(self):
-        return ''
+    def get_runtime(self):
+        raise NotImplementedError('Implement this')
+
+    @lru_cache(maxsize=30)
+    def get_compiler_rt_lib(self):
+        """ Gets the runtime for the compiler. Returns an object with the compiler
+        runtime for the given target """
+        return self.get_runtime()
+
+    runtime = property(get_compiler_rt_lib)
 
 
 class Nop(Instruction):
@@ -163,7 +203,6 @@ class Frame:
         self.instructions = []
         self.stacksize = 0
         self.temps = generate_temps()
-        self.register_classes = {}
 
     def __repr__(self):
         return 'Frame {}'.format(self.name)

@@ -1,6 +1,9 @@
 """
     Contains the command line interface functions.
 """
+
+# pylint: disable=C0103
+
 import sys
 import platform
 import argparse
@@ -12,7 +15,7 @@ from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version, api
 from .common import logformat
-from .arch.target_list import target_names
+from .arch.target_list import target_names, get_arch
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -27,12 +30,20 @@ def log_level(s):
     return numeric_level
 
 
+class OnceAction(argparse.Action):
+    """ Use this action to enforce that an option is only given once """
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest, None) is not None:
+            raise argparse.ArgumentError(self, 'Cannot give multiple')
+        setattr(namespace, self.dest, values)
+
+
 base_parser = argparse.ArgumentParser(add_help=False)
 base_parser.add_argument(
     '--log', help='Log level (info,debug,warn)', metavar='log-level',
     type=log_level, default='info')
 base_parser.add_argument(
-    '--report', metavar='report-file',
+    '--report', metavar='report-file', action=OnceAction,
     help='Specify a file to write the compile report to',
     type=argparse.FileType('w'))
 base_parser.add_argument(
@@ -45,11 +56,20 @@ base_parser.add_argument(
 
 base2_parser = argparse.ArgumentParser(add_help=False)
 base2_parser.add_argument(
-    '--machine', '-m', help='target machine', required=True,
-    choices=target_names)
+    '--machine', '-m', help='target architecture', required=True,
+    choices=target_names, action=OnceAction)
+base2_parser.add_argument(
+    '--mtune', help='architecture option', default=[],
+    metavar='option', action='append')
 base2_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
-    type=argparse.FileType('w'), required=True)
+    type=argparse.FileType('w'), required=True, action=OnceAction)
+
+
+def get_arch_from_args(args):
+    """ Determine the intended machine target and select the proper options """
+    options = tuple(args.mtune)
+    return get_arch(args.machine, options=options)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -110,7 +130,8 @@ def c3c(args=None):
     args = c3c_parser.parse_args(args)
     with LogSetup(args):
         # Compile sources:
-        obj = api.c3c(args.sources, args.include, args.machine)
+        march = get_arch_from_args(args)
+        obj = api.c3c(args.sources, args.include, march)
 
         # Write object file to disk:
         obj.save(args.output)
@@ -132,7 +153,8 @@ def asm(args=None):
     args = asm_parser.parse_args(args)
     with LogSetup(args):
         # Assemble source:
-        obj = api.asm(args.sourcefile, args.machine)
+        march = get_arch_from_args(args)
+        obj = api.asm(args.sourcefile, march)
 
         # Write object file to disk:
         obj.save(args.output)
@@ -156,7 +178,8 @@ def link(args=None):
     """ Run asm from command line """
     args = link_parser.parse_args(args)
     with LogSetup(args):
-        obj = api.link(args.obj, args.layout, args.machine)
+        march = get_arch_from_args(args)
+        obj = api.link(args.obj, args.layout, march)
         obj.save(args.output)
         args.output.close()
 
@@ -257,7 +280,7 @@ def hex2int(s):
     raise ValueError('Hexadecimal value must begin with 0x')
 
 hexutil_parser = argparse.ArgumentParser(
-   description='hexfile manipulation tool by Windel Bouwman')
+    description='hexfile manipulation tool by Windel Bouwman')
 subparsers = hexutil_parser.add_subparsers(
     title='commands',
     description='possible commands', dest='command')
@@ -279,6 +302,9 @@ p.add_argument(
 
 
 def hexutil(args=None):
+    """
+        Hexfile manipulation command.
+    """
     args = hexutil_parser.parse_args(args)
     if not args.command:
         hexutil_parser.print_usage()

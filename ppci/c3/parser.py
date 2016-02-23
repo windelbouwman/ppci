@@ -21,6 +21,9 @@ class Parser:
         self.logger = logging.getLogger('c3')
         self.diag = diag
         self.current_scope = None
+        self.token = None
+        self.tokens = None
+        self.mod = None
 
     def parse_source(self, tokens, context):
         """ Parse a module from tokens """
@@ -42,10 +45,14 @@ class Parser:
         raise CompilerError(msg, loc)
 
     # Lexer helpers:
-    def consume(self, typ):
-        """ Assert that the next token is typ, and if so, return it """
+    def consume(self, typ=None):
+        """ Assert that the next token is typ, and if so, return it. If
+            typ is not given, consume the next token.
+        """
+        if typ is None:
+            typ = self.peak
         if self.peak == typ:
-            return self.NextToken()
+            return self.next_token()
         else:
             self.error('Excected: "{0}", got "{1}"'.format(typ, self.peak))
 
@@ -58,11 +65,12 @@ class Parser:
         """ Checks if the look-ahead token is of type typ, and if so
             eats the token and returns true """
         if self.peak == typ:
-            self.consume(typ)
+            self.consume()
             return True
         return False
 
-    def NextToken(self):
+    def next_token(self):
+        """ Advance to the next token """
         tok = self.token
         if tok.typ != 'EOF':
             self.token = self.tokens.__next__()
@@ -80,9 +88,9 @@ class Parser:
         self.consume('module')
         name = self.consume('ID')
         self.consume(';')
-        self.logger.debug('Parsing package {}'.format(name.val))
+        self.logger.debug('Parsing package %s', name.val)
         self.mod = context.get_module(name.val)
-        self.current_scope = self.mod.innerScope
+        self.current_scope = self.mod.inner_scope
         while self.peak != 'EOF':
             self.parse_top_level()
         self.consume('EOF')
@@ -225,12 +233,12 @@ class Parser:
         loc = self.consume('function').loc
         returntype = self.parse_type_spec()
         fname = self.consume('ID').val
-        self.logger.debug('Parsing function {}'.format(fname))
+        self.logger.debug('Parsing function %s', fname)
         func = Function(fname, public, loc)
         self.add_symbol(func)
-        func.innerScope = Scope(self.current_scope)
+        func.inner_scope = Scope(self.current_scope)
         func.package = self.mod
-        self.current_scope = func.innerScope
+        self.current_scope = func.inner_scope
         self.consume('(')
         parameters = []
         if not self.has_consumed(')'):
@@ -246,8 +254,7 @@ class Parser:
         paramtypes = [p.typ for p in parameters]
         func.typ = FunctionType(paramtypes, returntype)
         func.parameters = parameters
-        if self.peak == ';':
-            self.consume(';')
+        if self.has_consumed(';'):
             func.body = None
         else:
             func.body = self.parse_compound()
@@ -300,11 +307,11 @@ class Parser:
 
     def parse_compound(self):
         """ Parse a compound statement, which is bounded by '{' and '}' """
-        cb1 = self.consume('{')
+        self.consume('{')
         statements = []
         while self.peak != '}':
             statements.append(self.parse_statement())
-        cb2 = self.consume('}')
+        self.consume('}')
 
         # Enforce styling:
         # if cb1.loc.col != cb2.loc.col:
@@ -329,101 +336,49 @@ class Parser:
         elif self.peak == 'return':
             return self.parse_return()
         else:
-            x = self.parse_unary_expression()
+            expression = self.parse_unary_expression()
             if self.peak in Assignment.operators:
                 # We enter assignment mode here.
                 operator = self.peak
                 loc = self.consume(operator).loc
                 rhs = self.parse_expression()
-                return Assignment(x, rhs, loc, operator)
+                return Assignment(expression, rhs, loc, operator)
             else:
                 # Must be call statement!
-                return ExpressionStatement(x, x.loc)
+                return ExpressionStatement(expression, expression.loc)
 
-    # Expression section:
-    # We not implement these C constructs:
-    # a(2), f = 2
-    # and this:
-    # a = 2 < x : 4 ? 1;
+    LEFT_ASSOCIATIVITY = 1
+    op_binding_powers = {
+        'or': (10, LEFT_ASSOCIATIVITY),
+        'and': (20, LEFT_ASSOCIATIVITY),
+        '==': (30, LEFT_ASSOCIATIVITY), '<': (30, LEFT_ASSOCIATIVITY),
+        '>': (30, LEFT_ASSOCIATIVITY), '<=': (30, LEFT_ASSOCIATIVITY),
+        '>=': (30, LEFT_ASSOCIATIVITY), '!=': (30, LEFT_ASSOCIATIVITY),
+        '<<': (40, LEFT_ASSOCIATIVITY), '>>': (40, LEFT_ASSOCIATIVITY),
+        '+': (50, LEFT_ASSOCIATIVITY), '-': (50, LEFT_ASSOCIATIVITY),
+        '*': (60, LEFT_ASSOCIATIVITY), '/': (60, LEFT_ASSOCIATIVITY),
+        '%': (60, LEFT_ASSOCIATIVITY),
+        '|': (70, LEFT_ASSOCIATIVITY),
+        '&': (80, LEFT_ASSOCIATIVITY), '^': (80, LEFT_ASSOCIATIVITY)
+    }
 
-    def parse_expression(self):
-        """ Parse an expression.
-            There are some levels of precedence:
-            1. logical or
-            2. logical and
-            3. equality
-            4. shift operations
-            5. addition and substraction
-            6. mul
-
-            # TODO: replace this with 'local binding power'
+    def parse_expression(self, rbp=0):
+        """ Process expressions with precedence climbing
+            See also:
+            http://eli.thegreenplace.net/2012/08/02/
+                parsing-expressions-by-precedence-climbing
         """
-        lhs = self.parse_logical_and_expression()
-        while self.peak == 'or':
-            loc = self.consume('or').loc
-            expr_rhs = self.parse_logical_and_expression()
-            lhs = Binop(lhs, 'or', expr_rhs, loc)
-        return lhs
-
-    def parse_logical_and_expression(self):
-        """ Parse sequence of and expressions """
-        lhs = self.parse_equality_expression()
-        while self.peak == 'and':
-            loc = self.consume('and').loc
-            rhs = self.parse_equality_expression()
-            lhs = Binop(lhs, 'and', rhs, loc)
-        return lhs
-
-    def parse_equality_expression(self):
-        """ Parse an value comparison """
-        lhs = self.parse_simple_expression()
-        while self.peak in ['<', '==', '>', '>=', '<=', '!=']:
-            operation = self.consume(self.peak)
-            rhs = self.parse_simple_expression()
-            lhs = Binop(lhs, operation.typ, rhs, operation.loc)
-        return lhs
-
-    def parse_simple_expression(self):
-        """ Shift operations before + and - ? """
-        lhs = self.AddExpression()
-        while self.peak in ['>>', '<<']:
-            op = self.consume(self.peak)
-            rhs = self.AddExpression()
-            lhs = Binop(lhs, op.typ, rhs, op.loc)
-        return lhs
-
-    def AddExpression(self):
-        lhs = self.parse_term()
-        while self.peak in ['+', '-']:
-            op = self.consume(self.peak)
-            rhs = self.parse_term()
-            lhs = Binop(lhs, op.typ, rhs, op.loc)
-        return lhs
-
-    def parse_term(self):
-        """ Parse a term in an expression """
-        lhs = self.parse_bitwise_or()
-        while self.peak in ['*', '/', '%']:
-            op = self.consume(self.peak)
-            rhs = self.parse_bitwise_or()
-            lhs = Binop(lhs, op.typ, rhs, op.loc)
-        return lhs
-
-    def parse_bitwise_or(self):
-        """ Parse bitwise or """
-        lhs = self.BitwiseAnd()
-        while self.peak == '|':
-            op = self.consume(self.peak)
-            rhs = self.BitwiseAnd()
-            lhs = Binop(lhs, op.typ, rhs, op.loc)
-        return lhs
-
-    def BitwiseAnd(self):
         lhs = self.parse_cast_expression()
-        while self.peak in ['&', '^']:
-            op = self.consume(self.peak)
-            b = self.parse_cast_expression()
-            lhs = Binop(lhs, op.typ, b, op.loc)
+        while self.peak in self.op_binding_powers and \
+                self.op_binding_powers[self.peak][0] >= rbp:
+            operator = self.consume()
+            precedence, associativity = self.op_binding_powers[operator.typ]
+            if associativity == self.LEFT_ASSOCIATIVITY:
+                next_precedence = precedence + 1
+            else:
+                next_precedence = precedence
+            rhs = self.parse_expression(next_precedence)
+            lhs = Binop(lhs, operator.typ, rhs, operator.loc)
         return lhs
 
     # Domain of unary expressions:
@@ -439,9 +394,9 @@ class Parser:
             to_type = self.parse_type_spec()
             self.consume('>')
             self.consume('(')
-            ce = self.parse_expression()
+            inner_expression = self.parse_expression()
             self.consume(')')
-            return TypeCast(to_type, ce, loc)
+            return TypeCast(to_type, inner_expression, loc)
         elif self.peak == 'sizeof':
             # Compiler internal function to determine size of a type
             loc = self.consume('sizeof').loc
@@ -455,12 +410,12 @@ class Parser:
     def parse_unary_expression(self):
         """ Handle unary plus, minus and pointer magic """
         if self.peak in ['&', '*', '-', '+', 'not']:
-            op = self.consume(self.peak)
-            ce = self.parse_cast_expression()
-            if op.val == '*':
-                return Deref(ce, op.loc)
+            operation = self.consume()
+            inner_expression = self.parse_cast_expression()
+            if operation.val == '*':
+                return Deref(inner_expression, operation.loc)
             else:
-                return Unop(op.typ, ce, op.loc)
+                return Unop(operation.typ, inner_expression, operation.loc)
         else:
             return self.parse_postfix_expression()
 

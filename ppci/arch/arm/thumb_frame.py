@@ -1,8 +1,8 @@
-from ..target import Label, Alignment, Frame, VCall
-from .instructions import dcd, AddSp, SubSp, Push, Pop, Mov2, Bl
-from ..data_instructions import Db
-from ..arm.registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
-from ..arm.registers import get_register
+from ..target import Label, Alignment, Frame
+from .thumb_instructions import AddSp, SubSp, Push, Pop, Mov2, Bl
+from ..data_instructions import Db, Dd, Dcd2
+from .registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
+from .registers import get_register
 
 
 class ThumbFrame(Frame):
@@ -88,9 +88,9 @@ class ThumbFrame(Frame):
             label, value = self.constants.pop(0)
             yield Label(label)
             if isinstance(value, int):
-                yield dcd(value)
+                yield Dd(value)
             elif isinstance(value, str):
-                yield dcd(value)
+                yield Dcd2(value)
             elif isinstance(value, bytes):
                 for byte in value:
                     yield Db(byte)

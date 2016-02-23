@@ -56,6 +56,12 @@ def register_range(a, b):
     return {get_register(n) for n in range(a.num, b.num + 1)}
 
 
+class RegisterSet(set):
+    def __repr__(self):
+        reg_names = sorted(str(r) for r in self)
+        return ', '.join(reg_names)
+
+
 R0 = Reg8Op('R0', num=0)
 R1 = Reg8Op('R1', num=1)
 R2 = Reg8Op('R2', num=2)

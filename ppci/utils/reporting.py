@@ -37,6 +37,9 @@ class ReportGenerator:
     def dump_dag(self, dags):
         pass
 
+    def dump_trees(self, ir_function, function_info):
+        pass
+
     def dump_frame(self, frame):
         pass
 
@@ -124,10 +127,68 @@ class TextReportGenerator(TextWritingReporter):
 
 @contextmanager
 def collapseable(html_generator, title):
-    guid = html_generator.new_guid()
-    html_generator.print('<div class="code">')
+    html_generator.print('<div><div class="code button">')
     yield html_generator
-    html_generator.print('</div>')
+    html_generator.print('</div></div>')
+
+
+HTML_HEADER = """<!DOCTYPE HTML>
+<html><head>
+  <style>
+  .graphdiv {
+    width: 500px;
+    height: 500px;
+    border: 1px solid gray;
+  }
+  .code {
+   padding: 10px;
+   border: 1px solid black;
+   border-radius: 15px;
+   margin: 10px;
+   font-weight: bold;
+   display: inline-block;
+  }
+  .button {
+    border-left: 3px solid white;
+    border-top: 3px solid white;
+    border-right: 3px solid gray;
+    border-bottom: 3px solid gray;
+    background: lightgray;
+  }
+  body {
+    font-family: sans-serif;
+    background: floralwhite;
+  }
+  table {
+    border-collapse: collapse;
+  }
+
+  table, th, rd {
+    border: 1px solid black;
+  }
+
+  th, td {
+    padding: 5px;
+  }
+
+  th {
+    background: gray;
+    color: white;
+  }
+
+  </style>
+ </head>
+ <body><div>
+ <h1>Compilation report</h1>
+ <p>This is an automatically generated report with a full log of compilation.
+ </p>
+
+"""
+
+HTML_FOOTER = """
+</div>
+</body></html>
+"""
 
 
 class HtmlReportGenerator(TextWritingReporter):
@@ -140,34 +201,11 @@ class HtmlReportGenerator(TextWritingReporter):
         return 'guid_{}'.format(self.nr)
 
     def header(self):
-        header = """<html><head>
-  <style>
-  .graphdiv {
-    width: 500px;
-    height: 500px;
-    border: 1px solid gray;
-  }
-  .code {
-   padding: 10px;
-   border: 1px solid black;
-  }
-  body {font-family:sans-serif;}
-  </style>
- </head>
- <body><div>
- <h1>Compilation report</h1>
- <p>This is an automatically generated report with a full log of compilation.
- </p>
-        """
-        self.print(header)
+        self.print(HTML_HEADER)
         self.message(datetime.today().ctime())
 
     def footer(self):
-        footer = """
-        </div>
-        </body></html>
-        """
-        self.print(footer)
+        self.print(HTML_FOOTER)
 
     def message(self, msg):
         self.print('<p>{}</p>'.format(msg))
@@ -195,7 +233,7 @@ class HtmlReportGenerator(TextWritingReporter):
             raise NotImplementedError()
 
     def function_header(self, irfunc, target):
-        self.print("<h3> Log for {} </h3>".format(irfunc))
+        self.print("<h3>Log for {}</h3>".format(irfunc))
         self.print("<p>Target: {}</p>".format(target))
         # Writer().write_function(irfunc, f)
 
@@ -231,6 +269,7 @@ class HtmlReportGenerator(TextWritingReporter):
             edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
             edge2.set_color(color_map[edge.kind])
         # self.render_graph(graph)
+        self.print('<p><b>To be implemented</b></p>')
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
@@ -238,6 +277,16 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print('Dag:')
             for root in dag:
                 self.print("- {}".format(root))
+
+    def dump_trees(self, ir_function, function_info):
+        self.message('Selection trees for {}'.format(ir_function))
+        with collapseable(self, 'trees'):
+            self.print('<pre>')
+            for ir_block in ir_function:
+                self.print(str(ir_block))
+                for tree in function_info.block_trees[ir_block]:
+                    self.print('  {}'.format(tree))
+            self.print('</pre>')
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """

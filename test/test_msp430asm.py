@@ -2,14 +2,14 @@
 
 import unittest
 import io
-from ppci.arch.target_list import msp430target
 from ppci.binutils.layout import load_layout
 from test_asm import AsmTestCaseBase
+from ppci.arch.msp430 import instructions, registers
 
 
 class Msp430AssemblerTestCase(AsmTestCaseBase):
     """ Test the msp430 assembler """
-    target = msp430target
+    march = 'msp430'
 
     def test_mov(self):
         """ Test move """
@@ -64,6 +64,21 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed("bit.w r8, r9")
         self.check('09b8')
 
+    def test_clrc(self):
+        """ Test clear carry """
+        self.feed("clrc")
+        self.check('12c3')
+
+    def test_clrn(self):
+        """ Test clear negative flag """
+        self.feed("clrn")
+        self.check('22c2')
+
+    def test_clrz(self):
+        """ Test clear zero flag """
+        self.feed("clrz")
+        self.check('22c3')
+
     def test_rrc(self):
         """ Test rrc """
         self.feed("rrc r7")
@@ -84,6 +99,28 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed("push @r13+")
         self.check('3d12')
 
+    def test_pop(self):
+        """ Test pop (emulated as mov @sp+, dst ) """
+        self.feed("pop r6")
+        self.check('3641')
+
+    def test_nop(self):
+        """ Test nop ( mov #0, r3 ) """
+        self.feed("nop")
+        self.check('0343')
+
+    def test_ret(self):
+        """ Test ret ( mov @sp+, pc ) """
+        self.feed("ret")
+        self.check('3041')
+
+    def test_call(self):
+        """ Test call """
+        self.feed("call #a")
+        self.feed("call #a")
+        self.feed("a: call #a")
+        self.check('b0120800 b0120800 b0120800')
+
     def test_reti(self):
         """ Test return from interrupt """
         self.feed("reti")
@@ -97,6 +134,44 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed('jne a')
         self.feed('jne a')
         self.check('0120 0020 ff23 fe23')
+
+
+class Msp430InstructionUseDef(unittest.TestCase):
+    """ Test instruction use def info """
+    def test_cmp(self):
+        cp = instructions.Cmp(
+            instructions.RegSrc(registers.r4),
+            instructions.RegDst(registers.r5))
+        self.assertEqual([registers.r4, registers.r5], cp.used_registers)
+        self.assertEqual([], cp.defined_registers)
+
+    def test_mov_reg_mem(self):
+        mv = instructions.Mov(
+            instructions.RegSrc(registers.r4),
+            instructions.MemDst(10, registers.r5))
+        self.assertEqual([registers.r4, registers.r5], mv.used_registers)
+        self.assertEqual([], mv.defined_registers)
+
+    def test_mov_regs(self):
+        mv = instructions.Mov(
+            instructions.RegSrc(registers.r4),
+            instructions.RegDst(registers.r5))
+        self.assertEqual([registers.r4], mv.used_registers)
+        self.assertEqual([registers.r5], mv.defined_registers)
+
+    def test_mov_mem_mem(self):
+        mv = instructions.Mov(
+            instructions.MemSrcOffset(20, registers.r4),
+            instructions.MemDst(10, registers.r5))
+        self.assertEqual([registers.r4, registers.r5], mv.used_registers)
+        self.assertEqual([], mv.defined_registers)
+
+    def test_add_regs(self):
+        mv = instructions.Add(
+            instructions.RegSrc(registers.r4),
+            instructions.RegDst(registers.r5))
+        self.assertEqual([registers.r4, registers.r5], mv.used_registers)
+        self.assertEqual([registers.r5], mv.defined_registers)
 
 
 if __name__ == '__main__':

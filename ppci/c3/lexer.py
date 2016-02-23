@@ -19,6 +19,7 @@ class Lexer(BaseLexer):
 
     def __init__(self, diag):
         self.diag = diag
+        self.incomment = False
 
         # Construct the tricky string of possible glyphs:
         ops = []
@@ -32,7 +33,7 @@ class Lexer(BaseLexer):
             ('HEXNUMBER', r'0x[\da-fA-F]+',
              lambda typ, val: ('NUMBER', make_num(val))),
             ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
-            ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
+            ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
             ('NEWLINE', r'\n', lambda typ, val: self.newline()),
             ('SKIP', r'[ \t]', None),
             ('COMMENTS', r'//.*', None),

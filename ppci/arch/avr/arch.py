@@ -1,3 +1,8 @@
+"""
+    AVR architecture.
+"""
+import io
+from ... import api
 from ..target import Target, Label
 from ..target import Alignment
 from ..target import Frame, VCall
@@ -15,17 +20,19 @@ from .registers import r24, r25, X, Y, Z
 from .registers import get_register
 
 
-class AvrTarget(Target):
+class AvrArch(Target):
     """
         Check this site for good info:
         - https://gcc.gnu.org/wiki/avr-gcc
     """
-    def __init__(self):
-        super().__init__('avr')
+    name = 'avr'
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.isa = avr_isa + data_isa
         self.FrameClass = AvrFrame
-        self.assembler = BaseAssembler(self)
-        self.assembler.gen_asm_parser()
+        self.assembler = BaseAssembler()
+        self.assembler.gen_asm_parser(self.isa)
         # TODO: make it possible to choose between 16 and 8 bit int type size
         self.byte_sizes['int'] = 2
         self.byte_sizes['i16'] = 2
@@ -35,10 +42,15 @@ class AvrTarget(Target):
         self.value_classes[i16] = AvrPseudo16Register
         self.value_classes[ptr] = AvrPseudo16Register
 
-    def get_runtime_src(self):
-        """ No runtime for thumb required yet .. """
-        return """
+    def get_runtime(self):
+        asm_src = """
+            __shr16:
+                ; TODO
+                ret
+            __shl16:
+                ret
         """
+        return api.asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine location for argument """
@@ -69,7 +81,7 @@ class AvrTarget(Target):
                 l.append(r)
                 live_in.add(hi_reg)
                 live_in.add(lo_reg)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(str(s))
         return l, tuple(live_in), rv, tuple(live_out)
 
@@ -111,7 +123,12 @@ class AvrFrame(Frame):
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
         # Allocatable registers:
-        self.regs = [r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14]
+        # TODO: the registers are not always possible, for example:
+        # ldi r16, 0xaa
+        self.regs = [
+            r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
+            r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25]
+        # r27, r28, r29, r30, r31]
         self.fp = Y
 
         self.locVars = {}
@@ -119,10 +136,6 @@ class AvrFrame(Frame):
         # Literal pool:
         self.constants = []
         self.literal_number = 0
-
-    def new_virtual_register(self, twain=""):
-        """ Retrieve a new virtual register """
-        return super().new_virtual_register(AvrRegister, twain=twain)
 
     def make_call(self, vcall):
         """ Implement actual call and save / restore live registers """
@@ -187,9 +200,7 @@ class AvrFrame(Frame):
         while self.constants:
             label, value = self.constants.pop(0)
             yield Label(label)
-            if isinstance(value, int) or isinstance(value, str):
-                yield dcd(value)
-            elif isinstance(value, bytes):
+            if isinstance(value, bytes):
                 for byte in value:
                     yield Db(byte)
                 yield Alignment(4)   # Align at 4 bytes

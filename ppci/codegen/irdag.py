@@ -64,7 +64,8 @@ class FunctionInfo:
         self.value_map = {}  # mapping from ir-value to dag node
         self.label_map = {}
         self.phi_map = {}  # mapping from phi node to vreg
-        self.block_roots = {}  # Mapping from block to root of block
+        self.block_trees = {}  # Mapping from block to tree serie for block
+        self.block_tails = {}
 
 
 @make_map
@@ -75,6 +76,66 @@ class SelectionGraphBuilder:
         self.postfix_map = {
             ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
         self.postfix_map[ir.ptr] = 'I{}'.format(target.byte_sizes['ptr'] * 8)
+
+    def build(self, ir_function, function_info):
+        """ Create a selection graph for the given function.
+            Selection graph is divided into groups for each basic block.
+        """
+        self.sgraph = SelectionGraph()
+        self.function_info = function_info
+
+        # TODO: fix this total mess with vreg, block and chains:
+        self.current_block = None
+
+        # Create maps for global variables:
+        for variable in ir_function.module.variables:
+            val = self.new_node('LABEL', value=ir.label_name(variable))
+            self.add_map(variable, val.new_output(variable.name))
+
+        # Create start node:
+        self.current_token = self.new_node('ENTRY').new_output(
+            'token', kind=SGValue.CONTROL)
+
+        # Generate nodes for all blocks:
+        for ir_block in ir_function:
+            self.block_to_sgraph(ir_block, function_info)
+
+        self.sgraph.check()
+        return self.sgraph
+
+    def block_to_sgraph(self, ir_block, function_info):
+        """ Create dag (directed acyclic graph) from a basic block.
+            The resulting dag can be used for instruction selection.
+        """
+        assert isinstance(ir_block, ir.Block)
+
+        self.current_block = ir_block
+
+        # Create start node:
+        entry_node = self.new_node('ENTRY')
+        entry_node.value = ir_block
+        self.current_token = entry_node.new_output(
+            'token', kind=SGValue.CONTROL)
+
+        # Emit extra dag for parameters when entry block:
+        if ir_block is ir_block.function.entry:
+            self.entry_block_special_case(function_info, ir_block.function)
+
+        # Generate series of trees:
+        for instruction in ir_block:
+            # In case of last statement, first perform phi-lifting:
+            if isinstance(instruction, ir.LastStatement):
+                self.copy_phis_of_successors(ir_block)
+
+            # Dispatch the handler depending on type:
+            self.f_map[type(instruction)](self, instruction)
+
+        # Save tail node of this block:
+        function_info.block_tails[ir_block] = self.current_token.node
+
+        # Create end node:
+        sgnode = self.new_node('EXIT')
+        sgnode.add_input(self.current_token)
 
     @register(ir.Jump)
     def do_jump(self, node):
@@ -240,7 +301,8 @@ class SelectionGraphBuilder:
         arg_types = [argument.ty for argument in node.arguments]
         # Perform the actual call:
         sgnode = self.new_node(
-            'CALL', value=(node.function_name, arg_types, node.ty, args, ret_val))
+            'CALL',
+            value=(node.function_name, arg_types, node.ty, args, ret_val))
         for i in inputs:
             sgnode.add_input(i)
         self.chain(sgnode)
@@ -294,59 +356,51 @@ class SelectionGraphBuilder:
             # When refering the paramater, use the copied value:
             self.add_map(arg, output)
 
-    def block_to_sgraph(self, ir_block, function_info):
-        """ Create dag (directed acyclic graph) from a basic block.
-            The resulting dag can be used for instruction selection.
-        """
-        assert isinstance(ir_block, ir.Block)
 
-        self.current_block = ir_block
+def topological_sort_modified(nodes, start):
+    """ Modified topological sort, start at the end and work back """
+    unmarked = set(nodes)
+    marked = set()
+    temp_marked = set()
+    L = []
 
-        # Create start node:
-        self.current_token = self.new_node('ENTRY').new_output(
-            'token', kind=SGValue.CONTROL)
+    def visit(n):
+        # print(n)
+        if n not in nodes:
+            return
+        assert n not in temp_marked, 'DAG has cycles'
+        if n in unmarked:
+            temp_marked.add(n)
 
-        # Emit extra dag for parameters when entry block:
-        if ir_block is ir_block.function.entry:
-            self.entry_block_special_case(function_info, ir_block.function)
+            # 1 satisfy control dependencies:
+            for inp in n.control_inputs:
+                visit(inp.node)
 
-        # Generate series of trees:
-        for instruction in ir_block:
-            # In case of last statement, first perform phi-lifting:
-            if isinstance(instruction, ir.LastStatement):
-                self.copy_phis_of_successors(ir_block)
+            # 2 memory dependencies:
+            for inp in n.memory_inputs:
+                visit(inp.node)
 
-            # Dispatch the handler depending on type:
-            self.f_map[type(instruction)](self, instruction)
+            # 3 data dependencies:
+            for inp in n.data_inputs:
+                visit(inp.node)
+            temp_marked.remove(n)
+            marked.add(n)
+            unmarked.remove(n)
+            L.append(n)
 
-        # Create end node:
-        sgnode = self.new_node('EXIT')
-        sgnode.add_input(self.current_token)
-        function_info.block_roots[ir_block] = sgnode
+    # Start to visit with pre-knowledge of the last node!
+    visit(start)
+    while unmarked:
+        node = next(iter(unmarked))
+        visit(node)
 
-    def build(self, ir_function, function_info):
-        """ Create a selection graph for the given function """
-        self.sgraph = SelectionGraph()
-        self.function_info = function_info
-
-        # TODO: fix this total mess with vreg, block and chains:
-        self.current_block = None
-
-        # Create maps for global variables:
-        for variable in ir_function.module.Variables:
-            val = self.new_node('LABEL', value=ir.label_name(variable))
-            self.add_map(variable, val.new_output(variable.name))
-
-        # Create start node:
-        self.current_token = self.new_node('ENTRY').new_output(
-            'token', kind=SGValue.CONTROL)
-
-        # Generate nodes for all blocks:
-        for ir_block in ir_function:
-            self.block_to_sgraph(ir_block, function_info)
-
-        self.sgraph.check()
-        return self.sgraph
+    # Hack: move tail again to tail:
+    if L:
+        if L[-1] is not start:
+            L.remove(start)
+            L.append(start)
+            print('re-tailing :)')
+    return L
 
 
 class DagSplitter:
@@ -358,6 +412,92 @@ class DagSplitter:
         self.logger = logging.getLogger('dag-splitter')
         self.target = target
 
+    def split_into_trees(self, sgraph, ir_function, function_info):
+        """ Split a forest of trees into a sorted series of trees for each
+            block.
+        """
+        self.assign_vregs(sgraph, function_info)
+        for ir_block in ir_function:
+            nodes = sgraph.get_group(ir_block)
+            # Get rid of ENTRY and EXIT:
+            nodes = set(
+                filter(
+                    lambda x: x.name not in ['ENTRY', 'EXIT', 'TRM'], nodes))
+
+            tail_node = function_info.block_tails[ir_block]
+            trees = self.make_trees(nodes, tail_node)
+            function_info.block_trees[ir_block] = trees
+
+    def assign_vregs(self, sgraph, function_info):
+        """ Give vreg values to values that cross block boundaries """
+        frame = function_info.frame
+        for node in sgraph:
+            if node.group:
+                self.check_vreg(node, frame)
+
+    def check_vreg(self, node, frame):
+        """ Determine whether a node node needs a virtual register """
+        assert node.group is not None
+
+        if node.name.startswith('CONST'):
+            # Skip constants
+            return
+
+        for data_output in node.data_outputs:
+            if (len(data_output.users) > 1) or node.volatile or \
+                    any(u.group is not node.group
+                        for u in data_output.users):
+                if not data_output.vreg:
+                    cls = self.get_reg_class(data_output)
+                    vreg = frame.new_reg(cls, data_output.name)
+                    data_output.vreg = vreg
+
+    def make_trees(self, nodes, tail_node):
+        """ Create a tree from a list of sorted nodes. """
+        sorted_nodes = topological_sort_modified(nodes, tail_node)
+        trees = []
+        node_map = {}
+        for node in sorted_nodes:
+            assert len(node.data_outputs) <= 1
+
+            # Determine data dependencies:
+            children = []
+            for inp in node.data_inputs:
+                if inp.vreg:
+                    # If the input value has a vreg, use it
+                    child_tree = Tree(make_op('REG', inp.vreg), value=inp.vreg)
+                elif inp.node.name.startswith('CONST'):
+                    # If the node is a constant, use that
+                    child_tree = Tree(inp.node.name, value=inp.node.value)
+                elif inp.node.name == 'LABEL':
+                    child_tree = Tree(inp.node.name, value=inp.node.value)
+                else:
+                    child_tree = node_map[inp.node]
+                children.append(child_tree)
+
+            # Create a tree node:
+            tree = Tree(node.name, *children, value=node.value)
+
+            # Handle outputs:
+            if len(node.data_outputs) == 0:
+                # If the tree was volatile, it must be emitted
+                if node.volatile:
+                    trees.append(tree)
+            else:
+                # If the output has a vreg, put the value in:
+                data_output = node.data_outputs[0]
+                if data_output.vreg:
+                    vreg = data_output.vreg
+                    tree = Tree(make_op('MOV', vreg), tree, value=vreg)
+                    trees.append(tree)
+                    tree = Tree(make_op('REG', vreg), value=vreg)
+                elif node.volatile:
+                    trees.append(tree)
+
+            # Store for later:
+            node_map[node] = tree
+        return trees
+
     def get_reg_class(self, data_flow):
         """ Determine the register class suited for this data flow line """
         op = data_flow.node.name
@@ -366,108 +506,3 @@ class DagSplitter:
         assert 'I' in op
         bitsize = int(re.search('I(\d+)', op).group(1))
         return self.target.get_reg_class(bitsize=bitsize)
-
-    def traverse_back(self, node):
-        """
-        Traverse the graph backwards from the given node, creating a tree
-        and optionally adding this tree to the list of generated trees
-        """
-
-        # if node is already processed, stop:
-        if node in self.node_map:
-            return self.node_map[node]
-
-        # Stop on entry node:
-        if node.name == 'ENTRY':
-            tree = Tree(node.name, value=node.value)
-            self.node_map[node] = tree
-            self.trees.append(tree)
-            return tree
-
-        # For now assert that nodes can only max 1 data value:
-        assert len(node.data_outputs) <= 1
-
-        # Make sure control dependencies are satisfied first:
-        for inp in node.control_inputs:
-            self.traverse_back(inp.node)
-
-        # Second, process memory dependencies:
-        for inp in node.memory_inputs:
-            self.traverse_back(inp.node)
-
-        # Create data for data dependencies:
-        children = []
-        for inp in node.data_inputs:
-            if (inp.node.group is node.group) or \
-                    (inp.node.group is None) or \
-                    inp.node.name.startswith('CONST'):
-                res = self.traverse_back(inp.node)
-            else:
-                if not inp.vreg:
-                    cls = self.get_reg_class(inp)
-                    vreg = self.frame.new_reg(cls, inp.name)
-                    inp.vreg = vreg
-
-            # If the input value has a vreg, use it:
-            if inp.vreg:
-                children.append(Tree(make_op('REG', inp.vreg), value=inp.vreg))
-            else:
-                children.append(res)
-
-        # Create a tree node:
-        tree = Tree(node.name, *children, value=node.value)
-
-        # Determine if the node should be copied to register:
-        for data_output in node.data_outputs:
-            # Skip constants:
-            if node.name.startswith('CONST'):
-                continue
-
-            # Check if value is used more then once:
-            if (len(data_output.users) > 1) or node.volatile or \
-                    any(u.group is not node.group for u in data_output.users):
-                if not data_output.vreg:
-                    cls = self.get_reg_class(data_output)
-                    vreg = self.frame.new_reg(cls, data_output.name)
-                    data_output.vreg = vreg
-
-        # Handle outputs:
-        if len(node.data_outputs) == 0:
-            # If the tree was volatile, it must be emitted
-            if node.volatile:
-                self.trees.append(tree)
-        else:
-            # If the output has a vreg, put the value in:
-            data_output = node.data_outputs[0]
-            if data_output.vreg:
-                vreg = data_output.vreg
-                tree = Tree(make_op('MOV', vreg), tree, value=vreg)
-                self.trees.append(tree)
-                tree = Tree(make_op('REG', vreg), value=vreg)
-            elif node.volatile:
-                self.trees.append(tree)
-
-        # Store for later and prevent multi coverage of dag:
-        self.node_map[node] = tree
-
-        return tree
-
-    def split_dag(self, root, frame):
-        """ Split dag into forest of trees.
-            The approach here is to start at the exit of the flowgraph
-            and go back to the beginning.
-
-            This function can be looped over and yields a series
-            of somehow topologically sorted trees.
-        """
-        self.trees = []
-        self.node_map = {}
-        self.frame = frame
-
-        assert len(root.outputs) == 0
-
-        # First determine the usages:
-        self.traverse_back(root)
-
-        return self.trees
-

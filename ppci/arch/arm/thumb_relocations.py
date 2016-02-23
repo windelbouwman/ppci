@@ -59,11 +59,3 @@ def apply_b_imm11_imm6(sym_value, data, reloc_value):
     data[3] |= (j1 << 5) | (j2 << 3)
     data[0] |= imm6
     data[1] |= (s << 2)
-
-
-def apply_absaddr32(sym_value, data, reloc_value):
-    assert sym_value % 4 == 0
-    assert reloc_value % 4 == 0
-    offset = sym_value
-    bv = BitView(data, 0, 4)
-    bv[0:32] = offset

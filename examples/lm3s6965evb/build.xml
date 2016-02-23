@@ -1,12 +1,21 @@
 
 <project name="Userspace" default="m3bare">
    <target name="m3bare">
-     <assemble source="startup_m3.asm" target="thumb" output="start.o"/>
-     <compile sources="hello.c3" target="thumb" output="m3bare.o"
-        listing="report.lst"/>
-     <link output="bare.o" layout="m3bare.mmap"
-        target="thumb"
-        objects="start.o;m3bare.o"/>
+         <assemble
+            source="startup_m3.asm"
+            target="arm:thumb"
+            output="start.o" />
+         <compile
+            sources="hello.c3"
+            target="arm:thumb"
+            output="m3bare.o"
+            />
+         <link
+            output="bare.o"
+            layout="m3bare.mmap"
+            target="arm:thumb"
+            objects="start.o;m3bare.o" />
+
         <objcopy
             objectfile="bare.o"
             imagename="flash"

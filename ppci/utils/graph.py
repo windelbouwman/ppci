@@ -1,4 +1,32 @@
 
+def topological_sort(nodes):
+    """ Sort nodes topological, use Tarjan algorithm here
+        See: https://en.wikipedia.org/wiki/Topological_sorting
+    """
+    unmarked = set(nodes)
+    marked = set()
+    temp_marked = set()
+    L = []
+
+    def visit(n):
+        # print(n)
+        assert n not in temp_marked, 'DAG has cycles'
+        if n in unmarked:
+            temp_marked.add(n)
+            for m in n.children:
+                visit(m)
+            temp_marked.remove(n)
+            marked.add(n)
+            unmarked.remove(n)
+            L.insert(0, n)
+
+    while unmarked:
+        n = next(iter(unmarked))
+        visit(n)
+
+    return L
+
+
 class Graph:
     """
        Generic graph base class.

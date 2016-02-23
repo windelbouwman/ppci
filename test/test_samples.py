@@ -7,10 +7,11 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, relpath, run_python
+from util import run_qemu, has_qemu, relpath, run_python, run_msp430_mem
 from ppci.api import asm, c3c, link, objcopy, bfcompile
 from ppci.api import c3toir, bf2ir, ir_to_python
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
+from ppci.binutils.objectfile import merge_memories
 
 
 def make_filename(s):
@@ -37,24 +38,115 @@ def only_bf(txt):
 
 
 class SimpleSamples:
-    """ Collection of snippets with expected output """
+    """ Collection of snippets with expected output. No integer size is
+        assumed here. So should run on 64 and 32 and 16 bit machines.
+    """
+
+    def test_bsp_putc(self):
+        """ Test if bsp putc works """
+        snippet = """
+         module main;
+         import bsp;
+         function void main()
+         {
+            bsp.putc(65);
+            bsp.putc(66);
+            bsp.putc(67);
+            bsp.putc(68);
+            bsp.putc(69);
+         }
+        """
+        self.do(snippet, "ABCDE")
+
     def test_print(self):
         """ Test if print statement works """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             io.print("Hello world");
          }
         """
         self.do(snippet, "Hello world")
 
-    def test_if_statement(self):
+    def test_sw_mul(self):
+        """ Test software multiplication algorithm """
         snippet = """
-         module sample;
+        module main;
+        import io;
+        function int smul(int a, int b)
+        {
+          var int res = 0;
+          while (b > 0)
+          {
+            if ((b & 1) == 1)
+            {
+              res += a;
+            }
+            a = a << 1;
+            b = b >> 1;
+          }
+          return res;
+        }
+
+        function void main()
+        {
+          io.print2("10*5=", smul(10, 5));
+          io.print2("13*6=", smul(13, 6));
+          io.print2("31*7=", smul(31, 7));
+        }
+        """
+        self.do(snippet, '10*5=0x00000032\n13*6=0x0000004E\n31*7=0x000000D9\n')
+
+    def test_sw_div(self):
+        """ Test software division algorithm """
+        snippet = """
+        module main;
+        import io;
+        function int sdiv(int num, int den)
+        {
+          var int res = 0;
+          var int current = 1;
+
+          while (den < num)
+          {
+            den = den << 1;
+            current = current << 1;
+          }
+
+          while (current != 0)
+          {
+            if (num >= den)
+            {
+              num -= den;
+              res = res | current;
+            }
+            den = den >> 1;
+            current = current >> 1;
+          }
+          return res;
+        }
+
+        function void main()
+        {
+          io.print2("10/5=", sdiv(10, 5));
+          io.print2("13/6=", sdiv(13, 6));
+          io.print2("31/7=", sdiv(31, 7));
+          io.print2("10/2=", sdiv(10, 2));
+        }
+        """
+        self.do(
+            snippet,
+            '10/5=0x00000002\n13/6=0x00000002\n'
+            '31/7=0x00000004\n10/2=0x00000005\n')
+
+    def test_if_statement(self):
+        """ Test if the if statement is works """
+        snippet = """
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int i = 13;
             if (i*7 < 100)
@@ -73,7 +165,7 @@ class SimpleSamples:
     def test_boolean_exotics(self):
         """ Test boolean use in different ways """
         snippet = """
-         module sample;
+         module main;
          import io;
          function void print_bool(bool v)
          {
@@ -108,7 +200,7 @@ class SimpleSamples:
             return true;
          }
 
-         function void start()
+         function void main()
          {
             var bool tv;
             print_bool(true);
@@ -124,15 +216,75 @@ class SimpleSamples:
         res = "tftft"
         self.do(snippet, res)
 
+    def test_associativity_of_arithmatic(self):
+        """
+            Check arithmatics operator associativity
+        """
+        snippet = """
+         module main;
+         import io;
 
-class I32Samples:
-    """ 32-bit samples """
+         function void main()
+         {
+            var int w;
+            var int d;
+            var int x;
+            d = 2;
+            x = 10;
+
+            // 100 / 10 / 2 = 10 / 2 = 5, not 100 / 5 = 20
+            w = 100 / x / d;
+            io.print2("w=", w);
+
+            // 100 - 10 - 2 = 88 = 0x58
+            w = 100 - x - d;
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x00000005\nw=0x00000058\n")
+
+    def test_large_local_stack(self):
+        """ Check large local stack frame (larger than 128 bytes) """
+        snippet = """
+         module main;
+         import io;
+
+         const int buffer_size = 150;
+
+         function int heavy_stuff()
+         {
+            var int[buffer_size] buffer;
+            var int i;
+            var int result;
+            result = 0;
+            for (i = 0; i< buffer_size; i += 1)
+            {
+              buffer[i] = i;
+            }
+
+            for (i = 0; i< buffer_size; i += 1)
+            {
+              result += buffer[i] * 3;
+            }
+
+            return result;
+         }
+
+         function void main()
+         {
+            var int w;
+            w = heavy_stuff();
+
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x000082F5\n")
 
     def test_for_loop_print(self):
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int i;
             var int b = 2;
@@ -150,33 +302,45 @@ class I32Samples:
 
     def test_c3_quine(self):
         """ Quine in the c3 language """
-        src = """module sample;import io;import bsp;function void start(){var string x="module sample;import io;import bsp;function void start(){var string x=;io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}";io.print_sub(x,0,70);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,70,154);}"""
+        self.maxDiff = None
+        src = ('module main;import io;import bsp;function void main()'
+               '{var string x="module main;import io;import bsp;'
+               'function void main(){var string x=;io.print_sub(x,0,67);'
+               'bsp.putc(34);io.print(x);bsp.putc(34);'
+               'io.print_sub(x,67,151);}"'
+               ';io.print_sub(x,0,67);bsp.putc(34);io.print(x);bsp.putc(34);'
+               'io.print_sub(x,67,151);}')
         self.do(src, src)
 
-    @unittest.skip('actually tests qemu pipe, not ppci')
+
+class I32Samples:
+    """ 32-bit samples """
+
     def test_large_for_loop_print(self):
-        """ This test actually tests the qemu pipe system """
+        """ This test actually tests the qemu pipe system when values go
+            beyond 1000 loops.
+        """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int i;
-            for (i=0; i<10000; i = i + 1)
+            for (i=0; i<100; i = i + 1)
             {
               io.print2("A = ", i);
             }
          }
         """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10000))
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(100))
         self.do(snippet, res)
 
     def test_bug1(self):
         """ Strange bug was found here """
         snippet = """
-         module sample;
+         module main;
          var int x;
-         function void start()
+         function void main()
          {
             var int i = 0;
             if (x != i)
@@ -190,9 +354,9 @@ class I32Samples:
     def test_bug2(self):
         """ Test pointer arithmatic """
         snippet = """
-         module sample;
+         module main;
          var int* x;
-         function void start()
+         function void main()
          {
             var int i;
             x = 10;
@@ -206,7 +370,7 @@ class I32Samples:
     def test_bug3(self):
         """ Apparently function arguments get sorted by name??? """
         snippet = """
-         module sample;
+         module main;
          import io;
          var int b;
          function void cpy(byte* dst, byte* src, int size)
@@ -215,7 +379,7 @@ class I32Samples:
             io.print2("from=", cast<int>(src));
             io.print2("size=", size);
          }
-         function void start()
+         function void main()
          {
             var byte[4] data;
             data[0] = 4;
@@ -234,9 +398,9 @@ class I32Samples:
     def test_complex_variables(self):
         """ Test local variables of complex type """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int[10] x;
             var int[10] y;
@@ -254,7 +418,7 @@ class I32Samples:
     def test_parameter_passing4(self):
         """ Check that parameter passing works as expected """
         snippet = """
-         module sample;
+         module main;
          import io;
          function void dump(int a, int b, int c, int d)
          {
@@ -267,7 +431,7 @@ class I32Samples:
          {
             dump(a,b,c,d);
          }
-         function void start()
+         function void main()
          {
             dump(4,55,66,0x1337);
             dump2(4,55,66,0x1337);
@@ -286,9 +450,9 @@ class I32Samples:
             Assume little endianess.
         """
         snippet = """
-         module sample;
+         module main;
          import io;
-         function void start()
+         function void main()
          {
             var int w;
             var int* pw;
@@ -312,7 +476,7 @@ class I32Samples:
             Check arithmatics
         """
         snippet = """
-         module sample;
+         module main;
          import io;
          var int x;
          function void set_x(int v)
@@ -322,7 +486,7 @@ class I32Samples:
 
          var int d;
 
-         function void start()
+         function void main()
          {
             var int w;
             d = 2;
@@ -343,11 +507,14 @@ class I32Samples:
             io.print2("w=", w);
          }
         """
-        self.do(snippet, "w=0x00000006\nw=0x0000000B\nw=0x00000001\nw=0x0000000F\nw=0x00000002\n")
+        self.do(
+            snippet,
+            "w=0x00000006\nw=0x0000000B\nw=0x00000001\n"
+            "w=0x0000000F\nw=0x00000002\n")
 
     def test_global_variable(self):
         snippet = """
-         module sample;
+         module main;
          import io;
          var int MyGlob;
          var struct {int a; int b;}[10] cplx1;
@@ -369,7 +536,7 @@ class I32Samples:
             return &MyGlob;
          }
 
-         function void start()
+         function void main()
          {
             MyGlob = 0;
             do1();
@@ -393,11 +560,11 @@ class I32Samples:
 
     def test_const(self):
         snippet = """
-         module sample;
+         module main;
          import io;
          const int a = 1;
          const int b = a + 6;
-         function void start()
+         function void main()
          {
             io.print2("a=", a);
             io.print2("b=", b);
@@ -409,7 +576,7 @@ class I32Samples:
     def test_fibo(self):
         """ Test recursive function with fibonacci algorithm """
         snippet = """
-         module sample;
+         module main;
          import io;
          function int fib(int x)
          {
@@ -423,7 +590,7 @@ class I32Samples:
             }
          }
 
-         function void start()
+         function void main()
          {
             var int i;
             i = fib(13);
@@ -501,6 +668,7 @@ class I32Samples:
 
 class BuildMixin:
     def build(self, src, lang='c3', bin_format='bin'):
+        """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
         list_filename = base_filename + '.html'
 
@@ -531,10 +699,7 @@ class BuildMixin:
                 io.StringIO(self.arch_mmap),
                 self.march, use_runtime=True, reporter=reporter)
 
-        # Determine base names:
-        sample_filename = make_filename(self.id()) + '.' + bin_format
-        objcopy(obj, 'code', bin_format, sample_filename)
-        return sample_filename
+        return obj, base_filename
 
 
 class TestSamplesOnVexpress(
@@ -544,8 +709,8 @@ class TestSamplesOnVexpress(
     startercode = """
     section reset
     mov sp, 0xF0000   ; setup stack pointer
-    BL sample_start     ; Branch to sample start
-    BL bsp_exit  ; do exit stuff
+    BL main_main      ; Branch to sample start
+    BL bsp_exit       ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -562,7 +727,10 @@ class TestSamplesOnVexpress(
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        sample_filename = self.build(src, lang)
+        obj, base_filename = self.build(src, lang)
+        bin_format = 'bin'
+        sample_filename = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
 
         # Run bin file in emulator:
         if has_qemu():
@@ -570,17 +738,45 @@ class TestSamplesOnVexpress(
             self.assertEqual(expected_output, res)
 
 
+class TestSamplesOnRiscv(
+        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
+    maxDiff = None
+    march = "riscv"
+    startercode = """
+    section reset
+    mov sp, 0xF00        ; setup stack pointer 
+    JAL ra, main_main    ; Branch to sample start LR
+    JAL ra, bsp_exit     ; do exit stuff LR
+    local_loop:
+    J local_loop
+    """
+    arch_mmap = """
+    MEMORY code LOCATION=0x10000 SIZE=0x10000 {
+        SECTION(reset)
+        SECTION(code)
+    }
+    MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
+        SECTION(data)
+    }
+    """
+    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        self.build(src, lang)
+
+
 class TestSamplesOnCortexM3(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
-    march = "thumb"
+    march = "arm:thumb"
     startercode = """
     section reset
     dd 0x2000f000
     dd 0x00000009
-    BL sample_start     ; Branch to sample start
-    BL bsp_exit  ; do exit stuff
+    BL main_main     ; Branch to sample start
+    BL bsp_exit      ; do exit stuff
     local_loop:
     B local_loop
     """
@@ -598,7 +794,10 @@ class TestSamplesOnCortexM3(
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        sample_filename = self.build(src, lang)
+        obj, base_filename = self.build(src, lang)
+        bin_format = 'bin'
+        sample_filename = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
 
         # Run bin file in emulator:
         if has_qemu():
@@ -614,17 +813,27 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
         list_filename = base_filename + '.html'
 
         report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        bsp = io.StringIO("""
+           module bsp;
+           public function void putc(byte c);
+           // var int global_tick; """)
         with complete_report(report_generator) as reporter:
             if lang == 'c3':
                 ir_modules = list(c3toir([
-                    relpath('..', 'librt', 'io.c3'),
-                    relpath('..', 'examples', 'lm3s6965evb', 'arch.c3'),
+                    relpath('..', 'librt', 'io.c3'), bsp,
                     io.StringIO(src)], [], "arm", reporter=reporter))
             elif lang == 'bf':
                 ir_modules = [bf2ir(src, 'arm')]
 
             with open(sample_filename, 'w') as f:
                 ir_to_python(ir_modules, f, reporter=reporter)
+
+                # Add glue:
+                print('', file=f)
+                print('def bsp_putc(c):', file=f)
+                print('    print(chr(c), end="")', file=f)
+                print('main_main()', file=f)
+
         res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
 
@@ -632,31 +841,71 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
 class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "msp430"
     startercode = """
-    section reset
+      section reset_vector
+        dw 0 ; 0
+        dw 0 ; 1
+        dw 0 ; 2
+        dw 0 ; 3
+        dw 0 ; 4
+        dw 0 ; 5
+        dw 0 ; 6
+        dw 0 ; 7
+        dw 0 ; 8
+        dw 0 ; 9
+        dw 0 ; 10
+        dw 0 ; 11
+        dw 0 ; 12
+        dw 0 ; 13
+        dw 0 ; 14
+        dw reset_handler ; 15 = reset
+
+      section code
+        reset_handler:
+          mov.w #0x980, sp       ; setup stack pointer
+          call #main_main        ; Enter main
+          call #bsp_exit         ; Call exit cleaning
+        end_inf_loop:
+          jmp end_inf_loop
+
+        bsp_putc:
+          mov.b r12, 0x67(r2)  ; write to uart0 tx buf
+          ret
     """
     arch_mmap = """
-    MEMORY code LOCATION=0x0 SIZE=0x10000 {
-        SECTION(reset)
-        ALIGN(4)
-        SECTION(code)
-    }
-    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 { SECTION(data) }
+        MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
+        MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
+        MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
     """
     bsp_c3_src = """
-    module bsp;
+        module bsp;
 
-    public function void putc(byte c)
-    {
-    }
-
-    function void exit()
-    {
-        putc(4); // End of transmission
-    }
+        public function void putc(byte c);
+        function void exit()
+        {
+            putc(4); // End of transmission
+        }
     """
 
     def do(self, src, expected_output, lang='c3'):
-        self.build(src, lang)
+        obj, base_filename = self.build(src, lang)
+        # TODO
+        flash = obj.get_image('flash')
+        ivect = obj.get_image('vector16')
+        rom = merge_memories(flash, ivect, 'rom')
+        rom_data = rom.data
+        assert len(rom_data) % 2 == 0
+
+        with open(base_filename + '.bin', 'wb') as f:
+            f.write(rom_data)
+
+        mem_file = base_filename + '.mem'
+        with open(mem_file, 'w') as f:
+            for i in range(len(rom_data) // 2):
+                w = rom_data[2*i:2*i+2]
+                print('%02x%02x' % (w[1], w[0]), file=f)
+        if 'MSP' in os.environ:
+            res = run_msp430_mem(mem_file)
+            self.assertEqual(expected_output, res)
 
 
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
@@ -681,7 +930,7 @@ class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     """
 
     def do(self, src, expected_output, lang='c3'):
-        self.build(src, lang)
+        self.build(src, lang=lang, bin_format='hex')
 
 
 class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
@@ -690,7 +939,7 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     section reset
 
     start:
-        call sample_start
+        call main_main
         call bsp_exit
 
     bsp_putc:
@@ -727,11 +976,15 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     bsp_c3_src = """
     module bsp;
     public function void putc(byte c);
-    function void exit();
+    // function void exit();
     """
 
     def do(self, src, expected_output, lang='c3'):
-        exe = self.build(src, lang, bin_format='elf')
+        bin_format = 'elf'
+        obj, base_filename = self.build(src, lang)
+        exe = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, exe)
+
         if has_linux():
             if hasattr(subprocess, 'TimeoutExpired'):
                 res = subprocess.check_output(exe, timeout=10)

@@ -5,6 +5,8 @@ Then it is checked
 Finally code is generated from it.
 """
 
+# pylint: disable=R0903
+
 
 class Node:
     """ Base class of all nodes in a AST """
@@ -20,8 +22,9 @@ class Symbol(Node):
         self.public = public
         self.refs = []
 
-    def addRef(self, r):
-        self.refs.append(r)
+    def add_ref(self, ref):
+        """ Add a reference """
+        self.refs.append(ref)
 
     @property
     def references(self):
@@ -32,19 +35,21 @@ class Symbol(Node):
 # Modules
 class Module(Symbol):
     """ A module contains functions, types, consts and global variables """
-    def __init__(self, name, loc):
+    def __init__(self, name, inner_scope, loc):
         super().__init__(name, True)
         self.loc = loc
         self.imports = []
+        self.inner_scope = inner_scope
 
     @property
     def types(self):
         """ Gets the types in this module """
-        return self.innerScope.types
+        return self.inner_scope.types
 
     @property
     def functions(self):
-        return self.innerScope.functions
+        """ Gets all the functions that are defined in this module """
+        return self.inner_scope.functions
 
     def __repr__(self):
         return 'MODULE {}'.format(self.name)
@@ -102,7 +107,7 @@ class PointerType(Type):
 class StructField:
     """ Field of a struct type """
     def __init__(self, name, typ):
-        assert type(name) is str
+        assert isinstance(name, str)
         self.name = name
         self.typ = typ
 
@@ -114,7 +119,7 @@ class StructureType(Type):
     """ Struct type consisting of several named members """
     def __init__(self, mems):
         self.mems = mems
-        assert all(type(mem) is StructField for mem in mems)
+        assert all(isinstance(mem, StructField) for mem in mems)
 
     def has_field(self, name):
         """ Check if the struct type has a member with name """
@@ -209,6 +214,7 @@ class Function(Symbol):
 
 # Operations / Expressions:
 class Expression(Node):
+    """ Expression base class """
     def __init__(self, loc):
         self.loc = loc
 
@@ -221,6 +227,7 @@ class Sizeof(Expression):
 
 
 class Deref(Expression):
+    """ Data pointer dereference """
     def __init__(self, ptr, loc):
         super().__init__(loc)
         assert isinstance(ptr, Expression)
@@ -361,14 +368,14 @@ class Compound(Statement):
     def __init__(self, statements):
         super().__init__(None)
         self.statements = statements
-        for s in self.statements:
-            assert isinstance(s, Statement)
+        assert all(isinstance(s, Statement) for s in self.statements)
 
     def __repr__(self):
         return 'COMPOUND STATEMENT'
 
 
 class Return(Statement):
+    """ Return statement """
     def __init__(self, expr, loc):
         super().__init__(loc)
         self.expr = expr
@@ -395,6 +402,7 @@ class Assignment(Statement):
 
     @property
     def is_shorthand(self):
+        """ Determine whether this assignment is a short hand like '+=' """
         return len(self.operator) > 1
 
     @property

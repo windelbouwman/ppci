@@ -15,6 +15,7 @@ from .treematcher import State
 from .. import ir
 from .burg import BurgSystem
 from .irdag import DagSplitter
+from .irdag import FunctionInfo, prepare_function_info
 
 
 size_classes = [8, 16, 32, 64]
@@ -47,7 +48,8 @@ class InstructionContext:
 
     def gen_call(self, label, arg_types, res_type, args, res_var):
         """ generate call for function into self """
-        for instruction in self.target.gen_call(label, arg_types, res_type, args, res_var):
+        for instruction in self.target.gen_call(
+                label, arg_types, res_type, args, res_var):
             self.emit(instruction)
 
     def emit(self, *args, **kwargs):
@@ -128,11 +130,11 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, target, dag_builder):
-        self.dag_builder = dag_builder
+    def __init__(self, isa, target, sgraph_builder):
+        self.logger = logging.getLogger('instruction-selector')
+        self.dag_builder = sgraph_builder
         self.target = target
         self.dag_splitter = DagSplitter(target)
-        self.logger = logging.getLogger('instruction-selector')
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
@@ -156,7 +158,44 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def munch_dag(self, context, root, reporter):
+    def select(self, ir_function, frame, reporter):
+        """ Select instructions of function into a frame """
+        assert isinstance(ir_function, ir.Function)
+        self.logger.debug('Creating selection dag for %s', ir_function.name)
+
+        # Create a object that carries global function info:
+        function_info = FunctionInfo(frame)
+        prepare_function_info(self.target, function_info, ir_function)
+
+        # Create a context that can emit instructions:
+        context = InstructionContext(frame, self.target)
+
+        # Create selection dag (directed acyclic graph):
+        sgraph = self.dag_builder.build(ir_function, function_info)
+        reporter.message('Selection graph for {}'.format(ir_function))
+        reporter.dump_sgraph(sgraph)
+
+        # Split the selection graph into trees:
+        self.dag_splitter.split_into_trees(sgraph, ir_function, function_info)
+        reporter.dump_trees(ir_function, function_info)
+
+        # Process one basic block at a time:
+        for ir_block in ir_function:
+            # emit label of block:
+            context.emit(function_info.label_map[ir_block])
+
+            # Eat dag:
+            trees = function_info.block_trees[ir_block]
+            self.munch_trees(context, trees)
+
+            # Emit code between blocks:
+            frame.between_blocks()
+
+        # Generate code for return statement:
+        # TODO: return value must be implemented in some way..
+        # self.munchStm(ir.Move(self.frame.rv, f.return_value))
+
+    def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.
             DAG matching is NP-complete.
 
@@ -170,43 +209,6 @@ class InstructionSelector1:
         """
 
         # Match all splitted trees:
-        for tree in self.dag_splitter.split_dag(root, context.frame):
-            reporter.message(str(tree))
-
-            if tree.name in ['EXIT', 'ENTRY']:
-                continue
-
+        for tree in trees:
             # Invoke dynamic programming matcher machinery:
             self.tree_selector.gen(context, tree)
-
-    def select(self, ir_function, frame, function_info, reporter):
-        """ Select instructions of function into a frame """
-        assert isinstance(ir_function, ir.Function)
-        self.logger.debug(
-            'Creating selection dag for {}'.format(ir_function.name))
-
-        # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.target)
-
-        # Create selection dag (directed acyclic graph):
-        sdag = self.dag_builder.build(ir_function, function_info)
-
-        reporter.message('Selection graph for {}'.format(ir_function))
-        reporter.dump_sgraph(sdag)
-
-        # Process one basic block at a time:
-        for ir_block in ir_function:
-            # emit label of block:
-            context.emit(function_info.label_map[ir_block])
-
-            # Eat dag:
-            reporter.message(str(ir_block))
-            root = function_info.block_roots[ir_block]
-            self.munch_dag(context, root, reporter)
-
-            # Emit code between blocks:
-            frame.between_blocks()
-
-        # Generate code for return statement:
-        # TODO: return value must be implemented in some way..
-        # self.munchStm(ir.Move(self.frame.rv, f.return_value))

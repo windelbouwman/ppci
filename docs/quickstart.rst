@@ -61,6 +61,15 @@ Instead of for a board you can compile into a native linux binary:
     $ ppci-build.py
     $ ./hello
 
+Or run the snake demo under linux natively instead of on qemu:
+
+.. code:: bash
+
+    $ cd examples/linux64/snake
+    $ ppci-build.py
+    $ ./snake
+
+
 Windows
 ~~~~~~~
 

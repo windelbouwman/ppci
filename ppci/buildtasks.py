@@ -46,18 +46,28 @@ class ConstructTask(Task):
         construct(project)
 
 
+class OutputtingTask(Task):
+    """ Base task for tasks that create an object file """
+
+    def store_object(self, obj):
+        """ Store the object in the specified file """
+        output_filename = self.relpath(self.get_argument('output'))
+        self.ensure_path(output_filename)
+        with open(output_filename, 'w') as output_file:
+            obj.save(output_file)
+
+
 @register_task("assemble")
-class AssembleTask(Task):
+class AssembleTask(OutputtingTask):
     """ Task that can runs the assembler over the source and enters the
         output into an object file """
 
     def run(self):
         target = self.get_argument('target')
         source = self.relpath(self.get_argument('source'))
-        output_filename = self.relpath(self.get_argument('output'))
 
         try:
-            output = asm(source, target)
+            obj = asm(source, target)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:
@@ -65,66 +75,47 @@ class AssembleTask(Task):
         except OSError as err:
             raise TaskError('Error:' + str(err))
 
-        # Write results:
-        self.ensure_path(output_filename)
-        with open(output_filename, 'w') as output_file:
-            output.save(output_file)
+        self.store_object(obj)
         self.logger.debug('Assembling finished')
 
 
 @register_task("compile")
-class C3cTask(Task):
+class C3cTask(OutputtingTask):
     """ Task that compiles C3 source for some target into an object file """
     def run(self):
         target = self.get_argument('target')
         sources = self.open_file_set(self.arguments['sources'])
-        output_filename = self.relpath(self.get_argument('output'))
         if 'includes' in self.arguments:
             includes = self.open_file_set(self.arguments['includes'])
         else:
             includes = []
 
-        reporter = DummyReportGenerator()
-        if 'listing' in self.arguments:
-            lst_file = self.relpath(self.arguments['listing'])
-            lst_file = open(lst_file, 'w')
-        else:
-            lst_file = None
-
         if 'report' in self.arguments:
             report_file = self.relpath(self.arguments['report'])
             reporter = HtmlReportGenerator(open(report_file, 'w'))
+        else:
+            reporter = DummyReportGenerator()
 
         with complete_report(reporter):
-            output = c3c(sources, includes, target, reporter=reporter)
+            obj = c3c(sources, includes, target, reporter=reporter)
 
-        if lst_file is not None:
-            lst_file.close()
-
-        # Store output:
-        self.ensure_path(output_filename)
-        with open(output_filename, 'w') as output_file:
-            output.save(output_file)
+        self.store_object(obj)
 
 
 @register_task("link")
-class LinkTask(Task):
+class LinkTask(OutputtingTask):
     """ Link together a collection of object files """
     def run(self):
         layout = self.relpath(self.get_argument('layout'))
         target = self.get_argument('target')
         objects = self.open_file_set(self.get_argument('objects'))
-        output_filename = self.relpath(self.get_argument('output'))
 
         try:
-            output_obj = link(objects, layout, target, use_runtime=True)
+            obj = link(objects, layout, target, use_runtime=True)
         except CompilerError as err:
             raise TaskError(err.msg)
 
-        # Store output:
-        self.ensure_path(output_filename)
-        with open(output_filename, 'w') as output_file:
-            output_obj.save(output_file)
+        self.store_object(obj)
 
 
 @register_task("objcopy")

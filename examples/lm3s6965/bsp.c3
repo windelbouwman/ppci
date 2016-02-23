@@ -60,7 +60,7 @@ function void boot()
     global_tick = 0;
 
     NVIC->EN0 |= (1 << 15); // Enable interrupt on systick
-    SYSTICK->STRELOAD = 0x100000;
+    SYSTICK->STRELOAD = 0x1000;
     SYSTICK->STCTRL |= 7; // enable
 
     // enter main app:
@@ -71,6 +71,14 @@ function void systick_isr()
 {
     global_tick += 1;
     // putc(67);
+}
+
+public function void sleep(int ms)
+{
+    var int x = global_tick + ms;
+    while (x > global_tick)
+    {
+    }
 }
 
 function void exit()
