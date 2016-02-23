@@ -173,7 +173,7 @@ def run_msp430_mem(x):
         ['./simv'], cwd=workdir,
         stdout=subprocess.PIPE)
 
-    outs, _ = sim_proc.communicate(10)
+    outs, _ = sim_proc.communicate(200)
     print(outs)
 
     # read file:
