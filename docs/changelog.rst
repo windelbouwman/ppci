@@ -2,8 +2,12 @@
 Changelog
 =========
 
-Release 0.3.0 (Upcoming)
+Release 0.4.0 (Upcoming)
 ------------------------
+
+
+Release 0.3.0 (Feb 23, 2016)
+----------------------------
 
 * Added risc v architecture
 * Moved thumb into arm arch

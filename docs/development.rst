@@ -101,13 +101,13 @@ Release procedure
 
 Make sure all tests pass before a release.
 
-
 Package and upload the python package with:
 
 .. code:: bash
 
     $ hg update release
     $ hg merge default
+    # Check version number
     $ tox
     $ hg tag x.y.z
     $ hg update x.y.z
