@@ -7,6 +7,7 @@ Release 0.3.0 (Upcoming)
 
 * Added risc v architecture
 * Moved thumb into arm arch
+* msp430 improvements
 
 Release 0.2.0 (Jan 23, 2016)
 ----------------------------
