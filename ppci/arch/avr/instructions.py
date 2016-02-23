@@ -645,6 +645,16 @@ def pattern_and16(context, tree, c0, c1):
     return d
 
 
+@avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', cost=8)
+def pattern_or16(context, tree, c0, c1):
+    d = context.new_reg(AvrPseudo16Register)
+    context.move(d.lo, c0.lo)
+    context.move(d.hi, c0.hi)
+    context.emit(Or(d.lo, c1.lo))
+    context.emit(Or(d.hi, c1.hi))
+    return d
+
+
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', cost=8)
 def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)

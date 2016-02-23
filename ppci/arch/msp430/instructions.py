@@ -95,6 +95,16 @@ class Dst(Constructor):
             return u16(self.imm)
         return bytes()
 
+    @property
+    def is_reg_target(self):
+        """ Is the register contents targeted? """
+        return self.Ad == 0
+
+    @property
+    def is_special(self):
+        # TODO: make this more specialized
+        return self.reg in [r0, r2, r3]
+
 
 class RegDst(Dst):
     syntax = Syntax([Dst.reg], set_props={Dst.Ad: 0})
@@ -127,6 +137,16 @@ class Src(Constructor):
             return u16(self.imm)
         return bytes()
 
+    @property
+    def is_reg_target(self):
+        """ Is the register contents targeted? """
+        return self.As == 0
+
+    @property
+    def is_special(self):
+        # TODO: make this more specialized
+        return self.reg in [r0, r2, r3]
+
 
 class ConstSrc(Src):
     """ Equivalent to @PC+ """
@@ -144,7 +164,7 @@ class ConstLabelSrc(Src):
 
 class SmallConstSrc(Src):
     """ Equivalent to @PC+ """
-    syntax = Syntax(['#', Src.imm], priority=2, set_props={Src.reg: r3})
+    syntax = Syntax(['#', Src.imm], priority=2)
 
 
 def small_const_src(x):
@@ -193,20 +213,6 @@ class MemSrcOffset(Src):
 class Msp430Instruction(Instruction):
     isa = isa
     tokens = [Msp430Token]
-
-
-# Data instructions:
-
-class Dcd2(Msp430Instruction):
-    v = register_argument('v', str)
-    syntax = Syntax(['dcd', '=', v])
-
-    def encode(self):
-        self.token1[0:16] = 0
-        return self.token1.encode()
-
-    def relocations(self):
-        return [(self.v, apply_abs16_imm0)]
 
 
 #########################
@@ -261,7 +267,7 @@ class OneOpArith(Msp430Instruction):
             yield (self.src.addr, apply_abs16_imm1)
 
 
-def one_op_instruction(mne, opcode, b=0):
+def one_op_instruction(mne, opcode, b=0, src_write=True):
     """ Helper function to define a one operand arithmetic instruction """
     src = register_argument('src', Src)
     if b:
@@ -277,8 +283,8 @@ Swpb = one_op_instruction('swpb', 1)
 Rraw = one_op_instruction('rra', 2, b=0)
 Rrab = one_op_instruction('rra', 2, b=1)
 Sxt = one_op_instruction('sxt', 3)
-Push = one_op_instruction('push', 4)
-Call = one_op_instruction('call', 5)
+Push = one_op_instruction('push', 4, src_write=False)
+Call = one_op_instruction('call', 5, src_write=False)
 
 
 class Reti(Msp430Instruction):
@@ -294,7 +300,7 @@ class Reti(Msp430Instruction):
 #########################
 
 
-class TwoOpArith(Msp430Instruction):
+class TwoOpArithInstruction(Msp430Instruction):
     def encode(self):
         """
             Smart things have been done by MSP430 designers.
@@ -324,27 +330,60 @@ class TwoOpArith(Msp430Instruction):
             else:
                 yield (self.dst.addr, apply_abs16_imm1)
 
+    @property
+    def used_registers(self):
+        s = []
+        # Source:
+        if not self.src.is_special:
+            if self.src.is_reg_target:
+                s.append(self.src.reg)
+            else:
+                s.append(self.src.reg)
 
-def two_op_ins(mne, opc, b=0):
+        # Dst:
+        if not self.src.is_special:
+            if self.dst.is_reg_target:
+                if self.dst_read:
+                    s.append(self.dst.reg)
+            else:
+                s.append(self.dst.reg)
+        s.extend(self.extra_uses)
+        return s
+
+    @property
+    def defined_registers(self):
+        s = []
+        if self.dst.is_reg_target and not self.dst.is_special:
+            if self.dst_write:
+                s.append(self.dst.reg)
+        s.extend(self.extra_defs)
+        return s
+
+
+def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
     """ Helper function to define a two operand arithmetic instruction """
     src = register_argument('src', Src)
     dst = register_argument('dst', Dst)
     mne += '.b' if b else '.w'
     syntax = Syntax([mne, src, ',', dst])
-    members = {'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax, 'b': b}
-    return type(mne + '_ins', (TwoOpArith,), members)
+    members = {
+        'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax,
+        'b': b, 'dst_read': dst_read, 'dst_write': dst_write
+        }
+    return type(mne + '_ins', (TwoOpArithInstruction,), members)
 
 
-Mov = two_op_ins('mov', 4)
-Movb = two_op_ins('mov', 4, b=1)
+Mov = two_op_ins('mov', 4, dst_read=False)
+Movb = two_op_ins('mov', 4, b=1, dst_read=False)
 Add = two_op_ins('add', 5)
 Addc = two_op_ins('addc', 6)
 Subc = two_op_ins('subc', 7)
 Sub = two_op_ins('sub', 8)
-Cmp = two_op_ins('cmp', 9)
+Cmp = two_op_ins('cmp', 9, dst_write=False)
+Cmpb = two_op_ins('cmp', 9, b=1, dst_write=False)
 Dadd = two_op_ins('dadd', 10)
-Bit = two_op_ins('bit', 11)
-Bitb = two_op_ins('bit', 11, b=1)
+Bit = two_op_ins('bit', 11, dst_write=False)
+Bitb = two_op_ins('bit', 11, b=1, dst_write=False)
 Bicw = two_op_ins('bic', 12)
 Bicb = two_op_ins('bic', 12, b=1)
 Bisw = two_op_ins('bis', 13)
@@ -385,8 +424,9 @@ def clrz():
     return Bicw(small_const_src(2), RegDst(r2))
 
 
-def push(src):
-    return Push(RegSrc(src))
+def push(reg):
+    """ Push register helper """
+    return Push(RegSrc(reg))
 
 
 def call(label):
@@ -402,7 +442,7 @@ def mov(src, dst):
 # -- for instruction selection:
 
 @isa.pattern('stm', 'JMP', cost=2)
-def _(self, tree):
+def pattern_jmp(self, tree):
     tgt = tree.value
     self.emit(Jmp(tgt.name, jumps=[tgt]))
 
@@ -410,11 +450,16 @@ def _(self, tree):
 @isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
 def pattern_cjmp(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
-    opnames = {"<": Jl, ">": Jc, "==": Jz, "!=": Jne, ">=": Jge}
-    op = opnames[op]
+    opnames = {"<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge}
+    op_ins = opnames[op]
+    if op in ['>']:
+        # Swap operands here!
+        # This is really hairy code, but it should work!
+        lhs, rhs = rhs, lhs
     jmp_ins = Jmp(false_tgt.name, jumps=[false_tgt])
-    context.emit(Cmp(RegSrc(lhs), RegDst(rhs)))
-    context.emit(op(true_tgt.name, jumps=[true_tgt, jmp_ins]))
+    # cmp does a dummy dst - src
+    context.emit(Cmp(RegSrc(rhs), RegDst(lhs)))
+    context.emit(op_ins(true_tgt.name, jumps=[true_tgt, jmp_ins]))
     context.emit(jmp_ins)
 
 
@@ -482,6 +527,14 @@ def pattern_and16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
     context.emit(And(RegSrc(c1), RegDst(dst)))
+    return dst
+
+
+@isa.pattern('reg', 'ORI16(reg, reg)', cost=4)
+def pattern_or16(context, tree, c0, c1):
+    dst = context.new_reg(Msp430Register)
+    context.emit(mov(c0, dst))
+    context.emit(Bisw(RegSrc(c1), RegDst(dst)))
     return dst
 
 

@@ -129,13 +129,13 @@
 //        - NMI interrupt edge selection
 //        - Possibility to generate a software PUC reset
 //-------------------------------------------------------
-`define WATCHDOG
+//`define WATCHDOG
 
 
 //-------------------------------------------------------
 // Include/Exclude DMA interface support
 //-------------------------------------------------------
-`define DMA_IF_EN
+//`define DMA_IF_EN
 
 
 //-------------------------------------------------------

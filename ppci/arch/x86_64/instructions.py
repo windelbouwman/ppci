@@ -494,6 +494,7 @@ class rmregbase(X86Instruction):
 
 def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True,
                 reg_class=X86Register):
+    """ Create instruction class rm, reg """
     rm = register_argument('rm', Rm)
     reg = register_argument('reg', reg_class, read=True)
     syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
@@ -515,6 +516,7 @@ def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True,
 AddRmReg = make_rm_reg('add', 0x1)
 AddRegRm = make_reg_rm('add', 0x3)
 OrRmReg = make_rm_reg('or', 0x9)
+OrRegRm = make_reg_rm('or', 0xb)
 AndRmReg = make_rm_reg('and', 0x21)
 AndRegRm = make_reg_rm('and', 0x23)
 SubRmReg = make_rm_reg('sub', 0x29)
@@ -667,7 +669,7 @@ class MovAdr(X86Instruction):
 
 
 @isa.pattern('stm', 'JMP', cost=2)
-def _(context, tree):
+def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(NearJump(tgt.name, jumps=[tgt]))
 
@@ -797,6 +799,14 @@ def pattern_and64_const(context, tree, c0):
     return d
 
 
+@isa.pattern('reg64', 'ORI64(reg64, reg64)', cost=4)
+def pattern_or64(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(OrRegRm(d, RmReg(c1)))
+    return d
+
+
 @isa.pattern('reg64', 'SHRI64(reg64, reg64)', cost=2)
 def pattern_shr64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
@@ -807,7 +817,7 @@ def pattern_shr64(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'SHLI64(reg64, reg64)', cost=2)
-def pattern_shr64(context, tree, c0, c1):
+def pattern_shl64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.move(rcx, c1)
@@ -821,7 +831,7 @@ def pattern_reg64_(context, tree):
 
 
 @isa.pattern('reg64', 'MOVI64(LABEL)', cost=2)
-def _(context, tree):
+def pattern_mov64_label(context, tree):
     label = tree.children[0].value
     context.emit(MovAdr(tree.value, label))
     return tree.value

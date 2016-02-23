@@ -7,7 +7,7 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, relpath, run_python
+from util import run_qemu, has_qemu, relpath, run_python, run_msp430_mem
 from ppci.api import asm, c3c, link, objcopy, bfcompile
 from ppci.api import c3toir, bf2ir, ir_to_python
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
@@ -42,6 +42,22 @@ class SimpleSamples:
         assumed here. So should run on 64 and 32 and 16 bit machines.
     """
 
+    def test_bsp_putc(self):
+        """ Test if bsp putc works """
+        snippet = """
+         module main;
+         import bsp;
+         function void main()
+         {
+            bsp.putc(65);
+            bsp.putc(66);
+            bsp.putc(67);
+            bsp.putc(68);
+            bsp.putc(69);
+         }
+        """
+        self.do(snippet, "ABCDE")
+
     def test_print(self):
         """ Test if print statement works """
         snippet = """
@@ -54,6 +70,35 @@ class SimpleSamples:
         """
         self.do(snippet, "Hello world")
 
+    def test_sw_mul(self):
+        """ Test software multiplication algorithm """
+        snippet = """
+        module main;
+        import io;
+        function int smul(int a, int b)
+        {
+          var int res = 0;
+          while (b > 0)
+          {
+            if ((b & 1) == 1)
+            {
+              res += a;
+            }
+            a = a << 1;
+            b = b >> 1;
+          }
+          return res;
+        }
+
+        function void main()
+        {
+          io.print2("10*5=", smul(10, 5));
+          io.print2("13*6=", smul(13, 6));
+          io.print2("31*7=", smul(31, 7));
+        }
+        """
+        self.do(snippet, '10*5=0x00000032\n13*6=0x0000004E\n31*7=0x000000D9\n')
+
     def test_sw_div(self):
         """ Test software division algorithm """
         snippet = """
@@ -62,21 +107,23 @@ class SimpleSamples:
         function int sdiv(int num, int den)
         {
           var int res = 0;
-          var int tmp = den;
-          while (tmp < num)
+          var int current = 1;
+
+          while (den < num)
           {
-            tmp = tmp << 1;
+            den = den << 1;
+            current = current << 1;
           }
 
-          while (tmp > den)
+          while (current != 0)
           {
-            if (num >= tmp)
+            if (num >= den)
             {
-              num -= tmp;
-              res += 1;
+              num -= den;
+              res = res | current;
             }
-            tmp = tmp >> 1;
-            res = res << 1;
+            den = den >> 1;
+            current = current >> 1;
           }
           return res;
         }
@@ -86,9 +133,13 @@ class SimpleSamples:
           io.print2("10/5=", sdiv(10, 5));
           io.print2("13/6=", sdiv(13, 6));
           io.print2("31/7=", sdiv(31, 7));
+          io.print2("10/2=", sdiv(10, 2));
         }
         """
-        self.do(snippet, '10/5=0x00000002\n13/6=0x00000002\n31/7=0x00000004\n')
+        self.do(
+            snippet,
+            '10/5=0x00000002\n13/6=0x00000002\n'
+            '31/7=0x00000004\n10/2=0x00000005\n')
 
     def test_if_statement(self):
         """ Test if the if statement is works """
@@ -847,10 +898,14 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         with open(base_filename + '.bin', 'wb') as f:
             f.write(rom_data)
 
-        with open(base_filename + '.mem', 'w') as f:
+        mem_file = base_filename + '.mem'
+        with open(mem_file, 'w') as f:
             for i in range(len(rom_data) // 2):
                 w = rom_data[2*i:2*i+2]
                 print('%02x%02x' % (w[1], w[0]), file=f)
+        if 'MSP' in os.environ:
+            res = run_msp430_mem(mem_file)
+            self.assertEqual(expected_output, res)
 
 
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):

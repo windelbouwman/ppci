@@ -4,6 +4,7 @@ import unittest
 import io
 from ppci.binutils.layout import load_layout
 from test_asm import AsmTestCaseBase
+from ppci.arch.msp430 import instructions, registers
 
 
 class Msp430AssemblerTestCase(AsmTestCaseBase):
@@ -133,6 +134,44 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed('jne a')
         self.feed('jne a')
         self.check('0120 0020 ff23 fe23')
+
+
+class Msp430InstructionUseDef(unittest.TestCase):
+    """ Test instruction use def info """
+    def test_cmp(self):
+        cp = instructions.Cmp(
+            instructions.RegSrc(registers.r4),
+            instructions.RegDst(registers.r5))
+        self.assertEqual([registers.r4, registers.r5], cp.used_registers)
+        self.assertEqual([], cp.defined_registers)
+
+    def test_mov_reg_mem(self):
+        mv = instructions.Mov(
+            instructions.RegSrc(registers.r4),
+            instructions.MemDst(10, registers.r5))
+        self.assertEqual([registers.r4, registers.r5], mv.used_registers)
+        self.assertEqual([], mv.defined_registers)
+
+    def test_mov_regs(self):
+        mv = instructions.Mov(
+            instructions.RegSrc(registers.r4),
+            instructions.RegDst(registers.r5))
+        self.assertEqual([registers.r4], mv.used_registers)
+        self.assertEqual([registers.r5], mv.defined_registers)
+
+    def test_mov_mem_mem(self):
+        mv = instructions.Mov(
+            instructions.MemSrcOffset(20, registers.r4),
+            instructions.MemDst(10, registers.r5))
+        self.assertEqual([registers.r4, registers.r5], mv.used_registers)
+        self.assertEqual([], mv.defined_registers)
+
+    def test_add_regs(self):
+        mv = instructions.Add(
+            instructions.RegSrc(registers.r4),
+            instructions.RegDst(registers.r5))
+        self.assertEqual([registers.r4, registers.r5], mv.used_registers)
+        self.assertEqual([registers.r5], mv.defined_registers)
 
 
 if __name__ == '__main__':

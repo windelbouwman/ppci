@@ -158,6 +158,31 @@ def run_python(kernel):
     return outs
 
 
+def run_msp430_mem(x):
+    """
+        Try to run the given memory file in the openmsp430 iverilog project.
+    """
+    # copy mem file:
+    print(x)
+    pmem = relpath('..', 'examples', 'msp430', 'test_system', 'pmem.mem')
+    shutil.copyfile(x, pmem)
+
+    # run verilog:
+    workdir = relpath('..', 'examples', 'msp430', 'test_system')
+    sim_proc = subprocess.Popen(
+        ['./simv'], cwd=workdir,
+        stdout=subprocess.PIPE)
+
+    outs, _ = sim_proc.communicate(10)
+    print(outs)
+
+    # read file:
+    of = relpath('..', 'examples', 'msp430', 'test_system', 'output.txt')
+    with open(of, 'r') as f:
+        data = f.read()
+    return data
+
+
 def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):
     """ Helper function to feed source through gnu assembling tools """
     prefix = 'arm-none-eabi-'

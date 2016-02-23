@@ -73,21 +73,23 @@ def get_runtime():
         function int __div(int num, int den)
         {
           var int res = 0;
-          var int tmp = den;
-          while (tmp < num)
+          var int current = 1;
+
+          while (den < num)
           {
-            tmp = tmp << 1;
+            den = den << 1;
+            current = current << 1;
           }
 
-          while (tmp > den)
+          while (current != 0)
           {
-            if (num >= tmp)
+            if (num >= den)
             {
-              num -= tmp;
-              res += 1;
+              num -= den;
+              res = res | current;
             }
-            tmp = tmp >> 1;
-            res = res << 1;
+            den = den >> 1;
+            current = current >> 1;
           }
           return res;
         }
