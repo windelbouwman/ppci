@@ -9,6 +9,7 @@ class RegisterModel(QtCore.QAbstractTableModel):
         self.debugger.connection_event.subscribe(self.on_connection)
         self.debugger.state_event.subscribe(self.on_state_changed)
         self.headers = ('Register', 'Value')
+        self.on_state_changed()
 
     def on_connection(self):
         self.modelReset.emit()
@@ -72,6 +73,7 @@ class RegisterView(QtWidgets.QTableView):
         self.debugger.connection_event.subscribe(self.update_state)
         self.debugger.state_event.subscribe(self.update_state)
         self.update_state()
+        self.horizontalHeader().setStretchLastSection(True)
 
     def update_state(self):
         if self.debugger.is_connected:

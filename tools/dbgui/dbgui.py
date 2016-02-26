@@ -19,6 +19,7 @@ from codeedit import CodeEdit
 from logview import LogView as BuildOutput
 from regview import RegisterView
 from memview import MemoryView
+from disasm import Disassembly
 from dbgtoolbar import DebugToolbar
 from connectiontoolbar import ConnectionToolbar
 from linux64debugserver import LinuxDebugServer
@@ -83,9 +84,8 @@ class DebugUi(QtWidgets.QMainWindow):
     def __init__(self, debugger, parent=None):
         super().__init__(parent)
         self.debugger = debugger
-        self.logger = logging.getLogger('ide')
-
-        self.setWindowTitle('LCFOS IDE')
+        self.logger = logging.getLogger('dbgui')
+        self.setWindowTitle('PPCI DBGUI')
 
         # Create menus:
         mb = self.menuBar()
@@ -116,13 +116,13 @@ class DebugUi(QtWidgets.QMainWindow):
         self.builderrors.sigErrorSelected.connect(lambda err: self.showLoc(err.loc))
         # self.devxplr = addComponent('Device explorer', stutil.DeviceExplorer())
         self.regview = addComponent('Registers', RegisterView(self.debugger))
-        self.memview = addComponent('Memory', MemoryView())
-        # self.disasm = addComponent('Disasm', Disassembly())
+        self.memview = addComponent('Memory', MemoryView(self.debugger))
+        self.disasm = addComponent('Disasm', Disassembly(self.debugger))
         #self.connectionToolbar = ConnectionToolbar(self.debugger)
         #self.addToolBar(self.connectionToolbar)
         self.ctrlToolbar = DebugToolbar(self.debugger)
         self.addToolBar(self.ctrlToolbar)
-        #self.ctrlToolbar.setObjectName('debugToolbar')
+        self.ctrlToolbar.setObjectName('debugToolbar')
         #self.devxplr.deviceSelected.connect(self.regview.mdl.setDevice)
         #self.ctrlToolbar.statusChange.connect(self.memview.refresh)
         #self.devxplr.deviceSelected.connect(self.memview.setDevice)
@@ -259,7 +259,7 @@ if __name__ == '__main__':
     dut = '../../test/listings/testsamplesTestSamplesOnX86Linuxtestswdiv.elf'
     logging.basicConfig(format=ppci.common.logformat, level=logging.DEBUG)
     app = QtWidgets.QApplication(sys.argv)
-    # TODO: couple this other way:
+    # TODO: couple this other way, and make it configurable:
     linux_specific = LinuxDebugServer()
     linux_specific.go_for_it([dut])
     debugger = Debugger('x86_64', linux_specific)

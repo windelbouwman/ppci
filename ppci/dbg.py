@@ -9,6 +9,8 @@ import logging
 import xmlrpc.client
 import xmlrpc.server
 from .api import fix_target
+from .disasm import Disassembler
+from .binutils.outstream import RecordingOutputStream
 
 
 # States:
@@ -37,6 +39,7 @@ class Debugger:
     """
     def __init__(self, arch, target_connector):
         self.arch = fix_target(arch)
+        self.disassembler = Disassembler(arch)
         self.server = target_connector
         self.logger = logging.getLogger('dbg')
         self.connection_event = SubscribleEvent()
@@ -48,8 +51,9 @@ class Debugger:
         self.state_event.subscribe(self.on_halted)
 
     def on_halted(self):
-        new_values = self.get_register_values(self.register_names)
-        self.register_values.update(new_values)
+        if self.is_halted:
+            new_values = self.get_register_values(self.register_names)
+            self.register_values.update(new_values)
 
     # Connection:
     def connect(self, uri):
@@ -110,6 +114,25 @@ class Debugger:
     def set_register(self, register, value):
         self.logger.info('Setting register {} to {}'.format(register, value))
         # TODO!
+
+    # Memory:
+    def read_mem(self, address, size):
+        return self.server.read_mem(address, size)
+
+    # Disassembly:
+    def get_pc(self):
+        """ Get the program counter """
+        return self.server.get_pc()
+
+    def get_disasm(self):
+        """ Get instructions around program counter """
+        loc = self.get_pc()
+        address = loc - 20
+        data = self.read_mem(address, 40)
+        instructions = []
+        outs = RecordingOutputStream(instructions)
+        self.disassembler.disasm(data, outs, address=address)
+        return instructions
 
 
 class DebugServer:

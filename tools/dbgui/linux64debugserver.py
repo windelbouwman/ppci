@@ -16,10 +16,14 @@ Usage example:
 import os
 import sys
 import ctypes
+import struct
 from ppci.dbg import DebugServer, RUNNING, STOPPED
 
 libc = ctypes.CDLL('libc.so.6')
 PTRACE_TRACEME = 0
+PTRACE_PEEKTEXT = 1
+PTRACE_PEEKDATA = 2
+PTRACE_CONT = 7
 PTRACE_SINGLESTEP = 9
 PTRACE_GETREGS = 12
 
@@ -83,6 +87,11 @@ class LinuxDebugServer(DebugServer):
         return self.status
 
     @stopped
+    def run(self):
+        libc.ptrace(PTRACE_CONT, self.pid, 0, 0)
+        self.status = RUNNING
+
+    @stopped
     def step(self):
         self.status = RUNNING
         libc.ptrace(PTRACE_SINGLESTEP, self.pid, 0, 0)
@@ -93,8 +102,11 @@ class LinuxDebugServer(DebugServer):
 
     @running
     def stop(self):
-        raise NotImplementedError()
+        print("TODO!")
 
+        #raise NotImplementedError()
+
+    # Registers
     @stopped
     def get_registers(self, register_names):
         assert self.status == STOPPED
@@ -105,6 +117,26 @@ class LinuxDebugServer(DebugServer):
             if hasattr(regs, reg_name):
                 res[reg_name] = getattr(regs, reg_name)
         return res
+
+    # memory:
+    def read_mem(self, address, size):
+        res = bytearray()
+        a2 = address + size
+        while address < a2:
+            part = self.read_word(address)
+            address += len(part)
+            res.extend(part)
+        return bytes(res)
+
+    def read_word(self, address):
+        res = libc.ptrace(PTRACE_PEEKDATA, self.pid, address, 0)
+        print(address, res)
+        return struct.pack('<i', res)
+
+    # Disasm:
+    def get_pc(self):
+        v = self.get_registers(['rip'])
+        return v['rip']
 
 
 def wifstopped(status):

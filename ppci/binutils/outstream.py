@@ -65,6 +65,18 @@ class BinaryOutputStream(OutputStream):
         self.currentSection = self.obj_file.get_section(sname)
 
 
+class RecordingOutputStream(OutputStream):
+    """ Stream that appends instructions to list """
+    def __init__(self, bag):
+        self.bag = bag
+
+    def emit(self, item):
+        self.bag.append(item)
+
+    def select_section(self, sname):
+        pass
+
+
 class DummyOutputStream(OutputStream):
     """ Stream that does nothing """
     def emit(self, item):
