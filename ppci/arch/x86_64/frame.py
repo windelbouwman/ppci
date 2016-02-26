@@ -1,4 +1,4 @@
-from ..target import Frame, Label
+from ..arch import Frame, Label
 from .registers import rbx, rcx, rdx, rbp, rsp
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
 from .registers import rdi, rsi, get_register

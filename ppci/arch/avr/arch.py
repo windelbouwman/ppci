@@ -3,9 +3,9 @@
 """
 import io
 from ... import api
-from ..target import Target, Label
-from ..target import Alignment
-from ..target import Frame, VCall
+from ..arch import Architecture, Label
+from ..arch import Alignment
+from ..arch import Frame, VCall
 from ...ir import i8, i16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
@@ -20,7 +20,7 @@ from .registers import r24, r25, X, Y, Z
 from .registers import get_register
 
 
-class AvrArch(Target):
+class AvrArch(Architecture):
     """
         Check this site for good info:
         - https://gcc.gnu.org/wiki/avr-gcc

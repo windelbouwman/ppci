@@ -10,7 +10,7 @@ import logging
 import re
 from .. import ir
 from ..arch.isa import Register
-from ..arch.target import Label
+from ..arch.arch import Label
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 from ..utils.tree import Tree
 

@@ -8,16 +8,16 @@ from .arm import ArmArch
 from .avr import AvrArch
 from .msp430 import Msp430Arch
 from .x86_64 import X86_64Arch
-from .mos6500 import Mos6500Target
-from .riscv import RiscvTarget
+from .mos6500 import Mos6500Arch
+from .riscv import RiscvArch
 
 
 target_classes = [
     ArmArch,
     AvrArch,
-    Mos6500Target,
+    Mos6500Arch,
     Msp430Arch,
-    RiscvTarget,
+    RiscvArch,
     X86_64Arch]
 
 

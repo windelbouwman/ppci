@@ -1,1 +1,1 @@
-from .target import RiscvTarget
+from .arch import RiscvArch

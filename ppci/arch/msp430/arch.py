@@ -3,14 +3,13 @@ MSP430 architecture description.
 """
 
 import io
-from ..target import Target, VCall
+from ..arch import Architecture, VCall
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
 from ...ir import i8, i16, ptr
 from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
 from ..data_instructions import data_isa
 from .frame import Msp430Frame
 from ...binutils.assembler import BaseAssembler
-from ... import api  # Circular import, but this is possible!
 from ...utils.reporting import HtmlReportGenerator, complete_report
 from ...utils.reporting import DummyReportGenerator
 
@@ -48,6 +47,8 @@ def get_runtime():
     """ Compiles the runtime support for msp430. It takes some c3 code and
         some assembly helpers.
     """
+    # Circular import, but this is possible!
+    from ...api import asm, c3c, link
     asm_src = """
                          ; Shift left helper:
         __shl_a:
@@ -118,13 +119,13 @@ def get_runtime():
     # report_generator = HtmlReportGenerator(open('msp430.html', 'w'))
     report_generator = DummyReportGenerator()
     with complete_report(report_generator) as reporter:
-        obj1 = api.asm(io.StringIO(asm_src), march)
-        obj2 = api.c3c([io.StringIO(c3_src)], [], march, reporter=reporter)
-        obj = api.link([obj1, obj2], layout, march, partial_link=True)
+        obj1 = asm(io.StringIO(asm_src), march)
+        obj2 = c3c([io.StringIO(c3_src)], [], march, reporter=reporter)
+        obj = link([obj1, obj2], layout, march, partial_link=True)
     return obj
 
 
-class Msp430Arch(Target):
+class Msp430Arch(Architecture):
     """ Texas Instruments msp430 target architecture """
     name = 'msp430'
 

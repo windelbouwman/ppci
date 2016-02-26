@@ -3,7 +3,7 @@
 """
 
 import io
-from ..target import Target, VCall
+from ..arch import Architecture, VCall
 from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
@@ -13,7 +13,7 @@ from .registers import all_registers
 from .frame import X86Frame
 
 
-class X86_64Arch(Target):
+class X86_64Arch(Architecture):
     """ x86_64 architecture """
     name = 'x86_64'
     option_names = ('sse2', 'sse3')

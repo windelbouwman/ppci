@@ -4,12 +4,12 @@
 """
 
 from .isa import Instruction, Syntax
-from .target import Target, Frame
+from .arch import Architecture, Frame
 from .isa import register_argument, Register
 from ..import ir
 
 
-class SimpleTarget(Target):
+class SimpleTarget(Architecture):
     name = 'simple'
     FrameClass = Frame
 

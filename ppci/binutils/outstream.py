@@ -5,7 +5,7 @@
 
 import logging
 from ..arch.isa import Instruction
-from ..arch.target import Alignment
+from ..arch.arch import Alignment
 
 
 class OutputStream:

@@ -1,5 +1,5 @@
-from ..target import Label, Alignment
-from ..target import Frame
+from ..arch import Label, Alignment
+from ..arch import Frame
 from .instructions import Add2, Sub2, Push, Pop, Mov2, Bl, NoShift
 from ..data_instructions import Db, Dd, Dcd2
 from .instructions import RegisterSet

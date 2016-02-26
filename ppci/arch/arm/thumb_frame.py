@@ -1,4 +1,4 @@
-from ..target import Label, Alignment, Frame
+from ..arch import Label, Alignment, Frame
 from .thumb_instructions import AddSp, SubSp, Push, Pop, Mov2, Bl
 from ..data_instructions import Db, Dd, Dcd2
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP

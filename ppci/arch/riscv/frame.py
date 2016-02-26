@@ -1,5 +1,4 @@
-from ..target import Label, Alignment
-from ..target import Frame
+from ..arch import Label, Alignment, Frame
 from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw, Blr
 from ..data_instructions import Db
 from .registers import R0, LR, SP, FP

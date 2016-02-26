@@ -2,7 +2,7 @@
     ARM architecture definition.
 """
 import io
-from ..target import Target, Label, VCall
+from ..arch import Architecture, Label, VCall
 from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
@@ -101,7 +101,7 @@ class ThumbAssembler(BaseAssembler):
             ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
-class ArmArch(Target):
+class ArmArch(Architecture):
     """ Arm machine class. """
     name = 'arm'
     option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')

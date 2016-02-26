@@ -6,8 +6,8 @@
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..arch.target import Target, VCall
-from ..arch.target import RegisterUseDef, VirtualInstruction
+from ..arch.arch import Architecture, VCall
+from ..arch.arch import RegisterUseDef, VirtualInstruction
 from ..arch.isa import Instruction
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
@@ -19,7 +19,7 @@ from .registerallocator import RegisterAllocator
 class CodeGenerator:
     """ Machine code generator. """
     def __init__(self, target):
-        assert isinstance(target, Target), target
+        assert isinstance(target, Architecture), target
         self.logger = logging.getLogger('codegen')
         self.target = target
         self.sgraph_builder = SelectionGraphBuilder(target)

@@ -4,7 +4,7 @@
 
 import io
 from ... import api
-from ..target import Target, Label, VCall
+from ..arch import Architecture, Label, VCall
 from .instructions import isa, Mov2
 from .registers import RiscvRegister
 from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12
@@ -41,7 +41,7 @@ class RiscvAssembler(BaseAssembler):
         return label_name
 
 
-class RiscvTarget(Target):
+class RiscvArch(Architecture):
     name = 'riscv'
 
     def __init__(self, options=None):

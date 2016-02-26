@@ -1,6 +1,6 @@
 import unittest
 from ppci.codegen.registerallocator import RegisterAllocator
-from ppci.arch.target import Frame
+from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 
 

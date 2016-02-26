@@ -8,7 +8,7 @@ import logging
 import os
 import stat
 import xml
-from .arch.target import Target
+from .arch.arch import Architecture
 from .c3 import Builder
 from .bf import BrainFuckGenerator
 from .fortran import FortranBuilder
@@ -41,7 +41,7 @@ def fix_target(target_name):
     # TODO: this is ugly, but is works:
     from .arch.target_list import get_arch
     # TODO: fix this recursive import different
-    if isinstance(target_name, Target):
+    if isinstance(target_name, Architecture):
         return target_name
     elif isinstance(target_name, str):
         if ':' in target_name:

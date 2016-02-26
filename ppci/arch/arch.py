@@ -5,7 +5,7 @@ from .data_instructions import Ds
 from ..ir import i8, i16, i32, i64, ptr
 
 
-class Target:
+class Architecture:
     """ Base class for all targets """
     name = None
     desc = None
