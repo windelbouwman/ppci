@@ -21,6 +21,7 @@ from regview import RegisterView
 from memview import MemoryView
 from dbgtoolbar import DebugToolbar
 from connectiontoolbar import ConnectionToolbar
+from linux64debugserver import LinuxDebugServer
 
 
 class BuildErrors(QtWidgets.QTreeView):
@@ -68,8 +69,7 @@ class AboutDialog(QtWidgets.QDialog):
         l = QtWidgets.QVBoxLayout(self)
         txt = QtWidgets.QTextEdit(self)
         txt.setReadOnly(True)
-        with open(abspath(os.path.join('..', '..', 'readme.rst')), 'r') as f:
-            aboutText = f.read()
+        aboutText = "ppci debugger"
         txt.append(aboutText)
         l.addWidget(txt)
         but = QtWidgets.QPushButton('OK')
@@ -78,12 +78,12 @@ class AboutDialog(QtWidgets.QDialog):
         l.addWidget(but)
 
 
-class Ide(QtWidgets.QMainWindow):
-    def __init__(self, parent=None):
-        super(Ide, self).__init__(parent)
-        self.to_open_files = []
+class DebugUi(QtWidgets.QMainWindow):
+    """ Provide a nice gui for this debugger """
+    def __init__(self, debugger, parent=None):
+        super().__init__(parent)
+        self.debugger = debugger
         self.logger = logging.getLogger('ide')
-        self.debugger = Debugger()
 
         self.setWindowTitle('LCFOS IDE')
 
@@ -110,16 +110,16 @@ class Ide(QtWidgets.QMainWindow):
             return widget
 
         self.buildOutput = addComponent('Build output', BuildOutput())
-        #self.astViewer = addComponent('AST viewer', AstViewer())
-        #self.astViewer.sigNodeSelected.connect(lambda node: self.showLoc(node.loc))
+        # self.astViewer = addComponent('AST viewer', AstViewer())
+        # self.astViewer.sigNodeSelected.connect(lambda node: self.showLoc(node.loc))
         self.builderrors = addComponent('Build errors', BuildErrors())
         self.builderrors.sigErrorSelected.connect(lambda err: self.showLoc(err.loc))
         # self.devxplr = addComponent('Device explorer', stutil.DeviceExplorer())
-        self.regview = addComponent('Registers', RegisterView())
+        self.regview = addComponent('Registers', RegisterView(self.debugger))
         self.memview = addComponent('Memory', MemoryView())
-        #self.disasm = addComponent('Disasm', Disassembly())
-        self.connectionToolbar = ConnectionToolbar(self.debugger)
-        self.addToolBar(self.connectionToolbar)
+        # self.disasm = addComponent('Disasm', Disassembly())
+        #self.connectionToolbar = ConnectionToolbar(self.debugger)
+        #self.addToolBar(self.connectionToolbar)
         self.ctrlToolbar = DebugToolbar(self.debugger)
         self.addToolBar(self.ctrlToolbar)
         #self.ctrlToolbar.setObjectName('debugToolbar')
@@ -130,7 +130,6 @@ class Ide(QtWidgets.QMainWindow):
         #self.ctrlToolbar.statusChange.connect(self.regview.refresh)
         #self.ctrlToolbar.codePosition.connect(self.pointCode)
 
-        # About dialog:
         self.aboutDialog = AboutDialog()
 
         # Create actions:
@@ -143,9 +142,6 @@ class Ide(QtWidgets.QMainWindow):
 
         addMenuEntry("New", self.fileMenu, self.newFile, shortcut=QtGui.QKeySequence.New)
         addMenuEntry("Open", self.fileMenu, self.openFile, shortcut=QtGui.QKeySequence.Open)
-        addMenuEntry("Save", self.fileMenu, self.saveFile, shortcut=QtGui.QKeySequence.Save)
-        # addMenuEntry("Build", self.fileMenu, self.buildFile, shortcut="F7")
-        # addMenuEntry("Build and flash", self.fileMenu, self.buildFileAndFlash, shortcut="F8")
 
         self.helpAction = QtWidgets.QAction('Help', self)
         self.helpAction.setShortcut(QtGui.QKeySequence('F1'))
@@ -159,7 +155,6 @@ class Ide(QtWidgets.QMainWindow):
         # Load settings:
         self.settings = QtCore.QSettings('windelsoft', 'lcfoside')
         self.loadSettings()
-        #self.diag = ppci.DiagnosticsManager()
 
     # File handling:
     def newFile(self):
@@ -170,11 +165,6 @@ class Ide(QtWidgets.QMainWindow):
                     "C3 source files (*.c3)")
         if filename:
             self.loadFile(filename[0])
-
-    def saveFile(self):
-        ac = self.activeMdiChild()
-        if ac:
-            ac.save()
 
     def loadFile(self, filename):
         ce = self.newCodeEdit()
@@ -213,29 +203,12 @@ class Ide(QtWidgets.QMainWindow):
             self.restoreState(self.settings.value('mainwindowstate'))
         if self.settings.contains('mainwindowgeometry'):
             self.restoreGeometry(self.settings.value('mainwindowgeometry'))
-        if self.settings.contains('lastfiles'):
-            lfs = self.settings.value('lastfiles')
-            if lfs:
-                self.to_open_files.extend(lfs)
-
-    def showEvent(self, ev):
-        super().showEvent(ev)
-        while self.to_open_files:
-            fn = self.to_open_files.pop(0)
-            self.loadFile(fn)
 
     def closeEvent(self, ev):
         self.settings.setValue('mainwindowstate', self.saveState())
         self.settings.setValue('mainwindowgeometry', self.saveGeometry())
-        ac = self.activeMdiChild()
-        lfs = [ce.FileName for ce in self.allChildren() if ce.FileName]
-        self.settings.setValue('lastfiles', lfs)
-        ev.accept()
 
     # Error handling:
-    def nodeSelected(self, node):
-        self.showLoc(node.loc)
-
     def showLoc(self, loc):
         ce = self.activeMdiChild()
         if not ce:
@@ -261,27 +234,6 @@ class Ide(QtWidgets.QMainWindow):
             self.showLoc(loc)
 
     # Build recepy:
-    def parseFile(self):
-        self.logger.info('Parsing!')
-
-    def doBuild(self):
-        ce = self.activeMdiChild()
-        if not ce:
-            return
-        fn = ce.FileName
-        self.diag.clear()
-        outs = BinaryOutputStream()
-        imps = [open(ce.FileName, 'r') for ce in self.allChildren() if ce.FileName and ce.FileName != fn]
-        if not zcc.zcc([open(fn, 'r')], imps, thumb_target, outs, self.diag):
-            # Set errors:
-            self.builderrors.setErrorList(self.diag.diags)
-            ce.setErrors(self.diag.diags)
-            return
-        return outs
-
-    def buildFile(self):
-        self.doBuild()
-
     def buildFileAndFlash(self):
         outs = self.doBuild()
         if not outs:
@@ -304,9 +256,14 @@ class Ide(QtWidgets.QMainWindow):
 
 
 if __name__ == '__main__':
+    dut = '../../test/listings/testsamplesTestSamplesOnX86Linuxtestswdiv.elf'
     logging.basicConfig(format=ppci.common.logformat, level=logging.DEBUG)
     app = QtWidgets.QApplication(sys.argv)
-    ide = Ide()
-    ide.show()
-    ide.logger.info('IDE started')
+    # TODO: couple this other way:
+    linux_specific = LinuxDebugServer()
+    linux_specific.go_for_it([dut])
+    debugger = Debugger('x86_64', linux_specific)
+    ui = DebugUi(debugger)
+    ui.show()
+    ui.logger.info('IDE started')
     app.exec_()

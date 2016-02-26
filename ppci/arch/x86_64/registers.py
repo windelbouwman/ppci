@@ -96,10 +96,13 @@ r12 = X86Register('r12', 12)
 r13 = X86Register('r13', 13)
 r14 = X86Register('r14', 14)
 r15 = X86Register('r15', 15)
+rip = X86Register('rip', 999)
 
 low_regs = {rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi}
 
 high_regs = {r8, r9, r10, r11, r12, r13, r14, r15}
 full_registers = high_regs | low_regs
+
+all_registers = list(sorted(full_registers, key=lambda r: r.num)) + [rip]
 
 num2regmap = {r.num: r for r in full_registers}

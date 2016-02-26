@@ -3,13 +3,13 @@
 """
 
 import io
-from ... import api
 from ..target import Target, VCall
 from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
 from .instructions import MovRegRm, RmReg, isa
 from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
+from .registers import all_registers
 from .frame import X86Frame
 
 
@@ -26,6 +26,7 @@ class X86_64Arch(Target):
         self.byte_sizes['int'] = 8  # For front end!
         self.byte_sizes['ptr'] = 8  # For front end!
         self.isa = isa + data_isa
+        self.registers.extend(all_registers)
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
@@ -35,8 +36,9 @@ class X86_64Arch(Target):
         return MovRegRm(dst, RmReg(src), ismove=True)
 
     def get_runtime(self):
+        from ...api import asm
         asm_src = ''
-        return api.asm(io.StringIO(asm_src), self)
+        return asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine locations

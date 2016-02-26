@@ -1,10 +1,8 @@
 import logging
-from qtwrapper import QtGui, QtCore, QtWidgets, pyqtSignal
+from qtwrapper import QtWidgets
 
 
 class ConnectionToolbar(QtWidgets.QToolBar):
-    statusChange = pyqtSignal()
-
     def __init__(self, debugger):
         super().__init__()
         self.logger = logging.getLogger('ide')
@@ -21,6 +19,7 @@ class ConnectionToolbar(QtWidgets.QToolBar):
         self.connectAction = genAction('Connect', self.doConnect)
         self.disconnectAction = genAction('Disconnect', self.doDisconnect)
         self.updateButtonStates()
+        self.debugger.connection_event.subscribe(self.updateButtonStates)
 
     def updateButtonStates(self):
         connected = self.debugger.is_connected
@@ -31,8 +30,6 @@ class ConnectionToolbar(QtWidgets.QToolBar):
         uri = self.urlEdit.text()
         self.logger.info('Connecting to %s', uri)
         self.debugger.connect(uri)
-        self.updateButtonStates()
 
     def doDisconnect(self):
         self.debugger.disconnect()
-        self.updateButtonStates()

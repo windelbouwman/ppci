@@ -84,8 +84,8 @@ class Target:
 
     @lru_cache(maxsize=30)
     def get_compiler_rt_lib(self):
-        """ Gets the runtime for the compiler. Returns an object with the compiler
-        runtime for the given target """
+        """ Gets the runtime for the compiler. Returns an object with the
+        compiler runtime for this architecture """
         return self.get_runtime()
 
     runtime = property(get_compiler_rt_lib)

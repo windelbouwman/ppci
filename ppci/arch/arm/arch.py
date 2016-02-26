@@ -4,10 +4,9 @@
 import io
 from ..target import Target, Label, VCall
 from ...ir import i8, i32, ptr
-from ...api import asm
 from ...binutils.assembler import BaseAssembler
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
-from .registers import R0, R1, R2, R3, R4
+from .registers import R0, R1, R2, R3, R4, all_registers
 from .instructions import LdrPseudo, arm_isa
 from .thumb_instructions import thumb_isa
 from . import thumb_instructions
@@ -118,12 +117,14 @@ class ArmArch(Target):
             self.assembler = ArmAssembler()
             self.FrameClass = ArmFrame
         self.assembler.gen_asm_parser(self.isa)
+        self.registers.extend(all_registers)
         self.value_classes[i32] = Reg8Op
         self.value_classes[i8] = Reg8Op
         self.value_classes[ptr] = Reg8Op
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
+        from ...api import asm
         if self.has_option('thumb'):
             asm_src = ''
         else:
