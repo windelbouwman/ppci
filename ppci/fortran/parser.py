@@ -5,164 +5,50 @@ See also:
 
 https://en.wikibooks.org/wiki/Fortran_77_Tutorial#Why_learn_Fortran.3F
 
+The parser and lexer work close together in reading in the fortran source code.
+
+
+See also:
+
+https://github.com/antlr/grammars-v3/blob/master/fortran77/f77-antlr2.g
 """
 
 
-from .pcc.baselex import BaseLexer
-from .common import Token, SourceLocation
+import re
+from ..common import Token, SourceLocation, CompilerError
+from ..pcc.grammar import Grammar
+from ..pcc.lr import LrParserBuilder
+from . import nodes
 
 
-class Node:
-    def __init__(self, loc):
-        self.loc = loc
+def get_fortran_parser():
+    g = Grammar()
+    letters = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    digits = list('0123456789')
+    g.add_terminals(
+        ['=', '+', '-', '/', ',',
+         '(', ')'] + letters + digits)
+    g.add_production('program', ['A'])
+    g.add_production('letter', ['A'])
+    g.add_production('expr', ['(', 'expr', ')'])
+    g.add_production('expr', ['term'])
+    g.add_production('term', ['term', '+', 'factor'])
+    g.add_production('term', ['factor'])
+    g.start_symbol = 'program'
+    p = LrParserBuilder(g).generate_parser()
+    return p
 
 
-class Program(Node):
-    """ A fortran program """
-    def __init__(self, name, variables, statements, loc):
-        super().__init__(loc)
-        self.name = name
-        self.variables = variables
-        self.statements = statements
-
-    def __repr__(self):
-        return 'PROGRAM {}'.format(self.name)
+# get_fortran_parser()
 
 
-class Variable(Node):
-    def __init__(self, typ, name, loc):
-        super().__init__(loc)
-        self.typ = typ
-        self.name = name
-
-    def __repr__(self):
-        return 'VAR {} {}'.format(self.typ, self.name)
-
-
-class Statement(Node):
-    """ A single fortran statement """
-    pass
-
-
-class Assignment(Statement):
-    def __init__(self, var, expr, loc):
-        super().__init__(loc)
-        self.var = var
-        self.expr = expr
-
-    def __repr__(self):
-        return '{} = {}'.format(self.var, self.expr)
-
-
-class Continue(Statement):
-    """ Continue statement """
-    def __repr__(self):
-        return 'CONTINUE'
-
-
-class Format(Statement):
-    """ Format statement """
-    def __repr__(self):
-        return 'FORMAT (...)'
-
-
-class GoTo(Statement):
-    def __init__(self, loc):
-        super().__init__(loc)
-
-
-class IfArith(Statement):
-    """ Arithmatic if """
-    def __init__(self, expr, s1, s2, s3, loc):
-        super().__init__(loc)
-        self.expr = expr
-        self.s1 = s1
-        self.s2 = s2
-        self.s3 = s3
-
-
-class Print(Statement):
-    def __init__(self, fmt, args, loc):
-        super().__init__(loc)
-        self.fmt = fmt
-        self.args = args
-
-    def __repr__(self):
-        args2 = ', '.join(map(str, self.args))
-        return 'PRINT {}, {}'.format(self.fmt, args2)
-
-
-class Read(Statement):
-    def __init__(self, fmt, args, loc):
-        super().__init__(loc)
-        self.fmt = fmt
-        self.args = args
-
-    def __repr__(self):
-        args2 = ', '.join(map(str, self.args))
-        return 'READ {}, {}'.format(self.fmt, args2)
-
-
-class Stop(Statement):
-    def __init__(self, msg, loc):
-        super().__init__(loc)
-        self.msg = msg
-
-
-class Write(Statement):
-    def __init__(self, fmt, args, loc):
-        super().__init__(loc)
-        self.fmt = fmt
-        self.args = args
-
-    def __repr__(self):
-        args2 = ', '.join(map(str, self.args))
-        return 'WRITE {}, {}'.format(self.fmt, args2)
-
-
-class For(Statement):
-    pass
-
-
-class Expression(Node):
-    pass
-
-
-class Binop(Expression):
-    """ Binary operation """
-    def __init__(self, a, op, b, loc):
-        super().__init__(loc)
-        self.a = a
-        self.op = op
-        self.b = b
-
-    def __repr__(self):
-        return '({} {} {})'.format(self.a, self.op, self.b)
-
-
-class VarRef(Expression):
-    def __init__(self, vname, loc):
-        super().__init__(loc)
-        self.vname = vname
-
-    def __repr__(self):
-        return self.vname
-
-
-class Const(Expression):
-    def __init__(self, val, typ, loc):
-        super().__init__(loc)
-        self.val = val
-        self.typ = typ
-
-    def __repr__(self):
-        return '{}<{}>'.format(self.typ, self.val)
-
-
-TYPES = ('INTEGER', 'REAL')
+TYPES = (
+    'INTEGER',
+    'REAL')
 
 KEYWORDS = (
     'CONTINUE',
+    'DATA',
     'DO',
     'END',
     'FORMAT',
@@ -176,7 +62,7 @@ KEYWORDS = (
     'WRITE')
 
 
-class FortranLexer(BaseLexer):
+class FortranLexer:
     """
         Handle the nice fortran syntax:
         column use
@@ -186,28 +72,101 @@ class FortranLexer(BaseLexer):
         73-80  unused
     """
     def __init__(self):
+
+        self.mode_progs = {}
+
+        def mk(spec):
+            tok_re = '|'.join(
+                '(?P<{}>{})'.format(s[0], s[1]) for s in spec)
+            return re.compile(tok_re).match
+
+        # String handlers:
+        str_spec = [
+            ('HOLLERITZ', r"\d+[Hh]", self.handle_holleritz),
+            ('STRING1', r'"[^"]*"', lambda typ, val: ('STRING', val[1:-1])),
+            ('STRING2', r"'[^']*'", lambda typ, val: ('STRING', val[1:-1])),
+        ]
+
         op_txt = r'[,=+\-*/\(\)]'
-        tok_spec = [
-            ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
+        tok_spec = str_spec + [
+            ('REAL', r'(\d+\.\d+)|(\d+\.)', lambda typ, val: (typ, float(val))),
             ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
             ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', op_txt, lambda typ, val: (val, val)),
-            ('STRING1', r'"[^"]*"', lambda typ, val: ('STRING', val[1:-1])),
-            ('STRING2', r"'[^']*'", lambda typ, val: ('STRING', val[1:-1]))
             ]
-        super().__init__(tok_spec)
-        # TODO: hollerith strings are special case
+        self.mode_progs['S'] = mk(tok_spec)
+
+        fmt_spec = str_spec + [
+            ('FMTSPEC', 'A|(I\d+)|(\d+X)|(E\d+\.\d+)', lambda typ, val: (typ, val)),
+            ('SKIP', r'[ \t]', None),
+            ('LEESTEKEN', r'[\(\),]', lambda typ, val: (val, val)),
+            ]
+        self.mode_progs['F'] = mk(fmt_spec)
+
+        all_spec = str_spec + tok_spec + fmt_spec
+        self.func_map = {s[0]: s[2] for s in all_spec}
+
+        self.mode = 'S'  # Mode of operation for the lexer
+        self.row = 0
+        self.col = 0
+        self.pos = 0
+
+    def get_mode(self):
+        return self._mode
+
+    def set_mode(self, m):
+        self._mode = m
+        self.gettok = self.mode_progs[m]
+
+    mode = property(get_mode, set_mode)
+
+    def lex(self, src):
+        """ Initialize the lexer with some source code """
+        self.filename = 'a.txt'
+        self.row = 0
+        self.col = 0
+        self.tokens = self.tokenize(src)
+        self.token = None
+        self.next_token()
+
+    def next_token(self):
+        """ Take the next token from the stream """
+        t = self.token
+        self.token = self.tokens.__next__()
+        # print("M", self.mode, 'CUR:', t, 'NXT:', self.token)
+        return t
+
+    @property
+    def peak(self):
+        """ Take a look at the next token in line """
+        return self.token.typ
 
     def handle_id(self, typ, val):
         if val in KEYWORDS + TYPES:
             typ = val
         return (typ, val)
 
+    def handle_holleritz(self, typ, val):
+        ln = int(val[0:-1])
+        skip = len(val) + ln
+        typ = 'STRING'
+        s1 = self.pos + len(val)
+        s2 = s1 + ln
+        val = self.txt[s1:s2]
+        new_pos = self.pos + skip
+        typ = 'STRING'
+        return (typ, val, new_pos)
+
     def tokenize(self, src):
-        loc = SourceLocation('a.txt', 1, 1, 1)
+        """ Tokenize line by line """
+        # Fortran is case insensitive, convert all to uppercase:
+        src = src.upper()
+
         for line in src.split('\n'):
-            line = line.rstrip().upper()
+            col = 1
+            self.row += 1
+            line = line.rstrip()
             if not line:
                 continue
             if line[0] == 'C':
@@ -215,14 +174,49 @@ class FortranLexer(BaseLexer):
             print(line)
             label, cont, statements = self.split_line(line)
             if label:
+                loc = SourceLocation(self.filename, self.row, 1, 1)
                 yield Token('LABEL', label, loc)
             if statements:
-                for token in super().tokenize(statements):
+                for token in self.tokenize_line(statements):
                     yield token
+            col = len(line)
+            loc = SourceLocation(self.filename, self.row, col, 1)
             yield Token('EOL', 'EOL', loc)
 
+    def tokenize_line(self, txt):
+        """ Generator that generates tokens from text
+            It does not yield the EOF token.
+        """
+        self.pos = 0
+        self.txt = txt
+        mo = self.gettok(txt)
+        while mo:
+            typ = mo.lastgroup
+            val = mo.group(typ)
+            col = mo.start()
+            length = mo.end() - mo.start()
+            loc = SourceLocation(self.filename, self.row, col, length)
+            func = self.func_map[typ]
+            new_pos = mo.end()
+            if func:
+                res = func(typ, val)
+                if res:
+                    if len(res) == 2:
+                        typ, val = res
+                    elif len(res) == 3:
+                        typ, val, new_pos = res
+                    else:
+                        raise NotImplementedError('Not implemented')
+                    yield Token(typ, val, loc)
+            self.pos = new_pos
+            mo = self.gettok(txt, self.pos)
+        if len(txt) != self.pos:
+            char = txt[self.pos]
+            raise CompilerError(
+                'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)))
+
     def split_line(self, line):
-        """ Split line depending on column """
+        """ Split fortran source line depending on column """
         def int2(l):
             l = l.strip()
             if l:
@@ -242,30 +236,23 @@ class FortranParser:
 
     def parse(self, src):
         """ parse a piece of FORTRAN77 """
-        self.tokens = self.lexer.tokenize(src)
-        self.next_token()
+        self.lexer.lex(src)
         program = self.parse_program()
         return program
 
-    def next_token(self):
-        self.token = self.tokens.__next__()
-        print(self.token)
-
     @property
     def peak(self):
-        return self.token.typ
+        return self.lexer.peak
 
     def consume(self, kind=None):
         if kind is None:
             kind = self.peak
         assert self.peak == kind
-        t = self.token
-        self.next_token()
-        return t
+        return self.lexer.next_token()
 
     def has_consumed(self, kind):
         if self.peak == kind:
-            self.consume()
+            self.consume(kind)
             return True
         else:
             return False
@@ -288,12 +275,12 @@ class FortranParser:
         statements = []
         while self.peak != 'END':
             statement = self.parse_statement()
-            print('s=', statement)
-            assert isinstance(statement, Statement), str(statement)
+            # print('s=', statement)
+            assert isinstance(statement, nodes.Statement), str(statement)
             statements.append(statement)
             self.consume('EOL')
 
-        program = Program(name, variables, statements, loc)
+        program = nodes.Program(name, variables, statements, loc)
         return program
 
     def parse_declaration(self):
@@ -302,10 +289,10 @@ class FortranParser:
         typ = self.consume()
         assert typ.typ in TYPES
         name = self.consume('ID')
-        variables.append(Variable(typ.val, name.val, name.loc))
+        variables.append(nodes.Variable(typ.val, name.val, name.loc))
         while self.has_consumed(','):
             name = self.consume('ID')
-            variables.append(Variable(typ.val, name.val, name.loc))
+            variables.append(nodes.Variable(typ.val, name.val, name.loc))
         return variables
 
     def parse_statement(self):
@@ -315,6 +302,8 @@ class FortranParser:
             print('label=', label.val)
         if self.peak == 'CONTINUE':
             return self.parse_continue()
+        elif self.peak == 'DATA':
+            return self.parse_data()
         elif self.peak == 'DO':
             return self.parse_do()
         elif self.peak == 'END':
@@ -341,26 +330,64 @@ class FortranParser:
     def parse_assignment(self):
         """ Parse an assignment """
         var = self.consume('ID')
-        var = VarRef(var.val, var.loc)
+        var = nodes.VarRef(var.val, var.loc)
         loc = self.consume('=').loc
         expr = self.parse_expression()
-        return Assignment(var, expr, loc)
+        return nodes.Assignment(var, expr, loc)
 
     def parse_for(self):
+        """ Parse a for loop statement """
         pass
 
     def parse_end(self):
+        """ Parse end statement """
         self.consume('END')
 
     def parse_format(self):
+        """ Parse a format statement """
         loc = self.consume('FORMAT').loc
+        self.lexer.mode = 'F'
+        spec_list = []
         self.consume('(')
+        spec = self.parse_format_spec_item()
+        spec_list.append(spec)
+        while self.has_consumed(','):
+            spec = self.parse_format_spec_item()
+            spec_list.append(spec)
+        self.lexer.mode = 'S'
         self.consume(')')
-        return Format(loc)
+        return nodes.Format(loc)
+
+    def parse_format_spec_item(self):
+        if self.peak == 'STRING':
+            return self.consume('STRING')
+        else:
+            return self.consume('FMTSPEC')
 
     def parse_continue(self):
         loc = self.consume('CONTINUE').loc
-        return Continue(loc)
+        return nodes.Continue(loc)
+
+    def parse_data(self):
+        loc = self.consume('DATA').loc
+        nlist = []
+        while True:
+            d = self.consume('ID')
+            nlist.append(d.val)
+            if not self.has_consumed(','):
+                break
+        self.consume('/')
+        clist = []
+        while True:
+            d = self.parse_const_value()
+            if self.has_consumed('*'):
+                r = d
+                d = self.parse_const_value()
+            clist.append(d)
+            if not self.has_consumed(','):
+                break
+        self.consume('/')
+        return nodes.Data(nlist, clist, loc)
 
     def parse_do(self):
         self.consume('DO')
@@ -370,8 +397,8 @@ class FortranParser:
         """ Parse go to syntax """
         loc = self.consume('GO').loc
         self.consume('TO')
-        target = self.consume('NUMBER')
-        return GoTo(loc)
+        target = self.parse_label_ref()
+        return nodes.GoTo(target, loc)
 
     def parse_if(self):
         loc = self.consume('IF').loc
@@ -386,7 +413,7 @@ class FortranParser:
             s2 = self.parse_label_ref()
             self.consume(',')
             s3 = self.parse_label_ref()
-            return IfArith(expr, s1, s2, s3, loc)
+            return nodes.IfArith(expr, s1, s2, s3, loc)
 
     def parse_print(self):
         loc = self.consume('PRINT').loc
@@ -395,7 +422,7 @@ class FortranParser:
         while self.has_consumed(','):
             arg = self.parse_term()
             args.append(arg)
-        return Print(fmt, args, loc)
+        return nodes.Print(fmt, args, loc)
 
     def parse_read(self):
         loc = self.consume('READ').loc
@@ -403,15 +430,15 @@ class FortranParser:
         args = []
         while self.has_consumed(','):
             a = self.consume('ID')
-            arg = VarRef(a.val, a.loc)
+            arg = nodes.VarRef(a.val, a.loc)
             args.append(arg)
-        return Read(fmt, args, loc)
+        return nodes.Read(fmt, args, loc)
 
     def parse_stop(self):
         loc = self.consume('STOP').loc
         if self.peak == 'STRING':
             self.consume('STRING')
-        return Stop('', loc)
+        return nodes.Stop('', loc)
 
     def parse_write(self):
         loc = self.consume('WRITE').loc
@@ -429,12 +456,13 @@ class FortranParser:
         while self.has_consumed(','):
             arg = self.parse_term()
             args.append(arg)
-        return Write(fmt, args, loc)
+        return nodes.Write(fmt, args, loc)
 
     def parse_label_ref(self):
         """ Parse a label reference, this can be a number or.. a variable? """
         l = self.consume('NUMBER')
-        return l.val
+        c = nodes.Const(l.val, 'INT', l.loc)
+        return c
 
     def parse_fmt_spec(self):
         """ Parse a format specifier """
@@ -449,7 +477,7 @@ class FortranParser:
             return self.consume('*').val
         elif self.peak == 'ID':
             ref = self.consume('ID')
-            return VarRef(ref.val, ref.loc)
+            return nodes.VarRef(ref.val, ref.loc)
         else:
             return self.consume('NUMBER').val
 
@@ -471,44 +499,73 @@ class FortranParser:
             op = self.consume()
             bp2, x = BPS[op.typ]
             rhs = self.parse_expression(bp2 + x)
-            lhs = Binop(lhs, op.val, rhs, op.loc)
+            lhs = nodes.Binop(lhs, op.val, rhs, op.loc)
         return lhs
+
+    def parse_const_value(self):
+        return self.parse_term()
 
     def parse_term(self):
         if self.peak == 'ID':
             vname = self.consume()
-            return VarRef(vname.val, vname.loc)
+            return nodes.VarRef(vname.val, vname.loc)
         elif self.peak == 'NUMBER':
             val = self.consume()
-            return Const(val.val, 'INT', val.loc)
+            return nodes.Const(val.val, 'INT', val.loc)
         elif self.peak == 'REAL':
             val = self.consume()
-            return Const(val.val, 'REAL', val.loc)
+            return nodes.Const(val.val, 'REAL', val.loc)
+        elif self.peak == '(':
+            self.consume('(')
+            expr = self.parse_expression()
+            self.consume(')')
+            return expr
+        elif self.peak in ['-', '+']:
+            # Unary minus!
+            op = self.consume()
+            a = self.parse_term()
+            # TODO: a can be a string!
+            return nodes.Unop(op.val, a, op.loc)
         elif self.peak == 'STRING':
             a = self.consume()
-            return Const(a.val, 'STR', a.loc)
+            return nodes.Const(a.val, 'STR', a.loc)
         else:
             raise NotImplementedError()
 
 
 class Visitor:
     def visit(self, node):
-        if isinstance(node, Program):
+        if isinstance(node, nodes.Program):
             for variable in node.variables:
                 self.visit(variable)
             for statement in node.statements:
                 self.visit(statement)
-        elif isinstance(node, (Variable, Const, VarRef)):
+        elif isinstance(node, (nodes.Variable, nodes.Const, nodes.VarRef)):
             pass
-        elif isinstance(node, (Print, Read)):
+        elif isinstance(node, (nodes.Continue, nodes.Stop)):
+            pass
+        elif isinstance(node, (nodes.Print, nodes.Read, nodes.Write)):
             for a in node.args:
                 self.visit(a)
-        elif isinstance(node, Assignment):
+        elif isinstance(node, (nodes.Format, )):
+            pass
+        elif isinstance(node, nodes.Assignment):
             self.visit(node.var)
             self.visit(node.expr)
-        elif isinstance(node, Binop):
+        elif isinstance(node, nodes.GoTo):
+            self.visit(node.x)
+        elif isinstance(node, nodes.IfArith):
+            self.visit(node.s1)
+            self.visit(node.s2)
+            self.visit(node.s3)
+        elif isinstance(node, nodes.Binop):
             self.visit(node.a)
             self.visit(node.b)
+        elif isinstance(node, nodes.Unop):
+            self.visit(node.a)
+        elif isinstance(node, nodes.Data):
+            for c in node.clist:
+                self.visit(c)
         else:
             raise NotImplementedError('VISIT:{} {}'.format(node, type(node)))
 

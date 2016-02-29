@@ -1,3 +1,10 @@
+"""
+    Test fortran front end.
+
+    See for a good test-suite:
+    http://www.itl.nist.gov/div897/ctg/fortran_form.htm
+
+"""
 import unittest
 import glob
 from ppci.fortran import FortranParser, Printer

@@ -399,7 +399,6 @@ def topological_sort_modified(nodes, start):
         if L[-1] is not start:
             L.remove(start)
             L.append(start)
-            print('re-tailing :)')
     return L
 
 

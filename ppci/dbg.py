@@ -6,7 +6,7 @@
 """
 
 import logging
-import xmlrpc.client
+# import xmlrpc.client
 import xmlrpc.server
 from .api import fix_target
 from .disasm import Disassembler
@@ -40,7 +40,7 @@ class Debugger:
     def __init__(self, arch, target_connector):
         self.arch = fix_target(arch)
         self.disassembler = Disassembler(arch)
-        self.server = target_connector
+        self.driver = target_connector
         self.logger = logging.getLogger('dbg')
         self.connection_event = SubscribleEvent()
         self.state_event = SubscribleEvent()
@@ -50,6 +50,9 @@ class Debugger:
         # Subscribe to events:
         self.state_event.subscribe(self.on_halted)
 
+        # Fire initial change:
+        self.state_event.fire()
+
     def on_halted(self):
         if self.is_halted:
             new_values = self.get_register_values(self.register_names)
@@ -58,40 +61,40 @@ class Debugger:
     # Connection:
     def connect(self, uri):
         self.logger.info('Connecting to %s', uri)
-        self.server = xmlrpc.client.ServerProxy(uri)
+        self.driver = xmlrpc.client.ServerProxy(uri)
         if self.is_connected:
             self.connection_event.fire()
         else:
-            self.server = None
+            self.driver = None
 
     def disconnect(self):
         self.logger.info('Disconnecting')
-        self.server = None
+        self.driver = None
         self.connection_event.fire()
 
     @property
     def is_connected(self):
-        if not self.server:
+        if not self.driver:
             return False
-        return self.server.ping()
+        return self.driver.ping()
 
     # Start stop parts:
     def run(self):
         self.logger.info('Run')
-        self.server.run()
+        self.driver.run()
         self.state_event.fire()
 
     def stop(self):
         self.logger.info('Stop')
-        self.server.stop()
+        self.driver.stop()
         self.state_event.fire()
 
     def step(self):
-        self.server.step()
+        self.driver.step()
         self.state_event.fire()
 
     def get_status(self):
-        return self.server.get_status()
+        return self.driver.get_status()
 
     status = property(get_status)
 
@@ -109,7 +112,7 @@ class Debugger:
 
     def get_register_values(self, registers):
         """ Get a dictionary of register values """
-        return self.server.get_registers(registers)
+        return self.driver.get_registers(registers)
 
     def set_register(self, register, value):
         self.logger.info('Setting register {} to {}'.format(register, value))
@@ -117,12 +120,12 @@ class Debugger:
 
     # Memory:
     def read_mem(self, address, size):
-        return self.server.read_mem(address, size)
+        return self.driver.read_mem(address, size)
 
     # Disassembly:
     def get_pc(self):
         """ Get the program counter """
-        return self.server.get_pc()
+        return self.driver.get_pc()
 
     def get_disasm(self):
         """ Get instructions around program counter """

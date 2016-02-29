@@ -130,7 +130,6 @@ class LinuxDebugServer(DebugServer):
 
     def read_word(self, address):
         res = libc.ptrace(PTRACE_PEEKDATA, self.pid, address, 0)
-        print(address, res)
         return struct.pack('<i', res)
 
     # Disasm:
