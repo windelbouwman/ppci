@@ -6,8 +6,6 @@
 """
 
 import logging
-# import xmlrpc.client
-import xmlrpc.server
 from .api import fix_target
 from .disasm import Disassembler
 from .binutils.outstream import RecordingOutputStream
@@ -17,6 +15,14 @@ from .binutils.outstream import RecordingOutputStream
 STOPPED = 0
 RUNNING = 1
 FINISHED = 2
+
+
+class DbgInfo:
+    pass
+
+
+class LineInfo:
+    pass
 
 
 class SubscribleEvent:
@@ -61,7 +67,7 @@ class Debugger:
     # Connection:
     def connect(self, uri):
         self.logger.info('Connecting to %s', uri)
-        self.driver = xmlrpc.client.ServerProxy(uri)
+        # self.driver = xmlrpc.client.ServerProxy(uri)
         if self.is_connected:
             self.connection_event.fire()
         else:

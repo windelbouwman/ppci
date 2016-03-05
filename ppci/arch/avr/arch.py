@@ -2,7 +2,6 @@
     AVR architecture.
 """
 import io
-from ... import api
 from ..arch import Architecture, Label
 from ..arch import Alignment
 from ..arch import Frame, VCall
@@ -43,6 +42,7 @@ class AvrArch(Architecture):
         self.value_classes[ptr] = AvrPseudo16Register
 
     def get_runtime(self):
+        from ...api import asm
         asm_src = """
             __shr16:
                 ; TODO
@@ -50,7 +50,7 @@ class AvrArch(Architecture):
             __shl16:
                 ret
         """
-        return api.asm(io.StringIO(asm_src), self)
+        return asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine location for argument """

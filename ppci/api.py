@@ -9,6 +9,7 @@ import os
 import stat
 import xml
 from .arch.arch import Architecture
+from .lang.c import CBuilder
 from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
@@ -32,15 +33,17 @@ from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
+from .arch.target_list import get_arch
+
+# When doing from 'ppci.api import *' include the following:
+__all__ = [
+    'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize']
 
 
 def fix_target(target_name):
     """ Try to return an instance of the Target class.
         target_name can be in the form of arch:option1:option2
     """
-    # TODO: this is ugly, but is works:
-    from .arch.target_list import get_arch
-    # TODO: fix this recursive import different
     if isinstance(target_name, Architecture):
         return target_name
     elif isinstance(target_name, str):
@@ -239,6 +242,12 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
         reporter.message('Optimized module:')
         reporter.dump_ir(ir_module)
         generator.generate(ir_module, f)
+
+
+def cc(source, march, reporter=DummyReportGenerator()):
+    """ C compiler """
+    march = fix_target(march)
+    raise NotImplementedError('TODO')
 
 
 def c3c(sources, includes, march, reporter=DummyReportGenerator()):

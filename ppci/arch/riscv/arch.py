@@ -3,7 +3,6 @@
 """
 
 import io
-from ... import api
 from ..arch import Architecture, Label, VCall
 from .instructions import isa, Mov2
 from .registers import RiscvRegister
@@ -56,6 +55,7 @@ class RiscvArch(Architecture):
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
+        from ...api import asm
         asm_src = """
         __sdiv:
         ; Divide x11 by x12
@@ -86,7 +86,7 @@ class RiscvArch(Architecture):
         mov x10, x14
         jalr x0,ra,0
         """
-        return api.asm(io.StringIO(asm_src), self)
+        return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
