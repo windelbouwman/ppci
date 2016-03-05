@@ -32,22 +32,36 @@ hello_world_src = """
       END
 """
 
+space_ignoring_src = """
+C234567890
+      PRO GRAMABC
+
+"""
+
 
 class FortranTestCase(unittest.TestCase):
     def setUp(self):
         self.parser = FortranParser()
+        self.printer = Printer()
 
     def do(self, src):
         print('======')
-        p = self.parser.parse(src)
-        Printer().print(p)
+        prog = self.parser.parse(src)
+        self.printer.print(prog)
         print('======')
 
     def test_hello_world(self):
+        """ Test hello world program """
         self.do(hello_world_src)
 
     def test_example(self):
+        """ Test a simple example """
         self.do(example)
+
+    @unittest.skip('todo')
+    def test_spaced_prog(self):
+        """ Test if a program with lots of spacing works correctly """
+        self.do(space_ignoring_src)
 
     @unittest.skip('todo')
     def test_samples(self):

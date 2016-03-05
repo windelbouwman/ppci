@@ -103,7 +103,7 @@ class LrParserBuilderTestCase(unittest.TestCase):
         with self.assertRaises(ParserGenerationException):
             LrParserBuilder(g).generate_parser()
 
-    def testRedefineTerminal(self):
+    def test_redefine_terminal(self):
         """ Test correct behavior when a terminal is redefined """
         g = Grammar()
         g.add_terminals([EOF, 'b', 'c'])

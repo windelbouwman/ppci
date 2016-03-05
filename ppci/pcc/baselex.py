@@ -47,7 +47,7 @@ class BaseLexer:
                         typ, val, new_pos = res
                     else:
                         raise NotImplementedError('Not implemented')
-                    print(typ, val)
+                    # print(typ, val)
                     yield Token(typ, val, loc)
             self.pos = new_pos
             mo = self.gettok(txt, self.pos)

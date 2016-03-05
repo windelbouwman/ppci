@@ -10,36 +10,32 @@ The parser and lexer work close together in reading in the fortran source code.
 
 See also:
 
+For gotchas:
+
+https://gcc.gnu.org/onlinedocs/gcc-3.3.5/g77/Gotchas-_0028Transforming_0029.html
+
 https://github.com/antlr/grammars-v3/blob/master/fortran77/f77-antlr2.g
+
+Other fortran implementations:
+
+- f2py python implementation part of the numpy project.
+
+- f2c fortran to c compiler.
+see http://www.netlib.org/f2c/f2c.pdf
+Quote:
+'The program f2c is a horror, based on ancient code and hacked unmercifully. Users are only
+supposed to look at its C output, not at its appalling inner workings'
+
+- f77 is the original fortran compiler written by Stu Feldman.
+
 """
 
 
 import re
 from ..common import Token, SourceLocation, CompilerError
-from ..pcc.grammar import Grammar
+from ..pcc.grammar import Grammar, print_grammar
 from ..pcc.lr import LrParserBuilder
 from . import nodes
-
-
-def get_fortran_parser():
-    g = Grammar()
-    letters = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    digits = list('0123456789')
-    g.add_terminals(
-        ['=', '+', '-', '/', ',',
-         '(', ')'] + letters + digits)
-    g.add_production('program', ['A'])
-    g.add_production('letter', ['A'])
-    g.add_production('expr', ['(', 'expr', ')'])
-    g.add_production('expr', ['term'])
-    g.add_production('term', ['term', '+', 'factor'])
-    g.add_production('term', ['factor'])
-    g.start_symbol = 'program'
-    p = LrParserBuilder(g).generate_parser()
-    return p
-
-
-# get_fortran_parser()
 
 
 TYPES = (
@@ -60,6 +56,44 @@ KEYWORDS = (
     'STOP',
     'TO',
     'WRITE')
+
+
+def get_fortran_parser():
+    g = Grammar()
+    letters = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+    digits = list('0123456789')
+    g.add_terminals(
+        ['=', '+', '-', '/', ',',
+         '(', ')'] + letters + digits)
+
+    # Basics:
+    for letter in letters:
+        g.add_production('letter', [letter], lambda l: l.val)
+    for digit in digits:
+        g.add_production('digit', [digit], lambda l: l.val)
+    for keyword in KEYWORDS:
+        g.add_production(keyword.lower(), list(keyword))
+    g.add_production('name', ['letter'], lambda l: l)
+
+    g.add_production('program', ['A'])
+
+    # Statements:
+    g.add_production('stmt', ['name', '=', 'expr'])
+
+    # Expressions:
+    g.add_production('expr', ['(', 'expr', ')'], lambda *a: a[1])
+    g.add_production('expr', ['expr1'], lambda e: e)
+    g.add_production('expr1', ['expr1', '+', 'expr2'])
+    g.add_production('expr1', ['expr2'], lambda e: e)
+    g.add_production('expr2', ['expr5'], lambda e: e)
+    g.add_production('expr5', ['name'])
+    g.start_symbol = 'program'
+    print_grammar(g)
+    p = LrParserBuilder(g).generate_parser()
+    return p
+
+
+# get_fortran_parser()
 
 
 class FortranLexer:
@@ -533,61 +567,3 @@ class FortranParser:
             raise NotImplementedError()
 
 
-class Visitor:
-    def visit(self, node):
-        if isinstance(node, nodes.Program):
-            for variable in node.variables:
-                self.visit(variable)
-            for statement in node.statements:
-                self.visit(statement)
-        elif isinstance(node, (nodes.Variable, nodes.Const, nodes.VarRef)):
-            pass
-        elif isinstance(node, (nodes.Continue, nodes.Stop)):
-            pass
-        elif isinstance(node, (nodes.Print, nodes.Read, nodes.Write)):
-            for a in node.args:
-                self.visit(a)
-        elif isinstance(node, (nodes.Format, )):
-            pass
-        elif isinstance(node, nodes.Assignment):
-            self.visit(node.var)
-            self.visit(node.expr)
-        elif isinstance(node, nodes.GoTo):
-            self.visit(node.x)
-        elif isinstance(node, nodes.IfArith):
-            self.visit(node.s1)
-            self.visit(node.s2)
-            self.visit(node.s3)
-        elif isinstance(node, nodes.Binop):
-            self.visit(node.a)
-            self.visit(node.b)
-        elif isinstance(node, nodes.Unop):
-            self.visit(node.a)
-        elif isinstance(node, nodes.Data):
-            for c in node.clist:
-                self.visit(c)
-        else:
-            raise NotImplementedError('VISIT:{} {}'.format(node, type(node)))
-
-
-class Printer(Visitor):
-    def print(self, node):
-        self.indent = 0
-        self.visit(node)
-
-    def visit(self, node):
-        print(' '*self.indent + str(node))
-        self.indent += 2
-        super().visit(node)
-        self.indent -= 2
-
-
-class FortranBuilder:
-    def __init__(self):
-        self.parser = FortranParser()
-
-    def build(self, src):
-        ast = self.parser.parse(src)
-        mods = []
-        gen(ast)
-        return mods

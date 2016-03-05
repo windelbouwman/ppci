@@ -364,12 +364,15 @@ class LrParserBuilder:
                     nextstate = transitions[(state_nr, item.Next)]
                     self.set_action(state_nr, item.Next, Shift(nextstate))
                 if item.is_reduce:
-                    if item.production.name == self.grammar.start_symbol and item.look_ahead == EOF:
+                    if item.production.name == self.grammar.start_symbol \
+                            and item.look_ahead == EOF:
                         # Rule 3: accept:
-                        act = Accept(self.grammar.productions.index(item.production))
+                        act = Accept(
+                            self.grammar.productions.index(item.production))
                     else:
                         # Rule 2, reduce item:
-                        act = Reduce(self.grammar.productions.index(item.production))
+                        act = Reduce(
+                            self.grammar.productions.index(item.production))
                     self.set_action(state_nr, item.look_ahead, act)
 
             # Fill the goto table:
