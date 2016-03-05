@@ -5,4 +5,4 @@ from .lexer import Lexer
 from .codegenerator import CodeGenerator
 from .visitor import Visitor
 from .visitor import AstPrinter
-from .builder import Builder
+from .builder import C3Builder

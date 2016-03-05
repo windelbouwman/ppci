@@ -4,16 +4,16 @@
 
 import logging
 import collections
-from ..common import CompilerError
+from ...common import CompilerError
+from ...irutils import Verifier
+from ...opt.mem2reg import Mem2RegPromotor
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ..irutils import Verifier
-from ..opt.mem2reg import Mem2RegPromotor
 
 
-class Builder:
+class C3Builder:
     """
         Generates IR-code from c3 source.
         Reports errors to the diagnostics system.

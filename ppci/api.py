@@ -9,9 +9,9 @@ import os
 import stat
 import xml
 from .arch.arch import Architecture
-from .c3 import Builder
-from .bf import BrainFuckGenerator
-from .fortran import FortranBuilder
+from .lang.c3 import C3Builder
+from .lang.bf import BrainFuckGenerator
+from .lang.fortran import FortranBuilder
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -155,7 +155,7 @@ def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
     sources = [fix_file(fn) for fn in sources]
     includes = [fix_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = Builder(diag, target)
+    c3b = C3Builder(diag, target)
 
     try:
         _, ir_modules = c3b.build(sources, includes)
@@ -280,7 +280,20 @@ def fortran_to_ir(source):
 
 
 def bfcompile(source, target, reporter=DummyReportGenerator()):
-    """ Compile brainfuck source into binary format for the given target """
+    """ Compile brainfuck source into binary format for the given target
+
+    source can be a filename or a file like object.
+    march can be a machine instance or a string indicating the target.
+
+    For example:
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import bfcompile
+        >>> source_file = io.StringIO(">>[-]<<[->>+<<]")
+        >>> obj = bfcompile(source_file, 'arm')
+    """
     reporter.message('brainfuck compilation listings')
     target = fix_target(target)
     ir_module = bf2ir(source, target)

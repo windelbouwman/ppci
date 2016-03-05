@@ -4,8 +4,8 @@
 
 import logging
 import struct
-from .. import ir
-from .. import irutils
+from ... import ir
+from ... import irutils
 from . import astnodes as ast
 from .scope import SemanticError
 

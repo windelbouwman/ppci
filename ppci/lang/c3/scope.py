@@ -4,11 +4,11 @@
     A context is the space where the whole program lives.
 """
 
+from ...common import CompilerError
 from .astnodes import Constant, Variable, Function, BaseType, Symbol
 from .astnodes import ArrayType, StructureType, DefinedType, PointerType
 from .astnodes import StructField
 from . import astnodes as ast
-from ..common import CompilerError
 
 
 class SemanticError(CompilerError):

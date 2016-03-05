@@ -32,9 +32,9 @@ supposed to look at its C output, not at its appalling inner workings'
 
 
 import re
-from ..common import Token, SourceLocation, CompilerError
-from ..pcc.grammar import Grammar, print_grammar
-from ..pcc.lr import LrParserBuilder
+from ...common import Token, SourceLocation, CompilerError
+from ...pcc.grammar import Grammar, print_grammar
+from ...pcc.lr import LrParserBuilder
 from . import nodes
 
 

@@ -7,7 +7,7 @@
 """
 import unittest
 import glob
-from ppci.fortran import FortranParser, Printer
+from ppci.lang.fortran import FortranParser, Printer
 from util import relpath
 
 example = """

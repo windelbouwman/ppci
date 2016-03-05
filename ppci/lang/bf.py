@@ -4,9 +4,9 @@
 """
 
 import logging
-from . import ir
-from .common import CompilerError
-from .irutils import Builder
+from .. import ir
+from ..common import CompilerError
+from ..irutils import Builder
 
 
 class BrainFuckGenerator():

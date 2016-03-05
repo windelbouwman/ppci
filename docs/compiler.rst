@@ -56,13 +56,13 @@ This is a subset of the C language with some additional features.
    40 -> 99
    }
 
-.. autoclass:: ppci.c3.Lexer
+.. autoclass:: ppci.lang.c3.Lexer
 
-.. autoclass:: ppci.c3.Parser
+.. autoclass:: ppci.lang.c3.Parser
 
-.. autoclass:: ppci.c3.CodeGenerator
+.. autoclass:: ppci.lang.c3.CodeGenerator
 
-.. autoclass:: ppci.c3.Builder
+.. autoclass:: ppci.lang.c3.C3Builder
 
 
 Brainfuck frontend
@@ -70,7 +70,7 @@ Brainfuck frontend
 
 The compiler has a front-end for the brainfuck language.
 
-.. autoclass:: ppci.bf.BrainFuckGenerator
+.. autoclass:: ppci.lang.bf.BrainFuckGenerator
 
 IR-code
 -------

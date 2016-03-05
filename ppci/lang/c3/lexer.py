@@ -3,8 +3,8 @@
 """
 
 import re
-from ..common import SourceLocation, Token, make_num
-from ..pcc.baselex import BaseLexer
+from ...common import SourceLocation, Token, make_num
+from ...pcc.baselex import BaseLexer
 from .astnodes import Assignment
 
 
