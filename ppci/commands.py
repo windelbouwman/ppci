@@ -138,6 +138,31 @@ def c3c(args=None):
         args.output.close()
 
 
+cc_description = """
+C compiler.
+"""
+cc_parser = argparse.ArgumentParser(
+    description=cc_description, parents=[base_parser, base2_parser])
+cc_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+')
+
+
+def cc(args=None):
+    """ Run c compile task """
+    args = cc_parser.parse_args(args)
+    with LogSetup(args):
+        # Compile sources:
+        march = get_arch_from_args(args)
+        for src in args.sources:
+            obj = api.cc(src, march)
+
+        # TODO: link objects together?
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
+
+
 asm_description = """
 Assembler utility.
 """

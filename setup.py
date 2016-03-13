@@ -39,6 +39,7 @@ setup(
         "bin/ppci-ld.py",
         "bin/ppci-asm.py",
         "bin/ppci-c3c.py",
+        "bin/ppci-cc.py",
         "bin/ppci-objdump.py",
         "bin/ppci-objcopy.py",
         'bin/ppci-hexutil.py'],

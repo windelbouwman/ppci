@@ -3,10 +3,13 @@
 """
 
 from ...pcc.baselex import BaseLexer
+from ...common import SourceLocation, Token, make_num
 
 
 class Lexer(BaseLexer):
-    """ C lexer """
+    """ C lexer implementation. Skip out comments, and pass typenames and
+    variable names as identifiers.
+    """
     keywords = ['true', 'false',
                 'else', 'if', 'while', 'for', 'return',
                 'struct', 'enum',
@@ -22,12 +25,17 @@ class Lexer(BaseLexer):
             ('NEWLINE', r'\n', lambda typ, val: self.newline()),
             ('SKIP', r'[ \t]', None),
             ('COMMENTS', r'//.*', None),
-            ('LONGCOMMENTBEGIN', r'\/\*', self.handle_comment_start),
-            ('LONGCOMMENTEND', r'\*\/', self.handle_comment_stop),
-            ('LEESTEKEN', op_txt, lambda typ, val: (val, val)),
+            ('LEESTEKEN', r'[+]', lambda typ, val: (val, val)),
             ('STRING', r'".*?"', lambda typ, val: (typ, val[1:-1]))
             ]
         super().__init__(tok_spec)
 
     def lex(self, src):
-        pass
+        s = src.read()
+        return self.tokenize(s)
+
+    def handle_id(self, typ, val):
+        if val in self.keywords:
+            return (val, val)
+        else:
+            return (typ, val)

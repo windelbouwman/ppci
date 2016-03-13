@@ -149,16 +149,16 @@ def asm(source, march):
     return output
 
 
-def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
+def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     """ Compile c3 sources to ir code using the includes and for the given
     target """
     logger = logging.getLogger('c3c')
     logger.debug('C3 compilation started')
-    target = fix_target(target)
+    march = fix_target(march)
     sources = [fix_file(fn) for fn in sources]
     includes = [fix_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = C3Builder(diag, target)
+    c3b = C3Builder(diag, march)
 
     try:
         _, ir_modules = c3b.build(sources, includes)
@@ -245,8 +245,10 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
 
 
 def cc(source, march, reporter=DummyReportGenerator()):
-    """ C compiler """
+    """ C compiler. compiles a single source file into an object file """
     march = fix_target(march)
+    cbuilder = CBuilder(march)
+    cbuilder.build(source)
     raise NotImplementedError('TODO')
 
 
