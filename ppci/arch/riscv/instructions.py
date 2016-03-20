@@ -5,11 +5,11 @@
 # pylint: disable=no-member,invalid-name
 
 from ..isa import Instruction, Isa, Syntax
-from ..isa import register_argument, value_argument
+from ..isa import register_argument
 from ..data_instructions import Dd
 from ...utils.bitfun import wrap_negative
-from .registers import RiscvRegister, SP
-from ..token import Token, u32, u8, bit_range
+from .registers import RiscvRegister
+from ..token import Token, u32, bit_range
 from .relocations import apply_absaddr32
 from .relocations import apply_b_imm12, apply_b_imm20, apply_abs32_imm20
 from .relocations import apply_abs32_imm12
@@ -232,6 +232,16 @@ Ori = make_i('andi',0b111, False)
 Add2 = Addi
 Sub2 = Subi
 # Branches:
+
+class Nop(RiscvInstruction):
+    syntax = Syntax(['nop'])
+    def encode(self):
+        self.token1[0:7] = 0b0010011
+        self.token1[7:12] = 0
+        self.token1[12:15] = 0b000
+        self.token1[15:20] = 0
+        self.token1[20:32] = 0
+        return self.token1.encode()
 
 class SmBase(RiscvInstruction):
     def encode(self):

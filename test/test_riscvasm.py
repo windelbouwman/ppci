@@ -215,6 +215,10 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
     def test_read_instrhigh(self):
         self.feed('rdinstreth x4')
         self.check('73 22 20 c8')
+    
+    def test_nop(self):
+        self.feed('nop')
+        self.check('13 00 00 00')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,86 @@
+\select@language {english}
+\contentsline {chapter}{\numberline {1}Overview}{5}
+\contentsline {section}{\numberline {1.1}Supported Instruction Set}{5}
+\contentsline {section}{\numberline {1.2}ASIC Synthesis}{6}
+\contentsline {section}{\numberline {1.3}FPGA Synthesis}{6}
+\contentsline {chapter}{\numberline {2}Instruction Fetch}{7}
+\contentsline {section}{\numberline {2.1}Protocol}{7}
+\contentsline {chapter}{\numberline {3}Load-Store-Unit (LSU)}{8}
+\contentsline {section}{\numberline {3.1}Misaligned Accesses}{8}
+\contentsline {section}{\numberline {3.2}Protocol}{8}
+\contentsline {section}{\numberline {3.3}Post-Incrementing Load and Store Instructions}{10}
+\contentsline {subsection}{\numberline {3.3.1}lb rD, imm(rs1!)}{10}
+\contentsline {subsection}{\numberline {3.3.2}lh rD, imm(rs1!)}{10}
+\contentsline {subsection}{\numberline {3.3.3}lw rD, imm(rs1!)}{10}
+\contentsline {subsection}{\numberline {3.3.4}lbu rD, imm(rs1!)}{11}
+\contentsline {subsection}{\numberline {3.3.5}lhu rD, imm(rs1!)}{11}
+\contentsline {subsection}{\numberline {3.3.6}lb rD, rs2(rs1!)}{11}
+\contentsline {subsection}{\numberline {3.3.7}lh rD, rs2(rs1!)}{11}
+\contentsline {subsection}{\numberline {3.3.8}lw rD, rs2(rs1!)}{12}
+\contentsline {subsection}{\numberline {3.3.9}lbu rD, rs2(rs1!)}{12}
+\contentsline {subsection}{\numberline {3.3.10}lhu rD, rs2(rs1!)}{12}
+\contentsline {subsection}{\numberline {3.3.11}sb rs2, imm(rs1!)}{12}
+\contentsline {subsection}{\numberline {3.3.12}sh rs2, imm(rs1!)}{13}
+\contentsline {subsection}{\numberline {3.3.13}sw rs2, imm(rs1!)}{13}
+\contentsline {subsection}{\numberline {3.3.14}sb rs2, rs3(rs1!)}{13}
+\contentsline {subsection}{\numberline {3.3.15}sh rs2, rs3(rs1!)}{13}
+\contentsline {subsection}{\numberline {3.3.16}sw rs2, rs3(rs1!)}{14}
+\contentsline {chapter}{\numberline {4}Multiply-Accumulate}{15}
+\contentsline {section}{\numberline {4.1}Instructions}{15}
+\contentsline {subsection}{\numberline {4.1.1}p.mul rD, rs1, rs2}{15}
+\contentsline {subsection}{\numberline {4.1.2}p.mac rD, rs1, rs2}{16}
+\contentsline {subsection}{\numberline {4.1.3}p.mul\{s,hhs,u,hhu\} rD, rs1, rs2}{16}
+\contentsline {subsection}{\numberline {4.1.4}p.mac\{s,hhs,u,hhu\} rD, rs1, rs2}{16}
+\contentsline {chapter}{\numberline {5}PULP ALU Extensions}{17}
+\contentsline {section}{\numberline {5.1}Instructions}{17}
+\contentsline {subsection}{\numberline {5.1.1}p.avg rD, rs1, rs2}{17}
+\contentsline {subsection}{\numberline {5.1.2}p.avgu rD, rs1, rs2}{17}
+\contentsline {subsection}{\numberline {5.1.3}p.slet rD, rs1, rs2}{17}
+\contentsline {subsection}{\numberline {5.1.4}p.sletu rD, rs1, rs2}{18}
+\contentsline {subsection}{\numberline {5.1.5}p.min rD, rs1, rs2}{18}
+\contentsline {subsection}{\numberline {5.1.6}p.minu rD, rs1, rs2}{18}
+\contentsline {subsection}{\numberline {5.1.7}p.max rD, rs1, rs2}{18}
+\contentsline {subsection}{\numberline {5.1.8}p.maxu rD, rs1, rs2}{19}
+\contentsline {subsection}{\numberline {5.1.9}p.abs rD, rs1}{19}
+\contentsline {subsection}{\numberline {5.1.10}p.ror rD, rs1, rs2}{19}
+\contentsline {subsection}{\numberline {5.1.11}p.exths rD, rs1}{19}
+\contentsline {subsection}{\numberline {5.1.12}p.exthz rD, rs1}{19}
+\contentsline {subsection}{\numberline {5.1.13}p.extbs rD, rs1}{20}
+\contentsline {subsection}{\numberline {5.1.14}p.extbz rD, rs1}{20}
+\contentsline {subsection}{\numberline {5.1.15}p.ff1 rD, rs1}{20}
+\contentsline {subsection}{\numberline {5.1.16}p.fl1 rD, rs1}{20}
+\contentsline {subsection}{\numberline {5.1.17}p.clb rD, rs1}{21}
+\contentsline {subsection}{\numberline {5.1.18}p.cnt rD, rs1}{21}
+\contentsline {chapter}{\numberline {6}PULP Hardware Loop Extensions}{22}
+\contentsline {section}{\numberline {6.1}Instructions}{22}
+\contentsline {subsection}{\numberline {6.1.1}lp.starti L, uimmL}{22}
+\contentsline {subsection}{\numberline {6.1.2}lp.endi L, uimmL}{23}
+\contentsline {subsection}{\numberline {6.1.3}lp.count L, rs1}{23}
+\contentsline {subsection}{\numberline {6.1.4}lp.counti L, uimmL}{23}
+\contentsline {subsection}{\numberline {6.1.5}lp.setup L, rs1, uimmL}{23}
+\contentsline {subsection}{\numberline {6.1.6}lp.setupi L, uimmS, uimmL}{24}
+\contentsline {section}{\numberline {6.2}CSR Mapping}{24}
+\contentsline {chapter}{\numberline {7}Pipeline}{25}
+\contentsline {chapter}{\numberline {8}Register File}{27}
+\contentsline {section}{\numberline {8.1}Latch-based Register File}{27}
+\contentsline {chapter}{\numberline {9}Control and Status Registers}{28}
+\contentsline {section}{\numberline {9.1}Register Description}{30}
+\contentsline {subsection}{\numberline {9.1.1}MSTATUS}{30}
+\contentsline {subsection}{\numberline {9.1.2}MESTATUS}{30}
+\contentsline {subsection}{\numberline {9.1.3}MEPC}{30}
+\contentsline {subsection}{\numberline {9.1.4}MCAUSE}{31}
+\contentsline {subsection}{\numberline {9.1.5}MCPUID}{31}
+\contentsline {subsection}{\numberline {9.1.6}MIMPID}{31}
+\contentsline {subsection}{\numberline {9.1.7}MHARTID}{32}
+\contentsline {chapter}{\numberline {10}Performance Counters}{33}
+\contentsline {section}{\numberline {10.1}Performance Counter Mode Register (PCMR)}{33}
+\contentsline {section}{\numberline {10.2}Performance Counter Event Register (PCER)}{33}
+\contentsline {section}{\numberline {10.3}Performance Counter Counter Registers (PCCR0-31)}{34}
+\contentsline {chapter}{\numberline {11}Exceptions and Interrupts}{37}
+\contentsline {section}{\numberline {11.1}Interrupts}{37}
+\contentsline {section}{\numberline {11.2}Exceptions}{37}
+\contentsline {section}{\numberline {11.3}Handling}{38}
+\contentsline {chapter}{\numberline {12}Debug}{39}
+\contentsline {section}{\numberline {12.1}Debug Address Map}{39}
+\contentsline {subsection}{\numberline {12.1.1}Debug Register: DMR1}{40}
+\contentsline {subsection}{\numberline {12.1.2}Debug Register: DSR}{40}

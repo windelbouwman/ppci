@@ -1,0 +1,10 @@
+The following files in this directory have been modified to be usable
+with the verilator simulator:
+controller.sv
+hwloop_regs.sv
+id_stage.sv
+load_store_unit.sv
+prefetch_buffer.sv
+prefetch_l0_buffer.sv
+register_file_ff.sv
+The modified lines in these files are marked with the comment: // modified for verilator-simulation purpose
