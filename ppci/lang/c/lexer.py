@@ -13,7 +13,8 @@ class Lexer(BaseLexer):
     keywords = ['true', 'false',
                 'else', 'if', 'while', 'for', 'return',
                 'struct', 'enum',
-                'typedef']
+                'typedef', 'static', 'const',
+                'int', 'void', 'char', 'float', 'double']
 
     def __init__(self):
         tok_spec = [
@@ -25,7 +26,8 @@ class Lexer(BaseLexer):
             ('NEWLINE', r'\n', lambda typ, val: self.newline()),
             ('SKIP', r'[ \t]', None),
             ('COMMENTS', r'//.*', None),
-            ('LEESTEKEN', r'[+]', lambda typ, val: (val, val)),
+            ('LEESTEKEN2', r'>>', lambda typ, val: (val, val)),
+            ('LEESTEKEN', r'[+;,\(\){}=\-\*]', lambda typ, val: (val, val)),
             ('STRING', r'".*?"', lambda typ, val: (typ, val[1:-1]))
             ]
         super().__init__(tok_spec)
@@ -33,6 +35,12 @@ class Lexer(BaseLexer):
     def lex(self, src):
         s = src.read()
         return self.tokenize(s)
+
+    def tokenize(self, s):
+        for token in super().tokenize(s):
+            yield token
+        loc = SourceLocation(self.filename, self.line, 0, 0)
+        yield Token('EOF', 'EOF', loc)
 
     def handle_id(self, typ, val):
         if val in self.keywords:

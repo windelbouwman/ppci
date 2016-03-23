@@ -3,6 +3,7 @@
 """
 
 from .parser import Parser
+from .nodes import Printer
 
 
 class CBuilder:
@@ -13,5 +14,6 @@ class CBuilder:
         self.cgen = None
 
     def build(self, src):
-        self.parser.parse(src)
+        cu = self.parser.parse(src)
         # self.cgen.gen(s)
+        # Printer().visit(cu)

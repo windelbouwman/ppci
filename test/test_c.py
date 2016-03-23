@@ -1,6 +1,6 @@
 import unittest
 import io
-from ppci.lang.c import CBuilder
+from ppci.lang.c import CBuilder, Printer
 from ppci.arch.example import SimpleTarget
 
 
@@ -24,10 +24,11 @@ class CFrontendTestCase(unittest.TestCase):
 
     def test_2(self):
         src = """
-        const static float c;
+        static float c, d, e;
+        char f, g;
         int main() {
           int d;
-          d = 20 + c = 10 + c >> 2 - 123;
+          d = 20 + c * 10 + c >> 2 - 123;
         }
         """
         self.do(src)
