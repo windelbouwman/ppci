@@ -819,9 +819,9 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
            // var int global_tick; """)
         with complete_report(report_generator) as reporter:
             if lang == 'c3':
-                ir_modules = list(c3toir([
+                ir_modules, debug_info = c3toir([
                     relpath('..', 'librt', 'io.c3'), bsp,
-                    io.StringIO(src)], [], "arm", reporter=reporter))
+                    io.StringIO(src)], [], "arm", reporter=reporter)
             elif lang == 'bf':
                 ir_modules = [bf2ir(src, 'arm')]
 

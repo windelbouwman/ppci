@@ -54,7 +54,8 @@ class InstructionContext:
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
-        return self.frame.emit(*args, **kwargs)
+        x = self.frame.emit(*args, **kwargs)
+        return x
 
 
 class TreeSelector:
@@ -158,7 +159,7 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def select(self, ir_function, frame, reporter):
+    def select(self, ir_function, frame, debug_info, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.Function)
         self.logger.debug('Creating selection dag for %s', ir_function.name)
@@ -171,12 +172,13 @@ class InstructionSelector1:
         context = InstructionContext(frame, self.target)
 
         # Create selection dag (directed acyclic graph):
-        sgraph = self.dag_builder.build(ir_function, function_info)
+        sgraph = self.dag_builder.build(ir_function, function_info, debug_info)
         reporter.message('Selection graph for {}'.format(ir_function))
         reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into trees:
-        self.dag_splitter.split_into_trees(sgraph, ir_function, function_info)
+        self.dag_splitter.split_into_trees(
+            sgraph, ir_function, function_info, debug_info)
         reporter.dump_trees(ir_function, function_info)
 
         # Process one basic block at a time:

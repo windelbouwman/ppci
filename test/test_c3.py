@@ -99,7 +99,7 @@ class BuildTestCaseBase(unittest.TestCase):
     def build(self, snippet):
         """ Try to build a snippet and also print it to test the printer """
         srcs = self.make_file_list(snippet)
-        context, ir_modules = self.builder.build(srcs)
+        context, ir_modules, debug_info = self.builder.build(srcs)
         printer = AstPrinter()
         for mod in context.modules:
             output_file = io.StringIO()

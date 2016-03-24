@@ -6,6 +6,7 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
+from ... import dbginfo
 from . import astnodes as ast
 from .scope import SemanticError
 
@@ -35,14 +36,17 @@ class CodeGenerator:
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
+        self.debug_info = None
         self.module_ok = False
 
-    def emit(self, instruction):
+    def emit(self, instruction, dbg=None):
         """
             Emits the given instruction to the builder.
             Can be muted for constants.
         """
         self.builder.emit(instruction)
+        if dbg:
+            self.debug_info.mappings[instruction] = dbg
         return instruction
 
     def gen_globals(self, module, context):
@@ -58,10 +62,11 @@ class CodeGenerator:
             assert not var.ival
             ir_module.add_variable(ir_var)
 
-    def gencode(self, mod, context):
+    def gencode(self, mod, context, debug_info):
         """ Generate code for a single module """
         assert isinstance(mod, ast.Module)
         self.context = context
+        self.debug_info = debug_info
         self.builder.prepare()
         self.module_ok = True
         self.logger.info('Generating ir-code for %s', mod.name)
@@ -548,7 +553,8 @@ class CodeGenerator:
         b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
 
         return self.emit(
-            ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
+            ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty),
+            dbg=dbginfo.DbgLoc(expr.loc))
 
     def gen_identifier(self, expr):
         """ Generate code for when an identifier was referenced """

@@ -77,12 +77,13 @@ class SelectionGraphBuilder:
             ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
         self.postfix_map[ir.ptr] = 'I{}'.format(target.byte_sizes['ptr'] * 8)
 
-    def build(self, ir_function, function_info):
+    def build(self, ir_function, function_info, debug_info):
         """ Create a selection graph for the given function.
             Selection graph is divided into groups for each basic block.
         """
         self.sgraph = SelectionGraph()
         self.function_info = function_info
+        self.debug_info = debug_info
 
         # TODO: fix this total mess with vreg, block and chains:
         self.current_block = None
@@ -271,6 +272,7 @@ class SelectionGraphBuilder:
         a = self.get_value(node.a)
         b = self.get_value(node.b)
         sgnode = self.new_node(op, a, b)
+        self.debug_info.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
     @register(ir.Cast)
@@ -411,7 +413,7 @@ class DagSplitter:
         self.logger = logging.getLogger('dag-splitter')
         self.target = target
 
-    def split_into_trees(self, sgraph, ir_function, function_info):
+    def split_into_trees(self, sgraph, ir_function, function_info, debug_info):
         """ Split a forest of trees into a sorted series of trees for each
             block.
         """
@@ -424,7 +426,7 @@ class DagSplitter:
                     lambda x: x.name not in ['ENTRY', 'EXIT', 'TRM'], nodes))
 
             tail_node = function_info.block_tails[ir_block]
-            trees = self.make_trees(nodes, tail_node)
+            trees = self.make_trees(nodes, tail_node, debug_info)
             function_info.block_trees[ir_block] = trees
 
     def assign_vregs(self, sgraph, function_info):
@@ -451,7 +453,7 @@ class DagSplitter:
                     vreg = frame.new_reg(cls, data_output.name)
                     data_output.vreg = vreg
 
-    def make_trees(self, nodes, tail_node):
+    def make_trees(self, nodes, tail_node, debug_info):
         """ Create a tree from a list of sorted nodes. """
         sorted_nodes = topological_sort_modified(nodes, tail_node)
         trees = []
@@ -476,6 +478,7 @@ class DagSplitter:
 
             # Create a tree node:
             tree = Tree(node.name, *children, value=node.value)
+            debug_info.map(node, tree)
 
             # Handle outputs:
             if len(node.data_outputs) == 0:

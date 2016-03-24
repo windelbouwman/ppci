@@ -34,6 +34,7 @@ from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
 from .arch.target_list import get_arch
+from .dbginfo import DebugInfo
 
 # When doing from 'ppci.api import *' include the following:
 __all__ = [
@@ -161,7 +162,7 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     c3b = C3Builder(diag, march)
 
     try:
-        _, ir_modules = c3b.build(sources, includes)
+        _, ir_modules, debug_info = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
     except CompilerError as ex:
@@ -169,12 +170,13 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
         diag.print_errors()
         raise TaskError('Compile errors')
 
+    print(debug_info.mappings)
     reporter.message('C3 compilation listings for {}'.format(sources))
     for ir_module in ir_modules:
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
-    return ir_modules
+    return ir_modules, debug_info
 
 
 def optimize(ir_module, reporter=DummyReportGenerator()):
@@ -211,7 +213,8 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     reporter.dump_ir(ir_module)
 
 
-def ir_to_object(ir_modules, march, reporter=DummyReportGenerator()):
+def ir_to_object(
+        ir_modules, march, debug_info, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
     target """
     logger = logging.getLogger('ir_to_code')
@@ -226,7 +229,8 @@ def ir_to_object(ir_modules, march, reporter=DummyReportGenerator()):
 
         # Code generation:
         logger.debug('Starting code generation for %s', ir_module.name)
-        code_generator.generate(ir_module, output_stream, reporter=reporter)
+        code_generator.generate(
+            ir_module, output_stream, debug_info, reporter=reporter)
 
     reporter.message('All modules generated!')
     return output
@@ -268,12 +272,13 @@ def c3c(sources, includes, march, reporter=DummyReportGenerator()):
         CodeObject of 4 bytes
     """
     march = fix_target(march)
-    ir_modules = list(c3toir(sources, includes, march, reporter=reporter))
+    ir_modules, debug_info = \
+        c3toir(sources, includes, march, reporter=reporter)
 
     for ircode in ir_modules:
         optimize(ircode, reporter=reporter)
 
-    return ir_to_object(ir_modules, march, reporter=reporter)
+    return ir_to_object(ir_modules, march, debug_info, reporter=reporter)
 
 
 def bf2ir(source, target):
@@ -312,7 +317,8 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
-    return ir_to_object([ir_module], target, reporter=reporter)
+    debug_info = DebugInfo()
+    return ir_to_object([ir_module], target, debug_info, reporter=reporter)
 
 
 def fortrancompile(sources, target, reporter=DummyReportGenerator()):

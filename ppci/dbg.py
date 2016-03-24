@@ -7,6 +7,7 @@
 
 import logging
 from .api import fix_target
+from . import dbginfo
 from .disasm import Disassembler
 from .binutils.outstream import RecordingOutputStream
 
@@ -15,14 +16,6 @@ from .binutils.outstream import RecordingOutputStream
 STOPPED = 0
 RUNNING = 1
 FINISHED = 2
-
-
-class DbgInfo:
-    pass
-
-
-class LineInfo:
-    pass
 
 
 class SubscribleEvent:

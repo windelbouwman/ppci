@@ -11,6 +11,7 @@ from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
+from ...dbginfo import DebugInfo
 
 
 class C3Builder:
@@ -70,9 +71,10 @@ class C3Builder:
 
         # Phase 2: Generate intermediate code
         # Only return ircode when everything is OK
+        debug_info = DebugInfo()
         ir_modules = []
         for pkg in context.modules:
-            ir_modules.append(self.codegen.gencode(pkg, context))
+            ir_modules.append(self.codegen.gencode(pkg, context, debug_info))
 
         # Hack to check for undefined variables:
         try:
@@ -83,7 +85,7 @@ class C3Builder:
             raise
 
         self.logger.debug('C3 build complete!')
-        return context, ir_modules
+        return context, ir_modules, debug_info
 
     def check_control_flow(self, ir_module):
         pas = Mem2RegPromotor()

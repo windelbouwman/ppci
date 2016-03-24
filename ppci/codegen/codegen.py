@@ -29,7 +29,7 @@ class CodeGenerator:
         self.register_allocator = RegisterAllocator()
         self.verifier = Verifier()
 
-    def generate(self, ircode, output_stream, reporter):
+    def generate(self, ircode, output_stream, debug_info, reporter):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
@@ -48,9 +48,11 @@ class CodeGenerator:
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section('code')
         for function in ircode.functions:
-            self.generate_function(function, output_stream, reporter)
+            self.generate_function(
+                function, output_stream, debug_info, reporter)
 
-    def generate_function(self, ir_function, output_stream, reporter):
+    def generate_function(
+            self, ir_function, output_stream, debug_info, reporter):
         """ Generate code for one function into a frame """
         self.logger.info(
             'Generating %s code for function %s',
@@ -76,7 +78,7 @@ class CodeGenerator:
         frame = self.target.new_frame(frame_name, ir_function)
 
         # Select instructions and schedule them:
-        self.select_and_schedule(ir_function, frame, reporter)
+        self.select_and_schedule(ir_function, frame, debug_info, reporter)
 
         # Define arguments live at first instruction:
         self.define_arguments_live(frame)
@@ -92,13 +94,13 @@ class CodeGenerator:
         self.emit_frame_to_stream(frame, output_stream)
         reporter.function_footer(instruction_list)
 
-    def select_and_schedule(self, ir_function, frame, reporter):
+    def select_and_schedule(self, ir_function, frame, debug_info, reporter):
         """ Perform instruction selection and scheduling """
         self.logger.debug('Selecting instructions')
 
         tree_method = True
         if tree_method:
-            self.instruction_selector.select(ir_function, frame, reporter)
+            self.instruction_selector.select(ir_function, frame, debug_info, reporter)
         else:  # pragma: no cover
             raise NotImplementedError('TODO')
             # Build a graph:
