@@ -170,7 +170,6 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
         diag.print_errors()
         raise TaskError('Compile errors')
 
-    print(debug_info.mappings)
     reporter.message('C3 compilation listings for {}'.format(sources))
     for ir_module in ir_modules:
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
@@ -239,8 +238,7 @@ def ir_to_object(
 def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
     """ Convert ir-code to python code """
     generator = IrToPython()
-    generator.f = f
-    generator.header()
+    generator.header(f)
     for ir_module in ir_modules:
         optimize(ir_module, reporter=reporter)
         reporter.message('Optimized module:')

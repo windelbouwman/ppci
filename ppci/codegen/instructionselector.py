@@ -34,9 +34,11 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
 
 class InstructionContext:
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, target):
+    def __init__(self, frame, target, debug_info):
         self.frame = frame
         self.target = target
+        self.debug_info = debug_info
+        self.tree = None
 
     def new_reg(self, cls):
         """ Generate a new temporary of a given class """
@@ -54,8 +56,10 @@ class InstructionContext:
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
-        x = self.frame.emit(*args, **kwargs)
-        return x
+        instruction = self.frame.emit(*args, **kwargs)
+        if self.tree:
+            self.debug_info.map(self.tree, instruction)
+        return instruction
 
 
 class TreeSelector:
@@ -112,7 +116,10 @@ class TreeSelector:
                    zip(self.kids(tree, rule), self.nts(rule))]
         # Get the function to call:
         rule_f = self.sys.get_rule(rule).template
-        return rule_f(context, tree, *results)
+        context.tree = tree
+        res = rule_f(context, tree, *results)
+        context.tree = None
+        return res
 
     def kids(self, tree, rule):
         """ Determine the kid trees for a rule """
@@ -169,7 +176,7 @@ class InstructionSelector1:
         prepare_function_info(self.target, function_info, ir_function)
 
         # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.target)
+        context = InstructionContext(frame, self.target, debug_info)
 
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(ir_function, function_info, debug_info)

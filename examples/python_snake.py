@@ -11,7 +11,7 @@ def run_it():
     public function bool get_key(int* key);
     """)
 
-    ircode = c3toir(
+    ircode, debug_info = c3toir(
         ['snake/game.c3', 'snake/main.c3', '../librt/io.c3'],
         [bsp], SimpleTarget())
 

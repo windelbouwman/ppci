@@ -24,7 +24,7 @@ class DebugInfo:
         if src in self.mappings:
             i = self.mappings[src]
             self.mappings[dst] = i
-            print(dst, i)
+            # print(dst, i)
 
 
 class LineInfo:
@@ -32,6 +32,14 @@ class LineInfo:
 
 
 class DebugType:
+    pass
+
+
+class CuInfo:
+    pass
+
+
+class FuncInfo:
     pass
 
 

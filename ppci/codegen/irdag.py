@@ -142,6 +142,7 @@ class SelectionGraphBuilder:
     def do_jump(self, node):
         sgnode = self.new_node('JMP')
         sgnode.value = self.function_info.label_map[node.target]
+        self.debug_info.map(node, sgnode)
         self.chain(sgnode)
 
     def make_opcode(self, opcode, typ):
@@ -194,6 +195,7 @@ class SelectionGraphBuilder:
         sgnode.value = cond, self.function_info.label_map[node.lab_yes],\
             self.function_info.label_map[node.lab_no]
         self.chain(sgnode)
+        self.debug_info.map(node, sgnode)
 
     @register(ir.Terminator)
     def do_terminator(self, node):
@@ -232,6 +234,7 @@ class SelectionGraphBuilder:
         address = self.get_address(node.address)
         sgnode = self.new_node(self.make_opcode('LDR', node.ty), address)
         # Make sure a data dependence is added to this node
+        self.debug_info.map(node, sgnode)
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
@@ -243,6 +246,7 @@ class SelectionGraphBuilder:
         opcode = self.make_opcode('STR', node.value.ty)
         sgnode = self.new_node(opcode, address, value)
         self.chain(sgnode)
+        self.debug_info.map(node, sgnode)
 
     @register(ir.Const)
     def do_const(self, node):
@@ -252,6 +256,7 @@ class SelectionGraphBuilder:
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node.value)))
         sgnode = self.new_node(name)
+        self.debug_info.map(node, sgnode)
         sgnode.value = value
         self.add_map(node, sgnode.new_output(node.name))
 
@@ -305,6 +310,7 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(
             'CALL',
             value=(node.function_name, arg_types, node.ty, args, ret_val))
+        self.debug_info.map(node, sgnode)
         for i in inputs:
             sgnode.add_input(i)
         self.chain(sgnode)

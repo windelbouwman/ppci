@@ -91,7 +91,7 @@ class CodeGenerator:
         # TODO: Peep-hole here?
 
         # Add label and return and stack adjustment:
-        self.emit_frame_to_stream(frame, output_stream)
+        self.emit_frame_to_stream(frame, output_stream, debug_info)
         reporter.function_footer(instruction_list)
 
     def select_and_schedule(self, ir_function, frame, debug_info, reporter):
@@ -100,7 +100,8 @@ class CodeGenerator:
 
         tree_method = True
         if tree_method:
-            self.instruction_selector.select(ir_function, frame, debug_info, reporter)
+            self.instruction_selector.select(
+                ir_function, frame, debug_info, reporter)
         else:  # pragma: no cover
             raise NotImplementedError('TODO')
             # Build a graph:
@@ -111,7 +112,7 @@ class CodeGenerator:
             # Schedule instructions:
             # self.instruction_scheduler.schedule(sgraph, frame)
 
-    def emit_frame_to_stream(self, frame, output_stream):
+    def emit_frame_to_stream(self, frame, output_stream, debug_info):
         """
             Add code for the prologue and the epilogue. Add a label, the
             return instruction and the stack pointer adjustment for the frame.
@@ -127,6 +128,9 @@ class CodeGenerator:
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
+            if instruction in debug_info.mappings:
+                print(
+                    'DBGINFO:', instruction, debug_info.mappings[instruction])
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions

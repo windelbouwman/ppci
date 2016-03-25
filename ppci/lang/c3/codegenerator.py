@@ -6,7 +6,7 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
-from ... import dbginfo
+from ...dbginfo import DbgLoc
 from . import astnodes as ast
 from .scope import SemanticError
 
@@ -274,15 +274,21 @@ class CodeGenerator:
             load_ty = self.get_ir_type(code.lval.typ, code.lval.loc)
 
             # We know, the left hand side is an lvalue, so load it:
-            lhs_ld = self.emit(ir.Load(lval, 'assign_op_load', load_ty))
+            lhs_ld = self.emit(
+                ir.Load(lval, 'assign_op_load', load_ty),
+                dbg=DbgLoc(code.loc))
 
             # Now construct the rvalue:
             oper = code.shorthand_operator
-            rval = self.emit(ir.Binop(lhs_ld, oper, rval, "binop", rval.ty))
+            rval = self.emit(
+                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty),
+                dbg=DbgLoc(code.loc))
 
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
-        return self.emit(ir.Store(rval, lval, volatile=volatile))
+        return self.emit(
+            ir.Store(rval, lval, volatile=volatile),
+            dbg=DbgLoc(code.loc))
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -421,7 +427,9 @@ class CodeGenerator:
             load_ty = self.get_ir_type(expr.typ, expr.loc)
 
             # Load the value:
-            value = self.emit(ir.Load(value, 'loaded', load_ty))
+            value = self.emit(
+                ir.Load(value, 'loaded', load_ty),
+                dbg=DbgLoc(expr.loc))
 
             # This expression is no longer an lvalue
             expr.lvalue = False
@@ -436,7 +444,9 @@ class CodeGenerator:
 
         self.context.check_type(expr.query_typ)
         type_size = self.context.size_of(expr.query_typ)
-        return self.emit(ir.Const(type_size, 'sizeof', self.get_ir_int()))
+        return self.emit(
+            ir.Const(type_size, 'sizeof', self.get_ir_int()),
+            dbg=DbgLoc(expr.loc))
 
     def gen_dereference(self, expr):
         """ dereference pointer type, which means *(expr) """
@@ -454,7 +464,9 @@ class CodeGenerator:
         # TODO: re-cat this mind-melting mess into logical sense
         if expr.ptr.lvalue:
             load_ty = self.get_ir_type(ptr_typ, expr.loc)
-            deref_value = self.emit(ir.Load(addr, 'deref', load_ty))
+            deref_value = self.emit(
+                ir.Load(addr, 'deref', load_ty),
+                dbg=DbgLoc(expr.loc))
         else:
             deref_value = addr
         return deref_value
@@ -554,7 +566,7 @@ class CodeGenerator:
 
         return self.emit(
             ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty),
-            dbg=dbginfo.DbgLoc(expr.loc))
+            dbg=DbgLoc(expr.loc))
 
     def gen_identifier(self, expr):
         """ Generate code for when an identifier was referenced """
@@ -659,11 +671,17 @@ class CodeGenerator:
         e_size = self.emit(ir.Const(element_size, 'element_size', int_ir_type))
 
         # Calculate offset:
-        offset = self.emit(ir.Mul(idx, e_size, "element_offset", int_ir_type))
-        offset = self.emit(ir.to_ptr(offset, 'elem_offset'))
+        offset = self.emit(
+            ir.Mul(idx, e_size, "element_offset", int_ir_type),
+            dbg=DbgLoc(expr.loc))
+        offset = self.emit(
+            ir.to_ptr(offset, 'elem_offset'),
+            dbg=DbgLoc(expr.loc))
 
         # Calculate address:
-        return self.emit(ir.Add(base, offset, "element_address", ir.ptr))
+        return self.emit(
+            ir.Add(base, offset, "element_address", ir.ptr),
+            dbg=DbgLoc(expr.loc))
 
     def gen_literal_expr(self, expr):
         """ Generate code for literal """
@@ -760,4 +778,6 @@ class CodeGenerator:
         ret_typ = self.get_ir_type(expr.typ, expr.loc)
 
         # Emit call:
-        return self.emit(ir.Call(fname, args, fname + '_rv', ret_typ))
+        return self.emit(
+            ir.Call(fname, args, fname + '_rv', ret_typ),
+            dbg=DbgLoc(expr.loc))
