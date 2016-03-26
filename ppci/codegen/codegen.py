@@ -7,7 +7,7 @@ import logging
 from .. import ir
 from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture, VCall
-from ..arch.arch import RegisterUseDef, VirtualInstruction
+from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.isa import Instruction
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
@@ -76,6 +76,7 @@ class CodeGenerator:
         # Create a frame for this function:
         frame_name = ir.label_name(ir_function)
         frame = self.target.new_frame(frame_name, ir_function)
+        debug_info.map(ir_function, frame)
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame, debug_info, reporter)
@@ -123,14 +124,23 @@ class CodeGenerator:
         # real instructions.
         self.logger.debug('Emitting instructions')
 
+        # Emit function start debug info:
+        if frame in debug_info.mappings:
+            d = debug_info.mappings[frame]
+            dd = DebugData(d)
+            output_stream.emit(dd)
+
         # Prefix code:
         output_stream.emit_all(frame.prologue())
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
             if instruction in debug_info.mappings:
+                d = debug_info.mappings[instruction]
                 print(
-                    'DBGINFO:', instruction, debug_info.mappings[instruction])
+                    'DBGINFO:', instruction, d)
+                dd = DebugData(d)
+                output_stream.emit(dd)
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions

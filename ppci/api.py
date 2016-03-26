@@ -348,7 +348,7 @@ def link(
 
 def objcopy(obj, image_name, fmt, output_filename):
     """ Copy some parts of an object file to an output """
-    if fmt not in ['bin', 'hex', 'elf']:
+    if fmt not in ['bin', 'hex', 'elf', 'ldb']:
         raise TaskError('Only bin, elf and hex formats supported')
 
     obj = fix_object(obj)
@@ -368,5 +368,24 @@ def objcopy(obj, image_name, fmt, output_filename):
         hexfile.add_region(image.location, image.data)
         with open(output_filename, 'w') as output_file:
             hexfile.save(output_file)
+    elif fmt == 'ldb':
+        # TODO: fix this some other way to extract debug info
+        write_ldb(obj, output_filename)
     else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
+
+
+def write_ldb(obj, output_filename):
+    """ Export debug info from object to ldb format.
+        See for example:
+        - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
+          x32-debug/ex2.dbg
+    """
+    with open(output_filename, 'w') as output_file:
+        for debug in obj.debug:
+            filename = debug.data.loc.filename
+            row = debug.data.loc.row
+            address = obj.get_section(debug.section).address + debug.offset
+            print(
+                'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
+                file=output_file)

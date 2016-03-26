@@ -10,6 +10,7 @@ The hierarchy is as follows:
 - a section contains a name and data.
 - relocations are offset into a section, refer a symbol and have a type
 - symbols are offset into a section and have a name
+- debug data have an offset into a section and contain data.
 
 - sections cannot overlap
 """
@@ -17,6 +18,7 @@ The hierarchy is as follows:
 import json
 import binascii
 from ..common import CompilerError, make_num
+from .. import dbginfo
 
 
 class Symbol:
@@ -51,6 +53,17 @@ class Relocation:
     def __eq__(self, other):
         return (self.sym, self.offset, self.typ, self.section) ==\
             (other.sym, other.offset, other.typ, other.section)
+
+
+class Debug:
+    """ Container for debug data """
+    def __init__(self, section, offset, data):
+        self.section = section
+        self.offset = offset
+        self.data = data
+
+    def __repr__(self):
+        return 'DEBUG {} {} {}'.format(self.section, self.offset, self.data)
 
 
 class Section:
@@ -138,7 +151,9 @@ def merge_memories(mem1, mem2, name):
 
 class ObjectFile:
     """ Container for sections with compiled code or data.
-        Also contains symbols and relocation entries """
+        Also contains symbols and relocation entries.
+        Also contains debug information.
+    """
     def __init__(self):
         self.symbols = []
         self.symbol_map = {}
@@ -147,8 +162,10 @@ class ObjectFile:
         self.relocations = []
         self.images = []
         self.image_map = {}
+        self.debug = []
 
     def has_symbol(self, name):
+        """ Check if this object file has a symbol with name 'name' """
         return name in self.symbol_map
 
     def find_symbol(self, name):
@@ -166,12 +183,18 @@ class ObjectFile:
 
     def add_relocation(self, sym_name, offset, typ, section):
         """ Add a relocation """
-        assert type(sym_name) is str, str(sym_name)
+        assert isinstance(sym_name, str), str(sym_name)
         assert self.has_section(section)
         # assert sym_name in self.symbols
         reloc = Relocation(sym_name, offset, typ, section)
         self.relocations.append(reloc)
         return reloc
+
+    def add_debug(self, section, offset, data):
+        """ Add debug data to this object file """
+        assert self.has_section(section)
+        debug = Debug(section, offset, data)
+        self.debug.append(debug)
 
     def has_section(self, name):
         """ Check if the object file has a section with the given name """
@@ -214,21 +237,23 @@ class ObjectFile:
             (self.relocations == other.relocations) and \
             (self.images == other.images)
 
-    def save(self, f):
+    def save(self, output_file):
         """ Save object file to a file like object """
-        save_object(self, f)
+        save_object(self, output_file)
 
 
-def save_object(obj, f):
-    json.dump(serialize(obj), f, indent=2, sort_keys=True)
+def save_object(obj, output_file):
+    """ Save an object to file """
+    json.dump(serialize(obj), output_file, indent=2, sort_keys=True)
 
 
-def load_object(f):
+def load_object(input_file):
     """ Load object file from file """
-    return deserialize(json.load(f))
+    return deserialize(json.load(input_file))
 
 
 def print_object(obj):
+    """ Display an object in a user friendly manner """
     print(obj)
     for section in obj.sections:
         print(section)
@@ -249,7 +274,7 @@ def asc2bin(data):
 
 
 def serialize(x):
-    """ Serialize an object so it can be json-ified """
+    """ Serialize an object so it can be json-ified, or serialized """
     res = {}
     if isinstance(x, ObjectFile):
         res['sections'] = []
@@ -264,6 +289,9 @@ def serialize(x):
         res['images'] = []
         for image in x.images:
             res['images'].append(serialize(image))
+        res['debug'] = []
+        for debug in x.debug:
+            res['debug'].append(serialize(debug))
     elif isinstance(x, Image):
         res['name'] = x.name
         res['location'] = hex(x.location)
@@ -284,6 +312,12 @@ def serialize(x):
         res['offset'] = hex(x.offset)
         res['type'] = x.typ
         res['section'] = x.section
+    elif isinstance(x, Debug):
+        res['section'] = x.section
+        res['offset'] = hex(x.offset)
+        res['data'] = dbginfo.serialize(x.data)
+    else:
+        raise NotImplementedError(str(type(x)))
     return res
 
 
@@ -308,4 +342,7 @@ def deserialize(d):
         for section_name in image['sections']:
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
+    for debug in d['debug']:
+        data = dbginfo.deserialize(debug['data'])
+        obj.add_debug(debug['section'], make_num(debug['offset']), data)
     return obj

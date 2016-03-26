@@ -6,7 +6,7 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
-from ...dbginfo import DbgLoc
+from ...dbginfo import DbgLoc, FuncDebugInfo
 from . import astnodes as ast
 from .scope import SemanticError
 
@@ -101,6 +101,8 @@ class CodeGenerator:
             body.
         """
         ir_function = self.builder.new_function(function.name)
+        self.debug_info.mappings[ir_function] = FuncDebugInfo(
+            function.name, function.loc)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.emit(ir.Jump(first_block))

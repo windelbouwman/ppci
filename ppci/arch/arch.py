@@ -130,6 +130,11 @@ class RegisterUseDef(VirtualInstruction):
 
 
 class VCall(VirtualInstruction):
+    """
+        An instruction call before register allocation. After register
+        allocation, this instruction is replaced by the correct calling
+        sequence for a function.
+    """
     def __init__(self, function_name, **kwargs):
         super().__init__(**kwargs)
         self.function_name = function_name
@@ -139,6 +144,11 @@ class VCall(VirtualInstruction):
 
 
 class PseudoInstruction(Instruction):
+    """
+        Pseudo instructions can be emitted into a stream, but are not real
+        machine instructions. They are instructions like comments, labels
+        and debug information alike information.
+    """
     def __init__(self):
         super().__init__()
 
@@ -147,6 +157,7 @@ class PseudoInstruction(Instruction):
 
 
 class Label(PseudoInstruction):
+    """ Assembly language label instruction """
     def __init__(self, name):
         super().__init__()
         self.name = name
@@ -178,6 +189,18 @@ class Alignment(PseudoInstruction):
 
     def __repr__(self):
         return 'ALIGN({})'.format(self.align)
+
+
+class DebugData(PseudoInstruction):
+    """
+        Carrier instruction of debug information.
+    """
+    def __init__(self, data):
+        super().__init__()
+        self.data = data
+
+    def __repr__(self):
+        return 'debug_data({})'.format(self.data)
 
 
 def generate_temps():

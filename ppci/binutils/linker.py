@@ -76,6 +76,11 @@ class Linker:
                 offset = offsets[reloc.section] + reloc.offset
                 dst.add_relocation(reloc.sym, offset, reloc.typ, reloc.section)
 
+            # Merge debug info:
+            for debug in input_object.debug:
+                offset = offsets[debug.section] + debug.offset
+                dst.add_debug(debug.section, offset, debug.data)
+
     def layout_sections(self, dst, layout):
         """ Use the given layout to place sections into memories """
         # Create sections with address:

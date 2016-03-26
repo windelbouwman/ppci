@@ -5,21 +5,23 @@
 
 import logging
 from ..arch.isa import Instruction
-from ..arch.arch import Alignment
+from ..arch.arch import Alignment, DebugData
 
 
 class OutputStream:
-    """ Interface to generator code with. """
+    """ Interface to generate code with. Contains the emit function to output
+    instruction to the stream """
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
         raise NotImplementedError('Abstract base class')
 
     def emit_all(self, items):
-        """ Emit an iterable of items """
+        """ Emit all items from an iterable """
         for item in items:
             self.emit(item)
 
     def select_section(self, sname):  # pragma: no cover
+        """ Switch stream into another section """
         raise NotImplementedError('Abstract base class')
 
 
@@ -39,13 +41,14 @@ class BinaryOutputStream(OutputStream):
         super().__init__()
         self.obj_file = obj_file
         self.literal_pool = []
+        self.current_section = None
 
     def emit(self, item):
         """ Encode instruction and add symbol and relocation information """
         assert isinstance(item, Instruction), str(item) + str(type(item))
-        assert self.currentSection
-        section = self.currentSection
-        address = self.currentSection.size
+        assert self.current_section
+        section = self.current_section
+        address = self.current_section.size
         b = item.encode()
         section.add_data(b)
         for sym in item.symbols():
@@ -58,11 +61,13 @@ class BinaryOutputStream(OutputStream):
         if isinstance(item, Alignment):
             while section.size % item.align != 0:
                 section.add_data(bytes([0]))
-            if item.align > self.currentSection.alignment:
-                self.currentSection.alignment = item.align
+            if item.align > self.current_section.alignment:
+                self.current_section.alignment = item.align
+        elif isinstance(item, DebugData):
+            self.obj_file.add_debug(section.name, address, item.data)
 
     def select_section(self, sname):
-        self.currentSection = self.obj_file.get_section(sname)
+        self.current_section = self.obj_file.get_section(sname)
 
 
 class RecordingOutputStream(OutputStream):
