@@ -17,7 +17,7 @@ import os
 import sys
 import ctypes
 import struct
-from ppci.dbg import DebugServer, RUNNING, STOPPED
+from ppci.dbg import DebugDriver, RUNNING, STOPPED
 
 libc = ctypes.CDLL('libc.so.6')
 PTRACE_TRACEME = 0
@@ -71,7 +71,7 @@ def running(f):
     return f
 
 
-class LinuxDebugServer(DebugServer):
+class LinuxDebugDriver(DebugDriver):
     """ Implements a debugger backend """
     def __init__(self):
         super().__init__()
@@ -126,6 +126,7 @@ class LinuxDebugServer(DebugServer):
             part = self.read_word(address)
             address += len(part)
             res.extend(part)
+        # TODO: adjust actual read to match requested size.
         return bytes(res)
 
     def read_word(self, address):

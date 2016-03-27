@@ -6,7 +6,7 @@
 """
 
 import logging
-from .api import fix_target
+from .api import fix_target, fix_object
 from . import dbginfo
 from .disasm import Disassembler
 from .binutils.outstream import RecordingOutputStream
@@ -45,6 +45,7 @@ class Debugger:
         self.state_event = SubscribleEvent()
         self.register_names = self.get_register_names()
         self.register_values = {rn: 0 for rn in self.register_names}
+        self.obj = None
 
         # Subscribe to events:
         self.state_event.subscribe(self.on_halted)
@@ -105,6 +106,31 @@ class Debugger:
     def is_halted(self):
         return not self.is_running
 
+    # debug info:
+    def load_symbols(self, obj):
+        """ Load debug symbols from object file """
+        obj = fix_object(obj)
+        # verify the contents of the object with the memory image
+        assert self.is_halted
+        for image in obj.images:
+            vdata = image.data
+            adata = self.read_mem(image.location, len(vdata))
+            assert vdata == adata
+        self.logger.info('memory image validated!')
+        self.obj = obj
+
+    def find_pc(self):
+        if not self.obj:
+            return
+        pc = self.get_pc()
+        for debug in self.obj.debug:
+            #print(debug)
+            addr = self.obj.get_section(debug.section).address + debug.offset
+            if pc == addr:
+                print('MATCH', debug)
+                loc = debug.data.loc
+                return loc.filename, loc.row
+
     # Registers:
     def get_register_names(self):
         return [reg.name for reg in self.arch.registers]
@@ -137,7 +163,7 @@ class Debugger:
         return instructions
 
 
-class DebugServer:
+class DebugDriver:
     """ Inherit this class to expose a target interface """
     def ping(self):
         return True
@@ -151,7 +177,7 @@ class DebugServer:
         server.serve_forever()
 
 
-class DummyDebugServer(DebugServer):
+class DummyDebugDriver(DebugDriver):
     def __init__(self):
         self.status = STOPPED
 
@@ -166,3 +192,6 @@ class DummyDebugServer(DebugServer):
 
     def get_status(self):
         return self.status
+
+    def get_registers(self, registers):
+        return {r: 0 for r in registers}

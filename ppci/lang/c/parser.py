@@ -51,7 +51,7 @@ class Parser:
     def next_token(self):
         """ Advance to the next token """
         tok = self.token
-        print(tok)
+        # print(tok)
         if not tok or tok.typ != 'EOF':
             self.token = self.tokens.__next__()
             # Implement lexer hack here:
@@ -76,13 +76,13 @@ class Parser:
     def parse_function_or_object_decl(self):
         """ Parse a function definition or a list of object declarations """
         ds = self.parse_decl_spec()
-        print(ds)
+        # print(ds)
         return self.parse_decl_group(ds)
 
     def parse_declaration(self):
         """ Parse normal declaration inside function """
         ds = self.parse_decl_spec()
-        print(ds)
+        # print(ds)
         # TODO: perhaps not parse functions here?
         return self.parse_decl_group(ds)
 
@@ -117,10 +117,10 @@ class Parser:
             func_def = None
             return func_def
 
-        print(ds, d)
+        # print(ds, d)
         while self.has_consumed(','):
             d = self.parse_declarator()
-            print(ds, d)
+            # print(ds, d)
         self.consume(';')
 
     def is_decl_following(self):
@@ -319,7 +319,7 @@ class Parser:
             '*': 80,
             '>>': 100,
         }
-        print('prio=', prio, self.peak)
+        # print('prio=', prio, self.peak)
         while self.peak in prio_map and prio_map[self.peak] >= prio:
             op = self.consume()
             prio2 = prio_map[op.val]
@@ -329,7 +329,7 @@ class Parser:
                 prio2 += 1
             rhs = self.parse_binop_with_precedence(prio2)
             lhs = nodes.Binop(lhs, op.val, rhs, op.loc)
-            print(lhs)
+            #print(lhs)
         return lhs
 
     def parse_primary_expression(self):

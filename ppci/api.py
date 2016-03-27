@@ -348,8 +348,10 @@ def link(
 
 def objcopy(obj, image_name, fmt, output_filename):
     """ Copy some parts of an object file to an output """
-    if fmt not in ['bin', 'hex', 'elf', 'ldb']:
-        raise TaskError('Only bin, elf and hex formats supported')
+    fmts = ['bin', 'hex', 'elf', 'ldb']
+    if fmt not in fmts:
+        t = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
+        raise TaskError('Only {} formats supported'.format(t))
 
     obj = fix_object(obj)
     if fmt == "bin":

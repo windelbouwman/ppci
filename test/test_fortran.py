@@ -45,10 +45,10 @@ class FortranTestCase(unittest.TestCase):
         self.printer = Printer()
 
     def do(self, src):
-        print('======')
+        #print('======')
         prog = self.parser.parse(src)
-        self.printer.print(prog)
-        print('======')
+        #self.printer.print(prog)
+        #print('======')
 
     def test_hello_world(self):
         """ Test hello world program """

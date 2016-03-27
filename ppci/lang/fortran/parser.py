@@ -205,7 +205,7 @@ class FortranLexer:
                 continue
             if line[0] == 'C':
                 continue
-            print(line)
+            # print(line)
             label, cont, statements = self.split_line(line)
             if label:
                 loc = SourceLocation(self.filename, self.row, 1, 1)

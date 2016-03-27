@@ -32,19 +32,18 @@ class InnerCode(QtWidgets.QWidget):
         self.arrowPixmap = get_icon('arrow.png').scaled(h, h)
         self.blinkcursor = False
         self.errorlist = []
-        self.arrow = None
+        self.arrow_row = None
         # Initial values:
         self.setSource('')
         self.CursorPosition = 0
         self.t = QtCore.QTimer(self)
-        self.t.timeout.connect(self.updateCursor)
+        self.t.timeout.connect(self.update_cursor)
         self.t.setInterval(500)
         self.t.start()
 
-    def updateCursor(self):
+    def update_cursor(self):
         self.blinkcursor = not self.blinkcursor
         self.update()
-        #self.update(self.cursorX, self.cursorY, self.charWidth, self.charHeight)
 
     def setSource(self, src):
         self.src = src
@@ -61,7 +60,15 @@ class InnerCode(QtWidgets.QWidget):
         self.cursorPosition = clipVal(c, 0, len(self.src))
         self.update()
 
-    CursorPosition = property(lambda self: self.cursorPosition, setCursorPosition)
+    def get_cursor_position(self):
+        return self.cursorPosition
+
+    CursorPosition = property(get_cursor_position, setCursorPosition)
+
+    def set_current_row(self, row):
+        """ Sets current program location row (debug arrow left) """
+        self.arrow_row = row
+        self.update()
 
     @property
     def Rows(self):
@@ -139,21 +146,24 @@ class InnerCode(QtWidgets.QWidget):
         self.showRow(self.CursorRow)
 
     def GotoPrevLine(self):
-        c = self.CursorCol - 1 # go to zero based
-        self.CursorPosition -= c + 1 # line break char!
+        c = self.CursorCol - 1  # go to zero based
+        self.CursorPosition -= c + 1  # line break char!
         curLine = self.CurrentLine
         if len(curLine) > c:
             self.CursorPosition -= len(curLine) - c
         self.showRow(self.CursorRow)
 
     def paintEvent(self, event):
+        """ Paint the code editor """
         # Helper variables:
         er = event.rect()
         chw, chh = self.charWidth, self.charHeight
         painter = QtGui.QPainter(self)
         # Background:
         painter.fillRect(er, self.palette().color(QtGui.QPalette.Base))
-        painter.fillRect(QtCore.QRect(self.xposLNA, er.top(), 4 * chw, er.bottom() + 1), Qt.gray)
+        painter.fillRect(
+            QtCore.QRect(
+                self.xposLNA, er.top(), 4 * chw, er.bottom() + 1), Qt.gray)
         errorPen = QtGui.QPen(Qt.red, 3)
         # first and last row:
         row1 = max(int(er.top() / chh) - 1, 1)
@@ -163,33 +173,33 @@ class InnerCode(QtWidgets.QWidget):
         curRow = self.CursorRow
         ydt = -chh + self.charDescent
         for row in range(row1, row2 + 1):
-         if curRow == row and self.hasFocus():
-            painter.fillRect(self.xposTXT, ypos + ydt, er.width(), chh, Qt.yellow)
-            # cursor
-            if self.blinkcursor:
-               cursorX = self.CursorCol * self.charWidth + self.xposTXT - self.charWidth
-               cursorY = ypos + ydt
-               painter.fillRect(cursorX, cursorY, 2, chh, Qt.black)
-         painter.setPen(Qt.black)
-         painter.drawText(self.xposLNA, ypos, '{0}'.format(row))
-         xpos = self.xposTXT
-         painter.drawText(xpos, ypos, self.getRow(row))
-         if self.arrow and self.arrow.row == row:
+            if curRow == row and self.hasFocus():
+                painter.fillRect(self.xposTXT, ypos + ydt, er.width(), chh, Qt.yellow)
+                # cursor
+                if self.blinkcursor:
+                    cursorX = self.CursorCol * self.charWidth + self.xposTXT - self.charWidth
+                    cursorY = ypos + ydt
+                    painter.fillRect(cursorX, cursorY, 2, chh, Qt.black)
+            painter.setPen(Qt.black)
+            painter.drawText(self.xposLNA, ypos, '{0}'.format(row))
+            xpos = self.xposTXT
+            painter.drawText(xpos, ypos, self.getRow(row))
+            if self.arrow_row and self.arrow_row == row:
                 painter.drawPixmap(self.xposERR, ypos + ydt, self.arrowPixmap)
-         curErrors = [e for e in self.errorlist if e.loc and e.loc.row == row]
-         for e in curErrors:
-               painter.drawPixmap(self.xposERR, ypos + ydt, self.errorPixmap)
-               painter.setPen(errorPen)
-               x = self.xposTXT + (e.loc.col - 1) * chw - 2
-               wt = e.loc.length * chw + 4
-               dy = self.charDescent
-               painter.drawLine(x, ypos + dy, x + wt, ypos + dy)
-               #painter.drawRoundedRect(x, ypos + ydt, wt, chh, 7, 7)
-               # print error balloon
-               #painter.drawText(x, ypos + chh, e.msg)
-         #if len(curErrors) > 0:
-         #   ypos += chh
-         ypos += chh
+            curErrors = [e for e in self.errorlist if e.loc and e.loc.row == row]
+            for e in curErrors:
+                painter.drawPixmap(self.xposERR, ypos + ydt, self.errorPixmap)
+                painter.setPen(errorPen)
+                x = self.xposTXT + (e.loc.col - 1) * chw - 2
+                wt = e.loc.length * chw + 4
+                dy = self.charDescent
+                painter.drawLine(x, ypos + dy, x + wt, ypos + dy)
+                # painter.drawRoundedRect(x, ypos + ydt, wt, chh, 7, 7)
+                # print error balloon
+                # painter.drawText(x, ypos + chh, e.msg)
+            #if len(curErrors) > 0:
+            #   ypos += chh
+            ypos += chh
 
     def keyPressEvent(self, event):
         if event.matches(QtGui.QKeySequence.MoveToNextChar):
@@ -258,6 +268,7 @@ class CodeEdit(QtWidgets.QScrollArea):
         self.showRow = self.ic.showRow
         self.setRowCol = self.ic.setRowCol
         self.FileName = None
+        self.set_current_row = self.ic.set_current_row
 
     def get_source(self):
         return self.ic.getSource()
@@ -298,4 +309,6 @@ if __name__ == '__main__':
     src = ''.join(inspect.getsourcelines(InnerCode)[0])
     ce.Source = src
     ce.resize(600, 800)
+    ce.setRowCol(33, 1)
+    ce.set_current_row(35)
     app.exec()

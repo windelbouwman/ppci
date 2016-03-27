@@ -16,6 +16,7 @@ from .tasks import TaskError
 from . import version, api
 from .common import logformat
 from .arch.target_list import target_names, get_arch
+from .dbg import Debugger, DummyDebugDriver
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -184,6 +185,29 @@ def asm(args=None):
         # Write object file to disk:
         obj.save(args.output)
         args.output.close()
+
+
+dbg_description = """
+Debugger command line utility.
+"""
+
+dbg_parser = argparse.ArgumentParser(description=dbg_description)
+dbg_parser.add_argument(
+    '--machine', '-m', help='target architecture', required=True,
+    choices=target_names, action=OnceAction)
+dbg_parser.add_argument(
+    '--mtune', help='architecture option', default=[],
+    metavar='option', action='append')
+
+
+def dbg(args=None):
+    """ Run dbg from command line """
+    args = dbg_parser.parse_args(args)
+    march = get_arch_from_args(args)
+    debugger = Debugger(march, DummyDebugDriver())
+    print(debugger)
+    print('TODO')
+
 
 link_description = """
 Linker. Use the linker to combine several object files and a memory layout

@@ -137,8 +137,6 @@ class CodeGenerator:
             assert isinstance(instruction, Instruction), str(instruction)
             if instruction in debug_info.mappings:
                 d = debug_info.mappings[instruction]
-                print(
-                    'DBGINFO:', instruction, d)
                 dd = DebugData(d)
                 output_stream.emit(dd)
 

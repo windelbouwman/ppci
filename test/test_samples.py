@@ -699,6 +699,11 @@ class BuildMixin:
                 io.StringIO(self.arch_mmap),
                 self.march, use_runtime=True, reporter=reporter)
 
+        # Save object:
+        obj_file = base_filename + '.oj'
+        with open(obj_file, 'w') as f:
+            obj.save(f)
+
         return obj, base_filename
 
 

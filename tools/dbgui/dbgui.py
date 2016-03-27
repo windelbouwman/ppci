@@ -5,7 +5,6 @@
 """
 
 import sys
-import os
 import logging
 
 from qtwrapper import QtGui, QtCore, QtWidgets, pyqtSignal, get_icon
@@ -22,7 +21,7 @@ from memview import MemoryView
 from disasm import Disassembly
 from dbgtoolbar import DebugToolbar
 from connectiontoolbar import ConnectionToolbar
-from linux64debugserver import LinuxDebugServer
+from linux64debugserver import LinuxDebugDriver
 
 
 class BuildErrors(QtWidgets.QTreeView):
@@ -84,6 +83,7 @@ class DebugUi(QtWidgets.QMainWindow):
     def __init__(self, debugger, parent=None):
         super().__init__(parent)
         self.debugger = debugger
+        self.debugger.state_event.subscribe(self.on_state_changed)
         self.logger = logging.getLogger('dbgui')
         self.setWindowTitle('PPCI DBGUI')
 
@@ -110,26 +110,13 @@ class DebugUi(QtWidgets.QMainWindow):
             return widget
 
         self.buildOutput = addComponent('Build output', BuildOutput())
-        # self.astViewer = addComponent('AST viewer', AstViewer())
-        # self.astViewer.sigNodeSelected.connect(lambda node: self.showLoc(node.loc))
         self.builderrors = addComponent('Build errors', BuildErrors())
-        self.builderrors.sigErrorSelected.connect(lambda err: self.showLoc(err.loc))
-        # self.devxplr = addComponent('Device explorer', stutil.DeviceExplorer())
         self.regview = addComponent('Registers', RegisterView(self.debugger))
         self.memview = addComponent('Memory', MemoryView(self.debugger))
         self.disasm = addComponent('Disasm', Disassembly(self.debugger))
-        #self.connectionToolbar = ConnectionToolbar(self.debugger)
-        #self.addToolBar(self.connectionToolbar)
         self.ctrlToolbar = DebugToolbar(self.debugger)
         self.addToolBar(self.ctrlToolbar)
         self.ctrlToolbar.setObjectName('debugToolbar')
-        #self.devxplr.deviceSelected.connect(self.regview.mdl.setDevice)
-        #self.ctrlToolbar.statusChange.connect(self.memview.refresh)
-        #self.devxplr.deviceSelected.connect(self.memview.setDevice)
-        #self.devxplr.deviceSelected.connect(self.ctrlToolbar.setDevice)
-        #self.ctrlToolbar.statusChange.connect(self.regview.refresh)
-        #self.ctrlToolbar.codePosition.connect(self.pointCode)
-
         self.aboutDialog = AboutDialog()
 
         # Create actions:
@@ -140,45 +127,47 @@ class DebugUi(QtWidgets.QMainWindow):
             if shortcut:
                 a.setShortcut(QtGui.QKeySequence(shortcut))
 
-        addMenuEntry("New", self.fileMenu, self.newFile, shortcut=QtGui.QKeySequence.New)
-        addMenuEntry("Open", self.fileMenu, self.openFile, shortcut=QtGui.QKeySequence.Open)
+        addMenuEntry(
+            "Open", self.fileMenu, self.openFile,
+            shortcut=QtGui.QKeySequence.Open)
 
         self.helpAction = QtWidgets.QAction('Help', self)
         self.helpAction.setShortcut(QtGui.QKeySequence('F1'))
         self.helpMenu.addAction(self.helpAction)
         addMenuEntry('About', self.helpMenu, self.aboutDialog.open)
 
-        addMenuEntry('Cascade windows', self.viewMenu, self.mdiArea.cascadeSubWindows)
-        addMenuEntry('Tile windows', self.viewMenu, self.mdiArea.tileSubWindows)
-        sb = self.statusBar()
+        addMenuEntry(
+            'Cascade windows', self.viewMenu, self.mdiArea.cascadeSubWindows)
+        addMenuEntry(
+            'Tile windows', self.viewMenu, self.mdiArea.tileSubWindows)
+        self.statusBar()
 
         # Load settings:
         self.settings = QtCore.QSettings('windelsoft', 'lcfoside')
         self.loadSettings()
 
     # File handling:
-    def newFile(self):
-        self.newCodeEdit()
-
     def openFile(self):
-        filename = QtWidgets.QFileDialog.getOpenFileName(self, "Open C3 file...", "*.c3",
-                    "C3 source files (*.c3)")
+        filename = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Open C3 file...", "*.c3",
+            "C3 source files (*.c3)")
         if filename:
-            self.loadFile(filename[0])
+            self.load_file(filename[0])
 
-    def loadFile(self, filename):
-        ce = self.newCodeEdit()
+    def load_file(self, filename):
+        print(filename)
+        ce = self.new_code_edit()
         try:
             with open(filename) as f:
                 ce.Source = f.read()
                 ce.FileName = filename
+            return ce
         except Exception as e:
             print('exception opening file:', e)
 
     # MDI:
-    def newCodeEdit(self):
+    def new_code_edit(self):
         ce = CodeEdit()
-        ce.textChanged.connect(self.parseFile)
         w = self.mdiArea.addSubWindow(ce)
         self.mdiArea.setActiveSubWindow(w)
         ce.showMaximized()
@@ -189,13 +178,12 @@ class DebugUi(QtWidgets.QMainWindow):
         if aw:
             return aw.widget()
 
-    def findMdiChild(self, filename):
-        for wid in self.allChildren():
+    def find_mdi_child(self, filename):
+        for sub_window in self.mdiArea.subWindowList():
+            wid = sub_window.widget()
             if wid.filename == filename:
+                self.mdiArea.setActiveSubWindow(sub_window)
                 return wid
-
-    def allChildren(self):
-        return [w.widget() for w in self.mdiArea.subWindowList()]
 
     # Settings:
     def loadSettings(self):
@@ -209,60 +197,49 @@ class DebugUi(QtWidgets.QMainWindow):
         self.settings.setValue('mainwindowgeometry', self.saveGeometry())
 
     # Error handling:
-    def showLoc(self, loc):
-        ce = self.activeMdiChild()
+    def show_loc(self, filename, row, col):
+        """ Show a location in some source file """
+        # Activate, or load file:
+        ce = self.find_mdi_child(filename)
         if not ce:
+            ce = self.load_file(filename)
+        if not ce:
+            print('fail to load ', filename)
             return
-        if loc:
-            ce.setRowCol(loc.row, loc.col)
-            ce.setFocus()
+        ce.set_current_row(row)
+        ce.setFocus()
+
+    def on_state_changed(self):
+        """ When the debugger is halted or started again .. """
+        if self.debugger.is_halted:
+            res = self.debugger.find_pc()
+            if res:
+                filename, row = res
+                self.show_loc(filename, row, 1)
 
     def pointCode(self, p):
         # Lookup pc in debug infos:
         loc = None
         print(p)
         self.disasm.showPos(p)
-        if hasattr(self, 'debugInfo'):
-            for di in self.debugInfo:
-                if di.address > p:
-                    loc = di.info
-                    break
         if loc:
             ce = self.activeMdiChild()
             if ce:
                 ce.ic.arrow = loc
             self.showLoc(loc)
 
-    # Build recepy:
-    def buildFileAndFlash(self):
-        outs = self.doBuild()
-        if not outs:
-            return
-
-        code_s = outs.getSection('code')
-        self.disasm.dm.setInstructions(code_s.instructions)
-        self.debugInfo = code_s.debugInfos()
-        if self.ctrlToolbar.device:
-            logging.info('Flashing stm32f4 discovery')
-            bts = code_s.to_bytes()
-            self.ctrlToolbar.device.writeFlash(0x08000000, bts)
-            stl = self.ctrlToolbar.device.iface
-            stl.reset()
-            stl.halt()
-            stl.run()
-            logging.info('Done!')
-        else:
-            self.logger.warning('Not connected to device, skipping flash')
-
 
 if __name__ == '__main__':
-    dut = '../../test/listings/testsamplesTestSamplesOnX86Linuxtestswdiv.elf'
+    # dut = '../../test/listings/testsamplesTestSamplesOnX86Linuxtestswdiv.elf'
+    dut = '../../examples/linux64/hello/hello'
+    obj = '../../examples/linux64/hello/hello.elf'
     logging.basicConfig(format=ppci.common.logformat, level=logging.DEBUG)
     app = QtWidgets.QApplication(sys.argv)
     # TODO: couple this other way, and make it configurable:
-    linux_specific = LinuxDebugServer()
+    linux_specific = LinuxDebugDriver()
     linux_specific.go_for_it([dut])
     debugger = Debugger('x86_64', linux_specific)
+    debugger.load_symbols(obj)
     ui = DebugUi(debugger)
     ui.show()
     ui.logger.info('IDE started')

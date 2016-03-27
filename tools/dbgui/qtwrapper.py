@@ -9,4 +9,4 @@ def abspath(filename):
 
 
 def get_icon(filename):
-    return QtGui.QPixmap(abspath(os.path.join('icons', filename)))
+    return QtGui.QPixmap(abspath(filename))
