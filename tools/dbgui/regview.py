@@ -1,5 +1,5 @@
 from qtwrapper import QtCore, QtWidgets, Qt
-from ppci.dbg import Debugger
+from ppci.binutils.dbg import Debugger
 
 
 class RegisterModel(QtCore.QAbstractTableModel):

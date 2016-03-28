@@ -17,7 +17,7 @@ import os
 import sys
 import ctypes
 import struct
-from ppci.dbg import DebugDriver, RUNNING, STOPPED
+from ppci.binutils.dbg import DebugDriver, RUNNING, STOPPED
 
 libc = ctypes.CDLL('libc.so.6')
 PTRACE_TRACEME = 0

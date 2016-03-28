@@ -3,7 +3,7 @@
     This module contains classes for storage of debug information.
 """
 
-from .common import SourceLocation
+from ..common import SourceLocation
 
 # TODO: refactor this mess of classes
 
@@ -15,9 +15,31 @@ class DebugInfo:
     """
     def __init__(self):
         self.mappings = {}
+        self.infos = []
+        self.types = {}
+        self.vars = {}
 
     def map_line(self):
         pass
+
+    def add_type(self, typ):
+        """ Register a type """
+        print(typ)
+        if typ.name not in self.types:
+            self.types[typ.name] = typ
+        return self.types[typ.name]
+
+    def add_var(self, name, typ, loc):
+        print('var', name, typ)
+        dbg_var = DebugVariable(name, typ)
+        self.vars[dbg_var.name] = dbg_var
+        return dbg_var
+
+    def add_parameter(self, name, typ, loc):
+        print('parameter', name, typ)
+        dbg_var = DebugFormalParameter(name, typ)
+        self.vars[dbg_var.name] = dbg_var
+        return dbg_var
 
     def map(self, src, dst):
         """
@@ -39,12 +61,26 @@ class LineInfo:
     pass
 
 
-class DebugType:
-    pass
-
-
 class CuInfo:
     pass
+
+
+class DebugType:
+    def __init__(self, name):
+        self.name = name
+
+
+class DebugBaseType(DebugType):
+    def __init__(self, name, byte_size, encoding):
+        super().__init__(name)
+        self.byte_size = byte_size
+        self.encoding = encoding
+
+
+class DebugFormalParameter:
+    def __init__(self, name, typ):
+        self.name = name
+        self.typ = typ
 
 
 class FuncDebugInfo(BaseInfo):
@@ -67,6 +103,12 @@ class DbgLoc(BaseInfo):
 
     def __repr__(self):
         return 'DBGLOC[ {} ]'.format(self.loc)
+
+
+class DebugVariable:
+    def __init__(self, name, typ):
+        self.name = name
+        self.typ = typ
 
 
 def serialize(x):

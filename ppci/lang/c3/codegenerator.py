@@ -6,7 +6,7 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
-from ...dbginfo import DbgLoc, FuncDebugInfo
+from ...binutils.debuginfo import DbgLoc, FuncDebugInfo, DebugBaseType
 from . import astnodes as ast
 from .scope import SemanticError
 
@@ -49,7 +49,7 @@ class CodeGenerator:
             self.debug_info.mappings[instruction] = dbg
         return instruction
 
-    def gen_globals(self, module, context):
+    def gen_globals(self, module, context, debug_info):
         """ Generate global variables and modules """
         ir_module = ir.Module(module.name)
         context.var_map[module] = ir_module
@@ -61,6 +61,22 @@ class CodeGenerator:
             assert not var.isLocal
             assert not var.ival
             ir_module.add_variable(ir_var)
+
+            # Create debug infos:
+            dbg_typ = self.register_type(context, var.typ, debug_info)
+            if dbg_typ:
+                debug_info.add_var(var.name, dbg_typ, ir_var)
+
+    def register_type(self, context, typ, debug_info):
+        """ Register type info in the debug information """
+        typ = context.the_type(typ)
+        # print(typ)
+        if isinstance(typ, ast.BaseType):
+            dbg_typ = DebugBaseType(typ.name, context.size_of(typ), 1)
+            debug_info.add_type(dbg_typ)
+            return dbg_typ
+        else:
+            print('No', typ)
 
     def gencode(self, mod, context, debug_info):
         """ Generate code for a single module """
@@ -121,6 +137,13 @@ class CodeGenerator:
             ir_function.add_parameter(ir_parameter)
             param_map[param] = ir_parameter
 
+            # Debug info:
+            dbg_typ = \
+                self.register_type(self.context, param.typ, self.debug_info)
+            if dbg_typ:
+                self.debug_info.add_parameter(
+                    param.name, dbg_typ, ir_parameter)
+
         # generate room for locals:
         for sym in function.inner_scope:
             self.context.check_type(sym.typ)
@@ -141,6 +164,12 @@ class CodeGenerator:
             else:  # pragma: no cover
                 raise NotImplementedError(str(sym))
             self.context.var_map[sym] = variable
+
+            # Debug info:
+            dbg_typ = \
+                self.register_type(self.context, sym.typ, self.debug_info)
+            if dbg_typ:
+                self.debug_info.add_var(sym.name, dbg_typ, variable)
 
         self.gen_stmt(function.body)
         self.emit(ir.Jump(ir_function.epilog))
@@ -357,16 +386,18 @@ class CodeGenerator:
                     raise SemanticError('Types unequal {} != {}'
                                         .format(expr.a.typ, expr.b.typ),
                                         expr.loc)
-                self.emit(ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse))
+                self.emit(
+                    ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse),
+                    dbg=DbgLoc(expr.loc))
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
             expr.typ = self.context.get_type('bool')
         elif isinstance(expr, ast.Literal):
             self.gen_expr_code(expr)
             if expr.val:
-                self.emit(ir.Jump(bbtrue))
+                self.emit(ir.Jump(bbtrue), dbg=DbgLoc(expr.loc))
             else:
-                self.emit(ir.Jump(bbfalse))
+                self.emit(ir.Jump(bbfalse), dbg=DbgLoc(expr.loc))
         elif isinstance(expr, ast.Unop) and expr.op == 'not':
             # In case of not, simply swap true and false!
             self.gen_cond_code(expr.a, bbfalse, bbtrue)

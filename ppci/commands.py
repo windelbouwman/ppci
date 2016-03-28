@@ -16,7 +16,7 @@ from .tasks import TaskError
 from . import version, api
 from .common import logformat
 from .arch.target_list import target_names, get_arch
-from .dbg import Debugger, DummyDebugDriver
+from .binutils.dbg import Debugger, DummyDebugDriver, DebugCli
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -205,8 +205,8 @@ def dbg(args=None):
     args = dbg_parser.parse_args(args)
     march = get_arch_from_args(args)
     debugger = Debugger(march, DummyDebugDriver())
-    print(debugger)
-    print('TODO')
+    cli = DebugCli(debugger)
+    cli.run()
 
 
 link_description = """

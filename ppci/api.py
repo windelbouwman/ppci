@@ -27,6 +27,7 @@ from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
+from .binutils.debuginfo import DebugInfo
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .tasks import TaskError, TaskRunner
@@ -34,7 +35,6 @@ from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
 from .arch.target_list import get_arch
-from .dbginfo import DebugInfo
 
 # When doing from 'ppci.api import *' include the following:
 __all__ = [

@@ -44,13 +44,15 @@ class BinaryOutputStream(OutputStream):
         self.current_section = None
 
     def emit(self, item):
-        """ Encode instruction and add symbol and relocation information """
+        """ Encode instruction and add symbol and relocation information
+            At this point we know the address of the instruction.
+        """
         assert isinstance(item, Instruction), str(item) + str(type(item))
         assert self.current_section
         section = self.current_section
         address = self.current_section.size
-        b = item.encode()
-        section.add_data(b)
+        bin_data = item.encode()
+        section.add_data(bin_data)
         for sym in item.symbols():
             self.obj_file.add_symbol(sym, address, section.name)
         for sym, typ in item.relocations():

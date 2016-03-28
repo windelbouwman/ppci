@@ -1,10 +1,9 @@
 import unittest
-import io
 from ppci.arch.example import SimpleTarget
-from ppci.dbg import Debugger, DummyDebugDriver
+from ppci.binutils.dbg import Debugger, DummyDebugDriver
 
 
-class DebugTestCase(unittest.TestCase):
+class DebuggerTestCase(unittest.TestCase):
     def setUp(self):
         self.debugger = Debugger(SimpleTarget(), DummyDebugDriver())
 

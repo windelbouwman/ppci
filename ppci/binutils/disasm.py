@@ -3,7 +3,7 @@
     Contains disassembler stuff.
 """
 
-from .arch.data_instructions import Db
+from ..arch.data_instructions import Db
 
 
 class Disassembler:

@@ -11,7 +11,7 @@ from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ...dbginfo import DebugInfo
+from ...binutils.debuginfo import DebugInfo
 
 
 class C3Builder:
@@ -65,13 +65,15 @@ class C3Builder:
             self.diag.error(ex.msg, ex.loc)
             raise
 
+        # Create debug info:
+        debug_info = DebugInfo()
+
         # Phase 1.9
         for module in context.modules:
-            self.codegen.gen_globals(module, context)
+            self.codegen.gen_globals(module, context, debug_info)
 
         # Phase 2: Generate intermediate code
         # Only return ircode when everything is OK
-        debug_info = DebugInfo()
         ir_modules = []
         for pkg in context.modules:
             ir_modules.append(self.codegen.gencode(pkg, context, debug_info))

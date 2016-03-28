@@ -12,7 +12,7 @@ from qtwrapper import abspath, Qt
 
 import ppci.api
 import ppci.common
-from ppci.dbg import Debugger
+from ppci.binutils.dbg import Debugger
 
 from codeedit import CodeEdit
 from logview import LogView as BuildOutput

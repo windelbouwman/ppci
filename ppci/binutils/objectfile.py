@@ -18,7 +18,7 @@ The hierarchy is as follows:
 import json
 import binascii
 from ..common import CompilerError, make_num
-from .. import dbginfo
+from . import debuginfo
 
 
 class Symbol:
@@ -315,7 +315,7 @@ def serialize(x):
     elif isinstance(x, Debug):
         res['section'] = x.section
         res['offset'] = hex(x.offset)
-        res['data'] = dbginfo.serialize(x.data)
+        res['data'] = debuginfo.serialize(x.data)
     else:
         raise NotImplementedError(str(type(x)))
     return res
@@ -343,6 +343,6 @@ def deserialize(d):
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
     for debug in d['debug']:
-        data = dbginfo.deserialize(debug['data'])
+        data = debuginfo.deserialize(debug['data'])
         obj.add_debug(debug['section'], make_num(debug['offset']), data)
     return obj

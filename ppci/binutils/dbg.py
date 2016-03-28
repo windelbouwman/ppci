@@ -6,10 +6,9 @@
 """
 
 import logging
-from .api import fix_target, fix_object
-from . import dbginfo
+from ..api import fix_target, fix_object
 from .disasm import Disassembler
-from .binutils.outstream import RecordingOutputStream
+from .outstream import RecordingOutputStream
 
 
 # States:
@@ -162,6 +161,10 @@ class Debugger:
         self.disassembler.disasm(data, outs, address=address)
         return instructions
 
+    def get_mixed(self):
+        """ Get source lines and assembly lines """
+        pass
+
 
 class DebugDriver:
     """ Inherit this class to expose a target interface """
@@ -195,3 +198,30 @@ class DummyDebugDriver(DebugDriver):
 
     def get_registers(self, registers):
         return {r: 0 for r in registers}
+
+
+class DebugCli:
+    """
+        Implement a simple console-based debugger interface.
+    """
+    def __init__(self, debugger):
+        self.debugger = debugger
+
+    def run(self):
+        """ Enter the command loop """
+        while True:
+            cmd = input('(ppci-dbg)> ')
+            # TODO: implement more commands
+            if cmd == 'q' or cmd == 'quit':
+                break
+            elif cmd == 's' or cmd == 'step':
+                self.debugger.step()
+            elif cmd == 'c' or cmd == 'continue':
+                self.debugger.run()
+            elif cmd == '?' or cmd == 'h' or cmd == 'help':
+                print('c: continue the program')
+                print('q: quit the debugger')
+                print('s: perform a single step')
+                print('help: display this help')
+            else:
+                print('Unknown command (enter help for a command list)')

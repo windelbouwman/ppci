@@ -7,7 +7,7 @@ from ppci.irutils import Builder, Writer
 from ppci.codegen.irdag import SelectionGraphBuilder, DagSplitter
 from ppci.codegen.irdag import FunctionInfo, prepare_function_info
 from ppci.arch.example import SimpleTarget
-from ppci.dbginfo import DebugInfo
+from ppci.binutils.debuginfo import DebugInfo
 
 
 def print_module(m):
