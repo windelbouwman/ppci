@@ -1,5 +1,11 @@
 #!/usr/bin/python
-""" Code editor """
+"""
+    Code editor
+
+    features:
+    - line numbers
+    - break point set / clear
+"""
 
 import sys
 import os
@@ -19,6 +25,7 @@ def clipVal(v, mn, mx):
 
 class InnerCode(QtWidgets.QWidget):
     textChanged = pyqtSignal()
+    breakpointChanged = pyqtSignal(int, bool)
 
     def __init__(self, scrollArea):
         super().__init__(scrollArea)
@@ -27,11 +34,13 @@ class InnerCode(QtWidgets.QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         # TODO: only beam cursor in text area..
         self.setCursor(Qt.IBeamCursor)
+        self.setMouseTracking(True)
         h = QtGui.QFontMetrics(self.font()).height()
         self.errorPixmap = get_icon('error.png').scaled(h, h)
         self.arrowPixmap = get_icon('arrow.png').scaled(h, h)
         self.blinkcursor = False
         self.errorlist = []
+        self.breakpoints = set()
         self.arrow_row = None
         # Initial values:
         self.setSource('')
@@ -68,6 +77,15 @@ class InnerCode(QtWidgets.QWidget):
     def set_current_row(self, row):
         """ Sets current program location row (debug arrow left) """
         self.arrow_row = row
+        self.update()
+
+    def toggle_breakpoint(self, row):
+        if row in self.breakpoints:
+            self.breakpoints.remove(row)
+            self.breakpointChanged.emit(row, False)
+        else:
+            self.breakpoints.add(row)
+            self.breakpointChanged.emit(row, True)
         self.update()
 
     @property
@@ -107,7 +125,8 @@ class InnerCode(QtWidgets.QWidget):
             return rows[r]
 
     def showRow(self, r):
-        self.scrollArea.ensureVisible(self.xposTXT, r * self.charHeight, 4, self.charHeight)
+        self.scrollArea.ensureVisible(
+            self.xposTXT, r * self.charHeight, 4, self.charHeight)
 
     # Annotations:
     def addAnnotation(self, row, col, ln, msg):
@@ -118,7 +137,8 @@ class InnerCode(QtWidgets.QWidget):
         pass
 
     def insertText(self, txt):
-        self.setSource(self.src[0:self.CursorPosition] + txt + self.src[self.CursorPosition:])
+        self.setSource(
+            self.src[0:self.CursorPosition] + txt + self.src[self.CursorPosition:])
         self.CursorPosition += len(txt)
         self.textChanged.emit()
 
@@ -136,8 +156,8 @@ class InnerCode(QtWidgets.QWidget):
 
     def GotoNextLine(self):
         curLine = self.CurrentLine
-        c = self.CursorCol - 1 # go to zero based
-        self.CursorPosition += len(curLine) - c + 1 # line break char!
+        c = self.CursorCol - 1  # go to zero based
+        self.CursorPosition += len(curLine) - c + 1  # line break char!
         curLine = self.CurrentLine
         if len(curLine) < c:
             self.CursorPosition += len(curLine)
@@ -174,16 +194,27 @@ class InnerCode(QtWidgets.QWidget):
         ydt = -chh + self.charDescent
         for row in range(row1, row2 + 1):
             if curRow == row and self.hasFocus():
-                painter.fillRect(self.xposTXT, ypos + ydt, er.width(), chh, Qt.yellow)
+                painter.fillRect(
+                    self.xposTXT, ypos + ydt, er.width(), chh, Qt.yellow)
                 # cursor
                 if self.blinkcursor:
                     cursorX = self.CursorCol * self.charWidth + self.xposTXT - self.charWidth
                     cursorY = ypos + ydt
                     painter.fillRect(cursorX, cursorY, 2, chh, Qt.black)
+
+            # Draw line number:
             painter.setPen(Qt.black)
             painter.drawText(self.xposLNA, ypos, '{0}'.format(row))
             xpos = self.xposTXT
             painter.drawText(xpos, ypos, self.getRow(row))
+
+            # Draw breakpoint indicators:
+            if row in self.breakpoints:
+                painter.setBrush(QtGui.QBrush(Qt.red))
+                painter.setPen(errorPen)
+                painter.drawEllipse(self.xposERR, ypos + ydt, chh, chh)
+
+            # Draw arrow:
             if self.arrow_row and self.arrow_row == row:
                 painter.drawPixmap(self.xposERR, ypos + ydt, self.arrowPixmap)
             curErrors = [e for e in self.errorlist if e.loc and e.loc.row == row]
@@ -235,11 +266,20 @@ class InnerCode(QtWidgets.QWidget):
 
     def mousePressEvent(self, event):
         pos = event.pos()
+        row = int(pos.y() / self.charHeight) + 1
         if pos.x() > self.xposTXT and pos.x():
             c = round((pos.x() - self.xposTXT) / self.charWidth)
-            r = int(pos.y() / self.charHeight) + 1
-            self.setRowCol(r, c)
+            self.setRowCol(row, c)
+        elif pos.x() > self.xposERR and pos.x() and pos.x() < self.xposLNA:
+            self.toggle_breakpoint(row)
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if event.pos().x() < self.xposTXT:
+            self.setCursor(Qt.OpenHandCursor)
+        else:
+            self.setCursor(Qt.IBeamCursor)
+        super().mouseMoveEvent(event)
 
     def adjust(self):
         metrics = self.fontMetrics()
@@ -257,6 +297,8 @@ class InnerCode(QtWidgets.QWidget):
 
 
 class CodeEdit(QtWidgets.QScrollArea):
+    breakpointChanged = pyqtSignal(str, int, bool)
+
     def __init__(self):
         super().__init__()
         self.ic = InnerCode(self)
@@ -269,6 +311,10 @@ class CodeEdit(QtWidgets.QScrollArea):
         self.setRowCol = self.ic.setRowCol
         self.FileName = None
         self.set_current_row = self.ic.set_current_row
+        self.ic.breakpointChanged.connect(self.on_breakpoint_changed)
+
+    def on_breakpoint_changed(self, row, state):
+        self.breakpointChanged.emit(self.filename, row, state)
 
     def get_source(self):
         return self.ic.getSource()

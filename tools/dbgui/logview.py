@@ -45,7 +45,7 @@ class LogModel(QtCore.QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.headers[section]
 
-    def newLog(self, x):
+    def new_log(self, x):
         self.entries.append(x)
         self.modelReset.emit()
 
@@ -63,7 +63,7 @@ class LogView(QtWidgets.QWidget):
 
         class MyHandler(logging.Handler):
             def emit(self2, x):
-                self.lm.newLog(x)
+                self.lm.new_log(x)
                 self.tv.scrollToBottom()
                 for i in range(3):
                     self.tv.resizeColumnToContents(i)
@@ -78,4 +78,5 @@ if __name__ == '__main__':
     lv.resize(600, 200)
     logging.error('Error!!!')
     logging.warn('Warn here!')
+    logging.error('formatted output: %s %i', 'wow', 13)
     app.exec_()

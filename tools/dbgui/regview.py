@@ -76,11 +76,8 @@ class RegisterView(QtWidgets.QTableView):
         self.horizontalHeader().setStretchLastSection(True)
 
     def update_state(self):
-        if self.debugger.is_connected:
-            running = self.debugger.is_running
-            self.setEnabled(not running)
-        else:
-            self.setEnabled(False)
+        running = self.debugger.is_running
+        self.setEnabled(not running)
 
 
 if __name__ == '__main__':

@@ -57,38 +57,29 @@ class Debugger:
             new_values = self.get_register_values(self.register_names)
             self.register_values.update(new_values)
 
-    # Connection:
-    def connect(self, uri):
-        self.logger.info('Connecting to %s', uri)
-        # self.driver = xmlrpc.client.ServerProxy(uri)
-        if self.is_connected:
-            self.connection_event.fire()
-        else:
-            self.driver = None
-
-    def disconnect(self):
-        self.logger.info('Disconnecting')
-        self.driver = None
-        self.connection_event.fire()
-
-    @property
-    def is_connected(self):
-        if not self.driver:
-            return False
-        return self.driver.ping()
-
     # Start stop parts:
     def run(self):
-        self.logger.info('Run')
+        self.logger.info('run')
         self.driver.run()
         self.state_event.fire()
 
     def stop(self):
-        self.logger.info('Stop')
+        self.logger.info('stop')
         self.driver.stop()
         self.state_event.fire()
 
+    def set_breakpoint(self, filename, row):
+        self.logger.info('set breakpoint %s:%i', filename, row)
+        address = self.find_address(filename, row)
+        if address is None:
+            self.logger.warn('Could find address for breakpoint')
+        self.driver.set_breakpoint(address)
+
+    def clear_breakpoint(self, filename, row):
+        self.logger.info('clear breakpoint %s:%i', filename, row)
+
     def step(self):
+        self.logger.info('step')
         self.driver.step()
         self.state_event.fire()
 
@@ -119,6 +110,7 @@ class Debugger:
         self.obj = obj
 
     def find_pc(self):
+        """ Given the current program counter (pc) determine the source """
         if not self.obj:
             return
         pc = self.get_pc()
@@ -129,6 +121,18 @@ class Debugger:
                 print('MATCH', debug)
                 loc = debug.data.loc
                 return loc.filename, loc.row
+
+    def find_address(self, filename, row):
+        """ Given a filename and a row, determine the address """
+        pass
+        for debug in self.obj.debug:
+            if not hasattr(debug.data, 'loc'):
+                continue
+            loc = debug.data.loc
+            if loc.filename == filename and loc.row == row:
+                addr = self.obj.get_section(debug.section).address + debug.offset
+                return addr
+        self.logger.warn('Could find address for %s:%i', filename, row)
 
     # Registers:
     def get_register_names(self):
@@ -145,6 +149,9 @@ class Debugger:
     # Memory:
     def read_mem(self, address, size):
         return self.driver.read_mem(address, size)
+
+    def write_mem(self, address, data):
+        return self.driver.write_mem(address, data)
 
     # Disassembly:
     def get_pc(self):
@@ -168,16 +175,14 @@ class Debugger:
 
 class DebugDriver:
     """ Inherit this class to expose a target interface """
-    def ping(self):
-        return True
+    def run(self):
+        raise NotImplementedError()
 
-    def serve(self):
-        """ Start to serve the debugger interface """
-        server = xmlrpc.server.SimpleXMLRPCServer(
-            ('localhost', 8079), allow_none=True)
-        server.register_instance(self)
-        server.register_introspection_functions()
-        server.serve_forever()
+    def step(self):
+        raise NotImplementedError()
+
+    def set_breakpoint(self, address):
+        raise NotImplementedError()
 
 
 class DummyDebugDriver(DebugDriver):
@@ -198,6 +203,9 @@ class DummyDebugDriver(DebugDriver):
 
     def get_registers(self, registers):
         return {r: 0 for r in registers}
+
+    def set_breakpoint(self, address):
+        pass
 
 
 class DebugCli:

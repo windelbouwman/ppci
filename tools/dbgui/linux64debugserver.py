@@ -4,6 +4,7 @@
 See for a good intro into debuggers:
 
 http://eli.thegreenplace.net/2011/01/23/how-debuggers-work-part-1
+http://eli.thegreenplace.net/2011/01/27/how-debuggers-work-part-2-breakpoints
 
 Or take a look at:
 http://python-ptrace.readthedocs.org/en/latest/
@@ -23,6 +24,7 @@ libc = ctypes.CDLL('libc.so.6')
 PTRACE_TRACEME = 0
 PTRACE_PEEKTEXT = 1
 PTRACE_PEEKDATA = 2
+PTRACE_POKETEXT = 4
 PTRACE_CONT = 7
 PTRACE_SINGLESTEP = 9
 PTRACE_GETREGS = 12
@@ -77,6 +79,7 @@ class LinuxDebugDriver(DebugDriver):
         super().__init__()
         self.pid = None
         self.status = STOPPED
+        self.breakpoint_backup = {}
 
     def go_for_it(self, argz):
         self.pid = fork_spawn_stop(argz)
@@ -106,6 +109,13 @@ class LinuxDebugDriver(DebugDriver):
 
         #raise NotImplementedError()
 
+    def set_breakpoint(self, address):
+        bp = 0xcc
+        print(address)
+
+    def clear_breakpoint(self, address):
+        pass
+
     # Registers
     @stopped
     def get_registers(self, register_names):
@@ -123,15 +133,26 @@ class LinuxDebugDriver(DebugDriver):
         res = bytearray()
         a2 = address + size
         while address < a2:
-            part = self.read_word(address)
+            w = self.read_word(address)
+            part = struct.pack('<i', w)
             address += len(part)
             res.extend(part)
         # TODO: adjust actual read to match requested size.
+        assert len(res) == size
         return bytes(res)
 
     def read_word(self, address):
         res = libc.ptrace(PTRACE_PEEKDATA, self.pid, address, 0)
-        return struct.pack('<i', res)
+        return res
+
+    def write_mem(self, address, data):
+        assert len(data) == 1
+        w = self.read_word(address)
+        w = (w & 0xffffff00) | data[0]
+        self.write_word(address, w)
+
+    def write_word(self, address, w):
+        res = libc.ptrace(PTRACE_POKEDATA, self.pid, address, w)
 
     # Disasm:
     def get_pc(self):

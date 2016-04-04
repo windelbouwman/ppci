@@ -30,6 +30,7 @@ from .binutils.objectfile import ObjectFile, load_object
 from .binutils.debuginfo import DebugInfo
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
+from .utils.exefile import ExeWriter
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
@@ -348,7 +349,7 @@ def link(
 
 def objcopy(obj, image_name, fmt, output_filename):
     """ Copy some parts of an object file to an output """
-    fmts = ['bin', 'hex', 'elf', 'ldb']
+    fmts = ['bin', 'hex', 'elf', 'exe', 'ldb']
     if fmt not in fmts:
         t = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
         raise TaskError('Only {} formats supported'.format(t))
@@ -373,6 +374,10 @@ def objcopy(obj, image_name, fmt, output_filename):
     elif fmt == 'ldb':
         # TODO: fix this some other way to extract debug info
         write_ldb(obj, output_filename)
+    elif fmt == 'exe':
+        writer = ExeWriter()
+        with open(output_filename, 'wb') as output_file:
+            writer.write(obj, output_file)
     else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
 

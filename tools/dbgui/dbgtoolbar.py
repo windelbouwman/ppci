@@ -22,17 +22,11 @@ class DebugToolbar(QtWidgets.QToolBar):
         self.updateEnables()
 
     def updateEnables(self):
-        if self.debugger.is_connected:
-            self.resetAction.setEnabled(True)
-            running = self.debugger.is_running
-            self.runAction.setEnabled(not running)
-            self.stepAction.setEnabled(not running)
-            self.stopAction.setEnabled(running)
-        else:
-            self.resetAction.setEnabled(False)
-            self.runAction.setEnabled(False)
-            self.stepAction.setEnabled(False)
-            self.stopAction.setEnabled(False)
+        self.resetAction.setEnabled(True)
+        running = self.debugger.is_running
+        self.runAction.setEnabled(not running)
+        self.stepAction.setEnabled(not running)
+        self.stopAction.setEnabled(running)
 
     def doRun(self):
         self.debugger.run()

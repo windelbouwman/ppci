@@ -168,6 +168,7 @@ class DebugUi(QtWidgets.QMainWindow):
     # MDI:
     def new_code_edit(self):
         ce = CodeEdit()
+        ce.breakpointChanged.connect(self.toggle_breakpoint)
         w = self.mdiArea.addSubWindow(ce)
         self.mdiArea.setActiveSubWindow(w)
         ce.showMaximized()
@@ -195,6 +196,12 @@ class DebugUi(QtWidgets.QMainWindow):
     def closeEvent(self, ev):
         self.settings.setValue('mainwindowstate', self.saveState())
         self.settings.setValue('mainwindowgeometry', self.saveGeometry())
+
+    def toggle_breakpoint(self, filename, row, state):
+        if state:
+            self.debugger.set_breakpoint(filename, row)
+        else:
+            self.debugger.clear_breakpoint(filename, row)
 
     # Error handling:
     def show_loc(self, filename, row, col):

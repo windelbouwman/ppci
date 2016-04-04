@@ -203,6 +203,18 @@ class DebugData(PseudoInstruction):
         return 'debug_data({})'.format(self.data)
 
 
+class DebugLocation(PseudoInstruction):
+    """ Debug location """
+    def __init__(self, filename, row, col):
+        super().__init__()
+        self.filename = filename
+        self.row = row
+        self.col = col
+
+    def __repr__(self):
+        return 'debug_loc({},{},{})'.format(self.filename, self.row, self.col)
+
+
 def generate_temps():
     n = 0
     while True:
