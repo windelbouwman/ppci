@@ -6,7 +6,8 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
-from ...binutils.debuginfo import DbgLoc, FuncDebugInfo, DebugBaseType
+from ...binutils.debuginfo import DebugLocation, FuncDebugInfo, DebugBaseType
+from ...binutils.debuginfo import DebugVariable
 from . import astnodes as ast
 from .scope import SemanticError
 
@@ -39,14 +40,14 @@ class CodeGenerator:
         self.debug_info = None
         self.module_ok = False
 
-    def emit(self, instruction, dbg=None):
+    def emit(self, instruction, loc=None):
         """
             Emits the given instruction to the builder.
             Can be muted for constants.
         """
         self.builder.emit(instruction)
-        if dbg:
-            self.debug_info.mappings[instruction] = dbg
+        if loc:
+            self.debug_info.enter(instruction, DebugLocation(loc))
         return instruction
 
     def gen_globals(self, module, context, debug_info):
@@ -65,15 +66,18 @@ class CodeGenerator:
             # Create debug infos:
             dbg_typ = self.register_type(context, var.typ, debug_info)
             if dbg_typ:
-                debug_info.add_var(var.name, dbg_typ, ir_var)
+                dv = DebugVariable(var.name, dbg_typ.name, var.loc)
+                debug_info.enter(var, dv)
 
     def register_type(self, context, typ, debug_info):
         """ Register type info in the debug information """
+        # Lookup the type:
         typ = context.the_type(typ)
+
         # print(typ)
         if isinstance(typ, ast.BaseType):
             dbg_typ = DebugBaseType(typ.name, context.size_of(typ), 1)
-            debug_info.add_type(dbg_typ)
+            debug_info.add(dbg_typ)
             return dbg_typ
         else:
             print('No', typ)
@@ -117,8 +121,8 @@ class CodeGenerator:
             body.
         """
         ir_function = self.builder.new_function(function.name)
-        self.debug_info.mappings[ir_function] = FuncDebugInfo(
-            function.name, function.loc)
+        self.debug_info.enter(ir_function, FuncDebugInfo(
+            function.name, function.loc))
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.emit(ir.Jump(first_block))
@@ -141,8 +145,10 @@ class CodeGenerator:
             dbg_typ = \
                 self.register_type(self.context, param.typ, self.debug_info)
             if dbg_typ:
-                self.debug_info.add_parameter(
-                    param.name, dbg_typ, ir_parameter)
+                #self.debug_info.enter(ir_parameter, DebugVariable(
+                #    param.name, dbg_typ, param.loc))
+                # TODO: do something with parameters
+                pass
 
         # generate room for locals:
         for sym in function.inner_scope:
@@ -169,7 +175,8 @@ class CodeGenerator:
             dbg_typ = \
                 self.register_type(self.context, sym.typ, self.debug_info)
             if dbg_typ:
-                self.debug_info.add_var(sym.name, dbg_typ, variable)
+                dv = DebugVariable(sym.name, dbg_typ.name, variable.loc)
+                self.debug_info.enter(variable, dv)
 
         self.gen_stmt(function.body)
         self.emit(ir.Jump(ir_function.epilog))
@@ -307,19 +314,19 @@ class CodeGenerator:
             # We know, the left hand side is an lvalue, so load it:
             lhs_ld = self.emit(
                 ir.Load(lval, 'assign_op_load', load_ty),
-                dbg=DbgLoc(code.loc))
+                loc=code.loc)
 
             # Now construct the rvalue:
             oper = code.shorthand_operator
             rval = self.emit(
                 ir.Binop(lhs_ld, oper, rval, "binop", rval.ty),
-                dbg=DbgLoc(code.loc))
+                loc=code.loc)
 
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
         return self.emit(
             ir.Store(rval, lval, volatile=volatile),
-            dbg=DbgLoc(code.loc))
+            loc=code.loc)
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -387,17 +394,16 @@ class CodeGenerator:
                                         .format(expr.a.typ, expr.b.typ),
                                         expr.loc)
                 self.emit(
-                    ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse),
-                    dbg=DbgLoc(expr.loc))
+                    ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse), loc=expr.loc)
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
             expr.typ = self.context.get_type('bool')
         elif isinstance(expr, ast.Literal):
             self.gen_expr_code(expr)
             if expr.val:
-                self.emit(ir.Jump(bbtrue), dbg=DbgLoc(expr.loc))
+                self.emit(ir.Jump(bbtrue), loc=expr.loc)
             else:
-                self.emit(ir.Jump(bbfalse), dbg=DbgLoc(expr.loc))
+                self.emit(ir.Jump(bbfalse), loc=expr.loc)
         elif isinstance(expr, ast.Unop) and expr.op == 'not':
             # In case of not, simply swap true and false!
             self.gen_cond_code(expr.a, bbfalse, bbtrue)
@@ -461,8 +467,7 @@ class CodeGenerator:
 
             # Load the value:
             value = self.emit(
-                ir.Load(value, 'loaded', load_ty),
-                dbg=DbgLoc(expr.loc))
+                ir.Load(value, 'loaded', load_ty), loc=expr.loc)
 
             # This expression is no longer an lvalue
             expr.lvalue = False
@@ -478,8 +483,7 @@ class CodeGenerator:
         self.context.check_type(expr.query_typ)
         type_size = self.context.size_of(expr.query_typ)
         return self.emit(
-            ir.Const(type_size, 'sizeof', self.get_ir_int()),
-            dbg=DbgLoc(expr.loc))
+            ir.Const(type_size, 'sizeof', self.get_ir_int()), loc=expr.loc)
 
     def gen_dereference(self, expr):
         """ dereference pointer type, which means *(expr) """
@@ -498,8 +502,7 @@ class CodeGenerator:
         if expr.ptr.lvalue:
             load_ty = self.get_ir_type(ptr_typ, expr.loc)
             deref_value = self.emit(
-                ir.Load(addr, 'deref', load_ty),
-                dbg=DbgLoc(expr.loc))
+                ir.Load(addr, 'deref', load_ty), loc=expr.loc)
         else:
             deref_value = addr
         return deref_value
@@ -599,7 +602,7 @@ class CodeGenerator:
 
         return self.emit(
             ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty),
-            dbg=DbgLoc(expr.loc))
+            loc=expr.loc)
 
     def gen_identifier(self, expr):
         """ Generate code for when an identifier was referenced """
@@ -705,16 +708,14 @@ class CodeGenerator:
 
         # Calculate offset:
         offset = self.emit(
-            ir.Mul(idx, e_size, "element_offset", int_ir_type),
-            dbg=DbgLoc(expr.loc))
+            ir.Mul(idx, e_size, "element_offset", int_ir_type), loc=expr.loc)
         offset = self.emit(
-            ir.to_ptr(offset, 'elem_offset'),
-            dbg=DbgLoc(expr.loc))
+            ir.to_ptr(offset, 'elem_offset'), loc=expr.loc)
 
         # Calculate address:
         return self.emit(
             ir.Add(base, offset, "element_address", ir.ptr),
-            dbg=DbgLoc(expr.loc))
+            loc=expr.loc)
 
     def gen_literal_expr(self, expr):
         """ Generate code for literal """
@@ -812,5 +813,4 @@ class CodeGenerator:
 
         # Emit call:
         return self.emit(
-            ir.Call(fname, args, fname + '_rv', ret_typ),
-            dbg=DbgLoc(expr.loc))
+            ir.Call(fname, args, fname + '_rv', ret_typ), loc=expr.loc)

@@ -35,10 +35,10 @@ class Debugger:
         Give it a target architecture for which it must debug
         #TODO: and perhaps give it a plugin to connect to hardware?
     """
-    def __init__(self, arch, target_connector):
+    def __init__(self, arch, driver):
         self.arch = fix_target(arch)
         self.disassembler = Disassembler(arch)
-        self.driver = target_connector
+        self.driver = driver
         self.logger = logging.getLogger('dbg')
         self.connection_event = SubscribleEvent()
         self.state_event = SubscribleEvent()
@@ -114,12 +114,12 @@ class Debugger:
         if not self.obj:
             return
         pc = self.get_pc()
-        for debug in self.obj.debug:
+        for debug in self.obj.debug_info.locations:
             #print(debug)
             addr = self.obj.get_section(debug.section).address + debug.offset
             if pc == addr:
                 print('MATCH', debug)
-                loc = debug.data.loc
+                loc = debug.loc
                 return loc.filename, loc.row
 
     def find_address(self, filename, row):
@@ -161,8 +161,8 @@ class Debugger:
     def get_disasm(self):
         """ Get instructions around program counter """
         loc = self.get_pc()
-        address = loc - 20
-        data = self.read_mem(address, 40)
+        address = loc - 10
+        data = self.read_mem(address, 20)
         instructions = []
         outs = RecordingOutputStream(instructions)
         self.disassembler.disasm(data, outs, address=address)
@@ -179,6 +179,12 @@ class DebugDriver:
         raise NotImplementedError()
 
     def step(self):
+        raise NotImplementedError()
+
+    def stop(self):
+        raise NotImplementedError()
+
+    def get_status(self):
         raise NotImplementedError()
 
     def set_breakpoint(self, address):

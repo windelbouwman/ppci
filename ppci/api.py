@@ -27,7 +27,7 @@ from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
-from .binutils.debuginfo import DebugInfo
+from .binutils.debuginfo import DebugInfoIntern
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
@@ -316,7 +316,7 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
-    debug_info = DebugInfo()
+    debug_info = DebugInfoIntern()
     return ir_to_object([ir_module], target, debug_info, reporter=reporter)
 
 
@@ -389,9 +389,9 @@ def write_ldb(obj, output_filename):
           x32-debug/ex2.dbg
     """
     with open(output_filename, 'w') as output_file:
-        for debug in obj.debug:
-            filename = debug.data.loc.filename
-            row = debug.data.loc.row
+        for debug in obj.debug_info.locations:
+            filename = debug.loc.filename
+            row = debug.loc.row
             address = obj.get_section(debug.section).address + debug.offset
             print(
                 'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),

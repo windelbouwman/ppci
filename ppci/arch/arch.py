@@ -1,7 +1,6 @@
 import logging
 from functools import lru_cache
 from .isa import Instruction, Register
-from .data_instructions import Ds
 from ..ir import i8, i16, i32, i64, ptr
 
 
@@ -70,14 +69,6 @@ class Architecture:
     def get_reloc(self, name):
         """ Retrieve a relocation identified by a name """
         return self.isa.relocation_map[name]
-
-    def emit_global(self, outs, lname, amount):
-        # TODO: alignment?
-        outs.emit(Label(lname))
-        if amount > 0:
-            outs.emit(Ds(amount))
-        else:  # pragma: no cover
-            raise NotImplementedError()
 
     def get_runtime(self):
         raise NotImplementedError('Implement this')
@@ -200,10 +191,11 @@ class DebugData(PseudoInstruction):
         self.data = data
 
     def __repr__(self):
-        return 'debug_data({})'.format(self.data)
+        return '.debug_data( {} )'.format(self.data)
 
 
-class DebugLocation(PseudoInstruction):
+# TODO: deprecated:
+class DebugLocation222(PseudoInstruction):
     """ Debug location """
     def __init__(self, filename, row, col):
         super().__init__()

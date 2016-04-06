@@ -6,6 +6,7 @@
 import logging
 from ..arch.isa import Instruction
 from ..arch.arch import Alignment, DebugData
+from ..binutils.debuginfo import DebugBaseInfo
 
 
 class OutputStream:
@@ -44,7 +45,7 @@ class BinaryOutputStream(OutputStream):
         self.current_section = None
 
     def emit(self, item):
-        """ Encode instruction and add symbol and relocation information
+        """ Encode instruction and add symbol and relocation information.
             At this point we know the address of the instruction.
         """
         assert isinstance(item, Instruction), str(item) + str(type(item))
@@ -66,7 +67,12 @@ class BinaryOutputStream(OutputStream):
             if item.align > self.current_section.alignment:
                 self.current_section.alignment = item.align
         elif isinstance(item, DebugData):
-            self.obj_file.add_debug(section.name, address, item.data)
+            # We have debug data here!
+            info = item.data
+            if isinstance(info, DebugBaseInfo):
+                info.section = section.name
+                info.offset = address
+            self.obj_file.debug_info.add(info)
 
     def select_section(self, sname):
         self.current_section = self.obj_file.get_section(sname)

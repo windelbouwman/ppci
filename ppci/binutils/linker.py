@@ -1,10 +1,12 @@
 """
     Linker utility.
 """
+
 import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
+from .debuginfo import DebugBaseInfo
 
 
 class Linker:
@@ -63,8 +65,8 @@ class Linker:
                 offsets[input_section.name] = output_section.size
                 output_section.add_data(input_section.data)
                 self.logger.debug(
-                    '{} {}({})'.format(offsets[input_section.name],
-                                       input_object, input_section.name))
+                    '%d %s(%s)', offsets[input_section.name],
+                    str(input_object), input_section.name)
 
             # Merge symbols:
             for sym in input_object.symbols:
@@ -77,9 +79,11 @@ class Linker:
                 dst.add_relocation(reloc.sym, offset, reloc.typ, reloc.section)
 
             # Merge debug info:
-            for debug in input_object.debug:
-                offset = offsets[debug.section] + debug.offset
-                dst.add_debug(debug.section, offset, debug.data)
+            for di in input_object.debug_info.all_items():
+                if isinstance(di, DebugBaseInfo):
+                    # Adjust offset:
+                    di.offset = offsets[di.section] + di.offset
+                dst.debug_info.add(di)
 
     def layout_sections(self, dst, layout):
         """ Use the given layout to place sections into memories """

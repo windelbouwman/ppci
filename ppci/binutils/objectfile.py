@@ -55,15 +55,15 @@ class Relocation:
             (other.sym, other.offset, other.typ, other.section)
 
 
-class Debug:
-    """ Container for debug data """
-    def __init__(self, section, offset, data):
-        self.section = section
-        self.offset = offset
-        self.data = data
-
-    def __repr__(self):
-        return 'DEBUG {} {} {}'.format(self.section, self.offset, self.data)
+#class Debug:
+#    """ Container for debug data """
+#    def __init__(self, section, offset, data):
+#        self.section = section
+#        self.offset = offset
+#        self.data = data
+#
+#    def __repr__(self):
+#        return 'DEBUG {} {} {}'.format(self.section, self.offset, self.data)
 
 
 class Section:
@@ -162,7 +162,7 @@ class ObjectFile:
         self.relocations = []
         self.images = []
         self.image_map = {}
-        self.debug = []
+        self.debug_info = debuginfo.DebugInfo()
 
     def has_symbol(self, name):
         """ Check if this object file has a symbol with name 'name' """
@@ -190,11 +190,11 @@ class ObjectFile:
         self.relocations.append(reloc)
         return reloc
 
-    def add_debug(self, section, offset, data):
-        """ Add debug data to this object file """
-        assert self.has_section(section)
-        debug = Debug(section, offset, data)
-        self.debug.append(debug)
+#    def add_debug(self, section, offset, data):
+#        """ Add debug data to this object file """
+#        assert self.has_section(section)
+#        debug = Debug(section, offset, data)
+#        self.debug.append(debug)
 
     def has_section(self, name):
         """ Check if the object file has a section with the given name """
@@ -263,14 +263,36 @@ def print_object(obj):
         print(reloc)
 
 
+def chunks(data, size=30):
+    """ Split iterable thing into n-sized chunks """
+    for i in range(0, len(data), size):
+        yield data[i:i+size]
+
+
 def bin2asc(data):
-    """ Encode binary data as ascii """
-    return binascii.hexlify(data).decode('ascii')
+    """ Encode binary data as ascii. If it is a large data set, then use a
+        list of hex characters.
+    """
+    if len(data) > 30:
+        res = []
+        for part in chunks(data):
+            res.append(binascii.hexlify(part).decode('ascii'))
+        return res
+    else:
+        return binascii.hexlify(data).decode('ascii')
 
 
 def asc2bin(data):
     """ Decode ascii into binary """
-    return bytearray(binascii.unhexlify(data.encode('ascii')))
+    if isinstance(data, str):
+        return bytearray(binascii.unhexlify(data.encode('ascii')))
+    elif isinstance(data, list):
+        res = bytearray()
+        for part in data:
+            res.extend(binascii.unhexlify(part.encode('ascii')))
+        return res
+    else:
+        raise NotImplementedError(str(type(data)))
 
 
 def serialize(x):
@@ -289,9 +311,7 @@ def serialize(x):
         res['images'] = []
         for image in x.images:
             res['images'].append(serialize(image))
-        res['debug'] = []
-        for debug in x.debug:
-            res['debug'].append(serialize(debug))
+        res['debug'] = debuginfo.serialize(x.debug_info)
     elif isinstance(x, Image):
         res['name'] = x.name
         res['location'] = hex(x.location)
@@ -312,37 +332,38 @@ def serialize(x):
         res['offset'] = hex(x.offset)
         res['type'] = x.typ
         res['section'] = x.section
-    elif isinstance(x, Debug):
-        res['section'] = x.section
-        res['offset'] = hex(x.offset)
-        res['data'] = debuginfo.serialize(x.data)
+    # elif isinstance(x, Debug):
+    #    res['section'] = x.section
+    #    res['offset'] = hex(x.offset)
+    #    res['data'] = debuginfo.serialize(x.data)
     else:
         raise NotImplementedError(str(type(x)))
     return res
 
 
-def deserialize(d):
-    """ Create an object file from data """
+def deserialize(data):
+    """ Create an object file from dict-like data """
     obj = ObjectFile()
-    for section in d['sections']:
-        so = Section(section['name'])
-        obj.add_section(so)
-        so.address = make_num(section['address'])
-        so.data = asc2bin(section['data'])
-        so.alignment = make_num(section['alignment'])
-    for reloc in d['relocations']:
+    for section in data['sections']:
+        section_object = Section(section['name'])
+        obj.add_section(section_object)
+        section_object.address = make_num(section['address'])
+        section_object.data = asc2bin(section['data'])
+        section_object.alignment = make_num(section['alignment'])
+    for reloc in data['relocations']:
         obj.add_relocation(
             reloc['symbol'], make_num(reloc['offset']),
             reloc['type'], reloc['section'])
-    for sym in d['symbols']:
+    for sym in data['symbols']:
         obj.add_symbol(sym['name'], make_num(sym['value']), sym['section'])
-    for image in d['images']:
+    for image in data['images']:
         img = Image(image['name'], make_num(image['location']))
         obj.add_image(img)
         for section_name in image['sections']:
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
-    for debug in d['debug']:
-        data = debuginfo.deserialize(debug['data'])
-        obj.add_debug(debug['section'], make_num(debug['offset']), data)
+    obj.debug_info = debuginfo.deserialize(data['debug'])
+    # for debug in data['debug']:
+    #    data = debuginfo.deserialize(debug['data'])
+    #    obj.add_debug(debug['section'], make_num(debug['offset']), data)
     return obj

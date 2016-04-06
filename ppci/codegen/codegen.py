@@ -6,9 +6,11 @@
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..arch.arch import Architecture, VCall
+from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.isa import Instruction
+from ..arch.data_instructions import Ds
+from ..binutils.debuginfo import DebugType, DebugVariable
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
@@ -34,14 +36,20 @@ class CodeGenerator:
         assert isinstance(ircode, ir.Module)
 
         self.logger.info(
-            'Generating %s code for module %s',
-            str(self.target), ircode.name)
+            'Generating %s code for module %s', str(self.target), ircode.name)
 
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            self.target.emit_global(
-                output_stream, ir.label_name(var), var.amount)
+            label_name = ir.label_name(var)
+            # TODO: alignment?
+            label = Label(label_name)
+            output_stream.emit(label)
+            if var.amount > 0:
+                output_stream.emit(Ds(var.amount))
+            else:  # pragma: no cover
+                raise NotImplementedError()
+            debug_info.map(var, label)
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
@@ -50,6 +58,11 @@ class CodeGenerator:
         for function in ircode.functions:
             self.generate_function(
                 function, output_stream, debug_info, reporter)
+
+        # Output debug data:
+        for di in debug_info.infos:
+            if isinstance(di, (DebugType, DebugVariable)):
+                output_stream.emit(DebugData(di))
 
     def generate_function(
             self, ir_function, output_stream, debug_info, reporter):

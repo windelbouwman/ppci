@@ -11,7 +11,7 @@ from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ...binutils.debuginfo import DebugInfo
+from ...binutils.debuginfo import DebugInfoIntern
 
 
 class C3Builder:
@@ -66,7 +66,7 @@ class C3Builder:
             raise
 
         # Create debug info:
-        debug_info = DebugInfo()
+        debug_info = DebugInfoIntern()
 
         # Phase 1.9
         for module in context.modules:
