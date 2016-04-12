@@ -169,3 +169,6 @@
 -y ../ips/apb/apb_uart2
 ../ips/apb/apb_uart2/uart.v
 ../ips/apb/apb_uart2/uart_periph.v
+
+../jtagdpi/jtag_dpi.sv
+../jtagdpi/topsim.sv

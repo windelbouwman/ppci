@@ -1,8 +1,8 @@
 #include "svdpi.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
-#include "Vpulpino_top.h"
-#include "Vpulpino_top__Dpi.h"
+#include "Vtopsim.h"
+#include "Vtopsim__Dpi.h"
 
 
 
@@ -16,7 +16,7 @@ double sc_time_stamp () {	// Called by $time in Verilog
   return main_time;		// Note does conversion to real, to match SystemC
 } 
 
-Vpulpino_top* top = new Vpulpino_top;
+Vtopsim* top = new Vtopsim;
 
 
 int main(int argc, char **argv, char **env) {
@@ -38,15 +38,12 @@ int main(int argc, char **argv, char **env) {
   top->fetch_enable_i = 0;
   top->spi_clk_i = 0;
   top->spi_cs_i = 1;
-  top->tck_i = 0;
-  top->trstn_i = 0;
-  top->tms_i = 0;
-  top->tdi_i = 0;
     // run simulation for 100 clock periods
-  for (i=0; i<10000; i++) {
+  i = 0;
+  while(1) {
     // dump variables into VCD file and toggle clock
     for (clk=0; clk<2; clk++) {
-      tfp->dump (2*i+clk);
+      //tfp->dump (2*i+clk);
       top->clk = !top->clk;
       top->eval();
     }
@@ -54,6 +51,7 @@ int main(int argc, char **argv, char **env) {
     if(i > 20) top->rst_n=1;
     if(i > 100) top->fetch_enable_i=1;	
     if (Verilated::gotFinish())  exit(0);
+    i++;
   }
   tfp->close();
   exit(0);
