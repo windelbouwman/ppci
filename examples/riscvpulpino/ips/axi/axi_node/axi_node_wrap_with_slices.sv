@@ -71,21 +71,22 @@ module axi_node_wrap_with_slices
 (
     input logic                                                          clk,
     input logic                                                          rst_n,
+    input logic                                                          test_en_i,
 
     //MASTER PORTS
     AXI_BUS.Slave                                                        axi_port_slave  [N_SLAVE_PORT-1:0],  // modified for verilator-simulation purpose
     AXI_BUS.Master                                                       axi_port_master [N_MASTER_PORT-1:0], // modified for verilator-simulation purpose
 
 `ifdef USE_CFG_BLOCK
-	`ifdef USE_AXI_LITE
-		AXI_LITE_BUS.Slave                                               cfg_port_slave,
-	`else
-    	APB_BUS.Slave                                                    cfg_port_slave,
+    `ifdef USE_AXI_LITE
+        AXI_LITE_BUS.Slave                                               cfg_port_slave,
+    `else
+        APB_BUS.Slave                                                    cfg_port_slave,
     `endif
 `endif
 
-    input  logic [N_REGION-1:0][N_MASTER_PORT-1:0][31:0]  				 cfg_START_ADDR_i,
-    input  logic [N_REGION-1:0][N_MASTER_PORT-1:0][31:0]  				 cfg_END_ADDR_i,
+    input  logic [N_REGION-1:0][N_MASTER_PORT-1:0][31:0]                 cfg_START_ADDR_i,
+    input  logic [N_REGION-1:0][N_MASTER_PORT-1:0][31:0]                 cfg_END_ADDR_i,
     input  logic [N_REGION-1:0][N_MASTER_PORT-1:0]                       cfg_valid_rule_i,
     input  logic [N_SLAVE_PORT-1:0][N_MASTER_PORT-1:0]                   cfg_connectivity_map_i
 );
@@ -122,8 +123,8 @@ module axi_node_wrap_with_slices
         .AXI_LITE_DATA_W    ( AXI_LITE_DATA_W    ),
         .AXI_LITE_BE_W      ( AXI_LITE_BE_W      ),
    `else
-   		.APB_ADDR_WIDTH     ( APB_ADDR_WIDTH     ),
-		.APB_DATA_WIDTH     ( APB_DATA_WIDTH     ),
+        .APB_ADDR_WIDTH     ( APB_ADDR_WIDTH     ),
+        .APB_DATA_WIDTH     ( APB_DATA_WIDTH     ),
    `endif
 `endif
         .N_MASTER_PORT      ( N_MASTER_PORT      ),
@@ -137,6 +138,8 @@ module axi_node_wrap_with_slices
     (
         .clk                    ( clk                     ),
         .rst_n                  ( rst_n                   ),
+        .test_en_i              ( test_en_i               ),
+
         .axi_port_slave         ( axi_slave               ),
         .axi_port_master        ( axi_master              ),
     `ifdef USE_CFG_BLOCK
@@ -166,6 +169,8 @@ module axi_node_wrap_with_slices
             (
                 .clk_i          ( clk                ),
                 .rst_ni         ( rst_n              ),
+                .test_en_i      ( test_en_i          ),
+
                 .axi_slave      ( axi_master[i]      ), // from the node
                 .axi_master     ( axi_port_master[i] )  // to IO ports
             );
@@ -185,6 +190,8 @@ module axi_node_wrap_with_slices
             (
                 .clk_i          ( clk               ),
                 .rst_ni         ( rst_n             ),
+                .test_en_i      ( test_en_i          ),
+                
                 .axi_slave      ( axi_port_slave[i] ), // from IO_ports
                 .axi_master     ( axi_slave[i]      )  // to axi_node
             );

@@ -67,9 +67,9 @@ module riscv_register_file
   begin : we_a_decoder
     for (int i = 0; i < NUM_WORDS; i++) begin
       if (waddr_a_i == i)
-        we_a_dec[i] <= we_a_i;
+        we_a_dec[i] = we_a_i;
       else
-        we_a_dec[i] <= 1'b0;
+        we_a_dec[i] = 1'b0;
     end
   end
 
@@ -77,9 +77,9 @@ module riscv_register_file
   begin : we_b_decoder
     for (int i=0; i<NUM_WORDS; i++) begin
       if (waddr_b_i == i)
-        we_b_dec[i] <= we_b_i;
+        we_b_dec[i] = we_b_i;
       else
-        we_b_dec[i] <= 1'b0;
+        we_b_dec[i] = 1'b0;
     end
   end
 
@@ -90,7 +90,7 @@ module riscv_register_file
     for (i = 0; i < NUM_WORDS; i++) // modified for verilator-simulation purpose
     begin : rf_gen
 
-      always_ff @(posedge clk or negedge rst_n)
+      always_ff @(posedge clk, negedge rst_n)
       begin : register_write_behavioral
         if (rst_n==1'b0) begin
           rf_reg[i] <= 'b0;
@@ -114,19 +114,8 @@ module riscv_register_file
 
   endgenerate
 
-  always_comb
-  begin : register_read_a_behavioral
-    rdata_a_o <= rf_reg[raddr_a_i];
-  end
-
-  always_comb
-  begin : register_read_b_behavioral
-    rdata_b_o <= rf_reg[raddr_b_i];
-  end
-
-  always_comb
-  begin : register_read_c_behavioral
-    rdata_c_o <= rf_reg[raddr_c_i];
-  end
+  assign rdata_a_o = rf_reg[raddr_a_i];
+  assign rdata_b_o = rf_reg[raddr_b_i];
+  assign rdata_c_o = rf_reg[raddr_c_i];
 
 endmodule

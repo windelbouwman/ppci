@@ -19,7 +19,9 @@ module core_region
     parameter AXI_DATA_WIDTH       = 64,
     parameter AXI_ID_MASTER_WIDTH  = 10,
     parameter AXI_ID_SLAVE_WIDTH   = 10,
-    parameter AXI_USER_WIDTH       = 0
+    parameter AXI_USER_WIDTH       = 0,
+    parameter DATA_RAM_SIZE        = 32768, // in bytes
+    parameter INSTR_RAM_SIZE       = 32768  // in bytes
   )
 (
     // Clock and Reset
@@ -45,6 +47,11 @@ module core_region
     input  logic        tdi_i,
     output logic        tdo_o
   );
+
+  localparam INSTR_ADDR_WIDTH = $clog2(INSTR_RAM_SIZE)+1; // to make space for the boot rom
+  localparam DATA_ADDR_WIDTH  = $clog2(DATA_RAM_SIZE);
+
+  localparam AXI_B_WIDTH      = $clog2(AXI_DATA_WIDTH/8); // AXI "Byte" width
 
   // signals from/to core
   logic         core_instr_req;
@@ -73,38 +80,38 @@ module core_region
 
 
   // signals to/from AXI mem
-  logic         is_axi_addr;
-  logic         axi_mem_req;
-  logic [`RAM_ADDR_WIDTH-1:0]  axi_mem_addr;
-  logic         axi_mem_we;
-  logic [3:0]   axi_mem_be;
-  logic [31:0]  axi_mem_rdata;
-  logic [31:0]  axi_mem_wdata;
+  logic                        is_axi_addr;
+  logic                        axi_mem_req;
+  logic [DATA_ADDR_WIDTH-1:0]  axi_mem_addr;
+  logic                        axi_mem_we;
+  logic [AXI_DATA_WIDTH/8-1:0] axi_mem_be;
+  logic [AXI_DATA_WIDTH-1:0]   axi_mem_rdata;
+  logic [AXI_DATA_WIDTH-1:0]   axi_mem_wdata;
 
   // signals to/from AXI instr
-  logic         axi_instr_req;
-  logic [`INSTR_RAM_ADDR_WIDTH-1:0]  axi_instr_addr;
-  logic         axi_instr_we;
-  logic [3:0]   axi_instr_be;
-  logic [31:0]  axi_instr_rdata;
-  logic [31:0]  axi_instr_wdata;
+  logic                        axi_instr_req;
+  logic [INSTR_ADDR_WIDTH-1:0] axi_instr_addr;
+  logic                        axi_instr_we;
+  logic [AXI_DATA_WIDTH/8-1:0] axi_instr_be;
+  logic [AXI_DATA_WIDTH-1:0]   axi_instr_rdata;
+  logic [AXI_DATA_WIDTH-1:0]   axi_instr_wdata;
 
 
   // signals to/from instr mem
   logic                        instr_mem_en;
-  logic [`INSTR_RAM_ADDR_WIDTH+1:0]  instr_mem_addr;
+  logic [INSTR_ADDR_WIDTH-1:0] instr_mem_addr;
   logic                        instr_mem_we;
-  logic [3:0]                  instr_mem_be;
-  logic [31:0]                 instr_mem_rdata;
-  logic [31:0]                 instr_mem_wdata;
+  logic [AXI_DATA_WIDTH/8-1:0] instr_mem_be;
+  logic [AXI_DATA_WIDTH-1:0]   instr_mem_rdata;
+  logic [AXI_DATA_WIDTH-1:0]   instr_mem_wdata;
 
   // signals to/from data mem
   logic                        data_mem_en;
-  logic [`RAM_ADDR_WIDTH+1:0]  data_mem_addr;
+  logic [DATA_ADDR_WIDTH-1:0]  data_mem_addr;
   logic                        data_mem_we;
-  logic [3:0]                  data_mem_be;
-  logic [31:0]                 data_mem_rdata;
-  logic [31:0]                 data_mem_wdata;
+  logic [AXI_DATA_WIDTH/8-1:0] data_mem_be;
+  logic [AXI_DATA_WIDTH-1:0]   data_mem_rdata;
+  logic [AXI_DATA_WIDTH-1:0]   data_mem_wdata;
 
 
 
@@ -135,10 +142,10 @@ module core_region
 
   AXI_BUS
   #(
-    .AXI_ADDR_WIDTH   ( AXI_ADDR_WIDTH ),
-    .AXI_DATA_WIDTH   ( AXI_DATA_WIDTH ),
-    .AXI_ID_WIDTH     ( AXI_ID_MASTER_WIDTH   ),
-    .AXI_USER_WIDTH   ( AXI_USER_WIDTH )
+    .AXI_ADDR_WIDTH   ( AXI_ADDR_WIDTH      ),
+    .AXI_DATA_WIDTH   ( AXI_DATA_WIDTH      ),
+    .AXI_ID_WIDTH     ( AXI_ID_MASTER_WIDTH ),
+    .AXI_USER_WIDTH   ( AXI_USER_WIDTH      )
   )
   core_master_int();
 
@@ -217,7 +224,7 @@ module core_region
       .clk             ( clk_core_int      ),
       .rst_n           ( rst_n             ),
 
-      .boot_addr_i     ( 32'h0000_0000     ),
+      .boot_addr_i     ( '0                ),
       .core_id_i       ( 5'h0              ),
       .cluster_id_i    ( 5'h0              ),
 
@@ -256,14 +263,18 @@ module core_region
   `endif
 
 
-  core2axi
+  core2axi_wrap
   #(
-    .AXI_ADDR_WIDTH ( AXI_ADDR_WIDTH )
+    .AXI_ADDR_WIDTH   ( AXI_ADDR_WIDTH      ),
+    .AXI_DATA_WIDTH   ( AXI_DATA_WIDTH      ),
+    .AXI_ID_WIDTH     ( AXI_ID_MASTER_WIDTH ),
+    .AXI_USER_WIDTH   ( AXI_USER_WIDTH      ),
+    .REGISTERED_GRANT ( `CORE2AXI_REG_GRANT )
   )
   core2axi_i
   (
-    .clk   ( clk   ),
-    .rst_n ( rst_n ),
+    .clk_i         ( clk             ),
+    .rst_ni        ( rst_n           ),
 
     .data_req_i    ( core_axi_req    ),
     .data_gnt_o    ( core_axi_gnt    ),
@@ -356,28 +367,29 @@ module core_region
 
   instr_ram_wrap
   #(
-    .RAM_SIZE  ( `NUM_WORD          )
+    .RAM_SIZE   ( INSTR_RAM_SIZE ),
+    .DATA_WIDTH ( AXI_DATA_WIDTH )
   )
   instr_mem
   (
-    .clk     ( clk                                  ),
-    .rst_n   ( rst_n                                ),
-    .en_i    ( instr_mem_en                         ),
-    .addr_i  ( instr_mem_addr[`INSTR_RAM_ADDR_WIDTH+1:2]  ),
-    .wdata_i ( instr_mem_wdata                      ),
-    .rdata_o ( instr_mem_rdata                      ),
-    .we_i    ( instr_mem_we                         ),
-    .be_i    ( instr_mem_be                         ),
-    .bypass_en_i ( testmode_i )
+    .clk         ( clk             ),
+    .rst_n       ( rst_n           ),
+    .en_i        ( instr_mem_en    ),
+    .addr_i      ( instr_mem_addr  ),
+    .wdata_i     ( instr_mem_wdata ),
+    .rdata_o     ( instr_mem_rdata ),
+    .we_i        ( instr_mem_we    ),
+    .be_i        ( instr_mem_be    ),
+    .bypass_en_i ( testmode_i      )
   );
 
   axi_mem_if_SP_wrap
   #(
-    .AXI_ADDR_WIDTH  ( AXI_ADDR_WIDTH     ),
-    .AXI_DATA_WIDTH  ( AXI_DATA_WIDTH     ),
-    .AXI_ID_WIDTH    ( AXI_ID_SLAVE_WIDTH ),
-    .AXI_USER_WIDTH  ( AXI_USER_WIDTH     ),
-    .MEM_ADDR_WIDTH  ( `INSTR_RAM_ADDR_WIDTH    )
+    .AXI_ADDR_WIDTH  ( AXI_ADDR_WIDTH         ),
+    .AXI_DATA_WIDTH  ( AXI_DATA_WIDTH         ),
+    .AXI_ID_WIDTH    ( AXI_ID_SLAVE_WIDTH     ),
+    .AXI_USER_WIDTH  ( AXI_USER_WIDTH         ),
+    .MEM_ADDR_WIDTH  ( INSTR_ADDR_WIDTH       )
   )
   instr_mem_axi_if
   (
@@ -398,8 +410,10 @@ module core_region
 
   ram_mux
   #(
-    .ADDR_WIDTH ( `INSTR_RAM_ADDR_WIDTH+2 ),
-    .DATA_WIDTH ( 32                )
+    .ADDR_WIDTH ( INSTR_ADDR_WIDTH ),
+    .IN0_WIDTH  ( AXI_DATA_WIDTH   ),
+    .IN1_WIDTH  ( 32               ),
+    .OUT_WIDTH  ( AXI_DATA_WIDTH   )
   )
   instr_ram_mux_i
   (
@@ -409,7 +423,7 @@ module core_region
     .port0_req_i    ( axi_instr_req     ),
     .port0_gnt_o    (                   ),
     .port0_rvalid_o (                   ),
-    .port0_addr_i   ( {axi_instr_addr[`INSTR_RAM_ADDR_WIDTH-1:0],2'b00} ),
+    .port0_addr_i   ( {axi_instr_addr[INSTR_ADDR_WIDTH-AXI_B_WIDTH-1:0], {AXI_B_WIDTH{1'b0}}} ),
     .port0_we_i     ( axi_instr_we      ),
     .port0_be_i     ( axi_instr_be      ),
     .port0_rdata_o  ( axi_instr_rdata   ),
@@ -418,14 +432,14 @@ module core_region
     .port1_req_i    ( core_instr_req    ),
     .port1_gnt_o    ( core_instr_gnt    ),
     .port1_rvalid_o ( core_instr_rvalid ),
-    .port1_addr_i   ( core_instr_addr[`INSTR_RAM_ADDR_WIDTH+1:0] ),
+    .port1_addr_i   ( core_instr_addr[INSTR_ADDR_WIDTH-1:0] ),
     .port1_we_i     ( 1'b0              ),
-    .port1_be_i     ( 4'b1111           ),
+    .port1_be_i     ( '1                ),
     .port1_rdata_o  ( core_instr_rdata  ),
-    .port1_wdata_i  ( 32'h0             ),
+    .port1_wdata_i  ( '0                ),
 
     .ram_en_o       ( instr_mem_en      ),
-    .ram_addr_o     ( instr_mem_addr[`INSTR_RAM_ADDR_WIDTH+1:0] ),
+    .ram_addr_o     ( instr_mem_addr    ),
     .ram_we_o       ( instr_mem_we      ),
     .ram_be_o       ( instr_mem_be      ),
     .ram_rdata_i    ( instr_mem_rdata   ),
@@ -438,30 +452,30 @@ module core_region
   //----------------------------------------------------------------------------//
   sp_ram_wrap
   #(
-    .RAM_SIZE ( `NUM_WORD ),
+    .RAM_SIZE ( DATA_RAM_SIZE ),
     .RDMEMH(1), // modified for verilator-simulation purpose 
     .RDMEMHFILE("tcdm_bank0.slm") // modified for verilator-simulation purpose 
   )
   data_mem
   (
-    .clk     ( clk                                  ),
-    .rstn_i  ( rst_n                                ),
-    .en_i    ( data_mem_en                          ),
-    .addr_i  ( data_mem_addr[`RAM_ADDR_WIDTH+1:2]   ),
-    .wdata_i ( data_mem_wdata                       ),
-    .rdata_o ( data_mem_rdata                       ),
-    .we_i    ( data_mem_we                          ),
-    .be_i    ( data_mem_be                          ),
-    .bypass_en_i  ( testmode_i )
+    .clk          ( clk            ),
+    .rstn_i       ( rst_n          ),
+    .en_i         ( data_mem_en    ),
+    .addr_i       ( data_mem_addr  ),
+    .wdata_i      ( data_mem_wdata ),
+    .rdata_o      ( data_mem_rdata ),
+    .we_i         ( data_mem_we    ),
+    .be_i         ( data_mem_be    ),
+    .bypass_en_i  ( testmode_i     )
   );
 
   axi_mem_if_SP_wrap
   #(
-    .AXI_ADDR_WIDTH  ( AXI_ADDR_WIDTH       ),
-    .AXI_DATA_WIDTH  ( AXI_DATA_WIDTH       ),
-    .AXI_ID_WIDTH    ( AXI_ID_SLAVE_WIDTH   ),
-    .AXI_USER_WIDTH  ( AXI_USER_WIDTH       ),
-    .MEM_ADDR_WIDTH  ( `RAM_ADDR_WIDTH      )
+    .AXI_ADDR_WIDTH  ( AXI_ADDR_WIDTH     ),
+    .AXI_DATA_WIDTH  ( AXI_DATA_WIDTH     ),
+    .AXI_ID_WIDTH    ( AXI_ID_SLAVE_WIDTH ),
+    .AXI_USER_WIDTH  ( AXI_USER_WIDTH     ),
+    .MEM_ADDR_WIDTH  ( DATA_ADDR_WIDTH    )
   )
   data_mem_axi_if
   (
@@ -482,8 +496,10 @@ module core_region
 
   ram_mux
   #(
-    .ADDR_WIDTH ( `RAM_ADDR_WIDTH+2 ),
-    .DATA_WIDTH ( 32                )
+    .ADDR_WIDTH ( DATA_ADDR_WIDTH ),
+    .IN0_WIDTH  ( AXI_DATA_WIDTH  ),
+    .IN1_WIDTH  ( 32              ),
+    .OUT_WIDTH  ( AXI_DATA_WIDTH  )
   )
   data_ram_mux_i
   (
@@ -493,7 +509,7 @@ module core_region
     .port0_req_i    ( axi_mem_req      ),
     .port0_gnt_o    (                  ),
     .port0_rvalid_o (                  ),
-    .port0_addr_i   ( {axi_mem_addr[`RAM_ADDR_WIDTH-1:0],2'b00} ),
+    .port0_addr_i   ( {axi_mem_addr[DATA_ADDR_WIDTH-AXI_B_WIDTH-1:0], {AXI_B_WIDTH{1'b0}}} ),
     .port0_we_i     ( axi_mem_we       ),
     .port0_be_i     ( axi_mem_be       ),
     .port0_rdata_o  ( axi_mem_rdata    ),
@@ -502,14 +518,14 @@ module core_region
     .port1_req_i    ( core_data_req    ),
     .port1_gnt_o    ( core_data_gnt    ),
     .port1_rvalid_o ( core_data_rvalid ),
-    .port1_addr_i   ( core_data_addr[`RAM_ADDR_WIDTH+1:0] ),
+    .port1_addr_i   ( core_data_addr[DATA_ADDR_WIDTH-1:0] ),
     .port1_we_i     ( core_data_we     ),
     .port1_be_i     ( core_data_be     ),
     .port1_rdata_o  ( core_data_rdata  ),
     .port1_wdata_i  ( core_data_wdata  ),
 
     .ram_en_o       ( data_mem_en      ),
-    .ram_addr_o     ( data_mem_addr[`RAM_ADDR_WIDTH+1:0] ),
+    .ram_addr_o     ( data_mem_addr    ),
     .ram_we_o       ( data_mem_we      ),
     .ram_be_o       ( data_mem_be      ),
     .ram_rdata_i    ( data_mem_rdata   ),
@@ -601,5 +617,84 @@ module core_region
     .axi_master_b_user    ( dbg_master.b_user    ),
     .axi_master_b_ready   ( dbg_master.b_ready   )
     );
+
+
+  //----------------------------------------------------------------------------//
+  // Test Code
+  //----------------------------------------------------------------------------//
+
+  // introduce random stalls for data access to stress LSU
+`ifdef DATA_STALL_RANDOM
+  random_stalls data_stalls_i
+  (
+    .clk           ( clk                     ),
+
+    .core_req_i    ( RISCV_CORE.data_req_o   ),
+    .core_addr_i   ( RISCV_CORE.data_addr_o  ),
+    .core_we_i     ( RISCV_CORE.data_we_o    ),
+    .core_be_i     ( RISCV_CORE.data_be_o    ),
+    .core_wdata_i  ( RISCV_CORE.data_wdata_o ),
+    .core_gnt_o    (                         ),
+    .core_rdata_o  (                         ),
+    .core_rvalid_o (                         ),
+
+    .data_req_o    (                         ),
+    .data_addr_o   (                         ),
+    .data_we_o     (                         ),
+    .data_be_o     (                         ),
+    .data_wdata_o  (                         ),
+    .data_gnt_i    ( core_lsu_gnt            ),
+    .data_rdata_i  ( core_lsu_rdata          ),
+    .data_rvalid_i ( core_lsu_rvalid         )
+  );
+
+  initial begin
+    force RISCV_CORE.data_gnt_i    = data_stalls_i.core_gnt_o;
+    force RISCV_CORE.data_rvalid_i = data_stalls_i.core_rvalid_o;
+    force RISCV_CORE.data_rdata_i  = data_stalls_i.core_rdata_o;
+
+    force core_lsu_req   = data_stalls_i.data_req_o;
+    force core_lsu_addr  = data_stalls_i.data_addr_o;
+    force core_lsu_we    = data_stalls_i.data_we_o;
+    force core_lsu_be    = data_stalls_i.data_be_o;
+    force core_lsu_wdata = data_stalls_i.data_wdata_o;
+  end
+`endif
+
+  // introduce random stalls for instruction access to stress instruction
+  // fetcher
+`ifdef INSTR_STALL_RANDOM
+  random_stalls instr_stalls_i
+  (
+    .clk           ( clk                     ),
+
+    .core_req_i    ( RISCV_CORE.instr_req_o  ),
+    .core_addr_i   ( RISCV_CORE.instr_addr_o ),
+    .core_we_i     (                         ),
+    .core_be_i     (                         ),
+    .core_wdata_i  (                         ),
+    .core_gnt_o    (                         ),
+    .core_rdata_o  (                         ),
+    .core_rvalid_o (                         ),
+
+    .data_req_o    (                         ),
+    .data_addr_o   (                         ),
+    .data_we_o     (                         ),
+    .data_be_o     (                         ),
+    .data_wdata_o  (                         ),
+    .data_gnt_i    ( core_instr_gnt          ),
+    .data_rdata_i  ( core_instr_rdata        ),
+    .data_rvalid_i ( core_instr_rvalid       )
+  );
+
+  initial begin
+    force RISCV_CORE.instr_gnt_i    = instr_stalls_i.core_gnt_o;
+    force RISCV_CORE.instr_rvalid_i = instr_stalls_i.core_rvalid_o;
+    force RISCV_CORE.instr_rdata_i  = instr_stalls_i.core_rdata_o;
+
+    force core_instr_req   = instr_stalls_i.data_req_o;
+    force core_instr_addr  = instr_stalls_i.data_addr_o;
+  end
+`endif
 
 endmodule

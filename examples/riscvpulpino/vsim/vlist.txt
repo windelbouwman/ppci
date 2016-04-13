@@ -8,6 +8,7 @@
 ../rtl/boot_code.sv 
 ../rtl/boot_rom_wrap.sv 
 ../rtl/clk_rst_gen.sv 
+../rtl/core2axi_wrap.sv 
 ../rtl/core2axi.sv 
 ../rtl/core_region.sv 
 ../rtl/dp_ram_wrap.sv 
@@ -67,11 +68,13 @@
 
 ../ips/apb/apb_spi_master/apb_spi_master.sv 
 ../ips/apb/apb_spi_master/spi_master_apb_if.sv 
-../ips/apb/apb_spi_master/spi_master_clkgen.sv 
-../ips/apb/apb_spi_master/spi_master_controller.sv 
-../ips/apb/apb_spi_master/spi_master_fifo.sv 
-../ips/apb/apb_spi_master/spi_master_rx.sv 
-../ips/apb/apb_spi_master/spi_master_tx.sv 
+../ips/axi/axi_spi_master/axi_spi_master.sv 
+../ips/axi/axi_spi_master/spi_master_axi_if.sv 
+../ips/axi/axi_spi_master/spi_master_clkgen.sv 
+../ips/axi/axi_spi_master/spi_master_controller.sv 
+../ips/axi/axi_spi_master/spi_master_fifo.sv 
+../ips/axi/axi_spi_master/spi_master_rx.sv 
+../ips/axi/axi_spi_master/spi_master_tx.sv 
 
 
 ../ips/apb/apb_timer/apb_timer.sv 
@@ -123,9 +126,6 @@
 ../ips/axi/axi_slice_dc/axi_slice_dc_master.sv
 ../ips/axi/axi_slice_dc/axi_slice_dc_slave.sv
 
-../ips/axi/axi_spi_master/axi_spi_master.sv 
-../ips/axi/axi_spi_master/spi_master_axi_if.sv 
-
 ../ips/axi/axi_spi_slave/axi_spi_slave.sv 
 ../ips/axi/axi_spi_slave/spi_slave_axi_plug.sv 
 ../ips/axi/axi_spi_slave/spi_slave_cmd_parser.sv 
@@ -137,16 +137,12 @@
 ../ips/axi/axi_spi_slave/spi_slave_tx.sv 
 
 ../ips/axi/axi2apb/axi2apb.sv 
-../ips/axi/axi2apb/axi2apb_cmd.sv 
-../ips/axi/axi2apb/axi2apb_ctrl.sv 
-../ips/axi/axi2apb/axi2apb_mux.sv 
-../ips/axi/axi2apb/axi2apb_rd.sv 
-../ips/axi/axi2apb/axi2apb_wr.sv 
 ../ips/axi/axi2apb/AXI_2_APB.sv 
-../ips/axi/axi2apb/prgen_fifo.sv 
+../ips/axi/axi2apb/AXI_2_APB_32.sv 
 
 -y ../ips/riscv/include
-../ips/riscv/alu.sv 
+../ips/riscv/alu.sv
+../ips/riscv/alu_div.sv
 ../ips/riscv/compressed_decoder.sv 
 ../ips/riscv/controller.sv 
 ../ips/riscv/cs_registers.sv 

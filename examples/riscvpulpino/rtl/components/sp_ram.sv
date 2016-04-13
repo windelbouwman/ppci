@@ -33,22 +33,27 @@ module sp_ram
 
 //  logic [3:0][7:0] mem[words]; // modified for verilator-simulation purpose
    logic [31:0] 		   mem [words]; // modified for verilator-simulation purpose
+   logic [ADDR_WIDTH-3:0] 	   addr;
    
+   
+
+ assign addr = addr_i[ADDR_WIDTH-1:2];   
+  
   always @(posedge clk)
   begin
     if (en_i && we_i)
     begin
       if (be_i[0])
-        mem[addr_i][7:0] <= wdata_i[7:0]; // modified for verilator-simulation purpose
+        mem[addr][7:0] <= wdata_i[7:0]; // modified for verilator-simulation purpose
       if (be_i[1])
-        mem[addr_i][15:8] <= wdata_i[15:8]; // modified for verilator-simulation purpose
+        mem[addr][15:8] <= wdata_i[15:8]; // modified for verilator-simulation purpose
       if (be_i[2])
-        mem[addr_i][23:16] <= wdata_i[23:16]; // modified for verilator-simulation purpose
+        mem[addr][23:16] <= wdata_i[23:16]; // modified for verilator-simulation purpose
       if (be_i[3])
-        mem[addr_i][31:24] <= wdata_i[31:24]; // modified for verilator-simulation purpose
+        mem[addr][31:24] <= wdata_i[31:24]; // modified for verilator-simulation purpose
     end
 
-    rdata_o <= mem[addr_i];
+    rdata_o <= mem[addr];
     end
 
     initial begin		// modified for verilator-simulation purpose

@@ -1,0 +1,8 @@
+axi_mem_if_DP:
+  files: [
+    axi_mem_if_DP_hybr.sv,
+    axi_mem_if_DP.sv,
+    axi_mem_if_SP.sv,
+    axi_read_only_ctrl.sv,
+    axi_write_only_ctrl.sv,
+  ]

@@ -86,9 +86,11 @@ module spi_master_controller
 
     logic spi_cs;
 
+    logic tx_fifo_sync;
+
     enum logic [1:0] {DATA_NULL,DATA_CMD,DATA_ADDR,DATA_FIFO} ctrl_data_mux;
 
-    enum logic [3:0] {IDLE,CMD,ADDR,MODE,DUMMY,DATA_TX,DATA_RX,WAIT_EDGE} state,state_next;
+    enum logic [4:0] {IDLE,CMD,ADDR,MODE,DUMMY,DATA_TX,DATA_TX_FIFOEMPTY,DATA_RX,WAIT_EDGE} state,state_next;
 
     assign en_quad = spi_qrd | spi_qwr | en_quad_int;
 
@@ -120,7 +122,8 @@ module spi_master_controller
         .counter_in_upd(counter_tx_valid),
         .data(data_to_tx),
         .data_valid(data_to_tx_valid),
-        .data_ready(data_to_tx_ready)
+        .data_ready(data_to_tx_ready),
+        .fifo_sync(tx_fifo_sync)
     );
 
     spi_master_rx u_rxreg
@@ -467,11 +470,33 @@ module spi_master_controller
                             state_next   = IDLE;
                             spi_clock_en = 1'b0;
                         end
+                        else if (~spi_ctrl_data_tx_valid & tx_fifo_sync)
+                        begin
+                            state_next = DATA_TX_FIFOEMPTY;
+                            spi_clock_en = 1'b0;
+                        end
                         else
                         begin
                             spi_en_tx  = 1'b1;
                             state_next = DATA_TX;
                         end
+                    end
+
+                    DATA_TX_FIFOEMPTY:
+                    begin
+                        spi_status[5] = 1'b1;
+                        spi_cs = 1'b0;
+                        spi_clock_en = 1'b0;
+                        ctrl_data_mux    = DATA_FIFO;
+                        ctrl_data_valid  = 1'b1;
+                        s_spi_mode = (en_quad) ? `SPI_QUAD_TX : `SPI_STD;
+
+                        if (spi_ctrl_data_tx_valid)
+                        begin
+                            state_next = DATA_TX;
+                            spi_clock_en = 1'b1;
+                        end
+
                     end
 
                     DATA_RX:

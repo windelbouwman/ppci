@@ -81,11 +81,12 @@ module axi_write_only_ctrl
 
     logic [AXI4_USER_WIDTH-1:0]                       AWUSER_REG;
     logic [AXI4_ID_WIDTH-1:0]                         AWID_REG;
-    logic [MEM_ADDR_WIDTH-1:0]                        AWADDR_REG;
+    logic [MEM_ADDR_WIDTH-1:0]                        AWADDR_REG,AWADDR_REG_incr;
     logic [7:0]                                       AWLEN_REG;
 
 
-
+    // next address
+    //AWADDR_REG+CountBurst_CS;
 
     always_ff @(posedge clk or negedge rst_n)
     begin : _UPDATE_CS_
@@ -93,7 +94,7 @@ module axi_write_only_ctrl
         begin
             CS         <= IDLE;
             CountBurst_CS <= '0;
-
+            AWADDR_REG_incr <= '0;
             AWID_REG    <= '0;
             AWUSER_REG   <= '0;
             AWADDR_REG  <= '0;
@@ -152,12 +153,15 @@ module axi_write_only_ctrl
             begin
                 AWREADY_o = 1'b1;
                 sample_ctrl = AWVALID_i;
+                //MOved Here
+                MEM_A_o   = AWADDR_i[MEM_ADDR_WIDTH+OFFSET_BIT-1 : OFFSET_BIT];
+
 
                 if(AWVALID_i)
                 begin
                         valid_o = WVALID_i;
                         MEM_CEN_o = ~WVALID_i;
-                        MEM_A_o   = AWADDR_i[MEM_ADDR_WIDTH+OFFSET_BIT-1 : OFFSET_BIT];
+                        //MEM_A_o   = AWADDR_i[MEM_ADDR_WIDTH+OFFSET_BIT-1 : OFFSET_BIT];
 
                         WREADY_o = grant_i;
 
@@ -229,6 +233,8 @@ module axi_write_only_ctrl
             begin
                 BRESP_o = `OKAY;
                 BVALID_o = 1'b1;
+                //moved here
+                MEM_A_o   = AWADDR_i[MEM_ADDR_WIDTH+OFFSET_BIT-1 : OFFSET_BIT];
 
                 if(BREADY_i)
                 begin
@@ -239,7 +245,7 @@ module axi_write_only_ctrl
                         begin
                                 valid_o = WVALID_i;
                                 MEM_CEN_o = ~WVALID_i;
-                                MEM_A_o   = AWADDR_i[MEM_ADDR_WIDTH+OFFSET_BIT-1 : OFFSET_BIT];
+                                //MEM_A_o   = AWADDR_i[MEM_ADDR_WIDTH+OFFSET_BIT-1 : OFFSET_BIT];
 
 
                                 WREADY_o = grant_i;

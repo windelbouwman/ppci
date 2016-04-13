@@ -22,7 +22,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
-`include "riscv_defines.sv"
+`include "riscv_tracer_defines.sv"
 
 module riscv_tracer
 (
@@ -44,6 +44,7 @@ module riscv_tracer
   input  logic [31:0] rs1_value,
   input  logic [31:0] rs2_value,
   input  logic [31:0] rs3_value,
+  input  logic [31:0] rs2_value_vec,
 
   input  logic        ex_valid,
   input  logic [ 4:0] ex_reg_addr,
@@ -56,6 +57,8 @@ module riscv_tracer
   input  logic [31:0] ex_data_addr,
   input  logic [31:0] ex_data_wdata,
 
+  input  logic        wb_bypass,
+
   input  logic        wb_valid,
   input  logic [ 4:0] wb_reg_addr,
   input  logic        wb_reg_we,
@@ -67,7 +70,12 @@ module riscv_tracer
   input  logic [11:0] imm_iz_type,
   input  logic [31:0] imm_z_type,
   input  logic [31:0] imm_s_type,
-  input  logic [31:0] imm_sb_type
+  input  logic [31:0] imm_sb_type,
+  input  logic [31:0] imm_s2_type,
+  input  logic [31:0] imm_s3_type,
+  input  logic [31:0] imm_vs_type,
+  input  logic [31:0] imm_vu_type,
+  input  logic [ 4:0] imm_clip_type
 );
 
   integer      f;
@@ -117,7 +125,7 @@ module riscv_tracer
     function void printInstrTrace();
       mem_acc_t mem_acc;
       begin
-        $fwrite(f, "%t %15d %h %h %-33s", simtime,
+        $fwrite(f, "%t %15d %h %h %-36s", simtime,
                                           cycles,
                                           pc,
                                           instr,
@@ -151,58 +159,90 @@ module riscv_tracer
 
     function void printRInstr(input string mnemonic);
       begin
-        regs_read.push_back({rs1, rs1_value});
-        regs_read.push_back({rs2, rs2_value});
-        regs_write.push_back({rd, 'x});
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_read.push_back({>> {rs2, rs2_value}});
+        regs_write.push_back({>> {rd, 'x}});
         str = $sformatf("%-16s x%0d, x%0d, x%0d", mnemonic, rd, rs1, rs2);
       end
     endfunction // printRInstr
 
+    function void printAddNInstr(input string mnemonic);
+      begin
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_read.push_back({>> {rs2, rs2_value}});
+        regs_write.push_back({>> {rd, 'x}});
+        str = $sformatf("%-16s x%0d, x%0d, x%0d, 0x%0d", mnemonic, rd, rs1, rs2, $unsigned(imm_s3_type[4:0]));
+      end
+    endfunction // printAddNInstr
+
+    function void printR1Instr(input string mnemonic);
+      begin
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
+        str = $sformatf("%-16s x%0d, x%0d", mnemonic, rd, rs1);
+      end
+    endfunction // printR1Instr
+
     function void printR3Instr(input string mnemonic);
       begin
-        regs_read.push_back({rd, rs3_value});
-        regs_read.push_back({rs1, rs1_value});
-        regs_read.push_back({rs2, rs2_value});
-        regs_write.push_back({rd, 'x});
+        regs_read.push_back({>> {rd, rs3_value}});
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_read.push_back({>> {rs2, rs2_value}});
+        regs_write.push_back({>> {rd, 'x}});
         str = $sformatf("%-16s x%0d, x%0d, x%0d", mnemonic, rd, rs1, rs2);
+      end
+    endfunction // printR3Instr
+
+    function void printClipInstr(input string mnemonic);
+      begin
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
+        str = $sformatf("%-16s x%0d, x%0d, %0d", mnemonic, rd, rs1, $unsigned(imm_clip_type));
       end
     endfunction // printRInstr
 
     function void printIInstr(input string mnemonic);
       begin
-        regs_read.push_back({rs1, rs1_value});
-        regs_write.push_back({rd, 'x});
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
         str = $sformatf("%-16s x%0d, x%0d, %0d", mnemonic, rd, rs1, $signed(imm_i_type));
       end
     endfunction // printIInstr
 
     function void printIuInstr(input string mnemonic);
       begin
-        regs_read.push_back({rs1, rs1_value});
-        regs_write.push_back({rd, 'x});
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
         str = $sformatf("%-16s x%0d, x%0d, 0x%0x", mnemonic, rd, rs1, imm_i_type);
       end
     endfunction // printIuInstr
 
     function void printUInstr(input string mnemonic);
       begin
-        regs_write.push_back({rd, 'x});
+        regs_write.push_back({>> {rd, 'x}});
         str = $sformatf("%-16s x%0d, 0x%0h", mnemonic, rd, {imm_u_type[31:12], 12'h000});
       end
     endfunction // printUInstr
 
     function void printUJInstr(input string mnemonic);
       begin
-        regs_write.push_back({rd, 'x});
+        regs_write.push_back({>> {rd, 'x}});
         str =  $sformatf("%-16s x%0d, %0d", mnemonic, rd, $signed(imm_uj_type));
       end
     endfunction // printUJInstr
 
     function void printSBInstr(input string mnemonic);
       begin
-        regs_read.push_back({rs1, rs1_value});
-        regs_read.push_back({rs2, rs2_value});
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_read.push_back({>> {rs2, rs2_value}});
         str =  $sformatf("%-16s x%0d, x%0d, %0d", mnemonic, rs1, rs2, $signed(imm_sb_type));
+      end
+    endfunction // printSBInstr
+
+    function void printSBallInstr(input string mnemonic);
+      begin
+        regs_read.push_back({>> {rs1, rs1_value}});
+        str =  $sformatf("%-16s x%0d, %0d", mnemonic, rs1, $signed(imm_sb_type));
       end
     endfunction // printSBInstr
 
@@ -211,16 +251,33 @@ module riscv_tracer
       begin
         csr = instr[31:20];
 
-        regs_write.push_back({rd, 'x});
+        regs_write.push_back({>> {rd, 'x}});
 
         if (instr[14] == 1'b0) begin
-          regs_read.push_back({rs1, rs1_value});
+          regs_read.push_back({>> {rs1, rs1_value}});
           str = $sformatf("%-16s x%0d, x%0d, 0x%h", mnemonic, rd, rs1, csr);
         end else begin
           str = $sformatf("%-16s x%0d, 0x%h, 0x%h", mnemonic, rd, imm_z_type, csr);
         end
       end
     endfunction // printCSRInstr
+
+    function void printBit1Instr(input string mnemonic);
+      begin
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
+        str =  $sformatf("%-16s x%0d, x%0d, %0d, %0d", mnemonic, rd, rs1, imm_s3_type, imm_s2_type);
+      end
+    endfunction
+
+    function void printBit2Instr(input string mnemonic);
+      begin
+        regs_read.push_back({>> {rd, rs3_value}});
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
+        str =  $sformatf("%-16s x%0d, x%0d, %0d, %0d", mnemonic, rd, rs1, imm_s3_type, imm_s2_type);
+      end
+    endfunction
 
     function void printLoadInstr();
       string mnemonic;
@@ -237,36 +294,36 @@ module riscv_tracer
           3'b010: mnemonic = "lw";
           3'b100: mnemonic = "lbu";
           3'b101: mnemonic = "lhu";
+          3'b110: mnemonic = "p.elw";
           3'b011,
-          3'b110,
           3'b111: begin
             printMnemonic("INVALID");
             return;
           end
         endcase
 
-        regs_write.push_back({rd, 'x});
+        regs_write.push_back({>> {rd, 'x}});
 
         if (instr[14:12] != 3'b111) begin
           // regular load
           if (instr[6:0] != `OPCODE_LOAD_POST) begin
-            regs_read.push_back({rs1, rs1_value});
+            regs_read.push_back({>> {rs1, rs1_value}});
             str = $sformatf("%-16s x%0d, %0d(x%0d)", mnemonic, rd, $signed(imm_i_type), rs1);
           end else begin
-            regs_read.push_back({rs1, rs1_value});
-            regs_write.push_back({rs1, 'x});
+            regs_read.push_back({>> {rs1, rs1_value}});
+            regs_write.push_back({>> {rs1, 'x}});
             str = $sformatf("p.%-14s x%0d, %0d(x%0d!)", mnemonic, rd, $signed(imm_i_type), rs1);
           end
         end else begin
           // reg-reg load
           if (instr[6:0] != `OPCODE_LOAD_POST) begin
-            regs_read.push_back({rs2, rs2_value});
-            regs_read.push_back({rs1, rs1_value});
+            regs_read.push_back({>> {rs2, rs2_value}});
+            regs_read.push_back({>> {rs1, rs1_value}});
             str = $sformatf("%-16s x%0d, x%0d(x%0d)", mnemonic, rd, rs2, rs1);
           end else begin
-            regs_read.push_back({rs2, rs2_value});
-            regs_read.push_back({rs1, rs1_value});
-            regs_write.push_back({rs1, 'x});
+            regs_read.push_back({>> {rs2, rs2_value}});
+            regs_read.push_back({>> {rs1, rs1_value}});
+            regs_write.push_back({>> {rs1, 'x}});
             str = $sformatf("p.%-14s x%0d, x%0d(x%0d!)", mnemonic, rd, rs2, rs1);
           end
         end
@@ -290,27 +347,27 @@ module riscv_tracer
         if (instr[14] == 1'b0) begin
           // regular store
           if (instr[6:0] != `OPCODE_STORE_POST) begin
-            regs_read.push_back({rs2, rs2_value});
-            regs_read.push_back({rs1, rs1_value});
+            regs_read.push_back({>> {rs2, rs2_value}});
+            regs_read.push_back({>> {rs1, rs1_value}});
             str = $sformatf("%-16s x%0d, %0d(x%0d)", mnemonic, rs2, $signed(imm_s_type), rs1);
           end else begin
-            regs_read.push_back({rs2, rs2_value});
-            regs_read.push_back({rs1, rs1_value});
-            regs_write.push_back({rs1, 'x});
+            regs_read.push_back({>> {rs2, rs2_value}});
+            regs_read.push_back({>> {rs1, rs1_value}});
+            regs_write.push_back({>> {rs1, 'x}});
             str = $sformatf("p.%-14s x%0d, %0d(x%0d!)", mnemonic, rs2, $signed(imm_s_type), rs1);
           end
         end else begin
           // reg-reg store
           if (instr[6:0] != `OPCODE_STORE_POST) begin
-            regs_read.push_back({rs2, rs2_value});
-            regs_read.push_back({rs3, rs3_value});
-            regs_read.push_back({rs1, rs1_value});
+            regs_read.push_back({>> {rs2, rs2_value}});
+            regs_read.push_back({>> {rs3, rs3_value}});
+            regs_read.push_back({>> {rs1, rs1_value}});
             str = $sformatf("p.%-14s x%0d, x%0d(x%0d)", mnemonic, rs2, rs3, rs1);
           end else begin
-            regs_read.push_back({rs2, rs2_value});
-            regs_read.push_back({rs3, rs3_value});
-            regs_read.push_back({rs1, rs1_value});
-            regs_write.push_back({rs1, 'x});
+            regs_read.push_back({>> {rs2, rs2_value}});
+            regs_read.push_back({>> {rs3, rs3_value}});
+            regs_read.push_back({>> {rs1, rs1_value}});
+            regs_write.push_back({>> {rs1, 'x}});
             str = $sformatf("p.%-14s x%0d, x%0d(x%0d!)", mnemonic, rs2, rs3, rs1);
           end
         end
@@ -341,14 +398,14 @@ module riscv_tracer
           3'b001: str = $sformatf("%-16s 0x%0d, 0x%0h", mnemonic, rd, imm_iz_type);
           // lp.count
           3'b010: begin
-            regs_read.push_back({rs1, rs1_value});
+            regs_read.push_back({>> {rs1, rs1_value}});
             str = $sformatf("%-16s 0x%0d, x%0d", mnemonic, rd, rs1);
           end
           // lp.counti
           3'b011: str = $sformatf("%-16s x%0d, 0x%0h", mnemonic, rd, imm_iz_type);
           // lp.setup
           3'b100: begin
-            regs_read.push_back({rs1, rs1_value});
+            regs_read.push_back({>> {rs1, rs1_value}});
             str = $sformatf("%-16s 0x%0d, x%0d, 0x%0h", mnemonic, rd, rs1, imm_iz_type);
           end
           // lp.setupi
@@ -358,10 +415,139 @@ module riscv_tracer
         endcase
       end
     endfunction
+
+    function void printMulInstr();
+      string mnemonic;
+      string str_suf;
+      string str_imm;
+      string str_asm;
+      begin
+
+        // always read rs1 and rs2 and write rd
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_read.push_back({>> {rs2, rs2_value}});
+        regs_write.push_back({>> {rd, 'x}});
+
+        if (instr[12])
+          regs_read.push_back({>> {rd, rs3_value}});
+
+        case ({instr[31:30], instr[14]})
+          3'b000: str_suf = "u";
+          3'b001: str_suf = "uR";
+          3'b010: str_suf = "hhu";
+          3'b011: str_suf = "hhuR";
+          3'b100: str_suf = "s";
+          3'b101: str_suf = "sR";
+          3'b110: str_suf = "hhs";
+          3'b111: str_suf = "hhsR";
+        endcase
+
+        if (instr[12])
+          mnemonic = "p.mac";
+        else
+          mnemonic = "p.mul";
+
+        if (imm_s3_type[4:0] != 5'b00000)
+          str_asm = $sformatf("%s%sN", mnemonic, str_suf);
+        else
+          str_asm = $sformatf("%s%s", mnemonic, str_suf);
+
+        if (instr[29:25] != 5'b00000)
+          str = $sformatf("%-16s x%0d, x%0d, x%0d, %0d", str_asm, rd, rs1, rs2, $unsigned(imm_s3_type[4:0]));
+        else
+          str = $sformatf("%-16s x%0d, x%0d, x%0d", str_asm, rd, rs1, rs2);
+      end
+    endfunction
+
+    function void printVecInstr();
+      string mnemonic;
+      string str_asm;
+      string str_args;
+      string str_hb;
+      string str_sci;
+      string str_imm;
+      begin
+
+        // always read rs1 and write rd
+        regs_read.push_back({>> {rs1, rs1_value}});
+        regs_write.push_back({>> {rd, 'x}});
+
+        case (instr[14:13])
+          2'b00: str_sci = "";
+          2'b10: str_sci = ".sc";
+          2'b11: str_sci = ".sci";
+        endcase
+
+        if (instr[12])
+          str_hb = ".b";
+        else
+          str_hb = ".h";
+
+        // set mnemonic
+        case (instr[31:26])
+          6'b000000: begin mnemonic = "pv.add";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b000010: begin mnemonic = "pv.sub";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b000100: begin mnemonic = "pv.avg";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b000110: begin mnemonic = "pv.avgu";     str_imm = $sformatf("0x%0d", imm_vu_type); end
+          6'b001000: begin mnemonic = "pv.min";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b001010: begin mnemonic = "pv.minu";     str_imm = $sformatf("0x%0d", imm_vu_type); end
+          6'b001100: begin mnemonic = "pv.max";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b001110: begin mnemonic = "pv.maxu";     str_imm = $sformatf("0x%0d", imm_vu_type); end
+          6'b010000: begin mnemonic = "pv.srl";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b010010: begin mnemonic = "pv.sra";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b010100: begin mnemonic = "pv.sll";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b010110: begin mnemonic = "pv.or";       str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b011000: begin mnemonic = "pv.xor";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b011010: begin mnemonic = "pv.and";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b011100: begin mnemonic = "pv.abs";      str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b011110: begin mnemonic = "pv.extract";  str_imm = $sformatf("0x%0d", imm_vs_type); str_sci = ""; end
+          6'b100000: begin mnemonic = "pv.extractu"; str_imm = $sformatf("0x%0d", imm_vu_type); str_sci = ""; end
+          6'b100010: begin mnemonic = "pv.insert";   str_imm = $sformatf("0x%0d", imm_vs_type); end
+
+          // shuffle/pack
+          6'b110000: begin mnemonic = "pv.shuffle";  str_imm = $sformatf("N/A"); end
+          6'b110010: begin mnemonic = "pv.shuffle2"; end
+          6'b110100: begin mnemonic = "pv.pack";     end
+          6'b110110: begin mnemonic = "pv.packhi";   end
+          6'b111000: begin mnemonic = "pv.packlo";   end
+
+          // comparisons
+          6'b000001: begin mnemonic = "pv.cmpeq";    str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b000011: begin mnemonic = "pv.cmpne";    str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b000101: begin mnemonic = "pv.cmpgt";    str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b000111: begin mnemonic = "pv.cmpge";    str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b001001: begin mnemonic = "pv.cmplt";    str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b001011: begin mnemonic = "pv.cmple";    str_imm = $sformatf("0x%0d", imm_vs_type); end
+          6'b001101: begin mnemonic = "pv.cmpgtu";   str_imm = $sformatf("0x%0d", imm_vu_type); end
+          6'b001111: begin mnemonic = "pv.cmpgeu";   str_imm = $sformatf("0x%0d", imm_vu_type); end
+          6'b010001: begin mnemonic = "pv.cmpltu";   str_imm = $sformatf("0x%0d", imm_vu_type); end
+          6'b010011: begin mnemonic = "pv.cmpleu";   str_imm = $sformatf("0x%0d", imm_vu_type); end
+
+          default: begin
+            printMnemonic("INVALID");
+            return;
+          end
+        endcase
+
+        if (str_sci == "") begin
+          regs_read.push_back({>> {rs2, rs2_value}});
+          str_args = $sformatf("x%0d, x%0d, x%0d", rd, rs1, rs2);
+        end else if (str_sci == ".sc") begin
+          regs_read.push_back({>> {rs2, rs2_value_vec}});
+          str_args = $sformatf("x%0d, x%0d, x%0d", rd, rs1, rs2);
+        end else if (str_sci == ".sci") begin
+          str_args = $sformatf("x%0d, x%0d, %s", rd, rs1, str_imm);
+        end
+
+        str_asm = $sformatf("%s%s%s", mnemonic, str_sci, str_hb);
+
+        str = $sformatf("%-16s %s", str_asm, str_args);
+      end
+    endfunction
   endclass
 
-  mailbox instr_ex = new (2);
-  mailbox instr_wb = new (2);
+  mailbox #(instr_trace_t) instr_ex = new ();
+  mailbox #(instr_trace_t) instr_wb = new ();
 
   // cycle counter
   always_ff @(posedge clk, negedge rst_n)
@@ -424,7 +610,7 @@ module riscv_tracer
 
           trace.mem_access.push_back(mem_acc);
         end
-      end while (!ex_valid);
+      end while (!ex_valid && !wb_bypass); // ex branches bypass the WB stage
 
       instr_wb.put(trace);
     end
@@ -483,6 +669,7 @@ module riscv_tracer
         `INSTR_BGE:        trace.printSBInstr("bge");
         `INSTR_BLTU:       trace.printSBInstr("bltu");
         `INSTR_BGEU:       trace.printSBInstr("bgeu");
+        `INSTR_BALL:       trace.printSBallInstr("pv.ball");
         // OPIMM
         `INSTR_ADDI:       trace.printIInstr("addi");
         `INSTR_SLTI:       trace.printIInstr("slti");
@@ -510,12 +697,28 @@ module riscv_tracer
         `INSTR_EXTBZ:      trace.printRInstr("p.extbz");
         `INSTR_PAVG:       trace.printRInstr("p.avg");
         `INSTR_PAVGU:      trace.printRInstr("p.avgu");
+        `INSTR_PADDN:      trace.printAddNInstr("p.addN");
+        `INSTR_PADDUN:     trace.printAddNInstr("p.adduN");
+        `INSTR_PADDRN:     trace.printAddNInstr("p.addRN");
+        `INSTR_PADDURN:    trace.printAddNInstr("p.adduRN");
+        `INSTR_PSUBN:      trace.printAddNInstr("p.subN");
+        `INSTR_PSUBUN:     trace.printAddNInstr("p.subuN");
+        `INSTR_PSUBRN:     trace.printAddNInstr("p.subRN");
+        `INSTR_PSUBURN:    trace.printAddNInstr("p.subuRN");
         `INSTR_PSLET:      trace.printRInstr("p.slet");
         `INSTR_PSLETU:     trace.printRInstr("p.sletu");
         `INSTR_PMIN:       trace.printRInstr("p.min");
         `INSTR_PMINU:      trace.printRInstr("p.minu");
         `INSTR_PMAX:       trace.printRInstr("p.max");
         `INSTR_PMAXU:      trace.printRInstr("p.maxu");
+        `INSTR_PABS:       trace.printR1Instr("p.abs");
+        `INSTR_PCLIP:      trace.printClipInstr("p.clip");
+        `INSTR_PCLIPU:     trace.printClipInstr("p.clipu");
+        `INSTR_PBEXT:      trace.printBit1Instr("p.extract");
+        `INSTR_PBEXTU:     trace.printBit1Instr("p.extractu");
+        `INSTR_PBINS:      trace.printBit2Instr("p.insert");
+        `INSTR_PBCLR:      trace.printBit1Instr("p.bclr");
+        `INSTR_PBSET:      trace.printBit1Instr("p.bset");
         // FENCE
         `INSTR_FENCE:      trace.printMnemonic("fence");
         `INSTR_FENCEI:     trace.printMnemonic("fencei");
@@ -534,12 +737,18 @@ module riscv_tracer
         // PULP MULTIPLIER
         `INSTR_PMUL:       trace.printRInstr("p.mul");
         `INSTR_PMAC:       trace.printR3Instr("p.mac");
+        `INSTR_DIV:        trace.printRInstr("div");
+        `INSTR_DIVU:       trace.printRInstr("divu");
+        `INSTR_REM:        trace.printRInstr("rem");
+        `INSTR_REMU:       trace.printRInstr("remu");
         // opcodes with custom decoding
         {25'b?, `OPCODE_LOAD}:       trace.printLoadInstr();
         {25'b?, `OPCODE_LOAD_POST}:  trace.printLoadInstr();
         {25'b?, `OPCODE_STORE}:      trace.printStoreInstr();
         {25'b?, `OPCODE_STORE_POST}: trace.printStoreInstr();
         {25'b?, `OPCODE_HWLOOP}:     trace.printHwloopInstr();
+        {25'b?, `OPCODE_VECOP}:      trace.printVecInstr();
+        `INSTR_PMULRN:               trace.printMulInstr();
         default:           trace.printMnemonic("INVALID");
       endcase // unique case (instr)
 

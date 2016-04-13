@@ -40,7 +40,6 @@
 // file modified for verilator-simulation purpose                                //
 // ============================================================================= //
 
-//`include "axi_bus.sv"  // modified for verilator-simulation purpose 
 `include "defines.v"
 
 module axi_node_wrap

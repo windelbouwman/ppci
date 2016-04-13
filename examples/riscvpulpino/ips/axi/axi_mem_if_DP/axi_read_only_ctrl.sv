@@ -289,13 +289,14 @@ module axi_read_only_ctrl
                 RVALID_o = 1'b1;
                 RLAST_o  = 1'b0;
                 RRESP_o  = `OKAY;
+                MEM_A_o     = ARADDR_REG+CountBurst_CS;
 
                 if(RREADY_i)
                 begin
 
                     sample_ctrl = 1'b0;
                     MEM_CEN_o   = 1'b0;
-                    MEM_A_o     = ARADDR_REG+CountBurst_CS;
+                    //MEM_A_o     = ARADDR_REG+CountBurst_CS;
                     valid_o     = 1'b1;
 
 
@@ -361,12 +362,12 @@ module axi_read_only_ctrl
                 RVALID_o = 1'b1;
                 RLAST_o  = 1'b0;
                 RRESP_o  = `OKAY;
-
+                MEM_A_o = ARADDR_REG + CountBurst_CS;
 
                 if(RREADY_i)
                 begin
                         valid_o = 1'b1;
-                        MEM_A_o = ARADDR_REG + CountBurst_CS;
+                        //MEM_A_o = ARADDR_REG + CountBurst_CS;
                         MEM_CEN_o = 1'b0;
                         /////////////////////////////////////////
                         if(grant_i)

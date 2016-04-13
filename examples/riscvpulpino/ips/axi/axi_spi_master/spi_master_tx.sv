@@ -24,7 +24,8 @@ module spi_master_tx
     input  logic        counter_in_upd,
     input  logic [31:0] data,
     input  logic        data_valid,
-    output logic        data_ready
+    output logic        data_ready,
+    output logic        fifo_sync
 );
 
     logic [31:0] data_int;
@@ -42,6 +43,8 @@ module spi_master_tx
     assign sdo3 = data_int[31];
 
     assign tx_done = done;
+
+    assign fifo_sync = (tx_edge && ((counter == counter_trgt-1) || (!en_quad_in && (counter[4:0] == 5'b11111)) || (en_quad_in && (counter[2:0] == 3'b111)))) ? 1'b1 : 1'b0;
 
     always_comb
     begin
@@ -64,7 +67,6 @@ module spi_master_tx
                     counter_next = counter;
         else
             counter_next = counter;
-
 
         if (tx_edge)
             if (data_valid && ((counter == counter_trgt-1) || (!en_quad_in && (counter[4:0] == 5'b11111)) || (en_quad_in && (counter[2:0] == 3'b111))))

@@ -14,6 +14,7 @@
 // Additional contributions by:                                               //
 //                 Igor Loi - igor.loi@unibo.it                               //
 //                 Sven Stucki - svstucki@student.ethz.ch                     //
+//                 Andreas Traber - atraber@iis.ee.ethz.ch                    //
 //                                                                            //
 // Design Name:    Excecute stage                                             //
 // Project Name:   RI5CY                                                      //
@@ -38,17 +39,25 @@ module riscv_ex_stage
   input  logic [31:0] alu_operand_a_i,
   input  logic [31:0] alu_operand_b_i,
   input  logic [31:0] alu_operand_c_i,
-
-  input  logic        vector_mode_i,
+  input  logic [ 4:0] bmask_a_i,
+  input  logic [ 4:0] bmask_b_i,
+  input  logic [ 1:0] imm_vec_ext_i,
+  input  logic [ 1:0] alu_vec_mode_i,
 
   // Multiplier signals
-  input  logic        mult_en_i,
-  input  logic [1:0]  mult_sel_subword_i,
-  input  logic [1:0]  mult_signed_mode_i,
-  input  logic        mult_mac_en_i,
+  input  logic [ 2:0] mult_operator_i,
   input  logic [31:0] mult_operand_a_i,
   input  logic [31:0] mult_operand_b_i,
   input  logic [31:0] mult_operand_c_i,
+  input  logic        mult_en_i,
+  input  logic        mult_sel_subword_i,
+  input  logic        mult_signed_mode_i,
+  input  logic [ 4:0] mult_imm_i,
+
+  input  logic [31:0] mult_dot_op_a_i,
+  input  logic [31:0] mult_dot_op_b_i,
+  input  logic [31:0] mult_dot_op_c_i,
+  input  logic [ 1:0] mult_dot_signed_i,
 
   // input from ID stage
   input  logic        branch_in_ex_i,
@@ -90,6 +99,8 @@ module riscv_ex_stage
   logic [31:0] mult_result;
   logic        alu_cmp_result;
 
+  logic        alu_ready;
+
 
   // EX stage result mux (ALU, MAC unit, CSR)
   assign alu_csr_result         = csr_access_i ? csr_rdata_i : alu_result;
@@ -117,12 +128,24 @@ module riscv_ex_stage
 
   riscv_alu alu_i
   (
-   .operator_i          ( alu_operator_i  ),
-   .operand_a_i         ( alu_operand_a_i ),
-   .operand_b_i         ( alu_operand_b_i ),
+    .clk                 ( clk             ),
+    .rst_n               ( rst_n           ),
 
-   .result_o            ( alu_result      ),
-   .comparison_result_o ( alu_cmp_result  )
+    .operator_i          ( alu_operator_i  ),
+    .operand_a_i         ( alu_operand_a_i ),
+    .operand_b_i         ( alu_operand_b_i ),
+    .operand_c_i         ( alu_operand_c_i ),
+
+    .vector_mode_i       ( alu_vec_mode_i  ),
+    .bmask_a_i           ( bmask_a_i       ),
+    .bmask_b_i           ( bmask_b_i       ),
+    .imm_vec_ext_i       ( imm_vec_ext_i   ),
+
+    .result_o            ( alu_result      ),
+    .comparison_result_o ( alu_cmp_result  ),
+
+    .ready_o             ( alu_ready       ),
+    .ex_ready_i          ( ex_ready_o      )
   );
 
 
@@ -137,14 +160,20 @@ module riscv_ex_stage
 
   riscv_mult mult_i
   (
-   .vector_mode_i   ( vector_mode_i        ),
-   .sel_subword_i   ( mult_sel_subword_i   ),
-   .signed_mode_i   ( mult_signed_mode_i   ),
-   .mac_en_i        ( mult_mac_en_i        ),
+   .operator_i      ( mult_operator_i      ),
 
-   .op_a_i          ( mult_operand_a_i      ),
-   .op_b_i          ( mult_operand_b_i      ),
-   .mac_i           ( mult_operand_c_i      ),
+   .short_subword_i ( mult_sel_subword_i   ),
+   .short_signed_i  ( mult_signed_mode_i   ),
+
+   .op_a_i          ( mult_operand_a_i     ),
+   .op_b_i          ( mult_operand_b_i     ),
+   .op_c_i          ( mult_operand_c_i     ),
+   .imm_i           ( mult_imm_i           ),
+
+   .dot_op_a_i      ( mult_dot_op_a_i      ),
+   .dot_op_b_i      ( mult_dot_op_b_i      ),
+   .dot_op_c_i      ( mult_dot_op_c_i      ),
+   .dot_signed_i    ( mult_dot_signed_i    ),
 
    .result_o        ( mult_result          )
   );
@@ -155,7 +184,7 @@ module riscv_ex_stage
   ///////////////////////////////////////
   always_ff @(posedge clk, negedge rst_n)
   begin : EX_WB_Pipeline_Register
-    if (rst_n == 1'b0)
+    if (~rst_n)
     begin
       regfile_waddr_wb_o   <= '0;
       regfile_we_wb_o      <= 1'b0;
@@ -176,7 +205,10 @@ module riscv_ex_stage
     end
   end
 
-  assign ex_ready_o = (lsu_ready_ex_i & wb_ready_i) | branch_in_ex_i;
-  assign ex_valid_o = ex_ready_o;
+  // As valid always goes to the right and ready to the left, and we are able
+  // to finish branches without going to the WB stage, ex_valid does not
+  // depend on ex_ready.
+  assign ex_ready_o = (alu_ready & lsu_ready_ex_i & wb_ready_i) | branch_in_ex_i;
+  assign ex_valid_o = (alu_ready & lsu_ready_ex_i & wb_ready_i);
 
 endmodule

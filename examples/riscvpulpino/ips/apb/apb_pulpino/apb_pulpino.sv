@@ -13,6 +13,7 @@
 `define REG_CLK_GATE     4'b0001
 `define REG_BOOT_ADR     4'b0010
 `define REG_INFO         4'b0100
+`define REG_STATUS       4'b0101
 
 // GPIO Map - for simplicity
 `define REG_PADCFG0     4'b1000 //BASEADDR+0x20
@@ -54,6 +55,7 @@ module apb_pulpino
     output logic               [31:0] pad_mux_o,
     output logic               [31:0] boot_addr_o
 );
+
     logic [31:0]  pad_mux_q, pad_mux_n;
     logic [31:0]  boot_adr_q, boot_adr_n;
     logic [31:0]  clk_gate_q, clk_gate_n;
@@ -61,6 +63,8 @@ module apb_pulpino
     logic [31:0] [5:0] pad_cfg_q, pad_cfg_n;
 
     logic [APB_ADDR_WIDTH - 1:0]       register_adr;
+
+    logic [1:0]   status_n, status_q;
 
     assign register_adr = PADDR[5:2];
 
@@ -75,8 +79,9 @@ module apb_pulpino
     begin
         pad_mux_n = pad_mux_q;
         pad_cfg_n = pad_cfg_q;
-	clk_gate_n = clk_gate_q;
+        clk_gate_n = clk_gate_q;
         boot_adr_n = boot_adr_q;
+        status_n   = status_q;
 
         if (PSEL && PENABLE && PWRITE)
         begin
@@ -148,6 +153,10 @@ module apb_pulpino
                     pad_cfg_n[31]  = PWDATA[28:24];
                 end
 
+                `REG_STATUS: begin
+                    status_n = PWDATA[1:0];
+                end
+
                 // version reg can't be written to
             endcase
         end
@@ -199,6 +208,9 @@ module apb_pulpino
                 `REG_INFO:
                     PRDATA = {4'b0000, `DCACHE, `ICACHE, `ROM, `INSTR_RAM, `DATA_RAM,`VERSION};
 
+                `REG_STATUS:
+                    PRDATA = {30'b0, status_q[1:0]};
+
                 default:
                     PRDATA = 'b0;
             endcase
@@ -215,6 +227,7 @@ module apb_pulpino
             clk_gate_q         <= '1;
             pad_cfg_q          <= '{default: 32'b0};
             boot_adr_q         <= BOOT_ADDR;
+            status_q           <= '1; // should not be 0 because this means OK
             // cfg_pad_int[i][0]: PD, Pull Down
             // cfg_pad_int[i][1]: PU, Pull Up
             // cfg_pad_int[i][2]: SMT, Schmitt Trigger
@@ -243,7 +256,6 @@ module apb_pulpino
             pad_cfg_q[18]      <= 6'b000000; // SPI Master CS
             pad_cfg_q[19]      <= 6'b000000; // I2C SDA
             pad_cfg_q[20]      <= 6'b000000; // I2C SCLK
-
         end
         else
         begin
@@ -251,6 +263,7 @@ module apb_pulpino
             clk_gate_q         <=  clk_gate_n;
             pad_cfg_q          <=  pad_cfg_n;
             boot_adr_q         <=  boot_adr_n;
+            status_q           <=  status_n;
         end
     end
 

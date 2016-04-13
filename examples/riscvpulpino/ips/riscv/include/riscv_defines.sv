@@ -62,77 +62,9 @@
 `define OPCODE_LOAD_POST  7'h0b
 `define OPCODE_STORE_POST 7'h2b
 `define OPCODE_PULP_OP    7'h5b
+`define OPCODE_VECOP      7'h57
 `define OPCODE_HWLOOP     7'h7b
 
-
-// instruction masks (for tracer)
-// `define INSTR_CUSTOM0    { 25'b?, `OPCODE_CUST0 }
-// `define INSTR_CUSTOM1    { 25'b?, `OPCODE_CUST1 }
-`define INSTR_LUI        { 25'b?, `OPCODE_LUI }
-`define INSTR_AUIPC      { 25'b?, `OPCODE_AUIPC }
-`define INSTR_JAL        { 25'b?, `OPCODE_JAL }
-`define INSTR_JALR       { 17'b?, 3'b000, 5'b?, `OPCODE_JALR }
-// BRANCH
-`define INSTR_BEQ        { 17'b?, 3'b000, 5'b?, `OPCODE_BRANCH }
-`define INSTR_BNE        { 17'b?, 3'b001, 5'b?, `OPCODE_BRANCH }
-`define INSTR_BLT        { 17'b?, 3'b100, 5'b?, `OPCODE_BRANCH }
-`define INSTR_BGE        { 17'b?, 3'b101, 5'b?, `OPCODE_BRANCH }
-`define INSTR_BLTU       { 17'b?, 3'b110, 5'b?, `OPCODE_BRANCH }
-`define INSTR_BGEU       { 17'b?, 3'b111, 5'b?, `OPCODE_BRANCH }
-// OPIMM
-`define INSTR_ADDI       { 17'b?, 3'b000, 5'b?, `OPCODE_OPIMM }
-`define INSTR_SLTI       { 17'b?, 3'b010, 5'b?, `OPCODE_OPIMM }
-`define INSTR_SLTIU      { 17'b?, 3'b011, 5'b?, `OPCODE_OPIMM }
-`define INSTR_XORI       { 17'b?, 3'b100, 5'b?, `OPCODE_OPIMM }
-`define INSTR_ORI        { 17'b?, 3'b110, 5'b?, `OPCODE_OPIMM }
-`define INSTR_ANDI       { 17'b?, 3'b111, 5'b?, `OPCODE_OPIMM }
-`define INSTR_SLLI       { 7'b0000000, 10'b?, 3'b001, 5'b?, `OPCODE_OPIMM }
-`define INSTR_SRLI       { 7'b0000000, 10'b?, 3'b101, 5'b?, `OPCODE_OPIMM }
-`define INSTR_SRAI       { 7'b0100000, 10'b?, 3'b101, 5'b?, `OPCODE_OPIMM }
-// OP
-`define INSTR_ADD        { 7'b0000000, 10'b?, 3'b000, 5'b?, `OPCODE_OP }
-`define INSTR_SUB        { 7'b0100000, 10'b?, 3'b000, 5'b?, `OPCODE_OP }
-`define INSTR_SLL        { 7'b0000000, 10'b?, 3'b001, 5'b?, `OPCODE_OP }
-`define INSTR_SLT        { 7'b0000000, 10'b?, 3'b010, 5'b?, `OPCODE_OP }
-`define INSTR_SLTU       { 7'b0000000, 10'b?, 3'b011, 5'b?, `OPCODE_OP }
-`define INSTR_XOR        { 7'b0000000, 10'b?, 3'b100, 5'b?, `OPCODE_OP }
-`define INSTR_SRL        { 7'b0000000, 10'b?, 3'b101, 5'b?, `OPCODE_OP }
-`define INSTR_SRA        { 7'b0100000, 10'b?, 3'b101, 5'b?, `OPCODE_OP }
-`define INSTR_OR         { 7'b0000000, 10'b?, 3'b110, 5'b?, `OPCODE_OP }
-`define INSTR_AND        { 7'b0000000, 10'b?, 3'b111, 5'b?, `OPCODE_OP }
-`define INSTR_EXTHS      { 7'b0001000, 10'b?, 3'b100, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_EXTHZ      { 7'b0001000, 10'b?, 3'b101, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_EXTBS      { 7'b0001000, 10'b?, 3'b110, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_EXTBZ      { 7'b0001000, 10'b?, 3'b111, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PAVG       { 7'b0000010, 10'b?, 3'b000, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PAVGU      { 7'b0000010, 10'b?, 3'b001, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PSLET      { 7'b0000010, 10'b?, 3'b010, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PSLETU     { 7'b0000010, 10'b?, 3'b011, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PMIN       { 7'b0000010, 10'b?, 3'b100, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PMINU      { 7'b0000010, 10'b?, 3'b101, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PMAX       { 7'b0000010, 10'b?, 3'b110, 5'b?, `OPCODE_OP } // pulp specific
-`define INSTR_PMAXU      { 7'b0000010, 10'b?, 3'b111, 5'b?, `OPCODE_OP } // pulp specific
-// FENCE
-`define INSTR_FENCE      { 4'b0, 8'b?, 13'b0, `OPCODE_FENCE }
-`define INSTR_FENCEI     { 17'b0, 3'b001, 5'b0, `OPCODE_FENCE }
-// SYSTEM
-`define INSTR_CSRRW      { 17'b?, 3'b001, 5'b?, `OPCODE_SYSTEM }
-`define INSTR_CSRRS      { 17'b?, 3'b010, 5'b?, `OPCODE_SYSTEM }
-`define INSTR_CSRRC      { 17'b?, 3'b011, 5'b?, `OPCODE_SYSTEM }
-`define INSTR_CSRRWI     { 17'b?, 3'b101, 5'b?, `OPCODE_SYSTEM }
-`define INSTR_CSRRSI     { 17'b?, 3'b110, 5'b?, `OPCODE_SYSTEM }
-`define INSTR_CSRRCI     { 17'b?, 3'b111, 5'b?, `OPCODE_SYSTEM }
-`define INSTR_ECALL      { 12'b000000000000, 13'b0, `OPCODE_SYSTEM }
-`define INSTR_EBREAK     { 12'b000000000001, 13'b0, `OPCODE_SYSTEM }
-`define INSTR_ERET       { 12'b000100000000, 13'b0, `OPCODE_SYSTEM }
-`define INSTR_WFI        { 12'b000100000010, 13'b0, `OPCODE_SYSTEM }
-
-// RV32M
-`define INSTR_PMUL       { 7'b0000001, 10'b?, 3'b000, 5'b?, `OPCODE_OP }
-`define INSTR_PMAC       { 7'b0000001, 10'b?, 3'b001, 5'b?, `OPCODE_OP }
-
-// PULP custom instructions
-`define INSTR_MAC        { 2'b00, 15'b?, 3'b000, 5'b?, `OPCODE_PULP_OP }
 
 // Source/Destination register instruction index
 `define REG_S1 19:15
@@ -144,6 +76,7 @@
 `define REGC_ZERO  2'b00
 `define REGC_RD    2'b01
 `define REGC_S3    2'b10
+`define REGC_S1    2'b11
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -157,64 +90,98 @@
 
 `define ALU_OP_WIDTH 6
 
-// No operation
-`define ALU_NOP   6'b011111
+`define ALU_ADD   6'b011000
+`define ALU_SUB   6'b011001
+`define ALU_ADDU  6'b011010
+`define ALU_SUBU  6'b011011
+`define ALU_ADDR  6'b011100
+`define ALU_SUBR  6'b011101
+`define ALU_ADDUR 6'b011110
+`define ALU_SUBUR 6'b011111
 
-// Standard arithmetic operations
-`define ALU_ADD   6'b000_000
-`define ALU_SUB   6'b000_010
-`define ALU_XOR   6'b000_101
-`define ALU_OR    6'b000_100
-`define ALU_AND   6'b000_011
-
-// Set Lower Than operations
-`define ALU_SLTS  6'b0011_00
-`define ALU_SLTU  6'b0011_01
-`define ALU_SLETS 6'b0011_10
-`define ALU_SLETU 6'b0011_11
+`define ALU_XOR   6'b101111
+`define ALU_OR    6'b101110
+`define ALU_AND   6'b010101
 
 // Shifts
-`define ALU_SLL   6'b0010_00
-`define ALU_SRL   6'b0010_01
-`define ALU_SRA   6'b0010_10
-`define ALU_ROR   6'b0010_11
+`define ALU_SRA   6'b100100
+`define ALU_SRL   6'b100101
+`define ALU_ROR   6'b100110
+`define ALU_SLL   6'b100111
 
-// Sign-/zero-extensions
-`define ALU_EXTHS 6'b010_000
-`define ALU_EXTWS 6'b010_001
-`define ALU_EXTBS 6'b010_010
-`define ALU_EXTWZ 6'b010_011
-`define ALU_EXTHZ 6'b010_100
-`define ALU_EXTBZ 6'b010_110
-
-// Comparisons
-`define ALU_EQ    6'b10_0000
-`define ALU_NE    6'b10_0001
-`define ALU_GTU   6'b10_0010
-`define ALU_GEU   6'b10_0011
-`define ALU_LTU   6'b10_0100
-`define ALU_LEU   6'b10_0101
-`define ALU_GTS   6'b10_1010
-`define ALU_GES   6'b10_1011
-`define ALU_LTS   6'b10_1100
-`define ALU_LES   6'b10_1101
-
-// Min/max/avg
-`define ALU_AVG   6'b000_110
-`define ALU_AVGU  6'b000_111
-`define ALU_MIN   6'b10_1110
-`define ALU_MINU  6'b11_1110
-`define ALU_MAX   6'b10_1111
-`define ALU_MAXU  6'b11_1111
-
-// Absolute value
-`define ALU_ABS   6'b11_1010
+// bit manipulation
+`define ALU_BEXT  6'b101000
+`define ALU_BEXTU 6'b101001
+`define ALU_BINS  6'b101010
+`define ALU_BCLR  6'b101011
+`define ALU_BSET  6'b101100
 
 // Bit counting
-`define ALU_CNT   6'b11_0000
-`define ALU_FF1   6'b11_0010
-`define ALU_FL1   6'b11_0011
-`define ALU_CLB   6'b11_0001
+`define ALU_FF1   6'b110110
+`define ALU_FL1   6'b110111
+`define ALU_CNT   6'b110100
+`define ALU_CLB   6'b110101
+
+// Sign-/zero-extensions
+`define ALU_EXTS  6'b111110
+`define ALU_EXT   6'b111111
+
+// Comparisons
+`define ALU_LTS   6'b000000
+`define ALU_LTU   6'b000001
+`define ALU_LES   6'b000100
+`define ALU_LEU   6'b000101
+`define ALU_GTS   6'b001000
+`define ALU_GTU   6'b001001
+`define ALU_GES   6'b001010
+`define ALU_GEU   6'b001011
+`define ALU_EQ    6'b001100
+`define ALU_NE    6'b001101
+`define ALU_EQALL 6'b001110
+
+// Set Lower Than operations
+`define ALU_SLTS  6'b000010
+`define ALU_SLTU  6'b000011
+`define ALU_SLETS 6'b000110
+`define ALU_SLETU 6'b000111
+
+// Absolute value
+`define ALU_ABS   6'b010100
+`define ALU_CLIP  6'b010110
+`define ALU_CLIPU 6'b010111
+
+// Insert/extract
+`define ALU_INS   6'b101101
+
+// min/max
+`define ALU_MIN   6'b010000
+`define ALU_MINU  6'b010001
+`define ALU_MAX   6'b010010
+`define ALU_MAXU  6'b010011
+
+// div/rem
+`define ALU_DIVU  6'b110000 // bit 0 is used for signed mode, bit 1 is used for remdiv
+`define ALU_DIV   6'b110001 // bit 0 is used for signed mode, bit 1 is used for remdiv
+`define ALU_REMU  6'b110010 // bit 0 is used for signed mode, bit 1 is used for remdiv
+`define ALU_REM   6'b110011 // bit 0 is used for signed mode, bit 1 is used for remdiv
+
+`define ALU_SHUF  6'b111010
+`define ALU_SHUF2 6'b111011
+`define ALU_PCKLO 6'b111000
+`define ALU_PCKHI 6'b111001
+
+
+`define MUL_MAC32 3'b000
+`define MUL_MSU32 3'b001
+`define MUL_I     3'b010
+`define MUL_IR    3'b011
+`define MUL_DOT8  3'b100
+`define MUL_DOT16 3'b101
+
+// vector modes
+`define VEC_MODE32 2'b00
+`define VEC_MODE16 2'b10
+`define VEC_MODE8  2'b11
 
 
 /////////////////////////////////////////////////////////
@@ -262,19 +229,42 @@
 // operand a selection
 `define OP_A_REGA_OR_FWD 2'b00
 `define OP_A_CURRPC      2'b01
-`define OP_A_ZIMM        2'b10
-`define OP_A_ZERO        2'b11
+`define OP_A_IMM         2'b10
+`define OP_A_REGB_OR_FWD 2'b11
+
+// immediate a selection
+`define IMMA_Z      1'b0
+`define IMMA_ZERO   1'b1
 
 // operand b selection
 `define OP_B_REGB_OR_FWD 2'b00
 `define OP_B_REGC_OR_FWD 2'b01
 `define OP_B_IMM         2'b10
 
-// operand b immediate selection
-`define IMM_I      3'b000
-`define IMM_S      3'b001
-`define IMM_U      3'b010
-`define IMM_PCINCR 3'b011
+// immediate b selection
+`define IMMB_I      4'b0000
+`define IMMB_S      4'b0001
+`define IMMB_U      4'b0010
+`define IMMB_PCINCR 4'b0011
+`define IMMB_S2     4'b0100
+`define IMMB_S3     4'b0101
+`define IMMB_VS     4'b0110
+`define IMMB_VU     4'b0111
+`define IMMB_SHUF   4'b1000
+`define IMMB_CLIP   4'b1001
+
+// bit mask selection
+`define BMASK_A_ZERO 1'b0
+`define BMASK_A_S3   1'b1
+
+`define BMASK_B_S2   2'b00
+`define BMASK_B_S3   2'b01
+`define BMASK_B_ZERO 2'b10
+`define BMASK_B_ONE  2'b11
+
+// multiplication immediates
+`define MIMM_ZERO    1'b0
+`define MIMM_S3      1'b1
 
 // operand c selection
 `define OP_C_REGC_OR_FWD 2'b00
@@ -327,15 +317,7 @@
 
 
 // Debug module
-`define N_WP      2     // #Watchpoints
-`define DCR_DP    0
-`define DCR_CC    3:1
-`define DCR_SC    4
-`define DCR_CT    7:5
-
 `define DMR1_ST   22
-`define DMR2_WGB0 12
-`define DMR2_WBS0 22
 
 `define DSR_IIE   0
 `define DSR_INTE  1

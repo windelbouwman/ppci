@@ -90,7 +90,7 @@ module adbg_or1k_status_reg  #(
     always @ (posedge cpu_clk_i or negedge cpu_rstn_i)
     begin
         if(~cpu_rstn_i)
-            stall_bp <= 'h0;
+            stall_bp <= '0;
         else
         begin
             for (int i=0;i<NB_CORES;i++)
@@ -109,8 +109,8 @@ module adbg_or1k_status_reg  #(
      begin
     if (~trstn_i)
       begin
-         stall_bp_csff <= 'h0;
-         stall_bp_tck  <= 'h0;
+         stall_bp_csff <= '0;
+         stall_bp_tck  <= '0;
       end
     else
       begin
@@ -124,8 +124,8 @@ module adbg_or1k_status_reg  #(
      begin
     if (~cpu_rstn_i)
       begin
-         stall_reg_csff <= 'h0;
-         stall_reg_cpu  <= 'h0;
+         stall_reg_csff <= '0;
+         stall_reg_cpu  <= '0;
       end
     else
       begin
@@ -146,7 +146,7 @@ module adbg_or1k_status_reg  #(
     always @ (posedge tck_i or negedge trstn_i)
     begin
         if (~trstn_i)
-            stall_reg <= 'h0;
+            stall_reg <= '0;
         else
         begin
             for (int i=0;i<NB_CORES;i++)

@@ -1,27 +1,16 @@
-// ============================================================================= //
-//                           COPYRIGHT NOTICE                                    //
-// Copyright 2014 Multitherman Laboratory - University of Bologna                //
-// ALL RIGHTS RESERVED                                                           //
-// This confidential and proprietary software may be used only as authorised by  //
-// a licensing agreement from Multitherman Laboratory - University of Bologna.   //
-// The entire notice above must be reproduced on all authorized copies and       //
-// copies may only be made to the extent permitted by a licensing agreement from //
-// Multitherman Laboratory - University of Bologna.                              //
-// ============================================================================= //
+// Copyright 2016 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the “License”); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an “AS IS” BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 // ============================================================================= //
-// Company:        Multitherman Laboratory @ DEIS - University of Bologna        //
-//                    Viale Risorgimento 2 40136                                 //
-//                    Bologna - fax 0512093785 -                                 //
-//                                                                               //
 // Engineer:       Igor Loi - igor.loi@unibo.it                                  //
 //                                                                               //
-//                                                                               //
-// Additional contributions by:                                                  //
-//                                                                               //
-//                                                                               //
-//                                                                               //
-// Create Date:    09/04/2015                                                    //
 // Design Name:    AXI 4 to APB Bridge                                           //
 // Module Name:    AXI_2_APB                                                     //
 // Project Name:   PULP                                                          //
@@ -30,14 +19,6 @@
 // Description:    This Bridge performs a protocol transaltion between AXI4 to   //
 //                 APB. It is tailored for FIXED BURST types, so it is not       //
 //                 generic bridge.                                               //
-//                                                                               //
-// Revision:                                                                     //
-// Revision v0.1 - 09/04/2015 : File Created                                     //
-//                                                                               //
-//                                                                               //
-//                                                                               //
-//                                                                               //
-//                                                                               //
 //                                                                               //
 // ============================================================================= //
 
@@ -49,7 +30,7 @@
 `define DECERR 2'b11
 
 module AXI_2_APB
-#( 
+#(
     parameter AXI4_ADDRESS_WIDTH = 32,
     parameter AXI4_RDATA_WIDTH   = 64,
     parameter AXI4_WDATA_WIDTH   = 64,
@@ -213,7 +194,9 @@ module AXI_2_APB
                         BURST_WR_64,
                         BURST_WR_64_1,
                         SINGLE_WR,
-                        SINGLE_WR_64
+                        SINGLE_WR_64,
+                        WAIT_R_PREADY,
+                        WAIT_W_PREADY
                     } CS,NS;
 
 
@@ -511,6 +494,68 @@ module AXI_2_APB
 
       case(CS)
 
+
+        WAIT_R_PREADY: 
+        begin
+                sample_AR      = 1'b0;
+                read_req       = 1'b1;
+                address        = ARADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH  - 1 : 0];
+                
+                if(PREADY[TARGET_SLAVE] == 1'b1) // APB is READY --> RDATA is AVAILABLE
+                begin
+                    if(ARLEN == 0)
+                    begin
+                      case(ARSIZE)
+                      3      : begin   NS = SINGLE_RD_64;  sample_RDATA_0 = 1'b1; end
+                      default: begin   NS = SINGLE_RD;     if(ARADDR[2:0] == 4)  sample_RDATA_1 = 1'b1; else  sample_RDATA_0 = 1'b1; end //~default
+                      endcase
+                    end
+                    else //ARLEN > 0 --> BURST
+                    begin
+                       NS             = BURST_RD_64;
+                       sample_RDATA_0 = 1'b1;
+                    end
+                end
+                else
+                begin // APB not ready
+                    NS = WAIT_R_PREADY;
+                end
+        end //~WAIT_R_PREADY
+
+        WAIT_W_PREADY: 
+        begin
+            address         =  AWADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH - 1:0];
+            write_req       = 1'b1;
+            if(AWADDR[2:0] == 4)
+                W_word_sel = 1'b1;
+            else
+                W_word_sel = 1'b0;
+
+            // There is a Pending WRITE!!
+            if(PREADY[TARGET_SLAVE] == 1'b1) // APB is READY --> WDATA is LAtched
+            begin
+                if(AWLEN == 0)
+                begin : _SINGLE_WRITE_
+                      case(AWSIZE)
+                      3:         begin NS = SINGLE_WR_64;   end
+                      default:   begin NS = SINGLE_WR;      end
+                      endcase
+
+                end
+                else // BURST WRITE
+                begin
+                      //decr_AWLEN = 1'b1;
+                      sample_AW  = 1'b1;
+                      NS = BURST_WR_64;
+                end
+            end
+            else // APB not READY
+            begin
+                NS = WAIT_W_PREADY;
+            end  
+        end //~WAIT_W_PREADY
+
+
         IDLE:
         begin
             if(ARVALID == 1'b1)
@@ -524,23 +569,23 @@ module AXI_2_APB
                     if(ARLEN == 0)
                     begin
                       case(ARSIZE)
-                      3:         begin NS = SINGLE_RD_64; sample_RDATA_0 = 1'b1; end
-                      default:   begin NS = SINGLE_RD;    if(ARADDR[2:0] == 4) sample_RDATA_1 = 1'b1; else sample_RDATA_0 = 1'b1; end
+                      3      : begin   NS = SINGLE_RD_64;  sample_RDATA_0 = 1'b1; end
+                      default: begin   NS = SINGLE_RD;     if(ARADDR[2:0] == 4)  sample_RDATA_1 = 1'b1; else  sample_RDATA_0 = 1'b1; end //~default
                       endcase
                     end
                     else //ARLEN > 0 --> BURST
                     begin
-                       NS             = BURST_RD_64; 
-                       sample_RDATA_0 = 1'b1; 
+                       NS             = BURST_RD_64;
+                       sample_RDATA_0 = 1'b1;
                     end
                 end
                 else
                 begin // APB not ready
-                    NS = IDLE; 
+                    NS = WAIT_R_PREADY;
                 end
             end
-            else 
-            begin 
+            else
+            begin
                 if(AWVALID)
                 begin : _VALID_AW_REQ_
                       address         =  AWADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH - 1:0];
@@ -548,7 +593,7 @@ module AXI_2_APB
                       if(WVALID)
                       begin : _VALID_W_REQ_
                           write_req       = 1'b1;
-                          
+
                           if(AWADDR[2:0] == 4)
                               W_word_sel = 1'b1;
                           else
@@ -574,7 +619,7 @@ module AXI_2_APB
                           end
                           else // APB not READY
                           begin : _APB_SLAVE_NOT_READY_
-                              NS = IDLE;
+                              NS = WAIT_W_PREADY;
                           end
 
                       end
@@ -633,7 +678,7 @@ module AXI_2_APB
         begin
             W_word_sel      = 1'b1; // write the Second data chunk first
             write_req       = WVALID;
-            address         = AWADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH - 1:0] ; // second Chunk, Fixzed Burst 
+            address         = AWADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH - 1:0] ; // second Chunk, Fixzed Burst
 
             if(WVALID)
             begin
@@ -656,8 +701,8 @@ module AXI_2_APB
 
         BURST_WR:
         begin
-          address         = AWADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH - 1:0] ; // second Chunk, Fixzed Burst 
-          if(AWLEN_Q == 0) // last 
+          address  = AWADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH - 1:0] ; // second Chunk, Fixzed Burst
+          if(AWLEN_Q == 0) // last
           begin : _BURST_COMPLETED_
               BVALID = 1'b1;
               if(BREADY)
@@ -668,7 +713,7 @@ module AXI_2_APB
               else
                 NS = BURST_WR;
           end
-          else 
+          else
           begin : _BUSRST_NOT_COMPLETED_
               W_word_sel      = 1'b0; // write the Second data chunk first
               write_req       = WVALID;
@@ -724,7 +769,7 @@ module AXI_2_APB
                       NS = IDLE;
                       ARREADY = 1'b1;
                 end
-                else 
+                else
                 begin : _READ_BUSRST_NOT_COMPLETED_
                     read_req        = 1'b1;
                     if(PREADY[TARGET_SLAVE] == 1'b1) // APB is READY --> RDATA is AVAILABLE
@@ -784,12 +829,12 @@ module AXI_2_APB
             read_req       = 1'b1;
             address        = ARADDR[`log2(APB_NUM_SLAVES-1) + APB_ADDR_WIDTH  - 1 : 0] + 4;
             if(PREADY[TARGET_SLAVE] == 1'b1) // APB is READY --> RDATA is AVAILABLE
-            begin 
+            begin
               NS = SINGLE_RD;
               sample_RDATA_1 = 1'b1;
             end
             else
-            begin 
+            begin
               NS = SINGLE_RD_64;
             end
         end //~SINGLE_RD_64

@@ -4,6 +4,7 @@ riscv:
   ]
   files: [
     alu.sv,
+    alu_div.sv,
     compressed_decoder.sv,
     controller.sv,
     cs_registers.sv,
@@ -20,17 +21,36 @@ riscv:
     prefetch_buffer.sv,
     prefetch_L0_buffer.sv,
     riscv_core.sv,
-    riscv_tracer.sv,
   ]
-riscv_regfile:
+riscv_vip_rtl:
+  targets: [
+    rtl,
+  ]
   incdirs: [
     include,
-    ../../rtl/includes,
+  ]
+  files: [
+    riscv_tracer.sv,
+    riscv_simchecker.sv,
+  ]
+riscv_regfile_rtl:
+  targets: [
+    rtl,
+  ]
+  incdirs: [
+    include,
   ]
   files: [
     register_file.sv,
   ]
-  files_xilinx_synth: [
+riscv_regfile_fpga:
+  targets: [
+    xilinx,
+  ]
+  incdirs: [
+    include,
+  ]
+  files: [
     register_file_ff.sv,
   ]
 
