@@ -1,7 +1,4 @@
-
-"""
-    Contains a list of instantiated targets.
-"""
+""" Contains a list of instantiated targets. """
 
 from functools import lru_cache
 from .arm import ArmArch
@@ -26,7 +23,7 @@ target_names = tuple(sorted(target_class_map.keys()))
 
 
 @lru_cache(maxsize=30)
-def get_arch(name, options=None):
+def create_arch(name, options=None):
     """ Get a target architecture by its name. Possibly arch options can be
         given.
     """

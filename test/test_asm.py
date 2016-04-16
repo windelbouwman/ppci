@@ -8,7 +8,7 @@ from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.arch import Label
 from ppci.arch.example import SimpleTarget
-from ppci.api import link, fix_target
+from ppci.api import link, get_arch
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
 
@@ -85,7 +85,7 @@ class AsmTestCaseBase(unittest.TestCase):
     def setUp(self):
         self.source = io.StringIO()
         self.as_args = []
-        arch = fix_target(self.march)
+        arch = get_arch(self.march)
         self.obj = ObjectFile(arch)
         self.ostream = BinaryOutputStream(self.obj)
         self.ostream.select_section('code')
@@ -101,7 +101,7 @@ class AsmTestCaseBase(unittest.TestCase):
 
     def check(self, hexstr, layout=Layout()):
         self.assembler.flush()
-        target = fix_target(self.march)
+        target = get_arch(self.march)
         self.obj = link([self.obj], layout, target)
         data = bytes(self.obj.get_section('code').data)
         if hexstr is None:

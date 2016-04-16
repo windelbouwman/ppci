@@ -35,27 +35,28 @@ from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
-from .arch.target_list import get_arch
+from .arch.target_list import create_arch
 
 # When using 'from ppci.api import *' include the following:
 __all__ = [
-    'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize']
+    'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize',
+    'get_arch']
 
 
-def fix_target(target_name):
-    """ Try to return an instance of the Target class.
-        target_name can be in the form of arch:option1:option2
+def get_arch(arch):
+    """ Try to return an architecture instance.
+        arch can be a string in the form of arch:option1:option2
     """
-    if isinstance(target_name, Architecture):
-        return target_name
-    elif isinstance(target_name, str):
-        if ':' in target_name:
+    if isinstance(arch, Architecture):
+        return arch
+    elif isinstance(arch, str):
+        if ':' in arch:
             # We have target with options attached
-            l = target_name.split(':')
-            return get_arch(l[0], options=tuple(l[1:]))
+            l = arch.split(':')
+            return create_arch(l[0], options=tuple(l[1:]))
         else:
-            return get_arch(target_name)
-    raise TaskError('Invalid target {}'.format(target_name))
+            return create_arch(arch)
+    raise TaskError('Invalid architecture {}'.format(arch))
 
 
 def fix_file(f):
@@ -134,7 +135,7 @@ def asm(source, march):
     """
     logger = logging.getLogger('assemble')
     diag = DiagnosticsManager()
-    march = fix_target(march)
+    march = get_arch(march)
     assembler = march.assembler
     source = fix_file(source)
     obj = ObjectFile(march)
@@ -157,7 +158,7 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     target """
     logger = logging.getLogger('c3c')
     logger.debug('C3 compilation started')
-    march = fix_target(march)
+    march = get_arch(march)
     sources = [fix_file(fn) for fn in sources]
     includes = [fix_file(fn) for fn in includes]
     diag = DiagnosticsManager()
@@ -218,7 +219,7 @@ def ir_to_object(
         ir_modules, march, debug_db, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
     architecture """
-    march = fix_target(march)
+    march = get_arch(march)
     code_generator = CodeGenerator(march, debug_db)
     verifier = Verifier()
 
@@ -248,7 +249,7 @@ def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
 
 def cc(source, march, reporter=DummyReportGenerator()):
     """ C compiler. compiles a single source file into an object file """
-    march = fix_target(march)
+    march = get_arch(march)
     cbuilder = CBuilder(march)
     cbuilder.build(source)
     raise NotImplementedError('TODO')
@@ -271,7 +272,7 @@ def c3c(sources, includes, march, reporter=None, debug=False):
     """
     if not reporter:
         reporter = DummyReportGenerator()
-    march = fix_target(march)
+    march = get_arch(march)
     ir_modules, debug_db = \
         c3toir(sources, includes, march, reporter=reporter)
 
@@ -283,7 +284,7 @@ def c3c(sources, includes, march, reporter=None, debug=False):
 
 def bf2ir(source, target):
     """ Compile brainfuck source into ir code """
-    target = fix_target(target)
+    target = get_arch(target)
     ircode = BrainFuckGenerator(target).generate(source)
     return ircode
 
@@ -311,7 +312,7 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
         >>> obj = bfcompile(source_file, 'arm')
     """
     reporter.message('brainfuck compilation listings')
-    target = fix_target(target)
+    target = get_arch(target)
     ir_module = bf2ir(source, target)
     reporter.message(
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
@@ -337,7 +338,7 @@ def link(
     """
     objects = [fix_object(obj) for obj in objects]
     layout = fix_layout(layout)
-    march = fix_target(march)
+    march = get_arch(march)
     if use_runtime:
         objects.append(march.runtime)
     linker = Linker(march, reporter)

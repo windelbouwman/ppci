@@ -6,7 +6,10 @@
 """
 
 import logging
-from ..api import fix_target, fix_object
+import cmd
+import binascii
+from ..api import get_arch, fix_object
+from ..common import str2int
 from .disasm import Disassembler
 from .outstream import RecordingOutputStream
 
@@ -36,7 +39,7 @@ class Debugger:
         #TODO: and perhaps give it a plugin to connect to hardware?
     """
     def __init__(self, arch, driver):
-        self.arch = fix_target(arch)
+        self.arch = get_arch(arch)
         self.disassembler = Disassembler(arch)
         self.driver = driver
         self.logger = logging.getLogger('dbg')
@@ -176,7 +179,10 @@ class Debugger:
 
 
 class DebugDriver:
-    """ Inherit this class to expose a target interface """
+    """
+        Inherit this class to expose a target interface. This class implements
+        primitives for a given hardware target.
+    """
     def run(self):
         raise NotImplementedError()
 
@@ -190,6 +196,10 @@ class DebugDriver:
         raise NotImplementedError()
 
     def set_breakpoint(self, address):
+        raise NotImplementedError()
+
+    def get_registers(self, registers):
+        """ Get the values for a range of registers """
         raise NotImplementedError()
 
 
@@ -215,29 +225,64 @@ class DummyDebugDriver(DebugDriver):
     def set_breakpoint(self, address):
         pass
 
+    def read_mem(self, address, size):
+        return bytes(size)
 
-class DebugCli:
-    """
-        Implement a simple console-based debugger interface.
-    """
+    def write_mem(self, address, data):
+        pass
+
+
+class DebugCli(cmd.Cmd):
+    """ Implement a console-based debugger interface. """
+    prompt = '(ppci-dbg)> '
+    intro = "ppci interactive debugger"
+
     def __init__(self, debugger):
+        super().__init__()
         self.debugger = debugger
 
-    def run(self):
-        """ Enter the command loop """
-        while True:
-            cmd = input('(ppci-dbg)> ')
-            # TODO: implement more commands
-            if cmd == 'q' or cmd == 'quit':
-                break
-            elif cmd == 's' or cmd == 'step':
-                self.debugger.step()
-            elif cmd == 'c' or cmd == 'continue':
-                self.debugger.run()
-            elif cmd == '?' or cmd == 'h' or cmd == 'help':
-                print('c: continue the program')
-                print('q: quit the debugger')
-                print('s: perform a single step')
-                print('help: display this help')
-            else:
-                print('Unknown command (enter help for a command list)')
+    def do_quit(self, arg):
+        """ Quit the debugger """
+        return True
+
+    def do_run(self, arg):
+        """ Continue """
+        self.debugger.run()
+
+    def do_step(self, arg):
+        """ Single step """
+        self.debugger.step()
+
+    def do_stop(self, arg):
+        """ Stop the running program """
+        self.debugger.stop()
+
+    def do_read(self, arg):
+        """ Read data from memory """
+        x = arg.split(',')
+        address = str2int(x[0])
+        size = str2int(x[1])
+        data = self.debugger.read_mem(address, size)
+        data = binascii.hexlify(data).decode('ascii')
+        print('Data @ 0x{:016X}: {}'.format(address, data))
+
+    def do_write(self, arg):
+        """ Write data to memory """
+        x = arg.split(',')
+        address = str2int(x[0])
+        data = x[1]
+        data = bytes(binascii.unhexlify(data.encode('ascii')))
+        self.debugger.write_mem(address, data)
+
+    def do_regs(self, arg):
+        """ Read registers """
+        values = self.debugger.get_registers()
+        print('registers:', values)
+
+    def do_setbrk(self, arg):
+        """ Set a breakpoint """
+        pass
+
+    def do_clrbrk(self, arg):
+        """ Clear a breakpoint """
+        pass

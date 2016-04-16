@@ -24,7 +24,7 @@ from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version, api
 from .common import logformat
-from .arch.target_list import target_names, get_arch
+from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger, DummyDebugDriver, DebugCli
 
 
@@ -79,7 +79,7 @@ base2_parser.add_argument(
 def get_arch_from_args(args):
     """ Determine the intended machine target and select the proper options """
     options = tuple(args.mtune)
-    return get_arch(args.machine, options=options)
+    return create_arch(args.machine, options=options)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -213,9 +213,10 @@ def dbg(args=None):
     """ Run dbg from command line """
     args = dbg_parser.parse_args(args)
     march = get_arch_from_args(args)
-    debugger = Debugger(march, DummyDebugDriver())
+    driver = DummyDebugDriver()
+    debugger = Debugger(march, driver)
     cli = DebugCli(debugger)
-    cli.run()
+    cli.cmdloop()
 
 
 link_description = """

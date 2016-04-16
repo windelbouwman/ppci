@@ -167,3 +167,20 @@ or to a logger.
 .. autoclass:: ppci.binutils.outstream.OutputStream
 
 
+Debugger
+--------
+
+The debugger class is the main piece of the debugger. This is created for
+a specific architecture and is given a driver to communicate with the target
+hardware.
+
+.. autoclass:: ppci.binutils.dbg.Debugger
+
+One of the classes that uses the debugger is the debug command line interface.
+
+.. autoclass:: ppci.binutils.dbg.DebugCli
+
+To connect to your favorite hardware, subclass the DebugDriver class.
+
+.. autoclass:: ppci.binutils.dbg.DebugDriver
+

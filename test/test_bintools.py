@@ -13,7 +13,7 @@ from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
-from ppci.api import link, fix_target
+from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
 from ppci.arch.example import Mov, R0, R1, SimpleTarget
@@ -55,7 +55,7 @@ class OutstreamTestCase(unittest.TestCase):
 class LinkerTestCase(unittest.TestCase):
     """ Test the behavior of the linker """
     def test_undefined_reference(self):
-        arch = fix_target('arm')
+        arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object1.get_section('.text')
         object1.add_relocation('undefined_sym', 0, 'apply_rel8', '.text')
@@ -64,7 +64,7 @@ class LinkerTestCase(unittest.TestCase):
             link([object1, object2], layout.Layout(), 'arm')
 
     def test_duplicate_symbol(self):
-        arch = fix_target('arm')
+        arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object1.get_section('.text')
         object1.add_symbol('a', 0, '.text')
@@ -75,7 +75,7 @@ class LinkerTestCase(unittest.TestCase):
             link([object1, object2], layout.Layout(), 'arm')
 
     def test_rel8_relocation(self):
-        arch = fix_target('arm')
+        arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object1.get_section('.text').add_data(bytes([0]*100))
         object1.add_relocation('a', 0, 'apply_rel8', '.text')
@@ -86,7 +86,7 @@ class LinkerTestCase(unittest.TestCase):
 
     def test_symbol_values(self):
         """ Check if values are correctly resolved """
-        arch = fix_target('arm')
+        arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object1.get_section('.text').add_data(bytes([0]*108))
         object1.add_symbol('b', 24, '.text')
@@ -156,7 +156,7 @@ class LinkerTestCase(unittest.TestCase):
 class ObjectFileTestCase(unittest.TestCase):
     def make_twins(self):
         """ Make two object files that have equal contents """
-        arch = fix_target('arm')
+        arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object2 = ObjectFile(arch)
         object2.get_section('code').add_data(bytes(range(55)))

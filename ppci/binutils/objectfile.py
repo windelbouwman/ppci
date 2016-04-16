@@ -345,8 +345,8 @@ def serialize(x):
 
 def deserialize(data):
     """ Create an object file from dict-like data """
-    from ..api import fix_target
-    arch = fix_target(data['arch'])
+    from ..api import get_arch
+    arch = get_arch(data['arch'])
     obj = ObjectFile(arch)
     for section in data['sections']:
         section_object = Section(section['name'])
