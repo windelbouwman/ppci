@@ -13,10 +13,10 @@ from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
-from ppci.api import link
+from ppci.api import link, fix_target
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
-from ppci.arch.example import Mov, R0, R1
+from ppci.arch.example import Mov, R0, R1, SimpleTarget
 
 
 class TokenTestCase(unittest.TestCase):
@@ -45,7 +45,8 @@ class OutstreamTestCase(unittest.TestCase):
         stream.emit(Mov(R1, R0))
 
     def test_binary_and_logstream(self):
-        object1 = ObjectFile()
+        arch = SimpleTarget()
+        object1 = ObjectFile(arch)
         stream = binary_and_logging_stream(object1)
         stream.select_section('code')
         stream.emit(Mov(R1, R0))
@@ -54,38 +55,42 @@ class OutstreamTestCase(unittest.TestCase):
 class LinkerTestCase(unittest.TestCase):
     """ Test the behavior of the linker """
     def test_undefined_reference(self):
-        object1 = ObjectFile()
+        arch = fix_target('arm')
+        object1 = ObjectFile(arch)
         object1.get_section('.text')
         object1.add_relocation('undefined_sym', 0, 'apply_rel8', '.text')
-        object2 = ObjectFile()
+        object2 = ObjectFile(arch)
         with self.assertRaises(TaskError):
             link([object1, object2], layout.Layout(), 'arm')
 
     def test_duplicate_symbol(self):
-        object1 = ObjectFile()
+        arch = fix_target('arm')
+        object1 = ObjectFile(arch)
         object1.get_section('.text')
         object1.add_symbol('a', 0, '.text')
-        object2 = ObjectFile()
+        object2 = ObjectFile(arch)
         object2.get_section('.text')
         object2.add_symbol('a', 0, '.text')
         with self.assertRaises(TaskError):
             link([object1, object2], layout.Layout(), 'arm')
 
     def test_rel8_relocation(self):
-        object1 = ObjectFile()
+        arch = fix_target('arm')
+        object1 = ObjectFile(arch)
         object1.get_section('.text').add_data(bytes([0]*100))
         object1.add_relocation('a', 0, 'apply_rel8', '.text')
-        object2 = ObjectFile()
+        object2 = ObjectFile(arch)
         object2.get_section('.text').add_data(bytes([0]*100))
         object2.add_symbol('a', 24, '.text')
         link([object1, object2], layout.Layout(), 'arm')
 
     def test_symbol_values(self):
         """ Check if values are correctly resolved """
-        object1 = ObjectFile()
+        arch = fix_target('arm')
+        object1 = ObjectFile(arch)
         object1.get_section('.text').add_data(bytes([0]*108))
         object1.add_symbol('b', 24, '.text')
-        object2 = ObjectFile()
+        object2 = ObjectFile(arch)
         object2.get_section('.text').add_data(bytes([0]*100))
         object2.add_symbol('a', 2, '.text')
         layout1 = layout.Layout()
@@ -115,10 +120,11 @@ class LinkerTestCase(unittest.TestCase):
             }
         """
         memory_layout = layout.load_layout(io.StringIO(spec))
-        object1 = ObjectFile()
+        arch = SimpleTarget()
+        object1 = ObjectFile(arch)
         object1.get_section('code').add_data(bytes([0]*108))
         object1.add_symbol('b', 24, 'code')
-        object2 = ObjectFile()
+        object2 = ObjectFile(arch)
         object2.get_section('code').add_data(bytes([0]*100))
         object2.get_section('data').add_data(bytes([0]*100))
         object2.add_symbol('a', 2, 'data')
@@ -134,13 +140,14 @@ class LinkerTestCase(unittest.TestCase):
 
     def test_code_exceeds_memory(self):
         """ Check the error that is given when code exceeds memory size """
+        arch = SimpleTarget()
         layout2 = layout.Layout()
         m = layout.Memory('flash')
         m.location = 0x0
         m.size = 0x10
         m.add_input(layout.Section('code'))
         layout2.add_memory(m)
-        object1 = ObjectFile()
+        object1 = ObjectFile(arch)
         object1.get_section('code').add_data(bytes([0]*22))
         with self.assertRaisesRegex(TaskError, 'exceeds'):
             link([object1], layout2, 'arm')
@@ -149,8 +156,9 @@ class LinkerTestCase(unittest.TestCase):
 class ObjectFileTestCase(unittest.TestCase):
     def make_twins(self):
         """ Make two object files that have equal contents """
-        object1 = ObjectFile()
-        object2 = ObjectFile()
+        arch = fix_target('arm')
+        object1 = ObjectFile(arch)
+        object2 = ObjectFile(arch)
         object2.get_section('code').add_data(bytes(range(55)))
         object1.get_section('code').add_data(bytes(range(55)))
         object1.add_relocation('A', 0x2, 'imm12_dumm', 'code')
@@ -185,9 +193,10 @@ class ObjectFileTestCase(unittest.TestCase):
 
 class ElfFileTestCase(unittest.TestCase):
     def test_save_load(self):
+        arch = SimpleTarget()
         ef1 = ElfFile()
         f = io.BytesIO()
-        ef1.save(f, ObjectFile())
+        ef1.save(f, ObjectFile(arch))
         f2 = io.BytesIO(f.getvalue())
         ElfFile.load(f2)
 

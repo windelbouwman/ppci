@@ -154,7 +154,7 @@ class ObjectFile:
         Also contains symbols and relocation entries.
         Also contains debug information.
     """
-    def __init__(self):
+    def __init__(self, arch):
         self.symbols = []
         self.symbol_map = {}
         self.sections = []
@@ -163,6 +163,7 @@ class ObjectFile:
         self.images = []
         self.image_map = {}
         self.debug_info = debuginfo.DebugInfo()
+        self.arch = arch
 
     def has_symbol(self, name):
         """ Check if this object file has a symbol with name 'name' """
@@ -312,6 +313,7 @@ def serialize(x):
         for image in x.images:
             res['images'].append(serialize(image))
         res['debug'] = debuginfo.serialize(x.debug_info)
+        res['arch'] = x.arch.make_id_str()
     elif isinstance(x, Image):
         res['name'] = x.name
         res['location'] = hex(x.location)
@@ -343,7 +345,9 @@ def serialize(x):
 
 def deserialize(data):
     """ Create an object file from dict-like data """
-    obj = ObjectFile()
+    from ..api import fix_target
+    arch = fix_target(data['arch'])
+    obj = ObjectFile(arch)
     for section in data['sections']:
         section_object = Section(section['name'])
         obj.add_section(section_object)

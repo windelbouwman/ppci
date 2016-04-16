@@ -1,5 +1,5 @@
 """
-    Machine code generator. The target is provided when
+    Machine code generator. The architecture is provided when
     the generator is created.
 """
 
@@ -20,18 +20,20 @@ from .registerallocator import RegisterAllocator
 
 class CodeGenerator:
     """ Machine code generator. """
-    def __init__(self, target):
-        assert isinstance(target, Architecture), target
-        self.logger = logging.getLogger('codegen')
-        self.target = target
-        self.sgraph_builder = SelectionGraphBuilder(target)
+    logger = logging.getLogger('codegen')
+    verifier = Verifier()
+
+    def __init__(self, arch, debug_db):
+        assert isinstance(arch, Architecture), arch
+        self.target = arch
+        self.debug_db = debug_db
+        self.sgraph_builder = SelectionGraphBuilder(arch, debug_db)
         self.instruction_selector = InstructionSelector1(
-            target.isa, target, self.sgraph_builder)
+            arch.isa, arch, self.sgraph_builder, debug_db)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator()
-        self.verifier = Verifier()
 
-    def generate(self, ircode, output_stream, debug_info, reporter):
+    def generate(self, ircode, output_stream, reporter):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
@@ -49,7 +51,10 @@ class CodeGenerator:
                 output_stream.emit(Ds(var.amount))
             else:  # pragma: no cover
                 raise NotImplementedError()
-            debug_info.map(var, label)
+            self.debug_db.map(var, label)
+            if self.debug_db.contains(label):
+                dv = self.debug_db.mappings[label]
+                dv.loc2 = label.name
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
@@ -57,15 +62,15 @@ class CodeGenerator:
         output_stream.select_section('code')
         for function in ircode.functions:
             self.generate_function(
-                function, output_stream, debug_info, reporter)
+                function, output_stream, reporter)
 
         # Output debug data:
-        for di in debug_info.infos:
+        for di in self.debug_db.infos:
             if isinstance(di, (DebugType, DebugVariable)):
                 output_stream.emit(DebugData(di))
 
     def generate_function(
-            self, ir_function, output_stream, debug_info, reporter):
+            self, ir_function, output_stream, reporter):
         """ Generate code for one function into a frame """
         self.logger.info(
             'Generating %s code for function %s',
@@ -89,10 +94,10 @@ class CodeGenerator:
         # Create a frame for this function:
         frame_name = ir.label_name(ir_function)
         frame = self.target.new_frame(frame_name, ir_function)
-        debug_info.map(ir_function, frame)
+        self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
-        self.select_and_schedule(ir_function, frame, debug_info, reporter)
+        self.select_and_schedule(ir_function, frame, reporter)
 
         # Define arguments live at first instruction:
         self.define_arguments_live(frame)
@@ -105,17 +110,16 @@ class CodeGenerator:
         # TODO: Peep-hole here?
 
         # Add label and return and stack adjustment:
-        self.emit_frame_to_stream(frame, output_stream, debug_info)
+        self.emit_frame_to_stream(frame, output_stream)
         reporter.function_footer(instruction_list)
 
-    def select_and_schedule(self, ir_function, frame, debug_info, reporter):
+    def select_and_schedule(self, ir_function, frame, reporter):
         """ Perform instruction selection and scheduling """
         self.logger.debug('Selecting instructions')
 
         tree_method = True
         if tree_method:
-            self.instruction_selector.select(
-                ir_function, frame, debug_info, reporter)
+            self.instruction_selector.select(ir_function, frame, reporter)
         else:  # pragma: no cover
             raise NotImplementedError('TODO')
             # Build a graph:
@@ -126,7 +130,7 @@ class CodeGenerator:
             # Schedule instructions:
             # self.instruction_scheduler.schedule(sgraph, frame)
 
-    def emit_frame_to_stream(self, frame, output_stream, debug_info):
+    def emit_frame_to_stream(self, frame, output_stream):
         """
             Add code for the prologue and the epilogue. Add a label, the
             return instruction and the stack pointer adjustment for the frame.
@@ -138,8 +142,8 @@ class CodeGenerator:
         self.logger.debug('Emitting instructions')
 
         # Emit function start debug info:
-        if frame in debug_info.mappings:
-            d = debug_info.mappings[frame]
+        if frame in self.debug_db.mappings:
+            d = self.debug_db.mappings[frame]
             dd = DebugData(d)
             output_stream.emit(dd)
 
@@ -148,8 +152,8 @@ class CodeGenerator:
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
-            if instruction in debug_info.mappings:
-                d = debug_info.mappings[instruction]
+            if instruction in self.debug_db.mappings:
+                d = self.debug_db.mappings[instruction]
                 dd = DebugData(d)
                 output_stream.emit(dd)
 

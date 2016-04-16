@@ -11,6 +11,7 @@ from ..common import SourceLocation
 class DebugInfoIntern:
     """ This presents intermediate form used in the compiler.
         This is a class that can track the location.
+        This object is some sort of an internal database.
     """
     def __init__(self):
         self.mappings = {}
@@ -21,9 +22,15 @@ class DebugInfoIntern:
         self.mappings[a] = di
         self.add(di)
 
+    def contains(self, src):
+        return src in self.mappings
+
     def add(self, di):
         assert di not in self.infos
         self.infos.append(di)
+
+    def get(self, src):
+        return self.mappings[src]
 
     def map(self, src, dst):
         """
@@ -46,6 +53,7 @@ class DebugInfo:
         self.locations = []
         self.functions = []
         self.types = []
+        self.types_map = {}
         self.variables = []
 
     def all_items(self):
@@ -62,9 +70,9 @@ class DebugInfo:
         if isinstance(di, DebugLocation):
             self.add_location(di)
         elif isinstance(di, DebugType):
-            self.types.append(di)
+            self.add_type(di)
         elif isinstance(di, DebugVariable):
-            self.variables.append(di)
+            self.add_variable(di)
         elif isinstance(di, FuncDebugInfo):
             self.functions.append(di)
         else:
@@ -76,21 +84,23 @@ class DebugInfo:
     def add_type(self, typ):
         """ Register a type """
         # print(typ)
-        if typ.name not in self.types:
-            self.types[typ.name] = typ
-        return self.types[typ.name]
+        if typ.name not in self.types_map:
+            self.types_map[typ.name] = typ
+            self.types.append(typ)
+        else:
+            pass
+            # TODO: assert equal?
 
-    def add_variable(self, name, typ, loc):
+    def get_type(self, name):
+        """ Get a type with a given name """
+        return self.types_map[name]
+
+    def has_type(self, name):
+        return name in self.types_map
+
+    def add_variable(self, variable):
         # print('var', name, typ)
-        dbg_var = DebugVariable(name, typ, loc)
-        self.vars[dbg_var.name] = dbg_var
-        return dbg_var
-
-    def add_parameter(self, name, typ, loc):
-        # print('parameter', name, typ)
-        dbg_var = DebugFormalParameter(name, typ)
-        self.vars[dbg_var.name] = dbg_var
-        return dbg_var
+        self.variables.append(variable)
 
 
 class DebugBaseInfo:
@@ -111,12 +121,55 @@ class DebugType:
     def __init__(self, name):
         self.name = name
 
+    def __repr__(self):
+        return 'DBGTYP[ {} {} ]'.format(self.name, type(self))
+
 
 class DebugBaseType(DebugType):
-    def __init__(self, name, byte_size, encoding):
+    def __init__(self, name, size, encoding):
         super().__init__(name)
-        self.byte_size = byte_size
+        self.size = size
         self.encoding = encoding
+
+    def __repr__(self):
+        return self.name
+
+
+class DebugStructType(DebugType):
+    """ A structured type """
+    def __init__(self, name):
+        super().__init__(name)
+        self.fields = []
+
+    def add_field(self, name, typ, offset):
+        assert isinstance(typ, DebugType)
+        self.fields.append((name, typ, offset))
+
+    def __repr__(self):
+        return 'struct'
+
+
+class DebugPointerType(DebugType):
+    """ A type that points somewhere else """
+    def __init__(self, name, pointed_type):
+        super().__init__(name)
+        assert isinstance(pointed_type, DebugType)
+        self.pointed_type = pointed_type
+
+    def __repr__(self):
+        return '*{}'.format(self.pointed_type)
+
+
+class DebugArrayType(DebugType):
+    def __init__(self, name, element_type, size):
+        super().__init__(name)
+        assert isinstance(element_type, DebugType)
+        assert isinstance(size, int)
+        self.element_type = element_type
+        self.size = size
+
+    def __repr__(self):
+        return '{}[{}]'.format(self.element_type, self.size)
 
 
 class DebugFormalParameter:
@@ -132,6 +185,8 @@ class FuncDebugInfo(DebugBaseInfo):
         assert isinstance(loc, SourceLocation)
         self.name = name
         self.loc = loc
+        self.begin = 0
+        self.end = 0
 
     def __repr__(self):
         return 'DBGFNC[ {} {} ]'.format(self.name, self.loc)
@@ -153,10 +208,15 @@ class DebugVariable(DebugBaseInfo):
     def __init__(self, name, typ, loc):
         super().__init__()
         assert isinstance(loc, SourceLocation)
+        assert isinstance(typ, DebugType), str(typ)
         self.name = name
-        assert isinstance(typ, str), str(typ)
         self.typ = typ
         self.loc = loc
+        self.scope = 'global'
+        self.loc2 = ''
+
+    def __repr__(self):
+        return 'DBGVARRR[ {} {} ]'.format(self.name, self.typ.name)
 
 
 def write_source_location(loc):
@@ -183,27 +243,56 @@ def serialize(x):
         x2['offset'] = x.offset
         return x2
     elif isinstance(x, FuncDebugInfo):
-        x2 = {
-            'source': write_source_location(x.loc)
+        return {
+            'source': write_source_location(x.loc),
+            'function_name': x.name,
+            'section': x.section,
+            'offset': x.offset,
+            'begin': x.begin,
+            'end': x.end
         }
-        x2['function_name'] = x.name
-        x2['section'] = x.section
-        x2['offset'] = x.offset
-        return x2
     elif isinstance(x, DebugVariable):
-        scope = 'global'
         x2 = {
             'source': write_source_location(x.loc),
-            'var_name': x.name,
-            'var_type': x.typ,
-            'var_scope': scope,
+            'name': x.name,
+            'type': x.typ.name,
+            'scope': x.scope,
+            'location': x.loc2,
         }
         x2['section'] = x.section
         x2['offset'] = x.offset
         return x2
     elif isinstance(x, DebugBaseType):
         return {
-            'typ_name': x.name,
+            'kind': 'base',
+            'name': x.name,
+            'size': x.size,
+        }
+    elif isinstance(x, DebugStructType):
+        fields = []
+        for field in x.fields:
+            fields.append({
+                'name': field[0],
+                'typ': field[1].name,
+                'offset': field[2],
+                })
+        return {
+            'kind': 'struct',
+            'name': x.name,
+            'fields': fields,
+        }
+    elif isinstance(x, DebugArrayType):
+        return {
+            'kind': 'array',
+            'name': x.name,
+            'element_type': x.element_type.name,
+            'size': x.size,
+        }
+    elif isinstance(x, DebugPointerType):
+        return {
+            'kind': 'pointer',
+            'name': x.name,
+            'pointed_type': x.pointed_type.name,
         }
     elif isinstance(x, DebugInfo):
         locations = list(map(serialize, x.locations))
@@ -234,14 +323,33 @@ def deserialize(x):
         fdi = FuncDebugInfo(f['function_name'], loc)
         fdi.section = f['section']
         fdi.offset = f['offset']
+        fdi.begin = f['begin']
+        fdi.end = f['end']
         debug_info.add(fdi)
     for t in x['types']:
-        dt = DebugBaseType(t['typ_name'], 4, 1)
+        kind = t['kind']
+        name = t['name']
+        if kind == 'base':
+            size = t['size']
+            dt = DebugBaseType(name, size, 1)
+        elif kind == 'struct':
+            dt = DebugStructType(name)
+        elif kind == 'pointer':
+            ptype = debug_info.get_type(t['pointed_type'])
+            dt = DebugPointerType(name, ptype)
+        elif kind == 'array':
+            etype = debug_info.get_type(t['element_type'])
+            dt = DebugArrayType(name, etype, t['size'])
+        else:
+            raise NotImplementedError(kind)
         debug_info.add(dt)
     for v in x['variables']:
         loc = read_source_location(v['source'])
-        dv = DebugVariable(v['var_name'], v['var_type'], loc)
+        typ = debug_info.get_type(v['type'])
+        dv = DebugVariable(v['name'], typ, loc)
         dv.section = v['section']
         dv.offset = v['offset']
+        dv.scope = v['scope']
+        dv.loc2 = v['location']
         debug_info.add(dv)
     return debug_info

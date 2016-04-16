@@ -68,6 +68,9 @@ class Debugger:
         self.driver.stop()
         self.state_event.fire()
 
+    def shutdown(self):
+        pass
+
     def set_breakpoint(self, filename, row):
         self.logger.info('set breakpoint %s:%i', filename, row)
         address = self.find_address(filename, row)
@@ -115,7 +118,7 @@ class Debugger:
             return
         pc = self.get_pc()
         for debug in self.obj.debug_info.locations:
-            #print(debug)
+            # print(debug)
             addr = self.obj.get_section(debug.section).address + debug.offset
             if pc == addr:
                 print('MATCH', debug)
@@ -124,8 +127,7 @@ class Debugger:
 
     def find_address(self, filename, row):
         """ Given a filename and a row, determine the address """
-        pass
-        for debug in self.obj.debug:
+        for debug in self.obj.debug_info.locations:
             if not hasattr(debug.data, 'loc'):
                 continue
             loc = debug.data.loc

@@ -11,6 +11,7 @@ from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
 from ppci.commands import link
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
+from ppci.api import fix_target
 from util import relpath
 
 
@@ -114,7 +115,8 @@ class ObjcopyTestCase(unittest.TestCase):
     def test_command(self, mock_stdout, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
         _, bin_file = tempfile.mkstemp(suffix='.bin')
-        obj = ObjectFile()
+        arch = fix_target('arm')
+        obj = ObjectFile(arch)
         data = bytes(range(100))
         section = Section('.text')
         section.add_data(data)

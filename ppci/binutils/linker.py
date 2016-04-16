@@ -12,10 +12,10 @@ from .debuginfo import DebugBaseInfo
 class Linker:
     """ Merges the sections of several object files and
         performs relocation """
-    def __init__(self, target, reporter):
+    def __init__(self, arch, reporter):
         self.logger = logging.getLogger('Linker')
+        self.arch = arch
         self.reporter = reporter
-        self.target = target
 
     def link(self, input_objects, layout, partial_link=False):
         """ Link together the given object files using the layout """
@@ -24,8 +24,10 @@ class Linker:
 
         self.reporter.heading(2, 'Linking')
 
+        # TODO: check all incoming objects for same architecture?
+
         # Create new object file to store output:
-        dst = ObjectFile()
+        dst = ObjectFile(self.arch)
 
         # First merge all sections into output sections:
         self.merge_objects(input_objects, dst)
@@ -142,7 +144,7 @@ class Linker:
             # Determine location in memory of reloc patchup position:
             reloc_value = section.address + reloc.offset
 
-            f = self.target.get_reloc(reloc.typ)
+            f = self.arch.get_reloc(reloc.typ)
             data = section.data[reloc.offset:]
             f(sym_value, data, reloc_value)
             section.data[reloc.offset:] = data

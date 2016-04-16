@@ -9,6 +9,15 @@ import platform
 import argparse
 import logging
 
+# Try to install the ipython traceback in case of an exception:
+try:
+    from IPython.core import ultratb
+
+    sys.excepthook = ultratb.FormattedTB(
+        mode='Verbose', color_scheme='Linux', call_pdb=1)
+except ImportError:
+    pass
+
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object

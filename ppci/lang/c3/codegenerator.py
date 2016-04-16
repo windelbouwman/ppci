@@ -6,7 +6,9 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
-from ...binutils.debuginfo import DebugLocation, FuncDebugInfo, DebugBaseType
+from ...binutils.debuginfo import DebugLocation, FuncDebugInfo
+from ...binutils.debuginfo import DebugBaseType, DebugStructType
+from ...binutils.debuginfo import DebugPointerType, DebugArrayType
 from ...binutils.debuginfo import DebugVariable
 from . import astnodes as ast
 from .scope import SemanticError
@@ -32,61 +34,18 @@ class CodeGenerator:
 
       Type checking is done in one run with code generation.
     """
-    def __init__(self, diag):
+    def __init__(self, diag, debug_db):
         self.logger = logging.getLogger('c3cgen')
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
-        self.debug_info = None
+        self.debug_db = debug_db
         self.module_ok = False
 
-    def emit(self, instruction, loc=None):
-        """
-            Emits the given instruction to the builder.
-            Can be muted for constants.
-        """
-        self.builder.emit(instruction)
-        if loc:
-            self.debug_info.enter(instruction, DebugLocation(loc))
-        return instruction
-
-    def gen_globals(self, module, context, debug_info):
-        """ Generate global variables and modules """
-        ir_module = ir.Module(module.name)
-        context.var_map[module] = ir_module
-
-        # Generate room for global variables:
-        for var in module.inner_scope.variables:
-            ir_var = ir.Variable(var.name, context.size_of(var.typ))
-            context.var_map[var] = ir_var
-            assert not var.isLocal
-            assert not var.ival
-            ir_module.add_variable(ir_var)
-
-            # Create debug infos:
-            dbg_typ = self.register_type(context, var.typ, debug_info)
-            if dbg_typ:
-                dv = DebugVariable(var.name, dbg_typ.name, var.loc)
-                debug_info.enter(var, dv)
-
-    def register_type(self, context, typ, debug_info):
-        """ Register type info in the debug information """
-        # Lookup the type:
-        typ = context.the_type(typ)
-
-        # print(typ)
-        if isinstance(typ, ast.BaseType):
-            dbg_typ = DebugBaseType(typ.name, context.size_of(typ), 1)
-            debug_info.add(dbg_typ)
-            return dbg_typ
-        else:
-            print('No', typ)
-
-    def gencode(self, mod, context, debug_info):
+    def gencode(self, mod, context):
         """ Generate code for a single module """
         assert isinstance(mod, ast.Module)
         self.context = context
-        self.debug_info = debug_info
         self.builder.prepare()
         self.module_ok = True
         self.logger.info('Generating ir-code for %s', mod.name)
@@ -110,6 +69,68 @@ class CodeGenerator:
             raise SemanticError("Errors occurred", None)
         return self.builder.module
 
+    def gen_globals(self, module, context):
+        """ Generate global variables and modules """
+        ir_module = ir.Module(module.name)
+        context.var_map[module] = ir_module
+
+        # Generate room for global variables:
+        for var in module.inner_scope.variables:
+            ir_var = ir.Variable(var.name, context.size_of(var.typ))
+            context.var_map[var] = ir_var
+            assert not var.isLocal
+            assert not var.ival
+            ir_module.add_variable(ir_var)
+
+            # Create debug infos:
+            dbg_typ = self.register_debug_type(context, var.typ)
+            dv = DebugVariable(var.name, dbg_typ, var.loc)
+            dv.scope = 'global'
+            self.debug_db.enter(ir_var, dv)
+
+    def emit(self, instruction, loc=None):
+        """
+            Emits the given instruction to the builder.
+            Can be muted for constants.
+        """
+        self.builder.emit(instruction)
+        if loc:
+            self.debug_db.enter(instruction, DebugLocation(loc))
+        return instruction
+
+    def register_debug_type(self, context, typ):
+        """ Register type debug info in the debug information """
+        # Lookup the type:
+        typ = context.the_type(typ)
+
+        if self.debug_db.contains(typ):
+            return self.debug_db.get(typ)
+
+        # print(typ)
+        name = 'type' + str(id(typ))
+        if isinstance(typ, ast.BaseType):
+            dbg_typ = DebugBaseType(typ.name, context.size_of(typ), 1)
+        elif isinstance(typ, ast.PointerType):
+            ptype = self.register_debug_type(context, typ.ptype)
+            dbg_typ = DebugPointerType(name, ptype)
+        elif isinstance(typ, ast.StructureType):
+            # context.check_type(typ)
+            dbg_typ = DebugStructType(name)
+            for field in typ.mems:
+                # offset = 0 # field.offset
+                # field_typ = self.register_debug_type(context, field.typ)
+                # dbg_typ.add_field(field.name, field_typ, offset)
+                pass
+                # TODO!
+        elif isinstance(typ, ast.ArrayType):
+            et = self.register_debug_type(context, typ.element_type)
+            size = context.eval_const(typ.size)
+            dbg_typ = DebugArrayType(name, et, size)
+        else:
+            raise NotImplementedError(str(typ))
+        self.debug_db.enter(typ, dbg_typ)
+        return dbg_typ
+
     def error(self, msg, loc=None):
         """ Emit error to diagnostic system and mark package as invalid """
         self.module_ok = False
@@ -121,8 +142,8 @@ class CodeGenerator:
             body.
         """
         ir_function = self.builder.new_function(function.name)
-        self.debug_info.enter(ir_function, FuncDebugInfo(
-            function.name, function.loc))
+        fdi = FuncDebugInfo(function.name, function.loc)
+        self.debug_db.enter(ir_function, fdi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.emit(ir.Jump(first_block))
@@ -142,13 +163,10 @@ class CodeGenerator:
             param_map[param] = ir_parameter
 
             # Debug info:
-            dbg_typ = \
-                self.register_type(self.context, param.typ, self.debug_info)
-            if dbg_typ:
-                #self.debug_info.enter(ir_parameter, DebugVariable(
-                #    param.name, dbg_typ, param.loc))
-                # TODO: do something with parameters
-                pass
+            dbg_typ = self.register_debug_type(self.context, param.typ)
+            #self.debug_info.enter(ir_parameter, DebugVariable(
+            #    param.name, dbg_typ, param.loc))
+            # TODO: do something with parameters
 
         # generate room for locals:
         for sym in function.inner_scope:
@@ -172,11 +190,10 @@ class CodeGenerator:
             self.context.var_map[sym] = variable
 
             # Debug info:
-            dbg_typ = \
-                self.register_type(self.context, sym.typ, self.debug_info)
-            if dbg_typ:
-                dv = DebugVariable(sym.name, dbg_typ.name, variable.loc)
-                self.debug_info.enter(variable, dv)
+            dbg_typ = self.register_debug_type(self.context, sym.typ)
+            dv = DebugVariable(sym.name, dbg_typ, variable.loc)
+            dv.scope = 'local'
+            self.debug_db.enter(variable, dv)
 
         self.gen_stmt(function.body)
         self.emit(ir.Jump(ir_function.epilog))

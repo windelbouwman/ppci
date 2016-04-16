@@ -37,7 +37,7 @@ from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
 from .arch.target_list import get_arch
 
-# When doing from 'ppci.api import *' include the following:
+# When using 'from ppci.api import *' include the following:
 __all__ = [
     'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize']
 
@@ -134,11 +134,12 @@ def asm(source, march):
     """
     logger = logging.getLogger('assemble')
     diag = DiagnosticsManager()
-    assembler = fix_target(march).assembler
+    march = fix_target(march)
+    assembler = march.assembler
     source = fix_file(source)
-    output = ObjectFile()
+    obj = ObjectFile(march)
     logger.debug('Assembling into code section')
-    ostream = BinaryOutputStream(output)
+    ostream = BinaryOutputStream(obj)
     ostream.select_section('code')
     try:
         assembler.prepare()
@@ -148,7 +149,7 @@ def asm(source, march):
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
         raise TaskError('Errors during assembling')
-    return output
+    return obj
 
 
 def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
@@ -214,26 +215,24 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
 
 
 def ir_to_object(
-        ir_modules, march, debug_info, reporter=DummyReportGenerator()):
+        ir_modules, march, debug_db, reporter=DummyReportGenerator()):
     """ Translate the given list of IR-modules into object code for the given
-    target """
-    logger = logging.getLogger('ir_to_code')
-    code_generator = CodeGenerator(march)
+    architecture """
+    march = fix_target(march)
+    code_generator = CodeGenerator(march, debug_db)
     verifier = Verifier()
 
-    output = ObjectFile()
-    output_stream = BinaryOutputStream(output)
+    obj = ObjectFile(march)
+    output_stream = BinaryOutputStream(obj)
 
     for ir_module in ir_modules:
         verifier.verify(ir_module)
 
         # Code generation:
-        logger.debug('Starting code generation for %s', ir_module.name)
-        code_generator.generate(
-            ir_module, output_stream, debug_info, reporter=reporter)
+        code_generator.generate(ir_module, output_stream, reporter=reporter)
 
     reporter.message('All modules generated!')
-    return output
+    return obj
 
 
 def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
@@ -255,7 +254,7 @@ def cc(source, march, reporter=DummyReportGenerator()):
     raise NotImplementedError('TODO')
 
 
-def c3c(sources, includes, march, reporter=DummyReportGenerator()):
+def c3c(sources, includes, march, reporter=None, debug=False):
     """
     Compile a set of sources into binary format for the given target.
 
@@ -270,14 +269,16 @@ def c3c(sources, includes, march, reporter=DummyReportGenerator()):
         >>> print(obj)
         CodeObject of 4 bytes
     """
+    if not reporter:
+        reporter = DummyReportGenerator()
     march = fix_target(march)
-    ir_modules, debug_info = \
+    ir_modules, debug_db = \
         c3toir(sources, includes, march, reporter=reporter)
 
     for ircode in ir_modules:
         optimize(ircode, reporter=reporter)
 
-    return ir_to_object(ir_modules, march, debug_info, reporter=reporter)
+    return ir_to_object(ir_modules, march, debug_db, reporter=reporter)
 
 
 def bf2ir(source, target):
@@ -373,7 +374,8 @@ def objcopy(obj, image_name, fmt, output_filename):
             hexfile.save(output_file)
     elif fmt == 'ldb':
         # TODO: fix this some other way to extract debug info
-        write_ldb(obj, output_filename)
+        with open(output_filename, 'w') as output_file:
+            write_ldb(obj, output_file)
     elif fmt == 'exe':
         writer = ExeWriter()
         with open(output_filename, 'wb') as output_file:
@@ -382,17 +384,16 @@ def objcopy(obj, image_name, fmt, output_filename):
         raise NotImplementedError("output format not implemented")
 
 
-def write_ldb(obj, output_filename):
+def write_ldb(obj, output_file):
     """ Export debug info from object to ldb format.
         See for example:
         - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
           x32-debug/ex2.dbg
     """
-    with open(output_filename, 'w') as output_file:
-        for debug in obj.debug_info.locations:
-            filename = debug.loc.filename
-            row = debug.loc.row
-            address = obj.get_section(debug.section).address + debug.offset
-            print(
-                'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
-                file=output_file)
+    for debug in obj.debug_info.locations:
+        filename = debug.loc.filename
+        row = debug.loc.row
+        address = obj.get_section(debug.section).address + debug.offset
+        print(
+            'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
+            file=output_file)

@@ -19,14 +19,15 @@ class C3Builder:
         Generates IR-code from c3 source.
         Reports errors to the diagnostics system.
     """
-    def __init__(self, diag, target):
+    def __init__(self, diag, arch):
         self.logger = logging.getLogger('c3')
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.codegen = CodeGenerator(diag)
+        self.debug_db = DebugInfoIntern()
+        self.codegen = CodeGenerator(diag, self.debug_db)
         self.verifier = Verifier()
-        self.target = target
+        self.target = arch
 
     def build(self, srcs, imps=()):
         """
@@ -37,8 +38,8 @@ class C3Builder:
         """
         assert isinstance(srcs, collections.Iterable)
         assert isinstance(imps, collections.Iterable)
-        self.logger.debug('Building %d source files', len(srcs))
-        self.logger.debug('Using %d includes', len(imps))
+        self.logger.debug(
+            'Building %d sources and %d includes', len(srcs), len(imps))
 
         # Create a context where the modules can live:
         context = Context(self.target)
@@ -65,18 +66,15 @@ class C3Builder:
             self.diag.error(ex.msg, ex.loc)
             raise
 
-        # Create debug info:
-        debug_info = DebugInfoIntern()
-
         # Phase 1.9
         for module in context.modules:
-            self.codegen.gen_globals(module, context, debug_info)
+            self.codegen.gen_globals(module, context)
 
         # Phase 2: Generate intermediate code
         # Only return ircode when everything is OK
         ir_modules = []
         for pkg in context.modules:
-            ir_modules.append(self.codegen.gencode(pkg, context, debug_info))
+            ir_modules.append(self.codegen.gencode(pkg, context))
 
         # Hack to check for undefined variables:
         try:
@@ -87,7 +85,7 @@ class C3Builder:
             raise
 
         self.logger.debug('C3 build complete!')
-        return context, ir_modules, debug_info
+        return context, ir_modules, self.debug_db
 
     def check_control_flow(self, ir_module):
         pas = Mem2RegPromotor()

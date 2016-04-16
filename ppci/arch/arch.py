@@ -38,6 +38,11 @@ class Architecture:
     def __repr__(self):
         return '{}-target'.format(self.name)
 
+    def make_id_str(self):
+        """ Return a string uniquely identifying this machine """
+        options = [n for n, v in self.option_settings.items() if v]
+        return ':'.join([self.name] + options)
+
     def get_reg_class(self, bitsize=None, ty=None):
         """ Look for a register class """
         if bitsize:

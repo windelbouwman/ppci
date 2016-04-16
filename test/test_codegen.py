@@ -75,11 +75,11 @@ class IrDagTestCase(unittest.TestCase):
         target = SimpleTarget()
         frame = target.new_frame('a', function)
         function_info = FunctionInfo(frame)
-        debug_info = DebugInfoIntern()
+        debug_db = DebugInfoIntern()
         prepare_function_info(target, function_info, function)
-        dag_builder = SelectionGraphBuilder(target)
-        sgraph = dag_builder.build(function, function_info, debug_info)
-        dag_splitter = DagSplitter(target)
+        dag_builder = SelectionGraphBuilder(target, debug_db)
+        sgraph = dag_builder.build(function, function_info)
+        dag_splitter = DagSplitter(target, debug_db)
 
         # print(function_info.value_map)
         for b in function:

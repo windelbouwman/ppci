@@ -34,10 +34,10 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
 
 class InstructionContext:
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, target, debug_info):
+    def __init__(self, frame, target, debug_db):
         self.frame = frame
         self.target = target
-        self.debug_info = debug_info
+        self.debug_db = debug_db
         self.tree = None
 
     def new_reg(self, cls):
@@ -58,7 +58,7 @@ class InstructionContext:
         """ Abstract instruction emitter proxy """
         instruction = self.frame.emit(*args, **kwargs)
         if self.tree:
-            self.debug_info.map(self.tree, instruction)
+            self.debug_db.map(self.tree, instruction)
         return instruction
 
 
@@ -138,11 +138,12 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, target, sgraph_builder):
+    def __init__(self, isa, arch, sgraph_builder, debug_db):
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
-        self.target = target
-        self.dag_splitter = DagSplitter(target)
+        self.arch = arch
+        self.debug_db = debug_db
+        self.dag_splitter = DagSplitter(arch, debug_db)
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
@@ -166,26 +167,25 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def select(self, ir_function, frame, debug_info, reporter):
+    def select(self, ir_function, frame, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.Function)
         self.logger.debug('Creating selection dag for %s', ir_function.name)
 
         # Create a object that carries global function info:
         function_info = FunctionInfo(frame)
-        prepare_function_info(self.target, function_info, ir_function)
+        prepare_function_info(self.arch, function_info, ir_function)
 
         # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.target, debug_info)
+        context = InstructionContext(frame, self.arch, self.debug_db)
 
         # Create selection dag (directed acyclic graph):
-        sgraph = self.dag_builder.build(ir_function, function_info, debug_info)
+        sgraph = self.dag_builder.build(ir_function, function_info)
         reporter.message('Selection graph for {}'.format(ir_function))
         reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into trees:
-        self.dag_splitter.split_into_trees(
-            sgraph, ir_function, function_info, debug_info)
+        self.dag_splitter.split_into_trees(sgraph, ir_function, function_info)
         reporter.dump_trees(ir_function, function_info)
 
         # Process one basic block at a time:
