@@ -6,6 +6,7 @@ import io
 import sys
 from ppci import ir
 from ppci import irutils
+from ppci.binutils.debuginfo import DebugDb
 from ppci.irutils import Verifier
 from ppci.opt.mem2reg import Mem2RegPromotor
 from ppci.opt.transform import CleanPass
@@ -20,6 +21,7 @@ class OptTestCase(unittest.TestCase):
         self.function = self.builder.new_function('testfunction')
         self.builder.set_function(self.function)
         self.verifier = Verifier()
+        self.debug_db = DebugDb()
 
     def dump(self):
         writer = irutils.Writer()
@@ -35,7 +37,7 @@ class CleanTestCase(OptTestCase):
     """ Test the clean pass for correct function """
     def setUp(self):
         super().setUp()
-        self.clean_pass = CleanPass()
+        self.clean_pass = CleanPass(self.debug_db)
 
     def test_glue_blocks(self):
         self.builder.emit(ir.Jump(self.function.epilog))
@@ -72,7 +74,7 @@ class Mem2RegTestCase(OptTestCase):
     """ Test the memory to register lifter """
     def setUp(self):
         super().setUp()
-        self.mem2reg = Mem2RegPromotor()
+        self.mem2reg = Mem2RegPromotor(self.debug_db)
 
     def test_normal_use(self):
         alloc = self.builder.emit(ir.Alloc('A', 4))

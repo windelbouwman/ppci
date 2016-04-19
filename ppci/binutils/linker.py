@@ -6,54 +6,58 @@ import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
-from .debuginfo import DebugBaseInfo
+from .debuginfo import DebugLocation, DebugVariable, DebugFunction
 
 
 class Linker:
     """ Merges the sections of several object files and
         performs relocation """
+    logger = logging.getLogger('linker')
+
     def __init__(self, arch, reporter):
-        self.logger = logging.getLogger('Linker')
         self.arch = arch
         self.reporter = reporter
 
-    def link(self, input_objects, layout, partial_link=False):
+    def link(self, input_objects, layout, partial_link=False, debug=False):
         """ Link together the given object files using the layout """
-        assert isinstance(input_objects, list)
+        assert isinstance(input_objects, (list, tuple))
         assert isinstance(layout, Layout)
 
         self.reporter.heading(2, 'Linking')
 
-        # TODO: check all incoming objects for same architecture?
+        # Check all incoming objects for same architecture:
+        for input_object in input_objects:
+            assert input_object.arch == self.arch
 
         # Create new object file to store output:
         dst = ObjectFile(self.arch)
 
         # First merge all sections into output sections:
-        self.merge_objects(input_objects, dst)
+        self.merge_objects(input_objects, dst, debug)
+
+        # Apply layout rules:
+        self.layout_sections(dst, layout)
 
         if not partial_link:
-            # Apply layout rules:
-            self.layout_sections(dst, layout)
-
-            # Perform relocations:
             self.do_relocations(dst)
 
         for section in dst.sections:
             self.reporter.message('{} at {}'.format(section, section.address))
         for image in dst.images:
             self.reporter.message('{} at {}'.format(image, image.location))
+        dst.polish()
         self.reporter.message('Linking complete')
         return dst
 
-    def merge_objects(self, input_objects, dst):
+    def merge_objects(self, input_objects, dst, debug):
         """ Merge object files into a single object file """
         for input_object in input_objects:
             offsets = {}
             # Merge sections:
             for input_section in input_object.sections:
                 # Get or create the output section:
-                output_section = dst.get_section(input_section.name)
+                output_section = dst.get_section(
+                    input_section.name, create=True)
 
                 # Align section:
                 while output_section.size % input_section.alignment != 0:
@@ -64,7 +68,8 @@ class Linker:
                     output_section.alignment = input_section.alignment
 
                 # Add new section:
-                offsets[input_section.name] = output_section.size
+                offset = output_section.size
+                offsets[input_section.name] = offset
                 output_section.add_data(input_section.data)
                 self.logger.debug(
                     '%d %s(%s)', offsets[input_section.name],
@@ -81,11 +86,25 @@ class Linker:
                 dst.add_relocation(reloc.sym, offset, reloc.typ, reloc.section)
 
             # Merge debug info:
-            for di in input_object.debug_info.all_items():
-                if isinstance(di, DebugBaseInfo):
-                    # Adjust offset:
-                    di.offset = offsets[di.section] + di.offset
-                dst.debug_info.add(di)
+            if debug:
+                def adj(v):
+                    assert isinstance(v, tuple), str(v)
+                    return (v[0], offsets[v[0]] + v[1])
+                for debug_location in input_object.debug_info.locations:
+                    dst.debug_info.add(DebugLocation(
+                        debug_location.loc,
+                        address=adj(debug_location.address)))
+                for debug_function in input_object.debug_info.functions:
+                    dst.debug_info.add(DebugFunction(
+                        debug_function.name, debug_function.loc,
+                        begin=adj(debug_function.begin),
+                        end=adj(debug_function.end)))
+                for debug_type in input_object.debug_info.types:
+                    dst.debug_info.add(debug_type)
+                for debug_var in input_object.debug_info.variables:
+                    dst.debug_info.add(DebugVariable(
+                        debug_var.name, debug_var.typ, debug_var.loc,
+                        address=adj(debug_var.address)))
 
     def layout_sections(self, dst, layout):
         """ Use the given layout to place sections into memories """
@@ -95,7 +114,8 @@ class Linker:
             current_address = mem.location
             for memory_input in mem.inputs:
                 if isinstance(memory_input, Section):
-                    section = dst.get_section(memory_input.section_name)
+                    section = dst.get_section(
+                        memory_input.section_name, create=True)
                     while current_address % section.alignment != 0:
                         current_address += 1
                     section.address = current_address
@@ -112,7 +132,7 @@ class Linker:
                     # Each section must be unique:
                     assert not dst.has_section(section_name)
 
-                    section = dst.get_section(section_name)
+                    section = dst.get_section(section_name, create=True)
                     section.address = current_address
                     section.alignment = 1
                     dst.add_symbol(memory_input.symbol_name, 0, section_name)

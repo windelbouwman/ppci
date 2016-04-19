@@ -12,8 +12,9 @@ class ModulePass:
     """ Base class of all optimizing passes. Subclass this class
     to implement your own optimization pass
     """
-    def __init__(self):
+    def __init__(self, debug_db):
         self.logger = logging.getLogger(str(self.__class__.__name__))
+        self.debug_db = debug_db
 
     def __repr__(self):
         return self.__class__.__name__
@@ -58,8 +59,8 @@ class InstructionPass(BlockPass):
 # Usefull transforms:
 class ConstantFolder(BlockPass):
     """ Try to fold common constant expressions """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, debug_db):
+        super().__init__(debug_db)
         self.ops = {}
         self.ops['+'] = lambda x, y: x + y
         self.ops['-'] = lambda x, y: x - y

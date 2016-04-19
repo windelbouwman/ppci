@@ -41,6 +41,7 @@ class InnerCode(QtWidgets.QWidget):
         self.blinkcursor = False
         self.errorlist = []
         self.breakpoints = set()
+        self.possible_breakpoints = set()
         self.arrow_row = None
         # Initial values:
         self.setSource('')
@@ -209,6 +210,10 @@ class InnerCode(QtWidgets.QWidget):
             painter.drawText(xpos, ypos, self.getRow(row))
 
             # Draw breakpoint indicators:
+            if row in self.possible_breakpoints:
+                painter.setBrush(QtGui.QBrush(Qt.gray))
+                painter.setPen(errorPen)
+                painter.drawEllipse(self.xposERR, ypos + ydt, chh, chh)
             if row in self.breakpoints:
                 painter.setBrush(QtGui.QBrush(Qt.red))
                 painter.setPen(errorPen)
@@ -271,7 +276,8 @@ class InnerCode(QtWidgets.QWidget):
             c = round((pos.x() - self.xposTXT) / self.charWidth)
             self.setRowCol(row, c)
         elif pos.x() > self.xposERR and pos.x() and pos.x() < self.xposLNA:
-            self.toggle_breakpoint(row)
+            if row in self.possible_breakpoints:
+                self.toggle_breakpoint(row)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -320,6 +326,10 @@ class CodeEdit(QtWidgets.QScrollArea):
         return self.ic.getSource()
 
     Source = property(get_source, lambda s, v: s.ic.setSource(v))
+
+    def set_possible_breakpoints(self, pbs):
+        print(pbs)
+        self.ic.possible_breakpoints = pbs
 
     def setErrors(self, el):
         self.ic.setErrors(el)

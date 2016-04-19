@@ -18,7 +18,8 @@
             target="x86_64"
             output="hello.elf"
             layout="../linux64.mmap"
-            objects="glue.o;rest.o" />
+            objects="glue.o;rest.o"
+            debug="true" />
 
         <objcopy
             objectfile="hello.elf"

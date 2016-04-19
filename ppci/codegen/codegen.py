@@ -10,7 +10,7 @@ from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.isa import Instruction
 from ..arch.data_instructions import Ds
-from ..binutils.debuginfo import DebugType, DebugVariable
+from ..binutils.debuginfo import DebugType, DebugVariable, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
@@ -53,8 +53,9 @@ class CodeGenerator:
                 raise NotImplementedError()
             self.debug_db.map(var, label)
             if self.debug_db.contains(label):
-                dv = self.debug_db.mappings[label]
-                dv.loc2 = label.name
+                dv = self.debug_db.get(label)
+                dv.address = label.name
+                output_stream.emit(DebugData(dv))
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
@@ -66,11 +67,10 @@ class CodeGenerator:
 
         # Output debug data:
         for di in self.debug_db.infos:
-            if isinstance(di, (DebugType, DebugVariable)):
+            if isinstance(di, DebugType):
                 output_stream.emit(DebugData(di))
 
-    def generate_function(
-            self, ir_function, output_stream, reporter):
+    def generate_function(self, ir_function, output_stream, reporter):
         """ Generate code for one function into a frame """
         self.logger.info(
             'Generating %s code for function %s',
@@ -111,6 +111,17 @@ class CodeGenerator:
 
         # Add label and return and stack adjustment:
         self.emit_frame_to_stream(frame, output_stream)
+
+        # Emit function debug info:
+        if self.debug_db.contains(frame):
+            func_end_label = self.debug_db.new_label()
+            output_stream.emit(Label(func_end_label))
+            d = self.debug_db.get(frame)
+            d.begin = frame_name
+            d.end = func_end_label
+            dd = DebugData(d)
+            output_stream.emit(dd)
+
         reporter.function_footer(instruction_list)
 
     def select_and_schedule(self, ir_function, frame, reporter):
@@ -141,21 +152,21 @@ class CodeGenerator:
         # real instructions.
         self.logger.debug('Emitting instructions')
 
-        # Emit function start debug info:
-        if frame in self.debug_db.mappings:
-            d = self.debug_db.mappings[frame]
-            dd = DebugData(d)
-            output_stream.emit(dd)
-
         # Prefix code:
         output_stream.emit_all(frame.prologue())
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
-            if instruction in self.debug_db.mappings:
-                d = self.debug_db.mappings[instruction]
-                dd = DebugData(d)
-                output_stream.emit(dd)
+
+            # If the instruction has debug location, emit it here:
+            if self.debug_db.contains(instruction):
+                d = self.debug_db.get(instruction)
+                assert isinstance(d, DebugLocation)
+                if not d.address:
+                    label_name = self.debug_db.new_label()
+                    d.address = label_name
+                    output_stream.emit(Label(label_name))
+                    output_stream.emit(DebugData(d))
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions

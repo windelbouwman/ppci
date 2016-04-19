@@ -236,6 +236,8 @@ class DebugUi(QtWidgets.QMainWindow):
             with open(filename) as f:
                 ce.Source = f.read()
                 ce.FileName = filename
+                possible_breakpoints = self.debugger.get_possible_breakpoints(filename)
+                ce.set_possible_breakpoints(possible_breakpoints)
             return ce
         except Exception as e:
             print('exception opening file:', e)
@@ -304,12 +306,12 @@ if __name__ == '__main__':
     # dut = '../../test/listings/testsamplesTestSamplesOnX86Linuxtestswdiv.elf'
 
     # Hello:
-    #dut = '../../examples/linux64/hello/hello'
-    #obj = '../../examples/linux64/hello/hello.elf'
+    dut = '../../examples/linux64/hello/hello'
+    obj = '../../examples/linux64/hello/hello.elf'
 
     # Snake:
-    dut = '../../examples/linux64/snake/snake'
-    obj = '../../examples/linux64/snake/snake.elf'
+    #dut = '../../examples/linux64/snake/snake'
+    #obj = '../../examples/linux64/snake/snake.elf'
 
     logging.basicConfig(format=ppci.common.logformat, level=logging.DEBUG)
     app = QtWidgets.QApplication(sys.argv)

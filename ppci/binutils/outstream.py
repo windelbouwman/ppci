@@ -6,7 +6,6 @@
 import logging
 from ..arch.isa import Instruction
 from ..arch.arch import Alignment, DebugData
-from ..binutils.debuginfo import DebugBaseInfo
 
 
 class OutputStream:
@@ -68,14 +67,10 @@ class BinaryOutputStream(OutputStream):
                 self.current_section.alignment = item.align
         elif isinstance(item, DebugData):
             # We have debug data here!
-            info = item.data
-            if isinstance(info, DebugBaseInfo):
-                info.section = section.name
-                info.offset = address
-            self.obj_file.debug_info.add(info)
+            self.obj_file.debug_info.add(item.data)
 
     def select_section(self, sname):
-        self.current_section = self.obj_file.get_section(sname)
+        self.current_section = self.obj_file.get_section(sname, create=True)
 
 
 class RecordingOutputStream(OutputStream):

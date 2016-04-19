@@ -8,6 +8,7 @@ import sys
 import platform
 import argparse
 import logging
+import importlib
 
 # Try to install the ipython traceback in case of an exception:
 try:
@@ -25,7 +26,7 @@ from .tasks import TaskError
 from . import version, api
 from .common import logformat
 from .arch.target_list import target_names, create_arch
-from .binutils.dbg import Debugger, DummyDebugDriver, DebugCli
+from .binutils.dbg import Debugger, DebugCli
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -207,13 +208,20 @@ dbg_parser.add_argument(
 dbg_parser.add_argument(
     '--mtune', help='architecture option', default=[],
     metavar='option', action='append')
+dbg_parser.add_argument(
+    '--driver',
+    help='debug driver to use. Specify in the format: module:class',
+    default='ppci.binutils.dbg:DummyDebugDriver')
 
 
 def dbg(args=None):
     """ Run dbg from command line """
     args = dbg_parser.parse_args(args)
     march = get_arch_from_args(args)
-    driver = DummyDebugDriver()
+    driver_module_name, driver_class_name = args.driver.split(':')
+    driver_module = importlib.import_module(driver_module_name)
+    driver_class = getattr(driver_module, driver_class_name)
+    driver = driver_class()
     debugger = Debugger(march, driver)
     cli = DebugCli(debugger)
     cli.cmdloop()

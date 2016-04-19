@@ -5,10 +5,8 @@
 
 from ..common import SourceLocation
 
-# TODO: refactor this mess of classes
 
-
-class DebugInfoIntern:
+class DebugDb:
     """ This presents intermediate form used in the compiler.
         This is a class that can track the location.
         This object is some sort of an internal database.
@@ -16,6 +14,12 @@ class DebugInfoIntern:
     def __init__(self):
         self.mappings = {}
         self.infos = []
+        self.label_nr = 0
+
+    def new_label(self):
+        """ Create a new label name that is unique """
+        self.label_nr += 1
+        return '.LDBG_{}'.format(self.label_nr)
 
     def enter(self, a, di):
         """ Register debug info as a result of something """
@@ -73,7 +77,7 @@ class DebugInfo:
             self.add_type(di)
         elif isinstance(di, DebugVariable):
             self.add_variable(di)
-        elif isinstance(di, FuncDebugInfo):
+        elif isinstance(di, DebugFunction):
             self.functions.append(di)
         else:
             raise NotImplementedError(str(di))
@@ -105,8 +109,7 @@ class DebugInfo:
 
 class DebugBaseInfo:
     def __init__(self):
-        self.section = ''
-        self.offset = 0
+        pass
 
 
 class LineInfo:
@@ -178,52 +181,59 @@ class DebugFormalParameter:
         self.typ = typ
 
 
-class FuncDebugInfo(DebugBaseInfo):
+class DebugFunction(DebugBaseInfo):
     """ Info about a function """
-    def __init__(self, name, loc):
+    def __init__(self, name, loc, begin=0, end=0):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         self.name = name
         self.loc = loc
-        self.begin = 0
-        self.end = 0
+        self.begin = begin
+        self.end = end
 
     def __repr__(self):
-        return 'DBGFNC[ {} {} ]'.format(self.name, self.loc)
+        return 'DBGFNC[ {} {} begin={}, end={} ]'.format(
+            self.name, self.loc, self.begin, self.end)
+
+
+class DebugAddress:
+    def __init__(self, section, offset):
+        pass
 
 
 class DebugLocation(DebugBaseInfo):
     """ Location information """
-    def __init__(self, loc):
+    def __init__(self, loc, address=''):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         # TODO: think of other namings
         self.loc = loc
+        self.address = address
 
     def __repr__(self):
-        return 'DBGLOC[ {} ]'.format(self.loc)
+        return 'DBGLOC[ {} addr={} ]'.format(self.loc, self.address)
 
 
 class DebugVariable(DebugBaseInfo):
-    def __init__(self, name, typ, loc):
+    def __init__(self, name, typ, loc, scope='global', address=''):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         assert isinstance(typ, DebugType), str(typ)
         self.name = name
         self.typ = typ
         self.loc = loc
-        self.scope = 'global'
-        self.loc2 = ''
+        self.scope = scope
+        self.address = address
 
     def __repr__(self):
-        return 'DBGVARRR[ {} {} ]'.format(self.name, self.typ.name)
+        return 'DBGVARRR[ {} {} {} ]'.format(
+            self.name, self.typ.name, self.address)
 
 
 def write_source_location(loc):
     """ Serialize a location object """
     return {
-        'filename': loc.filename,
-        'row': loc.row, 'column': loc.col,
+        'filename': loc.filename, 'row': loc.row, 'column': loc.col,
         'length': loc.length,
     }
 
@@ -233,35 +243,37 @@ def read_source_location(x):
     return loc
 
 
+def write_address(address):
+    assert isinstance(address, tuple)
+    return {'section': address[0], 'offset': address[1]}
+
+
+def read_address(x):
+    return (x['section'], x['offset'])
+
+
 def serialize(x):
     """ Serialize debug information """
     if isinstance(x, DebugLocation):
-        x2 = {
-            'source': write_source_location(x.loc)
+        return {
+            'source': write_source_location(x.loc),
+            'address': write_address(x.address),
         }
-        x2['section'] = x.section
-        x2['offset'] = x.offset
-        return x2
-    elif isinstance(x, FuncDebugInfo):
+    elif isinstance(x, DebugFunction):
         return {
             'source': write_source_location(x.loc),
             'function_name': x.name,
-            'section': x.section,
-            'offset': x.offset,
-            'begin': x.begin,
-            'end': x.end
+            'begin': write_address(x.begin),
+            'end': write_address(x.end)
         }
     elif isinstance(x, DebugVariable):
-        x2 = {
+        return {
             'source': write_source_location(x.loc),
             'name': x.name,
             'type': x.typ.name,
             'scope': x.scope,
-            'location': x.loc2,
+            'address': write_address(x.address),
         }
-        x2['section'] = x.section
-        x2['offset'] = x.offset
-        return x2
     elif isinstance(x, DebugBaseType):
         return {
             'kind': 'base',
@@ -314,17 +326,15 @@ def deserialize(x):
     debug_info = DebugInfo()
     for l in x['locations']:
         loc = read_source_location(l['source'])
-        dl = DebugLocation(loc)
-        dl.section = l['section']
-        dl.offset = l['offset']
+        address = read_address(l['address'])
+        dl = DebugLocation(loc, address=address)
         debug_info.add(dl)
     for f in x['functions']:
         loc = read_source_location(f['source'])
-        fdi = FuncDebugInfo(f['function_name'], loc)
-        fdi.section = f['section']
-        fdi.offset = f['offset']
-        fdi.begin = f['begin']
-        fdi.end = f['end']
+        begin = read_address(f['begin'])
+        end = read_address(f['end'])
+        fdi = DebugFunction(
+            f['function_name'], loc, begin=begin, end=end)
         debug_info.add(fdi)
     for t in x['types']:
         kind = t['kind']
@@ -346,10 +356,8 @@ def deserialize(x):
     for v in x['variables']:
         loc = read_source_location(v['source'])
         typ = debug_info.get_type(v['type'])
-        dv = DebugVariable(v['name'], typ, loc)
-        dv.section = v['section']
-        dv.offset = v['offset']
-        dv.scope = v['scope']
-        dv.loc2 = v['location']
+        dv = DebugVariable(
+            v['name'], typ, loc,
+            scope=v['scope'], address=read_address(v['address']))
         debug_info.add(dv)
     return debug_info

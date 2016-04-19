@@ -6,7 +6,7 @@ import logging
 import struct
 from ... import ir
 from ... import irutils
-from ...binutils.debuginfo import DebugLocation, FuncDebugInfo
+from ...binutils.debuginfo import DebugLocation, DebugFunction
 from ...binutils.debuginfo import DebugBaseType, DebugStructType
 from ...binutils.debuginfo import DebugPointerType, DebugArrayType
 from ...binutils.debuginfo import DebugVariable
@@ -142,7 +142,7 @@ class CodeGenerator:
             body.
         """
         ir_function = self.builder.new_function(function.name)
-        fdi = FuncDebugInfo(function.name, function.loc)
+        fdi = DebugFunction(function.name, function.loc)
         self.debug_db.enter(ir_function, fdi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()

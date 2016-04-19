@@ -11,7 +11,7 @@ from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ...binutils.debuginfo import DebugInfoIntern
+from ...binutils.debuginfo import DebugDb
 
 
 class C3Builder:
@@ -24,7 +24,7 @@ class C3Builder:
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.debug_db = DebugInfoIntern()
+        self.debug_db = DebugDb()
         self.codegen = CodeGenerator(diag, self.debug_db)
         self.verifier = Verifier()
         self.target = arch
@@ -88,7 +88,7 @@ class C3Builder:
         return context, ir_modules, self.debug_db
 
     def check_control_flow(self, ir_module):
-        pas = Mem2RegPromotor()
+        pas = Mem2RegPromotor(self.debug_db)
         pas.run(ir_module)
         self.verifier.verify(ir_module)
 

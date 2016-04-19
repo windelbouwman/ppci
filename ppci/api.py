@@ -5,6 +5,7 @@ and assembling.
 """
 
 import logging
+import warnings
 import os
 import stat
 import xml
@@ -27,7 +28,7 @@ from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
-from .binutils.debuginfo import DebugInfoIntern
+from .binutils.debuginfo import DebugDb
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
@@ -181,7 +182,7 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     return ir_modules, debug_info
 
 
-def optimize(ir_module, reporter=DummyReportGenerator()):
+def optimize(ir_module, reporter=None, debug_db=None):
     """
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
@@ -189,17 +190,23 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     logger = logging.getLogger('optimize')
     logger.info('Optimizing module %s', ir_module.name)
 
+    if not reporter:
+        reporter = DummyReportGenerator()
+
+    if not debug_db:
+        debug_db = DebugDb()
+
     # Create the verifier:
     verifier = Verifier()
 
     # Optimization passes (bag of tricks) run them three times:
-    opt_passes = [Mem2RegPromotor(),
-                  RemoveAddZeroPass(),
-                  ConstantFolder(),
-                  CommonSubexpressionEliminationPass(),
-                  LoadAfterStorePass(),
-                  DeleteUnusedInstructionsPass(),
-                  CleanPass()] * 3
+    opt_passes = [Mem2RegPromotor(debug_db),
+                  RemoveAddZeroPass(debug_db),
+                  ConstantFolder(debug_db),
+                  CommonSubexpressionEliminationPass(debug_db),
+                  LoadAfterStorePass(debug_db),
+                  DeleteUnusedInstructionsPass(debug_db),
+                  CleanPass(debug_db)] * 3
 
     # Run the passes over the module:
     verifier.verify(ir_module)
@@ -232,6 +239,8 @@ def ir_to_object(
         # Code generation:
         code_generator.generate(ir_module, output_stream, reporter=reporter)
 
+    # TODO: refactor polishing?
+    obj.polish()
     reporter.message('All modules generated!')
     return obj
 
@@ -296,7 +305,7 @@ def fortran_to_ir(source):
     return ir_modules
 
 
-def bfcompile(source, target, reporter=DummyReportGenerator()):
+def bfcompile(source, target, reporter=None):
     """ Compile brainfuck source into binary format for the given target
 
     source can be a filename or a file like object.
@@ -311,6 +320,8 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
         >>> source_file = io.StringIO(">>[-]<<[->>+<<]")
         >>> obj = bfcompile(source_file, 'arm')
     """
+    if not reporter:
+        reporter = DummyReportGenerator()
     reporter.message('brainfuck compilation listings')
     target = get_arch(target)
     ir_module = bf2ir(source, target)
@@ -318,8 +329,8 @@ def bfcompile(source, target, reporter=DummyReportGenerator()):
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
-    debug_info = DebugInfoIntern()
-    return ir_to_object([ir_module], target, debug_info, reporter=reporter)
+    debug_db = DebugDb()
+    return ir_to_object([ir_module], target, debug_db, reporter=reporter)
 
 
 def fortrancompile(sources, target, reporter=DummyReportGenerator()):
@@ -330,20 +341,35 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 
 
 def link(
-        objects, layout, march,
-        use_runtime=False, partial_link=False,
-        reporter=DummyReportGenerator()):
+        objects, layout=None, arch=None, use_runtime=False, partial_link=False,
+        reporter=None, debug=False):
     """ Links the iterable of objects into one using the given layout.
 
     """
+    if not reporter:
+        reporter = DummyReportGenerator()
+
     objects = [fix_object(obj) for obj in objects]
-    layout = fix_layout(layout)
-    march = get_arch(march)
+    if not objects:
+        raise ValueError('Please provide some objects as input')
+
+    if layout:
+        layout = fix_layout(layout)
+    else:
+        layout = Layout()
+
+    if arch:
+        warnings.warn('No need to give arch here!', DeprecationWarning)
+        march = get_arch(arch)
+    else:
+        march = objects[0].arch
+
     if use_runtime:
         objects.append(march.runtime)
+
     linker = Linker(march, reporter)
     try:
-        output_obj = linker.link(objects, layout)
+        output_obj = linker.link(objects, layout=layout, debug=debug)
     except CompilerError as err:
         raise TaskError(err.msg)
     return output_obj
@@ -391,10 +417,28 @@ def write_ldb(obj, output_file):
         - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
           x32-debug/ex2.dbg
     """
-    for debug in obj.debug_info.locations:
-        filename = debug.loc.filename
-        row = debug.loc.row
-        address = obj.get_section(debug.section).address + debug.offset
+    def fx(address):
+        assert isinstance(address, tuple)
+        return obj.get_section(address[0]).address + address[1]
+    debug_info = obj.debug_info
+    for debug_location in debug_info.locations:
+        filename = debug_location.loc.filename
+        row = debug_location.loc.row
+        address = fx(debug_location.address)
         print(
             'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
+            file=output_file)
+    for func in debug_info.functions:
+        name = func.name
+        address = fx(func.begin)
+        print(
+            'function: {} <0> @ 0x{:08X}'.format(name, address),
+            file=output_file)
+    for var in debug_info.variables:
+        if var.scope != 'global':
+            continue
+        name = var.name
+        address = fx(var.address)
+        print(
+            'global: {} <0> @ 0x{:08X}'.format(name, address),
             file=output_file)

@@ -55,17 +55,6 @@ class Relocation:
             (other.sym, other.offset, other.typ, other.section)
 
 
-#class Debug:
-#    """ Container for debug data """
-#    def __init__(self, section, offset, data):
-#        self.section = section
-#        self.offset = offset
-#        self.data = data
-#
-#    def __repr__(self):
-#        return 'DEBUG {} {} {}'.format(self.section, self.offset, self.data)
-
-
 class Section:
     """ A defined region of data in the object file """
     def __init__(self, name):
@@ -165,11 +154,14 @@ class ObjectFile:
         self.debug_info = debuginfo.DebugInfo()
         self.arch = arch
 
+    def __repr__(self):
+        return 'CodeObject of {} bytes'.format(self.byte_size)
+
     def has_symbol(self, name):
         """ Check if this object file has a symbol with name 'name' """
         return name in self.symbol_map
 
-    def find_symbol(self, name):
+    def get_symbol(self, name):
         return self.symbol_map[name]
 
     def add_symbol(self, name, value, section):
@@ -181,6 +173,17 @@ class ObjectFile:
         self.symbol_map[name] = sym
         self.symbols.append(sym)
         return sym
+
+    def get_symbol_value(self, name):
+        """ Lookup a symbol and determine its value """
+        symbol = self.get_symbol(name)
+        section = self.get_section(symbol.section)
+        return symbol.value + section.address
+
+    def del_symbol(self, name):
+        """ Remove a symbol with a given name """
+        sym = self.symbol_map.pop(name)
+        self.symbols.remove(sym)
 
     def add_relocation(self, sym_name, offset, typ, section):
         """ Add a relocation """
@@ -206,9 +209,9 @@ class ObjectFile:
         self.sections.append(section)
         self.section_map[section.name] = section
 
-    def get_section(self, name):
+    def get_section(self, name, create=False):
         """ Get or create a section with the given name """
-        if not self.has_section(name):
+        if (not self.has_section(name)) and create:
             self.add_section(Section(name))
         return self.section_map[name]
 
@@ -218,15 +221,6 @@ class ObjectFile:
     def add_image(self, image):
         self.images.append(image)
         self.image_map[image.name] = image
-
-    def get_symbol_value(self, name):
-        """ Lookup a symbol and determine its value """
-        symbol = self.find_symbol(name)
-        section = self.get_section(symbol.section)
-        return symbol.value + section.address
-
-    def __repr__(self):
-        return 'CodeObject of {} bytes'.format(self.byte_size)
 
     @property
     def byte_size(self):
@@ -240,7 +234,31 @@ class ObjectFile:
 
     def save(self, output_file):
         """ Save object file to a file like object """
+        self.polish()
         save_object(self, output_file)
+
+    def polish(self):
+        """ Cleanup an object file """
+        # fix debug info objects:
+        def fx(x):
+            if isinstance(x, str):
+                sym = self.get_symbol(x)
+                return sym.section, sym.value
+            else:
+                assert isinstance(x, tuple)
+                return x
+        for loc in self.debug_info.locations:
+            loc.address = fx(loc.address)
+        for func in self.debug_info.functions:
+            func.begin = fx(func.begin)
+            func.end = fx(func.end)
+        for var in self.debug_info.variables:
+            var.address = fx(var.address)
+
+        # remove local labels:
+        names = [s.name for s in self.symbols if s.name.startswith('.L')]
+        for name in names:
+            self.del_symbol(name)
 
 
 def save_object(obj, output_file):
@@ -334,10 +352,6 @@ def serialize(x):
         res['offset'] = hex(x.offset)
         res['type'] = x.typ
         res['section'] = x.section
-    # elif isinstance(x, Debug):
-    #    res['section'] = x.section
-    #    res['offset'] = hex(x.offset)
-    #    res['data'] = debuginfo.serialize(x.data)
     else:
         raise NotImplementedError(str(type(x)))
     return res
@@ -367,7 +381,4 @@ def deserialize(data):
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
     obj.debug_info = debuginfo.deserialize(data['debug'])
-    # for debug in data['debug']:
-    #    data = debuginfo.deserialize(debug['data'])
-    #    obj.add_debug(debug['section'], make_num(debug['offset']), data)
     return obj

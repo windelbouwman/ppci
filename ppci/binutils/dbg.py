@@ -10,6 +10,7 @@ import cmd
 import binascii
 from ..api import get_arch, fix_object
 from ..common import str2int
+from .. import version as ppci_version
 from .disasm import Disassembler
 from .outstream import RecordingOutputStream
 
@@ -47,7 +48,7 @@ class Debugger:
         self.state_event = SubscribleEvent()
         self.register_names = self.get_register_names()
         self.register_values = {rn: 0 for rn in self.register_names}
-        self.obj = None
+        self.debug_info = None
 
         # Subscribe to events:
         self.state_event.subscribe(self.on_halted)
@@ -74,11 +75,19 @@ class Debugger:
     def shutdown(self):
         pass
 
+    def get_possible_breakpoints(self, filename):
+        """ Return the rows in the file for which breakpoints can be set """
+        options = set()
+        for loc in self.debug_info.locations:
+            if loc.loc.filename == filename:
+                options.add(loc.loc.row)
+        return options
+
     def set_breakpoint(self, filename, row):
         self.logger.info('set breakpoint %s:%i', filename, row)
         address = self.find_address(filename, row)
         if address is None:
-            self.logger.warn('Could find address for breakpoint')
+            self.logger.warn('Could not find address for breakpoint')
         self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
@@ -113,16 +122,16 @@ class Debugger:
             adata = self.read_mem(image.location, len(vdata))
             assert vdata == adata
         self.logger.info('memory image validated!')
-        self.obj = obj
+        self.debug_info = obj.debug_info
 
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
-        if not self.obj:
+        if not self.debug_info:
             return
         pc = self.get_pc()
-        for debug in self.obj.debug_info.locations:
+        for debug in self.debug_info.locations:
             # print(debug)
-            addr = self.obj.get_section(debug.section).address + debug.offset
+            addr = debug.address
             if pc == addr:
                 print('MATCH', debug)
                 loc = debug.loc
@@ -130,14 +139,11 @@ class Debugger:
 
     def find_address(self, filename, row):
         """ Given a filename and a row, determine the address """
-        for debug in self.obj.debug_info.locations:
-            if not hasattr(debug.data, 'loc'):
-                continue
-            loc = debug.data.loc
+        for debug in self.debug_info.locations:
+            loc = debug.loc
             if loc.filename == filename and loc.row == row:
-                addr = self.obj.get_section(debug.section).address + debug.offset
-                return addr
-        self.logger.warn('Could find address for %s:%i', filename, row)
+                return debug.address
+        self.logger.warning('Could not find address for %s:%i', filename, row)
 
     # Registers:
     def get_register_names(self):
@@ -146,6 +152,10 @@ class Debugger:
     def get_register_values(self, registers):
         """ Get a dictionary of register values """
         return self.driver.get_registers(registers)
+
+    def get_registers(self):
+        names = self.get_register_names()
+        return self.get_register_values(names)
 
     def set_register(self, register, value):
         self.logger.info('Setting register {} to {}'.format(register, value))
@@ -245,12 +255,27 @@ class DebugCli(cmd.Cmd):
         """ Quit the debugger """
         return True
 
+    do_q = do_quit
+
+    def do_info(self, arg):
+        """ Show some info about the debugger """
+        print('Debugger:     ', self.debugger)
+        print('ppci version: ', ppci_version)
+        print('Architecture: ', self.debugger.arch)
+        print('Debug driver: ', self.debugger.driver)
+
     def do_run(self, arg):
-        """ Continue """
+        """ Continue the debugger """
         self.debugger.run()
 
     def do_step(self, arg):
-        """ Single step """
+        """ Single step the debugger """
+        self.debugger.step()
+
+    do_s = do_step
+
+    def do_stepi(self, arg):
+        """ Single instruction step the debugger """
         self.debugger.step()
 
     def do_stop(self, arg):
@@ -277,12 +302,24 @@ class DebugCli(cmd.Cmd):
     def do_regs(self, arg):
         """ Read registers """
         values = self.debugger.get_registers()
-        print('registers:', values)
+        for name, value in values.items():
+            print(name, ':', value)
 
     def do_setbrk(self, arg):
         """ Set a breakpoint """
-        pass
+        filename, row = arg.split(',')
+        self.debugger.set_breakpoint(filename, row)
 
     def do_clrbrk(self, arg):
-        """ Clear a breakpoint """
-        pass
+        """ Clear a breakpoint. Specify the location by "filename, row"
+            for example:
+            main.c, 5
+        """
+        filename, row = arg.split(',')
+        self.debugger.clear_breakpoint(filename, row)
+
+    def do_disasm(self, arg):
+        """ Print disassembly around current location """
+        instructions = self.debugger.get_disasm()
+        for instruction in instructions:
+            print(instruction)

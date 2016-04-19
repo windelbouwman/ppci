@@ -328,6 +328,7 @@ class SelectionGraphBuilder:
         output = sgnode.new_output(node.name)
         output.vreg = vreg
         self.add_map(node, output)
+        self.debug_db.map(node, vreg)
 
     def copy_phis_of_successors(self, ir_block):
         """ When a terminator instruction is encountered, handle the copy
