@@ -56,6 +56,9 @@ class Debugger:
         # Fire initial change:
         self.state_event.fire()
 
+    def __repr__(self):
+        return 'Debugger for {} using {}'.format(self.arch, self.driver)
+
     def on_halted(self):
         if self.is_halted:
             new_values = self.get_register_values(self.register_names)
@@ -123,6 +126,11 @@ class Debugger:
             assert vdata == adata
         self.logger.info('memory image validated!')
         self.debug_info = obj.debug_info
+        self.obj = obj
+
+    def calc_address(self, address):
+        section = self.obj.get_section(address.section)
+        return section.address + address.offset
 
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
@@ -131,7 +139,7 @@ class Debugger:
         pc = self.get_pc()
         for debug in self.debug_info.locations:
             # print(debug)
-            addr = debug.address
+            addr = self.calc_address(debug.address)
             if pc == addr:
                 print('MATCH', debug)
                 loc = debug.loc
@@ -142,7 +150,7 @@ class Debugger:
         for debug in self.debug_info.locations:
             loc = debug.loc
             if loc.filename == filename and loc.row == row:
-                return debug.address
+                return self.calc_address(debug.address)
         self.logger.warning('Could not find address for %s:%i', filename, row)
 
     # Registers:
@@ -205,6 +213,9 @@ class DebugDriver:
     def get_status(self):
         raise NotImplementedError()
 
+    def get_pc(self):
+        return 0
+
     def set_breakpoint(self, address):
         raise NotImplementedError()
 
@@ -261,8 +272,6 @@ class DebugCli(cmd.Cmd):
         """ Show some info about the debugger """
         print('Debugger:     ', self.debugger)
         print('ppci version: ', ppci_version)
-        print('Architecture: ', self.debugger.arch)
-        print('Debug driver: ', self.debugger.driver)
 
     def do_run(self, arg):
         """ Continue the debugger """

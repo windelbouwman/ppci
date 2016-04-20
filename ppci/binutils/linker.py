@@ -7,6 +7,7 @@ from .objectfile import ObjectFile, Image
 from ..common import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
 from .debuginfo import DebugLocation, DebugVariable, DebugFunction
+from .debuginfo import DebugAddress
 
 
 class Linker:
@@ -88,8 +89,9 @@ class Linker:
             # Merge debug info:
             if debug:
                 def adj(v):
-                    assert isinstance(v, tuple), str(v)
-                    return (v[0], offsets[v[0]] + v[1])
+                    assert isinstance(v, DebugAddress)
+                    return DebugAddress(
+                        v.section, offsets[v.section] + v.offset)
                 for debug_location in input_object.debug_info.locations:
                     dst.debug_info.add(DebugLocation(
                         debug_location.loc,

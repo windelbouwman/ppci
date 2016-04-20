@@ -243,9 +243,9 @@ class ObjectFile:
         def fx(x):
             if isinstance(x, str):
                 sym = self.get_symbol(x)
-                return sym.section, sym.value
+                return debuginfo.DebugAddress(sym.section, sym.value)
             else:
-                assert isinstance(x, tuple)
+                assert isinstance(x, debuginfo.DebugAddress)
                 return x
         for loc in self.debug_info.locations:
             loc.address = fx(loc.address)

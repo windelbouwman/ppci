@@ -28,7 +28,7 @@ from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
-from .binutils.debuginfo import DebugDb
+from .binutils.debuginfo import DebugDb, DebugAddress
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
@@ -379,8 +379,8 @@ def objcopy(obj, image_name, fmt, output_filename):
     """ Copy some parts of an object file to an output """
     fmts = ['bin', 'hex', 'elf', 'exe', 'ldb']
     if fmt not in fmts:
-        t = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
-        raise TaskError('Only {} formats supported'.format(t))
+        formats = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
+        raise TaskError('Only {} are supported'.format(formats))
 
     obj = fix_object(obj)
     if fmt == "bin":
@@ -418,8 +418,8 @@ def write_ldb(obj, output_file):
           x32-debug/ex2.dbg
     """
     def fx(address):
-        assert isinstance(address, tuple)
-        return obj.get_section(address[0]).address + address[1]
+        assert isinstance(address, DebugAddress)
+        return obj.get_section(address.section).address + address.offset
     debug_info = obj.debug_info
     for debug_location in debug_info.locations:
         filename = debug_location.loc.filename

@@ -1,6 +1,5 @@
 import io
 import unittest
-from ppci.arch.example import SimpleTarget
 from ppci.binutils.dbg import Debugger, DummyDebugDriver
 from ppci.api import c3c, link
 from ppci.api import write_ldb
@@ -8,13 +7,30 @@ from ppci.api import write_ldb
 
 class DebuggerTestCase(unittest.TestCase):
     def setUp(self):
-        self.debugger = Debugger(SimpleTarget(), DummyDebugDriver())
+        self.debugger = Debugger('arm', DummyDebugDriver())
 
     def test_stop(self):
         self.debugger.stop()
 
     def test_step(self):
         self.debugger.step()
+
+    def test_source_mappings(self):
+        src = """
+        module x;
+        var int Xa;
+        function int sum(int a, int b)
+        {
+            var int sum = 0;
+            sum = sum + a + b + Xa;
+            return a +sum+ b + 1234;
+        }
+        """
+        obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
+        self.debugger.load_symbols(obj)
+        self.debugger.find_pc()
+        addr = self.debugger.find_address('', 7)
+        self.assertTrue(addr is not None)
 
 
 class LdbFormatTestCase(unittest.TestCase):
@@ -77,9 +93,6 @@ class LinkWithDebugTestCase(unittest.TestCase):
         self.assertTrue(obj.debug_info.locations)
         self.assertTrue(obj.debug_info.functions)
         self.assertTrue(obj.debug_info.variables)
-        print(obj.debug_info.functions)
-        print(obj.images)
-        print(obj.sections)
 
 
 if __name__ == '__main__':

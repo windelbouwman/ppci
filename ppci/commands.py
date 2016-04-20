@@ -239,14 +239,15 @@ link_parser.add_argument(
 link_parser.add_argument(
     '--layout', '-L', help='memory layout', required=True,
     type=argparse.FileType('r'), metavar='layout-file')
+link_parser.add_argument(
+    '-g', help='retain debug information', action='store_true', default=False)
 
 
 def link(args=None):
     """ Run asm from command line """
     args = link_parser.parse_args(args)
     with LogSetup(args):
-        march = get_arch_from_args(args)
-        obj = api.link(args.obj, args.layout, march)
+        obj = api.link(args.obj, args.layout, debug=args.g)
         obj.save(args.output)
         args.output.close()
 

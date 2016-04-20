@@ -198,15 +198,15 @@ class DebugFunction(DebugBaseInfo):
 
 class DebugAddress:
     def __init__(self, section, offset):
-        pass
+        self.section = section
+        self.offset = offset
 
 
 class DebugLocation(DebugBaseInfo):
     """ Location information """
-    def __init__(self, loc, address=''):
+    def __init__(self, loc, address=None):
         super().__init__()
         assert isinstance(loc, SourceLocation)
-        # TODO: think of other namings
         self.loc = loc
         self.address = address
 
@@ -215,7 +215,7 @@ class DebugLocation(DebugBaseInfo):
 
 
 class DebugVariable(DebugBaseInfo):
-    def __init__(self, name, typ, loc, scope='global', address=''):
+    def __init__(self, name, typ, loc, scope='global', address=None):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         assert isinstance(typ, DebugType), str(typ)
@@ -244,12 +244,12 @@ def read_source_location(x):
 
 
 def write_address(address):
-    assert isinstance(address, tuple)
-    return {'section': address[0], 'offset': address[1]}
+    assert isinstance(address, DebugAddress)
+    return {'section': address.section, 'offset': address.offset}
 
 
 def read_address(x):
-    return (x['section'], x['offset'])
+    return DebugAddress(x['section'], x['offset'])
 
 
 def serialize(x):
