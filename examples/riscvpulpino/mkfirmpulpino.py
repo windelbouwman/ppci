@@ -5,9 +5,12 @@ from ppci.utils.reporting import HtmlReportGenerator, complete_report
 report_generator = HtmlReportGenerator(open("report.html", 'w'))
 with complete_report(report_generator) as reporter:
     
-    o1 = asm ("startercode.asm", "riscv")
-    o2 = c3c(["bsp.c3", "io.c3", "main.c3"], [], "riscv",reporter=reporter)
-    obj = link([o1,o2], "firmware.mmap", "riscv", use_runtime=False,reporter=reporter)
+    o1 = asm("startercode.asm", "riscv")
+    o2 = c3c(["bsp.c3", "io.c3", "main.c3"], [], "riscv", reporter=reporter, debug=True)
+    obj = link([o1,o2], "firmware.mmap", "riscv", use_runtime=False,reporter=reporter, debug=True)
+    o1f = open("samples.txt","w")
+    obj.save(o1f)
+    o1f.close()
     objcopy(obj, "flash", "elf", "samples.elf")
     objcopy(obj, "flash", "bin", "flash.bin")
     objcopy(obj, "flash", "ldb", "debug.txt")

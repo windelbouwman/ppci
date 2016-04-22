@@ -7,7 +7,7 @@ from ..arch import Architecture, Label, VCall
 from .instructions import isa, Mov2
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister
-from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12
+from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
 from .registers import R13, R14, R15, R16, R17, R28, LR
 from ...ir import i8, i32, ptr
 from ..data_instructions import data_isa
@@ -51,6 +51,7 @@ class RiscvArch(Architecture):
             self.isa = isa + rvcisa + data_isa
         else:
             self.isa = isa + data_isa
+        self.registers.extend(all_registers)
         self.FrameClass = RiscvFrame
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
