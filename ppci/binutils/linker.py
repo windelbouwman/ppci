@@ -19,10 +19,10 @@ class Linker:
         self.arch = arch
         self.reporter = reporter
 
-    def link(self, input_objects, layout, partial_link=False, debug=False):
+    def link(self, input_objects, layout=None, partial_link=False,
+             debug=False):
         """ Link together the given object files using the layout """
         assert isinstance(input_objects, (list, tuple))
-        assert isinstance(layout, Layout)
 
         self.reporter.heading(2, 'Linking')
 
@@ -37,7 +37,9 @@ class Linker:
         self.merge_objects(input_objects, dst, debug)
 
         # Apply layout rules:
-        self.layout_sections(dst, layout)
+        if layout:
+            assert isinstance(layout, Layout)
+            self.layout_sections(dst, layout)
 
         if not partial_link:
             self.do_relocations(dst)

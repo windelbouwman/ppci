@@ -609,14 +609,14 @@ class Mrc(McrBase):
 
 
 # Instruction selection patterns:
-@arm_isa.pattern('stm', 'STRI32(reg, reg)', cost=2)
+@arm_isa.pattern('stm', 'STRI32(reg, reg)', size=4)
 def pattern_str32(self, tree, c0, c1):
     self.emit(Str1(c1, c0, 0))
 
 
 @arm_isa.pattern(
     'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
-    cost=2,
+    size=4,
     condition=lambda t: t.children[0].children[1].value < 256)
 def pattern_str32_1(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
@@ -625,18 +625,18 @@ def pattern_str32_1(context, tree, c0, c1):
     context.emit(Str1(c1, c0, offset))
 
 
-@arm_isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
+@arm_isa.pattern('stm', 'STRI8(reg, reg)', size=4)
 def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
 
-@arm_isa.pattern('reg', 'MOVI32(reg)', cost=2)
+@arm_isa.pattern('reg', 'MOVI32(reg)', size=4)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
-@arm_isa.pattern('reg', 'MOVI8(reg)', cost=2)
+@arm_isa.pattern('reg', 'MOVI8(reg)', size=4)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -648,17 +648,17 @@ def pattern_jmp(context, tree):
     context.emit(B(tgt.name, jumps=[tgt]))
 
 
-@arm_isa.pattern('reg', 'REGI32', cost=0)
+@arm_isa.pattern('reg', 'REGI32', size=0, cycles=0, energy=0)
 def pattern_reg32(context, tree):
     return tree.value
 
 
-@arm_isa.pattern('reg', 'REGI8', cost=0)
+@arm_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
 def pattern_reg8(context, tree):
     return tree.value
 
 
-@arm_isa.pattern('reg', 'CONSTI32', cost=4)
+@arm_isa.pattern('reg', 'CONSTI32', size=8)
 def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -666,7 +666,7 @@ def pattern_const32(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
+@arm_isa.pattern('reg', 'CONSTI32', size=4, condition=lambda t: t.value < 256)
 def pattern_const32_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -676,7 +676,7 @@ def pattern_const32_1(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'CONSTI8', cost=2, condition=lambda t: t.value < 256)
+@arm_isa.pattern('reg', 'CONSTI8', size=4, condition=lambda t: t.value < 256)
 def pattern_const8_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -704,7 +704,7 @@ def pattern_add32(context, tree, c0, c1):
     return d
 
 
-@arm_isa.pattern('reg', 'ADDI8(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add1(d, c0, c1))
@@ -712,7 +712,7 @@ def pattern_add8(context, tree, c0, c1):
 
 
 @arm_isa.pattern(
-    'reg', 'ADDI32(reg, CONSTI32)', cost=2,
+    'reg', 'ADDI32(reg, CONSTI32)', size=4,
     condition=lambda t: t.children[1].value < 256)
 def pattern_add32_1(context, tree, c0):
     d = context.new_reg(ArmRegister)
@@ -722,7 +722,7 @@ def pattern_add32_1(context, tree, c0):
 
 
 @arm_isa.pattern(
-    'reg', 'ADDI32(CONSTI32, reg)', cost=2,
+    'reg', 'ADDI32(CONSTI32, reg)', size=4,
     condition=lambda t: t.children[0].value < 256)
 def pattern_add32_2(context, tree, c0):
     d = context.new_reg(ArmRegister)
@@ -731,14 +731,14 @@ def pattern_add32_2(context, tree, c0):
     return d
 
 
-@arm_isa.pattern('reg', 'SUBI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Sub1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'SUBI8(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'SUBI8(reg, reg)', size=4)
 def pattern_sub8(context, tree, c0, c1):
     # TODO: temporary fix this with an 32 bits sub
     d = context.new_reg(ArmRegister)
@@ -746,7 +746,7 @@ def pattern_sub8(context, tree, c0, c1):
     return d
 
 
-@arm_isa.pattern('reg', 'LABEL', cost=4)
+@arm_isa.pattern('reg', 'LABEL', size=8)
 def pattern_label(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -754,63 +754,63 @@ def pattern_label(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'LDRI8(reg)', cost=2)
+@arm_isa.pattern('reg', 'LDRI8(reg)', size=4)
 def pattern_ld8(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.emit(Ldrb(d, c0, 0))
     return d
 
 
-@arm_isa.pattern('reg', 'LDRI32(reg)', cost=2)
+@arm_isa.pattern('reg', 'LDRI32(reg)', size=4)
 def pattern_ld32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.emit(Ldr1(d, c0, 0))
     return d
 
 
-@arm_isa.pattern('reg', 'CALL', cost=2)
+@arm_isa.pattern('reg', 'CALL')
 def pattern_call(context, tree):
     label, arg_types, ret_type, args, res_var = tree.value
     context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
-@arm_isa.pattern('reg', 'ANDI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(And1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'ORI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Orr1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'SHRI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
 def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsr1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'SHLI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsl1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'MULI32(reg, reg)', cost=10)
+@arm_isa.pattern('reg', 'MULI32(reg, reg)', size=4)
 def pattern_mul32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Mul1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', cost=2)
+@arm_isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', size=4)
 def pattern_ldr32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[0].children[1].value
@@ -819,7 +819,7 @@ def pattern_ldr32(context, tree, c0):
     return d
 
 
-@arm_isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
+@arm_isa.pattern('reg', 'DIVI32(reg, reg)')
 def pattern_div32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
@@ -827,7 +827,7 @@ def pattern_div32(context, tree, c0, c1):
     return d
 
 
-@arm_isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
+@arm_isa.pattern('reg', 'REMI32(reg, reg)')
 def pattern_rem32(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(ArmRegister)
@@ -837,7 +837,7 @@ def pattern_rem32(context, tree, c0, c1):
     return d2
 
 
-@arm_isa.pattern('reg', 'XORI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
 def pattern_xor32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Eor1(d, c0, c1))
@@ -849,14 +849,14 @@ def pattern_xor32(context, tree, c0, c1):
 isa_with_div = Isa()
 
 
-@isa_with_div.pattern('reg', 'DIVI32(reg, reg)', cost=10)
+@isa_with_div.pattern('reg', 'DIVI32(reg, reg)', size=4)
 def pattern_23(self, tree, c0, c1):
     d = self.new_reg(ArmRegister)
     self.emit(Udiv, dst=[d], src=[c0, c1])
     return d
 
 
-@isa_with_div.pattern('reg', 'REMI32(reg, reg)', cost=10)
+@isa_with_div.pattern('reg', 'REMI32(reg, reg)', size=4)
 def pattern_24(self, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = self.new_reg(ArmRegister)

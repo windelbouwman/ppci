@@ -183,17 +183,21 @@ class DebugFormalParameter:
 
 class DebugFunction(DebugBaseInfo):
     """ Info about a function """
-    def __init__(self, name, loc, begin=0, end=0):
+    def __init__(self, name, loc, begin=0, end=0, variables=()):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         self.name = name
         self.loc = loc
         self.begin = begin
         self.end = end
+        self.variables = list(variables)
 
     def __repr__(self):
         return 'DBGFNC[ {} {} begin={}, end={} ]'.format(
             self.name, self.loc, self.begin, self.end)
+
+    def add_variable(self, variable):
+        self.variables.append(variable)
 
 
 class DebugAddress:
@@ -264,7 +268,8 @@ def serialize(x):
             'source': write_source_location(x.loc),
             'function_name': x.name,
             'begin': write_address(x.begin),
-            'end': write_address(x.end)
+            'end': write_address(x.end),
+            'variables': [],
         }
     elif isinstance(x, DebugVariable):
         return {
@@ -308,14 +313,14 @@ def serialize(x):
         }
     elif isinstance(x, DebugInfo):
         locations = list(map(serialize, x.locations))
-        functions = list(map(serialize, x.functions))
         types = list(map(serialize, x.types))
         variables = list(map(serialize, x.variables))
+        functions = list(map(serialize, x.functions))
         return {
             'locations': locations,
-            'functions': functions,
             'types': types,
             'variables': variables,
+            'functions': functions,
         }
     else:
         raise NotImplementedError(str(type(x)))
@@ -329,13 +334,6 @@ def deserialize(x):
         address = read_address(l['address'])
         dl = DebugLocation(loc, address=address)
         debug_info.add(dl)
-    for f in x['functions']:
-        loc = read_source_location(f['source'])
-        begin = read_address(f['begin'])
-        end = read_address(f['end'])
-        fdi = DebugFunction(
-            f['function_name'], loc, begin=begin, end=end)
-        debug_info.add(fdi)
     for t in x['types']:
         kind = t['kind']
         name = t['name']
@@ -354,10 +352,18 @@ def deserialize(x):
             raise NotImplementedError(kind)
         debug_info.add(dt)
     for v in x['variables']:
+        name = v['name']
         loc = read_source_location(v['source'])
         typ = debug_info.get_type(v['type'])
-        dv = DebugVariable(
-            v['name'], typ, loc,
-            scope=v['scope'], address=read_address(v['address']))
+        address = read_address(v['address'])
+        dv = DebugVariable(name, typ, loc, scope=v['scope'], address=address)
         debug_info.add(dv)
+    for f in x['functions']:
+        loc = read_source_location(f['source'])
+        begin = read_address(f['begin'])
+        end = read_address(f['end'])
+        variables = f['variables']
+        fdi = DebugFunction(
+            f['function_name'], loc, begin=begin, end=end, variables=variables)
+        debug_info.add(fdi)
     return debug_info

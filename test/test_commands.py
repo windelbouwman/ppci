@@ -158,8 +158,7 @@ class LinkCommandTestCase(unittest.TestCase):
         # TODO: this should raise an error? combining thumb with arm code?
         c3c(['-m', 'arm', '--mtune', 'thumb', '-o', obj2] + c3_srcs)
         link(
-            ['-o', obj3, '-m', 'arm', '--mtune',
-             'thumb', '-L', mmap, obj1, obj2])
+            ['-o', obj3, '-L', mmap, obj1, obj2])
 
 
 class HexutilTestCase(unittest.TestCase):

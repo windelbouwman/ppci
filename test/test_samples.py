@@ -695,9 +695,8 @@ class BuildMixin:
             else:
                 raise Exception('language not implemented')
             obj = link(
-                objs,
-                io.StringIO(self.arch_mmap),
-                self.march, use_runtime=True, reporter=reporter)
+                objs, layout=io.StringIO(self.arch_mmap),
+                use_runtime=True, reporter=reporter)
 
         # Save object:
         obj_file = base_filename + '.oj'
@@ -1025,7 +1024,7 @@ class LinuxTests(unittest.TestCase):
         obj = asm(src, 'x86_64')
         handle, exe = mkstemp()
         os.close(handle)
-        obj2 = link([obj], io.StringIO(mmap), 'x86_64')
+        obj2 = link([obj], layout=io.StringIO(mmap))
         objcopy(obj2, 'prog', 'elf', exe)
         if hasattr(subprocess, 'TimeoutExpired'):
             returncode = subprocess.call(exe, timeout=10)

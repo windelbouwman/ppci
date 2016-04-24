@@ -142,8 +142,8 @@ class CodeGenerator:
             body.
         """
         ir_function = self.builder.new_function(function.name)
-        fdi = DebugFunction(function.name, function.loc)
-        self.debug_db.enter(ir_function, fdi)
+        dfi = DebugFunction(function.name, function.loc)
+        self.debug_db.enter(ir_function, dfi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.emit(ir.Jump(first_block))
@@ -194,6 +194,7 @@ class CodeGenerator:
             dv = DebugVariable(sym.name, dbg_typ, variable.loc)
             dv.scope = 'local'
             self.debug_db.enter(variable, dv)
+            dfi.add_variable(dv)
 
         self.gen_stmt(function.body)
         self.emit(ir.Jump(ir_function.epilog))

@@ -160,8 +160,9 @@ class InstructionSelector1:
 
         # Add all isa patterns:
         for pattern in isa.patterns:
+            cost = pattern.size + pattern.cycles + pattern.energy
             self.sys.add_rule(
-                pattern.non_term, pattern.tree, pattern.cost,
+                pattern.non_term, pattern.tree, cost,
                 pattern.condition, pattern.method)
 
         self.sys.check()

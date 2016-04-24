@@ -223,9 +223,11 @@ def optimize(ir_module, reporter=None, debug_db=None):
 
 
 def ir_to_object(
-        ir_modules, march, debug_db, reporter=DummyReportGenerator()):
+        ir_modules, march, debug_db, reporter=None, opt=None):
     """ Translate the given list of IR-modules into object code for the given
     architecture """
+    if not reporter:
+        reporter = DummyReportGenerator()
     march = get_arch(march)
     code_generator = CodeGenerator(march, debug_db)
     verifier = Verifier()
@@ -245,19 +247,23 @@ def ir_to_object(
     return obj
 
 
-def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
+def ir_to_python(ir_modules, f, reporter=None):
     """ Convert ir-code to python code """
-    generator = IrToPython()
-    generator.header(f)
+    if not reporter:
+        reporter = DummyReportGenerator()
+    generator = IrToPython(f)
+    generator.header()
     for ir_module in ir_modules:
         optimize(ir_module, reporter=reporter)
         reporter.message('Optimized module:')
         reporter.dump_ir(ir_module)
-        generator.generate(ir_module, f)
+        generator.generate(ir_module)
 
 
-def cc(source, march, reporter=DummyReportGenerator()):
+def cc(source, march, reporter=None):
     """ C compiler. compiles a single source file into an object file """
+    if not reporter:
+        reporter = DummyReportGenerator()
     march = get_arch(march)
     cbuilder = CBuilder(march)
     cbuilder.build(source)
@@ -355,8 +361,6 @@ def link(
 
     if layout:
         layout = fix_layout(layout)
-    else:
-        layout = Layout()
 
     if arch:
         warnings.warn('No need to give arch here!', DeprecationWarning)

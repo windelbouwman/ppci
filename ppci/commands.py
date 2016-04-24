@@ -134,6 +134,10 @@ c3c_parser.add_argument(
     help='include file', default=[])
 c3c_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
+c3c_parser.add_argument(
+    '-g', help='create debug information', action='store_true', default=False)
+c3c_parser.add_argument(
+    '-O', help='optimize code', action='store_true', default=False)
 
 
 def c3c(args=None):
@@ -142,7 +146,7 @@ def c3c(args=None):
     with LogSetup(args):
         # Compile sources:
         march = get_arch_from_args(args)
-        obj = api.c3c(args.sources, args.include, march)
+        obj = api.c3c(args.sources, args.include, march, debug=args.g)
 
         # Write object file to disk:
         obj.save(args.output)
@@ -232,13 +236,16 @@ Linker. Use the linker to combine several object files and a memory layout
 to produce another resulting object file with images.
 """
 link_parser = argparse.ArgumentParser(
-    description=link_description, parents=[base_parser, base2_parser])
+    description=link_description, parents=[base_parser])
 link_parser.add_argument(
     'obj', type=argparse.FileType('r'), nargs='+',
     help='the object to link')
 link_parser.add_argument(
-    '--layout', '-L', help='memory layout', required=True,
+    '--layout', '-L', help='memory layout', default=None,
     type=argparse.FileType('r'), metavar='layout-file')
+link_parser.add_argument(
+    '--output', '-o', help='output file', metavar='output-file',
+    type=argparse.FileType('w'), required=True, action=OnceAction)
 link_parser.add_argument(
     '-g', help='retain debug information', action='store_true', default=False)
 
@@ -247,7 +254,7 @@ def link(args=None):
     """ Run asm from command line """
     args = link_parser.parse_args(args)
     with LogSetup(args):
-        obj = api.link(args.obj, args.layout, debug=args.g)
+        obj = api.link(args.obj, layout=args.layout, debug=args.g)
         obj.save(args.output)
         args.output.close()
 

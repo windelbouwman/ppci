@@ -12,8 +12,8 @@ def literal_label(lit):
 
 class IrToPython:
     """ Can generate python script from ir-code """
-    def __init__(self):
-        self.output_file = None
+    def __init__(self, output_file):
+        self.output_file = output_file
         self.stack_size = 0
 
     def print(self, level, *args):
@@ -21,8 +21,7 @@ class IrToPython:
         print('    '*level, end='', file=self.output_file)
         print(*args, file=self.output_file)
 
-    def header(self, output_file):
-        self.output_file = output_file
+    def header(self):
         self.print(0, 'import struct')
         self.print(0, '')
         self.print(0, 'mem = bytearray()')
@@ -35,9 +34,8 @@ class IrToPython:
         self.print(1, 'return v')
         self.print(0, '')
 
-    def generate(self, ir_mod, output_file):
+    def generate(self, ir_mod):
         """ Write ir-code to file f """
-        self.output_file = output_file
         self.mod_name = ir_mod.name
         self.literals = []
         self.print(0)

@@ -9,7 +9,8 @@ from ..utils.tree import Tree, from_string
 
 
 Pattern = namedtuple(
-    'Pattern', ['non_term', 'tree', 'cost', 'condition', 'method'])
+    'Pattern',
+    ['non_term', 'tree', 'size', 'cycles', 'energy', 'condition', 'method'])
 
 
 class Register:
@@ -141,28 +142,28 @@ class Isa:
         self.patterns.append(pattern)
 
     def pattern(
-            self, non_term, tree, cost=0, condition=None,
-            size=0, cycles=0, power=0):
+            self, non_term, tree, cost=None, condition=None,
+            size=1, cycles=1, energy=1):
         """
             Decorator function that adds a pattern.
         """
-        if cost:
+        if cost is not None:
             warnings.warn(
                 'cost is deprecated, please use size, cycles and power',
                 DeprecationWarning)
-        else:
-            cost = size + cycles + power
+            size = cost
+            cycles = cost
+            energy = cost
         if isinstance(tree, str):
             tree = from_string(tree)
 
         assert isinstance(tree, Tree)
-        assert isinstance(cost, int)
+        assert isinstance(size, int)
 
         def wrapper(function):
-            """
-                Wrapper for function that does not modify function
-            """
-            pat = Pattern(non_term, tree, cost, condition, function)
+            """ Wrapper that add the function with the paramaters """
+            pat = Pattern(
+                non_term, tree, size, cycles, energy, condition, function)
             self.register_pattern(pat)
             return function
         return wrapper
