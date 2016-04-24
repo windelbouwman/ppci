@@ -14,3 +14,8 @@ reset_handler:
 lui sp, 0x108000 			
 jal ra, main_main
 sbreak
+local_loop:
+j local_loop
+
+	
+	

@@ -69,6 +69,11 @@ class Debugger:
         self.logger.info('run')
         self.driver.run()
         self.state_event.fire()
+        
+    def restart(self):
+        self.logger.info('run')
+        self.driver.restart()
+        self.state_event.fire()
 
     def stop(self):
         self.logger.info('stop')
@@ -95,6 +100,10 @@ class Debugger:
 
     def clear_breakpoint(self, filename, row):
         self.logger.info('clear breakpoint %s:%i', filename, row)
+        address = self.find_address(filename, row)
+        if address is None:
+            self.logger.warn('Could not find address for breakpoint')
+        self.driver.clear_breakpoint(address)
 
     def step(self):
         self.logger.info('step')
@@ -123,7 +132,7 @@ class Debugger:
         for image in obj.images:
             vdata = image.data
             adata = self.read_mem(image.location, len(vdata))
-            assert vdata == adata
+            #assert vdata == adata
         self.logger.info('memory image validated!')
         self.debug_info = obj.debug_info
         self.obj = obj
@@ -184,8 +193,8 @@ class Debugger:
     def get_disasm(self):
         """ Get instructions around program counter """
         loc = self.get_pc()
-        address = loc - 10
-        data = self.read_mem(address, 20)
+        address = loc - 8
+        data = self.read_mem(address, 16)
         instructions = []
         outs = RecordingOutputStream(instructions)
         self.disassembler.disasm(data, outs, address=address)
@@ -230,6 +239,9 @@ class DummyDebugDriver(DebugDriver):
 
     def run(self):
         self.status = RUNNING
+    
+    def restart(self):
+        self.status = RUNNING
 
     def step(self):
         pass
@@ -244,6 +256,9 @@ class DummyDebugDriver(DebugDriver):
         return {r: 0 for r in registers}
 
     def set_breakpoint(self, address):
+        pass
+        
+    def clear_breakpoint(self, address):
         pass
 
     def read_mem(self, address, size):
@@ -290,9 +305,13 @@ class DebugCli(cmd.Cmd):
     def do_stop(self, arg):
         """ Stop the running program """
         self.debugger.stop()
+        
+    def do_restart(self, arg):
+        """ Restart the running program """
+        self.debugger.restart()
 
     def do_read(self, arg):
-        """ Read data from memory """
+        """ Read data from memory: read address,length"""
         x = arg.split(',')
         address = str2int(x[0])
         size = str2int(x[1])
@@ -301,7 +320,7 @@ class DebugCli(cmd.Cmd):
         print('Data @ 0x{:016X}: {}'.format(address, data))
 
     def do_write(self, arg):
-        """ Write data to memory """
+        """ Write data to memory: write address,hexdata """
         x = arg.split(',')
         address = str2int(x[0])
         data = x[1]
@@ -315,8 +334,9 @@ class DebugCli(cmd.Cmd):
             print(name, ':', value)
 
     def do_setbrk(self, arg):
-        """ Set a breakpoint """
+        """ Set a breakpoint: setbrk filename, row """
         filename, row = arg.split(',')
+        row=str2int(row)
         self.debugger.set_breakpoint(filename, row)
 
     def do_clrbrk(self, arg):
@@ -325,6 +345,7 @@ class DebugCli(cmd.Cmd):
             main.c, 5
         """
         filename, row = arg.split(',')
+        row=str2int(row)
         self.debugger.clear_breakpoint(filename, row)
 
     def do_disasm(self, arg):
