@@ -117,13 +117,13 @@ class StructField:
 
 class StructureType(Type):
     """ Struct type consisting of several named members """
-    def __init__(self, mems):
-        self.mems = mems
-        assert all(isinstance(mem, StructField) for mem in mems)
+    def __init__(self, fields):
+        self.fields = fields
+        assert all(isinstance(mem, StructField) for mem in fields)
 
     def has_field(self, name):
         """ Check if the struct type has a member with name """
-        for mem in self.mems:
+        for mem in self.fields:
             if name == mem.name:
                 return True
         return False
@@ -138,7 +138,7 @@ class StructureType(Type):
 
     def find_field(self, name):
         """ Looks up a field in the struct type """
-        for mem in self.mems:
+        for mem in self.fields:
             if name == mem.name:
                 return mem
         raise KeyError(name)

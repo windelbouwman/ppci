@@ -71,6 +71,7 @@ class CodeGenerator:
 
     def gen_globals(self, module, context):
         """ Generate global variables and modules """
+        self.context = context
         ir_module = ir.Module(module.name)
         context.var_map[module] = ir_module
 
@@ -83,7 +84,7 @@ class CodeGenerator:
             ir_module.add_variable(ir_var)
 
             # Create debug infos:
-            dbg_typ = self.register_debug_type(context, var.typ)
+            dbg_typ = self.get_debug_type(var.typ)
             dv = DebugVariable(var.name, dbg_typ, var.loc)
             dv.scope = 'global'
             self.debug_db.enter(ir_var, dv)
@@ -98,10 +99,10 @@ class CodeGenerator:
             self.debug_db.enter(instruction, DebugLocation(loc))
         return instruction
 
-    def register_debug_type(self, context, typ):
-        """ Register type debug info in the debug information """
+    def get_debug_type(self, typ):
+        """ Get or create debug type info in the debug information """
         # Lookup the type:
-        typ = context.the_type(typ)
+        typ = self.context.the_type(typ)
 
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
@@ -109,26 +110,31 @@ class CodeGenerator:
         # print(typ)
         name = 'type' + str(id(typ))
         if isinstance(typ, ast.BaseType):
-            dbg_typ = DebugBaseType(typ.name, context.size_of(typ), 1)
+            dbg_typ = DebugBaseType(typ.name, self.context.size_of(typ), 1)
+            self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.PointerType):
-            ptype = self.register_debug_type(context, typ.ptype)
+            ptype = self.get_debug_type(typ.ptype)
             dbg_typ = DebugPointerType(name, ptype)
+            self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.StructureType):
             # context.check_type(typ)
             dbg_typ = DebugStructType(name)
-            for field in typ.mems:
-                # offset = 0 # field.offset
-                # field_typ = self.register_debug_type(context, field.typ)
-                # dbg_typ.add_field(field.name, field_typ, offset)
-                pass
-                # TODO!
+            self.context.check_type(typ)
+            self.debug_db.enter(typ, dbg_typ)
+            for field in typ.fields:
+                offset = field.offset
+                field_typ = self.get_debug_type(field.typ)
+                dbg_typ.add_field(field.name, field_typ, offset)
         elif isinstance(typ, ast.ArrayType):
-            et = self.register_debug_type(context, typ.element_type)
-            size = context.eval_const(typ.size)
+            et = self.get_debug_type(typ.element_type)
+            if isinstance(typ.size, int):
+                size = typ.size
+            else:
+                size = self.context.eval_const(typ.size)
             dbg_typ = DebugArrayType(name, et, size)
+            self.debug_db.enter(typ, dbg_typ)
         else:
             raise NotImplementedError(str(typ))
-        self.debug_db.enter(typ, dbg_typ)
         return dbg_typ
 
     def error(self, msg, loc=None):
@@ -163,8 +169,8 @@ class CodeGenerator:
             param_map[param] = ir_parameter
 
             # Debug info:
-            dbg_typ = self.register_debug_type(self.context, param.typ)
-            #self.debug_info.enter(ir_parameter, DebugVariable(
+            dbg_typ = self.get_debug_type(param.typ)
+            # self.debug_info.enter(ir_parameter, DebugVariable(
             #    param.name, dbg_typ, param.loc))
             # TODO: do something with parameters
 
@@ -190,7 +196,7 @@ class CodeGenerator:
             self.context.var_map[sym] = variable
 
             # Debug info:
-            dbg_typ = self.register_debug_type(self.context, sym.typ)
+            dbg_typ = self.get_debug_type(sym.typ)
             dv = DebugVariable(sym.name, dbg_typ, variable.loc)
             dv.scope = 'local'
             self.debug_db.enter(variable, dv)

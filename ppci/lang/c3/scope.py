@@ -197,7 +197,7 @@ class Context:
             ir-code, to check for types, and then evaluating this code """
 
         # TODO: check types!!
-        assert isinstance(expr, ast.Expression)
+        assert isinstance(expr, ast.Expression), str(expr) + str(type(expr))
         if isinstance(expr, ast.Literal):
             return expr.val
         elif isinstance(expr, ast.Binop):
@@ -296,7 +296,7 @@ class Context:
         if isinstance(typ, ast.BaseType):
             return typ.byte_size
         elif isinstance(typ, ast.StructureType):
-            return sum(self.size_of(mem.typ) for mem in typ.mems)
+            return sum(self.size_of(mem.typ) for mem in typ.fields)
         elif isinstance(typ, ast.ArrayType):
             if isinstance(typ.size, ast.Expression):
                 num = self.eval_const(typ.size)
@@ -330,10 +330,10 @@ class Context:
                 # equivalence:
                 return self.equal_types(a.ptype, b.ptype, byname=True)
             elif isinstance(a, ast.StructureType):
-                if len(a.mems) != len(b.mems):
+                if len(a.fields) != len(b.fields):
                     return False
                 return all(self.equal_types(am.typ, bm.typ) for am, bm in
-                           zip(a.mems, b.mems))
+                           zip(a.fields, b.fields))
             elif isinstance(a, ast.ArrayType):
                 return self.equal_types(a.element_type, b.element_type)
             elif isinstance(a, ast.DefinedType):
@@ -372,7 +372,7 @@ class Context:
             # Setup offsets of fields. Is this the right place?:
             # TODO: move this struct offset calculation.
             offset = 0
-            for struct_member in t.mems:
+            for struct_member in t.fields:
                 self.check_type(struct_member.typ, first=False)
                 struct_member.offset = offset
                 offset = offset + self.size_of(struct_member.typ)

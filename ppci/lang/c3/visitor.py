@@ -87,7 +87,7 @@ class Visitor:
         elif isinstance(node, ast.PointerType):
             self.do(node.ptype)
         elif isinstance(node, ast.StructureType):
-            for member in node.mems:
+            for member in node.fields:
                 self.do(member.typ)
         elif isinstance(node, ast.ArrayType):
             self.do(node.element_type)

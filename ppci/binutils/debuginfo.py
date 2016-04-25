@@ -103,7 +103,6 @@ class DebugInfo:
         return name in self.types_map
 
     def add_variable(self, variable):
-        # print('var', name, typ)
         self.variables.append(variable)
 
 
@@ -264,12 +263,19 @@ def serialize(x):
             'address': write_address(x.address),
         }
     elif isinstance(x, DebugFunction):
+        variables = []
+        for v in x.variables:
+            variables.append({
+                'source': write_source_location(v.loc),
+                'name': v.name,
+                'type': v.typ.name,
+            })
         return {
             'source': write_source_location(x.loc),
             'function_name': x.name,
             'begin': write_address(x.begin),
             'end': write_address(x.end),
-            'variables': [],
+            'variables': variables,
         }
     elif isinstance(x, DebugVariable):
         return {
@@ -312,7 +318,7 @@ def serialize(x):
             'pointed_type': x.pointed_type.name,
         }
     elif isinstance(x, DebugInfo):
-        locations = list(map(serialize, x.locations))
+        locations = [serialize(l) for l in x.locations]
         types = list(map(serialize, x.types))
         variables = list(map(serialize, x.variables))
         functions = list(map(serialize, x.functions))
@@ -362,7 +368,13 @@ def deserialize(x):
         loc = read_source_location(f['source'])
         begin = read_address(f['begin'])
         end = read_address(f['end'])
-        variables = f['variables']
+        variables = []
+        for v in f['variables']:
+            name = v['name']
+            loc = read_source_location(v['source'])
+            typ = debug_info.get_type(v['type'])
+            dv = DebugVariable(name, typ, loc)
+            variables.append(dv)
         fdi = DebugFunction(
             f['function_name'], loc, begin=begin, end=end, variables=variables)
         debug_info.add(fdi)

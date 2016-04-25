@@ -102,7 +102,8 @@ class Linker:
                     dst.debug_info.add(DebugFunction(
                         debug_function.name, debug_function.loc,
                         begin=adj(debug_function.begin),
-                        end=adj(debug_function.end)))
+                        end=adj(debug_function.end),
+                        variables=debug_function.variables))
                 for debug_type in input_object.debug_info.types:
                     dst.debug_info.add(debug_type)
                 for debug_var in input_object.debug_info.variables:
