@@ -16,17 +16,13 @@ compile the pulpino-sources with verilator:
    ./run.sh
 9. run dbg.py
 10. Use the following debug commands:
-    rdltab debug.txt,main //read the linetable
-    setbrkline 6          // setbreakpoint line 6 of main.c3
     restart               // restart pulpino
     // Hello world from Pulpino,
-    clearbrkline 6       // clear the breakpoint
-    contline 6           // cont from line 6
-    //..compiler with ppci-riscv.
-    break  // halt pulpino
-    restart // restart pulpino
+     //..compiler with ppci-riscv.
+    setbrk main.c3,6       // set breakpoint
+    restart           // restart
     // Hello world from Pulpino,
-    //..compiler with ppci-riscv.
     // further commands:
-    rd 0,8 //read 8 bytes memory from adr 0
-    wr 0,4,12345678 // write 4 bytes to adr 0
+    regs    //show registers
+    read 0,8 //read 8 bytes memory from adr 0
+    write 0,4,12345678 // write 4 bytes to adr 0

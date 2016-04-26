@@ -1,8 +1,8 @@
-import time 
 import cmd
 import sys
 import select
 import binascii
+import time
 from ppci.binutils.dbg import *
 from socket import *
 from ppci.arch.riscv import RiscvArch
@@ -13,7 +13,7 @@ class PulpinoDebugDriver(DebugDriver):
         self.status = STOPPED
         self.s = socket(AF_INET, SOCK_STREAM)
         self.s.connect(("localhost", 1234))
-        self.timeout = 3
+        self.timeout = 5
         self.retries = 3
         
     def pack(self, data):
@@ -116,6 +116,9 @@ class PulpinoDebugDriver(DebugDriver):
         """restart the device"""
         if(self.status==STOPPED):
              self.sendpkt("s")
+             self.get_status(self.timeout)
+             time.sleep(1)
+             self.get_pc()
         
 
     def stop(self):
@@ -162,7 +165,7 @@ class PulpinoDebugDriver(DebugDriver):
 
     def read_mem(self, address, size):
          self.sendpkt("m %x,%x"%(address,size),self.retries)
-         ret = binascii.unhexlify(self.switch_endian(self.readpkt(self.timeout).decode()))
+         ret = binascii.unhexlify(self.readpkt(self.timeout))
          return ret
 
     def write_mem(self, address, data):
