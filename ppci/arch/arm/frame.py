@@ -4,7 +4,7 @@ from .instructions import Add2, Sub2, Push, Pop, Mov2, Bl, NoShift
 from ..data_instructions import Db, Dd, Dcd2
 from .instructions import RegisterSet
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, R8
-from .registers import R9, R10, R11, LR, PC, SP, ArmRegister, get_register
+from .registers import R9, R10, R11, LR, PC, SP, ArmRegister
 
 
 class ArmFrame(Frame):
@@ -44,9 +44,6 @@ class ArmFrame(Frame):
         # Restore caller save registers:
         if register_set:
             yield Pop(RegisterSet(register_set))
-
-    def get_register(self, color):
-        return get_register(color)
 
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:

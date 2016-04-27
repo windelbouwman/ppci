@@ -31,7 +31,7 @@ class CodeGenerator:
         self.instruction_selector = InstructionSelector1(
             arch.isa, arch, self.sgraph_builder, debug_db)
         self.instruction_scheduler = InstructionScheduler()
-        self.register_allocator = RegisterAllocator()
+        self.register_allocator = RegisterAllocator(arch, debug_db)
 
     def generate(self, ircode, output_stream, reporter):
         """ Generate machine code from ir-code into output stream """

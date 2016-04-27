@@ -1,5 +1,4 @@
 import unittest
-import sys
 import io
 
 try:
@@ -16,7 +15,7 @@ from ppci.tasks import TaskError
 from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
-from ppci.arch.example import Mov, R0, R1, SimpleTarget
+from ppci.arch.example import Mov, R0, R1, ExampleArch
 
 
 class TokenTestCase(unittest.TestCase):
@@ -45,7 +44,7 @@ class OutstreamTestCase(unittest.TestCase):
         stream.emit(Mov(R1, R0))
 
     def test_binary_and_logstream(self):
-        arch = SimpleTarget()
+        arch = ExampleArch()
         object1 = ObjectFile(arch)
         stream = binary_and_logging_stream(object1)
         stream.select_section('code')
@@ -120,7 +119,7 @@ class LinkerTestCase(unittest.TestCase):
             }
         """
         memory_layout = layout.load_layout(io.StringIO(spec))
-        arch = SimpleTarget()
+        arch = ExampleArch()
         object1 = ObjectFile(arch)
         object1.get_section('code', create=True).add_data(bytes([0]*108))
         object1.add_symbol('b', 24, 'code')
@@ -140,7 +139,7 @@ class LinkerTestCase(unittest.TestCase):
 
     def test_code_exceeds_memory(self):
         """ Check the error that is given when code exceeds memory size """
-        arch = SimpleTarget()
+        arch = ExampleArch()
         layout2 = layout.Layout()
         m = layout.Memory('flash')
         m.location = 0x0
@@ -193,7 +192,7 @@ class ObjectFileTestCase(unittest.TestCase):
 
 class ElfFileTestCase(unittest.TestCase):
     def test_save_load(self):
-        arch = SimpleTarget()
+        arch = ExampleArch()
         ef1 = ElfFile()
         f = io.BytesIO()
         ef1.save(f, ObjectFile(arch))
@@ -225,4 +224,3 @@ class LayoutFileTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-    sys.exit()

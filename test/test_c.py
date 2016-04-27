@@ -1,13 +1,13 @@
 import unittest
 import io
 from ppci.lang.c import CBuilder, Printer
-from ppci.arch.example import SimpleTarget
+from ppci.arch.example import ExampleArch
 
 
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
     def setUp(self):
-        self.builder = CBuilder(SimpleTarget())
+        self.builder = CBuilder(ExampleArch())
 
     def do(self, src):
         f = io.StringIO(src)

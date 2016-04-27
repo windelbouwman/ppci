@@ -6,7 +6,7 @@ from ppci import ir
 from ppci.irutils import Builder, Writer
 from ppci.codegen.irdag import SelectionGraphBuilder, DagSplitter
 from ppci.codegen.irdag import FunctionInfo, prepare_function_info
-from ppci.arch.example import SimpleTarget
+from ppci.arch.example import ExampleArch
 from ppci.binutils.debuginfo import DebugDb
 
 
@@ -72,7 +72,7 @@ class IrDagTestCase(unittest.TestCase):
         # print_module(module)
 
         # Target generation
-        target = SimpleTarget()
+        target = ExampleArch()
         frame = target.new_frame('a', function)
         function_info = FunctionInfo(frame)
         debug_db = DebugDb()

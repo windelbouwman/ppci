@@ -52,6 +52,9 @@ class AvrArch(Architecture):
         """
         return asm(io.StringIO(asm_src), self)
 
+    def get_register(self, color):
+        return get_register(color)
+
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine location for argument """
         l = []
@@ -151,9 +154,6 @@ class AvrFrame(Frame):
         # Restore caller save registers:
         for register in reversed(live_registers):
             yield Pop(register)
-
-    def get_register(self, color):
-        return get_register(color)
 
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:

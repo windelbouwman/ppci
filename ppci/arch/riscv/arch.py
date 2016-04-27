@@ -8,7 +8,7 @@ from .instructions import isa, Mov2
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister
 from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
-from .registers import R13, R14, R15, R16, R17, R28, LR
+from .registers import R13, R14, R15, R16, R17, R28, LR, get_register
 from ...ir import i8, i32, ptr
 from ..data_instructions import data_isa
 from .frame import RiscvFrame
@@ -115,6 +115,9 @@ class RiscvArch(Architecture):
                 raise NotImplementedError('Parameters in memory not impl')
         yield VCall(label, extra_uses=live_in, extra_defs=live_out)
         yield self.move(res_var, rv)
+
+    def get_register(self, color):
+        return get_register(color)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """

@@ -6,7 +6,7 @@ from ..arch import Architecture, Label, VCall
 from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
-from .registers import R0, R1, R2, R3, R4, all_registers
+from .registers import R0, R1, R2, R3, R4, all_registers, get_register
 from .instructions import LdrPseudo, arm_isa
 from .thumb_instructions import thumb_isa
 from . import thumb_instructions
@@ -164,6 +164,9 @@ class ArmArch(Architecture):
         else:
             return instructions.Mov2(
                 dst, src, instructions.NoShift(), ismove=True)
+
+    def get_register(self, color):
+        return get_register(color)
 
     def gen_call(self, label, arg_types, ret_type, args, res_var):
         """ Generate code for call sequence. This function saves registers

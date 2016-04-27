@@ -1,6 +1,7 @@
 import logging
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
+from ..arch.arch import Architecture
 
 
 # Nifty first function:
@@ -30,8 +31,12 @@ class RegisterAllocator:
 
         TODO: Implement different register classes
     """
-    def __init__(self):
-        self.logger = logging.getLogger('registerallocator')
+    logger = logging.getLogger('registerallocator')
+
+    def __init__(self, arch, debug_db):
+        assert isinstance(arch, Architecture), arch
+        self.arch = arch
+        self.debug_db = debug_db
 
     def init_data(self, frame):
         """ Initialize data structures """
@@ -60,8 +65,8 @@ class RegisterAllocator:
                           .format(len(self.frame.ig.nodes)))
 
         # Divide nodes into pre-colored and initial:
-        self.precolored = set(node for node in self.frame.ig.nodes if
-            node.color is not None)
+        self.precolored = set(
+            node for node in self.frame.ig.nodes if node.color is not None)
         self.initial = set(self.frame.ig.nodes - self.precolored)
 
         # TODO: do not add the pre colored nodes at all.
@@ -278,6 +283,7 @@ class RegisterAllocator:
                     assert reg.color == node.color
                 else:
                     reg.set_color(node.color)
+                self.debug_db.map(reg, self.arch.get_register(node.color))
 
     def check_invariants(self):  # pragma: no cover
         """ Test invariants """

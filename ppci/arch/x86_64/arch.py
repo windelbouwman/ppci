@@ -9,7 +9,7 @@ from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
 from .instructions import MovRegRm, RmReg, isa
 from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
-from .registers import all_registers
+from .registers import all_registers, get_register
 from .frame import X86Frame
 
 
@@ -34,6 +34,9 @@ class X86_64Arch(Architecture):
     def move(self, dst, src):
         """ Generate a move from src to dst """
         return MovRegRm(dst, RmReg(src), ismove=True)
+
+    def get_register(self, color):
+        return get_register(color)
 
     def get_runtime(self):
         from ...api import asm

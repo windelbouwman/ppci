@@ -2,6 +2,7 @@
 Backends
 ========
 
+
 .. _mos6500:
 
 6500
@@ -9,6 +10,7 @@ Backends
 
 Status: 1%
 
+.. autoclass:: ppci.arch.mos6500.Mos6500Arch
 
 
 .. _arm:
@@ -23,7 +25,6 @@ Status: 70%
 .. autoclass:: ppci.arch.arm.ArmArch
 
 
-
 .. _avr:
 
 avr
@@ -32,8 +33,6 @@ avr
 Status: 20%
 
 .. autoclass:: ppci.arch.avr.AvrArch
-
-
 
 
 .. _msp430:
@@ -51,10 +50,24 @@ Status: 20%
 risc-v
 ------
 
+See also: http://riscv.org
+
 Status: 30%
 
 Contributed by Michael.
 
+.. autoclass:: ppci.arch.riscv.RiscvArch
+
+
+.. _stm8:
+
+stm8
+----
+
+STM8 is an 8-bit processor, see also:
+http://www.st.com/stm8
+
+Status: 0%
 
 
 .. _x86_64:

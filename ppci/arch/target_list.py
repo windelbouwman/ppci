@@ -3,6 +3,7 @@
 from functools import lru_cache
 from .arm import ArmArch
 from .avr import AvrArch
+from .example import ExampleArch
 from .msp430 import Msp430Arch
 from .x86_64 import X86_64Arch
 from .mos6500 import Mos6500Arch
@@ -12,6 +13,7 @@ from .riscv import RiscvArch
 target_classes = [
     ArmArch,
     AvrArch,
+    ExampleArch,
     Mos6500Arch,
     Msp430Arch,
     RiscvArch,

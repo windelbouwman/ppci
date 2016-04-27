@@ -5,6 +5,7 @@ MSP430 architecture description.
 import io
 from ..arch import Architecture, VCall
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
+from .registers import get_register
 from ...ir import i8, i16, ptr
 from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
 from ..data_instructions import data_isa
@@ -167,6 +168,9 @@ class Msp430Arch(Architecture):
 
         yield VCall(label, extra_uses=live_in, extra_defs=live_out)
         yield self.move(res_var, rv)
+
+    def get_register(self, color):
+        return get_register(color)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """

@@ -7,7 +7,6 @@ from ppci.binutils.assembler import AsmLexer, BaseAssembler
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.arch import Label
-from ppci.arch.example import SimpleTarget
 from ppci.api import link, get_arch
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
@@ -59,7 +58,7 @@ class AssemblerLexingCase(unittest.TestCase):
 
 class OustreamTestCase(unittest.TestCase):
     def test_normal_use(self):
-        arch = SimpleTarget()
+        arch = get_arch('example')
         obj = ObjectFile(arch)
         o = BinaryOutputStream(obj)
         o.select_section('.text')
@@ -70,7 +69,7 @@ class OustreamTestCase(unittest.TestCase):
 class AssemblerTestCase(unittest.TestCase):
     def test_parse_failure(self):
         """ Check the error reporting of the assembler """
-        arch = SimpleTarget()
+        arch = get_arch('example')
         obj = ObjectFile(arch)
         ostream = BinaryOutputStream(obj)
         ostream.select_section('code')

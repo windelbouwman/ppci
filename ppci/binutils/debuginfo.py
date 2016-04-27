@@ -45,7 +45,7 @@ class DebugDb:
         if src in self.mappings:
             info = self.mappings[src]
             self.mappings[dst] = info
-            # print(dst, i)
+            # print(dst, info)
 
 
 class DebugInfo:

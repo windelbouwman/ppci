@@ -65,7 +65,13 @@ class Architecture:
             self.determine_arg_locations(arg_types, None)
         frame = self.FrameClass(
             frame_name, arg_locs, live_in, rv, live_out)
+
+        # TODO: change this:
+        frame.get_register = self.get_register
         return frame
+
+    def get_register(self, color):
+        raise NotImplementedError('get_register')
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Determine argument location for a given function """
@@ -254,9 +260,6 @@ class Frame:
             n = self.ig.get_node(tmp)
             live_regs.append(self.get_register(n.color))
         return live_regs
-
-    def get_register(self, color):
-        raise NotImplementedError('get_register')
 
     def new_reg(self, cls, twain=""):
         """ Retrieve a new virtual register """
