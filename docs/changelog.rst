@@ -2,8 +2,13 @@
 Changelog
 =========
 
-Release 0.4.0 (Upcoming)
+Release 0.5.0 (Upcoming)
 ------------------------
+
+* Debugger improvements
+
+Release 0.4.0 (Apr 27, 2016)
+----------------------------
 
 * Start with debugger and disassembler
 
