@@ -37,7 +37,7 @@ class Debugger:
     """
         Main interface to the debugger.
         Give it a target architecture for which it must debug
-        #TODO: and perhaps give it a plugin to connect to hardware?
+        and driver plugin to connect to hardware.
     """
     def __init__(self, arch, driver):
         self.arch = get_arch(arch)

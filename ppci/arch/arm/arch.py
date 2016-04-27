@@ -128,33 +128,7 @@ class ArmArch(Architecture):
         if self.has_option('thumb'):
             asm_src = ''
         else:
-            # See also:
-            # https://en.wikipedia.org/wiki/Horner%27s_method#Application
-            asm_src = """
-            __sdiv:
-               ; Divide r1 by r2
-               ; R4 is a work register.
-               ; r0 is the quotient
-               mov r4, r2         ; mov divisor into temporary register.
-
-               ; Blow up divisor until it is larger than the divident.
-               cmp r4, r1, lsr 1  ; If r4 < r1, then, shift left once more.
-            __sdiv_inc:
-               movls r4, r4, lsl 1
-               cmp r4, r1, lsr 1
-               bls __sdiv_inc
-               mov r0, 0          ; Initialize the result
-                                  ; Repeatedly substract shifted divisor
-            __sdiv_dec:
-               cmp r1, r4         ; Can we substract the current temp value?
-               subcs r1, r1, r4   ; Substract temp from divisor if carry
-               adc r0, r0, r0     ; double (shift left) and add carry
-               mov r4, r4, lsr 1  ; Shift right one
-               cmp r4, r2         ; Is temp less than divisor?
-               bhs __sdiv_dec     ; If so, repeat.
-
-               mov pc, lr         ; Return from function.
-            """
+            asm_src = ARM_ASM_RT
         return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
@@ -208,3 +182,30 @@ class ArmArch(Architecture):
         rv = R0
         live_out.add(rv)
         return l, tuple(live_in), rv, tuple(live_out)
+
+
+ARM_ASM_RT = """
+__sdiv:
+   ; Divide r1 by r2
+   ; R4 is a work register.
+   ; r0 is the quotient
+   mov r4, r2         ; mov divisor into temporary register.
+
+   ; Blow up divisor until it is larger than the divident.
+   cmp r4, r1, lsr 1  ; If r4 < r1, then, shift left once more.
+__sdiv_inc:
+   movls r4, r4, lsl 1
+   cmp r4, r1, lsr 1
+   bls __sdiv_inc
+   mov r0, 0          ; Initialize the result
+                      ; Repeatedly substract shifted divisor
+__sdiv_dec:
+   cmp r1, r4         ; Can we substract the current temp value?
+   subcs r1, r1, r4   ; Substract temp from divisor if carry
+   adc r0, r0, r0     ; double (shift left) and add carry
+   mov r4, r4, lsr 1  ; Shift right one
+   cmp r4, r2         ; Is temp less than divisor?
+   bhs __sdiv_dec     ; If so, repeat.
+
+   mov pc, lr         ; Return from function.
+"""

@@ -2,7 +2,6 @@ from ..arch import Label, Alignment, Frame
 from .thumb_instructions import AddSp, SubSp, Push, Pop, Mov2, Bl
 from ..data_instructions import Db, Dd, Dcd2
 from .registers import R0, R1, R2, R3, R4, R5, R6, R7, LR, PC, SP
-from .registers import get_register
 
 
 class ThumbFrame(Frame):
@@ -19,9 +18,6 @@ class ThumbFrame(Frame):
         # Literal pool:
         self.constants = []
         self.literal_number = 0
-
-    def get_register(self, color):
-        return get_register(color)
 
     def make_call(self, vcall):
         # Now we now what variables are live:

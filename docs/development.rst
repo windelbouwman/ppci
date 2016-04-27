@@ -80,8 +80,7 @@ run tox, simply run in the root directory:
 
 Building the docs
 -----------------
-The docs can be build locally by using sphinx. Make sure that ppci is on your
-PYTHONPATH
+The docs can be build locally by using sphinx. Sphinx can be invoked directly:
 
 .. code:: bash
 
