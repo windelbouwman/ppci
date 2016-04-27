@@ -547,13 +547,13 @@ class Out(AvrInstruction):
         VariablePattern('a', na)]
 
 
-@avr_isa.pattern('stm', 'JMP', cost=2)
+@avr_isa.pattern('stm', 'JMP', size=2)
 def _(context, tree):
     tgt = tree.value
     context.emit(Rjmp(tgt.name, jumps=[tgt]))
 
 
-@avr_isa.pattern('stm', 'CJMP(reg16, reg16)', cost=10)
+@avr_isa.pattern('stm', 'CJMP(reg16, reg16)', size=10)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
@@ -570,44 +570,44 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@avr_isa.pattern('reg16', 'CALL', cost=2)
+@avr_isa.pattern('reg16', 'CALL', size=2)
 def pattern_call(context, tree):
     label, arg_types, ret_type, args, res_var = tree.value
     context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
-@avr_isa.pattern('reg', 'REGI8', cost=0)
+@avr_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
 def pattern_reg8(context, tree):
     return tree.value
 
 
-@avr_isa.pattern('reg16', 'REGI16', cost=0)
+@avr_isa.pattern('reg16', 'REGI16', size=0, cycles=0, energy=0)
 def pattern_reg16(context, tree):
     assert isinstance(tree.value, AvrPseudo16Register)
     return tree.value
 
 
-@avr_isa.pattern('reg', 'MOVI8(reg)', cost=2)
+@avr_isa.pattern('reg', 'MOVI8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
-@avr_isa.pattern('reg', 'MOVI8(reg16)', cost=2)
+@avr_isa.pattern('reg', 'MOVI8(reg16)', size=2)
 def pattern_mov8_16(context, tree, c0):
     context.move(tree.value, c0.lo)
     return tree.value
 
 
-@avr_isa.pattern('stm', 'MOVI16(reg16)', cost=4)
+@avr_isa.pattern('stm', 'MOVI16(reg16)', size=4)
 def pattern_mov16(context, tree, c0):
     context.move(tree.value.lo, c0.lo)
     context.move(tree.value.hi, c0.hi)
     return tree.value
 
 
-@avr_isa.pattern('reg', 'ADDI8(reg, reg)', cost=4)
+@avr_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(AvrRegister)
     context.move(d, c0)
@@ -615,7 +615,7 @@ def pattern_add8(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', size=8)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
@@ -625,7 +625,7 @@ def pattern_add16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=8)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
@@ -635,7 +635,7 @@ def pattern_sub16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', size=8)
 def pattern_and16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
@@ -645,7 +645,7 @@ def pattern_and16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', size=8)
 def pattern_or16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     context.move(d.lo, c0.lo)
@@ -655,21 +655,21 @@ def pattern_or16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
 def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     # TODO
     return d
 
 
-@avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
     d = context.new_reg(AvrPseudo16Register)
     # TODO
     return d
 
 
-@avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', size=8)
 def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
     d = context.new_reg(AvrPseudo16Register)
@@ -688,7 +688,7 @@ def pattern_shr16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'SHLI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('reg16', 'SHLI16(reg16, reg16)', size=8)
 def pattern_shl16(context, tree, c0, c1):
     """ invoke runtime """
     d = context.new_reg(AvrPseudo16Register)
@@ -696,7 +696,7 @@ def pattern_shl16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg', 'LDRI8(reg16)', cost=2)
+@avr_isa.pattern('reg', 'LDRI8(reg16)', size=2)
 def pattern_ldr8(context, tree, c0):
     context.move(X.hi, c0.hi)
     context.move(X.lo, c0.lo)
@@ -705,7 +705,7 @@ def pattern_ldr8(context, tree, c0):
     return d
 
 
-@avr_isa.pattern('reg16', 'LDRI16(reg16)', cost=8)
+@avr_isa.pattern('reg16', 'LDRI16(reg16)', size=8)
 def pattern_ldr16(context, tree, c0):
     d = context.new_reg(AvrPseudo16Register)
     context.move(X.hi, c0.hi)
@@ -715,7 +715,7 @@ def pattern_ldr16(context, tree, c0):
     return d
 
 
-@avr_isa.pattern('stm', 'STRI16(reg16, reg16)', cost=8)
+@avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8)
 def pattern_str16(context, tree, c0, c1):
     context.move(X.hi, c0.hi)
     context.move(X.lo, c0.lo)
@@ -723,7 +723,7 @@ def pattern_str16(context, tree, c0, c1):
     context.emit(St(c1.hi))
 
 
-@avr_isa.pattern('reg', 'CONSTI8', cost=2)
+@avr_isa.pattern('reg', 'CONSTI8', size=2)
 def _(context, tree):
     d = context.new_reg(AvrRegister)
     context.emit(Ldi(r16, tree.value))
@@ -731,7 +731,7 @@ def _(context, tree):
     return d
 
 
-@avr_isa.pattern('reg16', 'CONSTI16', cost=4)
+@avr_isa.pattern('reg16', 'CONSTI16', size=4)
 def _(context, tree):
     d = context.new_reg(AvrPseudo16Register)
     lb = tree.value & 0xff
@@ -743,7 +743,7 @@ def _(context, tree):
     return d
 
 
-@avr_isa.pattern('reg16', 'LABEL', cost=4)
+@avr_isa.pattern('reg16', 'LABEL', size=4)
 def _(context, tree):
     """ Determine the label address and yield its result """
     d = context.new_reg(AvrPseudo16Register)

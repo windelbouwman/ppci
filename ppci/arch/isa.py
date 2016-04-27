@@ -3,12 +3,14 @@ Isa related classes.
 These can be used to define an instruction set.
 """
 
+import warnings
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
 
 
 Pattern = namedtuple(
-    'Pattern', ['non_term', 'tree', 'cost', 'condition', 'method'])
+    'Pattern',
+    ['non_term', 'tree', 'size', 'cycles', 'energy', 'condition', 'method'])
 
 
 class Register:
@@ -139,21 +141,29 @@ class Isa:
         """ Add a pattern to this isa """
         self.patterns.append(pattern)
 
-    def pattern(self, non_term, tree, cost=0, condition=None):
+    def pattern(
+            self, non_term, tree, cost=None, condition=None,
+            size=1, cycles=1, energy=1):
         """
             Decorator function that adds a pattern.
         """
-        if type(tree) is str:
+        if cost is not None:
+            warnings.warn(
+                'cost is deprecated, please use size, cycles and power',
+                DeprecationWarning)
+            size = cost
+            cycles = cost
+            energy = cost
+        if isinstance(tree, str):
             tree = from_string(tree)
 
         assert isinstance(tree, Tree)
-        assert isinstance(cost, int)
+        assert isinstance(size, int)
 
         def wrapper(function):
-            """
-                Wrapper for function that does not modify function
-            """
-            pat = Pattern(non_term, tree, cost, condition, function)
+            """ Wrapper that add the function with the paramaters """
+            pat = Pattern(
+                non_term, tree, size, cycles, energy, condition, function)
             self.register_pattern(pat)
             return function
         return wrapper

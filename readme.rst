@@ -16,31 +16,26 @@ The project contains the following:
 
     **This project is in alpha state and not ready for production use!**
 
-Command line tools
-------------------
-
-Use it to build projects:
-
-.. code:: bash
-
-    $ pip install ppci
-    $ ppci-build.py -f examples/build.xml
-    $ qemu-system-arm -M lm3s6965evb -kernel snake.bin -serial stdio
-
-This runs the snake demo on an emulated (qemu) lm3s demo board and displays
-the game to the console.
-
 Api
 ---
 
-Or use the api:
+Api example to compile c3 code:
 
 .. code-block:: python
 
-    >>> from ppci.arch.x86_64 import instructions, registers
-    >>> i = instructions.Pop(registers.rbx)
-    >>> i.encode()
-    b'['
+    >>> import io
+    >>> from ppci.api import c3c, link
+    >>> source_file = io.StringIO("""
+    ... module main;
+    ... function void print(string txt) {
+    ... }
+    ... function void main() {
+    ...  print("Hello world");
+    ... }""")
+    >>> obj = c3c([source_file], [], 'arm')
+    >>> obj = link([obj])
+
+Example how to assemble some assembly code:
 
 .. code-block:: python
 
@@ -53,6 +48,15 @@ Or use the api:
     >>> obj = asm(source_file, 'x86_64')
     >>> obj.get_section('code').data
     bytearray(b'[ARH\xbf*\x00\x00\x00\x00\x00\x00\x00')
+
+Example of the low level api usage:
+
+.. code-block:: python
+
+    >>> from ppci.arch.x86_64 import instructions, registers
+    >>> i = instructions.Pop(registers.rbx)
+    >>> i.encode()
+    b'['
 
 Documentation
 -------------

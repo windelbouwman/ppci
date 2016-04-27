@@ -5,21 +5,23 @@
 
 import logging
 from ..arch.isa import Instruction
-from ..arch.target import Alignment
+from ..arch.arch import Alignment, DebugData
 
 
 class OutputStream:
-    """ Interface to generator code with. """
+    """ Interface to generate code with. Contains the emit function to output
+    instruction to the stream """
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
         raise NotImplementedError('Abstract base class')
 
     def emit_all(self, items):
-        """ Emit an iterable of items """
+        """ Emit all items from an iterable """
         for item in items:
             self.emit(item)
 
     def select_section(self, sname):  # pragma: no cover
+        """ Switch stream into another section """
         raise NotImplementedError('Abstract base class')
 
 
@@ -39,15 +41,18 @@ class BinaryOutputStream(OutputStream):
         super().__init__()
         self.obj_file = obj_file
         self.literal_pool = []
+        self.current_section = None
 
     def emit(self, item):
-        """ Encode instruction and add symbol and relocation information """
+        """ Encode instruction and add symbol and relocation information.
+            At this point we know the address of the instruction.
+        """
         assert isinstance(item, Instruction), str(item) + str(type(item))
-        assert self.currentSection
-        section = self.currentSection
-        address = self.currentSection.size
-        b = item.encode()
-        section.add_data(b)
+        assert self.current_section
+        section = self.current_section
+        address = self.current_section.size
+        bin_data = item.encode()
+        section.add_data(bin_data)
         for sym in item.symbols():
             self.obj_file.add_symbol(sym, address, section.name)
         for sym, typ in item.relocations():
@@ -58,11 +63,26 @@ class BinaryOutputStream(OutputStream):
         if isinstance(item, Alignment):
             while section.size % item.align != 0:
                 section.add_data(bytes([0]))
-            if item.align > self.currentSection.alignment:
-                self.currentSection.alignment = item.align
+            if item.align > self.current_section.alignment:
+                self.current_section.alignment = item.align
+        elif isinstance(item, DebugData):
+            # We have debug data here!
+            self.obj_file.debug_info.add(item.data)
 
     def select_section(self, sname):
-        self.currentSection = self.obj_file.get_section(sname)
+        self.current_section = self.obj_file.get_section(sname, create=True)
+
+
+class RecordingOutputStream(OutputStream):
+    """ Stream that appends instructions to list """
+    def __init__(self, bag):
+        self.bag = bag
+
+    def emit(self, item):
+        self.bag.append(item)
+
+    def select_section(self, sname):
+        pass
 
 
 class DummyOutputStream(OutputStream):

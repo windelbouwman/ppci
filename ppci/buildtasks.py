@@ -107,11 +107,14 @@ class LinkTask(OutputtingTask):
     """ Link together a collection of object files """
     def run(self):
         layout = self.relpath(self.get_argument('layout'))
-        target = self.get_argument('target')
         objects = self.open_file_set(self.get_argument('objects'))
+        if 'debug' in self.arguments:
+            debug = bool(self.get_argument('debug'))
+        else:
+            debug = False
 
         try:
-            obj = link(objects, layout, target, use_runtime=True)
+            obj = link(objects, layout, use_runtime=True, debug=debug)
         except CompilerError as err:
             raise TaskError(err.msg)
 

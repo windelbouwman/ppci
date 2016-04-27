@@ -80,8 +80,7 @@ run tox, simply run in the root directory:
 
 Building the docs
 -----------------
-The docs can be build locally by using sphinx. Make sure that ppci is on your
-PYTHONPATH
+The docs can be build locally by using sphinx. Sphinx can be invoked directly:
 
 .. code:: bash
 
@@ -101,13 +100,13 @@ Release procedure
 
 Make sure all tests pass before a release.
 
-
 Package and upload the python package with:
 
 .. code:: bash
 
     $ hg update release
     $ hg merge default
+    # Check version number
     $ tox
     $ hg tag x.y.z
     $ hg update x.y.z

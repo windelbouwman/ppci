@@ -1,10 +1,9 @@
-from ..target import Label, Alignment
-from ..target import Frame
+from ..arch import Label, Alignment, Frame
 from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw, Blr
 from ..data_instructions import Db
 from .registers import R0, LR, SP, FP
 from .registers import R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
-from .registers import RiscvRegister, get_register
+from .registers import RiscvRegister
 
 
 class RiscvFrame(Frame):
@@ -54,10 +53,6 @@ class RiscvFrame(Frame):
             yield Lw(register, SP, i)
         
         yield Add(SP, SP, i)
-        
-
-    def get_register(self, color):
-        return get_register(color)
 
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:

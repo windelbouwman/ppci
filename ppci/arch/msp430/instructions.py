@@ -441,13 +441,13 @@ def mov(src, dst):
 
 # -- for instruction selection:
 
-@isa.pattern('stm', 'JMP', cost=2)
+@isa.pattern('stm', 'JMP', size=4)
 def pattern_jmp(self, tree):
     tgt = tree.value
     self.emit(Jmp(tgt.name, jumps=[tgt]))
 
 
-@isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
+@isa.pattern('stm', 'CJMP(reg, reg)', size=10)
 def pattern_cjmp(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
     opnames = {"<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge}
@@ -463,19 +463,19 @@ def pattern_cjmp(context, tree, lhs, rhs):
     context.emit(jmp_ins)
 
 
-@isa.pattern('reg', 'MOVI16(reg)', cost=2)
+@isa.pattern('reg', 'MOVI16(reg)', size=2)
 def pattern_mov16(self, tree, c0):
     dst = tree.value
     self.emit(mov(c0, dst))
 
 
-@isa.pattern('reg', 'MOVI8(reg)', cost=2)
+@isa.pattern('reg', 'MOVI8(reg)', size=2)
 def pattern_mov8(self, tree, c0):
     dst = tree.value
     self.emit(mov(c0, dst))
 
 
-@isa.pattern('reg', 'CONSTI16', cost=4)
+@isa.pattern('reg', 'CONSTI16', size=4)
 def pattern_const16(self, tree):
     dst = self.new_reg(Msp430Register)
     cnst = tree.value
@@ -483,7 +483,7 @@ def pattern_const16(self, tree):
     return dst
 
 
-@isa.pattern('reg', 'CONSTI8', cost=4)
+@isa.pattern('reg', 'CONSTI8', size=4)
 def pattern_const8(self, tree):
     dst = self.new_reg(Msp430Register)
     cnst = tree.value
@@ -491,38 +491,38 @@ def pattern_const8(self, tree):
     return dst
 
 
-@isa.pattern('reg', 'REGI16', cost=0)
+@isa.pattern('reg', 'REGI16', size=0, cycles=0, energy=0)
 def pattern_reg16(self, tree):
     return tree.value
 
 
-@isa.pattern('reg', 'REGI8', cost=0)
+@isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
 def pattern_reg8(self, tree):
     return tree.value
 
 
-@isa.pattern('reg', 'CALL', cost=2)
+@isa.pattern('reg', 'CALL')
 def pattern_call(context, tree):
     label, arg_types, ret_type, args, res_var = tree.value
     context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
-@isa.pattern('reg', 'MULI16(reg, reg)', cost=10)
+@isa.pattern('reg', 'MULI16(reg, reg)', size=10)
 def pattern_mul16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.gen_call('msp430_runtime___mul', [i16, i16], i16, [c0, c1], d)
     return d
 
 
-@isa.pattern('reg', 'DIVI16(reg, reg)', cost=10)
+@isa.pattern('reg', 'DIVI16(reg, reg)', size=10)
 def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.gen_call('msp430_runtime___div', [i16, i16], i16, [c0, c1], d)
     return d
 
 
-@isa.pattern('reg', 'ANDI16(reg, reg)', cost=4)
+@isa.pattern('reg', 'ANDI16(reg, reg)', size=4)
 def pattern_and16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
@@ -530,7 +530,7 @@ def pattern_and16(context, tree, c0, c1):
     return dst
 
 
-@isa.pattern('reg', 'ORI16(reg, reg)', cost=4)
+@isa.pattern('reg', 'ORI16(reg, reg)', size=4)
 def pattern_or16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
@@ -538,21 +538,21 @@ def pattern_or16(context, tree, c0, c1):
     return dst
 
 
-@isa.pattern('reg', 'SHRI16(reg, reg)', cost=4)
+@isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
 def pattern_shr16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.gen_call('__shr', [i16, i16], i16, [c0, c1], d)
     return d
 
 
-@isa.pattern('reg', 'SHLI16(reg, reg)', cost=4)
+@isa.pattern('reg', 'SHLI16(reg, reg)', size=4)
 def pattern_shl16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.gen_call('__shl', [i16, i16], i16, [c0, c1], d)
     return d
 
 
-@isa.pattern('reg', 'ADDI16(reg, reg)', cost=4)
+@isa.pattern('reg', 'ADDI16(reg, reg)', size=4)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
@@ -560,7 +560,7 @@ def pattern_add16(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'SUBI16(reg, reg)', cost=4)
+@isa.pattern('reg', 'SUBI16(reg, reg)', size=4)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
@@ -568,31 +568,31 @@ def pattern_sub16(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('stm', 'STRI16(reg, reg)', cost=2)
+@isa.pattern('stm', 'STRI16(reg, reg)', size=2)
 def pattern_str16(context, tree, c0, c1):
     context.emit(Mov(RegSrc(c1), MemDst(0, c0)))
 
 
-@isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
+@isa.pattern('stm', 'STRI8(reg, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
     context.emit(Movb(RegSrc(c1), MemDst(0, c0)))
 
 
-@isa.pattern('reg', 'LDRI16(reg)', cost=2)
+@isa.pattern('reg', 'LDRI16(reg)', size=2)
 def pattern_ldr16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Mov(MemSrc(c0), RegDst(d)))
     return d
 
 
-@isa.pattern('reg', 'LDRI8(reg)', cost=2)
+@isa.pattern('reg', 'LDRI8(reg)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Movb(MemSrc(c0), RegDst(d)))
     return d
 
 
-@isa.pattern('reg', 'LABEL', cost=2)
+@isa.pattern('reg', 'LABEL', size=2)
 def pattern_label(context, tree):
     d = context.new_reg(Msp430Register)
     ln = context.frame.add_constant(tree.value)

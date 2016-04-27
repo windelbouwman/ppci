@@ -1,1 +1,1 @@
-from .target import Mos6500Target
+from .arch import Mos6500Arch

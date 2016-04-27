@@ -695,9 +695,13 @@ class BuildMixin:
             else:
                 raise Exception('language not implemented')
             obj = link(
-                objs,
-                io.StringIO(self.arch_mmap),
-                self.march, use_runtime=True, reporter=reporter)
+                objs, layout=io.StringIO(self.arch_mmap),
+                use_runtime=True, reporter=reporter)
+
+        # Save object:
+        obj_file = base_filename + '.oj'
+        with open(obj_file, 'w') as f:
+            obj.save(f)
 
         return obj, base_filename
 
@@ -819,9 +823,9 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
            // var int global_tick; """)
         with complete_report(report_generator) as reporter:
             if lang == 'c3':
-                ir_modules = list(c3toir([
+                ir_modules, debug_info = c3toir([
                     relpath('..', 'librt', 'io.c3'), bsp,
-                    io.StringIO(src)], [], "arm", reporter=reporter))
+                    io.StringIO(src)], [], "arm", reporter=reporter)
             elif lang == 'bf':
                 ir_modules = [bf2ir(src, 'arm')]
 
@@ -1020,7 +1024,7 @@ class LinuxTests(unittest.TestCase):
         obj = asm(src, 'x86_64')
         handle, exe = mkstemp()
         os.close(handle)
-        obj2 = link([obj], io.StringIO(mmap), 'x86_64')
+        obj2 = link([obj], layout=io.StringIO(mmap))
         objcopy(obj2, 'prog', 'elf', exe)
         if hasattr(subprocess, 'TimeoutExpired'):
             returncode = subprocess.call(exe, timeout=10)

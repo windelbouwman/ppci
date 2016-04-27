@@ -275,11 +275,11 @@ texinfo_documents = [
 
 from pygments.lexer import RegexLexer
 from pygments import token
-from ppci import c3
+import ppci.lang.c3
 
-# TODO: fix this lexer:
 
 class C3Lexer(RegexLexer):
+    # TODO: fix this lexer:
     name = 'c3'
     aliases = ['c3']
     filenames = ['*.c3']

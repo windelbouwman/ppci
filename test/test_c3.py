@@ -1,9 +1,9 @@
 import unittest
 import logging
 import io
-from ppci.c3 import Builder, Lexer, Parser, AstPrinter
-from ppci.c3.scope import Context
-from ppci.arch.example import SimpleTarget
+from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter
+from ppci.lang.c3.scope import Context
+from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
 
@@ -64,7 +64,7 @@ class AstPrinterTestCase(unittest.TestCase):
         diag = DiagnosticsManager()
         lexer = Lexer(diag)
         parser = Parser(diag)
-        context = Context(SimpleTarget())
+        context = Context(ExampleArch())
         tokens = lexer.lex(io.StringIO(snippet))
         ast = parser.parse_source(tokens, context)
         printer = AstPrinter()
@@ -77,7 +77,7 @@ class BuildTestCaseBase(unittest.TestCase):
     """ Test if various snippets build correctly """
     def setUp(self):
         self.diag = DiagnosticsManager()
-        self.builder = Builder(self.diag, SimpleTarget())
+        self.builder = C3Builder(self.diag, ExampleArch())
         self.diag.clear()
         # Add a null logging handler to disable warning log messages:
         null_handler = logging.NullHandler()
@@ -99,7 +99,7 @@ class BuildTestCaseBase(unittest.TestCase):
     def build(self, snippet):
         """ Try to build a snippet and also print it to test the printer """
         srcs = self.make_file_list(snippet)
-        context, ir_modules = self.builder.build(srcs)
+        context, ir_modules, debug_info = self.builder.build(srcs)
         printer = AstPrinter()
         for mod in context.modules:
             output_file = io.StringIO()

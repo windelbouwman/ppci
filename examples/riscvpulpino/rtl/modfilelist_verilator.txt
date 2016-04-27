@@ -1,0 +1,7 @@
+The following files in this directory have been modified to be usable
+with the verilator simulator:
+core_region.sv
+instr_ram_wrap.sv
+peripherals.sv
+sp_ram_wrap.sv
+The modified lines in these files are marked with the comment: // modified for verilator-simulation purpose

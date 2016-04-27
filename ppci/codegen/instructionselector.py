@@ -34,9 +34,11 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
 
 class InstructionContext:
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, target):
+    def __init__(self, frame, target, debug_db):
         self.frame = frame
         self.target = target
+        self.debug_db = debug_db
+        self.tree = None
 
     def new_reg(self, cls):
         """ Generate a new temporary of a given class """
@@ -54,7 +56,10 @@ class InstructionContext:
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
-        return self.frame.emit(*args, **kwargs)
+        instruction = self.frame.emit(*args, **kwargs)
+        if self.tree:
+            self.debug_db.map(self.tree, instruction)
+        return instruction
 
 
 class TreeSelector:
@@ -111,7 +116,10 @@ class TreeSelector:
                    zip(self.kids(tree, rule), self.nts(rule))]
         # Get the function to call:
         rule_f = self.sys.get_rule(rule).template
-        return rule_f(context, tree, *results)
+        context.tree = tree
+        res = rule_f(context, tree, *results)
+        context.tree = None
+        return res
 
     def kids(self, tree, rule):
         """ Determine the kid trees for a rule """
@@ -130,11 +138,12 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, target, sgraph_builder):
+    def __init__(self, isa, arch, sgraph_builder, debug_db):
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
-        self.target = target
-        self.dag_splitter = DagSplitter(target)
+        self.arch = arch
+        self.debug_db = debug_db
+        self.dag_splitter = DagSplitter(arch, debug_db)
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
@@ -151,8 +160,9 @@ class InstructionSelector1:
 
         # Add all isa patterns:
         for pattern in isa.patterns:
+            cost = pattern.size + pattern.cycles + pattern.energy
             self.sys.add_rule(
-                pattern.non_term, pattern.tree, pattern.cost,
+                pattern.non_term, pattern.tree, cost,
                 pattern.condition, pattern.method)
 
         self.sys.check()
@@ -165,10 +175,10 @@ class InstructionSelector1:
 
         # Create a object that carries global function info:
         function_info = FunctionInfo(frame)
-        prepare_function_info(self.target, function_info, ir_function)
+        prepare_function_info(self.arch, function_info, ir_function)
 
         # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.target)
+        context = InstructionContext(frame, self.arch, self.debug_db)
 
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(ir_function, function_info)

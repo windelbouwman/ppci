@@ -28,6 +28,7 @@ class BaseLexer:
         self.line = 1
         self.line_start = 0
         self.pos = 0
+        self.txt = txt
         mo = self.gettok(txt)
         while mo:
             typ = mo.lastgroup
@@ -36,12 +37,19 @@ class BaseLexer:
             length = mo.end() - mo.start()
             loc = SourceLocation(self.filename, self.line, column, length)
             func = self.func_map[typ]
+            new_pos = mo.end()
             if func:
                 res = func(typ, val)
                 if res:
-                    typ, val = res
+                    if len(res) == 2:
+                        typ, val = res
+                    elif len(res) == 3:
+                        typ, val, new_pos = res
+                    else:
+                        raise NotImplementedError('Not implemented')
+                    # print(typ, val)
                     yield Token(typ, val, loc)
-            self.pos = mo.end()
+            self.pos = new_pos
             mo = self.gettok(txt, self.pos)
         if len(txt) != self.pos:
             char = txt[self.pos]

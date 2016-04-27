@@ -573,76 +573,76 @@ class SubSp(addspsp_base):
 #
 ###############
 
-@thumb_isa.pattern('stm', 'STRI32(reg, reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('stm', 'STRI32(reg, reg)', size=1)
+def pattern_str32(self, tree, c0, c1):
     self.emit(Str2(c1, c0, 0))
 
 
-@thumb_isa.pattern('stm', 'JMP', cost=2)
-def _(self, tree):
+@thumb_isa.pattern('stm', 'JMP', size=2)
+def pattern_jmp(self, tree):
     label = tree.value
     self.emit(Bw(label.name, jumps=[label]))
 
 
-@thumb_isa.pattern('reg', 'REGI32', cost=0)
-def _(self, tree):
+@thumb_isa.pattern('reg', 'REGI32', size=0)
+def pattern_reg32(self, tree):
     return tree.value
 
 
-@thumb_isa.pattern('reg', 'ADDI32(reg,reg)', cost=1)
+@thumb_isa.pattern('reg', 'ADDI32(reg,reg)', size=1)
 def _(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.emit(Add3(d, c0, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'ADDI8(reg,reg)', cost=1)
-def _(context, tree, c0, c1):
+@thumb_isa.pattern('reg', 'ADDI8(reg,reg)', size=1)
+def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(Reg8Op)
     context.emit(Add3(d, c0, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'LABEL', cost=2)
-def _(context, tree):
+@thumb_isa.pattern('reg', 'LABEL', size=2)
+def pattern_label(context, tree):
     d = context.new_reg(Reg8Op)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
 
 
-@thumb_isa.pattern('reg', 'CONSTI32', cost=4)
-def _(context, tree):
+@thumb_isa.pattern('reg', 'CONSTI32', size=4)
+def pattern_const32(context, tree):
     d = context.new_reg(Reg8Op)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
 
 
-@thumb_isa.pattern('reg', 'CONSTI8', cost=4)
-def _(context, tree):
+@thumb_isa.pattern('reg', 'CONSTI8', size=4)
+def pattern_const8(context, tree):
     d = context.new_reg(Reg8Op)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
     return d
 
 
-@thumb_isa.pattern('reg', 'MOVI32(reg)', cost=1)
-def _(context, tree, c0):
+@thumb_isa.pattern('reg', 'MOVI32(reg)', size=2)
+def pattern_mov32(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
     return reg
 
 
-@thumb_isa.pattern('reg', 'MOVI8(reg)', cost=1)
-def _(context, tree, c0):
+@thumb_isa.pattern('reg', 'MOVI8(reg)', size=2)
+def pattern_mov8(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
     return reg
 
 
-@thumb_isa.pattern('stm', 'CJMP(reg,reg)', cost=3)
-def _(context, tree, c0, c1):
+@thumb_isa.pattern('stm', 'CJMP(reg,reg)', size=6)
+def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
     Bop = opnames[op]
@@ -652,80 +652,80 @@ def _(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@thumb_isa.pattern('stm', 'STRI8(reg,reg)', cost=1)
-def _(context, tree, c0, c1):
+@thumb_isa.pattern('stm', 'STRI8(reg,reg)', size=2)
+def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
 
-@thumb_isa.pattern('reg', 'LDRI8(reg)', cost=1)
-def _(context, tree, c0):
+@thumb_isa.pattern('reg', 'LDRI8(reg)', size=2)
+def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Reg8Op)
     context.emit(Ldrb(d, c0, 0))
     return d
 
 
-@thumb_isa.pattern('reg', 'LDRI32(reg)', cost=1)
-def _(self, tree, c0):
+@thumb_isa.pattern('reg', 'LDRI32(reg)', size=2)
+def pattern_ldr32(self, tree, c0):
     d = self.new_reg(Reg8Op)
     self.emit(Ldr2(d, c0, 0))
     return d
 
 
-@thumb_isa.pattern('reg', 'CALL', cost=10)
-def _(context, tree):
+@thumb_isa.pattern('reg', 'CALL', size=10)
+def pattern_call(context, tree):
     label, arg_types, res_type, args, res_var = tree.value
     context.gen_call(label, arg_types, res_type, args, res_var)
     return res_var
 
 
-@thumb_isa.pattern('reg', 'SUBI32(reg,reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'SUBI32(reg,reg)', size=2)
+def pattern_sub32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.emit(Sub3(d, c0, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'SUBI8(reg,reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'SUBI8(reg,reg)', size=2)
+def pattern_sub8(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.emit(Sub3(d, c0, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'SHRI32(reg, reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+def pattern_shr32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.move(d, c0)
     self.emit(Lsr(d, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'ORI32(reg, reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
+def pattern_or32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.move(d, c0)
     self.emit(Orr(d, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'ANDI32(reg, reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
+def pattern_and32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.move(d, c0)
     self.emit(And(d, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'SHLI32(reg, reg)', cost=1)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
+def pattern_shl32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.move(d, c0)
     self.emit(Lsl(d, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'MULI32(reg, reg)', cost=5)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'MULI32(reg, reg)', size=5)
+def pattern_mul32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.move(d, c0)
     # Attention: multiply takes the second argument as use and def:
@@ -733,15 +733,15 @@ def _(self, tree, c0, c1):
     return d
 
 
-@thumb_isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'DIVI32(reg, reg)', size=10)
+def pattern_div32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.emit(Sdiv(d, c0, c1))
     return d
 
 
-@thumb_isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'REMI32(reg, reg)', size=6, cycles=10, energy=5)
+def pattern_rem32(self, tree, c0, c1):
     d2 = self.new_reg(Reg8Op)
     self.emit(Sdiv(d2, c0, c1))
     # Multiply result by divider:
@@ -753,8 +753,8 @@ def _(self, tree, c0, c1):
     return d
 
 
-@thumb_isa.pattern('reg', 'XORI32(reg, reg)', cost=10)
-def _(self, tree, c0, c1):
+@thumb_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
+def pattern_xor32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.move(d, c0)
     self.emit(Eor(d, c1))

@@ -1,5 +1,5 @@
 
-from ...utils.bitfun import encode_imm32, align, wrap_negative, BitView
+from ...utils.bitfun import wrap_negative, BitView
 
 
 

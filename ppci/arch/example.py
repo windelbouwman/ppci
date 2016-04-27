@@ -4,17 +4,17 @@
 """
 
 from .isa import Instruction, Syntax
-from .target import Target, Frame
+from .arch import Architecture, Frame
 from .isa import register_argument, Register
 from ..import ir
 
 
-class SimpleTarget(Target):
-    name = 'simple'
+class ExampleArch(Architecture):
+    name = 'example'
     FrameClass = Frame
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, options=None):
+        super().__init__(options=options)
         self.value_classes[ir.i32] = ExampleRegister
         self.value_classes[ir.ptr] = ExampleRegister
         self.byte_sizes['int'] = 4
@@ -34,6 +34,11 @@ class SimpleTarget(Target):
         rv = R0
         live_out.add(rv)
         return arg_locs, tuple(live_in), rv, tuple(live_out)
+
+    def get_register(self, n):
+        regs = [R0, R1, R2, R3, R4, R5, R6]
+        mp = {r.num: r for r in regs}
+        return mp[n]
 
 
 class ExampleRegister(Register):

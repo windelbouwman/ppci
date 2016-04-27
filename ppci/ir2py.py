@@ -12,14 +12,14 @@ def literal_label(lit):
 
 class IrToPython:
     """ Can generate python script from ir-code """
-    def __init__(self):
-        self.f = None
+    def __init__(self, output_file):
+        self.output_file = output_file
         self.stack_size = 0
 
     def print(self, level, *args):
         """ Print args to current file with level indents """
-        print('    '*level, end='', file=self.f)
-        print(*args, file=self.f)
+        print('    '*level, end='', file=self.output_file)
+        print(*args, file=self.output_file)
 
     def header(self):
         self.print(0, 'import struct')
@@ -34,9 +34,8 @@ class IrToPython:
         self.print(1, 'return v')
         self.print(0, '')
 
-    def generate(self, ir_mod, f):
+    def generate(self, ir_mod):
         """ Write ir-code to file f """
-        self.f = f
         self.mod_name = ir_mod.name
         self.literals = []
         self.print(0)
@@ -70,6 +69,7 @@ class IrToPython:
             for ins in block:
                 self.generate_instruction(ins)
         self.reset_stack(1)
+        self.print(0)
         self.print(0)
 
     def reset_stack(self, level):

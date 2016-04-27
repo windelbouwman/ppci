@@ -37,5 +37,21 @@ Another example:
     >>> obj.get_section('code').data
     bytearray(b'[ARH\xbf*\x00\x00\x00\x00\x00\x00\x00')
 
+And yet another example:
+
+.. doctest::
+
+    >>> import io
+    >>> from ppci.api import c3c, link
+    >>> source_file = io.StringIO("""
+    ... module main;
+    ... function void print(string txt) {
+    ... }
+    ... function void main() {
+    ...  print("Hello world");
+    ... }""")
+    >>> obj = c3c([source_file], [], 'arm')
+    >>> obj = link([obj])
+
 .. warning::
     This project is in alpha state and not ready for production use!

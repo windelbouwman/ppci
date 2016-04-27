@@ -1,0 +1,4 @@
+apb_gpio:
+  files: [
+    apb_gpio.sv,
+  ]

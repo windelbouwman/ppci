@@ -6,29 +6,41 @@ Links
 Classical compilers
 -------------------
 
-* http://llvm.org
+The following list gives a summary of some compilers that exist in the open
+source land.
 
-  low level virtual machine, a compiler written in C++.
+* `LLVM`
 
-* GCC
-  The gnu compiler.
+  A relatively new and popular compiler. LLVM stands for low level virtual
+  machine, a compiler written in C++.
+  http://llvm.org
 
-* ack
-  Amsterdam compiler kit.
+* `GCC`
 
-* https://github.com/drh/lcc
+  The gnu compiler. The workhorse for many a year.
+  https://gcc.gnu.org/
+
+* `ACK`
+
+  The amsterdam compiler kit. An old compiler.
+  http://tack.sourceforge.net/
+
+* `lcc`
 
   a retargetable C compiler.
+  https://github.com/drh/lcc
 
 
 Other compilers written in python
 ---------------------------------
 
 
-* zxbasic
+* `zxbasic`
 
-  is a basic compiler written in python.
+  is a freebasic compiler written in python.
+  http://www.boriel.com/wiki/en/index.php/ZXBasic
 
-* https://launchpad.net/python-msp430-tools
+* `python-msp430-tools`
 
   a msp430 tools project in python.
+  https://launchpad.net/python-msp430-tools

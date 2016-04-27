@@ -6,8 +6,8 @@ from ppci.common import CompilerError, DiagnosticsManager
 from ppci.binutils.assembler import AsmLexer, BaseAssembler
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
-from ppci.arch.target import Label
-from ppci.api import link, fix_target
+from ppci.arch.arch import Label
+from ppci.api import link, get_arch
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
 
@@ -58,7 +58,8 @@ class AssemblerLexingCase(unittest.TestCase):
 
 class OustreamTestCase(unittest.TestCase):
     def test_normal_use(self):
-        obj = ObjectFile()
+        arch = get_arch('example')
+        obj = ObjectFile(arch)
         o = BinaryOutputStream(obj)
         o.select_section('.text')
         o.emit(Label('a'))
@@ -68,7 +69,8 @@ class OustreamTestCase(unittest.TestCase):
 class AssemblerTestCase(unittest.TestCase):
     def test_parse_failure(self):
         """ Check the error reporting of the assembler """
-        obj = ObjectFile()
+        arch = get_arch('example')
+        obj = ObjectFile(arch)
         ostream = BinaryOutputStream(obj)
         ostream.select_section('code')
         diag = DiagnosticsManager()
@@ -82,14 +84,14 @@ class AsmTestCaseBase(unittest.TestCase):
     def setUp(self):
         self.source = io.StringIO()
         self.as_args = []
-        self.obj = ObjectFile()
+        arch = get_arch(self.march)
+        self.obj = ObjectFile(arch)
         self.ostream = BinaryOutputStream(self.obj)
         self.ostream.select_section('code')
         self.diag = DiagnosticsManager()
 
         # Prep assembler!
-        target = fix_target(self.march)
-        self.assembler = target.assembler
+        self.assembler = arch.assembler
         self.assembler.prepare()
 
     def feed(self, line):
@@ -98,7 +100,7 @@ class AsmTestCaseBase(unittest.TestCase):
 
     def check(self, hexstr, layout=Layout()):
         self.assembler.flush()
-        target = fix_target(self.march)
+        target = get_arch(self.march)
         self.obj = link([self.obj], layout, target)
         data = bytes(self.obj.get_section('code').data)
         if hexstr is None:

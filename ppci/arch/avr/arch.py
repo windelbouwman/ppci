@@ -2,10 +2,9 @@
     AVR architecture.
 """
 import io
-from ... import api
-from ..target import Target, Label
-from ..target import Alignment
-from ..target import Frame, VCall
+from ..arch import Architecture, Label
+from ..arch import Alignment
+from ..arch import Frame, VCall
 from ...ir import i8, i16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
@@ -20,7 +19,7 @@ from .registers import r24, r25, X, Y, Z
 from .registers import get_register
 
 
-class AvrArch(Target):
+class AvrArch(Architecture):
     """
         Check this site for good info:
         - https://gcc.gnu.org/wiki/avr-gcc
@@ -43,6 +42,7 @@ class AvrArch(Target):
         self.value_classes[ptr] = AvrPseudo16Register
 
     def get_runtime(self):
+        from ...api import asm
         asm_src = """
             __shr16:
                 ; TODO
@@ -50,7 +50,10 @@ class AvrArch(Target):
             __shl16:
                 ret
         """
-        return api.asm(io.StringIO(asm_src), self)
+        return asm(io.StringIO(asm_src), self)
+
+    def get_register(self, color):
+        return get_register(color)
 
     def determine_arg_locations(self, arg_types, ret_type):
         """ Given a set of argument types, determine location for argument """
@@ -151,9 +154,6 @@ class AvrFrame(Frame):
         # Restore caller save registers:
         for register in reversed(live_registers):
             yield Pop(register)
-
-    def get_register(self, color):
-        return get_register(color)
 
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:

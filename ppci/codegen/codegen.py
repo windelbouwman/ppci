@@ -1,14 +1,16 @@
 """
-    Machine code generator. The target is provided when
+    Machine code generator. The architecture is provided when
     the generator is created.
 """
 
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..arch.target import Target, VCall
-from ..arch.target import RegisterUseDef, VirtualInstruction
+from ..arch.arch import Architecture, VCall, Label
+from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.isa import Instruction
+from ..arch.data_instructions import Ds
+from ..binutils.debuginfo import DebugType, DebugVariable, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
@@ -18,37 +20,55 @@ from .registerallocator import RegisterAllocator
 
 class CodeGenerator:
     """ Machine code generator. """
-    def __init__(self, target):
-        assert isinstance(target, Target), target
-        self.logger = logging.getLogger('codegen')
-        self.target = target
-        self.sgraph_builder = SelectionGraphBuilder(target)
+    logger = logging.getLogger('codegen')
+    verifier = Verifier()
+
+    def __init__(self, arch, debug_db):
+        assert isinstance(arch, Architecture), arch
+        self.target = arch
+        self.debug_db = debug_db
+        self.sgraph_builder = SelectionGraphBuilder(arch, debug_db)
         self.instruction_selector = InstructionSelector1(
-            target.isa, target, self.sgraph_builder)
+            arch.isa, arch, self.sgraph_builder, debug_db)
         self.instruction_scheduler = InstructionScheduler()
-        self.register_allocator = RegisterAllocator()
-        self.verifier = Verifier()
+        self.register_allocator = RegisterAllocator(arch, debug_db)
 
     def generate(self, ircode, output_stream, reporter):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
         self.logger.info(
-            'Generating %s code for module %s',
-            str(self.target), ircode.name)
+            'Generating %s code for module %s', str(self.target), ircode.name)
 
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            self.target.emit_global(
-                output_stream, ir.label_name(var), var.amount)
+            label_name = ir.label_name(var)
+            # TODO: alignment?
+            label = Label(label_name)
+            output_stream.emit(label)
+            if var.amount > 0:
+                output_stream.emit(Ds(var.amount))
+            else:  # pragma: no cover
+                raise NotImplementedError()
+            self.debug_db.map(var, label)
+            if self.debug_db.contains(label):
+                dv = self.debug_db.get(label)
+                dv.address = label.name
+                output_stream.emit(DebugData(dv))
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section('code')
         for function in ircode.functions:
-            self.generate_function(function, output_stream, reporter)
+            self.generate_function(
+                function, output_stream, reporter)
+
+        # Output debug data:
+        for di in self.debug_db.infos:
+            if isinstance(di, DebugType):
+                output_stream.emit(DebugData(di))
 
     def generate_function(self, ir_function, output_stream, reporter):
         """ Generate code for one function into a frame """
@@ -74,6 +94,7 @@ class CodeGenerator:
         # Create a frame for this function:
         frame_name = ir.label_name(ir_function)
         frame = self.target.new_frame(frame_name, ir_function)
+        self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame, reporter)
@@ -90,6 +111,17 @@ class CodeGenerator:
 
         # Add label and return and stack adjustment:
         self.emit_frame_to_stream(frame, output_stream)
+
+        # Emit function debug info:
+        if self.debug_db.contains(frame):
+            func_end_label = self.debug_db.new_label()
+            output_stream.emit(Label(func_end_label))
+            d = self.debug_db.get(frame)
+            d.begin = frame_name
+            d.end = func_end_label
+            dd = DebugData(d)
+            output_stream.emit(dd)
+
         reporter.function_footer(instruction_list)
 
     def select_and_schedule(self, ir_function, frame, reporter):
@@ -125,6 +157,16 @@ class CodeGenerator:
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
+
+            # If the instruction has debug location, emit it here:
+            if self.debug_db.contains(instruction):
+                d = self.debug_db.get(instruction)
+                assert isinstance(d, DebugLocation)
+                if not d.address:
+                    label_name = self.debug_db.new_label()
+                    d.address = label_name
+                    output_stream.emit(Label(label_name))
+                    output_stream.emit(DebugData(d))
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions

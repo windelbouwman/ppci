@@ -362,14 +362,13 @@ class Builder:
     def set_loc(self, l):
         self.loc = l
 
-    def emit(self, i):
+    def emit(self, instruction):
         """ Append an instruction to the current block """
-        assert isinstance(i, ir.Instruction), str(i)
-        i.debugLoc = self.loc
+        assert isinstance(instruction, ir.Instruction), str(instruction)
         if self.block is None:
             raise Exception('No basic block')
-        self.block.add_instruction(i)
-        return i
+        self.block.add_instruction(instruction)
+        return instruction
 
 
 class Verifier:

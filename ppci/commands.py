@@ -8,6 +8,16 @@ import sys
 import platform
 import argparse
 import logging
+import importlib
+
+# Try to install the ipython traceback in case of an exception:
+try:
+    from IPython.core import ultratb
+
+    sys.excepthook = ultratb.FormattedTB(
+        mode='Verbose', color_scheme='Linux', call_pdb=1)
+except ImportError:
+    pass
 
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
@@ -15,7 +25,8 @@ from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
 from . import version, api
 from .common import logformat
-from .arch.target_list import target_names, get_arch
+from .arch.target_list import target_names, create_arch
+from .binutils.dbg import Debugger, DebugCli
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -69,7 +80,7 @@ base2_parser.add_argument(
 def get_arch_from_args(args):
     """ Determine the intended machine target and select the proper options """
     options = tuple(args.mtune)
-    return get_arch(args.machine, options=options)
+    return create_arch(args.machine, options=options)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -123,6 +134,10 @@ c3c_parser.add_argument(
     help='include file', default=[])
 c3c_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
+c3c_parser.add_argument(
+    '-g', help='create debug information', action='store_true', default=False)
+c3c_parser.add_argument(
+    '-O', help='optimize code', action='store_true', default=False)
 
 
 def c3c(args=None):
@@ -131,7 +146,32 @@ def c3c(args=None):
     with LogSetup(args):
         # Compile sources:
         march = get_arch_from_args(args)
-        obj = api.c3c(args.sources, args.include, march)
+        obj = api.c3c(args.sources, args.include, march, debug=args.g)
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
+
+
+cc_description = """
+C compiler.
+"""
+cc_parser = argparse.ArgumentParser(
+    description=cc_description, parents=[base_parser, base2_parser])
+cc_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+')
+
+
+def cc(args=None):
+    """ Run c compile task """
+    args = cc_parser.parse_args(args)
+    with LogSetup(args):
+        # Compile sources:
+        march = get_arch_from_args(args)
+        for src in args.sources:
+            obj = api.cc(src, march)
+
+        # TODO: link objects together?
 
         # Write object file to disk:
         obj.save(args.output)
@@ -160,26 +200,61 @@ def asm(args=None):
         obj.save(args.output)
         args.output.close()
 
+
+dbg_description = """
+Debugger command line utility.
+"""
+
+dbg_parser = argparse.ArgumentParser(description=dbg_description)
+dbg_parser.add_argument(
+    '--machine', '-m', help='target architecture', required=True,
+    choices=target_names, action=OnceAction)
+dbg_parser.add_argument(
+    '--mtune', help='architecture option', default=[],
+    metavar='option', action='append')
+dbg_parser.add_argument(
+    '--driver',
+    help='debug driver to use. Specify in the format: module:class',
+    default='ppci.binutils.dbg:DummyDebugDriver')
+
+
+def dbg(args=None):
+    """ Run dbg from command line """
+    args = dbg_parser.parse_args(args)
+    march = get_arch_from_args(args)
+    driver_module_name, driver_class_name = args.driver.split(':')
+    driver_module = importlib.import_module(driver_module_name)
+    driver_class = getattr(driver_module, driver_class_name)
+    driver = driver_class()
+    debugger = Debugger(march, driver)
+    cli = DebugCli(debugger)
+    cli.cmdloop()
+
+
 link_description = """
 Linker. Use the linker to combine several object files and a memory layout
 to produce another resulting object file with images.
 """
 link_parser = argparse.ArgumentParser(
-    description=link_description, parents=[base_parser, base2_parser])
+    description=link_description, parents=[base_parser])
 link_parser.add_argument(
     'obj', type=argparse.FileType('r'), nargs='+',
     help='the object to link')
 link_parser.add_argument(
-    '--layout', '-L', help='memory layout', required=True,
+    '--layout', '-L', help='memory layout', default=None,
     type=argparse.FileType('r'), metavar='layout-file')
+link_parser.add_argument(
+    '--output', '-o', help='output file', metavar='output-file',
+    type=argparse.FileType('w'), required=True, action=OnceAction)
+link_parser.add_argument(
+    '-g', help='retain debug information', action='store_true', default=False)
 
 
 def link(args=None):
     """ Run asm from command line """
     args = link_parser.parse_args(args)
     with LogSetup(args):
-        march = get_arch_from_args(args)
-        obj = api.link(args.obj, args.layout, march)
+        obj = api.link(args.obj, layout=args.layout, debug=args.g)
         obj.save(args.output)
         args.output.close()
 

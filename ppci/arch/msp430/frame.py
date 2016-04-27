@@ -1,7 +1,7 @@
-from ..target import Frame, Label, Alignment
+from ..arch import Frame, Label, Alignment
 from ..data_instructions import Db
 from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
-from .registers import get_register, r1
+from .registers import r1
 from .instructions import ret, push, call, pop, Add, Sub, ConstSrc, RegDst, mov
 from ..data_instructions import Dw2
 
@@ -40,9 +40,6 @@ class Msp430Frame(Frame):
         for register in reversed(live_regs):
             if register in self.caller_save:
                 yield pop(register)
-
-    def get_register(self, color):
-        return get_register(color)
 
     def alloc_var(self, lvar, size):
         if lvar not in self.locVars:

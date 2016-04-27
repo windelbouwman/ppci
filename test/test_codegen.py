@@ -6,7 +6,8 @@ from ppci import ir
 from ppci.irutils import Builder, Writer
 from ppci.codegen.irdag import SelectionGraphBuilder, DagSplitter
 from ppci.codegen.irdag import FunctionInfo, prepare_function_info
-from ppci.arch.example import SimpleTarget
+from ppci.arch.example import ExampleArch
+from ppci.binutils.debuginfo import DebugDb
 
 
 def print_module(m):
@@ -68,18 +69,19 @@ class IrDagTestCase(unittest.TestCase):
         loaded2 = builder.emit(ir.Load(global_tick, 'loaded2', ir.i32))
         builder.emit(ir.CJump(binop, '>', loaded2, block14, function.epilog))
         # print('module:')
-        print_module(module)
+        # print_module(module)
 
         # Target generation
-        target = SimpleTarget()
+        target = ExampleArch()
         frame = target.new_frame('a', function)
         function_info = FunctionInfo(frame)
+        debug_db = DebugDb()
         prepare_function_info(target, function_info, function)
-        dag_builder = SelectionGraphBuilder(target)
+        dag_builder = SelectionGraphBuilder(target, debug_db)
         sgraph = dag_builder.build(function, function_info)
-        dag_splitter = DagSplitter(target)
+        dag_splitter = DagSplitter(target, debug_db)
 
-        print(function_info.value_map)
+        # print(function_info.value_map)
         for b in function:
             # root = function_info.block_roots[b]
             #print('root=', root)

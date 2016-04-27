@@ -10,7 +10,7 @@ import logging
 import re
 from .. import ir
 from ..arch.isa import Register
-from ..arch.target import Label
+from ..arch.arch import Label
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 from ..utils.tree import Tree
 
@@ -70,12 +70,13 @@ class FunctionInfo:
 
 @make_map
 class SelectionGraphBuilder:
-    def __init__(self, target):
-        self.target = target
+    def __init__(self, arch, debug_db):
+        self.target = arch
+        self.debug_db = debug_db
         self.logger = logging.getLogger('selection-graph-builder')
         self.postfix_map = {
             ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
-        self.postfix_map[ir.ptr] = 'I{}'.format(target.byte_sizes['ptr'] * 8)
+        self.postfix_map[ir.ptr] = 'I{}'.format(arch.byte_sizes['ptr'] * 8)
 
     def build(self, ir_function, function_info):
         """ Create a selection graph for the given function.
@@ -141,6 +142,7 @@ class SelectionGraphBuilder:
     def do_jump(self, node):
         sgnode = self.new_node('JMP')
         sgnode.value = self.function_info.label_map[node.target]
+        self.debug_db.map(node, sgnode)
         self.chain(sgnode)
 
     def make_opcode(self, opcode, typ):
@@ -193,6 +195,7 @@ class SelectionGraphBuilder:
         sgnode.value = cond, self.function_info.label_map[node.lab_yes],\
             self.function_info.label_map[node.lab_no]
         self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
 
     @register(ir.Terminator)
     def do_terminator(self, node):
@@ -231,6 +234,7 @@ class SelectionGraphBuilder:
         address = self.get_address(node.address)
         sgnode = self.new_node(self.make_opcode('LDR', node.ty), address)
         # Make sure a data dependence is added to this node
+        self.debug_db.map(node, sgnode)
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
@@ -242,6 +246,7 @@ class SelectionGraphBuilder:
         opcode = self.make_opcode('STR', node.value.ty)
         sgnode = self.new_node(opcode, address, value)
         self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
 
     @register(ir.Const)
     def do_const(self, node):
@@ -251,6 +256,7 @@ class SelectionGraphBuilder:
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node.value)))
         sgnode = self.new_node(name)
+        self.debug_db.map(node, sgnode)
         sgnode.value = value
         self.add_map(node, sgnode.new_output(node.name))
 
@@ -271,6 +277,7 @@ class SelectionGraphBuilder:
         a = self.get_value(node.a)
         b = self.get_value(node.b)
         sgnode = self.new_node(op, a, b)
+        self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
     @register(ir.Cast)
@@ -303,6 +310,7 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(
             'CALL',
             value=(node.function_name, arg_types, node.ty, args, ret_val))
+        self.debug_db.map(node, sgnode)
         for i in inputs:
             sgnode.add_input(i)
         self.chain(sgnode)
@@ -320,6 +328,7 @@ class SelectionGraphBuilder:
         output = sgnode.new_output(node.name)
         output.vreg = vreg
         self.add_map(node, output)
+        self.debug_db.map(node, vreg)
 
     def copy_phis_of_successors(self, ir_block):
         """ When a terminator instruction is encountered, handle the copy
@@ -399,7 +408,6 @@ def topological_sort_modified(nodes, start):
         if L[-1] is not start:
             L.remove(start)
             L.append(start)
-            print('re-tailing :)')
     return L
 
 
@@ -408,9 +416,10 @@ class DagSplitter:
         such that data dependencies are met. The trees can henceforth be
         used to match trees.
     """
-    def __init__(self, target):
+    def __init__(self, arch, debug_db):
         self.logger = logging.getLogger('dag-splitter')
-        self.target = target
+        self.arch = arch
+        self.debug_db = debug_db
 
     def split_into_trees(self, sgraph, ir_function, function_info):
         """ Split a forest of trees into a sorted series of trees for each
@@ -477,6 +486,7 @@ class DagSplitter:
 
             # Create a tree node:
             tree = Tree(node.name, *children, value=node.value)
+            self.debug_db.map(node, tree)
 
             # Handle outputs:
             if len(node.data_outputs) == 0:
@@ -502,7 +512,7 @@ class DagSplitter:
         """ Determine the register class suited for this data flow line """
         op = data_flow.node.name
         if op == 'LABEL':
-            return self.target.get_reg_class(ty=ir.ptr)
+            return self.arch.get_reg_class(ty=ir.ptr)
         assert 'I' in op
         bitsize = int(re.search('I(\d+)', op).group(1))
-        return self.target.get_reg_class(bitsize=bitsize)
+        return self.arch.get_reg_class(bitsize=bitsize)

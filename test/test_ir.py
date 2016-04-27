@@ -4,6 +4,7 @@ import io
 from ppci import ir
 from ppci import irutils
 from ppci.opt.transform import ConstantFolder
+from ppci.binutils.debuginfo import DebugDb
 from util import relpath
 
 
@@ -55,7 +56,8 @@ class IrBuilderTestCase(unittest.TestCase):
 class ConstantFolderTestCase(unittest.TestCase):
     def setUp(self):
         self.b = irutils.Builder()
-        self.cf = ConstantFolder()
+        debug_db = DebugDb()
+        self.cf = ConstantFolder(debug_db)
         self.m = ir.Module('test')
         self.b.set_module(self.m)
 

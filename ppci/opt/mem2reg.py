@@ -79,10 +79,12 @@ class Mem2RegPromotor(FunctionPass):
         return phis
 
     def rename(self, initial_value, phis, loads, stores, cfg_info):
-        # Step 2: renaming:
+        """
+        Step 2: renaming:
 
-        # Start a top down sweep over the dominator tree to visit all
-        # statements
+        Start a top down sweep over the dominator tree to visit all
+        statements
+        """
         stack = [initial_value]
 
         def search(block):
@@ -135,6 +137,10 @@ class Mem2RegPromotor(FunctionPass):
         phi_ty = all_types[0]
 
         phis = self.place_phi_nodes(stores, phi_ty, name, cfg_info)
+
+        # Preserve debug info:
+        for phi in phis:
+            self.debug_db.map(alloc, phi)
 
         # Create undefined value at start:
         initial_value = Undefined('und_{}'.format(name), phi_ty, loc=alloc.loc)

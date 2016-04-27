@@ -56,13 +56,13 @@ This is a subset of the C language with some additional features.
    40 -> 99
    }
 
-.. autoclass:: ppci.c3.Lexer
+.. autoclass:: ppci.lang.c3.Lexer
 
-.. autoclass:: ppci.c3.Parser
+.. autoclass:: ppci.lang.c3.Parser
 
-.. autoclass:: ppci.c3.CodeGenerator
+.. autoclass:: ppci.lang.c3.CodeGenerator
 
-.. autoclass:: ppci.c3.Builder
+.. autoclass:: ppci.lang.c3.C3Builder
 
 
 Brainfuck frontend
@@ -70,7 +70,7 @@ Brainfuck frontend
 
 The compiler has a front-end for the brainfuck language.
 
-.. autoclass:: ppci.bf.BrainFuckGenerator
+.. autoclass:: ppci.lang.bf.BrainFuckGenerator
 
 IR-code
 -------
@@ -166,4 +166,21 @@ or to a logger.
 
 .. autoclass:: ppci.binutils.outstream.OutputStream
 
+
+Debugger
+--------
+
+The debugger class is the main piece of the debugger. This is created for
+a specific architecture and is given a driver to communicate with the target
+hardware.
+
+.. autoclass:: ppci.binutils.dbg.Debugger
+
+One of the classes that uses the debugger is the debug command line interface.
+
+.. autoclass:: ppci.binutils.dbg.DebugCli
+
+To connect to your favorite hardware, subclass the DebugDriver class.
+
+.. autoclass:: ppci.binutils.dbg.DebugDriver
 

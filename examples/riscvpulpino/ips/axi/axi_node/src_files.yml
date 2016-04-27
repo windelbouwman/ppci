@@ -1,0 +1,27 @@
+axi_node:
+  incdirs: [
+    .,
+  ]
+  files: [
+    apb_regs_top.sv,
+    axi_address_decoder_AR.sv,
+    axi_address_decoder_AW.sv,
+    axi_address_decoder_BR.sv,
+    axi_address_decoder_BW.sv,
+    axi_address_decoder_DW.sv,
+    axi_AR_allocator.sv,
+    axi_ArbitrationTree.sv,
+    axi_AW_allocator.sv,
+    axi_BR_allocator.sv,
+    axi_BW_allocator.sv,
+    axi_DW_allocator.sv,
+    axi_FanInPrimitive_Req.sv,
+    axi_multiplexer.sv,
+    axi_node.sv,
+    axi_node_wrap.sv,
+    axi_node_wrap_with_slices.sv,
+    axi_regs_top.sv,
+    axi_request_block.sv,
+    axi_response_block.sv,
+    axi_RR_Flag_Req.sv,
+  ]

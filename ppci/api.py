@@ -5,13 +5,15 @@ and assembling.
 """
 
 import logging
+import warnings
 import os
 import stat
 import xml
-from .arch.target import Target
-from .c3 import Builder
-from .bf import BrainFuckGenerator
-from .fortran import FortranBuilder
+from .arch.arch import Architecture
+from .lang.c import CBuilder
+from .lang.c3 import C3Builder
+from .lang.bf import BrainFuckGenerator
+from .lang.fortran import FortranBuilder
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -26,31 +28,36 @@ from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream
 from .binutils.objectfile import ObjectFile, load_object
+from .binutils.debuginfo import DebugDb, DebugAddress
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
+from .utils.exefile import ExeWriter
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .ir2py import IrToPython
+from .arch.target_list import create_arch
+
+# When using 'from ppci.api import *' include the following:
+__all__ = [
+    'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize',
+    'get_arch']
 
 
-def fix_target(target_name):
-    """ Try to return an instance of the Target class.
-        target_name can be in the form of arch:option1:option2
+def get_arch(arch):
+    """ Try to return an architecture instance.
+        arch can be a string in the form of arch:option1:option2
     """
-    # TODO: this is ugly, but is works:
-    from .arch.target_list import get_arch
-    # TODO: fix this recursive import different
-    if isinstance(target_name, Target):
-        return target_name
-    elif isinstance(target_name, str):
-        if ':' in target_name:
+    if isinstance(arch, Architecture):
+        return arch
+    elif isinstance(arch, str):
+        if ':' in arch:
             # We have target with options attached
-            l = target_name.split(':')
-            return get_arch(l[0], options=tuple(l[1:]))
+            l = arch.split(':')
+            return create_arch(l[0], options=tuple(l[1:]))
         else:
-            return get_arch(target_name)
-    raise TaskError('Invalid target {}'.format(target_name))
+            return create_arch(arch)
+    raise TaskError('Invalid architecture {}'.format(arch))
 
 
 def fix_file(f):
@@ -129,11 +136,12 @@ def asm(source, march):
     """
     logger = logging.getLogger('assemble')
     diag = DiagnosticsManager()
-    assembler = fix_target(march).assembler
+    march = get_arch(march)
+    assembler = march.assembler
     source = fix_file(source)
-    output = ObjectFile()
+    obj = ObjectFile(march)
     logger.debug('Assembling into code section')
-    ostream = BinaryOutputStream(output)
+    ostream = BinaryOutputStream(obj)
     ostream.select_section('code')
     try:
         assembler.prepare()
@@ -143,22 +151,22 @@ def asm(source, march):
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
         raise TaskError('Errors during assembling')
-    return output
+    return obj
 
 
-def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
+def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     """ Compile c3 sources to ir code using the includes and for the given
     target """
     logger = logging.getLogger('c3c')
     logger.debug('C3 compilation started')
-    target = fix_target(target)
+    march = get_arch(march)
     sources = [fix_file(fn) for fn in sources]
     includes = [fix_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = Builder(diag, target)
+    c3b = C3Builder(diag, march)
 
     try:
-        _, ir_modules = c3b.build(sources, includes)
+        _, ir_modules, debug_info = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
     except CompilerError as ex:
@@ -171,10 +179,10 @@ def c3toir(sources, includes, target, reporter=DummyReportGenerator()):
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
-    return ir_modules
+    return ir_modules, debug_info
 
 
-def optimize(ir_module, reporter=DummyReportGenerator()):
+def optimize(ir_module, reporter=None, debug_db=None):
     """
         Run a bag of tricks against the ir-code.
         This is an in-place operation!
@@ -182,17 +190,23 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     logger = logging.getLogger('optimize')
     logger.info('Optimizing module %s', ir_module.name)
 
+    if not reporter:
+        reporter = DummyReportGenerator()
+
+    if not debug_db:
+        debug_db = DebugDb()
+
     # Create the verifier:
     verifier = Verifier()
 
     # Optimization passes (bag of tricks) run them three times:
-    opt_passes = [Mem2RegPromotor(),
-                  RemoveAddZeroPass(),
-                  ConstantFolder(),
-                  CommonSubexpressionEliminationPass(),
-                  LoadAfterStorePass(),
-                  DeleteUnusedInstructionsPass(),
-                  CleanPass()] * 3
+    opt_passes = [Mem2RegPromotor(debug_db),
+                  RemoveAddZeroPass(debug_db),
+                  ConstantFolder(debug_db),
+                  CommonSubexpressionEliminationPass(debug_db),
+                  LoadAfterStorePass(debug_db),
+                  DeleteUnusedInstructionsPass(debug_db),
+                  CleanPass(debug_db)] * 3
 
     # Run the passes over the module:
     verifier.verify(ir_module)
@@ -208,40 +222,55 @@ def optimize(ir_module, reporter=DummyReportGenerator()):
     reporter.dump_ir(ir_module)
 
 
-def ir_to_object(ir_modules, march, reporter=DummyReportGenerator()):
+def ir_to_object(
+        ir_modules, march, debug_db, reporter=None, opt=None):
     """ Translate the given list of IR-modules into object code for the given
-    target """
-    logger = logging.getLogger('ir_to_code')
-    code_generator = CodeGenerator(march)
+    architecture """
+    if not reporter:
+        reporter = DummyReportGenerator()
+    march = get_arch(march)
+    code_generator = CodeGenerator(march, debug_db)
     verifier = Verifier()
 
-    output = ObjectFile()
-    output_stream = BinaryOutputStream(output)
+    obj = ObjectFile(march)
+    output_stream = BinaryOutputStream(obj)
 
     for ir_module in ir_modules:
         verifier.verify(ir_module)
 
         # Code generation:
-        logger.debug('Starting code generation for %s', ir_module.name)
         code_generator.generate(ir_module, output_stream, reporter=reporter)
 
+    # TODO: refactor polishing?
+    obj.polish()
     reporter.message('All modules generated!')
-    return output
+    return obj
 
 
-def ir_to_python(ir_modules, f, reporter=DummyReportGenerator()):
+def ir_to_python(ir_modules, f, reporter=None):
     """ Convert ir-code to python code """
-    generator = IrToPython()
-    generator.f = f
+    if not reporter:
+        reporter = DummyReportGenerator()
+    generator = IrToPython(f)
     generator.header()
     for ir_module in ir_modules:
         optimize(ir_module, reporter=reporter)
         reporter.message('Optimized module:')
         reporter.dump_ir(ir_module)
-        generator.generate(ir_module, f)
+        generator.generate(ir_module)
 
 
-def c3c(sources, includes, march, reporter=DummyReportGenerator()):
+def cc(source, march, reporter=None):
+    """ C compiler. compiles a single source file into an object file """
+    if not reporter:
+        reporter = DummyReportGenerator()
+    march = get_arch(march)
+    cbuilder = CBuilder(march)
+    cbuilder.build(source)
+    raise NotImplementedError('TODO')
+
+
+def c3c(sources, includes, march, reporter=None, debug=False):
     """
     Compile a set of sources into binary format for the given target.
 
@@ -256,18 +285,21 @@ def c3c(sources, includes, march, reporter=DummyReportGenerator()):
         >>> print(obj)
         CodeObject of 4 bytes
     """
-    march = fix_target(march)
-    ir_modules = list(c3toir(sources, includes, march, reporter=reporter))
+    if not reporter:
+        reporter = DummyReportGenerator()
+    march = get_arch(march)
+    ir_modules, debug_db = \
+        c3toir(sources, includes, march, reporter=reporter)
 
     for ircode in ir_modules:
         optimize(ircode, reporter=reporter)
 
-    return ir_to_object(ir_modules, march, reporter=reporter)
+    return ir_to_object(ir_modules, march, debug_db, reporter=reporter)
 
 
 def bf2ir(source, target):
     """ Compile brainfuck source into ir code """
-    target = fix_target(target)
+    target = get_arch(target)
     ircode = BrainFuckGenerator(target).generate(source)
     return ircode
 
@@ -279,16 +311,32 @@ def fortran_to_ir(source):
     return ir_modules
 
 
-def bfcompile(source, target, reporter=DummyReportGenerator()):
-    """ Compile brainfuck source into binary format for the given target """
+def bfcompile(source, target, reporter=None):
+    """ Compile brainfuck source into binary format for the given target
+
+    source can be a filename or a file like object.
+    march can be a machine instance or a string indicating the target.
+
+    For example:
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import bfcompile
+        >>> source_file = io.StringIO(">>[-]<<[->>+<<]")
+        >>> obj = bfcompile(source_file, 'arm')
+    """
+    if not reporter:
+        reporter = DummyReportGenerator()
     reporter.message('brainfuck compilation listings')
-    target = fix_target(target)
+    target = get_arch(target)
     ir_module = bf2ir(source, target)
     reporter.message(
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
-    return ir_to_object([ir_module], target, reporter=reporter)
+    debug_db = DebugDb()
+    return ir_to_object([ir_module], target, debug_db, reporter=reporter)
 
 
 def fortrancompile(sources, target, reporter=DummyReportGenerator()):
@@ -299,20 +347,33 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 
 
 def link(
-        objects, layout, march,
-        use_runtime=False, partial_link=False,
-        reporter=DummyReportGenerator()):
+        objects, layout=None, arch=None, use_runtime=False, partial_link=False,
+        reporter=None, debug=False):
     """ Links the iterable of objects into one using the given layout.
 
     """
+    if not reporter:
+        reporter = DummyReportGenerator()
+
     objects = [fix_object(obj) for obj in objects]
-    layout = fix_layout(layout)
-    march = fix_target(march)
+    if not objects:
+        raise ValueError('Please provide some objects as input')
+
+    if layout:
+        layout = fix_layout(layout)
+
+    if arch:
+        warnings.warn('No need to give arch here!', DeprecationWarning)
+        march = get_arch(arch)
+    else:
+        march = objects[0].arch
+
     if use_runtime:
         objects.append(march.runtime)
+
     linker = Linker(march, reporter)
     try:
-        output_obj = linker.link(objects, layout)
+        output_obj = linker.link(objects, layout=layout, debug=debug)
     except CompilerError as err:
         raise TaskError(err.msg)
     return output_obj
@@ -320,8 +381,10 @@ def link(
 
 def objcopy(obj, image_name, fmt, output_filename):
     """ Copy some parts of an object file to an output """
-    if fmt not in ['bin', 'hex', 'elf']:
-        raise TaskError('Only bin, elf and hex formats supported')
+    fmts = ['bin', 'hex', 'elf', 'exe', 'ldb']
+    if fmt not in fmts:
+        formats = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
+        raise TaskError('Only {} are supported'.format(formats))
 
     obj = fix_object(obj)
     if fmt == "bin":
@@ -340,5 +403,46 @@ def objcopy(obj, image_name, fmt, output_filename):
         hexfile.add_region(image.location, image.data)
         with open(output_filename, 'w') as output_file:
             hexfile.save(output_file)
+    elif fmt == 'ldb':
+        # TODO: fix this some other way to extract debug info
+        with open(output_filename, 'w') as output_file:
+            write_ldb(obj, output_file)
+    elif fmt == 'exe':
+        writer = ExeWriter()
+        with open(output_filename, 'wb') as output_file:
+            writer.write(obj, output_file)
     else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
+
+
+def write_ldb(obj, output_file):
+    """ Export debug info from object to ldb format.
+        See for example:
+        - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
+          x32-debug/ex2.dbg
+    """
+    def fx(address):
+        assert isinstance(address, DebugAddress)
+        return obj.get_section(address.section).address + address.offset
+    debug_info = obj.debug_info
+    for debug_location in debug_info.locations:
+        filename = debug_location.loc.filename
+        row = debug_location.loc.row
+        address = fx(debug_location.address)
+        print(
+            'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
+            file=output_file)
+    for func in debug_info.functions:
+        name = func.name
+        address = fx(func.begin)
+        print(
+            'function: {} <0> @ 0x{:08X}'.format(name, address),
+            file=output_file)
+    for var in debug_info.variables:
+        if var.scope != 'global':
+            continue
+        name = var.name
+        address = fx(var.address)
+        print(
+            'global: {} <0> @ 0x{:08X}'.format(name, address),
+            file=output_file)
