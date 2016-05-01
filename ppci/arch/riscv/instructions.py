@@ -495,14 +495,14 @@ Div = make_mext('div', 0b100)
 
 
 # Instruction selection patterns:
-@isa.pattern('stm', 'STRI32(reg, reg)', cost=2)
+@isa.pattern('stm', 'STRI32(reg, reg)', size=2)
 def _(self, tree, c0, c1):
     self.emit(Sw(c0, c1, 0))
 
 
 @isa.pattern(
     'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
-    cost=2,
+    size=2,
     condition=lambda t: t.children[0].children[1].value < 256)
 def _(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
@@ -511,40 +511,40 @@ def _(context, tree, c0, c1):
     context.emit(Sw(c0, c1, offset))
 
 
-@isa.pattern('stm', 'STRI8(reg, reg)', cost=2)
+@isa.pattern('stm', 'STRI8(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     context.emit(Sb(c0, c1, 0))
 
 
-@isa.pattern('reg', 'MOVI32(reg)', cost=2)
+@isa.pattern('reg', 'MOVI32(reg)', size=2)
 def _(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
-@isa.pattern('reg', 'MOVI8(reg)', cost=2)
+@isa.pattern('reg', 'MOVI8(reg)', size=2)
 def _(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
-@isa.pattern('stm', 'JMP', cost=2)
+@isa.pattern('stm', 'JMP', size=2)
 def _(context, tree):
     tgt = tree.value
     context.emit(B(tgt.name, jumps=[tgt]))
 
 
-@isa.pattern('reg', 'REGI32', cost=0)
+@isa.pattern('reg', 'REGI32', size=0)
 def _(context, tree):
     return tree.value
 
 
-@isa.pattern('reg', 'REGI8', cost=0)
+@isa.pattern('reg', 'REGI8', size=0)
 def _(context, tree):
     return tree.value
 
 
-@isa.pattern('reg', 'CONSTI32', cost=4)
+@isa.pattern('reg', 'CONSTI32', size=4)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
@@ -553,7 +553,7 @@ def _(context, tree):
     return d
 
 
-@isa.pattern('reg', 'CONSTI32', cost=2, condition=lambda t: t.value < 256)
+@isa.pattern('reg', 'CONSTI32', size=2, condition=lambda t: t.value < 256)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
@@ -563,7 +563,7 @@ def _(context, tree):
     return d
 
 
-@isa.pattern('reg', 'CONSTI8', cost=2, condition=lambda t: t.value < 256)
+@isa.pattern('reg', 'CONSTI8', size=2, condition=lambda t: t.value < 256)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
@@ -573,7 +573,7 @@ def _(context, tree):
     return d
 
 
-@isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
+@isa.pattern('stm', 'CJMP(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
@@ -583,14 +583,14 @@ def _(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('reg', 'ADDI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Add1(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'ADDI8(reg, reg)', cost=2)
+@isa.pattern('reg', 'ADDI8(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Add1(d, c0, c1))
@@ -598,7 +598,7 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern(
-    'reg', 'ADDI32(reg, CONSTI32)', cost=2,
+    'reg', 'ADDI32(reg, CONSTI32)', size=2,
     condition=lambda t: t.children[1].value < 256)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
@@ -608,7 +608,7 @@ def _(context, tree, c0):
 
 
 @isa.pattern(
-    'reg', 'ADDI32(CONSTI32, reg)', cost=2,
+    'reg', 'ADDI32(CONSTI32, reg)', size=2,
     condition=lambda t: t.children[0].value < 256)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
@@ -617,14 +617,14 @@ def _(context, tree, c0):
     return d
 
 
-@isa.pattern('reg', 'SUBI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'SUBI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Sub1(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'SUBI8(reg, reg)', cost=2)
+@isa.pattern('reg', 'SUBI8(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     # TODO: temporary fix this with an 32 bits sub
     d = context.new_reg(RiscvRegister)
@@ -632,7 +632,7 @@ def _(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'LABEL', cost=6)
+@isa.pattern('reg', 'LABEL', size=6)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
@@ -642,63 +642,63 @@ def _(context, tree):
     return d
 
 
-@isa.pattern('reg', 'LDRI8(reg)', cost=2)
+@isa.pattern('reg', 'LDRI8(reg)', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     context.emit(Lb(d, c0, 0))
     return d
 
 
-@isa.pattern('reg', 'LDRI32(reg)', cost=2)
+@isa.pattern('reg', 'LDRI32(reg)', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     context.emit(Lw(d, c0, 0))
     return d
 
 
-@isa.pattern('reg', 'CALL', cost=2)
+@isa.pattern('reg', 'CALL', size=2)
 def _(context, tree):
     label, arg_types, ret_type, args, res_var = tree.value
     context.gen_call(label, arg_types, ret_type, args, res_var)
     return res_var
 
 
-@isa.pattern('reg', 'ANDI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'ANDI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(And1(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'ORI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'ORI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Orr1(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'SHRI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Lsr1(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'SHLI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'SHLI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Lsl1(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'MULI32(reg, reg)', cost=10)
+@isa.pattern('reg', 'MULI32(reg, reg)', size=10)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Mul(d, c0, c1))
     return d
 
 
-@isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', cost=2)
+@isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].children[1].value
@@ -707,7 +707,7 @@ def _(context, tree, c0):
     return d
 
 
-@isa.pattern('reg', 'DIVI32(reg, reg)', cost=10)
+@isa.pattern('reg', 'DIVI32(reg, reg)', size=10)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     # Generate call into runtime lib function!
@@ -715,7 +715,7 @@ def _(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg', 'REMI32(reg, reg)', cost=10)
+@isa.pattern('reg', 'REMI32(reg, reg)', size=10)
 def _(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(RiscvRegister)
@@ -726,7 +726,7 @@ def _(context, tree, c0, c1):
     return d2
 
 
-@isa.pattern('reg', 'XORI32(reg, reg)', cost=2)
+@isa.pattern('reg', 'XORI32(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Eor1(d, c0, c1))

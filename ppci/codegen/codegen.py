@@ -23,13 +23,24 @@ class CodeGenerator:
     logger = logging.getLogger('codegen')
     verifier = Verifier()
 
-    def __init__(self, arch, debug_db):
+    def __init__(self, arch, debug_db, optimize_for='size'):
         assert isinstance(arch, Architecture), arch
         self.target = arch
         self.debug_db = debug_db
         self.sgraph_builder = SelectionGraphBuilder(arch, debug_db)
+        weights_map = {
+            'size': (10, 1, 1),
+            'speed': (3, 10, 1),
+            'co2': (1, 2, 10),
+            'awesome': (3, 7, 5),
+        }
+        if optimize_for in weights_map:
+            selection_weights = weights_map[optimize_for]
+        else:
+            selection_weights = (1, 1, 1)
         self.instruction_selector = InstructionSelector1(
-            arch.isa, arch, self.sgraph_builder, debug_db)
+            arch.isa, arch, self.sgraph_builder, debug_db,
+            weights=selection_weights)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator(arch, debug_db)
 

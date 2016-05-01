@@ -3,7 +3,6 @@ Isa related classes.
 These can be used to define an instruction set.
 """
 
-import warnings
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
 
@@ -142,18 +141,11 @@ class Isa:
         self.patterns.append(pattern)
 
     def pattern(
-            self, non_term, tree, cost=None, condition=None,
+            self, non_term, tree, condition=None,
             size=1, cycles=1, energy=1):
         """
             Decorator function that adds a pattern.
         """
-        if cost is not None:
-            warnings.warn(
-                'cost is deprecated, please use size, cycles and power',
-                DeprecationWarning)
-            size = cost
-            cycles = cost
-            energy = cost
         if isinstance(tree, str):
             tree = from_string(tree)
 

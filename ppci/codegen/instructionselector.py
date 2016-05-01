@@ -138,7 +138,16 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, arch, sgraph_builder, debug_db):
+    def __init__(self, isa, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
+        """
+            Create a new instruction selector.
+
+            Weights can be given to select instructions given more for:
+            - size
+            - execution cycles
+            - or energy
+            respectively.
+        """
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
         self.arch = arch
@@ -160,7 +169,9 @@ class InstructionSelector1:
 
         # Add all isa patterns:
         for pattern in isa.patterns:
-            cost = pattern.size + pattern.cycles + pattern.energy
+            cost = pattern.size * weights[0] + \
+                   pattern.cycles * weights[1] + \
+                   pattern.energy * weights[2]
             self.sys.add_rule(
                 pattern.non_term, pattern.tree, cost,
                 pattern.condition, pattern.method)

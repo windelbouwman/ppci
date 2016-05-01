@@ -642,7 +642,7 @@ def pattern_mov8(context, tree, c0):
     return tree.value
 
 
-@arm_isa.pattern('stm', 'JMP', cost=2)
+@arm_isa.pattern('stm', 'JMP', size=2)
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(B(tgt.name, jumps=[tgt]))
@@ -686,7 +686,7 @@ def pattern_const8_1(context, tree):
     return d
 
 
-@arm_isa.pattern('stm', 'CJMP(reg, reg)', cost=2)
+@arm_isa.pattern('stm', 'CJMP(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
@@ -697,7 +697,7 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@arm_isa.pattern('reg', 'ADDI32(reg, reg)', cost=2)
+@arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add1(d, c0, c1))
