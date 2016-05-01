@@ -57,7 +57,6 @@ class DebugInfo:
         self.locations = []
         self.functions = []
         self.types = []
-        self.types_map = {}
         self.variables = []
 
     def all_items(self):
@@ -88,19 +87,9 @@ class DebugInfo:
     def add_type(self, typ):
         """ Register a type """
         # print(typ)
-        if typ.name not in self.types_map:
-            self.types_map[typ.name] = typ
+        # TODO: implement a check here? Do this otherways?
+        if typ not in self.types:
             self.types.append(typ)
-        else:
-            pass
-            # TODO: assert equal?
-
-    def get_type(self, name):
-        """ Get a type with a given name """
-        return self.types_map[name]
-
-    def has_type(self, name):
-        return name in self.types_map
 
     def add_variable(self, variable):
         self.variables.append(variable)
@@ -120,16 +109,18 @@ class CuInfo:
 
 
 class DebugType:
-    def __init__(self, name):
-        self.name = name
+    """ Debug type base class """
+    def __init__(self):
+        pass
 
     def __repr__(self):
-        return 'DBGTYP[ {} {} ]'.format(self.name, type(self))
+        return 'DBGTYP[ {} ]'.format(type(self))
 
 
 class DebugBaseType(DebugType):
     def __init__(self, name, size, encoding):
-        super().__init__(name)
+        super().__init__()
+        self.name = name
         self.size = size
         self.encoding = encoding
 
@@ -139,8 +130,8 @@ class DebugBaseType(DebugType):
 
 class DebugStructType(DebugType):
     """ A structured type """
-    def __init__(self, name):
-        super().__init__(name)
+    def __init__(self):
+        super().__init__()
         self.fields = []
 
     def add_field(self, name, typ, offset):
@@ -148,13 +139,13 @@ class DebugStructType(DebugType):
         self.fields.append((name, typ, offset))
 
     def __repr__(self):
-        return 'struct'
+        return 'struct {...}'
 
 
 class DebugPointerType(DebugType):
     """ A type that points somewhere else """
-    def __init__(self, name, pointed_type):
-        super().__init__(name)
+    def __init__(self, pointed_type):
+        super().__init__()
         assert isinstance(pointed_type, DebugType)
         self.pointed_type = pointed_type
 
@@ -163,8 +154,8 @@ class DebugPointerType(DebugType):
 
 
 class DebugArrayType(DebugType):
-    def __init__(self, name, element_type, size):
-        super().__init__(name)
+    def __init__(self, element_type, size):
+        super().__init__()
         assert isinstance(element_type, DebugType)
         assert isinstance(size, int)
         self.element_type = element_type
@@ -233,149 +224,213 @@ class DebugVariable(DebugBaseInfo):
             self.name, self.typ.name, self.address)
 
 
-def write_source_location(loc):
-    """ Serialize a location object """
-    return {
-        'filename': loc.filename, 'row': loc.row, 'column': loc.col,
-        'length': loc.length,
-    }
+def serialize(debug_info):
+    """ Serialize debug information into a dict """
+    return DictSerializer().serialize(debug_info)
 
 
-def read_source_location(x):
-    loc = SourceLocation(x['filename'], x['row'], x['column'], x['length'])
-    return loc
+class DictSerializer:
+    """ Serialize debug information into dictionary format """
+    def __init__(self):
+        self.type_ids = {}
 
+    def serialize(self, dbi):
+        """ Serialize debug information """
+        # Clear type id's:
+        self.type_ids.clear()
 
-def write_address(address):
-    assert isinstance(address, DebugAddress)
-    return {'section': address.section, 'offset': address.offset}
-
-
-def read_address(x):
-    return DebugAddress(x['section'], x['offset'])
-
-
-def serialize(x):
-    """ Serialize debug information """
-    if isinstance(x, DebugLocation):
-        return {
-            'source': write_source_location(x.loc),
-            'address': write_address(x.address),
-        }
-    elif isinstance(x, DebugFunction):
-        variables = []
-        for v in x.variables:
-            variables.append({
-                'source': write_source_location(v.loc),
-                'name': v.name,
-                'type': v.typ.name,
-            })
-        return {
-            'source': write_source_location(x.loc),
-            'function_name': x.name,
-            'begin': write_address(x.begin),
-            'end': write_address(x.end),
-            'variables': variables,
-        }
-    elif isinstance(x, DebugVariable):
-        return {
-            'source': write_source_location(x.loc),
-            'name': x.name,
-            'type': x.typ.name,
-            'scope': x.scope,
-            'address': write_address(x.address),
-        }
-    elif isinstance(x, DebugBaseType):
-        return {
-            'kind': 'base',
-            'name': x.name,
-            'size': x.size,
-        }
-    elif isinstance(x, DebugStructType):
-        fields = []
-        for field in x.fields:
-            fields.append({
-                'name': field[0],
-                'typ': field[1].name,
-                'offset': field[2],
-                })
-        return {
-            'kind': 'struct',
-            'name': x.name,
-            'fields': fields,
-        }
-    elif isinstance(x, DebugArrayType):
-        return {
-            'kind': 'array',
-            'name': x.name,
-            'element_type': x.element_type.name,
-            'size': x.size,
-        }
-    elif isinstance(x, DebugPointerType):
-        return {
-            'kind': 'pointer',
-            'name': x.name,
-            'pointed_type': x.pointed_type.name,
-        }
-    elif isinstance(x, DebugInfo):
-        locations = [serialize(l) for l in x.locations]
-        types = list(map(serialize, x.types))
-        variables = list(map(serialize, x.variables))
-        functions = list(map(serialize, x.functions))
+        locations = [self.serialize_location(l) for l in dbi.locations]
+        types = list(map(self.serialize_type, dbi.types))
+        variables = list(map(self.serialize_variable, dbi.variables))
+        functions = list(map(self.serialize_function, dbi.functions))
         return {
             'locations': locations,
             'types': types,
             'variables': variables,
             'functions': functions,
         }
-    else:
-        raise NotImplementedError(str(type(x)))
+
+    def serialize_location(self, loc):
+        return {
+            'source': self.write_source_location(loc.loc),
+            'address': self.write_address(loc.address),
+        }
+
+    def serialize_function(self, x):
+        variables = []
+        for v in x.variables:
+            variables.append({
+                'source': self.write_source_location(v.loc),
+                'name': v.name,
+                'type': self.get_type_id(v.typ),
+            })
+        return {
+            'source': self.write_source_location(x.loc),
+            'function_name': x.name,
+            'begin': self.write_address(x.begin),
+            'end': self.write_address(x.end),
+            'variables': variables,
+        }
+
+    def serialize_variable(self, x):
+        return {
+            'source': self.write_source_location(x.loc),
+            'name': x.name,
+            'type': self.get_type_id(x.typ),
+            'scope': x.scope,
+            'address': self.write_address(x.address),
+        }
+
+    def serialize_type(self, x):
+        i = self.get_type_id(x)
+        if isinstance(x, DebugBaseType):
+            return {
+                'id': i,
+                'kind': 'base',
+                'name': x.name,
+                'size': x.size,
+            }
+        elif isinstance(x, DebugStructType):
+            fields = []
+            for field in x.fields:
+                fields.append({
+                    'name': field[0],
+                    'type': self.get_type_id(field[1]),
+                    'offset': field[2],
+                    })
+            return {
+                'id': i,
+                'kind': 'struct',
+                'fields': fields,
+            }
+        elif isinstance(x, DebugArrayType):
+            return {
+                'id': i,
+                'kind': 'array',
+                'element_type': self.get_type_id(x.element_type),
+                'size': x.size,
+            }
+        elif isinstance(x, DebugPointerType):
+            return {
+                'id': i,
+                'kind': 'pointer',
+                'pointed_type': self.get_type_id(x.pointed_type),
+            }
+        else:
+            raise NotImplementedError(str(type(x)))
+
+    def write_source_location(self, loc):
+        """ Serialize a location object """
+        return {
+            'filename': loc.filename,
+            'row': loc.row,
+            'column': loc.col,
+            'length': loc.length,
+        }
+
+    def write_address(self, address):
+        assert isinstance(address, DebugAddress)
+        return {'section': address.section, 'offset': address.offset}
+
+    def get_type_id(self, typ):
+        if typ not in self.type_ids:
+            self.type_ids[typ] = len(self.type_ids)
+        return self.type_ids[typ]
 
 
 def deserialize(x):
-    """ create debug information from a dict-like object """
-    debug_info = DebugInfo()
-    for l in x['locations']:
-        loc = read_source_location(l['source'])
-        address = read_address(l['address'])
-        dl = DebugLocation(loc, address=address)
-        debug_info.add(dl)
-    for t in x['types']:
+    return DictDeserializer().deserialize(x)
+
+
+class DictDeserializer:
+    """ Deserialize dict data into debug information """
+    def __init__(self):
+        self.type_ids = {}
+
+    def deserialize(self, x):
+        """ create debug information from a dict-like object """
+        # Clear map:
+        self.types = {}
+        self.type_worklist = {}
+
+        # Start reading debug info:
+        debug_info = DebugInfo()
+        for l in x['locations']:
+            loc = self.read_source_location(l['source'])
+            address = self.read_address(l['address'])
+            dl = DebugLocation(loc, address=address)
+            debug_info.add(dl)
+        for t in x['types']:
+            i = t['id']
+            self.type_worklist[i] = t
+        # print(self.type_worklist)
+        for t in x['types']:
+            dt = self.get_type(t['id'])
+            debug_info.add(dt)
+        for v in x['variables']:
+            name = v['name']
+            loc = self.read_source_location(v['source'])
+            typ = self.get_type(v['type'])
+            address = self.read_address(v['address'])
+            dv = DebugVariable(
+                name, typ, loc, scope=v['scope'], address=address)
+            debug_info.add(dv)
+        for f in x['functions']:
+            loc = self.read_source_location(f['source'])
+            begin = self.read_address(f['begin'])
+            end = self.read_address(f['end'])
+            variables = []
+            for v in f['variables']:
+                name = v['name']
+                loc = self.read_source_location(v['source'])
+                typ = self.get_type(v['type'])
+                dv = DebugVariable(name, typ, loc)
+                variables.append(dv)
+            fdi = DebugFunction(
+                f['function_name'], loc, begin=begin, end=end,
+                variables=variables)
+            debug_info.add(fdi)
+        return debug_info
+
+    def read_source_location(self, x):
+        return SourceLocation(
+            x['filename'], x['row'], x['column'], x['length'])
+
+    def read_address(self, x):
+        return DebugAddress(x['section'], x['offset'])
+
+    def get_type(self, idx):
+        """ Get type from data or from cache """
+        if idx in self.types:
+            return self.types[idx]
+
+        t = self.type_worklist.pop(idx)
         kind = t['kind']
-        name = t['name']
         if kind == 'base':
+            name = t['name']
             size = t['size']
             dt = DebugBaseType(name, size, 1)
+            self.types[idx] = dt
         elif kind == 'struct':
-            dt = DebugStructType(name)
+            dt = DebugStructType()
+
+            # Store it here, to prevent block error on recursive type:
+            self.types[idx] = dt
+
+            # Process fields:
+            for field in t['fields']:
+                name = field['name']
+                offset = field['offset']
+                field_typ = self.get_type(field['type'])
+                dt.add_field(name, field_typ, offset)
         elif kind == 'pointer':
-            ptype = debug_info.get_type(t['pointed_type'])
-            dt = DebugPointerType(name, ptype)
+            ptype = self.get_type(t['pointed_type'])
+            dt = DebugPointerType(ptype)
+            self.types[idx] = dt
         elif kind == 'array':
-            etype = debug_info.get_type(t['element_type'])
-            dt = DebugArrayType(name, etype, t['size'])
+            etype = self.get_type(t['element_type'])
+            dt = DebugArrayType(etype, t['size'])
+            self.types[idx] = dt
         else:
             raise NotImplementedError(kind)
-        debug_info.add(dt)
-    for v in x['variables']:
-        name = v['name']
-        loc = read_source_location(v['source'])
-        typ = debug_info.get_type(v['type'])
-        address = read_address(v['address'])
-        dv = DebugVariable(name, typ, loc, scope=v['scope'], address=address)
-        debug_info.add(dv)
-    for f in x['functions']:
-        loc = read_source_location(f['source'])
-        begin = read_address(f['begin'])
-        end = read_address(f['end'])
-        variables = []
-        for v in f['variables']:
-            name = v['name']
-            loc = read_source_location(v['source'])
-            typ = debug_info.get_type(v['type'])
-            dv = DebugVariable(name, typ, loc)
-            variables.append(dv)
-        fdi = DebugFunction(
-            f['function_name'], loc, begin=begin, end=end, variables=variables)
-        debug_info.add(fdi)
-    return debug_info
+        return self.types[idx]

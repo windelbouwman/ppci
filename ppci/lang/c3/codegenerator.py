@@ -107,19 +107,19 @@ class CodeGenerator:
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
 
-        # print(typ)
-        name = 'type' + str(id(typ))
         if isinstance(typ, ast.BaseType):
             dbg_typ = DebugBaseType(typ.name, self.context.size_of(typ), 1)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.PointerType):
             ptype = self.get_debug_type(typ.ptype)
-            dbg_typ = DebugPointerType(name, ptype)
+            dbg_typ = DebugPointerType(ptype)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.StructureType):
-            # context.check_type(typ)
-            dbg_typ = DebugStructType(name)
+            dbg_typ = DebugStructType()
             self.context.check_type(typ)
+
+            # Enter the type here, so the cached value is taken when
+            # a linked list is encountered:
             self.debug_db.enter(typ, dbg_typ)
             for field in typ.fields:
                 offset = field.offset
@@ -131,7 +131,7 @@ class CodeGenerator:
                 size = typ.size
             else:
                 size = self.context.eval_const(typ.size)
-            dbg_typ = DebugArrayType(name, et, size)
+            dbg_typ = DebugArrayType(et, size)
             self.debug_db.enter(typ, dbg_typ)
         else:
             raise NotImplementedError(str(typ))

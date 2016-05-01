@@ -32,7 +32,7 @@ class CodeGenerator:
             'size': (10, 1, 1),
             'speed': (3, 10, 1),
             'co2': (1, 2, 10),
-            'awesome': (3, 7, 5),
+            'awesome': (13, 13, 13),
         }
         if optimize_for in weights_map:
             selection_weights = weights_map[optimize_for]
@@ -76,9 +76,10 @@ class CodeGenerator:
             self.generate_function(
                 function, output_stream, reporter)
 
-        # Output debug data:
+        # Output debug type data:
         for di in self.debug_db.infos:
             if isinstance(di, DebugType):
+                # TODO: prevent this from being emitted twice in some way?
                 output_stream.emit(DebugData(di))
 
     def generate_function(self, ir_function, output_stream, reporter):

@@ -10,7 +10,7 @@ import logging
 from qtwrapper import QtGui, QtCore, QtWidgets, pyqtSignal, get_icon
 from qtwrapper import abspath, Qt
 
-import ppci.api
+from ppci import api
 import ppci.common
 from ppci.binutils.dbg import Debugger
 from ppci.binutils import debuginfo
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     # TODO: couple this other way, and make it configurable:
     linux_specific = LinuxDebugDriver()
     linux_specific.go_for_it([dut])
-    debugger = Debugger('x86_64', linux_specific)
+    debugger = Debugger(api.get_arch('x86_64'), linux_specific)
     debugger.load_symbols(obj)
     ui = DebugUi(debugger)
     ui.show()

@@ -1,11 +1,13 @@
 import io
 import unittest
 from ppci.binutils.dbg import Debugger, DummyDebugDriver
+from ppci.binutils import debuginfo
 from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
 
 
 class DebuggerTestCase(unittest.TestCase):
+    """ Test the debugger class """
     def setUp(self):
         self.debugger = Debugger(get_arch('arm'), DummyDebugDriver())
 
@@ -33,7 +35,24 @@ class DebuggerTestCase(unittest.TestCase):
         self.assertTrue(addr is not None)
 
 
-class LdbFormatTestCase(unittest.TestCase):
+class DebugFormatTestCase(unittest.TestCase):
+    """ Test the internal debug data structures """
+    def test_recursive_types(self):
+        """ Test how infinite deep type structures such as linked lists
+            work out """
+        src = """
+        module x;
+        type struct {
+          int payload;
+          node_t* next;
+        } node_t;
+        var node_t* root;
+        """
+        obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
+        print(obj.debug_info.types)
+        d = debuginfo.serialize(obj.debug_info)
+        print(d)
+
     def test_export_ldb(self):
         """ Check the exporting to ldb format """
         src = """
