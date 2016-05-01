@@ -51,7 +51,7 @@ setup(
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
     package_data={'': ['*.grammar', "*.sled", "*.rst"]},
-    url='https://ppci.readthedocs.org/',
+    url='https://ppci.readthedocs.io/',
     license='BSD',
     test_suite="test",
     tests_require=['tox'],

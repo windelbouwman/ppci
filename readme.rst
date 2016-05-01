@@ -63,7 +63,7 @@ Documentation
 
 Documentation can be found here:
 
-- http://ppci.readthedocs.org/
+- https://ppci.readthedocs.io/
 
 
 |dronestate|_
@@ -115,4 +115,4 @@ Documentation can be found here:
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-.. _docstate: https://ppci.readthedocs.org/en/latest
+.. _docstate: https://ppci.readthedocs.io/en/latest

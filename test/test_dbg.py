@@ -1,13 +1,13 @@
 import io
 import unittest
 from ppci.binutils.dbg import Debugger, DummyDebugDriver
-from ppci.api import c3c, link
+from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
 
 
 class DebuggerTestCase(unittest.TestCase):
     def setUp(self):
-        self.debugger = Debugger('arm', DummyDebugDriver())
+        self.debugger = Debugger(get_arch('arm'), DummyDebugDriver())
 
     def test_stop(self):
         self.debugger.stop()

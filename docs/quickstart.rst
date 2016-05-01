@@ -7,7 +7,7 @@ Installation
 
 Install ppci in a `virtualenv`_ environment:
 
-.. _virtualenv: https://virtualenv.readthedocs.org/
+.. _virtualenv: https://virtualenv.readthedocs.io/
 
 .. code:: bash
 
