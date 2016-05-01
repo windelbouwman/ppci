@@ -10,6 +10,8 @@ class Disassembler:
     """ Base disassembler for some architecture """
     def __init__(self, arch):
         self.arch = arch
+        for instruction in arch.isa.instructions:
+            print(instruction)
 
     def disasm(self, data, outs, address=0):
         """ Disassemble some data at an address into an instruction stream """

@@ -17,7 +17,8 @@ class Architecture:
 
             options is a tuple with which options to enable.
         """
-        logging.getLogger('target').debug('Creating %s target', self.name)
+        self.logger = logging.getLogger('arch')
+        self.logger.debug('Creating %s target', self.name)
         self.option_settings = {o: False for o in self.option_names}
         if options:
             assert isinstance(options, tuple)

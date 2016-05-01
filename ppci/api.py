@@ -26,9 +26,10 @@ from .opt.mem2reg import Mem2RegPromotor
 from .codegen import CodeGenerator
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
-from .binutils.outstream import BinaryOutputStream
+from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .binutils.debuginfo import DebugDb, DebugAddress
+from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
@@ -60,14 +61,14 @@ def get_arch(arch):
     raise TaskError('Invalid architecture {}'.format(arch))
 
 
-def fix_file(f):
+def fix_file(f, mode='r'):
     """ Determine if argument is a file like object or make it so! """
     if hasattr(f, 'read'):
         # Assume this is a file like object
         return f
     elif isinstance(f, str):
         try:
-            return open(f, 'r')
+            return open(f, mode)
         except FileNotFoundError:
             raise TaskError('Cannot open {}'.format(f))
     else:
@@ -152,6 +153,30 @@ def asm(source, march):
         diag.print_errors()
         raise TaskError('Errors during assembling')
     return obj
+
+
+def disasm(data, march):
+    """ Disassemble the given binary data for machine march.
+
+    data can be a filename or a file like object.
+    march can be a machine instance or a string indicating the target.
+
+    For example:
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import disasm
+        >>> source_file = io.BytesIO([0x77])
+        >>> disasm(source_file, 'arm')
+    """
+    march = get_arch(march)
+    disassembler = Disassembler(march)
+    f = fix_file(data)
+    data = f.read()
+    f.close()
+    ostream = TextOutputStream()
+    disassembler.disasm(data, ostream)
 
 
 def c3toir(sources, includes, march, reporter=DummyReportGenerator()):

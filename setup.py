@@ -40,6 +40,7 @@ setup(
         "bin/ppci-c3c.py",
         "bin/ppci-cc.py",
         "bin/ppci-dbg.py",
+        "bin/ppci-disasm.py",
         'bin/ppci-hexutil.py',
         "bin/ppci-ld.py",
         "bin/ppci-objdump.py",
