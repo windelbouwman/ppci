@@ -25,11 +25,14 @@ class Parser:
         self.tokens = None
         self.mod = None
 
+    def init_lexer(self, tokens):
+        self.tokens = tokens
+        self.token = self.tokens.__next__()
+
     def parse_source(self, tokens, context):
         """ Parse a module from tokens """
         self.logger.debug('Parsing source')
-        self.tokens = tokens
-        self.token = self.tokens.__next__()
+        self.init_lexer(tokens)
         try:
             module = self.parse_module(context)
             self.logger.debug('Parsing complete')

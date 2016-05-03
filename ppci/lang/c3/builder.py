@@ -4,7 +4,8 @@
 
 import logging
 import collections
-from ...common import CompilerError
+import io
+from ...common import CompilerError, DiagnosticsManager
 from ...irutils import Verifier
 from ...opt.mem2reg import Mem2RegPromotor
 from .lexer import Lexer
@@ -27,7 +28,7 @@ class C3Builder:
         self.debug_db = DebugDb()
         self.codegen = CodeGenerator(diag, self.debug_db)
         self.verifier = Verifier()
-        self.target = arch
+        self.arch = arch
 
     def build(self, srcs, imps=()):
         """
@@ -42,7 +43,7 @@ class C3Builder:
             'Building %d sources and %d includes', len(srcs), len(imps))
 
         # Create a context where the modules can live:
-        context = Context(self.target)
+        context = Context(self.arch)
 
         # Phase 1: Lexing and parsing stage
         for src in srcs:
@@ -96,3 +97,30 @@ class C3Builder:
         """ Lexing and parsing stage (phase 1) """
         tokens = self.lexer.lex(src)
         self.parser.parse_source(tokens, context)
+
+
+def parse_expr(src):
+    parser = C3ExprParser()
+    return parser.parse(src)
+
+
+class C3ExprParser:
+    """
+        Generates IR-code from c3 source.
+        Reports errors to the diagnostics system.
+    """
+    def __init__(self, arch):
+        self.logger = logging.getLogger('c3')
+        diag = DiagnosticsManager()
+        self.diag = diag
+        self.arch = arch
+        self.lexer = Lexer(diag)
+        self.parser = Parser(diag)
+
+    def parse(self, src, context):
+        """ Parse an expression """
+        self.parser.current_scope = context.scope
+        tokens = self.lexer.lex(io.StringIO(src))
+        self.parser.init_lexer(tokens)
+        expr = self.parser.parse_expression()
+        return expr

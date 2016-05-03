@@ -9,10 +9,13 @@ import logging
 import cmd
 import binascii
 from ..api import get_arch, fix_object
-from ..common import str2int
+from ..common import str2int, CompilerError
 from .. import version as ppci_version
 from .disasm import Disassembler
 from .outstream import RecordingOutputStream
+from ..lang.c3.builder import C3ExprParser
+from ..lang.c3 import astnodes as c3nodes
+from ..lang.c3 import Context as C3Context
 
 
 # States:
@@ -41,7 +44,8 @@ class Debugger:
     """
     def __init__(self, arch, driver):
         self.arch = get_arch(arch)
-        self.disassembler = Disassembler(arch)
+        self.expr_parser = C3ExprParser(self.arch)
+        self.disassembler = Disassembler(self.arch)
         self.driver = driver
         self.logger = logging.getLogger('dbg')
         self.connection_event = SubscribleEvent()
@@ -49,6 +53,7 @@ class Debugger:
         self.register_names = self.get_register_names()
         self.register_values = {rn: 0 for rn in self.register_names}
         self.debug_info = None
+        self.variable_map = {}
 
         # Subscribe to events:
         self.state_event.subscribe(self.on_halted)
@@ -136,6 +141,8 @@ class Debugger:
         self.logger.info('memory image validated!')
         self.debug_info = obj.debug_info
         self.obj = obj
+        self.variable_map = {v.name: v for v in self.debug_info.variables}
+        print(self.variable_map)
 
     def calc_address(self, address):
         section = self.obj.get_section(address.section)
@@ -184,6 +191,71 @@ class Debugger:
 
     def write_mem(self, address, data):
         return self.driver.write_mem(address, data)
+
+    # Expressions:
+    def eval_str(self, expr):
+        # Create a context for the expression to exist:
+        context = C3Context(self.arch)
+
+        try:
+            # Parse expr:
+            expr = self.expr_parser.parse(expr, context)
+
+            # Eval expr:
+            val = self.eval_expr(expr)
+        except CompilerError as ex:
+            print(ex)
+            return
+
+        return val
+
+    def eval_expr(self, expr):
+        # TODO: check types!!
+        # TODO: merge with c3.scope stuff and c3 codegenerator stuff
+        assert isinstance(expr, c3nodes.Expression), str(type(expr))
+        if isinstance(expr, c3nodes.Literal):
+            return expr.val
+        elif isinstance(expr, c3nodes.Binop):
+            a = self.eval_expr(expr.a)
+            b = self.eval_expr(expr.b)
+            if expr.op == '+':
+                return a + b
+            elif expr.op == '-':
+                return a - b
+            elif expr.op == '*':
+                return a * b
+            elif expr.op == '/':
+                return a / b
+            elif expr.op == '%':
+                return a % b
+            else:
+                raise NotImplementedError()
+        elif isinstance(expr, c3nodes.TypeCast):
+            a = self.eval_const(expr.a)
+            if self.equal_types('int', expr.to_type):
+                return int(a)
+            else:
+                raise NotImplementedError(
+                    'Casting to {} not implemented'.format(expr.to_type))
+        elif isinstance(expr, c3nodes.Identifier):
+            var = self.get_variable(expr.target)
+            if var is not None:
+                return var
+            else:
+                raise CompilerError('Cannot evaluate {}'.format(expr), None)
+        else:
+            raise CompilerError('Cannot evaluate constant {}'
+                                .format(expr), None)
+
+    def get_variable(self, name):
+        """ Lookup variable with name in current symbols """
+        if name in self.variable_map:
+            v = self.variable_map[name]
+            print(v)
+            return 1
+        else:
+            return
+        return 0
 
     # Disassembly:
     def get_pc(self):
@@ -326,6 +398,14 @@ class DebugCli(cmd.Cmd):
         data = x[1]
         data = bytes(binascii.unhexlify(data.encode('ascii')))
         self.debugger.write_mem(address, data)
+
+    def do_print(self, arg):
+        """ Print a variable """
+        # Evaluate the given expression:
+        res = self.debugger.eval_str(arg)
+        print('$ = ', res)
+
+    do_p = do_print
 
     def do_regs(self, arg):
         """ Read registers """

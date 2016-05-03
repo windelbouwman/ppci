@@ -6,3 +6,4 @@ from .codegenerator import CodeGenerator
 from .visitor import Visitor
 from .visitor import AstPrinter
 from .builder import C3Builder
+from .scope import Context
