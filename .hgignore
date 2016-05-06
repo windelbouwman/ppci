@@ -24,3 +24,4 @@ test/FORTRAN
 htmlcov
 dist
 ppci.egg-info
+build
