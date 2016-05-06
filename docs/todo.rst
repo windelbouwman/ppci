@@ -5,7 +5,8 @@ Todo
 Below is a list of features / tasks that need to be done.
 
 - Improve the debugger.
--- Add support for local variables.
+
+  - Add support for local variables.
 
 - Implement the disassembler further.
 

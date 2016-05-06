@@ -2,10 +2,12 @@
 Changelog
 =========
 
-Release 0.5.0 (Upcoming)
-------------------------
+Release 0.5 (Upcoming)
+----------------------
 
-* Debugger improvements
+* Debug type information stored in better format
+* Expression evaluation in debugger
+* Global variables can be viewed
 
 Release 0.4.0 (Apr 27, 2016)
 ----------------------------
