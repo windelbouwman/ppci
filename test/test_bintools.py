@@ -6,7 +6,7 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.arch.arm.instructions import ArmToken
+from ppci.arch.arm.arm_instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream

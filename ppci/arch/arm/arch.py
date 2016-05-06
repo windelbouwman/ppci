@@ -7,10 +7,10 @@ from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers, get_register
-from .instructions import LdrPseudo, arm_isa
+from .arm_instructions import LdrPseudo, arm_isa
 from .thumb_instructions import thumb_isa
 from . import thumb_instructions
-from . import instructions
+from . import arm_instructions
 from ..data_instructions import data_isa, Dcd2
 from .frame import ArmFrame
 from .thumb_frame import ThumbFrame
@@ -136,8 +136,8 @@ class ArmArch(Architecture):
         if self.has_option('thumb'):
             return thumb_instructions.Mov2(dst, src, ismove=True)
         else:
-            return instructions.Mov2(
-                dst, src, instructions.NoShift(), ismove=True)
+            return arm_instructions.Mov2(
+                dst, src, arm_instructions.NoShift(), ismove=True)
 
     def get_register(self, color):
         return get_register(color)

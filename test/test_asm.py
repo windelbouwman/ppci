@@ -100,8 +100,7 @@ class AsmTestCaseBase(unittest.TestCase):
 
     def check(self, hexstr, layout=Layout()):
         self.assembler.flush()
-        target = get_arch(self.march)
-        self.obj = link([self.obj], layout, target)
+        self.obj = link([self.obj], layout)
         data = bytes(self.obj.get_section('code').data)
         if hexstr is None:
             gnu_assemble(self.source.getvalue(), as_args=self.as_args)

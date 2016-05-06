@@ -19,3 +19,5 @@ Below is a list of features / tasks that need to be done.
 - Implement a fortran frontend. The ppci.lang.fortran module contains a start.
 
 - Implement a C frontend, The ppci.lang.c module contains an attempt.
+
+- Add floating point support

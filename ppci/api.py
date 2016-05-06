@@ -5,7 +5,6 @@ and assembling.
 """
 
 import logging
-import warnings
 import os
 import stat
 import xml
@@ -372,7 +371,7 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 
 
 def link(
-        objects, layout=None, arch=None, use_runtime=False, partial_link=False,
+        objects, layout=None, use_runtime=False, partial_link=False,
         reporter=None, debug=False):
     """ Links the iterable of objects into one using the given layout.
 
@@ -382,16 +381,12 @@ def link(
 
     objects = [fix_object(obj) for obj in objects]
     if not objects:
-        raise ValueError('Please provide some objects as input')
+        raise ValueError('Please provide at least one object as input')
 
     if layout:
         layout = fix_layout(layout)
 
-    if arch:
-        warnings.warn('No need to give arch here!', DeprecationWarning)
-        march = get_arch(arch)
-    else:
-        march = objects[0].arch
+    march = objects[0].arch
 
     if use_runtime:
         objects.append(march.runtime)

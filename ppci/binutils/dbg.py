@@ -315,7 +315,7 @@ class Debugger:
                 }
                 v = opmp[expr.op](rhs.value)
                 val = TmpValue(v, False, rhs.typ)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
         elif isinstance(expr, c3nodes.Identifier):
             # Fetch variable:
@@ -326,7 +326,7 @@ class Debugger:
                 val = TmpValue(addr, True, var.typ)
             else:
                 raise CompilerError('Cannot evaluate {}'.format(expr), None)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError('Cannot evaluate constant {}'
                                       .format(expr), None)
         if rval and val.lval:
@@ -377,7 +377,7 @@ class Debugger:
         pass
 
 
-class DebugDriver:
+class DebugDriver:  # pragma: no cover
     """
         Inherit this class to expose a target interface. This class implements
         primitives for a given hardware target.

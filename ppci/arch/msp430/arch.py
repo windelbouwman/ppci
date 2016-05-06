@@ -122,7 +122,7 @@ def get_runtime():
     with complete_report(report_generator) as reporter:
         obj1 = asm(io.StringIO(asm_src), march)
         obj2 = c3c([io.StringIO(c3_src)], [], march, reporter=reporter)
-        obj = link([obj1, obj2], layout, march, partial_link=True)
+        obj = link([obj1, obj2], layout, partial_link=True)
     return obj
 
 

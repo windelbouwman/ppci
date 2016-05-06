@@ -9,8 +9,10 @@ from ppci.api import write_ldb
 
 class DebuggerTestCase(unittest.TestCase):
     """ Test the debugger class """
+    arch = get_arch('arm')
+
     def setUp(self):
-        self.debugger = Debugger(get_arch('arm'), DummyDebugDriver())
+        self.debugger = Debugger(self.arch, DummyDebugDriver())
 
     def test_stop(self):
         self.debugger.stop()
@@ -44,7 +46,7 @@ class DebuggerTestCase(unittest.TestCase):
         var struct{int g;int f;}[10] C;
         var int* D;
         """
-        obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
+        obj = c3c([io.StringIO(src)], [], self.arch, debug=True)
         self.debugger.load_symbols(obj)
         self.assertEqual(0, self.debugger.eval_str('Xa').value)
         self.assertEqual(-9, self.debugger.eval_str('Xa + 1 -10').value)
