@@ -14,6 +14,7 @@ from ..common import str2int, CompilerError
 from .. import version as ppci_version
 from .disasm import Disassembler
 from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
+from .debuginfo import DebugPointerType
 from .outstream import RecordingOutputStream
 from ..lang.c3.builder import C3ExprParser
 from ..lang.c3 import astnodes as c3nodes
@@ -216,10 +217,10 @@ class Debugger:
         context = C3Context(self.arch)
 
         # Parse expr:
-        expr = self.expr_parser.parse(expr, context)
+        c3_expr = self.expr_parser.parse(expr, context)
 
         # Eval expr:
-        val = self.eval_expr(expr)
+        val = self.eval_expr(c3_expr)
 
         return val
 
@@ -238,7 +239,7 @@ class Debugger:
     def eval_expr(self, expr, rval=True):
         """ Evaluate C3 expression tree """
         # TODO: check types!!
-        # TODO: merge with c3.scope stuff and c3 codegenerator stuff
+        # TODO: merge with c3.scope stuff and c3 codegenerator stuff?
         assert isinstance(expr, c3nodes.Expression), str(type(expr))
 
         # Debug integer type, always 8 bytes, this is safe here
@@ -252,6 +253,7 @@ class Debugger:
             else:
                 raise CompilerError('Cannot use {}'.format(expr))
         elif isinstance(expr, c3nodes.Binop):
+            # TODO: type coerce!
             a = self.eval_expr(expr.a)
             b = self.eval_expr(expr.b)
             if not isinstance(a.typ, DebugBaseType):
@@ -289,6 +291,32 @@ class Debugger:
             field = base.typ.get_field(expr.field)
             addr = base.value + field[2]
             val = TmpValue(addr, True, field[1])
+        elif isinstance(expr, c3nodes.Deref):
+            ptr = self.eval_expr(expr.ptr)
+            if not isinstance(ptr.typ, DebugPointerType):
+                raise CompilerError(
+                    'Cannot dereference non-pointer type {}'.format(ptr))
+            val = TmpValue(ptr.value, True, ptr.typ.pointed_type)
+        elif isinstance(expr, c3nodes.Unop):
+            if expr.op == '&':
+                rhs = self.eval_expr(expr.a, rval=False)
+                if not rhs.lval:
+                    raise CompilerError(
+                        'Cannot take address of {}'.format(expr.a))
+                typ = DebugPointerType(rhs.typ)
+                val = TmpValue(rhs.value, False, typ)
+            elif expr.op in ['+', '-']:
+                rhs = self.eval_expr(expr.a)
+                if not isinstance(rhs.typ, (DebugBaseType, DebugPointerType)):
+                    raise CompilerError('{} of wrong type'.format(rhs))
+                opmp = {
+                    '-': lambda x: -x,
+                    '+': lambda x: x
+                }
+                v = opmp[expr.op](rhs.value)
+                val = TmpValue(v, False, rhs.typ)
+            else:
+                raise NotImplementedError(str(expr))
         elif isinstance(expr, c3nodes.Identifier):
             # Fetch variable:
             name = expr.target
@@ -303,16 +331,26 @@ class Debugger:
                                       .format(expr), None)
         if rval and val.lval:
             # Load variable now!
-            if not isinstance(val.typ, DebugBaseType):
-                raise CompilerError('{} of wrong type'.format(val))
-            fmts = {
-                8: '<Q', 4: '<I', 2: '<H', 1: '<B',
-            }
-            fmt = fmts[val.typ.size]
-            loaded = self.read_mem(addr, val.typ.size)
-            val2 = struct.unpack(fmt, loaded)[0]
-            val = TmpValue(val2, False, val.typ)
+            loaded_val = self.load_value(val.value, val.typ)
+            val = TmpValue(loaded_val, False, val.typ)
         return val
+
+    def load_value(self, addr, typ):
+        """ Load specific type from an address """
+        # Load variable now!
+        if not isinstance(typ, (DebugBaseType, DebugPointerType)):
+            raise CompilerError('Cannot load {}'.format(typ))
+        fmts = {
+            8: '<Q', 4: '<I', 2: '<H', 1: '<B',
+        }
+        if isinstance(typ, DebugBaseType):
+            size = typ.size
+        else:
+            size = self.arch.byte_sizes['ptr']  # Pointer size!
+        fmt = fmts[size]
+        loaded = self.read_mem(addr, size)
+        loaded_val = struct.unpack(fmt, loaded)[0]
+        return loaded_val
 
     def get_variable(self, name):
         """ Lookup variable with name in current symbols """
@@ -467,7 +505,7 @@ class DebugCli(cmd.Cmd):
         try:
             tmp = self.debugger.eval_str(arg)
             res = tmp.value
-            print('$ = ', res, '(', tmp.typ, ')')
+            print('$ = 0x{:X} [{}]'.format(res, tmp.typ))
         except CompilerError as ex:
             print(ex)
 

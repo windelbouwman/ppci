@@ -486,6 +486,11 @@ class CodeGenerator:
             # This means that the value can be used in an expression or as
             # a parameter.
 
+            val_typ = self.context.the_type(expr.typ)
+            if not isinstance(val_typ, (ast.PointerType, ast.BaseType)):
+                raise SemanticError(
+                    'Cannot deref {}'.format(val_typ), expr.loc)
+
             # Determine loaded type:
             load_ty = self.get_ir_type(expr.typ, expr.loc)
 
@@ -512,23 +517,17 @@ class CodeGenerator:
     def gen_dereference(self, expr):
         """ dereference pointer type, which means *(expr) """
         assert isinstance(expr, ast.Deref)
-        addr = self.gen_expr_code(expr.ptr)
-        ptr_typ = self.context.the_type(expr.ptr.typ)
-        expr.lvalue = True
-        if not isinstance(ptr_typ, ast.PointerType):
-            raise SemanticError('Cannot deref non-pointer', expr.loc)
-        expr.typ = ptr_typ.ptype
-        # TODO: why not load the pointed to type?
 
-        # Determine when to introduce an extra load operation.
-        # Possibly when the pointed to expression is an lvalue already?
-        # TODO: re-cat this mind-melting mess into logical sense
-        if expr.ptr.lvalue:
-            load_ty = self.get_ir_type(ptr_typ, expr.loc)
-            deref_value = self.emit(
-                ir.Load(addr, 'deref', load_ty), loc=expr.loc)
-        else:
-            deref_value = addr
+        # Make sure to have the rvalue of the pointer:
+        deref_value = self.gen_expr_code(expr.ptr, rvalue=True)
+
+        # A pointer is always a lvalue:
+        expr.lvalue = True
+
+        ptr_typ = self.context.the_type(expr.ptr.typ)
+        if not isinstance(ptr_typ, ast.PointerType):
+            raise SemanticError('Cannot deref {}'.format(ptr_typ), expr.loc)
+        expr.typ = ptr_typ.ptype
         return deref_value
 
     def gen_unop(self, expr):

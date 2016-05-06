@@ -42,6 +42,7 @@ class DebuggerTestCase(unittest.TestCase):
         var int Xa;
         var int[10] B;
         var struct{int g;int f;}[10] C;
+        var int* D;
         """
         obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
         self.debugger.load_symbols(obj)
@@ -60,6 +61,11 @@ class DebuggerTestCase(unittest.TestCase):
         with self.assertRaises(CompilerError):
             self.debugger.eval_str('C[1]')
         self.assertEqual(32, self.debugger.eval_str('C[2].f + 22+0xA').value)
+        self.assertEqual(0, self.debugger.eval_str('D').value)
+        self.assertEqual(0, self.debugger.eval_str('*D').value)
+        self.debugger.eval_str('&D')
+        self.debugger.eval_str('+D')
+        self.debugger.eval_str('-D')
 
 
 class DebugFormatTestCase(unittest.TestCase):
