@@ -310,7 +310,7 @@ def asc2bin(data):
         for part in data:
             res.extend(binascii.unhexlify(part.encode('ascii')))
         return res
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(type(data)))
 
 
@@ -352,7 +352,7 @@ def serialize(x):
         res['offset'] = hex(x.offset)
         res['type'] = x.typ
         res['section'] = x.section
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(type(x)))
     return res
 

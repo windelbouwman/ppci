@@ -18,12 +18,6 @@ class RiscvFrame(Frame):
         self.fp = FP
         self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
-        self.locVars = {}
-
-        # Literal pool:
-        self.constants = []
-        self.literal_number = 0
-
     def new_virtual_register(self, twain=""):
         """ Retrieve a new virtual register """
         return super().new_virtual_register(RiscvRegister, twain=twain)
@@ -53,23 +47,6 @@ class RiscvFrame(Frame):
             yield Lw(register, SP, i)
         
         yield Add(SP, SP, i)
-
-    def alloc_var(self, lvar, size):
-        if lvar not in self.locVars:
-            self.locVars[lvar] = self.stacksize
-            self.stacksize = self.stacksize + size
-        return self.locVars[lvar]
-
-    def add_constant(self, value):
-        """ Add constant literal to constant pool """
-        for lab_name, val in self.constants:
-            if value == val:
-                return lab_name
-        assert type(value) in [str, int, bytes], str(value)
-        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
-        self.literal_number += 1
-        self.constants.append((lab_name, value))
-        return lab_name
 
     def prologue(self):
         """ Returns prologue instruction sequence """

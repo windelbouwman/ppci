@@ -134,12 +134,6 @@ class AvrFrame(Frame):
         # r27, r28, r29, r30, r31]
         self.fp = Y
 
-        self.locVars = {}
-
-        # Literal pool:
-        self.constants = []
-        self.literal_number = 0
-
     def make_call(self, vcall):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
@@ -154,23 +148,6 @@ class AvrFrame(Frame):
         # Restore caller save registers:
         for register in reversed(live_registers):
             yield Pop(register)
-
-    def alloc_var(self, lvar, size):
-        if lvar not in self.locVars:
-            self.locVars[lvar] = self.stacksize
-            self.stacksize = self.stacksize + size
-        return self.locVars[lvar]
-
-    def add_constant(self, value):
-        """ Add constant literal to constant pool """
-        for lab_name, val in self.constants:
-            if value == val:
-                return lab_name
-        assert type(value) in [str, int, bytes], str(value)
-        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
-        self.literal_number += 1
-        self.constants.append((lab_name, value))
-        return lab_name
 
     def prologue(self):
         """ Generate the prologue instruction sequence """

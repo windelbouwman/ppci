@@ -22,9 +22,6 @@ class Msp430Frame(Frame):
         self.caller_save = (r11, r13, r14, r15)  # TODO: fix r12 reg!!
 
         self.fp = r4
-        self.locVars = {}
-        self.constants = []
-        self.literal_number = 0
 
     def make_call(self, vcall):
         live_regs = self.live_regs_over(vcall)
@@ -40,23 +37,6 @@ class Msp430Frame(Frame):
         for register in reversed(live_regs):
             if register in self.caller_save:
                 yield pop(register)
-
-    def alloc_var(self, lvar, size):
-        if lvar not in self.locVars:
-            self.locVars[lvar] = self.stacksize
-            self.stacksize = self.stacksize + size
-        return self.locVars[lvar]
-
-    def add_constant(self, value):
-        """ Add constant literal to constant pool """
-        for lab_name, val in self.constants:
-            if value == val:
-                return lab_name
-        assert isinstance(value, (str, bytes)), str(value)
-        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
-        self.literal_number += 1
-        self.constants.append((lab_name, value))
-        return lab_name
 
     def litpool(self):
         """ Generate instruction for the current literals """

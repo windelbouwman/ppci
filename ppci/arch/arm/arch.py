@@ -2,18 +2,101 @@
     ARM architecture definition.
 """
 import io
-from ..arch import Architecture, Label, VCall
 from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
+from ..arch import Architecture, Label, VCall, Alignment, Frame
+from ..data_instructions import Db, Dd, Dcd2, data_isa
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers, get_register
+from .registers import R5, R6, R7, R8
+from .registers import R9, R10, R11, LR, PC, SP
 from .arm_instructions import LdrPseudo, arm_isa
 from .thumb_instructions import thumb_isa
 from . import thumb_instructions
 from . import arm_instructions
-from ..data_instructions import data_isa, Dcd2
-from .frame import ArmFrame
-from .thumb_frame import ThumbFrame
+
+
+class ArmArch(Architecture):
+    """ Arm machine class. """
+    name = 'arm'
+    option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
+
+    def __init__(self, options=None):
+        super().__init__(options=options)
+        if self.has_option('thumb'):
+            self.assembler = ThumbAssembler()
+            self.isa = thumb_isa + data_isa
+            self.FrameClass = ThumbFrame
+        else:
+            self.isa = arm_isa + data_isa
+            self.assembler = ArmAssembler()
+            self.FrameClass = ArmFrame
+        self.assembler.gen_asm_parser(self.isa)
+        self.registers.extend(all_registers)
+        self.value_classes[i32] = Reg8Op
+        self.value_classes[i8] = Reg8Op
+        self.value_classes[ptr] = Reg8Op
+
+    def get_runtime(self):
+        """ Implement compiler runtime functions """
+        from ...api import asm
+        if self.has_option('thumb'):
+            asm_src = ''
+        else:
+            asm_src = ARM_ASM_RT
+        return asm(io.StringIO(asm_src), self)
+
+    def move(self, dst, src):
+        """ Generate a move from src to dst """
+        if self.has_option('thumb'):
+            return thumb_instructions.Mov2(dst, src, ismove=True)
+        else:
+            return arm_instructions.Mov2(
+                dst, src, arm_instructions.NoShift(), ismove=True)
+
+    def get_register(self, color):
+        return get_register(color)
+
+    def gen_call(self, label, arg_types, ret_type, args, res_var):
+        """ Generate code for call sequence. This function saves registers
+            and moves arguments in the proper locations.
+        """
+        arg_locs, live_in, rv, live_out = \
+            self.determine_arg_locations(arg_types, ret_type)
+
+        # Setup parameters:
+        for arg_loc, arg in zip(arg_locs, args):
+            if isinstance(arg_loc, ArmRegister):
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+        yield VCall(label, extra_uses=live_in, extra_defs=live_out)
+        yield self.move(res_var, rv)
+
+    def determine_arg_locations(self, arg_types, ret_type):
+        """
+            Given a set of argument types, determine location for argument
+            ABI:
+            pass arg1 in R1
+            pass arg2 in R2
+            pass arg3 in R3
+            pass arg4 in R4
+            return value in R0
+        """
+        # TODO: what ABI to use?
+        # Perhaps follow the arm ABI spec?
+        l = []
+        live_in = set()
+        regs = [R1, R2, R3, R4]
+        for a in arg_types:
+            r = regs.pop(0)
+            l.append(r)
+            live_in.add(r)
+
+        live_out = set()
+        rv = R0
+        live_out.add(rv)
+        return l, tuple(live_in), rv, tuple(live_out)
 
 
 class ArmAssembler(BaseAssembler):
@@ -101,87 +184,187 @@ class ThumbAssembler(BaseAssembler):
             ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
-class ArmArch(Architecture):
-    """ Arm machine class. """
-    name = 'arm'
-    option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
+class ArmFrame(Frame):
+    """ Arm specific frame for functions.
 
-    def __init__(self, options=None):
-        super().__init__(options=options)
-        if self.has_option('thumb'):
-            self.assembler = ThumbAssembler()
-            self.isa = thumb_isa + data_isa
-            self.FrameClass = ThumbFrame
-        else:
-            self.isa = arm_isa + data_isa
-            self.assembler = ArmAssembler()
-            self.FrameClass = ArmFrame
-        self.assembler.gen_asm_parser(self.isa)
-        self.registers.extend(all_registers)
-        self.value_classes[i32] = Reg8Op
-        self.value_classes[i8] = Reg8Op
-        self.value_classes[ptr] = Reg8Op
+        R5 and above are callee save (the function that is called
+    """
+    def __init__(self, name, arg_locs, live_in, rv, live_out):
+        super().__init__(name, arg_locs, live_in, rv, live_out)
+        # Allocatable registers:
+        self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
+        self.fp = R11
 
-    def get_runtime(self):
-        """ Implement compiler runtime functions """
-        from ...api import asm
-        if self.has_option('thumb'):
-            asm_src = ''
-        else:
-            asm_src = ARM_ASM_RT
-        return asm(io.StringIO(asm_src), self)
+    def new_virtual_register(self, twain=""):
+        """ Retrieve a new virtual register """
+        return super().new_virtual_register(ArmRegister, twain=twain)
 
-    def move(self, dst, src):
-        """ Generate a move from src to dst """
-        if self.has_option('thumb'):
-            return thumb_instructions.Mov2(dst, src, ismove=True)
-        else:
-            return arm_instructions.Mov2(
-                dst, src, arm_instructions.NoShift(), ismove=True)
+    def make_call(self, vcall):
+        """ Implement actual call and save / restore live registers """
+        # R0 is filled with return value, do not save it, it will conflict.
+        # Now we now what variables are live:
+        live_regs = self.live_regs_over(vcall)
+        register_set = set(live_regs)
 
-    def get_register(self, color):
-        return get_register(color)
+        # Caller save registers:
+        if register_set:
+            yield arm_instructions.Push(RegisterSet(register_set))
 
-    def gen_call(self, label, arg_types, ret_type, args, res_var):
-        """ Generate code for call sequence. This function saves registers
-            and moves arguments in the proper locations.
-        """
-        arg_locs, live_in, rv, live_out = \
-            self.determine_arg_locations(arg_types, ret_type)
+        yield arm_instructions.Bl(vcall.function_name)
 
-        # Setup parameters:
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, ArmRegister):
-                yield self.move(arg_loc, arg)
+        # Restore caller save registers:
+        if register_set:
+            yield arm_instructions.Pop(RegisterSet(register_set))
+
+    def prologue(self):
+        """ Returns prologue instruction sequence """
+        # Label indication function:
+        yield Label(self.name)
+        yield arm_instructions.Push(RegisterSet({LR, R11}))
+        # Callee save registers:
+        yield arm_instructions.Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
+
+        # Reserve stack space:
+        if self.stacksize > 0:
+            yield arm_instructions.Sub2(SP, SP, self.stacksize)
+
+        # Setup frame pointer:
+        yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
+
+    def litpool(self):
+        """ Generate instruction for the current literals """
+        # Align at 4 bytes
+        if self.constants:
+            yield Alignment(4)
+
+        # Add constant literals:
+        while self.constants:
+            label, value = self.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int):
+                yield Dd(value)
+            elif isinstance(value, str):
+                yield Dcd2(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-        yield VCall(label, extra_uses=live_in, extra_defs=live_out)
-        yield self.move(res_var, rv)
+                raise NotImplementedError('Constant of type {}'.format(value))
 
-    def determine_arg_locations(self, arg_types, ret_type):
-        """
-            Given a set of argument types, determine location for argument
-            ABI:
-            pass arg1 in R1
-            pass arg2 in R2
-            pass arg3 in R3
-            pass arg4 in R4
-            return value in R0
-        """
-        # TODO: what ABI to use?
-        # Perhaps follow the arm ABI spec?
-        l = []
-        live_in = set()
-        regs = [R1, R2, R3, R4]
-        for a in arg_types:
-            r = regs.pop(0)
-            l.append(r)
-            live_in.add(r)
+    def between_blocks(self):
+        for ins in self.litpool():
+            self.emit(ins)
 
-        live_out = set()
-        rv = R0
-        live_out.add(rv)
-        return l, tuple(live_in), rv, tuple(live_out)
+    def epilogue(self):
+        """ Return epilogue sequence for a frame. Adjust frame pointer
+            and add constant pool
+        """
+        if self.stacksize > 0:
+            yield arm_instructions.Add2(SP, SP, self.stacksize)
+        yield arm_instructions.Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
+        yield arm_instructions.Pop(
+            RegisterSet({PC, R11}), extra_uses=[self.rv])
+        # Add final literal pool:
+        for instruction in self.litpool():
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes
+
+
+class ThumbFrame(Frame):
+    """ Arm specific frame for functions. """
+    def __init__(self, name, arg_locs, live_in, rv, live_out):
+        super().__init__(name, arg_locs, live_in, rv, live_out)
+        # Registers usable by register allocator:
+        # We use r7 as frame pointer.
+        self.regs = [R0, R1, R2, R3, R4, R5, R6]
+        self.fp = R7
+
+        self.parMap = {}
+
+    def make_call(self, vcall):
+        # Now we now what variables are live:
+        live_regs = self.live_regs_over(vcall)
+        register_set = set(live_regs)
+
+        # Caller save registers:
+        if register_set:
+            yield thumb_instructions.Push(register_set)
+
+        # Make the call:
+        yield thumb_instructions.Bl(vcall.function_name)
+        # R0 is filled with return value, do not save it, it will conflict.
+
+        # Restore caller save registers:
+        if register_set:
+            yield thumb_instructions.Pop(register_set)
+
+    def round_up(self, s):
+        return s + (4 - s % 4)
+
+    def prologue(self):
+        """ Returns prologue instruction sequence """
+        yield Label(self.name)  # Label indication function
+        yield thumb_instructions.Push({LR, R7})
+
+        # Callee save registers:
+        yield thumb_instructions.Push({R5, R6})
+        if self.stacksize > 0:
+            ssize = self.round_up(self.stacksize)
+
+            # Reserve stack space:
+            # subSp cannot handle large numbers:
+            while ssize > 0:
+                inc = min(124, ssize)
+                yield thumb_instructions.SubSp(inc)
+                ssize -= inc
+
+        # Setup frame pointer:
+        yield thumb_instructions.Mov2(R7, SP)
+
+    def insert_litpool(self):
+        """ Insert the literal pool at the current position """
+        # Align at 4 bytes
+        yield Alignment(4)
+
+        # Add constant literals:
+        while self.constants:
+            label, value = self.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int):
+                yield Dd(value)
+            elif isinstance(value, str):
+                yield Dcd2(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError('{} not supported'.format(value))
+
+    def between_blocks(self):
+        for instruction in self.insert_litpool():
+            self.emit(instruction)
+
+    def epilogue(self):
+        """ Return epilogue sequence for a frame. Adjust frame pointer and add
+        constant pool """
+
+        if self.stacksize > 0:
+            ssize = self.round_up(self.stacksize)
+            # subSp cannot handle large numbers:
+            while ssize > 0:
+                inc = min(124, ssize)
+                yield thumb_instructions.AddSp(inc)
+                ssize -= inc
+
+        # Callee save registers:
+        yield thumb_instructions.Pop({R5, R6})
+        yield thumb_instructions.Pop({PC, R7})
+
+        # Add final literal pool
+        for instruction in self.insert_litpool():
+            yield instruction
 
 
 ARM_ASM_RT = """

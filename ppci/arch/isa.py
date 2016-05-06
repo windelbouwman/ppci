@@ -388,7 +388,7 @@ class BitPattern:
     def __init__(self, field):
         self.field = field
 
-    def get_value(self, objref):
+    def get_value(self, objref):  # pragma: no cover
         raise NotImplementedError('Implement this for your pattern')
 
 

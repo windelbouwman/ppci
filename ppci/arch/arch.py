@@ -240,11 +240,35 @@ class Frame:
         self.rv = rv
         self.live_out = live_out
         self.instructions = []
-        self.stacksize = 0
         self.temps = generate_temps()
+
+        # Local stack:
+        self.stacksize = 0
+        self.locVars = {}
+
+        # Literal pool:
+        self.constants = []
+        self.literal_number = 0
 
     def __repr__(self):
         return 'Frame {}'.format(self.name)
+
+    def alloc_var(self, lvar, size):
+        if lvar not in self.locVars:
+            self.locVars[lvar] = self.stacksize
+            self.stacksize = self.stacksize + size
+        return self.locVars[lvar]
+
+    def add_constant(self, value):
+        """ Add constant literal to constant pool """
+        for lab_name, val in self.constants:
+            if value == val:
+                return lab_name
+        assert isinstance(value, (str, int, bytes)), str(value)
+        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
+        self.literal_number += 1
+        self.constants.append((lab_name, value))
+        return lab_name
 
     def live_regs_over(self, instruction):
         """ Determine what registers are live along an instruction.
@@ -278,3 +302,9 @@ class Frame:
 
     def between_blocks(self):
         pass
+
+    def prologue(self):  # pragma: no cover
+        raise NotImplementedError('Implement this!')
+
+    def epilogue(self):  # pragma: no cover
+        raise NotImplementedError('Implement this!')

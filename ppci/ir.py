@@ -36,11 +36,14 @@ class BuiltinType(Typ):
 
 # The builtin types:
 f64 = BuiltinType('f64')
+f32 = BuiltinType('f32')
 i64 = BuiltinType('i64')
 i32 = BuiltinType('i32')
 i16 = BuiltinType('i16')
 i8 = BuiltinType('i8')
 ptr = BuiltinType('ptr')
+
+# TODO: what about void and unsigned integer types?
 
 
 class Module:

@@ -133,7 +133,7 @@ class CodeGenerator:
                 size = self.context.eval_const(typ.size)
             dbg_typ = DebugArrayType(et, size)
             self.debug_db.enter(typ, dbg_typ)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return dbg_typ
 

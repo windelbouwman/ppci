@@ -247,11 +247,13 @@ def optimize(ir_module, reporter=None, debug_db=None):
 
 
 def ir_to_object(
-        ir_modules, march, debug_db, reporter=None, opt=None):
+        ir_modules, march, debug_db=None, reporter=None, opt=None):
     """ Translate the given list of IR-modules into object code for the given
     architecture """
     if not reporter:
         reporter = DummyReportGenerator()
+    if not debug_db:
+        debug_db = DebugDb()
     march = get_arch(march)
     code_generator = CodeGenerator(march, debug_db)
     verifier = Verifier()

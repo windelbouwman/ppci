@@ -24,12 +24,6 @@ class X86Frame(Frame):
 
         self.used_regs = set()
 
-        self.locVars = {}
-
-        # Literal pool:
-        self.constants = []
-        self.literal_number = 0
-
     def make_call(self, vcall):
         # R0 is filled with return value, do not save it, it will conflict.
         # Now we now what variables are live
@@ -44,23 +38,6 @@ class X86Frame(Frame):
         # Restore caller save registers:
         for register in reversed(live_regs):
             yield Pop(register)
-
-    def alloc_var(self, lvar, size):
-        if lvar not in self.locVars:
-            self.locVars[lvar] = self.stacksize
-            self.stacksize = self.stacksize + size
-        return self.locVars[lvar]
-
-    def add_constant(self, value):
-        """ Add constant literal to constant pool """
-        for lab_name, val in self.constants:
-            if value == val:
-                return lab_name
-        assert type(value) in [str, int, bytes], str(value)
-        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
-        self.literal_number += 1
-        self.constants.append((lab_name, value))
-        return lab_name
 
     def is_used(self, register):
         """ Check if a register is used by this frame """
