@@ -1,5 +1,6 @@
 import io
 import unittest
+from ppci.common import CompilerError
 from ppci.binutils.dbg import Debugger, DummyDebugDriver
 from ppci.binutils import debuginfo
 from ppci.api import c3c, link, get_arch
@@ -34,6 +35,32 @@ class DebuggerTestCase(unittest.TestCase):
         addr = self.debugger.find_address('', 7)
         self.assertTrue(addr is not None)
 
+    def test_expressions_with_globals(self):
+        """ See if expressions involving global variables can be evaluated """
+        src = """
+        module x;
+        var int Xa;
+        var int[10] B;
+        var struct{int g;int f;}[10] C;
+        """
+        obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
+        self.debugger.load_symbols(obj)
+        self.assertEqual(0, self.debugger.eval_str('Xa').value)
+        self.assertEqual(-9, self.debugger.eval_str('Xa + 1 -10').value)
+        self.assertEqual(20, self.debugger.eval_str('(Xa + 1)*20').value)
+        with self.assertRaises(CompilerError):
+            self.debugger.eval_str('(Xa + 1.2)*"hello"')
+        with self.assertRaises(CompilerError):
+            self.debugger.eval_str('Baa')
+        with self.assertRaises(CompilerError):
+            self.debugger.eval_str('B')
+        with self.assertRaises(CompilerError):
+            self.debugger.eval_str('B.d')
+        self.assertEqual(22, self.debugger.eval_str('B[2] + 22').value)
+        with self.assertRaises(CompilerError):
+            self.debugger.eval_str('C[1]')
+        self.assertEqual(32, self.debugger.eval_str('C[2].f + 22+0xA').value)
+
 
 class DebugFormatTestCase(unittest.TestCase):
     """ Test the internal debug data structures """
@@ -49,9 +76,9 @@ class DebugFormatTestCase(unittest.TestCase):
         var node_t* root;
         """
         obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
-        print(obj.debug_info.types)
-        d = debuginfo.serialize(obj.debug_info)
-        print(d)
+        # print(obj.debug_info.types)
+        debuginfo.serialize(obj.debug_info)
+        # print(d)
 
     def test_export_ldb(self):
         """ Check the exporting to ldb format """

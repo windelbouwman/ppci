@@ -138,6 +138,15 @@ class DebugStructType(DebugType):
         assert isinstance(typ, DebugType)
         self.fields.append((name, typ, offset))
 
+    def has_field(self, name):
+        return name in (f[0] for f in self.fields)
+
+    def get_field(self, name):
+        for field in self.fields:
+            if field[0] == name:
+                return field
+        raise KeyError(name)
+
     def __repr__(self):
         return 'struct {...}'
 
@@ -220,8 +229,8 @@ class DebugVariable(DebugBaseInfo):
         self.address = address
 
     def __repr__(self):
-        return 'DBGVARRR[ {} {} {} ]'.format(
-            self.name, self.typ.name, self.address)
+        return 'DBGVAR[ {} {} {} ]'.format(
+            self.name, self.typ, self.address)
 
 
 def serialize(debug_info):

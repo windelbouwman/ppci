@@ -8,10 +8,12 @@
 import logging
 import cmd
 import binascii
+import struct
 from ..api import get_arch, fix_object
 from ..common import str2int, CompilerError
 from .. import version as ppci_version
 from .disasm import Disassembler
+from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
 from .outstream import RecordingOutputStream
 from ..lang.c3.builder import C3ExprParser
 from ..lang.c3 import astnodes as c3nodes
@@ -22,6 +24,22 @@ from ..lang.c3 import Context as C3Context
 STOPPED = 0
 RUNNING = 1
 FINISHED = 2
+
+
+class TmpValue:
+    """ Evaluated expression value.
+        It has a value
+        this value can be an actual value or an address (an lvalue)
+        when lval is True, the value is a location,
+        else it is the value itself
+    """
+    def __init__(self, value, lval, typ):
+        self.value = value
+        self.lval = lval
+        self.typ = typ
+
+    def __repr__(self):
+        return 'TMP[0x{:X} {} {}]'.format(self.value, self.lval, self.typ)
 
 
 class SubscribleEvent:
@@ -74,7 +92,7 @@ class Debugger:
         self.logger.info('run')
         self.driver.run()
         self.state_event.fire()
-        
+
     def restart(self):
         self.logger.info('run')
         self.driver.restart()
@@ -142,7 +160,7 @@ class Debugger:
         self.debug_info = obj.debug_info
         self.obj = obj
         self.variable_map = {v.name: v for v in self.debug_info.variables}
-        print(self.variable_map)
+        # print(self.variable_map)
 
     def calc_address(self, address):
         section = self.obj.get_section(address.section)
@@ -197,65 +215,109 @@ class Debugger:
         # Create a context for the expression to exist:
         context = C3Context(self.arch)
 
-        try:
-            # Parse expr:
-            expr = self.expr_parser.parse(expr, context)
+        # Parse expr:
+        expr = self.expr_parser.parse(expr, context)
 
-            # Eval expr:
-            val = self.eval_expr(expr)
-        except CompilerError as ex:
-            print(ex)
-            return
+        # Eval expr:
+        val = self.eval_expr(expr)
 
         return val
 
-    def eval_expr(self, expr):
+    def sizeof(self, typ):
+        """ Determine the size of a debug type """
+        if isinstance(typ, DebugBaseType):
+            return typ.size
+        elif isinstance(typ, DebugArrayType):
+            return typ.size * self.sizeof(typ.element_type)
+        elif isinstance(typ, DebugStructType):
+            # TODO: handle alignment?
+            return sum(self.sizeof(field[1]) for field in typ.fields)
+        else:
+            raise NotImplementedError(str(typ))
+
+    def eval_expr(self, expr, rval=True):
+        """ Evaluate C3 expression tree """
         # TODO: check types!!
         # TODO: merge with c3.scope stuff and c3 codegenerator stuff
         assert isinstance(expr, c3nodes.Expression), str(type(expr))
+
+        # Debug integer type, always 8 bytes, this is safe here
+        # because this type must never be loaded!
+        int_type = DebugBaseType('int', 8, 1)
+
+        # See what to do:
         if isinstance(expr, c3nodes.Literal):
-            return expr.val
+            if isinstance(expr.val, int):
+                val = TmpValue(expr.val, False, int_type)
+            else:
+                raise CompilerError('Cannot use {}'.format(expr))
         elif isinstance(expr, c3nodes.Binop):
             a = self.eval_expr(expr.a)
             b = self.eval_expr(expr.b)
-            if expr.op == '+':
-                return a + b
-            elif expr.op == '-':
-                return a - b
-            elif expr.op == '*':
-                return a * b
-            elif expr.op == '/':
-                return a / b
-            elif expr.op == '%':
-                return a % b
-            else:
-                raise NotImplementedError()
-        elif isinstance(expr, c3nodes.TypeCast):
-            a = self.eval_const(expr.a)
-            if self.equal_types('int', expr.to_type):
-                return int(a)
-            else:
-                raise NotImplementedError(
-                    'Casting to {} not implemented'.format(expr.to_type))
+            if not isinstance(a.typ, DebugBaseType):
+                raise CompilerError('{} of wrong type'.format(a))
+            if not isinstance(b.typ, DebugBaseType):
+                raise CompilerError('{} of wrong type'.format(b))
+            opmp = {
+                '+': lambda op1, op2: op1 + op2,
+                '-': lambda op1, op2: op1 - op2,
+                '*': lambda op1, op2: op1 * op2,
+            }
+            v = opmp[expr.op](a.value, b.value)
+            val = TmpValue(v, False, int_type)
+        elif isinstance(expr, c3nodes.Index):
+            index = self.eval_expr(expr.i)
+            if not isinstance(index.typ, DebugBaseType):
+                raise CompilerError('{} of wrong type'.format(index))
+            base = self.eval_expr(expr.base, rval=False)
+            if not base.lval:
+                raise CompilerError('{} is no location'.format(base))
+            if not isinstance(base.typ, DebugArrayType):
+                raise CompilerError('{} is no array'.format(base))
+            element_size = self.sizeof(base.typ.element_type)
+            addr = base.value + index.value * element_size
+            val = TmpValue(addr, True, base.typ.element_type)
+        elif isinstance(expr, c3nodes.Member):
+            base = self.eval_expr(expr.base, rval=False)
+            if not base.lval:
+                raise CompilerError('{} is no location'.format(base))
+            if not isinstance(base.typ, DebugStructType):
+                raise CompilerError('{} is no struct'.format(base))
+            if not base.typ.has_field(expr.field):
+                raise CompilerError(
+                    '{} has no member {}'.format(base, expr.field))
+            field = base.typ.get_field(expr.field)
+            addr = base.value + field[2]
+            val = TmpValue(addr, True, field[1])
         elif isinstance(expr, c3nodes.Identifier):
-            var = self.get_variable(expr.target)
-            if var is not None:
-                return var
+            # Fetch variable:
+            name = expr.target
+            if name in self.variable_map:
+                var = self.variable_map[name]
+                addr = self.calc_address(var.address)
+                val = TmpValue(addr, True, var.typ)
             else:
                 raise CompilerError('Cannot evaluate {}'.format(expr), None)
         else:
-            raise CompilerError('Cannot evaluate constant {}'
-                                .format(expr), None)
+            raise NotImplementedError('Cannot evaluate constant {}'
+                                      .format(expr), None)
+        if rval and val.lval:
+            # Load variable now!
+            if not isinstance(val.typ, DebugBaseType):
+                raise CompilerError('{} of wrong type'.format(val))
+            fmts = {
+                8: '<Q', 4: '<I', 2: '<H', 1: '<B',
+            }
+            fmt = fmts[val.typ.size]
+            loaded = self.read_mem(addr, val.typ.size)
+            val2 = struct.unpack(fmt, loaded)[0]
+            val = TmpValue(val2, False, val.typ)
+        return val
 
     def get_variable(self, name):
         """ Lookup variable with name in current symbols """
         if name in self.variable_map:
-            v = self.variable_map[name]
-            print(v)
-            return 1
-        else:
-            return
-        return 0
+            return self.variable_map[name]
 
     # Disassembly:
     def get_pc(self):
@@ -402,8 +464,12 @@ class DebugCli(cmd.Cmd):
     def do_print(self, arg):
         """ Print a variable """
         # Evaluate the given expression:
-        res = self.debugger.eval_str(arg)
-        print('$ = ', res)
+        try:
+            tmp = self.debugger.eval_str(arg)
+            res = tmp.value
+            print('$ = ', res, '(', tmp.typ, ')')
+        except CompilerError as ex:
+            print(ex)
 
     do_p = do_print
 
