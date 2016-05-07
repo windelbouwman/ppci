@@ -2,7 +2,7 @@
     Python back-end. Generates python code from ir-code.
 """
 
-from . import ir
+from .. import ir
 
 
 def literal_label(lit):

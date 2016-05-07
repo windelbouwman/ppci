@@ -10,18 +10,17 @@
     <target name="blinky">
         <assemble
             source="startup_stm32f4.asm"
-            target="arm:thumb"
-            output="obj/startup.o" />
+            arch="arm:thumb"
+            output="obj/startup.oj" />
         <compile
-            target="arm:thumb"
+            arch="arm:thumb"
             sources="blinky.c3;arch.c3;../../librt/io.c3"
             includes="stm32f4xx.c3"
-            output="obj/blinky.o" />
+            output="obj/blinky.oj" />
         <link
             output="obj/blinky.elf"
             layout="stm32f4.mmap"
-            target="arm:thumb"
-            objects="obj/startup.o;obj/blinky.o" />
+            objects="obj/startup.oj;obj/blinky.oj" />
         <objcopy objectfile="obj/blinky.elf"
             imagename="flash"
             format="hex"

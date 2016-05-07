@@ -4,17 +4,16 @@
     <target name="blinky">
         <assemble
             source="boot.asm"
-            target="avr"
-            output="boot.o" />
+            arch="avr"
+            output="boot.oj" />
         <compile
-            target="avr"
+            arch="avr"
             sources="blinky.c3"
-            output="main.o"
+            output="main.oj"
             report="report.html"/>
         <link
             output="blinky.elf" layout="avr.mmap"
-            target="avr"
-            objects="boot.o;main.o" />
+            objects="boot.oj;main.oj" />
         <objcopy
             objectfile="blinky.elf"
             imagename="flash"

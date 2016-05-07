@@ -32,10 +32,10 @@ from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
+from .utils.ir2py import IrToPython
 from .tasks import TaskError, TaskRunner
 from .recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
-from .ir2py import IrToPython
 from .arch.target_list import create_arch
 
 # When using 'from ppci.api import *' include the following:

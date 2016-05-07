@@ -43,6 +43,7 @@ class BuildTestCase(unittest.TestCase):
         self.assertIn('invalid log_level value', mock_stderr.getvalue())
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class C3cTestCase(unittest.TestCase):
     """ Test the c3c command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -85,6 +86,7 @@ class AsmTestCase(unittest.TestCase):
         self.assertIn('assemble', mock_stdout.getvalue())
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -103,6 +105,7 @@ class ObjdumpTestCase(unittest.TestCase):
             self.assertIn('SECTION', mock_stdout.getvalue())
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class ObjcopyTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -133,6 +136,7 @@ class ObjcopyTestCase(unittest.TestCase):
         self.assertEqual(data, exported_data)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class LinkCommandTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -162,6 +166,7 @@ class LinkCommandTestCase(unittest.TestCase):
             ['-o', obj3, '-L', mmap, obj1, obj2])
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class HexutilTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_help(self, mock_stdout):
@@ -221,7 +226,7 @@ class YaccTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_normal_use(self, mock_stdout, mock_stderr):
         """ Test normal yacc use """
-        grammar_file = relpath('..', 'ppci', 'burg.grammar')
+        grammar_file = relpath('..', 'ppci', 'codegen', 'burg.grammar')
         _, file1 = tempfile.mkstemp()
         yacc_cmd([grammar_file, '-o', file1])
         with open(file1, 'r') as f:

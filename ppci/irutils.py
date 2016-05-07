@@ -334,7 +334,6 @@ class Builder:
         self.block = None
         self.module = None
         self.function = None
-        self.loc = None
 
     # Helpers:
     def set_module(self, module):
@@ -358,9 +357,6 @@ class Builder:
 
     def set_block(self, block):
         self.block = block
-
-    def set_loc(self, l):
-        self.loc = l
 
     def emit(self, instruction):
         """ Append an instruction to the current block """

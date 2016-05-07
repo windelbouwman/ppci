@@ -239,7 +239,6 @@ class CodeGenerator:
         """ Generate code for a statement """
         try:
             assert isinstance(code, ast.Statement)
-            self.builder.set_loc(code.loc)
             if isinstance(code, ast.Compound):
                 for statement in code.statements:
                     self.gen_stmt(statement)

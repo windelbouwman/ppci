@@ -4,22 +4,21 @@
 
     <target name="snake">
         <assemble
-            target="x86_64"
+            arch="x86_64"
             source="../glue.asm"
-            output="glue.o" />
+            output="glue.oj" />
 
         <compile
-            target="x86_64"
+            arch="x86_64"
             sources="../../snake/*.c3;../../../librt/io.c3;../bsp.c3"
-            output="rest.o"
+            output="rest.oj"
             report="report.html"/>
 
         <link
-            target="x86_64"
             output="snake.elf"
             layout="../linux64.mmap"
             debug="true"
-            objects="glue.o;rest.o" />
+            objects="glue.oj;rest.oj" />
 
         <objcopy
             objectfile="snake.elf"

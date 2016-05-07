@@ -7,7 +7,7 @@ module
 """
 
 from .tasks import Task, TaskError, register_task
-from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
+from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
 from .utils.reporting import complete_report
 from .api import c3c, link, asm, construct, objcopy
 from .pcc.common import ParserException
@@ -63,11 +63,11 @@ class AssembleTask(OutputtingTask):
         output into an object file """
 
     def run(self):
-        target = self.get_argument('target')
+        arch = self.get_argument('arch')
         source = self.relpath(self.get_argument('source'))
 
         try:
-            obj = asm(source, target)
+            obj = asm(source, arch)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:
@@ -83,7 +83,7 @@ class AssembleTask(OutputtingTask):
 class C3cTask(OutputtingTask):
     """ Task that compiles C3 source for some target into an object file """
     def run(self):
-        target = self.get_argument('target')
+        arch = self.get_argument('arch')
         sources = self.open_file_set(self.arguments['sources'])
         if 'includes' in self.arguments:
             includes = self.open_file_set(self.arguments['includes'])
@@ -96,8 +96,13 @@ class C3cTask(OutputtingTask):
         else:
             reporter = DummyReportGenerator()
 
+        if 'debug' in self.arguments:
+            debug = bool(self.get_argument('debug'))
+        else:
+            debug = False
+
         with complete_report(reporter):
-            obj = c3c(sources, includes, target, reporter=reporter)
+            obj = c3c(sources, includes, arch, reporter=reporter, debug=debug)
 
         self.store_object(obj)
 

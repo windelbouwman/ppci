@@ -196,22 +196,22 @@ class Block:
         if isinstance(instruction, Value):
             self.unique_name(instruction)
 
-    def add_instruction(self, i):
+    def add_instruction(self, instruction):
         """ Add an instruction to the end of this block """
-        i.block = self
-        assert not isinstance(self.last_instruction, FinalInstruction)
-        self.instructions.append(i)
-        if isinstance(i, Value) and self.function is not None:
-            self.unique_name(i)
-        if isinstance(i, Return):
-            self.function.epilog._preds.add(i)
+        assert not self.is_closed
+        instruction.block = self
+        self.instructions.append(instruction)
+        if isinstance(instruction, Value) and self.function is not None:
+            self.unique_name(instruction)
+        if isinstance(instruction, Return):
+            self.function.epilog._preds.add(instruction)
 
-    def remove_instruction(self, i):
+    def remove_instruction(self, instruction):
         """ Remove instruction from block """
-        i.block = None
+        instruction.block = None
         # i.delete()
-        self.instructions.remove(i)
-        return i
+        self.instructions.remove(instruction)
+        return instruction
 
     @property
     def last_instruction(self):
@@ -223,6 +223,11 @@ class Block:
     def empty(self):
         """ Determines whether the block is empty or not """
         return len(self) == 0
+
+    @property
+    def is_closed(self):
+        """ Determine whether this block is propert terminated """
+        return isinstance(self.last_instruction, FinalInstruction)
 
     @property
     def first_instruction(self):
@@ -275,7 +280,7 @@ class Block:
                 phi.set_incoming(b2, value)
 
 
-def var_use(name):
+def value_use(name):
     """ Creates a property that also keeps track of usage """
     def getter(self):
         """ Gets the value """
@@ -300,7 +305,6 @@ def var_use(name):
     return property(getter, setter)
 
 
-# Instructions:
 class Instruction:
     """ Base class for all instructions that go into a basic block """
     def __init__(self, loc=None):
@@ -449,7 +453,7 @@ class Expression(Value):
 
 class Cast(Expression):
     """ Base type conversion instruction """
-    src = var_use('src')
+    src = value_use('src')
 
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
@@ -521,12 +525,11 @@ class Call(Expression):
         return '{} = {}({})'.format(self.name, self.function_name, args)
 
 
-# Data operations
 class Binop(Expression):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
-    a = var_use('a')
-    b = var_use('b')
+    a = value_use('a')
+    b = value_use('b')
 
     def __init__(self, a, operation, b, name, ty, loc=None):
         super().__init__(name, ty, loc=loc)
@@ -627,7 +630,7 @@ class Parameter(Expression):
 
 class Load(Value):
     """ Load a value from memory """
-    address = var_use('address')
+    address = value_use('address')
 
     def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
@@ -641,8 +644,8 @@ class Load(Value):
 
 class Store(Instruction):
     """ Store a value into memory """
-    address = var_use('address')
-    value = var_use('value')
+    address = value_use('address')
+    value = value_use('value')
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
@@ -677,7 +680,7 @@ class Return(FinalInstruction):
     """ Return statement. This instruction terminates a block and has as
         target the epilog block of a function.
     """
-    result = var_use('result')
+    result = value_use('result')
 
     def __init__(self, result):
         super().__init__()
@@ -694,8 +697,7 @@ class Return(FinalInstruction):
         return [self.function.epilog]
 
 
-# Branching:
-def block_ref(name):
+def block_use(name):
     """ Creates a property that can be set and changed """
     def getter(self):
         """ Gets the block reference """
@@ -753,7 +755,7 @@ class JumpBase(FinalInstruction):
 
 class Jump(JumpBase):
     """ Jump statement to another block within the same function """
-    target = block_ref('target')
+    target = block_use('target')
 
     def __init__(self, target):
         super().__init__()
@@ -766,10 +768,10 @@ class Jump(JumpBase):
 class CJump(JumpBase):
     """ Conditional jump to true or false labels. """
     conditions = ['==', '<', '>', '>=', '<=', '!=']
-    a = var_use('a')
-    b = var_use('b')
-    lab_yes = block_ref('lab_yes')
-    lab_no = block_ref('lab_no')
+    a = value_use('a')
+    b = value_use('b')
+    lab_yes = block_use('lab_yes')
+    lab_no = block_use('lab_no')
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()

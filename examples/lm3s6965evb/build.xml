@@ -3,21 +3,20 @@
    <target name="m3bare">
          <assemble
             source="startup_m3.asm"
-            target="arm:thumb"
-            output="start.o" />
+            arch="arm:thumb"
+            output="start.oj" />
          <compile
             sources="hello.c3"
-            target="arm:thumb"
-            output="m3bare.o"
+            arch="arm:thumb"
+            output="m3bare.oj"
             />
          <link
-            output="bare.o"
+            output="bare.oj"
             layout="m3bare.mmap"
-            target="arm:thumb"
-            objects="start.o;m3bare.o" />
+            objects="start.oj;m3bare.oj" />
 
         <objcopy
-            objectfile="bare.o"
+            objectfile="bare.oj"
             imagename="flash"
             format="bin"
             output="bare.bin" />
