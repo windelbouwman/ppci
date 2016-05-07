@@ -12,7 +12,7 @@ from ..arch.isa import Instruction
 from ..arch.data_instructions import Ds
 from ..binutils.debuginfo import DebugType, DebugVariable, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
-from .irdag import SelectionGraphBuilder
+from .irdag import SelectionGraphBuilder, make_label_name
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
 from .registerallocator import RegisterAllocator
@@ -54,7 +54,7 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            label_name = ir.label_name(var)
+            label_name = make_label_name(var)
             # TODO: alignment?
             label = Label(label_name)
             output_stream.emit(label)
@@ -104,7 +104,7 @@ class CodeGenerator:
                 _, block = split_block(block, pos=max_block_len)
 
         # Create a frame for this function:
-        frame_name = ir.label_name(ir_function)
+        frame_name = make_label_name(ir_function)
         frame = self.target.new_frame(frame_name, ir_function)
         self.debug_db.map(ir_function, frame)
 

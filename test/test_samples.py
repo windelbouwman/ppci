@@ -8,6 +8,7 @@ import platform
 import subprocess
 from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python, run_msp430_mem
+from util import do_long_tests
 from ppci.api import asm, c3c, link, objcopy, bfcompile
 from ppci.api import c3toir, bf2ir, ir_to_python
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
@@ -706,6 +707,7 @@ class BuildMixin:
         return obj, base_filename
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnVexpress(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     maxDiff = None
@@ -742,6 +744,7 @@ class TestSamplesOnVexpress(
             self.assertEqual(expected_output, res)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnRiscv(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     maxDiff = None
@@ -770,6 +773,7 @@ class TestSamplesOnRiscv(
         self.build(src, lang)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnCortexM3(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
@@ -810,6 +814,7 @@ class TestSamplesOnCortexM3(
             self.assertEqual(expected_output, res)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
@@ -842,6 +847,7 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
         self.assertEqual(expected_output, res)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "msp430"
     startercode = """
@@ -912,6 +918,7 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
             self.assertEqual(expected_output, res)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "avr"
     startercode = """
@@ -937,6 +944,7 @@ class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang=lang, bin_format='hex')
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "x86_64"
     startercode = """

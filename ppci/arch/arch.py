@@ -6,6 +6,7 @@ from ..ir import i8, i16, i32, i64, ptr
 
 class Architecture:
     """ Base class for all targets """
+    logger = logging.getLogger('arch')
     name = None
     desc = None
     option_names = ()
@@ -17,8 +18,7 @@ class Architecture:
 
             options is a tuple with which options to enable.
         """
-        self.logger = logging.getLogger('arch')
-        self.logger.debug('Creating %s target', self.name)
+        self.logger.debug('Creating %s arch', self.name)
         self.option_settings = {o: False for o in self.option_names}
         if options:
             assert isinstance(options, tuple)
@@ -37,7 +37,7 @@ class Architecture:
         return self.option_settings[name]
 
     def __repr__(self):
-        return '{}-target'.format(self.name)
+        return '{}-arch'.format(self.name)
 
     def make_id_str(self):
         """ Return a string uniquely identifying this machine """

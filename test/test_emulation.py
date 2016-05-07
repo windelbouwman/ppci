@@ -1,9 +1,10 @@
 import unittest
 
 from ppci.api import construct
-from util import relpath, has_qemu, run_qemu
+from util import relpath, has_qemu, run_qemu, do_long_tests
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class EmulationTestCase(unittest.TestCase):
     """ Tests the compiler driver """
 

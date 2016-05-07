@@ -390,7 +390,7 @@ class Verifier:
 
         # Verify predecessor and successor:
         for block in function:
-            preds = set(b for b in function.blocks if block in b.successors)
+            preds = set(b for b in function if block in b.successors)
             assert preds == set(block.predecessors)
 
         # Check that phi's have inputs for each predecessor:
@@ -410,9 +410,8 @@ class Verifier:
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
         assert not block.empty
-        assert block.last_instruction.IsTerminator
-        for i in block.instructions[:-1]:
-            assert not isinstance(i, ir.LastStatement)
+        assert block.last_instruction.is_terminator
+        assert all(not i.is_terminator for i in block.instructions[:-1])
 
     def verify_block(self, block):
         """ Verify block for correctness """

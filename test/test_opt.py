@@ -60,7 +60,7 @@ class CleanTestCase(OptTestCase):
         phi = self.builder.emit(ir.Phi('res24', ir.i16))
         phi.set_incoming(block4, cnst)
         cnst2 = self.builder.emit(ir.Const(2, 'cnst2', ir.i16))
-        binop = self.builder.emit(ir.Add(phi, cnst2, 'binop', ir.i16))
+        binop = self.builder.emit(ir.add(phi, cnst2, 'binop', ir.i16))
         phi.set_incoming(block6, binop)
         self.builder.emit(ir.Jump(block6))
         self.verifier.verify(self.module)

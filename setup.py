@@ -2,7 +2,6 @@ import unittest
 from setuptools import setup, find_packages
 import ppci
 
-print(ppci)
 
 with open('readme.rst') as f:
     long_description = f.read()

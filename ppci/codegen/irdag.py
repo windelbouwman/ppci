@@ -11,8 +11,8 @@ import re
 from .. import ir
 from ..arch.isa import Register
 from ..arch.arch import Label
-from .selectiongraph import SGNode, SGValue, SelectionGraph
 from ..utils.tree import Tree
+from .selectiongraph import SGNode, SGValue, SelectionGraph
 
 
 NODE_ATTR = '$nodetype$$$'
@@ -47,7 +47,7 @@ def prepare_function_info(target, function_info, ir_function):
     # First define labels and phis:
     for ir_block in ir_function:
         # Put label into map:
-        function_info.label_map[ir_block] = Label(ir.label_name(ir_block))
+        function_info.label_map[ir_block] = Label(make_label_name(ir_block))
 
         # Create virtual registers for phi-nodes:
         for phi in ir_block.phis:
@@ -70,10 +70,11 @@ class FunctionInfo:
 
 @make_map
 class SelectionGraphBuilder:
+    logger = logging.getLogger('selection-graph-builder')
+
     def __init__(self, arch, debug_db):
         self.target = arch
         self.debug_db = debug_db
-        self.logger = logging.getLogger('selection-graph-builder')
         self.postfix_map = {
             ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
         self.postfix_map[ir.ptr] = 'I{}'.format(arch.byte_sizes['ptr'] * 8)
@@ -90,7 +91,7 @@ class SelectionGraphBuilder:
 
         # Create maps for global variables:
         for variable in ir_function.module.variables:
-            val = self.new_node('LABEL', value=ir.label_name(variable))
+            val = self.new_node('LABEL', value=make_label_name(variable))
             self.add_map(variable, val.new_output(variable.name))
 
         # Create start node:
@@ -125,7 +126,7 @@ class SelectionGraphBuilder:
         # Generate series of trees:
         for instruction in ir_block:
             # In case of last statement, first perform phi-lifting:
-            if isinstance(instruction, ir.LastStatement):
+            if instruction.is_terminator:
                 self.copy_phis_of_successors(ir_block)
 
             # Dispatch the handler depending on type:
@@ -222,7 +223,7 @@ class SelectionGraphBuilder:
         if isinstance(ir_address, ir.Variable):
             # A global variable may be contained in another module
             # That is why it is created here, and not in the prepare step
-            sgnode = self.new_node('LABEL', value=ir.label_name(ir_address))
+            sgnode = self.new_node('LABEL', value=make_label_name(ir_address))
             address = sgnode.new_output('address')
         else:
             address = self.get_value(ir_address)
@@ -366,6 +367,19 @@ class SelectionGraphBuilder:
             self.add_map(arg, output)
 
 
+def make_label_name(dut):
+    """ Returns the assembly code label name for the given ir-object """
+    if isinstance(dut, ir.Block):
+        function = dut.function
+        return make_label_name(function) + '_' + dut.name
+    elif isinstance(dut, (ir.Function, ir.Variable)):
+        return make_label_name(dut.module) + '_' + dut.name
+    elif isinstance(dut, ir.Module):
+        return dut.name
+    else:  # pragma: no cover
+        raise NotImplementedError(str(dut) + str(type(dut)))
+
+
 def topological_sort_modified(nodes, start):
     """ Modified topological sort, start at the end and work back """
     unmarked = set(nodes)
@@ -416,8 +430,9 @@ class DagSplitter:
         such that data dependencies are met. The trees can henceforth be
         used to match trees.
     """
+    logger = logging.getLogger('dag-splitter')
+
     def __init__(self, arch, debug_db):
-        self.logger = logging.getLogger('dag-splitter')
         self.arch = arch
         self.debug_db = debug_db
 

@@ -1,49 +1,15 @@
 """
-Intermediate representation (IR) code classes.
+Intermediate representation (IR) code classes. Ir-code is organized into
+modules. Modules may contain functions and global variables. Functions
+consist of basic blocks. Each basic block is a linear sequence of instructions.
+
+The only types available are basic integer types and a pointer type.
 """
 
 # pylint: disable=R0903
 
 from binascii import hexlify
-
-
-def label_name(dut):
-    """ Returns the assembly code label name """
-    if isinstance(dut, Block):
-        function = dut.function
-        return label_name(function) + '_' + dut.name
-    elif isinstance(dut, Function) or isinstance(dut, Variable):
-        return label_name(dut.module) + '_' + dut.name
-    elif isinstance(dut, Module):
-        return dut.name
-    else:  # pragma: no cover
-        raise NotImplementedError(str(dut) + str(type(dut)))
-
-
-class Typ:
-    """ Base class for all types """
-    pass
-
-
-class BuiltinType(Typ):
-    """ Built in type representation """
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return self.name
-
-
-# The builtin types:
-f64 = BuiltinType('f64')
-f32 = BuiltinType('f32')
-i64 = BuiltinType('i64')
-i32 = BuiltinType('i32')
-i16 = BuiltinType('i16')
-i8 = BuiltinType('i8')
-ptr = BuiltinType('ptr')
-
-# TODO: what about void and unsigned integer types?
+from .utils.fastlist import FastList
 
 
 class Module:
@@ -68,17 +34,15 @@ class Module:
         self._variables.append(variable)
         variable.module = self
 
-    def get_variables(self):
+    @property
+    def variables(self):
         """ Get all variables of this module """
         return self._variables
 
-    variables = property(get_variables)
-
-    def get_functions(self):
+    @property
+    def functions(self):
         """ Get all functions of this module """
         return self._functions
-
-    functions = property(get_functions)
 
     def stats(self):
         """ Returns a string with statistic information such as block count """
@@ -155,7 +119,8 @@ class Function:
         # Mark cache as invalid:
         self._blocks = None
 
-    def get_blocks(self):
+    @property
+    def blocks(self):
         """ Get all the blocks contained in this function """
         # Use a cache:
         if self._blocks is None:
@@ -174,8 +139,6 @@ class Function:
             bbs.append(self.epilog)
             self._blocks = bbs
         return self._blocks
-
-    blocks = property(get_blocks)
 
     @property
     def special_blocks(self):
@@ -196,48 +159,6 @@ class Function:
         return sum(len(block) for block in self.blocks)
 
 
-class FastList:
-    """
-        List drop-in replacement that supports cached index operation.
-        So the first time the index is complexity O(n), the second time
-        O(1). When the list is modified, the cache is cleared.
-    """
-    __slots__ = ['_items', '_index_map']
-
-    def __init__(self):
-        self._items = []
-        self._index_map = {}
-
-    def __iter__(self):
-        return self._items.__iter__()
-
-    def __len__(self):
-        return self._items.__len__()
-
-    def __getitem__(self, key):
-        return self._items.__getitem__(key)
-
-    def append(self, i):
-        """ Append an item """
-        self._index_map.clear()
-        self._items.append(i)
-
-    def insert(self, pos, i):
-        """ Insert an item """
-        self._index_map.clear()
-        self._items.insert(pos, i)
-
-    def remove(self, i):
-        self._index_map.clear()
-        self._items.remove(i)
-
-    def index(self, i):
-        """ Second time the lookup of index is done in O(1) """
-        if i not in self._index_map:
-            self._index_map[i] = self._items.index(i)
-        return self._index_map[i]
-
-
 class Block:
     """
         Uninterrupted sequence of instructions with a label at the start.
@@ -249,8 +170,6 @@ class Block:
         self.extra_successors = []
         self.extra_preds = []
         self._preds = set()
-
-    parent = property(lambda s: s.function)
 
     def __repr__(self):
         return '{0}:'.format(self.name)
@@ -272,31 +191,24 @@ class Block:
             pos = before_instruction.position
         else:
             pos = 0
-        instruction.parent = self
+        instruction.block = self
         self.instructions.insert(pos, instruction)
         if isinstance(instruction, Value):
             self.unique_name(instruction)
 
     def add_instruction(self, i):
         """ Add an instruction to the end of this block """
-        i.parent = self
-        assert not isinstance(self.last_instruction, LastStatement)
+        i.block = self
+        assert not isinstance(self.last_instruction, FinalInstruction)
         self.instructions.append(i)
         if isinstance(i, Value) and self.function is not None:
             self.unique_name(i)
         if isinstance(i, Return):
             self.function.epilog._preds.add(i)
 
-    def replaceInstruction(self, i1, i2):
-        idx = self.instructions.index(i1)
-        i1.parent = None
-        i1.delete()
-        i2.parent = self
-        self.instructions[idx] = i2
-
     def remove_instruction(self, i):
         """ Remove instruction from block """
-        i.parent = None
+        i.block = None
         # i.delete()
         self.instructions.remove(i)
         return i
@@ -321,22 +233,20 @@ class Block:
         """ Return all phi instructions of this block """
         return [i for i in self.instructions if isinstance(i, Phi)]
 
-    def get_successors(self):
+    @property
+    def successors(self):
         """ Get the direct successors of this block """
         successors = self.last_instruction.targets if not self.empty else []
         return successors + self.extra_successors
 
-    successors = property(get_successors)
-
-    def get_predecessors(self):
+    @property
+    def predecessors(self):
         b = set(i.block for i in self._preds)
         b |= set(self.extra_preds)
 
         # Make sure we have only active blocks:
-        b &= set(self.parent.blocks)
+        b &= set(self.function.blocks)
         return list(b)
-
-    predecessors = property(get_predecessors)
 
     def dominates(self, other):
         """ Check if this block dominates other block """
@@ -369,8 +279,8 @@ def var_use(name):
     """ Creates a property that also keeps track of usage """
     def getter(self):
         """ Gets the value """
-        if name in self.var_map:
-            return self.var_map[name]
+        if name in self._var_map:
+            return self._var_map[name]
         else:  # pragma: no cover
             raise KeyError(name)
 
@@ -378,11 +288,11 @@ def var_use(name):
         """ Sets the value """
         assert isinstance(value, Value)
         # If value was already set, remove usage
-        if name in self.var_map:
-            self.del_use(self.var_map[name])
+        if name in self._var_map:
+            self.del_use(self._var_map[name])
 
         # Place the value in the var map:
-        self.var_map[name] = value
+        self._var_map[name] = value
 
         # Add usage:
         self.add_use(value)
@@ -396,15 +306,10 @@ class Instruction:
     def __init__(self, loc=None):
         # Create a collection to store the values this value uses.
         # TODO: think of better naming..
-        self.var_map = {}
-        self.parent = None
+        self._var_map = {}
+        self.block = None
         self.uses = set()
         self.loc = loc
-
-    @property
-    def block(self):
-        """ The block in which this instruction is contained """
-        return self.parent
 
     @property
     def function(self):
@@ -427,11 +332,11 @@ class Instruction:
             information.
         """
         # TODO: update reference
-        assert old in self.var_map.values()
-        for name in self.var_map:
-            if self.var_map[name] is old:
+        assert old in self._var_map.values()
+        for name in self._var_map:
+            if self._var_map[name] is old:
                 self.del_use(old)
-                self.var_map[name] = new
+                self._var_map[name] = new
                 self.add_use(new)
 
     def remove_from_block(self):
@@ -463,18 +368,40 @@ class Instruction:
                     # Check if this instruction dominates the last
                     # instruction of this block
                     return self.dominates(block.last_instruction)
-            # pragma: no cover
-            raise RuntimeError('Cannot query dominance for this phi')
-        # For all other instructions follow these rules:
-        if self.block == other.block:
-            # fi = self.block.instructions.first_to_occur(self, other)
-            return self.position < other.position
+            raise RuntimeError(
+                'Cannot query dominance for this phi')  # pragma: no cover
         else:
-            return self.block.dominates(other.block)
+            # For all other instructions follow these rules:
+            if self.block is other.block:
+                return self.position < other.position
+            else:
+                return self.block.dominates(other.block)
 
     @property
-    def IsTerminator(self):
-        return isinstance(self, LastStatement)
+    def is_terminator(self):
+        """ Check if this instruction is a block terminating instruction """
+        return isinstance(self, FinalInstruction)
+
+
+class Typ:
+    """ Built in type representation """
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+
+# The builtin types:
+f64 = Typ('f64')
+f32 = Typ('f32')
+i64 = Typ('i64')
+i32 = Typ('i32')
+i16 = Typ('i16')
+i8 = Typ('i8')
+ptr = Typ('ptr')
+
+# TODO: what about void and unsigned integer types?
 
 
 class Value(Instruction):
@@ -526,7 +453,6 @@ class Cast(Expression):
 
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
-        assert isinstance(ty, Typ)
         self.src = value
 
     def __repr__(self):
@@ -555,7 +481,7 @@ class Const(Expression):
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
         self.value = value
-        assert type(value) in [int, float], str(value)
+        assert isinstance(value, (int, float)), str(value)
 
     def __repr__(self):
         return '{} {} = {}'.format(self.ty, self.name, self.value)
@@ -568,7 +494,7 @@ class LiteralData(Expression):
     def __init__(self, data, name):
         super().__init__(name, ptr)
         self.data = data
-        assert type(data) in [bytes], str(data)
+        assert isinstance(data, bytes), str(data)
 
     def __repr__(self):
         return '{} = Literal {}'.format(self.name, hexlify(self.data))
@@ -605,7 +531,7 @@ class Binop(Expression):
     def __init__(self, a, operation, b, name, ty, loc=None):
         super().__init__(name, ty, loc=loc)
         assert operation in Binop.ops
-        assert a.ty is b.ty
+        assert a.ty is b.ty is ty
         self.a = a
         self.b = b
         self.operation = operation
@@ -615,30 +541,17 @@ class Binop(Expression):
         return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
 
 
-class Unop(Expression):
-    """ Unary operation """
-    ops = ['-']
-    a = var_use('a')
-
-    def __init__(self, operation, a, name, ty):
-        super().__init__(name, ty)
-        assert operation in self.ops
-        self.operation = operation
-        assert a.ty is ty
-        self.a = a
-
-
-def Add(a, b, name, ty):
+def add(a, b, name, ty):
     """ Substract b from a """
     return Binop(a, '+', b, name, ty)
 
 
-def Sub(a, b, name, ty):
+def sub(a, b, name, ty):
     """ Substract b from a """
     return Binop(a, '-', b, name, ty)
 
 
-def Mul(a, b, name, ty):
+def mul(a, b, name, ty):
     """ Multiply a by b """
     return Binop(a, '*', b, name, ty)
 
@@ -685,7 +598,7 @@ class Alloc(Expression):
     """ Allocates space on the stack """
     def __init__(self, name, amount, loc=None):
         super().__init__(name, ptr, loc=loc)
-        assert type(amount) is int
+        assert isinstance(amount, int)
         self.amount = amount
 
     def __repr__(self):
@@ -745,28 +658,12 @@ class Store(Instruction):
         return 'store {} {}, {}'.format(ty, val, ptr)
 
 
-# Branching:
-def block_ref(name):
-    """ Creates a property that can be set and changed """
-    def getter(self):
-        if name in self.block_map:
-            return self.block_map[name]
-        else:  # pragma: no cover
-            raise KeyError("No such block!")
-
-    def setter(self, block):
-        """ Sets the block reference """
-        assert isinstance(block, Block)
-        self.set_target_block(name, block)
-
-    return property(getter, setter)
-
-
-class LastStatement(Instruction):
+class FinalInstruction(Instruction):
+    """ Final instruction in a basic block """
     pass
 
 
-class Terminator(LastStatement):
+class Terminator(FinalInstruction):
     """ Instruction that terminates the terminal block """
     def __init__(self):
         super().__init__()
@@ -776,7 +673,7 @@ class Terminator(LastStatement):
         return 'Terminator'
 
 
-class Return(LastStatement):
+class Return(FinalInstruction):
     """ Return statement. This instruction terminates a block and has as
         target the epilog block of a function.
     """
@@ -797,42 +694,60 @@ class Return(LastStatement):
         return [self.function.epilog]
 
 
-class JumpBase(LastStatement):
+# Branching:
+def block_ref(name):
+    """ Creates a property that can be set and changed """
+    def getter(self):
+        """ Gets the block reference """
+        if name in self._block_map:
+            return self._block_map[name]
+        else:  # pragma: no cover
+            raise KeyError("No such block!")
+
+    def setter(self, block):
+        """ Sets the block reference """
+        assert isinstance(block, Block)
+        self.set_target_block(name, block)
+
+    return property(getter, setter)
+
+
+class JumpBase(FinalInstruction):
     """ Base of all jumping instructions """
     def __init__(self):
         super().__init__()
-        self.block_map = {}
+        self._block_map = {}
 
     def set_target_block(self, name, block):
         """ Set the target 'name' to block. Take into account that a block
             may already be pointed, so remove this reference!
         """
         # If block was present, remove this instruction from the block preds:
-        if name in self.block_map:
-            old_block = self.block_map[name]
+        if name in self._block_map:
+            old_block = self._block_map[name]
             # check if old_block occurs only once in the block_map:
-            if list(self.block_map.values()).count(old_block) == 1:
+            if list(self._block_map.values()).count(old_block) == 1:
                 old_block._preds.remove(self)
 
         # Use the new block:
-        self.block_map[name] = block
-        self.block_map[name]._preds.add(self)
+        self._block_map[name] = block
+        self._block_map[name]._preds.add(self)
 
     def delete(self):
         """ Clear references """
-        while self.block_map:
-            _, block = self.block_map.popitem()
+        while self._block_map:
+            _, block = self._block_map.popitem()
             block._preds.remove(self)
 
     @property
     def targets(self):
         """ Gets a list of targets that this instruction jumps to """
-        return list(self.block_map.values())
+        return list(self._block_map.values())
 
     def change_target(self, old, new):
         """ Change the target old into new """
-        for name in self.block_map:
-            if self.block_map[name] is old:
+        for name in self._block_map:
+            if self._block_map[name] is old:
                 self.set_target_block(name, new)
 
 

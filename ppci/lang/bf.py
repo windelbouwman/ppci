@@ -62,9 +62,9 @@ class BrainFuckGenerator():
         self.builder.set_block(block_init)
         ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.ptr))
         cell_addr = self.builder.emit(
-            ir.Add(data, ptr_val, "cell_addr", ir.ptr))
+            ir.add(data, ptr_val, "cell_addr", ir.ptr))
         self.builder.emit(ir.Store(zero_ins, cell_addr))
-        add_ins = self.builder.emit(ir.Add(ptr_val, prc_inc, "Added", ir.ptr))
+        add_ins = self.builder.emit(ir.add(ptr_val, prc_inc, "add", ir.ptr))
         self.builder.emit(ir.Store(add_ins, ptr_var))
         self.builder.emit(
             ir.CJump(add_ins, '==', array_size, block3, block_init))
@@ -84,21 +84,21 @@ class BrainFuckGenerator():
         for char in src:
             if char == '>':
                 # ptr++;
-                ptr = self.builder.emit(ir.Add(ptr, prc_inc, "ptr", ir.ptr))
+                ptr = self.builder.emit(ir.add(ptr, prc_inc, "ptr", ir.ptr))
             elif char == '<':
                 # ptr--;
-                ptr = self.builder.emit(ir.Sub(ptr, prc_inc, "ptr", ir.ptr))
+                ptr = self.builder.emit(ir.sub(ptr, prc_inc, "ptr", ir.ptr))
             elif char == '+':
                 # data[ptr]++;
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 add_ins = self.builder.emit(
-                    ir.Add(val_ins, one_ins, "Added", ir.i8))
+                    ir.add(val_ins, one_ins, "add", ir.i8))
                 self.builder.emit(ir.Store(add_ins, ptr))
             elif char == '-':
                 # data[ptr]--;
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 sub_ins = self.builder.emit(
-                    ir.Sub(val_ins, one_ins, "Sub", ir.i8))
+                    ir.sub(val_ins, one_ins, "sub", ir.i8))
                 self.builder.emit(ir.Store(sub_ins, ptr))
             elif char == '.':
                 # putc(data[ptr])

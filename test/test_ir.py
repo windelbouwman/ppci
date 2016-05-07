@@ -13,7 +13,7 @@ class IrCodeTestCase(unittest.TestCase):
         """ See if the ir classes can be constructed """
         v1 = ir.Const(1, 'const', ir.i32)
         v2 = ir.Const(2, 'const', ir.i32)
-        ir.Add(v1, v2, "add", ir.i32)
+        ir.add(v1, v2, "add", ir.i32)
 
     def test_use(self):
         """ Check if use def information is correctly administered """
@@ -21,7 +21,7 @@ class IrCodeTestCase(unittest.TestCase):
         c2 = ir.Const(2, 'two', ir.i32)
         c3 = ir.Const(3, 'three', ir.i32)
         c4 = ir.Const(4, 'four', ir.i32)
-        add = ir.Add(c1, c2, 'add', ir.i32)
+        add = ir.add(c1, c2, 'add', ir.i32)
         self.assertEqual({c1, c2}, add.uses)
 
         # Replace usage by setting the variable:
@@ -69,7 +69,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.b.set_block(bb)
         v1 = self.b.emit(ir.Const(5, 'const', ir.i32))
         v2 = self.b.emit(ir.Const(7, 'const', ir.i32))
-        self.b.emit(ir.Add(v1, v2, "add", ir.i32))
+        self.b.emit(ir.add(v1, v2, "add", ir.i32))
         self.b.emit(ir.Jump(f.epilog))
         self.cf.run(self.m)
 
@@ -81,7 +81,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.b.emit(v1)
         v2 = ir.Const(0, 'const', ir.i32)
         self.b.emit(v2)
-        v3 = ir.Add(v1, v2, "add", ir.i32)
+        v3 = ir.add(v1, v2, "add", ir.i32)
         self.b.emit(v3)
 
 

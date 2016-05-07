@@ -701,7 +701,7 @@ class CodeGenerator:
             ir.Const(base_type.field_offset(expr.field), 'offset', ir.ptr))
 
         # Calculate memory address of field:
-        return self.emit(ir.Add(base, offset, "mem_addr", ir.ptr))
+        return self.emit(ir.add(base, offset, "mem_addr", ir.ptr))
 
     def gen_index_expr(self, expr):
         """ Array indexing """
@@ -731,13 +731,13 @@ class CodeGenerator:
 
         # Calculate offset:
         offset = self.emit(
-            ir.Mul(idx, e_size, "element_offset", int_ir_type), loc=expr.loc)
+            ir.mul(idx, e_size, "element_offset", int_ir_type), loc=expr.loc)
         offset = self.emit(
             ir.to_ptr(offset, 'elem_offset'), loc=expr.loc)
 
         # Calculate address:
         return self.emit(
-            ir.Add(base, offset, "element_address", ir.ptr),
+            ir.add(base, offset, "element_address", ir.ptr),
             loc=expr.loc)
 
     def gen_literal_expr(self, expr):

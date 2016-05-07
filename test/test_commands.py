@@ -12,9 +12,10 @@ from ppci.commands import link
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
 from ppci.api import get_arch
-from util import relpath
+from util import relpath, do_long_tests
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class BuildTestCase(unittest.TestCase):
     """ Test the build command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
