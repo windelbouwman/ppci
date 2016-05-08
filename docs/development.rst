@@ -4,6 +4,9 @@ Development
 
 This chapter descibes how to develop on ppci.
 
+.. toctree::
+    todo
+
 Communication
 -------------
 
@@ -12,10 +15,11 @@ Join the #ppci irc channel on freenode!
 Source code
 -----------
 
-The sourcecode of the project is located at these repositories:
+The sourcecode repository of the project is located at these locations:
 
 - https://bitbucket.org/windel/ppci
 - https://pikacode.com/windel/ppci/
+- https://mercurial.tuxfamily.org/ppci/ppci
 
 To check out the latest code and work use the development version use these
 commands to checkout the source code and setup ppci such that you can use it

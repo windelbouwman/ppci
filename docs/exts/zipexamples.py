@@ -1,34 +1,26 @@
 # Custom extension that zips all the examples for download.
 from zipfile import ZipFile
-import os
+from os import path
 import glob
 
 
 def zip_examples(app):
     glob_patterns = [
-        "examples/blinky/*.c3",
-        "examples/blinky/*.asm",
-        "examples/blinky/*.mmap",
-        "examples/blinky/build.xml",
-        "examples/arduino/build.xml",
-        "examples/arduino/*.c3",
-        "examples/arduino/*.asm",
-        "examples/arduino/*.mmap",
-        "examples/linux64/*.mmap",
-        "examples/linux64/*.asm",
-        "examples/linux64/*.c3",
-        "examples/linux64/hello/*.c3",
-        "examples/linux64/hello/build.xml",
+        "examples/**/*.c3",
+        "examples/**/*.asm",
+        "examples/**/*.mmap",
+        "examples/**/build.xml",
         "librt/*.c3"]
-    my_path = os.path.dirname(os.path.abspath(__file__))
-    root_path = os.path.abspath(os.path.join(my_path, '..', '..'))
-    zip_filename = os.path.join(root_path, 'docs', 'examples.zip')
+    my_path = path.dirname(path.abspath(__file__))
+    root_path = path.abspath(path.join(my_path, '..', '..'))
+    zip_filename = path.join(root_path, 'docs', 'examples.zip')
     with ZipFile(zip_filename, 'w') as myzip:
         for glob_pattern in glob_patterns:
-            for fn in glob.iglob(os.path.join(root_path, glob_pattern)):
-                zfn = os.path.relpath(fn, root_path)
-                app.info('zipping {} as {}'.format(fn, zfn))
-                myzip.write(fn, zfn)
+            pat = path.join(path.join(root_path, glob_pattern))
+            for filename in glob.iglob(pat, recursive=True):
+                zfn = path.relpath(filename, root_path)
+                app.info('zipping {} as {}'.format(filename, zfn))
+                myzip.write(filename, zfn)
 
 
 def setup(app):

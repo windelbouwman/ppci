@@ -4,6 +4,7 @@ Reference
 
 .. toctree::
 
+    usage
     c3
     ir
     debug

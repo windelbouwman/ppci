@@ -9,13 +9,7 @@ Table of contents
 
     self
     quickstart
-    usage
     api
     reference
-    compiler
-    development
+    contributing
     faq
-    todo
-    changelog
-    links
-

@@ -68,8 +68,12 @@ class Function:
         # Create first blocks:
         self.entry = Block('entry')
         self.add_block(self.entry)
+        # self.make_unique_name(self.entry)
+        # self.entry.function = self
         self.epilog = Block('epilog')
         self.add_block(self.epilog)
+        # self.make_unique_name(self.epilog)
+        # self.epilog.function = self
         self.epilog.add_instruction(Terminator())
 
         # TODO: fix this other way?
@@ -103,21 +107,16 @@ class Function:
 
     def add_block(self, block):
         """ Add a block to this function """
-        # self.bbs.append(bb)
         block.function = self
-
         self.make_unique_name(block)
-
-        # Mark cache as invalid:
         self._blocks = None
+        # self._blocks.append(block)
 
     def remove_block(self, block):
         """ Remove a block from this function """
-        # self.bbs.remove(bb)
         block.function = None
-
-        # Mark cache as invalid:
         self._blocks = None
+        # self._blocks.remove(block)
 
     @property
     def blocks(self):
@@ -139,6 +138,7 @@ class Function:
             bbs.append(self.epilog)
             self._blocks = bbs
         return self._blocks
+        # return [self.entry] + self._blocks + [self.epilog]
 
     @property
     def special_blocks(self):
@@ -169,7 +169,7 @@ class Block:
         self.instructions = FastList()
         self.extra_successors = []
         self.extra_preds = []
-        self._preds = set()
+        self.references = set()
 
     def __repr__(self):
         return '{0}:'.format(self.name)
@@ -204,7 +204,7 @@ class Block:
         if isinstance(instruction, Value) and self.function is not None:
             self.unique_name(instruction)
         if isinstance(instruction, Return):
-            self.function.epilog._preds.add(instruction)
+            self.function.epilog.references.add(instruction)
 
     def remove_instruction(self, instruction):
         """ Remove instruction from block """
@@ -231,6 +231,7 @@ class Block:
 
     @property
     def first_instruction(self):
+        """ Return this blocks first instruction """
         return self.instructions[0]
 
     @property
@@ -246,19 +247,12 @@ class Block:
 
     @property
     def predecessors(self):
-        b = set(i.block for i in self._preds)
+        b = set(i.block for i in self.references)
         b |= set(self.extra_preds)
 
         # Make sure we have only active blocks:
         b &= set(self.function.blocks)
         return list(b)
-
-    def dominates(self, other):
-        """ Check if this block dominates other block """
-        assert self.function is not None
-        assert self in self.function.blocks
-        cfg_info = self.function.cfg_info
-        return cfg_info.strictly_dominates(self, other)
 
     def change_target(self, old, new):
         """ Change the target of this block from old to new """
@@ -352,34 +346,6 @@ class Instruction:
     def position(self):
         """ Return numerical position in block """
         return self.block.instructions.index(self)
-
-    def dominates(self, other):
-        """ Checks if this instruction dominates another instruction """
-        if isinstance(self, (Parameter, Variable)):
-            # TODO: hack, parameters and globals dominate all other
-            # instructions..
-            return True
-
-        # All other instructions must have a containing block:
-        assert self.block is not None, '{} has no block'.format(self)
-        assert self in self.block.instructions
-
-        # Phis are special case:
-        if isinstance(other, Phi):
-            for block in other.inputs:
-                if other.inputs[block] == self:
-                    # This is the queried dominance branch
-                    # Check if this instruction dominates the last
-                    # instruction of this block
-                    return self.dominates(block.last_instruction)
-            raise RuntimeError(
-                'Cannot query dominance for this phi')  # pragma: no cover
-        else:
-            # For all other instructions follow these rules:
-            if self.block is other.block:
-                return self.position < other.position
-            else:
-                return self.block.dominates(other.block)
 
     @property
     def is_terminator(self):
@@ -729,17 +695,17 @@ class JumpBase(FinalInstruction):
             old_block = self._block_map[name]
             # check if old_block occurs only once in the block_map:
             if list(self._block_map.values()).count(old_block) == 1:
-                old_block._preds.remove(self)
+                old_block.references.remove(self)
 
         # Use the new block:
         self._block_map[name] = block
-        self._block_map[name]._preds.add(self)
+        self._block_map[name].references.add(self)
 
     def delete(self):
         """ Clear references """
         while self._block_map:
             _, block = self._block_map.popitem()
-            block._preds.remove(self)
+            block.references.remove(self)
 
     @property
     def targets(self):

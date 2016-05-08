@@ -2,11 +2,10 @@
 Api
 ===
 
-Instead of using the :doc:`commandline<usage>`, it is also possible to use
-ppci api.
-For
-example to assemble, compile, link and objcopy the msp430 blinky example
-project:
+The ppci library provides provides an intuitive api to the compiler, assembler
+and other tools.
+For example to assemble, compile, link and objcopy the msp430 blinky example
+project, the api can be used as follows:
 
 .. testsetup::
 
@@ -27,9 +26,11 @@ project:
     >>> o3 = link([o2, o1], 'examples/msp430/blinky/msp430.mmap', march)
     >>> objcopy(o3, 'flash', 'hex', 'blinky_msp430.hex')
 
+Instead of using the api, a set of :doc:`commandline tools<usage>` are also
+prodived.
 
-api module
-----------
+Reference
+---------
 
 .. automodule:: ppci.api
    :members:

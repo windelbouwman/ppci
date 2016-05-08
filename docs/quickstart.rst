@@ -17,7 +17,8 @@ Install ppci in a `virtualenv`_ environment:
     (sandbox) $ ppci-build.py -h
 
 
-If ppci installed correcly, you will get a help message.
+If ppci installed correcly, you will get a help message of the
+:ref:`ppci-build` commandline tool.
 
 Download and unzip the examples bundle project here :download:`examples.zip`.
 

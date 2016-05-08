@@ -14,14 +14,14 @@ from .pcc.common import ParserException
 from .common import CompilerError
 
 
-@register_task("empty")
+@register_task
 class EmptyTask(Task):
     """ Basic task that does nothing """
     def run(self):
         pass
 
 
-@register_task("echo")
+@register_task
 class EchoTask(Task):
     """ Simple task that echoes a message """
     def run(self):
@@ -29,8 +29,8 @@ class EchoTask(Task):
         print(message)
 
 
-@register_task("property")
-class Property(Task):
+@register_task
+class PropertyTask(Task):
     """ Sets a property to a value """
     def run(self):
         name = self.arguments['name']
@@ -38,8 +38,8 @@ class Property(Task):
         self.target.project.set_property(name, value)
 
 
-@register_task("build")
-class ConstructTask(Task):
+@register_task
+class BuildTask(Task):
     """ Builds another build description file (build.xml) """
     def run(self):
         project = self.relpath(self.get_argument('file'))
@@ -57,7 +57,7 @@ class OutputtingTask(Task):
             obj.save(output_file)
 
 
-@register_task("assemble")
+@register_task
 class AssembleTask(OutputtingTask):
     """ Task that can runs the assembler over the source and enters the
         output into an object file """
@@ -79,8 +79,8 @@ class AssembleTask(OutputtingTask):
         self.logger.debug('Assembling finished')
 
 
-@register_task("compile")
-class C3cTask(OutputtingTask):
+@register_task
+class CompileTask(OutputtingTask):
     """ Task that compiles C3 source for some target into an object file """
     def run(self):
         arch = self.get_argument('arch')
@@ -107,7 +107,7 @@ class C3cTask(OutputtingTask):
         self.store_object(obj)
 
 
-@register_task("link")
+@register_task
 class LinkTask(OutputtingTask):
     """ Link together a collection of object files """
     def run(self):
@@ -126,7 +126,7 @@ class LinkTask(OutputtingTask):
         self.store_object(obj)
 
 
-@register_task("objcopy")
+@register_task
 class ObjCopyTask(Task):
     """ Binary move parts of object code. """
     def run(self):

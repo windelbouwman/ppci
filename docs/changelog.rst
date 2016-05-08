@@ -2,6 +2,9 @@
 Changelog
 =========
 
+Release 0.6 (Planned)
+---------------------
+
 Release 0.5 (Upcoming)
 ----------------------
 

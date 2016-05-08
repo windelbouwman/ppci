@@ -398,7 +398,7 @@ class Verifier:
                     assert used_value in phi.uses
 
         # Now we can build a dominator tree
-        function.cfg_info = CfgInfo(function)
+        self.cfg_info = CfgInfo(function)
         for block in function:
             assert block.function == function
             self.verify_block(block)
@@ -438,9 +438,43 @@ class Verifier:
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
-            assert value.dominates(instruction), \
+            assert self.instruction_dominates(value, instruction), \
                 "{} does not dominate {}".format(value, instruction)
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
                 raise IrFormError(
                     '{} used uninitialized'.format(value), loc=value.loc)
+
+    def instruction_dominates(self, one, another):
+        """ Checks if one instruction dominates another instruction """
+        if isinstance(one, (ir.Parameter, ir.Variable)):
+            # TODO: hack, parameters and globals dominate all other
+            # instructions..
+            return True
+
+        # All other instructions must have a containing block:
+        assert one.block is not None, '{} has no block'.format(one)
+        assert one in one.block.instructions
+
+        # Phis are special case:
+        if isinstance(another, ir.Phi):
+            for block in another.inputs:
+                if another.inputs[block] is one:
+                    # This is the queried dominance branch
+                    # Check if this instruction dominates the last
+                    # instruction of this block
+                    return self.instruction_dominates(
+                        one, block.last_instruction)
+            raise RuntimeError(
+                'Cannot query dominance for this phi')  # pragma: no cover
+        else:
+            # For all other instructions follow these rules:
+            if one.block is another.block:
+                return one.position < another.position
+            else:
+                return self.block_dominates(one.block, another.block)
+
+    def block_dominates(self, one, another):
+        """ Check if this block dominates other block """
+        assert one in one.function
+        return self.cfg_info.strictly_dominates(one, another)

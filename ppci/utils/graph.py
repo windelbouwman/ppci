@@ -1,4 +1,7 @@
 
+from collections import defaultdict
+
+
 def topological_sort(nodes):
     """ Sort nodes topological, use Tarjan algorithm here
         See: https://en.wikipedia.org/wiki/Topological_sorting
@@ -39,8 +42,8 @@ class Graph:
         self.masked_nodes = set()
 
         # Fast lookup dictionaries:
-        self.adj_map = dict()
-        self.degree_map = dict()
+        self.adj_map = defaultdict(set)
+        self.degree_map = defaultdict(int)
 
     def __iter__(self):
         for node in self.current_nodes:
@@ -56,13 +59,8 @@ class Graph:
     def add_node(self, node):
         """ Add a node to the graph """
         self.nodes.add(node)
-        if node not in self.adj_map:
-            self.adj_map[node] = set()
-        else:
-            for neighbour in self.adj_map[node]:
-                self.degree_map[neighbour] += 1
-        if node not in self.degree_map:
-            self.degree_map[node] = 0
+        for neighbour in self.adj_map[node]:
+            self.degree_map[neighbour] += 1
 
     def del_node(self, n):
         """ Remove a node from the graph """
@@ -183,8 +181,8 @@ class DiGraph(Graph):
     """ Directed graph. """
     def __init__(self):
         super().__init__()
-        self.suc_map = dict()
-        self.pre_map = dict()
+        self.suc_map = defaultdict(set)
+        self.pre_map = defaultdict(set)
 
     def add_edge(self, n, m):
         """ Add a directed edge from n to m """
@@ -198,13 +196,6 @@ class DiGraph(Graph):
             self.adj_map[m].add(n)
             self.degree_map[m] += 1
             self.degree_map[n] += 1
-
-    def add_node(self, n):
-        super().add_node(n)
-        if n not in self.suc_map:
-            self.suc_map[n] = set()
-        if n not in self.pre_map:
-            self.pre_map[n] = set()
 
     def successors(self, n):
         return self.suc_map[n] & self.nodes
