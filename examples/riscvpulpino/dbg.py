@@ -13,7 +13,7 @@ class PulpinoDebugDriver(DebugDriver):
         self.status = STOPPED
         self.s = socket(AF_INET, SOCK_STREAM)
         self.s.connect(("localhost", 1234))
-        self.timeout = 5
+        self.timeout = 10
         self.retries = 3
         
     def pack(self, data):

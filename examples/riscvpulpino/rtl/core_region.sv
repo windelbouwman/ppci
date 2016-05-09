@@ -49,7 +49,7 @@ module core_region
   );
 
   localparam INSTR_ADDR_WIDTH = $clog2(INSTR_RAM_SIZE)+1; // to make space for the boot rom
-  localparam DATA_ADDR_WIDTH  = $clog2(DATA_RAM_SIZE);
+  localparam DATA_ADDR_WIDTH  = $clog2(DATA_RAM_SIZE)+1;
 
   localparam AXI_B_WIDTH      = $clog2(AXI_DATA_WIDTH/8); // AXI "Byte" width
 

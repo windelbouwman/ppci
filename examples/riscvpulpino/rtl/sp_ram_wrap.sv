@@ -16,7 +16,7 @@
 module sp_ram_wrap
   #(
     parameter RAM_SIZE   = 32768,              // in bytes
-    parameter ADDR_WIDTH = $clog2(RAM_SIZE),
+    parameter ADDR_WIDTH = $clog2(RAM_SIZE)+1,
     parameter DATA_WIDTH = 32,
     parameter RDMEMH = 0,  // modified for verilator-simulation purpose
     parameter RDMEMHFILE = "" // modified for verilator-simulation purpose
@@ -77,7 +77,7 @@ module sp_ram_wrap
   sp_ram
   #(
     .ADDR_WIDTH ( ADDR_WIDTH ),
-    .NUM_WORDS  ( RAM_SIZE   ),
+    .NUM_BYTES  ( RAM_SIZE   ),
     .RDMEMH (RDMEMH), // modified for verilator-simulation purpose
     .RDMEMHFILE(RDMEMHFILE) // modified for verilator-simulation purpose
   )
