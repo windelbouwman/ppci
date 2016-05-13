@@ -161,7 +161,9 @@ module pulpino_top
     .AXI_DATA_WIDTH       ( `AXI_DATA_WIDTH      ),
     .AXI_ID_MASTER_WIDTH  ( `AXI_ID_MASTER_WIDTH ),
     .AXI_ID_SLAVE_WIDTH   ( `AXI_ID_SLAVE_WIDTH  ),
-    .AXI_USER_WIDTH       ( `AXI_USER_WIDTH      )
+    .AXI_USER_WIDTH       ( `AXI_USER_WIDTH      ),
+    .DATA_RAM_SIZE        ( 32768),
+    .INSTR_RAM_SIZE       ( 32768)
   )
   core_region_i
   (

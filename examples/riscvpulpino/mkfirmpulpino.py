@@ -7,7 +7,7 @@ with complete_report(report_generator) as reporter:
     
     o1 = asm("startercode.asm", "riscv")
     o2 = c3c(["bsp.c3", "io.c3", "main.c3"], [], "riscv", reporter=reporter, debug=True)
-    obj = link([o1,o2], "firmware.mmap", "riscv", use_runtime=False,reporter=reporter, debug=True)
+    obj = link([o1,o2], "firmware.mmap", use_runtime=False,reporter=reporter, debug=True)
     o1f = open("samples.txt","w")
     obj.save(o1f)
     o1f.close()

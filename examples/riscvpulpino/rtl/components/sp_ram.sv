@@ -14,7 +14,7 @@
 module sp_ram
   #(
     parameter ADDR_WIDTH = 8,
-    parameter NUM_WORDS  = 256,
+    parameter NUM_BYTES  = 256,
     parameter RDMEMH = 0, // modified for verilator-simulation purpose
     parameter RDMEMHFILE = "" // modified for verilator-simulation purpose
   )(
@@ -29,7 +29,7 @@ module sp_ram
     input  logic [3:0]             be_i
   );
 
-  localparam words = NUM_WORDS;
+  localparam words = NUM_BYTES/4+1;
 
 //  logic [3:0][7:0] mem[words]; // modified for verilator-simulation purpose
    logic [31:0] 		   mem [words]; // modified for verilator-simulation purpose
