@@ -156,8 +156,10 @@ class Debugger:
         for image in obj.images:
             vdata = image.data
             adata = self.read_mem(image.location, len(vdata))
-            #assert vdata == adata
-        self.logger.info('memory image validated!')
+            if vdata == adata:
+                self.logger.info('memory image %s validated!', image)
+            else:
+                self.logger.warning('Memory image %s mismatch!', image)
         self.debug_info = obj.debug_info
         self.obj = obj
         self.variable_map = {v.name: v for v in self.debug_info.variables}
