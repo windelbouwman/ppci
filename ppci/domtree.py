@@ -11,11 +11,12 @@ class CfgInfo:
         # Store ir related info:
         self.function = function
         self.n0 = function.entry
-        self.N = set(function.blocks)
+        blocks = function.calc_reachable_blocks()
+        self.N = blocks
 
         self.pred = {}
         self.succ = {}
-        for block in function.blocks:
+        for block in blocks:
             self.prepare(block)
 
         # From here only succ and pred are relevant:
@@ -34,8 +35,8 @@ class CfgInfo:
             self.pred, self.succ, self.dom)
 
     def prepare(self, block):
-        self.pred[block] = block.predecessors
-        self.succ[block] = block.successors
+        self.pred[block] = set(block.predecessors) & self.N
+        self.succ[block] = set(block.successors) & self.N
 
     def calculate_dominators(self):
         """

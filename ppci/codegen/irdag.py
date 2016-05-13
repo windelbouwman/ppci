@@ -45,6 +45,10 @@ def make_map(cls):
 def prepare_function_info(target, function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
+
+    function_info.epilog_label = Label(
+        make_label_name(ir_function) + '_epilog')
+
     for ir_block in ir_function:
         # Put label into map:
         function_info.label_map[ir_block] = Label(make_label_name(ir_block))
@@ -63,9 +67,23 @@ class FunctionInfo:
         self.frame = frame
         self.value_map = {}  # mapping from ir-value to dag node
         self.label_map = {}
+        self.epilog_label = None
         self.phi_map = {}  # mapping from phi node to vreg
         self.block_trees = {}  # Mapping from block to tree serie for block
         self.block_tails = {}
+
+
+def depth_first_order(function):
+    """ Return blocks in depth first search order """
+    blocks = [function.entry]
+    L = [function.entry]
+    while L:
+        b = L.pop(0)
+        for b2 in b.successors:
+            if b2 not in blocks:
+                blocks.append(b2)
+                L.append(b2)
+    return blocks
 
 
 @make_map
@@ -99,11 +117,15 @@ class SelectionGraphBuilder:
             'token', kind=SGValue.CONTROL)
 
         # Generate nodes for all blocks:
-        for ir_block in ir_function:
+        for ir_block in depth_first_order(ir_function):
             self.block_to_sgraph(ir_block, function_info)
 
         self.sgraph.check()
         return self.sgraph
+
+        # TODO: ?
+        # sgnode = self.new_node('TRM')
+        # sgnode.add_input(self.current_token)
 
     def block_to_sgraph(self, ir_block, function_info):
         """ Create dag (directed acyclic graph) from a basic block.
@@ -120,7 +142,7 @@ class SelectionGraphBuilder:
             'token', kind=SGValue.CONTROL)
 
         # Emit extra dag for parameters when entry block:
-        if ir_block is ir_block.function.entry:
+        if ir_block.is_entry:
             self.entry_block_special_case(function_info, ir_block.function)
 
         # Generate series of trees:
@@ -183,7 +205,7 @@ class SelectionGraphBuilder:
 
         # Jump to epilog:
         sgnode = self.new_node('JMP')
-        sgnode.value = self.function_info.label_map[node.function.epilog]
+        sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
     @register(ir.CJump)
@@ -200,8 +222,10 @@ class SelectionGraphBuilder:
 
     @register(ir.Terminator)
     def do_terminator(self, node):
-        sgnode = self.new_node('TRM')
-        sgnode.add_input(self.current_token)
+        # Jump to epilog:
+        sgnode = self.new_node('JMP')
+        sgnode.value = self.function_info.epilog_label
+        self.chain(sgnode)
 
     @register(ir.Alloc)
     def do_alloc(self, node):
@@ -370,8 +394,7 @@ class SelectionGraphBuilder:
 def make_label_name(dut):
     """ Returns the assembly code label name for the given ir-object """
     if isinstance(dut, ir.Block):
-        function = dut.function
-        return make_label_name(function) + '_' + dut.name
+        return make_label_name(dut.function) + '_block_' + dut.name
     elif isinstance(dut, (ir.Function, ir.Variable)):
         return make_label_name(dut.module) + '_' + dut.name
     elif isinstance(dut, ir.Module):

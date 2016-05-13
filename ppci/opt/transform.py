@@ -69,7 +69,7 @@ class ConstantFolder(BlockPass):
 
     def is_const(self, value):
         """ Determine if a value can be evaluated as a constant value """
-        if type(value) is ir.Const:
+        if isinstance(value, ir.Const):
             return True
         elif isinstance(value, ir.Cast):
             return self.is_const(value.src)
@@ -81,9 +81,9 @@ class ConstantFolder(BlockPass):
 
     def eval_const(self, value):
         """ Evaluate expression, and return a new const instance """
-        if type(value) is ir.Const:
+        if isinstance(value, ir.Const):
             return value
-        elif type(value) is ir.Binop:
+        elif isinstance(value, ir.Binop):
             a = self.eval_const(value.a)
             b = self.eval_const(value.b)
             assert a.ty is b.ty
@@ -93,7 +93,7 @@ class ConstantFolder(BlockPass):
             return cn
         elif type(value) is ir.Cast:
             c_val = self.eval_const(value.src)
-            return ir.Const(c_val.value, "casted", value.ty)
+            return ir.Const(c_val.value, 'casted', value.ty)
         else:  # pragma: no cover
             raise NotImplementedError(str(value))
 
@@ -109,8 +109,8 @@ class ConstantFolder(BlockPass):
                 instruction.replace_by(cnst)
                 count += 1
             else:
-                if type(instruction) is ir.Binop and \
-                        type(instruction.a) is ir.Binop and \
+                if isinstance(instruction, ir.Binop) and \
+                        isinstance(instruction.a, ir.Binop) and \
                         instruction.a.operation == '+' and \
                         self.is_const(instruction.a.b) and \
                         (instruction.operation == '+') and \
@@ -127,8 +127,8 @@ class ConstantFolder(BlockPass):
                     assert instruction.ty is cn.ty
                     assert instruction.ty is instruction.a.ty
                     count += 1
-                elif type(instruction) is ir.Binop and \
-                        type(instruction.a) is ir.Binop and \
+                elif isinstance(instruction, ir.Binop) and \
+                        isinstance(instruction.a, ir.Binop) and \
                         instruction.a.operation == '-' and \
                         self.is_const(instruction.a.b) and \
                         instruction.operation == '-' and \
@@ -146,7 +146,7 @@ class ConstantFolder(BlockPass):
                     assert instruction.ty is instruction.a.ty
                     count += 1
         if count > 0:
-            self.logger.debug('Folded {} expressions'.format(count))
+            self.logger.debug('Folded %i expressions', count)
 
 
 class CommonSubexpressionEliminationPass(BlockPass):
@@ -168,7 +168,7 @@ class CommonSubexpressionEliminationPass(BlockPass):
             else:
                 ins_map[k] = i
         if stats > 0:
-            self.logger.debug('Replaced {} instructions'.format(stats))
+            self.logger.debug('Replaced %i instructions', stats)
 
 
 class RemoveAddZeroPass(InstructionPass):
@@ -202,7 +202,7 @@ class DeleteUnusedInstructionsPass(BlockPass):
                     instruction.remove_from_block()
                     count += 1
         if count > 0:
-            self.logger.debug('Deleted {} unused instructions'.format(count))
+            self.logger.debug('Deleted %i unused instructions', count)
 
 
 class LoadAfterStorePass(BlockPass):
@@ -262,7 +262,7 @@ class LoadAfterStorePass(BlockPass):
                 # TODO: after one try, the instructions are different
                 # reload of instructions required?
         if count > 0:
-            self.logger.debug('Replaced {} loads after store'.format(count))
+            self.logger.debug('Replaced %s loads after store', count)
 
     def remove_redundant_stores(self, block):
         """ From two stores to the same address remove the previous one """
@@ -311,7 +311,7 @@ class CleanPass(FunctionPass):
         """ Look for all blocks containing only a jump in it """
         empty_blocks = []
         for block in function:
-            if block in function.special_blocks:
+            if block.is_entry:
                 continue
             if isinstance(block.first_instruction, ir.Jump):
                 empty_blocks.append(block)
@@ -342,7 +342,7 @@ class CleanPass(FunctionPass):
             function.remove_block(block)
             stat += 1
         if stat > 0:
-            self.logger.debug('Removed {} empty blocks'.format(stat))
+            self.logger.debug('Removed %s empty blocks', stat)
 
     def find_single_predecessor_block(self, function):
         """ Find a block with a single predecessor """
@@ -360,14 +360,7 @@ class CleanPass(FunctionPass):
             if block is pred:
                 continue
 
-            # Skip entry and epilog related blocks:
-            if block in function.special_blocks:
-                continue
-
-            if pred in function.special_blocks:
-                continue
-
-            if type(pred.last_instruction) is ir.Jump:
+            if isinstance(pred.last_instruction, ir.Jump):
                 return block
 
     def remove_one_preds(self, function):
@@ -377,19 +370,19 @@ class CleanPass(FunctionPass):
             change = False
             block = self.find_single_predecessor_block(function)
             if block is not None:
-                preds = block.predecessors
-                self.glue_blocks(preds[0], block)
+                pred, = block.predecessors  # Unpack 1 block
+                self.glue_blocks(pred, block)
                 change = True
-                # TODO: break, do this only once for now..
-                break
 
     def glue_blocks(self, block1, block2):
         """ Glue two blocks together into the first block """
         self.logger.debug(
-            'Inserting {1} at the end of {0}'.format(block1.name, block2.name))
+            'Inserting %s at the end of %s', block1.name, block2.name)
 
         # Remove the last jump:
-        block1.remove_instruction(block1.last_instruction)
+        last_jump = block1.last_instruction
+        block1.remove_instruction(last_jump)
+        last_jump.delete()
 
         # Copy all instructions to block1:
         for instruction in block2:

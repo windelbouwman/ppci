@@ -66,13 +66,15 @@ class Mem2RegPromotor(FunctionPass):
         has_phi = set()
 
         phis = list()
+        idx = 0
         while block_backlog:
             defining_block = block_backlog.pop()
             for frontier_block in cfg_info.df[defining_block]:
                 if frontier_block not in has_phi:
                     has_phi.add(frontier_block)
                     block_backlog.add(frontier_block)
-                    phi_name = "phi_{}".format(name)
+                    phi_name = "phi_{}_{}".format(name, idx)
+                    idx += 1
                     phi = Phi(phi_name, phi_ty)
                     phis.append(phi)
                     frontier_block.insert_instruction(phi)

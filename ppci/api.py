@@ -123,8 +123,6 @@ def asm(source, march):
     source can be a filename or a file like object.
     march can be a machine instance or a string indicating the target.
 
-    For example:
-
     .. doctest::
 
         >>> import io
@@ -159,8 +157,6 @@ def disasm(data, march):
 
     data can be a filename or a file like object.
     march can be a machine instance or a string indicating the target.
-
-    For example:
 
     .. doctest::
 
@@ -300,8 +296,6 @@ def c3c(sources, includes, march, reporter=None, debug=False):
     """
     Compile a set of sources into binary format for the given target.
 
-    For example:
-
     .. doctest::
 
         >>> import io
@@ -343,14 +337,14 @@ def bfcompile(source, target, reporter=None):
     source can be a filename or a file like object.
     march can be a machine instance or a string indicating the target.
 
-    For example:
-
     .. doctest::
 
         >>> import io
         >>> from ppci.api import bfcompile
         >>> source_file = io.StringIO(">>[-]<<[->>+<<]")
         >>> obj = bfcompile(source_file, 'arm')
+        >>> print(obj) # doctest: +ELLIPSIS
+        CodeObject of ... bytes
     """
     if not reporter:
         reporter = DummyReportGenerator()
@@ -377,6 +371,17 @@ def link(
         reporter=None, debug=False):
     """ Links the iterable of objects into one using the given layout.
 
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import asm, c3c, link
+        >>> asm_source = io.StringIO("db 0x77")
+        >>> obj1 = asm(asm_source, 'arm')
+        >>> c3_source = io.StringIO("module main; var int a;")
+        >>> obj2 = c3c([c3_source], [], 'arm')
+        >>> obj = link([obj1, obj2])
+        >>> print(obj)
+        CodeObject of 8 bytes
     """
     if not reporter:
         reporter = DummyReportGenerator()

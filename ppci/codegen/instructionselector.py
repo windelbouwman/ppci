@@ -212,6 +212,9 @@ class InstructionSelector1:
             # Emit code between blocks:
             frame.between_blocks()
 
+        # Emit epilog label here, maybe not the right place?
+        # TODO!!
+        context.emit(function_info.epilog_label)
         # Generate code for return statement:
         # TODO: return value must be implemented in some way..
         # self.munchStm(ir.Move(self.frame.rv, f.return_value))

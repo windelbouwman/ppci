@@ -1,5 +1,4 @@
 import unittest
-import sys
 import io
 from ppci import ir
 from ppci import irutils
@@ -43,11 +42,14 @@ class IrBuilderTestCase(unittest.TestCase):
     def test_builder(self):
         f = self.b.new_function('add')
         self.b.set_function(f)
+        entry = self.b.new_block()
+        f.entry = entry
+        self.b.set_block(entry)
         bb = self.b.new_block()
         self.b.emit(ir.Jump(bb))
         self.b.set_block(bb)
         self.b.emit(ir.Const(0, 'const', ir.i32))
-        self.b.emit(ir.Jump(f.epilog))
+        self.b.emit(ir.Terminator())
         # Run interpreter:
         # r = self.m.getFunction('add').call(1, 2)
         #self.assertEqual(3, r)
@@ -64,13 +66,16 @@ class ConstantFolderTestCase(unittest.TestCase):
     def test_builder(self):
         f = self.b.new_function('test')
         self.b.set_function(f)
+        entry = self.b.new_block()
+        f.entry = entry
+        self.b.set_block(entry)
         bb = self.b.new_block()
         self.b.emit(ir.Jump(bb))
         self.b.set_block(bb)
         v1 = self.b.emit(ir.Const(5, 'const', ir.i32))
         v2 = self.b.emit(ir.Const(7, 'const', ir.i32))
         self.b.emit(ir.add(v1, v2, "add", ir.i32))
-        self.b.emit(ir.Jump(f.epilog))
+        self.b.emit(ir.Terminator())
         self.cf.run(self.m)
 
     def test_add0(self):
@@ -89,9 +94,14 @@ class TestWriter(unittest.TestCase):
     def test_write(self):
         writer = irutils.Writer()
         module = ir.Module('mod1')
-        ir.Function('func1', module)
+        function = ir.Function('func1', module)
+        entry = ir.Block('entry')
+        function.add_block(entry)
+        function.entry = entry
+        entry.add_instruction(ir.Terminator())
         f = io.StringIO()
         writer.write(module, f)
+        print(f.getvalue())
         f2 = io.StringIO(f.getvalue())
         reader = irutils.Reader()
         module2 = reader.read(f2)
@@ -117,4 +127,3 @@ class TestIrToPython(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-    sys.exit()

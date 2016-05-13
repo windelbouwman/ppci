@@ -23,6 +23,7 @@ class Writer:
     def write(self, module, f):
         """ Write ir-code to file f """
         assert type(module) is ir.Module
+        Verifier().verify(module)
         self.f = f
         self.print('{}'.format(module))
         for v in module.variables:
@@ -174,8 +175,9 @@ class Reader:
         self.Consume(')')
         self.Consume('eol')
         while self.Peak == 'SKIP1':
-            block = self.parse_block()
-            function.add_block(block)
+            block = self.parse_block(function)
+            if function.entry is None:
+                function.entry = block
             self.block_map[block.name] = block
 
         for ins, blocks in self.resolve_worklist:
@@ -187,10 +189,11 @@ class Reader:
     def parse_type(self):
         return self.Consume('ID')[1]
 
-    def parse_block(self):
+    def parse_block(self, function):
         self.Consume('SKIP1')
         name = self.Consume('ID')[1]
         block = ir.Block(name)
+        function.add_block(block)
         self.Consume(':')
         self.Consume('eol')
         while self.Peak == 'SKIP2':
@@ -324,10 +327,10 @@ def split_block(block, pos=None, newname='splitblock'):
 class Builder:
     """ Base class for ir code generators """
     def __init__(self):
-        self.prepare()
         self.block = None
         self.module = None
         self.function = None
+        self.prepare()
 
     def prepare(self):
         self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
@@ -369,11 +372,14 @@ class Builder:
 
 class Verifier:
     """ Checks an ir module for correctness """
+    logger = logging.getLogger('verifier')
+
     def __init__(self):
-        self.logger = logging.getLogger('verifier')
+        self.name_map = {}
 
     def verify(self, module):
         """ Verifies a module for some sanity """
+        self.logger.debug('Verifying %s', module)
         assert isinstance(module, ir.Module)
         for function in module.functions:
             self.verify_function(function)
@@ -382,7 +388,18 @@ class Verifier:
         """ Verify all blocks in the function """
         self.name_map = {}
         for block in function:
+            assert block.name not in self.name_map
+            self.name_map[block.name] = block
             self.verify_block_termination(block)
+
+        # Verify the entry is contained in this function:
+        assert function.entry in function
+        assert isinstance(function.entry, ir.Block)
+
+        # Verify all blocks are reachable:
+        reachable_blocks = function.calc_reachable_blocks()
+        for block in function:
+            assert block in reachable_blocks
 
         # Verify predecessor and successor:
         for block in function:
@@ -400,7 +417,7 @@ class Verifier:
         # Now we can build a dominator tree
         self.cfg_info = CfgInfo(function)
         for block in function:
-            assert block.function == function
+            assert block.function is function
             self.verify_block(block)
 
     def verify_block_termination(self, block):
@@ -408,6 +425,7 @@ class Verifier:
         assert not block.empty
         assert block.last_instruction.is_terminator
         assert all(not i.is_terminator for i in block.instructions[:-1])
+        assert all(isinstance(p, ir.Block) for p in block.predecessors)
 
     def verify_block(self, block):
         """ Verify block for correctness """
@@ -421,6 +439,11 @@ class Verifier:
         # Check that instruction is contained in block:
         assert instruction.block == block
         assert instruction in block.instructions
+
+        # Check if value has unique name string:
+        if isinstance(instruction, ir.Value):
+            assert instruction.name not in self.name_map
+            self.name_map[instruction.name] = instruction
 
         # Check that binop operands are of same type:
         if isinstance(instruction, ir.Binop):

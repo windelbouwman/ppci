@@ -62,7 +62,7 @@ class IrToPython:
         args = ','.join(a.name for a in fn.arguments)
         self.print(0, 'def {}_{}({}):'.format(self.mod_name, fn.name, args))
         self.print(1, "prev_block = None")
-        self.print(1, "current_block = 'entry'")
+        self.print(1, "current_block = '{}'".format(fn.entry.name))
         self.print(1, 'while True:')
         for block in fn.blocks:
             self.print(2, 'if current_block == "{}":'.format(block.name))

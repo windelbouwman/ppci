@@ -9,6 +9,7 @@ The only types available are basic integer types and a pointer type.
 # pylint: disable=R0903
 
 from binascii import hexlify
+import logging
 from .utils.fastlist import FastList
 
 
@@ -56,36 +57,33 @@ class Module:
 
 
 class Function:
+    logger = logging.getLogger('irfunc')
     """ Represents a function. """
     def __init__(self, name, module=None):
-        self._blocks = None
-
-        # Variables used in uniquifying names:
-        self.defined_names = {}
-        self.unique_counter = 0
+        self._blocks = []
         self.name = name
-
-        # Create first blocks:
-        self.entry = Block('entry')
-        self.add_block(self.entry)
-        # self.make_unique_name(self.entry)
-        # self.entry.function = self
-        self.epilog = Block('epilog')
-        self.add_block(self.epilog)
-        # self.make_unique_name(self.epilog)
-        # self.epilog.function = self
-        self.epilog.add_instruction(Terminator())
-
-        # TODO: fix this other way?
-        # Link entry to epilog:
-        self.entry.extra_successors.append(self.epilog)
-        self.epilog.extra_preds.append(self.entry)
-
-        # TODO: cfg info as a property?
+        self.entry = None
+        self.defined_names = set()
+        self.unique_counter = 0
 
         self.arguments = []
         if module:
             module.add_function(self)
+
+    def make_unique_name(self, dut):
+        """ Check if the name of the given dut is unique
+            and if not make it so.
+            Also add it to the used names """
+        name = dut.name
+        while dut.name in self.defined_names:
+            dut.name = '{}_{}'.format(name, self.unique_counter)
+            self.unique_counter += 1
+        self.defined_names.add(dut.name)
+
+    def dump(self):
+        print(self)
+        for block in self:
+            block.dump()
 
     def __repr__(self):
         args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
@@ -96,56 +94,55 @@ class Function:
         for block in self.blocks:
             yield block
 
-    def make_unique_name(self, dut):
-        """ Check if the name of the given dut is unique
-            and if not make it so """
-        orig_name = dut.name
-        while dut.name in self.defined_names.keys():
-            dut.name = '{}_{}'.format(orig_name, self.unique_counter)
-            self.unique_counter += 1
-        self.defined_names[dut.name] = dut
+    @property
+    def block_names(self):
+        """ Get the names of all the blocks in this function """
+        return (b.name for b in self.blocks)
+
+    def calc_reachable_blocks(self):
+        """ Determine all blocks that can be reached """
+        blocks = {self.entry}
+        worklist = [self.entry]
+        while worklist:
+            block = worklist.pop()
+            for successor in block.successors:
+                if successor not in blocks:
+                    blocks.add(successor)
+                    worklist.append(successor)
+        return blocks
+
+    def delete_unreachable(self):
+        """ Calculate all reachable blocks from entry and delete all others """
+        reachable = self.calc_reachable_blocks()
+        unreachable = {b for b in self if b not in reachable}
+        for block in unreachable:
+            il = list(block)
+            for instruction in il:
+                block.remove_instruction(instruction)
+                self.logger.debug('deleting %s', instruction)
+                instruction.delete()
+        for block in unreachable:
+            self.logger.debug('deleting block %s', block.name)
+            self.remove_block(block)
+            block.delete()
 
     def add_block(self, block):
         """ Add a block to this function """
+        assert block.name not in self.block_names
         block.function = self
         self.make_unique_name(block)
-        self._blocks = None
-        # self._blocks.append(block)
+        self._blocks.append(block)
+        return block
 
     def remove_block(self, block):
         """ Remove a block from this function """
         block.function = None
-        self._blocks = None
-        # self._blocks.remove(block)
+        self._blocks.remove(block)
 
     @property
     def blocks(self):
         """ Get all the blocks contained in this function """
-        # Use a cache:
-        if self._blocks is None:
-            bbs = [self.entry]
-            worklist = [self.entry]
-            while worklist:
-                b = worklist.pop()
-                for sb in b.successors:
-                    if sb not in bbs:
-                        bbs.append(sb)
-                        worklist.append(sb)
-            bbs.remove(self.entry)
-            if self.epilog in bbs:
-                bbs.remove(self.epilog)
-            bbs.insert(0, self.entry)
-            bbs.append(self.epilog)
-            self._blocks = bbs
         return self._blocks
-        # return [self.entry] + self._blocks + [self.epilog]
-
-    @property
-    def special_blocks(self):
-        """ Return iterable of special blocks. For now the entry block and
-            the epilog.
-        """
-        return (self.entry, self.epilog)
 
     def add_parameter(self, parameter):
         """ Add an argument to this function """
@@ -167,9 +164,12 @@ class Block:
         self.name = name
         self.function = function
         self.instructions = FastList()
-        self.extra_successors = []
-        self.extra_preds = []
         self.references = set()
+
+    def dump(self):
+        print('  ', self)
+        for instruction in self:
+            print('    ', instruction)
 
     def __repr__(self):
         return '{0}:'.format(self.name)
@@ -181,9 +181,6 @@ class Block:
     def __len__(self):
         return len(self.instructions)
 
-    def unique_name(self, value):
-        self.function.make_unique_name(value)
-
     def insert_instruction(self, instruction, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
@@ -194,22 +191,19 @@ class Block:
         instruction.block = self
         self.instructions.insert(pos, instruction)
         if isinstance(instruction, Value):
-            self.unique_name(instruction)
+            self.function.make_unique_name(instruction)
 
     def add_instruction(self, instruction):
         """ Add an instruction to the end of this block """
         assert not self.is_closed
         instruction.block = self
         self.instructions.append(instruction)
-        if isinstance(instruction, Value) and self.function is not None:
-            self.unique_name(instruction)
-        if isinstance(instruction, Return):
-            self.function.epilog.references.add(instruction)
+        if isinstance(instruction, Value):
+            self.function.make_unique_name(instruction)
 
     def remove_instruction(self, instruction):
         """ Remove instruction from block """
         instruction.block = None
-        # i.delete()
         self.instructions.remove(instruction)
         return instruction
 
@@ -230,6 +224,11 @@ class Block:
         return isinstance(self.last_instruction, FinalInstruction)
 
     @property
+    def is_entry(self):
+        """ Check if this block is the entry block of a function """
+        return self.function.entry is self
+
+    @property
     def first_instruction(self):
         """ Return this blocks first instruction """
         return self.instructions[0]
@@ -242,21 +241,26 @@ class Block:
     @property
     def successors(self):
         """ Get the direct successors of this block """
-        successors = self.last_instruction.targets if not self.empty else []
-        return successors + self.extra_successors
+        return self.last_instruction.targets
 
     @property
     def predecessors(self):
         b = set(i.block for i in self.references)
-        b |= set(self.extra_preds)
-
-        # Make sure we have only active blocks:
-        b &= set(self.function.blocks)
         return list(b)
+
+    @property
+    def is_used(self):
+        return len(self.references) > 0
 
     def change_target(self, old, new):
         """ Change the target of this block from old to new """
         self.last_instruction.change_target(old, new)
+
+    def delete(self):
+        """ Delete all instructions in this block, so it can be removed """
+        assert not self.is_used
+        for instruction in self:
+            instruction.delete()
 
     def replace_incoming(self, block, new_blocks):
         """
@@ -325,6 +329,9 @@ class Instruction:
         self.uses.remove(v)
         v.del_user(self)
 
+    def delete(self):
+        assert not self.uses
+
     def replace_use(self, old, new):
         """ replace value usage 'old' with new value, updating the def-use
             information.
@@ -369,9 +376,13 @@ i64 = Typ('i64')
 i32 = Typ('i32')
 i16 = Typ('i16')
 i8 = Typ('i8')
+u64 = Typ('u64')
+u32 = Typ('u32')
+u16 = Typ('u16')
+u8 = Typ('u8')
 ptr = Typ('ptr')
 
-# TODO: what about void and unsigned integer types?
+# TODO: what about void types?
 
 
 class Value(Instruction):
@@ -651,16 +662,10 @@ class Return(FinalInstruction):
     def __init__(self, result):
         super().__init__()
         self.result = result
+        self.targets = []
 
     def __repr__(self):
         return 'Return {}'.format(self.result.name)
-
-    @property
-    def targets(self):
-        """ Gets a list of targets, in case of a return, this list only
-            contains the epilog block!
-        """
-        return [self.function.epilog]
 
 
 def block_use(name):

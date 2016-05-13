@@ -152,8 +152,8 @@ class CodeGenerator:
         self.debug_db.enter(ir_function, dfi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
-        self.emit(ir.Jump(first_block))
         self.builder.set_block(first_block)
+        ir_function.entry = first_block
 
         # generate parameters:
         param_map = {}
@@ -203,7 +203,9 @@ class CodeGenerator:
             dfi.add_variable(dv)
 
         self.gen_stmt(function.body)
-        self.emit(ir.Jump(ir_function.epilog))
+        if not self.builder.block.is_closed:
+            self.emit(ir.Terminator())
+        ir_function.delete_unreachable()
         self.builder.set_function(None)
 
     def get_expr_ir_type(self, expr):

@@ -8,6 +8,7 @@ from ppci.codegen.irdag import SelectionGraphBuilder, DagSplitter
 from ppci.codegen.irdag import FunctionInfo, prepare_function_info
 from ppci.arch.example import ExampleArch
 from ppci.binutils.debuginfo import DebugDb
+from ppci.api import get_arch
 
 
 def print_module(m):
@@ -18,6 +19,32 @@ def print_module(m):
 
 class IrDagTestCase(unittest.TestCase):
     """ Test if ir dag works good """
+    def test_bug2(self):
+        """ Check that if blocks are in function in strange order, the dag
+        builder works """
+        module = ir.Module('dut')
+        function = ir.Function('tst', module=module)
+        block1 = ir.Block('b1')
+        block2 = ir.Block('b2')
+        function.add_block(block1)
+        function.add_block(block2)
+        function.entry = block2
+        con = ir.Const(2, 'con', ir.i32)
+        block2.add_instruction(con)
+        block2.add_instruction(ir.Jump(block1))
+        block1.add_instruction(ir.Cast(con, 'con_cast', ir.i8))
+        block1.add_instruction(ir.Terminator())
+
+        # Target generation
+        target = get_arch('arm')
+        frame = target.new_frame('a', function)
+        function_info = FunctionInfo(frame)
+        debug_db = DebugDb()
+        prepare_function_info(target, function_info, function)
+        dag_builder = SelectionGraphBuilder(target, debug_db)
+        sgraph = dag_builder.build(function, function_info)
+        dag_splitter = DagSplitter(target, debug_db)
+
     def test_bug1(self):
         """
             This is the bug:
@@ -58,6 +85,9 @@ class IrDagTestCase(unittest.TestCase):
         ms = ir.Parameter('ms', ir.i32)
         function.add_parameter(ms)
         builder.set_function(function)
+        entry = builder.new_block()
+        function.entry = entry
+        builder.set_block(entry)
         block12 = builder.new_block()
         builder.emit(ir.Jump(block12))
         builder.set_block(block12)
@@ -67,7 +97,10 @@ class IrDagTestCase(unittest.TestCase):
         builder.emit(ir.Jump(block14))
         builder.set_block(block14)
         loaded2 = builder.emit(ir.Load(global_tick, 'loaded2', ir.i32))
-        builder.emit(ir.CJump(binop, '>', loaded2, block14, function.epilog))
+        epilog = builder.new_block()
+        builder.emit(ir.CJump(binop, '>', loaded2, block14, epilog))
+        builder.set_block(epilog)
+        builder.emit(ir.Terminator())
         # print('module:')
         # print_module(module)
 

@@ -13,9 +13,10 @@ class BrainFuckGenerator():
     """ Brainfuck is a language that is so simple, the entire front-end can
     be implemented in one pass.
     """
-    def __init__(self, target):
-        self.logger = logging.getLogger('bfgen')
-        self.target = target
+    logger = logging.getLogger('bfgen')
+
+    def __init__(self, arch):
+        self.arch = arch
         self.builder = Builder()
 
     def generate(self, src, module_name='main', function_name='main'):
@@ -27,18 +28,17 @@ class BrainFuckGenerator():
 
         ir_func = self.builder.new_function(function_name)
         self.builder.set_function(ir_func)
-
         block1 = self.builder.new_block()
-        self.builder.emit(ir.Jump(block1))
+        ir_func.entry = block1
         self.builder.set_block(block1)
 
         # Allocate space on stack for ptr register:
         ptr_var = self.builder.emit(
-            ir.Alloc('ptr_addr', self.target.get_size(ir.i32)))
+            ir.Alloc('ptr_addr', self.arch.get_size(ir.i32)))
 
         bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable('data', bf_mem_size * self.target.get_size(ir.i8))
+        data = ir.Variable('data', bf_mem_size * self.arch.get_size(ir.i8))
         self.builder.module.add_variable(data)
 
         # Locate '1' and '0' constants:
@@ -154,8 +154,8 @@ class BrainFuckGenerator():
         if loops:
             raise CompilerError('[ requires matching ]')
 
-        # Jump to end of function:
-        self.builder.emit(ir.Jump(ir_func.epilog))
+        # Close current block:
+        self.builder.emit(ir.Terminator())
 
         # Yield module
         return self.builder.module
