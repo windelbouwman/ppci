@@ -21,12 +21,12 @@ from .registerallocator import RegisterAllocator
 class CodeGenerator:
     """ Machine code generator. """
     logger = logging.getLogger('codegen')
-    verifier = Verifier()
 
     def __init__(self, arch, debug_db, optimize_for='size'):
         assert isinstance(arch, Architecture), arch
-        self.target = arch
+        self.arch = arch
         self.debug_db = debug_db
+        self.verifier = Verifier()
         self.sgraph_builder = SelectionGraphBuilder(arch, debug_db)
         weights_map = {
             'size': (10, 1, 1),
@@ -39,7 +39,7 @@ class CodeGenerator:
         else:
             selection_weights = (1, 1, 1)
         self.instruction_selector = InstructionSelector1(
-            arch.isa, arch, self.sgraph_builder, debug_db,
+            arch, self.sgraph_builder, debug_db,
             weights=selection_weights)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator(arch, debug_db)
@@ -49,7 +49,7 @@ class CodeGenerator:
         assert isinstance(ircode, ir.Module)
 
         self.logger.info(
-            'Generating %s code for module %s', str(self.target), ircode.name)
+            'Generating %s code for module %s', str(self.arch), ircode.name)
 
         # Generate code for global variables:
         output_stream.select_section('data')
@@ -73,8 +73,7 @@ class CodeGenerator:
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section('code')
         for function in ircode.functions:
-            self.generate_function(
-                function, output_stream, reporter)
+            self.generate_function(function, output_stream, reporter)
 
         # Output debug type data:
         for di in self.debug_db.infos:
@@ -86,9 +85,9 @@ class CodeGenerator:
         """ Generate code for one function into a frame """
         self.logger.info(
             'Generating %s code for function %s',
-            str(self.target), ir_function.name)
+            str(self.arch), ir_function.name)
 
-        reporter.function_header(ir_function, self.target)
+        reporter.function_header(ir_function, self.arch)
         reporter.dump_ir(ir_function)
         instruction_list = []
         output_stream = MasterOutputStream([
@@ -105,7 +104,7 @@ class CodeGenerator:
 
         # Create a frame for this function:
         frame_name = make_label_name(ir_function)
-        frame = self.target.new_frame(frame_name, ir_function)
+        frame = self.arch.new_frame(frame_name, ir_function)
         self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
@@ -185,7 +184,8 @@ class CodeGenerator:
                 if isinstance(instruction, VCall):
                     # We now know what variables are live at this point
                     # and possibly need to be saved.
-                    output_stream.emit_all(frame.make_call(instruction))
+                    output_stream.emit_all(
+                        self.arch.make_call(frame, instruction))
                 elif isinstance(instruction, RegisterUseDef):
                     pass
                 else:  # pragma: no cover

@@ -4,7 +4,7 @@
 import io
 from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
-from ..arch import Architecture, Label, VCall, Alignment, Frame
+from ..arch import Architecture, Label, Alignment, Frame
 from ..data_instructions import Db, Dd, Dcd2, data_isa
 from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers, get_register
@@ -37,6 +37,12 @@ class ArmArch(Architecture):
         self.value_classes[i8] = Reg8Op
         self.value_classes[ptr] = Reg8Op
 
+        # Registers usable by register allocator:
+        self.allocatable_registers = [R0, R1, R2, R3, R4, R5, R6]
+
+        # We use r7 as frame pointer:
+        self.fp = R7
+
     def get_runtime(self):
         """ Implement compiler runtime functions """
         from ...api import asm
@@ -57,23 +63,46 @@ class ArmArch(Architecture):
     def get_register(self, color):
         return get_register(color)
 
-    def gen_call(self, label, arg_types, ret_type, args, res_var):
-        """ Generate code for call sequence. This function saves registers
-            and moves arguments in the proper locations.
-        """
-        arg_locs, live_in, rv, live_out = \
-            self.determine_arg_locations(arg_types, ret_type)
+    def make_call(self, frame, vcall):
+        """ Implement actual call and save / restore live registers """
+        # Now we now what variables are live:
+        live_regs = frame.live_regs_over(vcall)
+        register_set = set(live_regs)
 
+        if self.has_option('thumb'):
+            # Caller save registers:
+            if register_set:
+                yield thumb_instructions.Push(register_set)
+
+            # Make the call:
+            yield thumb_instructions.Bl(vcall.function_name)
+            # R0 is filled with return value, do not save it, it will conflict.
+
+            # Restore caller save registers:
+            if register_set:
+                yield thumb_instructions.Pop(register_set)
+        else:
+            # Caller save registers:
+            if register_set:
+                yield arm_instructions.Push(RegisterSet(register_set))
+
+            yield arm_instructions.Bl(vcall.function_name)
+
+            # Restore caller save registers:
+            if register_set:
+                yield arm_instructions.Pop(RegisterSet(register_set))
+
+    def gen_fill_arguments(self, arg_types, args, alives):
         # Setup parameters:
+        arg_locs, _ = self.determine_arg_locations(arg_types)
         for arg_loc, arg in zip(arg_locs, args):
             if isinstance(arg_loc, ArmRegister):
                 yield self.move(arg_loc, arg)
+                alives.add(arg_loc)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
-        yield VCall(label, extra_uses=live_in, extra_defs=live_out)
-        yield self.move(res_var, rv)
 
-    def determine_arg_locations(self, arg_types, ret_type):
+    def determine_arg_locations(self, arg_types):
         """
             Given a set of argument types, determine location for argument
             ABI:
@@ -93,10 +122,13 @@ class ArmArch(Architecture):
             l.append(r)
             live_in.add(r)
 
+        return l, tuple(live_in)
+
+    def determine_rv_location(self, ret_type):
         live_out = set()
         rv = R0
         live_out.add(rv)
-        return l, tuple(live_in), rv, tuple(live_out)
+        return rv, tuple(live_out)
 
 
 class ArmAssembler(BaseAssembler):
@@ -199,23 +231,6 @@ class ArmFrame(Frame):
         """ Retrieve a new virtual register """
         return super().new_virtual_register(ArmRegister, twain=twain)
 
-    def make_call(self, vcall):
-        """ Implement actual call and save / restore live registers """
-        # R0 is filled with return value, do not save it, it will conflict.
-        # Now we now what variables are live:
-        live_regs = self.live_regs_over(vcall)
-        register_set = set(live_regs)
-
-        # Caller save registers:
-        if register_set:
-            yield arm_instructions.Push(RegisterSet(register_set))
-
-        yield arm_instructions.Bl(vcall.function_name)
-
-        # Restore caller save registers:
-        if register_set:
-            yield arm_instructions.Pop(RegisterSet(register_set))
-
     def prologue(self):
         """ Returns prologue instruction sequence """
         # Label indication function:
@@ -275,29 +290,7 @@ class ThumbFrame(Frame):
     """ Arm specific frame for functions. """
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
-        # Registers usable by register allocator:
-        # We use r7 as frame pointer.
-        self.regs = [R0, R1, R2, R3, R4, R5, R6]
-        self.fp = R7
-
         self.parMap = {}
-
-    def make_call(self, vcall):
-        # Now we now what variables are live:
-        live_regs = self.live_regs_over(vcall)
-        register_set = set(live_regs)
-
-        # Caller save registers:
-        if register_set:
-            yield thumb_instructions.Push(register_set)
-
-        # Make the call:
-        yield thumb_instructions.Bl(vcall.function_name)
-        # R0 is filled with return value, do not save it, it will conflict.
-
-        # Restore caller save registers:
-        if register_set:
-            yield thumb_instructions.Pop(register_set)
 
     def round_up(self, s):
         return s + (4 - s % 4)

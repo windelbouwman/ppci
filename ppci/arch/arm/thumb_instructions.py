@@ -152,14 +152,16 @@ class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
     rt = register_argument('rt', ArmRegister, write=True)
     opcode = 0x98
-    syntax = Syntax(['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
+    syntax = Syntax(
+        ['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
 
 
 class Str1(ls_sp_base_imm8):
     """ str Rt, [SP, imm8] """
     rt = register_argument('rt', ArmRegister, read=True)
     opcode = 0x90
-    syntax = Syntax(['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
+    syntax = Syntax(
+        ['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
 
 
 class Adr(ThumbInstruction):
@@ -673,9 +675,7 @@ def pattern_ldr32(self, tree, c0):
 
 @thumb_isa.pattern('reg', 'CALL', size=10)
 def pattern_call(context, tree):
-    label, arg_types, res_type, args, res_var = tree.value
-    context.gen_call(label, arg_types, res_type, args, res_var)
-    return res_var
+    return context.gen_call(tree.value)
 
 
 @thumb_isa.pattern('reg', 'SUBI32(reg,reg)', size=2)

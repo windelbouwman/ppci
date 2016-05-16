@@ -68,7 +68,6 @@ class IrToPython:
             self.print(2, 'if current_block == "{}":'.format(block.name))
             for ins in block:
                 self.generate_instruction(ins)
-        self.reset_stack(1)
         self.print(0)
         self.print(0)
 
@@ -91,7 +90,8 @@ class IrToPython:
             self.print(3, 'prev_block = current_block')
             self.print(3, 'current_block = "{}"'.format(ins.target.name))
         elif isinstance(ins, ir.Terminator):
-            self.print(3, 'break')
+            self.reset_stack(3)
+            self.print(3, 'return')
         elif isinstance(ins, ir.Alloc):
             self.print(3, '{} = len(mem)'.format(ins.name))
             self.print(3, 'mem.extend(bytes({}))'.format(ins.amount))
@@ -127,7 +127,7 @@ class IrToPython:
             }
             fmt = load_formats[ins.ty]
             self.print(3, fmt.format(ins.name, ins.address.name))
-        elif isinstance(ins, ir.Call):
+        elif isinstance(ins, (ir.FunctionCall, ir.ProcedureCall)):
             self.print(3, '{}'.format(ins))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')

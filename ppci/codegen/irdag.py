@@ -42,7 +42,7 @@ def make_map(cls):
     return cls
 
 
-def prepare_function_info(target, function_info, ir_function):
+def prepare_function_info(arch, function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
 
@@ -56,7 +56,7 @@ def prepare_function_info(target, function_info, ir_function):
         # Create virtual registers for phi-nodes:
         for phi in ir_block.phis:
             vreg = function_info.frame.new_reg(
-                target.get_reg_class(ty=phi.ty), twain=phi.name)
+                arch.get_reg_class(ty=phi.ty), twain=phi.name)
             function_info.phi_map[phi] = vreg
 
 
@@ -91,7 +91,7 @@ class SelectionGraphBuilder:
     logger = logging.getLogger('selection-graph-builder')
 
     def __init__(self, arch, debug_db):
-        self.target = arch
+        self.arch = arch
         self.debug_db = debug_db
         self.postfix_map = {
             ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
@@ -230,9 +230,7 @@ class SelectionGraphBuilder:
     @register(ir.Alloc)
     def do_alloc(self, node):
         # TODO: check alignment?
-        fp = self.new_node(
-            self.make_opcode("REG", ir.ptr),
-            value=self.function_info.frame.fp)
+        fp = self.new_node(self.make_opcode("REG", ir.ptr), value=self.arch.fp)
         fp_output = fp.new_output('fp')
         offset = self.new_node(self.make_opcode("CONST", ir.ptr))
         offset.value = self.function_info.frame.alloc_var(node, node.amount)
@@ -311,15 +309,40 @@ class SelectionGraphBuilder:
         value = self.get_value(node.src)
         self.add_map(node, value)
 
-    @register(ir.Call)
-    def do_call(self, node):
+    @register(ir.ProcedureCall)
+    def do_procedurecall(self, node):
         # This is the moment to move all parameters to new temp registers.
         args = []
         inputs = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
             loc = self.function_info.frame.new_reg(
-                self.target.value_classes[argument.ty])
+                self.arch.value_classes[argument.ty])
+            args.append(loc)
+            opcode = self.make_opcode('MOV', argument.ty)
+            arg_sgnode = self.new_node(opcode, arg_val, value=loc)
+            self.chain(arg_sgnode)
+            # inputs.append(arg_sgnode.new_output('x'))
+
+        arg_types = [argument.ty for argument in node.arguments]
+        # Perform the actual call:
+        sgnode = self.new_node(
+            'CALL',
+            value=(node.function_name, arg_types, args))
+        self.debug_db.map(node, sgnode)
+        for i in inputs:
+            sgnode.add_input(i)
+        self.chain(sgnode)
+
+    @register(ir.FunctionCall)
+    def do_functioncall(self, node):
+        # This is the moment to move all parameters to new temp registers.
+        args = []
+        inputs = []
+        for argument in node.arguments:
+            arg_val = self.get_value(argument)
+            loc = self.function_info.frame.new_reg(
+                self.arch.value_classes[argument.ty])
             args.append(loc)
             opcode = self.make_opcode('MOV', argument.ty)
             arg_sgnode = self.new_node(opcode, arg_val, value=loc)
@@ -328,7 +351,7 @@ class SelectionGraphBuilder:
 
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
-            self.target.value_classes[node.ty], '{}_result'.format(node.name))
+            self.arch.value_classes[node.ty], '{}_result'.format(node.name))
 
         arg_types = [argument.ty for argument in node.arguments]
         # Perform the actual call:
@@ -383,7 +406,7 @@ class SelectionGraphBuilder:
             assert isinstance(loc, Register)
             output = param_node.new_output(arg.name)
             vreg = function_info.frame.new_reg(
-                self.target.value_classes[arg.ty], twain=arg.name)
+                self.arch.value_classes[arg.ty], twain=arg.name)
             output.vreg = vreg
             self.chain(param_node)
 
@@ -395,7 +418,7 @@ def make_label_name(dut):
     """ Returns the assembly code label name for the given ir-object """
     if isinstance(dut, ir.Block):
         return make_label_name(dut.function) + '_block_' + dut.name
-    elif isinstance(dut, (ir.Function, ir.Variable)):
+    elif isinstance(dut, (ir.SubRoutine, ir.Variable)):
         return make_label_name(dut.module) + '_' + dut.name
     elif isinstance(dut, ir.Module):
         return dut.name

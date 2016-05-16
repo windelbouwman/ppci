@@ -17,10 +17,10 @@ from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
-from .opt.transform import CommonSubexpressionEliminationPass
-from .opt.transform import ConstantFolder
+from .opt import CommonSubexpressionEliminationPass
+from .opt import ConstantFolder
 from .opt.transform import LoadAfterStorePass
-from .opt.transform import CleanPass
+from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .codegen import CodeGenerator
 from .binutils.linker import Linker
@@ -180,6 +180,9 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     logger = logging.getLogger('c3c')
     logger.debug('C3 compilation started')
     march = get_arch(march)
+    if not reporter:
+        reporter = DummyReportGenerator()
+
     sources = [fix_file(fn) for fn in sources]
     includes = [fix_file(fn) for fn in includes]
     diag = DiagnosticsManager()
@@ -250,8 +253,10 @@ def ir_to_object(
         reporter = DummyReportGenerator()
     if not debug_db:
         debug_db = DebugDb()
+    if opt is None:
+        opt = 'speed'
     march = get_arch(march)
-    code_generator = CodeGenerator(march, debug_db)
+    code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
     verifier = Verifier()
 
     obj = ObjectFile(march)

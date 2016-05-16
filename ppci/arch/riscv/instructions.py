@@ -658,9 +658,7 @@ def _(context, tree, c0):
 
 @isa.pattern('reg', 'CALL', size=2)
 def _(context, tree):
-    label, arg_types, ret_type, args, res_var = tree.value
-    context.gen_call(label, arg_types, ret_type, args, res_var)
-    return res_var
+    return context.gen_call(tree.value)
 
 
 @isa.pattern('reg', 'ANDI32(reg, reg)', size=2)
@@ -711,7 +709,7 @@ def _(context, tree, c0):
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     # Generate call into runtime lib function!
-    context.gen_call('__sdiv', [i32, i32], i32, [c0, c1], d)
+    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
     return d
 
 
@@ -719,7 +717,7 @@ def _(context, tree, c0, c1):
 def _(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(RiscvRegister)
-    context.gen_call('__sdiv', [i32, i32], i32, [c0, c1], d)
+    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
     context.emit(Mul(c1, c1, d))
     d2 = context.new_reg(RiscvRegister)
     context.emit(Sub(d2,c0,c1))

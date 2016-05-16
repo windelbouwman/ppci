@@ -8,8 +8,8 @@ from ppci import ir
 from ppci import irutils
 from ppci.binutils.debuginfo import DebugDb
 from ppci.irutils import Verifier
-from ppci.opt.mem2reg import Mem2RegPromotor
-from ppci.opt.transform import CleanPass
+from ppci.opt import Mem2RegPromotor
+from ppci.opt import CleanPass
 
 
 class OptTestCase(unittest.TestCase):
@@ -18,7 +18,7 @@ class OptTestCase(unittest.TestCase):
         self.builder = irutils.Builder()
         self.module = ir.Module('test')
         self.builder.set_module(self.module)
-        self.function = self.builder.new_function('testfunction')
+        self.function = self.builder.new_procedure('testfunction')
         self.builder.set_function(self.function)
         entry = self.builder.new_block()
         self.function.entry = entry

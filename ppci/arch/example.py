@@ -19,8 +19,9 @@ class ExampleArch(Architecture):
         self.value_classes[ir.ptr] = ExampleRegister
         self.byte_sizes['int'] = 4
         self.byte_sizes['ptr'] = 4
+        self.allocatable_registers = [R0, R1, R2, R3]
 
-    def determine_arg_locations(self, arg_types, ret_type):
+    def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
         """
         arg_locs = []
@@ -30,10 +31,13 @@ class ExampleArch(Architecture):
             r = regs.pop(0)
             arg_locs.append(r)
             live_in.add(r)
+        return arg_locs, tuple(live_in)
+
+    def determine_rv_location(self, ret_type):
         live_out = set()
         rv = R0
         live_out.add(rv)
-        return arg_locs, tuple(live_in), rv, tuple(live_out)
+        return rv, tuple(live_out)
 
     def get_register(self, n):
         regs = [R0, R1, R2, R3, R4, R5, R6]

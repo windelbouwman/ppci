@@ -43,7 +43,8 @@ class RegisterAllocator:
         self.frame = frame
 
         # Register information:
-        self.reg_colors = set(reg.color for reg in frame.regs)
+        self.reg_colors = set(
+            reg.color for reg in self.arch.allocatable_registers)
         self.K = len(self.reg_colors)
 
         # Move related sets:

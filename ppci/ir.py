@@ -25,7 +25,7 @@ class Module:
 
     def add_function(self, function):
         """ Add a function to this module """
-        assert isinstance(function, Function)
+        assert isinstance(function, SubRoutine)
         self._functions.append(function)
         function.module = self
 
@@ -56,19 +56,29 @@ class Module:
                     num_instructions)
 
 
-class Function:
+class SubRoutine:
+    """ Base class of function and procedure. These two differ in that
+    a function returns a value, where as a procedure does not.
+
+    Design trade-off:
+    In C, a void type is introduced to permit functions that return nothing
+    (void). This seems somewhat artificial, but keeps things simple for the
+    users. In pascal, the procedure and function types are explicit, and the
+    void type is not needed. This is also the approach taken here.
+
+    So instead of a Function and Call types, we have Function, Procedure,
+    FunctionCall and ProcedureCall types.
+    """
+
     logger = logging.getLogger('irfunc')
-    """ Represents a function. """
-    def __init__(self, name, module=None):
-        self._blocks = []
+
+    def __init__(self, name):
         self.name = name
+        self.blocks = []
         self.entry = None
         self.defined_names = set()
         self.unique_counter = 0
-
         self.arguments = []
-        if module:
-            module.add_function(self)
 
     def make_unique_name(self, dut):
         """ Check if the name of the given dut is unique
@@ -81,13 +91,10 @@ class Function:
         self.defined_names.add(dut.name)
 
     def dump(self):
+        """ Print this function """
         print(self)
         for block in self:
             block.dump()
-
-    def __repr__(self):
-        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
-        return 'function XXX {}({})'.format(self.name, args)
 
     def __iter__(self):
         """ Iterate over all blocks in this function """
@@ -131,18 +138,13 @@ class Function:
         assert block.name not in self.block_names
         block.function = self
         self.make_unique_name(block)
-        self._blocks.append(block)
+        self.blocks.append(block)
         return block
 
     def remove_block(self, block):
         """ Remove a block from this function """
         block.function = None
-        self._blocks.remove(block)
-
-    @property
-    def blocks(self):
-        """ Get all the blocks contained in this function """
-        return self._blocks
+        self.blocks.remove(block)
 
     def add_parameter(self, parameter):
         """ Add an argument to this function """
@@ -156,13 +158,34 @@ class Function:
         return sum(len(block) for block in self.blocks)
 
 
+class Procedure(SubRoutine):
+    """ A procedure definition that does not return a value """
+    def __repr__(self):
+        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        return 'procedure {}({})'.format(self.name, args)
+
+
+class Function(SubRoutine):
+    """ Represents a function. """
+
+    def __init__(self, name, return_ty):
+        super().__init__(name)
+        assert isinstance(return_ty, Typ)
+        self.return_ty = return_ty
+
+    def __repr__(self):
+        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        ret_typ = self.return_ty
+        return 'function {} {}({})'.format(ret_typ, self.name, args)
+
+
 class Block:
     """
         Uninterrupted sequence of instructions with a label at the start.
     """
-    def __init__(self, name, function=None):
+    def __init__(self, name):
         self.name = name
-        self.function = function
+        self.function = None
         self.instructions = FastList()
         self.references = set()
 
@@ -245,11 +268,12 @@ class Block:
 
     @property
     def predecessors(self):
-        b = set(i.block for i in self.references)
-        return list(b)
+        """ Return all predecessing blocks """
+        return [i.block for i in self.references]
 
     @property
     def is_used(self):
+        """ True if this block is referenced by an instruction """
         return len(self.references) > 0
 
     def change_target(self, old, new):
@@ -305,13 +329,12 @@ def value_use(name):
 
 class Instruction:
     """ Base class for all instructions that go into a basic block """
-    def __init__(self, loc=None):
+    def __init__(self):
         # Create a collection to store the values this value uses.
         # TODO: think of better naming..
         self._var_map = {}
         self.block = None
         self.uses = set()
-        self.loc = loc
 
     @property
     def function(self):
@@ -382,13 +405,13 @@ u16 = Typ('u16')
 u8 = Typ('u8')
 ptr = Typ('ptr')
 
-# TODO: what about void types?
+all_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8, ptr]
 
 
 class Value(Instruction):
     """ An instruction that results in a value has a type and a name """
-    def __init__(self, name, ty, loc=None):
-        super().__init__(loc=loc)
+    def __init__(self, name, ty):
+        super().__init__()
         assert isinstance(ty, Typ)
         assert isinstance(name, str)
         self.name = name
@@ -481,10 +504,10 @@ class LiteralData(Expression):
         return '{} = Literal {}'.format(self.name, hexlify(self.data))
 
 
-class Call(Expression):
-    """ Call a function with some arguments """
-    def __init__(self, function_name, arguments, name, ty, loc=None):
-        super().__init__(name, ty, loc=loc)
+class FunctionCall(Expression):
+    """ Call a function with some arguments and a return value """
+    def __init__(self, function_name, arguments, name, ty):
+        super().__init__(name, ty)
         assert isinstance(function_name, str)
         self.function_name = function_name
         self.arguments = arguments
@@ -502,14 +525,35 @@ class Call(Expression):
         return '{} = {}({})'.format(self.name, self.function_name, args)
 
 
+class ProcedureCall(Instruction):
+    """ Call a procedure with some arguments """
+    def __init__(self, function_name, arguments):
+        super().__init__()
+        assert isinstance(function_name, str)
+        self.function_name = function_name
+        self.arguments = arguments
+        for arg in self.arguments:
+            self.add_use(arg)
+
+    def replace_use(self, old, new):
+        idx = self.arguments.index(old)
+        self.del_use(old)
+        self.arguments[idx] = new
+        self.add_use(new)
+
+    def __repr__(self):
+        args = ', '.join(arg.name for arg in self.arguments)
+        return '{}({})'.format(self.function_name, args)
+
+
 class Binop(Expression):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
     a = value_use('a')
     b = value_use('b')
 
-    def __init__(self, a, operation, b, name, ty, loc=None):
-        super().__init__(name, ty, loc=loc)
+    def __init__(self, a, operation, b, name, ty):
+        super().__init__(name, ty)
         assert operation in Binop.ops
         assert a.ty is b.ty is ty
         self.a = a
@@ -576,13 +620,13 @@ class Phi(Value):
 
 class Alloc(Expression):
     """ Allocates space on the stack """
-    def __init__(self, name, amount, loc=None):
-        super().__init__(name, ptr, loc=loc)
+    def __init__(self, name, amount):
+        super().__init__(name, ptr)
         assert isinstance(amount, int)
         self.amount = amount
 
     def __repr__(self):
-        return '{} = Alloc {} bytes'.format(self.name, self.amount)
+        return '{} = alloc {} bytes'.format(self.name, self.amount)
 
 
 class Variable(Expression):
@@ -593,7 +637,7 @@ class Variable(Expression):
         self.amount = amount
 
     def __repr__(self):
-        return 'Variable {} ({} bytes)'.format(self.name, self.amount)
+        return 'variable {} ({} bytes)'.format(self.name, self.amount)
 
 
 class Parameter(Expression):
@@ -665,7 +709,7 @@ class Return(FinalInstruction):
         self.targets = []
 
     def __repr__(self):
-        return 'Return {}'.format(self.result.name)
+        return 'return {}'.format(self.result.name)
 
 
 def block_use(name):
@@ -733,7 +777,7 @@ class Jump(JumpBase):
         self.target = target
 
     def __repr__(self):
-        return 'JUMP {}'.format(self.target.name)
+        return 'jump {}'.format(self.target.name)
 
 
 class CJump(JumpBase):
@@ -754,6 +798,6 @@ class CJump(JumpBase):
         self.lab_no = lab_no
 
     def __repr__(self):
-        return 'IF {} {} {} THEN {} ELSE {}'\
+        return 'if {} {} {} then {} else {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)

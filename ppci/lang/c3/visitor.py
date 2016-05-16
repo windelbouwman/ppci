@@ -57,7 +57,8 @@ class Visitor:
                 self.do(arg)
             self.do(node.proc)
         elif isinstance(node, ast.Return):
-            self.do(node.expr)
+            if node.expr:
+                self.do(node.expr)
         elif isinstance(node, ast.Binop):
             self.do(node.a)
             self.do(node.b)

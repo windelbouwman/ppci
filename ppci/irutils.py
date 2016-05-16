@@ -64,6 +64,7 @@ class Reader:
             ]
         tok_re = '|'.join('(?P<%s>%s)' % pair for pair in tok_spec)
         gettok = re.compile(tok_re).match
+        keywords = ['function', 'module', 'procedure']
 
         def tokenize():
             for line in lines:
@@ -75,7 +76,7 @@ class Reader:
                     typ = mo.lastgroup
                     val = mo.group(typ)
                     if typ == 'ID':
-                        if val in ['function', 'module']:
+                        if val in keywords:
                             typ = val
                         yield (typ, val)
                     elif typ == 'OTHER':
@@ -126,7 +127,7 @@ class Reader:
     def PeakVal(self):
         return self.token[1]
 
-    def Consume(self, typ, val=None):
+    def consume(self, typ, val=None):
         if self.Peak == typ:
             if val is not None:
                 assert self.PeakVal == val
@@ -137,12 +138,12 @@ class Reader:
 
     def parse_module(self):
         """ Entry for recursive descent parser """
-        self.Consume('module')
-        name = self.Consume('ID')[1]
+        self.consume('module')
+        name = self.consume('ID')[1]
         module = ir.Module(name)
-        self.Consume('eol')
+        self.consume('eol')
         while self.Peak != 'eof':
-            if self.Peak == 'function':
+            if self.Peak in ['function', 'procedure']:
                 module.add_function(self.parse_function())
             else:
                 raise IrParseException('Expected function got {}'
@@ -150,30 +151,35 @@ class Reader:
         return module
 
     def parse_function(self):
-        self.Consume('function')
-        self.parse_type()
+        """ Parse a function or procedure """
+        if self.Peak == 'function':
+            self.consume('function')
+            return_type = self.parse_type()
+            name = self.consume('ID')[1]
+            function = ir.Function(name, return_type)
+        else:
+            self.consume('procedure')
+            name = self.consume('ID')[1]
+            function = ir.Procedure(name)
 
         # Setup maps:
         self.val_map = {}
         self.block_map = {}
         self.resolve_worklist = []
 
-        name = self.Consume('ID')[1]
-        function = ir.Function(name)
-        self.Consume('(')
+        self.consume('(')
         while self.Peak != ')':
             ty = self.parse_type()
-            name = self.Consume('ID')[1]
-            ty = self.find_type(ty)
+            name = self.consume('ID')[1]
             param = ir.Parameter(name, ty)
             function.add_parameter(param)
             self.add_val(param)
             if self.Peak != ',':
                 break
             else:
-                self.Consume(',')
-        self.Consume(')')
-        self.Consume('eol')
+                self.consume(',')
+        self.consume(')')
+        self.consume('eol')
         while self.Peak == 'SKIP1':
             block = self.parse_block(function)
             if function.entry is None:
@@ -187,15 +193,17 @@ class Reader:
         return function
 
     def parse_type(self):
-        return self.Consume('ID')[1]
+        type_map = {t.name: t for t in ir.all_types}
+        type_name = self.consume('ID')[1]
+        return type_map[type_name]
 
     def parse_block(self, function):
-        self.Consume('SKIP1')
-        name = self.Consume('ID')[1]
+        self.consume('SKIP1')
+        name = self.consume('ID')[1]
         block = ir.Block(name)
         function.add_block(block)
-        self.Consume(':')
-        self.Consume('eol')
+        self.consume(':')
+        self.consume('eol')
         while self.Peak == 'SKIP2':
             ins = self.parse_statement()
             block.add_instruction(ins)
@@ -207,44 +215,38 @@ class Reader:
     def find_val(self, name):
         return self.val_map[name]
 
-    def find_type(self, name):
-        ty_map = {'i32': ir.i32}
-        return ty_map[name]
-
     def find_block(self, name):
         return self.block_map[name]
 
     def parse_assignment(self):
-        ty = self.Consume('ID')[1]
-        name = self.Consume('ID')[1]
-        self.Consume('=')
+        ty = self.parse_type()
+        name = self.consume('ID')[1]
+        self.consume('=')
         if self.Peak == 'ID':
-            a = self.Consume('ID')[1]
+            a = self.consume('ID')[1]
             if self.Peak in ['+', '-']:
                 # Go for binop
-                op = self.Consume(self.Peak)[1]
-                b = self.Consume('ID')[1]
+                op = self.consume(self.Peak)[1]
+                b = self.consume('ID')[1]
                 a = self.find_val(a)
-                ty = self.find_type(ty)
                 b = self.find_val(b)
                 ins = ir.Binop(a, op, b, name, ty)
             else:
                 raise Exception()
         elif self.Peak == 'NUMBER':
-            cn = self.Consume('NUMBER')[1]
-            ty = self.find_type(ty)
+            cn = self.consume('NUMBER')[1]
             ins = ir.Const(cn, name, ty)
         else:
             raise Exception()
         return ins
 
     def parse_cjmp(self):
-        self.Consume('ID', 'cjmp')
-        a = self.Consume('ID')[1]
-        op = self.Consume(self.Peak)[0]
-        b = self.Consume('ID')[1]
-        L1 = self.Consume('ID')[1]
-        L2 = self.Consume('ID')[1]
+        self.consume('ID', 'cjmp')
+        a = self.consume('ID')[1]
+        op = self.consume(self.Peak)[0]
+        b = self.consume('ID')[1]
+        L1 = self.consume('ID')[1]
+        L2 = self.consume('ID')[1]
         L1 = ir.Block(L1)
         L2 = ir.Block(L2)
         a = self.find_val(a)
@@ -254,22 +256,22 @@ class Reader:
         return ins
 
     def parse_jmp(self):
-        self.Consume('ID', 'jmp')
-        L1 = self.Consume('ID')[1]
+        self.consume('ID', 'jmp')
+        L1 = self.consume('ID')[1]
         L1 = ir.Block(L1)
         ins = ir.Jump(L1)
         self.resolve_worklist.append((ins, (L1,)))
         return ins
 
     def parse_return(self):
-        self.Consume('ID', 'return')
-        val = self.find_val(self.Consume('ID')[1])
+        self.consume('ID', 'return')
+        val = self.find_val(self.consume('ID')[1])
         # TODO: what to do with return value?
         ins = ir.Terminator()
         return ins
 
     def parse_statement(self):
-        self.Consume('SKIP2')
+        self.consume('SKIP2')
         if self.Peak == 'ID' and self.PeakVal == 'jmp':
             ins = self.parse_jmp()
         elif self.Peak == 'ID' and self.PeakVal == 'cjmp':
@@ -279,12 +281,12 @@ class Reader:
         elif self.Peak == 'ID' and self.PeakVal == 'store':
             raise Exception()
         elif self.Peak == 'ID' and self.PeakVal == 'Terminator':
-            self.Consume('ID')
+            self.consume('ID')
             ins = ir.Terminator()
         else:
             ins = self.parse_assignment()
             self.add_val(ins)
-        self.Consume('eol')
+        self.consume('eol')
         return ins
 
 
@@ -342,8 +344,15 @@ class Builder:
     def set_module(self, module):
         self.module = module
 
-    def new_function(self, name):
-        f = ir.Function(name)
+    def new_function(self, name, return_ty):
+        assert self.module is not None
+        f = ir.Function(name, return_ty)
+        self.module.add_function(f)
+        return f
+
+    def new_procedure(self, name):
+        assert self.module is not None
+        f = ir.Procedure(name)
         self.module.add_function(f)
         return f
 
@@ -391,9 +400,14 @@ class Verifier:
             assert block.name not in self.name_map
             self.name_map[block.name] = block
             self.verify_block_termination(block)
+            if isinstance(block.last_instruction, ir.Return):
+                assert isinstance(function, ir.Function)
+                assert block.last_instruction.result.ty is function.return_ty
+            if isinstance(block.last_instruction, ir.Terminator):
+                assert isinstance(function, ir.Procedure)
 
-        # Verify the entry is contained in this function:
-        assert function.entry in function
+        # Verify the entry is in this function and is the first block:
+        assert function.entry is function.blocks[0]
         assert isinstance(function.entry, ir.Block)
 
         # Verify all blocks are reachable:
@@ -465,8 +479,7 @@ class Verifier:
                 "{} does not dominate {}".format(value, instruction)
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
-                raise IrFormError(
-                    '{} used uninitialized'.format(value), loc=value.loc)
+                raise IrFormError('{} is used'.format(value))
 
     def instruction_dominates(self, one, another):
         """ Checks if one instruction dominates another instruction """

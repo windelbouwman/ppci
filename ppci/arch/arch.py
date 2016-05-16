@@ -1,7 +1,7 @@
 import logging
 from functools import lru_cache
 from .isa import Instruction, Register
-from ..ir import i8, i16, i32, i64, ptr
+from .. import ir
 
 
 class Architecture:
@@ -47,23 +47,27 @@ class Architecture:
     def get_reg_class(self, bitsize=None, ty=None):
         """ Look for a register class """
         if bitsize:
-            ty = {8: i8, 16: i16, 32: i32, 64: i64}[bitsize]
+            ty = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}[bitsize]
         if ty:
             return self.value_classes[ty]
         raise NotImplementedError()
 
     def get_size(self, typ):
         """ Get type of ir type """
-        if typ is ptr:
+        if typ is ir.ptr:
             return self.byte_sizes['ptr']
         else:
-            return {i8: 1, i16: 2, i32: 4, i64: 8}[typ]
+            return {ir.i8: 1, ir.i16: 2, ir.i32: 4, ir.i64: 8}[typ]
 
     def new_frame(self, frame_name, function):
         """ Create a new frame with name frame_name for an ir-function """
         arg_types = [arg.ty for arg in function.arguments]
-        arg_locs, live_in, rv, live_out = \
-            self.determine_arg_locations(arg_types, None)
+        arg_locs, live_in = self.determine_arg_locations(arg_types)
+        if isinstance(function, ir.Function):
+            rv, live_out = self.determine_rv_location(function.return_ty)
+        else:
+            rv = None
+            live_out = set()
         frame = self.FrameClass(
             frame_name, arg_locs, live_in, rv, live_out)
 
@@ -74,8 +78,59 @@ class Architecture:
     def get_register(self, color):
         raise NotImplementedError('get_register')
 
-    def determine_arg_locations(self, arg_types, ret_type):
+    def move(self, dst, src):
+        """ Generate a move from src to dst """
+        raise NotImplementedError('Implement this')
+
+    def gen_call(self, value):
+        """ Generate a sequence of instructions for a call to a label.
+            The actual call instruction is not yet used until the end
+            of the code generation at which time the live variables are
+            known.
+        """
+        if len(value) == 5:
+            label, arg_types, res_type, args, res_var = value
+            # Setup parameters:
+            live_in = set()
+            for instr in self.gen_fill_arguments(arg_types, args, live_in):
+                yield instr
+            rv, live_out = self.determine_rv_location(res_type)
+            yield VCall(label, extra_uses=live_in, extra_defs=live_out)
+            for instr in self.gen_copy_rv(res_type, res_var):
+                yield instr
+        elif len(value) == 3:
+            label, arg_types, args = value
+            live_in = set()
+            for instr in self.gen_fill_arguments(arg_types, args, live_in):
+                yield instr
+            yield VCall(label, extra_uses=live_in)
+        else:
+            raise RuntimeError()
+
+    def make_call(self, frame, vcall):
+        """ Actual call instruction implementation """
+        raise NotImplementedError('Implement this')
+
+    def gen_fill_arguments(self, arg_types, args, live):
+        """ Generate a sequence of instructions that puts the arguments of
+        a function to the right place. """
+        raise NotImplementedError('Implement this')
+
+    def gen_copy_rv(self, res_type, res_var):
+        """ Generate a sequence of instructions for copying the result of a
+        function to the correct variable. Override this function when needed.
+        The basic implementation simply moves the result.
+        """
+        rv, live_out = self.determine_rv_location(res_type)
+        yield self.move(res_var, rv)
+
+    def determine_arg_locations(self, arg_types):
         """ Determine argument location for a given function """
+        raise NotImplementedError('Implement this')
+
+    def determine_rv_location(self, ret_type):
+        """ Determine the location of a return value of a function given the
+        type of return value """
         raise NotImplementedError('Implement this')
 
     def get_reloc(self, name):

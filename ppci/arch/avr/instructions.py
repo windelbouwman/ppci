@@ -572,9 +572,7 @@ def pattern_cjmp(context, tree, c0, c1):
 
 @avr_isa.pattern('reg16', 'CALL', size=2)
 def pattern_call(context, tree):
-    label, arg_types, ret_type, args, res_var = tree.value
-    context.gen_call(label, arg_types, ret_type, args, res_var)
-    return res_var
+    return context.gen_call(tree.value)
 
 
 @avr_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
@@ -674,7 +672,7 @@ def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
     d = context.new_reg(AvrPseudo16Register)
     # cntr = context.new_reg(AvrRegister)
-    context.gen_call('__shr16', [i16, i16], i16, [c0, c1], d)
+    context.gen_call(('__shr16', [i16, i16], i16, [c0, c1], d))
     #context.move(d.lo, c0.lo)
     #context.move(d.hi, c0.hi)
     #context.move(cntr, c1.lo)
@@ -692,7 +690,7 @@ def pattern_shr16(context, tree, c0, c1):
 def pattern_shl16(context, tree, c0, c1):
     """ invoke runtime """
     d = context.new_reg(AvrPseudo16Register)
-    context.gen_call('__shl16', [i16, i16], i16, [c0, c1], d)
+    context.gen_call(('__shl16', [i16, i16], i16, [c0, c1], d))
     return d
 
 

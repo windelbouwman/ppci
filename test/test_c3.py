@@ -362,7 +362,7 @@ class FunctionTestCase(BuildTestCaseBase):
             return 2;
          }
         """
-        self.expect_errors(snippet, [5])
+        self.expect_errors(snippet, [3])
 
     def test_parameter_redefine(self):
         """ Check if a parameter and variable with the same name result in
@@ -545,7 +545,8 @@ class ExpressionTestCase(BuildTestCaseBase):
             return x;
          }
         """
-        self.expect_errors(snippet, [6])
+        # TODO: this error diagnostics must be improved!
+        self.expect_errors(snippet, [0])
 
 
 class StatementTestCase(BuildTestCaseBase):
@@ -626,7 +627,7 @@ class StatementTestCase(BuildTestCaseBase):
     def test_if(self):
         snippet = """
         module tstIFF;
-        function void t(int b)
+        function int t(int b)
         {
          var int a;
          a = 2;

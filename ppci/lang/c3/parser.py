@@ -301,12 +301,12 @@ class Parser:
     def parse_return(self):
         """ Parse a return statement """
         loc = self.consume('return').loc
-        if self.peak == ';':
-            expr = Literal(0, loc)
+        if self.has_consumed(';'):
+            return Return(None, loc)
         else:
             expr = self.parse_expression()
-        self.consume(';')
-        return Return(expr, loc)
+            self.consume(';')
+            return Return(expr, loc)
 
     def parse_compound(self):
         """ Parse a compound statement, which is bounded by '{' and '}' """
@@ -452,7 +452,8 @@ class Parser:
 
     def parse_primary_expression(self):
         """ Literal and parenthesis expression parsing """
-        if self.has_consumed('('):
+        if self.peak == '(':
+            self.consume('(')
             expr = self.parse_expression()
             self.consume(')')
         elif self.peak == 'NUMBER':

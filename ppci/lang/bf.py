@@ -26,7 +26,7 @@ class BrainFuckGenerator():
         # Assembler code will call sample_start
         self.builder.module = ir.Module(module_name)
 
-        ir_func = self.builder.new_function(function_name)
+        ir_func = self.builder.new_procedure(function_name)
         self.builder.set_function(ir_func)
         block1 = self.builder.new_block()
         ir_func.entry = block1
@@ -103,8 +103,7 @@ class BrainFuckGenerator():
             elif char == '.':
                 # putc(data[ptr])
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
-                self.builder.emit(
-                    ir.Call('bsp_putc', [val_ins], 'ign', ir.i32))
+                self.builder.emit(ir.ProcedureCall('bsp_putc', [val_ins]))
             elif char == ',':  # pragma: no cover
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')

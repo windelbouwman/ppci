@@ -34,9 +34,9 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
 
 class InstructionContext:
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, target, debug_db):
+    def __init__(self, frame, arch, debug_db):
         self.frame = frame
-        self.target = target
+        self.arch = arch
         self.debug_db = debug_db
         self.tree = None
 
@@ -46,13 +46,15 @@ class InstructionContext:
 
     def move(self, dst, src):
         """ Generate move """
-        self.emit(self.target.move(dst, src))
+        self.emit(self.arch.move(dst, src))
 
-    def gen_call(self, label, arg_types, res_type, args, res_var):
+    def gen_call(self, value):
         """ generate call for function into self """
-        for instruction in self.target.gen_call(
-                label, arg_types, res_type, args, res_var):
+        for instruction in self.arch.gen_call(value):
             self.emit(instruction)
+        if len(value) == 5:
+            res_var = value[-1]
+            return res_var
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
@@ -138,7 +140,7 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
+    def __init__(self, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
         """
             Create a new instruction selector.
 
@@ -163,12 +165,14 @@ class InstructionSelector1:
         self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
         self.sys.add_rule(
             'stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
+        self.sys.add_rule(
+            'stm', Tree('reg16'), 0, None, lambda ct, tr, rg: None)
 
         for terminal in terminals:
             self.sys.add_terminal(terminal)
 
         # Add all isa patterns:
-        for pattern in isa.patterns:
+        for pattern in arch.isa.patterns:
             cost = pattern.size * weights[0] + \
                    pattern.cycles * weights[1] + \
                    pattern.energy * weights[2]
@@ -181,7 +185,7 @@ class InstructionSelector1:
 
     def select(self, ir_function, frame, reporter):
         """ Select instructions of function into a frame """
-        assert isinstance(ir_function, ir.Function)
+        assert isinstance(ir_function, ir.SubRoutine)
         self.logger.debug('Creating selection dag for %s', ir_function.name)
 
         # Create a object that carries global function info:

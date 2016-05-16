@@ -687,9 +687,7 @@ def pattern_cjmp(context, tree, c0, c1):
 
 @isa.pattern('reg64', 'CALL', size=10)
 def pattern_call(context, tree):
-    label, arg_types, ret_type, args, res_var = tree.value
-    context.gen_call(label, arg_types, ret_type, args, res_var)
-    return res_var
+    return context.gen_call(tree.value)
 
 
 # TODO: this should not be required (the MOVI8)

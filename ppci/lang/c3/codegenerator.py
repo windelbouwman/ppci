@@ -34,8 +34,9 @@ class CodeGenerator:
 
       Type checking is done in one run with code generation.
     """
+    logger = logging.getLogger('c3cgen')
+
     def __init__(self, diag, debug_db):
-        self.logger = logging.getLogger('c3cgen')
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
@@ -147,7 +148,12 @@ class CodeGenerator:
             for parameters on the stack, and generating code for the function
             body.
         """
-        ir_function = self.builder.new_function(function.name)
+        if self.context.equal_types('void', function.typ.returntype):
+            ir_function = self.builder.new_procedure(function.name)
+        else:
+            return_type = self.get_ir_type(
+                function.typ.returntype, function.loc)
+            ir_function = self.builder.new_function(function.name, return_type)
         dfi = DebugFunction(function.name, function.loc)
         self.debug_db.enter(ir_function, dfi)
         self.builder.set_function(ir_function)
@@ -178,8 +184,7 @@ class CodeGenerator:
         for sym in function.inner_scope:
             self.context.check_type(sym.typ)
             var_name = 'var_{}'.format(sym.name)
-            variable = ir.Alloc(
-                var_name, self.context.size_of(sym.typ), loc=sym.loc)
+            variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
             self.emit(variable)
             if sym.isParameter:
                 # Get the parameter from earlier:
@@ -197,12 +202,15 @@ class CodeGenerator:
 
             # Debug info:
             dbg_typ = self.get_debug_type(sym.typ)
-            dv = DebugVariable(sym.name, dbg_typ, variable.loc)
+            dv = DebugVariable(sym.name, dbg_typ, sym.loc)
             dv.scope = 'local'
             self.debug_db.enter(variable, dv)
             dfi.add_variable(dv)
 
+        # Generate code for body:
         self.gen_stmt(function.body)
+
+        # Close block:
         if not self.builder.block.is_closed:
             self.emit(ir.Terminator())
         ir_function.delete_unreachable()
@@ -224,8 +232,7 @@ class CodeGenerator:
         elif self.context.equal_types(cty, 'double'):
             return ir.f64
         elif self.context.equal_types(cty, 'void'):
-            # TODO: how to handle void?
-            return ir.ptr
+            raise NotImplementedError('Cannot get void type')
         elif self.context.equal_types(cty, 'bool'):
             # Implement booleans as integers:
             return self.get_ir_int()
@@ -249,13 +256,14 @@ class CodeGenerator:
             elif isinstance(code, ast.Assignment):
                 self.gen_assignment_stmt(code)
             elif isinstance(code, ast.ExpressionStatement):
-                self.gen_expr_code(code.ex)
                 # Check that this is always a void function call
                 if not isinstance(code.ex, ast.FunctionCall):
                     raise SemanticError('Not a call expression', code.ex.loc)
+                value = self.gen_function_call(code.ex)
                 if not self.context.equal_types('void', code.ex.typ):
                     raise SemanticError(
                         'Can only call void functions', code.ex.loc)
+                assert value is None
             elif isinstance(code, ast.If):
                 self.gen_if_stmt(code)
             elif isinstance(code, ast.Return):
@@ -271,8 +279,11 @@ class CodeGenerator:
 
     def gen_return_stmt(self, code):
         """ Generate code for return statement """
-        ret_val = self.gen_expr_code(code.expr, rvalue=True)
-        self.emit(ir.Return(ret_val))
+        if code.expr:
+            ret_val = self.gen_expr_code(code.expr, rvalue=True)
+            self.emit(ir.Return(ret_val))
+        else:
+            self.emit(ir.Terminator())
         self.builder.set_block(self.builder.new_block())
 
     def do_coerce(self, ir_val, typ, wanted_typ, loc):
@@ -338,20 +349,16 @@ class CodeGenerator:
 
             # We know, the left hand side is an lvalue, so load it:
             lhs_ld = self.emit(
-                ir.Load(lval, 'assign_op_load', load_ty),
-                loc=code.loc)
+                ir.Load(lval, 'assign_op_load', load_ty), loc=code.loc)
 
             # Now construct the rvalue:
             oper = code.shorthand_operator
             rval = self.emit(
-                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty),
-                loc=code.loc)
+                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty), loc=code.loc)
 
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
-        return self.emit(
-            ir.Store(rval, lval, volatile=volatile),
-            loc=code.loc)
+        return self.emit(ir.Store(rval, lval, volatile=volatile), loc=code.loc)
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -496,8 +503,7 @@ class CodeGenerator:
             load_ty = self.get_ir_type(expr.typ, expr.loc)
 
             # Load the value:
-            value = self.emit(
-                ir.Load(value, 'loaded', load_ty), loc=expr.loc)
+            value = self.emit(ir.Load(value, 'load', load_ty), loc=expr.loc)
 
             # This expression is no longer an lvalue
             expr.lvalue = False
@@ -625,8 +631,7 @@ class CodeGenerator:
         b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
 
         return self.emit(
-            ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty),
-            loc=expr.loc)
+            ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty), loc=expr.loc)
 
     def gen_identifier(self, expr):
         """ Generate code for when an identifier was referenced """
@@ -733,13 +738,11 @@ class CodeGenerator:
         # Calculate offset:
         offset = self.emit(
             ir.mul(idx, e_size, "element_offset", int_ir_type), loc=expr.loc)
-        offset = self.emit(
-            ir.to_ptr(offset, 'elem_offset'), loc=expr.loc)
+        offset = self.emit(ir.to_ptr(offset, 'elem_offset'), loc=expr.loc)
 
         # Calculate address:
         return self.emit(
-            ir.add(base, offset, "element_address", ir.ptr),
-            loc=expr.loc)
+            ir.add(base, offset, "element_address", ir.ptr), loc=expr.loc)
 
     def gen_literal_expr(self, expr):
         """ Generate code for literal """
@@ -832,9 +835,13 @@ class CodeGenerator:
             raise SemanticError(
                 'Return value can only be a simple type', expr.loc)
 
-        # Determine return type:
-        ret_typ = self.get_ir_type(expr.typ, expr.loc)
+        if self.context.equal_types(expr.typ, 'void'):
+            self.emit(ir.ProcedureCall(fname, args), loc=expr.loc)
+        else:
+            # Determine return type:
+            ret_typ = self.get_ir_type(expr.typ, expr.loc)
 
-        # Emit call:
-        return self.emit(
-            ir.Call(fname, args, fname + '_rv', ret_typ), loc=expr.loc)
+            # Emit call:
+            return self.emit(
+                ir.FunctionCall(fname, args, fname + '_rv', ret_typ),
+                loc=expr.loc)

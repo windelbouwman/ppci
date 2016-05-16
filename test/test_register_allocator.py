@@ -28,7 +28,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         t3 = ExampleRegister('t3')
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
-        f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
+        # f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -48,7 +48,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
         t6 = ExampleRegister('t6')
-        f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
+        # f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -75,7 +75,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         t2 = R0
         t3 = ExampleRegister('t3')
         t4 = ExampleRegister('t4')
-        f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
+        # f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
         f.instructions.append(Def(t1))
         move = Mov(t3, t1, ismove=True)
         f.instructions.append(move)
@@ -100,7 +100,7 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f = Frame('tst', [], [], None, [])
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
-        f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
+        # f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
         f.instructions.append(Def(R0))
         move = Mov(R1, R0, ismove=True)
         f.instructions.append(move)

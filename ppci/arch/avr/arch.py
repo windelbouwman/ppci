@@ -2,11 +2,9 @@
     AVR architecture.
 """
 import io
-from ..arch import Architecture, Label
-from ..arch import Alignment
-from ..arch import Frame, VCall
 from ...ir import i8, i16, ptr
 from ...binutils.assembler import BaseAssembler
+from ..arch import Architecture, Label, Alignment, Frame
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
@@ -41,6 +39,15 @@ class AvrArch(Architecture):
         self.value_classes[i16] = AvrPseudo16Register
         self.value_classes[ptr] = AvrPseudo16Register
 
+        # Allocatable registers:
+        # TODO: the registers are not always possible, for example:
+        # ldi r16, 0xaa
+        self.allocatable_registers = [
+            r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
+            r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25]
+        # r27, r28, r29, r30, r31]
+        self.fp = Y
+
     def get_runtime(self):
         from ...api import asm
         asm_src = """
@@ -55,12 +62,10 @@ class AvrArch(Architecture):
     def get_register(self, color):
         return get_register(color)
 
-    def determine_arg_locations(self, arg_types, ret_type):
+    def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
         l = []
         live_in = set()
-        live_out = set()
-        rv = AvrPseudo16Register('ret_val', r25, r24)
         regs = [
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
@@ -86,15 +91,23 @@ class AvrArch(Architecture):
                 live_in.add(lo_reg)
             else:  # pragma: no cover
                 raise NotImplementedError(str(s))
-        return l, tuple(live_in), rv, tuple(live_out)
+        return l, tuple(live_in)
 
-    def gen_call(self, label, arg_types, ret_type, args, res_var):
+    def determine_rv_location(self, ret_type):
+        live_out = set()
+        rv = AvrPseudo16Register('ret_val', r25, r24)
+        live_out.add(r25)
+        live_out.add(r24)
+        return rv, tuple(live_out)
+
+    def gen_fill_arguments(self, arg_types, args, alives):
         """ Step 1 code for call sequence. This function moves arguments
             in the proper locations.
         """
         # Setup parameters:
         # TODO: variable return type
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(arg_types, ret_type)
+        arg_locs, tmp = self.determine_arg_locations(arg_types)
+        alives.update(set(tmp))
 
         # Copy parameters:
         for arg_loc, arg in zip(arg_locs, args):
@@ -107,37 +120,19 @@ class AvrArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
-        # Emit call placeholder:
-        yield VCall(label, extra_uses=live_in, extra_defs=live_out)
-
+    def gen_copy_rv(self, res_type, res_var):
         # Copy return value:
+        rv, live_out = self.determine_rv_location(res_type)
         if isinstance(res_var, AvrPseudo16Register):
             yield self.move(res_var.lo, rv.lo)
             yield self.move(res_var.hi, rv.hi)
         else:  # pragma: no cover
             raise NotImplementedError('Parameters in memory not impl')
 
-    def move(self, dst, src):
-        """ Generate a move from src to dst """
-        return Mov(dst, src, ismove=True)
-
-
-class AvrFrame(Frame):
-    def __init__(self, name, arg_locs, live_in, rv, live_out):
-        super().__init__(name, arg_locs, live_in, rv, live_out)
-        # Allocatable registers:
-        # TODO: the registers are not always possible, for example:
-        # ldi r16, 0xaa
-        self.regs = [
-            r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
-            r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25]
-        # r27, r28, r29, r30, r31]
-        self.fp = Y
-
-    def make_call(self, vcall):
+    def make_call(self, frame, vcall):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
-        live_registers = self.live_regs_over(vcall)
+        live_registers = frame.live_regs_over(vcall)
 
         # Caller save registers:
         for register in live_registers:
@@ -148,6 +143,15 @@ class AvrFrame(Frame):
         # Restore caller save registers:
         for register in reversed(live_registers):
             yield Pop(register)
+
+    def move(self, dst, src):
+        """ Generate a move from src to dst """
+        return Mov(dst, src, ismove=True)
+
+
+class AvrFrame(Frame):
+    def __init__(self, name, arg_locs, live_in, rv, live_out):
+        super().__init__(name, arg_locs, live_in, rv, live_out)
 
     def prologue(self):
         """ Generate the prologue instruction sequence """

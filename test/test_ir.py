@@ -2,7 +2,7 @@ import unittest
 import io
 from ppci import ir
 from ppci import irutils
-from ppci.opt.transform import ConstantFolder
+from ppci.opt import ConstantFolder
 from ppci.binutils.debuginfo import DebugDb
 from util import relpath
 
@@ -40,7 +40,7 @@ class IrBuilderTestCase(unittest.TestCase):
         self.b.set_module(self.m)
 
     def test_builder(self):
-        f = self.b.new_function('add')
+        f = self.b.new_procedure('add')
         self.b.set_function(f)
         entry = self.b.new_block()
         f.entry = entry
@@ -64,7 +64,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.b.set_module(self.m)
 
     def test_builder(self):
-        f = self.b.new_function('test')
+        f = self.b.new_procedure('test')
         self.b.set_function(f)
         entry = self.b.new_block()
         f.entry = entry
@@ -79,7 +79,7 @@ class ConstantFolderTestCase(unittest.TestCase):
         self.cf.run(self.m)
 
     def test_add0(self):
-        f = self.b.new_function('test')
+        f = self.b.new_procedure('test')
         self.b.set_function(f)
         self.b.set_block(self.b.new_block())
         v1 = ir.Const(12, 'const', ir.i32)
@@ -94,14 +94,15 @@ class TestWriter(unittest.TestCase):
     def test_write(self):
         writer = irutils.Writer()
         module = ir.Module('mod1')
-        function = ir.Function('func1', module)
+        function = ir.Procedure('func1')
+        module.add_function(function)
         entry = ir.Block('entry')
         function.add_block(entry)
         function.entry = entry
         entry.add_instruction(ir.Terminator())
         f = io.StringIO()
         writer.write(module, f)
-        print(f.getvalue())
+        # print(f.getvalue())
         f2 = io.StringIO(f.getvalue())
         reader = irutils.Reader()
         module2 = reader.read(f2)

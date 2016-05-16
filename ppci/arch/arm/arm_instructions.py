@@ -768,11 +768,9 @@ def pattern_ld32(context, tree, c0):
     return d
 
 
-@arm_isa.pattern('reg', 'CALL')
+@arm_isa.pattern('reg', 'CALL', size=10)
 def pattern_call(context, tree):
-    label, arg_types, ret_type, args, res_var = tree.value
-    context.gen_call(label, arg_types, ret_type, args, res_var)
-    return res_var
+    return context.gen_call(tree.value)
 
 
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
@@ -823,7 +821,7 @@ def pattern_ldr32(context, tree, c0):
 def pattern_div32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
-    context.gen_call('__sdiv', [i32, i32], i32, [c0, c1], d)
+    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
     return d
 
 
@@ -831,7 +829,7 @@ def pattern_div32(context, tree, c0, c1):
 def pattern_rem32(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(ArmRegister)
-    context.gen_call('__sdiv', [i32, i32], i32, [c0, c1], d)
+    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
     d2 = context.new_reg(ArmRegister)
     context.emit(Mls(d2, d, c1, c0))
     return d2

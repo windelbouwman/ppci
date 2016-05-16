@@ -220,7 +220,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 writer.write(ir_module, f)
                 self.print(f.getvalue())
                 self.print('</pre>')
-        elif isinstance(ir_module, ir.Function):
+        elif isinstance(ir_module, ir.SubRoutine):
             title = 'Function {}'.format(ir_module.name)
             with collapseable(self, title):
                 self.print('<pre>')

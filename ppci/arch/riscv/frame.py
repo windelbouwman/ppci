@@ -13,40 +13,11 @@ class RiscvFrame(Frame):
     """
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
-        # Allocatable registers:
-        self.regs = [R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27]
-        self.fp = FP
         self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
     def new_virtual_register(self, twain=""):
         """ Retrieve a new virtual register """
         return super().new_virtual_register(RiscvRegister, twain=twain)
-
-    def make_call(self, vcall):
-        """ Implement actual call and save / restore live registers """
-        # Now we now what variables are live:
-        live_regs = self.live_regs_over(vcall)
-        # Caller save registers:
-        i = 0
-        for register in live_regs:
-            yield Sw(SP, register, i)
-            i-= 4
-        yield Sw(SP, LR, i)
-        i-=4
-        yield Add(SP, SP, i)
-
-        yield Bl(LR, vcall.function_name)
-
-        # Restore caller save registers:
-        
-        i = 0
-        i+= 4
-        yield Lw(LR, SP, i)
-        for register in reversed(live_regs):
-            i+= 4
-            yield Lw(register, SP, i)
-        
-        yield Add(SP, SP, i)
 
     def prologue(self):
         """ Returns prologue instruction sequence """

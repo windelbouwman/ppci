@@ -503,22 +503,20 @@ def pattern_reg8(self, tree):
 
 @isa.pattern('reg', 'CALL')
 def pattern_call(context, tree):
-    label, arg_types, ret_type, args, res_var = tree.value
-    context.gen_call(label, arg_types, ret_type, args, res_var)
-    return res_var
+    return context.gen_call(tree.value)
 
 
 @isa.pattern('reg', 'MULI16(reg, reg)', size=10)
 def pattern_mul16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    context.gen_call('msp430_runtime___mul', [i16, i16], i16, [c0, c1], d)
+    context.gen_call(('msp430_runtime___mul', [i16, i16], i16, [c0, c1], d))
     return d
 
 
 @isa.pattern('reg', 'DIVI16(reg, reg)', size=10)
 def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    context.gen_call('msp430_runtime___div', [i16, i16], i16, [c0, c1], d)
+    context.gen_call(('msp430_runtime___div', [i16, i16], i16, [c0, c1], d))
     return d
 
 
@@ -541,14 +539,14 @@ def pattern_or16(context, tree, c0, c1):
 @isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
 def pattern_shr16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    context.gen_call('__shr', [i16, i16], i16, [c0, c1], d)
+    context.gen_call(('__shr', [i16, i16], i16, [c0, c1], d))
     return d
 
 
 @isa.pattern('reg', 'SHLI16(reg, reg)', size=4)
 def pattern_shl16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
-    context.gen_call('__shl', [i16, i16], i16, [c0, c1], d)
+    context.gen_call(('__shl', [i16, i16], i16, [c0, c1], d))
     return d
 
 

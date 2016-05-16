@@ -145,7 +145,7 @@ class Mem2RegPromotor(FunctionPass):
             self.debug_db.map(alloc, phi)
 
         # Create undefined value at start:
-        initial_value = Undefined('und_{}'.format(name), phi_ty, loc=alloc.loc)
+        initial_value = Undefined('und_{}'.format(name), phi_ty)
         cfg_info.function.entry.insert_instruction(initial_value)
 
         self.rename(initial_value, phis, loads, stores, cfg_info)

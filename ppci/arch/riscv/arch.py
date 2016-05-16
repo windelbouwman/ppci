@@ -9,12 +9,14 @@ from .rvc_instructions import rvcisa
 from .registers import RiscvRegister
 from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
 from .registers import R13, R14, R15, R16, R17, R28, LR, get_register
+from .registers import R0, LR, SP, FP
+from .registers import R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
 from ...ir import i8, i32, ptr
 from ..data_instructions import data_isa
 from .frame import RiscvFrame
 from ...binutils.assembler import BaseAssembler
 from ..riscv.registers import register_range
-from .instructions import dcd
+from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw, Blr
 
 
 class RiscvAssembler(BaseAssembler):
@@ -59,6 +61,11 @@ class RiscvArch(Architecture):
         self.value_classes[i32] = RiscvRegister
         self.value_classes[ptr] = RiscvRegister
 
+        # Allocatable registers:
+        self.allocatable_registers = [
+            R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27]
+        self.fp = FP
+
     def get_runtime(self):
         """ Implement compiler runtime functions """
         from ...api import asm
@@ -98,14 +105,11 @@ class RiscvArch(Architecture):
         """ Generate a move from src to dst """
         return Mov2(dst, src, ismove=True)
 
-    def gen_call(self, label, arg_types, ret_type, args, res_var):
-        """ Generate code for call sequence. This function saves registers
-            and moves arguments in the proper locations.
-
+    def gen_fill_arguments(self, arg_types, args, live):
+        """ This function moves arguments in the proper locations.
         """
-        # TODO: what ABI to use?
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(
-            arg_types, ret_type)
+        arg_locs, live_in = self.determine_arg_locations(arg_types)
+        live.update(set(live_in))
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
@@ -113,13 +117,37 @@ class RiscvArch(Architecture):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
-        yield VCall(label, extra_uses=live_in, extra_defs=live_out)
-        yield self.move(res_var, rv)
+
+    def make_call(self, frame, vcall):
+        """ Implement actual call and save / restore live registers """
+        # Now we now what variables are live:
+        live_regs = frame.live_regs_over(vcall)
+        # Caller save registers:
+        i = 0
+        for register in live_regs:
+            yield Sw(SP, register, i)
+            i-= 4
+        yield Sw(SP, LR, i)
+        i-=4
+        yield Add(SP, SP, i)
+
+        yield Bl(LR, vcall.function_name)
+
+        # Restore caller save registers:
+        
+        i = 0
+        i+= 4
+        yield Lw(LR, SP, i)
+        for register in reversed(live_regs):
+            i+= 4
+            yield Lw(register, SP, i)
+        
+        yield Add(SP, SP, i)
 
     def get_register(self, color):
         return get_register(color)
 
-    def determine_arg_locations(self, arg_types, ret_type):
+    def determine_arg_locations(self, arg_types):
         """
             Given a set of argument types, determine location for argument
             ABI:
@@ -133,7 +161,10 @@ class RiscvArch(Architecture):
             r = regs.pop(0)
             l.append(r)
             live_in.add(r)
+        return l, tuple(live_in)
+
+    def determine_rv_location(self, ret_type):
         live_out = set()
         rv = R10
         live_out.add(rv)
-        return l, tuple(live_in), rv, tuple(live_out)
+        return rv, tuple(live_out)
