@@ -20,11 +20,16 @@ Install ppci in a `virtualenv`_ environment:
 If ppci installed correcly, you will get a help message of the
 :ref:`ppci-build` commandline tool.
 
-Download and unzip the examples bundle project here :download:`examples.zip`.
+
+Example projects
+----------------
+
+Download and unzip :download:`examples.zip` to checkout some demo projects
+that can be build using ppci.
 
 
-stm32f4 example
----------------
+**stm32f4 example**
+
 
 To build the blinky project do the following:
 
@@ -36,8 +41,7 @@ To build the blinky project do the following:
 Flash the hexfile using your flashtool of choice on the stm32f4discovery board
 and enjoy the magic.
 
-arduino example
----------------
+**arduino example**
 
 To build and the arduino blink led example, follow the following commands:
 
@@ -48,13 +52,10 @@ To build and the arduino blink led example, follow the following commands:
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 
 
-x86_64 example
---------------
+**Linux x86_64**
 
-Linux
-~~~~~
-
-Instead of for a board you can compile into a native linux binary:
+Instead of for an arm or avr board you can compile into a 64-bit
+linux binary:
 
 .. code:: bash
 
@@ -62,7 +63,7 @@ Instead of for a board you can compile into a native linux binary:
     $ ppci-build.py
     $ ./hello
 
-Or run the snake demo under linux natively instead of on qemu:
+Or run the snake demo under linux:
 
 .. code:: bash
 
@@ -71,20 +72,9 @@ Or run the snake demo under linux natively instead of on qemu:
     $ ./snake
 
 
-Windows
-~~~~~~~
+Next steps
+----------
 
-TODO
-
-Mac
-~~~
-
-TODO
-
-msp430 example
---------------
-
-
-Flash program:
-
-http://www.ti.com/tool/msp430-flasher
+If you have checked out the examples, head over to the
+:doc:`api<api>` and :doc:`reference<reference>`
+sections to learn more!

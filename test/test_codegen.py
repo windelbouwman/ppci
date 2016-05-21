@@ -34,7 +34,7 @@ class IrDagTestCase(unittest.TestCase):
         block2.add_instruction(con)
         block2.add_instruction(ir.Jump(block1))
         block1.add_instruction(ir.Cast(con, 'con_cast', ir.i8))
-        block1.add_instruction(ir.Terminator())
+        block1.add_instruction(ir.Exit())
 
         # Target generation
         target = get_arch('arm')
@@ -61,7 +61,7 @@ class IrDagTestCase(unittest.TestCase):
                 i32 loaded_2 = load global_tick
                 IF binop > loaded_2 THEN block14 ELSE epilog
               epilog:
-                Terminator
+                exit
 
             Selection graph for function XXX sleep(i32 ms)
 
@@ -101,7 +101,7 @@ class IrDagTestCase(unittest.TestCase):
         epilog = builder.new_block()
         builder.emit(ir.CJump(binop, '>', loaded2, block14, epilog))
         builder.set_block(epilog)
-        builder.emit(ir.Terminator())
+        builder.emit(ir.Exit())
         # print('module:')
         # print_module(module)
 

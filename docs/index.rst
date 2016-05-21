@@ -5,7 +5,7 @@ Table of contents
 =================
 
 .. toctree::
-    :maxdepth: 4
+    :maxdepth: 2
 
     self
     quickstart
@@ -13,3 +13,4 @@ Table of contents
     reference
     contributing
     faq
+    changelog

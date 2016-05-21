@@ -6,8 +6,8 @@ Reference
 
     usage
     c3
+    buildxml
     ir
     debug
-    buildxml
     backends
     hexfile

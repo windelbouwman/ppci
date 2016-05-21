@@ -89,9 +89,6 @@ class IrToPython:
         elif isinstance(ins, ir.Jump):
             self.print(3, 'prev_block = current_block')
             self.print(3, 'current_block = "{}"'.format(ins.target.name))
-        elif isinstance(ins, ir.Terminator):
-            self.reset_stack(3)
-            self.print(3, 'return')
         elif isinstance(ins, ir.Alloc):
             self.print(3, '{} = len(mem)'.format(ins.name))
             self.print(3, 'mem.extend(bytes({}))'.format(ins.amount))
@@ -140,6 +137,9 @@ class IrToPython:
         elif isinstance(ins, ir.Return):
             self.reset_stack(3)
             self.print(3, 'return {}'.format(ins.result.name))
+        elif isinstance(ins, ir.Exit):
+            self.reset_stack(3)
+            self.print(3, 'return')
         else:  # pragma: no cover
             self.print(3, '{}'.format(ins))
             raise NotImplementedError()

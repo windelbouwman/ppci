@@ -160,6 +160,7 @@ HTML_HEADER = """<!DOCTYPE HTML>
     background: floralwhite;
   }
   table {
+    font-size: 8pt;
     border-collapse: collapse;
   }
 
@@ -168,12 +169,16 @@ HTML_HEADER = """<!DOCTYPE HTML>
   }
 
   th, td {
-    padding: 5px;
+    padding: 1px;
   }
 
   th {
     background: gray;
     color: white;
+  }
+
+  tr:nth-child(2n) {
+    background: lightblue;
   }
 
   </style>
@@ -189,6 +194,10 @@ HTML_FOOTER = """
 </div>
 </body></html>
 """
+
+
+def str2(x):
+    return ', '.join(sorted(str(y) for y in x))
 
 
 class HtmlReportGenerator(TextWritingReporter):
@@ -294,17 +303,47 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print('<p><div class="codeblock">')
             self.print(frame)
             self.print('<table border="1">')
-            self.print('<tr><th>ins</th><th>use</th><th>def</th><th>jump</th></tr>')
-            for ins in frame.instructions:
+            self.print('<tr>')
+            self.print('<th>#</th><th>instruction</th>')
+            self.print('<th>use</th><th>def</th>')
+            self.print('<th>jump</th><th>move</th>')
+            self.print('<th>gen</th><th>kill</th>')
+            self.print('<th>live_in</th><th>live_out</th>')
+            self.print('</tr>')
+            for idx, ins in enumerate(frame.instructions):
                 self.print('<tr>')
-                self.print('<td>$ {}</td>'.format(ins))
-                self.print('<td>{}</td>'.format(ins.used_registers))
-                self.print('<td>{}</td>'.format(ins.defined_registers))
+                self.print('<td>{}</td>'.format(idx))
+                self.print('<td>{}</td>'.format(ins))
+                self.print('<td>{}</td>'.format(str2(ins.used_registers)))
+                self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
                 self.print('<td>')
                 if ins.jumps:
-                    self.print('{}'.format(ins.jumps))
+                    self.print(str2(ins.jumps))
+                self.print('</td>')
+
+                self.print('<td>')
                 if ins.ismove:
-                    self.print('MOVE')
+                    self.print('yes')
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'gen'):
+                    self.print(str2(ins.gen))
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'kill'):
+                    self.print(str2(ins.kill))
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'live_in'):
+                    self.print(str2(ins.live_in))
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'live_out'):
+                    self.print(str2(ins.live_out))
                 self.print('</td>')
                 self.print('</tr>')
             self.print("</table>")

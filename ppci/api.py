@@ -1,7 +1,7 @@
 
 """
-This module contains a set of handy functions to invoke compilation, linking
-and assembling.
+The api module contains a set of handy functions to invoke compilation,
+linking and assembling.
 """
 
 import logging
@@ -47,6 +47,15 @@ __all__ = [
 def get_arch(arch):
     """ Try to return an architecture instance.
         arch can be a string in the form of arch:option1:option2
+
+        .. doctest::
+
+            >>> from ppci.api import get_arch
+            >>> arch = get_arch('msp430')
+            >>> arch
+            msp430-arch
+            >>> type(arch)
+            <class 'ppci.arch.msp430.arch.Msp430Arch'>
     """
     if isinstance(arch, Architecture):
         return arch
@@ -120,8 +129,10 @@ def construct(buildfile, targets=()):
 def asm(source, march):
     """ Assemble the given source for machine march.
 
-    source can be a filename or a file like object.
-    march can be a machine instance or a string indicating the target.
+    :param str source: can be a filename or a file like object.
+    :param str march: march can be a Architecture instance
+                      or a string indicating the machine architecture.
+    :return: an object file
 
     .. doctest::
 
@@ -207,7 +218,7 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
 
 def optimize(ir_module, reporter=None, debug_db=None):
     """
-        Run a bag of tricks against the ir-code.
+        Run a bag of tricks against the :doc:`ir-code<ir>`.
         This is an in-place operation!
     """
     logger = logging.getLogger('optimize')
@@ -301,6 +312,13 @@ def c3c(sources, includes, march, reporter=None, debug=False):
     """
     Compile a set of sources into binary format for the given target.
 
+    :param tuple sources: a collection of sources that will be compiled.
+    :param tuple includes: a collection of sources that will be used for type
+                           and function information.
+    :param str march: the architecture for which to compile.
+    :param bool debug: include debugging information yes or no
+    :return: an object file
+
     .. doctest::
 
         >>> import io
@@ -374,7 +392,14 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 def link(
         objects, layout=None, use_runtime=False, partial_link=False,
         reporter=None, debug=False):
-    """ Links the iterable of objects into one using the given layout.
+    """
+    Links the iterable of objects into one using the given layout.
+
+    :param tuple objects: a collection of objects to be linked together.
+    :param bool use_runtime: also link compiler runtime functions
+    :param bool debug: when true, keep debug information. Otherwise remove
+                       this debug information from the result.
+    :return: the linked object file
 
     .. doctest::
 

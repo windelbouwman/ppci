@@ -220,8 +220,8 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
-    @register(ir.Terminator)
-    def do_terminator(self, node):
+    @register(ir.Exit)
+    def do_exit(self, node):
         # Jump to epilog:
         sgnode = self.new_node('JMP')
         sgnode.value = self.function_info.epilog_label

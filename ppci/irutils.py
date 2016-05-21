@@ -267,7 +267,7 @@ class Reader:
         self.consume('ID', 'return')
         val = self.find_val(self.consume('ID')[1])
         # TODO: what to do with return value?
-        ins = ir.Terminator()
+        ins = ir.Exit()
         return ins
 
     def parse_statement(self):
@@ -280,9 +280,9 @@ class Reader:
             ins = self.parse_return()
         elif self.Peak == 'ID' and self.PeakVal == 'store':
             raise Exception()
-        elif self.Peak == 'ID' and self.PeakVal == 'Terminator':
+        elif self.Peak == 'ID' and self.PeakVal == 'exit':
             self.consume('ID')
-            ins = ir.Terminator()
+            ins = ir.Exit()
         else:
             ins = self.parse_assignment()
             self.add_val(ins)
@@ -403,7 +403,7 @@ class Verifier:
             if isinstance(block.last_instruction, ir.Return):
                 assert isinstance(function, ir.Function)
                 assert block.last_instruction.result.ty is function.return_ty
-            if isinstance(block.last_instruction, ir.Terminator):
+            if isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
 
         # Verify the entry is in this function and is the first block:
@@ -436,7 +436,7 @@ class Verifier:
 
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
-        assert not block.empty
+        assert not block.is_empty
         assert block.last_instruction.is_terminator
         assert all(not i.is_terminator for i in block.instructions[:-1])
         assert all(isinstance(p, ir.Block) for p in block.predecessors)

@@ -181,7 +181,9 @@ class Function(SubRoutine):
 
 class Block:
     """
-        Uninterrupted sequence of instructions with a label at the start.
+        Uninterrupted sequence of instructions.
+        A block is properly terminated if its last instruction is a
+        :class:`FinalInstruction`.
     """
     def __init__(self, name):
         self.name = name
@@ -233,11 +235,11 @@ class Block:
     @property
     def last_instruction(self):
         """ Gets the last instruction from the block """
-        if not self.empty:
+        if not self.is_empty:
             return self.instructions[-1]
 
     @property
-    def empty(self):
+    def is_empty(self):
         """ Determines whether the block is empty or not """
         return len(self) == 0
 
@@ -619,7 +621,7 @@ class Phi(Value):
 
 
 class Alloc(Expression):
-    """ Allocates space on the stack """
+    """ Allocates space on the stack. The type of this value is a ptr """
     def __init__(self, name, amount):
         super().__init__(name, ptr)
         assert isinstance(amount, int)
@@ -687,19 +689,18 @@ class FinalInstruction(Instruction):
     pass
 
 
-class Terminator(FinalInstruction):
-    """ Instruction that terminates the terminal block """
+class Exit(FinalInstruction):
+    """ Instruction that exits the procedure. """
     def __init__(self):
         super().__init__()
         self.targets = []
 
     def __repr__(self):
-        return 'Terminator'
+        return 'exit'
 
 
 class Return(FinalInstruction):
-    """ Return statement. This instruction terminates a block and has as
-        target the epilog block of a function.
+    """ This instruction returns a value and exits the function.
     """
     result = value_use('result')
 

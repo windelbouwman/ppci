@@ -154,7 +154,7 @@ class BrainFuckGenerator():
             raise CompilerError('[ requires matching ]')
 
         # Close current block:
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
 
         # Yield module
         return self.builder.module

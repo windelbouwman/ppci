@@ -46,7 +46,7 @@ class CleanTestCase(OptTestCase):
         epilog = self.builder.new_block()
         self.builder.emit(ir.Jump(epilog))
         self.builder.set_block(epilog)
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
 
     def test_glue_with_phi(self):
         """
@@ -87,7 +87,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i32))
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
@@ -97,7 +97,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
@@ -107,7 +107,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i8, volatile=True))
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 
@@ -117,7 +117,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 
@@ -126,7 +126,7 @@ class Mem2RegTestCase(OptTestCase):
         alloc as a value. In this case, the store must remain """
         alloc = self.builder.emit(ir.Alloc('A', 4))
         self.builder.emit(ir.Store(alloc, alloc))
-        self.builder.emit(ir.Terminator())
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 

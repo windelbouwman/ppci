@@ -46,6 +46,11 @@ Status: 20%
 .. autoclass:: ppci.arch.msp430.Msp430Arch
 
 
+To flash the msp430 board, the following program can be used:
+
+http://www.ti.com/tool/msp430-flasher
+
+
 .. _riscv:
 
 risc-v

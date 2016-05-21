@@ -10,9 +10,9 @@ Below is a list of features / tasks that need to be done.
 
 - Implement the disassembler further.
 
-- Implement Mac OSX support.
+- Implement Mac OSX support and add a mac 64-bit example project.
 
-- Add Windows support.
+- Add Windows support and add a windows 64-bit example project.
 
 - Improve the fuzzer tool that can generate random source code to stress
   the compiler.

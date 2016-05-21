@@ -313,7 +313,9 @@ class FunctionTestCase(BuildTestCaseBase):
          function int t3()
          {
             t3();
+            return 0;
          }
+
         """
         self.expect_errors(snippet, [5, 6, 10, 16])
 
@@ -351,6 +353,18 @@ class FunctionTestCase(BuildTestCaseBase):
          }
         """
         self.expect_ok(snippet)
+
+    def test_return_void_from_function(self):
+        """ Test that returning nothing in a function is an error """
+        snippet = """
+         module main;
+         function int t3()
+         {
+            var int a;
+            a = 2;
+         }
+        """
+        self.expect_errors(snippet, [3])
 
     def test_return_complex_type(self):
         """ Test the return of a complex value, this is not allowed """

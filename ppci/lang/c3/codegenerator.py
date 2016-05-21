@@ -212,7 +212,22 @@ class CodeGenerator:
 
         # Close block:
         if not self.builder.block.is_closed:
-            self.emit(ir.Terminator())
+            # In case of void function, introduce exit instruction:
+            if self.context.equal_types('void', function.typ.returntype):
+                self.emit(ir.Exit())
+            else:
+                if self.builder.block.is_empty:
+                    last_block = self.builder.block
+                    self.builder.set_block(None)
+                    ir_function.delete_unreachable()
+                    assert not last_block.is_used
+                    if last_block in ir_function:
+                        ir_function.remove_block(last_block)
+                else:
+                    raise SemanticError(
+                        'Function does not return a value', function.loc)
+
+        # Remove unreachable blocks from the function:
         ir_function.delete_unreachable()
         self.builder.set_function(None)
 
@@ -283,7 +298,7 @@ class CodeGenerator:
             ret_val = self.gen_expr_code(code.expr, rvalue=True)
             self.emit(ir.Return(ret_val))
         else:
-            self.emit(ir.Terminator())
+            self.emit(ir.Exit())
         self.builder.set_block(self.builder.new_block())
 
     def do_coerce(self, ir_val, typ, wanted_typ, loc):

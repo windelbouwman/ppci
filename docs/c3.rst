@@ -6,18 +6,19 @@ Introduction
 ------------
 
 As an example language, the c3 language was created. As pointed out clearly
-in c2lang_, the C language is widely used, but has some strange contraptions:
+in c2lang_, the C language is widely used, but has some strange contraptions.
+These include the following:
 
 - The include system. This results in lots of code duplication and file
   creation. Why would you need filenames in source code?
 - The comma statement: x = a(), 2; assigns 2 to x, after calling function a.
 - C is difficult to parse with a simple parser. The parser has to know what
-  a symbol is when it is parsed.
-- Etc...
+  a symbol is when it is parsed. This is also referred to as the
+  `lexer hack <https://en.wikipedia.org/wiki/The_lexer_hack>`_.
 
-For these reasons (and of course, for fun), C3 was created.
+In part for these reasons (and of course, for fun), C3 was created.
 
-The hello world example in c3:
+The hello world example in c3 is:
 
 .. code::
 

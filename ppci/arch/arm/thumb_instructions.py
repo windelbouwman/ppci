@@ -613,7 +613,7 @@ def pattern_label(context, tree):
     return d
 
 
-@thumb_isa.pattern('reg', 'CONSTI32', size=4)
+@thumb_isa.pattern('reg', 'CONSTI32', size=6, cycles=4, energy=4)
 def pattern_const32(context, tree):
     d = context.new_reg(Reg8Op)
     ln = context.frame.add_constant(tree.value)
@@ -621,11 +621,31 @@ def pattern_const32(context, tree):
     return d
 
 
-@thumb_isa.pattern('reg', 'CONSTI8', size=4)
+@thumb_isa.pattern(
+    'reg', 'CONSTI32', size=2, cycles=1, energy=1,
+    condition=lambda x: x.value in range(256))
+def pattern_const32_imm(context, tree):
+    """ 8 bit constant loading """
+    d = context.new_reg(Reg8Op)
+    context.emit(Mov3(d, tree.value))
+    return d
+
+
+@thumb_isa.pattern('reg', 'CONSTI8', size=6, cycles=4, energy=4)
 def pattern_const8(context, tree):
     d = context.new_reg(Reg8Op)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
+    return d
+
+
+@thumb_isa.pattern(
+    'reg', 'CONSTI8', size=2, cycles=1, energy=1,
+    condition=lambda x: x.value in range(256))
+def pattern_const8_imm(context, tree):
+    """ 8 bit constant loading """
+    d = context.new_reg(Reg8Op)
+    context.emit(Mov3(d, tree.value))
     return d
 
 
@@ -682,6 +702,16 @@ def pattern_call(context, tree):
 def pattern_sub32(self, tree, c0, c1):
     d = self.new_reg(Reg8Op)
     self.emit(Sub3(d, c0, c1))
+    return d
+
+
+@thumb_isa.pattern(
+    'reg', 'SUBI32(reg,CONSTI32)', size=2,
+    condition=lambda x: x.children[1].value in range(8))
+def pattern_sub32_imm3(self, tree, c0):
+    d = self.new_reg(Reg8Op)
+    c1 = tree.children[1].value
+    self.emit(Sub2(d, c0, c1))
     return d
 
 

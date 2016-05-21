@@ -4,8 +4,6 @@ Development
 
 This chapter descibes how to develop on ppci.
 
-.. toctree::
-    todo
 
 Communication
 -------------

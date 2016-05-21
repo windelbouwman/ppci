@@ -29,8 +29,5 @@ project, the api can be used as follows:
 Instead of using the api, a set of :doc:`commandline tools<usage>` are also
 prodived.
 
-Reference
----------
-
 .. automodule:: ppci.api
    :members:

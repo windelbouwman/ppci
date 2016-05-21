@@ -120,6 +120,8 @@ class CodeGenerator:
         self.register_allocator.alloc_frame(frame)
         # TODO: Peep-hole here?
 
+        reporter.dump_frame(frame)
+
         # Add label and return and stack adjustment:
         self.emit_frame_to_stream(frame, output_stream)
 
@@ -163,6 +165,8 @@ class CodeGenerator:
         # real instructions.
         self.logger.debug('Emitting instructions')
 
+        debug_data = []
+
         # Prefix code:
         output_stream.emit_all(frame.prologue())
 
@@ -177,7 +181,7 @@ class CodeGenerator:
                     label_name = self.debug_db.new_label()
                     d.address = label_name
                     output_stream.emit(Label(label_name))
-                    output_stream.emit(DebugData(d))
+                    debug_data.append(DebugData(d))
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions
@@ -197,6 +201,10 @@ class CodeGenerator:
 
         # Postfix code, like register restore and stack adjust:
         output_stream.emit_all(frame.epilogue())
+
+        # Last but not least, emit debug infos:
+        for dd in debug_data:
+            output_stream.emit(dd)
 
     def define_arguments_live(self, frame):
         """ Prepend a special instruction in front of the frame """

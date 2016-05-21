@@ -8,5 +8,5 @@ This section is intended for contributors of ppci.
 
     compiler
     development
-    changelog
+    todo
     links
