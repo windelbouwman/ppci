@@ -48,26 +48,26 @@ class DebuggerTestCase(unittest.TestCase):
         """
         obj = c3c([io.StringIO(src)], [], self.arch, debug=True)
         self.debugger.load_symbols(obj)
-        self.assertEqual(0, self.debugger.eval_str('Xa').value)
-        self.assertEqual(-9, self.debugger.eval_str('Xa + 1 -10').value)
-        self.assertEqual(20, self.debugger.eval_str('(Xa + 1)*20').value)
+        self.assertEqual(0, self.debugger.eval_c3_str('Xa').value)
+        self.assertEqual(-9, self.debugger.eval_c3_str('Xa + 1 -10').value)
+        self.assertEqual(20, self.debugger.eval_c3_str('(Xa + 1)*20').value)
         with self.assertRaises(CompilerError):
-            self.debugger.eval_str('(Xa + 1.2)*"hello"')
+            self.debugger.eval_c3_str('(Xa + 1.2)*"hello"')
         with self.assertRaises(CompilerError):
-            self.debugger.eval_str('Baa')
+            self.debugger.eval_c3_str('Baa')
         with self.assertRaises(CompilerError):
-            self.debugger.eval_str('B')
+            self.debugger.eval_c3_str('B')
         with self.assertRaises(CompilerError):
-            self.debugger.eval_str('B.d')
-        self.assertEqual(22, self.debugger.eval_str('B[2] + 22').value)
+            self.debugger.eval_c3_str('B.d')
+        self.assertEqual(22, self.debugger.eval_c3_str('B[2] + 22').value)
         with self.assertRaises(CompilerError):
-            self.debugger.eval_str('C[1]')
-        self.assertEqual(32, self.debugger.eval_str('C[2].f + 22+0xA').value)
-        self.assertEqual(0, self.debugger.eval_str('D').value)
-        self.assertEqual(0, self.debugger.eval_str('*D').value)
-        self.debugger.eval_str('&D')
-        self.debugger.eval_str('+D')
-        self.debugger.eval_str('-D')
+            self.debugger.eval_c3_str('C[1]')
+        self.assertEqual(32, self.debugger.eval_c3_str('C[2].f+22+0xA').value)
+        self.assertEqual(0, self.debugger.eval_c3_str('D').value)
+        self.assertEqual(0, self.debugger.eval_c3_str('*D').value)
+        self.debugger.eval_c3_str('&D')
+        self.debugger.eval_c3_str('+D')
+        self.debugger.eval_c3_str('-D')
 
 
 class DebugFormatTestCase(unittest.TestCase):
