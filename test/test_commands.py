@@ -23,7 +23,8 @@ class BuildTestCase(unittest.TestCase):
     def test_build_command(self, mock_stdout, mock_stderr):
         """ Test normal use """
         _, report_file = tempfile.mkstemp()
-        build_file = relpath('..', 'examples', 'build.xml')
+        build_file = relpath(
+            '..', 'examples', 'lm3s6965evb', 'snake', 'build.xml')
         build(['-v', '--report', report_file, '-f', build_file])
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -151,13 +152,13 @@ class LinkCommandTestCase(unittest.TestCase):
         _, obj1 = tempfile.mkstemp(suffix='.obj')
         _, obj2 = tempfile.mkstemp(suffix='.obj')
         _, obj3 = tempfile.mkstemp(suffix='.obj')
-        asm_src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        mmap = relpath('..', 'examples', 'lm3s6965', 'memlayout.mmap')
+        asm_src = relpath('..', 'examples', 'lm3s6965evb', 'startup.asm')
+        mmap = relpath('..', 'examples', 'lm3s6965evb', 'memlayout.mmap')
         c3_srcs = [
             relpath('..', 'examples', 'snake', 'main.c3'),
             relpath('..', 'examples', 'snake', 'game.c3'),
             relpath('..', 'librt', 'io.c3'),
-            relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
+            relpath('..', 'examples', 'lm3s6965evb', 'bsp.c3'),
             ]
         asm(['-m', 'arm', '--mtune', 'thumb', '-o', obj1, asm_src])
         # TODO: this should raise an error? combining thumb with arm code?

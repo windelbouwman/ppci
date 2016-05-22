@@ -4,19 +4,19 @@
 
     <target name="snake">
         <assemble
-            source="lm3s6965/startup.asm"
+            source="../startup.asm"
             arch="arm:thumb"
             output="startup.oj" />
         <compile
             arch="arm:thumb"
-            sources="snake/main.c3;lm3s6965/bsp.c3;../librt/io.c3;snake/game.c3"
-            output="snake.oj"
+            sources="../../snake/main.c3;../bsp.c3;../../../librt/io.c3;../../snake/game.c3"
+            output="rest.oj"
             report="snake_report.html"/>
-        <link output="snake.elf"
-            layout="lm3s6965/memlayout.mmap" 
-            objects="startup.oj;snake.oj" />
+        <link output="snake.oj"
+            layout="../memlayout.mmap" 
+            objects="startup.oj;rest.oj" />
         <objcopy
-            objectfile="snake.elf"
+            objectfile="snake.oj"
             imagename="flash"
             format="bin"
             output="snake.bin" />

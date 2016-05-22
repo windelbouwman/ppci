@@ -1,9 +1,9 @@
 import io
-from ppci.api import ir_to_python, c3toir
-from ppci.arch.example import SimpleTarget
+from ppci.api import ir_to_python, c3toir, get_arch
 
 
 def run_it():
+    arch = get_arch('example')
     bsp = io.StringIO("""
     module bsp;
     public function void sleep(int ms);
@@ -12,8 +12,7 @@ def run_it():
     """)
 
     ircode, debug_info = c3toir(
-        ['snake/game.c3', 'snake/main.c3', '../librt/io.c3'],
-        [bsp], SimpleTarget())
+        ['snake/game.c3', 'snake/main.c3', '../librt/io.c3'], [bsp], arch)
 
     with open('python_snake2.py', 'w') as f:
         print('import time', file=f)

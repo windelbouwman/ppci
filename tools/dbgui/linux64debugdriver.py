@@ -73,7 +73,7 @@ def running(f):
     return f
 
 
-class LinuxDebugDriver(DebugDriver):
+class Linux64DebugDriver(DebugDriver):
     """ Implements a debugger backend """
     def __init__(self):
         super().__init__()
