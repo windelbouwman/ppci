@@ -395,17 +395,17 @@ class Typ:
 
 
 # The builtin types:
-f64 = Typ('f64')
-f32 = Typ('f32')
-i64 = Typ('i64')
-i32 = Typ('i32')
-i16 = Typ('i16')
-i8 = Typ('i8')
-u64 = Typ('u64')
-u32 = Typ('u32')
-u16 = Typ('u16')
-u8 = Typ('u8')
-ptr = Typ('ptr')
+f64 = Typ('f64')  #: 64-bit floating point type
+f32 = Typ('f32')  #: 32-bit floating point type
+i64 = Typ('i64')  #: Signed 64-bit type
+i32 = Typ('i32')  #: Signed 32-bit type
+i16 = Typ('i16')  #: Signed 16-bit type
+i8 = Typ('i8')  #: Signed 8-bit type
+u64 = Typ('u64')  #: Unsigned 64-bit type
+u32 = Typ('u32')  #: Unsigned 32-bit type
+u16 = Typ('u16')  #: Unsigned 16-bit type
+u8 = Typ('u8')  #: Unsigned 8-bit type
+ptr = Typ('ptr')  #: Pointer type
 
 all_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8, ptr]
 
@@ -478,8 +478,9 @@ def to_i8(value, name):
 
 
 class Undefined(Value):
+    """ Undefined value, this value must never be used. """
     def __repr__(self):
-        return '{} = Undef'.format(self.name)
+        return '{} = undefined'.format(self.name)
 
 
 class Const(Expression):

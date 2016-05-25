@@ -10,10 +10,11 @@ class EmulationTestCase(unittest.TestCase):
 
     def test_m3_bare(self):
         """ Build bare m3 binary and emulate it """
-        recipe = relpath('..', 'examples', 'lm3s6965evb', 'build.xml')
+        recipe = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'build.xml')
         construct(recipe)
         if has_qemu():
-            bin_file = relpath('..', 'examples', 'lm3s6965evb', 'bare.bin')
+            bin_file = relpath(
+                '..', 'examples', 'lm3s6965evb', 'bare', 'bare.bin')
             data = run_qemu(bin_file)
             self.assertEqual('Hello worle', data)
 
@@ -41,7 +42,7 @@ class EmulationTestCase(unittest.TestCase):
 
     def test_snake(self):
         """ Compile the snake example """
-        recipe = relpath('..', 'examples', 'build.xml')
+        recipe = relpath('..', 'examples', 'lm3s6965evb', 'snake', 'build.xml')
         construct(recipe)
 
     def test_linux64_snake(self):

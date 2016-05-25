@@ -90,6 +90,7 @@ class Debugger:
 
     # Start stop parts:
     def run(self):
+        """ Run the program """
         self.logger.info('run')
         self.driver.run()
         self.state_event.fire()
@@ -100,6 +101,7 @@ class Debugger:
         self.state_event.fire()
 
     def stop(self):
+        """ Interrupt the currently running program """
         self.logger.info('stop')
         self.driver.stop()
         self.state_event.fire()
@@ -116,6 +118,7 @@ class Debugger:
         return options
 
     def set_breakpoint(self, filename, row):
+        """ Set a breakpoint """
         self.logger.info('set breakpoint %s:%i', filename, row)
         address = self.find_address(filename, row)
         if address is None:
@@ -123,6 +126,7 @@ class Debugger:
         self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
+        """ Remove a breakpoint """
         self.logger.info('clear breakpoint %s:%i', filename, row)
         address = self.find_address(filename, row)
         if address is None:
@@ -130,6 +134,7 @@ class Debugger:
         self.driver.clear_breakpoint(address)
 
     def step(self):
+        """ Single step the debugged program """
         self.logger.info('step')
         self.driver.step()
         self.state_event.fire()
@@ -166,6 +171,7 @@ class Debugger:
         # print(self.variable_map)
 
     def calc_address(self, address):
+        """ Calculate the actual address based on section and offset """
         section = self.obj.get_section(address.section)
         return section.address + address.offset
 
@@ -208,13 +214,15 @@ class Debugger:
 
     # Memory:
     def read_mem(self, address, size):
+        """ Read binary data from memory location """
         return self.driver.read_mem(address, size)
 
     def write_mem(self, address, data):
+        """ Write binary data to memory location """
         return self.driver.write_mem(address, data)
 
     # Expressions:
-    def eval_str(self, expr):
+    def eval_c3_str(self, expr):
         # Create a context for the expression to exist:
         context = C3Context(self.arch)
 
@@ -222,7 +230,7 @@ class Debugger:
         c3_expr = self.expr_parser.parse(expr, context)
 
         # Eval expr:
-        val = self.eval_expr(c3_expr)
+        val = self.eval_c3_expr(c3_expr)
 
         return val
 
@@ -238,7 +246,7 @@ class Debugger:
         else:
             raise NotImplementedError(str(typ))
 
-    def eval_expr(self, expr, rval=True):
+    def eval_c3_expr(self, expr, rval=True):
         """ Evaluate C3 expression tree """
         # TODO: check types!!
         # TODO: merge with c3.scope stuff and c3 codegenerator stuff?
@@ -256,8 +264,8 @@ class Debugger:
                 raise CompilerError('Cannot use {}'.format(expr))
         elif isinstance(expr, c3nodes.Binop):
             # TODO: type coerce!
-            a = self.eval_expr(expr.a)
-            b = self.eval_expr(expr.b)
+            a = self.eval_c3_expr(expr.a)
+            b = self.eval_c3_expr(expr.b)
             if not isinstance(a.typ, DebugBaseType):
                 raise CompilerError('{} of wrong type'.format(a))
             if not isinstance(b.typ, DebugBaseType):
@@ -270,10 +278,10 @@ class Debugger:
             v = opmp[expr.op](a.value, b.value)
             val = TmpValue(v, False, int_type)
         elif isinstance(expr, c3nodes.Index):
-            index = self.eval_expr(expr.i)
+            index = self.eval_c3_expr(expr.i)
             if not isinstance(index.typ, DebugBaseType):
                 raise CompilerError('{} of wrong type'.format(index))
-            base = self.eval_expr(expr.base, rval=False)
+            base = self.eval_c3_expr(expr.base, rval=False)
             if not base.lval:
                 raise CompilerError('{} is no location'.format(base))
             if not isinstance(base.typ, DebugArrayType):
@@ -282,7 +290,7 @@ class Debugger:
             addr = base.value + index.value * element_size
             val = TmpValue(addr, True, base.typ.element_type)
         elif isinstance(expr, c3nodes.Member):
-            base = self.eval_expr(expr.base, rval=False)
+            base = self.eval_c3_expr(expr.base, rval=False)
             if not base.lval:
                 raise CompilerError('{} is no location'.format(base))
             if not isinstance(base.typ, DebugStructType):
@@ -294,21 +302,21 @@ class Debugger:
             addr = base.value + field[2]
             val = TmpValue(addr, True, field[1])
         elif isinstance(expr, c3nodes.Deref):
-            ptr = self.eval_expr(expr.ptr)
+            ptr = self.eval_c3_expr(expr.ptr)
             if not isinstance(ptr.typ, DebugPointerType):
                 raise CompilerError(
                     'Cannot dereference non-pointer type {}'.format(ptr))
             val = TmpValue(ptr.value, True, ptr.typ.pointed_type)
         elif isinstance(expr, c3nodes.Unop):
             if expr.op == '&':
-                rhs = self.eval_expr(expr.a, rval=False)
+                rhs = self.eval_c3_expr(expr.a, rval=False)
                 if not rhs.lval:
                     raise CompilerError(
                         'Cannot take address of {}'.format(expr.a))
                 typ = DebugPointerType(rhs.typ)
                 val = TmpValue(rhs.value, False, typ)
             elif expr.op in ['+', '-']:
-                rhs = self.eval_expr(expr.a)
+                rhs = self.eval_c3_expr(expr.a)
                 if not isinstance(rhs.typ, (DebugBaseType, DebugPointerType)):
                     raise CompilerError('{} of wrong type'.format(rhs))
                 opmp = {
@@ -342,13 +350,11 @@ class Debugger:
         # Load variable now!
         if not isinstance(typ, (DebugBaseType, DebugPointerType)):
             raise CompilerError('Cannot load {}'.format(typ))
-        fmts = {
-            8: '<Q', 4: '<I', 2: '<H', 1: '<B',
-        }
         if isinstance(typ, DebugBaseType):
             size = typ.size
         else:
             size = self.arch.byte_sizes['ptr']  # Pointer size!
+        fmts = {8: '<Q', 4: '<I', 2: '<H', 1: '<B'}
         fmt = fmts[size]
         loaded = self.read_mem(addr, size)
         loaded_val = struct.unpack(fmt, loaded)[0]
@@ -505,7 +511,7 @@ class DebugCli(cmd.Cmd):
         """ Print a variable """
         # Evaluate the given expression:
         try:
-            tmp = self.debugger.eval_str(arg)
+            tmp = self.debugger.eval_c3_str(arg)
             res = tmp.value
             print('$ = 0x{:X} [{}]'.format(res, tmp.typ))
         except CompilerError as ex:

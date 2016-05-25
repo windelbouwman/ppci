@@ -73,7 +73,7 @@ def running(f):
     return f
 
 
-class LinuxDebugDriver(DebugDriver):
+class Linux64DebugDriver(DebugDriver):
     """ Implements a debugger backend """
     def __init__(self):
         super().__init__()
@@ -107,11 +107,13 @@ class LinuxDebugDriver(DebugDriver):
     def stop(self):
         print("TODO!")
 
-        #raise NotImplementedError()
+        # raise NotImplementedError()
 
     def set_breakpoint(self, address):
-        bp = 0xcc
+        cc = 0xcc
         print(address)
+        data = bytes([cc])
+        self.write_mem(address, data)
 
     def clear_breakpoint(self, address):
         pass

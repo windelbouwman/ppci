@@ -155,7 +155,6 @@ html_sidebars = {
         'about.html',
         'navigation.html',
         'searchbox.html',
-        'badges.html',
         'donate.html',
     ]
 }

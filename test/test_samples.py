@@ -798,7 +798,7 @@ class TestSamplesOnCortexM3(
         SECTION(data)
     }
     """
-    bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
+    bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'arch.c3')
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
