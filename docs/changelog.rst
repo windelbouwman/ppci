@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Release 1.0 (Planned)
+---------------------
+
+* platform.python_compiler() returns 'ppci 1.0'
+
 Release 0.6 (Planned)
 ---------------------
 
