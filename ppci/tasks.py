@@ -152,7 +152,8 @@ class Task:
             new_files = glob.glob(self.relpath(part))
             if not new_files:
                 raise TaskError('{} not found'.format(part))
-            file_names += new_files
+            for filename in new_files:
+                file_names.append(os.path.normpath(filename))
         return file_names
 
     def run(self):  # pragma: no cover

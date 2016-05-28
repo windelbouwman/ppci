@@ -317,7 +317,7 @@ class FunctionTestCase(BuildTestCaseBase):
          }
 
         """
-        self.expect_errors(snippet, [5, 6, 10, 16])
+        self.expect_errors(snippet, [6, 10, 16])
 
     def test_call_of_non_function(self):
         """ Test if the call to a non-function type raises an error """

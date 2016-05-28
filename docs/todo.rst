@@ -21,4 +21,6 @@ Below is a list of features / tasks that need to be done.
 
 - Implement a C frontend, The ppci.lang.c module contains an attempt.
 
+- Add a pascal frontend.
+
 - Add floating point support

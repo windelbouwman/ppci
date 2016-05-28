@@ -89,10 +89,6 @@ class CodeGenerator:
 
         reporter.function_header(ir_function, self.arch)
         reporter.dump_ir(ir_function)
-        instruction_list = []
-        output_stream = MasterOutputStream([
-            FunctionOutputStream(instruction_list.append),
-            output_stream])
 
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
@@ -118,11 +114,17 @@ class CodeGenerator:
 
         # Do register allocation:
         self.register_allocator.alloc_frame(frame)
+
         # TODO: Peep-hole here?
+        frame.instructions = [i for i in frame.instructions]
 
         reporter.dump_frame(frame)
 
         # Add label and return and stack adjustment:
+        instruction_list = []
+        output_stream = MasterOutputStream([
+            FunctionOutputStream(instruction_list.append),
+            output_stream])
         self.emit_frame_to_stream(frame, output_stream)
 
         # Emit function debug info:

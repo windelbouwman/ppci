@@ -6,6 +6,7 @@
 
 from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from ..isa import FixedPattern, VariablePattern
+from ..arch import Label
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u32, u8, u64, bit_range
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx
@@ -855,3 +856,12 @@ def patter_const8(context, tree):
     d = context.new_reg(X86Register)
     context.emit(MovImm(d, tree.value))
     return d
+
+
+@isa.peephole
+def peephole_jump_label(a, b):
+    print('PH', a, b)
+    if isinstance(a, NearJump) and isinstance(b, Label) and \
+            a.target == b.name:
+        return [b]
+    return [a, b]

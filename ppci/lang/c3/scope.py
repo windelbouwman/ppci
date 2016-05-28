@@ -100,6 +100,7 @@ def create_top_scope(target):
     int_type = BaseType('int', target.byte_sizes['int'])
     scope.add_symbol(int_type)
     scope.add_symbol(BaseType('double', 8))
+    scope.add_symbol(BaseType('float', 4))
     scope.add_symbol(BaseType('void', 0))
     scope.add_symbol(BaseType('bool', target.byte_sizes['int']))
     byte_type = BaseType('byte', 1)
@@ -243,10 +244,16 @@ class Context:
         """
         intType = self.get_type('int')
         byteType = self.get_type('byte')
+        floatType = self.get_type('float')
+        doubleType = self.get_type('double')
         table = {
             (intType, intType): intType,
             (intType, byteType): intType,
+            (intType, doubleType): doubleType,
+            (floatType, doubleType): doubleType,
+            (doubleType, floatType): doubleType,
             (byteType, intType): intType,
+            (byteType, byteType): byteType,
             (byteType, byteType): byteType,
             (intType, ast.PointerType): intType,
             }

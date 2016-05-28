@@ -328,7 +328,6 @@ class CodeEdit(QtWidgets.QScrollArea):
     Source = property(get_source, lambda s, v: s.ic.setSource(v))
 
     def set_possible_breakpoints(self, pbs):
-        print(pbs)
         self.ic.possible_breakpoints = pbs
 
     def setErrors(self, el):

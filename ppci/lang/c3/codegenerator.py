@@ -246,6 +246,8 @@ class CodeGenerator:
             return self.get_ir_int()
         elif self.context.equal_types(cty, 'double'):
             return ir.f64
+        elif self.context.equal_types(cty, 'float'):
+            return ir.f32
         elif self.context.equal_types(cty, 'void'):
             raise NotImplementedError('Cannot get void type')
         elif self.context.equal_types(cty, 'bool'):
@@ -322,6 +324,15 @@ class CodeGenerator:
         elif self.context.equal_types('int', typ) and \
                 self.context.equal_types('byte', wanted_typ):
             return self.emit(ir.to_i8(ir_val, 'coerce'))
+        elif self.context.equal_types('int', typ) and \
+                self.context.equal_types('double', wanted_typ):
+            return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
+        elif self.context.equal_types('double', typ) and \
+                self.context.equal_types('float', wanted_typ):
+            return self.emit(ir.Cast(ir_val, 'coerce', ir.f32))
+        elif self.context.equal_types('float', typ) and \
+                self.context.equal_types('double', wanted_typ):
+            return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
         elif self.context.equal_types('byte', typ) and \
                 self.context.equal_types('int', wanted_typ):
             return self.emit(ir.Cast(ir_val, 'coerce', self.get_ir_int()))

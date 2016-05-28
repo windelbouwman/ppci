@@ -116,6 +116,7 @@ class Isa:
         self.instructions = []
         self.relocation_map = {}
         self.patterns = []
+        self.peepholes = []
 
     def __add__(self, other):
         assert isinstance(other, Isa)
@@ -126,7 +127,7 @@ class Isa:
         isa3.relocation_map.update(other.relocation_map)
         return isa3
 
-    def register_instruction(self, i):
+    def add_instruction(self, i):
         """ Register an instruction into this ISA """
         self.instructions.append(i)
 
@@ -139,6 +140,11 @@ class Isa:
     def register_pattern(self, pattern):
         """ Add a pattern to this isa """
         self.patterns.append(pattern)
+
+    def peephole(self, function):
+        """ Add a peephole optimization function """
+        self.peepholes.append(function)
+        return function
 
     def pattern(
             self, non_term, tree, condition=None,
@@ -169,7 +175,7 @@ class InsMeta(type):
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
             assert isinstance(cls.isa, Isa)
-            cls.isa.register_instruction(cls)
+            cls.isa.add_instruction(cls)
 
 
 class Constructor:

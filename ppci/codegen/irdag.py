@@ -15,33 +15,6 @@ from ..utils.tree import Tree
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 
 
-NODE_ATTR = '$nodetype$$$'
-
-
-def register(tp):
-    """ Register a function for type tp """
-    def reg_f(f):
-        # f_map[tp] = f
-        setattr(f, NODE_ATTR, tp)
-        return f
-    return reg_f
-
-
-def make_op(op, vreg):
-    typ = 'I{}'.format(vreg.bitsize)
-    return '{}{}'.format(op, typ)
-
-
-def make_map(cls):
-    f_map = {}
-    for name, func in list(cls.__dict__.items()):
-        if hasattr(func, NODE_ATTR):
-            tp = getattr(func, NODE_ATTR)
-            f_map[tp] = func
-    setattr(cls, 'f_map', f_map)
-    return cls
-
-
 def prepare_function_info(arch, function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
@@ -86,15 +59,33 @@ def depth_first_order(function):
     return blocks
 
 
+def make_map(cls):
+    """
+        Add an attribute to the class that is a map of ir types to handler
+        functions. For example if a function is called do_phi it will be
+        registered into f_map under key ir.Phi.
+    """
+    f_map = getattr(cls, 'f_map')
+    for name, func in list(cls.__dict__.items()):
+        if name.startswith('do_'):
+            tp_name = ''.join(x.capitalize() for x in name[2:].split('_'))
+            ir_class = getattr(ir, tp_name)
+            f_map[ir_class] = func
+    return cls
+
+
 @make_map
 class SelectionGraphBuilder:
+    """ Create a selectiongraph from a function for instruction selection """
     logger = logging.getLogger('selection-graph-builder')
+    f_map = {}
 
     def __init__(self, arch, debug_db):
         self.arch = arch
         self.debug_db = debug_db
         self.postfix_map = {
-            ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8'}
+            ir.i64: 'I64', ir.i32: "I32", ir.i16: "I16", ir.i8: 'I8',
+            ir.f32: 'F32', ir.f64: 'F64'}
         self.postfix_map[ir.ptr] = 'I{}'.format(arch.byte_sizes['ptr'] * 8)
 
     def build(self, ir_function, function_info):
@@ -123,12 +114,9 @@ class SelectionGraphBuilder:
         self.sgraph.check()
         return self.sgraph
 
-        # TODO: ?
-        # sgnode = self.new_node('TRM')
-        # sgnode.add_input(self.current_token)
-
     def block_to_sgraph(self, ir_block, function_info):
-        """ Create dag (directed acyclic graph) from a basic block.
+        """
+            Create dag (directed acyclic graph) from a basic block.
             The resulting dag can be used for instruction selection.
         """
         assert isinstance(ir_block, ir.Block)
@@ -161,7 +149,6 @@ class SelectionGraphBuilder:
         sgnode = self.new_node('EXIT')
         sgnode.add_input(self.current_token)
 
-    @register(ir.Jump)
     def do_jump(self, node):
         sgnode = self.new_node('JMP')
         sgnode.value = self.function_info.label_map[node.target]
@@ -194,7 +181,6 @@ class SelectionGraphBuilder:
     def get_value(self, node):
         return self.function_info.value_map[node]
 
-    @register(ir.Return)
     def do_return(self, node):
         """ Move result into result register and jump to epilog """
         res = self.get_value(node.result)
@@ -208,8 +194,7 @@ class SelectionGraphBuilder:
         sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
-    @register(ir.CJump)
-    def do_cjump(self, node):
+    def do_c_jump(self, node):
         """ Process conditional jump into dag """
         lhs = self.get_value(node.a)
         rhs = self.get_value(node.b)
@@ -220,15 +205,14 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
-    @register(ir.Exit)
     def do_exit(self, node):
         # Jump to epilog:
         sgnode = self.new_node('JMP')
         sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
-    @register(ir.Alloc)
     def do_alloc(self, node):
+        """ Process the alloc instruction """
         # TODO: check alignment?
         fp = self.new_node(self.make_opcode("REG", ir.ptr), value=self.arch.fp)
         fp_output = fp.new_output('fp')
@@ -251,7 +235,6 @@ class SelectionGraphBuilder:
             address = self.get_value(ir_address)
         return address
 
-    @register(ir.Load)
     def do_load(self, node):
         """ Create dag node for load operation """
         address = self.get_address(node.address)
@@ -261,7 +244,6 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
-    @register(ir.Store)
     def do_store(self, node):
         """ Create a DAG node for the store operation """
         address = self.get_address(node.address)
@@ -271,9 +253,9 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
-    @register(ir.Const)
     def do_const(self, node):
-        if isinstance(node.value, int):
+        """ Process constant instruction """
+        if isinstance(node.value, (int, float)):
             name = self.make_opcode('CONST', node.ty)
             value = node.value
         else:  # pragma: no cover
@@ -283,14 +265,12 @@ class SelectionGraphBuilder:
         sgnode.value = value
         self.add_map(node, sgnode.new_output(node.name))
 
-    @register(ir.LiteralData)
     def do_literal_data(self, node):
         """ Literal data is stored after a label """
         label = self.function_info.frame.add_constant(node.data)
         sgnode = self.new_node('LABEL', value=label)
         self.add_map(node, sgnode.new_output(node.name))
 
-    @register(ir.Binop)
     def do_binop(self, node):
         """ Visit a binary operator and create a DAG node """
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
@@ -303,14 +283,12 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
-    @register(ir.Cast)
-    def do_int_to_byte_cast(self, node):
+    def do_cast(self, node):
         # TODO: add some logic here?
         value = self.get_value(node.src)
         self.add_map(node, value)
 
-    @register(ir.ProcedureCall)
-    def do_procedurecall(self, node):
+    def do_procedure_call(self, node):
         # This is the moment to move all parameters to new temp registers.
         args = []
         inputs = []
@@ -334,8 +312,7 @@ class SelectionGraphBuilder:
             sgnode.add_input(i)
         self.chain(sgnode)
 
-    @register(ir.FunctionCall)
-    def do_functioncall(self, node):
+    def do_function_call(self, node):
         # This is the moment to move all parameters to new temp registers.
         args = []
         inputs = []
@@ -368,7 +345,6 @@ class SelectionGraphBuilder:
         output.vreg = ret_val
         self.add_map(node, output)
 
-    @register(ir.Phi)
     def do_phi(self, node):
         """ Refer to the correct copy of the phi node """
         vreg = self.function_info.phi_map[node]
@@ -471,6 +447,11 @@ def topological_sort_modified(nodes, start):
     return L
 
 
+def make_op(op, vreg):
+    typ = 'I{}'.format(vreg.bitsize)
+    return '{}{}'.format(op, typ)
+
+
 class DagSplitter:
     """ Class that splits a DAG into a series of trees. This series is sorted
         such that data dependencies are met. The trees can henceforth be
@@ -492,7 +473,7 @@ class DagSplitter:
             # Get rid of ENTRY and EXIT:
             nodes = set(
                 filter(
-                    lambda x: x.name not in ['ENTRY', 'EXIT', 'TRM'], nodes))
+                    lambda x: x.name not in ['ENTRY', 'EXIT'], nodes))
 
             tail_node = function_info.block_tails[ir_block]
             trees = self.make_trees(nodes, tail_node)

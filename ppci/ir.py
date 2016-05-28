@@ -188,7 +188,7 @@ class Block:
     def __init__(self, name):
         self.name = name
         self.function = None
-        self.instructions = FastList()
+        self.instructions = list()
         self.references = set()
 
     def dump(self):

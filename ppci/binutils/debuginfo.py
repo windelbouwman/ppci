@@ -3,6 +3,7 @@
     This module contains classes for storage of debug information.
 """
 
+from collections import namedtuple
 from ..common import SourceLocation
 
 
@@ -104,10 +105,6 @@ class LineInfo:
     pass
 
 
-class CuInfo:
-    pass
-
-
 class DebugType:
     """ Debug type base class """
     def __init__(self):
@@ -115,6 +112,10 @@ class DebugType:
 
     def __repr__(self):
         return 'DBGTYP[ {} ]'.format(type(self))
+
+    def sizeof(self):
+        """ Determine the size of a debug type """
+        raise NotImplementedError()
 
 
 class DebugBaseType(DebugType):
@@ -127,6 +128,13 @@ class DebugBaseType(DebugType):
     def __repr__(self):
         return self.name
 
+    def sizeof(self):
+        """ Determine the size of a debug type """
+        return self.size
+
+
+DebugStructField = namedtuple('DebugStructField', ['name', 'typ', 'offset'])
+
 
 class DebugStructType(DebugType):
     """ A structured type """
@@ -136,19 +144,23 @@ class DebugStructType(DebugType):
 
     def add_field(self, name, typ, offset):
         assert isinstance(typ, DebugType)
-        self.fields.append((name, typ, offset))
+        self.fields.append(DebugStructField(name, typ, offset))
 
     def has_field(self, name):
-        return name in (f[0] for f in self.fields)
+        return name in (f.name for f in self.fields)
 
     def get_field(self, name):
         for field in self.fields:
-            if field[0] == name:
+            if field.name == name:
                 return field
         raise KeyError(name)
 
     def __repr__(self):
         return 'struct {...}'
+
+    def sizeof(self):
+        """ Determine the size of a debug type """
+        return sum(field.typ.sizeof() for field in self.fields)
 
 
 class DebugPointerType(DebugType):
@@ -172,6 +184,10 @@ class DebugArrayType(DebugType):
 
     def __repr__(self):
         return '{}[{}]'.format(self.element_type, self.size)
+
+    def sizeof(self):
+        """ Determine the size of a debug type """
+        return self.size * self.element_type.sizeof()
 
 
 class DebugFormalParameter:
@@ -303,9 +319,9 @@ class DictSerializer:
             fields = []
             for field in x.fields:
                 fields.append({
-                    'name': field[0],
-                    'type': self.get_type_id(field[1]),
-                    'offset': field[2],
+                    'name': field.name,
+                    'type': self.get_type_id(field.typ),
+                    'offset': field.offset,
                     })
             return {
                 'id': i,

@@ -184,7 +184,7 @@ class Debugger:
             # print(debug)
             addr = self.calc_address(debug.address)
             if pc == addr:
-                print('MATCH', debug)
+                self.logger.info('Found program counter at %s', debug)
                 loc = debug.loc
                 return loc.filename, loc.row
 
@@ -236,6 +236,8 @@ class Debugger:
 
     def sizeof(self, typ):
         """ Determine the size of a debug type """
+        return typ.sizeof()
+        # TODO: obsolete:
         if isinstance(typ, DebugBaseType):
             return typ.size
         elif isinstance(typ, DebugArrayType):

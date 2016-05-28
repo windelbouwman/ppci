@@ -1,4 +1,4 @@
-from qtwrapper import QtWidgets
+from qtwrapper import QtWidgets, Qt
 
 
 class DebugToolbar(QtWidgets.QToolBar):
@@ -7,14 +7,16 @@ class DebugToolbar(QtWidgets.QToolBar):
         self.debugger = debugger
         self.debugger.connection_event.subscribe(self.onConnection)
 
-        def genAction(name, callback):
+        def genAction(name, callback, shortcut=None):
             a = QtWidgets.QAction(name, self)
             a.triggered.connect(callback)
+            if shortcut:
+                a.setShortcut(shortcut)
             self.addAction(a)
             return a
-        self.runAction = genAction('Run', self.doRun)
+        self.runAction = genAction('Run', self.doRun, Qt.Key_F5)
         self.stopAction = genAction('Stop', self.doStop)
-        self.stepAction = genAction('Step', self.doStep)
+        self.stepAction = genAction('Step', self.doStep, Qt.Key_F10)
         self.resetAction = genAction('Reset', self.doReset)
         self.updateEnables()
 

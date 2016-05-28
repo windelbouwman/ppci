@@ -52,10 +52,9 @@ To build and the arduino blink led example, follow the following commands:
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 
 
-**Linux x86_64**
+**Linux x86_64 example**
 
-Instead of for an arm or avr board you can compile into a 64-bit
-linux binary:
+To build the hello world for 64-bit linux, go here:
 
 .. code:: bash
 

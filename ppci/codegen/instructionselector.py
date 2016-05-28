@@ -219,9 +219,6 @@ class InstructionSelector1:
         # Emit epilog label here, maybe not the right place?
         # TODO!!
         context.emit(function_info.epilog_label)
-        # Generate code for return statement:
-        # TODO: return value must be implemented in some way..
-        # self.munchStm(ir.Move(self.frame.rv, f.return_value))
 
     def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.
