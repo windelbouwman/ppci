@@ -548,7 +548,7 @@ class Out(AvrInstruction):
 
 
 @avr_isa.pattern('stm', 'JMP', size=2)
-def _(context, tree):
+def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(Rjmp(tgt.name, jumps=[tgt]))
 
@@ -722,7 +722,7 @@ def pattern_str16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg', 'CONSTI8', size=2)
-def _(context, tree):
+def pattern_const8(context, tree):
     d = context.new_reg(AvrRegister)
     context.emit(Ldi(r16, tree.value))
     context.move(d, r16)
@@ -730,7 +730,7 @@ def _(context, tree):
 
 
 @avr_isa.pattern('reg16', 'CONSTI16', size=4)
-def _(context, tree):
+def pattern_const16(context, tree):
     d = context.new_reg(AvrPseudo16Register)
     lb = tree.value & 0xff
     hb = (tree.value >> 8) & 0xff
@@ -742,7 +742,7 @@ def _(context, tree):
 
 
 @avr_isa.pattern('reg16', 'LABEL', size=4)
-def _(context, tree):
+def pattern_label(context, tree):
     """ Determine the label address and yield its result """
     d = context.new_reg(AvrPseudo16Register)
     context.emit(LdiLoAddr(r16, tree.value))

@@ -43,7 +43,7 @@ class CodeGenerator:
         self.debug_db = debug_db
         self.module_ok = False
 
-    def gencode(self, mod, context):
+    def gencode(self, mod: ast.Module, context):
         """ Generate code for a single module """
         assert isinstance(mod, ast.Module)
         self.context = context
@@ -249,7 +249,7 @@ class CodeGenerator:
         elif self.context.equal_types(cty, 'float'):
             return ir.f32
         elif self.context.equal_types(cty, 'void'):
-            raise NotImplementedError('Cannot get void type')
+            raise RuntimeError('Cannot get void type')
         elif self.context.equal_types(cty, 'bool'):
             # Implement booleans as integers:
             return self.get_ir_int()
@@ -261,7 +261,7 @@ class CodeGenerator:
             raise SemanticError(
                 'Cannot determine the type for "{}"'.format(cty), loc)
 
-    def gen_stmt(self, code):
+    def gen_stmt(self, code: ast.Statement):
         """ Generate code for a statement """
         try:
             assert isinstance(code, ast.Statement)
@@ -482,7 +482,7 @@ class CodeGenerator:
         if not self.context.equal_types(expr.typ, 'bool'):
             self.error('Condition must be boolean', expr.loc)
 
-    def gen_expr_code(self, expr, rvalue=False):
+    def gen_expr_code(self, expr: ast.Expression, rvalue=False) -> ir.Value:
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
         if self.is_bool(expr):
@@ -547,7 +547,7 @@ class CodeGenerator:
         return self.emit(
             ir.Const(type_size, 'sizeof', self.get_ir_int()), loc=expr.loc)
 
-    def gen_dereference(self, expr):
+    def gen_dereference(self, expr: ast.Deref):
         """ dereference pointer type, which means *(expr) """
         assert isinstance(expr, ast.Deref)
 
@@ -631,7 +631,7 @@ class CodeGenerator:
         expr.lvalue = False
         return phi
 
-    def gen_binop(self, expr):
+    def gen_binop(self, expr: ast.Binop):
         """ Generate code for binary operation """
         assert isinstance(expr, ast.Binop)
         assert expr.op not in ast.Binop.cond_ops
@@ -777,7 +777,7 @@ class CodeGenerator:
                    float: 'double',
                    bool: 'bool',
                    str: 'string'}
-        if type(expr.val) in typemap:
+        if isinstance(expr.val, tuple(typemap.keys())):
             expr.typ = self.context.get_type(typemap[type(expr.val)])
         else:
             raise SemanticError('Unknown literal type {}'

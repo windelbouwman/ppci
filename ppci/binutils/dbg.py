@@ -11,7 +11,7 @@ import binascii
 import struct
 from ..api import get_arch, fix_object
 from ..common import str2int, CompilerError
-from .. import version as ppci_version
+from .. import __version__ as ppci_version
 from .disasm import Disassembler
 from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
 from .debuginfo import DebugPointerType

@@ -9,9 +9,6 @@ http://eli.thegreenplace.net/2011/01/27/how-debuggers-work-part-2-breakpoints
 Or take a look at:
 http://python-ptrace.readthedocs.org/en/latest/
 
-Usage example:
-./linux64debugserver.py ../../test/listings/testsamplesTestSamplesOnX86Linuxtestswmul.elf
-
 """
 
 import os
@@ -25,9 +22,16 @@ PTRACE_TRACEME = 0
 PTRACE_PEEKTEXT = 1
 PTRACE_PEEKDATA = 2
 PTRACE_POKETEXT = 4
+PTRACE_POKEDATA = 5
 PTRACE_CONT = 7
 PTRACE_SINGLESTEP = 9
 PTRACE_GETREGS = 12
+PTRACE_SETREGS = 13
+
+# TODO: what is this calling convention??
+libc.ptrace.restype = ctypes.c_ulong
+libc.ptrace.argtypes = (
+    ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_void_p)
 
 
 class UserRegsStruct(ctypes.Structure):
@@ -91,8 +95,39 @@ class Linux64DebugDriver(DebugDriver):
 
     @stopped
     def run(self):
+        rip = self.get_pc()
+        if rip in self.breakpoint_backup:
+            # We are at a breakpoint, step over it first!
+            self.step_over_bp()
+
         libc.ptrace(PTRACE_CONT, self.pid, 0, 0)
         self.status = RUNNING
+
+        # TODO: for now, block here??
+        print('running')
+        _, status = os.wait()
+
+        self.status = STOPPED
+
+        print('stopped at breakpoint!')
+        rip = self.get_pc()
+        self.dec_pc()
+        print(self.read_mem(rip - 1, 3))
+
+    def dec_pc(self):
+        """ Decrease pc by 1 """
+        regs = self.get_registers(['rip'])
+        regs['rip'] -= 1
+        self.set_registers(regs)
+
+    def step_over_bp(self):
+        """ Step over a 0xcc breakpoint """
+        rip = self.get_pc()
+        cc = self.read_mem(rip, 1)
+        old_code = self.breakpoint_backup[rip]
+        self.write_mem(rip, old_code)
+        self.step()
+        self.write_mem(rip, cc)
 
     @stopped
     def step(self):
@@ -110,13 +145,15 @@ class Linux64DebugDriver(DebugDriver):
         # raise NotImplementedError()
 
     def set_breakpoint(self, address):
-        cc = 0xcc
-        print(address)
-        data = bytes([cc])
-        self.write_mem(address, data)
+        new_code = bytes([0xcc])
+        old_code = self.read_mem(address, 1)
+        self.write_mem(address, new_code)
+        if address not in self.breakpoint_backup:
+            self.breakpoint_backup[address] = old_code
 
     def clear_breakpoint(self, address):
-        pass
+        old_code = self.breakpoint_backup[address]
+        self.write_mem(address, old_code)
 
     # Registers
     @stopped
@@ -130,31 +167,44 @@ class Linux64DebugDriver(DebugDriver):
                 res[reg_name] = getattr(regs, reg_name)
         return res
 
+    def set_registers(self, new_regs):
+        regs = UserRegsStruct()
+        libc.ptrace(PTRACE_GETREGS, self.pid, 0, ctypes.byref(regs))
+        for reg_name, reg_value in new_regs.items():
+            if hasattr(regs, reg_name):
+                setattr(regs, reg_name, reg_value)
+        libc.ptrace(PTRACE_SETREGS, self.pid, 0, ctypes.byref(regs))
+
     # memory:
     def read_mem(self, address, size):
         res = bytearray()
-        a2 = address + size
-        while address < a2:
-            w = self.read_word(address)
-            part = struct.pack('<i', w)
-            address += len(part)
-            res.extend(part)
-        # TODO: adjust actual read to match requested size.
-        assert len(res) == size
+        for offset in range(size):
+            res.append(self.read_byte(address + offset))
         return bytes(res)
+
+    def write_mem(self, address, data):
+        for offset, b in enumerate(data):
+            self.write_byte(address + offset, b)
+
+    def read_byte(self, address):
+        """ Convenience wrapper """
+        w = self.read_word(address)
+        byte = w & 0xff
+        return byte
+
+    def write_byte(self, address, byte):
+        """ Convenience function to write a single byte """
+        w = self.read_word(address)
+        w = (w & 0xffffffffffffff00) | byte
+        self.write_word(address, w)
 
     def read_word(self, address):
         res = libc.ptrace(PTRACE_PEEKDATA, self.pid, address, 0)
         return res
 
-    def write_mem(self, address, data):
-        assert len(data) == 1
-        w = self.read_word(address)
-        w = (w & 0xffffff00) | data[0]
-        self.write_word(address, w)
-
     def write_word(self, address, w):
         res = libc.ptrace(PTRACE_POKEDATA, self.pid, address, w)
+        assert res != -1
 
     # Disasm:
     def get_pc(self):

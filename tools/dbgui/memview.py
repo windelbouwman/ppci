@@ -25,7 +25,7 @@ class MemoryView(QtWidgets.QWidget):
         l.addLayout(l2)
 
         self.hexEdit = HexEdit()
-        self.address = 0x8000000
+        self.address = 0x40200
         l.addWidget(self.hexEdit)
         self.addressLine.returnPressed.connect(self.refresh)
 
@@ -33,10 +33,8 @@ class MemoryView(QtWidgets.QWidget):
         address = self.address
         if self.debugger.is_halted:
             data = self.debugger.read_mem(address, self.block_size)
-        else:
-            data = bytearray(self.BlockSize)
-        self.hexEdit.bv.Data = data
-        self.hexEdit.bv.Offset = address
+            self.hexEdit.bv.Data = data
+            self.hexEdit.bv.Offset = address
 
     def do_up(self):
         self.address -= self.block_size

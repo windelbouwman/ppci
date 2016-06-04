@@ -14,9 +14,8 @@ from .instructions import Push, Pop, SubImm, AddImm
 from .instructions import Call, Ret
 from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
 from .registers import all_registers, get_register
-from .registers import rbx, rcx, rdx, rbp, rsp
-from .registers import r8, r9, r10, r11, r12, r13, r14, r15, X86Register
-from .registers import rdi, rsi
+from .registers import rbx, rbp, rsp
+from .registers import r10, r11, r12, r13, r14, r15
 
 
 class X86_64Arch(Architecture):

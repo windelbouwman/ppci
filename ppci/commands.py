@@ -24,14 +24,14 @@ from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
-from . import version, api
+from . import __version__, api
 from .common import logformat
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger, DebugCli
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
-    version, platform.python_implementation(), platform.python_version())
+    __version__, platform.python_implementation(), platform.python_version())
 
 
 def log_level(s):
