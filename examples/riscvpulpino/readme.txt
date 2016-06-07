@@ -2,7 +2,10 @@
 For the simulation verilator(www.veripool.org) needs to be installed. To
 compile the pulpino-sources with verilator:
 2. cd vsim
-3. ./verilate.sh
+3. ./verilategcc5.sh for gcc5
+  or ./verilategcc6.sh for gcc6
+  different linking for <=gcc5 and gcc6, because of something called
+  "static initialization fiasco", which may cause an exception at runtime
 4. cp ob_dir/Vpulpino_top ..
 5. cd ..
 6. compile adv_jtag_bridge(source at https://github.com/pulp-platform/riscv_jtag_server):

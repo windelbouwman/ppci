@@ -7,7 +7,7 @@ with complete_report(report_generator) as reporter:
     
     o1 = asm ("startercode.asm", "riscv")
     o2 = c3c(["bsp.c3", "io.c3", "main.c3"], [], "riscv",reporter=reporter)
-    obj = link([o1,o2], "firmware.mmap", "riscv", use_runtime=False,reporter=reporter)
+    obj = link([o1,o2], "firmware.mmap", use_runtime=False,reporter=reporter)
     objcopy(obj, "flash", "bin", "firmware.bin")
     
     with open("firmware.bin", "rb") as f:
