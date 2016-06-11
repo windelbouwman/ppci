@@ -6,7 +6,7 @@
 
 from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
 from ..isa import FixedPattern, VariablePattern
-from ..arch import Label
+from ..arch import Label, RegisterUseDef
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u32, u8, u64, bit_range
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx
@@ -709,6 +709,9 @@ def pattern_ldr64(context, tree, c0):
 @isa.pattern('reg64', 'LDRI8(reg64)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(X86Register)
+    vdef = RegisterUseDef()
+    vdef.add_def(rax)
+    context.emit(vdef)
     context.emit(XorRegRm(rax, RmReg(rax)))
     context.emit(MovRegRm8(al, RmMem(c0)))
     context.move(d, rax)
@@ -730,6 +733,9 @@ def pattern_str64_2(context, tree, c0, c1):
 def pattern_str8(context, tree, c0, c1):
     context.move(rax, c1)
     context.emit(MovRmReg8(RmMem(c0), al))
+    vdef = RegisterUseDef()
+    vdef.add_use(rax)
+    context.emit(vdef)
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', size=2)

@@ -11,6 +11,7 @@ import re
 from .. import ir
 from ..arch.isa import Register
 from ..arch.arch import Label
+from ..binutils.debuginfo import FpOffsetAddress
 from ..utils.tree import Tree
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 
@@ -114,7 +115,7 @@ class SelectionGraphBuilder:
         self.sgraph.check()
         return self.sgraph
 
-    def block_to_sgraph(self, ir_block, function_info):
+    def block_to_sgraph(self, ir_block: ir.Block, function_info):
         """
             Create dag (directed acyclic graph) from a basic block.
             The resulting dag can be used for instruction selection.
@@ -173,6 +174,10 @@ class SelectionGraphBuilder:
         self.sgraph.add_node(sgnode)
         return sgnode
 
+    def new_vreg(self, ty):
+        """ Generate a new temporary fitting for the given type """
+        return self.function_info.frame.new_reg(self.arch.value_classes[ty])
+
     def add_map(self, node, sgvalue):
         assert isinstance(node, ir.Value)
         assert isinstance(sgvalue, SGValue)
@@ -223,6 +228,10 @@ class SelectionGraphBuilder:
             self.make_opcode('ADD', ir.ptr), fp_output, offset_output)
         self.chain(sgnode)
         self.add_map(node, sgnode.new_output('alloc'))
+        if self.debug_db.contains(node):
+            dbg_var = self.debug_db.get(node)
+            dbg_var.address = FpOffsetAddress(offset.value)
+        # self.debug_db.map(node, sgnode)
 
     def get_address(self, ir_address):
         """ Determine address for load or store. """
@@ -294,8 +303,7 @@ class SelectionGraphBuilder:
         inputs = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
-            loc = self.function_info.frame.new_reg(
-                self.arch.value_classes[argument.ty])
+            loc = self.new_vreg(argument.ty)
             args.append(loc)
             opcode = self.make_opcode('MOV', argument.ty)
             arg_sgnode = self.new_node(opcode, arg_val, value=loc)
@@ -358,11 +366,33 @@ class SelectionGraphBuilder:
         """ When a terminator instruction is encountered, handle the copy
         of phi values into the expected virtual register """
         # Copy values to phi nodes in other blocks:
+        # step 1: create a new temporary that contains the value of the phi
+        # node. Do this because the calculation of the value can involve the
+        # phi vreg itself.
+        val_map = {}
+        for succ_block in ir_block.successors:
+            for phi in succ_block.phis:
+                from_val = phi.get_value(ir_block)
+                val = self.get_value(from_val)
+                vreg1 = self.new_vreg(phi.ty)
+                opcode = self.make_opcode('MOV', phi.ty)
+                sgnode = self.new_node(opcode, val, value=vreg1)
+                self.chain(sgnode)
+                val_map[from_val] = vreg1
+
+        # Step 2: copy the temporary value to the phi register:
         for succ_block in ir_block.successors:
             for phi in succ_block.phis:
                 vreg = self.function_info.phi_map[phi]
                 from_val = phi.get_value(ir_block)
-                val = self.get_value(from_val)
+                vreg1 = val_map[from_val]
+
+                # Create reg node:
+                sgnode1 = self.new_node(
+                    self.make_opcode('REG', phi.ty), value=vreg1)
+                val = sgnode1.new_output(vreg1.name)
+
+                # Create move node:
                 opcode = self.make_opcode('MOV', phi.ty)
                 sgnode = self.new_node(opcode, val, value=vreg)
                 self.chain(sgnode)
@@ -410,7 +440,6 @@ def topological_sort_modified(nodes, start):
     L = []
 
     def visit(n):
-        # print(n)
         if n not in nodes:
             return
         assert n not in temp_marked, 'DAG has cycles'

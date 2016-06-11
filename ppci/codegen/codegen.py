@@ -11,6 +11,7 @@ from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.isa import Instruction
 from ..arch.data_instructions import Ds
 from ..binutils.debuginfo import DebugType, DebugVariable, DebugLocation
+from ..binutils.debuginfo import FpOffsetAddress
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder, make_label_name
 from .instructionselector import InstructionSelector1
@@ -44,7 +45,7 @@ class CodeGenerator:
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator(arch, debug_db)
 
-    def generate(self, ircode, output_stream, reporter):
+    def generate(self, ircode: ir.Module, output_stream, reporter):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
@@ -116,7 +117,7 @@ class CodeGenerator:
         self.register_allocator.alloc_frame(frame)
 
         # TODO: Peep-hole here?
-        frame.instructions = [i for i in frame.instructions]
+        # frame.instructions = [i for i in frame.instructions]
 
         reporter.dump_frame(frame)
 
@@ -207,6 +208,14 @@ class CodeGenerator:
         # Last but not least, emit debug infos:
         for dd in debug_data:
             output_stream.emit(dd)
+
+        # Check if we know what variables are live
+        for tmp in frame.ig.temp_map:
+            if self.debug_db.contains(tmp):
+                di = self.debug_db.get(tmp)
+                # print(tmp, di)
+                lr = frame.live_ranges(tmp)
+                # print('live ranges:', lr)
 
     def define_arguments_live(self, frame):
         """ Prepend a special instruction in front of the frame """

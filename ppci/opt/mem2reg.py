@@ -102,6 +102,9 @@ class Mem2RegPromotor(FunctionPass):
                 if instruction in loads:
                     # Replace all uses of a with cur_V
                     instruction.replace_by(stack[-1])
+                    aloc = instruction.address
+                    assert isinstance(aloc, Alloc)
+                    # self.debug_db.map(aloc, stack[-1])
 
             # At the end of the block
             # For all successors with phi functions, insert the proper
@@ -120,7 +123,7 @@ class Mem2RegPromotor(FunctionPass):
 
         search(cfg_info.function.entry)
 
-    def promote(self, alloc, cfg_info):
+    def promote(self, alloc: Alloc, cfg_info):
         """ Promote a single alloc instruction.
         Find load operations and replace them with assignments """
         name = alloc.name

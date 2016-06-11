@@ -6,8 +6,7 @@ import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
-from .debuginfo import DebugLocation, DebugVariable, DebugFunction
-from .debuginfo import DebugAddress
+from .debuginfo import SectionAdjustingReplicator
 
 
 class Linker:
@@ -90,26 +89,8 @@ class Linker:
 
             # Merge debug info:
             if debug:
-                def adj(v):
-                    assert isinstance(v, DebugAddress)
-                    return DebugAddress(
-                        v.section, offsets[v.section] + v.offset)
-                for debug_location in input_object.debug_info.locations:
-                    dst.debug_info.add(DebugLocation(
-                        debug_location.loc,
-                        address=adj(debug_location.address)))
-                for debug_function in input_object.debug_info.functions:
-                    dst.debug_info.add(DebugFunction(
-                        debug_function.name, debug_function.loc,
-                        begin=adj(debug_function.begin),
-                        end=adj(debug_function.end),
-                        variables=debug_function.variables))
-                for debug_type in input_object.debug_info.types:
-                    dst.debug_info.add(debug_type)
-                for debug_var in input_object.debug_info.variables:
-                    dst.debug_info.add(DebugVariable(
-                        debug_var.name, debug_var.typ, debug_var.loc,
-                        address=adj(debug_var.address)))
+                replicator = SectionAdjustingReplicator(offsets)
+                replicator.replicate(input_object.debug_info, dst.debug_info)
 
     def layout_sections(self, dst, layout):
         """ Use the given layout to place sections into memories """

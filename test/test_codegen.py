@@ -19,6 +19,67 @@ def print_module(m):
 
 class IrDagTestCase(unittest.TestCase):
     """ Test if ir dag works good """
+    @unittest.skip('TODO')
+    def test_phi_register(self):
+        """ When a phi node is mapped to a register, this register
+        can be written and used afterwards. This happens for example
+        when the CSE-pass has not run, and the common sub expression is
+        not eliminated
+
+
+        This IR-code:
+
+        procedure main()
+          block0:
+            i64 cnst = 2
+            i64 cnst_0 = 0
+            jump block2
+          block1:
+            strval = Literal b'040000000000000041203d20'
+            io_print2(strval, phi_var_i_0)
+            i64 cnst_4 = 1
+            i64 binop = phi_var_i_0 + cnst_4
+            i64 binop_5 = phi_var_b_0 * binop
+            i64 cnst_7 = 1
+            i64 binop_8 = phi_var_i_0 + cnst_7
+            jump block2
+          block2:
+            i64 phi_var_i_0 = Phi {'block1': 'binop_8', 'block0': 'cnst_0'}
+            i64 phi_var_b_0 = Phi {'block1': 'binop_5', 'block0': 'cnst'}
+            i64 cnst_1 = 10
+            if phi_var_i_0 < cnst_1 then block1 else block3
+          block3:
+            strval_9 = Literal b'040000000000000042203d20'
+            io_print2(strval_9, phi_var_b_0)
+            exit
+
+        Generates this tree list:
+
+        block0:
+          MOVI64[vreg0phi_var_i_0](CONSTI64[0])
+          MOVI64[vreg1phi_var_b_0](CONSTI64[2])
+          JMP[main_main_block_block2:]
+        block1:
+          MOVI64[vreg4](LABEL[main_main_literal_1])
+          MOVI64[vreg5](REGI64[vreg0phi_var_i_0])
+          CALL[('io_print2', [ptr, i64], [vreg4, vreg5])]
+          MOVI64[vreg0phi_var_i_0](ADDI64(REGI64[vreg0phi_var_i_0], CONSTI64[1]))
+          MOVI64[vreg1phi_var_b_0](MULI64(REGI64[vreg1phi_var_b_0], ADDI64(REGI64[vreg0phi_var_i_0], CONSTI64[1])))  <---- Here vreg0phi_var_i_0 is re-defined!
+          JMP[main_main_block_block2:]
+        block2:
+          MOVI64[vreg0phi_var_i_0](REGI64[vreg0phi_var_i_0])
+          MOVI64[vreg1phi_var_b_0](REGI64[vreg1phi_var_b_0])
+          CJMP[('<', main_main_block_block1:, main_main_block_block3:)](REGI64[vreg0phi_var_i_0], CONSTI64[10])
+        block3:
+          MOVI64[vreg2](LABEL[main_main_literal_0])
+          MOVI64[vreg3](REGI64[vreg1phi_var_b_0])
+          CALL[('io_print2', [ptr, i64], [vreg2, vreg3])]
+          JMP[main_main_epilog:]
+        """
+
+        # TODO: implement test case!!
+        pass
+
     def test_bug2(self):
         """ Check that if blocks are in function in strange order, the dag
         builder works """

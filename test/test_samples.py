@@ -668,6 +668,8 @@ class I32Samples:
 
 
 class BuildMixin:
+    opt_level = 0
+
     def build(self, src, lang='c3', bin_format='bin'):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
@@ -683,10 +685,13 @@ class BuildMixin:
         with complete_report(report_generator) as reporter:
             o1 = asm(io.StringIO(startercode), self.march)
             if lang == 'c3':
-                o2 = c3c([
+                srcs = [
                     relpath('..', 'librt', 'io.c3'),
                     bsp_c3,
-                    io.StringIO(src)], [], self.march, reporter=reporter)
+                    io.StringIO(src)]
+                o2 = c3c(
+                    srcs, [], self.march, opt_level=self.opt_level,
+                    reporter=reporter, debug=True)
                 objs = [o1, o2]
             elif lang == 'bf':
                 o3 = bfcompile(src, self.march, reporter=reporter)
@@ -697,7 +702,7 @@ class BuildMixin:
                 raise Exception('language not implemented')
             obj = link(
                 objs, layout=io.StringIO(self.arch_mmap),
-                use_runtime=True, reporter=reporter)
+                use_runtime=True, reporter=reporter, debug=True)
 
         # Save object:
         obj_file = base_filename + '.oj'
@@ -742,6 +747,10 @@ class TestSamplesOnVexpress(
         if has_qemu():
             res = run_qemu(sample_filename, machine='realview-pb-a8')
             self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
+    opt_level = 2
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
@@ -816,6 +825,8 @@ class TestSamplesOnCortexM3(
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
+    opt_level = 0
+
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
         sample_filename = base_filename + '.py'
@@ -845,6 +856,10 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
 
         res = run_python(sample_filename)
         self.assertEqual(expected_output, res)
+
+
+#class TestSamplesOnPythonO2(TestSamplesOnPython):
+#    opt_level = 2
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
@@ -1004,6 +1019,10 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
                 res = subprocess.check_output(exe)
             res = res.decode('ascii')
             self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnX86LinuxO2(TestSamplesOnX86Linux):
+    opt_level = 2
 
 
 def has_linux():

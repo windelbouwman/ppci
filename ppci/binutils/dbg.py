@@ -14,7 +14,7 @@ from ..common import str2int, CompilerError
 from .. import __version__ as ppci_version
 from .disasm import Disassembler
 from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
-from .debuginfo import DebugPointerType
+from .debuginfo import DebugPointerType, DebugAddress, FpOffsetAddress
 from .outstream import RecordingOutputStream
 from ..lang.c3.builder import C3ExprParser
 from ..lang.c3 import astnodes as c3nodes
@@ -172,8 +172,14 @@ class Debugger:
 
     def calc_address(self, address):
         """ Calculate the actual address based on section and offset """
-        section = self.obj.get_section(address.section)
-        return section.address + address.offset
+        if isinstance(address, DebugAddress):
+            section = self.obj.get_section(address.section)
+            return section.address + address.offset
+        elif isinstance(address, FpOffsetAddress):
+            # print('rel offset')
+            return self.get_fp() + address.offset
+        else:
+            raise NotImplementedError(str(address))
 
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
@@ -372,6 +378,9 @@ class Debugger:
         """ Get the program counter """
         return self.driver.get_pc()
 
+    def get_fp(self):
+        return self.driver.get_fp()
+
     def get_disasm(self):
         """ Get instructions around program counter """
         loc = self.get_pc()
@@ -405,7 +414,10 @@ class DebugDriver:  # pragma: no cover
         raise NotImplementedError()
 
     def get_pc(self):
-        return 0
+        raise NotImplementedError()
+
+    def get_fp(self):
+        raise NotImplementedError()
 
     def set_breakpoint(self, address):
         raise NotImplementedError()
@@ -421,7 +433,7 @@ class DummyDebugDriver(DebugDriver):
 
     def run(self):
         self.status = RUNNING
-    
+
     def restart(self):
         self.status = RUNNING
 
@@ -437,9 +449,15 @@ class DummyDebugDriver(DebugDriver):
     def get_registers(self, registers):
         return {r: 0 for r in registers}
 
+    def get_pc(self):
+        return 0
+
+    def get_fp(self):
+        return 0
+
     def set_breakpoint(self, address):
         pass
-        
+
     def clear_breakpoint(self, address):
         pass
 

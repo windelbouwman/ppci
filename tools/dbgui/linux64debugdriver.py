@@ -211,6 +211,10 @@ class Linux64DebugDriver(DebugDriver):
         v = self.get_registers(['rip'])
         return v['rip']
 
+    def get_fp(self):
+        v = self.get_registers(['rbp'])
+        return v['rbp']
+
 
 def wifstopped(status):
     return (status & 0xff) == 0x7f

@@ -545,7 +545,7 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [5])
 
-    # @unittest.skip('Fix this')
+    @unittest.skip('Fix this')
     def test_uninitialized_local(self):
         """ When a variable is not initialized before it is used, an error
             is expected """

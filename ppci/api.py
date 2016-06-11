@@ -216,13 +216,18 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     return ir_modules, debug_info
 
 
-def optimize(ir_module, reporter=None, debug_db=None):
+def optimize(ir_module, level=0, reporter=None, debug_db=None):
     """
         Run a bag of tricks against the :doc:`ir-code<ir>`.
         This is an in-place operation!
+
+        :param ir.Module ir_module: The ir module to optimize.
+        :param int level: The optimization level, 2 is default.
     """
     logger = logging.getLogger('optimize')
-    logger.info('Optimizing module %s', ir_module.name)
+    logger.info('Optimizing module %s level %i', ir_module.name, level)
+    if level == 0:
+        return
 
     if not reporter:
         reporter = DummyReportGenerator()
@@ -292,9 +297,9 @@ def ir_to_python(ir_modules, f, reporter=None):
     generator = IrToPython(f)
     generator.header()
     for ir_module in ir_modules:
-        optimize(ir_module, reporter=reporter)
-        reporter.message('Optimized module:')
-        reporter.dump_ir(ir_module)
+        #optimize(ir_module, reporter=reporter)
+        #reporter.message('Optimized module:')
+        #reporter.dump_ir(ir_module)
         generator.generate(ir_module)
 
 
@@ -308,7 +313,7 @@ def cc(source, march, reporter=None):
     raise NotImplementedError('TODO')
 
 
-def c3c(sources, includes, march, reporter=None, debug=False):
+def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     """
     Compile a set of sources into binary format for the given target.
 
@@ -335,7 +340,7 @@ def c3c(sources, includes, march, reporter=None, debug=False):
         c3toir(sources, includes, march, reporter=reporter)
 
     for ircode in ir_modules:
-        optimize(ircode, reporter=reporter)
+        optimize(ircode, level=opt_level, reporter=reporter)
 
     return ir_to_object(ir_modules, march, debug_db, reporter=reporter)
 

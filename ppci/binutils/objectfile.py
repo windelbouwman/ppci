@@ -224,6 +224,7 @@ class ObjectFile:
 
     @property
     def byte_size(self):
+        """ Get the size in bytes of this object file """
         return sum(section.size for section in self.sections)
 
     def __eq__(self, other):
@@ -245,7 +246,7 @@ class ObjectFile:
                 sym = self.get_symbol(x)
                 return debuginfo.DebugAddress(sym.section, sym.value)
             else:
-                assert isinstance(x, debuginfo.DebugAddress)
+                # assert isinstance(x, debuginfo.DebugAddress)
                 return x
         for loc in self.debug_info.locations:
             loc.address = fx(loc.address)
@@ -330,7 +331,8 @@ def serialize(x):
         res['images'] = []
         for image in x.images:
             res['images'].append(serialize(image))
-        res['debug'] = debuginfo.serialize(x.debug_info)
+        if x.debug_info:
+            res['debug'] = debuginfo.serialize(x.debug_info)
         res['arch'] = x.arch.make_id_str()
     elif isinstance(x, Image):
         res['name'] = x.name
@@ -380,5 +382,6 @@ def deserialize(data):
         for section_name in image['sections']:
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
-    obj.debug_info = debuginfo.deserialize(data['debug'])
+    if 'debug' in data:
+        obj.debug_info = debuginfo.deserialize(data['debug'])
     return obj

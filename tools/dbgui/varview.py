@@ -2,7 +2,7 @@
 from qtwrapper import QtCore, QtWidgets
 from qtwrapper import Qt
 from ppci.binutils.debuginfo import DebugBaseType, DebugArrayType
-from ppci.binutils.debuginfo import DebugStructType
+from ppci.binutils.debuginfo import DebugStructType, DebugPointerType
 QModelIndex = QtCore.QModelIndex
 
 
@@ -31,13 +31,19 @@ class PartialVariable:
                     addr = self.address + offset
                     pv = PartialVariable(
                         name, self.typ.element_type, addr, row, self)
-                    self.children.append(pv)
+                    self._children.append(pv)
             elif isinstance(self.typ, DebugStructType):
                 for row, field in enumerate(self.typ.fields):
                     name = '{1}'.format(self.name, field.name)
                     addr = self.address + field.offset
                     pv = PartialVariable(name, field.typ, addr, row, self)
-                    self.children.append(pv)
+                    self._children.append(pv)
+            elif isinstance(self.typ, DebugPointerType):
+                name = '*{}'.format(self.name)
+                typ = self.typ.pointed_type
+                addr = 0  # TODO load self.address
+                pv = PartialVariable(name, typ, addr, 0, self)
+                self._children.append(pv)
             else:
                 raise NotImplementedError(str(self.typ))
         return self._children
@@ -112,6 +118,10 @@ class VariableModel(QtCore.QAbstractItemModel):
                 if isinstance(var.typ, DebugBaseType):
                     value = self.debugger.load_value(var.address, var.typ)
                     return str(value)
+                elif isinstance(var.typ, DebugPointerType):
+                    ptr = self.debugger.load_value(var.address, var.typ)
+                    var.children[0].address = ptr
+                    value = ptr
                 # print('get it', addr)
             elif col == 2:
                 return str(var.typ)

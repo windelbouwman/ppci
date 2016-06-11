@@ -341,6 +341,10 @@ class Frame:
             live_regs.append(self.get_register(n.color))
         return live_regs
 
+    def live_ranges(self, vreg):
+        """ Determine the live range of some register """
+        return self.cfg._live_ranges[vreg]
+
     def new_reg(self, cls, twain=""):
         """ Retrieve a new virtual register """
         tmp_name = self.temps.__next__() + twain

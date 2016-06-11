@@ -229,7 +229,7 @@ class RegisterAllocator:
         """ Give up coalescing on some node, move it to the simplify list
             and freeze all moves associated with it.
         """
-        print('freeze')
+        self.logger.debug('freeze')
         u = self.freezeWorklist.pop()
         self.simplifyWorklist.append(u)
         self.freezeMoves(u)
@@ -262,11 +262,11 @@ class RegisterAllocator:
             node = self.selectStack.pop(-1)  # Start with the last added
             self.frame.ig.unmask_node(node)
             takenregs = set(self.color[m] for m in node.Adjecent)
-            okColors = self.reg_colors - takenregs
-            if okColors:
-                self.color[node] = first(okColors)
+            ok_colors = self.reg_colors - takenregs
+            if ok_colors:
+                self.color[node] = first(ok_colors)
                 node.color = self.color[node]
-                assert type(node.color) is int
+                assert isinstance(node.color, int)
             else:  # pragma: no cover
                 raise NotImplementedError('Spill required here!')
 
@@ -284,7 +284,7 @@ class RegisterAllocator:
                     assert reg.color == node.color
                 else:
                     reg.set_color(node.color)
-                self.debug_db.map(reg, self.arch.get_register(node.color))
+                # self.debug_db.map(reg, self.arch.get_register(node.color))
 
     def check_invariants(self):  # pragma: no cover
         """ Test invariants """
