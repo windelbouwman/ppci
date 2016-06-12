@@ -45,7 +45,8 @@ class CodeGenerator:
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = RegisterAllocator(arch, debug_db)
 
-    def generate(self, ircode: ir.Module, output_stream, reporter):
+    def generate(
+            self, ircode: ir.Module, output_stream, reporter, debug=False):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
@@ -64,7 +65,7 @@ class CodeGenerator:
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.debug_db.map(var, label)
-            if self.debug_db.contains(label):
+            if self.debug_db.contains(label) and debug:
                 dv = self.debug_db.get(label)
                 dv.address = label.name
                 output_stream.emit(DebugData(dv))
@@ -74,15 +75,18 @@ class CodeGenerator:
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section('code')
         for function in ircode.functions:
-            self.generate_function(function, output_stream, reporter)
+            self.generate_function(
+                function, output_stream, reporter, debug=debug)
 
         # Output debug type data:
-        for di in self.debug_db.infos:
-            if isinstance(di, DebugType):
-                # TODO: prevent this from being emitted twice in some way?
-                output_stream.emit(DebugData(di))
+        if debug:
+            for di in self.debug_db.infos:
+                if isinstance(di, DebugType):
+                    # TODO: prevent this from being emitted twice in some way?
+                    output_stream.emit(DebugData(di))
 
-    def generate_function(self, ir_function, output_stream, reporter):
+    def generate_function(
+            self, ir_function, output_stream, reporter, debug=False):
         """ Generate code for one function into a frame """
         self.logger.info(
             'Generating %s code for function %s',
@@ -126,10 +130,10 @@ class CodeGenerator:
         output_stream = MasterOutputStream([
             FunctionOutputStream(instruction_list.append),
             output_stream])
-        self.emit_frame_to_stream(frame, output_stream)
+        self.emit_frame_to_stream(frame, output_stream, debug=debug)
 
         # Emit function debug info:
-        if self.debug_db.contains(frame):
+        if self.debug_db.contains(frame) and debug:
             func_end_label = self.debug_db.new_label()
             output_stream.emit(Label(func_end_label))
             d = self.debug_db.get(frame)
@@ -157,7 +161,7 @@ class CodeGenerator:
             # Schedule instructions:
             # self.instruction_scheduler.schedule(sgraph, frame)
 
-    def emit_frame_to_stream(self, frame, output_stream):
+    def emit_frame_to_stream(self, frame, output_stream, debug=False):
         """
             Add code for the prologue and the epilogue. Add a label, the
             return instruction and the stack pointer adjustment for the frame.
@@ -177,7 +181,7 @@ class CodeGenerator:
             assert isinstance(instruction, Instruction), str(instruction)
 
             # If the instruction has debug location, emit it here:
-            if self.debug_db.contains(instruction):
+            if self.debug_db.contains(instruction) and debug:
                 d = self.debug_db.get(instruction)
                 assert isinstance(d, DebugLocation)
                 if not d.address:

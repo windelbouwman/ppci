@@ -27,7 +27,7 @@ from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.objectfile import ObjectFile, load_object
-from .binutils.debuginfo import DebugDb, DebugAddress
+from .binutils.debuginfo import DebugDb, DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
@@ -262,27 +262,43 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
 
 
 def ir_to_object(
-        ir_modules, march, debug_db=None, reporter=None, opt=None):
-    """ Translate the given list of IR-modules into object code for the given
-    architecture """
+        ir_modules, march, debug_db=None, reporter=None, debug=False,
+        opt=None):
+    """
+    Translate the given list of IR-modules into object code for the given
+    architecture.
+
+    :param tuple ir_modules: a collection of ir-modules that will be
+                             transformed into machine code.
+    :param str march: the architecture for which to compile.
+    :param ReportGenerator reporter: reporter to write compilation report to
+    :param bool debug: include debugging information
+    :return: an object file
+    """
     if not reporter:
         reporter = DummyReportGenerator()
+
     if not debug_db:
         debug_db = DebugDb()
+
     if opt is None:
         opt = 'speed'
+
     march = get_arch(march)
     code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
     verifier = Verifier()
 
     obj = ObjectFile(march)
+    if debug:
+        obj.debug_info = DebugInfo()
     output_stream = BinaryOutputStream(obj)
 
     for ir_module in ir_modules:
         verifier.verify(ir_module)
 
         # Code generation:
-        code_generator.generate(ir_module, output_stream, reporter=reporter)
+        code_generator.generate(
+            ir_module, output_stream, reporter=reporter, debug=debug)
 
     # TODO: refactor polishing?
     obj.polish()
@@ -297,9 +313,6 @@ def ir_to_python(ir_modules, f, reporter=None):
     generator = IrToPython(f)
     generator.header()
     for ir_module in ir_modules:
-        #optimize(ir_module, reporter=reporter)
-        #reporter.message('Optimized module:')
-        #reporter.dump_ir(ir_module)
         generator.generate(ir_module)
 
 
@@ -321,7 +334,8 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     :param tuple includes: a collection of sources that will be used for type
                            and function information.
     :param str march: the architecture for which to compile.
-    :param bool debug: include debugging information yes or no
+    :param ReportGenerator reporter: reporter to write compilation report to
+    :param bool debug: include debugging information
     :return: an object file
 
     .. doctest::
@@ -342,7 +356,8 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     for ircode in ir_modules:
         optimize(ircode, level=opt_level, reporter=reporter)
 
-    return ir_to_object(ir_modules, march, debug_db, reporter=reporter)
+    return ir_to_object(
+        ir_modules, march, debug_db, debug=debug, reporter=reporter)
 
 
 def bf2ir(source, target):

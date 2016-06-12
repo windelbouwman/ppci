@@ -8,11 +8,11 @@ import io
 from ...common import CompilerError, DiagnosticsManager
 from ...irutils import Verifier
 from ...opt.mem2reg import Mem2RegPromotor
+from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ...binutils.debuginfo import DebugDb
 
 
 class C3Builder:
@@ -20,8 +20,9 @@ class C3Builder:
         Generates IR-code from c3 source.
         Reports errors to the diagnostics system.
     """
+    logger = logging.getLogger('c3')
+
     def __init__(self, diag, arch):
-        self.logger = logging.getLogger('c3')
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
@@ -90,7 +91,7 @@ class C3Builder:
 
     def check_control_flow(self, ir_module):
         pas = Mem2RegPromotor(self.debug_db)
-        pas.run(ir_module)
+        # pas.run(ir_module)
         self.verifier.verify(ir_module)
 
     def do_parse(self, src, context):
@@ -100,6 +101,7 @@ class C3Builder:
 
 
 def parse_expr(src):
+    """ Parse a c3 expression from a string """
     parser = C3ExprParser()
     return parser.parse(src)
 

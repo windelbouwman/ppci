@@ -6,7 +6,7 @@ import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
 from .layout import Layout, Section, SymbolDefinition, Align
-from .debuginfo import SectionAdjustingReplicator
+from .debuginfo import SectionAdjustingReplicator, DebugInfo
 
 
 class Linker:
@@ -31,6 +31,8 @@ class Linker:
 
         # Create new object file to store output:
         dst = ObjectFile(self.arch)
+        if debug:
+            dst.debug_info = DebugInfo()
 
         # First merge all sections into output sections:
         self.merge_objects(input_objects, dst, debug)
@@ -54,6 +56,7 @@ class Linker:
     def merge_objects(self, input_objects, dst, debug):
         """ Merge object files into a single object file """
         for input_object in input_objects:
+            self.logger.debug('Merging %s', input_object)
             offsets = {}
             # Merge sections:
             for input_section in input_object.sections:
@@ -63,6 +66,7 @@ class Linker:
 
                 # Align section:
                 while output_section.size % input_section.alignment != 0:
+                    self.logger.debug('Padding output to ensure alignment')
                     output_section.add_data(bytes([0]))
 
                 # Alter the output section alignment if required:
@@ -74,8 +78,9 @@ class Linker:
                 offsets[input_section.name] = offset
                 output_section.add_data(input_section.data)
                 self.logger.debug(
-                    '%d %s(%s)', offsets[input_section.name],
-                    str(input_object), input_section.name)
+                    'at offset 0x%x section %s',
+                    offsets[input_section.name],
+                    input_section)
 
             # Merge symbols:
             for sym in input_object.symbols:
@@ -88,7 +93,7 @@ class Linker:
                 dst.add_relocation(reloc.sym, offset, reloc.typ, reloc.section)
 
             # Merge debug info:
-            if debug:
+            if debug and input_object.debug_info:
                 replicator = SectionAdjustingReplicator(offsets)
                 replicator.replicate(input_object.debug_info, dst.debug_info)
 
@@ -106,9 +111,9 @@ class Linker:
                         current_address += 1
                     section.address = current_address
                     self.logger.debug(
-                        'Memory: {} Section: {} Address: 0x{:X} Size: 0x{:X}'
-                        .format(mem.name, section.name,
-                                section.address, section.size))
+                        'Memory: %s Section: %s Address: 0x%x Size: 0x%x',
+                        mem.name, section.name,
+                        section.address, section.size)
                     current_address += section.size
                     image.add_section(section)
                 elif isinstance(memory_input, SymbolDefinition):

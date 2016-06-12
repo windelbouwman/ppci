@@ -27,21 +27,27 @@ class ArmArch(Architecture):
             self.assembler = ThumbAssembler()
             self.isa = thumb_isa + data_isa
             self.FrameClass = ThumbFrame
+            # We use r7 as frame pointer (in case of thumb ;)):
+            self.fp = R7
+            self.value_classes[i32] = Reg8Op
+            self.value_classes[i8] = Reg8Op
+            self.value_classes[ptr] = Reg8Op
+
+            # Registers usable by register allocator:
+            self.allocatable_registers = [R0, R1, R2, R3, R4, R5, R6]
         else:
             self.isa = arm_isa + data_isa
             self.assembler = ArmAssembler()
             self.FrameClass = ArmFrame
+            self.fp = R11
+            self.value_classes[i32] = ArmRegister
+            self.value_classes[i8] = ArmRegister
+            self.value_classes[ptr] = ArmRegister
+
+            # Registers usable by register allocator:
+            self.allocatable_registers = [R0, R1, R2, R3, R4, R5, R6, R7, R8]
         self.assembler.gen_asm_parser(self.isa)
         self.registers.extend(all_registers)
-        self.value_classes[i32] = Reg8Op
-        self.value_classes[i8] = Reg8Op
-        self.value_classes[ptr] = Reg8Op
-
-        # Registers usable by register allocator:
-        self.allocatable_registers = [R0, R1, R2, R3, R4, R5, R6]
-
-        # We use r7 as frame pointer:
-        self.fp = R7
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
@@ -224,8 +230,7 @@ class ArmFrame(Frame):
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
         # Allocatable registers:
-        self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
-        self.fp = R11
+        # self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
 
     def new_virtual_register(self, twain=""):
         """ Retrieve a new virtual register """

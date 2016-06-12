@@ -14,6 +14,7 @@ from ..common import str2int, CompilerError
 from .. import __version__ as ppci_version
 from .disasm import Disassembler
 from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
+from .debuginfo import DebugInfo
 from .debuginfo import DebugPointerType, DebugAddress, FpOffsetAddress
 from .outstream import RecordingOutputStream
 from ..lang.c3.builder import C3ExprParser
@@ -73,6 +74,7 @@ class Debugger:
         self.register_values = {rn: 0 for rn in self.register_names}
         self.debug_info = None
         self.variable_map = {}
+        self.addr_map = {}
 
         # Subscribe to events:
         self.state_event.subscribe(self.on_halted)
@@ -137,6 +139,7 @@ class Debugger:
         """ Single step the debugged program """
         self.logger.info('step')
         self.driver.step()
+        self.logger.info('program counter 0x%x', self.get_pc())
         self.state_event.fire()
 
     def get_status(self):
@@ -165,9 +168,20 @@ class Debugger:
                 self.logger.info('memory image %s validated!', image)
             else:
                 self.logger.warning('Memory image %s mismatch!', image)
-        self.debug_info = obj.debug_info
+
+        if obj.debug_info:
+            self.debug_info = obj.debug_info
+        else:
+            self.logger.warning('No debug information in object')
+            self.debug_info = DebugInfo()
+
         self.obj = obj
         self.variable_map = {v.name: v for v in self.debug_info.variables}
+        self.addr_map = {}
+        for loc in self.debug_info.locations:
+            addr = self.calc_address(loc.address)
+            self.addr_map[addr] = loc
+            self.logger.debug('%s at 0x%x', loc, addr)
         # print(self.variable_map)
 
     def calc_address(self, address):
@@ -186,13 +200,11 @@ class Debugger:
         if not self.debug_info:
             return
         pc = self.get_pc()
-        for debug in self.debug_info.locations:
-            # print(debug)
-            addr = self.calc_address(debug.address)
-            if pc == addr:
-                self.logger.info('Found program counter at %s', debug)
-                loc = debug.loc
-                return loc.filename, loc.row
+        if pc in self.addr_map:
+            debug = self.addr_map[pc]
+            self.logger.info('Found program counter at %s', debug)
+            loc = debug.loc
+            return loc.filename, loc.row
 
     def find_address(self, filename, row):
         """ Given a filename and a row, determine the address """

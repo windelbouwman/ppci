@@ -299,10 +299,12 @@ class DebugInfoReplicator:
             debug_info_out.add(self.do_variable(variable))
 
     def do_location(self, location):
+        """ Process location information """
         address = self.do_address(location.address)
         return DebugLocation(location.loc, address=address)
 
     def do_function(self, function):
+        """ Replicate function debug information """
         begin = self.do_address(function.begin)
         end = self.do_address(function.end)
         variables = [self.do_variable(v) for v in function.variables]
@@ -315,28 +317,32 @@ class DebugInfoReplicator:
         return typ
 
     def do_variable(self, variable):
+        """ Replicate a variable """
         address = self.do_address(variable.address)
         return DebugVariable(
             variable.name, variable.typ, variable.loc, address=address)
 
     def do_address(self, address):
+        """ Replicate an address """
         if isinstance(address, DebugAddress):
             return DebugAddress(address.section, address.offset)
         elif isinstance(address, FpOffsetAddress):
             return FpOffsetAddress(address.offset)
         elif isinstance(address, UnknownAddress):
             return UnknownAddress()
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(address))
 
 
 class SectionAdjustingReplicator(DebugInfoReplicator):
+    """ Replicate debug information, but shift offsets in sections by
+        the amount given in the offsets dictionary """
     def __init__(self, offsets):
         self.offsets = offsets
 
     def do_address(self, address):
         if isinstance(address, DebugAddress):
-            offset = address.offset + 12
+            offset = address.offset + self.offsets[address.section]
             return DebugAddress(address.section, offset)
         else:
             return super().do_address(address)
@@ -427,7 +433,7 @@ class DictSerializer:
                 'kind': 'pointer',
                 'pointed_type': self.get_type_id(typ.pointed_type),
             }
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(type(typ)))
 
     def write_source_location(self, loc):
@@ -456,7 +462,7 @@ class DictSerializer:
             return {
                 'kind': 'unknown'
             }
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(address))
 
     def get_type_id(self, typ):
@@ -529,7 +535,7 @@ class DictDeserializer:
             return FpOffsetAddress(x['offset'])
         elif kind == 'unknown':
             return UnknownAddress()
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(kind)
 
     def get_type(self, idx):
@@ -564,6 +570,6 @@ class DictDeserializer:
             etype = self.get_type(t['element_type'])
             dt = DebugArrayType(etype, t['size'])
             self.types[idx] = dt
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(kind)
         return self.types[idx]

@@ -10,7 +10,7 @@ from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python, run_msp430_mem
 from util import do_long_tests
 from ppci.api import asm, c3c, link, objcopy, bfcompile
-from ppci.api import c3toir, bf2ir, ir_to_python
+from ppci.api import c3toir, bf2ir, ir_to_python, optimize
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
 from ppci.binutils.objectfile import merge_memories
 
@@ -783,10 +783,11 @@ class TestSamplesOnRiscv(
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnCortexM3(
+class TestSamplesOnCortexM3O2(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
+    opt_level = 2
     march = "arm:thumb"
     startercode = """
     section reset
@@ -845,6 +846,9 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
             elif lang == 'bf':
                 ir_modules = [bf2ir(src, 'arm')]
 
+            for ir_module in ir_modules:
+                optimize(ir_module, level=self.opt_level, reporter=reporter)
+
             with open(sample_filename, 'w') as f:
                 ir_to_python(ir_modules, f, reporter=reporter)
 
@@ -858,12 +862,13 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
         self.assertEqual(expected_output, res)
 
 
-#class TestSamplesOnPythonO2(TestSamplesOnPython):
-#    opt_level = 2
+class TestSamplesOnPythonO2(TestSamplesOnPython):
+    opt_level = 2
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
+    opt_level = 2
     march = "msp430"
     startercode = """
       section reset_vector
@@ -934,7 +939,8 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnAvrO2(unittest.TestCase, SimpleSamples, BuildMixin):
+    opt_level = 2
     march = "avr"
     startercode = """
     section reset
