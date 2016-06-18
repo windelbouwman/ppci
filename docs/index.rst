@@ -9,7 +9,6 @@ Table of contents
 
     self
     quickstart
-    api
     reference
     contributing
     faq

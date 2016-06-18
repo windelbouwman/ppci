@@ -10,8 +10,7 @@ from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.isa import Instruction
 from ..arch.data_instructions import Ds
-from ..binutils.debuginfo import DebugType, DebugVariable, DebugLocation
-from ..binutils.debuginfo import FpOffsetAddress
+from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder, make_label_name
 from .instructionselector import InstructionSelector1
@@ -92,8 +91,9 @@ class CodeGenerator:
             'Generating %s code for function %s',
             str(self.arch), ir_function.name)
 
-        reporter.function_header(ir_function, self.arch)
+        reporter.heading(3, 'Log for {}'.format(ir_function))
         reporter.dump_ir(ir_function)
+
 
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
@@ -114,7 +114,6 @@ class CodeGenerator:
         # Define arguments live at first instruction:
         self.define_arguments_live(frame)
 
-        reporter.message('Selected instruction for {}'.format(ir_function))
         reporter.dump_frame(frame)
 
         # Do register allocation:
@@ -142,7 +141,7 @@ class CodeGenerator:
             dd = DebugData(d)
             output_stream.emit(dd)
 
-        reporter.function_footer(instruction_list)
+        reporter.dump_instructions(instruction_list)
 
     def select_and_schedule(self, ir_function, frame, reporter):
         """ Perform instruction selection and scheduling """

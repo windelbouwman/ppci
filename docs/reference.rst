@@ -4,6 +4,7 @@ Reference
 
 .. toctree::
 
+    api
     usage
     c3
     buildxml

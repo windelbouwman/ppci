@@ -197,7 +197,6 @@ class InstructionSelector1:
 
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(ir_function, function_info)
-        reporter.message('Selection graph for {}'.format(ir_function))
         reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into trees:

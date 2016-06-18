@@ -50,7 +50,7 @@ class Architecture:
             ty = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}[bitsize]
         if ty:
             return self.value_classes[ty]
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def get_size(self, typ):
         """ Get type of ir type """
@@ -67,6 +67,7 @@ class Architecture:
             rv, live_out = self.determine_rv_location(function.return_ty)
         else:
             rv = None
+            # TODO: other things can be live out!
             live_out = set()
         frame = self.FrameClass(
             frame_name, arg_locs, live_in, rv, live_out)
@@ -75,10 +76,10 @@ class Architecture:
         frame.get_register = self.get_register
         return frame
 
-    def get_register(self, color):
+    def get_register(self, color):  # pragma: no cover
         raise NotImplementedError('get_register')
 
-    def move(self, dst, src):
+    def move(self, dst, src):  # pragma: no cover
         """ Generate a move from src to dst """
         raise NotImplementedError('Implement this')
 
@@ -105,13 +106,13 @@ class Architecture:
                 yield instr
             yield VCall(label, extra_uses=live_in)
         else:
-            raise RuntimeError()
+            raise RuntimeError()  # pragma: no cover
 
-    def make_call(self, frame, vcall):
+    def make_call(self, frame, vcall):  # pragma: no cover
         """ Actual call instruction implementation """
         raise NotImplementedError('Implement this')
 
-    def gen_fill_arguments(self, arg_types, args, live):
+    def gen_fill_arguments(self, arg_types, args, live):  # pragma: no cover
         """ Generate a sequence of instructions that puts the arguments of
         a function to the right place. """
         raise NotImplementedError('Implement this')
@@ -124,11 +125,11 @@ class Architecture:
         rv, live_out = self.determine_rv_location(res_type)
         yield self.move(res_var, rv)
 
-    def determine_arg_locations(self, arg_types):
+    def determine_arg_locations(self, arg_types):  # pragma: no cover
         """ Determine argument location for a given function """
         raise NotImplementedError('Implement this')
 
-    def determine_rv_location(self, ret_type):
+    def determine_rv_location(self, ret_type):  # pragma: no cover
         """ Determine the location of a return value of a function given the
         type of return value """
         raise NotImplementedError('Implement this')
@@ -137,7 +138,7 @@ class Architecture:
         """ Retrieve a relocation identified by a name """
         return self.isa.relocation_map[name]
 
-    def get_runtime(self):
+    def get_runtime(self):  # pragma: no cover
         raise NotImplementedError('Implement this')
 
     @lru_cache(maxsize=30)
@@ -163,7 +164,7 @@ class VirtualInstruction(Instruction):
         Virtual instructions are instructions used during code generation
         and can never be encoded into a stream.
     """
-    def encode(self):
+    def encode(self):  # pragma: no cover
         raise RuntimeError('Cannot encode virtual instruction')
 
 

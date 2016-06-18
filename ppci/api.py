@@ -26,6 +26,7 @@ from .codegen import CodeGenerator
 from .binutils.linker import Linker
 from .binutils.layout import Layout, load_layout
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
+from .binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .binutils.objectfile import ObjectFile, load_object
 from .binutils.debuginfo import DebugDb, DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
@@ -189,11 +190,12 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     """ Compile c3 sources to ir code using the includes and for the given
     target """
     logger = logging.getLogger('c3c')
-    logger.debug('C3 compilation started')
     march = get_arch(march)
     if not reporter:
         reporter = DummyReportGenerator()
 
+    logger.debug('C3 compilation started')
+    reporter.heading(2, 'c3 compilation')
     sources = [fix_file(fn) for fn in sources]
     includes = [fix_file(fn) for fn in includes]
     diag = DiagnosticsManager()
@@ -293,6 +295,8 @@ def ir_to_object(
     if not debug_db:
         debug_db = DebugDb()
 
+    reporter.heading(2, 'Code generation')
+    reporter.message("Target: {}".format(march))
     march = get_arch(march)
     code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
     verifier = Verifier()
@@ -300,7 +304,11 @@ def ir_to_object(
     obj = ObjectFile(march)
     if debug:
         obj.debug_info = DebugInfo()
-    output_stream = BinaryOutputStream(obj)
+    binary_output_stream = BinaryOutputStream(obj)
+    instruction_list = []
+    output_stream = MasterOutputStream([
+        FunctionOutputStream(instruction_list.append),
+        binary_output_stream])
 
     for ir_module in ir_modules:
         verifier.verify(ir_module)
@@ -312,6 +320,7 @@ def ir_to_object(
     # TODO: refactor polishing?
     obj.polish()
     reporter.message('All modules generated!')
+    reporter.dump_instructions(instruction_list)
     return obj
 
 

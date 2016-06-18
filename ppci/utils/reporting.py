@@ -46,10 +46,7 @@ class ReportGenerator:
     def dump_cfg_nodes(self, frame):
         pass
 
-    def function_header(self, irfunc, target):
-        pass
-
-    def function_footer(self, instruction_list):
+    def dump_instructions(self, instruction_list):
         pass
 
 
@@ -110,9 +107,6 @@ class TextReportGenerator(TextWritingReporter):
                 nde = frame.cfg.get_node(ins)
                 self.print('ins: {} {}'.format(ins, nde.longrepr))
 
-    def header(self):
-        pass
-
     def function_header(self, irfunc, target):
         self.print("========= Log for {} ==========".format(irfunc))
         self.print("Target: {}".format(target))
@@ -127,24 +121,43 @@ class TextReportGenerator(TextWritingReporter):
 
 @contextmanager
 def collapseable(html_generator, title):
-    html_generator.print('<div><div class="code button">')
+    html_generator.print('<div><div class="button">')
+    html_generator.print('<input type="checkbox" class="expand" />')
+    html_generator.print('<h4>{}</h4>'.format(title))
+    html_generator.print('<div>')
+    html_generator.print('<hr>')
     yield html_generator
+    html_generator.print('</div>')
     html_generator.print('</div></div>')
 
 
 HTML_HEADER = """<!DOCTYPE HTML>
 <html><head>
   <style>
+  .expand {
+    float: right;
+  }
+  .expand ~ div {
+    overflow: hidden;
+    height: auto;
+    transition: height 2s ease;
+  }
+  h4 {
+    margin: 0px;
+  }
+  .expand:not(:checked) ~ div {
+    height: 0px;
+  }
   .graphdiv {
     width: 500px;
     height: 500px;
     border: 1px solid gray;
   }
   .code {
-   padding: 10px;
+   padding: 2px;
    border: 1px solid black;
-   border-radius: 15px;
-   margin: 10px;
+   border-radius: 5px;
+   margin: 2px;
    font-weight: bold;
    display: inline-block;
   }
@@ -216,6 +229,13 @@ class HtmlReportGenerator(TextWritingReporter):
     def footer(self):
         self.print(HTML_FOOTER)
 
+    def heading(self, level, title):
+        html_tags = {
+            1: 'h1', 2: 'h2', 3: 'h3'
+        }
+        html_tag = html_tags[level]
+        self.print('<{0}>{1}</{0}>'.format(html_tag, title))
+
     def message(self, msg):
         self.print('<p>{}</p>'.format(msg))
 
@@ -241,13 +261,8 @@ class HtmlReportGenerator(TextWritingReporter):
         else:
             raise NotImplementedError()
 
-    def function_header(self, irfunc, target):
-        self.print("<h3>Log for {}</h3>".format(irfunc))
-        self.print("<p>Target: {}</p>".format(target))
-        # Writer().write_function(irfunc, f)
-
-    def function_footer(self, instruction_list):
-        with collapseable(self, 'Selected instructions'):
+    def dump_instructions(self, instruction_list):
+        with collapseable(self, 'Instructions'):
             self.print('<pre>')
             for ins in instruction_list:
                 self.print(ins)
@@ -278,7 +293,8 @@ class HtmlReportGenerator(TextWritingReporter):
             edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
             edge2.set_color(color_map[edge.kind])
         # self.render_graph(graph)
-        self.print('<p><b>To be implemented</b></p>')
+        with collapseable(self, 'Selection graph'):
+            self.print('<p><b>To be implemented</b></p>')
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
@@ -288,8 +304,9 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print("- {}".format(root))
 
     def dump_trees(self, ir_function, function_info):
-        self.message('Selection trees for {}'.format(ir_function))
-        with collapseable(self, 'trees'):
+        with collapseable(self, 'Selection trees'):
+            self.message('Selection trees for {}'.format(ir_function))
+            self.print('<hr>')
             self.print('<pre>')
             for ir_block in ir_function:
                 self.print(str(ir_block))
