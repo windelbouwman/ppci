@@ -227,3 +227,8 @@ class CodeGenerator:
         frame.instructions.insert(0, ins0)
         for register in frame.live_in:
             ins0.add_def(register)
+
+        ins2 = RegisterUseDef()
+        frame.instructions.append(ins2)
+        for register in frame.live_out:
+            ins2.add_use(register)

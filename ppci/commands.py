@@ -132,7 +132,8 @@ includes. C3 includes have the same format as c3 source files, but do not
 result in any code.
 """
 c3c_parser = argparse.ArgumentParser(
-    description=c3c_description, parents=[base_parser, march_parser, out_parser])
+    description=c3c_description,
+    parents=[base_parser, march_parser, out_parser])
 c3c_parser.add_argument(
     '-i', '--include', action='append', metavar='include',
     help='include file', default=[])
@@ -141,7 +142,7 @@ c3c_parser.add_argument(
 c3c_parser.add_argument(
     '-g', help='create debug information', action='store_true', default=False)
 c3c_parser.add_argument(
-    '-O', help='optimize code', action='store_true', default=False)
+    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
 def c3c(args=None):

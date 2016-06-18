@@ -72,7 +72,7 @@ class X86_64Arch(Architecture):
         self.rv = rax
         """
         arg_locs = []
-        live_in = set()
+        live_in = set([rbp])
         regs = [rdi, rsi, rdx, rcx, r8, r9]
         for a in arg_types:
             # Determine register:
@@ -87,7 +87,7 @@ class X86_64Arch(Architecture):
 
         self.rv = rax
         """
-        live_out = set()
+        live_out = set([rbp])
         rv = rax
         live_out.add(rv)
         return rv, tuple(live_out)

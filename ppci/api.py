@@ -216,18 +216,29 @@ def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
     return ir_modules, debug_info
 
 
+OPT_LEVELS = ('0', '1', '2', 's')
+
+
 def optimize(ir_module, level=0, reporter=None, debug_db=None):
     """
         Run a bag of tricks against the :doc:`ir-code<ir>`.
         This is an in-place operation!
 
         :param ir.Module ir_module: The ir module to optimize.
-        :param int level: The optimization level, 2 is default.
+        :param level: The optimization level, 0 is default. Can be 0,1,2 or s
+                      0: No optimization
+                      1: some optimization
+                      2: more optimization
+                      s: optimize for size
     """
     logger = logging.getLogger('optimize')
-    logger.info('Optimizing module %s level %i', ir_module.name, level)
-    if level == 0:
+    level = str(level)
+    logger.info('Optimizing module %s level %s', ir_module.name, level)
+    assert level in OPT_LEVELS
+    if level == '0':
         return
+
+    # TODO: differentiate between optimization levels!
 
     if not reporter:
         reporter = DummyReportGenerator()
@@ -263,7 +274,7 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
 
 def ir_to_object(
         ir_modules, march, debug_db=None, reporter=None, debug=False,
-        opt=None):
+        opt='speed'):
     """
     Translate the given list of IR-modules into object code for the given
     architecture.
@@ -273,6 +284,7 @@ def ir_to_object(
     :param str march: the architecture for which to compile.
     :param ReportGenerator reporter: reporter to write compilation report to
     :param bool debug: include debugging information
+    :param str opt: optimization goal. Can be 'speed', 'size' or 'co2'.
     :return: an object file
     """
     if not reporter:
@@ -280,9 +292,6 @@ def ir_to_object(
 
     if not debug_db:
         debug_db = DebugDb()
-
-    if opt is None:
-        opt = 'speed'
 
     march = get_arch(march)
     code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
@@ -356,8 +365,11 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     for ircode in ir_modules:
         optimize(ircode, level=opt_level, reporter=reporter)
 
+    opt_cg = 'size' if opt_level == 's' else 'speed'
     return ir_to_object(
-        ir_modules, march, debug_db, debug=debug, reporter=reporter)
+        ir_modules, march,
+        debug_db=debug_db, debug=debug, reporter=reporter,
+        opt=opt_cg)
 
 
 def bf2ir(source, target):
