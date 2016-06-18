@@ -3,8 +3,10 @@ import unittest
 from ppci.common import CompilerError
 from ppci.binutils.dbg import Debugger, DummyDebugDriver
 from ppci.binutils import debuginfo
+from ppci.binutils.objectfile import ObjectFile
 from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
+from ppci.common import SourceLocation
 
 
 class DebuggerTestCase(unittest.TestCase):
@@ -68,6 +70,27 @@ class DebuggerTestCase(unittest.TestCase):
         self.debugger.eval_c3_str('&D')
         self.debugger.eval_c3_str('+D')
         self.debugger.eval_c3_str('-D')
+
+    def test_expressions_with_locals(self):
+        """ See if expressions involving global variables can be evaluated """
+        src = """
+        module x;
+        var int Xa;
+        function int main()
+        {
+          var int Xa, b;
+          Xa = 2;
+          b = 2;
+          return Xa + b;
+        }
+        """
+        obj = c3c([io.StringIO(src)], [], self.arch, debug=True)
+        self.debugger.load_symbols(obj)
+        self.assertEqual(0, self.debugger.eval_c3_str('Xa').value)
+        self.assertEqual(-9, self.debugger.eval_c3_str('Xa + 1 -10').value)
+        self.assertEqual(20, self.debugger.eval_c3_str('(Xa + 1)*20').value)
+        self.assertEqual(0, self.debugger.eval_c3_str('b').value)
+        self.debugger.current_function()
 
 
 class DebugFormatTestCase(unittest.TestCase):
@@ -145,8 +168,26 @@ class LinkWithDebugTestCase(unittest.TestCase):
         obj2 = c3c([io.StringIO(src2)], [], 'arm', debug=True)
         obj = link([obj1, obj2], layout=io.StringIO(layout), debug=True)
         self.assertTrue(obj.debug_info.locations)
-        self.assertTrue(obj.debug_info.functions)
-        self.assertTrue(obj.debug_info.variables)
+        self.assertEqual(2, len(obj.debug_info.functions))
+        self.assertEqual(2, len(obj.debug_info.variables))
+
+    def test_offset_adjustment(self):
+        """ Test if offsets are correctly modified when linking debug info """
+        arch = get_arch('arm')
+        obj1 = ObjectFile(arch)
+        obj1.get_section('code', create=True).add_data(bytes(59))
+        obj2 = ObjectFile(arch)
+        obj2.get_section('code', create=True).add_data(bytes(59))
+        obj2.debug_info = debuginfo.DebugInfo()
+        loc = SourceLocation('a.txt', 1, 1, 22)
+        obj2.debug_info.add(
+            debuginfo.DebugLocation(
+                loc,
+                address=debuginfo.DebugAddress('code', 5)))
+        obj = link([obj1, obj2], debug=True)
+
+        # Take into account alignment! So 60 + 5 = 65.
+        self.assertEqual(65, obj.debug_info.locations[0].address.offset)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 
+import logging
 from qtwrapper import QtCore, QtWidgets
 from qtwrapper import Qt
 from ppci.binutils.debuginfo import DebugBaseType, DebugArrayType
@@ -48,27 +49,23 @@ class PartialVariable:
                 raise NotImplementedError(str(self.typ))
         return self._children
 
+    def refresh(self, debugger):
+        pass
+
 
 class VariableModel(QtCore.QAbstractItemModel):
     """ Model that contains a view on the current values of variables """
-    def __init__(self, debugger):
+    def __init__(self, debugger, roots):
         super().__init__()
         self.debugger = debugger
         self.debugger.state_event.subscribe(self.on_state_changed)
-        print(self.debugger.obj)
         self.headers = ('Name', 'Value', 'Type', 'Address')
-        self.roots = []
-        variables = self.debugger.obj.debug_info.variables
-        for row, var in enumerate(variables):
-            addr = self.debugger.calc_address(var.address)
-            pv = PartialVariable(var.name, var.typ, addr, row, None)
-            self.roots.append(pv)
+        self.roots = roots
 
     def on_state_changed(self):
         if self.debugger.is_halted:
             from_index = self.index(0, 1)
-            variables = self.debugger.obj.debug_info.variables
-            to_index = self.index(len(variables) - 1, 1)
+            to_index = self.index(len(self.roots) - 1, 1)
             self.dataChanged.emit(from_index, to_index)
 
     def headerData(self, section, orientation, role):
@@ -131,9 +128,48 @@ class VariableModel(QtCore.QAbstractItemModel):
                 raise NotImplementedError()
 
 
+def calc_roots(debugger, variables):
+    roots = []
+    for row, var in enumerate(variables):
+        addr = debugger.calc_address(var.address)
+        pv = PartialVariable(var.name, var.typ, addr, row, None)
+        roots.append(pv)
+    return roots
+
+
 class VariablesView(QtWidgets.QTreeView):
     """ A widgets displaying current values of variables """
     def __init__(self, debugger):
         super().__init__()
-        model = VariableModel(debugger)
+        roots = calc_roots(debugger, debugger.obj.debug_info.variables)
+        model = VariableModel(debugger, roots)
         self.setModel(model)
+
+
+class LocalsView(QtWidgets.QTreeView):
+    """ A widgets displaying current values of locals """
+    def __init__(self, debugger):
+        super().__init__()
+        self._cur_func = None
+        self.debugger = debugger
+        self.debugger.state_event.subscribe(self.on_state_changed)
+        #model = VariableModel(debugger)
+        #self.setModel(model)
+        # TODO!
+
+    def on_state_changed(self):
+        cur_func = self.debugger.current_function()
+        self.set_current_function(cur_func)
+
+    def set_current_function(self, cur_func):
+        # if cur_func != self._cur_func:
+        self._cur_func = cur_func
+        if cur_func:
+                logging.debug('Now in %s', cur_func)
+                self.set_new_model(cur_func)
+
+    def set_new_model(self, cur_func):
+        roots = calc_roots(self.debugger, cur_func.variables)
+        model = VariableModel(self.debugger, roots)
+        self.setModel(model)
+        # TODO: cleanup old model?

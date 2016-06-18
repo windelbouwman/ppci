@@ -182,7 +182,6 @@ class Debugger:
             addr = self.calc_address(loc.address)
             self.addr_map[addr] = loc
             self.logger.debug('%s at 0x%x', loc, addr)
-        # print(self.variable_map)
 
     def calc_address(self, address):
         """ Calculate the actual address based on section and offset """
@@ -190,9 +189,8 @@ class Debugger:
             section = self.obj.get_section(address.section)
             return section.address + address.offset
         elif isinstance(address, FpOffsetAddress):
-            # print('rel offset')
             return self.get_fp() + address.offset
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(address))
 
     def find_pc(self):
@@ -205,6 +203,22 @@ class Debugger:
             self.logger.info('Found program counter at %s', debug)
             loc = debug.loc
             return loc.filename, loc.row
+
+    def current_function(self):
+        """ Determine the PC and then determine which function we are in """
+        pc = self.get_pc()
+        for function in self.debug_info.functions:
+            begin = self.calc_address(function.begin)
+            end = self.calc_address(function.end)
+            if pc in range(begin, end):
+                return function
+
+    def local_vars(self):
+        """ Return map of local variable names """
+        cur_func = self.current_function()
+        if not cur_func:
+            return {}
+        return {v.name: v for v in cur_func.variables}
 
     def find_address(self, filename, row):
         """ Given a filename and a row, determine the address """
@@ -263,7 +277,7 @@ class Debugger:
         elif isinstance(typ, DebugStructType):
             # TODO: handle alignment?
             return sum(self.sizeof(field[1]) for field in typ.fields)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
     def eval_c3_expr(self, expr, rval=True):
@@ -350,7 +364,12 @@ class Debugger:
         elif isinstance(expr, c3nodes.Identifier):
             # Fetch variable:
             name = expr.target
-            if name in self.variable_map:
+            local_vars = self.local_vars()
+            if name in local_vars:
+                var = local_vars[name]
+                addr = self.calc_address(var.address)
+                val = TmpValue(addr, True, var.typ)
+            elif name in self.variable_map:
                 var = self.variable_map[name]
                 addr = self.calc_address(var.address)
                 val = TmpValue(addr, True, var.typ)

@@ -11,7 +11,7 @@ from codeedit import CodeEdit
 from logview import LogView as BuildOutput
 from regview import RegisterView
 from memview import MemoryView
-from varview import VariablesView
+from varview import VariablesView, LocalsView
 from disasm import Disassembly
 from dbgtoolbar import DebugToolbar
 
@@ -106,7 +106,8 @@ class DebugUi(QtWidgets.QMainWindow):
         self.regview = addComponent('Registers', RegisterView(debugger))
         self.memview = addComponent('Memory', MemoryView(debugger))
         self.disasm = addComponent('Disasm', Disassembly(debugger))
-        self.locals = addComponent('Variables', VariablesView(debugger))
+        self.variables = addComponent('Variables', VariablesView(debugger))
+        self.locals = addComponent('Locals', LocalsView(debugger))
         self.ctrlToolbar = DebugToolbar(debugger)
         self.addToolBar(self.ctrlToolbar)
         self.ctrlToolbar.setObjectName('debugToolbar')
