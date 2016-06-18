@@ -87,7 +87,6 @@ class CodeGenerator:
             # Create debug infos:
             dbg_typ = self.get_debug_type(var.typ)
             dv = DebugVariable(var.name, dbg_typ, var.loc)
-            dv.scope = 'global'
             self.debug_db.enter(ir_var, dv)
 
     def emit(self, instruction, loc=None):
@@ -203,7 +202,6 @@ class CodeGenerator:
             # Debug info:
             dbg_typ = self.get_debug_type(sym.typ)
             dv = DebugVariable(sym.name, dbg_typ, sym.loc)
-            dv.scope = 'local'
             self.debug_db.enter(variable, dv)
             dfi.add_variable(dv)
 

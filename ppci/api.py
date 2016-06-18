@@ -537,8 +537,6 @@ def write_ldb(obj, output_file):
             'function: {} <0> @ 0x{:08X}'.format(name, address),
             file=output_file)
     for var in debug_info.variables:
-        if var.scope != 'global':
-            continue
         name = var.name
         address = fx(var.address)
         print(
