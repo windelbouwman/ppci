@@ -1,3 +1,9 @@
+"""
+
+.. autoclass:: ppci.codegen.interferencegraph.InterferenceGraph
+    :members: get_node, combine, interfere
+
+"""
 
 import logging
 from ..utils.graph import Graph, Node
@@ -5,27 +11,34 @@ from ..arch.isa import Register
 
 
 class InterferenceGraphNode(Node):
-
-    def __init__(self, g, varname):
-        super().__init__(g)
-        self.temps = {varname}
+    """ Node in an interference graph. Represents a single register """
+    def __init__(self, graph, vreg, register_class):
+        super().__init__(graph)
+        self.temps = {vreg}
         self.moves = set()
-        self.color = varname.color
+        self.color = vreg.color
+        self.reg_class = register_class
+
+    @property
+    def is_colored(self):
+        return self.color is not None
 
     def __repr__(self):
-        return '{}({})'.format(self.temps, self.color)
+        return '{}(color={},class={})'.format(
+            self.temps, self.color, self.reg_class)
 
 
 class InterferenceGraph(Graph):
-    """
-        Interference graph.
-    """
-    def __init__(self, flowgraph):
+    """ Interference graph. """
+    def __init__(self, cls_map):
         """ Create a new interference graph from a flowgraph """
         super().__init__()
         self.logger = logging.getLogger('interferencegraph')
         self.temp_map = {}
-        self.calculate_interference(flowgraph)
+
+        # TODO: we have a function that maps a temporary to a class.
+        # a temporary is often in more than one class... How to handle this?
+        self.cls_map = cls_map
 
     def calculate_interference(self, flowgraph):
         """ Construct interference graph """
@@ -52,7 +65,8 @@ class InterferenceGraph(Graph):
             node = self.temp_map[tmp]
             assert tmp in node.temps
         else:
-            node = InterferenceGraphNode(self, tmp)
+            reg_class = self.cls_map(tmp)
+            node = InterferenceGraphNode(self, tmp, reg_class)
             self.add_node(node)
             self.temp_map[tmp] = node
         return node

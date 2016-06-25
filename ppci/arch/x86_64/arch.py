@@ -13,7 +13,8 @@ from .instructions import MovRegRm, RmReg, isa
 from .instructions import Push, Pop, SubImm, AddImm
 from .instructions import Call, Ret
 from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
-from .registers import all_registers, get_register
+from .registers import all_registers, get_register, LowRegister
+from .registers import al, bl
 from .registers import rbx, rbp, rsp
 from .registers import r10, r11, r12, r13, r14, r15
 
@@ -36,10 +37,14 @@ class X86_64Arch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
 
-        self.allocatable_registers = [
-            rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]
+        self.register_classes = {
+            'reg64': (
+                [rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15],
+                X86Register),
+            'reg8': ([al, bl], LowRegister)
+            }
+        # self.alias(al, rax)
         self.fp = rbp
-        self.rv = rax
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

@@ -15,7 +15,7 @@ Pattern = namedtuple(
 class Register:
     """ Baseclass of all registers types """
     def __init__(self, name, num=None):
-        assert type(name) is str
+        assert isinstance(name, str)
         self.name = name
         self._num = num
         if num is not None:
@@ -32,6 +32,7 @@ class Register:
 
     @property
     def color(self):
+        """ The coloring of this register """
         return self._num
 
     @property

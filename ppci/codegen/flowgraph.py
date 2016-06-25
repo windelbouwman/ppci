@@ -152,5 +152,6 @@ class FlowGraph(DiGraph):
 
                     ins2 = ins1
 
-        self.logger.debug('Iterations: {} * {}'
-                          .format(n_iterations, len(self)))
+        self.logger.debug(
+            'Iterations: %s,  nodes: %s',
+            n_iterations, len(self))

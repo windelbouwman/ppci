@@ -62,8 +62,11 @@ class RiscvArch(Architecture):
         self.value_classes[ptr] = RiscvRegister
 
         # Allocatable registers:
-        self.allocatable_registers = [
-            R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27]
+        self.register_classes = {
+            'reg': (
+                [R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27],
+                RiscvRegister)
+            }
         self.fp = FP
 
     def get_runtime(self):

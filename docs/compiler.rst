@@ -38,32 +38,7 @@ The compiler is greatly influenced by the `LLVM`_ design.
 C3 Front-end
 ------------
 
-For the front-end a recursive descent parser is created for the :doc:`c3<c3>`
-language.
-This is a subset of the C language with some additional features.
-
-.. graphviz::
-  
-   digraph c3 {
-   rankdir="LR"
-   1 [label="source text"]
-   10 [label="lexer" ]
-   20 [label="parser" ]
-   40 [label="code generation"]
-   99 [label="IR-code object"]
-   1 -> 10
-   10 -> 20
-   20 -> 40
-   40 -> 99
-   }
-
-.. autoclass:: ppci.lang.c3.Lexer
-
-.. autoclass:: ppci.lang.c3.Parser
-
-.. autoclass:: ppci.lang.c3.CodeGenerator
-
-.. autoclass:: ppci.lang.c3.C3Builder
+.. automodule:: ppci.lang.c3
 
 
 Brainfuck frontend
@@ -105,15 +80,11 @@ Back-end
 
 The back-end is more complicated. There are several steps to be taken here.
 
-#. Canonicalization
 #. Tree creation
 #. Instruction selection
-#. register allocation
-#. Instruction emission
-#. TODO: Peep hole optimization?
+#. Register allocation
+#. Peep hole optimization
 
-.. toctree::
-    specificationlang
 
 Code generator
 ~~~~~~~~~~~~~~
@@ -151,10 +122,7 @@ bottom up rewrite generator (BURG). See pyburg.
 Register allocation
 ~~~~~~~~~~~~~~~~~~~
 
-The selected instructions are used to select correct registers.
-
-.. autoclass:: ppci.codegen.registerallocator.RegisterAllocator
-
+.. automodule:: ppci.codegen.registerallocator
 
 code emission
 ~~~~~~~~~~~~~

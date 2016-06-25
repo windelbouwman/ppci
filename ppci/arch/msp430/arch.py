@@ -43,8 +43,10 @@ class Msp430Arch(Architecture):
         self.registers.append(r15)
 
         # Allocatable registers:
-        self.allocatable_registers = [
-            r5, r6, r7, r8, r9, r10, r11, r13, r14, r15]
+        self.register_classes = {
+            'reg': (
+                [r5, r6, r7, r8, r9, r10, r11, r13, r14, r15], Msp430Register)
+            }
         self.fp = r4
         self.caller_save = (r11, r13, r14, r15)  # TODO: fix r12 reg!!
 

@@ -1,12 +1,12 @@
 import unittest
-from ppci.codegen.registerallocator import RegisterAllocator
+from ppci.codegen.registerallocator import GraphColoringRegisterAllocator
 from ppci.api import get_arch
 from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 from ppci.binutils.debuginfo import DebugDb
 
 
-class RegisterAllocatorTestCase(unittest.TestCase):
+class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
     """ Use the example target to test the different cases of the register
         allocator.
         Possible cases: freeze of move, spill of register
@@ -14,7 +14,8 @@ class RegisterAllocatorTestCase(unittest.TestCase):
     def setUp(self):
         arch = get_arch('example')
         debug_db = DebugDb()
-        self.register_allocator = RegisterAllocator(arch, debug_db)
+        self.register_allocator = GraphColoringRegisterAllocator(
+            arch, debug_db)
 
     def conflict(self, ta, tb):
         color_a = self.register_allocator.Node(ta).color

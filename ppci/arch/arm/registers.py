@@ -32,7 +32,7 @@ class ArmRegister(Register):
         ]
 
 
-class Reg8Op(ArmRegister):
+class LowArmRegister(ArmRegister):
     syntaxi = '$loreg$', [
         Syntax(['r0'], new_func=lambda: R0),
         Syntax(['r1'], new_func=lambda: R1),
@@ -62,14 +62,14 @@ class RegisterSet(set):
         return ', '.join(reg_names)
 
 
-R0 = Reg8Op('R0', num=0)
-R1 = Reg8Op('R1', num=1)
-R2 = Reg8Op('R2', num=2)
-R3 = Reg8Op('R3', num=3)
-R4 = Reg8Op('R4', num=4)
-R5 = Reg8Op('R5', num=5)
-R6 = Reg8Op('R6', num=6)
-R7 = Reg8Op('R7', num=7)
+R0 = LowArmRegister('R0', num=0)
+R1 = LowArmRegister('R1', num=1)
+R2 = LowArmRegister('R2', num=2)
+R3 = LowArmRegister('R3', num=3)
+R4 = LowArmRegister('R4', num=4)
+R5 = LowArmRegister('R5', num=5)
+R6 = LowArmRegister('R6', num=6)
+R7 = LowArmRegister('R7', num=7)
 R8 = ArmRegister('R8', num=8)
 R9 = ArmRegister('R9', num=9)
 R10 = ArmRegister('R10', num=10)
@@ -83,6 +83,13 @@ registers_low = [R0, R1, R2, R3, R4, R5, R6, R7]
 registers_high = [R8, R9, R10, R11, R12, SP, LR, PC]
 all_registers = registers_low + registers_high
 num2regmap = {r.num: r for r in all_registers}
+
+
+# TODO: register classes:
+register_classes = {
+    'loreg': [R0, R1, R2, R3, R4, R5, R6, R7],
+    '': []
+    }
 
 
 class Coreg(Register):

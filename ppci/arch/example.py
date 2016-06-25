@@ -10,6 +10,8 @@ from ..import ir
 
 
 class ExampleArch(Architecture):
+    """ Simple example architecture. This is intended as starting point
+    when creating a new backend """
     name = 'example'
     FrameClass = Frame
 
@@ -19,7 +21,9 @@ class ExampleArch(Architecture):
         self.value_classes[ir.ptr] = ExampleRegister
         self.byte_sizes['int'] = 4
         self.byte_sizes['ptr'] = 4
-        self.allocatable_registers = [R0, R1, R2, R3]
+        self.register_classes = {
+            'reg': ([R0, R1, R2, R3], ExampleRegister)
+            }
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
@@ -46,7 +50,9 @@ class ExampleArch(Architecture):
 
 
 class ExampleRegister(Register):
+    """ Example register class """
     bitsize = 32
+
 
 R0 = ExampleRegister('r0', 0)
 R1 = ExampleRegister('r1', 1)

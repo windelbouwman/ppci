@@ -15,7 +15,7 @@ from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder, make_label_name
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
-from .registerallocator import RegisterAllocator
+from .registerallocator import GraphColoringRegisterAllocator
 
 
 class CodeGenerator:
@@ -42,7 +42,8 @@ class CodeGenerator:
             arch, self.sgraph_builder, debug_db,
             weights=selection_weights)
         self.instruction_scheduler = InstructionScheduler()
-        self.register_allocator = RegisterAllocator(arch, debug_db)
+        self.register_allocator = GraphColoringRegisterAllocator(
+            arch, debug_db)
 
     def generate(
             self, ircode: ir.Module, output_stream, reporter, debug=False):

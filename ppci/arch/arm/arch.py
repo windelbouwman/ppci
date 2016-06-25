@@ -6,7 +6,7 @@ from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment, Frame
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from .registers import ArmRegister, register_range, Reg8Op, RegisterSet
+from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers, get_register
 from .registers import R5, R6, R7, R8
 from .registers import R9, R10, R11, LR, PC, SP
@@ -29,12 +29,14 @@ class ArmArch(Architecture):
             self.FrameClass = ThumbFrame
             # We use r7 as frame pointer (in case of thumb ;)):
             self.fp = R7
-            self.value_classes[i32] = Reg8Op
-            self.value_classes[i8] = Reg8Op
-            self.value_classes[ptr] = Reg8Op
+            self.value_classes[i32] = LowArmRegister
+            self.value_classes[i8] = LowArmRegister
+            self.value_classes[ptr] = LowArmRegister
 
             # Registers usable by register allocator:
-            self.allocatable_registers = [R0, R1, R2, R3, R4, R5, R6]
+            self.register_classes = {
+                'loreg': ([R0, R1, R2, R3, R4, R5, R6, R7], LowArmRegister)
+                }
         else:
             self.isa = arm_isa + data_isa
             self.assembler = ArmAssembler()
@@ -45,7 +47,12 @@ class ArmArch(Architecture):
             self.value_classes[ptr] = ArmRegister
 
             # Registers usable by register allocator:
-            self.allocatable_registers = [R0, R1, R2, R3, R4, R5, R6, R7, R8]
+            self.register_classes = {
+                'loreg': ([R0, R1, R2, R3, R4, R5, R6, R7], LowArmRegister),
+                'reg': (
+                    [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11],
+                    ArmRegister)
+                }
         self.assembler.gen_asm_parser(self.isa)
         self.registers.extend(all_registers)
 

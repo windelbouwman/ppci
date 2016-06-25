@@ -1,4 +1,92 @@
+"""
+Selected instructions use virtual registers and physical registers.
+Register allocation is the process of assigning a register to the virtual
+registers.
+
+Some key concepts in the domain of register allocation are:
+
+- **virtual register**: A value which must be mapped to a physical register.
+- **physical register**: A real register
+- **interference graph**: A graph in which each node represents a register.
+  An edge indicates that the two registers cannot have the same register
+  assigned.
+- **pre-colored register**: A register that is already assigned a specific
+  physical register.
+- **coalescing**: The process of merging two nodes in an interference graph
+  which do not interfere and are connected by a move instruction.
+- **spilling**: Spilling is the process when no physical register can be found
+  for a certain virtual register. Then this value will be placed in memory.
+- **register class**: Most CPU's contain registers grouped into classes. For
+  example, there may be registers for floating point, and registers for
+  integer operations.
+- **register alias**: Some registers may alias to registers in another class.
+  A good example are the x86 registers rax, eax, ax, al and ah.
+
+**Interference graph**
+
+Each instruction in the instruction list may use or define certain registers.
+A register is live between a use and define of a register. Registers that
+are live at the same point in the program interfere with each other.
+An interference graph is a graph in which each node represents a register
+and each edge represents interference between those two registers.
+
+**Graph coloring**
+
+In 1981 Chaitin presented the idea to use graph coloring for register
+allocation.
+
+In a graph a node can be colored if it has less neighbours than
+possible colors. This is true because when each neighbour has a different
+color, there is still a valid color left for the node itself.
+
+Given a graph, if a node can be colored, remove this node from the graph and
+put it on a stack. When added back to the graph, it can be given a color.
+Now repeat this process recursively with the remaining graph. When the
+graph is empty, place all nodes back from the stack one by one and assign
+each node a color when placed. Remember that when adding back, a color can
+be found, because this was the criteria during removal.
+
+See: https://en.wikipedia.org/wiki/Chaitin%27s_algorithm
+
+**Coalescing**
+
+**Spilling**
+
+**Iterated register coalescing**
+
+Iterated register coalescing (IRC) is a combination of graph coloring,
+coalescing and spilling.
+The process consists of the following steps:
+
+- build an interference graph from the instruction list
+- remove trivial colorable nodes.
+- (optional) coalesc registers to remove redundant moves
+- (optional) spill registers
+- select registers
+
+See: https://en.wikipedia.org/wiki/Register_allocation
+
+**Graph coloring with more register classes**
+
+Most instruction sets are not ideal, and hence simple graph coloring cannot
+be used. The algorithm can be modified to work with several register
+classes that possibly interfere.
+
+[Runeson2003]_
+[Smith2004]_
+
+
+**Implementations**
+
+The following class can be used to perform register allocation.
+
+.. autoclass:: ppci.codegen.registerallocator.GraphColoringRegisterAllocator
+    :members: alloc_frame, simplify, coalesc, freeze, is_colorable
+
+"""
+
 import logging
+from functools import lru_cache
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture
@@ -12,40 +100,76 @@ def first(x):
     return next(iter(x))
 
 
-class RegisterAllocator:
+# TODO: implement linear scan allocator and other allocators!
+
+class GraphColoringRegisterAllocator:
     """
         Target independent register allocator.
-
         Algorithm is iterated register coalescing by Appel and George.
-
-        Chaitin's algorithm: remove all nodes with less than K neighbours.
-        These nodes can be colored when added back.
-
-        The process consists of the following steps:
-
-        - build interference graph from the instruction list
-        - remove low degree non move related nodes.
-        - (optional) coalesc registers to remove redundant moves
-        - (optional) spill registers
-        - select registers
-
-        TODO: Implement different register classes
+        Also the pq-test algorithm for more register classes is added.
     """
     logger = logging.getLogger('registerallocator')
 
-    def __init__(self, arch, debug_db):
+    def __init__(self, arch: Architecture, debug_db):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
         self.debug_db = debug_db
 
+        # Register information:
+        # TODO: Improve different register classes
+        self.reg_colors = {}
+        self.K = {}
+        nmz = []
+        for cls, val in self.arch.register_classes.items():
+            regs, kls = val
+            nmz.append((kls, cls))
+            self.logger.debug('Register class "%s" contains %s', cls, regs)
+            self.reg_colors[cls] = set(r.color for r in regs)
+            self.K[cls] = len(regs)
+            # TODO: is this a hack?
+            for reg in regs:
+                reg.reg_class = cls
+
+        def cls_mapper(x):
+            for c, n in nmz:
+                if isinstance(x, c):
+                    return n
+            raise KeyError(x)
+
+        self.cls_mapper = cls_mapper
+
+    def alloc_frame(self, frame):
+        """
+            Do iterated register allocation for a single stack frame.
+            This is the entry function for register allocator and drives
+            through all stages.
+        """
+        self.init_data(frame)
+        self.build()
+        self.makeWorkList()
+        self.logger.debug('Starting iterative coloring')
+        while True:
+            # self.check_invariants()
+
+            # Run one of the possible steps:
+            if self.simplifyWorklist:
+                self.simplify()
+            elif self.worklistMoves:
+                self.coalesc()
+            elif self.freeze_worklist:
+                self.freeze()
+            elif self.spillWorklist:  # pragma: no cover
+                raise NotImplementedError('Spill not implemented')
+            else:
+                break   # Done!
+        self.logger.debug('Now assinging colors')
+        self.assign_colors()
+        self.remove_redundant_moves()
+        self.apply_colors()
+
     def init_data(self, frame):
         """ Initialize data structures """
         self.frame = frame
-
-        # Register information:
-        self.reg_colors = set(
-            reg.color for reg in self.arch.allocatable_registers)
-        self.K = len(self.reg_colors)
 
         # Move related sets:
         self.coalescedMoves = set()
@@ -54,30 +178,29 @@ class RegisterAllocator:
         self.activeMoves = set()
         self.worklistMoves = set()
 
-    def Build(self):
+    def build(self):
         """ 1. Construct interference graph from instruction list """
         self.frame.cfg = FlowGraph(self.frame.instructions)
-        self.logger.debug('Constructed flowgraph with {} nodes'
-                          .format(len(self.frame.cfg.nodes)))
+        self.logger.debug(
+            'Constructed flowgraph with %s nodes',
+            len(self.frame.cfg.nodes))
 
         self.frame.cfg.calculate_liveness()
-        self.frame.ig = InterferenceGraph(self.frame.cfg)
-        self.logger.debug('Constructed interferencegraph with {} nodes'
-                          .format(len(self.frame.ig.nodes)))
+        self.frame.ig = InterferenceGraph(self.cls_mapper)
+        self.frame.ig.calculate_interference(self.frame.cfg)
+        self.logger.debug(
+            'Constructed interferencegraph with %s nodes',
+            len(self.frame.ig.nodes))
 
         # Divide nodes into pre-colored and initial:
         self.precolored = set(
-            node for node in self.frame.ig.nodes if node.color is not None)
+            node for node in self.frame.ig.nodes if node.is_colored)
         self.initial = set(self.frame.ig.nodes - self.precolored)
-
-        # TODO: do not add the pre colored nodes at all.
-        for n in self.precolored:
-            # give pre colored nodes infinite degree:
-            n.addDegree = 100 + len(self.frame.ig.nodes) + self.K
 
         # Initialize color map:
         self.color = {}
         for node in self.precolored:
+            self.logger.debug('Pre colored: %s', node)
             self.color[node] = node.color
 
         self.moves = [i for i in self.frame.instructions if i.ismove]
@@ -89,16 +212,9 @@ class RegisterAllocator:
             src.moves.add(mv)
             dst.moves.add(mv)
 
-    def Node(self, vreg):
-        return self.frame.ig.get_node(vreg)
-
-    def has_edge(self, t, r):
-        """ Helper function to check for an interfering edge """
-        return self.frame.ig.has_edge(t, r)
-
     def makeWorkList(self):
         """ Divide initial nodes into worklists """
-        self.selectStack = []
+        self.select_stack = []
 
         # Fill initial move set, try to remove all moves:
         for m in self.moves:
@@ -106,32 +222,74 @@ class RegisterAllocator:
 
         # Make worklists for nodes:
         self.spillWorklist = []
-        self.freezeWorklist = []
+        self.freeze_worklist = []
         self.simplifyWorklist = []
 
         while self.initial:
-            n = self.initial.pop()
-            if n.Degree >= self.K:
-                self.spillWorklist.append(n)
-            elif self.MoveRelated(n):
-                self.freezeWorklist.append(n)
+            node = self.initial.pop()
+            self.logger.debug('Initial node: %s', node)
+            if not self.is_colorable(node):
+                self.spillWorklist.append(node)
+            elif self.is_move_related(node):
+                self.freeze_worklist.append(node)
             else:
-                self.simplifyWorklist.append(n)
+                self.simplifyWorklist.append(node)
+
+    def Node(self, vreg):
+        return self.frame.ig.get_node(vreg)
+
+    def has_edge(self, t, r):
+        """ Helper function to check for an interfering edge """
+        return self.frame.ig.has_edge(t, r)
+
+    @lru_cache(maxsize=None)
+    def q(self, B, C):
+        """
+        Determine the number of registers that can be blocked in
+        class B by class C.
+        """
+        assert isinstance(B, str)
+        assert isinstance(C, str)
+        # print(B, C)
+        # TODO: determine conflicts here!
+        return 1
+
+    def is_colorable(self, node):
+        """
+        Helper function to determine whether a node is trivially
+        colorable. This means: no matter the colors of the nodes neighbours,
+        the node can be given a color.
+
+        In case of one register class, this is: n.degree < self.K
+
+        In case of more than one register class, somehow the worst case
+        damage by all neighbours must be determined.
+
+        We do this now with the pq-test.
+        """
+        if node.is_colored:
+            return True
+
+        B = node.reg_class
+        num_blocked = sum(self.q(B, j.reg_class) for j in node.adjecent)
+        return num_blocked < self.K[B]
 
     def NodeMoves(self, n):
         return n.moves & (self.activeMoves | self.worklistMoves)
 
-    def MoveRelated(self, n):
+    def is_move_related(self, n):
         """ Check if a node is used by move instructions """
         return bool(self.NodeMoves(n))
 
-    def Simplify(self):
-        """ 2. Remove nodes from the graph """
+    def simplify(self):
+        """ Remove nodes from the graph """
         n = self.simplifyWorklist.pop()
-        self.selectStack.append(n)
+        self.select_stack.append(n)
+        self.logger.debug('Simplify node %s', n)
+
         # Pop out of graph, we place it back later:
         self.frame.ig.mask_node(n)
-        for m in n.Adjecent:
+        for m in n.adjecent:
             self.decrement_degree(m)
 
     def decrement_degree(self, m):
@@ -139,11 +297,12 @@ class RegisterAllocator:
             can be moved from the spill list to the freeze of simplify
             list
         """
-        if m.Degree == self.K - 1 and m in self.spillWorklist:
-            self.EnableMoves({m} | m.Adjecent)
+        # This check was m.degree == self.K - 1
+        if m in self.spillWorklist and self.is_colorable(m):
+            self.EnableMoves({m} | m.adjecent)
             self.spillWorklist.remove(m)
-            if self.MoveRelated(m):
-                self.freezeWorklist.append(m)
+            if self.is_move_related(m):
+                self.freeze_worklist.append(m)
             else:
                 self.simplifyWorklist.append(m)
 
@@ -154,8 +313,8 @@ class RegisterAllocator:
                     self.activeMoves.remove(m)
                     self.worklistMoves.add(m)
 
-    def Coalesc(self):
-        """ 3. Coalesc moves conservative.
+    def coalesc(self):
+        """ Coalesc moves conservative.
             This means, merge the variables of a move into
             one variable, and delete the move. But do this
             only when no spill will occur.
@@ -165,7 +324,7 @@ class RegisterAllocator:
         x = self.Node(m.defined_registers[0])
         y = self.Node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
-        # print('u,v', u, v)
+        self.logger.debug('Coalescing %s and %s', u, v)
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
@@ -178,9 +337,9 @@ class RegisterAllocator:
             self.add_worklist(u)
             self.add_worklist(v)
         elif (u in self.precolored and
-                all(self.Ok(t, u) for t in v.Adjecent)) or \
+                all(self.Ok(t, u) for t in v.adjecent)) or \
                 (u not in self.precolored and self.conservative(u, v)):
-            # print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.Adjecent)
+            # print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.adjecent)
             self.coalescedMoves.add(m)
             self.combine(u, v)
             self.add_worklist(u)
@@ -188,54 +347,57 @@ class RegisterAllocator:
             self.activeMoves.add(m)
 
     def add_worklist(self, u):
-        if (u not in self.precolored) and (not self.MoveRelated(u))\
-                and (u.Degree < self.K):
-            self.freezeWorklist.remove(u)
+        if (u not in self.precolored) and (not self.is_move_related(u))\
+                and self.is_colorable(u):
+            self.freeze_worklist.remove(u)
             self.simplifyWorklist.append(u)
 
     def Ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
         # print('ok', t,r)
-        return (t.Degree < self.K) or \
+        return self.is_colorable(t) or \
             (t in self.precolored) or \
             self.has_edge(t, r)
 
     def conservative(self, u, v):
-        """ Briggs conservative criteria for coalesc """
-        nodes = u.Adjecent | v.Adjecent
-        k = len(list(filter(lambda n: n.Degree >= self.K, nodes)))
-        return k < self.K
+        """
+            Briggs conservative criteria for coalescing:
+            If the result of the merge has fewer than K nodes that are
+            not trivially colorable, then coalescing is safe.
+        """
+        nodes = u.adjecent | v.adjecent
+        k = len(list(filter(lambda n: not self.is_colorable(n), nodes)))
+        # TODO: should this be altered for more register classes?
+        return k < self.K[u.reg_class]
 
     def combine(self, u, v):
         """ Combine u and v into one node, updating work lists """
-        # self.logger.debug('{} has degree {}'.format(v, v.Degree))
-        if v in self.freezeWorklist:
-            self.freezeWorklist.remove(v)
+        # self.logger.debug('{} has degree {}'.format(v, v.degree))
+        if v in self.freeze_worklist:
+            self.freeze_worklist.remove(v)
         else:
             self.spillWorklist.remove(v)
         self.frame.ig.combine(u, v)
 
         # See if any adjecent nodes dropped in degree by merging u and v
         # This can happen when u and v both interfered with t.
-        for t in u.Adjecent:
+        for t in u.adjecent:
             self.decrement_degree(t)
 
         # Move node to spill worklist if higher degree is reached:
-        if u.Degree >= self.K and u in self.freezeWorklist:
-            self.freezeWorklist.remove(u)
+        if (not self.is_colorable(u)) and u in self.freeze_worklist:
+            self.freeze_worklist.remove(u)
             self.spillWorklist.append(u)
 
-    def Freeze(self):
+    def freeze(self):
         """ Give up coalescing on some node, move it to the simplify list
             and freeze all moves associated with it.
         """
-        self.logger.debug('freeze')
-        u = self.freezeWorklist.pop()
+        u = self.freeze_worklist.pop()
+        self.logger.debug('freezing %s', u)
         self.simplifyWorklist.append(u)
-        self.freezeMoves(u)
 
-    def freezeMoves(self, u):
-        """ Freeze moves for node u """
+        # Freeze moves for node u
         for m in self.NodeMoves(u):
             if m in self.activeMoves:
                 self.activeMoves.remove(m)
@@ -246,11 +408,10 @@ class RegisterAllocator:
             src = self.Node(m.used_registers[0])
             dst = self.Node(m.defined_registers[0])
             v = src if u is dst else dst
-            if v not in self.precolored and not self.MoveRelated(v) \
-                    and v.Degree < self.K:
-                assert v in self.freezeWorklist, \
-                    '{} not in freezeworklist'.format(v)
-                self.freezeWorklist.remove(v)
+            if v not in self.precolored and not self.is_move_related(v) \
+                    and self.is_colorable(v):
+                assert v in self.freeze_worklist
+                self.freeze_worklist.remove(v)
                 self.simplifyWorklist.append(v)
 
     def SelectSpill(self):  # pragma: no cover
@@ -258,24 +419,26 @@ class RegisterAllocator:
 
     def assign_colors(self):
         """ Add nodes back to the graph to color it. """
-        while self.selectStack:
-            node = self.selectStack.pop(-1)  # Start with the last added
+        while self.select_stack:
+            node = self.select_stack.pop(-1)  # Start with the last added
             self.frame.ig.unmask_node(node)
-            takenregs = set(self.color[m] for m in node.Adjecent)
-            ok_colors = self.reg_colors - takenregs
+            takenregs = set(self.color[m] for m in node.adjecent)
+            ok_colors = self.reg_colors[node.reg_class] - takenregs
             if ok_colors:
-                self.color[node] = first(ok_colors)
-                node.color = self.color[node]
-                assert isinstance(node.color, int)
+                color = first(ok_colors)
+                assert isinstance(color, int)
+                self.logger.debug('Assign color %s to node %s', color, node)
+                self.color[node] = color
+                node.color = color
             else:  # pragma: no cover
                 raise NotImplementedError('Spill required here!')
 
     def remove_redundant_moves(self):
-        # Remove coalesced moves:
-        for mv in self.coalescedMoves:
-            self.frame.instructions.remove(mv)
+        """ Remove coalesced moves """
+        for move in self.coalescedMoves:
+            self.frame.instructions.remove(move)
 
-    def ApplyColors(self):
+    def apply_colors(self):
         """ Assign colors to registers """
         # Apply all colors:
         for node in self.frame.ig:
@@ -289,37 +452,12 @@ class RegisterAllocator:
     def check_invariants(self):  # pragma: no cover
         """ Test invariants """
         # When changing the code, these asserts validate the worklists.
-        assert all(u.Degree < self.K for u in self.simplifyWorklist)
-        assert all(not self.MoveRelated(u) for u in self.simplifyWorklist)
-        assert all(u.Degree < self.K for u in self.freezeWorklist)
-        assert all(self.MoveRelated(u) for u in self.freezeWorklist)
-        assert all(u.Degree >= self.K for u in self.spillWorklist)
+        assert all(self.is_colorable(u) for u in self.simplifyWorklist)
+        assert all(not self.is_move_related(u) for u in self.simplifyWorklist)
+        assert all(self.is_colorable(u) for u in self.freeze_worklist)
+        assert all(self.is_move_related(u) for u in self.freeze_worklist)
+        assert all(not self.is_colorable(u) for u in self.spillWorklist)
 
         # Check that moves live in exactly one set:
         assert self.activeMoves & self.worklistMoves & self.coalescedMoves \
             & self.constrainedMoves & self.frozenMoves == set()
-
-    def alloc_frame(self, frame):
-        """ Do iterated register allocation for a single stack frame. """
-        self.init_data(frame)
-        self.Build()
-        self.makeWorkList()
-        self.logger.debug('Starting iterative coloring')
-        while True:
-            # self.check_invariants()
-
-            # Run one of the possible steps:
-            if self.simplifyWorklist:
-                self.Simplify()
-            elif self.worklistMoves:
-                self.Coalesc()
-            elif self.freezeWorklist:
-                self.Freeze()
-            elif self.spillWorklist:  # pragma: no cover
-                raise NotImplementedError('Spill not implemented')
-            else:
-                break   # Done!
-        self.logger.debug('Now assinging colors')
-        self.assign_colors()
-        self.remove_redundant_moves()
-        self.ApplyColors()

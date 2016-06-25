@@ -12,3 +12,6 @@ Reference
     debug
     backends
     hexfile
+    compiler
+    specificationlang
+    citations

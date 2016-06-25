@@ -166,15 +166,16 @@ class Node:
     def __init__(self, graph):
         self.graph = graph
         self.graph.add_node(self)
-        self.addDegree = 0    # Hack to increase degree
 
     @property
-    def Adjecent(self):
+    def adjecent(self):
+        """ Get adjecent nodes in the graph """
         return self.graph.adjecent(self)
 
     @property
-    def Degree(self):
-        return self.graph.get_degree(self) + self.addDegree
+    def degree(self):
+        """ Get the degree of this node (the number of neighbours) """
+        return self.graph.get_degree(self)
 
 
 class DiGraph(Graph):

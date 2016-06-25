@@ -32,12 +32,12 @@ class GraphTestCase(unittest.TestCase):
         n3 = Node(g)
         g.add_edge(n1, n2)
         g.add_edge(n1, n3)
-        self.assertEqual(2, n1.Degree)
-        self.assertEqual(1, n2.Degree)
+        self.assertEqual(2, n1.degree)
+        self.assertEqual(1, n2.degree)
         g.del_node(n2)
-        self.assertEqual(1, n1.Degree)
+        self.assertEqual(1, n1.degree)
 
-    def testDegreeAfterCombine(self):
+    def test_degree_after_combine(self):
         g = Graph()
         n1 = Node(g)
         n2 = Node(g)
@@ -45,14 +45,14 @@ class GraphTestCase(unittest.TestCase):
         g.add_edge(n1, n2)
         g.add_edge(n1, n3)
         g.add_edge(n2, n3)
-        self.assertEqual(2, n1.Degree)
-        self.assertEqual(2, n2.Degree)
-        self.assertEqual(2, n3.Degree)
+        self.assertEqual(2, n1.degree)
+        self.assertEqual(2, n2.degree)
+        self.assertEqual(2, n3.degree)
         g.combine(n2, n3)
-        self.assertEqual(1, n1.Degree)
-        self.assertEqual(1, n2.Degree)
+        self.assertEqual(1, n1.degree)
+        self.assertEqual(1, n2.degree)
 
-    def testDegreeWithDoubleAddEdge(self):
+    def test_degree_with_double_add_edge(self):
         g = Graph()
         n1 = Node(g)
         n2 = Node(g)
@@ -60,26 +60,26 @@ class GraphTestCase(unittest.TestCase):
         g.add_edge(n1, n2)
         g.add_edge(n1, n3)
         g.add_edge(n1, n3)
-        self.assertEqual(2, n1.Degree)
-        self.assertEqual(1, n2.Degree)
+        self.assertEqual(2, n1.degree)
+        self.assertEqual(1, n2.degree)
 
-    def testDegreeMaskUnMask(self):
+    def test_degree_mask_unMask(self):
         g = Graph()
         n1 = Node(g)
         n2 = Node(g)
         n3 = Node(g)
         g.add_edge(n1, n2)
         g.add_edge(n1, n3)
-        self.assertEqual(2, n1.Degree)
-        self.assertEqual(1, n2.Degree)
+        self.assertEqual(2, n1.degree)
+        self.assertEqual(1, n2.degree)
         g.mask_node(n2)
         g.mask_node(n3)
-        self.assertEqual(0, n1.Degree)
+        self.assertEqual(0, n1.degree)
         g.unmask_node(n2)
         g.unmask_node(n3)
-        self.assertEqual(2, n1.Degree)
+        self.assertEqual(2, n1.degree)
 
-    def testDegreeMaskUnMaskCombine(self):
+    def test_degree_mask_unmask_combine(self):
         """ Test the combination of masking and combining
             difficult case!
         """
@@ -92,19 +92,19 @@ class GraphTestCase(unittest.TestCase):
         g.add_edge(n1, n3)
         g.add_edge(n1, n4)
         g.add_edge(n2, n4)
-        self.assertEqual(3, n1.Degree)
+        self.assertEqual(3, n1.degree)
         g.mask_node(n2)
         g.mask_node(n3)
         g.mask_node(n4)
-        self.assertEqual(0, n1.Degree)
+        self.assertEqual(0, n1.degree)
         g.unmask_node(n3)
         g.combine(n3, n4)
         g.combine(n3, n2)
-        self.assertEqual(1, n1.Degree)
+        self.assertEqual(1, n1.degree)
 
 
 class DigraphTestCase(unittest.TestCase):
-    def testSuccessor(self):
+    def test_successor(self):
         g = DiGraph()
         a = DiNode(g)
         b = DiNode(g)
@@ -131,7 +131,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         instrs.append(DefUse(t4, t1))  # t1, t3, t4 live
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
-        ig = InterferenceGraph(cfg)
+        ig = InterferenceGraph(lambda x: 'reg')
+        ig.calculate_interference(cfg)
         self.assertTrue(ig.interfere(t1, t2))
         self.assertFalse(ig.interfere(t2, t4))
 
@@ -158,7 +159,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         instrs = [i1, i2, i3, i4]
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
-        ig = InterferenceGraph(cfg)
+        ig = InterferenceGraph(lambda x: 'reg')
+        ig.calculate_interference(cfg)
         self.assertTrue(ig.interfere(t1, t2))
         self.assertFalse(ig.interfere(t2, t4))
 
@@ -227,7 +229,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertEqual(set(), b3.live_out)
 
         # Create interference graph:
-        InterferenceGraph(cfg)
+        ig = InterferenceGraph(lambda x: 'reg')
+        ig.calculate_interference(cfg)
 
     def test_multiple_define_in_loop(self):
         """
@@ -317,7 +320,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         instrs.append(Use(t2))
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
-        ig = InterferenceGraph(cfg)
+        ig = InterferenceGraph(lambda x: 'reg')
+        ig.calculate_interference(cfg)
         ig.combine(ig.get_node(t4), ig.get_node(t3))
         self.assertIs(ig.get_node(t4), ig.get_node(t3))
 
