@@ -26,7 +26,7 @@ class RiscvFrame(Frame):
         # Callee save registers:
         i = 0
         for register in self.callee_save:
-            yield Sw(SP,register,i)
+            yield Sw(register, i, SP)
             i-= 4
         Add(SP, SP, i)
         if self.stacksize > 0:
@@ -66,7 +66,7 @@ class RiscvFrame(Frame):
         i = 0
         for register in reversed(self.callee_save):
             i+= 4
-            yield Lw(register, SP, i)
+            yield Lw(register, i, SP)
         Add(SP, SP, i)
         yield(Blr(R0, LR, 0))
         # Add final literal pool:

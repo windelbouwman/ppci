@@ -128,9 +128,9 @@ class RiscvArch(Architecture):
         # Caller save registers:
         i = 0
         for register in live_regs:
-            yield Sw(SP, register, i)
+            yield Sw(register, i, SP)
             i-= 4
-        yield Sw(SP, LR, i)
+        yield Sw(LR, i, SP)
         i-=4
         yield Add(SP, SP, i)
 
@@ -140,10 +140,10 @@ class RiscvArch(Architecture):
         
         i = 0
         i+= 4
-        yield Lw(LR, SP, i)
+        yield Lw(LR, i, SP)
         for register in reversed(live_regs):
             i+= 4
-            yield Lw(register, SP, i)
+            yield Lw(register, i, SP)
         
         yield Add(SP, SP, i)
 

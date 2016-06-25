@@ -81,35 +81,35 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
         self.check('63 62 52 00')
         
     def test_loadbyte(self):
-        self.feed('lb x6, x7, 2')
+        self.feed('lb x6, 2(x7)')
         self.check('03 83 23 00')
     
     def test_loadhalfword(self):
-        self.feed('lh x6, x7, 2')
+        self.feed('lh x6, 2(x7)')
         self.check('03 93 23 00')
         
     def test_loadword(self):
-        self.feed('lw x6, x7, 2')
+        self.feed('lw x6, 2(x7)')
         self.check('03 A3 23 00')
         
     def test_loadbyteunsigned(self):
-        self.feed('lbu x6, x7, 2')
+        self.feed('lbu x6, 2(x7)')
         self.check('03 c3 23 00')
     
     def test_loadhalfwordunsigned(self):
-        self.feed('lhu x6, x7, 2')
+        self.feed('lhu x6, 2(x7)')
         self.check('03 d3 23 00')
         
     def test_storebyte(self):
-        self.feed('sb x6, x7, 2')
+        self.feed('sb x7, 2(x6)')
         self.check('23 01 73 00')
         
     def test_storehalfword(self):
-        self.feed('sh x6, x7, 2')
+        self.feed('sh x7, 2(x6)')
         self.check('23 11 73 00')
         
     def test_storeword(self):
-        self.feed('sw x6, x7, 2')
+        self.feed('sw x7, 2(x6)')
         self.check('23 21 73 00')
     
     def test_add_imm(self):

@@ -84,11 +84,11 @@ class RiscvrvcAssemblerTestCase(AsmTestCaseBase):
         self.check('0B C0 93 02 52 00')
         
     def test_cloadword(self):
-        self.feed('c.lw x6, x7, 4')
+        self.feed('c.lw x6, 4(x7)')
         self.check('D8 43')
         
     def test_cstoreword(self):
-        self.feed('c.sw x6, x7, 4')
+        self.feed('c.sw x6, 4(x7)')
         self.check('D8 C3')
         
     def test_cloadwordsp(self):
