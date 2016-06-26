@@ -9,14 +9,14 @@ from ...binutils.assembler import BaseAssembler
 from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
 from ..data_instructions import Db
-from .instructions import MovRegRm, RmReg, isa
-from .instructions import Push, Pop, SubImm, AddImm
+from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
+from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret
-from .registers import rax, rcx, rdx, r8, r9, X86Register, rdi, rsi
-from .registers import all_registers, get_register, LowRegister
-from .registers import al, bl
-from .registers import rbx, rbp, rsp
-from .registers import r10, r11, r12, r13, r14, r15
+from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
+from .registers import all_registers, get_register
+from .registers import register_classes, X86Register, LowRegister
+from .registers import rbx, rbp, rsp, al
+from .registers import r11, r12, r13, r14, r15
 
 
 class X86_64Arch(Architecture):
@@ -28,7 +28,7 @@ class X86_64Arch(Architecture):
         super().__init__(options=options)
         self.value_classes[i64] = X86Register
         self.value_classes[ptr] = X86Register
-        self.value_classes[i8] = X86Register
+        self.value_classes[i8] = LowRegister
         self.byte_sizes['int'] = 8  # For front end!
         self.byte_sizes['ptr'] = 8  # For front end!
         self.isa = isa + data_isa
@@ -37,18 +37,19 @@ class X86_64Arch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
 
-        self.register_classes = {
-            'reg64': (
-                [rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15],
-                X86Register),
-            'reg8': ([al, bl], LowRegister)
-            }
-        # self.alias(al, rax)
+        self.register_classes = register_classes
         self.fp = rbp
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return MovRegRm(dst, RmReg(src), ismove=True)
+        if isinstance(dst, LowRegister) and isinstance(src, LowRegister):
+            return MovRegRm8(dst, RmReg8(src), ismove=True)
+        elif isinstance(dst, LowRegister) and isinstance(src, X86Register):
+            raise NotImplementedError()
+        elif isinstance(dst, X86Register) and isinstance(src, LowRegister):
+            raise NotImplementedError()
+        else:
+            return MovRegRm(dst, RmReg(src), ismove=True)
 
     def get_register(self, color):
         return get_register(color)
@@ -106,7 +107,15 @@ class X86_64Arch(Architecture):
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
             if isinstance(arg_loc, X86Register):
-                yield self.move(arg_loc, arg)
+                if isinstance(arg, X86Register):
+                    yield self.move(arg_loc, arg)
+                elif isinstance(arg, LowRegister):
+                    # Upcast to char!
+                    yield self.move(al, arg)
+                    yield MovsxRegRm(rax, RmReg8(al))
+                    yield self.move(arg_loc, rax)
+                else:
+                    raise NotImplementedError()
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 

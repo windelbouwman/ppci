@@ -939,9 +939,9 @@ class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnAvrO2(unittest.TestCase, SimpleSamples, BuildMixin):
-    opt_level = 2
+class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "avr"
+    opt_level = 2
     startercode = """
     section reset
     """
@@ -963,6 +963,14 @@ class TestSamplesOnAvrO2(unittest.TestCase, SimpleSamples, BuildMixin):
 
     def do(self, src, expected_output, lang='c3'):
         self.build(src, lang=lang, bin_format='hex')
+
+    @unittest.skip('Requires spilling which is not implemented yet!')
+    def test_sw_div(self):
+        pass
+
+# Avr Only works with optimization enabled...
+# class TestSamplesOnAvrO2(TestSamplesOnAvr):
+#    opt_level = 2
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')

@@ -1,9 +1,12 @@
 from ..isa import Instruction, Isa, register_argument, Syntax
 from ..isa import FixedPattern, SubPattern, VariablePattern
+from ..arch import RegisterUseDef
 from ..token import Token, u16, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative
 from ...ir import i16
-from .registers import AvrRegister, r16, AvrPseudo16Register, X
+from .registers import AvrRegister, AvrPseudo16Register, X
+from .registers import HighAvrRegister, AvrWordRegister
+from .registers import r0, r1, r2, r3, r16, r17, r1r0, r3r2, r17r16
 
 
 class AvrToken(Token):
@@ -335,6 +338,30 @@ class Mov(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class Movw(AvrInstruction):
+    tokens = [AvrToken]
+    rd = register_argument('rd', AvrWordRegister, write=True)
+    rr = register_argument('rr', AvrWordRegister, read=True)
+    syntax = Syntax(['movw', rd, ',', rr])
+
+    @property
+    def rd_num(self):
+        n = self.rd.num
+        assert n in range(0, 32, 2)
+        return n >> 1
+
+    @property
+    def rr_num(self):
+        n = self.rr.num
+        assert n in range(0, 32, 2)
+        return n >> 1
+
+    patterns = [
+        FixedPattern('b1', 0b1),
+        VariablePattern('n0', rr_num),
+        VariablePattern('n1', rd_num)]
+
+
 class Push(AvrInstruction):
     tokens = [AvrToken2]
     rd = register_argument('rd', AvrRegister, read=True)
@@ -455,7 +482,7 @@ class Reti(AvrInstruction):
 
 class Ldi(AvrInstruction):
     tokens = [AvrToken4]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = register_argument('rd', HighAvrRegister, write=True)
     nk = register_argument('nk', int)
     syntax = Syntax(['ldi', rd, ',', nk])
 
@@ -480,7 +507,7 @@ def rel_ldilo(sym_value, data, reloc_value):
 
 class LdiLoAddr(AvrInstruction):
     tokens = [AvrToken4]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = register_argument('rd', HighAvrRegister, write=True)
     lab = register_argument('lab', str)
     syntax = Syntax(['ldi', rd, ',', 'lo', '(', lab, ')'])
 
@@ -507,7 +534,7 @@ def rel_ldihi(sym_value, data, reloc_value):
 
 class LdiHiAddr(AvrInstruction):
     tokens = [AvrToken4]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = register_argument('rd', HighAvrRegister, write=True)
     lab = register_argument('lab', str)
     syntax = Syntax(['ldi', rd, ',', 'hi', '(', lab, ')'])
 
@@ -563,8 +590,20 @@ def pattern_cjmp(context, tree, c0, c1):
         '>': Brge,  # TODO: fix this!
         '>=': Brge}
     Bop = opnames[op]
-    context.emit(Cp(c0.lo, c1.lo))
-    context.emit(Cpc(c0.lo, c1.lo))
+
+    # TODO: get rid of this movage:
+    context.move(r1r0, c0)
+    context.move(r3r2, c1)
+
+    ud1 = RegisterUseDef()
+    ud1.add_uses([r1r0, r3r2])
+    ud1.add_defs([r0, r1, r2, r3])
+    context.emit(ud1)
+
+    # Compare these fixed registers:
+    context.emit(Cp(r0, r2))
+    context.emit(Cpc(r1, r3))
+
     jmp_ins = Rjmp(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
@@ -582,27 +621,42 @@ def pattern_reg8(context, tree):
 
 @avr_isa.pattern('reg16', 'REGI16', size=0, cycles=0, energy=0)
 def pattern_reg16(context, tree):
-    assert isinstance(tree.value, AvrPseudo16Register)
+    assert isinstance(tree.value, AvrWordRegister)
     return tree.value
 
 
-@avr_isa.pattern('reg', 'MOVI8(reg)', size=2)
+@avr_isa.pattern('stm', 'MOVI8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
 
 
-@avr_isa.pattern('reg', 'MOVI8(reg16)', size=2)
-def pattern_mov8_16(context, tree, c0):
-    context.move(tree.value, c0.lo)
-    return tree.value
+#@avr_isa.pattern('stm', 'MOVI8(reg16)', size=2)
+#def pattern_mov8_16(context, tree, c0):
+#    context.move(tree.value, c0.lo)
 
 
-@avr_isa.pattern('stm', 'MOVI16(reg16)', size=4)
+@avr_isa.pattern('stm', 'MOVI16(reg16)', size=2)
 def pattern_mov16(context, tree, c0):
-    context.move(tree.value.lo, c0.lo)
-    context.move(tree.value.hi, c0.hi)
-    return tree.value
+    context.move(tree.value, c0)
+
+
+@avr_isa.pattern('reg16', 'I16TOI16(reg16)', size=0)
+def pattern_i16toi16(context, tree, c0):
+    return c0
+
+
+@avr_isa.pattern('reg', 'I16TOI8(reg16)', size=0)
+def pattern_i16toi8(context, tree, c0):
+    context.move(r1r0, c0)
+
+    ud1 = RegisterUseDef()
+    ud1.add_uses([r1r0])
+    ud1.add_defs([r0, r1])
+    context.emit(ud1)
+
+    d = context.new_reg(AvrRegister)
+    context.move(d, r0)
+    return d
 
 
 @avr_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
@@ -615,62 +669,122 @@ def pattern_add8(context, tree, c0, c1):
 
 @avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', size=8)
 def pattern_add16(context, tree, c0, c1):
-    d = context.new_reg(AvrPseudo16Register)
-    context.move(d.lo, c0.lo)
-    context.move(d.hi, c0.hi)
-    context.emit(Add(d.lo, c1.lo))
-    context.emit(Adc(d.hi, c1.hi))
+    d = context.new_reg(AvrWordRegister)
+    # Use r1:r0 and r3:r2 as scratch registers..
+    # TODO: think of a better way to do this!
+    context.move(r1r0, c0)
+    context.move(r3r2, c1)
+
+    ud1 = RegisterUseDef()
+    ud1.add_uses([r1r0, r3r2])
+    ud1.add_defs([r0, r1, r2, r3])
+    context.emit(ud1)
+
+    context.emit(Add(r0, r2))
+    context.emit(Adc(r1, r3))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r0, r1])
+    ud2.add_def(r1r0)
+    context.emit(ud2)
+
+    context.move(d, r1r0)
     return d
 
 
 @avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=8)
 def pattern_sub16(context, tree, c0, c1):
-    d = context.new_reg(AvrPseudo16Register)
-    context.move(d.lo, c0.lo)
-    context.move(d.hi, c0.hi)
-    context.emit(Sub(d.lo, c1.lo))
-    context.emit(Sbc(d.hi, c1.hi))
+    d = context.new_reg(AvrWordRegister)
+    context.move(r1r0, c0)
+    context.move(r3r2, c1)
+
+    ud1 = RegisterUseDef()
+    ud1.add_uses([r1r0, r3r2])
+    ud1.add_defs([r0, r1, r2, r3])
+    context.emit(ud1)
+
+    context.emit(Sub(r0, r2))
+    context.emit(Sbc(r1, r3))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r0, r1])
+    ud2.add_def(r1r0)
+    context.emit(ud2)
+
+    context.move(d, r1r0)
     return d
 
 
 @avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', size=8)
 def pattern_and16(context, tree, c0, c1):
-    d = context.new_reg(AvrPseudo16Register)
-    context.move(d.lo, c0.lo)
-    context.move(d.hi, c0.hi)
-    context.emit(And(d.lo, c1.lo))
-    context.emit(And(d.hi, c1.hi))
+    d = context.new_reg(AvrWordRegister)
+    context.move(r1r0, c0)
+    context.move(r3r2, c1)
+
+    ud1 = RegisterUseDef()
+    ud1.add_uses([r1r0, r3r2])
+    ud1.add_defs([r0, r1, r2, r3])
+    context.emit(ud1)
+
+    context.emit(And(r0, r2))
+    context.emit(And(r1, r3))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r0, r1])
+    ud2.add_def(r1r0)
+    context.emit(ud2)
+
+    context.move(d, r1r0)
     return d
 
 
 @avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', size=8)
 def pattern_or16(context, tree, c0, c1):
-    d = context.new_reg(AvrPseudo16Register)
-    context.move(d.lo, c0.lo)
-    context.move(d.hi, c0.hi)
-    context.emit(Or(d.lo, c1.lo))
-    context.emit(Or(d.hi, c1.hi))
+    d = context.new_reg(AvrWordRegister)
+    context.move(r1r0, c0)
+    context.move(r3r2, c1)
+
+    ud1 = RegisterUseDef()
+    ud1.add_uses([r1r0, r3r2])
+    ud1.add_defs([r0, r1, r2, r3])
+    context.emit(ud1)
+
+    context.emit(Or(r0, r2))
+    context.emit(Or(r1, r3))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r0, r1])
+    ud2.add_def(r1r0)
+    context.emit(ud2)
+
+    context.move(d, r1r0)
     return d
 
 
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
 def pattern_div16(context, tree, c0, c1):
-    d = context.new_reg(AvrPseudo16Register)
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, c0)
+    context.move(d, c1)
     # TODO
+    # raise NotImplementedError('idiv')
     return d
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
-    d = context.new_reg(AvrPseudo16Register)
+    d = context.new_reg(AvrWordRegister)
     # TODO
+    # raise NotImplementedError('imul')
+    context.move(d, c0)
+    context.move(d, c1)
     return d
 
 
 @avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', size=8)
 def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
-    d = context.new_reg(AvrPseudo16Register)
+    d = context.new_reg(AvrWordRegister)
     # cntr = context.new_reg(AvrRegister)
     context.gen_call(('__shr16', [i16, i16], i16, [c0, c1], d))
     #context.move(d.lo, c0.lo)
@@ -680,6 +794,7 @@ def pattern_shr16(context, tree, c0, c1):
     #context.emit(Lsr(d.hi))
     #context.emit(Ror(d.lo))
     #context.emit(Dec(cntr))
+    # raise NotImplementedError('shr')
 
     # TODO: fix this!
     # context.emit(Brne('a'))
@@ -689,15 +804,14 @@ def pattern_shr16(context, tree, c0, c1):
 @avr_isa.pattern('reg16', 'SHLI16(reg16, reg16)', size=8)
 def pattern_shl16(context, tree, c0, c1):
     """ invoke runtime """
-    d = context.new_reg(AvrPseudo16Register)
+    d = context.new_reg(AvrWordRegister)
     context.gen_call(('__shl16', [i16, i16], i16, [c0, c1], d))
     return d
 
 
 @avr_isa.pattern('reg', 'LDRI8(reg16)', size=2)
 def pattern_ldr8(context, tree, c0):
-    context.move(X.hi, c0.hi)
-    context.move(X.lo, c0.lo)
+    context.move(X, c0)
     d = context.new_reg(AvrRegister)
     context.emit(Ld(d))
     return d
@@ -705,48 +819,81 @@ def pattern_ldr8(context, tree, c0):
 
 @avr_isa.pattern('reg16', 'LDRI16(reg16)', size=8)
 def pattern_ldr16(context, tree, c0):
-    d = context.new_reg(AvrPseudo16Register)
-    context.move(X.hi, c0.hi)
-    context.move(X.lo, c0.lo)
-    context.emit(LdPostInc(d.lo))
-    context.emit(Ld(d.hi))
+    context.move(X, c0)
+    context.emit(LdPostInc(r0))
+    context.emit(Ld(r1))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r0, r1, X])
+    ud2.add_def(r1r0)
+    context.emit(ud2)
+
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, r1r0)
     return d
 
 
 @avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8)
 def pattern_str16(context, tree, c0, c1):
-    context.move(X.hi, c0.hi)
-    context.move(X.lo, c0.lo)
-    context.emit(StPostInc(c1.lo))
-    context.emit(St(c1.hi))
+    context.move(X, c0)
+
+    context.move(r1r0, c1)
+    ud1 = RegisterUseDef()
+    ud1.add_use(r1r0)
+    ud1.add_defs([r0, r1])
+    context.emit(ud1)
+
+    context.emit(StPostInc(r0))
+    context.emit(St(r1))
+    ud2 = RegisterUseDef()
+    ud2.add_uses([X])
+    context.emit(ud2)
+
+
+@avr_isa.pattern('stm', 'STRI8(reg16, reg)', size=2)
+def pattern_str8(context, tree, c0, c1):
+    context.move(X, c0)
+    context.emit(St(c1))
+    ud2 = RegisterUseDef()
+    ud2.add_uses([X])
+    context.emit(ud2)
 
 
 @avr_isa.pattern('reg', 'CONSTI8', size=2)
 def pattern_const8(context, tree):
-    d = context.new_reg(AvrRegister)
-    context.emit(Ldi(r16, tree.value))
-    context.move(d, r16)
+    d = context.new_reg(HighAvrRegister)
+    context.emit(Ldi(d, tree.value))
     return d
 
 
 @avr_isa.pattern('reg16', 'CONSTI16', size=4)
 def pattern_const16(context, tree):
-    d = context.new_reg(AvrPseudo16Register)
     lb = tree.value & 0xff
     hb = (tree.value >> 8) & 0xff
     context.emit(Ldi(r16, lb))
-    context.move(d.lo, r16)
-    context.emit(Ldi(r16, hb))
-    context.move(d.hi, r16)
+    context.emit(Ldi(r17, hb))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r16, r17])
+    ud2.add_def(r17r16)
+    context.emit(ud2)
+
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, r17r16)
     return d
 
 
 @avr_isa.pattern('reg16', 'LABEL', size=4)
 def pattern_label(context, tree):
     """ Determine the label address and yield its result """
-    d = context.new_reg(AvrPseudo16Register)
     context.emit(LdiLoAddr(r16, tree.value))
-    context.move(d.lo, r16)
-    context.emit(LdiHiAddr(r16, tree.value))
-    context.move(d.hi, r16)
+    context.emit(LdiHiAddr(r17, tree.value))
+
+    ud2 = RegisterUseDef()
+    ud2.add_uses([r16, r17])
+    ud2.add_def(r17r16)
+    context.emit(ud2)
+
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, r17r16)
     return d

@@ -99,6 +99,11 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov r9, 100')
         self.check('49b8 5B00000000000000 49b9 6400000000000000')
 
+    def test_mov_imm8(self):
+        self.feed('mov cl, 91')
+        self.feed('mov dl, 100')
+        self.check('48b15B 48b264')
+
     def test_mov_label_address(self):
         self.feed('label_x: mov r8, label_x')
         self.check('49b8 00000000 00000000')
@@ -131,6 +136,11 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov [r11], dl')
         self.check('488845f8 49884b09 488803 498813')
 
+    def test_movsx(self):
+        """ Test sign extend """
+        self.feed('movsx rdx, bl')
+        self.check('480fbed3')
+
     def test_lea(self):
         self.feed('lea r11, [RIP, 0xf]')
         self.feed('lea rsi, [RIP, 0x7]')
@@ -158,6 +168,10 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('add rax, rbx')
         self.feed('add r12, r13')
         self.check('4c01eb 4801d8 4d01ec')
+
+    def test_add_lo_regs(self):
+        self.feed('add al, dl')
+        self.check('4800d0')   # rex.w add al, dl
 
     def test_add_int(self):
         self.feed('add rbx, 0x13')

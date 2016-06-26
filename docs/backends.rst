@@ -31,9 +31,7 @@ Status: 70%
 avr
 ---
 
-Status: 20%
-
-.. autoclass:: ppci.arch.avr.AvrArch
+.. automodule:: ppci.arch.avr
 
 
 .. _msp430:

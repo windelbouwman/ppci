@@ -17,6 +17,10 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("mov r18, r20")
         self.check('242f')
 
+    def test_movw(self):
+        self.feed("movw r19:r18, r21:r20")
+        self.check('9a01')
+
     def test_add(self):
         self.feed("add r11, r7")
         self.check('b70c')

@@ -293,9 +293,12 @@ class SelectionGraphBuilder:
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_cast(self, node):
-        # TODO: add some logic here?
-        value = self.get_value(node.src)
-        self.add_map(node, value)
+        """ Create a cast of type """
+        op = '{}TO{}'.format(
+            self.postfix_map[node.src.ty], self.postfix_map[node.ty])
+        a = self.get_value(node.src)
+        sgnode = self.new_node(op, a)
+        self.add_map(node, sgnode.new_output(node.name))
 
     def do_procedure_call(self, node):
         # This is the moment to move all parameters to new temp registers.
@@ -326,8 +329,7 @@ class SelectionGraphBuilder:
         inputs = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
-            loc = self.function_info.frame.new_reg(
-                self.arch.value_classes[argument.ty])
+            loc = self.new_vreg(argument.ty)
             args.append(loc)
             opcode = self.make_opcode('MOV', argument.ty)
             arg_sgnode = self.new_node(opcode, arg_val, value=loc)

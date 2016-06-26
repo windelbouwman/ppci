@@ -658,6 +658,23 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
+@arm_isa.pattern('reg', 'I32TOI32(reg)', size=0)
+def pattern_i32toi32(self, tree, c0):
+    return c0
+
+
+@arm_isa.pattern('reg', 'I8TOI32(reg)', size=0)
+def pattern_i8toi32(self, tree, c0):
+    # TODO: do something?
+    return c0
+
+
+@arm_isa.pattern('reg', 'I32TOI8(reg)', size=0)
+def pattern_i32toi8(self, tree, c0):
+    # TODO: do something?
+    return c0
+
+
 @arm_isa.pattern('reg', 'CONSTI32', size=8)
 def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)

@@ -539,6 +539,23 @@ def _(context, tree):
     return tree.value
 
 
+@isa.pattern('reg', 'I32TOI32(reg)', size=0)
+def _(context, tree, c0):
+    return c0
+
+
+@isa.pattern('reg', 'I8TOI32(reg)', size=0)
+def _(context, tree, c0):
+    # TODO: do something like sign extend or something else?
+    return c0
+
+
+@isa.pattern('reg', 'I32TOI8(reg)', size=0)
+def _(context, tree, c0):
+    # TODO: do something like sign extend or something else?
+    return c0
+
+
 @isa.pattern('reg', 'REGI8', size=0)
 def _(context, tree):
     return tree.value

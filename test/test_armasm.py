@@ -132,12 +132,12 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('adr r1, cval')
         self.check('04508fe2 00908fe2 04804fe2 08b04fe2 0cc04fe2 10104fe2')
 
-    def testLdrLabelAddress(self):
+    def test_ldr_label_address(self):
         self.feed('ldr r8, =a')
         self.feed('a:')
         self.check('04801fe5 04000000')
 
-    def testLdrLabelAddressAt10000(self):
+    def test_ldr_label_address_at_10000(self):
         """ Link code at 0x10000 and check if symbol was correctly patched """
         self.feed('ldr r8, =a')
         self.feed('a:')

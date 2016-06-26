@@ -14,10 +14,13 @@ Pattern = namedtuple(
 
 class Register:
     """ Baseclass of all registers types """
-    def __init__(self, name, num=None):
+    def __init__(self, name, num=None, aliases=()):
         assert isinstance(name, str)
         self.name = name
         self._num = num
+
+        # If this register interferes with another register:
+        self.aliases = aliases
         if num is not None:
             assert isinstance(num, int)
 
@@ -204,7 +207,11 @@ class Constructor:
                 raise AssertionError(
                     '{} given, but expected {}'.format(args, formal_args))
             for fa, a in zip(formal_args, args):
-                assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
+                if not isinstance(a, fa[1]):
+                    # Create some nice looking error:
+                    raise AssertionError(
+                        '{} expected {}, but got {} of type {}'.format(
+                            type(self), fa[1], a, type(a)))
                 setattr(self, fa[0], a)
 
             # Set additional properties as specified by syntax:

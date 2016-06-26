@@ -87,6 +87,7 @@ The following class can be used to perform register allocation.
 
 import logging
 from functools import lru_cache
+from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture
@@ -108,7 +109,7 @@ class GraphColoringRegisterAllocator:
         Algorithm is iterated register coalescing by Appel and George.
         Also the pq-test algorithm for more register classes is added.
     """
-    logger = logging.getLogger('registerallocator')
+    logger = logging.getLogger('regalloc')
 
     def __init__(self, arch: Architecture, debug_db):
         assert isinstance(arch, Architecture), arch
@@ -119,6 +120,8 @@ class GraphColoringRegisterAllocator:
         # TODO: Improve different register classes
         self.reg_colors = {}
         self.K = {}
+        self.cls_regs = {}  # Mapping from 
+        self.reg_alias = defaultdict(set)
         nmz = []
         for cls, val in self.arch.register_classes.items():
             regs, kls = val
@@ -126,10 +129,14 @@ class GraphColoringRegisterAllocator:
             self.logger.debug('Register class "%s" contains %s', cls, regs)
             self.reg_colors[cls] = set(r.color for r in regs)
             self.K[cls] = len(regs)
-            # TODO: is this a hack?
-            for reg in regs:
-                reg.reg_class = cls
+            self.cls_regs[cls] = set(regs)
+            for r in regs:
+                self.reg_alias[r].add(r)  # The trivial alias: itself!
+                for r2 in r.aliases:
+                    self.reg_alias[r].add(r2)
+                    self.reg_alias[r2].add(r)
 
+        # TODO: Is this a hack?
         def cls_mapper(x):
             for c, n in nmz:
                 if isinstance(x, c):
@@ -250,9 +257,13 @@ class GraphColoringRegisterAllocator:
         """
         assert isinstance(B, str)
         assert isinstance(C, str)
-        # print(B, C)
-        # TODO: determine conflicts here!
-        return 1
+        B_regs = self.cls_regs[B]
+        C_regs = self.cls_regs[C]
+        alias = self.reg_alias
+        x = max(len(alias[r] & B_regs) for r in C_regs)
+        self.logger.debug(
+            'Class %s register can block max %s class %s register', C, x, B)
+        return x
 
     def is_colorable(self, node):
         """
@@ -324,11 +335,12 @@ class GraphColoringRegisterAllocator:
         x = self.Node(m.defined_registers[0])
         y = self.Node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
-        self.logger.debug('Coalescing %s and %s', u, v)
+        self.logger.debug('Examining move %s which couples %s and %s', m, u, v)
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
             self.add_worklist(u)
+            self.logger.debug('Move was mov x, x')
         elif v in self.precolored or self.has_edge(u, v):
             # Both u and v are precolored
             # or there is an interfering edge
@@ -336,14 +348,17 @@ class GraphColoringRegisterAllocator:
             self.constrainedMoves.add(m)
             self.add_worklist(u)
             self.add_worklist(v)
+            self.logger.debug('Move is constrained!')
         elif (u in self.precolored and
                 all(self.Ok(t, u) for t in v.adjecent)) or \
                 (u not in self.precolored and self.conservative(u, v)):
             # print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.adjecent)
+            self.logger.debug('Combining %s and %s', u, v)
             self.coalescedMoves.add(m)
             self.combine(u, v)
             self.add_worklist(u)
         else:
+            self.logger.debug('Active move!')
             self.activeMoves.add(m)
 
     def add_worklist(self, u):

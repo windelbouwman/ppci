@@ -48,7 +48,13 @@ class X86Register(Register):
 
 
 class LowRegister(Register):
-    bitsize = 64
+    bitsize = 8
+
+    def __repr__(self):
+        if self.is_colored:
+            return get8reg(self.color).name
+        else:
+            return self.name
 
     @property
     def rexbit(self):
@@ -79,10 +85,10 @@ bl = LowRegister('bl', 3)
 # regs32 = {'eax': 0, 'ecx':1, 'edx':2, 'ebx': 3, 'esp': 4, 'ebp': 5, 'esi':6,
 # 'edi':7}
 # regs8 = {'al':0,'cl':1,'dl':2,'bl':3,'ah':4,'ch':5,'dh':6,'bh':7}
-rax = X86Register('rax', 0)
-rcx = X86Register('rcx', 1)
-rdx = X86Register('rdx', 2)
-rbx = X86Register('rbx', 3)
+rax = X86Register('rax', 0, aliases=(al,))
+rcx = X86Register('rcx', 1, aliases=(cl,))
+rdx = X86Register('rdx', 2, aliases=(dl,))
+rbx = X86Register('rbx', 3, aliases=(bl,))
 rsp = X86Register('rsp', 4)
 rbp = X86Register('rbp', 5)
 rsi = X86Register('rsi', 6)
@@ -106,3 +112,19 @@ full_registers = high_regs | low_regs
 all_registers = list(sorted(full_registers, key=lambda r: r.num)) + [rip]
 
 num2regmap = {r.num: r for r in full_registers}
+
+
+def get8reg(num):
+    mp = {r.num: r for r in [al, bl, cl, dl]}
+    return mp[num]
+
+
+# Register classes:
+register_classes = {
+    'reg64': (
+        [rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15],
+        X86Register),
+    'reg8': (
+        [al, bl, cl, dl],
+        LowRegister),
+    }

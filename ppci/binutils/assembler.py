@@ -24,7 +24,6 @@ class AsmLexer(BaseLexer):
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
-            ('LABEL', id_regex + ':', lambda typ, val: (typ, val)),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r':=|[,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
@@ -62,12 +61,12 @@ class AsmParser:
 
         # Global structure of assembly line:
         self.g.add_production('asmline', ['asmline2'])
-        self.g.add_production('asmline', ['asmline2', 'COMMENT'])
+        # self.g.add_production('asmline', ['asmline2', 'COMMENT'])
         self.g.add_production(
             'asmline2',
-            ['LABEL', 'instruction'], self.handle_label_ins)
+            ['$str$', ':', 'instruction'], self.handle_label_ins)
         self.g.add_production('asmline2', ['instruction'], self.handle_ins)
-        self.g.add_production('asmline2', ['LABEL'], self.handle_label)
+        self.g.add_production('asmline2', ['$str$', ':'], self.handle_label)
         self.g.add_production('asmline2', ['directive'])
         self.g.add_production('asmline2', [])
         self.g.start_symbol = 'asmline'
@@ -76,11 +75,11 @@ class AsmParser:
         if i:
             self.emit(i)
 
-    def handle_label(self, i1):
-        self.emit(Label(i1.val[:-1]))
+    def handle_label(self, i1, _):
+        self.emit(Label(i1))
 
-    def handle_label_ins(self, i1, i2):
-        self.emit(Label(i1.val[:-1]))
+    def handle_label_ins(self, i1, _, i2):
+        self.emit(Label(i1))
         if i2:
             self.emit(i2)
 

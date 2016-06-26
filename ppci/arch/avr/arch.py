@@ -8,13 +8,15 @@ from ..arch import Architecture, Label, Alignment, Frame
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
-from .instructions import Push, Pop, Mov, Call, In
+from .instructions import Push, Pop, Mov, Call, In, Movw
 from .registers import AvrRegister, AvrPseudo16Register
+from .registers import AvrPointerRegister, AvrWordRegister
 from .registers import r0, r1, r2, r3, r4, r5, r6, r7
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
-from .registers import r24, r25, X, Y, Z
-from .registers import get_register
+from .registers import r24, r25, r26, r27, r28, r29, r30, r31, X, Y, Z
+from .registers import r25r24
+from .registers import get_register, get16reg, register_classes
 
 
 class AvrArch(Architecture):
@@ -31,24 +33,17 @@ class AvrArch(Architecture):
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
         # TODO: make it possible to choose between 16 and 8 bit int type size
+        # with an option -mint8 every integer is 8 bits wide.
         self.byte_sizes['int'] = 2
         self.byte_sizes['i16'] = 2
         self.byte_sizes['i8'] = 1
         self.byte_sizes['ptr'] = 2
         self.value_classes[i8] = AvrRegister
-        self.value_classes[i16] = AvrPseudo16Register
-        self.value_classes[ptr] = AvrPseudo16Register
+        self.value_classes[i16] = AvrWordRegister
+        self.value_classes[ptr] = AvrWordRegister
 
         # Allocatable registers:
-        # TODO: the registers are not always possible, for example:
-        # ldi r16, 0xaa
-        self.register_classes = {
-            'reg': (
-                [r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
-                 r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25],
-                AvrRegister)
-            }
-        # r27, r28, r29, r30, r31]
+        self.register_classes = register_classes
         self.fp = Y
 
     def get_runtime(self):
@@ -58,6 +53,7 @@ class AvrArch(Architecture):
                 ; TODO
                 ret
             __shl16:
+                ; TODO!
                 ret
         """
         return asm(io.StringIO(asm_src), self)
@@ -87,20 +83,17 @@ class AvrArch(Architecture):
             elif s == 2:
                 hi_reg = regs.pop(0)
                 lo_reg = regs.pop(0)
-                reg_name = '{}_{}'.format(hi_reg.name, lo_reg.name)
-                r = AvrPseudo16Register(reg_name, hi_reg, lo_reg)
+                r = get16reg(lo_reg.num)
                 l.append(r)
-                live_in.add(hi_reg)
-                live_in.add(lo_reg)
+                live_in.add(r)
             else:  # pragma: no cover
                 raise NotImplementedError(str(s))
         return l, tuple(live_in)
 
     def determine_rv_location(self, ret_type):
         live_out = set()
-        rv = AvrPseudo16Register('ret_val', r25, r24)
-        live_out.add(r25)
-        live_out.add(r24)
+        rv = r25r24
+        live_out.add(r25r24)
         return rv, tuple(live_out)
 
     def gen_fill_arguments(self, arg_types, args, alives):
@@ -114,21 +107,19 @@ class AvrArch(Architecture):
 
         # Copy parameters:
         for arg_loc, arg in zip(arg_locs, args):
-            assert type(arg_loc) is type(arg)
+            # assert type(arg_loc) is type(arg)
             if isinstance(arg_loc, AvrRegister):
                 yield self.move(arg_loc, arg)
-            elif isinstance(arg_loc, AvrPseudo16Register):
-                yield self.move(arg_loc.hi, arg.hi)
-                yield self.move(arg_loc.lo, arg.lo)
+            elif isinstance(arg_loc, AvrWordRegister):
+                yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
     def gen_copy_rv(self, res_type, res_var):
         # Copy return value:
         rv, live_out = self.determine_rv_location(res_type)
-        if isinstance(res_var, AvrPseudo16Register):
-            yield self.move(res_var.lo, rv.lo)
-            yield self.move(res_var.hi, rv.hi)
+        if isinstance(res_var, AvrWordRegister):
+            yield self.move(res_var, rv)
         else:  # pragma: no cover
             raise NotImplementedError('Parameters in memory not impl')
 
@@ -149,13 +140,15 @@ class AvrArch(Architecture):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return Mov(dst, src, ismove=True)
+        if isinstance(dst, AvrRegister) and isinstance(src, AvrRegister):
+            return Mov(dst, src, ismove=True)
+        elif isinstance(dst, AvrWordRegister) and isinstance(src, AvrWordRegister):
+            return Movw(dst, src, ismove=True)
+        else:
+            raise NotImplementedError()
 
 
 class AvrFrame(Frame):
-    def __init__(self, name, arg_locs, live_in, rv, live_out):
-        super().__init__(name, arg_locs, live_in, rv, live_out)
-
     def prologue(self):
         """ Generate the prologue instruction sequence """
         # Label indication function:

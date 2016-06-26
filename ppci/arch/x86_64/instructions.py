@@ -317,11 +317,45 @@ class Inc(X86Instruction):
             self.token3.encode()
 
 
+class Rm8(Constructor):
+    """ Register of memory of 8 bits """
+    syntaxi = 'rm8'
+
+
 class Rm(Constructor):
-    syntaxi = 'rm0123'
+    """ 64 bit register of memory """
+    syntaxi = 'rm64'
 
 
 class RmMem(Rm):
+    """ Memory access at memory pointed by register """
+    reg = register_argument('reg', X86Register, read=True)
+    syntax = Syntax(['[', reg, ']'])
+
+    def set_user_patterns(self, tokens):
+        if self.reg.regbits == 5:
+            # this is a rip special case, use offset of 0
+            self.set_field(tokens, 'mod', 1)
+            self.set_field(tokens, 'b', self.reg.rexbit)
+            self.set_field(tokens, 'rm', self.reg.regbits)
+            self.set_field(tokens, 'disp8', 0)
+        elif self.reg.regbits == 4:
+            # Switch to sib mode
+            self.set_field(tokens, 'mod', 0)
+            self.set_field(tokens, 'rm', 4)
+            self.set_field(tokens, 'b', self.reg.rexbit)
+            self.set_field(tokens, 'ss', 0)
+            self.set_field(tokens, 'x', 0)
+            self.set_field(tokens, 'index', 4)  # No index
+            self.set_field(tokens, 'base', self.reg.regbits)
+        else:
+            # The 'normal' case
+            self.set_field(tokens, 'mod', 0)
+            self.set_field(tokens, 'b', self.reg.rexbit)
+            self.set_field(tokens, 'rm', self.reg.regbits)
+
+
+class RmMem8(Rm8):
     """ Memory access at memory pointed by register """
     reg = register_argument('reg', X86Register, read=True)
     syntax = Syntax(['[', reg, ']'])
@@ -454,7 +488,52 @@ class RmReg(Rm):
         self.set_field(tokens, 'rm', self.reg_rm.regbits)
 
 
+class RmReg8(Rm8):
+    """ Low register access """
+    reg_rm = register_argument('reg_rm', LowRegister, read=True)
+    syntax = Syntax([reg_rm])
+    patterns = [
+        FixedPattern('mod', 3)]
+
+    def set_user_patterns(self, tokens):
+        self.set_field(tokens, 'b', self.reg_rm.rexbit)
+        self.set_field(tokens, 'rm', self.reg_rm.regbits)
+
+
+# TODO: merge this class with RmMemDisp
+class RmMemDisp8(Rm8):
+    """ register with 8 bit displacement """
+    reg = register_argument('reg', X86Register, read=True)
+    disp = register_argument('disp', int)
+    syntax = Syntax(['[', reg, ',', disp, ']'], priority=2)
+
+    def set_user_patterns(self, tokens):
+        if self.disp <= 255 and self.disp >= -128:
+            self.set_field(tokens, 'mod', 1)
+            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+        else:
+            self.set_field(tokens, 'mod', 2)
+            self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+
+        if self.reg.regbits == 4:
+            # SIB mode:
+            self.set_field(tokens, 'b', self.reg.rexbit)
+            self.set_field(tokens, 'rm', 4)
+            self.set_field(tokens, 'ss', 0)
+            self.set_field(tokens, 'x', 0)
+            self.set_field(tokens, 'index', 4)  # No index
+            self.set_field(tokens, 'base', self.reg.regbits)
+        else:
+            # Normal mode:
+            self.set_field(tokens, 'b', self.reg.rexbit)
+            self.set_field(tokens, 'rm', self.reg.regbits)
+
+
 class rmregbase(X86Instruction):
+    """
+        Base class for legio instructions involving a register and a
+        register / memory location
+    """
     tokens = [
         RexToken, OpcodeToken, ModRmToken, SibToken, Imm8Token, Imm32Token]
     patterns = [FixedPattern('w', 1)]
@@ -468,9 +547,19 @@ class rmregbase(X86Instruction):
         self.set_all_patterns()
         self.token2[0:8] = self.opcode
 
-
         # 2. Encode:
-        r = self.token1.encode() + self.token2.encode() + self.token3.encode()
+        # Rex prefix:
+        r = self.token1.encode()
+
+        # opcode:
+        r += self.token2.encode()
+        if self.opcode == 0x0f:
+            self.token2[0:8] = self.opcode2
+            r += self.token2.encode()
+            self.token2[0:8] = self.opcode
+
+        # rm byte:
+        r += self.token3.encode()
 
         # Encode sib byte:
         if self.token3.mod != 3 and self.token3.rm == 4:
@@ -493,42 +582,84 @@ class rmregbase(X86Instruction):
         return r
 
 
-def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True,
-                reg_class=X86Register):
+def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
     rm = register_argument('rm', Rm)
-    reg = register_argument('reg', reg_class, read=True)
+    reg = register_argument('reg', X86Register, read=True)
     syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
 
 
-def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True,
-                reg_class=X86Register):
+def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
+    """ Create instruction class rm, reg """
+    rm = register_argument('rm', Rm8)
+    reg = register_argument('reg', LowRegister, read=True)
+    syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
+    members = {
+        'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
+    return type(mnemonic + '_ins', (rmregbase,), members)
+
+
+def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True):
     rm = register_argument('rm', Rm)
-    reg = register_argument('reg', reg_class, write=write_op1, read=read_op1)
+    reg = register_argument('reg', X86Register, write=write_op1, read=read_op1)
     syntax = Syntax([mnemonic, reg, ',', rm], priority=1)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
 
 
+def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
+    rm = register_argument('rm', Rm8)
+    reg = register_argument('reg', LowRegister, write=write_op1, read=read_op1)
+    syntax = Syntax([mnemonic, reg, ',', rm], priority=1)
+    members = {
+        'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
+    return type(mnemonic + '_ins', (rmregbase,), members)
+
+
+class MovsxRegRm(rmregbase):
+    """ Move sign extend, which means take a byte and sign extend it! """
+    reg = register_argument('reg', X86Register, write=True)
+    rm = register_argument('rm', Rm8, read=True)
+    syntax = Syntax(['movsx', reg, ',', rm])
+    opcode = 0x0f
+    opcode2 = 0xbe
+
+
+class MovzxRegRm(rmregbase):
+    """ Move zero extend """
+    reg = register_argument('reg', X86Register, write=True)
+    rm = register_argument('rm', Rm8, read=True)
+    syntax = Syntax(['movzx', reg, ',', rm])
+    opcode = 0x0f
+    opcode2 = 0xb6
+
+
+AddRmReg8 = make_rm_reg8('add', 0x0)
 AddRmReg = make_rm_reg('add', 0x1)
+AddRegRm8 = make_reg_rm8('add', 0x2)
 AddRegRm = make_reg_rm('add', 0x3)
+OrRmReg8 = make_rm_reg8('or', 0x8)
 OrRmReg = make_rm_reg('or', 0x9)
+OrRegRm8 = make_reg_rm8('or', 0xa)
 OrRegRm = make_reg_rm('or', 0xb)
+AndRmReg8 = make_rm_reg8('and', 0x20)
 AndRmReg = make_rm_reg('and', 0x21)
+AndRegRm8 = make_reg_rm8('and', 0x22)
 AndRegRm = make_reg_rm('and', 0x23)
 SubRmReg = make_rm_reg('sub', 0x29)
 SubRegRm = make_reg_rm('sub', 0x2b)
 XorRmReg = make_rm_reg('xor', 0x31)  # opcode = 0x31  # XOR r/m64, r64
 XorRegRm = make_reg_rm('xor', 0x33)
 CmpRmReg = make_rm_reg('cmp', 0x39, write_op1=False)
-MovRmReg8 = make_rm_reg('mov', 0x88, read_op1=False, reg_class=LowRegister)  # mov r/m8, r8
+MovRmReg8 = make_rm_reg8('mov', 0x88, read_op1=False)  # mov r/m8, r8
 MovRmReg = make_rm_reg('mov', 0x89, read_op1=False)  # mov r/m64, r64
-MovRegRm8 = make_reg_rm('mov', 0x8a, read_op1=False, reg_class=LowRegister)  # mov r8, r/m8
+MovRegRm8 = make_reg_rm8('mov', 0x8a, read_op1=False)  # mov r8, r/m8
 MovRegRm = make_reg_rm('mov', 0x8b, read_op1=False)  # mov r64, r/m64
+
 
 # TODO: implement lea otherwise?
 Lea = make_reg_rm('lea', 0x8d, read_op1=False)
@@ -636,6 +767,21 @@ class Idiv(X86Instruction):
             self.token3.encode()
 
 
+class MovImm8(X86Instruction):
+    """ Mov immediate into low 8-bit register """
+    reg = register_argument('reg', LowRegister, write=True)
+    imm = register_argument('imm', int)
+    syntax = Syntax(['mov', reg, ',', imm])
+    tokens = [RexToken, OpcodeToken]
+    opcode = 0xb0  # mov r8, imm8
+
+    def encode(self):
+        self.token1.w = 1
+        self.token1.b = self.reg.rexbit
+        self.token2[0:8] = self.opcode + self.reg.regbits
+        return self.token1.encode() + self.token2.encode() + u8(self.imm)
+
+
 class MovImm(X86Instruction):
     """ Mov immediate into register """
     reg = register_argument('reg', X86Register, write=True)
@@ -691,10 +837,14 @@ def pattern_call(context, tree):
     return context.gen_call(tree.value)
 
 
-# TODO: this should not be required (the MOVI8)
-@isa.pattern('reg64', 'MOVI8(reg64)', size=2)
-@isa.pattern('reg64', 'MOVI64(reg64)', size=2)
-def pattern_mov(context, tree, c0):
+@isa.pattern('stm', 'MOVI8(reg8)', size=2)
+def pattern_mov8(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
+@isa.pattern('stm', 'MOVI64(reg64)', size=2)
+def pattern_mov64(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
@@ -706,15 +856,24 @@ def pattern_ldr64(context, tree, c0):
     return d
 
 
-@isa.pattern('reg64', 'LDRI8(reg64)', size=2)
+@isa.pattern('reg8', 'LDRI8(reg64)', size=2)
 def pattern_ldr8(context, tree, c0):
-    d = context.new_reg(X86Register)
-    vdef = RegisterUseDef()
-    vdef.add_def(rax)
-    context.emit(vdef)
-    context.emit(XorRegRm(rax, RmReg(rax)))
-    context.emit(MovRegRm8(al, RmMem(c0)))
-    context.move(d, rax)
+    d = context.new_reg(LowRegister)
+    context.emit(MovRegRm8(d, RmMem8(c0)))
+    return d
+
+
+#@isa.pattern('reg8', 'reg64', size=9)
+def pattern_cast64_to8(context, tree, c0):
+    # TODO: This more or less sucks?
+    context.move(rax, c0)
+    # raise Warning()
+    defu = RegisterUseDef()
+    defu.add_use(rax)
+    defu.add_def(al)
+    context.emit(defu)
+    d = context.new_reg(LowRegister)
+    context.move(d, al)
     return d
 
 
@@ -729,13 +888,9 @@ def pattern_str64_2(context, tree, c0, c1):
     context.emit(MovRmReg(RmMemDisp(c0, cnst), c1))
 
 
-@isa.pattern('stm', 'STRI8(reg64, reg64)', size=2)
+@isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
 def pattern_str8(context, tree, c0, c1):
-    context.move(rax, c1)
-    context.emit(MovRmReg8(RmMem(c0), al))
-    vdef = RegisterUseDef()
-    vdef.add_use(rax)
-    context.emit(vdef)
+    context.emit(MovRmReg8(RmMem8(c0), c1))
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', size=2)
@@ -831,8 +986,32 @@ def pattern_shl64(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'REGI64', size=0)
-def pattern_reg64_(context, tree):
+def pattern_reg64(context, tree):
     return tree.value
+
+
+@isa.pattern('reg8', 'REGI8', size=0)
+def pattern_reg8(context, tree):
+    return tree.value
+
+
+@isa.pattern('reg64', 'I64TOI64(reg64)', size=0)
+def pattern_i64toi64(context, tree, c0):
+    return c0
+
+
+@isa.pattern('reg8', 'I64TOI8(reg64)', size=0)
+def pattern_i64toi8(context, tree, c0):
+    context.move(rax, c0)
+    # raise Warning()
+    defu = RegisterUseDef()
+    defu.add_use(rax)
+    defu.add_def(al)
+    context.emit(defu)
+
+    d = context.new_reg(LowRegister)
+    context.move(d, al)
+    return d
 
 
 @isa.pattern('reg64', 'MOVI64(LABEL)', size=2)
@@ -843,7 +1022,7 @@ def pattern_mov64_label(context, tree):
 
 
 @isa.pattern('reg64', 'LABEL', size=2)
-def pattern_reg64(context, tree):
+def pattern_reg64_label(context, tree):
     label = tree.value
     d = context.new_reg(X86Register)
     context.emit(MovAdr(d, label))
@@ -857,10 +1036,17 @@ def pattern_const64(context, tree):
     return d
 
 
-@isa.pattern('reg64', 'CONSTI8', size=11)
-def patter_const8(context, tree):
+# @isa.pattern('reg64', 'CONSTI8', size=11)
+def pattern_const8_old(context, tree):
     d = context.new_reg(X86Register)
     context.emit(MovImm(d, tree.value))
+    return d
+
+
+@isa.pattern('reg8', 'CONSTI8', size=11)
+def pattern_const8(context, tree):
+    d = context.new_reg(LowRegister)
+    context.emit(MovImm8(d, tree.value))
     return d
 
 

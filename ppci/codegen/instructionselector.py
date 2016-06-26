@@ -22,7 +22,8 @@ size_classes = [8, 16, 32, 64]
 ops = [
     'ADD', 'SUB', 'MUL', 'DIV', 'REM',
     'OR', 'SHL', 'SHR', 'AND', 'XOR',
-    'MOV', 'REG', 'LDR', 'STR', 'CONST']
+    'MOV', 'REG', 'LDR', 'STR', 'CONST',
+    'I8TO', 'I16TO', 'I32TO', 'I64TO']
 
 # Add all possible terminals:
 

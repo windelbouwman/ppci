@@ -591,6 +591,23 @@ def pattern_reg32(self, tree):
     return tree.value
 
 
+@thumb_isa.pattern('reg', 'I32TOI32(reg)', size=0)
+def pattern_i32toi32(self, tree, c0):
+    return c0
+
+
+@thumb_isa.pattern('reg', 'I8TOI32(reg)', size=0)
+def pattern_i8toi32(self, tree, c0):
+    # TODO: do something?
+    return c0
+
+
+@thumb_isa.pattern('reg', 'I32TOI8(reg)', size=0)
+def pattern_i32toi8(self, tree, c0):
+    # TODO: do something?
+    return c0
+
+
 @thumb_isa.pattern('reg', 'ADDI32(reg,reg)', size=1)
 def _(self, tree, c0, c1):
     d = self.new_reg(LowArmRegister)

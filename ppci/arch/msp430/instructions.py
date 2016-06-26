@@ -501,6 +501,17 @@ def pattern_reg8(self, tree):
     return tree.value
 
 
+@isa.pattern('reg', 'I16TOI16(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi16(self, tree, c0):
+    return c0
+
+
+@isa.pattern('reg', 'I16TOI8(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi8(self, tree, c0):
+    # TODO: do something here?
+    return c0
+
+
 @isa.pattern('reg', 'CALL')
 def pattern_call(context, tree):
     return context.gen_call(tree.value)
