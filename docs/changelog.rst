@@ -16,6 +16,7 @@ Release 0.5 (Upcoming)
 * Debug type information stored in better format
 * Expression evaluation in debugger
 * Global variables can be viewed
+* Improved support for different register classes
 
 Release 0.4.0 (Apr 27, 2016)
 ----------------------------
