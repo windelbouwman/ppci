@@ -202,6 +202,11 @@ class VCall(VirtualInstruction):
         return 'VCALL {}'.format(self.function_name)
 
 
+class ArtificialInstruction(VirtualInstruction):
+    def render(self):
+        raise NotImplementedError()
+
+
 class PseudoInstruction(Instruction):
     """
         Pseudo instructions can be emitted into a stream, but are not real

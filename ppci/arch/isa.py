@@ -293,10 +293,12 @@ class Constructor:
 
 
 class Instruction(Constructor, metaclass=InsMeta):
-    """ Base instruction class. Instructions are automatically added to an
+    """
+        Base instruction class. Instructions are automatically added to an
         isa object. Instructions are created in the following ways:
+
         - From python code, by using the instruction directly:
-            self.stream.emit(Mov(r1, r2))
+          self.stream.emit(Mov(r1, r2))
         - By the assembler. This is done via a generated parser.
         - By the instruction selector. This is done via pattern matching rules
 
@@ -306,7 +308,8 @@ class Instruction(Constructor, metaclass=InsMeta):
         are colored, the instruction is also colored.
     """
     def __init__(self, *args, **kwargs):
-        """ Base instruction constructor. Takes an arbitrary amount of
+        """
+            Base instruction constructor. Takes an arbitrary amount of
             arguments and tries to fit them on the args or syntax fields
         """
         super().__init__(*args)

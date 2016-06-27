@@ -8,6 +8,7 @@ from .. import ir
 from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
+from ..arch.arch import ArtificialInstruction
 from ..arch.isa import Instruction
 from ..arch.data_instructions import Ds
 from ..binutils.debuginfo import DebugType, DebugLocation
@@ -199,6 +200,10 @@ class CodeGenerator:
                         self.arch.make_call(frame, instruction))
                 elif isinstance(instruction, RegisterUseDef):
                     pass
+                elif isinstance(instruction, ArtificialInstruction):
+                    print(instruction)
+                    for xpi in instruction.render():
+                        output_stream.emit(xpi)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(instruction))
             else:

@@ -1,6 +1,6 @@
 from ..isa import Instruction, Isa, register_argument, Syntax
 from ..isa import FixedPattern, SubPattern, VariablePattern
-from ..arch import RegisterUseDef
+from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, u16, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative
 from ...ir import i16
@@ -68,6 +68,12 @@ class AvrInstruction(Instruction):
     isa = avr_isa
 
 
+class PseudoAvrInstruction(ArtificialInstruction):
+    """ These instructions are used to implement word arithmatic that is
+        actually implemented by two 8-bit registers """
+    pass
+
+
 class Nop(AvrInstruction):
     tokens = [AvrToken]
     syntax = Syntax(['nop'])
@@ -98,6 +104,17 @@ class Adc(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class Addw(PseudoAvrInstruction):
+    tokens = [AvrArithmaticToken]
+    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
+    rr = register_argument('rr', AvrWordRegister, read=True)
+    syntax = Syntax(['addw', rd, ',', rr])
+
+    def render(self):
+        yield Add(self.rd.lo, self.rr.lo)
+        yield Adc(self.rd.hi, self.rr.hi)
+
+
 class Cp(AvrInstruction):
     """ Compare """
     tokens = [AvrArithmaticToken]
@@ -122,6 +139,16 @@ class Cpc(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class Cpw(PseudoAvrInstruction):
+    rd = register_argument('rd', AvrWordRegister, read=True)
+    rr = register_argument('rr', AvrWordRegister, read=True)
+    syntax = Syntax(['cpw', rd, ',', rr])
+
+    def render(self):
+        yield Cp(self.rd.lo, self.rr.lo)
+        yield Cpc(self.rd.hi, self.rr.hi)
+
+
 class Sub(AvrInstruction):
     tokens = [AvrArithmaticToken]
     rd = register_argument('rd', AvrRegister, read=True, write=True)
@@ -144,6 +171,16 @@ class Sbc(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class Subw(PseudoAvrInstruction):
+    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
+    rr = register_argument('rr', AvrWordRegister, read=True)
+    syntax = Syntax(['subw', rd, ',', rr])
+
+    def render(self):
+        yield Sub(self.rd.lo, self.rr.lo)
+        yield Sbc(self.rd.hi, self.rr.hi)
+
+
 class And(AvrInstruction):
     tokens = [AvrArithmaticToken]
     rd = register_argument('rd', AvrRegister, read=True, write=True)
@@ -153,6 +190,16 @@ class And(AvrInstruction):
         FixedPattern('op', 0b1000),
         SubPattern('r', rr),
         SubPattern('d', rd)]
+
+
+class Andw(PseudoAvrInstruction):
+    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
+    rr = register_argument('rr', AvrWordRegister, read=True)
+    syntax = Syntax(['andw', rd, ',', rr])
+
+    def render(self):
+        yield And(self.rd.lo, self.rr.lo)
+        yield And(self.rd.hi, self.rr.hi)
 
 
 class Eor(AvrInstruction):
@@ -175,6 +222,16 @@ class Or(AvrInstruction):
         FixedPattern('op', 0b1010),
         SubPattern('r', rr),
         SubPattern('d', rd)]
+
+
+class Orw(PseudoAvrInstruction):
+    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
+    rr = register_argument('rr', AvrWordRegister, read=True)
+    syntax = Syntax(['orw', rd, ',', rr])
+
+    def render(self):
+        yield Or(self.rd.lo, self.rr.lo)
+        yield Or(self.rd.hi, self.rr.hi)
 
 
 class Inc(AvrInstruction):
@@ -591,18 +648,7 @@ def pattern_cjmp(context, tree, c0, c1):
         '>=': Brge}
     Bop = opnames[op]
 
-    # TODO: get rid of this movage:
-    context.move(r1r0, c0)
-    context.move(r3r2, c1)
-
-    ud1 = RegisterUseDef()
-    ud1.add_uses([r1r0, r3r2])
-    ud1.add_defs([r0, r1, r2, r3])
-    context.emit(ud1)
-
-    # Compare these fixed registers:
-    context.emit(Cp(r0, r2))
-    context.emit(Cpc(r1, r3))
+    context.emit(Cpw(c0, c1))
 
     jmp_ins = Rjmp(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
@@ -667,97 +713,35 @@ def pattern_add8(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', size=8)
+@avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', size=6)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
-    # Use r1:r0 and r3:r2 as scratch registers..
-    # TODO: think of a better way to do this!
-    context.move(r1r0, c0)
-    context.move(r3r2, c1)
-
-    ud1 = RegisterUseDef()
-    ud1.add_uses([r1r0, r3r2])
-    ud1.add_defs([r0, r1, r2, r3])
-    context.emit(ud1)
-
-    context.emit(Add(r0, r2))
-    context.emit(Adc(r1, r3))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r0, r1])
-    ud2.add_def(r1r0)
-    context.emit(ud2)
-
-    context.move(d, r1r0)
+    context.move(d, c0)
+    context.emit(Addw(d, c1))
     return d
 
 
-@avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=8)
+@avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=6)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
-    context.move(r1r0, c0)
-    context.move(r3r2, c1)
-
-    ud1 = RegisterUseDef()
-    ud1.add_uses([r1r0, r3r2])
-    ud1.add_defs([r0, r1, r2, r3])
-    context.emit(ud1)
-
-    context.emit(Sub(r0, r2))
-    context.emit(Sbc(r1, r3))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r0, r1])
-    ud2.add_def(r1r0)
-    context.emit(ud2)
-
-    context.move(d, r1r0)
+    context.move(d, c0)
+    context.emit(Subw(d, c1))
     return d
 
 
-@avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', size=8)
+@avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', size=6)
 def pattern_and16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
-    context.move(r1r0, c0)
-    context.move(r3r2, c1)
-
-    ud1 = RegisterUseDef()
-    ud1.add_uses([r1r0, r3r2])
-    ud1.add_defs([r0, r1, r2, r3])
-    context.emit(ud1)
-
-    context.emit(And(r0, r2))
-    context.emit(And(r1, r3))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r0, r1])
-    ud2.add_def(r1r0)
-    context.emit(ud2)
-
-    context.move(d, r1r0)
+    context.move(d, c0)
+    context.emit(Andw(d, c1))
     return d
 
 
-@avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', size=8)
+@avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', size=6)
 def pattern_or16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
-    context.move(r1r0, c0)
-    context.move(r3r2, c1)
-
-    ud1 = RegisterUseDef()
-    ud1.add_uses([r1r0, r3r2])
-    ud1.add_defs([r0, r1, r2, r3])
-    context.emit(ud1)
-
-    context.emit(Or(r0, r2))
-    context.emit(Or(r1, r3))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r0, r1])
-    ud2.add_def(r1r0)
-    context.emit(ud2)
-
-    context.move(d, r1r0)
+    context.move(d, c0)
+    context.emit(Orw(d, c1))
     return d
 
 

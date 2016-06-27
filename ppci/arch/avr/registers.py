@@ -112,7 +112,7 @@ class HighAvrWordRegister(AvrWordRegister):
     pass
 
 
-class AvrPointerRegister(AvrWordRegister):
+class AvrPointerRegister(HighAvrWordRegister):
     pass
 
 
@@ -160,11 +160,11 @@ r9r8 = AvrWordRegister('r9:r8', num=8, aliases=(r9, r8))
 r11r10 = AvrWordRegister('r11:r10', num=10, aliases=(r11, r10))
 r13r12 = AvrWordRegister('r13:r12', num=12, aliases=(r13, r12))
 r15r14 = AvrWordRegister('r15:r14', num=14, aliases=(r15, r14))
-r17r16 = AvrWordRegister('r17:r16', num=16, aliases=(r17, r16))
-r19r18 = AvrWordRegister('r19:r18', num=18, aliases=(r19, r18))
-r21r20 = AvrWordRegister('r21:r20', num=20, aliases=(r21, r20))
-r23r22 = AvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
-r25r24 = AvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
+r17r16 = HighAvrWordRegister('r17:r16', num=16, aliases=(r17, r16))
+r19r18 = HighAvrWordRegister('r19:r18', num=18, aliases=(r19, r18))
+r21r20 = HighAvrWordRegister('r21:r20', num=20, aliases=(r21, r20))
+r23r22 = HighAvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
+r25r24 = HighAvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
 X = AvrPointerRegister('X', num=26, aliases=(r27, r26))
 Y = AvrPointerRegister('Y', num=28, aliases=(r29, r28))
 Z = AvrPointerRegister('Z', num=30, aliases=(r31, r30))
@@ -174,9 +174,11 @@ all_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
             r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
             r28, r29, r30, r31)
 
-all_w_regs = (
-    r1r0, r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14,
+lo_w_regs = (
+    r1r0, r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
+hi_w_regs = (
     r17r16, r19r18, r21r20, r23r22, r25r24, X, Y, Z)
+all_w_regs = lo_w_regs + hi_w_regs
 
 num_reg_map = {r.num: r for r in all_regs}
 
@@ -204,5 +206,6 @@ register_classes = {
          r26, r27, r28, r29, r30, r31],
         HighAvrRegister),
     'ptrreg': ([X, Y, Z], AvrPointerRegister),
-    'reg16': (all_w_regs, AvrWordRegister),
+    'reg16': (lo_w_regs + hi_w_regs, AvrWordRegister),
+    'hireg16': (hi_w_regs, HighAvrWordRegister),
     }

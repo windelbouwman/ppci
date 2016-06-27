@@ -20,10 +20,7 @@ from .registers import get_register, get16reg, register_classes
 
 
 class AvrArch(Architecture):
-    """
-        Check this site for good info:
-        - https://gcc.gnu.org/wiki/avr-gcc
-    """
+    """ Avr architecture description. """
     name = 'avr'
 
     def __init__(self, options=None):

@@ -964,9 +964,6 @@ class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     def do(self, src, expected_output, lang='c3'):
         self.build(src, lang=lang, bin_format='hex')
 
-    @unittest.skip('Requires spilling which is not implemented yet!')
-    def test_sw_div(self):
-        pass
 
 # Avr Only works with optimization enabled...
 # class TestSamplesOnAvrO2(TestSamplesOnAvr):

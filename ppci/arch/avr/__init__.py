@@ -2,10 +2,13 @@
 
 Status: 20%
 
-This is the avr backend.
+The is the avr backend.
 
 .. autoclass:: ppci.arch.avr.AvrArch
 
+.. autoclass:: ppci.arch.avr.registers.AvrRegister
+
+.. autoclass:: ppci.arch.avr.registers.AvrWordRegister
 
 See also:
 
