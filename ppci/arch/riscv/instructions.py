@@ -434,10 +434,10 @@ class StrBase(RiscvInstruction):
         return self.token1.encode()
 
 def make_str(mnemonic, func):
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
     rs2 = register_argument('rs2', RiscvRegister, read=True)
     offset = register_argument('offset', int)
-    syntax = Syntax([mnemonic, rs1,',',rs2,',',offset])
+    rs1 = register_argument('rs1', RiscvRegister, read=True)  
+    syntax = Syntax([mnemonic, rs2,',',offset,'(',rs1,')'])
     members = {'syntax': syntax,'func':func, 'offset': offset, 'rs1':rs1, 'rs2':rs2}
     return type(mnemonic + '_ins', (StrBase,), members)
 
@@ -456,9 +456,9 @@ class LdrBase(RiscvInstruction):
 
 def make_ldr(mnemonic, func):
     rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
     offset = register_argument('offset', int)
-    syntax = Syntax([mnemonic, rd,',',rs1,',',offset])
+    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    syntax = Syntax([mnemonic, rd, ',', offset, '(',  rs1, ')'])
     members = {'syntax': syntax,'func':func, 'offset': offset, 'rd':rd, 'rs1':rs1}
     return type(mnemonic + '_ins', (LdrBase,), members)
 
@@ -497,7 +497,7 @@ Div = make_mext('div', 0b100)
 # Instruction selection patterns:
 @isa.pattern('stm', 'STRI32(reg, reg)', size=2)
 def _(self, tree, c0, c1):
-    self.emit(Sw(c0, c1, 0))
+    self.emit(Sw(c1, 0, c0))
 
 
 @isa.pattern(
@@ -508,12 +508,12 @@ def _(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
     # compile correctly...
     offset = tree.children[0].children[1].value
-    context.emit(Sw(c0, c1, offset))
+    context.emit(Sw(c1, offset, c0))
 
 
 @isa.pattern('stm', 'STRI8(reg, reg)', size=2)
 def _(context, tree, c0, c1):
-    context.emit(Sb(c0, c1, 0))
+    context.emit(Sb(c1, 0, c0))
 
 
 @isa.pattern('reg', 'MOVI32(reg)', size=2)
@@ -655,21 +655,21 @@ def _(context, tree):
     ln = context.frame.add_constant(tree.value)
     context.emit(Adru(d,ln))
     context.emit(Adrl(d,d, ln))
-    context.emit(Lw(d, d, 0))
+    context.emit(Lw(d, 0, d))
     return d
 
 
 @isa.pattern('reg', 'LDRI8(reg)', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
-    context.emit(Lb(d, c0, 0))
+    context.emit(Lb(d, 0, c0))
     return d
 
 
 @isa.pattern('reg', 'LDRI32(reg)', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
-    context.emit(Lw(d, c0, 0))
+    context.emit(Lw(d, 0, c0))
     return d
 
 
@@ -718,7 +718,7 @@ def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].children[1].value
     assert isinstance(c1, int)
-    context.emit(Lw(d, c0, c1))
+    context.emit(Lw(d, c1, c0))
     return d
 
 

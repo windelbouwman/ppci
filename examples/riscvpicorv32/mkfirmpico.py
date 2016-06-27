@@ -6,7 +6,7 @@ report_generator = HtmlReportGenerator(open("report.html", 'w'))
 with complete_report(report_generator) as reporter:
     
     o1 = asm ("startercode.asm", "riscv")
-    o2 = c3c(["bsp.c3", "io.c3", "main.c3"], [], "riscv",reporter=reporter)
+    o2 = c3c(["bsp.c3", "io.c3", "main.c3"], [], "riscv", reporter=reporter, opt_level=2)
     obj = link([o1,o2], "firmware.mmap", use_runtime=False,reporter=reporter)
     objcopy(obj, "flash", "bin", "firmware.bin")
     

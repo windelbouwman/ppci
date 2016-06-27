@@ -183,7 +183,7 @@ class CLw(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
     offset = register_argument('offset', int)
-    syntax = Syntax(['c.lw', rd,',',rs1,',',offset])
+    syntax = Syntax(['c.lw', rd, ',',  offset, '(', rs1, ')'])
     def encode(self):
         self.token1[0:2]=0b00
         self.token1[2:5]=self.rd.num
@@ -198,7 +198,7 @@ class CSw(RiscvcInstruction):
     rs2 = register_argument('rs2', RiscvRegister, read=True)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
     offset = register_argument('offset', int)
-    syntax = Syntax(['c.sw', rs2,',',rs1,',',offset])
+    syntax = Syntax(['c.sw', rs2, ',', offset, '(', rs1, ')'])
     def encode(self):
         self.token1[0:2]=0b00
         self.token1[2:5]=self.rs2.num
