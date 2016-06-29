@@ -123,8 +123,8 @@ class GraphColoringRegisterAllocator:
         self.cls_regs = {}  # Mapping from 
         self.reg_alias = defaultdict(set)
         nmz = []
-        for cls, val in self.arch.register_classes.items():
-            regs, kls = val
+        for val in self.arch.register_classes:
+            cls, _, kls, regs = val
             nmz.append((kls, cls))
             self.logger.debug('Register class "%s" contains %s', cls, regs)
             self.reg_colors[cls] = set(r.color for r in regs)

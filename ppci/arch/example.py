@@ -5,7 +5,7 @@
 
 from .isa import Instruction, Syntax
 from .arch import Architecture, Frame
-from .isa import register_argument, Register
+from .isa import register_argument, Register, RegisterClass
 from ..import ir
 
 
@@ -17,13 +17,12 @@ class ExampleArch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        self.value_classes[ir.i32] = ExampleRegister
-        self.value_classes[ir.ptr] = ExampleRegister
         self.byte_sizes['int'] = 4
         self.byte_sizes['ptr'] = 4
-        self.register_classes = {
-            'reg': ([R0, R1, R2, R3], ExampleRegister)
-            }
+        self.register_classes = [
+            RegisterClass(
+                'reg', [ir.i32, ir.ptr], ExampleRegister, [R0, R1, R2, R3])
+            ]
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations

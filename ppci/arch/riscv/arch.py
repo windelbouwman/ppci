@@ -12,6 +12,7 @@ from .registers import R13, R14, R15, R16, R17, R28, LR, get_register
 from .registers import R0, LR, SP, FP
 from .registers import R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
 from ...ir import i8, i32, ptr
+from ..isa import RegisterClass
 from ..data_instructions import data_isa
 from .frame import RiscvFrame
 from ...binutils.assembler import BaseAssembler
@@ -57,16 +58,13 @@ class RiscvArch(Architecture):
         self.FrameClass = RiscvFrame
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        self.value_classes[i8] = RiscvRegister
-        self.value_classes[i32] = RiscvRegister
-        self.value_classes[ptr] = RiscvRegister
 
         # Allocatable registers:
-        self.register_classes = {
-            'reg': (
-                [R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27],
-                RiscvRegister)
-            }
+        self.register_classes = [
+            RegisterClass(
+                'reg', [i8, i32, ptr], RiscvRegister,
+                [R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27])
+            ]
         self.fp = FP
 
     def get_runtime(self):

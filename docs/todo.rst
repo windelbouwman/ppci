@@ -23,4 +23,8 @@ Below is a list of features / tasks that need to be done.
 
 - Add a pascal frontend.
 
-- Add floating point support
+- Add floating point support.
+
+- Add a peephole optimizer.
+
+- Add spilling to the register allocator.

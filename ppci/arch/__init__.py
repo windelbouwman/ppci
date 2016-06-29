@@ -1,7 +1,14 @@
 """
 
+.. autoclass:: ppci.arch.arch.Architecture
+    :members:
+
+
+.. autoclass:: ppci.arch.arch.Frame
+    :members:
+
 .. autoclass:: ppci.arch.isa.Isa
-    :members: add_instruction, pattern, register_relocation, register_pattern
+    :members:
 
 
 .. autoclass:: ppci.arch.isa.Register
@@ -9,5 +16,9 @@
 
 
 .. autoclass:: ppci.arch.isa.Instruction
+    :members:
 
 """
+
+from .arch import Architecture, Frame
+from .isa import Isa

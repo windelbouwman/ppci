@@ -130,10 +130,13 @@ def construct(buildfile, targets=()):
 def asm(source, march):
     """ Assemble the given source for machine march.
 
-    :param str source: can be a filename or a file like object.
-    :param str march: march can be a Architecture instance
-                      or a string indicating the machine architecture.
-    :return: an object file
+    Args:
+        source (str): can be a filename or a file like object.
+        march (str): march can be a :class:`ppci.arch.arch.Architecture`
+            instance or a string indicating the machine architecture.
+
+    Returns:
+        A :class:`ppci.binutils.objectfile.ObjectFile` object
 
     .. doctest::
 
@@ -187,8 +190,7 @@ def disasm(data, march):
 
 
 def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
-    """ Compile c3 sources to ir code using the includes and for the given
-    target """
+    """ Compile c3 sources to ir-code for the given architecture. """
     logger = logging.getLogger('c3c')
     march = get_arch(march)
     if not reporter:
@@ -222,16 +224,17 @@ OPT_LEVELS = ('0', '1', '2', 's')
 
 
 def optimize(ir_module, level=0, reporter=None, debug_db=None):
-    """
-        Run a bag of tricks against the :doc:`ir-code<ir>`.
-        This is an in-place operation!
+    """ Run a bag of tricks against the :doc:`ir-code<ir>`.
 
-        :param ir.Module ir_module: The ir module to optimize.
-        :param level: The optimization level, 0 is default. Can be 0,1,2 or s
-                      0: No optimization
-                      1: some optimization
-                      2: more optimization
-                      s: optimize for size
+    This is an in-place operation!
+
+    Args:
+        ir_module (ppci.ir.Module): The ir module to optimize.
+        level: The optimization level, 0 is default. Can be 0,1,2 or s
+            0: No optimization
+            1: some optimization
+            2: more optimization
+            s: optimize for size
     """
     logger = logging.getLogger('optimize')
     level = str(level)
@@ -277,17 +280,18 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
 def ir_to_object(
         ir_modules, march, debug_db=None, reporter=None, debug=False,
         opt='speed'):
-    """
-    Translate the given list of IR-modules into object code for the given
-    architecture.
+    """ Translate IR-modules into code for the given architecture.
 
-    :param tuple ir_modules: a collection of ir-modules that will be
-                             transformed into machine code.
-    :param str march: the architecture for which to compile.
-    :param ReportGenerator reporter: reporter to write compilation report to
-    :param bool debug: include debugging information
-    :param str opt: optimization goal. Can be 'speed', 'size' or 'co2'.
-    :return: an object file
+    Args:
+        ir_modules: a collection of ir-modules that will be transformed into
+            machine code.
+        march: the architecture for which to compile.
+        reporter: reporter to write compilation report to
+        debug (bool): include debugging information
+        opt (str): optimization goal. Can be 'speed', 'size' or 'co2'.
+
+    Returns:
+        ObjectFile: An object file
     """
     if not reporter:
         reporter = DummyReportGenerator()
@@ -345,16 +349,18 @@ def cc(source, march, reporter=None):
 
 
 def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
-    """
-    Compile a set of sources into binary format for the given target.
+    """ Compile a set of sources into binary format for the given target.
 
-    :param tuple sources: a collection of sources that will be compiled.
-    :param tuple includes: a collection of sources that will be used for type
-                           and function information.
-    :param str march: the architecture for which to compile.
-    :param ReportGenerator reporter: reporter to write compilation report to
-    :param bool debug: include debugging information
-    :return: an object file
+    Args:
+        sources: a collection of sources that will be compiled.
+        includes: a collection of sources that will be used for type
+            and function information.
+        march: the architecture for which to compile.
+        reporter: reporter to write compilation report to
+        debug: include debugging information
+
+    Returns:
+        An object file
 
     .. doctest::
 
@@ -398,8 +404,12 @@ def fortran_to_ir(source):
 def bfcompile(source, target, reporter=None):
     """ Compile brainfuck source into binary format for the given target
 
-    source can be a filename or a file like object.
-    march can be a machine instance or a string indicating the target.
+    Args:
+        source: a filename or a file like object.
+        march: a architecture instance or a string indicating the target.
+
+    Returns:
+        A new object.
 
     .. doctest::
 
@@ -433,14 +443,16 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 def link(
         objects, layout=None, use_runtime=False, partial_link=False,
         reporter=None, debug=False):
-    """
-    Links the iterable of objects into one using the given layout.
+    """ Links the iterable of objects into one using the given layout.
 
-    :param tuple objects: a collection of objects to be linked together.
-    :param bool use_runtime: also link compiler runtime functions
-    :param bool debug: when true, keep debug information. Otherwise remove
-                       this debug information from the result.
-    :return: the linked object file
+    Args:
+        objects: a collection of objects to be linked together.
+        use_runtime (bool): also link compiler runtime functions
+        debug (bool): when true, keep debug information. Otherwise remove
+            this debug information from the result.
+
+    Returns:
+        The linked object file
 
     .. doctest::
 

@@ -85,13 +85,6 @@ all_registers = registers_low + registers_high
 num2regmap = {r.num: r for r in all_registers}
 
 
-# TODO: register classes:
-register_classes = {
-    'loreg': [R0, R1, R2, R3, R4, R5, R6, R7],
-    '': []
-    }
-
-
 class Coreg(Register):
 
     syntaxi = 'coreg', [

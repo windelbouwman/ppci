@@ -6,7 +6,6 @@ import io
 from ..arch import Architecture, VCall
 from ..arch import Frame, Label
 from ...binutils.assembler import BaseAssembler
-from ...ir import i64, i8, ptr
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
@@ -25,10 +24,7 @@ class X86_64Arch(Architecture):
     option_names = ('sse2', 'sse3')
 
     def __init__(self, options=None):
-        super().__init__(options=options)
-        self.value_classes[i64] = X86Register
-        self.value_classes[ptr] = X86Register
-        self.value_classes[i8] = LowRegister
+        super().__init__(options=options, register_classes=register_classes)
         self.byte_sizes['int'] = 8  # For front end!
         self.byte_sizes['ptr'] = 8  # For front end!
         self.isa = isa + data_isa
@@ -36,8 +32,6 @@ class X86_64Arch(Architecture):
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
-
-        self.register_classes = register_classes
         self.fp = rbp
 
     def move(self, dst, src):

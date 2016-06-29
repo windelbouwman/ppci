@@ -9,9 +9,9 @@ from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
 from .instructions import Push, Pop, Mov, Call, In, Movw
-from .registers import AvrRegister, AvrPseudo16Register
-from .registers import AvrPointerRegister, AvrWordRegister
-from .registers import r0, r1, r2, r3, r4, r5, r6, r7
+from .registers import AvrRegister
+from .registers import AvrWordRegister
+from .registers import r0
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, r26, r27, r28, r29, r30, r31, X, Y, Z
@@ -24,7 +24,7 @@ class AvrArch(Architecture):
     name = 'avr'
 
     def __init__(self, options=None):
-        super().__init__(options=options)
+        super().__init__(options=options, register_classes=register_classes)
         self.isa = avr_isa + data_isa
         self.FrameClass = AvrFrame
         self.assembler = BaseAssembler()
@@ -35,12 +35,6 @@ class AvrArch(Architecture):
         self.byte_sizes['i16'] = 2
         self.byte_sizes['i8'] = 1
         self.byte_sizes['ptr'] = 2
-        self.value_classes[i8] = AvrRegister
-        self.value_classes[i16] = AvrWordRegister
-        self.value_classes[ptr] = AvrWordRegister
-
-        # Allocatable registers:
-        self.register_classes = register_classes
         self.fp = Y
 
     def get_runtime(self):

@@ -3,16 +3,15 @@ MSP430 architecture description.
 """
 
 import io
-from ...ir import i8, i16, ptr
 from ...binutils.assembler import BaseAssembler
-from ...utils.reporting import HtmlReportGenerator, complete_report
+from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture, VCall, Frame, Label, Alignment
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
 from .registers import get_register
-from .registers import r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15
-from .registers import r1
+from .registers import r4, r5, r6, r7, r8, r9
+from .registers import r1, register_classes
 from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
 from .instructions import ret, push, call, pop, Add, Sub, ConstSrc, RegDst, mov
 
@@ -22,12 +21,9 @@ class Msp430Arch(Architecture):
     name = 'msp430'
 
     def __init__(self, options=None):
-        super().__init__(options=options)
+        super().__init__(options=options, register_classes=register_classes)
         self.byte_sizes['int'] = 2
         self.byte_sizes['ptr'] = 2
-        self.value_classes[i16] = Msp430Register
-        self.value_classes[ptr] = Msp430Register
-        self.value_classes[i8] = Msp430Register
         self.isa = isa + data_isa
         self.assembler = Msp430Assembler()
         self.assembler.gen_asm_parser(self.isa)
@@ -35,18 +31,7 @@ class Msp430Arch(Architecture):
 
         self.FrameClass = Msp430Frame
 
-        self.registers.append(r10)
-        self.registers.append(r11)
-        self.registers.append(r12)
-        self.registers.append(r13)
-        self.registers.append(r14)
-        self.registers.append(r15)
-
         # Allocatable registers:
-        self.register_classes = {
-            'reg': (
-                [r5, r6, r7, r8, r9, r10, r11, r13, r14, r15], Msp430Register)
-            }
         self.fp = r4
         self.caller_save = (r11, r13, r14, r15)  # TODO: fix r12 reg!!
 

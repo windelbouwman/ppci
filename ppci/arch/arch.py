@@ -11,7 +11,7 @@ class Architecture:
     desc = None
     option_names = ()
 
-    def __init__(self, options=None):
+    def __init__(self, options=None, register_classes=()):
         """
             Create a new machine instance with possibly some extra machine
             options.
@@ -25,12 +25,12 @@ class Architecture:
             for option_name in options:
                 assert option_name in self.option_names
                 self.option_settings[option_name] = True
-        self.registers = []
+        self.registers = []  # TODO: candidate for removal?
+        self.register_classes = register_classes
         self.byte_sizes = {}
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
-        self.value_classes = {}
 
     def has_option(self, name):
         """ Check for an option setting selected """
@@ -58,6 +58,16 @@ class Architecture:
             return self.byte_sizes['ptr']
         else:
             return {ir.i8: 1, ir.i16: 2, ir.i32: 4, ir.i64: 8}[typ]
+
+    @property
+    @lru_cache(maxsize=None)
+    def value_classes(self):
+        """ Get a mapping from ir-type to the proper register class """
+        mapping = {}
+        for register_class in self.register_classes:
+            for ty in register_class.ir_types:
+                mapping[ty] = register_class.typ
+        return mapping
 
     def new_frame(self, frame_name, function):
         """ Create a new frame with name frame_name for an ir-function """

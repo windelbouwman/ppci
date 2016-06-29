@@ -1,4 +1,5 @@
-from ..isa import Register, Syntax
+from ..isa import Register, Syntax, RegisterClass
+from ...ir import i16, i8, ptr
 
 
 class AvrRegister(Register):
@@ -170,9 +171,11 @@ Y = AvrPointerRegister('Y', num=28, aliases=(r29, r28))
 Z = AvrPointerRegister('Z', num=30, aliases=(r31, r30))
 
 
-all_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
-            r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
-            r28, r29, r30, r31)
+lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
+           r15)
+hi_regs = (r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
+           r28, r29, r30, r31)
+all_regs = lo_regs + hi_regs
 
 lo_w_regs = (
     r1r0, r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
@@ -195,17 +198,10 @@ def get16reg(n):
     return mp[n]
 
 
-register_classes = {
-    'reg': (
-        [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13,
-         r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25,
-         r26, r27, r28, r29, r30, r31],
-        AvrRegister),
-    'hireg': (
-        [r16, r17, r18, r19, r20, r21, r22, r23, r24, r25,
-         r26, r27, r28, r29, r30, r31],
-        HighAvrRegister),
-    'ptrreg': ([X, Y, Z], AvrPointerRegister),
-    'reg16': (lo_w_regs + hi_w_regs, AvrWordRegister),
-    'hireg16': (hi_w_regs, HighAvrWordRegister),
-    }
+register_classes = [
+    RegisterClass('reg', [i8], AvrRegister, all_regs),
+    RegisterClass('hireg', [], HighAvrRegister, hi_regs),
+    RegisterClass('ptrreg', [], AvrPointerRegister, (X, Y, Z)),
+    RegisterClass('reg16', [i16, ptr], AvrWordRegister, all_w_regs),
+    RegisterClass('hireg16', [], HighAvrWordRegister, hi_w_regs),
+    ]

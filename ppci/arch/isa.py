@@ -12,6 +12,10 @@ Pattern = namedtuple(
     ['non_term', 'tree', 'size', 'cycles', 'energy', 'condition', 'method'])
 
 
+RegisterClass = namedtuple(
+    'RegisterClass', ['name', 'ir_types', 'typ', 'registers'])
+
+
 class Register:
     """ Baseclass of all registers types """
     def __init__(self, name, num=None, aliases=()):

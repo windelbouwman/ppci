@@ -1,5 +1,6 @@
 
-from ..isa import Register, Syntax
+from ..isa import Register, Syntax, RegisterClass
+from ...ir import i8, i16, ptr
 
 
 def get_register(color):
@@ -62,3 +63,7 @@ r15 = Msp430Register('r15', num=15)
 all_registers = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 
 num2reg = {r.num: r for r in all_registers}
+
+register_classes = [
+    RegisterClass('reg', [i16, i8, ptr], Msp430Register, all_registers)
+    ]
