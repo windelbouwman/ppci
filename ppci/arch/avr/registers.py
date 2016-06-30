@@ -99,6 +99,12 @@ class AvrWordRegister(Register):
         Syntax(['r21', ':', 'r20'], new_func=lambda: r21r20),
         ]
 
+    def __repr__(self):
+        if self.is_colored:
+            return get16reg(self.color).name
+        else:
+            return self.name
+
     @property
     def lo(self):
         return get8reg(self.num)

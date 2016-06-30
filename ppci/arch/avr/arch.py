@@ -121,13 +121,21 @@ class AvrArch(Architecture):
 
         # Caller save registers:
         for register in live_registers:
-            yield Push(register)
+            if isinstance(register, AvrWordRegister):
+                yield Push(register.hi)
+                yield Push(register.lo)
+            else:
+                yield Push(register)
 
         yield Call(vcall.function_name)
 
-        # Restore caller save registers:
+        # Restore caller save registers (in reverse order!):
         for register in reversed(live_registers):
-            yield Pop(register)
+            if isinstance(register, AvrWordRegister):
+                yield Push(register.lo)
+                yield Push(register.hi)
+            else:
+                yield Pop(register)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

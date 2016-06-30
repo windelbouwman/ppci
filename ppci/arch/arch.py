@@ -82,8 +82,6 @@ class Architecture:
         frame = self.FrameClass(
             frame_name, arg_locs, live_in, rv, live_out)
 
-        # TODO: change this:
-        frame.get_register = self.get_register
         return frame
 
     def get_register(self, color):  # pragma: no cover
@@ -354,7 +352,7 @@ class Frame:
         for tmp in instruction.live_in & instruction.live_out:
             # print(tmp)
             n = self.ig.get_node(tmp)
-            live_regs.append(self.get_register(n.color))
+            live_regs.append(n.color)
         return live_regs
 
     def live_ranges(self, vreg):

@@ -28,3 +28,8 @@ Below is a list of features / tasks that need to be done.
 - Add a peephole optimizer.
 
 - Add spilling to the register allocator.
+
+- Add a front-end for LLVM IR-code, this way, the front-end of LLVM can be
+  used and the backend of ppci.
+
+- Add a backend for LLVM IR-code.

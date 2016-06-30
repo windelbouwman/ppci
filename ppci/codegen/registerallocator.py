@@ -91,6 +91,7 @@ from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture
+from ..arch.isa import Register
 
 
 # Nifty first function:
@@ -120,30 +121,19 @@ class GraphColoringRegisterAllocator:
         # TODO: Improve different register classes
         self.reg_colors = {}
         self.K = {}
-        self.cls_regs = {}  # Mapping from 
-        self.reg_alias = defaultdict(set)
-        nmz = []
+        self.cls_regs = {}  # Mapping from class to register set
+        self.alias = defaultdict(set)
         for val in self.arch.register_classes:
-            cls, _, kls, regs = val
-            nmz.append((kls, cls))
-            self.logger.debug('Register class "%s" contains %s', cls, regs)
-            self.reg_colors[cls] = set(r.color for r in regs)
-            self.K[cls] = len(regs)
-            self.cls_regs[cls] = set(regs)
+            _, _, kls, regs = val
+            self.logger.debug('Register class "%s" contains %s', kls, regs)
+            self.reg_colors[kls] = set(r.color for r in regs)
+            self.K[kls] = len(regs)
+            self.cls_regs[kls] = set(regs)
             for r in regs:
-                self.reg_alias[r].add(r)  # The trivial alias: itself!
+                self.alias[r].add(r)  # The trivial alias: itself!
                 for r2 in r.aliases:
-                    self.reg_alias[r].add(r2)
-                    self.reg_alias[r2].add(r)
-
-        # TODO: Is this a hack?
-        def cls_mapper(x):
-            for c, n in nmz:
-                if isinstance(x, c):
-                    return n
-            raise KeyError(x)
-
-        self.cls_mapper = cls_mapper
+                    self.alias[r].add(r2)
+                    self.alias[r2].add(r)
 
     def alloc_frame(self, frame):
         """
@@ -193,7 +183,7 @@ class GraphColoringRegisterAllocator:
             len(self.frame.cfg.nodes))
 
         self.frame.cfg.calculate_liveness()
-        self.frame.ig = InterferenceGraph(self.cls_mapper)
+        self.frame.ig = InterferenceGraph()
         self.frame.ig.calculate_interference(self.frame.cfg)
         self.logger.debug(
             'Constructed interferencegraph with %s nodes',
@@ -205,10 +195,8 @@ class GraphColoringRegisterAllocator:
         self.initial = set(self.frame.ig.nodes - self.precolored)
 
         # Initialize color map:
-        self.color = {}
         for node in self.precolored:
             self.logger.debug('Pre colored: %s', node)
-            self.color[node] = node.color
 
         self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
@@ -255,12 +243,11 @@ class GraphColoringRegisterAllocator:
         Determine the number of registers that can be blocked in
         class B by class C.
         """
-        assert isinstance(B, str)
-        assert isinstance(C, str)
+        assert issubclass(B, Register)
+        assert issubclass(C, Register)
         B_regs = self.cls_regs[B]
         C_regs = self.cls_regs[C]
-        alias = self.reg_alias
-        x = max(len(alias[r] & B_regs) for r in C_regs)
+        x = max(len(self.alias[r] & B_regs) for r in C_regs)
         self.logger.debug(
             'Class %s register can block max %s class %s register', C, x, B)
         return x
@@ -335,13 +322,13 @@ class GraphColoringRegisterAllocator:
         x = self.Node(m.defined_registers[0])
         y = self.Node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
-        self.logger.debug('Examining move %s which couples %s and %s', m, u, v)
+        self.logger.debug('Coalescing %s which couples %s and %s', m, u, v)
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
             self.add_worklist(u)
-            self.logger.debug('Move was mov x, x')
-        elif v in self.precolored or self.has_edge(u, v):
+            self.logger.debug('Move was an identity move')
+        elif (v in self.precolored) or self.has_edge(u, v):
             # Both u and v are precolored
             # or there is an interfering edge
             # between the two nodes:
@@ -349,9 +336,9 @@ class GraphColoringRegisterAllocator:
             self.add_worklist(u)
             self.add_worklist(v)
             self.logger.debug('Move is constrained!')
-        elif (u in self.precolored and
-                all(self.Ok(t, u) for t in v.adjecent)) or \
-                (u not in self.precolored and self.conservative(u, v)):
+        elif (u.is_colored and self.fits_class(v.reg_class, u.reg_class) and
+                all(self.ok(t, u) for t in v.adjecent)) or \
+                ((not u.is_colored) and self.conservative(u, v)):
             # print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.adjecent)
             self.logger.debug('Combining %s and %s', u, v)
             self.coalescedMoves.add(m)
@@ -367,12 +354,9 @@ class GraphColoringRegisterAllocator:
             self.freeze_worklist.remove(u)
             self.simplifyWorklist.append(u)
 
-    def Ok(self, t, r):
+    def ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
-        # print('ok', t,r)
-        return self.is_colorable(t) or \
-            (t in self.precolored) or \
-            self.has_edge(t, r)
+        return t.is_colored or self.is_colorable(t) or self.has_edge(t, r)
 
     def conservative(self, u, v):
         """
@@ -383,7 +367,8 @@ class GraphColoringRegisterAllocator:
         nodes = u.adjecent | v.adjecent
         k = len(list(filter(lambda n: not self.is_colorable(n), nodes)))
         # TODO: should this be altered for more register classes?
-        return k < self.K[u.reg_class]
+        common_reg_class = self.common_reg_class(u.reg_class, v.reg_class)
+        return k < self.K[common_reg_class]
 
     def combine(self, u, v):
         """ Combine u and v into one node, updating work lists """
@@ -393,6 +378,8 @@ class GraphColoringRegisterAllocator:
         else:
             self.spillWorklist.remove(v)
         self.frame.ig.combine(u, v)
+        u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
+        self.logger.debug('Combined node: %s', u)
 
         # See if any adjecent nodes dropped in degree by merging u and v
         # This can happen when u and v both interfered with t.
@@ -403,6 +390,25 @@ class GraphColoringRegisterAllocator:
         if (not self.is_colorable(u)) and u in self.freeze_worklist:
             self.freeze_worklist.remove(u)
             self.spillWorklist.append(u)
+
+    @lru_cache(maxsize=None)
+    def common_reg_class(self, u, v):
+        """ Determine the smallest common register class of two nodes """
+        if issubclass(u, v):
+            cc = u
+        elif issubclass(v, u):
+            cc = v
+        else:
+            raise RuntimeError(
+                'Cannot determine common registerclass for {} and {}'.format(
+                    u, v))
+        self.logger.debug('The common class of %s and %s is %s', u, v, cc)
+        return cc
+
+    def fits_class(self, u, v):
+        """ Check if u can be given the class of v, in other words:
+            is v a subclass of u? """
+        return issubclass(v, u)
 
     def freeze(self):
         """ Give up coalescing on some node, move it to the simplify list
@@ -437,16 +443,15 @@ class GraphColoringRegisterAllocator:
         while self.select_stack:
             node = self.select_stack.pop(-1)  # Start with the last added
             self.frame.ig.unmask_node(node)
-            takenregs = set(self.color[m] for m in node.adjecent)
-            ok_colors = self.reg_colors[node.reg_class] - takenregs
-            if ok_colors:
-                color = first(ok_colors)
-                assert isinstance(color, int)
-                self.logger.debug('Assign color %s to node %s', color, node)
-                self.color[node] = color
-                node.color = color
-            else:  # pragma: no cover
-                raise NotImplementedError('Spill required here!')
+            takenregs = set()
+            for m in node.adjecent:
+                for r in self.alias[m.color]:
+                    takenregs.add(r)
+            ok_regs = self.cls_regs[node.reg_class] - takenregs
+            assert ok_regs
+            reg = first(ok_regs)
+            self.logger.debug('Assign %s to node %s', reg, node)
+            node.color = reg
 
     def remove_redundant_moves(self):
         """ Remove coalesced moves """
@@ -459,9 +464,9 @@ class GraphColoringRegisterAllocator:
         for node in self.frame.ig:
             for reg in node.temps:
                 if reg.is_colored:
-                    assert reg.color == node.color
+                    assert reg.color == node.color.color
                 else:
-                    reg.set_color(node.color)
+                    reg.set_color(node.color.color)
                 # self.debug_db.map(reg, self.arch.get_register(node.color))
 
     def check_invariants(self):  # pragma: no cover

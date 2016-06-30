@@ -6,6 +6,7 @@ from ...utils.bitfun import wrap_negative
 from ...ir import i16
 from .registers import AvrRegister, AvrPseudo16Register, X
 from .registers import HighAvrRegister, AvrWordRegister
+from .registers import HighAvrWordRegister
 from .registers import r0, r1, r2, r3, r16, r17, r1r0, r3r2, r17r16
 
 
@@ -555,6 +556,18 @@ class Ldi(AvrInstruction):
         VariablePattern('k', nk)]
 
 
+class Ldiw(PseudoAvrInstruction):
+    rd = register_argument('rd', HighAvrWordRegister, write=True)
+    nk = register_argument('nk', int)
+    syntax = Syntax(['ldiw', rd, ',', nk])
+
+    def render(self):
+        lb = self.nk & 0xff
+        hb = (self.nk >> 8) & 0xff
+        yield Ldi(self.rd.lo, lb)
+        yield Ldi(self.rd.hi, hb)
+
+
 @avr_isa.register_relocation
 def rel_ldilo(sym_value, data, reloc_value):
     imm8 = wrap_negative(sym_value, 16) & 0xff
@@ -607,6 +620,16 @@ class LdiHiAddr(AvrInstruction):
 
     def relocations(self):
         return [(self.lab, rel_ldihi)]
+
+
+class LdiwAddr(PseudoAvrInstruction):
+    rd = register_argument('rd', HighAvrWordRegister, write=True)
+    lab = register_argument('lab', str)
+    syntax = Syntax(['ldiw', rd, ',', '@', '(', lab, ')'])
+
+    def render(self):
+        yield LdiLoAddr(self.rd.lo, self.lab)
+        yield LdiHiAddr(self.rd.hi, self.lab)
 
 
 class In(AvrInstruction):
@@ -852,32 +875,14 @@ def pattern_const8(context, tree):
 
 @avr_isa.pattern('reg16', 'CONSTI16', size=4)
 def pattern_const16(context, tree):
-    lb = tree.value & 0xff
-    hb = (tree.value >> 8) & 0xff
-    context.emit(Ldi(r16, lb))
-    context.emit(Ldi(r17, hb))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r16, r17])
-    ud2.add_def(r17r16)
-    context.emit(ud2)
-
-    d = context.new_reg(AvrWordRegister)
-    context.move(d, r17r16)
+    d = context.new_reg(HighAvrWordRegister)
+    context.emit(Ldiw(d, tree.value))
     return d
 
 
 @avr_isa.pattern('reg16', 'LABEL', size=4)
 def pattern_label(context, tree):
     """ Determine the label address and yield its result """
-    context.emit(LdiLoAddr(r16, tree.value))
-    context.emit(LdiHiAddr(r17, tree.value))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r16, r17])
-    ud2.add_def(r17r16)
-    context.emit(ud2)
-
-    d = context.new_reg(AvrWordRegister)
-    context.move(d, r17r16)
+    d = context.new_reg(HighAvrWordRegister)
+    context.emit(LdiwAddr(d, tree.value))
     return d

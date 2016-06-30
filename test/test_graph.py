@@ -131,7 +131,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         instrs.append(DefUse(t4, t1))  # t1, t3, t4 live
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
-        ig = InterferenceGraph(lambda x: 'reg')
+        ig = InterferenceGraph()
         ig.calculate_interference(cfg)
         self.assertTrue(ig.interfere(t1, t2))
         self.assertFalse(ig.interfere(t2, t4))
@@ -159,7 +159,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         instrs = [i1, i2, i3, i4]
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
-        ig = InterferenceGraph(lambda x: 'reg')
+        ig = InterferenceGraph()
         ig.calculate_interference(cfg)
         self.assertTrue(ig.interfere(t1, t2))
         self.assertFalse(ig.interfere(t2, t4))
@@ -229,7 +229,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertEqual(set(), b3.live_out)
 
         # Create interference graph:
-        ig = InterferenceGraph(lambda x: 'reg')
+        ig = InterferenceGraph()
         ig.calculate_interference(cfg)
 
     def test_multiple_define_in_loop(self):
@@ -320,7 +320,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         instrs.append(Use(t2))
         cfg = FlowGraph(instrs)
         cfg.calculate_liveness()
-        ig = InterferenceGraph(lambda x: 'reg')
+        ig = InterferenceGraph()
         ig.calculate_interference(cfg)
         ig.combine(ig.get_node(t4), ig.get_node(t3))
         self.assertIs(ig.get_node(t4), ig.get_node(t3))

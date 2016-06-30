@@ -12,12 +12,12 @@ from ..arch.isa import Register
 
 class InterferenceGraphNode(Node):
     """ Node in an interference graph. Represents a single register """
-    def __init__(self, graph, vreg, register_class):
+    def __init__(self, graph, vreg):
         super().__init__(graph)
         self.temps = {vreg}
         self.moves = set()
-        self.color = vreg.color
-        self.reg_class = register_class
+        self.color = vreg if vreg.is_colored else None
+        self.reg_class = type(vreg)
 
     @property
     def is_colored(self):
@@ -30,15 +30,11 @@ class InterferenceGraphNode(Node):
 
 class InterferenceGraph(Graph):
     """ Interference graph. """
-    def __init__(self, cls_map):
+    def __init__(self):
         """ Create a new interference graph from a flowgraph """
         super().__init__()
         self.logger = logging.getLogger('interferencegraph')
         self.temp_map = {}
-
-        # TODO: we have a function that maps a temporary to a class.
-        # a temporary is often in more than one class... How to handle this?
-        self.cls_map = cls_map
 
     def calculate_interference(self, flowgraph):
         """ Construct interference graph """
@@ -65,8 +61,7 @@ class InterferenceGraph(Graph):
             node = self.temp_map[tmp]
             assert tmp in node.temps
         else:
-            reg_class = self.cls_map(tmp)
-            node = InterferenceGraphNode(self, tmp, reg_class)
+            node = InterferenceGraphNode(self, tmp)
             self.add_node(node)
             self.temp_map[tmp] = node
         return node

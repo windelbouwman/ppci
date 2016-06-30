@@ -201,7 +201,7 @@ class CodeGenerator:
                 elif isinstance(instruction, RegisterUseDef):
                     pass
                 elif isinstance(instruction, ArtificialInstruction):
-                    print(instruction)
+                    # print(instruction)
                     for xpi in instruction.render():
                         output_stream.emit(xpi)
                 else:  # pragma: no cover
