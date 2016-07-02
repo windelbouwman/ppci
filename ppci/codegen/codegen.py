@@ -44,7 +44,7 @@ class CodeGenerator:
             weights=selection_weights)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, debug_db)
+            arch, self.instruction_selector, debug_db)
 
     def generate(
             self, ircode: ir.Module, output_stream, reporter, debug=False):

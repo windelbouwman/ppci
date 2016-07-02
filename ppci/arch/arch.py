@@ -382,6 +382,18 @@ class Frame:
         self.instructions.append(ins)
         return ins
 
+    def insert_code_before(self, instruction, code):
+        """ Insert a code sequence before an instruction """
+        pt = self.instructions.index(instruction)
+        for idx, ins in enumerate(code):
+            self.instructions.insert(idx + pt, ins)
+
+    def insert_code_after(self, instruction, code):
+        """ Insert a code sequence after an instruction """
+        pt = self.instructions.index(instruction) + 1
+        for idx, ins in enumerate(code):
+            self.instructions.insert(idx + pt, ins)
+
     def between_blocks(self):
         pass
 

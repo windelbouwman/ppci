@@ -15,7 +15,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         arch = get_arch('example')
         debug_db = DebugDb()
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, debug_db)
+            arch, None, debug_db)
 
     def conflict(self, ta, tb):
         color_a = self.register_allocator.Node(ta).color

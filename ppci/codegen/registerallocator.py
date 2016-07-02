@@ -92,6 +92,8 @@ from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture
 from ..arch.isa import Register
+from ..utils.tree import Tree
+from .instructionselector import ContextInterface
 
 
 # Nifty first function:
@@ -100,6 +102,60 @@ def first(x):
     x = list(x)
     # x.sort()
     return next(iter(x))
+
+
+class MiniCtx(ContextInterface):
+    def __init__(self, frame, arch):
+        self._frame = frame
+        self._arch = arch
+        self.l = []
+
+    def move(self, dst, src):
+        """ Generate move """
+        self.emit(self._arch.move(dst, src))
+
+    def emit(self, ins):
+        self.l.append(ins)
+
+    def new_reg(self, cls):
+        return self._frame.new_reg(cls)
+
+
+class MiniGen:
+    """ Spill code generator """
+    def __init__(self, arch, selector):
+        self.arch = arch
+        self.selector = selector
+
+    def gen_load(self, frame, vreg, offset):
+        """ Generate instructions to load vreg from offset in stack """
+        at = self.make_at(offset)
+        t = Tree(
+            'MOVI{}'.format(vreg.bitsize),
+            Tree('LDRI{}'.format(vreg.bitsize), at), value=vreg)
+        return self.gen(frame, t)
+
+    def gen_store(self, frame, vreg, offset):
+        """ Generate instructions to store vreg at offset in stack """
+        at = self.make_at(offset)
+        t = Tree(
+            'STRI{}'.format(vreg.bitsize), at,
+            Tree('REGI{}'.format(vreg.bitsize), value=vreg))
+        return self.gen(frame, t)
+
+    def gen(self, frame, tree):
+        """ Generate code for a given tree """
+        ctx = MiniCtx(frame, self.arch)
+        self.selector.gen_tree(ctx, tree)
+        return ctx.l
+
+    def make_at(self, offset):
+        bitsize = self.arch.fp.bitsize
+        offset_tree = Tree(
+            'ADDI{}'.format(bitsize),
+            Tree('REGI{}'.format(bitsize), value=self.arch.fp),
+            Tree('CONSTI{}'.format(bitsize), value=offset))
+        return offset_tree
 
 
 # TODO: implement linear scan allocator and other allocators!
@@ -112,10 +168,11 @@ class GraphColoringRegisterAllocator:
     """
     logger = logging.getLogger('regalloc')
 
-    def __init__(self, arch: Architecture, debug_db):
+    def __init__(self, arch: Architecture, instruction_selector, debug_db):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
         self.debug_db = debug_db
+        self.spill_gen = MiniGen(arch, instruction_selector)
 
         # Register information:
         # TODO: Improve different register classes
@@ -136,11 +193,12 @@ class GraphColoringRegisterAllocator:
                     self.alias[r2].add(r)
 
     def alloc_frame(self, frame):
-        """
-            Do iterated register allocation for a single stack frame.
+        """ Do iterated register allocation for a single stack frame.
+
             This is the entry function for register allocator and drives
             through all stages.
         """
+        self.spill_rounds = 0
         self.init_data(frame)
         self.logger.debug('Starting iterative coloring')
         while True:
@@ -425,7 +483,12 @@ class GraphColoringRegisterAllocator:
 
     def spill(self):
         """ Do spilling """
-        self.logger.debug('Spilling!')
+        self.logger.debug('Spilling round %s', self.spill_rounds)
+        self.spill_rounds += 1
+        if self.spill_rounds > 20:
+            raise RuntimeError('Give up: more than 20 spill rounds done!')
+        # TODO: select a node which is certainly not a node that was
+        # introduced during spilling?
         # Select to be spilled variable:
         # Select node with the lowest priority:
         p = []
@@ -437,6 +500,7 @@ class GraphColoringRegisterAllocator:
             self.logger.debug('%s has spill priority=%s', n, priority)
             p.append((n, priority))
         node = min(p, key=lambda x: x[1])[0]
+        # TODO: mark now, rewrite later?
         self.rewrite_program(node)
 
     def rewrite_program(self, node):
@@ -446,13 +510,20 @@ class GraphColoringRegisterAllocator:
         size = node.reg_class.bitsize // 8
         offset = self.frame.alloc(size)
         self.logger.debug('Allocating %s bytes at offset %s', size, offset)
-        for use_ins in vreg:
-            pass
-        for set_use in uses:
-            x = Tree('LDRI', Tree('ADD', fp, offset))
-            load_instructions = []
-
-        raise NotImplementedError("Spill is not implemented")
+        # TODO: maybe break-up coalesced node before doing this?
+        for tmp in node.temps:
+            instructions = set(
+                self.frame.ig.uses(tmp) + self.frame.ig.defs(tmp))
+            for instruction in instructions:
+                vreg2 = self.frame.new_reg(type(tmp))
+                self.logger.debug('tmp: %s, new: %s', tmp, vreg2)
+                instruction.replace_register(tmp, vreg2)
+                if instruction.reads_register(vreg2):
+                    code = self.spill_gen.gen_load(self.frame, vreg2, offset)
+                    self.frame.insert_code_before(instruction, code)
+                if instruction.writes_register(vreg2):
+                    code = self.spill_gen.gen_store(self.frame, vreg2, offset)
+                    self.frame.insert_code_after(instruction, code)
 
     def assign_colors(self):
         """ Add nodes back to the graph to color it. """

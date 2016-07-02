@@ -7,6 +7,7 @@
 
 from contextlib import contextmanager
 from datetime import datetime
+import logging
 import io
 from .. import ir
 from ..irutils import Writer
@@ -213,23 +214,40 @@ def str2(x):
     return ', '.join(sorted(str(y) for y in x))
 
 
+class MyHandler(logging.Handler):
+    def __init__(self, backlog):
+        super().__init__()
+        self.backlog = backlog
+
+    def emit(self, record):
+        self.backlog.append(self.format(record))
+
+
 class HtmlReportGenerator(TextWritingReporter):
     def __init__(self, dump_file):
         super().__init__(dump_file)
         self.nr = 0
+        self.backlog = []
+        # logging.getLogger().addHandler(MyHandler(self.backlog))
 
     def new_guid(self):
         self.nr += 1
         return 'guid_{}'.format(self.nr)
+
+    def flush_log(self):
+        while self.backlog:
+            self.message(self.backlog.pop(0))
 
     def header(self):
         self.print(HTML_HEADER)
         self.message(datetime.today().ctime())
 
     def footer(self):
+        self.flush_log()
         self.print(HTML_FOOTER)
 
     def heading(self, level, title):
+        self.flush_log()
         html_tags = {
             1: 'h1', 2: 'h2', 3: 'h3'
         }

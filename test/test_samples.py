@@ -313,6 +313,52 @@ class SimpleSamples:
                'io.print_sub(x,67,151);}')
         self.do(src, src)
 
+    # @unittest.skip
+    def test_will_spill(self):
+        """ Generate a function many locals, such that spilling will occur """
+        snippet = """
+         module main;
+         import io;
+         var int[50] G;
+
+         function void do1()
+         {
+            var int i;
+            for (i=0;i<50;i = i+1)
+            {
+              G[i] = i;
+            }
+         }
+
+         function void do5()
+         {
+            var int a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p;
+            var int sum;
+            a = G[0];
+            b = G[1];
+            c = G[2];
+            d = G[3];
+            e = G[4];
+            f = G[5];
+            g = G[6];
+            h = G[7];
+            i = G[8];
+            j = G[9];
+            k = G[10];
+            l = G[11];
+            sum = a + b + c + d + e + f + g + h + i + j + k + l;
+            io.print2("w00t=", sum);
+         }
+
+         function void main()
+         {
+            do1();
+            do5();
+         }
+        """
+        res = "w00t=0x00000042\n"
+        self.do(snippet, res)
+
 
 class I32Samples:
     """ 32-bit samples """
@@ -557,52 +603,6 @@ class I32Samples:
         res = "".join("G=0x{0:08X}\n".format(a) for a in [1, 2, 7, 8, 13, 28])
         res += "cplx1 1 b =0x00000002\n"
         res += "cplx2 1 a =0x00000016\n"
-        self.do(snippet, res)
-
-    @unittest.skip
-    def test_will_spill(self):
-        """ Generate a function many locals, such that spilling will occur """
-        snippet = """
-         module main;
-         import io;
-         var int[50] G;
-
-         function void do1()
-         {
-            var int i;
-            for (i=0;i<50;i = i+1)
-            {
-              G[i] = i;
-            }
-         }
-
-         function void do5()
-         {
-            var int a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p;
-            var int sum;
-            a = G[0];
-            b = G[1];
-            c = G[2];
-            d = G[3];
-            e = G[4];
-            f = G[5];
-            g = G[6];
-            h = G[7];
-            i = G[8];
-            j = G[9];
-            k = G[10];
-            l = G[11];
-            sum = a + b + c + d + e + f + g + h + i + j + k + l;
-            io.print2("w00t=", sum);
-         }
-
-         function void main()
-         {
-            do1();
-            do5();
-         }
-        """
-        res = "w00t=0x00000042\n"
         self.do(snippet, res)
 
     def test_const(self):

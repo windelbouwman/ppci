@@ -245,4 +245,8 @@ class InstructionSelector1:
         # Match all splitted trees:
         for tree in trees:
             # Invoke dynamic programming matcher machinery:
-            self.tree_selector.gen(context, tree)
+            self.gen_tree(context, tree)
+
+    def gen_tree(self, context, tree):
+        """ Generate code from a tree """
+        self.tree_selector.gen(context, tree)

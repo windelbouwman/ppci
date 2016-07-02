@@ -347,6 +347,10 @@ class Instruction(Constructor, metaclass=InsMeta):
         s.extend(self.extra_uses)
         return s
 
+    def reads_register(self, register):
+        """ Check if this instruction reads the given register """
+        return register in self.used_registers
+
     @property
     def defined_registers(self):
         """ Return a set of all defined registers """
@@ -356,6 +360,10 @@ class Instruction(Constructor, metaclass=InsMeta):
                 s.append(p.__get__(o))
         s.extend(self.extra_defs)
         return s
+
+    def writes_register(self, register):
+        """ Check if this instruction writes the given register """
+        return register in self.defined_registers
 
     @property
     def registers(self):
@@ -375,6 +383,13 @@ class Instruction(Constructor, metaclass=InsMeta):
         tokens = self.get_tokens()
         for nl in self.non_leaves:
             nl.set_patterns(tokens)
+
+    def replace_register(self, old, new):
+        """ Replace a register usage with another register """
+        for p, o in self.leaves:
+            if issubclass(p._cls, Register):
+                if p.__get__(o) is old:
+                    p.__set__(o, new)
 
     def get_tokens(self):
         assert hasattr(self, 'tokens')
