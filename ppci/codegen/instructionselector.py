@@ -33,7 +33,12 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
              "EXIT", "ENTRY")
 
 
-class InstructionContext:
+class ContextInterface:
+    def emit(self, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class InstructionContext(ContextInterface):
     """ Usable to patterns when emitting code """
     def __init__(self, frame, arch, debug_db):
         self.frame = frame
@@ -44,6 +49,10 @@ class InstructionContext:
     def new_reg(self, cls):
         """ Generate a new temporary of a given class """
         return self.frame.new_reg(cls)
+
+    def new_label(self):
+        """ Generate a new unique label """
+        return self.frame.new_label()
 
     def move(self, dst, src):
         """ Generate move """

@@ -142,8 +142,6 @@ class GraphColoringRegisterAllocator:
             through all stages.
         """
         self.init_data(frame)
-        self.build()
-        self.makeWorkList()
         self.logger.debug('Starting iterative coloring')
         while True:
             # self.check_invariants()
@@ -155,8 +153,10 @@ class GraphColoringRegisterAllocator:
                 self.coalesc()
             elif self.freeze_worklist:
                 self.freeze()
-            elif self.spillWorklist:  # pragma: no cover
-                raise NotImplementedError('Spill not implemented')
+            elif self.spillWorklist:
+                self.spill()
+                self.logger.debug('Starting over')
+                self.init_data(frame)
             else:
                 break   # Done!
         self.logger.debug('Now assinging colors')
@@ -168,15 +168,6 @@ class GraphColoringRegisterAllocator:
         """ Initialize data structures """
         self.frame = frame
 
-        # Move related sets:
-        self.coalescedMoves = set()
-        self.constrainedMoves = set()
-        self.frozenMoves = set()
-        self.activeMoves = set()
-        self.worklistMoves = set()
-
-    def build(self):
-        """ 1. Construct interference graph from instruction list """
         self.frame.cfg = FlowGraph(self.frame.instructions)
         self.logger.debug(
             'Constructed flowgraph with %s nodes',
@@ -189,27 +180,21 @@ class GraphColoringRegisterAllocator:
             'Constructed interferencegraph with %s nodes',
             len(self.frame.ig.nodes))
 
-        # Divide nodes into pre-colored and initial:
-        self.precolored = set(
-            node for node in self.frame.ig.nodes if node.is_colored)
-        self.initial = set(self.frame.ig.nodes - self.precolored)
-
-        # Initialize color map:
-        for node in self.precolored:
-            self.logger.debug('Pre colored: %s', node)
-
         self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
             src = self.Node(mv.used_registers[0])
             dst = self.Node(mv.defined_registers[0])
-            # assert src in self.initial | self.precolored
-            # assert dst in self.initial | self.precolored, str(dst)
             src.moves.add(mv)
             dst.moves.add(mv)
 
-    def makeWorkList(self):
-        """ Divide initial nodes into worklists """
         self.select_stack = []
+
+        # Move related sets:
+        self.coalescedMoves = set()
+        self.constrainedMoves = set()
+        self.frozenMoves = set()
+        self.activeMoves = set()
+        self.worklistMoves = set()
 
         # Fill initial move set, try to remove all moves:
         for m in self.moves:
@@ -219,11 +204,14 @@ class GraphColoringRegisterAllocator:
         self.spillWorklist = []
         self.freeze_worklist = []
         self.simplifyWorklist = []
+        self.precolored = set()
 
-        while self.initial:
-            node = self.initial.pop()
-            self.logger.debug('Initial node: %s', node)
-            if not self.is_colorable(node):
+        # Divide nodes into categories:
+        for node in self.frame.ig.nodes:
+            if node.is_colored:
+                self.logger.debug('Pre colored: %s', node)
+                self.precolored.add(node)
+            elif not self.is_colorable(node):
                 self.spillWorklist.append(node)
             elif self.is_move_related(node):
                 self.freeze_worklist.append(node)
@@ -435,7 +423,35 @@ class GraphColoringRegisterAllocator:
                 self.freeze_worklist.remove(v)
                 self.simplifyWorklist.append(v)
 
-    def SelectSpill(self):  # pragma: no cover
+    def spill(self):
+        """ Do spilling """
+        self.logger.debug('Spilling!')
+        # Select to be spilled variable:
+        # Select node with the lowest priority:
+        p = []
+        for n in self.spillWorklist:
+            assert not n.is_colored
+            d = sum(len(self.frame.ig.defs(t)) for t in n.temps)
+            u = sum(len(self.frame.ig.uses(t)) for t in n.temps)
+            priority = (u + d) / n.degree
+            self.logger.debug('%s has spill priority=%s', n, priority)
+            p.append((n, priority))
+        node = min(p, key=lambda x: x[1])[0]
+        self.rewrite_program(node)
+
+    def rewrite_program(self, node):
+        """ Rewrite program by creating a load and a store for each use """
+        # Generate spill code:
+        self.logger.debug('Placing %s on stack', node)
+        size = node.reg_class.bitsize // 8
+        offset = self.frame.alloc(size)
+        self.logger.debug('Allocating %s bytes at offset %s', size, offset)
+        for use_ins in vreg:
+            pass
+        for set_use in uses:
+            x = Tree('LDRI', Tree('ADD', fp, offset))
+            load_instructions = []
+
         raise NotImplementedError("Spill is not implemented")
 
     def assign_colors(self):

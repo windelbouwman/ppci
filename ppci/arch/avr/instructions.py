@@ -673,9 +673,13 @@ def pattern_cjmp(context, tree, c0, c1):
 
     context.emit(Cpw(c0, c1))
 
-    jmp_ins = Rjmp(no_label.name, jumps=[no_label])
-    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
-    context.emit(jmp_ins)
+    jmp_ins_no = Rjmp(no_label.name, jumps=[no_label])
+    jmp_ins_yes = Rjmp(yes_label.name, jumps=[yes_label])
+    yes_label2 = context.new_label()
+    context.emit(Bop(yes_label2.name, jumps=[yes_label2, jmp_ins_no]))
+    context.emit(jmp_ins_no)
+    context.emit(yes_label2)
+    context.emit(jmp_ins_yes)
 
 
 @avr_isa.pattern('reg16', 'CALL', size=2)

@@ -313,7 +313,6 @@ class Frame:
 
         # Local stack:
         self.stacksize = 0
-        self.locVars = {}
 
         # Literal pool:
         self.constants = []
@@ -322,11 +321,18 @@ class Frame:
     def __repr__(self):
         return 'Frame {}'.format(self.name)
 
-    def alloc_var(self, lvar, size):
-        if lvar not in self.locVars:
-            self.locVars[lvar] = self.stacksize
-            self.stacksize = self.stacksize + size
-        return self.locVars[lvar]
+    def alloc(self, size):
+        """ Allocate space on the stack frame and return the offset """
+        # TODO: determine alignment!
+        offset = self.stacksize
+        self.stacksize += size
+        return offset
+
+    def new_name(self, salt):
+        """ Generate a new unique name """
+        name = '{}_{}_{}'.format(self.name, salt, self.literal_number)
+        self.literal_number += 1
+        return name
 
     def add_constant(self, value):
         """ Add constant literal to constant pool """
@@ -334,8 +340,7 @@ class Frame:
             if value == val:
                 return lab_name
         assert isinstance(value, (str, int, bytes)), str(value)
-        lab_name = '{}_literal_{}'.format(self.name, self.literal_number)
-        self.literal_number += 1
+        lab_name = self.new_name('literal')
         self.constants.append((lab_name, value))
         return lab_name
 
@@ -366,6 +371,10 @@ class Frame:
         # cls = self.register_classes[bit_size]
         tmp = cls(tmp_name)
         return tmp
+
+    def new_label(self):
+        """ Generate a unique new label """
+        return Label(self.new_name('label'))
 
     def emit(self, ins):
         """ Append an abstract instruction to the end of this frame """

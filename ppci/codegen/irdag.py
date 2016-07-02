@@ -221,13 +221,17 @@ class SelectionGraphBuilder:
         # TODO: check alignment?
         fp = self.new_node(self.make_opcode("REG", ir.ptr), value=self.arch.fp)
         fp_output = fp.new_output('fp')
+        fp_output.wants_vreg = False
         offset = self.new_node(self.make_opcode("CONST", ir.ptr))
-        offset.value = self.function_info.frame.alloc_var(node, node.amount)
+        offset.value = self.function_info.frame.alloc(node.amount)
         offset_output = offset.new_output('offset')
+        offset_output.wants_vreg = False
         sgnode = self.new_node(
             self.make_opcode('ADD', ir.ptr), fp_output, offset_output)
-        self.chain(sgnode)
-        self.add_map(node, sgnode.new_output('alloc'))
+        # self.chain(sgnode)
+        output = sgnode.new_output('alloc')
+        output.wants_vreg = False
+        self.add_map(node, output)
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
             dbg_var.address = FpOffsetAddress(offset.value)
@@ -272,7 +276,9 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(name)
         self.debug_db.map(node, sgnode)
         sgnode.value = value
-        self.add_map(node, sgnode.new_output(node.name))
+        output = sgnode.new_output(node.name)
+        output.wants_vreg = False
+        self.add_map(node, output)
 
     def do_literal_data(self, node):
         """ Literal data is stored after a label """
@@ -518,18 +524,14 @@ class DagSplitter:
                 self.check_vreg(node, frame)
 
     def check_vreg(self, node, frame):
-        """ Determine whether a node node needs a virtual register """
+        """ Determine whether node outputs need a virtual register """
         assert node.group is not None
-
-        if node.name.startswith('CONST'):
-            # Skip constants
-            return
 
         for data_output in node.data_outputs:
             if (len(data_output.users) > 1) or node.volatile or \
                     any(u.group is not node.group
                         for u in data_output.users):
-                if not data_output.vreg:
+                if data_output.wants_vreg and not data_output.vreg:
                     cls = self.get_reg_class(data_output)
                     vreg = frame.new_reg(cls, data_output.name)
                     data_output.vreg = vreg
@@ -539,22 +541,30 @@ class DagSplitter:
         sorted_nodes = topological_sort_modified(nodes, tail_node)
         trees = []
         node_map = {}
+
+        def mk_tr(inp):
+            if inp.vreg:
+                # If the input value has a vreg, use it
+                child_tree = Tree(make_op('REG', inp.vreg), value=inp.vreg)
+            elif inp.node in node_map:
+                child_tree = node_map[inp.node]
+            elif inp.node.name == 'LABEL':
+                child_tree = Tree(inp.node.name, value=inp.node.value)
+            else:  # inp.node.name.startswith('CONST'):
+                # If the node is a constant, use that
+                assert not inp.wants_vreg
+                children = [mk_tr(i) for i in inp.node.inputs]
+                child_tree = Tree(
+                    inp.node.name, *children, value=inp.node.value)
+            return child_tree
+
         for node in sorted_nodes:
             assert len(node.data_outputs) <= 1
 
             # Determine data dependencies:
             children = []
             for inp in node.data_inputs:
-                if inp.vreg:
-                    # If the input value has a vreg, use it
-                    child_tree = Tree(make_op('REG', inp.vreg), value=inp.vreg)
-                elif inp.node.name.startswith('CONST'):
-                    # If the node is a constant, use that
-                    child_tree = Tree(inp.node.name, value=inp.node.value)
-                elif inp.node.name == 'LABEL':
-                    child_tree = Tree(inp.node.name, value=inp.node.value)
-                else:
-                    child_tree = node_map[inp.node]
+                child_tree = mk_tr(inp)
                 children.append(child_tree)
 
             # Create a tree node:
