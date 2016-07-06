@@ -72,16 +72,16 @@ class RiscvrvcAssemblerTestCase(AsmTestCaseBase):
         self.check('82 93')
         
     def test_cbranch_equal(self):
-        self.feed('c.beqz x4, l1')
+        self.feed('c.beqz x9, l1')
         self.feed('l1:')
         self.feed('add x5, x4, 5')
         self.check('0B C0 93 02 52 00')
     
     def test_cbranch_equal(self):
-        self.feed('c.beqz x4, l1')
+        self.feed('c.bneqz x9, l1')
         self.feed('l1:')
         self.feed('add x5, x4, 5')
-        self.check('0B C0 93 02 52 00')
+        self.check('89 E0 93 02 52 00')
         
     def test_cloadword(self):
         self.feed('c.lw x6, 4(x7)')
@@ -92,11 +92,11 @@ class RiscvrvcAssemblerTestCase(AsmTestCaseBase):
         self.check('D8 C3')
         
     def test_cloadwordsp(self):
-        self.feed('c.lwsp x6, 4')
+        self.feed('c.lwsp x6, 4(x2)')
         self.check('12 43')
     
     def test_cstorewordsp(self):
-        self.feed('c.swsp x6, 4')
+        self.feed('c.swsp x6, 4(x2)')
         self.check('1A C2')
 if __name__ == '__main__':
     unittest.main()

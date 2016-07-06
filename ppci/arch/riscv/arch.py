@@ -4,20 +4,21 @@
 
 import io
 from ..arch import Architecture, Label, VCall
-from .instructions import isa, Mov2
+from .instructions import isa
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister
 from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
 from .registers import R13, R14, R15, R16, R17, R28, LR, get_register
 from .registers import R0, LR, SP, FP
-from .registers import R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
+from .registers import R9,R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
 from ...ir import i8, i32, ptr
 from ..isa import RegisterClass
 from ..data_instructions import data_isa
 from .frame import RiscvFrame
 from ...binutils.assembler import BaseAssembler
 from ..riscv.registers import register_range
-from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw, Blr
+from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr
+from .rvc_instructions import CSwsp, CLwsp, CJal
 
 
 class RiscvAssembler(BaseAssembler):
@@ -52,8 +53,12 @@ class RiscvArch(Architecture):
         super().__init__(options=options)
         if self.has_option('rvc'):
             self.isa = isa + rvcisa + data_isa
+            self.store = CSwsp
+            self.load = CLwsp
         else:
             self.isa = isa + data_isa
+            self.store = Sw
+            self.load = Lw
         self.registers.extend(all_registers)
         self.FrameClass = RiscvFrame
         self.assembler = RiscvAssembler()
@@ -63,10 +68,16 @@ class RiscvArch(Architecture):
         self.register_classes = [
             RegisterClass(
                 'reg', [i8, i32, ptr], RiscvRegister,
-                [R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27])
+                [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27])
             ]
         self.fp = FP
 
+    def branch(self,reg,lab):
+        if self.has_option('rvc'):
+            return(CJal(lab))
+        else:
+            return(Bl(reg,lab))
+            
     def get_runtime(self):
         """ Implement compiler runtime functions """
         from ...api import asm
@@ -104,7 +115,7 @@ class RiscvArch(Architecture):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return Mov2(dst, src, ismove=True)
+        return Movr(dst, src, ismove=True)
 
     def gen_fill_arguments(self, arg_types, args, live):
         """ This function moves arguments in the proper locations.
@@ -123,27 +134,27 @@ class RiscvArch(Architecture):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
         live_regs = frame.live_regs_over(vcall)
+        
         # Caller save registers:
-        i = 0
+        i = (len(live_regs)+1)*4
+        yield Subi(SP, SP, i)
         for register in live_regs:
-            yield Sw(register, i, SP)
+            yield self.store(register, i, SP)
             i-= 4
-        yield Sw(LR, i, SP)
+        yield self.store(LR, i, SP)
         i-=4
-        yield Add(SP, SP, i)
-
-        yield Bl(LR, vcall.function_name)
+        
+        yield self.branch(LR, vcall.function_name)
 
         # Restore caller save registers:
-        
         i = 0
         i+= 4
-        yield Lw(LR, i, SP)
+        yield self.load(LR, i, SP)
         for register in reversed(live_regs):
             i+= 4
-            yield Lw(register, i, SP)
+            yield self.load(register, i, SP)
         
-        yield Add(SP, SP, i)
+        yield Addi(SP, SP, i)
 
     def get_register(self, color):
         return get_register(color)

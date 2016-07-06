@@ -1,5 +1,5 @@
 from ..arch import Label, Alignment, Frame
-from .instructions import dcd, Add, Sub, Mov, Mov2, Bl, Sw, Lw, Blr
+from .instructions import dcd, Addi, Subi, Mov, Bl, Sw, Lw, Blr
 from ..data_instructions import Db
 from .registers import R0, LR, SP, FP
 from .registers import R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
@@ -28,9 +28,9 @@ class RiscvFrame(Frame):
         for register in self.callee_save:
             yield Sw(register, i, SP)
             i-= 4
-        Add(SP, SP, i)
+        Addi(SP, SP, i)
         if self.stacksize > 0:
-            yield Sub(SP, SP, self.stacksize)  # Reserve stack space
+            yield Subi(SP, SP, self.stacksize)  # Reserve stack space
         yield Mov(FP, SP)                 # Setup frame pointer
 
     def litpool(self):
@@ -61,13 +61,13 @@ class RiscvFrame(Frame):
             and add constant pool
         """
         if self.stacksize > 0:
-            yield Add(SP, SP, self.stacksize)
+            yield Addi(SP, SP, self.stacksize)
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):
             i+= 4
             yield Lw(register, i, SP)
-        Add(SP, SP, i)
+        Addi(SP, SP, i)
         yield(Blr(R0, LR, 0))
         # Add final literal pool:
         for instruction in self.litpool():
