@@ -4,27 +4,25 @@
 
     <target name="hello">
         <assemble
-            arch="x86_64"
+            arch="avr"
             source="../glue.asm"
             output="glue.oj" />
 
         <compile
-            arch="x86_64"
+            arch="avr"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
             report="report.html"/>
-
         <link
             output="hello.elf"
-            layout="../linux64.mmap"
+            layout="../avr.mmap"
             objects="glue.oj;rest.oj"
             debug="true" />
-
         <objcopy
             objectfile="hello.elf"
             imagename="flash"
-            format="elf"
-            output="hello" />
+            format="hex"
+            output="hello.hex" />
     </target>
 
 </project>

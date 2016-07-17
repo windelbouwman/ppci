@@ -8,7 +8,7 @@ from ..arch import Architecture, Label, Alignment, Frame
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
-from .instructions import Push, Pop, Mov, Call, In, Movw
+from .instructions import Push, Pop, Mov, Call, In, Movw, Ret
 from .registers import AvrRegister
 from .registers import AvrWordRegister
 from .registers import r0
@@ -156,15 +156,18 @@ class AvrFrame(Frame):
         # Save previous frame pointer and fill it from the SP:
         yield Push(Y.lo)
         yield Push(Y.hi)
-        yield In(Y.lo, 0x3d)
-        yield In(Y.hi, 0x3e)
+
+        # Save some registers:
+        # TODO!
 
         if self.stacksize > 0:
             # Push N times to adjust stack:
             for _ in range(self.stacksize):
                 yield Push(r0)
 
-        # yield Mov(R11, SP)                 # Setup frame pointer
+        # Setup frame pointer:
+        yield In(Y.lo, 0x3d)
+        yield In(Y.hi, 0x3e)
 
     def litpool(self):
         """ Generate instruction for the current literals """
@@ -198,6 +201,7 @@ class AvrFrame(Frame):
 
         yield Pop(Y.hi)
         yield Pop(Y.lo)
+        yield Ret()
 
         # Add final literal pool:
         for instruction in self.litpool():

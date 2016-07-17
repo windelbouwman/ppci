@@ -48,7 +48,32 @@ be found, because this was the criteria during removal.
 
 See: https://en.wikipedia.org/wiki/Chaitin%27s_algorithm
 
+[Chaitin1982]_
+
 **Coalescing**
+
+Coalescing is the process of merging two nodes in an interference graph.
+This means that two temporaries will be assigned to the same register. This
+is especially useful if the temporaries are used in move instructions, since
+when the source and the destination of a move instruction are the same
+register, the move can be deleted.
+
+Coalescing a move instruction is easy when an interference graph is present.
+Two nodes that are used by a move instruction can be coalesced when they do
+not interfere.
+
+However, if we coalesc all moves, the graph can become incolorable, and
+spilling has to be done. To prevent spilling, coalescing must be done
+conservatively.
+
+A conservative approach is the following: if the merged node has fewer than
+K nodes of significant degree, then the nodes can be coalesced. The prove for
+this is that when all nodes that can be colored are removed and the merged
+node and its non-colorable neighbours remain, the merged node can be colored.
+This ensures that the coalescing of the node does not have a negative
+effect on the colorability of the graph.
+
+[Briggs1994]_
 
 **Spilling**
 
@@ -65,6 +90,8 @@ The process consists of the following steps:
 - select registers
 
 See: https://en.wikipedia.org/wiki/Register_allocation
+
+[George1996]_
 
 **Graph coloring with more register classes**
 
@@ -193,10 +220,13 @@ class GraphColoringRegisterAllocator:
                     self.alias[r2].add(r)
 
     def alloc_frame(self, frame):
-        """ Do iterated register allocation for a single stack frame.
+        """ Do iterated register allocation for a single frame.
 
-            This is the entry function for register allocator and drives
-            through all stages.
+        This is the entry function for the register allocator and drives
+        through all stages of the algorithm.
+
+        Args:
+            frame: The frame to perform register allocation on.
         """
         self.spill_rounds = 0
         self.init_data(frame)
@@ -226,14 +256,14 @@ class GraphColoringRegisterAllocator:
         """ Initialize data structures """
         self.frame = frame
 
-        self.frame.cfg = FlowGraph(self.frame.instructions)
+        cfg = FlowGraph(self.frame.instructions)
         self.logger.debug(
             'Constructed flowgraph with %s nodes',
-            len(self.frame.cfg.nodes))
+            len(cfg.nodes))
 
-        self.frame.cfg.calculate_liveness()
+        cfg.calculate_liveness()
         self.frame.ig = InterferenceGraph()
-        self.frame.ig.calculate_interference(self.frame.cfg)
+        self.frame.ig.calculate_interference(cfg)
         self.logger.debug(
             'Constructed interferencegraph with %s nodes',
             len(self.frame.ig.nodes))
@@ -359,9 +389,10 @@ class GraphColoringRegisterAllocator:
 
     def coalesc(self):
         """ Coalesc moves conservative.
-            This means, merge the variables of a move into
-            one variable, and delete the move. But do this
-            only when no spill will occur.
+
+        This means, merge the variables of a move into
+        one variable, and delete the move. But do this
+        only when no spill will occur.
         """
         # Remove the move from the worklist:
         m = self.worklistMoves.pop()
@@ -382,11 +413,11 @@ class GraphColoringRegisterAllocator:
             self.add_worklist(u)
             self.add_worklist(v)
             self.logger.debug('Move is constrained!')
-        elif (u.is_colored and self.fits_class(v.reg_class, u.reg_class) and
+        elif (u.is_colored and issubclass(u.reg_class, v.reg_class) and
                 all(self.ok(t, u) for t in v.adjecent)) or \
                 ((not u.is_colored) and self.conservative(u, v)):
-            # print('coalesce', 'u=',u, 'v=',v, 'vadj=',v.adjecent)
-            self.logger.debug('Combining %s and %s', u, v)
+            # Check if v can be given the class of u, in other words:
+            # is u a subclass of v?
             self.coalescedMoves.add(m)
             self.combine(u, v)
             self.add_worklist(u)
@@ -405,20 +436,28 @@ class GraphColoringRegisterAllocator:
         return t.is_colored or self.is_colorable(t) or self.has_edge(t, r)
 
     def conservative(self, u, v):
-        """
-            Briggs conservative criteria for coalescing:
-            If the result of the merge has fewer than K nodes that are
-            not trivially colorable, then coalescing is safe.
+        """ Briggs conservative criteria for coalescing.
+
+        If the result of the merge has fewer than K nodes that are
+        not trivially colorable, then coalescing is safe, because
+        when coloring, all other nodes that can be colored will be popped
+        from the graph, leaving the merged node that then can be colored.
+
+        In the case of multiple register classes, first determine the
+        new neighbour nodes. Then assume that all nodes that can be colored
+        will be colored, and are taken out of the graph. Then calculate how
+        many registers can be blocked by the remaining nodes. If this is
+        less than the number of available registers, the coalesc is safe!
         """
         nodes = u.adjecent | v.adjecent
-        k = len(list(filter(lambda n: not self.is_colorable(n), nodes)))
-        # TODO: should this be altered for more register classes?
-        common_reg_class = self.common_reg_class(u.reg_class, v.reg_class)
-        return k < self.K[common_reg_class]
+        B = self.common_reg_class(u.reg_class, v.reg_class)
+        num_blocked = sum(
+            self.q(B, j.reg_class) for j in nodes if not self.is_colorable(j))
+        return num_blocked < self.K[B]
 
     def combine(self, u, v):
         """ Combine u and v into one node, updating work lists """
-        # self.logger.debug('{} has degree {}'.format(v, v.degree))
+        self.logger.debug('Combining %s and %s', u, v)
         if v in self.freeze_worklist:
             self.freeze_worklist.remove(v)
         else:
@@ -450,11 +489,6 @@ class GraphColoringRegisterAllocator:
                     u, v))
         self.logger.debug('The common class of %s and %s is %s', u, v, cc)
         return cc
-
-    def fits_class(self, u, v):
-        """ Check if u can be given the class of v, in other words:
-            is v a subclass of u? """
-        return issubclass(v, u)
 
     def freeze(self):
         """ Give up coalescing on some node, move it to the simplify list

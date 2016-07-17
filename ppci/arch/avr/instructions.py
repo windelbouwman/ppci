@@ -579,7 +579,7 @@ class LdiLoAddr(AvrInstruction):
     tokens = [AvrToken4]
     rd = register_argument('rd', HighAvrRegister, write=True)
     lab = register_argument('lab', str)
-    syntax = Syntax(['ldi', rd, ',', 'lo', '(', lab, ')'])
+    syntax = Syntax(['ldi', rd, ',', 'low', '(', lab, ')'])
 
     @property
     def reg_num(self):
@@ -606,7 +606,7 @@ class LdiHiAddr(AvrInstruction):
     tokens = [AvrToken4]
     rd = register_argument('rd', HighAvrRegister, write=True)
     lab = register_argument('lab', str)
-    syntax = Syntax(['ldi', rd, ',', 'hi', '(', lab, ')'])
+    syntax = Syntax(['ldi', rd, ',', 'high', '(', lab, ')'])
 
     @property
     def reg_num(self):

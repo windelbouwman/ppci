@@ -160,8 +160,8 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
 
     def test_ldi_address(self):
         """ Test if lo and hi loads from a relocatable constant work """
-        self.feed("a: ldi r16, lo(a)")
-        self.feed("ldi r16, hi(a)")
+        self.feed("a: ldi r16, low(a)")
+        self.feed("ldi r16, high(a)")
         spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
         layout = load_layout(io.StringIO(spec))
         self.check('04e3 02e1', layout=layout)

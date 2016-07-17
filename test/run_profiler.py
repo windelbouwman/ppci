@@ -21,6 +21,7 @@ if __name__ == '__main__':
     def run_somecommand():
         from ppci.api import construct
         print(construct)
+        construct('../examples/linux64/fib/build.xml')
 
     p = Profile()
     s = p.run('run_somecommand()')

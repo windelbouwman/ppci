@@ -54,7 +54,7 @@ Citations
 .. [Smith2004]
     "A generalized algorithm for graph-coloring register allocation",
     2004,
-    Michael D. Smith and Norman Ramsey and Glenn Holloway
+    Michael D. Smith and Norman Ramsey and Glenn Holloway.
 
 .. [Runeson2003]
     "Retargetable Graph-Coloring Register Allocation for
@@ -62,3 +62,18 @@ Citations
     2003,
     Johan Runeson and Sven-Olof Nystrom.
     http://user.it.uu.se/~svenolof/wpo/AllocSCOPES2003.pdf
+
+.. [George1996]
+    "Iterated Register Coalescing",
+    1996,
+    Lal George and Andrew W. Appel.
+
+.. [Briggs1994]
+    "Improvements to graph coloring register allocation",
+    1994,
+    Preston Briggs, Keith D. Cooper and Linda Torczon
+
+.. [Chaitin1982]
+    "Register Allocation and Spilling via Graph Coloring",
+    1982,
+    G. J. Chaitin.
