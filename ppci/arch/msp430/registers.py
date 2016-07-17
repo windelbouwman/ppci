@@ -3,10 +3,6 @@ from ..isa import Register, Syntax, RegisterClass
 from ...ir import i8, i16, ptr
 
 
-def get_register(color):
-    return num2reg[color]
-
-
 class Msp430Register(Register):
     bitsize = 16
     syntaxi = 'reg', [

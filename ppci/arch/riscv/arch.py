@@ -3,21 +3,20 @@
 """
 
 import io
-from ..arch import Architecture, Label, VCall
+from ..arch import Architecture, Label, VCall, Alignment
 from .instructions import isa
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister
 from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
-from .registers import R13, R14, R15, R16, R17, R28, LR, get_register
+from .registers import R13, R14, R15, R16, R17, R28, LR
 from .registers import R0, LR, SP, FP
 from .registers import R9,R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
 from ...ir import i8, i32, ptr
 from ..isa import RegisterClass
-from ..data_instructions import data_isa
-from .frame import RiscvFrame
+from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
 from ..riscv.registers import register_range
-from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr
+from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr, Mov
 from .rvc_instructions import CSwsp, CLwsp, CJal
 
 
@@ -60,7 +59,6 @@ class RiscvArch(Architecture):
             self.store = Sw
             self.load = Lw
         self.registers.extend(all_registers)
-        self.FrameClass = RiscvFrame
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
@@ -71,6 +69,7 @@ class RiscvArch(Architecture):
                 [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27])
             ]
         self.fp = FP
+        self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
     def branch(self,reg,lab):
         if self.has_option('rvc'):
@@ -156,9 +155,6 @@ class RiscvArch(Architecture):
         
         yield Addi(SP, SP, i)
 
-    def get_register(self, color):
-        return get_register(color)
-
     def determine_arg_locations(self, arg_types):
         """
             Given a set of argument types, determine location for argument
@@ -180,3 +176,58 @@ class RiscvArch(Architecture):
         rv = R10
         live_out.add(rv)
         return rv, tuple(live_out)
+
+    def prologue(self, frame):
+        """ Returns prologue instruction sequence """
+        # Label indication function:
+        yield Label(frame.name)
+        # Callee save registers:
+        i = 0
+        for register in self.callee_save:
+            yield Sw(register, i, SP)
+            i-= 4
+        Addi(SP, SP, i)
+        if frame.stacksize > 0:
+            yield Subi(SP, SP, frame.stacksize)  # Reserve stack space
+        yield Mov(FP, SP)                 # Setup frame pointer
+
+    def litpool(self, frame):
+        """ Generate instruction for the current literals """
+        # Align at 4 bytes
+        if frame.constants:
+            yield Alignment(4)
+
+        # Add constant literals:
+        while frame.constants:
+            label, value = frame.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int) or isinstance(value, str):
+                yield dcd(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError('Constant of type {}'.format(value))
+
+    def between_blocks(self, frame):
+        for ins in self.litpool(frame):
+            yield ins
+
+    def epilogue(self, frame):
+        """ Return epilogue sequence for a frame. Adjust frame pointer
+            and add constant pool
+        """
+        if frame.stacksize > 0:
+            yield Addi(SP, SP, frame.stacksize)
+        # Callee saved registers:
+        i = 0
+        for register in reversed(self.callee_save):
+            i+= 4
+            yield Lw(register, i, SP)
+        Addi(SP, SP, i)
+        yield(Blr(R0, LR, 0))
+        # Add final literal pool:
+        for instruction in self.litpool(frame):
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes

@@ -9,7 +9,6 @@ from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture, VCall, Frame, Label, Alignment
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
-from .registers import get_register
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes
 from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
@@ -33,14 +32,14 @@ class Msp430Arch(Architecture):
 
         # Allocatable registers:
         self.fp = r4
+        self.callee_save = (r4, r5, r6, r7, r8, r9, r10)
         self.caller_save = (r11, r13, r14, r15)  # TODO: fix r12 reg!!
+        # TODO: r12 is given as argument and is return value
+        # so it is detected live falsely.
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
         return mov(src, dst)
-
-    def get_register(self, color):
-        return get_register(color)
 
     def gen_fill_arguments(self, arg_types, args, live):
         """ This function moves arguments in the proper locations.
@@ -69,6 +68,63 @@ class Msp430Arch(Architecture):
         for register in reversed(live_regs):
             if register in self.caller_save:
                 yield pop(register)
+
+    def prologue(self, frame):
+        """ Returns prologue instruction sequence """
+        # Label indication function:
+        yield Label(frame.name)
+
+        # Callee save registers:
+        for reg in self.callee_save:
+            if frame.is_used(reg):
+                yield push(reg)
+
+        # Adjust stack:
+        if frame.stacksize:
+            yield Sub(ConstSrc(frame.stacksize), RegDst(r1))
+
+        # Setup the frame pointer:
+        yield mov(r1, r4)
+
+    def epilogue(self, frame):
+        """ Return epilogue sequence for a frame. Adjust frame pointer
+            and add constant pool
+        """
+
+        # Adjust stack:
+        if frame.stacksize:
+            yield Add(ConstSrc(frame.stacksize), RegDst(r1))
+
+        # Pop save registers back:
+        for reg in reversed(self.callee_save):
+            if frame.is_used(reg):
+                yield pop(reg)
+
+        # Return from function:
+        yield ret()
+
+        # Add final literal pool:
+        for instruction in self.litpool(frame):
+            yield instruction
+
+    def litpool(self, frame):
+        """ Generate instruction for the current literals """
+        # Align at 2 bytes
+        if frame.constants:
+            yield Alignment(2)
+
+        # Add constant literals:
+        while frame.constants:
+            label, value = frame.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, str):
+                yield Dw2(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(2)   # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError('Constant of type {}'.format(value))
 
     def determine_arg_locations(self, arg_types):
         """
@@ -117,79 +173,12 @@ class Msp430Arch(Architecture):
 
 
 class Msp430Frame(Frame):
-    """
-        Frame class
-    """
-    def __init__(self, name, arg_locs, live_in, rv, live_out):
-        super().__init__(name, arg_locs, live_in, rv, live_out)
-
-        # TODO: r12 is given as argument and is return value
-        # so it is detected live falsely.
-
-        self.callee_save = (r4, r5, r6, r7, r8, r9, r10)
-
-    def litpool(self):
-        """ Generate instruction for the current literals """
-        # Align at 2 bytes
-        if self.constants:
-            yield Alignment(2)
-
-        # Add constant literals:
-        while self.constants:
-            label, value = self.constants.pop(0)
-            yield Label(label)
-            if isinstance(value, str):
-                yield Dw2(value)
-            elif isinstance(value, bytes):
-                for byte in value:
-                    yield Db(byte)
-                yield Alignment(2)   # Align at 4 bytes
-            else:  # pragma: no cover
-                raise NotImplementedError('Constant of type {}'.format(value))
-
+    """ Frame class """
     def is_used(self, register):
         """ Check if a register is used by this frame """
         return True
         # TODO: implement a check here!
         return register in self.used_regs
-
-    def prologue(self):
-        """ Returns prologue instruction sequence """
-        # Label indication function:
-        yield Label(self.name)
-
-        # Callee save registers:
-        for reg in self.callee_save:
-            if self.is_used(reg):
-                yield push(reg)
-
-        # Adjust stack:
-        if self.stacksize:
-            yield Sub(ConstSrc(self.stacksize), RegDst(r1))
-
-        # Setup the frame pointer:
-        yield mov(r1, r4)
-
-    def epilogue(self):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
-        """
-
-        # Adjust stack:
-        if self.stacksize:
-            yield Add(ConstSrc(self.stacksize), RegDst(r1))
-
-        # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if self.is_used(reg):
-                yield pop(reg)
-
-        # Return from function:
-        yield ret()
-
-        # Add final literal pool:
-        for instruction in self.litpool():
-            yield instruction
 
 
 class Msp430Assembler(BaseAssembler):

@@ -96,7 +96,6 @@ class CodeGenerator:
         reporter.heading(3, 'Log for {}'.format(ir_function))
         reporter.dump_ir(ir_function)
 
-
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
         for block in ir_function:
@@ -176,7 +175,7 @@ class CodeGenerator:
         debug_data = []
 
         # Prefix code:
-        output_stream.emit_all(frame.prologue())
+        output_stream.emit_all(self.arch.prologue(frame))
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
@@ -212,7 +211,7 @@ class CodeGenerator:
                 output_stream.emit(instruction)
 
         # Postfix code, like register restore and stack adjust:
-        output_stream.emit_all(frame.epilogue())
+        output_stream.emit_all(self.arch.epilogue(frame))
 
         # Last but not least, emit debug infos:
         for dd in debug_data:

@@ -223,7 +223,8 @@ class InstructionSelector1:
             self.munch_trees(context, trees)
 
             # Emit code between blocks:
-            frame.between_blocks()
+            for instruction in self.arch.between_blocks(frame):
+                frame.emit(instruction)
 
         # Emit epilog label here, maybe not the right place?
         # TODO!!

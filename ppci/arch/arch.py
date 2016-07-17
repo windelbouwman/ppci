@@ -31,6 +31,7 @@ class Architecture:
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
+        self.FrameClass = Frame
 
     def has_option(self, name):
         """ Check for an option setting selected """
@@ -81,15 +82,23 @@ class Architecture:
             live_out = set()
         frame = self.FrameClass(
             frame_name, arg_locs, live_in, rv, live_out)
-
         return frame
-
-    def get_register(self, color):  # pragma: no cover
-        raise NotImplementedError('get_register')
 
     def move(self, dst, src):  # pragma: no cover
         """ Generate a move from src to dst """
         raise NotImplementedError('Implement this')
+
+    def prologue(self, frame):  # pragma: no cover
+        """ Generate instructions for the epilogue of a frame """
+        raise NotImplementedError('Implement this!')
+
+    def epilogue(self, frame):  # pragma: no cover
+        """ Generate instructions for the epilogue of a frame """
+        raise NotImplementedError('Implement this!')
+
+    def between_blocks(self, frame):
+        """ Generate any instructions here if needed between two blocks """
+        return []
 
     def gen_call(self, value):
         """ Generate a sequence of instructions for a call to a label.
@@ -393,12 +402,3 @@ class Frame:
         pt = self.instructions.index(instruction) + 1
         for idx, ins in enumerate(code):
             self.instructions.insert(idx + pt, ins)
-
-    def between_blocks(self):
-        pass
-
-    def prologue(self):  # pragma: no cover
-        raise NotImplementedError('Implement this!')
-
-    def epilogue(self):  # pragma: no cover
-        raise NotImplementedError('Implement this!')

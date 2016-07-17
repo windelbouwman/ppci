@@ -4,11 +4,11 @@
 import io
 from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
-from ..arch import Architecture, Label, Alignment, Frame
+from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dd, Dcd2, data_isa
 from ..isa import RegisterClass
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
-from .registers import R0, R1, R2, R3, R4, all_registers, get_register
+from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
 from .registers import R9, R10, R11, LR, PC, SP
 from .arm_instructions import LdrPseudo, arm_isa
@@ -27,7 +27,6 @@ class ArmArch(Architecture):
         if self.has_option('thumb'):
             self.assembler = ThumbAssembler()
             self.isa = thumb_isa + data_isa
-            self.FrameClass = ThumbFrame
             # We use r7 as frame pointer (in case of thumb ;)):
             self.fp = R7
 
@@ -40,7 +39,6 @@ class ArmArch(Architecture):
         else:
             self.isa = arm_isa + data_isa
             self.assembler = ArmAssembler()
-            self.FrameClass = ArmFrame
             self.fp = R11
 
             # Registers usable by register allocator:
@@ -72,9 +70,6 @@ class ArmArch(Architecture):
             return arm_instructions.Mov2(
                 dst, src, arm_instructions.NoShift(), ismove=True)
 
-    def get_register(self, color):
-        return get_register(color)
-
     def make_call(self, frame, vcall):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
@@ -103,6 +98,98 @@ class ArmArch(Architecture):
             # Restore caller save registers:
             if register_set:
                 yield arm_instructions.Pop(RegisterSet(register_set))
+
+    def prologue(self, frame):
+        """ Returns prologue instruction sequence """
+        # Label indication function:
+        yield Label(frame.name)
+
+        if self.has_option('thumb'):
+            yield thumb_instructions.Push({LR, R7})
+        else:
+            yield arm_instructions.Push(RegisterSet({LR, R11}))
+
+        # Callee save registers:
+        if self.has_option('thumb'):
+            yield thumb_instructions.Push({R5, R6})
+        else:
+            yield arm_instructions.Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
+
+        if frame.stacksize:
+            if self.has_option('thumb'):
+                ssize = round_up(frame.stacksize)
+
+                # Reserve stack space:
+                # subSp cannot handle large numbers:
+                while ssize > 0:
+                    inc = min(124, ssize)
+                    yield thumb_instructions.SubSp(inc)
+                    ssize -= inc
+            else:
+                yield arm_instructions.Sub2(SP, SP, frame.stacksize)
+
+        # Setup frame pointer:
+        if self.has_option('thumb'):
+            yield thumb_instructions.Mov2(R7, SP)
+        else:
+            yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
+
+    def epilogue(self, frame):
+        """ Return epilogue sequence for a frame.
+
+        Adjust frame pointer and add constant pool. """
+
+        if frame.stacksize > 0:
+            if self.has_option('thumb'):
+                ssize = round_up(frame.stacksize)
+                # subSp cannot handle large numbers:
+                while ssize > 0:
+                    inc = min(124, ssize)
+                    yield thumb_instructions.AddSp(inc)
+                    ssize -= inc
+            else:
+                yield arm_instructions.Add2(SP, SP, frame.stacksize)
+
+        # Callee save registers:
+        if self.has_option('thumb'):
+            yield thumb_instructions.Pop({R5, R6})
+            yield thumb_instructions.Pop({PC, R7})
+        else:
+            yield arm_instructions.Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
+            yield arm_instructions.Pop(
+                RegisterSet({PC, R11}), extra_uses=[frame.rv])
+
+        # Add final literal pool
+        for instruction in self.litpool(frame):
+            yield instruction
+
+        if not self.has_option('thumb'):
+            yield Alignment(4)   # Align at 4 bytes
+
+    def litpool(self, frame):
+        """ Generate instruction for the current literals """
+        # Align at 4 bytes
+        if frame.constants:
+            yield Alignment(4)
+
+        # Add constant literals:
+        while frame.constants:
+            label, value = frame.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int):
+                yield Dd(value)
+            elif isinstance(value, str):
+                yield Dcd2(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError('Constant of type {}'.format(value))
+
+    def between_blocks(self, frame):
+        for instruction in self.litpool(frame):
+            yield instruction
 
     def gen_fill_arguments(self, arg_types, args, alives):
         # Setup parameters:
@@ -228,147 +315,8 @@ class ThumbAssembler(BaseAssembler):
             ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
-class ArmFrame(Frame):
-    """ Arm specific frame for functions.
-
-        R5 and above are callee save (the function that is called
-    """
-    def __init__(self, name, arg_locs, live_in, rv, live_out):
-        super().__init__(name, arg_locs, live_in, rv, live_out)
-        # Allocatable registers:
-        # self.regs = [R0, R1, R2, R3, R4, R5, R6, R7]
-
-    def new_virtual_register(self, twain=""):
-        """ Retrieve a new virtual register """
-        return super().new_virtual_register(ArmRegister, twain=twain)
-
-    def prologue(self):
-        """ Returns prologue instruction sequence """
-        # Label indication function:
-        yield Label(self.name)
-        yield arm_instructions.Push(RegisterSet({LR, R11}))
-        # Callee save registers:
-        yield arm_instructions.Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
-
-        # Reserve stack space:
-        if self.stacksize > 0:
-            yield arm_instructions.Sub2(SP, SP, self.stacksize)
-
-        # Setup frame pointer:
-        yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
-
-    def litpool(self):
-        """ Generate instruction for the current literals """
-        # Align at 4 bytes
-        if self.constants:
-            yield Alignment(4)
-
-        # Add constant literals:
-        while self.constants:
-            label, value = self.constants.pop(0)
-            yield Label(label)
-            if isinstance(value, int):
-                yield Dd(value)
-            elif isinstance(value, str):
-                yield Dcd2(value)
-            elif isinstance(value, bytes):
-                for byte in value:
-                    yield Db(byte)
-                yield Alignment(4)   # Align at 4 bytes
-            else:  # pragma: no cover
-                raise NotImplementedError('Constant of type {}'.format(value))
-
-    def between_blocks(self):
-        for ins in self.litpool():
-            self.emit(ins)
-
-    def epilogue(self):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
-        """
-        if self.stacksize > 0:
-            yield arm_instructions.Add2(SP, SP, self.stacksize)
-        yield arm_instructions.Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
-        yield arm_instructions.Pop(
-            RegisterSet({PC, R11}), extra_uses=[self.rv])
-        # Add final literal pool:
-        for instruction in self.litpool():
-            yield instruction
-        yield Alignment(4)   # Align at 4 bytes
-
-
-class ThumbFrame(Frame):
-    """ Arm specific frame for functions. """
-    def __init__(self, name, arg_locs, live_in, rv, live_out):
-        super().__init__(name, arg_locs, live_in, rv, live_out)
-        self.parMap = {}
-
-    def round_up(self, s):
-        return s + (4 - s % 4)
-
-    def prologue(self):
-        """ Returns prologue instruction sequence """
-        yield Label(self.name)  # Label indication function
-        yield thumb_instructions.Push({LR, R7})
-
-        # Callee save registers:
-        yield thumb_instructions.Push({R5, R6})
-        if self.stacksize > 0:
-            ssize = self.round_up(self.stacksize)
-
-            # Reserve stack space:
-            # subSp cannot handle large numbers:
-            while ssize > 0:
-                inc = min(124, ssize)
-                yield thumb_instructions.SubSp(inc)
-                ssize -= inc
-
-        # Setup frame pointer:
-        yield thumb_instructions.Mov2(R7, SP)
-
-    def insert_litpool(self):
-        """ Insert the literal pool at the current position """
-        # Align at 4 bytes
-        yield Alignment(4)
-
-        # Add constant literals:
-        while self.constants:
-            label, value = self.constants.pop(0)
-            yield Label(label)
-            if isinstance(value, int):
-                yield Dd(value)
-            elif isinstance(value, str):
-                yield Dcd2(value)
-            elif isinstance(value, bytes):
-                for byte in value:
-                    yield Db(byte)
-                yield Alignment(4)   # Align at 4 bytes
-            else:  # pragma: no cover
-                raise NotImplementedError('{} not supported'.format(value))
-
-    def between_blocks(self):
-        for instruction in self.insert_litpool():
-            self.emit(instruction)
-
-    def epilogue(self):
-        """ Return epilogue sequence for a frame. Adjust frame pointer and add
-        constant pool """
-
-        if self.stacksize > 0:
-            ssize = self.round_up(self.stacksize)
-            # subSp cannot handle large numbers:
-            while ssize > 0:
-                inc = min(124, ssize)
-                yield thumb_instructions.AddSp(inc)
-                ssize -= inc
-
-        # Callee save registers:
-        yield thumb_instructions.Pop({R5, R6})
-        yield thumb_instructions.Pop({PC, R7})
-
-        # Add final literal pool
-        for instruction in self.insert_litpool():
-            yield instruction
+def round_up(s):
+    return s + (4 - s % 4)
 
 
 ARM_ASM_RT = """

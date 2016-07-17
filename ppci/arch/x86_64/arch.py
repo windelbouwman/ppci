@@ -12,7 +12,7 @@ from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
-from .registers import all_registers, get_register
+from .registers import all_registers
 from .registers import register_classes, X86Register, LowRegister
 from .registers import rbx, rbp, rsp, al
 from .registers import r11, r12, r13, r14, r15
@@ -33,6 +33,7 @@ class X86_64Arch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.FrameClass = X86Frame
         self.fp = rbp
+        self.callee_save = (rbx, r12, r13, r14, r15)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -44,9 +45,6 @@ class X86_64Arch(Architecture):
             raise NotImplementedError()
         else:
             return MovRegRm(dst, RmReg(src), ismove=True)
-
-    def get_register(self, color):
-        return get_register(color)
 
     def get_runtime(self):
         from ...api import asm
@@ -128,6 +126,48 @@ class X86_64Arch(Architecture):
         for register in reversed(live_regs):
             yield Pop(register)
 
+    def prologue(self, frame):
+        """ Returns prologue instruction sequence """
+        # Label indication function:
+        yield Label(frame.name)
+
+        yield Push(rbp)
+
+        # Callee save registers:
+        for reg in self.callee_save:
+            if frame.is_used(reg):
+                yield Push(reg)
+
+        # Reserve stack space
+        if frame.stacksize > 0:
+            yield SubImm(rsp, frame.stacksize)
+
+        yield MovRegRm(rbp, RmReg(rsp))
+
+    def epilogue(self, frame):
+        """ Return epilogue sequence for a frame. Adjust frame pointer
+            and add constant pool
+        """
+        if frame.stacksize > 0:
+            yield AddImm(rsp, frame.stacksize)
+
+        # Pop save registers back:
+        for reg in reversed(self.callee_save):
+            if frame.is_used(reg):
+                yield Pop(reg)
+
+        yield Pop(rbp)
+        yield Ret()
+
+        # Add final literal pool:
+        for label, value in frame.constants:
+            yield Label(label)
+            if isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+            else:  # pragma: no cover
+                raise NotImplementedError('Constant of type {}'.format(value))
+
 
 class X86Frame(Frame):
     """ X86 specific frame for functions.
@@ -139,51 +179,8 @@ class X86Frame(Frame):
     def __init__(self, name, arg_locs, live_in, rv, live_out):
         super().__init__(name, arg_locs, live_in, rv, live_out)
         # Allocatable registers:
-        self.callee_save = (rbx, r12, r13, r14, r15)
         self.used_regs = set()
 
     def is_used(self, register):
         """ Check if a register is used by this frame """
         return register in self.used_regs
-
-    def prologue(self):
-        """ Returns prologue instruction sequence """
-        # Label indication function:
-        yield Label(self.name)
-
-        yield Push(rbp)
-
-        # Callee save registers:
-        for reg in self.callee_save:
-            if self.is_used(reg):
-                yield Push(reg)
-
-        # Reserve stack space
-        if self.stacksize > 0:
-            yield SubImm(rsp, self.stacksize)
-
-        yield MovRegRm(rbp, RmReg(rsp))
-
-    def epilogue(self):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
-        """
-        if self.stacksize > 0:
-            yield AddImm(rsp, self.stacksize)
-
-        # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if self.is_used(reg):
-                yield Pop(reg)
-
-        yield Pop(rbp)
-        yield Ret()
-
-        # Add final literal pool:
-        for label, value in self.constants:
-            yield Label(label)
-            if isinstance(value, bytes):
-                for byte in value:
-                    yield Db(byte)
-            else:  # pragma: no cover
-                raise NotImplementedError('Constant of type {}'.format(value))

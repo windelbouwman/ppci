@@ -16,7 +16,7 @@ from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, r26, r27, r28, r29, r30, r31, X, Y, Z
 from .registers import r25r24
-from .registers import get_register, get16reg, register_classes
+from .registers import get16reg, register_classes
 
 
 class AvrArch(Architecture):
@@ -26,7 +26,6 @@ class AvrArch(Architecture):
     def __init__(self, options=None):
         super().__init__(options=options, register_classes=register_classes)
         self.isa = avr_isa + data_isa
-        self.FrameClass = AvrFrame
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
         # TODO: make it possible to choose between 16 and 8 bit int type size
@@ -48,9 +47,6 @@ class AvrArch(Architecture):
                 ret
         """
         return asm(io.StringIO(asm_src), self)
-
-    def get_register(self, color):
-        return get_register(color)
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
@@ -137,21 +133,10 @@ class AvrArch(Architecture):
             else:
                 yield Pop(register)
 
-    def move(self, dst, src):
-        """ Generate a move from src to dst """
-        if isinstance(dst, AvrRegister) and isinstance(src, AvrRegister):
-            return Mov(dst, src, ismove=True)
-        elif isinstance(dst, AvrWordRegister) and isinstance(src, AvrWordRegister):
-            return Movw(dst, src, ismove=True)
-        else:
-            raise NotImplementedError()
-
-
-class AvrFrame(Frame):
-    def prologue(self):
+    def prologue(self, frame):
         """ Generate the prologue instruction sequence """
         # Label indication function:
-        yield Label(self.name)
+        yield Label(frame.name)
 
         # Save previous frame pointer and fill it from the SP:
         yield Push(Y.lo)
@@ -160,24 +145,42 @@ class AvrFrame(Frame):
         # Save some registers:
         # TODO!
 
-        if self.stacksize > 0:
+        if frame.stacksize > 0:
             # Push N times to adjust stack:
-            for _ in range(self.stacksize):
+            for _ in range(frame.stacksize):
                 yield Push(r0)
 
         # Setup frame pointer:
         yield In(Y.lo, 0x3d)
         yield In(Y.hi, 0x3e)
 
-    def litpool(self):
+    def epilogue(self, frame):
+        """ Return epilogue sequence for a frame. Adjust frame pointer
+            and add constant pool
+        """
+        if frame.stacksize > 0:
+            # Pop x times to adjust stack:
+            for _ in range(frame.stacksize):
+                yield Pop(r0)
+
+        yield Pop(Y.hi)
+        yield Pop(Y.lo)
+        yield Ret()
+
+        # Add final literal pool:
+        for instruction in self.litpool(frame):
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes
+
+    def litpool(self, frame):
         """ Generate instruction for the current literals """
         # Align at 4 bytes
-        if self.constants:
+        if frame.constants:
             yield Alignment(4)
 
         # Add constant literals:
-        while self.constants:
-            label, value = self.constants.pop(0)
+        while frame.constants:
+            label, value = frame.constants.pop(0)
             yield Label(label)
             if isinstance(value, bytes):
                 for byte in value:
@@ -186,24 +189,16 @@ class AvrFrame(Frame):
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
 
-    def between_blocks(self):
-        for ins in self.litpool():
-            self.emit(ins)
-
-    def epilogue(self):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
-        """
-        if self.stacksize > 0:
-            # Pop x times to adjust stack:
-            for _ in range(self.stacksize):
-                yield Pop(r0)
-
-        yield Pop(Y.hi)
-        yield Pop(Y.lo)
-        yield Ret()
-
-        # Add final literal pool:
-        for instruction in self.litpool():
+    def between_blocks(self, frame):
+        for instruction in self.litpool(frame):
             yield instruction
-        yield Alignment(4)   # Align at 4 bytes
+
+    def move(self, dst, src):
+        """ Generate a move from src to dst """
+        if isinstance(dst, AvrRegister) and isinstance(src, AvrRegister):
+            return Mov(dst, src, ismove=True)
+        elif isinstance(dst, AvrWordRegister) and \
+                isinstance(src, AvrWordRegister):
+            return Movw(dst, src, ismove=True)
+        else:
+            raise NotImplementedError()
