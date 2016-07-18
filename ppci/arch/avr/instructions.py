@@ -4,10 +4,10 @@ from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, u16, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative
 from ...ir import i16
-from .registers import AvrRegister, AvrPseudo16Register, X
+from .registers import AvrRegister, X
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister
-from .registers import r0, r1, r2, r3, r16, r17, r1r0, r3r2, r17r16
+from .registers import r0, r1, r1r0
 
 
 class AvrToken(Token):
@@ -502,6 +502,16 @@ class StPreDec(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class StWord(PseudoAvrInstruction):
+    """ Store a word by using st X+ and st X """
+    rd = register_argument('rd', AvrWordRegister, read=True)
+    syntax = Syntax(['stw', 'x', '+', ',', rd])
+
+    def render(self):
+        yield StPostInc(self.rd.lo)
+        yield StPostInc(self.rd.hi)
+
+
 class Sts(AvrInstruction):
     tokens = [AvrToken2, Imm16Token]
     rd = register_argument('rd', AvrRegister, read=True)
@@ -847,15 +857,7 @@ def pattern_ldr16(context, tree, c0):
 @avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8)
 def pattern_str16(context, tree, c0, c1):
     context.move(X, c0)
-
-    context.move(r1r0, c1)
-    ud1 = RegisterUseDef()
-    ud1.add_use(r1r0)
-    ud1.add_defs([r0, r1])
-    context.emit(ud1)
-
-    context.emit(StPostInc(r0))
-    context.emit(St(r1))
+    context.emit(StWord(c1))
     ud2 = RegisterUseDef()
     ud2.add_uses([X])
     context.emit(ud2)

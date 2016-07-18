@@ -144,6 +144,7 @@ class AvrArch(Architecture):
 
         # Save some registers:
         # TODO!
+        self.logger.warning('Saving registers on prologue not impl')
 
         if frame.stacksize > 0:
             # Push N times to adjust stack:

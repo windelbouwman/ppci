@@ -130,6 +130,15 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("rjmp a")
         self.check('01c0 00c0 ffcf fecf')
 
+    def test_further_rjmp(self):
+        spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
+        layout = load_layout(io.StringIO(spec))
+        self.feed("rjmp a")
+        self.feed("rjmp a")
+        self.feed("a: rjmp a")
+        self.feed("rjmp a")
+        self.check('01c0 00c0 ffcf fecf', layout=layout)
+
     def test_call(self):
         self.feed("call a")
         self.feed("call a")

@@ -5,6 +5,7 @@
 #include <simavr/sim_avr.h>
 #include <simavr/sim_hex.h>
 #include <simavr/sim_irq.h>
+#include <simavr/avr_uart.h>
 
 void uart_in_hook(avr_irq_t* irq, uint32_t value, void*param)
 {
@@ -51,6 +52,8 @@ int main(int argc, char* argv[])
   avr->pc = boot_base;
   avr->codeend = avr->flashend;
   avr->log = 1 + 2;
+
+  init_uart(avr);
 
 
   int state = cpu_Running;

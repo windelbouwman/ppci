@@ -272,6 +272,16 @@ class Alignment(PseudoInstruction):
         return 'ALIGN({})'.format(self.align)
 
 
+class SectionInstruction(PseudoInstruction):
+    """ Select a certain section to emit output into. """
+    def __init__(self, a):
+        super().__init__()
+        self.name = a
+
+    def __repr__(self):
+        return 'section {}'.format(self.name)
+
+
 class DebugData(PseudoInstruction):
     """
         Carrier instruction of debug information.

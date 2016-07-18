@@ -5,7 +5,7 @@
 
 import logging
 from ..arch.isa import Instruction
-from ..arch.arch import Alignment, DebugData
+from ..arch.arch import Alignment, DebugData, SectionInstruction
 
 
 class OutputStream:
@@ -20,9 +20,9 @@ class OutputStream:
         for item in items:
             self.emit(item)
 
-    def select_section(self, sname):  # pragma: no cover
-        """ Switch stream into another section """
-        raise NotImplementedError('Abstract base class')
+    def select_section(self, name):
+        """ Switch output to certain section """
+        self.emit(SectionInstruction(name))
 
 
 class TextOutputStream(OutputStream):
@@ -30,9 +30,6 @@ class TextOutputStream(OutputStream):
     def emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
         print(item)
-
-    def select_section(self, sname):
-        print('section {}'.format(sname))
 
 
 class BinaryOutputStream(OutputStream):
@@ -48,6 +45,11 @@ class BinaryOutputStream(OutputStream):
             At this point we know the address of the instruction.
         """
         assert isinstance(item, Instruction), str(item) + str(type(item))
+
+        if isinstance(item, SectionInstruction):
+            self.current_section = self.obj_file.get_section(
+                item.name, create=True)
+
         assert self.current_section
         section = self.current_section
         address = self.current_section.size
@@ -69,9 +71,6 @@ class BinaryOutputStream(OutputStream):
             # We have debug data here!
             self.obj_file.debug_info.add(item.data)
 
-    def select_section(self, sname):
-        self.current_section = self.obj_file.get_section(sname, create=True)
-
 
 class RecordingOutputStream(OutputStream):
     """ Stream that appends instructions to list """
@@ -81,16 +80,10 @@ class RecordingOutputStream(OutputStream):
     def emit(self, item):
         self.bag.append(item)
 
-    def select_section(self, sname):
-        pass
-
 
 class DummyOutputStream(OutputStream):
     """ Stream that does nothing """
     def emit(self, item):
-        pass
-
-    def select_section(self, sname):
         pass
 
 
@@ -101,9 +94,6 @@ class FunctionOutputStream(OutputStream):
 
     def emit(self, item):
         self.function(str(item))
-
-    def select_section(self, sname):
-        self.function('.section {}'.format(sname))
 
 
 class LoggerOutputStream(FunctionOutputStream):
@@ -121,10 +111,6 @@ class MasterOutputStream(OutputStream):
     def emit(self, item):
         for output_stream in self.substreams:
             output_stream.emit(item)
-
-    def select_section(self, sname):
-        for output_stream in self.substreams:
-            output_stream.select_section(sname)
 
 
 def binary_and_logging_stream(output):

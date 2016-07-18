@@ -9,7 +9,7 @@ from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
-from ..arch.arch import Label, Alignment
+from ..arch.arch import Label, Alignment, SectionInstruction
 from ..arch.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
 
@@ -114,12 +114,12 @@ class BaseAssembler:
         # num = register_argument('amount',
         self.add_instruction(
             ['align', self.int_id], lambda rhs: Alignment(rhs[1]))
+        self.add_instruction(
+            ['section', self.str_id], lambda rhs: SectionInstruction(rhs[1]))
         self.add_rule('directive', ['repeat', self.int_id], self.p_repeat)
         self.add_rule('directive', ['endrepeat'], self.p_endrepeat)
-        self.add_rule('directive', ['section', self.str_id], self.p_section)
         self.add_keyword('repeat')
         self.add_keyword('endrepeat')
-        self.add_keyword('section')
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
@@ -296,9 +296,6 @@ class BaseAssembler:
 
     def p_endrepeat(self, rhs):
         self.end_repeat()
-
-    def p_section(self, rhs):
-        self.select_section(rhs[1])
 
     # Parser handlers:
     def select_section(self, name):
