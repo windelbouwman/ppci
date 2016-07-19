@@ -17,7 +17,7 @@ from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
 from ..riscv.registers import register_range
 from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr, Mov
-from .rvc_instructions import CSwsp, CLwsp, CJal
+from .rvc_instructions import CSwsp, CLwsp, CJal, CJr
 
 
 class RiscvAssembler(BaseAssembler):
@@ -226,7 +226,12 @@ class RiscvArch(Architecture):
             i+= 4
             yield Lw(register, i, SP)
         Addi(SP, SP, i)
-        yield(Blr(R0, LR, 0))
+        
+        if self.has_option('rvc'):
+            yield(CJr(LR))
+        else:
+            yield(Blr(R0, LR, 0))
+            
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction

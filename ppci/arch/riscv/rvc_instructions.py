@@ -418,7 +418,7 @@ class Bnev(PseudoRiscvInstruction):
         if ((self.rn.num<=15) and (self.rn.num>=8)):
             yield CBnez( self.rn, self.target)
         else:
-            yield Beq( self.rn, self.rm, self.target)
+            yield Bne( self.rn, self.rm, self.target)
 
             
 # Instruction selection patterns:
