@@ -33,3 +33,5 @@ Below is a list of features / tasks that need to be done.
   used and the backend of ppci.
 
 - Add a backend for LLVM IR-code.
+
+- Add better support for harvard architecture cpu's like avr, 8051 and PIC.

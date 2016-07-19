@@ -47,6 +47,8 @@ ret
 
 ; delay x times 10 ms:
 main_delay:
+    push r20
+    push r19
     mov r20, r1
 L1: ldi r19, 16
 L2: ldi r18, 100
@@ -59,5 +61,7 @@ L4: dec r17
     brne L2
     dec r20
     brne L1
+    pop r19
+    pop r20
 ret
 
