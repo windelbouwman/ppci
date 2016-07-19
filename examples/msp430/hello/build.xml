@@ -1,0 +1,19 @@
+<project name="hello" default="hello">
+    <import name="ppci.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            source="../boot.asm"
+            arch="msp430"
+            output="boot.oj" />
+        <compile
+            arch="msp430"
+            sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"/>
+        <link
+            output="hello.oj"
+            layout="../msp430.mmap"
+            objects="boot.oj;rest.oj" />
+    </target>
+</project>

@@ -76,7 +76,7 @@ class AsmTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        src = relpath('..', 'examples', 'arduino', 'boot.asm')
+        src = relpath('..', 'examples', 'avr', 'arduino-blinky', 'boot.asm')
         asm(['-m', 'avr', '-o', obj_file, src])
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -99,7 +99,7 @@ class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        src = relpath('..', 'examples', 'arduino', 'boot.asm')
+        src = relpath('..', 'examples', 'avr', 'arduino-blinky', 'boot.asm')
         asm(['-m', 'avr', '-o', obj_file, src])
         with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
             objdump([obj_file])
@@ -155,13 +155,12 @@ class LinkCommandTestCase(unittest.TestCase):
         asm_src = relpath('..', 'examples', 'lm3s6965evb', 'startup.asm')
         mmap = relpath('..', 'examples', 'lm3s6965evb', 'memlayout.mmap')
         c3_srcs = [
-            relpath('..', 'examples', 'snake', 'main.c3'),
-            relpath('..', 'examples', 'snake', 'game.c3'),
+            relpath('..', 'examples', 'src', 'snake', 'main.c3'),
+            relpath('..', 'examples', 'src', 'snake', 'game.c3'),
             relpath('..', 'librt', 'io.c3'),
             relpath('..', 'examples', 'lm3s6965evb', 'bsp.c3'),
             ]
         asm(['-m', 'arm', '--mtune', 'thumb', '-o', obj1, asm_src])
-        # TODO: this should raise an error? combining thumb with arm code?
         c3c(['-m', 'arm', '--mtune', 'thumb', '-o', obj2] + c3_srcs)
         link(
             ['-o', obj3, '-L', mmap, obj1, obj2])
@@ -239,7 +238,7 @@ class DiagnosticsTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_error_reporting(self, mock_stdout):
         """ Simulate some errors into the diagnostics system """
-        filename = relpath('..', 'examples', 'snake', 'game.c3')
+        filename = relpath('..', 'examples', 'src', 'snake', 'game.c3')
         diag = DiagnosticsManager()
         with open(filename, 'r') as f:
             src = f.read()

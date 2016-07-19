@@ -10,7 +10,7 @@
 
         <compile
             arch="x86_64"
-            sources="../../snake/*.c3;../../../librt/io.c3;../bsp.c3"
+            sources="../../src/snake/*.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
             report="report.html"/>
 

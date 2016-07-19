@@ -952,15 +952,7 @@ class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
         MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
         MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
     """
-    bsp_c3_src = """
-        module bsp;
-
-        public function void putc(byte c);
-        function void exit()
-        {
-            putc(4); // End of transmission
-        }
-    """
+    bsp_c3 = relpath('..', 'examples', 'msp430', 'bsp.c3')
 
     def do(self, src, expected_output, lang='c3'):
         obj, base_filename = self.build(src, lang)

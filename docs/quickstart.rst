@@ -47,7 +47,7 @@ To build and the arduino blink led example, follow the following commands:
 
 .. code:: bash
 
-    $ cd examples/arduino
+    $ cd examples/avr/arduino-blinky
     $ ppci-build.py
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 

@@ -9,7 +9,7 @@
             output="startup.oj" />
         <compile
             arch="arm:thumb"
-            sources="../../snake/main.c3;../bsp.c3;../../../librt/io.c3;../../snake/game.c3"
+            sources="../../src/snake/*.c3;../bsp.c3;../../../librt/io.c3"
             output="rest.oj"
             report="snake_report.html"/>
         <link output="snake.oj"
