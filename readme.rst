@@ -1,5 +1,4 @@
 
-
 Introduction
 ============
 
@@ -70,40 +69,10 @@ Documentation can be found here:
 |appveyor|_
 |codecov|_
 |docstate|_
-|version|_
-|devstate|_
-|pyimpls|_
-|pyversions|_
-|license|_
-|downloads|_
 
 
 .. |codecov| image:: https://codecov.io/bitbucket/windel/ppci/coverage.svg?branch=default
 .. _codecov: https://codecov.io/bitbucket/windel/ppci?branch=default
-
-
-.. |downloads| image:: https://img.shields.io/pypi/dm/ppci.png
-.. _downloads: https://pypi.python.org/pypi/ppci
-
-
-.. |version| image:: https://img.shields.io/pypi/v/ppci.png
-.. _version: https://pypi.python.org/pypi/ppci
-
-
-.. |license| image:: https://img.shields.io/pypi/l/ppci.png
-.. _license: https://pypi.python.org/pypi/ppci
-
-
-.. |devstate| image:: https://img.shields.io/pypi/status/ppci.png
-.. _devstate: https://pypi.python.org/pypi/ppci
-
-
-.. |pyversions| image:: https://img.shields.io/pypi/pyversions/ppci.png
-.. _pyversions: https://pypi.python.org/pypi/ppci
-
-
-.. |pyimpls| image:: https://img.shields.io/pypi/implementation/ppci.png
-.. _pyimpls: https://pypi.python.org/pypi/ppci
 
 
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png

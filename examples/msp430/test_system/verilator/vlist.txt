@@ -1,6 +1,5 @@
 
 -y ../verilog/bench/
-../verilog/bench/tb_openMSP430.v
 ../verilog/bench/ram.v
 ../verilog/bench/msp_debug.v
 ../verilog/bench/io_cell.v
@@ -9,8 +8,6 @@
 ../verilog/periph/omsp_gpio.v
 ../verilog/periph/omsp_timerA.v
 ../verilog/periph/omsp_uart.v
-../verilog/periph/template_periph_8b.v
-../verilog/periph/template_periph_16b.v
 
 -y ../verilog/core/
 ../verilog/core/openMSP430_defines.v
