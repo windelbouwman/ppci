@@ -7,7 +7,7 @@ pip install tox codecov wheel --use-mirrors
 # Run tox:
 tox --version
 tox -e py33,cover
-codecov >/dev/null
+codecov
 
 # Run setup script:
 python setup.py sdist bdist_wheel
