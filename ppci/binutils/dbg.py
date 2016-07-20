@@ -517,7 +517,7 @@ class GdbDebugDriver(DebugDriver):
     def pack(self, data):
         """ formats data into a RSP packet """
         for a, b in [(x, chr(ord(x) ^ 0x20)) for x in ['}','*','#','$']]:
-            data = data.replace(a,'}%s' % b)
+            data = data.replace(a, '}%s' % b)
         return "$%s#%02X" % (data, (sum(ord(c) for c in data) % 256))
 
     def unpack(self, pkt):
@@ -594,31 +594,31 @@ class GdbDebugDriver(DebugDriver):
 
     def get_pc(self):
         """ read the PC of the device"""
-        self.sendpkt("p 20",self.retries)
-        pc=int(self.switch_endian(self.readpkt(self.timeout).decode()),16)
-        print("PC value read:%x"%pc)
+        self.sendpkt("p 20", self.retries)
+        pc = int(self.switch_endian(self.readpkt(self.timeout).decode()), 16)
+        logging.debug("PC value read:%x", pc)
         return(pc)
 
     def run(self):
         """start the device"""
-        if(self.status==STOPPED):
-            adr=self.get_pc()
-            self.sendpkt("c%x"%adr)
+        if(self.status == STOPPED):
+            adr = self.get_pc()
+            self.sendpkt("c%x" % adr)
         self.status = RUNNING
 
     def restart(self):
         """restart the device"""
-        if(self.status==STOPPED):
-             self.sendpkt("c00000080")
+        if(self.status == STOPPED):
+            self.sendpkt("c00000080")
         self.status = RUNNING
 
     def step(self):
         """restart the device"""
-        if(self.status==STOPPED):
-             self.sendpkt("s")
-             self.get_status(self.timeout)
-             time.sleep(1)
-             self.get_pc()
+        if(self.status == STOPPED):
+            self.sendpkt("s")
+            self.get_status(self.timeout)
+            time.sleep(1)
+            self.get_pc()
 
     def stop(self):
         self.sendbrk()
