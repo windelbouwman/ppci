@@ -507,6 +507,8 @@ class GdbDebugDriver(DebugDriver):
 
     GDB servers can communicate via the RSP protocol.
     """
+    logger = logging.getLogger('gdbclient')
+
     def __init__(self):
         self.status = STOPPED
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -514,17 +516,21 @@ class GdbDebugDriver(DebugDriver):
         self.timeout = 10
         self.retries = 3
 
-    def pack(self, data):
+    @staticmethod
+    def rsp_pack(data):
         """ formats data into a RSP packet """
-        for a, b in [(x, chr(ord(x) ^ 0x20)) for x in ['}','*','#','$']]:
+        for a, b in [(x, chr(ord(x) ^ 0x20)) for x in ('}', '*', '#', '$')]:
             data = data.replace(a, '}%s' % b)
-        return "$%s#%02X" % (data, (sum(ord(c) for c in data) % 256))
+        crc = (sum(ord(c) for c in data) % 256)
+        return "$%s#%02X" % (data, crc)
 
-    def unpack(self, pkt):
-        """ unpacks an RSP packet, returns the data"""
-        if pkt[0:1]!=b'$' or pkt[-3:-2]!=b'#':
+    @staticmethod
+    def rsp_unpack(pkt):
+        """ unpacks an RSP packet, returns the data """
+        if pkt[0] != '$' or pkt[-3] != '#':
             raise ValueError('bad packet')
-        if (sum(c for c in pkt[1:-3]) % 256) != int(pkt[-2:],16):
+        crc = (sum(ord(c) for c in pkt[1:-3]) % 256)
+        if crc != int(pkt[-2:], 16):
             raise ValueError('bad checksum')
         pkt = pkt[1:-3]
         return pkt
@@ -544,53 +550,59 @@ class GdbDebugDriver(DebugDriver):
 
     def sendpkt(self, data, retries=50):
         """ sends data via the RSP protocol to the device """
+        self.logger.debug('GDB> %s', data)
         self.get_status(0)
-        self.s.send(self.pack(data).encode())
+        wire_data = self.rsp_pack(data).encode()
+        self.s.send(wire_data)
         res = None
         while not res:
             res = self.s.recv(1)
         discards = []
-        while res!=b'+' and retries>0:
+        while res != b'+' and retries > 0:
             discards.append(res)
-            self.s.send(self.pack(data).encode())
-            retries-=1
+            self.s.send(wire_data)
+            retries -= 1
             res = self.s.recv(1)
-        if len(discards)>0: print('send discards', discards)
-        if retries==0:
+        if len(discards) > 0:
+            print('send discards', discards)
+        if retries == 0:
             raise ValueError("retry fail")
 
     def readpkt(self, timeout=0):
         """ blocks until it reads an RSP packet, and returns it's
            data"""
-        c=None
-        discards=[]
-        if timeout>0:
+        c = None
+        discards = []
+        if timeout > 0:
             start = time.time()
-        while(c!=b'$'):
-            if c: discards.append(c)
-            c=self.s.recv(1)
-            if timeout>0 and start+timeout < time.time():
+        while(c != b'$'):
+            if c:
+                discards.append(c)
+            c = self.s.recv(1)
+            if timeout > 0 and start+timeout < time.time():
                 return
-        if len(discards)>0: print('discards', discards)
-        res=[c]
+        if len(discards) > 0:
+            self.logger.debug('discards %s', discards)
+        res = [c]
 
         while True:
             res.append(self.s.recv(1))
-            if res[-1]==b'#' and res[-2]!=b"'":
-                    res.append(self.s.recv(1))
-                    res.append(self.s.recv(1))
-                    try:
-                        res=self.unpack(b''.join(res))
-                    except:
-                        self.s.send(b'-')
-                        res=[]
-                        continue
-                    self.s.send(b'+')
-                    return res
+            if res[-1] == b'#' and res[-2] != b"'":
+                res.append(self.s.recv(1))
+                res.append(self.s.recv(1))
+                try:
+                    res = self.rsp_unpack(b''.join(res).decode('ascii'))
+                except ValueError:
+                    self.logger.warning('Bad packet')
+                    self.s.send(b'-')
+                    res = []
+                    continue
+                self.s.send(b'+')
+                return res
 
     def sendbrk(self):
         """ sends break command to the device """
-        self.s.send(chr(0x03).encode())
+        self.s.send(bytes([0x03]))
 
     def get_pc(self):
         """ read the PC of the device"""
@@ -646,9 +658,13 @@ class GdbDebugDriver(DebugDriver):
     def get_registers(self, registers):
         self.sendpkt("g", 3)
         data = self.readpkt(3)
+        print(data)
         res = {}
-        for r in list(enumerate(registers)):
-            res[r[1]] = binascii.unhexlify(self.switch_endian((data[r[0]*8:r[0]*8+8]).decode()))
+        for idx, r in enumerate(registers):
+            value = binascii.unhexlify(self.switch_endian((data[idx*8:idx*8+8]).decode()))
+            # print(value)
+            # value = int(value, 16)
+            res[r] = value
         return res
 
     def set_breakpoint(self, address):
@@ -707,7 +723,7 @@ class DebugCli(cmd.Cmd):
     def do_stop(self, arg):
         """ Stop the running program """
         self.debugger.stop()
-        
+
     def do_restart(self, arg):
         """ Restart the running program """
         self.debugger.restart()
@@ -725,7 +741,7 @@ class DebugCli(cmd.Cmd):
         """ Write data to memory: write address,hexdata """
         x = arg.split(',')
         address = str2int(x[0])
-        data = x[1]
+        data = x[1].strip()
         data = bytes(binascii.unhexlify(data.encode('ascii')))
         self.debugger.write_mem(address, data)
 
@@ -744,13 +760,14 @@ class DebugCli(cmd.Cmd):
     def do_regs(self, arg):
         """ Read registers """
         values = self.debugger.get_registers()
-        for name, value in values.items():
-            print(name, ':', value)
+        registers = sorted(values.keys())
+        for register in registers:
+            print(register, ':', values[register])
 
     def do_setbrk(self, arg):
         """ Set a breakpoint: setbrk filename, row """
         filename, row = arg.split(',')
-        row=str2int(row)
+        row = str2int(row)
         self.debugger.set_breakpoint(filename, row)
 
     def do_clrbrk(self, arg):
@@ -759,7 +776,7 @@ class DebugCli(cmd.Cmd):
             main.c, 5
         """
         filename, row = arg.split(',')
-        row=str2int(row)
+        row = str2int(row)
         self.debugger.clear_breakpoint(filename, row)
 
     def do_disasm(self, arg):

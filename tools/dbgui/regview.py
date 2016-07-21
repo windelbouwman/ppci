@@ -43,6 +43,7 @@ class RegisterModel(QtCore.QAbstractTableModel):
                     return reg_name
                 elif col == 1:
                     register_value = self.debugger.register_values[reg_name]
+                    print(register_value, type(register_value))
                     return '0x{0:X}'.format(register_value)
 
     def setData(self, index, value, role):

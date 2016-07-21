@@ -8,7 +8,7 @@ from ppci.binutils.debuginfo import DebugDb
 try:
     from unittest.mock import patch, MagicMock
 except ImportError:
-    from mock import patch
+    from mock import patch, MagicMock
 
 
 class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
