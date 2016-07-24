@@ -6,13 +6,9 @@ class RegisterModel(QtCore.QAbstractTableModel):
     def __init__(self, debugger):
         super().__init__()
         self.debugger = debugger
-        self.debugger.connection_event.subscribe(self.on_connection)
         self.debugger.state_event.subscribe(self.on_state_changed)
         self.headers = ('Register', 'Value')
         self.on_state_changed()
-
-    def on_connection(self):
-        self.modelReset.emit()
 
     def on_state_changed(self):
         if self.debugger.is_halted:
@@ -43,7 +39,6 @@ class RegisterModel(QtCore.QAbstractTableModel):
                     return reg_name
                 elif col == 1:
                     register_value = self.debugger.register_values[reg_name]
-                    print(register_value, type(register_value))
                     return '0x{0:X}'.format(register_value)
 
     def setData(self, index, value, role):
@@ -71,7 +66,6 @@ class RegisterView(QtWidgets.QTableView):
         self.mdl = RegisterModel(debugger)
         self.setModel(self.mdl)
         self.debugger = debugger
-        self.debugger.connection_event.subscribe(self.update_state)
         self.debugger.state_event.subscribe(self.update_state)
         self.update_state()
         self.horizontalHeader().setStretchLastSection(True)

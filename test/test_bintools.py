@@ -189,6 +189,17 @@ class ObjectFileTestCase(unittest.TestCase):
         object3 = deserialize(serialize(object1))
         self.assertEqual(object3, object1)
 
+    def test_overlapping_sections(self):
+        """ Check that overlapping sections are detected """
+        obj = ObjectFile(get_arch('msp430'))
+        obj.get_section('s1', create=True).add_data(bytes(range(100)))
+        obj.get_section('s2', create=True).add_data(bytes(range(100)))
+        obj.add_image(Image('x', 0))
+        obj.get_image('x').add_section(obj.get_section('s1'))
+        obj.get_image('x').add_section(obj.get_section('s2'))
+        with self.assertRaisesRegex(ValueError, 'overlap'):
+            obj.get_image('x').data
+
 
 class ElfFileTestCase(unittest.TestCase):
     def test_save_load(self):

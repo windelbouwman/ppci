@@ -19,16 +19,8 @@ class DebuggerTestCase(unittest.TestCase):
     """ Test the debugger class """
     arch = get_arch('arm')
 
-    def setUp(self):
-        self.debugger = Debugger(self.arch, DummyDebugDriver())
-
-    def test_stop(self):
-        self.debugger.stop()
-
-    def test_step(self):
-        self.debugger.step()
-
-    def test_source_mappings(self):
+    @classmethod
+    def setUpClass(cls):
         src = """
         module x;
         var int Xa;
@@ -39,8 +31,30 @@ class DebuggerTestCase(unittest.TestCase):
             return a +sum+ b + 1234;
         }
         """
-        obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
-        self.debugger.load_symbols(obj)
+        cls.obj = c3c([io.StringIO(src)], [], 'arm', debug=True)
+
+    def setUp(self):
+        self.debugger = Debugger(self.arch, DummyDebugDriver())
+
+    def test_run(self):
+        self.debugger.run()
+
+    def test_stop(self):
+        self.debugger.stop()
+
+    def test_step(self):
+        self.debugger.step()
+
+    def test_restart(self):
+        self.debugger.restart()
+
+    def test_breakpoint(self):
+        self.debugger.load_symbols(self.obj)
+        self.debugger.set_breakpoint('', 7)
+        self.debugger.clear_breakpoint('', 7)
+
+    def test_source_mappings(self):
+        self.debugger.load_symbols(self.obj)
         self.debugger.find_pc()
         addr = self.debugger.find_address('', 7)
         self.assertTrue(addr is not None)
@@ -107,6 +121,7 @@ class DebugCliTestCase(unittest.TestCase):
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_info(self, mock_stdout):
+        self.debugger_mock.configure_mock(status=0)
         self.cmd('info')
 
     def test_run(self):
@@ -153,7 +168,12 @@ class DebugCliTestCase(unittest.TestCase):
         self.debugger_mock.get_registers = MagicMock(
             return_value={'r1': 1, 'r2': 1000})
         self.cmd('regs')
-        self.assertEqual('r1 : 1\nr2 : 1000\n', mock_stdout.getvalue())
+        lines = [
+            '   r1 : 0x00000001',
+            '   r2 : 0x000003E8',
+            ''
+        ]
+        self.assertEqual('\n'.join(lines), mock_stdout.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_disasm(self, mock_stdout):
@@ -168,7 +188,12 @@ class GdbClientTestCase(unittest.TestCase):
     def setUp(self):
         with patch('ppci.binutils.dbg.socket.socket'):
             self.gdbc = GdbDebugDriver()
-            self.sock_mock = self.gdbc.s
+        self.sock_mock = self.gdbc.s
+        self.send_data = bytearray()
+
+        def my_send(dt):
+            self.send_data.extend(dt)
+        self.sock_mock.configure_mock(send=my_send)
 
     def test_rsp_pack(self):
         data = 'abc'
@@ -180,21 +205,67 @@ class GdbClientTestCase(unittest.TestCase):
         res = self.gdbc.rsp_unpack(pkt)
         self.assertEqual('abc', res)
 
+    def test_rsp_unpack_invalid_crc(self):
+        pkt = '$abc#20'
+        with self.assertRaises(ValueError):
+            self.gdbc.rsp_unpack(pkt)
+
+    def test_rsp_unpack_invalid_packet(self):
+        pkt = 'a'
+        with self.assertRaises(ValueError):
+            self.gdbc.rsp_unpack(pkt)
+
     def test_read_pkt(self):
         """ Test reading of a pkt """
-        pkt = b'zzz$abc#26hhh'
-        recv = make_recv(pkt)
-        self.sock_mock.configure_mock(recv=recv)
+        self.expect_recv(b'zzz$abc#26hhh')
         res = self.gdbc.readpkt()
         self.assertEqual('abc', res)
 
-    @unittest.skip('todo')
     def test_send_pkt(self):
+        """ Test sending of a single packet """
+        self.expect_recv(b'+')
         self.gdbc.sendpkt('s')
+        self.check_send(b'$s#73')
+
+    def test_stop(self):
+        self.gdbc.stop()
+
+    def test_step(self):
+        """ Test the single step command """
+        self.expect_recv(b'+$S05#b8')
+        self.gdbc.step()
+        self.check_send(b'$s#73+')
 
     @unittest.skip('todo')
+    def test_run(self):
+        self.gdbc.run()
+
     def test_get_registers(self):
-        self.gdbc.get_registers(['r1'])
+        """ Test reading of registers """
+        self.expect_recv(b'+$00000000#80')
+        regs = self.gdbc.get_registers(['r1'])
+        self.check_send(b'$g#67+')
+        self.assertEqual({'r1': 0}, regs)
+
+    def test_read_mem(self):
+        """ Test reading of memory """
+        self.expect_recv(b'+$01027309#96')
+        contents = self.gdbc.read_mem(101, 4)
+        self.assertEqual(bytes([1, 2, 0x73, 9]), contents)
+        self.check_send(b'$m 65,4#58+')
+
+    def test_write_mem(self):
+        """ Test write to memory """
+        self.expect_recv(b'+$01027309#96')
+        self.gdbc.write_mem(100, bytes([1, 2, 0x73, 9]))
+        self.check_send(b'$M 64,4:01027309#07')
+
+    def expect_recv(self, data):
+        recv = make_recv(data)
+        self.sock_mock.configure_mock(recv=recv)
+
+    def check_send(self, data):
+        self.assertEqual(data, self.send_data)
 
 
 def make_recv(data):
@@ -208,7 +279,6 @@ def make_recv(data):
         for _ in range(i):
             nxt = lp.__next__()
             a.append(nxt)
-        # print(i, a)
         return bytes(a)
     return recv
 

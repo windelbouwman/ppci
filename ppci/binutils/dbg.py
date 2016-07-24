@@ -11,7 +11,6 @@ import binascii
 import struct
 import time
 import socket
-import select
 from ..api import get_arch, fix_object
 from ..common import str2int, CompilerError
 from .. import __version__ as ppci_version
@@ -71,7 +70,6 @@ class Debugger:
         self.disassembler = Disassembler(self.arch)
         self.driver = driver
         self.logger = logging.getLogger('dbg')
-        self.connection_event = SubscribleEvent()
         self.state_event = SubscribleEvent()
         self.register_names = self.get_register_names()
         self.register_values = {rn: 0 for rn in self.register_names}
@@ -127,7 +125,7 @@ class Debugger:
         self.logger.info('set breakpoint %s:%i', filename, row)
         address = self.find_address(filename, row)
         if address is None:
-            self.logger.warn('Could not find address for breakpoint')
+            self.logger.warning('Could not find address for breakpoint')
         self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
@@ -135,7 +133,7 @@ class Debugger:
         self.logger.info('clear breakpoint %s:%i', filename, row)
         address = self.find_address(filename, row)
         if address is None:
-            self.logger.warn('Could not find address for breakpoint')
+            self.logger.warning('Could not find address for breakpoint')
         self.driver.clear_breakpoint(address)
 
     def step(self):
@@ -506,6 +504,12 @@ class GdbDebugDriver(DebugDriver):
     """ Implement debugging via the GDB remote interface.
 
     GDB servers can communicate via the RSP protocol.
+
+    Helpfull resources:
+
+    http://www.embecosm.com/appnotes/ean4/
+        embecosm-howto-rsp-server-ean4-issue-2.html
+
     """
     logger = logging.getLogger('gdbclient')
 
@@ -513,8 +517,6 @@ class GdbDebugDriver(DebugDriver):
         self.status = STOPPED
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect(("localhost", 1234))
-        self.timeout = 10
-        self.retries = 3
 
     @staticmethod
     def rsp_pack(data):
@@ -528,86 +530,69 @@ class GdbDebugDriver(DebugDriver):
     def rsp_unpack(pkt):
         """ unpacks an RSP packet, returns the data """
         if pkt[0] != '$' or pkt[-3] != '#':
-            raise ValueError('bad packet')
+            raise ValueError('bad packet {}'.format(pkt))
         crc = (sum(ord(c) for c in pkt[1:-3]) % 256)
-        if crc != int(pkt[-2:], 16):
-            raise ValueError('bad checksum')
+        crc2 = int(pkt[-2:], 16)
+        if crc != crc2:
+            raise ValueError('Checksum {} != {}'.format(crc, crc2))
         pkt = pkt[1:-3]
         return pkt
 
-    def switch_endian(self, data):
-        """ byte-wise reverses a hex encoded string """
-        return ''.join(reversed(list(self.split_by_n(data, 2))))
-
-    def split_by_n(self, seq, n):
-        """ A generator to divide a sequence into chunks of n units.
-
-        src: http://stackoverflow.com/questions/9475241/split-python-string-every-nth-character
-        """
-        while seq:
-            yield seq[:n]
-            seq = seq[n:]
-
-    def sendpkt(self, data, retries=50):
+    def sendpkt(self, data, retries=10):
         """ sends data via the RSP protocol to the device """
         self.logger.debug('GDB> %s', data)
-        self.get_status(0)
         wire_data = self.rsp_pack(data).encode()
         self.s.send(wire_data)
         res = None
         while not res:
             res = self.s.recv(1)
-        discards = []
         while res != b'+' and retries > 0:
-            discards.append(res)
+            self.logger.warning('discards %s', res)
             self.s.send(wire_data)
             retries -= 1
             res = self.s.recv(1)
-        if len(discards) > 0:
-            print('send discards', discards)
         if retries == 0:
             raise ValueError("retry fail")
 
-    def readpkt(self, timeout=0):
-        """ blocks until it reads an RSP packet, and returns it's
-           data"""
+    def readpkt(self, retries=10):
+        """ blocks until it reads an RSP packet, and returns it's data"""
         c = None
-        discards = []
-        if timeout > 0:
-            start = time.time()
-        while(c != b'$'):
+        while c != b'$' and retries > 0:
             if c:
-                discards.append(c)
+                self.logger.warning('discards %s', c)
             c = self.s.recv(1)
-            if timeout > 0 and start+timeout < time.time():
-                return
-        if len(discards) > 0:
-            self.logger.debug('discards %s', discards)
-        res = [c]
+            retries -= 1
+        if retries == 0:
+            raise ValueError('Retry fail!')
+        res = bytearray()
+        res.extend(c)
 
         while True:
-            res.append(self.s.recv(1))
-            if res[-1] == b'#' and res[-2] != b"'":
-                res.append(self.s.recv(1))
-                res.append(self.s.recv(1))
+            res.extend(self.s.recv(1))
+            if res[-1] == ord('#') and res[-2] != ord("'"):
+                res.extend(self.s.recv(2))
                 try:
-                    res = self.rsp_unpack(b''.join(res).decode('ascii'))
-                except ValueError:
-                    self.logger.warning('Bad packet')
+                    res = self.rsp_unpack(res.decode('ascii'))
+                except ValueError as ex:
+                    self.logger.warning('Bad packet %s', ex)
                     self.s.send(b'-')
-                    res = []
+                    res = bytearray()
                     continue
                 self.s.send(b'+')
+                self.logger.debug('GDB< %s', res)
                 return res
 
     def sendbrk(self):
         """ sends break command to the device """
+        self.logger.debug('Sending RAW stop 0x3')
         self.s.send(bytes([0x03]))
 
     def get_pc(self):
         """ read the PC of the device"""
-        self.sendpkt("p 20", self.retries)
-        pc = int(self.switch_endian(self.readpkt(self.timeout).decode()), 16)
+        self.sendpkt("p 20")
+        data = self.readpkt()
+        data = binascii.a2b_hex(data)
+        pc = struct.unpack('<I', data)[0]
         logging.debug("PC value read:%x", pc)
         return(pc)
 
@@ -616,74 +601,78 @@ class GdbDebugDriver(DebugDriver):
         if(self.status == STOPPED):
             adr = self.get_pc()
             self.sendpkt("c%x" % adr)
+            # res = self.readpkt()
+            # print(res)
         self.status = RUNNING
 
     def restart(self):
         """restart the device"""
         if(self.status == STOPPED):
             self.sendpkt("c00000080")
+            res = self.readpkt()
+            print(res)
         self.status = RUNNING
 
     def step(self):
         """restart the device"""
         if(self.status == STOPPED):
             self.sendpkt("s")
-            self.get_status(self.timeout)
-            time.sleep(1)
-            self.get_pc()
+            self.process_stop_status()
 
     def stop(self):
         self.sendbrk()
         self.status = STOPPED
+        # self.process_stop_status()
 
-    def get_status(self, timeout=5):
-        if timeout > 0:
-            start = time.time()
-        readable, writable, exceptional = select.select([self.s], [], [], 0)
-        while(readable==0):
-            readable, writable, exceptional = select.select([self.s], [], [], 0)
-            if timeout>0 and start+timeout < time.time():
-                return
-        if readable:
-            res=self.readpkt(self.timeout)
-            print(res)
-            if(res==b"S05"):
-                print("Target stopped..")
-                self.status = STOPPED
-                return(STOPPED)
-            else:
-                return(RUNNING)
+    def process_stop_status(self):
+        res = self.readpkt()
+        if res == "S05":
+            self.logger.debug("Target stopped..")
+            self.status = STOPPED
+        else:
+            self.logger.debug("Target running..")
+            self.status = RUNNING
+
+    def get_status(self):
         return self.status
 
     def get_registers(self, registers):
-        self.sendpkt("g", 3)
-        data = self.readpkt(3)
-        print(data)
+        self.sendpkt("g")
+        data = self.readpkt()
+        data = binascii.a2b_hex(data)
         res = {}
+        offset = 0
         for idx, r in enumerate(registers):
-            value = binascii.unhexlify(self.switch_endian((data[idx*8:idx*8+8]).decode()))
+            size = 4
+            value = data[offset:offset+size]
+            value = struct.unpack('<I', value)[0]
             # print(value)
             # value = int(value, 16)
             res[r] = value
+            offset += size
         return res
 
     def set_breakpoint(self, address):
-        self.sendpkt("Z0,%x,4" % address, self.retries)
-        self.readpkt(self.timeout)
+        self.sendpkt("Z0,%x,4" % address)
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Breakpoint set')
+        else:
+            self.logger.warning('Breakpoint not set: %s', res)
 
     def clear_breakpoint(self, address):
-        self.sendpkt("z0,%x,4" % address, self.retries)
-        self.readpkt(self.timeout)
+        self.sendpkt("z0,%x,4" % address)
+        self.readpkt()
 
     def read_mem(self, address, size):
-        self.sendpkt("m %x,%x" % (address, size), self.retries)
-        ret = binascii.unhexlify(self.readpkt(self.timeout))
+        self.sendpkt("m %x,%x" % (address, size))
+        ret = binascii.a2b_hex(self.readpkt())
         return ret
 
     def write_mem(self, address, data):
         length = len(data)
-        data = self.switch_endian(binascii.hexlify(data).decode())
-        self.sendpkt("M %x,%x:%s" % (address, length, data), self.retries)
+        data = binascii.b2a_hex(data).decode('ascii')
+        self.sendpkt("M %x,%x:%s" % (address, length, data))
 
 
 class DebugCli(cmd.Cmd):
@@ -705,6 +694,10 @@ class DebugCli(cmd.Cmd):
         """ Show some info about the debugger """
         print('Debugger:     ', self.debugger)
         print('ppci version: ', ppci_version)
+        text_status = {
+            STOPPED: 'Stopped', RUNNING: 'Running'
+        }
+        print('Status:       ', text_status[self.debugger.status])
 
     def do_run(self, arg):
         """ Continue the debugger """
@@ -761,8 +754,8 @@ class DebugCli(cmd.Cmd):
         """ Read registers """
         values = self.debugger.get_registers()
         registers = sorted(values.keys())
-        for register in registers:
-            print(register, ':', values[register])
+        for reg in registers:
+            print('{:>5.5s} : 0x{:08X}'.format(str(reg), values[reg]))
 
     def do_setbrk(self, arg):
         """ Set a breakpoint: setbrk filename, row """

@@ -183,6 +183,13 @@ class DebugUi(QtWidgets.QMainWindow):
                 self.mdiArea.setActiveSubWindow(sub_window)
                 return wid
 
+    def open_all_source_files(self):
+        """ Open all debugged source files """
+        for location in self.debugger.debug_info.locations:
+            filename = location.loc.filename
+            if not self.find_mdi_child(filename):
+                self.load_file(filename)
+
     # Settings:
     def loadSettings(self):
         if self.settings.contains('mainwindowstate'):

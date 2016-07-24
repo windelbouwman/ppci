@@ -1,6 +1,6 @@
 import unittest
 import io
-from ppci.api import construct, asm, c3c, objcopy
+from ppci.api import construct, asm, c3c, objcopy, disasm, link
 
 try:
     from unittest.mock import patch
@@ -9,6 +9,17 @@ except ImportError:
 
 from ppci.tasks import TaskError
 import ppci.buildtasks
+
+
+class ApiTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_disasm(self, mock_stdout):
+        binary_file = io.BytesIO(bytes(range(10)))
+        disasm(binary_file, 'riscv')
+
+    def test_link_without_arguments(self):
+        with self.assertRaises(ValueError):
+            link([])
 
 
 class RecipeTestCase(unittest.TestCase):

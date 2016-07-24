@@ -149,8 +149,9 @@ class PulpinoDebugDriver(DebugDriver):
         self.sendpkt("g",3)
         data=self.readpkt(3)
         res={}
-        for r in list(enumerate(registers)):
-            res[r[1]]=binascii.unhexlify(self.switch_endian((data[r[0]*8:r[0]*8+8]).decode()))
+        for r in enumerate(registers):
+            v = binascii.a2b_hex(data[r[0]*8:r[0]*8+8])
+            res[r[1]] = struct.unpack('<I', v)[0]
         return res
         
     def set_breakpoint(self, address):

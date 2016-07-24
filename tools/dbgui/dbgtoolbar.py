@@ -5,7 +5,6 @@ class DebugToolbar(QtWidgets.QToolBar):
     def __init__(self, debugger):
         super().__init__()
         self.debugger = debugger
-        self.debugger.connection_event.subscribe(self.onConnection)
 
         def genAction(name, callback, shortcut=None):
             a = QtWidgets.QAction(name, self)
@@ -18,9 +17,6 @@ class DebugToolbar(QtWidgets.QToolBar):
         self.stopAction = genAction('Stop', self.doStop)
         self.stepAction = genAction('Step', self.doStep, Qt.Key_F10)
         self.resetAction = genAction('Reset', self.doReset)
-        self.updateEnables()
-
-    def onConnection(self):
         self.updateEnables()
 
     def updateEnables(self):
@@ -43,6 +39,5 @@ class DebugToolbar(QtWidgets.QToolBar):
         self.updateEnables()
 
     def doReset(self):
-        # self.device.iface.reset()
-        # TODO!
+        self.debugger.restart()
         self.updateEnables()

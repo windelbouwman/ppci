@@ -8,6 +8,7 @@ syntax: glob
 *.lst
 *.hex
 *.elf
+*.m4
 *.log
 *.vcd
 docs/_build

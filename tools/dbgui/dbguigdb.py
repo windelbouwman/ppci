@@ -24,6 +24,7 @@ if __name__ == '__main__':
     debugger.load_symbols(obj)
 
     ui = DebugUi(debugger)
+    ui.open_all_source_files()
     ui.show()
     app.exec_()
     debugger.shutdown()

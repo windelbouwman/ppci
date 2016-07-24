@@ -189,11 +189,11 @@ def disasm(data, march):
     disassembler.disasm(data, ostream)
 
 
-def c3toir(sources, includes, march, reporter=DummyReportGenerator()):
+def c3toir(sources, includes, march, reporter=None):
     """ Compile c3 sources to ir-code for the given architecture. """
     logger = logging.getLogger('c3c')
     march = get_arch(march)
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
     logger.debug('C3 compilation started')
@@ -245,10 +245,10 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
 
     # TODO: differentiate between optimization levels!
 
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    if not debug_db:
+    if not debug_db:  # pragma: no cover
         debug_db = DebugDb()
 
     # Create the verifier:
@@ -293,10 +293,10 @@ def ir_to_object(
     Returns:
         ObjectFile: An object file
     """
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    if not debug_db:
+    if not debug_db:  # pragma: no cover
         debug_db = DebugDb()
 
     reporter.heading(2, 'Code generation')
@@ -330,7 +330,7 @@ def ir_to_object(
 
 def ir_to_python(ir_modules, f, reporter=None):
     """ Convert ir-code to python code """
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     generator = IrToPython(f)
     generator.header()
@@ -340,7 +340,7 @@ def ir_to_python(ir_modules, f, reporter=None):
 
 def cc(source, march, reporter=None):
     """ C compiler. compiles a single source file into an object file """
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     march = get_arch(march)
     cbuilder = CBuilder(march)
@@ -371,7 +371,7 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
         >>> print(obj)
         CodeObject of 4 bytes
     """
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     march = get_arch(march)
     ir_modules, debug_db = \
@@ -466,7 +466,7 @@ def link(
         >>> print(obj)
         CodeObject of 8 bytes
     """
-    if not reporter:
+    if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
     objects = [fix_object(obj) for obj in objects]
