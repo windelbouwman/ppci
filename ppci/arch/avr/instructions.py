@@ -470,6 +470,17 @@ class LdPreDec(AvrInstruction):
         SubPattern('d', rd)]
 
 
+class LpmPostInc(AvrInstruction):
+    """ Load from program memory """
+    tokens = [AvrToken2]
+    rd = register_argument('rd', AvrRegister, write=True)
+    syntax = Syntax(['lpm', rd, ',', 'z', '+'])
+    patterns = [
+        FixedPattern('op', 0b1001000),
+        FixedPattern('op2', 0b0101),
+        SubPattern('d', rd)]
+
+
 class St(AvrInstruction):
     """ Store register a X pointer location """
     tokens = [AvrToken2]

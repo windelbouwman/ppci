@@ -4,6 +4,7 @@ import select
 import binascii
 import time
 from ppci.binutils.dbg import *
+from ppci.binutils.dbg_cli import DebugCli
 from socket import *
 from ppci.arch.riscv import RiscvArch
 from ppci.common import str2int

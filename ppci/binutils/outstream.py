@@ -72,15 +72,6 @@ class BinaryOutputStream(OutputStream):
             self.obj_file.debug_info.add(item.data)
 
 
-class RecordingOutputStream(OutputStream):
-    """ Stream that appends instructions to list """
-    def __init__(self, bag):
-        self.bag = bag
-
-    def emit(self, item):
-        self.bag.append(item)
-
-
 class DummyOutputStream(OutputStream):
     """ Stream that does nothing """
     def emit(self, item):

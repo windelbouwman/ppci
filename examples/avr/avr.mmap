@@ -1,8 +1,15 @@
 
 MEMORY flash LOCATION=0x0 SIZE=0x8000 {
+ SECTION(reset)
+ SECTION(init2)
  SECTION(code)
+ DEFINESYMBOL(__data_load_start)
+ SECTIONDATA(data)
 }
 
 MEMORY ram LOCATION=0x100 SIZE=0x800 {
+ DEFINESYMBOL(__data_start)
  SECTION(data)
+ DEFINESYMBOL(__data_end)
+ SECTION(zerodata)
 }

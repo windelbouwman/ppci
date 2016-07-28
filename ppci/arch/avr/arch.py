@@ -4,7 +4,7 @@
 import io
 from ...ir import i8, i16, ptr
 from ...binutils.assembler import BaseAssembler
-from ..arch import Architecture, Label, Alignment, Frame
+from ..arch import Architecture, Label, Alignment, SectionInstruction
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
@@ -176,19 +176,24 @@ class AvrArch(Architecture):
     def litpool(self, frame):
         """ Generate instruction for the current literals """
         # Align at 4 bytes
+
         if frame.constants:
+            yield SectionInstruction('data')
             yield Alignment(4)
 
-        # Add constant literals:
-        while frame.constants:
-            label, value = frame.constants.pop(0)
-            yield Label(label)
-            if isinstance(value, bytes):
-                for byte in value:
-                    yield Db(byte)
-                yield Alignment(4)   # Align at 4 bytes
-            else:  # pragma: no cover
-                raise NotImplementedError('Constant of type {}'.format(value))
+            # Add constant literals:
+            while frame.constants:
+                label, value = frame.constants.pop(0)
+                yield Label(label)
+                if isinstance(value, bytes):
+                    for byte in value:
+                        yield Db(byte)
+                    yield Alignment(4)   # Align at 4 bytes
+                else:  # pragma: no cover
+                    raise NotImplementedError(
+                        'Constant of type {}'.format(value))
+
+            yield SectionInstruction('code')
 
     def between_blocks(self, frame):
         for instruction in self.litpool(frame):

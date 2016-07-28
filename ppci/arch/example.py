@@ -42,11 +42,6 @@ class ExampleArch(Architecture):
         live_out.add(rv)
         return rv, tuple(live_out)
 
-    def get_register(self, n):
-        regs = [R0, R1, R2, R3, R4, R5, R6]
-        mp = {r.num: r for r in regs}
-        return mp[n]
-
 
 class ExampleRegister(Register):
     """ Example register class """

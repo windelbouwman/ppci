@@ -11,15 +11,6 @@ import logging
 import importlib
 import io
 
-# Try to install the ipython traceback in case of an exception:
-try:
-    from IPython.core import ultratb
-
-    #sys.excepthook = ultratb.FormattedTB(
-    #    mode='Verbose', color_scheme='Linux', call_pdb=1)
-except ImportError:
-    pass
-
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object
@@ -27,7 +18,8 @@ from .tasks import TaskError
 from . import __version__, api
 from .common import logformat
 from .arch.target_list import target_names, create_arch
-from .binutils.dbg import Debugger, DebugCli
+from .binutils.dbg import Debugger
+from .binutils.dbg_cli import DebugCli
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -183,7 +175,6 @@ def cc(args=None):
         args.output.close()
 
 
-
 asm_description = """
 Assembler utility.
 """
@@ -230,7 +221,8 @@ dbg_description = """
 Debugger command line utility.
 """
 
-dbg_parser = argparse.ArgumentParser(description=dbg_description, parents=[march_parser])
+dbg_parser = argparse.ArgumentParser(
+    description=dbg_description, parents=(march_parser, base_parser))
 dbg_parser.add_argument(
     '--driver',
     help='debug driver to use. Specify in the format: module:class',
@@ -240,14 +232,15 @@ dbg_parser.add_argument(
 def dbg(args=None):
     """ Run dbg from command line """
     args = dbg_parser.parse_args(args)
-    march = get_arch_from_args(args)
-    driver_module_name, driver_class_name = args.driver.split(':')
-    driver_module = importlib.import_module(driver_module_name)
-    driver_class = getattr(driver_module, driver_class_name)
-    driver = driver_class()
-    debugger = Debugger(march, driver)
-    cli = DebugCli(debugger)
-    cli.cmdloop()
+    with LogSetup(args):
+        march = get_arch_from_args(args)
+        driver_module_name, driver_class_name = args.driver.split(':')
+        driver_module = importlib.import_module(driver_module_name)
+        driver_class = getattr(driver_module, driver_class_name)
+        driver = driver_class()
+        debugger = Debugger(march, driver)
+        cli = DebugCli(debugger)
+        cli.cmdloop()
 
 
 link_description = """

@@ -6,6 +6,8 @@
 #include <simavr/sim_hex.h>
 #include <simavr/sim_irq.h>
 #include <simavr/avr_uart.h>
+#include <simavr/sim_gdb.h>
+
 
 void uart_in_hook(avr_irq_t* irq, uint32_t value, void*param)
 {
@@ -55,6 +57,9 @@ int main(int argc, char* argv[])
 
   init_uart(avr);
 
+  avr->gdb_port = 1234;
+  avr->state = cpu_Stopped;
+  avr_gdb_init(avr);
 
   int state = cpu_Running;
   while (!(state == cpu_Done || state == cpu_Crashed)) {

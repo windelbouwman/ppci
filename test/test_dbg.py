@@ -1,8 +1,9 @@
 import io
 import unittest
 from ppci.common import CompilerError
-from ppci.binutils.dbg import Debugger, DummyDebugDriver, DebugCli
-from ppci.binutils.dbg import GdbDebugDriver
+from ppci.binutils.dbg import Debugger, DummyDebugDriver
+from ppci.binutils.dbg_cli import DebugCli
+from ppci.binutils.dbg import GdbDebugDriver, TmpValue
 from ppci.binutils import debuginfo
 from ppci.binutils.objectfile import ObjectFile
 from ppci.api import c3c, link, get_arch
@@ -36,6 +37,9 @@ class DebuggerTestCase(unittest.TestCase):
     def setUp(self):
         self.debugger = Debugger(self.arch, DummyDebugDriver())
 
+    def test_repr(self):
+        str(self.debugger)
+
     def test_run(self):
         self.debugger.run()
 
@@ -52,6 +56,25 @@ class DebuggerTestCase(unittest.TestCase):
         self.debugger.load_symbols(self.obj)
         self.debugger.set_breakpoint('', 7)
         self.debugger.clear_breakpoint('', 7)
+
+    def test_non_existing_breakpoint(self):
+        self.debugger.load_symbols(self.obj)
+        self.debugger.set_breakpoint('', 777)
+        self.debugger.clear_breakpoint('', 799)
+
+    def test_load_obj_without_dbg(self):
+        obj = ObjectFile(self.arch)
+        self.debugger.load_symbols(obj)
+
+    def test_breakpoints(self):
+        self.debugger.load_symbols(self.obj)
+        self.debugger.get_possible_breakpoints('')
+
+    def test_write_mem(self):
+        self.debugger.write_mem(100, bytes([1, 2, 3, 4]))
+
+    def test_disasm(self):
+        self.debugger.get_disasm()
 
     def test_source_mappings(self):
         self.debugger.load_symbols(self.obj)
@@ -180,6 +203,13 @@ class DebugCliTestCase(unittest.TestCase):
         """ Test disassembly commands """
         self.cmd('disasm')
 
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_print(self, mock_stdout):
+        tmp = TmpValue(1, False, 'uint8')
+        self.debugger_mock.eval_c3_str = MagicMock(return_value=tmp)
+        self.cmd('print 2+1')
+        self.assertIn('=', mock_stdout.getvalue())
+
     def cmd(self, cmd):
         self.cli.onecmd(cmd)
 
@@ -246,6 +276,16 @@ class GdbClientTestCase(unittest.TestCase):
         regs = self.gdbc.get_registers(['r1'])
         self.check_send(b'$g#67+')
         self.assertEqual({'r1': 0}, regs)
+
+    def test_set_breakpoint(self):
+        self.expect_recv(b'+$OK#9a')
+        self.gdbc.set_breakpoint(98)
+        self.check_send(b'$Z0,62,4#7E+')
+
+    def test_clear_breakpoint(self):
+        self.expect_recv(b'+$OK#9a')
+        self.gdbc.clear_breakpoint(98)
+        self.check_send(b'$z0,62,4#9E+')
 
     def test_read_mem(self):
         """ Test reading of memory """

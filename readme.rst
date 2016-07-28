@@ -71,8 +71,8 @@ Documentation can be found here:
 |docstate|_
 
 
-.. |codecov| image:: https://codecov.io/bitbucket/windel/ppci/coverage.svg?branch=default
-.. _codecov: https://codecov.io/bitbucket/windel/ppci?branch=default
+.. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
+.. _codecov: https://codecov.io/bb/windel/ppci/branch/default
 
 
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png

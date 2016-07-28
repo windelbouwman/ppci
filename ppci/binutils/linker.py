@@ -5,7 +5,7 @@
 import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
-from .layout import Layout, Section, SymbolDefinition, Align
+from .layout import Layout, Section, SectionData, SymbolDefinition, Align
 from .debuginfo import SectionAdjustingReplicator, DebugInfo
 
 
@@ -114,6 +114,21 @@ class Linker:
                         'Memory: %s Section: %s Address: 0x%x Size: 0x%x',
                         mem.name, section.name,
                         section.address, section.size)
+                    current_address += section.size
+                    image.add_section(section)
+                elif isinstance(memory_input, SectionData):
+                    section_name = '_${}_'.format(memory_input.section_name)
+                    # Each section must be unique:
+                    assert not dst.has_section(section_name)
+
+                    section = dst.get_section(section_name, create=True)
+                    section.address = current_address
+                    section.alignment = 1  # TODO: is this correct alignment?
+
+                    src_section = dst.get_section(memory_input.section_name)
+
+                    section.add_data(src_section.data)
+
                     current_address += section.size
                     image.add_section(section)
                 elif isinstance(memory_input, SymbolDefinition):

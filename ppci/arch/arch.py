@@ -220,7 +220,7 @@ class VCall(VirtualInstruction):
 
 
 class ArtificialInstruction(VirtualInstruction):
-    def render(self):
+    def render(self):  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -248,16 +248,6 @@ class Label(PseudoInstruction):
 
     def symbols(self):
         return [self.name]
-
-
-class Comment(PseudoInstruction):
-    """ Comment instruction. Does nothing, only contains comments """
-    def __init__(self, txt):
-        super().__init__()
-        self.txt = txt
-
-    def __repr__(self):
-        return '; {}'.format(self.txt)
 
 
 class Alignment(PseudoInstruction):
@@ -292,19 +282,6 @@ class DebugData(PseudoInstruction):
 
     def __repr__(self):
         return '.debug_data( {} )'.format(self.data)
-
-
-# TODO: deprecated:
-class DebugLocation222(PseudoInstruction):
-    """ Debug location """
-    def __init__(self, filename, row, col):
-        super().__init__()
-        self.filename = filename
-        self.row = row
-        self.col = col
-
-    def __repr__(self):
-        return 'debug_loc({},{},{})'.format(self.filename, self.row, self.col)
 
 
 def generate_temps():
