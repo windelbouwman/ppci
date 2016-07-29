@@ -16,7 +16,7 @@ from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, r26, r27, r28, r29, r30, r31, X, Y, Z
 from .registers import r25r24
-from .registers import get16reg, register_classes
+from .registers import get16reg, register_classes, gdb_registers
 
 
 class AvrArch(Architecture):
@@ -35,6 +35,7 @@ class AvrArch(Architecture):
         self.byte_sizes['i8'] = 1
         self.byte_sizes['ptr'] = 2
         self.fp = Y
+        self.gdb_registers = gdb_registers
 
     def get_runtime(self):
         from ...api import asm

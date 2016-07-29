@@ -1,9 +1,9 @@
 import io
 import unittest
 from ppci.common import CompilerError
-from ppci.binutils.dbg import Debugger, DummyDebugDriver
+from ppci.binutils.dbg import Debugger, DummyDebugDriver, TmpValue
 from ppci.binutils.dbg_cli import DebugCli
-from ppci.binutils.dbg import GdbDebugDriver, TmpValue
+from ppci.binutils.dbg_gdb_client import GdbDebugDriver
 from ppci.binutils import debuginfo
 from ppci.binutils.objectfile import ObjectFile
 from ppci.api import c3c, link, get_arch
@@ -188,12 +188,20 @@ class DebugCliTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_regs(self, mock_stdout):
         """ Test read registers """
+        arch = get_arch('arm')
+        r1, r2 = arch.gdb_registers[1:3]
+        reg_values = {
+            r1: 1,
+            r2: 1000,
+            }
         self.debugger_mock.get_registers = MagicMock(
-            return_value={'r1': 1, 'r2': 1000})
+            return_value=[r1, r2])
+        self.debugger_mock.get_register_values = MagicMock(
+            return_value=reg_values)
         self.cmd('regs')
         lines = [
-            '   r1 : 0x00000001',
-            '   r2 : 0x000003E8',
+            '   R1 : 0x00000001',
+            '   R2 : 0x000003E8',
             ''
         ]
         self.assertEqual('\n'.join(lines), mock_stdout.getvalue())
@@ -215,9 +223,11 @@ class DebugCliTestCase(unittest.TestCase):
 
 
 class GdbClientTestCase(unittest.TestCase):
+    arch = get_arch('example')
+
     def setUp(self):
-        with patch('ppci.binutils.dbg.socket.socket'):
-            self.gdbc = GdbDebugDriver()
+        with patch('ppci.binutils.dbg_gdb_client.socket.socket'):
+            self.gdbc = GdbDebugDriver(self.arch)
         self.sock_mock = self.gdbc.s
         self.send_data = bytearray()
 
@@ -272,10 +282,11 @@ class GdbClientTestCase(unittest.TestCase):
 
     def test_get_registers(self):
         """ Test reading of registers """
-        self.expect_recv(b'+$00000000#80')
-        regs = self.gdbc.get_registers(['r1'])
+        self.expect_recv(b'+$000000000000000000000000#80')
+        regs = self.arch.gdb_registers
+        reg_vals = self.gdbc.get_registers(regs)
         self.check_send(b'$g#67+')
-        self.assertEqual({'r1': 0}, regs)
+        self.assertEqual({reg: 0 for reg in regs}, reg_vals)
 
     def test_set_breakpoint(self):
         self.expect_recv(b'+$OK#9a')

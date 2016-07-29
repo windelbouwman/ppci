@@ -52,6 +52,7 @@ class ArmArch(Architecture):
                 ]
         self.assembler.gen_asm_parser(self.isa)
         self.registers.extend(all_registers)
+        self.gdb_registers = all_registers
 
     def get_runtime(self):
         """ Implement compiler runtime functions """

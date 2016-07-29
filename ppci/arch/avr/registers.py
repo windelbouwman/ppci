@@ -123,6 +123,28 @@ class AvrPointerRegister(HighAvrWordRegister):
     pass
 
 
+# Special registers:
+class AvrSpecialRegister(Register):
+    pass
+
+
+class AvrStatusRegister(AvrSpecialRegister):
+    bitsize = 8
+
+
+class AvrStackPointerRegister(AvrSpecialRegister):
+    bitsize = 16
+
+
+class AvrProgramCounterRegister(AvrSpecialRegister):
+    bitsize = 24
+
+
+SREG = AvrStatusRegister('SREG')
+SP = AvrStackPointerRegister('SP')
+PC = AvrProgramCounterRegister('PC')
+
+
 r0 = AvrRegister('r0', num=0)
 r1 = AvrRegister('r1', num=1)
 r2 = AvrRegister('r2', num=2)
@@ -182,6 +204,8 @@ lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
 hi_regs = (r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
            r28, r29, r30, r31)
 all_regs = lo_regs + hi_regs
+
+gdb_registers = all_regs + (SREG, SP, PC)
 
 lo_w_regs = (
     r1r0, r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)

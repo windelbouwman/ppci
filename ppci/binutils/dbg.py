@@ -6,9 +6,7 @@
 """
 
 import logging
-import binascii
 import struct
-import socket
 from ..api import get_arch, fix_object
 from ..common import CompilerError
 from .disasm import Disassembler
@@ -68,8 +66,8 @@ class Debugger:
         self.driver = driver
         self.logger = logging.getLogger('dbg')
         self.state_event = SubscribleEvent()
-        self.register_names = self.get_register_names()
-        self.register_values = {rn: 0 for rn in self.register_names}
+        self.registers = self.get_registers()
+        self.register_values = {rn: 0 for rn in self.registers}
         self.debug_info = None
         self.variable_map = {}
         self.addr_map = {}
@@ -85,7 +83,7 @@ class Debugger:
 
     def on_halted(self):
         if self.is_halted:
-            new_values = self.get_register_values(self.register_names)
+            new_values = self.get_register_values(self.registers)
             self.register_values.update(new_values)
 
     # Start stop parts:
@@ -154,18 +152,19 @@ class Debugger:
         return not self.is_running
 
     # debug info:
-    def load_symbols(self, obj):
+    def load_symbols(self, obj, validate=True):
         """ Load debug symbols from object file """
         obj = fix_object(obj)
         # verify the contents of the object with the memory image
         assert self.is_halted
-        for image in obj.images:
-            vdata = image.data
-            adata = self.read_mem(image.location, len(vdata))
-            if vdata == adata:
-                self.logger.info('memory image %s validated!', image)
-            else:
-                self.logger.warning('Memory image %s mismatch!', image)
+        if validate:
+            for image in obj.images:
+                vdata = image.data
+                adata = self.read_mem(image.location, len(vdata))
+                if vdata == adata:
+                    self.logger.info('memory image %s validated!', image)
+                else:
+                    self.logger.warning('Memory image %s mismatch!', image)
 
         if obj.debug_info:
             self.debug_info = obj.debug_info
@@ -225,16 +224,16 @@ class Debugger:
         self.logger.warning('Could not find address for %s:%i', filename, row)
 
     # Registers:
-    def get_register_names(self):
-        return [reg.name for reg in self.arch.registers]
-
     def get_register_values(self, registers):
         """ Get a dictionary of register values """
         return self.driver.get_registers(registers)
 
     def get_registers(self):
-        names = self.get_register_names()
-        return self.get_register_values(names)
+        return self.arch.gdb_registers
+
+    def get_register(self, register):
+        """ Get the value of a single register """
+        raise NotImplementedError()
 
     def set_register(self, register, value):
         self.logger.info('Setting register {} to {}'.format(register, value))
@@ -488,178 +487,3 @@ class DummyDebugDriver(DebugDriver):
 
     def write_mem(self, address, data):
         pass
-
-
-class GdbDebugDriver(DebugDriver):
-    """ Implement debugging via the GDB remote interface.
-
-    GDB servers can communicate via the RSP protocol.
-
-    Helpfull resources:
-
-    http://www.embecosm.com/appnotes/ean4/
-        embecosm-howto-rsp-server-ean4-issue-2.html
-
-    """
-    logger = logging.getLogger('gdbclient')
-
-    def __init__(self):
-        self.status = STOPPED
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect(("localhost", 1234))
-
-    @staticmethod
-    def rsp_pack(data):
-        """ formats data into a RSP packet """
-        for a, b in [(x, chr(ord(x) ^ 0x20)) for x in ('}', '*', '#', '$')]:
-            data = data.replace(a, '}%s' % b)
-        crc = (sum(ord(c) for c in data) % 256)
-        return "$%s#%02X" % (data, crc)
-
-    @staticmethod
-    def rsp_unpack(pkt):
-        """ unpacks an RSP packet, returns the data """
-        if pkt[0] != '$' or pkt[-3] != '#':
-            raise ValueError('bad packet {}'.format(pkt))
-        crc = (sum(ord(c) for c in pkt[1:-3]) % 256)
-        crc2 = int(pkt[-2:], 16)
-        if crc != crc2:
-            raise ValueError('Checksum {} != {}'.format(crc, crc2))
-        pkt = pkt[1:-3]
-        return pkt
-
-    def sendpkt(self, data, retries=10):
-        """ sends data via the RSP protocol to the device """
-        self.logger.debug('GDB> %s', data)
-        wire_data = self.rsp_pack(data).encode()
-        self.s.send(wire_data)
-        res = None
-        while not res:
-            res = self.s.recv(1)
-        while res != b'+' and retries > 0:
-            self.logger.warning('discards %s', res)
-            self.s.send(wire_data)
-            retries -= 1
-            res = self.s.recv(1)
-        if retries == 0:
-            raise ValueError("retry fail")
-
-    def readpkt(self, retries=10):
-        """ blocks until it reads an RSP packet, and returns it's data"""
-        c = None
-        while c != b'$' and retries > 0:
-            if c:
-                self.logger.warning('discards %s', c)
-            c = self.s.recv(1)
-            retries -= 1
-        if retries == 0:
-            raise ValueError('Retry fail!')
-        res = bytearray()
-        res.extend(c)
-
-        while True:
-            res.extend(self.s.recv(1))
-            if res[-1] == ord('#') and res[-2] != ord("'"):
-                res.extend(self.s.recv(2))
-                try:
-                    res = self.rsp_unpack(res.decode('ascii'))
-                except ValueError as ex:
-                    self.logger.warning('Bad packet %s', ex)
-                    self.s.send(b'-')
-                    res = bytearray()
-                    continue
-                self.s.send(b'+')
-                self.logger.debug('GDB< %s', res)
-                return res
-
-    def sendbrk(self):
-        """ sends break command to the device """
-        self.logger.debug('Sending RAW stop 0x3')
-        self.s.send(bytes([0x03]))
-
-    def get_pc(self):
-        """ read the PC of the device"""
-        self.sendpkt("p 20")
-        data = self.readpkt()
-        data = binascii.a2b_hex(data)
-        pc = struct.unpack('<I', data)[0]
-        logging.debug("PC value read:%x", pc)
-        return(pc)
-
-    def run(self):
-        """start the device"""
-        if(self.status == STOPPED):
-            adr = self.get_pc()
-            self.sendpkt("c%x" % adr)
-            # res = self.readpkt()
-            # print(res)
-        self.status = RUNNING
-
-    def restart(self):
-        """restart the device"""
-        if(self.status == STOPPED):
-            self.sendpkt("c00000080")
-            res = self.readpkt()
-            print(res)
-        self.status = RUNNING
-
-    def step(self):
-        """restart the device"""
-        if(self.status == STOPPED):
-            self.sendpkt("s")
-            self.process_stop_status()
-
-    def stop(self):
-        self.sendbrk()
-        self.status = STOPPED
-        # self.process_stop_status()
-
-    def process_stop_status(self):
-        res = self.readpkt()
-        if res == "S05":
-            self.logger.debug("Target stopped..")
-            self.status = STOPPED
-        else:
-            self.logger.debug("Target running..")
-            self.status = RUNNING
-
-    def get_status(self):
-        return self.status
-
-    def get_registers(self, registers):
-        self.sendpkt("g")
-        data = self.readpkt()
-        data = binascii.a2b_hex(data)
-        res = {}
-        offset = 0
-        for idx, r in enumerate(registers):
-            size = 4
-            value = data[offset:offset+size]
-            value = struct.unpack('<I', value)[0]
-            # print(value)
-            # value = int(value, 16)
-            res[r] = value
-            offset += size
-        return res
-
-    def set_breakpoint(self, address):
-        self.sendpkt("Z0,%x,4" % address)
-        res = self.readpkt()
-        if res == 'OK':
-            self.logger.debug('Breakpoint set')
-        else:
-            self.logger.warning('Breakpoint not set: %s', res)
-
-    def clear_breakpoint(self, address):
-        self.sendpkt("z0,%x,4" % address)
-        self.readpkt()
-
-    def read_mem(self, address, size):
-        self.sendpkt("m %x,%x" % (address, size))
-        ret = binascii.a2b_hex(self.readpkt())
-        return ret
-
-    def write_mem(self, address, data):
-        length = len(data)
-        data = binascii.b2a_hex(data).decode('ascii')
-        self.sendpkt("M %x,%x:%s" % (address, length, data))

@@ -131,6 +131,6 @@ registers_high = [FP,R9, R10, R11, R12, R13, R14 ,R15, R16, R17, R18, R19, R20, 
 all_registers = registers_low + registers_high
 num2regmap = {r.num: r for r in all_registers}
 
-
+gdb_registers = all_registers  # TODO: add program counter?
 
 

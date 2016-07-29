@@ -82,10 +82,11 @@ class DebugCli(cmd.Cmd):
 
     def do_regs(self, arg):
         """ Read registers """
-        values = self.debugger.get_registers()
-        registers = sorted(values.keys())
+        registers = self.debugger.get_registers()
+        values = self.debugger.get_register_values(registers)
         for reg in registers:
-            print('{:>5.5s} : 0x{:08X}'.format(str(reg), values[reg]))
+            size = reg.bitsize // 4
+            print('{:>5.5s} : 0x{:0{sz}X}'.format(str(reg), values[reg], sz=size))
 
     def do_setbrk(self, arg):
         """ Set a breakpoint: setbrk filename, row """

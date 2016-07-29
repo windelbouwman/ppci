@@ -23,6 +23,7 @@ class ExampleArch(Architecture):
             RegisterClass(
                 'reg', [ir.i32, ir.ptr], ExampleRegister, [R0, R1, R2, R3])
             ]
+        self.gdb_registers = gdb_registers
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
@@ -56,6 +57,7 @@ R4 = ExampleRegister('r4', 4)
 R5 = ExampleRegister('r5', 5)
 R6 = ExampleRegister('r6', 6)
 
+gdb_registers = (R0, R1, R2)
 
 class TestInstruction(Instruction):
     """ Base class for all example instructions """
