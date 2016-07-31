@@ -1,6 +1,7 @@
 import binascii
 import logging
 import socket
+import select
 import struct
 from .dbg import DebugDriver, STOPPED, RUNNING
 
@@ -89,6 +90,19 @@ class GdbDebugDriver(DebugDriver):
                 self.logger.debug('GDB< %s', res)
                 return res
 
+    def process_byte(self, b):
+        pass
+
+    def _process_incoming(self):
+        """ Process all incoming bytes """
+        while True:
+            readable, _, _ = select.select([self.s], [], [], 0)
+            if readable:
+                b = self.s.recv(1)
+                self.process_byte(b)
+            else:
+                break
+
     def sendbrk(self):
         """ sends break command to the device """
         self.logger.debug('Sending RAW stop 0x3')
@@ -146,7 +160,7 @@ class GdbDebugDriver(DebugDriver):
     def _get_general_registers(self):
         self.sendpkt("g")
         data = self.readpkt()
-        data = binascii.a2b_hex(data)
+        data = binascii.a2b_hex(data.encode('ascii'))
         res = {}
         offset = 0
         for register in self.arch.gdb_registers:
@@ -162,7 +176,7 @@ class GdbDebugDriver(DebugDriver):
         idx = self.arch.gdb_registers.index(register)
         self.sendpkt("p %x" % idx)
         data = self.readpkt()
-        data = binascii.a2b_hex(data)
+        data = binascii.a2b_hex(data.encode('ascii'))
         return self._unpack_register(register, data)
 
     def _unpack_register(self, register, data):
@@ -195,7 +209,7 @@ class GdbDebugDriver(DebugDriver):
 
     def read_mem(self, address, size):
         self.sendpkt("m %x,%x" % (address, size))
-        ret = binascii.a2b_hex(self.readpkt())
+        ret = binascii.a2b_hex(self.readpkt().encode('ascii'))
         return ret
 
     def write_mem(self, address, data):

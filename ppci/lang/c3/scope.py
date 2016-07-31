@@ -4,6 +4,7 @@
     A context is the space where the whole program lives.
 """
 
+import operator
 from ...common import CompilerError
 from .astnodes import Constant, Variable, Function, BaseType, Symbol
 from .astnodes import ArrayType, StructureType, DefinedType, PointerType
@@ -204,18 +205,14 @@ class Context:
         elif isinstance(expr, ast.Binop):
             a = self.eval_const(expr.a)
             b = self.eval_const(expr.b)
-            if expr.op == '+':
-                return a + b
-            elif expr.op == '-':
-                return a - b
-            elif expr.op == '*':
-                return a * b
-            elif expr.op == '/':
-                return a / b
-            elif expr.op == '%':
-                return a % b
-            else:
-                raise NotImplementedError()
+            ops = {
+                '+': operator.add,
+                '-': operator.sub,
+                '/': operator.truediv,
+                '*': operator.mul,
+                '%': operator.mod,
+                }
+            return ops[expr.op](a, b)
         elif isinstance(expr, ast.TypeCast):
             a = self.eval_const(expr.a)
             if self.equal_types('int', expr.to_type):

@@ -1,3 +1,4 @@
+import operator
 from .transform import BlockPass
 from .. import ir
 
@@ -7,10 +8,12 @@ class ConstantFolder(BlockPass):
     def __init__(self, debug_db):
         super().__init__(debug_db)
         self.ops = {
-            '+': lambda x, y: x + y,
-            '-': lambda x, y: x - y,
-            '*': lambda x, y: x * y,
-            '<<': lambda x, y: x << y
+            '+': operator.add,
+            '-': operator.sub,
+            '*': operator.mul,
+            '%': operator.mod,
+            '<<': operator.lshift,
+            '>>': operator.rshift,
             }
 
     def is_const(self, value):

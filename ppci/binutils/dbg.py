@@ -7,6 +7,7 @@
 
 import logging
 import struct
+import operator
 from ..api import get_arch, get_object
 from ..common import CompilerError
 from .disasm import Disassembler
@@ -300,9 +301,11 @@ class Debugger:
             if not isinstance(b.typ, DebugBaseType):
                 raise CompilerError('{} of wrong type'.format(b))
             opmp = {
-                '+': lambda op1, op2: op1 + op2,
-                '-': lambda op1, op2: op1 - op2,
-                '*': lambda op1, op2: op1 * op2,
+                '+': operator.add,
+                '-': operator.sub,
+                '*': operator.mul,
+                '/': operator.truediv,
+                '%': operator.mod,
             }
             v = opmp[expr.op](a.value, b.value)
             val = TmpValue(v, False, int_type)
@@ -349,8 +352,8 @@ class Debugger:
                 if not isinstance(rhs.typ, (DebugBaseType, DebugPointerType)):
                     raise CompilerError('{} of wrong type'.format(rhs))
                 opmp = {
-                    '-': lambda x: -x,
-                    '+': lambda x: x
+                    '-': operator.neg,
+                    '+': operator.pos,
                 }
                 v = opmp[expr.op](rhs.value)
                 val = TmpValue(v, False, rhs.typ)
