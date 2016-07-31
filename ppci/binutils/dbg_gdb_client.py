@@ -101,16 +101,15 @@ class GdbDebugDriver(DebugDriver):
         return(pc)
 
     def run(self):
-        """start the device"""
+        """ start the device """
         if(self.status == STOPPED):
-            adr = self.get_pc()
-            self.sendpkt("c%x" % adr)
+            self.sendpkt("c")
             # res = self.readpkt()
             # print(res)
         self.status = RUNNING
 
     def restart(self):
-        """restart the device"""
+        """ restart the device """
         if(self.status == STOPPED):
             self.sendpkt("c00000080")
             res = self.readpkt()
@@ -118,7 +117,7 @@ class GdbDebugDriver(DebugDriver):
         self.status = RUNNING
 
     def step(self):
-        """restart the device"""
+        """ restart the device """
         if(self.status == STOPPED):
             self.sendpkt("s")
             self.process_stop_status()
@@ -167,6 +166,7 @@ class GdbDebugDriver(DebugDriver):
         return self._unpack_register(register, data)
 
     def _unpack_register(self, register, data):
+        """ Fetch a register from some data """
         fmts = {
             8: '<Q',
             4: '<I',
@@ -180,8 +180,6 @@ class GdbDebugDriver(DebugDriver):
         else:
             value, = struct.unpack(fmts[size], data)
         return value
-        # print(value)
-        # value = int(value, 16)
 
     def set_breakpoint(self, address):
         self.sendpkt("Z0,%x,4" % address)

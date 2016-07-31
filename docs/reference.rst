@@ -10,7 +10,9 @@ Reference
     buildxml
     ir
     debug
+    architecture
     backends
+    howto_backend
     hexfile
     compiler
     specificationlang

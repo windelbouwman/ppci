@@ -25,6 +25,10 @@ To connect to your favorite hardware, subclass the DebugDriver class.
 
 .. autoclass:: ppci.binutils.dbg.DebugDriver
 
+The following class can be used to connect to a gdb server:
+
+.. autoclass:: ppci.binutils.dbg_gdb_client.GdbDebugDriver
+
 
 Debug info file formats
 -----------------------
