@@ -11,7 +11,7 @@ from .instructions import avr_isa
 from .instructions import Push, Pop, Mov, Call, In, Movw, Ret
 from .registers import AvrRegister
 from .registers import AvrWordRegister
-from .registers import r0
+from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, r26, r27, r28, r29, r30, r31, X, Y, Z
@@ -36,6 +36,7 @@ class AvrArch(Architecture):
         self.byte_sizes['ptr'] = 2
         self.fp = Y
         self.gdb_registers = gdb_registers
+        self.gdb_pc = PC
 
     def get_runtime(self):
         from ...api import asm

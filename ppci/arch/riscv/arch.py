@@ -6,11 +6,12 @@ import io
 from ..arch import Architecture, Label, VCall, Alignment
 from .instructions import isa
 from .rvc_instructions import rvcisa
-from .registers import RiscvRegister, gdb_registers
-from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
+from .registers import RiscvRegister, gdb_registers, all_registers
+from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12
 from .registers import R13, R14, R15, R16, R17, R28, LR
-from .registers import R0, LR, SP, FP
-from .registers import R9,R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27
+from .registers import R0, LR, SP, FP, PC
+from .registers import R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19
+from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ...ir import i8, i32, ptr
 from ..isa import RegisterClass
 from ..data_instructions import data_isa, Db
@@ -60,6 +61,7 @@ class RiscvArch(Architecture):
             self.load = Lw
         self.registers.extend(all_registers)
         self.gdb_registers = gdb_registers
+        self.gdb_pc = PC
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
 

@@ -264,7 +264,8 @@ class DebugLocation(DebugBaseInfo):
 
 
 class DebugVariable(DebugBaseInfo):
-    def __init__(self, name, typ, loc, address=None):
+    def __init__(
+            self, name, typ: DebugType, loc: SourceLocation, address=None):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         assert isinstance(typ, DebugType), str(typ)

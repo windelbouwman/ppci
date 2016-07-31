@@ -19,7 +19,7 @@ hardware.
 
 One of the classes that uses the debugger is the debug command line interface.
 
-.. autoclass:: ppci.binutils.dbg.DebugCli
+.. autoclass:: ppci.binutils.dbg_cli.DebugCli
 
 To connect to your favorite hardware, subclass the DebugDriver class.
 

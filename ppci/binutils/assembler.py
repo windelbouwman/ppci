@@ -9,9 +9,10 @@ from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
-from ..arch.arch import Label, Alignment, SectionInstruction
+from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
 from ..arch.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
+from .debuginfo import DebugLocation, DebugDb
 
 id_regex = r'[A-Za-z_][A-Za-z\d_\.]*'
 id_matcher = re.compile(id_regex)
@@ -266,7 +267,7 @@ class BaseAssembler:
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
             raise CompilerError('Unable to assemble: {}'.format(line), loc)
 
-    def assemble(self, asmsrc, stream, diag):
+    def assemble(self, asmsrc, stream, diag, debug=False):
         """ Assemble the source snippet into the given output stream """
         self.stream = stream
 
@@ -286,9 +287,21 @@ class BaseAssembler:
         # Split lines on \n.
         # Strip remaining \r if present.
         self.line_no = 0
+        debug_data = []
+        debug_db = DebugDb()
         for line in asmsrc.split('\n'):
+            if debug and self.filename:
+                loc = SourceLocation(self.filename, self.line_no, 1, 1)
+                label_name = debug_db.new_label()
+                self.emit(Label(label_name))
+                d = DebugLocation(loc, address=label_name)
+                debug_data.append(DebugData(d))
             self.line_no += 1
             self.parse_line(line.strip())
+
+        # Emit debug info:
+        for d in debug_data:
+            stream.emit(d)
 
     # Parser handlers:
     def p_repeat(self, rhs):

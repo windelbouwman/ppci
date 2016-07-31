@@ -7,7 +7,7 @@
 
 import logging
 import struct
-from ..api import get_arch, fix_object
+from ..api import get_arch, get_object
 from ..common import CompilerError
 from .disasm import Disassembler
 from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
@@ -154,7 +154,7 @@ class Debugger:
     # debug info:
     def load_symbols(self, obj, validate=True):
         """ Load debug symbols from object file """
-        obj = fix_object(obj)
+        obj = get_object(obj)
         # verify the contents of the object with the memory image
         assert self.is_halted
         if validate:

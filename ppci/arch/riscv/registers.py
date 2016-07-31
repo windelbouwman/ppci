@@ -81,6 +81,9 @@ class RiscvRegister(Register):
         ]
 
 
+class RiscvProgramCounterRegister(Register):
+    bitsize = 32
+
 
 def get_register(n):
     """ Based on a number, get the corresponding register """
@@ -126,11 +129,16 @@ R29 = RiscvRegister('R29', num=29)
 R30 = RiscvRegister('R30', num=30)
 R31 = RiscvRegister('R31', num=31)
 
+PC = RiscvProgramCounterRegister('PC', num=32)
+
 registers_low = [R0, LR, SP, R3, R4, R5, R6, R7]
-registers_high = [FP,R9, R10, R11, R12, R13, R14 ,R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30, R31]
+registers_high = [
+    FP, R9, R10, R11, R12, R13, R14, R15, R16,
+    R17, R18, R19, R20, R21, R22, R23, R24,
+    R25, R26, R27, R28, R29, R30, R31]
 all_registers = registers_low + registers_high
 num2regmap = {r.num: r for r in all_registers}
 
-gdb_registers = all_registers  # TODO: add program counter?
+gdb_registers = all_registers + [PC]
 
 

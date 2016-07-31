@@ -5,6 +5,7 @@
     <target name="hello">
         <assemble
             arch="avr"
+            debug="true"
             source="../glue.asm"
             output="glue.oj" />
 

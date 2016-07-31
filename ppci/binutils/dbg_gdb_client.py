@@ -54,6 +54,7 @@ class GdbDebugDriver(DebugDriver):
             res = self.s.recv(1)
         while res != b'+' and retries > 0:
             self.logger.warning('discards %s', res)
+            self.logger.debug('resend-GDB> %s', data)
             self.s.send(wire_data)
             retries -= 1
             res = self.s.recv(1)
@@ -95,11 +96,8 @@ class GdbDebugDriver(DebugDriver):
 
     def get_pc(self):
         """ read the PC of the device"""
-        self.sendpkt("p 20")
-        data = self.readpkt()
-        data = binascii.a2b_hex(data)
-        pc = struct.unpack('<I', data)[0]
-        logging.debug("PC value read:%x", pc)
+        pc = self._get_register(self.arch.gdb_pc)
+        self.logger.debug("PC value read:%x", pc)
         return(pc)
 
     def run(self):
@@ -143,16 +141,10 @@ class GdbDebugDriver(DebugDriver):
         return self.status
 
     def get_registers(self, registers):
-        regs = self.get_general_registers()
+        regs = self._get_general_registers()
         return regs
 
-    def get_general_registers(self):
-        fmts = {
-            8: '<Q',
-            4: '<I',
-            2: '<H',
-            1: '<B',
-            }
+    def _get_general_registers(self):
         self.sendpkt("g")
         data = self.readpkt()
         data = binascii.a2b_hex(data)
@@ -160,16 +152,36 @@ class GdbDebugDriver(DebugDriver):
         offset = 0
         for register in self.arch.gdb_registers:
             size = register.bitsize // 8
-            value = data[offset:offset+size]
-            if size == 3:
-                value = value[0] + (value[1] << 8) + (value[2] << 16)
-            else:
-                value, = struct.unpack(fmts[size], value)
-            # print(value)
-            # value = int(value, 16)
-            res[register] = value
+            reg_data = data[offset:offset+size]
+            res[register] = self._unpack_register(register, reg_data)
             offset += size
+        assert len(data) == offset, '%x %x' % (len(data), offset)
         return res
+
+    def _get_register(self, register):
+        """ Get a single register """
+        idx = self.arch.gdb_registers.index(register)
+        self.sendpkt("p %x" % idx)
+        data = self.readpkt()
+        data = binascii.a2b_hex(data)
+        return self._unpack_register(register, data)
+
+    def _unpack_register(self, register, data):
+        fmts = {
+            8: '<Q',
+            4: '<I',
+            2: '<H',
+            1: '<B',
+            }
+        size = register.bitsize // 8
+        assert len(data) == size
+        if size == 3:
+            value = data[0] + (data[1] << 8) + (data[2] << 16)
+        else:
+            value, = struct.unpack(fmts[size], data)
+        return value
+        # print(value)
+        # value = int(value, 16)
 
     def set_breakpoint(self, address):
         self.sendpkt("Z0,%x,4" % address)

@@ -179,7 +179,11 @@ asm_description = """
 Assembler utility.
 """
 asm_parser = argparse.ArgumentParser(
-    description=asm_description, parents=[base_parser, march_parser, out_parser])
+    description=asm_description,
+    parents=[base_parser, march_parser, out_parser])
+asm_parser.add_argument(
+    '-g', '--debug', help='create debug information',
+    action='store_true', default=False)
 asm_parser.add_argument(
     'sourcefile', type=argparse.FileType('r'),
     help='the source file to assemble')
@@ -191,7 +195,7 @@ def asm(args=None):
     with LogSetup(args):
         # Assemble source:
         march = get_arch_from_args(args)
-        obj = api.asm(args.sourcefile, march)
+        obj = api.asm(args.sourcefile, march, debug=args.debug)
 
         # Write object file to disk:
         obj.save(args.output)

@@ -84,7 +84,7 @@ def fix_file(f, mode='r'):
         raise TaskError('Cannot open {}'.format(f))
 
 
-def fix_object(obj):
+def get_object(obj):
     """ Try hard to load an object """
     if not isinstance(obj, ObjectFile):
         f = fix_file(obj)
@@ -127,13 +127,14 @@ def construct(buildfile, targets=()):
     runner.run(project, list(targets))
 
 
-def asm(source, march):
+def asm(source, march, debug=False):
     """ Assemble the given source for machine march.
 
     Args:
         source (str): can be a filename or a file like object.
         march (str): march can be a :class:`ppci.arch.arch.Architecture`
             instance or a string indicating the machine architecture.
+        debug: generate debugging information
 
     Returns:
         A :class:`ppci.binutils.objectfile.ObjectFile` object
@@ -153,12 +154,14 @@ def asm(source, march):
     assembler = march.assembler
     source = fix_file(source)
     obj = ObjectFile(march)
+    if debug:
+        obj.debug_info = DebugInfo()
     logger.debug('Assembling into code section')
     ostream = BinaryOutputStream(obj)
     ostream.select_section('code')
     try:
         assembler.prepare()
-        assembler.assemble(source, ostream, diag)
+        assembler.assemble(source, ostream, diag, debug=debug)
         assembler.flush()
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
@@ -469,7 +472,7 @@ def link(
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    objects = [fix_object(obj) for obj in objects]
+    objects = [get_object(obj) for obj in objects]
     if not objects:
         raise ValueError('Please provide at least one object as input')
 
@@ -496,7 +499,7 @@ def objcopy(obj, image_name, fmt, output_filename):
         formats = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
         raise TaskError('Only {} are supported'.format(formats))
 
-    obj = fix_object(obj)
+    obj = get_object(obj)
     if fmt == "bin":
         image = obj.get_image(image_name)
         with open(output_filename, 'wb') as output_file:

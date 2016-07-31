@@ -65,9 +65,13 @@ class AssembleTask(OutputtingTask):
     def run(self):
         arch = self.get_argument('arch')
         source = self.relpath(self.get_argument('source'))
+        if 'debug' in self.arguments:
+            debug = bool(self.get_argument('debug'))
+        else:
+            debug = False
 
         try:
-            obj = asm(source, arch)
+            obj = asm(source, arch, debug=debug)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:

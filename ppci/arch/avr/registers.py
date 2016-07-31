@@ -137,7 +137,7 @@ class AvrStackPointerRegister(AvrSpecialRegister):
 
 
 class AvrProgramCounterRegister(AvrSpecialRegister):
-    bitsize = 24
+    bitsize = 32
 
 
 SREG = AvrStatusRegister('SREG')
