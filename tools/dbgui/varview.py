@@ -64,9 +64,10 @@ class VariableModel(QtCore.QAbstractItemModel):
 
     def on_state_changed(self):
         if self.debugger.is_halted:
-            from_index = self.index(0, 1)
-            to_index = self.index(len(self.roots) - 1, 1)
-            self.dataChanged.emit(from_index, to_index)
+            if len(self.roots) > 0:
+                from_index = self.index(0, 1)
+                to_index = self.index(len(self.roots) - 1, 1)
+                self.dataChanged.emit(from_index, to_index)
 
     def headerData(self, section, orientation, role):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
