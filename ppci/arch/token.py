@@ -72,8 +72,11 @@ def bit_concat(*partials):
 
 class Token:
     """ A token in a stream """
-    def __init__(self, bitsize):
+    def __init__(self, bitsize, fmt=None):
         self.bitsize = bitsize
+        self.fmt = fmt
+        if fmt:
+            assert bitsize == struct.calcsize(fmt) * 8
         self.bit_value = 0
         self.mask = (1 << self.bitsize) - 1
 
@@ -113,3 +116,10 @@ class Token:
             self.bit_value |= value << key.start
         else:
             raise KeyError(key)
+
+    def encode(self):
+        """ Encode the token given some format """
+        return struct.pack(self.fmt, self.bit_value)
+
+    def fill(self, data):
+        self.bit_value, = struct.unpack(self.fmt, data)

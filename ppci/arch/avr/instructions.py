@@ -1,3 +1,4 @@
+import struct
 from ..isa import Instruction, Isa, register_argument, Syntax
 from ..isa import FixedPattern, SubPattern, VariablePattern
 from ..arch import RegisterUseDef, ArtificialInstruction
@@ -12,7 +13,7 @@ from .registers import r0, r1, r1r0
 
 class AvrToken(Token):
     def __init__(self):
-        super().__init__(16)
+        super().__init__(16, fmt='<H')
     w0 = bit_range(0, 16)
     b0 = bit_range(0, 8)
     b1 = bit_range(8, 16)
@@ -21,17 +22,11 @@ class AvrToken(Token):
     n2 = bit_range(8, 12)
     n3 = bit_range(12, 16)
 
-    def encode(self):
-        return u16(self.bit_value)
-
 
 class Imm16Token(Token):
     def __init__(self):
-        super().__init__(16)
+        super().__init__(16, fmt='<H')
     imm = bit_range(0, 16)
-
-    def encode(self):
-        return u16(self.bit_value)
 
 
 class AvrArithmaticToken(AvrToken):

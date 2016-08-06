@@ -5,6 +5,7 @@ These can be used to define an instruction set.
 
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
+from .token import Token
 
 
 Pattern = namedtuple(
@@ -229,7 +230,7 @@ class Constructor:
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or prop class,
             in refering to an element in the args list """
-        if type(st) is str:
+        if isinstance(st, str):
             return st
         elif type(st) is InstructionProperty:
             return str(st.__get__(self))
@@ -256,11 +257,8 @@ class Constructor:
 
     def set_field(self, tokens, field, value):
         """ Set a given field in one of the given tokens """
-        for token in tokens:
-            if hasattr(token, field):
-                setattr(token, field, value)
-                return
-        raise KeyError(field)
+        ts = TokenSequence(tokens)
+        ts.set_field(field, value)
 
     @property
     def properties(self):
@@ -294,6 +292,47 @@ class Constructor:
                     yield nl
                 yield s2
         yield self
+
+
+class TokenSequence:
+    """ A helper to work with a sequence of tokens """
+    def __init__(self, tokens):
+        self.tokens = tokens
+
+    def set_field(self, field, value):
+        """ Set a given field in one of the tokens """
+        for token in self.tokens:
+            if hasattr(token, field):
+                setattr(token, field, value)
+                return
+        raise KeyError(field)
+
+    def get_field(self, field):
+        """ Get the value of a field """
+        for token in self.tokens:
+            if hasattr(token, field):
+                return getattr(token, field)
+        raise KeyError(field)
+
+    def encode(self):
+        """ Concatenate the token bytes """
+        r = bytes()
+        for token in self.tokens:
+            r += token.encode()
+        return r
+
+    def fill(self, data):
+        """ Fill the tokens with data """
+        offset = 0
+        for token in self.tokens:
+            size = token.bitsize // 8
+            piece = data[offset:offset+size]
+            if len(piece) != size:
+                raise ValueError('Not enough data for instruction')
+            token.fill(data[offset:offset+size])
+            offset += size
+        if len(data) > offset:
+            raise ValueError('Too much data for instruction!')
 
 
 class Instruction(Constructor, metaclass=InsMeta):
@@ -404,11 +443,22 @@ class Instruction(Constructor, metaclass=InsMeta):
 
         self.set_all_patterns()
         tokens = self.get_tokens()
+        return TokenSequence(tokens).encode()
 
-        r = bytes()
-        for token in tokens:
-            r += token.encode()
-        return r
+    @classmethod
+    def decode(cls, data):
+        """ Decode data into an instruction of this class """
+        tokens = [tok_cls() for tok_cls in cls.tokens]
+        ts = TokenSequence(tokens)
+        ts.fill(data)
+        for p in cls.patterns:
+            if isinstance(p, FixedPattern):
+                print(p)
+                if ts.get_field(p.field) != p.value:
+                    raise ValueError('Cannot decode {}'.format(cls))
+            else:
+                raise NotImplementedError(p)
+        return cls()
 
     def relocations(self):
         return []
