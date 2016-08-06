@@ -7,10 +7,17 @@ from sphinx.ext.graphviz import graphviz
 __version__ = '0.1'
 
 
+def list_option(txt):
+    return [p.strip() for p in txt.split(',')]
+
+
 class UmlDirective(Directive):
     required_arguments = 1
     optional_arguments = 0
     has_content = False
+    option_spec = {
+        'classes': list_option,
+    }
 
     def run(self):
         module = self.arguments[0]
@@ -20,7 +27,13 @@ class UmlDirective(Directive):
         tmp_dir = tempfile.mkdtemp()
         os.chdir(tmp_dir)
         basename = 'foo'
-        subprocess.call(['pyreverse', '-p', basename, module])
+        cmd = ['pyreverse', '-p', basename]
+        classes = self.options.get('classes', [])
+        for c in classes:
+            raise NotImplementedError('classes option')
+            cmd.extend(['-c', c])
+        cmd.append(module)
+        subprocess.run(cmd, check=True)
         with open('classes_{}.dot'.format(basename)) as f:
             dotcode = f.read()
         os.chdir(save_dir)

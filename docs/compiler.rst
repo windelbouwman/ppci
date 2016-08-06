@@ -74,6 +74,9 @@ bag of tricks it can use.
 
 .. autoclass:: ppci.opt.CommonSubexpressionEliminationPass
 
+Uml
+~~~
+
 .. uml:: ppci.opt
 
 
@@ -117,7 +120,8 @@ Code generator
 
 .. automodule:: ppci.codegen.codegen
 
-.. uml:: ppci.codegen
+.. uml:: ppci.codegen.codegen
+
 
 Canonicalize
 ~~~~~~~~~~~~
