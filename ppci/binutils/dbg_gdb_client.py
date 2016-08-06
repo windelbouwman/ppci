@@ -129,7 +129,7 @@ class GdbDebugDriver(DebugDriver):
             self.sendpkt("c")
             # res = self.readpkt()
             # print(res)
-        self.status = RUNNING
+            self.status = RUNNING
 
     def restart(self):
         """ restart the device """

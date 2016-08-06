@@ -7,11 +7,11 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.6 (Planned)
----------------------
-
-Release 0.5 (Upcoming)
+Release 0.6 (Upcoming)
 ----------------------
+
+Release 0.5 (Aug 6, 2016)
+-------------------------
 
 * Debug type information stored in better format
 * Expression evaluation in debugger

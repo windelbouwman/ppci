@@ -12,6 +12,7 @@
         <compile
             arch="avr"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
+            debug="true"
             output="rest.oj"
             report="report.html"/>
         <link
