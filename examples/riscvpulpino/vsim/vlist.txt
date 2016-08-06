@@ -80,11 +80,11 @@
 ../ips/apb/apb_timer/apb_timer.sv 
 ../ips/apb/apb_timer/timer.sv
 
-../ips/axi/axi_mem_if_dp/axi_mem_if_DP.sv 
-../ips/axi/axi_mem_if_dp/axi_mem_if_DP_hybr.sv 
-../ips/axi/axi_mem_if_dp/axi_mem_if_SP.sv 
-../ips/axi/axi_mem_if_dp/axi_read_only_ctrl.sv 
-../ips/axi/axi_mem_if_dp/axi_write_only_ctrl.sv
+../ips/axi/axi_mem_if_DP/axi_mem_if_DP.sv 
+../ips/axi/axi_mem_if_DP/axi_mem_if_DP_hybr.sv 
+../ips/axi/axi_mem_if_DP/axi_mem_if_SP.sv 
+../ips/axi/axi_mem_if_DP/axi_read_only_ctrl.sv 
+../ips/axi/axi_mem_if_DP/axi_write_only_ctrl.sv
 
 -y ../ips/axi/axi_node
 ../ips/axi/axi_node/apb_regs_top.sv 

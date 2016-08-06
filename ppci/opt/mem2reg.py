@@ -66,13 +66,15 @@ class Mem2RegPromotor(FunctionPass):
         has_phi = set()
 
         phis = list()
+        idx = 0
         while block_backlog:
             defining_block = block_backlog.pop()
             for frontier_block in cfg_info.df[defining_block]:
                 if frontier_block not in has_phi:
                     has_phi.add(frontier_block)
                     block_backlog.add(frontier_block)
-                    phi_name = "phi_{}".format(name)
+                    phi_name = "phi_{}_{}".format(name, idx)
+                    idx += 1
                     phi = Phi(phi_name, phi_ty)
                     phis.append(phi)
                     frontier_block.insert_instruction(phi)
@@ -100,6 +102,9 @@ class Mem2RegPromotor(FunctionPass):
                 if instruction in loads:
                     # Replace all uses of a with cur_V
                     instruction.replace_by(stack[-1])
+                    aloc = instruction.address
+                    assert isinstance(aloc, Alloc)
+                    # self.debug_db.map(aloc, stack[-1])
 
             # At the end of the block
             # For all successors with phi functions, insert the proper
@@ -118,7 +123,7 @@ class Mem2RegPromotor(FunctionPass):
 
         search(cfg_info.function.entry)
 
-    def promote(self, alloc, cfg_info):
+    def promote(self, alloc: Alloc, cfg_info):
         """ Promote a single alloc instruction.
         Find load operations and replace them with assignments """
         name = alloc.name
@@ -143,7 +148,7 @@ class Mem2RegPromotor(FunctionPass):
             self.debug_db.map(alloc, phi)
 
         # Create undefined value at start:
-        initial_value = Undefined('und_{}'.format(name), phi_ty, loc=alloc.loc)
+        initial_value = Undefined('und_{}'.format(name), phi_ty)
         cfg_info.function.entry.insert_instruction(initial_value)
 
         self.rename(initial_value, phis, loads, stores, cfg_info)

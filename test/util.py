@@ -24,10 +24,13 @@ def tryrm(fn):
         pass
 
 
+def do_long_tests():
+    """ Determine whether to run samples, these take somewhat longer """
+    return 'LONGTESTS' in os.environ
+
+
 def has_qemu():
     """ Determines if qemu is possible """
-    if 'RUNQEMU' not in os.environ:
-        return False
     if hasattr(shutil, 'which'):
         return bool(shutil.which(qemu_app))
     else:
@@ -74,7 +77,7 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
             '-serial', 'tcp:localhost:{}'.format(ser_port),
             '-S']
     if hasattr(subprocess, 'DEVNULL'):
-        qemu_process = subprocess.Popen(args) # stderr=subprocess.DEVNULL)
+        qemu_process = subprocess.Popen(args)  # stderr=subprocess.DEVNULL)
     else:
         # pypy3 has no dev null:
         qemu_process = subprocess.Popen(args)

@@ -3,9 +3,9 @@ Isa related classes.
 These can be used to define an instruction set.
 """
 
-import warnings
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
+from .token import Token
 
 
 Pattern = namedtuple(
@@ -13,12 +13,19 @@ Pattern = namedtuple(
     ['non_term', 'tree', 'size', 'cycles', 'energy', 'condition', 'method'])
 
 
+RegisterClass = namedtuple(
+    'RegisterClass', ['name', 'ir_types', 'typ', 'registers'])
+
+
 class Register:
     """ Baseclass of all registers types """
-    def __init__(self, name, num=None):
-        assert type(name) is str
+    def __init__(self, name, num=None, aliases=()):
+        assert isinstance(name, str)
         self.name = name
         self._num = num
+
+        # If this register interferes with another register:
+        self.aliases = aliases
         if num is not None:
             assert isinstance(num, int)
 
@@ -33,6 +40,7 @@ class Register:
 
     @property
     def color(self):
+        """ The coloring of this register """
         return self._num
 
     @property
@@ -117,6 +125,7 @@ class Isa:
         self.instructions = []
         self.relocation_map = {}
         self.patterns = []
+        self.peepholes = []
 
     def __add__(self, other):
         assert isinstance(other, Isa)
@@ -127,7 +136,7 @@ class Isa:
         isa3.relocation_map.update(other.relocation_map)
         return isa3
 
-    def register_instruction(self, i):
+    def add_instruction(self, i):
         """ Register an instruction into this ISA """
         self.instructions.append(i)
 
@@ -141,19 +150,17 @@ class Isa:
         """ Add a pattern to this isa """
         self.patterns.append(pattern)
 
+    def peephole(self, function):
+        """ Add a peephole optimization function """
+        self.peepholes.append(function)
+        return function
+
     def pattern(
-            self, non_term, tree, cost=None, condition=None,
+            self, non_term, tree, condition=None,
             size=1, cycles=1, energy=1):
         """
             Decorator function that adds a pattern.
         """
-        if cost is not None:
-            warnings.warn(
-                'cost is deprecated, please use size, cycles and power',
-                DeprecationWarning)
-            size = cost
-            cycles = cost
-            energy = cost
         if isinstance(tree, str):
             tree = from_string(tree)
 
@@ -177,7 +184,7 @@ class InsMeta(type):
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
             assert isinstance(cls.isa, Isa)
-            cls.isa.register_instruction(cls)
+            cls.isa.add_instruction(cls)
 
 
 class Constructor:
@@ -205,7 +212,11 @@ class Constructor:
                 raise AssertionError(
                     '{} given, but expected {}'.format(args, formal_args))
             for fa, a in zip(formal_args, args):
-                assert isinstance(a, fa[1]), '{}!={}'.format(a, fa[1])
+                if not isinstance(a, fa[1]):
+                    # Create some nice looking error:
+                    raise AssertionError(
+                        '{} expected {}, but got {} of type {}'.format(
+                            type(self), fa[1], a, type(a)))
                 setattr(self, fa[0], a)
 
             # Set additional properties as specified by syntax:
@@ -219,7 +230,7 @@ class Constructor:
     def _get_repr(self, st):
         """ Get the repr of a syntax part. Can be str or prop class,
             in refering to an element in the args list """
-        if type(st) is str:
+        if isinstance(st, str):
             return st
         elif type(st) is InstructionProperty:
             return str(st.__get__(self))
@@ -246,11 +257,8 @@ class Constructor:
 
     def set_field(self, tokens, field, value):
         """ Set a given field in one of the given tokens """
-        for token in tokens:
-            if hasattr(token, field):
-                setattr(token, field, value)
-                return
-        raise KeyError(field)
+        ts = TokenSequence(tokens)
+        ts.set_field(field, value)
 
     @property
     def properties(self):
@@ -286,11 +294,54 @@ class Constructor:
         yield self
 
 
+class TokenSequence:
+    """ A helper to work with a sequence of tokens """
+    def __init__(self, tokens):
+        self.tokens = tokens
+
+    def set_field(self, field, value):
+        """ Set a given field in one of the tokens """
+        for token in self.tokens:
+            if hasattr(token, field):
+                setattr(token, field, value)
+                return
+        raise KeyError(field)
+
+    def get_field(self, field):
+        """ Get the value of a field """
+        for token in self.tokens:
+            if hasattr(token, field):
+                return getattr(token, field)
+        raise KeyError(field)
+
+    def encode(self):
+        """ Concatenate the token bytes """
+        r = bytes()
+        for token in self.tokens:
+            r += token.encode()
+        return r
+
+    def fill(self, data):
+        """ Fill the tokens with data """
+        offset = 0
+        for token in self.tokens:
+            size = token.bitsize // 8
+            piece = data[offset:offset+size]
+            if len(piece) != size:
+                raise ValueError('Not enough data for instruction')
+            token.fill(data[offset:offset+size])
+            offset += size
+        if len(data) > offset:
+            raise ValueError('Too much data for instruction!')
+
+
 class Instruction(Constructor, metaclass=InsMeta):
-    """ Base instruction class. Instructions are automatically added to an
+    """
+        Base instruction class. Instructions are automatically added to an
         isa object. Instructions are created in the following ways:
+
         - From python code, by using the instruction directly:
-            self.stream.emit(Mov(r1, r2))
+          self.stream.emit(Mov(r1, r2))
         - By the assembler. This is done via a generated parser.
         - By the instruction selector. This is done via pattern matching rules
 
@@ -300,7 +351,8 @@ class Instruction(Constructor, metaclass=InsMeta):
         are colored, the instruction is also colored.
     """
     def __init__(self, *args, **kwargs):
-        """ Base instruction constructor. Takes an arbitrary amount of
+        """
+            Base instruction constructor. Takes an arbitrary amount of
             arguments and tries to fit them on the args or syntax fields
         """
         super().__init__(*args)
@@ -334,6 +386,10 @@ class Instruction(Constructor, metaclass=InsMeta):
         s.extend(self.extra_uses)
         return s
 
+    def reads_register(self, register):
+        """ Check if this instruction reads the given register """
+        return register in self.used_registers
+
     @property
     def defined_registers(self):
         """ Return a set of all defined registers """
@@ -343,6 +399,10 @@ class Instruction(Constructor, metaclass=InsMeta):
                 s.append(p.__get__(o))
         s.extend(self.extra_defs)
         return s
+
+    def writes_register(self, register):
+        """ Check if this instruction writes the given register """
+        return register in self.defined_registers
 
     @property
     def registers(self):
@@ -363,6 +423,13 @@ class Instruction(Constructor, metaclass=InsMeta):
         for nl in self.non_leaves:
             nl.set_patterns(tokens)
 
+    def replace_register(self, old, new):
+        """ Replace a register usage with another register """
+        for p, o in self.leaves:
+            if issubclass(p._cls, Register):
+                if p.__get__(o) is old:
+                    p.__set__(o, new)
+
     def get_tokens(self):
         assert hasattr(self, 'tokens')
         N = len(self.tokens)
@@ -376,11 +443,22 @@ class Instruction(Constructor, metaclass=InsMeta):
 
         self.set_all_patterns()
         tokens = self.get_tokens()
+        return TokenSequence(tokens).encode()
 
-        r = bytes()
-        for token in tokens:
-            r += token.encode()
-        return r
+    @classmethod
+    def decode(cls, data):
+        """ Decode data into an instruction of this class """
+        tokens = [tok_cls() for tok_cls in cls.tokens]
+        ts = TokenSequence(tokens)
+        ts.fill(data)
+        for p in cls.patterns:
+            if isinstance(p, FixedPattern):
+                print(p)
+                if ts.get_field(p.field) != p.value:
+                    raise ValueError('Cannot decode {}'.format(cls))
+            else:
+                raise NotImplementedError(p)
+        return cls()
 
     def relocations(self):
         return []
@@ -396,7 +474,7 @@ class BitPattern:
     def __init__(self, field):
         self.field = field
 
-    def get_value(self, objref):
+    def get_value(self, objref):  # pragma: no cover
         raise NotImplementedError('Implement this for your pattern')
 
 

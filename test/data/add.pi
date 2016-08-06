@@ -6,7 +6,7 @@ function i32 add(i32 a, i32 b)
     i32 c = a + b
     return c
 
-function void test()
+function i32 test()
   init:
     i32 a = 2
     i32 c1 = 3

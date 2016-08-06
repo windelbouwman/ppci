@@ -3,16 +3,15 @@
     <import name="ppci.buildtasks" />
 
     <target name="hello">
-        <assemble source="startup_a9.asm" target="arm" output="start.o" />
+        <assemble source="startup_a9.asm" arch="arm" output="start.oj" />
         <compile 
-            target="arm"
+            arch="arm"
             sources='hello.c3;arch.c3;../../librt/io.c3'
-            output="hello.o" />
-        <link objects="start.o;hello.o" output="hello_all.o"
-            target="arm"
+            output="hello.oj" />
+        <link objects="start.oj;hello.oj" output="hello_all.oj"
             layout="memory.mmap" />
         <objcopy
-            objectfile="hello_all.o"
+            objectfile="hello_all.oj"
             imagename="flash"
             format="bin"
             output="hello.bin" />

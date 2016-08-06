@@ -4,9 +4,16 @@ Reference
 
 .. toctree::
 
+    api
+    usage
     c3
+    buildxml
     ir
     debug
-    buildxml
+    architecture
     backends
+    howto_backend
     hexfile
+    compiler
+    specificationlang
+    links

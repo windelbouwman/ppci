@@ -3,7 +3,32 @@
 import unittest
 import io
 from ppci.binutils.layout import load_layout
+from ppci.api import get_arch
+from ppci.arch.arch import Frame, VCall
+from ppci.arch.avr.instructions import Push, Pop
+from ppci.arch.avr.registers import r17, r19r18
 from test_asm import AsmTestCaseBase
+
+
+class AvrArchitectureTestCase(unittest.TestCase):
+    def test_gen_call(self):
+        arch = get_arch('avr')
+        frame = Frame('foo', [], [], None, [])
+        pushed = []
+        popped = []
+        vcall = VCall('bar')
+        vcall.live_in = {r17, r19r18}
+        vcall.live_out = {r17, r19r18}
+        frame.live_regs_over = lambda ins: [r17, r19r18]
+        for instruction in arch.make_call(frame, vcall):
+            if isinstance(instruction, Push):
+                pushed.append(instruction.rd)
+            if isinstance(instruction, Pop):
+                popped.append(instruction.rd)
+        self.assertTrue(pushed)
+        self.assertTrue(popped)
+        popped.reverse()
+        self.assertSequenceEqual(pushed, popped)
 
 
 class AvrAssemblerTestCase(AsmTestCaseBase):
@@ -16,6 +41,10 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
     def test_mov(self):
         self.feed("mov r18, r20")
         self.check('242f')
+
+    def test_movw(self):
+        self.feed("movw r19:r18, r21:r20")
+        self.check('9a01')
 
     def test_add(self):
         self.feed("add r11, r7")
@@ -126,6 +155,15 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("rjmp a")
         self.check('01c0 00c0 ffcf fecf')
 
+    def test_further_rjmp(self):
+        spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
+        layout = load_layout(io.StringIO(spec))
+        self.feed("rjmp a")
+        self.feed("rjmp a")
+        self.feed("a: rjmp a")
+        self.feed("rjmp a")
+        self.check('01c0 00c0 ffcf fecf', layout=layout)
+
     def test_call(self):
         self.feed("call a")
         self.feed("call a")
@@ -156,8 +194,8 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
 
     def test_ldi_address(self):
         """ Test if lo and hi loads from a relocatable constant work """
-        self.feed("a: ldi r16, lo(a)")
-        self.feed("ldi r16, hi(a)")
+        self.feed("a: ldi r16, low(a)")
+        self.feed("ldi r16, high(a)")
         spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
         layout = load_layout(io.StringIO(spec))
         self.check('04e3 02e1', layout=layout)

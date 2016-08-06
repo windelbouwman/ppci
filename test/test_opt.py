@@ -8,8 +8,8 @@ from ppci import ir
 from ppci import irutils
 from ppci.binutils.debuginfo import DebugDb
 from ppci.irutils import Verifier
-from ppci.opt.mem2reg import Mem2RegPromotor
-from ppci.opt.transform import CleanPass
+from ppci.opt import Mem2RegPromotor
+from ppci.opt import CleanPass
 
 
 class OptTestCase(unittest.TestCase):
@@ -18,8 +18,11 @@ class OptTestCase(unittest.TestCase):
         self.builder = irutils.Builder()
         self.module = ir.Module('test')
         self.builder.set_module(self.module)
-        self.function = self.builder.new_function('testfunction')
+        self.function = self.builder.new_procedure('testfunction')
         self.builder.set_function(self.function)
+        entry = self.builder.new_block()
+        self.function.entry = entry
+        self.builder.set_block(entry)
         self.verifier = Verifier()
         self.debug_db = DebugDb()
 
@@ -40,7 +43,10 @@ class CleanTestCase(OptTestCase):
         self.clean_pass = CleanPass(self.debug_db)
 
     def test_glue_blocks(self):
-        self.builder.emit(ir.Jump(self.function.epilog))
+        epilog = self.builder.new_block()
+        self.builder.emit(ir.Jump(epilog))
+        self.builder.set_block(epilog)
+        self.builder.emit(ir.Exit())
 
     def test_glue_with_phi(self):
         """
@@ -60,7 +66,7 @@ class CleanTestCase(OptTestCase):
         phi = self.builder.emit(ir.Phi('res24', ir.i16))
         phi.set_incoming(block4, cnst)
         cnst2 = self.builder.emit(ir.Const(2, 'cnst2', ir.i16))
-        binop = self.builder.emit(ir.Add(phi, cnst2, 'binop', ir.i16))
+        binop = self.builder.emit(ir.add(phi, cnst2, 'binop', ir.i16))
         phi.set_incoming(block6, binop)
         self.builder.emit(ir.Jump(block6))
         self.verifier.verify(self.module)
@@ -81,7 +87,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i32))
-        self.builder.emit(ir.Jump(self.function.epilog))
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
@@ -91,7 +97,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
-        self.builder.emit(ir.Jump(self.function.epilog))
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
@@ -101,7 +107,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i8, volatile=True))
-        self.builder.emit(ir.Jump(self.function.epilog))
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 
@@ -111,7 +117,7 @@ class Mem2RegTestCase(OptTestCase):
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
         self.builder.emit(ir.Store(cnst, alloc))
         self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
-        self.builder.emit(ir.Jump(self.function.epilog))
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 
@@ -120,7 +126,7 @@ class Mem2RegTestCase(OptTestCase):
         alloc as a value. In this case, the store must remain """
         alloc = self.builder.emit(ir.Alloc('A', 4))
         self.builder.emit(ir.Store(alloc, alloc))
-        self.builder.emit(ir.Jump(self.function.epilog))
+        self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 

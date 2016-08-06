@@ -6,7 +6,7 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.arch.arm.instructions import ArmToken
+from ppci.arch.arm.arm_instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
@@ -188,6 +188,17 @@ class ObjectFileTestCase(unittest.TestCase):
         object1, object2 = self.make_twins()
         object3 = deserialize(serialize(object1))
         self.assertEqual(object3, object1)
+
+    def test_overlapping_sections(self):
+        """ Check that overlapping sections are detected """
+        obj = ObjectFile(get_arch('msp430'))
+        obj.get_section('s1', create=True).add_data(bytes(range(100)))
+        obj.get_section('s2', create=True).add_data(bytes(range(100)))
+        obj.add_image(Image('x', 0))
+        obj.get_image('x').add_section(obj.get_section('s1'))
+        obj.get_image('x').add_section(obj.get_section('s2'))
+        with self.assertRaisesRegex(ValueError, 'overlap'):
+            obj.get_image('x').data
 
 
 class ElfFileTestCase(unittest.TestCase):

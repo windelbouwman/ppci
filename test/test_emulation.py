@@ -1,18 +1,24 @@
 import unittest
+import os
 
 from ppci.api import construct
-from util import relpath, has_qemu, run_qemu
+from util import relpath, has_qemu, run_qemu, do_long_tests
 
 
+EXAMPLE_DIR = relpath('..', 'examples')
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class EmulationTestCase(unittest.TestCase):
     """ Tests the compiler driver """
 
     def test_m3_bare(self):
         """ Build bare m3 binary and emulate it """
-        recipe = relpath('..', 'examples', 'lm3s6965evb', 'build.xml')
+        recipe = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'build.xml')
         construct(recipe)
         if has_qemu():
-            bin_file = relpath('..', 'examples', 'lm3s6965evb', 'bare.bin')
+            bin_file = relpath(
+                '..', 'examples', 'lm3s6965evb', 'bare', 'bare.bin')
             data = run_qemu(bin_file)
             self.assertEqual('Hello worle', data)
 
@@ -25,33 +31,35 @@ class EmulationTestCase(unittest.TestCase):
             data = run_qemu(bin_file, machine='realview-pb-a8')
             self.assertEqual('Hello worle', data)
 
-    def test_stm32f4_blinky(self):
-        """ Compile the example for the stm32f4discovery board """
-        recipe = relpath('..', 'examples', 'blinky', 'build.xml')
-        construct(recipe)
 
-    def test_msp430_blinky(self):
-        recipe = relpath('..', 'examples', 'msp430', 'blinky', 'build.xml')
-        construct(recipe)
+def add_test(cls, filename):
+    """ Create a new test function and add it to the class """
+    name2 = os.path.relpath(filename, EXAMPLE_DIR)
+    test_name = 'test_' + ''.join(x if x.isalnum() else '_' for x in name2)
 
-    def test_arduino(self):
-        recipe = relpath('..', 'examples', 'arduino', 'build.xml')
-        construct(recipe)
+    def test_func(self):
+        construct(filename)
 
-    def test_snake(self):
-        """ Compile the snake example """
-        recipe = relpath('..', 'examples', 'build.xml')
-        construct(recipe)
+    test_func.__doc__ = 'Try to build example {}'.format(name2)
+    setattr(cls, test_name, test_func)
 
-    def test_linux64_snake(self):
-        """ Compile the snake example """
-        recipe = relpath('..', 'examples', 'linux64', 'snake', 'build.xml')
-        construct(recipe)
 
-    def test_linux64_hello(self):
-        """ Compile the hello example for linux64 """
-        recipe = relpath('..', 'examples', 'linux64', 'hello', 'build.xml')
-        construct(recipe)
+def add_examples(cls):
+    """ Add all build.xml files as a test case to the class """
+    for root, _, files in os.walk(EXAMPLE_DIR):
+        for filename in files:
+            if filename == 'build.xml':
+                fullfilename = os.path.join(root, filename)
+                add_test(cls, fullfilename)
+    return cls
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_examples
+class ExampleProjectsTestCase(unittest.TestCase):
+    """ Check whether the example projects work """
+    pass
+
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=2)

@@ -2,8 +2,24 @@
 Changelog
 =========
 
-Release 0.4.0 (Upcoming)
-------------------------
+Release 1.0 (Planned)
+---------------------
+
+* platform.python_compiler() returns 'ppci 1.0'
+
+Release 0.6 (Planned)
+---------------------
+
+Release 0.5 (Upcoming)
+----------------------
+
+* Debug type information stored in better format
+* Expression evaluation in debugger
+* Global variables can be viewed
+* Improved support for different register classes
+
+Release 0.4.0 (Apr 27, 2016)
+----------------------------
 
 * Start with debugger and disassembler
 

@@ -1,46 +1,16 @@
 """
-Intermediate representation (IR) code classes.
+Intermediate representation (IR) code classes. Ir-code is organized into
+modules. Modules may contain functions and global variables. Functions
+consist of basic blocks. Each basic block is a linear sequence of instructions.
+
+The only types available are basic integer types and a pointer type.
 """
 
 # pylint: disable=R0903
 
 from binascii import hexlify
-
-
-def label_name(dut):
-    """ Returns the assembly code label name """
-    if isinstance(dut, Block):
-        function = dut.function
-        return label_name(function) + '_' + dut.name
-    elif isinstance(dut, Function) or isinstance(dut, Variable):
-        return label_name(dut.module) + '_' + dut.name
-    elif isinstance(dut, Module):
-        return dut.name
-    else:  # pragma: no cover
-        raise NotImplementedError(str(dut) + str(type(dut)))
-
-
-class Typ:
-    """ Base class for all types """
-    pass
-
-
-class BuiltinType(Typ):
-    """ Built in type representation """
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return self.name
-
-
-# The builtin types:
-f64 = BuiltinType('f64')
-i64 = BuiltinType('i64')
-i32 = BuiltinType('i32')
-i16 = BuiltinType('i16')
-i8 = BuiltinType('i8')
-ptr = BuiltinType('ptr')
+import logging
+from .utils.fastlist import FastList
 
 
 class Module:
@@ -55,7 +25,7 @@ class Module:
 
     def add_function(self, function):
         """ Add a function to this module """
-        assert isinstance(function, Function)
+        assert isinstance(function, SubRoutine)
         self._functions.append(function)
         function.module = self
 
@@ -65,17 +35,15 @@ class Module:
         self._variables.append(variable)
         variable.module = self
 
-    def get_variables(self):
+    @property
+    def variables(self):
         """ Get all variables of this module """
         return self._variables
 
-    variables = property(get_variables)
-
-    def get_functions(self):
+    @property
+    def functions(self):
         """ Get all functions of this module """
         return self._functions
-
-    functions = property(get_functions)
 
     def stats(self):
         """ Returns a string with statistic information such as block count """
@@ -88,98 +56,95 @@ class Module:
                     num_instructions)
 
 
-class Function:
-    """ Represents a function. """
-    def __init__(self, name, module=None):
-        self._blocks = None
+class SubRoutine:
+    """ Base class of function and procedure. These two differ in that
+    a function returns a value, where as a procedure does not.
 
-        # Variables used in uniquifying names:
-        self.defined_names = {}
-        self.unique_counter = 0
+    Design trade-off:
+    In C, a void type is introduced to permit functions that return nothing
+    (void). This seems somewhat artificial, but keeps things simple for the
+    users. In pascal, the procedure and function types are explicit, and the
+    void type is not needed. This is also the approach taken here.
+
+    So instead of a Function and Call types, we have Function, Procedure,
+    FunctionCall and ProcedureCall types.
+    """
+
+    logger = logging.getLogger('irfunc')
+
+    def __init__(self, name):
         self.name = name
-
-        # Create first blocks:
-        self.entry = Block('entry')
-        self.add_block(self.entry)
-        self.epilog = Block('epilog')
-        self.add_block(self.epilog)
-        self.epilog.add_instruction(Terminator())
-
-        # TODO: fix this other way?
-        # Link entry to epilog:
-        self.entry.extra_successors.append(self.epilog)
-        self.epilog.extra_preds.append(self.entry)
-
-        # TODO: cfg info as a property?
-
+        self.blocks = []
+        self.entry = None
+        self.defined_names = set()
+        self.unique_counter = 0
         self.arguments = []
-        if module:
-            module.add_function(self)
 
-    def __repr__(self):
-        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
-        return 'function XXX {}({})'.format(self.name, args)
+    def make_unique_name(self, dut):
+        """ Check if the name of the given dut is unique
+            and if not make it so.
+            Also add it to the used names """
+        name = dut.name
+        while dut.name in self.defined_names:
+            dut.name = '{}_{}'.format(name, self.unique_counter)
+            self.unique_counter += 1
+        self.defined_names.add(dut.name)
+
+    def dump(self):
+        """ Print this function """
+        print(self)
+        for block in self:
+            block.dump()
 
     def __iter__(self):
         """ Iterate over all blocks in this function """
         for block in self.blocks:
             yield block
 
-    def make_unique_name(self, dut):
-        """ Check if the name of the given dut is unique
-            and if not make it so """
-        orig_name = dut.name
-        while dut.name in self.defined_names.keys():
-            dut.name = '{}_{}'.format(orig_name, self.unique_counter)
-            self.unique_counter += 1
-        self.defined_names[dut.name] = dut
+    @property
+    def block_names(self):
+        """ Get the names of all the blocks in this function """
+        return (b.name for b in self.blocks)
+
+    def calc_reachable_blocks(self):
+        """ Determine all blocks that can be reached """
+        blocks = {self.entry}
+        worklist = [self.entry]
+        while worklist:
+            block = worklist.pop()
+            for successor in block.successors:
+                if successor not in blocks:
+                    blocks.add(successor)
+                    worklist.append(successor)
+        return blocks
+
+    def delete_unreachable(self):
+        """ Calculate all reachable blocks from entry and delete all others """
+        reachable = self.calc_reachable_blocks()
+        unreachable = {b for b in self if b not in reachable}
+        for block in unreachable:
+            il = list(block)
+            for instruction in il:
+                block.remove_instruction(instruction)
+                self.logger.debug('deleting %s', instruction)
+                instruction.delete()
+        for block in unreachable:
+            self.logger.debug('deleting block %s', block.name)
+            self.remove_block(block)
+            block.delete()
 
     def add_block(self, block):
         """ Add a block to this function """
-        # self.bbs.append(bb)
+        assert block.name not in self.block_names
         block.function = self
-
         self.make_unique_name(block)
-
-        # Mark cache as invalid:
-        self._blocks = None
+        self.blocks.append(block)
+        return block
 
     def remove_block(self, block):
         """ Remove a block from this function """
-        # self.bbs.remove(bb)
         block.function = None
-
-        # Mark cache as invalid:
-        self._blocks = None
-
-    def get_blocks(self):
-        """ Get all the blocks contained in this function """
-        # Use a cache:
-        if self._blocks is None:
-            bbs = [self.entry]
-            worklist = [self.entry]
-            while worklist:
-                b = worklist.pop()
-                for sb in b.successors:
-                    if sb not in bbs:
-                        bbs.append(sb)
-                        worklist.append(sb)
-            bbs.remove(self.entry)
-            if self.epilog in bbs:
-                bbs.remove(self.epilog)
-            bbs.insert(0, self.entry)
-            bbs.append(self.epilog)
-            self._blocks = bbs
-        return self._blocks
-
-    blocks = property(get_blocks)
-
-    @property
-    def special_blocks(self):
-        """ Return iterable of special blocks. For now the entry block and
-            the epilog.
-        """
-        return (self.entry, self.epilog)
+        self.blocks.remove(block)
 
     def add_parameter(self, parameter):
         """ Add an argument to this function """
@@ -193,61 +158,43 @@ class Function:
         return sum(len(block) for block in self.blocks)
 
 
-class FastList:
-    """
-        List drop-in replacement that supports cached index operation.
-        So the first time the index is complexity O(n), the second time
-        O(1). When the list is modified, the cache is cleared.
-    """
-    __slots__ = ['_items', '_index_map']
+class Procedure(SubRoutine):
+    """ A procedure definition that does not return a value """
+    def __repr__(self):
+        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        return 'procedure {}({})'.format(self.name, args)
 
-    def __init__(self):
-        self._items = []
-        self._index_map = {}
 
-    def __iter__(self):
-        return self._items.__iter__()
+class Function(SubRoutine):
+    """ Represents a function. """
 
-    def __len__(self):
-        return self._items.__len__()
+    def __init__(self, name, return_ty):
+        super().__init__(name)
+        assert isinstance(return_ty, Typ)
+        self.return_ty = return_ty
 
-    def __getitem__(self, key):
-        return self._items.__getitem__(key)
-
-    def append(self, i):
-        """ Append an item """
-        self._index_map.clear()
-        self._items.append(i)
-
-    def insert(self, pos, i):
-        """ Insert an item """
-        self._index_map.clear()
-        self._items.insert(pos, i)
-
-    def remove(self, i):
-        self._index_map.clear()
-        self._items.remove(i)
-
-    def index(self, i):
-        """ Second time the lookup of index is done in O(1) """
-        if i not in self._index_map:
-            self._index_map[i] = self._items.index(i)
-        return self._index_map[i]
+    def __repr__(self):
+        args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
+        ret_typ = self.return_ty
+        return 'function {} {}({})'.format(ret_typ, self.name, args)
 
 
 class Block:
     """
-        Uninterrupted sequence of instructions with a label at the start.
+        Uninterrupted sequence of instructions.
+        A block is properly terminated if its last instruction is a
+        :class:`FinalInstruction`.
     """
-    def __init__(self, name, function=None):
+    def __init__(self, name):
         self.name = name
-        self.function = function
-        self.instructions = FastList()
-        self.extra_successors = []
-        self.extra_preds = []
-        self._preds = set()
+        self.function = None
+        self.instructions = list()
+        self.references = set()
 
-    parent = property(lambda s: s.function)
+    def dump(self):
+        print('  ', self)
+        for instruction in self:
+            print('    ', instruction)
 
     def __repr__(self):
         return '{0}:'.format(self.name)
@@ -259,9 +206,6 @@ class Block:
     def __len__(self):
         return len(self.instructions)
 
-    def unique_name(self, value):
-        self.function.make_unique_name(value)
-
     def insert_instruction(self, instruction, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
@@ -269,48 +213,49 @@ class Block:
             pos = before_instruction.position
         else:
             pos = 0
-        instruction.parent = self
+        instruction.block = self
         self.instructions.insert(pos, instruction)
         if isinstance(instruction, Value):
-            self.unique_name(instruction)
+            self.function.make_unique_name(instruction)
 
-    def add_instruction(self, i):
+    def add_instruction(self, instruction):
         """ Add an instruction to the end of this block """
-        i.parent = self
-        assert not isinstance(self.last_instruction, LastStatement)
-        self.instructions.append(i)
-        if isinstance(i, Value) and self.function is not None:
-            self.unique_name(i)
-        if isinstance(i, Return):
-            self.function.epilog._preds.add(i)
+        assert not self.is_closed
+        instruction.block = self
+        self.instructions.append(instruction)
+        if isinstance(instruction, Value):
+            self.function.make_unique_name(instruction)
 
-    def replaceInstruction(self, i1, i2):
-        idx = self.instructions.index(i1)
-        i1.parent = None
-        i1.delete()
-        i2.parent = self
-        self.instructions[idx] = i2
-
-    def remove_instruction(self, i):
+    def remove_instruction(self, instruction):
         """ Remove instruction from block """
-        i.parent = None
-        # i.delete()
-        self.instructions.remove(i)
-        return i
+        instruction.block = None
+        self.instructions.remove(instruction)
+        return instruction
 
     @property
     def last_instruction(self):
         """ Gets the last instruction from the block """
-        if not self.empty:
+        if not self.is_empty:
             return self.instructions[-1]
 
     @property
-    def empty(self):
+    def is_empty(self):
         """ Determines whether the block is empty or not """
         return len(self) == 0
 
     @property
+    def is_closed(self):
+        """ Determine whether this block is propert terminated """
+        return isinstance(self.last_instruction, FinalInstruction)
+
+    @property
+    def is_entry(self):
+        """ Check if this block is the entry block of a function """
+        return self.function.entry is self
+
+    @property
     def first_instruction(self):
+        """ Return this blocks first instruction """
         return self.instructions[0]
 
     @property
@@ -318,33 +263,30 @@ class Block:
         """ Return all phi instructions of this block """
         return [i for i in self.instructions if isinstance(i, Phi)]
 
-    def get_successors(self):
+    @property
+    def successors(self):
         """ Get the direct successors of this block """
-        successors = self.last_instruction.targets if not self.empty else []
-        return successors + self.extra_successors
+        return self.last_instruction.targets
 
-    successors = property(get_successors)
+    @property
+    def predecessors(self):
+        """ Return all predecessing blocks """
+        return [i.block for i in self.references]
 
-    def get_predecessors(self):
-        b = set(i.block for i in self._preds)
-        b |= set(self.extra_preds)
-
-        # Make sure we have only active blocks:
-        b &= set(self.parent.blocks)
-        return list(b)
-
-    predecessors = property(get_predecessors)
-
-    def dominates(self, other):
-        """ Check if this block dominates other block """
-        assert self.function is not None
-        assert self in self.function.blocks
-        cfg_info = self.function.cfg_info
-        return cfg_info.strictly_dominates(self, other)
+    @property
+    def is_used(self):
+        """ True if this block is referenced by an instruction """
+        return len(self.references) > 0
 
     def change_target(self, old, new):
         """ Change the target of this block from old to new """
         self.last_instruction.change_target(old, new)
+
+    def delete(self):
+        """ Delete all instructions in this block, so it can be removed """
+        assert not self.is_used
+        for instruction in self:
+            instruction.delete()
 
     def replace_incoming(self, block, new_blocks):
         """
@@ -362,12 +304,12 @@ class Block:
                 phi.set_incoming(b2, value)
 
 
-def var_use(name):
+def value_use(name):
     """ Creates a property that also keeps track of usage """
     def getter(self):
         """ Gets the value """
-        if name in self.var_map:
-            return self.var_map[name]
+        if name in self._var_map:
+            return self._var_map[name]
         else:  # pragma: no cover
             raise KeyError(name)
 
@@ -375,11 +317,11 @@ def var_use(name):
         """ Sets the value """
         assert isinstance(value, Value)
         # If value was already set, remove usage
-        if name in self.var_map:
-            self.del_use(self.var_map[name])
+        if name in self._var_map:
+            self.del_use(self._var_map[name])
 
         # Place the value in the var map:
-        self.var_map[name] = value
+        self._var_map[name] = value
 
         # Add usage:
         self.add_use(value)
@@ -387,21 +329,14 @@ def var_use(name):
     return property(getter, setter)
 
 
-# Instructions:
 class Instruction:
     """ Base class for all instructions that go into a basic block """
-    def __init__(self, loc=None):
+    def __init__(self):
         # Create a collection to store the values this value uses.
         # TODO: think of better naming..
-        self.var_map = {}
-        self.parent = None
+        self._var_map = {}
+        self.block = None
         self.uses = set()
-        self.loc = loc
-
-    @property
-    def block(self):
-        """ The block in which this instruction is contained """
-        return self.parent
 
     @property
     def function(self):
@@ -419,16 +354,19 @@ class Instruction:
         self.uses.remove(v)
         v.del_user(self)
 
+    def delete(self):
+        assert not self.uses
+
     def replace_use(self, old, new):
         """ replace value usage 'old' with new value, updating the def-use
             information.
         """
         # TODO: update reference
-        assert old in self.var_map.values()
-        for name in self.var_map:
-            if self.var_map[name] is old:
+        assert old in self._var_map.values()
+        for name in self._var_map:
+            if self._var_map[name] is old:
                 self.del_use(old)
-                self.var_map[name] = new
+                self._var_map[name] = new
                 self.add_use(new)
 
     def remove_from_block(self):
@@ -441,43 +379,41 @@ class Instruction:
         """ Return numerical position in block """
         return self.block.instructions.index(self)
 
-    def dominates(self, other):
-        """ Checks if this instruction dominates another instruction """
-        if isinstance(self, (Parameter, Variable)):
-            # TODO: hack, parameters and globals dominate all other
-            # instructions..
-            return True
-
-        # All other instructions must have a containing block:
-        assert self.block is not None, '{} has no block'.format(self)
-        assert self in self.block.instructions
-
-        # Phis are special case:
-        if isinstance(other, Phi):
-            for block in other.inputs:
-                if other.inputs[block] == self:
-                    # This is the queried dominance branch
-                    # Check if this instruction dominates the last
-                    # instruction of this block
-                    return self.dominates(block.last_instruction)
-            # pragma: no cover
-            raise RuntimeError('Cannot query dominance for this phi')
-        # For all other instructions follow these rules:
-        if self.block == other.block:
-            # fi = self.block.instructions.first_to_occur(self, other)
-            return self.position < other.position
-        else:
-            return self.block.dominates(other.block)
-
     @property
-    def IsTerminator(self):
-        return isinstance(self, LastStatement)
+    def is_terminator(self):
+        """ Check if this instruction is a block terminating instruction """
+        return isinstance(self, FinalInstruction)
+
+
+class Typ:
+    """ Built in type representation """
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+
+# The builtin types:
+f64 = Typ('f64')  #: 64-bit floating point type
+f32 = Typ('f32')  #: 32-bit floating point type
+i64 = Typ('i64')  #: Signed 64-bit type
+i32 = Typ('i32')  #: Signed 32-bit type
+i16 = Typ('i16')  #: Signed 16-bit type
+i8 = Typ('i8')  #: Signed 8-bit type
+u64 = Typ('u64')  #: Unsigned 64-bit type
+u32 = Typ('u32')  #: Unsigned 32-bit type
+u16 = Typ('u16')  #: Unsigned 16-bit type
+u8 = Typ('u8')  #: Unsigned 8-bit type
+ptr = Typ('ptr')  #: Pointer type
+
+all_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8, ptr]
 
 
 class Value(Instruction):
     """ An instruction that results in a value has a type and a name """
-    def __init__(self, name, ty, loc=None):
-        super().__init__(loc=loc)
+    def __init__(self, name, ty):
+        super().__init__()
         assert isinstance(ty, Typ)
         assert isinstance(name, str)
         self.name = name
@@ -519,11 +455,10 @@ class Expression(Value):
 
 class Cast(Expression):
     """ Base type conversion instruction """
-    src = var_use('src')
+    src = value_use('src')
 
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
-        assert isinstance(ty, Typ)
         self.src = value
 
     def __repr__(self):
@@ -543,8 +478,9 @@ def to_i8(value, name):
 
 
 class Undefined(Value):
+    """ Undefined value, this value must never be used. """
     def __repr__(self):
-        return '{} = Undef'.format(self.name)
+        return '{} = undefined'.format(self.name)
 
 
 class Const(Expression):
@@ -552,7 +488,7 @@ class Const(Expression):
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
         self.value = value
-        assert type(value) in [int, float], str(value)
+        assert isinstance(value, (int, float)), str(value)
 
     def __repr__(self):
         return '{} {} = {}'.format(self.ty, self.name, self.value)
@@ -565,16 +501,16 @@ class LiteralData(Expression):
     def __init__(self, data, name):
         super().__init__(name, ptr)
         self.data = data
-        assert type(data) in [bytes], str(data)
+        assert isinstance(data, bytes), str(data)
 
     def __repr__(self):
         return '{} = Literal {}'.format(self.name, hexlify(self.data))
 
 
-class Call(Expression):
-    """ Call a function with some arguments """
-    def __init__(self, function_name, arguments, name, ty, loc=None):
-        super().__init__(name, ty, loc=loc)
+class FunctionCall(Expression):
+    """ Call a function with some arguments and a return value """
+    def __init__(self, function_name, arguments, name, ty):
+        super().__init__(name, ty)
         assert isinstance(function_name, str)
         self.function_name = function_name
         self.arguments = arguments
@@ -592,17 +528,37 @@ class Call(Expression):
         return '{} = {}({})'.format(self.name, self.function_name, args)
 
 
-# Data operations
+class ProcedureCall(Instruction):
+    """ Call a procedure with some arguments """
+    def __init__(self, function_name, arguments):
+        super().__init__()
+        assert isinstance(function_name, str)
+        self.function_name = function_name
+        self.arguments = arguments
+        for arg in self.arguments:
+            self.add_use(arg)
+
+    def replace_use(self, old, new):
+        idx = self.arguments.index(old)
+        self.del_use(old)
+        self.arguments[idx] = new
+        self.add_use(new)
+
+    def __repr__(self):
+        args = ', '.join(arg.name for arg in self.arguments)
+        return '{}({})'.format(self.function_name, args)
+
+
 class Binop(Expression):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
-    a = var_use('a')
-    b = var_use('b')
+    a = value_use('a')
+    b = value_use('b')
 
-    def __init__(self, a, operation, b, name, ty, loc=None):
-        super().__init__(name, ty, loc=loc)
+    def __init__(self, a, operation, b, name, ty):
+        super().__init__(name, ty)
         assert operation in Binop.ops
-        assert a.ty is b.ty
+        assert a.ty is b.ty is ty
         self.a = a
         self.b = b
         self.operation = operation
@@ -612,30 +568,17 @@ class Binop(Expression):
         return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
 
 
-class Unop(Expression):
-    """ Unary operation """
-    ops = ['-']
-    a = var_use('a')
-
-    def __init__(self, operation, a, name, ty):
-        super().__init__(name, ty)
-        assert operation in self.ops
-        self.operation = operation
-        assert a.ty is ty
-        self.a = a
-
-
-def Add(a, b, name, ty):
+def add(a, b, name, ty):
     """ Substract b from a """
     return Binop(a, '+', b, name, ty)
 
 
-def Sub(a, b, name, ty):
+def sub(a, b, name, ty):
     """ Substract b from a """
     return Binop(a, '-', b, name, ty)
 
 
-def Mul(a, b, name, ty):
+def mul(a, b, name, ty):
     """ Multiply a by b """
     return Binop(a, '*', b, name, ty)
 
@@ -679,14 +622,14 @@ class Phi(Value):
 
 
 class Alloc(Expression):
-    """ Allocates space on the stack """
-    def __init__(self, name, amount, loc=None):
-        super().__init__(name, ptr, loc=loc)
-        assert type(amount) is int
+    """ Allocates space on the stack. The type of this value is a ptr """
+    def __init__(self, name, amount):
+        super().__init__(name, ptr)
+        assert isinstance(amount, int)
         self.amount = amount
 
     def __repr__(self):
-        return '{} = Alloc {} bytes'.format(self.name, self.amount)
+        return '{} = alloc {} bytes'.format(self.name, self.amount)
 
 
 class Variable(Expression):
@@ -697,7 +640,7 @@ class Variable(Expression):
         self.amount = amount
 
     def __repr__(self):
-        return 'Variable {} ({} bytes)'.format(self.name, self.amount)
+        return 'variable {} ({} bytes)'.format(self.name, self.amount)
 
 
 class Parameter(Expression):
@@ -711,7 +654,7 @@ class Parameter(Expression):
 
 class Load(Value):
     """ Load a value from memory """
-    address = var_use('address')
+    address = value_use('address')
 
     def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
@@ -725,8 +668,8 @@ class Load(Value):
 
 class Store(Instruction):
     """ Store a value into memory """
-    address = var_use('address')
-    value = var_use('value')
+    address = value_use('address')
+    value = value_use('value')
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
@@ -742,12 +685,41 @@ class Store(Instruction):
         return 'store {} {}, {}'.format(ty, val, ptr)
 
 
-# Branching:
-def block_ref(name):
+class FinalInstruction(Instruction):
+    """ Final instruction in a basic block """
+    pass
+
+
+class Exit(FinalInstruction):
+    """ Instruction that exits the procedure. """
+    def __init__(self):
+        super().__init__()
+        self.targets = []
+
+    def __repr__(self):
+        return 'exit'
+
+
+class Return(FinalInstruction):
+    """ This instruction returns a value and exits the function.
+    """
+    result = value_use('result')
+
+    def __init__(self, result):
+        super().__init__()
+        self.result = result
+        self.targets = []
+
+    def __repr__(self):
+        return 'return {}'.format(self.result.name)
+
+
+def block_use(name):
     """ Creates a property that can be set and changed """
     def getter(self):
-        if name in self.block_map:
-            return self.block_map[name]
+        """ Gets the block reference """
+        if name in self._block_map:
+            return self._block_map[name]
         else:  # pragma: no cover
             raise KeyError("No such block!")
 
@@ -759,99 +731,64 @@ def block_ref(name):
     return property(getter, setter)
 
 
-class LastStatement(Instruction):
-    pass
-
-
-class Terminator(LastStatement):
-    """ Instruction that terminates the terminal block """
-    def __init__(self):
-        super().__init__()
-        self.targets = []
-
-    def __repr__(self):
-        return 'Terminator'
-
-
-class Return(LastStatement):
-    """ Return statement. This instruction terminates a block and has as
-        target the epilog block of a function.
-    """
-    result = var_use('result')
-
-    def __init__(self, result):
-        super().__init__()
-        self.result = result
-
-    def __repr__(self):
-        return 'Return {}'.format(self.result.name)
-
-    @property
-    def targets(self):
-        """ Gets a list of targets, in case of a return, this list only
-            contains the epilog block!
-        """
-        return [self.function.epilog]
-
-
-class JumpBase(LastStatement):
+class JumpBase(FinalInstruction):
     """ Base of all jumping instructions """
     def __init__(self):
         super().__init__()
-        self.block_map = {}
+        self._block_map = {}
 
     def set_target_block(self, name, block):
         """ Set the target 'name' to block. Take into account that a block
             may already be pointed, so remove this reference!
         """
         # If block was present, remove this instruction from the block preds:
-        if name in self.block_map:
-            old_block = self.block_map[name]
+        if name in self._block_map:
+            old_block = self._block_map[name]
             # check if old_block occurs only once in the block_map:
-            if list(self.block_map.values()).count(old_block) == 1:
-                old_block._preds.remove(self)
+            if list(self._block_map.values()).count(old_block) == 1:
+                old_block.references.remove(self)
 
         # Use the new block:
-        self.block_map[name] = block
-        self.block_map[name]._preds.add(self)
+        self._block_map[name] = block
+        self._block_map[name].references.add(self)
 
     def delete(self):
         """ Clear references """
-        while self.block_map:
-            _, block = self.block_map.popitem()
-            block._preds.remove(self)
+        while self._block_map:
+            _, block = self._block_map.popitem()
+            block.references.remove(self)
 
     @property
     def targets(self):
         """ Gets a list of targets that this instruction jumps to """
-        return list(self.block_map.values())
+        return list(self._block_map.values())
 
     def change_target(self, old, new):
         """ Change the target old into new """
-        for name in self.block_map:
-            if self.block_map[name] is old:
+        for name in self._block_map:
+            if self._block_map[name] is old:
                 self.set_target_block(name, new)
 
 
 class Jump(JumpBase):
     """ Jump statement to another block within the same function """
-    target = block_ref('target')
+    target = block_use('target')
 
     def __init__(self, target):
         super().__init__()
         self.target = target
 
     def __repr__(self):
-        return 'JUMP {}'.format(self.target.name)
+        return 'jump {}'.format(self.target.name)
 
 
 class CJump(JumpBase):
     """ Conditional jump to true or false labels. """
     conditions = ['==', '<', '>', '>=', '<=', '!=']
-    a = var_use('a')
-    b = var_use('b')
-    lab_yes = block_ref('lab_yes')
-    lab_no = block_ref('lab_no')
+    a = value_use('a')
+    b = value_use('b')
+    lab_yes = block_use('lab_yes')
+    lab_no = block_use('lab_no')
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()
@@ -863,6 +800,6 @@ class CJump(JumpBase):
         self.lab_no = lab_no
 
     def __repr__(self):
-        return 'IF {} {} {} THEN {} ELSE {}'\
+        return 'if {} {} {} then {} else {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)

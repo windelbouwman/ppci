@@ -1,31 +1,49 @@
+"""
+
+.. autoclass:: ppci.codegen.interferencegraph.InterferenceGraph
+    :members: get_node, combine, interfere
+
+"""
 
 import logging
+from collections import defaultdict
 from ..utils.graph import Graph, Node
 from ..arch.isa import Register
 
 
 class InterferenceGraphNode(Node):
-
-    def __init__(self, g, varname):
-        super().__init__(g)
-        self.temps = {varname}
+    """ Node in an interference graph. Represents a single register """
+    def __init__(self, graph, vreg):
+        super().__init__(graph)
+        self.temps = {vreg}
         self.moves = set()
-        self.color = varname.color
+        self.color = vreg if vreg.is_colored else None
+        self.reg_class = type(vreg)
+
+    @property
+    def is_colored(self):
+        return self.color is not None
 
     def __repr__(self):
-        return '{}({})'.format(self.temps, self.color)
+        return '{}(color={},class={})'.format(
+            self.temps, self.color, self.reg_class)
 
 
 class InterferenceGraph(Graph):
-    """
-        Interference graph.
-    """
-    def __init__(self, flowgraph):
+    """ Interference graph. """
+    def __init__(self):
         """ Create a new interference graph from a flowgraph """
         super().__init__()
         self.logger = logging.getLogger('interferencegraph')
         self.temp_map = {}
-        self.calculate_interference(flowgraph)
+        self._def_map = defaultdict(list)
+        self._use_map = defaultdict(list)
+
+    def defs(self, tmp):
+        return self._def_map[tmp]
+
+    def uses(self, tmp):
+        return self._use_map[tmp]
 
     def calculate_interference(self, flowgraph):
         """ Construct interference graph """
@@ -44,6 +62,12 @@ class InterferenceGraph(Graph):
                     for tmp2 in (live_and_def - {tmp}):
                         n2 = self.get_node(tmp2)
                         self.add_edge(n1, n2)
+
+                # Generate usage info:
+                for reg in ins.defined_registers:
+                    self._def_map[reg].append(ins)
+                for reg in ins.used_registers:
+                    self._use_map[reg].append(ins)
 
     def get_node(self, tmp):
         """ Get the node for a register """

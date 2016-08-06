@@ -5,9 +5,8 @@
 import logging
 from .objectfile import ObjectFile, Image
 from ..common import CompilerError
-from .layout import Layout, Section, SymbolDefinition, Align
-from .debuginfo import DebugLocation, DebugVariable, DebugFunction
-from .debuginfo import DebugAddress
+from .layout import Layout, Section, SectionData, SymbolDefinition, Align
+from .debuginfo import SectionAdjustingReplicator, DebugInfo
 
 
 class Linker:
@@ -32,6 +31,8 @@ class Linker:
 
         # Create new object file to store output:
         dst = ObjectFile(self.arch)
+        if debug:
+            dst.debug_info = DebugInfo()
 
         # First merge all sections into output sections:
         self.merge_objects(input_objects, dst, debug)
@@ -55,6 +56,7 @@ class Linker:
     def merge_objects(self, input_objects, dst, debug):
         """ Merge object files into a single object file """
         for input_object in input_objects:
+            self.logger.debug('Merging %s', input_object)
             offsets = {}
             # Merge sections:
             for input_section in input_object.sections:
@@ -64,6 +66,7 @@ class Linker:
 
                 # Align section:
                 while output_section.size % input_section.alignment != 0:
+                    self.logger.debug('Padding output to ensure alignment')
                     output_section.add_data(bytes([0]))
 
                 # Alter the output section alignment if required:
@@ -75,8 +78,9 @@ class Linker:
                 offsets[input_section.name] = offset
                 output_section.add_data(input_section.data)
                 self.logger.debug(
-                    '%d %s(%s)', offsets[input_section.name],
-                    str(input_object), input_section.name)
+                    'at offset 0x%x section %s',
+                    offsets[input_section.name],
+                    input_section)
 
             # Merge symbols:
             for sym in input_object.symbols:
@@ -89,27 +93,9 @@ class Linker:
                 dst.add_relocation(reloc.sym, offset, reloc.typ, reloc.section)
 
             # Merge debug info:
-            if debug:
-                def adj(v):
-                    assert isinstance(v, DebugAddress)
-                    return DebugAddress(
-                        v.section, offsets[v.section] + v.offset)
-                for debug_location in input_object.debug_info.locations:
-                    dst.debug_info.add(DebugLocation(
-                        debug_location.loc,
-                        address=adj(debug_location.address)))
-                for debug_function in input_object.debug_info.functions:
-                    dst.debug_info.add(DebugFunction(
-                        debug_function.name, debug_function.loc,
-                        begin=adj(debug_function.begin),
-                        end=adj(debug_function.end),
-                        variables=debug_function.variables))
-                for debug_type in input_object.debug_info.types:
-                    dst.debug_info.add(debug_type)
-                for debug_var in input_object.debug_info.variables:
-                    dst.debug_info.add(DebugVariable(
-                        debug_var.name, debug_var.typ, debug_var.loc,
-                        address=adj(debug_var.address)))
+            if debug and input_object.debug_info:
+                replicator = SectionAdjustingReplicator(offsets)
+                replicator.replicate(input_object.debug_info, dst.debug_info)
 
     def layout_sections(self, dst, layout):
         """ Use the given layout to place sections into memories """
@@ -125,9 +111,24 @@ class Linker:
                         current_address += 1
                     section.address = current_address
                     self.logger.debug(
-                        'Memory: {} Section: {} Address: 0x{:X} Size: 0x{:X}'
-                        .format(mem.name, section.name,
-                                section.address, section.size))
+                        'Memory: %s Section: %s Address: 0x%x Size: 0x%x',
+                        mem.name, section.name,
+                        section.address, section.size)
+                    current_address += section.size
+                    image.add_section(section)
+                elif isinstance(memory_input, SectionData):
+                    section_name = '_${}_'.format(memory_input.section_name)
+                    # Each section must be unique:
+                    assert not dst.has_section(section_name)
+
+                    section = dst.get_section(section_name, create=True)
+                    section.address = current_address
+                    section.alignment = 1  # TODO: is this correct alignment?
+
+                    src_section = dst.get_section(memory_input.section_name)
+
+                    section.add_data(src_section.data)
+
                     current_address += section.size
                     image.add_section(section)
                 elif isinstance(memory_input, SymbolDefinition):

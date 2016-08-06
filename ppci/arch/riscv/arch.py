@@ -3,18 +3,22 @@
 """
 
 import io
-from ..arch import Architecture, Label, VCall
-from .instructions import isa, Mov2
+from ..arch import Architecture, Label, VCall, Alignment
+from .instructions import isa
 from .rvc_instructions import rvcisa
-from .registers import RiscvRegister
-from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12, all_registers
-from .registers import R13, R14, R15, R16, R17, R28, LR, get_register
+from .registers import RiscvRegister, gdb_registers, all_registers
+from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12
+from .registers import R13, R14, R15, R16, R17, R28, LR
+from .registers import R0, LR, SP, FP, PC
+from .registers import R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19
+from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ...ir import i8, i32, ptr
-from ..data_instructions import data_isa
-from .frame import RiscvFrame
+from ..isa import RegisterClass
+from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
 from ..riscv.registers import register_range
-from .instructions import dcd
+from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr, Mov
+from .rvc_instructions import CSwsp, CLwsp, CJal, CJr
 
 
 class RiscvAssembler(BaseAssembler):
@@ -49,16 +53,33 @@ class RiscvArch(Architecture):
         super().__init__(options=options)
         if self.has_option('rvc'):
             self.isa = isa + rvcisa + data_isa
+            self.store = CSwsp
+            self.load = CLwsp
         else:
             self.isa = isa + data_isa
+            self.store = Sw
+            self.load = Lw
         self.registers.extend(all_registers)
-        self.FrameClass = RiscvFrame
+        self.gdb_registers = gdb_registers
+        self.gdb_pc = PC
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        self.value_classes[i8] = RiscvRegister
-        self.value_classes[i32] = RiscvRegister
-        self.value_classes[ptr] = RiscvRegister
 
+        # Allocatable registers:
+        self.register_classes = [
+            RegisterClass(
+                'reg', [i8, i32, ptr], RiscvRegister,
+                [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27])
+            ]
+        self.fp = FP
+        self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
+
+    def branch(self,reg,lab):
+        if self.has_option('rvc'):
+            return(CJal(lab))
+        else:
+            return(Bl(reg,lab))
+            
     def get_runtime(self):
         """ Implement compiler runtime functions """
         from ...api import asm
@@ -96,16 +117,13 @@ class RiscvArch(Architecture):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return Mov2(dst, src, ismove=True)
+        return Movr(dst, src, ismove=True)
 
-    def gen_call(self, label, arg_types, ret_type, args, res_var):
-        """ Generate code for call sequence. This function saves registers
-            and moves arguments in the proper locations.
-
+    def gen_fill_arguments(self, arg_types, args, live):
+        """ This function moves arguments in the proper locations.
         """
-        # TODO: what ABI to use?
-        arg_locs, live_in, rv, live_out = self.determine_arg_locations(
-            arg_types, ret_type)
+        arg_locs, live_in = self.determine_arg_locations(arg_types)
+        live.update(set(live_in))
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
@@ -113,13 +131,34 @@ class RiscvArch(Architecture):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
-        yield VCall(label, extra_uses=live_in, extra_defs=live_out)
-        yield self.move(res_var, rv)
 
-    def get_register(self, color):
-        return get_register(color)
+    def make_call(self, frame, vcall):
+        """ Implement actual call and save / restore live registers """
+        # Now we now what variables are live:
+        live_regs = frame.live_regs_over(vcall)
+        
+        # Caller save registers:
+        i = (len(live_regs)+1)*4
+        yield Subi(SP, SP, i)
+        for register in live_regs:
+            yield self.store(register, i, SP)
+            i-= 4
+        yield self.store(LR, i, SP)
+        i-=4
+        
+        yield self.branch(LR, vcall.function_name)
 
-    def determine_arg_locations(self, arg_types, ret_type):
+        # Restore caller save registers:
+        i = 0
+        i+= 4
+        yield self.load(LR, i, SP)
+        for register in reversed(live_regs):
+            i+= 4
+            yield self.load(register, i, SP)
+        
+        yield Addi(SP, SP, i)
+
+    def determine_arg_locations(self, arg_types):
         """
             Given a set of argument types, determine location for argument
             ABI:
@@ -133,7 +172,70 @@ class RiscvArch(Architecture):
             r = regs.pop(0)
             l.append(r)
             live_in.add(r)
+        return l, tuple(live_in)
+
+    def determine_rv_location(self, ret_type):
         live_out = set()
         rv = R10
         live_out.add(rv)
-        return l, tuple(live_in), rv, tuple(live_out)
+        return rv, tuple(live_out)
+
+    def prologue(self, frame):
+        """ Returns prologue instruction sequence """
+        # Label indication function:
+        yield Label(frame.name)
+        # Callee save registers:
+        i = 0
+        for register in self.callee_save:
+            yield Sw(register, i, SP)
+            i-= 4
+        Addi(SP, SP, i)
+        if frame.stacksize > 0:
+            yield Subi(SP, SP, frame.stacksize)  # Reserve stack space
+        yield Mov(FP, SP)                 # Setup frame pointer
+
+    def litpool(self, frame):
+        """ Generate instruction for the current literals """
+        # Align at 4 bytes
+        if frame.constants:
+            yield Alignment(4)
+
+        # Add constant literals:
+        while frame.constants:
+            label, value = frame.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, int) or isinstance(value, str):
+                yield dcd(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield Db(byte)
+                yield Alignment(4)   # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError('Constant of type {}'.format(value))
+
+    def between_blocks(self, frame):
+        for ins in self.litpool(frame):
+            yield ins
+
+    def epilogue(self, frame):
+        """ Return epilogue sequence for a frame. Adjust frame pointer
+            and add constant pool
+        """
+        if frame.stacksize > 0:
+            yield Addi(SP, SP, frame.stacksize)
+        # Callee saved registers:
+        i = 0
+        for register in reversed(self.callee_save):
+            i+= 4
+            yield Lw(register, i, SP)
+        Addi(SP, SP, i)
+        
+        if self.has_option('rvc'):
+            yield(CJr(LR))
+        else:
+            yield(Blr(R0, LR, 0))
+            
+        # Add final literal pool:
+        for instruction in self.litpool(frame):
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes

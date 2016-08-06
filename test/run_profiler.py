@@ -1,11 +1,9 @@
 
 from cProfile import Profile
-import unittest
 import pstats
-import test_samples
-import test_commands
 import logging
 import logging.handlers
+from os import path
 import shutil
 import os
 
@@ -17,27 +15,21 @@ if __name__ == '__main__':
     logformat = '%(asctime)s|%(levelname)s|%(name)s|%(message)s'
     ch.setFormatter(logging.Formatter(logformat))
     logging.getLogger().addHandler(ch)
-    uh = logging.handlers.DatagramHandler('localhost', 9021)
-    uh.setLevel(logging.DEBUG)
-    # logging.getLogger().addHandler(uh)
     logger = logging.getLogger('run')
     logger.info('Starting profiling')
 
-    # Load unittest:
-    loader = unittest.TestLoader()
-    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_hello_world', module=test_samples)
-    suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_hello_world', module=test_samples)
-    # suite = loader.loadTestsFromName('TestSamplesOnVexpress.test_brain_fuck_quine', module=test_samples)
-    # suite = loader.loadTestsFromName('BuildTestCase.test_build_command', module=test_commands)
-
-    def runtests():
-        unittest.TextTestRunner().run(suite)
+    def run_somecommand():
+        from ppci.api import construct
+        print(construct)
+        construct('../examples/linux64/fib/build.xml')
 
     p = Profile()
-    s = p.run('runtests()')
+    s = p.run('run_somecommand()')
     stats = pstats.Stats(p)
     stats.dump_stats('results.cprofile')
     stats.sort_stats('cumtime')
+
+    logger.info('Done profiling')
 
     # Convert result profile to kcachegrind format:
     if shutil.which('pyprof2calltree'):

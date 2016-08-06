@@ -7,21 +7,21 @@ module
 """
 
 from .tasks import Task, TaskError, register_task
-from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
+from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
 from .utils.reporting import complete_report
 from .api import c3c, link, asm, construct, objcopy
 from .pcc.common import ParserException
 from .common import CompilerError
 
 
-@register_task("empty")
+@register_task
 class EmptyTask(Task):
     """ Basic task that does nothing """
     def run(self):
         pass
 
 
-@register_task("echo")
+@register_task
 class EchoTask(Task):
     """ Simple task that echoes a message """
     def run(self):
@@ -29,8 +29,8 @@ class EchoTask(Task):
         print(message)
 
 
-@register_task("property")
-class Property(Task):
+@register_task
+class PropertyTask(Task):
     """ Sets a property to a value """
     def run(self):
         name = self.arguments['name']
@@ -38,8 +38,8 @@ class Property(Task):
         self.target.project.set_property(name, value)
 
 
-@register_task("build")
-class ConstructTask(Task):
+@register_task
+class BuildTask(Task):
     """ Builds another build description file (build.xml) """
     def run(self):
         project = self.relpath(self.get_argument('file'))
@@ -57,17 +57,21 @@ class OutputtingTask(Task):
             obj.save(output_file)
 
 
-@register_task("assemble")
+@register_task
 class AssembleTask(OutputtingTask):
     """ Task that can runs the assembler over the source and enters the
         output into an object file """
 
     def run(self):
-        target = self.get_argument('target')
+        arch = self.get_argument('arch')
         source = self.relpath(self.get_argument('source'))
+        if 'debug' in self.arguments:
+            debug = bool(self.get_argument('debug'))
+        else:
+            debug = False
 
         try:
-            obj = asm(source, target)
+            obj = asm(source, arch, debug=debug)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:
@@ -79,11 +83,11 @@ class AssembleTask(OutputtingTask):
         self.logger.debug('Assembling finished')
 
 
-@register_task("compile")
-class C3cTask(OutputtingTask):
+@register_task
+class CompileTask(OutputtingTask):
     """ Task that compiles C3 source for some target into an object file """
     def run(self):
-        target = self.get_argument('target')
+        arch = self.get_argument('arch')
         sources = self.open_file_set(self.arguments['sources'])
         if 'includes' in self.arguments:
             includes = self.open_file_set(self.arguments['includes'])
@@ -96,13 +100,18 @@ class C3cTask(OutputtingTask):
         else:
             reporter = DummyReportGenerator()
 
+        if 'debug' in self.arguments:
+            debug = bool(self.get_argument('debug'))
+        else:
+            debug = False
+
         with complete_report(reporter):
-            obj = c3c(sources, includes, target, reporter=reporter)
+            obj = c3c(sources, includes, arch, reporter=reporter, debug=debug)
 
         self.store_object(obj)
 
 
-@register_task("link")
+@register_task
 class LinkTask(OutputtingTask):
     """ Link together a collection of object files """
     def run(self):
@@ -121,7 +130,7 @@ class LinkTask(OutputtingTask):
         self.store_object(obj)
 
 
-@register_task("objcopy")
+@register_task
 class ObjCopyTask(Task):
     """ Binary move parts of object code. """
     def run(self):

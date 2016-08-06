@@ -1,0 +1,32 @@
+
+<project name="hello" default="hello">
+    <import name="ppci.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            arch="x86_64"
+            source="../glue.asm"
+            output="glue.oj" />
+
+        <compile
+            arch="x86_64"
+            sources="main.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"
+            debug="true"/>
+
+        <link
+            output="main.oj"
+            layout="../linux64.mmap"
+            objects="glue.oj;rest.oj"
+            debug="true" />
+
+        <objcopy
+            objectfile="main.oj"
+            imagename="flash"
+            format="elf"
+            output="main" />
+    </target>
+
+</project>
+

@@ -14,7 +14,7 @@ to :ref:`ppci-build`.
 
 An example build file:
 
-.. literalinclude:: ../examples/build.xml
+.. literalinclude:: ../examples/lm3s6965evb/snake/build.xml
     :language: xml
     :linenos:
 

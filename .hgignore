@@ -3,10 +3,12 @@ syntax: glob
 
 *.pyc
 *.o
+*.oj
 *.bin
 *.lst
 *.hex
 *.elf
+*.m4
 *.log
 *.vcd
 docs/_build
@@ -23,3 +25,6 @@ test/FORTRAN
 htmlcov
 dist
 ppci.egg-info
+build
+examples/riscvpulpino/jtagserver/.deps
+examples/riscvpulpino/vsim/obj_dir

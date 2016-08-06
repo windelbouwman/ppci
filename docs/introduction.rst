@@ -44,12 +44,10 @@ And yet another example:
     >>> import io
     >>> from ppci.api import c3c, link
     >>> source_file = io.StringIO("""
-    ... module main;
-    ... function void print(string txt) {
-    ... }
-    ... function void main() {
-    ...  print("Hello world");
-    ... }""")
+    ...  module main;
+    ...  function void print(string txt) { }
+    ...  function void main() { print("Hello world"); }
+    ... """)
     >>> obj = c3c([source_file], [], 'arm')
     >>> obj = link([obj])
 

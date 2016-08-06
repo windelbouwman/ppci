@@ -8,8 +8,9 @@ import platform
 import subprocess
 from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python, run_msp430_mem
+from util import do_long_tests
 from ppci.api import asm, c3c, link, objcopy, bfcompile
-from ppci.api import c3toir, bf2ir, ir_to_python
+from ppci.api import c3toir, bf2ir, ir_to_python, optimize
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
 from ppci.binutils.objectfile import merge_memories
 
@@ -311,6 +312,52 @@ class SimpleSamples:
                ';io.print_sub(x,0,67);bsp.putc(34);io.print(x);bsp.putc(34);'
                'io.print_sub(x,67,151);}')
         self.do(src, src)
+
+    # @unittest.skip
+    def test_will_spill(self):
+        """ Generate a function many locals, such that spilling will occur """
+        snippet = """
+         module main;
+         import io;
+         var int[50] G;
+
+         function void do1()
+         {
+            var int i;
+            for (i=0;i<50;i = i+1)
+            {
+              G[i] = i;
+            }
+         }
+
+         function void do5()
+         {
+            var int a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p;
+            var int sum;
+            a = G[0];
+            b = G[1];
+            c = G[2];
+            d = G[3];
+            e = G[4];
+            f = G[5];
+            g = G[6];
+            h = G[7];
+            i = G[8];
+            j = G[9];
+            k = G[10];
+            l = G[11];
+            sum = a + b + c + d + e + f + g + h + i + j + k + l;
+            io.print2("w00t=", sum);
+         }
+
+         function void main()
+         {
+            do1();
+            do5();
+         }
+        """
+        res = "w00t=0x00000042\n"
+        self.do(snippet, res)
 
 
 class I32Samples:
@@ -667,6 +714,8 @@ class I32Samples:
 
 
 class BuildMixin:
+    opt_level = 0
+
     def build(self, src, lang='c3', bin_format='bin'):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
@@ -682,10 +731,13 @@ class BuildMixin:
         with complete_report(report_generator) as reporter:
             o1 = asm(io.StringIO(startercode), self.march)
             if lang == 'c3':
-                o2 = c3c([
+                srcs = [
                     relpath('..', 'librt', 'io.c3'),
                     bsp_c3,
-                    io.StringIO(src)], [], self.march, reporter=reporter)
+                    io.StringIO(src)]
+                o2 = c3c(
+                    srcs, [], self.march, opt_level=self.opt_level,
+                    reporter=reporter, debug=True)
                 objs = [o1, o2]
             elif lang == 'bf':
                 o3 = bfcompile(src, self.march, reporter=reporter)
@@ -696,7 +748,7 @@ class BuildMixin:
                 raise Exception('language not implemented')
             obj = link(
                 objs, layout=io.StringIO(self.arch_mmap),
-                use_runtime=True, reporter=reporter)
+                use_runtime=True, reporter=reporter, debug=True)
 
         # Save object:
         obj_file = base_filename + '.oj'
@@ -706,6 +758,7 @@ class BuildMixin:
         return obj, base_filename
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnVexpress(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     maxDiff = None
@@ -742,6 +795,11 @@ class TestSamplesOnVexpress(
             self.assertEqual(expected_output, res)
 
 
+class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
+    opt_level = 2
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnRiscv(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     maxDiff = None
@@ -770,10 +828,12 @@ class TestSamplesOnRiscv(
         self.build(src, lang)
 
 
-class TestSamplesOnCortexM3(
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+class TestSamplesOnCortexM3O2(
         unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
+    opt_level = 2
     march = "arm:thumb"
     startercode = """
     section reset
@@ -794,7 +854,7 @@ class TestSamplesOnCortexM3(
         SECTION(data)
     }
     """
-    bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'arch.c3')
+    bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'arch.c3')
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
@@ -810,7 +870,10 @@ class TestSamplesOnCortexM3(
             self.assertEqual(expected_output, res)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
+    opt_level = 0
+
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
         sample_filename = base_filename + '.py'
@@ -829,6 +892,9 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
             elif lang == 'bf':
                 ir_modules = [bf2ir(src, 'arm')]
 
+            for ir_module in ir_modules:
+                optimize(ir_module, level=self.opt_level, reporter=reporter)
+
             with open(sample_filename, 'w') as f:
                 ir_to_python(ir_modules, f, reporter=reporter)
 
@@ -842,7 +908,13 @@ class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
         self.assertEqual(expected_output, res)
 
 
-class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnPythonO2(TestSamplesOnPython):
+    opt_level = 2
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
+    opt_level = 2
     march = "msp430"
     startercode = """
       section reset_vector
@@ -880,15 +952,7 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
         MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
         MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
     """
-    bsp_c3_src = """
-        module bsp;
-
-        public function void putc(byte c);
-        function void exit()
-        {
-            putc(4); // End of transmission
-        }
-    """
+    bsp_c3 = relpath('..', 'examples', 'msp430', 'bsp.c3')
 
     def do(self, src, expected_output, lang='c3'):
         obj, base_filename = self.build(src, lang)
@@ -912,8 +976,10 @@ class TestSamplesOnMsp430(unittest.TestCase, SimpleSamples, BuildMixin):
             self.assertEqual(expected_output, res)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "avr"
+    opt_level = 0
     startercode = """
     section reset
     """
@@ -937,6 +1003,12 @@ class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
         self.build(src, lang=lang, bin_format='hex')
 
 
+# Avr Only works with optimization enabled...
+class TestSamplesOnAvrO2(TestSamplesOnAvr):
+    opt_level = 2
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
     march = "x86_64"
     startercode = """
@@ -996,6 +1068,10 @@ class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
                 res = subprocess.check_output(exe)
             res = res.decode('ascii')
             self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnX86LinuxO2(TestSamplesOnX86Linux):
+    opt_level = 2
 
 
 def has_linux():

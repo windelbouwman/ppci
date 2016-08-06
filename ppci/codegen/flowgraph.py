@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from ..utils.graph import DiGraph, DiNode
 
 
@@ -49,6 +50,7 @@ class FlowGraph(DiGraph):
         super().__init__()
         self.logger = logging.getLogger('flowgraph')
         self._map = {}
+        self._live_ranges = defaultdict(list)
 
         # TODO: make this very tricky part of code better readable!!!
 
@@ -92,14 +94,13 @@ class FlowGraph(DiGraph):
 
     def get_node(self, ins):
         """ Get the node belonging to the instruction """
-        if ins in self._map:
-            node = self._map[ins]
-        else:
+        if ins not in self._map:
             node = FlowGraphNode(self, ins)
             self._map[ins] = node
             self.add_node(node)
-        return node
+        return self._map[ins]
 
+    # def live_range(
     def calculate_liveness(self):
         """ Calculate liveness in CFG: """
         ###
@@ -146,7 +147,10 @@ class FlowGraph(DiGraph):
                     ins1.live_out = ins2.live_in
                     ins1.live_in = ins1.gen | (ins1.live_out - ins1.kill)
 
+                    for vreg in (ins2.live_in & ins1.live_out):
+                        self._live_ranges[vreg].append((ins1, ins2))
+
                     ins2 = ins1
 
-        self.logger.debug('Iterations: {} * {}'
-                          .format(n_iterations, len(self)))
+        self.logger.debug(
+            'Iterations: %s,  nodes: %s', n_iterations, len(self))

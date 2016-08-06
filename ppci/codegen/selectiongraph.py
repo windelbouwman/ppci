@@ -68,6 +68,12 @@ class SGValue:
         self.users = []
         self.vreg = None
 
+        # Indicator if a value needs a vreg or not:
+        # For example, a const does not want a vreg, and an
+        # framepointer + offset also does not want to be copied
+        # into a vreg!
+        self.wants_vreg = True  # Indicator if this value is expensive
+
     def src(self):
         """ Gets the originating node for this value """
         pass

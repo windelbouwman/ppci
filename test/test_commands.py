@@ -12,9 +12,10 @@ from ppci.commands import link
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
 from ppci.api import get_arch
-from util import relpath
+from util import relpath, do_long_tests
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class BuildTestCase(unittest.TestCase):
     """ Test the build command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -22,7 +23,8 @@ class BuildTestCase(unittest.TestCase):
     def test_build_command(self, mock_stdout, mock_stderr):
         """ Test normal use """
         _, report_file = tempfile.mkstemp()
-        build_file = relpath('..', 'examples', 'build.xml')
+        build_file = relpath(
+            '..', 'examples', 'lm3s6965evb', 'snake', 'build.xml')
         build(['-v', '--report', report_file, '-f', build_file])
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -42,6 +44,7 @@ class BuildTestCase(unittest.TestCase):
         self.assertIn('invalid log_level value', mock_stderr.getvalue())
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class C3cTestCase(unittest.TestCase):
     """ Test the c3c command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -73,7 +76,7 @@ class AsmTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_asm_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        src = relpath('..', 'examples', 'arduino', 'boot.asm')
+        src = relpath('..', 'examples', 'avr', 'arduino-blinky', 'boot.asm')
         asm(['-m', 'avr', '-o', obj_file, src])
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -84,6 +87,7 @@ class AsmTestCase(unittest.TestCase):
         self.assertIn('assemble', mock_stdout.getvalue())
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -95,13 +99,14 @@ class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_command(self, mock_stderr):
         _, obj_file = tempfile.mkstemp(suffix='.obj')
-        src = relpath('..', 'examples', 'arduino', 'boot.asm')
+        src = relpath('..', 'examples', 'avr', 'arduino-blinky', 'boot.asm')
         asm(['-m', 'avr', '-o', obj_file, src])
         with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
             objdump([obj_file])
             self.assertIn('SECTION', mock_stdout.getvalue())
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class ObjcopyTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -132,6 +137,7 @@ class ObjcopyTestCase(unittest.TestCase):
         self.assertEqual(data, exported_data)
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class LinkCommandTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -146,21 +152,21 @@ class LinkCommandTestCase(unittest.TestCase):
         _, obj1 = tempfile.mkstemp(suffix='.obj')
         _, obj2 = tempfile.mkstemp(suffix='.obj')
         _, obj3 = tempfile.mkstemp(suffix='.obj')
-        asm_src = relpath('..', 'examples', 'lm3s6965', 'startup.asm')
-        mmap = relpath('..', 'examples', 'lm3s6965', 'memlayout.mmap')
+        asm_src = relpath('..', 'examples', 'lm3s6965evb', 'startup.asm')
+        mmap = relpath('..', 'examples', 'lm3s6965evb', 'memlayout.mmap')
         c3_srcs = [
-            relpath('..', 'examples', 'snake', 'main.c3'),
-            relpath('..', 'examples', 'snake', 'game.c3'),
+            relpath('..', 'examples', 'src', 'snake', 'main.c3'),
+            relpath('..', 'examples', 'src', 'snake', 'game.c3'),
             relpath('..', 'librt', 'io.c3'),
-            relpath('..', 'examples', 'lm3s6965', 'bsp.c3'),
+            relpath('..', 'examples', 'lm3s6965evb', 'bsp.c3'),
             ]
         asm(['-m', 'arm', '--mtune', 'thumb', '-o', obj1, asm_src])
-        # TODO: this should raise an error? combining thumb with arm code?
         c3c(['-m', 'arm', '--mtune', 'thumb', '-o', obj2] + c3_srcs)
         link(
             ['-o', obj3, '-L', mmap, obj1, obj2])
 
 
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class HexutilTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_help(self, mock_stdout):
@@ -220,7 +226,7 @@ class YaccTestCase(unittest.TestCase):
     @patch('sys.stderr', new_callable=io.StringIO)
     def test_normal_use(self, mock_stdout, mock_stderr):
         """ Test normal yacc use """
-        grammar_file = relpath('..', 'ppci', 'burg.grammar')
+        grammar_file = relpath('..', 'ppci', 'codegen', 'burg.grammar')
         _, file1 = tempfile.mkstemp()
         yacc_cmd([grammar_file, '-o', file1])
         with open(file1, 'r') as f:
@@ -232,7 +238,7 @@ class DiagnosticsTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_error_reporting(self, mock_stdout):
         """ Simulate some errors into the diagnostics system """
-        filename = relpath('..', 'examples', 'snake', 'game.c3')
+        filename = relpath('..', 'examples', 'src', 'snake', 'game.c3')
         diag = DiagnosticsManager()
         with open(filename, 'r') as f:
             src = f.read()

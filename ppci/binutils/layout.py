@@ -52,6 +52,15 @@ class Section(Input):
         return 'Section({})'.format(self.section_name)
 
 
+class SectionData(Input):
+    """ Insert only the data of a section here, not the section itself """
+    def __init__(self, section_name):
+        self.section_name = section_name
+
+    def __repr__(self):
+        return 'SectionData({})'.format(self.section_name)
+
+
 class Align(Input):
     """ Align the current position to the given byte """
     def __init__(self, alignment):
@@ -71,13 +80,15 @@ class SymbolDefinition(Input):
 
 class LayoutLexer(BaseLexer):
     """ Lexer for layout files """
-    kws = ['MEMORY', 'ALIGN', 'LOCATION', 'SECTION', 'SIZE', 'DEFINESYMBOL']
+    kws = [
+        'MEMORY', 'ALIGN', 'LOCATION', 'SECTION', 'SECTIONDATA',
+        'SIZE', 'DEFINESYMBOL']
 
     def __init__(self):
         tok_spec = [
            ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
            ('NUMBER', r'\d+', self.handle_number),
-           ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
+           ('ID', r'[_A-Za-z][_A-Za-z\d_]*', self.handle_id),
            ('SKIP', r'[ \t\r\n]', None),
            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
                lambda typ, val: (val, val)),
@@ -115,6 +126,8 @@ class LayoutParser:
             'input', ['SECTION', '(', 'ID', ')'], self.handle_section)
         g.add_production(
             'input', ['DEFINESYMBOL', '(', 'ID', ')'], self.handle_defsym)
+        g.add_production(
+            'input', ['SECTIONDATA', '(', 'ID', ')'], self.handle_section_data)
 
         g.start_symbol = 'layout'
         self.p = LrParserBuilder(g).generate_parser()
@@ -137,6 +150,9 @@ class LayoutParser:
 
     def handle_section(self, section_tag, lbrace, section_name, rbrace):
         return Section(section_name.val)
+
+    def handle_section_data(self, section_tag, lbrace, section_name, rbrace):
+        return SectionData(section_name.val)
 
     def handle_defsym(self, section_tag, lbrace, name, rbrace):
         return SymbolDefinition(name.val)

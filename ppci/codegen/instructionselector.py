@@ -22,7 +22,8 @@ size_classes = [8, 16, 32, 64]
 ops = [
     'ADD', 'SUB', 'MUL', 'DIV', 'REM',
     'OR', 'SHL', 'SHR', 'AND', 'XOR',
-    'MOV', 'REG', 'LDR', 'STR', 'CONST']
+    'MOV', 'REG', 'LDR', 'STR', 'CONST',
+    'I8TO', 'I16TO', 'I32TO', 'I64TO']
 
 # Add all possible terminals:
 
@@ -32,11 +33,16 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
              "EXIT", "ENTRY")
 
 
-class InstructionContext:
+class ContextInterface:
+    def emit(self, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class InstructionContext(ContextInterface):
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, target, debug_db):
+    def __init__(self, frame, arch, debug_db):
         self.frame = frame
-        self.target = target
+        self.arch = arch
         self.debug_db = debug_db
         self.tree = None
 
@@ -44,15 +50,21 @@ class InstructionContext:
         """ Generate a new temporary of a given class """
         return self.frame.new_reg(cls)
 
+    def new_label(self):
+        """ Generate a new unique label """
+        return self.frame.new_label()
+
     def move(self, dst, src):
         """ Generate move """
-        self.emit(self.target.move(dst, src))
+        self.emit(self.arch.move(dst, src))
 
-    def gen_call(self, label, arg_types, res_type, args, res_var):
+    def gen_call(self, value):
         """ generate call for function into self """
-        for instruction in self.target.gen_call(
-                label, arg_types, res_type, args, res_var):
+        for instruction in self.arch.gen_call(value):
             self.emit(instruction)
+        if len(value) == 5:
+            res_var = value[-1]
+            return res_var
 
     def emit(self, *args, **kwargs):
         """ Abstract instruction emitter proxy """
@@ -138,7 +150,16 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, isa, arch, sgraph_builder, debug_db):
+    def __init__(self, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
+        """
+            Create a new instruction selector.
+
+            Weights can be given to select instructions given more for:
+            - size
+            - execution cycles
+            - or energy
+            respectively.
+        """
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
         self.arch = arch
@@ -154,13 +175,17 @@ class InstructionSelector1:
         self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
         self.sys.add_rule(
             'stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
+        self.sys.add_rule(
+            'stm', Tree('reg16'), 0, None, lambda ct, tr, rg: None)
 
         for terminal in terminals:
             self.sys.add_terminal(terminal)
 
         # Add all isa patterns:
-        for pattern in isa.patterns:
-            cost = pattern.size + pattern.cycles + pattern.energy
+        for pattern in arch.isa.patterns:
+            cost = pattern.size * weights[0] + \
+                   pattern.cycles * weights[1] + \
+                   pattern.energy * weights[2]
             self.sys.add_rule(
                 pattern.non_term, pattern.tree, cost,
                 pattern.condition, pattern.method)
@@ -170,7 +195,7 @@ class InstructionSelector1:
 
     def select(self, ir_function, frame, reporter):
         """ Select instructions of function into a frame """
-        assert isinstance(ir_function, ir.Function)
+        assert isinstance(ir_function, ir.SubRoutine)
         self.logger.debug('Creating selection dag for %s', ir_function.name)
 
         # Create a object that carries global function info:
@@ -182,7 +207,6 @@ class InstructionSelector1:
 
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(ir_function, function_info)
-        reporter.message('Selection graph for {}'.format(ir_function))
         reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into trees:
@@ -199,11 +223,12 @@ class InstructionSelector1:
             self.munch_trees(context, trees)
 
             # Emit code between blocks:
-            frame.between_blocks()
+            for instruction in self.arch.between_blocks(frame):
+                frame.emit(instruction)
 
-        # Generate code for return statement:
-        # TODO: return value must be implemented in some way..
-        # self.munchStm(ir.Move(self.frame.rv, f.return_value))
+        # Emit epilog label here, maybe not the right place?
+        # TODO!!
+        context.emit(function_info.epilog_label)
 
     def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.
@@ -221,4 +246,8 @@ class InstructionSelector1:
         # Match all splitted trees:
         for tree in trees:
             # Invoke dynamic programming matcher machinery:
-            self.tree_selector.gen(context, tree)
+            self.gen_tree(context, tree)
+
+    def gen_tree(self, context, tree):
+        """ Generate code from a tree """
+        self.tree_selector.gen(context, tree)

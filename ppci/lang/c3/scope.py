@@ -4,6 +4,7 @@
     A context is the space where the whole program lives.
 """
 
+import operator
 from ...common import CompilerError
 from .astnodes import Constant, Variable, Function, BaseType, Symbol
 from .astnodes import ArrayType, StructureType, DefinedType, PointerType
@@ -85,7 +86,7 @@ class Scope:
         return 'Scope with {} symbols'.format(len(self.symbols))
 
 
-def create_top_scope(target):
+def create_top_scope(arch):
     """ Create a scope that is the root of the scope tree. This includes
         the built-in types """
     scope = Scope()
@@ -97,11 +98,12 @@ def create_top_scope(target):
     scope.add_symbol(BaseType('uint8_t', 1))
 
     # buildin types:
-    int_type = BaseType('int', target.byte_sizes['int'])
+    int_type = BaseType('int', arch.byte_sizes['int'])
     scope.add_symbol(int_type)
     scope.add_symbol(BaseType('double', 8))
+    scope.add_symbol(BaseType('float', 4))
     scope.add_symbol(BaseType('void', 0))
-    scope.add_symbol(BaseType('bool', target.byte_sizes['int']))
+    scope.add_symbol(BaseType('bool', arch.byte_sizes['int']))
     byte_type = BaseType('byte', 1)
     scope.add_symbol(byte_type)
 
@@ -119,13 +121,13 @@ class Context:
         It is actually the container of modules and the top
         level scope.
     """
-    def __init__(self, target):
-        self.scope = create_top_scope(target)
+    def __init__(self, arch):
+        self.scope = create_top_scope(arch)
         self.module_map = {}
         self.const_map = {}
         self.var_map = {}    # Maps variables to storage locations.
         self.const_workset = set()
-        self.pointerSize = 4  # TODO: this must be variable!
+        self.pointerSize = arch.byte_sizes['ptr']
 
     def has_module(self, name):
         """ Check if a module with the given name exists """
@@ -203,18 +205,14 @@ class Context:
         elif isinstance(expr, ast.Binop):
             a = self.eval_const(expr.a)
             b = self.eval_const(expr.b)
-            if expr.op == '+':
-                return a + b
-            elif expr.op == '-':
-                return a - b
-            elif expr.op == '*':
-                return a * b
-            elif expr.op == '/':
-                return a / b
-            elif expr.op == '%':
-                return a % b
-            else:
-                raise NotImplementedError()
+            ops = {
+                '+': operator.add,
+                '-': operator.sub,
+                '/': operator.truediv,
+                '*': operator.mul,
+                '%': operator.mod,
+                }
+            return ops[expr.op](a, b)
         elif isinstance(expr, ast.TypeCast):
             a = self.eval_const(expr.a)
             if self.equal_types('int', expr.to_type):
@@ -243,10 +241,16 @@ class Context:
         """
         intType = self.get_type('int')
         byteType = self.get_type('byte')
+        floatType = self.get_type('float')
+        doubleType = self.get_type('double')
         table = {
             (intType, intType): intType,
             (intType, byteType): intType,
+            (intType, doubleType): doubleType,
+            (floatType, doubleType): doubleType,
+            (doubleType, floatType): doubleType,
             (byteType, intType): intType,
+            (byteType, byteType): byteType,
             (byteType, byteType): byteType,
             (intType, ast.PointerType): intType,
             }

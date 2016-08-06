@@ -1,5 +1,4 @@
 
-
 Introduction
 ============
 
@@ -63,47 +62,17 @@ Documentation
 
 Documentation can be found here:
 
-- http://ppci.readthedocs.org/
+- https://ppci.readthedocs.io/
 
 
 |dronestate|_
 |appveyor|_
 |codecov|_
 |docstate|_
-|version|_
-|devstate|_
-|pyimpls|_
-|pyversions|_
-|license|_
-|downloads|_
 
 
-.. |codecov| image:: https://codecov.io/bitbucket/windel/ppci/coverage.svg?branch=default
-.. _codecov: https://codecov.io/bitbucket/windel/ppci?branch=default
-
-
-.. |downloads| image:: https://img.shields.io/pypi/dm/ppci.png
-.. _downloads: https://pypi.python.org/pypi/ppci
-
-
-.. |version| image:: https://img.shields.io/pypi/v/ppci.png
-.. _version: https://pypi.python.org/pypi/ppci
-
-
-.. |license| image:: https://img.shields.io/pypi/l/ppci.png
-.. _license: https://pypi.python.org/pypi/ppci
-
-
-.. |devstate| image:: https://img.shields.io/pypi/status/ppci.png
-.. _devstate: https://pypi.python.org/pypi/ppci
-
-
-.. |pyversions| image:: https://img.shields.io/pypi/pyversions/ppci.png
-.. _pyversions: https://pypi.python.org/pypi/ppci
-
-
-.. |pyimpls| image:: https://img.shields.io/pypi/implementation/ppci.png
-.. _pyimpls: https://pypi.python.org/pypi/ppci
+.. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
+.. _codecov: https://codecov.io/bb/windel/ppci/branch/default
 
 
 .. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
@@ -115,4 +84,4 @@ Documentation can be found here:
 
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
-.. _docstate: https://ppci.readthedocs.org/en/latest
+.. _docstate: https://ppci.readthedocs.io/en/latest

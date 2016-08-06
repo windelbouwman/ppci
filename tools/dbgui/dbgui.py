@@ -4,25 +4,16 @@
     Debug user interface for debugging.
 """
 
-import sys
 import logging
-
 from qtwrapper import QtGui, QtCore, QtWidgets, pyqtSignal, get_icon
 from qtwrapper import abspath, Qt
-
-import ppci.api
-import ppci.common
-from ppci.binutils.dbg import Debugger
-from ppci.binutils import debuginfo
-
 from codeedit import CodeEdit
 from logview import LogView as BuildOutput
 from regview import RegisterView
 from memview import MemoryView
+from varview import VariablesView, LocalsView
 from disasm import Disassembly
 from dbgtoolbar import DebugToolbar
-from connectiontoolbar import ConnectionToolbar
-from linux64debugserver import LinuxDebugDriver
 
 
 class BuildErrors(QtWidgets.QTreeView):
@@ -61,79 +52,6 @@ class BuildErrors(QtWidgets.QTreeView):
         item = self.model.itemFromIndex(index)
         err = item.data()
         self.sigErrorSelected.emit(err)
-
-
-class VariableModel(QtCore.QAbstractItemModel):
-    """ Model that contains a view on the current values of variables """
-    def __init__(self, debugger):
-        super().__init__()
-        self.debugger = debugger
-        self.debugger.state_event.subscribe(self.on_state_changed)
-        print(self.debugger.obj)
-        self.headers = ('Name', 'Value', 'Type')
-
-    def on_state_changed(self):
-        if self.debugger.is_halted:
-            from_index = self.index(0, 1)
-            variables = self.debugger.obj.debug_info.variables
-            to_index = self.index(len(variables) - 1, 1)
-            self.dataChanged.emit(from_index, to_index)
-
-    def rowCount(self, parent):
-        variables = self.debugger.obj.debug_info.variables
-        if not parent.isValid():
-            # Root level:
-            return len(variables)
-        node = parent.internalPointer()
-        print(node)
-        if isinstance(node, debuginfo.DebugVariable):
-            pass
-        return 0
-
-    def columnCount(self, parent):
-        if parent.isValid():
-            return 0
-        return len(self.headers)
-
-    def index(self, row, column, parent=QtCore.QModelIndex()):
-        variables = self.debugger.obj.debug_info.variables
-        if not parent.isValid():
-            # Root stuff:
-            var = variables[row]
-            return self.createIndex(row, column, var)
-        raise RuntimeError('Not possible!')
-
-    def parent(self, index):
-        if not index.isValid():
-            return QtCore.QModelIndex()
-        return QtCore.QModelIndex()
-
-    def headerData(self, section, orientation, role):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.headers[section]
-
-    def data(self, index, role):
-        if not index.isValid():
-            return
-        row, col = index.row(), index.column()
-        variables = self.debugger.obj.debug_info.variables
-        if role == Qt.DisplayRole:
-            var = variables[row]
-            if col == 0:
-                return var.name
-            elif col == 1:
-                return ''
-            elif col == 2:
-                return str(var.typ)
-            else:
-                raise NotImplementedError()
-
-
-class Locals(QtWidgets.QTreeView):
-    def __init__(self, debugger):
-        super().__init__()
-        model = VariableModel(debugger)
-        self.setModel(model)
 
 
 class AboutDialog(QtWidgets.QDialog):
@@ -188,7 +106,8 @@ class DebugUi(QtWidgets.QMainWindow):
         self.regview = addComponent('Registers', RegisterView(debugger))
         self.memview = addComponent('Memory', MemoryView(debugger))
         self.disasm = addComponent('Disasm', Disassembly(debugger))
-        self.locals = addComponent('Locals', Locals(debugger))
+        self.variables = addComponent('Variables', VariablesView(debugger))
+        self.locals = addComponent('Locals', LocalsView(debugger))
         self.ctrlToolbar = DebugToolbar(debugger)
         self.addToolBar(self.ctrlToolbar)
         self.ctrlToolbar.setObjectName('debugToolbar')
@@ -236,7 +155,8 @@ class DebugUi(QtWidgets.QMainWindow):
             with open(filename) as f:
                 ce.Source = f.read()
                 ce.FileName = filename
-                possible_breakpoints = self.debugger.get_possible_breakpoints(filename)
+                possible_breakpoints = self.debugger.get_possible_breakpoints(
+                    filename)
                 ce.set_possible_breakpoints(possible_breakpoints)
             return ce
         except Exception as e:
@@ -262,6 +182,13 @@ class DebugUi(QtWidgets.QMainWindow):
             if wid.filename == filename:
                 self.mdiArea.setActiveSubWindow(sub_window)
                 return wid
+
+    def open_all_source_files(self):
+        """ Open all debugged source files """
+        for location in self.debugger.debug_info.locations:
+            filename = location.loc.filename
+            if not self.find_mdi_child(filename):
+                self.load_file(filename)
 
     # Settings:
     def loadSettings(self):
@@ -300,28 +227,3 @@ class DebugUi(QtWidgets.QMainWindow):
             if res:
                 filename, row = res
                 self.show_loc(filename, row, 1)
-
-
-if __name__ == '__main__':
-    # dut = '../../test/listings/testsamplesTestSamplesOnX86Linuxtestswdiv.elf'
-
-    # Hello:
-    dut = '../../examples/linux64/hello/hello'
-    obj = '../../examples/linux64/hello/hello.elf'
-
-    # Snake:
-    #dut = '../../examples/linux64/snake/snake'
-    #obj = '../../examples/linux64/snake/snake.elf'
-
-    logging.basicConfig(format=ppci.common.logformat, level=logging.DEBUG)
-    app = QtWidgets.QApplication(sys.argv)
-    # TODO: couple this other way, and make it configurable:
-    linux_specific = LinuxDebugDriver()
-    linux_specific.go_for_it([dut])
-    debugger = Debugger('x86_64', linux_specific)
-    debugger.load_symbols(obj)
-    ui = DebugUi(debugger)
-    ui.show()
-    ui.logger.info('IDE started')
-    app.exec_()
-    debugger.shutdown()

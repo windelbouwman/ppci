@@ -12,12 +12,15 @@ import glob
 task_map = {}
 
 
-def register_task(name):
-    """ Decorator that registers a task class """
-    def wrapper(cls):
-        task_map[name] = cls
-        return cls
-    return wrapper
+def register_task(cls):
+    """ Decorator that registers a task class under its logical name """
+    assert isinstance(cls, type)
+    fullname = cls.__name__.lower()
+    assert fullname.endswith('task')
+    name = fullname[:-4]
+    assert name
+    task_map[name] = cls
+    return cls
 
 
 class TaskError(Exception):
@@ -149,7 +152,8 @@ class Task:
             new_files = glob.glob(self.relpath(part))
             if not new_files:
                 raise TaskError('{} not found'.format(part))
-            file_names += new_files
+            for filename in new_files:
+                file_names.append(os.path.normpath(filename))
         return file_names
 
     def run(self):  # pragma: no cover

@@ -9,28 +9,21 @@ import platform
 import argparse
 import logging
 import importlib
-
-# Try to install the ipython traceback in case of an exception:
-try:
-    from IPython.core import ultratb
-
-    sys.excepthook = ultratb.FormattedTB(
-        mode='Verbose', color_scheme='Linux', call_pdb=1)
-except ImportError:
-    pass
+import io
 
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import load_object, print_object
 from .tasks import TaskError
-from . import version, api
+from . import __version__, api
 from .common import logformat
 from .arch.target_list import target_names, create_arch
-from .binutils.dbg import Debugger, DebugCli
+from .binutils.dbg import Debugger
+from .binutils.dbg_cli import DebugCli
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
-    version, platform.python_implementation(), platform.python_version())
+    __version__, platform.python_implementation(), platform.python_version())
 
 
 def log_level(s):
@@ -65,14 +58,17 @@ base_parser.add_argument(
     help='Display version and exit')
 
 
-base2_parser = argparse.ArgumentParser(add_help=False)
-base2_parser.add_argument(
+march_parser = argparse.ArgumentParser(add_help=False)
+march_parser.add_argument(
     '--machine', '-m', help='target architecture', required=True,
     choices=target_names, action=OnceAction)
-base2_parser.add_argument(
+march_parser.add_argument(
     '--mtune', help='architecture option', default=[],
     metavar='option', action='append')
-base2_parser.add_argument(
+
+
+out_parser = argparse.ArgumentParser(add_help=False)
+out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
     type=argparse.FileType('w'), required=True, action=OnceAction)
 
@@ -128,7 +124,8 @@ includes. C3 includes have the same format as c3 source files, but do not
 result in any code.
 """
 c3c_parser = argparse.ArgumentParser(
-    description=c3c_description, parents=[base_parser, base2_parser])
+    description=c3c_description,
+    parents=[base_parser, march_parser, out_parser])
 c3c_parser.add_argument(
     '-i', '--include', action='append', metavar='include',
     help='include file', default=[])
@@ -137,7 +134,7 @@ c3c_parser.add_argument(
 c3c_parser.add_argument(
     '-g', help='create debug information', action='store_true', default=False)
 c3c_parser.add_argument(
-    '-O', help='optimize code', action='store_true', default=False)
+    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
 def c3c(args=None):
@@ -157,7 +154,7 @@ cc_description = """
 C compiler.
 """
 cc_parser = argparse.ArgumentParser(
-    description=cc_description, parents=[base_parser, base2_parser])
+    description=cc_description, parents=[base_parser, march_parser, out_parser])
 cc_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
 
@@ -182,7 +179,11 @@ asm_description = """
 Assembler utility.
 """
 asm_parser = argparse.ArgumentParser(
-    description=asm_description, parents=[base_parser, base2_parser])
+    description=asm_description,
+    parents=[base_parser, march_parser, out_parser])
+asm_parser.add_argument(
+    '-g', '--debug', help='create debug information',
+    action='store_true', default=False)
 asm_parser.add_argument(
     'sourcefile', type=argparse.FileType('r'),
     help='the source file to assemble')
@@ -194,24 +195,38 @@ def asm(args=None):
     with LogSetup(args):
         # Assemble source:
         march = get_arch_from_args(args)
-        obj = api.asm(args.sourcefile, march)
+        obj = api.asm(args.sourcefile, march, debug=args.debug)
 
         # Write object file to disk:
         obj.save(args.output)
         args.output.close()
 
 
+disasm_description = """
+Disassembler utility.
+"""
+disasm_parser = argparse.ArgumentParser(
+    description=disasm_description, parents=[base_parser, march_parser])
+disasm_parser.add_argument(
+    'binfile', type=argparse.FileType('rb'),
+    help='the source file to assemble')
+
+
+def disasm(args=None):
+    """ Run asm from command line """
+    args = disasm_parser.parse_args(args)
+    with LogSetup(args):
+        # Assemble source:
+        march = get_arch_from_args(args)
+        api.disasm(args.binfile, march)
+
+
 dbg_description = """
 Debugger command line utility.
 """
 
-dbg_parser = argparse.ArgumentParser(description=dbg_description)
-dbg_parser.add_argument(
-    '--machine', '-m', help='target architecture', required=True,
-    choices=target_names, action=OnceAction)
-dbg_parser.add_argument(
-    '--mtune', help='architecture option', default=[],
-    metavar='option', action='append')
+dbg_parser = argparse.ArgumentParser(
+    description=dbg_description, parents=(march_parser, base_parser))
 dbg_parser.add_argument(
     '--driver',
     help='debug driver to use. Specify in the format: module:class',
@@ -221,14 +236,15 @@ dbg_parser.add_argument(
 def dbg(args=None):
     """ Run dbg from command line """
     args = dbg_parser.parse_args(args)
-    march = get_arch_from_args(args)
-    driver_module_name, driver_class_name = args.driver.split(':')
-    driver_module = importlib.import_module(driver_module_name)
-    driver_class = getattr(driver_module, driver_class_name)
-    driver = driver_class()
-    debugger = Debugger(march, driver)
-    cli = DebugCli(debugger)
-    cli.cmdloop()
+    with LogSetup(args):
+        march = get_arch_from_args(args)
+        driver_module_name, driver_class_name = args.driver.split(':')
+        driver_module = importlib.import_module(driver_module_name)
+        driver_class = getattr(driver_module, driver_class_name)
+        driver = driver_class()
+        debugger = Debugger(march, driver)
+        cli = DebugCli(debugger)
+        cli.cmdloop()
 
 
 link_description = """
@@ -236,16 +252,13 @@ Linker. Use the linker to combine several object files and a memory layout
 to produce another resulting object file with images.
 """
 link_parser = argparse.ArgumentParser(
-    description=link_description, parents=[base_parser])
+    description=link_description, parents=[base_parser, out_parser])
 link_parser.add_argument(
     'obj', type=argparse.FileType('r'), nargs='+',
     help='the object to link')
 link_parser.add_argument(
     '--layout', '-L', help='memory layout', default=None,
     type=argparse.FileType('r'), metavar='layout-file')
-link_parser.add_argument(
-    '--output', '-o', help='output file', metavar='output-file',
-    type=argparse.FileType('w'), required=True, action=OnceAction)
 link_parser.add_argument(
     '-g', help='retain debug information', action='store_true', default=False)
 
@@ -258,6 +271,7 @@ def link(args=None):
         obj.save(args.output)
         args.output.close()
 
+
 objdump_description = """
 Objdump utility to display the contents of object files.
 """
@@ -265,6 +279,8 @@ objdump_parser = argparse.ArgumentParser(
     description=objdump_description, parents=[base_parser])
 objdump_parser.add_argument(
     'obj', help='object file', type=argparse.FileType('r'))
+objdump_parser.add_argument(
+    '-d', '--disassemble', help='Disassemble contents', action='store_true', default=False)
 
 
 def objdump(args=None):
@@ -274,6 +290,12 @@ def objdump(args=None):
         obj = load_object(args.obj)
         args.obj.close()
         print_object(obj)
+        if args.disassemble:
+            for section in obj.sections:
+                print(section.name)
+                f = io.BytesIO(section.data)
+                api.disasm(f, obj.arch)
+
 
 objcopy_description = """
 Objcopy utility to manipulate object files.

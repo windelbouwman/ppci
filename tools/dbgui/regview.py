@@ -6,24 +6,21 @@ class RegisterModel(QtCore.QAbstractTableModel):
     def __init__(self, debugger):
         super().__init__()
         self.debugger = debugger
-        self.debugger.connection_event.subscribe(self.on_connection)
+        self._registers = self.debugger.registers
         self.debugger.state_event.subscribe(self.on_state_changed)
         self.headers = ('Register', 'Value')
         self.on_state_changed()
 
-    def on_connection(self):
-        self.modelReset.emit()
-
     def on_state_changed(self):
         if self.debugger.is_halted:
             from_index = self.index(0, 1)
-            to_index = self.index(len(self.debugger.register_names) - 1, 1)
+            to_index = self.index(len(self._registers) - 1, 1)
             self.dataChanged.emit(from_index, to_index)
 
     def rowCount(self, parent):
         if parent.isValid():
             return 0
-        return len(self.debugger.register_names)
+        return len(self._registers)
 
     def columnCount(self, parent):
         if parent.isValid():
@@ -38,11 +35,11 @@ class RegisterModel(QtCore.QAbstractTableModel):
         if index.isValid():
             row, col = index.row(), index.column()
             if role == Qt.DisplayRole:
-                reg_name = self.debugger.register_names[row]
+                reg = self._registers[row]
                 if col == 0:
-                    return reg_name
+                    return reg.name
                 elif col == 1:
-                    register_value = self.debugger.register_values[reg_name]
+                    register_value = self.debugger.register_values[reg]
                     return '0x{0:X}'.format(register_value)
 
     def setData(self, index, value, role):
@@ -51,8 +48,8 @@ class RegisterModel(QtCore.QAbstractTableModel):
             col = index.column()
             if role == Qt.EditRole and col == 1:
                 value = int(value, 16)
-                register_name = self.debugger.register_name[row]
-                self.debugger.set_register(register_name, value)
+                register = self._registers[row]
+                self.debugger.set_register(register, value)
                 return True
         return False
 
@@ -70,7 +67,6 @@ class RegisterView(QtWidgets.QTableView):
         self.mdl = RegisterModel(debugger)
         self.setModel(self.mdl)
         self.debugger = debugger
-        self.debugger.connection_event.subscribe(self.update_state)
         self.debugger.state_event.subscribe(self.update_state)
         self.update_state()
         self.horizontalHeader().setStretchLastSection(True)

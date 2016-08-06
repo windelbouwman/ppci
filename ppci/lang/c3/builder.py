@@ -4,14 +4,15 @@
 
 import logging
 import collections
-from ...common import CompilerError
+import io
+from ...common import CompilerError, DiagnosticsManager
 from ...irutils import Verifier
 from ...opt.mem2reg import Mem2RegPromotor
+from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
 from .scope import Context, SemanticError
-from ...binutils.debuginfo import DebugDb
 
 
 class C3Builder:
@@ -19,15 +20,16 @@ class C3Builder:
         Generates IR-code from c3 source.
         Reports errors to the diagnostics system.
     """
+    logger = logging.getLogger('c3')
+
     def __init__(self, diag, arch):
-        self.logger = logging.getLogger('c3')
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
         self.debug_db = DebugDb()
         self.codegen = CodeGenerator(diag, self.debug_db)
         self.verifier = Verifier()
-        self.target = arch
+        self.arch = arch
 
     def build(self, srcs, imps=()):
         """
@@ -42,7 +44,7 @@ class C3Builder:
             'Building %d sources and %d includes', len(srcs), len(imps))
 
         # Create a context where the modules can live:
-        context = Context(self.target)
+        context = Context(self.arch)
 
         # Phase 1: Lexing and parsing stage
         for src in srcs:
@@ -89,10 +91,38 @@ class C3Builder:
 
     def check_control_flow(self, ir_module):
         pas = Mem2RegPromotor(self.debug_db)
-        pas.run(ir_module)
+        # pas.run(ir_module)
         self.verifier.verify(ir_module)
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """
         tokens = self.lexer.lex(src)
         self.parser.parse_source(tokens, context)
+
+
+def parse_expr(src):
+    """ Parse a c3 expression from a string """
+    parser = C3ExprParser()
+    return parser.parse(src)
+
+
+class C3ExprParser:
+    """
+        Generates IR-code from c3 source.
+        Reports errors to the diagnostics system.
+    """
+    def __init__(self, arch):
+        self.logger = logging.getLogger('c3')
+        diag = DiagnosticsManager()
+        self.diag = diag
+        self.arch = arch
+        self.lexer = Lexer(diag)
+        self.parser = Parser(diag)
+
+    def parse(self, src, context):
+        """ Parse an expression """
+        self.parser.current_scope = context.scope
+        tokens = self.lexer.lex(io.StringIO(src))
+        self.parser.init_lexer(tokens)
+        expr = self.parser.parse_expression()
+        return expr

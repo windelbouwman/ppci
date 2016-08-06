@@ -5,22 +5,27 @@
 
 from .isa import Instruction, Syntax
 from .arch import Architecture, Frame
-from .isa import register_argument, Register
+from .isa import register_argument, Register, RegisterClass
 from ..import ir
 
 
 class ExampleArch(Architecture):
+    """ Simple example architecture. This is intended as starting point
+    when creating a new backend """
     name = 'example'
     FrameClass = Frame
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        self.value_classes[ir.i32] = ExampleRegister
-        self.value_classes[ir.ptr] = ExampleRegister
         self.byte_sizes['int'] = 4
         self.byte_sizes['ptr'] = 4
+        self.register_classes = [
+            RegisterClass(
+                'reg', [ir.i32, ir.ptr], ExampleRegister, [R0, R1, R2, R3])
+            ]
+        self.gdb_registers = gdb_registers
 
-    def determine_arg_locations(self, arg_types, ret_type):
+    def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
         """
         arg_locs = []
@@ -30,19 +35,19 @@ class ExampleArch(Architecture):
             r = regs.pop(0)
             arg_locs.append(r)
             live_in.add(r)
+        return arg_locs, tuple(live_in)
+
+    def determine_rv_location(self, ret_type):
         live_out = set()
         rv = R0
         live_out.add(rv)
-        return arg_locs, tuple(live_in), rv, tuple(live_out)
-
-    def get_register(self, n):
-        regs = [R0, R1, R2, R3, R4, R5, R6]
-        mp = {r.num: r for r in regs}
-        return mp[n]
+        return rv, tuple(live_out)
 
 
 class ExampleRegister(Register):
+    """ Example register class """
     bitsize = 32
+
 
 R0 = ExampleRegister('r0', 0)
 R1 = ExampleRegister('r1', 1)
@@ -52,6 +57,7 @@ R4 = ExampleRegister('r4', 4)
 R5 = ExampleRegister('r5', 5)
 R6 = ExampleRegister('r6', 6)
 
+gdb_registers = (R0, R1, R2)
 
 class TestInstruction(Instruction):
     """ Base class for all example instructions """

@@ -4,21 +4,20 @@
 
     <target name="hello">
         <assemble
-            target="x86_64"
+            arch="x86_64"
             source="../glue.asm"
-            output="glue.o" />
+            output="glue.oj" />
 
         <compile
-            target="x86_64"
-            sources="hello.c3;../../../librt/io.c3;../bsp.c3"
-            output="rest.o"
+            arch="x86_64"
+            sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
             report="report.html"/>
 
         <link
-            target="x86_64"
             output="hello.elf"
             layout="../linux64.mmap"
-            objects="glue.o;rest.o"
+            objects="glue.oj;rest.oj"
             debug="true" />
 
         <objcopy

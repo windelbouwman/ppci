@@ -21,11 +21,7 @@ class LogModel(QtCore.QAbstractTableModel):
         super().__init__()
         self.entries = []
         self.headers = ['Time', 'Level', 'Logger', 'Message']
-        self.txts = []
-        self.txts.append(lambda e: str(formatTime(e.created)))
-        self.txts.append(lambda e: str(e.levelname))
-        self.txts.append(lambda e: str(e.name))
-        self.txts.append(lambda e: str(e.msg))
+        self.formatter = logging.Formatter()
 
     def rowCount(self, parent):
         return len(self.entries)
@@ -38,16 +34,34 @@ class LogModel(QtCore.QAbstractTableModel):
             return
         row, col = index.row(), index.column()
         if role == Qt.DisplayRole:
-            le = self.entries[row]
-            return self.txts[col](le)
+            return self.entries[row][col]
 
     def headerData(self, section, orientation, role):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.headers[section]
 
     def new_log(self, x):
-        self.entries.append(x)
+        txts = []
+        txts.append(lambda e: str(formatTime(e.created)))
+        txts.append(lambda e: str(e.levelname))
+        txts.append(lambda e: str(e.name))
+        txts.append(self.formatter.format)
+        self.entries.append([txt(x) for txt in txts])
         self.modelReset.emit()
+
+
+class MyHandler(logging.Handler):
+    """ Custom log handler that appends log messages to logview """
+    def __init__(self, tv, log_model):
+        super().__init__()
+        self.tv = tv
+        self.log_model = log_model
+
+    def emit(self, x):
+        self.log_model.new_log(x)
+        self.tv.scrollToBottom()
+        for i in range(3):
+            self.tv.resizeColumnToContents(i)
 
 
 class LogView(QtWidgets.QWidget):
@@ -58,17 +72,9 @@ class LogView(QtWidgets.QWidget):
         self.tv = QtWidgets.QTableView(self)
         self.tv.horizontalHeader().setStretchLastSection(True)
         l.addWidget(self.tv)
-        self.lm = LogModel()
-        self.tv.setModel(self.lm)
-
-        class MyHandler(logging.Handler):
-            def emit(self2, x):
-                self.lm.new_log(x)
-                self.tv.scrollToBottom()
-                for i in range(3):
-                    self.tv.resizeColumnToContents(i)
-
-        logging.getLogger().addHandler(MyHandler())
+        self.log_model = LogModel()
+        self.tv.setModel(self.log_model)
+        logging.getLogger().addHandler(MyHandler(self.tv, self.log_model))
 
 
 if __name__ == '__main__':

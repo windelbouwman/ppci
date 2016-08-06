@@ -1,0 +1,4 @@
+
+MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
+MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
+MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }

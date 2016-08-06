@@ -9,9 +9,10 @@ from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
-from ..arch.arch import Label, Alignment
+from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
 from ..arch.isa import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
+from .debuginfo import DebugLocation, DebugDb
 
 id_regex = r'[A-Za-z_][A-Za-z\d_\.]*'
 id_matcher = re.compile(id_regex)
@@ -24,7 +25,6 @@ class AsmLexer(BaseLexer):
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
-            ('LABEL', id_regex + ':', lambda typ, val: (typ, val)),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r':=|[,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
@@ -62,12 +62,12 @@ class AsmParser:
 
         # Global structure of assembly line:
         self.g.add_production('asmline', ['asmline2'])
-        self.g.add_production('asmline', ['asmline2', 'COMMENT'])
+        # self.g.add_production('asmline', ['asmline2', 'COMMENT'])
         self.g.add_production(
             'asmline2',
-            ['LABEL', 'instruction'], self.handle_label_ins)
+            ['$str$', ':', 'instruction'], self.handle_label_ins)
         self.g.add_production('asmline2', ['instruction'], self.handle_ins)
-        self.g.add_production('asmline2', ['LABEL'], self.handle_label)
+        self.g.add_production('asmline2', ['$str$', ':'], self.handle_label)
         self.g.add_production('asmline2', ['directive'])
         self.g.add_production('asmline2', [])
         self.g.start_symbol = 'asmline'
@@ -76,11 +76,11 @@ class AsmParser:
         if i:
             self.emit(i)
 
-    def handle_label(self, i1):
-        self.emit(Label(i1.val[:-1]))
+    def handle_label(self, i1, _):
+        self.emit(Label(i1))
 
-    def handle_label_ins(self, i1, i2):
-        self.emit(Label(i1.val[:-1]))
+    def handle_label_ins(self, i1, _, i2):
+        self.emit(Label(i1))
         if i2:
             self.emit(i2)
 
@@ -115,12 +115,12 @@ class BaseAssembler:
         # num = register_argument('amount',
         self.add_instruction(
             ['align', self.int_id], lambda rhs: Alignment(rhs[1]))
+        self.add_instruction(
+            ['section', self.str_id], lambda rhs: SectionInstruction(rhs[1]))
         self.add_rule('directive', ['repeat', self.int_id], self.p_repeat)
         self.add_rule('directive', ['endrepeat'], self.p_endrepeat)
-        self.add_rule('directive', ['section', self.str_id], self.p_section)
         self.add_keyword('repeat')
         self.add_keyword('endrepeat')
-        self.add_keyword('section')
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
@@ -267,7 +267,7 @@ class BaseAssembler:
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
             raise CompilerError('Unable to assemble: {}'.format(line), loc)
 
-    def assemble(self, asmsrc, stream, diag):
+    def assemble(self, asmsrc, stream, diag, debug=False):
         """ Assemble the source snippet into the given output stream """
         self.stream = stream
 
@@ -287,9 +287,21 @@ class BaseAssembler:
         # Split lines on \n.
         # Strip remaining \r if present.
         self.line_no = 0
+        debug_data = []
+        debug_db = DebugDb()
         for line in asmsrc.split('\n'):
+            if debug and self.filename:
+                loc = SourceLocation(self.filename, self.line_no, 1, 1)
+                label_name = debug_db.new_label()
+                self.emit(Label(label_name))
+                d = DebugLocation(loc, address=label_name)
+                debug_data.append(DebugData(d))
             self.line_no += 1
             self.parse_line(line.strip())
+
+        # Emit debug info:
+        for d in debug_data:
+            stream.emit(d)
 
     # Parser handlers:
     def p_repeat(self, rhs):
@@ -297,9 +309,6 @@ class BaseAssembler:
 
     def p_endrepeat(self, rhs):
         self.end_repeat()
-
-    def p_section(self, rhs):
-        self.select_section(rhs[1])
 
     # Parser handlers:
     def select_section(self, name):

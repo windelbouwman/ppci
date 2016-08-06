@@ -1,12 +1,17 @@
 import unittest
-from ppci.codegen.registerallocator import RegisterAllocator
+from ppci.codegen.registerallocator import GraphColoringRegisterAllocator
 from ppci.api import get_arch
 from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 from ppci.binutils.debuginfo import DebugDb
 
+try:
+    from unittest.mock import patch, MagicMock
+except ImportError:
+    from mock import patch, MagicMock
 
-class RegisterAllocatorTestCase(unittest.TestCase):
+
+class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
     """ Use the example target to test the different cases of the register
         allocator.
         Possible cases: freeze of move, spill of register
@@ -14,7 +19,8 @@ class RegisterAllocatorTestCase(unittest.TestCase):
     def setUp(self):
         arch = get_arch('example')
         debug_db = DebugDb()
-        self.register_allocator = RegisterAllocator(arch, debug_db)
+        self.register_allocator = GraphColoringRegisterAllocator(
+            arch, None, debug_db)
 
     def conflict(self, ta, tb):
         color_a = self.register_allocator.Node(ta).color
@@ -28,7 +34,6 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         t3 = ExampleRegister('t3')
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
-        f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -48,7 +53,6 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
         t6 = ExampleRegister('t6')
-        f.regs = [ExampleRegister('t{}'.format(v), v) for v in range(7)]
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -75,7 +79,6 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         t2 = R0
         t3 = ExampleRegister('t3')
         t4 = ExampleRegister('t4')
-        f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
         f.instructions.append(Def(t1))
         move = Mov(t3, t1, ismove=True)
         f.instructions.append(move)
@@ -100,7 +103,6 @@ class RegisterAllocatorTestCase(unittest.TestCase):
         f = Frame('tst', [], [], None, [])
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
-        f.regs = [ExampleRegister('R{}'.format(v), v) for v in range(3)]
         f.instructions.append(Def(R0))
         move = Mov(R1, R0, ismove=True)
         f.instructions.append(move)
@@ -116,6 +118,17 @@ class RegisterAllocatorTestCase(unittest.TestCase):
     def test_spill(self):
         pass
 
+    # @patch('ppci.codegen.interferencegraph.InterferenceGraph')
+    def test_init_data(self):  # , ig):
+        frame = MagicMock()
+        # frame.configure
+        self.register_allocator.init_data(frame)
+        # print(frame.mock_calls)
+        # self.assertEqual(1, len(self.register_allocator.precolored))
+
+    def test_coalesc(self):
+        pass
+        # self.register_allocator.coalesc()
 
 if __name__ == '__main__':
     unittest.main()

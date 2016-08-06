@@ -48,6 +48,3 @@ activated stand alone.
 
 .. autoprogram:: ppci.commands:objdump_parser
     :prog: ppci-objdump.py
-
-.. autoprogram:: ppci.commands:hexutil_parser
-    :prog: ppci-hexutil.py

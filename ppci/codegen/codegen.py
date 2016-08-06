@@ -8,42 +8,56 @@ from .. import ir
 from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
+from ..arch.arch import ArtificialInstruction
 from ..arch.isa import Instruction
 from ..arch.data_instructions import Ds
-from ..binutils.debuginfo import DebugType, DebugVariable, DebugLocation
+from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
-from .irdag import SelectionGraphBuilder
+from .irdag import SelectionGraphBuilder, make_label_name
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
-from .registerallocator import RegisterAllocator
+from .registerallocator import GraphColoringRegisterAllocator
 
 
 class CodeGenerator:
     """ Machine code generator. """
     logger = logging.getLogger('codegen')
-    verifier = Verifier()
 
-    def __init__(self, arch, debug_db):
+    def __init__(self, arch, debug_db, optimize_for='size'):
         assert isinstance(arch, Architecture), arch
-        self.target = arch
+        self.arch = arch
         self.debug_db = debug_db
+        self.verifier = Verifier()
         self.sgraph_builder = SelectionGraphBuilder(arch, debug_db)
+        weights_map = {
+            'size': (10, 1, 1),
+            'speed': (3, 10, 1),
+            'co2': (1, 2, 10),
+            'awesome': (13, 13, 13),
+        }
+        if optimize_for in weights_map:
+            selection_weights = weights_map[optimize_for]
+        else:
+            selection_weights = (1, 1, 1)
         self.instruction_selector = InstructionSelector1(
-            arch.isa, arch, self.sgraph_builder, debug_db)
+            arch, self.sgraph_builder, debug_db,
+            weights=selection_weights)
         self.instruction_scheduler = InstructionScheduler()
-        self.register_allocator = RegisterAllocator(arch, debug_db)
+        self.register_allocator = GraphColoringRegisterAllocator(
+            arch, self.instruction_selector, debug_db)
 
-    def generate(self, ircode, output_stream, reporter):
+    def generate(
+            self, ircode: ir.Module, output_stream, reporter, debug=False):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
 
         self.logger.info(
-            'Generating %s code for module %s', str(self.target), ircode.name)
+            'Generating %s code for module %s', str(self.arch), ircode.name)
 
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            label_name = ir.label_name(var)
+            label_name = make_label_name(var)
             # TODO: alignment?
             label = Label(label_name)
             output_stream.emit(label)
@@ -52,7 +66,7 @@ class CodeGenerator:
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.debug_db.map(var, label)
-            if self.debug_db.contains(label):
+            if self.debug_db.contains(label) and debug:
                 dv = self.debug_db.get(label)
                 dv.address = label.name
                 output_stream.emit(DebugData(dv))
@@ -63,25 +77,24 @@ class CodeGenerator:
         output_stream.select_section('code')
         for function in ircode.functions:
             self.generate_function(
-                function, output_stream, reporter)
+                function, output_stream, reporter, debug=debug)
 
-        # Output debug data:
-        for di in self.debug_db.infos:
-            if isinstance(di, DebugType):
-                output_stream.emit(DebugData(di))
+        # Output debug type data:
+        if debug:
+            for di in self.debug_db.infos:
+                if isinstance(di, DebugType):
+                    # TODO: prevent this from being emitted twice in some way?
+                    output_stream.emit(DebugData(di))
 
-    def generate_function(self, ir_function, output_stream, reporter):
+    def generate_function(
+            self, ir_function, output_stream, reporter, debug=False):
         """ Generate code for one function into a frame """
         self.logger.info(
             'Generating %s code for function %s',
-            str(self.target), ir_function.name)
+            str(self.arch), ir_function.name)
 
-        reporter.function_header(ir_function, self.target)
+        reporter.heading(3, 'Log for {}'.format(ir_function))
         reporter.dump_ir(ir_function)
-        instruction_list = []
-        output_stream = MasterOutputStream([
-            FunctionOutputStream(instruction_list.append),
-            output_stream])
 
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
@@ -92,8 +105,8 @@ class CodeGenerator:
                 _, block = split_block(block, pos=max_block_len)
 
         # Create a frame for this function:
-        frame_name = ir.label_name(ir_function)
-        frame = self.target.new_frame(frame_name, ir_function)
+        frame_name = make_label_name(ir_function)
+        frame = self.arch.new_frame(frame_name, ir_function)
         self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
@@ -102,18 +115,25 @@ class CodeGenerator:
         # Define arguments live at first instruction:
         self.define_arguments_live(frame)
 
-        reporter.message('Selected instruction for {}'.format(ir_function))
         reporter.dump_frame(frame)
 
         # Do register allocation:
         self.register_allocator.alloc_frame(frame)
+
         # TODO: Peep-hole here?
+        # frame.instructions = [i for i in frame.instructions]
+
+        reporter.dump_frame(frame)
 
         # Add label and return and stack adjustment:
-        self.emit_frame_to_stream(frame, output_stream)
+        instruction_list = []
+        output_stream = MasterOutputStream([
+            FunctionOutputStream(instruction_list.append),
+            output_stream])
+        self.emit_frame_to_stream(frame, output_stream, debug=debug)
 
         # Emit function debug info:
-        if self.debug_db.contains(frame):
+        if self.debug_db.contains(frame) and debug:
             func_end_label = self.debug_db.new_label()
             output_stream.emit(Label(func_end_label))
             d = self.debug_db.get(frame)
@@ -122,7 +142,7 @@ class CodeGenerator:
             dd = DebugData(d)
             output_stream.emit(dd)
 
-        reporter.function_footer(instruction_list)
+        reporter.dump_instructions(instruction_list)
 
     def select_and_schedule(self, ir_function, frame, reporter):
         """ Perform instruction selection and scheduling """
@@ -141,7 +161,7 @@ class CodeGenerator:
             # Schedule instructions:
             # self.instruction_scheduler.schedule(sgraph, frame)
 
-    def emit_frame_to_stream(self, frame, output_stream):
+    def emit_frame_to_stream(self, frame, output_stream, debug=False):
         """
             Add code for the prologue and the epilogue. Add a label, the
             return instruction and the stack pointer adjustment for the frame.
@@ -152,30 +172,37 @@ class CodeGenerator:
         # real instructions.
         self.logger.debug('Emitting instructions')
 
+        debug_data = []
+
         # Prefix code:
-        output_stream.emit_all(frame.prologue())
+        output_stream.emit_all(self.arch.prologue(frame))
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
 
             # If the instruction has debug location, emit it here:
-            if self.debug_db.contains(instruction):
+            if self.debug_db.contains(instruction) and debug:
                 d = self.debug_db.get(instruction)
                 assert isinstance(d, DebugLocation)
                 if not d.address:
                     label_name = self.debug_db.new_label()
                     d.address = label_name
                     output_stream.emit(Label(label_name))
-                    output_stream.emit(DebugData(d))
+                    debug_data.append(DebugData(d))
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions
                 if isinstance(instruction, VCall):
                     # We now know what variables are live at this point
                     # and possibly need to be saved.
-                    output_stream.emit_all(frame.make_call(instruction))
+                    output_stream.emit_all(
+                        self.arch.make_call(frame, instruction))
                 elif isinstance(instruction, RegisterUseDef):
                     pass
+                elif isinstance(instruction, ArtificialInstruction):
+                    # print(instruction)
+                    for xpi in instruction.render():
+                        output_stream.emit(xpi)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(instruction))
             else:
@@ -184,7 +211,19 @@ class CodeGenerator:
                 output_stream.emit(instruction)
 
         # Postfix code, like register restore and stack adjust:
-        output_stream.emit_all(frame.epilogue())
+        output_stream.emit_all(self.arch.epilogue(frame))
+
+        # Last but not least, emit debug infos:
+        for dd in debug_data:
+            output_stream.emit(dd)
+
+        # Check if we know what variables are live
+        for tmp in frame.ig.temp_map:
+            if self.debug_db.contains(tmp):
+                di = self.debug_db.get(tmp)
+                # print(tmp, di)
+                lr = frame.live_ranges(tmp)
+                # print('live ranges:', lr)
 
     def define_arguments_live(self, frame):
         """ Prepend a special instruction in front of the frame """
@@ -192,3 +231,8 @@ class CodeGenerator:
         frame.instructions.insert(0, ins0)
         for register in frame.live_in:
             ins0.add_def(register)
+
+        ins2 = RegisterUseDef()
+        frame.instructions.append(ins2)
+        for register in frame.live_out:
+            ins2.add_use(register)

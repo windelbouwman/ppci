@@ -13,9 +13,10 @@ class BrainFuckGenerator():
     """ Brainfuck is a language that is so simple, the entire front-end can
     be implemented in one pass.
     """
-    def __init__(self, target):
-        self.logger = logging.getLogger('bfgen')
-        self.target = target
+    logger = logging.getLogger('bfgen')
+
+    def __init__(self, arch):
+        self.arch = arch
         self.builder = Builder()
 
     def generate(self, src, module_name='main', function_name='main'):
@@ -25,20 +26,19 @@ class BrainFuckGenerator():
         # Assembler code will call sample_start
         self.builder.module = ir.Module(module_name)
 
-        ir_func = self.builder.new_function(function_name)
+        ir_func = self.builder.new_procedure(function_name)
         self.builder.set_function(ir_func)
-
         block1 = self.builder.new_block()
-        self.builder.emit(ir.Jump(block1))
+        ir_func.entry = block1
         self.builder.set_block(block1)
 
         # Allocate space on stack for ptr register:
         ptr_var = self.builder.emit(
-            ir.Alloc('ptr_addr', self.target.get_size(ir.i32)))
+            ir.Alloc('ptr_addr', self.arch.get_size(ir.i32)))
 
         bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable('data', bf_mem_size * self.target.get_size(ir.i8))
+        data = ir.Variable('data', bf_mem_size * self.arch.get_size(ir.i8))
         self.builder.module.add_variable(data)
 
         # Locate '1' and '0' constants:
@@ -62,9 +62,9 @@ class BrainFuckGenerator():
         self.builder.set_block(block_init)
         ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.ptr))
         cell_addr = self.builder.emit(
-            ir.Add(data, ptr_val, "cell_addr", ir.ptr))
+            ir.add(data, ptr_val, "cell_addr", ir.ptr))
         self.builder.emit(ir.Store(zero_ins, cell_addr))
-        add_ins = self.builder.emit(ir.Add(ptr_val, prc_inc, "Added", ir.ptr))
+        add_ins = self.builder.emit(ir.add(ptr_val, prc_inc, "add", ir.ptr))
         self.builder.emit(ir.Store(add_ins, ptr_var))
         self.builder.emit(
             ir.CJump(add_ins, '==', array_size, block3, block_init))
@@ -84,27 +84,26 @@ class BrainFuckGenerator():
         for char in src:
             if char == '>':
                 # ptr++;
-                ptr = self.builder.emit(ir.Add(ptr, prc_inc, "ptr", ir.ptr))
+                ptr = self.builder.emit(ir.add(ptr, prc_inc, "ptr", ir.ptr))
             elif char == '<':
                 # ptr--;
-                ptr = self.builder.emit(ir.Sub(ptr, prc_inc, "ptr", ir.ptr))
+                ptr = self.builder.emit(ir.sub(ptr, prc_inc, "ptr", ir.ptr))
             elif char == '+':
                 # data[ptr]++;
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 add_ins = self.builder.emit(
-                    ir.Add(val_ins, one_ins, "Added", ir.i8))
+                    ir.add(val_ins, one_ins, "add", ir.i8))
                 self.builder.emit(ir.Store(add_ins, ptr))
             elif char == '-':
                 # data[ptr]--;
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 sub_ins = self.builder.emit(
-                    ir.Sub(val_ins, one_ins, "Sub", ir.i8))
+                    ir.sub(val_ins, one_ins, "sub", ir.i8))
                 self.builder.emit(ir.Store(sub_ins, ptr))
             elif char == '.':
                 # putc(data[ptr])
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
-                self.builder.emit(
-                    ir.Call('bsp_putc', [val_ins], 'ign', ir.i32))
+                self.builder.emit(ir.ProcedureCall('bsp_putc', [val_ins]))
             elif char == ',':  # pragma: no cover
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')
@@ -154,8 +153,8 @@ class BrainFuckGenerator():
         if loops:
             raise CompilerError('[ requires matching ]')
 
-        # Jump to end of function:
-        self.builder.emit(ir.Jump(ir_func.epilog))
+        # Close current block:
+        self.builder.emit(ir.Exit())
 
         # Yield module
         return self.builder.module

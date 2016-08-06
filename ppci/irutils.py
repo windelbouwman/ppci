@@ -23,6 +23,7 @@ class Writer:
     def write(self, module, f):
         """ Write ir-code to file f """
         assert type(module) is ir.Module
+        Verifier().verify(module)
         self.f = f
         self.print('{}'.format(module))
         for v in module.variables:
@@ -63,6 +64,7 @@ class Reader:
             ]
         tok_re = '|'.join('(?P<%s>%s)' % pair for pair in tok_spec)
         gettok = re.compile(tok_re).match
+        keywords = ['function', 'module', 'procedure']
 
         def tokenize():
             for line in lines:
@@ -74,7 +76,7 @@ class Reader:
                     typ = mo.lastgroup
                     val = mo.group(typ)
                     if typ == 'ID':
-                        if val in ['function', 'module']:
+                        if val in keywords:
                             typ = val
                         yield (typ, val)
                     elif typ == 'OTHER':
@@ -125,7 +127,7 @@ class Reader:
     def PeakVal(self):
         return self.token[1]
 
-    def Consume(self, typ, val=None):
+    def consume(self, typ, val=None):
         if self.Peak == typ:
             if val is not None:
                 assert self.PeakVal == val
@@ -136,12 +138,12 @@ class Reader:
 
     def parse_module(self):
         """ Entry for recursive descent parser """
-        self.Consume('module')
-        name = self.Consume('ID')[1]
+        self.consume('module')
+        name = self.consume('ID')[1]
         module = ir.Module(name)
-        self.Consume('eol')
+        self.consume('eol')
         while self.Peak != 'eof':
-            if self.Peak == 'function':
+            if self.Peak in ['function', 'procedure']:
                 module.add_function(self.parse_function())
             else:
                 raise IrParseException('Expected function got {}'
@@ -149,33 +151,39 @@ class Reader:
         return module
 
     def parse_function(self):
-        self.Consume('function')
-        self.parse_type()
+        """ Parse a function or procedure """
+        if self.Peak == 'function':
+            self.consume('function')
+            return_type = self.parse_type()
+            name = self.consume('ID')[1]
+            function = ir.Function(name, return_type)
+        else:
+            self.consume('procedure')
+            name = self.consume('ID')[1]
+            function = ir.Procedure(name)
 
         # Setup maps:
         self.val_map = {}
         self.block_map = {}
         self.resolve_worklist = []
 
-        name = self.Consume('ID')[1]
-        function = ir.Function(name)
-        self.Consume('(')
+        self.consume('(')
         while self.Peak != ')':
             ty = self.parse_type()
-            name = self.Consume('ID')[1]
-            ty = self.find_type(ty)
+            name = self.consume('ID')[1]
             param = ir.Parameter(name, ty)
             function.add_parameter(param)
             self.add_val(param)
             if self.Peak != ',':
                 break
             else:
-                self.Consume(',')
-        self.Consume(')')
-        self.Consume('eol')
+                self.consume(',')
+        self.consume(')')
+        self.consume('eol')
         while self.Peak == 'SKIP1':
-            block = self.parse_block()
-            function.add_block(block)
+            block = self.parse_block(function)
+            if function.entry is None:
+                function.entry = block
             self.block_map[block.name] = block
 
         for ins, blocks in self.resolve_worklist:
@@ -185,14 +193,17 @@ class Reader:
         return function
 
     def parse_type(self):
-        return self.Consume('ID')[1]
+        type_map = {t.name: t for t in ir.all_types}
+        type_name = self.consume('ID')[1]
+        return type_map[type_name]
 
-    def parse_block(self):
-        self.Consume('SKIP1')
-        name = self.Consume('ID')[1]
+    def parse_block(self, function):
+        self.consume('SKIP1')
+        name = self.consume('ID')[1]
         block = ir.Block(name)
-        self.Consume(':')
-        self.Consume('eol')
+        function.add_block(block)
+        self.consume(':')
+        self.consume('eol')
         while self.Peak == 'SKIP2':
             ins = self.parse_statement()
             block.add_instruction(ins)
@@ -204,44 +215,38 @@ class Reader:
     def find_val(self, name):
         return self.val_map[name]
 
-    def find_type(self, name):
-        ty_map = {'i32': ir.i32}
-        return ty_map[name]
-
     def find_block(self, name):
         return self.block_map[name]
 
     def parse_assignment(self):
-        ty = self.Consume('ID')[1]
-        name = self.Consume('ID')[1]
-        self.Consume('=')
+        ty = self.parse_type()
+        name = self.consume('ID')[1]
+        self.consume('=')
         if self.Peak == 'ID':
-            a = self.Consume('ID')[1]
+            a = self.consume('ID')[1]
             if self.Peak in ['+', '-']:
                 # Go for binop
-                op = self.Consume(self.Peak)[1]
-                b = self.Consume('ID')[1]
+                op = self.consume(self.Peak)[1]
+                b = self.consume('ID')[1]
                 a = self.find_val(a)
-                ty = self.find_type(ty)
                 b = self.find_val(b)
                 ins = ir.Binop(a, op, b, name, ty)
             else:
                 raise Exception()
         elif self.Peak == 'NUMBER':
-            cn = self.Consume('NUMBER')[1]
-            ty = self.find_type(ty)
+            cn = self.consume('NUMBER')[1]
             ins = ir.Const(cn, name, ty)
         else:
             raise Exception()
         return ins
 
     def parse_cjmp(self):
-        self.Consume('ID', 'cjmp')
-        a = self.Consume('ID')[1]
-        op = self.Consume(self.Peak)[0]
-        b = self.Consume('ID')[1]
-        L1 = self.Consume('ID')[1]
-        L2 = self.Consume('ID')[1]
+        self.consume('ID', 'cjmp')
+        a = self.consume('ID')[1]
+        op = self.consume(self.Peak)[0]
+        b = self.consume('ID')[1]
+        L1 = self.consume('ID')[1]
+        L2 = self.consume('ID')[1]
         L1 = ir.Block(L1)
         L2 = ir.Block(L2)
         a = self.find_val(a)
@@ -251,22 +256,22 @@ class Reader:
         return ins
 
     def parse_jmp(self):
-        self.Consume('ID', 'jmp')
-        L1 = self.Consume('ID')[1]
+        self.consume('ID', 'jmp')
+        L1 = self.consume('ID')[1]
         L1 = ir.Block(L1)
         ins = ir.Jump(L1)
         self.resolve_worklist.append((ins, (L1,)))
         return ins
 
     def parse_return(self):
-        self.Consume('ID', 'return')
-        val = self.find_val(self.Consume('ID')[1])
+        self.consume('ID', 'return')
+        val = self.find_val(self.consume('ID')[1])
         # TODO: what to do with return value?
-        ins = ir.Terminator()
+        ins = ir.Exit()
         return ins
 
     def parse_statement(self):
-        self.Consume('SKIP2')
+        self.consume('SKIP2')
         if self.Peak == 'ID' and self.PeakVal == 'jmp':
             ins = self.parse_jmp()
         elif self.Peak == 'ID' and self.PeakVal == 'cjmp':
@@ -275,13 +280,13 @@ class Reader:
             ins = self.parse_return()
         elif self.Peak == 'ID' and self.PeakVal == 'store':
             raise Exception()
-        elif self.Peak == 'ID' and self.PeakVal == 'Terminator':
-            self.Consume('ID')
-            ins = ir.Terminator()
+        elif self.Peak == 'ID' and self.PeakVal == 'exit':
+            self.consume('ID')
+            ins = ir.Exit()
         else:
             ins = self.parse_assignment()
             self.add_val(ins)
-        self.Consume('eol')
+        self.consume('eol')
         return ins
 
 
@@ -324,24 +329,30 @@ def split_block(block, pos=None, newname='splitblock'):
 class Builder:
     """ Base class for ir code generators """
     def __init__(self):
-        self.prepare()
         self.block = None
         self.module = None
         self.function = None
+        self.prepare()
 
     def prepare(self):
         self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
         self.block = None
         self.module = None
         self.function = None
-        self.loc = None
 
     # Helpers:
     def set_module(self, module):
         self.module = module
 
-    def new_function(self, name):
-        f = ir.Function(name)
+    def new_function(self, name, return_ty):
+        assert self.module is not None
+        f = ir.Function(name, return_ty)
+        self.module.add_function(f)
+        return f
+
+    def new_procedure(self, name):
+        assert self.module is not None
+        f = ir.Procedure(name)
         self.module.add_function(f)
         return f
 
@@ -359,9 +370,6 @@ class Builder:
     def set_block(self, block):
         self.block = block
 
-    def set_loc(self, l):
-        self.loc = l
-
     def emit(self, instruction):
         """ Append an instruction to the current block """
         assert isinstance(instruction, ir.Instruction), str(instruction)
@@ -373,11 +381,14 @@ class Builder:
 
 class Verifier:
     """ Checks an ir module for correctness """
+    logger = logging.getLogger('verifier')
+
     def __init__(self):
-        self.logger = logging.getLogger('verifier')
+        self.name_map = {}
 
     def verify(self, module):
         """ Verifies a module for some sanity """
+        self.logger.debug('Verifying %s', module)
         assert isinstance(module, ir.Module)
         for function in module.functions:
             self.verify_function(function)
@@ -386,11 +397,27 @@ class Verifier:
         """ Verify all blocks in the function """
         self.name_map = {}
         for block in function:
+            assert block.name not in self.name_map
+            self.name_map[block.name] = block
             self.verify_block_termination(block)
+            if isinstance(block.last_instruction, ir.Return):
+                assert isinstance(function, ir.Function)
+                assert block.last_instruction.result.ty is function.return_ty
+            if isinstance(block.last_instruction, ir.Exit):
+                assert isinstance(function, ir.Procedure)
+
+        # Verify the entry is in this function and is the first block:
+        assert function.entry is function.blocks[0]
+        assert isinstance(function.entry, ir.Block)
+
+        # Verify all blocks are reachable:
+        reachable_blocks = function.calc_reachable_blocks()
+        for block in function:
+            assert block in reachable_blocks
 
         # Verify predecessor and successor:
         for block in function:
-            preds = set(b for b in function.blocks if block in b.successors)
+            preds = set(b for b in function if block in b.successors)
             assert preds == set(block.predecessors)
 
         # Check that phi's have inputs for each predecessor:
@@ -402,17 +429,17 @@ class Verifier:
                     assert used_value in phi.uses
 
         # Now we can build a dominator tree
-        function.cfg_info = CfgInfo(function)
+        self.cfg_info = CfgInfo(function)
         for block in function:
-            assert block.function == function
+            assert block.function is function
             self.verify_block(block)
 
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
-        assert not block.empty
-        assert block.last_instruction.IsTerminator
-        for i in block.instructions[:-1]:
-            assert not isinstance(i, ir.LastStatement)
+        assert not block.is_empty
+        assert block.last_instruction.is_terminator
+        assert all(not i.is_terminator for i in block.instructions[:-1])
+        assert all(isinstance(p, ir.Block) for p in block.predecessors)
 
     def verify_block(self, block):
         """ Verify block for correctness """
@@ -426,6 +453,11 @@ class Verifier:
         # Check that instruction is contained in block:
         assert instruction.block == block
         assert instruction in block.instructions
+
+        # Check if value has unique name string:
+        if isinstance(instruction, ir.Value):
+            assert instruction.name not in self.name_map
+            self.name_map[instruction.name] = instruction
 
         # Check that binop operands are of same type:
         if isinstance(instruction, ir.Binop):
@@ -443,9 +475,42 @@ class Verifier:
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
-            assert value.dominates(instruction), \
+            assert self.instruction_dominates(value, instruction), \
                 "{} does not dominate {}".format(value, instruction)
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
-                raise IrFormError(
-                    '{} used uninitialized'.format(value), loc=value.loc)
+                raise IrFormError('{} is used'.format(value))
+
+    def instruction_dominates(self, one, another):
+        """ Checks if one instruction dominates another instruction """
+        if isinstance(one, (ir.Parameter, ir.Variable)):
+            # TODO: hack, parameters and globals dominate all other
+            # instructions..
+            return True
+
+        # All other instructions must have a containing block:
+        assert one.block is not None, '{} has no block'.format(one)
+        assert one in one.block.instructions
+
+        # Phis are special case:
+        if isinstance(another, ir.Phi):
+            for block in another.inputs:
+                if another.inputs[block] is one:
+                    # This is the queried dominance branch
+                    # Check if this instruction dominates the last
+                    # instruction of this block
+                    return self.instruction_dominates(
+                        one, block.last_instruction)
+            raise RuntimeError(
+                'Cannot query dominance for this phi')  # pragma: no cover
+        else:
+            # For all other instructions follow these rules:
+            if one.block is another.block:
+                return one.position < another.position
+            else:
+                return self.block_dominates(one.block, another.block)
+
+    def block_dominates(self, one, another):
+        """ Check if this block dominates other block """
+        assert one in one.function
+        return self.cfg_info.strictly_dominates(one, another)

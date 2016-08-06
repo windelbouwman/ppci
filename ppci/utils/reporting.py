@@ -7,6 +7,7 @@
 
 from contextlib import contextmanager
 from datetime import datetime
+import logging
 import io
 from .. import ir
 from ..irutils import Writer
@@ -46,10 +47,7 @@ class ReportGenerator:
     def dump_cfg_nodes(self, frame):
         pass
 
-    def function_header(self, irfunc, target):
-        pass
-
-    def function_footer(self, instruction_list):
+    def dump_instructions(self, instruction_list):
         pass
 
 
@@ -110,9 +108,6 @@ class TextReportGenerator(TextWritingReporter):
                 nde = frame.cfg.get_node(ins)
                 self.print('ins: {} {}'.format(ins, nde.longrepr))
 
-    def header(self):
-        pass
-
     def function_header(self, irfunc, target):
         self.print("========= Log for {} ==========".format(irfunc))
         self.print("Target: {}".format(target))
@@ -127,24 +122,43 @@ class TextReportGenerator(TextWritingReporter):
 
 @contextmanager
 def collapseable(html_generator, title):
-    html_generator.print('<div><div class="code button">')
+    html_generator.print('<div><div class="button">')
+    html_generator.print('<input type="checkbox" class="expand" />')
+    html_generator.print('<h4>{}</h4>'.format(title))
+    html_generator.print('<div>')
+    html_generator.print('<hr>')
     yield html_generator
+    html_generator.print('</div>')
     html_generator.print('</div></div>')
 
 
 HTML_HEADER = """<!DOCTYPE HTML>
 <html><head>
   <style>
+  .expand {
+    float: right;
+  }
+  .expand ~ div {
+    overflow: hidden;
+    height: auto;
+    transition: height 2s ease;
+  }
+  h4 {
+    margin: 0px;
+  }
+  .expand:not(:checked) ~ div {
+    height: 0px;
+  }
   .graphdiv {
     width: 500px;
     height: 500px;
     border: 1px solid gray;
   }
   .code {
-   padding: 10px;
+   padding: 2px;
    border: 1px solid black;
-   border-radius: 15px;
-   margin: 10px;
+   border-radius: 5px;
+   margin: 2px;
    font-weight: bold;
    display: inline-block;
   }
@@ -160,6 +174,7 @@ HTML_HEADER = """<!DOCTYPE HTML>
     background: floralwhite;
   }
   table {
+    font-size: 8pt;
     border-collapse: collapse;
   }
 
@@ -168,12 +183,16 @@ HTML_HEADER = """<!DOCTYPE HTML>
   }
 
   th, td {
-    padding: 5px;
+    padding: 1px;
   }
 
   th {
     background: gray;
     color: white;
+  }
+
+  tr:nth-child(2n) {
+    background: lightblue;
   }
 
   </style>
@@ -191,21 +210,49 @@ HTML_FOOTER = """
 """
 
 
+def str2(x):
+    return ', '.join(sorted(str(y) for y in x))
+
+
+class MyHandler(logging.Handler):
+    def __init__(self, backlog):
+        super().__init__()
+        self.backlog = backlog
+
+    def emit(self, record):
+        self.backlog.append(self.format(record))
+
+
 class HtmlReportGenerator(TextWritingReporter):
     def __init__(self, dump_file):
         super().__init__(dump_file)
         self.nr = 0
+        self.backlog = []
+        # logging.getLogger().addHandler(MyHandler(self.backlog))
 
     def new_guid(self):
         self.nr += 1
         return 'guid_{}'.format(self.nr)
+
+    def flush_log(self):
+        while self.backlog:
+            self.message(self.backlog.pop(0))
 
     def header(self):
         self.print(HTML_HEADER)
         self.message(datetime.today().ctime())
 
     def footer(self):
+        self.flush_log()
         self.print(HTML_FOOTER)
+
+    def heading(self, level, title):
+        self.flush_log()
+        html_tags = {
+            1: 'h1', 2: 'h2', 3: 'h3'
+        }
+        html_tag = html_tags[level]
+        self.print('<{0}>{1}</{0}>'.format(html_tag, title))
 
     def message(self, msg):
         self.print('<p>{}</p>'.format(msg))
@@ -220,7 +267,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 writer.write(ir_module, f)
                 self.print(f.getvalue())
                 self.print('</pre>')
-        elif isinstance(ir_module, ir.Function):
+        elif isinstance(ir_module, ir.SubRoutine):
             title = 'Function {}'.format(ir_module.name)
             with collapseable(self, title):
                 self.print('<pre>')
@@ -232,13 +279,8 @@ class HtmlReportGenerator(TextWritingReporter):
         else:
             raise NotImplementedError()
 
-    def function_header(self, irfunc, target):
-        self.print("<h3>Log for {}</h3>".format(irfunc))
-        self.print("<p>Target: {}</p>".format(target))
-        # Writer().write_function(irfunc, f)
-
-    def function_footer(self, instruction_list):
-        with collapseable(self, 'Selected instructions'):
+    def dump_instructions(self, instruction_list):
+        with collapseable(self, 'Instructions'):
             self.print('<pre>')
             for ins in instruction_list:
                 self.print(ins)
@@ -269,7 +311,8 @@ class HtmlReportGenerator(TextWritingReporter):
             edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
             edge2.set_color(color_map[edge.kind])
         # self.render_graph(graph)
-        self.print('<p><b>To be implemented</b></p>')
+        with collapseable(self, 'Selection graph'):
+            self.print('<p><b>To be implemented</b></p>')
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
@@ -279,8 +322,9 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print("- {}".format(root))
 
     def dump_trees(self, ir_function, function_info):
-        self.message('Selection trees for {}'.format(ir_function))
-        with collapseable(self, 'trees'):
+        with collapseable(self, 'Selection trees'):
+            self.message('Selection trees for {}'.format(ir_function))
+            self.print('<hr>')
             self.print('<pre>')
             for ir_block in ir_function:
                 self.print(str(ir_block))
@@ -294,17 +338,47 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print('<p><div class="codeblock">')
             self.print(frame)
             self.print('<table border="1">')
-            self.print('<tr><th>ins</th><th>use</th><th>def</th><th>jump</th></tr>')
-            for ins in frame.instructions:
+            self.print('<tr>')
+            self.print('<th>#</th><th>instruction</th>')
+            self.print('<th>use</th><th>def</th>')
+            self.print('<th>jump</th><th>move</th>')
+            self.print('<th>gen</th><th>kill</th>')
+            self.print('<th>live_in</th><th>live_out</th>')
+            self.print('</tr>')
+            for idx, ins in enumerate(frame.instructions):
                 self.print('<tr>')
-                self.print('<td>$ {}</td>'.format(ins))
-                self.print('<td>{}</td>'.format(ins.used_registers))
-                self.print('<td>{}</td>'.format(ins.defined_registers))
+                self.print('<td>{}</td>'.format(idx))
+                self.print('<td>{}</td>'.format(ins))
+                self.print('<td>{}</td>'.format(str2(ins.used_registers)))
+                self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
                 self.print('<td>')
                 if ins.jumps:
-                    self.print('{}'.format(ins.jumps))
+                    self.print(str2(ins.jumps))
+                self.print('</td>')
+
+                self.print('<td>')
                 if ins.ismove:
-                    self.print('MOVE')
+                    self.print('yes')
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'gen'):
+                    self.print(str2(ins.gen))
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'kill'):
+                    self.print(str2(ins.kill))
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'live_in'):
+                    self.print(str2(ins.live_in))
+                self.print('</td>')
+
+                self.print('<td>')
+                if hasattr(ins, 'live_out'):
+                    self.print(str2(ins.live_out))
                 self.print('</td>')
                 self.print('</tr>')
             self.print("</table>")

@@ -72,7 +72,8 @@ class Section:
         return len(self.data)
 
     def __repr__(self):
-        return 'SECTION {} {} {}'.format(self.name, self.size, self.address)
+        return 'SECTION {} size=0x{:x} address=0x{:x}'.format(
+            self.name, self.size, self.address)
 
     def __eq__(self, other):
         return (self.name == other.name) and (self.address == other.address) \
@@ -151,7 +152,7 @@ class ObjectFile:
         self.relocations = []
         self.images = []
         self.image_map = {}
-        self.debug_info = debuginfo.DebugInfo()
+        self.debug_info = None
         self.arch = arch
 
     def __repr__(self):
@@ -224,6 +225,7 @@ class ObjectFile:
 
     @property
     def byte_size(self):
+        """ Get the size in bytes of this object file """
         return sum(section.size for section in self.sections)
 
     def __eq__(self, other):
@@ -239,21 +241,23 @@ class ObjectFile:
 
     def polish(self):
         """ Cleanup an object file """
-        # fix debug info objects:
-        def fx(x):
-            if isinstance(x, str):
-                sym = self.get_symbol(x)
-                return debuginfo.DebugAddress(sym.section, sym.value)
-            else:
-                assert isinstance(x, debuginfo.DebugAddress)
-                return x
-        for loc in self.debug_info.locations:
-            loc.address = fx(loc.address)
-        for func in self.debug_info.functions:
-            func.begin = fx(func.begin)
-            func.end = fx(func.end)
-        for var in self.debug_info.variables:
-            var.address = fx(var.address)
+        if self.debug_info:
+            # TODO: move this to linker?
+            # fix debug info objects:
+            def fx(x):
+                if isinstance(x, str):
+                    sym = self.get_symbol(x)
+                    return debuginfo.DebugAddress(sym.section, sym.value)
+                else:
+                    # assert isinstance(x, debuginfo.DebugAddress)
+                    return x
+            for loc in self.debug_info.locations:
+                loc.address = fx(loc.address)
+            for func in self.debug_info.functions:
+                func.begin = fx(func.begin)
+                func.end = fx(func.end)
+            for var in self.debug_info.variables:
+                var.address = fx(var.address)
 
         # remove local labels:
         names = [s.name for s in self.symbols if s.name.startswith('.L')]
@@ -310,7 +314,7 @@ def asc2bin(data):
         for part in data:
             res.extend(binascii.unhexlify(part.encode('ascii')))
         return res
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(type(data)))
 
 
@@ -330,7 +334,8 @@ def serialize(x):
         res['images'] = []
         for image in x.images:
             res['images'].append(serialize(image))
-        res['debug'] = debuginfo.serialize(x.debug_info)
+        if x.debug_info:
+            res['debug'] = debuginfo.serialize(x.debug_info)
         res['arch'] = x.arch.make_id_str()
     elif isinstance(x, Image):
         res['name'] = x.name
@@ -352,7 +357,7 @@ def serialize(x):
         res['offset'] = hex(x.offset)
         res['type'] = x.typ
         res['section'] = x.section
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(type(x)))
     return res
 
@@ -380,5 +385,6 @@ def deserialize(data):
         for section_name in image['sections']:
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
-    obj.debug_info = debuginfo.deserialize(data['debug'])
+    if 'debug' in data:
+        obj.debug_info = debuginfo.deserialize(data['debug'])
     return obj

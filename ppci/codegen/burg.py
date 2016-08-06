@@ -57,15 +57,14 @@ tree. This strategy consists of two steps:
 """
 
 import sys
-import os
+from os import path
 import argparse
 from ppci.common import Token, SourceLocation
 from ppci.pcc import baselex, yacc
 from ppci.utils.tree import Tree
 
 # Generate parser on the fly:
-spec_file = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), '..', 'burg.grammar')
+spec_file = path.join(path.dirname(path.abspath(__file__)), 'burg.grammar')
 burg_parser = yacc.load_as_module(spec_file)
 
 
