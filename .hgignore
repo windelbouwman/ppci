@@ -28,3 +28,4 @@ ppci.egg-info
 build
 examples/riscvpulpino/jtagserver/.deps
 examples/riscvpulpino/vsim/obj_dir
+.spyderproject
