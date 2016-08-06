@@ -33,7 +33,7 @@ class UmlDirective(Directive):
             raise NotImplementedError('classes option')
             cmd.extend(['-c', c])
         cmd.append(module)
-        subprocess.run(cmd, check=True)
+        subprocess.check_call(cmd)
         with open('classes_{}.dot'.format(basename)) as f:
             dotcode = f.read()
         os.chdir(save_dir)
