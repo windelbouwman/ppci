@@ -7,6 +7,7 @@ from ppci.binutils.assembler import AsmLexer, BaseAssembler
 from ppci.binutils.objectfile import ObjectFile
 from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.arch import Label
+from ppci.arch.avr import instructions as avr_instructions
 from ppci.api import link, get_arch
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
@@ -54,6 +55,34 @@ class AssemblerLexingCase(unittest.TestCase):
         asmline = '0z4: mov rax, rbx $ '
         with self.assertRaises(CompilerError):
             self.do(asmline, [])
+
+
+class DecodeTestCase(unittest.TestCase):
+    def test_decode_nop(self):
+        """ Check nop decoding """
+        instruction = avr_instructions.Nop.decode(bytes([0, 0]))
+        self.assertIsInstance(instruction, avr_instructions.Nop)
+
+    def test_decode_not_enough(self):
+        """ Check that decoding with too few data raises an error """
+        with self.assertRaisesRegex(ValueError, 'Not enough data'):
+            avr_instructions.Nop.decode(bytes([0]))
+
+    def test_decode_too_much(self):
+        """ Check that decoding with too much data raises an error """
+        with self.assertRaisesRegex(ValueError, 'Too much data'):
+            avr_instructions.Nop.decode(bytes([0, 1, 2]))
+
+    def test_decode_invalid_nop(self):
+        """ Check that a wrong bit pattern cannot be decoded """
+        with self.assertRaisesRegex(ValueError, 'Cannot decode'):
+            avr_instructions.Nop.decode(bytes([2, 2]))
+
+    @unittest.skip('todo')
+    def test_decode_add(self):
+        """ This is a more difficult case, because off the register args """
+        instruction = avr_instructions.Add.decode(bytes([0, 0xC]))
+        self.assertIsInstance(instruction, avr_instructions.Add)
 
 
 class OustreamTestCase(unittest.TestCase):

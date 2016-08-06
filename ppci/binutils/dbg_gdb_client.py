@@ -50,45 +50,54 @@ class GdbDebugDriver(DebugDriver):
         self.logger.debug('GDB> %s', data)
         wire_data = self.rsp_pack(data).encode()
         self.s.send(wire_data)
-        res = None
-        while not res:
-            res = self.s.recv(1)
-        while res != b'+' and retries > 0:
+        res = self.recv()
+        while res != '+':
             self.logger.warning('discards %s', res)
             self.logger.debug('resend-GDB> %s', data)
             self.s.send(wire_data)
+            res = self.recv()
             retries -= 1
-            res = self.s.recv(1)
-        if retries == 0:
-            raise ValueError("retry fail")
+            if retries == 0:
+                raise ValueError("retry fail")
 
     def readpkt(self, retries=10):
         """ blocks until it reads an RSP packet, and returns it's data"""
-        c = None
-        while c != b'$' and retries > 0:
-            if c:
-                self.logger.warning('discards %s', c)
-            c = self.s.recv(1)
-            retries -= 1
-        if retries == 0:
-            raise ValueError('Retry fail!')
-        res = bytearray()
-        res.extend(c)
-
         while True:
-            res.extend(self.s.recv(1))
-            if res[-1] == ord('#') and res[-2] != ord("'"):
-                res.extend(self.s.recv(2))
+            c = self.recv()
+            if c.startswith('$'):
                 try:
-                    res = self.rsp_unpack(res.decode('ascii'))
+                    res = self.rsp_unpack(c)
                 except ValueError as ex:
+                    self.logger.debug('GDB< %s', res)
                     self.logger.warning('Bad packet %s', ex)
                     self.s.send(b'-')
-                    res = bytearray()
-                    continue
-                self.s.send(b'+')
-                self.logger.debug('GDB< %s', res)
-                return res
+                else:
+                    self.s.send(b'+')
+                    self.logger.debug('GDB< %s', res)
+                    return res
+            else:
+                self.logger.warning('discards %s', c)
+
+            retries -= 1
+            if retries == 0:
+                raise ValueError('Retry fail!')
+
+    def recv(self):
+        """ Receive either a packet, or an ack """
+        while True:
+            c = self.s.recv(1)
+            if c == b'+':
+                return c.decode('ascii')
+            elif c == b'$':
+                res = bytearray()
+                res.extend(c)
+                while True:
+                    res.extend(self.s.recv(1))
+                    if res[-1] == ord('#') and res[-2] != ord("'"):
+                        res.extend(self.s.recv(2))
+                        return res.decode('ascii')
+            else:
+                print('UNKNOWN:', c)
 
     def process_byte(self, b):
         pass
@@ -143,7 +152,16 @@ class GdbDebugDriver(DebugDriver):
 
     def process_stop_status(self):
         res = self.readpkt()
-        if res == "S05":
+        if res.startswith('S'):
+            code = int(res[1:3], 16)
+        elif res.startswith('T'):
+            code = int(res[1:3], 16)
+            rest = res[3:]
+            print('TODO', rest.split(';'))
+        else:
+            raise NotImplementedError(res)
+
+        if code == 5:
             self.logger.debug("Target stopped..")
             self.status = STOPPED
         else:

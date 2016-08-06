@@ -33,11 +33,12 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
-    'zipexamples'
+    'zipexamples',
+    'uml',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-# templates_path = ['_templates']
+templates_path = ['_templates']
 
 # The suffix of source filenames.
 source_suffix = '.rst'
@@ -155,6 +156,7 @@ html_sidebars = {
     '**': [
         'about.html',
         'navigation.html',
+        'sidebar.html',
         'searchbox.html'
     ]
 }

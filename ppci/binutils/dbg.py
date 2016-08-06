@@ -408,7 +408,7 @@ class Debugger:
     def get_disasm(self):
         """ Get instructions around program counter """
         loc = self.get_pc()
-        address = loc - 8
+        address = max(loc - 8, 0)
         data = self.read_mem(address, 16)
         instructions = []
         outs = FunctionOutputStream(instructions.append)

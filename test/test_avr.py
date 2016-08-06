@@ -3,7 +3,32 @@
 import unittest
 import io
 from ppci.binutils.layout import load_layout
+from ppci.api import get_arch
+from ppci.arch.arch import Frame, VCall
+from ppci.arch.avr.instructions import Push, Pop
+from ppci.arch.avr.registers import r17, r19r18
 from test_asm import AsmTestCaseBase
+
+
+class AvrArchitectureTestCase(unittest.TestCase):
+    def test_gen_call(self):
+        arch = get_arch('avr')
+        frame = Frame('foo', [], [], None, [])
+        pushed = []
+        popped = []
+        vcall = VCall('bar')
+        vcall.live_in = {r17, r19r18}
+        vcall.live_out = {r17, r19r18}
+        frame.live_regs_over = lambda ins: [r17, r19r18]
+        for instruction in arch.make_call(frame, vcall):
+            if isinstance(instruction, Push):
+                pushed.append(instruction.rd)
+            if isinstance(instruction, Pop):
+                popped.append(instruction.rd)
+        self.assertTrue(pushed)
+        self.assertTrue(popped)
+        popped.reverse()
+        self.assertSequenceEqual(pushed, popped)
 
 
 class AvrAssemblerTestCase(AsmTestCaseBase):

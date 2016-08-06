@@ -1,7 +1,5 @@
 """
 
-Status: 20%
-
 The is the avr backend.
 
 .. autoclass:: ppci.arch.avr.AvrArch
@@ -9,6 +7,8 @@ The is the avr backend.
 .. autoclass:: ppci.arch.avr.registers.AvrRegister
 
 .. autoclass:: ppci.arch.avr.registers.AvrWordRegister
+
+.. uml:: ppci.arch.avr
 
 See also:
 

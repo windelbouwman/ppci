@@ -130,8 +130,8 @@ class AvrArch(Architecture):
         # Restore caller save registers (in reverse order!):
         for register in reversed(live_registers):
             if isinstance(register, AvrWordRegister):
-                yield Push(register.lo)
-                yield Push(register.hi)
+                yield Pop(register.lo)
+                yield Pop(register.hi)
             else:
                 yield Pop(register)
 

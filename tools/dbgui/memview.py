@@ -25,7 +25,7 @@ class MemoryView(QtWidgets.QWidget):
         l.addLayout(l2)
 
         self.hexEdit = HexEdit()
-        self.address = 0x40200
+        self.address = 0  # x40200
         l.addWidget(self.hexEdit)
         self.addressLine.returnPressed.connect(self.refresh)
 

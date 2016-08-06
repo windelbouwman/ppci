@@ -15,12 +15,12 @@
             output="rest.oj"
             report="report.html"/>
         <link
-            output="hello.elf"
+            output="hello.oj"
             layout="../avr.mmap"
             objects="glue.oj;rest.oj"
             debug="true" />
         <objcopy
-            objectfile="hello.elf"
+            objectfile="hello.oj"
             imagename="flash"
             format="hex"
             output="hello.hex" />
