@@ -128,3 +128,8 @@ serve as base classes for other instructions.
     :members: is_used
 
 .. autoclass:: ppci.ir.FinalInstruction
+
+Uml
+---
+
+.. uml:: ppci.ir

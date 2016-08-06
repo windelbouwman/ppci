@@ -33,7 +33,8 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
-    'zipexamples'
+    'zipexamples',
+    'uml',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
