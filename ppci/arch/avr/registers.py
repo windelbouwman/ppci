@@ -1,4 +1,7 @@
-from ..isa import Register, Syntax, RegisterClass
+""" Description of avr registers """
+
+from ..encoding import Syntax
+from ..registers import Register, RegisterClass
 from ...ir import i16, i8, ptr
 
 

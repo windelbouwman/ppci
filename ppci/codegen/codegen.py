@@ -9,7 +9,7 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.arch import ArtificialInstruction
-from ..arch.isa import Instruction
+from ..arch.encoding import Instruction
 from ..arch.data_instructions import Ds
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream

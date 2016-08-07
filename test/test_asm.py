@@ -86,6 +86,13 @@ class DecodeTestCase(unittest.TestCase):
         self.assertIs(avr_registers.r1, instruction.rd)
         self.assertIs(avr_registers.r2, instruction.rr)
 
+    def test_decode_add_2(self):
+        """ This is a more difficult case, because off the register args """
+        instruction = avr_instructions.Add.decode(bytes([0x12, 0xE]))
+        self.assertIsInstance(instruction, avr_instructions.Add)
+        self.assertIs(avr_registers.r1, instruction.rd)
+        self.assertIs(avr_registers.r18, instruction.rr)
+
 
 class OustreamTestCase(unittest.TestCase):
     def test_normal_use(self):

@@ -2,9 +2,9 @@
 Definitions of msp430 instruction set.
 """
 
-from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
-from ..isa import Relocation
-from ..token import Token, u16, bit_range, bit, u8
+from ..encoding import Instruction, register_argument, Syntax, Constructor
+from ..isa import Relocation, Isa
+from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register, r0, r2, r3, SP, PC
 from ...utils.bitfun import align, wrap_negative
 from ...ir import i16

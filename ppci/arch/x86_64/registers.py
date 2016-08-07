@@ -1,7 +1,7 @@
-"""
-    Contains register definitions for x86 target.
-"""
-from ..isa import Register, Syntax, RegisterClass
+""" Contains register definitions for x86 target. """
+
+from ..encoding import Syntax
+from ..registers import Register, RegisterClass
 from ...ir import i64, i8, ptr
 
 

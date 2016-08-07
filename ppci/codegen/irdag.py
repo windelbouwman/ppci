@@ -9,7 +9,7 @@
 import logging
 import re
 from .. import ir
-from ..arch.isa import Register
+from ..arch.registers import Register
 from ..arch.arch import Label
 from ..binutils.debuginfo import FpOffsetAddress
 from ..utils.tree import Tree

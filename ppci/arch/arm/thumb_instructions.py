@@ -2,7 +2,8 @@
     Thumb instruction definitions
 """
 
-from ..isa import Instruction, Isa, register_argument, Syntax
+from ..isa import Isa
+from ..encoding import Instruction, register_argument, Syntax
 from ..token import u16
 from ..arm.registers import ArmRegister, LowArmRegister
 from ..token import Token, bit_range

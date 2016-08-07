@@ -3,9 +3,9 @@
     and serves as a minimal example.
 """
 
-from .isa import Instruction, Syntax
 from .arch import Architecture
-from .isa import register_argument, Register, RegisterClass
+from .encoding import Instruction, Syntax, register_argument
+from .registers import Register, RegisterClass
 from ..import ir
 
 

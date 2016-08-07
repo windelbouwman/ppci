@@ -4,7 +4,7 @@
 """
 
 import logging
-from ..arch.isa import Instruction
+from ..arch.encoding import Instruction
 from ..arch.arch import Alignment, DebugData, SectionInstruction
 
 

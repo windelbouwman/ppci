@@ -1,5 +1,5 @@
 import unittest
-from ppci.arch.isa import Instruction, Syntax, register_argument
+from ppci.arch.encoding import Instruction, Syntax, register_argument
 from ppci.arch import example
 
 

@@ -6,7 +6,7 @@ from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from ..isa import RegisterClass
+from ..registers import RegisterClass
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8

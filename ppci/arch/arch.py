@@ -1,6 +1,9 @@
+""" Machine architecture description module """
+
 import logging
 from functools import lru_cache
-from .isa import Instruction, Register
+from .encoding import Instruction
+from .registers import Register
 from .. import ir
 
 

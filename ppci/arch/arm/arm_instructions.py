@@ -4,9 +4,10 @@
 
 # pylint: disable=no-member,invalid-name
 
-from ..isa import Instruction, Isa, Constructor, Syntax, FixedPattern
-from ..isa import VariablePattern
-from ..isa import register_argument, value_argument
+from ..isa import Isa
+from ..encoding import Instruction, Constructor, Syntax, FixedPattern
+from ..encoding import VariablePattern
+from ..encoding import register_argument, value_argument
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
 from ..token import Token, u32, bit_range

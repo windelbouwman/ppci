@@ -1,5 +1,6 @@
-from ..isa import Instruction, Isa, register_argument, Syntax
-from ..isa import FixedPattern, SubPattern, VariablePattern
+from ..isa import Isa
+from ..encoding import Instruction, register_argument, Syntax
+from ..encoding import FixedPattern, SubPattern, VariablePattern
 from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative

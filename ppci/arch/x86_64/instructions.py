@@ -4,9 +4,10 @@
     See for a reference: http://ref.x86asm.net/coder64.html
 """
 
-from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
-from ..isa import FixedPattern, VariablePattern
 from ..arch import Label, RegisterUseDef
+from ..isa import Isa
+from ..encoding import Instruction, register_argument, Syntax, Constructor
+from ..encoding import FixedPattern, VariablePattern
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u32, u8, u64, bit_range
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx

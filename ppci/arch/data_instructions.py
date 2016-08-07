@@ -9,7 +9,8 @@ dd 2 -> 02000000
 
 """
 
-from .isa import Instruction, Isa, register_argument, Syntax, VariablePattern
+from .isa import Isa
+from .encoding import Instruction, register_argument, Syntax, VariablePattern
 from .token import Token, u16, bit_range, u8, u32
 from ..utils.bitfun import BitView
 

@@ -4,8 +4,9 @@
 
 # pylint: disable=no-member,invalid-name
 
-from ..isa import Instruction, Isa, Syntax
-from ..isa import register_argument
+from ..isa import Isa
+from ..encoding import Instruction, Syntax
+from ..encoding import register_argument
 from ..data_instructions import Dd
 from ...utils.bitfun import wrap_negative
 from .registers import RiscvRegister
