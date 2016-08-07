@@ -451,14 +451,29 @@ class Instruction(Constructor, metaclass=InsMeta):
         tokens = [tok_cls() for tok_cls in cls.tokens]
         ts = TokenSequence(tokens)
         ts.fill(data)
+        prop_map = {}
         for p in cls.patterns:
             if isinstance(p, FixedPattern):
                 print(p)
                 if ts.get_field(p.field) != p.value:
                     raise ValueError('Cannot decode {}'.format(cls))
+            elif isinstance(p, SubPattern):
+                v = ts.get_field(p.field)
+                regs = [r.new_func() for r in p.prop._cls.syntaxi[1]]
+                print(regs)
+                reg_map = {r.num: r for r in regs}
+                reg = reg_map[v]
+                prop_map[p.prop] = reg
             else:
                 raise NotImplementedError(p)
-        return cls()
+        init_args = []
+        for s in cls.syntax.syntax:
+            if isinstance(s, str):
+                pass
+            else:
+                init_args.append(prop_map[s])
+        print(init_args)
+        return cls(*init_args)
 
     def relocations(self):
         return []
@@ -476,6 +491,9 @@ class BitPattern:
 
     def get_value(self, objref):  # pragma: no cover
         raise NotImplementedError('Implement this for your pattern')
+
+    def set_value(self, value):
+        pass
 
 
 class FixedPattern(BitPattern):

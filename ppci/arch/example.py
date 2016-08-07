@@ -4,7 +4,7 @@
 """
 
 from .isa import Instruction, Syntax
-from .arch import Architecture, Frame
+from .arch import Architecture
 from .isa import register_argument, Register, RegisterClass
 from ..import ir
 
@@ -13,7 +13,6 @@ class ExampleArch(Architecture):
     """ Simple example architecture. This is intended as starting point
     when creating a new backend """
     name = 'example'
-    FrameClass = Frame
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -59,48 +58,49 @@ R6 = ExampleRegister('r6', 6)
 
 gdb_registers = (R0, R1, R2)
 
-class TestInstruction(Instruction):
+
+class ExampleInstruction(Instruction):
     """ Base class for all example instructions """
     tokens = []
 
 
-class Def(TestInstruction):
+class Def(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     syntax = Syntax(['def', rd])
 
 
-class Use(TestInstruction):
+class Use(ExampleInstruction):
     rn = register_argument('rn', ExampleRegister, read=True)
     syntax = Syntax(['use', rn])
 
 
-class DefUse(TestInstruction):
+class DefUse(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     rn = register_argument('rn', ExampleRegister, read=True)
     syntax = Syntax(['cpy', rd, rn])
 
 
-class Add(TestInstruction):
+class Add(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     rm = register_argument('rm', ExampleRegister, read=True)
     rn = register_argument('rn', ExampleRegister, read=True)
     syntax = Syntax(['add', rd, rm, rn])
 
 
-class Cmp(TestInstruction):
+class Cmp(ExampleInstruction):
     rm = register_argument('rm', ExampleRegister, read=True)
     rn = register_argument('rn', ExampleRegister, read=True)
     syntax = Syntax(['cmp', rm, rn])
 
 
-class Use3(TestInstruction):
+class Use3(ExampleInstruction):
     rm = register_argument('rm', ExampleRegister, read=True)
     rn = register_argument('rn', ExampleRegister, read=True)
     ro = register_argument('ro', ExampleRegister, read=True)
     syntax = Syntax(['use3', rm, rn, ro])
 
 
-class Mov(TestInstruction):
+class Mov(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     rm = register_argument('rm', ExampleRegister, read=True)
     syntax = Syntax(['mov', rd, rm])

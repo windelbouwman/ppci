@@ -447,12 +447,7 @@ class Value(Instruction):
             use.replace_use(self, value)
 
 
-class Expression(Value):
-    """ Base class for an expression """
-    pass
-
-
-class Cast(Expression):
+class Cast(Value):
     """ Base type conversion instruction """
     src = value_use('src')
 
@@ -482,7 +477,7 @@ class Undefined(Value):
         return '{} = undefined'.format(self.name)
 
 
-class Const(Expression):
+class Const(Value):
     """ Represents a constant value """
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
@@ -493,7 +488,7 @@ class Const(Expression):
         return '{} {} = {}'.format(self.ty, self.name, self.value)
 
 
-class LiteralData(Expression):
+class LiteralData(Value):
     """ Instruction that contains labeled data. When generating code for this
         instruction, a label and its data is emitted in the literal area
     """
@@ -506,7 +501,7 @@ class LiteralData(Expression):
         return '{} = Literal {}'.format(self.name, hexlify(self.data))
 
 
-class FunctionCall(Expression):
+class FunctionCall(Value):
     """ Call a function with some arguments and a return value """
     def __init__(self, function_name, arguments, name, ty):
         super().__init__(name, ty)
@@ -548,7 +543,7 @@ class ProcedureCall(Instruction):
         return '{}({})'.format(self.function_name, args)
 
 
-class Binop(Expression):
+class Binop(Value):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
     a = value_use('a')
@@ -620,7 +615,7 @@ class Phi(Value):
         self.del_use(value)
 
 
-class Alloc(Expression):
+class Alloc(Value):
     """ Allocates space on the stack. The type of this value is a ptr """
     def __init__(self, name, amount):
         super().__init__(name, ptr)
@@ -631,7 +626,9 @@ class Alloc(Expression):
         return '{} = alloc {} bytes'.format(self.name, self.amount)
 
 
-class Variable(Expression):
+# TODO: Variable now inherits Value and hence Instruction, but it is not an
+# instruction!
+class Variable(Value):
     """ Global variable, reserves room in the data area. Has name and size """
     def __init__(self, name, amount):
         super().__init__(name, ptr)
@@ -642,7 +639,7 @@ class Variable(Expression):
         return 'variable {} ({} bytes)'.format(self.name, self.amount)
 
 
-class Parameter(Expression):
+class Parameter(Value):
     """ Parameter of a function """
     def __init__(self, name, ty):
         super().__init__(name, ty)
