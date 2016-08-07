@@ -135,7 +135,8 @@ class EarleyParser:
 
         # Create the state stack:
         columns = [Column(i, tok) for i, tok in enumerate(make_tokens(tokens))]
-        for rule in self.grammar.productions_for_name(self.grammar.start_symbol):
+        for rule in self.grammar.productions_for_name(
+                self.grammar.start_symbol):
             columns[0].add(Item(rule, 0, 0))
 
         # Loop through all input.
@@ -156,7 +157,9 @@ class EarleyParser:
         # Check if the parse was a success:
         last_column = columns[-1]
         for item in last_column:
-            if item.is_reduce and item.rule.name == self.grammar.start_symbol and item.origin == 0:
+            if item.is_reduce and \
+                    item.rule.name == self.grammar.start_symbol and \
+                    item.origin == 0:
                 break
         else:
             # self.dump_parse(columns)

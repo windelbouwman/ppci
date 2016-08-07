@@ -2,7 +2,7 @@
     AVR architecture.
 """
 import io
-from ...ir import i8, i16, ptr
+from ...ir import i8, i16
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment, SectionInstruction
 from ..data_instructions import data_isa
@@ -135,7 +135,7 @@ class AvrArch(Architecture):
             else:
                 yield Pop(register)
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Generate the prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -157,7 +157,7 @@ class AvrArch(Architecture):
         yield In(Y.lo, 0x3d)
         yield In(Y.hi, 0x3e)
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """

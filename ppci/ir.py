@@ -10,7 +10,6 @@ The only types available are basic integer types and a pointer type.
 
 from binascii import hexlify
 import logging
-from .utils.fastlist import FastList
 
 
 class Module:

@@ -2,7 +2,7 @@
 
 import unittest
 import io
-from ppci.binutils.layout import load_layout
+from ppci.binutils.layout import Layout
 from ppci.api import get_arch
 from ppci.arch.arch import Frame, VCall
 from ppci.arch.avr.instructions import Push, Pop
@@ -157,7 +157,7 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
 
     def test_further_rjmp(self):
         spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
-        layout = load_layout(io.StringIO(spec))
+        layout = Layout.load(io.StringIO(spec))
         self.feed("rjmp a")
         self.feed("rjmp a")
         self.feed("a: rjmp a")
@@ -197,7 +197,7 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("a: ldi r16, low(a)")
         self.feed("ldi r16, high(a)")
         spec = "MEMORY flash LOCATION=0x1234 SIZE=0x100 { SECTION(code) }"
-        layout = load_layout(io.StringIO(spec))
+        layout = Layout.load(io.StringIO(spec))
         self.check('04e3 02e1', layout=layout)
 
     @unittest.skip('todo')

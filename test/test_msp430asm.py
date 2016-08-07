@@ -2,7 +2,7 @@
 
 import unittest
 import io
-from ppci.binutils.layout import load_layout
+from ppci.binutils.layout import Layout
 from test_asm import AsmTestCaseBase
 from ppci.arch.msp430 import instructions, registers
 
@@ -41,7 +41,7 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov.w r0, &b')
         self.feed('mov.w &a, &b')
         spec = "MEMORY flash LOCATION=0xf800 SIZE=0x100 {SECTION(code)}"
-        layout = load_layout(io.StringIO(spec))
+        layout = Layout.load(io.StringIO(spec))
         self.check('0000 0000 1042 00f8 8240 02f8 9242 00f8 02f8', layout)
 
     def test_add(self):

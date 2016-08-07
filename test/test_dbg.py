@@ -228,7 +228,7 @@ class GdbClientTestCase(unittest.TestCase):
     def setUp(self):
         with patch('ppci.binutils.dbg_gdb_client.socket.socket'):
             self.gdbc = GdbDebugDriver(self.arch)
-        self.sock_mock = self.gdbc.s
+        self.sock_mock = self.gdbc.sock
         self.send_data = bytearray()
 
         def my_send(dt):

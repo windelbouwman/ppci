@@ -24,10 +24,10 @@ from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .codegen import CodeGenerator
 from .binutils.linker import Linker
-from .binutils.layout import Layout, load_layout
+from .binutils.layout import Layout
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.outstream import MasterOutputStream, FunctionOutputStream
-from .binutils.objectfile import ObjectFile, load_object
+from .binutils.objectfile import ObjectFile
 from .binutils.debuginfo import DebugDb, DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
@@ -70,7 +70,7 @@ def get_arch(arch):
     raise TaskError('Invalid architecture {}'.format(arch))
 
 
-def fix_file(f, mode='r'):
+def get_file(f, mode='r'):
     """ Determine if argument is a file like object or make it so! """
     if hasattr(f, 'read'):
         # Assume this is a file like object
@@ -87,19 +87,20 @@ def fix_file(f, mode='r'):
 def get_object(obj):
     """ Try hard to load an object """
     if not isinstance(obj, ObjectFile):
-        f = fix_file(obj)
-        obj = load_object(f)
+        f = get_file(obj)
+        obj = ObjectFile.load(f)
         f.close()
     return obj
 
 
-def fix_layout(l):
-    if isinstance(l, Layout):
-        return l
+def get_layout(layout):
+    """ Get a layout from object or file """
+    if isinstance(layout, Layout):
+        return layout
     else:
-        f = fix_file(l)
-        layout = load_layout(f)
-        f.close()
+        file = get_file(layout)
+        layout = Layout.load(file)
+        file.close()
         return layout
 
 
@@ -109,7 +110,7 @@ def construct(buildfile, targets=()):
         Raise task error if something goes wrong.
     """
     # Ensure file:
-    buildfile = fix_file(buildfile)
+    buildfile = get_file(buildfile)
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
@@ -152,7 +153,7 @@ def asm(source, march, debug=False):
     diag = DiagnosticsManager()
     march = get_arch(march)
     assembler = march.assembler
-    source = fix_file(source)
+    source = get_file(source)
     obj = ObjectFile(march)
     if debug:
         obj.debug_info = DebugInfo()
@@ -185,7 +186,7 @@ def disasm(data, march):
     """
     march = get_arch(march)
     disassembler = Disassembler(march)
-    f = fix_file(data)
+    f = get_file(data)
     data = f.read()
     f.close()
     ostream = TextOutputStream()
@@ -201,8 +202,8 @@ def c3toir(sources, includes, march, reporter=None):
 
     logger.debug('C3 compilation started')
     reporter.heading(2, 'c3 compilation')
-    sources = [fix_file(fn) for fn in sources]
-    includes = [fix_file(fn) for fn in includes]
+    sources = [get_file(fn) for fn in sources]
+    includes = [get_file(fn) for fn in includes]
     diag = DiagnosticsManager()
     c3b = C3Builder(diag, march)
 
@@ -477,7 +478,7 @@ def link(
         raise ValueError('Please provide at least one object as input')
 
     if layout:
-        layout = fix_layout(layout)
+        layout = get_layout(layout)
 
     march = objects[0].arch
 

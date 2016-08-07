@@ -74,12 +74,12 @@ class RiscvArch(Architecture):
         self.fp = FP
         self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
-    def branch(self,reg,lab):
+    def branch(self, reg, lab):
         if self.has_option('rvc'):
-            return(CJal(lab))
+            return CJal(lab)
         else:
-            return(Bl(reg,lab))
-            
+            return Bl(reg, lab)
+
     def get_runtime(self):
         """ Implement compiler runtime functions """
         from ...api import asm
@@ -136,7 +136,7 @@ class RiscvArch(Architecture):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
         live_regs = frame.live_regs_over(vcall)
-        
+
         # Caller save registers:
         i = (len(live_regs)+1)*4
         yield Subi(SP, SP, i)
@@ -144,18 +144,18 @@ class RiscvArch(Architecture):
             yield self.store(register, i, SP)
             i-= 4
         yield self.store(LR, i, SP)
-        i-=4
-        
+        i -= 4
+
         yield self.branch(LR, vcall.function_name)
 
         # Restore caller save registers:
         i = 0
-        i+= 4
+        i += 4
         yield self.load(LR, i, SP)
         for register in reversed(live_regs):
-            i+= 4
+            i += 4
             yield self.load(register, i, SP)
-        
+
         yield Addi(SP, SP, i)
 
     def determine_arg_locations(self, arg_types):
@@ -180,7 +180,7 @@ class RiscvArch(Architecture):
         live_out.add(rv)
         return rv, tuple(live_out)
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -188,7 +188,7 @@ class RiscvArch(Architecture):
         i = 0
         for register in self.callee_save:
             yield Sw(register, i, SP)
-            i-= 4
+            i -= 4
         Addi(SP, SP, i)
         if frame.stacksize > 0:
             yield Subi(SP, SP, frame.stacksize)  # Reserve stack space
@@ -217,7 +217,7 @@ class RiscvArch(Architecture):
         for ins in self.litpool(frame):
             yield ins
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
@@ -229,12 +229,12 @@ class RiscvArch(Architecture):
             i+= 4
             yield Lw(register, i, SP)
         Addi(SP, SP, i)
-        
+
         if self.has_option('rvc'):
             yield(CJr(LR))
         else:
             yield(Blr(R0, LR, 0))
-            
+
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction

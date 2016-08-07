@@ -7,7 +7,6 @@ import collections
 import io
 from ...common import CompilerError, DiagnosticsManager
 from ...irutils import Verifier
-from ...opt.mem2reg import Mem2RegPromotor
 from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
 from .parser import Parser
@@ -32,11 +31,13 @@ class C3Builder:
         self.arch = arch
 
     def build(self, srcs, imps=()):
-        """
-            Create IR-code from sources. Raises compiler error when something
-            goes wrong.
-            Returns a context where modules are living in and a list of
+        """ Create IR-code from sources.
+
+        Returns:
+            A context where modules are living in and a list of
             generated ir modules.
+
+        Raises compiler error when something goes wrong.
         """
         assert isinstance(srcs, collections.Iterable)
         assert isinstance(imps, collections.Iterable)
@@ -90,7 +91,7 @@ class C3Builder:
         return context, ir_modules, self.debug_db
 
     def check_control_flow(self, ir_module):
-        pas = Mem2RegPromotor(self.debug_db)
+        # pas = Mem2RegPromotor(self.debug_db)
         # pas.run(ir_module)
         self.verifier.verify(ir_module)
 

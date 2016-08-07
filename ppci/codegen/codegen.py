@@ -175,7 +175,7 @@ class CodeGenerator:
         debug_data = []
 
         # Prefix code:
-        output_stream.emit_all(self.arch.prologue(frame))
+        output_stream.emit_all(self.arch.gen_prologue(frame))
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
@@ -211,7 +211,7 @@ class CodeGenerator:
                 output_stream.emit(instruction)
 
         # Postfix code, like register restore and stack adjust:
-        output_stream.emit_all(self.arch.epilogue(frame))
+        output_stream.emit_all(self.arch.gen_epilogue(frame))
 
         # Last but not least, emit debug infos:
         for dd in debug_data:

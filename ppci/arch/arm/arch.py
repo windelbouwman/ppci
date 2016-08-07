@@ -100,7 +100,7 @@ class ArmArch(Architecture):
             if register_set:
                 yield arm_instructions.Pop(RegisterSet(register_set))
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -135,7 +135,7 @@ class ArmArch(Architecture):
         else:
             yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         Adjust frame pointer and add constant pool. """
