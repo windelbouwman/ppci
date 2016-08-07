@@ -91,7 +91,7 @@ class Token:
             self.bit_value &= (~mask)
 
     def __getitem__(self, key):
-        if type(key) is slice:
+        if isinstance(key, slice):
             assert key.step is None
             bits = key.stop - key.start
             assert bits > 0
@@ -99,13 +99,13 @@ class Token:
             mask = (limit - 1) << key.start
             value = (self.bit_value & mask) >> key.start
             return value
-        else:
+        else:  # pragma: no cover
             raise KeyError(key)
 
     def __setitem__(self, key, value):
-        if type(key) is int:
+        if isinstance(key, int):
             self.set_bit(key, value)
-        elif type(key) is slice:
+        elif isinstance(key, slice):
             assert key.step is None
             bits = key.stop - key.start
             assert bits > 0
@@ -114,7 +114,7 @@ class Token:
             mask = self.mask ^ ((limit - 1) << key.start)
             self.bit_value &= mask
             self.bit_value |= value << key.start
-        else:
+        else:  # pragma: no cover
             raise KeyError(key)
 
     def encode(self):

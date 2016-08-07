@@ -64,26 +64,20 @@ def apply_abs64(sym_value, data, reloc_value):
 
 class Imm8Token(Token):
     def __init__(self):
-        super().__init__(8)
+        super().__init__(8, '<B')
 
     disp8 = bit_range(0, 8)
-
-    def encode(self):
-        return u8(self.bit_value)
 
 
 class OpcodeToken(Token):
     def __init__(self):
-        super().__init__(8)
-
-    def encode(self):
-        return u8(self.bit_value)
+        super().__init__(8, '<B')
 
 
 class ModRmToken(Token):
     """ Construct the modrm byte from its components """
     def __init__(self, mod=0, rm=0, reg=0):
-        super().__init__(8)
+        super().__init__(8, '<B')
         self.mod = mod
         self.rm = rm
         self.reg = reg
@@ -92,27 +86,21 @@ class ModRmToken(Token):
     rm = bit_range(0, 3)
     reg = bit_range(3, 6)
 
-    def encode(self):
-        return u8(self.bit_value)
-
 
 class SibToken(Token):
     def __init__(self, ss=0):
-        super().__init__(8)
+        super().__init__(8, '<B')
         self.ss = ss
 
     ss = bit_range(6, 8)
     index = bit_range(3, 6)
     base = bit_range(0, 3)
 
-    def encode(self):
-        return u8(self.bit_value)
-
 
 class RexToken(Token):
     """ Create a REX prefix byte """
     def __init__(self, w=0, r=0, x=0, b=0):
-        super().__init__(8)
+        super().__init__(8, '<B')
         self.w = w
         self.r = r
         self.x = x
@@ -123,9 +111,6 @@ class RexToken(Token):
     r = bit_range(2, 3)
     x = bit_range(1, 2)
     b = bit_range(0, 1)
-
-    def encode(self):
-        return u8(self.bit_value)
 
 
 class Imm32Token(Token):
@@ -336,24 +321,24 @@ class RmMem(Rm):
     def set_user_patterns(self, tokens):
         if self.reg.regbits == 5:
             # this is a rip special case, use offset of 0
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
-            self.set_field(tokens, 'disp8', 0)
+            tokens.set_field('mod', 1)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
+            tokens.set_field('disp8', 0)
         elif self.reg.regbits == 4:
             # Switch to sib mode
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
+            tokens.set_field('mod', 0)
+            tokens.set_field('rm', 4)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('ss', 0)
+            tokens.set_field('x', 0)
+            tokens.set_field('index', 4)  # No index
+            tokens.set_field('base', self.reg.regbits)
         else:
             # The 'normal' case
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+            tokens.set_field('mod', 0)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
 
 
 class RmMem8(Rm8):
@@ -364,24 +349,24 @@ class RmMem8(Rm8):
     def set_user_patterns(self, tokens):
         if self.reg.regbits == 5:
             # this is a rip special case, use offset of 0
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
-            self.set_field(tokens, 'disp8', 0)
+            tokens.set_field('mod', 1)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
+            tokens.set_field('disp8', 0)
         elif self.reg.regbits == 4:
             # Switch to sib mode
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
+            tokens.set_field('mod', 0)
+            tokens.set_field('rm', 4)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('ss', 0)
+            tokens.set_field('x', 0)
+            tokens.set_field('index', 4)  # No index
+            tokens.set_field('base', self.reg.regbits)
         else:
             # The 'normal' case
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+            tokens.set_field('mod', 0)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
 
 
 class RmMemDisp(Rm):
@@ -392,24 +377,24 @@ class RmMemDisp(Rm):
 
     def set_user_patterns(self, tokens):
         if self.disp <= 255 and self.disp >= -128:
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+            tokens.set_field('mod', 1)
+            tokens.set_field('disp8', wrap_negative(self.disp, 8))
         else:
-            self.set_field(tokens, 'mod', 2)
-            self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+            tokens.set_field('mod', 2)
+            tokens.set_field('disp32', wrap_negative(self.disp, 32))
 
         if self.reg.regbits == 4:
             # SIB mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', 4)
+            tokens.set_field('ss', 0)
+            tokens.set_field('x', 0)
+            tokens.set_field('index', 4)  # No index
+            tokens.set_field('base', self.reg.regbits)
         else:
             # Normal mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
 
 
 class RmMemDisp2(Rm):
@@ -423,14 +408,14 @@ class RmMemDisp2(Rm):
         # assert self.regb.regbits != 5
         assert self.regi.regbits != 4
         # SIB mode:
-        self.set_field(tokens, 'mod', 1)
-        self.set_field(tokens, 'b', self.regb.rexbit)
-        self.set_field(tokens, 'rm', 4)
-        self.set_field(tokens, 'ss', 0)
-        self.set_field(tokens, 'x', self.regi.rexbit)
-        self.set_field(tokens, 'index', self.regi.regbits)
-        self.set_field(tokens, 'base', self.regb.regbits)
-        self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+        tokens.set_field('mod', 1)
+        tokens.set_field('b', self.regb.rexbit)
+        tokens.set_field('rm', 4)
+        tokens.set_field('ss', 0)
+        tokens.set_field('x', self.regi.rexbit)
+        tokens.set_field('index', self.regi.regbits)
+        tokens.set_field('base', self.regb.regbits)
+        tokens.set_field('disp8', wrap_negative(self.disp, 8))
 
 
 class RmRip(Rm):
@@ -443,7 +428,7 @@ class RmRip(Rm):
         FixedPattern('b', 0)]
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+        tokens.set_field('disp32', wrap_negative(self.disp, 32))
 
 
 class RmAbsLabel(Rm):
@@ -475,7 +460,7 @@ class RmAbs(Rm):
         FixedPattern('b', 0)]
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'disp32', wrap_negative(self.l, 32))
+        tokens.set_field('disp32', wrap_negative(self.l, 32))
 
 
 class RmReg(Rm):
@@ -485,8 +470,8 @@ class RmReg(Rm):
     patterns = [FixedPattern('mod', 3)]
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'b', self.reg_rm.rexbit)
-        self.set_field(tokens, 'rm', self.reg_rm.regbits)
+        tokens.set_field('b', self.reg_rm.rexbit)
+        tokens.set_field('rm', self.reg_rm.regbits)
 
 
 class RmReg8(Rm8):
@@ -497,8 +482,8 @@ class RmReg8(Rm8):
         FixedPattern('mod', 3)]
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'b', self.reg_rm.rexbit)
-        self.set_field(tokens, 'rm', self.reg_rm.regbits)
+        tokens.set_field('b', self.reg_rm.rexbit)
+        tokens.set_field('rm', self.reg_rm.regbits)
 
 
 # TODO: merge this class with RmMemDisp
@@ -510,24 +495,24 @@ class RmMemDisp8(Rm8):
 
     def set_user_patterns(self, tokens):
         if self.disp <= 255 and self.disp >= -128:
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+            tokens.set_field('mod', 1)
+            tokens.set_field('disp8', wrap_negative(self.disp, 8))
         else:
-            self.set_field(tokens, 'mod', 2)
-            self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+            tokens.set_field('mod', 2)
+            tokens.set_field('disp32', wrap_negative(self.disp, 32))
 
         if self.reg.regbits == 4:
             # SIB mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', 4)
+            tokens.set_field('ss', 0)
+            tokens.set_field('x', 0)
+            tokens.set_field('index', 4)  # No index
+            tokens.set_field('base', self.reg.regbits)
         else:
             # Normal mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
 
 
 class rmregbase(X86Instruction):
@@ -540,8 +525,8 @@ class rmregbase(X86Instruction):
     patterns = [FixedPattern('w', 1)]
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'r', self.reg.rexbit)
-        self.set_field(tokens, 'reg', self.reg.regbits)
+        tokens.set_field('r', self.reg.rexbit)
+        tokens.set_field('reg', self.reg.regbits)
 
     def encode(self):
         # 1. Set patterns:

@@ -22,15 +22,15 @@ class InstructionProperty(property):
         return 'property name={}, cls={}'.format(self._name, self._cls)
 
 
-class RegisterProperty(InstructionProperty):
-    pass
-
-
 def register_argument(name, cls, read=False, write=False, default_value=None):
-    """ Create a property for an instruction. When an instruction has
-        an register parameter, use this function to create the property.
-        The name is the name that will be shown in the usage.
-        The cls is the type of register that this function must take.
+    """ Create a property for an instruction.
+
+    When an instruction has
+    a parameter, use this function to create the property.
+
+    Arguments:
+        name: The name that will be shown in the usage.
+        cls: The type that this function must take.
     """
     # Construct a private backing field for the property:
     private_field = '_{}'.format(name)
@@ -53,19 +53,15 @@ def register_argument(name, cls, read=False, write=False, default_value=None):
         read=read, write=write, default_value=default_value)
 
 
-def value_argument(name):
-    # Construct a private backing field for the property:
-    return register_argument(name, int)
-
-
 class Constructor:
     """ Instruction, or part of an instruction.
-        An instruction is a special subclass of a constructor. It is final
-        , in other words, it cannot be used in Constructors. An instruction
-        can also be materialized, where as constructors are parts of an
-        instruction.
-        A constructor can contain a syntax and can be initialized by using
-        this syntax.
+
+    An instruction is a special subclass of a constructor. It is final
+    , in other words, it cannot be used in Constructors. An instruction
+    can also be materialized, where as constructors are parts of an
+    instruction.
+    A constructor can contain a syntax and can be initialized by using
+    this syntax.
     """
     syntax = None
     patterns = ()
@@ -73,22 +69,20 @@ class Constructor:
     def __init__(self, *args, **kwargs):
         # Generate constructor from args:
         if self.syntax:
-            formal_args = []
-            for st in self.syntax.syntax:
-                if type(st) is InstructionProperty:
-                    formal_args.append((st._name, st._cls))
+            formal_args = self.syntax.get_formal_arguments()
 
             # Set parameters:
             if len(args) != len(formal_args):
                 raise AssertionError(
-                    '{} given, but expected {}'.format(args, formal_args))
-            for fa, a in zip(formal_args, args):
-                if not isinstance(a, fa[1]):
+                    '{} arguments given, but expected {}'.format(
+                        len(args), len(formal_args)))
+            for farg, arg in zip(formal_args, args):
+                if not isinstance(arg, farg._cls):
                     # Create some nice looking error:
                     raise AssertionError(
-                        '{} expected {}, but got {} of type {}'.format(
-                            type(self), fa[1], a, type(a)))
-                setattr(self, fa[0], a)
+                        'expected {}, but got "{}" of type {}'.format(
+                            farg._cls, arg, type(arg)))
+                setattr(self, farg._name, arg)
 
             # Set additional properties as specified by syntax:
             for prop, val in self.syntax.set_props.items():
@@ -98,19 +92,9 @@ class Constructor:
             # print('\n\n\n===', pname, pval)
             setattr(self, pname, pval)
 
-    def _get_repr(self, st):
-        """ Get the repr of a syntax part. Can be str or prop class,
-            in refering to an element in the args list """
-        if isinstance(st, str):
-            return st
-        elif type(st) is InstructionProperty:
-            return str(st.__get__(self))
-        else:  # pragma: no cover
-            raise NotImplementedError(str(st))
-
     def __repr__(self):
         if self.syntax:
-            return ' '.join(self._get_repr(st) for st in self.syntax.syntax)
+            return self.syntax.render(self)
         else:
             return super().__repr__()
 
@@ -118,27 +102,18 @@ class Constructor:
         """ Fill tokens with the specified bit patterns """
         for pattern in self.patterns:
             value = pattern.get_value(self)
-            self.set_field(tokens, pattern.field, value)
-
+            tokens.set_field(pattern.field, value)
         self.set_user_patterns(tokens)
 
     def set_user_patterns(self, tokens):
-        """ User hook for extra patterns """
         pass
-
-    def set_field(self, tokens, field, value):
-        """ Set a given field in one of the given tokens """
-        ts = TokenSequence(tokens)
-        ts.set_field(field, value)
 
     @property
     def properties(self):
         """ Return all properties available into this syntax """
         if not self.syntax:
-            return
-        for st in self.syntax.syntax:
-            if type(st) is InstructionProperty:
-                yield st
+            return []
+        return self.syntax.get_formal_arguments()
 
     @property
     def leaves(self):
@@ -259,8 +234,9 @@ class Instruction(Constructor, metaclass=InsMeta):
     def set_all_patterns(self):
         """ Look for all patterns and apply them to the tokens """
         assert hasattr(self, 'patterns')
-        tokens = self.get_tokens()
+        tokens = TokenSequence(self.get_tokens())
         for nl in self.non_leaves:
+            print(nl, type(nl))
             nl.set_patterns(tokens)
 
     def replace_register(self, old, new):
@@ -304,14 +280,9 @@ class Instruction(Constructor, metaclass=InsMeta):
                 reg_map = {r.num: r for r in regs}
                 reg = reg_map[v]
                 prop_map[p.prop] = reg
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(p)
-        init_args = []
-        for s in cls.syntax.syntax:
-            if isinstance(s, str):
-                pass
-            else:
-                init_args.append(prop_map[s])
+        init_args = [prop_map[a] for a in cls.syntax.get_formal_arguments()]
         print(init_args)
         return cls(*init_args)
 
@@ -324,17 +295,19 @@ class Instruction(Constructor, metaclass=InsMeta):
 
 class Syntax:
     """ Defines a syntax for an instruction or part of an instruction.
-        The syntax is a list of syntax elements.
 
-        Optionally, the new_func is set. When using this syntax to create
+    Arguments:
+        syntax: a list of syntax elements.
+
+        new_func: When using this syntax to create
         the instruction, instead of the default constructor, this function
         is called.
 
-        The set_props property can be used to set additional properties
-        after creating the instruction.
+        set_props: The set_props property can be used to set additional
+        properties after creating the instruction.
     """
     def __init__(self, syntax, new_func=None, set_props={}, priority=0):
-        assert isinstance(syntax, list)
+        assert isinstance(syntax, (list, tuple))
         self.syntax = syntax
         self.new_func = new_func
         self.set_props = set_props
@@ -342,6 +315,29 @@ class Syntax:
 
     def __repr__(self):
         return '{}'.format(self.syntax)
+
+    def get_formal_arguments(self):
+        """ Get the sequence of properties that must be passed in """
+        formal_args = []
+        for syntax_element in self.syntax:
+            if isinstance(syntax_element, InstructionProperty):
+                formal_args.append(syntax_element)
+        return formal_args
+
+    def render(self, obj):
+        """ Return this syntax formatted for the given object. """
+        return ' '.join(self._get_repr(e, obj) for e in self.syntax)
+
+    @staticmethod
+    def _get_repr(syntax_element, obj):
+        """ Get the repr of a syntax part. Can be str or prop class,
+            in refering to an element in the args list """
+        if isinstance(syntax_element, str):
+            return syntax_element
+        elif isinstance(syntax_element, InstructionProperty):
+            return str(syntax_element.__get__(obj))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(syntax_element))
 
 
 class TokenSequence:
@@ -351,6 +347,7 @@ class TokenSequence:
 
     def set_field(self, field, value):
         """ Set a given field in one of the tokens """
+        print('set', field, 'to', value)
         for token in self.tokens:
             if hasattr(token, field):
                 setattr(token, field, value)

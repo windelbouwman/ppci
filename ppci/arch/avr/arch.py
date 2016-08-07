@@ -208,5 +208,5 @@ class AvrArch(Architecture):
         elif isinstance(dst, AvrWordRegister) and \
                 isinstance(src, AvrWordRegister):
             return Movw(dst, src, ismove=True)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError()

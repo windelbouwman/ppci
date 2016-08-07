@@ -18,12 +18,12 @@ from ppci.arch.example import Mov, R0, R1, ExampleArch
 
 
 class TokenTestCase(unittest.TestCase):
-    def testSetBits(self):
+    def test_set_bits(self):
         at = ArmToken()
         at[2:4] = 0b11
         self.assertEqual(0xc, at.bit_value)
 
-    def testSetBits2(self):
+    def test_set_bits2(self):
         at = ArmToken()
         at[4:8] = 0b1100
         self.assertEqual(0xc0, at.bit_value)

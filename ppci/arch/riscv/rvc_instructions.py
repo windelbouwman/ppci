@@ -6,7 +6,7 @@
 from ...utils.bitfun import wrap_negative
 from ..isa import Isa
 from ..encoding import Instruction, Syntax
-from ..encoding import register_argument, value_argument
+from ..encoding import register_argument
 from .registers import RiscvRegister
 from ..token import Token, u16, bit_range
 from .rvc_relocations import apply_bc_imm11, apply_bc_imm8

@@ -71,28 +71,6 @@ class HighAvrRegister(AvrRegister):
         ]
 
 
-class AvrRegCombo:
-    """
-        To be able to use 16 bit values, use this imaginary register type
-        containing a pair of real registers.
-    """
-    def __init__(self, hi, lo):
-        self._hi = hi
-        self._lo = lo
-
-    @property
-    def hi(self):
-        return self._hi
-
-    @property
-    def lo(self):
-        return self._lo
-
-
-class AvrPseudo16Register(AvrRegCombo):
-    pass
-
-
 class AvrWordRegister(Register):
     """ Register covering two 8 bit registers """
     bitsize = 16

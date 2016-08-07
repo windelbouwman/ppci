@@ -7,10 +7,10 @@
 from ..isa import Isa
 from ..encoding import Instruction, Constructor, Syntax, FixedPattern
 from ..encoding import VariablePattern
-from ..encoding import register_argument, value_argument
+from ..encoding import register_argument
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
-from ..token import Token, u32, bit_range
+from ..token import Token, bit_range
 from .relocations import apply_b_imm24, apply_rel8
 from .relocations import apply_ldr_imm12, apply_adr_imm12
 
@@ -29,7 +29,7 @@ arm_isa.register_relocation(apply_rel8)
 # Tokens:
 class ArmToken(Token):
     def __init__(self):
-        super().__init__(32)
+        super().__init__(32, '<I')
 
     cond = bit_range(28, 32)
     S = bit_range(20, 21)
@@ -38,9 +38,6 @@ class ArmToken(Token):
     Rm = bit_range(0, 4)
     shift_typ = bit_range(5, 7)
     shift_imm = bit_range(7, 12)
-
-    def encode(self):
-        return u32(self.bit_value)
 
 
 # Patterns:
@@ -172,7 +169,7 @@ Mov2LS = inter_twine(Mov2, 'ls')
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
     reg = register_argument('reg', ArmRegister, read=True)
-    imm = value_argument('imm')
+    imm = register_argument('imm', int)
     syntax = Syntax(['cmp', reg, ',', imm])
 
     def encode(self):
