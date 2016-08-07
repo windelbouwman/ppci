@@ -79,19 +79,26 @@ class DecodeTestCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Cannot decode'):
             avr_instructions.Nop.decode(bytes([2, 2]))
 
-    def test_decode_add(self):
+    def test_decode_avr_add(self):
         """ This is a more difficult case, because off the register args """
         instruction = avr_instructions.Add.decode(bytes([0x12, 0xC]))
         self.assertIsInstance(instruction, avr_instructions.Add)
         self.assertIs(avr_registers.r1, instruction.rd)
         self.assertIs(avr_registers.r2, instruction.rr)
 
-    def test_decode_add_2(self):
+    def test_decode_avr_add_2(self):
         """ This is a more difficult case, because off the register args """
         instruction = avr_instructions.Add.decode(bytes([0x12, 0xE]))
         self.assertIsInstance(instruction, avr_instructions.Add)
         self.assertIs(avr_registers.r1, instruction.rd)
         self.assertIs(avr_registers.r18, instruction.rr)
+
+    def test_decode_avr_in(self):
+        """ An even more difficult case """
+        instruction = avr_instructions.In.decode(bytes([0x72, 0xb0]))
+        self.assertIsInstance(instruction, avr_instructions.In)
+        self.assertIs(avr_registers.r7, instruction.rd)
+        self.assertEqual(2, instruction.na)
 
 
 class OustreamTestCase(unittest.TestCase):

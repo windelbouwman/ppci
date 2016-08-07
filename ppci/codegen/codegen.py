@@ -207,7 +207,7 @@ class CodeGenerator:
                     raise NotImplementedError(str(instruction))
             else:
                 # Real instructions:
-                assert instruction.is_colored, str(instruction)
+                assert all(r.is_colored for r in instruction.registers)
                 output_stream.emit(instruction)
 
         # Postfix code, like register restore and stack adjust:

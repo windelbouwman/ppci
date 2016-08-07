@@ -151,19 +151,17 @@ class InsMeta(type):
 
 
 class Instruction(Constructor, metaclass=InsMeta):
-    """
-        Base instruction class. Instructions are automatically added to an
-        isa object. Instructions are created in the following ways:
+    """ Base instruction class.
 
-        - From python code, by using the instruction directly:
-          self.stream.emit(Mov(r1, r2))
-        - By the assembler. This is done via a generated parser.
-        - By the instruction selector. This is done via pattern matching rules
+    Instructions are automatically added to an
+    isa object. Instructions are created in the following ways:
 
-        Instructions can then be emitted to output streams.
+    - From python code, by using the instruction directly:
+      self.stream.emit(Mov(r1, r2))
+    - By the assembler. This is done via a generated parser.
+    - By the instruction selector. This is done via pattern matching rules
 
-        An instruction can be colored or not. When all its used registers
-        are colored, the instruction is also colored.
+    Instructions can then be emitted to output streams.
     """
     def __init__(self, *args, **kwargs):
         """
@@ -226,17 +224,11 @@ class Instruction(Constructor, metaclass=InsMeta):
             if issubclass(p._cls, Register):
                 yield p.__get__(o)
 
-    @property
-    def is_colored(self):
-        """ Determine whether all registers of this instruction are colored """
-        return all(reg.is_colored for reg in self.registers)
-
     def set_all_patterns(self):
         """ Look for all patterns and apply them to the tokens """
         assert hasattr(self, 'patterns')
         tokens = TokenSequence(self.get_tokens())
         for nl in self.non_leaves:
-            print(nl, type(nl))
             nl.set_patterns(tokens)
 
     def replace_register(self, old, new):
@@ -265,25 +257,25 @@ class Instruction(Constructor, metaclass=InsMeta):
     def decode(cls, data):
         """ Decode data into an instruction of this class """
         tokens = [tok_cls() for tok_cls in cls.tokens]
-        ts = TokenSequence(tokens)
-        ts.fill(data)
+        tokens = TokenSequence(tokens)
+        tokens.fill(data)
         prop_map = {}
-        for p in cls.patterns:
-            if isinstance(p, FixedPattern):
-                print(p)
-                if ts.get_field(p.field) != p.value:
+        for pattern in cls.patterns:
+            v = tokens.get_field(pattern.field)
+            if isinstance(pattern, FixedPattern):
+                if v != pattern.value:
                     raise ValueError('Cannot decode {}'.format(cls))
-            elif isinstance(p, SubPattern):
-                v = ts.get_field(p.field)
-                regs = [r.new_func() for r in p.prop._cls.syntaxi[1]]
-                print(regs)
+            elif isinstance(pattern, SubPattern):
+                # TODO: Assume reg here!
+                regs = [r.new_func() for r in pattern.prop._cls.syntaxi[1]]
                 reg_map = {r.num: r for r in regs}
-                reg = reg_map[v]
-                prop_map[p.prop] = reg
+                prop_map[pattern.prop] = reg_map[v]
+            elif isinstance(pattern, VariablePattern):
+                # TODO: assume int here!
+                prop_map[pattern.prop] = v
             else:  # pragma: no cover
-                raise NotImplementedError(p)
+                raise NotImplementedError(pattern)
         init_args = [prop_map[a] for a in cls.syntax.get_formal_arguments()]
-        print(init_args)
         return cls(*init_args)
 
     def relocations(self):
@@ -347,7 +339,6 @@ class TokenSequence:
 
     def set_field(self, field, value):
         """ Set a given field in one of the tokens """
-        print('set', field, 'to', value)
         for token in self.tokens:
             if hasattr(token, field):
                 setattr(token, field, value)
