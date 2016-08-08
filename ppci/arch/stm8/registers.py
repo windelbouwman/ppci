@@ -1,4 +1,4 @@
-from ppci.arch.isa import Register
+from ..encoding import Register
 
 
 class Stm8AccumulatorRegister(Register):

@@ -1,4 +1,5 @@
-from ..isa import FixedPattern, Instruction, Isa, Syntax
+from ..isa import Isa
+from ..encoding import FixedPattern, Instruction, Syntax
 from ..token import bit_range, Token, u8
 
 
