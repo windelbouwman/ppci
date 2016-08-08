@@ -18,6 +18,11 @@ class Layout:
     def __repr__(self):
         return str(self.memories)
 
+    @staticmethod
+    def load(file):
+        """ Load a layout from file """
+        return _lloader.load_layout(file)
+
 
 class Memory:
     """ Specification of how a memory may look like and what it contains. """
@@ -86,13 +91,13 @@ class LayoutLexer(BaseLexer):
 
     def __init__(self):
         tok_spec = [
-           ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
-           ('NUMBER', r'\d+', self.handle_number),
-           ('ID', r'[_A-Za-z][_A-Za-z\d_]*', self.handle_id),
-           ('SKIP', r'[ \t\r\n]', None),
-           ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
-               lambda typ, val: (val, val)),
-           ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
+            ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
+            ('NUMBER', r'\d+', self.handle_number),
+            ('ID', r'[_A-Za-z][_A-Za-z\d_]*', self.handle_id),
+            ('SKIP', r'[ \t\r\n]', None),
+            ('LEESTEKEN', r':=|[\.,=:\-+*\[\]/\(\)]|>=|<=|<>|>|<|}|{',
+             lambda typ, val: (val, val)),
+            ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
         ]
         super().__init__(tok_spec)
 
@@ -112,25 +117,25 @@ class LayoutParser:
         toks = [
             'ID', 'NUMBER', '{', '}', '.', ':', '=', '(', ')', EPS, EOF
             ] + kws
-        g = Grammar()
-        g.add_terminals(toks)
-        g.add_production('layout', ['mem_list'])
-        g.add_one_or_more('mem', 'mem_list')
-        g.add_production('mem', [
+        grammar = Grammar()
+        grammar.add_terminals(toks)
+        grammar.add_production('layout', ['mem_list'])
+        grammar.add_one_or_more('mem', 'mem_list')
+        grammar.add_production('mem', [
             'MEMORY', 'ID', 'LOCATION', '=', 'NUMBER', 'SIZE', '=',
             'NUMBER', '{', 'input_list', '}'], self.handle_mem)
-        g.add_one_or_more('input', 'input_list')
-        g.add_production(
+        grammar.add_one_or_more('input', 'input_list')
+        grammar.add_production(
             'input', ['ALIGN', '(', 'NUMBER', ')'], self.handle_align)
-        g.add_production(
+        grammar.add_production(
             'input', ['SECTION', '(', 'ID', ')'], self.handle_section)
-        g.add_production(
+        grammar.add_production(
             'input', ['DEFINESYMBOL', '(', 'ID', ')'], self.handle_defsym)
-        g.add_production(
+        grammar.add_production(
             'input', ['SECTIONDATA', '(', 'ID', ')'], self.handle_section_data)
 
-        g.start_symbol = 'layout'
-        self.p = LrParserBuilder(g).generate_parser()
+        grammar.start_symbol = 'layout'
+        self.p = LrParserBuilder(grammar).generate_parser()
 
     def parse(self, lexer, layout):
         self.layout = layout
@@ -174,7 +179,3 @@ class LayoutLoader:
 
 # Single definition:
 _lloader = LayoutLoader()
-
-
-def load_layout(f):
-    return _lloader.load_layout(f)

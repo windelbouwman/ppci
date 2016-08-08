@@ -1,8 +1,7 @@
-"""
-    Thumb instruction definitions
-"""
+""" Thumb instruction definitions """
 
-from ..isa import Instruction, Isa, register_argument, Syntax
+from ..isa import Isa
+from ..encoding import Instruction, register_argument, Syntax
 from ..token import u16
 from ..arm.registers import ArmRegister, LowArmRegister
 from ..token import Token, bit_range
@@ -14,12 +13,9 @@ from .thumb_relocations import apply_rel8, apply_bl_imm11
 
 class ThumbToken(Token):
     def __init__(self):
-        super().__init__(16)
+        super().__init__(16, '<H')
 
     rd = bit_range(0, 3)
-
-    def encode(self):
-        return u16(self.bit_value)
 
 
 # Instructions:

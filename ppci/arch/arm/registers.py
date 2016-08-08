@@ -1,5 +1,6 @@
 
-from ..isa import Register, Syntax
+from ..registers import Register
+from ..encoding import Syntax
 
 # pylint: disable=invalid-name
 

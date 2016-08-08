@@ -60,7 +60,7 @@ class InstructionContext(ContextInterface):
 
     def gen_call(self, value):
         """ generate call for function into self """
-        for instruction in self.arch.gen_call(value):
+        for instruction in self.arch.gen_vcall(value):
             self.emit(instruction)
         if len(value) == 5:
             res_var = value[-1]

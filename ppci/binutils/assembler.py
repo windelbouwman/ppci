@@ -10,7 +10,7 @@ from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
 from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
-from ..arch.isa import InstructionProperty, Syntax
+from ..arch.encoding import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
 

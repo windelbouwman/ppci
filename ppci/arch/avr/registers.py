@@ -1,4 +1,7 @@
-from ..isa import Register, Syntax, RegisterClass
+""" Description of avr registers """
+
+from ..encoding import Syntax
+from ..registers import Register, RegisterClass
 from ...ir import i16, i8, ptr
 
 
@@ -66,28 +69,6 @@ class HighAvrRegister(AvrRegister):
         Syntax(['r30'], new_func=lambda: r30),
         Syntax(['r31'], new_func=lambda: r31),
         ]
-
-
-class AvrRegCombo:
-    """
-        To be able to use 16 bit values, use this imaginary register type
-        containing a pair of real registers.
-    """
-    def __init__(self, hi, lo):
-        self._hi = hi
-        self._lo = lo
-
-    @property
-    def hi(self):
-        return self._hi
-
-    @property
-    def lo(self):
-        return self._lo
-
-
-class AvrPseudo16Register(AvrRegCombo):
-    pass
 
 
 class AvrWordRegister(Register):

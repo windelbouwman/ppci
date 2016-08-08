@@ -6,13 +6,13 @@ import io
 from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
-from ..arch import Architecture, VCall, Frame, Label, Alignment
+from ..arch import Architecture, Frame, Label, Alignment
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes
 from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
-from .instructions import ret, push, call, pop, Add, Sub, ConstSrc, RegDst, mov
+from .instructions import push, call, Add, Sub, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
@@ -69,7 +69,7 @@ class Msp430Arch(Architecture):
             if register in self.caller_save:
                 yield pop(register)
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -86,7 +86,7 @@ class Msp430Arch(Architecture):
         # Setup the frame pointer:
         yield mov(r1, r4)
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """

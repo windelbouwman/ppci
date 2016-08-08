@@ -170,7 +170,7 @@ class Linker:
             # Determine location in memory of reloc patchup position:
             reloc_value = section.address + reloc.offset
 
-            f = self.arch.get_reloc(reloc.typ)
+            reloc_function = self.arch.get_reloc(reloc.typ)
             data = section.data[reloc.offset:]
-            f(sym_value, data, reloc_value)
+            reloc_function(sym_value, data, reloc_value)
             section.data[reloc.offset:] = data

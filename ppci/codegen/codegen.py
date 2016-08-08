@@ -9,7 +9,7 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.arch import ArtificialInstruction
-from ..arch.isa import Instruction
+from ..arch.encoding import Instruction
 from ..arch.data_instructions import Ds
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
@@ -175,7 +175,7 @@ class CodeGenerator:
         debug_data = []
 
         # Prefix code:
-        output_stream.emit_all(self.arch.prologue(frame))
+        output_stream.emit_all(self.arch.gen_prologue(frame))
 
         for instruction in frame.instructions:
             assert isinstance(instruction, Instruction), str(instruction)
@@ -207,11 +207,11 @@ class CodeGenerator:
                     raise NotImplementedError(str(instruction))
             else:
                 # Real instructions:
-                assert instruction.is_colored, str(instruction)
+                assert all(r.is_colored for r in instruction.registers)
                 output_stream.emit(instruction)
 
         # Postfix code, like register restore and stack adjust:
-        output_stream.emit_all(self.arch.epilogue(frame))
+        output_stream.emit_all(self.arch.gen_epilogue(frame))
 
         # Last but not least, emit debug infos:
         for dd in debug_data:

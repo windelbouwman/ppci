@@ -1,8 +1,8 @@
-import struct
-from ..isa import Instruction, Isa, register_argument, Syntax
-from ..isa import FixedPattern, SubPattern, VariablePattern
+from ..isa import Isa
+from ..encoding import Instruction, register_argument, Syntax
+from ..encoding import FixedPattern, SubPattern, VariablePattern
 from ..arch import RegisterUseDef, ArtificialInstruction
-from ..token import Token, u16, bit_range, bit, bit_concat
+from ..token import Token, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative
 from ...ir import i16
 from .registers import AvrRegister, X
@@ -719,11 +719,6 @@ def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
 
 
-#@avr_isa.pattern('stm', 'MOVI8(reg16)', size=2)
-#def pattern_mov8_16(context, tree, c0):
-#    context.move(tree.value, c0.lo)
-
-
 @avr_isa.pattern('stm', 'MOVI16(reg16)', size=2)
 def pattern_mov16(context, tree, c0):
     context.move(tree.value, c0)
@@ -812,19 +807,7 @@ def pattern_mul16(context, tree, c0, c1):
 def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
     d = context.new_reg(AvrWordRegister)
-    # cntr = context.new_reg(AvrRegister)
     context.gen_call(('__shr16', [i16, i16], i16, [c0, c1], d))
-    #context.move(d.lo, c0.lo)
-    #context.move(d.hi, c0.hi)
-    #context.move(cntr, c1.lo)
-    # context.emit(Label('a'))
-    #context.emit(Lsr(d.hi))
-    #context.emit(Ror(d.lo))
-    #context.emit(Dec(cntr))
-    # raise NotImplementedError('shr')
-
-    # TODO: fix this!
-    # context.emit(Brne('a'))
     return d
 
 

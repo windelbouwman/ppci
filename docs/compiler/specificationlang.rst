@@ -32,6 +32,36 @@ tools like assemblers, disassemblers, linkers, debuggers and simulators.
         2 -> 12
     }
 
+Design
+------
+
+The following information must be captured in the specification file:
+
+* Assembly textual representation
+* Binary representation
+* Link relocations
+* Mapping from compiler back-end
+* Effects of instruction (semantics)
+
+The following image depicts the encoding and decoding of the AVR add
+instruction.
+
+.. image:: encoding.png
+
+The following code demonstrates how this instruction is described:
+
+.. code:: python
+
+    class Add(AvrInstruction):
+        tokens = [AvrArithmaticToken]
+        rd = register_argument('rd', AvrRegister, read=True, write=True)
+        rr = register_argument('rr', AvrRegister, read=True)
+        syntax = Syntax(['add', rd, ',', rr])
+        patterns = [
+            FixedPattern('op', 0b11),
+            SubPattern('r', rr),
+            SubPattern('d', rd)]
+
 
 Background
 ----------
@@ -203,17 +233,6 @@ nML
     op add() syntax = ”add” image = ”10” action = { L3 = L1 + L2; }
     op sub() syntax = ”sub” image = ”01” action = { L3 = L1 - L2; }
 
-
-Design
-------
-
-The following information must be captured in the specification file:
-
-* Assembly textual representation
-* Binary representation
-* Link relocations
-* Mapping from compiler back-end
-* Effects of instruction (semantics)
 
 
 .. [sled] http://www.cs.tufts.edu/~nr/toolkit/

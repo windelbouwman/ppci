@@ -1,5 +1,5 @@
 """
-This is the :doc:`c3<c3>` language front end.
+This is the c3 language front end.
 For the front-end a recursive descent parser is created.
 
 .. graphviz::

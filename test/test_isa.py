@@ -1,5 +1,6 @@
 import unittest
-from ppci.arch.isa import Instruction, Syntax, register_argument
+from ppci.arch.encoding import Instruction, Syntax, register_argument
+from ppci.arch.encoding import TokenSequence
 from ppci.arch import example
 
 
@@ -10,6 +11,13 @@ class DummyInstruction1(Instruction):
 
 class DummyInstruction2(Instruction):
     pass
+
+
+class EncodingTestCase(unittest.TestCase):
+    def test_invalid_field(self):
+        tokens = TokenSequence([])
+        with self.assertRaises(KeyError):
+            tokens.set_field('x', 123)
 
 
 class IsaTestCase(unittest.TestCase):
@@ -26,11 +34,6 @@ class IsaTestCase(unittest.TestCase):
 
     def test_syntax_repr(self):
         self.assertTrue(str(DummyInstruction1.syntax))
-
-    def test_invalid_field(self):
-        instruction = DummyInstruction2()
-        with self.assertRaises(KeyError):
-            instruction.set_field([], 'x', 123)
 
     def test_replace_register(self):
         """ Test the replace register function """

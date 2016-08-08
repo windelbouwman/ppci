@@ -118,7 +118,7 @@ from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture
-from ..arch.isa import Register
+from ..arch.registers import Register
 from ..utils.tree import Tree
 from .instructionselector import ContextInterface
 

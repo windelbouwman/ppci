@@ -11,11 +11,11 @@
     :members:
 
 
-.. autoclass:: ppci.arch.isa.Register
+.. autoclass:: ppci.arch.registers.Register
     :members: is_colored
 
 
-.. autoclass:: ppci.arch.isa.Instruction
+.. autoclass:: ppci.arch.encoding.Instruction
     :members:
 
 """

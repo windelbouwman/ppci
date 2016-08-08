@@ -1,6 +1,9 @@
+""" Machine architecture description module """
+
 import logging
 from functools import lru_cache
-from .isa import Instruction, Register
+from .encoding import Instruction
+from .registers import Register
 from .. import ir
 
 
@@ -88,11 +91,11 @@ class Architecture:
         """ Generate a move from src to dst """
         raise NotImplementedError('Implement this')
 
-    def prologue(self, frame):  # pragma: no cover
+    def gen_prologue(self, frame):  # pragma: no cover
         """ Generate instructions for the epilogue of a frame """
         raise NotImplementedError('Implement this!')
 
-    def epilogue(self, frame):  # pragma: no cover
+    def gen_epilogue(self, frame):  # pragma: no cover
         """ Generate instructions for the epilogue of a frame """
         raise NotImplementedError('Implement this!')
 
@@ -100,7 +103,7 @@ class Architecture:
         """ Generate any instructions here if needed between two blocks """
         return []
 
-    def gen_call(self, value):
+    def gen_vcall(self, value):
         """ Generate a sequence of instructions for a call to a label.
             The actual call instruction is not yet used until the end
             of the code generation at which time the live variables are

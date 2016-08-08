@@ -8,7 +8,7 @@
 import logging
 from collections import defaultdict
 from ..utils.graph import Graph, Node
-from ..arch.isa import Register
+from ..arch.registers import Register
 
 
 class InterferenceGraphNode(Node):

@@ -1,5 +1,7 @@
+""" Description of msp430 registers """
 
-from ..isa import Register, Syntax, RegisterClass
+from ..encoding import Syntax
+from ..registers import Register, RegisterClass
 from ...ir import i8, i16, ptr
 
 

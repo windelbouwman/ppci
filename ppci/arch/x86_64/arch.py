@@ -3,7 +3,7 @@
 """
 
 import io
-from ..arch import Architecture, VCall
+from ..arch import Architecture
 from ..arch import Frame, Label
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
@@ -15,7 +15,7 @@ from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import all_registers
 from .registers import register_classes, X86Register, LowRegister
 from .registers import rbx, rbp, rsp, al
-from .registers import r11, r12, r13, r14, r15
+from .registers import r12, r13, r14, r15
 
 
 class X86_64Arch(Architecture):
@@ -126,7 +126,7 @@ class X86_64Arch(Architecture):
         for register in reversed(live_regs):
             yield Pop(register)
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -144,7 +144,7 @@ class X86_64Arch(Architecture):
 
         yield MovRegRm(rbp, RmReg(rsp))
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """

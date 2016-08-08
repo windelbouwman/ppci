@@ -6,7 +6,7 @@ from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from ..isa import RegisterClass
+from ..registers import RegisterClass
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
@@ -100,7 +100,7 @@ class ArmArch(Architecture):
             if register_set:
                 yield arm_instructions.Pop(RegisterSet(register_set))
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -135,7 +135,7 @@ class ArmArch(Architecture):
         else:
             yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         Adjust frame pointer and add constant pool. """
