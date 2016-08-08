@@ -1,6 +1,6 @@
 from ..isa import Isa
 from ..encoding import Instruction, register_argument, Syntax
-from ..encoding import FixedPattern, SubPattern, VariablePattern
+from ..encoding import FixedPattern, VariablePattern
 from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit, bit_concat
 from ...utils.bitfun import wrap_negative
@@ -85,8 +85,8 @@ class Add(AvrInstruction):
     syntax = Syntax(['add', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b11),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Adc(AvrInstruction):
@@ -96,8 +96,8 @@ class Adc(AvrInstruction):
     syntax = Syntax(['adc', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b111),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Addw(PseudoAvrInstruction):
@@ -119,8 +119,8 @@ class Cp(AvrInstruction):
     syntax = Syntax(['cp', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b101),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Cpc(AvrInstruction):
@@ -131,8 +131,8 @@ class Cpc(AvrInstruction):
     syntax = Syntax(['cpc', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b1),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Cpw(PseudoAvrInstruction):
@@ -152,8 +152,8 @@ class Sub(AvrInstruction):
     syntax = Syntax(['sub', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b110),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Sbc(AvrInstruction):
@@ -163,8 +163,8 @@ class Sbc(AvrInstruction):
     syntax = Syntax(['sbc', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b10),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Subw(PseudoAvrInstruction):
@@ -184,8 +184,8 @@ class And(AvrInstruction):
     syntax = Syntax(['and', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b1000),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Andw(PseudoAvrInstruction):
@@ -205,8 +205,8 @@ class Eor(AvrInstruction):
     syntax = Syntax(['eor', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b1001),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Or(AvrInstruction):
@@ -216,8 +216,8 @@ class Or(AvrInstruction):
     syntax = Syntax(['or', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b1010),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Orw(PseudoAvrInstruction):
@@ -237,7 +237,7 @@ class Inc(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001010),
         FixedPattern('n0', 0b0011),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class Dec(AvrInstruction):
@@ -247,7 +247,7 @@ class Dec(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001010),
         FixedPattern('n0', 0b1010),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class Lsr(AvrInstruction):
@@ -257,7 +257,7 @@ class Lsr(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001010),
         FixedPattern('n0', 0b0110),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class Asr(AvrInstruction):
@@ -267,7 +267,7 @@ class Asr(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001010),
         FixedPattern('n0', 0b0101),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 def lsl(rd):
@@ -281,7 +281,7 @@ class Ror(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001010),
         FixedPattern('n0', 0b0111),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 @avr_isa.register_relocation
@@ -387,8 +387,8 @@ class Mov(AvrInstruction):
     syntax = Syntax(['mov', rd, ',', rr])
     patterns = [
         FixedPattern('op', 0b1011),
-        SubPattern('r', rr),
-        SubPattern('d', rd)]
+        VariablePattern('r', rr),
+        VariablePattern('d', rd)]
 
 
 class Movw(AvrInstruction):
@@ -422,7 +422,7 @@ class Push(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001001),
         FixedPattern('n0', 0xf),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class Pop(AvrInstruction):
@@ -432,7 +432,7 @@ class Pop(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001000),
         FixedPattern('n0', 0xf),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class Ld(AvrInstruction):
@@ -442,7 +442,7 @@ class Ld(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001000),
         FixedPattern('op2', 0b1100),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class LdPostInc(AvrInstruction):
@@ -452,7 +452,7 @@ class LdPostInc(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001000),
         FixedPattern('op2', 0b1101),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class LdPreDec(AvrInstruction):
@@ -462,7 +462,7 @@ class LdPreDec(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001000),
         FixedPattern('op2', 0b1110),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class LpmPostInc(AvrInstruction):
@@ -473,7 +473,7 @@ class LpmPostInc(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001000),
         FixedPattern('op2', 0b0101),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class St(AvrInstruction):
@@ -484,7 +484,7 @@ class St(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001001),
         FixedPattern('op2', 0b1100),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class StPostInc(AvrInstruction):
@@ -495,7 +495,7 @@ class StPostInc(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001001),
         FixedPattern('op2', 0b1101),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class StPreDec(AvrInstruction):
@@ -505,7 +505,7 @@ class StPreDec(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001001),
         FixedPattern('op2', 0b1110),
-        SubPattern('d', rd)]
+        VariablePattern('d', rd)]
 
 
 class StWord(PseudoAvrInstruction):
@@ -526,7 +526,7 @@ class Sts(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001001),
         FixedPattern('n0', 0x0),
-        SubPattern('d', rd),
+        VariablePattern('d', rd),
         VariablePattern('imm', imm)]
 
 
@@ -538,7 +538,7 @@ class Lds(AvrInstruction):
     patterns = [
         FixedPattern('op', 0b1001000),
         FixedPattern('n0', 0x0),
-        SubPattern('d', rd),
+        VariablePattern('d', rd),
         VariablePattern('imm', imm)]
 
 
@@ -655,7 +655,7 @@ class In(AvrInstruction):
     syntax = Syntax(['in', rd, ',', na])
     patterns = [
         FixedPattern('op', 0b10110),
-        SubPattern('d', rd),
+        VariablePattern('d', rd),
         VariablePattern('a', na)]
 
 
@@ -666,7 +666,7 @@ class Out(AvrInstruction):
     syntax = Syntax(['out', na, ',', rd])
     patterns = [
         FixedPattern('op', 0b10111),
-        SubPattern('d', rd),
+        VariablePattern('d', rd),
         VariablePattern('a', na)]
 
 

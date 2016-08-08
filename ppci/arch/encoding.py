@@ -2,6 +2,7 @@
 
 
 from .registers import Register
+from .token import TokenSequence
 
 
 class InstructionProperty(property):
@@ -80,8 +81,8 @@ class Constructor:
                 if not isinstance(arg, farg._cls):
                     # Create some nice looking error:
                     raise AssertionError(
-                        'expected {}, but got "{}" of type {}'.format(
-                            farg._cls, arg, type(arg)))
+                        '{} expected {}, but got "{}" of type {}'.format(
+                            type(self), farg._cls, arg, type(arg)))
                 setattr(self, farg._name, arg)
 
             # Set additional properties as specified by syntax:
@@ -107,6 +108,47 @@ class Constructor:
 
     def set_user_patterns(self, tokens):
         pass
+
+    @classmethod
+    def from_tokens(cls, tokens):
+        """ Create this constructor from tokens """
+        prop_map = {}
+
+        # Fill patterns:
+        for pattern in cls.patterns:
+            v = tokens.get_field(pattern.field)
+            if isinstance(pattern, FixedPattern):
+                if v != pattern.value:
+                    raise ValueError('Cannot decode {}'.format(cls))
+            elif isinstance(pattern, VariablePattern):
+                if issubclass(pattern.prop._cls, Register):
+                    regs = [r.new_func() for r in pattern.prop._cls.syntaxi[1]]
+                    reg_map = {r.num: r for r in regs}
+                    prop_map[pattern.prop] = reg_map[v]
+                else:
+                    # TODO: assume int here!
+                    prop_map[pattern.prop] = v
+            else:  # pragma: no cover
+                raise NotImplementedError(pattern)
+
+        # Create constructors:
+        fargs = cls.syntax.get_formal_arguments()
+        for farg in fargs:
+            if issubclass(farg._cls, Constructor):
+                print(farg)
+                assert isinstance(farg._cls.syntaxi, str)
+                for sub_con in farg._cls.__subclasses__():
+                    try:
+                        c = sub_con.from_tokens(tokens)
+                        print(c)
+                        prop_map[farg] = c
+                    except ValueError as e:
+                        print(e)
+
+        print(prop_map)
+        # Instantiate:
+        init_args = [prop_map[a] for a in fargs]
+        return cls(*init_args)
 
     @property
     def properties(self):
@@ -259,24 +301,7 @@ class Instruction(Constructor, metaclass=InsMeta):
         tokens = [tok_cls() for tok_cls in cls.tokens]
         tokens = TokenSequence(tokens)
         tokens.fill(data)
-        prop_map = {}
-        for pattern in cls.patterns:
-            v = tokens.get_field(pattern.field)
-            if isinstance(pattern, FixedPattern):
-                if v != pattern.value:
-                    raise ValueError('Cannot decode {}'.format(cls))
-            elif isinstance(pattern, SubPattern):
-                # TODO: Assume reg here!
-                regs = [r.new_func() for r in pattern.prop._cls.syntaxi[1]]
-                reg_map = {r.num: r for r in regs}
-                prop_map[pattern.prop] = reg_map[v]
-            elif isinstance(pattern, VariablePattern):
-                # TODO: assume int here!
-                prop_map[pattern.prop] = v
-            else:  # pragma: no cover
-                raise NotImplementedError(pattern)
-        init_args = [prop_map[a] for a in cls.syntax.get_formal_arguments()]
-        return cls(*init_args)
+        return cls.from_tokens(tokens)
 
     def relocations(self):
         return []
@@ -332,47 +357,6 @@ class Syntax:
             raise NotImplementedError(str(syntax_element))
 
 
-class TokenSequence:
-    """ A helper to work with a sequence of tokens """
-    def __init__(self, tokens):
-        self.tokens = tokens
-
-    def set_field(self, field, value):
-        """ Set a given field in one of the tokens """
-        for token in self.tokens:
-            if hasattr(token, field):
-                setattr(token, field, value)
-                return
-        raise KeyError(field)
-
-    def get_field(self, field):
-        """ Get the value of a field """
-        for token in self.tokens:
-            if hasattr(token, field):
-                return getattr(token, field)
-        raise KeyError(field)
-
-    def encode(self):
-        """ Concatenate the token bytes """
-        r = bytes()
-        for token in self.tokens:
-            r += token.encode()
-        return r
-
-    def fill(self, data):
-        """ Fill the tokens with data """
-        offset = 0
-        for token in self.tokens:
-            size = token.bitsize // 8
-            piece = data[offset:offset+size]
-            if len(piece) != size:
-                raise ValueError('Not enough data for instruction')
-            token.fill(data[offset:offset+size])
-            offset += size
-        if len(data) > offset:
-            raise ValueError('Too much data for instruction!')
-
-
 class BitPattern:
     """ Base bit pattern class. A bit mapping is a mapping of a field
         to a value of some kind.
@@ -403,13 +387,7 @@ class VariablePattern(BitPattern):
         self.prop = prop
 
     def get_value(self, objref):
-        return self.prop.__get__(objref)
-
-
-class SubPattern(BitPattern):
-    def __init__(self, field, prop):
-        super().__init__(field)
-        self.prop = prop
-
-    def get_value(self, objref):
-        return self.prop.__get__(objref).bit_pattern
+        v = self.prop.__get__(objref)
+        if isinstance(v, Register):
+            v = v.num
+        return v

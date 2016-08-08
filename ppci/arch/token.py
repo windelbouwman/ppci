@@ -123,3 +123,44 @@ class Token:
 
     def fill(self, data):
         self.bit_value, = struct.unpack(self.fmt, data)
+
+
+class TokenSequence:
+    """ A helper to work with a sequence of tokens """
+    def __init__(self, tokens):
+        self.tokens = tokens
+
+    def set_field(self, field, value):
+        """ Set a given field in one of the tokens """
+        for token in self.tokens:
+            if hasattr(token, field):
+                setattr(token, field, value)
+                return
+        raise KeyError(field)
+
+    def get_field(self, field):
+        """ Get the value of a field """
+        for token in self.tokens:
+            if hasattr(token, field):
+                return getattr(token, field)
+        raise KeyError(field)
+
+    def encode(self):
+        """ Concatenate the token bytes """
+        r = bytes()
+        for token in self.tokens:
+            r += token.encode()
+        return r
+
+    def fill(self, data):
+        """ Fill the tokens with data """
+        offset = 0
+        for token in self.tokens:
+            size = token.bitsize // 8
+            piece = data[offset:offset+size]
+            if len(piece) != size:
+                raise ValueError('Not enough data for instruction')
+            token.fill(data[offset:offset+size])
+            offset += size
+        if len(data) > offset:
+            raise ValueError('Too much data for instruction!')

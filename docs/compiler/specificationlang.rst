@@ -48,7 +48,19 @@ instruction.
 
 .. image:: encoding.png
 
-The following code demonstrates how this instruction is described:
+The following code demonstrates how this instruction is described.
+
+First the proper token is defined:
+
+.. code:: python
+
+    class AvrArithmaticToken(AvrToken):
+        op = bit_range(10, 16)
+        r = bit_concat(bit(9), bit_range(0, 4))
+        d = bit_range(4, 9)
+
+Then the instruction is defined, defining a syntax and the mapping of
+token fields to instruction parameters:
 
 .. code:: python
 

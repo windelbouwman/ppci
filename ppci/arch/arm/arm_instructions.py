@@ -188,12 +188,12 @@ class Cmp2(ArmInstruction):
     syntax = Syntax(['cmp', rn, ',', rm, shift])
     patterns = (
         FixedPattern('cond', AL),
+        VariablePattern('Rm', rm),
+        VariablePattern('Rn', rn),
         )
 
     def encode(self):
         self.set_all_patterns()
-        self.token1.Rn = self.rn.num
-        self.token1.Rm = self.rm.num
         self.token1[4] = 0
         self.token1[12:16] = 0
         self.token1[20:28] = 0b10101
