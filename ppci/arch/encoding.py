@@ -74,13 +74,13 @@ class Constructor:
 
             # Set parameters:
             if len(args) != len(formal_args):
-                raise AssertionError(
+                raise TypeError(
                     '{} arguments given, but expected {}'.format(
                         len(args), len(formal_args)))
             for farg, arg in zip(formal_args, args):
                 if not isinstance(arg, farg._cls):
                     # Create some nice looking error:
-                    raise AssertionError(
+                    raise TypeError(
                         '{} expected {}, but got "{}" of type {}'.format(
                             type(self), farg._cls, arg, type(arg)))
                 setattr(self, farg._name, arg)
@@ -325,6 +325,14 @@ class Syntax:
     """
     def __init__(self, syntax, new_func=None, set_props={}, priority=0):
         assert isinstance(syntax, (list, tuple))
+        for element in syntax:
+            if isinstance(element, str):
+                if element.isidentifier() and not element.islower():
+                    raise TypeError('All syntax elements must be lower case')
+            elif isinstance(element, InstructionProperty):
+                pass
+            else:  # pragma: no cover
+                raise TypeError('Element must be string or parameter')
         self.syntax = syntax
         self.new_func = new_func
         self.set_props = set_props

@@ -22,7 +22,7 @@ class EncodingTestCase(unittest.TestCase):
 
 class IsaTestCase(unittest.TestCase):
     def test_bad_instantiation(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(TypeError):
             DummyInstruction1()
 
     def test_instruction_repr(self):
