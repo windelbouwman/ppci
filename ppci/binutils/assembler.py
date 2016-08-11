@@ -136,7 +136,7 @@ class BaseAssembler:
 
     def add_instruction(self, rhs, f, priority=0):
         """ Add an instruction to the grammar """
-        rhs2, _ = self.make_str_rhs(rhs)
+        rhs2 = self.resolve_rhs(rhs)
         self.add_rule('instruction', rhs2, f, priority=priority)
 
     def add_rule(self, lhs, rhs, f, priority=0):
@@ -146,37 +146,15 @@ class BaseAssembler:
         self.parser.g.add_production(lhs, rhs, f_wrap, priority=priority)
 
     # Functions to automate the adding of instructions to asm syntax:
-    def make_str_rhs(self, rhs):
-        """ Determine what parts of rhs are non-string and resolve """
-        rhs2 = []
-        prop_list = []
-        for idx, rhs_part in enumerate(rhs):
-            if type(rhs_part) is str:
-                rhs2.append(rhs_part)
+    def gen_asm_parser(self, isa):
+        """ Generate assembly rules from isa """
+        # Generate rules for instructions that have a syntax:
+        for instruction in isa.instructions:
+            if instruction.syntax:
+                self.generate_syntax_rule(
+                    instruction, 'instruction', instruction.syntax)
 
-                # Check if string is registered, if not, we have a new keyword
-                # TODO: this is potentially error prone..
-                if rhs_part not in self.parser.g.nonterminals:
-                    self.add_keyword(rhs_part)
-            elif type(rhs_part) is InstructionProperty:
-                arg_cls = rhs_part._cls
-                rhs2.append(self.get_parameter_nt(arg_cls))
-                prop_list.append((idx, rhs_part))
-            else:  # pragma: no cover
-                raise NotImplementedError(str(rhs_part))
-        return rhs2, prop_list
-
-    def gen_i_rule(self, ins_cls):
-        """ Generate rule ... """
-        # We must use function call here, otherwise the closure does not work..
-        rhs, arg_idx = self.make_str_rhs(ins_cls.syntax.syntax)
-
-        def f(args):
-            usable = [args[ix] for ix, _ in arg_idx]
-            return ins_cls(*usable)
-        self.add_instruction(rhs, f, priority=ins_cls.syntax.priority)
-
-    def make_arg_func(self, cls, nt, stx):
+    def generate_syntax_rule(self, cls, nt, stx):
         """ Construct a rule for rhs <- nt
             Take the syntax, lookup properties to strings.
             Construct a sequence of only strings
@@ -186,19 +164,39 @@ class BaseAssembler:
         """
         assert isinstance(stx, Syntax)
 
-        rhs2, prop_list = self.make_str_rhs(stx.syntax)
+        rhs = self.resolve_rhs(stx.syntax)
+
+        prop_list = []
+        for idx, rhs_part in enumerate(stx.syntax):
+            if isinstance(rhs_part, InstructionProperty):
+                prop_list.append(idx)
 
         def cs(args):
             # Create new class:
             if stx.new_func:
                 # Use a function to create the class:
-                x = stx.new_func()
+                return stx.new_func()
             else:
-                usable = [args[ix] for ix, _ in prop_list]
-                x = cls(*usable)
+                usable = [args[idx] for idx in prop_list]
+                return cls(*usable)
+        self.add_rule(nt, rhs, cs, stx.priority)
 
-            return x
-        self.add_rule(nt, rhs2, cs, stx.priority)
+    def resolve_rhs(self, rhs):
+        """ Determine what parts of rhs are non-string and resolve """
+        resolved_rhs = []
+        for rhs_part in rhs:
+            if isinstance(rhs_part, str):
+                resolved_rhs.append(rhs_part)
+
+                # Check if string is registered, if not, we have a new keyword
+                # TODO: this is potentially error prone..
+                if rhs_part not in self.parser.g.nonterminals:
+                    self.add_keyword(rhs_part)
+            elif isinstance(rhs_part, InstructionProperty):
+                resolved_rhs.append(self.get_parameter_nt(rhs_part._cls))
+            else:  # pragma: no cover
+                raise NotImplementedError(str(rhs_part))
+        return resolved_rhs
 
     def get_parameter_nt(self, arg_cls):
         """ Get parameter non terminal """
@@ -222,7 +220,7 @@ class BaseAssembler:
 
                 # Add rules:
                 for stx in rules:
-                    self.make_arg_func(arg_cls, nt, stx)
+                    self.generate_syntax_rule(arg_cls, nt, stx)
                 return nt
             else:
                 nt = arg_cls.syntaxi
@@ -232,19 +230,10 @@ class BaseAssembler:
 
                 # Add rules:
                 for subcon in arg_cls.__subclasses__():
-                    self.make_arg_func(subcon, nt, subcon.syntax)
+                    self.generate_syntax_rule(subcon, nt, subcon.syntax)
                 return nt
 
         raise KeyError(arg_cls)  # pragma: no cover
-
-    def gen_asm_parser(self, isa):
-        """ Generate assembly rules from isa """
-        # Loop over all isa instructions, extracting the syntax rules:
-        instructions = [i for i in isa.instructions if i.syntax]
-
-        # Generate rules for instructions:
-        for ins in instructions:
-            self.gen_i_rule(ins)
 
     # End of generating functions
 
