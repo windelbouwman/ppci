@@ -9,6 +9,8 @@ from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.arch import Label
 from ppci.arch.avr import instructions as avr_instructions
 from ppci.arch.avr import registers as avr_registers
+from ppci.arch.arm import arm_instructions
+from ppci.arch.arm import registers as arm_registers
 from ppci.api import link, get_arch
 from ppci.binutils.layout import Layout
 from util import gnu_assemble
@@ -99,6 +101,20 @@ class DecodeTestCase(unittest.TestCase):
         self.assertIsInstance(instruction, avr_instructions.In)
         self.assertIs(avr_registers.r7, instruction.rd)
         self.assertEqual(2, instruction.na)
+
+    def test_decode_arm_cmp(self):
+        """ An even more difficult case, with a sub constructor """
+        instruction = arm_instructions.Cmp2.decode(
+            bytes([0x2b, 0x02, 0x54, 0xe1]))
+        self.assertIsInstance(instruction, arm_instructions.Cmp2)
+        self.assertIs(arm_registers.R4, instruction.rn)
+        self.assertEqual(arm_registers.R11, instruction.rm)
+        self.assertIsInstance(instruction.shift, arm_instructions.ShiftLsr)
+        self.assertEqual(4, instruction.shift.n)
+
+    def test_decode_some_strange_instruction(self):
+        """ The hardest case with optional tokens """
+        pass
 
 
 class OustreamTestCase(unittest.TestCase):

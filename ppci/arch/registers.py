@@ -30,11 +30,6 @@ class Register:
         """ The coloring of this register """
         return self._num
 
-    @property
-    def bit_pattern(self):
-        """ Use these bits when encoding this register """
-        return self._num
-
     def set_color(self, color):
         self._num = color
 
