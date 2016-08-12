@@ -54,21 +54,21 @@ class DataInstruction(Instruction):
 class Db(DataInstruction):
     tokens = [ByteToken]
     v = register_argument('v', int)
-    syntax = Syntax(['db', v])
+    syntax = Syntax(['db', ' ', v])
     patterns = [VariablePattern('value', v)]
 
 
 class Dw(DataInstruction):
     tokens = [WordToken]
     v = register_argument('v', int)
-    syntax = Syntax(['dw', v])
+    syntax = Syntax(['dw', ' ', v])
     patterns = [VariablePattern('value', v)]
 
 
 class Dw2(DataInstruction):
     tokens = [WordToken]
     v = register_argument('v', str)
-    syntax = Syntax(['dw', v])
+    syntax = Syntax(['dw', ' ', v])
 
     def relocations(self):
         return [(self.v, apply_absaddr16)]
@@ -87,7 +87,7 @@ data_isa.register_relocation(apply_absaddr16)
 class Dd(DataInstruction):
     tokens = [DwordToken]
     v = register_argument('v', int)
-    syntax = Syntax(['dd', v])
+    syntax = Syntax(['dd', ' ', v])
     patterns = [VariablePattern('value', v)]
 
 
@@ -103,7 +103,7 @@ data_isa.register_relocation(apply_absaddr32)
 
 class Dcd2(DataInstruction):
     v = register_argument('v', str)
-    syntax = Syntax(['dcd', '=', v])
+    syntax = Syntax(['dcd', ' ', '=', v])
 
     def encode(self):
         return u32(0)
@@ -116,7 +116,7 @@ class Ds(DataInstruction):
     """ Reserve an amount of space """
     tokens = []
     v = register_argument('v', int)
-    syntax = Syntax(['ds', v])
+    syntax = Syntax(['ds', ' ', v])
 
     def encode(self):
         return bytes([0] * self.v)

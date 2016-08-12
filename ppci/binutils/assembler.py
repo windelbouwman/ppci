@@ -206,33 +206,30 @@ class BaseAssembler:
         # arg not found, try syntaxi:
         # This means, find all subclasses of this composite type, and use
         # these syntaxes.
-        if hasattr(arg_cls, 'syntaxi'):
-            syntaxi = arg_cls.syntaxi
-            # TODO: figure a nice way for this:
-            if isinstance(syntaxi, tuple):
-                # In case of a tuple, the options are not subclasses, but
-                # listed in the tuple:
-                nt, rules = arg_cls.syntaxi
+        syntaxi = getattr(arg_cls, 'syntaxi')
+        # TODO: figure a nice way for this:
+        if isinstance(syntaxi, tuple):
+            # In case of a tuple, the options are not subclasses, but
+            # listed in the tuple:
+            nt, rules = arg_cls.syntaxi
 
-                # Store nt for later:
-                self.typ2nt[arg_cls] = nt
+            # Store nt for later:
+            self.typ2nt[arg_cls] = nt
 
-                # Add rules:
-                for stx in rules:
-                    self.generate_syntax_rule(arg_cls, nt, stx)
-                return nt
-            else:
-                nt = arg_cls.syntaxi
+            # Add rules:
+            for stx in rules:
+                self.generate_syntax_rule(arg_cls, nt, stx)
+            return nt
+        else:
+            nt = arg_cls.syntaxi
 
-                # Store nt for later:
-                self.typ2nt[arg_cls] = nt
+            # Store nt for later:
+            self.typ2nt[arg_cls] = nt
 
-                # Add rules:
-                for subcon in arg_cls.__subclasses__():
-                    self.generate_syntax_rule(subcon, nt, subcon.syntax)
-                return nt
-
-        raise KeyError(arg_cls)  # pragma: no cover
+            # Add rules:
+            for subcon in arg_cls.__subclasses__():
+                self.generate_syntax_rule(subcon, nt, subcon.syntax)
+            return nt
 
     # End of generating functions
 
