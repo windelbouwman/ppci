@@ -66,21 +66,21 @@ class OpcRegReg(RiscvcInstruction):
 def makec_regreg(mnemonic, func):
     rd = register_argument('rd', RiscvRegister, write=True)
     rn = register_argument('rn', RiscvRegister, read=True)
-    syntax = Syntax([mnemonic, rd, ',', rn])
+    syntax = Syntax(['c', '.', mnemonic, rd, ',', rn])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'func': func}
-    return type(mnemonic + '_ins', (OpcRegReg,), members)
+    return type('c' + mnemonic + '_ins', (OpcRegReg,), members)
 
-CSub = makec_regreg('c.sub', 0b00)
-CXor = makec_regreg('c.xor', 0b01)
-COr = makec_regreg('c.or', 0b10)
-CAnd = makec_regreg('c.and', 0b11)
+CSub = makec_regreg('sub', 0b00)
+CXor = makec_regreg('xor', 0b01)
+COr = makec_regreg('or', 0b10)
+CAnd = makec_regreg('and', 0b11)
 
 class CSlli(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     rs = register_argument('rs', RiscvRegister, read=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['c.slli', rd, ',', rs, ',', imm])
+    syntax = Syntax(['c', '.', 'slli', rd, ',', rs, ',', imm])
     def encode(self):
         self.token1[0:2] = 0b10
         self.token1[2:7] = self.imm & 0xF
@@ -101,18 +101,18 @@ def makec_i(mnemonic, func):
     rd = register_argument('rd', RiscvRegister, write=True)
     rs = register_argument('rs', RiscvRegister, read=True)
     imm = register_argument('imm', int)
-    syntax = Syntax([mnemonic, rd, ',', rs, ',', imm])
-    members = {'syntax': syntax,'func':func, 'rd':rd, 'rs':rs, 'imm':imm}
-    return type(mnemonic + '_ins', (CiBase,), members)
+    syntax = Syntax(['c', '.', mnemonic, rd, ',', rs, ',', imm])
+    members = {'syntax': syntax, 'func':func, 'rd':rd, 'rs':rs, 'imm':imm}
+    return type('c_' + mnemonic + '_ins', (CiBase,), members)
 
-CSrli = makec_i('c.srli',0b00)
-CSrai = makec_i('c.srai',0b01)
-CAndi = makec_i('c.andi',0b10)
+CSrli = makec_i('srli',0b00)
+CSrai = makec_i('srai',0b01)
+CAndi = makec_i('andi',0b10)
 
 class CAddi(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['c.addi', rd, ',', rd, ',', imm])
+    syntax = Syntax(['c', '.', 'addi', rd, ',', rd, ',', imm])
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[2:7] = self.imm
@@ -121,21 +121,21 @@ class CAddi(RiscvcInstruction):
         return self.token1.encode()
 
 class CNop(RiscvcInstruction):
-    syntax = Syntax(['c.nop'])
+    syntax = Syntax(['c', '.', 'nop'])
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[2:16] = 0
         return self.token1.encode()
 
 class CEbreak(RiscvcInstruction):
-    syntax = Syntax(['c.ebreak'])
+    syntax = Syntax(['c', '.', 'ebreak'])
     def encode(self):
         self.token1[0:16] = 0b1001000000000010
         return self.token1.encode()
         
 class CJal(RiscvcInstruction):
     target = register_argument('target', str)
-    syntax = Syntax(['c.jal', target])
+    syntax = Syntax(['c', '.', 'jal', target])
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[13:16] = 0b001
@@ -143,10 +143,12 @@ class CJal(RiscvcInstruction):
 
     def relocations(self):
         return [(self.target, apply_bc_imm11)] 
-        
+
+
 class CJ(RiscvcInstruction):
     target = register_argument('target', str)
-    syntax = Syntax(['c.j', target])
+    syntax = Syntax(['c', '.', 'j', target])
+
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[13:16] = 0b101
@@ -155,9 +157,10 @@ class CJ(RiscvcInstruction):
     def relocations(self):
         return [(self.target, apply_bc_imm11)] 
 
+
 class CJr(RiscvcInstruction):
     rs1 = register_argument('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c.jr',rs1])
+    syntax = Syntax(['c', '.', 'jr', ' ', rs1])
     def encode(self):
         self.token1[0:7] = 0b0000010
         self.token1[7:12] = self.rs1.num
@@ -166,7 +169,7 @@ class CJr(RiscvcInstruction):
 
 class CJalr(RiscvcInstruction):
     rs1 = register_argument('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c.jalr', rs1])
+    syntax = Syntax(['c', '.', 'jalr', rs1])
     def encode(self):
         self.token1[0:7] = 0b0000010
         self.token1[7:12] = self.rs1.num
@@ -176,7 +179,7 @@ class CJalr(RiscvcInstruction):
 class CBeqz(RiscvcInstruction):
     rn = register_argument('rn', RiscvRegister, read=True)
     target = register_argument('target', str)
-    syntax = Syntax(['c.beqz', rn, target])
+    syntax = Syntax(['c', '.', 'beqz', rn, target])
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[7:10] = self.rn.num-8
@@ -189,7 +192,7 @@ class CBeqz(RiscvcInstruction):
 class CBnez(RiscvcInstruction):
     rn = register_argument('rn', RiscvRegister, read=True)
     target = register_argument('target', str)
-    syntax = Syntax(['c.bneqz', rn, ',', target])
+    syntax = Syntax(['c', '.', 'bneqz', rn, ',', target])
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[7:10] = self.rn.num-8
@@ -203,7 +206,7 @@ class CLw(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
     offset = register_argument('offset', int)
-    syntax = Syntax(['c.lw', rd, ',',  offset, '(', rs1, ')'])
+    syntax = Syntax(['c', '.', 'lw', rd, ',',  offset, '(', rs1, ')'])
     def encode(self):
         self.token1[0:2]=0b00
         self.token1[2:5]=self.rd.num-8
@@ -218,7 +221,7 @@ class CSw(RiscvcInstruction):
     rs2 = register_argument('rs2', RiscvRegister, read=True)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
     offset = register_argument('offset', int)
-    syntax = Syntax(['c.sw', rs2, ',', offset, '(', rs1, ')'])
+    syntax = Syntax(['c', '.', 'sw', rs2, ',', offset, '(', rs1, ')'])
     def encode(self):
         self.token1[0:2]=0b00
         self.token1[2:5]=self.rs2.num-8
@@ -233,7 +236,7 @@ class CLwsp(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     offset = register_argument('offset', int)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c.lwsp', rd, ',', offset,'(',rs1,')'])
+    syntax = Syntax(['c', '.', 'lwsp', rd, ',', offset,'(',rs1,')'])
     def encode(self):
         self.token1[0:2]=0b10
         self.token1[2:4]=self.offset>>6&3
@@ -247,7 +250,7 @@ class CSwsp(RiscvcInstruction):
     rs2 = register_argument('rs2', RiscvRegister, read=True)
     offset = register_argument('offset', int)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c.swsp', rs2, ',', offset,'(',rs1,')'])
+    syntax = Syntax(['c' ,'.', 'swsp', rs2, ',', offset,'(',rs1,')'])
     def encode(self):
         self.token1[0:2]=0b10
         self.token1[2:7]=self.rs2.num
@@ -259,7 +262,7 @@ class CSwsp(RiscvcInstruction):
 class CLi(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['c.li', rd, ',', imm])
+    syntax = Syntax(['c', '.', 'li', rd, ',', imm])
     def encode(self):
         self.token1[0:2] = 0b01
         self.token1[2:7] = self.imm & 0x1F
@@ -271,7 +274,7 @@ class CLi(RiscvcInstruction):
 class CLui(RiscvcInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['c.lui', rd, ',', imm])
+    syntax = Syntax(['c', '.', 'lui', rd, ',', imm])
     def encode(self):
         if self.imm<0:
             imm6 = wrap_negative(self.imm>>12,6)

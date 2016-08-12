@@ -14,7 +14,7 @@ from ..arch.encoding import InstructionProperty, Syntax
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
 
-id_regex = r'[A-Za-z_][A-Za-z\d_\.]*'
+id_regex = r'[A-Za-z_][A-Za-z\d_]*'
 id_matcher = re.compile(id_regex)
 
 
@@ -27,7 +27,7 @@ class AsmLexer(BaseLexer):
             ('NUMBER', r'\d+', self.handle_number),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN', r':=|[,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
+            ('GLYPH', '|'.join(re.escape(c) for c in Syntax.GLYPHS),
                 lambda typ, val: (val, val)),
             ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
             ('COMMENT', r";.*", None)
@@ -55,8 +55,7 @@ class AsmParser:
     """ Base parser for assembler language """
     def __init__(self):
         # Construct a parser given a grammar:
-        terminals = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
-                     EPS, 'COMMENT', '{', '}', '#', '@', '(', ')', EOF]
+        terminals = ['ID', 'NUMBER', EPS, 'COMMENT', EOF] + Syntax.GLYPHS
         self.g = Grammar()
         self.g.add_terminals(terminals)
 
@@ -164,10 +163,10 @@ class BaseAssembler:
         """
         assert isinstance(stx, Syntax)
 
-        rhs = self.resolve_rhs(stx.syntax)
+        rhs = self.resolve_rhs(stx.get_args())
 
         prop_list = []
-        for idx, rhs_part in enumerate(stx.syntax):
+        for idx, rhs_part in enumerate(stx.get_args()):
             if isinstance(rhs_part, InstructionProperty):
                 prop_list.append(idx)
 

@@ -175,7 +175,7 @@ class ConditionalJump(X86Instruction):
 
 
 def make_cjump(mnemonic, opcode):
-    syntax = Syntax([mnemonic, ConditionalJump.target])
+    syntax = Syntax([mnemonic, ' ', ConditionalJump.target])
     members = {'syntax': syntax, 'opcode': opcode}
     return type(mnemonic + '_ins', (ConditionalJump,), members)
 
@@ -208,7 +208,7 @@ class ShortJump(X86Instruction):
 
 class Push(X86Instruction):
     reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax(['push', reg])
+    syntax = Syntax(['push', ' ', reg])
 
     def encode(self):
         code = []
@@ -220,7 +220,7 @@ class Push(X86Instruction):
 
 class Pop(X86Instruction):
     reg = register_argument('reg', X86Register, write=True)
-    syntax = Syntax(['pop', reg])
+    syntax = Syntax(['pop', ' ', reg])
 
     def encode(self):
         code = []
@@ -243,7 +243,7 @@ class Int(X86Instruction):
 
 class CallReg(X86Instruction):
     reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax(['call', '*', reg])
+    syntax = Syntax(['call', ' ', '*', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -259,7 +259,7 @@ class CallReg(X86Instruction):
 class Call(X86Instruction):
     """ call a function """
     target = register_argument('target', str)
-    syntax = Syntax(['call', target])
+    syntax = Syntax(['call', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
 
     def encode(self):
@@ -290,7 +290,7 @@ class Syscall(X86Instruction):
 
 class Inc(X86Instruction):
     reg = register_argument('reg', X86Register, read=True, write=True)
-    syntax = Syntax(['inc', reg])
+    syntax = Syntax(['inc', ' ', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
@@ -373,7 +373,7 @@ class RmMemDisp(Rm):
     """ register with 8 bit displacement """
     reg = register_argument('reg', X86Register, read=True)
     disp = register_argument('disp', int)
-    syntax = Syntax(['[', reg, ',', disp, ']'], priority=2)
+    syntax = Syntax(['[', reg, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
         if self.disp <= 255 and self.disp >= -128:
@@ -402,7 +402,8 @@ class RmMemDisp2(Rm):
     regb = register_argument('regb', X86Register, read=True)
     regi = register_argument('regi', X86Register, read=True)
     disp = register_argument('disp', int)
-    syntax = Syntax(['[', regb, ',', regi, ',', disp, ']'], priority=2)
+    syntax = Syntax(
+        ['[', regb, ',', ' ', regi, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
         # assert self.regb.regbits != 5
@@ -421,7 +422,7 @@ class RmMemDisp2(Rm):
 class RmRip(Rm):
     """ rip with 32 bit displacement special case """
     disp = register_argument('disp', int)
-    syntax = Syntax(['[', 'rip', ',', disp, ']'])
+    syntax = Syntax(['[', 'rip', ',', ' ', disp, ']'])
     patterns = [
         FixedPattern('mod', 0),
         FixedPattern('rm', 5),
@@ -491,7 +492,7 @@ class RmMemDisp8(Rm8):
     """ register with 8 bit displacement """
     reg = register_argument('reg', X86Register, read=True)
     disp = register_argument('disp', int)
-    syntax = Syntax(['[', reg, ',', disp, ']'], priority=2)
+    syntax = Syntax(['[', reg, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
         if self.disp <= 255 and self.disp >= -128:
@@ -572,7 +573,7 @@ def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
     rm = register_argument('rm', Rm)
     reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
+    syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
@@ -582,7 +583,7 @@ def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
     rm = register_argument('rm', Rm8)
     reg = register_argument('reg', LowRegister, read=True)
-    syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
+    syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
