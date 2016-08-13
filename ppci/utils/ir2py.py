@@ -43,7 +43,11 @@ class IrToPython:
         # Allocate room for global variables:
         for var in ir_mod.variables:
             self.print(0, '{} = len(mem)'.format(var.name))
-            self.print(0, 'mem.extend(bytes({}))'.format(var.amount))
+            if var.value:
+                for byte in var.value:
+                    self.print(0, 'mem.append({})'.format(byte))
+            else:
+                self.print(0, 'mem.extend(bytes({}))'.format(var.amount))
 
         # Generate functions:
         for function in ir_mod.functions:

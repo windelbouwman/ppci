@@ -23,6 +23,12 @@ def pack_string(txt, context):
     return length + data
 
 
+def pack_int(v, context):
+    mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
+    fmt = mapping[context.get_type('int').byte_size]
+    return struct.pack(fmt, v)
+
+
 class CodeGenerator:
     """
       Generates intermediate (IR) code from a package. The entry function is
@@ -78,10 +84,16 @@ class CodeGenerator:
 
         # Generate room for global variables:
         for var in module.inner_scope.variables:
-            ir_var = ir.Variable(var.name, context.size_of(var.typ))
-            context.var_map[var] = ir_var
             assert not var.isLocal
-            assert not var.ival
+            if var.ival:
+                assert context.equal_types('int', var.typ)
+                cval = context.eval_const(var.ival)
+                cval = pack_int(cval, context)
+            else:
+                cval = None
+            ir_var = ir.Variable(
+                var.name, context.size_of(var.typ), value=cval)
+            context.var_map[var] = ir_var
             ir_module.add_variable(ir_var)
 
             # Create debug infos:

@@ -493,7 +493,8 @@ class Str1(LdrStrBase):
     bit20 = 0
     bit22 = 0
     syntax = Syntax([
-        'str', rt, ',', '[', LdrStrBase.rn, ',', LdrStrBase.offset, ']'])
+        'str', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        LdrStrBase.offset, ']'])
 
 
 class Ldr1(LdrStrBase):
@@ -502,7 +503,8 @@ class Ldr1(LdrStrBase):
     bit20 = 1
     bit22 = 0
     syntax = Syntax([
-        'ldr', rt, ',', '[', LdrStrBase.rn, ',', LdrStrBase.offset, ']'])
+        'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        LdrStrBase.offset, ']'])
 
 
 class Strb(LdrStrBase):
@@ -512,7 +514,7 @@ class Strb(LdrStrBase):
     bit20 = 0
     bit22 = 1
     syntax = Syntax([
-        'strb', rt, ',', '[', LdrStrBase.rn, ',',
+        'strb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
         LdrStrBase.offset, ']'])
 
 
@@ -523,7 +525,7 @@ class Ldrb(LdrStrBase):
     bit20 = 1
     bit22 = 1
     syntax = Syntax([
-        'ldrb', rt, ',', '[', LdrStrBase.rn, ',',
+        'ldrb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
         LdrStrBase.offset, ']'])
 
 

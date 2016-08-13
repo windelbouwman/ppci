@@ -71,6 +71,20 @@ class SimpleSamples:
         """
         self.do(snippet, "Hello world")
 
+    def test_global_initialization(self):
+        """ Test proper initialization of global variables """
+        snippet = """
+        module main;
+        import io;
+        var int A = 60, B=6;
+
+        function void main()
+        {
+          io.print2("A+B=", A + B);
+        }
+        """
+        self.do(snippet, 'A+B=0x00000042\n')
+
     def test_sw_mul(self):
         """ Test software multiplication algorithm """
         snippet = """
@@ -766,6 +780,19 @@ class TestSamplesOnVexpress(
     startercode = """
     section reset
     mov sp, 0xF0000   ; setup stack pointer
+    ; copy initial data
+    ldr r1, =__data_load_start
+    ldr r2, =__data_start
+    ldr r3, =__data_end
+    __copy_loop:
+    ldrb  r0, [r1, 0]
+    strb r0, [r2, 0]
+    add r1, r1, 1
+    add r2, r2, 1
+    cmp r2, r3
+    blt __copy_loop
+
+
     BL main_main      ; Branch to sample start
     BL bsp_exit       ; do exit stuff
     local_loop:
@@ -775,9 +802,13 @@ class TestSamplesOnVexpress(
     MEMORY code LOCATION=0x10000 SIZE=0x10000 {
         SECTION(reset)
         SECTION(code)
+        DEFINESYMBOL(__data_load_start)
+        SECTIONDATA(data)
     }
     MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
+        DEFINESYMBOL(__data_start)
         SECTION(data)
+        DEFINESYMBOL(__data_end)
     }
     """
     bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
@@ -839,19 +870,43 @@ class TestSamplesOnCortexM3O2(
     section reset
     dd 0x2000f000
     dd 0x00000009
+
+    ; copy initial data
+    ldr r1, __data_load_start_value
+    ldr r2, __data_start_value
+    ldr r3, __data_end_value
+    __copy_loop:
+    ldrb  r0, [r1, 0]
+    strb r0, [r2, 0]
+    add r1, r1, 1
+    add r2, r2, 1
+    cmp r2, r3
+    blt __copy_loop
+
     BL main_main     ; Branch to sample start
     BL bsp_exit      ; do exit stuff
     local_loop:
     B local_loop
+
+    __data_load_start_value:
+    dcd =__data_load_start
+    __data_start_value:
+    dcd =__data_start
+    __data_end_value:
+    dcd =__data_end
     """
     arch_mmap = """
     MEMORY code LOCATION=0x0 SIZE=0x10000 {
         SECTION(reset)
         ALIGN(4)
         SECTION(code)
+        DEFINESYMBOL(__data_load_start)
+        SECTIONDATA(data)
     }
     MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        DEFINESYMBOL(__data_start)
         SECTION(data)
+        DEFINESYMBOL(__data_end)
     }
     """
     bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'arch.c3')
