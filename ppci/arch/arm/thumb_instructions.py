@@ -102,7 +102,7 @@ class LS_byte_imm5_base(ThumbInstruction):
 class Strb(LS_byte_imm5_base):
     rt = register_argument('rt', LowArmRegister, read=True)
     syntax = Syntax([
-        'strb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
+        'strb', ' ', rt, ',', ' ', '[', LS_byte_imm5_base.rn, ',', ' ',
         LS_byte_imm5_base.imm5, ']'])
     opcode = 0xE
 
@@ -110,7 +110,7 @@ class Strb(LS_byte_imm5_base):
 class Ldrb(LS_byte_imm5_base):
     rt = register_argument('rt', LowArmRegister, write=True)
     syntax = Syntax([
-        'ldrb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
+        'ldrb', ' ', rt, ',', ' ', '[', LS_byte_imm5_base.rn, ',', ' ',
         LS_byte_imm5_base.imm5, ']'])
     opcode = 0b01111
 
@@ -131,7 +131,7 @@ class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
     rt = register_argument('rt', LowArmRegister, write=True)
     label = register_argument('label', str)
-    syntax = Syntax(['ldr', rt, ',', label])
+    syntax = Syntax(['ldr', ' ', rt, ',', ' ', label])
 
     def relocations(self):
         return [(self.label, apply_lit8)]
@@ -149,7 +149,8 @@ class Ldr1(ls_sp_base_imm8):
     rt = register_argument('rt', LowArmRegister, write=True)
     opcode = 0x98
     syntax = Syntax(
-        ['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
+        ['ldr', ' ', rt, ',', ' ', '[', 'sp', ',',
+         ' ', ls_sp_base_imm8.offset, ']'])
 
 
 class Str1(ls_sp_base_imm8):
@@ -157,7 +158,8 @@ class Str1(ls_sp_base_imm8):
     rt = register_argument('rt', LowArmRegister, read=True)
     opcode = 0x90
     syntax = Syntax(
-        ['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
+        ['str', ' ', rt, ',', ' ', '[', 'sp', ',', ' ',
+         ls_sp_base_imm8.offset, ']'])
 
 
 class Adr(ThumbInstruction):
@@ -180,7 +182,7 @@ class Mov3(ThumbInstruction):
     opcode = 4   # 00100 Rd(3) imm8
     rd = register_argument('rd', LowArmRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['mov', rd, ',', imm])
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
 
     def encode(self):
         rd = self.rd.num
@@ -242,14 +244,14 @@ class regregreg_base(ThumbInstruction):
 
 class Add3(regregreg_base):
     syntax = Syntax([
-        'add', regregreg_base.rd, ',', regregreg_base.rn, ',',
+        'add', ' ', regregreg_base.rd, ',', ' ', regregreg_base.rn, ',', ' ',
         regregreg_base.rm])
     opcode = 0b0001100
 
 
 class Sub3(regregreg_base):
     syntax = Syntax([
-        'sub', regregreg_base.rd, ',', regregreg_base.rn, ',',
+        'sub', ' ', regregreg_base.rd, ',', ' ', regregreg_base.rn, ',', ' ',
         regregreg_base.rm])
     opcode = 0b0001101
 
@@ -258,7 +260,7 @@ class Mov2(ThumbInstruction):
     """ mov rd, rm (all registers, also > r7 """
     rd = register_argument('rd', ArmRegister, write=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = Syntax(['mov', rd, ',', rm])
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', rm])
 
     def encode(self):
         self.token1.rd = self.rd.num & 0x7
@@ -280,7 +282,7 @@ class Mul(ThumbInstruction):
     """
     rn = register_argument('rn', LowArmRegister, read=True)
     rdm = register_argument('rdm', LowArmRegister, read=True, write=True)
-    syntax = Syntax(['mul', rn, ',', rdm])
+    syntax = Syntax(['mul', ' ', rn, ',', ' ', rdm])
 
     def encode(self):
         rn = self.rn.num
@@ -298,7 +300,7 @@ class Sdiv(LongThumbInstruction):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
+    syntax = Syntax(['sdiv', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def encode(self):
         self.token1[11:16] = 0b11111
@@ -356,7 +358,7 @@ class Cmp2(ThumbInstruction):
 
 class B(ThumbInstruction):
     target = register_argument('target', str)
-    syntax = Syntax(['b', target])
+    syntax = Syntax(['b', ' ', target])
 
     def encode(self):
         h = (0b11100 << 11) | 0

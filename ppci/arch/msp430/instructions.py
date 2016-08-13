@@ -1,6 +1,4 @@
-"""
-Definitions of msp430 instruction set.
-"""
+""" Definitions of msp430 instruction set. """
 
 from ..encoding import Instruction, register_argument, Syntax, Constructor
 from ..isa import Relocation, Isa
@@ -17,7 +15,7 @@ isa = Isa()
 
 class Msp430Token(Token):
     def __init__(self):
-        super().__init__(16)
+        super().__init__(16, '<H')
 
     condition = bit_range(10, 13)
     opcode = bit_range(12, 16)
@@ -28,18 +26,12 @@ class Msp430Token(Token):
     Ad = bit(7)
     As = bit_range(4, 6)
 
-    def encode(self):
-        return u16(self.bit_value)
-
 
 class Imm16Token(Token):
     value = bit_range(0, 16)
 
     def __init__(self):
-        super().__init__(16)
-
-    def encode(self):
-        return u16(self.bit_value)
+        super().__init__(16, '<H')
 
 
 # Relocation functions:
@@ -271,8 +263,9 @@ def one_op_instruction(mne, opcode, b=0, src_write=True):
     """ Helper function to define a one operand arithmetic instruction """
     src = register_argument('src', Src)
     if b:
-        mne += '.b'
-    syntax = Syntax([mne, src])
+        syntax = Syntax([mne, '.', 'b', ' ', src])
+    else:
+        syntax = Syntax([mne, ' ', src])
     members = {'opcode': opcode, 'syntax': syntax, 'src': src, 'b': b}
     return type(mne + '_ins', (OneOpArith,), members)
 
@@ -364,8 +357,10 @@ def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
     """ Helper function to define a two operand arithmetic instruction """
     src = register_argument('src', Src)
     dst = register_argument('dst', Dst)
-    mne += '.b' if b else '.w'
-    syntax = Syntax([mne, src, ',', dst])
+    if b:
+        syntax = Syntax([mne, '.', 'b', ' ', src, ',', ' ', dst])
+    else:
+        syntax = Syntax([mne, '.', 'w', ' ', src, ',', ' ', dst])
     members = {
         'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax,
         'b': b, 'dst_read': dst_read, 'dst_write': dst_write

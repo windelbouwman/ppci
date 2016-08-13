@@ -136,6 +136,14 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.check('0120 0020 ff23 fe23')
 
 
+class Msp430Syntax(unittest.TestCase):
+    def test_add(self):
+        add = instructions.Add(
+            instructions.RegSrc(registers.r2),
+            instructions.RegDst(registers.r3))
+        self.assertEqual('add.w R2, R3', str(add))
+
+
 class Msp430InstructionUseDef(unittest.TestCase):
     """ Test instruction use def info """
     def test_cmp(self):

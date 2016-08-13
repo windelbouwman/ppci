@@ -323,12 +323,25 @@ class Syntax:
         set_props: The set_props property can be used to set additional
         properties after creating the instruction.
     """
+    GLYPHS = [
+        '@', '&', '#', '=', ',', '.', ':',
+        '(', ')', '[', ']', '{', '}',
+        '+', '-', '*']
+
     def __init__(self, syntax, new_func=None, set_props={}, priority=0):
         assert isinstance(syntax, (list, tuple))
         for element in syntax:
             if isinstance(element, str):
-                if element.isidentifier() and not element.islower():
-                    raise TypeError('All syntax elements must be lower case')
+                if element.isidentifier():
+                    if not element.islower():
+                        raise TypeError(
+                            'element "{}" must be lower case'.format(element))
+                elif element.isspace():
+                    pass
+                elif element in self.GLYPHS:
+                    pass
+                else:
+                    raise TypeError('Invalid element "{}"'.format(element))
             elif isinstance(element, InstructionProperty):
                 pass
             else:  # pragma: no cover
@@ -349,9 +362,16 @@ class Syntax:
                 formal_args.append(syntax_element)
         return formal_args
 
+    def get_args(self):
+        """ Return all non-whitespace elements """
+        for element in self.syntax:
+            if isinstance(element, str) and element.isspace():
+                continue
+            yield element
+
     def render(self, obj):
         """ Return this syntax formatted for the given object. """
-        return ' '.join(self._get_repr(e, obj) for e in self.syntax)
+        return ''.join(self._get_repr(e, obj) for e in self.syntax)
 
     @staticmethod
     def _get_repr(syntax_element, obj):
