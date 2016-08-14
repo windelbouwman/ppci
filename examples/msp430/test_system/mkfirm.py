@@ -1,11 +1,11 @@
 
 # import ipdb
-from ppci.api import fix_object, construct
+from ppci.api import get_object, construct
 from ppci.binutils.objectfile import merge_memories
 
 construct('../blinky/build.xml')
 
-o = fix_object('../blinky/blinky.elf')
+o = get_object('../blinky/blinky.oj')
 print(o)
 
 flash = o.get_image('flash')

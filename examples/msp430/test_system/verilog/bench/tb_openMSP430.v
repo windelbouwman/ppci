@@ -239,7 +239,11 @@ initial
        dmem_0.mem[tb_idx] = 16'h0000;
 
      // Initialize program memory
+     `ifdef MEM_FILENAME
+     #10 $readmemh(`MEM_FILENAME, pmem_0.mem);
+     `else
      #10 $readmemh("./pmem.mem", pmem_0.mem);
+     `endif
   end
 
 

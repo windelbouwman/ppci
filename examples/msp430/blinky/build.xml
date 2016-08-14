@@ -12,16 +12,16 @@
             output="main.oj"
             report="report.html"/>
         <link
-            output="blinky.elf"
+            output="blinky.oj"
             layout="msp430.mmap"
             objects="boot.oj;main.oj" />
         <objcopy
-            objectfile="blinky.elf"
+            objectfile="blinky.oj"
             imagename="flash"
             format="hex"
             output="blinky.hex" />
         <objcopy
-            objectfile="blinky.elf"
+            objectfile="blinky.oj"
             imagename="flash"
             format="bin"
             output="blinky.bin" />

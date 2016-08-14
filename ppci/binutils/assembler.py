@@ -296,11 +296,6 @@ class BaseAssembler:
         self.end_repeat()
 
     # Parser handlers:
-    def select_section(self, name):
-        """ Switch to another section section in the instruction stream """
-        self.flush()
-        self.stream.select_section(name)
-
     def flush(self):
         pass
 
