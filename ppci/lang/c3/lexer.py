@@ -1,11 +1,8 @@
-"""
- Lexical analyzer part. Splits the input character stream into tokens.
-"""
+""" Lexical analyzer part. Splits the input character stream into tokens. """
 
 import re
 from ...common import SourceLocation, Token, make_num
 from ...pcc.baselex import BaseLexer
-from .astnodes import Assignment
 
 
 class Lexer(BaseLexer):
@@ -16,18 +13,20 @@ class Lexer(BaseLexer):
                 'volatile',
                 'struct', 'cast', 'sizeof', 'enum',
                 'import', 'module', 'public']
+    double_glyphs = (
+        '==', '->', '<<', '>>', '!=', '>=', '<=',
+        '--', '++', '|=', '&=', '+=', '-=', '*=')
+    single_glyphs = (
+        '.', ',', ':', ';', '-', '+', '*', '%', '=',
+        '[', ']', '/', '(', ')', '>', '<', '{', '}', '&', '^', '|')
+    glyphs = double_glyphs + single_glyphs
 
     def __init__(self, diag):
         self.diag = diag
         self.incomment = False
 
         # Construct the tricky string of possible glyphs:
-        ops = []
-        ops.extend(Assignment.operators)
-        op_txt2 = '|'.join(re.escape(op) for op in ops)
-        op_txt = r'==|->|<<|>>|!=|' + op_txt2
-        op_txt += r'|\+\+|[\.,=:;\-+*%\[\]/\(\)]|>=|<=|<>|>|<|{|}|&|\^|\|'
-        # print(op_txt)
+        op_txt = '|'.join(re.escape(g) for g in self.glyphs)
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
             ('HEXNUMBER', r'0x[\da-fA-F]+',
@@ -39,7 +38,7 @@ class Lexer(BaseLexer):
             ('COMMENTS', r'//.*', None),
             ('LONGCOMMENTBEGIN', r'\/\*', self.handle_comment_start),
             ('LONGCOMMENTEND', r'\*\/', self.handle_comment_stop),
-            ('LEESTEKEN', op_txt, lambda typ, val: (val, val)),
+            ('GLYPH', op_txt, lambda typ, val: (val, val)),
             ('STRING', r'".*?"', lambda typ, val: (typ, val[1:-1]))
             ]
         super().__init__(tok_spec)

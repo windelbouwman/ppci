@@ -429,6 +429,19 @@ class ConditionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_byte_compare(self):
+        snippet = """
+        module tst;
+        function void t()
+        {
+         var byte a = 2;
+         if (a <= 22)
+         {
+         }
+        }
+        """
+        self.expect_ok(snippet)
+
     def test_non_bool_condition(self):
         snippet = """
         module tst;
@@ -658,6 +671,30 @@ class StatementTestCase(BuildTestCaseBase):
          }
 
          return b;
+        }
+        """
+        self.expect_ok(snippet)
+
+    @unittest.skip('todo')
+    def test_switch(self):
+        """ Test switch case statement """
+        snippet = """
+        module tst;
+        function int t()
+        {
+         var int a;
+         a = 2;
+         switch(a) {
+           case 1:
+           case 2:
+             return 3;
+           case 4:
+             a = 3;
+           default:
+             return 77;
+         }
+
+         return a;
         }
         """
         self.expect_ok(snippet)
@@ -955,7 +992,7 @@ class TypeTestCase(BuildTestCaseBase):
             *a = 2;
             var byte* b;
             b = cast<byte*>(40);
-            *b = cast<byte>(2);
+            *b = 2;
          }
         """
         self.expect_ok(snippet)
