@@ -70,7 +70,7 @@ def generate_instruction(name,
         syntax = Syntax([name])
         patterns = [FixedPattern('opcode', inherent)]
         members = {'tokens': tokens, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name, (Stm8Instruction,), members)
+        instructions.append(type(class_name, (Stm8Instruction,), members))
 
     if a != None:
         tokens = [Stm8OpcodeToken]
@@ -78,7 +78,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination])
         patterns = [FixedPattern('opcode', a)]
         members = {'tokens': tokens, 'destination': destination, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'A', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'A', (Stm8Instruction,), members))
 
     if a_byte != None:
         tokens = [Stm8OpcodeToken, Stm8ByteToken]
@@ -87,7 +87,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '#', value])
         patterns = [FixedPattern('opcode', a_byte), VariablePattern('byte', value)]
         members = {'tokens': tokens, 'destination': destination, 'value': value,'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'AByte', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'AByte', (Stm8Instruction,), members))
 
 #    TODO: Enable shortmem when assembler can distinguish between short and long address size.
 #    if a_shortmem != None:
@@ -97,7 +97,7 @@ def generate_instruction(name,
 #        syntax = Syntax([name, ' ', destination, ',', address])
 #        patterns = [FixedPattern('opcode', a_shortmem), VariablePattern('byte', address)]
 #        members = {'tokens': tokens, 'destination': destination, 'address': address,'syntax': syntax, 'patterns': patterns}
-#        instructions += type(class_name + 'AShortmem', (Stm8Instruction,), members)
+#        instructions.append(type(class_name + 'AShortmem', (Stm8Instruction,), members))
 
     if a_longmem != None:
         tokens = [Stm8OpcodeToken, Stm8WordToken]
@@ -106,7 +106,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', address])
         patterns = [FixedPattern('opcode', a_longmem), VariablePattern('word', address)]
         members = {'tokens': tokens, 'destination': destination, 'address': address,'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'ALongmem', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'ALongmem', (Stm8Instruction,), members))
 
     if a_x != None:
         tokens = [Stm8OpcodeToken]
@@ -115,7 +115,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', address, ')'])
         patterns = [FixedPattern('opcode', a_x)]
         members = {'tokens': tokens, 'destination': destination, 'address': address, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'AX', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'AX', (Stm8Instruction,), members))
 
     if a_longoff_x != None:
         tokens = [Stm8OpcodeToken, Stm8WordToken]
@@ -125,7 +125,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', offset, ',', address, ')'])
         patterns = [FixedPattern('opcode', a_longoff_x), VariablePattern('word', offset)]
         members = {'tokens': tokens, 'destination': destination, 'offset': offset, 'address': address, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'ALongoffX', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'ALongoffX', (Stm8Instruction,), members))
 
     if a_y != None:
         tokens = [Stm8PrecodeToken, Stm8OpcodeToken]
@@ -134,7 +134,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', address, ')'])
         patterns = [FixedPattern('precode', 0x90), FixedPattern('opcode', a_y)]
         members = {'tokens': tokens, 'destination': destination, 'address': address, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'AY', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'AY', (Stm8Instruction,), members))
 
     if a_longoff_y != None:
         tokens = [Stm8PrecodeToken, Stm8OpcodeToken, Stm8WordToken]
@@ -144,7 +144,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', offset, ',', address, ')'])
         patterns = [FixedPattern('precode', 0x90), FixedPattern('opcode', a_longoff_y), VariablePattern('word', offset)]
         members = {'tokens': tokens, 'destination': destination, 'offset': offset, 'address': address, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'ALongoffY', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'ALongoffY', (Stm8Instruction,), members))
 
     if a_shortoff_sp != None:
         tokens = [Stm8OpcodeToken, Stm8ByteToken]
@@ -154,7 +154,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', offset, ',', address, ')'])
         patterns = [FixedPattern('opcode', a_shortoff_sp), VariablePattern('byte', offset)]
         members = {'tokens': tokens, 'destination': destination, 'offset': offset, 'address': address, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'AShortoffSP', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'AShortoffSP', (Stm8Instruction,), members))
 
     if a_longptr != None:
         tokens = [Stm8PrecodeToken, Stm8OpcodeToken, Stm8WordToken]
@@ -163,7 +163,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '[', pointer, ']']) # TODO: add pointer size specifier '.w'.
         patterns = [FixedPattern('precode', 0x72), FixedPattern('opcode', a_longptr), VariablePattern('word', pointer)]
         members = {'tokens': tokens, 'destination': destination, 'pointer': pointer, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'ALongptr', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'ALongptr', (Stm8Instruction,), members))
 
     if a_longptr_x != None:
         tokens = [Stm8PrecodeToken, Stm8OpcodeToken, Stm8WordToken]
@@ -173,7 +173,7 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', '[', pointer, ']', ',', offset, ')']) # TODO: add pointer size specifier '.w'.
         patterns = [FixedPattern('precode', 0x72), FixedPattern('opcode', a_longptr_x), VariablePattern('word', pointer)]
         members = {'tokens': tokens, 'destination': destination, 'pointer': pointer, 'offset': offset, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'ALongptrX', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'ALongptrX', (Stm8Instruction,), members))
 
     if a_shortptr_y != None:
         tokens = [Stm8PrecodeToken, Stm8OpcodeToken, Stm8ByteToken]
@@ -183,14 +183,14 @@ def generate_instruction(name,
         syntax = Syntax([name, ' ', destination, ',', '(', '[', pointer, ']', ',', offset, ')']) # TODO: add pointer size specifier '.w'.
         patterns = [FixedPattern('precode', 0x91), FixedPattern('opcode', a_shortptr_y), VariablePattern('byte', pointer)]
         members = {'tokens': tokens, 'destination': destination, 'pointer': pointer, 'offset': offset, 'syntax': syntax, 'patterns': patterns}
-        instructions += type(class_name + 'AShortptrY', (Stm8Instruction,), members)
+        instructions.append(type(class_name + 'AShortptrY', (Stm8Instruction,), members))
 
     return instructions
 
 
 
 def generate_instructions():
-    AdcAByte,
+    (AdcAByte,
     #AdcAShortmem,
     AdcALongmem,
     AdcAX,
@@ -204,7 +204,7 @@ def generate_instructions():
     AdcALongptr,
     #AdcAShortptrX,
     AdcALongptrX,
-    AdcAShortptrY = generate_instruction('adc', a_byte=0xA9,
+    AdcAShortptrY) = generate_instruction('adc', a_byte=0xA9,
                                                 #a_shortmem=0xB9,
                                                 a_longmem=0xC9,
                                                 a_x=0xF9,
