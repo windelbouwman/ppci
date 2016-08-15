@@ -17,6 +17,10 @@ def make_num(txt):
         return int(txt[2:], 16)
     elif txt.startswith('$'):
         return int(txt[1:], 16)
+    elif txt.startswith('0b'):
+        return int(txt[2:], 2)
+    elif txt.startswith('%'):
+        return int(txt[1:], 2)
     else:
         return int(txt)
 

@@ -23,7 +23,8 @@ class AsmLexer(BaseLexer):
     def __init__(self, kws=()):
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
-            ('HEXNUMBER', r'(0x|\$)[\da-fA-F]+', self.handle_number),
+            ('BINNUMBER', r'(0b|%)[0-1]+', self.handle_number),
+            ('HEXNUMBER', r'(0x|\$)[0-9a-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),

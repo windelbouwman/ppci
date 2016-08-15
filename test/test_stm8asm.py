@@ -8,7 +8,7 @@ class Stm8AssemblerTestCase(AsmTestCaseBase):
 
 
     def test_adc_a_byte(self):
-        self.feed('ADC A,#$12')
+        self.feed('ADC A,#%00010010')
         self.check('A912')
 
 #    def test_adc_a_shortmem(self):
