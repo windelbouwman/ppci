@@ -7,53 +7,53 @@ class Stm8AssemblerTestCase(AsmTestCaseBase):
     march = 'stm8'
 
 
-    def test_AdcAByte(self):
-        self.feed('adc A, #$12')
+    def test_adc_a_byte(self):
+        self.feed('ADC A,#$12')
         self.check('A912')
 
-#    def test_AdcAShortmem(self):
-#        self.feed('adc A, $12')
+#    def test_adc_a_shortmem(self):
+#        self.feed('ADC A,$12')
 #        self.check('B912')
 
-    def test_AdcALongmem(self):
-        self.feed('adc A, $1234')
+    def test_adc_a_longmem(self):
+        self.feed('ADC A,$1234')
         self.check('C91234')
 
-    def test_AdcAX(self):
-        self.feed('adc A, (X)')
+    def test_adc_a_x(self):
+        self.feed('ADC A,(X)')
         self.check('F9')
 
-    def test_AdcALongoffX(self):
-        self.feed('adc A, ($1234,X)')
+    def test_adc_a_longoff_x(self):
+        self.feed('ADC A,($1234,X)')
         self.check('D91234')
 
-    def test_AdcAY(self):
-        self.feed('adc A, (Y)')
+    def test_adc_a_y(self):
+        self.feed('ADC A,(Y)')
         self.check('90F9')
 
-    def test_AdcALongoffY(self):
-        self.feed('adc A, ($1234,Y)')
+    def test_adc_a_longoff_y(self):
+        self.feed('ADC A,($1234,Y)')
         self.check('90D91234')
 
-    def test_AdcAShortoffSP(self):
-        self.feed('adc A, ($12,SP)')
+    def test_adc_a_shortoff_sp(self):
+        self.feed('ADC A,($12,SP)')
         self.check('1912')
 
-    def test_AdcALongptr(self):
-        self.feed('adc A, [$1234]')
+    def test_adc_a_longptr(self):
+        self.feed('ADC A,[$1234]')
         self.check('72C91234')
 
-    def test_AdcALongptrX(self):
-        self.feed('adc A, ([$1234], X)')
+    def test_adc_a_longptr_x(self):
+        self.feed('ADC A,([$1234],X)')
         self.check('72D91234')
 
-    def test_AdcAShortptrY(self):
-        self.feed('adc A, ([$12], Y)')
+    def test_adc_a_shortptr_y(self):
+        self.feed('ADC A,([$12],Y)')
         self.check('91D912')
 
 
-    def test_Nop(self):
-        self.feed('nop')
+    def test_nop(self):
+        self.feed('NOP')
         self.check('9D')
 
 
