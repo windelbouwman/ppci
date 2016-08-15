@@ -1,6 +1,4 @@
-"""
-    This module contains the code generation class.
-"""
+""" This module contains the code generation class. """
 
 import logging
 import struct
@@ -30,15 +28,16 @@ def pack_int(v, context):
 
 
 class CodeGenerator:
-    """
-      Generates intermediate (IR) code from a package. The entry function is
-      'genModule'. The main task of this part is to rewrite complex control
-      structures, such as while and for loops into simple conditional
-      jump statements. Also complex conditional statements are simplified.
-      Such as 'and' and 'or' statements are rewritten in conditional jumps.
-      And structured datatypes are rewritten.
+    """ Generates intermediate (IR) code from a package.
 
-      Type checking is done in one run with code generation.
+    The entry function is
+    'genModule'. The main task of this part is to rewrite complex control
+    structures, such as while and for loops into simple conditional
+    jump statements. Also complex conditional statements are simplified.
+    Such as 'and' and 'or' statements are rewritten in conditional jumps.
+    And structured datatypes are rewritten.
+
+    Type checking is done in one run with code generation.
     """
     logger = logging.getLogger('c3cgen')
 
@@ -456,11 +455,8 @@ class CodeGenerator:
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 lhs = self.gen_expr_code(expr.a, rvalue=True)
-                rhs = self.gen_expr_code(expr.b, rvalue=True)
-                if not self.context.equal_types(expr.a.typ, expr.b.typ):
-                    raise SemanticError('Types unequal {} != {}'
-                                        .format(expr.a.typ, expr.b.typ),
-                                        expr.loc)
+                rhs1 = self.gen_expr_code(expr.b, rvalue=True)
+                rhs = self.do_coerce(rhs1, expr.b.typ, expr.a.typ, expr.loc)
                 self.emit(
                     ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse), loc=expr.loc)
             else:
