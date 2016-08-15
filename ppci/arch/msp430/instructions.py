@@ -224,12 +224,14 @@ class JumpInstruction(Msp430Instruction):
 
 def create_jump_instruction(name, condition):
     target = register_argument('target', str)
-    syntax = Syntax([name, target])
+    syntax = Syntax([name, ' ', target])
     members = {'syntax': syntax, 'target': target, 'condition': condition}
     return type(name + '_ins', (JumpInstruction, ), members)
 
 
 Jne = create_jump_instruction('jne', 0)
+Jnz = create_jump_instruction('jnz', 0)
+Jeq = create_jump_instruction('jeq', 1)
 Jz = create_jump_instruction('jz', 1)
 Jnc = create_jump_instruction('jnc', 2)
 Jc = create_jump_instruction('jc', 3)

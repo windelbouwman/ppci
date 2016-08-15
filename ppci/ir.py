@@ -630,10 +630,14 @@ class Alloc(Value):
 # instruction!
 class Variable(Value):
     """ Global variable, reserves room in the data area. Has name and size """
-    def __init__(self, name, amount):
+    def __init__(self, name, amount, value=None):
         super().__init__(name, ptr)
         assert isinstance(amount, int)
         self.amount = amount
+        assert value is None or isinstance(value, bytes)
+        if isinstance(value, bytes):
+            assert len(value) == amount
+        self.value = value
 
     def __repr__(self):
         return 'variable {} ({} bytes)'.format(self.name, self.amount)

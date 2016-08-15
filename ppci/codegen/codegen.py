@@ -10,7 +10,7 @@ from ..arch.arch import Architecture, VCall, Label
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.arch import ArtificialInstruction
 from ..arch.encoding import Instruction
-from ..arch.data_instructions import Ds
+from ..arch.data_instructions import Ds, Db
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder, make_label_name
@@ -62,7 +62,11 @@ class CodeGenerator:
             label = Label(label_name)
             output_stream.emit(label)
             if var.amount > 0:
-                output_stream.emit(Ds(var.amount))
+                if var.value:
+                    for byte in var.value:
+                        output_stream.emit(Db(byte))
+                else:
+                    output_stream.emit(Ds(var.amount))
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.debug_db.map(var, label)

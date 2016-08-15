@@ -7,7 +7,8 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, relpath, run_python, run_msp430_mem
+from util import run_qemu, has_qemu, relpath, run_python
+from util import has_iverilog, run_msp430
 from util import do_long_tests
 from ppci.api import asm, c3c, link, objcopy, bfcompile
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize
@@ -70,6 +71,20 @@ class SimpleSamples:
          }
         """
         self.do(snippet, "Hello world")
+
+    def test_global_initialization(self):
+        """ Test proper initialization of global variables """
+        snippet = """
+        module main;
+        import io;
+        var int A = 60, B=6;
+
+        function void main()
+        {
+          io.print2("A+B=", A + B);
+        }
+        """
+        self.do(snippet, 'A+B=0x00000042\n')
 
     def test_sw_mul(self):
         """ Test software multiplication algorithm """
@@ -244,63 +259,6 @@ class SimpleSamples:
         """
         self.do(snippet, "w=0x00000005\nw=0x00000058\n")
 
-    def test_large_local_stack(self):
-        """ Check large local stack frame (larger than 128 bytes) """
-        snippet = """
-         module main;
-         import io;
-
-         const int buffer_size = 150;
-
-         function int heavy_stuff()
-         {
-            var int[buffer_size] buffer;
-            var int i;
-            var int result;
-            result = 0;
-            for (i = 0; i< buffer_size; i += 1)
-            {
-              buffer[i] = i;
-            }
-
-            for (i = 0; i< buffer_size; i += 1)
-            {
-              result += buffer[i] * 3;
-            }
-
-            return result;
-         }
-
-         function void main()
-         {
-            var int w;
-            w = heavy_stuff();
-
-            io.print2("w=", w);
-         }
-        """
-        self.do(snippet, "w=0x000082F5\n")
-
-    def test_for_loop_print(self):
-        snippet = """
-         module main;
-         import io;
-         function void main()
-         {
-            var int i;
-            var int b = 2;
-            for (i=0; i<10; i = i + 1)
-            {
-              io.print2("A = ", i);
-              b *= i + 1;
-            }
-            io.print2("B = ", b);
-         }
-        """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
-        res += "B = 0x006EBE00\n"
-        self.do(snippet, res)
-
     def test_c3_quine(self):
         """ Quine in the c3 language """
         self.maxDiff = None
@@ -313,7 +271,6 @@ class SimpleSamples:
                'io.print_sub(x,67,151);}')
         self.do(src, src)
 
-    # @unittest.skip
     def test_will_spill(self):
         """ Generate a function many locals, such that spilling will occur """
         snippet = """
@@ -360,9 +317,79 @@ class SimpleSamples:
         self.do(snippet, res)
 
 
+class MediumSamples:
+    """ Samples that require medium system specs.
+
+    Specs:
+        - at lease 32 bit registers
+        - some more memory
+    """
+
+    def test_for_loop_print(self):
+        """ Test a for loop.
+
+        This test case is very generic, but requires 32 bit or more
+        """
+
+        snippet = """
+         module main;
+         import io;
+         function void main()
+         {
+            var int i;
+            var int b = 2;
+            for (i=0; i<10; i = i + 1)
+            {
+              io.print2("A = ", i);
+              b *= i + 1;
+            }
+            io.print2("B = ", b);
+         }
+        """
+        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
+        res += "B = 0x006EBE00\n"
+        self.do(snippet, res)
+
+    def test_large_local_stack(self):
+        """ Check large local stack frame (larger than 128 bytes) """
+        snippet = """
+         module main;
+         import io;
+
+         const int buffer_size = 150;
+
+         function int heavy_stuff()
+         {
+            var int[buffer_size] buffer;
+            var int i;
+            var int result;
+            result = 0;
+            for (i = 0; i< buffer_size; i += 1)
+            {
+              buffer[i] = i;
+            }
+
+            for (i = 0; i< buffer_size; i += 1)
+            {
+              result += buffer[i] * 3;
+            }
+
+            return result;
+         }
+
+         function void main()
+         {
+            var int w;
+            w = heavy_stuff();
+
+            io.print2("w=", w);
+         }
+        """
+        self.do(snippet, "w=0x000082F5\n")
+
+
 class I32Samples:
     """ 32-bit samples """
-
     def test_large_for_loop_print(self):
         """ This test actually tests the qemu pipe system when values go
             beyond 1000 loops.
@@ -760,12 +787,26 @@ class BuildMixin:
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnVexpress(
-        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
+        unittest.TestCase,
+        SimpleSamples, MediumSamples, I32Samples, BuildMixin):
     maxDiff = None
     march = "arm"
     startercode = """
     section reset
     mov sp, 0xF0000   ; setup stack pointer
+    ; copy initial data
+    ldr r1, =__data_load_start
+    ldr r2, =__data_start
+    ldr r3, =__data_end
+    __copy_loop:
+    ldrb  r0, [r1, 0]
+    strb r0, [r2, 0]
+    add r1, r1, 1
+    add r2, r2, 1
+    cmp r2, r3
+    blt __copy_loop
+
+
     BL main_main      ; Branch to sample start
     BL bsp_exit       ; do exit stuff
     local_loop:
@@ -775,9 +816,13 @@ class TestSamplesOnVexpress(
     MEMORY code LOCATION=0x10000 SIZE=0x10000 {
         SECTION(reset)
         SECTION(code)
+        DEFINESYMBOL(__data_load_start)
+        SECTIONDATA(data)
     }
     MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
+        DEFINESYMBOL(__data_start)
         SECTION(data)
+        DEFINESYMBOL(__data_end)
     }
     """
     bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
@@ -801,7 +846,8 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnRiscv(
-        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
+        unittest.TestCase,
+        SimpleSamples, MediumSamples, I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
@@ -830,7 +876,8 @@ class TestSamplesOnRiscv(
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnCortexM3O2(
-        unittest.TestCase, SimpleSamples, I32Samples, BuildMixin):
+        unittest.TestCase,
+        SimpleSamples, MediumSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     opt_level = 2
@@ -839,19 +886,43 @@ class TestSamplesOnCortexM3O2(
     section reset
     dd 0x2000f000
     dd 0x00000009
+
+    ; copy initial data
+    ldr r1, __data_load_start_value
+    ldr r2, __data_start_value
+    ldr r3, __data_end_value
+    __copy_loop:
+    ldrb  r0, [r1, 0]
+    strb r0, [r2, 0]
+    add r1, r1, 1
+    add r2, r2, 1
+    cmp r2, r3
+    blt __copy_loop
+
     BL main_main     ; Branch to sample start
     BL bsp_exit      ; do exit stuff
     local_loop:
     B local_loop
+
+    __data_load_start_value:
+    dcd =__data_load_start
+    __data_start_value:
+    dcd =__data_start
+    __data_end_value:
+    dcd =__data_end
     """
     arch_mmap = """
     MEMORY code LOCATION=0x0 SIZE=0x10000 {
         SECTION(reset)
         ALIGN(4)
         SECTION(code)
+        DEFINESYMBOL(__data_load_start)
+        SECTIONDATA(data)
     }
     MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        DEFINESYMBOL(__data_start)
         SECTION(data)
+        DEFINESYMBOL(__data_end)
     }
     """
     bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'arch.c3')
@@ -871,7 +942,8 @@ class TestSamplesOnCortexM3O2(
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnPython(unittest.TestCase, SimpleSamples, I32Samples):
+class TestSamplesOnPython(
+        unittest.TestCase, SimpleSamples, MediumSamples, I32Samples):
     opt_level = 0
 
     def do(self, src, expected_output, lang='c3'):
@@ -938,6 +1010,7 @@ class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
       section code
         reset_handler:
           mov.w #0x980, sp       ; setup stack pointer
+          call #__init
           call #main_main        ; Enter main
           call #bsp_exit         ; Call exit cleaning
         end_inf_loop:
@@ -946,11 +1019,33 @@ class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
         bsp_putc:
           mov.b r12, 0x67(r2)  ; write to uart0 tx buf
           ret
+
+        __init:
+          mov.w #__data_load_start, r11
+          mov.w #__data_start, r12
+          mov.w #__data_end, r13
+          cmp.w r12, r13
+          jz __init_done
+       __init_loop:
+          mov.b @r11+, 0(r12)
+          add.w #1, r12
+          cmp.w r12, r13
+          jne __init_loop
+        __init_done:
+          ret
     """
     arch_mmap = """
-        MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
+        MEMORY flash LOCATION=0xf000 SIZE=0xfe0 {
+            SECTION(code)
+            DEFINESYMBOL(__data_load_start)
+            SECTIONDATA(data)
+        }
         MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
-        MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
+        MEMORY ram LOCATION=0x200 SIZE=0x800 {
+            DEFINESYMBOL(__data_start)
+            SECTION(data)
+            DEFINESYMBOL(__data_end)
+        }
     """
     bsp_c3 = relpath('..', 'examples', 'msp430', 'bsp.c3')
 
@@ -971,8 +1066,8 @@ class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
             for i in range(len(rom_data) // 2):
                 w = rom_data[2*i:2*i+2]
                 print('%02x%02x' % (w[1], w[0]), file=f)
-        if 'MSP' in os.environ:
-            res = run_msp430_mem(mem_file)
+        if has_iverilog():
+            res = run_msp430(mem_file)
             self.assertEqual(expected_output, res)
 
 
@@ -1009,7 +1104,8 @@ class TestSamplesOnAvrO2(TestSamplesOnAvr):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnX86Linux(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnX86Linux(
+        unittest.TestCase, SimpleSamples, MediumSamples, BuildMixin):
     march = "x86_64"
     startercode = """
     section reset
