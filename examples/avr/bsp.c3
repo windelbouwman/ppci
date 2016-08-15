@@ -1,6 +1,7 @@
 
 module bsp;
 
+// var byte* UCSRA=0xc0, UCSRB=0xc1, UCSRC, UBRRL, UBRRH, UDR;
 var byte* UCSRA, UCSRB, UCSRC, UBRRL, UBRRH, UDR;
 
 public function void init()

@@ -1,5 +1,6 @@
 
 import os
+import re
 import sys
 import subprocess
 import socket
@@ -161,28 +162,50 @@ def run_python(kernel):
     return outs
 
 
-def run_msp430_mem(x):
-    """
-        Try to run the given memory file in the openmsp430 iverilog project.
-    """
-    # copy mem file:
-    print(x)
-    pmem = relpath('..', 'examples', 'msp430', 'test_system', 'pmem.mem')
-    shutil.copyfile(x, pmem)
+def has_iverilog():
+    """ Determines if iverilog is installed """
+    return hasattr(shutil, 'which') and bool(shutil.which(qemu_app))
 
-    # run verilog:
-    workdir = relpath('..', 'examples', 'msp430', 'test_system')
-    sim_proc = subprocess.Popen(
-        ['./simv'], cwd=workdir,
-        stdout=subprocess.PIPE)
 
-    outs, _ = sim_proc.communicate(200)
+def run_msp430(pmem):
+    """ Run the given memory file in the openmsp430 iverilog project. """
+
+    # Make a run file with the same name as the mem file:
+    simv = pmem[:-4] + '.run'
+
+    if not os.path.exists(simv):
+        print()
+        print('======')
+        print('Compiling verilog!')
+        print('======')
+
+        # compile msp430 bench for this pmem:
+        workdir = relpath(
+            '..', 'examples', 'msp430', 'test_system', 'iverilog')
+        cmd = ['iverilog', '-o', simv,
+               '-c', 'args.f',
+               '-D', 'MEM_FILENAME="{}"'.format(pmem),
+               '-D', 'SEED=123']
+        print(cmd)
+        subprocess.check_call(cmd, cwd=workdir)
+
+        print('======')
+        print('Compiled into', simv)
+        print('======')
+
+    print('======')
+    print('Running', simv)
+    print('======')
+
+    # run build vvp simulation:
+    outs = subprocess.check_output([simv])
+    outs = outs.decode('ascii')
     print(outs)
-
-    # read file:
-    of = relpath('..', 'examples', 'msp430', 'test_system', 'output.txt')
-    with open(of, 'r') as f:
-        data = f.read()
+    chars = []
+    for c in re.finditer('Write serial: ([01]{8})', outs):
+        ch = chr(int(c.group(1), 2))
+        chars.append(ch)
+    data = ''.join(chars)
     return data
 
 

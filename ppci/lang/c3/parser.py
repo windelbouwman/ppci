@@ -196,26 +196,24 @@ class Parser:
         typedef = DefinedType(typename.val, newtype, public, typename.loc)
         self.add_symbol(typedef)
 
-    def parse_variable_def(self, allow_init=False, public=True):
+    def parse_variable_def(self, public=True):
         """ Parse variable declaration, optionally with initialization. """
         self.consume('var')
         var_type = self.parse_type_spec()
-        statements = []
+        variables = []
         while True:
             name = self.consume('ID')
             var = Variable(name.val, var_type, public, name.loc)
             # Munch initial value:
-            if allow_init and self.peak == '=':
-                loc = self.consume('=').loc
-                rhs = self.parse_expression()
-                lhs = Identifier(name.val, self.current_scope, name.loc)
-                statements.append(Assignment(lhs, rhs, loc, '='))
+            if self.peak == '=':
+                self.consume('=')
+                var.ival = self.parse_expression()
             self.add_symbol(var)
+            variables.append(var)
             if not self.has_consumed(','):
                 break
         self.consume(';')
-        if allow_init:
-            return Compound(statements)
+        return variables
 
     def parse_const_def(self):
         """ Parse a constant definition """
@@ -335,7 +333,15 @@ class Parser:
         elif self.has_consumed(';'):
             return Empty()
         elif self.peak == 'var':
-            return self.parse_variable_def(allow_init=True)
+            variables = self.parse_variable_def()
+            statements = []
+            for variable in variables:
+                if variable.ival:
+                    lhs = Identifier(
+                        variable.name, self.current_scope, variable.loc)
+                    rhs = variable.ival
+                    statements.append(Assignment(lhs, rhs, rhs.loc, '='))
+            return Compound(statements)
         elif self.peak == 'return':
             return self.parse_return()
         else:
