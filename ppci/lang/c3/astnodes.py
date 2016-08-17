@@ -433,6 +433,17 @@ class If(Statement):
         return 'IF-statement'
 
 
+class Switch(Statement):
+    """ Switch statement """
+    def __init__(self, expression, options, loc):
+        super().__init__(loc)
+        self.expression = expression
+        self.options = options
+
+    def __repr__(self):
+        return 'SWITCH-statement'
+
+
 class While(Statement):
     """ While statement """
     def __init__(self, condition, statement, loc):

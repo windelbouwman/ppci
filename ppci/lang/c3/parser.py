@@ -1,12 +1,10 @@
-"""
-    This module contains the parsing parts for the c3 language
-"""
+""" This module contains the parsing parts for the c3 language. """
 
 import logging
 from ...common import CompilerError
 from .astnodes import Member, Literal, TypeCast, Unop, Binop
 from .astnodes import Assignment, ExpressionStatement, Compound
-from .astnodes import Return, While, If, Empty, For
+from .astnodes import Return, While, If, Empty, For, Switch
 from .astnodes import FunctionType, Function, FormalParameter
 from .astnodes import StructureType, DefinedType, PointerType, ArrayType
 from .astnodes import Constant, Variable, Sizeof
@@ -274,6 +272,33 @@ class Parser:
             false_code = Empty()
         return If(condition, true_code, false_code, loc)
 
+    def parse_switch(self):
+        """ Parse switch statement """
+        loc = self.consume('switch').loc
+        self.consume('(')
+        expression = self.parse_expression()
+        self.consume(')')
+        options = []
+        self.consume('{')
+        while self.peak != '}':
+            if self.peak not in ['case', 'default']:
+                self.error('Expected case or default')
+            if self.peak == 'case':
+                self.consume('case')
+                value = self.parse_expression()
+            else:
+                self.consume('default')
+                value = None
+            self.consume(':')
+            statement = self.parse_statement()
+            #statements = []
+            #while self.peak not in ['}', 'default', 'case']:
+            #    statements.append(self.parse_statement())
+            options.append((value, statement))
+        self.consume('}')
+        print(expression, options)
+        return Switch(expression, options, loc)
+
     def parse_while(self):
         """ Parses a while statement """
         loc = self.consume('while').loc
@@ -328,6 +353,8 @@ class Parser:
             return self.parse_while()
         elif self.peak == 'for':
             return self.parse_for()
+        elif self.peak == 'switch':
+            return self.parse_switch()
         elif self.peak == '{':
             return self.parse_compound()
         elif self.has_consumed(';'):

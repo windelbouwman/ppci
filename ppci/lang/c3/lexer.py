@@ -8,7 +8,9 @@ from ...pcc.baselex import BaseLexer
 class Lexer(BaseLexer):
     """ Generates a sequence of token from an input stream """
     keywords = ['and', 'or', 'not', 'true', 'false',
-                'else', 'if', 'while', 'for', 'return',
+                'else', 'if', 'while', 'for',
+                'switch', 'case', 'default', 'break',
+                'return',
                 'function', 'var', 'type', 'const',
                 'volatile',
                 'struct', 'cast', 'sizeof', 'enum',

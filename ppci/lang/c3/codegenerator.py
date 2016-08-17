@@ -298,6 +298,8 @@ class CodeGenerator:
                 self.gen_while(code)
             elif isinstance(code, ast.For):
                 self.gen_for_stmt(code)
+            elif isinstance(code, ast.Switch):
+                self.gen_switch_stmt(code)
             else:  # pragma: no cover
                 raise NotImplementedError(str(code))
         except SemanticError as exc:
@@ -435,6 +437,50 @@ class CodeGenerator:
         self.gen_stmt(code.statement)
         self.gen_stmt(code.final)
         self.emit(ir.Jump(test_block))
+        self.builder.set_block(final_block)
+
+    def gen_switch_stmt(self, switch):
+        """ Generate code for a switch statement """
+        ir_val = self.gen_expr_code(switch.expression, rvalue=True)
+        if not self.context.equal_types('int', switch.expression.typ):
+            self.error(
+                'Switch condition must be integer', switch.expression.loc)
+
+        # Check that the default branch is present:
+        if not any(o[0] is None for o in switch.options):
+            self.error('Switch must have one default branch')
+
+        final_block = self.builder.new_block()
+        test_block = self.builder.new_block()
+        self.emit(ir.Jump(test_block))
+
+        def_block = None
+        # Generate code in linear way:
+        for option_val, option_code in switch.options:
+            # Generate code for case:
+            code_block = self.builder.new_block()
+            self.builder.set_block(code_block)
+            self.gen_stmt(option_code)
+            self.emit(ir.Jump(final_block))
+
+            if option_val is None:
+                # default case
+                def_block = code_block
+            else:
+                # TODO: type check constant:
+                loc = option_val.loc
+                self.builder.set_block(test_block)
+                o_val = self.context.eval_const(option_val)
+                ir_val2 = self.emit(ir.Const(
+                    o_val, 'cmpval', self.get_ir_int()), loc=loc)
+                tb2 = self.builder.new_block()
+                self.emit(
+                    ir.CJump(ir_val, '==', ir_val2, code_block, tb2), loc=loc)
+                test_block = tb2
+        if not def_block:
+            self.error('No default case specified in switch-case')
+        self.builder.set_block(test_block)
+        self.emit(ir.Jump(def_block))
         self.builder.set_block(final_block)
 
     def gen_cond_code(self, expr, bbtrue, bbfalse):

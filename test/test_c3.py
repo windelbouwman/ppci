@@ -675,7 +675,6 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    @unittest.skip('todo')
     def test_switch(self):
         """ Test switch case statement """
         snippet = """
@@ -685,13 +684,12 @@ class StatementTestCase(BuildTestCaseBase):
          var int a;
          a = 2;
          switch(a) {
-           case 1:
            case 2:
-             return 3;
+             { return 3; }
            case 4:
-             a = 3;
+             { a = 3 }
            default:
-             return 77;
+             { return 77; }
          }
 
          return a;
