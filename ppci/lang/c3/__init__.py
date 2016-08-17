@@ -34,7 +34,7 @@ from .codegenerator import CodeGenerator
 from .visitor import Visitor
 from .visitor import AstPrinter
 from .builder import C3Builder
-from .scope import Context
+from .context import Context
 
 __all__ = [
     'AstPrinter', 'C3Builder', 'CodeGenerator', 'Context', 'Lexer', 'Parser',

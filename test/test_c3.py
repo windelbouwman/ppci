@@ -1,8 +1,7 @@
 import unittest
 import logging
 import io
-from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter
-from ppci.lang.c3.scope import Context
+from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter, Context
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier

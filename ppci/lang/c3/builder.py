@@ -11,7 +11,8 @@ from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
-from .scope import Context, SemanticError
+from .scope import SemanticError
+from .context import Context
 
 
 class C3Builder:

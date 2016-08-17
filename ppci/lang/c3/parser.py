@@ -2,21 +2,15 @@
 
 import logging
 from ...common import CompilerError
-from .astnodes import Member, Literal, TypeCast, Unop, Binop
-from .astnodes import Assignment, ExpressionStatement, Compound
-from .astnodes import Return, While, If, Empty, For, Switch
-from .astnodes import FunctionType, Function, FormalParameter
-from .astnodes import StructureType, DefinedType, PointerType, ArrayType
-from .astnodes import Constant, Variable, Sizeof
-from .astnodes import StructField, Deref, Index
-from .astnodes import Identifier, FunctionCall
+from . import astnodes as ast
 from .scope import Scope
 
 
 class Parser:
     """ Parses sourcecode into an abstract syntax tree (AST) """
+    logger = logging.getLogger('c3')
+
     def __init__(self, diag):
-        self.logger = logging.getLogger('c3')
         self.diag = diag
         self.current_scope = None
         self.token = None
@@ -126,7 +120,7 @@ class Parser:
     def parse_designator(self):
         """ A designator designates an object with a name. """
         name = self.consume('ID')
-        return Identifier(name.val, self.current_scope, name.loc)
+        return ast.Identifier(name.val, self.current_scope, name.loc)
 
     def parse_id_sequence(self):
         """ Parse a sequence of id's """
@@ -154,10 +148,10 @@ class Parser:
             while self.peak != '}':
                 mem_t = self.parse_type_spec()
                 for i in self.parse_id_sequence():
-                    mems.append(StructField(i.val, mem_t))
+                    mems.append(ast.StructField(i.val, mem_t))
                 self.consume(';')
             self.consume('}')
-            the_type = StructureType(mems)
+            the_type = ast.StructureType(mems)
         elif self.peak == 'enum':
             raise NotImplementedError('enum not yet implemented')
         else:
@@ -165,7 +159,7 @@ class Parser:
             the_type = self.parse_designator()
             while self.has_consumed('.'):
                 field = self.consume('ID')
-                the_type = Member(the_type, field.val, field.loc)
+                the_type = ast.Member(the_type, field.val, field.loc)
 
         # Check for the volatile modifier (this is a suffix):
         the_type.volatile = self.has_consumed('volatile')
@@ -173,11 +167,11 @@ class Parser:
         # Check for pointer or array suffix:
         while self.peak in ['*', '[']:
             if self.has_consumed('*'):
-                the_type = PointerType(the_type)
+                the_type = ast.PointerType(the_type)
             elif self.has_consumed('['):
                 size = self.parse_expression()
                 self.consume(']')
-                the_type = ArrayType(the_type, size)
+                the_type = ast.ArrayType(the_type, size)
             else:  # pragma: no cover
                 raise RuntimeError()
 
@@ -191,7 +185,7 @@ class Parser:
         newtype = self.parse_type_spec()
         typename = self.consume('ID')
         self.consume(';')
-        typedef = DefinedType(typename.val, newtype, public, typename.loc)
+        typedef = ast.DefinedType(typename.val, newtype, public, typename.loc)
         self.add_symbol(typedef)
 
     def parse_variable_def(self, public=True):
@@ -201,7 +195,7 @@ class Parser:
         variables = []
         while True:
             name = self.consume('ID')
-            var = Variable(name.val, var_type, public, name.loc)
+            var = ast.Variable(name.val, var_type, public, name.loc)
             # Munch initial value:
             if self.peak == '=':
                 self.consume('=')
@@ -221,7 +215,7 @@ class Parser:
             name = self.consume('ID')
             self.consume('=')
             val = self.parse_expression()
-            constant = Constant(name.val, typ, val, name.loc)
+            constant = ast.Constant(name.val, typ, val, name.loc)
             self.add_symbol(constant)
             if not self.has_consumed(','):
                 break
@@ -233,7 +227,7 @@ class Parser:
         returntype = self.parse_type_spec()
         fname = self.consume('ID').val
         self.logger.debug('Parsing function %s', fname)
-        func = Function(fname, public, loc)
+        func = ast.Function(fname, public, loc)
         self.add_symbol(func)
         func.inner_scope = Scope(self.current_scope)
         func.package = self.mod
@@ -244,14 +238,14 @@ class Parser:
             while True:
                 typ = self.parse_type_spec()
                 name = self.consume('ID')
-                param = FormalParameter(name.val, typ, name.loc)
+                param = ast.FormalParameter(name.val, typ, name.loc)
                 self.add_symbol(param)
                 parameters.append(param)
                 if not self.has_consumed(','):
                     break
             self.consume(')')
         paramtypes = [p.typ for p in parameters]
-        func.typ = FunctionType(paramtypes, returntype)
+        func.typ = ast.FunctionType(paramtypes, returntype)
         func.parameters = parameters
         if self.has_consumed(';'):
             func.body = None
@@ -269,8 +263,8 @@ class Parser:
         if self.has_consumed('else'):
             false_code = self.parse_statement()
         else:
-            false_code = Empty()
-        return If(condition, true_code, false_code, loc)
+            false_code = ast.Empty()
+        return ast.If(condition, true_code, false_code, loc)
 
     def parse_switch(self):
         """ Parse switch statement """
@@ -291,13 +285,9 @@ class Parser:
                 value = None
             self.consume(':')
             statement = self.parse_statement()
-            #statements = []
-            #while self.peak not in ['}', 'default', 'case']:
-            #    statements.append(self.parse_statement())
             options.append((value, statement))
         self.consume('}')
-        print(expression, options)
-        return Switch(expression, options, loc)
+        return ast.Switch(expression, options, loc)
 
     def parse_while(self):
         """ Parses a while statement """
@@ -306,7 +296,7 @@ class Parser:
         condition = self.parse_expression()
         self.consume(')')
         statements = self.parse_statement()
-        return While(condition, statements, loc)
+        return ast.While(condition, statements, loc)
 
     def parse_for(self):
         """ Parse a for statement """
@@ -319,17 +309,17 @@ class Parser:
         final = self.parse_statement()
         self.consume(')')
         statements = self.parse_statement()
-        return For(init, condition, final, statements, loc)
+        return ast.For(init, condition, final, statements, loc)
 
     def parse_return(self):
         """ Parse a return statement """
         loc = self.consume('return').loc
         if self.has_consumed(';'):
-            return Return(None, loc)
+            return ast.Return(None, loc)
         else:
             expr = self.parse_expression()
             self.consume(';')
-            return Return(expr, loc)
+            return ast.Return(expr, loc)
 
     def parse_compound(self):
         """ Parse a compound statement, which is bounded by '{' and '}' """
@@ -343,7 +333,7 @@ class Parser:
         # if cb1.loc.col != cb2.loc.col:
         #    self.error('Braces not in same column!')
 
-        return Compound(statements)
+        return ast.Compound(statements)
 
     def parse_statement(self):
         """ Determine statement type based on the pending token """
@@ -358,30 +348,30 @@ class Parser:
         elif self.peak == '{':
             return self.parse_compound()
         elif self.has_consumed(';'):
-            return Empty()
+            return ast.Empty()
         elif self.peak == 'var':
             variables = self.parse_variable_def()
             statements = []
             for variable in variables:
                 if variable.ival:
-                    lhs = Identifier(
+                    lhs = ast.Identifier(
                         variable.name, self.current_scope, variable.loc)
                     rhs = variable.ival
-                    statements.append(Assignment(lhs, rhs, rhs.loc, '='))
-            return Compound(statements)
+                    statements.append(ast.Assignment(lhs, rhs, rhs.loc, '='))
+            return ast.Compound(statements)
         elif self.peak == 'return':
             return self.parse_return()
         else:
             expression = self.parse_unary_expression()
-            if self.peak in Assignment.operators:
+            if self.peak in ast.Assignment.operators:
                 # We enter assignment mode here.
                 operator = self.peak
                 loc = self.consume(operator).loc
                 rhs = self.parse_expression()
-                return Assignment(expression, rhs, loc, operator)
+                return ast.Assignment(expression, rhs, loc, operator)
             else:
                 # Must be call statement!
-                return ExpressionStatement(expression, expression.loc)
+                return ast.ExpressionStatement(expression, expression.loc)
 
     LEFT_ASSOCIATIVITY = 1
     op_binding_powers = {
@@ -414,7 +404,7 @@ class Parser:
             else:
                 next_precedence = precedence
             rhs = self.parse_expression(next_precedence)
-            lhs = Binop(lhs, operator.typ, rhs, operator.loc)
+            lhs = ast.Binop(lhs, operator.typ, rhs, operator.loc)
         return lhs
 
     # Domain of unary expressions:
@@ -432,14 +422,14 @@ class Parser:
             self.consume('(')
             inner_expression = self.parse_expression()
             self.consume(')')
-            return TypeCast(to_type, inner_expression, loc)
+            return ast.TypeCast(to_type, inner_expression, loc)
         elif self.peak == 'sizeof':
             # Compiler internal function to determine size of a type
             loc = self.consume('sizeof').loc
             self.consume('(')
             typ = self.parse_type_spec()
             self.consume(')')
-            return Sizeof(typ, loc)
+            return ast.Sizeof(typ, loc)
         else:
             return self.parse_unary_expression()
 
@@ -449,9 +439,9 @@ class Parser:
             operation = self.consume()
             inner_expression = self.parse_cast_expression()
             if operation.val == '*':
-                return Deref(inner_expression, operation.loc)
+                return ast.Deref(inner_expression, operation.loc)
             else:
-                return Unop(operation.typ, inner_expression, operation.loc)
+                return ast.Unop(operation.typ, inner_expression, operation.loc)
         else:
             return self.parse_postfix_expression()
 
@@ -462,14 +452,14 @@ class Parser:
             if self.has_consumed('['):
                 i = self.parse_expression()
                 self.consume(']')
-                pfe = Index(pfe, i, i.loc)
+                pfe = ast.Index(pfe, i, i.loc)
             elif self.has_consumed('->'):
                 field = self.consume('ID')
-                pfe = Deref(pfe, pfe.loc)
-                pfe = Member(pfe, field.val, field.loc)
+                pfe = ast.Deref(pfe, pfe.loc)
+                pfe = ast.Member(pfe, field.val, field.loc)
             elif self.has_consumed('.'):
                 field = self.consume('ID')
-                pfe = Member(pfe, field.val, field.loc)
+                pfe = ast.Member(pfe, field.val, field.loc)
             elif self.has_consumed('('):
                 # Function call
                 args = []
@@ -478,7 +468,7 @@ class Parser:
                     while self.has_consumed(','):
                         args.append(self.parse_expression())
                     self.consume(')')
-                pfe = FunctionCall(pfe, args, pfe.loc)
+                pfe = ast.FunctionCall(pfe, args, pfe.loc)
             else:  # pragma: no cover
                 raise RuntimeError()
         return pfe
@@ -491,19 +481,19 @@ class Parser:
             self.consume(')')
         elif self.peak == 'NUMBER':
             val = self.consume('NUMBER')
-            expr = Literal(val.val, val.loc)
+            expr = ast.Literal(val.val, val.loc)
         elif self.peak == 'REAL':
             val = self.consume('REAL')
-            expr = Literal(val.val, val.loc)
+            expr = ast.Literal(val.val, val.loc)
         elif self.peak == 'true':
             val = self.consume('true')
-            expr = Literal(True, val.loc)
+            expr = ast.Literal(True, val.loc)
         elif self.peak == 'false':
             val = self.consume('false')
-            expr = Literal(False, val.loc)
+            expr = ast.Literal(False, val.loc)
         elif self.peak == 'STRING':
             val = self.consume('STRING')
-            expr = Literal(val.val, val.loc)
+            expr = ast.Literal(val.val, val.loc)
         elif self.peak == 'ID':
             expr = self.parse_designator()
         else:
