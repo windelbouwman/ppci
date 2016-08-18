@@ -5,8 +5,9 @@ from . import astnodes as ast
 
 class Context:
     """ A context is the space where all modules live in.
-        It is actually the container of modules and the top
-        level scope.
+
+    It is actually the container of modules and the top
+    level scope.
     """
     def __init__(self, arch):
         self.scope = create_top_scope(arch)
@@ -20,17 +21,12 @@ class Context:
         """ Check if a module with the given name exists """
         return name in self.module_map
 
-    def get_module(self, name):
+    def get_module(self, name, create=True):
         """ Gets or creates the module with the given name """
-        if name not in self.module_map:
+        if name not in self.module_map and create:
             module = ast.Module(name, Scope(self.scope), None)
             self.module_map[name] = module
         return self.module_map[name]
-
-    def get_type(self, name):
-        """ Get the type with the given name """
-        typ = self.scope[name]
-        return typ
 
     @property
     def modules(self):
@@ -119,12 +115,13 @@ class Context:
 
     def get_common_type(self, a, b):
         """ Determine the greatest common type.
-            This is used for coercing binary operators.
-            For example
-                int + float -> float
-                byte + int -> int
-                byte + byte -> byte
-                pointer to x + int -> pointer to x
+
+        This is used for coercing binary operators.
+        For example
+            int + float -> float
+            byte + int -> int
+            byte + byte -> byte
+            pointer to x + int -> pointer to x
         """
         intType = self.get_type('int')
         byteType = self.get_type('byte')
@@ -142,8 +139,8 @@ class Context:
             (intType, ast.PointerType): intType,
             }
         loc = a.loc
-        typ_a = self.the_type(a.typ)
-        typ_b = self.the_type(b.typ)
+        typ_a = self.get_type(a.typ)
+        typ_b = self.get_type(b.typ)
         # Handle pointers:
         if isinstance(typ_a, ast.PointerType) and \
                 self.equal_types(typ_b, 'int'):
@@ -156,33 +153,29 @@ class Context:
                 "Types {} and {} do not commute".format(typ_a, typ_b), loc)
         return table[(typ_a, typ_b)]
 
-    def the_type(self, typ, reveil_defined=True):
-        """ Recurse until a 'real' type is found
-            When reveil_defined is True, defined types are resolved to
-            their backing types.
+    def get_type(self, typ, reveil_defined=True):
+        """ Get type given by str, identifier or type.
+
+        When reveil_defined is True, defined types are resolved to
+        their backing types.
         """
         # Convenience:
         if isinstance(typ, str):
-            typ = self.get_type(typ)
+            typ = self.scope[typ]
 
         # Find the type:
         if isinstance(typ, ast.DefinedType):
             if reveil_defined:
-                typ = self.the_type(typ.typ)
+                typ = self.get_type(typ.typ)
         elif isinstance(typ, (ast.Identifier, ast.Member)):
-            typ = self.the_type(self.resolve_symbol(typ), reveil_defined)
-        elif isinstance(typ, ast.Type):
-            # This case also catches the defined type!
-            # TODO: make this if sequence less error prone..
-            pass
-        else:  # pragma: no cover
-            raise NotImplementedError(str(typ))
+            typ = self.get_type(self.resolve_symbol(typ), reveil_defined)
+
         assert isinstance(typ, ast.Type)
         return typ
 
     def size_of(self, typ):
         """ Determine the byte size of a type """
-        typ = self.the_type(typ)
+        typ = self.get_type(typ)
 
         if isinstance(typ, ast.BaseType):
             return typ.byte_size
@@ -205,8 +198,8 @@ class Context:
             if byname is True stop on defined types.
         """
         # Recurse into named types:
-        a = self.the_type(a, not byname)
-        b = self.the_type(b, not byname)
+        a = self.get_type(a, not byname)
+        b = self.get_type(b, not byname)
 
         # Check types for sanity:
         self.check_type(a)
@@ -246,7 +239,7 @@ class Context:
             self.got_types = set()
 
         # Resolve the type:
-        t = self.the_type(t, not byname)
+        t = self.get_type(t, not byname)
 
         # Check for recursion:
         if t in self.got_types:

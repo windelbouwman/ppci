@@ -104,14 +104,16 @@ class LoadAfterStorePass(BlockPass):
             [x] = a
             c = a + 2
     """
-    def find_store_backwards(self, i, ty, stop_on=[ir.FunctionCall, ir.ProcedureCall, ir.Store]):
+    def find_store_backwards(
+            self, i, ty,
+            stop_on=[ir.FunctionCall, ir.ProcedureCall, ir.Store]):
         """ Go back from this instruction to beginning """
         block = i.block
         instructions = block.instructions
         pos = instructions.index(i)
         for x in range(pos - 1, 0, -1):
             i2 = instructions[x]
-            if type(i2) is ir.Store and ty is i2.value.ty:
+            if isinstance(i2, ir.Store) and ty is i2.value.ty:
                 # Got first store!
                 if i2.address is i.address:
                     return i2
@@ -163,6 +165,4 @@ class LoadAfterStorePass(BlockPass):
                 store_prev.remove_from_block()
 
         if count > 0:
-            self.logger.debug('Replaced {} redundant stores'.format(count))
-
-
+            self.logger.debug('Replaced %s redundant stores', count)

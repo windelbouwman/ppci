@@ -113,7 +113,7 @@ class CodeGenerator:
     def get_debug_type(self, typ):
         """ Get or create debug type info in the debug information """
         # Lookup the type:
-        typ = self.context.the_type(typ)
+        typ = self.context.get_type(typ)
 
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
@@ -250,7 +250,7 @@ class CodeGenerator:
 
     def get_ir_type(self, cty, loc):
         """ Given a certain type, get the corresponding ir-type """
-        cty = self.context.the_type(cty)
+        cty = self.context.get_type(cty)
         if self.context.equal_types(cty, 'int'):
             return self.get_ir_int()
         elif self.context.equal_types(cty, 'double'):
@@ -353,7 +353,7 @@ class CodeGenerator:
 
     def is_simple_type(self, typ):
         """ Determines if the given type is a simple type """
-        typ = self.context.the_type(typ)
+        typ = self.context.get_type(typ)
         return isinstance(typ, ast.PointerType) or \
             isinstance(typ, ast.BaseType)
 
@@ -443,12 +443,8 @@ class CodeGenerator:
         """ Generate code for a switch statement """
         ir_val = self.gen_expr_code(switch.expression, rvalue=True)
         if not self.context.equal_types('int', switch.expression.typ):
-            self.error(
+            raise SemanticError(
                 'Switch condition must be integer', switch.expression.loc)
-
-        # Check that the default branch is present:
-        if not any(o[0] is None for o in switch.options):
-            self.error('Switch must have one default branch')
 
         final_block = self.builder.new_block()
         test_block = self.builder.new_block()
@@ -477,10 +473,14 @@ class CodeGenerator:
                 self.emit(
                     ir.CJump(ir_val, '==', ir_val2, code_block, tb2), loc=loc)
                 test_block = tb2
-        if not def_block:
-            self.error('No default case specified in switch-case')
-        self.builder.set_block(test_block)
-        self.emit(ir.Jump(def_block))
+        if def_block:
+            self.builder.set_block(test_block)
+            self.emit(ir.Jump(def_block))
+        else:
+            self.error(
+                'No default case specified in switch-case', switch.loc)
+            self.builder.set_block(test_block)
+            self.emit(ir.Jump(final_block))
         self.builder.set_block(final_block)
 
     def gen_cond_code(self, expr, bbtrue, bbfalse):
@@ -572,7 +572,7 @@ class CodeGenerator:
             # This means that the value can be used in an expression or as
             # a parameter.
 
-            val_typ = self.context.the_type(expr.typ)
+            val_typ = self.context.get_type(expr.typ)
             if not isinstance(val_typ, (ast.PointerType, ast.BaseType)):
                 raise SemanticError(
                     'Cannot deref {}'.format(val_typ), expr.loc)
@@ -609,7 +609,7 @@ class CodeGenerator:
         # A pointer is always a lvalue:
         expr.lvalue = True
 
-        ptr_typ = self.context.the_type(expr.ptr.typ)
+        ptr_typ = self.context.get_type(expr.ptr.typ)
         if not isinstance(ptr_typ, ast.PointerType):
             raise SemanticError('Cannot deref {}'.format(ptr_typ), expr.loc)
         expr.typ = ptr_typ.ptype
@@ -763,7 +763,7 @@ class CodeGenerator:
         # The base is a valid expression:
         assert isinstance(base, ir.Value)
         expr.lvalue = expr.base.lvalue
-        basetype = self.context.the_type(expr.base.typ)
+        basetype = self.context.get_type(expr.base.typ)
         if isinstance(basetype, ast.StructureType):
             self.context.check_type(basetype)
             if basetype.has_field(expr.field):
@@ -780,7 +780,7 @@ class CodeGenerator:
         assert expr.lvalue
 
         # Calculate offset into struct:
-        base_type = self.context.the_type(expr.base.typ)
+        base_type = self.context.get_type(expr.base.typ)
         offset = self.emit(
             ir.Const(base_type.field_offset(expr.field), 'offset', ir.ptr))
 
@@ -792,7 +792,7 @@ class CodeGenerator:
         base = self.gen_expr_code(expr.base)
         idx = self.gen_expr_code(expr.i, rvalue=True)
 
-        base_typ = self.context.the_type(expr.base.typ)
+        base_typ = self.context.get_type(expr.base.typ)
         if not isinstance(base_typ, ast.ArrayType):
             raise SemanticError('Cannot index non-array type {}'
                                 .format(base_typ),
@@ -803,7 +803,7 @@ class CodeGenerator:
 
         # Base address must be a location value:
         assert expr.base.lvalue
-        element_type = self.context.the_type(base_typ.element_type)
+        element_type = self.context.get_type(base_typ.element_type)
         element_size = self.context.size_of(element_type)
         expr.typ = base_typ.element_type
         expr.lvalue = True
@@ -855,8 +855,8 @@ class CodeGenerator:
         ar = self.gen_expr_code(expr.a, rvalue=True)
         expr.lvalue = False
 
-        from_type = self.context.the_type(expr.a.typ)
-        to_type = self.context.the_type(expr.to_type)
+        from_type = self.context.get_type(expr.a.typ)
+        to_type = self.context.get_type(expr.to_type)
         expr.typ = expr.to_type
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):

@@ -696,6 +696,24 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_switch_without_default(self):
+        """ Test switch case statement without default case """
+        snippet = """
+        module tst;
+        function int t()
+        {
+         var int a;
+         a = 2;
+         switch(a) {
+           case 4:
+             { a = 3 }
+         }
+
+         return a;
+        }
+        """
+        self.expect_errors(snippet, [7])
+
     def test_local_variable(self):
         snippet = """
          module testlocalvar;
