@@ -28,7 +28,11 @@ def apply_b_imm20(sym_value, data, reloc_value):
 def apply_abs32_imm20(sym_value, data, reloc_value):
     assert sym_value % 2 == 0
     bv = BitView(data, 0, 4)
-    bv[12:32] = (sym_value>>12)&0xfffff
+    if(sym_value&0x800==0):
+        bv[12:32] = (sym_value>>12)&0xfffff
+    else:
+        sym_value -= 0xFFFFF000
+        bv[12:32] = (sym_value>>12)&0xfffff
 
 def apply_abs32_imm12(sym_value, data, reloc_value):
     assert sym_value % 2 == 0

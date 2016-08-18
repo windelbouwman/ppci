@@ -140,22 +140,22 @@ class RiscvArch(Architecture):
         # Caller save registers:
         i = (len(live_regs)+1)*4
         yield Subi(SP, SP, i)
+        i -= 4
         for register in live_regs:
             yield self.store(register, i, SP)
             i-= 4
         yield self.store(LR, i, SP)
-        i -= 4
+
 
         yield self.branch(LR, vcall.function_name)
 
         # Restore caller save registers:
         i = 0
-        i += 4
         yield self.load(LR, i, SP)
         for register in reversed(live_regs):
             i += 4
             yield self.load(register, i, SP)
-
+        i += 4
         yield Addi(SP, SP, i)
 
     def determine_arg_locations(self, arg_types):
