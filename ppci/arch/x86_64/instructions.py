@@ -170,7 +170,8 @@ class ConditionalJump(X86Instruction):
         # distance -= 5 # Skip own instruction
         self.token1[0:8] = 0xF
         self.token2[0:8] = self.opcode
-        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+        return self.token1.encode() + self.token2.encode() + \
+            self.token3.encode()
 
     def relocations(self):
         return [(self.target, apply_bc_jmp32)]
@@ -667,7 +668,8 @@ class regint32base(X86Instruction):
         self.token3.rm = self.reg.regbits
         self.token3.reg = self.reg_code
         self.token4[0:32] = wrap_negative(self.imm, 32)
-        return self.token1.encode() + self.token2.encode() + self.token3.encode() + self.token4.encode()
+        return self.token1.encode() + self.token2.encode() + \
+            self.token3.encode() + self.token4.encode()
 
 
 def make_regimm(mnemonic, opcode, reg_code):

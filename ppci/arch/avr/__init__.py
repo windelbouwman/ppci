@@ -18,3 +18,4 @@ https://gcc.gnu.org/wiki/avr-gcc
 
 from .arch import AvrArch
 
+__all__ = ['AvrArch']

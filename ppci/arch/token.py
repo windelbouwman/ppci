@@ -37,6 +37,9 @@ class _p2(property):
         self._mask = (1 << bitsize) - 1
         super().__init__(getter, setter)
 
+    def __add__(self, other):
+        return bit_concat(self, other)
+
 
 def bit_range(b, e):
     """ Property generator function """
