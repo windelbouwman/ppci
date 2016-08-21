@@ -33,6 +33,10 @@ call bsp_init
 ; sei  ; enable interrupts
 call main_main
 
+; end of transmission:
+ldi r24, 4
+call bsp_putc
+
 endless:
 rjmp endless
 

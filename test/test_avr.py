@@ -82,6 +82,10 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("cpc r11, r19")
         self.check('b306')
 
+    def test_cpi(self):
+        self.feed("cpi r19, 23")
+        self.check('3731')
+
     def test_ret(self):
         self.feed("ret")
         self.check('0895')
@@ -123,10 +127,21 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("ld r4, -x")
         self.check('7c91 2c90 3d90 4e90')
 
+    def test_ldd(self):
+        """ Test ldd using Y register """
+        self.feed("ldd r19, Y+60")
+        self.feed("ldd r13, Y+13")
+        self.check('3cad dd84')
+
     def test_st(self):
         self.feed("st X, r22")
         self.feed("st X, r5")
         self.check('6c93 5c92')
+
+    def test_std(self):
+        self.feed("std Y+33, r9")
+        self.feed("std Y+1, r11")
+        self.check('99a2 b982')
 
     def test_lds(self):
         self.feed("lds r26, 0xabcd")

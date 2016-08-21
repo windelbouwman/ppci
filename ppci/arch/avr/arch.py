@@ -38,20 +38,12 @@ class AvrArch(Architecture):
 
     def get_runtime(self):
         from ...api import asm
-        asm_src = """
-            __shr16:
-                ; TODO
-                ret
-            __shl16:
-                ; TODO!
-                ret
-        """
-        return asm(io.StringIO(asm_src), self)
+        return asm(io.StringIO(asm_rt_src), self)
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
         l = []
-        live_in = set()
+        live_in = set([Y])
         regs = [
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
@@ -78,7 +70,7 @@ class AvrArch(Architecture):
         return l, tuple(live_in)
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
+        live_out = set([Y])
         rv = r25r24
         live_out.add(r25r24)
         return rv, tuple(live_out)
@@ -208,3 +200,48 @@ class AvrArch(Architecture):
             return Movw(dst, src, ismove=True)
         else:  # pragma: no cover
             raise NotImplementedError()
+
+
+asm_rt_src = """
+; shift r25:r24 right by r22 bits
+__shr16:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shr16_2
+__shr16_1:
+  lsr r25
+  ror r24
+  dec r16
+  cpi r16, 0
+  brne __shr16_1
+__shr16_2:
+  pop r16
+  ret
+
+; shift r25:r24 left by r22 bits
+__shl16:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shl16_2
+__shl16_1:
+  add r24, r24
+  adc r25, r25
+  dec r16
+  cpi r16, 0
+  brne __shl16_1
+__shl16_2:
+  pop r16
+  ret
+
+; multiply r25:r24 by r23:r22
+__mul16:
+  ; TODO!!
+  ret
+
+; divide r25:r24 by r23:r22
+__div16:
+  ; TODO!!
+  ret
+"""

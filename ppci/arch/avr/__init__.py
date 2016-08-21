@@ -14,6 +14,8 @@ See also:
 
 https://gcc.gnu.org/wiki/avr-gcc
 
+http://www.atmel.com/webdoc/avrassembler/avrassembler.wb_instruction_list.html
+
 """
 
 from .arch import AvrArch

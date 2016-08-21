@@ -11,7 +11,7 @@
 
 void uart_in_hook(avr_irq_t* irq, uint32_t value, void*param)
 {
-  printf("%X\n", value);
+  printf("uart: %X\n", value);
 }
 
 #define IRQ_UART_COUNT 1
@@ -57,9 +57,9 @@ int main(int argc, char* argv[])
 
   init_uart(avr);
 
-  avr->gdb_port = 1234;
-  avr->state = cpu_Stopped;
-  avr_gdb_init(avr);
+  //avr->gdb_port = 1234;
+  //avr->state = cpu_Stopped;
+  //avr_gdb_init(avr);
 
   int state = cpu_Running;
   while (!(state == cpu_Done || state == cpu_Crashed)) {

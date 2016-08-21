@@ -104,6 +104,20 @@ class AvrPointerRegister(HighAvrWordRegister):
     pass
 
 
+class AvrXRegister(AvrPointerRegister):
+    pass
+
+
+class AvrYRegister(AvrPointerRegister):
+    syntaxi = 'yreg16', [
+        Syntax(['y'], new_func=lambda: Y),
+        ]
+
+
+class AvrZRegister(AvrPointerRegister):
+    pass
+
+
 # Special registers:
 class AvrSpecialRegister(Register):
     pass
@@ -175,9 +189,9 @@ r19r18 = HighAvrWordRegister('r19:r18', num=18, aliases=(r19, r18))
 r21r20 = HighAvrWordRegister('r21:r20', num=20, aliases=(r21, r20))
 r23r22 = HighAvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
 r25r24 = HighAvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
-X = AvrPointerRegister('X', num=26, aliases=(r27, r26))
-Y = AvrPointerRegister('Y', num=28, aliases=(r29, r28))
-Z = AvrPointerRegister('Z', num=30, aliases=(r31, r30))
+X = AvrXRegister('X', num=26, aliases=(r27, r26))
+Y = AvrYRegister('Y', num=28, aliases=(r29, r28))
+Z = AvrZRegister('Z', num=30, aliases=(r31, r30))
 
 
 lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
@@ -213,6 +227,9 @@ register_classes = [
     RegisterClass('reg', [i8], AvrRegister, all_regs),
     RegisterClass('hireg', [], HighAvrRegister, hi_regs),
     RegisterClass('ptrreg', [], AvrPointerRegister, (X, Y, Z)),
+    RegisterClass('xreg', [], AvrXRegister, (X,)),
+    RegisterClass('yreg', [], AvrYRegister, (Y,)),
+    RegisterClass('zreg', [], AvrZRegister, (Z,)),
     RegisterClass('reg16', [i16, ptr], AvrWordRegister, all_w_regs),
     RegisterClass('hireg16', [], HighAvrWordRegister, hi_w_regs),
     ]

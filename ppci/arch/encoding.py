@@ -410,12 +410,15 @@ class FixedPattern(BitPattern):
 
 
 class VariablePattern(BitPattern):
-    def __init__(self, field, prop):
+    def __init__(self, field, prop, transform=None):
         super().__init__(field)
         self.prop = prop
+        self.transform = transform
 
     def get_value(self, objref):
         v = self.prop.__get__(objref)
         if isinstance(v, Register):
             v = v.num
+        if self.transform:
+            v = self.transform[0](v)
         return v
