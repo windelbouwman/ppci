@@ -574,6 +574,15 @@ class ExpressionTestCase(BuildTestCaseBase):
         # TODO: this error diagnostics must be improved!
         self.expect_errors(snippet, [0])
 
+    @unittest.skip('Fix this')
+    def test_array_initialization(self):
+        """ Check array initialization """
+        snippet = """
+        module test;
+        var int[5] a = {1,4,4,4,4};
+        """
+        self.expect_errors(snippet, [5])
+
 
 class StatementTestCase(BuildTestCaseBase):
     """ Testcase for statements """
