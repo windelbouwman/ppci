@@ -5,7 +5,7 @@ from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
 from ...ir import i16
-from .registers import AvrRegister, X, Y, AvrYRegister
+from .registers import AvrRegister, X, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister
 from .registers import r0, r1, r1r0
@@ -380,11 +380,11 @@ class Ld(AvrInstruction):
         VariablePattern('d', rd)]
 
 
-class Ldd(AvrInstruction):
+class Ldd_y(AvrInstruction):
     """ Load with offset """
     tokens = [AvrToken99]
     rd = register_argument('rd', AvrRegister, write=True)
-    y = register_argument('y', AvrYRegister, write=False, read=True)
+    y = register_argument('y', AvrYRegister, read=True)
     imm = register_argument('imm', int)
     syntax = Syntax(['ldd', ' ', rd, ',', ' ', y, '+', imm])
     patterns = [
@@ -395,17 +395,47 @@ class Ldd(AvrInstruction):
         VariablePattern('k', imm)]
 
 
-class Std(AvrInstruction):
+class Std_y(AvrInstruction):
     """ Store with offset """
     tokens = [AvrToken99]
-    rd = register_argument('rd', AvrRegister, write=False, read=True)
-    y = register_argument('y', AvrYRegister, write=False, read=True)
+    rd = register_argument('rd', AvrRegister, read=True)
+    y = register_argument('y', AvrYRegister, read=True)
     imm = register_argument('imm', int)
     syntax = Syntax(['std', ' ', y, '+', imm, ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b100),
         FixedPattern('s', 1),
         FixedPattern('y', 1),
+        VariablePattern('d', rd),
+        VariablePattern('k', imm)]
+
+
+class Ldd_z(AvrInstruction):
+    """ Load with offset """
+    tokens = [AvrToken99]
+    rd = register_argument('rd', AvrRegister, write=True)
+    z = register_argument('z', AvrZRegister, read=True)
+    imm = register_argument('imm', int)
+    syntax = Syntax(['ldd', ' ', rd, ',', ' ', z, '+', imm])
+    patterns = [
+        FixedPattern('op', 0b100),
+        FixedPattern('s', 0),
+        FixedPattern('y', 0),
+        VariablePattern('d', rd),
+        VariablePattern('k', imm)]
+
+
+class Std_z(AvrInstruction):
+    """ Store with offset """
+    tokens = [AvrToken99]
+    rd = register_argument('rd', AvrRegister, read=True)
+    z = register_argument('z', AvrZRegister, read=True)
+    imm = register_argument('imm', int)
+    syntax = Syntax(['std', ' ', z, '+', imm, ',', ' ', rd])
+    patterns = [
+        FixedPattern('op', 0b100),
+        FixedPattern('s', 1),
+        FixedPattern('y', 0),
         VariablePattern('d', rd),
         VariablePattern('k', imm)]
 
@@ -698,28 +728,28 @@ class StWord(PseudoAvrInstruction):
         yield StPostInc(self.rd.hi)
 
 
-class LddWord(PseudoAvrInstruction):
-    """ Pseudo instruction for loading a word from Y + offset """
+class LddWord_z(PseudoAvrInstruction):
+    """ Pseudo instruction for loading a word from z + offset """
     rd = register_argument('rd', AvrWordRegister, write=True)
-    y = register_argument('y', AvrYRegister, read=True)
+    z = register_argument('z', AvrZRegister, read=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['ldd_word', ' ', rd, ',', ' ', y, '+', imm])
+    syntax = Syntax(['ldd_word', ' ', rd, ',', ' ', z, '+', imm])
 
     def render(self):
-        yield Ldd(self.rd.lo, self.y, self.imm)
-        yield Ldd(self.rd.hi, self.y, self.imm + 1)
+        yield Ldd_z(self.rd.lo, self.z, self.imm)
+        yield Ldd_z(self.rd.hi, self.z, self.imm + 1)
 
 
-class StdWord(PseudoAvrInstruction):
-    """ Pseudo instruction for storing a word at Y + offset """
-    y = register_argument('y', AvrYRegister, read=True)
+class StdWord_z(PseudoAvrInstruction):
+    """ Pseudo instruction for storing a word at z + offset """
+    z = register_argument('z', AvrZRegister, read=True)
     imm = register_argument('imm', int)
     rd = register_argument('rd', AvrWordRegister, read=True)
-    syntax = Syntax(['std_word', ' ', y, '+', imm, ',', ' ', rd])
+    syntax = Syntax(['std_word', ' ', z, '+', imm, ',', ' ', rd])
 
     def render(self):
-        yield Std(self.y, self.imm, self.rd.lo)
-        yield Std(self.y, self.imm + 1, self.rd.hi)
+        yield Std_z(self.z, self.imm, self.rd.lo)
+        yield Std_z(self.z, self.imm + 1, self.rd.hi)
 
 
 @avr_isa.pattern('stm', 'JMP', size=2)
@@ -865,38 +895,33 @@ def pattern_shl16(context, tree, c0, c1):
     return d
 
 
-@avr_isa.pattern('reg', 'LDRI8(reg16)', size=2, cycles=2)
+@avr_isa.pattern('reg', 'LDRI8(reg16)', size=4, cycles=2)
 def pattern_ldr8(context, tree, c0):
-    context.move(X, c0)
+    # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrRegister)
-    context.emit(Ld(d))
+    context.move(Z, c0)
+    context.emit(Ldd_z(d, Z, 0))
     return d
 
 
 @avr_isa.pattern(
-    'reg', 'LDRI8(ADDI16(reg16, CONSTI16))', size=2, cycles=2,
+    'reg', 'LDRI8(ADDI16(reg16, CONSTI16))', size=4, cycles=2,
     condition=lambda t: t.children[0].children[1].value < 64)
 def pattern_ldr8_offset(context, tree, c0):
-    context.move(Y, c0)
+    # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrRegister)
     offset = tree.children[0].children[1].value
-    context.emit(Ldd(d, Y, offset))
+    context.move(Z, c0)
+    context.emit(Ldd_z(d, Z, offset))
     return d
 
 
-@avr_isa.pattern('reg16', 'LDRI16(reg16)', size=8)
+@avr_isa.pattern('reg16', 'LDRI16(reg16)', size=4)
 def pattern_ldr16(context, tree, c0):
-    context.move(X, c0)
-    context.emit(LdPostInc(r0))
-    context.emit(Ld(r1))
-
-    ud2 = RegisterUseDef()
-    ud2.add_uses([r0, r1, X])
-    ud2.add_def(r1r0)
-    context.emit(ud2)
-
+    # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrWordRegister)
-    context.move(d, r1r0)
+    context.move(Z, c0)
+    context.emit(LddWord_z(d, Z, 0))
     return d
 
 
@@ -904,47 +929,46 @@ def pattern_ldr16(context, tree, c0):
     'reg16', 'LDRI16(ADDI16(reg16, CONSTI16))', size=4, cycles=4,
     condition=lambda t: t.children[0].children[1].value < 63)
 def pattern_ldr16_offset(context, tree, c0):
-    context.move(Y, c0)
+    # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrWordRegister)
-    offset = tree.children[0].children[1].value
-    context.emit(LddWord(d, Y, offset))
+    offset = tree[0][1].value
+    context.move(Z, c0)
+    context.emit(LddWord_z(d, Z, offset))
     return d
 
 
 @avr_isa.pattern('stm', 'STRI8(reg16, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
-    context.move(X, c0)
-    context.emit(St(c1))
-    ud2 = RegisterUseDef()
-    ud2.add_uses([X])
-    context.emit(ud2)
+    # z = context.new_reg(AvrZRegister)
+    context.move(Z, c0)
+    context.emit(Std_z(Z, 0, c1))
 
 
 @avr_isa.pattern(
     'stm', 'STRI8(ADDI16(reg16, CONSTI16), reg)', size=2,
     condition=lambda t: t[0][1].value < 64)
 def pattern_str8_offset(context, tree, c0, c1):
-    context.move(Y, c0)
-    offset = tree.children[0].children[1].value
-    context.emit(Std(Y, offset, c1))
+    # z = context.new_reg(AvrZRegister)
+    offset = tree[0][1].value
+    context.move(Z, c0)
+    context.emit(Std_z(Z, offset, c1))
 
 
 @avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8)
 def pattern_str16(context, tree, c0, c1):
-    context.move(X, c0)
-    context.emit(StWord(c1))
-    ud2 = RegisterUseDef()
-    ud2.add_uses([X])
-    context.emit(ud2)
+    # z = context.new_reg(AvrZRegister)
+    context.move(Z, c0)
+    context.emit(StdWord_z(Z, 0, c1))
 
 
 @avr_isa.pattern(
     'stm', 'STRI16(ADDI16(reg16, CONSTI16), reg16)', size=6,
     condition=lambda t: t[0][1].value < 63)
 def pattern_str16_offset(context, tree, c0, c1):
-    context.move(Y, c0)
+    # z = context.new_reg(AvrZRegister)
     offset = tree[0][1].value
-    context.emit(StdWord(Y, offset, c1))
+    context.move(Z, c0)
+    context.emit(StdWord_z(Z, offset, c1))
 
 
 @avr_isa.pattern('reg', 'CONSTI8', size=2)
