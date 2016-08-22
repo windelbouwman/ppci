@@ -575,17 +575,19 @@ def _(context, tree):
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
+    if((c0&0x800)!=0):
+        c0 -= 0xFFFFF000
     context.emit(Lui(d, c0))
     context.emit(Addi(d, d, c0))
     return d
 
 
-@isa.pattern('reg', 'CONSTI32', size=2, condition=lambda t: t.value < 4096)
+@isa.pattern('reg', 'CONSTI32', size=2, condition=lambda t: t.value>=-2048 and t.value < 2048)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
     assert isinstance(c0, int)
-    assert c0 < 4096 and c0 >= 0
+    assert c0 < 2048 and c0 >= -2048
     context.emit(Movi(d, c0))
     return d
 
@@ -603,11 +605,16 @@ def _(context, tree):
 @isa.pattern('stm', 'CJMP(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
+    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Bgt}
     Bop = opnames[op]
-    jmp_ins = B(no_label.name, jumps=[no_label])
-    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-    context.emit(jmp_ins)
+    if(op=="<="):
+        jmp_ins = B(yes_label.name, jumps=[yes_label])
+        context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
+        context.emit(jmp_ins)
+    else:
+        jmp_ins = B(no_label.name, jumps=[no_label])
+        context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+        context.emit(jmp_ins)
 
 
 @isa.pattern('reg', 'ADDI32(reg, reg)', size=2)

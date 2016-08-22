@@ -473,12 +473,14 @@ class Bnev(PseudoRiscvInstruction):
 
 
 # Instruction selection patterns:
-@rvcisa.pattern('reg', 'CONSTI32', size=1, condition=lambda t: t.value < 64)
+@rvcisa.pattern(
+    'reg', 'CONSTI32', size=1, 
+    condition=lambda t: t.value in range(-32, 32))
 def pattern_consti32(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
     assert isinstance(c0, int)
-    assert c0 < 64 and c0 >= 0
+    assert c0 in range(-32, 32)
     context.emit(CLi(d, c0))
     return d
 
@@ -488,6 +490,8 @@ def pattern_consti32(context, tree):
 def pattern_consti32_2(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
+    if (c0&0x800) != 0:
+        c0 -= 0xFFFFF000
     context.emit(CLui(d, c0))
     context.emit(Addi(d, d, c0))
     return d
@@ -615,8 +619,16 @@ def pattern_stri32_addi32(context, tree, c0, c1):
 @rvcisa.pattern('stm', 'CJMP(reg, reg)', size=1)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Blt, ">": Bgt, "==": Beqv, "!=": Bnev, ">=": Bge}
+    opnames = {
+        "<": Blt, ">": Bgt, "==": Beqv, "!=": Bnev,
+        ">=": Bge, '<=': Bgt
+        }
     Bop = opnames[op]
-    jmp_ins = B(no_label.name, jumps=[no_label])
-    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-    context.emit(jmp_ins)
+    if(op=="<="):
+        jmp_ins = B(yes_label.name, jumps=[yes_label])
+        context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
+        context.emit(jmp_ins)
+    else:
+        jmp_ins = B(no_label.name, jumps=[no_label])
+        context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+        context.emit(jmp_ins)
