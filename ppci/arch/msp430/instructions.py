@@ -1,6 +1,7 @@
 """ Definitions of msp430 instruction set. """
 
 from ..encoding import Instruction, register_argument, Syntax, Constructor
+from ..encoding import FixedPattern, VariablePattern
 from ..isa import Relocation, Isa
 from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register, r0, r2, r3, SP, PC
@@ -19,12 +20,25 @@ class Msp430Token(Token):
 
     condition = bit_range(10, 13)
     opcode = bit_range(12, 16)
+    opcode1 = bit_range(7, 10)
+    opcode1b = bit_range(10, 16)
     register = bit_range(0, 4)
     destination = bit_range(0, 4)
     source = bit_range(8, 12)
     bw = bit(6)
     Ad = bit(7)
     As = bit_range(4, 6)
+
+
+class Msp430SingleOperandToken(Token):
+    def __init__(self):
+        super().__init__(16, '<H')
+
+    prefix = bit_range(10, 16)
+    opcode = bit_range(7, 10)
+    bw = bit(6)
+    As = bit_range(4, 6)
+    register = bit_range(0, 4)
 
 
 class Imm16Token(Token):
@@ -272,12 +286,41 @@ def one_op_instruction(mne, opcode, b=0, src_write=True):
     return type(mne + '_ins', (OneOpArith,), members)
 
 
+def make_one_op_base(mne, opcode, b=0):
+    members = {
+        'tokens': [Msp430SingleOperandToken],
+        'patterns': [
+            FixedPattern('prefix', 0b000100),
+            FixedPattern('opcode', opcode),
+            FixedPattern('bw', b),
+            ],
+        'syntax': Syntax([mne, ' '])
+        }
+    return type(mne.title(), (Instruction,), members)
+
+
+class MemByReg(Instruction):
+    """ Memory content """
+    reg = register_argument('reg', Msp430Register, read=True)
+    tokens = []
+    patterns = [
+        FixedPattern('As', 2),
+        VariablePattern('register', reg),
+        ]
+    syntax = Syntax(['@', reg])
+
+
 Rrcw = one_op_instruction('rrc', 0, b=0)
 Rrcb = one_op_instruction('rrc', 0, b=1)
 Swpb = one_op_instruction('swpb', 1)
 Rraw = one_op_instruction('rra', 2, b=0)
 Rrab = one_op_instruction('rra', 2, b=1)
-Sxt = one_op_instruction('sxt', 3)
+
+# Sxt = one_op_instruction('sxt', 3)
+SxtBase = make_one_op_base('sxt', 3)
+SxtMemByReg = SxtBase + MemByReg
+isa.add_instruction(SxtMemByReg)
+
 Push = one_op_instruction('push', 4, src_write=False)
 Call = one_op_instruction('call', 5, src_write=False)
 

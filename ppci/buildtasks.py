@@ -100,13 +100,13 @@ class CompileTask(OutputtingTask):
         else:
             reporter = DummyReportGenerator()
 
-        if 'debug' in self.arguments:
-            debug = bool(self.get_argument('debug'))
-        else:
-            debug = False
+        debug = bool(self.get_argument('debug', default=False))
+        opt = int(self.get_argument('optimize', default='0'))
 
         with complete_report(reporter):
-            obj = c3c(sources, includes, arch, reporter=reporter, debug=debug)
+            obj = c3c(
+                sources, includes, arch, opt_level=opt,
+                reporter=reporter, debug=debug)
 
         self.store_object(obj)
 
@@ -117,10 +117,7 @@ class LinkTask(OutputtingTask):
     def run(self):
         layout = self.relpath(self.get_argument('layout'))
         objects = self.open_file_set(self.get_argument('objects'))
-        if 'debug' in self.arguments:
-            debug = bool(self.get_argument('debug'))
-        else:
-            debug = False
+        debug = bool(self.get_argument('debug', default=False))
 
         try:
             obj = link(objects, layout, use_runtime=True, debug=debug)

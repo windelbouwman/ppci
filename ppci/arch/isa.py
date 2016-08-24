@@ -37,9 +37,10 @@ class Isa:
         isa3.relocation_map.update(other.relocation_map)
         return isa3
 
-    def add_instruction(self, i):
+    def add_instruction(self, instruction):
         """ Register an instruction into this ISA """
-        self.instructions.append(i)
+        self.instructions.append(instruction)
+        return instruction
 
     def register_relocation(self, relocation):
         """ Register a relocation into this isa """

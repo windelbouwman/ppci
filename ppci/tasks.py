@@ -122,9 +122,12 @@ class Task:
         self.name = self.__class__.__name__
         self.arguments = kwargs
 
-    def get_argument(self, name):
+    def get_argument(self, name, default=None):
         if name not in self.arguments:
-            raise TaskError('attribute "{}" not specified'.format(name))
+            if default is not None:
+                return default
+            else:
+                raise TaskError('attribute "{}" not specified'.format(name))
         return self.arguments[name]
 
     def get_property(self, name):

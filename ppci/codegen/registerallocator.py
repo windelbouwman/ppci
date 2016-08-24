@@ -315,10 +315,7 @@ class GraphColoringRegisterAllocator:
 
     @lru_cache(maxsize=None)
     def q(self, B, C):
-        """
-        Determine the number of registers that can be blocked in
-        class B by class C.
-        """
+        """ The number of class B registers that can be blocked by class C. """
         assert issubclass(B, Register)
         assert issubclass(C, Register)
         B_regs = self.cls_regs[B]

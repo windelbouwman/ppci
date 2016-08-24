@@ -103,6 +103,7 @@ class Constructor:
         """ Fill tokens with the specified bit patterns """
         for pattern in self.patterns:
             value = pattern.get_value(self)
+            assert isinstance(value, int), str(self)
             tokens.set_field(pattern.field, value)
         self.set_user_patterns(tokens)
 
@@ -190,6 +191,25 @@ class InsMeta(type):
         # Register instruction with isa:
         if hasattr(cls, 'isa'):
             cls.isa.add_instruction(cls)
+
+    def __add__(cls, other):
+        assert isinstance(other, InsMeta)
+        name = cls.__name__ + other.__name__
+        tokens = cls.tokens + other.tokens
+        patterns = cls.patterns + other.patterns
+        syntax = cls.syntax + other.syntax
+        members = {
+            'tokens': tokens,
+            'patterns': patterns,
+            'syntax': syntax}
+        member_list = list(cls.__dict__.items())
+        member_list += list(other.__dict__.items())
+        for name, val in member_list:
+            if isinstance(val, InstructionProperty):
+                if name in members:
+                    raise ValueError('{} already defined!'.format(name))
+                members[name] = val
+        return InsMeta(name, (Instruction,), members)
 
 
 class Instruction(Constructor, metaclass=InsMeta):
@@ -350,6 +370,17 @@ class Syntax:
         self.new_func = new_func
         self.set_props = set_props
         self.priority = priority
+
+    def __add__(self, other):
+        assert isinstance(other, Syntax)
+        assert not self.new_func
+        assert not other.new_func
+        assert self.set_props == {}
+        assert other.set_props == {}
+        assert self.priority == 0
+        assert other.priority == 0
+        syntax = self.syntax + other.syntax
+        return Syntax(syntax)
 
     def __repr__(self):
         return '{}'.format(self.syntax)
