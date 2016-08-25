@@ -12,7 +12,6 @@ Reference
     debug
     architecture
     backends
-    howto_backend
     hexfile
     compiler
     links
