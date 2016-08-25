@@ -467,6 +467,66 @@ class Stm8AssemblerTestCase(AsmTestCaseBase):
         self.check('9053')
 
 
+    def test_dec_a(self):
+        self.feed('DEC A')
+        self.check('4A')
+
+    def test_dec_longmem(self):
+        self.feed('DEC $1234')
+        self.check('725A1234')
+
+    def test_dec_x(self):
+        self.feed('DEC (X)')
+        self.check('7A')
+
+    def test_dec_longoff_x(self):
+        self.feed('DEC ($1234,X)')
+        self.check('724A1234')
+
+    def test_dec_y(self):
+        self.feed('DEC (Y)')
+        self.check('907A')
+
+    def test_dec_longoff_y(self):
+        self.feed('DEC ($1234,Y)')
+        self.check('904A1234')
+
+    def test_dec_longptr(self):
+        self.feed('DEC [$1234]')
+        self.check('723A1234')
+
+    def test_dec_longptr_x(self):
+        self.feed('DEC ([$1234],X)')
+        self.check('726A1234')
+
+    def test_dec_shortptr_y(self):
+        self.feed('DEC ([$12],Y)')
+        self.check('916A12')
+
+
+    def test_decw_x(self):
+        self.feed('DECW X')
+        self.check('5A')
+
+    def test_decw_y(self):
+        self.feed('DECW Y')
+        self.check('905A')
+
+
+    def test_div_x_a(self):
+        self.feed('DIV X,A')
+        self.check('62')
+
+    def test_div_y_a(self):
+        self.feed('DIV Y,A')
+        self.check('9062')
+
+
+    def test_divw_x_y(self):
+        self.feed('DIV X,Y')
+        self.check('65')
+
+
     def test_nop(self):
         self.feed('NOP')
         self.check('9D')
