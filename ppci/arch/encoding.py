@@ -136,7 +136,6 @@ class Constructor:
         fargs = cls.syntax.get_formal_arguments()
         for farg in fargs:
             if issubclass(farg._cls, Constructor):
-                print(farg)
                 assert isinstance(farg._cls.syntaxi, str)
                 for sub_con in farg._cls.__subclasses__():
                     try:
@@ -146,7 +145,6 @@ class Constructor:
                     except ValueError as e:
                         print(e)
 
-        print(prop_map)
         # Instantiate:
         init_args = [prop_map[a] for a in fargs]
         return cls(*init_args)
@@ -194,7 +192,6 @@ class InsMeta(type):
 
     def __add__(cls, other):
         assert isinstance(other, InsMeta)
-        name = cls.__name__ + other.__name__
         tokens = cls.tokens + other.tokens
         patterns = cls.patterns + other.patterns
         syntax = cls.syntax + other.syntax
@@ -209,6 +206,7 @@ class InsMeta(type):
                 if name in members:
                     raise ValueError('{} already defined!'.format(name))
                 members[name] = val
+        name = cls.__name__ + other.__name__
         return InsMeta(name, (Instruction,), members)
 
 
