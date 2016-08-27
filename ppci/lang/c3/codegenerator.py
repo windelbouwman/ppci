@@ -1,7 +1,6 @@
 """ This module contains the code generation class. """
 
 import logging
-import struct
 from ... import ir
 from ... import irutils
 from ...binutils.debuginfo import DebugLocation, DebugFunction
@@ -10,21 +9,6 @@ from ...binutils.debuginfo import DebugPointerType, DebugArrayType
 from ...binutils.debuginfo import DebugVariable
 from . import astnodes as ast
 from .scope import SemanticError
-
-
-def pack_string(txt, context):
-    """ Pack a string using 4 bytes length followed by text data """
-    mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
-    fmt = mapping[context.get_type('int').byte_size]
-    length = struct.pack(fmt, len(txt))
-    data = txt.encode('ascii')
-    return length + data
-
-
-def pack_int(v, context):
-    mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
-    fmt = mapping[context.get_type('int').byte_size]
-    return struct.pack(fmt, v)
 
 
 class CodeGenerator:
@@ -87,7 +71,7 @@ class CodeGenerator:
             if var.ival:
                 assert context.equal_types('int', var.typ)
                 cval = context.eval_const(var.ival)
-                cval = pack_int(cval, context)
+                cval = context.pack_int(cval)
             else:
                 cval = None
             ir_var = ir.Variable(
@@ -351,19 +335,13 @@ class CodeGenerator:
             raise SemanticError(
                 "Cannot use '{}' as '{}'".format(typ, wanted_typ), loc)
 
-    def is_simple_type(self, typ):
-        """ Determines if the given type is a simple type """
-        typ = self.context.get_type(typ)
-        return isinstance(typ, ast.PointerType) or \
-            isinstance(typ, ast.BaseType)
-
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
         # Evaluate left hand side:
         lval = self.gen_expr_code(code.lval)
 
         # Check that the left hand side is a simple type:
-        if not self.is_simple_type(code.lval.typ):
+        if not self.context.is_simple_type(code.lval.typ):
             raise SemanticError(
                 'Cannot assign to complex type {}'.format(code.lval.typ),
                 code.loc)
@@ -836,7 +814,7 @@ class CodeGenerator:
                                 .format(expr.val), expr.loc)
         # Construct correct const value:
         if isinstance(expr.val, str):
-            cval = pack_string(expr.val, self.context)
+            cval = self.context.pack_string(expr.val)
             value = ir.LiteralData(cval, 'strval')
         elif isinstance(expr.val, int):  # boolean is a subclass of int!
             # For booleans, use the integer as storage class:
@@ -909,7 +887,7 @@ class CodeGenerator:
         # Return type will never be an lvalue:
         expr.lvalue = False
 
-        if not self.is_simple_type(ftyp.returntype):
+        if not self.context.is_simple_type(ftyp.returntype):
             raise SemanticError(
                 'Return value can only be a simple type', expr.loc)
 

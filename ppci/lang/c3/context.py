@@ -1,4 +1,6 @@
+import logging
 import operator
+import struct
 from .scope import create_top_scope, Scope, SemanticError
 from . import astnodes as ast
 
@@ -9,6 +11,8 @@ class Context:
     It is actually the container of modules and the top
     level scope.
     """
+    logger = logging.getLogger('c3ctx')
+
     def __init__(self, arch):
         self.scope = create_top_scope(arch)
         self.module_map = {}
@@ -32,6 +36,18 @@ class Context:
     def modules(self):
         """ Get all the modules in this context """
         return self.module_map.values()
+
+    def link_imports(self):
+        """ Resolve all modules referenced by other modules """
+        self.logger.debug('Resolving imports')
+        for mod in self.modules:
+            for imp in mod.imports:
+                if self.has_module(imp):
+                    if mod.inner_scope.has_symbol(imp):
+                        raise SemanticError("Redefine of {}".format(imp))
+                    mod.inner_scope.add_symbol(self.get_module(imp))
+                else:
+                    raise SemanticError('Cannot import {}'.format(imp))
 
     def resolve_symbol(self, ref):
         """ Find out what is designated with x """
@@ -78,8 +94,7 @@ class Context:
         return self.const_map[const]
 
     def eval_const(self, expr):
-        """ Evaluates a constant expression. This is done by first generating
-            ir-code, to check for types, and then evaluating this code """
+        """ Evaluates a constant expression. """
 
         # TODO: check types!!
         assert isinstance(expr, ast.Expression), str(expr) + str(type(expr))
@@ -112,6 +127,19 @@ class Context:
         else:
             raise SemanticError('Cannot evaluate constant {}'
                                 .format(expr), None)
+
+    def pack_string(self, txt):
+        """ Pack a string using 4 bytes length followed by text data """
+        mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
+        fmt = mapping[self.get_type('int').byte_size]
+        length = struct.pack(fmt, len(txt))
+        data = txt.encode('ascii')
+        return length + data
+
+    def pack_int(self, v):
+        mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
+        fmt = mapping[self.get_type('int').byte_size]
+        return struct.pack(fmt, v)
 
     def get_common_type(self, a, b):
         """ Determine the greatest common type.
@@ -172,6 +200,11 @@ class Context:
 
         assert isinstance(typ, ast.Type)
         return typ
+
+    def is_simple_type(self, typ):
+        """ Determines if the given type is a simple type """
+        typ = self.get_type(typ)
+        return isinstance(typ, (ast.PointerType, ast.BaseType))
 
     def size_of(self, typ):
         """ Determine the byte size of a type """

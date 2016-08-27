@@ -1,6 +1,4 @@
-"""
-    Entry point when building c3 sources.
-"""
+""" Entry point when building c3 sources. """
 
 import logging
 import collections
@@ -10,15 +8,16 @@ from ...irutils import Verifier
 from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
 from .parser import Parser
+from .typechecker import TypeChecker
 from .codegenerator import CodeGenerator
 from .scope import SemanticError
 from .context import Context
 
 
 class C3Builder:
-    """
-        Generates IR-code from c3 source.
-        Reports errors to the diagnostics system.
+    """ Generates IR-code from c3 source.
+
+    Reports errors to the diagnostics system.
     """
     logger = logging.getLogger('c3')
 
@@ -31,7 +30,7 @@ class C3Builder:
         self.verifier = Verifier()
         self.arch = arch
 
-    def build(self, srcs, imps=()):
+    def build(self, sources, imps=()):
         """ Create IR-code from sources.
 
         Returns:
@@ -40,35 +39,29 @@ class C3Builder:
 
         Raises compiler error when something goes wrong.
         """
-        assert isinstance(srcs, collections.Iterable)
+        assert isinstance(sources, collections.Iterable)
         assert isinstance(imps, collections.Iterable)
         self.logger.debug(
-            'Building %d sources and %d includes', len(srcs), len(imps))
+            'Building %d sources and %d includes', len(sources), len(imps))
 
         # Create a context where the modules can live:
         context = Context(self.arch)
 
         # Phase 1: Lexing and parsing stage
-        for src in srcs:
+        for src in sources:
             self.do_parse(src, context)
         for src in imps:
             self.do_parse(src, context)
 
         # Phase 1.8: Handle imports:
-        self.logger.debug('Resolving imports')
         try:
-            for mod in context.modules:
-                for imp in mod.imports:
-                    if context.has_module(imp):
-                        if mod.inner_scope.has_symbol(imp):
-                            raise SemanticError("Redefine of {}".format(imp))
-                        mod.inner_scope.add_symbol(context.get_module(imp))
-                    else:
-                        msg = 'Cannot import {}'.format(imp)
-                        raise SemanticError(msg)
+            context.link_imports()
         except SemanticError as ex:
             self.diag.error(ex.msg, ex.loc)
             raise
+
+        tc = TypeChecker(self.diag, context)
+        tc.check()
 
         # Phase 1.9
         for module in context.modules:
