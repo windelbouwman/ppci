@@ -129,10 +129,8 @@ class Context:
                                 .format(expr), None)
 
     def pack_string(self, txt):
-        """ Pack a string using 4 bytes length followed by text data """
-        mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
-        fmt = mapping[self.get_type('int').byte_size]
-        length = struct.pack(fmt, len(txt))
+        """ Pack a string an int as length followed by text data """
+        length = self.pack_int(len(txt))
         data = txt.encode('ascii')
         return length + data
 

@@ -59,7 +59,7 @@ class Scope:
         # Look for symbol:
         elif self.parent:
             return self.parent.get_symbol(name)
-        else:
+        else:  # pragma: no cover
             raise KeyError(name)
 
     def __getitem__(self, key):

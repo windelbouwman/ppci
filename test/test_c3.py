@@ -50,14 +50,15 @@ class AstPrinterTestCase(unittest.TestCase):
         """ See if the ast can be printed using the visitor pattern """
         snippet = """
         module tstwhile;
+        type int A;
         function void t()
         {
-         var int i;
-         i = 0;
-         while (i < 1054)
-         {
+          var A i;
+          i = 0;
+          while (i < 1054)
+          {
             i = i + 3;
-         }
+          }
         }
         """
         diag = DiagnosticsManager()
@@ -70,6 +71,7 @@ class AstPrinterTestCase(unittest.TestCase):
         f = io.StringIO()
         printer.print_ast(ast, f)
         self.assertTrue(f.getvalue())
+        str(ast.inner_scope)
 
 
 class BuildTestCaseBase(unittest.TestCase):
@@ -716,6 +718,22 @@ class StatementTestCase(BuildTestCaseBase):
          switch(a) {
            case 4:
              { a = 3 }
+         }
+
+         return a;
+        }
+        """
+        self.expect_errors(snippet, [7])
+
+    def test_switch_invalid_syntax(self):
+        """ Test switch case statement with invalid syntax """
+        snippet = """
+        module tst;
+        function int t()
+        {
+         var int a;
+         switch(a) {
+           a += 2;
          }
 
          return a;

@@ -401,7 +401,7 @@ class Parser:
             precedence, associativity = self.op_binding_powers[operator.typ]
             if associativity == self.LEFT_ASSOCIATIVITY:
                 next_precedence = precedence + 1
-            else:
+            else:  # pragma: no cover
                 next_precedence = precedence
             rhs = self.parse_expression(next_precedence)
             lhs = ast.Binop(lhs, operator.typ, rhs, operator.loc)

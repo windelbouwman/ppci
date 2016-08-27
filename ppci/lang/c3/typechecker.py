@@ -24,28 +24,33 @@ class TypeChecker:
         try:
             # Check defined types of this module:
             for typ in module.types:
-                self.context.check_type(typ)
+                self.check_type(typ)
 
             # Check global variables:
             for var in module.inner_scope.variables:
                 assert not var.isLocal
-
-            # Check functions:
-            for func in module.functions:
-                # Try per function, in case of error, continue with next
-                try:
-                    self.check_function(func)
-                except SemanticError as ex:
-                    self.error(ex.msg, ex.loc)
+                self.check_type(var.typ)
         except SemanticError as ex:
             self.error(ex.msg, ex.loc)
+
+        # Check functions:
+        for func in module.functions:
+            # Try per function, in case of error, continue with next
+            try:
+                self.check_function(func)
+            except SemanticError as ex:
+                self.error(ex.msg, ex.loc)
+
         if not self.module_ok:
             raise SemanticError("Errors occurred", None)
+
+    def check_type(self, typ):
+        self.context.check_type(typ)
 
     def check_function(self, function):
         """ Check a function. """
         for param in function.parameters:
-            self.context.check_type(param.typ)
+            self.check_type(param.typ)
 
             # Parameters can only be simple types (pass by value)
             if not self.context.is_simple_type(param.typ):
@@ -58,7 +63,7 @@ class TypeChecker:
                 'Functions can only return simple types', function.loc)
 
         for sym in function.inner_scope:
-            self.context.check_type(sym.typ)
+            self.check_type(sym.typ)
 
         if function.body:
             self.check_stmt(function.body)
@@ -123,6 +128,20 @@ class TypeChecker:
             raise SemanticError(
                 'Switch condition must be integer', switch.expression.loc)
 
+        default_block = False
+        for option_val, option_code in switch.options:
+            self.check_stmt(option_code)
+
+            if option_val is None:
+                # default case
+                default_block = True
+            else:
+                self.check_expr(option_val)
+
+        if not default_block:
+            raise SemanticError(
+                'No default case specified in switch-case', switch.loc)
+
     def check_return_stmt(self, code):
         """ Check a return statement """
         if code.expr:
@@ -170,8 +189,6 @@ class TypeChecker:
             # Evaluate expression, make sure it is boolean and compare it
             # with true:
             self.check_expr(expr, rvalue=True)
-            if not self.context.equal_types(expr.typ, 'bool'):
-                self.error('Condition must be boolean', expr.loc)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
@@ -237,7 +254,7 @@ class TypeChecker:
         # The type of this expression is int:
         expr.typ = self.context.get_type('int')
 
-        self.context.check_type(expr.query_typ)
+        self.check_type(expr.query_typ)
 
     def check_dereference(self, expr: ast.Deref):
         """ dereference pointer type, which means *(expr) """
@@ -327,7 +344,7 @@ class TypeChecker:
         expr.lvalue = expr.base.lvalue
         basetype = self.context.get_type(expr.base.typ)
         if isinstance(basetype, ast.StructureType):
-            self.context.check_type(basetype)
+            self.check_type(basetype)
             if basetype.has_field(expr.field):
                 expr.typ = basetype.field_type(expr.field)
             else:
