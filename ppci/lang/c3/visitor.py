@@ -93,6 +93,8 @@ class Visitor:
             self.do(node.typ)
         elif isinstance(node, ast.PointerType):
             self.do(node.ptype)
+        elif isinstance(node, ast.BaseType):
+            pass
         elif isinstance(node, ast.StructureType):
             for member in node.fields:
                 self.do(member.typ)

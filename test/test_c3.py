@@ -345,7 +345,7 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def test_return2(self):
+    def test_return_value(self):
         """ Test the return of a value """
         snippet = """
          module testreturn;
@@ -356,7 +356,7 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def test_return_void_from_function(self):
+    def test_no_return_from_function(self):
         """ Test that returning nothing in a function is an error """
         snippet = """
          module main;
@@ -367,6 +367,28 @@ class FunctionTestCase(BuildTestCaseBase):
          }
         """
         self.expect_errors(snippet, [3])
+
+    def test_return_void_from_function(self):
+        """ Test that returning nothing in a function is an error """
+        snippet = """
+         module main;
+         function int t3()
+         {
+            return;
+         }
+        """
+        self.expect_errors(snippet, [5])
+
+    def test_return_expr_from_procedure(self):
+        """ Test that returning a value from a void function is an error """
+        snippet = """
+         module main;
+         function void t3()
+         {
+            return 6;
+         }
+        """
+        self.expect_errors(snippet, [5])
 
     def test_return_complex_type(self):
         """ Test the return of a complex value, this is not allowed """
@@ -455,6 +477,19 @@ class ConditionTestCase(BuildTestCaseBase):
         }
         """
         self.expect_errors(snippet, [5])
+
+    def test_non_bool_expr_condition(self):
+        snippet = """
+        module tst;
+        var int B;
+        function void t()
+        {
+         if (B)
+         {
+         }
+        }
+        """
+        self.expect_errors(snippet, [6])
 
     def test_expression_as_condition(self):
         """ Test if an expression as a condition works """
@@ -1114,6 +1149,31 @@ class TypeTestCase(BuildTestCaseBase):
          {
             var int x;
             x = cast<int>(txt->txt[1]);
+         }
+        """
+        self.expect_ok(snippet)
+
+    def test_float_coerce(self):
+        snippet = """
+         module test;
+         function void test()
+         {
+            var float x;
+            var double y;
+            x = 2;
+            y = x;
+            y = x - 100;
+         }
+        """
+        self.expect_ok(snippet)
+
+    def test_float_literal(self):
+        snippet = """
+         module test;
+         function void test()
+         {
+            var double y;
+            y = 3.1415926;
          }
         """
         self.expect_ok(snippet)

@@ -581,10 +581,6 @@ class CodeGenerator:
         assert isinstance(a_val, ir.Value)
         assert isinstance(b_val, ir.Value)
 
-        # TODO: check if operation can be performed on shift and bitwise
-        if expr.op not in ['+', '-', '*', '/', '%', '<<', '>>', '|', '&', '^']:
-            raise SemanticError("Cannot use {}".format(expr.op))
-
         self.context.equal_types(expr.a.typ, expr.b.typ)
 
         return self.emit(
@@ -728,9 +724,16 @@ class CodeGenerator:
                 and from_type.name == 'int' and \
                 isinstance(to_type, ast.BaseType) and to_type.name == 'byte':
             return self.emit(ir.to_i8(ar, 'bytecast'))
-        else:
-            raise SemanticError('Cannot cast {} to {}'
-                                .format(from_type, to_type), expr.loc)
+        elif self.context.equal_types('float', to_type) \
+                and self.context.equal_types('int', from_type):
+            return self.emit(ir.Cast(ar, 'int2flt', self.get_ir_type('float')))
+        elif self.context.equal_types('double', to_type) \
+                and self.context.equal_types('float', from_type):
+            return self.emit(
+                ir.Cast(ar, 'flt2dbl', self.get_ir_type('double')))
+        else:  # pragma: no cover
+            raise NotImplementedError(
+                'Cannot cast {} to {}'.format(from_type, to_type))
 
     def gen_function_call(self, expr):
         """ Generate code for a function call """

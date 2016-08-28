@@ -232,7 +232,10 @@ class TypeChecker:
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 self.check_expr(expr.a, rvalue=True)
                 self.check_expr(expr.b, rvalue=True)
-                expr.b = self.do_coerce(expr.b, expr.a.typ)
+                common_type = self.context.get_common_type(
+                    expr.a, expr.b, expr.loc)
+                expr.a = self.do_coerce(expr.a, common_type)
+                expr.b = self.do_coerce(expr.b, common_type)
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
             expr.typ = self.context.get_type('bool')
@@ -353,7 +356,7 @@ class TypeChecker:
         self.check_expr(expr.b, rvalue=True)
 
         # Get best type for result:
-        common_type = self.context.get_common_type(expr.a, expr.b)
+        common_type = self.context.get_common_type(expr.a, expr.b, expr.loc)
         expr.typ = common_type
 
         # TODO: check if operation can be performed on shift and bitwise
@@ -449,11 +452,7 @@ class TypeChecker:
                    float: 'double',
                    bool: 'bool',
                    str: 'string'}
-        if isinstance(expr.val, tuple(typemap.keys())):
-            expr.typ = self.context.get_type(typemap[type(expr.val)])
-        else:
-            raise SemanticError('Unknown literal type {}'
-                                .format(expr.val), expr.loc)
+        expr.typ = self.context.get_type(typemap[type(expr.val)])
 
     def check_type_cast(self, expr):
         """ Check type cast """
@@ -517,6 +516,9 @@ class TypeChecker:
             expr = ast.TypeCast(typ, expr, expr.loc)
         elif self.context.equal_types('int', expr.typ) and \
                 self.context.equal_types('byte', typ):
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('int', expr.typ) and \
+                self.context.equal_types('float', typ):
             expr = ast.TypeCast(typ, expr, expr.loc)
         elif self.context.equal_types('int', expr.typ) and \
                 self.context.equal_types('double', typ):

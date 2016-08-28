@@ -139,7 +139,7 @@ class Context:
         fmt = mapping[self.get_type('int').byte_size]
         return struct.pack(fmt, v)
 
-    def get_common_type(self, a, b):
+    def get_common_type(self, a, b, loc):
         """ Determine the greatest common type.
 
         This is used for coercing binary operators.
@@ -157,6 +157,8 @@ class Context:
             (intType, intType): intType,
             (intType, byteType): intType,
             (intType, doubleType): doubleType,
+            (intType, floatType): floatType,
+            (floatType, intType): floatType,
             (floatType, doubleType): doubleType,
             (doubleType, floatType): doubleType,
             (byteType, intType): intType,
@@ -164,7 +166,6 @@ class Context:
             (byteType, byteType): byteType,
             (intType, ast.PointerType): intType,
             }
-        loc = a.loc
         typ_a = self.get_type(a.typ)
         typ_b = self.get_type(b.typ)
 
