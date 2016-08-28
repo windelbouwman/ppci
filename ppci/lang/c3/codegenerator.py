@@ -279,43 +279,6 @@ class CodeGenerator:
             self.emit(ir.Exit())
         self.builder.set_block(self.builder.new_block())
 
-    def do_coerce(self, ir_val, typ, wanted_typ, loc):
-        """ Try to convert expression into the given type
-            ir_val: the value to convert
-            typ: the type of the value
-            wanted_typ: the type that it must be
-            loc: the location where this is needed.
-            Raises an error is the conversion cannot be done.
-        """
-        if self.context.equal_types(typ, wanted_typ):
-            # no cast required
-            return ir_val
-        elif isinstance(wanted_typ, ast.PointerType) and \
-                isinstance(typ, ast.PointerType):
-            # Pointers are pointers, no matter the pointed data.
-            return ir_val
-        elif self.context.equal_types('int', typ) and \
-                isinstance(wanted_typ, ast.PointerType):
-            return self.emit(ir.to_ptr(ir_val, 'coerce'))
-        elif self.context.equal_types('int', typ) and \
-                self.context.equal_types('byte', wanted_typ):
-            return self.emit(ir.to_i8(ir_val, 'coerce'))
-        elif self.context.equal_types('int', typ) and \
-                self.context.equal_types('double', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
-        elif self.context.equal_types('double', typ) and \
-                self.context.equal_types('float', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', ir.f32))
-        elif self.context.equal_types('float', typ) and \
-                self.context.equal_types('double', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
-        elif self.context.equal_types('byte', typ) and \
-                self.context.equal_types('int', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', self.get_ir_int()))
-        else:
-            raise SemanticError(
-                "Cannot use '{}' as '{}'".format(typ, wanted_typ), loc)
-
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
         # Evaluate left hand side:
@@ -329,7 +292,7 @@ class CodeGenerator:
 
         # Evaluate right hand side (and make it rightly typed):
         rval = self.gen_expr_code(code.rval, rvalue=True)
-        rval = self.do_coerce(rval, code.rval.typ, code.lval.typ, code.loc)
+        assert self.context.equal_types(code.lval.typ, code.rval.typ)
 
         # Implement short hands (+=, -= etc):
         if code.is_shorthand:
@@ -449,8 +412,8 @@ class CodeGenerator:
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 lhs = self.gen_expr_code(expr.a, rvalue=True)
-                rhs1 = self.gen_expr_code(expr.b, rvalue=True)
-                rhs = self.do_coerce(rhs1, expr.b.typ, expr.a.typ, expr.loc)
+                rhs = self.gen_expr_code(expr.b, rvalue=True)
+                self.context.equal_types(expr.a.typ, expr.b.typ)
                 self.emit(
                     ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse), loc=expr.loc)
             else:  # pragma: no cover
@@ -628,17 +591,11 @@ class CodeGenerator:
         assert isinstance(a_val, ir.Value)
         assert isinstance(b_val, ir.Value)
 
-        # Get best type for result:
-        common_type = self.context.get_common_type(expr.a, expr.b)
-
         # TODO: check if operation can be performed on shift and bitwise
         if expr.op not in ['+', '-', '*', '/', '%', '<<', '>>', '|', '&', '^']:
             raise SemanticError("Cannot use {}".format(expr.op))
 
-        # Perform type coercion:
-        # TODO: use ir-types, or ast types?
-        a_val = self.do_coerce(a_val, expr.a.typ, common_type, expr.loc)
-        b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
+        self.context.equal_types(expr.a.typ, expr.b.typ)
 
         return self.emit(
             ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty), loc=expr.loc)
@@ -715,7 +672,7 @@ class CodeGenerator:
         assert isinstance(base_typ, ast.ArrayType)
 
         # Make sure the index is an integer:
-        idx = self.do_coerce(idx, expr.i.typ, 'int', expr.i.loc)
+        assert self.context.equal_types('int', expr.i.typ)
 
         # Base address must be a location value:
         assert expr.base.lvalue
@@ -801,8 +758,7 @@ class CodeGenerator:
         args = []
         for arg_expr, arg_typ in zip(expr.args, ptypes):
             arg_val = self.gen_expr_code(arg_expr, rvalue=True)
-            arg_val = self.do_coerce(
-                arg_val, arg_expr.typ, arg_typ, arg_expr.loc)
+            self.context.equal_types(arg_expr.typ, arg_typ)
             args.append(arg_val)
 
         # Return type will never be an lvalue:

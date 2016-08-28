@@ -167,6 +167,9 @@ class Context:
         loc = a.loc
         typ_a = self.get_type(a.typ)
         typ_b = self.get_type(b.typ)
+
+        if self.equal_types(typ_a, typ_b):
+            return typ_a
         # Handle pointers:
         if isinstance(typ_a, ast.PointerType) and \
                 self.equal_types(typ_b, 'int'):

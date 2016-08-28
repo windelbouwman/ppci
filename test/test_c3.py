@@ -212,7 +212,7 @@ class ModuleTestCase(BuildTestCaseBase):
         import mod1;
         var mod1.A a;
         """
-        self.expect_errors([src1, src2], [])
+        self.expect_errors([src1, src2], [3])
 
     def test_module_does_not_exist(self):
         """ Check if importing an undefined module raises an error """

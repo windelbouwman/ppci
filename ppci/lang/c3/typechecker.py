@@ -165,7 +165,7 @@ class TypeChecker:
 
         # Evaluate right hand side (and make it rightly typed):
         self.check_expr(code.rval, rvalue=True)
-        self.do_coerce(code.rval.typ, code.lval.typ, code.loc)
+        code.rval = self.do_coerce(code.rval, code.lval.typ)
 
     def check_condition(self, expr):
         """ Check condition expression """
@@ -176,7 +176,7 @@ class TypeChecker:
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 self.check_expr(expr.a, rvalue=True)
                 self.check_expr(expr.b, rvalue=True)
-                self.do_coerce(expr.b.typ, expr.a.typ, expr.loc)
+                expr.b = self.do_coerce(expr.b, expr.a.typ)
             else:
                 raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
             expr.typ = self.context.get_type('bool')
@@ -305,9 +305,8 @@ class TypeChecker:
             raise SemanticError("Cannot use {}".format(expr.op))
 
         # Perform type coercion:
-        # TODO: use ir-types, or ast types?
-        self.do_coerce(expr.a.typ, common_type, expr.loc)
-        self.do_coerce(expr.b.typ, common_type, expr.loc)
+        expr.a = self.do_coerce(expr.a, common_type)
+        expr.b = self.do_coerce(expr.b, common_type)
 
     def check_identifier(self, expr):
         """ Check identifier usage """
@@ -380,7 +379,7 @@ class TypeChecker:
                                 expr.base.loc)
 
         # Make sure the index is an integer:
-        self.do_coerce(expr.i.typ, 'int', expr.i.loc)
+        expr.i = self.do_coerce(expr.i, 'int')
 
         # Base address must be a location value:
         assert expr.base.lvalue
@@ -425,10 +424,12 @@ class TypeChecker:
                                 expr.loc)
 
         # Evaluate the arguments:
+        new_args = []
         for arg_expr, arg_typ in zip(expr.args, ptypes):
             self.check_expr(arg_expr, rvalue=True)
-            self.do_coerce(
-                arg_expr.typ, arg_typ, arg_expr.loc)
+            arg_expr = self.do_coerce(arg_expr, arg_typ)
+            new_args.append(arg_expr)
+        expr.args = new_args
 
         # determine return type:
         expr.typ = ftyp.returntype
@@ -440,7 +441,7 @@ class TypeChecker:
             raise SemanticError(
                 'Return value can only be a simple type', expr.loc)
 
-    def do_coerce(self, typ, wanted_typ, loc):
+    def do_coerce(self, expr, typ):
         """ Try to convert expression into the given type.
 
         typ: the type of the value
@@ -448,40 +449,36 @@ class TypeChecker:
         loc: the location where this is needed.
         Raises an error is the conversion cannot be done.
         """
-        if self.context.equal_types(typ, wanted_typ):
+        if self.context.equal_types(expr.typ, typ):
             # no cast required
             pass
-        elif isinstance(wanted_typ, ast.PointerType) and \
+        elif isinstance(expr.typ, ast.PointerType) and \
                 isinstance(typ, ast.PointerType):
             # Pointers are pointers, no matter the pointed data.
-            pass
-        elif self.context.equal_types('int', typ) and \
-                isinstance(wanted_typ, ast.PointerType):
-            # return self.emit(ir.to_ptr(ir_val, 'coerce'))
-            pass
-        elif self.context.equal_types('int', typ) and \
-                self.context.equal_types('byte', wanted_typ):
-            # return self.emit(ir.to_i8(ir_val, 'coerce'))
-            pass
-        elif self.context.equal_types('int', typ) and \
-                self.context.equal_types('double', wanted_typ):
-            # return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
-            pass
-        elif self.context.equal_types('double', typ) and \
-                self.context.equal_types('float', wanted_typ):
-            # return self.emit(ir.Cast(ir_val, 'coerce', ir.f32))
-            pass
-        elif self.context.equal_types('float', typ) and \
-                self.context.equal_types('double', wanted_typ):
-            # return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
-            pass
-        elif self.context.equal_types('byte', typ) and \
-                self.context.equal_types('int', wanted_typ):
-            # return self.emit(ir.Cast(ir_val, 'coerce', self.get_ir_int()))
-            pass
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('int', expr.typ) and \
+                isinstance(typ, ast.PointerType):
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('int', expr.typ) and \
+                self.context.equal_types('byte', typ):
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('int', expr.typ) and \
+                self.context.equal_types('double', typ):
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('double', expr.typ) and \
+                self.context.equal_types('float', typ):
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('float', expr.typ) and \
+                self.context.equal_types('double', typ):
+            expr = ast.TypeCast(typ, expr, expr.loc)
+        elif self.context.equal_types('byte', expr.typ) and \
+                self.context.equal_types('int', typ):
+            expr = ast.TypeCast(typ, expr, expr.loc)
         else:
             raise SemanticError(
-                "Cannot use '{}' as '{}'".format(typ, wanted_typ), loc)
+                "Cannot use '{}' as '{}'".format(expr.typ, typ), expr.loc)
+        self.check_expr(expr)
+        return expr
 
     def error(self, msg, loc=None):
         """ Emit error to diagnostic system and mark package as invalid """
