@@ -97,7 +97,9 @@ class Visitor:
             pass
         elif isinstance(node, ast.StructureType):
             for member in node.fields:
-                self.do(member.typ)
+                self.do(member)
+        elif isinstance(node, ast.StructField):
+            self.do(node.typ)
         elif isinstance(node, ast.ArrayType):
             self.do(node.element_type)
             self.do(node.size)

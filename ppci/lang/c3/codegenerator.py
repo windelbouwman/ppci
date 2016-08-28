@@ -202,8 +202,7 @@ class CodeGenerator:
                     self.builder.set_block(None)
                     ir_function.delete_unreachable()
                     assert not last_block.is_used
-                    if last_block in ir_function:
-                        ir_function.remove_block(last_block)
+                    assert last_block not in ir_function
                 else:
                     raise SemanticError(
                         'Function does not return a value', function.loc)
@@ -727,6 +726,9 @@ class CodeGenerator:
         elif self.context.equal_types('float', to_type) \
                 and self.context.equal_types('int', from_type):
             return self.emit(ir.Cast(ar, 'int2flt', self.get_ir_type('float')))
+        elif self.context.equal_types('float', to_type) \
+                and self.context.equal_types('double', from_type):
+            return self.emit(ir.Cast(ar, 'dbl2flt', self.get_ir_type('float')))
         elif self.context.equal_types('double', to_type) \
                 and self.context.equal_types('float', from_type):
             return self.emit(

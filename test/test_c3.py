@@ -334,6 +334,19 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [6])
 
+    def test_call_bad_function(self):
+        """ Test if the call to struct returning function raises an error """
+        snippet = """
+         module testreturn;
+         var int x;
+         function struct {int a;} bad();
+         function void t()
+         {
+            bad();
+         }
+        """
+        self.expect_errors(snippet, [4, 7])
+
     def test_return(self):
         """ Test return of void """
         snippet = """
@@ -1173,7 +1186,9 @@ class TypeTestCase(BuildTestCaseBase):
          function void test()
          {
             var double y;
+            var float z;
             y = 3.1415926;
+            z = 2.7;
          }
         """
         self.expect_ok(snippet)

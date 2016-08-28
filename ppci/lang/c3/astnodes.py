@@ -20,16 +20,6 @@ class Symbol(Node):
     def __init__(self, name, public):
         self.name = name
         self.public = public
-        self.refs = []
-
-    def add_ref(self, ref):
-        """ Add a reference """
-        self.refs.append(ref)
-
-    @property
-    def references(self):
-        """ Gets the things referring to this symbol """
-        return self.refs
 
 
 # Modules
@@ -151,7 +141,7 @@ class StructureType(Type):
         for mem in self.fields:
             if name == mem.name:
                 return mem
-        raise KeyError(name)
+        raise KeyError(name)  # pragma: no cover
 
     def __repr__(self):
         return 'STRUCT'
