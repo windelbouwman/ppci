@@ -293,7 +293,6 @@ class Debugger:
             else:
                 raise CompilerError('Cannot use {}'.format(expr))
         elif isinstance(expr, c3nodes.Binop):
-            # TODO: type coerce!
             a = self.eval_c3_expr(expr.a)
             b = self.eval_c3_expr(expr.b)
             if not isinstance(a.typ, DebugBaseType):

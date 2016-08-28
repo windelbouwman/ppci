@@ -1,7 +1,7 @@
 """ Entry point when building c3 sources. """
 
 import logging
-import collections
+import itertools
 import io
 from ...common import CompilerError, DiagnosticsManager
 from ...irutils import Verifier
@@ -39,8 +39,8 @@ class C3Builder:
 
         Raises compiler error when something goes wrong.
         """
-        assert isinstance(sources, collections.Iterable)
-        assert isinstance(imps, collections.Iterable)
+        assert isinstance(sources, (tuple, list))
+        assert isinstance(imps, (tuple, list))
         self.logger.debug(
             'Building %d sources and %d includes', len(sources), len(imps))
 
@@ -48,9 +48,7 @@ class C3Builder:
         context = Context(self.arch)
 
         # Phase 1: Lexing and parsing stage
-        for src in sources:
-            self.do_parse(src, context)
-        for src in imps:
+        for src in itertools.chain(sources, imps):
             self.do_parse(src, context)
 
         # Phase 1.8: Handle imports:
@@ -60,8 +58,8 @@ class C3Builder:
             self.diag.error(ex.msg, ex.loc)
             raise
 
-        tc = TypeChecker(self.diag, context)
-        tc.check()
+        type_checker = TypeChecker(self.diag, context)
+        type_checker.check()
 
         # Phase 1.9
         for module in context.modules:
@@ -73,32 +71,17 @@ class C3Builder:
         for pkg in context.modules:
             ir_modules.append(self.codegen.gencode(pkg, context))
 
-        # Hack to check for undefined variables:
-        try:
-            for ir_module in ir_modules:
-                self.check_control_flow(ir_module)
-        except CompilerError as ex:
-            self.diag.error(ex.msg, ex.loc)
-            raise
+        # Check modules
+        for ir_module in ir_modules:
+            self.verifier.verify(ir_module)
 
         self.logger.debug('C3 build complete!')
         return context, ir_modules, self.debug_db
-
-    def check_control_flow(self, ir_module):
-        # pas = Mem2RegPromotor(self.debug_db)
-        # pas.run(ir_module)
-        self.verifier.verify(ir_module)
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """
         tokens = self.lexer.lex(src)
         self.parser.parse_source(tokens, context)
-
-
-def parse_expr(src):
-    """ Parse a c3 expression from a string """
-    parser = C3ExprParser()
-    return parser.parse(src)
 
 
 class C3ExprParser:
@@ -120,4 +103,7 @@ class C3ExprParser:
         tokens = self.lexer.lex(io.StringIO(src))
         self.parser.init_lexer(tokens)
         expr = self.parser.parse_expression()
+        # TODO:
+        # type_checker = TypeChecker(self.diag, context)
+        # type_checker.check_expr(expr)
         return expr

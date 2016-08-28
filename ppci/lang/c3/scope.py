@@ -4,6 +4,7 @@
     A context is the space where the whole program lives.
 """
 
+import itertools
 from ...common import CompilerError
 from .astnodes import Constant, Variable, Function, BaseType, Symbol
 from .astnodes import ArrayType, StructureType, DefinedType, PointerType
@@ -24,7 +25,8 @@ class Scope:
 
     def __iter__(self):
         # Iterate in a deterministic manner:
-        return iter(self.constants + self.variables + self.functions)
+        return itertools.chain(
+            self.types, self.constants, self.variables, self.functions)
 
     @property
     def syms(self):

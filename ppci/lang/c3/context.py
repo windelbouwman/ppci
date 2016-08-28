@@ -235,10 +235,6 @@ class Context:
         a = self.get_type(a, not byname)
         b = self.get_type(b, not byname)
 
-        # Check types for sanity:
-        self.check_type(a)
-        self.check_type(b)
-
         # Do structural equivalence check:
         if type(a) is type(b):
             if isinstance(a, ast.BaseType):
@@ -260,43 +256,3 @@ class Context:
             else:  # pragma: no cover
                 raise NotImplementedError('{} not implemented'.format(type(a)))
         return False
-
-    def check_type(self, t, first=True, byname=False):
-        """ Determine struct offsets and check for recursiveness by using
-            mark and sweep algorithm.
-            The calling function could call this function with first set
-            to clear the marks.
-        """
-
-        # Reset the mark and sweep:
-        if first:
-            self.got_types = set()
-
-        # Resolve the type:
-        t = self.get_type(t, not byname)
-
-        # Check for recursion:
-        if t in self.got_types:
-            raise SemanticError('Recursive data type {}'.format(t), None)
-
-        if isinstance(t, ast.BaseType):
-            pass
-        elif isinstance(t, ast.PointerType):
-            # If a pointed type is detected, stop structural
-            # equivalence:
-            self.check_type(t.ptype, first=False, byname=True)
-        elif isinstance(t, ast.StructureType):
-            self.got_types.add(t)
-            # Setup offsets of fields. Is this the right place?:
-            # TODO: move this struct offset calculation.
-            offset = 0
-            for struct_member in t.fields:
-                self.check_type(struct_member.typ, first=False)
-                struct_member.offset = offset
-                offset = offset + self.size_of(struct_member.typ)
-        elif isinstance(t, ast.ArrayType):
-            self.check_type(t.element_type, first=False)
-        elif isinstance(t, ast.DefinedType):
-            pass
-        else:  # pragma: no cover
-            raise NotImplementedError('{} not implemented'.format(type(t)))

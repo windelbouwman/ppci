@@ -43,12 +43,22 @@ class Module(Symbol):
 
     @property
     def types(self):
-        """ Gets the types in this module """
+        """ Get the types in this module """
         return self.inner_scope.types
 
     @property
+    def constants(self):
+        """ Get the constants in this module """
+        return self.inner_scope.constants
+
+    @property
+    def variables(self):
+        """ Get the variables in this module """
+        return self.inner_scope.variables
+
+    @property
     def functions(self):
-        """ Gets all the functions that are defined in this module """
+        """ Get all the functions that are defined in this module """
         return self.inner_scope.functions
 
     def __repr__(self):
@@ -215,6 +225,8 @@ class Function(Symbol):
 # Operations / Expressions:
 class Expression(Node):
     """ Expression base class """
+    is_bool = False
+
     def __init__(self, loc):
         self.loc = loc
 
@@ -291,6 +303,11 @@ class Unop(Expression):
     def __repr__(self):
         return 'UNOP {}'.format(self.op)
 
+    @property
+    def is_bool(self):
+        """ Test if this binop is a boolean """
+        return self.op in self.cond_ops
+
 
 class Binop(Expression):
     """ Expression taking two operands and one operator """
@@ -312,6 +329,11 @@ class Binop(Expression):
 
     def __repr__(self):
         return 'BINOP {}'.format(self.op)
+
+    @property
+    def is_bool(self):
+        """ Test if this binop is a boolean """
+        return self.op in self.cond_ops
 
 
 class Identifier(Expression):

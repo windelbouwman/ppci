@@ -104,7 +104,6 @@ class CodeGenerator:
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.StructureType):
             dbg_typ = debuginfo.DebugStructType()
-            self.context.check_type(typ)
 
             # Enter the type here, so the cached value is taken when
             # a linked list is encountered:
@@ -444,7 +443,7 @@ class CodeGenerator:
     def gen_expr_code(self, expr: ast.Expression, rvalue=False) -> ir.Value:
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
-        if self.is_bool(expr):
+        if expr.is_bool:
             value = self.gen_bool_expr(expr)
         else:
             if isinstance(expr, ast.Binop):
@@ -535,15 +534,6 @@ class CodeGenerator:
             return self.emit(ir.Binop(zero, '-', rhs, 'unary_minus', rhs.ty))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
-
-    def is_bool(self, expr):
-        """ Check if an expression is a boolean type """
-        if isinstance(expr, ast.Binop) and expr.op in ast.Binop.cond_ops:
-            return True
-        elif isinstance(expr, ast.Unop) and expr.op in ast.Unop.cond_ops:
-            return True
-        else:
-            return False
 
     def gen_bool_expr(self, expr):
         """ Generate code for cases where a boolean value is assigned """

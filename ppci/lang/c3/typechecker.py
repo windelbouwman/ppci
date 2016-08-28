@@ -26,8 +26,12 @@ class TypeChecker:
             for typ in module.types:
                 self.check_type(typ)
 
+            for con in module.constants:
+                self.check_type(con.typ)
+                self.check_expr(con.value)
+
             # Check global variables:
-            for var in module.inner_scope.variables:
+            for var in module.variables:
                 assert not var.isLocal
                 self.check_type(var.typ)
         except SemanticError as ex:
@@ -44,8 +48,48 @@ class TypeChecker:
         if not self.module_ok:
             raise SemanticError("Errors occurred", None)
 
-    def check_type(self, typ):
-        self.context.check_type(typ)
+    def check_type(self, typ, first=True, byname=False):
+        """ Check a type.
+
+        Determine struct offsets and check for recursiveness by using
+        mark and sweep algorithm.
+
+        The calling function could call this function with first set
+        to clear the marks.
+        """
+
+        # Reset the mark and sweep:
+        if first:
+            self.got_types = set()
+
+        # Resolve the type:
+        typ = self.context.get_type(typ, not byname)
+
+        # Check for recursion:
+        if typ in self.got_types:
+            raise SemanticError('Recursive data type {}'.format(typ), None)
+
+        if isinstance(typ, ast.BaseType):
+            pass
+        elif isinstance(typ, ast.PointerType):
+            # If a pointed type is detected, stop structural
+            # equivalence. This to allow linked lists!
+            self.check_type(typ.ptype, first=False, byname=True)
+        elif isinstance(typ, ast.StructureType):
+            self.got_types.add(typ)
+            # Setup offsets of fields. Is this the right place?:
+            # TODO: move this struct offset calculation.
+            offset = 0
+            for struct_member in typ.fields:
+                self.check_type(struct_member.typ, first=False)
+                struct_member.offset = offset
+                offset = offset + self.context.size_of(struct_member.typ)
+        elif isinstance(typ, ast.ArrayType):
+            self.check_type(typ.element_type, first=False)
+        elif isinstance(typ, ast.DefinedType):
+            pass
+        else:  # pragma: no cover
+            raise NotImplementedError('{} not implemented'.format(type(typ)))
 
     def check_function(self, function):
         """ Check a function. """
@@ -65,8 +109,10 @@ class TypeChecker:
         for sym in function.inner_scope:
             self.check_type(sym.typ)
 
+        self.current_function = function
         if function.body:
             self.check_stmt(function.body)
+        self.current_function = None
 
     def check_stmt(self, code: ast.Statement):
         """ Check a statement """
@@ -145,7 +191,17 @@ class TypeChecker:
     def check_return_stmt(self, code):
         """ Check a return statement """
         if code.expr:
+            if self.context.equal_types(
+                    'void', self.current_function.typ.returntype):
+                raise SemanticError(
+                    'Cannot return value from void function', code.expr.loc)
             self.check_expr(code.expr, rvalue=True)
+            code.expr = self.do_coerce(
+                code.expr, self.current_function.typ.returntype)
+        else:
+            if not self.context.equal_types(
+                    'void', self.current_function.typ.returntype):
+                raise SemanticError('Cannot return nothing', code.loc)
 
     def check_assignment_stmt(self, code):
         """ Check code for assignment statement """
@@ -199,7 +255,7 @@ class TypeChecker:
     def check_expr(self, expr: ast.Expression, rvalue=False):
         """ Check an expression. """
         assert isinstance(expr, ast.Expression)
-        if self.is_bool(expr):
+        if expr.is_bool:
             self.check_bool_expr(expr)
         else:
             if isinstance(expr, ast.Binop):
@@ -484,12 +540,3 @@ class TypeChecker:
         """ Emit error to diagnostic system and mark package as invalid """
         self.module_ok = False
         self.diag.error(msg, loc)
-
-    def is_bool(self, expr):
-        """ Check if an expression is a boolean type """
-        if isinstance(expr, ast.Binop) and expr.op in ast.Binop.cond_ops:
-            return True
-        elif isinstance(expr, ast.Unop) and expr.op in ast.Unop.cond_ops:
-            return True
-        else:
-            return False

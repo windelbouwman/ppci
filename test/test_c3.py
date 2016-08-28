@@ -286,9 +286,10 @@ class ConstantTestCase(BuildTestCaseBase):
         const int a = c + 1;
         const int b = a + 1;
         const int c = b + 1;
-        function void f()
+        function int f()
         {
-           return a;
+            var int x = a;
+           return 0;
         }
         """
         self.expect_errors(snip, [2])
@@ -741,6 +742,19 @@ class StatementTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [7])
 
+    def test_switch_on_invalid_type(self):
+        """ Test switch case statement on invalid type """
+        snippet = """
+        module tst;
+        function void t()
+        {
+         var float a;
+         switch(a) {
+         }
+        }
+        """
+        self.expect_errors(snippet, [6])
+
     def test_local_variable(self):
         snippet = """
          module testlocalvar;
@@ -961,6 +975,19 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_nonexisting_struct_member(self):
+        """ Select field that is not in struct type """
+        snippet = """
+         module teststruct1;
+         type struct { int a, b; } T1;
+         function void t()
+         {
+            var T1 a;
+            a.z = 2;
+         }
+        """
+        self.expect_errors(snippet, [7])
+
     def test_pointer_type1(self):
         """ Check if pointers work """
         snippet = """
@@ -1110,6 +1137,7 @@ class TypeTestCase(BuildTestCaseBase):
             a = &b;
             a->next = a;
             a = a->next;
+            a = a->next->next->next;
          }
         """
         self.expect_ok(snippet)

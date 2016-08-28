@@ -115,7 +115,7 @@ class DebuggerTestCase(unittest.TestCase):
         self.debugger.eval_c3_str('-D')
 
     def test_expressions_with_locals(self):
-        """ See if expressions involving global variables can be evaluated """
+        """ See if expressions involving local variables can be evaluated """
         src = """
         module x;
         var int Xa;
