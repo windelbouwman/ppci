@@ -13,7 +13,7 @@ from .registers import RiscvRegister
 from ..token import Token, bit_range, bit_concat
 from .relocations import apply_absaddr32
 from .relocations import apply_b_imm12, apply_b_imm20, apply_abs32_imm20
-from .relocations import apply_abs32_imm12
+from .relocations import apply_abs32_imm12, apply_rel_imm20, apply_rel_imm12
 
 
 # TODO: do not use ir stuff here!
@@ -27,7 +27,8 @@ isa.register_relocation(apply_b_imm20)
 isa.register_relocation(apply_absaddr32)
 isa.register_relocation(apply_abs32_imm20)
 isa.register_relocation(apply_abs32_imm12)
-
+isa.register_relocation(apply_rel_imm20)
+isa.register_relocation(apply_rel_imm12)
 
 class RiscvToken(Token):
     def __init__(self):
@@ -343,6 +344,17 @@ class Adru(RiscvInstruction):
     def relocations(self):
         return [(self.label, apply_abs32_imm20)]
 
+class Adrurel(RiscvInstruction):
+    rd = register_argument('rd', RiscvRegister, write=True)
+    label = register_argument('label', str)
+    syntax = Syntax(['auipc', ' ', rd, ',', ' ', label])
+    def encode(self):
+        self.token1[0:7] = 0b0010111
+        self.token1[7:12] = self.rd.num
+        self.token1[12:32] = 0
+        return self.token1.encode()
+    def relocations(self):
+        return [(self.label, apply_rel_imm20)]
 
 class Adrl(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
@@ -361,6 +373,20 @@ class Adrl(RiscvInstruction):
     def relocations(self):
         return [(self.label, apply_abs32_imm12)]
 
+class Adrlrel(RiscvInstruction):
+    rd = register_argument('rd', RiscvRegister, write=True)
+    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    label = register_argument('label', str)
+    syntax = Syntax(['lw', ' ', rd, ' ', ',', rs1, ' ', ',', ' ', label])
+    def encode(self):
+        self.token1[0:7] = 0b0000011
+        self.token1[7:12] = self.rd.num
+        self.token1[12:15] = 0b010
+        self.token1[15:20] = self.rs1.num
+        self.token1[20:32] = 0
+        return self.token1.encode()
+    def relocations(self):
+        return [(self.label, apply_rel_imm12)]
 
 class Auipc(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
@@ -675,6 +701,13 @@ def _(context, tree):
     context.emit(Lw(d, 0, d))
     return d
 
+@isa.pattern('reg', 'LABEL', size=4)
+def _(context, tree):
+    d = context.new_reg(RiscvRegister)
+    ln = context.frame.add_constant(tree.value)
+    context.emit(Adrurel(d, ln))
+    context.emit(Adrlrel(d, d, ln))
+    return d
 
 @isa.pattern('reg', 'LDRI8(reg)', size=2)
 def _(context, tree, c0):
@@ -712,13 +745,21 @@ def _(context, tree, c0):
     return d
 
 
-@isa.pattern(
-    'reg', 'ANDI32(CONSTI32, reg)', size=2,
-    condition=lambda t: t.children[0].value < 2048)
+@isa.pattern( 'reg', 'ANDI8(reg, CONSTI8)', size=2,
+              condition=lambda t: t.children[1].value < 256)
+def _(context, tree, c0):
+    d = context.new_reg(RiscvRegister)
+    c1 = tree.children[1].value
+    context.emit(Andi(d, c0, c1))
+    return d
+
+
+@isa.pattern( 'reg', 'ANDI8(CONSTI8, reg)', size=2,
+              condition=lambda t: t.children[0].value < 256)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].value
-    context.emit(Andii(d, c0, c1))
+    context.emit(Andi(d, c0, c1))
     return d
 
 

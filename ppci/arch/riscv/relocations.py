@@ -29,15 +29,33 @@ def apply_abs32_imm20(sym_value, data, reloc_value):
     assert sym_value % 2 == 0
     bv = BitView(data, 0, 4)
     if(sym_value&0x800==0):
-        bv[12:32] = (sym_value>>12)&0xfffff
+        bv[12:32] = (sym_value>>12) & 0xfffff
     else:
         sym_value -= 0xFFFFF000
-        bv[12:32] = (sym_value>>12)&0xfffff
+        bv[12:32] = (sym_value>>12) & 0xfffff
+
+def apply_rel_imm20(sym_value, data, reloc_value):
+    assert sym_value % 2 == 0
+    assert reloc_value % 2 == 0
+    offset = sym_value - reloc_value
+    bv = BitView(data, 0, 4)
+    if(offset&0x800 == 0):
+        bv[12:32] = (offset>>12) & 0xfffff
+    else:
+        offset -= 0xFFFFF000
+        bv[12:32] = (offset>>12) & 0xfffff
 
 def apply_abs32_imm12(sym_value, data, reloc_value):
     assert sym_value % 2 == 0
     bv = BitView(data, 0, 4)
-    bv[20:32] = sym_value&0xfff
+    bv[20:32] = sym_value & 0xfff
+
+def apply_rel_imm12(sym_value, data, reloc_value):
+    assert sym_value % 2 == 0
+    assert reloc_value % 2 == 0
+    offset = sym_value - reloc_value + 4
+    bv = BitView(data, 0, 4)
+    bv[20:32] = offset & 0xfff
 
 
 def apply_absaddr32(sym_value, data, reloc_value):
