@@ -78,7 +78,7 @@ class Constructor:
                     '{} arguments given, but expected {}'.format(
                         len(args), len(formal_args)))
             for farg, arg in zip(formal_args, args):
-                if not isinstance(arg, farg._cls):
+                if not isinstance(arg, farg._cls):  # pragma: no cover
                     # Create some nice looking error:
                     raise TypeError(
                         '{} expected {}, but got "{}" of type {}'.format(
@@ -203,7 +203,7 @@ class InsMeta(type):
         member_list += list(other.__dict__.items())
         for name, val in member_list:
             if isinstance(val, InstructionProperty):
-                if name in members:
+                if name in members:  # pragma: no cover
                     raise ValueError('{} already defined!'.format(name))
                 members[name] = val
         name = cls.__name__ + other.__name__
@@ -358,7 +358,7 @@ class Syntax:
                     pass
                 elif element in self.GLYPHS:
                     pass
-                else:
+                else:  # pragma: no cover
                     raise TypeError('Invalid element "{}"'.format(element))
             elif isinstance(element, InstructionProperty):
                 pass
@@ -424,8 +424,8 @@ class BitPattern:
     def get_value(self, objref):  # pragma: no cover
         raise NotImplementedError('Implement this for your pattern')
 
-    def set_value(self, value):
-        pass
+    def set_value(self, value):  # pragma: no cover
+        raise NotImplementedError('Implement this for your pattern')
 
 
 class FixedPattern(BitPattern):

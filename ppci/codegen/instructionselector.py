@@ -34,7 +34,7 @@ terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
 
 
 class ContextInterface:
-    def emit(self, *args, **kwargs):
+    def emit(self, *args, **kwargs):  # pragma: no cover
         raise NotImplementedError()
 
 

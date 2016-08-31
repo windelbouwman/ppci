@@ -29,6 +29,7 @@ class TypeChecker:
             for con in module.constants:
                 self.check_type(con.typ)
                 self.check_expr(con.value)
+                con.value = self.do_coerce(con.value, con.typ)
 
             # Check global variables:
             for var in module.variables:
@@ -360,8 +361,9 @@ class TypeChecker:
         expr.typ = common_type
 
         # TODO: check if operation can be performed on shift and bitwise
-        if expr.op not in ['+', '-', '*', '/', '%', '<<', '>>', '|', '&', '^']:
-            raise SemanticError("Cannot use {}".format(expr.op))
+        # if expr.op not in [
+        #       '+', '-', '*', '/', '%', '<<', '>>', '|', '&', '^']:
+        #     raise SemanticError("Cannot use {}".format(expr.op))
 
         # Perform type coercion:
         expr.a = self.do_coerce(expr.a, common_type)

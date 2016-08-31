@@ -280,6 +280,20 @@ class ConstantTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snip)
 
+    def test_constant_byte(self):
+        """ Test good usage of constant """
+        snip = """module C;
+        const byte a = 2 + 99;
+        const int c = a + 13;
+        function int reta()
+        {
+            var int b;
+            b = a + 2 + c;
+            return b;
+        }
+        """
+        self.expect_ok(snip)
+
     def test_constant_mutual(self):
         """ A circular dependency of constants must be fatal """
         snip = """module C;

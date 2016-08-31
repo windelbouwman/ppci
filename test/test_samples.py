@@ -39,10 +39,8 @@ def only_bf(txt):
     return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
 
-class SimpleSamples:
-    """ Collection of snippets with expected output. No integer size is
-        assumed here. So should run on 64 and 32 and 16 bit machines.
-    """
+class EightBitSamples:
+    """ Samples for 8 bit machines. """
 
     def test_bsp_putc(self):
         """ Test if bsp putc works """
@@ -59,6 +57,12 @@ class SimpleSamples:
          }
         """
         self.do(snippet, "ABCDE")
+
+
+class SimpleSamples:
+    """ Collection of snippets with expected output. No integer size is
+        assumed here. So should run on 64 and 32 and 16 bit machines.
+    """
 
     def test_print(self):
         """ Test if print statement works """
@@ -348,7 +352,7 @@ class MediumSamples:
     """ Samples that require medium system specs.
 
     Specs:
-        - at lease 32 bit registers
+        - at least 32 bit registers
         - some more memory
     """
 
@@ -770,7 +774,7 @@ class I32Samples:
 class BuildMixin:
     opt_level = 0
 
-    def build(self, src, lang='c3', bin_format='bin'):
+    def build(self, src, lang='c3', bin_format=None):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
         list_filename = base_filename + '.html'
@@ -809,13 +813,18 @@ class BuildMixin:
         with open(obj_file, 'w') as f:
             obj.save(f)
 
+        # Export code image to some format:
+        if bin_format:
+            sample_filename = base_filename + '.' + bin_format
+            objcopy(obj, 'code', bin_format, sample_filename)
+
         return obj, base_filename
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnVexpress(
         unittest.TestCase,
-        SimpleSamples, MediumSamples, I32Samples, BuildMixin):
+        EightBitSamples, SimpleSamples, MediumSamples, I32Samples, BuildMixin):
     maxDiff = None
     march = "arm"
     startercode = """
@@ -856,10 +865,8 @@ class TestSamplesOnVexpress(
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        obj, base_filename = self.build(src, lang)
-        bin_format = 'bin'
-        sample_filename = base_filename + '.' + bin_format
-        objcopy(obj, 'code', bin_format, sample_filename)
+        obj, base_filename = self.build(src, lang, bin_format='bin')
+        sample_filename = base_filename + '.bin'
 
         # Run bin file in emulator:
         if has_qemu():
@@ -874,7 +881,7 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnRiscv(
         unittest.TestCase,
-        SimpleSamples, MediumSamples, I32Samples, BuildMixin):
+        EightBitSamples, SimpleSamples, MediumSamples, I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
@@ -904,7 +911,7 @@ class TestSamplesOnRiscv(
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnCortexM3O2(
         unittest.TestCase,
-        SimpleSamples, MediumSamples, I32Samples, BuildMixin):
+        EightBitSamples, SimpleSamples, MediumSamples, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     opt_level = 2
@@ -956,10 +963,8 @@ class TestSamplesOnCortexM3O2(
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        obj, base_filename = self.build(src, lang)
-        bin_format = 'bin'
-        sample_filename = base_filename + '.' + bin_format
-        objcopy(obj, 'code', bin_format, sample_filename)
+        obj, base_filename = self.build(src, lang, bin_format='bin')
+        sample_filename = base_filename + '.bin'
 
         # Run bin file in emulator:
         if has_qemu():
@@ -970,7 +975,8 @@ class TestSamplesOnCortexM3O2(
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnPython(
-        unittest.TestCase, SimpleSamples, MediumSamples, I32Samples):
+        unittest.TestCase,
+        EightBitSamples, SimpleSamples, MediumSamples, I32Samples):
     opt_level = 0
 
     def do(self, src, expected_output, lang='c3'):
@@ -1012,7 +1018,8 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnMsp430O2(
+        unittest.TestCase, EightBitSamples, SimpleSamples, BuildMixin):
     opt_level = 2
     march = "msp430"
     startercode = """
@@ -1099,7 +1106,8 @@ class TestSamplesOnMsp430O2(unittest.TestCase, SimpleSamples, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-class TestSamplesOnAvr(unittest.TestCase, SimpleSamples, BuildMixin):
+class TestSamplesOnAvr(
+        unittest.TestCase, EightBitSamples, SimpleSamples, BuildMixin):
     march = "avr"
     opt_level = 0
     startercode = """
@@ -1132,7 +1140,8 @@ class TestSamplesOnAvrO2(TestSamplesOnAvr):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 class TestSamplesOnX86Linux(
-        unittest.TestCase, SimpleSamples, MediumSamples, BuildMixin):
+        unittest.TestCase,
+        EightBitSamples, SimpleSamples, MediumSamples, BuildMixin):
     march = "x86_64"
     startercode = """
     section reset
@@ -1179,10 +1188,8 @@ class TestSamplesOnX86Linux(
     """
 
     def do(self, src, expected_output, lang='c3'):
-        bin_format = 'elf'
-        obj, base_filename = self.build(src, lang)
-        exe = base_filename + '.' + bin_format
-        objcopy(obj, 'code', bin_format, exe)
+        obj, base_filename = self.build(src, lang, bin_format='elf')
+        exe = base_filename + '.elf'
 
         if has_linux():
             if hasattr(subprocess, 'TimeoutExpired'):

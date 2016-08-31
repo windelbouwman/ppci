@@ -176,9 +176,8 @@ class Msp430Frame(Frame):
     """ Frame class """
     def is_used(self, register):
         """ Check if a register is used by this frame """
-        return True
         # TODO: implement a check here!
-        return register in self.used_regs
+        return True
 
 
 class Msp430Assembler(BaseAssembler):

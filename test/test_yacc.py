@@ -191,6 +191,7 @@ class GrammarTestCase(unittest.TestCase):
         grammar.add_terminal('a')
         grammar.add_production('b', ['a', 'a'])
         print_grammar(grammar)
+        grammar.dump()
         self.assertTrue(mock_stdout.getvalue())
 
     def test_redefine_non_terminal(self):

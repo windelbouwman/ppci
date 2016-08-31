@@ -516,8 +516,7 @@ class CodeGenerator:
         """ Generate code for unary operator """
         if expr.op == '&':
             rhs = self.gen_expr_code(expr.a)
-            if not expr.a.lvalue:
-                raise SemanticError('No valid lvalue', expr.a.loc)
+            assert expr.a.lvalue
             expr.lvalue = False
             return rhs
         elif expr.op == '+':

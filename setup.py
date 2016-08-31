@@ -47,6 +47,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Compilers',
+        'Topic :: Software Development :: Assemblers',
         'Topic :: Software Development :: Embedded Systems',
     ]
 )

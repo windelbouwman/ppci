@@ -115,7 +115,9 @@ class Context:
             a = self.eval_const(expr.a)
             if self.equal_types('int', expr.to_type):
                 return int(a)
-            else:
+            elif self.equal_types('byte', expr.to_type):
+                return int(a) & 0xFF
+            else:  # pragma: no cover
                 raise NotImplementedError(
                     'Casting to {} not implemented'.format(expr.to_type))
         elif isinstance(expr, ast.Identifier):
