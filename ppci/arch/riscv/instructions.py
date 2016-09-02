@@ -82,8 +82,9 @@ class Dcd2(RiscvInstruction):
     syntax = Syntax(['dcd', '=', v])
 
     def encode(self):
-        self.token1[0:32] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:32] = 0
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.v, apply_absaddr32)]
@@ -105,11 +106,12 @@ class Movi(RiscvInstruction):
     syntax = Syntax(['mov', rd, ',', imm])
 
     def encode(self):
-        self.token1[0:7] = 0b0010011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:20] = 0
-        self.token1[20:32] = self.imm
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:20] = 0
+        tokens[0][20:32] = self.imm
+        return tokens[0].encode()
 
 
 class Movr(RiscvInstruction):
@@ -118,12 +120,13 @@ class Movr(RiscvInstruction):
     syntax = Syntax(['mov', rd, ',', rm])
 
     def encode(self):
-        self.token1[0:7] = 0b0010011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = 0
-        self.token1[15:20] = self.rm.num
-        self.token1[20:32] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0
+        tokens[0][15:20] = self.rm.num
+        tokens[0][20:32] = 0
+        return tokens[0].encode()
 
 
 def make_regregreg(mnemonic, opcode, func):
@@ -186,18 +189,19 @@ Srai = make_si('srai', 0b0100000, 0b101)
 
 class IBase(RiscvInstruction):
     def encode(self):
-        self.token1[0:7] = 0b0010011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = self.func
-        self.token1[15:20] = self.rs1.num
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = self.func
+        tokens[0][15:20] = self.rs1.num
         if self.invert:
             self.imm = -self.imm
         if self.imm < 0:
             imm12 = wrap_negative(self.imm, 12)
         else:
             imm12 = self.imm & 0xFFF
-        self.token1[20:32] = imm12
-        return self.token1.encode()
+        tokens[0][20:32] = imm12
+        return tokens[0].encode()
 
 
 def make_i(mnemonic, func, invert):
@@ -237,12 +241,13 @@ class Nop(RiscvInstruction):
 
 class SmBase(RiscvInstruction):
     def encode(self):
-        self.token1[0:7] = 0b1110011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = 0b010
-        self.token1[15:20] = 0
-        self.token1[20:32] = self.code
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1110011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0b010
+        tokens[0][15:20] = 0
+        tokens[0][20:32] = self.code
+        return tokens[0].encode()
 
 
 def make_sm(mnemonic, code):
@@ -277,9 +282,10 @@ class Bl(RiscvInstruction):
     syntax = Syntax(['jal', ' ', rd, ',', ' ', target])
 
     def encode(self):
-        self.token1[0:7] = 0b1101111
-        self.token1[7:12] = self.rd.num
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1101111
+        tokens[0][7:12] = self.rd.num
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_b_imm20)]
@@ -290,9 +296,10 @@ class B(RiscvInstruction):
     syntax = Syntax(['j', ' ', target])
 
     def encode(self):
-        self.token1[0:7] = 0b1101111
-        self.token1[7:12] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1101111
+        tokens[0][7:12] = 0
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_b_imm20)]
@@ -305,12 +312,13 @@ class Blr(RiscvInstruction):
     syntax = Syntax(['jalr', ' ', rd, ',', rs1, ',', ' ', offset])
 
     def encode(self):
-        self.token1[0:7] = 0b1100111
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = 0
-        self.token1[15:20] = self.rs1.num
-        self.token1[20:32] = self.offset
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1100111
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:32] = self.offset
+        return tokens[0].encode()
 
 
 class Lui(RiscvInstruction):
@@ -319,14 +327,15 @@ class Lui(RiscvInstruction):
     syntax = Syntax(['lui', ' ', rd, ',', ' ', imm])
 
     def encode(self):
+        tokens = self.get_tokens()
         if self.imm < 0:
             imm20 = wrap_negative(self.imm >> 12, 20)
         else:
             imm20 = self.imm >> 12
-        self.token1[0:7] = 0b0110111
-        self.token1[7:12] = self.rd.num
-        self.token1[12:32] = imm20
-        return self.token1.encode()
+        tokens[0][0:7] = 0b0110111
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:32] = imm20
+        return tokens[0].encode()
 
 
 class Adru(RiscvInstruction):
@@ -335,10 +344,11 @@ class Adru(RiscvInstruction):
     syntax = Syntax(['lui', ' ', rd, ',', ' ', label])
 
     def encode(self):
-        self.token1[0:7] = 0b0110111
-        self.token1[7:12] = self.rd.num
-        self.token1[12:32] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0110111
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:32] = 0
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.label, apply_abs32_imm20)]
@@ -351,12 +361,13 @@ class Adrl(RiscvInstruction):
     syntax = Syntax(['addi', ' ', rd, ',', ' ', rs1, ',', ' ', label])
 
     def encode(self):
-        self.token1[0:7] = 0b0010011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = 0
-        self.token1[15:20] = self.rs1.num
-        self.token1[20:32] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:32] = 0
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.label, apply_abs32_imm12)]
@@ -368,25 +379,27 @@ class Auipc(RiscvInstruction):
     syntax = Syntax(['auipc', ' ', rd, ',', ' ', imm])
 
     def encode(self):
-        self.token1[0:7] = 0b0010111
-        self.token1[7:12] = self.rd.num
-        self.token1[12:32] = self.imm
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010111
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:32] = self.imm
+        return tokens[0].encode()
 
 
 class BranchBase(RiscvInstruction):
     target = register_argument('target', str)
 
     def encode(self):
-        self.token1[0:7] = 0b1100011
-        self.token1[12:15] = self.cond
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1100011
+        tokens[0][12:15] = self.cond
         if self.invert:
-            self.token1[15:20] = self.rm.num
-            self.token1[20:25] = self.rn.num
+            tokens[0][15:20] = self.rm.num
+            tokens[0][20:25] = self.rn.num
         else:
-            self.token1[15:20] = self.rn.num
-            self.token1[20:25] = self.rm.num
-        return self.token1.encode()
+            tokens[0][15:20] = self.rn.num
+            tokens[0][20:25] = self.rm.num
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_b_imm12)]
@@ -427,13 +440,14 @@ class StrBase(RiscvInstruction):
         else:
             imml5 = self.offset & 0x1f
         immh7 = wrap_negative(self.offset >> 5, 7)
-        self.token1[0:7] = 0b0100011
-        self.token1[7:12] = imml5
-        self.token1[12:15] = self.func
-        self.token1[15:20] = self.rs1.num
-        self.token1[20:25] = self.rs2.num
-        self.token1[25:32] = immh7
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0100011
+        tokens[0][7:12] = imml5
+        tokens[0][12:15] = self.func
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:25] = self.rs2.num
+        tokens[0][25:32] = immh7
+        return tokens[0].encode()
 
 
 def make_str(mnemonic, func):
@@ -480,13 +494,14 @@ Lhu = make_ldr('lhu', 0b101)
 
 class MextBase(RiscvInstruction):
     def encode(self):
-        self.token1[0:7] = 0b0110011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = self.func
-        self.token1[15:20] = self.rs1.num
-        self.token1[20:25] = self.rs2.num
-        self.token1[25:32] = 0b0000001
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0110011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = self.func
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:25] = self.rs2.num
+        tokens[0][25:32] = 0b0000001
+        return tokens[0].encode()
 
 
 def make_mext(mnemonic, func):

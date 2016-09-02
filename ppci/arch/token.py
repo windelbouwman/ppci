@@ -133,6 +133,9 @@ class TokenSequence:
     def __init__(self, tokens):
         self.tokens = tokens
 
+    def __getitem__(self, item):
+        return self.tokens.__getitem__(item)
+
     def set_field(self, field, value):
         """ Set a given field in one of the tokens """
         for token in self.tokens:

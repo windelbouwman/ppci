@@ -69,6 +69,13 @@ class Imm8Token(Token):
     disp8 = bit_range(0, 8)
 
 
+class PrefixToken(Token):
+    def __init__(self):
+        super().__init__(8, '<B')
+
+    prefix = bit_range(0, 8)
+
+
 class OpcodeToken(Token):
     def __init__(self):
         super().__init__(8, '<B')
@@ -145,14 +152,7 @@ class NearJump(X86Instruction):
     target = register_argument('target', str)
     syntax = Syntax(['jmp', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
-
-    def encode(self):
-        # opcode = 0x80 | tttn[condition] # Jcc imm32
-        # return [0x0F, opcode] + imm32(distance)
-        # if distance < 0:
-        # distance -= 5 # Skip own instruction
-        self.token1[0:8] = 0xe9
-        return self.token1.encode() + self.token2.encode()
+    patterns = [FixedPattern('opcode', 0xe9)]
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
@@ -161,17 +161,7 @@ class NearJump(X86Instruction):
 class ConditionalJump(X86Instruction):
     """ j?? imm32 """
     target = register_argument('target', str)
-    tokens = [OpcodeToken, OpcodeToken, Imm32Token]
-
-    def encode(self):
-        # opcode = 0x80 | tttn[condition] # Jcc imm32
-        # return [0x0F, opcode] + imm32(distance)
-        # if distance < 0:
-        # distance -= 5 # Skip own instruction
-        self.token1[0:8] = 0xF
-        self.token2[0:8] = self.opcode
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+    tokens = [PrefixToken, OpcodeToken, Imm32Token]
 
     def relocations(self):
         return [(self.target, apply_bc_jmp32)]
@@ -179,8 +169,10 @@ class ConditionalJump(X86Instruction):
 
 def make_cjump(mnemonic, opcode):
     syntax = Syntax([mnemonic, ' ', ConditionalJump.target])
-    members = {'syntax': syntax, 'opcode': opcode}
-    return type(mnemonic + '_ins', (ConditionalJump,), members)
+    patterns = [FixedPattern('prefix', 0xF), FixedPattern('opcode', opcode)]
+    members = {'syntax': syntax, 'opcode': opcode, 'patterns': patterns}
+    return type(mnemonic.title(), (ConditionalJump,), members)
+
 
 Jb = make_cjump('jb', 0x82)
 Jae = make_cjump('jae', 0x83)
@@ -200,10 +192,7 @@ class ShortJump(X86Instruction):
     tokens = [OpcodeToken, Imm8Token]
     target = register_argument('target', str)
     syntax = Syntax(['jmpshort', target])
-
-    def encode(self):
-        opcode = 0xeb  # jmp rel8
-        return bytes([opcode, 0])
+    patterns = [FixedPattern('opcode', 0xeb)]
 
     def relocations(self):
         return [(self.target, apply_b_jmp8)]
@@ -249,13 +238,13 @@ class CallReg(X86Instruction):
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = 0xFF  # 0xFF /2 == call r/m64
-        self.token3.mod = 3
-        self.token3.reg = 2
-        self.token3.rm = self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = 0xFF  # 0xFF /2 == call r/m64
+        tokens[2].mod = 3
+        tokens[2].reg = 2
+        tokens[2].rm = self.reg.regbits
+        return tokens.encode()
 
 
 class Call(X86Instruction):
@@ -263,10 +252,9 @@ class Call(X86Instruction):
     target = register_argument('target', str)
     syntax = Syntax(['call', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
-
-    def encode(self):
-        self.token1[0:8] = 0xe8
-        return self.token1.encode() + self.token2.encode()
+    patterns = (
+        FixedPattern('opcode', 0xe8),
+    )
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
@@ -285,8 +273,9 @@ class Syscall(X86Instruction):
     tokens = [OpcodeToken]
 
     def encode(self):
-        self.token1[0:8] = 0x05
-        return bytes([0x0F]) + self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:8] = 0x05
+        return bytes([0x0F]) + tokens.encode()
 
 
 class Inc(X86Instruction):
@@ -300,11 +289,11 @@ class Inc(X86Instruction):
         )
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1.b = self.reg.rexbit
-        self.token3.rm = self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg.rexbit
+        tokens[2].rm = self.reg.regbits
+        return tokens.encode()
 
 
 class Rm8(Constructor):
@@ -535,41 +524,42 @@ class rmregbase(X86Instruction):
 
     def encode(self):
         # 1. Set patterns:
-        self.set_all_patterns()
-        self.token2[0:8] = self.opcode
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[1][0:8] = self.opcode
 
         # 2. Encode:
         # Rex prefix:
-        r = self.token1.encode()
+        r = tokens[0].encode()
 
         # opcode:
-        r += self.token2.encode()
+        r += tokens[1].encode()
         if self.opcode == 0x0f:
-            self.token2[0:8] = self.opcode2
-            r += self.token2.encode()
-            self.token2[0:8] = self.opcode
+            tokens[1][0:8] = self.opcode2
+            r += tokens[1].encode()
+            tokens[1][0:8] = self.opcode
 
         # rm byte:
-        r += self.token3.encode()
+        r += tokens[2].encode()
 
         # Encode sib byte:
-        if self.token3.mod != 3 and self.token3.rm == 4:
-            r += self.token4.encode()
+        if tokens[2].mod != 3 and tokens[2].rm == 4:
+            r += tokens[3].encode()
 
         # Encode displacement bytes:
-        if self.token3.mod == 1:
-            r += self.token5.encode()
-        if self.token3.mod == 2:
-            r += self.token6.encode()
+        if tokens[2].mod == 1:
+            r += tokens[4].encode()
+        if tokens[2].mod == 2:
+            r += tokens[5].encode()
 
         # Rip relative addressing mode with disp32
-        if self.token3.mod == 0 and self.token3.rm == 5:
-            r += self.token6.encode()
+        if tokens[2].mod == 0 and tokens[2].rm == 5:
+            r += tokens[5].encode()
 
         # sib byte and ...
-        if self.token3.mod == 0 and self.token3.rm == 4:
-            if self.token4.base == 5:
-                r += self.token6.encode()
+        if tokens[2].mod == 0 and tokens[2].rm == 4:
+            if tokens[3].base == 5:
+                r += tokens[5].encode()
         return r
 
 
@@ -661,15 +651,15 @@ class regint32base(X86Instruction):
     patterns = [FixedPattern('w', 1)]
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode
-        self.token3.mod = 3
-        self.token3.rm = self.reg.regbits
-        self.token3.reg = self.reg_code
-        self.token4[0:32] = wrap_negative(self.imm, 32)
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode() + self.token4.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode
+        tokens[2].mod = 3
+        tokens[2].rm = self.reg.regbits
+        tokens[2].reg = self.reg_code
+        tokens[3][0:32] = wrap_negative(self.imm, 32)
+        return tokens.encode()
 
 
 def make_regimm(mnemonic, opcode, reg_code):
@@ -694,12 +684,12 @@ class shift_cl_base(X86Instruction):
     opcode = 0xd3
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1.w = 1
-        self.token2[0:8] = self.opcode
-        self.token3.reg = self.r
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].w = 1
+        tokens[1][0:8] = self.opcode
+        tokens[2].reg = self.r
+        return tokens.encode()
 
 
 class ShrCl(shift_cl_base):
@@ -729,16 +719,16 @@ class Imul(X86Instruction):
     opcode2 = 0xaf
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.r = self.reg1.rexbit
-        self.token1.b = self.reg2.rexbit
-        self.token2[0:8] = self.opcode
-        self.token3[0:8] = self.opcode2
-        self.token4.mod = 3
-        self.token4.rm = self.reg2.regbits
-        self.token4.reg = self.reg1.regbits
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode() + self.token4.encode()
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].r = self.reg1.rexbit
+        tokens[0].b = self.reg2.rexbit
+        tokens[1][0:8] = self.opcode
+        tokens[2][0:8] = self.opcode2
+        tokens[3].mod = 3
+        tokens[3].rm = self.reg2.regbits
+        tokens[3].reg = self.reg1.regbits
+        return tokens.encode()
 
 
 class Idiv(X86Instruction):
@@ -751,14 +741,14 @@ class Idiv(X86Instruction):
     opcode = 0xf7  # 0xf7 /7 = idiv r/m64
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg1.rexbit
-        self.token2[0:8] = self.opcode
-        self.token3.mod = 3
-        self.token3.rm = self.reg1.regbits
-        self.token3.reg = 7
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg1.rexbit
+        tokens[1][0:8] = self.opcode
+        tokens[2].mod = 3
+        tokens[2].rm = self.reg1.regbits
+        tokens[2].reg = 7
+        return tokens.encode()
 
 
 class MovImm8(X86Instruction):
@@ -770,10 +760,11 @@ class MovImm8(X86Instruction):
     opcode = 0xb0  # mov r8, imm8
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + u8(self.imm)
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode + self.reg.regbits
+        return tokens.encode() + u8(self.imm)
 
 
 class MovImm(X86Instruction):
@@ -785,10 +776,11 @@ class MovImm(X86Instruction):
     opcode = 0xb8  # mov r64, imm64
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + u64(self.imm)
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode + self.reg.regbits
+        return tokens.encode() + u64(self.imm)
 
 
 class MovAdr(X86Instruction):
@@ -800,10 +792,11 @@ class MovAdr(X86Instruction):
     opcode = 0xb8  # mov r64, imm64
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + u64(0)
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode + self.reg.regbits
+        return tokens.encode() + u64(0)
 
     def relocations(self):
         return [(self.imm, apply_abs64)]

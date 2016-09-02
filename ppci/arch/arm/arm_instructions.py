@@ -134,13 +134,14 @@ class Mov1(ArmInstruction):
     syntax = Syntax(['mov', rd, ',', imm])
 
     def encode(self):
-        self.token1[0:12] = encode_imm32(self.imm)
-        self.token1.Rd = self.rd.num
-        self.token1[16:20] = 0
-        self.token1[20] = 0  # Set flags
-        self.token1[21:28] = 0b0011101
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:12] = encode_imm32(self.imm)
+        tokens[0].Rd = self.rd.num
+        tokens[0][16:20] = 0
+        tokens[0][20] = 0  # Set flags
+        tokens[0][21:28] = 0b0011101
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Mov2(ArmInstruction):
@@ -154,14 +155,15 @@ class Mov2(ArmInstruction):
         )
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1[0:4] = self.rm.num
-        self.token1[4] = 0
-        self.token1[12:16] = self.rd.num
-        self.token1[16:20] = 0
-        self.token1.S = 0
-        self.token1[21:28] = 0xD
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][0:4] = self.rm.num
+        tokens[0][4] = 0
+        tokens[0][12:16] = self.rd.num
+        tokens[0][16:20] = 0
+        tokens[0].S = 0
+        tokens[0][21:28] = 0xD
+        return tokens[0].encode()
 
 Mov2LS = inter_twine(Mov2, 'ls')
 
@@ -173,11 +175,12 @@ class Cmp1(ArmInstruction):
     syntax = Syntax(['cmp', reg, ',', imm])
 
     def encode(self):
-        self.token1[0:12] = encode_imm32(self.imm)
-        self.token1.Rn = self.reg.num
-        self.token1[20:28] = 0b00110101
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:12] = encode_imm32(self.imm)
+        tokens[0].Rn = self.reg.num
+        tokens[0][20:28] = 0b00110101
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Cmp2(ArmInstruction):
@@ -193,11 +196,12 @@ class Cmp2(ArmInstruction):
         )
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1[4] = 0
-        self.token1[12:16] = 0
-        self.token1[20:28] = 0b10101
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][4] = 0
+        tokens[0][12:16] = 0
+        tokens[0][20:28] = 0b10101
+        return tokens[0].encode()
 
 
 class Mul1(ArmInstruction):
@@ -207,13 +211,14 @@ class Mul1(ArmInstruction):
     syntax = Syntax(['mul', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b1001
-        self.token1[8:12] = self.rm.num
-        self.token1[16:20] = self.rd.num
-        self.token1.S = 0
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b1001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][16:20] = self.rd.num
+        tokens[0].S = 0
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Sdiv(ArmInstruction):
@@ -228,14 +233,15 @@ class Sdiv(ArmInstruction):
     syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b0001
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = 0b1111
-        self.token1[16:20] = self.rd.num
-        self.token1[20:28] = 0b1110001
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b0001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = 0b1111
+        tokens[0][16:20] = self.rd.num
+        tokens[0][20:28] = 0b1110001
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Udiv(ArmInstruction):
@@ -248,14 +254,15 @@ class Udiv(ArmInstruction):
     syntax = Syntax(['udiv', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b0001
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = 0b1111
-        self.token1[16:20] = self.rd.num
-        self.token1[20:28] = 0b1110011
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b0001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = 0b1111
+        tokens[0][16:20] = self.rd.num
+        tokens[0][20:28] = 0b1110011
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Mls(ArmInstruction):
@@ -270,14 +277,15 @@ class Mls(ArmInstruction):
     syntax = Syntax(['mls', rd, ',', rn, ',', rm, ',', ra])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b1001
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = self.ra.num
-        self.token1[16:20] = self.rd.num
-        self.token1[20:28] = 0b00000110
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b1001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = self.ra.num
+        tokens[0][16:20] = self.rd.num
+        tokens[0][20:28] = 0b00000110
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class OpRegRegReg(ArmInstruction):
@@ -288,15 +296,16 @@ class OpRegRegReg(ArmInstruction):
         )
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1[0:4] = self.rm.num
-        self.token1[4] = 0
-        self.token1[5:7] = 0   # Shift type
-        self.token1[7:12] = 0  # Shift
-        self.token1.Rd = self.rd.num
-        self.token1.Rn = self.rn.num
-        self.token1[21:28] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][0:4] = self.rm.num
+        tokens[0][4] = 0
+        tokens[0][5:7] = 0   # Shift type
+        tokens[0][7:12] = 0  # Shift
+        tokens[0].Rd = self.rd.num
+        tokens[0].Rn = self.rn.num
+        tokens[0][21:28] = self.opcode
+        return tokens[0].encode()
 
 
 def make_regregreg(mnemonic, opcode):
@@ -332,14 +341,15 @@ class ShiftBase(ArmInstruction):
     rm = register_argument('rm', ArmRegister, read=True)
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = self.opcode
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = self.rd.num
-        self.token1.S = 0  # Set flags
-        self.token1[21:28] = 0b1101
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = self.opcode
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = self.rd.num
+        tokens[0].S = 0  # Set flags
+        tokens[0][21:28] = 0b1101
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Lsr1(ShiftBase):
@@ -363,13 +373,14 @@ Lsl = Lsl1
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
     def encode(self):
-        self.token1[0:12] = encode_imm32(self.imm)
-        self.token1.Rd = self.rd.num
-        self.token1.Rn = self.rn.num
-        self.token1.S = 0  # Set flags
-        self.token1[21:28] = self.opcode
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:12] = encode_imm32(self.imm)
+        tokens[0].Rd = self.rd.num
+        tokens[0].Rn = self.rn.num
+        tokens[0].S = 0  # Set flags
+        tokens[0][21:28] = self.opcode
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 def make_regregimm(mnemonic, opcode):
@@ -391,9 +402,10 @@ class BranchBaseRoot(ArmInstruction):
     target = register_argument('target', str)
 
     def encode(self):
-        self.token1.cond = self.cond
-        self.token1[24:28] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = self.cond
+        tokens[0][24:28] = self.opcode
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_b_imm24)]
@@ -443,10 +455,11 @@ class Push(ArmInstruction):
     syntax = Syntax(['push', reg_list])
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[16:28] = 0b100100101101
-        self.token1[0:16] = reg_list_to_mask(self.reg_list)
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][16:28] = 0b100100101101
+        tokens[0][0:16] = reg_list_to_mask(self.reg_list)
+        return tokens[0].encode()
 
 
 class Pop(ArmInstruction):
@@ -454,10 +467,11 @@ class Pop(ArmInstruction):
     syntax = Syntax(['pop', reg_list])
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[16:28] = 0b100010111101
-        self.token1[0:16] = reg_list_to_mask(self.reg_list)
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][16:28] = 0b100010111101
+        tokens[0][0:16] = reg_list_to_mask(self.reg_list)
+        return tokens[0].encode()
 
 
 def LdrPseudo(rt, lab, add_lit):
@@ -471,20 +485,21 @@ class LdrStrBase(ArmInstruction):
     offset = register_argument('offset', int)
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1.Rn = self.rn.num
-        self.token1[25:28] = self.opcode
-        self.token1[22] = self.bit22
-        self.token1[20] = self.bit20
-        self.token1[12:16] = self.rt.num
-        self.token1[24] = 1  # Index
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0].Rn = self.rn.num
+        tokens[0][25:28] = self.opcode
+        tokens[0][22] = self.bit22
+        tokens[0][20] = self.bit20
+        tokens[0][12:16] = self.rt.num
+        tokens[0][24] = 1  # Index
         if self.offset >= 0:
-            self.token1[23] = 1  # U == 1 'add'
-            self.token1[0:12] = self.offset
+            tokens[0][23] = 1  # U == 1 'add'
+            tokens[0][0:12] = self.offset
         else:
-            self.token1[23] = 0
-            self.token1[0:12] = -self.offset
-        return self.token1.encode()
+            tokens[0][23] = 0
+            tokens[0][0:12] = -self.offset
+        return tokens[0].encode()
 
 
 class Str1(LdrStrBase):
@@ -538,12 +553,13 @@ class Adr(ArmInstruction):
         return [(self.label, apply_adr_imm12)]
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[0:12] = 0  # Filled by linker
-        self.token1[12:16] = self.rd.num
-        self.token1[16:20] = 0b1111
-        self.token1[25] = 1
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][0:12] = 0  # Filled by linker
+        tokens[0][12:16] = self.rd.num
+        tokens[0][16:20] = 0b1111
+        tokens[0][25] = 1
+        return tokens[0].encode()
 
 
 class Ldr3(ArmInstruction):
@@ -559,28 +575,30 @@ class Ldr3(ArmInstruction):
         return [(self.label, apply_ldr_imm12)]
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[0:12] = 0  # Filled by linker
-        self.token1[12:16] = self.rt.num
-        self.token1[16:23] = 0b0011111
-        self.token1[24:28] = 0b0101
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][0:12] = 0  # Filled by linker
+        tokens[0][12:16] = self.rt.num
+        tokens[0][16:23] = 0b0011111
+        tokens[0][24:28] = 0b0101
+        return tokens[0].encode()
 
 
 class McrBase(ArmInstruction):
     """ Mov arm register to coprocessor register """
     def encode(self):
-        self.token1[0:4] = self.crm.num
-        self.token1[4] = 1
-        self.token1[5:8] = self.opc2
-        self.token1[8:12] = self.coproc.num
-        self.token1[12:16] = self.rt.num
-        self.token1[16:20] = self.crn.num
-        self.token1[20] = self.b20
-        self.token1[21:24] = self.opc1
-        self.token1[24:28] = 0b1110
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.crm.num
+        tokens[0][4] = 1
+        tokens[0][5:8] = self.opc2
+        tokens[0][8:12] = self.coproc.num
+        tokens[0][12:16] = self.rt.num
+        tokens[0][16:20] = self.crn.num
+        tokens[0][20] = self.b20
+        tokens[0][21:24] = self.opc1
+        tokens[0][24:28] = 0b1110
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Mcr(McrBase):

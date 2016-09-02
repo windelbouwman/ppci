@@ -22,6 +22,13 @@ class InstructionProperty(property):
     def __repr__(self):
         return 'property name={}, cls={}'.format(self._name, self._cls)
 
+    @property
+    def is_constructor(self):
+        if isinstance(self._cls, tuple):
+            return True
+        else:
+            return issubclass(self._cls, Constructor)
+
 
 def register_argument(name, cls, read=False, write=False, default_value=None):
     """ Create a property for an instruction.
@@ -36,7 +43,7 @@ def register_argument(name, cls, read=False, write=False, default_value=None):
     # Construct a private backing field for the property:
     private_field = '_{}'.format(name)
 
-    if issubclass(cls, Register):
+    if isinstance(cls, type) and issubclass(cls, Register):
         assert read or write
 
     def getter(self):
@@ -101,6 +108,7 @@ class Constructor:
 
     def set_patterns(self, tokens):
         """ Fill tokens with the specified bit patterns """
+        print(self, self.patterns)
         for pattern in self.patterns:
             value = pattern.get_value(self)
             assert isinstance(value, int), str(self)
@@ -108,6 +116,7 @@ class Constructor:
         self.set_user_patterns(tokens)
 
     def set_user_patterns(self, tokens):
+        """ This is the place for custom patterns """
         pass
 
     @classmethod
@@ -164,7 +173,7 @@ class Constructor:
         are returned.
         """
         for prop in self.properties:
-            if issubclass(prop._cls, Constructor):
+            if prop.is_constructor:
                 for propcls in prop.__get__(self).leaves:
                     yield propcls
             else:
@@ -172,13 +181,14 @@ class Constructor:
 
     @property
     def non_leaves(self):
+        """ Get all composite parts """
+        yield self
         for prop in self.properties:
-            if issubclass(prop._cls, Constructor):
+            if prop.is_constructor:
                 s2 = prop.__get__(self)
+                # yield s2
                 for nl in s2.non_leaves:
                     yield nl
-                yield s2
-        yield self
 
 
 class InsMeta(type):
@@ -230,11 +240,6 @@ class Instruction(Constructor, metaclass=InsMeta):
         """
         super().__init__(*args)
 
-        # Construct token:
-        if hasattr(self, 'tokens'):
-            for position, token_cls in enumerate(self.tokens):
-                setattr(self, 'token{}'.format(position + 1), token_cls())
-
         # Initialize the jumps this instruction makes:
         self.jumps = []
         self.ismove = False
@@ -284,10 +289,10 @@ class Instruction(Constructor, metaclass=InsMeta):
             if issubclass(p._cls, Register):
                 yield p.__get__(o)
 
-    def set_all_patterns(self):
+    def set_all_patterns(self, tokens):
         """ Look for all patterns and apply them to the tokens """
         assert hasattr(self, 'patterns')
-        tokens = TokenSequence(self.get_tokens())
+        # self.set_patterns(tokens)
         for nl in self.non_leaves:
             nl.set_patterns(tokens)
 
@@ -300,18 +305,27 @@ class Instruction(Constructor, metaclass=InsMeta):
 
     def get_tokens(self):
         assert hasattr(self, 'tokens')
-        N = len(self.tokens)
-        tokens = [getattr(self, 'token{}'.format(n+1)) for n in range(N)]
-        return tokens
+        tokens = []
+        # N = len(self.tokens)
+        # tokens = [getattr(self, 'token{}'.format(n+1)) for n in range(N)]
+        # tokens.extend([t() for t in self.tokens])
+        for nl in self.non_leaves:
+            print('non leave', nl, type(nl))
+            if hasattr(nl, 'tokens'):
+                tokens.extend([t() for t in nl.tokens])
+        print('tokens', tokens)
+        return TokenSequence(tokens)
 
     # Interface methods:
     def encode(self):
-        """ Encode the instruction into binary form, returns bytes for this
-        instruction. """
+        """ Encode the instruction into binary form.
 
-        self.set_all_patterns()
+        returns bytes for this instruction.
+        """
+
         tokens = self.get_tokens()
-        return TokenSequence(tokens).encode()
+        self.set_all_patterns(tokens)
+        return tokens.encode()
 
     @classmethod
     def decode(cls, data):

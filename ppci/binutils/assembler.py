@@ -153,6 +153,7 @@ class BaseAssembler:
             if instruction.syntax:
                 self.generate_syntax_rule(
                     instruction, 'instruction', instruction.syntax)
+        # self.parser.g.dump()
 
     def generate_syntax_rule(self, cls, nt, stx):
         """ Construct a rule for rhs <- nt
@@ -204,33 +205,45 @@ class BaseAssembler:
         if arg_cls in self.typ2nt:
             return self.typ2nt[arg_cls]
 
-        # arg not found, try syntaxi:
-        # This means, find all subclasses of this composite type, and use
-        # these syntaxes.
-        syntaxi = getattr(arg_cls, 'syntaxi')
-        # TODO: figure a nice way for this:
-        if isinstance(syntaxi, tuple):
-            # In case of a tuple, the options are not subclasses, but
-            # listed in the tuple:
-            nt, rules = arg_cls.syntaxi
-
-            # Store nt for later:
+        if isinstance(arg_cls, tuple):
+            print('w00t')
+            assert len(arg_cls) > 0
+            nt = 'w00t{}'.format(id(arg_cls))
+            assert nt not in self.typ2nt.values()
             self.typ2nt[arg_cls] = nt
-
-            # Add rules:
-            for stx in rules:
-                self.generate_syntax_rule(arg_cls, nt, stx)
+            for con in arg_cls:
+                self.generate_syntax_rule(con, nt, con.syntax)
+            # raise NotImplementedError()
             return nt
         else:
-            nt = arg_cls.syntaxi
+            # arg not found, try syntaxi:
+            # This means, find all subclasses of this composite type, and use
+            # these syntaxes.
+            syntaxi = getattr(arg_cls, 'syntaxi')
+            # TODO: figure a nice way for this:
+            if isinstance(syntaxi, tuple):
+                # In case of a tuple, the options are not subclasses, but
+                # listed in the tuple:
+                nt, rules = arg_cls.syntaxi
 
-            # Store nt for later:
-            self.typ2nt[arg_cls] = nt
+                # Store nt for later:
+                self.typ2nt[arg_cls] = nt
 
-            # Add rules:
-            for subcon in arg_cls.__subclasses__():
-                self.generate_syntax_rule(subcon, nt, subcon.syntax)
-            return nt
+                # Add rules:
+                for stx in rules:
+                    self.generate_syntax_rule(arg_cls, nt, stx)
+                return nt
+            else:
+                print('Deprecation')
+                nt = arg_cls.syntaxi
+
+                # Store nt for later:
+                self.typ2nt[arg_cls] = nt
+
+                # Add rules:
+                for subcon in arg_cls.__subclasses__():
+                    self.generate_syntax_rule(subcon, nt, subcon.syntax)
+                return nt
 
     # End of generating functions
 

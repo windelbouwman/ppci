@@ -47,12 +47,13 @@ class PseudoRiscvInstruction(ArtificialInstruction):
 class OpcRegReg(RiscvcInstruction):
     """ c.sub rd, rn """
     def encode(self):
-        self.token1.op = 0b01
-        self.token1[2:5] = self.rn.num-8
-        self.token1[5:7] = self.func
-        self.token1[7:10] = self.rd.num-8
-        self.token1[10:16] = 0b100011
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].op = 0b01
+        tokens[0][2:5] = self.rn.num-8
+        tokens[0][5:7] = self.func
+        tokens[0][7:10] = self.rd.num-8
+        tokens[0][10:16] = 0b100011
+        return tokens[0].encode()
 
 
 def makec_regreg(mnemonic, func):
@@ -77,21 +78,23 @@ class CSlli(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'slli', ' ', rd, ',', ' ', rs, ',', ' ', imm])
 
     def encode(self):
-        self.token1[0:2] = 0b10
-        self.token1[2:7] = self.imm & 0xF
-        self.token1[7:12] = self.rd.num
-        self.token1[13:16] = 0b0000
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b10
+        tokens[0][2:7] = self.imm & 0xF
+        tokens[0][7:12] = self.rd.num
+        tokens[0][13:16] = 0b0000
+        return tokens[0].encode()
 
 
 class CiBase(RiscvcInstruction):
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[2:7] = self.imm
-        self.token1[7:10] = self.rd.num-8
-        self.token1[10:12] = self.func
-        self.token1[12:16] = 0b1000
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][2:7] = self.imm
+        tokens[0][7:10] = self.rd.num-8
+        tokens[0][10:12] = self.func
+        tokens[0][12:16] = 0b1000
+        return tokens[0].encode()
 
 
 def makec_i(mnemonic, func):
@@ -114,28 +117,31 @@ class CAddi(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'addi', ' ', rd, ',', ' ', rd, ',', ' ', imm])
 
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[2:7] = self.imm
-        self.token1[7:12] = self.rd.num
-        self.token1[12:16] = 0b0000
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][2:7] = self.imm
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:16] = 0b0000
+        return tokens[0].encode()
 
 
 class CNop(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'nop'])
 
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[2:16] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][2:16] = 0
+        return tokens[0].encode()
 
 
 class CEbreak(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'ebreak'])
 
     def encode(self):
-        self.token1[0:16] = 0b1001000000000010
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:16] = 0b1001000000000010
+        return tokens[0].encode()
 
 
 class CJal(RiscvcInstruction):
@@ -143,9 +149,10 @@ class CJal(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'jal', ' ', target])
 
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[13:16] = 0b001
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][13:16] = 0b001
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_bc_imm11)]
@@ -156,9 +163,10 @@ class CJ(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'j', ' ', target])
 
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[13:16] = 0b101
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][13:16] = 0b101
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_bc_imm11)]
@@ -169,10 +177,11 @@ class CJr(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'jr', ' ', rs1])
 
     def encode(self):
-        self.token1[0:7] = 0b0000010
-        self.token1[7:12] = self.rs1.num
-        self.token1[12:16] = 0b1000
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0000010
+        tokens[0][7:12] = self.rs1.num
+        tokens[0][12:16] = 0b1000
+        return tokens[0].encode()
 
 
 class CJalr(RiscvcInstruction):
@@ -180,10 +189,11 @@ class CJalr(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'jalr', ' ', rs1])
 
     def encode(self):
-        self.token1[0:7] = 0b0000010
-        self.token1[7:12] = self.rs1.num
-        self.token1[12:16] = 0b1001
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0000010
+        tokens[0][7:12] = self.rs1.num
+        tokens[0][12:16] = 0b1001
+        return tokens[0].encode()
 
 
 class CBeqz(RiscvcInstruction):
@@ -192,10 +202,11 @@ class CBeqz(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'beqz', ' ', rn, ' ', target])
 
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[7:10] = self.rn.num - 8
-        self.token1[13:16] = 0b110
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][7:10] = self.rn.num - 8
+        tokens[0][13:16] = 0b110
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_bc_imm8)]
@@ -207,10 +218,11 @@ class CBnez(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'bneqz', ' ', rn, ',', ' ', target])
 
     def encode(self):
-        self.token1[0:2] = 0b01
-        self.token1[7:10] = self.rn.num-8
-        self.token1[13:16] = 0b111
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][7:10] = self.rn.num-8
+        tokens[0][13:16] = 0b111
+        return tokens[0].encode()
 
     def relocations(self):
         return [(self.target, apply_bc_imm8)]
@@ -223,14 +235,15 @@ class CLw(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'lw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
 
     def encode(self):
-        self.token1[0:2] = 0b00
-        self.token1[2:5] = self.rd.num - 8
-        self.token1[5:6] = self.offset >> 6 & 1
-        self.token1[6:7] = self.offset >> 2 & 1
-        self.token1[7:10] = self.rs1.num - 8
-        self.token1[10:13] = self.offset >> 3 & 0x7
-        self.token1[13:16] = 0b010
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b00
+        tokens[0][2:5] = self.rd.num - 8
+        tokens[0][5:6] = self.offset >> 6 & 1
+        tokens[0][6:7] = self.offset >> 2 & 1
+        tokens[0][7:10] = self.rs1.num - 8
+        tokens[0][10:13] = self.offset >> 3 & 0x7
+        tokens[0][13:16] = 0b010
+        return tokens[0].encode()
 
 
 class CSw(RiscvcInstruction):
@@ -242,14 +255,15 @@ class CSw(RiscvcInstruction):
     tokens = [RiscvcToken]
 
     def encode(self):
-        self.token1.op = 0b00
-        self.token1[2:5] = self.rs2.num-8
-        self.token1[5:6] = self.offset >> 6 & 1
-        self.token1[6:7] = self.offset >> 2 & 1
-        self.token1[7:10] = self.rs1.num - 8
-        self.token1[10:13] = self.offset >> 3 & 0x7
-        self.token1.funct3 = 0b110
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].op = 0b00
+        tokens[0][2:5] = self.rs2.num-8
+        tokens[0][5:6] = self.offset >> 6 & 1
+        tokens[0][6:7] = self.offset >> 2 & 1
+        tokens[0][7:10] = self.rs1.num - 8
+        tokens[0][10:13] = self.offset >> 3 & 0x7
+        tokens[0].funct3 = 0b110
+        return tokens[0].encode()
 
 
 class CLwsp(RiscvcInstruction):
@@ -259,13 +273,14 @@ class CLwsp(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'lwsp', ' ', rd, ',', offset, '(', rs1, ')'])
 
     def encode(self):
-        self.token1[0:2] = 0b10
-        self.token1[2:4] = self.offset >> 6 & 3
-        self.token1[4:7] = self.offset >> 2 & 7
-        self.token1[7:12] = self.rd.num
-        self.token1[12:13] = self.offset >> 5 & 1
-        self.token1[13:16] = 0b010
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b10
+        tokens[0][2:4] = self.offset >> 6 & 3
+        tokens[0][4:7] = self.offset >> 2 & 7
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:13] = self.offset >> 5 & 1
+        tokens[0][13:16] = 0b010
+        return tokens[0].encode()
 
 
 class CSwsp(RiscvcInstruction):
@@ -275,12 +290,13 @@ class CSwsp(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'swsp', ' ', rs2, ',', offset, '(', rs1, ')'])
 
     def encode(self):
-        self.token1.op = 0b10
-        self.token1[2:7] = self.rs2.num
-        self.token1[7:9] = self.offset >> 6 & 0x3
-        self.token1[9:13] = self.offset >> 2 & 0xF
-        self.token1.funct3 = 0b110
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].op = 0b10
+        tokens[0][2:7] = self.rs2.num
+        tokens[0][7:9] = self.offset >> 6 & 0x3
+        tokens[0][9:13] = self.offset >> 2 & 0xF
+        tokens[0].funct3 = 0b110
+        return tokens[0].encode()
 
 
 class CLi(RiscvcInstruction):
@@ -305,12 +321,13 @@ class CLui(RiscvcInstruction):
             imm6 = wrap_negative(self.imm >> 12, 6)
         else:
             imm6 = self.imm >> 12 & 6
-        self.token1.op = 0b01
-        self.token1[2:7] = imm6 & 0x1F
-        self.token1[7:12] = self.rd.num
-        self.token1[12:13] = imm6 >> 5 & 1
-        self.token1[13:16] = 0b011
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].op = 0b01
+        tokens[0][2:7] = imm6 & 0x1F
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:13] = imm6 >> 5 & 1
+        tokens[0][13:16] = 0b011
+        return tokens[0].encode()
 
 
 class Andv(PseudoRiscvInstruction):
@@ -490,7 +507,7 @@ def pattern_consti32(context, tree):
 def pattern_consti32_2(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
-    if (c0&0x800) != 0:
+    if (c0 & 0x800) != 0:
         c0 -= 0xFFFFF000
     context.emit(CLui(d, c0))
     context.emit(Addi(d, d, c0))

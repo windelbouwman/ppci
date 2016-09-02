@@ -14,22 +14,6 @@ from ...ir import i16
 isa = Isa()
 
 
-class Msp430Token(Token):
-    def __init__(self):
-        super().__init__(16, '<H')
-
-    condition = bit_range(10, 13)
-    opcode = bit_range(12, 16)
-    opcode1 = bit_range(7, 10)
-    opcode1b = bit_range(10, 16)
-    register = bit_range(0, 4)
-    destination = bit_range(0, 4)
-    source = bit_range(8, 12)
-    bw = bit(6)
-    Ad = bit(7)
-    As = bit_range(4, 6)
-
-
 class Msp430SingleOperandToken(Token):
     def __init__(self):
         super().__init__(16, '<H')
@@ -38,11 +22,39 @@ class Msp430SingleOperandToken(Token):
     opcode = bit_range(7, 10)
     bw = bit(6)
     As = bit_range(4, 6)
-    register = bit_range(0, 4)
+    source = bit_range(0, 4)
 
 
-class Imm16Token(Token):
-    value = bit_range(0, 16)
+class Msp430JumpToken(Token):
+    def __init__(self):
+        super().__init__(16, '<H')
+
+    opcode = bit_range(13, 16)
+    condition = bit_range(10, 13)
+    offset = bit_range(0, 10)
+
+
+class Msp430TwoOperandToken(Token):
+    def __init__(self):
+        super().__init__(16, '<H')
+
+    opcode = bit_range(12, 16)
+    source = bit_range(8, 12)
+    Ad = bit(7)
+    bw = bit(6)
+    As = bit_range(4, 6)
+    destination = bit_range(0, 4)
+
+
+class SrcImmToken(Token):
+    srcimm = bit_range(0, 16)
+
+    def __init__(self):
+        super().__init__(16, '<H')
+
+
+class DstImmToken(Token):
+    dstimm = bit_range(0, 16)
 
     def __init__(self):
         super().__init__(16, '<H')
@@ -91,7 +103,6 @@ class Dst(Constructor):
     imm = register_argument('imm', int)
     addr = register_argument('addr', str, default_value='')
     Ad = register_argument('Ad', int, default_value=0)
-    syntaxi = 'dst'
 
     @property
     def extra_bytes(self):
@@ -114,16 +125,31 @@ class Dst(Constructor):
 
 class RegDst(Dst):
     syntax = Syntax([Dst.reg], set_props={Dst.Ad: 0})
+    patterns = [
+        FixedPattern('Ad', 0),
+        VariablePattern('destination', Dst.reg),
+        ]
 
 
 class AddrDst(Dst):
     """  absolute address """
-    syntax = Syntax(['&', Dst.addr], set_props={Dst.Ad: 1, Dst.reg: r2})
+    tokens = [DstImmToken]
+    syntax = Syntax(['&', Dst.addr])
+    patterns = [
+        FixedPattern('Ad', 1),
+        FixedPattern('destination', 2),
+        ]
 
 
 class MemDst(Dst):
     """  register offset memory access, for example: 0x88(R8) """
+    tokens = [DstImmToken]
     syntax = Syntax([Dst.imm, '(', Dst.reg, ')'], set_props={Dst.Ad: 1})
+    patterns = [
+        FixedPattern('Ad', 1),
+        VariablePattern('destination', Dst.reg),
+        VariablePattern('dstimm', Dst.imm),
+        ]
 
 
 class Src(Constructor):
@@ -131,7 +157,6 @@ class Src(Constructor):
     imm = register_argument('imm', int)
     As = register_argument('As', int, default_value=0)
     addr = register_argument('addr', str, default_value='')
-    syntaxi = '$src$'
 
     @property
     def extra_bytes(self):
@@ -156,21 +181,41 @@ class Src(Constructor):
 
 class ConstSrc(Src):
     """ Equivalent to @PC+ """
+    tokens = [SrcImmToken]
     syntax = Syntax(['#', Src.imm], set_props={Src.As: 3, Src.reg: r0})
+    patterns = [
+        FixedPattern('As', 3),
+        FixedPattern('source', 0),
+        VariablePattern('srcimm', Src.imm),
+        ]
 
 
 class ConstLabelSrc(Src):
     """ Equivalent to @PC+ """
+    tokens = [SrcImmToken]
     syntax = Syntax(['#', Src.addr], set_props={Src.As: 3, Src.reg: r0})
+    patterns = [
+        FixedPattern('As', 3),
+        FixedPattern('source', 0),
+        ]
     # TODO: reloc here? this should be implemented something like this:
     relocations = (
         Relocation(Src.addr, apply_abs16_imm0),
     )
 
 
+as_cn_map = {-1: 3, 0: 0, 1: 1, 2: 2, 4: 2, 8: 3}
+rg_cn_map = {-1: 3, 0: 3, 1: 3, 2: 3, 4: 2, 8: 2}
+
+
 class SmallConstSrc(Src):
     """ Equivalent to @PC+ """
     syntax = Syntax(['#', Src.imm], priority=2)
+    # TODO: implement small source!
+    patterns = [
+        VariablePattern('As', Src.imm, transform=(lambda x: as_cn_map[x], None)),
+        VariablePattern('source', Src.imm, transform=(lambda x: rg_cn_map[x], None)),
+        ]
 
 
 def small_const_src(x):
@@ -194,31 +239,59 @@ def small_const_src(x):
 
 class RegSrc(Src):
     """ Simply refer to a register """
-    syntax = Syntax([Src.reg], set_props={Src.As: 0})
+    syntax = Syntax([Src.reg])
+    patterns = [
+        FixedPattern('As', 0),
+        VariablePattern('source', Src.reg),
+        ]
 
 
 class AdrSrc(Src):
     """ absolute address """
-    syntax = Syntax(['&', Src.addr], set_props={Src.As: 1, Src.reg: r2})
+    tokens = [SrcImmToken]
+    syntax = Syntax(['&', Src.addr], set_props={Src.reg: r2})
+    patterns = [
+        FixedPattern('As', 1),
+        FixedPattern('source', 2),
+        ]
 
 
 class MemSrc(Src):
     """ Memory content """
-    syntax = Syntax(['@', Src.reg], set_props={Src.As: 2})
+    syntax = Syntax(['@', Src.reg])
+    patterns = [
+        FixedPattern('As', 2),
+        VariablePattern('source', Src.reg),
+        ]
 
 
 class MemSrcInc(Src):
     """ Memory content post increment """
-    syntax = Syntax(['@', Src.reg, '+'], set_props={Src.As: 3})
+    syntax = Syntax(['@', Src.reg, '+'])
+    patterns = [
+        FixedPattern('As', 3),
+        VariablePattern('source', Src.reg),
+        ]
 
 
 class MemSrcOffset(Src):
-    syntax = Syntax([Src.imm, '(', Src.reg, ')'], set_props={Src.As: 1})
+    tokens = [SrcImmToken]
+    syntax = Syntax([Src.imm, '(', Src.reg, ')'])
+    patterns = [
+        FixedPattern('As', 1),
+        VariablePattern('source', Src.reg),
+        VariablePattern('srcimm', Src.imm),
+        ]
+
+
+src_modes = (
+    AdrSrc, RegSrc, MemSrc, MemSrcInc, MemSrcOffset,
+    SmallConstSrc, ConstSrc, ConstLabelSrc)
+dst_modes = (RegDst, AddrDst, MemDst)
 
 
 class Msp430Instruction(Instruction):
     isa = isa
-    tokens = [Msp430Token]
 
 
 #########################
@@ -226,11 +299,7 @@ class Msp430Instruction(Instruction):
 #########################
 
 class JumpInstruction(Msp430Instruction):
-    def encode(self):
-        self.token1.condition = self.condition
-        self.token1.offset = 0
-        self.token1[13] = 1
-        return self.token1.encode()
+    tokens = [Msp430JumpToken]
 
     def relocations(self):
         yield (self.target, apply_rel10bit)
@@ -239,7 +308,12 @@ class JumpInstruction(Msp430Instruction):
 def create_jump_instruction(name, condition):
     target = register_argument('target', str)
     syntax = Syntax([name, ' ', target])
-    members = {'syntax': syntax, 'target': target, 'condition': condition}
+    patterns = [
+        FixedPattern('condition', condition),
+        FixedPattern('opcode', 1),
+        ]
+    members = {
+        'syntax': syntax, 'target': target, 'patterns': patterns}
     return type(name + '_ins', (JumpInstruction, ), members)
 
 
@@ -261,13 +335,7 @@ Jmp = create_jump_instruction('jmp', 7)
 
 
 class OneOpArith(Msp430Instruction):
-    def encode(self):
-        self.token1[10:16] = 0b000100
-        self.token1[7:10] = self.opcode
-        self.token1.bw = self.b
-        self.token1.As = self.src.As
-        self.token1.register = self.src.reg.num
-        return self.token1.encode() + self.src.extra_bytes
+    tokens = [Msp430SingleOperandToken]
 
     def relocations(self):
         # TODO: re design this:
@@ -277,13 +345,21 @@ class OneOpArith(Msp430Instruction):
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
     """ Helper function to define a one operand arithmetic instruction """
-    src = register_argument('src', Src)
+    src = register_argument('src', src_modes)
+    patterns = [
+        FixedPattern('prefix', 0b000100),
+        FixedPattern('opcode', opcode),
+        FixedPattern('bw', b)
+        ]
     if b:
         syntax = Syntax([mne, '.', 'b', ' ', src])
+        class_name = mne + 'b'
     else:
         syntax = Syntax([mne, ' ', src])
-    members = {'opcode': opcode, 'syntax': syntax, 'src': src, 'b': b}
-    return type(mne + '_ins', (OneOpArith,), members)
+        class_name = mne
+    members = {
+        'opcode': opcode, 'syntax': syntax, 'src': src, 'patterns': patterns}
+    return type(class_name.title(), (OneOpArith,), members)
 
 
 def make_one_op_base(mne, opcode, b=0):
@@ -305,7 +381,7 @@ class MemByReg(Instruction):
     tokens = []
     patterns = [
         FixedPattern('As', 2),
-        VariablePattern('register', reg),
+        VariablePattern('source', reg),
         ]
     syntax = Syntax(['@', reg])
 
@@ -326,11 +402,13 @@ Call = one_op_instruction('call', 5, src_write=False)
 
 
 class Reti(Msp430Instruction):
+    tokens = [SrcImmToken]
     syntax = Syntax(['reti'])
 
     def encode(self):
-        self.token1[0:16] = 0x1300
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:16] = 0x1300
+        return tokens.encode()
 
 
 #########################
@@ -339,25 +417,7 @@ class Reti(Msp430Instruction):
 
 
 class TwoOpArithInstruction(Msp430Instruction):
-    def encode(self):
-        """
-            Smart things have been done by MSP430 designers.
-            As (2 bits) is the source addressing mode selector.
-            Ad (1 bit) is the destination adressing mode selector.
-            For the source there are 7 different addressing mode.
-            For the destination there are 4.
-            The trick is to use also the register to distuingish the
-            different modes.
-        """
-        # TODO: Make memory also possible
-        self.token1.bw = self.b  # When b=1, the operation is byte mode
-        self.token1.As = self.src.As
-        self.token1.Ad = self.dst.Ad
-        self.token1.destination = self.dst.reg.num
-        self.token1.source = self.src.reg.num
-        self.token1.opcode = self.opcode
-        return self.token1.encode() + self.src.extra_bytes + \
-            self.dst.extra_bytes
+    tokens = [Msp430TwoOperandToken]
 
     def relocations(self):
         if self.src.addr != '':
@@ -400,17 +460,23 @@ class TwoOpArithInstruction(Msp430Instruction):
 
 def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
     """ Helper function to define a two operand arithmetic instruction """
-    src = register_argument('src', Src)
-    dst = register_argument('dst', Dst)
+    src = register_argument('src', src_modes)
+    dst = register_argument('dst', dst_modes)
     if b:
         syntax = Syntax([mne, '.', 'b', ' ', src, ',', ' ', dst])
+        class_name = mne + 'b'
     else:
         syntax = Syntax([mne, '.', 'w', ' ', src, ',', ' ', dst])
+        class_name = mne + 'w'
+    patterns = [
+        FixedPattern('opcode', opc),
+        FixedPattern('bw', b),
+        ]
     members = {
-        'opcode': opc, 'src': src, 'dst': dst, 'syntax': syntax,
-        'b': b, 'dst_read': dst_read, 'dst_write': dst_write
+        'patterns': patterns, 'src': src, 'dst': dst, 'syntax': syntax,
+        'dst_read': dst_read, 'dst_write': dst_write
         }
-    return type(mne + '_ins', (TwoOpArithInstruction,), members)
+    return type(class_name.title(), (TwoOpArithInstruction,), members)
 
 
 Mov = two_op_ins('mov', 4, dst_read=False)
