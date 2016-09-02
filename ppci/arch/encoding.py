@@ -108,7 +108,6 @@ class Constructor:
 
     def set_patterns(self, tokens):
         """ Fill tokens with the specified bit patterns """
-        print(self, self.patterns)
         for pattern in self.patterns:
             value = pattern.get_value(self)
             assert isinstance(value, int), str(self)
@@ -304,16 +303,10 @@ class Instruction(Constructor, metaclass=InsMeta):
                     p.__set__(o, new)
 
     def get_tokens(self):
-        assert hasattr(self, 'tokens')
         tokens = []
-        # N = len(self.tokens)
-        # tokens = [getattr(self, 'token{}'.format(n+1)) for n in range(N)]
-        # tokens.extend([t() for t in self.tokens])
         for nl in self.non_leaves:
-            print('non leave', nl, type(nl))
             if hasattr(nl, 'tokens'):
                 tokens.extend([t() for t in nl.tokens])
-        print('tokens', tokens)
         return TokenSequence(tokens)
 
     # Interface methods:
