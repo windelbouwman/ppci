@@ -354,17 +354,20 @@ class Adru(RiscvInstruction):
     def relocations(self):
         return [(self.label, apply_abs32_imm20)]
 
+
 class Adrurel(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     label = register_argument('label', str)
     syntax = Syntax(['auipc', ' ', rd, ',', ' ', label])
     def encode(self):
-        self.token1[0:7] = 0b0010111
-        self.token1[7:12] = self.rd.num
-        self.token1[12:32] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010111
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:32] = 0
+        return tokens[0].encode()
     def relocations(self):
         return [(self.label, apply_rel_imm20)]
+
 
 class Adrl(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
@@ -384,20 +387,25 @@ class Adrl(RiscvInstruction):
     def relocations(self):
         return [(self.label, apply_abs32_imm12)]
 
+
 class Adrlrel(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
     rs1 = register_argument('rs1', RiscvRegister, read=True)
     label = register_argument('label', str)
     syntax = Syntax(['lw', ' ', rd, ' ', ',', rs1, ' ', ',', ' ', label])
+
     def encode(self):
-        self.token1[0:7] = 0b0000011
-        self.token1[7:12] = self.rd.num
-        self.token1[12:15] = 0b010
-        self.token1[15:20] = self.rs1.num
-        self.token1[20:32] = 0
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0000011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0b010
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:32] = 0
+        return tokens[0].encode()
+
     def relocations(self):
         return [(self.label, apply_rel_imm12)]
+
 
 class Auipc(RiscvInstruction):
     rd = register_argument('rd', RiscvRegister, write=True)
