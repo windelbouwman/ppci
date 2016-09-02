@@ -234,7 +234,7 @@ class BaseAssembler:
                     self.generate_syntax_rule(arg_cls, nt, stx)
                 return nt
             else:
-                print('Deprecation')
+                # print('Deprecation')
                 nt = arg_cls.syntaxi
 
                 # Store nt for later:
