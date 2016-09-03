@@ -182,5 +182,14 @@ class Msp430InstructionUseDef(unittest.TestCase):
         self.assertEqual([registers.r5], mv.defined_registers)
 
 
+class Msp430ConstructorTestCase(unittest.TestCase):
+    """ Test instruction use def info """
+    def test_cmp(self):
+        reg_src = instructions.RegSrc(registers.r4)
+        reg_dst = instructions.RegDst(registers.r5)
+        cp = instructions.Cmp(reg_src, reg_dst)
+        self.assertSequenceEqual([cp, reg_src, reg_dst], list(cp.non_leaves))
+
+
 if __name__ == '__main__':
     unittest.main()

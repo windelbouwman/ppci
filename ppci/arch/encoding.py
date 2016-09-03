@@ -16,7 +16,6 @@ class InstructionProperty(property):
         self._cls = cls
         self._read = read
         self._write = write
-        self._default_value = default_value
         super().__init__(getter, setter)
 
     def __repr__(self):
@@ -30,7 +29,7 @@ class InstructionProperty(property):
             return issubclass(self._cls, Constructor)
 
 
-def register_argument(name, cls, read=False, write=False, default_value=None):
+def register_argument(name, cls, read=False, write=False):
     """ Create a property for an instruction.
 
     When an instruction has
@@ -47,10 +46,7 @@ def register_argument(name, cls, read=False, write=False, default_value=None):
         assert read or write
 
     def getter(self):
-        if hasattr(self, private_field):
-            return getattr(self, private_field)
-        else:
-            return default_value
+        return getattr(self, private_field)
 
     def setter(self, value):
         assert isinstance(value, cls)
@@ -58,7 +54,7 @@ def register_argument(name, cls, read=False, write=False, default_value=None):
 
     return InstructionProperty(
         name, cls, getter, setter,
-        read=read, write=write, default_value=default_value)
+        read=read, write=write)
 
 
 class Constructor:
@@ -92,10 +88,6 @@ class Constructor:
                             type(self), farg._cls, arg, type(arg)))
                 setattr(self, farg._name, arg)
 
-            # Set additional properties as specified by syntax:
-            for prop, val in self.syntax.set_props.items():
-                prop.__set__(self, val)
-
         for pname, pval in kwargs.items():
             # print('\n\n\n===', pname, pval)
             setattr(self, pname, pval)
@@ -110,7 +102,7 @@ class Constructor:
         """ Fill tokens with the specified bit patterns """
         for pattern in self.patterns:
             value = pattern.get_value(self)
-            assert isinstance(value, int), str(self)
+            assert isinstance(value, int), str(self) + str(value) + str(pattern)
             tokens.set_field(pattern.field, value)
         self.set_user_patterns(tokens)
 
@@ -143,9 +135,14 @@ class Constructor:
         # Create constructors:
         fargs = cls.syntax.get_formal_arguments()
         for farg in fargs:
-            if issubclass(farg._cls, Constructor):
-                assert isinstance(farg._cls.syntaxi, str)
-                for sub_con in farg._cls.__subclasses__():
+            if isinstance(farg._cls, tuple) or issubclass(farg._cls, Constructor):
+                if isinstance(farg._cls, tuple):
+                    options = farg._cls
+                else:
+                    assert isinstance(farg._cls.syntaxi, str)
+                    options = farg._cls.__subclasses__()
+
+                for sub_con in options:
                     try:
                         c = sub_con.from_tokens(tokens)
                         print(c)
@@ -353,7 +350,7 @@ class Syntax:
         '(', ')', '[', ']', '{', '}',
         '+', '-', '*']
 
-    def __init__(self, syntax, new_func=None, set_props={}, priority=0):
+    def __init__(self, syntax, new_func=None, priority=0):
         assert isinstance(syntax, (list, tuple))
         for element in syntax:
             if isinstance(element, str):
@@ -373,15 +370,12 @@ class Syntax:
                 raise TypeError('Element must be string or parameter')
         self.syntax = syntax
         self.new_func = new_func
-        self.set_props = set_props
         self.priority = priority
 
     def __add__(self, other):
         assert isinstance(other, Syntax)
         assert not self.new_func
         assert not other.new_func
-        assert self.set_props == {}
-        assert other.set_props == {}
         assert self.priority == 0
         assert other.priority == 0
         syntax = self.syntax + other.syntax

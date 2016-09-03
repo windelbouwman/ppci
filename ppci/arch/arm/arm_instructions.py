@@ -10,7 +10,7 @@ from ..encoding import VariablePattern
 from ..encoding import register_argument
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
-from ..token import Token, bit_range
+from ..token import Token, bit_range, bit
 from .relocations import apply_b_imm24, apply_rel8
 from .relocations import apply_ldr_imm12, apply_adr_imm12
 
@@ -32,7 +32,7 @@ class ArmToken(Token):
         super().__init__(32, '<I')
 
     cond = bit_range(28, 32)
-    S = bit_range(20, 21)
+    S = bit(20)
     Rd = bit_range(12, 16)
     Rn = bit_range(16, 20)
     Rm = bit_range(0, 4)
@@ -62,13 +62,7 @@ COND_MAP = {
     'AL': AL}
 
 
-# Shift suffix:
-class ShiftModifier(Constructor):
-    """ Shift modifier that can be appended to shift Rm """
-    syntaxi = 'shift'
-
-
-class NoShift(ShiftModifier):
+class NoShift(Constructor):
     """ No shift """
     patterns = (
         FixedPattern('shift_typ', 0),
@@ -77,34 +71,38 @@ class NoShift(ShiftModifier):
     syntax = Syntax([])
 
 
-class ShiftLsl(ShiftModifier):
+class ShiftLsl(Constructor):
     """ Logical shift left n bits """
     n = register_argument('n', int)
     patterns = (
         FixedPattern('shift_typ', 0),
         VariablePattern('shift_imm', n),
         )
-    syntax = Syntax([',', 'lsl', n])
+    syntax = Syntax([',', ' ', 'lsl', ' ', n])
 
 
-class ShiftLsr(ShiftModifier):
+class ShiftLsr(Constructor):
     """ Logical shift right n bits """
     n = register_argument('n', int)
     patterns = (
         FixedPattern('shift_typ', 1),
         VariablePattern('shift_imm', n),
         )
-    syntax = Syntax([',', 'lsr', n])
+    syntax = Syntax([',', ' ', 'lsr', ' ', n])
 
 
-class ShiftAsr(ShiftModifier):
+class ShiftAsr(Constructor):
     """ Arithmetic shift right n bits """
     n = register_argument('n', int)
     patterns = (
         FixedPattern('shift_typ', 2),
         VariablePattern('shift_imm', n),
         )
-    syntax = Syntax([',', 'asr', n])
+    syntax = Syntax([',', ' ', 'asr', ' ', n])
+
+
+# Shift suffix:
+shift_modes = (NoShift, ShiftLsl, ShiftLsr, ShiftAsr)
 
 
 # Instructions:
@@ -113,11 +111,11 @@ def inter_twine(a, cond):
     """ Create a permutation for a instruction class """
     # TODO: give this function the right name
     stx = list(a.syntax.syntax)
+    ccode = COND_MAP[cond.upper()]
     mnemonic = stx[0] + cond
     stx[0] = mnemonic
     syntax = Syntax(stx)
-    ccode = COND_MAP[cond.upper()]
-    patterns = (FixedPattern('cond', ccode), )
+    patterns = a.patterns + (FixedPattern('cond', ccode), )
     members = {'syntax': syntax, 'patterns': patterns}
     return type(mnemonic, (a, ), members)
 
@@ -131,7 +129,7 @@ class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
     rd = register_argument('rd', ArmRegister, write=True)
     imm = register_argument('imm', int)
-    syntax = Syntax(['mov', rd, ',', imm])
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -148,22 +146,23 @@ class Mov2(ArmInstruction):
     """ Mov register to register """
     rd = register_argument('rd', ArmRegister, write=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    shift = register_argument('shift', ShiftModifier)
-    syntax = Syntax(['mov', rd, ',', rm, shift])
+    shift = register_argument('shift', shift_modes)
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', rm, shift])
     patterns = (
         FixedPattern('cond', AL),
+        FixedPattern('S', 0),
         )
 
     def encode(self):
         tokens = self.get_tokens()
         self.set_all_patterns(tokens)
-        tokens[0][0:4] = self.rm.num
         tokens[0][4] = 0
+        tokens[0].Rm = self.rm.num
         tokens[0][12:16] = self.rd.num
         tokens[0][16:20] = 0
-        tokens[0].S = 0
         tokens[0][21:28] = 0xD
         return tokens[0].encode()
+
 
 Mov2LS = inter_twine(Mov2, 'ls')
 
@@ -187,8 +186,8 @@ class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    shift = register_argument('shift', ShiftModifier)
-    syntax = Syntax(['cmp', rn, ',', rm, shift])
+    shift = register_argument('shift', shift_modes)
+    syntax = Syntax(['cmp', ' ', rn, ',', ' ', rm, shift])
     patterns = (
         FixedPattern('cond', AL),
         VariablePattern('Rm', rm),
@@ -300,8 +299,6 @@ class OpRegRegReg(ArmInstruction):
         self.set_all_patterns(tokens)
         tokens[0][0:4] = self.rm.num
         tokens[0][4] = 0
-        tokens[0][5:7] = 0   # Shift type
-        tokens[0][7:12] = 0  # Shift
         tokens[0].Rd = self.rd.num
         tokens[0].Rn = self.rn.num
         tokens[0][21:28] = self.opcode
@@ -313,9 +310,12 @@ def make_regregreg(mnemonic, opcode):
     rd = register_argument('rd', ArmRegister, write=True)
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
-    syntax = Syntax([mnemonic, rd, ',', rn, ',', rm])
+    shift = register_argument('shift', shift_modes)
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', rm, shift])
     members = {
-        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode}
+        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode,
+        'shift': shift,
+        }
     return type(mnemonic + '_ins', (OpRegRegReg,), members)
 
 
@@ -340,15 +340,19 @@ class ShiftBase(ArmInstruction):
     rn = register_argument('rn', ArmRegister, read=True)
     rm = register_argument('rm', ArmRegister, read=True)
 
+    patterns = (
+        FixedPattern('cond', AL),
+        FixedPattern('S', 0),
+        )
+
     def encode(self):
         tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
         tokens[0][0:4] = self.rn.num
         tokens[0][4:8] = self.opcode
         tokens[0][8:12] = self.rm.num
         tokens[0][12:16] = self.rd.num
-        tokens[0].S = 0  # Set flags
         tokens[0][21:28] = 0b1101
-        tokens[0].cond = AL
         return tokens[0].encode()
 
 
@@ -735,14 +739,14 @@ def pattern_cjmp(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Add1(d, c0, c1))
+    context.emit(Add1(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Add1(d, c0, c1))
+    context.emit(Add1(d, c0, c1, NoShift()))
     return d
 
 
@@ -769,7 +773,7 @@ def pattern_add32_2(context, tree, c0):
 @arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Sub1(d, c0, c1))
+    context.emit(Sub1(d, c0, c1, NoShift()))
     return d
 
 
@@ -777,7 +781,7 @@ def pattern_sub32(context, tree, c0, c1):
 def pattern_sub8(context, tree, c0, c1):
     # TODO: temporary fix this with an 32 bits sub
     d = context.new_reg(ArmRegister)
-    context.emit(Sub1(d, c0, c1))
+    context.emit(Sub1(d, c0, c1, NoShift()))
     return d
 
 
@@ -811,14 +815,14 @@ def pattern_call(context, tree):
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(And1(d, c0, c1))
+    context.emit(And1(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Orr1(d, c0, c1))
+    context.emit(Orr1(d, c0, c1, NoShift()))
     return d
 
 
@@ -873,7 +877,7 @@ def pattern_rem32(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
 def pattern_xor32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Eor1(d, c0, c1))
+    context.emit(Eor1(d, c0, c1, NoShift()))
     return d
 
 # TODO: implement DIVI32 by library call.

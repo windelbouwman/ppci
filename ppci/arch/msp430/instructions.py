@@ -101,8 +101,7 @@ def apply_abs16_imm2(sym_value, data, reloc_value):
 class Dst(Constructor):
     reg = register_argument('reg', Msp430Register, write=True)
     imm = register_argument('imm', int)
-    addr = register_argument('addr', str, default_value='')
-    Ad = register_argument('Ad', int, default_value=0)
+    Ad = register_argument('Ad', int)
 
     @property
     def extra_bytes(self):
@@ -112,19 +111,13 @@ class Dst(Constructor):
             return u16(self.imm)
         return bytes()
 
-    @property
-    def is_reg_target(self):
-        """ Is the register contents targeted? """
-        return self.Ad == 0
-
-    @property
-    def is_special(self):
-        # TODO: make this more specialized
-        return self.reg in [r0, r2, r3]
+    is_reg_target = False
+    is_special = False
 
 
 class RegDst(Dst):
-    syntax = Syntax([Dst.reg], set_props={Dst.Ad: 0})
+    is_reg_target = True
+    syntax = Syntax([Dst.reg])
     patterns = [
         FixedPattern('Ad', 0),
         VariablePattern('destination', Dst.reg),
@@ -133,8 +126,10 @@ class RegDst(Dst):
 
 class AddrDst(Dst):
     """  absolute address """
+    addr = register_argument('addr', str)
     tokens = [DstImmToken]
-    syntax = Syntax(['&', Dst.addr])
+    syntax = Syntax(['&', addr])
+    is_special = True
     patterns = [
         FixedPattern('Ad', 1),
         FixedPattern('destination', 2),
@@ -144,7 +139,7 @@ class AddrDst(Dst):
 class MemDst(Dst):
     """  register offset memory access, for example: 0x88(R8) """
     tokens = [DstImmToken]
-    syntax = Syntax([Dst.imm, '(', Dst.reg, ')'], set_props={Dst.Ad: 1})
+    syntax = Syntax([Dst.imm, '(', Dst.reg, ')'])
     patterns = [
         FixedPattern('Ad', 1),
         VariablePattern('destination', Dst.reg),
@@ -152,37 +147,22 @@ class MemDst(Dst):
         ]
 
 
+dst_modes = (RegDst, AddrDst, MemDst)
+
+
 class Src(Constructor):
     reg = register_argument('reg', Msp430Register, read=True)
     imm = register_argument('imm', int)
-    As = register_argument('As', int, default_value=0)
-    addr = register_argument('addr', str, default_value='')
-
-    @property
-    def extra_bytes(self):
-        if self.addr != '':
-            return u16(0)
-        elif self.reg == r3:
-            return bytes()
-        elif (self.As == 1) or (self.As == 3 and self.reg == r0):
-            return u16(self.imm)
-        return bytes()
-
-    @property
-    def is_reg_target(self):
-        """ Is the register contents targeted? """
-        return self.As == 0
-
-    @property
-    def is_special(self):
-        # TODO: make this more specialized
-        return self.reg in [r0, r2, r3]
+    As = register_argument('As', int)
+    is_reg_target = False
+    is_special = False
 
 
 class ConstSrc(Src):
     """ Equivalent to @PC+ """
     tokens = [SrcImmToken]
-    syntax = Syntax(['#', Src.imm], set_props={Src.As: 3, Src.reg: r0})
+    syntax = Syntax(['#', Src.imm])
+    is_special = True
     patterns = [
         FixedPattern('As', 3),
         FixedPattern('source', 0),
@@ -192,15 +172,17 @@ class ConstSrc(Src):
 
 class ConstLabelSrc(Src):
     """ Equivalent to @PC+ """
+    addr = register_argument('addr', str)
     tokens = [SrcImmToken]
-    syntax = Syntax(['#', Src.addr], set_props={Src.As: 3, Src.reg: r0})
+    syntax = Syntax(['#', addr])
+    is_special = True
     patterns = [
         FixedPattern('As', 3),
         FixedPattern('source', 0),
         ]
     # TODO: reloc here? this should be implemented something like this:
     relocations = (
-        Relocation(Src.addr, apply_abs16_imm0),
+        Relocation(addr, apply_abs16_imm0),
     )
 
 
@@ -212,6 +194,7 @@ class SmallConstSrc(Src):
     """ Equivalent to @PC+ """
     syntax = Syntax(['#', Src.imm], priority=2)
     # TODO: implement small source!
+    is_special = True
     patterns = [
         VariablePattern('As', Src.imm, transform=(lambda x: as_cn_map[x], None)),
         VariablePattern('source', Src.imm, transform=(lambda x: rg_cn_map[x], None)),
@@ -239,6 +222,7 @@ def small_const_src(x):
 
 class RegSrc(Src):
     """ Simply refer to a register """
+    is_reg_target = True
     syntax = Syntax([Src.reg])
     patterns = [
         FixedPattern('As', 0),
@@ -248,8 +232,10 @@ class RegSrc(Src):
 
 class AdrSrc(Src):
     """ absolute address """
+    is_special = True
+    addr = register_argument('addr', str)
     tokens = [SrcImmToken]
-    syntax = Syntax(['&', Src.addr], set_props={Src.reg: r2})
+    syntax = Syntax(['&', addr])
     patterns = [
         FixedPattern('As', 1),
         FixedPattern('source', 2),
@@ -287,7 +273,6 @@ class MemSrcOffset(Src):
 src_modes = (
     AdrSrc, RegSrc, MemSrc, MemSrcInc, MemSrcOffset,
     SmallConstSrc, ConstSrc, ConstLabelSrc)
-dst_modes = (RegDst, AddrDst, MemDst)
 
 
 class Msp430Instruction(Instruction):
@@ -339,7 +324,7 @@ class OneOpArith(Msp430Instruction):
 
     def relocations(self):
         # TODO: re design this:
-        if self.src.addr != '':
+        if hasattr(self.src, 'addr'):
             yield (self.src.addr, apply_abs16_imm1)
 
 
@@ -420,10 +405,10 @@ class TwoOpArithInstruction(Msp430Instruction):
     tokens = [Msp430TwoOperandToken]
 
     def relocations(self):
-        if self.src.addr != '':
+        if hasattr(self.src, 'addr'):
             yield (self.src.addr, apply_abs16_imm1)
-        if self.dst.addr != '':
-            if self.src.addr != '':
+        if hasattr(self.dst, 'addr'):
+            if hasattr(self.src, 'addr'):
                 yield (self.dst.addr, apply_abs16_imm2)
             else:
                 yield (self.dst.addr, apply_abs16_imm1)
@@ -439,7 +424,7 @@ class TwoOpArithInstruction(Msp430Instruction):
                 s.append(self.src.reg)
 
         # Dst:
-        if not self.src.is_special:
+        if not self.dst.is_special:
             if self.dst.is_reg_target:
                 if self.dst_read:
                     s.append(self.dst.reg)
