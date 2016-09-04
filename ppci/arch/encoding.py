@@ -135,12 +135,8 @@ class Constructor:
         # Create constructors:
         fargs = cls.syntax.get_formal_arguments()
         for farg in fargs:
-            if isinstance(farg._cls, tuple) or issubclass(farg._cls, Constructor):
-                if isinstance(farg._cls, tuple):
-                    options = farg._cls
-                else:
-                    assert isinstance(farg._cls.syntaxi, str)
-                    options = farg._cls.__subclasses__()
+            if isinstance(farg._cls, tuple):
+                options = farg._cls
 
                 for sub_con in options:
                     try:

@@ -298,12 +298,12 @@ class Inc(X86Instruction):
 
 class Rm8(Constructor):
     """ Register of memory of 8 bits """
-    syntaxi = 'rm8'
+    pass
 
 
 class Rm(Constructor):
     """ 64 bit register of memory """
-    syntaxi = 'rm64'
+    pass
 
 
 class RmMem(Rm):
@@ -509,6 +509,9 @@ class RmMemDisp8(Rm8):
             tokens.set_field('rm', self.reg.regbits)
 
 
+rm_modes = (RmMem, RmReg, RmMemDisp, RmMemDisp2, RmRip, RmAbsLabel, RmAbs)
+rm8_modes = (RmMem8, RmReg8, RmMemDisp8)
+
 class rmregbase(X86Instruction):
     """
         Base class for legio instructions involving a register and a
@@ -565,7 +568,7 @@ class rmregbase(X86Instruction):
 
 def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
-    rm = register_argument('rm', Rm)
+    rm = register_argument('rm', rm_modes)
     reg = register_argument('reg', X86Register, read=True)
     syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
@@ -575,7 +578,7 @@ def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
 
 def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
-    rm = register_argument('rm', Rm8)
+    rm = register_argument('rm', rm8_modes)
     reg = register_argument('reg', LowRegister, read=True)
     syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
@@ -584,7 +587,7 @@ def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True):
-    rm = register_argument('rm', Rm)
+    rm = register_argument('rm', rm_modes)
     reg = register_argument('reg', X86Register, write=write_op1, read=read_op1)
     syntax = Syntax([mnemonic, ' ', reg, ',', ' ', rm], priority=1)
     members = {
@@ -593,7 +596,7 @@ def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
-    rm = register_argument('rm', Rm8)
+    rm = register_argument('rm', rm8_modes)
     reg = register_argument('reg', LowRegister, write=write_op1, read=read_op1)
     syntax = Syntax([mnemonic, ' ', reg, ',', ' ', rm], priority=1)
     members = {
@@ -604,7 +607,7 @@ def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
 class MovsxRegRm(rmregbase):
     """ Move sign extend, which means take a byte and sign extend it! """
     reg = register_argument('reg', X86Register, write=True)
-    rm = register_argument('rm', Rm8, read=True)
+    rm = register_argument('rm', rm8_modes, read=True)
     syntax = Syntax(['movsx', ' ', reg, ',', ' ', rm])
     opcode = 0x0f
     opcode2 = 0xbe
@@ -613,7 +616,7 @@ class MovsxRegRm(rmregbase):
 class MovzxRegRm(rmregbase):
     """ Move zero extend """
     reg = register_argument('reg', X86Register, write=True)
-    rm = register_argument('rm', Rm8, read=True)
+    rm = register_argument('rm', rm8_modes, read=True)
     syntax = Syntax(['movzx', ' ', reg, ',', ' ', rm])
     opcode = 0x0f
     opcode2 = 0xb6
@@ -679,7 +682,7 @@ CmpImm = make_regimm('cmp', 0x81, 7)
 
 
 class shift_cl_base(X86Instruction):
-    rm = register_argument('rm', Rm)
+    rm = register_argument('rm', rm_modes)
     tokens = [RexToken, OpcodeToken, ModRmToken]
     opcode = 0xd3
 

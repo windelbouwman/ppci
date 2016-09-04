@@ -206,7 +206,6 @@ class BaseAssembler:
             return self.typ2nt[arg_cls]
 
         if isinstance(arg_cls, tuple):
-            print('w00t')
             assert len(arg_cls) > 0
             nt = 'w00t{}'.format(id(arg_cls))
             assert nt not in self.typ2nt.values()
@@ -233,17 +232,10 @@ class BaseAssembler:
                 for stx in rules:
                     self.generate_syntax_rule(arg_cls, nt, stx)
                 return nt
-            else:
-                # print('Deprecation')
-                nt = arg_cls.syntaxi
-
-                # Store nt for later:
-                self.typ2nt[arg_cls] = nt
-
-                # Add rules:
-                for subcon in arg_cls.__subclasses__():
-                    self.generate_syntax_rule(subcon, nt, subcon.syntax)
-                return nt
+            else:  # pragma: no cover
+                raise NotImplemented(
+                    "syntaxi constructor was removed,"
+                    "use a tuple of options instead")
 
     # End of generating functions
 
