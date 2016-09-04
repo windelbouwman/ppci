@@ -705,7 +705,8 @@ def pattern_const32(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'CONSTI32', size=4, condition=lambda t: t.value < 256)
+@arm_isa.pattern(
+    'reg', 'CONSTI32', size=4, condition=lambda t: t.value in range(256))
 def pattern_const32_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -752,7 +753,7 @@ def pattern_add8(context, tree, c0, c1):
 
 @arm_isa.pattern(
     'reg', 'ADDI32(reg, CONSTI32)', size=4,
-    condition=lambda t: t.children[1].value < 256)
+    condition=lambda t: t.children[1].value in range(256))
 def pattern_add32_1(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[1].value
@@ -762,7 +763,7 @@ def pattern_add32_1(context, tree, c0):
 
 @arm_isa.pattern(
     'reg', 'ADDI32(CONSTI32, reg)', size=4,
-    condition=lambda t: t.children[0].value < 256)
+    condition=lambda t: t.children[0].value in range(256))
 def pattern_add32_2(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[0].value

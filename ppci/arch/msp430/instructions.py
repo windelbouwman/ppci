@@ -196,8 +196,10 @@ class SmallConstSrc(Src):
     # TODO: implement small source!
     is_special = True
     patterns = [
-        VariablePattern('As', Src.imm, transform=(lambda x: as_cn_map[x], None)),
-        VariablePattern('source', Src.imm, transform=(lambda x: rg_cn_map[x], None)),
+        VariablePattern(
+            'As', Src.imm, transform=(lambda x: as_cn_map[x], None)),
+        VariablePattern(
+            'source', Src.imm, transform=(lambda x: rg_cn_map[x], None)),
         ]
 
 
