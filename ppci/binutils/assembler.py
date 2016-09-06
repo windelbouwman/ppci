@@ -252,14 +252,10 @@ class BaseAssembler:
         self.in_macro = False
 
     def emit(self, instruction):
-        if isinstance(instruction, ArtificialInstruction):
-            for xi in instruction.render():
-                self.emit(xi)
+        if self.in_macro:
+            self.recording.append(instruction)
         else:
-            if self.in_macro:
-                self.recording.append(instruction)
-            else:
-                self.stream.emit(instruction)
+            self.stream.emit(instruction)
 
     # Top level interface:
     def parse_line(self, line):

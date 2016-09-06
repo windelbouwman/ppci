@@ -1,11 +1,11 @@
 """ Description of avr registers """
 
-from ..encoding import Syntax
 from ..registers import Register, RegisterClass
 from ...ir import i16, i8, ptr
 
 
 class AvrRegister(Register):
+    """ An 8-bit avr register """
     bitsize = 8
 
     def __repr__(self):
@@ -22,11 +22,6 @@ class HighAvrRegister(AvrRegister):
 class AvrWordRegister(Register):
     """ Register covering two 8 bit registers """
     bitsize = 16
-    syntaxi = 'reg16', [
-        Syntax(['r17', ':', 'r16'], new_func=lambda: r17r16),
-        Syntax(['r19', ':', 'r18'], new_func=lambda: r19r18),
-        Syntax(['r21', ':', 'r20'], new_func=lambda: r21r20),
-        ]
 
     def __repr__(self):
         if self.is_colored:
@@ -57,9 +52,7 @@ class AvrXRegister(AvrPointerRegister):
 
 
 class AvrYRegister(AvrPointerRegister):
-    syntaxi = 'yreg16', [
-        Syntax(['y'], new_func=lambda: Y),
-        ]
+    pass
 
 
 class AvrZRegister(AvrPointerRegister):
@@ -139,6 +132,7 @@ r23r22 = HighAvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
 r25r24 = HighAvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
 X = AvrXRegister('X', num=26, aliases=(r27, r26))
 Y = AvrYRegister('Y', num=28, aliases=(r29, r28))
+AvrYRegister.registers = [Y]
 Z = AvrZRegister('Z', num=30, aliases=(r31, r30))
 
 
@@ -160,6 +154,7 @@ num_reg_map = {r.num: r for r in all_regs}
 
 AvrRegister.registers = all_regs
 HighAvrRegister.registers = hi_regs
+AvrWordRegister.registers = all_w_regs
 
 
 def get_register(n):
