@@ -123,7 +123,7 @@ class Constructor:
                     raise ValueError('Cannot decode {}'.format(cls))
             elif isinstance(pattern, VariablePattern):
                 if issubclass(pattern.prop._cls, Register):
-                    regs = [r.new_func() for r in pattern.prop._cls.syntaxi[1]]
+                    regs = pattern.prop._cls.all_registers()
                     reg_map = {r.num: r for r in regs}
                     prop_map[pattern.prop] = reg_map[v]
                 else:

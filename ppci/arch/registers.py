@@ -6,13 +6,24 @@ RegisterClass = namedtuple(
 
 class Register:
     """ Baseclass of all registers types """
-    def __init__(self, name, num=None, aliases=()):
+
+    @classmethod
+    def all_registers(cls):
+        """ Return all possible instances for this class """
+        if hasattr(cls, 'registers'):
+            return getattr(cls, 'registers')
+        else:
+            syntaxi = getattr(cls, 'syntaxi')
+            return [r.new_func() for r in syntaxi[1]]
+
+    def __init__(self, name, num=None, aliases=(), aka=()):
         assert isinstance(name, str)
         self.name = name
         self._num = num
 
         # If this register interferes with another register:
         self.aliases = aliases
+        self.aka = aka
         if num is not None:
             assert isinstance(num, int)
 

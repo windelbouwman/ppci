@@ -9,8 +9,8 @@ from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
-from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
-from ..arch.encoding import InstructionProperty, Syntax
+from ..arch.arch import Label, Alignment, SectionInstruction, DebugData, ArtificialInstruction
+from ..arch.encoding import InstructionProperty, Syntax, Register
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
 
@@ -73,8 +73,8 @@ class AsmParser:
         self.g.start_symbol = 'asmline'
 
     def handle_ins(self, i):
-        if i:
-            self.emit(i)
+        # if i:
+        self.emit(i)
 
     def handle_label(self, i1, _):
         self.emit(Label(i1))
@@ -218,35 +218,48 @@ class BaseAssembler:
             # arg not found, try syntaxi:
             # This means, find all subclasses of this composite type, and use
             # these syntaxes.
-            syntaxi = getattr(arg_cls, 'syntaxi')
+            assert issubclass(arg_cls, Register)
             # TODO: figure a nice way for this:
-            if isinstance(syntaxi, tuple):
-                # In case of a tuple, the options are not subclasses, but
-                # listed in the tuple:
-                nt, rules = arg_cls.syntaxi
 
-                # Store nt for later:
-                self.typ2nt[arg_cls] = nt
+            # create a non-terminal name:
+            nt = '$reg_cls_{}$'.format(arg_cls.__name__.lower())
 
-                # Add rules:
-                for stx in rules:
-                    self.generate_syntax_rule(arg_cls, nt, stx)
-                return nt
-            else:  # pragma: no cover
-                raise NotImplemented(
-                    "syntaxi constructor was removed,"
-                    "use a tuple of options instead")
+            # Store nt for later:
+            self.typ2nt[arg_cls] = nt
+
+            # Add rules for each register:
+            for register in arg_cls.all_registers():
+                self.make_register_rule_function(nt, register)
+            return nt
+
+    def make_register_rule_function(self, nt, register):
+        """ Create a function that can be used for a register grammar rule """
+        def cs(_):
+            return register
+        rhs = self.resolve_rhs(self.split_text(register.name))
+        self.add_rule(nt, rhs, cs)
+        for aka in register.aka:
+            rhs = self.resolve_rhs(self.split_text(aka))
+            self.add_rule(nt, rhs, cs)
+
+    def split_text(self, txt):
+        """ Split text into lexical tokens """
+        return [t.val for t in self.lexer.tokenize(txt.lower())]
 
     # End of generating functions
 
     def prepare(self):
         self.in_macro = False
 
-    def emit(self, *args):
-        if self.in_macro:
-            self.recording.append(args)
+    def emit(self, instruction):
+        if isinstance(instruction, ArtificialInstruction):
+            for xi in instruction.render():
+                self.emit(xi)
         else:
-            self.stream.emit(*args)
+            if self.in_macro:
+                self.recording.append(instruction)
+            else:
+                self.stream.emit(instruction)
 
     # Top level interface:
     def parse_line(self, line):
@@ -317,4 +330,4 @@ class BaseAssembler:
         assert self.in_macro
         self.in_macro = False
         for rec in self.recording * self.rep_count:
-            self.emit(*rec)
+            self.emit(rec)

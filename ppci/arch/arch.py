@@ -185,7 +185,7 @@ class VirtualInstruction(Instruction):
         and can never be encoded into a stream.
     """
     def encode(self):  # pragma: no cover
-        raise RuntimeError('Cannot encode virtual instruction')
+        raise RuntimeError('Cannot encode virtual {}'.format(self))
 
 
 class RegisterUseDef(VirtualInstruction):

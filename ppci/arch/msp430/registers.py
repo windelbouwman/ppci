@@ -35,15 +35,15 @@ class Msp430Register(Register):
 
 
 # 8 bit registers:
-PCB = Msp430Register('r0', num=0)
+PCB = Msp430Register('r0', num=0, aka=('pc',))
 rpc = PCB
 r0 = PCB
 PC = r0
-r1 = Msp430Register('r1', num=1)
+r1 = Msp430Register('r1', num=1, aka=('sp',))
 SP = r1  # Stack pointer
-r2 = Msp430Register('r2', num=2)
+r2 = Msp430Register('r2', num=2, aka=('sr',))
 SR = r2  # Status register
-r3 = Msp430Register('r3', num=3)
+r3 = Msp430Register('r3', num=3, aka=('cg',))
 CG = r3  # Constant generator
 r4 = Msp430Register('r4', num=4)
 r5 = Msp430Register('r5', num=5)

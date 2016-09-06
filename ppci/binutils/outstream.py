@@ -6,11 +6,14 @@
 import logging
 from ..arch.encoding import Instruction
 from ..arch.arch import Alignment, DebugData, SectionInstruction
+from ..arch.arch import ArtificialInstruction
 
 
 class OutputStream:
-    """ Interface to generate code with. Contains the emit function to output
-    instruction to the stream """
+    """ Interface to generate code with.
+
+    Contains the emit function to output instruction to the stream.
+    """
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
         raise NotImplementedError('Abstract base class')
@@ -42,13 +45,17 @@ class BinaryOutputStream(OutputStream):
 
     def emit(self, item):
         """ Encode instruction and add symbol and relocation information.
-            At this point we know the address of the instruction.
         """
         assert isinstance(item, Instruction), str(item) + str(type(item))
 
         if isinstance(item, SectionInstruction):
             self.current_section = self.obj_file.get_section(
                 item.name, create=True)
+
+        if isinstance(item, ArtificialInstruction):
+            for expanded_instruction in item.render():
+                self.emit(expanded_instruction)
+            return
 
         assert self.current_section
         section = self.current_section

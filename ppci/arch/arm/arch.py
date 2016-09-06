@@ -243,6 +243,7 @@ class ArmAssembler(BaseAssembler):
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
+        reg_nt = '$reg_cls_armregister$'
         self.typ2nt[RegisterSet] = 'reg_list'
         self.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
@@ -258,17 +259,17 @@ class ArmAssembler(BaseAssembler):
             lambda rhs: RegisterSet(rhs[0] | rhs[2]))
 
         self.add_rule(
-            'reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
+            'reg_or_range', [reg_nt], lambda rhs: RegisterSet([rhs[0]]))
         self.add_rule(
             'reg_or_range',
-            ['reg', '-', 'reg'],
+            [reg_nt, '-', reg_nt],
             lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:
         self.add_rule(
             'instruction',
-            ['ldr', 'reg', ',', '=', 'ID'],
+            ['ldr', reg_nt, ',', '=', 'ID'],
             lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
     def flush(self):
@@ -296,6 +297,7 @@ class ThumbAssembler(BaseAssembler):
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
+        reg_nt = '$reg_cls_armregister$'
         self.typ2nt[set] = 'reg_list'
         self.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
@@ -310,10 +312,10 @@ class ThumbAssembler(BaseAssembler):
         # 'reg_list_inner',
         # ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
 
-        self.add_rule('reg_or_range', ['reg'], lambda rhs: set([rhs[0]]))
+        self.add_rule('reg_or_range', [reg_nt], lambda rhs: set([rhs[0]]))
         self.add_rule(
             'reg_or_range',
-            ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
+            [reg_nt, '-', reg_nt], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
 def round_up(s):

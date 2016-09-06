@@ -2,6 +2,7 @@
 
 from ..encoding import Instruction, register_argument, Syntax, Constructor
 from ..encoding import FixedPattern, VariablePattern
+from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, u16, bit_range, bit
 from .registers import Msp430Register, r0, r2, r3, SP, PC
@@ -488,33 +489,60 @@ Andb = two_op_ins('and', 15, b=1)
 
 
 # pseudo instructions:
-def ret():
-    return pop(PC)
 
 
-def pop(dst):
+class PseudoMsp430Instruction(ArtificialInstruction):
+    """ Base class for all pseudo instructions """
+    isa = isa
+
+
+class Ret(PseudoMsp430Instruction):
     """ Pop value from stack """
-    return Mov(MemSrcInc(SP), RegDst(dst))
+    syntax = Syntax(['ret'])
+
+    def render(self):
+        yield Pop(PC)
 
 
-def nop():
+class Pop(PseudoMsp430Instruction):
+    """ Pop value from stack """
+    dst = register_argument('dst', Msp430Register, write=True)
+    syntax = Syntax(['pop', ' ', dst])
+
+    def render(self):
+        yield Mov(MemSrcInc(SP), RegDst(self.dst))
+
+
+class Nop(PseudoMsp430Instruction):
     """ no op implemented as mov #0, r3 """
-    return Mov(small_const_src(0), RegDst(r3))
+    syntax = Syntax(['nop'])
+
+    def render(self):
+        yield Mov(small_const_src(0), RegDst(r3))
 
 
-def clrc():
+class Clrc(PseudoMsp430Instruction):
     """ clear carry implemented as bic #1, sr """
-    return Bicw(small_const_src(1), RegDst(r2))
+    syntax = Syntax(['clrc'])
+
+    def render(self):
+        yield Bicw(small_const_src(1), RegDst(r2))
 
 
-def clrn():
+class Clrn(PseudoMsp430Instruction):
     """ clear negative implemented as bic #4, sr """
-    return Bicw(small_const_src(4), RegDst(r2))
+    syntax = Syntax(['clrn'])
+
+    def render(self):
+        yield Bicw(small_const_src(4), RegDst(r2))
 
 
-def clrz():
+class Clrz(PseudoMsp430Instruction):
     """ clear zero implemented as bic #2, sr """
-    return Bicw(small_const_src(2), RegDst(r2))
+    syntax = Syntax(['clrz'])
+
+    def render(self):
+        yield Bicw(small_const_src(2), RegDst(r2))
 
 
 def push(reg):

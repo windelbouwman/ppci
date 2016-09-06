@@ -14,61 +14,9 @@ class AvrRegister(Register):
         else:
             return self.name
 
-    syntaxi = 'reg', [
-        Syntax(['r0'], new_func=lambda: r0),
-        Syntax(['r1'], new_func=lambda: r1),
-        Syntax(['r2'], new_func=lambda: r2),
-        Syntax(['r3'], new_func=lambda: r3),
-        Syntax(['r4'], new_func=lambda: r4),
-        Syntax(['r5'], new_func=lambda: r5),
-        Syntax(['r6'], new_func=lambda: r6),
-        Syntax(['r7'], new_func=lambda: r7),
-        Syntax(['r8'], new_func=lambda: r8),
-        Syntax(['r9'], new_func=lambda: r9),
-        Syntax(['r10'], new_func=lambda: r10),
-        Syntax(['r11'], new_func=lambda: r11),
-        Syntax(['r12'], new_func=lambda: r12),
-        Syntax(['r13'], new_func=lambda: r13),
-        Syntax(['r14'], new_func=lambda: r14),
-        Syntax(['r15'], new_func=lambda: r15),
-        Syntax(['r16'], new_func=lambda: r16),
-        Syntax(['r17'], new_func=lambda: r17),
-        Syntax(['r18'], new_func=lambda: r18),
-        Syntax(['r19'], new_func=lambda: r19),
-        Syntax(['r20'], new_func=lambda: r20),
-        Syntax(['r21'], new_func=lambda: r21),
-        Syntax(['r22'], new_func=lambda: r22),
-        Syntax(['r23'], new_func=lambda: r23),
-        Syntax(['r24'], new_func=lambda: r24),
-        Syntax(['r25'], new_func=lambda: r25),
-        Syntax(['r26'], new_func=lambda: r26),
-        Syntax(['r27'], new_func=lambda: r27),
-        Syntax(['r28'], new_func=lambda: r28),
-        Syntax(['r29'], new_func=lambda: r29),
-        Syntax(['r30'], new_func=lambda: r30),
-        Syntax(['r31'], new_func=lambda: r31),
-        ]
-
 
 class HighAvrRegister(AvrRegister):
-    syntaxi = 'hireg', [
-        Syntax(['r16'], new_func=lambda: r16),
-        Syntax(['r17'], new_func=lambda: r17),
-        Syntax(['r18'], new_func=lambda: r18),
-        Syntax(['r19'], new_func=lambda: r19),
-        Syntax(['r20'], new_func=lambda: r20),
-        Syntax(['r21'], new_func=lambda: r21),
-        Syntax(['r22'], new_func=lambda: r22),
-        Syntax(['r23'], new_func=lambda: r23),
-        Syntax(['r24'], new_func=lambda: r24),
-        Syntax(['r25'], new_func=lambda: r25),
-        Syntax(['r26'], new_func=lambda: r26),
-        Syntax(['r27'], new_func=lambda: r27),
-        Syntax(['r28'], new_func=lambda: r28),
-        Syntax(['r29'], new_func=lambda: r29),
-        Syntax(['r30'], new_func=lambda: r30),
-        Syntax(['r31'], new_func=lambda: r31),
-        ]
+    pass
 
 
 class AvrWordRegister(Register):
@@ -209,6 +157,9 @@ hi_w_regs = (
 all_w_regs = lo_w_regs + hi_w_regs
 
 num_reg_map = {r.num: r for r in all_regs}
+
+AvrRegister.registers = all_regs
+HighAvrRegister.registers = hi_regs
 
 
 def get_register(n):

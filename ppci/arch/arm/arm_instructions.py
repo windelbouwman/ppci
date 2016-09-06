@@ -607,7 +607,7 @@ class McrBase(ArmInstruction):
 
 class Mcr(McrBase):
     """ Move from register to co processor register """
-    coproc = register_argument('coproc', Coproc)
+    coproc = register_argument('coproc', Coproc, read=True)
     opc1 = register_argument('opc1', int)
     rt = register_argument('rt', ArmRegister, read=True)
     crn = register_argument('crn', Coreg, read=True)
@@ -619,7 +619,7 @@ class Mcr(McrBase):
 
 
 class Mrc(McrBase):
-    coproc = register_argument('coproc', Coproc)
+    coproc = register_argument('coproc', Coproc, read=True)
     opc1 = register_argument('opc1', int)
     rt = register_argument('rt', ArmRegister, write=True)
     crn = register_argument('crn', Coreg, read=True)

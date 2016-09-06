@@ -11,7 +11,7 @@ from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes
-from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
+from .instructions import isa, mov, Ret, Pop
 from .instructions import push, call, Add, Sub, ConstSrc, RegDst
 
 
@@ -24,7 +24,7 @@ class Msp430Arch(Architecture):
         self.byte_sizes['int'] = 2
         self.byte_sizes['ptr'] = 2
         self.isa = isa + data_isa
-        self.assembler = Msp430Assembler()
+        self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
         # import ipdb; ipdb.set_trace()
 
@@ -67,7 +67,7 @@ class Msp430Arch(Architecture):
         # Restore caller save registers:
         for register in reversed(live_regs):
             if register in self.caller_save:
-                yield pop(register)
+                yield Pop(register)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
@@ -98,10 +98,10 @@ class Msp430Arch(Architecture):
         # Pop save registers back:
         for reg in reversed(self.callee_save):
             if frame.is_used(reg):
-                yield pop(reg)
+                yield Pop(reg)
 
         # Return from function:
-        yield ret()
+        yield Ret()
 
         # Add final literal pool:
         for instruction in self.litpool(frame):
@@ -178,35 +178,6 @@ class Msp430Frame(Frame):
         """ Check if a register is used by this frame """
         # TODO: implement a check here!
         return True
-
-
-class Msp430Assembler(BaseAssembler):
-    def __init__(self):
-        super().__init__()
-        self.add_keyword('nop')
-        self.add_rule(
-            'instruction', ['nop'],
-            lambda rhs: nop())
-        self.add_keyword('ret')
-        self.add_rule(
-            'instruction', ['ret'],
-            lambda rhs: ret())
-        self.add_keyword('pop')
-        self.add_rule(
-            'instruction', ['pop', 'reg'],
-            lambda rhs: pop(rhs[1]))
-        self.add_keyword('clrc')
-        self.add_rule(
-            'instruction', ['clrc'],
-            lambda rhs: clrc())
-        self.add_keyword('clrn')
-        self.add_rule(
-            'instruction', ['clrn'],
-            lambda rhs: clrn())
-        self.add_keyword('clrz')
-        self.add_rule(
-            'instruction', ['clrz'],
-            lambda rhs: clrz())
 
 
 RT_ASM_SRC = """
