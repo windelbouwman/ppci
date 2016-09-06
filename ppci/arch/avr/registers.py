@@ -131,9 +131,12 @@ r21r20 = HighAvrWordRegister('r21:r20', num=20, aliases=(r21, r20))
 r23r22 = HighAvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
 r25r24 = HighAvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
 X = AvrXRegister('X', num=26, aliases=(r27, r26))
+AvrXRegister.registers = [X]
 Y = AvrYRegister('Y', num=28, aliases=(r29, r28))
 AvrYRegister.registers = [Y]
 Z = AvrZRegister('Z', num=30, aliases=(r31, r30))
+AvrZRegister.registers = [Z]
+AvrPointerRegister.registers = (X, Y, Z)
 
 
 lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
@@ -155,6 +158,7 @@ num_reg_map = {r.num: r for r in all_regs}
 AvrRegister.registers = all_regs
 HighAvrRegister.registers = hi_regs
 AvrWordRegister.registers = all_w_regs
+HighAvrWordRegister.registers = hi_w_regs
 
 
 def get_register(n):
