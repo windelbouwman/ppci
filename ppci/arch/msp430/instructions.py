@@ -4,7 +4,7 @@ from ..encoding import Instruction, register_argument, Syntax, Constructor
 from ..encoding import FixedPattern, VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
-from ..token import Token, u16, bit_range, bit
+from ..token import Token, bit_range, bit
 from .registers import Msp430Register, r0, r2, r3, SP, PC
 from ...utils.bitfun import align, wrap_negative
 from ...ir import i16
@@ -103,15 +103,6 @@ class Dst(Constructor):
     reg = register_argument('reg', Msp430Register, write=True)
     imm = register_argument('imm', int)
     Ad = register_argument('Ad', int)
-
-    @property
-    def extra_bytes(self):
-        if self.addr != '':
-            return u16(0)
-        elif (self.Ad == 1):
-            return u16(self.imm)
-        return bytes()
-
     is_reg_target = False
     is_special = False
 
@@ -299,6 +290,7 @@ def create_jump_instruction(name, condition):
     patterns = [
         FixedPattern('condition', condition),
         FixedPattern('opcode', 1),
+        # RelocPattern('offset', target, lambda sv, rv: ),
         ]
     members = {
         'syntax': syntax, 'target': target, 'patterns': patterns}

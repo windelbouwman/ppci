@@ -2,6 +2,8 @@
 Links
 =====
 
+This section contains links and resources to other projects, papers and books.
+
 
 Classical compilers
 -------------------
@@ -21,6 +23,10 @@ source land.
   The gnu compiler. The famous open source compiler.
   https://gcc.gnu.org/
 
+
+Other compilers
+---------------
+
 * `ACK`
 
   The amsterdam compiler kit.
@@ -30,6 +36,11 @@ source land.
 
   A retargetable C compiler.
   https://github.com/drh/lcc
+
+* `sdcc`
+
+  THe small device c compiler.
+  http://sdcc.sourceforge.net/
 
 
 Other compilers written in python
@@ -45,6 +56,21 @@ Other compilers written in python
 
   A msp430 tools project in python.
   https://launchpad.net/python-msp430-tools
+
+* `peachpy`
+
+  A x86 64 assembly code generator.
+  https://github.com/Maratyszcza/PeachPy
+
+* `pycca`
+
+  An x86 assembly code generator and compiler in python.
+  https://github.com/campagnola/pycca
+
+* `llvm-codegen-py`
+
+  Machine code generation in python from llvm ir code.
+  https://github.com/pfalcon/llvm-codegen-py
 
 
 Citations

@@ -229,6 +229,7 @@ class BaseAssembler:
 
             # Add rules for each register:
             for register in arg_cls.all_registers():
+                assert isinstance(register, arg_cls)
                 self.make_register_rule_function(nt, register)
             return nt
 

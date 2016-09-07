@@ -9,7 +9,7 @@ The project contains the following:
 
 - A Compiler, an assembler, a linker and a build system
 - Language front-ends: Brainfuck, c3
-- Backends: 6500, arm, avr, msp430, risc-v, x86_64
+- Backends: 6500, arm, avr, msp430, risc-v, stm8, x86_64
 
 .. warning::
 

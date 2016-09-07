@@ -41,13 +41,7 @@ class BaseLexer:
             if func:
                 res = func(typ, val)
                 if res:
-                    if len(res) == 2:
-                        typ, val = res
-                    elif len(res) == 3:
-                        typ, val, new_pos = res
-                    else:
-                        raise NotImplementedError('Not implemented')
-                    # print(typ, val)
+                    typ, val = res
                     yield Token(typ, val, loc)
             self.pos = new_pos
             mo = self.gettok(txt, self.pos)
