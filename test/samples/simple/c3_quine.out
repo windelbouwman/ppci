@@ -1,0 +1,1 @@
+module main;import io;import bsp;function void main(){var string x="module main;import io;import bsp;function void main(){var string x=;io.print_sub(x,0,67);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,67,164);bsp.putc(10);}";io.print_sub(x,0,67);bsp.putc(34);io.print(x);bsp.putc(34);io.print_sub(x,67,164);bsp.putc(10);}

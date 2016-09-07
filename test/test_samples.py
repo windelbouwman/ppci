@@ -59,327 +59,46 @@ class EightBitSamples:
         self.do(snippet, "ABCDE")
 
 
+def create_test_function(source, output):
+    """ Create a test function for a source file """
+    with open(source) as f:
+        snippet = f.read()
+    with open(output) as f:
+        res = f.read()
+
+    def tst_func(slf):
+        slf.do(snippet, res)
+    return tst_func
+
+
+def source_files(folder):
+    d = relpath('samples', folder)
+    for filename in os.listdir(d):
+        if filename.endswith(('.c3', '.bf')):
+            yield os.path.join(d, filename)
+
+
+def add_samples(*folders):
+    """ Create a decorator function that adds tests in the given folders """
+    def deco(cls):
+        for folder in folders:
+            for source in source_files(folder):
+                output = os.path.splitext(source)[0] + '.out'
+                tf = create_test_function(source, output)
+                basename = os.path.basename(source)
+                func_name = 'test_' + os.path.splitext(basename)[0]
+                assert not hasattr(cls, func_name)
+                setattr(cls, func_name, tf)
+        return cls
+    return deco
+
+
+@add_samples('simple')
 class SimpleSamples:
     """ Collection of snippets with expected output. No integer size is
         assumed here. So should run on 64 and 32 and 16 bit machines.
     """
-
-    def test_find_first(self):
-        snippet = """
-        module main;
-        import io;
-        function int find_first(int *a, int b, int size, int stride) {
-            var int i = 0;
-            var int ptr = 0;
-            for ( i=0; i<size; i+=1 ) {
-              if ( *(a + ptr) == b ) {
-                return i;
-              }
-              ptr += stride;
-            }
-            return 0xff;
-        }
-        const int N = 10;
-        function void main()
-        {
-            var int[N] a;
-            a[0] = 12;
-            a[1] = 7;
-            a[2] = 3;
-            a[3] = 5;
-            a[4] = 42;
-            a[5] = 8;
-            a[6] = 3;
-            a[7] = 5;
-            a[8] = 8;
-            a[9] = 1;
-            io.print2("I=", find_first(&a[0], 42, N, sizeof(int)));
-        }
-        """
-        self.do(snippet, "I=0x00000004\n")
-
-    def test_print(self):
-        """ Test if print statement works """
-        snippet = """
-         module main;
-         import io;
-         function void main()
-         {
-            io.print("Hello world");
-         }
-        """
-        self.do(snippet, "Hello world")
-
-    def test_global_initialization(self):
-        """ Test proper initialization of global variables """
-        snippet = """
-        module main;
-        import io;
-        var int A = 60, B=6;
-
-        function void main()
-        {
-          io.print2("A+B=", A + B);
-        }
-        """
-        self.do(snippet, 'A+B=0x00000042\n')
-
-    def test_sw_mul(self):
-        """ Test software multiplication algorithm """
-        snippet = """
-        module main;
-        import io;
-        function int smul(int a, int b)
-        {
-          var int res = 0;
-          while (b > 0)
-          {
-            if ((b & 1) == 1)
-            {
-              res += a;
-            }
-            a = a << 1;
-            b = b >> 1;
-          }
-          return res;
-        }
-
-        function void main()
-        {
-          io.print2("10*5=", smul(10, 5));
-          io.print2("13*6=", smul(13, 6));
-          io.print2("31*7=", smul(31, 7));
-        }
-        """
-        self.do(snippet, '10*5=0x00000032\n13*6=0x0000004E\n31*7=0x000000D9\n')
-
-    def test_sw_div(self):
-        """ Test software division algorithm """
-        snippet = """
-        module main;
-        import io;
-        function int sdiv(int num, int den)
-        {
-          var int res = 0;
-          var int current = 1;
-
-          while (den < num)
-          {
-            den = den << 1;
-            current = current << 1;
-          }
-
-          while (current != 0)
-          {
-            if (num >= den)
-            {
-              num -= den;
-              res = res | current;
-            }
-            den = den >> 1;
-            current = current >> 1;
-          }
-          return res;
-        }
-
-        function void main()
-        {
-          io.print2("10/5=", sdiv(10, 5));
-          io.print2("13/6=", sdiv(13, 6));
-          io.print2("31/7=", sdiv(31, 7));
-          io.print2("10/2=", sdiv(10, 2));
-        }
-        """
-        self.do(
-            snippet,
-            '10/5=0x00000002\n13/6=0x00000002\n'
-            '31/7=0x00000004\n10/2=0x00000005\n')
-
-    def test_if_statement(self):
-        """ Test if the if statement is works """
-        snippet = """
-         module main;
-         import io;
-         function void main()
-         {
-            var int i = 13;
-            if (i*7 < 100)
-            {
-                io.print("Wow");
-            }
-            else
-            {
-                io.print("Outch");
-            }
-         }
-        """
-        res = "Wow"
-        self.do(snippet, res)
-
-    def test_switch_statement(self):
-        """ Test the switch statement """
-        snippet = """
-         module main;
-         import bsp;
-         function void main()
-         {
-            var int i;
-            for (i=0;i<10;i = i+1)
-            {
-                switch(i)
-                {
-                  case 2:
-                    { bsp.putc(66); }
-                  case 5:
-                    { bsp.putc(67); }
-                  case 8:
-                    { bsp.putc(65); }
-                  default:
-                    { bsp.putc(68); }
-                }
-            }
-         }
-        """
-        res = "DDBDDCDDAD"
-        self.do(snippet, res)
-
-    def test_boolean_exotics(self):
-        """ Test boolean use in different ways """
-        snippet = """
-         module main;
-         import io;
-         function void print_bool(bool v)
-         {
-            if (v)
-            {
-                io.print("t");
-            }
-            else
-            {
-                io.print("f");
-            }
-         }
-
-         function bool no()
-         {
-            return false;
-         }
-
-         var int key;
-
-         function bool getkey(int* k)
-         {
-            if (key == 0)
-            {
-                *k = 1;
-            }
-            else
-            {
-                return false;
-            }
-
-            return true;
-         }
-
-         function void main()
-         {
-            var bool tv;
-            print_bool(true);
-            print_bool(no());
-            tv = no() or 1 == 1;
-            print_bool(tv);
-            key = 1;
-            var int k;
-            print_bool(getkey(&k) and true);
-            print_bool(not no());
-         }
-        """
-        res = "tftft"
-        self.do(snippet, res)
-
-    def test_associativity_of_arithmatic(self):
-        """
-            Check arithmatics operator associativity
-        """
-        snippet = """
-         module main;
-         import io;
-
-         function void main()
-         {
-            var int w;
-            var int d;
-            var int x;
-            d = 2;
-            x = 10;
-
-            // 100 / 10 / 2 = 10 / 2 = 5, not 100 / 5 = 20
-            w = 100 / x / d;
-            io.print2("w=", w);
-
-            // 100 - 10 - 2 = 88 = 0x58
-            w = 100 - x - d;
-            io.print2("w=", w);
-         }
-        """
-        self.do(snippet, "w=0x00000005\nw=0x00000058\n")
-
-    def test_c3_quine(self):
-        """ Quine in the c3 language """
-        self.maxDiff = None
-        src = ('module main;import io;import bsp;function void main()'
-               '{var string x="module main;import io;import bsp;'
-               'function void main(){var string x=;io.print_sub(x,0,67);'
-               'bsp.putc(34);io.print(x);bsp.putc(34);'
-               'io.print_sub(x,67,151);}"'
-               ';io.print_sub(x,0,67);bsp.putc(34);io.print(x);bsp.putc(34);'
-               'io.print_sub(x,67,151);}')
-        self.do(src, src)
-
-    def test_will_spill(self):
-        """ Generate a function many locals, such that spilling will occur """
-        snippet = """
-         module main;
-         import io;
-         var int[50] G;
-
-         function void do1()
-         {
-            var int i;
-            for (i=0;i<50;i = i+1)
-            {
-              G[i] = i;
-            }
-         }
-
-         function void do5()
-         {
-            var int a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p;
-            var int sum;
-            a = G[0];
-            b = G[1];
-            c = G[2];
-            d = G[3];
-            e = G[4];
-            f = G[5];
-            g = G[6];
-            h = G[7];
-            i = G[8];
-            j = G[9];
-            k = G[10];
-            l = G[11];
-            sum = a + b + c + d + e + f + g + h + i + j + k + l;
-            io.print2("w00t=", sum);
-         }
-
-         function void main()
-         {
-            do1();
-            do5();
-         }
-        """
-        res = "w00t=0x00000042\n"
-        self.do(snippet, res)
+    pass
 
 
 class MediumSamples:
