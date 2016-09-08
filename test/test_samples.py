@@ -39,26 +39,6 @@ def only_bf(txt):
     return re.sub('[^\.,<>\+-\]\[]', '', txt)
 
 
-class EightBitSamples:
-    """ Samples for 8 bit machines. """
-
-    def test_bsp_putc(self):
-        """ Test if bsp putc works """
-        snippet = """
-         module main;
-         import bsp;
-         function void main()
-         {
-            bsp.putc(65);
-            bsp.putc(66);
-            bsp.putc(67);
-            bsp.putc(68);
-            bsp.putc(69);
-         }
-        """
-        self.do(snippet, "ABCDE")
-
-
 def create_test_function(source, output):
     """ Create a test function for a source file """
     with open(source) as f:
@@ -91,85 +71,6 @@ def add_samples(*folders):
                 setattr(cls, func_name, tf)
         return cls
     return deco
-
-
-@add_samples('simple')
-class SimpleSamples:
-    """ Collection of snippets with expected output. No integer size is
-        assumed here. So should run on 64 and 32 and 16 bit machines.
-    """
-    pass
-
-
-class MediumSamples:
-    """ Samples that require medium system specs.
-
-    Specs:
-        - at least 32 bit registers
-        - some more memory
-    """
-
-    def test_for_loop_print(self):
-        """ Test a for loop.
-
-        This test case is very generic, but requires 32 bit or more
-        """
-
-        snippet = """
-         module main;
-         import io;
-         function void main()
-         {
-            var int i;
-            var int b = 2;
-            for (i=0; i<10; i = i + 1)
-            {
-              io.print2("A = ", i);
-              b *= i + 1;
-            }
-            io.print2("B = ", b);
-         }
-        """
-        res = "".join("A = 0x{0:08X}\n".format(a) for a in range(10))
-        res += "B = 0x006EBE00\n"
-        self.do(snippet, res)
-
-    def test_large_local_stack(self):
-        """ Check large local stack frame (larger than 128 bytes) """
-        snippet = """
-         module main;
-         import io;
-
-         const int buffer_size = 150;
-
-         function int heavy_stuff()
-         {
-            var int[buffer_size] buffer;
-            var int i;
-            var int result;
-            result = 0;
-            for (i = 0; i< buffer_size; i += 1)
-            {
-              buffer[i] = i;
-            }
-
-            for (i = 0; i< buffer_size; i += 1)
-            {
-              result += buffer[i] * 3;
-            }
-
-            return result;
-         }
-
-         function void main()
-         {
-            var int w;
-            w = heavy_stuff();
-
-            io.print2("w=", w);
-         }
-        """
-        self.do(snippet, "w=0x000082F5\n")
 
 
 class I32Samples:
@@ -524,6 +425,49 @@ class I32Samples:
         self.do(quine, only_bf(quine), lang='bf')
 
 
+def build(
+        base_filename, src, bsp_c3, crt0_asm, march, opt_level, mmap,
+        lang='c3', bin_format=None):
+    """ Construct object file from source snippet """
+    list_filename = base_filename + '.html'
+
+    report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+
+    with complete_report(report_generator) as reporter:
+        o1 = asm(crt0_asm, march)
+        if lang == 'c3':
+            srcs = [
+                relpath('..', 'librt', 'io.c3'),
+                bsp_c3,
+                io.StringIO(src)]
+            o2 = c3c(
+                srcs, [], march, opt_level=opt_level,
+                reporter=reporter, debug=True)
+            objs = [o1, o2]
+        elif lang == 'bf':
+            o3 = bfcompile(src, march, reporter=reporter)
+            o2 = c3c(
+                [bsp_c3], [], march, reporter=reporter)
+            objs = [o1, o2, o3]
+        else:
+            raise NotImplementedError('language not implemented')
+        obj = link(
+            objs, layout=mmap,
+            use_runtime=True, reporter=reporter, debug=True)
+
+    # Save object:
+    obj_file = base_filename + '.oj'
+    with open(obj_file, 'w') as f:
+        obj.save(f)
+
+    # Export code image to some format:
+    if bin_format:
+        sample_filename = base_filename + '.' + bin_format
+        objcopy(obj, 'code', bin_format, sample_filename)
+
+    return obj, base_filename
+
+
 class BuildMixin:
     opt_level = 0
 
@@ -575,9 +519,10 @@ class BuildMixin:
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium', '8bit')
 class TestSamplesOnVexpress(
         unittest.TestCase,
-        EightBitSamples, SimpleSamples, MediumSamples, I32Samples, BuildMixin):
+        I32Samples, BuildMixin):
     maxDiff = None
     march = "arm"
     startercode = """
@@ -632,9 +577,10 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium', '8bit')
 class TestSamplesOnRiscv(
         unittest.TestCase,
-        EightBitSamples, SimpleSamples, MediumSamples, I32Samples, BuildMixin):
+        I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
@@ -662,9 +608,10 @@ class TestSamplesOnRiscv(
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium', '8bit')
 class TestSamplesOnCortexM3O2(
         unittest.TestCase,
-        EightBitSamples, SimpleSamples, MediumSamples, I32Samples, BuildMixin):
+        I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     opt_level = 2
@@ -727,9 +674,10 @@ class TestSamplesOnCortexM3O2(
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium', '8bit')
 class TestSamplesOnPython(
         unittest.TestCase,
-        EightBitSamples, SimpleSamples, MediumSamples, I32Samples):
+        I32Samples):
     opt_level = 0
 
     def do(self, src, expected_output, lang='c3'):
@@ -771,8 +719,9 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', '8bit')
 class TestSamplesOnMsp430O2(
-        unittest.TestCase, EightBitSamples, SimpleSamples, BuildMixin):
+        unittest.TestCase, BuildMixin):
     opt_level = 2
     march = "msp430"
     startercode = """
@@ -859,8 +808,9 @@ class TestSamplesOnMsp430O2(
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', '8bit')
 class TestSamplesOnAvr(
-        unittest.TestCase, EightBitSamples, SimpleSamples, BuildMixin):
+        unittest.TestCase, BuildMixin):
     march = "avr"
     opt_level = 0
     startercode = """
@@ -892,9 +842,10 @@ class TestSamplesOnAvrO2(TestSamplesOnAvr):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium', '8bit')
 class TestSamplesOnX86Linux(
         unittest.TestCase,
-        EightBitSamples, SimpleSamples, MediumSamples, BuildMixin):
+        BuildMixin):
     march = "x86_64"
     startercode = """
     section reset
