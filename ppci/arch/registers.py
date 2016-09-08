@@ -12,9 +12,8 @@ class Register:
         """ Return all possible instances for this class """
         if hasattr(cls, 'registers'):
             return getattr(cls, 'registers')
-        else:
-            syntaxi = getattr(cls, 'syntaxi')
-            return [r.new_func() for r in syntaxi[1]]
+        else:  # pragma: no cover
+            raise NotImplementedError()
 
     def __init__(self, name, num=None, aliases=(), aka=()):
         assert isinstance(name, str)

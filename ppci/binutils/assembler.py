@@ -174,12 +174,8 @@ class BaseAssembler:
 
         def cs(args):
             # Create new class:
-            if stx.new_func:
-                # Use a function to create the class:
-                return stx.new_func()
-            else:
-                usable = [args[idx] for idx in prop_list]
-                return cls(*usable)
+            usable = [args[idx] for idx in prop_list]
+            return cls(*usable)
         self.add_rule(nt, rhs, cs, stx.priority)
 
     def resolve_rhs(self, rhs):

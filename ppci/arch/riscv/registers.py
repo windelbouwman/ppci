@@ -14,73 +14,6 @@ class RiscvRegister(Register):
         else:
             return self.name
 
-    syntaxi = 'reg', [
-        Syntax(['x0'], new_func=lambda: R0),
-        Syntax(['zero'], new_func=lambda: R0),
-        Syntax(['x1'], new_func=lambda: LR),
-        Syntax(['ra'], new_func=lambda: LR),
-        Syntax(['x2'], new_func=lambda: SP),
-        Syntax(['sp'], new_func=lambda: SP),
-        Syntax(['x3'], new_func=lambda: R3),
-        Syntax(['gp'], new_func=lambda: R3),
-        Syntax(['x4'], new_func=lambda: R4),
-        Syntax(['tp'], new_func=lambda: R4),
-        Syntax(['x5'], new_func=lambda: R5),
-        Syntax(['t0'], new_func=lambda: R5),
-        Syntax(['x6'], new_func=lambda: R6),
-        Syntax(['t1'], new_func=lambda: R6),
-        Syntax(['x7'], new_func=lambda: R7),
-        Syntax(['t2'], new_func=lambda: R7),
-        Syntax(['x8'], new_func=lambda: FP),
-        Syntax(['fp'], new_func=lambda: FP),
-        Syntax(['x9'], new_func=lambda: R9),
-        Syntax(['s1'], new_func=lambda: R9),
-        Syntax(['x10'], new_func=lambda: R10),
-        Syntax(['a0'], new_func=lambda: R10),
-        Syntax(['x11'], new_func=lambda: R11),
-        Syntax(['a1'], new_func=lambda: R11),
-        Syntax(['x12'], new_func=lambda: R12),
-        Syntax(['a2'], new_func=lambda: R12),
-        Syntax(['x13'], new_func=lambda: R13),
-        Syntax(['a3'], new_func=lambda: R13),
-        Syntax(['x14'], new_func=lambda: R14),
-        Syntax(['a4'], new_func=lambda: R14),
-        Syntax(['x15'], new_func=lambda: R15),
-        Syntax(['a5'], new_func=lambda: R15),
-        Syntax(['x16'], new_func=lambda: R16),
-        Syntax(['a6'], new_func=lambda: R16),
-        Syntax(['x17'], new_func=lambda: R17),
-        Syntax(['a7'], new_func=lambda: R17),
-        Syntax(['x18'], new_func=lambda: R18),
-        Syntax(['s2'], new_func=lambda: R18),
-        Syntax(['x19'], new_func=lambda: R19),
-        Syntax(['s3'], new_func=lambda: R19),
-        Syntax(['x20'], new_func=lambda: R20),
-        Syntax(['s4'], new_func=lambda: R20),
-        Syntax(['x21'], new_func=lambda: R21),
-        Syntax(['s5'], new_func=lambda: R21),
-        Syntax(['x22'], new_func=lambda: R22),
-        Syntax(['s6'], new_func=lambda: R22),
-        Syntax(['x23'], new_func=lambda: R23),
-        Syntax(['s7'], new_func=lambda: R23),
-        Syntax(['x24'], new_func=lambda: R24),
-        Syntax(['s8'], new_func=lambda: R24),
-        Syntax(['x25'], new_func=lambda: R25),
-        Syntax(['s9'], new_func=lambda: R25),
-        Syntax(['x26'], new_func=lambda: R26),
-        Syntax(['s10'], new_func=lambda: R26),
-        Syntax(['x27'], new_func=lambda: R27),
-        Syntax(['s11'], new_func=lambda: R27),
-        Syntax(['x28'], new_func=lambda: R28),
-        Syntax(['t3'], new_func=lambda: R28),
-        Syntax(['x29'], new_func=lambda: R29),
-        Syntax(['t4'], new_func=lambda: R29),
-        Syntax(['x30'], new_func=lambda: R30),
-        Syntax(['t5'], new_func=lambda: R30),
-        Syntax(['x31'], new_func=lambda: R31),
-        Syntax(['t6'], new_func=lambda: R31)
-        ]
-
 
 class RiscvProgramCounterRegister(Register):
     bitsize = 32
@@ -138,6 +71,7 @@ registers_high = [
     R17, R18, R19, R20, R21, R22, R23, R24,
     R25, R26, R27, R28, R29, R30, R31]
 all_registers = registers_low + registers_high
+RiscvRegister.registers = all_registers
 num2regmap = {r.num: r for r in all_registers}
 
 gdb_registers = all_registers + [PC]

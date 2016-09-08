@@ -1,107 +1,88 @@
 from ..encoding import Register, Syntax
 
 
-
 class Stm8Register(Register):
-    syntaxi = 'register', [Syntax(['a'],  new_func=lambda: A),
-                           Syntax(['xl'], new_func=lambda: XL),
-                           Syntax(['xh'], new_func=lambda: XH),
-                           Syntax(['x'],  new_func=lambda: X),
-                           Syntax(['yl'], new_func=lambda: YL),
-                           Syntax(['yh'], new_func=lambda: YH),
-                           Syntax(['y'],  new_func=lambda: Y),
-                           Syntax(['sp'], new_func=lambda: SP),
-                           Syntax(['pc'], new_func=lambda: PC),
-                           Syntax(['cc'], new_func=lambda: CC)]
-
+    pass
 
 
 class Stm88BitRegister(Stm8Register):
     bitsize = 8
-    syntaxi = '8bit_register', [Syntax(['a'],  new_func=lambda: A),
-                                Syntax(['xl'], new_func=lambda: XL),
-                                Syntax(['xh'], new_func=lambda: XH),
-                                Syntax(['yl'], new_func=lambda: YL),
-                                Syntax(['yh'], new_func=lambda: YH),
-                                Syntax(['cc'], new_func=lambda: CC)]
+
 
 class Stm816BitRegister(Stm8Register):
     bitsize = 16
-    syntaxi = '16bit_register', [Syntax(['x'],  new_func=lambda: X),
-                                 Syntax(['y'],  new_func=lambda: Y),
-                                 Syntax(['sp'], new_func=lambda: SP)]
+
 
 class Stm824BitRegister(Stm8Register):
     bitsize = 24
-    syntaxi = '24bit_register', [Syntax(['pc'], new_func=lambda: PC)]
-
 
 
 class Stm8AccumulatorRegister(Stm88BitRegister):
-    syntaxi = 'accumulator_register', [Syntax(['a'], new_func=lambda: A)]
+    pass
 
 
 class Stm8IndexLowRegister(Stm88BitRegister):
-    syntaxi = 'index_low_register', [Syntax(['xl'], new_func=lambda: XL),
-                                     Syntax(['yl'], new_func=lambda: YL)]
+    pass
+
 
 class Stm8IndexHighRegister(Stm88BitRegister):
-    syntaxi = 'index_high_register', [Syntax(['xh'], new_func=lambda: XH),
-                                      Syntax(['yh'], new_func=lambda: YH)]
+    pass
+
 
 class Stm8IndexRegister(Stm816BitRegister):
-    syntaxi = 'index_register', [Syntax(['x'], new_func=lambda: X),
-                                 Syntax(['y'], new_func=lambda: Y)]
+    pass
 
 
 class Stm8StackPointerRegister(Stm816BitRegister):
-    syntaxi = 'stack_pointer_register', [Syntax(['sp'], new_func=lambda: SP)]
+    pass
 
 
 class Stm8ProgramCounterRegister(Stm824BitRegister):
-    syntaxi = 'program_counter_register', [Syntax(['pc'], new_func=lambda: PC)]
+    pass
 
 
 class Stm8ConditionCodeRegister(Stm88BitRegister):
-    syntaxi = 'condition_code_register', [Syntax(['cc'], new_func=lambda: CC)]
-
+    pass
 
 
 class Stm8RegisterA(Stm8AccumulatorRegister):
-    syntaxi = 'register_a', [Syntax(['a'], new_func=lambda: A)]
+    pass
 
 
 class Stm8RegisterXL(Stm8IndexLowRegister):
-    syntaxi = 'register_xl', [Syntax(['xl'], new_func=lambda: XL)]
+    pass
+
 
 class Stm8RegisterXH(Stm8IndexHighRegister):
-    syntaxi = 'register_xh', [Syntax(['xh'], new_func=lambda: XH)]
+    pass
+
 
 class Stm8RegisterX(Stm8IndexRegister):
-    syntaxi = 'register_x', [Syntax(['x'], new_func=lambda: X)]
+    pass
 
 
 class Stm8RegisterYL(Stm8IndexLowRegister):
-    syntaxi = 'register_yl', [Syntax(['yl'], new_func=lambda: YL)]
+    pass
+
 
 class Stm8RegisterYH(Stm8IndexHighRegister):
-    syntaxi = 'register_yh', [Syntax(['yh'], new_func=lambda: YH)]
+    pass
+
 
 class Stm8RegisterY(Stm8IndexRegister):
-    syntaxi = 'register_y', [Syntax(['y'], new_func=lambda: Y)]
+    pass
 
 
 class Stm8RegisterSP(Stm8StackPointerRegister):
-    syntaxi = 'register_sp', [Syntax(['sp'], new_func=lambda: SP)]
+    pass
 
 
 class Stm8RegisterPC(Stm8ProgramCounterRegister):
-    syntaxi = 'register_pc', [Syntax(['pc'], new_func=lambda: PC)]
+    pass
 
 
 class Stm8RegisterCC(Stm8ConditionCodeRegister):
-    syntaxi = 'register_cc', [Syntax(['cc'], new_func=lambda: CC)]
-
+    pass
 
 
 A = Stm8RegisterA('A')
@@ -119,3 +100,25 @@ SP = Stm8RegisterSP('SP')
 PC = Stm8RegisterPC('PC')
 
 CC = Stm8RegisterCC('CC')
+
+Stm8Register.registers = [A, XL, XH, X, YL, YH, Y, SP, PC, CC]
+Stm88BitRegister.registers = [A, XL, XH, YL, YH, CC]
+Stm816BitRegister.registers = [X, Y, SP]
+Stm824BitRegister.registers = [PC]
+Stm8AccumulatorRegister.registers = [A]
+Stm8IndexLowRegister.registers = [XL, YL]
+Stm8IndexHighRegister.registers = [XH, YH]
+Stm8IndexRegister.registers = [X, Y]
+Stm8StackPointerRegister.registers = [SP]
+Stm8ProgramCounterRegister.registers = [PC]
+Stm8ConditionCodeRegister.registers = [CC]
+Stm8RegisterA.registers = [A]
+Stm8RegisterXL.registers = [XL]
+Stm8RegisterXH.registers = [XH]
+Stm8RegisterX.registers = [X]
+Stm8RegisterYL.registers = [YL]
+Stm8RegisterYH.registers = [YH]
+Stm8RegisterY.registers = [Y]
+Stm8RegisterSP.registers = [SP]
+Stm8RegisterPC.registers = [PC]
+Stm8RegisterCC.registers = [CC]

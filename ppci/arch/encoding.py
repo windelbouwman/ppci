@@ -346,7 +346,7 @@ class Syntax:
         '(', ')', '[', ']', '{', '}',
         '+', '-', '*']
 
-    def __init__(self, syntax, new_func=None, priority=0):
+    def __init__(self, syntax, priority=0):
         assert isinstance(syntax, (list, tuple))
         for element in syntax:
             if isinstance(element, str):
@@ -365,13 +365,10 @@ class Syntax:
             else:  # pragma: no cover
                 raise TypeError('Element must be string or parameter')
         self.syntax = syntax
-        self.new_func = new_func
         self.priority = priority
 
     def __add__(self, other):
         assert isinstance(other, Syntax)
-        assert not self.new_func
-        assert not other.new_func
         assert self.priority == 0
         assert other.priority == 0
         syntax = self.syntax + other.syntax
