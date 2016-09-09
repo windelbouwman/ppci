@@ -11,6 +11,9 @@
 
 void uart_in_hook(avr_irq_t* irq, uint32_t value, void*param)
 {
+  if (value == 4) {
+    exit(0);
+  }
   printf("uart: %X\n", value);
 }
 
@@ -53,7 +56,7 @@ int main(int argc, char* argv[])
   memcpy(avr->flash + boot_base, boot, boot_size);
   avr->pc = boot_base;
   avr->codeend = avr->flashend;
-  avr->log = 1 + 2;
+  avr->log = LOG_TRACE;
 
   init_uart(avr);
 

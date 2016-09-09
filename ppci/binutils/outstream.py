@@ -16,6 +16,14 @@ class OutputStream:
     """
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
+        if isinstance(item, ArtificialInstruction):
+            for expanded_instruction in item.render():
+                self.emit(expanded_instruction)
+        else:
+            self.do_emit(item)
+
+    def do_emit(self, item):
+        """ Actual emit implementation """
         raise NotImplementedError('Abstract base class')
 
     def emit_all(self, items):
@@ -30,7 +38,7 @@ class OutputStream:
 
 class TextOutputStream(OutputStream):
     """ Output stream that writes to object file """
-    def emit(self, item):
+    def do_emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
         print(item)
 
@@ -43,7 +51,7 @@ class BinaryOutputStream(OutputStream):
         self.literal_pool = []
         self.current_section = None
 
-    def emit(self, item):
+    def do_emit(self, item):
         """ Encode instruction and add symbol and relocation information.
         """
         assert isinstance(item, Instruction), str(item) + str(type(item))
@@ -51,11 +59,6 @@ class BinaryOutputStream(OutputStream):
         if isinstance(item, SectionInstruction):
             self.current_section = self.obj_file.get_section(
                 item.name, create=True)
-
-        if isinstance(item, ArtificialInstruction):
-            for expanded_instruction in item.render():
-                self.emit(expanded_instruction)
-            return
 
         assert self.current_section
         section = self.current_section
@@ -81,7 +84,7 @@ class BinaryOutputStream(OutputStream):
 
 class DummyOutputStream(OutputStream):
     """ Stream that does nothing """
-    def emit(self, item):
+    def do_emit(self, item):
         pass
 
 
@@ -90,7 +93,7 @@ class FunctionOutputStream(OutputStream):
     def __init__(self, function):
         self.function = function
 
-    def emit(self, item):
+    def do_emit(self, item):
         self.function(str(item))
 
 
@@ -106,7 +109,7 @@ class MasterOutputStream(OutputStream):
     def __init__(self, substreams=()):
         self.substreams = list(substreams)   # Use copy constructor!!!
 
-    def emit(self, item):
+    def do_emit(self, item):
         for output_stream in self.substreams:
             output_stream.emit(item)
 

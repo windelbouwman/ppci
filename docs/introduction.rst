@@ -12,7 +12,7 @@ The project contains:
 - Language front-ends: Brainfuck, :doc:`c3<c3>`
 - Backends:  :ref:`6500<mos6500>`, :ref:`arm`,
   :ref:`avr`,
-  :ref:`msp430`, :ref:`ricv-v<riscv>`, :ref:`x86_64`
+  :ref:`msp430`, :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`
 
 An example usage of the low level encoding :doc:`api<api>`:
 

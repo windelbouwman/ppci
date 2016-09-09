@@ -209,6 +209,26 @@ def run_msp430(pmem):
     return data
 
 
+avr_emu1 = relpath('..', 'examples', 'avr', 'emu', 'build', 'emu1')
+
+
+def has_avr_emulator():
+    return os.path.exists(avr_emu1)
+
+
+def run_avr(hexfile):
+    """ Run hexfile through avr emulator """
+    outs = subprocess.check_output([avr_emu1, hexfile])
+    outs = outs.decode('ascii')
+    print(outs)
+    chars = []
+    for c in re.finditer('uart: ([0-9A-F]+)', outs):
+        ch = chr(int(c.group(1), 16))
+        chars.append(ch)
+    data = ''.join(chars)
+    return data
+
+
 def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):
     """ Helper function to feed source through gnu assembling tools """
     prefix = 'arm-none-eabi-'

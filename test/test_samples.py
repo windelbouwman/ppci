@@ -9,6 +9,7 @@ import subprocess
 from tempfile import mkstemp
 from util import run_qemu, has_qemu, relpath, run_python
 from util import has_iverilog, run_msp430
+from util import has_avr_emulator, run_avr
 from util import do_long_tests
 from ppci.api import asm, c3c, link, objcopy, bfcompile
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize
@@ -427,7 +428,7 @@ class I32Samples:
 
 def build(
         base_filename, src, bsp_c3, crt0_asm, march, opt_level, mmap,
-        lang='c3', bin_format=None):
+        lang='c3', bin_format=None, code_image='code'):
     """ Construct object file from source snippet """
     list_filename = base_filename + '.html'
 
@@ -463,9 +464,9 @@ def build(
     # Export code image to some format:
     if bin_format:
         sample_filename = base_filename + '.' + bin_format
-        objcopy(obj, 'code', bin_format, sample_filename)
+        objcopy(obj, code_image, bin_format, sample_filename)
 
-    return obj, base_filename
+    return obj
 
 
 class BuildMixin:
@@ -474,46 +475,17 @@ class BuildMixin:
     def build(self, src, lang='c3', bin_format=None):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
-        list_filename = base_filename + '.html'
 
-        startercode = self.startercode
-        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
+        startercode = io.StringIO(self.startercode)
         if hasattr(self, 'bsp_c3_src'):
             bsp_c3 = io.StringIO(getattr(self, 'bsp_c3_src'))
         else:
             bsp_c3 = self.bsp_c3
 
-        with complete_report(report_generator) as reporter:
-            o1 = asm(io.StringIO(startercode), self.march)
-            if lang == 'c3':
-                srcs = [
-                    relpath('..', 'librt', 'io.c3'),
-                    bsp_c3,
-                    io.StringIO(src)]
-                o2 = c3c(
-                    srcs, [], self.march, opt_level=self.opt_level,
-                    reporter=reporter, debug=True)
-                objs = [o1, o2]
-            elif lang == 'bf':
-                o3 = bfcompile(src, self.march, reporter=reporter)
-                o2 = c3c(
-                    [bsp_c3], [], self.march, reporter=reporter)
-                objs = [o1, o2, o3]
-            else:
-                raise Exception('language not implemented')
-            obj = link(
-                objs, layout=io.StringIO(self.arch_mmap),
-                use_runtime=True, reporter=reporter, debug=True)
-
-        # Save object:
-        obj_file = base_filename + '.oj'
-        with open(obj_file, 'w') as f:
-            obj.save(f)
-
-        # Export code image to some format:
-        if bin_format:
-            sample_filename = base_filename + '.' + bin_format
-            objcopy(obj, 'code', bin_format, sample_filename)
+        obj = build(
+            base_filename, src, bsp_c3, startercode, self.march,
+            self.opt_level, io.StringIO(self.arch_mmap),
+            lang=lang, bin_format=bin_format)
 
         return obj, base_filename
 
@@ -675,9 +647,7 @@ class TestSamplesOnCortexM3O2(
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
-class TestSamplesOnPython(
-        unittest.TestCase,
-        I32Samples):
+class TestSamplesOnPython(unittest.TestCase, I32Samples):
     opt_level = 0
 
     def do(self, src, expected_output, lang='c3'):
@@ -808,32 +778,24 @@ class TestSamplesOnMsp430O2(
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', '8bit')
-class TestSamplesOnAvr(
-        unittest.TestCase, BuildMixin):
+@add_samples('8bit')  # 'simple')
+class TestSamplesOnAvr(unittest.TestCase):
     march = "avr"
     opt_level = 0
-    startercode = """
-    section reset
-    """
-    arch_mmap = """
-        MEMORY code LOCATION=0x0 SIZE=0x8000 {  SECTION(code) }
-        MEMORY ram LOCATION=0x100 SIZE=0x800 {  SECTION(data) }
-        """
-    bsp_c3_src = """
-    module bsp;
-    public function void putc(byte c)
-    {
-    }
-
-    function void exit()
-    {
-        putc(4); // End of transmission
-    }
-    """
 
     def do(self, src, expected_output, lang='c3'):
-        self.build(src, lang=lang, bin_format='hex')
+        base_filename = make_filename(self.id())
+        bsp_c3 = relpath('..', 'examples', 'avr', 'bsp.c3')
+        crt0 = relpath('..', 'examples', 'avr', 'glue.asm')
+        mmap = relpath('..', 'examples', 'avr', 'avr.mmap')
+        build(
+            base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
+            mmap, lang=lang, bin_format='hex', code_image='flash')
+        hexfile = base_filename + '.hex'
+        print(hexfile)
+        if has_avr_emulator():
+            res = run_avr(hexfile)
+            self.assertEqual(expected_output, res)
 
 
 # Avr Only works with optimization enabled...
