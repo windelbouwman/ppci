@@ -20,7 +20,10 @@ class ExampleArch(Architecture):
         self.byte_sizes['ptr'] = 4
         self.register_classes = [
             RegisterClass(
-                'reg', [ir.i32, ir.ptr], ExampleRegister, [R0, R1, R2, R3])
+                'reg', [ir.i32, ir.ptr], ExampleRegister,
+                [R0, R1, R2, R3, R10]),
+            RegisterClass(
+                'hreg', [ir.i16], HalfExampleRegister, [R10l]),
             ]
         self.gdb_registers = gdb_registers
 
@@ -48,6 +51,11 @@ class ExampleRegister(Register):
     bitsize = 32
 
 
+class HalfExampleRegister(Register):
+    """ Example register class """
+    bitsize = 16
+
+
 R0 = ExampleRegister('r0', 0)
 R1 = ExampleRegister('r1', 1)
 R2 = ExampleRegister('r2', 2)
@@ -55,6 +63,10 @@ R3 = ExampleRegister('r3', 3)
 R4 = ExampleRegister('r4', 4)
 R5 = ExampleRegister('r5', 5)
 R6 = ExampleRegister('r6', 6)
+
+# Two aliasing registers:
+R10 = ExampleRegister('r10', 10)
+R10l = HalfExampleRegister('r10l', 100, aliases=(R10,))
 
 gdb_registers = (R0, R1, R2)
 
@@ -66,41 +78,51 @@ class ExampleInstruction(Instruction):
 
 class Def(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
-    syntax = Syntax(['def', rd])
+    syntax = Syntax(['def', ' ', rd])
+
+
+class DefHalf(ExampleInstruction):
+    rd = register_argument('rd', HalfExampleRegister, write=True)
+    syntax = Syntax(['def', ' ', rd])
 
 
 class Use(ExampleInstruction):
     rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['use', rn])
+    syntax = Syntax(['use', ' ', rn])
+
+
+class UseHalf(ExampleInstruction):
+    rn = register_argument('rn', HalfExampleRegister, read=True)
+    syntax = Syntax(['use', ' ', rn])
 
 
 class DefUse(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['cpy', rd, rn])
+    syntax = Syntax(['cpy', ' ', rd, ',', ' ', rn])
 
 
 class Add(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     rm = register_argument('rm', ExampleRegister, read=True)
     rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['add', rd, rm, rn])
+    syntax = Syntax(['add', ' ', rd, ',', ' ', rm, ',', ' ', rn])
 
 
 class Cmp(ExampleInstruction):
     rm = register_argument('rm', ExampleRegister, read=True)
     rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['cmp', rm, rn])
+    syntax = Syntax(['cmp', ' ', rm, ',', ' ', rn])
 
 
 class Use3(ExampleInstruction):
     rm = register_argument('rm', ExampleRegister, read=True)
     rn = register_argument('rn', ExampleRegister, read=True)
     ro = register_argument('ro', ExampleRegister, read=True)
-    syntax = Syntax(['use3', rm, rn, ro])
+    syntax = Syntax(['use3', ' ', rm, ',', ' ', rn, ',', ' ', ro])
 
 
 class Mov(ExampleInstruction):
     rd = register_argument('rd', ExampleRegister, write=True)
     rm = register_argument('rm', ExampleRegister, read=True)
-    syntax = Syntax(['mov', rd, rm])
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', rm])

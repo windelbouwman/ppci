@@ -1,5 +1,5 @@
 from ..isa import Isa
-from ..encoding import Instruction, register_argument, Syntax
+from ..encoding import Instruction, operand, Syntax
 from ..encoding import FixedPattern, VariablePattern
 from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
@@ -83,8 +83,8 @@ class Nop(AvrInstruction):
 
 class Add(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['add', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b11),
@@ -96,8 +96,8 @@ class Add(AvrInstruction):
 class Adiw(AvrInstruction):
     """ Add immediate to word """
     # tokens = [AvrAddwToken]
-    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrWordRegister, read=True, write=True)
+    imm = operand('imm', int)
     syntax = Syntax(['adiw', ' ', rd, ',', ' ', imm])
     patterns = [
         VariablePattern('p', rd)]
@@ -105,8 +105,8 @@ class Adiw(AvrInstruction):
 
 class Adc(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['adc', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b111),
@@ -117,8 +117,8 @@ class Adc(AvrInstruction):
 class Cp(AvrInstruction):
     """ Compare """
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['cp', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b101),
@@ -129,8 +129,8 @@ class Cp(AvrInstruction):
 class Cpc(AvrInstruction):
     """ Compare with carry """
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['cpc', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b1),
@@ -140,8 +140,8 @@ class Cpc(AvrInstruction):
 
 class Sub(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['sub', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b110),
@@ -151,8 +151,8 @@ class Sub(AvrInstruction):
 
 class Sbc(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['sbc', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b10),
@@ -162,8 +162,8 @@ class Sbc(AvrInstruction):
 
 class And(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['and', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b1000),
@@ -173,8 +173,8 @@ class And(AvrInstruction):
 
 class Eor(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['eor', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b1001),
@@ -184,8 +184,8 @@ class Eor(AvrInstruction):
 
 class Or(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, read=True, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['or', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b1010),
@@ -195,7 +195,7 @@ class Or(AvrInstruction):
 
 def make_one_op(mnemonic, opcode):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, write=True, read=True)
+    rd = operand('rd', AvrRegister, write=True, read=True)
     syntax = Syntax([mnemonic, ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001010),
@@ -232,7 +232,7 @@ def relsigned12bit(sym_value, data, reloc_value):
 
 class Rjmp(AvrInstruction):
     tokens = [AvrToken]
-    lab = register_argument('lab', str)
+    lab = operand('lab', str)
     syntax = Syntax(['rjmp', ' ', lab])
     patterns = [FixedPattern('n3', 0xc)]
 
@@ -242,7 +242,7 @@ class Rjmp(AvrInstruction):
 
 class Call(AvrInstruction):
     tokens = [AvrToken]
-    lab = register_argument('lab', str)
+    lab = operand('lab', str)
     syntax = Syntax(['call', ' ', lab])
     patterns = [FixedPattern('n3', 0xd)]
 
@@ -265,7 +265,7 @@ def relsigned7bit(sym_value, data, reloc_value):
 class Brne(AvrInstruction):
     """ Branch when not equal (Z flag is cleared) """
     tokens = [AvrToken5]
-    lab = register_argument('lab', str)
+    lab = operand('lab', str)
     syntax = Syntax(['brne', ' ', lab])
     patterns = [
         FixedPattern('op', 0b11110),
@@ -278,7 +278,7 @@ class Brne(AvrInstruction):
 
 class Breq(AvrInstruction):
     tokens = [AvrToken5]
-    lab = register_argument('lab', str)
+    lab = operand('lab', str)
     syntax = Syntax(['breq', ' ', lab])
     patterns = [
         FixedPattern('op', 0b11110),
@@ -291,7 +291,7 @@ class Breq(AvrInstruction):
 
 class Brlt(AvrInstruction):
     tokens = [AvrToken5]
-    lab = register_argument('lab', str)
+    lab = operand('lab', str)
     syntax = Syntax(['brlt', ' ', lab])
     patterns = [
         FixedPattern('op', 0b11110),
@@ -304,7 +304,7 @@ class Brlt(AvrInstruction):
 
 class Brge(AvrInstruction):
     tokens = [AvrToken5]
-    lab = register_argument('lab', str)
+    lab = operand('lab', str)
     syntax = Syntax(['brge', ' ', lab])
     patterns = [
         FixedPattern('op', 0b11110),
@@ -317,8 +317,8 @@ class Brge(AvrInstruction):
 
 class Mov(AvrInstruction):
     tokens = [AvrArithmaticToken]
-    rd = register_argument('rd', AvrRegister, write=True)
-    rr = register_argument('rr', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, write=True)
+    rr = operand('rr', AvrRegister, read=True)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rr])
     patterns = [
         FixedPattern('op', 0b1011),
@@ -328,8 +328,8 @@ class Mov(AvrInstruction):
 
 class Movw(AvrInstruction):
     tokens = [AvrToken]
-    rd = register_argument('rd', AvrWordRegister, write=True)
-    rr = register_argument('rr', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, write=True)
+    rr = operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['movw', ' ', rd, ',', ' ', rr])
 
     @property
@@ -352,7 +352,7 @@ class Movw(AvrInstruction):
 
 class Push(AvrInstruction):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True)
     syntax = Syntax(['push', ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001001),
@@ -362,7 +362,7 @@ class Push(AvrInstruction):
 
 class Pop(AvrInstruction):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = operand('rd', AvrRegister, write=True)
     syntax = Syntax(['pop', ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001000),
@@ -372,7 +372,7 @@ class Pop(AvrInstruction):
 
 class Ld(AvrInstruction):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = operand('rd', AvrRegister, write=True)
     syntax = Syntax(['ld', ' ', rd, ',', ' ', 'x'])
     patterns = [
         FixedPattern('op', 0b1001000),
@@ -383,9 +383,9 @@ class Ld(AvrInstruction):
 class Ldd_y(AvrInstruction):
     """ Load with offset """
     tokens = [AvrToken99]
-    rd = register_argument('rd', AvrRegister, write=True)
-    y = register_argument('y', AvrYRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrRegister, write=True)
+    y = operand('y', AvrYRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['ldd', ' ', rd, ',', ' ', y, '+', imm])
     patterns = [
         FixedPattern('op', 0b100),
@@ -398,9 +398,9 @@ class Ldd_y(AvrInstruction):
 class Std_y(AvrInstruction):
     """ Store with offset """
     tokens = [AvrToken99]
-    rd = register_argument('rd', AvrRegister, read=True)
-    y = register_argument('y', AvrYRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrRegister, read=True)
+    y = operand('y', AvrYRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['std', ' ', y, '+', imm, ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b100),
@@ -413,9 +413,9 @@ class Std_y(AvrInstruction):
 class Ldd_z(AvrInstruction):
     """ Load with offset """
     tokens = [AvrToken99]
-    rd = register_argument('rd', AvrRegister, write=True)
-    z = register_argument('z', AvrZRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrRegister, write=True)
+    z = operand('z', AvrZRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['ldd', ' ', rd, ',', ' ', z, '+', imm])
     patterns = [
         FixedPattern('op', 0b100),
@@ -428,9 +428,9 @@ class Ldd_z(AvrInstruction):
 class Std_z(AvrInstruction):
     """ Store with offset """
     tokens = [AvrToken99]
-    rd = register_argument('rd', AvrRegister, read=True)
-    z = register_argument('z', AvrZRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrRegister, read=True)
+    z = operand('z', AvrZRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['std', ' ', z, '+', imm, ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b100),
@@ -442,7 +442,7 @@ class Std_z(AvrInstruction):
 
 class LdPostInc(AvrInstruction):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = operand('rd', AvrRegister, write=True)
     syntax = Syntax(['ld', ' ', rd, ',', ' ', 'x', '+'])
     patterns = [
         FixedPattern('op', 0b1001000),
@@ -452,7 +452,7 @@ class LdPostInc(AvrInstruction):
 
 class LdPreDec(AvrInstruction):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = operand('rd', AvrRegister, write=True)
     syntax = Syntax(['ld', ' ', rd, ',', ' ', '-', 'x'])
     patterns = [
         FixedPattern('op', 0b1001000),
@@ -463,7 +463,7 @@ class LdPreDec(AvrInstruction):
 class LpmPostInc(AvrInstruction):
     """ Load from program memory """
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, write=True)
+    rd = operand('rd', AvrRegister, write=True)
     syntax = Syntax(['lpm', ' ', rd, ',', ' ', 'z', '+'])
     patterns = [
         FixedPattern('op', 0b1001000),
@@ -474,7 +474,7 @@ class LpmPostInc(AvrInstruction):
 class St(AvrInstruction):
     """ Store register a X pointer location """
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True)
     syntax = Syntax(['st', ' ', 'x', ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001001),
@@ -485,7 +485,7 @@ class St(AvrInstruction):
 class StPostInc(AvrInstruction):
     """ Store register value at memory X location and post increment X """
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True)
     syntax = Syntax(['st', ' ', 'x', '+', ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001001),
@@ -495,7 +495,7 @@ class StPostInc(AvrInstruction):
 
 class StPreDec(AvrInstruction):
     tokens = [AvrToken2]
-    rd = register_argument('rd', AvrRegister, read=True)
+    rd = operand('rd', AvrRegister, read=True)
     syntax = Syntax(['st', ' ', '-', 'x', ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001001),
@@ -505,8 +505,8 @@ class StPreDec(AvrInstruction):
 
 class Sts(AvrInstruction):
     tokens = [AvrToken2, Imm16Token]
-    rd = register_argument('rd', AvrRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['sts', ' ', imm, ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b1001001),
@@ -517,8 +517,8 @@ class Sts(AvrInstruction):
 
 class Lds(AvrInstruction):
     tokens = [AvrToken2, Imm16Token]
-    rd = register_argument('rd', AvrRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['lds', ' ', rd, ',', ' ', imm])
     patterns = [
         FixedPattern('op', 0b1001000),
@@ -541,8 +541,8 @@ class Reti(AvrInstruction):
 
 def make_i(mnemonic, opcode, read=False, write=False):
     tokens = [AvrToken4]
-    rd = register_argument('rd', HighAvrRegister, read=read, write=write)
-    nk = register_argument('nk', int)
+    rd = operand('rd', HighAvrRegister, read=read, write=write)
+    nk = operand('nk', int)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', nk])
     transform = (lambda x: x - 16, lambda x: x + 16)
     patterns = [
@@ -573,8 +573,8 @@ def rel_ldilo(sym_value, data, reloc_value):
 
 class LdiLoAddr(AvrInstruction):
     tokens = [AvrToken4]
-    rd = register_argument('rd', HighAvrRegister, write=True)
-    lab = register_argument('lab', str)
+    rd = operand('rd', HighAvrRegister, write=True)
+    lab = operand('lab', str)
     syntax = Syntax(['ldi', ' ', rd, ',', ' ', 'low', '(', lab, ')'])
 
     @property
@@ -600,8 +600,8 @@ def rel_ldihi(sym_value, data, reloc_value):
 
 class LdiHiAddr(AvrInstruction):
     tokens = [AvrToken4]
-    rd = register_argument('rd', HighAvrRegister, write=True)
-    lab = register_argument('lab', str)
+    rd = operand('rd', HighAvrRegister, write=True)
+    lab = operand('lab', str)
     syntax = Syntax(['ldi', ' ', rd, ',', ' ', 'high', '(', lab, ')'])
 
     @property
@@ -620,8 +620,8 @@ class LdiHiAddr(AvrInstruction):
 
 class In(AvrInstruction):
     tokens = [AvrToken3]
-    rd = register_argument('rd', AvrRegister, write=True)
-    na = register_argument('na', int)
+    rd = operand('rd', AvrRegister, write=True)
+    na = operand('na', int)
     syntax = Syntax(['in', ' ', rd, ',', ' ', na])
     patterns = [
         FixedPattern('op', 0b10110),
@@ -631,8 +631,8 @@ class In(AvrInstruction):
 
 class Out(AvrInstruction):
     tokens = [AvrToken3]
-    rd = register_argument('rd', AvrRegister, read=True)
-    na = register_argument('na', int)
+    rd = operand('rd', AvrRegister, read=True)
+    na = operand('na', int)
     syntax = Syntax(['out', ' ', na, ',', ' ', rd])
     patterns = [
         FixedPattern('op', 0b10111),
@@ -647,8 +647,8 @@ class PseudoAvrInstruction(ArtificialInstruction):
 
 
 class Addw(PseudoAvrInstruction):
-    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
-    rr = register_argument('rr', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, read=True, write=True)
+    rr = operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['addw', ' ', rd, ',', ' ', rr])
 
     def render(self):
@@ -657,8 +657,8 @@ class Addw(PseudoAvrInstruction):
 
 
 class Cpw(PseudoAvrInstruction):
-    rd = register_argument('rd', AvrWordRegister, read=True)
-    rr = register_argument('rr', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, read=True)
+    rr = operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['cpw', ' ', rd, ',', ' ', rr])
 
     def render(self):
@@ -667,8 +667,8 @@ class Cpw(PseudoAvrInstruction):
 
 
 class Subw(PseudoAvrInstruction):
-    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
-    rr = register_argument('rr', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, read=True, write=True)
+    rr = operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['subw', ' ', rd, ',', ' ', rr])
 
     def render(self):
@@ -677,8 +677,8 @@ class Subw(PseudoAvrInstruction):
 
 
 class Andw(PseudoAvrInstruction):
-    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
-    rr = register_argument('rr', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, read=True, write=True)
+    rr = operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['andw', ' ', rd, ',', ' ', rr])
 
     def render(self):
@@ -687,8 +687,8 @@ class Andw(PseudoAvrInstruction):
 
 
 class Orw(PseudoAvrInstruction):
-    rd = register_argument('rd', AvrWordRegister, read=True, write=True)
-    rr = register_argument('rr', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, read=True, write=True)
+    rr = operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['orw', ' ', rd, ',', ' ', rr])
 
     def render(self):
@@ -697,8 +697,8 @@ class Orw(PseudoAvrInstruction):
 
 
 class Ldiw(PseudoAvrInstruction):
-    rd = register_argument('rd', HighAvrWordRegister, write=True)
-    nk = register_argument('nk', int)
+    rd = operand('rd', HighAvrWordRegister, write=True)
+    nk = operand('nk', int)
     syntax = Syntax(['ldiw', ' ', rd, ',', ' ', nk])
 
     def render(self):
@@ -709,8 +709,8 @@ class Ldiw(PseudoAvrInstruction):
 
 
 class LdiwAddr(PseudoAvrInstruction):
-    rd = register_argument('rd', HighAvrWordRegister, write=True)
-    lab = register_argument('lab', str)
+    rd = operand('rd', HighAvrWordRegister, write=True)
+    lab = operand('lab', str)
     syntax = Syntax(['ldiw', ' ', rd, ',', ' ', '@', '(', lab, ')'])
 
     def render(self):
@@ -720,7 +720,7 @@ class LdiwAddr(PseudoAvrInstruction):
 
 class StWord(PseudoAvrInstruction):
     """ Store a word by using st X+ and st X """
-    rd = register_argument('rd', AvrWordRegister, read=True)
+    rd = operand('rd', AvrWordRegister, read=True)
     syntax = Syntax(['stw', ' ', 'x', '+', ',', ' ', rd])
 
     def render(self):
@@ -730,9 +730,9 @@ class StWord(PseudoAvrInstruction):
 
 class LddWord_z(PseudoAvrInstruction):
     """ Pseudo instruction for loading a word from z + offset """
-    rd = register_argument('rd', AvrWordRegister, write=True)
-    z = register_argument('z', AvrZRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', AvrWordRegister, write=True)
+    z = operand('z', AvrZRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['ldd_word', ' ', rd, ',', ' ', z, '+', imm])
 
     def render(self):
@@ -742,9 +742,9 @@ class LddWord_z(PseudoAvrInstruction):
 
 class StdWord_z(PseudoAvrInstruction):
     """ Pseudo instruction for storing a word at z + offset """
-    z = register_argument('z', AvrZRegister, read=True)
-    imm = register_argument('imm', int)
-    rd = register_argument('rd', AvrWordRegister, read=True)
+    z = operand('z', AvrZRegister, read=True)
+    imm = operand('imm', int)
+    rd = operand('rd', AvrWordRegister, read=True)
     syntax = Syntax(['std_word', ' ', z, '+', imm, ',', ' ', rd])
 
     def render(self):

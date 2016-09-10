@@ -1,6 +1,6 @@
 """ Definitions of msp430 instruction set. """
 
-from ..encoding import Instruction, register_argument, Syntax, Constructor
+from ..encoding import Instruction, operand, Syntax, Constructor
 from ..encoding import FixedPattern, VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
@@ -100,9 +100,9 @@ def apply_abs16_imm2(sym_value, data, reloc_value):
 
 
 class Dst(Constructor):
-    reg = register_argument('reg', Msp430Register, write=True)
-    imm = register_argument('imm', int)
-    Ad = register_argument('Ad', int)
+    reg = operand('reg', Msp430Register, write=True)
+    imm = operand('imm', int)
+    Ad = operand('Ad', int)
     is_reg_target = False
     is_special = False
 
@@ -118,7 +118,7 @@ class RegDst(Dst):
 
 class AddrDst(Dst):
     """  absolute address """
-    addr = register_argument('addr', str)
+    addr = operand('addr', str)
     tokens = [DstImmToken]
     syntax = Syntax(['&', addr])
     is_special = True
@@ -143,9 +143,9 @@ dst_modes = (RegDst, AddrDst, MemDst)
 
 
 class Src(Constructor):
-    reg = register_argument('reg', Msp430Register, read=True)
-    imm = register_argument('imm', int)
-    As = register_argument('As', int)
+    reg = operand('reg', Msp430Register, read=True)
+    imm = operand('imm', int)
+    As = operand('As', int)
     is_reg_target = False
     is_special = False
 
@@ -164,7 +164,7 @@ class ConstSrc(Src):
 
 class ConstLabelSrc(Src):
     """ Equivalent to @PC+ """
-    addr = register_argument('addr', str)
+    addr = operand('addr', str)
     tokens = [SrcImmToken]
     syntax = Syntax(['#', addr])
     is_special = True
@@ -227,7 +227,7 @@ class RegSrc(Src):
 class AdrSrc(Src):
     """ absolute address """
     is_special = True
-    addr = register_argument('addr', str)
+    addr = operand('addr', str)
     tokens = [SrcImmToken]
     syntax = Syntax(['&', addr])
     patterns = [
@@ -285,7 +285,7 @@ class JumpInstruction(Msp430Instruction):
 
 
 def create_jump_instruction(name, condition):
-    target = register_argument('target', str)
+    target = operand('target', str)
     syntax = Syntax([name, ' ', target])
     patterns = [
         FixedPattern('condition', condition),
@@ -325,7 +325,7 @@ class OneOpArith(Msp430Instruction):
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
     """ Helper function to define a one operand arithmetic instruction """
-    src = register_argument('src', src_modes)
+    src = operand('src', src_modes)
     patterns = [
         FixedPattern('prefix', 0b000100),
         FixedPattern('opcode', opcode),
@@ -357,7 +357,7 @@ def make_one_op_base(mne, opcode, b=0):
 
 class MemByReg(Instruction):
     """ Memory content """
-    reg = register_argument('reg', Msp430Register, read=True)
+    reg = operand('reg', Msp430Register, read=True)
     tokens = []
     patterns = [
         FixedPattern('As', 2),
@@ -440,8 +440,8 @@ class TwoOpArithInstruction(Msp430Instruction):
 
 def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
     """ Helper function to define a two operand arithmetic instruction """
-    src = register_argument('src', src_modes)
-    dst = register_argument('dst', dst_modes)
+    src = operand('src', src_modes)
+    dst = operand('dst', dst_modes)
     if b:
         syntax = Syntax([mne, '.', 'b', ' ', src, ',', ' ', dst])
         class_name = mne + 'b'
@@ -498,7 +498,7 @@ class Ret(PseudoMsp430Instruction):
 
 class Pop(PseudoMsp430Instruction):
     """ Pop value from stack """
-    dst = register_argument('dst', Msp430Register, write=True)
+    dst = operand('dst', Msp430Register, write=True)
     syntax = Syntax(['pop', ' ', dst])
 
     def render(self):

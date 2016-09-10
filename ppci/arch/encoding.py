@@ -57,6 +57,9 @@ def register_argument(name, cls, read=False, write=False):
         read=read, write=write)
 
 
+operand = register_argument
+
+
 class Constructor:
     """ Instruction, or part of an instruction.
 

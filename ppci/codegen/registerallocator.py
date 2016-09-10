@@ -268,8 +268,8 @@ class GraphColoringRegisterAllocator:
 
         self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
-            src = self.Node(mv.used_registers[0])
-            dst = self.Node(mv.defined_registers[0])
+            src = self.node(mv.used_registers[0])
+            dst = self.node(mv.defined_registers[0])
             src.moves.add(mv)
             dst.moves.add(mv)
 
@@ -304,7 +304,7 @@ class GraphColoringRegisterAllocator:
             else:
                 self.simplify_worklist.append(node)
 
-    def Node(self, vreg):
+    def node(self, vreg):
         return self.frame.ig.get_node(vreg)
 
     def has_edge(self, t, r):
@@ -412,8 +412,8 @@ class GraphColoringRegisterAllocator:
         """
         # Remove the move from the worklist:
         m = self.worklistMoves.pop()
-        x = self.Node(m.defined_registers[0])
-        y = self.Node(m.used_registers[0])
+        x = self.node(m.defined_registers[0])
+        y = self.node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
         self.logger.debug('Coalescing %s which couples %s and %s', m, u, v)
         if u is v:
@@ -522,8 +522,8 @@ class GraphColoringRegisterAllocator:
                 self.worklistMoves.remove(m)
             self.frozenMoves.add(m)
             # Check other part of the move for still being move related:
-            src = self.Node(m.used_registers[0])
-            dst = self.Node(m.defined_registers[0])
+            src = self.node(m.used_registers[0])
+            dst = self.node(m.defined_registers[0])
             v = src if u is dst else dst
             if v not in self.precolored and not self.is_move_related(v) \
                     and self.is_colorable(v):

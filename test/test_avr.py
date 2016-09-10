@@ -216,14 +216,6 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         layout = Layout.load(io.StringIO(spec))
         self.check('04e3 02e1', layout=layout)
 
-    @unittest.skip('todo')
-    def test_jmp(self):
-        self.feed("jmp a")
-        self.feed("jmp a")
-        self.feed("a: jmp a")
-        self.feed("jmp a")
-        self.check('01c0 00c0 ffcf fecf')
-
 
 if __name__ == '__main__':
     unittest.main()

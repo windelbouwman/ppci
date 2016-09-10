@@ -3,6 +3,7 @@ from ppci.codegen.registerallocator import GraphColoringRegisterAllocator
 from ppci.api import get_arch
 from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
+from ppci.arch.example import R10, R10l, DefHalf, UseHalf
 from ppci.binutils.debuginfo import DebugDb
 
 try:
@@ -23,8 +24,8 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
             arch, None, debug_db)
 
     def conflict(self, ta, tb):
-        reg_a = self.register_allocator.Node(ta).reg
-        reg_b = self.register_allocator.Node(tb).reg
+        reg_a = self.register_allocator.node(ta).reg
+        reg_b = self.register_allocator.node(tb).reg
         self.assertNotEqual(reg_a, reg_b)
 
     def test_register_allocation(self):
@@ -89,7 +90,32 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
 
         # Check t1 and t2 are pre-colored:
         self.assertEqual(
-            {self.register_allocator.Node(R0)},
+            {self.register_allocator.node(R0)},
+            self.register_allocator.precolored)
+        self.assertEqual(set(), self.register_allocator.coalescedMoves)
+        self.assertEqual({move}, self.register_allocator.constrainedMoves)
+        self.conflict(t2, t3)
+        self.assertEqual(set(), self.register_allocator.frozenMoves)
+        self.assertIn(move, f.instructions)
+
+    def test_constrained_move_by_alias(self):
+        """ Test if aliased registers work and cannot be coalesced. """
+        f = Frame('tst', [], [], None, [])
+        t1 = R10
+        t2 = R10l
+        t3 = ExampleRegister('t3')
+        move = Mov(t3, t1, ismove=True)
+        f.instructions.append(Def(t1))
+        f.instructions.append(move)
+        f.instructions.append(DefHalf(t2))
+        f.instructions.append(UseHalf(t2))
+        f.instructions.append(Use(t3))
+        self.register_allocator.alloc_frame(f)
+
+        # Check t1 and t2 are pre-colored:
+        self.assertEqual(
+            {self.register_allocator.node(R10),
+             self.register_allocator.node(R10l)},
             self.register_allocator.precolored)
         self.assertEqual(set(), self.register_allocator.coalescedMoves)
         self.assertEqual({move}, self.register_allocator.constrainedMoves)
