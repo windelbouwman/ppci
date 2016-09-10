@@ -637,7 +637,7 @@ def pattern_stri32_addi32(context, tree, c0, c1):
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
-        "<": Blt, ">": Bgt, "==": Beqv, "!=": Bnev,
+        "<": Blt, ">": Bgt, "==": Beq, "!=": Bne,
         ">=": Bge, '<=': Bgt
         }
     Bop = opnames[op]

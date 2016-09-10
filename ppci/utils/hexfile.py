@@ -1,6 +1,6 @@
 import struct
 import binascii
-import sys
+
 
 DATA = 0
 EOF = 1

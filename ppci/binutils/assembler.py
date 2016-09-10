@@ -9,7 +9,7 @@ from ..pcc.grammar import Grammar
 from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
-from ..arch.arch import Label, Alignment, SectionInstruction, DebugData, ArtificialInstruction
+from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
 from ..arch.encoding import InstructionProperty, Syntax, Register
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb

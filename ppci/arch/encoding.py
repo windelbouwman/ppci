@@ -9,9 +9,7 @@ class InstructionProperty(property):
     """ Custom derived property that implements the descriptor protocol
         by inheriting property
     """
-    def __init__(
-            self, name, cls, getter, setter, read=False, write=False,
-            default_value=None):
+    def __init__(self, name, cls, getter, setter, read=False, write=False):
         self._name = name
         self._cls = cls
         self._read = read
@@ -105,7 +103,7 @@ class Constructor:
         """ Fill tokens with the specified bit patterns """
         for pattern in self.patterns:
             value = pattern.get_value(self)
-            assert isinstance(value, int), str(self) + str(value) + str(pattern)
+            assert isinstance(value, int), str(self) + str(value)
             tokens.set_field(pattern.field, value)
         self.set_user_patterns(tokens)
 

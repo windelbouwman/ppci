@@ -66,7 +66,7 @@ class ElfFile:
         assert e_ident[2] == ord('L')
         assert e_ident[3] == ord('F')
         elf_file.ei_class = e_ident[4]
-        #elf_file.e_type, elf_file.e_machine, _, _ \
+        # elf_file.e_type, elf_file.e_machine, _, _ \
         #    = struct.unpack(E_FMT, f.read(48))
         return elf_file
 

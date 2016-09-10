@@ -265,7 +265,7 @@ class Reader:
 
     def parse_return(self):
         self.consume('ID', 'return')
-        val = self.find_val(self.consume('ID')[1])
+        self.find_val(self.consume('ID')[1])
         # TODO: what to do with return value?
         ins = ir.Exit()
         return ins
