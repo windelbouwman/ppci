@@ -13,6 +13,7 @@ from .. import ir
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
+from ..arch.arch import Label
 
 
 class ReportGenerator:
@@ -45,6 +46,9 @@ class ReportGenerator:
         pass
 
     def dump_cfg_nodes(self, frame):
+        pass
+
+    def dump_ig(self, ig):
         pass
 
     def dump_instructions(self, instruction_list):
@@ -228,15 +232,19 @@ class HtmlReportGenerator(TextWritingReporter):
         super().__init__(dump_file)
         self.nr = 0
         self.backlog = []
-        # logging.getLogger().addHandler(MyHandler(self.backlog))
+        logging.getLogger().addHandler(MyHandler(self.backlog))
 
     def new_guid(self):
         self.nr += 1
         return 'guid_{}'.format(self.nr)
 
     def flush_log(self):
-        while self.backlog:
-            self.message(self.backlog.pop(0))
+        if self.backlog:
+            with collapseable(self, 'Log'):
+                self.print('<pre>')
+                while self.backlog:
+                    self.print(self.backlog.pop(0))
+                self.print('<pre>')
 
     def header(self):
         self.print(HTML_HEADER)
@@ -283,7 +291,10 @@ class HtmlReportGenerator(TextWritingReporter):
         with collapseable(self, 'Instructions'):
             self.print('<pre>')
             for ins in instruction_list:
-                self.print(ins)
+                if isinstance(ins, Label):
+                    self.print('{}'.format(ins))
+                else:
+                    self.print('    {}'.format(ins))
             self.print('</pre>')
 
     def render_graph(self, graph):
@@ -337,6 +348,7 @@ class HtmlReportGenerator(TextWritingReporter):
         with collapseable(self, 'Frame'):
             self.print('<p><div class="codeblock">')
             self.print(frame)
+            self.print('<p>Used: {}</p>'.format(frame.used_regs))
             self.print('<table border="1">')
             self.print('<tr>')
             self.print('<th>#</th><th>instruction</th>')
@@ -389,3 +401,6 @@ class HtmlReportGenerator(TextWritingReporter):
             if frame.cfg.has_node(ins):
                 nde = frame.cfg.get_node(ins)
                 self.print('ins: {} {}'.format(ins, nde.longrepr))
+
+    def dump_ig(self, ig):
+        ig.to_dot()

@@ -308,6 +308,7 @@ class Frame:
         self.rv = rv
         self.live_out = live_out
         self.instructions = []
+        self.used_regs = set()
         self.temps = generate_temps()
 
         # Local stack:
@@ -343,6 +344,10 @@ class Frame:
         self.constants.append((lab_name, value))
         return lab_name
 
+    def is_used(self, register):
+        """ Check if a register is used by this frame """
+        return register in self.used_regs
+
     def live_regs_over(self, instruction):
         """ Determine what registers are live along an instruction.
         Useful to determine if registers must be saved when making a call """
@@ -353,10 +358,14 @@ class Frame:
 
         # Get register colors from interference graph:
         live_regs = []
-        for tmp in instruction.live_in & instruction.live_out:
+        for tmp in (instruction.live_in & instruction.live_out) - instruction.kill:
             # print(tmp)
             n = self.ig.get_node(tmp)
-            live_regs.append(n.color)
+            reg = n.reg
+            live_regs.append(reg)
+        #for tmp in instruction.used_registers:
+        #    if tmp in live_regs:
+        #        live_regs
         return live_regs
 
     def live_ranges(self, vreg):

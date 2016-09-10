@@ -94,7 +94,7 @@ class FunctionOutputStream(OutputStream):
         self.function = function
 
     def do_emit(self, item):
-        self.function(str(item))
+        self.function(item)
 
 
 class LoggerOutputStream(FunctionOutputStream):

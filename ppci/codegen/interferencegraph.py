@@ -17,16 +17,16 @@ class InterferenceGraphNode(Node):
         super().__init__(graph)
         self.temps = {vreg}
         self.moves = set()
-        self.color = vreg if vreg.is_colored else None
+        self.reg = vreg if vreg.is_colored else None
         self.reg_class = type(vreg)
 
     @property
     def is_colored(self):
-        return self.color is not None
+        return self.reg is not None
 
     def __repr__(self):
-        return '{}(color={},class={})'.format(
-            self.temps, self.color, self.reg_class)
+        return '{}(reg={},class={})'.format(
+            self.temps, self.reg, self.reg_class)
 
 
 class InterferenceGraph(Graph):
@@ -69,13 +69,19 @@ class InterferenceGraph(Graph):
                 for reg in ins.used_registers:
                     self._use_map[reg].append(ins)
 
-    def get_node(self, tmp):
+    def has_node(self, tmp):
+        """ Check if there exists a node for this temp register """
+        assert isinstance(tmp, Register)
+        return tmp in self.temp_map
+
+    def get_node(self, tmp, create=True):
         """ Get the node for a register """
         assert isinstance(tmp, Register)
         if tmp in self.temp_map:
             node = self.temp_map[tmp]
             assert tmp in node.temps
         else:
+            assert create
             node = InterferenceGraphNode(self, tmp)
             self.add_node(node)
             self.temp_map[tmp] = node

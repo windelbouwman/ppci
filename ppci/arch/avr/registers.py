@@ -145,6 +145,11 @@ hi_regs = (r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
            r28, r29, r30, r31)
 all_regs = lo_regs + hi_regs
 
+callee_save = (
+    r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17)
+
+caller_save = (r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r30, r31)
+
 gdb_registers = all_regs + (SREG, SP, PC)
 
 lo_w_regs = (

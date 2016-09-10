@@ -23,9 +23,9 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
             arch, None, debug_db)
 
     def conflict(self, ta, tb):
-        color_a = self.register_allocator.Node(ta).color
-        color_b = self.register_allocator.Node(tb).color
-        self.assertNotEqual(color_a, color_b)
+        reg_a = self.register_allocator.Node(ta).reg
+        reg_b = self.register_allocator.Node(tb).reg
+        self.assertNotEqual(reg_a, reg_b)
 
     def test_register_allocation(self):
         f = Frame('tst', [], [], None, [])

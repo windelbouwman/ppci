@@ -103,6 +103,6 @@ def get8reg(num):
 # Register classes:
 register_classes = [
     RegisterClass('reg64', [i64, ptr], X86Register,
-                  [rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
+                  [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
     RegisterClass('reg8', [i8], LowRegister, [al, bl, cl, dl]),
     ]

@@ -13,7 +13,7 @@ from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, Y
-from .registers import r25r24
+from .registers import r25r24, caller_save, callee_save
 from .registers import get16reg, register_classes, gdb_registers
 
 
@@ -102,27 +102,32 @@ class AvrArch(Architecture):
         else:  # pragma: no cover
             raise NotImplementedError('Parameters in memory not impl')
 
+    def expand_word_regs(self, registers):
+        s = set()
+        for register in registers:
+            if isinstance(register, AvrWordRegister):
+                s.add(register.hi)
+                s.add(register.lo)
+            else:
+                s.add(register)
+        return s
+
     def make_call(self, frame, vcall):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
         live_registers = frame.live_regs_over(vcall)
+        live_registers = self.expand_word_regs(live_registers)
 
         # Caller save registers:
-        for register in live_registers:
-            if isinstance(register, AvrWordRegister):
-                yield Push(register.hi)
-                yield Push(register.lo)
-            else:
+        for register in caller_save:
+            if register in live_registers:
                 yield Push(register)
 
         yield Call(vcall.function_name)
 
         # Restore caller save registers (in reverse order!):
-        for register in reversed(live_registers):
-            if isinstance(register, AvrWordRegister):
-                yield Pop(register.lo)
-                yield Pop(register.hi)
-            else:
+        for register in reversed(caller_save):
+            if register in live_registers:
                 yield Pop(register)
 
     def gen_prologue(self, frame):
@@ -135,8 +140,10 @@ class AvrArch(Architecture):
         yield Push(Y.hi)
 
         # Save some registers:
-        # TODO!
-        self.logger.warning('Saving registers on prologue not impl')
+        used_regs = self.expand_word_regs(frame.used_regs)
+        for register in callee_save:
+            if register in used_regs:
+                yield Push(register)
 
         if frame.stacksize > 0:
             # Push N times to adjust stack:
@@ -155,6 +162,12 @@ class AvrArch(Architecture):
             # Pop x times to adjust stack:
             for _ in range(frame.stacksize):
                 yield Pop(r0)
+
+        # Restore registers:
+        used_regs = self.expand_word_regs(frame.used_regs)
+        for register in reversed(callee_save):
+            if register in used_regs:
+                yield Pop(register)
 
         yield Pop(Y.hi)
         yield Pop(Y.lo)
