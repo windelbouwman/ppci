@@ -225,6 +225,7 @@ class MyHandler(logging.Handler):
 
     def emit(self, record):
         self.backlog.append(self.format(record))
+        print(self, self.backlog[-1])
 
 
 class HtmlReportGenerator(TextWritingReporter):
@@ -232,7 +233,9 @@ class HtmlReportGenerator(TextWritingReporter):
         super().__init__(dump_file)
         self.nr = 0
         self.backlog = []
-        logging.getLogger().addHandler(MyHandler(self.backlog))
+        # This handler works nice, but when used multiple times, loggers
+        # start to accumulate and accumulate, leading to memory error
+        # logging.getLogger().addHandler(MyHandler(self.backlog))
 
     def new_guid(self):
         self.nr += 1
