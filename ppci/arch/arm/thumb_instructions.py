@@ -1,7 +1,7 @@
 """ Thumb instruction definitions """
 
 from ..isa import Isa
-from ..encoding import Instruction, register_argument, Syntax
+from ..encoding import Instruction, operand, Syntax
 from ..token import u16
 from ..arm.registers import ArmRegister, LowArmRegister
 from ..token import Token, bit_range
@@ -50,8 +50,8 @@ class nop_ins(ThumbInstruction):
 
 class LS_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm5 = register_argument('imm5', int)
+    rn = operand('rn', LowArmRegister, read=True)
+    imm5 = operand('imm5', int)
 
     def encode(self):
         assert self.imm5 % 4 == 0
@@ -69,14 +69,14 @@ class LS_imm5_base(ThumbInstruction):
 
 
 class Str2(LS_imm5_base):
-    rt = register_argument('rt', LowArmRegister, read=True)
+    rt = operand('rt', LowArmRegister, read=True)
     syntax = Syntax([
         'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
     opcode = 0xC
 
 
 class Ldr2(LS_imm5_base):
-    rt = register_argument('rt', LowArmRegister, write=True)
+    rt = operand('rt', LowArmRegister, write=True)
     syntax = Syntax([
         'ldr', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
     opcode = 0xD
@@ -84,8 +84,8 @@ class Ldr2(LS_imm5_base):
 
 class LS_byte_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm5 = register_argument('imm5', int)
+    rn = operand('rn', LowArmRegister, read=True)
+    imm5 = operand('imm5', int)
 
     def encode(self):
         assert self.rn.num < 8
@@ -102,7 +102,7 @@ class LS_byte_imm5_base(ThumbInstruction):
 
 
 class Strb(LS_byte_imm5_base):
-    rt = register_argument('rt', LowArmRegister, read=True)
+    rt = operand('rt', LowArmRegister, read=True)
     syntax = Syntax([
         'strb', ' ', rt, ',', ' ', '[', LS_byte_imm5_base.rn, ',', ' ',
         LS_byte_imm5_base.imm5, ']'])
@@ -110,7 +110,7 @@ class Strb(LS_byte_imm5_base):
 
 
 class Ldrb(LS_byte_imm5_base):
-    rt = register_argument('rt', LowArmRegister, write=True)
+    rt = operand('rt', LowArmRegister, write=True)
     syntax = Syntax([
         'ldrb', ' ', rt, ',', ' ', '[', LS_byte_imm5_base.rn, ',', ' ',
         LS_byte_imm5_base.imm5, ']'])
@@ -118,7 +118,7 @@ class Ldrb(LS_byte_imm5_base):
 
 
 class ls_sp_base_imm8(ThumbInstruction):
-    offset = register_argument('offset', int)
+    offset = operand('offset', int)
 
     def encode(self):
         rt = self.rt.num
@@ -131,8 +131,8 @@ class ls_sp_base_imm8(ThumbInstruction):
 
 class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
-    rt = register_argument('rt', LowArmRegister, write=True)
-    label = register_argument('label', str)
+    rt = operand('rt', LowArmRegister, write=True)
+    label = operand('label', str)
     syntax = Syntax(['ldr', ' ', rt, ',', ' ', label])
 
     def relocations(self):
@@ -148,7 +148,7 @@ class Ldr3(ThumbInstruction):
 
 class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
-    rt = register_argument('rt', LowArmRegister, write=True)
+    rt = operand('rt', LowArmRegister, write=True)
     opcode = 0x98
     syntax = Syntax(
         ['ldr', ' ', rt, ',', ' ', '[', 'sp', ',',
@@ -157,7 +157,7 @@ class Ldr1(ls_sp_base_imm8):
 
 class Str1(ls_sp_base_imm8):
     """ str Rt, [SP, imm8] """
-    rt = register_argument('rt', LowArmRegister, read=True)
+    rt = operand('rt', LowArmRegister, read=True)
     opcode = 0x90
     syntax = Syntax(
         ['str', ' ', rt, ',', ' ', '[', 'sp', ',', ' ',
@@ -165,8 +165,8 @@ class Str1(ls_sp_base_imm8):
 
 
 class Adr(ThumbInstruction):
-    rd = register_argument('rd', LowArmRegister, write=True)
-    label = register_argument('label', str)
+    rd = operand('rd', LowArmRegister, write=True)
+    label = operand('label', str)
     syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
@@ -183,8 +183,8 @@ class Adr(ThumbInstruction):
 class Mov3(ThumbInstruction):
     """ mov Rd, imm8, move immediate value into register """
     opcode = 4   # 00100 Rd(3) imm8
-    rd = register_argument('rd', LowArmRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = operand('rd', LowArmRegister, write=True)
+    imm = operand('imm', int)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
 
     def encode(self):
@@ -199,9 +199,9 @@ class Mov3(ThumbInstruction):
 
 
 class regregimm3_base(ThumbInstruction):
-    rd = register_argument('rd', LowArmRegister, write=True)
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm3 = register_argument('imm3', int)
+    rd = operand('rd', LowArmRegister, write=True)
+    rn = operand('rn', LowArmRegister, read=True)
+    imm3 = operand('imm3', int)
 
     def encode(self):
         assert self.imm3 < 8
@@ -232,9 +232,9 @@ class Sub2(regregimm3_base):
 
 class regregreg_base(ThumbInstruction):
     """ ??? Rd, Rn, Rm """
-    rd = register_argument('rd', LowArmRegister, write=True)
-    rn = register_argument('rn', LowArmRegister, read=True)
-    rm = register_argument('rm', LowArmRegister, read=True)
+    rd = operand('rd', LowArmRegister, write=True)
+    rn = operand('rn', LowArmRegister, read=True)
+    rm = operand('rm', LowArmRegister, read=True)
 
     def encode(self):
         at = ThumbToken()
@@ -263,8 +263,8 @@ class Sub3(regregreg_base):
 
 class Mov2(ThumbInstruction):
     """ mov rd, rm (all registers, also > r7 """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rm = register_argument('rm', ArmRegister, read=True)
+    rd = operand('rd', ArmRegister, write=True)
+    rm = operand('rm', ArmRegister, read=True)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rm])
 
     def encode(self):
@@ -286,8 +286,8 @@ class Mul(ThumbInstruction):
         multiply Rn and Rm and store the result in Rd
         Rd and Rm are the same register.
     """
-    rn = register_argument('rn', LowArmRegister, read=True)
-    rdm = register_argument('rdm', LowArmRegister, read=True, write=True)
+    rn = operand('rn', LowArmRegister, read=True)
+    rdm = operand('rdm', LowArmRegister, read=True, write=True)
     syntax = Syntax(['mul', ' ', rn, ',', ' ', rdm])
 
     def encode(self):
@@ -304,9 +304,9 @@ class Sdiv(LongThumbInstruction):
     """ Signed division.
         Encoding T1
     """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
+    rd = operand('rd', ArmRegister, write=True)
+    rn = operand('rn', ArmRegister, read=True)
+    rm = operand('rm', ArmRegister, read=True)
     syntax = Syntax(['sdiv', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def encode(self):
@@ -333,8 +333,8 @@ class regreg_base(ThumbInstruction):
 
 
 def make_regreg(mnemonic, opcode):
-    rdn = register_argument('rdn', LowArmRegister, write=True, read=True)
-    rm = register_argument('rm', LowArmRegister, read=True)
+    rdn = operand('rdn', LowArmRegister, write=True, read=True)
+    rm = operand('rm', LowArmRegister, read=True)
     syntax = Syntax([mnemonic, rdn, ',', rm])
     members = {'syntax': syntax, 'rdn': rdn, 'rm': rm, 'opcode': opcode}
     return type(mnemonic + '_ins', (regreg_base,), members)
@@ -351,8 +351,8 @@ Lsr = make_regreg('lsr', 0b0100000011)
 class Cmp2(ThumbInstruction):
     """ cmp Rn, imm8 """
     opcode = 5   # 00101
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm = register_argument('imm', int)
+    rn = operand('rn', LowArmRegister, read=True)
+    imm = operand('imm', int)
     syntax = Syntax(['cmp', rn, ',', imm])
 
     def encode(self):
@@ -367,7 +367,7 @@ class Cmp2(ThumbInstruction):
 
 
 class B(ThumbInstruction):
-    target = register_argument('target', str)
+    target = operand('target', str)
     syntax = Syntax(['b', ' ', target])
 
     def encode(self):
@@ -383,7 +383,7 @@ class Bw(LongThumbInstruction):
     """ Encoding T4
         Same encoding as Bl, longer jumps are possible with this function!
     """
-    target = register_argument('target', str)
+    target = operand('target', str)
     syntax = Syntax(['bw', target])
 
     def encode(self):
@@ -403,7 +403,7 @@ class Bw(LongThumbInstruction):
 
 class Bl(LongThumbInstruction):
     """ Branch with link """
-    target = register_argument('target', str)
+    target = operand('target', str)
     syntax = Syntax(['bl', target])
 
     def encode(self):
@@ -433,7 +433,7 @@ class cond_base_ins(ThumbInstruction):
 
 
 def make_cond_branch(mnemonic, cond):
-    target = register_argument('target', str)
+    target = operand('target', str)
     syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
@@ -463,7 +463,7 @@ class cond_base_ins_long(LongThumbInstruction):
 
 
 def make_long_cond_branch(mnemonic, cond):
-    target = register_argument('target', str)
+    target = operand('target', str)
     syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
@@ -497,7 +497,7 @@ def pop_bit_pos(n):
 
 
 class Push(ThumbInstruction):
-    regs = register_argument('regs', set)
+    regs = operand('regs', set)
     syntax = Syntax(['push', regs])
 
     def __repr__(self):
@@ -517,7 +517,7 @@ def register_numbers(regs):
 
 
 class Pop(ThumbInstruction):
-    regs = register_argument('regs', set)
+    regs = operand('regs', set)
     syntax = Syntax(['pop', regs])
 
     def __repr__(self):
@@ -540,7 +540,7 @@ class Yield(ThumbInstruction):
 
 class addspsp_base(ThumbInstruction):
     """ add/sub SP with imm7 << 2 """
-    imm7 = register_argument('imm7', int)
+    imm7 = operand('imm7', int)
 
     def encode(self):
         assert self.imm7 < 512

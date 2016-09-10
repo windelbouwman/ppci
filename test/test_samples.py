@@ -240,9 +240,7 @@ class BuildMixin:
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
-class TestSamplesOnVexpress(
-        unittest.TestCase,
-        I32Samples, BuildMixin):
+class TestSamplesOnVexpress(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
     march = "arm"
     startercode = """
@@ -298,9 +296,7 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
-class TestSamplesOnRiscv(
-        unittest.TestCase,
-        I32Samples, BuildMixin):
+class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
@@ -327,11 +323,13 @@ class TestSamplesOnRiscv(
         self.build(src, lang)
 
 
+class TestSamplesOnRiscvC(TestSamplesOnRiscv):
+    march = "riscv:rvc"
+
+
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
-class TestSamplesOnCortexM3O2(
-        unittest.TestCase,
-        I32Samples, BuildMixin):
+class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
 
     opt_level = 2
@@ -438,8 +436,7 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', '8bit')
-class TestSamplesOnMsp430O2(
-        unittest.TestCase, BuildMixin):
+class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
     opt_level = 2
     march = "msp430"
     startercode = """
@@ -553,9 +550,7 @@ class TestSamplesOnAvrO2(TestSamplesOnAvr):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
-class TestSamplesOnX86Linux(
-        unittest.TestCase,
-        BuildMixin):
+class TestSamplesOnX86Linux(unittest.TestCase, BuildMixin):
     march = "x86_64"
     startercode = """
     section reset
