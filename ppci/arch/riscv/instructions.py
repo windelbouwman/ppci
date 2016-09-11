@@ -108,10 +108,11 @@ class Movi(RiscvInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
+        imm12 = wrap_negative(self.imm, 12)
         tokens[0][0:7] = 0b0010011
         tokens[0][7:12] = self.rd.num
         tokens[0][12:20] = 0
-        tokens[0][20:32] = self.imm
+        tokens[0][20:32] = imm12
         return tokens[0].encode()
 
 
@@ -735,7 +736,7 @@ def _(context, tree):
 @isa.pattern('reg', 'LDRI8(reg)', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
-    context.emit(Lb(d, 0, c0))
+    context.emit(Lbu(d, 0, c0))
     return d
 
 

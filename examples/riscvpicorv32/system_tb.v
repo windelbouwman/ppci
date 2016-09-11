@@ -25,16 +25,10 @@ module system_tb;
 	system uut (
 		.clk        (clk        ),
 		.resetn     (resetn     ),
-		.trap       (trap       ),
-		.out_byte   (out_byte   ),
-		.out_byte_en(out_byte_en)
+		.trap       (trap       )		
 	);
 
 	always @(posedge clk) begin
-		if (resetn && out_byte_en) begin
-			$write("%c", out_byte);
-			$fflush;
-		end
 		if (resetn && trap) begin
 			$finish;
 		end

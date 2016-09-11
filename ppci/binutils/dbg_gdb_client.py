@@ -7,6 +7,7 @@ import logging
 import socket
 import select
 import struct
+import time 
 from .dbg import DebugDriver, STOPPED, RUNNING
 
 
@@ -23,11 +24,15 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
-    def __init__(self, arch, port=1234):
-        self.status = STOPPED
+    def __init__(self, arch, port=1234, constat=STOPPED):
         self.arch = arch
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(("localhost", port))
+        time.sleep(1)
+        self.status = constat
+        if(constat == RUNNING):
+            self.stop()
+
 
     @staticmethod
     def rsp_pack(data):
@@ -98,7 +103,8 @@ class GdbDebugDriver(DebugDriver):
                 while True:
                     res.extend(self.sock.recv(1))
                     if res[-1] == ord('#') and res[-2] != ord("'"):
-                        res.extend(self.sock.recv(2))
+                        res.extend(self.sock.recv(1))
+                        res.extend(self.sock.recv(1))
                         return res.decode('ascii')
             else:
                 print('UNKNOWN:', data)

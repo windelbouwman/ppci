@@ -1,3 +1,14 @@
-1. generate firmware.hex by running mkfirmpico.py
-2. generate system.vcd by running genvcd.sh
-3. view system.vcd with gtkwave
+1. Icarus verilog (iverilog) needs to be installed (https://github.com/steveicarus/iverilog) for this examples.
+2. Generate firmware.hex py running: python3 mkfirm.py
+3. Compile the sources with iverilog: ./buildsim.sh
+4. Run the simulation: ./runsim.sh
+5. Connect the commandline-debugger: python3 dbg_gdb_cli.py
+6. Try some debugger commands:
+   read 0, 4      // read 4 bytes from address 0
+   write 0, ab    // write 0xab to address 0
+   read 0,4       // read again
+   regs           // read registers
+   run            // leave debug monitor
+   break          // restart debug monitor
+
+

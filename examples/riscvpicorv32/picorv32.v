@@ -55,11 +55,11 @@ module picorv32 #(
 	parameter [ 0:0] ENABLE_PCPI = 0,
 	parameter [ 0:0] ENABLE_MUL = 1,
 	parameter [ 0:0] ENABLE_DIV = 0,
-	parameter [ 0:0] ENABLE_IRQ = 0,
+	parameter [ 0:0] ENABLE_IRQ = 1,
 	parameter [ 0:0] ENABLE_IRQ_QREGS = 1,
 	parameter [ 0:0] ENABLE_IRQ_TIMER = 1,
 	parameter [31:0] MASKED_IRQ = 32'h 0000_0000,
-	parameter [31:0] LATCHED_IRQ = 32'h ffff_ffff,
+	parameter [31:0] LATCHED_IRQ = 32'h ffff_fffe,
 	parameter [31:0] PROGADDR_RESET = 32'h 0000_0000,
 	parameter [31:0] PROGADDR_IRQ = 32'h 0000_0010
 ) (
