@@ -1,12 +1,10 @@
-"""
-MSP430 architecture description.
-"""
+""" MSP430 architecture description. """
 
 import io
 from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
-from ..arch import Architecture, Frame, Label, Alignment
+from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
 from .registers import r4, r5, r6, r7, r8, r9
@@ -26,9 +24,6 @@ class Msp430Arch(Architecture):
         self.isa = isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        # import ipdb; ipdb.set_trace()
-
-        self.FrameClass = Msp430Frame
 
         # Allocatable registers:
         self.fp = r4
@@ -158,6 +153,8 @@ class Msp430Arch(Architecture):
         # Circular import, but this is possible!
         from ...api import asm, c3c, link
         march = 'msp430'
+        # TODO: without the below layout, things go wrong, but why?
+        # Layout should not be required here!
         layout = io.StringIO("""
             MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
             MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
@@ -170,14 +167,6 @@ class Msp430Arch(Architecture):
             obj2 = c3c([io.StringIO(RT_C3_SRC)], [], march, reporter=reporter)
             obj = link([obj1, obj2], layout, partial_link=True)
         return obj
-
-
-class Msp430Frame(Frame):
-    """ Frame class """
-    def is_used(self, register):
-        """ Check if a register is used by this frame """
-        # TODO: implement a check here!
-        return True
 
 
 RT_ASM_SRC = """
@@ -200,6 +189,8 @@ RT_ASM_SRC = """
       jne __shr_a
       ret
 """
+
+# TODO: move the code below to shared location? It is not msp430 specific!
 RT_C3_SRC = """
     module msp430_runtime;
     function int __div(int num, int den)

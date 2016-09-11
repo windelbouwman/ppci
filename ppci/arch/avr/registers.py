@@ -43,7 +43,12 @@ class HighAvrWordRegister(AvrWordRegister):
     pass
 
 
-class AvrPointerRegister(HighAvrWordRegister):
+class SuperHighAvrWordRegister(AvrWordRegister):
+    # The higher quarter of the word registers
+    pass
+
+
+class AvrPointerRegister(SuperHighAvrWordRegister):
     pass
 
 
@@ -129,14 +134,15 @@ r17r16 = HighAvrWordRegister('r17:r16', num=16, aliases=(r17, r16))
 r19r18 = HighAvrWordRegister('r19:r18', num=18, aliases=(r19, r18))
 r21r20 = HighAvrWordRegister('r21:r20', num=20, aliases=(r21, r20))
 r23r22 = HighAvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
-r25r24 = HighAvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
-X = AvrXRegister('X', num=26, aliases=(r27, r26))
+W = SuperHighAvrWordRegister('W', num=24, aliases=(r25, r24), aka=('r25:r24',))
+X = AvrXRegister('X', num=26, aliases=(r27, r26), aka=('r27:r26',))
 AvrXRegister.registers = [X]
-Y = AvrYRegister('Y', num=28, aliases=(r29, r28))
+Y = AvrYRegister('Y', num=28, aliases=(r29, r28), aka=('r29:r28',))
 AvrYRegister.registers = [Y]
-Z = AvrZRegister('Z', num=30, aliases=(r31, r30))
+Z = AvrZRegister('Z', num=30, aliases=(r31, r30), aka=('r31:r30',))
 AvrZRegister.registers = [Z]
 AvrPointerRegister.registers = (X, Y, Z)
+SuperHighAvrWordRegister.registers = (W, X, Y, Z)
 
 
 lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
@@ -144,6 +150,8 @@ lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
 hi_regs = (r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
            r28, r29, r30, r31)
 all_regs = lo_regs + hi_regs
+alloc_lo_regs = (r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15)
+alloc_regs = alloc_lo_regs + hi_regs
 
 callee_save = (
     r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17)
@@ -155,8 +163,11 @@ gdb_registers = all_regs + (SREG, SP, PC)
 lo_w_regs = (
     r1r0, r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
 hi_w_regs = (
-    r17r16, r19r18, r21r20, r23r22, r25r24, X, Y, Z)
+    r17r16, r19r18, r21r20, r23r22, W, X, Y, Z)
 all_w_regs = lo_w_regs + hi_w_regs
+alloc_lo_w_regs = (
+    r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
+alloc_w_regs = alloc_lo_w_regs + hi_w_regs
 
 num_reg_map = {r.num: r for r in all_regs}
 
@@ -179,12 +190,13 @@ def get16reg(n):
 
 
 register_classes = [
-    RegisterClass('reg', [i8], AvrRegister, all_regs),
+    RegisterClass('reg', [i8], AvrRegister, alloc_regs),
     RegisterClass('hireg', [], HighAvrRegister, hi_regs),
+    RegisterClass('suhireg', [], SuperHighAvrWordRegister, (W, X, Y, Z)),
     RegisterClass('ptrreg', [], AvrPointerRegister, (X, Y, Z)),
     RegisterClass('xreg', [], AvrXRegister, (X,)),
     RegisterClass('yreg', [], AvrYRegister, (Y,)),
     RegisterClass('zreg', [], AvrZRegister, (Z,)),
-    RegisterClass('reg16', [i16, ptr], AvrWordRegister, all_w_regs),
+    RegisterClass('reg16', [i16, ptr], AvrWordRegister, alloc_w_regs),
     RegisterClass('hireg16', [], HighAvrWordRegister, hi_w_regs),
     ]

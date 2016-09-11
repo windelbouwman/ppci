@@ -7,7 +7,7 @@ from ...utils.bitfun import wrap_negative
 from ...ir import i16
 from .registers import AvrRegister, X, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
-from .registers import HighAvrWordRegister
+from .registers import HighAvrWordRegister, SuperHighAvrWordRegister
 from .registers import r0, r1, r1r0
 
 
@@ -47,13 +47,19 @@ class AvrToken3(AvrToken):
     a = bit_range(9, 11) + bit_range(0, 4)
 
 
+class AdiwToken(AvrToken):
+    op = bit_range(8, 16)
+    p = bit_range(4, 6)
+    k = bit_range(6, 8) + bit_range(0, 4)
+
+
 class AvrToken4(AvrToken):
     op = bit_range(12, 16)
     d = bit_range(4, 8)
     k = bit_range(8, 12) + bit_range(0, 4)
 
 
-class AvrToken5(AvrToken):
+class ConditionalBranchToken(AvrToken):
     op = bit_range(11, 16)
     b = bit(10) + bit_range(0, 3)
 
@@ -92,15 +98,28 @@ class Add(AvrInstruction):
         VariablePattern('d', rd)]
 
 
-# TODO: implement adiw:
 class Adiw(AvrInstruction):
-    """ Add immediate to word """
-    # tokens = [AvrAddwToken]
-    rd = operand('rd', AvrWordRegister, read=True, write=True)
+    """ Add immediate to word (W, X, Y or Z) """
+    tokens = [AdiwToken]
+    rd = operand('rd', SuperHighAvrWordRegister, read=True, write=True)
     imm = operand('imm', int)
     syntax = Syntax(['adiw', ' ', rd, ',', ' ', imm])
     patterns = [
-        VariablePattern('p', rd)]
+        FixedPattern('op', 0b10010110),
+        VariablePattern('k', imm),
+        VariablePattern('p', rd, transform=(lambda v: (v // 2) - 12, None))]
+
+
+class Sbiw(AvrInstruction):
+    """ Substract immediate to word (W, X, Y or Z) """
+    tokens = [AdiwToken]
+    rd = operand('rd', SuperHighAvrWordRegister, read=True, write=True)
+    imm = operand('imm', int)
+    syntax = Syntax(['sbiw', ' ', rd, ',', ' ', imm])
+    patterns = [
+        FixedPattern('op', 0b10010111),
+        VariablePattern('k', imm),
+        VariablePattern('p', rd, transform=(lambda v: (v // 2) - 12, None))]
 
 
 class Adc(AvrInstruction):
@@ -264,7 +283,7 @@ def relsigned7bit(sym_value, data, reloc_value):
 
 class Brne(AvrInstruction):
     """ Branch when not equal (Z flag is cleared) """
-    tokens = [AvrToken5]
+    tokens = [ConditionalBranchToken]
     lab = operand('lab', str)
     syntax = Syntax(['brne', ' ', lab])
     patterns = [
@@ -277,7 +296,7 @@ class Brne(AvrInstruction):
 
 
 class Breq(AvrInstruction):
-    tokens = [AvrToken5]
+    tokens = [ConditionalBranchToken]
     lab = operand('lab', str)
     syntax = Syntax(['breq', ' ', lab])
     patterns = [
@@ -290,7 +309,8 @@ class Breq(AvrInstruction):
 
 
 class Brlt(AvrInstruction):
-    tokens = [AvrToken5]
+    """ Branch if less than (signed) """
+    tokens = [ConditionalBranchToken]
     lab = operand('lab', str)
     syntax = Syntax(['brlt', ' ', lab])
     patterns = [
@@ -303,7 +323,8 @@ class Brlt(AvrInstruction):
 
 
 class Brge(AvrInstruction):
-    tokens = [AvrToken5]
+    """ Branch if greater or equal (signed) """
+    tokens = [ConditionalBranchToken]
     lab = operand('lab', str)
     syntax = Syntax(['brge', ' ', lab])
     patterns = [
@@ -762,14 +783,18 @@ def pattern_jmp(context, tree):
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
-        "==": Breq,
-        "!=": Brne,
-        '<': Brlt,
-        '>': Brge,  # TODO: fix this!
-        '>=': Brge}
-    Bop = opnames[op]
+        "==": (Breq, False),
+        "!=": (Brne, False),
+        '<': (Brlt, False),
+        '>': (Brlt, True),
+        '>=': (Brge, False),
+        '<=': (Brge, True)}
+    Bop, swap = opnames[op]
 
-    context.emit(Cpw(c0, c1))
+    if swap:
+        context.emit(Cpw(c1, c0))
+    else:
+        context.emit(Cpw(c0, c1))
 
     jmp_ins_no = Rjmp(no_label.name, jumps=[no_label])
     jmp_ins_yes = Rjmp(yes_label.name, jumps=[yes_label])
@@ -868,14 +893,14 @@ def pattern_or16(context, tree, c0, c1):
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
 def pattern_div16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
-    context.gen_call(('__div16', [i16, i16], i16, [c0, c1], d))
+    context.gen_call(('swmuldiv_div', [i16, i16], i16, [c0, c1], d))
     return d
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
-    context.gen_call(('__mul16', [i16, i16], i16, [c0, c1], d))
+    context.gen_call(('swmuldiv_mul', [i16, i16], i16, [c0, c1], d))
     return d
 
 
@@ -922,6 +947,9 @@ def pattern_ldr16(context, tree, c0):
     d = context.new_reg(AvrWordRegister)
     context.move(Z, c0)
     context.emit(LddWord_z(d, Z, 0))
+    stub = RegisterUseDef()
+    stub.add_use(Z)
+    context.emit(stub)
     return d
 
 
@@ -934,6 +962,9 @@ def pattern_ldr16_offset(context, tree, c0):
     offset = tree[0][1].value
     context.move(Z, c0)
     context.emit(LddWord_z(d, Z, offset))
+    stub = RegisterUseDef()
+    stub.add_use(Z)
+    context.emit(stub)
     return d
 
 

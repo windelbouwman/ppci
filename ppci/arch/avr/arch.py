@@ -6,14 +6,14 @@ from ..arch import Architecture, Label, Alignment, SectionInstruction
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
-from .instructions import Push, Pop, Mov, Call, In, Movw, Ret
+from .instructions import Push, Pop, Mov, Call, In, Movw, Ret, Adiw
 from .registers import AvrRegister
 from .registers import AvrWordRegister
 from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
-from .registers import r24, r25, Y
-from .registers import r25r24, caller_save, callee_save
+from .registers import r24, r25, W, Y
+from .registers import caller_save, callee_save
 from .registers import get16reg, register_classes, gdb_registers
 
 
@@ -37,8 +37,11 @@ class AvrArch(Architecture):
         self.gdb_pc = PC
 
     def get_runtime(self):
-        from ...api import asm
-        return asm(io.StringIO(asm_rt_src), self)
+        from ...api import asm, c3c, link
+        obj1 = asm(io.StringIO(asm_rt_src), self)
+        obj2 = c3c([io.StringIO(RT_C3_SRC)], [], self)
+        obj = link([obj1, obj2], partial_link=True)
+        return obj
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
@@ -71,8 +74,8 @@ class AvrArch(Architecture):
 
     def determine_rv_location(self, ret_type):
         live_out = set([Y])
-        rv = r25r24
-        live_out.add(r25r24)
+        rv = W
+        live_out.add(W)
         return rv, tuple(live_out)
 
     def gen_fill_arguments(self, arg_types, args, alives):
@@ -150,9 +153,13 @@ class AvrArch(Architecture):
             for _ in range(frame.stacksize):
                 yield Push(r0)
 
-        # Setup frame pointer:
-        yield In(Y.lo, 0x3d)
-        yield In(Y.hi, 0x3e)
+            # Setup frame pointer:
+            yield In(Y.lo, 0x3d)
+            yield In(Y.hi, 0x3e)
+            # ATTENTION: after push, the stackpointer points to the next empty
+            # byte.
+            # Increment entire Y by one:
+            yield Adiw(Y, 1)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
@@ -248,13 +255,47 @@ __shl16_2:
   pop r16
   ret
 
-; multiply r25:r24 by r23:r22
-__mul16:
-  ; TODO!!
-  ret
+"""
 
-; divide r25:r24 by r23:r22
-__div16:
-  ; TODO!!
-  ret
+
+RT_C3_SRC = """
+    module swmuldiv;
+    function int div(int num, int den)
+    {
+      var int res = 0;
+      var int current = 1;
+
+      while (den < num)
+      {
+        den = den << 1;
+        current = current << 1;
+      }
+
+      while (current != 0)
+      {
+        if (num >= den)
+        {
+          num -= den;
+          res = res | current;
+        }
+        den = den >> 1;
+        current = current >> 1;
+      }
+      return res;
+    }
+
+    function int mul(int a, int b)
+    {
+      var int res = 0;
+      while (b > 0)
+      {
+        if ((b & 1) == 1)
+        {
+          res += a;
+        }
+        a = a << 1;
+        b = b >> 1;
+      }
+      return res;
+    }
 """

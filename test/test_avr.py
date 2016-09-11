@@ -45,7 +45,8 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
 
     def test_movw(self):
         self.feed("movw r19:r18, r21:r20")
-        self.check('9a01')
+        self.feed("movw Z, Y")
+        self.check('9a01 fe01')
 
     def test_add(self):
         self.feed("add r11, r7")
@@ -55,9 +56,17 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("adc r21, r22")
         self.check('561f')
 
+    def test_adiw(self):
+        self.feed("adiw Y, 20")
+        self.check('6496')
+
     def test_sub(self):
         self.feed("sub r1, r1")
         self.check('1118')
+
+    def test_sbiw(self):
+        self.feed("sbiw Y, 20")
+        self.check('6497')
 
     def test_sbc(self):
         self.feed("sbc r2, r3")
@@ -128,21 +137,31 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("ld r4, -x")
         self.check('7c91 2c90 3d90 4e90')
 
-    def test_ldd(self):
+    def test_ldd_y(self):
         """ Test ldd using Y register """
         self.feed("ldd r19, Y+60")
         self.feed("ldd r13, Y+13")
         self.check('3cad dd84')
+
+    def test_ldd_z(self):
+        self.feed("ldd r11, Z+60")
+        self.feed("ldd r14, Z+13")
+        self.check('b4ac e584')
 
     def test_st(self):
         self.feed("st X, r22")
         self.feed("st X, r5")
         self.check('6c93 5c92')
 
-    def test_std(self):
+    def test_std_y(self):
         self.feed("std Y+33, r9")
         self.feed("std Y+1, r11")
         self.check('99a2 b982')
+
+    def test_std_z(self):
+        self.feed("std Z+2, r24")
+        self.feed("std Z+33, r7")
+        self.check('8283 71a2')
 
     def test_lds(self):
         self.feed("lds r26, 0xabcd")

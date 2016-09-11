@@ -127,6 +127,13 @@ class GdbDebugDriver(DebugDriver):
         self.logger.debug("PC value read:%x", pc)
         return pc
 
+    def get_fp(self):
+        """ read the frame pointer """
+        return 0x100
+        fp = self._get_register(self.arch.fp)
+        self.logger.debug("FP value read:%x", fp)
+        return fp
+
     def run(self):
         """ start the device """
         if self.status == STOPPED:

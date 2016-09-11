@@ -314,7 +314,6 @@ class GraphColoringRegisterAllocator:
 
         if t in self.precolored:
             # Check aliases:
-            assert t.reg in self.alias
             for reg2 in self.alias[t.reg]:
                 if self.frame.ig.has_node(reg2):
                     t2 = self.frame.ig.get_node(reg2, create=False)
@@ -323,7 +322,6 @@ class GraphColoringRegisterAllocator:
 
         if r in self.precolored:
             # Check aliases:
-            assert r.reg in self.alias
             for reg2 in self.alias[r.reg]:
                 if self.frame.ig.has_node(reg2):
                     r2 = self.frame.ig.get_node(reg2, create=False)

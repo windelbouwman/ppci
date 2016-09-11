@@ -523,7 +523,7 @@ class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('8bit')  # 'simple')
+@add_samples('8bit','simple')
 class TestSamplesOnAvr(unittest.TestCase):
     march = "avr"
     opt_level = 0
