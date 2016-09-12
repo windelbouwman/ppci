@@ -8,6 +8,10 @@ class RecursiveDescentParser:
         self.token = None
         self.tokens = None
 
+    def init_lexer(self, tokens):
+        self.tokens = tokens
+        self.token = self.tokens.__next__()
+
     def error(self, msg, loc=None):
         """ Raise an error at the current location """
         if loc is None:

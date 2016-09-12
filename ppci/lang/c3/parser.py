@@ -17,10 +17,6 @@ class Parser(RecursiveDescentParser):
         self.current_scope = None
         self.mod = None
 
-    def init_lexer(self, tokens):
-        self.tokens = tokens
-        self.token = self.tokens.__next__()
-
     def parse_source(self, tokens, context):
         """ Parse a module from tokens """
         self.logger.debug('Parsing source')

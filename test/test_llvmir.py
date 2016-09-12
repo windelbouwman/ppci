@@ -6,6 +6,10 @@ from ppci.lang.llvmir import LlvmIrFrontend
 class LlvmIrFrontendTestCase(unittest.TestCase):
     def test_prog1(self):
         f = io.StringIO(PROG1)
+        LlvmIrFrontend().compile(f)
+
+    def test_prog2(self):
+        f = io.StringIO(PROG2)
         # LlvmIrFrontend().compile(f)
 
 
