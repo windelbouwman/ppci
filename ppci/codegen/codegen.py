@@ -6,7 +6,7 @@
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..arch.arch import Architecture, VCall, Label
+from ..arch.arch import Architecture, VCall, Label, Comment
 from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
 from ..arch.arch import ArtificialInstruction
 from ..arch.encoding import Instruction
@@ -191,6 +191,8 @@ class CodeGenerator:
                 if not d.address:
                     label_name = self.debug_db.new_label()
                     d.address = label_name
+                    source_line = d.loc.get_source_line()
+                    output_stream.emit(Comment(source_line))
                     output_stream.emit(Label(label_name))
                     debug_data.append(DebugData(d))
 

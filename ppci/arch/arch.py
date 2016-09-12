@@ -240,6 +240,16 @@ class PseudoInstruction(Instruction):
         return bytes()
 
 
+class Comment(PseudoInstruction):
+    """ Assembly language comment """
+    def __init__(self, comment):
+        super().__init__()
+        self.comment = comment
+
+    def __repr__(self):
+        return '; {}'.format(self.comment)
+
+
 class Label(PseudoInstruction):
     """ Assembly language label instruction """
     def __init__(self, name):

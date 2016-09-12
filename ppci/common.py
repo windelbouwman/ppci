@@ -7,6 +7,7 @@
 
 from collections import namedtuple
 import logging
+import os
 
 
 logformat = '%(asctime)s | %(levelname)8s | %(name)10.10s | %(message)s'
@@ -44,14 +45,28 @@ class Token:
 
 class SourceLocation:
     """ A location that refers to a position in a source file """
-    def __init__(self, filename, row, col, ln):
+    def __init__(self, filename, row, col, ln, source=None):
         self.filename = filename
         self.row = row
         self.col = col
         self.length = ln
+        self.source = source
 
     def __repr__(self):
         return '({}, {}, {})'.format(self.filename, self.row, self.col)
+
+    def get_source_line(self):
+        """ Return the source line indicated by this location """
+        if not self.source:
+            if os.path.exists(self.filename):
+                with open(self.filename, 'r') as f:
+                    self.source = f.read()
+        if self.source:
+            lines = self.source.split('\n')
+            return lines[self.row-1]
+        else:
+            return "Could not load source"
+
 
 
 SourceRange = namedtuple('SourceRange', ['p1', 'p2'])

@@ -292,10 +292,9 @@ class TypeChecker:
             # This means that the value can be used in an expression or as
             # a parameter.
 
+            # Type must be simple, or a pointer at this point!
             val_typ = self.context.get_type(expr.typ)
-            if not isinstance(val_typ, (ast.PointerType, ast.BaseType)):
-                raise SemanticError(
-                    'Cannot deref {}'.format(val_typ), expr.loc)
+            assert isinstance(val_typ, (ast.PointerType, ast.BaseType))
 
             # This expression is no longer an lvalue
             expr.lvalue = False
