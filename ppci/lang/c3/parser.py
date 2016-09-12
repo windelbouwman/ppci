@@ -2,19 +2,19 @@
 
 import logging
 from ...common import CompilerError
+from ...pcc.recursivedescent import RecursiveDescentParser
 from . import astnodes as ast
 from .scope import Scope
 
 
-class Parser:
+class Parser(RecursiveDescentParser):
     """ Parses sourcecode into an abstract syntax tree (AST) """
     logger = logging.getLogger('c3')
 
     def __init__(self, diag):
+        super().__init__()
         self.diag = diag
         self.current_scope = None
-        self.token = None
-        self.tokens = None
         self.mod = None
 
     def init_lexer(self, tokens):
@@ -32,44 +32,6 @@ class Parser:
             self.diag.add_diag(ex)
             raise
         return module
-
-    def error(self, msg, loc=None):
-        """ Raise an error at the current location """
-        if loc is None:
-            loc = self.token.loc
-        raise CompilerError(msg, loc)
-
-    # Lexer helpers:
-    def consume(self, typ=None):
-        """ Assert that the next token is typ, and if so, return it. If
-            typ is not given, consume the next token.
-        """
-        if typ is None:
-            typ = self.peak
-        if self.peak == typ:
-            return self.next_token()
-        else:
-            self.error('Excected: "{0}", got "{1}"'.format(typ, self.peak))
-
-    @property
-    def peak(self):
-        """ Look at the next token to parse without popping it """
-        return self.token.typ
-
-    def has_consumed(self, typ):
-        """ Checks if the look-ahead token is of type typ, and if so
-            eats the token and returns true """
-        if self.peak == typ:
-            self.consume()
-            return True
-        return False
-
-    def next_token(self):
-        """ Advance to the next token """
-        tok = self.token
-        if tok.typ != 'EOF':
-            self.token = self.tokens.__next__()
-        return tok
 
     def add_symbol(self, sym):
         """ Add a symbol to the current scope """

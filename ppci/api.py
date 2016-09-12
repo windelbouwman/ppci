@@ -444,6 +444,12 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
     return ir_to_object(ir_modules, target, reporter=reporter)
 
 
+def llvmir2ir():
+    """ Parse llvm IR-code into a ppci ir-module """
+    from .lang.llvmir import LlvmIrFrontend
+    return LlvmIrFrontend().compile()
+
+
 def link(
         objects, layout=None, use_runtime=False, partial_link=False,
         reporter=None, debug=False):
