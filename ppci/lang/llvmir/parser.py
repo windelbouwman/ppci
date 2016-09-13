@@ -1,46 +1,6 @@
-""" Front-end for the LLVM IR-code
 
-This front-end can be used as an enabler for many other languages, for example
-ADA and C++.
-
-"""
-
-import re
-from ..pcc.baselex import BaseLexer, SourceLocation, Token
-from ..pcc.recursivedescent import RecursiveDescentParser
-
-
-class LlvmIrLexer(BaseLexer):
-    keywords = ['define',
-                'ret',
-                'mul']
-    glyphs = (
-        ',', '=', '{', '}', '(', ')')
-
-    def __init__(self):
-        # Construct the string of possible glyphs:
-        op_txt = '|'.join(re.escape(g) for g in self.glyphs)
-        tok_spec = [
-            ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
-            ('GID', r'@[A-Za-z\d_]+', self.handle_id),
-            ('LID', r'%[A-Za-z\d_]+', self.handle_id),
-            ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
-            ('SKIP', r'[ \t\n]', None),
-            ('GLYPH', op_txt, lambda typ, val: (val, val)),
-        ]
-        super().__init__(tok_spec)
-
-    def tokenize(self, text):
-        """ Keeps track of the long comments """
-        for token in super().tokenize(text):
-            yield token
-        loc = SourceLocation(self.filename, self.line, 0, 0)
-        yield Token('EOF', 'EOF', loc)
-
-    def handle_id(self, typ, val):
-        if val in self.keywords:
-            typ = val
-        return typ, val
+from ...pcc.recursivedescent import RecursiveDescentParser
+from .lexer import LlvmIrLexer
 
 
 class LlvmIrParser(RecursiveDescentParser):
@@ -61,7 +21,7 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume(')')
         self.consume('{')
         while self.peak != '}':
-            self.parse_statement()
+            self.parse_instruction()
         self.consume('}')
         print(name)
 
@@ -78,8 +38,8 @@ class LlvmIrParser(RecursiveDescentParser):
         else:
             return self.consume('LID').val
 
-    def parse_statement(self):
-        """ Parse a statement """
+    def parse_instruction(self):
+        """ Parse an instruction """
         if self.peak == 'LID':
             self.parse_value()
         elif self.peak == 'ret':
