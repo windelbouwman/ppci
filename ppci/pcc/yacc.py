@@ -40,12 +40,12 @@ class XaccLexer(BaseLexer):
             if section == 0:
                 if line.startswith('%tokens'):
                     yield Token('%tokens', '%tokens', loc)
-                    for tk in super().tokenize(line[7:]):
+                    for tk in super().tokenize(line[7:], eof=False):
                         yield tk
                 else:
                     yield Token('HEADER', line, loc)
             elif section == 1:
-                for tk in super().tokenize(line):
+                for tk in super().tokenize(line, eof=False):
                     yield tk
 
 

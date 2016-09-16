@@ -3,6 +3,7 @@ import io
 from ppci.lang.llvmir import LlvmIrFrontend
 
 
+@unittest.skip('todo')
 class LlvmIrFrontendTestCase(unittest.TestCase):
     def test_prog1(self):
         f = io.StringIO(PROG1)
@@ -10,7 +11,7 @@ class LlvmIrFrontendTestCase(unittest.TestCase):
 
     def test_prog2(self):
         f = io.StringIO(PROG2)
-        # LlvmIrFrontend().compile(f)
+        LlvmIrFrontend().compile(f)
 
 
 PROG1 = """

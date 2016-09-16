@@ -1,14 +1,24 @@
 
 import re
-from ...pcc.baselex import BaseLexer, SourceLocation, Token
+from ...pcc.baselex import BaseLexer
 
 
 class LlvmIrLexer(BaseLexer):
+    types = [
+        'void', 'double',
+        'i64', 'i32', 'i16', 'i8', 'i1',
+        'f32', 'f16']
+
     keywords = ['define',
-                'ret',
-                'mul']
+                'ret', 'br',
+                'x', 'zeroinitializer', 'undef',
+                'alloca', 'load', 'store',
+                'extractelement', 'insertelement', 'shufflevector',
+                'add', 'sub', 'mul', 'shl',
+                'fadd', 'fsub', 'fmul', 'fdiv', 'frem',
+                'or', 'xor', 'and', 'true', 'false']
     glyphs = (
-        ',', '=', '{', '}', '(', ')', '*')
+        ',', '=', '{', '}', '(', ')', '*', '<', '>')
 
     def __init__(self):
         # Construct the string of possible glyphs:
@@ -17,21 +27,17 @@ class LlvmIrLexer(BaseLexer):
             ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
             ('GID', r'@[A-Za-z\d_]+', self.handle_id),
             ('LID', r'%[A-Za-z\d_]+', self.handle_id),
+            ('LBL', r'[A-Za-z_][A-Za-z\d_]*:', lambda typ, val: (typ, val)),
             ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
-            ('SKIP', r'[ \t\n]', None),
+            ('NEWLINE', r'\n', lambda typ, val: self.newline()),
+            ('SKIP', r'[ \t]', None),
             ('GLYPH', op_txt, lambda typ, val: (val, val)),
         ]
         super().__init__(tok_spec)
 
-    def tokenize(self, text):
-        """ Keeps track of the long comments """
-        for token in super().tokenize(text):
-            yield token
-        loc = SourceLocation(self.filename, self.line, 0, 0)
-        yield Token('EOF', 'EOF', loc)
-
     def handle_id(self, typ, val):
         if val in self.keywords:
             typ = val
+        elif val in self.types:
+            typ = 'type'
         return typ, val
-

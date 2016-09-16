@@ -21,7 +21,7 @@ class BaseLexer:
         """ Feeds the lexer with extra input """
         self.tokens = self.tokenize(txt)
 
-    def tokenize(self, txt):
+    def tokenize(self, txt, eof=False):
         """ Generator that generates tokens from text
             It does not yield the EOF token.
         """
@@ -49,6 +49,9 @@ class BaseLexer:
             char = txt[self.pos]
             raise CompilerError(
                 'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)))
+        if eof:
+            loc = SourceLocation(self.filename, self.line, 0, 0)
+            yield Token(EOF, EOF, loc)
 
     def newline(self):
         """ Enters a new line """
