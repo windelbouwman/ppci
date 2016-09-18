@@ -46,6 +46,9 @@ sw x31, 124(x1)
 mov a1, x1
 dd 0x0000860b ; getq a2, q1
 jal ra, irq_irq
+beq x10, x0, nostepping
+dd 0x0c00000b ; delayirq
+nostepping:
 lui x1, irq_regs
 addi x1, x1, irq_regs
 lw x2, 128(x1)

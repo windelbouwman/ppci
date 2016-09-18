@@ -2,6 +2,7 @@ module bsp;
 type struct {
     int DR; // 0x0
     int SR; // 0x4
+    int ACK; //0x8
 } uart_t; 
 
 var uart_t* UART0;
@@ -29,4 +30,17 @@ public function byte getc()
     // Receive char:
     c = UART0->DR;
     return cast<byte>(c);
-} 
+}
+
+public function void ackint()
+{
+   UART0 = 0x10000000;
+   UART0->ACK = 1;
+}
+
+public function void putcmon(byte c)
+{
+var int *UART0DR;
+UART0DR = cast<int*>(0x20000000);
+ *UART0DR=c;
+}

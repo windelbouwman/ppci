@@ -13,4 +13,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     arch = get_arch("riscv")
     debugger = Debugger(arch, GdbDebugDriver(arch, port=4567, constat=RUNNING))
+    obj = get_object("firmware.tlf")
+    debugger.load_symbols(obj, validate=False)
     DebugCli(debugger).cmdloop()

@@ -154,6 +154,26 @@ public function void put_packet(byte* data)
   *dataptr=0;
 }
 
+public function void readreg(byte* cmdptr,byte* regs, byte* dataptr)
+{
+  var int regnr = 0;
+  var int res = 0;
+  var int i;
+  var byte bch;
+  var byte* memptr;
+  res=hexstring2int(cmdptr,&regnr);
+  regs+=regnr*4;
+  for(i=0;i<4;i+=1) {
+     bch = *regs;
+     *dataptr = highhex(bch);
+     dataptr += 1;
+     *dataptr = lowhex(bch);
+     dataptr += 1;
+     regs += 1;
+  }
+  *dataptr=0;
+}
+
 public function void writemem(byte* cmdptr)
 {
   var int addr = 0;

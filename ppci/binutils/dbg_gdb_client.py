@@ -56,6 +56,9 @@ class GdbDebugDriver(DebugDriver):
 
     def sendpkt(self, data, retries=10):
         """ sends data via the RSP protocol to the device """
+        readable, _, _ = select.select([self.sock], [], [], 0)
+        if readable:
+            self.process_stop_status()
         self.logger.debug('GDB> %s', data)
         wire_data = self.rsp_pack(data).encode()
         self.sock.send(wire_data)
@@ -165,7 +168,7 @@ class GdbDebugDriver(DebugDriver):
     def stop(self):
         self.sendbrk()
         self.status = STOPPED
-        # self.process_stop_status()
+        self.process_stop_status()
 
     def process_stop_status(self):
         res = self.readpkt()

@@ -496,6 +496,7 @@ module picorv32 #(
 	reg instr_add, instr_sub, instr_sll, instr_slt, instr_sltu, instr_xor, instr_srl, instr_sra, instr_or, instr_and;
 	reg instr_rdcycle, instr_rdcycleh, instr_rdinstr, instr_rdinstrh, instr_sbreak;
 	reg instr_getq, instr_setq, instr_retirq, instr_maskirq, instr_waitirq, instr_timer;
+        reg instr_delirq;
 	wire instr_trap;
 
 	reg [regindex_bits-1:0] decoded_rd, decoded_rs1, decoded_rs2;
@@ -505,6 +506,7 @@ module picorv32 #(
 	reg decoder_pseudo_trigger;
 	reg decoder_pseudo_trigger_q;
 	reg compressed_instr;
+        reg delirq;
 
 	reg is_lui_auipc_jal;
 	reg is_lb_lh_lw_lbu_lhu;
@@ -592,6 +594,7 @@ module picorv32 #(
 		if (instr_getq)     new_ascii_instr = "getq";
 		if (instr_setq)     new_ascii_instr = "setq";
 		if (instr_retirq)   new_ascii_instr = "retirq";
+                if (instr_delirq)   new_ascii_instr = "delirq";
 		if (instr_maskirq)  new_ascii_instr = "maskirq";
 		if (instr_waitirq)  new_ascii_instr = "waitirq";
 		if (instr_timer)    new_ascii_instr = "timer";
@@ -671,6 +674,7 @@ module picorv32 #(
 			instr_jal     <= mem_rdata_latched[6:0] == 7'b1101111;
 			instr_jalr    <= mem_rdata_latched[6:0] == 7'b1100111;
 			instr_retirq  <= mem_rdata_latched[6:0] == 7'b0001011 && mem_rdata_latched[31:25] == 7'b0000010 && ENABLE_IRQ;
+                        instr_delirq  <= mem_rdata_latched[6:0] == 7'b0001011 && mem_rdata_latched[31:25] == 7'b0000110 && ENABLE_IRQ;
 			instr_waitirq <= mem_rdata_latched[6:0] == 7'b0001011 && mem_rdata_latched[31:25] == 7'b0000100 && ENABLE_IRQ;
 
 			is_beq_bne_blt_bge_bltu_bgeu <= mem_rdata_latched[6:0] == 7'b1100011;
@@ -1120,6 +1124,7 @@ module picorv32 #(
 			eoi <= 0;
 			timer <= 0;
 			cpu_state <= cpu_state_fetch;
+                        delirq <= 1'b0;
 		end else
 		(* parallel_case, full_case *)
 		case (cpu_state)
@@ -1169,16 +1174,19 @@ module picorv32 #(
 				latched_rd <= decoded_rd;
 				latched_compr <= compressed_instr;
 
-				if (ENABLE_IRQ && ((decoder_trigger && !irq_active && |(irq_pending & ~irq_mask)) || irq_state)) begin
-					irq_state <=
-						irq_state == 2'b00 ? 2'b01 :
-						irq_state == 2'b01 ? 2'b10 : 2'b00;
-					if (ENABLE_IRQ_QREGS)
-						latched_rd <= irqregs_offset | irq_state[0];
+				if (!delirq && ENABLE_IRQ && ((decoder_trigger && !irq_active && |(irq_pending & ~irq_mask)) || irq_state)) begin
+                                        irq_state <= irq_state == 2'b00 ? 2'b01 : irq_state == 2'b01 ? 2'b10 : 2'b00;
+	                                if (ENABLE_IRQ_QREGS)
+					    latched_rd <= irqregs_offset | irq_state[0];
 					else
-						latched_rd <= irq_state[0] ? 4 : 3;
-				end else
-				if (ENABLE_IRQ && (decoder_trigger || do_waitirq) && instr_waitirq) begin
+					    latched_rd <= irq_state[0] ? 4 : 3;
+
+
+				end else begin
+                                if (ENABLE_IRQ && ((decoder_trigger && !irq_active && |(irq_pending & ~irq_mask)) || irq_state)) begin
+                                    delirq <= 0;
+                                end
+                                if (ENABLE_IRQ && (decoder_trigger || do_waitirq) && instr_waitirq) begin
 					if (irq_pending) begin
 						latched_store <= 1;
 						reg_out <= irq_pending;
@@ -1198,12 +1206,16 @@ module picorv32 #(
 						mem_do_rinst <= 1;
 						reg_next_pc <= current_pc + decoded_imm_uj;
 						latched_branch <= 1;
+                                        end else
+                                        if(instr_delirq) begin
+                                                delirq <= 1;
 					end else begin
 						mem_do_rinst <= 0;
 						mem_do_prefetch <= !instr_jalr && !instr_retirq;
 						cpu_state <= cpu_state_ld_rs1;
 					end
 				end
+                                end
 			end
 
 			cpu_state_ld_rs1: begin
@@ -1295,8 +1307,6 @@ module picorv32 #(
 						cpu_state <= cpu_state_fetch;
 					end
 					ENABLE_IRQ && instr_maskirq: begin
-						latched_store <= 1;
-						reg_out <= irq_mask;
 						`debug($display("LD_RS1: %2d 0x%08x", decoded_rs1, decoded_rs1 ? cpuregs[decoded_rs1] : 0);)
 						irq_mask <= (decoded_rs1 ? cpuregs[decoded_rs1] : 0) | MASKED_IRQ;
 						cpu_state <= cpu_state_fetch;

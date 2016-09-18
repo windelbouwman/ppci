@@ -3,7 +3,9 @@
 module system (
 	input            clk,
 	input            resetn,
-	output           trap
+	output           trap,
+        output reg [7:0] out_byte,
+	output reg       out_byte_en
 );
 	// set this to 0 for better timing but less performance/MHz
 	parameter FAST_MEMORY = 0;
@@ -93,6 +95,7 @@ module system (
 			m_read_en <= 0;
 			mem_ready <= mem_valid && !mem_ready && m_read_en;
 
+                        out_byte_en <= 0;
                    			
 			(* parallel_case *)
 			case (1)
@@ -108,13 +111,19 @@ module system (
 					if (mem_wstrb[3]) memory[mem_addr >> 2][31:24] <= mem_wdata[31:24];
 					mem_ready <= 1;
 				end
-				mem_valid && !mem_ready && |mem_wstrb : begin
-					mem_ready <= 1;
-				end
+				
 			        mem_valid && !mem_ready && !mem_wstrb && uart_cs: begin
 					m_read_en <= 1;
                                         mem_rdata <= uart_rdata;
                                         //mem_rdata <= m_read_data;
+				end
+                                mem_valid && !mem_ready && |mem_wstrb && mem_addr == 32'h2000_0000: begin
+					out_byte_en <= 1;
+					out_byte <= mem_wdata;
+					mem_ready <= 1;
+				end
+				mem_valid && !mem_ready && |mem_wstrb : begin
+					mem_ready <= 1;
 				end
 			endcase
 		end

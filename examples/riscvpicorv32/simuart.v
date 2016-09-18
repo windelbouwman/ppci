@@ -33,11 +33,12 @@ reg ffold;
 initial begin
 	bus_ack = 1'b0;
 	bus_data = 32'b0;
+        int = 1'b0;
 end
 
 always @(posedge clk) begin
 	bus_data <= 32'b0;
-        int <= 1'b0;
+   //     int <= 1'b0;
         ff <= 1'b0;
         ffold <= 1'b0;
 
@@ -50,20 +51,23 @@ always @(posedge clk) begin
            if(intack==1'b0) begin
                int <=1'b1;
            end else begin
-              int<=1'b0;
+          //    int<=1'b0;
               uart_buf[8]<=1'b0;
            end
         end else begin
            if (cs && bus_bytesel[3:0] == 4'b0001) begin
-		if (bus_addr[1:0] == 2'b00) begin
+		if (bus_addr[3:0] == 4'b0000) begin
 			write_data();
 		end
+                if (bus_addr[3:0] == 4'b1000) begin
+			int<=1'b0;
+		end
 	   end else if (cs) begin
-		if (bus_addr[2:0] == 3'b000) begin
+		if (bus_addr[3:0] == 4'b0000) begin
 			bus_data <= {24'b0, uart_buf[7:0]};
                         ff <= 1'b1;
                         if (ff && ~ffold) uart_buf[8] <= 1'b0;
-                end else if (bus_addr[2:0] == 3'b100) begin
+                end else if (bus_addr[3:0] == 4'b0100) begin
 			/* Status register read. */
 			bus_data <= status_reg;
 		end
