@@ -5,7 +5,7 @@ ADA and C++.
 
 """
 
-from .parser import LlvmIrFrontend
+from .frontend import LlvmIrFrontend
 
 
 __all__ = ['LlvmIrFrontend']

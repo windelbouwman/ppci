@@ -112,7 +112,8 @@ class BuildTestCaseBase(unittest.TestCase):
         """ Helper to test for expected errors on rows """
         with self.assertRaises(CompilerError):
             self.build(snippet)
-        actual_errors = [err.row for err in self.diag.diags]
+        actual_errors = [
+            err.loc.row if err.loc else 0 for err in self.diag.diags]
         if rows != actual_errors:
             self.diag.print_errors()
         self.assertSequenceEqual(rows, actual_errors)

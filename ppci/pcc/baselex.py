@@ -6,9 +6,11 @@ EPS = 'EPS'
 
 
 class BaseLexer:
-    """ Base class for a lexer. This class can be overridden to create a
-        lexer. This class handles the regular expression generation and
-        source position accounting.
+    """ Base class for a lexer.
+
+    This class can be overridden to create a
+    lexer. This class handles the regular expression generation and
+    source position accounting.
     """
     def __init__(self, tok_spec):
         tok_re = '|'.join(
@@ -16,14 +18,18 @@ class BaseLexer:
         self.gettok = re.compile(tok_re).match
         self.func_map = {pair[0]: pair[2] for pair in tok_spec}
         self.filename = None
+        self.line = 1
+        self.line_start = 0
+        self.pos = 0
 
     def feed(self, txt):
         """ Feeds the lexer with extra input """
         self.tokens = self.tokenize(txt)
 
     def tokenize(self, txt, eof=False):
-        """ Generator that generates tokens from text
-            It does not yield the EOF token.
+        """ Generator that generates lexical tokens from text.
+
+        Optionally yield the EOF token.
         """
         self.line = 1
         self.line_start = 0
@@ -47,8 +53,11 @@ class BaseLexer:
             mo = self.gettok(txt, self.pos)
         if len(txt) != self.pos:
             char = txt[self.pos]
+            column = self.pos - self.line_start
+            loc = SourceLocation(self.filename, self.line, column, 1)
             raise CompilerError(
-                'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)))
+                'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)),
+                loc=loc)
         if eof:
             loc = SourceLocation(self.filename, self.line, 0, 0)
             yield Token(EOF, EOF, loc)

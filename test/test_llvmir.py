@@ -1,19 +1,32 @@
 import unittest
 import io
 from ppci.lang.llvmir import LlvmIrFrontend
+from ppci.common import CompilerError
 
 
-@unittest.skip('todo')
 class LlvmIrFrontendTestCase(unittest.TestCase):
+    def do(self, src):
+        f = io.StringIO(src)
+        try:
+            LlvmIrFrontend().compile(f)
+        except CompilerError as e:
+            lines = src.split('\n')
+            e.render(lines)
+            raise
+
     def test_prog1(self):
-        f = io.StringIO(PROG1)
-        LlvmIrFrontend().compile(f)
+        self.do(PROG1)
 
+    @unittest.skip('todo')
     def test_prog2(self):
-        f = io.StringIO(PROG2)
-        LlvmIrFrontend().compile(f)
+        self.do(PROG2)
+
+    # @unittest.skip('todo')
+    def test_prog3(self):
+        self.do(PROG3)
 
 
+# Example from internet:
 PROG1 = """
 define i32 @square_unsigned(i32 %a) {
   %1 = mul i32 %a, %a
@@ -21,6 +34,7 @@ define i32 @square_unsigned(i32 %a) {
 }
 """
 
+# Program generated with llvm-stress:
 PROG2 = """
 define void @autogen_SD0(i8*, i32*, i64*, i32, i64, i8) {
 BB:
@@ -162,3 +176,32 @@ CF79:                                             ; preds = %CF82
   ret void
 }
 """
+
+
+# Clang output:
+PROG3 = """
+; ModuleID = 'main.c'
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nounwind sspstrong uwtable
+define void @x() #0 {
+  %a = alloca [10 x i32], align 16
+  %1 = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 1
+  %2 = load i32, i32* %1, align 4
+  call void @putc(i32 %2)
+  ret void
+}
+
+declare void @putc(i32) #1
+
+attributes #0 = { nounwind sspstrong uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+
+!llvm.module.flags = !{!0}
+!llvm.ident = !{!1}
+
+!0 = !{i32 1, !"PIC Level", i32 2}
+!1 = !{!"clang version 3.8.1 (tags/RELEASE_381/final)"}
+"""
+
