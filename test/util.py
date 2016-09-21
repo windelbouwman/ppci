@@ -15,6 +15,13 @@ testdir = os.path.dirname(os.path.abspath(__file__))
 def relpath(*args):
     return os.path.normpath(os.path.join(testdir, *args))
 
+
+def source_files(folder, extension):
+    for filename in os.listdir(folder):
+        if filename.endswith(extension):
+            yield os.path.join(folder, filename)
+
+
 qemu_app = 'qemu-system-arm'
 
 

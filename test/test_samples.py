@@ -7,7 +7,7 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, relpath, run_python
+from util import run_qemu, has_qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430
 from util import has_avr_emulator, run_avr
 from util import do_long_tests
@@ -52,18 +52,12 @@ def create_test_function(source, output):
     return tst_func
 
 
-def source_files(folder):
-    d = relpath('samples', folder)
-    for filename in os.listdir(d):
-        if filename.endswith(('.c3', '.bf')):
-            yield os.path.join(d, filename)
-
-
 def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
     def deco(cls):
         for folder in folders:
-            for source in source_files(folder):
+            for source in source_files(
+                    relpath('samples', folder), ('.c3', '.bf')):
                 output = os.path.splitext(source)[0] + '.out'
                 tf = create_test_function(source, output)
                 basename = os.path.basename(source)

@@ -56,9 +56,11 @@ class LlvmIrLexer(BaseLexer):
             typ = 'type'
             if val == 'void':
                 val = self.context.void_ty
+            elif val == 'double':
+                val = self.context.double_ty
             elif val.startswith('i'):
                 bits = int(val[1:])
                 val = nodes.IntegerType.get(self.context, bits)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(val)
         return typ, val

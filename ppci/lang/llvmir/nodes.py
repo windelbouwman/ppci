@@ -108,7 +108,13 @@ class LoadInst(Instruction):
 
 
 void_ty_id = 0
+half_ty_id = 1
+float_ty_id = 2
+double_ty_id = 3
 integer_ty_id = 11
+array_ty_id = 14
+pointer_ty_id = 15
+vector_ty_id = 16
 
 
 class Type:
@@ -152,29 +158,32 @@ class PointerType(SequentialType):
 
 
 class ArrayType(SequentialType):
-    def __init__(self, elmty, num):
+    def __init__(self, context, elmty, num):
+        super().__init__(context, array_ty_id)
         self.num = num
 
     @staticmethod
     def get(elmty, num):
         context = elmty.context
-        return ArrayType(elmty, num)
+        return ArrayType(context, elmty, num)
 
 
-class VectorType(ArrayType):
-    def __init__(self, elmty, num):
+class VectorType(SequentialType):
+    def __init__(self, context, elmty, num):
+        super().__init__(context, vector_ty_id)
         self.num = num
 
     @staticmethod
     def get(elmty, num):
         context = elmty.context
-        return VectorType(elmty, num)
+        return VectorType(context, elmty, num)
 
 
 class Context:
     """ LLVM context """
     def __init__(self):
         self.void_ty = Type(self, void_ty_id)
+        self.double_ty = Type(self, double_ty_id)
         self.int1_ty = IntegerType(self, 1)
         self.int8_ty = IntegerType(self, 8)
         self.int16_ty = IntegerType(self, 16)
