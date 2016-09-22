@@ -26,9 +26,15 @@ class Instruction(User):
 
 
 class BinaryOperator(Instruction):
+    def __init__(self, op, lhs, rhs, ty):
+        super().__init__(ty)
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+
     @staticmethod
     def create(op, lhs, rhs):
-        return BinaryOperator()
+        return BinaryOperator(op, lhs, rhs, lhs.ty)
 
 
 class CmpInst(Instruction):

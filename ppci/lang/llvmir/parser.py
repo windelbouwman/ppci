@@ -225,34 +225,42 @@ class LlvmIrParser(RecursiveDescentParser):
 
     def parse_global_value(self, ty):
         v = self.parse_val_id()
-        return v
+        v2 = self.convert_val_id_to_value(ty, v)
+        return v2
 
     def parse_value(self, ty):
         """ Parse a value with a certain type """
         v = self.parse_val_id()
-        return v
+        v2 = self.convert_val_id_to_value(ty, v)
+        return v2
 
     def parse_val_id(self):
         """ Some more abstract value parsing """
         if self.peak == 'zeroinitializer':
             self.consume('zeroinitializer')
-            return 0
+            v = 0
         elif self.peak == 'LID':
-            return self.parse_name()
+            v = self.parse_name()
         elif self.peak == 'GID':
-            return self.parse_name(global_name=True)
+            v = self.parse_name(global_name=True)
         elif self.peak == 'NUMBER':
-            return self.consume('NUMBER').val
+            v = self.consume('NUMBER').val
         elif self.peak == 'undef':
             self.consume('undef')
-            return None
+            v = None
         elif self.peak == '<':
             # '<' constvect '>'
             self.consume('<')
             vect = self.parse_global_value_vector()
             self.consume('>')
+            v = None
         else:  # pragma: no cover
             self.not_impl()
+        return v
+
+    def convert_val_id_to_value(self, ty, val_id):
+        v = nodes.Value(ty)
+        return v
 
     def parse_type_and_value(self):
         ty = self.parse_type()
