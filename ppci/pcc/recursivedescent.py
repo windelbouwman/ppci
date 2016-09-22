@@ -45,6 +45,10 @@ class RecursiveDescentParser:
             self.token = self.tokens.__next__()
         return tok
 
+    def not_impl(self):  # pragma: no cover
+        """ Call this function when parsing reaches unimplemented parts """
+        raise CompilerError('Not implemented', loc=self.token.loc)
+
     @property
     def peak(self):
         """ Look at the next token to parse without popping it """

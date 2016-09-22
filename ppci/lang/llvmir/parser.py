@@ -223,8 +223,17 @@ class LlvmIrParser(RecursiveDescentParser):
         else:
             return self.consume('LID').val
 
-    def parse_value(self, ty=None):
+    def parse_global_value(self, ty):
+        v = self.parse_val_id()
+        return v
+
+    def parse_value(self, ty):
         """ Parse a value with a certain type """
+        v = self.parse_val_id()
+        return v
+
+    def parse_val_id(self):
+        """ Some more abstract value parsing """
         if self.peak == 'zeroinitializer':
             self.consume('zeroinitializer')
             return 0
@@ -234,12 +243,33 @@ class LlvmIrParser(RecursiveDescentParser):
             return self.parse_name(global_name=True)
         elif self.peak == 'NUMBER':
             return self.consume('NUMBER').val
-        else:
-            raise NotImplementedError(str(self.peak))
+        elif self.peak == 'undef':
+            self.consume('undef')
+            return None
+        elif self.peak == '<':
+            # '<' constvect '>'
+            self.consume('<')
+            vect = self.parse_global_value_vector()
+            self.consume('>')
+        else:  # pragma: no cover
+            self.not_impl()
 
     def parse_type_and_value(self):
         ty = self.parse_type()
         val = self.parse_value(ty)
+        return val
+
+    def parse_global_value_vector(self):
+        """ """
+        v = []
+        v.append(self.parse_global_type_and_value())
+        while self.has_consumed(','):
+            v.append(self.parse_global_type_and_value())
+        return v
+
+    def parse_global_type_and_value(self):
+        ty = self.parse_type()
+        val = self.parse_global_value(ty)
         return val
 
     def parse_instruction(self):
@@ -253,7 +283,7 @@ class LlvmIrParser(RecursiveDescentParser):
         elif self.peak == 'ret':
             instruction = self.parse_ret()
         else:  # pragma: no cover
-            raise NotImplementedError(str(self.peak))
+            self.not_impl()
         print(instruction)
         return instruction
 
@@ -268,22 +298,24 @@ class LlvmIrParser(RecursiveDescentParser):
             value = self.parse_load()
         elif self.peak == 'extractelement':
             value = self.parse_extract_element()
+        elif self.peak == 'insertelement':
+            value = self.parse_insert_element()
         elif self.peak == 'shufflevector':
             value = self.parse_shuffle_vector()
-        elif self.peak in ['mul', 'add', 'sub']:
+        elif self.peak in ['mul', 'add', 'sub', 'fmul']:
             value = self.parse_arithmatic()
         elif self.peak == 'getelementptr':
             value = self.parse_getelementptr()
-        else:
-            raise NotImplementedError(str(self.peak))
+        else:  # pragma: no cover
+            self.not_impl()
         value.name = name
         return value
 
     def parse_arithmatic(self):
-        op = self.consume('mul')
+        op = self.consume()
         lhs = self.parse_type_and_value()
         self.consume(',')
-        rhs = self.parse_value()
+        rhs = self.parse_value(lhs.ty)
         return nodes.BinaryOperator.create(op, lhs, rhs)
 
     def parse_alloca(self):
@@ -330,13 +362,13 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume('load')
         atomic = self.has_consumed('atomic')
         volatile = self.has_consumed('volatile')
-        self.parse_type()
+        ty = self.parse_type()
         self.consume(',')
         self.parse_type_and_value()
         if self.has_consumed(','):
             self.consume('align')
             self.parse_number()
-        return nodes.LoadInst()
+        return nodes.LoadInst(ty)
 
     def parse_store(self):
         self.consume('store')
@@ -362,7 +394,7 @@ class LlvmIrParser(RecursiveDescentParser):
         ret_type = self.parse_type()
         name = self.parse_name(global_name=True)
         args = self.parse_parameter_list()
-        return nodes.CallInst()
+        return nodes.CallInst(ret_type)
 
     def parse_parameter_list(self):
         self.consume('(')
@@ -380,11 +412,11 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume('ret')
         ty = self.parse_type()
         if ty.is_void:
-            return nodes.ReturnInst()
+            return nodes.ReturnInst(ty)
         else:
-            arg = self.parse_value()
+            arg = self.parse_value(ty)
             print('ret', arg)
-            return nodes.ReturnInst()
+            return nodes.ReturnInst(ty)
 
     def parse_phi(self):
         """ Parse a phi instruction.

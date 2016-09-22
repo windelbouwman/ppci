@@ -4,7 +4,8 @@
 
 class Value:
     """ Root of most nodes """
-    pass
+    def __init__(self, ty):
+        self.ty = ty
 
 
 class BasicBlock(Value):
@@ -51,6 +52,12 @@ class ExtractElementInst(Instruction):
 class GetElementPtrInst(Instruction):
     def __init__(self, ty, ptr, indices):
         self.ty = ty
+
+
+class InsertElementInst(Instruction):
+    def __init__(self, op1, op2, op3):
+        self.op1 = op1
+        self.op2 = op2
 
 
 class PhiNode(Instruction):
