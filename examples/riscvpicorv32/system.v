@@ -61,7 +61,7 @@ module system (
 		.bus_bytesel(uart_wstrb),
 		.bus_ack(),
 		.bus_data(uart_rdata),
-                .int(irqs[0]),
+                .inter(irqs[0]),
                 .intack(eois[0])
        );
 
@@ -71,7 +71,7 @@ module system (
        assign uart_wstrb = mem_wstrb & mem_ready;
    
 	reg [31:0] memory [0:MEM_SIZE-1];
-	initial $readmemh("firmware.hex", memory);
+	initial $readmemh("../firmware.hex", memory);
 
 	reg [31:0] m_read_data;
 	reg m_read_en;
@@ -126,6 +126,9 @@ module system (
 					mem_ready <= 1;
 				end
 			endcase
+                        if (resetn && out_byte_en) begin
+			   $write("%c", out_byte);
+		        end
 		end
 	end endgenerate
 endmodule
