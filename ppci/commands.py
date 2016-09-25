@@ -186,7 +186,11 @@ def llc(args=None):
     with LogSetup(args):
         march = get_arch_from_args(args)
         src = args.source
-        api.llc(src, march)
+        obj = api.llc(src, march)
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
 
 
 asm_description = """ Assembler utility. """

@@ -17,6 +17,7 @@ class LlvmIrLexer(BaseLexer):
         'target', 'triple', 'datalayout',
         'attributes',
         'nounwind', 'sspstrong', 'uwtable', 'readonly',
+        'nonnull',
         'align', 'inbounds',
         'nocapture',
         'ret', 'br', 'call',
@@ -31,6 +32,7 @@ class LlvmIrLexer(BaseLexer):
         'fadd', 'fsub', 'fmul', 'fdiv', 'frem',
         'sext', 'zext', 'trunc', 'fptrunc',
         'uitofp', 'fptoui', 'sitofp', 'fptosi',
+        'ptrtoint', 'inttoptr',
         'to',
         'or', 'xor', 'and',
         'true', 'false']

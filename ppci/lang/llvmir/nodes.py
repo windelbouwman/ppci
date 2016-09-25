@@ -2,6 +2,13 @@
 """ LLVM-ir nodes """
 
 
+class Module:
+    """ Holds all information related to a module """
+    def __init__(self, context):
+        self.context = context
+        self.functions = OwnedList(self)
+
+
 class Value:
     """ Root of most nodes """
     def __init__(self, ty):
@@ -30,6 +37,7 @@ class Value:
 
 
 class OwnedList(list):
+    """ Special list that sets the parent attribute upon append """
     def __init__(self, owner):
         super().__init__()
         self.owner = owner

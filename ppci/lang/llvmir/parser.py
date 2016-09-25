@@ -1,5 +1,6 @@
 
 from collections import namedtuple
+import logging
 from ...pcc.recursivedescent import RecursiveDescentParser
 from . import nodes
 
@@ -10,6 +11,8 @@ class LlvmIrParser(RecursiveDescentParser):
     Closely modeled after LLParser.cpp at:
     https://github.com/llvm-mirror/llvm/blob/master/lib/AsmParser/LLParser.cpp
     """
+    logger = logging.getLogger('llvm-parse')
+
     def __init__(self, context):
         super().__init__()
         self.context = context
@@ -18,6 +21,8 @@ class LlvmIrParser(RecursiveDescentParser):
 
     def parse_module(self):
         """ Parse a module """
+        self.logger.debug('Parsing module')
+        module = nodes.Module(self.context)
         while not self.at_end:
             if self.peak == 'define':
                 self.parse_define()
@@ -33,13 +38,13 @@ class LlvmIrParser(RecursiveDescentParser):
                 self.parse_standalone_metadata()
             else:  # pragma: no cover
                 raise NotImplementedError(str(self.peak))
+        return module
 
     def parse_define(self):
         """ Parse a function """
         self.consume('define')
         function = self.parse_function_header()
         self.parse_function_body(function)
-        print(function)
 
     def parse_function_body(self, function):
         self._pfs = PerFunctionState(self, function)
@@ -53,7 +58,6 @@ class LlvmIrParser(RecursiveDescentParser):
         """ Parse a function declaration """
         self.consume('declare')
         function = self.parse_function_header()
-        print(function)
 
     def parse_function_header(self):
         return_type = self.parse_type()
@@ -86,7 +90,6 @@ class LlvmIrParser(RecursiveDescentParser):
             self.consume('datalayout')
             self.consume('=')
             val = self.parse_string_constant()
-        print('target', val)
         return val
 
     def parse_unnamed_attr_group(self):
@@ -175,7 +178,6 @@ class LlvmIrParser(RecursiveDescentParser):
             if self.peak == 'LID':
                 name = self.parse_name()
                 self.consume('=')
-                print(name, '=')
             else:
                 name = None
 
@@ -210,14 +212,14 @@ class LlvmIrParser(RecursiveDescentParser):
         return ArgInfo(ty, name)
 
     def parse_optional_param_attrs(self):
-        a = []
+        attrs = []
         while True:
-            if self.peak == 'nocapture':
-                self.consume('nocapture')
-                a.append('nocapture')
+            if self.peak in ['nocapture', 'nonnull']:
+                attr = self.consume().val
+                attrs.append(attr)
             else:
                 break
-        return a
+        return attrs
 
     def parse_type(self):
         if self.peak == 'type':
@@ -236,7 +238,6 @@ class LlvmIrParser(RecursiveDescentParser):
                 typ = nodes.PointerType.get_unequal(typ)
             else:
                 break
-        # print(typ)
         return typ
 
     def parse_array_vector_type(self, is_vector):
@@ -385,7 +386,8 @@ class LlvmIrParser(RecursiveDescentParser):
         elif self.peak in [
                 'sext', 'zext',
                 'trunc', 'fptrunc',
-                'uitofp', 'fptoui', 'sitofp', 'fptosi']:
+                'uitofp', 'fptoui', 'sitofp', 'fptosi',
+                'ptrtoint', 'inttoptr']:
             instruction = self.parse_cast()
         elif self.peak == 'select':
             instruction = self.parse_select()
@@ -395,7 +397,6 @@ class LlvmIrParser(RecursiveDescentParser):
             instruction = self.parse_getelementptr()
         else:  # pragma: no cover
             self.not_impl()
-        print(instruction)
         return instruction
 
     def parse_arithmatic(self):
@@ -561,14 +562,12 @@ class LlvmIrParser(RecursiveDescentParser):
             return nodes.ReturnInst(ty)
         else:
             arg = self.parse_value(ty)
-            print('ret', arg)
             return nodes.ReturnInst(ty)
 
     def parse_br(self):
         """ Parse a branch instruction """
         self.consume('br')
         op0 = self.parse_type_and_value()
-        print(op0)
         if isinstance(op0, nodes.BasicBlock):
             return nodes.BranchInst(op0)
         else:
@@ -618,7 +617,6 @@ class PerFunctionState:
             else:
                 raise NotImplementedError(str(ty))
             self.forward[name] = val
-            print(self.forward)
 
         if ty is not val.ty:
             self.parser.error('{} != {}'.format(ty, val.ty))

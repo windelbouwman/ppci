@@ -365,7 +365,7 @@ def llc(source, march):
     march = get_arch(march)
     llvm = LlvmIrFrontend()
     ir_module = llvm.compile(source)
-    return ir_to_object(ir_module)
+    return ir_to_object([ir_module], march)
 
 
 def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
