@@ -1,12 +1,13 @@
 
 import re
+from ...common import make_num
 from ...pcc.baselex import BaseLexer
 from . import nodes
 
 
 class LlvmIrLexer(BaseLexer):
     types = [
-        'void', 'double',
+        'void', 'double', 'label',
         'i64', 'i32', 'i16', 'i8', 'i1',
         'f32', 'f16']
 
@@ -14,18 +15,23 @@ class LlvmIrLexer(BaseLexer):
         'define', 'declare',
         'target', 'triple', 'datalayout',
         'attributes',
-        'nounwind', 'sspstrong', 'uwtable',
+        'nounwind', 'sspstrong', 'uwtable', 'readonly',
         'align', 'inbounds',
+        'nocapture',
         'ret', 'br', 'call',
-        'label',
-        'icmp', 'eq', 'uge',
+        'icmp', 'fcmp',
+        'eq', 'ne', 'uge', 'ugt',
+        'ueq',
         'select',
         'x', 'zeroinitializer', 'undef',
         'alloca', 'load', 'store', 'getelementptr',
         'extractelement', 'insertelement', 'shufflevector',
         'add', 'sub', 'mul', 'shl', 'srem',
         'fadd', 'fsub', 'fmul', 'fdiv', 'frem',
-        'or', 'xor', 'and', 'true', 'false']
+        'sext', 'zext', 'trunc', 'uitofp', 'fptoui', 'sitofp', 'fptosi',
+        'to',
+        'or', 'xor', 'and',
+        'true', 'false']
     glyphs = (
         ',', '=', '{', '}', '(', ')', '*', '<', '>', '[', ']', '!')
 
@@ -33,7 +39,9 @@ class LlvmIrLexer(BaseLexer):
         # Construct the string of possible glyphs:
         op_txt = '|'.join(re.escape(g) for g in self.glyphs)
         tok_spec = [
-            ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
+            ('HEXNUMBER', r'0x[\da-fA-F]+',
+             lambda typ, val: ('NUMBER', make_num(val))),
+            ('NUMBER', r'[\-\+]?\d+', lambda typ, val: (typ, int(val))),
             ('GID', r'@[A-Za-z\d_]+', self.handle_id),
             ('LID', r'%[A-Za-z\d_]+', self.handle_id),
             ('ATTRID', r'#\d+', lambda t, v: (t, v)),
@@ -58,6 +66,8 @@ class LlvmIrLexer(BaseLexer):
                 val = self.context.void_ty
             elif val == 'double':
                 val = self.context.double_ty
+            elif val == 'label':
+                val = self.context.label_ty
             elif val.startswith('i'):
                 bits = int(val[1:])
                 val = nodes.IntegerType.get(self.context, bits)

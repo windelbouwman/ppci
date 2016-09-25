@@ -1,4 +1,5 @@
 
+from collections import namedtuple
 from ...pcc.recursivedescent import RecursiveDescentParser
 from . import nodes
 
@@ -11,6 +12,8 @@ class LlvmIrParser(RecursiveDescentParser):
     def __init__(self, context):
         super().__init__()
         self.context = context
+        self._pfs = None
+        self.numbered_vals = []
 
     def parse_module(self):
         """ Parse a module """
@@ -33,26 +36,43 @@ class LlvmIrParser(RecursiveDescentParser):
     def parse_define(self):
         """ Parse a function """
         self.consume('define')
-        name = self.parse_function_header()
+        function = self.parse_function_header()
+        self.parse_function_body(function)
+        print(function)
+
+    def parse_function_body(self, function):
+        self._pfs = PerFunctionState(self, function)
         self.consume('{')
         while self.peak != '}':
             self.parse_basic_block()
         self.consume('}')
-        print(name)
+        self._pfs = None
 
     def parse_declare(self):
         """ Parse a function declaration """
         self.consume('declare')
-        name = self.parse_function_header()
-        print(name)
+        function = self.parse_function_header()
+        print(function)
 
     def parse_function_header(self):
-        self.parse_type()
+        return_type = self.parse_type()
         name = self.parse_name(global_name=True)
-        self.parse_arg_list()
+        arg_list = self.parse_arg_list()
+        attributes = self.parse_fn_attribute_value_pairs()
+        param_types = [a.type for a in arg_list]
         if self.peak == 'ATTRID':
             self.consume('ATTRID')
-        return name
+        function_type = nodes.FunctionType.get(return_type, param_types)
+        function = nodes.Function.create(function_type, name)
+        for argument, arg_info in zip(function.arguments, arg_list):
+            if arg_info.name:
+                argument.set_name(arg_info.name)
+            else:
+                # The parameter had no name, so number it?
+                name = '%{}'.format(len(self.numbered_vals))
+                argument.set_name(name)
+                self.numbered_vals.append((name, argument))
+        return function
 
     def parse_target_definition(self):
         """ Parse a target top level entity """
@@ -73,15 +93,16 @@ class LlvmIrParser(RecursiveDescentParser):
         attr_id = self.consume('ATTRID')
         self.consume('=')
         self.consume('{')
-        self.parse_function_attribute_pairs()
+        attributes = self.parse_fn_attribute_value_pairs()
         self.consume('}')
         return attr_id
 
-    def parse_function_attribute_pairs(self):
+    def parse_fn_attribute_value_pairs(self):
         attributes = []
         while True:
-            if self.peak in ['nounwind', 'sspstrong', 'uwtable']:
-                self.consume()
+            if self.peak in ['nounwind', 'sspstrong', 'uwtable', 'readonly']:
+                a = self.consume().val
+                attributes.append(a)
             elif self.peak == 'STR':
                 key = self.parse_string_constant()
                 if self.has_consumed('='):
@@ -146,15 +167,24 @@ class LlvmIrParser(RecursiveDescentParser):
             label = self.consume('LBL').val
         else:
             label = None
+        bb = self._pfs.define_bb(label)
 
         # Parse instructions until terminator
-        instructions = []
         while True:
+            if self.peak == 'LID':
+                name = self.parse_name()
+                self.consume('=')
+                print(name, '=')
+            else:
+                name = None
+
             instruction = self.parse_instruction()
-            instructions.append(instruction)
+            bb.instructions.append(instruction)
+            if name:
+                self._pfs.set_instruction_name(name, instruction)
             if instruction.is_terminator:
                 break
-        return nodes.BasicBlock(label, instructions)
+        return bb
 
     def parse_arg_list(self):
         """ Parse '(' ... ')' """
@@ -163,21 +193,30 @@ class LlvmIrParser(RecursiveDescentParser):
         if self.peak == ')':
             pass
         else:
-            arg = self.parse_arg()
-            args.append(arg)
+            args.append(self.parse_arg())
             while self.has_consumed(','):
-                arg = self.parse_arg()
-                args.append(arg)
+                args.append(self.parse_arg())
         self.consume(')')
         return args
 
     def parse_arg(self):
-        typ = self.parse_type()
+        ty = self.parse_type()
+        attrs = self.parse_optional_param_attrs()
         if self.peak == 'LID':
-            name = self.consume('LID')
+            name = self.consume('LID').val
         else:
             name = None
-        return (typ, name)
+        return ArgInfo(ty, name)
+
+    def parse_optional_param_attrs(self):
+        a = []
+        while True:
+            if self.peak == 'nocapture':
+                self.consume('nocapture')
+                a.append('nocapture')
+            else:
+                break
+        return a
 
     def parse_type(self):
         if self.peak == 'type':
@@ -186,17 +225,17 @@ class LlvmIrParser(RecursiveDescentParser):
             typ = self.parse_array_vector_type(False)
         elif self.peak == '<':
             typ = self.parse_array_vector_type(True)
-        else:
-            raise NotImplementedError(self.peak)
+        else:  # pragma: no cover
+            self.not_impl()
 
         # Parse suffix:
         while True:
             if self.peak == '*':
                 self.consume('*')
-                typ = nodes.PointerType(typ)
+                typ = nodes.PointerType.get_unequal(typ)
             else:
                 break
-        print(typ)
+        # print(typ)
         return typ
 
     def parse_array_vector_type(self, is_vector):
@@ -238,34 +277,62 @@ class LlvmIrParser(RecursiveDescentParser):
         """ Some more abstract value parsing """
         if self.peak == 'zeroinitializer':
             self.consume('zeroinitializer')
-            v = 0
+            v = ValId('zero', None)
         elif self.peak == 'LID':
-            v = self.parse_name()
+            v = ValId('local', self.parse_name())
         elif self.peak == 'GID':
             v = self.parse_name(global_name=True)
         elif self.peak == 'NUMBER':
-            v = self.consume('NUMBER').val
+            v = ValId('int', self.consume('NUMBER').val)
         elif self.peak == 'undef':
             self.consume('undef')
-            v = None
+            v = ValId('undef', None)
+        elif self.peak == 'true':
+            self.consume('true')
+            v = True
+        elif self.peak == 'false':
+            self.consume('false')
+            v = False
         elif self.peak == '<':
             # '<' constvect '>'
             self.consume('<')
-            vect = self.parse_global_value_vector()
+            elts = self.parse_global_value_vector()
             self.consume('>')
-            v = None
+            v = ValId('constant', nodes.ConstantVector.get(elts))
         else:  # pragma: no cover
             self.not_impl()
+        assert isinstance(v, ValId)
         return v
 
     def convert_val_id_to_value(self, ty, val_id):
-        v = nodes.Value(ty)
+        if val_id.kind == 'local':
+            v = self._pfs.get_val(val_id.val, ty)
+        elif val_id.kind == 'int':
+            if not ty.is_integer:
+                self.error('integer constant must have integer type')
+            v = nodes.ConstantInt.get(ty, val_id.val)
+        elif val_id.kind == 'zero':
+            v = nodes.Constant.get_null_value(ty)
+        elif val_id.kind == 'undef':
+            v = nodes.UndefValue.get(ty)
+        elif val_id.kind == 'constant':
+            v = val_id.val
+            if v.ty is not ty:
+                self.error('constant expression type mismatch')
+        else:
+            raise NotImplementedError(str(val_id))
         return v
 
     def parse_type_and_value(self):
         ty = self.parse_type()
         val = self.parse_value(ty)
         return val
+
+    def parse_type_and_basic_block(self):
+        value = self.parse_type_and_value()
+        if not isinstance(value, nodes.BasicBlock):
+            self.error('Expected a basic block')
+        return value
 
     def parse_global_value_vector(self):
         """ """
@@ -280,44 +347,45 @@ class LlvmIrParser(RecursiveDescentParser):
         val = self.parse_global_value(ty)
         return val
 
+    # Instructions
     def parse_instruction(self):
-        """ Parse an instruction """
-        if self.peak == 'LID':
-            instruction = self.parse_value_assignment()
-        elif self.peak == 'store':
+        """ Parse a single instruction """
+        if self.peak == 'store':
             instruction = self.parse_store()
         elif self.peak == 'call':
             instruction = self.parse_call()
         elif self.peak == 'ret':
             instruction = self.parse_ret()
+        elif self.peak == 'br':
+            instruction = self.parse_br()
+        elif self.peak == 'alloca':
+            instruction = self.parse_alloca()
+        elif self.peak == 'load':
+            instruction = self.parse_load()
+        elif self.peak == 'extractelement':
+            instruction = self.parse_extract_element()
+        elif self.peak == 'insertelement':
+            instruction = self.parse_insert_element()
+        elif self.peak == 'shufflevector':
+            instruction = self.parse_shuffle_vector()
+        elif self.peak in ['mul', 'add', 'sub', 'fmul']:
+            instruction = self.parse_arithmatic()
+        elif self.peak in ['and', 'or']:
+            instruction = self.parse_arithmatic()
+        elif self.peak in [
+                'sext', 'zext', 'trunc',
+                'uitofp', 'fptoui', 'sitofp', 'fptosi']:
+            instruction = self.parse_cast()
+        elif self.peak == 'select':
+            instruction = self.parse_select()
+        elif self.peak in ['icmp', 'fcmp']:
+            instruction = self.parse_compare()
+        elif self.peak == 'getelementptr':
+            instruction = self.parse_getelementptr()
         else:  # pragma: no cover
             self.not_impl()
         print(instruction)
         return instruction
-
-    def parse_value_assignment(self):
-        """ Parse assignment to an ssa value """
-        name = self.parse_name()
-        self.consume('=')
-        print(name, '=')
-        if self.peak == 'alloca':
-            value = self.parse_alloca()
-        elif self.peak == 'load':
-            value = self.parse_load()
-        elif self.peak == 'extractelement':
-            value = self.parse_extract_element()
-        elif self.peak == 'insertelement':
-            value = self.parse_insert_element()
-        elif self.peak == 'shufflevector':
-            value = self.parse_shuffle_vector()
-        elif self.peak in ['mul', 'add', 'sub', 'fmul']:
-            value = self.parse_arithmatic()
-        elif self.peak == 'getelementptr':
-            value = self.parse_getelementptr()
-        else:  # pragma: no cover
-            self.not_impl()
-        value.name = name
-        return value
 
     def parse_arithmatic(self):
         op = self.consume()
@@ -325,6 +393,52 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume(',')
         rhs = self.parse_value(lhs.ty)
         return nodes.BinaryOperator.create(op, lhs, rhs)
+
+    def parse_cast(self):
+        op = self.consume()
+        val = self.parse_type_and_value()
+        self.consume('to')
+        dest_ty = self.parse_type()
+        return nodes.CastInst.create(op, val, dest_ty)
+
+    def parse_select(self):
+        self.consume('select')
+        op0 = self.parse_type_and_value()
+        self.consume(',')
+        op1 = self.parse_type_and_value()
+        self.consume(',')
+        op2 = self.parse_type_and_value()
+        return nodes.SelectInst.create(op0, op1, op2)
+
+    def parse_compare(self):
+        icmp = self.peak == 'icmp'
+        if icmp:
+            self.consume('icmp')
+        else:
+            self.consume('fcmp')
+        pred = self.parse_cmp_predicate(icmp)
+        lhs = self.parse_type_and_value()
+        self.consume(',')
+        rhs = self.parse_value(lhs.ty)
+        return nodes.ICmpInst(pred, lhs, rhs)
+
+    def parse_cmp_predicate(self, icmp):
+        if icmp:
+            predicates = {
+                'eq': 0,
+                'ne': 1,
+                'ugt': 0,
+                'ule': 1
+            }
+        else:
+            predicates = {
+                'ueq': 0,
+            }
+        if self.peak in predicates:
+            v = self.consume().val
+            return predicates[v]
+        else:
+            self.error('Expected one of {}'.format(predicates.keys()))
 
     def parse_alloca(self):
         self.consume('alloca')
@@ -372,7 +486,7 @@ class LlvmIrParser(RecursiveDescentParser):
         volatile = self.has_consumed('volatile')
         ty = self.parse_type()
         self.consume(',')
-        self.parse_type_and_value()
+        val = self.parse_type_and_value()
         if self.has_consumed(','):
             self.consume('align')
             self.parse_number()
@@ -395,7 +509,9 @@ class LlvmIrParser(RecursiveDescentParser):
         while self.has_consumed(','):
             val = self.parse_type_and_value()
             indices.append(val)
-        return nodes.GetElementPtrInst(ty, ptr, indices)
+        gep = nodes.GetElementPtrInst(ty, ptr, indices)
+        gep.inbounds = inbounds
+        return gep
 
     def parse_call(self):
         self.consume('call')
@@ -417,6 +533,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return args
 
     def parse_ret(self):
+        """ Parse return instruction """
         self.consume('ret')
         ty = self.parse_type()
         if ty.is_void:
@@ -425,6 +542,20 @@ class LlvmIrParser(RecursiveDescentParser):
             arg = self.parse_value(ty)
             print('ret', arg)
             return nodes.ReturnInst(ty)
+
+    def parse_br(self):
+        """ Parse a branch instruction """
+        self.consume('br')
+        op0 = self.parse_type_and_value()
+        print(op0)
+        if isinstance(op0, nodes.BasicBlock):
+            return nodes.BranchInst(op0)
+        else:
+            self.consume(',')
+            op1 = self.parse_type_and_basic_block()
+            self.consume(',')
+            op2 = self.parse_type_and_basic_block()
+            return nodes.BranchInst(op1, op2, op0)
 
     def parse_phi(self):
         """ Parse a phi instruction.
@@ -443,3 +574,59 @@ class LlvmIrParser(RecursiveDescentParser):
             self.consume(',')
             self.parse_value()
             self.consume(']')
+
+
+class PerFunctionState:
+    """ Keep track of parsing stuff in a function """
+    def __init__(self, parser, function):
+        self.parser = parser
+        self.function = function
+        self.forward = {}
+
+    def get_val(self, name, ty):
+        """ Get a value with a name and a given type """
+        # Lookup the name:
+        if name in self.function.vmap:
+            val = self.function.vmap[name]
+        elif name in self.forward:
+            val = self.forward[name]
+        else:
+            if ty.is_label:
+                val = nodes.BasicBlock.create(
+                    self.function.context, name, self.function)
+            else:
+                raise NotImplementedError(str(ty))
+            self.forward[name] = val
+            print(self.forward)
+
+        if ty is not val.ty:
+            self.parser.error('{} != {}'.format(ty, val.ty))
+        return val
+
+    def get_bb(self, name):
+        return self.get_val(name, self.function.context.label_ty)
+
+    def define_bb(self, name):
+        bb = self.get_bb(name)
+
+        # Move basic block from forward to function:
+        self.function.basic_blocks.append(bb)
+        self.forward.pop(name)
+        return bb
+
+    def set_instruction_name(self, name, instruction):
+        # This will update the symbol table:
+        instruction.set_name(name)
+
+        # Remove placeholder:
+        if name in self.forward:
+            sentinel = self.forward.pop(name)
+            if sentinel.ty is not instruction.ty:
+                self.parser.error(
+                    'Instruction forward referenced with type {}'.format(
+                        sentinel.ty))
+            sentinel.replace_all_uses_with(instruction)
+
+
+ValId = namedtuple('ValId', ['kind', 'val'])
+ArgInfo = namedtuple('ArgInfo', ['type', 'name'])
