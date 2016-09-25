@@ -10,9 +10,16 @@ The project contains:
 - A :ref:`compiler<ppci-c3c>`, an :ref:`assembler<ppci-asm>`,
   a :ref:`linker<ppci-ld>` and a :ref:`build system<ppci-build>`
 - Language front-ends: Brainfuck, :doc:`c3<c3>`
-- Backends:  :ref:`6500<mos6500>`, :ref:`arm`,
+- Backends for various target architectures, such as
+  :ref:`6500<mos6500>`, :ref:`arm`,
   :ref:`avr`,
   :ref:`msp430`, :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`
+- A :ref:`pythonic api<api>` and
+  a set of :ref:`command line utilities<commandline>` build around it.
+- A simple :ref:`intermediate language<ir>`
+- Machine independent :ref:`code generation algorithms<codegen>`
+  for register allocation and instruction selection
+- A simple way to :ref:`describe an instruction set<encoding>`
 
 An example usage of the low level encoding :doc:`api<api>`:
 

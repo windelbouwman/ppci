@@ -12,3 +12,15 @@ Brainfuck
 The compiler has a front-end for the brainfuck language.
 
 .. autoclass:: ppci.lang.bf.BrainFuckGenerator
+
+Fortran
+-------
+
+.. automodule:: ppci.lang.fortran
+
+
+Llvm
+----
+
+.. automodule:: ppci.lang.llvmir
+

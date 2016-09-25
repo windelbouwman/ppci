@@ -1,4 +1,6 @@
 
+.. _encoding:
+
 Specification languages
 =======================
 

@@ -1,4 +1,6 @@
 
+.. _codegen:
+
 Back-end
 --------
 
