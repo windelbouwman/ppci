@@ -13,6 +13,7 @@ from .lang.c import CBuilder
 from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
+from .lang.llvmir import LlvmIrFrontend
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -105,9 +106,9 @@ def get_layout(layout):
 
 
 def construct(buildfile, targets=()):
-    """
-        Construct the given buildfile.
-        Raise task error if something goes wrong.
+    """ Construct the given buildfile.
+
+    Raise task error if something goes wrong.
     """
     # Ensure file:
     buildfile = get_file(buildfile)
@@ -350,6 +351,21 @@ def cc(source, march, reporter=None):
     cbuilder = CBuilder(march)
     cbuilder.build(source)
     raise NotImplementedError('TODO')
+
+
+def llvm_to_ir(source):
+    """ Convert llvm assembly code into an IR-module """
+    llvm = LlvmIrFrontend()
+    ir_module = llvm.compile(source)
+    return ir_module
+
+
+def llc(source, march):
+    """ Compile llvm assembly source into machine code """
+    march = get_arch(march)
+    llvm = LlvmIrFrontend()
+    ir_module = llvm.compile(source)
+    return ir_to_object(ir_module)
 
 
 def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):

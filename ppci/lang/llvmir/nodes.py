@@ -87,6 +87,25 @@ class ConstantInt(Constant):
     def get(cls, ty, value):
         return ConstantInt(ty, value)
 
+    @classmethod
+    def get_true(cls, context):
+        """ Get the constant value for true """
+        return cls.get(context.int1_ty, 1)
+
+    @classmethod
+    def get_false(cls, context):
+        return cls.get(context.int1_ty, 0)
+
+
+class ConstantFP(Constant):
+    def __init__(self, ty, val):
+        super().__init__(ty)
+        self.val = val
+
+    @classmethod
+    def get(cls, ty, val):
+        return ConstantFP(ty, val)
+
 
 class ConstantAggregateZero(Constant):
     def __init__(self, ty):
@@ -98,9 +117,16 @@ class ConstantAggregateZero(Constant):
 
 
 class ConstantVector(Constant):
+    def __init__(self, elts):
+        assert len(elts)
+        assert all(e.ty is elts[0].ty for e in elts)
+        ty = VectorType.get(elts[0].ty, len(elts))
+        super().__init__(ty)
+        self.elts = elts
+
     @classmethod
     def get(cls, elts):
-        return ConstantVector()
+        return ConstantVector(elts)
 
 
 class GlobalValue(Constant):
@@ -144,7 +170,42 @@ class BinaryOperator(Instruction):
 
 
 class CmpInst(Instruction):
-    pass
+    FCMP_FALSE = 0
+    FCMP_OEQ = 1
+    FCMP_OGT = 2
+    FCMP_OGE = 3
+    FCMP_OLT = 4
+    FCMP_OLE = 5
+    FCMP_ONE = 6
+    FCMP_ORD = 7
+    FCMP_UNO = 8
+    FCMP_UEQ = 9
+
+    FCMP_TRUE = 15
+
+    ICMP_EQ = 32
+    ICMP_NE = 33
+    ICMP_UGT = 34
+    ICMP_UGE = 35
+    ICMP_ULT = 36
+    ICMP_ULE = 37
+    ICMP_SGT = 38
+    ICMP_SGE = 39
+    ICMP_SLT = 40
+    ICMP_SLE = 41
+
+    def __init__(self, pred, lhs, rhs):
+        super().__init__(self.make_cmp_result_type(lhs.ty))
+        self.pred = pred
+        self.lhs = lhs
+        self.rhs = rhs
+
+    @classmethod
+    def make_cmp_result_type(cls, opnd_type):
+        if isinstance(opnd_type, VectorType):
+            return VectorType.get(opnd_type.context.int1_ty, opnd_type.num)
+        else:
+            return opnd_type.context.int1_ty
 
 
 class FCmpInst(CmpInst):
@@ -152,30 +213,48 @@ class FCmpInst(CmpInst):
 
 
 class ICmpInst(CmpInst):
-    def __init__(self, pred, lhs, rhs):
-        self.pred = pred
-        self.lhs = lhs
-        self.rhs = rhs
+    pass
 
 
 class ExtractElementInst(Instruction):
-    def __init__(self, op1, op2):
-        self.op1 = op1
-        self.op2 = op2
+    def __init__(self, val, index):
+        super().__init__(val.ty.el_type)
+        self.val = val
+        self.index = index
 
 
 class GetElementPtrInst(Instruction):
     def __init__(self, ty, ptr, indices):
-        ret_ty = PointerType.get_unequal(ty.el_type)
+        ret_ty = self.get_gep_return_type(ptr, indices)
         super().__init__(ret_ty)
         self.ptr = ptr
         self.indices = indices
 
+    @staticmethod
+    def get_indexed_type(agg, idx_list):
+        """ Return the type after all indexing magic """
+        for index in idx_list:
+            agg = agg.get_type_at_index(index)
+        return agg
+
+    @classmethod
+    def get_gep_return_type(cls, ptr, idx_list):
+        """ Get the pointer type returned by the GEP """
+        ty2 = cls.get_indexed_type(ptr.ty, idx_list)
+        ptr_ty = PointerType.get(ty2, 0)
+        return ptr_ty
+
 
 class InsertElementInst(Instruction):
-    def __init__(self, op1, op2, op3):
-        self.op1 = op1
-        self.op2 = op2
+    """ Insert element instruction.
+
+    Returns a new vector with element at index replaced.
+    """
+    def __init__(self, vec, elt, index):
+        super().__init__(vec.ty)
+        self.vec = vec
+        self.elt = elt
+        self.index = index
 
 
 class PhiNode(Instruction):
@@ -195,9 +274,11 @@ class SelectInst(Instruction):
 
 
 class ShuffleVectorInst(Instruction):
-    def __init__(self, op1, op2, op3):
-        self.op1 = op1
-        self.op2 = op2
+    def __init__(self, v1, v2, mask):
+        super().__init__(VectorType.get(v1.ty.el_type, mask.ty.num))
+        self.v1 = v1
+        self.v2 = v2
+        self.mask = mask
 
 
 class StoreInst(Instruction):
@@ -287,6 +368,10 @@ class Type:
     def is_integer(self):
         return self.type_id == integer_ty_id
 
+    @property
+    def is_floating_point(self):
+        return self.type_id in [half_ty_id, float_ty_id, double_ty_id]
+
     @staticmethod
     def get_void_ty(context):
         return context.void_ty
@@ -325,11 +410,18 @@ class CompositeType(Type):
     pass
 
 
+class StructType(CompositeType):
+    def get_type_at_index(self, idx):
+        raise NotImplementedError()
+
+
 class SequentialType(CompositeType):
-    pass
     def __init__(self, ty_id, el_type):
         super().__init__(el_type.context, ty_id)
         self.el_type = el_type
+
+    def get_type_at_index(self, idx):
+        return self.el_type
 
 
 class PointerType(SequentialType):
@@ -381,6 +473,8 @@ class Context:
     """ LLVM context """
     def __init__(self):
         self.void_ty = Type(self, void_ty_id)
+        self.half_ty = Type(self, half_ty_id)
+        self.float_ty = Type(self, float_ty_id)
         self.double_ty = Type(self, double_ty_id)
         self.label_ty = Type(self, label_ty_id)
         self.integer_types = {}

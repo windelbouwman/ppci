@@ -26,6 +26,7 @@ setup(
         "bin/ppci-disasm.py",
         'bin/ppci-hexutil.py',
         "bin/ppci-ld.py",
+        "bin/ppci-llc.py",
         "bin/ppci-objdump.py",
         "bin/ppci-objcopy.py"],
     long_description=long_description,

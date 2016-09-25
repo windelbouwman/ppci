@@ -7,7 +7,8 @@ from . import nodes
 class LlvmIrParser(RecursiveDescentParser):
     """ Recursive descent parser for llvm-ir
 
-    Closely modeled after LLParser.cpp
+    Closely modeled after LLParser.cpp at:
+    https://github.com/llvm-mirror/llvm/blob/master/lib/AsmParser/LLParser.cpp
     """
     def __init__(self, context):
         super().__init__()
@@ -284,15 +285,17 @@ class LlvmIrParser(RecursiveDescentParser):
             v = self.parse_name(global_name=True)
         elif self.peak == 'NUMBER':
             v = ValId('int', self.consume('NUMBER').val)
+        elif self.peak == 'HEXDOUBLE':
+            v = ValId('float', self.consume('HEXDOUBLE').val)
         elif self.peak == 'undef':
             self.consume('undef')
             v = ValId('undef', None)
         elif self.peak == 'true':
             self.consume('true')
-            v = True
+            v = ValId('constant', nodes.ConstantInt.get_true(self.context))
         elif self.peak == 'false':
             self.consume('false')
-            v = False
+            v = ValId('constant', nodes.ConstantInt.get_false(self.context))
         elif self.peak == '<':
             # '<' constvect '>'
             self.consume('<')
@@ -311,6 +314,10 @@ class LlvmIrParser(RecursiveDescentParser):
             if not ty.is_integer:
                 self.error('integer constant must have integer type')
             v = nodes.ConstantInt.get(ty, val_id.val)
+        elif val_id.kind == 'float':
+            if not ty.is_floating_point:
+                self.error('Floating point constant invalid for type')
+            v = nodes.ConstantFP.get(ty, val_id.val)
         elif val_id.kind == 'zero':
             v = nodes.Constant.get_null_value(ty)
         elif val_id.kind == 'undef':
@@ -368,12 +375,16 @@ class LlvmIrParser(RecursiveDescentParser):
             instruction = self.parse_insert_element()
         elif self.peak == 'shufflevector':
             instruction = self.parse_shuffle_vector()
-        elif self.peak in ['mul', 'add', 'sub', 'fmul']:
+        elif self.peak in [
+                'add', 'fadd', 'sub', 'fsub', 'mul', 'fmul',
+                'udiv', 'sdiv', 'fdiv', 'urem', 'srem',
+                'shl', 'lshr', 'ashr']:
             instruction = self.parse_arithmatic()
         elif self.peak in ['and', 'or']:
             instruction = self.parse_arithmatic()
         elif self.peak in [
-                'sext', 'zext', 'trunc',
+                'sext', 'zext',
+                'trunc', 'fptrunc',
                 'uitofp', 'fptoui', 'sitofp', 'fptosi']:
             instruction = self.parse_cast()
         elif self.peak == 'select':
@@ -425,14 +436,20 @@ class LlvmIrParser(RecursiveDescentParser):
     def parse_cmp_predicate(self, icmp):
         if icmp:
             predicates = {
-                'eq': 0,
-                'ne': 1,
-                'ugt': 0,
-                'ule': 1
+                'eq': nodes.CmpInst.ICMP_EQ,
+                'ne': nodes.CmpInst.ICMP_NE,
+                'slt': nodes.CmpInst.ICMP_SLT,
+                'sgt': nodes.CmpInst.ICMP_SGT,
+                'sle': nodes.CmpInst.ICMP_SLE,
+                'sge': nodes.CmpInst.ICMP_SGE,
+                'ult': nodes.CmpInst.ICMP_ULT,
+                'ugt': nodes.CmpInst.ICMP_UGT,
+                'ule': nodes.CmpInst.ICMP_ULE,
+                'uge': nodes.CmpInst.ICMP_UGE,
             }
         else:
             predicates = {
-                'ueq': 0,
+                'ueq': nodes.CmpInst.FCMP_UEQ,
             }
         if self.peak in predicates:
             v = self.consume().val
@@ -497,9 +514,13 @@ class LlvmIrParser(RecursiveDescentParser):
         val = self.parse_type_and_value()
         self.consume(',')
         ptr = self.parse_type_and_value()
+        if self.has_consumed(','):
+            self.consume('align')
+            self.parse_number()
         return nodes.StoreInst(val, ptr)
 
     def parse_getelementptr(self):
+        """ parse the get element ptr (GEP) """
         self.consume('getelementptr')
         inbounds = self.has_consumed('inbounds')
         ty = self.parse_type()

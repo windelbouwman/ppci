@@ -1,6 +1,4 @@
-"""
-    Contains the command line interface functions.
-"""
+""" Contains the command line interface functions. """
 
 # pylint: disable=C0103
 
@@ -150,9 +148,7 @@ def c3c(args=None):
         args.output.close()
 
 
-cc_description = """
-C compiler.
-"""
+cc_description = """ C compiler. """
 cc_parser = argparse.ArgumentParser(
     description=cc_description,
     parents=[base_parser, march_parser, out_parser])
@@ -176,9 +172,24 @@ def cc(args=None):
         args.output.close()
 
 
-asm_description = """
-Assembler utility.
-"""
+llc_description = """ LLVM static compiler. """
+llc_parser = argparse.ArgumentParser(
+    description=llc_description,
+    parents=[base_parser, march_parser, out_parser])
+llc_parser.add_argument(
+    'source', help='source file', type=argparse.FileType('r'))
+
+
+def llc(args=None):
+    """ Compile llvm ir code into machine code """
+    args = llc_parser.parse_args(args)
+    with LogSetup(args):
+        march = get_arch_from_args(args)
+        src = args.source
+        api.llc(src, march)
+
+
+asm_description = """ Assembler utility. """
 asm_parser = argparse.ArgumentParser(
     description=asm_description,
     parents=[base_parser, march_parser, out_parser])
@@ -203,9 +214,7 @@ def asm(args=None):
         args.output.close()
 
 
-disasm_description = """
-Disassembler utility.
-"""
+disasm_description = """ Disassembler utility. """
 disasm_parser = argparse.ArgumentParser(
     description=disasm_description, parents=[base_parser, march_parser])
 disasm_parser.add_argument(

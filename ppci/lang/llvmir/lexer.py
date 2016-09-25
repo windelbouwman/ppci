@@ -7,7 +7,8 @@ from . import nodes
 
 class LlvmIrLexer(BaseLexer):
     types = [
-        'void', 'double', 'label',
+        'void', 'double', 'float',
+        'label',
         'i64', 'i32', 'i16', 'i8', 'i1',
         'f32', 'f16']
 
@@ -20,7 +21,7 @@ class LlvmIrLexer(BaseLexer):
         'nocapture',
         'ret', 'br', 'call',
         'icmp', 'fcmp',
-        'eq', 'ne', 'uge', 'ugt',
+        'eq', 'ne', 'slt', 'sgt', 'sle', 'sge', 'ule', 'ult', 'uge', 'ugt',
         'ueq',
         'select',
         'x', 'zeroinitializer', 'undef',
@@ -28,7 +29,8 @@ class LlvmIrLexer(BaseLexer):
         'extractelement', 'insertelement', 'shufflevector',
         'add', 'sub', 'mul', 'shl', 'srem',
         'fadd', 'fsub', 'fmul', 'fdiv', 'frem',
-        'sext', 'zext', 'trunc', 'uitofp', 'fptoui', 'sitofp', 'fptosi',
+        'sext', 'zext', 'trunc', 'fptrunc',
+        'uitofp', 'fptoui', 'sitofp', 'fptosi',
         'to',
         'or', 'xor', 'and',
         'true', 'false']
@@ -39,8 +41,10 @@ class LlvmIrLexer(BaseLexer):
         # Construct the string of possible glyphs:
         op_txt = '|'.join(re.escape(g) for g in self.glyphs)
         tok_spec = [
-            ('HEXNUMBER', r'0x[\da-fA-F]+',
-             lambda typ, val: ('NUMBER', make_num(val))),
+            ('HEXDOUBLE', r'0x[KLMHJ]?[\da-fA-F]+',
+             lambda typ, val: (typ, val)),
+            # ('HEXNUMBER', r'0x[\da-fA-F]+',
+            #  lambda typ, val: ('NUMBER', make_num(val))),
             ('NUMBER', r'[\-\+]?\d+', lambda typ, val: (typ, int(val))),
             ('GID', r'@[A-Za-z\d_]+', self.handle_id),
             ('LID', r'%[A-Za-z\d_]+', self.handle_id),
@@ -64,6 +68,8 @@ class LlvmIrLexer(BaseLexer):
             typ = 'type'
             if val == 'void':
                 val = self.context.void_ty
+            elif val == 'float':
+                val = self.context.float_ty
             elif val == 'double':
                 val = self.context.double_ty
             elif val == 'label':
