@@ -63,7 +63,7 @@ class AvrArch(Architecture):
                 l.append(r)
                 live_in.add(r)
             elif s == 2:
-                hi_reg = regs.pop(0)
+                regs.pop(0)
                 lo_reg = regs.pop(0)
                 r = get16reg(lo_reg.num)
                 l.append(r)

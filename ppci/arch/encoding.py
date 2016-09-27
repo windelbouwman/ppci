@@ -5,15 +5,38 @@ from .registers import Register
 from .token import TokenSequence
 
 
-class InstructionProperty(property):
-    """ Custom derived property that implements the descriptor protocol
-        by inheriting property
+class Operand(property):
+    """ An instruction operand.
+
+    When an instruction has
+    an operand, use this function to create the property.
+
+    Arguments:
+        name: The name that will be shown in the usage.
+        cls: The type that this function must take.
+
+    Custom derived property that implements the descriptor protocol
+    by inheriting property
     """
-    def __init__(self, name, cls, getter, setter, read=False, write=False):
+    def __init__(self, name, cls, read=False, write=False):
         self._name = name
         self._cls = cls
         self._read = read
         self._write = write
+
+        # Construct a private backing field for the property:
+        private_field = '_{}'.format(name)
+
+        if isinstance(cls, type) and issubclass(cls, Register):
+            assert read or write
+
+        def getter(self):
+            return getattr(self, private_field)
+
+        def setter(self, value):
+            assert isinstance(value, cls)
+            setattr(self, private_field, value)
+
         super().__init__(getter, setter)
 
     def __repr__(self):
@@ -27,35 +50,8 @@ class InstructionProperty(property):
             return issubclass(self._cls, Constructor)
 
 
-def register_argument(name, cls, read=False, write=False):
-    """ Create a property for an instruction.
-
-    When an instruction has
-    a parameter, use this function to create the property.
-
-    Arguments:
-        name: The name that will be shown in the usage.
-        cls: The type that this function must take.
-    """
-    # Construct a private backing field for the property:
-    private_field = '_{}'.format(name)
-
-    if isinstance(cls, type) and issubclass(cls, Register):
-        assert read or write
-
-    def getter(self):
-        return getattr(self, private_field)
-
-    def setter(self, value):
-        assert isinstance(value, cls)
-        setattr(self, private_field, value)
-
-    return InstructionProperty(
-        name, cls, getter, setter,
-        read=read, write=write)
-
-
-operand = register_argument
+register_argument = Operand
+operand = Operand
 
 
 class Constructor:
@@ -99,9 +95,27 @@ class Constructor:
         else:
             return super().__repr__()
 
+    @staticmethod
+    def dict_to_patterns(d):
+        """ Create patterns from dictionary """
+        if isinstance(d, dict):
+            patterns = []
+            for field, value in d.items():
+                if isinstance(value, int):
+                    patterns.append(FixedPattern(field, value))
+                elif isinstance(value, Operand):
+                    patterns.append(VariablePattern(field, value))
+                elif isinstance(value, Reloc):
+                    pass
+                else:  # pragma: no cover
+                    raise NotImplementedError(str(value))
+        else:
+            patterns = d
+        return patterns
+
     def set_patterns(self, tokens):
         """ Fill tokens with the specified bit patterns """
-        for pattern in self.patterns:
+        for pattern in self.dict_to_patterns(self.patterns):
             value = pattern.get_value(self)
             assert isinstance(value, int), str(self) + str(value)
             tokens.set_field(pattern.field, value)
@@ -116,8 +130,10 @@ class Constructor:
         """ Create this constructor from tokens """
         prop_map = {}
 
+        patterns = cls.dict_to_patterns(cls.patterns)
+
         # Fill patterns:
-        for pattern in cls.patterns:
+        for pattern in patterns:
             v = tokens.get_field(pattern.field)
             if isinstance(pattern, FixedPattern):
                 if v != pattern.value:
@@ -196,7 +212,9 @@ class InsMeta(type):
     def __add__(cls, other):
         assert isinstance(other, InsMeta)
         tokens = cls.tokens + other.tokens
-        patterns = cls.patterns + other.patterns
+        p1 = cls.dict_to_patterns(cls.patterns)
+        p2 = cls.dict_to_patterns(other.patterns)
+        patterns = p1 + p2
         syntax = cls.syntax + other.syntax
         members = {
             'tokens': tokens,
@@ -205,7 +223,7 @@ class InsMeta(type):
         member_list = list(cls.__dict__.items())
         member_list += list(other.__dict__.items())
         for name, val in member_list:
-            if isinstance(val, InstructionProperty):
+            if isinstance(val, Operand):
                 if name in members:  # pragma: no cover
                     raise ValueError('{} already defined!'.format(name))
                 members[name] = val
@@ -323,6 +341,14 @@ class Instruction(Constructor, metaclass=InsMeta):
         return cls.from_tokens(tokens)
 
     def relocations(self):
+        if isinstance(self.patterns, dict):
+            rlcs = []
+            for name, value in self.patterns.items():
+                if isinstance(value, Reloc):
+                    lab = value.ref_op.__get__(self)
+                    rlcs.append((lab, value.apply))
+            print(rlcs)
+            return rlcs
         return []
 
     def symbols(self):
@@ -361,7 +387,7 @@ class Syntax:
                     pass
                 else:  # pragma: no cover
                     raise TypeError('Invalid element "{}"'.format(element))
-            elif isinstance(element, InstructionProperty):
+            elif isinstance(element, Operand):
                 pass
             else:  # pragma: no cover
                 raise TypeError('Element must be string or parameter')
@@ -382,7 +408,7 @@ class Syntax:
         """ Get the sequence of properties that must be passed in """
         formal_args = []
         for syntax_element in self.syntax:
-            if isinstance(syntax_element, InstructionProperty):
+            if isinstance(syntax_element, Operand):
                 formal_args.append(syntax_element)
         return formal_args
 
@@ -403,7 +429,7 @@ class Syntax:
             in refering to an element in the args list """
         if isinstance(syntax_element, str):
             return syntax_element
-        elif isinstance(syntax_element, InstructionProperty):
+        elif isinstance(syntax_element, Operand):
             return str(syntax_element.__get__(obj))
         else:  # pragma: no cover
             raise NotImplementedError(str(syntax_element))
@@ -446,3 +472,16 @@ class VariablePattern(BitPattern):
         if self.transform:
             v = self.transform[0](v)
         return v
+
+
+class Reloc:
+    """ Relocation specifier.
+
+    Refers to a label operand, and contains a function to calculate the offset.
+    """
+    def __init__(self, ref_op):
+        assert isinstance(ref_op, operand) and ref_op._cls is str
+        self.ref_op = ref_op
+
+    def calc(self, sym_value, reloc_value):  # pragma: no cover
+        raise NotImplementedError()

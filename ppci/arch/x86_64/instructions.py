@@ -512,6 +512,7 @@ class RmMemDisp8(Rm8):
 rm_modes = (RmMem, RmReg, RmMemDisp, RmMemDisp2, RmRip, RmAbsLabel, RmAbs)
 rm8_modes = (RmMem8, RmReg8, RmMemDisp8)
 
+
 class rmregbase(X86Instruction):
     """
         Base class for legio instructions involving a register and a

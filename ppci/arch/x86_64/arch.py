@@ -170,4 +170,3 @@ class X86_64Arch(Architecture):
                     yield Db(byte)
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
-

@@ -145,7 +145,7 @@ Code metrics
 
 Code coverage is reported to the codecov service:
 
-- https://codecov.io/bitbucket/windel/ppci?branch=default
+- https://codecov.io/bb/windel/ppci/branch/default
 
 Other code metrics are listed at openhub:
 

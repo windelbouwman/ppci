@@ -5,7 +5,7 @@ from ..encoding import FixedPattern, VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
-from .registers import Msp430Register, r0, r2, r3, SP, PC
+from .registers import Msp430Register, r2, r3, SP, PC
 from ...utils.bitfun import align, wrap_negative
 from ...ir import i16
 
@@ -345,11 +345,7 @@ def one_op_instruction(mne, opcode, b=0, src_write=True):
 def make_one_op_base(mne, opcode, b=0):
     members = {
         'tokens': [Msp430SingleOperandToken],
-        'patterns': [
-            FixedPattern('prefix', 0b000100),
-            FixedPattern('opcode', opcode),
-            FixedPattern('bw', b),
-            ],
+        'patterns': {'prefix': 0b000100, 'opcode': opcode, 'bw': b},
         'syntax': Syntax([mne, ' '])
         }
     return type(mne.title(), (Instruction,), members)
@@ -359,10 +355,7 @@ class MemByReg(Instruction):
     """ Memory content """
     reg = operand('reg', Msp430Register, read=True)
     tokens = []
-    patterns = [
-        FixedPattern('As', 2),
-        VariablePattern('source', reg),
-        ]
+    patterns = {'As': 2, 'source': reg}
     syntax = Syntax(['@', reg])
 
 

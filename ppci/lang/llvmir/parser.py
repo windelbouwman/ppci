@@ -17,12 +17,13 @@ class LlvmIrParser(RecursiveDescentParser):
         super().__init__()
         self.context = context
         self._pfs = None
+        self.module = None
         self.numbered_vals = []
 
     def parse_module(self):
         """ Parse a module """
         self.logger.debug('Parsing module')
-        module = nodes.Module(self.context)
+        self.module = nodes.Module(self.context)
         while not self.at_end:
             if self.peak == 'define':
                 self.parse_define()
@@ -38,7 +39,7 @@ class LlvmIrParser(RecursiveDescentParser):
                 self.parse_standalone_metadata()
             else:  # pragma: no cover
                 raise NotImplementedError(str(self.peak))
-        return module
+        return self.module
 
     def parse_define(self):
         """ Parse a function """
@@ -68,7 +69,7 @@ class LlvmIrParser(RecursiveDescentParser):
         if self.peak == 'ATTRID':
             self.consume('ATTRID')
         function_type = nodes.FunctionType.get(return_type, param_types)
-        function = nodes.Function.create(function_type, name)
+        function = nodes.Function.create(function_type, name, self.module)
         for argument, arg_info in zip(function.arguments, arg_list):
             if arg_info.name:
                 argument.set_name(arg_info.name)

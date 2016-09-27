@@ -10,7 +10,7 @@ from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
 from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
-from ..arch.encoding import InstructionProperty, Syntax, Register
+from ..arch.encoding import Operand, Syntax, Register
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
 
@@ -169,7 +169,7 @@ class BaseAssembler:
 
         prop_list = []
         for idx, rhs_part in enumerate(stx.get_args()):
-            if isinstance(rhs_part, InstructionProperty):
+            if isinstance(rhs_part, Operand):
                 prop_list.append(idx)
 
         def cs(args):
@@ -189,7 +189,7 @@ class BaseAssembler:
                 # TODO: this is potentially error prone..
                 if rhs_part not in self.parser.g.nonterminals:
                     self.add_keyword(rhs_part)
-            elif isinstance(rhs_part, InstructionProperty):
+            elif isinstance(rhs_part, Operand):
                 resolved_rhs.append(self.get_parameter_nt(rhs_part._cls))
             else:  # pragma: no cover
                 raise NotImplementedError(str(rhs_part))

@@ -22,6 +22,7 @@ class Value:
         """ Set name and update symbol table """
         sym_tab = self.symbol_table
         sym_tab[name] = self
+        self.name = name
 
     @property
     def symbol_table(self):
@@ -146,8 +147,9 @@ class GlobalObject(GlobalValue):
 
 
 class Function(GlobalObject):
-    def __init__(self, ty):
+    def __init__(self, ty, module):
         super().__init__(ty)
+        module.functions.append(self)
         self.vmap = {}
         self.basic_blocks = OwnedList(self)
         self.arguments = OwnedList(self)
@@ -155,8 +157,8 @@ class Function(GlobalObject):
             self.arguments.append(Argument(param_type))
 
     @classmethod
-    def create(cls, function_type, name):
-        return Function(function_type)
+    def create(cls, function_type, name, module):
+        return Function(function_type, module)
 
 
 class Instruction(User):
@@ -494,3 +496,8 @@ class Context:
         self.int128_ty = IntegerType.get(self, 128)
         self.vector_types = []
         self.type_map = {}
+
+
+class DataLayout:
+    def get_type_alloc_size(self, ty):
+        pass

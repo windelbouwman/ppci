@@ -3,7 +3,7 @@
 import logging
 import itertools
 import io
-from ...common import CompilerError, DiagnosticsManager
+from ...common import DiagnosticsManager
 from ...irutils import Verifier
 from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
