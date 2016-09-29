@@ -1,6 +1,5 @@
 from ..isa import Isa
-from ..encoding import Instruction, Operand, Syntax, Reloc
-from ..encoding import FixedPattern, VariablePattern
+from ..encoding import Instruction, Operand, Syntax, Reloc, Patcher
 from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
@@ -96,16 +95,18 @@ class Add(AvrInstruction):
     patterns = {'op': 0b11, 'r': rr, 'd': rd}
 
 
+class Patch0r(Patcher):
+    def up(self, val):
+        return (val // 2) - 12
+
+
 class Adiw(AvrInstruction):
     """ Add immediate to word (W, X, Y or Z) """
     tokens = [AdiwToken]
     rd = Operand('rd', SuperHighAvrWordRegister, read=True, write=True)
     imm = Operand('imm', int)
     syntax = Syntax(['adiw', ' ', rd, ',', ' ', imm])
-    patterns = [
-        FixedPattern('op', 0b10010110),
-        VariablePattern('k', imm),
-        VariablePattern('p', rd, transform=(lambda v: (v // 2) - 12, None))]
+    patterns = {'op': 0b10010110, 'k': imm, 'p': Patch0r(rd)}
 
 
 class Sbiw(AvrInstruction):
@@ -114,10 +115,7 @@ class Sbiw(AvrInstruction):
     rd = Operand('rd', SuperHighAvrWordRegister, read=True, write=True)
     imm = Operand('imm', int)
     syntax = Syntax(['sbiw', ' ', rd, ',', ' ', imm])
-    patterns = [
-        FixedPattern('op', 0b10010111),
-        VariablePattern('k', imm),
-        VariablePattern('p', rd, transform=(lambda v: (v // 2) - 12, None))]
+    patterns = {'op': 0b10010111, 'k': imm, 'p': Patch0r(rd)}
 
 
 class Adc(AvrInstruction):
@@ -143,10 +141,7 @@ class Cpc(AvrInstruction):
     rd = Operand('rd', AvrRegister, read=True)
     rr = Operand('rr', AvrRegister, read=True)
     syntax = Syntax(['cpc', ' ', rd, ',', ' ', rr])
-    patterns = [
-        FixedPattern('op', 0b1),
-        VariablePattern('r', rr),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1, 'r': rr, 'd': rd}
 
 
 class Sub(AvrInstruction):
@@ -162,10 +157,7 @@ class Sbc(AvrInstruction):
     rd = Operand('rd', AvrRegister, read=True, write=True)
     rr = Operand('rr', AvrRegister, read=True)
     syntax = Syntax(['sbc', ' ', rd, ',', ' ', rr])
-    patterns = [
-        FixedPattern('op', 0b10),
-        VariablePattern('r', rr),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b10, 'r': rr, 'd': rd}
 
 
 class And(AvrInstruction):
@@ -181,10 +173,7 @@ class Eor(AvrInstruction):
     rd = Operand('rd', AvrRegister, read=True, write=True)
     rr = Operand('rr', AvrRegister, read=True)
     syntax = Syntax(['eor', ' ', rd, ',', ' ', rr])
-    patterns = [
-        FixedPattern('op', 0b1001),
-        VariablePattern('r', rr),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001, 'r': rr, 'd': rd}
 
 
 class Or(AvrInstruction):
@@ -199,13 +188,9 @@ def make_one_op(mnemonic, opcode):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, write=True, read=True)
     syntax = Syntax([mnemonic, ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001010),
-        FixedPattern('n0', opcode),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001010, 'n0': opcode, 'd': rd}
     members = {
-        'syntax': syntax, 'tokens': tokens, 'patterns': patterns,
-        'rd': rd,
+        'syntax': syntax, 'tokens': tokens, 'patterns': patterns, 'rd': rd,
         }
     return type(mnemonic.title(), (AvrInstruction,), members)
 
@@ -287,10 +272,7 @@ class Brne(AvrInstruction):
     tokens = [ConditionalBranchToken]
     lab = Operand('lab', str)
     syntax = Syntax(['brne', ' ', lab])
-    patterns = [
-        FixedPattern('op', 0b11110),
-        FixedPattern('b', 0b1001),
-        ]
+    patterns = {'op': 0b11110, 'b': 0b1001}
 
     def relocations(self):
         return [(self.lab, relsigned7bit)]
@@ -300,10 +282,7 @@ class Breq(AvrInstruction):
     tokens = [ConditionalBranchToken]
     lab = Operand('lab', str)
     syntax = Syntax(['breq', ' ', lab])
-    patterns = [
-        FixedPattern('op', 0b11110),
-        FixedPattern('b', 0b0001),
-        ]
+    patterns = {'op': 0b11110, 'b': 0b0001}
 
     def relocations(self):
         return [(self.lab, relsigned7bit)]
@@ -314,10 +293,7 @@ class Brlt(AvrInstruction):
     tokens = [ConditionalBranchToken]
     lab = Operand('lab', str)
     syntax = Syntax(['brlt', ' ', lab])
-    patterns = [
-        FixedPattern('op', 0b11110),
-        FixedPattern('b', 0b0100),
-        ]
+    patterns = {'op': 0b11110, 'b': 0b0100}
 
     def relocations(self):
         return [(self.lab, relsigned7bit)]
@@ -328,10 +304,7 @@ class Brge(AvrInstruction):
     tokens = [ConditionalBranchToken]
     lab = Operand('lab', str)
     syntax = Syntax(['brge', ' ', lab])
-    patterns = [
-        FixedPattern('op', 0b11110),
-        FixedPattern('b', 0b1100),
-        ]
+    patterns = {'op': 0b11110, 'b': 0b1100}
 
     def relocations(self):
         return [(self.lab, relsigned7bit)]
@@ -342,10 +315,13 @@ class Mov(AvrInstruction):
     rd = Operand('rd', AvrRegister, write=True)
     rr = Operand('rr', AvrRegister, read=True)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rr])
-    patterns = [
-        FixedPattern('op', 0b1011),
-        VariablePattern('r', rr),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1011, 'r': rr, 'd': rd}
+
+
+class PatchDiv2(Patcher):
+    def up(self, val):
+        assert val in range(0, 32, 2)
+        return val >> 1
 
 
 class Movw(AvrInstruction):
@@ -353,53 +329,28 @@ class Movw(AvrInstruction):
     rd = Operand('rd', AvrWordRegister, write=True)
     rr = Operand('rr', AvrWordRegister, read=True)
     syntax = Syntax(['movw', ' ', rd, ',', ' ', rr])
-
-    @property
-    def rd_num(self):
-        n = self.rd.num
-        assert n in range(0, 32, 2)
-        return n >> 1
-
-    @property
-    def rr_num(self):
-        n = self.rr.num
-        assert n in range(0, 32, 2)
-        return n >> 1
-
-    patterns = [
-        FixedPattern('b1', 0b1),
-        VariablePattern('n0', rr_num),
-        VariablePattern('n1', rd_num)]
+    patterns = {'b1': 0b1, 'n0': PatchDiv2(rr), 'n1': PatchDiv2(rd)}
 
 
 class Push(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, read=True)
     syntax = Syntax(['push', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001001),
-        FixedPattern('n0', 0xf),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001001, 'n0': 0xf, 'd': rd}
 
 
 class Pop(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, write=True)
     syntax = Syntax(['pop', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001000),
-        FixedPattern('n0', 0xf),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001000, 'n0': 0xf, 'd': rd}
 
 
 class Ld(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, write=True)
     syntax = Syntax(['ld', ' ', rd, ',', ' ', 'x'])
-    patterns = [
-        FixedPattern('op', 0b1001000),
-        FixedPattern('op2', 0b1100),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001000, 'op2': 0b1100, 'd': rd}
 
 
 class Ldd_y(AvrInstruction):
@@ -409,12 +360,7 @@ class Ldd_y(AvrInstruction):
     y = Operand('y', AvrYRegister, read=True)
     imm = Operand('imm', int)
     syntax = Syntax(['ldd', ' ', rd, ',', ' ', y, '+', imm])
-    patterns = [
-        FixedPattern('op', 0b100),
-        FixedPattern('s', 0),
-        FixedPattern('y', 1),
-        VariablePattern('d', rd),
-        VariablePattern('k', imm)]
+    patterns = {'op': 0b100, 's': 0, 'y': 1, 'd': rd, 'k': imm}
 
 
 class Std_y(AvrInstruction):
@@ -424,12 +370,7 @@ class Std_y(AvrInstruction):
     y = Operand('y', AvrYRegister, read=True)
     imm = Operand('imm', int)
     syntax = Syntax(['std', ' ', y, '+', imm, ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b100),
-        FixedPattern('s', 1),
-        FixedPattern('y', 1),
-        VariablePattern('d', rd),
-        VariablePattern('k', imm)]
+    patterns = {'op': 0b100, 's': 1, 'y': 1, 'd': rd, 'k': imm}
 
 
 class Ldd_z(AvrInstruction):
@@ -439,12 +380,7 @@ class Ldd_z(AvrInstruction):
     z = Operand('z', AvrZRegister, read=True)
     imm = Operand('imm', int)
     syntax = Syntax(['ldd', ' ', rd, ',', ' ', z, '+', imm])
-    patterns = [
-        FixedPattern('op', 0b100),
-        FixedPattern('s', 0),
-        FixedPattern('y', 0),
-        VariablePattern('d', rd),
-        VariablePattern('k', imm)]
+    patterns = {'op': 0b100, 's': 0, 'y': 0, 'd': rd, 'k': imm}
 
 
 class Std_z(AvrInstruction):
@@ -454,32 +390,21 @@ class Std_z(AvrInstruction):
     z = Operand('z', AvrZRegister, read=True)
     imm = Operand('imm', int)
     syntax = Syntax(['std', ' ', z, '+', imm, ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b100),
-        FixedPattern('s', 1),
-        FixedPattern('y', 0),
-        VariablePattern('d', rd),
-        VariablePattern('k', imm)]
+    patterns = {'op': 0b100, 's': 1, 'y': 0, 'd': rd, 'k': imm}
 
 
 class LdPostInc(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, write=True)
     syntax = Syntax(['ld', ' ', rd, ',', ' ', 'x', '+'])
-    patterns = [
-        FixedPattern('op', 0b1001000),
-        FixedPattern('op2', 0b1101),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001000, 'op2': 0b1101, 'd': rd}
 
 
 class LdPreDec(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, write=True)
     syntax = Syntax(['ld', ' ', rd, ',', ' ', '-', 'x'])
-    patterns = [
-        FixedPattern('op', 0b1001000),
-        FixedPattern('op2', 0b1110),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001000, 'op2': 0b1110, 'd': rd}
 
 
 class LpmPostInc(AvrInstruction):
@@ -487,10 +412,7 @@ class LpmPostInc(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, write=True)
     syntax = Syntax(['lpm', ' ', rd, ',', ' ', 'z', '+'])
-    patterns = [
-        FixedPattern('op', 0b1001000),
-        FixedPattern('op2', 0b0101),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001000, 'op2': 0b0101, 'd': rd}
 
 
 class St(AvrInstruction):
@@ -498,10 +420,7 @@ class St(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, read=True)
     syntax = Syntax(['st', ' ', 'x', ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001001),
-        FixedPattern('op2', 0b1100),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001001, 'op2': 0b1100, 'd': rd}
 
 
 class StPostInc(AvrInstruction):
@@ -509,20 +428,14 @@ class StPostInc(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, read=True)
     syntax = Syntax(['st', ' ', 'x', '+', ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001001),
-        FixedPattern('op2', 0b1101),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001001, 'op2': 0b1101, 'd': rd}
 
 
 class StPreDec(AvrInstruction):
     tokens = [AvrToken2]
     rd = Operand('rd', AvrRegister, read=True)
     syntax = Syntax(['st', ' ', '-', 'x', ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001001),
-        FixedPattern('op2', 0b1110),
-        VariablePattern('d', rd)]
+    patterns = {'op': 0b1001001, 'op2': 0b1110, 'd': rd}
 
 
 class Sts(AvrInstruction):
@@ -530,11 +443,7 @@ class Sts(AvrInstruction):
     rd = Operand('rd', AvrRegister, read=True)
     imm = Operand('imm', int)
     syntax = Syntax(['sts', ' ', imm, ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b1001001),
-        FixedPattern('n0', 0x0),
-        VariablePattern('d', rd),
-        VariablePattern('imm', imm)]
+    patterns = {'op': 0b1001001, 'n0': 0x0, 'd': rd, 'imm': imm}
 
 
 class Lds(AvrInstruction):
@@ -542,23 +451,24 @@ class Lds(AvrInstruction):
     rd = Operand('rd', AvrRegister, read=True)
     imm = Operand('imm', int)
     syntax = Syntax(['lds', ' ', rd, ',', ' ', imm])
-    patterns = [
-        FixedPattern('op', 0b1001000),
-        FixedPattern('n0', 0x0),
-        VariablePattern('d', rd),
-        VariablePattern('imm', imm)]
+    patterns = {'op': 0b1001000, 'n0': 0x0, 'd': rd, 'imm': imm}
 
 
 class Ret(AvrInstruction):
     tokens = [AvrToken]
     syntax = Syntax(['ret'])
-    patterns = [FixedPattern('w0', 0b1001010100001000)]
+    patterns = {'w0': 0b1001010100001000}
 
 
 class Reti(AvrInstruction):
     tokens = [AvrToken]
     syntax = Syntax(['reti'])
-    patterns = [FixedPattern('w0', 0b1001010100011000)]
+    patterns = {'w0': 0b1001010100011000}
+
+
+class PatchedBy16(Patcher):
+    def up(self, val):
+        return val - 16
 
 
 def make_i(mnemonic, opcode, read=False, write=False):
@@ -566,11 +476,7 @@ def make_i(mnemonic, opcode, read=False, write=False):
     rd = Operand('rd', HighAvrRegister, read=read, write=write)
     nk = Operand('nk', int)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', nk])
-    transform = (lambda x: x - 16, lambda x: x + 16)
-    patterns = [
-        FixedPattern('op', opcode),
-        VariablePattern('d', rd, transform=transform),
-        VariablePattern('k', nk)]
+    patterns = {'op': opcode, 'd': PatchedBy16(rd), 'k': nk}
     members = {
         'syntax': syntax, 'tokens': tokens, 'patterns': patterns,
         'rd': rd, 'nk': nk
@@ -598,16 +504,7 @@ class LdiLoAddr(AvrInstruction):
     rd = Operand('rd', HighAvrRegister, write=True)
     lab = Operand('lab', str)
     syntax = Syntax(['ldi', ' ', rd, ',', ' ', 'low', '(', lab, ')'])
-
-    @property
-    def reg_num(self):
-        n = self.rd.num
-        assert n in range(16, 32)
-        return n - 16
-
-    patterns = [
-        FixedPattern('op', 0b1110),
-        VariablePattern('d', reg_num)]
+    patterns = {'op': 0b1110, 'd': PatchedBy16(rd)}
 
     def relocations(self):
         return [(self.lab, rel_ldilo)]
@@ -625,16 +522,7 @@ class LdiHiAddr(AvrInstruction):
     rd = Operand('rd', HighAvrRegister, write=True)
     lab = Operand('lab', str)
     syntax = Syntax(['ldi', ' ', rd, ',', ' ', 'high', '(', lab, ')'])
-
-    @property
-    def reg_num(self):
-        n = self.rd.num
-        assert n in range(16, 32)
-        return n - 16
-
-    patterns = [
-        FixedPattern('op', 0b1110),
-        VariablePattern('d', reg_num)]
+    patterns = {'op': 0b1110, 'd': PatchedBy16(rd)}
 
     def relocations(self):
         return [(self.lab, rel_ldihi)]
@@ -645,10 +533,7 @@ class In(AvrInstruction):
     rd = Operand('rd', AvrRegister, write=True)
     na = Operand('na', int)
     syntax = Syntax(['in', ' ', rd, ',', ' ', na])
-    patterns = [
-        FixedPattern('op', 0b10110),
-        VariablePattern('d', rd),
-        VariablePattern('a', na)]
+    patterns = {'op': 0b10110, 'd': rd, 'a': na}
 
 
 class Out(AvrInstruction):
@@ -656,10 +541,7 @@ class Out(AvrInstruction):
     rd = Operand('rd', AvrRegister, read=True)
     na = Operand('na', int)
     syntax = Syntax(['out', ' ', na, ',', ' ', rd])
-    patterns = [
-        FixedPattern('op', 0b10111),
-        VariablePattern('d', rd),
-        VariablePattern('a', na)]
+    patterns = {'op': 0b10111, 'd': rd, 'a': na}
 
 
 class PseudoAvrInstruction(ArtificialInstruction):

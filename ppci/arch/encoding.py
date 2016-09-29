@@ -50,6 +50,30 @@ class Operand(property):
             return issubclass(self._cls, Constructor)
 
 
+class Patcher:
+    """ Can be used to transform some property """
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+
+    def up(self, val):
+        raise NotImplementedError()
+
+    def down(self, val):
+        raise NotImplementedError()
+
+    def __get__(self, obj):
+        val = self.wrapped.__get__(obj)
+        if isinstance(val, Register):
+            val = val.num
+        return self.up(val)
+
+    def __set__(self, obj, value):
+        val = self.down(val)
+        raise NotImplementedError()
+        val = self.wrapped.__set__(obj, owner)
+        return self.up(val)
+
+
 class Constructor:
     """ Instruction, or part of an instruction.
 
@@ -99,7 +123,7 @@ class Constructor:
             for field, value in d.items():
                 if isinstance(value, int):
                     patterns.append(FixedPattern(field, value))
-                elif isinstance(value, Operand):
+                elif isinstance(value, (Operand, Patcher)):
                     patterns.append(VariablePattern(field, value))
                 elif isinstance(value, Reloc):
                     pass
@@ -343,7 +367,6 @@ class Instruction(Constructor, metaclass=InsMeta):
                 if isinstance(value, Reloc):
                     lab = value.ref_op.__get__(self)
                     rlcs.append((lab, value.apply))
-            print(rlcs)
             return rlcs
         return []
 

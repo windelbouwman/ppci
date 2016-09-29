@@ -76,12 +76,12 @@ Lets take the nop example of stm8. This instruction can be defined like this:
 
 .. testcode:: encoding
 
-    from ppci.arch.encoding import Instruction, Syntax, FixedPattern
+    from ppci.arch.encoding import Instruction, Syntax
 
     class Nop(Instruction):
         syntax = Syntax(['nop'])
         tokens = [Stm8Token]
-        patterns = [FixedPattern('opcode', 0x9d)]
+        patterns = {'opcode': 0x9d}
 
 
 Here the nop instruction is defined. It has a syntax of 'nop'.
@@ -109,7 +109,7 @@ can be specified, for example the stm8 adc instruction:
 
 .. testcode:: encoding
 
-    from ppci.arch.encoding import register_argument, VariablePattern
+    from ppci.arch.encoding import Operand
 
     class Stm8ByteToken(Token):
         def __init__(self):
@@ -118,12 +118,10 @@ can be specified, for example the stm8 adc instruction:
         byte = bit_range(0, 8)
 
     class AdcByte(Instruction):
-        imm = register_argument('imm', int)
+        imm = Operand('imm', int)
         syntax = Syntax(['adc', ' ', 'a', ',', ' ', imm])
         tokens = [Stm8Token, Stm8ByteToken]
-        patterns = [
-            FixedPattern('opcode', 0xa9),
-            VariablePattern('byte', imm)]
+        patterns = {'opcode': 0xa9, 'byte': imm}
 
 The 'imm' attribute now functions as a variable instruction part. When
 constructing the instruction, it must be given:
@@ -154,18 +152,18 @@ instruction classes to eachother:
 
 .. testcode:: encoding
 
-    from ppci.arch.encoding import register_argument, VariablePattern
+    from ppci.arch.encoding import Operand
 
     class Sbc(Instruction):
         syntax = Syntax(['sbc', ' ', 'a'])
         tokens = [Stm8Token]
-        patterns = [FixedPattern('opcode', 0xa2)]
+        patterns = {'opcode': 0xa2}
 
     class Byte(Instruction):
-        imm = register_argument('imm', int)
+        imm = Operand('imm', int)
         syntax = Syntax([',', ' ', imm])
         tokens = [Stm8ByteToken]
-        patterns = [VariablePattern('byte', imm)]
+        patterns = {'byte': imm}
 
     SbcByte = Sbc + Byte
 
