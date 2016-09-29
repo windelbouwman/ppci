@@ -10,7 +10,7 @@ dd 2 -> 02000000
 """
 
 from .isa import Isa
-from .encoding import Instruction, register_argument, Syntax, VariablePattern
+from .encoding import Instruction, Operand, Syntax, VariablePattern
 from .token import Token, u16, bit_range, u8, u32
 from ..utils.bitfun import BitView
 
@@ -53,21 +53,21 @@ class DataInstruction(Instruction):
 
 class Db(DataInstruction):
     tokens = [ByteToken]
-    v = register_argument('v', int)
+    v = Operand('v', int)
     syntax = Syntax(['db', ' ', v])
     patterns = [VariablePattern('value', v)]
 
 
 class Dw(DataInstruction):
     tokens = [WordToken]
-    v = register_argument('v', int)
+    v = Operand('v', int)
     syntax = Syntax(['dw', ' ', v])
     patterns = [VariablePattern('value', v)]
 
 
 class Dw2(DataInstruction):
     tokens = [WordToken]
-    v = register_argument('v', str)
+    v = Operand('v', str)
     syntax = Syntax(['dw', ' ', v])
 
     def relocations(self):
@@ -86,7 +86,7 @@ data_isa.register_relocation(apply_absaddr16)
 
 class Dd(DataInstruction):
     tokens = [DwordToken]
-    v = register_argument('v', int)
+    v = Operand('v', int)
     syntax = Syntax(['dd', ' ', v])
     patterns = [VariablePattern('value', v)]
 
@@ -102,7 +102,7 @@ data_isa.register_relocation(apply_absaddr32)
 
 
 class Dcd2(DataInstruction):
-    v = register_argument('v', str)
+    v = Operand('v', str)
     syntax = Syntax(['dcd', ' ', '=', v])
 
     def encode(self):
@@ -115,7 +115,7 @@ class Dcd2(DataInstruction):
 class Ds(DataInstruction):
     """ Reserve an amount of space """
     tokens = []
-    v = register_argument('v', int)
+    v = Operand('v', int)
     syntax = Syntax(['ds', ' ', v])
 
     def encode(self):

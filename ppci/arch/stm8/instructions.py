@@ -1,6 +1,6 @@
 from .registers import Stm8RegisterA, Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH, Stm8RegisterY, Stm8RegisterYL, Stm8RegisterYH, Stm8RegisterSP, Stm8RegisterCC
 from ..isa import Isa
-from ..encoding import FixedPattern, Instruction, register_argument, Syntax, VariablePattern
+from ..encoding import FixedPattern, Instruction, Operand, Syntax, VariablePattern
 from ..token import bit_range, Token
 
 
@@ -58,16 +58,16 @@ class Stm8Instruction(Instruction):
 
 
 def get_register_argument(name, mnemonic, read=True, write=False):
-    return {'A' : register_argument(name, Stm8RegisterA , read=read, write=write),
-            'X' : register_argument(name, Stm8RegisterX , read=read, write=write),
-            'XL': register_argument(name, Stm8RegisterXL, read=read, write=write),
-            'XH': register_argument(name, Stm8RegisterXH, read=read, write=write),
-            'Y' : register_argument(name, Stm8RegisterY , read=read, write=write),
-            'YL': register_argument(name, Stm8RegisterYL, read=read, write=write),
-            'YH': register_argument(name, Stm8RegisterYH, read=read, write=write),
-            'SP': register_argument(name, Stm8RegisterSP, read=read, write=write),
-            'CC': register_argument(name, Stm8RegisterCC, read=read, write=write),
-            None: None}.get(mnemonic, register_argument(name, int))
+    return {'A' : Operand(name, Stm8RegisterA , read=read, write=write),
+            'X' : Operand(name, Stm8RegisterX , read=read, write=write),
+            'XL': Operand(name, Stm8RegisterXL, read=read, write=write),
+            'XH': Operand(name, Stm8RegisterXH, read=read, write=write),
+            'Y' : Operand(name, Stm8RegisterY , read=read, write=write),
+            'YL': Operand(name, Stm8RegisterYL, read=read, write=write),
+            'YH': Operand(name, Stm8RegisterYH, read=read, write=write),
+            'SP': Operand(name, Stm8RegisterSP, read=read, write=write),
+            'CC': Operand(name, Stm8RegisterCC, read=read, write=write),
+            None: None}.get(mnemonic, Operand(name, int))
 
 
 
@@ -183,7 +183,7 @@ longptr_y  = create_memory_operand(pointer='long' , index='Y')
 
 
 def create_bit_operand():
-    position = register_argument('position', int)
+    position = Operand('position', int)
     return {'name'    : 'Bit',
             'position': position,
             'syntax'  : ['#', position],
@@ -195,7 +195,7 @@ bit = create_bit_operand()
 
 
 def create_branch_operand():
-    label = register_argument('label', int)
+    label = Operand('label', int)
     return {'name'    : 'Branch',
             'label'   : label,
             'syntax'  : [label],
@@ -632,8 +632,8 @@ MovwSPY = create_instruction(mnemonic='ldw', operands=(sp_wo, y_ro ), precode=0x
 
 
 class MovLongmemByte(Stm8Instruction):
-    destination = register_argument('destination', int)
-    source      = register_argument('source'     , int)
+    destination = Operand('destination', int)
+    source      = Operand('source'     , int)
 
     syntax = Syntax(['mov', ' ', destination, ',', '#', source])
 
@@ -642,8 +642,8 @@ class MovLongmemByte(Stm8Instruction):
     patterns = [FixedPattern('opcode', 0x35), VariablePattern('byte', source), VariablePattern('word', destination)]
 
 class MovLongmemLongmem(Stm8Instruction):
-    destination = register_argument('destination', int)
-    source      = register_argument('source'     , int)
+    destination = Operand('destination', int)
+    source      = Operand('source'     , int)
 
     syntax = Syntax(['mov', ' ', destination, ',', source])
 

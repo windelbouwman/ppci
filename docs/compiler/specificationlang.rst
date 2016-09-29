@@ -54,9 +54,15 @@ The following code demonstrates how this instruction is described.
 
 First the proper token is defined:
 
-.. code:: python
 
-    class AvrArithmaticToken(AvrToken):
+.. testcode::
+
+    from ppci.arch.token import Token, bit, bit_range, bit_concat
+
+    class AvrArithmaticToken(Token):
+        def __init__(self):
+            super().__init__(16, '<H')
+
         op = bit_range(10, 16)
         r = bit_concat(bit(9), bit_range(0, 4))
         d = bit_range(4, 9)
@@ -64,17 +70,26 @@ First the proper token is defined:
 Then the instruction is defined, defining a syntax and the mapping of
 token fields to instruction parameters:
 
-.. code:: python
+.. testcode::
 
-    class Add(AvrInstruction):
+    from ppci.arch.avr.registers import AvrRegister
+    from ppci.arch.encoding import Instruction, Operand, Syntax
+
+    class Add(Instruction):
         tokens = [AvrArithmaticToken]
-        rd = register_argument('rd', AvrRegister, read=True, write=True)
-        rr = register_argument('rr', AvrRegister, read=True)
-        syntax = Syntax(['add', rd, ',', rr])
-        patterns = [
-            FixedPattern('op', 0b11),
-            SubPattern('r', rr),
-            SubPattern('d', rd)]
+        rd = Operand('rd', AvrRegister, read=True, write=True)
+        rr = Operand('rr', AvrRegister, read=True)
+        syntax = Syntax(['add', ' ', rd, ',', ' ', rr])
+        patterns = {'op': 0b11, 'r': rr, 'd': rd}
+
+.. doctest::
+
+    >>> from ppci.arch.avr import registers
+    >>> a1 = Add(registers.r1, registers.r2)
+    >>> a1
+    add r1, r2
+    >>> a1.encode()
+    b'\x12\x0c'
 
 
 Background

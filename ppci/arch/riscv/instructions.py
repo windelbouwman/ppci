@@ -5,8 +5,7 @@
 # pylint: disable=no-member,invalid-name
 
 from ..isa import Isa
-from ..encoding import Instruction, Syntax, FixedPattern, VariablePattern
-from ..encoding import register_argument
+from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd
 from ...utils.bitfun import wrap_negative
 from .registers import RiscvRegister
@@ -29,6 +28,7 @@ isa.register_relocation(apply_abs32_imm20)
 isa.register_relocation(apply_abs32_imm12)
 isa.register_relocation(apply_rel_imm20)
 isa.register_relocation(apply_rel_imm12)
+
 
 class RiscvToken(Token):
     def __init__(self):
@@ -79,7 +79,7 @@ def dcd(v):
 
 
 class Dcd2(RiscvInstruction):
-    v = register_argument('v', str)
+    v = Operand('v', str)
     syntax = Syntax(['dcd', '=', v])
 
     def encode(self):
@@ -102,8 +102,8 @@ def Mov(*args):
 
 class Movi(RiscvInstruction):
     """ Mov Rd, imm16 """
-    rd = register_argument('rd', RiscvRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['mov', rd, ',', imm])
 
     def encode(self):
@@ -117,8 +117,8 @@ class Movi(RiscvInstruction):
 
 
 class Movr(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax(['mov', rd, ',', rm])
 
     def encode(self):
@@ -132,18 +132,14 @@ class Movr(RiscvInstruction):
 
 
 def make_regregreg(mnemonic, opcode, func):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', rm])
     tokens = [RiscvToken]
-    patterns = [
-        FixedPattern('opcode', 0b0110011),
-        VariablePattern('rd', rd),
-        FixedPattern('funct3', func),
-        VariablePattern('rs1', rn),
-        VariablePattern('rs2', rm),
-        FixedPattern('funct7', opcode)]
+    patterns = {
+        'opcode': 0b0110011, 'rd': rd, 'funct3': func,
+        'rs1': rn, 'rs2': rm, 'funct7': opcode}
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm,
         'patterns': patterns, 'tokens': tokens,
@@ -165,18 +161,14 @@ Andr = make_regregreg('and', 0b0000000, 0b111)
 
 
 def make_si(mnemonic, code, func):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rs1, ',', ' ', imm])
     tokens = [RiscvToken]
-    patterns = [
-        FixedPattern('opcode', 0b0010011),
-        VariablePattern('rd', rd),
-        FixedPattern('funct3', func),
-        VariablePattern('rs1', rs1),
-        VariablePattern('rs2', imm),
-        FixedPattern('funct7', code)]
+    patterns = {
+        'opcode': 0b0010011, 'rd': rd, 'funct3': func,
+        'rs1': rs1, 'rs2': imm, 'funct7': code}
     members = {
         'syntax': syntax, 'tokens': tokens, 'patterns': patterns,
         'rd': rd, 'rs1': rs1, 'imm': imm}
@@ -207,9 +199,9 @@ class IBase(RiscvInstruction):
 
 
 def make_i(mnemonic, func, invert):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax([mnemonic, rd, ',', rs1, ',', imm])
     members = {
         'syntax': syntax, 'func': func,
@@ -232,13 +224,9 @@ Andi = make_i('andi', 0b111, False)
 
 class Nop(RiscvInstruction):
     syntax = Syntax(['nop'])
-    patterns = [
-        FixedPattern('opcode', 0b0010011),
-        FixedPattern('rd', 0),
-        FixedPattern('funct3', 0),
-        FixedPattern('rs1', 0),
-        FixedPattern('rs2', 0),
-        FixedPattern('funct7', 0)]
+    patterns = {
+        'opcode': 0b0010011, 'rd': 0,
+        'funct3': 0, 'rs1': 0, 'rs2': 0, 'funct7': 0}
 
 
 class SmBase(RiscvInstruction):
@@ -253,7 +241,7 @@ class SmBase(RiscvInstruction):
 
 
 def make_sm(mnemonic, code):
-    rd = register_argument('rd', RiscvRegister, write=True)
+    rd = Operand('rd', RiscvRegister, write=True)
     syntax = Syntax([mnemonic, ' ', rd])
     members = {'syntax': syntax, 'rd': rd, 'code': code}
     return type(mnemonic + '_ins', (SmBase,), members)
@@ -269,18 +257,14 @@ Rdinstrethi = make_sm('rdinstreth', 0b110010000010)
 
 class Sbreak(RiscvInstruction):
     syntax = Syntax(['sbreak'])
-    patterns = [
-        FixedPattern('opcode', 0b1110011),
-        FixedPattern('rd', 0),
-        FixedPattern('funct3', 0),
-        FixedPattern('rs1', 0),
-        FixedPattern('rs2', 0b1),
-        FixedPattern('funct7', 0)]
+    patterns = {
+        'opcode': 0b1110011, 'rd': 0, 'funct3': 0, 'rs1': 0,
+        'rs2': 0b1, 'funct7': 0}
 
 
 class Bl(RiscvInstruction):
-    target = register_argument('target', str)
-    rd = register_argument('rd', RiscvRegister, write=True)
+    target = Operand('target', str)
+    rd = Operand('rd', RiscvRegister, write=True)
     syntax = Syntax(['jal', ' ', rd, ',', ' ', target])
 
     def encode(self):
@@ -294,7 +278,7 @@ class Bl(RiscvInstruction):
 
 
 class B(RiscvInstruction):
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['j', ' ', target])
 
     def encode(self):
@@ -308,9 +292,9 @@ class B(RiscvInstruction):
 
 
 class Blr(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    offset = Operand('offset', int)
     syntax = Syntax(['jalr', ' ', rd, ',', rs1, ',', ' ', offset])
 
     def encode(self):
@@ -324,8 +308,8 @@ class Blr(RiscvInstruction):
 
 
 class Lui(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['lui', ' ', rd, ',', ' ', imm])
 
     def encode(self):
@@ -341,8 +325,8 @@ class Lui(RiscvInstruction):
 
 
 class Adru(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    label = register_argument('label', str)
+    rd = Operand('rd', RiscvRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['lui', ' ', rd, ',', ' ', label])
 
     def encode(self):
@@ -357,23 +341,25 @@ class Adru(RiscvInstruction):
 
 
 class Adrurel(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    label = register_argument('label', str)
+    rd = Operand('rd', RiscvRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['auipc', ' ', rd, ',', ' ', label])
+
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0010111
         tokens[0][7:12] = self.rd.num
         tokens[0][12:32] = 0
         return tokens[0].encode()
+
     def relocations(self):
         return [(self.label, apply_rel_imm20)]
 
 
 class Adrl(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    label = register_argument('label', str)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    label = Operand('label', str)
     syntax = Syntax(['addi', ' ', rd, ',', ' ', rs1, ',', ' ', label])
 
     def encode(self):
@@ -390,9 +376,9 @@ class Adrl(RiscvInstruction):
 
 
 class Adrlrel(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    label = register_argument('label', str)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    label = Operand('label', str)
     syntax = Syntax(['lw', ' ', rd, ' ', ',', rs1, ' ', ',', ' ', label])
 
     def encode(self):
@@ -409,8 +395,8 @@ class Adrlrel(RiscvInstruction):
 
 
 class Auipc(RiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['auipc', ' ', rd, ',', ' ', imm])
 
     def encode(self):
@@ -422,7 +408,7 @@ class Auipc(RiscvInstruction):
 
 
 class BranchBase(RiscvInstruction):
-    target = register_argument('target', str)
+    target = Operand('target', str)
 
     def encode(self):
         tokens = self.get_tokens()
@@ -441,9 +427,9 @@ class BranchBase(RiscvInstruction):
 
 
 def make_branch(mnemonic, cond, invert):
-    target = register_argument('target', str)
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    target = Operand('target', str)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax([mnemonic, ' ', rn, ',', ' ', rm, ',', ' ', target])
 
     members = {
@@ -486,9 +472,9 @@ class StrBase(RiscvInstruction):
 
 
 def make_str(mnemonic, func):
-    rs2 = register_argument('rs2', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rs2 = Operand('rs2', RiscvRegister, read=True)
+    offset = Operand('offset', int)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax([mnemonic, ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
     members = {
         'syntax': syntax,
@@ -503,17 +489,14 @@ Sw = make_str('sw', 0b010)
 
 
 def make_ldr(mnemonic, func):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    offset = register_argument('offset', int)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    offset = Operand('offset', int)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', offset, '(',  rs1, ')'])
     tokens = [RiscvIToken]
-    patterns = [
-        FixedPattern('opcode', 0b0000011),
-        VariablePattern('rd', rd),
-        FixedPattern('funct3', func),
-        VariablePattern('rs1', rs1),
-        VariablePattern('imm', offset)]
+    patterns = {
+        'opcode': 0b0000011, 'rd': rd,
+        'funct3': func, 'rs1': rs1, 'imm': offset}
     members = {
         'syntax': syntax, 'tokens': tokens, 'patterns': patterns,
         'offset': offset, 'rd': rd, 'rs1': rs1}
@@ -540,9 +523,9 @@ class MextBase(RiscvInstruction):
 
 
 def make_mext(mnemonic, func):
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    rs2 = register_argument('rs2', RiscvRegister, read=True)
-    rd = register_argument('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    rs2 = Operand('rs2', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rs1, ',', ' ', rs2])
     members = {
         'syntax': syntax,

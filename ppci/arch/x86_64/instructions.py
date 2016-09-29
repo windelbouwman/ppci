@@ -6,8 +6,7 @@
 
 from ..arch import Label, RegisterUseDef
 from ..isa import Isa
-from ..encoding import Instruction, operand, Syntax, Constructor
-from ..encoding import FixedPattern, VariablePattern
+from ..encoding import Instruction, Operand, Syntax, Constructor
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u32, u8, u64, bit_range
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx
@@ -149,10 +148,10 @@ class X86Instruction(Instruction):
 
 class NearJump(X86Instruction):
     """ jmp imm32 """
-    target = operand('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['jmp', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
-    patterns = [FixedPattern('opcode', 0xe9)]
+    patterns = {'opcode': 0xe9}
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
@@ -160,7 +159,7 @@ class NearJump(X86Instruction):
 
 class ConditionalJump(X86Instruction):
     """ j?? imm32 """
-    target = operand('target', str)
+    target = Operand('target', str)
     tokens = [PrefixToken, OpcodeToken, Imm32Token]
 
     def relocations(self):
@@ -169,8 +168,8 @@ class ConditionalJump(X86Instruction):
 
 def make_cjump(mnemonic, opcode):
     syntax = Syntax([mnemonic, ' ', ConditionalJump.target])
-    patterns = [FixedPattern('prefix', 0xF), FixedPattern('opcode', opcode)]
-    members = {'syntax': syntax, 'opcode': opcode, 'patterns': patterns}
+    patterns = {'prefix': 0xF, 'opcode': opcode}
+    members = {'syntax': syntax, 'patterns': patterns}
     return type(mnemonic.title(), (ConditionalJump,), members)
 
 
@@ -190,16 +189,16 @@ Jg = make_cjump('jg', 0x8f)
 class ShortJump(X86Instruction):
     """ jmp imm8 """
     tokens = [OpcodeToken, Imm8Token]
-    target = operand('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['jmpshort', target])
-    patterns = [FixedPattern('opcode', 0xeb)]
+    patterns = {'opcode': 0xeb}
 
     def relocations(self):
         return [(self.target, apply_b_jmp8)]
 
 
 class Push(X86Instruction):
-    reg = operand('reg', X86Register, read=True)
+    reg = Operand('reg', X86Register, read=True)
     syntax = Syntax(['push', ' ', reg])
 
     def encode(self):
@@ -211,7 +210,7 @@ class Push(X86Instruction):
 
 
 class Pop(X86Instruction):
-    reg = operand('reg', X86Register, write=True)
+    reg = Operand('reg', X86Register, write=True)
     syntax = Syntax(['pop', ' ', reg])
 
     def encode(self):
@@ -223,17 +222,14 @@ class Pop(X86Instruction):
 
 
 class Int(X86Instruction):
-    nr = operand('nr', int)
+    nr = Operand('nr', int)
     syntax = Syntax(['int', ' ', nr])
     tokens = [OpcodeToken, Imm8Token]
-    patterns = (
-        FixedPattern('opcode', 0xcd),
-        VariablePattern('disp8', nr),
-        )
+    patterns = {'opcode': 0xcd, 'disp8': nr}
 
 
 class CallReg(X86Instruction):
-    reg = operand('reg', X86Register, read=True)
+    reg = Operand('reg', X86Register, read=True)
     syntax = Syntax(['call', ' ', '*', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
@@ -249,12 +245,10 @@ class CallReg(X86Instruction):
 
 class Call(X86Instruction):
     """ call a function """
-    target = operand('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['call', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
-    patterns = (
-        FixedPattern('opcode', 0xe8),
-    )
+    patterns = {'opcode': 0xe8}
 
     def relocations(self):
         return [(self.target, apply_b_jmp32)]
@@ -263,9 +257,7 @@ class Call(X86Instruction):
 class Ret(X86Instruction):
     syntax = Syntax(['ret'])
     tokens = [OpcodeToken]
-    patterns = (
-        FixedPattern('opcode', 0xc3),
-        )
+    patterns = {'opcode': 0xc3}
 
 
 class Syscall(X86Instruction):
@@ -279,14 +271,10 @@ class Syscall(X86Instruction):
 
 
 class Inc(X86Instruction):
-    reg = operand('reg', X86Register, read=True, write=True)
+    reg = Operand('reg', X86Register, read=True, write=True)
     syntax = Syntax(['inc', ' ', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
-    patterns = (
-        FixedPattern('w', 1),
-        FixedPattern('opcode', 0xff),
-        FixedPattern('mod', 3),
-        )
+    patterns = {'w': 1, 'opcode': 0xff, 'mod': 3}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -308,7 +296,7 @@ class Rm(Constructor):
 
 class RmMem(Rm):
     """ Memory access at memory pointed by register """
-    reg = operand('reg', X86Register, read=True)
+    reg = Operand('reg', X86Register, read=True)
     syntax = Syntax(['[', reg, ']'])
 
     def set_user_patterns(self, tokens):
@@ -336,7 +324,7 @@ class RmMem(Rm):
 
 class RmMem8(Rm8):
     """ Memory access at memory pointed by register """
-    reg = operand('reg', X86Register, read=True)
+    reg = Operand('reg', X86Register, read=True)
     syntax = Syntax(['[', reg, ']'])
 
     def set_user_patterns(self, tokens):
@@ -364,8 +352,8 @@ class RmMem8(Rm8):
 
 class RmMemDisp(Rm):
     """ register with 8 bit displacement """
-    reg = operand('reg', X86Register, read=True)
-    disp = operand('disp', int)
+    reg = Operand('reg', X86Register, read=True)
+    disp = Operand('disp', int)
     syntax = Syntax(['[', reg, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
@@ -392,9 +380,9 @@ class RmMemDisp(Rm):
 
 class RmMemDisp2(Rm):
     """ memory access with base, index and displacement """
-    regb = operand('regb', X86Register, read=True)
-    regi = operand('regi', X86Register, read=True)
-    disp = operand('disp', int)
+    regb = Operand('regb', X86Register, read=True)
+    regi = Operand('regi', X86Register, read=True)
+    disp = Operand('disp', int)
     syntax = Syntax(
         ['[', regb, ',', ' ', regi, ',', ' ', disp, ']'], priority=2)
 
@@ -414,12 +402,9 @@ class RmMemDisp2(Rm):
 
 class RmRip(Rm):
     """ rip with 32 bit displacement special case """
-    disp = operand('disp', int)
+    disp = Operand('disp', int)
     syntax = Syntax(['[', 'rip', ',', ' ', disp, ']'])
-    patterns = [
-        FixedPattern('mod', 0),
-        FixedPattern('rm', 5),
-        FixedPattern('b', 0)]
+    patterns = {'mod': 0, 'rm': 5, 'b': 0}
 
     def set_user_patterns(self, tokens):
         tokens.set_field('disp32', wrap_negative(self.disp, 32))
@@ -427,14 +412,9 @@ class RmRip(Rm):
 
 class RmAbsLabel(Rm):
     """ absolute address access """
-    l = operand('l', str)
+    l = Operand('l', str)
     syntax = Syntax(['[', l, ']'], priority=2)
-    patterns = [
-        FixedPattern('mod', 0),
-        FixedPattern('rm', 4),
-        FixedPattern('index', 4),
-        FixedPattern('x', 0),
-        FixedPattern('b', 0)]
+    patterns = {'mod': 0, 'rm': 4, 'index': 4, 'x': 0, 'b': 0}
 
     # TODO
     def set_user_patterns(self, tokens):
@@ -443,15 +423,9 @@ class RmAbsLabel(Rm):
 
 class RmAbs(Rm):
     """ absolute address access """
-    l = operand('l', int)
+    l = Operand('l', int)
     syntax = Syntax(['[', l, ']'], priority=2)
-    patterns = [
-        FixedPattern('mod', 0),
-        FixedPattern('rm', 4),
-        FixedPattern('index', 4),
-        FixedPattern('base', 5),
-        FixedPattern('x', 0),
-        FixedPattern('b', 0)]
+    patterns = {'mod': 0, 'rm': 4, 'index': 4, 'base': 5, 'x': 0, 'b': 0}
 
     def set_user_patterns(self, tokens):
         tokens.set_field('disp32', wrap_negative(self.l, 32))
@@ -459,9 +433,9 @@ class RmAbs(Rm):
 
 class RmReg(Rm):
     """ Register access, this case is relatively easy """
-    reg_rm = operand('reg_rm', X86Register, read=True)
+    reg_rm = Operand('reg_rm', X86Register, read=True)
     syntax = Syntax([reg_rm])
-    patterns = [FixedPattern('mod', 3)]
+    patterns = {'mod': 3}
 
     def set_user_patterns(self, tokens):
         tokens.set_field('b', self.reg_rm.rexbit)
@@ -470,10 +444,9 @@ class RmReg(Rm):
 
 class RmReg8(Rm8):
     """ Low register access """
-    reg_rm = operand('reg_rm', LowRegister, read=True)
+    reg_rm = Operand('reg_rm', LowRegister, read=True)
     syntax = Syntax([reg_rm])
-    patterns = [
-        FixedPattern('mod', 3)]
+    patterns = {'mod': 3}
 
     def set_user_patterns(self, tokens):
         tokens.set_field('b', self.reg_rm.rexbit)
@@ -483,8 +456,8 @@ class RmReg8(Rm8):
 # TODO: merge this class with RmMemDisp
 class RmMemDisp8(Rm8):
     """ register with 8 bit displacement """
-    reg = operand('reg', X86Register, read=True)
-    disp = operand('disp', int)
+    reg = Operand('reg', X86Register, read=True)
+    disp = Operand('disp', int)
     syntax = Syntax(['[', reg, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
@@ -520,7 +493,7 @@ class rmregbase(X86Instruction):
     """
     tokens = [
         RexToken, OpcodeToken, ModRmToken, SibToken, Imm8Token, Imm32Token]
-    patterns = [FixedPattern('w', 1)]
+    patterns = {'w': 1}
 
     def set_user_patterns(self, tokens):
         tokens.set_field('r', self.reg.rexbit)
@@ -569,8 +542,8 @@ class rmregbase(X86Instruction):
 
 def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
-    rm = operand('rm', rm_modes)
-    reg = operand('reg', X86Register, read=True)
+    rm = Operand('rm', rm_modes)
+    reg = Operand('reg', X86Register, read=True)
     syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
@@ -579,8 +552,8 @@ def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
 
 def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
-    rm = operand('rm', rm8_modes)
-    reg = operand('reg', LowRegister, read=True)
+    rm = Operand('rm', rm8_modes)
+    reg = Operand('reg', LowRegister, read=True)
     syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
@@ -588,8 +561,8 @@ def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True):
-    rm = operand('rm', rm_modes)
-    reg = operand('reg', X86Register, write=write_op1, read=read_op1)
+    rm = Operand('rm', rm_modes)
+    reg = Operand('reg', X86Register, write=write_op1, read=read_op1)
     syntax = Syntax([mnemonic, ' ', reg, ',', ' ', rm], priority=1)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
@@ -597,8 +570,8 @@ def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
-    rm = operand('rm', rm8_modes)
-    reg = operand('reg', LowRegister, write=write_op1, read=read_op1)
+    rm = Operand('rm', rm8_modes)
+    reg = Operand('reg', LowRegister, write=write_op1, read=read_op1)
     syntax = Syntax([mnemonic, ' ', reg, ',', ' ', rm], priority=1)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
@@ -607,8 +580,8 @@ def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
 
 class MovsxRegRm(rmregbase):
     """ Move sign extend, which means take a byte and sign extend it! """
-    reg = operand('reg', X86Register, write=True)
-    rm = operand('rm', rm8_modes, read=True)
+    reg = Operand('reg', X86Register, write=True)
+    rm = Operand('rm', rm8_modes, read=True)
     syntax = Syntax(['movsx', ' ', reg, ',', ' ', rm])
     opcode = 0x0f
     opcode2 = 0xbe
@@ -616,8 +589,8 @@ class MovsxRegRm(rmregbase):
 
 class MovzxRegRm(rmregbase):
     """ Move zero extend """
-    reg = operand('reg', X86Register, write=True)
-    rm = operand('rm', rm8_modes, read=True)
+    reg = Operand('reg', X86Register, write=True)
+    rm = Operand('rm', rm8_modes, read=True)
     syntax = Syntax(['movzx', ' ', reg, ',', ' ', rm])
     opcode = 0x0f
     opcode2 = 0xb6
@@ -652,7 +625,7 @@ Lea = make_reg_rm('lea', 0x8d, read_op1=False)
 
 class regint32base(X86Instruction):
     tokens = [RexToken, OpcodeToken, ModRmToken, Imm32Token]
-    patterns = [FixedPattern('w', 1)]
+    patterns = {'w': 1}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -667,8 +640,8 @@ class regint32base(X86Instruction):
 
 
 def make_regimm(mnemonic, opcode, reg_code):
-    reg = operand('reg', X86Register, write=True, read=True)
-    imm = operand('imm', int)
+    reg = Operand('reg', X86Register, write=True, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax([mnemonic, ' ', reg, ',', ' ', imm])
     members = {
         'syntax': syntax, 'reg': reg, 'imm': imm, 'opcode': opcode,
@@ -683,7 +656,7 @@ CmpImm = make_regimm('cmp', 0x81, 7)
 
 
 class shift_cl_base(X86Instruction):
-    rm = operand('rm', rm_modes)
+    rm = Operand('rm', rm_modes)
     tokens = [RexToken, OpcodeToken, ModRmToken]
     opcode = 0xd3
 
@@ -715,8 +688,8 @@ class Imul(X86Instruction):
     """ Multiply
         imul reg1, reg2
     """
-    reg1 = operand('reg1', X86Register, write=True, read=True)
-    reg2 = operand('reg2', X86Register, read=True)
+    reg1 = Operand('reg1', X86Register, write=True, read=True)
+    reg2 = Operand('reg2', X86Register, read=True)
     syntax = Syntax(['imul', ' ', reg1, ',', ' ', reg2])
     tokens = [RexToken, OpcodeToken, OpcodeToken, ModRmToken]
     opcode = 0x0f  # IMUL r64, r/m64
@@ -739,7 +712,7 @@ class Idiv(X86Instruction):
     """
         idiv reg1
     """
-    reg1 = operand('reg1', X86Register, read=True)
+    reg1 = Operand('reg1', X86Register, read=True)
     syntax = Syntax(['idiv', ' ', reg1])
     tokens = [RexToken, OpcodeToken, ModRmToken]
     opcode = 0xf7  # 0xf7 /7 = idiv r/m64
@@ -757,8 +730,8 @@ class Idiv(X86Instruction):
 
 class MovImm8(X86Instruction):
     """ Mov immediate into low 8-bit register """
-    reg = operand('reg', LowRegister, write=True)
-    imm = operand('imm', int)
+    reg = Operand('reg', LowRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['mov', ' ', reg, ',', ' ', imm])
     tokens = [RexToken, OpcodeToken]
     opcode = 0xb0  # mov r8, imm8
@@ -773,8 +746,8 @@ class MovImm8(X86Instruction):
 
 class MovImm(X86Instruction):
     """ Mov immediate into register """
-    reg = operand('reg', X86Register, write=True)
-    imm = operand('imm', int)
+    reg = Operand('reg', X86Register, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['mov', ' ', reg, ',', ' ', imm])
     tokens = [RexToken, OpcodeToken]
     opcode = 0xb8  # mov r64, imm64
@@ -789,8 +762,8 @@ class MovImm(X86Instruction):
 
 class MovAdr(X86Instruction):
     """ Mov address of label into register """
-    reg = operand('reg', X86Register, write=True)
-    imm = operand('imm', str)
+    reg = Operand('reg', X86Register, write=True)
+    imm = Operand('imm', str)
     syntax = Syntax(['mov', ' ', reg, ',', ' ', imm], priority=22)
     tokens = [RexToken, OpcodeToken]
     opcode = 0xb8  # mov r64, imm64

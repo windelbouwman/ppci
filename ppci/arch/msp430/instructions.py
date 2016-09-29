@@ -1,7 +1,7 @@
 """ Definitions of msp430 instruction set. """
 
-from ..encoding import Instruction, operand, Syntax, Constructor
-from ..encoding import FixedPattern, VariablePattern
+from ..encoding import Instruction, Operand, Syntax, Constructor
+from ..encoding import VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
@@ -100,9 +100,9 @@ def apply_abs16_imm2(sym_value, data, reloc_value):
 
 
 class Dst(Constructor):
-    reg = operand('reg', Msp430Register, write=True)
-    imm = operand('imm', int)
-    Ad = operand('Ad', int)
+    reg = Operand('reg', Msp430Register, write=True)
+    imm = Operand('imm', int)
+    Ad = Operand('Ad', int)
     is_reg_target = False
     is_special = False
 
@@ -110,42 +110,32 @@ class Dst(Constructor):
 class RegDst(Dst):
     is_reg_target = True
     syntax = Syntax([Dst.reg])
-    patterns = [
-        FixedPattern('Ad', 0),
-        VariablePattern('destination', Dst.reg),
-        ]
+    patterns = {'Ad': 0, 'destination': Dst.reg}
 
 
 class AddrDst(Dst):
     """  absolute address """
-    addr = operand('addr', str)
+    addr = Operand('addr', str)
     tokens = [DstImmToken]
     syntax = Syntax(['&', addr])
     is_special = True
-    patterns = [
-        FixedPattern('Ad', 1),
-        FixedPattern('destination', 2),
-        ]
+    patterns = {'Ad': 1, 'destination': 2}
 
 
 class MemDst(Dst):
     """  register offset memory access, for example: 0x88(R8) """
     tokens = [DstImmToken]
     syntax = Syntax([Dst.imm, '(', Dst.reg, ')'])
-    patterns = [
-        FixedPattern('Ad', 1),
-        VariablePattern('destination', Dst.reg),
-        VariablePattern('dstimm', Dst.imm),
-        ]
+    patterns = {'Ad': 1, 'destination': Dst.reg, 'dstimm': Dst.imm}
 
 
 dst_modes = (RegDst, AddrDst, MemDst)
 
 
 class Src(Constructor):
-    reg = operand('reg', Msp430Register, read=True)
-    imm = operand('imm', int)
-    As = operand('As', int)
+    reg = Operand('reg', Msp430Register, read=True)
+    imm = Operand('imm', int)
+    As = Operand('As', int)
     is_reg_target = False
     is_special = False
 
@@ -155,23 +145,16 @@ class ConstSrc(Src):
     tokens = [SrcImmToken]
     syntax = Syntax(['#', Src.imm])
     is_special = True
-    patterns = [
-        FixedPattern('As', 3),
-        FixedPattern('source', 0),
-        VariablePattern('srcimm', Src.imm),
-        ]
+    patterns = {'As': 3, 'source': 0, 'srcimm': Src.imm}
 
 
 class ConstLabelSrc(Src):
     """ Equivalent to @PC+ """
-    addr = operand('addr', str)
+    addr = Operand('addr', str)
     tokens = [SrcImmToken]
     syntax = Syntax(['#', addr])
     is_special = True
-    patterns = [
-        FixedPattern('As', 3),
-        FixedPattern('source', 0),
-        ]
+    patterns = {'As': 3, 'source': 0}
     # TODO: reloc here? this should be implemented something like this:
     relocations = (
         Relocation(addr, apply_abs16_imm0),
@@ -218,50 +201,34 @@ class RegSrc(Src):
     """ Simply refer to a register """
     is_reg_target = True
     syntax = Syntax([Src.reg])
-    patterns = [
-        FixedPattern('As', 0),
-        VariablePattern('source', Src.reg),
-        ]
+    patterns = {'As': 0, 'source': Src.reg}
 
 
 class AdrSrc(Src):
     """ absolute address """
     is_special = True
-    addr = operand('addr', str)
+    addr = Operand('addr', str)
     tokens = [SrcImmToken]
     syntax = Syntax(['&', addr])
-    patterns = [
-        FixedPattern('As', 1),
-        FixedPattern('source', 2),
-        ]
+    patterns = {'As': 1, 'source': 2}
 
 
 class MemSrc(Src):
     """ Memory content """
     syntax = Syntax(['@', Src.reg])
-    patterns = [
-        FixedPattern('As', 2),
-        VariablePattern('source', Src.reg),
-        ]
+    patterns = {'As': 2, 'source': Src.reg}
 
 
 class MemSrcInc(Src):
     """ Memory content post increment """
     syntax = Syntax(['@', Src.reg, '+'])
-    patterns = [
-        FixedPattern('As', 3),
-        VariablePattern('source', Src.reg),
-        ]
+    patterns = {'As': 3, 'source': Src.reg}
 
 
 class MemSrcOffset(Src):
     tokens = [SrcImmToken]
     syntax = Syntax([Src.imm, '(', Src.reg, ')'])
-    patterns = [
-        FixedPattern('As', 1),
-        VariablePattern('source', Src.reg),
-        VariablePattern('srcimm', Src.imm),
-        ]
+    patterns = {'As': 1, 'source': Src.reg, 'srcimm': Src.imm}
 
 
 src_modes = (
@@ -285,13 +252,10 @@ class JumpInstruction(Msp430Instruction):
 
 
 def create_jump_instruction(name, condition):
-    target = operand('target', str)
+    target = Operand('target', str)
     syntax = Syntax([name, ' ', target])
-    patterns = [
-        FixedPattern('condition', condition),
-        FixedPattern('opcode', 1),
-        # RelocPattern('offset', target, lambda sv, rv: ),
-        ]
+    patterns = {'condition': condition, 'opcode': 1}
+    # RelocPattern('offset', target, lambda sv, rv: ),
     members = {
         'syntax': syntax, 'target': target, 'patterns': patterns}
     return type(name + '_ins', (JumpInstruction, ), members)
@@ -325,12 +289,8 @@ class OneOpArith(Msp430Instruction):
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
     """ Helper function to define a one operand arithmetic instruction """
-    src = operand('src', src_modes)
-    patterns = [
-        FixedPattern('prefix', 0b000100),
-        FixedPattern('opcode', opcode),
-        FixedPattern('bw', b)
-        ]
+    src = Operand('src', src_modes)
+    patterns = {'prefix': 0b000100, 'opcode': opcode, 'bw': b}
     if b:
         syntax = Syntax([mne, '.', 'b', ' ', src])
         class_name = mne + 'b'
@@ -353,7 +313,7 @@ def make_one_op_base(mne, opcode, b=0):
 
 class MemByReg(Instruction):
     """ Memory content """
-    reg = operand('reg', Msp430Register, read=True)
+    reg = Operand('reg', Msp430Register, read=True)
     tokens = []
     patterns = {'As': 2, 'source': reg}
     syntax = Syntax(['@', reg])
@@ -433,18 +393,15 @@ class TwoOpArithInstruction(Msp430Instruction):
 
 def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
     """ Helper function to define a two operand arithmetic instruction """
-    src = operand('src', src_modes)
-    dst = operand('dst', dst_modes)
+    src = Operand('src', src_modes)
+    dst = Operand('dst', dst_modes)
     if b:
         syntax = Syntax([mne, '.', 'b', ' ', src, ',', ' ', dst])
         class_name = mne + 'b'
     else:
         syntax = Syntax([mne, '.', 'w', ' ', src, ',', ' ', dst])
         class_name = mne + 'w'
-    patterns = [
-        FixedPattern('opcode', opc),
-        FixedPattern('bw', b),
-        ]
+    patterns = {'opcode': opc, 'bw': b}
     members = {
         'patterns': patterns, 'src': src, 'dst': dst, 'syntax': syntax,
         'dst_read': dst_read, 'dst_write': dst_write
@@ -491,7 +448,7 @@ class Ret(PseudoMsp430Instruction):
 
 class Pop(PseudoMsp430Instruction):
     """ Pop value from stack """
-    dst = operand('dst', Msp430Register, write=True)
+    dst = Operand('dst', Msp430Register, write=True)
     syntax = Syntax(['pop', ' ', dst])
 
     def render(self):

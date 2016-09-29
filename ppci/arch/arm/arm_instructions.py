@@ -5,8 +5,7 @@
 # pylint: disable=no-member,invalid-name
 
 from ..isa import Isa
-from ..encoding import Instruction, Constructor, Syntax, operand
-from ..encoding import VariablePattern, FixedPattern
+from ..encoding import Instruction, Constructor, Syntax, Operand
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
 from ..token import Token, bit_range, bit
@@ -63,41 +62,29 @@ COND_MAP = {
 
 class NoShift(Constructor):
     """ No shift """
-    patterns = (
-        FixedPattern('shift_typ', 0),
-        FixedPattern('shift_imm', 0),
-        )
     syntax = Syntax([])
+    patterns = {'shift_typ': 0, 'shift_imm': 0}
 
 
 class ShiftLsl(Constructor):
     """ Logical shift left n bits """
-    n = operand('n', int)
-    patterns = (
-        FixedPattern('shift_typ', 0),
-        VariablePattern('shift_imm', n),
-        )
+    n = Operand('n', int)
     syntax = Syntax([',', ' ', 'lsl', ' ', n])
+    patterns = {'shift_typ': 0, 'shift_imm': n}
 
 
 class ShiftLsr(Constructor):
     """ Logical shift right n bits """
-    n = operand('n', int)
-    patterns = (
-        FixedPattern('shift_typ', 1),
-        VariablePattern('shift_imm', n),
-        )
+    n = Operand('n', int)
     syntax = Syntax([',', ' ', 'lsr', ' ', n])
+    patterns = {'shift_typ': 1, 'shift_imm': n}
 
 
 class ShiftAsr(Constructor):
     """ Arithmetic shift right n bits """
-    n = operand('n', int)
-    patterns = (
-        FixedPattern('shift_typ', 2),
-        VariablePattern('shift_imm', n),
-        )
+    n = Operand('n', int)
     syntax = Syntax([',', ' ', 'asr', ' ', n])
+    patterns = {'shift_typ': 2, 'shift_imm': n}
 
 
 # Shift suffix:
@@ -114,7 +101,8 @@ def inter_twine(a, cond):
     mnemonic = stx[0] + cond
     stx[0] = mnemonic
     syntax = Syntax(stx)
-    patterns = a.patterns + (FixedPattern('cond', ccode), )
+    patterns = dict(a.patterns)
+    patterns['cond'] = ccode
     members = {'syntax': syntax, 'patterns': patterns}
     return type(mnemonic, (a, ), members)
 
@@ -126,8 +114,8 @@ class ArmInstruction(Instruction):
 
 class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
-    rd = operand('rd', ArmRegister, write=True)
-    imm = operand('imm', int)
+    rd = Operand('rd', ArmRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
 
     def encode(self):
@@ -143,14 +131,11 @@ class Mov1(ArmInstruction):
 
 class Mov2(ArmInstruction):
     """ Mov register to register """
-    rd = operand('rd', ArmRegister, write=True)
-    rm = operand('rm', ArmRegister, read=True)
-    shift = operand('shift', shift_modes)
+    rd = Operand('rd', ArmRegister, write=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    shift = Operand('shift', shift_modes)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rm, shift])
-    patterns = (
-        FixedPattern('cond', AL),
-        FixedPattern('S', 0),
-        )
+    patterns = {'cond': AL, 'S': 0}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -168,8 +153,8 @@ Mov2LS = inter_twine(Mov2, 'ls')
 
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
-    reg = operand('reg', ArmRegister, read=True)
-    imm = operand('imm', int)
+    reg = Operand('reg', ArmRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['cmp', reg, ',', imm])
 
     def encode(self):
@@ -183,15 +168,11 @@ class Cmp1(ArmInstruction):
 
 class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
-    shift = operand('shift', shift_modes)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    shift = Operand('shift', shift_modes)
     syntax = Syntax(['cmp', ' ', rn, ',', ' ', rm, shift])
-    patterns = (
-        FixedPattern('cond', AL),
-        VariablePattern('Rm', rm),
-        VariablePattern('Rn', rn),
-        )
+    patterns = {'cond': AL, 'Rm': rm, 'Rn': rn}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -203,9 +184,9 @@ class Cmp2(ArmInstruction):
 
 
 class Mul1(ArmInstruction):
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['mul', rd, ',', rn, ',', rm])
 
     def encode(self):
@@ -225,9 +206,9 @@ class Sdiv(ArmInstruction):
 
         This instruction is not always present
     """
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
 
     def encode(self):
@@ -246,9 +227,9 @@ class Udiv(ArmInstruction):
     """ Encoding A1
         rd = rn / rm
     """
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['udiv', rd, ',', rn, ',', rm])
 
     def encode(self):
@@ -268,10 +249,10 @@ class Mls(ArmInstruction):
         Semantics:
         rd = ra - rn * rm
     """
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
-    ra = operand('ra', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    ra = Operand('ra', ArmRegister, read=True)
     syntax = Syntax(['mls', rd, ',', rn, ',', rm, ',', ra])
 
     def encode(self):
@@ -288,10 +269,7 @@ class Mls(ArmInstruction):
 
 class OpRegRegReg(ArmInstruction):
     """ add rd, rn, rm """
-    patterns = (
-        FixedPattern('cond', AL),
-        FixedPattern('S', 0),
-        )
+    patterns = {'cond': AL, 'S': 0}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -306,10 +284,10 @@ class OpRegRegReg(ArmInstruction):
 
 def make_regregreg(mnemonic, opcode):
     """ Create a new instruction class with three registers as operands """
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
-    shift = operand('shift', shift_modes)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    shift = Operand('shift', shift_modes)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', rm, shift])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode,
@@ -335,14 +313,10 @@ Sub1NE = inter_twine(Sub1, 'ne')
 
 class ShiftBase(ArmInstruction):
     """ ? rd, rn, rm """
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    rm = operand('rm', ArmRegister, read=True)
-
-    patterns = (
-        FixedPattern('cond', AL),
-        FixedPattern('S', 0),
-        )
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    patterns = {'cond': AL, 'S': 0}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -387,9 +361,9 @@ class OpRegRegImm(ArmInstruction):
 
 
 def make_regregimm(mnemonic, opcode):
-    rd = operand('rd', ArmRegister, write=True)
-    rn = operand('rn', ArmRegister, read=True)
-    imm = operand('imm', int)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax([mnemonic, rd, ',', rn, ',', imm])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'imm': imm, 'opcode': opcode}
@@ -402,7 +376,7 @@ Sub2 = make_regregimm('sub', 0b0010010)
 # Branches:
 
 class BranchBaseRoot(ArmInstruction):
-    target = operand('target', str)
+    target = Operand('target', str)
 
     def encode(self):
         tokens = self.get_tokens()
@@ -428,7 +402,7 @@ class Bl(BranchLinkBase):
 
 
 def make_branch(mnemonic, cond):
-    target = operand('target', str)
+    target = Operand('target', str)
     syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
@@ -454,7 +428,7 @@ def reg_list_to_mask(reg_list):
 
 
 class Push(ArmInstruction):
-    reg_list = operand('reg_list', RegisterSet)
+    reg_list = Operand('reg_list', RegisterSet)
     syntax = Syntax(['push', reg_list])
 
     def encode(self):
@@ -466,7 +440,7 @@ class Push(ArmInstruction):
 
 
 class Pop(ArmInstruction):
-    reg_list = operand('reg_list', RegisterSet)
+    reg_list = Operand('reg_list', RegisterSet)
     syntax = Syntax(['pop', reg_list])
 
     def encode(self):
@@ -484,8 +458,8 @@ def LdrPseudo(rt, lab, add_lit):
 
 
 class LdrStrBase(ArmInstruction):
-    rn = operand('rn', ArmRegister, read=True)
-    offset = operand('offset', int)
+    rn = Operand('rn', ArmRegister, read=True)
+    offset = Operand('offset', int)
 
     def encode(self):
         tokens = self.get_tokens()
@@ -506,7 +480,7 @@ class LdrStrBase(ArmInstruction):
 
 
 class Str1(LdrStrBase):
-    rt = operand('rt', ArmRegister, read=True)
+    rt = Operand('rt', ArmRegister, read=True)
     opcode = 0b010
     bit20 = 0
     bit22 = 0
@@ -516,7 +490,7 @@ class Str1(LdrStrBase):
 
 
 class Ldr1(LdrStrBase):
-    rt = operand('rt', ArmRegister, write=True)
+    rt = Operand('rt', ArmRegister, write=True)
     opcode = 0b010
     bit20 = 1
     bit22 = 0
@@ -527,7 +501,7 @@ class Ldr1(LdrStrBase):
 
 class Strb(LdrStrBase):
     """ ldrb rt, [rn, offset] # Store byte at address """
-    rt = operand('rt', ArmRegister, read=True)
+    rt = Operand('rt', ArmRegister, read=True)
     opcode = 0b010
     bit20 = 0
     bit22 = 1
@@ -538,7 +512,7 @@ class Strb(LdrStrBase):
 
 class Ldrb(LdrStrBase):
     """ ldrb rt, [rn, offset] """
-    rt = operand('rt', ArmRegister, write=True)
+    rt = Operand('rt', ArmRegister, write=True)
     opcode = 0b010
     bit20 = 1
     bit22 = 1
@@ -548,8 +522,8 @@ class Ldrb(LdrStrBase):
 
 
 class Adr(ArmInstruction):
-    rd = operand('rd', ArmRegister, write=True)
-    label = operand('label', str)
+    rd = Operand('rd', ArmRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
@@ -570,8 +544,8 @@ class Ldr3(ArmInstruction):
         LDR rt, label
         encoding A1
     """
-    rt = operand('rt', ArmRegister, write=True)
-    label = operand('label', str)
+    rt = Operand('rt', ArmRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['ldr', rt, ',', label])
 
     def relocations(self):
@@ -606,24 +580,24 @@ class McrBase(ArmInstruction):
 
 class Mcr(McrBase):
     """ Move from register to co processor register """
-    coproc = operand('coproc', Coproc, read=True)
-    opc1 = operand('opc1', int)
-    rt = operand('rt', ArmRegister, read=True)
-    crn = operand('crn', Coreg, read=True)
-    crm = operand('crm', Coreg, read=True)
-    opc2 = operand('opc2', int)
+    coproc = Operand('coproc', Coproc, read=True)
+    opc1 = Operand('opc1', int)
+    rt = Operand('rt', ArmRegister, read=True)
+    crn = Operand('crn', Coreg, read=True)
+    crm = Operand('crm', Coreg, read=True)
+    opc2 = Operand('opc2', int)
     b20 = 0
     syntax = Syntax(
         ['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
 
 
 class Mrc(McrBase):
-    coproc = operand('coproc', Coproc, read=True)
-    opc1 = operand('opc1', int)
-    rt = operand('rt', ArmRegister, write=True)
-    crn = operand('crn', Coreg, read=True)
-    crm = operand('crm', Coreg, read=True)
-    opc2 = operand('opc2', int)
+    coproc = Operand('coproc', Coproc, read=True)
+    opc1 = Operand('opc1', int)
+    rt = Operand('rt', ArmRegister, write=True)
+    crn = Operand('crn', Coreg, read=True)
+    crm = Operand('crm', Coreg, read=True)
+    opc2 = Operand('opc2', int)
     b20 = 1
     syntax = Syntax(
         ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])

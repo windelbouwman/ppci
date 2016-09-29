@@ -2,8 +2,7 @@
 
 from ...utils.bitfun import wrap_negative
 from ..isa import Isa
-from ..encoding import Instruction, Syntax, FixedPattern, VariablePattern
-from ..encoding import register_argument
+from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
 from ..token import Token, bit_range, bit
 from .rvc_relocations import apply_bc_imm11, apply_bc_imm8
@@ -57,8 +56,8 @@ class OpcRegReg(RiscvcInstruction):
 
 
 def makec_regreg(mnemonic, func):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rn = register_argument('rn', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rn = Operand('rn', RiscvRegister, read=True)
     syntax = Syntax(['c', '.', mnemonic, ' ', rd, ',', ' ', rn])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'func': func}
@@ -72,9 +71,9 @@ CAnd = makec_regreg('and', 0b11)
 
 
 class CSlli(RiscvcInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs = register_argument('rs', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs = Operand('rs', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['c', '.', 'slli', ' ', rd, ',', ' ', rs, ',', ' ', imm])
 
     def encode(self):
@@ -98,9 +97,9 @@ class CiBase(RiscvcInstruction):
 
 
 def makec_i(mnemonic, func):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs = register_argument('rs', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs = Operand('rs', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['c', '.', mnemonic, ' ', rd, ',', ' ', rs, ',', ' ', imm])
     members = {'syntax': syntax, 'func': func, 'rd': rd, 'rs': rs, 'imm': imm}
     return type('c_' + mnemonic + '_ins', (CiBase,), members)
@@ -112,8 +111,8 @@ CAndi = makec_i('andi', 0b10)
 
 
 class CAddi(RiscvcInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['c', '.', 'addi', ' ', rd, ',', ' ', rd, ',', ' ', imm])
 
     def encode(self):
@@ -145,7 +144,7 @@ class CEbreak(RiscvcInstruction):
 
 
 class CJal(RiscvcInstruction):
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['c', '.', 'jal', ' ', target])
 
     def encode(self):
@@ -159,7 +158,7 @@ class CJal(RiscvcInstruction):
 
 
 class CJ(RiscvcInstruction):
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['c', '.', 'j', ' ', target])
 
     def encode(self):
@@ -173,7 +172,7 @@ class CJ(RiscvcInstruction):
 
 
 class CJr(RiscvcInstruction):
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['c', '.', 'jr', ' ', rs1])
 
     def encode(self):
@@ -185,7 +184,7 @@ class CJr(RiscvcInstruction):
 
 
 class CJalr(RiscvcInstruction):
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['c', '.', 'jalr', ' ', rs1])
 
     def encode(self):
@@ -197,8 +196,8 @@ class CJalr(RiscvcInstruction):
 
 
 class CBeqz(RiscvcInstruction):
-    rn = register_argument('rn', RiscvRegister, read=True)
-    target = register_argument('target', str)
+    rn = Operand('rn', RiscvRegister, read=True)
+    target = Operand('target', str)
     syntax = Syntax(['c', '.', 'beqz', ' ', rn, ' ', target])
 
     def encode(self):
@@ -213,8 +212,8 @@ class CBeqz(RiscvcInstruction):
 
 
 class CBnez(RiscvcInstruction):
-    rn = register_argument('rn', RiscvRegister, read=True)
-    target = register_argument('target', str)
+    rn = Operand('rn', RiscvRegister, read=True)
+    target = Operand('target', str)
     syntax = Syntax(['c', '.', 'bneqz', ' ', rn, ',', ' ', target])
 
     def encode(self):
@@ -229,9 +228,9 @@ class CBnez(RiscvcInstruction):
 
 
 class CLw(RiscvcInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    offset = Operand('offset', int)
     syntax = Syntax(['c', '.', 'lw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
 
     def encode(self):
@@ -247,9 +246,9 @@ class CLw(RiscvcInstruction):
 
 
 class CSw(RiscvcInstruction):
-    rs2 = register_argument('rs2', RiscvRegister, read=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
+    rs2 = Operand('rs2', RiscvRegister, read=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    offset = Operand('offset', int)
     syntax = Syntax(
         ['c', '.', 'sw', ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
     tokens = [RiscvcToken]
@@ -267,9 +266,9 @@ class CSw(RiscvcInstruction):
 
 
 class CLwsp(RiscvcInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    offset = register_argument('offset', int)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    offset = Operand('offset', int)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['c', '.', 'lwsp', ' ', rd, ',', offset, '(', rs1, ')'])
 
     def encode(self):
@@ -284,9 +283,9 @@ class CLwsp(RiscvcInstruction):
 
 
 class CSwsp(RiscvcInstruction):
-    rs2 = register_argument('rs2', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rs2 = Operand('rs2', RiscvRegister, read=True)
+    offset = Operand('offset', int)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['c', '.', 'swsp', ' ', rs2, ',', offset, '(', rs1, ')'])
 
     def encode(self):
@@ -300,20 +299,15 @@ class CSwsp(RiscvcInstruction):
 
 
 class CLi(RiscvcInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['c', '.', 'li', ' ', rd, ',', ' ', imm])
-    patterns = [
-        FixedPattern('op', 0b01),
-        VariablePattern('imm', imm),
-        VariablePattern('rd', rd),
-        FixedPattern('funct3', 0b010)
-        ]
+    patterns = {'op': 0b01, 'imm': imm, 'rd': rd, 'funct3': 0b010}
 
 
 class CLui(RiscvcInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['c', '.', 'lui', ' ', rd, ',', ' ', imm])
 
     def encode(self):
@@ -331,9 +325,9 @@ class CLui(RiscvcInstruction):
 
 
 class Andv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax(['and', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def render(self):
@@ -346,9 +340,9 @@ class Andv(PseudoRiscvInstruction):
 
 
 class Orv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax(['or', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def render(self):
@@ -361,9 +355,9 @@ class Orv(PseudoRiscvInstruction):
 
 
 class Xorv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax(['xor', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def render(self):
@@ -376,9 +370,9 @@ class Xorv(PseudoRiscvInstruction):
 
 
 class Subv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax(['sub', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def render(self):
@@ -391,9 +385,9 @@ class Subv(PseudoRiscvInstruction):
 
 
 class Addiv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['addi', ' ', rd, ',', ' ', rs1, ',', ' ', imm])
 
     def render(self):
@@ -404,9 +398,9 @@ class Addiv(PseudoRiscvInstruction):
 
 
 class Slliv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['slli', ' ', rd, ',', ' ', rs1, ',', ' ', imm])
 
     def render(self):
@@ -417,9 +411,9 @@ class Slliv(PseudoRiscvInstruction):
 
 
 class Srliv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['srli', ' ', rd, ',', ' ', rs1, ',', ' ', imm])
 
     def render(self):
@@ -431,9 +425,9 @@ class Srliv(PseudoRiscvInstruction):
 
 
 class Lwv(PseudoRiscvInstruction):
-    rd = register_argument('rd', RiscvRegister, write=True)
-    offset = register_argument('offset', int)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True)
+    offset = Operand('offset', int)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['lw', ' ', rd, ',', ' ', offset, '(',  rs1, ')'])
 
     def render(self):
@@ -447,9 +441,9 @@ class Lwv(PseudoRiscvInstruction):
 
 
 class Swv(PseudoRiscvInstruction):
-    rs2 = register_argument('rs2', RiscvRegister, read=True)
-    offset = register_argument('offset', int)
-    rs1 = register_argument('rs1', RiscvRegister, read=True)
+    rs2 = Operand('rs2', RiscvRegister, read=True)
+    offset = Operand('offset', int)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['sw', ' ', rs2, ',', ' ', offset, '(',  rs1, ')'])
 
     def render(self):
@@ -464,9 +458,9 @@ class Swv(PseudoRiscvInstruction):
 
 
 class Beqv(PseudoRiscvInstruction):
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
-    target = register_argument('target', str)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
+    target = Operand('target', str)
     syntax = Syntax(['beq', ' ', rn, ',', ' ', rm, ' ', target])
 
     def render(self):
@@ -477,9 +471,9 @@ class Beqv(PseudoRiscvInstruction):
 
 
 class Bnev(PseudoRiscvInstruction):
-    rn = register_argument('rn', RiscvRegister, read=True)
-    rm = register_argument('rm', RiscvRegister, read=True)
-    target = register_argument('target', str)
+    rn = Operand('rn', RiscvRegister, read=True)
+    rm = Operand('rm', RiscvRegister, read=True)
+    target = Operand('target', str)
     syntax = Syntax(['bneq', ' ', rn, ',', ' ', rm, ' ', target])
 
     def render(self):

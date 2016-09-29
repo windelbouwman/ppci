@@ -4,7 +4,7 @@
 """
 
 from .arch import Architecture
-from .encoding import Instruction, Syntax, register_argument
+from .encoding import Instruction, Syntax, Operand
 from .registers import Register, RegisterClass
 from ..import ir
 
@@ -77,52 +77,52 @@ class ExampleInstruction(Instruction):
 
 
 class Def(ExampleInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
+    rd = Operand('rd', ExampleRegister, write=True)
     syntax = Syntax(['def', ' ', rd])
 
 
 class DefHalf(ExampleInstruction):
-    rd = register_argument('rd', HalfExampleRegister, write=True)
+    rd = Operand('rd', HalfExampleRegister, write=True)
     syntax = Syntax(['def', ' ', rd])
 
 
 class Use(ExampleInstruction):
-    rn = register_argument('rn', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
     syntax = Syntax(['use', ' ', rn])
 
 
 class UseHalf(ExampleInstruction):
-    rn = register_argument('rn', HalfExampleRegister, read=True)
+    rn = Operand('rn', HalfExampleRegister, read=True)
     syntax = Syntax(['use', ' ', rn])
 
 
 class DefUse(ExampleInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
+    rd = Operand('rd', ExampleRegister, write=True)
+    rn = Operand('rn', ExampleRegister, read=True)
     syntax = Syntax(['cpy', ' ', rd, ',', ' ', rn])
 
 
 class Add(ExampleInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    rm = register_argument('rm', ExampleRegister, read=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
+    rd = Operand('rd', ExampleRegister, write=True)
+    rm = Operand('rm', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
     syntax = Syntax(['add', ' ', rd, ',', ' ', rm, ',', ' ', rn])
 
 
 class Cmp(ExampleInstruction):
-    rm = register_argument('rm', ExampleRegister, read=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
+    rm = Operand('rm', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
     syntax = Syntax(['cmp', ' ', rm, ',', ' ', rn])
 
 
 class Use3(ExampleInstruction):
-    rm = register_argument('rm', ExampleRegister, read=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
-    ro = register_argument('ro', ExampleRegister, read=True)
+    rm = Operand('rm', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
+    ro = Operand('ro', ExampleRegister, read=True)
     syntax = Syntax(['use3', ' ', rm, ',', ' ', rn, ',', ' ', ro])
 
 
 class Mov(ExampleInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    rm = register_argument('rm', ExampleRegister, read=True)
+    rd = Operand('rd', ExampleRegister, write=True)
+    rm = Operand('rm', ExampleRegister, read=True)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rm])

@@ -1,11 +1,11 @@
 import unittest
-from ppci.arch.encoding import Instruction, Syntax, register_argument
+from ppci.arch.encoding import Instruction, Syntax, Operand
 from ppci.arch.encoding import TokenSequence
 from ppci.arch import example
 
 
 class DummyInstruction1(Instruction):
-    rg = register_argument('rg', str)
+    rg = Operand('rg', str)
     syntax = Syntax(['inc', rg])
 
 

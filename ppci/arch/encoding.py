@@ -50,10 +50,6 @@ class Operand(property):
             return issubclass(self._cls, Constructor)
 
 
-register_argument = Operand
-operand = Operand
-
-
 class Constructor:
     """ Instruction, or part of an instruction.
 
@@ -480,7 +476,7 @@ class Reloc:
     Refers to a label operand, and contains a function to calculate the offset.
     """
     def __init__(self, ref_op):
-        assert isinstance(ref_op, operand) and ref_op._cls is str
+        assert isinstance(ref_op, Operand) and ref_op._cls is str
         self.ref_op = ref_op
 
     def calc(self, sym_value, reloc_value):  # pragma: no cover
