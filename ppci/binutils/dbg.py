@@ -139,6 +139,13 @@ class Debugger:
         self.logger.info('program counter 0x%x', self.get_pc())
         self.state_event.fire()
 
+    def nstep(self, count):
+        """ step n instructions of the debugged program """
+        self.logger.info('nstep 0x%x', count)
+        self.driver.nstep(count)
+        self.logger.info('program counter 0x%x', self.get_pc())
+        self.state_event.fire()
+
     def get_status(self):
         return self.driver.get_status()
 

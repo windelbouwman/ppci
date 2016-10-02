@@ -45,6 +45,12 @@ class DebugCli(cmd.Cmd):
         """ Single instruction step the debugger """
         self.debugger.step()
 
+    def do_nstep(self, count):
+        """ Single instruction step the debugger """
+        count = str2int(count)
+        self.debugger.nstep(count)
+
+
     def do_stop(self, _):
         """ Stop the running program """
         self.debugger.stop()

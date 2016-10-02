@@ -16,6 +16,7 @@ function int irq(byte* regs,int irqs)
  var byte* regsptr = 0;
  var bool debug = true;
  var int res = 0;
+ var int steps = 0;
 
  gdbstub.status(5, regs, &outbuffer[0]);
  gdbstub.put_packet(&outbuffer);
@@ -73,6 +74,10 @@ function int irq(byte* regs,int irqs)
         }
         if(bch == 0x73) {
              return(1);
+        }
+        if(bch == 0x6e) {
+             res = gdbstub.hexstring2int(&inbuffer[2],&steps);
+             return(steps);
         }
     }
  bsp.ackint();

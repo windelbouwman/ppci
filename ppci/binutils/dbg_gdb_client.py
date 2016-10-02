@@ -165,6 +165,13 @@ class GdbDebugDriver(DebugDriver):
             self.sendpkt("s")
             self.process_stop_status()
 
+    def nstep(self, count):
+        """ restart the device """
+        if self.status == STOPPED:
+            self.sendpkt("n %x" %count)
+            self.process_stop_status()
+
+
     def stop(self):
         self.sendbrk()
         self.status = STOPPED

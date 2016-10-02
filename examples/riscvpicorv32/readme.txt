@@ -15,7 +15,8 @@
    read 0,4       // read again
    regs           // read registers
    step           // single instruction stepping
+   nstep 0xff     // run 0xff instructions
    run            // leave debug monitor
-   stop          // restart debug monitor
+   stop          // send break signal
 
 

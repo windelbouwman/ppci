@@ -43,7 +43,7 @@ public function byte lowhex(byte ch)
     return(ch);
 }
 
-function int hexstring2int(byte* ptr, int* val)
+public function int hexstring2int(byte* ptr, int* val)
 {
    var int numchars = 0;
    var byte ch;
