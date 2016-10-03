@@ -86,8 +86,8 @@ token fields to instruction parameters:
 
     >>> from ppci.arch.avr import registers
     >>> a1 = Add(registers.r1, registers.r2)
-    >>> a1
-    add r1, r2
+    >>> str(a1)
+    'add r1, r2'
     >>> a1.encode()
     b'\x12\x0c'
 

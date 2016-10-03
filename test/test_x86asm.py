@@ -210,5 +210,37 @@ class AssemblerTestCase(AsmTestCaseBase):
         # assert(assembler.imulreg64('r15', 'r14') == [0x4d, 0x0f, 0xaf, 0xfe])
 
 
+class X87TestCase(AsmTestCaseBase):
+    """ Checks floating point x87 instructions """
+    march = 'x86_64'
+
+    def test_fld32(self):
+        """ Test load 32 bit floating point """
+        self.feed('flds [rcx]')
+        self.check('40d901')
+
+    def test_fld64(self):
+        """ Test load 64 bit floating point """
+        self.feed('fldl [rdx]')
+        self.check('40dd02')
+
+    @unittest.skip('todo')
+    def test_fld80(self):
+        """ Test load 80 bit floating point """
+        self.feed('fldt [rax]')
+        self.feed('fldt [r10]')
+        self.feed('fldt [r10, 0x4c6]')
+        self.check('db28 41db2a 41dbaac6040000')
+
+    def test_fst32(self):
+        """ Test store 32 bit floating point """
+        self.feed('fsts [rax]')
+        self.check('40d910')
+
+    def test_fsqrt(self):
+        self.feed('fsqrt')
+        self.check('d9fa')
+
+
 if __name__ == '__main__':
     unittest.main()

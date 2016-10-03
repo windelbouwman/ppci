@@ -705,6 +705,26 @@ class CodeGenerator:
 
         from_type = self.context.get_type(expr.a.typ)
         to_type = self.context.get_type(expr.to_type)
+        # 0 = not possible
+        # 1 = possible
+        # 2 = automatic
+
+        cast_map = {
+            'byte': {
+                'byte': 1,
+            },
+            'int': {
+                'byte': 1,
+                'int': 1,
+                'float': 1,
+            },
+            'float': {
+                'byte': 1,
+                'int': 1,
+                'float': 1,
+            }
+        }
+
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):
             return ar

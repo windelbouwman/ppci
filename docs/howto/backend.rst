@@ -97,8 +97,10 @@ Instructions are also usable directly, like this:
 .. doctest:: encoding
 
     >>> ins = Nop()
+    >>> str(ins)
+    'nop'
     >>> ins
-    nop
+    <Nop object at ...>
     >>> type(ins)
     <class 'Nop'>
     >>> ins.encode()
@@ -129,8 +131,8 @@ constructing the instruction, it must be given:
 .. doctest:: encoding
 
     >>> ins = AdcByte(0x23)
-    >>> ins
-    adc a, 35
+    >>> str(ins)
+    'adc a, 35'
     >>> type(ins)
     <class 'AdcByte'>
     >>> ins.encode()
@@ -142,10 +144,13 @@ As a benefit of specifying syntax and patterns, the default decode classmethod
 can be used to create an instruction from bytes:
 
 .. doctest:: encoding
+    :options: +ELLIPSIS
 
     >>> ins = AdcByte.decode(bytes([0xa9,0x10]))
     >>> ins
-    adc a, 16
+    <AdcByte object at ...>
+    >>> str(ins)
+    'adc a, 16'
 
 Another option of constructing instruction classes is adding different
 instruction classes to eachother:
@@ -174,8 +179,8 @@ the tokens, syntax and patterns are combined into the last instruction.
 .. doctest:: encoding
 
     >>> ins = SbcByte.decode(bytes([0xa2,0x10]))
-    >>> ins
-    sbc a, 16
+    >>> str(ins)
+    'sbc a, 16'
     >>> type(ins)
     <class 'ppci.arch.encoding.SbcByte'>
 

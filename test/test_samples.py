@@ -543,7 +543,7 @@ class TestSamplesOnAvrO2(TestSamplesOnAvr):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit')
+@add_samples('simple', 'medium', '8bit')  # , 'fp')
 class TestSamplesOnX86Linux(unittest.TestCase, BuildMixin):
     march = "x86_64"
     startercode = """

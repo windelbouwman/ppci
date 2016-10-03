@@ -109,11 +109,12 @@ class Constructor:
             # print('\n\n\n===', pname, pval)
             setattr(self, pname, pval)
 
-    def __repr__(self):
+    def __str__(self):
+        """ Create a nice looking assembly string """
         if self.syntax:
             return self.syntax.render(self)
         else:
-            return super().__repr__()
+            return super().__str__()
 
     @staticmethod
     def dict_to_patterns(d):

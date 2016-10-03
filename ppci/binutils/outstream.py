@@ -37,10 +37,10 @@ class OutputStream:
 
 
 class TextOutputStream(OutputStream):
-    """ Output stream that writes to object file """
+    """ Output stream that writes terminal """
     def do_emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
-        print(item)
+        print(str(item))
 
 
 class BinaryOutputStream(OutputStream):
