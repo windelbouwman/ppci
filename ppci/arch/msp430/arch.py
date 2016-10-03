@@ -64,6 +64,11 @@ class Msp430Arch(Architecture):
             if register in self.caller_save:
                 yield Pop(register)
 
+    @staticmethod
+    def round_upwards(v):
+        """ Round value upwards to multiple of 2 """
+        return v + (v % 2)
+
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
@@ -76,7 +81,8 @@ class Msp430Arch(Architecture):
 
         # Adjust stack:
         if frame.stacksize:
-            yield Sub(ConstSrc(frame.stacksize), RegDst(r1))
+            yield Sub(
+                ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
         # Setup the frame pointer:
         yield mov(r1, r4)
@@ -88,7 +94,8 @@ class Msp430Arch(Architecture):
 
         # Adjust stack:
         if frame.stacksize:
-            yield Add(ConstSrc(frame.stacksize), RegDst(r1))
+            yield Add(
+                ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
         # Pop save registers back:
         for reg in reversed(self.callee_save):

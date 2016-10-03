@@ -828,9 +828,11 @@ def pattern_ldr8(context, tree, c0):
     return d
 
 
-# @isa.pattern('reg8', 'reg64', size=9)
+@isa.pattern('reg8', 'reg64', size=9)
 def pattern_cast64_to8(context, tree, c0):
     # TODO: This more or less sucks?
+    # But it is needed to convert byte parameters that are passed as
+    # registers to byte registers.
     context.move(rax, c0)
     # raise Warning()
     defu = RegisterUseDef()
