@@ -112,9 +112,7 @@ can be specified, for example the stm8 adc instruction:
     from ppci.arch.encoding import Operand
 
     class Stm8ByteToken(Token):
-        def __init__(self):
-            super().__init__(8, '>B')
-
+        size = 8
         byte = bit_range(0, 8)
 
     class AdcByte(Instruction):
@@ -181,6 +179,53 @@ the tokens, syntax and patterns are combined into the last instruction.
     'sbc a, 16'
     >>> type(ins)
     <class 'ppci.arch.encoding.SbcByte'>
+
+
+Relocations
+~~~~~~~~~~~
+
+Most instructions can be encoded directly, but some refer to a label
+which is not known at the time a single instruction is created. The answer
+to this problem is relocation information. When generating instructions
+also relocation information is emitted. During link time, or during loading
+the relocations are resolved and the instructions are patched.
+
+To define a relocation, subclass :class:`ppci.arch.encoding.Relocation`.
+
+.. testcode:: encoding
+
+    from ppci.arch.encoding import Relocation
+
+    class Stm8WordToken(Token):
+        size = 16
+        endianness = 'big'
+        word = bit_range(0, 16)
+
+    class Stm8Abs16Relocation(Relocation):
+        name = 'abs16'
+        token = Stm8WordToken
+        field = 'word'
+
+        def calc(self, symbol_value, reloc_value):
+            return symbol_value
+
+
+To use this relocation, use it in an instructions 'relocations' function:
+
+
+.. testcode:: encoding
+
+    class Jp(Instruction):
+        label = Operand('label', str)
+        syntax = Syntax(['jp', ' ', label])
+        tokens = [Stm8Token, Stm8WordToken]
+        patterns = {'opcode': 0xcc}
+
+        def relocations(self):
+            return [Stm8Abs16Relocation(self.label, offset=1)]
+
+The relocations function returns a list of relocations for this instruction.
+In this case it is one relocation entry at offset 1 into the instruction.
 
 Instruction groups
 ~~~~~~~~~~~~~~~~~~
