@@ -67,9 +67,10 @@ class BinaryOutputStream(OutputStream):
         section.add_data(bin_data)
         for sym in item.symbols():
             self.obj_file.add_symbol(sym, address, section.name)
-        for sym, typ in item.relocations():
-            typ_name = typ.__name__
-            self.obj_file.add_relocation(sym, address, typ_name, section.name)
+        for reloc in item.relocations():
+            reloc.offset += address
+            reloc.section = section.name
+            self.obj_file.add_relocation(reloc)
 
         # Special case for align, TODO do this different?
         if isinstance(item, Alignment):

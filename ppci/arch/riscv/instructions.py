@@ -1,6 +1,4 @@
-"""
-    Definitions of Riscv instructions.
-"""
+""" Definitions of Riscv instructions. """
 
 # pylint: disable=no-member,invalid-name
 
@@ -9,59 +7,24 @@ from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd
 from ...utils.bitfun import wrap_negative
 from .registers import RiscvRegister
-from ..token import Token, bit_range, bit_concat
-from .relocations import apply_absaddr32
-from .relocations import apply_b_imm12, apply_b_imm20, apply_abs32_imm20
-from .relocations import apply_abs32_imm12, apply_rel_imm20, apply_rel_imm12
-
-
-# TODO: do not use ir stuff here!
+from .relocations import AbsAddr32Relocation
+from .relocations import BImm12Relocation, BImm20Relocation
+from .relocations import Abs32Imm20Relocation
+from .relocations import Abs32Imm12Relocation, RelImm20Relocation
+from .relocations import RelImm12Relocation
+from .tokens import RiscvToken, RiscvIToken
 from ...ir import i32
 
 
 isa = Isa()
 
-isa.register_relocation(apply_b_imm12)
-isa.register_relocation(apply_b_imm20)
-isa.register_relocation(apply_absaddr32)
-isa.register_relocation(apply_abs32_imm20)
-isa.register_relocation(apply_abs32_imm12)
-isa.register_relocation(apply_rel_imm20)
-isa.register_relocation(apply_rel_imm12)
-
-
-class RiscvToken(Token):
-    def __init__(self):
-        super().__init__(32, '<I')
-
-    opcode = bit_range(0, 7)
-    rd = bit_range(7, 12)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    rs2 = bit_range(20, 25)
-    funct7 = bit_range(25, 32)
-
-
-class RiscvIToken(Token):
-    def __init__(self):
-        super().__init__(32, '<I')
-
-    opcode = bit_range(0, 7)
-    rd = bit_range(7, 12)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    imm = bit_range(20, 32)
-
-
-class RiscvSToken(Token):
-    def __init__(self):
-        super().__init__(32, '<I')
-
-    opcode = bit_range(0, 7)
-    funct3 = bit_range(12, 15)
-    rs1 = bit_range(15, 20)
-    rs2 = bit_range(20, 25)
-    imm = bit_concat(bit_range(25, 32), bit_range(7, 12))
+isa.register_relocation(BImm12Relocation)
+isa.register_relocation(BImm20Relocation)
+isa.register_relocation(AbsAddr32Relocation)
+isa.register_relocation(Abs32Imm20Relocation)
+isa.register_relocation(Abs32Imm12Relocation)
+isa.register_relocation(RelImm20Relocation)
+isa.register_relocation(RelImm12Relocation)
 
 
 class RiscvInstruction(Instruction):
@@ -88,7 +51,7 @@ class Dcd2(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.v, apply_absaddr32)]
+        return [AbsAddr32Relocation(self.v)]
 
 
 def Mov(*args):
@@ -274,7 +237,7 @@ class Bl(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_b_imm20)]
+        return [BImm20Relocation(self.target)]
 
 
 class B(RiscvInstruction):
@@ -288,7 +251,7 @@ class B(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_b_imm20)]
+        return [BImm20Relocation(self.target)]
 
 
 class Blr(RiscvInstruction):
@@ -337,7 +300,7 @@ class Adru(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.label, apply_abs32_imm20)]
+        return [Abs32Imm20Relocation(self.label)]
 
 
 class Adrurel(RiscvInstruction):
@@ -353,7 +316,7 @@ class Adrurel(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.label, apply_rel_imm20)]
+        return [RelImm20Relocation(self.label)]
 
 
 class Adrl(RiscvInstruction):
@@ -372,7 +335,7 @@ class Adrl(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.label, apply_abs32_imm12)]
+        return [Abs32Imm12Relocation(self.label)]
 
 
 class Adrlrel(RiscvInstruction):
@@ -391,7 +354,7 @@ class Adrlrel(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.label, apply_rel_imm12)]
+        return [RelImm12Relocation(self.label)]
 
 
 class Auipc(RiscvInstruction):
@@ -423,7 +386,7 @@ class BranchBase(RiscvInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_b_imm12)]
+        return [BImm12Relocation(self.target)]
 
 
 def make_branch(mnemonic, cond, invert):

@@ -60,9 +60,7 @@ First the proper token is defined:
     from ppci.arch.token import Token, bit, bit_range, bit_concat
 
     class AvrArithmaticToken(Token):
-        def __init__(self):
-            super().__init__(16, '<H')
-
+        size = 16
         op = bit_range(10, 16)
         r = bit_concat(bit(9), bit_range(0, 4))
         d = bit_range(4, 9)

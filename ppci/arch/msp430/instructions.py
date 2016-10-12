@@ -16,9 +16,7 @@ isa = Isa()
 
 
 class Msp430SingleOperandToken(Token):
-    def __init__(self):
-        super().__init__(16, '<H')
-
+    size = 16
     prefix = bit_range(10, 16)
     opcode = bit_range(7, 10)
     bw = bit(6)
@@ -27,18 +25,14 @@ class Msp430SingleOperandToken(Token):
 
 
 class Msp430JumpToken(Token):
-    def __init__(self):
-        super().__init__(16, '<H')
-
+    size = 16
     opcode = bit_range(13, 16)
     condition = bit_range(10, 13)
     offset = bit_range(0, 10)
 
 
 class Msp430TwoOperandToken(Token):
-    def __init__(self):
-        super().__init__(16, '<H')
-
+    size = 16
     opcode = bit_range(12, 16)
     source = bit_range(8, 12)
     Ad = bit(7)
@@ -48,55 +42,40 @@ class Msp430TwoOperandToken(Token):
 
 
 class SrcImmToken(Token):
+    size = 16
     srcimm = bit_range(0, 16)
-
-    def __init__(self):
-        super().__init__(16, '<H')
 
 
 class DstImmToken(Token):
+    size = 16
     dstimm = bit_range(0, 16)
-
-    def __init__(self):
-        super().__init__(16, '<H')
 
 
 # Relocation functions:
 @isa.register_relocation
-def apply_rel10bit(sym_value, data, reloc_value):
+class Rel10Relocation(Relocation):
     """ Apply 10 bit signed relocation """
-    assert sym_value % 2 == 0
-    offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
-    assert offset in range(-511, 511, 1), str(offset)
-    imm10 = wrap_negative(offset, 10)
-    data[0] = imm10 & 0xff
-    cmd = data[1] & 0xfc
-    data[1] = cmd | (imm10 >> 8)
+    name = 'rel10'
+    token = Msp430JumpToken
+    field = 'offset'
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 2 == 0
+        offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
+        assert offset in range(-511, 511, 1), str(offset)
+        return wrap_negative(offset, 10)
 
 
 @isa.register_relocation
-def apply_abs16_imm0(sym_value, data, reloc_value):
+class Abs16Relocation(Relocation):
     """ Lookup address and assign to 16 bit """
-    assert sym_value % 2 == 0
-    data[0] = sym_value & 0xff
-    data[1] = (sym_value >> 8) & 0xff
+    name = 'abs16'
+    token = SrcImmToken
+    field = 'srcimm'
 
-
-@isa.register_relocation
-def apply_abs16_imm1(sym_value, data, reloc_value):
-    """ Lookup address and assign to 16 bit """
-    assert sym_value % 2 == 0
-    data[2] = sym_value & 0xff
-    data[3] = (sym_value >> 8) & 0xff
-
-
-@isa.register_relocation
-def apply_abs16_imm2(sym_value, data, reloc_value):
-    """ Lookup address and assign to 16 bit """
-    # TODO: merge this with imm2 variant
-    assert sym_value % 2 == 0
-    data[4] = sym_value & 0xff
-    data[5] = (sym_value >> 8) & 0xff
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 2 == 0
+        return sym_value
 
 
 class Dst(Constructor):
@@ -156,9 +135,9 @@ class ConstLabelSrc(Src):
     is_special = True
     patterns = {'As': 3, 'source': 0}
     # TODO: reloc here? this should be implemented something like this:
-    relocations = (
-        Relocation(addr, apply_abs16_imm0),
-    )
+    # relocations = (
+    #    Relocation(addr, apply_abs16_imm0),
+    #)
 
 
 as_cn_map = {-1: 3, 0: 0, 1: 1, 2: 2, 4: 2, 8: 3}
@@ -248,7 +227,7 @@ class JumpInstruction(Msp430Instruction):
     tokens = [Msp430JumpToken]
 
     def relocations(self):
-        yield (self.target, apply_rel10bit)
+        yield Rel10Relocation(self.target)
 
 
 def create_jump_instruction(name, condition):
@@ -284,7 +263,7 @@ class OneOpArith(Msp430Instruction):
     def relocations(self):
         # TODO: re design this:
         if hasattr(self.src, 'addr'):
-            yield (self.src.addr, apply_abs16_imm1)
+            yield Abs16Relocation(self.src.addr, offset=2)
 
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
@@ -354,12 +333,12 @@ class TwoOpArithInstruction(Msp430Instruction):
 
     def relocations(self):
         if hasattr(self.src, 'addr'):
-            yield (self.src.addr, apply_abs16_imm1)
+            yield Abs16Relocation(self.src.addr, offset=2)
         if hasattr(self.dst, 'addr'):
             if hasattr(self.src, 'addr'):
-                yield (self.dst.addr, apply_abs16_imm2)
+                yield Abs16Relocation(self.dst.addr, offset=4)
             else:
-                yield (self.dst.addr, apply_abs16_imm1)
+                yield Abs16Relocation(self.dst.addr, offset=2)
 
     @property
     def used_registers(self):

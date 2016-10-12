@@ -4,8 +4,8 @@ from ...utils.bitfun import wrap_negative
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
-from ..token import Token, bit_range, bit
-from .rvc_relocations import apply_bc_imm11, apply_bc_imm8
+from .tokens import RiscvcToken
+from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
 from ..arch import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addr, Addi, Slli, Srli
 from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne
@@ -19,18 +19,8 @@ class RegisterSet(set):
 
 rvcisa = Isa()
 
-rvcisa.register_relocation(apply_bc_imm11)
-rvcisa.register_relocation(apply_bc_imm8)
-
-
-class RiscvcToken(Token):
-    def __init__(self):
-        super().__init__(16, '<H')
-
-    op = bit_range(0, 2)
-    rd = bit_range(7, 12)
-    funct3 = bit_range(13, 16)
-    imm = bit(12) + bit_range(2, 7)
+rvcisa.register_relocation(BcImm11Relocation)
+rvcisa.register_relocation(BcImm8Relocation)
 
 
 class RiscvcInstruction(Instruction):
@@ -154,7 +144,7 @@ class CJal(RiscvcInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_bc_imm11)]
+        return [BcImm11Relocation(self.target)]
 
 
 class CJ(RiscvcInstruction):
@@ -168,7 +158,7 @@ class CJ(RiscvcInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_bc_imm11)]
+        return [BcImm11Relocation(self.target)]
 
 
 class CJr(RiscvcInstruction):
@@ -208,7 +198,7 @@ class CBeqz(RiscvcInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_bc_imm8)]
+        return [BcImm8Relocation(self.target)]
 
 
 class CBnez(RiscvcInstruction):
@@ -224,7 +214,7 @@ class CBnez(RiscvcInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_bc_imm8)]
+        return [BcImm8Relocation(self.target)]
 
 
 class CLw(RiscvcInstruction):

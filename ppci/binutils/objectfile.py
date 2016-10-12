@@ -18,6 +18,7 @@ The hierarchy is as follows:
 import json
 import binascii
 from ..common import CompilerError, make_num
+from ..arch.encoding import Relocation
 from . import debuginfo
 
 
@@ -35,24 +36,6 @@ class Symbol:
     def __eq__(self, other):
         return (self.name, self.value, self.section) == \
             (other.name, other.value, other.section)
-
-
-class Relocation:
-    """ Represents a relocation entry. A relocation always has a symbol to
-        refer to and a relocation type """
-    def __init__(self, sym, offset, typ, section):
-        self.sym = sym
-        self.offset = offset
-        self.typ = typ
-        self.section = section
-
-    def __repr__(self):
-        return 'RELOC {} off={} t={} sec={}'.format(
-            self.sym, self.offset, self.typ, self.section)
-
-    def __eq__(self, other):
-        return (self.sym, self.offset, self.typ, self.section) ==\
-            (other.sym, other.offset, other.typ, other.section)
 
 
 class Section:
@@ -192,14 +175,21 @@ class ObjectFile:
         sym = self.symbol_map.pop(name)
         self.symbols.remove(sym)
 
-    def add_relocation(self, sym_name, offset, typ, section):
-        """ Add a relocation """
-        assert isinstance(sym_name, str), str(sym_name)
-        assert self.has_section(section)
+    def add_relocation(self, reloc):
+        """ Add a relocation entry """
+        assert isinstance(reloc, Relocation)
+        assert isinstance(reloc.symbol_name, str), str(reloc.symbol_name)
+        assert self.has_section(reloc.section)
         # assert sym_name in self.symbols
-        reloc = Relocation(sym_name, offset, typ, section)
         self.relocations.append(reloc)
         return reloc
+
+    def gen_relocation(self, typ, sym_name, offset=0, section=None, addend=0):
+        """ Create a relocation given by name """
+        reloc_cls = self.arch.isa.relocation_map['rel8']
+        reloc = reloc_cls(
+            sym_name, offset=offset, section=section, addend=addend)
+        return self.add_relocation(reloc)
 
 #    def add_debug(self, section, offset, data):
 #        """ Add debug data to this object file """
@@ -356,9 +346,9 @@ def serialize(x):
         res['value'] = hex(x.value)
         res['section'] = x.section
     elif isinstance(x, Relocation):
-        res['symbol'] = x.sym
+        res['symbol'] = x.symbol_name
         res['offset'] = hex(x.offset)
-        res['type'] = x.typ
+        res['type'] = x.name
         res['section'] = x.section
     else:  # pragma: no cover
         raise NotImplementedError(str(type(x)))
@@ -377,9 +367,14 @@ def deserialize(data):
         section_object.data = asc2bin(section['data'])
         section_object.alignment = make_num(section['alignment'])
     for reloc in data['relocations']:
-        obj.add_relocation(
-            reloc['symbol'], make_num(reloc['offset']),
-            reloc['type'], reloc['section'])
+        typ = reloc['type']
+        rcls = arch.isa.relocation_map[typ]
+        r = rcls(
+            reloc['symbol'],
+            offset=make_num(reloc['offset']),
+            section=reloc['section'],
+            addend=0)
+        obj.add_relocation(r)
     for sym in data['symbols']:
         obj.add_symbol(sym['name'], make_num(sym['value']), sym['section'])
     for image in data['images']:

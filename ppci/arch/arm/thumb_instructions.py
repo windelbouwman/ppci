@@ -5,28 +5,15 @@ from ..encoding import Instruction, Operand, Syntax
 from ..token import u16
 from ..arm.registers import ArmRegister, LowArmRegister
 from ..token import Token, bit_range
-from .thumb_relocations import apply_lit8, apply_wrap_new11, apply_b_imm11_imm6
-from .thumb_relocations import apply_rel8, apply_bl_imm11
+from .thumb_relocations import Lit8Relocation, WrapNew11Relocation
+from .thumb_relocations import BImm11Imm6Relocation
+from .thumb_relocations import Rel8Relocation, BlImm11Relocation
+from .isa import thumb_isa, ThumbToken
 
 # pylint: disable=no-member,invalid-name
 
 
-class ThumbToken(Token):
-    def __init__(self):
-        super().__init__(16, '<H')
-
-    rd = bit_range(0, 3)
-
-
 # Instructions:
-thumb_isa = Isa()
-
-thumb_isa.register_relocation(apply_rel8)
-thumb_isa.register_relocation(apply_lit8)
-thumb_isa.register_relocation(apply_wrap_new11)
-thumb_isa.register_relocation(apply_b_imm11_imm6)
-thumb_isa.register_relocation(apply_bl_imm11)
-
 
 class ThumbInstruction(Instruction):
     """ Base of all thumb instructions.
@@ -136,7 +123,7 @@ class Ldr3(ThumbInstruction):
     syntax = Syntax(['ldr', ' ', rt, ',', ' ', label])
 
     def relocations(self):
-        return [(self.label, apply_lit8)]
+        return [Lit8Relocation(self.label)]
 
     def encode(self):
         rt = self.rt.num
@@ -170,7 +157,7 @@ class Adr(ThumbInstruction):
     syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
-        return [(self.label, apply_lit8)]
+        return [Lit8Relocation(self.label)]
 
     def encode(self):
         tokens = self.get_tokens()
@@ -217,7 +204,7 @@ class regregimm3_base(ThumbInstruction):
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
     syntax = Syntax([
-        'add', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
+        'add', ' ', regregimm3_base.rd, ',', ' ', regregimm3_base.rn, ',',
         regregimm3_base.imm3])
     opcode = 0b0001110
 
@@ -225,7 +212,7 @@ class Add2(regregimm3_base):
 class Sub2(regregimm3_base):
     """ sub Rd, Rn, imm3 """
     syntax = Syntax([
-        'sub', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
+        'sub', ' ', regregimm3_base.rd, ',', ' ', regregimm3_base.rn, ',',
         regregimm3_base.imm3])
     opcode = 0b0001111
 
@@ -376,7 +363,7 @@ class B(ThumbInstruction):
         return u16(h)
 
     def relocations(self):
-        return [(self.target, apply_wrap_new11)]
+        return [WrapNew11Relocation(self.target)]
 
 
 class Bw(LongThumbInstruction):
@@ -384,7 +371,7 @@ class Bw(LongThumbInstruction):
         Same encoding as Bl, longer jumps are possible with this function!
     """
     target = Operand('target', str)
-    syntax = Syntax(['bw', target])
+    syntax = Syntax(['bw', ' ', target])
 
     def encode(self):
         j1 = 1
@@ -398,7 +385,7 @@ class Bw(LongThumbInstruction):
         return tokens[0].encode() + tokens[1].encode()
 
     def relocations(self):
-        return [(self.target, apply_bl_imm11)]
+        return [BlImm11Relocation(self.target)]
 
 
 class Bl(LongThumbInstruction):
@@ -419,7 +406,7 @@ class Bl(LongThumbInstruction):
         return tokens[0].encode() + tokens[1].encode()
 
     def relocations(self):
-        return [(self.target, apply_bl_imm11)]
+        return [BlImm11Relocation(self.target)]
 
 
 class cond_base_ins(ThumbInstruction):
@@ -429,7 +416,7 @@ class cond_base_ins(ThumbInstruction):
         return u16(h)
 
     def relocations(self):
-        return [(self.target, apply_rel8)]
+        return [Rel8Relocation(self.target)]
 
 
 def make_cond_branch(mnemonic, cond):
@@ -459,7 +446,7 @@ class cond_base_ins_long(LongThumbInstruction):
         return u16(h1) + u16(h2)
 
     def relocations(self):
-        return [(self.target, apply_b_imm11_imm6)]
+        return [BImm11Imm6Relocation(self.target)]
 
 
 def make_long_cond_branch(mnemonic, cond):

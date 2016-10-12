@@ -362,13 +362,6 @@ class Instruction(Constructor, metaclass=InsMeta):
         return cls.from_tokens(tokens)
 
     def relocations(self):
-        if isinstance(self.patterns, dict):
-            rlcs = []
-            for name, value in self.patterns.items():
-                if isinstance(value, Reloc):
-                    lab = value.ref_op.__get__(self)
-                    rlcs.append((lab, value.apply))
-            return rlcs
         return []
 
     def symbols(self):
@@ -494,14 +487,54 @@ class VariablePattern(BitPattern):
         return v
 
 
-class Reloc:
-    """ Relocation specifier.
+class Relocation:
+    """ Baseclass for all relocation types.
 
-    Refers to a label operand, and contains a function to calculate the offset.
+    Subclass this class to create custom relocations.
+    Subclasses should add the following attributes:
+    - name: the name used to refer to the relocation type.
+    - number: the number that can be used to uniquely identify the relocation.
+    - apply: a function that can be used to apply the relocation.
+    - calc: a function that calculates the value for the relocation.
     """
-    def __init__(self, ref_op):
-        assert isinstance(ref_op, Operand) and ref_op._cls is str
-        self.ref_op = ref_op
+    name = None
+    number = None
+    token = None
+    field = None
+
+    def __init__(self, symbol_name, offset=0, addend=0, section=None):
+        self.symbol_name = symbol_name
+        self.addend = addend
+        self.section = section
+        self.offset = offset
+
+    def __eq__(self, other):
+        s = (
+            self.symbol_name, self.offset, type(self),
+            self.section, self.addend)
+        o = (
+            other.symbol_name, other.offset, type(other),
+            other.section, other.addend)
+        return s == o
+
+    @classmethod
+    def size(cls):
+        """ Calculate the amount of bytes this relocation requires """
+        assert cls.token.size % 8 == 0
+        return cls.token.size // 8
+
+    def apply(self, sym_value, data, reloc_value):
+        """ Apply this relocation type given some parameters.
+
+        This is the default implementation which stores the outcome of
+        the calculate function into the proper token. """
+        assert self.token is not None
+        token = self.token.from_data(data)
+        assert self.field is not None
+        assert hasattr(token, self.field)
+        setattr(token, self.field, self.calc(sym_value, reloc_value))
+        return token.encode()
 
     def calc(self, sym_value, reloc_value):  # pragma: no cover
+        """ Calculate the relocation """
         raise NotImplementedError()

@@ -91,6 +91,7 @@ class LlvmIrParser(RecursiveDescentParser):
             self.consume('datalayout')
             self.consume('=')
             val = self.parse_string_constant()
+            # self.module.data_layout.reset(val)
         return val
 
     def parse_unnamed_attr_group(self):

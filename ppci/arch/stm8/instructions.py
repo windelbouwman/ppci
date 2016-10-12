@@ -1,52 +1,43 @@
-from .registers import Stm8RegisterA, Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH, Stm8RegisterY, Stm8RegisterYL, Stm8RegisterYH, Stm8RegisterSP, Stm8RegisterCC
+from .registers import Stm8RegisterA
+from .registers import Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH
+from .registers import Stm8RegisterY, Stm8RegisterYL, Stm8RegisterYH
+from .registers import Stm8RegisterSP, Stm8RegisterCC
 from ..isa import Isa
 from ..encoding import FixedPattern, Instruction, Operand, Syntax, VariablePattern
 from ..token import bit_range, Token
 
 
-
 class Stm8PrecodeToken(Token):
+    size = 8
     precode = bit_range(0, 8)
-
-    def __init__(self):
-        super().__init__(8, fmt='>B')
 
 
 class Stm8OpcodeToken(Token):
-    opcode   = bit_range(0, 8)
+    size = 8
+    opcode = bit_range(0, 8)
     position = bit_range(1, 4)
-
-    def __init__(self):
-        super().__init__(8, fmt='>B')
 
 
 class Stm8ByteToken(Token):
+    size = 8
     byte = bit_range(0, 8)
-
-    def __init__(self):
-        super().__init__(8, fmt='>B')
 
 
 class Stm8WordToken(Token):
+    size = 16
+    endianness = 'big'
     word = bit_range(0, 16)
-
-    def __init__(self):
-        super().__init__(16, fmt='>H')
 
 
 class Stm8Byte2Token(Token):
+    size = 8
     byte2 = bit_range(0, 8)
-
-    def __init__(self):
-        super().__init__(8, fmt='>B')
 
 
 class Stm8Word2Token(Token):
+    size = 16
+    endianness = 'big'
     word2 = bit_range(0, 16)
-
-    def __init__(self):
-        super().__init__(16, fmt='>H')
-
 
 
 stm8_isa = Isa()
@@ -54,7 +45,6 @@ stm8_isa = Isa()
 
 class Stm8Instruction(Instruction):
     isa = stm8_isa
-
 
 
 def get_register_argument(name, mnemonic, read=True, write=False):

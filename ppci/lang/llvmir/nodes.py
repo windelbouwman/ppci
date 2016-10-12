@@ -6,6 +6,7 @@ class Module:
     """ Holds all information related to a module """
     def __init__(self, context):
         self.context = context
+        self.data_layout = DataLayout()
         self.functions = OwnedList(self)
 
 
@@ -501,3 +502,23 @@ class Context:
 class DataLayout:
     def get_type_alloc_size(self, ty):
         pass
+
+    def reset(self, layout_description):
+        self.parse_specifier(layout_description)
+
+    def parse_specifier(self, desc):
+        for part in desc.split('-'):
+            print(part)
+            toks = part.split(':')
+            if toks[0] == 'e':
+                self.big_endian = False
+            elif toks[0] == 'E':
+                self.big_endian = True
+            elif toks[0] == 'm':
+                if toks[1] == 'e':
+                    self.mangling = 'ELF'
+                else:
+                    raise NotImplementedError(toks[1])
+            else:
+                raise NotImplementedError(part)
+

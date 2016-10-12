@@ -5,6 +5,7 @@ These can be used to define an instruction set.
 
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
+from .encoding import Relocation
 
 
 Pattern = namedtuple(
@@ -44,8 +45,9 @@ class Isa:
 
     def register_relocation(self, relocation):
         """ Register a relocation into this isa """
-        name = relocation.__name__
-        self.relocation_map[name] = relocation
+        assert issubclass(relocation, Relocation)
+        assert relocation.name is not None
+        self.relocation_map[relocation.name] = relocation
         return relocation
 
     def register_pattern(self, pattern):
@@ -76,12 +78,3 @@ class Isa:
             self.register_pattern(pat)
             return function
         return wrapper
-
-
-class Relocation:
-    """
-        Contains information on the relocation to apply.
-    """
-    def __init__(self, label_prop, reloc_function):
-        self.a = label_prop
-        self.reloc_function = reloc_function

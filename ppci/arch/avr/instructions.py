@@ -1,5 +1,5 @@
 from ..isa import Isa
-from ..encoding import Instruction, Operand, Syntax, Reloc, Patcher
+from ..encoding import Instruction, Operand, Syntax, Relocation, Patcher
 from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
@@ -11,8 +11,7 @@ from .registers import r0, r1, r1r0
 
 
 class AvrToken(Token):
-    def __init__(self):
-        super().__init__(16, fmt='<H')
+    size = 16
     w0 = bit_range(0, 16)
     b0 = bit_range(0, 8)
     b1 = bit_range(8, 16)
@@ -24,8 +23,7 @@ class AvrToken(Token):
 
 
 class Imm16Token(Token):
-    def __init__(self):
-        super().__init__(16, fmt='<H')
+    size = 16
     imm = bit_range(0, 16)
 
 
@@ -62,6 +60,7 @@ class AvrToken4(AvrToken):
 class ConditionalBranchToken(AvrToken):
     op = bit_range(11, 16)
     b = bit(10) + bit_range(0, 3)
+    offset = bit_range(3, 10)
 
 
 class AvrToken99(AvrToken):
@@ -207,25 +206,11 @@ def lsl(rd):
 
 
 @avr_isa.register_relocation
-def relsigned12bit(sym_value, data, reloc_value):
-    assert sym_value % 2 == 0
-    assert reloc_value % 2 == 0
-    offset = (sym_value - reloc_value - 2) // 2
-    assert offset in range(-2047, 2048), str(offset)
-    imm12 = wrap_negative(offset, 12)
-    data[0] = imm12 & 0xff
-    data[1] = (data[1] & 0xf0) | (imm12 >> 8)
-
-
-class Reloc12bit(Reloc):
+class TwelveBitAvrRelocation(Relocation):
     name = '12bit'
-    token_cls = AvrToken
+    number = 0
+    token = AvrToken
     field = 'n210'
-
-    def apply(self, sym_value, data, reloc_value):
-        token = self.token_cls.fromdata(data)
-        token.field = self.calc(sym_value, reloc_value)
-        data = token.encode()
 
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
@@ -239,10 +224,10 @@ class Rjmp(AvrInstruction):
     tokens = [AvrToken]
     lab = Operand('lab', str)
     syntax = Syntax(['rjmp', ' ', lab])
-    patterns = {'n3': 0xc, 'n210': Reloc12bit(lab)}
+    patterns = {'n3': 0xc}
 
     def relocations(self):
-        return [(self.lab, relsigned12bit)]
+        return [TwelveBitAvrRelocation(self.lab, offset=0)]
 
 
 class Call(AvrInstruction):
@@ -252,62 +237,55 @@ class Call(AvrInstruction):
     patterns = {'n3': 0xd}
 
     def relocations(self):
-        return [(self.lab, relsigned12bit)]
+        return [TwelveBitAvrRelocation(self.lab, offset=0)]
 
 
 @avr_isa.register_relocation
-def relsigned7bit(sym_value, data, reloc_value):
-    """ Apply 7 bit signed relocation """
-    assert sym_value % 2 == 0
-    assert reloc_value % 2 == 0
-    offset = (sym_value - reloc_value - 2) // 2
-    assert offset in range(-63, 64), str(offset)
-    imm7 = wrap_negative(offset, 7)
-    data[0] = (data[0] & 0x7) | ((imm7 & 0x1f) << 3)
-    data[1] = (data[1] & 0xfc) | ((imm7 >> 5) & 0x3)
+class SevenBitAvrRelocation(Relocation):
+    """ 7 bit signed relocation """
+    name = '7bit'
+    number = 1
+    token = ConditionalBranchToken
+    field = 'offset'
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 2 == 0
+        assert reloc_value % 2 == 0
+        offset = (sym_value - reloc_value - 2) // 2
+        assert offset in range(-63, 64), str(offset)
+        imm7 = wrap_negative(offset, 7)
+        return imm7
 
 
-class Brne(AvrInstruction):
-    """ Branch when not equal (Z flag is cleared) """
+class AvrConditionalJumpInstruction(AvrInstruction):
     tokens = [ConditionalBranchToken]
     lab = Operand('lab', str)
-    syntax = Syntax(['brne', ' ', lab])
+
+    def relocations(self):
+        return [SevenBitAvrRelocation(self.lab)]
+
+
+class Brne(AvrConditionalJumpInstruction):
+    """ Branch when not equal (Z flag is cleared) """
+    syntax = Syntax(['brne', ' ', AvrConditionalJumpInstruction.lab])
     patterns = {'op': 0b11110, 'b': 0b1001}
 
-    def relocations(self):
-        return [(self.lab, relsigned7bit)]
 
-
-class Breq(AvrInstruction):
-    tokens = [ConditionalBranchToken]
-    lab = Operand('lab', str)
-    syntax = Syntax(['breq', ' ', lab])
+class Breq(AvrConditionalJumpInstruction):
+    syntax = Syntax(['breq', ' ', AvrConditionalJumpInstruction.lab])
     patterns = {'op': 0b11110, 'b': 0b0001}
 
-    def relocations(self):
-        return [(self.lab, relsigned7bit)]
 
-
-class Brlt(AvrInstruction):
+class Brlt(AvrConditionalJumpInstruction):
     """ Branch if less than (signed) """
-    tokens = [ConditionalBranchToken]
-    lab = Operand('lab', str)
-    syntax = Syntax(['brlt', ' ', lab])
+    syntax = Syntax(['brlt', ' ', AvrConditionalJumpInstruction.lab])
     patterns = {'op': 0b11110, 'b': 0b0100}
 
-    def relocations(self):
-        return [(self.lab, relsigned7bit)]
 
-
-class Brge(AvrInstruction):
+class Brge(AvrConditionalJumpInstruction):
     """ Branch if greater or equal (signed) """
-    tokens = [ConditionalBranchToken]
-    lab = Operand('lab', str)
-    syntax = Syntax(['brge', ' ', lab])
+    syntax = Syntax(['brge', ' ', AvrConditionalJumpInstruction.lab])
     patterns = {'op': 0b11110, 'b': 0b1100}
-
-    def relocations(self):
-        return [(self.lab, relsigned7bit)]
 
 
 class Mov(AvrInstruction):
@@ -493,10 +471,15 @@ Ldi = make_i('ldi', 0b1110, read=False, write=True)
 
 
 @avr_isa.register_relocation
-def rel_ldilo(sym_value, data, reloc_value):
-    imm8 = wrap_negative(sym_value, 16) & 0xff
-    data[0] = (data[0] & 0xf0) | imm8 & 0xf
-    data[1] = (data[1] & 0xf0) | ((imm8 >> 4) & 0xf)
+class LdiLoAvrRelocation(Relocation):
+    name = 'ldilo'
+    number = 2
+    token = AvrToken4
+    field = 'k'
+
+    def calc(self, sym_value, reloc_value):
+        imm8 = wrap_negative(sym_value, 16) & 0xff
+        return imm8
 
 
 class LdiLoAddr(AvrInstruction):
@@ -507,14 +490,19 @@ class LdiLoAddr(AvrInstruction):
     patterns = {'op': 0b1110, 'd': PatchedBy16(rd)}
 
     def relocations(self):
-        return [(self.lab, rel_ldilo)]
+        return [LdiLoAvrRelocation(self.lab)]
 
 
 @avr_isa.register_relocation
-def rel_ldihi(sym_value, data, reloc_value):
-    imm8 = (wrap_negative(sym_value, 16) >> 8) & 0xff
-    data[0] = (data[0] & 0xf0) | imm8 & 0xf
-    data[1] = (data[1] & 0xf0) | ((imm8 >> 4) & 0xf)
+class LdiHiAvrRelocation(Relocation):
+    name = 'ldihi'
+    number = 3
+    token = AvrToken4
+    field = 'k'
+
+    def calc(self, sym_value, reloc_value):
+        imm8 = (wrap_negative(sym_value, 16) >> 8) & 0xff
+        return imm8
 
 
 class LdiHiAddr(AvrInstruction):
@@ -525,7 +513,7 @@ class LdiHiAddr(AvrInstruction):
     patterns = {'op': 0b1110, 'd': PatchedBy16(rd)}
 
     def relocations(self):
-        return [(self.lab, rel_ldihi)]
+        return [LdiHiAvrRelocation(self.lab)]
 
 
 class In(AvrInstruction):

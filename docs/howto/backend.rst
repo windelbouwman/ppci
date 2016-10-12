@@ -27,10 +27,10 @@ It is also possible that these classes overlap.
     from ppci.arch.encoding import Register
 
     class X86Register(Register):
-        bitsize=32
+        bitsize = 32
 
     class LowX86Register(Register):
-        bitsize=8
+        bitsize = 8
 
     AL = LowX86Register('al', num=0)
     AH = LowX86Register('ah', num=4)
@@ -55,9 +55,7 @@ add bitfields:
     from ppci.arch.token import Token, bit_range
 
     class Stm8Token(Token):
-        def __init__(self):
-            super().__init__(8, '>B')
-
+        size = 8
         opcode = bit_range(0, 8)
 
 In this example an 8-bit token is defined with one field called 'opcode' of

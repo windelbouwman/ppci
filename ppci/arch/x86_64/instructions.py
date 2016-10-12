@@ -6,7 +6,7 @@
 
 from ..arch import Label, RegisterUseDef
 from ..isa import Isa
-from ..encoding import Instruction, Operand, Syntax, Constructor
+from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u32, u8, u64, bit_range
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx
@@ -18,86 +18,37 @@ isa = Isa()
 # use REX.W on the table below:
 
 
-@isa.register_relocation
-def apply_b_jmp32(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 5))
-    rel24 = wrap_negative(offset, 32)
-    data[4] = (rel24 >> 24) & 0xFF
-    data[3] = (rel24 >> 16) & 0xFF
-    data[2] = (rel24 >> 8) & 0xFF
-    data[1] = rel24 & 0xFF
-
-
-@isa.register_relocation
-def apply_bc_jmp32(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 6))
-    rel24 = wrap_negative(offset, 32)
-    data[5] = (rel24 >> 24) & 0xFF
-    data[4] = (rel24 >> 16) & 0xFF
-    data[3] = (rel24 >> 8) & 0xFF
-    data[2] = rel24 & 0xFF
-
-
-@isa.register_relocation
-def apply_b_jmp8(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 2))
-    rel8 = wrap_negative(offset, 8)
-    data[1] = rel8
-
-
-@isa.register_relocation
-def apply_abs64(sym_value, data, reloc_value):
-    offset = sym_value
-    abs64 = wrap_negative(offset, 64)
-    data[9] = (abs64 >> 56) & 0xFF
-    data[8] = (abs64 >> 48) & 0xFF
-    data[7] = (abs64 >> 40) & 0xFF
-    data[6] = (abs64 >> 32) & 0xFF
-    data[5] = (abs64 >> 24) & 0xFF
-    data[4] = (abs64 >> 16) & 0xFF
-    data[3] = (abs64 >> 8) & 0xFF
-    data[2] = abs64 & 0xFF
-
 # Helper functions:
 
 
 class Imm8Token(Token):
-    token_bitsize = 8
-    token_fmt = '<B'
-
-    def __init__(self):
-        super().__init__(8, '<B')
-
+    size = 8
     disp8 = bit_range(0, 8)
 
 
 class PrefixToken(Token):
-    def __init__(self):
-        super().__init__(8, '<B')
-
+    size = 8
     prefix = bit_range(0, 8)
 
 
 class OpcodeToken(Token):
     """ Primary opcode """
-    def __init__(self):
-        super().__init__(8, '<B')
-
+    size = 8
     opcode = bit_range(0, 8)
 
 
 class SecondaryOpcodeToken(Token):
     """ Secondary opcode """
-    def __init__(self):
-        super().__init__(8, '<B')
-
+    size = 8
     opcode2 = bit_range(0, 8)
 
 
 class ModRmToken(Token):
     """ Construct the modrm byte from its components """
+    size = 8
+
     def __init__(self, mod=0, rm=0, reg=0):
-        super().__init__(8, '<B')
+        super().__init__()
         self.mod = mod
         self.rm = rm
         self.reg = reg
@@ -108,8 +59,9 @@ class ModRmToken(Token):
 
 
 class SibToken(Token):
+    size = 8
     def __init__(self, ss=0):
-        super().__init__(8, '<B')
+        super().__init__()
         self.ss = ss
 
     ss = bit_range(6, 8)
@@ -119,8 +71,10 @@ class SibToken(Token):
 
 class RexToken(Token):
     """ Create a REX prefix byte """
+    size = 8
+
     def __init__(self, w=0, r=0, x=0, b=0):
-        super().__init__(8, '<B')
+        super().__init__()
         self.w = w
         self.r = r
         self.x = x
@@ -134,22 +88,46 @@ class RexToken(Token):
 
 
 class Imm32Token(Token):
-    def __init__(self):
-        super().__init__(32)
-
+    size = 32
     disp32 = bit_range(0, 32)
 
-    def encode(self):
-        return u32(self.bit_value)
+
+class Imm64Token(Token):
+    size = 64
+    disp64 = bit_range(0, 64)
 
 
-# def sib(ss=0, index=0, base=0):
-#   assert(ss <= 3)
-#   assert(index <= 7)
-#   assert(base <= 7)
-#   return (ss << 6) | (index << 3) | base
+@isa.register_relocation
+class Rel32JmpRelocation(Relocation):
+    token = Imm32Token
+    field = 'disp32'
+    name = 'rel32'
 
-# tttn = {'L':0xc,'G':0xf,'NE':0x5,'GE':0xd,'LE':0xe, 'E':0x4}
+    def calc(self, sym_value, reloc_value):
+        offset = (sym_value - (reloc_value + 4))
+        return wrap_negative(offset, 32)
+
+
+@isa.register_relocation
+class Jmp8Relocation(Relocation):
+    token = Imm8Token
+    field = 'disp8'
+    name = 'jmp8'
+
+    def calc(self, sym_value, reloc_value):
+        offset = (sym_value - (reloc_value + 1))
+        return wrap_negative(offset, 8)
+
+
+@isa.register_relocation
+class Abs64Relocation(Relocation):
+    token = Imm64Token
+    field = 'disp64'
+    name = 'abs64'
+
+    def calc(self, sym_value, reloc_value):
+        return wrap_negative(sym_value, 64)
+
 
 # Actual instructions:
 class X86Instruction(Instruction):
@@ -166,7 +144,7 @@ class NearJump(X86Instruction):
     patterns = {'opcode': 0xe9}
 
     def relocations(self):
-        return [(self.target, apply_b_jmp32)]
+        return [Rel32JmpRelocation(self.target, offset=1)]
 
 
 class ConditionalJump(X86Instruction):
@@ -175,7 +153,7 @@ class ConditionalJump(X86Instruction):
     tokens = [PrefixToken, OpcodeToken, Imm32Token]
 
     def relocations(self):
-        return [(self.target, apply_bc_jmp32)]
+        return [Rel32JmpRelocation(self.target, offset=2)]
 
 
 def make_cjump(mnemonic, opcode):
@@ -206,7 +184,7 @@ class ShortJump(X86Instruction):
     patterns = {'opcode': 0xeb}
 
     def relocations(self):
-        return [(self.target, apply_b_jmp8)]
+        return [Jmp8Relocation(self.target, offset=1)]
 
 
 class Push(X86Instruction):
@@ -266,7 +244,7 @@ class Call(X86Instruction):
     patterns = {'opcode': 0xe8}
 
     def relocations(self):
-        return [(self.target, apply_b_jmp32)]
+        return [Rel32JmpRelocation(self.target, offset=1)]
 
 
 class Ret(X86Instruction):
@@ -707,7 +685,7 @@ class MovAdr(X86Instruction):
         return tokens.encode() + u64(0)
 
     def relocations(self):
-        return [(self.imm, apply_abs64)]
+        return [Abs64Relocation(self.imm, offset=2)]
 
 
 # X87 instructions

@@ -13,22 +13,22 @@ class CodeGenerator:
         self.val_map = {}
         self.forward = {}
 
-    def generate(self, module):
+    def generate(self, ll_module):
         """ Convert LLVM IR-module to ppci IR-module """
-        assert isinstance(module, nodes.Module)
+        assert isinstance(ll_module, nodes.Module)
         self.logger.debug('generating ir-code from llvm ir-code')
         self.logger.warning('ir code generation not functional yet')
         self.builder.module = ir.Module('TODO')
-        for function in module.functions:
+        for function in ll_module.functions:
             self.gen_function(function)
         return self.builder.module
 
     def gen_function(self, function):
         """ Generate code for an llvm function """
         self.logger.debug('generating ir-code for %s', function)
-        return
         ir_function = self.builder.new_procedure('b')
         self.builder.set_function(ir_function)
+        return
         for basic_block in function.basic_blocks:
             block = self.builder.new_block()
             self.builder.set_block(block)
@@ -56,13 +56,13 @@ class CodeGenerator:
             ptr = self.get_val(instruction.ptr)
             self.emit(ir.Store(val, ptr))
         elif isinstance(instruction, nodes.InsertElementInst):
-            pass
+            raise NotImplementedError()
         elif isinstance(instruction, nodes.ExtractElementInst):
-            pass
+            raise NotImplementedError()
         elif isinstance(instruction, nodes.ShuffleVectorInst):
-            pass
+            raise NotImplementedError()
         elif isinstance(instruction, nodes.SelectInst):
-            pass
+            raise NotImplementedError()
         elif isinstance(instruction, nodes.PhiNode):
             phi = ir.Phi()
             for incoming in instruction:

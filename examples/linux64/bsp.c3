@@ -1,6 +1,9 @@
 module bsp;
 
-public function void putc(byte c);
+public function void putc(byte c)
+{
+  syscall(1, 1, cast<int>(&c), 1);
+}
 
 public function void sleep(int ms)
 {

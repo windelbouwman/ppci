@@ -4,38 +4,13 @@
 
 # pylint: disable=no-member,invalid-name
 
-from ..isa import Isa
+from .isa import arm_isa, ArmToken, Isa
 from ..encoding import Instruction, Constructor, Syntax, Operand
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
-from ..token import Token, bit_range, bit
-from .relocations import apply_b_imm24, apply_rel8
-from .relocations import apply_ldr_imm12, apply_adr_imm12
-
-# TODO: do not use ir stuff here!
+from .arm_relocations import Imm24Relocation
+from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
 from ...ir import i32
-
-
-arm_isa = Isa()
-
-arm_isa.register_relocation(apply_adr_imm12)
-arm_isa.register_relocation(apply_b_imm24)
-arm_isa.register_relocation(apply_ldr_imm12)
-arm_isa.register_relocation(apply_rel8)
-
-
-# Tokens:
-class ArmToken(Token):
-    def __init__(self):
-        super().__init__(32, '<I')
-
-    cond = bit_range(28, 32)
-    S = bit(20)
-    Rd = bit_range(12, 16)
-    Rn = bit_range(16, 20)
-    Rm = bit_range(0, 4)
-    shift_typ = bit_range(5, 7)
-    shift_imm = bit_range(7, 12)
 
 
 # Patterns:
@@ -385,7 +360,7 @@ class BranchBaseRoot(ArmInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_b_imm24)]
+        return [Imm24Relocation(self.target)]
 
 
 class BranchBase(BranchBaseRoot):
@@ -527,7 +502,7 @@ class Adr(ArmInstruction):
     syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
-        return [(self.label, apply_adr_imm12)]
+        return [AdrImm12Relocation(self.label)]
 
     def encode(self):
         tokens = self.get_tokens()
@@ -549,7 +524,7 @@ class Ldr3(ArmInstruction):
     syntax = Syntax(['ldr', rt, ',', label])
 
     def relocations(self):
-        return [(self.label, apply_ldr_imm12)]
+        return [LdrImm12Relocation(self.label)]
 
     def encode(self):
         tokens = self.get_tokens()

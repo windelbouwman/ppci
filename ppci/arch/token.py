@@ -75,18 +75,19 @@ def bit_concat(*partials):
 
 class Token:
     """ A token in a stream """
-    def __init__(self, bitsize, fmt=None):
-        self.bitsize = bitsize
-        self.fmt = fmt
-        if fmt:
-            assert bitsize == struct.calcsize(fmt) * 8
-        self.bit_value = 0
-        self.mask = (1 << self.bitsize) - 1
+    size = None  # The size in bits of the token
+    endianness = 'little'
+
+    def __init__(self, initial_bit_value=0):
+        assert self.size is not None
+        assert self.size % 8 == 0
+        self.bit_value = initial_bit_value
+        self.mask = (1 << self.size) - 1
 
     def set_bit(self, i, value):
         """ Sets a specific bit in this token """
         value = bool(value)
-        assert i in range(0, self.bitsize)
+        assert i in range(0, self.size)
         mask = 1 << i
         if value:
             self.bit_value |= mask
@@ -122,10 +123,41 @@ class Token:
 
     def encode(self):
         """ Encode the token given some format """
-        return struct.pack(self.fmt, self.bit_value)
+        return self.pack(self.bit_value)
+
+    @classmethod
+    def from_data(cls, data):
+        """ Instantiate this token type from the given data """
+        initial_bit_value = cls.unpack(data)
+        return cls(initial_bit_value)
 
     def fill(self, data):
-        self.bit_value, = struct.unpack(self.fmt, data)
+        self.bit_value = self.unpack(data)
+
+    @classmethod
+    def pack(cls, value):
+        """ Pack integer value into bytes """
+        assert cls.size is not None
+        size = cls.size // 8
+        if cls.endianness == 'little':
+            byte_numbers = range(size)
+        else:
+            byte_numbers = reversed(range(size))
+        return bytes((value >> (x * 8)) & 0xff for x in byte_numbers)
+
+    @classmethod
+    def unpack(cls, data):
+        """ Unpack data into integer value """
+        byte_size = cls.size // 8
+        if len(data) != byte_size:
+            raise TypeError('Incorrect amount of data provided')
+        value = 0
+        if cls.endianness == 'little':
+            data = reversed(data)
+        for byte in data:
+            value <<= 8
+            value += byte
+        return value
 
 
 class TokenSequence:
@@ -162,7 +194,7 @@ class TokenSequence:
         """ Fill the tokens with data """
         offset = 0
         for token in self.tokens:
-            size = token.bitsize // 8
+            size = token.size // 8
             piece = data[offset:offset+size]
             if len(piece) != size:
                 raise ValueError('Not enough data for instruction')
