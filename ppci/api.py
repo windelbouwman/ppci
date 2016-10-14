@@ -43,7 +43,7 @@ from .arch.target_list import create_arch
 # When using 'from ppci.api import *' include the following:
 __all__ = [
     'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize',
-    'get_arch']
+    'get_arch', 'ir_to_object']
 
 
 def get_arch(arch):

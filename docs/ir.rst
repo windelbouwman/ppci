@@ -31,7 +31,7 @@ Top level structure
 The IR-code is implemented in the ir package.
 
 .. autoclass:: ppci.ir.Module
-    :members: variables, functions, add_variable
+    :members:
 
 .. autoclass:: ppci.ir.Variable
 

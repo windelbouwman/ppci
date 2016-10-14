@@ -72,6 +72,11 @@ Other compilers written in python
   Machine code generation in python from llvm ir code.
   https://github.com/pfalcon/llvm-codegen-py
 
+* `textx`
+
+  A toolkit to create DSL tools.
+  https://github.com/igordejanovic/textX
+
 
 Citations
 ---------

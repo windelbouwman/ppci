@@ -83,15 +83,9 @@ class Movr(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
     rm = Operand('rm', RiscvRegister, read=True)
     syntax = Syntax(['mov', rd, ',', rm])
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0010011
-        tokens[0][7:12] = self.rd.num
-        tokens[0][12:15] = 0
-        tokens[0][15:20] = self.rm.num
-        tokens[0][20:32] = 0
-        return tokens[0].encode()
+    patterns = {
+        'opcode': 0b0010011, 'rd': rd, 'funct3': 0, 'rs1': rm,
+        'rs2': 0, 'funct7': 0}
 
 
 def make_regregreg(mnemonic, opcode, func):

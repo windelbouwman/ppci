@@ -253,8 +253,7 @@ class SevenBitAvrRelocation(Relocation):
         assert reloc_value % 2 == 0
         offset = (sym_value - reloc_value - 2) // 2
         assert offset in range(-63, 64), str(offset)
-        imm7 = wrap_negative(offset, 7)
-        return imm7
+        return wrap_negative(offset, 7)
 
 
 class AvrConditionalJumpInstruction(AvrInstruction):

@@ -1,0 +1,10 @@
+
+Program: statements*=Statement;
+Statement: (PrintStatement | AssignmentStatement) ';';
+PrintStatement: 'print' var=ID;
+AssignmentStatement: var=ID '=' expr=Expression;
+Expression: val=Sum;
+Sum: base=Product (('+'|'-') Product)*;
+Product: base=Value ('*' Value)*;
+Value: ID | INT | ('(' Expression ')');
+

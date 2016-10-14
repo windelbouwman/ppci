@@ -15,6 +15,7 @@ docs/_build
 docs/examples.zip
 examples/linux64/hello/hello
 examples/linux64/snake/snake
+examples/toydsl/dslenv
 test/.coverage
 test/listings
 test/FORTRAN
