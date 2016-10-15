@@ -236,6 +236,7 @@ class ObjectFile:
         """ Save object file to a file like object """
         self.polish()
         json.dump(serialize(self), output_file, indent=2, sort_keys=True)
+        print(file=output_file)
 
     @staticmethod
     def load(input_file):
