@@ -12,7 +12,7 @@ from ppci.binutils.dbg_gdb_client import GdbDebugDriver
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     arch = get_arch("riscv")
-    debugger = Debugger(arch, GdbDebugDriver(arch, port=4567, constat=RUNNING))
+    debugger = Debugger(arch, GdbDebugDriver(arch, port=4567, constat=RUNNING,pcresval=0))
     obj = get_object("firmware.tlf")
     debugger.load_symbols(obj, validate=False)
     DebugCli(debugger).cmdloop()

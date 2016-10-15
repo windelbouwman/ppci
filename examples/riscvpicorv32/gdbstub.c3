@@ -174,6 +174,66 @@ public function void readreg(byte* cmdptr,byte* regs, byte* dataptr)
   *dataptr=0;
 }
 
+public function void readregs(byte* regs, byte* dataptr)
+{
+  var int i,j;
+  var byte bch = 0;
+  for(i=0;i<33;i=i+1) {
+      for(j=0;j<4;j+=1) {
+         bch = *regs;
+         *dataptr = highhex(bch);
+         dataptr += 1;
+         *dataptr = lowhex(bch);
+         dataptr += 1;
+         regs += 1;
+      }
+  }
+  *dataptr=0;
+}
+
+
+
+public function void writereg(byte* cmdptr,byte* regs)
+{
+  var int regnr = 0;
+  var int res = 0;
+  var int i;
+  var byte ch = 0;
+  var byte* memptr;
+  res = hexstring2int(cmdptr,&regnr);
+  cmdptr += res+1;
+  regs += regnr*4;
+  for(i=0;i<4;i+=1) {
+     ch = *cmdptr;
+     res = hexchar2int(ch);
+     cmdptr += 1;
+     ch = *cmdptr;
+     res = (res<<4) + hexchar2int(ch);
+     cmdptr += 1;
+     *regs = res;
+     regs += 1;
+  }
+}
+
+public function void writeregs(byte* cmdptr,byte* regs)
+{
+  var int i,j;
+  var int res = 0;
+  var byte ch = 0;
+  for(i=0;i<33;i=i+1) {
+    for(j=0;j<4;j+=1) {
+       ch = *cmdptr;
+       res = hexchar2int(ch);
+       cmdptr += 1;
+       ch = *cmdptr;
+       res = (res<<4) + hexchar2int(ch);
+       cmdptr += 1;
+       *regs = res;
+       regs += 1;
+       }
+    }
+}
+
 public function void writemem(byte* cmdptr)
 {
   var int addr = 0;
@@ -181,21 +241,21 @@ public function void writemem(byte* cmdptr)
   var int res = 0;
   var byte ch;
   var byte* memptr;
-  res=hexstring2int(cmdptr,&addr);
-  cmdptr+=res+1;
-  res=hexstring2int(cmdptr,&length);
-  memptr=addr;
-  cmdptr+=res+1;
+  res = hexstring2int(cmdptr,&addr);
+  cmdptr += res+1;
+  res = hexstring2int(cmdptr,&length);
+  memptr = addr;
+  cmdptr += res+1;
   while(length>0) {
-      ch=*cmdptr;
-      res=hexchar2int(ch);
-      cmdptr+=1;
-      ch=*cmdptr;
-      res=(res<<4)+hexchar2int(ch);
-      cmdptr+=1;
-      *memptr=res;
-      memptr+=1;
-      length-=1;
+      ch = *cmdptr;
+      res = hexchar2int(ch);
+      cmdptr += 1;
+      ch = *cmdptr;
+      res = (res<<4) + hexchar2int(ch);
+      cmdptr += 1;
+      *memptr = res;
+      memptr += 1;
+      length -= 1;
   }
 }
 

@@ -68,6 +68,7 @@ class Debugger:
         self.logger = logging.getLogger('dbg')
         self.state_event = SubscribleEvent()
         self.registers = self.get_registers()
+        self.num2regmap = {r.num: r for r in self.registers}
         self.register_values = {rn: 0 for rn in self.registers}
         self.debug_info = None
         self.variable_map = {}
@@ -236,8 +237,13 @@ class Debugger:
         """ Get a dictionary of register values """
         return self.driver.get_registers(registers)
 
+    def set_register_values(self):
+        """ Set target register values to register_values """
+        return self.driver.set_registers(self.register_values)
+
     def get_registers(self):
         return self.arch.gdb_registers
+
 
     def get_register(self, register):
         """ Get the value of a single register """
