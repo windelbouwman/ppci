@@ -1,8 +1,14 @@
 import logging
+import struct
 from textx.metamodel import metamodel_from_file
 from ppci import ir
 from ppci.irutils import Verifier
 from ppci import api
+
+
+def pack_string(txt):
+    ln = struct.pack('<Q', len(txt))
+    return ln + txt.encode('ascii')
 
 
 class TcfCompiler:
@@ -49,7 +55,9 @@ class TcfCompiler:
         self.logger.debug('print statement %s', print_statement.var)
         name = print_statement.var
         value = self.load_var(name)
-        self.emit(ir.ProcedureCall('io_print', [value]))
+        label_data = pack_string('{} :'.format(name))
+        label = self.emit(ir.LiteralData(label_data, 'label'))
+        self.emit(ir.ProcedureCall('io_print2', [label, value]))
 
     def handle_assignment(self, assignment):
         self.logger.debug(
@@ -104,10 +112,14 @@ tcf_compiler = TcfCompiler()
 ir_module = tcf_compiler.compile('example.tcf')
 
 obj1 = api.ir_to_object([ir_module], 'x86_64')
-obj2 = api.c3c(['bsp.c3'], [], 'x86_64')
+obj2 = api.c3c(['bsp.c3', '../../librt/io.c3'], [], 'x86_64')
 obj3 = api.asm('linux.asm', 'x86_64')
-obj = api.link([obj1, obj2, obj3])
+obj = api.link([obj1, obj2, obj3], layout='layout.mmap')
 
 print(obj)
 with open('example.oj', 'w') as f:
     obj.save(f)
+
+# Create a linux elf file:
+api.objcopy(obj, 'code', 'elf', 'example')
+
