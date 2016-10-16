@@ -1,10 +1,14 @@
-"""
-    X86-64 architecture description.
+""" X86-64 architecture description.
+
+X86 specific frame for functions.
+
+  rbp, rbx, r12, r13, r14 and r15 are callee save. The called function
+  must save those. The other registers must be saved by the caller.
+
 """
 
 import io
-from ..arch import Architecture, VCall
-from ..arch import Frame, Label
+from ..arch import Architecture, Label
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
 from ..data_instructions import Db
@@ -15,7 +19,7 @@ from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import all_registers
 from .registers import register_classes, X86Register, LowRegister
 from .registers import rbx, rbp, rsp, al
-from .registers import r11, r12, r13, r14, r15
+from .registers import r12, r13, r14, r15
 
 
 class X86_64Arch(Architecture):
@@ -31,7 +35,6 @@ class X86_64Arch(Architecture):
         self.registers.extend(all_registers)
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        self.FrameClass = X86Frame
         self.fp = rbp
         self.callee_save = (rbx, r12, r13, r14, r15)
 
@@ -40,9 +43,9 @@ class X86_64Arch(Architecture):
         if isinstance(dst, LowRegister) and isinstance(src, LowRegister):
             return MovRegRm8(dst, RmReg8(src), ismove=True)
         elif isinstance(dst, LowRegister) and isinstance(src, X86Register):
-            raise NotImplementedError()
+            raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, X86Register) and isinstance(src, LowRegister):
-            raise NotImplementedError()
+            raise NotImplementedError()  # pragma: no cover
         else:
             return MovRegRm(dst, RmReg(src), ismove=True)
 
@@ -106,7 +109,7 @@ class X86_64Arch(Architecture):
                     yield self.move(al, arg)
                     yield MovsxRegRm(rax, RmReg8(al))
                     yield self.move(arg_loc, rax)
-                else:
+                else:  # pragma: no cover
                     raise NotImplementedError()
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
@@ -126,7 +129,7 @@ class X86_64Arch(Architecture):
         for register in reversed(live_regs):
             yield Pop(register)
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -144,7 +147,7 @@ class X86_64Arch(Architecture):
 
         yield MovRegRm(rbp, RmReg(rsp))
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
@@ -167,20 +170,3 @@ class X86_64Arch(Architecture):
                     yield Db(byte)
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
-
-
-class X86Frame(Frame):
-    """ X86 specific frame for functions.
-
-
-        rbp, rbx, r12, r13, r14 and r15 are callee save. The called function
-        must save those. The other registers must be saved by the caller.
-    """
-    def __init__(self, name, arg_locs, live_in, rv, live_out):
-        super().__init__(name, arg_locs, live_in, rv, live_out)
-        # Allocatable registers:
-        self.used_regs = set()
-
-    def is_used(self, register):
-        """ Check if a register is used by this frame """
-        return register in self.used_regs

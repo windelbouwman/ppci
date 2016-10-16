@@ -8,6 +8,7 @@ from .msp430 import Msp430Arch
 from .x86_64 import X86_64Arch
 from .mos6500 import Mos6500Arch
 from .riscv import RiscvArch
+from .stm8 import Stm8Arch
 
 
 target_classes = [
@@ -17,6 +18,7 @@ target_classes = [
     Mos6500Arch,
     Msp430Arch,
     RiscvArch,
+    Stm8Arch,
     X86_64Arch]
 
 

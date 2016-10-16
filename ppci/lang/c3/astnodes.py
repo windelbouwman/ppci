@@ -20,16 +20,6 @@ class Symbol(Node):
     def __init__(self, name, public):
         self.name = name
         self.public = public
-        self.refs = []
-
-    def add_ref(self, ref):
-        """ Add a reference """
-        self.refs.append(ref)
-
-    @property
-    def references(self):
-        """ Gets the things referring to this symbol """
-        return self.refs
 
 
 # Modules
@@ -43,12 +33,22 @@ class Module(Symbol):
 
     @property
     def types(self):
-        """ Gets the types in this module """
+        """ Get the types in this module """
         return self.inner_scope.types
 
     @property
+    def constants(self):
+        """ Get the constants in this module """
+        return self.inner_scope.constants
+
+    @property
+    def variables(self):
+        """ Get the variables in this module """
+        return self.inner_scope.variables
+
+    @property
     def functions(self):
-        """ Gets all the functions that are defined in this module """
+        """ Get all the functions that are defined in this module """
         return self.inner_scope.functions
 
     def __repr__(self):
@@ -141,7 +141,7 @@ class StructureType(Type):
         for mem in self.fields:
             if name == mem.name:
                 return mem
-        raise KeyError(name)
+        raise KeyError(name)  # pragma: no cover
 
     def __repr__(self):
         return 'STRUCT'
@@ -215,6 +215,8 @@ class Function(Symbol):
 # Operations / Expressions:
 class Expression(Node):
     """ Expression base class """
+    is_bool = False
+
     def __init__(self, loc):
         self.loc = loc
 
@@ -291,6 +293,11 @@ class Unop(Expression):
     def __repr__(self):
         return 'UNOP {}'.format(self.op)
 
+    @property
+    def is_bool(self):
+        """ Test if this binop is a boolean """
+        return self.op in self.cond_ops
+
 
 class Binop(Expression):
     """ Expression taking two operands and one operator """
@@ -312,6 +319,11 @@ class Binop(Expression):
 
     def __repr__(self):
         return 'BINOP {}'.format(self.op)
+
+    @property
+    def is_bool(self):
+        """ Test if this binop is a boolean """
+        return self.op in self.cond_ops
 
 
 class Identifier(Expression):
@@ -431,6 +443,17 @@ class If(Statement):
 
     def __repr__(self):
         return 'IF-statement'
+
+
+class Switch(Statement):
+    """ Switch statement """
+    def __init__(self, expression, options, loc):
+        super().__init__(loc)
+        self.expression = expression
+        self.options = options
+
+    def __repr__(self):
+        return 'SWITCH-statement'
 
 
 class While(Statement):

@@ -1,6 +1,9 @@
+""" Machine architecture description module """
+
 import logging
 from functools import lru_cache
-from .isa import Instruction, Register
+from .encoding import Instruction
+from .registers import Register
 from .. import ir
 
 
@@ -88,11 +91,11 @@ class Architecture:
         """ Generate a move from src to dst """
         raise NotImplementedError('Implement this')
 
-    def prologue(self, frame):  # pragma: no cover
+    def gen_prologue(self, frame):  # pragma: no cover
         """ Generate instructions for the epilogue of a frame """
         raise NotImplementedError('Implement this!')
 
-    def epilogue(self, frame):  # pragma: no cover
+    def gen_epilogue(self, frame):  # pragma: no cover
         """ Generate instructions for the epilogue of a frame """
         raise NotImplementedError('Implement this!')
 
@@ -100,7 +103,7 @@ class Architecture:
         """ Generate any instructions here if needed between two blocks """
         return []
 
-    def gen_call(self, value):
+    def gen_vcall(self, value):
         """ Generate a sequence of instructions for a call to a label.
             The actual call instruction is not yet used until the end
             of the code generation at which time the live variables are
@@ -182,7 +185,7 @@ class VirtualInstruction(Instruction):
         and can never be encoded into a stream.
     """
     def encode(self):  # pragma: no cover
-        raise RuntimeError('Cannot encode virtual instruction')
+        raise RuntimeError('Cannot encode virtual {}'.format(self))
 
 
 class RegisterUseDef(VirtualInstruction):
@@ -235,6 +238,16 @@ class PseudoInstruction(Instruction):
 
     def encode(self):
         return bytes()
+
+
+class Comment(PseudoInstruction):
+    """ Assembly language comment """
+    def __init__(self, comment):
+        super().__init__()
+        self.comment = comment
+
+    def __repr__(self):
+        return '; {}'.format(self.comment)
 
 
 class Label(PseudoInstruction):
@@ -305,6 +318,7 @@ class Frame:
         self.rv = rv
         self.live_out = live_out
         self.instructions = []
+        self.used_regs = set()
         self.temps = generate_temps()
 
         # Local stack:
@@ -340,6 +354,10 @@ class Frame:
         self.constants.append((lab_name, value))
         return lab_name
 
+    def is_used(self, register):
+        """ Check if a register is used by this frame """
+        return register in self.used_regs
+
     def live_regs_over(self, instruction):
         """ Determine what registers are live along an instruction.
         Useful to determine if registers must be saved when making a call """
@@ -350,10 +368,14 @@ class Frame:
 
         # Get register colors from interference graph:
         live_regs = []
-        for tmp in instruction.live_in & instruction.live_out:
+        for tmp in (instruction.live_in & instruction.live_out) - instruction.kill:
             # print(tmp)
             n = self.ig.get_node(tmp)
-            live_regs.append(n.color)
+            reg = n.reg
+            live_regs.append(reg)
+        #for tmp in instruction.used_registers:
+        #    if tmp in live_regs:
+        #        live_regs
         return live_regs
 
     def live_ranges(self, vreg):

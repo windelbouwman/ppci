@@ -4,42 +4,13 @@
 
 # pylint: disable=no-member,invalid-name
 
-from ..isa import Instruction, Isa, Constructor, Syntax, FixedPattern
-from ..isa import VariablePattern
-from ..isa import register_argument, value_argument
+from .isa import arm_isa, ArmToken, Isa
+from ..encoding import Instruction, Constructor, Syntax, Operand
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
-from ..token import Token, u32, bit_range
-from .relocations import apply_b_imm24, apply_rel8
-from .relocations import apply_ldr_imm12, apply_adr_imm12
-
-# TODO: do not use ir stuff here!
+from .arm_relocations import Imm24Relocation
+from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
 from ...ir import i32
-
-
-arm_isa = Isa()
-
-arm_isa.register_relocation(apply_adr_imm12)
-arm_isa.register_relocation(apply_b_imm24)
-arm_isa.register_relocation(apply_ldr_imm12)
-arm_isa.register_relocation(apply_rel8)
-
-
-# Tokens:
-class ArmToken(Token):
-    def __init__(self):
-        super().__init__(32)
-
-    cond = bit_range(28, 32)
-    S = bit_range(20, 21)
-    Rd = bit_range(12, 16)
-    Rn = bit_range(16, 20)
-    Rm = bit_range(0, 4)
-    shift_typ = bit_range(5, 7)
-    shift_imm = bit_range(7, 12)
-
-    def encode(self):
-        return u32(self.bit_value)
 
 
 # Patterns:
@@ -64,49 +35,35 @@ COND_MAP = {
     'AL': AL}
 
 
-# Shift suffix:
-class ShiftModifier(Constructor):
-    """ Shift modifier that can be appended to shift Rm """
-    syntaxi = 'shift'
-
-
-class NoShift(ShiftModifier):
+class NoShift(Constructor):
     """ No shift """
-    patterns = (
-        FixedPattern('shift_typ', 0),
-        FixedPattern('shift_imm', 0),
-        )
     syntax = Syntax([])
+    patterns = {'shift_typ': 0, 'shift_imm': 0}
 
 
-class ShiftLsl(ShiftModifier):
+class ShiftLsl(Constructor):
     """ Logical shift left n bits """
-    n = register_argument('n', int)
-    patterns = (
-        FixedPattern('shift_typ', 0),
-        VariablePattern('shift_imm', n),
-        )
-    syntax = Syntax([',', 'lsl', n])
+    n = Operand('n', int)
+    syntax = Syntax([',', ' ', 'lsl', ' ', n])
+    patterns = {'shift_typ': 0, 'shift_imm': n}
 
 
-class ShiftLsr(ShiftModifier):
+class ShiftLsr(Constructor):
     """ Logical shift right n bits """
-    n = register_argument('n', int)
-    patterns = (
-        FixedPattern('shift_typ', 1),
-        VariablePattern('shift_imm', n),
-        )
-    syntax = Syntax([',', 'lsr', n])
+    n = Operand('n', int)
+    syntax = Syntax([',', ' ', 'lsr', ' ', n])
+    patterns = {'shift_typ': 1, 'shift_imm': n}
 
 
-class ShiftAsr(ShiftModifier):
+class ShiftAsr(Constructor):
     """ Arithmetic shift right n bits """
-    n = register_argument('n', int)
-    patterns = (
-        FixedPattern('shift_typ', 2),
-        VariablePattern('shift_imm', n),
-        )
-    syntax = Syntax([',', 'asr', n])
+    n = Operand('n', int)
+    syntax = Syntax([',', ' ', 'asr', ' ', n])
+    patterns = {'shift_typ': 2, 'shift_imm': n}
+
+
+# Shift suffix:
+shift_modes = (NoShift, ShiftLsl, ShiftLsr, ShiftAsr)
 
 
 # Instructions:
@@ -115,11 +72,12 @@ def inter_twine(a, cond):
     """ Create a permutation for a instruction class """
     # TODO: give this function the right name
     stx = list(a.syntax.syntax)
+    ccode = COND_MAP[cond.upper()]
     mnemonic = stx[0] + cond
     stx[0] = mnemonic
     syntax = Syntax(stx)
-    ccode = COND_MAP[cond.upper()]
-    patterns = (FixedPattern('cond', ccode), )
+    patterns = dict(a.patterns)
+    patterns['cond'] = ccode
     members = {'syntax': syntax, 'patterns': patterns}
     return type(mnemonic, (a, ), members)
 
@@ -131,91 +89,90 @@ class ArmInstruction(Instruction):
 
 class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
-    rd = register_argument('rd', ArmRegister, write=True)
-    imm = register_argument('imm', int)
-    syntax = Syntax(['mov', rd, ',', imm])
+    rd = Operand('rd', ArmRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
 
     def encode(self):
-        self.token1[0:12] = encode_imm32(self.imm)
-        self.token1.Rd = self.rd.num
-        self.token1[16:20] = 0
-        self.token1[20] = 0  # Set flags
-        self.token1[21:28] = 0b0011101
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:12] = encode_imm32(self.imm)
+        tokens[0].Rd = self.rd.num
+        tokens[0][16:20] = 0
+        tokens[0][20] = 0  # Set flags
+        tokens[0][21:28] = 0b0011101
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Mov2(ArmInstruction):
     """ Mov register to register """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-    shift = register_argument('shift', ShiftModifier)
-    syntax = Syntax(['mov', rd, ',', rm, shift])
-    patterns = (
-        FixedPattern('cond', AL),
-        )
+    rd = Operand('rd', ArmRegister, write=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    shift = Operand('shift', shift_modes)
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', rm, shift])
+    patterns = {'cond': AL, 'S': 0}
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1[0:4] = self.rm.num
-        self.token1[4] = 0
-        self.token1[12:16] = self.rd.num
-        self.token1[16:20] = 0
-        self.token1.S = 0
-        self.token1[21:28] = 0xD
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][4] = 0
+        tokens[0].Rm = self.rm.num
+        tokens[0][12:16] = self.rd.num
+        tokens[0][16:20] = 0
+        tokens[0][21:28] = 0xD
+        return tokens[0].encode()
+
 
 Mov2LS = inter_twine(Mov2, 'ls')
 
 
 class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
-    reg = register_argument('reg', ArmRegister, read=True)
-    imm = value_argument('imm')
+    reg = Operand('reg', ArmRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['cmp', reg, ',', imm])
 
     def encode(self):
-        self.token1[0:12] = encode_imm32(self.imm)
-        self.token1.Rn = self.reg.num
-        self.token1[20:28] = 0b00110101
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:12] = encode_imm32(self.imm)
+        tokens[0].Rn = self.reg.num
+        tokens[0][20:28] = 0b00110101
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Cmp2(ArmInstruction):
     """ CMP Rn, Rm """
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-    shift = register_argument('shift', ShiftModifier)
-    syntax = Syntax(['cmp', rn, ',', rm, shift])
-    patterns = (
-        FixedPattern('cond', AL),
-        )
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    shift = Operand('shift', shift_modes)
+    syntax = Syntax(['cmp', ' ', rn, ',', ' ', rm, shift])
+    patterns = {'cond': AL, 'Rm': rm, 'Rn': rn}
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1.Rn = self.rn.num
-        self.token1.Rm = self.rm.num
-        self.token1[4] = 0
-        self.token1[12:16] = 0
-        self.token1[20:28] = 0b10101
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][4] = 0
+        tokens[0][12:16] = 0
+        tokens[0][20:28] = 0b10101
+        return tokens[0].encode()
 
 
 class Mul1(ArmInstruction):
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['mul', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b1001
-        self.token1[8:12] = self.rm.num
-        self.token1[16:20] = self.rd.num
-        self.token1.S = 0
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b1001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][16:20] = self.rd.num
+        tokens[0].S = 0
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Sdiv(ArmInstruction):
@@ -224,40 +181,42 @@ class Sdiv(ArmInstruction):
 
         This instruction is not always present
     """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b0001
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = 0b1111
-        self.token1[16:20] = self.rd.num
-        self.token1[20:28] = 0b1110001
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b0001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = 0b1111
+        tokens[0][16:20] = self.rd.num
+        tokens[0][20:28] = 0b1110001
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Udiv(ArmInstruction):
     """ Encoding A1
         rd = rn / rm
     """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['udiv', rd, ',', rn, ',', rm])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b0001
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = 0b1111
-        self.token1[16:20] = self.rd.num
-        self.token1[20:28] = 0b1110011
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b0001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = 0b1111
+        tokens[0][16:20] = self.rd.num
+        tokens[0][20:28] = 0b1110011
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Mls(ArmInstruction):
@@ -265,50 +224,50 @@ class Mls(ArmInstruction):
         Semantics:
         rd = ra - rn * rm
     """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-    ra = register_argument('ra', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    ra = Operand('ra', ArmRegister, read=True)
     syntax = Syntax(['mls', rd, ',', rn, ',', rm, ',', ra])
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = 0b1001
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = self.ra.num
-        self.token1[16:20] = self.rd.num
-        self.token1[20:28] = 0b00000110
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = 0b1001
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = self.ra.num
+        tokens[0][16:20] = self.rd.num
+        tokens[0][20:28] = 0b00000110
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class OpRegRegReg(ArmInstruction):
     """ add rd, rn, rm """
-    patterns = (
-        FixedPattern('cond', AL),
-        FixedPattern('S', 0),
-        )
+    patterns = {'cond': AL, 'S': 0}
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1[0:4] = self.rm.num
-        self.token1[4] = 0
-        self.token1[5:7] = 0   # Shift type
-        self.token1[7:12] = 0  # Shift
-        self.token1.Rd = self.rd.num
-        self.token1.Rn = self.rn.num
-        self.token1[21:28] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][0:4] = self.rm.num
+        tokens[0][4] = 0
+        tokens[0].Rd = self.rd.num
+        tokens[0].Rn = self.rn.num
+        tokens[0][21:28] = self.opcode
+        return tokens[0].encode()
 
 
 def make_regregreg(mnemonic, opcode):
     """ Create a new instruction class with three registers as operands """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-    syntax = Syntax([mnemonic, rd, ',', rn, ',', rm])
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    shift = Operand('shift', shift_modes)
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', rm, shift])
     members = {
-        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode}
+        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode,
+        'shift': shift,
+        }
     return type(mnemonic + '_ins', (OpRegRegReg,), members)
 
 
@@ -329,19 +288,20 @@ Sub1NE = inter_twine(Sub1, 'ne')
 
 class ShiftBase(ArmInstruction):
     """ ? rd, rn, rm """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    patterns = {'cond': AL, 'S': 0}
 
     def encode(self):
-        self.token1[0:4] = self.rn.num
-        self.token1[4:8] = self.opcode
-        self.token1[8:12] = self.rm.num
-        self.token1[12:16] = self.rd.num
-        self.token1.S = 0  # Set flags
-        self.token1[21:28] = 0b1101
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][0:4] = self.rn.num
+        tokens[0][4:8] = self.opcode
+        tokens[0][8:12] = self.rm.num
+        tokens[0][12:16] = self.rd.num
+        tokens[0][21:28] = 0b1101
+        return tokens[0].encode()
 
 
 class Lsr1(ShiftBase):
@@ -365,19 +325,20 @@ Lsl = Lsl1
 class OpRegRegImm(ArmInstruction):
     """ add rd, rn, imm12 """
     def encode(self):
-        self.token1[0:12] = encode_imm32(self.imm)
-        self.token1.Rd = self.rd.num
-        self.token1.Rn = self.rn.num
-        self.token1.S = 0  # Set flags
-        self.token1[21:28] = self.opcode
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:12] = encode_imm32(self.imm)
+        tokens[0].Rd = self.rd.num
+        tokens[0].Rn = self.rn.num
+        tokens[0].S = 0  # Set flags
+        tokens[0][21:28] = self.opcode
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 def make_regregimm(mnemonic, opcode):
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    imm = register_argument('imm', int)
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax([mnemonic, rd, ',', rn, ',', imm])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'imm': imm, 'opcode': opcode}
@@ -390,15 +351,16 @@ Sub2 = make_regregimm('sub', 0b0010010)
 # Branches:
 
 class BranchBaseRoot(ArmInstruction):
-    target = register_argument('target', str)
+    target = Operand('target', str)
 
     def encode(self):
-        self.token1.cond = self.cond
-        self.token1[24:28] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = self.cond
+        tokens[0][24:28] = self.opcode
+        return tokens[0].encode()
 
     def relocations(self):
-        return [(self.target, apply_b_imm24)]
+        return [Imm24Relocation(self.target)]
 
 
 class BranchBase(BranchBaseRoot):
@@ -415,7 +377,7 @@ class Bl(BranchLinkBase):
 
 
 def make_branch(mnemonic, cond):
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
@@ -441,25 +403,27 @@ def reg_list_to_mask(reg_list):
 
 
 class Push(ArmInstruction):
-    reg_list = register_argument('reg_list', RegisterSet)
+    reg_list = Operand('reg_list', RegisterSet)
     syntax = Syntax(['push', reg_list])
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[16:28] = 0b100100101101
-        self.token1[0:16] = reg_list_to_mask(self.reg_list)
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][16:28] = 0b100100101101
+        tokens[0][0:16] = reg_list_to_mask(self.reg_list)
+        return tokens[0].encode()
 
 
 class Pop(ArmInstruction):
-    reg_list = register_argument('reg_list', RegisterSet)
+    reg_list = Operand('reg_list', RegisterSet)
     syntax = Syntax(['pop', reg_list])
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[16:28] = 0b100010111101
-        self.token1[0:16] = reg_list_to_mask(self.reg_list)
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][16:28] = 0b100010111101
+        tokens[0][0:16] = reg_list_to_mask(self.reg_list)
+        return tokens[0].encode()
 
 
 def LdrPseudo(rt, lab, add_lit):
@@ -469,81 +433,85 @@ def LdrPseudo(rt, lab, add_lit):
 
 
 class LdrStrBase(ArmInstruction):
-    rn = register_argument('rn', ArmRegister, read=True)
-    offset = register_argument('offset', int)
+    rn = Operand('rn', ArmRegister, read=True)
+    offset = Operand('offset', int)
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1.Rn = self.rn.num
-        self.token1[25:28] = self.opcode
-        self.token1[22] = self.bit22
-        self.token1[20] = self.bit20
-        self.token1[12:16] = self.rt.num
-        self.token1[24] = 1  # Index
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0].Rn = self.rn.num
+        tokens[0][25:28] = self.opcode
+        tokens[0][22] = self.bit22
+        tokens[0][20] = self.bit20
+        tokens[0][12:16] = self.rt.num
+        tokens[0][24] = 1  # Index
         if self.offset >= 0:
-            self.token1[23] = 1  # U == 1 'add'
-            self.token1[0:12] = self.offset
+            tokens[0][23] = 1  # U == 1 'add'
+            tokens[0][0:12] = self.offset
         else:
-            self.token1[23] = 0
-            self.token1[0:12] = -self.offset
-        return self.token1.encode()
+            tokens[0][23] = 0
+            tokens[0][0:12] = -self.offset
+        return tokens[0].encode()
 
 
 class Str1(LdrStrBase):
-    rt = register_argument('rt', ArmRegister, read=True)
+    rt = Operand('rt', ArmRegister, read=True)
     opcode = 0b010
     bit20 = 0
     bit22 = 0
     syntax = Syntax([
-        'str', rt, ',', '[', LdrStrBase.rn, ',', LdrStrBase.offset, ']'])
+        'str', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        LdrStrBase.offset, ']'])
 
 
 class Ldr1(LdrStrBase):
-    rt = register_argument('rt', ArmRegister, write=True)
+    rt = Operand('rt', ArmRegister, write=True)
     opcode = 0b010
     bit20 = 1
     bit22 = 0
     syntax = Syntax([
-        'ldr', rt, ',', '[', LdrStrBase.rn, ',', LdrStrBase.offset, ']'])
+        'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        LdrStrBase.offset, ']'])
 
 
 class Strb(LdrStrBase):
     """ ldrb rt, [rn, offset] # Store byte at address """
-    rt = register_argument('rt', ArmRegister, read=True)
+    rt = Operand('rt', ArmRegister, read=True)
     opcode = 0b010
     bit20 = 0
     bit22 = 1
     syntax = Syntax([
-        'strb', rt, ',', '[', LdrStrBase.rn, ',',
+        'strb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
         LdrStrBase.offset, ']'])
 
 
 class Ldrb(LdrStrBase):
     """ ldrb rt, [rn, offset] """
-    rt = register_argument('rt', ArmRegister, write=True)
+    rt = Operand('rt', ArmRegister, write=True)
     opcode = 0b010
     bit20 = 1
     bit22 = 1
     syntax = Syntax([
-        'ldrb', rt, ',', '[', LdrStrBase.rn, ',',
+        'ldrb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
         LdrStrBase.offset, ']'])
 
 
 class Adr(ArmInstruction):
-    rd = register_argument('rd', ArmRegister, write=True)
-    label = register_argument('label', str)
+    rd = Operand('rd', ArmRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
-        return [(self.label, apply_adr_imm12)]
+        return [AdrImm12Relocation(self.label)]
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[0:12] = 0  # Filled by linker
-        self.token1[12:16] = self.rd.num
-        self.token1[16:20] = 0b1111
-        self.token1[25] = 1
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][0:12] = 0  # Filled by linker
+        tokens[0][12:16] = self.rd.num
+        tokens[0][16:20] = 0b1111
+        tokens[0][25] = 1
+        return tokens[0].encode()
 
 
 class Ldr3(ArmInstruction):
@@ -551,58 +519,60 @@ class Ldr3(ArmInstruction):
         LDR rt, label
         encoding A1
     """
-    rt = register_argument('rt', ArmRegister, write=True)
-    label = register_argument('label', str)
+    rt = Operand('rt', ArmRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['ldr', rt, ',', label])
 
     def relocations(self):
-        return [(self.label, apply_ldr_imm12)]
+        return [LdrImm12Relocation(self.label)]
 
     def encode(self):
-        self.token1.cond = AL
-        self.token1[0:12] = 0  # Filled by linker
-        self.token1[12:16] = self.rt.num
-        self.token1[16:23] = 0b0011111
-        self.token1[24:28] = 0b0101
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][0:12] = 0  # Filled by linker
+        tokens[0][12:16] = self.rt.num
+        tokens[0][16:23] = 0b0011111
+        tokens[0][24:28] = 0b0101
+        return tokens[0].encode()
 
 
 class McrBase(ArmInstruction):
     """ Mov arm register to coprocessor register """
     def encode(self):
-        self.token1[0:4] = self.crm.num
-        self.token1[4] = 1
-        self.token1[5:8] = self.opc2
-        self.token1[8:12] = self.coproc.num
-        self.token1[12:16] = self.rt.num
-        self.token1[16:20] = self.crn.num
-        self.token1[20] = self.b20
-        self.token1[21:24] = self.opc1
-        self.token1[24:28] = 0b1110
-        self.token1.cond = AL
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:4] = self.crm.num
+        tokens[0][4] = 1
+        tokens[0][5:8] = self.opc2
+        tokens[0][8:12] = self.coproc.num
+        tokens[0][12:16] = self.rt.num
+        tokens[0][16:20] = self.crn.num
+        tokens[0][20] = self.b20
+        tokens[0][21:24] = self.opc1
+        tokens[0][24:28] = 0b1110
+        tokens[0].cond = AL
+        return tokens[0].encode()
 
 
 class Mcr(McrBase):
     """ Move from register to co processor register """
-    coproc = register_argument('coproc', Coproc)
-    opc1 = register_argument('opc1', int)
-    rt = register_argument('rt', ArmRegister, read=True)
-    crn = register_argument('crn', Coreg, read=True)
-    crm = register_argument('crm', Coreg, read=True)
-    opc2 = register_argument('opc2', int)
+    coproc = Operand('coproc', Coproc, read=True)
+    opc1 = Operand('opc1', int)
+    rt = Operand('rt', ArmRegister, read=True)
+    crn = Operand('crn', Coreg, read=True)
+    crm = Operand('crm', Coreg, read=True)
+    opc2 = Operand('opc2', int)
     b20 = 0
     syntax = Syntax(
         ['mcr', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
 
 
 class Mrc(McrBase):
-    coproc = register_argument('coproc', Coproc)
-    opc1 = register_argument('opc1', int)
-    rt = register_argument('rt', ArmRegister, write=True)
-    crn = register_argument('crn', Coreg, read=True)
-    crm = register_argument('crm', Coreg, read=True)
-    opc2 = register_argument('opc2', int)
+    coproc = Operand('coproc', Coproc, read=True)
+    opc1 = Operand('opc1', int)
+    rt = Operand('rt', ArmRegister, write=True)
+    crn = Operand('crn', Coreg, read=True)
+    crm = Operand('crm', Coreg, read=True)
+    opc2 = Operand('opc2', int)
     b20 = 1
     syntax = Syntax(
         ['mrc', coproc, ',', opc1, ',', rt, ',', crn, ',', crm, ',', opc2])
@@ -683,7 +653,8 @@ def pattern_const32(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'CONSTI32', size=4, condition=lambda t: t.value < 256)
+@arm_isa.pattern(
+    'reg', 'CONSTI32', size=4, condition=lambda t: t.value in range(256))
 def pattern_const32_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -717,20 +688,20 @@ def pattern_cjmp(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Add1(d, c0, c1))
+    context.emit(Add1(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Add1(d, c0, c1))
+    context.emit(Add1(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern(
     'reg', 'ADDI32(reg, CONSTI32)', size=4,
-    condition=lambda t: t.children[1].value < 256)
+    condition=lambda t: t.children[1].value in range(256))
 def pattern_add32_1(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[1].value
@@ -740,7 +711,7 @@ def pattern_add32_1(context, tree, c0):
 
 @arm_isa.pattern(
     'reg', 'ADDI32(CONSTI32, reg)', size=4,
-    condition=lambda t: t.children[0].value < 256)
+    condition=lambda t: t.children[0].value in range(256))
 def pattern_add32_2(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[0].value
@@ -751,7 +722,7 @@ def pattern_add32_2(context, tree, c0):
 @arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Sub1(d, c0, c1))
+    context.emit(Sub1(d, c0, c1, NoShift()))
     return d
 
 
@@ -759,7 +730,7 @@ def pattern_sub32(context, tree, c0, c1):
 def pattern_sub8(context, tree, c0, c1):
     # TODO: temporary fix this with an 32 bits sub
     d = context.new_reg(ArmRegister)
-    context.emit(Sub1(d, c0, c1))
+    context.emit(Sub1(d, c0, c1, NoShift()))
     return d
 
 
@@ -793,14 +764,14 @@ def pattern_call(context, tree):
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(And1(d, c0, c1))
+    context.emit(And1(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Orr1(d, c0, c1))
+    context.emit(Orr1(d, c0, c1, NoShift()))
     return d
 
 
@@ -855,7 +826,7 @@ def pattern_rem32(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
 def pattern_xor32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Eor1(d, c0, c1))
+    context.emit(Eor1(d, c0, c1, NoShift()))
     return d
 
 # TODO: implement DIVI32 by library call.

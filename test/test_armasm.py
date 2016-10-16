@@ -1,7 +1,7 @@
 import unittest
 import io
 from test_asm import AsmTestCaseBase
-from ppci.binutils.layout import load_layout
+from ppci.binutils.layout import Layout
 
 
 class ArmAssemblerTestCase(AsmTestCaseBase):
@@ -142,7 +142,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('ldr r8, =a')
         self.feed('a:')
         spec = "MEMORY flash LOCATION=0x10000 SIZE=0x10000 { SECTION(code) }"
-        layout = load_layout(io.StringIO(spec))
+        layout = Layout.load(io.StringIO(spec))
         self.check('04801fe5 04000100', layout)
 
     def test_cmp(self):

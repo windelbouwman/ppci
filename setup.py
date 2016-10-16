@@ -26,6 +26,7 @@ setup(
         "bin/ppci-disasm.py",
         'bin/ppci-hexutil.py',
         "bin/ppci-ld.py",
+        "bin/ppci-llc.py",
         "bin/ppci-objdump.py",
         "bin/ppci-objcopy.py"],
     long_description=long_description,
@@ -47,6 +48,7 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Compilers',
+        'Topic :: Software Development :: Assemblers',
         'Topic :: Software Development :: Embedded Systems',
     ]
 )

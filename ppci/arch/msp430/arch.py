@@ -1,18 +1,16 @@
-"""
-MSP430 architecture description.
-"""
+""" MSP430 architecture description. """
 
 import io
 from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
-from ..arch import Architecture, VCall, Frame, Label, Alignment
+from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes
-from .instructions import isa, mov, nop, ret, pop, clrc, clrn, clrz
-from .instructions import ret, push, call, pop, Add, Sub, ConstSrc, RegDst, mov
+from .instructions import isa, mov, Ret, Pop
+from .instructions import push, call, Add, Sub, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
@@ -24,11 +22,8 @@ class Msp430Arch(Architecture):
         self.byte_sizes['int'] = 2
         self.byte_sizes['ptr'] = 2
         self.isa = isa + data_isa
-        self.assembler = Msp430Assembler()
+        self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        # import ipdb; ipdb.set_trace()
-
-        self.FrameClass = Msp430Frame
 
         # Allocatable registers:
         self.fp = r4
@@ -67,9 +62,14 @@ class Msp430Arch(Architecture):
         # Restore caller save registers:
         for register in reversed(live_regs):
             if register in self.caller_save:
-                yield pop(register)
+                yield Pop(register)
 
-    def prologue(self, frame):
+    @staticmethod
+    def round_upwards(v):
+        """ Round value upwards to multiple of 2 """
+        return v + (v % 2)
+
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -81,27 +81,29 @@ class Msp430Arch(Architecture):
 
         # Adjust stack:
         if frame.stacksize:
-            yield Sub(ConstSrc(frame.stacksize), RegDst(r1))
+            yield Sub(
+                ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
         # Setup the frame pointer:
         yield mov(r1, r4)
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
 
         # Adjust stack:
         if frame.stacksize:
-            yield Add(ConstSrc(frame.stacksize), RegDst(r1))
+            yield Add(
+                ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
         # Pop save registers back:
         for reg in reversed(self.callee_save):
             if frame.is_used(reg):
-                yield pop(reg)
+                yield Pop(reg)
 
         # Return from function:
-        yield ret()
+        yield Ret()
 
         # Add final literal pool:
         for instruction in self.litpool(frame):
@@ -158,6 +160,8 @@ class Msp430Arch(Architecture):
         # Circular import, but this is possible!
         from ...api import asm, c3c, link
         march = 'msp430'
+        # TODO: without the below layout, things go wrong, but why?
+        # Layout should not be required here!
         layout = io.StringIO("""
             MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
             MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
@@ -170,44 +174,6 @@ class Msp430Arch(Architecture):
             obj2 = c3c([io.StringIO(RT_C3_SRC)], [], march, reporter=reporter)
             obj = link([obj1, obj2], layout, partial_link=True)
         return obj
-
-
-class Msp430Frame(Frame):
-    """ Frame class """
-    def is_used(self, register):
-        """ Check if a register is used by this frame """
-        return True
-        # TODO: implement a check here!
-        return register in self.used_regs
-
-
-class Msp430Assembler(BaseAssembler):
-    def __init__(self):
-        super().__init__()
-        self.add_keyword('nop')
-        self.add_rule(
-            'instruction', ['nop'],
-            lambda rhs: nop())
-        self.add_keyword('ret')
-        self.add_rule(
-            'instruction', ['ret'],
-            lambda rhs: ret())
-        self.add_keyword('pop')
-        self.add_rule(
-            'instruction', ['pop', 'reg'],
-            lambda rhs: pop(rhs[1]))
-        self.add_keyword('clrc')
-        self.add_rule(
-            'instruction', ['clrc'],
-            lambda rhs: clrc())
-        self.add_keyword('clrn')
-        self.add_rule(
-            'instruction', ['clrn'],
-            lambda rhs: clrn())
-        self.add_keyword('clrz')
-        self.add_rule(
-            'instruction', ['clrz'],
-            lambda rhs: clrz())
 
 
 RT_ASM_SRC = """
@@ -230,6 +196,8 @@ RT_ASM_SRC = """
       jne __shr_a
       ret
 """
+
+# TODO: move the code below to shared location? It is not msp430 specific!
 RT_C3_SRC = """
     module msp430_runtime;
     function int __div(int num, int den)

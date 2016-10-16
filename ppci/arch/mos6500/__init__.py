@@ -5,3 +5,6 @@
 """
 
 from .arch import Mos6500Arch
+
+
+__all__ = ['Mos6500Arch']

@@ -1,6 +1,7 @@
 
 module bsp;
 
+// var byte* UCSRA=0xc0, UCSRB=0xc1, UCSRC, UBRRL, UBRRH, UDR;
 var byte* UCSRA, UCSRB, UCSRC, UBRRL, UBRRH, UDR;
 
 public function void init()
@@ -17,7 +18,7 @@ public function void init()
   *UCSRC = 0x86;
   *UBRRH = 0x00;
   *UBRRL = 0x33;
-  *UDR = 65;
+  // demo A: *UDR = 65;
 }
 
 public function void putc(byte x)

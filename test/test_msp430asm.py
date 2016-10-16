@@ -2,7 +2,7 @@
 
 import unittest
 import io
-from ppci.binutils.layout import load_layout
+from ppci.binutils.layout import Layout
 from test_asm import AsmTestCaseBase
 from ppci.arch.msp430 import instructions, registers
 
@@ -41,7 +41,7 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov.w r0, &b')
         self.feed('mov.w &a, &b')
         spec = "MEMORY flash LOCATION=0xf800 SIZE=0x100 {SECTION(code)}"
-        layout = load_layout(io.StringIO(spec))
+        layout = Layout.load(io.StringIO(spec))
         self.check('0000 0000 1042 00f8 8240 02f8 9242 00f8 02f8', layout)
 
     def test_add(self):
@@ -136,6 +136,14 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
         self.check('0120 0020 ff23 fe23')
 
 
+class Msp430Syntax(unittest.TestCase):
+    def test_add(self):
+        add = instructions.Add(
+            instructions.RegSrc(registers.r2),
+            instructions.RegDst(registers.r3))
+        self.assertEqual('add.w R2, R3', str(add))
+
+
 class Msp430InstructionUseDef(unittest.TestCase):
     """ Test instruction use def info """
     def test_cmp(self):
@@ -172,6 +180,15 @@ class Msp430InstructionUseDef(unittest.TestCase):
             instructions.RegDst(registers.r5))
         self.assertEqual([registers.r4, registers.r5], mv.used_registers)
         self.assertEqual([registers.r5], mv.defined_registers)
+
+
+class Msp430ConstructorTestCase(unittest.TestCase):
+    """ Test instruction use def info """
+    def test_cmp(self):
+        reg_src = instructions.RegSrc(registers.r4)
+        reg_dst = instructions.RegDst(registers.r5)
+        cp = instructions.Cmp(reg_src, reg_dst)
+        self.assertSequenceEqual([cp, reg_src, reg_dst], list(cp.non_leaves))
 
 
 if __name__ == '__main__':

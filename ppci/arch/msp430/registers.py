@@ -1,29 +1,11 @@
+""" Description of msp430 registers """
 
-from ..isa import Register, Syntax, RegisterClass
+from ..registers import Register, RegisterClass
 from ...ir import i8, i16, ptr
 
 
 class Msp430Register(Register):
     bitsize = 16
-    syntaxi = 'reg', [
-        Syntax(['r0'], new_func=lambda: r0),
-        Syntax(['r1'], new_func=lambda: r1),
-        Syntax(['sp'], new_func=lambda: SP),
-        Syntax(['r2'], new_func=lambda: r2),
-        Syntax(['r3'], new_func=lambda: r3),
-        Syntax(['r4'], new_func=lambda: r4),
-        Syntax(['r5'], new_func=lambda: r5),
-        Syntax(['r6'], new_func=lambda: r6),
-        Syntax(['r7'], new_func=lambda: r7),
-        Syntax(['r8'], new_func=lambda: r8),
-        Syntax(['r9'], new_func=lambda: r9),
-        Syntax(['r10'], new_func=lambda: r10),
-        Syntax(['r11'], new_func=lambda: r11),
-        Syntax(['r12'], new_func=lambda: r12),
-        Syntax(['r13'], new_func=lambda: r13),
-        Syntax(['r14'], new_func=lambda: r14),
-        Syntax(['r15'], new_func=lambda: r15),
-        ]
 
     def __repr__(self):
         if self.is_colored:
@@ -33,15 +15,15 @@ class Msp430Register(Register):
 
 
 # 8 bit registers:
-PCB = Msp430Register('r0', num=0)
+PCB = Msp430Register('r0', num=0, aka=('pc',))
 rpc = PCB
 r0 = PCB
 PC = r0
-r1 = Msp430Register('r1', num=1)
+r1 = Msp430Register('r1', num=1, aka=('sp',))
 SP = r1  # Stack pointer
-r2 = Msp430Register('r2', num=2)
+r2 = Msp430Register('r2', num=2, aka=('sr',))
 SR = r2  # Status register
-r3 = Msp430Register('r3', num=3)
+r3 = Msp430Register('r3', num=3, aka=('cg',))
 CG = r3  # Constant generator
 r4 = Msp430Register('r4', num=4)
 r5 = Msp430Register('r5', num=5)
@@ -55,6 +37,9 @@ r12 = Msp430Register('r12', num=12)
 r13 = Msp430Register('r13', num=13)
 r14 = Msp430Register('r14', num=14)
 r15 = Msp430Register('r15', num=15)
+
+Msp430Register.registers = [
+    r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 
 all_registers = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 

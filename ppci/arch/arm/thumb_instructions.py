@@ -1,36 +1,19 @@
-"""
-    Thumb instruction definitions
-"""
+""" Thumb instruction definitions """
 
-from ..isa import Instruction, Isa, register_argument, Syntax
+from ..isa import Isa
+from ..encoding import Instruction, Operand, Syntax
 from ..token import u16
 from ..arm.registers import ArmRegister, LowArmRegister
 from ..token import Token, bit_range
-from .thumb_relocations import apply_lit8, apply_wrap_new11, apply_b_imm11_imm6
-from .thumb_relocations import apply_rel8, apply_bl_imm11
+from .thumb_relocations import Lit8Relocation, WrapNew11Relocation
+from .thumb_relocations import BImm11Imm6Relocation
+from .thumb_relocations import Rel8Relocation, BlImm11Relocation
+from .isa import thumb_isa, ThumbToken
 
 # pylint: disable=no-member,invalid-name
 
 
-class ThumbToken(Token):
-    def __init__(self):
-        super().__init__(16)
-
-    rd = bit_range(0, 3)
-
-    def encode(self):
-        return u16(self.bit_value)
-
-
 # Instructions:
-thumb_isa = Isa()
-
-thumb_isa.register_relocation(apply_rel8)
-thumb_isa.register_relocation(apply_lit8)
-thumb_isa.register_relocation(apply_wrap_new11)
-thumb_isa.register_relocation(apply_b_imm11_imm6)
-thumb_isa.register_relocation(apply_bl_imm11)
-
 
 class ThumbInstruction(Instruction):
     """ Base of all thumb instructions.
@@ -54,8 +37,8 @@ class nop_ins(ThumbInstruction):
 
 class LS_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm5 = register_argument('imm5', int)
+    rn = Operand('rn', LowArmRegister, read=True)
+    imm5 = Operand('imm5', int)
 
     def encode(self):
         assert self.imm5 % 4 == 0
@@ -64,22 +47,23 @@ class LS_imm5_base(ThumbInstruction):
         Rn = self.rn.num
         Rt = self.rt.num
         imm5 = self.imm5 >> 2
-        self.token1[0:3] = Rt
-        self.token1[3:6] = Rn
-        self.token1[6:11] = imm5
-        self.token1[11:16] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:3] = Rt
+        tokens[0][3:6] = Rn
+        tokens[0][6:11] = imm5
+        tokens[0][11:16] = self.opcode
+        return tokens[0].encode()
 
 
 class Str2(LS_imm5_base):
-    rt = register_argument('rt', LowArmRegister, read=True)
+    rt = Operand('rt', LowArmRegister, read=True)
     syntax = Syntax([
         'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
     opcode = 0xC
 
 
 class Ldr2(LS_imm5_base):
-    rt = register_argument('rt', LowArmRegister, write=True)
+    rt = Operand('rt', LowArmRegister, write=True)
     syntax = Syntax([
         'ldr', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
     opcode = 0xD
@@ -87,8 +71,8 @@ class Ldr2(LS_imm5_base):
 
 class LS_byte_imm5_base(ThumbInstruction):
     """ ??? Rt, [Rn, imm5] """
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm5 = register_argument('imm5', int)
+    rn = Operand('rn', LowArmRegister, read=True)
+    imm5 = Operand('imm5', int)
 
     def encode(self):
         assert self.rn.num < 8
@@ -96,31 +80,32 @@ class LS_byte_imm5_base(ThumbInstruction):
         Rn = self.rn.num
         Rt = self.rt.num
         imm5 = self.imm5
-        self.token1[0:3] = Rt
-        self.token1[3:6] = Rn
-        self.token1[6:11] = imm5
-        self.token1[11:16] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:3] = Rt
+        tokens[0][3:6] = Rn
+        tokens[0][6:11] = imm5
+        tokens[0][11:16] = self.opcode
+        return tokens[0].encode()
 
 
 class Strb(LS_byte_imm5_base):
-    rt = register_argument('rt', LowArmRegister, read=True)
+    rt = Operand('rt', LowArmRegister, read=True)
     syntax = Syntax([
-        'strb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
+        'strb', ' ', rt, ',', ' ', '[', LS_byte_imm5_base.rn, ',', ' ',
         LS_byte_imm5_base.imm5, ']'])
     opcode = 0xE
 
 
 class Ldrb(LS_byte_imm5_base):
-    rt = register_argument('rt', LowArmRegister, write=True)
+    rt = Operand('rt', LowArmRegister, write=True)
     syntax = Syntax([
-        'ldrb', rt, ',', '[', LS_byte_imm5_base.rn, ',',
+        'ldrb', ' ', rt, ',', ' ', '[', LS_byte_imm5_base.rn, ',', ' ',
         LS_byte_imm5_base.imm5, ']'])
     opcode = 0b01111
 
 
 class ls_sp_base_imm8(ThumbInstruction):
-    offset = register_argument('offset', int)
+    offset = Operand('offset', int)
 
     def encode(self):
         rt = self.rt.num
@@ -133,12 +118,12 @@ class ls_sp_base_imm8(ThumbInstruction):
 
 class Ldr3(ThumbInstruction):
     """ ldr Rt, LABEL, load value from pc relative position """
-    rt = register_argument('rt', LowArmRegister, write=True)
-    label = register_argument('label', str)
-    syntax = Syntax(['ldr', rt, ',', label])
+    rt = Operand('rt', LowArmRegister, write=True)
+    label = Operand('label', str)
+    syntax = Syntax(['ldr', ' ', rt, ',', ' ', label])
 
     def relocations(self):
-        return [(self.label, apply_lit8)]
+        return [Lit8Relocation(self.label)]
 
     def encode(self):
         rt = self.rt.num
@@ -150,71 +135,76 @@ class Ldr3(ThumbInstruction):
 
 class Ldr1(ls_sp_base_imm8):
     """ ldr Rt, [SP, imm8] """
-    rt = register_argument('rt', LowArmRegister, write=True)
+    rt = Operand('rt', LowArmRegister, write=True)
     opcode = 0x98
     syntax = Syntax(
-        ['ldr', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
+        ['ldr', ' ', rt, ',', ' ', '[', 'sp', ',',
+         ' ', ls_sp_base_imm8.offset, ']'])
 
 
 class Str1(ls_sp_base_imm8):
     """ str Rt, [SP, imm8] """
-    rt = register_argument('rt', LowArmRegister, read=True)
+    rt = Operand('rt', LowArmRegister, read=True)
     opcode = 0x90
     syntax = Syntax(
-        ['str', rt, ',', '[', 'sp', ',', ls_sp_base_imm8.offset, ']'])
+        ['str', ' ', rt, ',', ' ', '[', 'sp', ',', ' ',
+         ls_sp_base_imm8.offset, ']'])
 
 
 class Adr(ThumbInstruction):
-    rd = register_argument('rd', LowArmRegister, write=True)
-    label = register_argument('label', str)
+    rd = Operand('rd', LowArmRegister, write=True)
+    label = Operand('label', str)
     syntax = Syntax(['adr', rd, ',', label])
 
     def relocations(self):
-        return [(self.label, apply_lit8)]
+        return [Lit8Relocation(self.label)]
 
     def encode(self):
-        self.token1[0:8] = 0  # Filled by linker
-        self.token1[8:11] = self.rd.num
-        self.token1[11:16] = 0b10100
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:8] = 0  # Filled by linker
+        tokens[0][8:11] = self.rd.num
+        tokens[0][11:16] = 0b10100
+        return tokens[0].encode()
 
 
 class Mov3(ThumbInstruction):
     """ mov Rd, imm8, move immediate value into register """
     opcode = 4   # 00100 Rd(3) imm8
-    rd = register_argument('rd', LowArmRegister, write=True)
-    imm = register_argument('imm', int)
-    syntax = Syntax(['mov', rd, ',', imm])
+    rd = Operand('rd', LowArmRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
 
     def encode(self):
+        tokens = self.get_tokens()
         rd = self.rd.num
-        self.token1[8:11] = rd
-        self.token1[0:8] = self.imm
-        self.token1[11:16] = self.opcode
-        return self.token1.encode()
+        tokens[0][8:11] = rd
+        tokens[0][0:8] = self.imm
+        tokens[0][11:16] = self.opcode
+        return tokens[0].encode()
 
 # Arithmatics:
 
 
 class regregimm3_base(ThumbInstruction):
-    rd = register_argument('rd', LowArmRegister, write=True)
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm3 = register_argument('imm3', int)
+    rd = Operand('rd', LowArmRegister, write=True)
+    rn = Operand('rn', LowArmRegister, read=True)
+    imm3 = Operand('imm3', int)
 
     def encode(self):
         assert self.imm3 < 8
         rd = self.rd.num
-        self.token1[0:3] = rd
-        self.token1[3:6] = self.rn.num
-        self.token1[6:9] = self.imm3
-        self.token1[9:16] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:3] = rd
+        tokens[0][3:6] = self.rn.num
+        tokens[0][6:9] = self.imm3
+        tokens[0][9:16] = self.opcode
+        return tokens[0].encode()
 
 
 class Add2(regregimm3_base):
     """ add Rd, Rn, imm3 """
     syntax = Syntax([
-        'add', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
+        'add', ' ', regregimm3_base.rd, ',', ' ', regregimm3_base.rn, ',',
         regregimm3_base.imm3])
     opcode = 0b0001110
 
@@ -222,16 +212,16 @@ class Add2(regregimm3_base):
 class Sub2(regregimm3_base):
     """ sub Rd, Rn, imm3 """
     syntax = Syntax([
-        'sub', regregimm3_base.rd, ',', regregimm3_base.rn, ',',
+        'sub', ' ', regregimm3_base.rd, ',', ' ', regregimm3_base.rn, ',',
         regregimm3_base.imm3])
     opcode = 0b0001111
 
 
 class regregreg_base(ThumbInstruction):
     """ ??? Rd, Rn, Rm """
-    rd = register_argument('rd', LowArmRegister, write=True)
-    rn = register_argument('rn', LowArmRegister, read=True)
-    rm = register_argument('rm', LowArmRegister, read=True)
+    rd = Operand('rd', LowArmRegister, write=True)
+    rn = Operand('rn', LowArmRegister, read=True)
+    rm = Operand('rm', LowArmRegister, read=True)
 
     def encode(self):
         at = ThumbToken()
@@ -246,33 +236,34 @@ class regregreg_base(ThumbInstruction):
 
 class Add3(regregreg_base):
     syntax = Syntax([
-        'add', regregreg_base.rd, ',', regregreg_base.rn, ',',
+        'add', ' ', regregreg_base.rd, ',', ' ', regregreg_base.rn, ',', ' ',
         regregreg_base.rm])
     opcode = 0b0001100
 
 
 class Sub3(regregreg_base):
     syntax = Syntax([
-        'sub', regregreg_base.rd, ',', regregreg_base.rn, ',',
+        'sub', ' ', regregreg_base.rd, ',', ' ', regregreg_base.rn, ',', ' ',
         regregreg_base.rm])
     opcode = 0b0001101
 
 
 class Mov2(ThumbInstruction):
     """ mov rd, rm (all registers, also > r7 """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-    syntax = Syntax(['mov', rd, ',', rm])
+    rd = Operand('rd', ArmRegister, write=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', rm])
 
     def encode(self):
-        self.token1.rd = self.rd.num & 0x7
+        tokens = self.get_tokens()
+        tokens[0].rd = self.rd.num & 0x7
         D = (self.rd.num >> 3) & 0x1
         Rm = self.rm.num
         opcode = 0b01000110
-        self.token1[8:16] = opcode
-        self.token1[3:7] = Rm
-        self.token1[7] = D
-        return self.token1.encode()
+        tokens[0][8:16] = opcode
+        tokens[0][3:7] = Rm
+        tokens[0][7] = D
+        return tokens[0].encode()
 
 
 class Mul(ThumbInstruction):
@@ -282,52 +273,55 @@ class Mul(ThumbInstruction):
         multiply Rn and Rm and store the result in Rd
         Rd and Rm are the same register.
     """
-    rn = register_argument('rn', LowArmRegister, read=True)
-    rdm = register_argument('rdm', LowArmRegister, read=True, write=True)
-    syntax = Syntax(['mul', rn, ',', rdm])
+    rn = Operand('rn', LowArmRegister, read=True)
+    rdm = Operand('rdm', LowArmRegister, read=True, write=True)
+    syntax = Syntax(['mul', ' ', rn, ',', ' ', rdm])
 
     def encode(self):
+        tokens = self.get_tokens()
         rn = self.rn.num
-        self.token1.rd = self.rdm.num
+        tokens[0].rd = self.rdm.num
         opcode = 0b0100001101
-        self.token1[6:16] = opcode
-        self.token1[3:6] = rn
-        return self.token1.encode()
+        tokens[0][6:16] = opcode
+        tokens[0][3:6] = rn
+        return tokens[0].encode()
 
 
 class Sdiv(LongThumbInstruction):
     """ Signed division.
         Encoding T1
     """
-    rd = register_argument('rd', ArmRegister, write=True)
-    rn = register_argument('rn', ArmRegister, read=True)
-    rm = register_argument('rm', ArmRegister, read=True)
-    syntax = Syntax(['sdiv', rd, ',', rn, ',', rm])
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    syntax = Syntax(['sdiv', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def encode(self):
-        self.token1[11:16] = 0b11111
-        self.token1[4:11] = 0b0111001
-        self.token1[0:4] = self.rn.num
-        self.token2[12:16] = 0b1111
-        self.token2[8:12] = self.rd.num
-        self.token2[4:8] = 0b1111
-        self.token2[0:4] = self.rm.num
-        return self.token1.encode() + self.token2.encode()
+        tokens = self.get_tokens()
+        tokens[0][11:16] = 0b11111
+        tokens[0][4:11] = 0b0111001
+        tokens[0][0:4] = self.rn.num
+        tokens[1][12:16] = 0b1111
+        tokens[1][8:12] = self.rd.num
+        tokens[1][4:8] = 0b1111
+        tokens[1][0:4] = self.rm.num
+        return tokens[0].encode() + tokens[1].encode()
 
 
 class regreg_base(ThumbInstruction):
     """ ??? Rdn, Rm """
     def encode(self):
-        self.token1.rd = self.rdn.num
+        tokens = self.get_tokens()
+        tokens[0].rd = self.rdn.num
         rm = self.rm.num
-        self.token1[3:6] = rm
-        self.token1[6:16] = self.opcode
-        return self.token1.encode()
+        tokens[0][3:6] = rm
+        tokens[0][6:16] = self.opcode
+        return tokens[0].encode()
 
 
 def make_regreg(mnemonic, opcode):
-    rdn = register_argument('rdn', LowArmRegister, write=True, read=True)
-    rm = register_argument('rm', LowArmRegister, read=True)
+    rdn = Operand('rdn', LowArmRegister, write=True, read=True)
+    rm = Operand('rm', LowArmRegister, read=True)
     syntax = Syntax([mnemonic, rdn, ',', rm])
     members = {'syntax': syntax, 'rdn': rdn, 'rm': rm, 'opcode': opcode}
     return type(mnemonic + '_ins', (regreg_base,), members)
@@ -344,23 +338,24 @@ Lsr = make_regreg('lsr', 0b0100000011)
 class Cmp2(ThumbInstruction):
     """ cmp Rn, imm8 """
     opcode = 5   # 00101
-    rn = register_argument('rn', LowArmRegister, read=True)
-    imm = register_argument('imm', int)
+    rn = Operand('rn', LowArmRegister, read=True)
+    imm = Operand('imm', int)
     syntax = Syntax(['cmp', rn, ',', imm])
 
     def encode(self):
-        self.token1[0:8] = self.imm
-        self.token1[8:11] = self.rn.num
-        self.token1[11:16] = self.opcode
-        return self.token1.encode()
+        tokens = self.get_tokens()
+        tokens[0][0:8] = self.imm
+        tokens[0][8:11] = self.rn.num
+        tokens[0][11:16] = self.opcode
+        return tokens[0].encode()
 
 
 # Jumping:
 
 
 class B(ThumbInstruction):
-    target = register_argument('target', str)
-    syntax = Syntax(['b', target])
+    target = Operand('target', str)
+    syntax = Syntax(['b', ' ', target])
 
     def encode(self):
         h = (0b11100 << 11) | 0
@@ -368,48 +363,50 @@ class B(ThumbInstruction):
         return u16(h)
 
     def relocations(self):
-        return [(self.target, apply_wrap_new11)]
+        return [WrapNew11Relocation(self.target)]
 
 
 class Bw(LongThumbInstruction):
     """ Encoding T4
         Same encoding as Bl, longer jumps are possible with this function!
     """
-    target = register_argument('target', str)
-    syntax = Syntax(['bw', target])
+    target = Operand('target', str)
+    syntax = Syntax(['bw', ' ', target])
 
     def encode(self):
         j1 = 1
         j2 = 1
-        self.token1[11:16] = 0b11110
-        self.token2[13] = j1
-        self.token2[11] = j2
-        self.token2[12] = 1
-        self.token2[15] = 1
-        return self.token1.encode() + self.token2.encode()
+        tokens = self.get_tokens()
+        tokens[0][11:16] = 0b11110
+        tokens[1][13] = j1
+        tokens[1][11] = j2
+        tokens[1][12] = 1
+        tokens[1][15] = 1
+        return tokens[0].encode() + tokens[1].encode()
 
     def relocations(self):
-        return [(self.target, apply_bl_imm11)]
+        return [BlImm11Relocation(self.target)]
 
 
 class Bl(LongThumbInstruction):
     """ Branch with link """
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['bl', target])
 
     def encode(self):
         j1 = 1  # TODO: what do these mean?
         j2 = 1
-        self.token1[11:16] = 0b11110
-        self.token2[13] = j1
-        self.token2[11] = j2
-        self.token2[12] = 1
-        self.token2[14] = 1
-        self.token2[15] = 1
-        return self.token1.encode() + self.token2.encode()
+        tokens = self.get_tokens()
+        tokens[0][11:16] = 0b11110
+        tokens[1][13] = j1
+        tokens[1][11] = j2
+        tokens[1][12] = 1
+        tokens[1][14] = 1
+        tokens[1][15] = 1
+        return tokens[0].encode() + tokens[1].encode()
 
     def relocations(self):
-        return [(self.target, apply_bl_imm11)]
+        return [BlImm11Relocation(self.target)]
 
 
 class cond_base_ins(ThumbInstruction):
@@ -419,11 +416,11 @@ class cond_base_ins(ThumbInstruction):
         return u16(h)
 
     def relocations(self):
-        return [(self.target, apply_rel8)]
+        return [Rel8Relocation(self.target)]
 
 
 def make_cond_branch(mnemonic, cond):
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
@@ -449,11 +446,11 @@ class cond_base_ins_long(LongThumbInstruction):
         return u16(h1) + u16(h2)
 
     def relocations(self):
-        return [(self.target, apply_b_imm11_imm6)]
+        return [BImm11Imm6Relocation(self.target)]
 
 
 def make_long_cond_branch(mnemonic, cond):
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax([mnemonic, target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
@@ -487,17 +484,18 @@ def pop_bit_pos(n):
 
 
 class Push(ThumbInstruction):
-    regs = register_argument('regs', set)
+    regs = Operand('regs', set)
     syntax = Syntax(['push', regs])
 
     def __repr__(self):
         return 'Push {{{}}}'.format(self.regs)
 
     def encode(self):
+        tokens = self.get_tokens()
         for n in register_numbers(self.regs):
-            self.token1[push_bit_pos(n)] = 1
-        self.token1[9:16] = 0x5a
-        return self.token1.encode()
+            tokens[0][push_bit_pos(n)] = 1
+        tokens[0][9:16] = 0x5a
+        return tokens[0].encode()
 
 
 def register_numbers(regs):
@@ -506,17 +504,18 @@ def register_numbers(regs):
 
 
 class Pop(ThumbInstruction):
-    regs = register_argument('regs', set)
+    regs = Operand('regs', set)
     syntax = Syntax(['pop', regs])
 
     def __repr__(self):
         return 'Pop {{{}}}'.format(self.regs)
 
     def encode(self):
+        tokens = self.get_tokens()
         for n in register_numbers(self.regs):
-            self.token1[pop_bit_pos(n)] = 1
-        self.token1[9:16] = 0x5E
-        return self.token1.encode()
+            tokens[0][pop_bit_pos(n)] = 1
+        tokens[0][9:16] = 0x5E
+        return tokens[0].encode()
 
 
 class Yield(ThumbInstruction):
@@ -528,7 +527,7 @@ class Yield(ThumbInstruction):
 
 class addspsp_base(ThumbInstruction):
     """ add/sub SP with imm7 << 2 """
-    imm7 = register_argument('imm7', int)
+    imm7 = Operand('imm7', int)
 
     def encode(self):
         assert self.imm7 < 512

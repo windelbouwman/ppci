@@ -7,11 +7,20 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.6 (Planned)
----------------------
-
-Release 0.5 (Upcoming)
+Release 0.6 (Upcoming)
 ----------------------
+
+Release 0.5.1 (Oct 16, 2016)
+----------------------------
+
+* Expand the riscv example to include single stepping (by Michael)
+* Bugfix in byte parameter passing for x86_64 target
+* Cleanup of the encoding system
+* Start with llvm-IR frontend
+
+
+Release 0.5 (Aug 6, 2016)
+-------------------------
 
 * Debug type information stored in better format
 * Expression evaluation in debugger

@@ -1,38 +1,24 @@
-"""
-    This module contains the code generation class.
-"""
+""" This module contains the code generation class. """
 
 import logging
-import struct
 from ... import ir
 from ... import irutils
-from ...binutils.debuginfo import DebugLocation, DebugFunction
-from ...binutils.debuginfo import DebugBaseType, DebugStructType
-from ...binutils.debuginfo import DebugPointerType, DebugArrayType
-from ...binutils.debuginfo import DebugVariable
+from ...binutils import debuginfo
 from . import astnodes as ast
 from .scope import SemanticError
 
 
-def pack_string(txt, context):
-    """ Pack a string using 4 bytes length followed by text data """
-    mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
-    fmt = mapping[context.get_type('int').byte_size]
-    length = struct.pack(fmt, len(txt))
-    data = txt.encode('ascii')
-    return length + data
-
-
 class CodeGenerator:
-    """
-      Generates intermediate (IR) code from a package. The entry function is
-      'genModule'. The main task of this part is to rewrite complex control
-      structures, such as while and for loops into simple conditional
-      jump statements. Also complex conditional statements are simplified.
-      Such as 'and' and 'or' statements are rewritten in conditional jumps.
-      And structured datatypes are rewritten.
+    """ Generates intermediate (IR) code from a package.
 
-      Type checking is done in one run with code generation.
+    The entry function is
+    'genModule'. The main task of this part is to rewrite complex control
+    structures, such as while and for loops into simple conditional
+    jump statements. Also complex conditional statements are simplified.
+    Such as 'and' and 'or' statements are rewritten in conditional jumps.
+    And structured datatypes are rewritten.
+
+    Type checking is done in one run with code generation.
     """
     logger = logging.getLogger('c3cgen')
 
@@ -51,21 +37,16 @@ class CodeGenerator:
         self.module_ok = True
         self.logger.info('Generating ir-code for %s', mod.name)
         self.builder.module = self.context.var_map[mod]
-        try:
-            # Check defined types of this module:
-            for typ in mod.types:
-                self.context.check_type(typ)
 
-            # Only generate function if function contains a body:
-            for func in mod.functions:
-                if func.body:
-                    # Try per function, in case of error, continue with next
-                    try:
-                        self.gen_function(func)
-                    except SemanticError as ex:
-                        self.error(ex.msg, ex.loc)
-        except SemanticError as ex:
-            self.error(ex.msg, ex.loc)
+        # Only generate function if function contains a body:
+        for func in mod.functions:
+            if func.body:
+                # Try per function, in case of error, continue with next
+                try:
+                    self.gen_function(func)
+                except SemanticError as ex:
+                    self.error(ex.msg, ex.loc)
+
         if not self.module_ok:
             raise SemanticError("Errors occurred", None)
         return self.builder.module
@@ -78,15 +59,21 @@ class CodeGenerator:
 
         # Generate room for global variables:
         for var in module.inner_scope.variables:
-            ir_var = ir.Variable(var.name, context.size_of(var.typ))
-            context.var_map[var] = ir_var
             assert not var.isLocal
-            assert not var.ival
+            if var.ival:
+                assert context.equal_types('int', var.typ)
+                cval = context.eval_const(var.ival)
+                cval = context.pack_int(cval)
+            else:
+                cval = None
+            ir_var = ir.Variable(
+                var.name, context.size_of(var.typ), value=cval)
+            context.var_map[var] = ir_var
             ir_module.add_variable(ir_var)
 
             # Create debug infos:
             dbg_typ = self.get_debug_type(var.typ)
-            dv = DebugVariable(var.name, dbg_typ, var.loc)
+            dv = debuginfo.DebugVariable(var.name, dbg_typ, var.loc)
             self.debug_db.enter(ir_var, dv)
 
     def emit(self, instruction, loc=None):
@@ -96,27 +83,27 @@ class CodeGenerator:
         """
         self.builder.emit(instruction)
         if loc:
-            self.debug_db.enter(instruction, DebugLocation(loc))
+            self.debug_db.enter(instruction, debuginfo.DebugLocation(loc))
         return instruction
 
     def get_debug_type(self, typ):
         """ Get or create debug type info in the debug information """
         # Lookup the type:
-        typ = self.context.the_type(typ)
+        typ = self.context.get_type(typ)
 
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
 
         if isinstance(typ, ast.BaseType):
-            dbg_typ = DebugBaseType(typ.name, self.context.size_of(typ), 1)
+            dbg_typ = debuginfo.DebugBaseType(
+                typ.name, self.context.size_of(typ), 1)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.PointerType):
             ptype = self.get_debug_type(typ.ptype)
-            dbg_typ = DebugPointerType(ptype)
+            dbg_typ = debuginfo.DebugPointerType(ptype)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, ast.StructureType):
-            dbg_typ = DebugStructType()
-            self.context.check_type(typ)
+            dbg_typ = debuginfo.DebugStructType()
 
             # Enter the type here, so the cached value is taken when
             # a linked list is encountered:
@@ -131,7 +118,7 @@ class CodeGenerator:
                 size = typ.size
             else:
                 size = self.context.eval_const(typ.size)
-            dbg_typ = DebugArrayType(et, size)
+            dbg_typ = debuginfo.DebugArrayType(et, size)
             self.debug_db.enter(typ, dbg_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
@@ -150,10 +137,9 @@ class CodeGenerator:
         if self.context.equal_types('void', function.typ.returntype):
             ir_function = self.builder.new_procedure(function.name)
         else:
-            return_type = self.get_ir_type(
-                function.typ.returntype, function.loc)
+            return_type = self.get_ir_type(function.typ.returntype)
             ir_function = self.builder.new_function(function.name, return_type)
-        dfi = DebugFunction(function.name, function.loc)
+        dfi = debuginfo.DebugFunction(function.name, function.loc)
         self.debug_db.enter(ir_function, dfi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
@@ -163,10 +149,8 @@ class CodeGenerator:
         # generate parameters:
         param_map = {}
         for param in function.parameters:
-            self.context.check_type(param.typ)
-
             # Parameters can only be simple types (pass by value)
-            param_ir_typ = self.get_ir_type(param.typ, param.loc)
+            param_ir_typ = self.get_ir_type(param.typ)
 
             # Define parameter for function:
             ir_parameter = ir.Parameter(param.name, param_ir_typ)
@@ -181,7 +165,6 @@ class CodeGenerator:
 
         # generate room for locals:
         for sym in function.inner_scope:
-            self.context.check_type(sym.typ)
             var_name = 'var_{}'.format(sym.name)
             variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
             self.emit(variable)
@@ -201,7 +184,7 @@ class CodeGenerator:
 
             # Debug info:
             dbg_typ = self.get_debug_type(sym.typ)
-            dv = DebugVariable(sym.name, dbg_typ, sym.loc)
+            dv = debuginfo.DebugVariable(sym.name, dbg_typ, sym.loc)
             self.debug_db.enter(variable, dv)
             dfi.add_variable(dv)
 
@@ -219,8 +202,7 @@ class CodeGenerator:
                     self.builder.set_block(None)
                     ir_function.delete_unreachable()
                     assert not last_block.is_used
-                    if last_block in ir_function:
-                        ir_function.remove_block(last_block)
+                    assert last_block not in ir_function
                 else:
                     raise SemanticError(
                         'Function does not return a value', function.loc)
@@ -229,24 +211,20 @@ class CodeGenerator:
         ir_function.delete_unreachable()
         self.builder.set_function(None)
 
-    def get_expr_ir_type(self, expr):
-        """ Get the ir-type for an expression """
-        return self.get_ir_type(expr.typ, expr.loc)
-
     def get_ir_int(self):
         mapping = {1: ir.i8, 2: ir.i16, 4: ir.i32, 8: ir.i64}
         return mapping[self.context.get_type('int').byte_size]
 
-    def get_ir_type(self, cty, loc):
+    def get_ir_type(self, cty):
         """ Given a certain type, get the corresponding ir-type """
-        cty = self.context.the_type(cty)
+        cty = self.context.get_type(cty)
         if self.context.equal_types(cty, 'int'):
             return self.get_ir_int()
         elif self.context.equal_types(cty, 'double'):
             return ir.f64
         elif self.context.equal_types(cty, 'float'):
             return ir.f32
-        elif self.context.equal_types(cty, 'void'):
+        elif self.context.equal_types(cty, 'void'):  # pragma: no cover
             raise RuntimeError('Cannot get void type')
         elif self.context.equal_types(cty, 'bool'):
             # Implement booleans as integers:
@@ -255,9 +233,8 @@ class CodeGenerator:
             return ir.i8
         elif isinstance(cty, ast.PointerType):
             return ir.ptr
-        else:
-            raise SemanticError(
-                'Cannot determine the type for "{}"'.format(cty), loc)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(cty))
 
     def gen_stmt(self, code: ast.Statement):
         """ Generate code for a statement """
@@ -271,13 +248,10 @@ class CodeGenerator:
             elif isinstance(code, ast.Assignment):
                 self.gen_assignment_stmt(code)
             elif isinstance(code, ast.ExpressionStatement):
-                # Check that this is always a void function call
-                if not isinstance(code.ex, ast.FunctionCall):
-                    raise SemanticError('Not a call expression', code.ex.loc)
+                # This must be always a void function call
+                assert isinstance(code.ex, ast.FunctionCall)
                 value = self.gen_function_call(code.ex)
-                if not self.context.equal_types('void', code.ex.typ):
-                    raise SemanticError(
-                        'Can only call void functions', code.ex.loc)
+                assert self.context.equal_types('void', code.ex.typ)
                 assert value is None
             elif isinstance(code, ast.If):
                 self.gen_if_stmt(code)
@@ -287,6 +261,8 @@ class CodeGenerator:
                 self.gen_while(code)
             elif isinstance(code, ast.For):
                 self.gen_for_stmt(code)
+            elif isinstance(code, ast.Switch):
+                self.gen_switch_stmt(code)
             else:  # pragma: no cover
                 raise NotImplementedError(str(code))
         except SemanticError as exc:
@@ -301,75 +277,27 @@ class CodeGenerator:
             self.emit(ir.Exit())
         self.builder.set_block(self.builder.new_block())
 
-    def do_coerce(self, ir_val, typ, wanted_typ, loc):
-        """ Try to convert expression into the given type
-            ir_val: the value to convert
-            typ: the type of the value
-            wanted_typ: the type that it must be
-            loc: the location where this is needed.
-            Raises an error is the conversion cannot be done.
-        """
-        if self.context.equal_types(typ, wanted_typ):
-            # no cast required
-            return ir_val
-        elif isinstance(wanted_typ, ast.PointerType) and \
-                isinstance(typ, ast.PointerType):
-            # Pointers are pointers, no matter the pointed data.
-            return ir_val
-        elif self.context.equal_types('int', typ) and \
-                isinstance(wanted_typ, ast.PointerType):
-            return self.emit(ir.to_ptr(ir_val, 'coerce'))
-        elif self.context.equal_types('int', typ) and \
-                self.context.equal_types('byte', wanted_typ):
-            return self.emit(ir.to_i8(ir_val, 'coerce'))
-        elif self.context.equal_types('int', typ) and \
-                self.context.equal_types('double', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
-        elif self.context.equal_types('double', typ) and \
-                self.context.equal_types('float', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', ir.f32))
-        elif self.context.equal_types('float', typ) and \
-                self.context.equal_types('double', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', ir.f64))
-        elif self.context.equal_types('byte', typ) and \
-                self.context.equal_types('int', wanted_typ):
-            return self.emit(ir.Cast(ir_val, 'coerce', self.get_ir_int()))
-        else:
-            raise SemanticError(
-                "Cannot use '{}' as '{}'".format(typ, wanted_typ), loc)
-
-    def is_simple_type(self, typ):
-        """ Determines if the given type is a simple type """
-        typ = self.context.the_type(typ)
-        return isinstance(typ, ast.PointerType) or \
-            isinstance(typ, ast.BaseType)
-
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
         # Evaluate left hand side:
         lval = self.gen_expr_code(code.lval)
 
         # Check that the left hand side is a simple type:
-        if not self.is_simple_type(code.lval.typ):
-            raise SemanticError(
-                'Cannot assign to complex type {}'.format(code.lval.typ),
-                code.loc)
+        assert self.context.is_simple_type(code.lval.typ)
 
         # Check that left hand is an lvalue:
-        if not code.lval.lvalue:
-            raise SemanticError(
-                'No valid lvalue {}'.format(code.lval), code.lval.loc)
+        assert code.lval.lvalue
 
         # Evaluate right hand side (and make it rightly typed):
         rval = self.gen_expr_code(code.rval, rvalue=True)
-        rval = self.do_coerce(rval, code.rval.typ, code.lval.typ, code.loc)
+        assert self.context.equal_types(code.lval.typ, code.rval.typ)
 
         # Implement short hands (+=, -= etc):
         if code.is_shorthand:
             # In case of '+=', evaluate the left hand side once, and use
             # the value twice. Once as an lvalue, once as rvalue.
             # Determine loaded type:
-            load_ty = self.get_ir_type(code.lval.typ, code.lval.loc)
+            load_ty = self.get_ir_type(code.lval.typ)
 
             # We know, the left hand side is an lvalue, so load it:
             lhs_ld = self.emit(
@@ -426,6 +354,44 @@ class CodeGenerator:
         self.emit(ir.Jump(test_block))
         self.builder.set_block(final_block)
 
+    def gen_switch_stmt(self, switch):
+        """ Generate code for a switch statement """
+        ir_val = self.gen_expr_code(switch.expression, rvalue=True)
+        assert self.context.equal_types('int', switch.expression.typ)
+
+        final_block = self.builder.new_block()
+        test_block = self.builder.new_block()
+        self.emit(ir.Jump(test_block))
+
+        def_block = None
+        # Generate code in linear way:
+        for option_val, option_code in switch.options:
+            # Generate code for case:
+            code_block = self.builder.new_block()
+            self.builder.set_block(code_block)
+            self.gen_stmt(option_code)
+            self.emit(ir.Jump(final_block))
+
+            if option_val is None:
+                # default case
+                def_block = code_block
+            else:
+                # TODO: type check constant:
+                loc = option_val.loc
+                self.builder.set_block(test_block)
+                o_val = self.context.eval_const(option_val)
+                ir_val2 = self.emit(ir.Const(
+                    o_val, 'cmpval', self.get_ir_int()), loc=loc)
+                tb2 = self.builder.new_block()
+                self.emit(
+                    ir.CJump(ir_val, '==', ir_val2, code_block, tb2), loc=loc)
+                test_block = tb2
+
+        self.builder.set_block(test_block)
+        assert def_block
+        self.emit(ir.Jump(def_block))
+        self.builder.set_block(final_block)
+
     def gen_cond_code(self, expr, bbtrue, bbfalse):
         """ Generate conditional logic.
             Implement sequential logical operators. """
@@ -445,15 +411,11 @@ class CodeGenerator:
             elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
                 lhs = self.gen_expr_code(expr.a, rvalue=True)
                 rhs = self.gen_expr_code(expr.b, rvalue=True)
-                if not self.context.equal_types(expr.a.typ, expr.b.typ):
-                    raise SemanticError('Types unequal {} != {}'
-                                        .format(expr.a.typ, expr.b.typ),
-                                        expr.loc)
+                self.context.equal_types(expr.a.typ, expr.b.typ)
                 self.emit(
                     ir.CJump(lhs, expr.op, rhs, bbtrue, bbfalse), loc=expr.loc)
-            else:
-                raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
-            expr.typ = self.context.get_type('bool')
+            else:  # pragma: no cover
+                raise NotImplementedError(str(expr.op))
         elif isinstance(expr, ast.Literal):
             self.gen_expr_code(expr)
             if expr.val:
@@ -463,27 +425,24 @@ class CodeGenerator:
         elif isinstance(expr, ast.Unop) and expr.op == 'not':
             # In case of not, simply swap true and false!
             self.gen_cond_code(expr.a, bbfalse, bbtrue)
-            expr.typ = self.context.get_type('bool')
         elif isinstance(expr, ast.Expression):
             # Evaluate expression, make sure it is boolean and compare it
             # with true:
             value = self.gen_expr_code(expr, rvalue=True)
-            if not self.context.equal_types(expr.typ, 'bool'):
-                self.error('Condition must be boolean', expr.loc)
+            assert self.context.equal_types(expr.typ, 'bool')
             true_val = self.emit(
-                ir.Const(1, "true", self.get_expr_ir_type(expr)))
+                ir.Const(1, "true", self.get_ir_type(expr.typ)))
             self.emit(ir.CJump(value, '==', true_val, bbtrue, bbfalse))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
         # Check that the condition is a boolean value:
-        if not self.context.equal_types(expr.typ, 'bool'):
-            self.error('Condition must be boolean', expr.loc)
+        assert self.context.equal_types(expr.typ, 'bool')
 
     def gen_expr_code(self, expr: ast.Expression, rvalue=False) -> ir.Value:
         """ Generate code for an expression. Return the generated ir-value """
         assert isinstance(expr, ast.Expression)
-        if self.is_bool(expr):
+        if expr.is_bool:
             value = self.gen_bool_expr(expr)
         else:
             if isinstance(expr, ast.Binop):
@@ -518,13 +477,11 @@ class CodeGenerator:
             # This means that the value can be used in an expression or as
             # a parameter.
 
-            val_typ = self.context.the_type(expr.typ)
-            if not isinstance(val_typ, (ast.PointerType, ast.BaseType)):
-                raise SemanticError(
-                    'Cannot deref {}'.format(val_typ), expr.loc)
+            val_typ = self.context.get_type(expr.typ)
+            assert isinstance(val_typ, (ast.PointerType, ast.BaseType))
 
             # Determine loaded type:
-            load_ty = self.get_ir_type(expr.typ, expr.loc)
+            load_ty = self.get_ir_type(expr.typ)
 
             # Load the value:
             value = self.emit(ir.Load(value, 'load', load_ty), loc=expr.loc)
@@ -537,10 +494,6 @@ class CodeGenerator:
         # This is not a location value..
         expr.lvalue = False
 
-        # The type of this expression is int:
-        expr.typ = self.context.get_type('int')
-
-        self.context.check_type(expr.query_typ)
         type_size = self.context.size_of(expr.query_typ)
         return self.emit(
             ir.Const(type_size, 'sizeof', self.get_ir_int()), loc=expr.loc)
@@ -555,29 +508,23 @@ class CodeGenerator:
         # A pointer is always a lvalue:
         expr.lvalue = True
 
-        ptr_typ = self.context.the_type(expr.ptr.typ)
-        if not isinstance(ptr_typ, ast.PointerType):
-            raise SemanticError('Cannot deref {}'.format(ptr_typ), expr.loc)
-        expr.typ = ptr_typ.ptype
+        ptr_typ = self.context.get_type(expr.ptr.typ)
+        assert isinstance(ptr_typ, ast.PointerType)
         return deref_value
 
     def gen_unop(self, expr):
         """ Generate code for unary operator """
         if expr.op == '&':
             rhs = self.gen_expr_code(expr.a)
-            if not expr.a.lvalue:
-                raise SemanticError('No valid lvalue', expr.a.loc)
-            expr.typ = ast.PointerType(expr.a.typ)
+            assert expr.a.lvalue
             expr.lvalue = False
             return rhs
         elif expr.op == '+':
             rhs = self.gen_expr_code(expr.a, rvalue=True)
-            expr.typ = expr.a.typ
             expr.lvalue = False
             return rhs
         elif expr.op == '-':
             rhs = self.gen_expr_code(expr.a, rvalue=True)
-            expr.typ = expr.a.typ
             expr.lvalue = False
 
             # Implement unary operator with sneaky trick using 0 - v binop:
@@ -585,15 +532,6 @@ class CodeGenerator:
             return self.emit(ir.Binop(zero, '-', rhs, 'unary_minus', rhs.ty))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
-
-    def is_bool(self, expr):
-        """ Check if an expression is a boolean type """
-        if isinstance(expr, ast.Binop) and expr.op in ast.Binop.cond_ops:
-            return True
-        elif isinstance(expr, ast.Unop) and expr.op in ast.Unop.cond_ops:
-            return True
-        else:
-            return False
 
     def gen_bool_expr(self, expr):
         """ Generate code for cases where a boolean value is assigned """
@@ -609,19 +547,19 @@ class CodeGenerator:
         # True path:
         self.builder.set_block(true_block)
         true_val = self.emit(
-            ir.Const(1, 'true', self.get_ir_type(expr.typ, expr.loc)))
+            ir.Const(1, 'true', self.get_ir_type(expr.typ)))
         self.emit(ir.Jump(final_block))
 
         # False path:
         self.builder.set_block(false_block)
         false_val = self.emit(
-            ir.Const(0, 'false', self.get_ir_type(expr.typ, expr.loc)))
+            ir.Const(0, 'false', self.get_ir_type(expr.typ)))
         self.emit(ir.Jump(final_block))
 
         # Final path:
         self.builder.set_block(final_block)
         phi = self.emit(
-            ir.Phi('bool_res', self.get_ir_type(expr.typ, expr.loc)))
+            ir.Phi('bool_res', self.get_ir_type(expr.typ)))
         phi.set_incoming(false_block, false_val)
         phi.set_incoming(true_block, true_val)
 
@@ -641,18 +579,7 @@ class CodeGenerator:
         assert isinstance(a_val, ir.Value)
         assert isinstance(b_val, ir.Value)
 
-        # Get best type for result:
-        common_type = self.context.get_common_type(expr.a, expr.b)
-        expr.typ = common_type
-
-        # TODO: check if operation can be performed on shift and bitwise
-        if expr.op not in ['+', '-', '*', '/', '%', '<<', '>>', '|', '&', '^']:
-            raise SemanticError("Cannot use {}".format(expr.op))
-
-        # Perform type coercion:
-        # TODO: use ir-types, or ast types?
-        a_val = self.do_coerce(a_val, expr.a.typ, common_type, expr.loc)
-        b_val = self.do_coerce(b_val, expr.b.typ, common_type, expr.loc)
+        self.context.equal_types(expr.a.typ, expr.b.typ)
 
         return self.emit(
             ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty), loc=expr.loc)
@@ -665,17 +592,14 @@ class CodeGenerator:
         # This returns the dereferenced variable.
         if isinstance(target, ast.Variable):
             expr.lvalue = True
-            expr.typ = target.typ
             value = self.context.var_map[target]
         elif isinstance(target, ast.Constant):
             expr.lvalue = False
-            expr.typ = target.typ
             c_val = self.context.get_constant_value(target)
-            c_typ = self.get_ir_type(target.typ, expr.loc)
+            c_typ = self.get_ir_type(target.typ)
             value = self.emit(ir.Const(c_val, target.name, c_typ))
-        else:
-            raise SemanticError(
-                'Cannot use {} in expression'.format(target), expr.loc)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(target))
         return value
 
     def is_module_ref(self, expr):
@@ -698,7 +622,6 @@ class CodeGenerator:
             target = self.context.resolve_symbol(expr)
             if isinstance(target, ast.Variable):
                 expr.lvalue = True
-                expr.typ = target.typ
                 value = self.context.var_map[target]
             else:  # pragma: no cover
                 raise NotImplementedError(str(target))
@@ -709,24 +632,15 @@ class CodeGenerator:
         # The base is a valid expression:
         assert isinstance(base, ir.Value)
         expr.lvalue = expr.base.lvalue
-        basetype = self.context.the_type(expr.base.typ)
-        if isinstance(basetype, ast.StructureType):
-            self.context.check_type(basetype)
-            if basetype.has_field(expr.field):
-                expr.typ = basetype.field_type(expr.field)
-            else:
-                raise SemanticError('{} does not contain field {}'
-                                    .format(basetype, expr.field),
-                                    expr.loc)
-        else:
-            raise SemanticError('Cannot select {} of non-structure type {}'
-                                .format(expr.field, basetype), expr.loc)
+        basetype = self.context.get_type(expr.base.typ)
+        assert isinstance(basetype, ast.StructureType)
+        assert basetype.has_field(expr.field)
 
         # expr must be lvalue because we handle with addresses of variables
         assert expr.lvalue
 
         # Calculate offset into struct:
-        base_type = self.context.the_type(expr.base.typ)
+        base_type = self.context.get_type(expr.base.typ)
         offset = self.emit(
             ir.Const(base_type.field_offset(expr.field), 'offset', ir.ptr))
 
@@ -738,23 +652,19 @@ class CodeGenerator:
         base = self.gen_expr_code(expr.base)
         idx = self.gen_expr_code(expr.i, rvalue=True)
 
-        base_typ = self.context.the_type(expr.base.typ)
-        if not isinstance(base_typ, ast.ArrayType):
-            raise SemanticError('Cannot index non-array type {}'
-                                .format(base_typ),
-                                expr.base.loc)
+        base_typ = self.context.get_type(expr.base.typ)
+        assert isinstance(base_typ, ast.ArrayType)
 
         # Make sure the index is an integer:
-        idx = self.do_coerce(idx, expr.i.typ, 'int', expr.i.loc)
+        assert self.context.equal_types('int', expr.i.typ)
 
         # Base address must be a location value:
         assert expr.base.lvalue
-        element_type = self.context.the_type(base_typ.element_type)
+        element_type = self.context.get_type(base_typ.element_type)
         element_size = self.context.size_of(element_type)
-        expr.typ = base_typ.element_type
         expr.lvalue = True
 
-        int_ir_type = self.get_ir_type('int', expr.loc)
+        int_ir_type = self.get_ir_type('int')
 
         # Generate constant:
         e_size = self.emit(ir.Const(element_size, 'element_size', int_ir_type))
@@ -771,18 +681,10 @@ class CodeGenerator:
     def gen_literal_expr(self, expr):
         """ Generate code for literal """
         expr.lvalue = False
-        typemap = {int: 'int',
-                   float: 'double',
-                   bool: 'bool',
-                   str: 'string'}
-        if isinstance(expr.val, tuple(typemap.keys())):
-            expr.typ = self.context.get_type(typemap[type(expr.val)])
-        else:
-            raise SemanticError('Unknown literal type {}'
-                                .format(expr.val), expr.loc)
+
         # Construct correct const value:
         if isinstance(expr.val, str):
-            cval = pack_string(expr.val, self.context)
+            cval = self.context.pack_string(expr.val)
             value = ir.LiteralData(cval, 'strval')
         elif isinstance(expr.val, int):  # boolean is a subclass of int!
             # For booleans, use the integer as storage class:
@@ -801,9 +703,28 @@ class CodeGenerator:
         ar = self.gen_expr_code(expr.a, rvalue=True)
         expr.lvalue = False
 
-        from_type = self.context.the_type(expr.a.typ)
-        to_type = self.context.the_type(expr.to_type)
-        expr.typ = expr.to_type
+        from_type = self.context.get_type(expr.a.typ)
+        to_type = self.context.get_type(expr.to_type)
+        # 0 = not possible
+        # 1 = possible
+        # 2 = automatic
+
+        cast_map = {
+            'byte': {
+                'byte': 1,
+            },
+            'int': {
+                'byte': 1,
+                'int': 1,
+                'float': 1,
+            },
+            'float': {
+                'byte': 1,
+                'int': 1,
+                'float': 1,
+            }
+        }
+
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):
             return ar
@@ -821,49 +742,49 @@ class CodeGenerator:
                 and from_type.name == 'int' and \
                 isinstance(to_type, ast.BaseType) and to_type.name == 'byte':
             return self.emit(ir.to_i8(ar, 'bytecast'))
-        else:
-            raise SemanticError('Cannot cast {} to {}'
-                                .format(from_type, to_type), expr.loc)
+        elif self.context.equal_types('float', to_type) \
+                and self.context.equal_types('int', from_type):
+            return self.emit(ir.Cast(ar, 'int2flt', self.get_ir_type('float')))
+        elif self.context.equal_types('float', to_type) \
+                and self.context.equal_types('double', from_type):
+            return self.emit(ir.Cast(ar, 'dbl2flt', self.get_ir_type('float')))
+        elif self.context.equal_types('double', to_type) \
+                and self.context.equal_types('float', from_type):
+            return self.emit(
+                ir.Cast(ar, 'flt2dbl', self.get_ir_type('double')))
+        else:  # pragma: no cover
+            raise NotImplementedError(
+                'Cannot cast {} to {}'.format(from_type, to_type))
 
     def gen_function_call(self, expr):
         """ Generate code for a function call """
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
-        if not isinstance(target_func, ast.Function):
-            raise SemanticError('cannot call {}'.format(target_func), expr.loc)
+        assert isinstance(target_func, ast.Function)
         ftyp = target_func.typ
         fname = target_func.package.name + '_' + target_func.name
 
         # Check arguments:
         ptypes = ftyp.parametertypes
-        if len(expr.args) != len(ptypes):
-            raise SemanticError('{} requires {} arguments, {} given'
-                                .format(fname, len(ptypes), len(expr.args)),
-                                expr.loc)
+        assert len(expr.args) == len(ptypes)
 
         # Evaluate the arguments:
         args = []
         for arg_expr, arg_typ in zip(expr.args, ptypes):
             arg_val = self.gen_expr_code(arg_expr, rvalue=True)
-            arg_val = self.do_coerce(
-                arg_val, arg_expr.typ, arg_typ, arg_expr.loc)
+            self.context.equal_types(arg_expr.typ, arg_typ)
             args.append(arg_val)
-
-        # determine return type:
-        expr.typ = ftyp.returntype
 
         # Return type will never be an lvalue:
         expr.lvalue = False
 
-        if not self.is_simple_type(ftyp.returntype):
-            raise SemanticError(
-                'Return value can only be a simple type', expr.loc)
+        assert self.context.is_simple_type(ftyp.returntype)
 
         if self.context.equal_types(expr.typ, 'void'):
             self.emit(ir.ProcedureCall(fname, args), loc=expr.loc)
         else:
             # Determine return type:
-            ret_typ = self.get_ir_type(expr.typ, expr.loc)
+            ret_typ = self.get_ir_type(expr.typ)
 
             # Emit call:
             return self.emit(

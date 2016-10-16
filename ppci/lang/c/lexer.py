@@ -1,9 +1,7 @@
-"""
-    C Language lexer
-"""
+""" C Language lexer """
 
 from ...pcc.baselex import BaseLexer
-from ...common import SourceLocation, Token, make_num
+from ...common import make_num
 
 
 class Lexer(BaseLexer):
@@ -34,13 +32,7 @@ class Lexer(BaseLexer):
 
     def lex(self, src):
         s = src.read()
-        return self.tokenize(s)
-
-    def tokenize(self, s):
-        for token in super().tokenize(s):
-            yield token
-        loc = SourceLocation(self.filename, self.line, 0, 0)
-        yield Token('EOF', 'EOF', loc)
+        return self.tokenize(s, eof=True)
 
     def handle_id(self, typ, val):
         if val in self.keywords:

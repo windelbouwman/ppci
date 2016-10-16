@@ -49,6 +49,12 @@ class Visitor:
             self.do(node.condition)
             self.do(node.final)
             self.do(node.statement)
+        elif isinstance(node, ast.Switch):
+            self.do(node.expression)
+            for option_val, option_code in node.options:
+                if option_val is not None:
+                    self.do(option_val)
+                self.do(option_code)
         elif isinstance(node, ast.Assignment):
             self.do(node.lval)
             self.do(node.rval)
@@ -87,9 +93,13 @@ class Visitor:
             self.do(node.typ)
         elif isinstance(node, ast.PointerType):
             self.do(node.ptype)
+        elif isinstance(node, ast.BaseType):
+            pass
         elif isinstance(node, ast.StructureType):
             for member in node.fields:
-                self.do(member.typ)
+                self.do(member)
+        elif isinstance(node, ast.StructField):
+            self.do(node.typ)
         elif isinstance(node, ast.ArrayType):
             self.do(node.element_type)
             self.do(node.size)

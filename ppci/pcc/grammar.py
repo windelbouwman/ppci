@@ -34,6 +34,10 @@ class Grammar:
                 "Cannot redefine terminal {0}".format(name))
         self.nonterminals.add(name)
 
+    def dump(self):
+        """ Print this grammar """
+        print_grammar(self)
+
     def add_one_or_more(self, element_nonterm, list_nonterm):
         """ Helper to add the rule
            lst: elem

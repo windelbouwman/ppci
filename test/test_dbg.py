@@ -115,7 +115,7 @@ class DebuggerTestCase(unittest.TestCase):
         self.debugger.eval_c3_str('-D')
 
     def test_expressions_with_locals(self):
-        """ See if expressions involving global variables can be evaluated """
+        """ See if expressions involving local variables can be evaluated """
         src = """
         module x;
         var int Xa;
@@ -222,13 +222,15 @@ class DebugCliTestCase(unittest.TestCase):
         self.cli.onecmd(cmd)
 
 
+# @patch('ppci.binutils.dbg_gdb_client.select')
+# @patch('select.select')
 class GdbClientTestCase(unittest.TestCase):
     arch = get_arch('example')
 
     def setUp(self):
         with patch('ppci.binutils.dbg_gdb_client.socket.socket'):
             self.gdbc = GdbDebugDriver(self.arch)
-        self.sock_mock = self.gdbc.s
+        self.sock_mock = self.gdbc.sock
         self.send_data = bytearray()
 
         def my_send(dt):
@@ -261,17 +263,25 @@ class GdbClientTestCase(unittest.TestCase):
         res = self.gdbc.readpkt()
         self.assertEqual('abc', res)
 
-    def test_send_pkt(self):
+    @patch('select.select')
+    def test_send_pkt(self, select_mock):
         """ Test sending of a single packet """
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+')
         self.gdbc.sendpkt('s')
         self.check_send(b'$s#73')
 
-    def test_stop(self):
+    @patch('select.select')
+    def test_stop(self, select_mock):
+        select_mock.side_effect = [(0, 0, 0)]
+        self.expect_recv(b'$S05#b8')
         self.gdbc.stop()
+        self.check_send(b'\x03+')
 
-    def test_step(self):
+    @patch('select.select')
+    def test_step(self, select_mock):
         """ Test the single step command """
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+$S05#b8')
         self.gdbc.step()
         self.check_send(b'$s#73+')
@@ -280,33 +290,43 @@ class GdbClientTestCase(unittest.TestCase):
     def test_run(self):
         self.gdbc.run()
 
-    def test_get_registers(self):
+    @patch('select.select')
+    def test_get_registers(self, select_mock):
         """ Test reading of registers """
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+$000000000000000000000000#80')
         regs = self.arch.gdb_registers
         reg_vals = self.gdbc.get_registers(regs)
         self.check_send(b'$g#67+')
         self.assertEqual({reg: 0 for reg in regs}, reg_vals)
 
-    def test_set_breakpoint(self):
+    @patch('select.select')
+    def test_set_breakpoint(self, select_mock):
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+$OK#9a')
         self.gdbc.set_breakpoint(98)
         self.check_send(b'$Z0,62,4#7E+')
 
-    def test_clear_breakpoint(self):
+    @patch('select.select')
+    def test_clear_breakpoint(self, select_mock):
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+$OK#9a')
         self.gdbc.clear_breakpoint(98)
         self.check_send(b'$z0,62,4#9E+')
 
-    def test_read_mem(self):
+    @patch('select.select')
+    def test_read_mem(self, select_mock):
         """ Test reading of memory """
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+$01027309#96')
         contents = self.gdbc.read_mem(101, 4)
         self.assertEqual(bytes([1, 2, 0x73, 9]), contents)
         self.check_send(b'$m 65,4#58+')
 
-    def test_write_mem(self):
+    @patch('select.select')
+    def test_write_mem(self, select_mock):
         """ Test write to memory """
+        select_mock.side_effect = [(0, 0, 0)]
         self.expect_recv(b'+$01027309#96')
         self.gdbc.write_mem(100, bytes([1, 2, 0x73, 9]))
         self.check_send(b'$M 64,4:01027309#07')

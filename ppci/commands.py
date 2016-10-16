@@ -1,6 +1,4 @@
-"""
-    Contains the command line interface functions.
-"""
+""" Contains the command line interface functions. """
 
 # pylint: disable=C0103
 
@@ -13,7 +11,7 @@ import io
 
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
-from .binutils.objectfile import load_object, print_object
+from .binutils.objectfile import ObjectFile, print_object
 from .tasks import TaskError
 from . import __version__, api
 from .common import logformat
@@ -150,11 +148,10 @@ def c3c(args=None):
         args.output.close()
 
 
-cc_description = """
-C compiler.
-"""
+cc_description = """ C compiler. """
 cc_parser = argparse.ArgumentParser(
-    description=cc_description, parents=[base_parser, march_parser, out_parser])
+    description=cc_description,
+    parents=[base_parser, march_parser, out_parser])
 cc_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
 
@@ -175,9 +172,28 @@ def cc(args=None):
         args.output.close()
 
 
-asm_description = """
-Assembler utility.
-"""
+llc_description = """ LLVM static compiler. """
+llc_parser = argparse.ArgumentParser(
+    description=llc_description,
+    parents=[base_parser, march_parser, out_parser])
+llc_parser.add_argument(
+    'source', help='source file', type=argparse.FileType('r'))
+
+
+def llc(args=None):
+    """ Compile llvm ir code into machine code """
+    args = llc_parser.parse_args(args)
+    with LogSetup(args):
+        march = get_arch_from_args(args)
+        src = args.source
+        obj = api.llc(src, march)
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
+
+
+asm_description = """ Assembler utility. """
 asm_parser = argparse.ArgumentParser(
     description=asm_description,
     parents=[base_parser, march_parser, out_parser])
@@ -202,9 +218,7 @@ def asm(args=None):
         args.output.close()
 
 
-disasm_description = """
-Disassembler utility.
-"""
+disasm_description = """ Disassembler utility. """
 disasm_parser = argparse.ArgumentParser(
     description=disasm_description, parents=[base_parser, march_parser])
 disasm_parser.add_argument(
@@ -280,14 +294,15 @@ objdump_parser = argparse.ArgumentParser(
 objdump_parser.add_argument(
     'obj', help='object file', type=argparse.FileType('r'))
 objdump_parser.add_argument(
-    '-d', '--disassemble', help='Disassemble contents', action='store_true', default=False)
+    '-d', '--disassemble', help='Disassemble contents', action='store_true',
+    default=False)
 
 
 def objdump(args=None):
     """ Dump info of an object file """
     args = objdump_parser.parse_args(args)
     with LogSetup(args):
-        obj = load_object(args.obj)
+        obj = ObjectFile.load(args.obj)
         args.obj.close()
         print_object(obj)
         if args.disassemble:
@@ -317,7 +332,7 @@ def objcopy(args=None):
     args = objcopy_parser.parse_args(args)
     with LogSetup(args):
         # Read object from file:
-        obj = load_object(args.input)
+        obj = ObjectFile.load(args.input)
         args.input.close()
         api.objcopy(obj, args.segment, args.output_format, args.output)
 

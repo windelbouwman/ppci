@@ -31,9 +31,9 @@ def topological_sort(nodes):
 
 
 class Graph:
-    """
-       Generic graph base class.
-       Can dump to graphiz dot format for example!
+    """ Generic graph base class.
+
+    Can dump to graphviz dot format for example!
     """
 
     def __init__(self):
@@ -157,6 +157,10 @@ class Graph:
     def adjecent(self, n):
         """ Return all unmasked nodes with edges to n """
         return self.adj_map[n] - self.masked_nodes
+
+    def to_dot(self):
+        """ Render current graph to dot format """
+        pass
 
 
 class Node:

@@ -25,10 +25,17 @@ out 0x3e, r16  ; Setup stack pointer (SPH)
 ldi r16, 0xff
 out 0x3d, r16   ; SPL
 
+call __do_copy_data
+
+
 call bsp_init
 
 ; sei  ; enable interrupts
 call main_main
+
+; end of transmission:
+ldi r24, 4
+call bsp_putc
 
 endless:
 rjmp endless
@@ -56,3 +63,4 @@ __do_copy_data_loop:
     cp r26, r16
     cpc r27, r17
     brne __do_copy_data_loop
+    ret

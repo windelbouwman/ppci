@@ -118,7 +118,7 @@ from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture
-from ..arch.isa import Register
+from ..arch.registers import Register
 from ..utils.tree import Tree
 from .instructionselector import ContextInterface
 
@@ -188,10 +188,10 @@ class MiniGen:
 # TODO: implement linear scan allocator and other allocators!
 
 class GraphColoringRegisterAllocator:
-    """
-        Target independent register allocator.
-        Algorithm is iterated register coalescing by Appel and George.
-        Also the pq-test algorithm for more register classes is added.
+    """ Target independent register allocator.
+
+    Algorithm is iterated register coalescing by Appel and George.
+    Also the pq-test algorithm for more register classes is added.
     """
     logger = logging.getLogger('regalloc')
 
@@ -203,14 +203,12 @@ class GraphColoringRegisterAllocator:
 
         # Register information:
         # TODO: Improve different register classes
-        self.reg_colors = {}
         self.K = {}
         self.cls_regs = {}  # Mapping from class to register set
         self.alias = defaultdict(set)
         for val in self.arch.register_classes:
             _, _, kls, regs = val
             self.logger.debug('Register class "%s" contains %s', kls, regs)
-            self.reg_colors[kls] = set(r.color for r in regs)
             self.K[kls] = len(regs)
             self.cls_regs[kls] = set(regs)
             for r in regs:
@@ -235,13 +233,13 @@ class GraphColoringRegisterAllocator:
             # self.check_invariants()
 
             # Run one of the possible steps:
-            if self.simplifyWorklist:
+            if self.simplify_worklist:
                 self.simplify()
             elif self.worklistMoves:
                 self.coalesc()
             elif self.freeze_worklist:
                 self.freeze()
-            elif self.spillWorklist:
+            elif self.spill_worklist:
                 self.spill()
                 self.logger.debug('Starting over')
                 self.init_data(frame)
@@ -270,8 +268,8 @@ class GraphColoringRegisterAllocator:
 
         self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
-            src = self.Node(mv.used_registers[0])
-            dst = self.Node(mv.defined_registers[0])
+            src = self.node(mv.used_registers[0])
+            dst = self.node(mv.defined_registers[0])
             src.moves.add(mv)
             dst.moves.add(mv)
 
@@ -289,9 +287,9 @@ class GraphColoringRegisterAllocator:
             self.worklistMoves.add(m)
 
         # Make worklists for nodes:
-        self.spillWorklist = []
+        self.spill_worklist = []
         self.freeze_worklist = []
-        self.simplifyWorklist = []
+        self.simplify_worklist = []
         self.precolored = set()
 
         # Divide nodes into categories:
@@ -300,25 +298,41 @@ class GraphColoringRegisterAllocator:
                 self.logger.debug('Pre colored: %s', node)
                 self.precolored.add(node)
             elif not self.is_colorable(node):
-                self.spillWorklist.append(node)
+                self.spill_worklist.append(node)
             elif self.is_move_related(node):
                 self.freeze_worklist.append(node)
             else:
-                self.simplifyWorklist.append(node)
+                self.simplify_worklist.append(node)
 
-    def Node(self, vreg):
+    def node(self, vreg):
         return self.frame.ig.get_node(vreg)
 
     def has_edge(self, t, r):
         """ Helper function to check for an interfering edge """
-        return self.frame.ig.has_edge(t, r)
+        if self.frame.ig.has_edge(t, r):
+            return True
+
+        if t in self.precolored:
+            # Check aliases:
+            for reg2 in self.alias[t.reg]:
+                if self.frame.ig.has_node(reg2):
+                    t2 = self.frame.ig.get_node(reg2, create=False)
+                    if self.frame.ig.has_edge(t2, r):
+                        return True
+
+        if r in self.precolored:
+            # Check aliases:
+            for reg2 in self.alias[r.reg]:
+                if self.frame.ig.has_node(reg2):
+                    r2 = self.frame.ig.get_node(reg2, create=False)
+                    if self.frame.ig.has_edge(t, r2):
+                        return True
+
+        return False
 
     @lru_cache(maxsize=None)
     def q(self, B, C):
-        """
-        Determine the number of registers that can be blocked in
-        class B by class C.
-        """
+        """ The number of class B registers that can be blocked by class C. """
         assert issubclass(B, Register)
         assert issubclass(C, Register)
         B_regs = self.cls_regs[B]
@@ -357,7 +371,7 @@ class GraphColoringRegisterAllocator:
 
     def simplify(self):
         """ Remove nodes from the graph """
-        n = self.simplifyWorklist.pop()
+        n = self.simplify_worklist.pop()
         self.select_stack.append(n)
         self.logger.debug('Simplify node %s', n)
 
@@ -372,20 +386,20 @@ class GraphColoringRegisterAllocator:
             list
         """
         # This check was m.degree == self.K - 1
-        if m in self.spillWorklist and self.is_colorable(m):
-            self.EnableMoves({m} | m.adjecent)
-            self.spillWorklist.remove(m)
+        if m in self.spill_worklist and self.is_colorable(m):
+            self.enable_moves({m} | m.adjecent)
+            self.spill_worklist.remove(m)
             if self.is_move_related(m):
                 self.freeze_worklist.append(m)
             else:
-                self.simplifyWorklist.append(m)
+                self.simplify_worklist.append(m)
 
-    def EnableMoves(self, nodes):
+    def enable_moves(self, nodes):
         for node in nodes:
-            for m in self.NodeMoves(node):
-                if m in self.activeMoves:
-                    self.activeMoves.remove(m)
-                    self.worklistMoves.add(m)
+            for move in self.NodeMoves(node):
+                if move in self.activeMoves:
+                    self.activeMoves.remove(move)
+                    self.worklistMoves.add(move)
 
     def coalesc(self):
         """ Coalesc moves conservative.
@@ -396,8 +410,8 @@ class GraphColoringRegisterAllocator:
         """
         # Remove the move from the worklist:
         m = self.worklistMoves.pop()
-        x = self.Node(m.defined_registers[0])
-        y = self.Node(m.used_registers[0])
+        x = self.node(m.defined_registers[0])
+        y = self.node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
         self.logger.debug('Coalescing %s which couples %s and %s', m, u, v)
         if u is v:
@@ -429,7 +443,7 @@ class GraphColoringRegisterAllocator:
         if (u not in self.precolored) and (not self.is_move_related(u))\
                 and self.is_colorable(u):
             self.freeze_worklist.remove(u)
-            self.simplifyWorklist.append(u)
+            self.simplify_worklist.append(u)
 
     def ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
@@ -461,7 +475,7 @@ class GraphColoringRegisterAllocator:
         if v in self.freeze_worklist:
             self.freeze_worklist.remove(v)
         else:
-            self.spillWorklist.remove(v)
+            self.spill_worklist.remove(v)
         self.frame.ig.combine(u, v)
         u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
         self.logger.debug('Combined node: %s', u)
@@ -474,7 +488,7 @@ class GraphColoringRegisterAllocator:
         # Move node to spill worklist if higher degree is reached:
         if (not self.is_colorable(u)) and u in self.freeze_worklist:
             self.freeze_worklist.remove(u)
-            self.spillWorklist.append(u)
+            self.spill_worklist.append(u)
 
     @lru_cache(maxsize=None)
     def common_reg_class(self, u, v):
@@ -496,7 +510,7 @@ class GraphColoringRegisterAllocator:
         """
         u = self.freeze_worklist.pop()
         self.logger.debug('freezing %s', u)
-        self.simplifyWorklist.append(u)
+        self.simplify_worklist.append(u)
 
         # Freeze moves for node u
         for m in self.NodeMoves(u):
@@ -506,27 +520,27 @@ class GraphColoringRegisterAllocator:
                 self.worklistMoves.remove(m)
             self.frozenMoves.add(m)
             # Check other part of the move for still being move related:
-            src = self.Node(m.used_registers[0])
-            dst = self.Node(m.defined_registers[0])
+            src = self.node(m.used_registers[0])
+            dst = self.node(m.defined_registers[0])
             v = src if u is dst else dst
             if v not in self.precolored and not self.is_move_related(v) \
                     and self.is_colorable(v):
                 assert v in self.freeze_worklist
                 self.freeze_worklist.remove(v)
-                self.simplifyWorklist.append(v)
+                self.simplify_worklist.append(v)
 
     def spill(self):
         """ Do spilling """
         self.logger.debug('Spilling round %s', self.spill_rounds)
         self.spill_rounds += 1
-        if self.spill_rounds > 20:
-            raise RuntimeError('Give up: more than 20 spill rounds done!')
+        if self.spill_rounds > 10:
+            raise RuntimeError('Give up: more than 10 spill rounds done!')
         # TODO: select a node which is certainly not a node that was
         # introduced during spilling?
         # Select to be spilled variable:
         # Select node with the lowest priority:
         p = []
-        for n in self.spillWorklist:
+        for n in self.spill_worklist:
             assert not n.is_colored
             d = sum(len(self.frame.ig.defs(t)) for t in n.temps)
             u = sum(len(self.frame.ig.uses(t)) for t in n.temps)
@@ -566,13 +580,13 @@ class GraphColoringRegisterAllocator:
             self.frame.ig.unmask_node(node)
             takenregs = set()
             for m in node.adjecent:
-                for r in self.alias[m.color]:
+                for r in self.alias[m.reg]:
                     takenregs.add(r)
             ok_regs = self.cls_regs[node.reg_class] - takenregs
             assert ok_regs
             reg = first(ok_regs)
             self.logger.debug('Assign %s to node %s', reg, node)
-            node.color = reg
+            node.reg = reg
 
     def remove_redundant_moves(self):
         """ Remove coalesced moves """
@@ -585,19 +599,22 @@ class GraphColoringRegisterAllocator:
         for node in self.frame.ig:
             for reg in node.temps:
                 if reg.is_colored:
-                    assert reg.color == node.color.color
+                    assert reg.color == node.reg.color
                 else:
-                    reg.set_color(node.color.color)
-                # self.debug_db.map(reg, self.arch.get_register(node.color))
+                    reg.set_color(node.reg.color)
+
+                # Mark the register as used in this frame:
+                self.frame.used_regs.add(node.reg)
+                # self.debug_db.map(reg, self.arch.get_register(node.reg))
 
     def check_invariants(self):  # pragma: no cover
         """ Test invariants """
         # When changing the code, these asserts validate the worklists.
-        assert all(self.is_colorable(u) for u in self.simplifyWorklist)
-        assert all(not self.is_move_related(u) for u in self.simplifyWorklist)
+        assert all(self.is_colorable(u) for u in self.simplify_worklist)
+        assert all(not self.is_move_related(u) for u in self.simplify_worklist)
         assert all(self.is_colorable(u) for u in self.freeze_worklist)
         assert all(self.is_move_related(u) for u in self.freeze_worklist)
-        assert all(not self.is_colorable(u) for u in self.spillWorklist)
+        assert all(not self.is_colorable(u) for u in self.spill_worklist)
 
         # Check that moves live in exactly one set:
         assert self.activeMoves & self.worklistMoves & self.coalescedMoves \

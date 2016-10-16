@@ -1,3 +1,5 @@
+""" Command line interface for the debugger """
+
 import cmd
 import binascii
 from .. import __version__ as ppci_version
@@ -14,13 +16,13 @@ class DebugCli(cmd.Cmd):
         super().__init__()
         self.debugger = debugger
 
-    def do_quit(self, arg):
+    def do_quit(self, _):
         """ Quit the debugger """
         return True
 
     do_q = do_quit
 
-    def do_info(self, arg):
+    def do_info(self, _):
         """ Show some info about the debugger """
         print('Debugger:     ', self.debugger)
         print('ppci version: ', ppci_version)
@@ -29,43 +31,46 @@ class DebugCli(cmd.Cmd):
         }
         print('Status:       ', text_status[self.debugger.status])
 
-    def do_run(self, arg):
+    def do_run(self, _):
         """ Continue the debugger """
         self.debugger.run()
 
-    def do_step(self, arg):
+    def do_step(self, _):
         """ Single step the debugger """
         self.debugger.step()
 
     do_s = do_step
 
-    def do_stepi(self, arg):
+    def do_stepi(self, _):
         """ Single instruction step the debugger """
         self.debugger.step()
 
-    def do_stop(self, arg):
+    def do_nstep(self, count):
+        """ Single instruction step the debugger """
+        count = str2int(count)
+        self.debugger.nstep(count)
+
+
+    def do_stop(self, _):
         """ Stop the running program """
         self.debugger.stop()
 
-    def do_restart(self, arg):
+    def do_restart(self, _):
         """ Restart the running program """
         self.debugger.restart()
 
     def do_read(self, arg):
         """ Read data from memory: read address,length"""
-        x = arg.split(',')
-        address = str2int(x[0])
-        size = str2int(x[1])
+        address, size = map(str2int, arg.split(','))
         data = self.debugger.read_mem(address, size)
         data = binascii.hexlify(data).decode('ascii')
         print('Data @ 0x{:016X}: {}'.format(address, data))
 
     def do_write(self, arg):
         """ Write data to memory: write address,hexdata """
-        x = arg.split(',')
-        address = str2int(x[0])
-        data = x[1].strip()
-        data = bytes(binascii.unhexlify(data.encode('ascii')))
+        address, data = arg.split(',')
+        address = str2int(address)
+        data = bytes(binascii.unhexlify(data.strip().encode('ascii')))
         self.debugger.write_mem(address, data)
 
     def do_print(self, arg):
@@ -80,13 +85,14 @@ class DebugCli(cmd.Cmd):
 
     do_p = do_print
 
-    def do_regs(self, arg):
+    def do_regs(self, _):
         """ Read registers """
         registers = self.debugger.get_registers()
         values = self.debugger.get_register_values(registers)
         for reg in registers:
             size = reg.bitsize // 4
-            print('{:>5.5s} : 0x{:0{sz}X}'.format(str(reg), values[reg], sz=size))
+            print('{:>5.5s} : 0x{:0{sz}X}'.format(
+                str(reg), values[reg], sz=size))
 
     def do_setbrk(self, arg):
         """ Set a breakpoint: setbrk filename, row """
@@ -103,7 +109,7 @@ class DebugCli(cmd.Cmd):
         row = str2int(row)
         self.debugger.clear_breakpoint(filename, row)
 
-    def do_disasm(self, arg):
+    def do_disasm(self, _):
         """ Print disassembly around current location """
         instructions = self.debugger.get_disasm()
         for instruction in instructions:

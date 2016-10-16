@@ -6,7 +6,7 @@ from ...ir import i8, i32, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from ..isa import RegisterClass
+from ..registers import RegisterClass
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
@@ -100,7 +100,7 @@ class ArmArch(Architecture):
             if register_set:
                 yield arm_instructions.Pop(RegisterSet(register_set))
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -135,7 +135,7 @@ class ArmArch(Architecture):
         else:
             yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         Adjust frame pointer and add constant pool. """
@@ -243,6 +243,7 @@ class ArmAssembler(BaseAssembler):
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
+        reg_nt = '$reg_cls_armregister$'
         self.typ2nt[RegisterSet] = 'reg_list'
         self.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
@@ -258,17 +259,17 @@ class ArmAssembler(BaseAssembler):
             lambda rhs: RegisterSet(rhs[0] | rhs[2]))
 
         self.add_rule(
-            'reg_or_range', ['reg'], lambda rhs: RegisterSet([rhs[0]]))
+            'reg_or_range', [reg_nt], lambda rhs: RegisterSet([rhs[0]]))
         self.add_rule(
             'reg_or_range',
-            ['reg', '-', 'reg'],
+            [reg_nt, '-', reg_nt],
             lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:
         self.add_rule(
             'instruction',
-            ['ldr', 'reg', ',', '=', 'ID'],
+            ['ldr', reg_nt, ',', '=', 'ID'],
             lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
 
     def flush(self):
@@ -296,6 +297,7 @@ class ThumbAssembler(BaseAssembler):
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
+        reg_nt = '$reg_cls_armregister$'
         self.typ2nt[set] = 'reg_list'
         self.add_rule(
             'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
@@ -310,10 +312,10 @@ class ThumbAssembler(BaseAssembler):
         # 'reg_list_inner',
         # ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
 
-        self.add_rule('reg_or_range', ['reg'], lambda rhs: set([rhs[0]]))
+        self.add_rule('reg_or_range', [reg_nt], lambda rhs: set([rhs[0]]))
         self.add_rule(
             'reg_or_range',
-            ['reg', '-', 'reg'], lambda rhs: register_range(rhs[0], rhs[2]))
+            [reg_nt, '-', reg_nt], lambda rhs: register_range(rhs[0], rhs[2]))
 
 
 def round_up(s):

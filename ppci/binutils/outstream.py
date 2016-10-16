@@ -4,15 +4,26 @@
 """
 
 import logging
-from ..arch.isa import Instruction
+from ..arch.encoding import Instruction
 from ..arch.arch import Alignment, DebugData, SectionInstruction
+from ..arch.arch import ArtificialInstruction
 
 
 class OutputStream:
-    """ Interface to generate code with. Contains the emit function to output
-    instruction to the stream """
+    """ Interface to generate code with.
+
+    Contains the emit function to output instruction to the stream.
+    """
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
+        if isinstance(item, ArtificialInstruction):
+            for expanded_instruction in item.render():
+                self.emit(expanded_instruction)
+        else:
+            self.do_emit(item)
+
+    def do_emit(self, item):
+        """ Actual emit implementation """
         raise NotImplementedError('Abstract base class')
 
     def emit_all(self, items):
@@ -26,10 +37,10 @@ class OutputStream:
 
 
 class TextOutputStream(OutputStream):
-    """ Output stream that writes to object file """
-    def emit(self, item):
+    """ Output stream that writes terminal """
+    def do_emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
-        print(item)
+        print(str(item))
 
 
 class BinaryOutputStream(OutputStream):
@@ -40,9 +51,8 @@ class BinaryOutputStream(OutputStream):
         self.literal_pool = []
         self.current_section = None
 
-    def emit(self, item):
+    def do_emit(self, item):
         """ Encode instruction and add symbol and relocation information.
-            At this point we know the address of the instruction.
         """
         assert isinstance(item, Instruction), str(item) + str(type(item))
 
@@ -57,9 +67,10 @@ class BinaryOutputStream(OutputStream):
         section.add_data(bin_data)
         for sym in item.symbols():
             self.obj_file.add_symbol(sym, address, section.name)
-        for sym, typ in item.relocations():
-            typ_name = typ.__name__
-            self.obj_file.add_relocation(sym, address, typ_name, section.name)
+        for reloc in item.relocations():
+            reloc.offset += address
+            reloc.section = section.name
+            self.obj_file.add_relocation(reloc)
 
         # Special case for align, TODO do this different?
         if isinstance(item, Alignment):
@@ -74,7 +85,7 @@ class BinaryOutputStream(OutputStream):
 
 class DummyOutputStream(OutputStream):
     """ Stream that does nothing """
-    def emit(self, item):
+    def do_emit(self, item):
         pass
 
 
@@ -83,8 +94,8 @@ class FunctionOutputStream(OutputStream):
     def __init__(self, function):
         self.function = function
 
-    def emit(self, item):
-        self.function(str(item))
+    def do_emit(self, item):
+        self.function(item)
 
 
 class LoggerOutputStream(FunctionOutputStream):
@@ -99,7 +110,7 @@ class MasterOutputStream(OutputStream):
     def __init__(self, substreams=()):
         self.substreams = list(substreams)   # Use copy constructor!!!
 
-    def emit(self, item):
+    def do_emit(self, item):
         for output_stream in self.substreams:
             output_stream.emit(item)
 

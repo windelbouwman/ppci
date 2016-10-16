@@ -4,9 +4,9 @@
     See for a reference: http://ref.x86asm.net/coder64.html
 """
 
-from ..isa import Instruction, Isa, register_argument, Syntax, Constructor
-from ..isa import FixedPattern, VariablePattern
 from ..arch import Label, RegisterUseDef
+from ..isa import Isa
+from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u32, u8, u64, bit_range
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx
@@ -18,71 +18,37 @@ isa = Isa()
 # use REX.W on the table below:
 
 
-@isa.register_relocation
-def apply_b_jmp32(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 5))
-    rel24 = wrap_negative(offset, 32)
-    data[4] = (rel24 >> 24) & 0xFF
-    data[3] = (rel24 >> 16) & 0xFF
-    data[2] = (rel24 >> 8) & 0xFF
-    data[1] = rel24 & 0xFF
-
-
-@isa.register_relocation
-def apply_bc_jmp32(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 6))
-    rel24 = wrap_negative(offset, 32)
-    data[5] = (rel24 >> 24) & 0xFF
-    data[4] = (rel24 >> 16) & 0xFF
-    data[3] = (rel24 >> 8) & 0xFF
-    data[2] = rel24 & 0xFF
-
-
-@isa.register_relocation
-def apply_b_jmp8(sym_value, data, reloc_value):
-    offset = (sym_value - (reloc_value + 2))
-    rel8 = wrap_negative(offset, 8)
-    data[1] = rel8
-
-
-@isa.register_relocation
-def apply_abs64(sym_value, data, reloc_value):
-    offset = sym_value
-    abs64 = wrap_negative(offset, 64)
-    data[9] = (abs64 >> 56) & 0xFF
-    data[8] = (abs64 >> 48) & 0xFF
-    data[7] = (abs64 >> 40) & 0xFF
-    data[6] = (abs64 >> 32) & 0xFF
-    data[5] = (abs64 >> 24) & 0xFF
-    data[4] = (abs64 >> 16) & 0xFF
-    data[3] = (abs64 >> 8) & 0xFF
-    data[2] = abs64 & 0xFF
-
 # Helper functions:
 
 
 class Imm8Token(Token):
-    def __init__(self):
-        super().__init__(8)
-
+    size = 8
     disp8 = bit_range(0, 8)
 
-    def encode(self):
-        return u8(self.bit_value)
+
+class PrefixToken(Token):
+    size = 8
+    prefix = bit_range(0, 8)
 
 
 class OpcodeToken(Token):
-    def __init__(self):
-        super().__init__(8)
+    """ Primary opcode """
+    size = 8
+    opcode = bit_range(0, 8)
 
-    def encode(self):
-        return u8(self.bit_value)
+
+class SecondaryOpcodeToken(Token):
+    """ Secondary opcode """
+    size = 8
+    opcode2 = bit_range(0, 8)
 
 
 class ModRmToken(Token):
     """ Construct the modrm byte from its components """
+    size = 8
+
     def __init__(self, mod=0, rm=0, reg=0):
-        super().__init__(8)
+        super().__init__()
         self.mod = mod
         self.rm = rm
         self.reg = reg
@@ -91,27 +57,24 @@ class ModRmToken(Token):
     rm = bit_range(0, 3)
     reg = bit_range(3, 6)
 
-    def encode(self):
-        return u8(self.bit_value)
-
 
 class SibToken(Token):
+    size = 8
     def __init__(self, ss=0):
-        super().__init__(8)
+        super().__init__()
         self.ss = ss
 
     ss = bit_range(6, 8)
     index = bit_range(3, 6)
     base = bit_range(0, 3)
 
-    def encode(self):
-        return u8(self.bit_value)
-
 
 class RexToken(Token):
     """ Create a REX prefix byte """
+    size = 8
+
     def __init__(self, w=0, r=0, x=0, b=0):
-        super().__init__(8)
+        super().__init__()
         self.w = w
         self.r = r
         self.x = x
@@ -123,27 +86,48 @@ class RexToken(Token):
     x = bit_range(1, 2)
     b = bit_range(0, 1)
 
-    def encode(self):
-        return u8(self.bit_value)
-
 
 class Imm32Token(Token):
-    def __init__(self):
-        super().__init__(32)
-
+    size = 32
     disp32 = bit_range(0, 32)
 
-    def encode(self):
-        return u32(self.bit_value)
+
+class Imm64Token(Token):
+    size = 64
+    disp64 = bit_range(0, 64)
 
 
-# def sib(ss=0, index=0, base=0):
-#   assert(ss <= 3)
-#   assert(index <= 7)
-#   assert(base <= 7)
-#   return (ss << 6) | (index << 3) | base
+@isa.register_relocation
+class Rel32JmpRelocation(Relocation):
+    token = Imm32Token
+    field = 'disp32'
+    name = 'rel32'
 
-# tttn = {'L':0xc,'G':0xf,'NE':0x5,'GE':0xd,'LE':0xe, 'E':0x4}
+    def calc(self, sym_value, reloc_value):
+        offset = (sym_value - (reloc_value + 4))
+        return wrap_negative(offset, 32)
+
+
+@isa.register_relocation
+class Jmp8Relocation(Relocation):
+    token = Imm8Token
+    field = 'disp8'
+    name = 'jmp8'
+
+    def calc(self, sym_value, reloc_value):
+        offset = (sym_value - (reloc_value + 1))
+        return wrap_negative(offset, 8)
+
+
+@isa.register_relocation
+class Abs64Relocation(Relocation):
+    token = Imm64Token
+    field = 'disp64'
+    name = 'abs64'
+
+    def calc(self, sym_value, reloc_value):
+        return wrap_negative(sym_value, 64)
+
 
 # Actual instructions:
 class X86Instruction(Instruction):
@@ -154,44 +138,30 @@ class X86Instruction(Instruction):
 
 class NearJump(X86Instruction):
     """ jmp imm32 """
-    target = register_argument('target', str)
-    syntax = Syntax(['jmp', target])
+    target = Operand('target', str)
+    syntax = Syntax(['jmp', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
-
-    def encode(self):
-        #opcode = 0x80 | tttn[condition] # Jcc imm32
-        #return [0x0F, opcode] + imm32(distance)
-        #if distance < 0:
-        # distance -= 5 # Skip own instruction
-        self.token1[0:8] = 0xe9
-        return self.token1.encode() + self.token2.encode()
+    patterns = {'opcode': 0xe9}
 
     def relocations(self):
-        return [(self.target, apply_b_jmp32)]
+        return [Rel32JmpRelocation(self.target, offset=1)]
 
 
 class ConditionalJump(X86Instruction):
     """ j?? imm32 """
-    target = register_argument('target', str)
-    tokens = [OpcodeToken, OpcodeToken, Imm32Token]
-
-    def encode(self):
-        #opcode = 0x80 | tttn[condition] # Jcc imm32
-        #return [0x0F, opcode] + imm32(distance)
-        #if distance < 0:
-        # distance -= 5 # Skip own instruction
-        self.token1[0:8] = 0xF
-        self.token2[0:8] = self.opcode
-        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+    target = Operand('target', str)
+    tokens = [PrefixToken, OpcodeToken, Imm32Token]
 
     def relocations(self):
-        return [(self.target, apply_bc_jmp32)]
+        return [Rel32JmpRelocation(self.target, offset=2)]
 
 
 def make_cjump(mnemonic, opcode):
-    syntax = Syntax([mnemonic, ConditionalJump.target])
-    members = {'syntax': syntax, 'opcode': opcode}
-    return type(mnemonic + '_ins', (ConditionalJump,), members)
+    syntax = Syntax([mnemonic, ' ', ConditionalJump.target])
+    patterns = {'prefix': 0xF, 'opcode': opcode}
+    members = {'syntax': syntax, 'patterns': patterns}
+    return type(mnemonic.title(), (ConditionalJump,), members)
+
 
 Jb = make_cjump('jb', 0x82)
 Jae = make_cjump('jae', 0x83)
@@ -209,20 +179,18 @@ Jg = make_cjump('jg', 0x8f)
 class ShortJump(X86Instruction):
     """ jmp imm8 """
     tokens = [OpcodeToken, Imm8Token]
-    target = register_argument('target', str)
+    target = Operand('target', str)
     syntax = Syntax(['jmpshort', target])
-
-    def encode(self):
-        opcode = 0xeb  # jmp rel8
-        return bytes([opcode, 0])
+    patterns = {'opcode': 0xeb}
 
     def relocations(self):
-        return [(self.target, apply_b_jmp8)]
+        return [Jmp8Relocation(self.target, offset=1)]
 
 
 class Push(X86Instruction):
-    reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax(['push', reg])
+    """ Push a register onto the stack """
+    reg = Operand('reg', X86Register, read=True)
+    syntax = Syntax(['push', ' ', reg])
 
     def encode(self):
         code = []
@@ -233,8 +201,9 @@ class Push(X86Instruction):
 
 
 class Pop(X86Instruction):
-    reg = register_argument('reg', X86Register, write=True)
-    syntax = Syntax(['pop', reg])
+    """ Pop a register of the stack """
+    reg = Operand('reg', X86Register, write=True)
+    syntax = Syntax(['pop', ' ', reg])
 
     def encode(self):
         code = []
@@ -245,288 +214,197 @@ class Pop(X86Instruction):
 
 
 class Int(X86Instruction):
-    nr = register_argument('nr', int)
-    syntax = Syntax(['int', nr])
+    """ Trigger an interrupt """
+    nr = Operand('nr', int)
+    syntax = Syntax(['int', ' ', nr])
     tokens = [OpcodeToken, Imm8Token]
-
-    def encode(self):
-        self.token1[0:8] = 0xcd
-        self.token2[0:8] = self.nr
-        return self.token1.encode() + self.token2.encode()
+    patterns = {'opcode': 0xcd, 'disp8': nr}
 
 
 class CallReg(X86Instruction):
-    reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax(['call', '*', reg])
+    reg = Operand('reg', X86Register, read=True)
+    syntax = Syntax(['call', ' ', '*', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
 
     def encode(self):
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = 0xFF  # 0xFF /2 == call r/m64
-        self.token3.mod = 3
-        self.token3.reg = 2
-        self.token3.rm = self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = 0xFF  # 0xFF /2 == call r/m64
+        tokens[2].mod = 3
+        tokens[2].reg = 2
+        tokens[2].rm = self.reg.regbits
+        return tokens.encode()
 
 
 class Call(X86Instruction):
     """ call a function """
-    target = register_argument('target', str)
-    syntax = Syntax(['call', target])
+    target = Operand('target', str)
+    syntax = Syntax(['call', ' ', target])
     tokens = [OpcodeToken, Imm32Token]
-
-    def encode(self):
-        self.token1[0:8] = 0xe8
-        return self.token1.encode() + self.token2.encode()
+    patterns = {'opcode': 0xe8}
 
     def relocations(self):
-        return [(self.target, apply_b_jmp32)]
+        return [Rel32JmpRelocation(self.target, offset=1)]
 
 
 class Ret(X86Instruction):
     syntax = Syntax(['ret'])
     tokens = [OpcodeToken]
-
-    def encode(self):
-        self.token1[0:8] = 0xc3
-        return self.token1.encode()
+    patterns = {'opcode': 0xc3}
 
 
 class Syscall(X86Instruction):
     syntax = Syntax(['syscall'])
-    tokens = [OpcodeToken]
-
-    def encode(self):
-        self.token1[0:8] = 0x05
-        return bytes([0x0F]) + self.token1.encode()
+    tokens = [OpcodeToken, SecondaryOpcodeToken]
+    patterns = {'opcode': 0x0f, 'opcode2': 0x05}
 
 
 class Inc(X86Instruction):
-    reg = register_argument('reg', X86Register, read=True, write=True)
-    syntax = Syntax(['inc', reg])
+    reg = Operand('reg', X86Register, read=True, write=True)
+    syntax = Syntax(['inc', ' ', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
+    patterns = {'w': 1, 'opcode': 0xff, 'mod': 3}  # TODO: , 'b+rm': reg}
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = 0xff
-        self.token3.mod = 3
-        self.token3.rm = self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg.rexbit
+        tokens[2].rm = self.reg.regbits
+        return tokens.encode()
 
 
-class Rm8(Constructor):
-    """ Register of memory of 8 bits """
-    syntaxi = 'rm8'
-
-
-class Rm(Constructor):
-    """ 64 bit register of memory """
-    syntaxi = 'rm64'
-
-
-class RmMem(Rm):
+class RmMem(Constructor):
     """ Memory access at memory pointed by register """
-    reg = register_argument('reg', X86Register, read=True)
+    reg = Operand('reg', X86Register, read=True)
     syntax = Syntax(['[', reg, ']'])
 
     def set_user_patterns(self, tokens):
         if self.reg.regbits == 5:
             # this is a rip special case, use offset of 0
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
-            self.set_field(tokens, 'disp8', 0)
+            tokens.set_field('mod', 1)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
+            tokens.set_field('disp8', 0)
         elif self.reg.regbits == 4:
             # Switch to sib mode
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
+            tokens.set_field('mod', 0)
+            tokens.set_field('rm', 4)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('ss', 0)
+            tokens.set_field('x', 0)
+            tokens.set_field('index', 4)  # No index
+            tokens.set_field('base', self.reg.regbits)
         else:
             # The 'normal' case
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+            tokens.set_field('mod', 0)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
 
 
-class RmMem8(Rm8):
-    """ Memory access at memory pointed by register """
-    reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax(['[', reg, ']'])
-
-    def set_user_patterns(self, tokens):
-        if self.reg.regbits == 5:
-            # this is a rip special case, use offset of 0
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
-            self.set_field(tokens, 'disp8', 0)
-        elif self.reg.regbits == 4:
-            # Switch to sib mode
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
-        else:
-            # The 'normal' case
-            self.set_field(tokens, 'mod', 0)
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
-
-
-class RmMemDisp(Rm):
+class RmMemDisp(Constructor):
     """ register with 8 bit displacement """
-    reg = register_argument('reg', X86Register, read=True)
-    disp = register_argument('disp', int)
-    syntax = Syntax(['[', reg, ',', disp, ']'], priority=2)
+    reg = Operand('reg', X86Register, read=True)
+    disp = Operand('disp', int)
+    syntax = Syntax(['[', reg, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
         if self.disp <= 255 and self.disp >= -128:
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+            tokens.set_field('mod', 1)
+            tokens.set_field('disp8', wrap_negative(self.disp, 8))
         else:
-            self.set_field(tokens, 'mod', 2)
-            self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+            tokens.set_field('mod', 2)
+            tokens.set_field('disp32', wrap_negative(self.disp, 32))
 
         if self.reg.regbits == 4:
             # SIB mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', 4)
+            tokens.set_field('ss', 0)
+            tokens.set_field('x', 0)
+            tokens.set_field('index', 4)  # No index
+            tokens.set_field('base', self.reg.regbits)
         else:
             # Normal mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+            tokens.set_field('b', self.reg.rexbit)
+            tokens.set_field('rm', self.reg.regbits)
 
 
-class RmMemDisp2(Rm):
+class RmMemDisp2(Constructor):
     """ memory access with base, index and displacement """
-    regb = register_argument('regb', X86Register, read=True)
-    regi = register_argument('regi', X86Register, read=True)
-    disp = register_argument('disp', int)
-    syntax = Syntax(['[', regb, ',', regi, ',', disp, ']'], priority=2)
+    regb = Operand('regb', X86Register, read=True)
+    regi = Operand('regi', X86Register, read=True)
+    disp = Operand('disp', int)
+    syntax = Syntax(
+        ['[', regb, ',', ' ', regi, ',', ' ', disp, ']'], priority=2)
+    patterns = {'mod': 1, 'rm': 4, 'ss': 0}
 
     def set_user_patterns(self, tokens):
         # assert self.regb.regbits != 5
         assert self.regi.regbits != 4
         # SIB mode:
-        self.set_field(tokens, 'mod', 1)
-        self.set_field(tokens, 'b', self.regb.rexbit)
-        self.set_field(tokens, 'rm', 4)
-        self.set_field(tokens, 'ss', 0)
-        self.set_field(tokens, 'x', self.regi.rexbit)
-        self.set_field(tokens, 'index', self.regi.regbits)
-        self.set_field(tokens, 'base', self.regb.regbits)
-        self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
+        tokens.set_field('b', self.regb.rexbit)
+        tokens.set_field('x', self.regi.rexbit)
+        tokens.set_field('index', self.regi.regbits)
+        tokens.set_field('base', self.regb.regbits)
+        tokens.set_field('disp8', wrap_negative(self.disp, 8))
 
 
-class RmRip(Rm):
+class RmRip(Constructor):
     """ rip with 32 bit displacement special case """
-    disp = register_argument('disp', int)
-    syntax = Syntax(['[', 'rip', ',', disp, ']'])
-    patterns = [
-        FixedPattern('mod', 0),
-        FixedPattern('rm', 5),
-        FixedPattern('b', 0)]
+    disp = Operand('disp', int)
+    syntax = Syntax(['[', 'rip', ',', ' ', disp, ']'])
+    patterns = {'mod': 0, 'rm': 5, 'b': 0}
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
+        tokens.set_field('disp32', wrap_negative(self.disp, 32))
 
 
-class RmAbsLabel(Rm):
+class RmAbsLabel(Constructor):
     """ absolute address access """
-    l = register_argument('l', str)
+    l = Operand('l', str)
     syntax = Syntax(['[', l, ']'], priority=2)
-    patterns = [
-        FixedPattern('mod', 0),
-        FixedPattern('rm', 4),
-        FixedPattern('index', 4),
-        FixedPattern('x', 0),
-        FixedPattern('b', 0)]
+    patterns = {'mod': 0, 'rm': 4, 'index': 4, 'x': 0, 'b': 0}
 
     # TODO
     def set_user_patterns(self, tokens):
         raise NotImplementedError('Rm4')
 
 
-class RmAbs(Rm):
+class RmAbs(Constructor):
     """ absolute address access """
-    l = register_argument('l', int)
+    l = Operand('l', int)
     syntax = Syntax(['[', l, ']'], priority=2)
-    patterns = [
-        FixedPattern('mod', 0),
-        FixedPattern('rm', 4),
-        FixedPattern('index', 4),
-        FixedPattern('base', 5),
-        FixedPattern('x', 0),
-        FixedPattern('b', 0)]
+    patterns = {'mod': 0, 'rm': 4, 'index': 4, 'base': 5, 'x': 0, 'b': 0}
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'disp32', wrap_negative(self.l, 32))
+        tokens.set_field('disp32', wrap_negative(self.l, 32))
 
 
-class RmReg(Rm):
+class RmReg(Constructor):
     """ Register access, this case is relatively easy """
-    reg_rm = register_argument('reg_rm', X86Register, read=True)
+    reg_rm = Operand('reg_rm', X86Register, read=True)
     syntax = Syntax([reg_rm])
-    patterns = [FixedPattern('mod', 3)]
+    patterns = {'mod': 3}
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'b', self.reg_rm.rexbit)
-        self.set_field(tokens, 'rm', self.reg_rm.regbits)
+        tokens.set_field('b', self.reg_rm.rexbit)
+        tokens.set_field('rm', self.reg_rm.regbits)
 
 
-class RmReg8(Rm8):
+class RmReg8(Constructor):
     """ Low register access """
-    reg_rm = register_argument('reg_rm', LowRegister, read=True)
+    reg_rm = Operand('reg_rm', LowRegister, read=True)
     syntax = Syntax([reg_rm])
-    patterns = [
-        FixedPattern('mod', 3)]
+    patterns = {'mod': 3}
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'b', self.reg_rm.rexbit)
-        self.set_field(tokens, 'rm', self.reg_rm.regbits)
+        tokens.set_field('b', self.reg_rm.rexbit)
+        tokens.set_field('rm', self.reg_rm.regbits)
 
 
-# TODO: merge this class with RmMemDisp
-class RmMemDisp8(Rm8):
-    """ register with 8 bit displacement """
-    reg = register_argument('reg', X86Register, read=True)
-    disp = register_argument('disp', int)
-    syntax = Syntax(['[', reg, ',', disp, ']'], priority=2)
-
-    def set_user_patterns(self, tokens):
-        if self.disp <= 255 and self.disp >= -128:
-            self.set_field(tokens, 'mod', 1)
-            self.set_field(tokens, 'disp8', wrap_negative(self.disp, 8))
-        else:
-            self.set_field(tokens, 'mod', 2)
-            self.set_field(tokens, 'disp32', wrap_negative(self.disp, 32))
-
-        if self.reg.regbits == 4:
-            # SIB mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', 4)
-            self.set_field(tokens, 'ss', 0)
-            self.set_field(tokens, 'x', 0)
-            self.set_field(tokens, 'index', 4)  # No index
-            self.set_field(tokens, 'base', self.reg.regbits)
-        else:
-            # Normal mode:
-            self.set_field(tokens, 'b', self.reg.rexbit)
-            self.set_field(tokens, 'rm', self.reg.regbits)
+mem_modes = (RmMem, RmMemDisp, RmMemDisp2)
+rm_modes = mem_modes + (RmReg, RmRip, RmAbsLabel, RmAbs)
+rm8_modes = mem_modes + (RmReg8,)
 
 
 class rmregbase(X86Instruction):
@@ -536,57 +414,58 @@ class rmregbase(X86Instruction):
     """
     tokens = [
         RexToken, OpcodeToken, ModRmToken, SibToken, Imm8Token, Imm32Token]
-    patterns = [FixedPattern('w', 1)]
+    patterns = {'w': 1}
 
     def set_user_patterns(self, tokens):
-        self.set_field(tokens, 'r', self.reg.rexbit)
-        self.set_field(tokens, 'reg', self.reg.regbits)
+        tokens.set_field('r', self.reg.rexbit)
+        tokens.set_field('reg', self.reg.regbits)
 
     def encode(self):
         # 1. Set patterns:
-        self.set_all_patterns()
-        self.token2[0:8] = self.opcode
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[1][0:8] = self.opcode
 
         # 2. Encode:
         # Rex prefix:
-        r = self.token1.encode()
+        r = tokens[0].encode()
 
         # opcode:
-        r += self.token2.encode()
+        r += tokens[1].encode()
         if self.opcode == 0x0f:
-            self.token2[0:8] = self.opcode2
-            r += self.token2.encode()
-            self.token2[0:8] = self.opcode
+            tokens[1][0:8] = self.opcode2
+            r += tokens[1].encode()
+            tokens[1][0:8] = self.opcode
 
         # rm byte:
-        r += self.token3.encode()
+        r += tokens[2].encode()
 
         # Encode sib byte:
-        if self.token3.mod != 3 and self.token3.rm == 4:
-            r += self.token4.encode()
+        if tokens[2].mod != 3 and tokens[2].rm == 4:
+            r += tokens[3].encode()
 
         # Encode displacement bytes:
-        if self.token3.mod == 1:
-            r += self.token5.encode()
-        if self.token3.mod == 2:
-            r += self.token6.encode()
+        if tokens[2].mod == 1:
+            r += tokens[4].encode()
+        if tokens[2].mod == 2:
+            r += tokens[5].encode()
 
         # Rip relative addressing mode with disp32
-        if self.token3.mod == 0 and self.token3.rm == 5:
-            r += self.token6.encode()
+        if tokens[2].mod == 0 and tokens[2].rm == 5:
+            r += tokens[5].encode()
 
         # sib byte and ...
-        if self.token3.mod == 0 and self.token3.rm == 4:
-            if self.token4.base == 5:
-                r += self.token6.encode()
+        if tokens[2].mod == 0 and tokens[2].rm == 4:
+            if tokens[3].base == 5:
+                r += tokens[5].encode()
         return r
 
 
 def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
-    rm = register_argument('rm', Rm)
-    reg = register_argument('reg', X86Register, read=True)
-    syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
+    rm = Operand('rm', rm_modes)
+    reg = Operand('reg', X86Register, read=True)
+    syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
@@ -594,27 +473,27 @@ def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):
 
 def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
     """ Create instruction class rm, reg """
-    rm = register_argument('rm', Rm8)
-    reg = register_argument('reg', LowRegister, read=True)
-    syntax = Syntax([mnemonic, rm, ',', reg], priority=0)
+    rm = Operand('rm', rm8_modes)
+    reg = Operand('reg', LowRegister, read=True)
+    syntax = Syntax([mnemonic, ' ', rm, ',', ' ', reg], priority=0)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
 
 
 def make_reg_rm(mnemonic, opcode, read_op1=True, write_op1=True):
-    rm = register_argument('rm', Rm)
-    reg = register_argument('reg', X86Register, write=write_op1, read=read_op1)
-    syntax = Syntax([mnemonic, reg, ',', rm], priority=1)
+    rm = Operand('rm', rm_modes)
+    reg = Operand('reg', X86Register, write=write_op1, read=read_op1)
+    syntax = Syntax([mnemonic, ' ', reg, ',', ' ', rm], priority=1)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
 
 
 def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
-    rm = register_argument('rm', Rm8)
-    reg = register_argument('reg', LowRegister, write=write_op1, read=read_op1)
-    syntax = Syntax([mnemonic, reg, ',', rm], priority=1)
+    rm = Operand('rm', rm8_modes)
+    reg = Operand('reg', LowRegister, write=write_op1, read=read_op1)
+    syntax = Syntax([mnemonic, ' ', reg, ',', ' ', rm], priority=1)
     members = {
         'syntax': syntax, 'rm': rm, 'reg': reg, 'opcode': opcode}
     return type(mnemonic + '_ins', (rmregbase,), members)
@@ -622,18 +501,18 @@ def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
 
 class MovsxRegRm(rmregbase):
     """ Move sign extend, which means take a byte and sign extend it! """
-    reg = register_argument('reg', X86Register, write=True)
-    rm = register_argument('rm', Rm8, read=True)
-    syntax = Syntax(['movsx', reg, ',', rm])
+    reg = Operand('reg', X86Register, write=True)
+    rm = Operand('rm', rm8_modes, read=True)
+    syntax = Syntax(['movsx', ' ', reg, ',', ' ', rm])
     opcode = 0x0f
     opcode2 = 0xbe
 
 
 class MovzxRegRm(rmregbase):
     """ Move zero extend """
-    reg = register_argument('reg', X86Register, write=True)
-    rm = register_argument('rm', Rm8, read=True)
-    syntax = Syntax(['movzx', reg, ',', rm])
+    reg = Operand('reg', X86Register, write=True)
+    rm = Operand('rm', rm8_modes, read=True)
+    syntax = Syntax(['movzx', ' ', reg, ',', ' ', rm])
     opcode = 0x0f
     opcode2 = 0xb6
 
@@ -667,26 +546,28 @@ Lea = make_reg_rm('lea', 0x8d, read_op1=False)
 
 class regint32base(X86Instruction):
     tokens = [RexToken, OpcodeToken, ModRmToken, Imm32Token]
+    patterns = {'w': 1, 'mod': 3}
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode
-        self.token3.mod = 3
-        self.token3.rm = self.reg.regbits
-        self.token3.reg = self.reg_code
-        self.token4[0:32] = wrap_negative(self.imm, 32)
-        return self.token1.encode() + self.token2.encode() + self.token3.encode() + self.token4.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode
+        tokens[2].rm = self.reg.regbits
+        tokens[2].reg = self.reg_code
+        tokens[3][0:32] = wrap_negative(self.imm, 32)
+        return tokens.encode()
 
 
 def make_regimm(mnemonic, opcode, reg_code):
-    reg = register_argument('reg', X86Register, write=True, read=True)
-    imm = register_argument('imm', int)
-    syntax = Syntax([mnemonic, reg, ',', imm])
+    reg = Operand('reg', X86Register, write=True, read=True)
+    imm = Operand('imm', int)
+    syntax = Syntax([mnemonic, ' ', reg, ',', ' ', imm])
     members = {
         'syntax': syntax, 'reg': reg, 'imm': imm, 'opcode': opcode,
         'reg_code': reg_code}
     return type(mnemonic + '_ins', (regint32base,), members)
+
 
 AddImm = make_regimm('add', 0x81, 0)
 AndImm = make_regimm('and', 0x81, 4)
@@ -696,123 +577,176 @@ CmpImm = make_regimm('cmp', 0x81, 7)
 
 
 class shift_cl_base(X86Instruction):
-    rm = register_argument('rm', Rm)
+    rm = Operand('rm', rm_modes)
     tokens = [RexToken, OpcodeToken, ModRmToken]
+    patterns = {'opcode': 0xd3, 'w': 1}
     opcode = 0xd3
 
     def encode(self):
-        self.set_all_patterns()
-        self.token1.w = 1
-        self.token2[0:8] = self.opcode
-        self.token3.reg = self.r
-        return self.token1.encode() + self.token2.encode() + self.token3.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[2].reg = self.r
+        return tokens.encode()
 
 
 class ShrCl(shift_cl_base):
     r = 5
-    syntax = Syntax(['shr', shift_cl_base.rm, ',', 'cl'])
+    syntax = Syntax(['shr', ' ', shift_cl_base.rm, ',', ' ', 'cl'])
 
 
 class ShlCl(shift_cl_base):
     r = 6
-    syntax = Syntax(['shl', shift_cl_base.rm, ',', 'cl'])
+    syntax = Syntax(['shl', ' ', shift_cl_base.rm, ',', ' ', 'cl'])
 
 
 class SarCl(shift_cl_base):
     r = 7
-    syntax = Syntax(['sar', shift_cl_base.rm, ',', 'cl'])
+    syntax = Syntax(['sar', ' ', shift_cl_base.rm, ',', ' ', 'cl'])
 
 
 class Imul(X86Instruction):
-    """ Multiply
-        imul reg1, reg2
-    """
-    reg1 = register_argument('reg1', X86Register, write=True, read=True)
-    reg2 = register_argument('reg2', X86Register, read=True)
-    syntax = Syntax(['imul', reg1, ',', reg2])
-    tokens = [RexToken, OpcodeToken, OpcodeToken, ModRmToken]
-    opcode = 0x0f  # IMUL r64, r/m64
-    opcode2 = 0xaf
+    """ Multiply imul r64, r/m64 """
+    reg1 = Operand('reg1', X86Register, write=True, read=True)
+    reg2 = Operand('reg2', X86Register, read=True)
+    syntax = Syntax(['imul', ' ', reg1, ',', ' ', reg2])
+    tokens = [RexToken, OpcodeToken, SecondaryOpcodeToken, ModRmToken]
+    patterns = {'opcode': 0x0f, 'opcode2': 0xaf, 'w': 1, 'mod': 3}
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.r = self.reg1.rexbit
-        self.token1.b = self.reg2.rexbit
-        self.token2[0:8] = self.opcode
-        self.token3[0:8] = self.opcode2
-        self.token4.mod = 3
-        self.token4.rm = self.reg2.regbits
-        self.token4.reg = self.reg1.regbits
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode() + self.token4.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].r = self.reg1.rexbit
+        tokens[0].b = self.reg2.rexbit
+        tokens[3].rm = self.reg2.regbits
+        tokens[3].reg = self.reg1.regbits
+        return tokens.encode()
 
 
 class Idiv(X86Instruction):
-    """
-        idiv reg1
-    """
-    reg1 = register_argument('reg1', X86Register, read=True)
-    syntax = Syntax(['idiv', reg1])
+    """ idiv r/m64 """
+    reg1 = Operand('reg1', X86Register, read=True)
+    syntax = Syntax(['idiv', ' ', reg1])
     tokens = [RexToken, OpcodeToken, ModRmToken]
-    opcode = 0xf7  # 0xf7 /7 = idiv r/m64
+    patterns = {'opcode': 0xf7, 'reg': 7, 'w': 1, 'mod': 3}
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg1.rexbit
-        self.token2[0:8] = self.opcode
-        self.token3.mod = 3
-        self.token3.rm = self.reg1.regbits
-        self.token3.reg = 7
-        return self.token1.encode() + self.token2.encode() + \
-            self.token3.encode()
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg1.rexbit
+        tokens[2].rm = self.reg1.regbits
+        return tokens.encode()
 
 
 class MovImm8(X86Instruction):
     """ Mov immediate into low 8-bit register """
-    reg = register_argument('reg', LowRegister, write=True)
-    imm = register_argument('imm', int)
-    syntax = Syntax(['mov', reg, ',', imm])
+    reg = Operand('reg', LowRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['mov', ' ', reg, ',', ' ', imm])
     tokens = [RexToken, OpcodeToken]
     opcode = 0xb0  # mov r8, imm8
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + u8(self.imm)
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode + self.reg.regbits
+        return tokens.encode() + u8(self.imm)
 
 
 class MovImm(X86Instruction):
     """ Mov immediate into register """
-    reg = register_argument('reg', X86Register, write=True)
-    imm = register_argument('imm', int)
-    syntax = Syntax(['mov', reg, ',', imm])
+    reg = Operand('reg', X86Register, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['mov', ' ', reg, ',', ' ', imm])
     tokens = [RexToken, OpcodeToken]
     opcode = 0xb8  # mov r64, imm64
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + u64(self.imm)
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode + self.reg.regbits
+        return tokens.encode() + u64(self.imm)
 
 
 class MovAdr(X86Instruction):
     """ Mov address of label into register """
-    reg = register_argument('reg', X86Register, write=True)
-    imm = register_argument('imm', str)
-    syntax = Syntax(['mov', reg, ',', imm], priority=22)
+    reg = Operand('reg', X86Register, write=True)
+    imm = Operand('imm', str)
+    syntax = Syntax(['mov', ' ', reg, ',', ' ', imm], priority=22)
     tokens = [RexToken, OpcodeToken]
     opcode = 0xb8  # mov r64, imm64
 
     def encode(self):
-        self.token1.w = 1
-        self.token1.b = self.reg.rexbit
-        self.token2[0:8] = self.opcode + self.reg.regbits
-        return self.token1.encode() + self.token2.encode() + u64(0)
+        tokens = self.get_tokens()
+        tokens[0].w = 1
+        tokens[0].b = self.reg.rexbit
+        tokens[1][0:8] = self.opcode + self.reg.regbits
+        return tokens.encode() + u64(0)
 
     def relocations(self):
-        return [(self.imm, apply_abs64)]
+        return [Abs64Relocation(self.imm, offset=2)]
+
+
+# X87 instructions
+class X87Instruction(X86Instruction):
+    """ x87 FPU instruction """
+    pass
+
+
+class Fsqrt(X87Instruction):
+    """ Floating point square root """
+    syntax = Syntax(['fsqrt'])
+    patterns = {'opcode': 0xd9, 'opcode2': 0xfa}
+    tokens = [OpcodeToken, SecondaryOpcodeToken]
+
+
+class Fld32(X87Instruction):
+    """ Push 32 bit operand on the FPU stack, suffix s=32 bit """
+    m = Operand('m', mem_modes)
+    syntax = Syntax(['flds', ' ', m])
+    patterns = {'opcode': 0xd9, 'reg': 0}
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+
+
+class Fld64(X87Instruction):
+    """ Push 64 bit operand on the FPU stack, suffix l=64 bit """
+    m = Operand('m', mem_modes)
+    syntax = Syntax(['fldl', ' ', m])
+    patterns = {'opcode': 0xdd, 'reg': 0}
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+
+
+class Fld80(X87Instruction):
+    """ Push 80 bit operand on the FPU stack, suffix t=80 bit """
+    m = Operand('m', mem_modes)
+    syntax = Syntax(['fldt', ' ', m])
+    patterns = {'opcode': 0xdb, 'reg': 5}
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+
+
+class Fst32(X87Instruction):
+    """ Store 32 bit float into memory """
+    m = Operand('m', mem_modes)
+    syntax = Syntax(['fsts', ' ', m])
+    patterns = {'opcode': 0xd9, 'reg': 2}
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+
+
+class Fstp32(X87Instruction):
+    """ Store 32 bit float into memory and pop """
+    m = Operand('m', mem_modes)
+    syntax = Syntax(['fsts', ' ', m])
+    patterns = {'opcode': 0xd9, 'reg': 3}
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+
+
+class Fst64(X87Instruction):
+    """ Store 64 bit float into memory """
+    m = Operand('m', mem_modes)
+    syntax = Syntax(['fstl', ' ', m])
+    patterns = {'opcode': 0xdd, 'reg': 2}
+    tokens = [RexToken, OpcodeToken, ModRmToken]
 
 
 @isa.pattern('stm', 'JMP', size=2)
@@ -868,13 +802,15 @@ def pattern_ldr64_2(context, tree, c0):
 @isa.pattern('reg8', 'LDRI8(reg64)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(LowRegister)
-    context.emit(MovRegRm8(d, RmMem8(c0)))
+    context.emit(MovRegRm8(d, RmMem(c0)))
     return d
 
 
-#@isa.pattern('reg8', 'reg64', size=9)
+@isa.pattern('reg8', 'reg64', size=9)
 def pattern_cast64_to8(context, tree, c0):
     # TODO: This more or less sucks?
+    # But it is needed to convert byte parameters that are passed as
+    # registers to byte registers.
     context.move(rax, c0)
     # raise Warning()
     defu = RegisterUseDef()
@@ -899,7 +835,7 @@ def pattern_str64_2(context, tree, c0, c1):
 
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
 def pattern_str8(context, tree, c0, c1):
-    context.emit(MovRmReg8(RmMem8(c0), c1))
+    context.emit(MovRmReg8(RmMem(c0), c1))
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', size=2, cycles=2, energy=1)

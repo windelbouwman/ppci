@@ -1,21 +1,19 @@
-"""
-    AVR architecture.
-"""
+""" AVR architecture. """
+
 import io
-from ...ir import i8, i16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment, SectionInstruction
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
-from .instructions import Push, Pop, Mov, Call, In, Movw, Ret
+from .instructions import Push, Pop, Mov, Call, In, Movw, Ret, Adiw
 from .registers import AvrRegister
 from .registers import AvrWordRegister
 from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
-from .registers import r24, r25, r26, r27, r28, r29, r30, r31, X, Y, Z
-from .registers import r25r24
+from .registers import r24, r25, W, Y
+from .registers import caller_save, callee_save
 from .registers import get16reg, register_classes, gdb_registers
 
 
@@ -39,21 +37,16 @@ class AvrArch(Architecture):
         self.gdb_pc = PC
 
     def get_runtime(self):
-        from ...api import asm
-        asm_src = """
-            __shr16:
-                ; TODO
-                ret
-            __shl16:
-                ; TODO!
-                ret
-        """
-        return asm(io.StringIO(asm_src), self)
+        from ...api import asm, c3c, link
+        obj1 = asm(io.StringIO(asm_rt_src), self)
+        obj2 = c3c([io.StringIO(RT_C3_SRC)], [], self)
+        obj = link([obj1, obj2], partial_link=True)
+        return obj
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
         l = []
-        live_in = set()
+        live_in = set([Y])
         regs = [
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
@@ -70,7 +63,7 @@ class AvrArch(Architecture):
                 l.append(r)
                 live_in.add(r)
             elif s == 2:
-                hi_reg = regs.pop(0)
+                regs.pop(0)
                 lo_reg = regs.pop(0)
                 r = get16reg(lo_reg.num)
                 l.append(r)
@@ -80,9 +73,9 @@ class AvrArch(Architecture):
         return l, tuple(live_in)
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
-        rv = r25r24
-        live_out.add(r25r24)
+        live_out = set([Y])
+        rv = W
+        live_out.add(W)
         return rv, tuple(live_out)
 
     def gen_fill_arguments(self, arg_types, args, alives):
@@ -112,30 +105,35 @@ class AvrArch(Architecture):
         else:  # pragma: no cover
             raise NotImplementedError('Parameters in memory not impl')
 
+    def expand_word_regs(self, registers):
+        s = set()
+        for register in registers:
+            if isinstance(register, AvrWordRegister):
+                s.add(register.hi)
+                s.add(register.lo)
+            else:
+                s.add(register)
+        return s
+
     def make_call(self, frame, vcall):
         """ Implement actual call and save / restore live registers """
         # Now we now what variables are live:
         live_registers = frame.live_regs_over(vcall)
+        live_registers = self.expand_word_regs(live_registers)
 
         # Caller save registers:
-        for register in live_registers:
-            if isinstance(register, AvrWordRegister):
-                yield Push(register.hi)
-                yield Push(register.lo)
-            else:
+        for register in caller_save:
+            if register in live_registers:
                 yield Push(register)
 
         yield Call(vcall.function_name)
 
         # Restore caller save registers (in reverse order!):
-        for register in reversed(live_registers):
-            if isinstance(register, AvrWordRegister):
-                yield Pop(register.lo)
-                yield Pop(register.hi)
-            else:
+        for register in reversed(caller_save):
+            if register in live_registers:
                 yield Pop(register)
 
-    def prologue(self, frame):
+    def gen_prologue(self, frame):
         """ Generate the prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
@@ -145,19 +143,25 @@ class AvrArch(Architecture):
         yield Push(Y.hi)
 
         # Save some registers:
-        # TODO!
-        self.logger.warning('Saving registers on prologue not impl')
+        used_regs = self.expand_word_regs(frame.used_regs)
+        for register in callee_save:
+            if register in used_regs:
+                yield Push(register)
 
         if frame.stacksize > 0:
             # Push N times to adjust stack:
             for _ in range(frame.stacksize):
                 yield Push(r0)
 
-        # Setup frame pointer:
-        yield In(Y.lo, 0x3d)
-        yield In(Y.hi, 0x3e)
+            # Setup frame pointer:
+            yield In(Y.lo, 0x3d)
+            yield In(Y.hi, 0x3e)
+            # ATTENTION: after push, the stackpointer points to the next empty
+            # byte.
+            # Increment entire Y by one:
+            yield Adiw(Y, 1)
 
-    def epilogue(self, frame):
+    def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
@@ -165,6 +169,12 @@ class AvrArch(Architecture):
             # Pop x times to adjust stack:
             for _ in range(frame.stacksize):
                 yield Pop(r0)
+
+        # Restore registers:
+        used_regs = self.expand_word_regs(frame.used_regs)
+        for register in reversed(callee_save):
+            if register in used_regs:
+                yield Pop(register)
 
         yield Pop(Y.hi)
         yield Pop(Y.lo)
@@ -208,5 +218,84 @@ class AvrArch(Architecture):
         elif isinstance(dst, AvrWordRegister) and \
                 isinstance(src, AvrWordRegister):
             return Movw(dst, src, ismove=True)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError()
+
+
+asm_rt_src = """
+; shift r25:r24 right by r22 bits
+__shr16:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shr16_2
+__shr16_1:
+  lsr r25
+  ror r24
+  dec r16
+  cpi r16, 0
+  brne __shr16_1
+__shr16_2:
+  pop r16
+  ret
+
+; shift r25:r24 left by r22 bits
+__shl16:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shl16_2
+__shl16_1:
+  add r24, r24
+  adc r25, r25
+  dec r16
+  cpi r16, 0
+  brne __shl16_1
+__shl16_2:
+  pop r16
+  ret
+
+"""
+
+
+RT_C3_SRC = """
+    module swmuldiv;
+    function int div(int num, int den)
+    {
+      var int res = 0;
+      var int current = 1;
+
+      while (den < num)
+      {
+        den = den << 1;
+        current = current << 1;
+      }
+
+      while (current != 0)
+      {
+        if (num >= den)
+        {
+          num -= den;
+          res = res | current;
+        }
+        den = den >> 1;
+        current = current >> 1;
+      }
+      return res;
+    }
+
+    function int mul(int a, int b)
+    {
+      var int res = 0;
+      while (b > 0)
+      {
+        if ((b & 1) == 1)
+        {
+          res += a;
+        }
+        a = a << 1;
+        b = b >> 1;
+      }
+      return res;
+    }
+"""

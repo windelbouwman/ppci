@@ -1,8 +1,11 @@
-from ..isa import Register, Syntax, RegisterClass
+""" Description of avr registers """
+
+from ..registers import Register, RegisterClass
 from ...ir import i16, i8, ptr
 
 
 class AvrRegister(Register):
+    """ An 8-bit avr register """
     bitsize = 8
 
     def __repr__(self):
@@ -11,93 +14,14 @@ class AvrRegister(Register):
         else:
             return self.name
 
-    syntaxi = 'reg', [
-        Syntax(['r0'], new_func=lambda: r0),
-        Syntax(['r1'], new_func=lambda: r1),
-        Syntax(['r2'], new_func=lambda: r2),
-        Syntax(['r3'], new_func=lambda: r3),
-        Syntax(['r4'], new_func=lambda: r4),
-        Syntax(['r5'], new_func=lambda: r5),
-        Syntax(['r6'], new_func=lambda: r6),
-        Syntax(['r7'], new_func=lambda: r7),
-        Syntax(['r8'], new_func=lambda: r8),
-        Syntax(['r9'], new_func=lambda: r9),
-        Syntax(['r10'], new_func=lambda: r10),
-        Syntax(['r11'], new_func=lambda: r11),
-        Syntax(['r12'], new_func=lambda: r12),
-        Syntax(['r13'], new_func=lambda: r13),
-        Syntax(['r14'], new_func=lambda: r14),
-        Syntax(['r15'], new_func=lambda: r15),
-        Syntax(['r16'], new_func=lambda: r16),
-        Syntax(['r17'], new_func=lambda: r17),
-        Syntax(['r18'], new_func=lambda: r18),
-        Syntax(['r19'], new_func=lambda: r19),
-        Syntax(['r20'], new_func=lambda: r20),
-        Syntax(['r21'], new_func=lambda: r21),
-        Syntax(['r22'], new_func=lambda: r22),
-        Syntax(['r23'], new_func=lambda: r23),
-        Syntax(['r24'], new_func=lambda: r24),
-        Syntax(['r25'], new_func=lambda: r25),
-        Syntax(['r26'], new_func=lambda: r26),
-        Syntax(['r27'], new_func=lambda: r27),
-        Syntax(['r28'], new_func=lambda: r28),
-        Syntax(['r29'], new_func=lambda: r29),
-        Syntax(['r30'], new_func=lambda: r30),
-        Syntax(['r31'], new_func=lambda: r31),
-        ]
-
 
 class HighAvrRegister(AvrRegister):
-    syntaxi = 'hireg', [
-        Syntax(['r16'], new_func=lambda: r16),
-        Syntax(['r17'], new_func=lambda: r17),
-        Syntax(['r18'], new_func=lambda: r18),
-        Syntax(['r19'], new_func=lambda: r19),
-        Syntax(['r20'], new_func=lambda: r20),
-        Syntax(['r21'], new_func=lambda: r21),
-        Syntax(['r22'], new_func=lambda: r22),
-        Syntax(['r23'], new_func=lambda: r23),
-        Syntax(['r24'], new_func=lambda: r24),
-        Syntax(['r25'], new_func=lambda: r25),
-        Syntax(['r26'], new_func=lambda: r26),
-        Syntax(['r27'], new_func=lambda: r27),
-        Syntax(['r28'], new_func=lambda: r28),
-        Syntax(['r29'], new_func=lambda: r29),
-        Syntax(['r30'], new_func=lambda: r30),
-        Syntax(['r31'], new_func=lambda: r31),
-        ]
-
-
-class AvrRegCombo:
-    """
-        To be able to use 16 bit values, use this imaginary register type
-        containing a pair of real registers.
-    """
-    def __init__(self, hi, lo):
-        self._hi = hi
-        self._lo = lo
-
-    @property
-    def hi(self):
-        return self._hi
-
-    @property
-    def lo(self):
-        return self._lo
-
-
-class AvrPseudo16Register(AvrRegCombo):
     pass
 
 
 class AvrWordRegister(Register):
     """ Register covering two 8 bit registers """
     bitsize = 16
-    syntaxi = 'reg16', [
-        Syntax(['r17', ':', 'r16'], new_func=lambda: r17r16),
-        Syntax(['r19', ':', 'r18'], new_func=lambda: r19r18),
-        Syntax(['r21', ':', 'r20'], new_func=lambda: r21r20),
-        ]
 
     def __repr__(self):
         if self.is_colored:
@@ -119,7 +43,24 @@ class HighAvrWordRegister(AvrWordRegister):
     pass
 
 
-class AvrPointerRegister(HighAvrWordRegister):
+class SuperHighAvrWordRegister(AvrWordRegister):
+    # The higher quarter of the word registers
+    pass
+
+
+class AvrPointerRegister(SuperHighAvrWordRegister):
+    pass
+
+
+class AvrXRegister(AvrPointerRegister):
+    pass
+
+
+class AvrYRegister(AvrPointerRegister):
+    pass
+
+
+class AvrZRegister(AvrPointerRegister):
     pass
 
 
@@ -193,10 +134,15 @@ r17r16 = HighAvrWordRegister('r17:r16', num=16, aliases=(r17, r16))
 r19r18 = HighAvrWordRegister('r19:r18', num=18, aliases=(r19, r18))
 r21r20 = HighAvrWordRegister('r21:r20', num=20, aliases=(r21, r20))
 r23r22 = HighAvrWordRegister('r23:r22', num=22, aliases=(r23, r22))
-r25r24 = HighAvrWordRegister('r25:r24', num=24, aliases=(r25, r24))
-X = AvrPointerRegister('X', num=26, aliases=(r27, r26))
-Y = AvrPointerRegister('Y', num=28, aliases=(r29, r28))
-Z = AvrPointerRegister('Z', num=30, aliases=(r31, r30))
+W = SuperHighAvrWordRegister('W', num=24, aliases=(r25, r24), aka=('r25:r24',))
+X = AvrXRegister('X', num=26, aliases=(r27, r26), aka=('r27:r26',))
+AvrXRegister.registers = [X]
+Y = AvrYRegister('Y', num=28, aliases=(r29, r28), aka=('r29:r28',))
+AvrYRegister.registers = [Y]
+Z = AvrZRegister('Z', num=30, aliases=(r31, r30), aka=('r31:r30',))
+AvrZRegister.registers = [Z]
+AvrPointerRegister.registers = (X, Y, Z)
+SuperHighAvrWordRegister.registers = (W, X, Y, Z)
 
 
 lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
@@ -204,16 +150,31 @@ lo_regs = (r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14,
 hi_regs = (r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27,
            r28, r29, r30, r31)
 all_regs = lo_regs + hi_regs
+alloc_lo_regs = (r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15)
+alloc_regs = alloc_lo_regs + hi_regs
+
+callee_save = (
+    r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17)
+
+caller_save = (r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r30, r31)
 
 gdb_registers = all_regs + (SREG, SP, PC)
 
 lo_w_regs = (
     r1r0, r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
 hi_w_regs = (
-    r17r16, r19r18, r21r20, r23r22, r25r24, X, Y, Z)
+    r17r16, r19r18, r21r20, r23r22, W, X, Y, Z)
 all_w_regs = lo_w_regs + hi_w_regs
+alloc_lo_w_regs = (
+    r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
+alloc_w_regs = alloc_lo_w_regs + hi_w_regs
 
 num_reg_map = {r.num: r for r in all_regs}
+
+AvrRegister.registers = all_regs
+HighAvrRegister.registers = hi_regs
+AvrWordRegister.registers = all_w_regs
+HighAvrWordRegister.registers = hi_w_regs
 
 
 def get_register(n):
@@ -229,9 +190,13 @@ def get16reg(n):
 
 
 register_classes = [
-    RegisterClass('reg', [i8], AvrRegister, all_regs),
+    RegisterClass('reg', [i8], AvrRegister, alloc_regs),
     RegisterClass('hireg', [], HighAvrRegister, hi_regs),
+    RegisterClass('suhireg', [], SuperHighAvrWordRegister, (W, X, Y, Z)),
     RegisterClass('ptrreg', [], AvrPointerRegister, (X, Y, Z)),
-    RegisterClass('reg16', [i16, ptr], AvrWordRegister, all_w_regs),
+    RegisterClass('xreg', [], AvrXRegister, (X,)),
+    RegisterClass('yreg', [], AvrYRegister, (Y,)),
+    RegisterClass('zreg', [], AvrZRegister, (Z,)),
+    RegisterClass('reg16', [i16, ptr], AvrWordRegister, alloc_w_regs),
     RegisterClass('hireg16', [], HighAvrWordRegister, hi_w_regs),
     ]

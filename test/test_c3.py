@@ -1,8 +1,7 @@
 import unittest
 import logging
 import io
-from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter
-from ppci.lang.c3.scope import Context
+from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter, Context
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
@@ -51,14 +50,15 @@ class AstPrinterTestCase(unittest.TestCase):
         """ See if the ast can be printed using the visitor pattern """
         snippet = """
         module tstwhile;
+        type int A;
         function void t()
         {
-         var int i;
-         i = 0;
-         while (i < 1054)
-         {
+          var A i;
+          i = 0;
+          while (i < 1054)
+          {
             i = i + 3;
-         }
+          }
         }
         """
         diag = DiagnosticsManager()
@@ -71,6 +71,7 @@ class AstPrinterTestCase(unittest.TestCase):
         f = io.StringIO()
         printer.print_ast(ast, f)
         self.assertTrue(f.getvalue())
+        str(ast.inner_scope)
 
 
 class BuildTestCaseBase(unittest.TestCase):
@@ -111,7 +112,8 @@ class BuildTestCaseBase(unittest.TestCase):
         """ Helper to test for expected errors on rows """
         with self.assertRaises(CompilerError):
             self.build(snippet)
-        actual_errors = [err.row for err in self.diag.diags]
+        actual_errors = [
+            err.loc.row if err.loc else 0 for err in self.diag.diags]
         if rows != actual_errors:
             self.diag.print_errors()
         self.assertSequenceEqual(rows, actual_errors)
@@ -211,7 +213,7 @@ class ModuleTestCase(BuildTestCaseBase):
         import mod1;
         var mod1.A a;
         """
-        self.expect_errors([src1, src2], [])
+        self.expect_errors([src1, src2], [3])
 
     def test_module_does_not_exist(self):
         """ Check if importing an undefined module raises an error """
@@ -279,15 +281,30 @@ class ConstantTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snip)
 
+    def test_constant_byte(self):
+        """ Test good usage of constant """
+        snip = """module C;
+        const byte a = 2 + 99;
+        const int c = a + 13;
+        function int reta()
+        {
+            var int b;
+            b = a + 2 + c;
+            return b;
+        }
+        """
+        self.expect_ok(snip)
+
     def test_constant_mutual(self):
         """ A circular dependency of constants must be fatal """
         snip = """module C;
         const int a = c + 1;
         const int b = a + 1;
         const int c = b + 1;
-        function void f()
+        function int f()
         {
-           return a;
+            var int x = a;
+           return 0;
         }
         """
         self.expect_errors(snip, [2])
@@ -332,6 +349,19 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [6])
 
+    def test_call_bad_function(self):
+        """ Test if the call to struct returning function raises an error """
+        snippet = """
+         module testreturn;
+         var int x;
+         function struct {int a;} bad();
+         function void t()
+         {
+            bad();
+         }
+        """
+        self.expect_errors(snippet, [4, 7])
+
     def test_return(self):
         """ Test return of void """
         snippet = """
@@ -343,7 +373,7 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def test_return2(self):
+    def test_return_value(self):
         """ Test the return of a value """
         snippet = """
          module testreturn;
@@ -354,7 +384,7 @@ class FunctionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    def test_return_void_from_function(self):
+    def test_no_return_from_function(self):
         """ Test that returning nothing in a function is an error """
         snippet = """
          module main;
@@ -365,6 +395,28 @@ class FunctionTestCase(BuildTestCaseBase):
          }
         """
         self.expect_errors(snippet, [3])
+
+    def test_return_void_from_function(self):
+        """ Test that returning nothing in a function is an error """
+        snippet = """
+         module main;
+         function int t3()
+         {
+            return;
+         }
+        """
+        self.expect_errors(snippet, [5])
+
+    def test_return_expr_from_procedure(self):
+        """ Test that returning a value from a void function is an error """
+        snippet = """
+         module main;
+         function void t3()
+         {
+            return 6;
+         }
+        """
+        self.expect_errors(snippet, [5])
 
     def test_return_complex_type(self):
         """ Test the return of a complex value, this is not allowed """
@@ -429,6 +481,19 @@ class ConditionTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_byte_compare(self):
+        snippet = """
+        module tst;
+        function void t()
+        {
+         var byte a = 2;
+         if (a <= 22)
+         {
+         }
+        }
+        """
+        self.expect_ok(snippet)
+
     def test_non_bool_condition(self):
         snippet = """
         module tst;
@@ -440,6 +505,19 @@ class ConditionTestCase(BuildTestCaseBase):
         }
         """
         self.expect_errors(snippet, [5])
+
+    def test_non_bool_expr_condition(self):
+        snippet = """
+        module tst;
+        var int B;
+        function void t()
+        {
+         if (B)
+         {
+         }
+        }
+        """
+        self.expect_errors(snippet, [6])
 
     def test_expression_as_condition(self):
         """ Test if an expression as a condition works """
@@ -562,6 +640,15 @@ class ExpressionTestCase(BuildTestCaseBase):
         # TODO: this error diagnostics must be improved!
         self.expect_errors(snippet, [0])
 
+    @unittest.skip('Fix this')
+    def test_array_initialization(self):
+        """ Check array initialization """
+        snippet = """
+        module test;
+        var int[5] a = {1,4,4,4,4};
+        """
+        self.expect_errors(snippet, [5])
+
 
 class StatementTestCase(BuildTestCaseBase):
     """ Testcase for statements """
@@ -661,6 +748,75 @@ class StatementTestCase(BuildTestCaseBase):
         }
         """
         self.expect_ok(snippet)
+
+    def test_switch(self):
+        """ Test switch case statement """
+        snippet = """
+        module tst;
+        function int t()
+        {
+         var int a;
+         a = 2;
+         switch(a) {
+           case 2:
+             { return 3; }
+           case 4:
+             { a = 3 }
+           default:
+             { return 77; }
+         }
+
+         return a;
+        }
+        """
+        self.expect_ok(snippet)
+
+    def test_switch_without_default(self):
+        """ Test switch case statement without default case """
+        snippet = """
+        module tst;
+        function int t()
+        {
+         var int a;
+         a = 2;
+         switch(a) {
+           case 4:
+             { a = 3 }
+         }
+
+         return a;
+        }
+        """
+        self.expect_errors(snippet, [7])
+
+    def test_switch_invalid_syntax(self):
+        """ Test switch case statement with invalid syntax """
+        snippet = """
+        module tst;
+        function int t()
+        {
+         var int a;
+         switch(a) {
+           a += 2;
+         }
+
+         return a;
+        }
+        """
+        self.expect_errors(snippet, [7])
+
+    def test_switch_on_invalid_type(self):
+        """ Test switch case statement on invalid type """
+        snippet = """
+        module tst;
+        function void t()
+        {
+         var float a;
+         switch(a) {
+         }
+        }
+        """
+        self.expect_errors(snippet, [6])
 
     def test_local_variable(self):
         snippet = """
@@ -882,6 +1038,19 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_nonexisting_struct_member(self):
+        """ Select field that is not in struct type """
+        snippet = """
+         module teststruct1;
+         type struct { int a, b; } T1;
+         function void t()
+         {
+            var T1 a;
+            a.z = 2;
+         }
+        """
+        self.expect_errors(snippet, [7])
+
     def test_pointer_type1(self):
         """ Check if pointers work """
         snippet = """
@@ -955,7 +1124,7 @@ class TypeTestCase(BuildTestCaseBase):
             *a = 2;
             var byte* b;
             b = cast<byte*>(40);
-            *b = cast<byte>(2);
+            *b = 2;
          }
         """
         self.expect_ok(snippet)
@@ -1012,6 +1181,33 @@ class TypeTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_float_coerce(self):
+        snippet = """
+         module test;
+         function void test()
+         {
+            var float x;
+            var double y;
+            x = 2;
+            y = x;
+            y = x - 100;
+         }
+        """
+        self.expect_ok(snippet)
+
+    def test_float_literal(self):
+        snippet = """
+         module test;
+         function void test()
+         {
+            var double y;
+            var float z;
+            y = 3.1415926;
+            z = 2.7;
+         }
+        """
+        self.expect_ok(snippet)
+
     def test_linked_list(self):
         """
             Test if a struct can contain a field with a pointer to itself
@@ -1031,6 +1227,7 @@ class TypeTestCase(BuildTestCaseBase):
             a = &b;
             a->next = a;
             a = a->next;
+            a = a->next->next->next;
          }
         """
         self.expect_ok(snippet)

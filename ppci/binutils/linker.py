@@ -90,7 +90,10 @@ class Linker:
             # Merge relocations:
             for reloc in input_object.relocations:
                 offset = offsets[reloc.section] + reloc.offset
-                dst.add_relocation(reloc.sym, offset, reloc.typ, reloc.section)
+                new_reloc = type(reloc)(
+                    reloc.symbol_name, section=reloc.section, offset=offset,
+                    addend=reloc.addend)
+                dst.add_relocation(new_reloc)
 
             # Merge debug info:
             if debug and input_object.debug_info:
@@ -160,17 +163,22 @@ class Linker:
         """ Perform the correct relocation as listed """
         for reloc in dst.relocations:
             # Lookup symbol:
-            if not dst.has_symbol(reloc.sym):
+            if not dst.has_symbol(reloc.symbol_name):
                 raise CompilerError(
-                    'Undefined reference "{}"'.format(reloc.sym))
+                    'Undefined reference "{}"'.format(reloc.symbol_name))
 
-            sym_value = dst.get_symbol_value(reloc.sym)
+            sym_value = dst.get_symbol_value(reloc.symbol_name)
             section = dst.get_section(reloc.section)
 
             # Determine location in memory of reloc patchup position:
             reloc_value = section.address + reloc.offset
 
-            f = self.arch.get_reloc(reloc.typ)
-            data = section.data[reloc.offset:]
-            f(sym_value, data, reloc_value)
-            section.data[reloc.offset:] = data
+            # reloc_function = self.arch.get_reloc(reloc.typ)
+            begin = reloc.offset
+            size = reloc.size()
+            end = begin + size
+            data = section.data[begin:end]
+            assert len(data) == size
+            data = reloc.apply(sym_value, data, reloc_value)
+            assert len(data) == size
+            section.data[begin:end] = data

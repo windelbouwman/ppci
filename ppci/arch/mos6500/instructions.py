@@ -1,5 +1,7 @@
+""" 6502 instructions """
 
-from ..isa import Instruction, Isa, Syntax
+from ..isa import Isa
+from ..encoding import Instruction, Syntax
 
 
 isa = Isa()

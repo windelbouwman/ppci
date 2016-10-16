@@ -10,11 +10,11 @@ from ..pcc.earley import EarleyParser
 from ..pcc.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
 from ..arch.arch import Label, Alignment, SectionInstruction, DebugData
-from ..arch.isa import InstructionProperty, Syntax
+from ..arch.encoding import Operand, Syntax, Register
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
 
-id_regex = r'[A-Za-z_][A-Za-z\d_\.]*'
+id_regex = r'[A-Za-z_][A-Za-z\d_]*'
 id_matcher = re.compile(id_regex)
 
 
@@ -23,11 +23,12 @@ class AsmLexer(BaseLexer):
     def __init__(self, kws=()):
         tok_spec = [
             ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
-            ('HEXNUMBER', r'0x[\da-fA-F]+', self.handle_number),
+            ('BINNUMBER', r'(0b|%)[0-1]+', self.handle_number),
+            ('HEXNUMBER', r'(0x|\$)[0-9a-fA-F]+', self.handle_number),
             ('NUMBER', r'\d+', self.handle_number),
             ('ID', id_regex, self.handle_id),
             ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN', r':=|[,=:\-+*\[\]/\(\)#@\&]|>=|<=|<>|>|<|}|{',
+            ('GLYPH', '|'.join(re.escape(c) for c in Syntax.GLYPHS),
                 lambda typ, val: (val, val)),
             ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
             ('COMMENT', r";.*", None)
@@ -55,8 +56,7 @@ class AsmParser:
     """ Base parser for assembler language """
     def __init__(self):
         # Construct a parser given a grammar:
-        terminals = ['ID', 'NUMBER', ',', '[', ']', ':', '+', '-', '*', '=',
-                     EPS, 'COMMENT', '{', '}', '#', '@', '(', ')', EOF]
+        terminals = ['ID', 'NUMBER', EPS, 'COMMENT', EOF] + Syntax.GLYPHS
         self.g = Grammar()
         self.g.add_terminals(terminals)
 
@@ -73,8 +73,8 @@ class AsmParser:
         self.g.start_symbol = 'asmline'
 
     def handle_ins(self, i):
-        if i:
-            self.emit(i)
+        # if i:
+        self.emit(i)
 
     def handle_label(self, i1, _):
         self.emit(Label(i1))
@@ -136,7 +136,7 @@ class BaseAssembler:
 
     def add_instruction(self, rhs, f, priority=0):
         """ Add an instruction to the grammar """
-        rhs2, _ = self.make_str_rhs(rhs)
+        rhs2 = self.resolve_rhs(rhs)
         self.add_rule('instruction', rhs2, f, priority=priority)
 
     def add_rule(self, lhs, rhs, f, priority=0):
@@ -146,37 +146,16 @@ class BaseAssembler:
         self.parser.g.add_production(lhs, rhs, f_wrap, priority=priority)
 
     # Functions to automate the adding of instructions to asm syntax:
-    def make_str_rhs(self, rhs):
-        """ Determine what parts of rhs are non-string and resolve """
-        rhs2 = []
-        prop_list = []
-        for idx, rhs_part in enumerate(rhs):
-            if type(rhs_part) is str:
-                rhs2.append(rhs_part)
+    def gen_asm_parser(self, isa):
+        """ Generate assembly rules from isa """
+        # Generate rules for instructions that have a syntax:
+        for instruction in isa.instructions:
+            if instruction.syntax:
+                self.generate_syntax_rule(
+                    instruction, 'instruction', instruction.syntax)
+        # self.parser.g.dump()
 
-                # Check if string is registered, if not, we have a new keyword
-                # TODO: this is potentially error prone..
-                if rhs_part not in self.parser.g.nonterminals:
-                    self.add_keyword(rhs_part)
-            elif type(rhs_part) is InstructionProperty:
-                arg_cls = rhs_part._cls
-                rhs2.append(self.get_parameter_nt(arg_cls))
-                prop_list.append((idx, rhs_part))
-            else:  # pragma: no cover
-                raise NotImplementedError(str(rhs_part))
-        return rhs2, prop_list
-
-    def gen_i_rule(self, ins_cls):
-        """ Generate rule ... """
-        # We must use function call here, otherwise the closure does not work..
-        rhs, arg_idx = self.make_str_rhs(ins_cls.syntax.syntax)
-
-        def f(args):
-            usable = [args[ix] for ix, _ in arg_idx]
-            return ins_cls(*usable)
-        self.add_instruction(rhs, f, priority=ins_cls.syntax.priority)
-
-    def make_arg_func(self, cls, nt, stx):
+    def generate_syntax_rule(self, cls, nt, stx):
         """ Construct a rule for rhs <- nt
             Take the syntax, lookup properties to strings.
             Construct a sequence of only strings
@@ -186,19 +165,35 @@ class BaseAssembler:
         """
         assert isinstance(stx, Syntax)
 
-        rhs2, prop_list = self.make_str_rhs(stx.syntax)
+        rhs = self.resolve_rhs(stx.get_args())
+
+        prop_list = []
+        for idx, rhs_part in enumerate(stx.get_args()):
+            if isinstance(rhs_part, Operand):
+                prop_list.append(idx)
 
         def cs(args):
             # Create new class:
-            if stx.new_func:
-                # Use a function to create the class:
-                x = stx.new_func()
-            else:
-                usable = [args[ix] for ix, _ in prop_list]
-                x = cls(*usable)
+            usable = [args[idx] for idx in prop_list]
+            return cls(*usable)
+        self.add_rule(nt, rhs, cs, stx.priority)
 
-            return x
-        self.add_rule(nt, rhs2, cs, stx.priority)
+    def resolve_rhs(self, rhs):
+        """ Determine what parts of rhs are non-string and resolve """
+        resolved_rhs = []
+        for rhs_part in rhs:
+            if isinstance(rhs_part, str):
+                resolved_rhs.append(rhs_part)
+
+                # Check if string is registered, if not, we have a new keyword
+                # TODO: this is potentially error prone..
+                if rhs_part not in self.parser.g.nonterminals:
+                    self.add_keyword(rhs_part)
+            elif isinstance(rhs_part, Operand):
+                resolved_rhs.append(self.get_parameter_nt(rhs_part._cls))
+            else:  # pragma: no cover
+                raise NotImplementedError(str(rhs_part))
+        return resolved_rhs
 
     def get_parameter_nt(self, arg_cls):
         """ Get parameter non terminal """
@@ -206,56 +201,58 @@ class BaseAssembler:
         if arg_cls in self.typ2nt:
             return self.typ2nt[arg_cls]
 
-        # arg not found, try syntaxi:
-        # This means, find all subclasses of this composite type, and use
-        # these syntaxes.
-        if hasattr(arg_cls, 'syntaxi'):
-            syntaxi = arg_cls.syntaxi
+        if isinstance(arg_cls, tuple):
+            assert len(arg_cls) > 0
+            nt = 'w00t{}'.format(id(arg_cls))
+            assert nt not in self.typ2nt.values()
+            self.typ2nt[arg_cls] = nt
+            for con in arg_cls:
+                self.generate_syntax_rule(con, nt, con.syntax)
+            # raise NotImplementedError()
+            return nt
+        else:
+            # arg not found, try syntaxi:
+            # This means, find all subclasses of this composite type, and use
+            # these syntaxes.
+            assert issubclass(arg_cls, Register)
             # TODO: figure a nice way for this:
-            if isinstance(syntaxi, tuple):
-                # In case of a tuple, the options are not subclasses, but
-                # listed in the tuple:
-                nt, rules = arg_cls.syntaxi
 
-                # Store nt for later:
-                self.typ2nt[arg_cls] = nt
+            # create a non-terminal name:
+            nt = '$reg_cls_{}$'.format(arg_cls.__name__.lower())
 
-                # Add rules:
-                for stx in rules:
-                    self.make_arg_func(arg_cls, nt, stx)
-                return nt
-            else:
-                nt = arg_cls.syntaxi
+            # Store nt for later:
+            self.typ2nt[arg_cls] = nt
 
-                # Store nt for later:
-                self.typ2nt[arg_cls] = nt
+            # Add rules for each register:
+            for register in arg_cls.all_registers():
+                assert isinstance(register, arg_cls)
+                self.make_register_rule_function(nt, register)
+            return nt
 
-                # Add rules:
-                for subcon in arg_cls.__subclasses__():
-                    self.make_arg_func(subcon, nt, subcon.syntax)
-                return nt
+    def make_register_rule_function(self, nt, register):
+        """ Create a function that can be used for a register grammar rule """
+        def cs(_):
+            return register
+        rhs = self.resolve_rhs(self.split_text(register.name))
+        self.add_rule(nt, rhs, cs)
+        for aka in register.aka:
+            rhs = self.resolve_rhs(self.split_text(aka))
+            self.add_rule(nt, rhs, cs)
 
-        raise KeyError(arg_cls)  # pragma: no cover
-
-    def gen_asm_parser(self, isa):
-        """ Generate assembly rules from isa """
-        # Loop over all isa instructions, extracting the syntax rules:
-        instructions = [i for i in isa.instructions if i.syntax]
-
-        # Generate rules for instructions:
-        for ins in instructions:
-            self.gen_i_rule(ins)
+    def split_text(self, txt):
+        """ Split text into lexical tokens """
+        return [t.val for t in self.lexer.tokenize(txt.lower())]
 
     # End of generating functions
 
     def prepare(self):
         self.in_macro = False
 
-    def emit(self, *args):
+    def emit(self, instruction):
         if self.in_macro:
-            self.recording.append(args)
+            self.recording.append(instruction)
         else:
-            self.stream.emit(*args)
+            self.stream.emit(instruction)
 
     # Top level interface:
     def parse_line(self, line):
@@ -311,11 +308,6 @@ class BaseAssembler:
         self.end_repeat()
 
     # Parser handlers:
-    def select_section(self, name):
-        """ Switch to another section section in the instruction stream """
-        self.flush()
-        self.stream.select_section(name)
-
     def flush(self):
         pass
 
@@ -331,4 +323,4 @@ class BaseAssembler:
         assert self.in_macro
         self.in_macro = False
         for rec in self.recording * self.rep_count:
-            self.emit(*rec)
+            self.emit(rec)

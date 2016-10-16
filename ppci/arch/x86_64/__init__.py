@@ -20,3 +20,5 @@ http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
 
 from .arch import X86_64Arch
+
+__all__ = ['X86_64Arch']

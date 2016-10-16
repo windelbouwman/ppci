@@ -3,9 +3,9 @@
     and serves as a minimal example.
 """
 
-from .isa import Instruction, Syntax
-from .arch import Architecture, Frame
-from .isa import register_argument, Register, RegisterClass
+from .arch import Architecture
+from .encoding import Instruction, Syntax, Operand
+from .registers import Register, RegisterClass
 from ..import ir
 
 
@@ -13,7 +13,6 @@ class ExampleArch(Architecture):
     """ Simple example architecture. This is intended as starting point
     when creating a new backend """
     name = 'example'
-    FrameClass = Frame
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -21,7 +20,10 @@ class ExampleArch(Architecture):
         self.byte_sizes['ptr'] = 4
         self.register_classes = [
             RegisterClass(
-                'reg', [ir.i32, ir.ptr], ExampleRegister, [R0, R1, R2, R3])
+                'reg', [ir.i32, ir.ptr], ExampleRegister,
+                [R0, R1, R2, R3, R10]),
+            RegisterClass(
+                'hreg', [ir.i16], HalfExampleRegister, [R10l]),
             ]
         self.gdb_registers = gdb_registers
 
@@ -49,6 +51,11 @@ class ExampleRegister(Register):
     bitsize = 32
 
 
+class HalfExampleRegister(Register):
+    """ Example register class """
+    bitsize = 16
+
+
 R0 = ExampleRegister('r0', 0)
 R1 = ExampleRegister('r1', 1)
 R2 = ExampleRegister('r2', 2)
@@ -57,50 +64,65 @@ R4 = ExampleRegister('r4', 4)
 R5 = ExampleRegister('r5', 5)
 R6 = ExampleRegister('r6', 6)
 
+# Two aliasing registers:
+R10 = ExampleRegister('r10', 10)
+R10l = HalfExampleRegister('r10l', 100, aliases=(R10,))
+
 gdb_registers = (R0, R1, R2)
 
-class TestInstruction(Instruction):
+
+class ExampleInstruction(Instruction):
     """ Base class for all example instructions """
     tokens = []
 
 
-class Def(TestInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    syntax = Syntax(['def', rd])
+class Def(ExampleInstruction):
+    rd = Operand('rd', ExampleRegister, write=True)
+    syntax = Syntax(['def', ' ', rd])
 
 
-class Use(TestInstruction):
-    rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['use', rn])
+class DefHalf(ExampleInstruction):
+    rd = Operand('rd', HalfExampleRegister, write=True)
+    syntax = Syntax(['def', ' ', rd])
 
 
-class DefUse(TestInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['cpy', rd, rn])
+class Use(ExampleInstruction):
+    rn = Operand('rn', ExampleRegister, read=True)
+    syntax = Syntax(['use', ' ', rn])
 
 
-class Add(TestInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    rm = register_argument('rm', ExampleRegister, read=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['add', rd, rm, rn])
+class UseHalf(ExampleInstruction):
+    rn = Operand('rn', HalfExampleRegister, read=True)
+    syntax = Syntax(['use', ' ', rn])
 
 
-class Cmp(TestInstruction):
-    rm = register_argument('rm', ExampleRegister, read=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
-    syntax = Syntax(['cmp', rm, rn])
+class DefUse(ExampleInstruction):
+    rd = Operand('rd', ExampleRegister, write=True)
+    rn = Operand('rn', ExampleRegister, read=True)
+    syntax = Syntax(['cpy', ' ', rd, ',', ' ', rn])
 
 
-class Use3(TestInstruction):
-    rm = register_argument('rm', ExampleRegister, read=True)
-    rn = register_argument('rn', ExampleRegister, read=True)
-    ro = register_argument('ro', ExampleRegister, read=True)
-    syntax = Syntax(['use3', rm, rn, ro])
+class Add(ExampleInstruction):
+    rd = Operand('rd', ExampleRegister, write=True)
+    rm = Operand('rm', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
+    syntax = Syntax(['add', ' ', rd, ',', ' ', rm, ',', ' ', rn])
 
 
-class Mov(TestInstruction):
-    rd = register_argument('rd', ExampleRegister, write=True)
-    rm = register_argument('rm', ExampleRegister, read=True)
-    syntax = Syntax(['mov', rd, rm])
+class Cmp(ExampleInstruction):
+    rm = Operand('rm', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
+    syntax = Syntax(['cmp', ' ', rm, ',', ' ', rn])
+
+
+class Use3(ExampleInstruction):
+    rm = Operand('rm', ExampleRegister, read=True)
+    rn = Operand('rn', ExampleRegister, read=True)
+    ro = Operand('ro', ExampleRegister, read=True)
+    syntax = Syntax(['use3', ' ', rm, ',', ' ', rn, ',', ' ', ro])
+
+
+class Mov(ExampleInstruction):
+    rd = Operand('rd', ExampleRegister, write=True)
+    rm = Operand('rm', ExampleRegister, read=True)
+    syntax = Syntax(['mov', ' ', rd, ',', ' ', rm])

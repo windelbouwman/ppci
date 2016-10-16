@@ -1,5 +1,5 @@
 
-from ..isa import Register, Syntax
+from ..registers import Register
 
 # pylint: disable=invalid-name
 
@@ -13,37 +13,9 @@ class ArmRegister(Register):
         else:
             return self.name
 
-    syntaxi = 'reg', [
-        Syntax(['r0'], new_func=lambda: R0),
-        Syntax(['r1'], new_func=lambda: R1),
-        Syntax(['r2'], new_func=lambda: R2),
-        Syntax(['r3'], new_func=lambda: R3),
-        Syntax(['r4'], new_func=lambda: R4),
-        Syntax(['r5'], new_func=lambda: R5),
-        Syntax(['r6'], new_func=lambda: R6),
-        Syntax(['r7'], new_func=lambda: R7),
-        Syntax(['r8'], new_func=lambda: R8),
-        Syntax(['r9'], new_func=lambda: R9),
-        Syntax(['r10'], new_func=lambda: R10),
-        Syntax(['r11'], new_func=lambda: R11),
-        Syntax(['r12'], new_func=lambda: R12),
-        Syntax(['sp'], new_func=lambda: SP),
-        Syntax(['lr'], new_func=lambda: LR),
-        Syntax(['pc'], new_func=lambda: PC)
-        ]
-
 
 class LowArmRegister(ArmRegister):
-    syntaxi = '$loreg$', [
-        Syntax(['r0'], new_func=lambda: R0),
-        Syntax(['r1'], new_func=lambda: R1),
-        Syntax(['r2'], new_func=lambda: R2),
-        Syntax(['r3'], new_func=lambda: R3),
-        Syntax(['r4'], new_func=lambda: R4),
-        Syntax(['r5'], new_func=lambda: R5),
-        Syntax(['r6'], new_func=lambda: R6),
-        Syntax(['r7'], new_func=lambda: R7)
-        ]
+    pass
 
 
 def get_register(n):
@@ -86,26 +58,13 @@ all_registers = registers_low + registers_high
 num2regmap = {r.num: r for r in all_registers}
 
 
-class Coreg(Register):
+LowArmRegister.registers = registers_low
+ArmRegister.registers = all_registers
 
-    syntaxi = 'coreg', [
-        Syntax(['c0'], new_func=lambda: c0),
-        Syntax(['c1'], new_func=lambda: c1),
-        Syntax(['c2'], new_func=lambda: c2),
-        Syntax(['c3'], new_func=lambda: c3),
-        Syntax(['c4'], new_func=lambda: c4),
-        Syntax(['c5'], new_func=lambda: c5),
-        Syntax(['c6'], new_func=lambda: c6),
-        Syntax(['c7'], new_func=lambda: c7),
-        Syntax(['c8'], new_func=lambda: c8),
-        Syntax(['c9'], new_func=lambda: c9),
-        Syntax(['c10'], new_func=lambda: c10),
-        Syntax(['c11'], new_func=lambda: c11),
-        Syntax(['c12'], new_func=lambda: c12),
-        Syntax(['c13'], new_func=lambda: c13),
-        Syntax(['c14'], new_func=lambda: c14),
-        Syntax(['c15'], new_func=lambda: c15),
-        ]
+
+class Coreg(Register):
+    pass
+
 
 c0 = Coreg('c0', 0)
 c1 = Coreg('c1', 1)
@@ -124,21 +83,12 @@ c13 = Coreg('c13', 13)
 c14 = Coreg('c14', 14)
 c15 = Coreg('c15', 15)
 
+Coreg.registers = [
+    c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15]
 
-class Coproc:
-    def __init__(self, name, num):
-        self.num = num
 
-    syntaxi = 'coproc', [
-        Syntax(['p8'], new_func=lambda: p8),
-        Syntax(['p9'], new_func=lambda: p9),
-        Syntax(['p10'], new_func=lambda: p10),
-        Syntax(['p11'], new_func=lambda: p11),
-        Syntax(['p12'], new_func=lambda: p12),
-        Syntax(['p13'], new_func=lambda: p13),
-        Syntax(['p14'], new_func=lambda: p14),
-        Syntax(['p15'], new_func=lambda: p15),
-        ]
+class Coproc(Register):
+    pass
 
 
 p8 = Coproc('p8', 8)
@@ -149,3 +99,5 @@ p12 = Coproc('p12', 12)
 p13 = Coproc('p13', 13)
 p14 = Coproc('p14', 14)
 p15 = Coproc('p15', 15)
+
+Coproc.registers = [p8, p9, p10, p11, p12, p13, p14, p15]

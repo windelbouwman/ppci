@@ -1,0 +1,13 @@
+
+Program: statements*=Statement;
+Statement: (PrintStatement | AssignmentStatement) ';';
+PrintStatement: 'print' var=ID;
+AssignmentStatement: var=ID '=' expr=Expression;
+Expression: val=Sum;
+Sum: base=Product terms*=ExtraTerm;
+ExtraTerm: operator=Operator value=Product;
+Operator: '+' | '-';
+Product: base=Value factors*=ExtraFactor;
+ExtraFactor: operator='*' value=Value;
+Value: ID | INT | ('(' Expression ')');
+

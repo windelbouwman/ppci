@@ -7,5 +7,3 @@ class ParserGenerationException(Exception):
 class ParserException(Exception):
     """ Raised during a failure in the parsing process """
     pass
-
-

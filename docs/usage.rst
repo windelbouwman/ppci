@@ -1,4 +1,6 @@
 
+.. _commandline:
+
 Command line tools
 ==================
 

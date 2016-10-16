@@ -9,7 +9,6 @@ from ppci.pcc.baselex import BaseLexer
 
 class Tree:
     """ Tree node with a name and possibly some child nodes """
-    __slots__ = ['name', 'value', 'children', 'state']
 
     def __init__(self, name, *args, value=None):
         self.name = name
@@ -28,11 +27,8 @@ class Tree:
             val = ''
         return '{}{}{}'.format(self.name, val, ch)
 
-    def set_child(self, index, new_value):
-        """ Set the n'th child to a new value """
-        c2 = list(self.children)
-        c2[index] = new_value
-        self.children = tuple(c2)
+    def __getitem__(self, index):
+        return self.children[index]
 
     def structural_equal(self, other):
         return self.name == other.name and \

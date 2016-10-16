@@ -40,12 +40,12 @@ class XaccLexer(BaseLexer):
             if section == 0:
                 if line.startswith('%tokens'):
                     yield Token('%tokens', '%tokens', loc)
-                    for tk in super().tokenize(line[7:]):
+                    for tk in super().tokenize(line[7:], eof=False):
                         yield tk
                 else:
                     yield Token('HEADER', line, loc)
             elif section == 1:
-                for tk in super().tokenize(line):
+                for tk in super().tokenize(line, eof=False):
                     yield tk
 
 
@@ -201,7 +201,8 @@ class XaccGenerator:
         for rule in self.grammar.productions:
             num_symbols = len(rule.symbols)
             if num_symbols > 0:
-                args = ', '.join('arg{}'.format(n + 1) for n in range(num_symbols))
+                arg_names = ['arg{}'.format(n + 1) for n in range(num_symbols)]
+                args = ', '.join(arg_names)
                 self.print('    def {}(self, {}):'.format(rule.f_name, args))
             else:
                 self.print('    def {}(self):'.format(rule.f_name))

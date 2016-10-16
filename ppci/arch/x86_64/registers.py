@@ -1,7 +1,6 @@
-"""
-    Contains register definitions for x86 target.
-"""
-from ..isa import Register, Syntax, RegisterClass
+""" Contains register definitions for x86 target. """
+
+from ..registers import Register, RegisterClass
 from ...ir import i64, i8, ptr
 
 
@@ -27,26 +26,6 @@ class X86Register(Register):
     def regbits(self):
         return self.num & 0x7
 
-    syntaxi = 'reg', [
-        Syntax(['rax'], new_func=lambda: rax),
-        Syntax(['rcx'], new_func=lambda: rcx),
-        Syntax(['rdx'], new_func=lambda: rdx),
-        Syntax(['rbx'], new_func=lambda: rbx),
-        Syntax(['rsp'], new_func=lambda: rsp),
-        Syntax(['rbp'], new_func=lambda: rbp),
-        Syntax(['rsi'], new_func=lambda: rsi),
-        Syntax(['rdi'], new_func=lambda: rdi),
-
-        Syntax(['r8'], new_func=lambda: r8),
-        Syntax(['r9'], new_func=lambda: r9),
-        Syntax(['r10'], new_func=lambda: r10),
-        Syntax(['r11'], new_func=lambda: r11),
-        Syntax(['r12'], new_func=lambda: r12),
-        Syntax(['r13'], new_func=lambda: r13),
-        Syntax(['r14'], new_func=lambda: r14),
-        Syntax(['r15'], new_func=lambda: r15),
-        ]
-
 
 class LowRegister(Register):
     bitsize = 8
@@ -65,12 +44,6 @@ class LowRegister(Register):
     def regbits(self):
         return self.num & 0x7
 
-    syntaxi = 'reg8', [
-        Syntax(['al'], new_func=lambda: al),
-        Syntax(['cl'], new_func=lambda: cl),
-        Syntax(['dl'], new_func=lambda: dl),
-        Syntax(['bl'], new_func=lambda: bl)
-        ]
 
 # Calculation of the rexb bit:
 # rexbit = {'rax': 0, 'rcx':0, 'rdx':0, 'rbx': 0, 'rsp': 0, 'rbp': 0, 'rsi':0,
@@ -80,6 +53,8 @@ al = LowRegister('al', 0)
 cl = LowRegister('cl', 1)
 dl = LowRegister('dl', 2)
 bl = LowRegister('bl', 3)
+
+LowRegister.registers = [al, bl, cl, dl]
 
 # regs64 = {'rax': 0,'rcx':1,'rdx':2,'rbx':3,'rsp':4,'rbp':5,'rsi':6,'rdi':7,
 # 'r8':0,'r9':1,'r10':2,'r11':3,'r12':4,'r13':5,'r14':6,'r15':7}
@@ -110,6 +85,11 @@ low_regs = {rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi}
 high_regs = {r8, r9, r10, r11, r12, r13, r14, r15}
 full_registers = high_regs | low_regs
 
+registers64 = [
+    rax, rbx, rdx, rcx, rdi, rsi, rsp, rbp,
+    r8, r9, r10, r11, r12, r13, r14, r15]
+X86Register.registers = registers64
+
 all_registers = list(sorted(full_registers, key=lambda r: r.num)) + [rip]
 
 num2regmap = {r.num: r for r in full_registers}
@@ -123,6 +103,6 @@ def get8reg(num):
 # Register classes:
 register_classes = [
     RegisterClass('reg64', [i64, ptr], X86Register,
-                  [rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
+                  [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
     RegisterClass('reg8', [i8], LowRegister, [al, bl, cl, dl]),
     ]

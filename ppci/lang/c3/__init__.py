@@ -1,5 +1,5 @@
-"""
-This is the :doc:`c3<c3>` language front end.
+""" This is the c3 language front end.
+
 For the front-end a recursive descent parser is created.
 
 .. graphviz::
@@ -34,4 +34,8 @@ from .codegenerator import CodeGenerator
 from .visitor import Visitor
 from .visitor import AstPrinter
 from .builder import C3Builder
-from .scope import Context
+from .context import Context
+
+__all__ = [
+    'AstPrinter', 'C3Builder', 'CodeGenerator', 'Context', 'Lexer', 'Parser',
+    'Visitor']

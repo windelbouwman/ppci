@@ -8,13 +8,14 @@ The is the avr backend.
 
 .. autoclass:: ppci.arch.avr.registers.AvrWordRegister
 
-.. uml:: ppci.arch.avr
-
 See also:
 
 https://gcc.gnu.org/wiki/avr-gcc
+
+http://www.atmel.com/webdoc/avrassembler/avrassembler.wb_instruction_list.html
 
 """
 
 from .arch import AvrArch
 
+__all__ = ['AvrArch']

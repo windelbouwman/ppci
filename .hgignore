@@ -15,6 +15,7 @@ docs/_build
 docs/examples.zip
 examples/linux64/hello/hello
 examples/linux64/snake/snake
+examples/toydsl/dslenv
 test/.coverage
 test/listings
 test/FORTRAN
@@ -28,3 +29,5 @@ ppci.egg-info
 build
 examples/riscvpulpino/jtagserver/.deps
 examples/riscvpulpino/vsim/obj_dir
+.spyderproject
+.idea

@@ -8,7 +8,6 @@ except ImportError:
 
 from ppci.arch.arm.arm_instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
-from ppci.binutils.objectfile import load_object
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.tasks import TaskError
@@ -19,12 +18,12 @@ from ppci.arch.example import Mov, R0, R1, ExampleArch
 
 
 class TokenTestCase(unittest.TestCase):
-    def testSetBits(self):
+    def test_set_bits(self):
         at = ArmToken()
         at[2:4] = 0b11
         self.assertEqual(0xc, at.bit_value)
 
-    def testSetBits2(self):
+    def test_set_bits2(self):
         at = ArmToken()
         at[4:8] = 0b1100
         self.assertEqual(0xc0, at.bit_value)
@@ -57,7 +56,7 @@ class LinkerTestCase(unittest.TestCase):
         arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object1.get_section('.text', create=True)
-        object1.add_relocation('undefined_sym', 0, 'apply_rel8', '.text')
+        object1.gen_relocation('rel8', 'undef', offset=0, section='.text')
         object2 = ObjectFile(arch)
         with self.assertRaises(TaskError):
             link([object1, object2])
@@ -77,7 +76,7 @@ class LinkerTestCase(unittest.TestCase):
         arch = get_arch('arm')
         object1 = ObjectFile(arch)
         object1.get_section('.text', create=True).add_data(bytes([0]*100))
-        object1.add_relocation('a', 0, 'apply_rel8', '.text')
+        object1.gen_relocation('rel8', 'a', offset=0, section='.text')
         object2 = ObjectFile(arch)
         object2.get_section('.text', create=True).add_data(bytes([0]*100))
         object2.add_symbol('a', 24, '.text')
@@ -118,7 +117,7 @@ class LinkerTestCase(unittest.TestCase):
               SECTION(data)
             }
         """
-        memory_layout = layout.load_layout(io.StringIO(spec))
+        memory_layout = layout.Layout.load(io.StringIO(spec))
         arch = ExampleArch()
         object1 = ObjectFile(arch)
         object1.get_section('code', create=True).add_data(bytes([0]*108))
@@ -160,8 +159,8 @@ class ObjectFileTestCase(unittest.TestCase):
         object2 = ObjectFile(arch)
         object2.get_section('code', create=True).add_data(bytes(range(55)))
         object1.get_section('code', create=True).add_data(bytes(range(55)))
-        object1.add_relocation('A', 0x2, 'imm12_dumm', 'code')
-        object2.add_relocation('A', 0x2, 'imm12_dumm', 'code')
+        object1.gen_relocation('rel8', 'A', offset=0x2, section='code')
+        object2.gen_relocation('rel8', 'A', offset=0x2, section='code')
         object1.add_symbol('A2', 0x90, 'code')
         object2.add_symbol('A2', 0x90, 'code')
         object1.add_symbol('A3', 0x90, 'code')
@@ -181,7 +180,7 @@ class ObjectFileTestCase(unittest.TestCase):
         f1 = io.StringIO()
         object1.save(f1)
         f2 = io.StringIO(f1.getvalue())
-        object3 = load_object(f2)
+        object3 = ObjectFile.load(f2)
         self.assertEqual(object3, object1)
 
     def test_serialization(self):
@@ -220,7 +219,7 @@ class LayoutFileTestCase(unittest.TestCase):
               DEFINESYMBOL(x)
             }
         """
-        layout1 = layout.load_layout(io.StringIO(spec))
+        layout1 = layout.Layout.load(io.StringIO(spec))
         layout2 = layout.Layout()
         m = layout.Memory('flash')
         m.location = 0x1000

@@ -10,3 +10,4 @@ This section is intended for contributors of ppci.
     support
     development
     todo
+    howto/index

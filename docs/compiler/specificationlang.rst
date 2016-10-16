@@ -1,4 +1,6 @@
 
+.. _encoding:
+
 Specification languages
 =======================
 
@@ -31,6 +33,61 @@ tools like assemblers, disassemblers, linkers, debuggers and simulators.
         2 -> 11
         2 -> 12
     }
+
+Design
+------
+
+The following information must be captured in the specification file:
+
+* Assembly textual representation
+* Binary representation
+* Link relocations
+* Mapping from compiler back-end
+* Effects of instruction (semantics)
+
+The following image depicts the encoding and decoding of the AVR add
+instruction.
+
+.. image:: encoding.png
+
+The following code demonstrates how this instruction is described.
+
+First the proper token is defined:
+
+
+.. testcode::
+
+    from ppci.arch.token import Token, bit, bit_range, bit_concat
+
+    class AvrArithmaticToken(Token):
+        size = 16
+        op = bit_range(10, 16)
+        r = bit_concat(bit(9), bit_range(0, 4))
+        d = bit_range(4, 9)
+
+Then the instruction is defined, defining a syntax and the mapping of
+token fields to instruction parameters:
+
+.. testcode::
+
+    from ppci.arch.avr.registers import AvrRegister
+    from ppci.arch.encoding import Instruction, Operand, Syntax
+
+    class Add(Instruction):
+        tokens = [AvrArithmaticToken]
+        rd = Operand('rd', AvrRegister, read=True, write=True)
+        rr = Operand('rr', AvrRegister, read=True)
+        syntax = Syntax(['add', ' ', rd, ',', ' ', rr])
+        patterns = {'op': 0b11, 'r': rr, 'd': rd}
+
+.. doctest::
+
+    >>> from ppci.arch.avr import registers
+    >>> a1 = Add(registers.r1, registers.r2)
+    >>> str(a1)
+    'add r1, r2'
+    >>> a1.encode()
+    b'\x12\x0c'
 
 
 Background
@@ -203,17 +260,6 @@ nML
     op add() syntax = ”add” image = ”10” action = { L3 = L1 + L2; }
     op sub() syntax = ”sub” image = ”01” action = { L3 = L1 - L2; }
 
-
-Design
-------
-
-The following information must be captured in the specification file:
-
-* Assembly textual representation
-* Binary representation
-* Link relocations
-* Mapping from compiler back-end
-* Effects of instruction (semantics)
 
 
 .. [sled] http://www.cs.tufts.edu/~nr/toolkit/

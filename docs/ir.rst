@@ -1,4 +1,5 @@
 
+.. _ir:
 
 IR-code
 =======
@@ -30,7 +31,7 @@ Top level structure
 The IR-code is implemented in the ir package.
 
 .. autoclass:: ppci.ir.Module
-    :members: variables, functions, add_variable
+    :members:
 
 .. autoclass:: ppci.ir.Variable
 
@@ -38,8 +39,10 @@ The IR-code is implemented in the ir package.
     :members: add_block, remove_block
 
 .. autoclass:: ppci.ir.Procedure
+    :members:
 
 .. autoclass:: ppci.ir.Function
+    :members:
 
 .. autoclass:: ppci.ir.Block
     :members: add_instruction, remove_instruction,
@@ -76,6 +79,7 @@ Only simple types are available.
     :annotation:
 
 .. autodata:: ppci.ir.u8
+    :annotation:
 
 .. autodata:: ppci.ir.f64
     :annotation:

@@ -14,7 +14,9 @@ class CommonSubexpressionEliminationPass(BlockPass):
                 k = (i.a, i.operation, i.b, i.ty)
             elif isinstance(i, ir.Const):
                 k = (i.value, i.ty)
-            else:
+            else:  # pragma: no cover
+                # This branch is actually covered, but is optimized by
+                # the python peep-hole optimizer!
                 continue
             if k in ins_map:
                 ins_new = ins_map[k]
