@@ -103,8 +103,11 @@ class TcfCompiler:
 tcf_compiler = TcfCompiler()
 ir_module = tcf_compiler.compile('example.tcf')
 
-obj = api.ir_to_object([ir_module], 'x86_64')
-# obj = api.link([obj1], partial_link=True)
+obj1 = api.ir_to_object([ir_module], 'x86_64')
+obj2 = api.c3c(['bsp.c3'], [], 'x86_64')
+obj3 = api.asm('linux.asm', 'x86_64')
+obj = api.link([obj1, obj2, obj3])
+
 print(obj)
 with open('example.oj', 'w') as f:
     obj.save(f)

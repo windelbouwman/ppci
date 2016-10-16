@@ -1,6 +1,6 @@
 """ Definitions of msp430 instruction set. """
 
-from ..encoding import Instruction, Operand, Syntax, Constructor
+from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
 from ..encoding import VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
@@ -136,25 +136,32 @@ class ConstLabelSrc(Src):
     patterns = {'As': 3, 'source': 0}
     # TODO: reloc here? this should be implemented something like this:
     # relocations = (
-    #    Relocation(addr, apply_abs16_imm0),
-    #)
+    #    RelocationRelPc(addr, offset=2),
+    # )
 
 
-as_cn_map = {-1: 3, 0: 0, 1: 1, 2: 2, 4: 2, 8: 3}
-rg_cn_map = {-1: 3, 0: 3, 1: 3, 2: 3, 4: 2, 8: 2}
+class AsConstTransform(Transform):
+    as_cn_map = {-1: 3, 0: 0, 1: 1, 2: 2, 4: 2, 8: 3}
+
+    def forwards(self, value):
+        return self.as_cn_map[value]
+
+
+class RegConstTransform(Transform):
+    rg_cn_map = {-1: 3, 0: 3, 1: 3, 2: 3, 4: 2, 8: 2}
+
+    def forwards(self, value):
+        return self.rg_cn_map[value]
 
 
 class SmallConstSrc(Src):
-    """ Equivalent to @PC+ """
+    """ A small integer constant special encoding """
     syntax = Syntax(['#', Src.imm], priority=2)
-    # TODO: implement small source!
     is_special = True
-    patterns = [
-        VariablePattern(
-            'As', Src.imm, transform=(lambda x: as_cn_map[x], None)),
-        VariablePattern(
-            'source', Src.imm, transform=(lambda x: rg_cn_map[x], None)),
-        ]
+    patterns = {
+        'As': AsConstTransform(Src.imm),
+        'source': RegConstTransform(Src.imm),
+        }
 
 
 def small_const_src(x):

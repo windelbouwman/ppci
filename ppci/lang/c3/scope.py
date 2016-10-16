@@ -1,7 +1,7 @@
-"""
-    This file contains the scope and context classes.
-    Scopes are used for scoping modules, functions.
-    A context is the space where the whole program lives.
+""" This file contains the scope and context classes.
+
+Scopes are used for scoping modules, functions.
+A context is the space where the whole program lives.
 """
 
 import itertools
@@ -17,8 +17,10 @@ class SemanticError(CompilerError):
 
 
 class Scope:
-    """ A scope contains all symbols in a scope. It also has a parent scope,
-        when looking for a symbol, also the parent scopes are checked. """
+    """ A scope contains all symbols in a scope.
+
+    It also has a parent scope,
+    when looking for a symbol, also the parent scopes are checked. """
     def __init__(self, parent=None):
         self.symbols = {}
         self.parent = parent
@@ -87,8 +89,10 @@ class Scope:
 
 
 def create_top_scope(arch):
-    """ Create a scope that is the root of the scope tree. This includes
-        the built-in types """
+    """ Create a scope that is the root of the scope tree.
+
+    This includes the built-in types.
+    """
     scope = Scope()
 
     # stdlib types:
@@ -96,6 +100,10 @@ def create_top_scope(arch):
     scope.add_symbol(BaseType('uint32_t', 4))
     scope.add_symbol(BaseType('uint16_t', 2))
     scope.add_symbol(BaseType('uint8_t', 1))
+    scope.add_symbol(BaseType('int64_t', 8))
+    scope.add_symbol(BaseType('int32_t', 4))
+    scope.add_symbol(BaseType('int16_t', 2))
+    scope.add_symbol(BaseType('int8_t', 1))
 
     # buildin types:
     int_type = BaseType('int', arch.byte_sizes['int'])

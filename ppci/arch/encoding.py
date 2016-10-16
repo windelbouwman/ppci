@@ -49,29 +49,59 @@ class Operand(property):
         else:
             return issubclass(self._cls, Constructor)
 
+    @property
+    def source(self):
+        """ Get the original """
+        return self
 
-class Patcher:
-    """ Can be used to transform some property """
-    def __init__(self, wrapped):
-        self.wrapped = wrapped
-
-    def up(self, val):
-        raise NotImplementedError()
-
-    def down(self, val):
-        raise NotImplementedError()
-
-    def __get__(self, obj):
-        val = self.wrapped.__get__(obj)
+    def get_value(self, objref):
+        """ Get the numerical value of this property """
+        val = self.__get__(objref)
         if isinstance(val, Register):
             val = val.num
-        return self.up(val)
+        return val
 
-    def __set__(self, obj, value):
-        val = self.down(val)
+    def set_value(self, objref, value):
+        """ Set the numeric value of this property """
         raise NotImplementedError()
-        val = self.wrapped.__set__(obj, owner)
-        return self.up(val)
+
+    def from_value(self, value):
+        """ Create the an object of the right type from the given value """
+        if issubclass(self._cls, Register):
+            regs = self._cls.all_registers()
+            reg_map = {r.num: r for r in regs}
+            return reg_map[value]
+        else:
+            # assume int here!
+            return value
+
+
+class Transform:
+    """ Wrapper to transform the numeric value of a property """
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+
+    def forwards(self, val):  # pragma: no cover
+        """ Implement the forward transform here """
+        raise NotImplementedError()
+
+    def backwards(self, val):  # pragma: no cover
+        """ Implement the backward transform here """
+        raise NotImplementedError()
+
+    def get_value(self, obj):
+        """ Get the numerical value of this property """
+        val = self._wrapped.get_value(obj)
+        return self.forwards(val)
+
+    def from_value(self, value):
+        value = self.backwards(value)
+        return self._wrapped.from_value(value)
+
+    @property
+    def source(self):
+        """ Get the original data source """
+        return self._wrapped.source
 
 
 class Constructor:
@@ -124,10 +154,8 @@ class Constructor:
             for field, value in d.items():
                 if isinstance(value, int):
                     patterns.append(FixedPattern(field, value))
-                elif isinstance(value, (Operand, Patcher)):
+                elif isinstance(value, (Operand, Transform)):
                     patterns.append(VariablePattern(field, value))
-                elif isinstance(value, Reloc):
-                    pass
                 else:  # pragma: no cover
                     raise NotImplementedError(str(value))
         else:
@@ -160,13 +188,7 @@ class Constructor:
                 if v != pattern.value:
                     raise ValueError('Cannot decode {}'.format(cls))
             elif isinstance(pattern, VariablePattern):
-                if issubclass(pattern.prop._cls, Register):
-                    regs = pattern.prop._cls.all_registers()
-                    reg_map = {r.num: r for r in regs}
-                    prop_map[pattern.prop] = reg_map[v]
-                else:
-                    # TODO: assume int here!
-                    prop_map[pattern.prop] = v
+                prop_map[pattern.prop.source] = pattern.prop.from_value(v)
             else:  # pragma: no cover
                 raise NotImplementedError(pattern)
 
@@ -361,6 +383,14 @@ class Instruction(Constructor, metaclass=InsMeta):
         tokens.fill(data)
         return cls.from_tokens(tokens)
 
+    @classmethod
+    def sizes(cls):
+        """ Get possible encoding sizes in bytes """
+        if hasattr(cls, 'tokens'):
+            return [sum(t.size for t in cls.tokens) // 8]
+        else:
+            return []
+
     def relocations(self):
         return []
 
@@ -473,18 +503,12 @@ class FixedPattern(BitPattern):
 
 
 class VariablePattern(BitPattern):
-    def __init__(self, field, prop, transform=None):
+    def __init__(self, field, prop):
         super().__init__(field)
         self.prop = prop
-        self.transform = transform
 
     def get_value(self, objref):
-        v = self.prop.__get__(objref)
-        if isinstance(v, Register):
-            v = v.num
-        if self.transform:
-            v = self.transform[0](v)
-        return v
+        return self.prop.get_value(objref)
 
 
 class Relocation:

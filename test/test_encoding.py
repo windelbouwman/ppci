@@ -55,6 +55,12 @@ class DecodeTestCase(unittest.TestCase):
         self.assertIs(avr_registers.r7, instruction.rd)
         self.assertEqual(2, instruction.na)
 
+    def test_decode_adiw(self):
+        """ Test decode with a transformed value """
+        instruction = avr_instructions.Adiw.decode(bytes([0x11, 0x96]))
+        self.assertIs(avr_registers.X, instruction.rd)
+        self.assertEqual(1, instruction.imm)
+
     def test_decode_arm_cmp(self):
         """ An even more difficult case, with a sub constructor """
         instruction = arm_instructions.Cmp2.decode(

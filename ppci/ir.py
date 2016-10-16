@@ -19,7 +19,7 @@ class Module:
         self._functions = []
         self._variables = []
 
-    def __repr__(self):
+    def __str__(self):
         return 'module {0}'.format(self.name)
 
     def add_function(self, function):
@@ -159,7 +159,7 @@ class SubRoutine:
 
 class Procedure(SubRoutine):
     """ A procedure definition that does not return a value """
-    def __repr__(self):
+    def __str__(self):
         args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
         return 'procedure {}({})'.format(self.name, args)
 
@@ -172,17 +172,17 @@ class Function(SubRoutine):
         assert isinstance(return_ty, Typ)
         self.return_ty = return_ty
 
-    def __repr__(self):
+    def __str__(self):
         args = ', '.join('{} {}'.format(a.ty, a.name) for a in self.arguments)
         ret_typ = self.return_ty
         return 'function {} {}({})'.format(ret_typ, self.name, args)
 
 
 class Block:
-    """
-        Uninterrupted sequence of instructions.
-        A block is properly terminated if its last instruction is a
-        :class:`FinalInstruction`.
+    """ Uninterrupted sequence of instructions.
+
+    A block is properly terminated if its last instruction is a
+    :class:`FinalInstruction`.
     """
     def __init__(self, name):
         self.name = name
@@ -195,7 +195,7 @@ class Block:
         for instruction in self:
             print('    ', instruction)
 
-    def __repr__(self):
+    def __str__(self):
         return '{0}:'.format(self.name)
 
     def __iter__(self):
@@ -389,7 +389,7 @@ class Typ:
     def __init__(self, name):
         self.name = name
 
-    def __repr__(self):
+    def __str__(self):
         return self.name
 
 
@@ -455,7 +455,7 @@ class Cast(Value):
         super().__init__(name, ty)
         self.src = value
 
-    def __repr__(self):
+    def __str__(self):
         return '{} {} = cast {}'.format(self.ty, self.name, self.src.name)
 
 
@@ -473,7 +473,7 @@ def to_i8(value, name):
 
 class Undefined(Value):
     """ Undefined value, this value must never be used. """
-    def __repr__(self):
+    def __str__(self):
         return '{} = undefined'.format(self.name)
 
 
@@ -484,7 +484,7 @@ class Const(Value):
         self.value = value
         assert isinstance(value, (int, float)), str(value)
 
-    def __repr__(self):
+    def __str__(self):
         return '{} {} = {}'.format(self.ty, self.name, self.value)
 
 
@@ -497,7 +497,7 @@ class LiteralData(Value):
         self.data = data
         assert isinstance(data, bytes), str(data)
 
-    def __repr__(self):
+    def __str__(self):
         return '{} = Literal {}'.format(self.name, hexlify(self.data))
 
 
@@ -517,7 +517,7 @@ class FunctionCall(Value):
         self.arguments[idx] = new
         self.add_use(new)
 
-    def __repr__(self):
+    def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
         return '{} = {}({})'.format(self.name, self.function_name, args)
 
@@ -538,7 +538,7 @@ class ProcedureCall(Instruction):
         self.arguments[idx] = new
         self.add_use(new)
 
-    def __repr__(self):
+    def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
         return '{}({})'.format(self.function_name, args)
 
@@ -557,7 +557,7 @@ class Binop(Value):
         self.b = b
         self.operation = operation
 
-    def __repr__(self):
+    def __str__(self):
         a, b, ty = self.a.name, self.b.name, self.ty
         return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
 
@@ -583,7 +583,7 @@ class Phi(Value):
         super().__init__(name, ty)
         self.inputs = {}
 
-    def __repr__(self):
+    def __str__(self):
         inputs = {block.name: value.name
                   for block, value in self.inputs.items()}
         return '{} {} = Phi {}'.format(self.ty, self.name, inputs)
@@ -622,7 +622,7 @@ class Alloc(Value):
         assert isinstance(amount, int)
         self.amount = amount
 
-    def __repr__(self):
+    def __str__(self):
         return '{} = alloc {} bytes'.format(self.name, self.amount)
 
 
@@ -639,7 +639,7 @@ class Variable(Value):
             assert len(value) == amount
         self.value = value
 
-    def __repr__(self):
+    def __str__(self):
         return 'variable {} ({} bytes)'.format(self.name, self.amount)
 
 
@@ -648,7 +648,7 @@ class Parameter(Value):
     def __init__(self, name, ty):
         super().__init__(name, ty)
 
-    def __repr__(self):
+    def __str__(self):
         return 'Parameter {} {}'.format(self.ty, self.name)
 
 
@@ -662,7 +662,7 @@ class Load(Value):
         self.address = address
         self.volatile = volatile
 
-    def __repr__(self):
+    def __str__(self):
         return '{} {} = load {}'.format(self.ty, self.name, self.address.name)
 
 
@@ -678,7 +678,7 @@ class Store(Instruction):
         self.value = value
         self.volatile = volatile
 
-    def __repr__(self):
+    def __str__(self):
         ty = self.value.ty
         val = self.value.name
         ptr = self.address.name
@@ -696,13 +696,12 @@ class Exit(FinalInstruction):
         super().__init__()
         self.targets = []
 
-    def __repr__(self):
+    def __str__(self):
         return 'exit'
 
 
 class Return(FinalInstruction):
-    """ This instruction returns a value and exits the function.
-    """
+    """ This instruction returns a value and exits the function. """
     result = value_use('result')
 
     def __init__(self, result):
@@ -710,7 +709,7 @@ class Return(FinalInstruction):
         self.result = result
         self.targets = []
 
-    def __repr__(self):
+    def __str__(self):
         return 'return {}'.format(self.result.name)
 
 
@@ -778,7 +777,7 @@ class Jump(JumpBase):
         super().__init__()
         self.target = target
 
-    def __repr__(self):
+    def __str__(self):
         return 'jump {}'.format(self.target.name)
 
 
@@ -799,7 +798,7 @@ class CJump(JumpBase):
         self.lab_yes = lab_yes
         self.lab_no = lab_no
 
-    def __repr__(self):
+    def __str__(self):
         return 'if {} {} {} then {} else {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)

@@ -39,8 +39,10 @@ The IR-code is implemented in the ir package.
     :members: add_block, remove_block
 
 .. autoclass:: ppci.ir.Procedure
+    :members:
 
 .. autoclass:: ppci.ir.Function
+    :members:
 
 .. autoclass:: ppci.ir.Block
     :members: add_instruction, remove_instruction,
@@ -77,6 +79,7 @@ Only simple types are available.
     :annotation:
 
 .. autodata:: ppci.ir.u8
+    :annotation:
 
 .. autodata:: ppci.ir.f64
     :annotation:

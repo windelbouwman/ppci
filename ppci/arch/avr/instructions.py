@@ -1,5 +1,5 @@
 from ..isa import Isa
-from ..encoding import Instruction, Operand, Syntax, Relocation, Patcher
+from ..encoding import Instruction, Operand, Syntax, Relocation, Transform
 from ..arch import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
@@ -94,9 +94,12 @@ class Add(AvrInstruction):
     patterns = {'op': 0b11, 'r': rr, 'd': rd}
 
 
-class Patch0r(Patcher):
-    def up(self, val):
+class Patch0r(Transform):
+    def forwards(self, val):
         return (val // 2) - 12
+
+    def backwards(self, val):
+        return (val + 12) * 2
 
 
 class Adiw(AvrInstruction):
@@ -295,8 +298,8 @@ class Mov(AvrInstruction):
     patterns = {'op': 0b1011, 'r': rr, 'd': rd}
 
 
-class PatchDiv2(Patcher):
-    def up(self, val):
+class PatchDiv2(Transform):
+    def forwards(self, val):
         assert val in range(0, 32, 2)
         return val >> 1
 
@@ -443,8 +446,8 @@ class Reti(AvrInstruction):
     patterns = {'w0': 0b1001010100011000}
 
 
-class PatchedBy16(Patcher):
-    def up(self, val):
+class PatchedBy16(Transform):
+    def forwards(self, val):
         return val - 16
 
 
