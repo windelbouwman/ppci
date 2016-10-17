@@ -24,12 +24,13 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
-    def __init__(self, arch, port=1234, constat=STOPPED):
+    def __init__(self, arch, port=1234, constat=STOPPED, pcresval=0):
         self.arch = arch
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(("localhost", port))
         time.sleep(1)
         self.status = constat
+        self.pcresval = pcresval
         if(constat == RUNNING):
             self.stop()
 
@@ -136,6 +137,11 @@ class GdbDebugDriver(DebugDriver):
         self.logger.debug("PC value read:%x", pc)
         return pc
 
+    def set_pc(self, value):
+        """ set the PC of the device """
+        self._set_register(self.arch.gdb_pc, value)
+        self.logger.debug("PC value set:%x", value)
+
     def get_fp(self):
         """ read the frame pointer """
         return 0x100
@@ -154,9 +160,11 @@ class GdbDebugDriver(DebugDriver):
     def restart(self):
         """ restart the device """
         if self.status == STOPPED:
-            self.sendpkt("c00000080")
-            res = self.readpkt()
-            print(res)
+            #self.sendpkt("c00000080")
+            self.set_pc(self.pcresval)
+            self.run()
+            #res = self.readpkt()
+            #print(res)
         self.status = RUNNING
 
     def step(self):
@@ -216,6 +224,18 @@ class GdbDebugDriver(DebugDriver):
         assert len(data) == offset, '%x %x' % (len(data), offset)
         return res
 
+    def set_registers(self, regvalues):
+        data = bytearray()
+        res = {}
+        offset = 0
+        for register in self.arch.gdb_registers:
+            reg_data = self._pack_register(register, regvalues[register])
+            size = register.bitsize // 8
+            data[offset:offset+size] = reg_data
+            offset += size
+        data = binascii.b2a_hex(data).decode('ascii')
+        self.sendpkt("G %s" %data)
+
     def _get_register(self, register):
         """ Get a single register """
         idx = self.arch.gdb_registers.index(register)
@@ -223,6 +243,13 @@ class GdbDebugDriver(DebugDriver):
         data = self.readpkt()
         data = binascii.a2b_hex(data.encode('ascii'))
         return self._unpack_register(register, data)
+
+    def _set_register(self, register, value):
+        """ Set a single register """
+        idx = self.arch.gdb_registers.index(register)
+        value = self._pack_register(register, value)
+        value = binascii.b2a_hex(value).decode('ascii')
+        self.sendpkt("P %x=%s" % (idx, value))
 
     @staticmethod
     def _unpack_register(register, data):
@@ -240,6 +267,19 @@ class GdbDebugDriver(DebugDriver):
         else:
             value, = struct.unpack(fmts[size], data)
         return value
+
+    @staticmethod
+    def _pack_register(register, value):
+        """ Put some data in a register """
+        fmts = {
+            8: '<Q',
+            4: '<I',
+            2: '<H',
+            1: '<B',
+            }
+        size = register.bitsize // 8
+        data = struct.pack(fmts[size], value)
+        return data
 
     def set_breakpoint(self, address):
         """ Set a breakpoint """
