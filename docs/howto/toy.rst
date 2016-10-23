@@ -529,18 +529,18 @@ Now we can compile the TCF file again, and check the result:
 
 .. code:: bash
 
-    (dslenv) [windel@hoefnix toydsl]$ python toy.py 
+    (dslenv) [windel@hoefnix toydsl]$ python toy.py
     CodeObject of 1049 bytes
-    (dslenv) [windel@hoefnix toydsl]$ ./example 
+    (dslenv) [windel@hoefnix toydsl]$ ./example
     b :0x00000002
     c :0x0000000F
-    (dslenv) [windel@hoefnix toydsl]$ cat example.tcf 
+    (dslenv) [windel@hoefnix toydsl]$ cat example.tcf
     b = 2;
     c = 5 + 5 * b;
     d = 133 * c - b;
     print b;
     print c;
-    (dslenv) [windel@hoefnix toydsl]$ 
+    (dslenv) [windel@hoefnix toydsl]$
 
 As we can see, the compiler worked out correctly!
 

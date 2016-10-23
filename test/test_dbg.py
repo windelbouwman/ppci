@@ -186,7 +186,7 @@ class DebugCliTestCase(unittest.TestCase):
         self.debugger_mock.clear_breakpoint.assert_called_with('main.c', 3)
 
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_regs(self, mock_stdout):
+    def test_readregs(self, mock_stdout):
         """ Test read registers """
         arch = get_arch('arm')
         r1, r2 = arch.gdb_registers[1:3]
@@ -198,7 +198,7 @@ class DebugCliTestCase(unittest.TestCase):
             return_value=[r1, r2])
         self.debugger_mock.get_register_values = MagicMock(
             return_value=reg_values)
-        self.cmd('regs')
+        self.cmd('readregs')
         lines = [
             '   R1 : 0x00000001',
             '   R2 : 0x000003E8',

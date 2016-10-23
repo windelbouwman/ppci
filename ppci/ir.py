@@ -419,6 +419,24 @@ class Value(Instruction):
         self.ty = ty
         self.used_by = set()
 
+    def __add__(self, other):
+        """ Add this value to another one """
+        assert isinstance(other, Value)
+        assert self.ty is other.ty
+        return Binop(self, '+', other, 'add', self.ty)
+
+    def __sub__(self, other):
+        """ Substract other value from this one """
+        assert isinstance(other, Value)
+        assert self.ty is other.ty
+        return Binop(self, '-', other, 'sub', self.ty)
+
+    def __mul__(self, other):
+        """ Multiply this value with another one """
+        assert isinstance(other, Value)
+        assert self.ty is other.ty
+        return Binop(self, '*', other, 'mul', self.ty)
+
     def add_user(self, i):
         """ Add a usage for this value """
         self.used_by.add(i)

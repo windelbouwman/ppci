@@ -500,9 +500,8 @@ class TypeChecker:
     def do_coerce(self, expr, typ):
         """ Try to convert expression into the given type.
 
-        typ: the type of the value
-        wanted_typ: the type that it must be
-        loc: the location where this is needed.
+        expr: the expression value with a certain type
+        typ: the type that it must be
         Raises an error is the conversion cannot be done.
         """
         if self.context.equal_types(expr.typ, typ):
