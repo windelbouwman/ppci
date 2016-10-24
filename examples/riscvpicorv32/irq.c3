@@ -30,6 +30,10 @@ function int irq(byte* regs,int irqs)
          }
      if(bch == 0x4d) {
          gdbstub.writemem(&inbuffer[2]);
+         outbuffer[0] = 0x4f
+         outbuffer[1] = 0x4b
+         outbuffer[2] = 0
+         gdbstub.put_packet(&outbuffer[0]);
         }
      if(bch == 0x70) {
          gdbstub.readreg(&inbuffer[2], regs, &outbuffer[0]);
@@ -37,13 +41,21 @@ function int irq(byte* regs,int irqs)
          }
      if(bch == 0x50) {
          gdbstub.writereg(&inbuffer[2], regs);
+         outbuffer[0] = 0x4f
+         outbuffer[1] = 0x4b
+         outbuffer[2] = 0
+         gdbstub.put_packet(&outbuffer[0]);
          }
      if(bch == 0x67) {
          gdbstub.readregs(regs, &outbuffer[0]);
          gdbstub.put_packet(&outbuffer);
         }
      if(bch == 0x47) {
-         gdbstub.writeregs(&inbuffer[2], regs)
+        gdbstub.writeregs(&inbuffer[2], regs)
+        outbuffer[0] = 0x4f
+        outbuffer[1] = 0x4b
+        outbuffer[2] = 0
+        gdbstub.put_packet(&outbuffer[0]);
         }
      if(bch == 0x5a) {
         gdbstub.setbreak(&inbuffer[3], &breakopcode);

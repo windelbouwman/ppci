@@ -235,6 +235,11 @@ class GdbDebugDriver(DebugDriver):
             offset += size
         data = binascii.b2a_hex(data).decode('ascii')
         self.sendpkt("G %s" %data)
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Register written')
+        else:
+            self.logger.warning('Registers writing failed: %s', res)
 
     def _get_register(self, register):
         """ Get a single register """
@@ -250,6 +255,11 @@ class GdbDebugDriver(DebugDriver):
         value = self._pack_register(register, value)
         value = binascii.b2a_hex(value).decode('ascii')
         self.sendpkt("P %x=%s" % (idx, value))
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Register written')
+        else:
+            self.logger.warning('Register write failed: %s', res)
 
     @staticmethod
     def _unpack_register(register, data):
@@ -306,3 +316,8 @@ class GdbDebugDriver(DebugDriver):
         length = len(data)
         data = binascii.b2a_hex(data).decode('ascii')
         self.sendpkt("M %x,%x:%s" % (address, length, data))
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Memory written')
+        else:
+            self.logger.warning('Memory write failed: %s', res)
