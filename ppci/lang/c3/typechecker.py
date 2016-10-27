@@ -504,37 +504,67 @@ class TypeChecker:
         typ: the type that it must be
         Raises an error is the conversion cannot be done.
         """
-        if self.context.equal_types(expr.typ, typ):
+        from_type = self.context.get_type(expr.typ)
+        to_type = self.context.get_type(typ)
+
+        # Evaluate types from pointer, unsigned, signed to floating point:
+        if self.context.equal_types(from_type, to_type):
             # no cast required
-            pass
-        elif isinstance(expr.typ, ast.PointerType) and \
-                isinstance(typ, ast.PointerType):
+            auto_cast = False
+        elif isinstance(from_type, ast.PointerType) and \
+                isinstance(to_type, ast.PointerType):
             # Pointers are pointers, no matter the pointed data.
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                isinstance(typ, ast.PointerType):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                self.context.equal_types('byte', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                self.context.equal_types('float', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                self.context.equal_types('double', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('double', expr.typ) and \
-                self.context.equal_types('float', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('float', expr.typ) and \
-                self.context.equal_types('double', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('byte', expr.typ) and \
-                self.context.equal_types('int', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
+            # But a conversion of type is still needed:
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.PointerType):
+            # Unsigned integers can be used as pointers without problem
+            # Signed integers form a problem, because those can be negative
+            # and thus must be casted explicitly.
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.UnsignedIntegerType) and \
+                from_type.bits <= to_type.bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.SignedIntegerType) and \
+                isinstance(to_type, ast.SignedIntegerType) and \
+                from_type.bits <= to_type.bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.SignedIntegerType) and \
+                from_type.bits < to_type.bits - 1:
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.FloatType) and \
+                from_type.bits < to_type.fraction_bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.SignedIntegerType) and \
+                isinstance(to_type, ast.FloatType) and \
+                from_type.bits < to_type.fraction_bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.FloatType) and \
+                isinstance(to_type, ast.FloatType) and \
+                from_type.bits < to_type.bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.SignedIntegerType) and \
+                isinstance(to_type, (ast.UnsignedIntegerType, ast.FloatType)):
+            # For now, allow auto-cast, until better way of
+            # casting constant integer to byte type is found:
+            # TODO: remove this branch!
+            auto_cast = True
+        elif isinstance(from_type, ast.FloatType) and \
+                isinstance(to_type, ast.FloatType):
+            # TODO: remove this hack!
+            auto_cast = True
+        elif isinstance(from_type, ast.IntegerType) and \
+                isinstance(to_type, ast.PointerType):
+            # TODO: remove this hack!
+            auto_cast = True
         else:
             raise SemanticError(
-                "Cannot use '{}' as '{}'".format(expr.typ, typ), expr.loc)
+                "Cannot use '{}' as '{}'".format(from_type, to_type), expr.loc)
+        if auto_cast:
+            expr = ast.TypeCast(typ, expr, expr.loc)
         self.check_expr(expr)
         return expr
 

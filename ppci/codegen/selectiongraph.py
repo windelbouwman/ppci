@@ -99,8 +99,8 @@ class SGNode:
         than one value. For instance the 'div' x86 instruction produces both
         the quotient and the remainer.
     """
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, op):
+        self.name = op
         self.value = None
         self.inputs = []
         self.outputs = []

@@ -136,7 +136,10 @@ class DiagnosticsManager:
 
     def add_diag(self, d):
         """ Add a diagnostic message """
-        self.logger.error(str(d.msg))
+        if d.loc:
+            self.logger.error('Line {}: {}'.format(d.loc.row, d.msg))
+        else:
+            self.logger.error(str(d.msg))
         self.diags.append(d)
 
     def error(self, msg, loc):

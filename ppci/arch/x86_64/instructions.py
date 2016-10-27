@@ -772,6 +772,7 @@ def pattern_call(context, tree):
 
 
 @isa.pattern('stm', 'MOVI8(reg8)', size=2)
+@isa.pattern('stm', 'MOVU8(reg8)', size=2)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -800,6 +801,7 @@ def pattern_ldr64_2(context, tree, c0):
 
 
 @isa.pattern('reg8', 'LDRI8(reg64)', size=2)
+@isa.pattern('reg8', 'LDRU8(reg64)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(LowRegister)
     context.emit(MovRegRm8(d, RmMem(c0)))
@@ -834,6 +836,7 @@ def pattern_str64_2(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
+@isa.pattern('stm', 'STRU8(reg64, reg8)', size=2)
 def pattern_str8(context, tree, c0, c1):
     context.emit(MovRmReg8(RmMem(c0), c1))
 
@@ -936,6 +939,7 @@ def pattern_reg64(context, tree):
 
 
 @isa.pattern('reg8', 'REGI8', size=0)
+@isa.pattern('reg8', 'REGU8', size=0)
 def pattern_reg8(context, tree):
     return tree.value
 
@@ -946,6 +950,7 @@ def pattern_i64toi64(context, tree, c0):
 
 
 @isa.pattern('reg8', 'I64TOI8(reg64)', size=0)
+@isa.pattern('reg8', 'I64TOU8(reg64)', size=0)
 def pattern_i64toi8(context, tree, c0):
     context.move(rax, c0)
     # raise Warning()
@@ -989,6 +994,7 @@ def pattern_const8_old(context, tree):
 
 
 @isa.pattern('reg8', 'CONSTI8', size=11)
+@isa.pattern('reg8', 'CONSTU8', size=11)
 def pattern_const8(context, tree):
     d = context.new_reg(LowRegister)
     context.emit(MovImm8(d, tree.value))

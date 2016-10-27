@@ -1,7 +1,5 @@
 
-"""
-    This is the brain-fuck language front-end.
-"""
+""" This is the brain-fuck language front-end. """
 
 import logging
 from .. import ir
@@ -43,11 +41,11 @@ class BrainFuckGenerator():
 
         # Locate '1' and '0' constants:
         one_i32_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
-        one_ins = self.builder.emit(ir.to_i8(one_i32_ins, "val_inc"))
-        prc_inc = self.builder.emit(ir.to_ptr(one_i32_ins, "ptr_incr"))
+        one_ins = self.builder.emit(ir.Cast(one_i32_ins, "val_inc", ir.i8))
+        prc_inc = self.builder.emit(ir.Cast(one_i32_ins, "ptr_incr", ir.ptr))
         zero_ins = self.builder.emit(ir.Const(0, "zero", ir.i32))
-        zero_ptr = self.builder.emit(ir.to_ptr(zero_ins, "zero_ptr"))
-        zero_byte = self.builder.emit(ir.to_i8(zero_ins, "zero_ptr"))
+        zero_ptr = self.builder.emit(ir.Cast(zero_ins, "zero_ptr", ir.ptr))
+        zero_byte = self.builder.emit(ir.Cast(zero_ins, "zero_ptr", ir.i8))
         array_size = self.builder.emit(
             ir.Const(bf_mem_size, "array_max", ir.ptr))
 

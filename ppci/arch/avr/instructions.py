@@ -695,6 +695,7 @@ def pattern_reg16(context, tree):
 
 
 @avr_isa.pattern('stm', 'MOVI8(reg)', size=2)
+@avr_isa.pattern('stm', 'MOVU8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
 
@@ -710,6 +711,7 @@ def pattern_i16toi16(context, tree, c0):
 
 
 @avr_isa.pattern('reg', 'I16TOI8(reg16)', size=0)
+@avr_isa.pattern('reg', 'I16TOU8(reg16)', size=0)
 def pattern_i16toi8(context, tree, c0):
     context.move(r1r0, c0)
 
@@ -794,6 +796,7 @@ def pattern_shl16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg', 'LDRI8(reg16)', size=4, cycles=2)
+@avr_isa.pattern('reg', 'LDRU8(reg16)', size=4, cycles=2)
 def pattern_ldr8(context, tree, c0):
     # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrRegister)
@@ -804,6 +807,9 @@ def pattern_ldr8(context, tree, c0):
 
 @avr_isa.pattern(
     'reg', 'LDRI8(ADDI16(reg16, CONSTI16))', size=4, cycles=2,
+    condition=lambda t: t.children[0].children[1].value < 64)
+@avr_isa.pattern(
+    'reg', 'LDRU8(ADDI16(reg16, CONSTI16))', size=4, cycles=2,
     condition=lambda t: t.children[0].children[1].value < 64)
 def pattern_ldr8_offset(context, tree, c0):
     # z = context.new_reg(AvrZRegister)
@@ -842,6 +848,7 @@ def pattern_ldr16_offset(context, tree, c0):
 
 
 @avr_isa.pattern('stm', 'STRI8(reg16, reg)', size=2)
+@avr_isa.pattern('stm', 'STRU8(reg16, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
     # z = context.new_reg(AvrZRegister)
     context.move(Z, c0)
@@ -850,6 +857,9 @@ def pattern_str8(context, tree, c0, c1):
 
 @avr_isa.pattern(
     'stm', 'STRI8(ADDI16(reg16, CONSTI16), reg)', size=2,
+    condition=lambda t: t[0][1].value < 64)
+@avr_isa.pattern(
+    'stm', 'STRU8(ADDI16(reg16, CONSTI16), reg)', size=2,
     condition=lambda t: t[0][1].value < 64)
 def pattern_str8_offset(context, tree, c0, c1):
     # z = context.new_reg(AvrZRegister)
@@ -876,6 +886,7 @@ def pattern_str16_offset(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg', 'CONSTI8', size=2)
+@avr_isa.pattern('reg', 'CONSTU8', size=2)
 def pattern_const8(context, tree):
     d = context.new_reg(HighAvrRegister)
     context.emit(Ldi(d, tree.value))

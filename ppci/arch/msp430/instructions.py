@@ -1,7 +1,6 @@
 """ Definitions of msp430 instruction set. """
 
 from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
-from ..encoding import VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
@@ -310,12 +309,7 @@ Rrcb = one_op_instruction('rrc', 0, b=1)
 Swpb = one_op_instruction('swpb', 1)
 Rraw = one_op_instruction('rra', 2, b=0)
 Rrab = one_op_instruction('rra', 2, b=1)
-
-# Sxt = one_op_instruction('sxt', 3)
-SxtBase = make_one_op_base('sxt', 3)
-SxtMemByReg = SxtBase + MemByReg
-isa.add_instruction(SxtMemByReg)
-
+Sxt = one_op_instruction('sxt', 3)
 Push = one_op_instruction('push', 4, src_write=False)
 Call = one_op_instruction('call', 5, src_write=False)
 
@@ -519,6 +513,7 @@ def pattern_mov16(self, tree, c0):
 
 
 @isa.pattern('reg', 'MOVI8(reg)', size=2)
+@isa.pattern('reg', 'MOVU8(reg)', size=2)
 def pattern_mov8(self, tree, c0):
     dst = tree.value
     self.emit(mov(c0, dst))
@@ -533,6 +528,7 @@ def pattern_const16(self, tree):
 
 
 @isa.pattern('reg', 'CONSTI8', size=4)
+@isa.pattern('reg', 'CONSTU8', size=4)
 def pattern_const8(self, tree):
     dst = self.new_reg(Msp430Register)
     cnst = tree.value
@@ -546,19 +542,33 @@ def pattern_reg16(self, tree):
 
 
 @isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
 def pattern_reg8(self, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'I16TOI16(reg)', size=0, cycles=0, energy=0)
-def pattern_i16toi16(self, tree, c0):
+@isa.pattern('reg', 'I16TOU16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U16TOU16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U16TOI16(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi16(context, tree, c0):
     return c0
 
 
 @isa.pattern('reg', 'I16TOI8(reg)', size=0, cycles=0, energy=0)
-def pattern_i16toi8(self, tree, c0):
+@isa.pattern('reg', 'I16TOU8(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi8(context, tree, c0):
     # TODO: do something here?
     return c0
+
+
+@isa.pattern('reg', 'I8TOI16(reg)', size=0, cycles=0, energy=0)
+def pattern_i8toi16(context, tree, c0):
+    """ Sign extend signed byte to signed short """
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Sxt(d))
+    return d
 
 
 @isa.pattern('reg', 'CALL')
@@ -632,6 +642,7 @@ def pattern_str16(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI8(reg, reg)', size=2)
+@isa.pattern('stm', 'STRU8(reg, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
     context.emit(Movb(RegSrc(c1), MemDst(0, c0)))
 
@@ -644,6 +655,7 @@ def pattern_ldr16(context, tree, c0):
 
 
 @isa.pattern('reg', 'LDRI8(reg)', size=2)
+@isa.pattern('reg', 'LDRU8(reg)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Movb(MemSrc(c0), RegDst(d)))

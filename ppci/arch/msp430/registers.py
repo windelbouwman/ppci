@@ -1,7 +1,7 @@
 """ Description of msp430 registers """
 
 from ..registers import Register, RegisterClass
-from ...ir import i8, i16, ptr
+from ... import ir
 
 
 class Msp430Register(Register):
@@ -46,5 +46,7 @@ all_registers = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 num2reg = {r.num: r for r in all_registers}
 
 register_classes = [
-    RegisterClass('reg', [i16, i8, ptr], Msp430Register, all_registers)
+    RegisterClass(
+        'reg', [ir.i16, ir.i8, ir.u16, ir.u8, ir.ptr],
+        Msp430Register, all_registers)
     ]

@@ -1,7 +1,7 @@
 """ Contains register definitions for x86 target. """
 
 from ..registers import Register, RegisterClass
-from ...ir import i64, i8, ptr
+from ... import ir
 
 
 def get_register(n):
@@ -102,7 +102,8 @@ def get8reg(num):
 
 # Register classes:
 register_classes = [
-    RegisterClass('reg64', [i64, ptr], X86Register,
-                  [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
-    RegisterClass('reg8', [i8], LowRegister, [al, bl, cl, dl]),
+    RegisterClass(
+        'reg64', [ir.i64, ir.u64, ir.ptr], X86Register,
+        [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
+    RegisterClass('reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
     ]

@@ -78,6 +78,29 @@ class BaseType(NamedType):
         return '{}'.format(self.name)
 
 
+class IntegerType(BaseType):
+    """ Integer base type """
+    def __init__(self, name, byte_size):
+        super().__init__(name, byte_size)
+        self.bits = byte_size * 8
+
+
+class UnsignedIntegerType(IntegerType):
+    pass
+
+
+class SignedIntegerType(IntegerType):
+    pass
+
+
+class FloatType(BaseType):
+    """ Floating point base type """
+    def __init__(self, name, byte_size, fraction_bits):
+        super().__init__(name, byte_size)
+        self.bits = byte_size * 8
+        self.fraction_bits = fraction_bits
+
+
 class EnumType:
     # TODO
     pass

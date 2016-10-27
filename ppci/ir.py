@@ -406,7 +406,8 @@ u16 = Typ('u16')  #: Unsigned 16-bit type
 u8 = Typ('u8')  #: Unsigned 8-bit type
 ptr = Typ('ptr')  #: Pointer type
 
-all_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8, ptr]
+value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
+all_types = value_types + [ptr]
 
 
 class Value(Instruction):
@@ -475,18 +476,6 @@ class Cast(Value):
 
     def __str__(self):
         return '{} {} = cast {}'.format(self.ty, self.name, self.src.name)
-
-
-def to_ptr(value, name):
-    return Cast(value, name, ptr)
-
-
-def to_i32(value, name):
-    return Cast(value, name, i32)
-
-
-def to_i8(value, name):
-    return Cast(value, name, i8)
 
 
 class Undefined(Value):

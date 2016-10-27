@@ -1,8 +1,6 @@
-"""
-    ARM architecture definition.
-"""
+""" ARM architecture definition. """
 import io
-from ...ir import i8, i32, ptr
+from ...ir import i8, i32, u8, u32, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture, Label, Alignment
 from ..data_instructions import Db, Dd, Dcd2, data_isa
@@ -33,7 +31,7 @@ class ArmArch(Architecture):
             # Registers usable by register allocator:
             self.register_classes = [
                 RegisterClass(
-                    'loreg', [i8, i32, ptr], LowArmRegister,
+                    'loreg', [i8, i32, ptr, u8, u32], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7])
                 ]
         else:
@@ -47,7 +45,7 @@ class ArmArch(Architecture):
                     'loreg', [], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7]),
                 RegisterClass(
-                    'reg', [i8, i32, ptr], ArmRegister,
+                    'reg', [i8, i32, u8, u32, ptr], ArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11])
                 ]
         self.assembler.gen_asm_parser(self.isa)

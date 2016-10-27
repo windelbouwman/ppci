@@ -512,6 +512,7 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI8(reg, reg)', size=2)
+@isa.pattern('stm', 'STRU8(reg, reg)', size=2)
 def pattern_stri8(context, tree, c0, c1):
     context.emit(Sb(c1, 0, c0))
 
@@ -522,6 +523,7 @@ def pattern_movi32(context, tree, c0):
     return tree.value
 
 
+@isa.pattern('reg', 'MOVU8(reg)', size=2)
 @isa.pattern('reg', 'MOVI8(reg)', size=2)
 def pattern_movi8(context, tree, c0):
     context.move(tree.value, c0)
@@ -545,18 +547,20 @@ def _(context, tree, c0):
 
 
 @isa.pattern('reg', 'I8TOI32(reg)', size=0)
+@isa.pattern('reg', 'U8TOI32(reg)', size=0)
 def _(context, tree, c0):
     # TODO: do something like sign extend or something else?
     return c0
 
 
 @isa.pattern('reg', 'I32TOI8(reg)', size=0)
+@isa.pattern('reg', 'I32TOU8(reg)', size=0)
 def _(context, tree, c0):
     # TODO: do something like sign extend or something else?
     return c0
 
 
-@isa.pattern('reg', 'REGI8', size=0)
+@isa.pattern('reg', 'REGU8', size=0)
 def _(context, tree):
     return tree.value
 
@@ -583,6 +587,7 @@ def _(context, tree):
 
 
 @isa.pattern('reg', 'CONSTI8', size=2, condition=lambda t: t.value < 256)
+@isa.pattern('reg', 'CONSTU8', size=2, condition=lambda t: t.value < 256)
 def _(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
@@ -615,6 +620,7 @@ def _(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'ADDI8(reg, reg)', size=2)
+@isa.pattern('reg', 'ADDU8(reg, reg)', size=2)
 def _(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Addr(d, c0, c1))
@@ -674,6 +680,7 @@ def _(context, tree):
     return d
 
 @isa.pattern('reg', 'LDRI8(reg)', size=2)
+@isa.pattern('reg', 'LDRU8(reg)', size=2)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     context.emit(Lbu(d, 0, c0))

@@ -218,20 +218,23 @@ class CodeGenerator:
     def get_ir_type(self, cty):
         """ Given a certain type, get the corresponding ir-type """
         cty = self.context.get_type(cty)
-        if self.context.equal_types(cty, 'int'):
-            return self.get_ir_int()
-        elif self.context.equal_types(cty, 'double'):
-            return ir.f64
-        elif self.context.equal_types(cty, 'float'):
-            return ir.f32
+        if isinstance(cty, ast.FloatType):
+            float_types = {32: ir.f32, 64: ir.f64}
+            return float_types[cty.bits]
+        elif isinstance(cty, ast.SignedIntegerType):
+            signed_types = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
+            return signed_types[cty.bits]
+        elif isinstance(cty, ast.UnsignedIntegerType):
+            unsigned_types = {8: ir.u8, 16: ir.u16, 32: ir.u32, 64: ir.u64}
+            return unsigned_types[cty.bits]
         elif self.context.equal_types(cty, 'void'):  # pragma: no cover
+            # Void's have no type
             raise RuntimeError('Cannot get void type')
         elif self.context.equal_types(cty, 'bool'):
             # Implement booleans as integers:
             return self.get_ir_int()
-        elif self.context.equal_types(cty, 'byte'):
-            return ir.i8
         elif isinstance(cty, ast.PointerType):
+            # A pointer is a pointer, no type info in ir.
             return ir.ptr
         else:  # pragma: no cover
             raise NotImplementedError(str(cty))
@@ -672,7 +675,8 @@ class CodeGenerator:
         # Calculate offset:
         offset = self.emit(
             ir.mul(idx, e_size, "element_offset", int_ir_type), loc=expr.loc)
-        offset = self.emit(ir.to_ptr(offset, 'elem_offset'), loc=expr.loc)
+        offset = self.emit(
+            ir.Cast(offset, 'element_offset', ir.ptr), loc=expr.loc)
 
         # Calculate address:
         return self.emit(
@@ -725,33 +729,21 @@ class CodeGenerator:
             }
         }
 
+        # Evaluate types from pointer, unsigned, signed to floating point:
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):
             return ar
-        elif self.context.equal_types('int', from_type) and \
+        elif isinstance(from_type, ast.IntegerType) and \
                 isinstance(to_type, ast.PointerType):
-            return self.emit(ir.to_ptr(ar, 'int2ptr'))
-        elif self.context.equal_types('int', to_type) \
+            return self.emit(ir.Cast(ar, 'int2ptr', ir.ptr))
+        elif isinstance(to_type, ast.IntegerType) \
                 and isinstance(from_type, ast.PointerType):
-            return self.emit(ir.Cast(ar, 'ptr2int', self.get_ir_int()))
-        elif isinstance(from_type, ast.BaseType) \
-                and from_type.name == 'byte' and \
-                isinstance(to_type, ast.BaseType) and to_type.name == 'int':
-            return self.emit(ir.Cast(ar, 'byte2int', self.get_ir_int()))
-        elif isinstance(from_type, ast.BaseType) \
-                and from_type.name == 'int' and \
-                isinstance(to_type, ast.BaseType) and to_type.name == 'byte':
-            return self.emit(ir.to_i8(ar, 'bytecast'))
-        elif self.context.equal_types('float', to_type) \
-                and self.context.equal_types('int', from_type):
-            return self.emit(ir.Cast(ar, 'int2flt', self.get_ir_type('float')))
-        elif self.context.equal_types('float', to_type) \
-                and self.context.equal_types('double', from_type):
-            return self.emit(ir.Cast(ar, 'dbl2flt', self.get_ir_type('float')))
-        elif self.context.equal_types('double', to_type) \
-                and self.context.equal_types('float', from_type):
-            return self.emit(
-                ir.Cast(ar, 'flt2dbl', self.get_ir_type('double')))
+            ir_to_type = self.get_ir_type(to_type)
+            return self.emit(ir.Cast(ar, 'ptr2int', ir_to_type))
+        elif isinstance(from_type, (ast.IntegerType, ast.FloatType)) and \
+                isinstance(to_type, (ast.IntegerType, ast.FloatType)):
+            # Any numeric cast
+            return self.emit(ir.Cast(ar, 'cast', self.get_ir_type(to_type)))
         else:  # pragma: no cover
             raise NotImplementedError(
                 'Cannot cast {} to {}'.format(from_type, to_type))

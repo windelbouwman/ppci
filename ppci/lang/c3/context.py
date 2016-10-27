@@ -232,7 +232,8 @@ class Context:
 
     def equal_types(self, a, b, byname=False):
         """ Compare types a and b for structural equavalence.
-            if byname is True stop on defined types.
+
+        if byname is True stop on defined types.
         """
         # Recurse into named types:
         a = self.get_type(a, not byname)
@@ -240,7 +241,12 @@ class Context:
 
         # Do structural equivalence check:
         if type(a) is type(b):
-            if isinstance(a, ast.BaseType):
+            # TODO: compare better by bitsize?
+            if isinstance(a, ast.IntegerType):
+                return a.bits == b.bits
+            elif isinstance(a, ast.FloatType):
+                return a.bits == b.bits
+            elif isinstance(a, ast.BaseType):
                 return a.name == b.name
             elif isinstance(a, ast.PointerType):
                 # If a pointed type is detected, stop structural

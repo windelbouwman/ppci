@@ -337,6 +337,22 @@ def objcopy(args=None):
         api.objcopy(obj, args.segment, args.output_format, args.output)
 
 
+opt_description = """ Optimizer """
+opt_parser = argparse.ArgumentParser(
+    description=opt_description, parents=[base_parser])
+opt_parser.add_argument(
+    'input', help='input file', type=argparse.FileType('r'))
+opt_parser.add_argument(
+    'output', help='output file')
+
+
+def opt(args=None):
+    """ Optimize a single IR-file """
+    args = opt_parser.parse_args(args)
+    with LogSetup(args):
+        api.optimize()
+
+
 def yacc_cmd(args=None):
     """
     Parser generator utility. This script can generate a python script from a

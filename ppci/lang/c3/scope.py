@@ -9,6 +9,7 @@ from ...common import CompilerError
 from .astnodes import Constant, Variable, Function, BaseType, Symbol
 from .astnodes import ArrayType, StructureType, DefinedType, PointerType
 from .astnodes import StructField
+from .astnodes import SignedIntegerType, UnsignedIntegerType, FloatType
 
 
 class SemanticError(CompilerError):
@@ -96,23 +97,23 @@ def create_top_scope(arch):
     scope = Scope()
 
     # stdlib types:
-    scope.add_symbol(BaseType('uint64_t', 8))
-    scope.add_symbol(BaseType('uint32_t', 4))
-    scope.add_symbol(BaseType('uint16_t', 2))
-    scope.add_symbol(BaseType('uint8_t', 1))
-    scope.add_symbol(BaseType('int64_t', 8))
-    scope.add_symbol(BaseType('int32_t', 4))
-    scope.add_symbol(BaseType('int16_t', 2))
-    scope.add_symbol(BaseType('int8_t', 1))
+    scope.add_symbol(UnsignedIntegerType('uint64_t', 8))
+    scope.add_symbol(UnsignedIntegerType('uint32_t', 4))
+    scope.add_symbol(UnsignedIntegerType('uint16_t', 2))
+    scope.add_symbol(UnsignedIntegerType('uint8_t', 1))
+    scope.add_symbol(SignedIntegerType('int64_t', 8))
+    scope.add_symbol(SignedIntegerType('int32_t', 4))
+    scope.add_symbol(SignedIntegerType('int16_t', 2))
+    scope.add_symbol(SignedIntegerType('int8_t', 1))
 
     # buildin types:
-    int_type = BaseType('int', arch.byte_sizes['int'])
+    int_type = SignedIntegerType('int', arch.byte_sizes['int'])
+    byte_type = UnsignedIntegerType('byte', 1)
     scope.add_symbol(int_type)
-    scope.add_symbol(BaseType('double', 8))
-    scope.add_symbol(BaseType('float', 4))
+    scope.add_symbol(FloatType('double', 8, 52))
+    scope.add_symbol(FloatType('float', 4, 23))
     scope.add_symbol(BaseType('void', 0))
     scope.add_symbol(BaseType('bool', arch.byte_sizes['int']))
-    byte_type = BaseType('byte', 1)
     scope.add_symbol(byte_type)
 
     # Construct string type from others:

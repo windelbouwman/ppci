@@ -284,7 +284,7 @@ class ConstantTestCase(BuildTestCaseBase):
     def test_constant_byte(self):
         """ Test good usage of constant """
         snip = """module C;
-        const byte a = 2 + 99;
+        const byte a = cast<byte>(2 + 99);
         const int c = a + 13;
         function int reta()
         {

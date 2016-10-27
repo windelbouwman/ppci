@@ -1,6 +1,4 @@
-"""
-    Python back-end. Generates python code from ir-code.
-"""
+""" Python back-end. Generates python code from ir-code. """
 
 from .. import ir
 
@@ -116,15 +114,18 @@ class IrToPython:
             store_formats = {
                 ir.ptr: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
                 ir.i32: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
-                ir.i8: 'mem[{0}:{0}+1] = struct.pack("B",{1})'
+                ir.i8: 'mem[{0}:{0}+1] = struct.pack("b",{1})',
+                ir.u8: 'mem[{0}:{0}+1] = struct.pack("B",{1})',
             }
             fmt = store_formats[ins.value.ty]
             self.print(3, fmt.format(ins.address.name, ins.value.name))
         elif isinstance(ins, ir.Load):
             load_formats = {
                 ir.i32: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
+                ir.u32: '{0}, = struct.unpack("I", mem[{1}:{1}+4])',
                 ir.ptr: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
-                ir.i8: '{0} = mem[{1}]'
+                ir.i8: '{0} = mem[{1}]',
+                ir.u8: '{0} = mem[{1}]',
             }
             fmt = load_formats[ins.ty]
             self.print(3, fmt.format(ins.name, ins.address.name))

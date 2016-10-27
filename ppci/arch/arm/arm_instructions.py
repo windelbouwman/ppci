@@ -596,6 +596,7 @@ def pattern_str32_1(context, tree, c0, c1):
 
 
 @arm_isa.pattern('stm', 'STRI8(reg, reg)', size=4)
+@arm_isa.pattern('stm', 'STRU8(reg, reg)', size=4)
 def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
@@ -607,6 +608,7 @@ def pattern_mov32(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'MOVI8(reg)', size=4)
+@arm_isa.pattern('reg', 'MOVU8(reg)', size=4)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -624,6 +626,7 @@ def pattern_reg32(context, tree):
 
 
 @arm_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
+@arm_isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
 def pattern_reg8(context, tree):
     return tree.value
 
@@ -634,12 +637,15 @@ def pattern_i32toi32(self, tree, c0):
 
 
 @arm_isa.pattern('reg', 'I8TOI32(reg)', size=0)
+@arm_isa.pattern('reg', 'U8TOI32(reg)', size=0)
 def pattern_i8toi32(self, tree, c0):
     # TODO: do something?
+    # Sign extend for example?
     return c0
 
 
 @arm_isa.pattern('reg', 'I32TOI8(reg)', size=0)
+@arm_isa.pattern('reg', 'I32TOU8(reg)', size=0)
 def pattern_i32toi8(self, tree, c0):
     # TODO: do something?
     return c0
@@ -665,6 +671,7 @@ def pattern_const32_1(context, tree):
 
 
 @arm_isa.pattern('reg', 'CONSTI8', size=4, condition=lambda t: t.value < 256)
+@arm_isa.pattern('reg', 'CONSTU8', size=4, condition=lambda t: t.value < 256)
 def pattern_const8_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -743,6 +750,7 @@ def pattern_label(context, tree):
 
 
 @arm_isa.pattern('reg', 'LDRI8(reg)', size=4)
+@arm_isa.pattern('reg', 'LDRU8(reg)', size=4)
 def pattern_ld8(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.emit(Ldrb(d, c0, 0))

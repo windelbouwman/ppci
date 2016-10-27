@@ -596,12 +596,14 @@ def pattern_i32toi32(self, tree, c0):
 
 
 @thumb_isa.pattern('reg', 'I8TOI32(reg)', size=0)
+@thumb_isa.pattern('reg', 'U8TOI32(reg)', size=0)
 def pattern_i8toi32(self, tree, c0):
     # TODO: do something?
     return c0
 
 
 @thumb_isa.pattern('reg', 'I32TOI8(reg)', size=0)
+@thumb_isa.pattern('reg', 'I32TOU8(reg)', size=0)
 def pattern_i32toi8(self, tree, c0):
     # TODO: do something?
     return c0
@@ -648,6 +650,7 @@ def pattern_const32_imm(context, tree):
 
 
 @thumb_isa.pattern('reg', 'CONSTI8', size=6, cycles=4, energy=4)
+@thumb_isa.pattern('reg', 'CONSTU8', size=6, cycles=4, energy=4)
 def pattern_const8(context, tree):
     d = context.new_reg(LowArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -657,6 +660,9 @@ def pattern_const8(context, tree):
 
 @thumb_isa.pattern(
     'reg', 'CONSTI8', size=2, cycles=1, energy=1,
+    condition=lambda x: x.value in range(256))
+@thumb_isa.pattern(
+    'reg', 'CONSTU8', size=2, cycles=1, energy=1,
     condition=lambda x: x.value in range(256))
 def pattern_const8_imm(context, tree):
     """ 8 bit constant loading """
@@ -673,6 +679,7 @@ def pattern_mov32(context, tree, c0):
 
 
 @thumb_isa.pattern('reg', 'MOVI8(reg)', size=2)
+@thumb_isa.pattern('reg', 'MOVU8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
@@ -691,11 +698,13 @@ def pattern_cjmp(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('stm', 'STRI8(reg,reg)', size=2)
+@thumb_isa.pattern('stm', 'STRU8(reg,reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, c0, 0))
 
 
 @thumb_isa.pattern('reg', 'LDRI8(reg)', size=2)
+@thumb_isa.pattern('reg', 'LDRU8(reg)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(LowArmRegister)
     context.emit(Ldrb(d, c0, 0))
@@ -703,6 +712,7 @@ def pattern_ldr8(context, tree, c0):
 
 
 @thumb_isa.pattern('reg', 'LDRI32(reg)', size=2)
+@thumb_isa.pattern('reg', 'LDRU32(reg)', size=2)
 def pattern_ldr32(self, tree, c0):
     d = self.new_reg(LowArmRegister)
     self.emit(Ldr2(d, c0, 0))

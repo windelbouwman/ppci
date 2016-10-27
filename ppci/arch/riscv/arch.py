@@ -1,6 +1,4 @@
-"""
-    RISC-V architecture.
-"""
+""" RISC-V architecture. """
 
 import io
 from ..arch import Architecture, Label, VCall, Alignment
@@ -12,7 +10,7 @@ from .registers import R13, R14, R15, R16, R17, R28, LR
 from .registers import R0, LR, SP, FP, PC
 from .registers import R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
-from ...ir import i8, i32, ptr
+from ... import ir
 from ..registers import RegisterClass
 from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
@@ -68,8 +66,9 @@ class RiscvArch(Architecture):
         # Allocatable registers:
         self.register_classes = [
             RegisterClass(
-                'reg', [i8, i32, ptr], RiscvRegister,
-                [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27])
+                'reg', [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32], RiscvRegister,
+                [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
+                 R21, R22, R23, R24, R25, R26, R27])
             ]
         self.fp = FP
         self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
