@@ -718,6 +718,8 @@ def _(context, tree, c0):
 
 @isa.pattern( 'reg', 'ANDI8(reg, CONSTI8)', size=2,
               condition=lambda t: t.children[1].value < 256)
+@isa.pattern( 'reg', 'ANDU8(reg, CONSTU8)', size=2,
+              condition=lambda t: t.children[1].value < 256)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value
@@ -726,6 +728,8 @@ def _(context, tree, c0):
 
 
 @isa.pattern( 'reg', 'ANDI8(CONSTI8, reg)', size=2,
+              condition=lambda t: t.children[0].value < 256)
+@isa.pattern( 'reg', 'ANDU8(CONSTU8, reg)', size=2,
               condition=lambda t: t.children[0].value < 256)
 def _(context, tree, c0):
     d = context.new_reg(RiscvRegister)

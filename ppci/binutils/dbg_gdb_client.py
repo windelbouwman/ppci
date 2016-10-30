@@ -4,8 +4,6 @@
 
 import binascii
 import logging
-import socket
-import select
 import struct
 import time 
 from .dbg import DebugDriver, STOPPED, RUNNING
@@ -24,11 +22,9 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
-    def __init__(self, arch, port=1234, constat=STOPPED, pcresval=0):
+    def __init__(self, arch, transport, constat=STOPPED, pcresval=0):
         self.arch = arch
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect(("localhost", port))
-        time.sleep(1)
+        self.transport = transport
         self.status = constat
         self.pcresval = pcresval
         if(constat == RUNNING):
@@ -57,17 +53,17 @@ class GdbDebugDriver(DebugDriver):
 
     def sendpkt(self, data, retries=10):
         """ sends data via the RSP protocol to the device """
-        readable, _, _ = select.select([self.sock], [], [], 0)
+        readable = self.transport.rx_avail()
         if readable:
             self.process_stop_status()
         self.logger.debug('GDB> %s', data)
         wire_data = self.rsp_pack(data).encode()
-        self.sock.send(wire_data)
+        self.transport.send(wire_data)
         res = self.recv()
         while res != '+':
             self.logger.warning('discards %s', res)
             self.logger.debug('resend-GDB> %s', data)
-            self.sock.send(wire_data)
+            self.transport.send(wire_data)
             res = self.recv()
             retries -= 1
             if retries == 0:
@@ -83,9 +79,9 @@ class GdbDebugDriver(DebugDriver):
                 except ValueError as ex:
                     self.logger.debug('GDB< %s', res)
                     self.logger.warning('Bad packet %s', ex)
-                    self.sock.send(b'-')
+                    self.transport.send(b'-')
                 else:
-                    self.sock.send(b'+')
+                    self.transport.send(b'+')
                     self.logger.debug('GDB< %s', res)
                     return res
             else:
@@ -98,17 +94,17 @@ class GdbDebugDriver(DebugDriver):
     def recv(self):
         """ Receive either a packet, or an ack """
         while True:
-            data = self.sock.recv(1)
+            data = self.transport.recv()
             if data == b'+':
                 return data.decode('ascii')
             elif data == b'$':
                 res = bytearray()
                 res.extend(data)
                 while True:
-                    res.extend(self.sock.recv(1))
+                    res.extend(self.transport.recv())
                     if res[-1] == ord('#') and res[-2] != ord("'"):
-                        res.extend(self.sock.recv(1))
-                        res.extend(self.sock.recv(1))
+                        res.extend(self.transport.recv())
+                        res.extend(self.transport.recv())
                         return res.decode('ascii')
             else:
                 print('UNKNOWN:', data)
@@ -119,9 +115,9 @@ class GdbDebugDriver(DebugDriver):
     def _process_incoming(self):
         """ Process all incoming bytes """
         while True:
-            readable, _, _ = select.select([self.sock], [], [], 0)
+            readable = self.transport.rx_avail()
             if readable:
-                b = self.sock.recv(1)
+                b = self.transport.recv()
                 self.process_byte(b)
             else:
                 break
@@ -129,7 +125,7 @@ class GdbDebugDriver(DebugDriver):
     def sendbrk(self):
         """ sends break command to the device """
         self.logger.debug('Sending RAW stop 0x3')
-        self.sock.send(bytes([0x03]))
+        self.transport.send(bytes([0x03]))
 
     def get_pc(self):
         """ read the PC of the device """
