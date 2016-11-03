@@ -9,6 +9,7 @@ from ppci.binutils.objectfile import ObjectFile
 from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
 from ppci.common import SourceLocation
+from ppci.binutils.transport import TCP
 
 try:
     from unittest.mock import MagicMock, patch
@@ -228,9 +229,9 @@ class GdbClientTestCase(unittest.TestCase):
     arch = get_arch('example')
 
     def setUp(self):
-        with patch('ppci.binutils.dbg_gdb_client.socket.socket'):
-            self.gdbc = GdbDebugDriver(self.arch)
-        self.sock_mock = self.gdbc.sock
+        with patch('ppci.binutils.transport.socket.socket'):
+            self.gdbc = GdbDebugDriver(self.arch, transport=TCP(4567))
+        self.sock_mock = self.gdbc.transport.sock
         self.send_data = bytearray()
 
         def my_send(dt):
