@@ -212,7 +212,7 @@ class AssemblerTestCase(AsmTestCaseBase):
 
 class X87TestCase(AsmTestCaseBase):
     """ Checks floating point x87 instructions """
-    march = 'x86_64'
+    march = 'x86_64:x87'
 
     def test_fld32(self):
         """ Test load 32 bit floating point """
@@ -238,8 +238,56 @@ class X87TestCase(AsmTestCaseBase):
         self.check('40d910')
 
     def test_fsqrt(self):
+        """ Test square root instruction """
         self.feed('fsqrt')
         self.check('d9fa')
+
+
+class Sse1TestCase(AsmTestCaseBase):
+    """ Checks sse1 instructions """
+    march = 'x86_64'
+
+    def test_movss(self):
+        """ Test move scalar single-fp values """
+        self.feed('movss xmm4, xmm6')
+        self.feed('movss xmm3, [rax, 10]')
+        self.feed('movss [rax, 10], xmm9')
+        self.check('f30f10e6 f30f10580a f3440f11480a')
+
+    def test_addss(self):
+        """ Test add scalar single-fp values """
+        self.feed('addss xmm13, xmm9')
+        self.feed('addss xmm6, [r11, 1000]')
+        self.check('f3450f58e9 f3410f58b3e8030000')
+
+    def test_subss(self):
+        """ Test substract scalar single-fp values """
+        self.feed('subss xmm11, xmm5')
+        self.feed('subss xmm1, [rax, 332]')
+        self.check('f3440f5cdd f30f5c884c010000')
+
+    def test_mulss(self):
+        """ Test multiply scalar single-fp values """
+        self.feed('mulss xmm14, xmm2')
+        self.feed('mulss xmm8, [rsi, 3]')
+        self.check('f3440f59f2 f3440f594603')
+
+    def test_cvtsi2ss(self):
+        """ Test cvtsi2ss """
+        self.feed('cvtsi2ss xmm7, rdx')
+        self.feed('cvtsi2ss xmm3, [rbp, 13]')
+        self.check('f3480f2afa f3480f2a5d0d')
+
+
+@unittest.skip('todo')
+class Sse2TestCase(AsmTestCaseBase):
+    """ Checks sse2 instructions """
+    march = 'x86_64'
+
+    def test_movsd(self):
+        """ Test load 32 bit floating point """
+        self.feed('flds [rcx]')
+        self.check('40d901')
 
 
 if __name__ == '__main__':

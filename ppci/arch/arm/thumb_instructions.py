@@ -586,6 +586,9 @@ def pattern_jmp(self, tree):
 
 
 @thumb_isa.pattern('reg', 'REGI32', size=0)
+@thumb_isa.pattern('reg', 'REGU32', size=0)
+@thumb_isa.pattern('reg', 'REGU8', size=0)
+@thumb_isa.pattern('reg', 'REGI8', size=0)
 def pattern_reg32(self, tree):
     return tree.value
 

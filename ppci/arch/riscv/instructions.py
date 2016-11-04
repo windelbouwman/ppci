@@ -537,6 +537,8 @@ def _(context, tree):
 
 
 @isa.pattern('reg', 'REGI32', size=0)
+@isa.pattern('reg', 'REGI8', size=0)
+@isa.pattern('reg', 'REGU8', size=0)
 def _(context, tree):
     return tree.value
 

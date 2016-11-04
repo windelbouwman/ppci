@@ -114,6 +114,9 @@ class Token:
             bits = key.stop - key.start
             assert bits > 0
             limit = 1 << bits
+            if value >= limit:
+                raise ValueError(
+                    '{} cannot be fit into {} bits'.format(value, bits))
             assert value < limit
             mask = self.mask ^ ((limit - 1) << key.start)
             self.bit_value &= mask

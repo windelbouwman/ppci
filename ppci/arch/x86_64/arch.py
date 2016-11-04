@@ -15,6 +15,8 @@ from ..data_instructions import Db
 from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret
+from .x87_instructions import x87_isa
+from .sse2_instructions import sse1_isa, sse2_isa
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import all_registers
 from .registers import register_classes, X86Register, LowRegister
@@ -25,13 +27,16 @@ from .registers import r12, r13, r14, r15
 class X86_64Arch(Architecture):
     """ x86_64 architecture """
     name = 'x86_64'
-    option_names = ('sse2', 'sse3')
+    option_names = ('sse2', 'sse3', 'x87')
 
     def __init__(self, options=None):
         super().__init__(options=options, register_classes=register_classes)
         self.byte_sizes['int'] = 8  # For front end!
         self.byte_sizes['ptr'] = 8  # For front end!
-        self.isa = isa + data_isa
+        self.isa = isa + data_isa + sse1_isa + sse2_isa
+        if self.has_option('x87'):
+            # TODO: implement x87 isa also!
+            self.isa = self.isa + x87_isa
         self.registers.extend(all_registers)
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
@@ -94,8 +99,7 @@ class X86_64Arch(Architecture):
         return rv, tuple(live_out)
 
     def gen_fill_arguments(self, arg_types, args, live):
-        """ This function moves arguments in the proper locations.
-        """
+        """ This function moves arguments in the proper locations. """
         arg_locs, live_in = self.determine_arg_locations(arg_types)
         live.update(set(live_in))
 
@@ -113,6 +117,11 @@ class X86_64Arch(Architecture):
                     raise NotImplementedError()
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_extract_arguments(self):
+        """ Generate code to extract arguments from the proper locations """
+        # TODO: maybe add here instructions to extract parameters.
+        raise NotImplementedError()
 
     def make_call(self, frame, vcall):
         # R0 is filled with return value, do not save it, it will conflict.

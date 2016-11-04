@@ -163,6 +163,7 @@ class Context:
             (floatType, intType): floatType,
             (floatType, doubleType): doubleType,
             (doubleType, floatType): doubleType,
+            (doubleType, intType): doubleType,
             (byteType, intType): intType,
             (byteType, byteType): byteType,
             (byteType, byteType): byteType,

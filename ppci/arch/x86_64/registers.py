@@ -45,6 +45,16 @@ class LowRegister(Register):
         return self.num & 0x7
 
 
+class X87StackRegister(Register):
+    bitsize = 64
+
+
+class XmmRegister(Register):
+    # bitsize = 128
+    # TODO: actually the register is 128 bit wide, but float is now 32 bit
+    bitsize = 32
+
+
 # Calculation of the rexb bit:
 # rexbit = {'rax': 0, 'rcx':0, 'rdx':0, 'rbx': 0, 'rsp': 0, 'rbp': 0, 'rsi':0,
 # 'rdi':0,'r8':1,'r9':1,'r10':1,'r11':1,'r12':1,'r13':1,'r14':1,'r15':1}
@@ -95,6 +105,39 @@ all_registers = list(sorted(full_registers, key=lambda r: r.num)) + [rip]
 num2regmap = {r.num: r for r in full_registers}
 
 
+st0 = X87StackRegister('st0', 0)
+st1 = X87StackRegister('st1', 1)
+st2 = X87StackRegister('st2', 2)
+st3 = X87StackRegister('st3', 3)
+st4 = X87StackRegister('st4', 4)
+st5 = X87StackRegister('st5', 5)
+st6 = X87StackRegister('st6', 6)
+st7 = X87StackRegister('st7', 7)
+
+
+xmm0 = XmmRegister('xmm0', 0)
+xmm1 = XmmRegister('xmm1', 1)
+xmm2 = XmmRegister('xmm2', 2)
+xmm3 = XmmRegister('xmm3', 3)
+xmm4 = XmmRegister('xmm4', 4)
+xmm5 = XmmRegister('xmm5', 5)
+xmm6 = XmmRegister('xmm6', 6)
+xmm7 = XmmRegister('xmm7', 7)
+
+xmm8 = XmmRegister('xmm8', 8)
+xmm9 = XmmRegister('xmm9', 9)
+xmm10 = XmmRegister('xmm10', 10)
+xmm11 = XmmRegister('xmm11', 11)
+xmm12 = XmmRegister('xmm12', 12)
+xmm13 = XmmRegister('xmm13', 13)
+xmm14 = XmmRegister('xmm14', 14)
+xmm15 = XmmRegister('xmm15', 15)
+
+XmmRegister.registers = [
+    xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7,
+    xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15]
+
+
 def get8reg(num):
     mp = {r.num: r for r in [al, bl, cl, dl]}
     return mp[num]
@@ -106,4 +149,7 @@ register_classes = [
         'reg64', [ir.i64, ir.u64, ir.ptr], X86Register,
         [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
     RegisterClass('reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
+    RegisterClass(
+        'regfp', [ir.f32, ir.f64], XmmRegister,
+        XmmRegister.registers),
     ]

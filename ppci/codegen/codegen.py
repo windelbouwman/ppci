@@ -1,6 +1,6 @@
-"""
-    Machine code generator. The architecture is provided when
-    the generator is created.
+""" Machine code generator.
+
+The architecture is provided when the generator is created.
 """
 
 import logging
@@ -20,7 +20,7 @@ from .registerallocator import GraphColoringRegisterAllocator
 
 
 class CodeGenerator:
-    """ Machine code generator. """
+    """ Machine code generator """
     logger = logging.getLogger('codegen')
 
     def __init__(self, arch, debug_db, optimize_for='size'):

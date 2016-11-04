@@ -684,6 +684,7 @@ def pattern_call(context, tree):
 
 
 @avr_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
+@avr_isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
 def pattern_reg8(context, tree):
     return tree.value
 

@@ -85,6 +85,11 @@ class SGValue:
     def add_use(self, use):
         self.users.append(use)
 
+    @property
+    def ty(self):
+        """ Get the ir-type of this value """
+        return self.node.name.ty
+
     def __repr__(self):
         return 'SGValue(name={},vreg={})'.format(self.name, self.vreg)
 
@@ -151,6 +156,9 @@ class SGNode:
 
     def new_output(self, name, kind=SGValue.DATA):
         """ Create a new output value with a name and the given kind """
+        if self.name.ty is None and kind == SGValue.DATA:
+                # self.name.op not in ['ENTRY', 'EXIT'] and \
+            raise ValueError('{} cannot produce output'.format(self))
         val = SGValue(name, kind, self)
         self.add_output(val)
         return val

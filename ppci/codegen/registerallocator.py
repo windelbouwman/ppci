@@ -206,8 +206,8 @@ class GraphColoringRegisterAllocator:
         self.K = {}
         self.cls_regs = {}  # Mapping from class to register set
         self.alias = defaultdict(set)
-        for val in self.arch.register_classes:
-            _, _, kls, regs = val
+        for reg_class in self.arch.register_classes:
+            kls, regs = reg_class.typ, reg_class.registers
             self.logger.debug('Register class "%s" contains %s', kls, regs)
             self.K[kls] = len(regs)
             self.cls_regs[kls] = set(regs)

@@ -1,9 +1,13 @@
-"""
-    The process of instruction selection is preceeded by the creation of
-    a selection dag (directed acyclic graph). The dagger take ir-code as
-    input and produces such a dag for instruction selection.
+""" IR to DAG
 
-    A DAG represents the logic (computation) of a single basic block.
+The process of instruction selection is preceeded by the creation of
+a selection DAG (directed acyclic graph). The dagger take ir-code as
+input and produces such a dag for instruction selection.
+
+A DAG represents the logic (computation) of a single basic block.
+
+To do selection with tree matching, the DAG is then splitted into a
+series of tree patterns. This is often referred to as a forest of trees.
 """
 
 import logging
@@ -64,9 +68,12 @@ class Operation:
     def __init__(self, op, ty):
         self.op = op
         self.ty = ty
+        # assert ty, str(op)+str(ty)
+        if op == 'MOV' and ty is None:
+            raise AssertionError('MOV must not have type none')
 
     def __str__(self):
-        if self.ty is None or self.op == 'LABEL':
+        if self.ty is None or self.op in ['LABEL', 'CALL']:
             return self.op.upper()
         else:
             return '{}{}'.format(self.op, str(self.ty)).upper()
@@ -101,7 +108,8 @@ class SelectionGraphBuilder:
 
     def build(self, ir_function, function_info):
         """ Create a selection graph for the given function.
-            Selection graph is divided into groups for each basic block.
+
+        Selection graph is divided into groups for each basic block.
         """
         self.sgraph = SelectionGraph()
         self.function_info = function_info
@@ -127,9 +135,9 @@ class SelectionGraphBuilder:
         return self.sgraph
 
     def block_to_sgraph(self, ir_block: ir.Block, function_info):
-        """
-            Create dag (directed acyclic graph) from a basic block.
-            The resulting dag can be used for instruction selection.
+        """ Create dag (directed acyclic graph) from a basic block.
+
+        The resulting dag can be used for instruction selection.
         """
         assert isinstance(ir_block, ir.Block)
 
@@ -317,7 +325,8 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(op, node.ty, a)
         self.add_map(node, sgnode.new_output(node.name))
 
-    def do_procedure_call(self, node):
+    def prep_call_arguments(self, node):
+        """ Prepare call arguments into new temporaries """
         # This is the moment to move all parameters to new temp registers.
         args = []
         inputs = []
@@ -330,6 +339,12 @@ class SelectionGraphBuilder:
             # inputs.append(arg_sgnode.new_output('x'))
 
         arg_types = [argument.ty for argument in node.arguments]
+        return args, inputs, arg_types
+
+    def do_procedure_call(self, node):
+        """ Transform a procedure call """
+        args, inputs, arg_types = self.prep_call_arguments(node)
+
         # Perform the actual call:
         sgnode = self.new_node('CALL', None)
         sgnode.value = (node.function_name, arg_types, args)
@@ -339,24 +354,15 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
 
     def do_function_call(self, node):
-        # This is the moment to move all parameters to new temp registers.
-        args = []
-        inputs = []
-        for argument in node.arguments:
-            arg_val = self.get_value(argument)
-            loc = self.new_vreg(argument.ty)
-            args.append(loc)
-            arg_sgnode = self.new_node('MOV', argument.ty, arg_val, value=loc)
-            self.chain(arg_sgnode)
-            # inputs.append(arg_sgnode.new_output('x'))
+        """ Transform a function call """
+        args, inputs, arg_types = self.prep_call_arguments(node)
 
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
             self.arch.value_classes[node.ty], '{}_result'.format(node.name))
 
-        arg_types = [argument.ty for argument in node.arguments]
         # Perform the actual call:
-        sgnode = self.new_node('CALL', None)
+        sgnode = self.new_node('CALL', node.ty)
         sgnode.value = (node.function_name, arg_types, node.ty, args, ret_val)
         self.debug_db.map(node, sgnode)
         for i in inputs:
@@ -418,11 +424,25 @@ class SelectionGraphBuilder:
             assert isinstance(loc, Register)
             # TODO: byte value are not always passed in byte registers..
             #
-            fp_ty = self.size_map[loc.bitsize]
-            param_node = self.new_node('REG', fp_ty, value=loc)
-            output = param_node.new_output(arg.name)
+            # TODO: fix this later... Move arguments in arch class?
+
+            # New vreg:
             vreg = function_info.frame.new_reg(
                 self.arch.value_classes[arg.ty], twain=arg.name)
+
+            # Cast if required:
+            if loc.bitsize != vreg.bitsize:
+                # TODO: this is a solution which really is bad!
+                a_ty = self.size_map[loc.bitsize]
+                loc_node = self.new_node('REG', a_ty, value=loc)
+                loc_out = loc_node.new_output(arg.name)
+
+                # Do conversion here:
+                param_node = self.new_node(
+                    'I{}TO'.format(loc.bitsize), arg.ty, loc_out)
+            else:
+                param_node = self.new_node('REG', arg.ty, value=loc)
+            output = param_node.new_output(arg.name)
             output.vreg = vreg
             self.chain(param_node)
 
@@ -486,11 +506,6 @@ def topological_sort_modified(nodes, start):
     return L
 
 
-def make_op(op, vreg):
-    typ = 'I{}'.format(vreg.bitsize)
-    return '{}{}'.format(op, typ)
-
-
 class DagSplitter:
     """ Class that splits a DAG into a series of trees. This series is sorted
         such that data dependencies are met. The trees can henceforth be
@@ -547,7 +562,8 @@ class DagSplitter:
         def mk_tr(inp):
             if inp.vreg:
                 # If the input value has a vreg, use it
-                child_tree = Tree(make_op('REG', inp.vreg), value=inp.vreg)
+                child_tree = Tree(
+                    self.make_op('REG', inp.ty), value=inp.vreg)
             elif inp.node in node_map:
                 child_tree = node_map[inp.node]
             elif inp.node.name.op == 'LABEL':
@@ -583,15 +599,23 @@ class DagSplitter:
                 data_output = node.data_outputs[0]
                 if data_output.vreg:
                     vreg = data_output.vreg
-                    tree = Tree(make_op('MOV', vreg), tree, value=vreg)
+                    typ = data_output.ty
+                    if typ is None:
+                        print(node)
+                    tree = Tree(self.make_op('MOV', typ), tree, value=vreg)
                     trees.append(tree)
-                    tree = Tree(make_op('REG', vreg), value=vreg)
+                    tree = Tree(self.make_op('REG', typ), value=vreg)
                 elif node.volatile:
                     trees.append(tree)
 
             # Store for later:
             node_map[node] = tree
         return trees
+
+    def make_op(self, op, typ):
+        """ Construct a string opcode from an operation and a type """
+        assert isinstance(typ, ir.Typ), str(typ)
+        return '{}{}'.format(op, typ).upper()
 
     def get_reg_class(self, data_flow):
         """ Determine the register class suited for this data flow line """
