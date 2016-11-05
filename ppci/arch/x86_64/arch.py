@@ -8,6 +8,7 @@ X86 specific frame for functions.
 """
 
 import io
+from ... import ir
 from ..arch import Architecture, Label
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
@@ -16,10 +17,12 @@ from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret
 from .x87_instructions import x87_isa
-from .sse2_instructions import sse1_isa, sse2_isa
+from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
+from .registers import xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7
 from .registers import all_registers
-from .registers import register_classes, X86Register, LowRegister
+from .registers import register_classes
+from .registers import X86Register, LowRegister, XmmRegister
 from .registers import rbx, rbp, rsp, al
 from .registers import r12, r13, r14, r15
 
@@ -51,8 +54,12 @@ class X86_64Arch(Architecture):
             raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, X86Register) and isinstance(src, LowRegister):
             raise NotImplementedError()  # pragma: no cover
-        else:
+        elif isinstance(dst, X86Register) and isinstance(src, X86Register):
             return MovRegRm(dst, RmReg(src), ismove=True)
+        elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
+            return Movss(dst, RmXmmReg(src), ismove=True)
+        else:
+            raise NotImplementedError()  # pragma: no cover
 
     def get_runtime(self):
         from ...api import asm
@@ -73,18 +80,26 @@ class X86_64Arch(Architecture):
         p5 = r8
         p6 = r9
 
+        floating point values are passed in xmm0, xmm1, xmm2, xmm3, etc..
+
         return value in rax
 
         self.rv = rax
         """
         arg_locs = []
         live_in = set([rbp])
-        regs = [rdi, rsi, rdx, rcx, r8, r9]
-        for a in arg_types:
+        int_regs = [rdi, rsi, rdx, rcx, r8, r9]
+        float_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+        for arg_type in arg_types:
             # Determine register:
-            r = regs.pop(0)
-            arg_locs.append(r)
-            live_in.add(r)
+            if arg_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
+                reg = int_regs.pop(0)
+            elif arg_type in [ir.f32, ir.f64]:
+                reg = float_regs.pop(0)
+            else:  # pragma: no cover
+                raise NotImplementedError(str(arg_type))
+            arg_locs.append(reg)
+            live_in.add(reg)
         return arg_locs, tuple(live_in)
 
     def determine_rv_location(self, ret_type):
@@ -94,7 +109,12 @@ class X86_64Arch(Architecture):
         self.rv = rax
         """
         live_out = set([rbp])
-        rv = rax
+        if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
+            rv = rax
+        elif ret_type in [ir.f32, ir.f64]:
+            rv = xmm0
+        else:  # pragma: no cover
+            raise NotImplementedError(str(ret_type))
         live_out.add(rv)
         return rv, tuple(live_out)
 
@@ -115,6 +135,8 @@ class X86_64Arch(Architecture):
                     yield self.move(arg_loc, rax)
                 else:  # pragma: no cover
                     raise NotImplementedError()
+            elif isinstance(arg_loc, XmmRegister):
+                yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 

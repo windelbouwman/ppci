@@ -69,7 +69,7 @@ class SseInstruction(Instruction):
 
         # sib byte and ...
         if tokens[3].mod == 0 and tokens[3].rm == 4:
-            if tokens[3].base == 5:
+            if tokens[4].base == 5:
                 r += tokens[6].encode()
         return r
 
@@ -96,7 +96,7 @@ class RmXmmReg(Constructor):
         tokens.set_field('rm', self.reg_rm.num & 0x7)
 
 
-xmm_rm_modes = (RmXmmReg, RmMem, RmMemDisp)
+xmm_rm_modes = (RmXmmReg, RmMem, RmMemDisp, RmAbs)
 
 
 class Movss(Sse1Instruction):
@@ -107,6 +107,14 @@ class Movss(Sse1Instruction):
     patterns = {'prefix': 0xf3, 'opcode': 0x10}
 
 
+class Movsd(Sse2Instruction):
+    """ Move scalar double-fp value """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes)
+    syntax = Syntax(['movsd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf2, 'opcode': 0x10}
+
+
 class Movss2(Sse1Instruction):
     """ Move scalar single-fp value """
     rm = Operand('rm', xmm_rm_modes)
@@ -114,17 +122,13 @@ class Movss2(Sse1Instruction):
     syntax = Syntax(['movss', ' ', rm, ',', ' ', r], priority=1)
     patterns = {'prefix': 0xf3, 'opcode': 0x11}
 
-# def make_sse1_instruction():
-#     pass
-# Movss = make_sse1_instruction('movss', 0xf3, 0x10)
 
-
-class Movsd(Sse2Instruction):
+class Movsd2(Sse2Instruction):
     """ Move scalar double-fp value """
-    r = Operand('r', XmmRegister, write=True)
-    syntax = Syntax(['movss', ' ', r, ',', ' '])
-    patterns = {'opcode': 0xd9, 'opcode2': 0xfa}
-    tokens = [OpcodeToken, SecondaryOpcodeToken]
+    rm = Operand('rm', xmm_rm_modes)
+    r = Operand('r', XmmRegister, read=True)
+    syntax = Syntax(['movsd', ' ', rm, ',', ' ', r], priority=1)
+    patterns = {'prefix': 0xf2, 'opcode': 0x11}
 
 
 class Addss(Sse1Instruction):
@@ -138,7 +142,9 @@ class Addss(Sse1Instruction):
 class Addsd(Sse2Instruction):
     """ Add scalar double-fp value """
     r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
     patterns = {'prefix': 0xf2, 'opcode': 0x58}
+    syntax = Syntax(['addsd', ' ', r, ',', ' ', rm])
 
 
 class Subss(Sse1Instruction):
@@ -152,6 +158,9 @@ class Subss(Sse1Instruction):
 class Subsd(Sse2Instruction):
     """ Sub scalar double-fp value """
     r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    patterns = {'prefix': 0xf2, 'opcode': 0x5c}
+    syntax = Syntax(['subsd', ' ', r, ',', ' ', rm])
 
 
 class Mulss(Sse1Instruction):
@@ -165,6 +174,9 @@ class Mulss(Sse1Instruction):
 class Mulsd(Sse2Instruction):
     """ Multiply scalar double-fp value """
     r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    patterns = {'prefix': 0xf2, 'opcode': 0x59}
+    syntax = Syntax(['mulsd', ' ', r, ',', ' ', rm])
 
 
 class Divss(Sse1Instruction):
@@ -175,12 +187,28 @@ class Divss(Sse1Instruction):
     syntax = Syntax(['divss', ' ', r, ',', ' ', rm])
 
 
+class Divsd(Sse2Instruction):
+    """ Divide scalar double-fp value """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    patterns = {'prefix': 0xf2, 'opcode': 0x5e}
+    syntax = Syntax(['divsd', ' ', r, ',', ' ', rm])
+
+
 class Cvtss2si(Sse1Instruction):
     """ Convert scalar single-fp to integer """
     r = Operand('r', X86Register, write=True)
     rm = Operand('rm', xmm_rm_modes, read=True)
     syntax = Syntax(['cvtss2si', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf3, 'opcode': 0x2d, 'w': 1}
+
+
+class Cvtsd2si(Sse2Instruction):
+    """ Convert scalar double-fp to integer """
+    r = Operand('r', X86Register, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['cvtsd2si', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf2, 'opcode': 0x2d, 'w': 1}
 
 
 class Cvtsi2ss(Sse1Instruction):
@@ -191,17 +219,39 @@ class Cvtsi2ss(Sse1Instruction):
     patterns = {'prefix': 0xf3, 'opcode': 0x2a, 'w': 1}
 
 
+class Cvtsi2sd(Sse2Instruction):
+    """ Convert integer to scalar double-fp """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', rm_modes, read=True)
+    syntax = Syntax(['cvtsi2sd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf2, 'opcode': 0x2a, 'w': 1}
+
+
 @sse1_isa.pattern('reg64', 'F32TOI64(regfp)', size=6, cycles=2, energy=2)
-def pattern_f32toi32(context, tree, c0):
+def pattern_f32toi64(context, tree, c0):
     d = context.new_reg(X86Register)
     context.emit(Cvtss2si(d, RmXmmReg(c0)))
     return d
 
 
+@sse2_isa.pattern('reg64', 'F64TOI64(regfp)', size=6, cycles=3, energy=3)
+def pattern_f64toi64(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.emit(Cvtsd2si(d, RmXmmReg(c0)))
+    return d
+
+
 @sse1_isa.pattern('regfp', 'I64TOF32(reg64)', size=6, cycles=2, energy=2)
-def pattern_i32tof32(context, tree, c0):
+def pattern_i64tof32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2ss(d, RmReg(c0)))
+    return d
+
+
+@sse2_isa.pattern('regfp', 'I64TOF64(reg64)', size=6, cycles=3, energy=3)
+def pattern_i64tof64(context, tree, c0):
+    d = context.new_reg(XmmRegister)
+    context.emit(Cvtsi2sd(d, RmReg(c0)))
     return d
 
 
@@ -216,11 +266,30 @@ def pattern_const_f32(context, tree):
     return d
 
 
+@sse2_isa.pattern('regfp', 'CONSTF64', size=8, cycles=9, energy=4)
+def pattern_const_f64(context, tree):
+    float_const = struct.pack('d', tree.value)
+    const_label = context.frame.add_constant(float_const)
+    label_addr = context.new_reg(X86Register)
+    context.emit(MovAdr(label_addr, const_label))
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmMem(label_addr)))
+    return d
+
+
 @sse1_isa.pattern('regfp', 'ADDF32(regfp, regfp)', size=6, cycles=2, energy=2)
 def pattern_addf32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movss(d, RmXmmReg(c0)))
     context.emit(Addss(d, RmXmmReg(c1)))
+    return d
+
+
+@sse2_isa.pattern('regfp', 'ADDF64(regfp, regfp)', size=6, cycles=4, energy=3)
+def pattern_addf64(context, tree, c0, c1):
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmXmmReg(c0)))
+    context.emit(Addsd(d, RmXmmReg(c1)))
     return d
 
 
@@ -232,11 +301,27 @@ def pattern_sub_f32(context, tree, c0, c1):
     return d
 
 
+@sse2_isa.pattern('regfp', 'SUBF64(regfp, regfp)', size=6, cycles=3, energy=3)
+def pattern_sub_f64(context, tree, c0, c1):
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmXmmReg(c0)))
+    context.emit(Subsd(d, RmXmmReg(c1)))
+    return d
+
+
 @sse1_isa.pattern('regfp', 'MULF32(regfp, regfp)', size=6, cycles=2, energy=2)
 def pattern_mul_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movss(d, RmXmmReg(c0)))
     context.emit(Mulss(d, RmXmmReg(c1)))
+    return d
+
+
+@sse2_isa.pattern('regfp', 'MULF64(regfp, regfp)', size=6, cycles=3, energy=3)
+def pattern_mul_f64(context, tree, c0, c1):
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmXmmReg(c0)))
+    context.emit(Mulsd(d, RmXmmReg(c1)))
     return d
 
 
@@ -248,13 +333,27 @@ def pattern_div_f32(context, tree, c0, c1):
     return d
 
 
+@sse2_isa.pattern('regfp', 'DIVF64(regfp, regfp)', size=6, cycles=4, energy=3)
+def pattern_div_f64(context, tree, c0, c1):
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmXmmReg(c0)))
+    context.emit(Divsd(d, RmXmmReg(c1)))
+    return d
+
+
 @sse1_isa.pattern('stm', 'MOVF32(regfp)', size=3, cycles=2, energy=2)
 def pattern_mov_f32(context, tree, c0):
     context.emit(Movss(tree.value, RmXmmReg(c0)))
 
 
+@sse2_isa.pattern('stm', 'MOVF64(regfp)', size=3, cycles=3, energy=3)
+def pattern_mov_f64(context, tree, c0):
+    context.emit(Movsd(tree.value, RmXmmReg(c0)))
+
+
+@sse2_isa.pattern('regfp', 'REGF64', size=0, cycles=0, energy=0)
 @sse1_isa.pattern('regfp', 'REGF32', size=0, cycles=0, energy=0)
-def pattern_reg_f32(context, tree):
+def pattern_reg_fp(context, tree):
     return tree.value
 
 
@@ -263,9 +362,21 @@ def pattern_str_f32(context, tree, c0, c1):
     context.emit(Movss2(RmMem(c0), c1))
 
 
+@sse2_isa.pattern('stm', 'STRF64(reg64, regfp)', size=6, cycles=3, energy=3)
+def pattern_str_f64(context, tree, c0, c1):
+    context.emit(Movsd2(RmMem(c0), c1))
+
+
 @sse1_isa.pattern('regfp', 'LDRF32(reg64)', size=6, cycles=2, energy=2)
 def pattern_ldr_f32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Movss(d, RmMem(c0)))
+    return d
+
+
+@sse2_isa.pattern('regfp', 'LDRF64(reg64)', size=6, cycles=3, energy=3)
+def pattern_ldr_f64(context, tree, c0):
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmMem(c0)))
     return d
 

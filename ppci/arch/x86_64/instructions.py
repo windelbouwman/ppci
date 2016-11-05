@@ -718,9 +718,9 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('reg64', 'CALL', size=10)
+@isa.pattern('stm', 'CALL', size=10)
 def pattern_call(context, tree):
-    return context.gen_call(tree.value)
+    context.gen_call(tree.value)
 
 
 @isa.pattern('stm', 'MOVI8(reg8)', size=2)

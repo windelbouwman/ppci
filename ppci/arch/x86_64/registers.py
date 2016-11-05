@@ -50,9 +50,9 @@ class X87StackRegister(Register):
 
 
 class XmmRegister(Register):
-    # bitsize = 128
+    bitsize = 128
     # TODO: actually the register is 128 bit wide, but float is now 32 bit
-    bitsize = 32
+    # bitsize = 32
 
 
 # Calculation of the rexb bit:

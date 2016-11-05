@@ -369,7 +369,8 @@ class SelectionGraphBuilder:
             sgnode.add_input(i)
         self.chain(sgnode)
 
-        # When using the call as an expression, use copy of return value:
+        # When using the call as an expression, use the return value vreg:
+        sgnode = self.new_node('REG', node.ty, value=ret_val)
         output = sgnode.new_output('res')
         output.vreg = ret_val
         self.add_map(node, output)

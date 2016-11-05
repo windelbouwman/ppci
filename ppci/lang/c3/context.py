@@ -113,10 +113,13 @@ class Context:
             return ops[expr.op](a, b)
         elif isinstance(expr, ast.TypeCast):
             a = self.eval_const(expr.a)
+            to_type = self.get_type(expr.to_type)
             if self.equal_types('int', expr.to_type):
                 return int(a)
             elif self.equal_types('byte', expr.to_type):
                 return int(a) & 0xFF
+            elif isinstance(to_type, ast.FloatType):
+                return float(a)
             else:  # pragma: no cover
                 raise NotImplementedError(
                     'Casting to {} not implemented'.format(expr.to_type))
