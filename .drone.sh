@@ -12,4 +12,4 @@ tox -e py33,cover
 codecov
 
 # Run setup script:
-python setup.py sdist bdist_wheel
+python setup.py -q sdist bdist_wheel
