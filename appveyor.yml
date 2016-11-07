@@ -10,6 +10,12 @@ build: off
 
 test_script:
   - "%PYTHON%\\python.exe -m tox -e py33,py34,py35,ut"
+  - ps: |
+  if ($true)
+  {
+    $wc = New-Object 'System.Net.WebClient'
+    $wc.UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
+  }
 
 after_test:
   - "%PYTHON%\\python.exe setup.py -q sdist bdist_wheel bdist_msi bdist_wininst"
