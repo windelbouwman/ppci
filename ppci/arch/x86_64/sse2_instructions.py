@@ -9,7 +9,10 @@ from .instructions import PrefixToken, Prefix2Token
 from .instructions import RexToken, ModRmToken, SibToken
 from .instructions import Imm32Token, Imm8Token
 from .instructions import RmMem, RmMemDisp, RmReg, RmAbs, MovAdr
-from .registers import XmmRegister, X86Register
+from .instructions import Jb, Jae, NearJump
+from .instructions import SubImm, AddImm
+from .registers import XmmRegister, X86Register, rsp
+from ..arch import ArtificialInstruction
 
 sse1_isa = Isa()
 sse2_isa = Isa()
@@ -227,6 +230,80 @@ class Cvtsi2sd(Sse2Instruction):
     patterns = {'prefix': 0xf2, 'opcode': 0x2a, 'w': 1}
 
 
+class Cvtss2sd(Sse2Instruction):
+    """ Convert scalar single-fp to scalar double-fp """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['cvtss2sd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf3, 'opcode': 0x5a}
+
+
+class Cvtsd2ss(Sse2Instruction):
+    """ Convert scalar double-fp to scalar single-fp """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['cvtsd2ss', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf2, 'opcode': 0x5a}
+
+
+class Comiss(Sse1Instruction):
+    """ Scalar compare single-fp values """
+    r = Operand('r', XmmRegister, read=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['comiss', ' ', r, ',', ' ', rm])
+    patterns = {'opcode': 0x2f}
+
+
+class Ucomiss(Sse1Instruction):
+    """ Unordered scalar compare single-fp values """
+    r = Operand('r', XmmRegister, read=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['ucomiss', ' ', r, ',', ' ', rm])
+    patterns = {'opcode': 0x2e}
+
+
+class SsePseudoInstruction(ArtificialInstruction):
+    isa = sse1_isa
+
+
+class PushXmm(SsePseudoInstruction):
+    r = Operand('r', XmmRegister, read=True)
+    syntax = Syntax(['push', ' ', r])
+
+    def render(self):
+        # sub rsp, 16
+        yield SubImm(rsp, 16)
+
+        # movdqu [rsp], r
+        yield Movsd2(RmMem(rsp), self.r)
+
+
+class PopXmm(SsePseudoInstruction):
+    r = Operand('r', XmmRegister, write=True)
+    syntax = Syntax(['pop', ' ', r])
+
+    def render(self):
+        # movdqu [rsp], r
+        yield Movsd(self.r, RmMem(rsp))
+
+        # add rsp, 16
+        yield AddImm(rsp, 16)
+
+
+@sse2_isa.pattern('regfp', 'F64TOF32(regfp)', size=6, cycles=3, energy=3)
+def pattern_f64tof32(context, tree, c0):
+    d = context.new_reg(XmmRegister)
+    context.emit(Cvtsd2ss(d, RmXmmReg(c0)))
+    return d
+
+
+@sse2_isa.pattern('regfp', 'F32TOF64(regfp)', size=6, cycles=3, energy=3)
+def pattern_f64tof32(context, tree, c0):
+    d = context.new_reg(XmmRegister)
+    context.emit(Cvtss2sd(d, RmXmmReg(c0)))
+    return d
+
+
 @sse1_isa.pattern('reg64', 'F32TOI64(regfp)', size=6, cycles=2, energy=2)
 def pattern_f32toi64(context, tree, c0):
     d = context.new_reg(X86Register)
@@ -380,3 +457,15 @@ def pattern_ldr_f64(context, tree, c0):
     context.emit(Movsd(d, RmMem(c0)))
     return d
 
+
+@sse1_isa.pattern('stm', 'CJMP(regfp,regfp)', size=6, cycles=3, energy=3)
+def pattern_cjmp_f(context, tree, c0, c1):
+    # TODO: is it float32 or float64?
+    context.emit(Ucomiss(c0, RmXmmReg(c1)))
+
+    op, yes_label, no_label = tree.value
+    opnames = {"<": Jb, ">": Jae}
+    Bop = opnames[op]
+    jmp_ins = NearJump(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)

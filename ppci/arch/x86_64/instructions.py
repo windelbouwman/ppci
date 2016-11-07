@@ -175,8 +175,8 @@ def make_cjump(mnemonic, opcode):
     return type(mnemonic.title(), (ConditionalJump,), members)
 
 
-Jb = make_cjump('jb', 0x82)
-Jae = make_cjump('jae', 0x83)
+Jb = make_cjump('jb', 0x82)  # cf=1
+Jae = make_cjump('jae', 0x83)  # cf=0
 Je = make_cjump('jz', 0x84)
 Jne = make_cjump('jne', 0x85)
 Jbe = make_cjump('jbe', 0x86)

@@ -17,7 +17,7 @@ from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret
 from .x87_instructions import x87_isa
-from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
+from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg, PushXmm, PopXmm
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7
 from .registers import all_registers
@@ -25,6 +25,7 @@ from .registers import register_classes
 from .registers import X86Register, LowRegister, XmmRegister
 from .registers import rbx, rbp, rsp, al
 from .registers import r12, r13, r14, r15
+from . import registers
 
 
 class X86_64Arch(Architecture):
@@ -89,7 +90,10 @@ class X86_64Arch(Architecture):
         arg_locs = []
         live_in = set([rbp])
         int_regs = [rdi, rsi, rdx, rcx, r8, r9]
-        float_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+        float_regs = [
+            registers.xmm0, registers.xmm1, registers.xmm2,
+            registers.xmm3, registers.xmm4, registers.xmm5,
+            registers.xmm6, registers.xmm7]
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
@@ -145,6 +149,18 @@ class X86_64Arch(Architecture):
         # TODO: maybe add here instructions to extract parameters.
         raise NotImplementedError()
 
+    def push(self, register):
+        if isinstance(register, registers.XmmRegister):
+            return PushXmm(register)
+        else:
+            return Push(register)
+
+    def pop(self, register):
+        if isinstance(register, registers.XmmRegister):
+            return PopXmm(register)
+        else:
+            return Pop(register)
+
     def make_call(self, frame, vcall):
         # R0 is filled with return value, do not save it, it will conflict.
         # Now we now what variables are live
@@ -152,25 +168,25 @@ class X86_64Arch(Architecture):
 
         # Caller save registers:
         for register in live_regs:
-            yield Push(register)
+            yield self.push(register)
 
         yield Call(vcall.function_name)
 
         # Restore caller save registers:
         for register in reversed(live_regs):
-            yield Pop(register)
+            yield self.pop(register)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
 
-        yield Push(rbp)
+        yield self.push(rbp)
 
         # Callee save registers:
         for reg in self.callee_save:
             if frame.is_used(reg):
-                yield Push(reg)
+                yield self.push(reg)
 
         # Reserve stack space
         if frame.stacksize > 0:
@@ -188,9 +204,9 @@ class X86_64Arch(Architecture):
         # Pop save registers back:
         for reg in reversed(self.callee_save):
             if frame.is_used(reg):
-                yield Pop(reg)
+                yield self.pop(reg)
 
-        yield Pop(rbp)
+        yield self.pop(rbp)
         yield Ret()
 
         # Add final literal pool:

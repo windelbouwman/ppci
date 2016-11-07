@@ -103,15 +103,28 @@ class IrToPython:
             self.print(3, '{} = {}'.format(ins.name, literal_label(ins)))
         elif isinstance(ins, ir.Binop):
             # Assume int for now.
-            self.print(3, '{} = int({} {} {})'.format(
-                ins.name, ins.a.name, ins.operation, ins.b.name))
+            op = ins.operation
+            if op == '/':
+                if ins.ty in [ir.f32, ir.f64]:
+                    op = '/'
+                else:
+                    op = '//'
+            self.print(3, '{} = {} {} {}'.format(
+                ins.name, ins.a.name, op, ins.b.name))
             # Implement wrapping around zero:
             if ins.ty is ir.i8:
                 self.print(3, '{0} = wrap_byte({0})'.format(ins.name))
         elif isinstance(ins, ir.Cast):
-            self.print(3, '{} = {}'.format(ins.name, ins.src.name))
+            if ins.ty in [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.u32, ir.ptr]:
+                self.print(3, '{} = int(round({}))'.format(ins.name, ins.src.name))
+            elif ins.ty in [ir.f32, ir.f64]:
+                self.print(3, '{} = float({})'.format(ins.name, ins.src.name))
+            else:
+                raise NotImplementedError(str(ins))
         elif isinstance(ins, ir.Store):
             store_formats = {
+                ir.f64: 'mem[{0}:{0}+8] = struct.pack("d",{1})',
+                ir.f32: 'mem[{0}:{0}+4] = struct.pack("f",{1})',
                 ir.ptr: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
                 ir.i32: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
                 ir.i8: 'mem[{0}:{0}+1] = struct.pack("b",{1})',
@@ -121,6 +134,8 @@ class IrToPython:
             self.print(3, fmt.format(ins.address.name, ins.value.name))
         elif isinstance(ins, ir.Load):
             load_formats = {
+                ir.f64: '{0}, = struct.unpack("d", mem[{1}:{1}+8])',
+                ir.f32: '{0}, = struct.unpack("f", mem[{1}:{1}+4])',
                 ir.i32: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
                 ir.u32: '{0}, = struct.unpack("I", mem[{1}:{1}+4])',
                 ir.ptr: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',

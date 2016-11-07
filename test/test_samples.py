@@ -386,7 +386,7 @@ class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit')
+@add_samples('simple', 'medium', '8bit', 'fp', 'double')
 class TestSamplesOnPython(unittest.TestCase, I32Samples):
     opt_level = 0
 

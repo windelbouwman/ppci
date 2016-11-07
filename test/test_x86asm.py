@@ -284,6 +284,16 @@ class Sse1TestCase(AsmTestCaseBase):
         self.feed('cvtsi2ss xmm3, [rbp, 13]')
         self.check('f3480f2afa f3480f2a5d0d')
 
+    def test_comiss(self):
+        """ Test compare single scalar """
+        self.feed('comiss xmm2, [rcx]')
+        self.check('0f2f11')
+
+    def test_ucomiss(self):
+        """ Test unordered compare single scalar """
+        self.feed('ucomiss xmm0, xmm1')
+        self.check('0f2ec1')
+
 
 class Sse2TestCase(AsmTestCaseBase):
     """ Checks sse2 instructions """
@@ -331,6 +341,18 @@ class Sse2TestCase(AsmTestCaseBase):
         self.feed('cvtsi2sd xmm3, r12')
         self.feed('cvtsi2sd xmm9, [rsi, 29]')
         self.check('f2490f2adc f24c0f2a4e1d')
+
+    def test_cvtsd2ss(self):
+        """ Test convert scalar float64 to float32 """
+        self.feed('cvtsd2ss xmm6, [rbx]')
+        self.feed('cvtsd2ss xmm2, [rcx]')
+        self.check('f20f5a33 f20f5a11')
+
+    def test_cvtss2sd(self):
+        """ Test convert scalar float32 to float64 """
+        self.feed('cvtss2sd xmm6, [rbx]')
+        self.feed('cvtss2sd xmm2, [rcx]')
+        self.check('f30f5a33 f30f5a11')
 
 
 if __name__ == '__main__':
