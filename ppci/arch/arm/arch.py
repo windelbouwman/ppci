@@ -125,7 +125,7 @@ class ArmArch(Architecture):
                     yield thumb_instructions.SubSp(inc)
                     ssize -= inc
             else:
-                yield arm_instructions.Sub2(SP, SP, frame.stacksize)
+                yield arm_instructions.SubImm(SP, SP, frame.stacksize)
 
         # Setup frame pointer:
         if self.has_option('thumb'):
@@ -147,7 +147,7 @@ class ArmArch(Architecture):
                     yield thumb_instructions.AddSp(inc)
                     ssize -= inc
             else:
-                yield arm_instructions.Add2(SP, SP, frame.stacksize)
+                yield arm_instructions.AddImm(SP, SP, frame.stacksize)
 
         # Callee save registers:
         if self.has_option('thumb'):

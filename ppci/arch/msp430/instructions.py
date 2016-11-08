@@ -558,8 +558,11 @@ def pattern_i16toi16(context, tree, c0):
 @isa.pattern('reg', 'I16TOI8(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'I16TOU8(reg)', size=0, cycles=0, energy=0)
 def pattern_i16toi8(context, tree, c0):
-    # TODO: do something here?
-    return c0
+    # Create a new register and mask it with 0xff:
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(And(ConstSrc(0xff), RegDst(d)))
+    return d
 
 
 @isa.pattern('reg', 'I8TOI16(reg)', size=0, cycles=0, energy=0)

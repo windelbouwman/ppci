@@ -10,6 +10,7 @@ from ppci.binutils.debuginfo import DebugDb
 from ppci.irutils import Verifier
 from ppci.opt import Mem2RegPromotor
 from ppci.opt import CleanPass
+from ppci.opt.constantfolding import correct
 
 
 class OptTestCase(unittest.TestCase):
@@ -129,6 +130,28 @@ class Mem2RegTestCase(OptTestCase):
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
+
+
+class TypedEvalTestCase(unittest.TestCase):
+    """ Test various integer values wrapped at bitsizes and signedness """
+    def test_char_overflow(self):
+        self.assertEqual(9, correct(9, ir.i8))
+        self.assertEqual(-128, correct(127+1, ir.i8))
+        self.assertEqual(127, correct(-128-1, ir.i8))
+        self.assertEqual(-125, correct(4+127, ir.i8))
+
+    def test_byte_overflow(self):
+        self.assertEqual(8, correct(9+255, ir.u8))
+        self.assertEqual(254, correct(-2, ir.u8))
+
+    def test_u16_overflow(self):
+        self.assertEqual(1, correct(2+65535, ir.u16))
+        self.assertEqual(65534, correct(-2, ir.u16))
+        self.assertEqual(1, correct(2+65535+65536*3, ir.u16))
+
+    def test_i16_overflow(self):
+        self.assertEqual(-32767, correct(2+32767, ir.i16))
+        self.assertEqual(32766, correct(-32767-3, ir.i16))
 
 
 if __name__ == '__main__':

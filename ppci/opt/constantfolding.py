@@ -3,27 +3,41 @@ from .transform import BlockPass
 from .. import ir
 
 
+def correct(value, ty):
+    """ Correct a value to the given bits """
+    bits = ty.bits
+    signed = ty.signed
+    base = 1 << bits
+    value %= base
+    return value - base if signed and value.bit_length() == bits else value
+
+
+def enhance(f):
+    """ Create a new enhanced method that corrects for the given type """
+    return lambda ty, a, b: correct(f(a, b), ty)
+
+
 class ConstantFolder(BlockPass):
     """ Try to fold common constant expressions """
     def __init__(self, debug_db):
         super().__init__(debug_db)
         self.ops = {
-            '+': operator.add,
-            '-': operator.sub,
-            '*': operator.mul,
-            '%': operator.mod,
-            '<<': operator.lshift,
-            '>>': operator.rshift,
+            '+': enhance(operator.add),
+            '-': enhance(operator.sub),
+            '*': enhance(operator.mul),
+            '%': enhance(operator.mod),
+            '<<': enhance(operator.lshift),
+            '>>': enhance(operator.rshift),
             }
 
     def is_const(self, value):
         """ Determine if a value can be evaluated as a constant value """
         if isinstance(value, ir.Const):
             return True
-        elif isinstance(value, ir.Cast):
+        elif isinstance(value, ir.Cast) and value.ty.is_integer:
             return self.is_const(value.src)
         elif isinstance(value, ir.Binop):
-            return value.operation in self.ops and \
+            return value.operation in self.ops and value.ty.is_integer and \
                 self.is_const(value.a) and self.is_const(value.b)
         else:
             return False
@@ -37,11 +51,11 @@ class ConstantFolder(BlockPass):
             b = self.eval_const(value.b)
             assert a.ty is b.ty
             assert a.ty is value.ty
-            res = self.ops[value.operation](a.value, b.value)
+            res = self.ops[value.operation](value.ty, a.value, b.value)
             return ir.Const(res, 'new_fold', a.ty)
         elif isinstance(value, ir.Cast):
             c_val = self.eval_const(value.src)
-            return ir.Const(c_val.value, 'casted', value.ty)
+            return ir.Const(correct(c_val.value, value.ty), 'casted', value.ty)
         else:  # pragma: no cover
             raise NotImplementedError(str(value))
 

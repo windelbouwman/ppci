@@ -392,18 +392,40 @@ class Typ:
     def __str__(self):
         return self.name
 
+    @property
+    def is_integer(self):
+        """ Test if this type is of integer type """
+        return isinstance(self, IntegerTyp)
+
+
+class IntegerTyp(Typ):
+    """ Integer type """
+    def __init__(self, name, bits):
+        super().__init__(name)
+        self.bits = bits
+
+
+class SignedIntegerTyp(IntegerTyp):
+    """ Signed integer type """
+    signed = True
+
+
+class UnsignedIntegerTyp(IntegerTyp):
+    """ Unsigned integer type """
+    signed = False
+
 
 # The builtin types:
 f64 = Typ('f64')  #: 64-bit floating point type
 f32 = Typ('f32')  #: 32-bit floating point type
-i64 = Typ('i64')  #: Signed 64-bit type
-i32 = Typ('i32')  #: Signed 32-bit type
-i16 = Typ('i16')  #: Signed 16-bit type
-i8 = Typ('i8')  #: Signed 8-bit type
-u64 = Typ('u64')  #: Unsigned 64-bit type
-u32 = Typ('u32')  #: Unsigned 32-bit type
-u16 = Typ('u16')  #: Unsigned 16-bit type
-u8 = Typ('u8')  #: Unsigned 8-bit type
+i64 = SignedIntegerTyp('i64', 64)  #: Signed 64-bit type
+i32 = SignedIntegerTyp('i32', 32)  #: Signed 32-bit type
+i16 = SignedIntegerTyp('i16', 16)  #: Signed 16-bit type
+i8 = SignedIntegerTyp('i8', 8)  #: Signed 8-bit type
+u64 = UnsignedIntegerTyp('u64', 64)  #: Unsigned 64-bit type
+u32 = UnsignedIntegerTyp('u32', 32)  #: Unsigned 32-bit type
+u16 = UnsignedIntegerTyp('u16', 16)  #: Unsigned 16-bit type
+u8 = UnsignedIntegerTyp('u8', 8)  #: Unsigned 8-bit type
 ptr = Typ('ptr')  #: Pointer type
 
 value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]

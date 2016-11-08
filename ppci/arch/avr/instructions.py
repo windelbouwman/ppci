@@ -711,6 +711,21 @@ def pattern_i16toi16(context, tree, c0):
     return c0
 
 
+@avr_isa.pattern('reg16', 'U8TOI16(reg)', size=0)
+def pattern_u8toi16(context, tree, c0):
+    context.move(r0, c0)
+    context.emit(Eor(r1, r1))
+
+    ud1 = RegisterUseDef()
+    ud1.add_defs([r1r0])
+    ud1.add_uses([r0, r1])
+    context.emit(ud1)
+
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, r1r0)
+    return d
+
+
 @avr_isa.pattern('reg', 'I16TOI8(reg16)', size=0)
 @avr_isa.pattern('reg', 'I16TOU8(reg16)', size=0)
 def pattern_i16toi8(context, tree, c0):

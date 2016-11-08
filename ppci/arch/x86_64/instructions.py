@@ -901,8 +901,8 @@ def pattern_i64toi64(context, tree, c0):
     return c0
 
 
-@isa.pattern('reg8', 'I64TOI8(reg64)', size=0)
-@isa.pattern('reg8', 'I64TOU8(reg64)', size=0)
+@isa.pattern('reg8', 'I64TOI8(reg64)', size=4)
+@isa.pattern('reg8', 'I64TOU8(reg64)', size=4)
 def pattern_i64toi8(context, tree, c0):
     context.move(rax, c0)
     # raise Warning()
@@ -913,6 +913,26 @@ def pattern_i64toi8(context, tree, c0):
 
     d = context.new_reg(LowRegister)
     context.move(d, al)
+    return d
+
+
+@isa.pattern('reg64', 'U8TOI64(reg8)', size=4)
+def pattern_u8toi64(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(rax)
+    context.emit(defu1)
+
+    context.emit(XorRmReg(RmReg(rax), rax))
+    context.move(al, c0)
+    # raise Warning()
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(al)
+    defu2.add_def(rax)
+    context.emit(defu2)
+
+    d = context.new_reg(X86Register)
+    context.move(d, rax)
     return d
 
 

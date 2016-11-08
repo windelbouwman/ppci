@@ -23,14 +23,12 @@ class IrToPython:
         self.print(0, 'import struct')
         self.print(0, '')
         self.print(0, 'mem = bytearray()')
-        # Generate helper:
-        self.print(0, 'def wrap_byte(v):')
-        self.print(1, 'if v < 0:')
-        self.print(2, 'v += 256')
-        self.print(1, 'if v > 255:')
-        self.print(2, 'v -= 256')
-        self.print(1, 'return v')
-        self.print(0, '')
+
+        # Wrap type helper:
+        self.print(0, 'def correct(value, bits, signed):')
+        self.print(1, 'base = 1 << bits')
+        self.print(1, 'value %= base')
+        self.print(1, 'return value - base if signed and value.bit_length() == bits else value')
 
     def generate(self, ir_mod):
         """ Write ir-code to file f """
@@ -104,19 +102,20 @@ class IrToPython:
         elif isinstance(ins, ir.Binop):
             # Assume int for now.
             op = ins.operation
-            if op == '/':
-                if ins.ty in [ir.f32, ir.f64]:
-                    op = '/'
-                else:
-                    op = '//'
+            if op == '/' and ins.ty.is_integer:
+                op = '//'
             self.print(3, '{} = {} {} {}'.format(
                 ins.name, ins.a.name, op, ins.b.name))
-            # Implement wrapping around zero:
-            if ins.ty is ir.i8:
-                self.print(3, '{0} = wrap_byte({0})'.format(ins.name))
+            if ins.ty.is_integer:
+                self.print(3, '{0} = correct({0}, {1}, {2})'.format(
+                    ins.name, ins.ty.bits, ins.ty.signed))
         elif isinstance(ins, ir.Cast):
-            if ins.ty in [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.u32, ir.ptr]:
-                self.print(3, '{} = int(round({}))'.format(ins.name, ins.src.name))
+            if ins.ty.is_integer:
+                self.print(3, '{} = correct(int(round({})), {}, {})'.format(
+                    ins.name, ins.src.name, ins.ty.bits, ins.ty.signed))
+            elif ins.ty is ir.ptr:
+                self.print(3, '{} = int(round({}))'.format(
+                    ins.name, ins.src.name))
             elif ins.ty in [ir.f32, ir.f64]:
                 self.print(3, '{} = float({})'.format(ins.name, ins.src.name))
             else:
@@ -127,6 +126,9 @@ class IrToPython:
                 ir.f32: 'mem[{0}:{0}+4] = struct.pack("f",{1})',
                 ir.ptr: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
                 ir.i32: 'mem[{0}:{0}+4] = struct.pack("i",{1})',
+                ir.u32: 'mem[{0}:{0}+4] = struct.pack("I",{1})',
+                ir.i16: 'mem[{0}:{0}+2] = struct.pack("h",{1})',
+                ir.u16: 'mem[{0}:{0}+2] = struct.pack("H",{1})',
                 ir.i8: 'mem[{0}:{0}+1] = struct.pack("b",{1})',
                 ir.u8: 'mem[{0}:{0}+1] = struct.pack("B",{1})',
             }
@@ -139,8 +141,10 @@ class IrToPython:
                 ir.i32: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
                 ir.u32: '{0}, = struct.unpack("I", mem[{1}:{1}+4])',
                 ir.ptr: '{0}, = struct.unpack("i", mem[{1}:{1}+4])',
-                ir.i8: '{0} = mem[{1}]',
-                ir.u8: '{0} = mem[{1}]',
+                ir.i16: '{0}, = struct.unpack("h", mem[{1}:{1}+2])',
+                ir.u16: '{0}, = struct.unpack("H", mem[{1}:{1}+2])',
+                ir.i8: '{0}, = struct.unpack("b", mem[{1}:{1}+1])',
+                ir.u8: '{0}, = struct.unpack("B", mem[{1}:{1}+1])',
             }
             fmt = load_formats[ins.ty]
             self.print(3, fmt.format(ins.name, ins.address.name))

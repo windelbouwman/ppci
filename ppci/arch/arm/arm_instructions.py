@@ -271,19 +271,17 @@ def make_regregreg(mnemonic, opcode):
     return type(mnemonic + '_ins', (OpRegRegReg,), members)
 
 
-Add1 = make_regregreg('add', 0b0000100)
-Adc1 = make_regregreg('adc', 0b0000101)
-Sub1 = make_regregreg('sub', 0b0000010)
-Orr1 = make_regregreg('orr', 0b0001100)
-Orr = Orr1
-And1 = make_regregreg('and', 0b0000000)
-And = And1
-Eor1 = make_regregreg('eor', 0b0000001)
+Adc = make_regregreg('adc', 0b0000101)
+Add = make_regregreg('add', 0b0000100)
+And = make_regregreg('and', 0b0000000)
+Eor = make_regregreg('eor', 0b0000001)
+Orr = make_regregreg('orr', 0b0001100)
+Sub = make_regregreg('sub', 0b0000010)
 
 
-Sub1CC = inter_twine(Sub1, 'cc')
-Sub1cs = inter_twine(Sub1, 'cs')
-Sub1NE = inter_twine(Sub1, 'ne')
+Sub1CC = inter_twine(Sub, 'cc')
+Sub1cs = inter_twine(Sub, 'cs')
+Sub1NE = inter_twine(Sub, 'ne')
 
 
 class ShiftBase(ArmInstruction):
@@ -344,8 +342,16 @@ def make_regregimm(mnemonic, opcode):
         'syntax': syntax, 'rd': rd, 'rn': rn, 'imm': imm, 'opcode': opcode}
     return type(mnemonic + '_ins', (OpRegRegImm,), members)
 
-Add2 = make_regregimm('add', 0b0010100)
-Sub2 = make_regregimm('sub', 0b0010010)
+
+AdcImm = make_regregimm('adc', 0b0010101)
+AddImm = make_regregimm('add', 0b0010100)
+AndImm = make_regregimm('and', 0b0010000)
+EorImm = make_regregimm('eor', 0b0010001)
+OrrImm = make_regregimm('orr', 0b0011100)
+RsbImm = make_regregimm('rsb', 0b0010011)
+RscImm = make_regregimm('rsc', 0b0010111)
+SbcImm = make_regregimm('sbc', 0b0010110)
+SubImm = make_regregimm('sub', 0b0010010)
 
 
 # Branches:
@@ -521,7 +527,7 @@ class Ldr3(ArmInstruction):
     """
     rt = Operand('rt', ArmRegister, write=True)
     label = Operand('label', str)
-    syntax = Syntax(['ldr', rt, ',', label])
+    syntax = Syntax(['ldr', ' ', rt, ',', ' ', label])
 
     def relocations(self):
         return [LdrImm12Relocation(self.label)]
@@ -646,9 +652,10 @@ def pattern_i8toi32(self, tree, c0):
 
 @arm_isa.pattern('reg', 'I32TOI8(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOU8(reg)', size=0)
-def pattern_i32toi8(self, tree, c0):
-    # TODO: do something?
-    return c0
+def pattern_i32toi8(context, tree, c0):
+    d2 = context.new_reg(ArmRegister)
+    context.emit(AndImm(d2, c0, 0xff))
+    return d2
 
 
 @arm_isa.pattern('reg', 'CONSTI32', size=8)
@@ -695,15 +702,17 @@ def pattern_cjmp(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Add1(d, c0, c1, NoShift()))
+    context.emit(Add(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Add1(d, c0, c1, NoShift()))
-    return d
+    context.emit(Add(d, c0, c1, NoShift()))
+    d2 = context.new_reg(ArmRegister)
+    context.emit(AndImm(d2, d, 0xff))
+    return d2
 
 
 @arm_isa.pattern(
@@ -712,7 +721,7 @@ def pattern_add8(context, tree, c0, c1):
 def pattern_add32_1(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[1].value
-    context.emit(Add2(d, c0, c1))
+    context.emit(AddImm(d, c0, c1))
     return d
 
 
@@ -722,14 +731,14 @@ def pattern_add32_1(context, tree, c0):
 def pattern_add32_2(context, tree, c0):
     d = context.new_reg(ArmRegister)
     c1 = tree.children[0].value
-    context.emit(Add2(d, c0, c1))
+    context.emit(AddImm(d, c0, c1))
     return d
 
 
 @arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Sub1(d, c0, c1, NoShift()))
+    context.emit(Sub(d, c0, c1, NoShift()))
     return d
 
 
@@ -737,8 +746,10 @@ def pattern_sub32(context, tree, c0, c1):
 def pattern_sub8(context, tree, c0, c1):
     # TODO: temporary fix this with an 32 bits sub
     d = context.new_reg(ArmRegister)
-    context.emit(Sub1(d, c0, c1, NoShift()))
-    return d
+    context.emit(Sub(d, c0, c1, NoShift()))
+    d2 = context.new_reg(ArmRegister)
+    context.emit(AndImm(d2, d, 0xff))
+    return d2
 
 
 @arm_isa.pattern('reg', 'LABEL', size=8)
@@ -754,7 +765,9 @@ def pattern_label(context, tree):
 def pattern_ld8(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.emit(Ldrb(d, c0, 0))
-    return d
+    d2 = context.new_reg(ArmRegister)
+    context.emit(AndImm(d2, d, 0xff))
+    return d2
 
 
 @arm_isa.pattern('reg', 'LDRI32(reg)', size=4)
@@ -772,14 +785,14 @@ def pattern_call(context, tree):
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(And1(d, c0, c1, NoShift()))
+    context.emit(And(d, c0, c1, NoShift()))
     return d
 
 
 @arm_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Orr1(d, c0, c1, NoShift()))
+    context.emit(Orr(d, c0, c1, NoShift()))
     return d
 
 
@@ -834,7 +847,7 @@ def pattern_rem32(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
 def pattern_xor32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
-    context.emit(Eor1(d, c0, c1, NoShift()))
+    context.emit(Eor(d, c0, c1, NoShift()))
     return d
 
 # TODO: implement DIVI32 by library call.
