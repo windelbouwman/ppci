@@ -1,10 +1,13 @@
+""" Stm8 instructions """
+
 from .registers import Stm8RegisterA
 from .registers import Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH
 from .registers import Stm8RegisterY, Stm8RegisterYL, Stm8RegisterYH
 from .registers import Stm8RegisterSP, Stm8RegisterCC
 from ..isa import Isa
-from ..encoding import FixedPattern, Instruction, Operand, Syntax, VariablePattern
-from ..token import bit_range, Token
+from ..encoding import FixedPattern, Instruction, Operand, Syntax
+from ..encoding import VariablePattern, Constructor
+from ..token import bit_range, bit, Token
 
 
 class Stm8PrecodeToken(Token):
@@ -16,6 +19,12 @@ class Stm8OpcodeToken(Token):
     size = 8
     opcode = bit_range(0, 8)
     position = bit_range(1, 4)
+
+
+class Stm8OpcodeToken2(Token):
+    size = 8
+    opcode = bit(7) + bit_range(0, 4)
+    mode = bit_range(4, 7)
 
 
 class Stm8ByteToken(Token):
@@ -58,7 +67,6 @@ def get_register_argument(name, mnemonic, read=True, write=False):
             'SP': Operand(name, Stm8RegisterSP, read=read, write=write),
             'CC': Operand(name, Stm8RegisterCC, read=read, write=write),
             None: None}.get(mnemonic, Operand(name, int))
-
 
 
 def create_register_operand(register, read, write):
@@ -196,7 +204,6 @@ def create_branch_operand():
 branch = create_branch_operand()
 
 
-
 def create_instruction(mnemonic,
                        opcode,
                        operands=(),
@@ -220,13 +227,59 @@ def create_instruction(mnemonic,
     return type(name, (Stm8Instruction,), members)
 
 
+class ByteSource(Constructor):
+    v = Operand('v', int)
+    patterns = {'mode': 2, 'byte': v}
+    tokens = [Stm8ByteToken]
+    syntax = Syntax(['#', v])
 
-AdcAByte       = create_instruction(mnemonic='adc', operands=(a_rw, byte       ),               opcode=0xA9)
+
+class LongMemSource(Constructor):
+    v = Operand('v', int)
+    patterns = {'mode': 4, 'word': v}
+    tokens = [Stm8WordToken]
+    syntax = Syntax([v])
+
+
+class XSource(Constructor):
+    x = Operand('x', Stm8RegisterX, read=True)
+    patterns = {'mode': 7}
+    syntax = Syntax(['(', x, ')'])
+
+
+class LongOffsetXSource(Constructor):
+    x = Operand('x', Stm8RegisterX, read=True)
+    v = Operand('v', int)
+    patterns = {'mode': 5, 'word': v}
+    tokens = [Stm8WordToken]
+    syntax = Syntax(['(', v, ',', ' ', x, ')'])
+
+
+src_modes = (ByteSource, LongMemSource, XSource, LongOffsetXSource)
+
+
+class Adc(Stm8Instruction):
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand('src', src_modes)
+    syntax = Syntax(['adc', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken2]
+    patterns = {'opcode': 0x19}
+
+
+class Add(Stm8Instruction):
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand('src', src_modes)
+    syntax = Syntax(['add', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken2]
+    patterns = {'opcode': 0x1b}
+
+
+#AdcAByte       = create_instruction(mnemonic='adc', operands=(a_rw, byte       ),               opcode=0xA9)
 # TODO: AdcAShortmem
-AdcALongmem    = create_instruction(mnemonic='adc', operands=(a_rw, longmem    ),               opcode=0xC9)
-AdcAX          = create_instruction(mnemonic='adc', operands=(a_rw, x_i        ),               opcode=0xF9)
+#AdcALongmem    = create_instruction(mnemonic='adc', operands=(a_rw, longmem    ),               opcode=0xC9)
+# AdcAX          = create_instruction(mnemonic='adc', operands=(a_rw, x_i        ),               opcode=0xF9)
 # TODO: AdcAShortoffX
-AdcALongoffX   = create_instruction(mnemonic='adc', operands=(a_rw, longoff_x  ),               opcode=0xD9)
+# AdcALongoffX   = create_instruction(mnemonic='adc', operands=(a_rw, longoff_x  ),               opcode=0xD9)
 AdcAY          = create_instruction(mnemonic='adc', operands=(a_rw, y_i        ), precode=0x90, opcode=0xF9)
 # TODO: AdcAShortoffY
 AdcALongoffY   = create_instruction(mnemonic='adc', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xD9)
@@ -238,12 +291,12 @@ AdcALongptrX   = create_instruction(mnemonic='adc', operands=(a_rw, longptr_x  )
 AdcAShortptrY  = create_instruction(mnemonic='adc', operands=(a_rw, shortptr_y ), precode=0x91, opcode=0xD9)
 
 
-AddAByte       = create_instruction(mnemonic='add', operands=(a_rw, byte       ),               opcode=0xAB)
+# AddAByte       = create_instruction(mnemonic='add', operands=(a_rw, byte       ),               opcode=0xAB)
 # TODO: AddAShortmem
-AddALongmem    = create_instruction(mnemonic='add', operands=(a_rw, longmem    ),               opcode=0xCB)
-AddAX          = create_instruction(mnemonic='add', operands=(a_rw, x_i        ),               opcode=0xFB)
+# AddALongmem    = create_instruction(mnemonic='add', operands=(a_rw, longmem    ),               opcode=0xCB)
+# AddAX          = create_instruction(mnemonic='add', operands=(a_rw, x_i        ),               opcode=0xFB)
 # TODO: AddAShortoffX
-AddALongoffX   = create_instruction(mnemonic='add', operands=(a_rw, longoff_x  ),               opcode=0xDB)
+# AddALongoffX   = create_instruction(mnemonic='add', operands=(a_rw, longoff_x  ),               opcode=0xDB)
 AddAY          = create_instruction(mnemonic='add', operands=(a_rw, y_i        ), precode=0x90, opcode=0xFB)
 # TODO: AddAShortoffY
 AddALongoffY   = create_instruction(mnemonic='add', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xDB)
