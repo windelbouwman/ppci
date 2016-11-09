@@ -13,6 +13,8 @@ module system (
 	// 4096 32bit words = 16kB memory
 	parameter MEM_SIZE = 16384;
 
+        integer            tb_idx;
+
 	wire mem_valid;
 	wire mem_instr;
 	reg mem_ready;
@@ -53,7 +55,8 @@ module system (
                 .eoi(eois)
 	);
 
-       simuart uart(
+      `ifndef MEM_FILENAME
+             simuart uart(
 		.clk(clk),
 		.cs(uart_cs),
 		.bus_addr(mem_addr),
@@ -63,7 +66,12 @@ module system (
 		.bus_data(uart_rdata),
                 .inter(irqs[0]),
                 .intack(eois[0])
-       );
+             );
+      `else
+           assign uart_rdata = 32'b0;
+           assign irqs = 32'b0;
+      `endif
+
 
 
        assign irqs[31:1] = 31'b0;
@@ -71,7 +79,15 @@ module system (
        assign uart_wstrb = mem_wstrb & mem_ready;
    
 	reg [31:0] memory [0:MEM_SIZE-1];
-	initial $readmemh("../firmware.hex", memory);
+	initial begin
+                for (tb_idx=0; tb_idx < MEM_SIZE; tb_idx=tb_idx+1)
+                       memory[tb_idx] = 32'b0;
+                `ifdef MEM_FILENAME
+                     $readmemh(`MEM_FILENAME, memory);
+                `else
+                     $readmemh("../firmware.hex", memory);
+                `endif
+        end
 
 	reg [31:0] m_read_data;
 	reg m_read_en;
