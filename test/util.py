@@ -1,4 +1,3 @@
-
 import os
 import re
 import sys
@@ -23,6 +22,7 @@ def source_files(folder, extension):
 
 
 qemu_app = 'qemu-system-arm'
+iverilog_app = 'iverilog'
 
 
 def tryrm(fn):
@@ -171,7 +171,7 @@ def run_python(kernel):
 
 def has_iverilog():
     """ Determines if iverilog is installed """
-    return hasattr(shutil, 'which') and bool(shutil.which(qemu_app))
+    return hasattr(shutil, 'which') and bool(shutil.which(iverilog_app))
 
 
 def run_msp430(pmem):
@@ -194,8 +194,7 @@ def run_msp430(pmem):
                '-D', 'MEM_FILENAME="{}"'.format(pmem),
                '-D', 'SEED=123']
         print(cmd)
-        subprocess.check_call(cmd, cwd=workdir)
-
+        subprocess.check_call(cmd, stdout=sys.stdout, cwd=workdir)
         print('======')
         print('Compiled into', simv)
         print('======')
@@ -214,6 +213,40 @@ def run_msp430(pmem):
         chars.append(ch)
     data = ''.join(chars)
     return data
+
+def run_picorv32(pmem):
+    """ Run the given memory file in the riscvpicorv32 iverilog project. """
+
+    # Make a run file with the same name as the mem file:
+    simv = pmem[:-4] + '.run'
+
+    if not os.path.exists(simv):
+        print()
+        print('======')
+        print('Compiling verilog!')
+        print('======')
+
+        # compile picorv32 bench for this pmem:
+        workdir = relpath(
+            '..', 'examples', 'riscvpicorv32', 'iverilog')
+        cmd = ['iverilog', '-o', simv,
+               '-c', 'args.f',
+               '-D', 'MEM_FILENAME="{}"'.format(pmem)]
+        print(cmd)
+        subprocess.check_call(cmd, cwd=workdir)
+        print('======')
+        print('Compiled into', simv)
+        print('======')
+
+    print('======')
+    print('Running', simv)
+    print('======')
+
+    # run build vvp simulation:
+    outs = subprocess.check_output([simv])
+    outs = outs.decode('ascii')
+    print(outs)
+    return outs
 
 
 avr_emu1 = relpath('..', 'examples', 'avr', 'emu', 'build', 'emu1')

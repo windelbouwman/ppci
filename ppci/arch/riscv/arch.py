@@ -85,31 +85,31 @@ class RiscvArch(Architecture):
         asm_src = """
         __sdiv:
         ; Divide x11 by x12
-        ; x28 is a work register.
-        ; x14 is the quotient
-        mov x14, 0       ; Initialize the result
-        mov x28, x12      ; mov divisor into temporary register.
+        ; x13 is a work register.
+        ; x10 is the quotient
+
+        mov x10, x0     ; Initialize the result
+        mov x13, 1      ; mov divisor into temporary register.
 
         ; Blow up part: blow up divisor until it is larger than the divident.
-        __sdiv_inc:
-        blt x28 , x11,__sdiv_lsl ; If x28 < x11, then, shift left once more.
-        j __sdiv_dec
-        __sdiv_lsl:
-        slli x28, x28, 1
-        j __sdiv_inc
+        __shiftl:
+        bge x12, x11, __cont1
+        slli x12, x12, 1
+        slli x13, x13, 1
+        j __shiftl
 
         ; Repeatedly substract shifted versions of divisor
-        __sdiv_dec:
-        blt x11, x28, __sdiv_skip
-        sub x11, x11, x28  ; Substract temp from divisor
-        add x14, x14, 1   ; Add 1 to result
-        __sdiv_skip:
-        srai x28, x28, 1  ; Shift right one
-        slli x14, x14, 1  ; Shift result left.
-        __skip_check:
-        bgt  x28, x12, __sdiv_dec  ; Is temp less than divisor?, if so, repeat.
+        __cont1:
+        beq x13, x0, __exit
+        blt x11, x12, __skip
+        sub x11, x11, x12
+        or x10, x10, x13
+        __skip:
+        srli x12, x12, 1
+        srli x13, x13, 1
+        j __cont1
 
-        mov x10, x14
+        __exit:
         jalr x0,ra,0
         """
         return asm(io.StringIO(asm_src), self)
@@ -190,7 +190,8 @@ class RiscvArch(Architecture):
             i -= 4
         Addi(SP, SP, i)
         if frame.stacksize > 0:
-            yield Subi(SP, SP, frame.stacksize)  # Reserve stack space
+            ssize = round_up(frame.stacksize)
+            yield Subi(SP, SP, ssize)     # Reserve stack space
         yield Mov(FP, SP)                 # Setup frame pointer
 
     def litpool(self, frame):
@@ -221,7 +222,8 @@ class RiscvArch(Architecture):
             and add constant pool
         """
         if frame.stacksize > 0:
-            yield Addi(SP, SP, frame.stacksize)
+            ssize = round_up(frame.stacksize)
+            yield Addi(SP, SP, ssize)
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):
@@ -238,3 +240,6 @@ class RiscvArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
+
+def round_up(s):
+    return s + (4 - s % 4)
