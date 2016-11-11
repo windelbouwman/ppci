@@ -77,6 +77,7 @@ class Token:
     """ A token in a stream """
     size = None  # The size in bits of the token
     endianness = 'little'
+    ignore_values = ()  # TODO: for optional tokens?
 
     def __init__(self, initial_bit_value=0):
         assert self.size is not None

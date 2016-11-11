@@ -21,7 +21,7 @@ class Stm8OpcodeToken(Token):
     position = bit_range(1, 4)
 
 
-class Stm8OpcodeToken2(Token):
+class Stm8ArithmaticOpcodeToken(Token):
     size = 8
     opcode = bit(7) + bit_range(0, 4)
     mode = bit_range(4, 7)
@@ -255,31 +255,27 @@ class LongOffsetXSource(Constructor):
     syntax = Syntax(['(', v, ',', ' ', x, ')'])
 
 
+# TODO: SbcAShortmem
+# TODO: SbcAShortoffX
 src_modes = (ByteSource, LongMemSource, XSource, LongOffsetXSource)
 
 
-class Adc(Stm8Instruction):
-    a = Operand('a', Stm8RegisterA, read=True, write=True)
+def create_arithmatic_instruction(mnemonic, opcode, read=True, write=True):
+    """ Create an instruction for arithmatic with register A """
+    a = Operand('a', Stm8RegisterA, read=read, write=write)
     src = Operand('src', src_modes)
-    syntax = Syntax(['adc', ' ', a, ',', ' ', src])
-    tokens = [Stm8OpcodeToken2]
-    patterns = {'opcode': 0x19}
+    syntax = Syntax([mnemonic, ' ', a, ',', ' ', src])
+    tokens = [Stm8ArithmaticOpcodeToken]
+    opcode = ((opcode & 0x80) >> 3) | (opcode & 0xf)
+    patterns = {'opcode': opcode}
+    members = {
+        'a': a, 'src': src, 'syntax': syntax, 'tokens': tokens,
+        'patterns': patterns}
+    name = mnemonic.title()
+    return type(name, (Stm8Instruction,), members)
 
 
-class Add(Stm8Instruction):
-    a = Operand('a', Stm8RegisterA, read=True, write=True)
-    src = Operand('src', src_modes)
-    syntax = Syntax(['add', ' ', a, ',', ' ', src])
-    tokens = [Stm8OpcodeToken2]
-    patterns = {'opcode': 0x1b}
-
-
-#AdcAByte       = create_instruction(mnemonic='adc', operands=(a_rw, byte       ),               opcode=0xA9)
-# TODO: AdcAShortmem
-#AdcALongmem    = create_instruction(mnemonic='adc', operands=(a_rw, longmem    ),               opcode=0xC9)
-# AdcAX          = create_instruction(mnemonic='adc', operands=(a_rw, x_i        ),               opcode=0xF9)
-# TODO: AdcAShortoffX
-# AdcALongoffX   = create_instruction(mnemonic='adc', operands=(a_rw, longoff_x  ),               opcode=0xD9)
+Adc = create_arithmatic_instruction('adc', 0xA9)
 AdcAY          = create_instruction(mnemonic='adc', operands=(a_rw, y_i        ), precode=0x90, opcode=0xF9)
 # TODO: AdcAShortoffY
 AdcALongoffY   = create_instruction(mnemonic='adc', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xD9)
@@ -291,12 +287,7 @@ AdcALongptrX   = create_instruction(mnemonic='adc', operands=(a_rw, longptr_x  )
 AdcAShortptrY  = create_instruction(mnemonic='adc', operands=(a_rw, shortptr_y ), precode=0x91, opcode=0xD9)
 
 
-# AddAByte       = create_instruction(mnemonic='add', operands=(a_rw, byte       ),               opcode=0xAB)
-# TODO: AddAShortmem
-# AddALongmem    = create_instruction(mnemonic='add', operands=(a_rw, longmem    ),               opcode=0xCB)
-# AddAX          = create_instruction(mnemonic='add', operands=(a_rw, x_i        ),               opcode=0xFB)
-# TODO: AddAShortoffX
-# AddALongoffX   = create_instruction(mnemonic='add', operands=(a_rw, longoff_x  ),               opcode=0xDB)
+Add = create_arithmatic_instruction('add', 0xAB)
 AddAY          = create_instruction(mnemonic='add', operands=(a_rw, y_i        ), precode=0x90, opcode=0xFB)
 # TODO: AddAShortoffY
 AddALongoffY   = create_instruction(mnemonic='add', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xDB)
@@ -317,12 +308,7 @@ AddwYShortoffSp = create_instruction(mnemonic='addw', operands=(y_rw , shortoff_
 AddwSpByte      = create_instruction(mnemonic='addw', operands=(sp_rw, byte       ),               opcode=0x5B)
 
 
-AndAByte       = create_instruction(mnemonic='and', operands=(a_rw, byte       ),               opcode=0xA4)
-# TODO: AndAShortmem
-AndALongmem    = create_instruction(mnemonic='and', operands=(a_rw, longmem    ),               opcode=0xC4)
-AndAX          = create_instruction(mnemonic='and', operands=(a_rw, x_i        ),               opcode=0xF4)
-# TODO: AndAShortoffX
-AndALongoffX   = create_instruction(mnemonic='and', operands=(a_rw, longoff_x  ),               opcode=0xD4)
+And = create_arithmatic_instruction('and', 0xA4)
 AndAY          = create_instruction(mnemonic='and', operands=(a_rw, y_i        ), precode=0x90, opcode=0xF4)
 # TODO: AndAShortoffY
 AndALongoffY   = create_instruction(mnemonic='and', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xD4)
@@ -337,12 +323,7 @@ AndAShortptrY  = create_instruction(mnemonic='and', operands=(a_rw, shortptr_y )
 Bccm = create_instruction(mnemonic='bccm', operands=(longmem, bit), precode=0x90, opcode=0x11)
 
 
-BcpAByte       = create_instruction(mnemonic='bcp', operands=(a_ro, byte       ),               opcode=0xA5)
-# TODO: BcpAShortmem
-BcpALongmem    = create_instruction(mnemonic='bcp', operands=(a_ro, longmem    ),               opcode=0xC5)
-BcpAX          = create_instruction(mnemonic='bcp', operands=(a_ro, x_i        ),               opcode=0xF5)
-# TODO: BcpAShortoffX
-BcpALongoffX   = create_instruction(mnemonic='bcp', operands=(a_ro, longoff_x  ),               opcode=0xD5)
+Bcp = create_arithmatic_instruction('bcp', 0xA5, write=False)
 BcpAY          = create_instruction(mnemonic='bcp', operands=(a_ro, y_i        ), precode=0x90, opcode=0xF5)
 # TODO: BcpAShortoffY
 BcpALongoffY   = create_instruction(mnemonic='bcp', operands=(a_ro, longoff_y  ), precode=0x90, opcode=0xD5)
@@ -413,12 +394,7 @@ ClrwX = create_instruction(mnemonic='clrw', operands=(x_wo,),               opco
 ClrwY = create_instruction(mnemonic='clrw', operands=(y_wo,), precode=0x90, opcode=0x5F)
 
 
-CpAByte       = create_instruction(mnemonic='cp', operands=(a_ro, byte       ),               opcode=0xA1)
-# TODO: CpAShortmem
-CpALongmem    = create_instruction(mnemonic='cp', operands=(a_ro, longmem    ),               opcode=0xC1)
-CpAX          = create_instruction(mnemonic='cp', operands=(a_ro, x_i        ),               opcode=0xF1)
-# TODO: CpAShortoffX
-CpALongoffX   = create_instruction(mnemonic='cp', operands=(a_ro, longoff_x  ),               opcode=0xD1)
+Cp = create_arithmatic_instruction('cp', 0xA1, write=False)
 CpAY          = create_instruction(mnemonic='cp', operands=(a_ro, y_i        ), precode=0x90, opcode=0xF1)
 # TODO: CpAShortoffY
 CpALongoffY   = create_instruction(mnemonic='cp', operands=(a_ro, longoff_y  ), precode=0x90, opcode=0xD1)
@@ -582,12 +558,7 @@ Jrult = create_instruction(mnemonic='jrult', operands=(branch,), precode=None, o
 Jrv   = create_instruction(mnemonic='jrv'  , operands=(branch,), precode=None, opcode=0x29)
 
 
-LdAByte       = create_instruction(mnemonic='ld', operands=(a_wo, byte       ),               opcode=0xA6)
-# TODO: LdAShortmem
-LdALongmem    = create_instruction(mnemonic='ld', operands=(a_wo, longmem    ),               opcode=0xC6)
-LdAX          = create_instruction(mnemonic='ld', operands=(a_wo, x_i        ),               opcode=0xF6)
-# TODO: LdAShortoffX
-LdALongoffX   = create_instruction(mnemonic='ld', operands=(a_wo, longoff_x  ),               opcode=0xD6)
+Ld = create_arithmatic_instruction('ld', 0xA6, read=False)
 LdAY          = create_instruction(mnemonic='ld', operands=(a_wo, y_i        ), precode=0x90, opcode=0xF6)
 # TODO: LdAShortoffY
 LdALongoffY   = create_instruction(mnemonic='ld', operands=(a_wo, longoff_y  ), precode=0x90, opcode=0xD6)
@@ -723,12 +694,7 @@ NegwY = create_instruction(mnemonic='negw', operands=(y_rw,), precode=0x90, opco
 Nop = create_instruction(mnemonic='nop', opcode=0x9D)
 
 
-OrAByte       = create_instruction(mnemonic='or', operands=(a_rw, byte       ),               opcode=0xAA)
-# TODO: OrAShortmem
-OrALongmem    = create_instruction(mnemonic='or', operands=(a_rw, longmem    ),               opcode=0xCA)
-OrAX          = create_instruction(mnemonic='or', operands=(a_rw, x_i        ),               opcode=0xFA)
-# TODO: OrAShortoffX
-OrALongoffX   = create_instruction(mnemonic='or', operands=(a_rw, longoff_x  ),               opcode=0xDA)
+Or = create_arithmatic_instruction('or', 0xAA)
 OrAY          = create_instruction(mnemonic='or', operands=(a_rw, y_i        ), precode=0x90, opcode=0xFA)
 # TODO: OrAShortoffY
 OrALongoffY   = create_instruction(mnemonic='or', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xDA)
@@ -821,12 +787,7 @@ RrwaYA = create_instruction(mnemonic='rrwa', operands=(y_rw, a_rw), precode=0x90
 Rvf = create_instruction(mnemonic='rvf', opcode=0x9C)
 
 
-SbcAByte       = create_instruction(mnemonic='sbc', operands=(a_rw, byte       ),               opcode=0xA2)
-# TODO: SbcAShortmem
-SbcALongmem    = create_instruction(mnemonic='sbc', operands=(a_rw, longmem    ),               opcode=0xC2)
-SbcAX          = create_instruction(mnemonic='sbc', operands=(a_rw, x_i        ),               opcode=0xF2)
-# TODO: SbcAShortoffX
-SbcALongoffX   = create_instruction(mnemonic='sbc', operands=(a_rw, longoff_x  ),               opcode=0xD2)
+Sbc = create_arithmatic_instruction('sbc', 0xA2)
 SbcAY          = create_instruction(mnemonic='sbc', operands=(a_rw, y_i        ), precode=0x90, opcode=0xF2)
 # TODO: SbcAShortoffY
 SbcALongoffY   = create_instruction(mnemonic='sbc', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xD2)
@@ -907,12 +868,7 @@ SrlwX = create_instruction(mnemonic='srlw', operands=(x_rw,),               opco
 SrlwY = create_instruction(mnemonic='srlw', operands=(y_rw,), precode=0x90, opcode=0x54)
 
 
-SubAByte       = create_instruction(mnemonic='sub', operands=(a_rw, byte       ),               opcode=0xA0)
-# TODO: SubAShortmem
-SubALongmem    = create_instruction(mnemonic='sub', operands=(a_rw, longmem    ),               opcode=0xC0)
-SubAX          = create_instruction(mnemonic='sub', operands=(a_rw, x_i        ),               opcode=0xF0)
-# TODO: SubAShortoffX
-SubALongoffX   = create_instruction(mnemonic='sub', operands=(a_rw, longoff_x  ),               opcode=0xD0)
+Sub = create_arithmatic_instruction('sub', 0xA0)
 SubAY          = create_instruction(mnemonic='sub', operands=(a_rw, y_i        ), precode=0x90, opcode=0xF0)
 # TODO: SubAShortoffY
 SubALongoffY   = create_instruction(mnemonic='sub', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xD0)
@@ -984,12 +940,7 @@ Wfe = create_instruction(mnemonic='wfe', precode=0x72, opcode=0x8F)
 Wfi = create_instruction(mnemonic='wfi', opcode=0x8F)
 
 
-XorAByte       = create_instruction(mnemonic='xor', operands=(a_rw, byte       ),               opcode=0xA8)
-# TODO: XorAShortmem
-XorALongmem    = create_instruction(mnemonic='xor', operands=(a_rw, longmem    ),               opcode=0xC8)
-XorAX          = create_instruction(mnemonic='xor', operands=(a_rw, x_i        ),               opcode=0xF8)
-# TODO: XorAShortoffX
-XorALongoffX   = create_instruction(mnemonic='xor', operands=(a_rw, longoff_x  ),               opcode=0xD8)
+Xor = create_arithmatic_instruction('xor', 0xA8)
 XorAY          = create_instruction(mnemonic='xor', operands=(a_rw, y_i        ), precode=0x90, opcode=0xF8)
 # TODO: XorAShortoffY
 XorALongoffY   = create_instruction(mnemonic='xor', operands=(a_rw, longoff_y  ), precode=0x90, opcode=0xD8)
