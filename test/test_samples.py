@@ -216,9 +216,9 @@ def build(
 
 
 class BuildMixin:
-    #opt_level = 0
+    opt_level = 0
 
-    def build(self, src, lang='c3',opt_level=0, bin_format=None,
+    def build(self, src, lang='c3', bin_format=None,
     elf_format=None, code_image='code'):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
@@ -230,7 +230,7 @@ class BuildMixin:
             bsp_c3 = self.bsp_c3
 
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march, opt_level,
+            base_filename, src, bsp_c3, startercode, self.march, self.opt_level,
             io.StringIO(self.arch_mmap), lang=lang, bin_format=bin_format,
             elf_format=elf_format, code_image=code_image)
 
@@ -296,6 +296,7 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
+    opt_level = 2
     maxDiff = None
     march = "riscv"
     startercode = """
@@ -337,7 +338,7 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
         obj, base_filename = self.build(src, lang, bin_format='bin',
-        opt_level=2, elf_format='elf', code_image='flash')
+        elf_format='elf', code_image='flash')
 
         flash = obj.get_image('flash')
         data = obj.get_image('ram')
