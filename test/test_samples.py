@@ -102,7 +102,7 @@ class I32Samples:
         """
         res = ""
         self.do(snippet, res)
-
+    @unittest.skip('too large codesize')
     def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>

@@ -304,7 +304,7 @@ class CLui(RiscvcInstruction):
         if self.imm < 0:
             imm6 = wrap_negative(self.imm >> 12, 6)
         else:
-            imm6 = self.imm >> 12 & 6
+            imm6 = self.imm >> 12 & 0x3F
         tokens = self.get_tokens()
         tokens[0].op = 0b01
         tokens[0][2:7] = imm6 & 0x1F
