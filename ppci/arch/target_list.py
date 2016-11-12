@@ -9,6 +9,7 @@ from .x86_64 import X86_64Arch
 from .mos6500 import Mos6500Arch
 from .riscv import RiscvArch
 from .stm8 import Stm8Arch
+from .xtensa import XtensaArch
 
 
 target_classes = [
@@ -19,7 +20,8 @@ target_classes = [
     Msp430Arch,
     RiscvArch,
     Stm8Arch,
-    X86_64Arch]
+    X86_64Arch,
+    XtensaArch]
 
 
 target_class_map = {t.name: t for t in target_classes}

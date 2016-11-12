@@ -1,8 +1,13 @@
 
 from ..registers import Register, RegisterClass
+from ... import ir
 
 
 class AddressRegister(Register):
+    bitsize = 32
+
+
+class FloatRegister(Register):
     bitsize = 32
 
 
@@ -23,3 +28,19 @@ a12 = AddressRegister('a12', num=12)
 a13 = AddressRegister('a13', num=13)
 a14 = AddressRegister('a14', num=14)
 a15 = AddressRegister('a15', num=15)
+
+AddressRegister.registers = (
+    a0, a1, a2, a3, a4, a5, a6, a7,
+    a8, a9, a10, a11, a12, a13, a14, a15)
+
+f0 = FloatRegister('f0', num=0)
+f1 = FloatRegister('f1', num=1)
+
+FloatRegister.registers = (f0, f1)
+
+register_classes = [
+    RegisterClass(
+        'reg', [ir.i32, ir.u32], AddressRegister, AddressRegister.registers),
+    RegisterClass(
+        'regf', [ir.f32], FloatRegister, FloatRegister.registers)
+    ]
