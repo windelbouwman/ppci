@@ -7,6 +7,7 @@ from ..encoding import Instruction, Operand, Syntax, Transform
 from ..encoding import Relocation
 from .registers import AddressRegister, FloatRegister
 from ...utils.bitfun import wrap_negative
+from ... import ir
 
 
 core_isa = Isa()
@@ -53,6 +54,17 @@ class RsrToken(Token):
 class CallToken(Token):
     size = 24
     imm18 = bit_range(6, 24)
+    n = bit_range(4, 6)
+    op0 = bit_range(0, 4)
+
+
+class CallxToken(Token):
+    size = 24
+    op2 = bit_range(20, 24)
+    op1 = bit_range(16, 20)
+    r = bit_range(12, 16)
+    s = bit_range(8, 12)
+    m = bit_range(6, 8)
     n = bit_range(4, 6)
     op0 = bit_range(0, 4)
 
@@ -298,6 +310,22 @@ class Imm18Relocation(Relocation):
         return wrap_negative(offset, 18)
 
 
+@core_isa.register_relocation
+class Ri16Relocation(Relocation):
+    name = 'ri16'
+    number = 3
+    token = Ri16Token
+    field = 'imm16'
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value & 3 == 0
+        offset = (sym_value - ((reloc_value + 3) & 0xfffffffc))
+        offset = offset >> 2
+        # assert offset in range(-60000, 2095), str(offset)
+        # TODO: this wrap_negative is somewhat weird
+        return wrap_negative(offset, 16)
+
+
 class Bany(XtensaCoreInstruction):
     """ Branch if any bit set """
     tokens = [Rri8Token]
@@ -498,6 +526,20 @@ class L32in(XtensaNarrowInstruction):
     syntax = Syntax(['l32i', '.', 'n', ' ', t, ',', ' ', s, ',', ' ', imm])
 
 
+class L32r(XtensaCoreInstruction):
+    """ Load 32-bit pc relative """
+    tokens = [Ri16Token]
+    t = Operand('t', AddressRegister, write=True)
+    label = Operand('label', str)
+    patterns = {'t': t, 'op0': 1}
+    syntax = Syntax(['l32r', ' ', t, ',', ' ', label])
+
+    def relocations(self):
+        return [Ri16Relocation(self.label)]
+
+# TODO: make mov macro
+
+
 class Neg(XtensaCoreInstruction):
     """ Negate """
     tokens = [RrrToken]
@@ -524,6 +566,70 @@ class Or(XtensaCoreInstruction):
     syntax = Syntax(['or', ' ', r, ',', ' ', s, ',', ' ', t])
 
 
+class Ret(XtensaCoreInstruction):
+    """ Non-windowed return """
+    tokens = [CallxToken]
+    patterns = {'op2': 0, 'op1': 0, 'r': 0, 's': 0, 'm': 2, 'n': 0, 'op0': 0}
+    syntax = Syntax(['ret'])
+
+
+class S8i(XtensaCoreInstruction):
+    """ Store 8-bit """
+    tokens = [Rri8Token]
+    s = Operand('s', AddressRegister, read=True)
+    t = Operand('t', AddressRegister, read=True)
+    imm = Operand('imm', int)
+    patterns = {'imm8': imm, 'r': 4, 's': s, 't': t, 'op0': 2}
+    syntax = Syntax(['s8i', ' ', t, ',', ' ', s, ',', ' ', imm])
+
+
+class S16i(XtensaCoreInstruction):
+    """ Store 16-bit """
+    tokens = [Rri8Token]
+    s = Operand('s', AddressRegister, read=True)
+    t = Operand('t', AddressRegister, read=True)
+    imm = Operand('imm', int)
+    patterns = {'imm8': Shift1(imm), 'r': 5, 's': s, 't': t, 'op0': 2}
+    syntax = Syntax(['s16i', ' ', t, ',', ' ', s, ',', ' ', imm])
+
+
+class S32i(XtensaCoreInstruction):
+    """ Store 32-bit """
+    tokens = [Rri8Token]
+    s = Operand('s', AddressRegister, read=True)
+    t = Operand('t', AddressRegister, read=True)
+    imm = Operand('imm', int)
+    patterns = {'imm8': Shift2(imm), 'r': 6, 's': s, 't': t, 'op0': 2}
+    syntax = Syntax(['s32i', ' ', t, ',', ' ', s, ',', ' ', imm])
+
+
+class Sll(XtensaCoreInstruction):
+    """ Shift left logical """
+    tokens = [RrrToken]
+    r = Operand('r', AddressRegister, write=True)
+    s = Operand('s', AddressRegister, read=True)
+    patterns = {'op2': 10, 'op1': 1, 'r': r, 's': s, 't': 0, 'op0': 0}
+    syntax = Syntax(['sll', ' ', r, ',', ' ', s])
+
+
+class Sra(XtensaCoreInstruction):
+    """ Shift right arithmatic """
+    tokens = [RrrToken]
+    r = Operand('r', AddressRegister, write=True)
+    t = Operand('t', AddressRegister, read=True)
+    patterns = {'op2': 11, 'op1': 1, 'r': r, 's': 0, 't': t, 'op0': 0}
+    syntax = Syntax(['sra', ' ', r, ',', ' ', t])
+
+
+class Srl(XtensaCoreInstruction):
+    """ Shift right logical """
+    tokens = [RrrToken]
+    r = Operand('r', AddressRegister, write=True)
+    t = Operand('t', AddressRegister, read=True)
+    patterns = {'op2': 9, 'op1': 1, 'r': r, 's': 0, 't': t, 'op0': 0}
+    syntax = Syntax(['srl', ' ', r, ',', ' ', t])
+
+
 class Srli(XtensaCoreInstruction):
     """ Shift right logical immediate """
     tokens = [RrrToken]
@@ -532,6 +638,22 @@ class Srli(XtensaCoreInstruction):
     imm = Operand('imm', int)
     patterns = {'op2': 4, 'op1': 1, 'r': r, 's': imm, 't': t, 'op0': 0}
     syntax = Syntax(['srli', ' ', r, ',', ' ', t, ',', ' ', imm])
+
+
+class Ssl(XtensaCoreInstruction):
+    """ Set shift amount for left shift """
+    tokens = [RrrToken]
+    s = Operand('s', AddressRegister, read=True)
+    patterns = {'op2': 4, 'op1': 0, 'r': 1, 's': s, 't': 0, 'op0': 0}
+    syntax = Syntax(['ssl', ' ', s])
+
+
+class Ssr(XtensaCoreInstruction):
+    """ Set shift amount for right shift """
+    tokens = [RrrToken]
+    s = Operand('s', AddressRegister, read=True)
+    patterns = {'op2': 4, 'op1': 0, 'r': 0, 's': s, 't': 0, 'op0': 0}
+    syntax = Syntax(['ssr', ' ', s])
 
 
 class Sub(XtensaCoreInstruction):
@@ -584,10 +706,103 @@ class Xor(XtensaCoreInstruction):
     syntax = Syntax(['xor', ' ', r, ',', ' ', s, ',', ' ', t])
 
 
+def mov(dst, src):
+    # TODO: create mov macro?
+    return Or(dst, src, src)
+
+
+@core_isa.pattern('stm', 'MOVU8(reg)')
+def pattern_mov_u8(context, tree, c0):
+    d = tree.value
+    context.emit(mov(d, c0))
+
+
+@core_isa.pattern('stm', 'MOVI32(reg)')
+def pattern_mov_i32(context, tree, c0):
+    d = tree.value
+    context.emit(mov(d, c0))
+
+
+@core_isa.pattern('reg', 'REGU8')
+@core_isa.pattern('reg', 'REGI32')
+def pattern_reg(context, tree):
+    return tree.value
+
+
+@core_isa.pattern('reg', 'LABEL')
+def pattern_label(context, tree):
+    # Load the address of a label
+    # store the address label in the constant pool, and load this value
+    ln = context.frame.add_constant(tree.value)
+    d = context.new_reg(AddressRegister)
+    context.emit(L32r(d, ln))
+    return d
+
+
+@core_isa.pattern('reg', 'CONSTI32')
+def pattern_const_i32(context, tree):
+    # Load the address of a label
+    # store the address label in the constant pool, and load this value
+    ln = context.frame.add_constant(tree.value)
+    d = context.new_reg(AddressRegister)
+    context.emit(L32r(d, ln))
+    return d
+
+
+@core_isa.pattern('reg', 'CONSTI8')
+@core_isa.pattern('reg', 'CONSTU8')
+def pattern_const_8(context, tree):
+    # Load the address of a label
+    # store the address label in the constant pool, and load this value
+    ln = context.frame.add_constant(tree.value)
+    d = context.new_reg(AddressRegister)
+    context.emit(L32r(d, ln))
+    # TODO: movi maybe used here
+    return d
+
+
+@core_isa.pattern('reg', 'I32TOI32(reg)')
+def pattern_i32_to_i32(context, tree, c0):
+    return c0
+
+
+@core_isa.pattern('reg', 'I32TOU8(reg)')
+def pattern_i32_to_u8(context, tree, c0):
+    return c0
+
+
+@core_isa.pattern('reg', 'U8TOI32(reg)')
+def pattern_u8_to_i32(context, tree, c0):
+    return c0
+
+
 @core_isa.pattern('reg', 'ADDI32(reg,reg)')
 def pattern_add_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Add(d, c0, c1))
+    return d
+
+
+@core_isa.pattern('reg', 'SUBI32(reg,reg)')
+def pattern_sub_i32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Sub(d, c0, c1))
+    return d
+
+
+@core_isa.pattern('reg', 'MULI32(reg, reg)')
+def pattern_mul32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    # Generate call into runtime lib function!
+    context.gen_call(('swmuldiv___mul', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
+    return d
+
+
+@core_isa.pattern('reg', 'DIVI32(reg, reg)')
+def pattern_div32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    # Generate call into runtime lib function!
+    context.gen_call(('swmuldiv___div', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
     return d
 
 
@@ -598,6 +813,29 @@ def pattern_and_i32(context, tree, c0, c1):
     return d
 
 
+@core_isa.pattern('reg', 'ORI32(reg,reg)')
+def pattern_or_i32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Or(d, c0, c1))
+    return d
+
+
+@core_isa.pattern('reg', 'SHLI32(reg,reg)')
+def pattern_shl_i32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssl(c1))
+    context.emit(Sll(d, c0))
+    return d
+
+
+@core_isa.pattern('reg', 'SHRI32(reg,reg)')
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssr(c1))
+    context.emit(Srl(d, c0))
+    return d
+
+
 @core_isa.pattern('reg', 'LDRU8(reg)')
 def pattern_ldr_u8(context, tree, c0):
     d = context.new_reg(AddressRegister)
@@ -605,8 +843,54 @@ def pattern_ldr_u8(context, tree, c0):
     return d
 
 
+@core_isa.pattern('stm', 'STRU8(reg, reg)')
+def pattern_str_u8(context, tree, c0, c1):
+    context.emit(S8i(c1, c0, 0))
+
+
 @core_isa.pattern('reg', 'LDRI32(reg)')
 def pattern_ldr_i32(context, tree, c0):
     d = context.new_reg(AddressRegister)
     context.emit(L32i(d, c0, 0))
     return d
+
+
+@core_isa.pattern('stm', 'STRI32(reg, reg)')
+def pattern_str_i32(context, tree, c0, c1):
+    context.emit(S32i(c1, c0, 0))
+
+
+@core_isa.pattern('stm', 'JMP')
+def pattern_jmp(context, tree):
+    tgt = tree.value
+    context.emit(J(tgt.name, jumps=[tgt]))
+
+
+@core_isa.pattern('stm', 'CJMP(reg, reg)')
+def pattern_cjmp(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<": (Blt, False),
+        ">": (Blt, True),
+        "==": (Beq, False),
+        "!=": (Bne, False),
+        ">=": (Bge, False),
+        "<=": (Bge, True),
+        }
+    jmp_ins = J(no_label.name, jumps=[no_label])
+    tmp_label = context.new_label()
+    Bop, swap = opnames[op]
+    if swap:
+        context.emit(Bop(c1, c0, tmp_label.name, jumps=[tmp_label, jmp_ins]))
+    else:
+        context.emit(Bop(c0, c1, tmp_label.name, jumps=[tmp_label, jmp_ins]))
+    context.emit(jmp_ins)  # The false label
+    context.emit(tmp_label)
+    context.emit(J(yes_label.name, jumps=[yes_label]))
+
+
+@core_isa.pattern('stm', 'CALL', size=10)
+def pattern_call(context, tree):
+    context.gen_call(tree.value)
+
+

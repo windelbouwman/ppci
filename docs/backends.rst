@@ -82,3 +82,7 @@ x86_64
 
 .. automodule:: ppci.arch.x86_64
 
+xtensa
+------
+
+.. automodule:: ppci.arch.xtensa

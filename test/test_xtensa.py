@@ -108,6 +108,16 @@ class XtensaAssemblyTestCase(AsmTestCaseBase):
         self.feed('l32i.n a1, a5, 28')
         self.check('1875')
 
+    def test_l32r(self):
+        """ Test load 32 bit value pc relative """
+        self.feed('label1: ret')
+        self.feed('l32r a9, label1')
+        self.feed('l32r a9, label1')
+        self.feed('l32r a9, label1')
+        self.feed('l32r a9, label1')
+        self.feed('l32r a9, label1')
+        self.check('800000 91ffff 91feff 91fdff 91fdff 91fcff')
+
     def test_neg(self):
         """ Test negate """
         self.feed('neg a1, a2')
@@ -123,9 +133,46 @@ class XtensaAssemblyTestCase(AsmTestCaseBase):
         self.feed('or a1, a5, a9')
         self.check('901520')
 
+    def test_ret(self):
+        """ Test return """
+        self.feed('ret')
+        self.check('800000')
+
+    def test_s8i(self):
+        self.feed('s8i a6, a1, 7')
+        self.check('624107')
+
+    def test_s16i(self):
+        self.feed('s16i a6, a1, 28')
+        self.check('62510e')
+
+    def test_s32i(self):
+        self.feed('s32i a6, a1, 28')
+        self.check('626107')
+
+    def test_sll(self):
+        self.feed('sll a6, a3')
+        self.check('0063a1')
+
+    def test_sra(self):
+        self.feed('sra a6, a1')
+        self.check('1060b1')
+
+    def test_srl(self):
+        self.feed('srl a6, a1')
+        self.check('106091')
+
     def test_srli(self):
         self.feed('srli a6, a1, 7')
         self.check('106741')
+
+    def test_ssl(self):
+        self.feed('ssl a6')
+        self.check('001640')
+
+    def test_ssr(self):
+        self.feed('ssr a6')
+        self.check('000640')
 
     def test_sub(self):
         """ Test substract """

@@ -40,7 +40,8 @@ FloatRegister.registers = (f0, f1)
 
 register_classes = [
     RegisterClass(
-        'reg', [ir.i32, ir.u32], AddressRegister, AddressRegister.registers),
+        'reg', [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr], AddressRegister,
+        AddressRegister.registers),
     RegisterClass(
         'regf', [ir.f32], FloatRegister, FloatRegister.registers)
     ]
