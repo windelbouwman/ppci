@@ -10,7 +10,7 @@
 
         <compile
             arch="xtensa"
-            sources="../../src/hello/hello.c3;../../../librt/io.c3;../../../librt/swmuldiv.c3;../bsp.c3"
+            sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
             report="report.html"/>
 

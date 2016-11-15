@@ -1,3 +1,3 @@
 #!/bin/bash
 
-qemu-system-xtensa -M sim -kernel run.sh
+qemu-system-xtensa -M lx60 -m 16M -pflash lx60.flash -serial stdio

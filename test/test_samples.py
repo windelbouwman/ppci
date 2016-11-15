@@ -561,7 +561,7 @@ class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('8bit','simple')
+@add_samples('8bit', 'simple')
 class TestSamplesOnAvr(unittest.TestCase):
     march = "avr"
     opt_level = 0
@@ -584,6 +584,24 @@ class TestSamplesOnAvr(unittest.TestCase):
 # Avr Only works with optimization enabled...
 class TestSamplesOnAvrO2(TestSamplesOnAvr):
     opt_level = 2
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple')
+class TestSamplesOnXtensa(unittest.TestCase):
+    march = "xtensa"
+    opt_level = 0
+
+    def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        bsp_c3 = relpath('..', 'examples', 'xtensa', 'bsp.c3')
+        crt0 = relpath('..', 'examples', 'xtensa', 'glue.asm')
+        mmap = relpath('..', 'examples', 'xtensa', 'layout.mmp')
+        build(
+            base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
+            mmap, lang=lang, bin_format='hex', code_image='code')
+        hexfile = base_filename + '.hex'
+        print(hexfile)
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')

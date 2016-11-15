@@ -5,6 +5,7 @@ from ..token import Token, bit_range
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Transform
 from ..encoding import Relocation
+from ..arch import ArtificialInstruction
 from .registers import AddressRegister, FloatRegister
 from ...utils.bitfun import wrap_negative
 from ... import ir
@@ -38,6 +39,7 @@ class Rri8Token(Token):
     s = bit_range(8, 12)
     t = bit_range(4, 8)
     op0 = bit_range(0, 4)
+    imm12 = s + imm8
 
 
 class Ri16Token(Token):
@@ -111,6 +113,10 @@ class Shift2(Transform):
 
     def backwards(self, val):
         return val << 2
+
+
+class XtensaMacroInstruction(ArtificialInstruction):
+    isa = core_isa
 
 
 class XtensaCoreInstruction(Instruction):
@@ -537,7 +543,24 @@ class L32r(XtensaCoreInstruction):
     def relocations(self):
         return [Ri16Relocation(self.label)]
 
-# TODO: make mov macro
+
+class Mov(XtensaMacroInstruction):
+    """ Move (actually a macro) """
+    r = Operand('r', AddressRegister, write=True)
+    s = Operand('s', AddressRegister, read=True)
+    syntax = Syntax(['mov', ' ', r, ',', ' ', s])
+
+    def render(self):
+        yield Or(self.r, self.s, self.s)
+
+
+class Movi(XtensaCoreInstruction):
+    """ Move immediate """
+    tokens = [Rri8Token]
+    t = Operand('t', AddressRegister, write=True)
+    imm = Operand('imm', int)
+    patterns = {'imm12': imm, 'r': 10, 't': t, 'op0': 2}
+    syntax = Syntax(['movi', ' ', t, ',', ' ', imm])
 
 
 class Neg(XtensaCoreInstruction):
@@ -706,21 +729,16 @@ class Xor(XtensaCoreInstruction):
     syntax = Syntax(['xor', ' ', r, ',', ' ', s, ',', ' ', t])
 
 
-def mov(dst, src):
-    # TODO: create mov macro?
-    return Or(dst, src, src)
-
-
 @core_isa.pattern('stm', 'MOVU8(reg)')
 def pattern_mov_u8(context, tree, c0):
     d = tree.value
-    context.emit(mov(d, c0))
+    context.emit(Mov(d, c0))
 
 
 @core_isa.pattern('stm', 'MOVI32(reg)')
 def pattern_mov_i32(context, tree, c0):
     d = tree.value
-    context.emit(mov(d, c0))
+    context.emit(Mov(d, c0))
 
 
 @core_isa.pattern('reg', 'REGU8')
@@ -739,7 +757,16 @@ def pattern_label(context, tree):
     return d
 
 
-@core_isa.pattern('reg', 'CONSTI32')
+@core_isa.pattern(
+    'reg', 'CONSTI32', size=3, cycles=1, energy=1,
+    condition=lambda t: t.value in range(-2048, 2047))
+def pattern_const_small_i32(context, tree):
+    d = context.new_reg(AddressRegister)
+    context.emit(Movi(d, tree.value))
+    return d
+
+
+@core_isa.pattern('reg', 'CONSTI32', size=8, cycles=5, energy=5)
 def pattern_const_i32(context, tree):
     # Load the address of a label
     # store the address label in the constant pool, and load this value
@@ -794,7 +821,7 @@ def pattern_sub_i32(context, tree, c0, c1):
 def pattern_mul32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('swmuldiv___mul', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
+    context.gen_call(('swmuldiv_mul', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
     return d
 
 
@@ -802,7 +829,7 @@ def pattern_mul32(context, tree, c0, c1):
 def pattern_div32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('swmuldiv___div', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
+    context.gen_call(('swmuldiv_div', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
     return d
 
 

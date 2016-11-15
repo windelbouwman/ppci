@@ -17,26 +17,26 @@ class XtensaArch(Architecture):
         self.isa = instructions.core_isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        self.fp = registers.a15  # TODO: does this make sense?
+        self.fp = registers.a7  # TODO: does this make sense?
 
         # TODO: figure out what is the right abi:
         self.callee_save = (registers.a5, registers.a6)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return instructions.mov(dst, src)
+        return instructions.Mov(dst, src)
 
     def get_runtime(self):
-        from ...api import asm
-        asm_src = ''
-        return asm(io.StringIO(asm_src), self)
+        from ...api import c3c
+        obj = c3c([io.StringIO(RT_C3_SRC)], [], self)
+        return obj
 
     def determine_arg_locations(self, arg_types):
         arg_locs = []
-        live_in = set([])
+        live_in = set([self.fp])
         int_regs = [
             registers.a2, registers.a3, registers.a4, registers.a5,
-            registers.a6, registers.a7]
+            registers.a6]
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr]:
@@ -50,7 +50,7 @@ class XtensaArch(Architecture):
     def determine_rv_location(self, ret_type):
         """ return value in a2 """
         # TODO: what is the frame pointer??
-        live_out = set([])
+        live_out = set([self.fp])
         if ret_type in [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr]:
             rv = registers.a2
         else:  # pragma: no cover
@@ -112,15 +112,16 @@ class XtensaArch(Architecture):
 
         # Reserve stack space
         if frame.stacksize > 0:
-            # yield SubImm(rsp, frame.stacksize)
             self.logger.warning('Figure out how to create stack')
-            pass
+            # TODO: calculate 2 complement properly:
+            size = 256 - frame.stacksize
+            yield instructions.Addi(registers.a1, registers.a1, size)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence """
         if frame.stacksize > 0:
-            # yield AddImm(rsp, frame.stacksize)
-            pass
+            size = frame.stacksize
+            yield instructions.Addi(registers.a1, registers.a1, size)
 
         # Pop save registers back:
         for reg in reversed(self.callee_save):
@@ -131,3 +132,46 @@ class XtensaArch(Architecture):
         # yield self.pop(self.fp)
         yield instructions.Ret()
 
+
+# TODO: find a common place for this:
+RT_C3_SRC = """
+    module swmuldiv;
+    function int div(int num, int den)
+    {
+      var int res = 0;
+      var int current = 1;
+
+      while (den < num)
+      {
+        den = den << 1;
+        current = current << 1;
+      }
+
+      while (current != 0)
+      {
+        if (num >= den)
+        {
+          num -= den;
+          res = res | current;
+        }
+        den = den >> 1;
+        current = current >> 1;
+      }
+      return res;
+    }
+
+    function int mul(int a, int b)
+    {
+      var int res = 0;
+      while (b > 0)
+      {
+        if ((b & 1) == 1)
+        {
+          res += a;
+        }
+        a = a << 1;
+        b = b >> 1;
+      }
+      return res;
+    }
+"""

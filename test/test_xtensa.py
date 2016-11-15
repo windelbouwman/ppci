@@ -118,6 +118,11 @@ class XtensaAssemblyTestCase(AsmTestCaseBase):
         self.feed('l32r a9, label1')
         self.check('800000 91ffff 91feff 91fdff 91fdff 91fcff')
 
+    def test_movi(self):
+        """ Test move immediate """
+        self.feed('movi a1, 0x345')
+        self.check('12a345')
+
     def test_neg(self):
         """ Test negate """
         self.feed('neg a1, a2')

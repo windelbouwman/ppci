@@ -120,6 +120,8 @@ class Context:
                 return int(a) & 0xFF
             elif isinstance(to_type, ast.FloatType):
                 return float(a)
+            elif isinstance(to_type, ast.PointerType):
+                return int(a)
             else:  # pragma: no cover
                 raise NotImplementedError(
                     'Casting to {} not implemented'.format(expr.to_type))
