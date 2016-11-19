@@ -1,20 +1,20 @@
 """ RISC-V architecture. """
 
 import io
-from ..arch import Architecture, Label, VCall, Alignment
+from ..arch import Architecture, Label, Alignment
 from .instructions import isa
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister, gdb_registers, all_registers
-from .registers import R0, LR, SP, R3, R4, R5, R6, R7, FP, R10, R11, R12
-from .registers import R13, R14, R15, R16, R17, R28, LR
-from .registers import R0, LR, SP, FP, PC
-from .registers import R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19
+from .registers import R0, LR, SP, FP
+from .registers import R10, R11, R12
+from .registers import R13, R14, R15, R16, R17
+from .registers import PC
+from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
 from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
-from ..riscv.registers import register_range
 from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr, Mov
 from .rvc_instructions import CSwsp, CLwsp, CJal, CJr
 
@@ -71,7 +71,8 @@ class RiscvArch(Architecture):
                  R21, R22, R23, R24, R25, R26, R27])
             ]
         self.fp = FP
-        self.callee_save = () #(LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
+        self.callee_save = ()
+        # (LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
     def branch(self, reg, lab):
         if self.has_option('rvc'):
@@ -142,9 +143,8 @@ class RiscvArch(Architecture):
         i -= 4
         for register in live_regs:
             yield self.store(register, i, SP)
-            i-= 4
+            i -= 4
         yield self.store(LR, i, SP)
-
 
         yield self.branch(LR, vcall.function_name)
 
@@ -227,7 +227,7 @@ class RiscvArch(Architecture):
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):
-            i+= 4
+            i += 4
             yield Lw(register, i, SP)
         Addi(SP, SP, i)
 
@@ -240,6 +240,7 @@ class RiscvArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
+
 
 def round_up(s):
     return s + (4 - s % 4)

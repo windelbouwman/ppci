@@ -5,3 +5,5 @@ http://www.st.com/stm8
 """
 
 from .arch import Stm8Arch
+
+__all__ = ['Stm8Arch']
