@@ -86,3 +86,6 @@ xtensa
 ------
 
 .. automodule:: ppci.arch.xtensa
+
+.. include:: backends/xtensa.rst
+

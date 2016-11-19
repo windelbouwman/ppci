@@ -9,6 +9,7 @@ import logging
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
+logger = logging.getLogger('util')
 
 
 def relpath(*args):
@@ -52,15 +53,21 @@ def has_qemu():
 def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     """ Runs qemu on a given kernel file """
 
-    logger = logging.getLogger('runqemu')
     if not has_qemu():
         return ''
     # Check bin file exists:
     assert os.path.isfile(kernel)
 
-    logger.debug('Running qemu with machine={} and image {}'
-                 .format(machine, kernel))
+    logger.debug('Running qemu with machine=%s and image %s', machine, kernel)
 
+    args = [
+        'qemu-system-arm', '-M', machine, '-m', '16M',
+        '-nographic', '-kernel', kernel]
+    return qemu(args)
+
+
+def qemu(args):
+    """ Run qemu with given arguments and capture serial output """
     # Listen to the control socket:
     qemu_control_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     qemu_control_serve.bind(('', 0))  # Using 0 as port for autoselect port
@@ -78,9 +85,7 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
 
     logger.debug('Listening on {} for data'.format(ser_port))
 
-    args = [qemu_app, '-M', machine, '-m', '16M',
-            '-nographic',
-            '-kernel', kernel,
+    args = args + [
             '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
             '-serial', 'tcp:localhost:{}'.format(ser_port),
             '-S']
@@ -117,17 +122,6 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     data = data.decode('ascii', errors='ignore')
     logger.debug('Received {} characters'.format(len(data)))
     # print('data', data)
-
-    # Perform a memory dump:
-    # TODO
-    if dump_file and dump_range:
-        # TODO: dump file must not contain '/':
-        dump_file = os.path.basename(dump_file)
-        dump_cmd = 'pmemsave 0x{:x} 0x{:x} {}\n' \
-            .format(dump_range[0], dump_range[1], dump_file)
-
-        qemu_serial.send(dump_cmd.encode('ascii'))
-        time.sleep(0.2)
 
     # Send quit command:
     qemu_control.send("quit\n".encode('ascii'))

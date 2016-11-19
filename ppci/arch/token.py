@@ -115,6 +115,8 @@ class Token:
             bits = key.stop - key.start
             assert bits > 0
             limit = 1 << bits
+            # TODO: is this an issue?
+            # assert value >= 0, value
             if value >= limit:
                 raise ValueError(
                     '{} cannot be fit into {} bits'.format(value, bits))

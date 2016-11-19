@@ -17,14 +17,15 @@ class XtensaArch(Architecture):
         self.isa = instructions.core_isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        self.fp = registers.a7  # TODO: does this make sense?
+        self.fp = registers.a15  # The frame pointer in call0 abi mode
 
-        # TODO: figure out what is the right abi:
-        self.callee_save = (registers.a5, registers.a6)
+        # TODO: a15 is also callee save
+        self.callee_save = (
+            registers.a12, registers.a13, registers.a14)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return instructions.Mov(dst, src)
+        return instructions.Mov(dst, src, ismove=True)
 
     def get_runtime(self):
         from ...api import c3c
@@ -75,15 +76,13 @@ class XtensaArch(Architecture):
 
         # Caller save registers:
         for register in live_regs:
-            # yield self.push(register)
-            pass
+            yield instructions.Push(register)
 
         yield instructions.Call0(vcall.function_name)
 
         # Restore caller save registers:
         for register in reversed(live_regs):
-            # yield self.pop(register)
-            pass
+            yield instructions.Pop(register)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
@@ -102,35 +101,53 @@ class XtensaArch(Architecture):
                 raise NotImplementedError('Constant {}'.format(value))
 
         # Label indication function:
+        yield Alignment(4)  # Must be 32 bit aligned for call0 instruction
         yield Label(frame.name)
+
+        # First save return address (which is in a0):
+        yield instructions.Push(registers.a0)
+
+        # Save frame pointer:
+        yield instructions.Push(self.fp)
 
         # Callee save registers:
         for reg in self.callee_save:
             if frame.is_used(reg):
-                pass
-                # yield self.push(reg)
+                yield instructions.Push(reg)
 
         # Reserve stack space
         if frame.stacksize > 0:
-            self.logger.warning('Figure out how to create stack')
-            # TODO: calculate 2 complement properly:
-            size = 256 - frame.stacksize
+            size = -round_up(frame.stacksize)
             yield instructions.Addi(registers.a1, registers.a1, size)
+
+            # Prepare frame pointer:
+            yield self.move(self.fp, registers.a1)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence """
         if frame.stacksize > 0:
-            size = frame.stacksize
+            size = round_up(frame.stacksize)
             yield instructions.Addi(registers.a1, registers.a1, size)
 
         # Pop save registers back:
         for reg in reversed(self.callee_save):
             if frame.is_used(reg):
-                # yield self.pop(reg)
-                pass
+                yield instructions.Pop(reg)
 
-        # yield self.pop(self.fp)
+        yield instructions.Pop(self.fp)
+
+        # Restore return address:
+        yield instructions.Pop(registers.a0)
+
+        # Return
         yield instructions.Ret()
+
+
+def round_up(s):
+    if s % 4:
+        return s + (4 - s % 4)
+    else:
+        return s
 
 
 # TODO: find a common place for this:

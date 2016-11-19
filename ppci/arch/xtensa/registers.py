@@ -41,7 +41,7 @@ FloatRegister.registers = (f0, f1)
 register_classes = [
     RegisterClass(
         'reg', [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr], AddressRegister,
-        [a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15]),
+        [a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14]),
     RegisterClass(
         'regf', [ir.f32], FloatRegister, FloatRegister.registers)
     ]

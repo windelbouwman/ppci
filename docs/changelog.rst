@@ -7,8 +7,11 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.6 (Upcoming)
-----------------------
+Release 0.5.2 (Upcoming)
+------------------------
+
+* Better floating point support in c3
+* Addition of the xtensa target architecture
 
 Release 0.5.1 (Oct 16, 2016)
 ----------------------------

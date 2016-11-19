@@ -14,6 +14,13 @@ class XtensaAssemblyTestCase(AsmTestCaseBase):
         self.feed('add a7, a5, a9')
         self.check('907580')
 
+    def test_addi(self):
+        self.feed('addi a7, a5, 99')
+        self.feed('addi a7, a5, -77')
+        self.feed('addi a7, a5, 4')
+        self.feed('addi a7, a5, -4')
+        self.check('72c563 72c5b3 72c504 72c5fc')
+
     def test_bany(self):
         self.feed('bany a7, a5, label1')
         self.feed('bany a7, a5, label1')
@@ -78,8 +85,12 @@ class XtensaAssemblyTestCase(AsmTestCaseBase):
         """ Test non windowed call """
         self.feed('call0 label1')
         self.feed('call0 label1')
+        self.feed('call0 label1')
+        self.feed('call0 label1')
         self.feed('label1: call0 label1')
-        self.check('850000 c5ffff 05ffff')
+        self.feed('call0 label1')
+        self.feed('call0 label1')
+        self.check('850000 850000 450000 050000 c5ffff c5ffff 85ffff')
 
     def test_j(self):
         """ Test unconditional jump """

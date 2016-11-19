@@ -7,7 +7,7 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, relpath, run_python, source_files
+from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr
 from util import do_long_tests
@@ -599,9 +599,27 @@ class TestSamplesOnXtensa(unittest.TestCase):
         mmap = relpath('..', 'examples', 'xtensa', 'layout.mmp')
         build(
             base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
-            mmap, lang=lang, bin_format='hex', code_image='code')
-        hexfile = base_filename + '.hex'
-        print(hexfile)
+            mmap, lang=lang, bin_format='bin', code_image='flash')
+        binfile = base_filename + '.bin'
+        img_filename = base_filename + '.img'
+        self.make_image(binfile, img_filename)
+        if has_qemu():
+            output = qemu([
+                'qemu-system-xtensa', '-nographic',
+                '-M', 'lx60', '-m', '16',
+                '-pflash', img_filename])
+            self.assertEqual(expected_output, output)
+
+    def make_image(self, bin_filename, image_filename, imagemb=4):
+        with open(bin_filename, 'rb') as f:
+            hello_bin = f.read()
+
+        flash_size = imagemb * 1024 * 1024
+
+        with open(image_filename, 'wb') as f:
+            f.write(hello_bin)
+            padding = flash_size - len(hello_bin)
+            f.write(bytes(padding))
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')

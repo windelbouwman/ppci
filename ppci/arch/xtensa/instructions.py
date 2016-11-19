@@ -6,7 +6,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Transform
 from ..encoding import Relocation
 from ..arch import ArtificialInstruction
-from .registers import AddressRegister, FloatRegister
+from .registers import AddressRegister, FloatRegister, a1
 from ...utils.bitfun import wrap_negative
 from ... import ir
 
@@ -332,6 +332,24 @@ class Ri16Relocation(Relocation):
         return wrap_negative(offset, 16)
 
 
+@core_isa.register_relocation
+class Call0Relocation(Relocation):
+    name = 'call0'
+    number = 4
+    token = CallToken
+    field = 'imm18'
+
+    def calc(self, sym_value, reloc_value):
+        # Nice weird call0 encoding!
+        assert sym_value % 4 == 0  # Assert 32 bit aligned!
+        s = sym_value >> 2
+        r = (reloc_value & 0xfffffffc) >> 2
+        offset = s - (r + 1)
+        # assert offset in range(-524284, 524288), str(offset)
+        # TODO: this wrap_negative is somewhat weird
+        return wrap_negative(offset, 18)
+
+
 class Bany(XtensaCoreInstruction):
     """ Branch if any bit set """
     tokens = [Rri8Token]
@@ -468,7 +486,7 @@ class Call0(XtensaCoreInstruction):
     syntax = Syntax(['call0', ' ', label])
 
     def relocations(self):
-        return [Imm18Relocation(self.label)]
+        return [Call0Relocation(self.label)]
 
 
 class J(XtensaCoreInstruction):
@@ -729,16 +747,37 @@ class Xor(XtensaCoreInstruction):
     syntax = Syntax(['xor', ' ', r, ',', ' ', s, ',', ' ', t])
 
 
+# Extra handy instructions:
+class Push(XtensaMacroInstruction):
+    """ Push a register on stack """
+    r = Operand('r', AddressRegister, read=True)
+    syntax = Syntax(['push', ' ', r])
+
+    def render(self):
+        yield Addi(a1, a1, -4)
+        yield S32i(self.r, a1, 0)
+
+
+class Pop(XtensaMacroInstruction):
+    """ Pop a register from the stack """
+    r = Operand('r', AddressRegister, write=True)
+    syntax = Syntax(['pop', ' ', r])
+
+    def render(self):
+        yield L32i(self.r, a1, 0)
+        yield Addi(a1, a1, 4)
+
+
 @core_isa.pattern('stm', 'MOVU8(reg)')
 def pattern_mov_u8(context, tree, c0):
     d = tree.value
-    context.emit(Mov(d, c0))
+    context.emit(Mov(d, c0, ismove=True))
 
 
 @core_isa.pattern('stm', 'MOVI32(reg)')
 def pattern_mov_i32(context, tree, c0):
     d = tree.value
-    context.emit(Mov(d, c0))
+    context.emit(Mov(d, c0, ismove=True))
 
 
 @core_isa.pattern('reg', 'REGU8')
@@ -760,7 +799,7 @@ def pattern_label(context, tree):
 @core_isa.pattern(
     'reg', 'CONSTI32', size=3, cycles=1, energy=1,
     condition=lambda t: t.value in range(-2048, 2047))
-def pattern_const_small_i32(context, tree):
+def pattern_const_small_i32(context, tree, size=3, cycles=1, energy=1):
     d = context.new_reg(AddressRegister)
     context.emit(Movi(d, tree.value))
     return d
@@ -803,21 +842,30 @@ def pattern_u8_to_i32(context, tree, c0):
     return c0
 
 
-@core_isa.pattern('reg', 'ADDI32(reg,reg)')
+@core_isa.pattern('reg', 'ADDI32(reg,reg)', size=3, cycles=1, energy=1)
 def pattern_add_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Add(d, c0, c1))
     return d
 
 
-@core_isa.pattern('reg', 'SUBI32(reg,reg)')
+@core_isa.pattern(
+    'reg', 'ADDI32(reg,CONSTI32)', size=3, cycles=1, energy=1,
+    condition=lambda t: t[1].value in range(-128, 127))
+def pattern_add_i32_imm(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    context.emit(Addi(d, c0, tree[1].value))
+    return d
+
+
+@core_isa.pattern('reg', 'SUBI32(reg,reg)', size=3, cycles=1, energy=1)
 def pattern_sub_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Sub(d, c0, c1))
     return d
 
 
-@core_isa.pattern('reg', 'MULI32(reg, reg)')
+@core_isa.pattern('reg', 'MULI32(reg, reg)', size=10, cycles=10, energy=10)
 def pattern_mul32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     # Generate call into runtime lib function!
@@ -875,16 +923,32 @@ def pattern_str_u8(context, tree, c0, c1):
     context.emit(S8i(c1, c0, 0))
 
 
-@core_isa.pattern('reg', 'LDRI32(reg)')
+@core_isa.pattern('reg', 'LDRI32(reg)', size=3, cycles=2, energy=2)
 def pattern_ldr_i32(context, tree, c0):
     d = context.new_reg(AddressRegister)
     context.emit(L32i(d, c0, 0))
     return d
 
 
-@core_isa.pattern('stm', 'STRI32(reg, reg)')
+@core_isa.pattern(
+    'reg', 'LDRI32(ADDI32(reg, CONSTI32))', size=3, cycles=2, energy=2,
+    condition=lambda t: t[0][1].value in range(0, 1020, 4))
+def pattern_ldr_i32_add_const(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    context.emit(L32i(d, c0, tree[0][1].value))
+    return d
+
+
+@core_isa.pattern('stm', 'STRI32(reg, reg)', size=3, cycles=2, energy=2)
 def pattern_str_i32(context, tree, c0, c1):
     context.emit(S32i(c1, c0, 0))
+
+
+@core_isa.pattern(
+    'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)', size=3, cycles=2, energy=2,
+    condition=lambda t: t[0][1].value in range(0, 1020, 4))
+def pattern_str_i32_add_const(context, tree, c0, c1):
+    context.emit(S32i(c1, c0, tree[0][1].value))
 
 
 @core_isa.pattern('stm', 'JMP')

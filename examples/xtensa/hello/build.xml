@@ -22,7 +22,7 @@
 
         <objcopy
             objectfile="hello.oj"
-            imagename="code"
+            imagename="flash"
             format="bin"
             output="hello.bin" />
     </target>
