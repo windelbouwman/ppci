@@ -5,8 +5,12 @@ using ctypes
 Credits for idea: Luke Campagnola
 """
 
-import io, mmap, ctypes
-from ppci.api import c3c, link
+import sys
+import platform
+import io
+import mmap
+import ctypes
+from ppci.api import c3c, link, get_arch
 
 
 class Mod:
@@ -17,7 +21,7 @@ class Mod:
 
         buf = (ctypes.c_char * size).from_buffer(self._page)
         page_addr = ctypes.addressof(buf)
-        code = obj.get_section('code').data
+        code = bytes(obj.get_section('code').data)
         page.write(code)
 
         # Get a function pointer
@@ -34,7 +38,15 @@ def load_code_as_module(source_file):
     """ Load c3 code as a module """
 
     # Compile a simple function
-    obj1 = c3c([source_file], [], 'x86_64', debug=True)
+    if sys.platform == 'linux' and platform.machine() == 'x86_64':
+        march = get_arch('x86_64')
+    elif sys.platform == 'win32' and platform.machine() == 'x86_64':
+        # windows 64 bit
+        march = get_arch('x86_64:wincc')
+    else:
+        raise NotImplementedError(sys.platform)
+
+    obj1 = c3c([source_file], [], march, debug=True)
     # print(obj1)
     obj = link([obj1], debug=True)
     # print(obj)

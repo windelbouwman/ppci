@@ -13,7 +13,7 @@ def has_numpy():
         return False
 
 
-class TestCase(unittest.TestCase):
+class CodePageTestCase(unittest.TestCase):
     def test_add(self):
         source_file = io.StringIO("""
               module main;
@@ -31,7 +31,24 @@ class TestCase(unittest.TestCase):
         self.assertEqual(3, m.add(1, 2))
         self.assertEqual(8, m.sub(10, 2))
 
-    @unittest.skipIf(not has_numpy(), 'skipping numpy test')
+    def test_floated(self):
+        """ Test floating point function """
+        source_file = io.StringIO("""
+            module main;
+            function double add(double a, int b) {
+                return a + b;
+            }
+            """)
+        m = load_code_as_module(source_file)
+        m.add.argtypes = [ctypes.c_double, ctypes.c_int]
+        m.add.restype = ctypes.c_double
+        x = m.add(3.14, 101)
+        # print(x, type(x))
+        self.assertEqual(104.14, x)
+
+
+@unittest.skipIf(not has_numpy(), 'skipping numpy test')
+class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
         source_file = io.StringIO("""
             module main;
@@ -47,7 +64,6 @@ class TestCase(unittest.TestCase):
 
                 return 0xff;
             }
-
             """)
         m = load_code_as_module(source_file)
 
@@ -65,6 +81,35 @@ class TestCase(unittest.TestCase):
 
         pos = m.find_first(addr, 200, len(a), a.itemsize)
         self.assertEqual(0xff, pos)
+
+    def test_numpy_floated(self):
+        # TODO: add '10.2' instead of '10'. Somehow, adding 10.2 does not work
+        source_file = io.StringIO("""
+            module main;
+            function void mlt(double* a, double *b, int size, int stride) {
+                var int i = 0;
+                var int ptr = 0;
+                for ( i=0; i<size; i+=1 ) {
+                  *(a + ptr) = *(a + ptr) + *(b + ptr) * 2 + 10;
+                  ptr += stride;
+                }
+            }
+            """)
+        m = load_code_as_module(source_file)
+
+        # TODO: the argument types should be inferred:
+        m.mlt.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+
+        import numpy as np
+        a = np.array([12, 7, 3, 5, 42, 100], dtype=float)
+        b = np.array([82, 2, 5, 8, 13, 600], dtype=float)
+        c = np.array([186, 21, 23, 31, 78, 1310], dtype=float)
+
+        m.mlt(a.ctypes.data, b.ctypes.data, len(a), a.itemsize)
+        # print(a)
+        # print(c)
+        self.assertTrue(np.allclose(c, a))
 
 
 if __name__ == '__main__':

@@ -31,7 +31,7 @@ from . import registers
 class X86_64Arch(Architecture):
     """ x86_64 architecture """
     name = 'x86_64'
-    option_names = ('sse2', 'sse3', 'x87')
+    option_names = ('sse2', 'sse3', 'x87', 'wincc')
 
     def __init__(self, options=None):
         super().__init__(options=options, register_classes=register_classes)
@@ -89,11 +89,19 @@ class X86_64Arch(Architecture):
         """
         arg_locs = []
         live_in = set([rbp])
-        int_regs = [rdi, rsi, rdx, rcx, r8, r9]
-        float_regs = [
-            registers.xmm0, registers.xmm1, registers.xmm2,
-            registers.xmm3, registers.xmm4, registers.xmm5,
-            registers.xmm6, registers.xmm7]
+        if self.has_option('wincc'):
+            # Windows calling convention:
+            int_regs = [rcx, rdx, r8, r9]
+            float_regs = [
+                registers.xmm0, registers.xmm1, registers.xmm2,
+                registers.xmm3]
+        else:
+            # Sys V ABI calling convention:
+            int_regs = [rdi, rsi, rdx, rcx, r8, r9]
+            float_regs = [
+                registers.xmm0, registers.xmm1, registers.xmm2,
+                registers.xmm3, registers.xmm4, registers.xmm5,
+                registers.xmm6, registers.xmm7]
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:

@@ -1,6 +1,6 @@
 """ Stm8 instructions """
 
-from .registers import Stm8RegisterA
+from .registers import Stm8RegisterA, A
 from .registers import Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH
 from .registers import Stm8RegisterY, Stm8RegisterYL, Stm8RegisterYH
 from .registers import Stm8RegisterSP, Stm8RegisterCC
@@ -1281,3 +1281,48 @@ XorALongptrX = create_instruction(
     mnemonic='xor', operands=(a_rw, longptr_x), precode=0x72, opcode=0xD8)
 XorAShortptrY = create_instruction(
     mnemonic='xor', operands=(a_rw, shortptr_y), precode=0x91, opcode=0xD8)
+
+
+@stm8_isa.pattern('a', 'CONSTU8', size=2, cycles=1, energy=1)
+def pattern_const8(context, tree):
+    context.emit(Ld(A, ByteSource(tree.value)))
+    return A
+
+
+@stm8_isa.pattern('a', 'ADDU8(a, CONSTU8)', size=2, cycles=1, energy=1)
+def pattern_add8(context, tree, c0):
+    context.emit(Add(A, ByteSource(tree[1].value)))
+    return A
+
+
+@stm8_isa.pattern('a', 'SUBU8(a, CONSTU8)', size=2, cycles=1, energy=1)
+def pattern_sub8(context, tree, c0):
+    context.emit(Sub(A, ByteSource(tree[1].value)))
+    return A
+
+
+@stm8_isa.pattern('a', 'ANDU8(a, CONSTU8)', size=2, cycles=1, energy=1)
+def pattern_and8(context, tree, c0):
+    context.emit(And(A, ByteSource(tree[1].value)))
+    return A
+
+
+@stm8_isa.pattern('a', 'ORU8(a, CONSTU8)', size=2, cycles=1, energy=1)
+def pattern_or8(context, tree, c0):
+    context.emit(Or(A, ByteSource(tree[1].value)))
+    return A
+
+
+@stm8_isa.pattern('a', 'XORU8(a, CONSTU8)', size=2, cycles=1, energy=1)
+def pattern_xor8(context, tree, c0):
+    context.emit(Xor(A, ByteSource(tree[1].value)))
+    return A
+
+
+@stm8_isa.pattern('a', 'LDRU8', size=2, cycles=1, energy=1)
+def pattern_ldr8(context, tree):
+    # TODO
+    context.emit(Ld(A, LongMemSource(tree.value)))
+    return A
+
+
