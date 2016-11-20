@@ -407,6 +407,7 @@ def hex2int(s):
         return int(s, 16)
     raise ValueError('Hexadecimal value must begin with 0x')
 
+
 hexutil_parser = argparse.ArgumentParser(
     description='hexfile manipulation tool by Windel Bouwman')
 subparsers = hexutil_parser.add_subparsers(

@@ -1,4 +1,4 @@
-from ..arch import Architecture, VCall
+from ..arch import Architecture
 from ...binutils.assembler import BaseAssembler
 from .instructions import isa
 

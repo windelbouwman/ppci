@@ -592,7 +592,7 @@ def pattern_const_i32_small(context, tree):
 
 @isa.pattern('reg', 'CONSTI8', size=2, condition=lambda t: t.value < 256)
 @isa.pattern('reg', 'CONSTU8', size=2, condition=lambda t: t.value < 256)
-def _(context, tree):
+def pattern_const8(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
     assert isinstance(c0, int)
@@ -602,11 +602,11 @@ def _(context, tree):
 
 
 @isa.pattern('stm', 'CJMP(reg, reg)', size=2)
-def _(context, tree, c0, c1):
+def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Bgt}
     Bop = opnames[op]
-    if(op=="<="):
+    if op == "<=":
         jmp_ins = B(yes_label.name, jumps=[yes_label])
         context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
         context.emit(jmp_ins)
@@ -708,7 +708,7 @@ def pattern_call(context, tree):
 @isa.pattern('reg', 'ANDI32(reg, reg)', size=2)
 def pattern_and_i32_(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
-    context.emit(And(d, c0, c1))
+    context.emit(Andr(d, c0, c1))
     return d
 
 
@@ -837,7 +837,7 @@ def pattern_mul_i32(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', size=2)
-def _(context, tree, c0):
+def pattern_ldr_i32_add(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].children[1].value
     assert isinstance(c1, int)
@@ -867,7 +867,7 @@ def pattern_rem_i32(context, tree, c0, c1):
 @isa.pattern('reg', 'XORI32(reg, reg)', size=2)
 def pattern_xor_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
-    context.emit(Xor(d, c0, c1))
+    context.emit(Xorr(d, c0, c1))
     return d
 
 

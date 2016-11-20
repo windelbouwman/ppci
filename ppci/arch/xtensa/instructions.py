@@ -983,5 +983,3 @@ def pattern_cjmp(context, tree, c0, c1):
 @core_isa.pattern('stm', 'CALL', size=10)
 def pattern_call(context, tree):
     context.gen_call(tree.value)
-
-

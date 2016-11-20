@@ -369,12 +369,13 @@ class Frame:
 
         # Get register colors from interference graph:
         live_regs = []
-        for tmp in (instruction.live_in & instruction.live_out) - instruction.kill:
+        for tmp in (
+                instruction.live_in & instruction.live_out) - instruction.kill:
             # print(tmp)
             n = self.ig.get_node(tmp)
             reg = n.reg
             live_regs.append(reg)
-        #for tmp in instruction.used_registers:
+        # for tmp in instruction.used_registers:
         #    if tmp in live_regs:
         #        live_regs
         return live_regs

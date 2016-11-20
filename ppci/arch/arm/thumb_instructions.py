@@ -1,10 +1,8 @@
 """ Thumb instruction definitions """
 
-from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from ..token import u16
 from ..arm.registers import ArmRegister, LowArmRegister
-from ..token import Token, bit_range
 from .thumb_relocations import Lit8Relocation, WrapNew11Relocation
 from .thumb_relocations import BImm11Imm6Relocation
 from .thumb_relocations import Rel8Relocation, BlImm11Relocation

@@ -1,6 +1,6 @@
-"""
+""" Implementation of tree structure.
 
-Implementation of tree structure. Including a parser that can
+Including a parser that can
 parse tree structures from text.
 
 """
@@ -57,8 +57,9 @@ class TreeLexer(BaseLexer):
 
 
 class TreeParser:
-    """ Parser that can parse tree expressions. For example:
+    """ Parser that can parse tree expressions.
 
+    For example:
         A(B(1,2,3),2,1,C)
     """
     def __init__(self):
@@ -95,6 +96,7 @@ class TreeParser:
                 children.append(self.parse_tree())
             self.consume(')')
         return Tree(name, *children)
+
 
 tree_parser = TreeParser()
 

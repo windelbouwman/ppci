@@ -35,10 +35,12 @@ def load_code_as_module(source_file):
 
     # Compile a simple function
     obj1 = c3c([source_file], [], 'x86_64', debug=True)
-    # obj = link([obj1])
+    # print(obj1)
+    obj = link([obj1], debug=True)
+    # print(obj)
 
     # Convert obj to executable module
-    m = Mod(obj1)
+    m = Mod(obj)
     return m
 
 

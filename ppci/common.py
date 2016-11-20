@@ -25,6 +25,7 @@ def make_num(txt):
     else:
         return int(txt)
 
+
 str2int = make_num
 
 

@@ -1,4 +1,4 @@
-from ..encoding import Register, Syntax
+from ..encoding import Register
 
 
 class Stm8Register(Register):

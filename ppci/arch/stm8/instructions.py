@@ -76,7 +76,8 @@ def get_register_argument(name, mnemonic, read=True, write=False):
 
 
 def create_register_operand(register, read, write):
-    argument = get_register_argument(register.lower(), register.upper(), read=read, write=write)
+    argument = get_register_argument(
+        register.lower(), register.upper(), read=read, write=write)
     return {'name': register.title(),
             register.lower(): argument,
             'syntax': [argument],
@@ -145,7 +146,9 @@ def create_memory_operand(immidiate=None,
     syntax += [index] if index else []
     syntax += [')'] if index else []
 
-    argument_token = {'byte':Stm8ByteToken, 'long':Stm8WordToken, 'short':Stm8ByteToken, 'word':Stm8WordToken}
+    argument_token = {
+        'byte': Stm8ByteToken, 'long': Stm8WordToken,
+        'short': Stm8ByteToken, 'word': Stm8WordToken}
     tokens = [argument_token[argument_type]] if argument_type in ('byte', 'long', 'short', 'word') else []
 
     argument_pattern = {
@@ -229,7 +232,8 @@ def create_instruction(mnemonic,
         patterns += operand.pop('patterns')
         members.update(operand)
 
-    members.update({'syntax': Syntax(syntax), 'tokens': tokens, 'patterns': patterns})
+    members.update({
+        'syntax': Syntax(syntax), 'tokens': tokens, 'patterns': patterns})
 
     return type(name, (Stm8Instruction,), members)
 

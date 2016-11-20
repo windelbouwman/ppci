@@ -74,5 +74,5 @@ def pattern_str_f32(context, tree, c0, c1):
     # context.emit(Fst32(RmMem(c0)))
     # TODO: exchange?
 
-    context.emit(Fst32(RmMem(c0)))
-
+    # context.emit(Fst32(RmMem(c0)))
+    raise NotImplementedError()

@@ -3,9 +3,9 @@
 import struct
 from ..isa import Isa
 from ..encoding import Operand, Syntax, Instruction, Constructor
-from .instructions import mem_modes, rm_modes
-from .instructions import OpcodeToken, SecondaryOpcodeToken
-from .instructions import PrefixToken, Prefix2Token
+from .instructions import rm_modes
+from .instructions import OpcodeToken
+from .instructions import PrefixToken
 from .instructions import RexToken, ModRmToken, SibToken
 from .instructions import Imm32Token, Imm8Token
 from .instructions import RmMem, RmMemDisp, RmReg, RmAbs, MovAdr
@@ -298,7 +298,7 @@ def pattern_f64tof32(context, tree, c0):
 
 
 @sse2_isa.pattern('regfp', 'F32TOF64(regfp)', size=6, cycles=3, energy=3)
-def pattern_f64tof32(context, tree, c0):
+def pattern_f32tof64(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtss2sd(d, RmXmmReg(c0)))
     return d

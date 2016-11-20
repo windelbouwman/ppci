@@ -244,7 +244,6 @@ class Debugger:
     def get_registers(self):
         return self.arch.gdb_registers
 
-
     def get_register(self, register):
         """ Get the value of a single register """
         raise NotImplementedError()

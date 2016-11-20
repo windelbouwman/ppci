@@ -17,9 +17,9 @@ from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret
 from .x87_instructions import x87_isa
-from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg, PushXmm, PopXmm
+from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
+from .sse2_instructions import PushXmm, PopXmm
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
-from .registers import xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7
 from .registers import all_registers
 from .registers import register_classes
 from .registers import X86Register, LowRegister, XmmRegister
@@ -116,7 +116,7 @@ class X86_64Arch(Architecture):
         if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
             rv = rax
         elif ret_type in [ir.f32, ir.f64]:
-            rv = xmm0
+            rv = registers.xmm0
         else:  # pragma: no cover
             raise NotImplementedError(str(ret_type))
         live_out.add(rv)

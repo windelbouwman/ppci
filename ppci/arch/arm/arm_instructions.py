@@ -389,6 +389,7 @@ def make_branch(mnemonic, cond):
         'syntax': syntax, 'target': target, 'cond': cond}
     return type(mnemonic + '_ins', (BranchBase,), members)
 
+
 B = make_branch('b', AL)
 Beq = make_branch('beq', EQ)
 Bgt = make_branch('bgt', GT)
@@ -852,6 +853,7 @@ def pattern_xor32(context, tree, c0, c1):
 
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?
+
 
 isa_with_div = Isa()
 

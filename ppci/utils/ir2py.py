@@ -28,7 +28,10 @@ class IrToPython:
         self.print(0, 'def correct(value, bits, signed):')
         self.print(1, 'base = 1 << bits')
         self.print(1, 'value %= base')
-        self.print(1, 'return value - base if signed and value.bit_length() == bits else value')
+        self.print(1, 'if signed and value.bit_length() == bits:')
+        self.print(2, 'return value - base')
+        self.print(1, 'else:')
+        self.print(2, 'return value')
 
     def generate(self, ir_mod):
         """ Write ir-code to file f """

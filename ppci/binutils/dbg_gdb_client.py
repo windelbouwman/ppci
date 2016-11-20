@@ -5,7 +5,6 @@
 import binascii
 import logging
 import struct
-import time 
 from .dbg import DebugDriver, STOPPED, RUNNING
 
 
@@ -29,7 +28,6 @@ class GdbDebugDriver(DebugDriver):
         self.pcresval = pcresval
         if(constat == RUNNING):
             self.stop()
-
 
     @staticmethod
     def rsp_pack(data):
@@ -156,11 +154,11 @@ class GdbDebugDriver(DebugDriver):
     def restart(self):
         """ restart the device """
         if self.status == STOPPED:
-            #self.sendpkt("c00000080")
+            # self.sendpkt("c00000080")
             self.set_pc(self.pcresval)
             self.run()
-            #res = self.readpkt()
-            #print(res)
+            # res = self.readpkt()
+            # print(res)
         self.status = RUNNING
 
     def step(self):
@@ -172,9 +170,8 @@ class GdbDebugDriver(DebugDriver):
     def nstep(self, count):
         """ restart the device """
         if self.status == STOPPED:
-            self.sendpkt("n %x" %count)
+            self.sendpkt("n %x" % count)
             self.process_stop_status()
-
 
     def stop(self):
         self.sendbrk()
@@ -230,7 +227,7 @@ class GdbDebugDriver(DebugDriver):
             data[offset:offset+size] = reg_data
             offset += size
         data = binascii.b2a_hex(data).decode('ascii')
-        self.sendpkt("G %s" %data)
+        self.sendpkt("G %s" % data)
         res = self.readpkt()
         if res == 'OK':
             self.logger.debug('Register written')

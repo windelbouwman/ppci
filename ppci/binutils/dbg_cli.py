@@ -50,7 +50,6 @@ class DebugCli(cmd.Cmd):
         count = str2int(count)
         self.debugger.nstep(count)
 
-
     def do_stop(self, _):
         """ Stop the running program """
         self.debugger.stop()
@@ -88,7 +87,8 @@ class DebugCli(cmd.Cmd):
     def do_readregs(self, _):
         """ Read registers """
         registers = self.debugger.get_registers()
-        self.debugger.register_values = self.debugger.get_register_values(registers)
+        self.debugger.register_values = self.debugger.get_register_values(
+            registers)
         for reg in registers:
             size = reg.bitsize // 4
             print('{:>5.5s} : 0x{:0{sz}X}'.format(

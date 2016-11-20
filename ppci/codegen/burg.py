@@ -265,37 +265,38 @@ class BurgParser(burg_parser.Parser):
 
 
 class BurgGenerator:
-    def print(self, *args):
+    def print(self, level, text=''):
         """ Print helper function that prints to output file """
-        print(*args, file=self.output_file)
+        print('    ' * level + text, file=self.output_file)
 
     def generate(self, system, output_file):
         """ Generate script that implements the burg spec """
         self.output_file = output_file
         self.system = system
 
-        self.print('#!/usr/bin/python')
-        self.print('from ppci.codegen.treematcher import BaseMatcher, State')
-        self.print('from ppci.utils.tree import Tree')
+        self.print(0, '#!/usr/bin/python')
+        self.print(
+            0, 'from ppci.codegen.treematcher import BaseMatcher, State')
+        self.print(0, 'from ppci.utils.tree import Tree')
         for header in self.system.header_lines:
-            self.print(header)
-        self.print()
-        self.print('class Matcher(BaseMatcher):')
-        self.print('    def __init__(self):')
-        self.print('        self.kid_functions = {}')
-        self.print('        self.nts_map = {}')
-        self.print('        self.pat_f = {}')
+            self.print(0, header)
+        self.print(0)
+        self.print(0, 'class Matcher(BaseMatcher):')
+        self.print(1, 'def __init__(self):')
+        self.print(2, 'self.kid_functions = {}')
+        self.print(2, 'self.nts_map = {}')
+        self.print(2, 'self.pat_f = {}')
         for rule in self.system.rules:
             kids, dummy = self.compute_kids(rule.tree, 't')
             rule.num_nts = len(dummy)
             lf = 'lambda t: [{}]'.format(', '.join(kids), rule)
             pf = 'self.P{}'.format(rule.nr)
-            self.print('')
-            self.print('        #  {}: {}'.format(rule.nr, rule))
-            self.print('        self.kid_functions[{}] = {}'.format(rule.nr, lf))
-            self.print('        self.nts_map[{}] = {}'.format(rule.nr, dummy))
-            self.print('        self.pat_f[{}] = {}'.format(rule.nr, pf))
-        self.print()
+            self.print(0)
+            self.print(2, '# {}: {}'.format(rule.nr, rule))
+            self.print(2, 'self.kid_functions[{}] = {}'.format(rule.nr, lf))
+            self.print(2, 'self.nts_map[{}] = {}'.format(rule.nr, dummy))
+            self.print(2, 'self.pat_f[{}] = {}'.format(rule.nr, pf))
+        self.print(0)
         for rule in self.system.rules:
             if rule.num_nts > 0:
                 args = ', '.join('c{}'.format(x) for x in range(rule.num_nts))
@@ -303,55 +304,68 @@ class BurgGenerator:
             else:
                 args = ''
             # Create template function:
-            self.print('')
-            self.print('    def P{}(self, tree{}):'.format(rule.nr, args))
+            self.print(0)
+            self.print(1, 'def P{}(self, tree{}):'.format(rule.nr, args))
             template = rule.template
             for t in template.split(';'):
-                self.print('        {}'.format(t.strip()))
+                self.print(2, '{}'.format(t.strip()))
             # Create acceptance function:
             if rule.acceptance:
-                self.print('')
-                self.print('    def A{}(self, tree):'.format(rule.nr))
+                self.print(0)
+                self.print(1, 'def A{}(self, tree):'.format(rule.nr))
                 for t in rule.acceptance.split(';'):
-                    self.print('        {}'.format(t.strip()))
+                    self.print(2, '{}'.format(t.strip()))
         self.emit_state()
-        self.print('    def gen(self, tree):')
-        self.print('        self.burm_label(tree)')
-        self.print('        if not tree.state.has_goal("{}"):'.format(self.system.goal))
-        self.print('            raise Exception("Tree {} not covered".format(tree))')
-        self.print('        return self.apply_rules(tree, "{}")'.format(self.system.goal))
+        self.print(1, 'def gen(self, tree):')
+        self.print(2, 'self.burm_label(tree)')
+        self.print(
+            2, 'if not tree.state.has_goal("{}"):'.format(self.system.goal))
+        self.print(3, 'raise Exception("Tree {} not covered".format(tree))')
+        self.print(
+            2, 'return self.apply_rules(tree, "{}")'.format(self.system.goal))
 
     def emit_record(self, rule, state_var):
         # TODO: check for rules fullfilled (by not using 999999)
         acc = ''
         if rule.acceptance:
             acc = ' and self.A{}(tree)'.format(rule.nr)
-        self.print('            nts = self.nts({})'.format(rule.nr))
-        self.print('            kids = self.kids(tree, {})'.format(rule.nr))
-        self.print('            if all(x.state.has_goal(y) for x, y in zip(kids, nts)){}:'.format(acc))
-        self.print('                c = sum(x.state.get_cost(y) for x, y in zip(kids, nts)) + {}'.format(rule.cost))
-        self.print('                tree.state.set_cost("{}", c, {})'.format(rule.non_term, rule.nr))
+        self.print(3, 'nts = self.nts({})'.format(rule.nr))
+        self.print(3, 'kids = self.kids(tree, {})'.format(rule.nr))
+        self.print(
+            3,
+            'if all(x.state.has_goal(y) for x, y in zip(kids, nts)){}:'.format(
+                acc))
+        self.print(
+            4,
+            ('c = sum(x.state.get_cost(y) for x, y in zip(kids, nts)) + {}')
+            .format(rule.cost))
+        self.print(
+            4, 'tree.state.set_cost("{}", c, {})'.format(
+                rule.non_term, rule.nr))
         for cr in self.system.symbols[rule.non_term].chain_rules:
-            self.print('                # Chain rule: {}'.format(cr))
-            self.print('                tree.state.set_cost("{}", c + {}, {})'.format(cr.non_term, cr.cost, cr.nr))
+            self.print(4, '# Chain rule: {}'.format(cr))
+            self.print(
+                4, 'tree.state.set_cost("{}", c + {}, {})'.format(
+                    cr.non_term, cr.cost, cr.nr))
 
     def emit_state(self):
         """ Emit a function that assigns a new state to a node """
-        self.print('    def burm_state(self, tree):')
-        self.print('        tree.state = State()')
+        self.print(1, 'def burm_state(self, tree):')
+        self.print(2, 'tree.state = State()')
         for term in self.system.terminals:
             self.emitcase(term)
-        self.print()
+        self.print(0)
 
     def emitcase(self, term):
         rules = [rule for rule in self.system.rules if rule.tree.name == term]
         for rule in rules:
             condition = self.emittest(rule.tree, 'tree')
-            self.print('        if {}:'.format(condition))
+            self.print(2, 'if {}:'.format(condition))
             self.emit_record(rule, 'state')
 
     def compute_kids(self, t, root_name):
-        """ Compute of a pattern the blanks that must be provided from below in the tree """
+        """ Compute of a pattern the blanks that must be provided
+        from below in the tree """
         if t.name in self.system.non_terminals:
             return [root_name], [t.name]
         else:
@@ -366,8 +380,12 @@ class BurgGenerator:
 
     def emittest(self, tree, prefix):
         """ Generate condition for a tree pattern """
-        ct = (c for c in tree.children if c.name not in self.system.non_terminals)
-        child_tests = (self.emittest(c, prefix + '.children[{}]'.format(i)) for i, c in enumerate(ct))
+        ct = (
+            c for c in tree.children
+            if c.name not in self.system.non_terminals)
+        child_tests = (
+            self.emittest(c, prefix + '.children[{}]'.format(i))
+            for i, c in enumerate(ct))
         child_tests = ('({})'.format(ct) for ct in child_tests)
         child_tests = ' and '.join(child_tests)
         child_tests = ' and ' + child_tests if child_tests else ''
