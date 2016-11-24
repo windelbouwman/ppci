@@ -5,7 +5,12 @@ from ... import ir, irutils
 
 
 class CodeGenerator:
-    """ Transform llvm-ir into ppci-ir """
+    """ Transform llvm-ir into ppci-ir
+
+    This class has the humble job to convert llvm-IR into ppci-IR.
+
+    llvm variables are prefixed with ll_
+    """
     logger = logging.getLogger('llvm-gen')
 
     def __init__(self):
@@ -19,16 +24,24 @@ class CodeGenerator:
         self.logger.debug('generating ir-code from llvm ir-code')
         self.logger.warning('ir code generation not functional yet')
         self.builder.module = ir.Module('TODO')
+        self.ll_module = ll_module
         for function in ll_module.functions:
             self.gen_function(function)
+        self.ll_module = None
         return self.builder.module
 
     def gen_function(self, function):
         """ Generate code for an llvm function """
         self.logger.debug('generating ir-code for %s', function)
-        ir_function = self.builder.new_procedure('b')
+        name = 'b'
+        ir_function = self.builder.new_procedure(name)
         self.builder.set_function(ir_function)
-        return
+        for ll_arg in function.arguments:
+            arg_name = ll_arg.name
+            arg_ty = self.get_ir_type(ll_arg.ty)
+            pp_arg = ir.Parameter(arg_name, arg_ty)
+            self.val_map[ll_arg] = pp_arg
+            ir_function.add_parameter(pp_arg)
         for basic_block in function.basic_blocks:
             block = self.builder.new_block()
             self.builder.set_block(block)
@@ -38,27 +51,55 @@ class CodeGenerator:
     def gen_instruction(self, instruction):
         """ Transform an llvm instruction into the right ppci ir part """
         if isinstance(instruction, nodes.BinaryOperator):
-            self.emit(ir.Binop())
+            lhs = self.get_val(instruction.lhs)
+            op_map = {
+                'mul': '*',
+                'add': '+',
+                }
+            op = op_map[instruction.op]
+            rhs = self.get_val(instruction.rhs)
+            name = 'binop'
+            ty = self.get_ir_type(instruction.ty)
+            ir_val = self.emit(ir.Binop(lhs, op, rhs, name, ty))
+            self.val_map[instruction] = ir_val
         elif isinstance(instruction, nodes.AllocaInst):
-            amount = data_layout.get_type_alloc_size(instruction.allocated_ty)
+            amount = self.ll_module.data_layout.get_type_alloc_size(
+                instruction.allocated_ty)
             name = instruction.name
             ir_ins = self.emit(ir.Alloc(name, amount))
             self.val_map[instruction] = ir_ins
         elif isinstance(instruction, nodes.GetElementPtrInst):
+            # Implement arithmatic here!
             ir_ins = self.get_val(instruction.ptr)
+            print(instruction.indices)
+            # raise NotImplementedError(str(instruction))
             # TODO
+            self.val_map[instruction] = ir_ins
         elif isinstance(instruction, nodes.LoadInst):
+            ty = self.get_ir_type(instruction.ptr.ty.el_type)
             ptr = self.get_val(instruction.ptr)
-            ir_ins = self.emit(ir.Load(ptr, name, ty))
+            ir_ins = self.emit(ir.Load(ptr, 'load', ty))
             self.val_map[instruction] = ir_ins
         elif isinstance(instruction, nodes.StoreInst):
             val = self.get_val(instruction.val)
             ptr = self.get_val(instruction.ptr)
             self.emit(ir.Store(val, ptr))
         elif isinstance(instruction, nodes.InsertElementInst):
-            raise NotImplementedError()
+            pp_ptr = self.get_val(instruction.address)
+            pp_val = self.get_val(instruction.value)
+            # TODO: type check?
+            # pp_ty = self.get_type(instruction.ty.el_type)
+            # assert 
+            self.emit(ir.Store(pp_ptr, pp_val))
+            self.val_map[instruction] = pp_val
         elif isinstance(instruction, nodes.ExtractElementInst):
-            raise NotImplementedError()
+            pp_ptr = self.get_val(instruction.val)
+            pp_ty = self.get_type(instruction.ty)
+            # TODO: offset?
+            # TODO: what if loaded type is not a basetype?
+            # pp_ptr = self.emit(ir.add())
+            pp_val = self.emit(ir.Load(pp_ptr, 'load', pp_ty))
+            self.val_map[instruction] = pp_val
         elif isinstance(instruction, nodes.ShuffleVectorInst):
             raise NotImplementedError()
         elif isinstance(instruction, nodes.SelectInst):
@@ -100,15 +141,40 @@ class CodeGenerator:
                 one = self.emit(ir.Const(1, 'one', ir.i8))
                 self.emit(ir.CJump(val, '==', one, block1, block2))
         elif isinstance(instruction, nodes.ReturnInst):
-            self.emit(ir.Return())
+            # Is this return void?
+            if instruction.ty.is_void:
+                self.emit(ir.Exit())
+            else:
+                pp_val = self.get_val(instruction.value)
+                self.emit(ir.Return(pp_val))
         elif isinstance(instruction, nodes.CallInst):
-            self.emit(ir.Call())
+            # Is it a void call?
+            fname = instruction.fname
+            arguments = []
+            if instruction.ty.is_void:
+                self.emit(ir.ProcedureCall(fname, arguments))
+            else:
+                self.emit(ir.FunctionCall(fname, arguments))
         else:  # pragma: no cover
             raise NotImplementedError(str(instruction))
 
     def get_val(self, llvm_val):
         val = self.val_map[llvm_val]
+        # print(self.val_map)
+        # print(llvm_val, val)
         return val
 
+    def get_ir_type(self, ll_ty):
+        if ll_ty.type_id == nodes.integer_ty_id:
+            mapping = {
+                8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
+            return mapping[ll_ty.bits]
+        elif ll_ty.type_id == nodes.pointer_ty_id:
+            return ir.ptr
+        elif ll_ty.type_id == nodes.vector_ty_id:
+            return ir.ptr
+        else:
+            raise NotImplementedError(str(ll_ty))
+
     def emit(self, instruction):
-        self.builder.emit(instruction)
+        return self.builder.emit(instruction)

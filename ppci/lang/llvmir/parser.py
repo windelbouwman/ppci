@@ -91,7 +91,7 @@ class LlvmIrParser(RecursiveDescentParser):
             self.consume('datalayout')
             self.consume('=')
             val = self.parse_string_constant()
-            # self.module.data_layout.reset(val)
+            self.module.data_layout = nodes.DataLayout.from_string(val)
         return val
 
     def parse_unnamed_attr_group(self):
@@ -402,7 +402,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return instruction
 
     def parse_arithmatic(self):
-        op = self.consume()
+        op = self.consume().val
         lhs = self.parse_type_and_value()
         self.consume(',')
         rhs = self.parse_value(lhs.ty)
@@ -510,7 +510,7 @@ class LlvmIrParser(RecursiveDescentParser):
         if self.has_consumed(','):
             self.consume('align')
             self.parse_number()
-        return nodes.LoadInst(ty)
+        return nodes.LoadInst(ty, val)
 
     def parse_store(self):
         self.consume('store')
@@ -542,7 +542,7 @@ class LlvmIrParser(RecursiveDescentParser):
         ret_type = self.parse_type()
         name = self.parse_name(global_name=True)
         args = self.parse_parameter_list()
-        return nodes.CallInst(ret_type)
+        return nodes.CallInst(ret_type, name, args)
 
     def parse_parameter_list(self):
         self.consume('(')
@@ -563,8 +563,8 @@ class LlvmIrParser(RecursiveDescentParser):
         if ty.is_void:
             return nodes.ReturnInst(ty)
         else:
-            arg = self.parse_value(ty)
-            return nodes.ReturnInst(ty)
+            val = self.parse_value(ty)
+            return nodes.ReturnInst(ty, val)
 
     def parse_br(self):
         """ Parse a branch instruction """

@@ -1,11 +1,9 @@
-"""
-    Definitions of arm instructions.
-"""
+""" Definitions of arm instructions. """
 
 # pylint: disable=no-member,invalid-name
 
-from .isa import arm_isa, ArmToken, Isa
-from ..encoding import Instruction, Constructor, Syntax, Operand
+from .isa import arm_isa, ArmToken, ArmImmToken, Isa
+from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
 from ...utils.bitfun import encode_imm32
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet
 from .arm_relocations import Imm24Relocation
@@ -87,21 +85,20 @@ class ArmInstruction(Instruction):
     isa = arm_isa
 
 
+class ArmExpand(Transform):
+    def forwards(self, value):
+        return encode_imm32(value)
+
+
 class Mov1(ArmInstruction):
     """ Mov Rd, imm16 """
     rd = Operand('rd', ArmRegister, write=True)
     imm = Operand('imm', int)
+    tokens = [ArmImmToken]
     syntax = Syntax(['mov', ' ', rd, ',', ' ', imm])
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:12] = encode_imm32(self.imm)
-        tokens[0].Rd = self.rd.num
-        tokens[0][16:20] = 0
-        tokens[0][20] = 0  # Set flags
-        tokens[0][21:28] = 0b0011101
-        tokens[0].cond = AL
-        return tokens[0].encode()
+    patterns = {
+        'cond': AL, 'opcode': 0b11101, 's': 0, 'rn': 0, 'rd': rd,
+        'imm12': ArmExpand(imm)}
 
 
 class Mov2(ArmInstruction):
@@ -110,17 +107,9 @@ class Mov2(ArmInstruction):
     rm = Operand('rm', ArmRegister, read=True)
     shift = Operand('shift', shift_modes)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rm, shift])
-    patterns = {'cond': AL, 'S': 0}
-
-    def encode(self):
-        tokens = self.get_tokens()
-        self.set_all_patterns(tokens)
-        tokens[0][4] = 0
-        tokens[0].Rm = self.rm.num
-        tokens[0][12:16] = self.rd.num
-        tokens[0][16:20] = 0
-        tokens[0][21:28] = 0xD
-        return tokens[0].encode()
+    patterns = {
+        'cond': AL, 'opcode': 0b0001101, 'S': 0, 'Rn': 0, 'Rd': rd,
+        'shift_imm': 0, 'shift_typ': 0, 'b4': 0, 'Rm': rm}
 
 
 Mov2LS = inter_twine(Mov2, 'ls')
@@ -130,15 +119,11 @@ class Cmp1(ArmInstruction):
     """ CMP Rn, imm """
     reg = Operand('reg', ArmRegister, read=True)
     imm = Operand('imm', int)
-    syntax = Syntax(['cmp', reg, ',', imm])
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:12] = encode_imm32(self.imm)
-        tokens[0].Rn = self.reg.num
-        tokens[0][20:28] = 0b00110101
-        tokens[0].cond = AL
-        return tokens[0].encode()
+    tokens = [ArmImmToken]
+    syntax = Syntax(['cmp', ' ', reg, ',', ' ', imm])
+    patterns = {
+        'cond': AL, 'opcode': 0b11010, 's': 1, 'rn': reg, 'rd': 0,
+        'imm12': ArmExpand(imm)}
 
 
 class Cmp2(ArmInstruction):
@@ -147,15 +132,9 @@ class Cmp2(ArmInstruction):
     rm = Operand('rm', ArmRegister, read=True)
     shift = Operand('shift', shift_modes)
     syntax = Syntax(['cmp', ' ', rn, ',', ' ', rm, shift])
-    patterns = {'cond': AL, 'Rm': rm, 'Rn': rn}
-
-    def encode(self):
-        tokens = self.get_tokens()
-        self.set_all_patterns(tokens)
-        tokens[0][4] = 0
-        tokens[0][12:16] = 0
-        tokens[0][20:28] = 0b10101
-        return tokens[0].encode()
+    patterns = {
+        'cond': AL, 'opcode': 0b1010, 'S': 1, 'Rm': rm, 'Rd': 0,
+        'b4': 0, 'Rn': rn}
 
 
 class Mul1(ArmInstruction):
@@ -242,21 +221,6 @@ class Mls(ArmInstruction):
         return tokens[0].encode()
 
 
-class OpRegRegReg(ArmInstruction):
-    """ add rd, rn, rm """
-    patterns = {'cond': AL, 'S': 0}
-
-    def encode(self):
-        tokens = self.get_tokens()
-        self.set_all_patterns(tokens)
-        tokens[0][0:4] = self.rm.num
-        tokens[0][4] = 0
-        tokens[0].Rd = self.rd.num
-        tokens[0].Rn = self.rn.num
-        tokens[0][21:28] = self.opcode
-        return tokens[0].encode()
-
-
 def make_regregreg(mnemonic, opcode):
     """ Create a new instruction class with three registers as operands """
     rd = Operand('rd', ArmRegister, write=True)
@@ -264,11 +228,14 @@ def make_regregreg(mnemonic, opcode):
     rm = Operand('rm', ArmRegister, read=True)
     shift = Operand('shift', shift_modes)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', rm, shift])
+    patterns = {
+        'cond': AL, 'opcode': opcode, 'S': 0, 'Rn': rn, 'Rd': rd, 'b4': 0,
+        'Rm': rm}
     members = {
-        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm, 'opcode': opcode,
-        'shift': shift,
+        'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm,
+        'shift': shift, 'patterns': patterns
         }
-    return type(mnemonic + '_ins', (OpRegRegReg,), members)
+    return type(mnemonic + '_ins', (ArmInstruction,), members)
 
 
 Adc = make_regregreg('adc', 0b0000101)

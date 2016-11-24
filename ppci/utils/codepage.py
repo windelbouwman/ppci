@@ -10,7 +10,21 @@ import platform
 import io
 import mmap
 import ctypes
-from ppci.api import c3c, link, get_arch
+from ..api import c3c, link, get_arch
+from ..binutils import debuginfo
+
+
+def get_ctypes_type(debug_type):
+    if isinstance(debug_type, debuginfo.DebugBaseType):
+        mapping = {
+            'int': ctypes.c_int,
+            'void': ctypes.c_int,
+            'double': ctypes.c_double
+            }
+        return mapping[debug_type.name]
+    elif isinstance(debug_type, debuginfo.DebugPointerType):
+        return ctypes.c_int
+    raise NotImplementedError(str(debug_type) + str(type(debug_type)))
 
 
 class Mod:
@@ -28,19 +42,25 @@ class Mod:
         for function in obj.debug_info.functions:
             function_name = function.name
 
-            # TODO: do not assume int, int int types here:
-            ftype = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int)
-            f = ftype(page_addr + function.begin.offset)
-            setattr(self, function_name, f)
+            # Determine the function type:
+            restype = get_ctypes_type(function.return_type)
+            argtypes = [get_ctypes_type(a.typ) for a in function.arguments]
+            ftype = ctypes.CFUNCTYPE(restype, *argtypes)
+
+            # Create a function pointer:
+            fpointer = ftype(page_addr + function.begin.offset)
+
+            # Set the attribute:
+            setattr(self, function_name, fpointer)
 
 
 def load_code_as_module(source_file):
     """ Load c3 code as a module """
 
     # Compile a simple function
-    if sys.platform == 'linux' and platform.machine() == 'x86_64':
+    if sys.platform == 'linux' and platform.architecture()[0] == '64bit':
         march = get_arch('x86_64')
-    elif sys.platform == 'win32' and platform.machine() == 'x86_64':
+    elif sys.platform == 'win32' and platform.architecture()[0] == '64bit':
         # windows 64 bit
         march = get_arch('x86_64:wincc')
     else:

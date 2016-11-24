@@ -139,14 +139,13 @@ class CodeGenerator:
         else:
             return_type = self.get_ir_type(function.typ.returntype)
             ir_function = self.builder.new_function(function.name, return_type)
-        dfi = debuginfo.DebugFunction(function.name, function.loc)
-        self.debug_db.enter(ir_function, dfi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.builder.set_block(first_block)
         ir_function.entry = first_block
 
         # generate parameters:
+        dbg_args = []
         param_map = {}
         for param in function.parameters:
             # Parameters can only be simple types (pass by value)
@@ -157,11 +156,16 @@ class CodeGenerator:
             ir_function.add_parameter(ir_parameter)
             param_map[param] = ir_parameter
 
-            # Debug info:
+            # Debug info for this formal parameter:
             dbg_typ = self.get_debug_type(param.typ)
-            # self.debug_info.enter(ir_parameter, DebugVariable(
-            #    param.name, dbg_typ, param.loc))
-            # TODO: do something with parameters
+            dbg_args.append(debuginfo.DebugParameter(param.name, dbg_typ))
+
+        # Generate debug info for function:
+        dfi = debuginfo.DebugFunction(
+            function.name, function.loc,
+            self.get_debug_type(function.typ.returntype),
+            dbg_args)
+        self.debug_db.enter(ir_function, dfi)
 
         # generate room for locals:
         for sym in function.inner_scope:

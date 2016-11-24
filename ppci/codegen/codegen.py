@@ -224,9 +224,9 @@ class CodeGenerator:
         # Check if we know what variables are live
         for tmp in frame.ig.temp_map:
             if self.debug_db.contains(tmp):
-                di = self.debug_db.get(tmp)
+                self.debug_db.get(tmp)
                 # print(tmp, di)
-                lr = frame.live_ranges(tmp)
+                frame.live_ranges(tmp)
                 # print('live ranges:', lr)
 
     def define_arguments_live(self, frame):

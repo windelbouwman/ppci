@@ -20,6 +20,7 @@ class Transport:
     def send(self):
         raise NotImplementedError()
 
+
 class TCP(Transport):
     def __init__(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

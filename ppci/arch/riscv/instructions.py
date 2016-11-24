@@ -490,6 +490,7 @@ def make_mext(mnemonic, func):
         'rd': rd, 'rs1': rs1, 'rs2': rs2}
     return type(mnemonic + '_ins', (MextBase,), members)
 
+
 Mul = make_mext('mul', 0b000)
 Div = make_mext('div', 0b100)
 

@@ -206,11 +206,16 @@ class DebugFormalParameter:
 
 class DebugFunction(DebugBaseInfo):
     """ Info about a function """
-    def __init__(self, name, loc, begin=0, end=0, variables=()):
+    def __init__(
+            self, name, loc, return_type, arguments,
+            begin=0, end=0, variables=()):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         self.name = name
         self.loc = loc
+        self.return_type = return_type
+        self.arguments = arguments
+        assert all(isinstance(a, DebugParameter) for a in arguments)
         self.begin = begin
         self.end = end
         self.variables = list(variables)
@@ -281,6 +286,17 @@ class DebugVariable(DebugBaseInfo):
             self.name, self.typ, self.address)
 
 
+class DebugParameter(DebugBaseInfo):
+    def __init__(self, name, typ: DebugType):
+        super().__init__()
+        assert isinstance(typ, DebugType), str(typ)
+        self.name = name
+        self.typ = typ
+
+    def __repr__(self):
+        return 'DBGPARAM[ {} {} ]'.format(self.name, self.typ)
+
+
 def serialize(debug_info):
     """ Serialize debug information into a dict """
     return DictSerializer().serialize(debug_info)
@@ -311,6 +327,7 @@ class DebugInfoReplicator:
         variables = [self.do_variable(v) for v in function.variables]
         return DebugFunction(
             function.name, function.loc,
+            function.return_type, function.arguments,
             begin=begin, end=end, variables=variables)
 
     def do_type(self, typ):
@@ -379,13 +396,23 @@ class DictSerializer:
 
     def serialize_function(self, function):
         """ Turn a function into a dict """
+        arguments = [self.serialize_argument(fp) for fp in function.arguments]
         variables = [self.serialize_variable(v) for v in function.variables]
         return {
             'source': self.write_source_location(function.loc),
             'function_name': function.name,
+            'return_type': self.get_type_id(function.return_type),
+            'arguments': arguments,
             'begin': self.write_address(function.begin),
             'end': self.write_address(function.end),
             'variables': variables,
+        }
+
+    def serialize_argument(self, var):
+        """ Turn a formal parameter into a dictionary """
+        return {
+            'name': var.name,
+            'type': self.get_type_id(var.typ),
         }
 
     def serialize_variable(self, var):
@@ -506,16 +533,27 @@ class DictDeserializer:
             debug_info.add(self.read_variable(v))
         for f in x['functions']:
             loc = self.read_source_location(f['source'])
+            return_type = self.get_type(f['return_type'])
+            arguments = []
+            for fp in f['arguments']:
+                arguments.append(self.read_formal_parameter(fp))
             begin = self.read_address(f['begin'])
             end = self.read_address(f['end'])
             variables = []
             for v in f['variables']:
                 variables.append(self.read_variable(v))
             fdi = DebugFunction(
-                f['function_name'], loc, begin=begin, end=end,
+                f['function_name'], loc,
+                return_type, arguments,
+                begin=begin, end=end,
                 variables=variables)
             debug_info.add(fdi)
         return debug_info
+
+    def read_formal_parameter(self, v):
+        name = v['name']
+        typ = self.get_type(v['type'])
+        return DebugParameter(name, typ)
 
     def read_variable(self, v):
         name = v['name']

@@ -40,8 +40,6 @@ class CodePageTestCase(unittest.TestCase):
             }
             """)
         m = load_code_as_module(source_file)
-        m.add.argtypes = [ctypes.c_double, ctypes.c_int]
-        m.add.restype = ctypes.c_double
         x = m.add(3.14, 101)
         # print(x, type(x))
         self.assertEqual(104.14, x)
@@ -71,10 +69,6 @@ class NumpyCodePageTestCase(unittest.TestCase):
         a = np.array([12, 7, 3, 5, 42, 8, 3, 5, 8, 1, 4, 6, 2], dtype=int)
         addr = a.ctypes.data
 
-        # TODO: the argument types should be inferred:
-        m.find_first.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
-
         # Cross fingers
         pos = m.find_first(addr, 42, len(a), a.itemsize)
         self.assertEqual(4, pos)
@@ -96,10 +90,6 @@ class NumpyCodePageTestCase(unittest.TestCase):
             }
             """)
         m = load_code_as_module(source_file)
-
-        # TODO: the argument types should be inferred:
-        m.mlt.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 100], dtype=float)

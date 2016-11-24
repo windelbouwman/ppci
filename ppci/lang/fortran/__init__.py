@@ -20,7 +20,7 @@ class FortranBuilder:
     def build(self, src):
         ast = self.parser.parse(src)
         mods = []
-        gen(ast)
+        ast
         return mods
 
 

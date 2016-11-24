@@ -310,11 +310,16 @@ class BranchInst(TerminatorInst):
 
 
 class CallInst(Instruction):
-    pass
+    def __init__(self, ty, name, arguments):
+        super().__init__(ty)
+        self.fname = name
+        self.arguments = arguments
 
 
 class ReturnInst(TerminatorInst):
-    pass
+    def __init__(self, ty, value=None):
+        super().__init__(ty)
+        self.value = value
 
 
 class SwitchInst(TerminatorInst):
@@ -344,7 +349,10 @@ class CastInst(Instruction):
 
 
 class LoadInst(Instruction):
-    pass
+    def __init__(self, val, ptr):
+        super().__init__(ptr.ty.el_type)
+        self.val = val
+        self.ptr = ptr
 
 
 void_ty_id = 0
@@ -500,25 +508,63 @@ class Context:
 
 
 class DataLayout:
+    def __init__(self):
+        self.pointers = {0: 8}
+
     def get_type_alloc_size(self, ty):
-        pass
+        # TODO: implement sensible logic here
+        return self.get_type_size_in_bits(ty) // 8
+
+    def get_type_size_in_bits(self, ty):
+        if ty.type_id == integer_ty_id:
+            return ty.bits
+        elif ty.type_id == half_ty_id:
+            return 16
+        elif ty.type_id == float_ty_id:
+            return 32
+        elif ty.type_id == double_ty_id:
+            return 64
+        elif ty.type_id == pointer_ty_id:
+            return self.pointers[0] * 8
+        elif ty.type_id == array_ty_id:
+            return self.get_type_size_in_bits(ty.el_type) * ty.num
+        elif ty.type_id == vector_ty_id:
+            return self.get_type_size_in_bits(ty.el_type) * ty.num
+        else:
+            raise NotImplementedError(str(ty) + str(ty.type_id))
+
+    @classmethod
+    def from_string(cls, txt):
+        data_layout = DataLayout()
+        data_layout.parse_specifier(txt)
+        return data_layout
 
     def reset(self, layout_description):
+        self.pointers[0] = 8  # size in bytes of pointer
         self.parse_specifier(layout_description)
 
     def parse_specifier(self, desc):
         for part in desc.split('-'):
-            print(part)
             toks = part.split(':')
-            if toks[0] == 'e':
+            specifier = toks[0][0]
+            if specifier == 'e':
                 self.big_endian = False
-            elif toks[0] == 'E':
+            elif specifier == 'E':
                 self.big_endian = True
-            elif toks[0] == 'm':
+            elif specifier == 'm':
                 if toks[1] == 'e':
                     self.mangling = 'ELF'
                 else:
                     raise NotImplementedError(toks[1])
+            elif specifier in 'ivfa':
+                abi_align = int(toks[1])
+                # pref_align = int(toks[2])
+            elif specifier == 'n':
+                # Native integer types
+                legal_int_widths = [int(p) for p in toks[1:]]
+            elif specifier == 'S':
+                pass
+                # TODO: what is this?
             else:
                 raise NotImplementedError(part)
 

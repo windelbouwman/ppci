@@ -30,6 +30,7 @@ def add_samples(*folders):
     return deco
 
 
+@unittest.skip('todo')
 @add_samples('llvm')
 class LlvmIrFrontendTestCase(unittest.TestCase):
     def do(self, src):
@@ -41,3 +42,6 @@ class LlvmIrFrontendTestCase(unittest.TestCase):
             e.render(lines)
             raise
 
+
+if __name__ == '__main__':
+    unittest.main()

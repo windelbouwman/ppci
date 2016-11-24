@@ -84,8 +84,6 @@ def write_dos_stub(f):
     """ Write dos stub to file. This stub prints to stdout:
         'this program cannot be run in dos mode'
     """
-    # TODO: it is nice to have this l33t-code here, but it would also be
-    # awesome to invoke the ppci machinery here!
     code = bytearray([
         0x0e,              # push cs
         0x1f,              # pop ds
@@ -95,16 +93,19 @@ def write_dos_stub(f):
         0xb8, 0x01, 0x4c,  # mov ax, 0x4c01
         0xcd, 0x21,        # int 0x21
     ])
-    asm_src = """
-    push cs
-    pop ds
-    mov dx, message
-    mov ah, 9
-    int 0x21
-    mov ax, 0x4c01
-    int 0x21
-    """
-    from ..api import asm
+
+    # TODO: it is nice to have this l33t-code here, but it would also be
+    # awesome to invoke the ppci machinery here!
+    # asm_src = """
+    # push cs
+    # pop ds
+    # mov dx, message
+    # mov ah, 9
+    # int 0x21
+    # mov ax, 0x4c01
+    # int 0x21
+    # """
+    # from ..api import asm
     # asm(asm_src)
     code += 'This program can certainly not be run in DOS :-)'.encode('ascii')
     code += bytes([0xd, 0xd, 0xa, ord('$')])
