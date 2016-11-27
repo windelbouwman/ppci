@@ -115,6 +115,9 @@ class CompilerError(Exception):
         """ Render this error in some lines of context """
         self.loc.print_message('Error: {0}'.format(self.msg), lines=lines)
 
+    def print(self):
+        lines = self.loc.get_
+
 
 class IrFormError(CompilerError):
     pass

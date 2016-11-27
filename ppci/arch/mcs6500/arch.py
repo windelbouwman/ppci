@@ -3,8 +3,8 @@ from ...binutils.assembler import BaseAssembler
 from .instructions import isa
 
 
-class Mos6500Arch(Architecture):
-    name = '6500'
+class Mcs6500Arch(Architecture):
+    name = 'mcs6500'
 
     def __init__(self, options=None):
         super().__init__(options=options)

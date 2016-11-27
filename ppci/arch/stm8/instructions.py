@@ -149,11 +149,13 @@ def create_memory_operand(immidiate=None,
     argument_token = {
         'byte': Stm8ByteToken, 'long': Stm8WordToken,
         'short': Stm8ByteToken, 'word': Stm8WordToken}
-    tokens = [argument_token[argument_type]] if argument_type in ('byte', 'long', 'short', 'word') else []
+    tokens = [argument_token[argument_type]] \
+        if argument_type in ('byte', 'long', 'short', 'word') else []
 
     argument_pattern = {
         'byte': 'byte', 'long': 'word', 'short': 'byte', 'word': 'word'}
-    patterns = [VariablePattern(argument_pattern[argument_type], argument)] if argument_type in ('byte', 'long', 'short', 'word') else []
+    patterns = [VariablePattern(argument_pattern[argument_type], argument)] \
+        if argument_type in ('byte', 'long', 'short', 'word') else []
 
     return {'name': name,
             'argument': argument,
@@ -221,13 +223,17 @@ def create_instruction(mnemonic,
     name = mnemonic.title()
     syntax = [mnemonic] + ([' '] if operands else [])
     tokens = ([Stm8PrecodeToken] if precode else []) + [Stm8OpcodeToken]
-    patterns = ([FixedPattern('precode', precode)] if precode else []) + [FixedPattern('opcode', opcode)]
+    patterns = ([FixedPattern('precode', precode)] if precode else []) \
+        + [FixedPattern('opcode', opcode)]
     members = {}
 
     for i in range(len(operands)):
         operand = dict(operands[i])
         name += operand.pop('name')
-        syntax += [operand_syntax + ([','] if operand_syntax and i != (len(operands) - 1) else []) for operand_syntax in [operand.pop('syntax')]][0]
+        syntax += [
+            operand_syntax +
+            ([','] if operand_syntax and i != (len(operands) - 1) else [])
+            for operand_syntax in [operand.pop('syntax')]][0]
         tokens += operand.pop('tokens')
         patterns += operand.pop('patterns')
         members.update(operand)
@@ -1324,5 +1330,3 @@ def pattern_ldr8(context, tree):
     # TODO
     context.emit(Ld(A, LongMemSource(tree.value)))
     return A
-
-

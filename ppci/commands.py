@@ -3,6 +3,7 @@
 # pylint: disable=C0103
 
 import sys
+import os
 import platform
 import argparse
 import logging
@@ -499,6 +500,14 @@ class LogSetup:
             err = True
         else:
             err = False
+
+        if exc_value is not None:
+            # Exception happened, close file and remove
+            if hasattr(self.args, 'output'):
+                self.args.output.close()
+                if hasattr(self.args.output, 'name'):
+                    filename = self.args.output.name
+                    os.remove(filename)
 
         self.logger.debug('Removing loggers')
         if self.args.report:

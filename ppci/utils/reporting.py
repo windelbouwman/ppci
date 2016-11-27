@@ -85,12 +85,13 @@ def complete_report(reporter):
 
 
 class TextReportGenerator(TextWritingReporter):
-    def dump_ir(self):
-        self.print('Before optimization {} {}'.format(ircode, ircode.stats()))
+    def dump_ir(self, ir_module):
+        self.print('Before optimization {} {}'.format(
+            ir_module, ir_module.stats()))
         writer = Writer()
-        print('==========================', file=lst_file)
-        writer.write(ircode, lst_file)
-        print('==========================', file=lst_file)
+        self.print('==========================')
+        writer.write(ir_module, self.dump_file)
+        self.print('==========================')
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """

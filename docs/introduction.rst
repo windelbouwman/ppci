@@ -11,9 +11,10 @@ The project contains:
   a :ref:`linker<ppci-ld>` and a :ref:`build system<ppci-build>`
 - Language front-ends: Brainfuck, :doc:`c3<c3>`
 - Backends for various target architectures, such as
-  :ref:`6500<mos6500>`, :ref:`arm`,
+  :ref:`6500<mcs6500>`, :ref:`arm`,
   :ref:`avr`,
-  :ref:`msp430`, :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`
+  :ref:`msp430`, :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`,
+  :ref:`xtensa`
 - A :ref:`pythonic api<api>` and
   a set of :ref:`command line utilities<commandline>` build around it.
 - A simple :ref:`intermediate language<ir>`
