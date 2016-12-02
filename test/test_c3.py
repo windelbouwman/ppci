@@ -640,14 +640,26 @@ class ExpressionTestCase(BuildTestCaseBase):
         # TODO: this error diagnostics must be improved!
         self.expect_errors(snippet, [0])
 
-    @unittest.skip('Fix this')
     def test_array_initialization(self):
         """ Check array initialization """
         snippet = """
         module test;
         var int[5] a = {1,4,4,4,4};
+        function void b()
+        {
+          var float[2] b = {1.2, 58+a[2]};
+        }
+        var int[3][2] c = {{1,4,5},{9,8,7}};
         """
-        self.expect_errors(snippet, [5])
+        self.expect_ok(snippet)
+
+    def test_bad_global_array_initialization(self):
+        """ Check faulty global array initialization """
+        snippet = """
+        module test;
+        var int[5] a = 4;
+        """
+        self.expect_errors(snippet, [3])
 
 
 class StatementTestCase(BuildTestCaseBase):

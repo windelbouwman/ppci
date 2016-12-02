@@ -13,6 +13,8 @@ class LlvmIrFrontend:
 
     def compile(self, f):
         src = f.read()
+        if f.name:
+            self.lexer.filename = f.name
         tokens = self.lexer.tokenize(src, eof=True)
         self.parser.init_lexer(tokens)
         module = self.parser.parse_module()

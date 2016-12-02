@@ -51,6 +51,22 @@ class CodeGenerator:
             raise SemanticError("Errors occurred", None)
         return self.builder.module
 
+    def gen_global_ival(self, ival, typ):
+        """ Create memory image for initial value """
+        typ = self.context.get_type(typ)
+        if isinstance(typ, ast.ArrayType):
+            assert isinstance(ival, ast.ExpressionList)
+            assert len(ival.expressions) == self.context.eval_const(typ.size)
+            mem = bytes()
+            for expr in ival.expressions:
+                mem = mem + self.gen_global_ival(expr, typ.element_type)
+            return mem
+        else:
+            assert self.context.equal_types('int', typ)
+            cval = self.context.eval_const(ival)
+            cval = self.context.pack_int(cval)
+            return cval
+
     def gen_globals(self, module, context):
         """ Generate global variables and modules """
         self.context = context
@@ -61,11 +77,10 @@ class CodeGenerator:
         for var in module.inner_scope.variables:
             assert not var.isLocal
             if var.ival:
-                assert context.equal_types('int', var.typ)
-                cval = context.eval_const(var.ival)
-                cval = context.pack_int(cval)
+                cval = self.gen_global_ival(var.ival, var.typ)
             else:
                 cval = None
+
             ir_var = ir.Variable(
                 var.name, context.size_of(var.typ), value=cval)
             context.var_map[var] = ir_var
@@ -254,6 +269,8 @@ class CodeGenerator:
                 pass
             elif isinstance(code, ast.Assignment):
                 self.gen_assignment_stmt(code)
+            elif isinstance(code, ast.VariableDeclaration):
+                self.gen_local_var_init(code.var)
             elif isinstance(code, ast.ExpressionStatement):
                 # This must be always a void function call
                 assert isinstance(code.ex, ast.FunctionCall)
@@ -318,6 +335,37 @@ class CodeGenerator:
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
         return self.emit(ir.Store(rval, lval, volatile=volatile), loc=code.loc)
+
+    def gen_local_var_init(self, var):
+        """ Initialize a local variable """
+        if var.ival is None:
+            return
+        alloc = self.context.var_map[var]
+        print(alloc)
+        self.gen_expr_at(alloc, var.ival)
+
+    def gen_expr_at(self, ptr, expr):
+        """ Generate code at a pointer in memory """
+        if isinstance(expr, ast.ExpressionList):
+            # We have list of expressions, recurse!
+            for e in expr.expressions:
+                ptr = self.gen_expr_at(ptr, e)
+            return ptr
+        else:
+            # Assume normal expression here:
+
+            # Evaluate expression value:
+            rval = self.gen_expr_code(expr, rvalue=True)
+
+            # Store the value at current pointer:
+            # TODO: take volatile into account here?
+            self.emit(ir.Store(rval, ptr), loc=expr.loc)
+
+            # Increment pointer with appropriate size:
+            size = self.context.size_of(expr.typ)
+            inc = self.emit(ir.Const(size, 'inc', ir.ptr))
+            ptr = self.emit(ptr + inc)
+            return ptr
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -717,21 +765,21 @@ class CodeGenerator:
         # 1 = possible
         # 2 = automatic
 
-        cast_map = {
-            'byte': {
-                'byte': 1,
-            },
-            'int': {
-                'byte': 1,
-                'int': 1,
-                'float': 1,
-            },
-            'float': {
-                'byte': 1,
-                'int': 1,
-                'float': 1,
-            }
-        }
+        # cast_map = {
+        #    'byte': {
+        #        'byte': 1,
+        #    },
+        #    'int': {
+        #        'byte': 1,
+        #        'int': 1,
+        #        'float': 1,
+        #    },
+        #    'float': {
+        #        'byte': 1,
+        #        'int': 1,
+        #        'float': 1,
+        #    }
+        # }
 
         # Evaluate types from pointer, unsigned, signed to floating point:
         if isinstance(from_type, ast.PointerType) and \

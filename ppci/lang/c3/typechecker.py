@@ -34,7 +34,7 @@ class TypeChecker:
             # Check global variables:
             for var in module.variables:
                 assert not var.isLocal
-                self.check_type(var.typ)
+                self.check_variable(var)
         except SemanticError as ex:
             self.error(ex.msg, ex.loc)
 
@@ -92,6 +92,36 @@ class TypeChecker:
         else:  # pragma: no cover
             raise NotImplementedError('{} not implemented'.format(type(typ)))
 
+    def check_variable(self, var):
+        """ Check a variable and especially its initial value """
+        self.check_type(var.typ)
+        if var.ival:
+            var.ival = self.check_initial_value(var.ival, var.typ)
+
+    def check_initial_value(self, ival, typ):
+        """ Ensure that the initial value fits the given type """
+        typ = self.context.get_type(typ)
+        if isinstance(typ, ast.ArrayType):
+            if not isinstance(ival, ast.ExpressionList):
+                raise SemanticError('Invalid array initialization', ival.loc)
+
+            # TODO: can we do legit constant evaluation here?
+            size = self.context.eval_const(typ.size)
+            if len(ival.expressions) != size:
+                raise SemanticError(
+                    '{} initial values given, expected {}'.format(
+                        len(ival.expressions), size),
+                    ival.loc)
+            new_expressions = []
+            for expr in ival.expressions:
+                new_expr = self.check_initial_value(expr, typ.element_type)
+                new_expressions.append(new_expr)
+            ival.expressions = new_expressions
+            return ival
+        else:
+            self.check_expr(ival)
+            return self.do_coerce(ival, typ)
+
     def check_function(self, function):
         """ Check a function. """
         for param in function.parameters:
@@ -126,6 +156,8 @@ class TypeChecker:
                 pass
             elif isinstance(code, ast.Assignment):
                 self.check_assignment_stmt(code)
+            elif isinstance(code, ast.VariableDeclaration):
+                self.check_variable(code.var)
             elif isinstance(code, ast.ExpressionStatement):
                 # Check that this is always a void function call
                 if not isinstance(code.ex, ast.FunctionCall):
@@ -571,4 +603,5 @@ class TypeChecker:
     def error(self, msg, loc=None):
         """ Emit error to diagnostic system and mark package as invalid """
         self.module_ok = False
+        self.logger.error(msg)
         self.diag.error(msg, loc)

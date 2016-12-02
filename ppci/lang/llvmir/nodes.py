@@ -408,7 +408,7 @@ class FunctionType(Type):
 
     @classmethod
     def get(cls, result_type, params=(), is_var_arg=False):
-        context = result_type.context
+        # context = result_type.context
         return FunctionType(result_type, params, is_var_arg)
 
 
@@ -430,8 +430,24 @@ class CompositeType(Type):
 
 
 class StructType(CompositeType):
+    """ Structure type """
+    def __init__(self, context):
+        super().__init__(context, struct_ty_id)
+
     def get_type_at_index(self, idx):
         raise NotImplementedError()
+
+    @classmethod
+    def get(cls, context, e_types, is_packed):
+        """ Get struct type with certain elements """
+        key = (tuple(e_types), is_packed)
+        if key in context.struct_types:
+            st = context.struct_types[key]
+        else:
+            st = StructType(context)
+            st.body = e_types
+            context.struct_types[key] = st
+        return st
 
 
 class SequentialType(CompositeType):
@@ -504,6 +520,7 @@ class Context:
         self.int64_ty = IntegerType.get(self, 64)
         self.int128_ty = IntegerType.get(self, 128)
         self.vector_types = []
+        self.struct_types = {}
         self.type_map = {}
 
 
@@ -558,13 +575,14 @@ class DataLayout:
                     raise NotImplementedError(toks[1])
             elif specifier in 'ivfa':
                 abi_align = int(toks[1])
+                print(abi_align)
                 # pref_align = int(toks[2])
             elif specifier == 'n':
                 # Native integer types
                 legal_int_widths = [int(p) for p in toks[1:]]
+                print(legal_int_widths)
             elif specifier == 'S':
                 pass
                 # TODO: what is this?
             else:
                 raise NotImplementedError(part)
-

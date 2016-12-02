@@ -22,11 +22,30 @@ class Mcs6500Instruction(Instruction):
     isa = isa
 
 
+class Immediate:
+    imm = Operand('imm', int)
+    syntax = Syntax(['#', imm])
+
+
+class Absolute:
+    imm = Operand('imm', int)
+    syntax = Syntax([imm])
+
+
 class Adc(Mcs6500Instruction):
     tokens = [OpcodeToken, ByteToken]
     imm = Operand('imm', int)
     syntax = Syntax(['adc', ' ', '#', imm])
     patterns = {'opcode': 0x69, 'byte': imm}
+
+
+class And:
+    """ And """
+    pass
+
+
+class Asl:
+    pass
 
 
 class Brk(Mcs6500Instruction):

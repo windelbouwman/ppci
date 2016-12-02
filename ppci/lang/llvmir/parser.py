@@ -31,6 +31,12 @@ class LlvmIrParser(RecursiveDescentParser):
                 self.parse_declare()
             elif self.peak == 'target':
                 self.parse_target_definition()
+            elif self.peak == 'LID':
+                self.parse_unnamed_type()
+            elif self.peak == 'LID':
+                self.parse_named_type()
+            elif self.peak == 'GID':
+                self.parse_named_global()
             elif self.peak == 'attributes':
                 self.parse_unnamed_attr_group()
             elif self.peak == 'MDVAR':
@@ -42,11 +48,31 @@ class LlvmIrParser(RecursiveDescentParser):
                 raise NotImplementedError(str(self.peak))
         return self.module
 
+    def parse_unnamed_type(self):
+        """ Parse LocalVarID '=' 'type' type """
+        name = self.consume('LID')
+        print(name)
+        self.consume('=')
+        self.consume('type')
+        self.parse_struct_definition()
+
+    def parse_named_type(self):
+        """ Parse LocalVar '=' 'type' type """
+        self.consume('=')
+        self.consume('type')
+        self.parse_struct()
+
     def parse_define(self):
         """ Parse a function """
         self.consume('define')
         function = self.parse_function_header()
         self.parse_function_body(function)
+
+    def parse_named_global(self):
+        self.consume('GID')
+        self.consume('=')
+        self.parse_optional_linkage()
+        self.parse_global()
 
     def parse_function_body(self, function):
         self._pfs = PerFunctionState(self, function)
@@ -60,12 +86,14 @@ class LlvmIrParser(RecursiveDescentParser):
         """ Parse a function declaration """
         self.consume('declare')
         function = self.parse_function_header()
+        print(function)
 
     def parse_function_header(self):
         return_type = self.parse_type()
         name = self.parse_name(global_name=True)
-        arg_list = self.parse_arg_list()
+        arg_list = self.parse_argument_list()
         attributes = self.parse_fn_attribute_value_pairs()
+        print(attributes)
         param_types = [a.type for a in arg_list]
         if self.peak == 'ATTRID':
             self.consume('ATTRID')
@@ -101,6 +129,7 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume('=')
         self.consume('{')
         attributes = self.parse_fn_attribute_value_pairs()
+        print(attributes)
         self.consume('}')
         return attr_id
 
@@ -145,10 +174,10 @@ class LlvmIrParser(RecursiveDescentParser):
         while self.peak != '}':
             self.consume()
             # TODO: parse meta data!
-            #if elements:
+            # if elements:
             #    self.consume(',')
-            #metadata = self.parse_metadata()
-            #elements.append(metadata)
+            # metadata = self.parse_metadata()
+            # elements.append(metadata)
         self.consume('}')
         return elements
 
@@ -192,7 +221,7 @@ class LlvmIrParser(RecursiveDescentParser):
                 break
         return bb
 
-    def parse_arg_list(self):
+    def parse_argument_list(self):
         """ Parse '(' ... ')' """
         self.consume('(')
         args = []
@@ -208,6 +237,7 @@ class LlvmIrParser(RecursiveDescentParser):
     def parse_arg(self):
         ty = self.parse_type()
         attrs = self.parse_optional_param_attrs()
+        print(attrs)
         if self.peak == 'LID':
             name = self.consume('LID').val
         else:
@@ -224,24 +254,72 @@ class LlvmIrParser(RecursiveDescentParser):
                 break
         return attrs
 
+    def parse_optional_linkage(self):
+        if self.has_consumed('private'):
+            pass
+        else:
+            pass
+
     def parse_type(self):
         if self.peak == 'type':
             typ = self.consume('type').val
+        elif self.peak == '{':
+            typ = self.parse_anon_struct_type(packed=False)
         elif self.peak == '[':
             typ = self.parse_array_vector_type(False)
         elif self.peak == '<':
             typ = self.parse_array_vector_type(True)
+        elif self.peak == 'LID':
+            lid = self.consume('LID')
+            # named_types[lid]
+            print(lid)
+            typ = nodes.StructType.get(self.context, [], False)
         else:  # pragma: no cover
             self.not_impl()
+
+        assert isinstance(typ, nodes.Type), str(typ)
 
         # Parse suffix:
         while True:
             if self.peak == '*':
                 self.consume('*')
                 typ = nodes.PointerType.get_unequal(typ)
+            elif self.peak == '(':
+                typ = self.parse_function_type(typ)
             else:
                 break
         return typ
+
+    def parse_function_type(self, result):
+        arg_list = self.parse_argument_list()
+        return nodes.FunctionType.get(result, arg_list)
+
+    def parse_anon_struct_type(self, packed=False):
+        elts = self.parse_struct_body()
+        return nodes.StructType.get(self.context, elts, packed)
+
+    def parse_struct_definition(self):
+        body = self.parse_struct_body()
+        print(body)
+
+    def parse_struct_body(self):
+        """ Parse struct body.
+
+        Can be either of:
+        '{' '}'
+        '{' type (',' type)* '}'
+        """
+        body = []
+        self.consume('{')
+        if self.has_consumed('}'):
+            return body
+        ty = self.parse_type()
+        body.append(ty)
+        while self.has_consumed(','):
+            ty = self.parse_type()
+            body.append(ty)
+        self.consume('}')
+        return body
 
     def parse_array_vector_type(self, is_vector):
         if is_vector:
@@ -505,6 +583,7 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume('load')
         atomic = self.has_consumed('atomic')
         volatile = self.has_consumed('volatile')
+        print(atomic, volatile)
         ty = self.parse_type()
         self.consume(',')
         val = self.parse_type_and_value()

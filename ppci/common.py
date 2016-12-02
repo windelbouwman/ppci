@@ -77,6 +77,10 @@ class SourceLocation:
 
     def print_message(self, message, lines=None):
         """ Print a message at this location in the given source lines """
+        if lines is None:
+            with open(self.filename, 'r') as f:
+                src = f.read()
+            lines = src.splitlines()
         prerow = self.row - 2
         if prerow < 1:
             prerow = 1
@@ -116,7 +120,8 @@ class CompilerError(Exception):
         self.loc.print_message('Error: {0}'.format(self.msg), lines=lines)
 
     def print(self):
-        lines = self.loc.get_
+        """ Print the error inside some nice context """
+        self.loc.print_message(self.msg)
 
 
 class IrFormError(CompilerError):

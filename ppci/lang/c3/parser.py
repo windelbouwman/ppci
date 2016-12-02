@@ -157,7 +157,7 @@ class Parser(RecursiveDescentParser):
             # Munch initial value:
             if self.peak == '=':
                 self.consume('=')
-                var.ival = self.parse_expression()
+                var.ival = self.parse_const_expression()
             self.add_symbol(var)
             variables.append(var)
             if not self.has_consumed(','):
@@ -309,13 +309,7 @@ class Parser(RecursiveDescentParser):
             return ast.Empty()
         elif self.peak == 'var':
             variables = self.parse_variable_def()
-            statements = []
-            for variable in variables:
-                if variable.ival:
-                    lhs = ast.Identifier(
-                        variable.name, self.current_scope, variable.loc)
-                    rhs = variable.ival
-                    statements.append(ast.Assignment(lhs, rhs, rhs.loc, '='))
+            statements = [ast.VariableDeclaration(v, v.loc) for v in variables]
             return ast.Compound(statements)
         elif self.peak == 'return':
             return self.parse_return()
@@ -346,11 +340,25 @@ class Parser(RecursiveDescentParser):
         '&': (80, LEFT_ASSOCIATIVITY), '^': (80, LEFT_ASSOCIATIVITY)
     }
 
+    def parse_const_expression(self):
+        """ Parse array initializers and other constant values """
+        if self.peak == '{':
+            loc = self.consume('{').loc
+            elements = []
+            elements.append(self.parse_const_expression())
+            while self.has_consumed(','):
+                elements.append(self.parse_const_expression())
+            self.consume('}')
+            return ast.ExpressionList(elements, loc)
+        else:
+            return self.parse_expression()
+
     def parse_expression(self, rbp=0):
         """ Process expressions with precedence climbing
-            See also:
-            http://eli.thegreenplace.net/2012/08/02/
-                parsing-expressions-by-precedence-climbing
+
+        See also:
+        http://eli.thegreenplace.net/2012/08/02/
+            parsing-expressions-by-precedence-climbing
         """
         lhs = self.parse_cast_expression()
         while self.peak in self.op_binding_powers and \

@@ -89,7 +89,7 @@ class CodeGenerator:
             pp_val = self.get_val(instruction.value)
             # TODO: type check?
             # pp_ty = self.get_type(instruction.ty.el_type)
-            # assert 
+            # assert
             self.emit(ir.Store(pp_ptr, pp_val))
             self.val_map[instruction] = pp_val
         elif isinstance(instruction, nodes.ExtractElementInst):
@@ -112,6 +112,8 @@ class CodeGenerator:
                 phi.set_incoming(block, value)
             self.emit(phi)
         elif isinstance(instruction, nodes.ICmpInst):
+            a = self.get_val(instruction.lhs)
+            b = self.get_val(instruction.rhs)
             block0 = self.builder.new_block()
             block1 = self.builder.new_block()
             final = self.builder.new_block()

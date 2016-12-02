@@ -371,6 +371,16 @@ class Literal(Expression):
         return 'LITERAL {}'.format(self.val)
 
 
+class ExpressionList(Expression):
+    """ List of expressions """
+    def __init__(self, expressions, loc):
+        super().__init__(loc)
+        self.expressions = expressions
+
+    def __repr__(self):
+        return 'List [{}]'.format(self.expressions)
+
+
 class FunctionCall(Expression):
     """ Call to a some function """
     def __init__(self, proc, args, loc):
@@ -444,6 +454,13 @@ class Assignment(Statement):
     def shorthand_operator(self):
         """ Get the operator from '-=' to '-' """
         return self.operator[:-1]
+
+
+class VariableDeclaration(Statement):
+    """ A declaration of a local variable """
+    def __init__(self, var, loc):
+        super().__init__(loc)
+        self.var = var
 
 
 class ExpressionStatement(Statement):

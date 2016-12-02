@@ -15,7 +15,7 @@ from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
 from .tasks import TaskError
 from . import __version__, api
-from .common import logformat
+from .common import logformat, CompilerError
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
@@ -496,10 +496,15 @@ class LogSetup:
     def __exit__(self, exc_type, exc_value, traceback):
         # Check if a task error was raised:
         if isinstance(exc_value, TaskError):
-            logging.getLogger().error(str(exc_value.msg))
+            self.logger.error(str(exc_value.msg))
             err = True
         else:
             err = False
+
+        if isinstance(exc_value, CompilerError):
+            self.logger.error(str(exc_value))
+            self.logger.error(str(exc_value.loc))
+            exc_value.print()
 
         if exc_value is not None:
             # Exception happened, close file and remove
