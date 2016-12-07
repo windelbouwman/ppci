@@ -118,6 +118,21 @@ class TypeChecker:
                 new_expressions.append(new_expr)
             ival.expressions = new_expressions
             return ival
+        elif isinstance(typ, ast.StructureType):
+            print(ival)
+            if not isinstance(ival, ast.NamedExpressionList):
+                raise SemanticError('Invalid struct initialization', ival.loc)
+            if len(ival.expressions) != len(typ.fields):
+                raise SemanticError('Wrong number of given fields', ival.loc)
+            new_expressions = []
+            for ival2, fld in zip(ival.expressions, typ.fields):
+                field, expr = ival2
+                if field != fld.name:
+                    raise SemanticError('Wrong name of struct field', expr.loc)
+                new_expr = self.check_initial_value(expr, fld.typ)
+                new_expressions.append((field, new_expr))
+            ival.expressions = new_expressions
+            return ival
         else:
             self.check_expr(ival)
             return self.do_coerce(ival, typ)

@@ -141,9 +141,22 @@ class Context:
         data = txt.encode('ascii')
         return length + data
 
-    def pack_int(self, v):
-        mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
-        fmt = mapping[self.get_type('int').byte_size]
+    def pack_int(self, v, bits=None, signed=True):
+        if bits is None:
+            bits = self.get_type('int').byte_size * 8
+        mapping = {
+            (8, False): '<B', (8, True): '<b',
+            (16, False): '<H', (16, True): '<h',
+            (32, False): '<I', (32, True): '<i',
+            (64, False): '<Q', (64, True): '<q'}
+        fmt = mapping[(bits, signed)]
+        return struct.pack(fmt, v)
+
+    def pack_float(self, v, bits=None):
+        if bits is None:
+            bits = 64
+        mapping = {32: 'f', 64: 'd'}
+        fmt = mapping[bits]
         return struct.pack(fmt, v)
 
     def get_common_type(self, a, b, loc):

@@ -661,6 +661,30 @@ class ExpressionTestCase(BuildTestCaseBase):
         """
         self.expect_errors(snippet, [3])
 
+    def test_struct_initialization(self):
+        """ Check struct initialization """
+        snippet = """
+        module test;
+        var struct { int a; float b; } a = { .a=1, .b=4};
+        function void b()
+        {
+          var struct { int c; float d; } e = { .c=a.a, .d=33+a.b};
+        }
+        """
+        self.expect_ok(snippet)
+
+    def test_bad_struct_initialization(self):
+        """ Check struct initialization """
+        snippet = """
+        module test;
+        var struct { int a; float b; } a = { .a=1, .b=4};
+        function void b()
+        {
+          var struct { int c; float d; } e = { .c=a.a, .b=33+a.b};
+        }
+        """
+        self.expect_errors(snippet, [6])
+
 
 class StatementTestCase(BuildTestCaseBase):
     """ Testcase for statements """
@@ -1340,4 +1364,5 @@ class TypeTestCase(BuildTestCaseBase):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     unittest.main()

@@ -345,11 +345,26 @@ class Parser(RecursiveDescentParser):
         if self.peak == '{':
             loc = self.consume('{').loc
             elements = []
-            elements.append(self.parse_const_expression())
-            while self.has_consumed(','):
+            if self.peak == '.':
+                self.consume('.')
+                field = self.consume('ID').val
+                self.consume('=')
+                expr = self.parse_const_expression()
+                elements.append((field, expr))
+                while self.has_consumed(','):
+                    self.consume('.')
+                    field = self.consume('ID').val
+                    self.consume('=')
+                    expr = self.parse_const_expression()
+                    elements.append((field, expr))
+                self.consume('}')
+                return ast.NamedExpressionList(elements, loc)
+            else:
                 elements.append(self.parse_const_expression())
-            self.consume('}')
-            return ast.ExpressionList(elements, loc)
+                while self.has_consumed(','):
+                    elements.append(self.parse_const_expression())
+                self.consume('}')
+                return ast.ExpressionList(elements, loc)
         else:
             return self.parse_expression()
 

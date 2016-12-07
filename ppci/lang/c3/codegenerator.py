@@ -61,10 +61,26 @@ class CodeGenerator:
             for expr in ival.expressions:
                 mem = mem + self.gen_global_ival(expr, typ.element_type)
             return mem
-        else:
-            assert self.context.equal_types('int', typ)
+        elif isinstance(typ, ast.StructureType):
+            assert isinstance(ival, ast.NamedExpressionList)
+            assert len(ival.expressions) == len(typ.fields)
+            mem = bytes()
+            for field, val in zip(typ.fields, ival.expressions):
+                assert field.name == val[0]
+                expr = val[1]
+                mem = mem + self.gen_global_ival(expr, field.typ)
+            return mem
+        elif isinstance(typ, ast.FloatType):
             cval = self.context.eval_const(ival)
-            cval = self.context.pack_int(cval)
+            cval = self.context.pack_float(cval, bits=typ.bits)
+            return cval
+        elif isinstance(typ, ast.SignedIntegerType):
+            cval = self.context.eval_const(ival)
+            cval = self.context.pack_int(cval, bits=typ.bits, signed=True)
+            return cval
+        elif isinstance(typ, ast.UnsignedIntegerType):
+            cval = self.context.eval_const(ival)
+            cval = self.context.pack_int(cval, bits=typ.bits, signed=False)
             return cval
 
     def gen_globals(self, module, context):
@@ -341,7 +357,6 @@ class CodeGenerator:
         if var.ival is None:
             return
         alloc = self.context.var_map[var]
-        print(alloc)
         self.gen_expr_at(alloc, var.ival)
 
     def gen_expr_at(self, ptr, expr):
@@ -351,9 +366,11 @@ class CodeGenerator:
             for e in expr.expressions:
                 ptr = self.gen_expr_at(ptr, e)
             return ptr
+        elif isinstance(expr, ast.NamedExpressionList):
+            for _, e in expr.expressions:
+                ptr = self.gen_expr_at(ptr, e)
+            return ptr
         else:
-            # Assume normal expression here:
-
             # Evaluate expression value:
             rval = self.gen_expr_code(expr, rvalue=True)
 

@@ -381,6 +381,16 @@ class ExpressionList(Expression):
         return 'List [{}]'.format(self.expressions)
 
 
+class NamedExpressionList(Expression):
+    """ List of named expressions """
+    def __init__(self, expressions, loc):
+        super().__init__(loc)
+        self.expressions = expressions
+
+    def __repr__(self):
+        return 'NamedList [{}]'.format(self.expressions)
+
+
 class FunctionCall(Expression):
     """ Call to a some function """
     def __init__(self, proc, args, loc):
