@@ -151,8 +151,13 @@ class IrToPython:
             }
             fmt = load_formats[ins.ty]
             self.print(3, fmt.format(ins.name, ins.address.name))
-        elif isinstance(ins, (ir.FunctionCall, ir.ProcedureCall)):
-            self.print(3, '{}'.format(ins))
+        elif isinstance(ins, ir.FunctionCall):
+            args = ', '.join(a.name for a in ins.arguments)
+            self.print(3, '{} = {}({})'.format(
+                ins.name, ins.function_name, args))
+        elif isinstance(ins, ir.ProcedureCall):
+            args = ', '.join(a.name for a in ins.arguments)
+            self.print(3, '{}({})'.format(ins.function_name, args))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')
             self.print(4, 'pass')

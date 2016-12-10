@@ -1,0 +1,20 @@
+
+module optimizable;
+
+function i32 add(i32 z)
+{
+  entry: {
+    i32 x = 1;
+    i32 y = 2;
+    cjmp x < y ? a : b;
+  }
+  a: {
+    jmp c;
+  }
+  b: {
+    jmp c;
+  }
+  c: {
+    return x;
+  }
+}

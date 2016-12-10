@@ -23,6 +23,7 @@ from .opt import ConstantFolder
 from .opt.transform import LoadAfterStorePass
 from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
+from .opt.cjmp import CJumpPass
 from .codegen import CodeGenerator
 from .binutils.linker import Linker
 from .binutils.layout import Layout
@@ -267,6 +268,9 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
                   LoadAfterStorePass(debug_db),
                   DeleteUnusedInstructionsPass(debug_db),
                   CleanPass(debug_db)] * 3
+
+    if level == '3':
+        opt_passes.append(CJumpPass(debug_db))
 
     # Run the passes over the module:
     verifier.verify(ir_module)

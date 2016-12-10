@@ -8,7 +8,7 @@ pip install -q tox codecov wheel --use-mirrors
 
 # Run tox:
 tox --version
-tox -e py33,cover,flake8
+tox -e py33,cover,flake8,doctest
 codecov
 
 # Run setup script:

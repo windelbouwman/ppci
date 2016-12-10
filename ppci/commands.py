@@ -14,7 +14,7 @@ from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
 from .tasks import TaskError
-from . import __version__, api
+from . import __version__, api, irutils
 from .common import logformat, CompilerError
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger
@@ -342,16 +342,20 @@ opt_description = """ Optimizer """
 opt_parser = argparse.ArgumentParser(
     description=opt_description, parents=[base_parser])
 opt_parser.add_argument(
+    '-O', help='Optimization level', default=2, type=int)
+opt_parser.add_argument(
     'input', help='input file', type=argparse.FileType('r'))
 opt_parser.add_argument(
-    'output', help='output file')
+    'output', help='output file', type=argparse.FileType('w'))
 
 
 def opt(args=None):
     """ Optimize a single IR-file """
     args = opt_parser.parse_args(args)
+    module = irutils.Reader().read(args.input)
     with LogSetup(args):
-        api.optimize()
+        api.optimize(module, level=args.O)
+    irutils.Writer().write(module, args.output)
 
 
 def yacc_cmd(args=None):

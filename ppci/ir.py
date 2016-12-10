@@ -527,7 +527,8 @@ class LiteralData(Value):
         assert isinstance(data, bytes), str(data)
 
     def __str__(self):
-        return '{} = Literal {}'.format(self.name, hexlify(self.data))
+        data = hexlify(self.data)
+        return '{} {} = Literal {}'.format(self.ty, self.name, data)
 
 
 class FunctionCall(Value):
@@ -548,7 +549,8 @@ class FunctionCall(Value):
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return '{} = {}({})'.format(self.name, self.function_name, args)
+        return '{} {} = {}({})'.format(
+            self.ty, self.name, self.function_name, args)
 
 
 class ProcedureCall(Instruction):
@@ -652,7 +654,7 @@ class Alloc(Value):
         self.amount = amount
 
     def __str__(self):
-        return '{} = alloc {} bytes'.format(self.name, self.amount)
+        return '{} {} = alloc {} bytes'.format(self.ty, self.name, self.amount)
 
 
 # TODO: Variable now inherits Value and hence Instruction, but it is not an
@@ -708,10 +710,9 @@ class Store(Instruction):
         self.volatile = volatile
 
     def __str__(self):
-        ty = self.value.ty
         val = self.value.name
-        ptr = self.address.name
-        return 'store {} {}, {}'.format(ty, val, ptr)
+        address = self.address.name
+        return 'store {}, {}'.format(val, address)
 
 
 class FinalInstruction(Instruction):
@@ -807,7 +808,7 @@ class Jump(JumpBase):
         self.target = target
 
     def __str__(self):
-        return 'jump {}'.format(self.target.name)
+        return 'jmp {}'.format(self.target.name)
 
 
 class CJump(JumpBase):
@@ -828,6 +829,6 @@ class CJump(JumpBase):
         self.lab_no = lab_no
 
     def __str__(self):
-        return 'if {} {} {} then {} else {}'\
+        return 'cjmp {} {} {} ? {} : {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)
