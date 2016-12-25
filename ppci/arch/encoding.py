@@ -20,9 +20,16 @@ class Operand(property):
     """
     def __init__(self, name, cls, read=False, write=False):
         self._name = name
+        if isinstance(cls, dict):
+            self._value_map = cls
+            cls = tuple(cls.keys())
+        else:
+            self._value_map = None
         self._cls = cls
         self._read = read
         self._write = write
+
+        # if isinstance(cls, type) or isinstance(cls, tuple)
 
         # Construct a private backing field for the property:
         private_field = '_{}'.format(name)
@@ -44,6 +51,7 @@ class Operand(property):
 
     @property
     def is_constructor(self):
+        """ Check if this is a simple type, or a choice for many types """
         if isinstance(self._cls, tuple):
             return True
         else:
@@ -59,6 +67,9 @@ class Operand(property):
         val = self.__get__(objref)
         if isinstance(val, Register):
             val = val.num
+        if self._value_map and not isinstance(val, int):
+            val = self._value_map[type(val)]
+        assert isinstance(val, int)
         return val
 
     def set_value(self, objref, value):

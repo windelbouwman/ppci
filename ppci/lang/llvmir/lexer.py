@@ -17,6 +17,7 @@ class LlvmIrLexer(BaseLexer):
         'target', 'triple', 'datalayout',
         'attributes',
         'nounwind', 'sspstrong', 'uwtable', 'readonly',
+        'private', 'constant',
         'nonnull',
         'align', 'inbounds',
         'nocapture',

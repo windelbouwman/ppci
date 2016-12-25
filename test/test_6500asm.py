@@ -13,6 +13,25 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed('adc #10')
         self.check('690a')
 
+    def test_and(self):
+        """ Test and """
+        self.feed('and #0x10')
+        self.feed('and $4400,X')
+        self.feed('and ($44,X)')
+        self.check('2910 3d0044 2144')
+
+    def test_asl(self):
+        """ Test arithmatic shift left """
+        self.feed('asl a')
+        self.feed('asl $4400')
+        self.feed('asl $4400,X')
+        self.check('0a 0e0044 1e0044')
+
+    def test_bit(self):
+        """ Test bit test """
+        self.feed('bit $4400')
+        self.check('2c0044')
+
     def test_brk(self):
         """ Test simulate interrupt brk """
         self.feed("brk")
@@ -93,7 +112,6 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed("rts")
         self.check('60')
 
-    @unittest.skip('todo')
     def test_sbc(self):
         """ Test substract with borrow """
         self.feed("sbc #32")

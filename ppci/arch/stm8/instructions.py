@@ -21,18 +21,6 @@ class Stm8OpcodeToken(Token):
     position = bit_range(1, 4)
 
 
-class Stm8ArithmaticOpcodeToken(Token):
-    size = 8
-    opcode = bit(7) + bit_range(0, 4)
-    mode = bit_range(4, 7)
-
-
-class Stm8ShiftOpcodeToken(Token):
-    size = 8
-    opcode = bit(7) + bit_range(0, 4)
-    mode = bit_range(4, 7)
-
-
 class Stm8ByteToken(Token):
     size = 8
     byte = bit_range(0, 8)
@@ -246,88 +234,73 @@ def create_instruction(mnemonic,
 
 class ASource(Constructor):
     a = Operand('a', Stm8RegisterA, read=True, write=True)
-    patterns = {'mode': 4}
     syntax = Syntax([a])
 
 
 class ByteSource(Constructor):
     v = Operand('v', int)
-    patterns = {'mode': 2, 'byte': v}
+    patterns = {'byte': v}
     tokens = [Stm8ByteToken]
     syntax = Syntax(['#', v])
 
 
 class LongMemSource(Constructor):
     v = Operand('v', int)
-    patterns = {'mode': 4, 'word': v}
+    patterns = {'word': v}
     tokens = [Stm8WordToken]
     syntax = Syntax([v])
 
 
 class XSource(Constructor):
     x = Operand('x', Stm8RegisterX, read=True)
-    patterns = {'mode': 7}
     syntax = Syntax(['(', x, ')'])
 
 
 class LongOffsetXSource(Constructor):
     x = Operand('x', Stm8RegisterX, read=True)
     v = Operand('v', int)
-    patterns = {'mode': 5, 'word': v}
+    patterns = {'word': v}
     tokens = [Stm8WordToken]
     syntax = Syntax(['(', v, ',', ' ', x, ')'])
 
 
 class YSource(Constructor):
     y = Operand('y', Stm8RegisterY, read=True)
-    patterns = {'mode': 7}
     syntax = Syntax(['(', y, ')'])
+
+
+class ShortOffsetSp(Constructor):
+    """ Memory at offset from SP """
+    tokens = [Stm8ByteToken]
+    v = Operand('v', int)
+    syntax = Syntax(['(', v, ',', 'sp', ')'])
+    patterns = {'byte': v}
 
 
 # TODO: SbcAShortmem
 # TODO: SbcAShortoffX
-src_modes = (ByteSource, LongMemSource, XSource, LongOffsetXSource)
+
+class Adc(Stm8Instruction):
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA9,
+            LongMemSource: 0xC9,
+            XSource: 0xF9,
+            LongOffsetXSource: 0xD9,
+            ShortOffsetSp: 0x19,
+        })
+    syntax = Syntax(['adc', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
 
 
-def create_arithmatic_instruction(mnemonic, opcode, read=True, write=True):
-    """ Create an instruction for arithmatic with register A """
-    a = Operand('a', Stm8RegisterA, read=read, write=write)
-    src = Operand('src', src_modes)
-    syntax = Syntax([mnemonic, ' ', a, ',', ' ', src])
-    tokens = [Stm8ArithmaticOpcodeToken]
-    opcode = ((opcode & 0x80) >> 3) | (opcode & 0xf)
-    patterns = {'opcode': opcode}
-    members = {
-        'a': a, 'src': src, 'syntax': syntax, 'tokens': tokens,
-        'patterns': patterns}
-    name = mnemonic.title()
-    return type(name, (Stm8Instruction,), members)
-
-
-shift_src_modes = (ASource, XSource)
-
-
-def create_shift_instruction(mnemonic, opcode, write=True):
-    """ Create a shift instruction """
-    src = Operand('src', shift_src_modes)
-    syntax = Syntax([mnemonic, ' ', src])
-    tokens = [Stm8ShiftOpcodeToken]
-    opcode = ((opcode & 0x80) >> 3) | (opcode & 0xf)
-    patterns = {'opcode': opcode}
-    members = {
-        'src': src, 'syntax': syntax, 'tokens': tokens, 'patterns': patterns}
-    name = mnemonic.title()
-    return type(name, (Stm8Instruction,), members)
-
-
-Adc = create_arithmatic_instruction('adc', 0xA9)
 AdcAY = create_instruction(
     mnemonic='adc', operands=(a_rw, y_i), precode=0x90, opcode=0xF9)
 # TODO: AdcAShortoffY
 AdcALongoffY = create_instruction(
     mnemonic='adc', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD9)
-AdcAShortoffSP = create_instruction(
-    mnemonic='adc', operands=(a_rw, shortoff_sp), opcode=0x19)
 # TODO: AdcAShortptr
 AdcALongptr = create_instruction(
     mnemonic='adc', operands=(a_rw, longptr), precode=0x72, opcode=0xC9)
@@ -338,14 +311,28 @@ AdcAShortptrY = create_instruction(
     mnemonic='adc', operands=(a_rw, shortptr_y), precode=0x91, opcode=0xD9)
 
 
-Add = create_arithmatic_instruction('add', 0xAB)
+class Add(Stm8Instruction):
+    """ Addition """
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xAB,
+            LongMemSource: 0xCB,
+            XSource: 0xFB,
+            LongOffsetXSource: 0xDB,
+            ShortOffsetSp: 0x1B,
+        })
+    syntax = Syntax(['add', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 AddAY = create_instruction(
     mnemonic='add', operands=(a_rw, y_i), precode=0x90, opcode=0xFB)
 # TODO: AddAShortoffY
 AddALongoffY = create_instruction(
     mnemonic='add', operands=(a_rw, longoff_y), precode=0x90, opcode=0xDB)
-AddAShortoffSP = create_instruction(
-    mnemonic='add', operands=(a_rw, shortoff_sp), opcode=0x1B)
 # TODO: AddAShortptr
 AddALongptr = create_instruction(
     mnemonic='add', operands=(a_rw, longptr), precode=0x72, opcode=0xCB)
@@ -372,14 +359,28 @@ AddwSpByte = create_instruction(
     mnemonic='addw', operands=(sp_rw, byte), opcode=0x5B)
 
 
-And = create_arithmatic_instruction('and', 0xA4)
+class And(Stm8Instruction):
+    """ Logical and """
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA4,
+            LongMemSource: 0xC4,
+            XSource: 0xF4,
+            LongOffsetXSource: 0xD4,
+            ShortOffsetSp: 0x14,
+        })
+    syntax = Syntax(['and', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 AndAY = create_instruction(
     mnemonic='and', operands=(a_rw, y_i), precode=0x90, opcode=0xF4)
 # TODO: AndAShortoffY
 AndALongoffY = create_instruction(
     mnemonic='and', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD4)
-AndAShortoffSP = create_instruction(
-    mnemonic='and', operands=(a_rw, shortoff_sp), opcode=0x14)
 # TODO: AndAShortptr
 AndALongptr = create_instruction(
     mnemonic='and', operands=(a_rw, longptr), precode=0x72, opcode=0xC4)
@@ -394,14 +395,28 @@ Bccm = create_instruction(
     mnemonic='bccm', operands=(longmem, bit), precode=0x90, opcode=0x11)
 
 
-Bcp = create_arithmatic_instruction('bcp', 0xA5, write=False)
+class Bcp(Stm8Instruction):
+    """ Logical bit compare """
+    a = Operand('a', Stm8RegisterA, read=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA5,
+            LongMemSource: 0xC5,
+            XSource: 0xF5,
+            LongOffsetXSource: 0xD5,
+            ShortOffsetSp: 0x15,
+        })
+    syntax = Syntax(['bcp', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 BcpAY = create_instruction(
     mnemonic='bcp', operands=(a_ro, y_i), precode=0x90, opcode=0xF5)
 # TODO: BcpAShortoffY
 BcpALongoffY = create_instruction(
     mnemonic='bcp', operands=(a_ro, longoff_y), precode=0x90, opcode=0xD5)
-BcpAShortoffSP = create_instruction(
-    mnemonic='bcp', operands=(a_ro, shortoff_sp), opcode=0x15)
 # TODO: BcpAShortptr
 BcpALongptr = create_instruction(
     mnemonic='bcp', operands=(a_ro, longptr), precode=0x72, opcode=0xC5)
@@ -464,7 +479,20 @@ Callr = create_instruction(mnemonic='callr', operands=(branch,), opcode=0xAD)
 Ccf = create_instruction(mnemonic='ccf', opcode=0x8C)
 
 
-Clr = create_shift_instruction('clr', 0xF, write=False)
+class Clr(Stm8Instruction):
+    """ Logical bit compare """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x4F,
+            XSource: 0x7F,
+            ShortOffsetSp: 0x0F,
+        })
+    syntax = Syntax(['clr', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: ClrShortmem
 ClrLongmem = create_instruction(
     mnemonic='clr', operands=(longmem,), precode=0x72, opcode=0x5F)
@@ -476,8 +504,6 @@ ClrY = create_instruction(
 # TODO: ClrShortoffY
 ClrLongoffY = create_instruction(
     mnemonic='clr', operands=(longoff_y,), precode=0x90, opcode=0x4F)
-ClrShortoffSP = create_instruction(
-    mnemonic='clr', operands=(shortoff_sp,), opcode=0x0F)
 # TODO: ClrShortptr
 ClrLongptr = create_instruction(
     mnemonic='clr', operands=(longptr,), precode=0x72, opcode=0x3F)
@@ -493,14 +519,28 @@ ClrwY = create_instruction(
     mnemonic='clrw', operands=(y_wo,), precode=0x90, opcode=0x5F)
 
 
-Cp = create_arithmatic_instruction('cp', 0xA1, write=False)
+class Cp(Stm8Instruction):
+    """ Compare """
+    a = Operand('a', Stm8RegisterA, read=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA1,
+            LongMemSource: 0xC1,
+            XSource: 0xF1,
+            LongOffsetXSource: 0xD1,
+            ShortOffsetSp: 0x11,
+        })
+    syntax = Syntax(['cp', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 CpAY = create_instruction(
     mnemonic='cp', operands=(a_ro, y_i), precode=0x90, opcode=0xF1)
 # TODO: CpAShortoffY
 CpALongoffY = create_instruction(
     mnemonic='cp', operands=(a_ro, longoff_y), precode=0x90, opcode=0xD1)
-CpAShortoffSP = create_instruction(
-    mnemonic='cp', operands=(a_ro, shortoff_sp), opcode=0x11)
 # TODO: CpAShortptr
 CpALongptr = create_instruction(
     mnemonic='cp', operands=(a_ro, longptr), precode=0x72, opcode=0xC1)
@@ -546,7 +586,20 @@ CpwYLongptrX = create_instruction(
     mnemonic='cpw', operands=(y_ro, longptr_x), precode=0x72, opcode=0xD3)
 
 
-Cpl = create_shift_instruction('cpl', 3)
+class Cpl(Stm8Instruction):
+    """ Logical 1 complement """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x43,
+            XSource: 0x73,
+            ShortOffsetSp: 0x03,
+        })
+    syntax = Syntax(['cpl', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: CplShortmem
 CplLongmem = create_instruction(
     mnemonic='cpl', operands=(longmem,), precode=0x72, opcode=0x53)
@@ -558,8 +611,6 @@ CplY = create_instruction(
 # TODO: CplShortoffY
 CplLongoffY = create_instruction(
     mnemonic='cpl', operands=(longoff_y,), precode=0x90, opcode=0x43)
-CplShortoffSP = create_instruction(
-    mnemonic='cpl', operands=(shortoff_sp,), opcode=0x03)
 # TODO: CplShortptr
 CplLongptr = create_instruction(
     mnemonic='cpl', operands=(longptr,), precode=0x72, opcode=0x33)
@@ -575,7 +626,20 @@ CplwY = create_instruction(
     mnemonic='cplw', operands=(y_rw,), precode=0x90, opcode=0x53)
 
 
-Dec = create_shift_instruction('dec', 0xA)
+class Dec(Stm8Instruction):
+    """ Decrement """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x4A,
+            XSource: 0x7A,
+            ShortOffsetSp: 0x0A,
+        })
+    syntax = Syntax(['dec', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: DecShortmem
 DecLongmem = create_instruction(
     mnemonic='dec', operands=(longmem,), precode=0x72, opcode=0x5A)
@@ -587,8 +651,6 @@ DecY = create_instruction(
 # TODO: DecShortoffY
 DecLongoffY = create_instruction(
     mnemonic='dec', operands=(longoff_y,), precode=0x90, opcode=0x4A)
-DecShortoffSP = create_instruction(
-    mnemonic='dec', operands=(shortoff_sp,), opcode=0x0A)
 # TODO: DecShortptr
 DecLongptr = create_instruction(
     mnemonic='dec', operands=(longptr,), precode=0x72, opcode=0x3A)
@@ -627,7 +689,20 @@ ExgwXY = create_instruction(
 Halt = create_instruction(mnemonic='halt', opcode=0x8E)
 
 
-Inc = create_shift_instruction('inc', 0xC)
+class Inc(Stm8Instruction):
+    """ Increment """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x4C,
+            XSource: 0x7C,
+            ShortOffsetSp: 0x0C,
+        })
+    syntax = Syntax(['inc', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: IncShortmem
 IncLongmem = create_instruction(
     mnemonic='inc', operands=(longmem,), precode=0x72, opcode=0x5C)
@@ -639,8 +714,6 @@ IncY = create_instruction(
 # TODO: IncShortoffY
 IncLongoffY = create_instruction(
     mnemonic='inc', operands=(longoff_y,), precode=0x90, opcode=0x4C)
-IncShortoffSP = create_instruction(
-    mnemonic='inc', operands=(shortoff_sp,),               opcode=0x0C)
 # TODO: IncShortptr
 IncLongptr = create_instruction(
     mnemonic='inc', operands=(longptr,), precode=0x72, opcode=0x3C)
@@ -738,7 +811,22 @@ Jrv = create_instruction(
     mnemonic='jrv', operands=(branch,), precode=None, opcode=0x29)
 
 
-Ld = create_arithmatic_instruction('ld', 0xA6, read=False)
+class Ld(Stm8Instruction):
+    """ Load """
+    a = Operand('a', Stm8RegisterA, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA6,
+            LongMemSource: 0xC6,
+            XSource: 0xF6,
+            LongOffsetXSource: 0xD6
+        })
+    syntax = Syntax(['ld', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 LdAY = create_instruction(
     mnemonic='ld', operands=(a_wo, y_i), precode=0x90, opcode=0xF6)
 # TODO: LdAShortoffY
@@ -934,14 +1022,28 @@ NegwY = create_instruction(
 Nop = create_instruction(mnemonic='nop', opcode=0x9D)
 
 
-Or = create_arithmatic_instruction('or', 0xAA)
+class Or(Stm8Instruction):
+    """ Logical or """
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xAA,
+            LongMemSource: 0xCA,
+            XSource: 0xFA,
+            LongOffsetXSource: 0xDA,
+            ShortOffsetSp: 0x1A,
+        })
+    syntax = Syntax(['or', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 OrAY = create_instruction(
     mnemonic='or', operands=(a_rw, y_i), precode=0x90, opcode=0xFA)
 # TODO: OrAShortoffY
 OrALongoffY = create_instruction(
     mnemonic='or', operands=(a_rw, longoff_y), precode=0x90, opcode=0xDA)
-OrAShortoffSP = create_instruction(
-    mnemonic='or', operands=(a_rw, shortoff_sp), opcode=0x1A)
 # TODO: OrAShortptr
 OrALongptr = create_instruction(
     mnemonic='or', operands=(a_rw, longptr), precode=0x72, opcode=0xCA)
@@ -978,13 +1080,34 @@ PushwY = create_instruction(
 Rcf = create_instruction(mnemonic='rcf', opcode=0x98)
 
 
-Ret = create_instruction(mnemonic='ret', opcode=0x81)
+class Ret(Stm8Instruction):
+    """ Return from subroutine """
+    syntax = Syntax(['ret'])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': 0x81}
 
 
-Rim = create_instruction(mnemonic='rim', opcode=0x9A)
+class Rim(Stm8Instruction):
+    """ Reset interrupt mask / enable interrupt """
+    syntax = Syntax(['rim'])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': 0x9A}
 
 
-Rlc = create_shift_instruction('rlc', 9)
+class Rlc(Stm8Instruction):
+    """ Rotate left logical through carry """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x49,
+            XSource: 0x79,
+            ShortOffsetSp: 0x09,
+        })
+    syntax = Syntax(['rlc', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: RlcShortmem
 RlcLongmem = create_instruction(
     mnemonic='rlc', operands=(longmem,), precode=0x72, opcode=0x59)
@@ -996,8 +1119,6 @@ RlcY = create_instruction(
 # TODO: RlcShortoffY
 RlcLongoffY = create_instruction(
     mnemonic='rlc', operands=(longoff_y,), precode=0x90, opcode=0x49)
-RlcShortoffSP = create_instruction(
-    mnemonic='rlc', operands=(shortoff_sp,), opcode=0x09)
 # TODO: RlcShortptr
 RlcLongptr = create_instruction(
     mnemonic='rlc', operands=(longptr,), precode=0x72, opcode=0x39)
@@ -1019,7 +1140,20 @@ RlwaYA = create_instruction(
     mnemonic='rlwa', operands=(y_rw, a_rw), precode=0x90, opcode=0x02)
 
 
-Rrc = create_shift_instruction('rrc', 6)
+class Rrc(Stm8Instruction):
+    """ Rotate right logical through carry """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x46,
+            XSource: 0x76,
+            ShortOffsetSp: 0x06,
+        })
+    syntax = Syntax(['rrc', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: RrcShortmem
 RrcLongmem = create_instruction(
     mnemonic='rrc', operands=(longmem,), precode=0x72, opcode=0x56)
@@ -1031,8 +1165,6 @@ RrcY = create_instruction(
 # TODO: RrcShortoffY
 RrcLongoffY = create_instruction(
     mnemonic='rrc', operands=(longoff_y,), precode=0x90, opcode=0x46)
-RrcShortoffSP = create_instruction(
-    mnemonic='rrc', operands=(shortoff_sp,), opcode=0x06)
 # TODO: RrcShortptr
 RrcLongptr = create_instruction(
     mnemonic='rrc', operands=(longptr,), precode=0x72, opcode=0x36)
@@ -1057,14 +1189,28 @@ RrwaYA = create_instruction(
 Rvf = create_instruction(mnemonic='rvf', opcode=0x9C)
 
 
-Sbc = create_arithmatic_instruction('sbc', 0xA2)
+class Sbc(Stm8Instruction):
+    """ Substract with carry / borrow """
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA2,
+            LongMemSource: 0xC2,
+            XSource: 0xF2,
+            LongOffsetXSource: 0xD2,
+            ShortOffsetSp: 0x12,
+        })
+    syntax = Syntax(['sbc', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 SbcAY = create_instruction(
     mnemonic='sbc', operands=(a_rw, y_i), precode=0x90, opcode=0xF2)
 # TODO: SbcAShortoffY
 SbcALongoffY = create_instruction(
     mnemonic='sbc', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD2)
-SbcAShortoffSP = create_instruction(
-    mnemonic='sbc', operands=(a_rw, shortoff_sp), opcode=0x12)
 # TODO: SbcAShortptr
 SbcALongptr = create_instruction(
     mnemonic='sbc', operands=(a_rw, longptr), precode=0x72, opcode=0xC2)
@@ -1081,7 +1227,20 @@ Scf = create_instruction(mnemonic='scf', opcode=0x99)
 Sim = create_instruction(mnemonic='sim', opcode=0x9B)
 
 
-Sll = create_shift_instruction('sll', 8)
+class Sll(Stm8Instruction):
+    """ Shift left logical """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x48,
+            XSource: 0x78,
+            ShortOffsetSp: 0x08,
+        })
+    syntax = Syntax(['sll', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: SllShortmem
 SllLongmem = create_instruction(
     mnemonic='sll', operands=(longmem,), precode=0x72, opcode=0x58)
@@ -1093,8 +1252,6 @@ SllY = create_instruction(
 # TODO: SllShortoffY
 SllLongoffY = create_instruction(
     mnemonic='sll', operands=(longoff_y,), precode=0x90, opcode=0x48)
-SllShortoffSP = create_instruction(
-    mnemonic='sll', operands=(shortoff_sp,), opcode=0x08)
 # TODO: SllShortptr
 SllLongptr = create_instruction(
     mnemonic='sll', operands=(longptr,), precode=0x72, opcode=0x38)
@@ -1110,7 +1267,20 @@ SllwY = create_instruction(
     mnemonic='sllw', operands=(y_rw,), precode=0x90, opcode=0x58)
 
 
-Sra = create_shift_instruction('sra', 7)
+class Sra(Stm8Instruction):
+    """ Shift right arithmatic """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x47,
+            XSource: 0x77,
+            ShortOffsetSp: 0x07,
+        })
+    syntax = Syntax(['sra', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: SraShortmem
 SraLongmem = create_instruction(
     mnemonic='sra', operands=(longmem,), precode=0x72, opcode=0x57)
@@ -1122,8 +1292,6 @@ SraY = create_instruction(
 # TODO: SraShortoffY
 SraLongoffY = create_instruction(
     mnemonic='sra', operands=(longoff_y,), precode=0x90, opcode=0x47)
-SraShortoffSP = create_instruction(
-    mnemonic='sra', operands=(shortoff_sp,), opcode=0x07)
 # TODO: SraShortptr
 SraLongptr = create_instruction(
     mnemonic='sra', operands=(longptr,), precode=0x72, opcode=0x37)
@@ -1139,7 +1307,20 @@ SrawY = create_instruction(
     mnemonic='sraw', operands=(y_rw,), precode=0x90, opcode=0x57)
 
 
-Srl = create_shift_instruction('srl', 4)
+class Srl(Stm8Instruction):
+    """ Shift right logical """
+    src = Operand(
+        'src',
+        {
+            ASource: 0x44,
+            XSource: 0x74,
+            ShortOffsetSp: 0x04,
+        })
+    syntax = Syntax(['srl', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 # TODO: SrlShortmem
 SrlLongmem = create_instruction(
     mnemonic='srl', operands=(longmem,), precode=0x72, opcode=0x54)
@@ -1151,8 +1332,6 @@ SrlY = create_instruction(
 # TODO: SrlShortoffY
 SrlLongoffY = create_instruction(
     mnemonic='srl', operands=(longoff_y,), precode=0x90, opcode=0x44)
-SrlShortoffSP = create_instruction(
-    mnemonic='srl', operands=(shortoff_sp,), opcode=0x04)
 # TODO: SrlShortptr
 SrlLongptr = create_instruction(
     mnemonic='srl', operands=(longptr,), precode=0x72, opcode=0x34)
@@ -1168,14 +1347,28 @@ SrlwY = create_instruction(
     mnemonic='srlw', operands=(y_rw,), precode=0x90, opcode=0x54)
 
 
-Sub = create_arithmatic_instruction('sub', 0xA0)
+class Sub(Stm8Instruction):
+    """ Substraction """
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA0,
+            LongMemSource: 0xC0,
+            XSource: 0xF0,
+            LongOffsetXSource: 0xD0,
+            ShortOffsetSp: 0x10,
+        })
+    syntax = Syntax(['sub', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 SubAY = create_instruction(
     mnemonic='sub', operands=(a_rw, y_i), precode=0x90, opcode=0xF0)
 # TODO: SubAShortoffY
 SubALongoffY = create_instruction(
     mnemonic='sub', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD0)
-SubAShortoffSP = create_instruction(
-    mnemonic='sub', operands=(a_rw, shortoff_sp), opcode=0x10)
 # TODO: SubAShortptr
 SubALongptr = create_instruction(
     mnemonic='sub', operands=(a_rw, longptr), precode=0x72, opcode=0xC0)
@@ -1271,14 +1464,28 @@ Wfe = create_instruction(mnemonic='wfe', precode=0x72, opcode=0x8F)
 Wfi = create_instruction(mnemonic='wfi', opcode=0x8F)
 
 
-Xor = create_arithmatic_instruction('xor', 0xA8)
+class Xor(Stm8Instruction):
+    """ Logical exclusive or """
+    a = Operand('a', Stm8RegisterA, read=True, write=True)
+    src = Operand(
+        'src',
+        {
+            ByteSource: 0xA8,
+            LongMemSource: 0xC8,
+            XSource: 0xF8,
+            LongOffsetXSource: 0xD8,
+            ShortOffsetSp: 0x18,
+        })
+    syntax = Syntax(['xor', ' ', a, ',', ' ', src])
+    tokens = [Stm8OpcodeToken]
+    patterns = {'opcode': src}
+
+
 XorAY = create_instruction(
     mnemonic='xor', operands=(a_rw, y_i), precode=0x90, opcode=0xF8)
 # TODO: XorAShortoffY
 XorALongoffY = create_instruction(
     mnemonic='xor', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD8)
-XorAShortoffSP = create_instruction(
-    mnemonic='xor', operands=(a_rw, shortoff_sp), opcode=0x18)
 # TODO: XorAShortptr
 XorALongptr = create_instruction(
     mnemonic='xor', operands=(a_rw, longptr), precode=0x72, opcode=0xC8)

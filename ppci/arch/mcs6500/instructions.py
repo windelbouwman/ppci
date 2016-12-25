@@ -1,7 +1,11 @@
-""" 6502 instructions """
+""" 6502 instructions
+
+See for example: http://www.6502.org/tutorials/6502opcodes.html
+"""
+
 
 from ..isa import Isa
-from ..encoding import Instruction, Syntax, Operand
+from ..encoding import Instruction, Syntax, Operand, Constructor
 from ..token import Token, bit_range
 
 
@@ -18,34 +22,128 @@ class ByteToken(Token):
     byte = bit_range(0, 8)
 
 
+class WordToken(Token):
+    size = 16
+    word = bit_range(0, 16)
+
+
 class Mcs6500Instruction(Instruction):
     isa = isa
 
 
-class Immediate:
+class Accumulator(Constructor):
+    syntax = Syntax(['a'])
+
+
+class Immediate(Constructor):
+    """ Immediate value operand """
     imm = Operand('imm', int)
     syntax = Syntax(['#', imm])
+    tokens = [ByteToken]
+    patterns = {'byte': imm}
 
 
-class Absolute:
+class Absolute(Constructor):
+    """ Absolute 16-bit address """
     imm = Operand('imm', int)
     syntax = Syntax([imm])
+    tokens = [WordToken]
+    patterns = {'word': imm}
+
+
+class AbsoluteX(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax([imm, ',', 'x'])
+    tokens = [WordToken]
+    patterns = {'word': imm}
+
+
+class AbsoluteY(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax([imm, ',', 'y'])
+    tokens = [WordToken]
+    patterns = {'word': imm}
+
+
+class IndirectX(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax(['(', imm, ',', 'x', ')'])
+    tokens = [ByteToken]
+    patterns = {'byte': imm}
+
+
+class IndirectY(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax(['(', imm, ')', ',', 'y'])
+    tokens = [ByteToken]
+    patterns = {'byte': imm}
 
 
 class Adc(Mcs6500Instruction):
-    tokens = [OpcodeToken, ByteToken]
-    imm = Operand('imm', int)
-    syntax = Syntax(['adc', ' ', '#', imm])
-    patterns = {'opcode': 0x69, 'byte': imm}
+    """ Add with carry """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0x69,
+            # TODO 65
+            # TODO 75
+            Absolute: 0x6D,
+            AbsoluteX: 0x7D,
+            AbsoluteY: 0x79,
+            IndirectX: 0x61,
+            IndirectY: 0x71
+        })
+    syntax = Syntax(['adc', ' ', op])
+    patterns = {'opcode': op}
 
 
-class And:
-    """ And """
-    pass
+class And(Mcs6500Instruction):
+    """ Bitwise and """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0x29,
+            # TODO 25
+            # TODO 35
+            Absolute: 0x2D,
+            AbsoluteX: 0x3D,
+            AbsoluteY: 0x39,
+            IndirectX: 0x21,
+            IndirectY: 0x31
+        })
+    syntax = Syntax(['and', ' ', op])
+    patterns = {'opcode': op}
 
 
-class Asl:
-    pass
+class Asl(Mcs6500Instruction):
+    """ Arithmatic shift left """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Accumulator: 0x0A,
+            # TODO 06
+            # TODO 16
+            Absolute: 0x0E,
+            AbsoluteX: 0x1E
+        })
+    syntax = Syntax(['asl', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Bit(Mcs6500Instruction):
+    """ Test bits """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            # TODO 24
+            Absolute: 0x2C,
+        })
+    syntax = Syntax(['bit', ' ', op])
+    patterns = {'opcode': op}
 
 
 class Brk(Mcs6500Instruction):
@@ -158,6 +256,25 @@ class Rts(Mcs6500Instruction):
     tokens = [OpcodeToken]
     syntax = Syntax(['rts'])
     patterns = {'opcode': 0x60}
+
+
+class Sbc(Mcs6500Instruction):
+    """ Substract with carry """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xE9,
+            # TODO E5
+            # TODO F5
+            Absolute: 0xED,
+            AbsoluteX: 0xFD,
+            AbsoluteY: 0xF9,
+            IndirectX: 0xE1,
+            IndirectY: 0xF1
+        })
+    syntax = Syntax(['sbc', ' ', op])
+    patterns = {'opcode': op}
 
 
 class Sec(Mcs6500Instruction):

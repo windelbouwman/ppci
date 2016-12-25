@@ -8,6 +8,12 @@ class Module:
         self.context = context
         self.data_layout = DataLayout()
         self.functions = OwnedList(self)
+        self.vmap = {}
+        self.global_list = OwnedList(self)
+
+    def add_global_variable(self, v):
+        self.global_list.append(v)
+        self.vmap[v.name] = v
 
 
 class Value:
@@ -145,6 +151,14 @@ class GlobalValue(Constant):
 
 class GlobalObject(GlobalValue):
     pass
+
+
+class GlobalVariable(GlobalObject):
+    def __init__(self, ty, name, module=None):
+        super().__init__(ty)
+        self.name = name
+        if module:
+            module.add_global_variable(self)
 
 
 class Function(GlobalObject):

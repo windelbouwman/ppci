@@ -24,6 +24,7 @@ class LlvmIrParser(RecursiveDescentParser):
         """ Parse a module """
         self.logger.debug('Parsing module')
         self.module = nodes.Module(self.context)
+        self.forward_refs = {}
         while not self.at_end:
             if self.peak == 'define':
                 self.parse_define()
@@ -73,6 +74,20 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume('=')
         self.parse_optional_linkage()
         self.parse_global()
+
+    def parse_global(self):
+        is_constant = self.parse_global_type()
+        ty = self.parse_type()
+        self.parse_global_value(ty)
+        print(is_constant)
+
+    def parse_global_type(self):
+        if self.has_consumed('constant'):
+            return True
+        elif self.has_consumed('global'):
+            return False
+        else:
+            self.error("Expected 'global' or 'constant'")
 
     def parse_function_body(self, function):
         self._pfs = PerFunctionState(self, function)
@@ -149,6 +164,27 @@ class LlvmIrParser(RecursiveDescentParser):
             else:
                 break
         return attributes
+
+    def create_global_fwd_ref(self, module, pty, name):
+        if isinstance(pty.el_type, nodes.FunctionType):
+            self.not_impl()
+        else:
+            return nodes.GlobalVariable(pty.el_type, name, module=module)
+
+    def get_global_val(self, name, ty):
+        """ Get a global with the given id """
+        if not isinstance(ty, nodes.PointerType):
+            self.error('global variable reference must have pointer type')
+
+        if name in self.module.vmap:
+            val = self.module.vmap[name]
+        elif name in self.forward_refs:
+            val = self.forward_refs[name]
+        else:
+            print(self.module, ty, name)
+            val = self.create_global_fwd_ref(self.module, ty, name)
+            self.forward_refs[name] = val
+        return val
 
     def parse_named_metadata(self):
         """ Parse meta data starting with '!my.var'  """
@@ -364,7 +400,7 @@ class LlvmIrParser(RecursiveDescentParser):
         elif self.peak == 'LID':
             v = ValId('local', self.parse_name())
         elif self.peak == 'GID':
-            v = self.parse_name(global_name=True)
+            v = ValId('global', self.parse_name(global_name=True))
         elif self.peak == 'NUMBER':
             v = ValId('int', self.consume('NUMBER').val)
         elif self.peak == 'HEXDOUBLE':
@@ -378,20 +414,38 @@ class LlvmIrParser(RecursiveDescentParser):
         elif self.peak == 'false':
             self.consume('false')
             v = ValId('constant', nodes.ConstantInt.get_false(self.context))
+        elif self.peak == '{':
+            self.consume('{')
+            elts = self.parse_global_value_vector()
+            self.consume('}')
+            v = ValId('constant_struct', elts)
         elif self.peak == '<':
             # '<' constvect '>'
             self.consume('<')
             elts = self.parse_global_value_vector()
             self.consume('>')
             v = ValId('constant', nodes.ConstantVector.get(elts))
+        elif self.peak == 'getelementptr':
+            self.consume('getelementptr')
+            in_bounds = self.has_consumed('inbounds')
+            print(in_bounds)
+            self.consume('(')
+            ty = self.parse_type()
+            print(ty)
+            self.consume(',')
+            elts = self.parse_global_value_vector()
+            self.consume(')')
+            v = ValId('constant_gep', elts)
         else:  # pragma: no cover
             self.not_impl()
-        assert isinstance(v, ValId)
+        assert isinstance(v, ValId), str(v)
         return v
 
     def convert_val_id_to_value(self, ty, val_id):
         if val_id.kind == 'local':
             v = self._pfs.get_val(val_id.val, ty)
+        elif val_id.kind == 'global':
+            v = self.get_global_val(val_id.val, ty)
         elif val_id.kind == 'int':
             if not ty.is_integer:
                 self.error('integer constant must have integer type')
@@ -567,6 +621,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return nodes.InsertElementInst(op1, op2, op3)
 
     def parse_shuffle_vector(self):
+        """ Parse the shuffle vector """
         self.consume('shufflevector')
         op1 = self.parse_type_and_value()
         self.consume(',')
@@ -593,6 +648,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return nodes.LoadInst(ty, val)
 
     def parse_store(self):
+        """ Parse store instruction """
         self.consume('store')
         val = self.parse_type_and_value()
         self.consume(',')
