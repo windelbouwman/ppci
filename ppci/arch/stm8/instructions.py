@@ -7,7 +7,7 @@ from .registers import Stm8RegisterSP, Stm8RegisterCC
 from ..isa import Isa
 from ..encoding import FixedPattern, Instruction, Operand, Syntax
 from ..encoding import VariablePattern, Constructor
-from ..token import bit_range, bit, Token
+from ..token import bit_range, Token
 
 
 class Stm8PrecodeToken(Token):

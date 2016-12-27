@@ -2,7 +2,7 @@
 import unittest
 import io
 import ctypes
-from ppci.utils.codepage import load_code_as_module
+from ppci.utils.codepage import load_code_as_module, platform_supported
 
 
 def has_numpy():
@@ -13,6 +13,7 @@ def has_numpy():
         return False
 
 
+@unittest.skipIf(not platform_supported(), 'skipping codepage tests')
 class CodePageTestCase(unittest.TestCase):
     def test_add(self):
         source_file = io.StringIO("""
@@ -45,7 +46,8 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(104.14, x)
 
 
-@unittest.skipIf(not has_numpy(), 'skipping numpy test')
+@unittest.skipIf(
+    not (has_numpy() and platform_supported()), 'skipping numpy test')
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
         source_file = io.StringIO("""

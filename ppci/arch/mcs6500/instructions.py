@@ -5,7 +5,7 @@ See for example: http://www.6502.org/tutorials/6502opcodes.html
 
 
 from ..isa import Isa
-from ..encoding import Instruction, Syntax, Operand, Constructor
+from ..encoding import Instruction, Syntax, Operand, Constructor, Relocation
 from ..token import Token, bit_range
 
 
@@ -31,6 +31,16 @@ class Mcs6500Instruction(Instruction):
     isa = isa
 
 
+@isa.register_relocation
+class AbsRelocation(Relocation):
+    token = WordToken
+    field = 'word'
+    name = 'abs16'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value
+
+
 class Accumulator(Constructor):
     syntax = Syntax(['a'])
 
@@ -41,6 +51,16 @@ class Immediate(Constructor):
     syntax = Syntax(['#', imm])
     tokens = [ByteToken]
     patterns = {'byte': imm}
+
+
+class AbsoluteLabel(Constructor):
+    """ Absolute label """
+    target = Operand('target', str)
+    syntax = Syntax([target])
+    tokens = [WordToken]
+
+    def relocations(self):
+        return [AbsRelocation(self.target)]
 
 
 class Absolute(Constructor):
@@ -77,6 +97,34 @@ class IndirectY(Constructor):
     syntax = Syntax(['(', imm, ')', ',', 'y'])
     tokens = [ByteToken]
     patterns = {'byte': imm}
+
+
+class Relative(Constructor):
+    """ Relative """
+    target = Operand('target', int)
+    syntax = Syntax([target])
+    tokens = [ByteToken]
+    patterns = {'byte': target}
+
+
+@isa.register_relocation
+class RelativeRelocation(Relocation):
+    token = ByteToken
+    field = 'byte'
+    name = 'rel8'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value - (reloc_value + 1)
+
+
+class RelativeLabel(Constructor):
+    """ Relative label """
+    target = Operand('target', str)
+    syntax = Syntax([target])
+    tokens = [ByteToken]
+
+    def relocations(self):
+        return [RelativeRelocation(self.target)]
 
 
 class Adc(Mcs6500Instruction):
@@ -133,6 +181,14 @@ class Asl(Mcs6500Instruction):
     patterns = {'opcode': op}
 
 
+class Beq(Mcs6500Instruction):
+    """ Branch on equal """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Relative, RelativeLabel))
+    syntax = Syntax(['beq', ' ', label])
+    patterns = {'opcode': 0xF0}
+
+
 class Bit(Mcs6500Instruction):
     """ Test bits """
     tokens = [OpcodeToken]
@@ -144,6 +200,30 @@ class Bit(Mcs6500Instruction):
         })
     syntax = Syntax(['bit', ' ', op])
     patterns = {'opcode': op}
+
+
+class Bmi(Mcs6500Instruction):
+    """ Branch on minus """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Relative, RelativeLabel))
+    syntax = Syntax(['bmi', ' ', label])
+    patterns = {'opcode': 0x30}
+
+
+class Bne(Mcs6500Instruction):
+    """ Branch on not equal """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Relative, RelativeLabel))
+    syntax = Syntax(['bne', ' ', label])
+    patterns = {'opcode': 0xD0}
+
+
+class Bpl(Mcs6500Instruction):
+    """ Branch on plus """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Relative, RelativeLabel))
+    syntax = Syntax(['bpl', ' ', label])
+    patterns = {'opcode': 0x10}
 
 
 class Brk(Mcs6500Instruction):
@@ -181,6 +261,68 @@ class Clv(Mcs6500Instruction):
     patterns = {'opcode': 0xb8}
 
 
+class Cmp(Mcs6500Instruction):
+    """ Compare accumulator """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xC9,
+            # TODO C5
+            # TODO D5
+            Absolute: 0xCD,
+            AbsoluteX: 0xDD,
+            AbsoluteY: 0xD9,
+            IndirectX: 0xC1,
+            IndirectY: 0xD1
+        })
+    syntax = Syntax(['cmp', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Cpx(Mcs6500Instruction):
+    """ Compare X register """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xE0,
+            # TODO E4
+            Absolute: 0xEC,
+        })
+    syntax = Syntax(['cpx', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Cpy(Mcs6500Instruction):
+    """ Compare Y register """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xC0,
+            # TODO C4
+            Absolute: 0xCC,
+        })
+    syntax = Syntax(['cpy', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Dec(Mcs6500Instruction):
+    """ Decrement memory """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            # TODO C6
+            # TODO D6
+            Absolute: 0xCE,
+            AbsoluteX: 0xDE,
+        })
+    syntax = Syntax(['dec', ' ', op])
+    patterns = {'opcode': op}
+
+
 class Dex(Mcs6500Instruction):
     """ Decrement index X by 1 """
     tokens = [OpcodeToken]
@@ -195,6 +337,40 @@ class Dey(Mcs6500Instruction):
     patterns = {'opcode': 0x88}
 
 
+class Eor(Mcs6500Instruction):
+    """ Bitwise exclusive or """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0x49,
+            # TODO 45
+            # TODO 55
+            Absolute: 0x4D,
+            AbsoluteX: 0x5D,
+            AbsoluteY: 0x59,
+            IndirectX: 0x41,
+            IndirectY: 0x51,
+        })
+    syntax = Syntax(['eor', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Inc(Mcs6500Instruction):
+    """ Increment memory """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            # TODO E6
+            # TODO F6
+            Absolute: 0xEE,
+            AbsoluteX: 0xFE,
+        })
+    syntax = Syntax(['inc', ' ', op])
+    patterns = {'opcode': op}
+
+
 class Inx(Mcs6500Instruction):
     """ Increment index X by 1 """
     tokens = [OpcodeToken]
@@ -207,6 +383,114 @@ class Iny(Mcs6500Instruction):
     tokens = [OpcodeToken]
     syntax = Syntax(['iny'])
     patterns = {'opcode': 0xc8}
+
+
+class Jmp(Mcs6500Instruction):
+    """ Jump """
+    tokens = [OpcodeToken]
+    label = Operand(
+        'label',
+        {
+            Absolute: 0x4C,
+            AbsoluteLabel: 0x4C,
+            # TODO: 6C
+        })
+    syntax = Syntax(['jmp', ' ', label])
+    patterns = {'opcode': label}
+
+
+class Jsr(Mcs6500Instruction):
+    """ Jump to subroutine """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Absolute, AbsoluteLabel))
+    syntax = Syntax(['jsr', ' ', label])
+    patterns = {'opcode': 0x20}
+
+
+class Lda(Mcs6500Instruction):
+    """ Load accumulator """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xA9,
+            # TODO A5
+            # TODO B5
+            Absolute: 0xAD,
+            AbsoluteX: 0xBD,
+            AbsoluteY: 0xB9,
+            IndirectX: 0xA1,
+            IndirectY: 0xB1
+        })
+    syntax = Syntax(['lda', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Ldx(Mcs6500Instruction):
+    """ Load X register """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xA2,
+            # TODO A6
+            # TODO B6
+            Absolute: 0xAE,
+            AbsoluteY: 0xBE,
+        })
+    syntax = Syntax(['ldx', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Ldy(Mcs6500Instruction):
+    """ Load Y register """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0xA0,
+            # TODO A4
+            # TODO B4
+            Absolute: 0xAC,
+            AbsoluteX: 0xBC,
+        })
+    syntax = Syntax(['ldy', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Lsr(Mcs6500Instruction):
+    """ Logical shift right """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Accumulator: 0x4A,
+            # TODO 46
+            # TODO 56
+            Absolute: 0x4E,
+            AbsoluteX: 0x5E
+        })
+    syntax = Syntax(['lsr', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Ora(Mcs6500Instruction):
+    """ Bitwise or with accumulator """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Immediate: 0x09,
+            # TODO 05
+            # TODO 15
+            Absolute: 0x0D,
+            AbsoluteX: 0x1D,
+            AbsoluteY: 0x19,
+            IndirectX: 0x01,
+            IndirectY: 0x11,
+        })
+    syntax = Syntax(['ora', ' ', op])
+    patterns = {'opcode': op}
 
 
 class Nop(Mcs6500Instruction):
@@ -242,6 +526,38 @@ class Plp(Mcs6500Instruction):
     tokens = [OpcodeToken]
     syntax = Syntax(['plp'])
     patterns = {'opcode': 0x28}
+
+
+class Rol(Mcs6500Instruction):
+    """ Rotate left """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Accumulator: 0x2A,
+            # TODO 26
+            # TODO 36
+            Absolute: 0x2E,
+            AbsoluteX: 0x3E
+        })
+    syntax = Syntax(['rol', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Ror(Mcs6500Instruction):
+    """ Rotate right """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            Accumulator: 0x6A,
+            # TODO 66
+            # TODO 76
+            Absolute: 0x6E,
+            AbsoluteX: 0x7E
+        })
+    syntax = Syntax(['ror', ' ', op])
+    patterns = {'opcode': op}
 
 
 class Rti(Mcs6500Instruction):
@@ -296,6 +612,52 @@ class Sei(Mcs6500Instruction):
     tokens = [OpcodeToken]
     syntax = Syntax(['sei'])
     patterns = {'opcode': 0x78}
+
+
+class Sta(Mcs6500Instruction):
+    """ Store accumulator """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            # TODO 85
+            # TODO 95
+            Absolute: 0x8D,
+            AbsoluteX: 0x9D,
+            AbsoluteY: 0x99,
+            IndirectX: 0x81,
+            IndirectY: 0x91
+        })
+    syntax = Syntax(['sta', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Stx(Mcs6500Instruction):
+    """ Store X register """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            # TODO 86
+            # TODO 96
+            Absolute: 0x8E,
+        })
+    syntax = Syntax(['stx', ' ', op])
+    patterns = {'opcode': op}
+
+
+class Sty(Mcs6500Instruction):
+    """ Store Y register """
+    tokens = [OpcodeToken]
+    op = Operand(
+        'op',
+        {
+            # TODO 84
+            # TODO 94
+            Absolute: 0x8C,
+        })
+    syntax = Syntax(['sty', ' ', op])
+    patterns = {'opcode': op}
 
 
 class Tax(Mcs6500Instruction):

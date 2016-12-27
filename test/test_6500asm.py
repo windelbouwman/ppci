@@ -27,6 +27,11 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed('asl $4400,X')
         self.check('0a 0e0044 1e0044')
 
+    def test_beq(self):
+        """ Test branch if equal """
+        self.feed('beq $44')
+        self.check('f044')
+
     def test_bit(self):
         """ Test bit test """
         self.feed('bit $4400')
@@ -57,6 +62,34 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed("clv")
         self.check('b8')
 
+    def test_cmp(self):
+        """ Test compare accumulator """
+        self.feed('cmp #$44')
+        self.feed('cmp $4400')
+        self.feed('cmp $4400,X')
+        self.feed('cmp $4400,y')
+        self.feed('cmp ($44,x)')
+        self.feed('cmp ($44),y')
+        self.check('c944 cd0044 dd0044 d90044 c144 d144')
+
+    def test_cpx(self):
+        """ Test compare X register """
+        self.feed('cpx #$44')
+        self.feed('cpx $4400')
+        self.check('e044 ec0044')
+
+    def test_cpy(self):
+        """ Test compare Y register """
+        self.feed('cpy #$44')
+        self.feed('cpy $4400')
+        self.check('c044 cc0044')
+
+    def test_dec(self):
+        """ Test decrement """
+        self.feed("dec $4400")
+        self.feed("dec $4400,x")
+        self.check('ce0044 de0044')
+
     def test_dex(self):
         """ Test decrement index X by 1 """
         self.feed("dex")
@@ -67,6 +100,22 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed("dey")
         self.check('88')
 
+    def test_eor(self):
+        """ Test bitwise exclusive or """
+        self.feed("eor #$44")
+        self.feed("eor $4400")
+        self.feed("eor $4400,x")
+        self.feed("eor $4400,y")
+        self.feed("eor ($44,x)")
+        self.feed("eor ($44),y")
+        self.check('4944 4D0044 5D0044 590044 4144 5144')
+
+    def test_inc(self):
+        """ Test increment """
+        self.feed("inc $4400")
+        self.feed("inc $4400,x")
+        self.check('ee0044 fe0044')
+
     def test_inx(self):
         """ Test increment index X by 1 """
         self.feed("inx")
@@ -76,6 +125,57 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         """ Test increment index Y by 1 """
         self.feed("iny")
         self.check('c8')
+
+    def test_jmp(self):
+        """ Test jump """
+        self.feed("jmp $5597")
+        self.check('4c 9755')
+
+    @unittest.skip('todo')
+    def test_jsr(self):
+        """ Test jump to subroutine """
+        self.feed("jsr $5597")
+        self.feed("jsr a")
+        self.feed("a: jsr ab")
+        self.check('20 9755 20 0600 20 0600')
+
+    def test_lda(self):
+        """ Test load accumulator """
+        self.feed("lda #$44")
+        self.feed("lda $4400")
+        self.feed("lda ($44),y")
+        self.check('a944 ad0044 b144')
+
+    def test_ldx(self):
+        """ Test load X register """
+        self.feed("ldx #$44")
+        self.feed("ldx $4400")
+        self.feed("ldx $4400,y")
+        self.check('a244 ae0044 be0044')
+
+    def test_ldy(self):
+        """ Test load Y register """
+        self.feed("ldy #$44")
+        self.feed("ldy $4400")
+        self.feed("ldy $4400,x")
+        self.check('a044 ac0044 bc0044')
+
+    def test_lsr(self):
+        """ Test logical shift right """
+        self.feed("lsr a")
+        self.feed("lsr $4400")
+        self.feed("lsr $4400,x")
+        self.check('4a 4e0044 5e0044')
+
+    def test_ora(self):
+        """ Test bitwise or with accumulator """
+        self.feed("ora #$44")
+        self.feed("ora $4400")
+        self.feed("ora $4400,x")
+        self.feed("ora $4400,y")
+        self.feed("ora ($44,x)")
+        self.feed("ora ($44),y")
+        self.check('0944 0D0044 1D0044 190044 0144 1144')
 
     def test_nop(self):
         """ Test no operation """
@@ -101,6 +201,20 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         """ Test pull processor status from stack """
         self.feed("plp")
         self.check('28')
+
+    def test_rol(self):
+        """ Test rotate left """
+        self.feed("rol a")
+        self.feed("rol $4400")
+        self.feed("rol $4400,x")
+        self.check('2a 2e0044 3e0044')
+
+    def test_ror(self):
+        """ Test rotate right """
+        self.feed("ror a")
+        self.feed("ror $4400")
+        self.feed("ror $4400,x")
+        self.check('6a 6e0044 7e0044')
 
     def test_rti(self):
         """ Test return from interrupt """
@@ -131,6 +245,25 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         """ Test set interrupt disable status """
         self.feed("sei")
         self.check('78')
+
+    def test_sta(self):
+        """ Test store accumulator """
+        self.feed("sta $4400")
+        self.feed("sta $4400,x")
+        self.feed("sta $4400,y")
+        self.feed("sta ($44,x)")
+        self.feed("sta ($44),y")
+        self.check('8d0044 9d0044 990044 8144 9144')
+
+    def test_stx(self):
+        """ Test store X register """
+        self.feed("stx $4400")
+        self.check('8e0044')
+
+    def test_sty(self):
+        """ Test store Y register """
+        self.feed("sty $4400")
+        self.check('8c0044')
 
     def test_tax(self):
         """ Test transfer accumulator to index X """

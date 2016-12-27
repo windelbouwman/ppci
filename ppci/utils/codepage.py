@@ -27,16 +27,53 @@ def get_ctypes_type(debug_type):
     raise NotImplementedError(str(debug_type) + str(type(debug_type)))
 
 
+class WinPage:
+    """ Nice windows hack to emulate mmap.
+
+    Copied from:
+    https://github.com/campagnola/pycca/blob/master/pycca/asm/codepage.py
+    """
+    def __init__(self, size):
+        kern = ctypes.windll.kernel32
+        valloc = kern.VirtualAlloc
+        valloc.argtypes = (ctypes.c_uint32,) * 4
+        valloc.restype = ctypes.c_uint32
+        self.addr = valloc(0, size, 0x1000 | 0x2000, 0x40)
+        self.ptr = 0
+        self.size = size
+        self.mem = (ctypes.c_char * size).from_address(self.addr)
+
+    def write(self, data):
+        self.mem[self.ptr:self.ptr+len(data)] = data
+        self.ptr += len(data)
+
+    def __len__(self):
+        return self.size
+
+    def __del__(self):
+        kern = ctypes.windll.kernel32
+        vfree = kern.VirtualFree
+        vfree.argtypes = (ctypes.c_uint32,) * 3
+        vfree(self.addr, self.size, 0x8000)
+
+
 class Mod:
     """ Container for machine code """
     def __init__(self, obj):
         size = obj.byte_size
-        self._page = page = mmap.mmap(-1, size, prot=1 | 2 | 4)
 
-        buf = (ctypes.c_char * size).from_buffer(self._page)
-        page_addr = ctypes.addressof(buf)
+        # Create a code page into memory:
+        if sys.platform == 'win32':
+            self._page = WinPage(size)
+            page_addr = self._page.addr
+        else:
+            self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
+            buf = (ctypes.c_char * size).from_buffer(self._page)
+            page_addr = ctypes.addressof(buf)
+
+        # Load the code into the page:
         code = bytes(obj.get_section('code').data)
-        page.write(code)
+        self._page.write(code)
 
         # Get a function pointer
         for function in obj.debug_info.functions:
@@ -54,16 +91,29 @@ class Mod:
             setattr(self, function_name, fpointer)
 
 
-def load_code_as_module(source_file):
-    """ Load c3 code as a module """
+def platform_supported():
+    """ Determine if this platform is supported """
+    return get_current_arch() is not None
 
-    # Compile a simple function
+
+def get_current_arch():
+    """ Determine the correct architecture based on the current machine """
     if sys.platform == 'linux' and platform.architecture()[0] == '64bit':
         march = get_arch('x86_64')
     elif sys.platform == 'win32' and platform.architecture()[0] == '64bit':
         # windows 64 bit
         march = get_arch('x86_64:wincc')
     else:
+        march = None
+    return march
+
+
+def load_code_as_module(source_file):
+    """ Load c3 code as a module """
+
+    # Compile a simple function
+    march = get_current_arch()
+    if march is None:
         raise NotImplementedError(sys.platform)
 
     obj1 = c3c([source_file], [], march, debug=True)
