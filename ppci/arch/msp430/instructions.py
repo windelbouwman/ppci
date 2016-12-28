@@ -99,6 +99,9 @@ class AddrDst(Dst):
     is_special = True
     patterns = {'Ad': 1, 'destination': 2}
 
+    def gen_relocations(self):
+        yield Abs16Relocation(self.addr)
+
 
 class MemDst(Dst):
     """  register offset memory access, for example: 0x88(R8) """
@@ -133,10 +136,9 @@ class ConstLabelSrc(Src):
     syntax = Syntax(['#', addr])
     is_special = True
     patterns = {'As': 3, 'source': 0}
-    # TODO: reloc here? this should be implemented something like this:
-    # relocations = (
-    #    RelocationRelPc(addr, offset=2),
-    # )
+
+    def gen_relocations(self):
+        yield Abs16Relocation(self.addr)
 
 
 class AsConstTransform(Transform):
@@ -197,6 +199,9 @@ class AdrSrc(Src):
     syntax = Syntax(['&', addr])
     patterns = {'As': 1, 'source': 2}
 
+    def gen_relocations(self):
+        yield Abs16Relocation(self.addr)
+
 
 class MemSrc(Src):
     """ Memory content """
@@ -232,7 +237,7 @@ class Msp430Instruction(Instruction):
 class JumpInstruction(Msp430Instruction):
     tokens = [Msp430JumpToken]
 
-    def relocations(self):
+    def gen_relocations(self):
         yield Rel10Relocation(self.target)
 
 
@@ -240,7 +245,6 @@ def create_jump_instruction(name, condition):
     target = Operand('target', str)
     syntax = Syntax([name, ' ', target])
     patterns = {'condition': condition, 'opcode': 1}
-    # RelocPattern('offset', target, lambda sv, rv: ),
     members = {
         'syntax': syntax, 'target': target, 'patterns': patterns}
     return type(name + '_ins', (JumpInstruction, ), members)
@@ -265,11 +269,6 @@ Jmp = create_jump_instruction('jmp', 7)
 
 class OneOpArith(Msp430Instruction):
     tokens = [Msp430SingleOperandToken]
-
-    def relocations(self):
-        # TODO: re design this:
-        if hasattr(self.src, 'addr'):
-            yield Abs16Relocation(self.src.addr, offset=2)
 
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
@@ -331,15 +330,6 @@ class Reti(Msp430Instruction):
 
 class TwoOpArithInstruction(Msp430Instruction):
     tokens = [Msp430TwoOperandToken]
-
-    def relocations(self):
-        if hasattr(self.src, 'addr'):
-            yield Abs16Relocation(self.src.addr, offset=2)
-        if hasattr(self.dst, 'addr'):
-            if hasattr(self.src, 'addr'):
-                yield Abs16Relocation(self.dst.addr, offset=4)
-            else:
-                yield Abs16Relocation(self.dst.addr, offset=2)
 
     @property
     def used_registers(self):

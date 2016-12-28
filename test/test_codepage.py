@@ -13,7 +13,7 @@ def has_numpy():
         return False
 
 
-@unittest.skipIf(not platform_supported(), 'skipping codepage tests')
+@unittest.skipUnless(platform_supported(), 'skipping codepage tests')
 class CodePageTestCase(unittest.TestCase):
     def test_add(self):
         source_file = io.StringIO("""
@@ -46,8 +46,7 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(104.14, x)
 
 
-@unittest.skipIf(
-    not (has_numpy() and platform_supported()), 'skipping numpy test')
+@unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
         source_file = io.StringIO("""

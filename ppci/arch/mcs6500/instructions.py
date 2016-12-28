@@ -42,7 +42,8 @@ class AbsRelocation(Relocation):
 
 
 class Accumulator(Constructor):
-    syntax = Syntax(['a'])
+    # TODO: what is the syntax when the accumulator is intended?
+    syntax = Syntax([])
 
 
 class Immediate(Constructor):
@@ -53,14 +54,35 @@ class Immediate(Constructor):
     patterns = {'byte': imm}
 
 
+class Zeropage(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax(['zeropage', imm])
+    tokens = [ByteToken]
+    patterns = {'byte': imm}
+
+
+class ZeropageX(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax(['zeropage', imm, ',', 'x'])
+    tokens = [ByteToken]
+    patterns = {'byte': imm}
+
+
+class ZeropageY(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax(['zeropage', imm, ',', 'y'])
+    tokens = [ByteToken]
+    patterns = {'byte': imm}
+
+
 class AbsoluteLabel(Constructor):
     """ Absolute label """
     target = Operand('target', str)
     syntax = Syntax([target])
     tokens = [WordToken]
 
-    def relocations(self):
-        return [AbsRelocation(self.target)]
+    def gen_relocations(self):
+        yield AbsRelocation(self.target)
 
 
 class Absolute(Constructor):
@@ -123,8 +145,8 @@ class RelativeLabel(Constructor):
     syntax = Syntax([target])
     tokens = [ByteToken]
 
-    def relocations(self):
-        return [RelativeRelocation(self.target)]
+    def gen_relocations(self):
+        yield RelativeRelocation(self.target)
 
 
 class Adc(Mcs6500Instruction):
@@ -134,8 +156,8 @@ class Adc(Mcs6500Instruction):
         'op',
         {
             Immediate: 0x69,
-            # TODO 65
-            # TODO 75
+            Zeropage: 0x65,
+            ZeropageX: 0x75,
             Absolute: 0x6D,
             AbsoluteX: 0x7D,
             AbsoluteY: 0x79,
@@ -153,8 +175,8 @@ class And(Mcs6500Instruction):
         'op',
         {
             Immediate: 0x29,
-            # TODO 25
-            # TODO 35
+            Zeropage: 0x25,
+            ZeropageX: 0x35,
             Absolute: 0x2D,
             AbsoluteX: 0x3D,
             AbsoluteY: 0x39,
@@ -172,13 +194,29 @@ class Asl(Mcs6500Instruction):
         'op',
         {
             Accumulator: 0x0A,
-            # TODO 06
-            # TODO 16
+            Zeropage: 0x06,
+            ZeropageX: 0x16,
             Absolute: 0x0E,
             AbsoluteX: 0x1E
         })
     syntax = Syntax(['asl', ' ', op])
     patterns = {'opcode': op}
+
+
+class Bcc(Mcs6500Instruction):
+    """ Branch if carry clear """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Relative, RelativeLabel))
+    syntax = Syntax(['bcc', ' ', label])
+    patterns = {'opcode': 0x90}
+
+
+class Bcs(Mcs6500Instruction):
+    """ Branch if carry set """
+    tokens = [OpcodeToken]
+    label = Operand('label', (Relative, RelativeLabel))
+    syntax = Syntax(['bcs', ' ', label])
+    patterns = {'opcode': 0xB0}
 
 
 class Beq(Mcs6500Instruction):
@@ -195,7 +233,7 @@ class Bit(Mcs6500Instruction):
     op = Operand(
         'op',
         {
-            # TODO 24
+            Zeropage: 0x24,
             Absolute: 0x2C,
         })
     syntax = Syntax(['bit', ' ', op])
@@ -268,8 +306,8 @@ class Cmp(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xC9,
-            # TODO C5
-            # TODO D5
+            Zeropage: 0xC5,
+            ZeropageX: 0xD5,
             Absolute: 0xCD,
             AbsoluteX: 0xDD,
             AbsoluteY: 0xD9,
@@ -287,7 +325,7 @@ class Cpx(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xE0,
-            # TODO E4
+            Zeropage: 0xE4,
             Absolute: 0xEC,
         })
     syntax = Syntax(['cpx', ' ', op])
@@ -301,7 +339,7 @@ class Cpy(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xC0,
-            # TODO C4
+            Zeropage: 0xC4,
             Absolute: 0xCC,
         })
     syntax = Syntax(['cpy', ' ', op])
@@ -314,8 +352,8 @@ class Dec(Mcs6500Instruction):
     op = Operand(
         'op',
         {
-            # TODO C6
-            # TODO D6
+            Zeropage: 0xC6,
+            ZeropageX: 0xD6,
             Absolute: 0xCE,
             AbsoluteX: 0xDE,
         })
@@ -344,8 +382,8 @@ class Eor(Mcs6500Instruction):
         'op',
         {
             Immediate: 0x49,
-            # TODO 45
-            # TODO 55
+            Zeropage: 0x45,
+            ZeropageX: 0x55,
             Absolute: 0x4D,
             AbsoluteX: 0x5D,
             AbsoluteY: 0x59,
@@ -362,8 +400,8 @@ class Inc(Mcs6500Instruction):
     op = Operand(
         'op',
         {
-            # TODO E6
-            # TODO F6
+            Zeropage: 0xE6,
+            ZeropageX: 0xF6,
             Absolute: 0xEE,
             AbsoluteX: 0xFE,
         })
@@ -414,8 +452,8 @@ class Lda(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xA9,
-            # TODO A5
-            # TODO B5
+            Zeropage: 0xA5,
+            ZeropageX: 0xB5,
             Absolute: 0xAD,
             AbsoluteX: 0xBD,
             AbsoluteY: 0xB9,
@@ -433,8 +471,8 @@ class Ldx(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xA2,
-            # TODO A6
-            # TODO B6
+            Zeropage: 0xA6,
+            ZeropageY: 0xB6,
             Absolute: 0xAE,
             AbsoluteY: 0xBE,
         })
@@ -449,8 +487,8 @@ class Ldy(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xA0,
-            # TODO A4
-            # TODO B4
+            Zeropage: 0xA4,
+            ZeropageX: 0xB4,
             Absolute: 0xAC,
             AbsoluteX: 0xBC,
         })
@@ -465,8 +503,8 @@ class Lsr(Mcs6500Instruction):
         'op',
         {
             Accumulator: 0x4A,
-            # TODO 46
-            # TODO 56
+            Zeropage: 0x46,
+            ZeropageX: 0x56,
             Absolute: 0x4E,
             AbsoluteX: 0x5E
         })
@@ -481,8 +519,8 @@ class Ora(Mcs6500Instruction):
         'op',
         {
             Immediate: 0x09,
-            # TODO 05
-            # TODO 15
+            Zeropage: 0x05,
+            ZeropageX: 0x15,
             Absolute: 0x0D,
             AbsoluteX: 0x1D,
             AbsoluteY: 0x19,
@@ -535,8 +573,8 @@ class Rol(Mcs6500Instruction):
         'op',
         {
             Accumulator: 0x2A,
-            # TODO 26
-            # TODO 36
+            Zeropage: 0x26,
+            ZeropageX: 0x36,
             Absolute: 0x2E,
             AbsoluteX: 0x3E
         })
@@ -551,8 +589,8 @@ class Ror(Mcs6500Instruction):
         'op',
         {
             Accumulator: 0x6A,
-            # TODO 66
-            # TODO 76
+            Zeropage: 0x66,
+            ZeropageX: 0x76,
             Absolute: 0x6E,
             AbsoluteX: 0x7E
         })
@@ -581,8 +619,8 @@ class Sbc(Mcs6500Instruction):
         'op',
         {
             Immediate: 0xE9,
-            # TODO E5
-            # TODO F5
+            Zeropage: 0xE5,
+            ZeropageX: 0xF5,
             Absolute: 0xED,
             AbsoluteX: 0xFD,
             AbsoluteY: 0xF9,
@@ -620,8 +658,8 @@ class Sta(Mcs6500Instruction):
     op = Operand(
         'op',
         {
-            # TODO 85
-            # TODO 95
+            Zeropage: 0x85,
+            ZeropageX: 0x95,
             Absolute: 0x8D,
             AbsoluteX: 0x9D,
             AbsoluteY: 0x99,
@@ -638,8 +676,8 @@ class Stx(Mcs6500Instruction):
     op = Operand(
         'op',
         {
-            # TODO 86
-            # TODO 96
+            Zeropage: 0x86,
+            ZeropageY: 0x96,
             Absolute: 0x8E,
         })
     syntax = Syntax(['stx', ' ', op])
@@ -652,8 +690,8 @@ class Sty(Mcs6500Instruction):
     op = Operand(
         'op',
         {
-            # TODO 84
-            # TODO 94
+            Zeropage: 0x84,
+            ZeropageX: 0x94,
             Absolute: 0x8C,
         })
     syntax = Syntax(['sty', ' ', op])

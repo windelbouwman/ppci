@@ -22,15 +22,28 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
 
     def test_asl(self):
         """ Test arithmatic shift left """
-        self.feed('asl a')
+        self.feed('asl')
         self.feed('asl $4400')
         self.feed('asl $4400,X')
         self.check('0a 0e0044 1e0044')
+
+    def test_bcs(self):
+        """ Test branch if carry set """
+        self.feed('bcs $44')
+        self.check('b044')
 
     def test_beq(self):
         """ Test branch if equal """
         self.feed('beq $44')
         self.check('f044')
+
+    def test_beq_label(self):
+        """ Test branch if equal """
+        self.feed('beq a')
+        self.feed('beq a')
+        self.feed('a: beq a')
+        self.feed('beq a')
+        self.check('f002 f000 f0fe f0fc')
 
     def test_bit(self):
         """ Test bit test """
@@ -131,13 +144,17 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed("jmp $5597")
         self.check('4c 9755')
 
-    @unittest.skip('todo')
     def test_jsr(self):
         """ Test jump to subroutine """
         self.feed("jsr $5597")
+        self.check('20 9755')
+
+    def test_jsr_label(self):
+        """ Test jump to subroutine """
         self.feed("jsr a")
-        self.feed("a: jsr ab")
-        self.check('20 9755 20 0600 20 0600')
+        self.feed("a: jsr a")
+        self.feed("jsr a")
+        self.check('200300 200300 200300')
 
     def test_lda(self):
         """ Test load accumulator """
@@ -162,7 +179,7 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
 
     def test_lsr(self):
         """ Test logical shift right """
-        self.feed("lsr a")
+        self.feed("lsr")
         self.feed("lsr $4400")
         self.feed("lsr $4400,x")
         self.check('4a 4e0044 5e0044')
@@ -204,14 +221,14 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
 
     def test_rol(self):
         """ Test rotate left """
-        self.feed("rol a")
+        self.feed("rol")
         self.feed("rol $4400")
         self.feed("rol $4400,x")
         self.check('2a 2e0044 3e0044')
 
     def test_ror(self):
         """ Test rotate right """
-        self.feed("ror a")
+        self.feed("ror")
         self.feed("ror $4400")
         self.feed("ror $4400,x")
         self.check('6a 6e0044 7e0044')

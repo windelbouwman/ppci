@@ -23,8 +23,6 @@ Below is a list of features / tasks that need to be done.
 
 - Add a pascal frontend.
 
-- Add floating point support.
-
 - Add a peephole optimizer.
 
 - Add a front-end for LLVM IR-code, this way, the front-end of LLVM can be

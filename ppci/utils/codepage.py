@@ -100,9 +100,10 @@ def get_current_arch():
     """ Determine the correct architecture based on the current machine """
     if sys.platform == 'linux' and platform.architecture()[0] == '64bit':
         march = get_arch('x86_64')
-    elif sys.platform == 'win32' and platform.architecture()[0] == '64bit':
-        # windows 64 bit
-        march = get_arch('x86_64:wincc')
+    # TODO: implement mac and windows support!
+    # elif sys.platform == 'win32' and platform.architecture()[0] == '64bit':
+    #    # windows 64 bit
+    #    march = get_arch('x86_64:wincc')
     else:
         march = None
     return march
