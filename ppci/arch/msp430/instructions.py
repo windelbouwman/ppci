@@ -15,7 +15,9 @@ isa = Isa()
 
 
 class Msp430SingleOperandToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     prefix = bit_range(10, 16)
     opcode = bit_range(7, 10)
     bw = bit(6)
@@ -24,14 +26,18 @@ class Msp430SingleOperandToken(Token):
 
 
 class Msp430JumpToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     opcode = bit_range(13, 16)
     condition = bit_range(10, 13)
     offset = bit_range(0, 10)
 
 
 class Msp430TwoOperandToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     opcode = bit_range(12, 16)
     source = bit_range(8, 12)
     Ad = bit(7)
@@ -41,12 +47,16 @@ class Msp430TwoOperandToken(Token):
 
 
 class SrcImmToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     srcimm = bit_range(0, 16)
 
 
 class DstImmToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     dstimm = bit_range(0, 16)
 
 

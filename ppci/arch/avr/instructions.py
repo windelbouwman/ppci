@@ -11,7 +11,9 @@ from .registers import r0, r1, r1r0
 
 
 class AvrToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     w0 = bit_range(0, 16)
     b0 = bit_range(0, 8)
     b1 = bit_range(8, 16)
@@ -23,7 +25,9 @@ class AvrToken(Token):
 
 
 class Imm16Token(Token):
-    size = 16
+    class Info:
+        size = 16
+
     imm = bit_range(0, 16)
 
 

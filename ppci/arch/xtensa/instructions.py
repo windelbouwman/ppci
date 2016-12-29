@@ -19,7 +19,9 @@ boolean_isa = core_isa
 
 class RrrToken(Token):
     """ RRR format """
-    size = 24
+    class Info:
+        size = 24
+
     op2 = bit_range(20, 24)
     op1 = bit_range(16, 20)
     r = bit_range(12, 16)
@@ -29,11 +31,14 @@ class RrrToken(Token):
 
 
 class Rri4Token(Token):
-    size = 32
+    class Info:
+        size = 32
 
 
 class Rri8Token(Token):
-    size = 24
+    class Info:
+        size = 24
+
     imm8 = bit_range(16, 24)
     r = bit_range(12, 16)
     s = bit_range(8, 12)
@@ -43,25 +48,32 @@ class Rri8Token(Token):
 
 
 class Ri16Token(Token):
-    size = 24
+    class Info:
+        size = 24
+
     imm16 = bit_range(8, 24)
     t = bit_range(4, 8)
     op0 = bit_range(0, 4)
 
 
 class RsrToken(Token):
-    size = 24
+    class Info:
+        size = 24
 
 
 class CallToken(Token):
-    size = 24
+    class Info:
+        size = 24
+
     imm18 = bit_range(6, 24)
     n = bit_range(4, 6)
     op0 = bit_range(0, 4)
 
 
 class CallxToken(Token):
-    size = 24
+    class Info:
+        size = 24
+
     op2 = bit_range(20, 24)
     op1 = bit_range(16, 20)
     r = bit_range(12, 16)
@@ -72,7 +84,9 @@ class CallxToken(Token):
 
 
 class Bri8Token(Token):
-    size = 24
+    class Info:
+        size = 24
+
     imm8 = bit_range(16, 24)
     r = bit_range(12, 16)
     s = bit_range(8, 12)
@@ -82,7 +96,9 @@ class Bri8Token(Token):
 
 
 class Bri12Token(Token):
-    size = 24
+    class Info:
+        size = 24
+
     imm12 = bit_range(12, 24)
     s = bit_range(8, 12)
     m = bit_range(6, 8)
@@ -92,7 +108,9 @@ class Bri12Token(Token):
 
 class RrrnToken(Token):
     """ Narrow RRR format """
-    size = 16
+    class Info:
+        size = 16
+
     r = bit_range(12, 16)
     s = bit_range(8, 12)
     t = bit_range(4, 8)

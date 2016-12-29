@@ -11,35 +11,48 @@ from ..token import bit_range, Token
 
 
 class Stm8PrecodeToken(Token):
-    size = 8
+    class Info:
+        precode = True
+        size = 8
+
     precode = bit_range(0, 8)
 
 
 class Stm8OpcodeToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     opcode = bit_range(0, 8)
     position = bit_range(1, 4)
 
 
 class Stm8ByteToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     byte = bit_range(0, 8)
 
 
 class Stm8WordToken(Token):
-    size = 16
-    endianness = 'big'
+    class Info:
+        size = 16
+        endianness = 'big'
+
     word = bit_range(0, 16)
 
 
 class Stm8Byte2Token(Token):
-    size = 8
+    class Info:
+        size = 8
+
     byte2 = bit_range(0, 8)
 
 
 class Stm8Word2Token(Token):
-    size = 16
-    endianness = 'big'
+    class Info:
+        size = 16
+        endianness = 'big'
+
     word2 = bit_range(0, 16)
 
 
@@ -267,6 +280,16 @@ class LongOffsetXSource(Constructor):
 class YSource(Constructor):
     y = Operand('y', Stm8RegisterY, read=True)
     syntax = Syntax(['(', y, ')'])
+    tokens = [Stm8PrecodeToken]
+    patterns = {'precode': 0x90}
+
+
+class LongOffsetYSource(Constructor):
+    y = Operand('y', Stm8RegisterY, read=True)
+    v = Operand('v', int)
+    patterns = {'precode': 0x90, 'word': v}
+    tokens = [Stm8PrecodeToken, Stm8WordToken]
+    syntax = Syntax(['(', v, ',', ' ', y, ')'])
 
 
 class ShortOffsetSp(Constructor):
@@ -290,17 +313,15 @@ class Adc(Stm8Instruction):
             XSource: 0xF9,
             LongOffsetXSource: 0xD9,
             ShortOffsetSp: 0x19,
+            YSource: 0xF9,
+            LongOffsetYSource: 0xD9,
         })
     syntax = Syntax(['adc', ' ', a, ',', ' ', src])
     tokens = [Stm8OpcodeToken]
     patterns = {'opcode': src}
 
 
-AdcAY = create_instruction(
-    mnemonic='adc', operands=(a_rw, y_i), precode=0x90, opcode=0xF9)
 # TODO: AdcAShortoffY
-AdcALongoffY = create_instruction(
-    mnemonic='adc', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD9)
 # TODO: AdcAShortptr
 AdcALongptr = create_instruction(
     mnemonic='adc', operands=(a_rw, longptr), precode=0x72, opcode=0xC9)
@@ -322,17 +343,15 @@ class Add(Stm8Instruction):
             XSource: 0xFB,
             LongOffsetXSource: 0xDB,
             ShortOffsetSp: 0x1B,
+            YSource: 0xFB,
+            LongOffsetYSource: 0xDB,
         })
     syntax = Syntax(['add', ' ', a, ',', ' ', src])
     tokens = [Stm8OpcodeToken]
     patterns = {'opcode': src}
 
 
-AddAY = create_instruction(
-    mnemonic='add', operands=(a_rw, y_i), precode=0x90, opcode=0xFB)
 # TODO: AddAShortoffY
-AddALongoffY = create_instruction(
-    mnemonic='add', operands=(a_rw, longoff_y), precode=0x90, opcode=0xDB)
 # TODO: AddAShortptr
 AddALongptr = create_instruction(
     mnemonic='add', operands=(a_rw, longptr), precode=0x72, opcode=0xCB)
@@ -370,17 +389,15 @@ class And(Stm8Instruction):
             XSource: 0xF4,
             LongOffsetXSource: 0xD4,
             ShortOffsetSp: 0x14,
+            YSource: 0xF4,
+            LongOffsetYSource: 0xD4,
         })
     syntax = Syntax(['and', ' ', a, ',', ' ', src])
     tokens = [Stm8OpcodeToken]
     patterns = {'opcode': src}
 
 
-AndAY = create_instruction(
-    mnemonic='and', operands=(a_rw, y_i), precode=0x90, opcode=0xF4)
 # TODO: AndAShortoffY
-AndALongoffY = create_instruction(
-    mnemonic='and', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD4)
 # TODO: AndAShortptr
 AndALongptr = create_instruction(
     mnemonic='and', operands=(a_rw, longptr), precode=0x72, opcode=0xC4)
@@ -406,17 +423,15 @@ class Bcp(Stm8Instruction):
             XSource: 0xF5,
             LongOffsetXSource: 0xD5,
             ShortOffsetSp: 0x15,
+            YSource: 0xF5,
+            LongOffsetYSource: 0xD5,
         })
     syntax = Syntax(['bcp', ' ', a, ',', ' ', src])
     tokens = [Stm8OpcodeToken]
     patterns = {'opcode': src}
 
 
-BcpAY = create_instruction(
-    mnemonic='bcp', operands=(a_ro, y_i), precode=0x90, opcode=0xF5)
 # TODO: BcpAShortoffY
-BcpALongoffY = create_instruction(
-    mnemonic='bcp', operands=(a_ro, longoff_y), precode=0x90, opcode=0xD5)
 # TODO: BcpAShortptr
 BcpALongptr = create_instruction(
     mnemonic='bcp', operands=(a_ro, longptr), precode=0x72, opcode=0xC5)
@@ -487,6 +502,7 @@ class Clr(Stm8Instruction):
             ASource: 0x4F,
             XSource: 0x7F,
             ShortOffsetSp: 0x0F,
+            YSource: 0x7F,
         })
     syntax = Syntax(['clr', ' ', src])
     tokens = [Stm8OpcodeToken]
@@ -499,8 +515,6 @@ ClrLongmem = create_instruction(
 # TODO: ClrShortoffX
 ClrLongoffX = create_instruction(
     mnemonic='clr', operands=(longoff_x,), precode=0x72, opcode=0x4F)
-ClrY = create_instruction(
-    mnemonic='clr', operands=(y_i,), precode=0x90, opcode=0x7F)
 # TODO: ClrShortoffY
 ClrLongoffY = create_instruction(
     mnemonic='clr', operands=(longoff_y,), precode=0x90, opcode=0x4F)
@@ -530,14 +544,13 @@ class Cp(Stm8Instruction):
             XSource: 0xF1,
             LongOffsetXSource: 0xD1,
             ShortOffsetSp: 0x11,
+            YSource: 0xF1,
         })
     syntax = Syntax(['cp', ' ', a, ',', ' ', src])
     tokens = [Stm8OpcodeToken]
     patterns = {'opcode': src}
 
 
-CpAY = create_instruction(
-    mnemonic='cp', operands=(a_ro, y_i), precode=0x90, opcode=0xF1)
 # TODO: CpAShortoffY
 CpALongoffY = create_instruction(
     mnemonic='cp', operands=(a_ro, longoff_y), precode=0x90, opcode=0xD1)

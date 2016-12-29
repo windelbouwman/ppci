@@ -13,17 +13,23 @@ isa = Isa()
 
 
 class OpcodeToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     opcode = bit_range(0, 8)
 
 
 class ByteToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     byte = bit_range(0, 8)
 
 
 class WordToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     word = bit_range(0, 16)
 
 

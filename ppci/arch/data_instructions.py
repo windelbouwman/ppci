@@ -17,17 +17,23 @@ data_isa = Isa()
 
 
 class ByteToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     value = bit_range(0, 8)
 
 
 class WordToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     value = bit_range(0, 16)
 
 
 class DwordToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     value = bit_range(0, 32)
 
 

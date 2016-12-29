@@ -55,7 +55,9 @@ add bitfields:
     from ppci.arch.token import Token, bit_range
 
     class Stm8Token(Token):
-        size = 8
+        class Info:
+            size = 8
+
         opcode = bit_range(0, 8)
 
 In this example an 8-bit token is defined with one field called 'opcode' of
@@ -112,7 +114,9 @@ can be specified, for example the stm8 adc instruction:
     from ppci.arch.encoding import Operand
 
     class Stm8ByteToken(Token):
-        size = 8
+        class Info:
+            size = 8
+
         byte = bit_range(0, 8)
 
     class AdcByte(Instruction):
@@ -197,8 +201,10 @@ To define a relocation, subclass :class:`ppci.arch.encoding.Relocation`.
     from ppci.arch.encoding import Relocation
 
     class Stm8WordToken(Token):
-        size = 16
-        endianness = 'big'
+        class Info:
+            size = 16
+            endianness = 'big'
+
         word = bit_range(0, 16)
 
     class Stm8Abs16Relocation(Relocation):

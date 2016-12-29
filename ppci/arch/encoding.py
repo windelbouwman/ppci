@@ -379,11 +379,17 @@ class Instruction(Constructor, metaclass=InsMeta):
                     p.__set__(o, new)
 
     def get_tokens(self):
+        precodes = []
         tokens = []
         for nl in self.non_leaves:
             if hasattr(nl, 'tokens'):
-                tokens.extend([t() for t in nl.tokens])
-        return TokenSequence(tokens)
+                for tc in nl.tokens:
+                    t = tc()
+                    if t.Info.precode:
+                        precodes.append(t)
+                    else:
+                        tokens.append(t)
+        return TokenSequence(precodes + tokens)
 
     def get_positions(self):
         """ Calculate the positions in the byte stream of all parts """
@@ -393,7 +399,7 @@ class Instruction(Constructor, metaclass=InsMeta):
             positions[nl] = pos
             if hasattr(nl, 'tokens'):
                 tokens = getattr(nl, 'tokens')
-                size = sum(t.size for t in tokens) // 8
+                size = sum(t.Info.size for t in tokens) // 8
             else:
                 size = 0
             pos += size
@@ -591,8 +597,8 @@ class Relocation:
     @classmethod
     def size(cls):
         """ Calculate the amount of bytes this relocation requires """
-        assert cls.token.size % 8 == 0
-        return cls.token.size // 8
+        assert cls.token.Info.size % 8 == 0
+        return cls.token.Info.size // 8
 
     def apply(self, sym_value, data, reloc_value):
         """ Apply this relocation type given some parameters.

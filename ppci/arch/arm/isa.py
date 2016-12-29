@@ -9,7 +9,9 @@ thumb_isa = Isa()
 
 # Tokens:
 class ArmToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     cond = bit_range(28, 32)
     opcode = bit_range(21, 28)
     S = bit(20)
@@ -24,7 +26,9 @@ class ArmToken(Token):
 
 
 class ArmImmToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     cond = bit_range(28, 32)
     opcode = bit_range(21, 28)
     s = bit(20)
@@ -34,5 +38,7 @@ class ArmImmToken(Token):
 
 
 class ThumbToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     rd = bit_range(0, 3)

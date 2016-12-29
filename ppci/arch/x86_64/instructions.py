@@ -22,35 +22,46 @@ isa = Isa()
 
 
 class Imm8Token(Token):
-    size = 8
+    class Info:
+        size = 8
+
     disp8 = bit_range(0, 8)
 
 
 class PrefixToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     prefix = bit_range(0, 8)
 
 
 class Prefix2Token(Token):
-    size = 8
+    class Info:
+        size = 8
+
     prefix2 = bit_range(0, 8)
 
 
 class OpcodeToken(Token):
     """ Primary opcode """
-    size = 8
+    class Info:
+        size = 8
+
     opcode = bit_range(0, 8)
 
 
 class SecondaryOpcodeToken(Token):
     """ Secondary opcode """
-    size = 8
+    class Info:
+        size = 8
+
     opcode2 = bit_range(0, 8)
 
 
 class ModRmToken(Token):
     """ Construct the modrm byte from its components """
-    size = 8
+    class Info:
+        size = 8
 
     def __init__(self, mod=0, rm=0, reg=0):
         super().__init__()
@@ -64,7 +75,8 @@ class ModRmToken(Token):
 
 
 class SibToken(Token):
-    size = 8
+    class Info:
+        size = 8
 
     def __init__(self, ss=0):
         super().__init__()
@@ -77,7 +89,8 @@ class SibToken(Token):
 
 class RexToken(Token):
     """ Create a REX prefix byte """
-    size = 8
+    class Info:
+        size = 8
 
     def __init__(self, w=0, r=0, x=0, b=0):
         super().__init__()
@@ -95,17 +108,23 @@ class RexToken(Token):
 
 class RexOpcodeRmToken(Token):
     """ A single token that combines rex prefix, opcode and mod rm """
-    size = 24
+    class Info:
+        size = 24
+
     w = bit(1)
 
 
 class Imm32Token(Token):
-    size = 32
+    class Info:
+        size = 32
+
     disp32 = bit_range(0, 32)
 
 
 class Imm64Token(Token):
-    size = 64
+    class Info:
+        size = 64
+
     disp64 = bit_range(0, 64)
 
 
