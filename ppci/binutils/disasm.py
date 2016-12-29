@@ -19,7 +19,7 @@ class Disassembler:
         # TODO: implement this!
 
         # The trial and error method, will be slow as a snail:
-        #for instruction in self.arch.isa.instructions:
+        # for instruction in self.arch.isa.instructions:
         #    for size in instruction.sizes():
         #        part = data[:size]
         #        try:

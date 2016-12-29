@@ -113,10 +113,15 @@ class Context:
             return ops[expr.op](a, b)
         elif isinstance(expr, ast.TypeCast):
             a = self.eval_const(expr.a)
+            to_type = self.get_type(expr.to_type)
             if self.equal_types('int', expr.to_type):
                 return int(a)
             elif self.equal_types('byte', expr.to_type):
                 return int(a) & 0xFF
+            elif isinstance(to_type, ast.FloatType):
+                return float(a)
+            elif isinstance(to_type, ast.PointerType):
+                return int(a)
             else:  # pragma: no cover
                 raise NotImplementedError(
                     'Casting to {} not implemented'.format(expr.to_type))
@@ -136,9 +141,22 @@ class Context:
         data = txt.encode('ascii')
         return length + data
 
-    def pack_int(self, v):
-        mapping = {1: '<B', 2: '<H', 4: '<I', 8: '<Q'}
-        fmt = mapping[self.get_type('int').byte_size]
+    def pack_int(self, v, bits=None, signed=True):
+        if bits is None:
+            bits = self.get_type('int').byte_size * 8
+        mapping = {
+            (8, False): '<B', (8, True): '<b',
+            (16, False): '<H', (16, True): '<h',
+            (32, False): '<I', (32, True): '<i',
+            (64, False): '<Q', (64, True): '<q'}
+        fmt = mapping[(bits, signed)]
+        return struct.pack(fmt, v)
+
+    def pack_float(self, v, bits=None):
+        if bits is None:
+            bits = 64
+        mapping = {32: 'f', 64: 'd'}
+        fmt = mapping[bits]
         return struct.pack(fmt, v)
 
     def get_common_type(self, a, b, loc):
@@ -163,6 +181,7 @@ class Context:
             (floatType, intType): floatType,
             (floatType, doubleType): doubleType,
             (doubleType, floatType): doubleType,
+            (doubleType, intType): doubleType,
             (byteType, intType): intType,
             (byteType, byteType): byteType,
             (byteType, byteType): byteType,
@@ -232,7 +251,8 @@ class Context:
 
     def equal_types(self, a, b, byname=False):
         """ Compare types a and b for structural equavalence.
-            if byname is True stop on defined types.
+
+        if byname is True stop on defined types.
         """
         # Recurse into named types:
         a = self.get_type(a, not byname)
@@ -240,7 +260,12 @@ class Context:
 
         # Do structural equivalence check:
         if type(a) is type(b):
-            if isinstance(a, ast.BaseType):
+            # TODO: compare better by bitsize?
+            if isinstance(a, ast.IntegerType):
+                return a.bits == b.bits
+            elif isinstance(a, ast.FloatType):
+                return a.bits == b.bits
+            elif isinstance(a, ast.BaseType):
                 return a.name == b.name
             elif isinstance(a, ast.PointerType):
                 # If a pointed type is detected, stop structural

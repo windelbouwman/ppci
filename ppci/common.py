@@ -25,6 +25,7 @@ def make_num(txt):
     else:
         return int(txt)
 
+
 str2int = make_num
 
 
@@ -76,6 +77,10 @@ class SourceLocation:
 
     def print_message(self, message, lines=None):
         """ Print a message at this location in the given source lines """
+        if lines is None:
+            with open(self.filename, 'r') as f:
+                src = f.read()
+            lines = src.splitlines()
         prerow = self.row - 2
         if prerow < 1:
             prerow = 1
@@ -114,6 +119,10 @@ class CompilerError(Exception):
         """ Render this error in some lines of context """
         self.loc.print_message('Error: {0}'.format(self.msg), lines=lines)
 
+    def print(self):
+        """ Print the error inside some nice context """
+        self.loc.print_message(self.msg)
+
 
 class IrFormError(CompilerError):
     pass
@@ -136,7 +145,10 @@ class DiagnosticsManager:
 
     def add_diag(self, d):
         """ Add a diagnostic message """
-        self.logger.error(str(d.msg))
+        if d.loc:
+            self.logger.error('Line {}: {}'.format(d.loc.row, d.msg))
+        else:
+            self.logger.error(str(d.msg))
         self.diags.append(d)
 
     def error(self, msg, loc):

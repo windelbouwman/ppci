@@ -374,15 +374,182 @@ the elements.
 Part 4 - Creating a linux executable
 ------------------------------------
 
-To be continued ....
+In this part we will create a linux executable from the object code we
+created. We will do this very low level, without libc, directly using the
+linux syscall api.
 
+We will start with the low level assembly glue code (linux.asm):
+
+.. code::
+
+    section reset
+
+    start:
+        call toy_toy
+        call bsp_exit
+
+    bsp_syscall:
+        mov rax, rdi ; abi param 1
+        mov rdi, rsi ; abi param 2
+        mov rsi, rdx ; abi param 3
+        mov rdx, rcx ; abi param 4
+        syscall
+        ret
+
+In this assembly snippet, we defined a sequence of code in the reset section
+which calls our toy_toy function and next the bsp_exit function. Bsp is
+an abbreviation for board support package, and we need it to connect other
+code to the platform we run on. The syscall assembly function calls the linux
+kernel with four parameters.
+
+Next we define the rest of the bsp in bsp.c3:
+
+.. code::
+
+    module bsp;
+
+    public function void putc(byte c)
+    {
+      syscall(1, 1, cast<int>(&c), 1);
+    }
+
+    function void exit()
+    {
+        syscall(60, 0, 0, 0);
+    }
+
+    function void syscall(int nr, int a, int b, int c);
+
+Here we implement two syscalls, namely putc and exit.
+
+For the print function, we will refer to the already existing io module
+located in the librt folder of ppci. To compile and link the different parts
+we use the following snippet:
+
+.. code:: python
+
+    obj1 = api.ir_to_object([ir_module], 'x86_64')
+    obj2 = api.c3c(['bsp.c3', '../../librt/io.c3'], [], 'x86_64')
+    obj3 = api.asm('linux.asm', 'x86_64')
+    obj = api.link([obj1, obj2, obj3], layout='layout.mmap')
+
+In this snippet, three object files are created. obj1 contains our toy
+languaged compiled into x86 code. obj2 contains the c3 bsp and io code.
+obj3 contains the assembly sourcecode.
+
+For the link command we also use a layout file, telling the linker where
+it must place which piece of the object file. In the case of linux, we use
+the following (layout.mmap):
+
+.. code::
+
+    MEMORY code LOCATION=0x40000 SIZE=0x10000 {
+        SECTION(reset)
+        ALIGN(4)
+        SECTION(code)
+    }
+
+    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+        SECTION(data)
+    }
+
+
+As a final step, we invoke the objcopy command to create a linux ELF
+executable:
+
+.. code:: python
+
+    # Create a linux elf file:
+    api.objcopy(obj, 'code', 'elf', 'example')
+
+This command creates a file called 'example', which is an ELF file for linux.
+The file can be inspected with objdump:
+
+.. code:: bash
+
+    (dslenv) [windel@hoefnix toydsl]$ objdump example -d
+
+    example:     file format elf64-x86-64
+
+
+    Disassembly of section code:
+
+    000000000004001c <toy_toy>:
+       4001c:   55                      push   %rbp
+       4001d:   41 56                   push   %r14
+       4001f:   41 57                   push   %r15
+       40021:   48 81 ec 18 00 00 00    sub    $0x18,%rsp
+       40028:   48 8b ec                mov    %rsp,%rbp
+
+    000000000004002b <toy_toy_block_entry>:
+       4002b:   49 be 02 00 00 00 00    movabs $0x2,%r14
+       40032:   00 00 00 
+       40035:   4c 89 75 00             mov    %r14,0x0(%rbp)
+       40039:   4c 8b 7d 00             mov    0x0(%rbp),%r15
+       4003d:   49 be 05 00 00 00 00    movabs $0x5,%r14
+
+    ...
+
+We can now run the executable:
+
+.. code::
+
+    (dslenv) [windel@hoefnix toydsl]$ ./example
+    Segmentation fault (core dumped)
+    (dslenv) [windel@hoefnix toydsl]$
+
+Sadly, this is not exactly what we hoped for!
+
+The problem here is that we did not call the io_print function with the
+proper arguments. To fix this, we can change the print handling routine
+like this:
+
+.. code:: python
+
+    def handle_print(self, print_statement):
+        self.logger.debug('print statement %s', print_statement.var)
+        name = print_statement.var
+        value = self.load_var(name)
+        label_data = pack_string('{} :'.format(name))
+        label = self.emit(ir.LiteralData(label_data, 'label'))
+        self.emit(ir.ProcedureCall('io_print2', [label, value]))
+
+We use here io_print2, which takes a label and a value. The label must be
+packed as a pascal style string, meaning a length integer followed by
+the string data. We can implement this string encoding with the following
+function:
+
+.. code:: python
+
+    def pack_string(txt):
+        ln = struct.pack('<Q', len(txt))
+        return ln + txt.encode('ascii')
+
+Now we can compile the TCF file again, and check the result:
+
+.. code:: bash
+
+    (dslenv) [windel@hoefnix toydsl]$ python toy.py
+    CodeObject of 1049 bytes
+    (dslenv) [windel@hoefnix toydsl]$ ./example
+    b :0x00000002
+    c :0x0000000F
+    (dslenv) [windel@hoefnix toydsl]$ cat example.tcf
+    b = 2;
+    c = 5 + 5 * b;
+    d = 133 * c - b;
+    print b;
+    print c;
+    (dslenv) [windel@hoefnix toydsl]$
+
+As we can see, the compiler worked out correctly!
 
 Final words
 -----------
 
 In this tutorial we have seen how to create a simple language.
 The entire example for this code can be found in the
-examples/toydsl directory.
-
+examples/toydsl directory in the ppci repository at:
+https://bitbucket.org/windel/ppci
 
 

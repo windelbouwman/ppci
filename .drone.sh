@@ -4,12 +4,12 @@ set -e
 
 # This is the script run on the drone.io CI service.
 
-pip install tox codecov wheel --use-mirrors
+pip install -q tox codecov wheel --use-mirrors
 
 # Run tox:
 tox --version
-tox -e py33,cover
+tox -e py33,cover,flake8
 codecov
 
 # Run setup script:
-python setup.py sdist bdist_wheel
+python setup.py -q sdist bdist_wheel

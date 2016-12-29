@@ -1,9 +1,10 @@
-"""
-    C front end.
-"""
+""" C front end. """
 
 from .parser import Parser
 from .nodes import Printer
+
+
+__all__ = ['CBuilder', 'Parser', 'Printer']
 
 
 class CBuilder:
@@ -14,6 +15,6 @@ class CBuilder:
         self.cgen = None
 
     def build(self, src):
-        cu = self.parser.parse(src)
+        self.parser.parse(src)
         # self.cgen.gen(s)
         # Printer().visit(cu)

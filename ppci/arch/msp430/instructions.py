@@ -1,7 +1,6 @@
 """ Definitions of msp430 instruction set. """
 
 from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
-from ..encoding import VariablePattern
 from ..arch import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
@@ -16,7 +15,9 @@ isa = Isa()
 
 
 class Msp430SingleOperandToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     prefix = bit_range(10, 16)
     opcode = bit_range(7, 10)
     bw = bit(6)
@@ -25,14 +26,18 @@ class Msp430SingleOperandToken(Token):
 
 
 class Msp430JumpToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     opcode = bit_range(13, 16)
     condition = bit_range(10, 13)
     offset = bit_range(0, 10)
 
 
 class Msp430TwoOperandToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     opcode = bit_range(12, 16)
     source = bit_range(8, 12)
     Ad = bit(7)
@@ -42,12 +47,16 @@ class Msp430TwoOperandToken(Token):
 
 
 class SrcImmToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     srcimm = bit_range(0, 16)
 
 
 class DstImmToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     dstimm = bit_range(0, 16)
 
 
@@ -100,6 +109,9 @@ class AddrDst(Dst):
     is_special = True
     patterns = {'Ad': 1, 'destination': 2}
 
+    def gen_relocations(self):
+        yield Abs16Relocation(self.addr)
+
 
 class MemDst(Dst):
     """  register offset memory access, for example: 0x88(R8) """
@@ -134,10 +146,9 @@ class ConstLabelSrc(Src):
     syntax = Syntax(['#', addr])
     is_special = True
     patterns = {'As': 3, 'source': 0}
-    # TODO: reloc here? this should be implemented something like this:
-    # relocations = (
-    #    RelocationRelPc(addr, offset=2),
-    # )
+
+    def gen_relocations(self):
+        yield Abs16Relocation(self.addr)
 
 
 class AsConstTransform(Transform):
@@ -198,6 +209,9 @@ class AdrSrc(Src):
     syntax = Syntax(['&', addr])
     patterns = {'As': 1, 'source': 2}
 
+    def gen_relocations(self):
+        yield Abs16Relocation(self.addr)
+
 
 class MemSrc(Src):
     """ Memory content """
@@ -233,7 +247,7 @@ class Msp430Instruction(Instruction):
 class JumpInstruction(Msp430Instruction):
     tokens = [Msp430JumpToken]
 
-    def relocations(self):
+    def gen_relocations(self):
         yield Rel10Relocation(self.target)
 
 
@@ -241,7 +255,6 @@ def create_jump_instruction(name, condition):
     target = Operand('target', str)
     syntax = Syntax([name, ' ', target])
     patterns = {'condition': condition, 'opcode': 1}
-    # RelocPattern('offset', target, lambda sv, rv: ),
     members = {
         'syntax': syntax, 'target': target, 'patterns': patterns}
     return type(name + '_ins', (JumpInstruction, ), members)
@@ -266,11 +279,6 @@ Jmp = create_jump_instruction('jmp', 7)
 
 class OneOpArith(Msp430Instruction):
     tokens = [Msp430SingleOperandToken]
-
-    def relocations(self):
-        # TODO: re design this:
-        if hasattr(self.src, 'addr'):
-            yield Abs16Relocation(self.src.addr, offset=2)
 
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
@@ -310,12 +318,7 @@ Rrcb = one_op_instruction('rrc', 0, b=1)
 Swpb = one_op_instruction('swpb', 1)
 Rraw = one_op_instruction('rra', 2, b=0)
 Rrab = one_op_instruction('rra', 2, b=1)
-
-# Sxt = one_op_instruction('sxt', 3)
-SxtBase = make_one_op_base('sxt', 3)
-SxtMemByReg = SxtBase + MemByReg
-isa.add_instruction(SxtMemByReg)
-
+Sxt = one_op_instruction('sxt', 3)
 Push = one_op_instruction('push', 4, src_write=False)
 Call = one_op_instruction('call', 5, src_write=False)
 
@@ -337,15 +340,6 @@ class Reti(Msp430Instruction):
 
 class TwoOpArithInstruction(Msp430Instruction):
     tokens = [Msp430TwoOperandToken]
-
-    def relocations(self):
-        if hasattr(self.src, 'addr'):
-            yield Abs16Relocation(self.src.addr, offset=2)
-        if hasattr(self.dst, 'addr'):
-            if hasattr(self.src, 'addr'):
-                yield Abs16Relocation(self.dst.addr, offset=4)
-            else:
-                yield Abs16Relocation(self.dst.addr, offset=2)
 
     @property
     def used_registers(self):
@@ -519,6 +513,7 @@ def pattern_mov16(self, tree, c0):
 
 
 @isa.pattern('reg', 'MOVI8(reg)', size=2)
+@isa.pattern('reg', 'MOVU8(reg)', size=2)
 def pattern_mov8(self, tree, c0):
     dst = tree.value
     self.emit(mov(c0, dst))
@@ -533,6 +528,7 @@ def pattern_const16(self, tree):
 
 
 @isa.pattern('reg', 'CONSTI8', size=4)
+@isa.pattern('reg', 'CONSTU8', size=4)
 def pattern_const8(self, tree):
     dst = self.new_reg(Msp430Register)
     cnst = tree.value
@@ -546,19 +542,36 @@ def pattern_reg16(self, tree):
 
 
 @isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
 def pattern_reg8(self, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'I16TOI16(reg)', size=0, cycles=0, energy=0)
-def pattern_i16toi16(self, tree, c0):
+@isa.pattern('reg', 'I16TOU16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U16TOU16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U16TOI16(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi16(context, tree, c0):
     return c0
 
 
 @isa.pattern('reg', 'I16TOI8(reg)', size=0, cycles=0, energy=0)
-def pattern_i16toi8(self, tree, c0):
-    # TODO: do something here?
-    return c0
+@isa.pattern('reg', 'I16TOU8(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi8(context, tree, c0):
+    # Create a new register and mask it with 0xff:
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(And(ConstSrc(0xff), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg', 'I8TOI16(reg)', size=0, cycles=0, energy=0)
+def pattern_i8toi16(context, tree, c0):
+    """ Sign extend signed byte to signed short """
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Sxt(d))
+    return d
 
 
 @isa.pattern('reg', 'CALL')
@@ -632,6 +645,7 @@ def pattern_str16(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI8(reg, reg)', size=2)
+@isa.pattern('stm', 'STRU8(reg, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
     context.emit(Movb(RegSrc(c1), MemDst(0, c0)))
 
@@ -644,6 +658,7 @@ def pattern_ldr16(context, tree, c0):
 
 
 @isa.pattern('reg', 'LDRI8(reg)', size=2)
+@isa.pattern('reg', 'LDRU8(reg)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Movb(MemSrc(c0), RegDst(d)))

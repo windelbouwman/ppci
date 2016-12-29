@@ -3,6 +3,7 @@
 # pylint: disable=C0103
 
 import sys
+import os
 import platform
 import argparse
 import logging
@@ -13,8 +14,8 @@ from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
 from .tasks import TaskError
-from . import __version__, api
-from .common import logformat
+from . import __version__, api, irutils
+from .common import logformat, CompilerError
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
@@ -337,6 +338,26 @@ def objcopy(args=None):
         api.objcopy(obj, args.segment, args.output_format, args.output)
 
 
+opt_description = """ Optimizer """
+opt_parser = argparse.ArgumentParser(
+    description=opt_description, parents=[base_parser])
+opt_parser.add_argument(
+    '-O', help='Optimization level', default=2, type=int)
+opt_parser.add_argument(
+    'input', help='input file', type=argparse.FileType('r'))
+opt_parser.add_argument(
+    'output', help='output file', type=argparse.FileType('w'))
+
+
+def opt(args=None):
+    """ Optimize a single IR-file """
+    args = opt_parser.parse_args(args)
+    module = irutils.Reader().read(args.input)
+    with LogSetup(args):
+        api.optimize(module, level=args.O)
+    irutils.Writer().write(module, args.output)
+
+
 def yacc_cmd(args=None):
     """
     Parser generator utility. This script can generate a python script from a
@@ -390,6 +411,7 @@ def hex2int(s):
         s = s[2:]
         return int(s, 16)
     raise ValueError('Hexadecimal value must begin with 0x')
+
 
 hexutil_parser = argparse.ArgumentParser(
     description='hexfile manipulation tool by Windel Bouwman')
@@ -478,10 +500,23 @@ class LogSetup:
     def __exit__(self, exc_type, exc_value, traceback):
         # Check if a task error was raised:
         if isinstance(exc_value, TaskError):
-            logging.getLogger().error(str(exc_value.msg))
+            self.logger.error(str(exc_value.msg))
             err = True
         else:
             err = False
+
+        if isinstance(exc_value, CompilerError):
+            self.logger.error(str(exc_value))
+            self.logger.error(str(exc_value.loc))
+            exc_value.print()
+
+        if exc_value is not None:
+            # Exception happened, close file and remove
+            if hasattr(self.args, 'output'):
+                self.args.output.close()
+                if hasattr(self.args.output, 'name'):
+                    filename = self.args.output.name
+                    os.remove(filename)
 
         self.logger.debug('Removing loggers')
         if self.args.report:

@@ -12,7 +12,8 @@ See also:
 
 For gotchas:
 
-https://gcc.gnu.org/onlinedocs/gcc-3.3.5/g77/Gotchas-_0028Transforming_0029.html
+https://gcc.gnu.org/onlinedocs/gcc-3.3.5/g77/
+   Gotchas-_0028Transforming_0029.html
 
 https://github.com/antlr/grammars-v3/blob/master/fortran77/f77-antlr2.g
 
@@ -23,7 +24,8 @@ Other fortran implementations:
 - f2c fortran to c compiler.
 see http://www.netlib.org/f2c/f2c.pdf
 Quote:
-'The program f2c is a horror, based on ancient code and hacked unmercifully. Users are only
+'The program f2c is a horror, based on ancient code and hacked unmercifully.
+Users are only
 supposed to look at its C output, not at its appalling inner workings'
 
 - f77 is the original fortran compiler written by Stu Feldman.
@@ -123,7 +125,8 @@ class FortranLexer:
 
         op_txt = r'[,=+\-*/\(\)]'
         tok_spec = str_spec + [
-            ('REAL', r'(\d+\.\d+)|(\d+\.)', lambda typ, val: (typ, float(val))),
+            ('REAL', r'(\d+\.\d+)|(\d+\.)',
+                lambda typ, val: (typ, float(val))),
             ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
             ('ID', r'[A-Za-z][A-Za-z\d_]*', self.handle_id),
             ('SKIP', r'[ \t]', None),
@@ -132,7 +135,8 @@ class FortranLexer:
         self.mode_progs['S'] = mk(tok_spec)
 
         fmt_spec = str_spec + [
-            ('FMTSPEC', 'A|(I\d+)|(\d+X)|(E\d+\.\d+)', lambda typ, val: (typ, val)),
+            ('FMTSPEC', 'A|(I\d+)|(\d+X)|(E\d+\.\d+)',
+                lambda typ, val: (typ, val)),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r'[\(\),]', lambda typ, val: (val, val)),
             ]
@@ -415,7 +419,7 @@ class FortranParser:
         while True:
             d = self.parse_const_value()
             if self.has_consumed('*'):
-                r = d
+                # r = d
                 d = self.parse_const_value()
             clist.append(d)
             if not self.has_consumed(','):
@@ -477,7 +481,7 @@ class FortranParser:
     def parse_write(self):
         loc = self.consume('WRITE').loc
         if self.has_consumed('('):
-            unit = self.parse_unit_spec()
+            self.parse_unit_spec()
             self.consume(',')
             fmt = self.parse_fmt_spec()
             self.consume(')')
@@ -565,5 +569,3 @@ class FortranParser:
             return nodes.Const(a.val, 'STR', a.loc)
         else:
             raise NotImplementedError()
-
-

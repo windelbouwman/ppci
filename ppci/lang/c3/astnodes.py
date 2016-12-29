@@ -78,6 +78,29 @@ class BaseType(NamedType):
         return '{}'.format(self.name)
 
 
+class IntegerType(BaseType):
+    """ Integer base type """
+    def __init__(self, name, byte_size):
+        super().__init__(name, byte_size)
+        self.bits = byte_size * 8
+
+
+class UnsignedIntegerType(IntegerType):
+    pass
+
+
+class SignedIntegerType(IntegerType):
+    pass
+
+
+class FloatType(BaseType):
+    """ Floating point base type """
+    def __init__(self, name, byte_size, fraction_bits):
+        super().__init__(name, byte_size)
+        self.bits = byte_size * 8
+        self.fraction_bits = fraction_bits
+
+
 class EnumType:
     # TODO
     pass
@@ -348,6 +371,26 @@ class Literal(Expression):
         return 'LITERAL {}'.format(self.val)
 
 
+class ExpressionList(Expression):
+    """ List of expressions """
+    def __init__(self, expressions, loc):
+        super().__init__(loc)
+        self.expressions = expressions
+
+    def __repr__(self):
+        return 'List [{}]'.format(self.expressions)
+
+
+class NamedExpressionList(Expression):
+    """ List of named expressions """
+    def __init__(self, expressions, loc):
+        super().__init__(loc)
+        self.expressions = expressions
+
+    def __repr__(self):
+        return 'NamedList [{}]'.format(self.expressions)
+
+
 class FunctionCall(Expression):
     """ Call to a some function """
     def __init__(self, proc, args, loc):
@@ -421,6 +464,13 @@ class Assignment(Statement):
     def shorthand_operator(self):
         """ Get the operator from '-=' to '-' """
         return self.operator[:-1]
+
+
+class VariableDeclaration(Statement):
+    """ A declaration of a local variable """
+    def __init__(self, var, loc):
+        super().__init__(loc)
+        self.var = var
 
 
 class ExpressionStatement(Statement):

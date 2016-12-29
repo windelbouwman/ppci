@@ -1,5 +1,5 @@
 
-from ...utils.bitfun import encode_imm32, align, wrap_negative, BitView
+from ...utils.bitfun import encode_imm32, align, wrap_negative
 from ..encoding import Relocation
 from .isa import ArmToken, arm_isa
 
@@ -28,7 +28,6 @@ class Imm24Relocation(Relocation):
         assert reloc_value % 4 == 0
         offset = (sym_value - (reloc_value + 8))
         return wrap_negative(offset >> 2, 24)
-
 
 
 @arm_isa.register_relocation

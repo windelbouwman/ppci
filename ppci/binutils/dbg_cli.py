@@ -50,7 +50,6 @@ class DebugCli(cmd.Cmd):
         count = str2int(count)
         self.debugger.nstep(count)
 
-
     def do_stop(self, _):
         """ Stop the running program """
         self.debugger.stop()
@@ -85,14 +84,28 @@ class DebugCli(cmd.Cmd):
 
     do_p = do_print
 
-    def do_regs(self, _):
+    def do_readregs(self, _):
         """ Read registers """
         registers = self.debugger.get_registers()
-        values = self.debugger.get_register_values(registers)
+        self.debugger.register_values = self.debugger.get_register_values(
+            registers)
         for reg in registers:
             size = reg.bitsize // 4
             print('{:>5.5s} : 0x{:0{sz}X}'.format(
-                str(reg), values[reg], sz=size))
+                str(reg), self.debugger.register_values[reg], sz=size))
+
+    def do_writeregs(self, _):
+        """ Write registers """
+        self.debugger.set_register_values()
+
+    def do_setreg(self, arg):
+        """ Set registervalue """
+        regnum, val = map(str2int, arg.split(','))
+        self.debugger.register_values[self.debugger.num2regmap[regnum]] = val
+        for reg in self.debugger.registers:
+            size = reg.bitsize // 4
+            print('{:>5.5s} : 0x{:0{sz}X}'.format(
+                str(reg), self.debugger.register_values[reg], sz=size))
 
     def do_setbrk(self, arg):
         """ Set a breakpoint: setbrk filename, row """

@@ -1,9 +1,10 @@
-"""
+""" Implementation of tree structure.
 
-Implementation of tree structure. Including a parser that can
+Including a parser that can
 parse tree structures from text.
 
 """
+
 from ppci.pcc.baselex import BaseLexer
 
 
@@ -18,19 +19,20 @@ class Tree:
     def __repr__(self):
         if self.children:
             ch = ', '.join(str(c) for c in self.children)
-            ch = '({})'.format(ch)
+            children = '({})'.format(ch)
         else:
-            ch = ''
+            children = ''
         if self.value is not None:
             val = '[{}]'.format(self.value)
         else:
             val = ''
-        return '{}{}{}'.format(self.name, val, ch)
+        return '{}{}{}'.format(self.name, val, children)
 
     def __getitem__(self, index):
         return self.children[index]
 
     def structural_equal(self, other):
+        """ Determine if this tree is structurally equivalent to another """
         return self.name == other.name and \
             len(self.children) == len(other.children) and \
             all(a.structural_equal(b) for a, b in
@@ -39,8 +41,8 @@ class Tree:
     def get_defined_names(self):
         """ Returns a set of all names defined by this tree """
         names = set([self.name])
-        for c in self.children:
-            names = names | c.get_defined_names()
+        for child in self.children:
+            names = names | child.get_defined_names()
         return names
 
 
@@ -55,8 +57,9 @@ class TreeLexer(BaseLexer):
 
 
 class TreeParser:
-    """ Parser that can parse tree expressions. For example:
+    """ Parser that can parse tree expressions.
 
+    For example:
         A(B(1,2,3),2,1,C)
     """
     def __init__(self):
@@ -93,6 +96,7 @@ class TreeParser:
                 children.append(self.parse_tree())
             self.consume(')')
         return Tree(name, *children)
+
 
 tree_parser = TreeParser()
 

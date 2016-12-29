@@ -58,6 +58,8 @@ class Visitor:
         elif isinstance(node, ast.Assignment):
             self.do(node.lval)
             self.do(node.rval)
+        elif isinstance(node, ast.VariableDeclaration):
+            self.do(node.var)
         elif isinstance(node, ast.FunctionCall):
             for arg in node.args:
                 self.do(arg)
@@ -68,6 +70,9 @@ class Visitor:
         elif isinstance(node, ast.Binop):
             self.do(node.a)
             self.do(node.b)
+        elif isinstance(node, ast.ExpressionList):
+            for expression in node.expressions:
+                self.do(expression)
         elif isinstance(node, ast.Unop):
             self.do(node.a)
         elif isinstance(node, ast.ExpressionStatement):

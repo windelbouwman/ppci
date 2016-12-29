@@ -7,7 +7,7 @@ from .registers import RiscvRegister
 from .tokens import RiscvcToken
 from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
 from ..arch import ArtificialInstruction
-from .instructions import Andr, Orr, Xorr, Subr, Addr, Addi, Slli, Srli
+from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
 from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne
 
 
@@ -304,7 +304,7 @@ class CLui(RiscvcInstruction):
         if self.imm < 0:
             imm6 = wrap_negative(self.imm >> 12, 6)
         else:
-            imm6 = self.imm >> 12 & 6
+            imm6 = self.imm >> 12 & 0x3F
         tokens = self.get_tokens()
         tokens[0].op = 0b01
         tokens[0][2:7] = imm6 & 0x1F
@@ -475,7 +475,7 @@ class Bnev(PseudoRiscvInstruction):
 
 # Instruction selection patterns:
 @rvcisa.pattern(
-    'reg', 'CONSTI32', size=1, 
+    'reg', 'CONSTI32', size=1,
     condition=lambda t: t.value in range(-32, 32))
 def pattern_consti32(context, tree):
     d = context.new_reg(RiscvRegister)
@@ -625,7 +625,7 @@ def pattern_cjmp(context, tree, c0, c1):
         ">=": Bge, '<=': Bgt
         }
     Bop = opnames[op]
-    if(op=="<="):
+    if op == "<=":
         jmp_ins = B(yes_label.name, jumps=[yes_label])
         context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
         context.emit(jmp_ins)

@@ -73,21 +73,41 @@ def bit_concat(*partials):
     return _p2(getter, setter, bitsize)
 
 
-class Token:
+class TokenMeta(type):
+    def __init__(cls, name, bases, attrs):
+        super(TokenMeta, cls).__init__(name, bases, attrs)
+
+        # 'Inherit' info attributes
+        if 'Info' in attrs:
+            for base in bases:
+                if hasattr(base, 'Info'):
+                    for k, v in base.Info.__dict__.items():
+                        if k.startswith('__'):
+                            continue
+                        if not hasattr(cls.Info, k):
+                            # print(k, v)
+                            setattr(cls.Info, k, v)
+
+
+class Token(metaclass=TokenMeta):
     """ A token in a stream """
-    size = None  # The size in bits of the token
-    endianness = 'little'
+    class Info:
+        precode = False  # Set precode to True to indicate a precode
+        size = None  # The size in bits of the token
+        endianness = 'little'
+
+    ignore_values = ()  # TODO: for optional tokens?
 
     def __init__(self, initial_bit_value=0):
-        assert self.size is not None
-        assert self.size % 8 == 0
+        assert self.Info.size is not None
+        assert self.Info.size % 8 == 0
         self.bit_value = initial_bit_value
-        self.mask = (1 << self.size) - 1
+        self.mask = (1 << self.Info.size) - 1
 
     def set_bit(self, i, value):
         """ Sets a specific bit in this token """
         value = bool(value)
-        assert i in range(0, self.size)
+        assert i in range(0, self.Info.size)
         mask = 1 << i
         if value:
             self.bit_value |= mask
@@ -114,6 +134,11 @@ class Token:
             bits = key.stop - key.start
             assert bits > 0
             limit = 1 << bits
+            # TODO: is this an issue?
+            # assert value >= 0, value
+            if value >= limit:
+                raise ValueError(
+                    '{} cannot be fit into {} bits'.format(value, bits))
             assert value < limit
             mask = self.mask ^ ((limit - 1) << key.start)
             self.bit_value &= mask
@@ -137,9 +162,9 @@ class Token:
     @classmethod
     def pack(cls, value):
         """ Pack integer value into bytes """
-        assert cls.size is not None
-        size = cls.size // 8
-        if cls.endianness == 'little':
+        assert cls.Info.size is not None
+        size = cls.Info.size // 8
+        if cls.Info.endianness == 'little':
             byte_numbers = range(size)
         else:
             byte_numbers = reversed(range(size))
@@ -148,11 +173,11 @@ class Token:
     @classmethod
     def unpack(cls, data):
         """ Unpack data into integer value """
-        byte_size = cls.size // 8
+        byte_size = cls.Info.size // 8
         if len(data) != byte_size:
             raise TypeError('Incorrect amount of data provided')
         value = 0
-        if cls.endianness == 'little':
+        if cls.Info.endianness == 'little':
             data = reversed(data)
         for byte in data:
             value <<= 8
@@ -194,7 +219,7 @@ class TokenSequence:
         """ Fill the tokens with data """
         offset = 0
         for token in self.tokens:
-            size = token.size // 8
+            size = token.Info.size // 8
             piece = data[offset:offset+size]
             if len(piece) != size:
                 raise ValueError('Not enough data for instruction')

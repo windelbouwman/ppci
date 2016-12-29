@@ -24,8 +24,8 @@ case $host in
     echo "Host system: Cygwin detected."
     MY_HOST=cygwin
     CFLAGS="$CFLAGS -D__CYGWIN_HOST__"
-    AC_CHECK_HEADER(sys/io.h,,[AC_MSG_ERROR([Include file 'sys/io.h' not found, please install the Cygwin 'ioperm' package.])])
-    LIBS+=-lioperm
+    #AC_CHECK_HEADER(sys/io.h,,[AC_MSG_ERROR([Include file 'sys/io.h' not found, please install the Cygwin 'ioperm' package.])])
+    #LIBS+=-lioperm
     ;;
   *-linux-*)
     echo "Host system: Linux detected."

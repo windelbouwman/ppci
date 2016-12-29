@@ -102,6 +102,7 @@ The following instructions are available.
 **Data instructions**
 
 .. autoclass:: ppci.ir.Const
+.. autoclass:: ppci.ir.LiteralData
 .. autoclass:: ppci.ir.Binop
 .. autoclass:: ppci.ir.Cast
 

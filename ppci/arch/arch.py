@@ -34,6 +34,7 @@ class Architecture:
         self.byte_sizes['int'] = 4  # For front end!
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
+        self.byte_sizes['u8'] = 1
         self.FrameClass = Frame
 
     def has_option(self, name):
@@ -368,12 +369,13 @@ class Frame:
 
         # Get register colors from interference graph:
         live_regs = []
-        for tmp in (instruction.live_in & instruction.live_out) - instruction.kill:
+        for tmp in (
+                instruction.live_in & instruction.live_out) - instruction.kill:
             # print(tmp)
             n = self.ig.get_node(tmp)
             reg = n.reg
             live_regs.append(reg)
-        #for tmp in instruction.used_registers:
+        # for tmp in instruction.used_registers:
         #    if tmp in live_regs:
         #        live_regs
         return live_regs

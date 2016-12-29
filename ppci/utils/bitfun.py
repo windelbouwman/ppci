@@ -1,6 +1,4 @@
-"""
-    Module full of bit manipulating helper classes.
-"""
+""" Module full of bit manipulating helper classes. """
 
 import struct
 
@@ -19,8 +17,7 @@ def rotate_left(v, n):
 
 
 def encode_imm32(v):
-    """ Bundle 32 bit value into 4 bits rotation and 8 bits value
-     """
+    """ Bundle 32 bit value into 4 bits rotation and 8 bits value """
     for i in range(0, 16):
         v2 = rotate_left(v, i*2)
         if (v2 & 0xFFFFFF00) == 0:
@@ -99,7 +96,8 @@ class BitView:
                 mask = bitmask << (p1 - bitpos1)
 
                 # Determine the new value of the bits:
-                bits = (bitmask & (value >> (p1 - key.start))) << (p1 - bitpos1)
+                bits = (bitmask & (value >> (p1 - key.start))) \
+                    << (p1 - bitpos1)
 
                 # print('mask', hex(mask), 'bitsize=', bitsize, hex(bits))
 

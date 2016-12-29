@@ -4,15 +4,16 @@ environment:
   - PYTHON: "C:\\Python35-x64"
 
 install:
-  - "%PYTHON%\\python.exe -m pip install tox wheel"
+  - "%PYTHON%\\python.exe -m pip -q install tox wheel"
 
 build: off
 
 test_script:
   - "%PYTHON%\\python.exe -m tox -e py33,py34,py35,ut"
+  - ps: (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
 
 after_test:
-  - "%PYTHON%\\python.exe setup.py sdist bdist_wheel bdist_msi bdist_wininst"
+  - "%PYTHON%\\python.exe setup.py -q sdist bdist_wheel bdist_msi bdist_wininst"
 
 artifacts:
   - path: dist\*

@@ -1,8 +1,3 @@
-from collections import namedtuple
-
-RegisterClass = namedtuple(
-    'RegisterClass', ['name', 'ir_types', 'typ', 'registers'])
-
 
 class Register:
     """ Baseclass of all registers types """
@@ -47,3 +42,12 @@ class Register:
     def is_colored(self):
         """ Determine whether the register is colored """
         return self.color is not None
+
+
+class RegisterClass:
+    def __init__(self, name, ir_types, typ, registers):
+        self.name = name
+        self.ir_types = ir_types
+        self.typ = typ
+        assert issubclass(typ, Register)
+        self.registers = registers

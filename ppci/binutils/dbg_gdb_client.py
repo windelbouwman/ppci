@@ -4,10 +4,7 @@
 
 import binascii
 import logging
-import socket
-import select
 import struct
-import time 
 from .dbg import DebugDriver, STOPPED, RUNNING
 
 
@@ -24,15 +21,13 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
-    def __init__(self, arch, port=1234, constat=STOPPED):
+    def __init__(self, arch, transport, constat=STOPPED, pcresval=0):
         self.arch = arch
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect(("localhost", port))
-        time.sleep(1)
+        self.transport = transport
         self.status = constat
+        self.pcresval = pcresval
         if(constat == RUNNING):
             self.stop()
-
 
     @staticmethod
     def rsp_pack(data):
@@ -56,17 +51,17 @@ class GdbDebugDriver(DebugDriver):
 
     def sendpkt(self, data, retries=10):
         """ sends data via the RSP protocol to the device """
-        readable, _, _ = select.select([self.sock], [], [], 0)
+        readable = self.transport.rx_avail()
         if readable:
             self.process_stop_status()
         self.logger.debug('GDB> %s', data)
         wire_data = self.rsp_pack(data).encode()
-        self.sock.send(wire_data)
+        self.transport.send(wire_data)
         res = self.recv()
         while res != '+':
             self.logger.warning('discards %s', res)
             self.logger.debug('resend-GDB> %s', data)
-            self.sock.send(wire_data)
+            self.transport.send(wire_data)
             res = self.recv()
             retries -= 1
             if retries == 0:
@@ -82,9 +77,9 @@ class GdbDebugDriver(DebugDriver):
                 except ValueError as ex:
                     self.logger.debug('GDB< %s', res)
                     self.logger.warning('Bad packet %s', ex)
-                    self.sock.send(b'-')
+                    self.transport.send(b'-')
                 else:
-                    self.sock.send(b'+')
+                    self.transport.send(b'+')
                     self.logger.debug('GDB< %s', res)
                     return res
             else:
@@ -97,17 +92,17 @@ class GdbDebugDriver(DebugDriver):
     def recv(self):
         """ Receive either a packet, or an ack """
         while True:
-            data = self.sock.recv(1)
+            data = self.transport.recv()
             if data == b'+':
                 return data.decode('ascii')
             elif data == b'$':
                 res = bytearray()
                 res.extend(data)
                 while True:
-                    res.extend(self.sock.recv(1))
+                    res.extend(self.transport.recv())
                     if res[-1] == ord('#') and res[-2] != ord("'"):
-                        res.extend(self.sock.recv(1))
-                        res.extend(self.sock.recv(1))
+                        res.extend(self.transport.recv())
+                        res.extend(self.transport.recv())
                         return res.decode('ascii')
             else:
                 print('UNKNOWN:', data)
@@ -118,9 +113,9 @@ class GdbDebugDriver(DebugDriver):
     def _process_incoming(self):
         """ Process all incoming bytes """
         while True:
-            readable, _, _ = select.select([self.sock], [], [], 0)
+            readable = self.transport.rx_avail()
             if readable:
-                b = self.sock.recv(1)
+                b = self.transport.recv()
                 self.process_byte(b)
             else:
                 break
@@ -128,13 +123,18 @@ class GdbDebugDriver(DebugDriver):
     def sendbrk(self):
         """ sends break command to the device """
         self.logger.debug('Sending RAW stop 0x3')
-        self.sock.send(bytes([0x03]))
+        self.transport.send(bytes([0x03]))
 
     def get_pc(self):
         """ read the PC of the device """
         pc = self._get_register(self.arch.gdb_pc)
         self.logger.debug("PC value read:%x", pc)
         return pc
+
+    def set_pc(self, value):
+        """ set the PC of the device """
+        self._set_register(self.arch.gdb_pc, value)
+        self.logger.debug("PC value set:%x", value)
 
     def get_fp(self):
         """ read the frame pointer """
@@ -154,9 +154,11 @@ class GdbDebugDriver(DebugDriver):
     def restart(self):
         """ restart the device """
         if self.status == STOPPED:
-            self.sendpkt("c00000080")
-            res = self.readpkt()
-            print(res)
+            # self.sendpkt("c00000080")
+            self.set_pc(self.pcresval)
+            self.run()
+            # res = self.readpkt()
+            # print(res)
         self.status = RUNNING
 
     def step(self):
@@ -168,9 +170,8 @@ class GdbDebugDriver(DebugDriver):
     def nstep(self, count):
         """ restart the device """
         if self.status == STOPPED:
-            self.sendpkt("n %x" %count)
+            self.sendpkt("n %x" % count)
             self.process_stop_status()
-
 
     def stop(self):
         self.sendbrk()
@@ -216,6 +217,23 @@ class GdbDebugDriver(DebugDriver):
         assert len(data) == offset, '%x %x' % (len(data), offset)
         return res
 
+    def set_registers(self, regvalues):
+        data = bytearray()
+        res = {}
+        offset = 0
+        for register in self.arch.gdb_registers:
+            reg_data = self._pack_register(register, regvalues[register])
+            size = register.bitsize // 8
+            data[offset:offset+size] = reg_data
+            offset += size
+        data = binascii.b2a_hex(data).decode('ascii')
+        self.sendpkt("G %s" % data)
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Register written')
+        else:
+            self.logger.warning('Registers writing failed: %s', res)
+
     def _get_register(self, register):
         """ Get a single register """
         idx = self.arch.gdb_registers.index(register)
@@ -223,6 +241,18 @@ class GdbDebugDriver(DebugDriver):
         data = self.readpkt()
         data = binascii.a2b_hex(data.encode('ascii'))
         return self._unpack_register(register, data)
+
+    def _set_register(self, register, value):
+        """ Set a single register """
+        idx = self.arch.gdb_registers.index(register)
+        value = self._pack_register(register, value)
+        value = binascii.b2a_hex(value).decode('ascii')
+        self.sendpkt("P %x=%s" % (idx, value))
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Register written')
+        else:
+            self.logger.warning('Register write failed: %s', res)
 
     @staticmethod
     def _unpack_register(register, data):
@@ -240,6 +270,19 @@ class GdbDebugDriver(DebugDriver):
         else:
             value, = struct.unpack(fmts[size], data)
         return value
+
+    @staticmethod
+    def _pack_register(register, value):
+        """ Put some data in a register """
+        fmts = {
+            8: '<Q',
+            4: '<I',
+            2: '<H',
+            1: '<B',
+            }
+        size = register.bitsize // 8
+        data = struct.pack(fmts[size], value)
+        return data
 
     def set_breakpoint(self, address):
         """ Set a breakpoint """
@@ -266,3 +309,8 @@ class GdbDebugDriver(DebugDriver):
         length = len(data)
         data = binascii.b2a_hex(data).decode('ascii')
         self.sendpkt("M %x,%x:%s" % (address, length, data))
+        res = self.readpkt()
+        if res == 'OK':
+            self.logger.debug('Memory written')
+        else:
+            self.logger.warning('Memory write failed: %s', res)

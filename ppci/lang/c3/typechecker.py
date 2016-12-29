@@ -34,7 +34,7 @@ class TypeChecker:
             # Check global variables:
             for var in module.variables:
                 assert not var.isLocal
-                self.check_type(var.typ)
+                self.check_variable(var)
         except SemanticError as ex:
             self.error(ex.msg, ex.loc)
 
@@ -92,6 +92,51 @@ class TypeChecker:
         else:  # pragma: no cover
             raise NotImplementedError('{} not implemented'.format(type(typ)))
 
+    def check_variable(self, var):
+        """ Check a variable and especially its initial value """
+        self.check_type(var.typ)
+        if var.ival:
+            var.ival = self.check_initial_value(var.ival, var.typ)
+
+    def check_initial_value(self, ival, typ):
+        """ Ensure that the initial value fits the given type """
+        typ = self.context.get_type(typ)
+        if isinstance(typ, ast.ArrayType):
+            if not isinstance(ival, ast.ExpressionList):
+                raise SemanticError('Invalid array initialization', ival.loc)
+
+            # TODO: can we do legit constant evaluation here?
+            size = self.context.eval_const(typ.size)
+            if len(ival.expressions) != size:
+                raise SemanticError(
+                    '{} initial values given, expected {}'.format(
+                        len(ival.expressions), size),
+                    ival.loc)
+            new_expressions = []
+            for expr in ival.expressions:
+                new_expr = self.check_initial_value(expr, typ.element_type)
+                new_expressions.append(new_expr)
+            ival.expressions = new_expressions
+            return ival
+        elif isinstance(typ, ast.StructureType):
+            print(ival)
+            if not isinstance(ival, ast.NamedExpressionList):
+                raise SemanticError('Invalid struct initialization', ival.loc)
+            if len(ival.expressions) != len(typ.fields):
+                raise SemanticError('Wrong number of given fields', ival.loc)
+            new_expressions = []
+            for ival2, fld in zip(ival.expressions, typ.fields):
+                field, expr = ival2
+                if field != fld.name:
+                    raise SemanticError('Wrong name of struct field', expr.loc)
+                new_expr = self.check_initial_value(expr, fld.typ)
+                new_expressions.append((field, new_expr))
+            ival.expressions = new_expressions
+            return ival
+        else:
+            self.check_expr(ival)
+            return self.do_coerce(ival, typ)
+
     def check_function(self, function):
         """ Check a function. """
         for param in function.parameters:
@@ -126,6 +171,8 @@ class TypeChecker:
                 pass
             elif isinstance(code, ast.Assignment):
                 self.check_assignment_stmt(code)
+            elif isinstance(code, ast.VariableDeclaration):
+                self.check_variable(code.var)
             elif isinstance(code, ast.ExpressionStatement):
                 # Check that this is always a void function call
                 if not isinstance(code.ex, ast.FunctionCall):
@@ -500,46 +547,76 @@ class TypeChecker:
     def do_coerce(self, expr, typ):
         """ Try to convert expression into the given type.
 
-        typ: the type of the value
-        wanted_typ: the type that it must be
-        loc: the location where this is needed.
+        expr: the expression value with a certain type
+        typ: the type that it must be
         Raises an error is the conversion cannot be done.
         """
-        if self.context.equal_types(expr.typ, typ):
+        from_type = self.context.get_type(expr.typ)
+        to_type = self.context.get_type(typ)
+
+        # Evaluate types from pointer, unsigned, signed to floating point:
+        if self.context.equal_types(from_type, to_type):
             # no cast required
-            pass
-        elif isinstance(expr.typ, ast.PointerType) and \
-                isinstance(typ, ast.PointerType):
+            auto_cast = False
+        elif isinstance(from_type, ast.PointerType) and \
+                isinstance(to_type, ast.PointerType):
             # Pointers are pointers, no matter the pointed data.
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                isinstance(typ, ast.PointerType):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                self.context.equal_types('byte', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                self.context.equal_types('float', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('int', expr.typ) and \
-                self.context.equal_types('double', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('double', expr.typ) and \
-                self.context.equal_types('float', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('float', expr.typ) and \
-                self.context.equal_types('double', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
-        elif self.context.equal_types('byte', expr.typ) and \
-                self.context.equal_types('int', typ):
-            expr = ast.TypeCast(typ, expr, expr.loc)
+            # But a conversion of type is still needed:
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.PointerType):
+            # Unsigned integers can be used as pointers without problem
+            # Signed integers form a problem, because those can be negative
+            # and thus must be casted explicitly.
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.UnsignedIntegerType) and \
+                from_type.bits <= to_type.bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.SignedIntegerType) and \
+                isinstance(to_type, ast.SignedIntegerType) and \
+                from_type.bits <= to_type.bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.SignedIntegerType) and \
+                from_type.bits < to_type.bits - 1:
+            auto_cast = True
+        elif isinstance(from_type, ast.UnsignedIntegerType) and \
+                isinstance(to_type, ast.FloatType) and \
+                from_type.bits < to_type.fraction_bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.SignedIntegerType) and \
+                isinstance(to_type, ast.FloatType) and \
+                from_type.bits < to_type.fraction_bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.FloatType) and \
+                isinstance(to_type, ast.FloatType) and \
+                from_type.bits < to_type.bits:
+            auto_cast = True
+        elif isinstance(from_type, ast.SignedIntegerType) and \
+                isinstance(to_type, (ast.UnsignedIntegerType, ast.FloatType)):
+            # For now, allow auto-cast, until better way of
+            # casting constant integer to byte type is found:
+            # TODO: remove this branch!
+            auto_cast = True
+        elif isinstance(from_type, ast.FloatType) and \
+                isinstance(to_type, ast.FloatType):
+            # TODO: remove this hack!
+            auto_cast = True
+        elif isinstance(from_type, ast.IntegerType) and \
+                isinstance(to_type, ast.PointerType):
+            # TODO: remove this hack!
+            auto_cast = True
         else:
             raise SemanticError(
-                "Cannot use '{}' as '{}'".format(expr.typ, typ), expr.loc)
+                "Cannot use '{}' as '{}'".format(from_type, to_type), expr.loc)
+        if auto_cast:
+            expr = ast.TypeCast(typ, expr, expr.loc)
         self.check_expr(expr)
         return expr
 
     def error(self, msg, loc=None):
         """ Emit error to diagnostic system and mark package as invalid """
         self.module_ok = False
+        self.logger.error(msg)
         self.diag.error(msg, loc)

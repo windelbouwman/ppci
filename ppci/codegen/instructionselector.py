@@ -1,12 +1,13 @@
-"""
-    Instruction selector. This part of the compiler takes in a DAG (directed
-    acyclic graph) of instructions and selects the proper target instructions.
+""" Instruction selector.
 
-    Selecting instructions from a DAG is a NP-complete problem. The simplest
-    strategy is to split the DAG into a forest of trees and match these
-    trees.
+This part of the compiler takes in a DAG (directed
+acyclic graph) of instructions and selects the proper target instructions.
 
-    Another solution may be: PBQP (Partitioned Boolean Quadratic Programming)
+Selecting instructions from a DAG is a NP-complete problem. The simplest
+strategy is to split the DAG into a forest of trees and match these
+trees.
+
+Another solution may be: PBQP (Partitioned Boolean Quadratic Programming)
 """
 
 import logging
@@ -18,16 +19,20 @@ from .irdag import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
 
 
-size_classes = [8, 16, 32, 64]
+data_types = [str(t).upper() for t in ir.all_types]
+
 ops = [
-    'ADD', 'SUB', 'MUL', 'DIV', 'REM',
-    'OR', 'SHL', 'SHR', 'AND', 'XOR',
-    'MOV', 'REG', 'LDR', 'STR', 'CONST',
-    'I8TO', 'I16TO', 'I32TO', 'I64TO']
+    'ADD', 'SUB', 'MUL', 'DIV', 'REM',  # Arithmatics
+    'OR', 'SHL', 'SHR', 'AND', 'XOR',  # bitwise stuff
+    'MOV', 'REG', 'LDR', 'STR', 'CONST',  # Data
+    'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
+    'U8TO', 'U16TO', 'U32TO', 'U64TO',
+    'F32TO', 'F64TO',
+    ]
 
 # Add all possible terminals:
 
-terminals = tuple(x + 'I' + str(y) for x in ops for y in size_classes) + (
+terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
              "JMP", "CJMP",
              "EXIT", "ENTRY")

@@ -168,7 +168,7 @@ class Parser:
             self.consume(')')
             return
         while True:
-            ds = self.parse_decl_spec()
+            self.parse_decl_spec()
             d = self.parse_declarator()
             args.append(d)
             if not self.has_consumed(','):
@@ -297,7 +297,7 @@ class Parser:
         self.parse_expression()
         self.consume(')')
         body = self.parse_statement()
-        return nodes.ForStatement(condition, body, loc)
+        return nodes.For(condition, body, loc)
 
     # Expression parts:
     def parse_expression(self):
@@ -329,7 +329,7 @@ class Parser:
                 prio2 += 1
             rhs = self.parse_binop_with_precedence(prio2)
             lhs = nodes.Binop(lhs, op.val, rhs, op.loc)
-            #print(lhs)
+            # print(lhs)
         return lhs
 
     def parse_primary_expression(self):

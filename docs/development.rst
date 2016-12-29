@@ -147,7 +147,8 @@ Code coverage is reported to the codecov service:
 
 - https://codecov.io/bb/windel/ppci/branch/default
 
-Other code metrics are listed at openhub:
+Other code metrics are listed here:
 
 - https://www.openhub.net/p/ppci
 
+- https://libraries.io/pypi/ppci

@@ -392,21 +392,44 @@ class Typ:
     def __str__(self):
         return self.name
 
+    @property
+    def is_integer(self):
+        """ Test if this type is of integer type """
+        return isinstance(self, IntegerTyp)
+
+
+class IntegerTyp(Typ):
+    """ Integer type """
+    def __init__(self, name, bits):
+        super().__init__(name)
+        self.bits = bits
+
+
+class SignedIntegerTyp(IntegerTyp):
+    """ Signed integer type """
+    signed = True
+
+
+class UnsignedIntegerTyp(IntegerTyp):
+    """ Unsigned integer type """
+    signed = False
+
 
 # The builtin types:
 f64 = Typ('f64')  #: 64-bit floating point type
 f32 = Typ('f32')  #: 32-bit floating point type
-i64 = Typ('i64')  #: Signed 64-bit type
-i32 = Typ('i32')  #: Signed 32-bit type
-i16 = Typ('i16')  #: Signed 16-bit type
-i8 = Typ('i8')  #: Signed 8-bit type
-u64 = Typ('u64')  #: Unsigned 64-bit type
-u32 = Typ('u32')  #: Unsigned 32-bit type
-u16 = Typ('u16')  #: Unsigned 16-bit type
-u8 = Typ('u8')  #: Unsigned 8-bit type
+i64 = SignedIntegerTyp('i64', 64)  #: Signed 64-bit type
+i32 = SignedIntegerTyp('i32', 32)  #: Signed 32-bit type
+i16 = SignedIntegerTyp('i16', 16)  #: Signed 16-bit type
+i8 = SignedIntegerTyp('i8', 8)  #: Signed 8-bit type
+u64 = UnsignedIntegerTyp('u64', 64)  #: Unsigned 64-bit type
+u32 = UnsignedIntegerTyp('u32', 32)  #: Unsigned 32-bit type
+u16 = UnsignedIntegerTyp('u16', 16)  #: Unsigned 16-bit type
+u8 = UnsignedIntegerTyp('u8', 8)  #: Unsigned 8-bit type
 ptr = Typ('ptr')  #: Pointer type
 
-all_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8, ptr]
+value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
+all_types = value_types + [ptr]
 
 
 class Value(Instruction):
@@ -418,6 +441,24 @@ class Value(Instruction):
         self.name = name
         self.ty = ty
         self.used_by = set()
+
+    def __add__(self, other):
+        """ Add this value to another one """
+        assert isinstance(other, Value)
+        assert self.ty is other.ty
+        return Binop(self, '+', other, 'add', self.ty)
+
+    def __sub__(self, other):
+        """ Substract other value from this one """
+        assert isinstance(other, Value)
+        assert self.ty is other.ty
+        return Binop(self, '-', other, 'sub', self.ty)
+
+    def __mul__(self, other):
+        """ Multiply this value with another one """
+        assert isinstance(other, Value)
+        assert self.ty is other.ty
+        return Binop(self, '*', other, 'mul', self.ty)
 
     def add_user(self, i):
         """ Add a usage for this value """
@@ -459,18 +500,6 @@ class Cast(Value):
         return '{} {} = cast {}'.format(self.ty, self.name, self.src.name)
 
 
-def to_ptr(value, name):
-    return Cast(value, name, ptr)
-
-
-def to_i32(value, name):
-    return Cast(value, name, i32)
-
-
-def to_i8(value, name):
-    return Cast(value, name, i8)
-
-
 class Undefined(Value):
     """ Undefined value, this value must never be used. """
     def __str__(self):
@@ -498,7 +527,8 @@ class LiteralData(Value):
         assert isinstance(data, bytes), str(data)
 
     def __str__(self):
-        return '{} = Literal {}'.format(self.name, hexlify(self.data))
+        data = hexlify(self.data)
+        return '{} {} = Literal {}'.format(self.ty, self.name, data)
 
 
 class FunctionCall(Value):
@@ -519,7 +549,8 @@ class FunctionCall(Value):
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return '{} = {}({})'.format(self.name, self.function_name, args)
+        return '{} {} = {}({})'.format(
+            self.ty, self.name, self.function_name, args)
 
 
 class ProcedureCall(Instruction):
@@ -623,7 +654,7 @@ class Alloc(Value):
         self.amount = amount
 
     def __str__(self):
-        return '{} = alloc {} bytes'.format(self.name, self.amount)
+        return '{} {} = alloc {} bytes'.format(self.ty, self.name, self.amount)
 
 
 # TODO: Variable now inherits Value and hence Instruction, but it is not an
@@ -679,10 +710,9 @@ class Store(Instruction):
         self.volatile = volatile
 
     def __str__(self):
-        ty = self.value.ty
         val = self.value.name
-        ptr = self.address.name
-        return 'store {} {}, {}'.format(ty, val, ptr)
+        address = self.address.name
+        return 'store {}, {}'.format(val, address)
 
 
 class FinalInstruction(Instruction):
@@ -778,7 +808,7 @@ class Jump(JumpBase):
         self.target = target
 
     def __str__(self):
-        return 'jump {}'.format(self.target.name)
+        return 'jmp {}'.format(self.target.name)
 
 
 class CJump(JumpBase):
@@ -799,6 +829,6 @@ class CJump(JumpBase):
         self.lab_no = lab_no
 
     def __str__(self):
-        return 'if {} {} {} then {} else {}'\
+        return 'cjmp {} {} {} ? {} : {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)

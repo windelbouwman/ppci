@@ -284,7 +284,7 @@ class ConstantTestCase(BuildTestCaseBase):
     def test_constant_byte(self):
         """ Test good usage of constant """
         snip = """module C;
-        const byte a = 2 + 99;
+        const byte a = cast<byte>(2 + 99);
         const int c = a + 13;
         function int reta()
         {
@@ -640,14 +640,50 @@ class ExpressionTestCase(BuildTestCaseBase):
         # TODO: this error diagnostics must be improved!
         self.expect_errors(snippet, [0])
 
-    @unittest.skip('Fix this')
     def test_array_initialization(self):
         """ Check array initialization """
         snippet = """
         module test;
         var int[5] a = {1,4,4,4,4};
+        function void b()
+        {
+          var float[2] b = {1.2, 58+a[2]};
+        }
+        var int[3][2] c = {{1,4,5},{9,8,7}};
         """
-        self.expect_errors(snippet, [5])
+        self.expect_ok(snippet)
+
+    def test_bad_global_array_initialization(self):
+        """ Check faulty global array initialization """
+        snippet = """
+        module test;
+        var int[5] a = 4;
+        """
+        self.expect_errors(snippet, [3])
+
+    def test_struct_initialization(self):
+        """ Check struct initialization """
+        snippet = """
+        module test;
+        var struct { int a; float b; } a = { .a=1, .b=4};
+        function void b()
+        {
+          var struct { int c; float d; } e = { .c=a.a, .d=33+a.b};
+        }
+        """
+        self.expect_ok(snippet)
+
+    def test_bad_struct_initialization(self):
+        """ Check struct initialization """
+        snippet = """
+        module test;
+        var struct { int a; float b; } a = { .a=1, .b=4};
+        function void b()
+        {
+          var struct { int c; float d; } e = { .c=a.a, .b=33+a.b};
+        }
+        """
+        self.expect_errors(snippet, [6])
 
 
 class StatementTestCase(BuildTestCaseBase):
@@ -1328,4 +1364,5 @@ class TypeTestCase(BuildTestCaseBase):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     unittest.main()

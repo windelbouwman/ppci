@@ -22,9 +22,11 @@ class Stm8Arch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         ''' Calling convention in priority order:
-            - Pointers in index registers;
-            - 16-bit variables in index registers;
-            - 8-bit variables in accumulator register first, afterwards in index registers. '''
+        - Pointers in index registers;
+        - 16-bit variables in index registers;
+        - 8-bit variables in accumulator register first, afterwards in index
+          registers.
+        '''
         location = []
         live_in = set()
         accumulator_registers = [A]
@@ -60,7 +62,8 @@ class Stm8Arch(Architecture):
         # Check for not implemented argument types.
         for arg_type in arg_types:
             if arg_type not in ('ptr', 'int', 'i16', 'u16', 'i8', 'u8'):
-                raise NotImplementedError('Argument type {} not implemented'.format(arg_type))
+                raise NotImplementedError(
+                    'Argument type {} not implemented'.format(arg_type))
 
         return location, tuple(live_in)
 
@@ -71,6 +74,7 @@ class Stm8Arch(Architecture):
         elif ret_type in ('ptr', 'int', 'i16', 'u16'):
             location = X
         else:
-            raise NotImplementedError('Return type {} not implemented'.format(ret_type))
+            raise NotImplementedError(
+                'Return type {} not implemented'.format(ret_type))
         live_out.add(location)
         return location, tuple(live_out)

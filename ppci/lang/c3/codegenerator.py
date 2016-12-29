@@ -51,6 +51,38 @@ class CodeGenerator:
             raise SemanticError("Errors occurred", None)
         return self.builder.module
 
+    def gen_global_ival(self, ival, typ):
+        """ Create memory image for initial value """
+        typ = self.context.get_type(typ)
+        if isinstance(typ, ast.ArrayType):
+            assert isinstance(ival, ast.ExpressionList)
+            assert len(ival.expressions) == self.context.eval_const(typ.size)
+            mem = bytes()
+            for expr in ival.expressions:
+                mem = mem + self.gen_global_ival(expr, typ.element_type)
+            return mem
+        elif isinstance(typ, ast.StructureType):
+            assert isinstance(ival, ast.NamedExpressionList)
+            assert len(ival.expressions) == len(typ.fields)
+            mem = bytes()
+            for field, val in zip(typ.fields, ival.expressions):
+                assert field.name == val[0]
+                expr = val[1]
+                mem = mem + self.gen_global_ival(expr, field.typ)
+            return mem
+        elif isinstance(typ, ast.FloatType):
+            cval = self.context.eval_const(ival)
+            cval = self.context.pack_float(cval, bits=typ.bits)
+            return cval
+        elif isinstance(typ, ast.SignedIntegerType):
+            cval = self.context.eval_const(ival)
+            cval = self.context.pack_int(cval, bits=typ.bits, signed=True)
+            return cval
+        elif isinstance(typ, ast.UnsignedIntegerType):
+            cval = self.context.eval_const(ival)
+            cval = self.context.pack_int(cval, bits=typ.bits, signed=False)
+            return cval
+
     def gen_globals(self, module, context):
         """ Generate global variables and modules """
         self.context = context
@@ -61,11 +93,10 @@ class CodeGenerator:
         for var in module.inner_scope.variables:
             assert not var.isLocal
             if var.ival:
-                assert context.equal_types('int', var.typ)
-                cval = context.eval_const(var.ival)
-                cval = context.pack_int(cval)
+                cval = self.gen_global_ival(var.ival, var.typ)
             else:
                 cval = None
+
             ir_var = ir.Variable(
                 var.name, context.size_of(var.typ), value=cval)
             context.var_map[var] = ir_var
@@ -139,14 +170,13 @@ class CodeGenerator:
         else:
             return_type = self.get_ir_type(function.typ.returntype)
             ir_function = self.builder.new_function(function.name, return_type)
-        dfi = debuginfo.DebugFunction(function.name, function.loc)
-        self.debug_db.enter(ir_function, dfi)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.builder.set_block(first_block)
         ir_function.entry = first_block
 
         # generate parameters:
+        dbg_args = []
         param_map = {}
         for param in function.parameters:
             # Parameters can only be simple types (pass by value)
@@ -157,11 +187,16 @@ class CodeGenerator:
             ir_function.add_parameter(ir_parameter)
             param_map[param] = ir_parameter
 
-            # Debug info:
+            # Debug info for this formal parameter:
             dbg_typ = self.get_debug_type(param.typ)
-            # self.debug_info.enter(ir_parameter, DebugVariable(
-            #    param.name, dbg_typ, param.loc))
-            # TODO: do something with parameters
+            dbg_args.append(debuginfo.DebugParameter(param.name, dbg_typ))
+
+        # Generate debug info for function:
+        dfi = debuginfo.DebugFunction(
+            function.name, function.loc,
+            self.get_debug_type(function.typ.returntype),
+            dbg_args)
+        self.debug_db.enter(ir_function, dfi)
 
         # generate room for locals:
         for sym in function.inner_scope:
@@ -218,20 +253,23 @@ class CodeGenerator:
     def get_ir_type(self, cty):
         """ Given a certain type, get the corresponding ir-type """
         cty = self.context.get_type(cty)
-        if self.context.equal_types(cty, 'int'):
-            return self.get_ir_int()
-        elif self.context.equal_types(cty, 'double'):
-            return ir.f64
-        elif self.context.equal_types(cty, 'float'):
-            return ir.f32
+        if isinstance(cty, ast.FloatType):
+            float_types = {32: ir.f32, 64: ir.f64}
+            return float_types[cty.bits]
+        elif isinstance(cty, ast.SignedIntegerType):
+            signed_types = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
+            return signed_types[cty.bits]
+        elif isinstance(cty, ast.UnsignedIntegerType):
+            unsigned_types = {8: ir.u8, 16: ir.u16, 32: ir.u32, 64: ir.u64}
+            return unsigned_types[cty.bits]
         elif self.context.equal_types(cty, 'void'):  # pragma: no cover
+            # Void's have no type
             raise RuntimeError('Cannot get void type')
         elif self.context.equal_types(cty, 'bool'):
             # Implement booleans as integers:
             return self.get_ir_int()
-        elif self.context.equal_types(cty, 'byte'):
-            return ir.i8
         elif isinstance(cty, ast.PointerType):
+            # A pointer is a pointer, no type info in ir.
             return ir.ptr
         else:  # pragma: no cover
             raise NotImplementedError(str(cty))
@@ -247,6 +285,8 @@ class CodeGenerator:
                 pass
             elif isinstance(code, ast.Assignment):
                 self.gen_assignment_stmt(code)
+            elif isinstance(code, ast.VariableDeclaration):
+                self.gen_local_var_init(code.var)
             elif isinstance(code, ast.ExpressionStatement):
                 # This must be always a void function call
                 assert isinstance(code.ex, ast.FunctionCall)
@@ -311,6 +351,38 @@ class CodeGenerator:
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
         return self.emit(ir.Store(rval, lval, volatile=volatile), loc=code.loc)
+
+    def gen_local_var_init(self, var):
+        """ Initialize a local variable """
+        if var.ival is None:
+            return
+        alloc = self.context.var_map[var]
+        self.gen_expr_at(alloc, var.ival)
+
+    def gen_expr_at(self, ptr, expr):
+        """ Generate code at a pointer in memory """
+        if isinstance(expr, ast.ExpressionList):
+            # We have list of expressions, recurse!
+            for e in expr.expressions:
+                ptr = self.gen_expr_at(ptr, e)
+            return ptr
+        elif isinstance(expr, ast.NamedExpressionList):
+            for _, e in expr.expressions:
+                ptr = self.gen_expr_at(ptr, e)
+            return ptr
+        else:
+            # Evaluate expression value:
+            rval = self.gen_expr_code(expr, rvalue=True)
+
+            # Store the value at current pointer:
+            # TODO: take volatile into account here?
+            self.emit(ir.Store(rval, ptr), loc=expr.loc)
+
+            # Increment pointer with appropriate size:
+            size = self.context.size_of(expr.typ)
+            inc = self.emit(ir.Const(size, 'inc', ir.ptr))
+            ptr = self.emit(ptr + inc)
+            return ptr
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
@@ -672,7 +744,8 @@ class CodeGenerator:
         # Calculate offset:
         offset = self.emit(
             ir.mul(idx, e_size, "element_offset", int_ir_type), loc=expr.loc)
-        offset = self.emit(ir.to_ptr(offset, 'elem_offset'), loc=expr.loc)
+        offset = self.emit(
+            ir.Cast(offset, 'element_offset', ir.ptr), loc=expr.loc)
 
         # Calculate address:
         return self.emit(
@@ -709,49 +782,37 @@ class CodeGenerator:
         # 1 = possible
         # 2 = automatic
 
-        cast_map = {
-            'byte': {
-                'byte': 1,
-            },
-            'int': {
-                'byte': 1,
-                'int': 1,
-                'float': 1,
-            },
-            'float': {
-                'byte': 1,
-                'int': 1,
-                'float': 1,
-            }
-        }
+        # cast_map = {
+        #    'byte': {
+        #        'byte': 1,
+        #    },
+        #    'int': {
+        #        'byte': 1,
+        #        'int': 1,
+        #        'float': 1,
+        #    },
+        #    'float': {
+        #        'byte': 1,
+        #        'int': 1,
+        #        'float': 1,
+        #    }
+        # }
 
+        # Evaluate types from pointer, unsigned, signed to floating point:
         if isinstance(from_type, ast.PointerType) and \
                 isinstance(to_type, ast.PointerType):
             return ar
-        elif self.context.equal_types('int', from_type) and \
+        elif isinstance(from_type, ast.IntegerType) and \
                 isinstance(to_type, ast.PointerType):
-            return self.emit(ir.to_ptr(ar, 'int2ptr'))
-        elif self.context.equal_types('int', to_type) \
+            return self.emit(ir.Cast(ar, 'int2ptr', ir.ptr))
+        elif isinstance(to_type, ast.IntegerType) \
                 and isinstance(from_type, ast.PointerType):
-            return self.emit(ir.Cast(ar, 'ptr2int', self.get_ir_int()))
-        elif isinstance(from_type, ast.BaseType) \
-                and from_type.name == 'byte' and \
-                isinstance(to_type, ast.BaseType) and to_type.name == 'int':
-            return self.emit(ir.Cast(ar, 'byte2int', self.get_ir_int()))
-        elif isinstance(from_type, ast.BaseType) \
-                and from_type.name == 'int' and \
-                isinstance(to_type, ast.BaseType) and to_type.name == 'byte':
-            return self.emit(ir.to_i8(ar, 'bytecast'))
-        elif self.context.equal_types('float', to_type) \
-                and self.context.equal_types('int', from_type):
-            return self.emit(ir.Cast(ar, 'int2flt', self.get_ir_type('float')))
-        elif self.context.equal_types('float', to_type) \
-                and self.context.equal_types('double', from_type):
-            return self.emit(ir.Cast(ar, 'dbl2flt', self.get_ir_type('float')))
-        elif self.context.equal_types('double', to_type) \
-                and self.context.equal_types('float', from_type):
-            return self.emit(
-                ir.Cast(ar, 'flt2dbl', self.get_ir_type('double')))
+            ir_to_type = self.get_ir_type(to_type)
+            return self.emit(ir.Cast(ar, 'ptr2int', ir_to_type))
+        elif isinstance(from_type, (ast.IntegerType, ast.FloatType)) and \
+                isinstance(to_type, (ast.IntegerType, ast.FloatType)):
+            # Any numeric cast
+            return self.emit(ir.Cast(ar, 'cast', self.get_ir_type(to_type)))
         else:  # pragma: no cover
             raise NotImplementedError(
                 'Cannot cast {} to {}'.format(from_type, to_type))

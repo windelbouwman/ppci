@@ -1,7 +1,7 @@
 """ Description of avr registers """
 
 from ..registers import Register, RegisterClass
-from ...ir import i16, i8, ptr
+from ... import ir
 
 
 class AvrRegister(Register):
@@ -190,13 +190,14 @@ def get16reg(n):
 
 
 register_classes = [
-    RegisterClass('reg', [i8], AvrRegister, alloc_regs),
+    RegisterClass('reg', [ir.i8, ir.u8], AvrRegister, alloc_regs),
     RegisterClass('hireg', [], HighAvrRegister, hi_regs),
     RegisterClass('suhireg', [], SuperHighAvrWordRegister, (W, X, Y, Z)),
     RegisterClass('ptrreg', [], AvrPointerRegister, (X, Y, Z)),
     RegisterClass('xreg', [], AvrXRegister, (X,)),
     RegisterClass('yreg', [], AvrYRegister, (Y,)),
     RegisterClass('zreg', [], AvrZRegister, (Z,)),
-    RegisterClass('reg16', [i16, ptr], AvrWordRegister, alloc_w_regs),
+    RegisterClass(
+        'reg16', [ir.i16, ir.u16, ir.ptr], AvrWordRegister, alloc_w_regs),
     RegisterClass('hireg16', [], HighAvrWordRegister, hi_w_regs),
     ]

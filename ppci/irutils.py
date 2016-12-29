@@ -17,28 +17,31 @@ class Writer:
     def __init__(self, extra_indent=''):
         self.extra_indent = extra_indent
 
-    def print(self, *txt):
-        print(self.extra_indent + ''.join(txt), file=self.f)
+    def print(self, level, txt):
+        indent = self.extra_indent + ' ' * (level * IR_FORMAT_INDENT)
+        print(indent + txt, file=self.f)
 
     def write(self, module, f):
         """ Write ir-code to file f """
         assert type(module) is ir.Module
         Verifier().verify(module)
         self.f = f
-        self.print('{}'.format(module))
+        self.print(0, '{};'.format(module))
         for v in module.variables:
-            self.print()
-            self.print('{}'.format(v))
+            self.print(0, '')
+            self.print(0, str(v))
         for function in module.functions:
-            self.print()
+            self.print(0, '')
             self.write_function(function)
 
     def write_function(self, fn):
-        self.print('{}'.format(fn))
+        self.print(0, '{} {{'.format(fn))
         for block in fn.blocks:
-            self.print('  {}'.format(block))
+            self.print(1, '{} {{'.format(block))
             for ins in block:
-                self.print('    {}'.format(ins))
+                self.print(2, '{};'.format(ins))
+            self.print(1, '}')
+        self.print(0, '}')
 
 
 class IrParseException(Exception):
@@ -59,19 +62,24 @@ class Reader:
         tok_spec = [
             ('NUMBER', r'\d+'),
             ('ID', r'[A-Za-z][A-Za-z\d_]*'),
-            ('SKIP', r' +'),
-            ('OTHER', r'[\.,=:;\-+*\[\]/\(\)]|>|<|{|}|&|\^|\|')
+            ('SKIP', r'\s+'),
+            ('OTHER', r'[\.,=:;\-\?+*\[\]/\(\)]|>|<|{|}|&|\^|\|')
             ]
         tok_re = '|'.join('(?P<%s>%s)' % pair for pair in tok_spec)
         gettok = re.compile(tok_re).match
-        keywords = ['function', 'module', 'procedure']
+        keywords = [
+            'function', 'module', 'procedure',
+            'store', 'load',
+            'cast',
+            'jmp', 'cjmp',
+            'exit', 'return'
+            ]
 
         def tokenize():
             for line in lines:
                 if not line:
                     continue  # Skip empty lines
                 mo = gettok(line)
-                first = True
                 while mo:
                     typ = mo.lastgroup
                     val = mo.group(typ)
@@ -83,25 +91,15 @@ class Reader:
                         typ = val
                         yield (typ, val)
                     elif typ == 'SKIP':
-                        if first:
-                            assert len(val) % IR_FORMAT_INDENT == 0
-                            if len(val) == IR_FORMAT_INDENT:
-                                typ = 'SKIP1'
-                            elif len(val) == IR_FORMAT_INDENT * 2:
-                                typ = 'SKIP2'
-                            else:
-                                raise Exception()
-                            yield (typ, val)
+                        pass
                     elif typ == 'NUMBER':
                         yield (typ, int(val))
                     else:
                         raise NotImplementedError(str(typ))
-                    first = False
                     pos = mo.end()
                     mo = gettok(line, pos)
                 if len(line) != pos:
                     raise IrParseException('Lex fault')
-                yield ('eol', 'eol')
             yield ('eof', 'eof')
         self.tokens = tokenize()
         self.token = self.tokens.__next__()
@@ -120,39 +118,33 @@ class Reader:
         return t
 
     @property
-    def Peak(self):
+    def peak(self):
         return self.token[0]
 
-    @property
-    def PeakVal(self):
-        return self.token[1]
-
-    def consume(self, typ, val=None):
-        if self.Peak == typ:
-            if val is not None:
-                assert self.PeakVal == val
+    def consume(self, typ):
+        if self.peak == typ:
             return self.next_token()
         else:
             raise IrParseException('Expected "{}" got "{}"'
-                                   .format(typ, self.Peak))
+                                   .format(typ, self.peak))
 
     def parse_module(self):
         """ Entry for recursive descent parser """
         self.consume('module')
         name = self.consume('ID')[1]
         module = ir.Module(name)
-        self.consume('eol')
-        while self.Peak != 'eof':
-            if self.Peak in ['function', 'procedure']:
+        self.consume(';')
+        while self.peak != 'eof':
+            if self.peak in ['function', 'procedure']:
                 module.add_function(self.parse_function())
             else:
                 raise IrParseException('Expected function got {}'
-                                       .format(self.Peak))
+                                       .format(self.peak))
         return module
 
     def parse_function(self):
         """ Parse a function or procedure """
-        if self.Peak == 'function':
+        if self.peak == 'function':
             self.consume('function')
             return_type = self.parse_type()
             name = self.consume('ID')[1]
@@ -168,23 +160,24 @@ class Reader:
         self.resolve_worklist = []
 
         self.consume('(')
-        while self.Peak != ')':
+        while self.peak != ')':
             ty = self.parse_type()
             name = self.consume('ID')[1]
             param = ir.Parameter(name, ty)
             function.add_parameter(param)
             self.add_val(param)
-            if self.Peak != ',':
+            if self.peak != ',':
                 break
             else:
                 self.consume(',')
         self.consume(')')
-        self.consume('eol')
-        while self.Peak == 'SKIP1':
+        self.consume('{')
+        while self.peak != '}':
             block = self.parse_block(function)
             if function.entry is None:
                 function.entry = block
             self.block_map[block.name] = block
+        self.consume('}')
 
         for ins, blocks in self.resolve_worklist:
             for b in blocks:
@@ -198,15 +191,15 @@ class Reader:
         return type_map[type_name]
 
     def parse_block(self, function):
-        self.consume('SKIP1')
         name = self.consume('ID')[1]
         block = ir.Block(name)
         function.add_block(block)
         self.consume(':')
-        self.consume('eol')
-        while self.Peak == 'SKIP2':
+        self.consume('{')
+        while self.peak != '}':
             ins = self.parse_statement()
             block.add_instruction(ins)
+        self.consume('}')
         return block
 
     def add_val(self, v):
@@ -222,18 +215,18 @@ class Reader:
         ty = self.parse_type()
         name = self.consume('ID')[1]
         self.consume('=')
-        if self.Peak == 'ID':
+        if self.peak == 'ID':
             a = self.consume('ID')[1]
-            if self.Peak in ['+', '-']:
+            if self.peak in ['+', '-']:
                 # Go for binop
-                op = self.consume(self.Peak)[1]
+                op = self.consume(self.peak)[1]
                 b = self.consume('ID')[1]
                 a = self.find_val(a)
                 b = self.find_val(b)
                 ins = ir.Binop(a, op, b, name, ty)
             else:
                 raise Exception()
-        elif self.Peak == 'NUMBER':
+        elif self.peak == 'NUMBER':
             cn = self.consume('NUMBER')[1]
             ins = ir.Const(cn, name, ty)
         else:
@@ -241,13 +234,15 @@ class Reader:
         return ins
 
     def parse_cjmp(self):
-        self.consume('ID', 'cjmp')
+        self.consume('cjmp')
         a = self.consume('ID')[1]
-        op = self.consume(self.Peak)[0]
+        op = self.consume(self.peak)[0]
         b = self.consume('ID')[1]
+        self.consume('?')
         L1 = self.consume('ID')[1]
-        L2 = self.consume('ID')[1]
         L1 = ir.Block(L1)
+        self.consume(':')
+        L2 = self.consume('ID')[1]
         L2 = ir.Block(L2)
         a = self.find_val(a)
         b = self.find_val(b)
@@ -256,7 +251,7 @@ class Reader:
         return ins
 
     def parse_jmp(self):
-        self.consume('ID', 'jmp')
+        self.consume('jmp')
         L1 = self.consume('ID')[1]
         L1 = ir.Block(L1)
         ins = ir.Jump(L1)
@@ -264,29 +259,28 @@ class Reader:
         return ins
 
     def parse_return(self):
-        self.consume('ID', 'return')
-        self.find_val(self.consume('ID')[1])
-        # TODO: what to do with return value?
-        ins = ir.Exit()
+        self.consume('return')
+        v = self.find_val(self.consume('ID')[1])
+        ins = ir.Return(v)
         return ins
 
     def parse_statement(self):
-        self.consume('SKIP2')
-        if self.Peak == 'ID' and self.PeakVal == 'jmp':
+        """ Parse a single instruction line """
+        if self.peak == 'jmp':
             ins = self.parse_jmp()
-        elif self.Peak == 'ID' and self.PeakVal == 'cjmp':
+        elif self.peak == 'cjmp':
             ins = self.parse_cjmp()
-        elif self.Peak == 'ID' and self.PeakVal == 'return':
+        elif self.peak == 'return':
             ins = self.parse_return()
-        elif self.Peak == 'ID' and self.PeakVal == 'store':
+        elif self.peak == 'store':
             raise Exception()
-        elif self.Peak == 'ID' and self.PeakVal == 'exit':
-            self.consume('ID')
+        elif self.peak == 'exit':
+            self.consume('exit')
             ins = ir.Exit()
         else:
             ins = self.parse_assignment()
             self.add_val(ins)
-        self.consume('eol')
+        self.consume(';')
         return ins
 
 

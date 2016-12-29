@@ -7,8 +7,8 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, relpath, run_python, source_files
-from util import has_iverilog, run_msp430
+from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
+from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr
 from util import do_long_tests
 from ppci.api import asm, c3c, link, objcopy, bfcompile
@@ -102,7 +102,7 @@ class I32Samples:
         """
         res = ""
         self.do(snippet, res)
-
+    @unittest.skip('too large codesize')
     def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
@@ -170,7 +170,7 @@ class I32Samples:
 
 def build(
         base_filename, src, bsp_c3, crt0_asm, march, opt_level, mmap,
-        lang='c3', bin_format=None, code_image='code'):
+        lang='c3', bin_format=None, elf_format=None, code_image='code'):
     """ Construct object file from source snippet """
     list_filename = base_filename + '.html'
 
@@ -203,6 +203,10 @@ def build(
     with open(obj_file, 'w') as f:
         obj.save(f)
 
+    if elf_format:
+        elf_filename = base_filename + '.' + elf_format
+        objcopy(obj, code_image, elf_format, elf_filename)
+
     # Export code image to some format:
     if bin_format:
         sample_filename = base_filename + '.' + bin_format
@@ -214,7 +218,8 @@ def build(
 class BuildMixin:
     opt_level = 0
 
-    def build(self, src, lang='c3', bin_format=None):
+    def build(self, src, lang='c3', bin_format=None,
+    elf_format=None, code_image='code'):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
 
@@ -225,9 +230,9 @@ class BuildMixin:
             bsp_c3 = self.bsp_c3
 
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march,
-            self.opt_level, io.StringIO(self.arch_mmap),
-            lang=lang, bin_format=bin_format)
+            base_filename, src, bsp_c3, startercode, self.march, self.opt_level,
+            io.StringIO(self.arch_mmap), lang=lang, bin_format=bin_format,
+            elf_format=elf_format, code_image=code_image)
 
         return obj, base_filename
 
@@ -291,31 +296,70 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
+    opt_level = 2
     maxDiff = None
     march = "riscv"
     startercode = """
-    section reset
-    mov sp, 0xF00        ; setup stack pointer 
+    LUI sp, 0xF000        ; setup stack pointer
     JAL ra, main_main    ; Branch to sample start LR
     JAL ra, bsp_exit     ; do exit stuff LR
-    local_loop:
-    J local_loop
+    SBREAK
     """
     arch_mmap = """
-    MEMORY code LOCATION=0x10000 SIZE=0x10000 {
-        SECTION(reset)
-        SECTION(code)
+    MEMORY flash LOCATION=0x0000 SIZE=0x2000 {
+         SECTION(code)
     }
-    MEMORY ram LOCATION=0x20000 SIZE=0xA0000 {
+    MEMORY ram LOCATION=0x2000 SIZE=0x2000 {
         SECTION(data)
     }
     """
-    bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+
+    bsp_c3_src = """
+    module bsp;
+    type struct {
+    int DR; // 0x0
+    int SR; // 0x4
+    int ACK; //0x8
+    } uart_t;
+
+    var uart_t* UART0;
+    public function void putc(byte c)
+    {
+    var int *UART0DR;
+    UART0DR = cast<int*>(0x20000000);
+     *UART0DR=c;
+     }
+
+    function void exit()
+    {
+    }
+    """
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        self.build(src, lang)
+        obj, base_filename = self.build(src, lang, bin_format='bin',
+        elf_format='elf', code_image='flash')
 
+        flash = obj.get_image('flash')
+        data = obj.get_image('ram')
+        rom = merge_memories(flash, data, 'rom')
+        rom_data = rom.data
+        filewordsize = 0x4000
+        datawordlen = len(rom_data) // 4
+
+        mem_file = base_filename + '.mem'
+        with open(mem_file, 'w') as f:
+            for i in range(filewordsize):
+                if(i<datawordlen):
+                    w = rom_data[4*i:4*i+4]
+                    print('%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]), file=f)
+                else:
+                    print('00000000', file=f)
+        f.close()
+
+        if has_iverilog():
+            res = run_picorv32(mem_file)
+            self.assertEqual(expected_output, res)
 
 class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
@@ -386,7 +430,7 @@ class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit')
+@add_samples('simple', 'medium', '8bit', 'fp', 'double')
 class TestSamplesOnPython(unittest.TestCase, I32Samples):
     opt_level = 0
 
@@ -517,7 +561,7 @@ class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('8bit','simple')
+@add_samples('8bit', 'simple')
 class TestSamplesOnAvr(unittest.TestCase):
     march = "avr"
     opt_level = 0
@@ -542,8 +586,60 @@ class TestSamplesOnAvrO2(TestSamplesOnAvr):
     opt_level = 2
 
 
+@unittest.skip('TODO')
+@add_samples('8bit')
+class TestSamplesOnStm8(unittest.TestCase):
+    march = "stm8"
+    opt_level = 0
+
+    def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        bsp_c3 = relpath('..', 'examples', 'stm8', 'bsp.c3')
+        crt0 = relpath('..', 'examples', 'stm8', 'start.asm')
+        mmap = relpath('..', 'examples', 'avr', 'avr.mmap')
+        build(
+            base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
+            mmap, lang=lang, bin_format='hex', code_image='flash')
+
+
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit')  # , 'fp')
+@add_samples('simple')
+class TestSamplesOnXtensa(unittest.TestCase):
+    march = "xtensa"
+    opt_level = 0
+
+    def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        bsp_c3 = relpath('..', 'examples', 'xtensa', 'bsp.c3')
+        crt0 = relpath('..', 'examples', 'xtensa', 'glue.asm')
+        mmap = relpath('..', 'examples', 'xtensa', 'layout.mmp')
+        build(
+            base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
+            mmap, lang=lang, bin_format='bin', code_image='flash')
+        binfile = base_filename + '.bin'
+        img_filename = base_filename + '.img'
+        self.make_image(binfile, img_filename)
+        if has_qemu():
+            output = qemu([
+                'qemu-system-xtensa', '-nographic',
+                '-M', 'lx60', '-m', '16',
+                '-pflash', img_filename])
+            self.assertEqual(expected_output, output)
+
+    def make_image(self, bin_filename, image_filename, imagemb=4):
+        with open(bin_filename, 'rb') as f:
+            hello_bin = f.read()
+
+        flash_size = imagemb * 1024 * 1024
+
+        with open(image_filename, 'wb') as f:
+            f.write(hello_bin)
+            padding = flash_size - len(hello_bin)
+            f.write(bytes(padding))
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium', '8bit', 'fp', 'double')
 class TestSamplesOnX86Linux(unittest.TestCase, BuildMixin):
     march = "x86_64"
     startercode = """

@@ -1,0 +1,25 @@
+
+<project name="hello" default="hello">
+    <import name="ppci.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            arch="stm8"
+            source="../start.asm"
+            output="glue.oj" />
+
+        <compile
+            arch="stm8"
+            sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"/>
+
+        <link
+            output="hello.elf"
+            layout="../linux64.mmap"
+            objects="glue.oj;rest.oj"
+            debug="true" />
+    </target>
+
+</project>
+

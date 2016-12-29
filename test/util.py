@@ -1,4 +1,3 @@
-
 import os
 import re
 import sys
@@ -10,6 +9,7 @@ import logging
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
+logger = logging.getLogger('util')
 
 
 def relpath(*args):
@@ -23,6 +23,7 @@ def source_files(folder, extension):
 
 
 qemu_app = 'qemu-system-arm'
+iverilog_app = 'iverilog'
 
 
 def tryrm(fn):
@@ -52,15 +53,21 @@ def has_qemu():
 def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     """ Runs qemu on a given kernel file """
 
-    logger = logging.getLogger('runqemu')
     if not has_qemu():
         return ''
     # Check bin file exists:
     assert os.path.isfile(kernel)
 
-    logger.debug('Running qemu with machine={} and image {}'
-                 .format(machine, kernel))
+    logger.debug('Running qemu with machine=%s and image %s', machine, kernel)
 
+    args = [
+        'qemu-system-arm', '-M', machine, '-m', '16M',
+        '-nographic', '-kernel', kernel]
+    return qemu(args)
+
+
+def qemu(args):
+    """ Run qemu with given arguments and capture serial output """
     # Listen to the control socket:
     qemu_control_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     qemu_control_serve.bind(('', 0))  # Using 0 as port for autoselect port
@@ -78,9 +85,7 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
 
     logger.debug('Listening on {} for data'.format(ser_port))
 
-    args = [qemu_app, '-M', machine, '-m', '16M',
-            '-nographic',
-            '-kernel', kernel,
+    args = args + [
             '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
             '-serial', 'tcp:localhost:{}'.format(ser_port),
             '-S']
@@ -117,17 +122,6 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     data = data.decode('ascii', errors='ignore')
     logger.debug('Received {} characters'.format(len(data)))
     # print('data', data)
-
-    # Perform a memory dump:
-    # TODO
-    if dump_file and dump_range:
-        # TODO: dump file must not contain '/':
-        dump_file = os.path.basename(dump_file)
-        dump_cmd = 'pmemsave 0x{:x} 0x{:x} {}\n' \
-            .format(dump_range[0], dump_range[1], dump_file)
-
-        qemu_serial.send(dump_cmd.encode('ascii'))
-        time.sleep(0.2)
 
     # Send quit command:
     qemu_control.send("quit\n".encode('ascii'))
@@ -171,7 +165,7 @@ def run_python(kernel):
 
 def has_iverilog():
     """ Determines if iverilog is installed """
-    return hasattr(shutil, 'which') and bool(shutil.which(qemu_app))
+    return hasattr(shutil, 'which') and bool(shutil.which(iverilog_app))
 
 
 def run_msp430(pmem):
@@ -194,8 +188,7 @@ def run_msp430(pmem):
                '-D', 'MEM_FILENAME="{}"'.format(pmem),
                '-D', 'SEED=123']
         print(cmd)
-        subprocess.check_call(cmd, cwd=workdir)
-
+        subprocess.check_call(cmd, stdout=sys.stdout, cwd=workdir)
         print('======')
         print('Compiled into', simv)
         print('======')
@@ -214,6 +207,40 @@ def run_msp430(pmem):
         chars.append(ch)
     data = ''.join(chars)
     return data
+
+def run_picorv32(pmem):
+    """ Run the given memory file in the riscvpicorv32 iverilog project. """
+
+    # Make a run file with the same name as the mem file:
+    simv = pmem[:-4] + '.run'
+
+    if not os.path.exists(simv):
+        print()
+        print('======')
+        print('Compiling verilog!')
+        print('======')
+
+        # compile picorv32 bench for this pmem:
+        workdir = relpath(
+            '..', 'examples', 'riscvpicorv32', 'iverilog')
+        cmd = ['iverilog', '-o', simv,
+               '-c', 'args.f',
+               '-D', 'MEM_FILENAME="{}"'.format(pmem)]
+        print(cmd)
+        subprocess.check_call(cmd, cwd=workdir)
+        print('======')
+        print('Compiled into', simv)
+        print('======')
+
+    print('======')
+    print('Running', simv)
+    print('======')
+
+    # run build vvp simulation:
+    outs = subprocess.check_output([simv])
+    outs = outs.decode('ascii')
+    print(outs)
+    return outs
 
 
 avr_emu1 = relpath('..', 'examples', 'avr', 'emu', 'build', 'emu1')

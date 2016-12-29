@@ -1,6 +1,6 @@
 
 import re
-from ...common import make_num
+# from ...common import make_num
 from ...pcc.baselex import BaseLexer
 from . import nodes
 
@@ -13,10 +13,11 @@ class LlvmIrLexer(BaseLexer):
         'f32', 'f16']
 
     keywords = [
-        'define', 'declare',
+        'define', 'declare', 'type',
         'target', 'triple', 'datalayout',
         'attributes',
         'nounwind', 'sspstrong', 'uwtable', 'readonly',
+        'private', 'constant',
         'nonnull',
         'align', 'inbounds',
         'nocapture',
@@ -48,8 +49,9 @@ class LlvmIrLexer(BaseLexer):
             # ('HEXNUMBER', r'0x[\da-fA-F]+',
             #  lambda typ, val: ('NUMBER', make_num(val))),
             ('NUMBER', r'[\-\+]?\d+', lambda typ, val: (typ, int(val))),
-            ('GID', r'@[A-Za-z\d_]+', self.handle_id),
-            ('LID', r'%[A-Za-z\d_]+', self.handle_id),
+            ('GID', r'@[A-Za-z\d_]+', lambda t, v: (t, v)),
+            ('LID', r'%[A-Za-z\d_]+|%"[A-Za-z\d_\.\:\<\>\&\[\]]+"',
+             lambda t, v: (t, v)),
             ('ATTRID', r'#\d+', lambda t, v: (t, v)),
             ('MDVAR', r'![a-zA-Z_][a-zA-Z\d\.]*', lambda t, v: (t, v)),
             ('LBL', r'[A-Za-z_][A-Za-z\d_]*:', lambda t, v: (t, v)),
@@ -81,4 +83,6 @@ class LlvmIrLexer(BaseLexer):
                 val = nodes.IntegerType.get(self.context, bits)
             else:  # pragma: no cover
                 raise NotImplementedError(val)
+        else:  # pragma: no cover
+            raise NotImplementedError(val)
         return typ, val

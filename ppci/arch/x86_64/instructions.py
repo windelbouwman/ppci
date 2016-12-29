@@ -8,7 +8,7 @@ from ..arch import Label, RegisterUseDef
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
-from ..token import Token, u32, u8, u64, bit_range
+from ..token import Token, u8, u64, bit_range, bit
 from .registers import X86Register, rcx, LowRegister, al, rax, rdx
 
 isa = Isa()
@@ -22,30 +22,46 @@ isa = Isa()
 
 
 class Imm8Token(Token):
-    size = 8
+    class Info:
+        size = 8
+
     disp8 = bit_range(0, 8)
 
 
 class PrefixToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     prefix = bit_range(0, 8)
+
+
+class Prefix2Token(Token):
+    class Info:
+        size = 8
+
+    prefix2 = bit_range(0, 8)
 
 
 class OpcodeToken(Token):
     """ Primary opcode """
-    size = 8
+    class Info:
+        size = 8
+
     opcode = bit_range(0, 8)
 
 
 class SecondaryOpcodeToken(Token):
     """ Secondary opcode """
-    size = 8
+    class Info:
+        size = 8
+
     opcode2 = bit_range(0, 8)
 
 
 class ModRmToken(Token):
     """ Construct the modrm byte from its components """
-    size = 8
+    class Info:
+        size = 8
 
     def __init__(self, mod=0, rm=0, reg=0):
         super().__init__()
@@ -59,7 +75,9 @@ class ModRmToken(Token):
 
 
 class SibToken(Token):
-    size = 8
+    class Info:
+        size = 8
+
     def __init__(self, ss=0):
         super().__init__()
         self.ss = ss
@@ -71,7 +89,8 @@ class SibToken(Token):
 
 class RexToken(Token):
     """ Create a REX prefix byte """
-    size = 8
+    class Info:
+        size = 8
 
     def __init__(self, w=0, r=0, x=0, b=0):
         super().__init__()
@@ -81,19 +100,31 @@ class RexToken(Token):
         self.b = b
         self.set_bit(6, 1)
 
-    w = bit_range(3, 4)
-    r = bit_range(2, 3)
-    x = bit_range(1, 2)
-    b = bit_range(0, 1)
+    w = bit(3)
+    r = bit(2)
+    x = bit(1)
+    b = bit(0)
+
+
+class RexOpcodeRmToken(Token):
+    """ A single token that combines rex prefix, opcode and mod rm """
+    class Info:
+        size = 24
+
+    w = bit(1)
 
 
 class Imm32Token(Token):
-    size = 32
+    class Info:
+        size = 32
+
     disp32 = bit_range(0, 32)
 
 
 class Imm64Token(Token):
-    size = 64
+    class Info:
+        size = 64
+
     disp64 = bit_range(0, 64)
 
 
@@ -163,8 +194,8 @@ def make_cjump(mnemonic, opcode):
     return type(mnemonic.title(), (ConditionalJump,), members)
 
 
-Jb = make_cjump('jb', 0x82)
-Jae = make_cjump('jae', 0x83)
+Jb = make_cjump('jb', 0x82)  # cf=1
+Jae = make_cjump('jae', 0x83)  # cf=0
 Je = make_cjump('jz', 0x84)
 Jne = make_cjump('jne', 0x85)
 Jbe = make_cjump('jbe', 0x86)
@@ -263,13 +294,14 @@ class Inc(X86Instruction):
     reg = Operand('reg', X86Register, read=True, write=True)
     syntax = Syntax(['inc', ' ', reg])
     tokens = [RexToken, OpcodeToken, ModRmToken]
-    patterns = {'w': 1, 'opcode': 0xff, 'mod': 3}  # TODO: , 'b+rm': reg}
+    patterns = {'w': 1, 'opcode': 0xff, 'mod': 3}
 
     def encode(self):
         tokens = self.get_tokens()
         self.set_all_patterns(tokens)
-        tokens[0].b = self.reg.rexbit
-        tokens[2].rm = self.reg.regbits
+        # TODO: figure good way for this so that it is in patterns also:
+        tokens.set_field('b', self.reg.rexbit)
+        tokens.set_field('rm', self.reg.regbits)
         return tokens.encode()
 
 
@@ -688,67 +720,6 @@ class MovAdr(X86Instruction):
         return [Abs64Relocation(self.imm, offset=2)]
 
 
-# X87 instructions
-class X87Instruction(X86Instruction):
-    """ x87 FPU instruction """
-    pass
-
-
-class Fsqrt(X87Instruction):
-    """ Floating point square root """
-    syntax = Syntax(['fsqrt'])
-    patterns = {'opcode': 0xd9, 'opcode2': 0xfa}
-    tokens = [OpcodeToken, SecondaryOpcodeToken]
-
-
-class Fld32(X87Instruction):
-    """ Push 32 bit operand on the FPU stack, suffix s=32 bit """
-    m = Operand('m', mem_modes)
-    syntax = Syntax(['flds', ' ', m])
-    patterns = {'opcode': 0xd9, 'reg': 0}
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-
-class Fld64(X87Instruction):
-    """ Push 64 bit operand on the FPU stack, suffix l=64 bit """
-    m = Operand('m', mem_modes)
-    syntax = Syntax(['fldl', ' ', m])
-    patterns = {'opcode': 0xdd, 'reg': 0}
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-
-class Fld80(X87Instruction):
-    """ Push 80 bit operand on the FPU stack, suffix t=80 bit """
-    m = Operand('m', mem_modes)
-    syntax = Syntax(['fldt', ' ', m])
-    patterns = {'opcode': 0xdb, 'reg': 5}
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-
-class Fst32(X87Instruction):
-    """ Store 32 bit float into memory """
-    m = Operand('m', mem_modes)
-    syntax = Syntax(['fsts', ' ', m])
-    patterns = {'opcode': 0xd9, 'reg': 2}
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-
-class Fstp32(X87Instruction):
-    """ Store 32 bit float into memory and pop """
-    m = Operand('m', mem_modes)
-    syntax = Syntax(['fsts', ' ', m])
-    patterns = {'opcode': 0xd9, 'reg': 3}
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-
-class Fst64(X87Instruction):
-    """ Store 64 bit float into memory """
-    m = Operand('m', mem_modes)
-    syntax = Syntax(['fstl', ' ', m])
-    patterns = {'opcode': 0xdd, 'reg': 2}
-    tokens = [RexToken, OpcodeToken, ModRmToken]
-
-
 @isa.pattern('stm', 'JMP', size=2)
 def pattern_jmp(context, tree):
     tgt = tree.value
@@ -766,12 +737,13 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('reg64', 'CALL', size=10)
+@isa.pattern('stm', 'CALL', size=10)
 def pattern_call(context, tree):
-    return context.gen_call(tree.value)
+    context.gen_call(tree.value)
 
 
 @isa.pattern('stm', 'MOVI8(reg8)', size=2)
+@isa.pattern('stm', 'MOVU8(reg8)', size=2)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -800,6 +772,7 @@ def pattern_ldr64_2(context, tree, c0):
 
 
 @isa.pattern('reg8', 'LDRI8(reg64)', size=2)
+@isa.pattern('reg8', 'LDRU8(reg64)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(LowRegister)
     context.emit(MovRegRm8(d, RmMem(c0)))
@@ -834,6 +807,7 @@ def pattern_str64_2(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
+@isa.pattern('stm', 'STRU8(reg64, reg8)', size=2)
 def pattern_str8(context, tree, c0, c1):
     context.emit(MovRmReg8(RmMem(c0), c1))
 
@@ -936,6 +910,7 @@ def pattern_reg64(context, tree):
 
 
 @isa.pattern('reg8', 'REGI8', size=0)
+@isa.pattern('reg8', 'REGU8', size=0)
 def pattern_reg8(context, tree):
     return tree.value
 
@@ -945,7 +920,8 @@ def pattern_i64toi64(context, tree, c0):
     return c0
 
 
-@isa.pattern('reg8', 'I64TOI8(reg64)', size=0)
+@isa.pattern('reg8', 'I64TOI8(reg64)', size=4)
+@isa.pattern('reg8', 'I64TOU8(reg64)', size=4)
 def pattern_i64toi8(context, tree, c0):
     context.move(rax, c0)
     # raise Warning()
@@ -959,11 +935,30 @@ def pattern_i64toi8(context, tree, c0):
     return d
 
 
-@isa.pattern('reg64', 'MOVI64(LABEL)', size=2)
+@isa.pattern('reg64', 'U8TOI64(reg8)', size=4)
+def pattern_u8toi64(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(rax)
+    context.emit(defu1)
+
+    context.emit(XorRmReg(RmReg(rax), rax))
+    context.move(al, c0)
+    # raise Warning()
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(al)
+    defu2.add_def(rax)
+    context.emit(defu2)
+
+    d = context.new_reg(X86Register)
+    context.move(d, rax)
+    return d
+
+
+@isa.pattern('stm', 'MOVI64(LABEL)', size=2)
 def pattern_mov64_label(context, tree):
     label = tree.children[0].value
     context.emit(MovAdr(tree.value, label))
-    return tree.value
 
 
 @isa.pattern('reg64', 'LABEL', size=2)
@@ -989,6 +984,7 @@ def pattern_const8_old(context, tree):
 
 
 @isa.pattern('reg8', 'CONSTI8', size=11)
+@isa.pattern('reg8', 'CONSTU8', size=11)
 def pattern_const8(context, tree):
     d = context.new_reg(LowRegister)
     context.emit(MovImm8(d, tree.value))

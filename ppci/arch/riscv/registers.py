@@ -1,5 +1,4 @@
 
-from ..encoding import Syntax
 from ..registers import Register
 
 # pylint: disable=invalid-name
@@ -7,6 +6,7 @@ from ..registers import Register
 
 class RiscvRegister(Register):
     bitsize = 32
+
     def __repr__(self):
         if self.is_colored:
             return get_register(self.color).name
@@ -75,5 +75,3 @@ RiscvRegister.registers = all_registers
 num2regmap = {r.num: r for r in all_registers}
 
 gdb_registers = all_registers + [PC]
-
-

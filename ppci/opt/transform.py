@@ -1,16 +1,15 @@
-"""
- Transformation to optimize IR-code
-"""
+""" Transformation to optimize IR-code """
 
 import logging
 from .. import ir
 
 
 class ModulePass:
-    """ Base class of all optimizing passes. Subclass this class
-    to implement your own optimization pass
+    """ Base class of all optimizing passes.
+
+    Subclass this class to implement your own optimization pass.
     """
-    def __init__(self, debug_db):
+    def __init__(self, debug_db=None):
         self.logger = logging.getLogger(str(self.__class__.__name__))
         self.debug_db = debug_db
 
@@ -20,8 +19,13 @@ class ModulePass:
     def prepare(self):
         pass
 
+    def run(self, ir_module):  # pragma: no cover
+        """ Run this pass over a module """
+        raise NotImplementedError()
+
 
 class FunctionPass(ModulePass):
+    """ Base pass that loops over all functions in a module """
     def run(self, ir_module):
         """ Main entry point for the pass """
         self.prepare()
@@ -35,7 +39,9 @@ class FunctionPass(ModulePass):
 
 
 class BlockPass(FunctionPass):
+    """ Base pass that loops over all blocks """
     def on_function(self, f):
+        """ Loops over each block in the function """
         for block in f.blocks:
             self.on_block(block)
 
@@ -45,7 +51,9 @@ class BlockPass(FunctionPass):
 
 
 class InstructionPass(BlockPass):
+    """ Base pass that loops over all instructions """
     def on_block(self, block):
+        """ Loops over each instruction in the block """
         for instruction in block:
             self.on_instruction(instruction)
 

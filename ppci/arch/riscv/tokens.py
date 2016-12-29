@@ -2,7 +2,9 @@ from ..token import Token, bit_range, bit_concat, bit
 
 
 class RiscvToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     opcode = bit_range(0, 7)
     rd = bit_range(7, 12)
     funct3 = bit_range(12, 15)
@@ -12,7 +14,9 @@ class RiscvToken(Token):
 
 
 class RiscvIToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     opcode = bit_range(0, 7)
     rd = bit_range(7, 12)
     funct3 = bit_range(12, 15)
@@ -21,7 +25,9 @@ class RiscvIToken(Token):
 
 
 class RiscvSToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     opcode = bit_range(0, 7)
     funct3 = bit_range(12, 15)
     rs1 = bit_range(15, 20)
@@ -30,7 +36,9 @@ class RiscvSToken(Token):
 
 
 class RiscvSBToken(Token):
-    size = 32
+    class Info:
+        size = 32
+
     opcode = bit_range(0, 7)
     funct3 = bit_range(12, 15)
     rs1 = bit_range(15, 20)
@@ -39,7 +47,9 @@ class RiscvSBToken(Token):
 
 
 class RiscvcToken(Token):
-    size = 16
+    class Info:
+        size = 16
+
     op = bit_range(0, 2)
     rd = bit_range(7, 12)
     funct3 = bit_range(13, 16)

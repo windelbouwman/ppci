@@ -20,9 +20,16 @@ class Operand(property):
     """
     def __init__(self, name, cls, read=False, write=False):
         self._name = name
+        if isinstance(cls, dict):
+            self._value_map = cls
+            cls = tuple(cls.keys())
+        else:
+            self._value_map = None
         self._cls = cls
         self._read = read
         self._write = write
+
+        # if isinstance(cls, type) or isinstance(cls, tuple)
 
         # Construct a private backing field for the property:
         private_field = '_{}'.format(name)
@@ -44,6 +51,7 @@ class Operand(property):
 
     @property
     def is_constructor(self):
+        """ Check if this is a simple type, or a choice for many types """
         if isinstance(self._cls, tuple):
             return True
         else:
@@ -59,6 +67,9 @@ class Operand(property):
         val = self.__get__(objref)
         if isinstance(val, Register):
             val = val.num
+        if self._value_map and not isinstance(val, int):
+            val = self._value_map[type(val)]
+        assert isinstance(val, int)
         return val
 
     def set_value(self, objref, value):
@@ -233,7 +244,10 @@ class Constructor:
 
     @property
     def non_leaves(self):
-        """ Get all composite parts """
+        """ Get all composite parts.
+
+        This is a depth first loop.
+        """
         yield self
         for prop in self.properties:
             if prop.is_constructor:
@@ -241,6 +255,10 @@ class Constructor:
                 # yield s2
                 for nl in s2.non_leaves:
                     yield nl
+
+    def gen_relocations(self):
+        """ Override this method to generate relocation information """
+        return []
 
 
 class InsMeta(type):
@@ -277,8 +295,7 @@ class InsMeta(type):
 class Instruction(Constructor, metaclass=InsMeta):
     """ Base instruction class.
 
-    Instructions are automatically added to an
-    isa object. Instructions are created in the following ways:
+    Instructions are created in the following ways:
 
     - From python code, by using the instruction directly:
       self.stream.emit(Mov(r1, r2))
@@ -286,11 +303,15 @@ class Instruction(Constructor, metaclass=InsMeta):
     - By the instruction selector. This is done via pattern matching rules
 
     Instructions can then be emitted to output streams.
+
+    Instruction classes are automatically added to an
+    isa if they have an isa attribute.
     """
     def __init__(self, *args, **kwargs):
-        """
-            Base instruction constructor. Takes an arbitrary amount of
-            arguments and tries to fit them on the args or syntax fields
+        """ Base instruction constructor.
+
+        Takes an arbitrary amount of arguments and tries to fit them
+        on the args or syntax fields.
         """
         super().__init__(*args)
 
@@ -358,11 +379,31 @@ class Instruction(Constructor, metaclass=InsMeta):
                     p.__set__(o, new)
 
     def get_tokens(self):
+        precodes = []
         tokens = []
         for nl in self.non_leaves:
             if hasattr(nl, 'tokens'):
-                tokens.extend([t() for t in nl.tokens])
-        return TokenSequence(tokens)
+                for tc in nl.tokens:
+                    t = tc()
+                    if t.Info.precode:
+                        precodes.append(t)
+                    else:
+                        tokens.append(t)
+        return TokenSequence(precodes + tokens)
+
+    def get_positions(self):
+        """ Calculate the positions in the byte stream of all parts """
+        pos = 0
+        positions = {}
+        for nl in self.non_leaves:
+            positions[nl] = pos
+            if hasattr(nl, 'tokens'):
+                tokens = getattr(nl, 'tokens')
+                size = sum(t.Info.size for t in tokens) // 8
+            else:
+                size = 0
+            pos += size
+        return positions
 
     # Interface methods:
     def encode(self):
@@ -392,7 +433,13 @@ class Instruction(Constructor, metaclass=InsMeta):
             return []
 
     def relocations(self):
-        return []
+        """ Determine the total set of relocations for this instruction """
+        relocs = []
+        positions = self.get_positions()
+        for nl, offset in positions.items():
+            for reloc in nl.gen_relocations():
+                relocs.append(reloc.shifted(offset))
+        return relocs
 
     def symbols(self):
         return []
@@ -541,11 +588,17 @@ class Relocation:
             other.section, other.addend)
         return s == o
 
+    def shifted(self, offset):
+        """ Create a shifted copy of this relocation """
+        return type(self)(
+            self.symbol_name, offset=self.offset+offset,
+            addend=self.addend, section=self.section)
+
     @classmethod
     def size(cls):
         """ Calculate the amount of bytes this relocation requires """
-        assert cls.token.size % 8 == 0
-        return cls.token.size // 8
+        assert cls.token.Info.size % 8 == 0
+        return cls.token.Info.size // 8
 
     def apply(self, sym_value, data, reloc_value):
         """ Apply this relocation type given some parameters.
