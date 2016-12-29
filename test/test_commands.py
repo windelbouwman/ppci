@@ -235,7 +235,7 @@ class YaccTestCase(unittest.TestCase):
     def test_normal_use(self, mock_stdout, mock_stderr):
         """ Test normal yacc use """
         grammar_file = relpath('..', 'ppci', 'codegen', 'burg.grammar')
-        file1 = new_temp_file(None)
+        file1 = new_temp_file('.py')
         yacc_cmd([grammar_file, '-o', file1])
         with open(file1, 'r') as f:
             content = f.read()

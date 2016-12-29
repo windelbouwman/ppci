@@ -8,6 +8,13 @@ A DAG represents the logic (computation) of a single basic block.
 
 To do selection with tree matching, the DAG is then splitted into a
 series of tree patterns. This is often referred to as a forest of trees.
+
+.. autoclass:: ppci.codegen.irdag.SelectionGraphBuilder
+    :members: build
+
+.. autoclass:: ppci.codegen.irdag.DagSplitter
+    :members: split_into_trees
+
 """
 
 import logging
