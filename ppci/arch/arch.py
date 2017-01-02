@@ -298,6 +298,12 @@ class DebugData(PseudoInstruction):
         return '.debug_data( {} )'.format(self.data)
 
 
+class StackLocation:
+    """ A stack location can store data just like a register """
+    def __init__(self):
+        pass
+
+
 def generate_temps():
     n = 0
     while True:

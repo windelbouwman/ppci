@@ -11,7 +11,8 @@ How to help
 
 If you want to add some code to the project, the best way is
 to create a fork of the project, make your changes and create a pull
-request.
+request. You can also help to improve the documentation if you find
+something that is not clear.
 
 For a list of tasks, refer to :doc:`the todo page<todo>`. For help on
 getting started with

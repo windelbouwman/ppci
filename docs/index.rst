@@ -10,6 +10,7 @@ Table of contents
     self
     quickstart
     reference
+    compiler
     contributing
     faq
     changelog

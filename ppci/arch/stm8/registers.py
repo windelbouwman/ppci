@@ -1,4 +1,6 @@
 from ..encoding import Register
+from ..registers import RegisterClass
+from ... import ir
 
 
 class Stm8Register(Register):
@@ -122,3 +124,50 @@ Stm8RegisterY.registers = [Y]
 Stm8RegisterSP.registers = [SP]
 Stm8RegisterPC.registers = [PC]
 Stm8RegisterCC.registers = [CC]
+
+
+# Emulate 'registers' in memory bytes at address 0..16
+
+class Stm8Virt8Register(Register):
+    """ Virtual stm8 register of 8 bit """
+    bitsize = 8
+
+
+class Stm8Virt16Register(Register):
+    """ Virtual stm8 register of 16 bit """
+    bitsize = 16
+
+
+vrb0 = Stm8Virt8Register('vrb0', num=0)
+vrb1 = Stm8Virt8Register('vrb1', num=1)
+vrb2 = Stm8Virt8Register('vrb2', num=2)
+vrb3 = Stm8Virt8Register('vrb3', num=3)
+vrb4 = Stm8Virt8Register('vrb4', num=4)
+vrb5 = Stm8Virt8Register('vrb5', num=5)
+vrb6 = Stm8Virt8Register('vrb6', num=6)
+vrb7 = Stm8Virt8Register('vrb7', num=7)
+vrb8 = Stm8Virt8Register('vrb8', num=8)
+vrb9 = Stm8Virt8Register('vrb9', num=9)
+vrb10 = Stm8Virt8Register('vrb10', num=10)
+vrb11 = Stm8Virt8Register('vrb11', num=11)
+Stm8Virt8Register.registers = [
+    vrb0, vrb1, vrb2, vrb3, vrb4, vrb5, vrb6, vrb7,
+    vrb8, vrb9, vrb10, vrb11]
+
+vrw0 = Stm8Virt16Register('vrw0', num=0, aliases=(vrb0, vrb1))
+vrw1 = Stm8Virt16Register('vrw1', num=2, aliases=(vrb2, vrb3))
+vrw2 = Stm8Virt16Register('vrw2', num=4, aliases=(vrb4, vrb5))
+vrw3 = Stm8Virt16Register('vrw3', num=6, aliases=(vrb6, vrb7))
+vrw4 = Stm8Virt16Register('vrw4', num=8, aliases=(vrb8, vrb9))
+Stm8Virt16Register.registers = [
+    vrw0, vrw1, vrw2, vrw3, vrw4]
+
+
+register_classes = [
+    RegisterClass(
+        'vreg8', [ir.i8, ir.u8], Stm8Virt8Register,
+        Stm8Virt8Register.registers),
+    RegisterClass(
+        'vreg16', [ir.ptr, ir.i16, ir.u16], Stm8Virt16Register,
+        Stm8Virt16Register.registers),
+    ]

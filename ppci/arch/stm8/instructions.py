@@ -4,6 +4,7 @@ from .registers import Stm8RegisterA, A
 from .registers import Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH
 from .registers import Stm8RegisterY, Stm8RegisterYL, Stm8RegisterYH
 from .registers import Stm8RegisterSP, Stm8RegisterCC
+from .registers import Stm8Virt8Register, Stm8Virt16Register
 from ..isa import Isa
 from ..encoding import FixedPattern, Instruction, Operand, Syntax
 from ..encoding import VariablePattern, Constructor
@@ -1045,6 +1046,8 @@ class Or(Stm8Instruction):
             LongMemSource: 0xCA,
             XSource: 0xFA,
             LongOffsetXSource: 0xDA,
+            YSource: 0xFA,
+            LongOffsetYSource: 0xDA,
             ShortOffsetSp: 0x1A,
         })
     syntax = Syntax(['or', ' ', a, ',', ' ', src])
@@ -1052,11 +1055,7 @@ class Or(Stm8Instruction):
     patterns = {'opcode': src}
 
 
-OrAY = create_instruction(
-    mnemonic='or', operands=(a_rw, y_i), precode=0x90, opcode=0xFA)
 # TODO: OrAShortoffY
-OrALongoffY = create_instruction(
-    mnemonic='or', operands=(a_rw, longoff_y), precode=0x90, opcode=0xDA)
 # TODO: OrAShortptr
 OrALongptr = create_instruction(
     mnemonic='or', operands=(a_rw, longptr), precode=0x72, opcode=0xCA)
@@ -1114,6 +1113,7 @@ class Rlc(Stm8Instruction):
         {
             ASource: 0x49,
             XSource: 0x79,
+            YSource: 0x79,
             ShortOffsetSp: 0x09,
         })
     syntax = Syntax(['rlc', ' ', src])
@@ -1127,8 +1127,6 @@ RlcLongmem = create_instruction(
 # TODO: RlcShortoffX
 RlcLongoffX = create_instruction(
     mnemonic='rlc', operands=(longoff_x,), precode=0x72, opcode=0x49)
-RlcY = create_instruction(
-    mnemonic='rlc', operands=(y_i,), precode=0x90, opcode=0x79)
 # TODO: RlcShortoffY
 RlcLongoffY = create_instruction(
     mnemonic='rlc', operands=(longoff_y,), precode=0x90, opcode=0x49)
@@ -1160,6 +1158,7 @@ class Rrc(Stm8Instruction):
         {
             ASource: 0x46,
             XSource: 0x76,
+            YSource: 0x76,
             ShortOffsetSp: 0x06,
         })
     syntax = Syntax(['rrc', ' ', src])
@@ -1173,8 +1172,6 @@ RrcLongmem = create_instruction(
 # TODO: RrcShortoffX
 RrcLongoffX = create_instruction(
     mnemonic='rrc', operands=(longoff_x,), precode=0x72, opcode=0x46)
-RrcY = create_instruction(
-    mnemonic='rrc', operands=(y_i,), precode=0x90, opcode=0x76)
 # TODO: RrcShortoffY
 RrcLongoffY = create_instruction(
     mnemonic='rrc', operands=(longoff_y,), precode=0x90, opcode=0x46)
@@ -1212,6 +1209,8 @@ class Sbc(Stm8Instruction):
             LongMemSource: 0xC2,
             XSource: 0xF2,
             LongOffsetXSource: 0xD2,
+            YSource: 0xF2,
+            LongOffsetYSource: 0xD2,
             ShortOffsetSp: 0x12,
         })
     syntax = Syntax(['sbc', ' ', a, ',', ' ', src])
@@ -1219,11 +1218,7 @@ class Sbc(Stm8Instruction):
     patterns = {'opcode': src}
 
 
-SbcAY = create_instruction(
-    mnemonic='sbc', operands=(a_rw, y_i), precode=0x90, opcode=0xF2)
 # TODO: SbcAShortoffY
-SbcALongoffY = create_instruction(
-    mnemonic='sbc', operands=(a_rw, longoff_y), precode=0x90, opcode=0xD2)
 # TODO: SbcAShortptr
 SbcALongptr = create_instruction(
     mnemonic='sbc', operands=(a_rw, longptr), precode=0x72, opcode=0xC2)
@@ -1550,3 +1545,28 @@ def pattern_ldr8(context, tree):
     # TODO
     context.emit(Ld(A, LongMemSource(tree.value)))
     return A
+
+
+# With virtual registers:
+@stm8_isa.pattern('vreg8', 'CONSTI8', size=2, cycles=1, energy=1)
+@stm8_isa.pattern('vreg8', 'CONSTU8', size=2, cycles=1, energy=1)
+def pattern_vreg8_const8(context, tree):
+    d = context.new_reg(Stm8Virt8Register)
+    context.emit(Ld(d, ByteSource(tree.value)))
+    return d
+
+
+@stm8_isa.pattern('vreg16', 'CONSTI16', size=2, cycles=1, energy=1)
+@stm8_isa.pattern('vreg16', 'CONSTU16', size=2, cycles=1, energy=1)
+def pattern_vreg16_const16(context, tree):
+    d = context.new_reg(Stm8Virt16Register)
+    context.emit(Ld(A, ByteSource(tree.value)))
+    return d
+
+
+@stm8_isa.pattern(
+    'vreg16', 'ADDI16(vreg16, vreg16)', size=2, cycles=1, energy=1)
+def pattern_vreg16_add(context, tree, c0, c1):
+    d = context.new_reg(Stm8Virt16Register)
+    context.emit(Ld(A, ByteSource(tree.value)))
+    return d

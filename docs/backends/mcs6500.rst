@@ -1,0 +1,7 @@
+
+.. _mcs6500:
+
+mcs6500
+-------
+
+.. automodule:: ppci.arch.mcs6500

@@ -1,3 +1,12 @@
+""" Module to work with intel hex files.
+
+This module can be used to work with intel hexfiles.
+
+.. autoclass:: ppci.utils.hexfile.HexFile
+    :members:
+
+"""
+
 import struct
 import binascii
 

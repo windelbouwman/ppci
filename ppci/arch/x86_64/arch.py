@@ -102,6 +102,7 @@ class X86_64Arch(Architecture):
                 registers.xmm0, registers.xmm1, registers.xmm2,
                 registers.xmm3, registers.xmm4, registers.xmm5,
                 registers.xmm6, registers.xmm7]
+
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
@@ -112,6 +113,7 @@ class X86_64Arch(Architecture):
                 raise NotImplementedError(str(arg_type))
             arg_locs.append(reg)
             live_in.add(reg)
+
         return arg_locs, tuple(live_in)
 
     def determine_rv_location(self, ret_type):

@@ -1,0 +1,7 @@
+
+.. _msp430:
+
+msp430
+------
+
+.. automodule:: ppci.arch.msp430

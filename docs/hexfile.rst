@@ -2,8 +2,7 @@
 Hexfile manipulation
 --------------------
 
-
-.. autoclass:: ppci.utils.hexfile.HexFile
+.. automodule:: ppci.utils.hexfile
 
 
 .. doctest::

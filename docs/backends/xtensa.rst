@@ -1,6 +1,10 @@
 
-Xtensa backend
-==============
+.. _xtensa:
+
+xtensa
+------
+
+.. automodule:: ppci.arch.xtensa
 
 The xtensa backend
 
