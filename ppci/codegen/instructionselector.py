@@ -28,6 +28,7 @@ ops = [
     'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
     'U8TO', 'U16TO', 'U32TO', 'U64TO',
     'F32TO', 'F64TO',
+    'FPREL',  # Frame pointer relative
     ]
 
 # Add all possible terminals:
@@ -156,14 +157,13 @@ class InstructionSelector1:
         This one does selection and scheduling combined.
     """
     def __init__(self, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
-        """
-            Create a new instruction selector.
+        """ Create a new instruction selector.
 
-            Weights can be given to select instructions given more for:
-            - size
-            - execution cycles
-            - or energy
-            respectively.
+        Weights can be given to select instructions given more for:
+        - size
+        - execution cycles
+        - or energy
+        respectively.
         """
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
@@ -198,7 +198,7 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
-    def select(self, ir_function, frame, reporter):
+    def select(self, ir_function: ir.SubRoutine, frame, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.SubRoutine)
         self.logger.debug('Creating selection dag for %s', ir_function.name)
@@ -206,6 +206,12 @@ class InstructionSelector1:
         # Create a object that carries global function info:
         function_info = FunctionInfo(frame)
         prepare_function_info(self.arch, function_info, ir_function)
+
+        # Fetch arguments from all sorts of locations like stack, registers
+        # etc... depending on calling convention!
+        for instruction in self.arch.gen_extract_arguments(
+                function_info.arg_types, function_info.arg_vregs):
+            frame.emit(instruction)
 
         # Create a context that can emit instructions:
         context = InstructionContext(frame, self.arch, self.debug_db)
@@ -231,9 +237,14 @@ class InstructionSelector1:
             for instruction in self.arch.between_blocks(frame):
                 frame.emit(instruction)
 
-        # Emit epilog label here, maybe not the right place?
-        # TODO!!
-        context.emit(function_info.epilog_label)
+        # Emit epilog label here, return and exit instructions jump to it
+        frame.emit(function_info.epilog_label)
+
+        # Emit copy return value loc here:
+        if isinstance(ir_function, ir.Function):
+            for instruction in self.arch.gen_fill_retval(
+                    ir_function.return_ty, function_info.rv_vreg):
+                frame.emit(instruction)
 
     def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.

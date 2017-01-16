@@ -1,15 +1,14 @@
-"""
-    X86 target descriptions and encodings.
+""" X86 target descriptions and encodings.
 
-    See for a reference: http://ref.x86asm.net/coder64.html
+See for a reference: http://ref.x86asm.net/coder64.html
 """
 
-from ..arch import Label, RegisterUseDef
+from ..generic_instructions import Label, RegisterUseDef
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u64, bit_range, bit
-from .registers import X86Register, rcx, LowRegister, al, rax, rdx
+from .registers import X86Register, rcx, LowRegister, al, rax, rdx, rbp
 
 isa = Isa()
 
@@ -771,6 +770,15 @@ def pattern_ldr64_2(context, tree, c0):
     return d
 
 
+@isa.pattern(
+    'reg64', 'LDRI64(FPRELI64)', size=2, cycles=2, energy=2)
+def pattern_ldr64_fp_rel(context, tree):
+    d = context.new_reg(X86Register)
+    c1 = tree.children[0].value
+    context.emit(MovRegRm(d, RmMemDisp(rbp, c1)))
+    return d
+
+
 @isa.pattern('reg8', 'LDRI8(reg64)', size=2)
 @isa.pattern('reg8', 'LDRU8(reg64)', size=2)
 def pattern_ldr8(context, tree, c0):
@@ -806,6 +814,12 @@ def pattern_str64_2(context, tree, c0, c1):
     context.emit(MovRmReg(RmMemDisp(c0, cnst), c1))
 
 
+@isa.pattern('stm', 'STRI64(FPRELI64, reg64)', size=4)
+def pattern_str64_fprel64(context, tree, c0):
+    cnst = tree[0].value
+    context.emit(MovRmReg(RmMemDisp(rbp, cnst), c0))
+
+
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
 @isa.pattern('stm', 'STRU8(reg64, reg8)', size=2)
 def pattern_str8(context, tree, c0, c1):
@@ -817,6 +831,14 @@ def pattern_add64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(AddRegRm(d, RmReg(c1)))
+    return d
+
+
+@isa.pattern('reg64', 'FPRELI64', size=8, cycles=3, energy=2)
+def pattern_add64_fprel_const(context, tree):
+    d = context.new_reg(X86Register)
+    context.move(d, rbp)
+    context.emit(AddImm(d, tree.value))
     return d
 
 

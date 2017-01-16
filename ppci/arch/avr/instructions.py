@@ -1,10 +1,10 @@
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Relocation, Transform
-from ..arch import RegisterUseDef, ArtificialInstruction
+from ..generic_instructions import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
 from ...ir import i16
-from .registers import AvrRegister, Z, AvrYRegister, AvrZRegister
+from .registers import AvrRegister, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister, SuperHighAvrWordRegister
 from .registers import r0, r1, r1r0
@@ -925,4 +925,14 @@ def pattern_label(context, tree):
     """ Determine the label address and yield its result """
     d = context.new_reg(HighAvrWordRegister)
     context.emit(LdiwAddr(d, tree.value))
+    return d
+
+
+@avr_isa.pattern('reg16', 'FPRELI16', size=6)
+def pattern_fprel16(context, tree):
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, Y)
+    d2 = context.new_reg(HighAvrWordRegister)
+    context.emit(Ldiw(d2, tree.value))
+    context.emit(Addw(d, d2))
     return d

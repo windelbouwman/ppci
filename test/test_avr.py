@@ -4,7 +4,8 @@ import unittest
 import io
 from ppci.binutils.layout import Layout
 from ppci.api import get_arch
-from ppci.arch.arch import Frame, VCall
+from ppci.arch.stack import Frame
+from ppci.arch.generic_instructions import VCall
 from ppci.arch.avr.instructions import Push, Pop
 from ppci.arch.avr.registers import r17, r19r18, r18, r19, r20, r25, r26
 from test_asm import AsmTestCaseBase
@@ -13,16 +14,17 @@ from test_asm import AsmTestCaseBase
 class AvrArchitectureTestCase(unittest.TestCase):
     def test_gen_call(self):
         arch = get_arch('avr')
-        frame = Frame('foo', [], [], None, [])
+        frame = Frame('foo')
         pushed = []
         popped = []
         vcall = VCall('bar')
         vcall.live_in = {r17, r19r18}
         vcall.live_out = {r17, r19r18}
-        frame.live_regs_over = lambda ins: [r17, r19r18, r20, r25, r26]
-        for instruction in arch.make_call(frame, vcall):
+        regs = [r17, r19r18, r20, r25, r26]
+        for instruction in arch.gen_save_registers(regs):
             if isinstance(instruction, Push):
                 pushed.append(instruction.rd)
+        for instruction in arch.gen_restore_registers(regs):
             if isinstance(instruction, Pop):
                 popped.append(instruction.rd)
         self.assertTrue(pushed)

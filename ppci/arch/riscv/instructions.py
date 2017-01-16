@@ -6,7 +6,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd
 from ...utils.bitfun import wrap_negative
-from .registers import RiscvRegister
+from .registers import RiscvRegister, FP
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
@@ -683,6 +683,19 @@ def pattern_label2(context, tree):
     ln = context.frame.add_constant(tree.value)
     context.emit(Adrurel(d, ln))
     context.emit(Adrlrel(d, d, ln))
+    return d
+
+
+@isa.pattern(
+    'reg', 'FPRELI32', size=8,
+    condition=lambda t: t.value in range(-2000, 2048))
+def pattern_fpreli32(context, tree):
+    d = context.new_reg(RiscvRegister)
+    c1 = tree.value
+    if c1 < 0:
+        context.emit(Subi(d, FP, -c1))
+    else:
+        context.emit(Addi(d, FP, c1))
     return d
 
 

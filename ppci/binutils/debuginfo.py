@@ -14,6 +14,7 @@ class DebugDb:
         This object is some sort of an internal database.
     """
     logger = logging.getLogger('debugdb')
+    verbose = False
 
     def __init__(self):
         self.mappings = {}
@@ -29,7 +30,8 @@ class DebugDb:
         """ Register debug info as a result of something """
         self.mappings[src] = info
         self.add(info)
-        self.logger.debug('Add "%s" <- "%s"', info, src)
+        if self.verbose:
+            self.logger.debug('Add "%s" <- "%s"', info, src)
 
     def contains(self, src):
         return src in self.mappings
@@ -51,7 +53,8 @@ class DebugDb:
             info = self.mappings[src]
             # assert dst not in self.mappings
             self.mappings[dst] = info
-            self.logger.debug('Map "%s" <- "%s" to "%s"', info, src, dst)
+            if self.verbose:
+                self.logger.debug('Map "%s" <- "%s" to "%s"', info, src, dst)
 
 
 class DebugInfo:

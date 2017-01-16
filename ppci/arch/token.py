@@ -93,7 +93,7 @@ class Token(metaclass=TokenMeta):
     """ A token in a stream """
     class Info:
         precode = False  # Set precode to True to indicate a precode
-        size = None  # The size in bits of the token
+        size = None  # The size in bits of the token type: int
         endianness = 'little'
 
     ignore_values = ()  # TODO: for optional tokens?

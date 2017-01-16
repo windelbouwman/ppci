@@ -5,8 +5,8 @@ from ..token import Token, bit_range
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Transform
 from ..encoding import Relocation
-from ..arch import ArtificialInstruction
-from .registers import AddressRegister, FloatRegister, a1
+from ..generic_instructions import ArtificialInstruction
+from .registers import AddressRegister, FloatRegister, a1, a15
 from ...utils.bitfun import wrap_negative
 from ... import ir
 
@@ -873,6 +873,16 @@ def pattern_add_i32(context, tree, c0, c1):
 def pattern_add_i32_imm(context, tree, c0):
     d = context.new_reg(AddressRegister)
     context.emit(Addi(d, c0, tree[1].value))
+    return d
+
+
+@core_isa.pattern(
+    'reg', 'FPRELI32', size=3, cycles=1, energy=1,
+    condition=lambda t: t.value in range(-128, 127))
+def pattern_fprel(context, tree):
+    d = context.new_reg(AddressRegister)
+    fp = a15
+    context.emit(Addi(d, fp, tree.value))
     return d
 
 

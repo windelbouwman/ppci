@@ -2,9 +2,10 @@
 import io
 from ...ir import i8, i32, u8, u32, ptr
 from ...binutils.assembler import BaseAssembler
-from ..arch import Architecture, Label, Alignment
+from ..arch import Architecture
+from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from ..registers import RegisterClass
+from ..registers import RegisterClass, Register
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
@@ -13,6 +14,10 @@ from .arm_instructions import LdrPseudo, arm_isa
 from .thumb_instructions import thumb_isa
 from . import thumb_instructions
 from . import arm_instructions
+
+
+class ArmCallingConvention:
+    pass
 
 
 class ArmArch(Architecture):
@@ -49,7 +54,6 @@ class ArmArch(Architecture):
                     [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11])
                 ]
         self.assembler.gen_asm_parser(self.isa)
-        self.registers.extend(all_registers)
         self.gdb_registers = all_registers
 
     def get_runtime(self):
@@ -69,31 +73,31 @@ class ArmArch(Architecture):
             return arm_instructions.Mov2(
                 dst, src, arm_instructions.NoShift(), ismove=True)
 
-    def make_call(self, frame, vcall):
-        """ Implement actual call and save / restore live registers """
-        # Now we now what variables are live:
-        live_regs = frame.live_regs_over(vcall)
-        register_set = set(live_regs)
-
+    def gen_save_registers(self, registers):
+        register_set = set(registers)
         if self.has_option('thumb'):
             # Caller save registers:
             if register_set:
                 yield thumb_instructions.Push(register_set)
-
-            # Make the call:
-            yield thumb_instructions.Bl(vcall.function_name)
-            # R0 is filled with return value, do not save it, it will conflict.
-
-            # Restore caller save registers:
-            if register_set:
-                yield thumb_instructions.Pop(register_set)
         else:
             # Caller save registers:
             if register_set:
                 yield arm_instructions.Push(RegisterSet(register_set))
 
+    def gen_call(self, frame, vcall):
+        """ Implement actual call and save / restore live registers """
+        if self.has_option('thumb'):
+            yield thumb_instructions.Bl(vcall.function_name)
+        else:
             yield arm_instructions.Bl(vcall.function_name)
 
+    def gen_restore_registers(self, registers):
+        register_set = set(registers)
+        if self.has_option('thumb'):
+            # Restore caller save registers:
+            if register_set:
+                yield thumb_instructions.Pop(register_set)
+        else:
             # Restore caller save registers:
             if register_set:
                 yield arm_instructions.Pop(RegisterSet(register_set))
@@ -108,11 +112,11 @@ class ArmArch(Architecture):
         else:
             yield arm_instructions.Push(RegisterSet({LR, R11}))
 
-        # Callee save registers:
+        # Setup frame pointer:
         if self.has_option('thumb'):
-            yield thumb_instructions.Push({R5, R6})
+            yield thumb_instructions.Mov2(R7, SP)
         else:
-            yield arm_instructions.Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
+            yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
 
         if frame.stacksize:
             if self.has_option('thumb'):
@@ -127,16 +131,21 @@ class ArmArch(Architecture):
             else:
                 yield arm_instructions.SubImm(SP, SP, frame.stacksize)
 
-        # Setup frame pointer:
+        # Callee save registers:
         if self.has_option('thumb'):
-            yield thumb_instructions.Mov2(R7, SP)
+            yield thumb_instructions.Push({R5, R6})
         else:
-            yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
+            yield arm_instructions.Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         Adjust frame pointer and add constant pool. """
+        # Callee save registers:
+        if self.has_option('thumb'):
+            yield thumb_instructions.Pop({R5, R6})
+        else:
+            yield arm_instructions.Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
 
         if frame.stacksize > 0:
             if self.has_option('thumb'):
@@ -149,14 +158,10 @@ class ArmArch(Architecture):
             else:
                 yield arm_instructions.AddImm(SP, SP, frame.stacksize)
 
-        # Callee save registers:
         if self.has_option('thumb'):
-            yield thumb_instructions.Pop({R5, R6})
             yield thumb_instructions.Pop({PC, R7})
         else:
-            yield arm_instructions.Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
-            yield arm_instructions.Pop(
-                RegisterSet({PC, R11}), extra_uses=[frame.rv])
+            yield arm_instructions.Pop(RegisterSet({PC, R11}))
 
         # Add final literal pool
         for instruction in self.litpool(frame):
@@ -190,13 +195,28 @@ class ArmArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
 
-    def gen_fill_arguments(self, arg_types, args, alives):
-        # Setup parameters:
-        arg_locs, _ = self.determine_arg_locations(arg_types)
+    def gen_fill_arguments(self, arg_types, args):
+        arg_locs = self.determine_arg_locations(arg_types)
+
         for arg_loc, arg in zip(arg_locs, args):
             if isinstance(arg_loc, ArmRegister):
                 yield self.move(arg_loc, arg)
-                alives.add(arg_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(uses=arg_regs)
+
+    def gen_extract_arguments(self, arg_types, args):
+        """ Extract parameters from function call """
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(defs=arg_regs)
+
+        for arg_loc, arg in zip(arg_locs, args):
+            if isinstance(arg_loc, ArmRegister):
+                yield self.move(arg, arg_loc)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
@@ -213,20 +233,15 @@ class ArmArch(Architecture):
         # TODO: what ABI to use?
         # Perhaps follow the arm ABI spec?
         l = []
-        live_in = set()
         regs = [R1, R2, R3, R4]
         for a in arg_types:
             r = regs.pop(0)
             l.append(r)
-            live_in.add(r)
-
-        return l, tuple(live_in)
+        return l
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
         rv = R0
-        live_out.add(rv)
-        return rv, tuple(live_out)
+        return rv
 
 
 class ArmAssembler(BaseAssembler):

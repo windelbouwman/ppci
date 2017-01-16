@@ -106,10 +106,11 @@ SourceRange = namedtuple('SourceRange', ['p1', 'p2'])
 
 class CompilerError(Exception):
     def __init__(self, msg, loc=None):
+        super().__init__()
         self.msg = msg
         self.loc = loc
         if loc:
-            assert type(loc) is SourceLocation, \
+            assert isinstance(loc, SourceLocation), \
                    '{0} must be SourceLocation'.format(type(loc))
 
     def __repr__(self):
@@ -140,13 +141,13 @@ class DiagnosticsManager:
 
     def add_source(self, name, src):
         """ Add a source for error reporting """
-        self.logger.debug('Adding source, filename="{}"'.format(name))
+        self.logger.debug('Adding source, filename="%s"', name)
         self.sources[name] = src
 
     def add_diag(self, d):
         """ Add a diagnostic message """
         if d.loc:
-            self.logger.error('Line {}: {}'.format(d.loc.row, d.msg))
+            self.logger.error('Line %s: %s', d.loc.row, d.msg)
         else:
             self.logger.error(str(d.msg))
         self.diags.append(d)

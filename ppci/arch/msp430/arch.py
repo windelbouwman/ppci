@@ -4,9 +4,10 @@ import io
 from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
-from ..arch import Architecture, Label, Alignment
+from ..arch import Architecture
+from ..generic_instructions import Label, Alignment
 from ..data_instructions import Db, Dw2, data_isa
-from .registers import r10, r11, r12, r13, r14, r15, Msp430Register
+from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes
 from .instructions import isa, mov, Ret, Pop
@@ -36,31 +37,18 @@ class Msp430Arch(Architecture):
         """ Generate a move from src to dst """
         return mov(src, dst)
 
-    def gen_fill_arguments(self, arg_types, args, live):
-        """ This function moves arguments in the proper locations.
-        """
-        arg_locs, _ = self.determine_arg_locations(arg_types)
-
-        # Setup parameters:
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, Msp430Register):
-                yield self.move(arg_loc, arg)
-                live.add(arg_loc)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-    def make_call(self, frame, vcall):
-        live_regs = frame.live_regs_over(vcall)
-
-        # Caller save registers:
-        for register in live_regs:
+    def gen_save_registers(self, registers):
+        """ Save caller save registers """
+        for register in registers:
             if register in self.caller_save:
                 yield push(register)
 
+    def gen_call(self, frame, vcall):
         yield call(vcall.function_name)
 
-        # Restore caller save registers:
-        for register in reversed(live_regs):
+    def gen_restore_registers(self, registers):
+        """ Restore caller save registers """
+        for register in reversed(registers):
             if register in self.caller_save:
                 yield Pop(register)
 
@@ -74,33 +62,36 @@ class Msp430Arch(Architecture):
         # Label indication function:
         yield Label(frame.name)
 
-        # Callee save registers:
-        for reg in self.callee_save:
-            if frame.is_used(reg):
-                yield push(reg)
+        # Setup the frame pointer:
+        yield push(r4)
+        yield mov(r1, r4)
 
         # Adjust stack:
         if frame.stacksize:
             yield Sub(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
-        # Setup the frame pointer:
-        yield mov(r1, r4)
+        # Callee save registers:
+        for reg in self.callee_save:
+            if frame.is_used(reg):
+                yield push(reg)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
 
+        # Pop save registers back:
+        for reg in reversed(self.callee_save):
+            if frame.is_used(reg):
+                yield Pop(reg)
+
         # Adjust stack:
         if frame.stacksize:
             yield Add(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
-        # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if frame.is_used(reg):
-                yield Pop(reg)
+        yield Pop(r4)
 
         # Return from function:
         yield Ret()
@@ -139,19 +130,15 @@ class Msp430Arch(Architecture):
             retval = r12
         """
         l = []
-        live_in = set()
         regs = [r12, r13, r14, r15]
         for a in arg_types:
             reg = regs.pop(0)
             l.append(reg)
-            live_in.add(reg)
-        return l, tuple(live_in)
+        return l
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
         rv = r12
-        live_out.add(rv)
-        return rv, tuple(live_out)
+        return rv
 
     def get_runtime(self):
         """ Compiles the runtime support for msp430. It takes some c3 code and

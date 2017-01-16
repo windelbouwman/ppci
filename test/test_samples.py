@@ -430,7 +430,7 @@ class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit', 'fp', 'double')
+@add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
 class TestSamplesOnPython(unittest.TestCase, I32Samples):
     opt_level = 0
 
@@ -639,7 +639,7 @@ class TestSamplesOnXtensa(unittest.TestCase):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit', 'fp', 'double')
+@add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
 class TestSamplesOnX86Linux(unittest.TestCase, BuildMixin):
     march = "x86_64"
     startercode = """

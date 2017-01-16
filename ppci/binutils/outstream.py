@@ -5,8 +5,9 @@
 
 import logging
 from ..arch.encoding import Instruction
-from ..arch.arch import Alignment, DebugData, SectionInstruction
-from ..arch.arch import ArtificialInstruction
+from ..arch.generic_instructions import Alignment, DebugData
+from ..arch.generic_instructions import SectionInstruction
+from ..arch.generic_instructions import ArtificialInstruction
 
 
 class OutputStream:

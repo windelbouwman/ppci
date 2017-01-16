@@ -5,7 +5,7 @@
 from .isa import arm_isa, ArmToken, ArmImmToken, Isa
 from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
 from ...utils.bitfun import encode_imm32
-from .registers import ArmRegister, Coreg, Coproc, RegisterSet
+from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
 from .arm_relocations import Imm24Relocation
 from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
 from ...ir import i32
@@ -304,7 +304,7 @@ def make_regregimm(mnemonic, opcode):
     rd = Operand('rd', ArmRegister, write=True)
     rn = Operand('rn', ArmRegister, read=True)
     imm = Operand('imm', int)
-    syntax = Syntax([mnemonic, rd, ',', rn, ',', imm])
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', imm])
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'imm': imm, 'opcode': opcode}
     return type(mnemonic + '_ins', (OpRegRegImm,), members)
@@ -346,7 +346,7 @@ class BranchLinkBase(BranchBaseRoot):
 
 class Bl(BranchLinkBase):
     cond = AL
-    syntax = Syntax(['bl', BranchBaseRoot.target])
+    syntax = Syntax(['bl', ' ', BranchBaseRoot.target])
 
 
 def make_branch(mnemonic, cond):
@@ -378,7 +378,7 @@ def reg_list_to_mask(reg_list):
 
 class Push(ArmInstruction):
     reg_list = Operand('reg_list', RegisterSet)
-    syntax = Syntax(['push', reg_list])
+    syntax = Syntax(['push', ' ', reg_list])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -390,7 +390,7 @@ class Push(ArmInstruction):
 
 class Pop(ArmInstruction):
     reg_list = Operand('reg_list', RegisterSet)
-    syntax = Syntax(['pop', reg_list])
+    syntax = Syntax(['pop', ' ', reg_list])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -725,6 +725,23 @@ def pattern_label(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
+    return d
+
+
+@arm_isa.pattern('reg', 'FPRELI32', size=4, cycles=2, energy=2)
+def pattern_fprel32(context, tree):
+    d = context.new_reg(ArmRegister)
+    c1 = tree.value
+    if c1 in range(-255, 256):
+        if c1 >= 0:
+            context.emit(AddImm(d, R11, c1))
+        else:
+            context.emit(SubImm(d, R11, -c1))
+    else:
+        d2 = context.new_reg(ArmRegister)
+        ln = context.frame.add_constant(c1)
+        context.emit(Ldr3(d2, ln))
+        context.emit(Add(d, R11, d2, NoShift()))
     return d
 
 

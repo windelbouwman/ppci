@@ -224,7 +224,7 @@ class Parser(RecursiveDescentParser):
             false_code = ast.Empty()
         return ast.If(condition, true_code, false_code, loc)
 
-    def parse_switch(self):
+    def parse_switch(self) -> ast.Switch:
         """ Parse switch statement """
         loc = self.consume('switch').loc
         self.consume('(')
@@ -247,7 +247,7 @@ class Parser(RecursiveDescentParser):
         self.consume('}')
         return ast.Switch(expression, options, loc)
 
-    def parse_while(self):
+    def parse_while(self) -> ast.While:
         """ Parses a while statement """
         loc = self.consume('while').loc
         self.consume('(')
@@ -256,7 +256,7 @@ class Parser(RecursiveDescentParser):
         statements = self.parse_statement()
         return ast.While(condition, statements, loc)
 
-    def parse_for(self):
+    def parse_for(self) -> ast.For:
         """ Parse a for statement """
         loc = self.consume('for').loc
         self.consume('(')
@@ -269,7 +269,7 @@ class Parser(RecursiveDescentParser):
         statements = self.parse_statement()
         return ast.For(init, condition, final, statements, loc)
 
-    def parse_return(self):
+    def parse_return(self) -> ast.Return:
         """ Parse a return statement """
         loc = self.consume('return').loc
         if self.has_consumed(';'):
@@ -293,7 +293,7 @@ class Parser(RecursiveDescentParser):
 
         return ast.Compound(statements)
 
-    def parse_statement(self):
+    def parse_statement(self) -> ast.Statement:
         """ Determine statement type based on the pending token """
         if self.peak == 'if':
             return self.parse_if()
@@ -368,7 +368,7 @@ class Parser(RecursiveDescentParser):
         else:
             return self.parse_expression()
 
-    def parse_expression(self, rbp=0):
+    def parse_expression(self, rbp=0) -> ast.Expression:
         """ Process expressions with precedence climbing
 
         See also:
@@ -390,7 +390,7 @@ class Parser(RecursiveDescentParser):
 
     # Domain of unary expressions:
 
-    def parse_cast_expression(self):
+    def parse_cast_expression(self) -> ast.Expression:
         """
           the C-style type cast conflicts with '(' expr ')'
           so introduce extra keyword 'cast'
@@ -426,7 +426,7 @@ class Parser(RecursiveDescentParser):
         else:
             return self.parse_postfix_expression()
 
-    def parse_postfix_expression(self):
+    def parse_postfix_expression(self) -> ast.Expression:
         """ Parse postfix expression """
         pfe = self.parse_primary_expression()
         while self.peak in ['[', '.', '->', '(']:
@@ -454,7 +454,7 @@ class Parser(RecursiveDescentParser):
                 raise RuntimeError()
         return pfe
 
-    def parse_primary_expression(self):
+    def parse_primary_expression(self) -> ast.Expression:
         """ Literal and parenthesis expression parsing """
         if self.peak == '(':
             self.consume('(')

@@ -1,10 +1,10 @@
 """ Definitions of msp430 instruction set. """
 
 from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
-from ..arch import ArtificialInstruction
+from ..generic_instructions import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
-from .registers import Msp430Register, r2, r3, SP, PC
+from .registers import Msp430Register, r2, r3, r4, SP, PC
 from ...utils.bitfun import align, wrap_negative
 from ...ir import i16
 
@@ -662,6 +662,15 @@ def pattern_ldr16(context, tree, c0):
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Movb(MemSrc(c0), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg', 'FPRELI16', size=8)
+def pattern_fprel(context, tree):
+    d = context.new_reg(Msp430Register)
+    # frame pointer is r4:
+    context.emit(mov(r4, d))
+    context.emit(Add(ConstSrc(tree.value), RegDst(d)))
     return d
 
 

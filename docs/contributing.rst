@@ -11,3 +11,14 @@ This section is intended for contributors of ppci.
     development
     todo
     howto/index
+
+
+Contributors
+------------
+
+Ppci is brought to you by the following people:
+
+* Windel Bouwman, maintainer
+* Michael, riscv architecture and gdb debugging client
+* Henk, stm8 architecture
+

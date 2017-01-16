@@ -13,7 +13,7 @@ from .. import ir
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
-from ..arch.arch import Label
+from ..arch.generic_instructions import Label
 
 
 class ReportGenerator:
