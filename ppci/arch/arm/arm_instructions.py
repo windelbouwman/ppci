@@ -351,7 +351,7 @@ class Bl(BranchLinkBase):
 
 def make_branch(mnemonic, cond):
     target = Operand('target', str)
-    syntax = Syntax([mnemonic, target])
+    syntax = Syntax([mnemonic, ' ', target])
     members = {
         'syntax': syntax, 'target': target, 'cond': cond}
     return type(mnemonic + '_ins', (BranchBase,), members)

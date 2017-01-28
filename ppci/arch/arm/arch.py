@@ -32,6 +32,7 @@ class ArmArch(Architecture):
             self.isa = thumb_isa + data_isa
             # We use r7 as frame pointer (in case of thumb ;)):
             self.fp = R7
+            self.callee_save = (R5, R6)
 
             # Registers usable by register allocator:
             self.register_classes = [
@@ -43,6 +44,7 @@ class ArmArch(Architecture):
             self.isa = arm_isa + data_isa
             self.assembler = ArmAssembler()
             self.fp = R11
+            self.callee_save = (R5, R6, R7, R8, R9, R10)
 
             # Registers usable by register allocator:
             self.register_classes = [
@@ -132,20 +134,25 @@ class ArmArch(Architecture):
                 yield arm_instructions.SubImm(SP, SP, frame.stacksize)
 
         # Callee save registers:
-        if self.has_option('thumb'):
-            yield thumb_instructions.Push({R5, R6})
-        else:
-            yield arm_instructions.Push(RegisterSet({R5, R6, R7, R8, R9, R10}))
+        callee_save = {r for r in self.callee_save if r in frame.used_regs}
+        if callee_save:
+            if self.has_option('thumb'):
+                yield thumb_instructions.Push(callee_save)
+            else:
+                yield arm_instructions.Push(RegisterSet(callee_save))
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         Adjust frame pointer and add constant pool. """
         # Callee save registers:
-        if self.has_option('thumb'):
-            yield thumb_instructions.Pop({R5, R6})
-        else:
-            yield arm_instructions.Pop(RegisterSet({R5, R6, R7, R8, R9, R10}))
+
+        callee_save = {r for r in self.callee_save if r in frame.used_regs}
+        if callee_save:
+            if self.has_option('thumb'):
+                yield thumb_instructions.Pop(callee_save)
+            else:
+                yield arm_instructions.Pop(RegisterSet(callee_save))
 
         if frame.stacksize > 0:
             if self.has_option('thumb'):

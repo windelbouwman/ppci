@@ -10,6 +10,9 @@ Release 1.0 (Planned)
 Release 0.5.3 (Upcoming)
 ------------------------
 
+* Improved calling convention handling
+* Initial version of pascal front-end
+
 Release 0.5.2 (Dec 29, 2016)
 ----------------------------
 

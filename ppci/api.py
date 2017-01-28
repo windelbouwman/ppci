@@ -14,6 +14,7 @@ from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
 from .lang.llvmir import LlvmIrFrontend
+from .lang.pascal import PascalBuilder
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -195,22 +196,25 @@ def disasm(data, march):
     disassembler.disasm(data, ostream)
 
 
-def c3toir(sources, includes, march, reporter=None):
+def c3toir(sources, includes, march, reporter=None, debug_db=None):
     """ Compile c3 sources to ir-code for the given architecture. """
     logger = logging.getLogger('c3c')
     march = get_arch(march)
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
+    if not debug_db:  # pragma: no cover
+        debug_db = DebugDb()
+
     logger.debug('C3 compilation started')
     reporter.heading(2, 'c3 compilation')
     sources = [get_file(fn) for fn in sources]
     includes = [get_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = C3Builder(diag, march)
+    c3b = C3Builder(diag, march, debug_db)
 
     try:
-        _, ir_modules, debug_info = c3b.build(sources, includes)
+        _, ir_modules = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
     except CompilerError as ex:
@@ -223,7 +227,7 @@ def c3toir(sources, includes, march, reporter=None):
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
-    return ir_modules, debug_info
+    return ir_modules
 
 
 OPT_LEVELS = ('0', '1', '2', 's')
@@ -398,8 +402,9 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     march = get_arch(march)
-    ir_modules, debug_db = \
-        c3toir(sources, includes, march, reporter=reporter)
+    debug_db = DebugDb()
+    ir_modules = \
+        c3toir(sources, includes, march, reporter=reporter, debug_db=debug_db)
 
     for ircode in ir_modules:
         optimize(ircode, level=opt_level, reporter=reporter)
@@ -409,6 +414,25 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
         ir_modules, march,
         debug_db=debug_db, debug=debug, reporter=reporter,
         opt=opt_cg)
+
+
+def pascal(sources, march, opt_level=0):
+    """ Compile a set of pascal-sources for the given target.
+
+    Args:
+        sources: a collection of sources that will be compiled.
+        march: the architecture for which to compile.
+
+    Returns:
+        An object file
+    """
+    diag = DiagnosticsManager()
+    march = get_arch(march)
+    pascal_builder = PascalBuilder(diag, march)
+
+    ir_modules = pascal_builder.build(sources)
+
+    return ir_to_object(ir_modules, march)
 
 
 def bf2ir(source, target):

@@ -77,6 +77,11 @@ Other compilers written in python
   A toolkit to create DSL tools.
   https://github.com/igordejanovic/textX
 
+* amoco
+
+  Static analysis of binaries.
+  https://github.com/bdcht/amoco
+
 
 Citations
 ---------

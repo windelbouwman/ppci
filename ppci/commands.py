@@ -173,6 +173,32 @@ def cc(args=None):
         args.output.close()
 
 
+pascal_description = """ Pascal compiler.
+
+Compile pascal programs.
+"""
+pascal_parser = argparse.ArgumentParser(
+    description=pascal_description,
+    parents=[base_parser, march_parser, out_parser])
+pascal_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+')
+pascal_parser.add_argument(
+    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
+
+
+def pascal(args=None):
+    """ Pascal compiler """
+    args = pascal_parser.parse_args(args)
+    with LogSetup(args):
+        # Compile sources:
+        march = get_arch_from_args(args)
+        obj = api.pascal(args.sources, march)
+
+        # Write object file to disk:
+        obj.save(args.output)
+        args.output.close()
+
+
 llc_description = """ LLVM static compiler. """
 llc_parser = argparse.ArgumentParser(
     description=llc_description,
