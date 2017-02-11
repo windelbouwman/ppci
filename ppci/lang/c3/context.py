@@ -184,7 +184,6 @@ class Context:
             (doubleType, intType): doubleType,
             (byteType, intType): intType,
             (byteType, byteType): byteType,
-            (byteType, byteType): byteType,
             (intType, ast.PointerType): intType,
             }
         typ_a = self.get_type(a.typ)

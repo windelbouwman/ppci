@@ -428,8 +428,10 @@ def pascal(sources, march, opt_level=0):
     """
     diag = DiagnosticsManager()
     march = get_arch(march)
-    pascal_builder = PascalBuilder(diag, march)
+    debug_db = DebugDb()
+    pascal_builder = PascalBuilder(diag, march, debug_db)
 
+    sources = [get_file(fn) for fn in sources]
     ir_modules = pascal_builder.build(sources)
 
     return ir_to_object(ir_modules, march)

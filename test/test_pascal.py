@@ -30,7 +30,7 @@ class BuildTestCaseBase(unittest.TestCase):
     def build(self, snippet):
         """ Try to build a snippet and also print it to test the printer """
         srcs = self.make_file_list(snippet)
-        context, ir_modules = self.builder.build(srcs)
+        ir_modules = self.builder.build(srcs)
         return ir_modules
 
     def expect_errors(self, snippet, rows):
@@ -70,7 +70,27 @@ class PascalTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    @unittest.skip('todo')
+    def test_if(self):
+        """ Test if statement """
+        snippet = """
+        program test_if;
+        var
+         { Local variable }
+         a: integer;
+
+        begin
+          a := 100;
+          if (a < 20) then
+            (* check something *)
+            writeln('A is less than 20')
+          else if (a = 33) then
+            writeln('A is 33')
+          else
+            writeln('A more than 20 or 20 and not 33')
+        end.
+        """
+        self.expect_ok(snippet)
+
     def test_for_loop(self):
         """ Test the for loop """
         snippet = """
@@ -88,7 +108,6 @@ class PascalTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
-    @unittest.skip('todo')
     def test_case_else(self):
         """ Test case followed by else """
         snippet = """

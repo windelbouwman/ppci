@@ -4,12 +4,12 @@ import logging
 from ...common import CompilerError
 from ...pcc.recursivedescent import RecursiveDescentParser
 from . import nodes
-# from .scope import Scope
+from .symbol_table import Scope
 
 
 class Parser(RecursiveDescentParser):
     """ Parses pascal into ast-nodes """
-    logger = logging.getLogger('pascal')
+    logger = logging.getLogger('pascal.parser')
 
     def __init__(self, diag):
         super().__init__()
@@ -22,12 +22,13 @@ class Parser(RecursiveDescentParser):
         self.logger.debug('Parsing source')
         self.init_lexer(tokens)
         try:
-            module = self.parse_program(context)
-            self.logger.debug('Parsing complete')
+            program = self.parse_program(context)
         except CompilerError as ex:
             self.diag.add_diag(ex)
             raise
-        return module
+        self.logger.debug('Parsing complete')
+        context.add_program(program)
+        return program
 
     def add_symbol(self, sym):
         """ Add a symbol to the current scope """
@@ -42,12 +43,14 @@ class Parser(RecursiveDescentParser):
         name = self.consume('ID')
         self.consume(';')
         self.logger.debug('Parsing program %s', name.val)
-        # self.mod = context.get_module(name.val)
-        # self.current_scope = self.mod.inner_scope
-        self.parse_block()
+        scope = Scope(context.root_scope)
+        program = nodes.Program(name.val, scope, name.loc)
+        self.current_scope = scope
+        main_code = self.parse_block()
+        program.main_code = main_code
         self.consume('.')
         self.consume('EOF')
-        return self.mod
+        return program
 
     def parse_block(self):
         """ Parse a block.
@@ -64,7 +67,7 @@ class Parser(RecursiveDescentParser):
             self.parse_variable_declarations()
         if self.peak == 'aaaaaaaaaaaaaaa':
             self.parse_function_declarations()
-        self.parse_compound_statement()
+        return self.parse_compound_statement()
 
     def parse_constant_definitions(self):
         """ Parse constant definitions """
@@ -80,17 +83,22 @@ class Parser(RecursiveDescentParser):
                 break
         self.consume(';')
 
-    def parse_import(self):
+    def parse_uses(self):
         """ Parse import construct """
-        self.consume('import')
-        name = self.consume('ID').val
-        self.mod.imports.append(name)
+        self.consume('uses')
+        self.consume('ID').val
+        # self.mod.imports.append(name)
         self.consume(';')
 
     def parse_designator(self):
         """ A designator designates an object with a name. """
         name = self.consume('ID')
-        return nodes.Identifier(name.val, self.current_scope, name.loc)
+        # Look it up!
+        if self.current_scope.has_symbol(name.val):
+            symbol = self.current_scope.get_symbol(name.val)
+            return symbol, name.loc
+        else:
+            self.error('Unknown identifier {}'.format(name.val), name.loc)
 
     def parse_id_sequence(self):
         """ Parse a sequence of id's """
@@ -122,17 +130,12 @@ class Parser(RecursiveDescentParser):
                 self.consume(';')
             self.consume('}')
             the_type = nodes.StructureType(mems)
-        elif self.peak == 'enum':
-            raise NotImplementedError('enum not yet implemented')
         else:
             # The type is identified by an identifier:
-            the_type = self.parse_designator()
-            while self.has_consumed('.'):
-                field = self.consume('ID')
-                the_type = nodes.Member(the_type, field.val, field.loc)
-
-        # Check for the volatile modifier (this is a suffix):
-        the_type.volatile = self.has_consumed('volatile')
+            the_type, _ = self.parse_designator()
+            # while self.has_consumed('.'):
+            #    field = self.consume('ID')
+            #    the_type = nodes.Member(the_type, field.val, field.loc)
 
         # Check for pointer or array suffix:
         while self.peak in ['*', '[']:
@@ -145,8 +148,6 @@ class Parser(RecursiveDescentParser):
             else:  # pragma: no cover
                 raise RuntimeError()
 
-            # Check (again) for the volatile modifier:
-            the_type.volatile = self.has_consumed('volatile')
         return the_type
 
     def parse_type_def(self, public=True):
@@ -159,23 +160,39 @@ class Parser(RecursiveDescentParser):
             typename.val, newtype, public, typename.loc)
         self.add_symbol(typedef)
 
-    def parse_variable_def(self, public=True):
-        """ Parse variable declaration, optionally with initialization. """
+    def parse_variable_declarations(self):
+        """ Parse variable declarations """
         self.consume('var')
-        var_type = self.parse_type_spec()
         variables = []
-        while True:
+        variables.extend(self.parse_single_variable_declaration())
+        while self.peak == 'ID':
+            variables.extend(self.parse_single_variable_declaration())
+        return variables
+
+    def parse_single_variable_declaration(self):
+        """ Parse a single variable declaration line ending in ';' """
+        names = []
+        name = self.consume('ID')
+        names.append(name)
+        while self.has_consumed(','):
             name = self.consume('ID')
-            var = nodes.Variable(name.val, var_type, public, name.loc)
-            # Munch initial value:
-            if self.peak == '=':
-                self.consume('=')
-                var.ival = self.parse_const_expression()
-            self.add_symbol(var)
-            variables.append(var)
-            if not self.has_consumed(','):
-                break
+            names.append(name)
+        self.consume(':')
+        var_type = self.parse_type_spec()
+
+        # Initial value:
+        if self.has_consumed('='):
+            initial = self.parse_expression()
+        else:
+            initial = None
         self.consume(';')
+
+        # Create variables:
+        variables = []
+        for name in names:
+            var = nodes.Variable(name.val, var_type, name.loc)
+            variables.append(var)
+            self.current_scope.add_symbol(var)
         return variables
 
     def parse_function_def(self, public=True):
@@ -222,28 +239,35 @@ class Parser(RecursiveDescentParser):
             false_code = nodes.Empty()
         return nodes.If(condition, true_code, false_code, loc)
 
-    def parse_switch(self) -> nodes.Switch:
-        """ Parse switch statement """
+    def parse_case_of(self) -> nodes.CaseOf:
+        """ Parse case-of statement """
         loc = self.consume('case').loc
         self.consume('(')
         expression = self.parse_expression()
         self.consume(')')
         self.consume('of')
         options = []
-        while self.peak != '}':
-            if self.peak not in ['case', 'default']:
-                self.error('Expected case or default')
-            if self.peak == 'case':
-                self.consume('case')
+        while self.peak not in ['end', 'else']:
+            value = self.parse_expression()
+            values = [value]
+            while self.has_consumed(','):
                 value = self.parse_expression()
-            else:
-                self.consume('default')
-                value = None
+                values.append(value)
+
             self.consume(':')
             statement = self.parse_statement()
-            options.append((value, statement))
+            self.consume(';')
+            options.append((values, statement))
+
+        # Optional else clause:
+        if self.peak == 'else':
+            self.consume('else')
+            default_statement = self.parse_statement()
+            self.consume(';')
+            options.append(('else', default_statement))
+
         self.consume('end')
-        return nodes.Switch(expression, options, loc)
+        return nodes.CaseOf(expression, options, loc)
 
     def parse_while(self) -> nodes.While:
         """ Parses a while statement """
@@ -264,7 +288,8 @@ class Parser(RecursiveDescentParser):
     def parse_for(self) -> nodes.For:
         """ Parse a for statement """
         loc = self.consume('for').loc
-        self.parse_identifier()
+        loop_var, _ = self.parse_designator()
+        assert isinstance(loop_var, nodes.Variable)
         self.consume(':=')
         start = self.parse_expression()
         if self.peak == 'to':
@@ -276,43 +301,43 @@ class Parser(RecursiveDescentParser):
         stop = self.parse_expression()
         self.consume('do')
         statement = self.parse_statement()
-        return nodes.For(start, up, stop, statement, loc)
+        return nodes.For(loop_var, start, up, stop, statement, loc)
 
     def parse_read(self):
         """ Parses a read statement """
         loc = self.consume('read').loc
-        self.consume('(')
-        p = self.parse_expression()
-        self.consume(')')
-        parameters = [p]
+        parameters = self.parse_actual_parameter_list()
         return nodes.Read(parameters, loc)
 
     def parse_readln(self):
         """ Parses a readln statement """
         loc = self.consume('readln').loc
-        self.consume('(')
-        p = self.parse_expression()
-        self.consume(')')
-        parameters = [p]
+        parameters = self.parse_actual_parameter_list()
         return nodes.Readln(parameters, loc)
 
     def parse_write(self):
         """ Parses a write statement """
         loc = self.consume('write').loc
-        self.consume('(')
-        p = self.parse_expression()
-        self.consume(')')
-        parameters = [p]
+        parameters = self.parse_actual_parameter_list()
         return nodes.Write(parameters, loc)
 
     def parse_writeln(self):
         """ Parses a writeln statement """
         loc = self.consume('writeln').loc
-        self.consume('(')
-        p = self.parse_expression()
-        self.consume(')')
-        parameters = [p]
+        parameters = self.parse_actual_parameter_list()
         return nodes.Writeln(parameters, loc)
+
+    def parse_actual_parameter_list(self):
+        """ Parse a list of parameters """
+        self.consume('(')
+        parameters = []
+        p = self.parse_expression()
+        parameters.append(p)
+        while self.has_consumed(','):
+            p = self.parse_expression()
+            parameters.append(p)
+        self.consume(')')
+        return parameters
 
     def parse_return(self) -> nodes.Return:
         """ Parse a return statement """
@@ -348,7 +373,7 @@ class Parser(RecursiveDescentParser):
         elif self.peak == 'goto':
             return self.parse_goto()
         elif self.peak == 'case':
-            return self.parse_switch()
+            return self.parse_case_of()
         elif self.peak == 'read':
             return self.parse_read()
         elif self.peak == 'readln':
@@ -359,7 +384,24 @@ class Parser(RecursiveDescentParser):
             return self.parse_writeln()
         elif self.peak == 'return':
             return self.parse_return()
+        elif self.peak == 'begin':
+            return self.parse_compound_statement()
+        elif self.peak == 'end':
+            return nodes.Empty()
+        elif self.peak == ';':
+            self.consume(';')
+            return nodes.Empty()
+        elif self.peak == 'ID':
+            symbol, loc = self.parse_designator()
+            if self.peak == ':=':
+                lhs = nodes.VariableAccess(symbol, loc)
+                loc = self.consume(':=').loc
+                rhs = self.parse_expression()
+                return nodes.Assignment(lhs, rhs, loc, ':=')
+            else:
+                self.not_impl()
         else:
+            self.not_impl()
             expression = self.parse_unary_expression()
             if self.peak in nodes.Assignment.operators:
                 # We enter assignment mode here.
@@ -453,7 +495,11 @@ class Parser(RecursiveDescentParser):
             val = self.consume('STRING')
             expr = nodes.Literal(val.val, val.loc)
         elif self.peak == 'ID':
-            expr = self.parse_designator()
+            symbol, loc = self.parse_designator()
+            if isinstance(symbol, nodes.Variable):
+                expr = nodes.VariableAccess(symbol, loc)
+            else:
+                self.not_impl()
         else:
             self.error('Expected NUM, ID or (expr), got {0}'.format(self.peak))
         return expr

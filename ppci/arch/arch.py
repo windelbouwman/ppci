@@ -1,6 +1,7 @@
 """ Machine architecture description module """
 
 import logging
+import abc
 from functools import lru_cache
 from .registers import Register
 from .stack import Frame
@@ -9,7 +10,7 @@ from .generic_instructions import VSaveRegisters, VRestoreRegisters
 from .. import ir
 
 
-class Architecture:
+class Architecture(metaclass=abc.ABCMeta):
     """ Base class for all targets """
     logger = logging.getLogger('arch')
     name = None
@@ -84,10 +85,12 @@ class Architecture:
         """ Generate a move from src to dst """
         raise NotImplementedError('Implement this')
 
+    @abc.abstractmethod
     def gen_prologue(self, frame):  # pragma: no cover
         """ Generate instructions for the epilogue of a frame """
         raise NotImplementedError('Implement this!')
 
+    @abc.abstractmethod
     def gen_epilogue(self, frame):  # pragma: no cover
         """ Generate instructions for the epilogue of a frame """
         raise NotImplementedError('Implement this!')
@@ -235,10 +238,12 @@ class Architecture:
         """
         return []
 
+    @abc.abstractmethod
     def determine_arg_locations(self, arg_types):  # pragma: no cover
         """ Determine argument location for a given function """
         raise NotImplementedError('Implement this')
 
+    @abc.abstractmethod
     def determine_rv_location(self, ret_type):  # pragma: no cover
         """ Determine the location of a return value of a function given the
         type of return value """

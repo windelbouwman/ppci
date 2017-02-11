@@ -21,6 +21,12 @@ class Stm8Arch(Architecture):
         self.byte_sizes['int'] = 2
         self.fp = registers.vrw4
 
+    def gen_prologue(self, frame):
+        pass
+
+    def gen_epilogue(self, frame):
+        pass
+
     def determine_arg_locations(self, arg_types):
         ''' Calling convention in priority order:
         - Pointers in index registers;

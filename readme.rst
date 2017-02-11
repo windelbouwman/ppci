@@ -3,7 +3,9 @@ Introduction
 ============
 
 The ppci (pure python compiler infrastructure) project is a compiler
-written entirely in python.
+written entirely in python. It contains language front-ends as well
+as machine code generation functionality. With this library you can
+generate (working!) machine code within python!
 
 The project contains the following:
 
@@ -65,7 +67,6 @@ Documentation can be found here:
 - https://ppci.readthedocs.io/
 
 
-|dronestate|_
 |appveyor|_
 |codecov|_
 |docstate|_
@@ -73,10 +74,6 @@ Documentation can be found here:
 
 .. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
 .. _codecov: https://codecov.io/bb/windel/ppci/branch/default
-
-
-.. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
-.. _dronestate: https://drone.io/bitbucket.org/windel/ppci
 
 
 .. |appveyor| image:: https://ci.appveyor.com/api/projects/status/h0h5huliflrac65o?svg=true

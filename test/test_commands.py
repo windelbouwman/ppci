@@ -10,6 +10,7 @@ except ImportError:
 
 from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
 from ppci.commands import link
+from ppci import commands
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
 from ppci.api import get_arch
@@ -76,6 +77,24 @@ class C3cTestCase(unittest.TestCase):
     def test_c3c_command_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
             c3c(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('compiler', mock_stdout.getvalue())
+
+
+class PascalTestCase(unittest.TestCase):
+    """ Test the pascal command-line program """
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_hello(self, mock_stdout, mock_stderr):
+        """ Compile hello world.pas """
+        hello_pas = relpath('..', 'examples', 'src', 'pascal', 'hello.pas')
+        obj_file = new_temp_file('.obj')
+        commands.pascal(['-m', 'arm', hello_pas, '-o', obj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            commands.pascal(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('compiler', mock_stdout.getvalue())
 

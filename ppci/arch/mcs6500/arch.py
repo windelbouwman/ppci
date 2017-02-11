@@ -14,6 +14,12 @@ class Mcs6500Arch(Architecture):
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(isa)
 
+    def gen_prologue(self, frame):
+        pass
+
+    def gen_epilogue(self, frame):
+        pass
+
     def determine_arg_locations(self, arg_types):
         """ """
         # TODO: what ABI to use?

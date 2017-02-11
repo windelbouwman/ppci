@@ -198,8 +198,9 @@ class DefinedType(NamedType):
 
 class Variable(Symbol):
     """ A variable, either global or local """
-    def __init__(self, name, typ, public, loc):
-        super().__init__(name, public)
+    def __init__(self, name: str, typ: Type, loc):
+        super().__init__(name, False)
+        assert isinstance(typ, Type)
         self.typ = typ
         self.isLocal = False
         self.isParameter = False
@@ -238,7 +239,7 @@ class Expression(Node):
 
 class Sizeof(Expression):
     """ Sizeof built-in contraption """
-    def __init__(self, typ, loc):
+    def __init__(self, typ: Type, loc):
         super().__init__(loc)
         self.query_typ = typ
 
@@ -289,6 +290,16 @@ class Index(Expression):
         return 'Index {}'.format(self.i)
 
 
+class VariableAccess(Expression):
+    """ Access a variable """
+    def __init__(self, variable: Variable, loc):
+        super().__init__(loc)
+        self.variable = variable
+
+    def __repr__(self):
+        return 'Read from {}'.format(self.variable)
+
+
 class Unop(Expression):
     """ Operation on one operand, typically 'op' 'expr' """
     arithmatic_ops = ('+', '-')
@@ -297,7 +308,7 @@ class Unop(Expression):
     cond_ops = logical_ops
     all_ops = cond_ops + pointer_ops + arithmatic_ops
 
-    def __init__(self, op, a, loc):
+    def __init__(self, op, a: Expression, loc):
         super().__init__(loc)
         assert isinstance(a, Expression)
         assert isinstance(op, str)
@@ -318,11 +329,11 @@ class Binop(Expression):
     """ Expression taking two operands and one operator """
     arithmatic_ops = ('+', '-', '*', '/', '%', '>>', '<<', '&', '|', '^')
     logical_ops = ('and', 'or')
-    compare_ops = ('==', '!=', '<', '>', '<=', '>=')
+    compare_ops = ('=', '<>', '<', '>', '<=', '>=')
     cond_ops = logical_ops + compare_ops
     all_ops = arithmatic_ops + cond_ops
 
-    def __init__(self, a, op, b, loc):
+    def __init__(self, a: Expression, op, b: Expression, loc):
         super().__init__(loc)
         assert isinstance(a, Expression), type(a)
         assert isinstance(b, Expression)
@@ -339,18 +350,6 @@ class Binop(Expression):
     def is_bool(self):
         """ Test if this binop is a boolean """
         return self.op in self.cond_ops
-
-
-class Identifier(Expression):
-    """ Reference to some identifier, can be anything from package, variable
-        function or type, any named thing! """
-    def __init__(self, target, scope, loc):
-        super().__init__(loc)
-        self.scope = scope
-        self.target = target
-
-    def __repr__(self):
-        return 'ID {}'.format(self.target)
 
 
 class Literal(Expression):
@@ -431,14 +430,21 @@ class Return(Statement):
         return 'RETURN STATEMENT'
 
 
+class Exit(Statement):
+    """ Exit statement """
+    def __repr__(self):
+        return 'EXIT STATEMENT'
+
+
 class Assignment(Statement):
     """ Assignment statement with a left hand side and right hand side """
-    operators = ('=', '|=', '&=', '+=', '-=', '*=')
+    operators = (':=',)
 
-    def __init__(self, lval, rval, loc, operator='='):
+    def __init__(self, lval, rval, loc, operator=':='):
         super().__init__(loc)
         assert operator in self.operators
-        assert isinstance(lval, Expression)
+        # TODO: what should lhs be?
+        # assert isinstance(lval, Expression)
         assert isinstance(rval, Expression)
         self.lval = lval
         self.rval = rval
@@ -487,15 +493,15 @@ class If(Statement):
         return 'IF-statement'
 
 
-class Switch(Statement):
-    """ Switch statement """
+class CaseOf(Statement):
+    """ Case-of statement """
     def __init__(self, expression, options, loc):
         super().__init__(loc)
         self.expression = expression
         self.options = options
 
     def __repr__(self):
-        return 'SWITCH-statement'
+        return 'CASE-OF-statement'
 
 
 class While(Statement):
@@ -511,10 +517,11 @@ class While(Statement):
 
 class For(Statement):
     """ For statement with a start, condition and final statement """
-    def __init__(self, init, condition, final, statement, loc):
+    def __init__(self, loop_var, start, direction, final, statement, loc):
         super().__init__(loc)
-        self.init = init
-        self.condition = condition
+        self.loop_var = loop_var
+        self.start = start
+        self.direction = direction
         self.final = final
         self.statement = statement
 

@@ -10,12 +10,14 @@ class Lexer(BaseLexer):
     keywords = ['program',
                 'type', 'const', 'var',
                 'begin', 'end',
+                'case', 'of',
                 'if', 'then', 'else', 'while', 'for', 'do',
+                'to', 'downto',
                 'read', 'readln', 'write', 'writeln']
     double_glyphs = (
-        ':=',)
+        ':=', '<>')
     single_glyphs = (
-        ',', ';', '(', ')', '.')
+        ',', ';', '(', ')', '.', ':', '<', '>', '=')
     glyphs = double_glyphs + single_glyphs
 
     def __init__(self, diag):
@@ -29,6 +31,8 @@ class Lexer(BaseLexer):
             ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
             ('NEWLINE', r'\n', lambda typ, val: self.newline()),
             ('SKIP', r'[ \t]', None),
+            ('OLDCOMMENT', r'\(\*.*\*\)', None),
+            ('SLCOMMENT', r'\{.*\}', None),
             ('GLYPH', op_txt, lambda typ, val: (val, val)),
             ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1]))
             ]
@@ -60,6 +64,7 @@ class Lexer(BaseLexer):
         yield Token('EOF', 'EOF', loc)
 
     def handle_id(self, typ, val):
+        val = val.lower()
         if val in self.keywords:
             typ = val
         return typ, val
