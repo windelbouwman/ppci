@@ -255,7 +255,7 @@ class CodeGenerator:
                     assert not last_block.is_used
                     assert last_block not in ir_function
                 else:
-                    raise SemanticError(
+                    raise CompilerError(
                         'Function does not return a value', function.loc)
 
         # Remove unreachable blocks from the function:
@@ -496,20 +496,18 @@ class CodeGenerator:
                 self.builder.set_block(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op in ['=', '>', '<', '<>', '<=', '>=']:
-                operation_map = {
-                    '=': '==', '<>': '!=', '>': '>', '<': '<',
-                    '>=': '>=', '<=': '<='
-                }
                 lhs = self.gen_expr_code(expr.a, rvalue=True)
                 rhs = self.gen_expr_code(expr.b, rvalue=True)
                 common_type = self.context.get_common_type(
                     expr.a, expr.b, expr.loc)
                 lhs = self.do_coerce(expr.a, common_type, lhs)
                 rhs = self.do_coerce(expr.b, common_type, rhs)
-
-                self.context.equal_types(expr.a.typ, expr.b.typ)
+                op_map = {
+                    '=': '==', '<>': '!=', '>': '>', '<': '<',
+                    '>=': '>=', '<=': '<='
+                }
                 self.emit(
-                    ir.CJump(lhs, operation_map[expr.op], rhs, bbtrue, bbfalse),
+                    ir.CJump(lhs, op_map[expr.op], rhs, bbtrue, bbfalse),
                     loc=expr.loc)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
@@ -887,23 +885,23 @@ class CodeGenerator:
             auto_cast = True
         elif isinstance(from_type, nodes.UnsignedIntegerType) and \
                 isinstance(to_type, nodes.UnsignedIntegerType) and \
-                        from_type.bits <= to_type.bits:
+                from_type.bits <= to_type.bits:
             auto_cast = True
         elif isinstance(from_type, nodes.SignedIntegerType) and \
                 isinstance(to_type, nodes.SignedIntegerType) and \
-                        from_type.bits <= to_type.bits:
+                from_type.bits <= to_type.bits:
             auto_cast = True
         elif isinstance(from_type, nodes.UnsignedIntegerType) and \
                 isinstance(to_type, nodes.SignedIntegerType) and \
-                        from_type.bits < to_type.bits - 1:
+                from_type.bits < to_type.bits - 1:
             auto_cast = True
         elif isinstance(from_type, nodes.UnsignedIntegerType) and \
                 isinstance(to_type, nodes.FloatType) and \
-                        from_type.bits < to_type.fraction_bits:
+                from_type.bits < to_type.fraction_bits:
             auto_cast = True
         elif isinstance(from_type, nodes.SignedIntegerType) and \
                 isinstance(to_type, nodes.FloatType) and \
-                        from_type.bits < to_type.fraction_bits:
+                from_type.bits < to_type.fraction_bits:
             auto_cast = True
         else:
             raise CompilerError(

@@ -185,6 +185,7 @@ class Parser(RecursiveDescentParser):
             initial = self.parse_expression()
         else:
             initial = None
+        self.logger.error('TODO use %s', initial)
         self.consume(';')
 
         # Create variables:
