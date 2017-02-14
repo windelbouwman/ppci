@@ -15,7 +15,7 @@ test_script:
 after_test:
   - python setup.py -q sdist bdist_wheel bdist_msi bdist_wininst
   - ps: (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
-  - ps: $env:APPVEYOR_REPO_COMMIT = (Shell hg parent --template '{node}') | Out-String
+  - ps: $env:APPVEYOR_REPO_COMMIT = (hg parent --template '{node}') | Out-String
   - codecov
 
 artifacts:
