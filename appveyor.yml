@@ -2,7 +2,8 @@ init:
   - set PATH=c:\Python36-x64;C:\Python36-x64\Scripts;%PATH%
 
 environment:
-  CODECOV_TOKEN: f67nOyITJWX7wE2ASpCKz/JOXLd89y5YnDdwmQW+Fs3DEVUBN47DjpKQN3QT0L2G
+  CODECOV_TOKEN:
+    secure: f67nOyITJWX7wE2ASpCKz/JOXLd89y5YnDdwmQW+Fs3DEVUBN47DjpKQN3QT0L2G
 
 install:
   - pip -q install tox wheel codecov"
