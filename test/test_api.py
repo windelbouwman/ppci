@@ -7,8 +7,8 @@ try:
 except ImportError:
     from mock import patch
 
-from ppci.tasks import TaskError
-import ppci.buildtasks
+from ppci.build.tasks import TaskError
+import ppci.build.buildtasks
 
 
 class ApiTestCase(unittest.TestCase):

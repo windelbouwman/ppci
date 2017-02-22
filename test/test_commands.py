@@ -89,7 +89,7 @@ class PascalTestCase(unittest.TestCase):
         """ Compile hello world.pas """
         hello_pas = relpath('..', 'examples', 'src', 'pascal', 'hello.pas')
         obj_file = new_temp_file('.obj')
-        commands.pascal(['-m', 'arm', hello_pas, '-o', obj_file])
+        commands.pascal(['-m', 'arm', '-o', obj_file, hello_pas])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):

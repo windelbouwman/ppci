@@ -23,21 +23,42 @@ class Context:
     def add_program(self, program):
         self.programs.append(program)
 
-    def get_type(self, name):
+    def get_type(self, name, reveil_defined=True):
         if isinstance(name, nodes.Type):
-            return name
+            typ = name
         else:
-            symbol = self.root_scope.get_symbol(name)
-            assert isinstance(symbol, nodes.Type)
-            return symbol
+            typ = self.root_scope.get_symbol(name)
+            assert isinstance(typ, nodes.Type)
 
-    def equal_types(self, a, b):
+        if isinstance(typ, nodes.DefinedType) and reveil_defined:
+            typ = self.get_type(typ.typ)
+
+        return typ
+
+    def equal_types(self, a, b, byname=False):
         """ Check if two types are equal """
         a = self.get_type(a)
         b = self.get_type(b)
         if type(a) is type(b):
             if isinstance(a, nodes.IntegerType):
                 return a.bits == b.bits
+            elif isinstance(a, nodes.PointerType):
+                # If a pointed type is detected, stop structural
+                # equivalence:
+                return self.equal_types(a.ptype, b.ptype, byname=True)
+            elif isinstance(a, nodes.DefinedType):
+                # Try by name in case of defined types:
+                return a.name == b.name
+            elif isinstance(a, nodes.StructureType):
+                if len(a.fields) != len(b.fields):
+                    return False
+                return all(self.equal_types(am.typ, bm.typ) for am, bm in
+                           zip(a.fields, b.fields))
+            elif isinstance(a, nodes.ArrayType):
+                return self.equal_types(a.element_type, b.element_type)
+            else:
+                raise NotImplementedError(str(type(a)))
+
         return False
 
     def get_common_type(self, a, b, loc):

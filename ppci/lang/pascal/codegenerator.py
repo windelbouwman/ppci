@@ -476,8 +476,19 @@ class CodeGenerator:
         self.builder.set_block(final_block)
 
     def gen_writeln(self, code):
-        # TODO!
-        pass
+        for argument in code.parameters:
+            val = self.gen_expr_code(argument, rvalue=True)
+
+            if self.context.equal_types('string', argument.typ):
+                self.emit(ir.ProcedureCall('io_print', [val]))
+            elif isinstance(
+                    self.context.get_type(argument.typ), nodes.IntegerType):
+                val = self.do_coerce(
+                    argument, self.context.get_type('integer'), val)
+                self.emit(ir.ProcedureCall('io_print_int', [val]))
+            else:
+                raise NotImplementedError(str(argument.typ))
+        # self.emit(ir.ProcedureCall('bsp_putc', [val]))
 
     def gen_cond_code(self, expr: nodes.Expression, bbtrue, bbfalse):
         """ Generate conditional logic.

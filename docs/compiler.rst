@@ -39,6 +39,7 @@ The compiler is greatly influenced by the `LLVM`_ design.
     compiler/backend
     compiler/optimization
     compiler/specificationlang
+    compiler/hardware
 
 
 

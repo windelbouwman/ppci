@@ -1,5 +1,5 @@
 <project name="arduino" default="blinky">
-    <import name="ppci.buildtasks" />
+    <import name="ppci.build.buildtasks" />
 
     <target name="blinky">
         <assemble

@@ -6,6 +6,7 @@ linking and assembling.
 
 import logging
 import os
+import platform
 import stat
 import xml
 from .arch.arch import Architecture
@@ -37,8 +38,8 @@ from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
 from .utils.ir2py import IrToPython
-from .tasks import TaskError, TaskRunner
-from .recipe import RecipeLoader
+from .build.tasks import TaskError, TaskRunner
+from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .arch.target_list import create_arch
 
@@ -71,6 +72,14 @@ def get_arch(arch):
         else:
             return create_arch(arch)
     raise TaskError('Invalid architecture {}'.format(arch))
+
+
+def get_current_platform():
+    """ Try to get a platform for the current platform """
+    machine = platform.machine()
+    # system = platform.system()
+    arch = get_arch(machine)
+    return arch
 
 
 def get_file(f, mode='r'):
@@ -416,7 +425,7 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
         opt=opt_cg)
 
 
-def pascal(sources, march, opt_level=0):
+def pascal(sources, march, opt_level=0, reporter=None):
     """ Compile a set of pascal-sources for the given target.
 
     Args:
@@ -428,13 +437,15 @@ def pascal(sources, march, opt_level=0):
     """
     diag = DiagnosticsManager()
     march = get_arch(march)
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
     debug_db = DebugDb()
     pascal_builder = PascalBuilder(diag, march, debug_db)
 
     sources = [get_file(fn) for fn in sources]
     ir_modules = pascal_builder.build(sources)
 
-    return ir_to_object(ir_modules, march)
+    return ir_to_object(ir_modules, march, reporter=reporter)
 
 
 def bf2ir(source, target):
@@ -492,7 +503,6 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 
 def llvmir2ir():
     """ Parse llvm IR-code into a ppci ir-module """
-    from .lang.llvmir import LlvmIrFrontend
     return LlvmIrFrontend().compile()
 
 
@@ -545,7 +555,7 @@ def link(
     return output_obj
 
 
-def objcopy(obj, image_name, fmt, output_filename):
+def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
     """ Copy some parts of an object file to an output """
     fmts = ['bin', 'hex', 'elf', 'exe', 'ldb']
     if fmt not in fmts:

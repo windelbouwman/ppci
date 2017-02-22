@@ -10,7 +10,7 @@ from ppci.arch.arm.arm_instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
-from ppci.tasks import TaskError
+from ppci.build.tasks import TaskError
 from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile

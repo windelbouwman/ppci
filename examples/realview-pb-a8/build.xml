@@ -1,6 +1,6 @@
 
 <project name="HelloA9" default="hello">
-    <import name="ppci.buildtasks" />
+    <import name="ppci.build.buildtasks" />
 
     <target name="hello">
         <assemble source="startup_a9.asm" arch="arm" output="start.oj" />

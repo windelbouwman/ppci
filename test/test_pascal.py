@@ -62,6 +62,9 @@ class PascalTestCase(BuildTestCaseBase):
     def test_hello(self):
         """ Test the pascal hello world """
         snippet = """
+        {
+          This is a hello world program with nice comments!
+        }
         program hello1;
 
         begin
