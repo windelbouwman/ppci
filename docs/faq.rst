@@ -21,3 +21,8 @@ Faq
     If you are not sure where to begin, please contact me fist.
     For a list of tasks, refer to :doc:`the todo page<todo>`. For hints on 
     development see :doc:`the development page<development>`.
+
+
+*Why would one want to make a compiler for such a weird language such as C?*
+
+    Because of the enormous amount of C-source code available.

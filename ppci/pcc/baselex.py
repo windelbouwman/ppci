@@ -50,6 +50,13 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
                 loc = SourceLocation(self.filename, self.line, column, length)
                 self.pos = mo.end()
                 val = mo.group(0)
+
+                # Update row and column information:
+                if '\n' in val:
+                    self.line += val.count('\n')
+                    # TODO: this is wrong, and must be improved:
+                    self.line_start = mo.start()
+
                 # print(func, '"%s"' % val)
 
                 res = func(self, val)
@@ -80,6 +87,8 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
             tok = self.gettok()
             if tok:
                 yield tok
+
+        # Emit 'eof' (end of file) if requested
         if eof:
             loc = SourceLocation(self.filename, self.line, 0, 0)
             yield Token(EOF, EOF, loc)
@@ -149,7 +158,7 @@ class BaseLexer(Lexer):
 
     def next_token(self):
         try:
-            return self.tokens.__next__()
+            return next(self.tokens)
         except StopIteration:
             loc = SourceLocation(self.filename, self.line, 0, 0)
             return Token(EOF, EOF, loc)

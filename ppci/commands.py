@@ -74,7 +74,8 @@ march_parser.add_argument(
 out_parser = argparse.ArgumentParser(add_help=False)
 out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
-    type=argparse.FileType('w'), required=True, action=OnceAction)
+    default='f.out',
+    type=argparse.FileType('w'))
 
 
 def get_arch_from_args(args):
@@ -163,6 +164,15 @@ cc_parser = argparse.ArgumentParser(
     description=cc_description,
     parents=[base_parser, march_parser, out_parser])
 cc_parser.add_argument(
+    '-E', action='store_true', default=False,
+    help="Stop after preprocessing")
+cc_parser.add_argument(
+    '-I', action='append', default=[], metavar='dir',
+    help="Add directory to the include path")
+cc_parser.add_argument(
+    '-c', action="store_true", default=False,
+    help="Compile, but do not link")
+cc_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
 
 
@@ -172,14 +182,24 @@ def cc(args=None):
     with LogSetup(args):
         # Compile sources:
         march = get_arch_from_args(args)
+
         for src in args.sources:
-            obj = api.cc(src, march)
+            if args.E:
+                with open(src) as f:
+                    api.preprocess(f)
+            else:
+                obj = api.cc(src, march)
 
-        # TODO: link objects together?
+        if args.E:
+            return
 
-        # Write object file to disk:
-        obj.save(args.output)
-        args.output.close()
+        if args.c:
+            # Write object file to disk:
+            obj.save(args.output)
+            args.output.close()
+        else:
+            # TODO: link objects together?
+            raise NotImplementedError('Linking not implemented')
 
 
 pascal_description = """ Pascal compiler.

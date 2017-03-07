@@ -1,70 +1,53 @@
+from ...pcc.recursivedescent import RecursiveDescentParser
 from .lexer import Lexer
 from . import nodes
 
 
-class Parser:
-    """
-        C Parser. implemented in a recursive descent way, like the CLANG[1]
-        frontend for llvm, also without the lexer hack[2]. See for the gcc
-        c parser code [3].
+class CParser(RecursiveDescentParser):
+    """ C Parser.
 
-        The clang parser is very versatile, it can handle C, C++, objective C
-        and also do code completion. This one is very simple, it can only
-        parse C.
+    Implemented in a recursive descent way, like the CLANG[1]
+    frontend for llvm, also without the lexer hack[2]. See for the gcc
+    c parser code [3].
 
-        [1] http://clang.org/
-        [2] https://en.wikipedia.org/wiki/The_lexer_hack
-        [3] https://raw.githubusercontent.com/gcc-mirror/gcc/master/gcc/c/
-            c-parser.c
+    The clang parser is very versatile, it can handle C, C++, objective C
+    and also do code completion. This one is very simple, it can only
+    parse C.
+
+    [1] http://clang.org/
+    [2] https://en.wikipedia.org/wiki/The_lexer_hack
+    [3] https://raw.githubusercontent.com/gcc-mirror/gcc/master/gcc/c/
+        c-parser.c
     """
     def __init__(self):
-        self.lexer = Lexer()
-        self.token = None
+        super().__init__()
 
-    def parse(self, src):
-        """ Here the parsing of C is begun ... """
-        self.tokens = self.lexer.lex(src)
-        self.token = None
-        self.next_token()
+    def parse(self, tokens):
+        """ Here the parsing of C is begun ...
+
+        Parse the given tokens.
+        """
+        self.init_lexer(tokens)
         unit = self.parse_translation_unit()
         return unit
 
-    def consume(self, typ=None):
-        """ Consume a token certain type """
-        if typ is None:
-            typ = self.peak
-        assert typ == self.peak
-        return self.next_token()
-
-    def has_consumed(self, typ):
-        """ Try to consume a certain token type """
-        if self.peak == typ:
-            self.consume(typ)
-            return True
-        else:
-            return False
-
-    @property
-    def peak(self):
-        return self.token.typ
-
     def next_token(self):
         """ Advance to the next token """
-        tok = self.token
-        # print(tok)
-        if not tok or tok.typ != 'EOF':
-            self.token = self.tokens.__next__()
-            # Implement lexer hack here:
-            symbol_table = set()
-            if self.token.typ == 'ID':
-                if self.token.val in symbol_table:
-                    self.token.typ = 'TYPE-SPEC'
+        tok = super().next_token()
+        print('parse', tok)
+
+        # Implement lexer hack here:
+        symbol_table = set()
+        if self.token.typ == 'ID':
+            if self.token.val in symbol_table:
+                self.token.typ = 'TYPE-SPEC'
+
         return tok
 
     def parse_translation_unit(self):
         """ Top level begin """
         decls = []
-        while self.peak != 'EOF':
+        while not self.at_end:
             df = self.parse_external_declaration()
             decls.append(df)
         return nodes.Cu(decls)

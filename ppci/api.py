@@ -10,7 +10,8 @@ import platform
 import stat
 import xml
 from .arch.arch import Architecture
-from .lang.c import CBuilder
+from .lang.c import CBuilder, CPreProcessor
+from .lang.c.preprocessor import CTokenPrinter
 from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
@@ -51,16 +52,18 @@ __all__ = [
 
 def get_arch(arch):
     """ Try to return an architecture instance.
-        arch can be a string in the form of arch:option1:option2
 
-        .. doctest::
+    Args:
+        arch: can be a string in the form of arch:option1:option2
 
-            >>> from ppci.api import get_arch
-            >>> arch = get_arch('msp430')
-            >>> arch
-            msp430-arch
-            >>> type(arch)
-            <class 'ppci.arch.msp430.arch.Msp430Arch'>
+    .. doctest::
+
+        >>> from ppci.api import get_arch
+        >>> arch = get_arch('msp430')
+        >>> arch
+        msp430-arch
+        >>> type(arch)
+        <class 'ppci.arch.msp430.arch.Msp430Arch'>
     """
     if isinstance(arch, Architecture):
         return arch
@@ -360,6 +363,14 @@ def ir_to_python(ir_modules, f, reporter=None):
         generator.generate(ir_module)
 
 
+def preprocess(f):
+    """ Pre-process a file """
+    preprocessor = CPreProcessor()
+    tokens = preprocessor.process_file(f)
+    CTokenPrinter().dump(tokens)
+    # TODO: print to file instead of stdout?
+
+
 def cc(source, march, reporter=None):
     """ C compiler. compiles a single source file into an object file """
     if not reporter:  # pragma: no cover
@@ -593,9 +604,10 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
 
 def write_ldb(obj, output_file):
     """ Export debug info from object to ldb format.
-        See for example:
-        - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
-          x32-debug/ex2.dbg
+
+    See for example:
+    - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
+      x32-debug/ex2.dbg
     """
     def fx(address):
         assert isinstance(address, DebugAddress)

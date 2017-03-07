@@ -9,8 +9,9 @@ class RecursiveDescentParser:
         self.tokens = None
 
     def init_lexer(self, tokens):
+        """ Initialize the parser with the given tokens (an iterator) """
         self.tokens = tokens
-        self.token = self.tokens.__next__()
+        self.token = next(self.tokens, None)
 
     def error(self, msg, loc=None):
         """ Raise an error at the current location """
@@ -41,8 +42,7 @@ class RecursiveDescentParser:
     def next_token(self):
         """ Advance to the next token """
         tok = self.token
-        if tok.typ != 'EOF':
-            self.token = self.tokens.__next__()
+        self.token = next(self.tokens, None)
         return tok
 
     def not_impl(self):  # pragma: no cover
@@ -52,8 +52,9 @@ class RecursiveDescentParser:
     @property
     def peak(self):
         """ Look at the next token to parse without popping it """
-        return self.token.typ
+        if self.token:
+            return self.token.typ
 
     @property
     def at_end(self):
-        return self.peak == 'EOF'
+        return self.peak is not None
