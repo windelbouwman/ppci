@@ -70,6 +70,7 @@ Documentation can be found here:
 |appveyor|_
 |codecov|_
 |docstate|_
+|travis|_
 
 
 .. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
@@ -82,3 +83,8 @@ Documentation can be found here:
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
 .. _docstate: https://ppci.readthedocs.io/en/latest
+
+
+.. |travis| image:: https://travis-ci.org/windelbouwman/ppci-mirror.svg?branch=master
+.. _travis: https://travis-ci.org/windelbouwman/ppci-mirror
+
