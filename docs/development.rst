@@ -5,15 +5,6 @@ Development
 This chapter descibes how to develop on ppci.
 
 
-Communication
--------------
-
-Join the #ppci irc channel on freenode!
-
-Or visit the forum:
-
-- https://groups.google.com/d/forum/ppci-dev
-
 Source code
 -----------
 
@@ -34,6 +25,10 @@ without having to setup your python path.
     $ hg clone https://bitbucket.org/windel/ppci
     $ cd ppci
     $ sudo python setup.py develop
+
+Alternatively a git mirror is also created:
+
+- https://github.com/windelbouwman/ppci-mirror
 
 
 Running the testsuite

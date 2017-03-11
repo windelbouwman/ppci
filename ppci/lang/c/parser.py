@@ -1,5 +1,4 @@
 from ...pcc.recursivedescent import RecursiveDescentParser
-from .lexer import Lexer
 from . import nodes
 
 

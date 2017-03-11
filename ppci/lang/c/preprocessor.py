@@ -1,6 +1,7 @@
 import os
 import logging
 
+from ...common import CompilerError
 from .lexer import Lexer
 
 
@@ -20,6 +21,8 @@ class Expander:
 
     def __init__(self, context):
         self.context = context
+        self.if_stack = []
+        self.enabled = True
 
     def process(self, tokens):
         """ Process a token sequence into another token sequence.
@@ -27,36 +30,48 @@ class Expander:
         This function returns an iterator that must be looped over.
         """
         self.tokens = tokens
-        self.t = next(tokens, None)
+        self.next_token()
         return self.process_normal()
 
     def peak(self, ahead):
         assert ahead == 0
-        if self.t:
-            return self.t.typ
+        if self.token:
+            return self.token.typ
 
-    def consume(self, typ=None, skip_space=True):
+    def next_token(self):
+        self.token = next(self.tokens, None)
+
+    def consume(self, typ=None, skip_space=False):
+        if skip_space:
+            self.skip_space()
+
         if not typ:
-            typ = self.t.typ
-        assert self.t.typ == typ
-        t = self.t
-        self.t = next(self.tokens, None)
-        # print(t)
+            typ = self.token.typ
+
+        if self.token.typ != typ:
+            self.error('Expected {} but got {}'.format(typ, self.token.typ))
+
+        t = self.token
+        self.next_token()
         return t
+
+    def error(self, msg):
+        raise CompilerError(msg)
+
+    def skip_space(self):
+        while self.peak(0) == 'WS':
+            self.next_token()
 
     def process_normal(self):
         """ Iterator of processed tokens """
         # print('go process!')
         while self.peak(0):
+            # TODO: assert beginning of line?
             if self.peak(0) == '#':
                 # We are inside a directive!
                 # yield self.consume()
-                self.consume()
-                # assert self.peak(0) == 'ID'
-                if self.peak(0) == 'WS':
-                    self.consume()
-
-                directive = self.consume().val
+                self.consume('#')
+                directive = self.consume('ID', skip_space=True).val
 
                 if directive == 'include':
                     self.consume('WS')
@@ -73,16 +88,22 @@ class Expander:
 
                     for token in self.context.include(include_filename):
                         yield token
+                elif directive == 'ifdef':
+                    test_define = self.consume('ID', skip_space=True).val
+                    condition = self.context.is_defined(test_define)
+                    self.if_stack.append(IfState(condition))
                 elif directive == 'ifndef':
-                    self.consume('WS')
-                    test_define = self.consume('ID')
+                    test_define = self.consume('ID', skip_space=True).val
+                    condition = not self.context.is_defined(test_define)
+                    self.if_stack.append(IfState(condition))
+                elif directive == 'endif':
+                    self.if_stack.pop(-1)
                 elif directive == 'define':
-                    name = get_token()
+                    name = self.consume('ID', skip_space=True).val
+                    value = self.parse_expression()
                     self.context.define(name, value)
-                elif directive == '#ifdef':
-                    self.do_ifdef()
-                elif directive == '#ifdef':
-                    pass
+                elif directive == 'if':
+                    self.do_if()
                 else:
                     self.logger.error('todo: %s', directive)
                     raise NotImplementedError(directive)
@@ -92,9 +113,24 @@ class Expander:
             else:
                 yield self.consume()
 
-    def do_ifdef(self):
-        while not '#endif':
-            yield 2
+        if self.if_stack:
+            raise CompilerError('#if not properly closed')
+
+    def do_if(self):
+        # v = self.consume('ID')
+        pass
+
+    def parse_expression(self):
+        expr = []
+        while not self.peak(0) == 'BOL':
+            expr.append(self.consume())
+        return expr
+
+
+class IfState:
+    """ If status for use on the if-stack """
+    def __init__(self, condition):
+        self.condition = condition
 
 
 class Context:
@@ -114,13 +150,16 @@ class Context:
     def undefine(self, name):
         self.defines.delete(name)
 
+    def is_defined(self, name):
+        return name in self.defines
+
     def process(self, f, filename):
         """ Process the given open file into current output """
         self.logger.debug('Processing %s', filename)
-        l = Lexer()
-        tokens = l.lex(f, filename)
-        x = Expander(self)
-        for token in x.process(tokens):
+        clexer = Lexer()
+        tokens = clexer.lex(f, filename)
+        macro_expander = Expander(self)
+        for token in macro_expander.process(tokens):
             yield token
 
     def include(self, filename):
@@ -141,14 +180,31 @@ class CTokenPrinter:
     """ Printer that can turn a preprocessed stream of tokens into text """
     def dump(self, tokens):
         for token in tokens:
+            print(token)
             print(token.val, end='')
 
 
 def prepare_for_parsing(tokens):
-    """ Strip out tokens on the way from preprocessor to parser """
+    """ Strip out tokens on the way from preprocessor to parser.
+
+    Apply several modifications on the token stream to adapt it
+    to the format that the parser requires.
+
+    This involves:
+    - Removal of whitespace
+    """
+    keywords = ['true', 'false',
+                'else', 'if', 'while', 'for', 'return',
+                'struct', 'enum',
+                'typedef', 'static', 'const',
+                'int', 'void', 'char', 'float', 'double']
+
     for token in tokens:
         if token.typ in ['BOL', 'WS']:
             pass
+        elif token.typ == 'ID':
+            if token.val in keywords:
+                token.typ = token.val
+            yield token
         else:
-            print('Bridge', token)
             yield token

@@ -582,7 +582,7 @@ class LogSetup:
             err = False
 
         if isinstance(exc_value, CompilerError):
-            self.logger.error(str(exc_value))
+            self.logger.error(str(exc_value.msg))
             self.logger.error(str(exc_value.loc))
             exc_value.print()
 

@@ -2,9 +2,7 @@
 
 import re
 
-from ...pcc.baselex import BaseLexer
 from ...pcc.baselex import SimpleLexer, on
-from ...common import make_num
 
 
 def split_lines(lines):
@@ -17,34 +15,6 @@ def trigraph_filter(lines):
     """ Filter out trigraphs from the lines """
     for line in lines:
         yield line
-
-
-def comments_filter(lines):
-    """ Filter out line- and block-comments """
-    begin_prog = re.compile('(\/\/)|(\/\*)')
-    end_prog = re.compile('\*\/')
-
-    in_block = False
-    for line in lines:
-        outline = ''
-        while line:
-            if in_block:
-                if '*/' in line:
-                    p
-                else:
-                    line = ''
-            else:
-                mo = begin_prog.search(line)
-                if mo:
-                    pass
-                if '/*' in line:
-                    pass
-
-                if '//' in line:
-                    outline = outline + line.split('//')[0] + ' '
-                    line = ''
-
-        yield outline
 
 
 def continued_lines_filter(lines):
@@ -72,12 +42,6 @@ class Lexer(SimpleLexer):
     glyphs = double_glyphs + single_glyphs
     op_txt = '|'.join(re.escape(g) for g in glyphs)
 
-    keywords = ['true', 'false',
-                'else', 'if', 'while', 'for', 'return',
-                'struct', 'enum',
-                'typedef', 'static', 'const',
-                'int', 'void', 'char', 'float', 'double']
-
     def __init__(self):
         self.trigraph = False
 
@@ -98,14 +62,11 @@ class Lexer(SimpleLexer):
 
     @on(r'[ \t]+')
     def handle_whitespace(self, val):
-        return 'WS', ' '
+        return 'WS', val
 
     @on(r'[A-Za-z_][A-Za-z\d_]*')
     def handle_id(self, val):
-        if val in self.keywords:
-            return val, val
-        else:
-            return 'ID', val
+        return 'ID', val
 
     @on(r'//.*')
     def handle_single_line_comment(self, val):
@@ -130,41 +91,3 @@ class Lexer(SimpleLexer):
     @on(op_txt)
     def handle_glyph(self, val):
         return val, val
-
-
-class OldLexer(BaseLexer):
-    """ C lexer implementation.
-
-    Skip out comments, and pass typenames and
-    variable names as identifiers.
-    """
-    keywords = ['true', 'false',
-                'else', 'if', 'while', 'for', 'return',
-                'struct', 'enum',
-                'typedef', 'static', 'const',
-                'int', 'void', 'char', 'float', 'double']
-
-    def __init__(self):
-        tok_spec = [
-            ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
-            ('HEXNUMBER', r'0x[\da-fA-F]+',
-             lambda typ, val: ('NUMBER', make_num(val))),
-            ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
-            ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
-            ('NEWLINE', r'\n', lambda typ, val: self.newline()),
-            ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN2', r'>>', lambda typ, val: (val, val)),
-            ('LEESTEKEN', r'[+;,\(\){}=\-\*]', lambda typ, val: (val, val)),
-            ('STRING', r'".*?"', lambda typ, val: (typ, val[1:-1]))
-            ]
-        super().__init__(tok_spec)
-
-    def lex(self, src):
-        s = src.read()
-        return self.tokenize(s, eof=True)
-
-    def handle_id(self, typ, val):
-        if val in self.keywords:
-            return (val, val)
-        else:
-            return (typ, val)

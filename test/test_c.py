@@ -1,7 +1,33 @@
 import unittest
 import io
-from ppci.lang.c import CBuilder, Printer
+from ppci.lang.c import CBuilder, Printer, CPreProcessor
 from ppci.arch.example import ExampleArch
+
+
+class CPreProcessorTestCase(unittest.TestCase):
+    def setUp(self):
+        self.preprocessor = CPreProcessor()
+
+    def preprocess(self, src):
+        f = io.StringIO(src)
+        tokens = self.preprocessor.process_file(f)
+
+        print(list(tokens))
+
+    def test_simple_define(self):
+        src = r"""
+        #define A 100
+        printf("%i\n", A);
+        """
+        self.preprocess(src)
+
+    def test_ifdef(self):
+        src = r"""
+        #ifdef A
+        printf("%i\n", A);
+        #endif
+        """
+        self.preprocess(src)
 
 
 class CFrontendTestCase(unittest.TestCase):

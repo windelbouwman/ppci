@@ -122,7 +122,10 @@ class CompilerError(Exception):
 
     def print(self):
         """ Print the error inside some nice context """
-        self.loc.print_message(self.msg)
+        if self.loc:
+            self.loc.print_message(self.msg)
+        else:
+            print(self.msg)
 
 
 class IrFormError(CompilerError):

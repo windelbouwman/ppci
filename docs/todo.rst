@@ -8,6 +8,8 @@ Below is a list of features / tasks that need to be done.
 
   - Add support for local variables.
 
+- Create a better/fancier logo
+
 - Implement the disassembler further.
 
 - Implement Mac OSX support and add a mac 64-bit example project.
