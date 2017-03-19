@@ -1,7 +1,7 @@
 """ C front end. """
 
 from .parser import CParser
-from .preprocessor import CPreProcessor, Context, prepare_for_parsing
+from .preprocessor import CPreProcessor, prepare_for_parsing
 from .nodes import Printer
 
 
@@ -16,9 +16,9 @@ class CBuilder:
         self.cgen = None
 
     def build(self, src):
-        context = Context()
+        preprocessor = CPreProcessor()
         filename = None
-        tokens = context.process(src, filename)
+        tokens = preprocessor.process(src, filename)
         tokens = prepare_for_parsing(tokens)
         # self.tokens = self.lexer.lex(src)
         # preprocessor = CPreProcessor()

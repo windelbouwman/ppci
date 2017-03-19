@@ -17,6 +17,7 @@ from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
 from .lang.llvmir import LlvmIrFrontend
 from .lang.pascal import PascalBuilder
+from .lang.ws import WhitespaceGenerator
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -363,12 +364,12 @@ def ir_to_python(ir_modules, f, reporter=None):
         generator.generate(ir_module)
 
 
-def preprocess(f):
-    """ Pre-process a file """
+def preprocess(f, output_file):
+    """ Pre-process a file into the other file """
     preprocessor = CPreProcessor()
-    tokens = preprocessor.process_file(f)
-    CTokenPrinter().dump(tokens)
-    # TODO: print to file instead of stdout?
+    filename = f.name if hasattr(f, 'name') else None
+    tokens = preprocessor.process(f, filename=filename)
+    CTokenPrinter().dump(tokens, file=output_file)
 
 
 def cc(source, march, reporter=None):
@@ -464,6 +465,11 @@ def bf2ir(source, target):
     target = get_arch(target)
     ircode = BrainFuckGenerator(target).generate(source)
     return ircode
+
+
+def ws2ir(source):
+    """ Compile whitespace source """
+    WhitespaceGenerator().compile(source)
 
 
 def fortran_to_ir(source):

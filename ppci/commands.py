@@ -186,7 +186,7 @@ def cc(args=None):
         for src in args.sources:
             if args.E:
                 with open(src) as f:
-                    api.preprocess(f)
+                    api.preprocess(f, args.output)
             else:
                 obj = api.cc(src, march)
 

@@ -1,6 +1,7 @@
 """ C Language lexer """
 
 import re
+import logging
 
 from ...pcc.baselex import SimpleLexer, on
 
@@ -34,6 +35,7 @@ def continued_lines_filter(lines):
 
 class Lexer(SimpleLexer):
     """ Lexer used for the preprocessor """
+    logger = logging.getLogger('clexer')
     double_glyphs = (
         '##', '&&', '||', '<<', '>=', '==', '<=')
     single_glyphs = (
@@ -47,6 +49,7 @@ class Lexer(SimpleLexer):
 
     def lex(self, src, filename):
         self.filename = filename
+        self.logger.debug('Lexing %s', filename)
 
         # TODO: this code can be improved for efficiency!
         r = split_lines(src)

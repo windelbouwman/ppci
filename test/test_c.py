@@ -10,7 +10,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     def preprocess(self, src):
         f = io.StringIO(src)
-        tokens = self.preprocessor.process_file(f)
+        tokens = self.preprocessor.process(f, None)
 
         print(list(tokens))
 
@@ -25,6 +25,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         src = r"""
         #ifdef A
         printf("%i\n", A);
+        #else
+        printf("%i\n", 100);
         #endif
         """
         self.preprocess(src)

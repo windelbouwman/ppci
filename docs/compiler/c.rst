@@ -58,3 +58,9 @@ http://mcpp.sourceforge.net
 The boost wave preprocessor:
 
 http://www.boost.org/doc/libs/1_63_0/libs/wave/
+
+A java implementation of the preprocessor:
+
+http://www.anarres.org/projects/jcpp/
+
+https://github.com/shevek/jcpp
