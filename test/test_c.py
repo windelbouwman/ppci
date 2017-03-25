@@ -1,6 +1,7 @@
 import unittest
 import io
 from ppci.lang.c import CBuilder, Printer, CPreProcessor
+from ppci.lang.c.preprocessor import CTokenPrinter
 from ppci.arch.example import ExampleArch
 
 
@@ -8,18 +9,27 @@ class CPreProcessorTestCase(unittest.TestCase):
     def setUp(self):
         self.preprocessor = CPreProcessor()
 
-    def preprocess(self, src):
+    def preprocess(self, src, expected=None):
         f = io.StringIO(src)
-        tokens = self.preprocessor.process(f, None)
+        lines = self.preprocessor.process(f, None)
 
-        print(list(tokens))
+        f2 = io.StringIO()
+        CTokenPrinter().dump(lines, file=f2)
+        actual_output = f2.getvalue()
+        if expected:
+            self.assertEqual(expected, actual_output)
 
     def test_simple_define(self):
         src = r"""
         #define A 100
         printf("%i\n", A);
         """
-        self.preprocess(src)
+        expected = r"""
+
+        printf("%i\n", 100);
+
+"""
+        self.preprocess(src, expected)
 
     def test_ifdef(self):
         src = r"""
@@ -29,7 +39,91 @@ class CPreProcessorTestCase(unittest.TestCase):
         printf("%i\n", 100);
         #endif
         """
-        self.preprocess(src)
+        expected = r"""
+
+
+        printf("%i\n", 100);
+
+
+"""
+        self.preprocess(src, expected)
+
+    def test_intermediate_example(self):
+        """ Check a medium hard example """
+        src = r"""
+        int X = A;
+
+        int B = 5;
+        #define A 100 + B
+        #define B 55 + B
+        #define D defined(A) && defined B A
+        #if defined C || defined(A) && defined B
+        int X=0;
+        #else
+        int Y=0;
+        #endif
+
+        D
+
+        #define G 56
+        #if G == 2 + 54
+        int g = G;
+        #endif
+
+        int defined = 2;
+        int main()
+        {
+        printf("%i\n", A);
+        }
+        """
+        expected = r"""
+        int X = A;
+
+        int B = 5;
+
+
+
+
+        int X=0;
+
+
+
+ defined( 100 + 55 + B) && defined 55 + B 100 + 55 + B
+
+
+
+        int g = 56;
+
+
+        int defined = 2;
+        int main()
+        {
+        printf("%i\n", 100 + 55 + B);
+        }
+
+"""
+        self.preprocess(src, expected)
+
+    def test_hard_example(self):
+        """ Check a hard example """
+        src = r"""
+        #define A(B,C) 100 + B + # C
+        #define B 55 + B
+        #define D(x,y) x ## _ ## y
+
+        A(2,3)
+        D(wa,ttuh)
+        """
+        expected = r"""
+
+
+
+
+ 100 +2 +"3"
+wa_ttuh
+
+"""
+        self.preprocess(src, expected)
 
 
 class CFrontendTestCase(unittest.TestCase):

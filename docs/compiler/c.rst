@@ -64,3 +64,7 @@ A java implementation of the preprocessor:
 http://www.anarres.org/projects/jcpp/
 
 https://github.com/shevek/jcpp
+
+The lcc preprocessor part:
+
+https://github.com/drh/lcc/blob/master/cpp/cpp.h

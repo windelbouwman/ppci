@@ -3,7 +3,22 @@
 import re
 import logging
 
+from ...common import Token
 from ...pcc.baselex import SimpleLexer, on
+
+
+class CToken(Token):
+    """ C token (including optional preceeding spaces) """
+    def __init__(self, typ, val, space, loc):
+        super().__init__(typ, val, loc)
+        self.space = space
+
+    def __repr__(self):
+        return 'CToken({}, {}, "{}", {})'.format(
+            self.typ, self.val, self.space, self.loc)
+
+    def __str__(self):
+        return self.space + self.val
 
 
 def split_lines(lines):
@@ -37,10 +52,10 @@ class Lexer(SimpleLexer):
     """ Lexer used for the preprocessor """
     logger = logging.getLogger('clexer')
     double_glyphs = (
-        '##', '&&', '||', '<<', '>=', '==', '<=')
+        '##', '&&', '||', '<<', '>=', '==', '<=', '::')
     single_glyphs = (
         ',', ';', '(', ')', '{', '}', '.', '#', '<', '>', '=', '!', '/',
-        '+', '-', '*', '[', ']')
+        '+', '-', '*', '[', ']', ':')
     glyphs = double_glyphs + single_glyphs
     op_txt = '|'.join(re.escape(g) for g in glyphs)
 
@@ -62,6 +77,21 @@ class Lexer(SimpleLexer):
         # print('=== end lex ')
 
         return self.tokenize(s)
+
+    def tokenize(self, txt, eof=False):
+        """ Generate a lines of tokens which contain leading whitespace """
+        line = []
+        space = ''
+        for token in super().tokenize(txt, eof=eof):
+            if token.typ == 'BOL':
+                yield line
+                line = []
+            elif token.typ == 'WS':
+                space += token.val
+            else:
+                line.append(CToken(token.typ, token.val, space, token.loc))
+                space = ''
+        yield line
 
     @on(r'[ \t]+')
     def handle_whitespace(self, val):
@@ -87,7 +117,7 @@ class Lexer(SimpleLexer):
     def handle_string(self, val):
         return 'STRING', val
 
-    @on(r'\d+')
+    @on(r'\d+L?')
     def handle_numer(self, val):
         return 'NUMBER', val
 

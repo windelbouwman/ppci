@@ -18,8 +18,8 @@ class CBuilder:
     def build(self, src):
         preprocessor = CPreProcessor()
         filename = None
-        tokens = preprocessor.process(src, filename)
-        tokens = prepare_for_parsing(tokens)
+        lines = preprocessor.process(src, filename)
+        tokens = prepare_for_parsing(lines)
         # self.tokens = self.lexer.lex(src)
         # preprocessor = CPreProcessor()
         self.parser.parse(tokens)
