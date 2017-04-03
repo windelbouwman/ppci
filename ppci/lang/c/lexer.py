@@ -9,9 +9,10 @@ from ...pcc.baselex import SimpleLexer, on
 
 class CToken(Token):
     """ C token (including optional preceeding spaces) """
-    def __init__(self, typ, val, space, loc):
+    def __init__(self, typ, val, space, first, loc):
         super().__init__(typ, val, loc)
         self.space = space
+        self.first = first
 
     def __repr__(self):
         return 'CToken({}, {}, "{}", {})'.format(
@@ -19,6 +20,14 @@ class CToken(Token):
 
     def __str__(self):
         return self.space + self.val
+
+    def copy(self, space=None, first=None):
+        """ Return a new token which is a mildly modified copy """
+        if space is None:
+            space = self.space
+        if first is None:
+            first = self.first
+        return CToken(self.typ, self.val, space, first, self.loc)
 
 
 def split_lines(lines):
@@ -55,7 +64,7 @@ class Lexer(SimpleLexer):
         '##', '&&', '||', '<<', '>=', '==', '<=', '::')
     single_glyphs = (
         ',', ';', '(', ')', '{', '}', '.', '#', '<', '>', '=', '!', '/',
-        '+', '-', '*', '[', ']', ':')
+        '+', '-', '*', '[', ']', ':', '|', '&', '~', '^', '?')
     glyphs = double_glyphs + single_glyphs
     op_txt = '|'.join(re.escape(g) for g in glyphs)
 
@@ -80,18 +89,26 @@ class Lexer(SimpleLexer):
 
     def tokenize(self, txt, eof=False):
         """ Generate a lines of tokens which contain leading whitespace """
-        line = []
         space = ''
+        first = True
+        token = None
         for token in super().tokenize(txt, eof=eof):
             if token.typ == 'BOL':
-                yield line
-                line = []
+                if first:
+                    # Yield an extra start of line
+                    yield CToken('BOL', '', '', first, token.loc)
+                first = True
             elif token.typ == 'WS':
                 space += token.val
             else:
-                line.append(CToken(token.typ, token.val, space, token.loc))
+                yield CToken(token.typ, token.val, space, first, token.loc)
                 space = ''
-        yield line
+                first = False
+
+        # Emit last newline:
+        if first and token:
+            # Yield an extra start of line
+            yield CToken('BOL', '', '', first, token.loc)
 
     @on(r'[ \t]+')
     def handle_whitespace(self, val):

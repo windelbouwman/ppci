@@ -37,12 +37,13 @@ class CPreProcessor:
         """ Process the given open file into expanded lines of tokens """
         self.logger.debug('Processing %s', filename)
         clexer = Lexer()
-        lines = clexer.lex(f, filename)
+        tokens = clexer.lex(f, filename)
         macro_expander = Expander(self)
-        for line in macro_expander.process(lines):
-            yield line
+        for token in macro_expander.process(tokens):
+            yield token
 
     def add_include_path(self, path):
+        """ Add a path to the list of include paths """
         self.include_directories.append(path)
 
     def define(self, macro):
@@ -66,6 +67,7 @@ class CPreProcessor:
 
     def include(self, filename):
         """ Turn the given filename into a series of lines """
+        self.logger.debug('Including %s', filename)
         for path in self.include_directories:
             full_path = os.path.join(path, filename)
             if os.path.exists(full_path):
@@ -79,13 +81,17 @@ class CPreProcessor:
 
 
 class LineEater:
-    """ This class processes tokens in a line and keeps track of position """
+    """ This class processes a sequence of tokens one by one """
     logger = logging.getLogger('preprocessor')
 
     def __init__(self, line):
+        self.line = line
         self.tokens = iter(line)
         self.token = None
         self.next_token()
+
+    def __str__(self):
+        return 'Ctx({})'.format(''.join(map(str, self.line)))
 
     @property
     def peak(self):
@@ -101,12 +107,24 @@ class LineEater:
         self.token = next(self.tokens, None)
         return t
 
+
+class ExpansionContext(LineEater):
+    """ Pushed on the stack when a macro is expanded """
+    def __init__(self, line, hidden):
+        super().__init__(line)
+        self.hidden = hidden
+
+
+class LineParser(LineEater):
     def consume(self, typ=None):
         if not typ:
-            typ = self.token.typ
+            if not self.peak:
+                self.error('Expecting extra tokens')
+            else:
+                typ = self.peak
 
-        if self.token.typ != typ:
-            self.error('Expected {} but got {}'.format(typ, self.token.typ))
+        if self.peak != typ:
+            self.error('Expected {} but got {}'.format(typ, self.peak))
 
         return self.next_token()
 
@@ -116,9 +134,144 @@ class LineEater:
             return True
         return False
 
+
+class Expander:
+    """ Per source or header file an expander class is created
+
+    Contains:
+    - An if-stack to keep track of if-else nesting levels
+    - Contains another stack of macro expansions in progress.
+      If a macro is encountered, its contents are pushed on this stack
+      and processing continues over there.
+    """
+    logger = logging.getLogger('preprocessor')
+
+    def __init__(self, context):
+        super().__init__()
+        self.context = context
+        # If-def stack:
+        self.if_stack = []
+        self.enabled = True
+
+        # A black list of defines currently being expanded:
+        self.blue_list = set()
+
+        # A stack of expansion contexts:
+        self.expand_stack = []
+        self._undo_token = None
+
+        # Other state variables:
+        self.in_directive = False
+
+    @property
+    def token(self):
+        # Look for undo:
+        if self._undo_token:
+            return self._undo_token
+
+        # look for a token in the stack:
+        for ctx in reversed(self.expand_stack):
+            if not ctx.at_end:
+                return ctx.token
+
+        # As a fallback take the current token:
+        if self.in_directive:
+            # In a directive, return None at end of line
+            if self._token and self._token.first:
+                return
+            else:
+                return self._token
+        else:
+            return self._token
+
+    def raw_next_token(self):
+        t = None
+        # First try the undo token:
+        if self._undo_token:
+            t = self._undo_token
+            self._undo_token = None
+
+        # Try a token from the expanding stack:
+        while (not t) and self.expand_stack:
+            if self.expand_stack[-1].at_end:
+                self.pop_context()
+            else:
+                t = self.expand_stack[-1].next_token()
+                # print('Inner token', t)
+                break
+
+        # If no more expanding stack, take one of the input:
+        if not t:
+            t = self._token
+            self._token = next(self.tokens, None)
+            # print('tokenz', (t.typ, t.first) if t else None)
+        return t
+
+    def next_token(self, expand: bool):
+        """ Get macro optionally expanded next token """
+        t = self.raw_next_token()
+        if expand:
+            while self.expand(t):
+                # print('expanded', t)
+                t = self.raw_next_token()
+                # print('new token', t)
+        return t
+
+    @property
+    def at_end(self):
+        return self.token is None
+
+    @property
+    def at_line_start(self):
+        return (self.token is None) or self.token.first
+
+    def push_context(self, ctx):
+        """ Push a macro expansion """
+        self.logger.debug('Pushing context %s', ctx)
+        self.expand_stack.append(ctx)
+        self.blue_list.add(ctx.hidden)
+
+    def pop_context(self):
+        self.logger.debug('Popping context')
+        ctx = self.expand_stack.pop(-1)
+        self.blue_list.remove(ctx.hidden)
+
+    def consume(self, typ=None, expand=True):
+        """ Consume a token of a certain type """
+        token = self.next_token(expand)
+        if not token:
+            self.error('Expecting extra tokens')
+
+        if typ:
+            if token.typ != typ:
+                self.error('Expected {} but got {}'.format(typ, token.typ))
+        else:
+            typ = token.typ
+
+        assert token.typ == typ
+        return token
+
+    def undo(self, token):
+        """ Undo token consumption? """
+        assert not self._undo_token
+        self._undo_token = token
+
+    def has_consumed(self, typ, expand=True):
+        token = self.consume(expand=expand)
+        if token.typ == typ:
+            return True
+        else:
+            self.undo(token)
+            return False
+
     def eat_line(self):
-        while not self.at_end:
-            self.next_token()
+        """ Eat up all tokens until the end of the line.
+
+        This does not expand macros. """
+        line = []
+        while not self.at_line_start:
+            line.append(self.consume(expand=False))
+        return line
 
     def error(self, msg):
         if self.token:
@@ -129,113 +282,105 @@ class LineEater:
     def warning(self, msg):
         self.logger.warning(msg)
 
+    def process(self, tokens):
+        """ Process a sequence of tokens into an expanded token sequence.
 
-class Expander:
-    """ Per source or header file an expander class is created
-
-    Contains:
-    - An if-stack to keep track of if-else nesting levels
-    """
-    logger = logging.getLogger('preprocessor')
-
-    def __init__(self, context):
-        super().__init__()
-        self.context = context
-        self.if_stack = []
-        self.enabled = True
-
-        # A black list of defines currently being expanded:
-        self.blue_list = set()
-
-    def process(self, lines):
-        """ Process a line sequence into a token sequence.
-
-        This function returns an token-line iterator that must be looped over.
+        This function returns an tokens that must be looped over.
         """
-        for line in lines:
-            le = LineEater(line)
-            if le.has_consumed('#'):
+        # Prepare lexer:
+        self.tokens = tokens
+        self._token = None
+        self.raw_next_token()
+
+        # Process the tokens:
+        while not self.at_end:
+            if self.at_line_start and self.has_consumed('#'):
                 # We are inside a directive!
-                for line in self.handle_directive(le):
+                self.in_directive = True
+                for line in self.handle_directive():
                     yield line
 
+                self.in_directive = False
+
                 # Ensure end of line!
-                if le.peak is not None:
-                    le.error('Expected end of line')
+                if not self.at_line_start:
+                    self.error('Expected end of line')
             else:
                 # This is not a directive, but normal text:
+                token = self.consume()
+                # print('now', token)
                 if self.enabled:
-                    yield self.expand_line(le)
+                    yield token
+
+        if self.expand_stack:
+            # TODO: is this an error?
+            pass
 
         if self.if_stack:
-            le.error('#if not properly closed')
+            self.error('#if not properly closed')
 
-    def expand_line(self, le, expression_expansion=False):
-        """ Expand a token-line into a macro-expanded token-line """
-        new_line = []
-        while not le.at_end:
-            if le.peak == 'ID':
-                identifier = le.consume('ID')
-                if identifier.val == 'defined' and expression_expansion:
-                    if le.has_consumed('('):
-                        name = le.consume('ID')
-                        le.consume(')')
-                    else:
-                        name = le.consume('ID')
-                    value = int(self.context.is_defined(name.val))
-                    new_line.append(
-                        CToken('NUMBER', value, ' ', identifier.loc))
-                else:
-                    for subtoken in self.expand(identifier, le):
-                        new_line.append(subtoken)
-            else:
-                new_line.append(le.consume())
-        return new_line
-
-    def expand(self, token, le):
+    def expand(self, macro_token):
         """ Expand a single token into possibly more tokens! """
-        name = token.val
+        name = macro_token.val
         if self.context.is_defined(name) and name not in self.blue_list:
-            self.blue_list.add(name)
             macro = self.context.get_define(name)
             if macro.args is None:
                 # Macro without arguments
-                mle = LineEater(macro.value)
+                expansion = macro.value
             else:
                 # This macro requires arguments
-                args = self.gatherargs(le)
+                token = self.consume()
+                if token.typ != '(':
+                    self.logger.debug('Not expanding function macro %s', name)
+                    self.undo(token)
+                    return False
+                args = self.gatherargs()
                 if len(args) != len(macro.args):
-                    le.error(
-                        'Got {} arguments, but expected {}'.format(
-                            len(args), len(macro.args)))
+                    self.error(
+                        'Got {} arguments ({}), but expected {}'.format(
+                            len(args), args, len(macro.args)))
 
-                subst_m = self.substitute_arguments(macro, args)
-                mle = LineEater(subst_m)
+                expansion = self.substitute_arguments(macro, args)
 
-            # Handle token concatenate here?
-            line3 = self.concatenate(mle)
-            mle = LineEater(line3)
+            # Concatenate!
+            expansion = self.concatenate(LineParser(expansion))
+
+            # Adjust token spacings of first token to adhere spacing of
+            # the macro token:
+            if expansion:
+                expansion[0] = expansion[0].copy(
+                    first=macro_token.first, space=macro_token.space)
+
+            self.logger.debug('Expanding %s', name)
+            ctx = ExpansionContext(expansion, name)
 
             # Expand macro line:
-            for subtoken in self.expand_line(mle):
-                yield subtoken
-            self.blue_list.remove(name)
-        else:
-            yield token
+            self.push_context(ctx)
+            return True
 
-    def gatherargs(self, le):
+    def gatherargs(self):
         """ Collect expanded arguments for macro """
         args = []
-        le.consume('(')
-        while True:
-            arg = []
-            while le.peak not in (')', ','):
-                arg.append(le.consume())
-            a2 = self.expand_line(LineEater(arg))
-            args.append(a2)
-            if le.has_consumed(')'):
-                break
-            le.consume(',')
+        parens = 0
+        arg = []
+
+        while parens >= 0:
+            token = self.consume()
+            if token.typ == '(':
+                parens += 1
+
+            if token.typ == ')':
+                parens -= 1
+
+            if (token.typ == ',' and parens == 0) or (parens < 0):
+                # We have a complete argument, add it to the list:
+                if arg:
+                    # TODO: implement a better check?
+                    args.append(arg)
+                arg = []
+            else:
+                arg.append(token)
+
         return args
 
     def substitute_arguments(self, macro, args):
@@ -243,33 +388,40 @@ class Expander:
 
         Pay special care to # and ## operators """
         new_line = []
-        repl_map = {fp.val: a for fp, a in zip(macro.args, args)}
+        repl_map = {fp: a for fp, a in zip(macro.args, args)}
         self.logger.debug('replacement map: %s', repl_map)
-        sle = LineEater(macro.value)
+        sle = LineParser(macro.value)
         while not sle.at_end:
-            if sle.has_consumed('#'):
+            token = sle.consume()
+            if token.typ == '#':
                 # Stringify operator '#'!
                 arg_name = sle.consume('ID')
                 if arg_name.val in repl_map:
                     new_line.append(self.stringify(
-                        repl_map[arg_name.val], arg_name.loc))
+                        token, repl_map[arg_name.val], arg_name.loc))
                 else:
                     sle.error(
                         '{} does not refer a macro argument'.format(
                             arg_name.val))
+            elif token.typ == 'ID' and token.val in repl_map:
+                replacement = repl_map[token.val]
+                first = True
+                for rt in replacement:
+                    if first:
+                        rt2 = rt.copy(space=token.space)
+                    else:
+                        rt2 = rt.copy()
+                    new_line.append(rt2)
+                    first = False
             else:
-                if sle.peak == 'ID' and sle.token.val in repl_map:
-                    token = sle.consume('ID')
-                    new_line.extend(repl_map[token.val])
-                else:
-                    token = sle.consume()
-                    new_line.append(token)
+                new_line.append(token)
+
         return new_line
 
-    def stringify(self, snippet, loc):
+    def stringify(self, hash_token, snippet, loc):
         """ Handle the '#' stringify operator """
         string_value = '"{}"'.format(''.join(map(str, snippet)))
-        return CToken('STRING', string_value, '', loc)
+        return CToken('STRING', string_value, hash_token.space, False, loc)
 
     def concatenate(self, le):
         """ Handle the '##' token concatenation operator """
@@ -281,46 +433,53 @@ class Expander:
                     if le.peak == 'ID':
                         rhs = le.consume('ID').val
                     else:
-                        le.error('Cannot glue {}'.format(le.peak))
-                    lhs = CToken('ID', lhs.val + rhs, lhs.space, lhs.loc)
+                        self.error('Cannot glue {}'.format(le.peak))
+                    lhs = CToken(
+                        'ID', lhs.val + rhs, lhs.space, lhs.first, lhs.loc)
                 glue_line.append(lhs)
             else:
                 glue_line.append(le.consume())
         return glue_line
 
-    def handle_directive(self, le):
+    def make_newline_token(self, line):
+        raise NotImplementedError()
+        # return CToken('BOL', '', '', True, Location(line))
+
+    def handle_directive(self):
         """ Handle a single preprocessing directive """
-        directive = le.consume('ID').val
+        token = self.consume('ID')
+        new_line_token = CToken('WS', '', '', True, token.loc)
+        directive = token.val
         if directive == 'ifdef':
             if self.enabled:
-                test_define = le.consume('ID').val
+                test_define = self.consume('ID', expand=False).val
                 condition = self.context.is_defined(test_define)
                 self.if_stack.append(IfState(condition))
             else:
-                le.eat_line()
+                self.eat_line()
                 self.if_stack.append(IfState(True))
 
             self.calculate_active()
         elif directive == 'if':
             if self.enabled:
-                condition = bool(self.eval_expr(le))
+                condition = bool(self.eval_expr())
                 self.if_stack.append(IfState(condition))
             else:
-                le.eat_line()
+                self.eat_line()
                 self.if_stack.append(IfState(True))
             self.calculate_active()
         elif directive == 'elif':
             if not self.if_stack:
-                le.error('#elif outside #if')
+                self.error('#elif outside #if')
 
             if self.if_stack[-1].in_else:
-                le.error('#elif after #else')
+                self.error('#elif after #else')
 
             if self.enabled:
-                condition = bool(self.eval_expr(le))
+                condition = bool(self.eval_expr())
                 self.if_stack[-1].condition = condition
             else:
-                le.eat_line()
+                self.eat_line()
 
             self.calculate_active()
         elif directive == 'else':
@@ -334,11 +493,11 @@ class Expander:
             self.calculate_active()
         elif directive == 'ifndef':
             if self.enabled:
-                test_define = le.consume('ID').val
+                test_define = self.consume('ID', expand=False).val
                 condition = not self.context.is_defined(test_define)
                 self.if_stack.append(IfState(condition))
             else:
-                le.eat_line()
+                self.eat_line()
                 self.if_stack.append(IfState(True))
 
             self.calculate_active()
@@ -349,72 +508,73 @@ class Expander:
             self.calculate_active()
         elif directive == 'include':
             if self.enabled:
-                if le.peak == '<':
+                if self.peak == '<':
                     # TODO: this is a bad way of getting the filename:
                     filename = ''
-                    le.consume('<')
-                    while le.peak != '>':
-                        filename += le.consume().val
-                    le.consume('>')
+                    self.consume('<')
+                    while self.peak != '>':
+                        filename += str(self.consume())
+                    self.consume('>')
                     include_filename = filename
                 else:
-                    include_filename = le.consume('STRING').val[1:-1]
+                    include_filename = self.consume('STRING').val[1:-1]
 
                 for line in self.context.include(include_filename):
                     yield line
             else:
-                le.eat_line()
+                self.eat_line()
         elif directive == 'define':
             if self.enabled:
-                name = le.consume('ID')
-                if le.peak is None:
-                    # Hmm, '#define X', set it to 1!
-                    value = [CToken('NUMBER', 1, ' ', name.loc)]
-                    macro = Macro(name.val, None, value)
+                name = self.consume('ID', expand=False)
+
+                # Handle function like macros:
+                token = self.consume(expand=False)
+                if token.typ == '(' and not token.space:
+                    args = []
+                    if not self.has_consumed(')', expand=False):
+                        args.append(self.consume('ID', expand=False).val)
+                        while self.has_consumed(',', expand=False):
+                            args.append(self.consume('ID', expand=False).val)
+                        self.consume(')', expand=False)
                 else:
-                    if le.peak == '(' and not le.token.space:
-                        # Function like macro!
-                        le.consume('(')
-                        args = []
-                        if le.peak == ')':
-                            le.consume(')')
-                        else:
-                            args.append(le.consume('ID'))
-                            while le.has_consumed(','):
-                                args.append(
-                                    le.consume('ID'))
-                            le.consume(')')
-                    else:
-                        args = None
-                    value = []
-                    while le.peak:
-                        value.append(le.consume())
-                    macro = Macro(name.val, args, value)
+                    self.undo(token)
+                    args = None
+
+                # Grab the value of the macro:
+                value = self.eat_line()
+                if value:
+                    # Patch first token spaces:
+                    value[0] = value[0].copy(space='')
+                value_txt = ''.join(map(str, value))
+                macro = Macro(name.val, args, value)
+                self.logger.debug('Defining %s=%s', name.val, value_txt)
                 self.context.define(macro)
             else:
-                le.eat_line()
+                self.eat_line()
         elif directive == 'undef':
             if self.enabled:
-                name = le.consume('ID').val
+                name = self.consume('ID').val
                 self.context.undefine(name)
             else:
-                le.eat_line()
+                self.eat_line()
+        elif directive == 'line':
+            filename = self.consume('STRING').val
+            flags = []
+            while self.peak == 'NUMBER':
+                flags.append(self.consume('NUMBER').val)
         elif directive == 'error':
+            msg = self.consume('STRING')
             if self.enabled:
-                msg = le.consume('STRING')
-                le.error(msg)
-            else:
-                le.eat_line()
+                self.error(msg)
         elif directive == 'warning':
+            msg = self.consume('STRING')
             if self.enabled:
-                msg = le.consume('STRING')
-                le.warning(msg)
-            else:
-                le.eat_line()
+                self.warning(msg)
         else:
             self.logger.error('todo: %s', directive)
             raise NotImplementedError(directive)
-        yield []
+        # Return an empty newline token!
+        yield new_line_token
 
     def calculate_active(self):
         """ Determine if we may emit code given the current if-stack """
@@ -423,41 +583,42 @@ class Expander:
         else:
             self.enabled = True
 
-    def eval_expr(self, le):
+    def eval_expr(self):
         """ Evaluate an expression """
-        # Grab expression till end of line
-        condition_line = []
-        while not le.at_end:
-            condition_line.append(le.consume())
+        return self.parse_expression()
 
-        # Expand macros:
-        cle = LineEater(condition_line)
-        condition = self.expand_line(cle, expression_expansion=True)
-
-        # And evaluate:
-        le2 = LineEater(condition)
-        return self.parse_expression(le2)
-
-    def parse_expression(self, le, priority=0):
+    def parse_expression(self, priority=0):
         """ Parse an expression in an #if
 
         Idea taken from: https://github.com/shevek/jcpp/blob/master/
             src/main/java/org/anarres/cpp/Preprocessor.java
         """
-        if le.has_consumed('!'):
-            lhs = int(not(bool(self.parse_expression(le, 11))))
-        elif le.has_consumed('('):
-            lhs = self.parse_expression(le, 0)
-            le.consume(')')
-        elif le.peak == 'ID':
-            name = le.consume('ID').val
-            self.logger.warning('Attention: undefined "%s"', name)
-            lhs = 0
-        elif le.peak == 'NUMBER':
-            value = le.consume('NUMBER').val
-            lhs = cnum(value)
+        token = self.consume()
+        if token.typ == '!':
+            lhs = int(not(bool(self.parse_expression(11))))
+        elif token.typ == '-':
+            lhs = -self.parse_expression(11)
+        elif token.typ == '(':
+            lhs = self.parse_expression(0)
+            self.consume(')')
+        elif token.typ == 'ID':
+            name = token.val
+            if name == 'defined':
+                self.logger.debug('Checking for "defined"')
+                if self.has_consumed('(', expand=False):
+                    test_define = self.consume('ID', expand=False).val
+                    self.consume(')', expand=False)
+                else:
+                    test_define = self.consume('ID', expand=False).val
+                lhs = int(self.context.is_defined(test_define))
+                self.logger.debug('Defined %s = %s', test_define, lhs)
+            else:
+                self.logger.warning('Attention: undefined "%s"', name)
+                lhs = 0
+        elif token.typ == 'NUMBER':
+            lhs = cnum(token.val)
         else:
-            raise NotImplementedError(le.peak)
+            raise NotImplementedError(self.peak)
 
         op_map = {
             '+': (10, operator.add),
@@ -480,16 +641,17 @@ class Expander:
 
         while True:
             # This would be the next operator:
-            op = le.peak
+            token = self.consume()
+            op = token.typ
 
             # Determine if the operator has a low enough priority:
             pri = op_map[op][0] if op in op_map else None
             if (pri is None) or (pri <= priority):
+                self.undo(token)
                 break
 
-            # We are go, eat the operator and the rhs (right hand side)
-            le.consume(op)
-            rhs = self.parse_expression(le, pri)
+            # We are go, eat the right hand side
+            rhs = self.parse_expression(pri)
 
             if op in op_map:
                 lhs = op_map[op][1](lhs, rhs)
@@ -534,11 +696,18 @@ class IfState:
 
 class CTokenPrinter:
     """ Printer that can turn a stream of token-lines into text """
-    def dump(self, lines, file=None):
-        for line in lines:
-            # print(line)
-            text = ''.join(map(str, line))
-            print(text, file=file)
+    def dump(self, tokens, file=None):
+        first_line = True
+        for token in tokens:
+            # print(token.typ, token.val, token.first)
+            if token.first:
+                # Insert newline!
+                if first_line:
+                    first_line = False
+                else:
+                    print(file=file)
+            text = str(token)
+            print(text, end='', file=file)
 
 
 def lines_to_tokens(lines):
@@ -548,7 +717,16 @@ def lines_to_tokens(lines):
             yield token
 
 
-def prepare_for_parsing(lines):
+def skip_ws(tokens):
+    """ Filter whitespace tokens """
+    for token in tokens:
+        if token.typ in ['WS', 'BOL']:
+            pass
+        else:
+            yield token
+
+
+def prepare_for_parsing(tokens):
     """ Strip out tokens on the way from preprocessor to parser.
 
     Apply several modifications on the token stream to adapt it
@@ -563,7 +741,7 @@ def prepare_for_parsing(lines):
                 'typedef', 'static', 'const',
                 'int', 'void', 'char', 'float', 'double']
 
-    for token in lines_to_tokens(lines):
+    for token in skip_ws(tokens):
         if token.typ == 'ID':
             if token.val in keywords:
                 token.typ = token.val

@@ -364,9 +364,12 @@ def ir_to_python(ir_modules, f, reporter=None):
         generator.generate(ir_module)
 
 
-def preprocess(f, output_file):
-    """ Pre-process a file into the other file """
+def preprocess(f, output_file, include_paths=None):
+    """ Pre-process a file into the other file. """
     preprocessor = CPreProcessor()
+    if include_paths:
+        for directory in include_paths:
+            preprocessor.add_include_path(directory)
     filename = f.name if hasattr(f, 'name') else None
     tokens = preprocessor.process(f, filename=filename)
     CTokenPrinter().dump(tokens, file=output_file)
