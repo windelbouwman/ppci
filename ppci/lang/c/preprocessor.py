@@ -17,14 +17,15 @@ import logging
 import operator
 
 from ...common import CompilerError
-from .lexer import Lexer, CToken
+from .lexer import CLexer, CToken
 
 
 class CPreProcessor:
     """ A pre-processor for C source code """
     logger = logging.getLogger('preprocessor')
 
-    def __init__(self):
+    def __init__(self, coptions):
+        self.coptions = coptions
         self.defines = {}
         self.include_directories = []
 
@@ -36,7 +37,7 @@ class CPreProcessor:
     def process(self, f, filename=None):
         """ Process the given open file into expanded lines of tokens """
         self.logger.debug('Processing %s', filename)
-        clexer = Lexer()
+        clexer = CLexer(self.coptions)
         tokens = clexer.lex(f, filename)
         macro_expander = Expander(self)
         for token in macro_expander.process(tokens):
@@ -49,7 +50,8 @@ class CPreProcessor:
     def define(self, macro):
         """ Register a define """
         if self.is_defined(macro.name):
-            raise CompilerError('Cannot redefine {}'.format(macro.name))
+            if self.get_define(macro.name).protected:
+                raise CompilerError('Cannot redefine {}'.format(macro.name))
         self.defines[macro.name] = macro
 
     def undefine(self, name: str):
@@ -210,6 +212,7 @@ class Expander:
     def next_token(self, expand: bool):
         """ Get macro optionally expanded next token """
         t = self.raw_next_token()
+        # self.logger.debug('Raw token %s', t)
         if expand:
             while self.expand(t):
                 # print('expanded', t)
@@ -243,12 +246,16 @@ class Expander:
             self.error('Expecting extra tokens')
 
         if typ:
-            if token.typ != typ:
-                self.error('Expected {} but got {}'.format(typ, token.typ))
-        else:
-            typ = token.typ
-
-        assert token.typ == typ
+            if isinstance(typ, tuple):
+                if token.typ not in typ:
+                    expected = ','.join(typ)
+                    self.error(
+                        'Expected {} but got {}'.format(expected, token.typ),
+                        token)
+            else:
+                if token.typ != typ:
+                    self.error(
+                        'Expected {} but got {}'.format(typ, token.typ), token)
         return token
 
     def undo(self, token):
@@ -273,9 +280,11 @@ class Expander:
             line.append(self.consume(expand=False))
         return line
 
-    def error(self, msg):
-        if self.token:
-            raise CompilerError(msg, self.token.loc)
+    def error(self, msg, token=None):
+        if not token:
+            token = self.token
+        if token:
+            raise CompilerError(msg, token.loc)
         else:
             raise CompilerError(msg)
 
@@ -470,10 +479,10 @@ class Expander:
             self.calculate_active()
         elif directive == 'elif':
             if not self.if_stack:
-                self.error('#elif outside #if')
+                self.error('#elif outside #if', token)
 
             if self.if_stack[-1].in_else:
-                self.error('#elif after #else')
+                self.error('#elif after #else', token)
 
             if self.enabled:
                 condition = bool(self.eval_expr())
@@ -484,10 +493,10 @@ class Expander:
             self.calculate_active()
         elif directive == 'else':
             if not self.if_stack:
-                self.error('#else outside #if')
+                self.error('#else outside #if', token)
 
             if self.if_stack[-1].in_else:
-                self.error('One else too much in #ifdef')
+                self.error('One else too much in #ifdef', token)
 
             self.if_stack[-1].in_else = True
             self.calculate_active()
@@ -503,21 +512,22 @@ class Expander:
             self.calculate_active()
         elif directive == 'endif':
             if not self.if_stack:
-                self.error('Mismatching #endif')
+                self.error('Mismatching #endif', token)
             self.if_stack.pop(-1)
             self.calculate_active()
         elif directive == 'include':
             if self.enabled:
-                if self.peak == '<':
+                token = self.consume()
+                if token.typ == '<':
                     # TODO: this is a bad way of getting the filename:
                     filename = ''
-                    self.consume('<')
-                    while self.peak != '>':
-                        filename += str(self.consume())
-                    self.consume('>')
+                    token = self.consume()
+                    while token.typ != '>':
+                        filename += str(token)
+                        token = self.consume()
                     include_filename = filename
                 else:
-                    include_filename = self.consume('STRING').val[1:-1]
+                    include_filename = token.val[1:-1]
 
                 for line in self.context.include(include_filename):
                     yield line
@@ -553,23 +563,27 @@ class Expander:
                 self.eat_line()
         elif directive == 'undef':
             if self.enabled:
-                name = self.consume('ID').val
+                name = self.consume('ID', expand=False).val
                 self.context.undefine(name)
             else:
                 self.eat_line()
         elif directive == 'line':
+            line = self.consume('NUMBER').val
             filename = self.consume('STRING').val
             flags = []
-            while self.peak == 'NUMBER':
-                flags.append(self.consume('NUMBER').val)
+            token = self.consume()
+            while token.typ == 'NUMBER':
+                flags.append(token.val)
+                token = self.consume()
+            self.undo(token)
         elif directive == 'error':
-            msg = self.consume('STRING')
+            message = ''.join(map(str, self.eat_line()))
             if self.enabled:
-                self.error(msg)
+                self.error(message, token)
         elif directive == 'warning':
-            msg = self.consume('STRING')
+            message = ''.join(map(str, self.eat_line()))
             if self.enabled:
-                self.warning(msg)
+                self.warning(message)
         else:
             self.logger.error('todo: %s', directive)
             raise NotImplementedError(directive)
@@ -598,13 +612,17 @@ class Expander:
             lhs = int(not(bool(self.parse_expression(11))))
         elif token.typ == '-':
             lhs = -self.parse_expression(11)
+        elif token.typ == '+':
+            lhs = -self.parse_expression(11)
+        elif token.typ == '~':
+            lhs = ~self.parse_expression(11)
         elif token.typ == '(':
             lhs = self.parse_expression(0)
             self.consume(')')
         elif token.typ == 'ID':
             name = token.val
             if name == 'defined':
-                self.logger.debug('Checking for "defined"')
+                # self.logger.debug('Checking for "defined"')
                 if self.has_consumed('(', expand=False):
                     test_define = self.consume('ID', expand=False).val
                     self.consume(')', expand=False)
@@ -618,14 +636,16 @@ class Expander:
         elif token.typ == 'NUMBER':
             lhs = cnum(token.val)
         else:
-            raise NotImplementedError(self.peak)
+            raise NotImplementedError(token.val)
 
         op_map = {
-            '+': (10, operator.add),
-            '-': (10, operator.sub),
             '*': (11, operator.mul),
             '/': (11, operator.floordiv),
             '%': (11, operator.mod),
+            '+': (10, operator.add),
+            '-': (10, operator.sub),
+            '<<': (9, operator.lshift),
+            '>>': (9, operator.rshift),
             '<': (8, lambda x, y: int(x < y)),
             '>': (8, lambda x, y: int(x > y)),
             '<=': (8, lambda x, y: int(x <= y)),
@@ -635,8 +655,9 @@ class Expander:
             '&': (6, operator.and_),
             '^': (5, operator.xor),
             '|': (4, operator.or_),
-            '&&': (3, lambda x, y: int(x and y)),
-            '||': (2, lambda x, y: int(x or y)),
+            '&&': (3, lambda x, y: int(bool(x) and bool(y))),
+            '||': (2, lambda x, y: int(bool(x) or bool(y))),
+            '?': (1, None),
         }
 
         while True:
@@ -654,7 +675,15 @@ class Expander:
             rhs = self.parse_expression(pri)
 
             if op in op_map:
-                lhs = op_map[op][1](lhs, rhs)
+                func = op_map[op][1]
+                if func:
+                    lhs = func(lhs, rhs)
+                elif op == '?':
+                    self.consume(':')
+                    false_result = self.parse_expression(0)
+                    lhs = rhs if lhs != 0 else false_result
+                else:
+                    raise NotImplementedError(op)
             else:
                 raise NotImplementedError(op)
 
@@ -665,7 +694,7 @@ def cnum(txt):
     """ Convert C number to integer """
     if isinstance(txt, int):
         return txt
-    if txt.endswith('L'):
+    if txt.endswith(('L', 'U')):
         return int(txt[:-1])
     else:
         return int(txt)
@@ -673,10 +702,11 @@ def cnum(txt):
 
 class Macro:
     """ Macro define """
-    def __init__(self, name, args, value):
+    def __init__(self, name, args, value, protected=False):
         self.name = name
         self.args = args
         self.value = value
+        self.protected = False
 
 
 class IfState:

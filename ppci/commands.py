@@ -19,6 +19,7 @@ from .common import logformat, CompilerError
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
+from .lang.c.options import COptions
 from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
 
 
@@ -173,6 +174,9 @@ cc_parser.add_argument(
     '-c', action="store_true", default=False,
     help="Compile, but do not link")
 cc_parser.add_argument(
+    '--trigraphs', action="store_true", default=False,
+    help="Enable trigraph processing")
+cc_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
 
 
@@ -182,13 +186,15 @@ def cc(args=None):
     with LogSetup(args):
         # Compile sources:
         march = get_arch_from_args(args)
+        coptions = COptions()
+        coptions.set('trigraphs', args.trigraphs)
 
         for src in args.sources:
             if args.E:
                 with open(src) as f:
-                    api.preprocess(f, args.output)
+                    api.preprocess(f, args.output, coptions)
             else:
-                obj = api.cc(src, march)
+                obj = api.cc(src, march, coptions)
 
         if args.E:
             return

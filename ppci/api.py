@@ -364,9 +364,9 @@ def ir_to_python(ir_modules, f, reporter=None):
         generator.generate(ir_module)
 
 
-def preprocess(f, output_file, include_paths=None):
+def preprocess(f, output_file, coptions, include_paths=None):
     """ Pre-process a file into the other file. """
-    preprocessor = CPreProcessor()
+    preprocessor = CPreProcessor(coptions)
     if include_paths:
         for directory in include_paths:
             preprocessor.add_include_path(directory)
@@ -375,12 +375,12 @@ def preprocess(f, output_file, include_paths=None):
     CTokenPrinter().dump(tokens, file=output_file)
 
 
-def cc(source, march, reporter=None):
+def cc(source, march, coptions, reporter=None):
     """ C compiler. compiles a single source file into an object file """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     march = get_arch(march)
-    cbuilder = CBuilder(march)
+    cbuilder = CBuilder(march, coptions)
     cbuilder.build(source)
     raise NotImplementedError('TODO')
 

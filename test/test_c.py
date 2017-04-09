@@ -1,14 +1,55 @@
 import unittest
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, Printer, CPreProcessor
+from ppci.lang.c import CBuilder, Printer, CPreProcessor, CLexer, lexer
 from ppci.lang.c.preprocessor import CTokenPrinter
+from ppci.lang.c.options import COptions
 from ppci.arch.example import ExampleArch
 
 
-class CPreProcessorTestCase(unittest.TestCase):
+class CLexerTestCase(unittest.TestCase):
+    """ Test the behavior of the lexer """
     def setUp(self):
-        self.preprocessor = CPreProcessor()
+        coptions = COptions()
+        self.lexer = CLexer(coptions)
+        coptions.enable('trigraphs')
+
+    def test_generate_characters(self):
+        src = "ab\ndf"
+        chars = list(lexer.create_characters(io.StringIO(src), 'a.h'))
+        self.assertSequenceEqual([1, 1, 1, 2, 2], [c.loc.row for c in chars])
+        self.assertSequenceEqual([1, 2, 3, 1, 2], [c.loc.col for c in chars])
+
+    def test_trigraphs(self):
+        src = "??( ??) ??/ ??' ??< ??> ??! ??- ??="
+        chars = list(lexer.create_characters(io.StringIO(src), 'a.h'))
+        chars = list(lexer.trigraph_filter(chars))
+        self.assertSequenceEqual(
+            list(r'[ ] \ ^ { } | ~ #'), [c.char for c in chars])
+        self.assertSequenceEqual([1] * 17, [c.loc.row for c in chars])
+        self.assertSequenceEqual(
+            [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25, 28, 29, 32, 33],
+            [c.loc.col for c in chars])
+
+    def test_trigraph_challenge(self):
+        """ Test a nice example for the lexer including some trigraphs """
+        src = "Hell??/\no world"
+        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+        self.assertSequenceEqual(['Hello', 'world'], [t.val for t in tokens])
+        self.assertSequenceEqual([1, 2], [t.loc.row for t in tokens])
+        self.assertSequenceEqual([1, 3], [t.loc.col for t in tokens])
+        self.assertSequenceEqual(['', ' '], [t.space for t in tokens])
+        self.assertSequenceEqual([True, False], [t.first for t in tokens])
+
+    def test_block_comment(self):
+        src = "/* bla bla */"
+        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+
+
+class CPreProcessorTestCase(unittest.TestCase):
+    """ Test the preprocessor functioning """
+    def setUp(self):
+        self.preprocessor = CPreProcessor(COptions())
 
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
@@ -214,11 +255,26 @@ class CPreProcessorTestCase(unittest.TestCase):
         X_w1024"""
         self.preprocess(src, expected)
 
+    @unittest.skip('TODO!')
+    def test_argument_prescan2(self):
+        """ Example from gnu argument prescan website:
+
+        https://gcc.gnu.org/onlinedocs/cpp/Argument-Prescan.html """
+        src = r"""#define foo a,b
+        #define bar(x) lose(x)
+        #define lose(x) (1 + (x))
+        bar(foo)"""
+        expected = """
+
+
+        X_w1024"""
+        self.preprocess(src, expected)
+
 
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
     def setUp(self):
-        self.builder = CBuilder(ExampleArch())
+        self.builder = CBuilder(ExampleArch(), COptions())
 
     def do(self, src):
         f = io.StringIO(src)

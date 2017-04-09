@@ -23,7 +23,7 @@ def run_test_t(directory):
     logging.info('Running t-tests in %s', directory)
     num_total = 0
     num_passed = 0
-    for filename in glob.iglob(os.path.join(directory, 'n_*.t')):
+    for filename in sorted(glob.iglob(os.path.join(directory, 'n_*.t'))):
         logging.info('Testing sample %s', filename)
         with open(filename, 'r') as f:
             output_file = io.StringIO()
@@ -35,10 +35,8 @@ def run_test_t(directory):
             except CompilerError as e:
                 logging.error('ERROR %s', e.msg)
                 print('ERROR', e)
-            except UnicodeDecodeError as e:
-                print(e)
-            except FileNotFoundError as e:
-                print(e)
+            except Exception as e:
+                print('ERROR', e)
     logging.info('Summary %s passed of %s', num_passed, num_total)
 
 
