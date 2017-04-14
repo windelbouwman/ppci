@@ -45,6 +45,10 @@ class CLexerTestCase(unittest.TestCase):
         src = "/* bla bla */"
         tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
 
+    def test_token_spacing(self):
+        src = "1239hello"
+        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+
 
 class CPreProcessorTestCase(unittest.TestCase):
     """ Test the preprocessor functioning """
@@ -53,7 +57,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
-        lines = self.preprocessor.process(f, None)
+        lines = self.preprocessor.process(f, 'dummy.t')
 
         f2 = io.StringIO()
         CTokenPrinter().dump(lines, file=f2)
@@ -189,12 +193,30 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_cpplib_example(self):
-        """ Test a nested function like macro """
+        """ Test a nested function like macro on multiple lines """
         src = r"""#define foo(x) bar x
         foo(foo
         ) (2)"""
         expected = r"""
         bar foo (2)"""
+        self.preprocess(src, expected)
+
+    def test_elif(self):
+        """ Test elif with else """
+        src = r"""#define __WORDSIZE 32
+        #if __WORDSIZE == 32
+        int32
+        #elif __WORDSIZE == 64
+        int64
+        #else
+        int999
+        #endif"""
+        expected = r"""
+
+        int32
+
+
+"""
         self.preprocess(src, expected)
 
     def test_mismatching_endif(self):
@@ -237,6 +259,32 @@ class CPreProcessorTestCase(unittest.TestCase):
           { "quit", quit_command },
           { "help", help_command },
         };"""
+        self.preprocess(src, expected)
+
+    def test_ternary_operator_grouping(self):
+        src = r"""#if (1 ? 2 ? 3 ? 3 : 2 : 1 : 0) != 3
+        #error bad grouping
+        #endif"""
+        expected = """
+
+"""
+        self.preprocess(src, expected)
+
+    def test_builtin_macros(self):
+        src = r"""__FILE__;__LINE__
+        __LINE__;__FILE__"""
+        expected = '''"dummy.t";1
+        2;"dummy.t"'''
+        self.preprocess(src, expected)
+
+    @unittest.skip('TODO, fix time mock?')
+    def test_builtin_time_macros(self):
+        src = r"""__LINE__
+        __LINE__;__FILE__;__DATE__;__TIME__;
+        __LINE__;__FILE__"""
+        expected = '''1
+        2;"dummy.t";"";"";
+        3;"dummy.t"'''
         self.preprocess(src, expected)
 
     @unittest.skip('TODO!')

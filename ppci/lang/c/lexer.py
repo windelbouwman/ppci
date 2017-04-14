@@ -94,6 +94,11 @@ def continued_lines_filter(characters):
                 yield char
 
 
+def lex_text(text):
+    """ Lex a piece of text """
+    return []
+
+
 class HandLexerBase:
     """ Base class for handwritten lexers based on an idea of Rob Pike.
 
@@ -238,6 +243,8 @@ class CLexer(HandLexerBase):
                 return self.lex_c
         elif r.char == '"':
             return self.lex_string
+        elif r.char == "'":
+            return self.lex_char
         elif r.char == '<':
             if self.accept('='):
                 self.emit('<=')
@@ -284,7 +291,10 @@ class CLexer(HandLexerBase):
             else:
                 self.emit('#')
             return self.lex_c
-        elif r.char in ';+{}()[]*-,.?%~:':
+        elif r.char in ';+{}()[]*-,.?%~:^':
+            self.emit(r.char)
+            return self.lex_c
+        elif r.char == "\\":
             self.emit(r.char)
             return self.lex_c
         else:
@@ -298,7 +308,11 @@ class CLexer(HandLexerBase):
 
     def lex_number(self):
         number_chars = self.numbers
-        self.accept_run(number_chars)
+        if self.accept('x'):
+            # Hex number
+            self.accept_run(number_chars + 'abcdefABCDEF')
+        else:
+            self.accept_run(number_chars)
         self.accept('LlUu')
         self.emit('NUMBER')
         return self.lex_c
@@ -329,4 +343,12 @@ class CLexer(HandLexerBase):
         while c and c.char != '"':
             c = self.next_char()
         self.emit('STRING')
+        return self.lex_c
+
+    def lex_char(self):
+        """ Scan for a complete character constant """
+        c = self.next_char()
+        while c and c.char != "'":
+            c = self.next_char()
+        self.emit('CHAR')
         return self.lex_c

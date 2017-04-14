@@ -37,7 +37,7 @@ class Token:
     def __init__(self, typ, val, loc):
         self.typ = typ
         self.val = val
-        assert type(loc) is SourceLocation
+        assert isinstance(loc, SourceLocation)
         self.loc = loc
 
     def __repr__(self):

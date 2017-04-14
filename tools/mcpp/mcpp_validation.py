@@ -15,6 +15,7 @@ import io
 
 import ppci
 from ppci.api import preprocess
+from ppci.lang.c import COptions
 from ppci.common import CompilerError
 
 
@@ -23,17 +24,21 @@ def run_test_t(directory):
     logging.info('Running t-tests in %s', directory)
     num_total = 0
     num_passed = 0
+    coptions = COptions()
+    coptions.enable('trigraphs')
     for filename in sorted(glob.iglob(os.path.join(directory, 'n_*.t'))):
         logging.info('Testing sample %s', filename)
         with open(filename, 'r') as f:
             output_file = io.StringIO()
             num_total += 1
             try:
-                ppci.api.preprocess(f, output_file, include_paths=[directory])
+                ppci.api.preprocess(
+                    f, output_file, coptions, include_paths=[directory])
                 num_passed += 1
                 logging.info('PASS')
             except CompilerError as e:
                 logging.error('ERROR %s', e.msg)
+                e.print()
                 print('ERROR', e)
             except Exception as e:
                 print('ERROR', e)

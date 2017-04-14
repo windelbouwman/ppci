@@ -4,9 +4,11 @@ from .lexer import CLexer
 from .parser import CParser
 from .preprocessor import CPreProcessor, prepare_for_parsing
 from .nodes import Printer
+from .options import COptions
 
 
-__all__ = ['CBuilder', 'CLexer', 'CPreProcessor', 'CParser', 'Printer']
+__all__ = [
+    'CBuilder', 'CLexer', 'COptions', 'CPreProcessor', 'CParser', 'Printer']
 
 
 class CBuilder:

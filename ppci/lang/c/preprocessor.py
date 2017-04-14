@@ -15,14 +15,16 @@ Sourcecode of inspiration:
 import os
 import logging
 import operator
+import time
 
-from ...common import CompilerError
-from .lexer import CLexer, CToken
+from ...common import CompilerError, SourceLocation
+from .lexer import CLexer, CToken, lex_text
 
 
 class CPreProcessor:
     """ A pre-processor for C source code """
     logger = logging.getLogger('preprocessor')
+    verbose = False
 
     def __init__(self, coptions):
         self.coptions = coptions
@@ -33,6 +35,54 @@ class CPreProcessor:
         self.add_include_path('/usr/include')
         self.add_include_path(
             '/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/include/')
+        internal_loc = SourceLocation(None, 1, 1, 1)
+
+        # Indicate standard C:
+        self.define(
+            Macro(
+                '__STDC__',
+                [CToken('NUMBER', '1', '', False, internal_loc)],
+                protected=True))
+
+        # Indicate C99 version:
+        self.define(
+            Macro(
+                '__STDC_VERSION__',
+                [CToken('NUMBER', '199901L', '', False, internal_loc)],
+                protected=True))
+
+        # Special macros:
+        self.define(FunctionMacro('__LINE__', self.special_macro_line))
+        self.define(FunctionMacro('__FILE__', self.special_macro_file))
+        self.define(FunctionMacro('__DATE__', self.special_macro_date))
+        self.define(FunctionMacro('__TIME__', self.special_macro_time))
+
+    def special_macro_line(self, macro_token):
+        return [CToken(
+            'NUMBER', str(macro_token.loc.row),
+            macro_token.space, macro_token.first,
+            macro_token.loc)]
+
+    def special_macro_file(self, macro_token):
+        value = str(macro_token.loc.filename)
+        return [CToken(
+            'STRING', '"{}"'.format(value),
+            macro_token.space, macro_token.first,
+            macro_token.loc)]
+
+    def special_macro_date(self, macro_token):
+        value = time.strftime('%b %d %Y')
+        return [CToken(
+            'STRING', '"{}"'.format(value),
+            macro_token.space, macro_token.first,
+            macro_token.loc)]
+
+    def special_macro_time(self, macro_token):
+        value = time.strftime('%H:%M:%S')
+        return [CToken(
+            'STRING', '"{}"'.format(value),
+            macro_token.space, macro_token.first,
+            macro_token.loc)]
 
     def process(self, f, filename=None):
         """ Process the given open file into expanded lines of tokens """
@@ -42,6 +92,7 @@ class CPreProcessor:
         macro_expander = Expander(self)
         for token in macro_expander.process(tokens):
             yield token
+        self.logger.debug('Finished %s', filename)
 
     def add_include_path(self, path):
         """ Add a path to the list of include paths """
@@ -147,6 +198,7 @@ class Expander:
       and processing continues over there.
     """
     logger = logging.getLogger('preprocessor')
+    verbose = False
 
     def __init__(self, context):
         super().__init__()
@@ -213,7 +265,7 @@ class Expander:
         """ Get macro optionally expanded next token """
         t = self.raw_next_token()
         # self.logger.debug('Raw token %s', t)
-        if expand:
+        if t and expand:
             while self.expand(t):
                 # print('expanded', t)
                 t = self.raw_next_token()
@@ -230,20 +282,23 @@ class Expander:
 
     def push_context(self, ctx):
         """ Push a macro expansion """
-        self.logger.debug('Pushing context %s', ctx)
+        if self.verbose:
+            self.logger.debug('Pushing context %s', ctx)
         self.expand_stack.append(ctx)
         self.blue_list.add(ctx.hidden)
 
     def pop_context(self):
-        self.logger.debug('Popping context')
+        if self.verbose:
+            self.logger.debug('Popping context')
         ctx = self.expand_stack.pop(-1)
         self.blue_list.remove(ctx.hidden)
 
     def consume(self, typ=None, expand=True):
         """ Consume a token of a certain type """
         token = self.next_token(expand)
-        if not token:
-            self.error('Expecting extra tokens')
+        # TODO: where to check for end of file?
+        # if not token:
+        #     self.error('Expecting extra tokens')
 
         if typ:
             if isinstance(typ, tuple):
@@ -302,8 +357,9 @@ class Expander:
         self.raw_next_token()
 
         # Process the tokens:
-        while not self.at_end:
-            if self.at_line_start and self.has_consumed('#'):
+        token = self.next_token(True)
+        while token:
+            if token.first and token.typ == '#':
                 # We are inside a directive!
                 self.in_directive = True
                 for line in self.handle_directive():
@@ -316,30 +372,37 @@ class Expander:
                     self.error('Expected end of line')
             else:
                 # This is not a directive, but normal text:
-                token = self.consume()
                 # print('now', token)
                 if self.enabled:
                     yield token
+            token = self.next_token(True)
 
         if self.expand_stack:
-            # TODO: is this an error?
-            pass
+            print(self.expand_stack)
+            self.error('Not all expansions finished!')
 
         if self.if_stack:
             self.error('#if not properly closed')
 
     def expand(self, macro_token):
-        """ Expand a single token into possibly more tokens! """
+        """ Expand a single token into possibly more tokens.
+
+        This works by expanding the macro and placing the replacement
+        on the 'context stack'
+        """
         name = macro_token.val
         if self.context.is_defined(name) and name not in self.blue_list:
             macro = self.context.get_define(name)
-            if macro.args is None:
+            if isinstance(macro, FunctionMacro):
+                # Special macro:
+                expansion = macro.function(macro_token)
+            elif macro.args is None:
                 # Macro without arguments
                 expansion = macro.value
             else:
                 # This macro requires arguments
                 token = self.consume()
-                if token.typ != '(':
+                if not token or token.typ != '(':
                     self.logger.debug('Not expanding function macro %s', name)
                     self.undo(token)
                     return False
@@ -360,7 +423,8 @@ class Expander:
                 expansion[0] = expansion[0].copy(
                     first=macro_token.first, space=macro_token.space)
 
-            self.logger.debug('Expanding %s', name)
+            if self.verbose:
+                self.logger.debug('Expanding %s', name)
             ctx = ExpansionContext(expansion, name)
 
             # Expand macro line:
@@ -374,7 +438,7 @@ class Expander:
         arg = []
 
         while parens >= 0:
-            token = self.consume()
+            token = self.consume(expand=False)
             if token.typ == '(':
                 parens += 1
 
@@ -392,13 +456,25 @@ class Expander:
 
         return args
 
+    def expand_token_sequence(self, sequence):
+        expander = Expander(self.context)
+        a = list(expander.process(iter(sequence)))
+        # print(a)
+        return a
+
     def substitute_arguments(self, macro, args):
         """ Return macro contents with substituted arguments.
 
         Pay special care to # and ## operators """
         new_line = []
-        repl_map = {fp: a for fp, a in zip(macro.args, args)}
-        self.logger.debug('replacement map: %s', repl_map)
+        # print(args)
+        # expanded_args = [self.expand_token_sequence(a) for a in args]
+        repl_map = {
+            fp: self.expand_token_sequence(a) \
+            for fp, a in zip(macro.args, args)}
+        # print(repl_map)
+        if self.verbose:
+            self.logger.debug('replacement map: %s', repl_map)
         sle = LineParser(macro.value)
         while not sle.at_end:
             token = sle.consume()
@@ -431,6 +507,14 @@ class Expander:
         """ Handle the '#' stringify operator """
         string_value = '"{}"'.format(''.join(map(str, snippet)))
         return CToken('STRING', string_value, hash_token.space, False, loc)
+
+    def concat(self, lhs, rhs):
+        """ Concatenate two tokens into 1 """
+        total_text = lhs.val + rhs.val
+
+        # Run a fresh lexer instance on this concatenated token:
+        lexer = CLexer()
+        lexer.lex(total_text)
 
     def concatenate(self, le):
         """ Handle the '##' token concatenation operator """
@@ -469,6 +553,16 @@ class Expander:
                 self.if_stack.append(IfState(True))
 
             self.calculate_active()
+        elif directive == 'ifndef':
+            if self.enabled:
+                test_define = self.consume('ID', expand=False).val
+                condition = not self.context.is_defined(test_define)
+                self.if_stack.append(IfState(condition))
+            else:
+                self.eat_line()
+                self.if_stack.append(IfState(True))
+
+            self.calculate_active()
         elif directive == 'if':
             if self.enabled:
                 condition = bool(self.eval_expr())
@@ -485,8 +579,11 @@ class Expander:
                 self.error('#elif after #else', token)
 
             if self.enabled:
-                condition = bool(self.eval_expr())
-                self.if_stack[-1].condition = condition
+                can_else = not self.if_stack[-1].was_active
+                condition = bool(self.eval_expr()) and can_else
+                self.if_stack[-1].active = condition
+                if condition:
+                    self.if_stack[-1].was_active = True
             else:
                 self.eat_line()
 
@@ -499,16 +596,7 @@ class Expander:
                 self.error('One else too much in #ifdef', token)
 
             self.if_stack[-1].in_else = True
-            self.calculate_active()
-        elif directive == 'ifndef':
-            if self.enabled:
-                test_define = self.consume('ID', expand=False).val
-                condition = not self.context.is_defined(test_define)
-                self.if_stack.append(IfState(condition))
-            else:
-                self.eat_line()
-                self.if_stack.append(IfState(True))
-
+            self.if_stack[-1].active = not self.if_stack[-1].was_active
             self.calculate_active()
         elif directive == 'endif':
             if not self.if_stack:
@@ -556,8 +644,9 @@ class Expander:
                     # Patch first token spaces:
                     value[0] = value[0].copy(space='')
                 value_txt = ''.join(map(str, value))
-                macro = Macro(name.val, args, value)
-                self.logger.debug('Defining %s=%s', name.val, value_txt)
+                macro = Macro(name.val, value, args=args)
+                if self.verbose:
+                    self.logger.debug('Defining %s=%s', name.val, value_txt)
                 self.context.define(macro)
             else:
                 self.eat_line()
@@ -586,6 +675,7 @@ class Expander:
                 self.warning(message)
         else:
             self.logger.error('todo: %s', directive)
+            self.error('not implemented', token)
             raise NotImplementedError(directive)
         # Return an empty newline token!
         yield new_line_token
@@ -593,7 +683,7 @@ class Expander:
     def calculate_active(self):
         """ Determine if we may emit code given the current if-stack """
         if self.if_stack:
-            self.enabled = all(i.may_encode for i in self.if_stack)
+            self.enabled = all(i.active for i in self.if_stack)
         else:
             self.enabled = True
 
@@ -617,7 +707,7 @@ class Expander:
         elif token.typ == '~':
             lhs = ~self.parse_expression(11)
         elif token.typ == '(':
-            lhs = self.parse_expression(0)
+            lhs = self.parse_expression()
             self.consume(')')
         elif token.typ == 'ID':
             name = token.val
@@ -629,9 +719,11 @@ class Expander:
                 else:
                     test_define = self.consume('ID', expand=False).val
                 lhs = int(self.context.is_defined(test_define))
-                self.logger.debug('Defined %s = %s', test_define, lhs)
+                if self.verbose:
+                    self.logger.debug('Defined %s = %s', test_define, lhs)
             else:
-                self.logger.warning('Attention: undefined "%s"', name)
+                if self.verbose:
+                    self.logger.warning('Attention: undefined "%s"', name)
                 lhs = 0
         elif token.typ == 'NUMBER':
             lhs = cnum(token.val)
@@ -639,25 +731,25 @@ class Expander:
             raise NotImplementedError(token.val)
 
         op_map = {
-            '*': (11, operator.mul),
-            '/': (11, operator.floordiv),
-            '%': (11, operator.mod),
-            '+': (10, operator.add),
-            '-': (10, operator.sub),
-            '<<': (9, operator.lshift),
-            '>>': (9, operator.rshift),
-            '<': (8, lambda x, y: int(x < y)),
-            '>': (8, lambda x, y: int(x > y)),
-            '<=': (8, lambda x, y: int(x <= y)),
-            '>=': (8, lambda x, y: int(x >= y)),
-            '==': (7, lambda x, y: int(x == y)),
-            '!=': (7, lambda x, y: int(x != y)),
-            '&': (6, operator.and_),
-            '^': (5, operator.xor),
-            '|': (4, operator.or_),
-            '&&': (3, lambda x, y: int(bool(x) and bool(y))),
-            '||': (2, lambda x, y: int(bool(x) or bool(y))),
-            '?': (1, None),
+            '*': (11, False, operator.mul),
+            '/': (11, False, operator.floordiv),
+            '%': (11, False, operator.mod),
+            '+': (10, False, operator.add),
+            '-': (10, False, operator.sub),
+            '<<': (9, False, operator.lshift),
+            '>>': (9, False, operator.rshift),
+            '<': (8, False, lambda x, y: int(x < y)),
+            '>': (8, False, lambda x, y: int(x > y)),
+            '<=': (8, False, lambda x, y: int(x <= y)),
+            '>=': (8, False, lambda x, y: int(x >= y)),
+            '==': (7, False, lambda x, y: int(x == y)),
+            '!=': (7, False, lambda x, y: int(x != y)),
+            '&': (6, False, operator.and_),
+            '^': (5, False, operator.xor),
+            '|': (4, False, operator.or_),
+            '&&': (3, False, lambda x, y: int(bool(x) and bool(y))),
+            '||': (2, False, lambda x, y: int(bool(x) or bool(y))),
+            '?': (1, True, None),
         }
 
         while True:
@@ -666,22 +758,36 @@ class Expander:
             op = token.typ
 
             # Determine if the operator has a low enough priority:
-            pri = op_map[op][0] if op in op_map else None
-            if (pri is None) or (pri <= priority):
+            if op in op_map:
+                op_prio, right_associative = op_map[op][:2]
+                left_associative = not right_associative
+                if left_associative and (op_prio >= priority):
+                    pass
+                elif right_associative and (op_prio > priority):
+                    pass
+                else:
+                    self.undo(token)
+                    break
+            else:
                 self.undo(token)
                 break
 
+            if op == '?':
+                # Eat middle part
+                middle = self.parse_expression()
+                self.consume(':')
+            else:
+                middle = None
+
             # We are go, eat the right hand side
-            rhs = self.parse_expression(pri)
+            rhs = self.parse_expression(op_prio)
 
             if op in op_map:
-                func = op_map[op][1]
+                func = op_map[op][2]
                 if func:
                     lhs = func(lhs, rhs)
                 elif op == '?':
-                    self.consume(':')
-                    false_result = self.parse_expression(0)
-                    lhs = rhs if lhs != 0 else false_result
+                    lhs = middle if lhs != 0 else rhs
                 else:
                     raise NotImplementedError(op)
             else:
@@ -694,34 +800,42 @@ def cnum(txt):
     """ Convert C number to integer """
     if isinstance(txt, int):
         return txt
-    if txt.endswith(('L', 'U')):
+    if txt.startswith('0x'):
+        return int(txt[2:], 16)
+    elif txt.endswith(('L', 'U')):
         return int(txt[:-1])
     else:
         return int(txt)
 
 
-class Macro:
-    """ Macro define """
-    def __init__(self, name, args, value, protected=False):
+class BaseMacro:
+    """ Base macro """
+    def __init__(self, name, protected=False):
         self.name = name
-        self.args = args
+        self.protected = protected
+
+
+class Macro(BaseMacro):
+    """ Macro define """
+    def __init__(self, name, value, args=None, protected=False):
+        super().__init__(name, protected=protected)
         self.value = value
-        self.protected = False
+        self.args = args
+
+
+class FunctionMacro(BaseMacro):
+    """ Special macro, like __FILE__ """
+    def __init__(self, name, function):
+        super().__init__(name, protected=True)
+        self.function = function
 
 
 class IfState:
     """ If status for use on the if-stack """
-    def __init__(self, condition):
-        self.condition = condition
+    def __init__(self, active):
+        self.active = active
+        self.was_active = active
         self.in_else = False  # Indicator whether we are in the else clause.
-
-    @property
-    def may_encode(self):
-        """ Determine given whether we are active according to this state """
-        if self.in_else:
-            return not self.condition
-        else:
-            return self.condition
 
 
 class CTokenPrinter:

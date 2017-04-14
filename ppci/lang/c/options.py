@@ -8,6 +8,9 @@ class COptions:
     def enable(self, setting):
         self.settings[setting] = True
 
+    def disable(self, setting):
+        self.settings[setting] = False
+
     def set(self, setting, value):
         self.settings[setting] = value
 
