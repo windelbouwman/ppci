@@ -4,13 +4,14 @@ The api module contains a set of handy functions to invoke compilation,
 linking and assembling.
 """
 
+import io
 import logging
 import os
 import platform
 import stat
 import xml
 from .arch.arch import Architecture
-from .lang.c import CBuilder, CPreProcessor
+from .lang.c import CBuilder, CPreProcessor, COptions
 from .lang.c.preprocessor import CTokenPrinter
 from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
@@ -364,25 +365,32 @@ def ir_to_python(ir_modules, f, reporter=None):
         generator.generate(ir_module)
 
 
-def preprocess(f, output_file, coptions, include_paths=None):
+def preprocess(f, output_file, coptions=None):
     """ Pre-process a file into the other file. """
+    if coptions is None:
+        coptions = COptions()
     preprocessor = CPreProcessor(coptions)
-    if include_paths:
-        for directory in include_paths:
-            preprocessor.add_include_path(directory)
     filename = f.name if hasattr(f, 'name') else None
     tokens = preprocessor.process(f, filename=filename)
     CTokenPrinter().dump(tokens, file=output_file)
 
 
-def cc(source, march, coptions, reporter=None):
+def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
     """ C compiler. compiles a single source file into an object file """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
+    if not coptions:
+        coptions = COptions()
     march = get_arch(march)
     cbuilder = CBuilder(march, coptions)
-    cbuilder.build(source)
-    raise NotImplementedError('TODO')
+    assert isinstance(source, io.TextIOBase)
+    if hasattr(source, 'name'):
+        filename = getattr(source, 'name')
+    else:
+        filename = None
+    print(filename, dir(source), source)
+    ir_module = cbuilder.build(source, filename)
+    return ir_to_object([ir_module], march)
 
 
 def llvm_to_ir(source):

@@ -1,6 +1,7 @@
 """ C Language lexer """
 
 import logging
+import io
 
 from ...common import Token, SourceLocation
 
@@ -94,9 +95,10 @@ def continued_lines_filter(characters):
                 yield char
 
 
-def lex_text(text):
+def lex_text(text, coptions):
     """ Lex a piece of text """
-    return []
+    lexer = CLexer(coptions)
+    return list(lexer.lex_text(text))
 
 
 class HandLexerBase:
@@ -194,6 +196,13 @@ class CLexer(HandLexerBase):
         # print('=== end lex ')
 
         # s = '\n'.join(r)
+        return self.tokenize(characters)
+
+    def lex_text(self, txt):
+        """ Create tokens from the given text """
+        f = io.StringIO(txt)
+        filename = None
+        characters = characters = create_characters(f, filename)
         return self.tokenize(characters)
 
     def tokenize(self, characters):
@@ -313,7 +322,12 @@ class CLexer(HandLexerBase):
             self.accept_run(number_chars + 'abcdefABCDEF')
         else:
             self.accept_run(number_chars)
-        self.accept('LlUu')
+
+        # Accept some suffixes:
+        if self.accept('L'):
+            self.accept('L')
+        else:
+            self.accept('LlUu')
         self.emit('NUMBER')
         return self.lex_c
 

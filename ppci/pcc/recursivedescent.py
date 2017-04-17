@@ -57,4 +57,4 @@ class RecursiveDescentParser:
 
     @property
     def at_end(self):
-        return self.peak is not None
+        return self.peak is None

@@ -295,24 +295,22 @@ class Parser(RecursiveDescentParser):
 
     def parse_statement(self) -> ast.Statement:
         """ Determine statement type based on the pending token """
-        if self.peak == 'if':
-            return self.parse_if()
-        elif self.peak == 'while':
-            return self.parse_while()
-        elif self.peak == 'for':
-            return self.parse_for()
-        elif self.peak == 'switch':
-            return self.parse_switch()
-        elif self.peak == '{':
-            return self.parse_compound()
+        mapping = {
+            'if': self.parse_if,
+            'while': self.parse_while,
+            'for': self.parse_for,
+            'switch': self.parse_switch,
+            'return': self.parse_return,
+            '{': self.parse_compound,
+        }
+        if self.peak in mapping:
+            return mapping[self.peak]()
         elif self.has_consumed(';'):
             return ast.Empty()
         elif self.peak == 'var':
             variables = self.parse_variable_def()
             statements = [ast.VariableDeclaration(v, v.loc) for v in variables]
             return ast.Compound(statements)
-        elif self.peak == 'return':
-            return self.parse_return()
         else:
             expression = self.parse_unary_expression()
             if self.peak in ast.Assignment.operators:

@@ -10,6 +10,7 @@ Release 1.0 (Planned)
 Release 0.5.3 (Upcoming)
 ------------------------
 
+* Initial version of C preprocessor
 * Improved calling convention handling
 * Initial version of pascal front-end
 

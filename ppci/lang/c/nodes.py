@@ -3,13 +3,16 @@
     language.
 """
 
+from ...common import SourceLocation
 
-class Cu:
-    def __init__(self, decls):
-        self.decls = decls
+
+class CompilationUnit:
+    """ A single compilation unit """
+    def __init__(self, declarations):
+        self.decls = declarations
 
     def __repr__(self):
-        return 'Cu'
+        return 'Compilation unit with {} declarations'.format(len(self.decls))
 
 
 class DeclSpec:
@@ -18,6 +21,7 @@ class DeclSpec:
         self.typ = None
         self.modifiers = []
 
+    @property
     def has_type(self):
         return self.typ is not None
 
@@ -25,7 +29,8 @@ class DeclSpec:
         return '[decl-spec typ={} mod={}]'.format(self.typ, self.modifiers)
 
 
-class Decl:
+class Declaration:
+    """ A single declaration """
     def __init__(self):
         self.typ = None
         self.modifiers = []
@@ -40,9 +45,67 @@ class Decl:
         return '[decl typ={} name={}]'.format(self.typ, self.name)
 
 
-class If:
+class FunctionDeclaration(Declaration):
+    pass
+
+
+# A type system:
+class CType:
+    """ Base class for all types """
+    @property
+    def is_void(self):
+        return isinstance(self, VoidType)
+
+
+class VoidType(CType):
+    pass
+
+
+class FunctionType(CType):
+    def __init__(self, arg_types, return_type):
+        self.arg_types = arg_types
+        self.return_type = return_type
+
+
+class ArrayType(CType):
+    """ Array type """
+    pass
+
+
+class StructType(CType):
+    """ Structure type """
+    pass
+
+
+class NamedType(CType):
+    def __init__(self, name):
+        self.name = name
+
+
+class IntegerType(NamedType):
+    pass
+
+
+class FloatingPointType(NamedType):
+    pass
+
+
+# Statements:
+class Statement:
+    def __init__(self, loc):
+        self.loc = loc
+
+
+class Compound(Statement):
+    def __init__(self, statements, loc):
+        super().__init__(loc)
+        self.statements = statements
+
+
+class If(Statement):
     """ If statement """
-    def __init__(self, condition, yes, no):
+    def __init__(self, condition, yes, no, loc):
+        super().__init__(loc)
         self.condition = condition
         self.yes = yes
         self.no = no
@@ -55,28 +118,31 @@ class Switch:
         self.body = body
 
 
-class While:
+class While(Statement):
     """ While statement """
-    def __init__(self, condition, body):
+    def __init__(self, condition, body, loc):
+        super().__init__(loc)
         self.condition = condition
         self.body = body
 
 
-class DoWhile:
-    """ Do while statement """
-    def __init__(self, body, condition):
+class DoWhile(Statement):
+    """ Do-while statement """
+    def __init__(self, body, condition, loc):
+        super().__init__(loc)
         self.condition = condition
         self.body = body
 
 
-class For:
+class For(Statement):
     """ For statement """
-    def __init__(self, condition, body):
+    def __init__(self, condition, body, loc):
+        super().__init__(loc)
         self.condition = condition
         self.body = body
 
 
-class Break:
+class Break(Statement):
     """ Break statement """
     pass
 
@@ -87,9 +153,16 @@ class Case:
         self.value = value
 
 
-class Goto:
+class Goto(Statement):
     """ Goto statement """
     pass
+
+
+class Return(Statement):
+    """ Return statement """
+    def __init__(self, value, loc):
+        super().__init__(loc)
+        self.value = value
 
 
 class FunctionCall:
@@ -99,43 +172,37 @@ class FunctionCall:
         self.args = args
 
 
-class Assignment:
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
+class Expression:
+    """ Some nice common base class for expressions """
+    def __init__(self, loc: SourceLocation):
+        self.loc = loc
 
 
-class Binop:
+class Binop(Expression):
     """ Binary operator """
     def __init__(self, a, op, b, loc):
+        super().__init__(loc)
         self.a = a
         self.op = op
         self.b = b
 
     def __repr__(self):
-        return '(BINOP {} {} {})'.format(self.a, self.op, self.b)
+        return '({} {} {})'.format(self.a, self.op, self.b)
 
 
-class Visitor:
-    def visit(self, node):
-        if isinstance(node, Cu):
-            for d in node.decls:
-                self.visit(d)
-        elif isinstance(node, Binop):
-            self.visit(node.a)
-            self.visit(node.b)
-        elif isinstance(node, Decl):
-            pass
-        else:
-            raise NotImplementedError(str(type(node)))
+class VariableAccess(Expression):
+    def __init__(self, name, loc):
+        super().__init__(loc)
+        self.name = name
+
+    def __repr__(self):
+        return '[ACCESS {}]'.format(self.name)
 
 
-class Printer(Visitor):
-    def __init__(self):
-        self.indent = 0
+class Constant(Expression):
+    def __init__(self, value, loc):
+        super().__init__(loc)
+        self.value = value
 
-    def visit(self, node):
-        print(node)
-        self.indent += 2
-        super().visit(node)
-        self.indent -= 2
+    def __repr__(self):
+        return '[CONST {}]'.format(self.value)

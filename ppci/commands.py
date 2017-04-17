@@ -177,7 +177,8 @@ cc_parser.add_argument(
     '--trigraphs', action="store_true", default=False,
     help="Enable trigraph processing")
 cc_parser.add_argument(
-    'sources', metavar='source', help='source file', nargs='+')
+    'sources', metavar='source', help='source file', nargs='+',
+    type=argparse.FileType('r'))
 
 
 def cc(args=None):
@@ -188,24 +189,22 @@ def cc(args=None):
         march = get_arch_from_args(args)
         coptions = COptions()
         coptions.set('trigraphs', args.trigraphs)
+        for path in args.I:
+            coptions.add_include_path(path)
 
         for src in args.sources:
             if args.E:
-                with open(src) as f:
-                    api.preprocess(f, args.output, coptions)
+                api.preprocess(src, args.output, coptions)
             else:
                 obj = api.cc(src, march, coptions)
 
-        if args.E:
-            return
-
-        if args.c:
-            # Write object file to disk:
-            obj.save(args.output)
-            args.output.close()
-        else:
-            # TODO: link objects together?
-            raise NotImplementedError('Linking not implemented')
+                if args.c:
+                    # Write object file to disk:
+                    obj.save(args.output)
+                    args.output.close()
+                else:
+                    # TODO: link objects together?
+                    raise NotImplementedError('Linking not implemented')
 
 
 pascal_description = """ Pascal compiler.

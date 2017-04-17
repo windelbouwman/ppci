@@ -26,18 +26,17 @@ def run_test_t(directory):
     num_passed = 0
     coptions = COptions()
     coptions.enable('trigraphs')
+    coptions.add_include_path(directory)
     for filename in sorted(glob.iglob(os.path.join(directory, 'n_*.t'))):
-        logging.info('Testing sample %s', filename)
         with open(filename, 'r') as f:
             output_file = io.StringIO()
             num_total += 1
             try:
-                ppci.api.preprocess(
-                    f, output_file, coptions, include_paths=[directory])
+                ppci.api.preprocess(f, output_file, coptions)
                 num_passed += 1
-                logging.info('PASS')
+                logging.info('Testing sample %s OK', filename)
             except CompilerError as e:
-                logging.error('ERROR %s', e.msg)
+                logging.info('Testing sample %s ERROR %s', filename, e.msg)
                 e.print()
                 print('ERROR', e)
             except Exception as e:

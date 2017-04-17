@@ -1,10 +1,11 @@
 import unittest
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, Printer, CPreProcessor, CLexer, lexer
+from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
 from ppci.lang.c.preprocessor import CTokenPrinter
 from ppci.lang.c.options import COptions
 from ppci.arch.example import ExampleArch
+from ppci import ir
 
 
 class CLexerTestCase(unittest.TestCase):
@@ -47,6 +48,7 @@ class CLexerTestCase(unittest.TestCase):
 
     def test_token_spacing(self):
         src = "1239hello"
+        # TODO: should this raise an error?
         tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
 
 
@@ -73,7 +75,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         src = r"""
         #define A 100
         printf("%i\n",A);"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
 
         printf("%i\n",100);"""
         self.preprocess(src, expected)
@@ -82,7 +85,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         src = r"""
         #define A(X,Y) (100 + X + (Y))
         A(A(1,2),A(A(23,G),22))"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
 
         (100 + (100 + 1 + (2)) + ((100 + (100 + 23 + (G)) + (22))))"""
         self.preprocess(src, expected)
@@ -93,15 +97,36 @@ class CPreProcessorTestCase(unittest.TestCase):
         printf("%i\n", A);
         #else
         printf("%i\n", 100);
-        #endif
-        """
-        expected = r"""
+        #endif"""
+        expected = r"""# 1 "dummy.t"
+
 
 
         printf("%i\n", 100);
-
 """
         self.preprocess(src, expected)
+
+    def test_line_directive(self):
+        src = r"""
+        #line 1234 "cpp"
+        __LINE__; __FILE__;
+        #line 567
+        __LINE__; __FILE__;
+        """
+        expected = r"""# 1 "dummy.t"
+
+        1234; "cpp";
+        567; "cpp";"""
+        # TODO: check expected output
+        self.preprocess(src)
+
+    def test_error_directive(self):
+        src = r"""
+        #error this is not yet implemented 1234 #&!*^"""
+        with self.assertRaises(CompilerError) as cm:
+            self.preprocess(src)
+        self.assertEquals(2, cm.exception.loc.row)
+        self.assertEquals('this is not yet implemented 1234 #&!*^', cm.exception.msg)
 
     def test_intermediate_example(self):
         """ Check a medium hard example """
@@ -130,7 +155,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         {
         printf("%i\n", A);
         }"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
         int X = A;
 
         int B = 5;
@@ -169,7 +195,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         A(5,abc - 23)
         D(wa,ttuh)
         E"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
 
 
 
@@ -187,7 +214,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         src = r"""#define function() 123
         #define concat(a,b) a ## b
         concat(func,tion)()"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
 
         123"""
         self.preprocess(src, expected)
@@ -197,7 +225,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         src = r"""#define foo(x) bar x
         foo(foo
         ) (2)"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
         bar foo (2)"""
         self.preprocess(src, expected)
 
@@ -211,7 +240,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         #else
         int999
         #endif"""
-        expected = r"""
+        expected = r"""# 1 "dummy.t"
+
 
         int32
 
@@ -247,13 +277,16 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.preprocess(src)
 
     def test_command_structure(self):
-        src = r"""#define COMMAND(NAME)  { #NAME, NAME ## _command }
+        src = r"""
+        #define COMMAND(NAME)  { #NAME, NAME ## _command }
         struct command commands[] =
         {
           COMMAND(quit),
           COMMAND(help),
         };"""
-        expected = """
+        expected = """# 1 "dummy.t"
+
+
         struct command commands[] =
         {
           { "quit", quit_command },
@@ -265,37 +298,84 @@ class CPreProcessorTestCase(unittest.TestCase):
         src = r"""#if (1 ? 2 ? 3 ? 3 : 2 : 1 : 0) != 3
         #error bad grouping
         #endif"""
-        expected = """
+        expected = """# 1 "dummy.t"
+
+
+"""
+        self.preprocess(src, expected)
+
+    def test_ternary_operator_grouping2(self):
+        src = r"""#if (0 ? 2 : 0 ? 3 : 2 ? 1 : 0) != 1
+        #error bad grouping
+        #endif"""
+        expected = """# 1 "dummy.t"
+
 
 """
         self.preprocess(src, expected)
 
     def test_builtin_macros(self):
-        src = r"""__FILE__;__LINE__
+        src = r"""
+        __FILE__;__LINE__
         __LINE__;__FILE__"""
-        expected = '''"dummy.t";1
-        2;"dummy.t"'''
+        expected = '''# 1 "dummy.t"
+
+        "dummy.t";2
+        3;"dummy.t"'''
         self.preprocess(src, expected)
 
     @unittest.skip('TODO, fix time mock?')
     def test_builtin_time_macros(self):
-        src = r"""__LINE__
-        __LINE__;__FILE__;__DATE__;__TIME__;
-        __LINE__;__FILE__"""
-        expected = '''1
-        2;"dummy.t";"";"";
-        3;"dummy.t"'''
+        src = r"""
+        __DATE__;__TIME__;"""
+        expected = '''# 1 "dummy.t"
+
+        "19 apr 2017";"12:34:56"'''
         self.preprocess(src, expected)
 
-    @unittest.skip('TODO!')
+    def test_token_glue(self):
+        """ Check various concatenations """
+        src = r"""#define A(x,y) x ## y
+        A(b,2)
+        A(2,L)
+        A(3,31)"""
+        expected = """# 1 "dummy.t"
+
+        b2
+        2L
+        331"""
+        self.preprocess(src, expected)
+
+    def test_token_invalid_concatenation(self):
+        """ Check invalid concatenation """
+        src = r"""#define A(x,y) x ## y
+        A(:,;)"""
+        with self.assertRaises(CompilerError) as cm:
+            self.preprocess(src)
+        self.assertEquals(2, cm.exception.loc.row)
+        self.assertEquals(11, cm.exception.loc.col)
+
+    def test_argument_expansion(self):
+        """ Check the behavior of macro arguments when used in stringify """
+        src = r"""#define A(x) # x x
+        #define B 55 - 3
+        A(B)"""
+        expected = """# 1 "dummy.t"
+
+
+        "B" 55 - 3"""
+        self.preprocess(src, expected)
+
     def test_argument_prescan(self):
+        """ When argument is used in concatenation, do not expand it """
         src = r"""#define AFTERX(x) X_ ## x
         #define XAFTERX(x) AFTERX(x)
         #define TABLESIZE w1024
         #define BUFSIZE TABLESIZE
         AFTERX(BUFSIZE)
         XAFTERX(BUFSIZE)"""
-        expected = """
+        expected = """# 1 "dummy.t"
+
 
 
 
@@ -312,11 +392,61 @@ class CPreProcessorTestCase(unittest.TestCase):
         #define bar(x) lose(x)
         #define lose(x) (1 + (x))
         bar(foo)"""
-        expected = """
+        expected = """# 1 "dummy.t"
 
 
-        X_w1024"""
+
+        (1 + (a,b))"""
         self.preprocess(src, expected)
+
+
+def gen_tokens(tokens):
+    """ Helper function which creates a token iterator """
+    col = 1
+    for typ, val in tokens:
+        loc = lexer.SourceLocation('test.c', 1, col, 1)
+        yield lexer.CToken(typ, val, '', False, loc)
+        col += 1
+
+
+class CParserTestCase(unittest.TestCase):
+    """ Test the C parser """
+    def setUp(self):
+        self.parser = CParser(COptions())
+
+    def parse(self, tokens):
+        cu = self.parser.parse(gen_tokens(tokens))
+        return cu
+
+    def test_empty(self):
+        """ Test the obvious empty case! """
+        cu = self.parse([])
+        self.assertEqual(0, len(cu.decls))
+
+    def test_global_int(self):
+        """ Test the parsing of a global integer """
+        tokens = [('int', 'int'), ('ID', 'A'), (';', ';')]
+        cu = self.parse(tokens)
+        self.assertEqual(1, len(cu.decls))
+        decl = cu.decls[0]
+        self.assertEqual('A', decl.name)
+
+    def test_function(self):
+        """ Test the parsing of a function """
+        tokens = [
+            ('int', 'int'), ('ID', 'add'), ('(', '('), ('int', 'int'),
+            ('ID', 'x'), (',', ','), ('int', 'int'), ('ID', 'y'), (')', ')'),
+            ('{', '{'), ('return', 'return'), ('ID', 'x'), ('+', '+'),
+            ('ID', 'y'), (';', ';'), ('}', '}')]
+        cu = self.parse(tokens)
+        self.assertEqual(1, len(cu.decls))
+        decl = cu.decls[0]
+        self.assertIsInstance(decl.typ, nodes.FunctionType)
+        self.assertIsInstance(decl.typ.return_type, nodes.IntegerType)
+        stmt = decl.body.statements[0]
+        self.assertIsInstance(stmt, nodes.Return)
+        self.assertIsInstance(stmt.value, nodes.Binop)
+        self.assertEqual('+', stmt.value.op)
 
 
 class CFrontendTestCase(unittest.TestCase):
@@ -326,7 +456,8 @@ class CFrontendTestCase(unittest.TestCase):
 
     def do(self, src):
         f = io.StringIO(src)
-        self.builder.build(f)
+        ir_module = self.builder.build(f, None)
+        assert isinstance(ir_module, ir.Module)
 
     def test_1(self):
         src = """
