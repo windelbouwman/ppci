@@ -1,3 +1,4 @@
+#!/usr/bin/python
 
 """ A demo showing the usage of the preprocessor with pycparsing """
 

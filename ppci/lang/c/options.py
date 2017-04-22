@@ -1,3 +1,5 @@
+from argparse import ArgumentParser
+
 
 class COptions:
     """ A collection of settings regarding the C language """
@@ -31,3 +33,21 @@ class COptions:
 
     def __getitem__(self, index):
         return self.settings[index]
+
+    def process_args(self, args):
+        """ Given a set of parsed arguments, apply those """
+        self.set('trigraphs', args.trigraphs)
+        for path in args.I:
+            self.add_include_path(path)
+
+
+# Construct an argument parser for the various C options:
+coptions_parser = ArgumentParser(add_help=False)
+
+coptions_parser.add_argument(
+    '-I', action='append', default=[], metavar='dir',
+    help="Add directory to the include path")
+
+coptions_parser.add_argument(
+    '--trigraphs', action="store_true", default=False,
+    help="Enable trigraph processing")

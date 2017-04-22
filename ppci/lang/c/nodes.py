@@ -31,55 +31,94 @@ class DeclSpec:
 
 class Declaration:
     """ A single declaration """
-    def __init__(self):
-        self.typ = None
+    def __init__(self, typ, name, loc):
+        self.loc = loc
+        self.typ = typ
         self.modifiers = []
-        self.name = None
-        self.f = False
+        self.name = name
 
     @property
     def is_function(self):
-        return self.f
+        return isinstance(self, FunctionDeclaration)
+
+
+class VariableDeclaration(Declaration):
+    def __init__(self, typ, name, loc):
+        super().__init__(typ, name, loc)
 
     def __repr__(self):
-        return '[decl typ={} name={}]'.format(self.typ, self.name)
+        return 'Variable [decl typ={} name={}]'.format(self.typ, self.name)
 
 
 class FunctionDeclaration(Declaration):
-    pass
+    def __init__(self, typ, name, loc):
+        super().__init__(typ, name, loc)
+
+    def __repr__(self):
+        return 'FunctionDeclaration typ={} name={}'.format(
+            self.typ, self.name)
 
 
 # A type system:
 class CType:
     """ Base class for all types """
+    def __init__(self):
+        self.modifiers = set()
+
     @property
     def is_void(self):
         return isinstance(self, VoidType)
 
 
-class VoidType(CType):
+class SimpleType(CType):
     pass
 
 
 class FunctionType(CType):
     def __init__(self, arg_types, return_type):
+        super().__init__()
         self.arg_types = arg_types
         self.return_type = return_type
+
+    def __repr__(self):
+        return 'Function-type'
 
 
 class ArrayType(CType):
     """ Array type """
-    pass
+    def __repr__(self):
+        return 'Array-type'
 
 
 class StructType(CType):
     """ Structure type """
-    pass
+    def __repr__(self):
+        return 'Structured-type'
+
+
+class PointerType(CType):
+    """ The famous pointer! """
+    def __init__(self, pointed_type):
+        super().__init__()
+        self.pointed_type = pointed_type
+
+    def __repr__(self):
+        return 'Pointer-type'
 
 
 class NamedType(CType):
     def __init__(self, name):
+        super().__init__()
         self.name = name
+
+    def __repr__(self):
+        return 'Type: {}'.format(self.name)
+
+
+class VoidType(NamedType):
+    """ Type representing no value """
+    def __init__(self):
+        super().__init__('void')
 
 
 class IntegerType(NamedType):
@@ -101,6 +140,9 @@ class Compound(Statement):
         super().__init__(loc)
         self.statements = statements
 
+    def __repr__(self):
+        return 'Compound'
+
 
 class If(Statement):
     """ If statement """
@@ -110,10 +152,14 @@ class If(Statement):
         self.yes = yes
         self.no = no
 
+    def __repr__(self):
+        return 'If'
 
-class Switch:
+
+class Switch(Statement):
     """ Switch statement """
-    def __init__(self, condition, body):
+    def __init__(self, condition, body, loc):
+        super().__init__(loc)
         self.condition = condition
         self.body = body
 
@@ -133,18 +179,27 @@ class DoWhile(Statement):
         self.condition = condition
         self.body = body
 
+    def __repr__(self):
+        return 'Do-while'
+
 
 class For(Statement):
     """ For statement """
-    def __init__(self, condition, body, loc):
+    def __init__(self, init, condition, post, body, loc):
         super().__init__(loc)
+        self.init = init
         self.condition = condition
+        self.post = post
         self.body = body
+
+    def __repr__(self):
+        return 'For'
 
 
 class Break(Statement):
     """ Break statement """
-    pass
+    def __repr__(self):
+        return 'Break'
 
 
 class Case:
@@ -155,7 +210,8 @@ class Case:
 
 class Goto(Statement):
     """ Goto statement """
-    pass
+    def __repr__(self):
+        return 'Goto'
 
 
 class Return(Statement):
@@ -164,18 +220,30 @@ class Return(Statement):
         super().__init__(loc)
         self.value = value
 
+    def __repr__(self):
+        return 'Return'
 
-class FunctionCall:
-    """ Function call """
-    def __init__(self, name, args):
-        self.name = name
-        self.args = args
+
+class Empty(Statement):
+    """ Do nothing! """
+    pass
 
 
 class Expression:
     """ Some nice common base class for expressions """
     def __init__(self, loc: SourceLocation):
         self.loc = loc
+
+
+class FunctionCall(Expression):
+    """ Function call """
+    def __init__(self, name, args, loc):
+        super().__init__(loc)
+        self.name = name
+        self.args = args
+
+    def __repr__(self):
+        return 'FunctionCall {}'.format(self.name)
 
 
 class Binop(Expression):
@@ -187,7 +255,18 @@ class Binop(Expression):
         self.b = b
 
     def __repr__(self):
-        return '({} {} {})'.format(self.a, self.op, self.b)
+        return 'BinaryOp {}'.format(self.op)
+
+
+class Unop(Expression):
+    """ Unary operator """
+    def __init__(self, op, a, loc):
+        super().__init__(loc)
+        self.a = a
+        self.op = op
+
+    def __repr__(self):
+        return 'UnaryOp {}'.format(self.op)
 
 
 class VariableAccess(Expression):
@@ -196,7 +275,7 @@ class VariableAccess(Expression):
         self.name = name
 
     def __repr__(self):
-        return '[ACCESS {}]'.format(self.name)
+        return 'Id {}'.format(self.name)
 
 
 class Constant(Expression):
@@ -205,4 +284,4 @@ class Constant(Expression):
         self.value = value
 
     def __repr__(self):
-        return '[CONST {}]'.format(self.value)
+        return 'Const {}'.format(self.value)

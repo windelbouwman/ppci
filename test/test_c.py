@@ -1,11 +1,20 @@
 import unittest
 import io
+import os
 from ppci.common import CompilerError
 from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
 from ppci.lang.c.preprocessor import CTokenPrinter
 from ppci.lang.c.options import COptions
+from ppci.lang.c.castxml import CastXmlReader
 from ppci.arch.example import ExampleArch
 from ppci import ir
+
+
+testdir = os.path.dirname(os.path.abspath(__file__))
+
+
+def relpath(*args):
+    return os.path.normpath(os.path.join(testdir, *args))
 
 
 class CLexerTestCase(unittest.TestCase):
@@ -425,7 +434,7 @@ class CParserTestCase(unittest.TestCase):
 
     def test_global_int(self):
         """ Test the parsing of a global integer """
-        tokens = [('int', 'int'), ('ID', 'A'), (';', ';')]
+        tokens = [('ID', 'int'), ('ID', 'A'), (';', ';')]
         cu = self.parse(tokens)
         self.assertEqual(1, len(cu.decls))
         decl = cu.decls[0]
@@ -434,8 +443,8 @@ class CParserTestCase(unittest.TestCase):
     def test_function(self):
         """ Test the parsing of a function """
         tokens = [
-            ('int', 'int'), ('ID', 'add'), ('(', '('), ('int', 'int'),
-            ('ID', 'x'), (',', ','), ('int', 'int'), ('ID', 'y'), (')', ')'),
+            ('ID', 'int'), ('ID', 'add'), ('(', '('), ('ID', 'int'),
+            ('ID', 'x'), (',', ','), ('ID', 'int'), ('ID', 'y'), (')', ')'),
             ('{', '{'), ('return', 'return'), ('ID', 'x'), ('+', '+'),
             ('ID', 'y'), (';', ';'), ('}', '}')]
         cu = self.parse(tokens)
@@ -470,14 +479,23 @@ class CFrontendTestCase(unittest.TestCase):
 
     def test_2(self):
         src = """
-        static float c, d, e;
+        static int c, d, e;
+        static float x;
         char f, g;
         int main() {
           int d;
           d = 20 + c * 10 + c >> 2 - 123;
+          return d;
         }
         """
         self.do(src)
+
+
+class CastXmlTestCase(unittest.TestCase):
+    """ Try out cast xml parsing. """
+    def test_test8(self):
+        reader = CastXmlReader()
+        cu = reader.process(relpath('data', 'c', 'test8.xml'))
 
 
 if __name__ == '__main__':

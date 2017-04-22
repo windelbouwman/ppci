@@ -950,8 +950,7 @@ def prepare_for_parsing(tokens):
     keywords = ['true', 'false',
                 'else', 'if', 'while', 'for', 'return',
                 'struct', 'enum',
-                'typedef', 'static', 'const',
-                'int', 'void', 'char', 'float', 'double']
+                'typedef', 'static', 'volatile', 'const']
 
     for token in skip_ws(tokens):
         if token.typ == 'ID':

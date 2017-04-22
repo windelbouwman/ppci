@@ -388,9 +388,8 @@ def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
         filename = getattr(source, 'name')
     else:
         filename = None
-    print(filename, dir(source), source)
     ir_module = cbuilder.build(source, filename)
-    return ir_to_object([ir_module], march)
+    return ir_to_object([ir_module], march, reporter=reporter)
 
 
 def llvm_to_ir(source):

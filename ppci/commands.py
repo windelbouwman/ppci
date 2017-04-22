@@ -19,7 +19,7 @@ from .common import logformat, CompilerError
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
-from .lang.c.options import COptions
+from .lang.c.options import COptions, coptions_parser
 from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
 
 
@@ -163,19 +163,13 @@ def c3c(args=None):
 cc_description = """ C compiler. """
 cc_parser = argparse.ArgumentParser(
     description=cc_description,
-    parents=[base_parser, march_parser, out_parser])
+    parents=[base_parser, march_parser, out_parser, coptions_parser])
 cc_parser.add_argument(
     '-E', action='store_true', default=False,
     help="Stop after preprocessing")
 cc_parser.add_argument(
-    '-I', action='append', default=[], metavar='dir',
-    help="Add directory to the include path")
-cc_parser.add_argument(
     '-c', action="store_true", default=False,
     help="Compile, but do not link")
-cc_parser.add_argument(
-    '--trigraphs', action="store_true", default=False,
-    help="Enable trigraph processing")
 cc_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+',
     type=argparse.FileType('r'))
@@ -184,19 +178,19 @@ cc_parser.add_argument(
 def cc(args=None):
     """ Run c compile task """
     args = cc_parser.parse_args(args)
-    with LogSetup(args):
+    with LogSetup(args) as log_setup:
         # Compile sources:
         march = get_arch_from_args(args)
         coptions = COptions()
-        coptions.set('trigraphs', args.trigraphs)
-        for path in args.I:
-            coptions.add_include_path(path)
+        coptions.process_args(args)
 
         for src in args.sources:
             if args.E:
                 api.preprocess(src, args.output, coptions)
             else:
-                obj = api.cc(src, march, coptions)
+                obj = api.cc(
+                    src, march, coptions=coptions,
+                    reporter=log_setup.reporter)
 
                 if args.c:
                     # Write object file to disk:
@@ -213,16 +207,11 @@ Compile pascal programs.
 """
 pascal_parser = argparse.ArgumentParser(
     description=pascal_description,
-    parents=[base_parser, march_parser])
+    parents=[base_parser, march_parser, out_parser])
 pascal_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
 pascal_parser.add_argument(
     '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
-
-# TODO: merge this with out_parser?
-pascal_parser.add_argument(
-    '--output', '-o', help='output file', metavar='output-file',
-    type=argparse.FileType('w'))
 
 
 def pascal(args=None):

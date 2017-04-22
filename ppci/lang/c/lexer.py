@@ -300,7 +300,29 @@ class CLexer(HandLexerBase):
             else:
                 self.emit('#')
             return self.lex_c
-        elif r.char in ';+{}()[]*-,.?%~:^':
+        elif r.char == '+':
+            if self.accept('+'):
+                self.emit('++')
+            elif self.accept('='):
+                self.emit('+=')
+            else:
+                self.emit('+')
+            return self.lex_c
+        elif r.char == '-':
+            if self.accept('-'):
+                self.emit('--')
+            elif self.accept('='):
+                self.emit('-=')
+            else:
+                self.emit('-')
+            return self.lex_c
+        elif r.char == '*':
+            if self.accept('='):
+                self.emit('*=')
+            else:
+                self.emit('*')
+            return self.lex_c
+        elif r.char in ';{}()[],.?%~:^':
             self.emit(r.char)
             return self.lex_c
         elif r.char == "\\":
