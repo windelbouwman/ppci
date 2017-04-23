@@ -198,7 +198,10 @@ def cc(args=None):
                     args.output.close()
                 else:
                     # TODO: link objects together?
-                    raise NotImplementedError('Linking not implemented')
+                    logging.warning('TODO: Linking with stdlibs')
+                    obj.save(args.output)
+                    args.output.close()
+                    # raise NotImplementedError('Linking not implemented')
 
 
 pascal_description = """ Pascal compiler.

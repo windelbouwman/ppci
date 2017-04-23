@@ -8,6 +8,7 @@ from ppci.lang.c.options import COptions
 from ppci.lang.c.castxml import CastXmlReader
 from ppci.arch.example import ExampleArch
 from ppci import ir
+from ppci.irutils import Verifier
 
 
 testdir = os.path.dirname(os.path.abspath(__file__))
@@ -434,7 +435,7 @@ class CParserTestCase(unittest.TestCase):
 
     def test_global_int(self):
         """ Test the parsing of a global integer """
-        tokens = [('ID', 'int'), ('ID', 'A'), (';', ';')]
+        tokens = [('int', 'int'), ('ID', 'A'), (';', ';')]
         cu = self.parse(tokens)
         self.assertEqual(1, len(cu.decls))
         decl = cu.decls[0]
@@ -443,8 +444,8 @@ class CParserTestCase(unittest.TestCase):
     def test_function(self):
         """ Test the parsing of a function """
         tokens = [
-            ('ID', 'int'), ('ID', 'add'), ('(', '('), ('ID', 'int'),
-            ('ID', 'x'), (',', ','), ('ID', 'int'), ('ID', 'y'), (')', ')'),
+            ('int', 'int'), ('ID', 'add'), ('(', '('), ('int', 'int'),
+            ('ID', 'x'), (',', ','), ('int', 'int'), ('ID', 'y'), (')', ')'),
             ('{', '{'), ('return', 'return'), ('ID', 'x'), ('+', '+'),
             ('ID', 'y'), (';', ';'), ('}', '}')]
         cu = self.parse(tokens)
@@ -467,6 +468,7 @@ class CFrontendTestCase(unittest.TestCase):
         f = io.StringIO(src)
         ir_module = self.builder.build(f, None)
         assert isinstance(ir_module, ir.Module)
+        Verifier().verify(ir_module)
 
     def test_1(self):
         src = """
@@ -485,6 +487,38 @@ class CFrontendTestCase(unittest.TestCase):
         int main() {
           int d;
           d = 20 + c * 10 + c >> 2 - 123;
+          return d;
+        }
+        """
+        self.do(src)
+
+    def test_3(self):
+        src = """
+        int main() {
+          int d,i,c;
+          c = 2;
+          d = 20 + c * 10 + c >> 2 - 123;
+          if (d < 10)
+          {
+            while (d < 20)
+            {
+              d = d + c * 4;
+            }
+          }
+
+          if (d > 20)
+          {
+            do {
+              d += c;
+            } while (d < 100);
+          }
+          else
+          {
+            for (i=i;i<10;i++)
+            {
+
+            }
+          }
           return d;
         }
         """

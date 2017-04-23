@@ -201,7 +201,7 @@ class Expander:
       and processing continues over there.
     """
     logger = logging.getLogger('preprocessor')
-    verbose = True
+    verbose = False
 
     def __init__(self, preprocessor):
         super().__init__()
@@ -948,9 +948,15 @@ def prepare_for_parsing(tokens):
     - Removal of whitespace
     """
     keywords = ['true', 'false',
-                'else', 'if', 'while', 'for', 'return',
-                'struct', 'enum',
-                'typedef', 'static', 'volatile', 'const']
+                'else', 'if', 'while', 'do', 'for', 'return', 'goto',
+                'switch', 'case', 'default',
+                'break',
+                'sizeof',
+                'struct', 'union', 'enum',
+                'void', 'char', 'int', 'float', 'double',
+                'signed', 'unsigned', 'short', 'long',
+                'typedef', 'static', 'extern', 'register',
+                'volatile', 'const']
 
     for token in skip_ws(tokens):
         if token.typ == 'ID':

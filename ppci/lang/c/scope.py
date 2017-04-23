@@ -8,11 +8,11 @@ class Scope:
         self.parent = parent
         self.var_map = {}
 
-    def is_defined(self, name):
+    def is_defined(self, name, all_scopes=True):
         """ Check if the name is defined """
         if name in self.var_map:
             return True
-        elif self.parent:
+        elif self.parent and all_scopes:
             return self.parent.is_defined(name)
         else:
             return False

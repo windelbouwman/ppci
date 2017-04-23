@@ -19,14 +19,12 @@ class DeclSpec:
     """ Contains a type and a set of modifiers """
     def __init__(self):
         self.typ = None
-        self.modifiers = []
-
-    @property
-    def has_type(self):
-        return self.typ is not None
+        self.storage_class = None
+        self.type_specifiers = []
+        self.type_qualifiers = set()
 
     def __repr__(self):
-        return '[decl-spec typ={} mod={}]'.format(self.typ, self.modifiers)
+        return '[decl-spec mod={}]'.format(self.storage_class)
 
 
 class Declaration:
@@ -34,7 +32,7 @@ class Declaration:
     def __init__(self, typ, name, loc):
         self.loc = loc
         self.typ = typ
-        self.modifiers = []
+        self.storage_class = None
         self.name = name
 
     @property
@@ -47,7 +45,8 @@ class VariableDeclaration(Declaration):
         super().__init__(typ, name, loc)
 
     def __repr__(self):
-        return 'Variable [decl typ={} name={}]'.format(self.typ, self.name)
+        return 'Variable [decl typ={} name={}, {}]'.format(
+            self.typ, self.name, self.storage_class)
 
 
 class FunctionDeclaration(Declaration):
@@ -63,7 +62,7 @@ class FunctionDeclaration(Declaration):
 class CType:
     """ Base class for all types """
     def __init__(self):
-        self.modifiers = set()
+        self.qualifiers = set()
 
     @property
     def is_void(self):
@@ -204,12 +203,19 @@ class Break(Statement):
 
 class Case:
     """ Case statement """
-    def __init__(self, value):
+    def __init__(self, value, loc):
+        # super().__init__(loc)
         self.value = value
+
+    def __repr__(self):
+        return 'Case'
 
 
 class Goto(Statement):
     """ Goto statement """
+    def __init__(self, label, loc):
+        super().__init__(loc)
+
     def __repr__(self):
         return 'Goto'
 
