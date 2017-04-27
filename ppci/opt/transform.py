@@ -1,10 +1,11 @@
 """ Transformation to optimize IR-code """
 
 import logging
+import abc
 from .. import ir
 
 
-class ModulePass:
+class ModulePass(metaclass=abc.ABCMeta):
     """ Base class of all optimizing passes.
 
     Subclass this class to implement your own optimization pass.
@@ -19,6 +20,7 @@ class ModulePass:
     def prepare(self):
         pass
 
+    @abc.abstractmethod
     def run(self, ir_module):  # pragma: no cover
         """ Run this pass over a module """
         raise NotImplementedError()
@@ -33,6 +35,7 @@ class FunctionPass(ModulePass):
         for function in ir_module.functions:
             self.on_function(function)
 
+    @abc.abstractmethod
     def on_function(self, f):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
@@ -45,6 +48,7 @@ class BlockPass(FunctionPass):
         for block in f.blocks:
             self.on_block(block)
 
+    @abc.abstractmethod
     def on_block(self, block):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
@@ -57,6 +61,7 @@ class InstructionPass(BlockPass):
         for instruction in block:
             self.on_instruction(instruction)
 
+    @abc.abstractmethod
     def on_instruction(self, ins):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()

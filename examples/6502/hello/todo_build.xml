@@ -1,0 +1,25 @@
+
+<project name="hello" default="hello">
+    <import name="ppci.buildtasks" />
+
+    <target name="hello">
+        <compile
+            arch="mcs6500"
+            sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"/>
+
+        <assemble
+            arch="mcs6500"
+            source="../start.asm"
+            output="glue.oj" />
+
+        <link
+            output="hello.elf"
+            layout="../apple2.mmap"
+            objects="glue.oj;rest.oj"
+            debug="true" />
+    </target>
+
+</project>
+

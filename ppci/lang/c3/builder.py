@@ -5,7 +5,6 @@ import itertools
 import io
 from ...common import DiagnosticsManager
 from ...irutils import Verifier
-from ...binutils.debuginfo import DebugDb
 from .lexer import Lexer
 from .parser import Parser
 from .typechecker import TypeChecker
@@ -21,12 +20,12 @@ class C3Builder:
     """
     logger = logging.getLogger('c3')
 
-    def __init__(self, diag, arch):
+    def __init__(self, diag, arch, debug_db):
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.debug_db = DebugDb()
-        self.codegen = CodeGenerator(diag, self.debug_db)
+        self.debug_db = debug_db
+        self.codegen = CodeGenerator(diag, debug_db)
         self.verifier = Verifier()
         self.arch = arch
 
@@ -76,7 +75,7 @@ class C3Builder:
             self.verifier.verify(ir_module)
 
         self.logger.debug('C3 build complete!')
-        return context, ir_modules, self.debug_db
+        return context, ir_modules
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """

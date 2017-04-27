@@ -21,9 +21,9 @@ class Writer:
         indent = self.extra_indent + ' ' * (level * IR_FORMAT_INDENT)
         print(indent + txt, file=self.f)
 
-    def write(self, module, f):
+    def write(self, module: ir.Module, f):
         """ Write ir-code to file f """
-        assert type(module) is ir.Module
+        assert isinstance(module, ir.Module)
         Verifier().verify(module)
         self.f = f
         self.print(0, '{};'.format(module))

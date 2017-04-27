@@ -4,12 +4,14 @@
 """
 
 import logging
+import abc
 from ..arch.encoding import Instruction
-from ..arch.arch import Alignment, DebugData, SectionInstruction
-from ..arch.arch import ArtificialInstruction
+from ..arch.generic_instructions import Alignment, DebugData
+from ..arch.generic_instructions import SectionInstruction
+from ..arch.generic_instructions import ArtificialInstruction
 
 
-class OutputStream:
+class OutputStream(metaclass=abc.ABCMeta):
     """ Interface to generate code with.
 
     Contains the emit function to output instruction to the stream.
@@ -22,6 +24,7 @@ class OutputStream:
         else:
             self.do_emit(item)
 
+    @abc.abstractmethod
     def do_emit(self, item):
         """ Actual emit implementation """
         raise NotImplementedError('Abstract base class')

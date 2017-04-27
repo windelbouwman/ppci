@@ -7,11 +7,19 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.5.2 (Upcoming)
+Release 0.5.3 (Upcoming)
 ------------------------
+
+* Initial version of C preprocessor
+* Improved calling convention handling
+* Initial version of pascal front-end
+
+Release 0.5.2 (Dec 29, 2016)
+----------------------------
 
 * Better floating point support in c3
 * Addition of the xtensa target architecture
+* Extended the supported 6502 instructions
 
 Release 0.5.1 (Oct 16, 2016)
 ----------------------------

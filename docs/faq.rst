@@ -17,8 +17,12 @@ Faq
 
 *Cool project, I want to contribute to this project, what can I do?*
 
-    Great! If you want to add some code to the project, the best way is
-    perhaps to send me a message, and create a fork of the project on
-    bitbucket. If you are not sure where to begin, please contact me fist.
+    Great! Please :doc:`see this page<support>`.
+    If you are not sure where to begin, please contact me fist.
     For a list of tasks, refer to :doc:`the todo page<todo>`. For hints on 
     development see :doc:`the development page<development>`.
+
+
+*Why would one want to make a compiler for such a weird language such as C?*
+
+    Because of the enormous amount of C-source code available.

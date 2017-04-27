@@ -13,12 +13,14 @@ import io
 from .pcc.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
-from .tasks import TaskError
+from .build.tasks import TaskError
 from . import __version__, api, irutils
 from .common import logformat, CompilerError
 from .arch.target_list import target_names, create_arch
 from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
+from .lang.c.options import COptions, coptions_parser
+from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
 
 
 version_text = 'ppci {} compiler on {} {}'.format(
@@ -50,6 +52,10 @@ base_parser.add_argument(
     help='Specify a file to write the compile report to',
     type=argparse.FileType('w'))
 base_parser.add_argument(
+    '--html-report', metavar='html-report-file', action=OnceAction,
+    help='Write html report file',
+    type=argparse.FileType('w'))
+base_parser.add_argument(
     '--verbose', '-v', action='count', default=0,
     help='Increase verbosity of the output')
 base_parser.add_argument(
@@ -59,7 +65,7 @@ base_parser.add_argument(
 
 march_parser = argparse.ArgumentParser(add_help=False)
 march_parser.add_argument(
-    '--machine', '-m', help='target architecture', required=True,
+    '--machine', '-m', help='target architecture',
     choices=target_names, action=OnceAction)
 march_parser.add_argument(
     '--mtune', help='architecture option', default=[],
@@ -69,13 +75,18 @@ march_parser.add_argument(
 out_parser = argparse.ArgumentParser(add_help=False)
 out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
-    type=argparse.FileType('w'), required=True, action=OnceAction)
+    default='f.out',
+    type=argparse.FileType('w'))
 
 
 def get_arch_from_args(args):
     """ Determine the intended machine target and select the proper options """
+    if args.machine:
+        machine = args.machine
+    else:
+        machine = platform.machine()
     options = tuple(args.mtune)
-    return create_arch(args.machine, options=options)
+    return create_arch(machine, options=options)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -152,25 +163,80 @@ def c3c(args=None):
 cc_description = """ C compiler. """
 cc_parser = argparse.ArgumentParser(
     description=cc_description,
-    parents=[base_parser, march_parser, out_parser])
+    parents=[base_parser, march_parser, out_parser, coptions_parser])
 cc_parser.add_argument(
-    'sources', metavar='source', help='source file', nargs='+')
+    '-E', action='store_true', default=False,
+    help="Stop after preprocessing")
+cc_parser.add_argument(
+    '-c', action="store_true", default=False,
+    help="Compile, but do not link")
+cc_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+',
+    type=argparse.FileType('r'))
 
 
 def cc(args=None):
     """ Run c compile task """
     args = cc_parser.parse_args(args)
-    with LogSetup(args):
+    with LogSetup(args) as log_setup:
         # Compile sources:
         march = get_arch_from_args(args)
+        coptions = COptions()
+        coptions.process_args(args)
+
         for src in args.sources:
-            obj = api.cc(src, march)
+            if args.E:
+                api.preprocess(src, args.output, coptions)
+            else:
+                obj = api.cc(
+                    src, march, coptions=coptions,
+                    reporter=log_setup.reporter)
 
-        # TODO: link objects together?
+                if args.c:
+                    # Write object file to disk:
+                    obj.save(args.output)
+                    args.output.close()
+                else:
+                    # TODO: link objects together?
+                    logging.warning('TODO: Linking with stdlibs')
+                    obj.save(args.output)
+                    args.output.close()
+                    # raise NotImplementedError('Linking not implemented')
 
-        # Write object file to disk:
-        obj.save(args.output)
-        args.output.close()
+
+pascal_description = """ Pascal compiler.
+
+Compile pascal programs.
+"""
+pascal_parser = argparse.ArgumentParser(
+    description=pascal_description,
+    parents=[base_parser, march_parser, out_parser])
+pascal_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+')
+pascal_parser.add_argument(
+    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
+
+
+def pascal(args=None):
+    """ Pascal compiler """
+    args = pascal_parser.parse_args(args)
+    with LogSetup(args) as log_setup:
+        # Compile sources:
+        march = get_arch_from_args(args)
+        obj = api.pascal(args.sources, march, reporter=log_setup.reporter)
+
+        if args.output:
+            # Write object file to disk:
+            obj.save(args.output)
+            args.output.close()
+        else:
+            from .runtime import create_linux_exe
+            my_system = platform.system()
+            if my_system == 'Linux':
+                entry_function_name = 'hello1_hello1_main'
+                create_linux_exe(entry_function_name, 'w00t', obj)
+            else:
+                raise CompilerError('System %s not supported' % my_system)
 
 
 llc_description = """ LLVM static compiler. """
@@ -494,8 +560,15 @@ class LogSetup:
         if self.args.report:
             self.file_handler = logging.StreamHandler(self.args.report)
             self.logger.addHandler(self.file_handler)
+
+        if self.args.html_report:
+            self.reporter = HtmlReportGenerator(self.args.html_report)
+            self.reporter.header()
+        else:
+            self.reporter = DummyReportGenerator()
         self.logger.debug('Loggers attached')
         self.logger.info(version_text)
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         # Check if a task error was raised:
@@ -506,13 +579,13 @@ class LogSetup:
             err = False
 
         if isinstance(exc_value, CompilerError):
-            self.logger.error(str(exc_value))
+            self.logger.error(str(exc_value.msg))
             self.logger.error(str(exc_value.loc))
             exc_value.print()
 
         if exc_value is not None:
             # Exception happened, close file and remove
-            if hasattr(self.args, 'output'):
+            if hasattr(self.args, 'output') and self.args.output:
                 self.args.output.close()
                 if hasattr(self.args.output, 'name'):
                     filename = self.args.output.name
@@ -522,6 +595,10 @@ class LogSetup:
         if self.args.report:
             self.logger.removeHandler(self.file_handler)
             self.args.report.close()
+
+        if self.args.html_report:
+            self.reporter.footer()
+            self.args.html_report.close()
 
         self.logger.removeHandler(self.console_handler)
 

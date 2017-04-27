@@ -12,7 +12,7 @@ from .instructions import RmMem, RmMemDisp, RmReg, RmAbs, MovAdr
 from .instructions import Jb, Jae, NearJump
 from .instructions import SubImm, AddImm
 from .registers import XmmRegister, X86Register, rsp
-from ..arch import ArtificialInstruction
+from ..generic_instructions import ArtificialInstruction
 
 sse1_isa = Isa()
 sse2_isa = Isa()

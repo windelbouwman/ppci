@@ -1,0 +1,13 @@
+
+language: python
+
+python:
+  - "3.4"
+  - "3.6"
+
+install:
+  - pip -q install tox codacy-coverage
+
+script:
+  - tox -e py3,cover,flake8
+  - python-codacy-coverage -r coverage.xml

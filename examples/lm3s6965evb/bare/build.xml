@@ -1,6 +1,6 @@
 
 <project name="Userspace" default="m3bare">
-    <import name="ppci.buildtasks" />
+    <import name="ppci.build.buildtasks" />
 
    <target name="m3bare">
          <assemble

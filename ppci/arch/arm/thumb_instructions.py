@@ -2,7 +2,7 @@
 
 from ..encoding import Instruction, Operand, Syntax
 from ..token import u16
-from ..arm.registers import ArmRegister, LowArmRegister
+from .registers import ArmRegister, LowArmRegister, R7
 from .thumb_relocations import Lit8Relocation, WrapNew11Relocation
 from .thumb_relocations import BImm11Imm6Relocation
 from .thumb_relocations import Rel8Relocation, BlImm11Relocation
@@ -56,14 +56,16 @@ class LS_imm5_base(ThumbInstruction):
 class Str2(LS_imm5_base):
     rt = Operand('rt', LowArmRegister, read=True)
     syntax = Syntax([
-        'str', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
+        'str', ' ', rt, ',', '[', LS_imm5_base.rn,
+        ',', ' ', LS_imm5_base.imm5, ']'])
     opcode = 0xC
 
 
 class Ldr2(LS_imm5_base):
     rt = Operand('rt', LowArmRegister, write=True)
     syntax = Syntax([
-        'ldr', rt, ',', '[', LS_imm5_base.rn, ',', LS_imm5_base.imm5, ']'])
+        'ldr', ' ', rt, ',', ' ', '[', LS_imm5_base.rn,
+        ',', ' ', LS_imm5_base.imm5, ']'])
     opcode = 0xD
 
 
@@ -483,7 +485,7 @@ def pop_bit_pos(n):
 
 class Push(ThumbInstruction):
     regs = Operand('regs', set)
-    syntax = Syntax(['push', regs])
+    syntax = Syntax(['push', ' ', regs])
 
     def __repr__(self):
         return 'Push {{{}}}'.format(self.regs)
@@ -503,7 +505,7 @@ def register_numbers(regs):
 
 class Pop(ThumbInstruction):
     regs = Operand('regs', set)
-    syntax = Syntax(['pop', regs])
+    syntax = Syntax(['pop', ' ', regs])
 
     def __repr__(self):
         return 'Pop {{{}}}'.format(self.regs)
@@ -573,47 +575,47 @@ class SubSp(addspsp_base):
 ###############
 
 @thumb_isa.pattern('stm', 'STRI32(reg, reg)', size=1)
-def pattern_str32(self, tree, c0, c1):
-    self.emit(Str2(c1, c0, 0))
+def pattern_str32(context, tree, c0, c1):
+    context.emit(Str2(c1, c0, 0))
 
 
 @thumb_isa.pattern('stm', 'JMP', size=2)
-def pattern_jmp(self, tree):
+def pattern_jmp(context, tree):
     label = tree.value
-    self.emit(Bw(label.name, jumps=[label]))
+    context.emit(Bw(label.name, jumps=[label]))
 
 
 @thumb_isa.pattern('reg', 'REGI32', size=0)
 @thumb_isa.pattern('reg', 'REGU32', size=0)
 @thumb_isa.pattern('reg', 'REGU8', size=0)
 @thumb_isa.pattern('reg', 'REGI8', size=0)
-def pattern_reg32(self, tree):
+def pattern_reg32(context, tree):
     return tree.value
 
 
 @thumb_isa.pattern('reg', 'I32TOI32(reg)', size=0)
-def pattern_i32toi32(self, tree, c0):
+def pattern_i32toi32(context, tree, c0):
     return c0
 
 
 @thumb_isa.pattern('reg', 'I8TOI32(reg)', size=0)
 @thumb_isa.pattern('reg', 'U8TOI32(reg)', size=0)
-def pattern_i8toi32(self, tree, c0):
+def pattern_i8toi32(context, tree, c0):
     # TODO: do something?
     return c0
 
 
 @thumb_isa.pattern('reg', 'I32TOI8(reg)', size=0)
 @thumb_isa.pattern('reg', 'I32TOU8(reg)', size=0)
-def pattern_i32toi8(self, tree, c0):
+def pattern_i32toi8(context, tree, c0):
     # TODO: do something?
     return c0
 
 
 @thumb_isa.pattern('reg', 'ADDI32(reg,reg)', size=1)
-def _(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.emit(Add3(d, c0, c1))
+def _(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.emit(Add3(d, c0, c1))
     return d
 
 
@@ -629,6 +631,39 @@ def pattern_label(context, tree):
     d = context.new_reg(LowArmRegister)
     ln = context.frame.add_constant(tree.value)
     context.emit(Ldr3(d, ln))
+    return d
+
+
+@thumb_isa.pattern(
+    'reg', 'FPRELI32', size=9, cycles=9)
+def pattern_fprel32(context, tree):
+    d = context.new_reg(LowArmRegister)
+    c1 = tree.value
+    if c1 >= 0:
+        if c1 < 8:
+            context.emit(Add2(d, R7, c1))
+        elif c1 < 256:
+            d2 = context.new_reg(LowArmRegister)
+            context.emit(Mov3(d2, c1))
+            context.emit(Add3(d, R7, d2))
+        else:
+            d2 = context.new_reg(LowArmRegister)
+            ln = context.frame.add_constant(c1)
+            context.emit(Ldr3(d2, ln))
+            context.emit(Add3(d, R7, d2))
+    else:
+        c1 = -c1
+        if c1 < 8:
+            context.emit(Sub2(d, R7, c1))
+        elif c1 < 256:
+            d2 = context.new_reg(LowArmRegister)
+            context.emit(Mov3(d2, c1))
+            context.emit(Sub3(d, R7, d2))
+        else:
+            d2 = context.new_reg(LowArmRegister)
+            ln = context.frame.add_constant(c1)
+            context.emit(Ldr3(d2, ln))
+            context.emit(Sub3(d, R7, d2))
     return d
 
 
@@ -714,9 +749,9 @@ def pattern_ldr8(context, tree, c0):
 
 @thumb_isa.pattern('reg', 'LDRI32(reg)', size=2)
 @thumb_isa.pattern('reg', 'LDRU32(reg)', size=2)
-def pattern_ldr32(self, tree, c0):
-    d = self.new_reg(LowArmRegister)
-    self.emit(Ldr2(d, c0, 0))
+def pattern_ldr32(context, tree, c0):
+    d = context.new_reg(LowArmRegister)
+    context.emit(Ldr2(d, c0, 0))
     return d
 
 
@@ -726,93 +761,93 @@ def pattern_call(context, tree):
 
 
 @thumb_isa.pattern('reg', 'SUBI32(reg,reg)', size=2)
-def pattern_sub32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.emit(Sub3(d, c0, c1))
+def pattern_sub32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.emit(Sub3(d, c0, c1))
     return d
 
 
 @thumb_isa.pattern(
     'reg', 'SUBI32(reg,CONSTI32)', size=2,
     condition=lambda x: x.children[1].value in range(8))
-def pattern_sub32_imm3(self, tree, c0):
-    d = self.new_reg(LowArmRegister)
+def pattern_sub32_imm3(context, tree, c0):
+    d = context.new_reg(LowArmRegister)
     c1 = tree.children[1].value
-    self.emit(Sub2(d, c0, c1))
+    context.emit(Sub2(d, c0, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'SUBI8(reg,reg)', size=2)
-def pattern_sub8(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.emit(Sub3(d, c0, c1))
+def pattern_sub8(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.emit(Sub3(d, c0, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
-def pattern_shr32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.move(d, c0)
-    self.emit(Lsr(d, c1))
+def pattern_shr32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
+    context.emit(Lsr(d, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
-def pattern_or32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.move(d, c0)
-    self.emit(Orr(d, c1))
+def pattern_or32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
+    context.emit(Orr(d, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
-def pattern_and32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.move(d, c0)
-    self.emit(And(d, c1))
+def pattern_and32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
+    context.emit(And(d, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
-def pattern_shl32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.move(d, c0)
-    self.emit(Lsl(d, c1))
+def pattern_shl32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
+    context.emit(Lsl(d, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'MULI32(reg, reg)', size=5)
-def pattern_mul32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.move(d, c0)
+def pattern_mul32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
     # Attention: multiply takes the second argument as use and def:
-    self.emit(Mul(c1, d))
+    context.emit(Mul(c1, d))
     return d
 
 
 @thumb_isa.pattern('reg', 'DIVI32(reg, reg)', size=10)
-def pattern_div32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.emit(Sdiv(d, c0, c1))
+def pattern_div32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.emit(Sdiv(d, c0, c1))
     return d
 
 
 @thumb_isa.pattern('reg', 'REMI32(reg, reg)', size=6, cycles=10, energy=5)
-def pattern_rem32(self, tree, c0, c1):
-    d2 = self.new_reg(LowArmRegister)
-    self.emit(Sdiv(d2, c0, c1))
+def pattern_rem32(context, tree, c0, c1):
+    d2 = context.new_reg(LowArmRegister)
+    context.emit(Sdiv(d2, c0, c1))
     # Multiply result by divider:
-    self.emit(Mul(c1, d2))
+    context.emit(Mul(c1, d2))
 
     # Substract from divident:
-    d = self.new_reg(LowArmRegister)
-    self.emit(Sub3(d, c0, d2))
+    d = context.new_reg(LowArmRegister)
+    context.emit(Sub3(d, c0, d2))
     return d
 
 
 @thumb_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
-def pattern_xor32(self, tree, c0, c1):
-    d = self.new_reg(LowArmRegister)
-    self.move(d, c0)
-    self.emit(Eor(d, c1))
+def pattern_xor32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
+    context.emit(Eor(d, c1))
     return d

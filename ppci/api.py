@@ -4,16 +4,21 @@ The api module contains a set of handy functions to invoke compilation,
 linking and assembling.
 """
 
+import io
 import logging
 import os
+import platform
 import stat
 import xml
 from .arch.arch import Architecture
-from .lang.c import CBuilder
+from .lang.c import CBuilder, CPreProcessor, COptions
+from .lang.c.preprocessor import CTokenPrinter
 from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
 from .lang.llvmir import LlvmIrFrontend
+from .lang.pascal import PascalBuilder
+from .lang.ws import WhitespaceGenerator
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -36,8 +41,8 @@ from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
 from .utils.ir2py import IrToPython
-from .tasks import TaskError, TaskRunner
-from .recipe import RecipeLoader
+from .build.tasks import TaskError, TaskRunner
+from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
 from .arch.target_list import create_arch
 
@@ -49,16 +54,18 @@ __all__ = [
 
 def get_arch(arch):
     """ Try to return an architecture instance.
-        arch can be a string in the form of arch:option1:option2
 
-        .. doctest::
+    Args:
+        arch: can be a string in the form of arch:option1:option2
 
-            >>> from ppci.api import get_arch
-            >>> arch = get_arch('msp430')
-            >>> arch
-            msp430-arch
-            >>> type(arch)
-            <class 'ppci.arch.msp430.arch.Msp430Arch'>
+    .. doctest::
+
+        >>> from ppci.api import get_arch
+        >>> arch = get_arch('msp430')
+        >>> arch
+        msp430-arch
+        >>> type(arch)
+        <class 'ppci.arch.msp430.arch.Msp430Arch'>
     """
     if isinstance(arch, Architecture):
         return arch
@@ -70,6 +77,14 @@ def get_arch(arch):
         else:
             return create_arch(arch)
     raise TaskError('Invalid architecture {}'.format(arch))
+
+
+def get_current_platform():
+    """ Try to get a platform for the current platform """
+    machine = platform.machine()
+    # system = platform.system()
+    arch = get_arch(machine)
+    return arch
 
 
 def get_file(f, mode='r'):
@@ -195,22 +210,25 @@ def disasm(data, march):
     disassembler.disasm(data, ostream)
 
 
-def c3toir(sources, includes, march, reporter=None):
+def c3toir(sources, includes, march, reporter=None, debug_db=None):
     """ Compile c3 sources to ir-code for the given architecture. """
     logger = logging.getLogger('c3c')
     march = get_arch(march)
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
+    if not debug_db:  # pragma: no cover
+        debug_db = DebugDb()
+
     logger.debug('C3 compilation started')
     reporter.heading(2, 'c3 compilation')
     sources = [get_file(fn) for fn in sources]
     includes = [get_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = C3Builder(diag, march)
+    c3b = C3Builder(diag, march, debug_db)
 
     try:
-        _, ir_modules, debug_info = c3b.build(sources, includes)
+        _, ir_modules = c3b.build(sources, includes)
         for ircode in ir_modules:
             Verifier().verify(ircode)
     except CompilerError as ex:
@@ -223,7 +241,7 @@ def c3toir(sources, includes, march, reporter=None):
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
-    return ir_modules, debug_info
+    return ir_modules
 
 
 OPT_LEVELS = ('0', '1', '2', 's')
@@ -347,14 +365,31 @@ def ir_to_python(ir_modules, f, reporter=None):
         generator.generate(ir_module)
 
 
-def cc(source, march, reporter=None):
+def preprocess(f, output_file, coptions=None):
+    """ Pre-process a file into the other file. """
+    if coptions is None:
+        coptions = COptions()
+    preprocessor = CPreProcessor(coptions)
+    filename = f.name if hasattr(f, 'name') else None
+    tokens = preprocessor.process(f, filename=filename)
+    CTokenPrinter().dump(tokens, file=output_file)
+
+
+def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
     """ C compiler. compiles a single source file into an object file """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
+    if not coptions:
+        coptions = COptions()
     march = get_arch(march)
-    cbuilder = CBuilder(march)
-    cbuilder.build(source)
-    raise NotImplementedError('TODO')
+    cbuilder = CBuilder(march, coptions)
+    assert isinstance(source, io.TextIOBase)
+    if hasattr(source, 'name'):
+        filename = getattr(source, 'name')
+    else:
+        filename = None
+    ir_module = cbuilder.build(source, filename)
+    return ir_to_object([ir_module], march, reporter=reporter)
 
 
 def llvm_to_ir(source):
@@ -398,8 +433,9 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     march = get_arch(march)
-    ir_modules, debug_db = \
-        c3toir(sources, includes, march, reporter=reporter)
+    debug_db = DebugDb()
+    ir_modules = \
+        c3toir(sources, includes, march, reporter=reporter, debug_db=debug_db)
 
     for ircode in ir_modules:
         optimize(ircode, level=opt_level, reporter=reporter)
@@ -411,11 +447,39 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
         opt=opt_cg)
 
 
+def pascal(sources, march, opt_level=0, reporter=None):
+    """ Compile a set of pascal-sources for the given target.
+
+    Args:
+        sources: a collection of sources that will be compiled.
+        march: the architecture for which to compile.
+
+    Returns:
+        An object file
+    """
+    diag = DiagnosticsManager()
+    march = get_arch(march)
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
+    debug_db = DebugDb()
+    pascal_builder = PascalBuilder(diag, march, debug_db)
+
+    sources = [get_file(fn) for fn in sources]
+    ir_modules = pascal_builder.build(sources)
+
+    return ir_to_object(ir_modules, march, reporter=reporter)
+
+
 def bf2ir(source, target):
     """ Compile brainfuck source into ir code """
     target = get_arch(target)
     ircode = BrainFuckGenerator(target).generate(source)
     return ircode
+
+
+def ws2ir(source):
+    """ Compile whitespace source """
+    WhitespaceGenerator().compile(source)
 
 
 def fortran_to_ir(source):
@@ -466,7 +530,6 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 
 def llvmir2ir():
     """ Parse llvm IR-code into a ppci ir-module """
-    from .lang.llvmir import LlvmIrFrontend
     return LlvmIrFrontend().compile()
 
 
@@ -519,7 +582,7 @@ def link(
     return output_obj
 
 
-def objcopy(obj, image_name, fmt, output_filename):
+def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
     """ Copy some parts of an object file to an output """
     fmts = ['bin', 'hex', 'elf', 'exe', 'ldb']
     if fmt not in fmts:
@@ -557,9 +620,10 @@ def objcopy(obj, image_name, fmt, output_filename):
 
 def write_ldb(obj, output_file):
     """ Export debug info from object to ldb format.
-        See for example:
-        - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
-          x32-debug/ex2.dbg
+
+    See for example:
+    - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
+      x32-debug/ex2.dbg
     """
     def fx(address):
         assert isinstance(address, DebugAddress)

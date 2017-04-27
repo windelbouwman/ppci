@@ -1,6 +1,4 @@
 
-
-
 Compiler internals
 ==================
 
@@ -38,9 +36,11 @@ The compiler is greatly influenced by the `LLVM`_ design.
 .. toctree::
 
     compiler/frontends
+    compiler/c
     compiler/backend
     compiler/optimization
     compiler/specificationlang
+    compiler/hardware
 
 
 

@@ -117,7 +117,7 @@ from functools import lru_cache
 from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
-from ..arch.arch import Architecture
+from ..arch.arch import Architecture, Frame
 from ..arch.registers import Register
 from ..utils.tree import Tree
 from .instructionselector import ContextInterface
@@ -177,11 +177,11 @@ class MiniGen:
         return ctx.l
 
     def make_at(self, offset):
-        bitsize = self.arch.fp.bitsize
-        offset_tree = Tree(
-            'ADDI{}'.format(bitsize),
-            Tree('REGI{}'.format(bitsize), value=self.arch.fp),
-            Tree('CONSTI{}'.format(bitsize), value=offset))
+        bitsize = self.arch.byte_sizes['ptr'] * 8
+        offset_tree = Tree('FPRELI{}'.format(bitsize), value=offset)
+        # 'ADDI{}'.format(bitsize),
+        #    Tree('REGI{}'.format(bitsize), value=self.arch.fp),
+        #    Tree('CONSTI{}'.format(bitsize), value=offset))
         return offset_tree
 
 
@@ -194,6 +194,7 @@ class GraphColoringRegisterAllocator:
     Also the pq-test algorithm for more register classes is added.
     """
     logger = logging.getLogger('regalloc')
+    verbose = False  # Set verbose to True to get more logging info
 
     def __init__(self, arch: Architecture, instruction_selector, debug_db):
         assert isinstance(arch, Architecture), arch
@@ -203,12 +204,14 @@ class GraphColoringRegisterAllocator:
 
         # Register information:
         # TODO: Improve different register classes
-        self.K = {}
+        self.K = {}  # type: Dict[Register, int]
         self.cls_regs = {}  # Mapping from class to register set
         self.alias = defaultdict(set)
         for reg_class in self.arch.register_classes:
             kls, regs = reg_class.typ, reg_class.registers
-            self.logger.debug('Register class "%s" contains %s', kls, regs)
+            if self.verbose:
+                self.logger.debug('Register class "%s" contains %s', kls, regs)
+
             self.K[kls] = len(regs)
             self.cls_regs[kls] = set(regs)
             for r in regs:
@@ -217,7 +220,7 @@ class GraphColoringRegisterAllocator:
                     self.alias[r].add(r2)
                     self.alias[r2].add(r)
 
-    def alloc_frame(self, frame):
+    def alloc_frame(self, frame: Frame):
         """ Do iterated register allocation for a single frame.
 
         This is the entry function for the register allocator and drives
@@ -295,7 +298,9 @@ class GraphColoringRegisterAllocator:
         # Divide nodes into categories:
         for node in self.frame.ig.nodes:
             if node.is_colored:
-                self.logger.debug('Pre colored: %s', node)
+                if self.verbose:
+                    self.logger.debug('Pre colored: %s', node)
+
                 self.precolored.add(node)
             elif not self.is_colorable(node):
                 self.spill_worklist.append(node)
@@ -338,8 +343,10 @@ class GraphColoringRegisterAllocator:
         B_regs = self.cls_regs[B]
         C_regs = self.cls_regs[C]
         x = max(len(self.alias[r] & B_regs) for r in C_regs)
-        self.logger.debug(
-            'Class %s register can block max %s class %s register', C, x, B)
+        if self.verbose:
+            self.logger.debug(
+                'Class %s register can block max %s class %s register',
+                C, x, B)
         return x
 
     def is_colorable(self, node):
@@ -373,7 +380,9 @@ class GraphColoringRegisterAllocator:
         """ Remove nodes from the graph """
         n = self.simplify_worklist.pop()
         self.select_stack.append(n)
-        self.logger.debug('Simplify node %s', n)
+
+        if self.verbose:
+            self.logger.debug('Simplify node %s', n)
 
         # Pop out of graph, we place it back later:
         self.frame.ig.mask_node(n)
@@ -413,12 +422,15 @@ class GraphColoringRegisterAllocator:
         x = self.node(m.defined_registers[0])
         y = self.node(m.used_registers[0])
         u, v = (y, x) if y in self.precolored else (x, y)
-        self.logger.debug('Coalescing %s which couples %s and %s', m, u, v)
+        if self.verbose:
+            self.logger.debug('Coalescing %s which couples %s and %s', m, u, v)
+
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
             self.add_worklist(u)
-            self.logger.debug('Move was an identity move')
+            if self.verbose:
+                self.logger.debug('Move was an identity move')
         elif (v in self.precolored) or self.has_edge(u, v):
             # Both u and v are precolored
             # or there is an interfering edge
@@ -426,7 +438,8 @@ class GraphColoringRegisterAllocator:
             self.constrainedMoves.add(m)
             self.add_worklist(u)
             self.add_worklist(v)
-            self.logger.debug('Move is constrained!')
+            if self.verbose:
+                self.logger.debug('Move is constrained!')
         elif (u.is_colored and issubclass(u.reg_class, v.reg_class) and
                 all(self.ok(t, u) for t in v.adjecent)) or \
                 ((not u.is_colored) and self.conservative(u, v)):
@@ -471,14 +484,18 @@ class GraphColoringRegisterAllocator:
 
     def combine(self, u, v):
         """ Combine u and v into one node, updating work lists """
-        self.logger.debug('Combining %s and %s', u, v)
+        if self.verbose:
+            self.logger.debug('Combining %s and %s', u, v)
+
         if v in self.freeze_worklist:
             self.freeze_worklist.remove(v)
         else:
             self.spill_worklist.remove(v)
         self.frame.ig.combine(u, v)
         u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
-        self.logger.debug('Combined node: %s', u)
+
+        if self.verbose:
+            self.logger.debug('Combined node: %s', u)
 
         # See if any adjecent nodes dropped in degree by merging u and v
         # This can happen when u and v both interfered with t.
@@ -501,7 +518,10 @@ class GraphColoringRegisterAllocator:
             raise RuntimeError(
                 'Cannot determine common registerclass for {} and {}'.format(
                     u, v))
-        self.logger.debug('The common class of %s and %s is %s', u, v, cc)
+
+        if self.verbose:
+            self.logger.debug('The common class of %s and %s is %s', u, v, cc)
+
         return cc
 
     def freeze(self):
@@ -509,7 +529,9 @@ class GraphColoringRegisterAllocator:
             and freeze all moves associated with it.
         """
         u = self.freeze_worklist.pop()
-        self.logger.debug('freezing %s', u)
+        if self.verbose:
+            self.logger.debug('freezing %s', u)
+
         self.simplify_worklist.append(u)
 
         # Freeze moves for node u
@@ -554,7 +576,9 @@ class GraphColoringRegisterAllocator:
     def rewrite_program(self, node):
         """ Rewrite program by creating a load and a store for each use """
         # Generate spill code:
-        self.logger.debug('Placing %s on stack', node)
+        if self.verbose:
+            self.logger.debug('Placing %s on stack', node)
+
         size = node.reg_class.bitsize // 8
         offset = self.frame.alloc(size)
         self.logger.debug('Allocating %s bytes at offset %s', size, offset)
@@ -585,7 +609,10 @@ class GraphColoringRegisterAllocator:
             ok_regs = self.cls_regs[node.reg_class] - takenregs
             assert ok_regs
             reg = first(ok_regs)
-            self.logger.debug('Assign %s to node %s', reg, node)
+
+            if self.verbose:
+                self.logger.debug('Assign %s to node %s', reg, node)
+
             node.reg = reg
 
     def remove_redundant_moves(self):

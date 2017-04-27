@@ -434,7 +434,7 @@ all_types = value_types + [ptr]
 
 class Value(Instruction):
     """ An instruction that results in a value has a type and a name """
-    def __init__(self, name, ty):
+    def __init__(self, name: str, ty: Typ):
         super().__init__()
         assert isinstance(ty, Typ)
         assert isinstance(name, str)

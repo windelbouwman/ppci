@@ -6,7 +6,7 @@ from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
 from .tokens import RiscvcToken
 from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
-from ..arch import ArtificialInstruction
+from ..generic_instructions import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
 from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne
 

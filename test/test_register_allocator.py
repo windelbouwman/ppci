@@ -29,7 +29,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         self.assertNotEqual(reg_a, reg_b)
 
     def test_register_allocation(self):
-        f = Frame('tst', [], [], None, [])
+        f = Frame('tst')
         t1 = ExampleRegister('t1')
         t2 = ExampleRegister('t2')
         t3 = ExampleRegister('t3')
@@ -47,7 +47,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
 
     def test_register_coalescing(self):
         """ Register coalescing happens when a move can be eliminated """
-        f = Frame('tst', [], [], None, [])
+        f = Frame('tst')
         t1 = ExampleRegister('t1')
         t2 = ExampleRegister('t2')
         t3 = ExampleRegister('t3')
@@ -75,7 +75,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
 
             The move can then not be coalesced, and will be frozen.
         """
-        f = Frame('tst', [], [], None, [])
+        f = Frame('tst')
         t1 = R0
         t2 = R0
         t3 = ExampleRegister('t3')
@@ -100,7 +100,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
 
     def test_constrained_move_by_alias(self):
         """ Test if aliased registers work and cannot be coalesced. """
-        f = Frame('tst', [], [], None, [])
+        f = Frame('tst')
         t1 = R10
         t2 = R10l
         t3 = ExampleRegister('t3')
@@ -126,7 +126,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
     def test_freeze(self):
         """ Create a situation where no select and no coalesc is possible
         """
-        f = Frame('tst', [], [], None, [])
+        f = Frame('tst')
         t4 = ExampleRegister('t4')
         t5 = ExampleRegister('t5')
         f.instructions.append(Def(R0))

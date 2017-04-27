@@ -1,19 +1,23 @@
+init:
+  - set PATH=c:\Python36-x64;C:\Python36-x64\Scripts;%PATH%
+
 environment:
-  matrix:
-  - PYTHON: "C:\\Python35"
-  - PYTHON: "C:\\Python35-x64"
+  CODECOV_TOKEN:
+    secure: f67nOyITJWX7wE2ASpCKz/JOXLd89y5YnDdwmQW+Fs3DEVUBN47DjpKQN3QT0L2G
 
 install:
-  - "%PYTHON%\\python.exe -m pip -q install tox wheel"
+  - pip -q install tox wheel codecov"
 
 build: off
 
 test_script:
-  - "%PYTHON%\\python.exe -m tox -e py33,py34,py35,ut"
-  - ps: (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
+  - tox -e cover
 
 after_test:
-  - "%PYTHON%\\python.exe setup.py -q sdist bdist_wheel bdist_msi bdist_wininst"
+  - python setup.py -q sdist bdist_wheel bdist_msi bdist_wininst
+  - ps: (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
+  - ps: $env:APPVEYOR_REPO_COMMIT = (hg parent --template '{node}') | Out-String
+  - codecov
 
 artifacts:
   - path: dist\*

@@ -6,9 +6,11 @@ The architecture is provided when the generator is created.
 import logging
 from .. import ir
 from ..irutils import Verifier, split_block
-from ..arch.arch import Architecture, VCall, Label, Comment
-from ..arch.arch import RegisterUseDef, VirtualInstruction, DebugData
-from ..arch.arch import ArtificialInstruction
+from ..arch.arch import Architecture
+from ..arch.generic_instructions import VCall, Label, Comment, DebugData
+from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
+from ..arch.generic_instructions import ArtificialInstruction
+from ..arch.generic_instructions import VSaveRegisters, VRestoreRegisters
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import Ds, Db
 from ..binutils.debuginfo import DebugType, DebugLocation
@@ -117,7 +119,7 @@ class CodeGenerator:
         self.select_and_schedule(ir_function, frame, reporter)
 
         # Define arguments live at first instruction:
-        self.define_arguments_live(frame)
+        # self.define_arguments_live(frame)
 
         reporter.dump_frame(frame)
 
@@ -202,7 +204,15 @@ class CodeGenerator:
                     # We now know what variables are live at this point
                     # and possibly need to be saved.
                     output_stream.emit_all(
-                        self.arch.make_call(frame, instruction))
+                        self.arch.gen_call(frame, instruction))
+                elif isinstance(instruction, VSaveRegisters):
+                    regs = frame.live_regs_over(instruction.vcall)
+                    output_stream.emit_all(
+                        self.arch.gen_save_registers(regs))
+                elif isinstance(instruction, VRestoreRegisters):
+                    regs = frame.live_regs_over(instruction.vcall)
+                    output_stream.emit_all(
+                        self.arch.gen_restore_registers(regs))
                 elif isinstance(instruction, RegisterUseDef):
                     pass
                 elif isinstance(instruction, ArtificialInstruction):

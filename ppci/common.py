@@ -37,7 +37,7 @@ class Token:
     def __init__(self, typ, val, loc):
         self.typ = typ
         self.val = val
-        assert type(loc) is SourceLocation
+        assert isinstance(loc, SourceLocation)
         self.loc = loc
 
     def __repr__(self):
@@ -75,15 +75,24 @@ class SourceLocation:
         else:
             return "Could not load source"
 
-    def print_message(self, message, lines=None):
+    def print_message(self, message, lines=None, filename=None):
         """ Print a message at this location in the given source lines """
         if lines is None:
             with open(self.filename, 'r') as f:
                 src = f.read()
             lines = src.splitlines()
+
+        # Print filename:
+        if filename is None:
+            filename = self.filename
+        if filename:
+            print('File : "{}"'.format(filename))
+
+        # Print relevant lines:
         prerow = self.row - 2
         if prerow < 1:
             prerow = 1
+
         afterrow = self.row + 3
         if afterrow > len(lines):
             afterrow = len(lines)
@@ -106,10 +115,11 @@ SourceRange = namedtuple('SourceRange', ['p1', 'p2'])
 
 class CompilerError(Exception):
     def __init__(self, msg, loc=None):
+        super().__init__()
         self.msg = msg
         self.loc = loc
         if loc:
-            assert type(loc) is SourceLocation, \
+            assert isinstance(loc, SourceLocation), \
                    '{0} must be SourceLocation'.format(type(loc))
 
     def __repr__(self):
@@ -121,7 +131,10 @@ class CompilerError(Exception):
 
     def print(self):
         """ Print the error inside some nice context """
-        self.loc.print_message(self.msg)
+        if self.loc:
+            self.loc.print_message(self.msg)
+        else:
+            print(self.msg)
 
 
 class IrFormError(CompilerError):
@@ -140,13 +153,13 @@ class DiagnosticsManager:
 
     def add_source(self, name, src):
         """ Add a source for error reporting """
-        self.logger.debug('Adding source, filename="{}"'.format(name))
+        self.logger.debug('Adding source, filename="%s"', name)
         self.sources[name] = src
 
     def add_diag(self, d):
         """ Add a diagnostic message """
         if d.loc:
-            self.logger.error('Line {}: {}'.format(d.loc.row, d.msg))
+            self.logger.error('Line %s: %s', d.loc.row, d.msg)
         else:
             self.logger.error(str(d.msg))
         self.diags.append(d)

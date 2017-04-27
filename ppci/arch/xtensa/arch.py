@@ -1,15 +1,17 @@
 
 import io
 from ...binutils.assembler import BaseAssembler
-from ..arch import Architecture, Label, Alignment
+from ..arch import Architecture
+from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from .registers import register_classes
+from .registers import register_classes, Register
 from . import registers
 from . import instructions
 from ... import ir
 
 
 class XtensaArch(Architecture):
+    """ Xtensa architecture implementation. """
     name = 'xtensa'
 
     def __init__(self, options=None):
@@ -34,7 +36,6 @@ class XtensaArch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         arg_locs = []
-        live_in = set([self.fp])
         int_regs = [
             registers.a2, registers.a3, registers.a4, registers.a5,
             registers.a6]
@@ -45,43 +46,52 @@ class XtensaArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError(str(arg_type))
             arg_locs.append(reg)
-            live_in.add(reg)
-        return arg_locs, tuple(live_in)
+        return arg_locs
 
     def determine_rv_location(self, ret_type):
         """ return value in a2 """
         # TODO: what is the frame pointer??
-        live_out = set([self.fp])
         if ret_type in [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr]:
             rv = registers.a2
         else:  # pragma: no cover
             raise NotImplementedError(str(ret_type))
-        live_out.add(rv)
-        return rv, tuple(live_out)
+        return rv
 
-    def gen_fill_arguments(self, arg_types, args, live):
+    def gen_fill_arguments(self, arg_types, args):
         """ This function moves arguments in the proper locations. """
-        arg_locs, live_in = self.determine_arg_locations(arg_types)
-        live.update(set(live_in))
+        arg_locs = self.determine_arg_locations(arg_types)
 
-        # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
             if isinstance(arg_loc, registers.AddressRegister):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
-    def make_call(self, frame, vcall):
-        live_regs = frame.live_regs_over(vcall)
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(uses=arg_regs)
 
-        # Caller save registers:
-        for register in live_regs:
+    def gen_extract_arguments(self, arg_types, args):
+        """ This function extracts arguments from the proper locations. """
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(defs=arg_regs)
+
+        for arg_loc, arg in zip(arg_locs, args):
+            if isinstance(arg_loc, registers.AddressRegister):
+                yield self.move(arg, arg_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_save_registers(self, registers):
+        for register in registers:
             yield instructions.Push(register)
 
+    def gen_call(self, frame, vcall):
         yield instructions.Call0(vcall.function_name)
 
-        # Restore caller save registers:
-        for register in reversed(live_regs):
+    def gen_restore_registers(self, registers):
+        for register in reversed(registers):
             yield instructions.Pop(register)
 
     def gen_prologue(self, frame):
@@ -110,29 +120,29 @@ class XtensaArch(Architecture):
         # Save frame pointer:
         yield instructions.Push(self.fp)
 
+        # Reserve stack space
+        if frame.stacksize > 0:
+            # Prepare frame pointer:
+            yield self.move(self.fp, registers.a1)
+
+            size = -round_up(frame.stacksize)
+            yield instructions.Addi(registers.a1, registers.a1, size)
+
         # Callee save registers:
         for reg in self.callee_save:
             if frame.is_used(reg):
                 yield instructions.Push(reg)
 
-        # Reserve stack space
-        if frame.stacksize > 0:
-            size = -round_up(frame.stacksize)
-            yield instructions.Addi(registers.a1, registers.a1, size)
-
-            # Prepare frame pointer:
-            yield self.move(self.fp, registers.a1)
-
     def gen_epilogue(self, frame):
         """ Return epilogue sequence """
-        if frame.stacksize > 0:
-            size = round_up(frame.stacksize)
-            yield instructions.Addi(registers.a1, registers.a1, size)
-
         # Pop save registers back:
         for reg in reversed(self.callee_save):
             if frame.is_used(reg):
                 yield instructions.Pop(reg)
+
+        if frame.stacksize > 0:
+            size = round_up(frame.stacksize)
+            yield instructions.Addi(registers.a1, registers.a1, size)
 
         yield instructions.Pop(self.fp)
 

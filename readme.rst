@@ -3,7 +3,9 @@ Introduction
 ============
 
 The ppci (pure python compiler infrastructure) project is a compiler
-written entirely in python.
+written entirely in python. It contains language front-ends as well
+as machine code generation functionality. With this library you can
+generate (working!) machine code within python!
 
 The project contains the following:
 
@@ -65,18 +67,14 @@ Documentation can be found here:
 - https://ppci.readthedocs.io/
 
 
-|dronestate|_
 |appveyor|_
 |codecov|_
 |docstate|_
-
+|travis|_
+|codacy|_
 
 .. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
 .. _codecov: https://codecov.io/bb/windel/ppci/branch/default
-
-
-.. |dronestate| image:: https://drone.io/bitbucket.org/windel/ppci/status.png
-.. _dronestate: https://drone.io/bitbucket.org/windel/ppci
 
 
 .. |appveyor| image:: https://ci.appveyor.com/api/projects/status/h0h5huliflrac65o?svg=true
@@ -85,3 +83,11 @@ Documentation can be found here:
 
 .. |docstate| image:: https://readthedocs.org/projects/ppci/badge/?version=latest
 .. _docstate: https://ppci.readthedocs.io/en/latest
+
+
+.. |travis| image:: https://travis-ci.org/windelbouwman/ppci-mirror.svg?branch=master
+.. _travis: https://travis-ci.org/windelbouwman/ppci-mirror
+
+
+.. |codacy| image:: https://api.codacy.com/project/badge/Grade/a178be14a54243be81c27172031dc82c
+.. _codacy: https://www.codacy.com/app/windel-bouwman/ppci-mirror

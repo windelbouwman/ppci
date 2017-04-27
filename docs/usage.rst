@@ -50,3 +50,6 @@ activated stand alone.
 
 .. autoprogram:: ppci.commands:objdump_parser
     :prog: ppci-objdump.py
+
+.. autoprogram:: ppci.commands:cc_parser
+    :prog: ppci-cc.py

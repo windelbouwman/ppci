@@ -19,8 +19,7 @@ series of tree patterns. This is often referred to as a forest of trees.
 
 import logging
 from .. import ir
-from ..arch.registers import Register
-from ..arch.arch import Label
+from ..arch.generic_instructions import Label
 from ..binutils.debuginfo import FpOffsetAddress
 from ..utils.tree import Tree
 from .selectiongraph import SGNode, SGValue, SelectionGraph
@@ -42,6 +41,19 @@ def prepare_function_info(arch, function_info, ir_function):
             vreg = function_info.frame.new_reg(
                 arch.get_reg_class(ty=phi.ty), twain=phi.name)
             function_info.phi_map[phi] = vreg
+
+    function_info.arg_vregs = []
+    for arg in ir_function.arguments:
+        # New vreg:
+        vreg = function_info.frame.new_reg(
+            arch.value_classes[arg.ty], twain=arg.name)
+        function_info.arg_vregs.append(vreg)
+
+    if isinstance(ir_function, ir.Function):
+        function_info.rv_vreg = function_info.frame.new_reg(
+            arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
+
+    function_info.arg_types = [a.ty for a in ir_function.arguments]
 
 
 class FunctionInfo:
@@ -113,7 +125,7 @@ class SelectionGraphBuilder:
         self.size_map = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
         self.ptr_ty = self.size_map[arch.byte_sizes['ptr'] * 8]
 
-    def build(self, ir_function, function_info):
+    def build(self, ir_function: ir.SubRoutine, function_info):
         """ Create a selection graph for the given function.
 
         Selection graph is divided into groups for each basic block.
@@ -133,6 +145,17 @@ class SelectionGraphBuilder:
         # Create start node:
         self.current_token = self.new_node('ENTRY', None).new_output(
             'token', kind=SGValue.CONTROL)
+
+        # Create temporary registers for aruments:
+        for arg, vreg in zip(ir_function.arguments, function_info.arg_vregs):
+            param_node = self.new_node('REG', arg.ty, value=vreg)
+            output = param_node.new_output(arg.name)
+            output.vreg = vreg
+
+            # When refering the paramater, use the copied value:
+            self.add_map(arg, output)
+
+            self.chain(param_node)
 
         # Generate nodes for all blocks:
         for ir_block in depth_first_order(ir_function):
@@ -155,10 +178,6 @@ class SelectionGraphBuilder:
         entry_node.value = ir_block
         self.current_token = entry_node.new_output(
             'token', kind=SGValue.CONTROL)
-
-        # Emit extra dag for parameters when entry block:
-        if ir_block.is_entry:
-            self.entry_block_special_case(function_info, ir_block.function)
 
         # Generate series of trees:
         for instruction in ir_block:
@@ -216,7 +235,7 @@ class SelectionGraphBuilder:
     def do_return(self, node):
         """ Move result into result register and jump to epilog """
         res = self.get_value(node.result)
-        vreg = self.function_info.frame.rv
+        vreg = self.function_info.rv_vreg
         mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
         self.chain(mov_node)
 
@@ -245,21 +264,21 @@ class SelectionGraphBuilder:
     def do_alloc(self, node):
         """ Process the alloc instruction """
         # TODO: check alignment?
-        fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
-        fp_output = fp.new_output('fp')
-        fp_output.wants_vreg = False
-        offset = self.new_node("CONST", ir.ptr)
-        offset.value = self.function_info.frame.alloc(node.amount)
-        offset_output = offset.new_output('offset')
-        offset_output.wants_vreg = False
-        sgnode = self.new_node('ADD', ir.ptr, fp_output, offset_output)
-        # self.chain(sgnode)
+        # fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
+        # fp_output = fp.new_output('fp')
+        # fp_output.wants_vreg = False
+        # offset = self.new_node("CONST", ir.ptr)
+        offset = self.function_info.frame.alloc(node.amount)
+        # offset_output = offset.new_output('offset')
+        # offset_output.wants_vreg = False
+        sgnode = self.new_node('FPREL', ir.ptr, value=offset)
+
         output = sgnode.new_output('alloc')
         output.wants_vreg = False
         self.add_map(node, output)
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
-            dbg_var.address = FpOffsetAddress(offset.value)
+            dbg_var.address = FpOffsetAddress(offset)
         # self.debug_db.map(node, sgnode)
 
     def get_address(self, ir_address):
@@ -422,40 +441,6 @@ class SelectionGraphBuilder:
                 # Create move node:
                 sgnode = self.new_node('MOV', phi.ty, val, value=vreg)
                 self.chain(sgnode)
-
-    def entry_block_special_case(self, function_info, ir_function):
-        """ Copy arguments into new temporary registers """
-        # TODO: maybe this can be done different
-        # Copy parameters into fresh temporaries:
-        for arg in ir_function.arguments:
-            loc = function_info.frame.arg_locs[arg.num]
-            assert isinstance(loc, Register)
-            # TODO: byte value are not always passed in byte registers..
-            #
-            # TODO: fix this later... Move arguments in arch class?
-
-            # New vreg:
-            vreg = function_info.frame.new_reg(
-                self.arch.value_classes[arg.ty], twain=arg.name)
-
-            # Cast if required:
-            if loc.bitsize != vreg.bitsize:
-                # TODO: this is a solution which really is bad!
-                a_ty = self.size_map[loc.bitsize]
-                loc_node = self.new_node('REG', a_ty, value=loc)
-                loc_out = loc_node.new_output(arg.name)
-
-                # Do conversion here:
-                param_node = self.new_node(
-                    'I{}TO'.format(loc.bitsize), arg.ty, loc_out)
-            else:
-                param_node = self.new_node('REG', arg.ty, value=loc)
-            output = param_node.new_output(arg.name)
-            output.vreg = vreg
-            self.chain(param_node)
-
-            # When refering the paramater, use the copied value:
-            self.add_map(arg, output)
 
 
 def make_label_name(dut):

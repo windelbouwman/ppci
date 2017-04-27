@@ -36,7 +36,7 @@ class Lexer(BaseLexer):
             ('NUMBER', r'\d+', lambda typ, val: (typ, int(val))),
             ('ID', r'[A-Za-z_][A-Za-z\d_]*', self.handle_id),
             ('NEWLINE', r'\n', lambda typ, val: self.newline()),
-            ('SKIP', r'[ \t]', None),
+            ('SKIP', r'[ \t]+', None),
             ('COMMENTS', r'//.*', None),
             ('LONGCOMMENTBEGIN', r'\/\*', self.handle_comment_start),
             ('LONGCOMMENTEND', r'\*\/', self.handle_comment_stop),

@@ -1,6 +1,6 @@
 
 <project name="snake" default="snake">
-    <import name="ppci.buildtasks" />
+    <import name="ppci.build.buildtasks" />
 
     <target name="snake">
         <assemble

@@ -27,6 +27,12 @@ class ExampleArch(Architecture):
             ]
         self.gdb_registers = gdb_registers
 
+    def gen_prologue(self, frame):
+        return []
+
+    def gen_epilogue(self, frame):
+        return []
+
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
         """

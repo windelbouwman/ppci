@@ -1,10 +1,11 @@
 """ RISC-V architecture. """
 
 import io
-from ..arch import Architecture, Label, Alignment
+from ..arch import Architecture
+from ..generic_instructions import Label, Alignment, RegisterUseDef
 from .instructions import isa
 from .rvc_instructions import rvcisa
-from .registers import RiscvRegister, gdb_registers, all_registers
+from .registers import RiscvRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
 from .registers import R13, R14, R15, R16, R17
@@ -57,7 +58,6 @@ class RiscvArch(Architecture):
             self.isa = isa + data_isa
             self.store = Sw
             self.load = Lw
-        self.registers.extend(all_registers)
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
         self.assembler = RiscvAssembler()
@@ -119,11 +119,10 @@ class RiscvArch(Architecture):
         """ Generate a move from src to dst """
         return Movr(dst, src, ismove=True)
 
-    def gen_fill_arguments(self, arg_types, args, live):
+    def gen_fill_arguments(self, arg_types, args):
         """ This function moves arguments in the proper locations.
         """
-        arg_locs, live_in = self.determine_arg_locations(arg_types)
-        live.update(set(live_in))
+        arg_locs = self.determine_arg_locations(arg_types)
 
         # Setup parameters:
         for arg_loc, arg in zip(arg_locs, args):
@@ -132,26 +131,28 @@ class RiscvArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
-    def make_call(self, frame, vcall):
-        """ Implement actual call and save / restore live registers """
-        # Now we now what variables are live:
-        live_regs = frame.live_regs_over(vcall)
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(uses=arg_regs)
 
+    def gen_save_registers(self, registers):
         # Caller save registers:
-        i = (len(live_regs)+1)*4
+        i = (len(registers)+1)*4
         yield Subi(SP, SP, i)
         i -= 4
-        for register in live_regs:
+        for register in registers:
             yield self.store(register, i, SP)
             i -= 4
         yield self.store(LR, i, SP)
 
+    def gen_call(self, frame, vcall):
+        """ Implement actual call and save / restore live registers """
         yield self.branch(LR, vcall.function_name)
 
+    def gen_restore_registers(self, registers):
         # Restore caller save registers:
         i = 0
         yield self.load(LR, i, SP)
-        for register in reversed(live_regs):
+        for register in reversed(registers):
             i += 4
             yield self.load(register, i, SP)
         i += 4
@@ -165,34 +166,33 @@ class RiscvArch(Architecture):
             return values in R10
         """
         l = []
-        live_in = set()
         regs = [R11, R12, R13, R14, R15, R16, R17]
         for a in arg_types:
             r = regs.pop(0)
             l.append(r)
-            live_in.add(r)
-        return l, tuple(live_in)
+        return l
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
         rv = R10
-        live_out.add(rv)
-        return rv, tuple(live_out)
+        return rv
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
+
+        yield Mov(FP, SP)                 # Setup frame pointer
+
+        if frame.stacksize > 0:
+            ssize = round_up(frame.stacksize)
+            yield Subi(SP, SP, ssize)     # Reserve stack space
+
         # Callee save registers:
         i = 0
         for register in self.callee_save:
             yield Sw(register, i, SP)
             i -= 4
         Addi(SP, SP, i)
-        if frame.stacksize > 0:
-            ssize = round_up(frame.stacksize)
-            yield Subi(SP, SP, ssize)     # Reserve stack space
-        yield Mov(FP, SP)                 # Setup frame pointer
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -221,9 +221,6 @@ class RiscvArch(Architecture):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        if frame.stacksize > 0:
-            ssize = round_up(frame.stacksize)
-            yield Addi(SP, SP, ssize)
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):
@@ -231,6 +228,11 @@ class RiscvArch(Architecture):
             yield Lw(register, i, SP)
         Addi(SP, SP, i)
 
+        if frame.stacksize > 0:
+            ssize = round_up(frame.stacksize)
+            yield Addi(SP, SP, ssize)
+
+        # Return
         if self.has_option('rvc'):
             yield(CJr(LR))
         else:

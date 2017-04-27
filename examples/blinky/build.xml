@@ -1,6 +1,6 @@
 
 <project name="Examples" default="all">
-    <import name="ppci.buildtasks" />
+    <import name="ppci.build.buildtasks" />
 
     <target name="all" depends="blinky">
     </target>

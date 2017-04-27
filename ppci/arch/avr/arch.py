@@ -2,12 +2,14 @@
 
 import io
 from ...binutils.assembler import BaseAssembler
-from ..arch import Architecture, Label, Alignment, SectionInstruction
+from ..arch import Architecture
+from ..generic_instructions import Label, Alignment, SectionInstruction
+from ..generic_instructions import RegisterUseDef
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import avr_isa
 from .instructions import Push, Pop, Mov, Call, In, Movw, Ret, Adiw
-from .registers import AvrRegister
+from .registers import AvrRegister, Register
 from .registers import AvrWordRegister
 from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
@@ -46,7 +48,6 @@ class AvrArch(Architecture):
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
         l = []
-        live_in = set([Y])
         regs = [
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
@@ -61,31 +62,26 @@ class AvrArch(Architecture):
             if s == 1:
                 r = regs.pop(0)
                 l.append(r)
-                live_in.add(r)
             elif s == 2:
                 regs.pop(0)
                 lo_reg = regs.pop(0)
                 r = get16reg(lo_reg.num)
                 l.append(r)
-                live_in.add(r)
             else:  # pragma: no cover
                 raise NotImplementedError(str(s))
-        return l, tuple(live_in)
+        return l
 
     def determine_rv_location(self, ret_type):
-        live_out = set([Y])
         rv = W
-        live_out.add(W)
-        return rv, tuple(live_out)
+        return rv
 
-    def gen_fill_arguments(self, arg_types, args, alives):
+    def gen_fill_arguments(self, arg_types, args):
         """ Step 1 code for call sequence. This function moves arguments
             in the proper locations.
         """
         # Setup parameters:
         # TODO: variable return type
-        arg_locs, tmp = self.determine_arg_locations(arg_types)
-        alives.update(set(tmp))
+        arg_locs = self.determine_arg_locations(arg_types)
 
         # Copy parameters:
         for arg_loc, arg in zip(arg_locs, args):
@@ -97,11 +93,17 @@ class AvrArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
-    def gen_copy_rv(self, res_type, res_var):
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(uses=arg_regs)
+
+    def gen_extract_retval(self, res_type, res_var):
         # Copy return value:
-        rv, live_out = self.determine_rv_location(res_type)
+        retval_loc = self.determine_rv_location(res_type)
+
+        yield RegisterUseDef(defs=(retval_loc,))
+
         if isinstance(res_var, AvrWordRegister):
-            yield self.move(res_var, rv)
+            yield self.move(res_var, retval_loc)
         else:  # pragma: no cover
             raise NotImplementedError('Parameters in memory not impl')
 
@@ -115,20 +117,21 @@ class AvrArch(Architecture):
                 s.add(register)
         return s
 
-    def make_call(self, frame, vcall):
-        """ Implement actual call and save / restore live registers """
-        # Now we now what variables are live:
-        live_registers = frame.live_regs_over(vcall)
-        live_registers = self.expand_word_regs(live_registers)
+    def gen_save_registers(self, registers):
+        live_registers = self.expand_word_regs(registers)
 
         # Caller save registers:
         for register in caller_save:
             if register in live_registers:
                 yield Push(register)
 
+    def gen_call(self, frame, vcall):
+        """ Implement actual call and save / restore live registers """
         yield Call(vcall.function_name)
 
-        # Restore caller save registers (in reverse order!):
+    def gen_restore_registers(self, registers):
+        live_registers = self.expand_word_regs(registers)
+
         for register in reversed(caller_save):
             if register in live_registers:
                 yield Pop(register)
@@ -138,20 +141,10 @@ class AvrArch(Architecture):
         # Label indication function:
         yield Label(frame.name)
 
-        # Save previous frame pointer and fill it from the SP:
-        yield Push(Y.lo)
-        yield Push(Y.hi)
-
-        # Save some registers:
-        used_regs = self.expand_word_regs(frame.used_regs)
-        for register in callee_save:
-            if register in used_regs:
-                yield Push(register)
-
         if frame.stacksize > 0:
-            # Push N times to adjust stack:
-            for _ in range(frame.stacksize):
-                yield Push(r0)
+            # Save previous frame pointer and fill it from the SP:
+            yield Push(Y.lo)
+            yield Push(Y.hi)
 
             # Setup frame pointer:
             yield In(Y.lo, 0x3d)
@@ -161,23 +154,33 @@ class AvrArch(Architecture):
             # Increment entire Y by one:
             yield Adiw(Y, 1)
 
+            # Push N times to adjust stack:
+            for _ in range(frame.stacksize):
+                yield Push(r0)
+
+        # Save some registers:
+        used_regs = self.expand_word_regs(frame.used_regs)
+        for register in callee_save:
+            if register in used_regs:
+                yield Push(register)
+
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        if frame.stacksize > 0:
-            # Pop x times to adjust stack:
-            for _ in range(frame.stacksize):
-                yield Pop(r0)
-
         # Restore registers:
         used_regs = self.expand_word_regs(frame.used_regs)
         for register in reversed(callee_save):
             if register in used_regs:
                 yield Pop(register)
 
-        yield Pop(Y.hi)
-        yield Pop(Y.lo)
+        if frame.stacksize > 0:
+            # Pop x times to adjust stack:
+            for _ in range(frame.stacksize):
+                yield Pop(r0)
+
+            yield Pop(Y.hi)
+            yield Pop(Y.lo)
         yield Ret()
 
         # Add final literal pool:

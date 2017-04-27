@@ -4,7 +4,8 @@ Backends
 
 This page lists the available backends.
 
-Status matrix:
+Status
+------
 
 +---------------+---------+---------+----------+----------+-------+------+---------+
 | feature       | mcs6500 | arm     | avr      | msp430   | riscv | stm8 | x86_64  |
@@ -32,63 +33,17 @@ Status matrix:
 | complete      |         |         |          |          |       |      |         |
 +---------------+---------+---------+----------+----------+-------+------+---------+
 
-
-.. _mcs6500:
-
-mcs6500
--------
-
-.. automodule:: ppci.arch.mcs6500
-
-.. _arm:
-
-arm
----
-
-.. automodule:: ppci.arch.arm
-
-.. _avr:
-
-avr
----
-
-.. automodule:: ppci.arch.avr
-
-.. _msp430:
-
-msp430
-------
-
-.. automodule:: ppci.arch.msp430
-
-.. _riscv:
-
-risc-v
-------
-
-.. automodule:: ppci.arch.riscv
-
-.. _stm8:
-
-stm8
-----
-
-.. automodule:: ppci.arch.stm8
-
-.. _x86_64:
-
-x86_64
-------
-
-.. automodule:: ppci.arch.x86_64
+Backend details
+---------------
 
 
-.. _xtensa:
+.. toctree::
 
-xtensa
-------
-
-.. automodule:: ppci.arch.xtensa
-
-.. include:: backends/xtensa.rst
-
+    backends/arm
+    backends/avr
+    backends/mcs6500
+    backends/msp430
+    backends/riscv
+    backends/stm8
+    backends/x86
+    backends/xtensa
