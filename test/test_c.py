@@ -6,6 +6,7 @@ from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
 from ppci.lang.c.preprocessor import CTokenPrinter
 from ppci.lang.c.options import COptions
 from ppci.lang.c.castxml import CastXmlReader
+from ppci.lang.c.utils import cnum
 from ppci.arch.example import ExampleArch
 from ppci import ir
 from ppci.irutils import Verifier
@@ -24,6 +25,10 @@ class CLexerTestCase(unittest.TestCase):
         coptions = COptions()
         self.lexer = CLexer(coptions)
         coptions.enable('trigraphs')
+
+    def tokenize(self, src):
+        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+        return tokens
 
     def test_generate_characters(self):
         src = "ab\ndf"
@@ -45,7 +50,7 @@ class CLexerTestCase(unittest.TestCase):
     def test_trigraph_challenge(self):
         """ Test a nice example for the lexer including some trigraphs """
         src = "Hell??/\no world"
-        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+        tokens = self.tokenize(src)
         self.assertSequenceEqual(['Hello', 'world'], [t.val for t in tokens])
         self.assertSequenceEqual([1, 2], [t.loc.row for t in tokens])
         self.assertSequenceEqual([1, 3], [t.loc.col for t in tokens])
@@ -54,12 +59,26 @@ class CLexerTestCase(unittest.TestCase):
 
     def test_block_comment(self):
         src = "/* bla bla */"
-        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+        tokens = self.tokenize(src)
+
+    def test_numbers(self):
+        src = "212 215u 0xFeeL 073 032U 30l 30ul"
+        tokens = self.tokenize(src)
+        self.assertTrue(all(t.typ == 'NUMBER' for t in tokens))
+        numbers = list(map(lambda t: cnum(t.val), tokens))
+        self.assertSequenceEqual([212, 215, 4078, 59, 26, 30, 30], numbers)
+
+    def test_character_literals(self):
+        src = r"'a' '\n' L'\0'"
+        tokens = self.tokenize(src)
+        self.assertTrue(all(t.typ == 'CHAR' for t in tokens))
+        chars = list(map(lambda t: t.val, tokens))
+        self.assertSequenceEqual(["'a'", r"'\n'", r"L'\0'"], chars)
 
     def test_token_spacing(self):
         src = "1239hello"
         # TODO: should this raise an error?
-        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+        tokens = self.tokenize(src)
 
 
 class CPreProcessorTestCase(unittest.TestCase):
@@ -101,6 +120,17 @@ class CPreProcessorTestCase(unittest.TestCase):
         (100 + (100 + 1 + (2)) + ((100 + (100 + 23 + (G)) + (22))))"""
         self.preprocess(src, expected)
 
+    def test_if_expression(self):
+        src = r"""#if L'\0'-1 > 0
+        unsigned wide char
+        #endif
+        end"""
+        expected = r"""# 1 "dummy.t"
+
+
+        end"""
+        self.preprocess(src, expected)
+
     def test_ifdef(self):
         src = r"""
         #ifdef A
@@ -135,8 +165,9 @@ class CPreProcessorTestCase(unittest.TestCase):
         #error this is not yet implemented 1234 #&!*^"""
         with self.assertRaises(CompilerError) as cm:
             self.preprocess(src)
-        self.assertEquals(2, cm.exception.loc.row)
-        self.assertEquals('this is not yet implemented 1234 #&!*^', cm.exception.msg)
+        self.assertEqual(2, cm.exception.loc.row)
+        self.assertEqual(
+            'this is not yet implemented 1234 #&!*^', cm.exception.msg)
 
     def test_intermediate_example(self):
         """ Check a medium hard example """
@@ -362,8 +393,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         A(:,;)"""
         with self.assertRaises(CompilerError) as cm:
             self.preprocess(src)
-        self.assertEquals(2, cm.exception.loc.row)
-        self.assertEquals(11, cm.exception.loc.col)
+        self.assertEqual(2, cm.exception.loc.row)
+        self.assertEqual(11, cm.exception.loc.col)
 
     def test_argument_expansion(self):
         """ Check the behavior of macro arguments when used in stringify """
@@ -431,14 +462,14 @@ class CParserTestCase(unittest.TestCase):
     def test_empty(self):
         """ Test the obvious empty case! """
         cu = self.parse([])
-        self.assertEqual(0, len(cu.decls))
+        self.assertEqual(0, len(cu.declarations))
 
     def test_global_int(self):
         """ Test the parsing of a global integer """
         tokens = [('int', 'int'), ('ID', 'A'), (';', ';')]
         cu = self.parse(tokens)
-        self.assertEqual(1, len(cu.decls))
-        decl = cu.decls[0]
+        self.assertEqual(1, len(cu.declarations))
+        decl = cu.declarations[0]
         self.assertEqual('A', decl.name)
 
     def test_function(self):
@@ -449,10 +480,10 @@ class CParserTestCase(unittest.TestCase):
             ('{', '{'), ('return', 'return'), ('ID', 'x'), ('+', '+'),
             ('ID', 'y'), (';', ';'), ('}', '}')]
         cu = self.parse(tokens)
-        self.assertEqual(1, len(cu.decls))
-        decl = cu.decls[0]
+        self.assertEqual(1, len(cu.declarations))
+        decl = cu.declarations[0]
         self.assertIsInstance(decl.typ, nodes.FunctionType)
-        self.assertIsInstance(decl.typ.return_type, nodes.IntegerType)
+        self.assertIsInstance(decl.typ.return_type, nodes.IdentifierType)
         stmt = decl.body.statements[0]
         self.assertIsInstance(stmt, nodes.Return)
         self.assertIsInstance(stmt.value, nodes.Binop)
@@ -492,7 +523,7 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    def test_3(self):
+    def test_control_structures(self):
         src = """
         int main() {
           int d,i,c;
@@ -519,6 +550,32 @@ class CFrontendTestCase(unittest.TestCase):
 
             }
           }
+          return d;
+        }
+        """
+        self.do(src)
+
+    def test_4(self):
+        """ Test expressions """
+        src = """
+        int main(int, int c) {
+          int d;
+          d = 20 + c * 10 + c >> 2 - 123;
+          return d;
+        }
+        """
+        self.do(src)
+
+    def test_5(self):
+        src = """
+        static int G;
+        void initialize(int g)
+        {
+          G = g;
+        }
+        int main(int, int c) {
+          int d = 2;
+          initialize(d);
           return d;
         }
         """

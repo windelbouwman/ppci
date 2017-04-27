@@ -3,7 +3,7 @@
 import logging
 import io
 
-from ...common import Token, SourceLocation
+from ...common import Token, SourceLocation, CompilerError
 
 
 class CToken(Token):
@@ -130,8 +130,10 @@ class HandLexerBase:
             char = self.pushed_back.pop(0)
         else:
             char = next(self.characters, None)
+
         if char:
             self.current_text.append(char)
+
         return char
 
     def backup_char(self, char: Char):
@@ -165,19 +167,22 @@ class HandLexerBase:
         while self.accept(valid):
             pass
 
+    def error(self, message):
+        raise CompilerError()
+
 
 class CLexer(HandLexerBase):
     """ Lexer used for the preprocessor """
     logger = logging.getLogger('clexer')
     double_glyphs = (
         '##', '&&', '||', '<<', '>>', '>=', '==', '<=', '::', '!=')
-    single_glyphs = (
-        ',', ';', '(', ')', '{', '}', '.', '#', '<', '>', '=', '!', '/',
-        '+', '-', '*', '[', ']', ':', '|', '&', '~', '^', '?', '%', "'")
 
     lower_letters = 'abcdefghijklmnopqrstuvwxyz'
     upper_letters = lower_letters.upper()
-    numbers = '0123456789'
+    binary_numbers = '01'
+    octal_numbers = binary_numbers + '234567'
+    numbers = octal_numbers + '89'
+    hex_numbers = numbers + 'abcdefABCDEF'
 
     def __init__(self, coptions):
         super().__init__()
@@ -233,9 +238,16 @@ class CLexer(HandLexerBase):
         r = self.next_char()
         if r is None:
             pass
+        elif r.char == 'L':
+            # Wide char or identifier
+            if self.accept("'"):
+                return self.lex_char
+            else:
+                return self.lex_identifier
         elif r.char in self.lower_letters + self.upper_letters + '_':
             return self.lex_identifier
         elif r.char in self.numbers:
+            self.backup_char(r)
             return self.lex_number
         elif r.char in ' \t':
             return self.lex_whitespace
@@ -338,18 +350,25 @@ class CLexer(HandLexerBase):
         return self.lex_c
 
     def lex_number(self):
-        number_chars = self.numbers
-        if self.accept('x'):
-            # Hex number
-            self.accept_run(number_chars + 'abcdefABCDEF')
+        if self.accept('0'):
+            # Octal, binary or hex!
+            if self.accept('xX'):
+                number_chars = self.hex_numbers
+            elif self.accept('bB'):
+                number_chars = self.binary_numbers
+            else:
+                number_chars = self.octal_numbers
         else:
-            self.accept_run(number_chars)
+            number_chars = self.numbers
+
+        # Accept a series of number characters:
+        self.accept_run(number_chars)
 
         # Accept some suffixes:
-        if self.accept('L'):
-            self.accept('L')
-        else:
-            self.accept('LlUu')
+        self.accept('LlUu')
+        self.accept('LlUu')
+
+        # self.accept('
         self.emit('NUMBER')
         return self.lex_c
 
@@ -383,8 +402,13 @@ class CLexer(HandLexerBase):
 
     def lex_char(self):
         """ Scan for a complete character constant """
-        c = self.next_char()
-        while c and c.char != "'":
-            c = self.next_char()
+        if self.accept("\\"):
+            self.next_char()
+        else:
+            self.next_char()
+
+        if not self.accept("'"):
+            self.error("Expected ' ")
+
         self.emit('CHAR')
         return self.lex_c

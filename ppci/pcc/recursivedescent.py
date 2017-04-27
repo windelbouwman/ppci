@@ -2,6 +2,16 @@
 from ..common import CompilerError
 
 
+def make_comma_or(parts):
+    parts = list(map(lambda x: '"{}"'.format(x), parts))
+    if len(parts) > 1:
+        last = parts[-1]
+        first = parts[:-1]
+        return ', '.join(first) + ' or ' + last
+    else:
+        return ''.join(parts)
+
+
 class RecursiveDescentParser:
     """ Base class for recursive descent parsers """
     def __init__(self):
@@ -21,15 +31,22 @@ class RecursiveDescentParser:
 
     # Lexer helpers:
     def consume(self, typ=None):
-        """ Assert that the next token is typ, and if so, return it. If
-            typ is not given, consume the next token.
+        """ Assert that the next token is typ, and if so, return it.
+
+        If typ is a list or tuple, consume one of the given types.
+        If typ is not given, consume the next token.
         """
         if typ is None:
             typ = self.peak
-        if self.peak == typ:
+
+        expected_types = typ if isinstance(typ, (list, tuple)) else [typ]
+
+        if self.peak in expected_types:
             return self.next_token()
         else:
-            self.error('Excected: "{0}", got "{1}"'.format(typ, self.peak))
+            expected = make_comma_or(expected_types)
+            self.error(
+                'Expected {0}, got "{1}"'.format(expected, self.peak))
 
     def has_consumed(self, typ):
         """ Checks if the look-ahead token is of type typ, and if so

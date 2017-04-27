@@ -19,6 +19,7 @@ import time
 
 from ...common import CompilerError, SourceLocation
 from .lexer import CLexer, CToken, lex_text
+from .utils import cnum, charval
 
 
 class CPreProcessor:
@@ -32,7 +33,10 @@ class CPreProcessor:
 
         # A black list of defines currently being expanded:
         self.blue_list = set()
+        self.predefine_builtin_macros()
 
+    def predefine_builtin_macros(self):
+        """ Define predefined macros """
         internal_loc = SourceLocation(None, 1, 1, 1)
 
         # Indicate standard C:
@@ -43,11 +47,20 @@ class CPreProcessor:
                 protected=True))
 
         # Indicate C99 version:
-        self.define(
-            Macro(
-                '__STDC_VERSION__',
-                [CToken('NUMBER', '199901L', '', False, internal_loc)],
-                protected=True))
+        if self.coptions['std'] == 'c99':
+            self.define(
+                Macro(
+                    '__STDC_VERSION__',
+                    [CToken('NUMBER', '199901L', '', False, internal_loc)],
+                    protected=True))
+
+        # Set c11 version:
+        if self.coptions['std'] == 'c11':
+            self.define(
+                Macro(
+                    '__STDC_VERSION__',
+                    [CToken('NUMBER', '201112L', '', False, internal_loc)],
+                    protected=True))
 
         # Special macros:
         self.define(FunctionMacro('__LINE__', self.special_macro_line))
@@ -56,12 +69,14 @@ class CPreProcessor:
         self.define(FunctionMacro('__TIME__', self.special_macro_time))
 
     def special_macro_line(self, macro_token):
+        """ Invoked when the __LINE__ macro is expanded """
         return [CToken(
             'NUMBER', str(macro_token.loc.row),
             macro_token.space, macro_token.first,
             macro_token.loc)]
 
     def special_macro_file(self, macro_token):
+        """ Invoked when the __FILE__ macro is expanded """
         value = str(macro_token.loc.filename)
         return [CToken(
             'STRING', '"{}"'.format(value),
@@ -69,6 +84,7 @@ class CPreProcessor:
             macro_token.loc)]
 
     def special_macro_date(self, macro_token):
+        """ Invoked when the __DATE__ macro is expanded """
         value = time.strftime('%b %d %Y')
         return [CToken(
             'STRING', '"{}"'.format(value),
@@ -771,6 +787,8 @@ class Expander:
                 lhs = 0
         elif token.typ == 'NUMBER':
             lhs = cnum(token.val)
+        elif token.typ == 'CHAR':
+            lhs = charval(token.val)
         else:
             raise NotImplementedError(token.val)
 
@@ -838,18 +856,6 @@ class Expander:
                 raise NotImplementedError(op)
 
         return lhs
-
-
-def cnum(txt):
-    """ Convert C number to integer """
-    if isinstance(txt, int):
-        return txt
-    if txt.startswith('0x'):
-        return int(txt[2:], 16)
-    elif txt.endswith(('L', 'U')):
-        return int(txt[:-1])
-    else:
-        return int(txt)
 
 
 class BaseMacro:
@@ -938,7 +944,7 @@ def skip_ws(tokens):
             yield token
 
 
-def prepare_for_parsing(tokens):
+def prepare_for_parsing(tokens, keywords):
     """ Strip out tokens on the way from preprocessor to parser.
 
     Apply several modifications on the token stream to adapt it
@@ -946,18 +952,8 @@ def prepare_for_parsing(tokens):
 
     This involves:
     - Removal of whitespace
+    - Changing some id's into keywords
     """
-    keywords = ['true', 'false',
-                'else', 'if', 'while', 'do', 'for', 'return', 'goto',
-                'switch', 'case', 'default',
-                'break',
-                'sizeof',
-                'struct', 'union', 'enum',
-                'void', 'char', 'int', 'float', 'double',
-                'signed', 'unsigned', 'short', 'long',
-                'typedef', 'static', 'extern', 'register',
-                'volatile', 'const']
-
     for token in skip_ws(tokens):
         if token.typ == 'ID':
             if token.val in keywords:

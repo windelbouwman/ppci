@@ -8,7 +8,8 @@ class COptions:
         self.include_directories = []
 
         # Initialize defaults:
-        self.set('trigraphs', False)
+        self.disable('trigraphs')
+        self.set('std', 'c99')
 
         # TODO: temporal default paths:
         # self.add_include_path('/usr/include')
@@ -37,6 +38,7 @@ class COptions:
     def process_args(self, args):
         """ Given a set of parsed arguments, apply those """
         self.set('trigraphs', args.trigraphs)
+        self.set('std', args.std)
         for path in args.I:
             self.add_include_path(path)
 
@@ -51,3 +53,7 @@ coptions_parser.add_argument(
 coptions_parser.add_argument(
     '--trigraphs', action="store_true", default=False,
     help="Enable trigraph processing")
+
+coptions_parser.add_argument(
+    '--std', choices=('c89', 'c99'), default='c99',
+    help="The C version you want to use")

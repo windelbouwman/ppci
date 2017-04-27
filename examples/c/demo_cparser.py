@@ -5,7 +5,7 @@
 import argparse
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CPreProcessor, CParser, COptions, Printer
+from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
 from ppci.lang.c.preprocessor import prepare_for_parsing
 
 
@@ -24,10 +24,11 @@ if __name__ == '__main__':
     try:
         with open(filename, 'r') as f:
             tokens = preprocessor.process(f, filename)
-            tokens = prepare_for_parsing(tokens)
+            tokens = prepare_for_parsing(tokens, parser.keywords)
             ast = parser.parse(tokens)
     except CompilerError as ex:
         ex.print()
         raise
     else:
-        Printer().print(ast)
+        CAstPrinter().print(ast)
+        CPrinter().print(ast)

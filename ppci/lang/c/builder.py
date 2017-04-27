@@ -18,10 +18,10 @@ class CBuilder:
     def build(self, src: io.TextIOBase, filename: str):
         self.logger.info('Starting C compilation')
         preprocessor = CPreProcessor(self.coptions)
-        lines = preprocessor.process(src, filename)
-        tokens = prepare_for_parsing(lines)
+        tokens = preprocessor.process(src, filename)
         parser = CParser(self.coptions)
+        tokens = prepare_for_parsing(tokens, parser.keywords)
 
         compile_unit = parser.parse(tokens)
-        cgen = CCodeGenerator(self.coptions)
+        cgen = CCodeGenerator(self.coptions, self.march)
         return cgen.gen_code(compile_unit)

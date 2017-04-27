@@ -9,10 +9,11 @@ from ...common import SourceLocation
 class CompilationUnit:
     """ A single compilation unit """
     def __init__(self, declarations):
-        self.decls = declarations
+        self.declarations = declarations
 
     def __repr__(self):
-        return 'Compilation unit with {} declarations'.format(len(self.decls))
+        return 'Compilation unit with {} declarations'.format(
+            len(self.declarations))
 
 
 class DeclSpec:
@@ -28,30 +29,41 @@ class DeclSpec:
 
 
 class Declaration:
-    """ A single declaration """
-    def __init__(self, typ, name, loc):
-        self.loc = loc
+    def __init__(self, typ, loc):
         self.typ = typ
-        self.storage_class = None
-        self.name = name
+        self.loc = loc
 
     @property
     def is_function(self):
         return isinstance(self, FunctionDeclaration)
 
 
-class VariableDeclaration(Declaration):
+class NamedDeclaration(Declaration):
+    """ A single declaration """
     def __init__(self, typ, name, loc):
+        super().__init__(typ, loc)
+        self.storage_class = None
+        self.name = name
+
+
+class VariableDeclaration(NamedDeclaration):
+    def __init__(self, typ, name, initial_value, loc):
         super().__init__(typ, name, loc)
+        self.initial_value = initial_value
 
     def __repr__(self):
         return 'Variable [decl typ={} name={}, {}]'.format(
             self.typ, self.name, self.storage_class)
 
 
-class FunctionDeclaration(Declaration):
+class ParameterDeclaration(Declaration):
+    pass
+
+
+class FunctionDeclaration(NamedDeclaration):
     def __init__(self, typ, name, loc):
         super().__init__(typ, name, loc)
+        self.body = None
 
     def __repr__(self):
         return 'FunctionDeclaration typ={} name={}'.format(
@@ -66,11 +78,14 @@ class CType:
 
     @property
     def is_void(self):
-        return isinstance(self, VoidType)
+        if isinstance(self, IdentifierType):
+            return 'void' in self.names
+        else:
+            return False
 
 
-class SimpleType(CType):
-    pass
+# class SimpleType(CType):
+#     pass
 
 
 class FunctionType(CType):
@@ -85,12 +100,20 @@ class FunctionType(CType):
 
 class ArrayType(CType):
     """ Array type """
+    def __init__(self, element_type):
+        super().__init__()
+        self.element_type = element_type
+
     def __repr__(self):
         return 'Array-type'
 
 
 class StructType(CType):
     """ Structure type """
+    def __init__(self, name, loc):
+        super().__init__()
+        self.name = name
+
     def __repr__(self):
         return 'Structured-type'
 
@@ -105,27 +128,27 @@ class PointerType(CType):
         return 'Pointer-type'
 
 
-class NamedType(CType):
-    def __init__(self, name):
+class IdentifierType(CType):
+    def __init__(self, names):
         super().__init__()
-        self.name = name
+        self.names = names
 
     def __repr__(self):
-        return 'Type: {}'.format(self.name)
+        return 'IdentifierType: {}'.format(self.names)
 
 
-class VoidType(NamedType):
-    """ Type representing no value """
-    def __init__(self):
-        super().__init__('void')
+# class VoidType(NamedType):
+#    """ Type representing no value """
+#    def __init__(self):
+#        super().__init__('void')
 
 
-class IntegerType(NamedType):
-    pass
+# class IntegerType(NamedType):
+#    pass
 
 
-class FloatingPointType(NamedType):
-    pass
+# class FloatingPointType(NamedType):
+#    pass
 
 
 # Statements:
@@ -273,6 +296,25 @@ class Unop(Expression):
 
     def __repr__(self):
         return 'UnaryOp {}'.format(self.op)
+
+
+class Cast(Expression):
+    def __init__(self, to_typ, expr, loc):
+        super().__init__(loc)
+        self.to_typ = to_typ
+        self.expr = expr
+
+    def __repr__(self):
+        return 'Cast {}'.format(self.to_typ)
+
+
+class Sizeof(Expression):
+    def __init__(self, sizeof_typ, loc):
+        super().__init__(loc)
+        self.sizeof_typ = sizeof_typ
+
+    def __repr__(self):
+        return 'Sizeof {}'.format(self.sizeof_typ)
 
 
 class VariableAccess(Expression):

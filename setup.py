@@ -16,7 +16,7 @@ def ppci_test_suite():
 
 setup(
     name='ppci',
-    description="Pure python compiler infrastructure",
+    description="A compiler for ARM, X86, MSP430, xtensa and more implemented in pure Python",
     scripts=[
         "bin/ppci-asm.py",
         "bin/ppci-build.py",
@@ -44,9 +44,9 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Development Status :: 3 - Alpha',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Compilers',

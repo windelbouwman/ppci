@@ -75,15 +75,24 @@ class SourceLocation:
         else:
             return "Could not load source"
 
-    def print_message(self, message, lines=None):
+    def print_message(self, message, lines=None, filename=None):
         """ Print a message at this location in the given source lines """
         if lines is None:
             with open(self.filename, 'r') as f:
                 src = f.read()
             lines = src.splitlines()
+
+        # Print filename:
+        if filename is None:
+            filename = self.filename
+        if filename:
+            print('File : "{}"'.format(filename))
+
+        # Print relevant lines:
         prerow = self.row - 2
         if prerow < 1:
             prerow = 1
+
         afterrow = self.row + 3
         if afterrow > len(lines):
             afterrow = len(lines)

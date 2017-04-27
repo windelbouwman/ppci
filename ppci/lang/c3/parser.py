@@ -233,13 +233,10 @@ class Parser(RecursiveDescentParser):
         options = []
         self.consume('{')
         while self.peak != '}':
-            if self.peak not in ['case', 'default']:
-                self.error('Expected case or default')
-            if self.peak == 'case':
-                self.consume('case')
+            case_kw = self.consume(['case', 'default'])
+            if case_kw.typ == 'case':
                 value = self.parse_expression()
             else:
-                self.consume('default')
                 value = None
             self.consume(':')
             statement = self.parse_statement()
