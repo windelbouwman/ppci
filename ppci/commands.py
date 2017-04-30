@@ -583,6 +583,9 @@ class LogSetup:
             self.logger.error(str(exc_value.loc))
             exc_value.print()
 
+            # Report the error:
+            self.reporter.dump_compiler_error(exc_value)
+
         if exc_value is not None:
             # Exception happened, close file and remove
             if hasattr(self.args, 'output') and self.args.output:
@@ -596,8 +599,9 @@ class LogSetup:
             self.logger.removeHandler(self.file_handler)
             self.args.report.close()
 
+        self.reporter.footer()
+
         if self.args.html_report:
-            self.reporter.footer()
             self.args.html_report.close()
 
         self.logger.removeHandler(self.console_handler)

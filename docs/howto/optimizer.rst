@@ -131,7 +131,7 @@ Now print the optimized module:
     :options: +REPORT_UDIFF
 
     >>> f2 = io.StringIO()
-    >>> irutils.Writer().write(mod, f2)
+    >>> irutils.Writer(f2).write(mod)
     >>> print(f2.getvalue())
     module optimizable;
     <BLANKLINE>

@@ -5,6 +5,7 @@
     Reports can be written to plain text, or html.
 """
 
+import abc
 from contextlib import contextmanager
 from datetime import datetime
 import logging
@@ -16,7 +17,7 @@ from ..codegen.selectiongraph import SGValue
 from ..arch.generic_instructions import Label
 
 
-class ReportGenerator:
+class ReportGenerator(metaclass=abc.ABCMeta):
     """ Implement all these function to create a custom reporting generator """
     def header(self):
         pass
@@ -24,11 +25,17 @@ class ReportGenerator:
     def footer(self):
         pass
 
+    @abc.abstractmethod
     def heading(self, level, title):
-        pass
+        raise NotImplementedError()
 
+    @abc.abstractmethod
     def message(self, msg):
-        pass
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def dump_raw_text(self, text):
+        raise NotImplementedError()
 
     def dump_ir(self, ir_module):
         pass
@@ -54,10 +61,26 @@ class ReportGenerator:
     def dump_instructions(self, instruction_list):
         pass
 
+    def dump_compiler_error(self, compiler_error):
+        self.heading(3, 'Error')
+        f = io.StringIO()
+        compiler_error.print(file=f)
+        self.dump_raw_text(f.getvalue())
+
 
 class DummyReportGenerator(ReportGenerator):
+    """ Report generator which reports into the void """
     def __init__(self):
         self.dump_file = io.StringIO()
+
+    def heading(self, level, title):
+        pass
+
+    def message(self, msg):
+        pass
+
+    def dump_raw_text(self, text):
+        pass
 
 
 class TextWritingReporter(ReportGenerator):
@@ -273,23 +296,25 @@ class HtmlReportGenerator(TextWritingReporter):
         if isinstance(ir_module, ir.Module):
             title = 'Module {}'.format(ir_module.name)
             with collapseable(self, title):
-                self.print('<pre>')
-                writer = Writer()
                 f = io.StringIO()
-                writer.write(ir_module, f)
-                self.print(f.getvalue())
-                self.print('</pre>')
+                writer = Writer(f)
+                writer.write(ir_module)
+                self.dump_raw_text(f.getvalue())
         elif isinstance(ir_module, ir.SubRoutine):
             title = 'Function {}'.format(ir_module.name)
             with collapseable(self, title):
-                self.print('<pre>')
-                writer = Writer()
-                writer.f = f = io.StringIO()
+                f = io.StringIO()
+                writer = Writer(f)
                 writer.write_function(ir_module)
-                self.print(f.getvalue())
-                self.print('</pre>')
+                self.dump_raw_text(f.getvalue())
         else:
             raise NotImplementedError()
+
+    def dump_raw_text(self, text):
+        """ Spitout text not to be formatted """
+        self.print('<pre>')
+        self.print(text)
+        self.print('</pre>')
 
     def dump_instructions(self, instruction_list):
         with collapseable(self, 'Instructions'):

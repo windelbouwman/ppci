@@ -21,8 +21,8 @@ class DeclSpec:
     def __init__(self):
         self.typ = None
         self.storage_class = None
-        self.type_specifiers = []
-        self.type_qualifiers = set()
+        # self.type_specifiers = []
+        # self.type_qualifiers = set()
 
     def __repr__(self):
         return '[decl-spec mod={}]'.format(self.storage_class)
@@ -46,6 +46,12 @@ class NamedDeclaration(Declaration):
         self.name = name
 
 
+class Typedef(NamedDeclaration):
+    """ Type definition """
+    def __repr__(self):
+        return 'Typedef {}'.format(self.name)
+
+
 class VariableDeclaration(NamedDeclaration):
     def __init__(self, typ, name, initial_value, loc):
         super().__init__(typ, name, loc)
@@ -61,6 +67,7 @@ class ParameterDeclaration(Declaration):
 
 
 class FunctionDeclaration(NamedDeclaration):
+    """ A function declaration """
     def __init__(self, typ, name, loc):
         super().__init__(typ, name, loc)
         self.body = None
@@ -78,20 +85,15 @@ class CType:
 
     @property
     def is_void(self):
-        if isinstance(self, IdentifierType):
-            return 'void' in self.names
-        else:
-            return False
-
-
-# class SimpleType(CType):
-#     pass
+        return isinstance(self, BareType) and self.type_id == BareType.VOID
 
 
 class FunctionType(CType):
-    def __init__(self, arg_types, return_type):
+    def __init__(self, arguments, return_type):
         super().__init__()
-        self.arg_types = arg_types
+        self.arguments = arguments
+        assert all(isinstance(a, VariableDeclaration) for a in arguments)
+        self.arg_types = [a.typ for a in arguments]
         self.return_type = return_type
 
     def __repr__(self):
@@ -100,9 +102,10 @@ class FunctionType(CType):
 
 class ArrayType(CType):
     """ Array type """
-    def __init__(self, element_type):
+    def __init__(self, element_type, size):
         super().__init__()
         self.element_type = element_type
+        self.size = size
 
     def __repr__(self):
         return 'Array-type'
@@ -110,12 +113,51 @@ class ArrayType(CType):
 
 class StructType(CType):
     """ Structure type """
-    def __init__(self, name, loc):
+    def __init__(self, fields=None):
         super().__init__()
-        self.name = name
+        if fields:
+            self.set_fields(fields)
+        else:
+            self.fields = fields
+        # self.name = name
+
+    @property
+    def incomplete(self):
+        """ Check whether this type is incomplete or not """
+        return self.fields is None
+
+    def set_fields(self, fields):
+        self.fields = fields
+        self.field_map = {f.name: f for f in fields}
+
+    def has_field(self, name):
+        return name in self.field_map
+
+    def get_field(self, name):
+        return self.field_map[name]
 
     def __repr__(self):
         return 'Structured-type'
+
+
+# class StructReferenceType(CType):
+#    """ Refering to a tagged struct """
+#    def __init__(self, name):
+#        super().__init__()
+#        self.name = name
+#
+#    def __repr__(self):
+#        return 'IdentifierType: {}'.format(self.name)
+
+
+class UnionType(CType):
+    """ Union type """
+    def __init__(self, fields):
+        super().__init__()
+        self.fields = fields
+
+    def __repr__(self):
+        return 'Union-type'
 
 
 class PointerType(CType):
@@ -129,12 +171,39 @@ class PointerType(CType):
 
 
 class IdentifierType(CType):
-    def __init__(self, names):
+    """ Refering to a typedef type """
+    def __init__(self, name):
         super().__init__()
-        self.names = names
+        self.name = name
 
     def __repr__(self):
-        return 'IdentifierType: {}'.format(self.names)
+        return 'IdentifierType: {}'.format(self.name)
+
+
+class BareType(CType):
+    """ This type is one of: int, unsigned int, float or void """
+    VOID = 'void'
+    CHAR = 'char'
+    SCHAR = 'signed char'
+    UCHAR = 'unsigned char'
+    SHORT = 'short'
+    USHORT = 'unsigned short'
+    INT = 'int'
+    UINT = 'unsigned int'
+    LONG = 'long'
+    ULONG = 'unsigned long'
+    LONGLONG = 'long long'
+    ULONGLONG = 'unsigned long long'
+    FLOAT = 'float'
+    DOUBLE = 'double'
+    LONGDOUBLE = 'long double'
+
+    def __init__(self, type_id):
+        super().__init__()
+        self.type_id = type_id
+
+    def __repr__(self):
+        return 'Basetype {}'.format(self.type_id)
 
 
 # class VoidType(NamedType):
@@ -255,7 +324,8 @@ class Return(Statement):
 
 class Empty(Statement):
     """ Do nothing! """
-    pass
+    def __repr__(self):
+        return 'Empty'
 
 
 class Expression:
@@ -309,12 +379,35 @@ class Cast(Expression):
 
 
 class Sizeof(Expression):
+    """ Sizeof operator """
     def __init__(self, sizeof_typ, loc):
         super().__init__(loc)
         self.sizeof_typ = sizeof_typ
 
     def __repr__(self):
         return 'Sizeof {}'.format(self.sizeof_typ)
+
+
+class ArrayIndex(Expression):
+    """ Array indexing """
+    def __init__(self, base, index, loc):
+        super().__init__(loc)
+        self.base = base
+        self.index = index
+
+    def __repr__(self):
+        return 'Array index'
+
+
+class FieldSelect(Expression):
+    """ Select a field in a struct """
+    def __init__(self, base, field, loc):
+        super().__init__(loc)
+        self.base = base
+        self.field = field
+
+    def __repr__(self):
+        return 'Field select'
 
 
 class VariableAccess(Expression):

@@ -3,7 +3,8 @@ import io
 import os
 from ppci.common import CompilerError
 from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
-from ppci.lang.c.preprocessor import CTokenPrinter
+from ppci.lang.c import CContext
+from ppci.lang.c.preprocessor import CTokenPrinter, prepare_for_parsing
 from ppci.lang.c.options import COptions
 from ppci.lang.c.castxml import CastXmlReader
 from ppci.lang.c.utils import cnum
@@ -453,11 +454,23 @@ def gen_tokens(tokens):
 class CParserTestCase(unittest.TestCase):
     """ Test the C parser """
     def setUp(self):
-        self.parser = CParser(COptions())
+        self.parser = CParser(CContext(COptions(), None))
 
     def parse(self, tokens):
         cu = self.parser.parse(gen_tokens(tokens))
         return cu
+
+    def given_tokens(self, tokens):
+        """ Provide the parser with the given tokens """
+        self.parser.init_lexer(gen_tokens(tokens))
+
+    def given_source(self, source):
+        """ Lex a given source and prepare the parser """
+        clexer = CLexer(COptions())
+        f = io.StringIO(source)
+        tokens = clexer.lex(f, '<snippet>')
+        tokens = prepare_for_parsing(tokens, self.parser.keywords)
+        self.parser.init_lexer(tokens)
 
     def test_empty(self):
         """ Test the obvious empty case! """
@@ -483,11 +496,73 @@ class CParserTestCase(unittest.TestCase):
         self.assertEqual(1, len(cu.declarations))
         decl = cu.declarations[0]
         self.assertIsInstance(decl.typ, nodes.FunctionType)
-        self.assertIsInstance(decl.typ.return_type, nodes.IdentifierType)
+        self.assertIsInstance(decl.typ.return_type, nodes.BareType)
         stmt = decl.body.statements[0]
         self.assertIsInstance(stmt, nodes.Return)
         self.assertIsInstance(stmt.value, nodes.Binop)
         self.assertEqual('+', stmt.value.op)
+
+    def test_pointer_declaration(self):
+        """ Test the proper parsing of a pointer to an integer """
+        self.given_source('int *a;')
+        declaration = self.parser.parse_declaration()
+        # TODO: return a single declaration here?
+        declaration = declaration[0]
+        self.assertEqual('a', declaration.name)
+        self.assertIsInstance(declaration.typ, nodes.PointerType)
+        self.assertIsInstance(declaration.typ.pointed_type, nodes.BareType)
+
+    def test_cdecl_example1(self):
+        """ Test the proper parsing of 'int (*(*foo)(void))[3]'.
+
+        Example taken from cdecl.org.
+        """
+        src = 'int (*(*foo)(void))[3];'
+        self.given_source(src)
+        declaration = self.parser.parse_declaration()
+        # TODO: return a single declaration here?
+        declaration = declaration[0]
+        self.assertEqual('foo', declaration.name)
+        self.assertIsInstance(declaration.typ, nodes.PointerType)
+        self.assertIsInstance(declaration.typ.pointed_type, nodes.FunctionType)
+        function_type = declaration.typ.pointed_type
+        self.assertEqual(None, function_type.arguments[0].name)
+        self.assertEqual('void', function_type.arguments[0].typ.type_id)
+        self.assertEqual('void', function_type.arguments[0].typ.type_id)
+
+    def test_function_returning_pointer(self):
+        """ Test the proper parsing of a pointer to a function """
+        self.given_source('int *a(int x);')
+        declaration = self.parser.parse_declaration()
+        # TODO: return a single declaration here?
+        declaration = declaration[0]
+        self.assertEqual('a', declaration.name)
+        self.assertIsInstance(declaration.typ, nodes.FunctionType)
+        function_type = declaration.typ
+        self.assertEqual('x', function_type.arguments[0].name)
+        self.assertIsInstance(function_type.return_type, nodes.PointerType)
+
+    def test_function_pointer(self):
+        """ Test the proper parsing of a pointer to a function """
+        self.given_source('int (*a)(int x);')
+        declaration = self.parser.parse_declaration()
+        # TODO: return a single declaration here?
+        declaration = declaration[0]
+        self.assertEqual('a', declaration.name)
+        self.assertIsInstance(declaration.typ, nodes.PointerType)
+        self.assertIsInstance(declaration.typ.pointed_type, nodes.FunctionType)
+        self.assertEqual('x', declaration.typ.pointed_type.arguments[0].name)
+
+    def test_array_pointer(self):
+        """ Test the proper parsing of a pointer to an array """
+        self.given_source('int (*a)[3];')
+        declaration = self.parser.parse_declaration()
+        # TODO: return a single declaration here?
+        declaration = declaration[0]
+        self.assertEqual('a', declaration.name)
+        self.assertIsInstance(declaration.typ, nodes.PointerType)
+        self.assertIsInstance(declaration.typ.pointed_type, nodes.ArrayType)
+        self.assertEqual('3', declaration.typ.pointed_type.size.value)
 
 
 class CFrontendTestCase(unittest.TestCase):
@@ -497,7 +572,12 @@ class CFrontendTestCase(unittest.TestCase):
 
     def do(self, src):
         f = io.StringIO(src)
-        ir_module = self.builder.build(f, None)
+        try:
+            ir_module = self.builder.build(f, None)
+        except CompilerError as compiler_error:
+            lines = src.split('\n')
+            compiler_error.render(lines)
+            raise
         assert isinstance(ir_module, ir.Module)
         Verifier().verify(ir_module)
 
@@ -578,6 +658,42 @@ class CFrontendTestCase(unittest.TestCase):
           initialize(d);
           return d;
         }
+        """
+        self.do(src)
+
+    def test_type_modifiers(self):
+        """ Test the various constructs of type names """
+        src = """
+        void main() {
+        int n;
+        n = sizeof(int);
+        int *a[3];
+        n = sizeof(int *[3]);
+        int (*p)[3];
+        n = sizeof(int (*)[3]);
+        n = sizeof(int *(void));
+        }
+        int *f(void);
+        """
+        self.do(src)
+
+    def test_struct(self):
+        """ Test structure usage """
+        src = """
+        typedef struct {int quot, rem; } div_t;
+        void main() {
+         volatile div_t x, *y;
+         x.rem = 2;
+         y = &x;
+         y->quot = x.rem;
+        }
+        struct z { int foo; };
+        struct s;
+        struct s* p;
+        struct s {
+         struct s *next;
+         struct z Z;
+        };
         """
         self.do(src)
 

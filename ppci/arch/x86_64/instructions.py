@@ -654,7 +654,9 @@ class Imul(X86Instruction):
 
 
 class Idiv(X86Instruction):
-    """ idiv r/m64 """
+    """ idiv r/m64 divide rdx:rax by the operand, leaving the remainder in
+    rdx and the quotient in rax.
+    """
     reg1 = Operand('reg1', X86Register, read=True)
     syntax = Syntax(['idiv', ' ', reg1])
     tokens = [RexToken, OpcodeToken, ModRmToken]
@@ -749,12 +751,14 @@ def pattern_mov8(context, tree, c0):
 
 
 @isa.pattern('stm', 'MOVI64(reg64)', size=2)
+@isa.pattern('stm', 'MOVU64(reg64)', size=2)
 def pattern_mov64(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
 @isa.pattern('reg64', 'LDRI64(reg64)', size=2, cycles=2, energy=2)
+@isa.pattern('reg64', 'LDRU64(reg64)', size=2, cycles=2, energy=2)
 def pattern_ldr64(context, tree, c0):
     d = context.new_reg(X86Register)
     context.emit(MovRegRm(d, RmMem(c0)))
@@ -827,6 +831,7 @@ def pattern_str8(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', size=2, cycles=2, energy=1)
+@isa.pattern('reg64', 'ADDU64(reg64, reg64)', size=2, cycles=2, energy=1)
 def pattern_add64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -859,6 +864,7 @@ def pattern_add64_const_1(context, tree, c0):
 
 
 @isa.pattern('reg64', 'SUBI64(reg64, reg64)', size=4)
+@isa.pattern('reg64', 'SUBU64(reg64, reg64)', size=4)
 def pattern_sub64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -867,6 +873,7 @@ def pattern_sub64(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'MULI64(reg64, reg64)', size=4)
+@isa.pattern('reg64', 'MULU64(reg64, reg64)', size=4)
 def pattern_mul64_(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -879,12 +886,33 @@ def pattern_div64(context, tree, c0, c1):
     context.move(rax, c0)
     context.emit(MovImm(rdx, 0))
     context.emit(Idiv(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(rax)
+    defu2.add_use(rdx)
+    defu2.add_def(rax)
+    context.emit(defu2)
     d = context.new_reg(X86Register)
     context.move(d, rax)
     return d
 
 
+@isa.pattern('reg64', 'REMI64(reg64, reg64)', size=14)
+def pattern_remi64(context, tree, c0, c1):
+    context.move(rax, c0)
+    context.emit(MovImm(rdx, 0))
+    context.emit(Idiv(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(rax)
+    defu2.add_use(rdx)
+    defu2.add_def(rdx)
+    context.emit(defu2)
+    d = context.new_reg(X86Register)
+    context.move(d, rdx)
+    return d
+
+
 @isa.pattern('reg64', 'ANDI64(reg64, reg64)', size=4)
+@isa.pattern('reg64', 'ANDU64(reg64, reg64)', size=4)
 def pattern_and64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -900,6 +928,7 @@ def pattern_and64_const(context, tree, c0):
     return d
 
 
+@isa.pattern('reg64', 'ORU64(reg64, reg64)', size=4)
 @isa.pattern('reg64', 'ORI64(reg64, reg64)', size=4)
 def pattern_or64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
@@ -927,6 +956,7 @@ def pattern_shl64(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'REGI64', size=0)
+@isa.pattern('reg64', 'REGU64', size=0)
 def pattern_reg64(context, tree):
     return tree.value
 
@@ -938,6 +968,8 @@ def pattern_reg8(context, tree):
 
 
 @isa.pattern('reg64', 'I64TOI64(reg64)', size=0)
+@isa.pattern('reg64', 'I64TOU64(reg64)', size=0)
+@isa.pattern('reg64', 'U64TOI64(reg64)', size=0)
 def pattern_i64toi64(context, tree, c0):
     return c0
 

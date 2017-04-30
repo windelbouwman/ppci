@@ -388,7 +388,9 @@ def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
         filename = getattr(source, 'name')
     else:
         filename = None
-    ir_module = cbuilder.build(source, filename)
+    ir_module = cbuilder.build(source, filename, reporter=reporter)
+    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+    reporter.dump_ir(ir_module)
     return ir_to_object([ir_module], march, reporter=reporter)
 
 

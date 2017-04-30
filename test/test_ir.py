@@ -92,7 +92,6 @@ class ConstantFolderTestCase(unittest.TestCase):
 
 class TestWriter(unittest.TestCase):
     def test_write(self):
-        writer = irutils.Writer()
         module = ir.Module('mod1')
         function = ir.Procedure('func1')
         module.add_function(function)
@@ -101,13 +100,15 @@ class TestWriter(unittest.TestCase):
         function.entry = entry
         entry.add_instruction(ir.Exit())
         f = io.StringIO()
-        writer.write(module, f)
+        writer = irutils.Writer(file=f)
+        writer.write(module)
         # print(f.getvalue())
         f2 = io.StringIO(f.getvalue())
         reader = irutils.Reader()
         module2 = reader.read(f2)
         f3 = io.StringIO()
-        writer.write(module2, f3)
+        writer = irutils.Writer(file=f3)
+        writer.write(module2)
         self.assertEqual(f3.getvalue(), f.getvalue())
 
 

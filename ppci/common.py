@@ -44,11 +44,11 @@ class Token:
         return 'Token({}, {}, {})'.format(self.typ, self.val, self.loc)
 
 
-def print_line(row, lines):
+def print_line(row, lines, file=None):
     """ Print a single source line """
     if row in range(len(lines)):
         txt = lines[row - 1]
-        print('{:5}:{}'.format(row, txt))
+        print('{:5}:{}'.format(row, txt), file=file)
 
 
 class SourceLocation:
@@ -75,7 +75,7 @@ class SourceLocation:
         else:
             return "Could not load source"
 
-    def print_message(self, message, lines=None, filename=None):
+    def print_message(self, message, lines=None, filename=None, file=None):
         """ Print a message at this location in the given source lines """
         if lines is None:
             with open(self.filename, 'r') as f:
@@ -86,7 +86,7 @@ class SourceLocation:
         if filename is None:
             filename = self.filename
         if filename:
-            print('File : "{}"'.format(filename))
+            print('File : "{}"'.format(filename), file=file)
 
         # Print relevant lines:
         prerow = self.row - 2
@@ -99,15 +99,15 @@ class SourceLocation:
 
         # print preceding source lines:
         for row in range(prerow, self.row):
-            print_line(row, lines)
+            print_line(row, lines, file=file)
 
         # print source line containing error:
-        print_line(self.row, lines)
-        print(' '*(6+self.col-1) + '^ {0}'.format(message))
+        print_line(self.row, lines, file=file)
+        print(' '*(6+self.col-1) + '^ {0}'.format(message), file=file)
 
         # print trailing source line:
         for row in range(self.row + 1, afterrow + 1):
-            print_line(row, lines)
+            print_line(row, lines, file=file)
 
 
 SourceRange = namedtuple('SourceRange', ['p1', 'p2'])
@@ -129,12 +129,12 @@ class CompilerError(Exception):
         """ Render this error in some lines of context """
         self.loc.print_message('Error: {0}'.format(self.msg), lines=lines)
 
-    def print(self):
+    def print(self, file=None):
         """ Print the error inside some nice context """
         if self.loc:
-            self.loc.print_message(self.msg)
+            self.loc.print_message(self.msg, file=file)
         else:
-            print(self.msg)
+            print(self.msg, file=file)
 
 
 class IrFormError(CompilerError):

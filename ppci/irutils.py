@@ -14,18 +14,18 @@ IR_FORMAT_INDENT = 2
 
 class Writer:
     """ Write ir-code to file """
-    def __init__(self, extra_indent=''):
+    def __init__(self, file=None, extra_indent=''):
         self.extra_indent = extra_indent
+        self.file = file
 
     def print(self, level, txt):
         indent = self.extra_indent + ' ' * (level * IR_FORMAT_INDENT)
-        print(indent + txt, file=self.f)
+        print(indent + txt, file=self.file)
 
-    def write(self, module: ir.Module, f):
+    def write(self, module: ir.Module):
         """ Write ir-code to file f """
         assert isinstance(module, ir.Module)
         Verifier().verify(module)
-        self.f = f
         self.print(0, '{};'.format(module))
         for v in module.variables:
             self.print(0, '')

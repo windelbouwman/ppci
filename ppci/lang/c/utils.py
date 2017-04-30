@@ -12,7 +12,10 @@ class Visitor:
             self.visit(node.typ)
         elif isinstance(node, nodes.FunctionDeclaration):
             self.visit(node.typ)
-            self.visit(node.body)
+            if node.body:
+                self.visit(node.body)
+        elif isinstance(node, nodes.Typedef):
+            self.visit(node.typ)
         elif isinstance(node, nodes.Binop):
             self.visit(node.a)
             self.visit(node.b)
@@ -25,15 +28,27 @@ class Visitor:
             self.visit(node.expr)
         elif isinstance(node, nodes.Sizeof):
             self.visit(node.sizeof_typ)
+        elif isinstance(node, nodes.ArrayIndex):
+            self.visit(node.base)
+            self.visit(node.index)
+        elif isinstance(node, nodes.FieldSelect):
+            self.visit(node.base)
+            self.visit(node.field)
         elif isinstance(node, nodes.FunctionCall):
             for argument in node.args:
                 self.visit(argument)
         elif isinstance(node, nodes.FunctionType):
-            for arg_type in node.arg_types:
-                self.visit(arg_type)
+            for parameter in node.arguments:
+                self.visit(parameter)
+            self.visit(node.return_type)
         elif isinstance(node, nodes.PointerType):
             self.visit(node.pointed_type)
-        elif isinstance(node, nodes.IdentifierType):
+        elif isinstance(node, nodes.ArrayType):
+            self.visit(node.element_type)
+            self.visit(node.size)
+        elif isinstance(node, nodes.StructType):
+            pass
+        elif isinstance(node, (nodes.IdentifierType, nodes.BareType)):
             pass
         elif isinstance(node, nodes.Compound):
             for statement in node.statements:
@@ -54,7 +69,8 @@ class Visitor:
             self.visit(node.body)
             self.visit(node.condition)
         elif isinstance(node, nodes.Return):
-            self.visit(node.value)
+            if node.value:
+                self.visit(node.value)
         elif isinstance(node, nodes.Empty):
             pass
         elif isinstance(node, nodes.VariableAccess):
@@ -65,14 +81,15 @@ class Visitor:
 
 class CAstPrinter(Visitor):
     """ Print AST of a C program """
-    def __init__(self):
+    def __init__(self, file=None):
         self.indent = 0
+        self.file = file
 
     def print(self, node):
         self.visit(node)
 
     def _print(self, node):
-        print('  ' * self.indent + str(node))
+        print('  ' * self.indent + str(node), file=self.file)
 
     def visit(self, node):
         self._print(node)
@@ -87,23 +104,43 @@ class CPrinter:
         self.indent = 0
 
     def print(self, cu):
+        """ Render compilation unit as C """
         for declaration in cu.declarations:
-            if isinstance(declaration, nodes.VariableDeclaration):
-                self._print('{} {};'.format(
-                    declaration.typ, declaration.name))
-            elif isinstance(declaration, nodes.FunctionDeclaration):
-                self._print('{} {};'.format(
-                    declaration.typ, declaration.name))
-                self.gen_statement(declaration.body)
-            else:
-                raise NotImplementedError(str(declaration))
+            self.gen_declaration(declaration)
 
     def gen_declaration(self, declaration):
+        """ Spit out a declaration """
         if isinstance(declaration, nodes.VariableDeclaration):
             self._print('{} {};'.format(
-                declaration.typ, declaration.name))
-        else:
+                self.gen_type(declaration.typ), declaration.name))
+        elif isinstance(declaration, nodes.FunctionDeclaration):
+            if declaration.body:
+                self._print('{} {}'.format(
+                    self.gen_type(declaration.typ), declaration.name))
+                self.gen_statement(declaration.body)
+            else:
+                self._print('{} {};'.format(
+                    self.gen_type(declaration.typ), declaration.name))
+        elif isinstance(declaration, nodes.Typedef):
+            self._print('typedef {} {};'.format(
+                self.gen_type(declaration.typ), declaration.name))
+        else:  # pragma: no cover
             raise NotImplementedError(str(declaration))
+
+    def gen_type(self, typ):
+        """ Generate a proper C-string for the given type """
+        if isinstance(typ, nodes.BareType):
+            return typ.type_id
+        elif isinstance(typ, nodes.PointerType):
+            return '{}*'.format(self.gen_type(typ.pointed_type))
+        elif isinstance(typ, nodes.FunctionType):
+            parameters = ', '.join(
+                self.gen_type(p.typ) for p in typ.arguments)
+            return '{}({})'.format(self.gen_type(typ.return_type), parameters)
+        elif isinstance(typ, nodes.IdentifierType):
+            return typ.name
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
 
     def gen_statement(self, statement):
         if isinstance(statement, nodes.Compound):
@@ -163,7 +200,7 @@ class CPrinter:
             return '{}({})'.format(expr.name, args)
         elif isinstance(expr, nodes.Constant):
             return str(expr.value)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
     def _print(self, txt):

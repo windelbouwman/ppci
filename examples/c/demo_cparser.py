@@ -6,6 +6,7 @@ import argparse
 import io
 from ppci.common import CompilerError
 from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
+from ppci.lang.c import CContext
 from ppci.lang.c.preprocessor import prepare_for_parsing
 
 
@@ -18,8 +19,9 @@ if __name__ == '__main__':
 
     # Parsing:
     coptions = COptions()
+    context = CContext(coptions, None)
     preprocessor = CPreProcessor(coptions)
-    parser = CParser(coptions)
+    parser = CParser(context)
 
     try:
         with open(filename, 'r') as f:

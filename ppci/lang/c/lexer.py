@@ -325,6 +325,8 @@ class CLexer(HandLexerBase):
                 self.emit('--')
             elif self.accept('='):
                 self.emit('-=')
+            elif self.accept('>'):
+                self.emit('->')
             else:
                 self.emit('-')
             return self.lex_c

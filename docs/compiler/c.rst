@@ -68,3 +68,12 @@ https://github.com/shevek/jcpp
 The lcc preprocessor part:
 
 https://github.com/drh/lcc/blob/master/cpp/cpp.h
+
+C compiler
+----------
+
+The c compiler consists of the classical stages: parsing and codegeneration.
+Code generation is done to ir-code.
+
+A c99 frontend for libfirm:
+https://github.com/libfirm/cparser

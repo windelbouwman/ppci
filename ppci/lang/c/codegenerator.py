@@ -9,19 +9,32 @@ class CCodeGenerator:
     """ Converts parsed C code to ir-code """
     logger = logging.getLogger('ccodegen')
 
-    def __init__(self, coptions, march):
-        self.coptions = coptions
-        self.march = march
+    def __init__(self, context):
+        self.context = context
+        self.march = context.march
         self.builder = None
         self.scope = None
         self.ir_var_map = {}
+        # TODO: make int size depending on machine
+        self.ir_type_map = {
+            nodes.BareType.CHAR: (ir.i8, 1),
+            nodes.BareType.SCHAR: (ir.i8, 1),
+            nodes.BareType.UCHAR: (ir.u8, 1),
+            # nodes.BareType.SHORT: (ir.i16, 2),
+            # nodes.BareType.USHORT: (ir.u16, 2),
+            nodes.BareType.INT: (ir.i64, 8),
+            nodes.BareType.UINT: (ir.u64, 8),
+            nodes.BareType.LONG: (ir.i64, 8),
+            nodes.BareType.ULONG: (ir.u64, 8),
+            nodes.BareType.FLOAT: (ir.f32, 4),
+            nodes.BareType.DOUBLE: (ir.f64, 8),
+        }
 
     def gen_code(self, compile_unit):
         """ Initial entry point for the code generator """
         self.builder = irutils.Builder()
-        type_scope = Scope(None)
-        type_scope.var_map.update(compile_unit.type_table)
-        self.scope = Scope(type_scope)
+        self.type_scope = Scope()
+        self.scope = Scope(self.type_scope)
         self.ir_var_map = {}
         self.logger.debug('Generating IR-code')
         ir_mod = ir.Module('c_compilation_unit')
@@ -35,7 +48,6 @@ class CCodeGenerator:
                 if self.equal_types(sym.typ, declaration.typ) and \
                         declaration.is_function:
                     self.logger.debug('okay, forward declaration implemented')
-                    pass
                 else:
                     self.info('First defined here', sym)
                     self.error("Invalid redefinition", declaration)
@@ -43,15 +55,20 @@ class CCodeGenerator:
                 self.scope.insert(declaration)
 
             # Generate code:
-            if declaration.is_function:
+            if isinstance(declaration, nodes.Typedef):
+                self.type_scope.insert(declaration)
+            elif isinstance(declaration, nodes.FunctionDeclaration):
                 self.gen_function(declaration)
-            else:
+            elif isinstance(declaration, nodes.VariableDeclaration):
                 self.gen_global_variable(declaration)
+            else:  # pragma: no cover
+                raise NotImplementedError()
         self.logger.debug('Finished code generation')
         return ir_mod
 
     def emit(self, instruction):
         """ Helper function to emit a single instruction """
+        # print(instruction)
         return self.builder.emit(instruction)
 
     def info(self, message, node):
@@ -73,6 +90,9 @@ class CCodeGenerator:
         if not function.body:
             return
 
+        # Save current function for later on..
+        self.current_function = function
+
         if function.typ.return_type.is_void:
             ir_function = self.builder.new_procedure(function.name)
         else:
@@ -89,7 +109,7 @@ class CCodeGenerator:
         ir_function.entry = first_block
 
         # Add arguments (create memory space for them!):
-        for argument in function.arguments:
+        for argument in function.typ.arguments:
             arg_name = argument.name
             if arg_name is None:
                 arg_name = 'no_name'
@@ -128,6 +148,7 @@ class CCodeGenerator:
 
         ir_function.delete_unreachable()
         self.builder.set_function(None)
+        self.current_function = None
         self.scope = self.scope.parent
 
     def gen_stmt(self, statement):
@@ -209,51 +230,89 @@ class CCodeGenerator:
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(final_block)
 
-    def gen_condition(self, condition: nodes.Expression, yes_block, no_block):
+    def gen_condition(
+            self, condition: nodes.Expression, yes_block, no_block,
+            const_eval=False):
         """ Generate switch based on condition """
         if isinstance(condition, nodes.Binop):
             if condition.op == '||':
                 condition.typ = self.get_type(['int'])
                 middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, yes_block, middle_block)
+                self.gen_condition(
+                    condition.a, yes_block, middle_block, const_eval)
                 self.builder.set_block(middle_block)
                 self.gen_condition(condition.b, yes_block, no_block)
             elif condition.op == '&&':
                 condition.typ = self.get_type(['int'])
                 middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, middle_block, no_block)
+                self.gen_condition(
+                    condition.a, middle_block, no_block, const_eval)
                 self.builder.set_block(middle_block)
                 self.gen_condition(condition.b, yes_block, no_block)
             elif condition.op in ['<', '>', '==', '!=', '<=', '>=']:
-                lhs = self.gen_expr(condition.a, rvalue=True)
-                rhs = self.gen_expr(condition.b, rvalue=True)
+                lhs = self.gen_expr(
+                    condition.a, rvalue=True, const_eval=const_eval)
+                rhs = self.gen_expr(
+                    condition.b, rvalue=True, const_eval=const_eval)
+                common_typ = self.get_common_type(
+                    condition.a.typ, condition.b.typ)
+                lhs = self.coerce(condition.a, lhs, common_typ, const_eval)
+                rhs = self.coerce(condition.b, rhs, common_typ, const_eval)
                 op_map = {
                     '>': '>', '<': '<',
                     '==': '==', '!=': '!=',
                     '<=': '<=', '>=': '>='
                 }
                 condition.typ = self.get_type(['int'])
-                op = op_map[condition.op]
-                self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
+                if const_eval:
+                    pass
+                else:
+                    op = op_map[condition.op]
+                    self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
             else:
-                self.check_non_zero(condition, yes_block, no_block)
+                self.check_non_zero(condition, yes_block, no_block, const_eval)
+        elif isinstance(condition, nodes.Unop):
+            if condition.op == '!':
+                # Simply swap yes and no here!
+                self.gen_condition(condition.a, no_block, yes_block)
+            else:
+                self.check_non_zero(condition, yes_block, no_block, const_eval)
         else:
-            self.check_non_zero(condition, yes_block, no_block)
+            self.check_non_zero(condition, yes_block, no_block, const_eval)
 
-    def check_non_zero(self, expr, yes_block, no_block):
+        # Cannot assert here because coercion may occur
+        # assert self.equal_types(condition.typ, self.get_type(['int']))
+
+    def check_non_zero(self, expr, yes_block, no_block, const_eval):
         """ Check an expression for being non-zero """
-        expr_value = self.gen_expr(expr)
-        ir_typ = self.get_ir_type(expr.typ)
-        zero = self.emit(ir.Const(0, 'zero', ir_typ))
-        self.emit(ir.CJump(expr_value, '==', zero, no_block, yes_block))
+        value = self.gen_expr(expr)
+        typ = self.get_type(['int'])
+        value = self.coerce(expr, value, typ, const_eval)
+        if const_eval:
+            if value == 0:
+                no_block()
+            else:
+                yes_block()
+        else:
+            ir_typ = self.get_ir_type(typ)
+            zero = self.emit(ir.Const(0, 'zero', ir_typ))
+            self.emit(ir.CJump(value, '==', zero, no_block, yes_block))
 
     def gen_return(self, stmt: nodes.Return):
         """ Generate return statement code """
+        return_type = self.current_function.typ.return_type
         if stmt.value:
-            return_value = self.gen_expr(stmt.value, rvalue=True)
-            self.emit(ir.Return(return_value))
+            if return_type.is_void:
+                self.error('Cannot return a value from this function', stmt)
+            value = self.gen_expr(stmt.value, rvalue=True)
+            value = self.coerce(stmt.value, value, return_type, False)
+            self.emit(ir.Return(value))
         else:
+            if not return_type.is_void:
+                self.error('Must return a value from this function', stmt)
             self.emit(ir.Exit())
+        new_block = self.builder.new_block()
+        self.builder.set_block(new_block)
 
     def gen_local_var(self, variable: nodes.VariableDeclaration):
         """ Generate a local variable """
@@ -266,73 +325,132 @@ class CCodeGenerator:
         ir_addr = self.emit(ir.Alloc(name + '_alloc', size))
         self.ir_var_map[variable] = ir_addr
 
-    def gen_expr(self, expr, rvalue=False):
+    def gen_expr(self, expr, rvalue=False, const_eval=False):
+        """ Generate code for an expression or evaluate it.
+
+        rvalue: if True, then the result of the expression will be an rvalue.
+        const_eval: if true, the result will be calculated now, no code is
+                    generated. default false.
+        """
         if isinstance(expr, nodes.Unop):
             if expr.op in ['++', '--']:
+                if const_eval:
+                    self.error('Not a constant expression', expr)
                 ir_a = self.gen_expr(expr.a, rvalue=False)
                 if not expr.a.lvalue:
                     self.error('Expected lvalue', expr.a)
                 expr.typ = expr.a.typ
+                expr.lvalue = False
 
                 op = expr.op[0]
                 ir_typ = self.get_ir_type(expr.typ)
                 loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
-                one = self.emit(ir.Const(1, 'one', ir_typ))
-                ir_value = self.emit(ir.Binop(
+                # for pointers, this is not one, but sizeof
+                if isinstance(expr.typ, nodes.PointerType):
+                    size = self.sizeof(expr.typ.pointed_type)
+                    one = self.emit(ir.Const(size, 'one_element', ir_typ))
+                else:
+                    one = self.emit(ir.Const(1, 'one', ir_typ))
+                value = self.emit(ir.Binop(
                     loaded, op, one, 'inc', ir_typ))
-                self.emit(ir.Store(ir_value, ir_a))
+                self.emit(ir.Store(value, ir_a))
+            elif expr.op == '*':
+                if const_eval:
+                    self.error('Not a constant expression', expr)
+                a = self.gen_expr(expr.a, rvalue=True)
+                if not isinstance(expr.a.typ, nodes.PointerType):
+                    self.error('Cannot derefence non-pointer type', expr)
+                value = a
+                expr.typ = expr.a.typ.pointed_type
+                expr.lvalue = True
+            elif expr.op == '&':
+                if const_eval:
+                    self.error('Not a constant expression', expr)
+                a = self.gen_expr(expr.a, rvalue=False)
+                if not expr.a.lvalue:
+                    self.error('Expected lvalue', expr.a)
+                value = a
+                expr.typ = nodes.PointerType(expr.a.typ)
+                expr.lvalue = False
+            elif expr.op == '-':
+                a = self.gen_expr(expr.a, rvalue=True, const_eval=const_eval)
+                expr.typ = expr.a.typ
+                expr.lvalue = False
+                if const_eval:
+                    value = -a
+                else:
+                    ir_typ = self.get_ir_type(expr.typ)
+                    zero = self.emit(ir.Const(0, 'zero', ir_typ))
+                    value = self.emit(ir.Binop(zero, '-', a, 'neg', ir_typ))
+            elif expr.op == '~':
+                a = self.gen_expr(expr.a, rvalue=True, const_eval=const_eval)
+                expr.typ = expr.a.typ
+                expr.lvalue = False
+                # TODO: implement operator
+                value = a
             else:
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, nodes.Binop):
             if expr.op in ['+', '-', '*', '/', '%', '|', '&', '>>', '<<']:
-                lhs = self.gen_expr(expr.a, rvalue=True)
-                rhs = self.gen_expr(expr.b, rvalue=True)
+                lhs = self.gen_expr(expr.a, rvalue=True, const_eval=const_eval)
+                rhs = self.gen_expr(expr.b, rvalue=True, const_eval=const_eval)
                 op = expr.op
 
-                if not self.equal_types(expr.a.typ, expr.b.typ):
-                    self.error(
-                        'Mismatch {} != {}'.format(expr.a.typ, expr.b.typ),
-                        expr)
+                common_typ = self.get_common_type(expr.a.typ, expr.b.typ)
+                lhs = self.coerce(expr.a, lhs, common_typ, const_eval)
+                rhs = self.coerce(expr.b, rhs, common_typ, const_eval)
 
-                expr.typ = expr.a.typ
-
-                # TODO: coerce!
-                ir_typ = self.get_ir_type(expr.typ)
-                ir_value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
+                expr.typ = common_typ
                 expr.lvalue = False
+                if const_eval:
+                    op_map = {
+                        '+': lambda x, y: x + y,
+                        '-': lambda x, y: x - y,
+                        '*': lambda x, y: x * y,
+                        '/': lambda x, y: x / y,
+                        '>>': lambda x, y: x >> y,
+                        '<<': lambda x, y: x << y,
+                    }
+                    value = op_map[op](lhs, rhs)
+                else:
+                    ir_typ = self.get_ir_type(expr.typ)
+                    value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
             elif expr.op == ',':
                 # Handle the comma operator by returning the second result
+                if const_eval:
+                    self.error('Not a constant expression', expr)
                 lhs = self.gen_expr(expr.a, rvalue=True)
                 rhs = self.gen_expr(expr.b, rvalue=True)
                 expr.typ = expr.b.typ
-                ir_value = rhs
+                expr.lvalue = False
+                value = rhs
             elif expr.op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
-                ir_typ = self.get_ir_type(expr.typ)
+                if const_eval:
+                    # TODO: implement constant
+                    self.error('Not a constant expression', expr)
                 yes_block = self.builder.new_block()
                 no_block = self.builder.new_block()
                 end_block = self.builder.new_block()
                 self.gen_condition(expr, yes_block, no_block)
                 self.builder.set_block(yes_block)
+                ir_typ = self.get_ir_type(expr.typ)
                 yes_value = self.emit(ir.Const(1, 'one', ir_typ))
                 self.emit(ir.Jump(end_block))
                 self.builder.set_block(no_block)
                 no_value = self.emit(ir.Const(0, 'zero', ir_typ))
                 self.emit(ir.Jump(end_block))
                 self.builder.set_block(end_block)
-                phi = self.emit(ir.Phi('phi', ir_typ))
-                phi.set_incoming(yes_block, yes_value)
-                phi.set_incoming(no_block, no_value)
-                ir_value = phi
+                value = self.emit(ir.Phi('phi', ir_typ))
+                value.set_incoming(yes_block, yes_value)
+                value.set_incoming(no_block, no_value)
                 expr.lvalue = False
             elif expr.op in ['=', '+=', '-=', '*=']:
+                if const_eval:
+                    self.error('Not a constant expression', expr)
                 lhs = self.gen_expr(expr.a, rvalue=False)
-                ir_value = self.gen_expr(expr.b, rvalue=True)
+                rhs = self.gen_expr(expr.b, rvalue=True)
+                rhs = self.coerce(expr.b, rhs, expr.a.typ, const_eval=False)
                 expr.lvalue = False
-                if not self.equal_types(expr.a.typ, expr.b.typ):
-                    self.error(
-                        'Mismatch {} != {}'.format(expr.a.typ, expr.b.typ),
-                        expr)
-
                 expr.typ = expr.a.typ
 
                 if not expr.a.lvalue:
@@ -342,122 +460,138 @@ class CCodeGenerator:
                     op = expr.op[:-1]
                     ir_typ = self.get_ir_type(expr.typ)
                     loaded = self.emit(ir.Load(lhs, 'lhs', ir_typ))
-                    ir_value = self.emit(ir.Binop(
-                        loaded, op, ir_value, 'assign', ir_typ))
-                self.emit(ir.Store(ir_value, lhs))
+                    value = self.emit(ir.Binop(
+                        loaded, op, rhs, 'assign', ir_typ))
+                else:
+                    value = rhs
+                self.emit(ir.Store(value, lhs))
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, nodes.VariableAccess):
+            if const_eval:
+                # TODO: handle const int values?
+                self.error('Not a constant expression', expr)
             if not self.scope.is_defined(expr.name):
                 self.error('Who is this?', expr)
             variable = self.scope.get(expr.name)
-            expr.lvalue = True
             expr.typ = variable.typ
-            ir_value = self.ir_var_map[variable]
+            expr.lvalue = True
+            value = self.ir_var_map[variable]
         elif isinstance(expr, nodes.FunctionCall):
+            if const_eval:
+                self.error('Not a constant expression', expr)
             # Lookup the function:
             if not self.scope.is_defined(expr.name):
                 self.error('Who is this?', expr)
             function = self.scope.get(expr.name)
             if not isinstance(function, nodes.FunctionDeclaration):
                 self.error('Calling a non-function', expr)
-            expr.lvalue = False
+
+            # Determine expression properties:
             expr.typ = function.typ.return_type
-            if len(expr.args) != len(function.typ.arg_types):
+            expr.lvalue = False
+
+            # Check argument count:
+            num_expected = len(function.typ.arg_types)
+            num_given = len(expr.args)
+            if num_given != num_expected:
                 self.error('Expected {} arguments, but got {}'.format(
-                    len(function.typ.arg_types), len(expr.args)), expr)
+                    num_expected, num_given), expr)
+
+            # Evaluate arguments:
             ir_arguments = []
-            for argument in expr.args:
-                ir_arguments.append(self.gen_expr(argument, rvalue=True))
+            for argument, arg_type in zip(expr.args, function.typ.arg_types):
+                value = self.gen_expr(argument, rvalue=True)
+                value = self.coerce(argument, value, arg_type, False)
+                ir_arguments.append(value)
 
             if function.typ.return_type.is_void:
                 self.emit(ir.ProcedureCall(function.name, ir_arguments))
-                ir_value = None
+                value = None
             else:
                 ir_typ = self.get_ir_type(expr.typ)
-                ir_value = self.emit(ir.FunctionCall(
+                value = self.emit(ir.FunctionCall(
                     function.name, ir_arguments, 'result', ir_typ))
         elif isinstance(expr, nodes.Constant):
+            # TODO: handle more types
             v = int(expr.value)
             expr.typ = self.get_type(['int'])
             expr.lvalue = False
-            ir_typ = self.get_ir_type(expr.typ)
-            ir_value = self.emit(ir.Const(v, 'constant', ir_typ))
+            if const_eval:
+                value = v
+            else:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Const(v, 'constant', ir_typ))
         elif isinstance(expr, nodes.Cast):
             # TODO: is the cast valid?
-            a = self.gen_expr(expr.expr, rvalue=True)
+            a = self.gen_expr(expr.expr, rvalue=True, const_eval=const_eval)
             expr.typ = expr.to_typ
             expr.lvalue = False  # or expr.expr.lvalue?
-            ir_typ = self.get_ir_type(expr.typ)
-            ir_value = self.emit(ir.Cast(a, 'typecast', ir_typ))
+            if const_eval:
+                # TODO: handle some form of casting?
+                value = a
+            else:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Cast(a, 'typecast', ir_typ))
         elif isinstance(expr, nodes.Sizeof):
             expr.typ = self.get_type(['int'])
             expr.lvalue = False
-            v = self.sizeof(expr.sizeof_typ)
-            ir_typ = self.get_ir_type(expr.typ)
-            ir_value = self.emit(ir.Const(v, 'type_size', ir_typ))
+            type_size = self.sizeof(expr.sizeof_typ)
+            if const_eval:
+                value = type_size
+            else:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Const(type_size, 'type_size', ir_typ))
+        elif isinstance(expr, nodes.FieldSelect):
+            if const_eval:
+                self.error('Not a constant expression', expr)
+            base = self.gen_expr(expr.base, rvalue=False, const_eval=False)
+            if not expr.base.lvalue:
+                self.error('Expected lvalue', expr.base)
+            base_type = self.resolve_type(expr.base.typ)
+            if not isinstance(base_type, nodes.StructType):
+                self.error(
+                    'Cannot index field of non struct type {}'.format(
+                        base_type), expr)
+            if not base_type.has_field(expr.field):
+                self.error(
+                    'Field {} not part of struct'.format(expr.field), expr)
+            field = base_type.get_field(expr.field)
+            expr.typ = field.typ
+            expr.lvalue = True
+            self.logger.warning('implement offset from field select')
+            offset = 0
+            # TODO: calculate offset into struct
+            offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
+            value = self.emit(ir.Binop(base, '+', offset, 'offset', ir.ptr))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
+        # Check for given attributes:
         assert isinstance(expr.typ, nodes.CType)
+        assert isinstance(expr.lvalue, bool)
 
         # If we need an rvalue, load it!
-        if rvalue and expr.lvalue:
+        if rvalue and expr.lvalue and not const_eval:
             ir_typ = self.get_ir_type(expr.typ)
-            ir_value = self.emit(ir.Load(ir_value, 'load', ir_typ))
-        return ir_value
+            value = self.emit(ir.Load(value, 'load', ir_typ))
+        return value
 
-    def get_type(self, names):
-        """ Retrieve a type by name """
-        assert isinstance(names, list)
-        return nodes.IdentifierType(names)
-        return nodes.IntegerType('int')
-        # TODO: retrieve a nice type somehow?
-        for type_specifier in names:
-            if type_specifier == 'int':
-                typ = nodes.IntegerType('int')
-            elif type_specifier == 'void':
-                typ = nodes.VoidType()
-            elif type_specifier == 'char':
-                typ = nodes.IntegerType('char')
-            elif type_specifier == 'float':
-                typ = nodes.FloatingPointType('float')
-            elif type_specifier == 'double':
-                typ = nodes.FloatingPointType('double')
-            elif type_specifier == 'unsigned':
-                typ = nodes.IntegerType('int')
-            elif type_specifier == 'signed':
-                typ = nodes.IntegerType('int')
-            elif type_specifier == 'short':
-                typ = nodes.IntegerType('int')
-            elif type_specifier == 'long':
-                typ = nodes.IntegerType('int')
-            else:
-                raise NotImplementedError(str(type_specifier))
-        print(typ)
+    def get_type(self, type_specifiers):
+        """ Retrieve a type by type specifiers """
+        assert isinstance(type_specifiers, list)
+        return self.context.get_type(type_specifiers)
 
     def get_ir_type(self, typ: nodes.CType):
         """ Given a C type, get the fitting ir type """
         assert isinstance(typ, nodes.CType)
 
-        if isinstance(typ, nodes.IdentifierType):
-            if len(typ.names) == 1 and self.scope.is_defined(typ.names[0]):
-                # Typedef type!
-                deftyp = self.scope.get(typ.names[0])
-                return self.get_ir_type(deftyp)
-            else:
-                if 'int' in typ.names:
-                    return ir.i64
-                elif 'char' in typ.names:
-                    return ir.i8
-                else:
-                    return ir.i64
-                    raise NotImplementedError(typ.names)
+        if isinstance(typ, nodes.BareType):
+            return self.ir_type_map[typ.type_id][0]
+        elif isinstance(typ, nodes.IdentifierType):
+            return self.get_ir_type(self.resolve_type(typ))
         elif isinstance(typ, nodes.PointerType):
             return ir.ptr
-        elif isinstance(typ, nodes.FloatingPointType):
-            # TODO handle float and double?
-            return ir.f64
         else:
             raise NotImplementedError(str(typ))
 
@@ -465,10 +599,25 @@ class CCodeGenerator:
         """ Check for type equality """
         # TODO: enhance!
         if typ1 is typ2:
+            # A short circuit:
             return True
+        # elif isinstance(typ1, nodes.QualifiedType):
+        #    # Handle qualified types:
+        #    if isinstance(typ2, nodes.QualifiedType):
+        #        return typ1.qualifiers == typ2.qualifiers and \
+        #            self.equal_types(typ1.typ, typ2.typ)
+        #    else:
+        #        return (not typ1.qualifiers) and \
+        #            self.equal_types(typ1.typ, typ2)
+        # elif isinstance(typ2, nodes.QualifiedType):
+        #    # Handle qualified types (we know that typ1 unqualified)
+        #    return (not typ2.qualifiers) and self.equal_types(typ1, typ2.typ)
+        elif isinstance(typ1, nodes.BareType):
+            if isinstance(typ2, nodes.BareType):
+                return typ1.type_id == typ2.type_id
         elif isinstance(typ1, nodes.IdentifierType):
             if isinstance(typ2, nodes.IdentifierType):
-                return typ1.names == typ2.names
+                return typ1.name == typ2.name
         elif isinstance(typ1, nodes.FunctionType):
             if isinstance(typ2, nodes.FunctionType):
                 return len(typ1.arg_types) == len(typ2.arg_types) and \
@@ -482,7 +631,82 @@ class CCodeGenerator:
             raise NotImplementedError(str(typ1))
         return False
 
+    def get_common_type(self, typ1, typ2):
+        """ Given two types, determine the common type.
+
+        The common type is a type they can both be cast to. """
+        # TODO!
+        return typ1
+
+    def resolve_type(self, typ: nodes.IdentifierType):
+        """ Given a type, look behind the identifiertype """
+        if isinstance(typ, nodes.IdentifierType):
+            if self.type_scope.is_defined(typ.name):
+                # Typedef type!
+                typedef = self.type_scope.get(typ.name)
+                assert isinstance(typedef, nodes.Typedef)
+                return self.resolve_type(typedef.typ)
+            else:  # pragma: no cover
+                raise KeyError(typ.name)
+        else:
+            return typ
+
+    def coerce(
+            self, expr: nodes.Expression, value, typ: nodes.CType,
+            const_eval):
+        """ Try to fit the given expression into the given type """
+        do_cast = False
+        from_type = self.resolve_type(expr.typ)
+        to_type = self.resolve_type(typ)
+
+        if self.equal_types(from_type, to_type):
+            pass
+        elif isinstance(from_type, nodes.PointerType) and \
+                isinstance(to_type, nodes.BareType):
+            do_cast = True
+        elif isinstance(from_type, nodes.PointerType) and \
+                isinstance(to_type, nodes.PointerType):
+            do_cast = True
+        elif isinstance(from_type, nodes.BareType) and \
+                isinstance(to_type, nodes.PointerType):
+            do_cast = True
+        elif isinstance(from_type, nodes.BareType) and \
+                isinstance(to_type, nodes.BareType):
+            # TODO: implement stricter checks
+            do_cast = True
+        else:
+            self.error('Cannot convert {} to {}'.format(expr.typ, typ), expr)
+
+        if do_cast:
+            if const_eval:
+                raise NotImplementedError()
+            else:
+                ir_typ = self.get_ir_type(to_type)
+                value = self.emit(ir.Cast(value, 'casting', ir_typ))
+        return value
+
     def sizeof(self, typ: nodes.CType):
+        """ Given a type, determine its size in whole bytes """
         assert isinstance(typ, nodes.CType)
-        # TODO: determine based on cpu
-        return 8
+        if isinstance(typ, nodes.ArrayType):
+            element_size = self.sizeof(typ.element_type)
+            array_size = self.gen_expr(typ.size, const_eval=True)
+            return element_size * array_size
+        elif isinstance(typ, nodes.BareType):
+            return self.ir_type_map[typ.type_id][1]
+        elif isinstance(typ, nodes.IdentifierType):
+            return self.sizeof(self.resolve_type(typ))
+        elif isinstance(typ, nodes.StructType):
+            return sum(self.sizeof(part.typ) for part in typ.fields)
+        elif isinstance(typ, nodes.UnionType):
+            return max(self.sizeof(part.typ) for part in typ.fields)
+        elif isinstance(typ, nodes.PointerType):
+            return self.march.byte_sizes['ptr']
+        elif isinstance(typ, nodes.FunctionType):
+            # TODO: can we determine size of a function type? Should it not
+            # be pointer to a function?
+            return self.march.byte_sizes['ptr']
+        # elif isinstance(typ, nodes.QualifiedType):
+        #    return self.sizeof(typ.typ)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))

@@ -1,5 +1,6 @@
 """ C front end. """
 
+from .context import CContext
 from .builder import CBuilder
 from .lexer import CLexer
 from .parser import CParser
@@ -9,5 +10,5 @@ from .options import COptions
 
 
 __all__ = [
-    'CBuilder', 'CLexer', 'COptions', 'CPreProcessor', 'CParser',
+    'CBuilder', 'CContext', 'CLexer', 'COptions', 'CPreProcessor', 'CParser',
     'CAstPrinter', 'CPrinter']

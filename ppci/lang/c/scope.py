@@ -4,7 +4,7 @@ from . import nodes
 
 class Scope:
     """ A variable scope """
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         self.parent = parent
         self.var_map = {}
 

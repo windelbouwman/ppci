@@ -29,6 +29,10 @@ class RecursiveDescentParser:
             loc = self.token.loc
         raise CompilerError(msg, loc)
 
+    @property
+    def current_location(self):
+        return self.token.loc
+
     # Lexer helpers:
     def consume(self, typ=None):
         """ Assert that the next token is typ, and if so, return it.
