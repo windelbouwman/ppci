@@ -10,7 +10,7 @@ from .tasks import Task, TaskError, register_task
 from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
 from ..utils.reporting import complete_report
 from ..api import c3c, link, asm, construct, objcopy
-from ..pcc.common import ParserException
+from ..lang.tools.common import ParserException
 from ..common import CompilerError
 
 

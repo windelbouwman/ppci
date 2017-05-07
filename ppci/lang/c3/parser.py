@@ -2,7 +2,7 @@
 
 import logging
 from ...common import CompilerError
-from ...pcc.recursivedescent import RecursiveDescentParser
+from ..tools.recursivedescent import RecursiveDescentParser
 from . import astnodes as ast
 from .scope import Scope
 

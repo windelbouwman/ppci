@@ -1,5 +1,5 @@
 
-from ..common import CompilerError
+from ...common import CompilerError
 
 
 def make_comma_or(parts):

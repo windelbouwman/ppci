@@ -8,7 +8,7 @@ And the book:
 Parsing Techniques: A Practical Guide (2nd edition)
 """
 
-from ..common import ParseError
+from ...common import ParseError
 
 
 class Item:

@@ -60,7 +60,7 @@ import sys
 from os import path
 import argparse
 from ppci.common import Token, SourceLocation
-from ppci.pcc import baselex, yacc
+from ppci.lang.tools import baselex, yacc
 from ppci.utils.tree import Tree
 
 # Generate parser on the fly:

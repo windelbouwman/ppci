@@ -69,17 +69,35 @@ class CLexerTestCase(unittest.TestCase):
         numbers = list(map(lambda t: cnum(t.val), tokens))
         self.assertSequenceEqual([212, 215, 4078, 59, 26, 30, 30], numbers)
 
+    def test_dotdotdot(self):
+        """ Test the lexing of the triple dot """
+        src = ". .. ... ....."
+        tokens = self.tokenize(src)
+        dots = list(map(lambda t: t.typ, tokens))
+        self.assertSequenceEqual(['.', '.', '.', '...', '...', '.', '.'], dots)
+
     def test_character_literals(self):
-        src = r"'a' '\n' L'\0'"
+        """ Test various character literals """
+        src = r"'a' '\n' L'\0' '\\' '\a' '\b' '\f' '\r' '\t' '\v' '\11' '\xee'"
+        expected_chars = [
+            "'a'", r"'\n'", r"L'\0'", r"'\\'", r"'\a'", r"'\b'",
+            r"'\f'", r"'\r'", r"'\t'", r"'\v'", r"'\11'", r"'\xee'"]
         tokens = self.tokenize(src)
         self.assertTrue(all(t.typ == 'CHAR' for t in tokens))
         chars = list(map(lambda t: t.val, tokens))
-        self.assertSequenceEqual(["'a'", r"'\n'", r"L'\0'"], chars)
+        self.assertSequenceEqual(expected_chars, chars)
 
     def test_token_spacing(self):
         src = "1239hello"
         # TODO: should this raise an error?
         tokens = self.tokenize(src)
+
+    def test_lexical_error(self):
+        src = "'asfdfd'"
+        # TODO: should this raise an error?
+        with self.assertRaises(CompilerError) as cm:
+            tokens = self.tokenize(src)
+        self.assertEqual("Expected '", cm.exception.msg)
 
 
 class CPreProcessorTestCase(unittest.TestCase):
@@ -564,6 +582,12 @@ class CParserTestCase(unittest.TestCase):
         self.assertIsInstance(declaration.typ.pointed_type, nodes.ArrayType)
         self.assertEqual('3', declaration.typ.pointed_type.size.value)
 
+    def test_expression_precedence(self):
+        self.given_source('*l==*r && *l')
+        expr = self.parser.parse_expression()
+        self.assertIsInstance(expr, nodes.Binop)
+        self.assertEqual('&&', expr.op)
+
 
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
@@ -681,19 +705,34 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test structure usage """
         src = """
         typedef struct {int quot, rem; } div_t;
-        void main() {
-         volatile div_t x, *y;
-         x.rem = 2;
-         y = &x;
-         y->quot = x.rem;
-        }
         struct z { int foo; };
         struct s;
         struct s* p;
         struct s {
          struct s *next;
+         int b:2+5, c:9, d;
          struct z Z;
         };
+        void main() {
+         volatile div_t x, *y;
+         x.rem = 2;
+         y = &x;
+         y->quot = x.rem;
+         struct s S;
+         S.next->next->b = 1;
+        }
+        """
+        self.do(src)
+
+    def test_sizeof(self):
+        """ Test sizeof usage """
+        src = """
+        void main() {
+         int x, *y;
+         x = sizeof(float*);
+         x = sizeof *y;
+         x = sizeof(*y);
+        }
         """
         self.do(src)
 

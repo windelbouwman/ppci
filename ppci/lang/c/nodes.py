@@ -1,6 +1,4 @@
-"""
-    Contains classes for the abstract syntax tree (AST) nodes for the C
-    language.
+""" Classes for the abstract syntax tree (AST) nodes for the C language.
 """
 
 from ...common import SourceLocation
@@ -111,8 +109,15 @@ class ArrayType(CType):
         return 'Array-type'
 
 
-class StructType(CType):
-    """ Structure type """
+class EnumType(CType):
+    """ Enum type """
+    def __init__(self, values):
+        super().__init__()
+        self.values = values
+
+
+class StructOrUnionType(CType):
+    """ Common base for struct and union types """
     def __init__(self, fields=None):
         super().__init__()
         if fields:
@@ -136,6 +141,9 @@ class StructType(CType):
     def get_field(self, name):
         return self.field_map[name]
 
+
+class StructType(StructOrUnionType):
+    """ Structure type """
     def __repr__(self):
         return 'Structured-type'
 
@@ -150,12 +158,8 @@ class StructType(CType):
 #        return 'IdentifierType: {}'.format(self.name)
 
 
-class UnionType(CType):
+class UnionType(StructOrUnionType):
     """ Union type """
-    def __init__(self, fields):
-        super().__init__()
-        self.fields = fields
-
     def __repr__(self):
         return 'Union-type'
 

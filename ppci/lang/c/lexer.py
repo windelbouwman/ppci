@@ -167,8 +167,29 @@ class HandLexerBase:
         while self.accept(valid):
             pass
 
+    def accept_sequence(self, sequence):
+        """ Munch the exact given sequence of characters """
+        chars = []
+        for valid in sequence:
+            char = self.next_char()
+            chars.append(char)
+            if char and char.char in valid:
+                continue
+            else:
+                # Retreat! Pull back! We are wrong!
+                for char in reversed(chars):
+                    self.backup_char(char)
+                return False
+        return True
+
     def error(self, message):
-        raise CompilerError()
+        char = self.next_char()
+        loc = char.loc
+        raise CompilerError(message, loc)
+
+    def expect(self, valid):
+        if not self.accept(valid):
+            self.error("Expected {}".format(', '.join(valid)))
 
 
 class CLexer(HandLexerBase):
@@ -336,13 +357,19 @@ class CLexer(HandLexerBase):
             else:
                 self.emit('*')
             return self.lex_c
-        elif r.char in ';{}()[],.?%~:^':
+        elif r.char == '.':
+            if self.accept_sequence(['.', '.']):
+                self.emit('...')
+            else:
+                self.emit('.')
+            return self.lex_c
+        elif r.char in ';{}()[],?%~:^':
             self.emit(r.char)
             return self.lex_c
         elif r.char == "\\":
             self.emit(r.char)
             return self.lex_c
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(r)
 
     def lex_identifier(self):
@@ -405,12 +432,22 @@ class CLexer(HandLexerBase):
     def lex_char(self):
         """ Scan for a complete character constant """
         if self.accept("\\"):
-            self.next_char()
+            # Escape char!
+            if self.accept("'\"?\\abfnrtv"):
+                pass
+            elif self.accept(self.octal_numbers):
+                self.accept(self.octal_numbers)
+                self.accept(self.octal_numbers)
+            elif self.accept('x'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+            else:
+                self.error('Unexpected escape character')
         else:
+            # Normal char:
             self.next_char()
 
-        if not self.accept("'"):
-            self.error("Expected ' ")
+        self.expect("'")
 
         self.emit('CHAR')
         return self.lex_c

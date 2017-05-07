@@ -1,6 +1,6 @@
-from ..pcc.baselex import BaseLexer, EOF, EPS
-from ..pcc.grammar import Grammar
-from ..pcc.lr import LrParserBuilder
+from ..lang.tools.baselex import BaseLexer, EOF, EPS
+from ..lang.tools.grammar import Grammar
+from ..lang.tools.lr import LrParserBuilder
 from ..common import make_num
 
 

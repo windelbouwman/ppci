@@ -1,7 +1,7 @@
 
 from collections import namedtuple
 import logging
-from ...pcc.recursivedescent import RecursiveDescentParser
+from ..tools.recursivedescent import RecursiveDescentParser
 from . import nodes
 
 

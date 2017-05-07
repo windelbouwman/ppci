@@ -30,6 +30,7 @@ class CPreProcessor:
     def __init__(self, coptions):
         self.coptions = coptions
         self.defines = {}
+        self.filename = None
 
         # A black list of defines currently being expanded:
         self.blue_list = set()
@@ -101,6 +102,8 @@ class CPreProcessor:
     def process(self, f, filename=None):
         """ Process the given open file into expanded lines of tokens """
         self.logger.debug('Processing %s', filename)
+        previous_filename = self.filename
+        self.filename = filename
         clexer = CLexer(self.coptions)
         tokens = clexer.lex(f, filename)
         macro_expander = Expander(self)
@@ -108,6 +111,7 @@ class CPreProcessor:
         for token in macro_expander.process(tokens):
             yield token
         self.logger.debug('Finished %s', filename)
+        self.filename = previous_filename
 
     def define(self, macro):
         """ Register a define """
@@ -129,10 +133,17 @@ class CPreProcessor:
         """ Retrieve the given define! """
         return self.defines[name]
 
-    def include(self, filename):
+    def include(self, filename, loc, use_current_dir=False):
         """ Turn the given filename into a series of lines """
         self.logger.debug('Including %s', filename)
-        for path in self.coptions.include_directories:
+        search_directories = []
+        if use_current_dir:
+            # In the case of: #include "foo.h"
+            current_dir = os.path.dirname(self.filename)
+            search_directories.append(current_dir)
+        search_directories.extend(self.coptions.include_directories)
+        # self.logger.debug((search_directories)
+        for path in search_directories:
             full_path = os.path.join(path, filename)
             if os.path.exists(full_path):
                 self.logger.debug('Including %s', full_path)
@@ -141,7 +152,7 @@ class CPreProcessor:
                         yield line
                 return
         self.logger.error('File not found: %s', filename)
-        raise FileNotFoundError(filename)
+        raise CompilerError('Could not find {}'.format(filename), loc)
 
 
 class LineEater:
@@ -644,8 +655,9 @@ class Expander:
             yield new_line_token
         elif directive == 'include':
             if self.enabled:
-                token = self.consume()
+                token = self.consume(('<', 'STRING'))
                 if token.typ == '<':
+                    use_current_dir = False
                     # TODO: this is a bad way of getting the filename:
                     filename = ''
                     token = self.consume()
@@ -654,10 +666,13 @@ class Expander:
                         token = self.consume()
                     include_filename = filename
                 else:
+                    use_current_dir = True
                     include_filename = token.val[1:-1]
 
-                for line in self.preprocessor.include(include_filename):
-                    yield line
+                for token in self.preprocessor.include(
+                        include_filename, directive_token.loc,
+                        use_current_dir=use_current_dir):
+                    yield token
 
                 yield LineInfo(
                     directive_token.loc.row + 1,
@@ -717,6 +732,7 @@ class Expander:
             #    flags.append(token.val)
             #    flag_token = self.consume(stop_eol=True)
             # self.undo(flag_token)
+            print(line)
             self.logger.error("#LINE directive not implemented")
             yield new_line_token
         elif directive == 'error':

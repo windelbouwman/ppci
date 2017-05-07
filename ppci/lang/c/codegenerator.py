@@ -183,7 +183,7 @@ class CCodeGenerator:
         yes_block = self.builder.new_block()
         no_block = self.builder.new_block()
         final_block = self.builder.new_block()
-        self.gen_condition(stmt.condition, yes_block, no_block)
+        self.gen_condition(stmt.condition, yes_block, no_block, self.CODEGEN)
         self.builder.set_block(yes_block)
         self.gen_stmt(stmt.yes)
         self.emit(ir.Jump(final_block))
@@ -199,7 +199,8 @@ class CCodeGenerator:
         final_block = self.builder.new_block()
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
-        self.gen_condition(stmt.condition, body_block, final_block)
+        self.gen_condition(
+            stmt.condition, body_block, final_block, self.CODEGEN)
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
         self.emit(ir.Jump(condition_block))
@@ -212,7 +213,8 @@ class CCodeGenerator:
         self.emit(ir.Jump(body_block))
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
-        self.gen_condition(stmt.condition, body_block, final_block)
+        self.gen_condition(
+            stmt.condition, body_block, final_block, self.CODEGEN)
         self.builder.set_block(final_block)
 
     def gen_for(self, stmt: nodes.For):
@@ -223,7 +225,8 @@ class CCodeGenerator:
         self.gen_stmt(stmt.init)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
-        self.gen_condition(stmt.condition, body_block, final_block)
+        self.gen_condition(
+            stmt.condition, body_block, final_block, self.CODEGEN)
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
         self.gen_stmt(stmt.post)
@@ -232,71 +235,95 @@ class CCodeGenerator:
 
     def gen_condition(
             self, condition: nodes.Expression, yes_block, no_block,
-            const_eval=False):
-        """ Generate switch based on condition """
+            purpose):
+        """ Generate switch based on condition.
+
+        If the purpose is to generate code, then jump to one of the given
+        blocks.
+
+        If the purpose is to evaluate an expression, the value of the
+        expression is returned.
+        """
         if isinstance(condition, nodes.Binop):
             if condition.op == '||':
                 condition.typ = self.get_type(['int'])
-                middle_block = self.builder.new_block()
-                self.gen_condition(
-                    condition.a, yes_block, middle_block, const_eval)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
+                if purpose is self.CODEGEN:
+                    middle_block = self.builder.new_block()
+                    self.gen_condition(
+                        condition.a, yes_block, middle_block, purpose)
+                    self.builder.set_block(middle_block)
+                    self.gen_condition(
+                        condition.b, yes_block, no_block, purpose)
+                    value = None
+                else:  # pragma: no cover
+                    raise NotImplementedError()
             elif condition.op == '&&':
                 condition.typ = self.get_type(['int'])
-                middle_block = self.builder.new_block()
-                self.gen_condition(
-                    condition.a, middle_block, no_block, const_eval)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
+                if purpose is self.CODEGEN:
+                    middle_block = self.builder.new_block()
+                    self.gen_condition(
+                        condition.a, middle_block, no_block, purpose)
+                    self.builder.set_block(middle_block)
+                    self.gen_condition(
+                        condition.b, yes_block, no_block, purpose)
+                    value = None
+                else:  # pragma: no cover
+                    raise NotImplementedError()
             elif condition.op in ['<', '>', '==', '!=', '<=', '>=']:
                 lhs = self.gen_expr(
-                    condition.a, rvalue=True, const_eval=const_eval)
+                    condition.a, rvalue=True, purpose=purpose)
                 rhs = self.gen_expr(
-                    condition.b, rvalue=True, const_eval=const_eval)
+                    condition.b, rvalue=True, purpose=purpose)
                 common_typ = self.get_common_type(
                     condition.a.typ, condition.b.typ)
-                lhs = self.coerce(condition.a, lhs, common_typ, const_eval)
-                rhs = self.coerce(condition.b, rhs, common_typ, const_eval)
-                op_map = {
-                    '>': '>', '<': '<',
-                    '==': '==', '!=': '!=',
-                    '<=': '<=', '>=': '>='
-                }
+                lhs = self.coerce(condition.a, lhs, common_typ, purpose)
+                rhs = self.coerce(condition.b, rhs, common_typ, purpose)
                 condition.typ = self.get_type(['int'])
-                if const_eval:
-                    pass
-                else:
+                if purpose is self.CONST_EVAL:
+                    raise NotImplementedError()
+                elif purpose is self.CODEGEN:
+                    op_map = {
+                        '>': '>', '<': '<',
+                        '==': '==', '!=': '!=',
+                        '<=': '<=', '>=': '>='
+                    }
                     op = op_map[condition.op]
                     self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
+                    value = None
+                else:
+                    value = None
             else:
-                self.check_non_zero(condition, yes_block, no_block, const_eval)
+                value = self.check_non_zero(
+                    condition, yes_block, no_block, purpose)
         elif isinstance(condition, nodes.Unop):
             if condition.op == '!':
                 # Simply swap yes and no here!
-                self.gen_condition(condition.a, no_block, yes_block)
+                value = self.gen_condition(
+                    condition.a, no_block, yes_block, purpose)
             else:
-                self.check_non_zero(condition, yes_block, no_block, const_eval)
+                value = self.check_non_zero(
+                    condition, yes_block, no_block, purpose)
         else:
-            self.check_non_zero(condition, yes_block, no_block, const_eval)
+            value = self.check_non_zero(
+                condition, yes_block, no_block, purpose)
 
         # Cannot assert here because coercion may occur
         # assert self.equal_types(condition.typ, self.get_type(['int']))
+        return value
 
-    def check_non_zero(self, expr, yes_block, no_block, const_eval):
+    def check_non_zero(self, expr, yes_block, no_block, purpose):
         """ Check an expression for being non-zero """
-        value = self.gen_expr(expr)
+        value = self.gen_expr(expr, rvalue=True, purpose=purpose)
         typ = self.get_type(['int'])
-        value = self.coerce(expr, value, typ, const_eval)
-        if const_eval:
-            if value == 0:
-                no_block()
-            else:
-                yes_block()
-        else:
+        value = self.coerce(expr, value, typ, purpose)
+        if purpose is self.CONST_EVAL:
+            return value != 0
+        elif purpose is self.CODEGEN:
             ir_typ = self.get_ir_type(typ)
             zero = self.emit(ir.Const(0, 'zero', ir_typ))
             self.emit(ir.CJump(value, '==', zero, no_block, yes_block))
+        else:
+            pass
 
     def gen_return(self, stmt: nodes.Return):
         """ Generate return statement code """
@@ -305,7 +332,7 @@ class CCodeGenerator:
             if return_type.is_void:
                 self.error('Cannot return a value from this function', stmt)
             value = self.gen_expr(stmt.value, rvalue=True)
-            value = self.coerce(stmt.value, value, return_type, False)
+            value = self.coerce(stmt.value, value, return_type, self.CODEGEN)
             self.emit(ir.Return(value))
         else:
             if not return_type.is_void:
@@ -325,84 +352,96 @@ class CCodeGenerator:
         ir_addr = self.emit(ir.Alloc(name + '_alloc', size))
         self.ir_var_map[variable] = ir_addr
 
-    def gen_expr(self, expr, rvalue=False, const_eval=False):
-        """ Generate code for an expression or evaluate it.
+    # Gen expression can serve various purposes:
+    CODEGEN = 'cgen'
+    CONST_EVAL = 'eval'
+    TYPECHECK = 'typecheck'
+
+    def gen_expr(self, expr, rvalue=False, purpose=CODEGEN):
+        """ Generate code for an expression, evaluate it or typecheck.
 
         rvalue: if True, then the result of the expression will be an rvalue.
-        const_eval: if true, the result will be calculated now, no code is
-                    generated. default false.
+        purpose: Indicating the purpose for calling this function.
         """
+        assert isinstance(expr, nodes.Expression)
+
         if isinstance(expr, nodes.Unop):
             if expr.op in ['++', '--']:
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
-                ir_a = self.gen_expr(expr.a, rvalue=False)
+                ir_a = self.gen_expr(expr.a, rvalue=False, purpose=purpose)
                 if not expr.a.lvalue:
                     self.error('Expected lvalue', expr.a)
                 expr.typ = expr.a.typ
                 expr.lvalue = False
 
-                op = expr.op[0]
-                ir_typ = self.get_ir_type(expr.typ)
-                loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
-                # for pointers, this is not one, but sizeof
-                if isinstance(expr.typ, nodes.PointerType):
-                    size = self.sizeof(expr.typ.pointed_type)
-                    one = self.emit(ir.Const(size, 'one_element', ir_typ))
+                if purpose is self.CODEGEN:
+                    op = expr.op[0]
+                    ir_typ = self.get_ir_type(expr.typ)
+                    loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
+                    # for pointers, this is not one, but sizeof
+                    if isinstance(expr.typ, nodes.PointerType):
+                        size = self.sizeof(expr.typ.pointed_type)
+                        one = self.emit(ir.Const(size, 'one_element', ir_typ))
+                    else:
+                        one = self.emit(ir.Const(1, 'one', ir_typ))
+                    value = self.emit(ir.Binop(
+                        loaded, op, one, 'inc', ir_typ))
+                    self.emit(ir.Store(value, ir_a))
                 else:
-                    one = self.emit(ir.Const(1, 'one', ir_typ))
-                value = self.emit(ir.Binop(
-                    loaded, op, one, 'inc', ir_typ))
-                self.emit(ir.Store(value, ir_a))
+                    value = None
             elif expr.op == '*':
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
-                a = self.gen_expr(expr.a, rvalue=True)
+                a = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
                 if not isinstance(expr.a.typ, nodes.PointerType):
                     self.error('Cannot derefence non-pointer type', expr)
                 value = a
                 expr.typ = expr.a.typ.pointed_type
                 expr.lvalue = True
             elif expr.op == '&':
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
-                a = self.gen_expr(expr.a, rvalue=False)
+                a = self.gen_expr(expr.a, rvalue=False, purpose=purpose)
                 if not expr.a.lvalue:
                     self.error('Expected lvalue', expr.a)
                 value = a
                 expr.typ = nodes.PointerType(expr.a.typ)
                 expr.lvalue = False
             elif expr.op == '-':
-                a = self.gen_expr(expr.a, rvalue=True, const_eval=const_eval)
+                a = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
                 expr.typ = expr.a.typ
                 expr.lvalue = False
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     value = -a
-                else:
+                elif purpose is self.CODEGEN:
                     ir_typ = self.get_ir_type(expr.typ)
                     zero = self.emit(ir.Const(0, 'zero', ir_typ))
                     value = self.emit(ir.Binop(zero, '-', a, 'neg', ir_typ))
+                else:
+                    value = None
             elif expr.op == '~':
-                a = self.gen_expr(expr.a, rvalue=True, const_eval=const_eval)
+                a = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
                 expr.typ = expr.a.typ
                 expr.lvalue = False
                 # TODO: implement operator
+                raise NotImplementedError()
                 value = a
             else:
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, nodes.Binop):
             if expr.op in ['+', '-', '*', '/', '%', '|', '&', '>>', '<<']:
-                lhs = self.gen_expr(expr.a, rvalue=True, const_eval=const_eval)
-                rhs = self.gen_expr(expr.b, rvalue=True, const_eval=const_eval)
+                lhs = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
+                rhs = self.gen_expr(expr.b, rvalue=True, purpose=purpose)
                 op = expr.op
 
                 common_typ = self.get_common_type(expr.a.typ, expr.b.typ)
-                lhs = self.coerce(expr.a, lhs, common_typ, const_eval)
-                rhs = self.coerce(expr.b, rhs, common_typ, const_eval)
+                lhs = self.coerce(expr.a, lhs, common_typ, purpose)
+                rhs = self.coerce(expr.b, rhs, common_typ, purpose)
 
                 expr.typ = common_typ
                 expr.lvalue = False
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     op_map = {
                         '+': lambda x, y: x + y,
                         '-': lambda x, y: x - y,
@@ -412,20 +451,22 @@ class CCodeGenerator:
                         '<<': lambda x, y: x << y,
                     }
                     value = op_map[op](lhs, rhs)
-                else:
+                elif purpose is self.CODEGEN:
                     ir_typ = self.get_ir_type(expr.typ)
                     value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
+                else:
+                    value = None
             elif expr.op == ',':
                 # Handle the comma operator by returning the second result
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
-                lhs = self.gen_expr(expr.a, rvalue=True)
-                rhs = self.gen_expr(expr.b, rvalue=True)
+                lhs = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
+                rhs = self.gen_expr(expr.b, rvalue=True, purpose=purpose)
                 expr.typ = expr.b.typ
                 expr.lvalue = False
                 value = rhs
             elif expr.op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     # TODO: implement constant
                     self.error('Not a constant expression', expr)
                 yes_block = self.builder.new_block()
@@ -445,30 +486,33 @@ class CCodeGenerator:
                 value.set_incoming(no_block, no_value)
                 expr.lvalue = False
             elif expr.op in ['=', '+=', '-=', '*=']:
-                if const_eval:
+                if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
-                lhs = self.gen_expr(expr.a, rvalue=False)
-                rhs = self.gen_expr(expr.b, rvalue=True)
-                rhs = self.coerce(expr.b, rhs, expr.a.typ, const_eval=False)
+                lhs = self.gen_expr(expr.a, rvalue=False, purpose=purpose)
+                rhs = self.gen_expr(expr.b, rvalue=True, purpose=purpose)
+                rhs = self.coerce(expr.b, rhs, expr.a.typ, purpose)
                 expr.lvalue = False
                 expr.typ = expr.a.typ
 
                 if not expr.a.lvalue:
                     self.error('Expected lvalue', expr.a)
                 # Handle '+=' and friends:
-                if expr.op != '=':
-                    op = expr.op[:-1]
-                    ir_typ = self.get_ir_type(expr.typ)
-                    loaded = self.emit(ir.Load(lhs, 'lhs', ir_typ))
-                    value = self.emit(ir.Binop(
-                        loaded, op, rhs, 'assign', ir_typ))
+                if purpose is self.CODEGEN:
+                    if expr.op != '=':
+                        op = expr.op[:-1]
+                        ir_typ = self.get_ir_type(expr.typ)
+                        loaded = self.emit(ir.Load(lhs, 'lhs', ir_typ))
+                        value = self.emit(ir.Binop(
+                            loaded, op, rhs, 'assign', ir_typ))
+                    else:
+                        value = rhs
+                    self.emit(ir.Store(value, lhs))
                 else:
-                    value = rhs
-                self.emit(ir.Store(value, lhs))
+                    value = None
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, nodes.VariableAccess):
-            if const_eval:
+            if purpose is self.CONST_EVAL:
                 # TODO: handle const int values?
                 self.error('Not a constant expression', expr)
             if not self.scope.is_defined(expr.name):
@@ -476,9 +520,12 @@ class CCodeGenerator:
             variable = self.scope.get(expr.name)
             expr.typ = variable.typ
             expr.lvalue = True
-            value = self.ir_var_map[variable]
+            if purpose is self.CODEGEN:
+                value = self.ir_var_map[variable]
+            else:
+                value = None
         elif isinstance(expr, nodes.FunctionCall):
-            if const_eval:
+            if purpose is self.CONST_EVAL:
                 self.error('Not a constant expression', expr)
             # Lookup the function:
             if not self.scope.is_defined(expr.name):
@@ -501,51 +548,67 @@ class CCodeGenerator:
             # Evaluate arguments:
             ir_arguments = []
             for argument, arg_type in zip(expr.args, function.typ.arg_types):
-                value = self.gen_expr(argument, rvalue=True)
-                value = self.coerce(argument, value, arg_type, False)
+                value = self.gen_expr(argument, rvalue=True, purpose=purpose)
+                value = self.coerce(argument, value, arg_type, purpose)
                 ir_arguments.append(value)
 
-            if function.typ.return_type.is_void:
-                self.emit(ir.ProcedureCall(function.name, ir_arguments))
-                value = None
+            if purpose is self.CODEGEN:
+                if function.typ.return_type.is_void:
+                    self.emit(ir.ProcedureCall(function.name, ir_arguments))
+                    value = None
+                else:
+                    ir_typ = self.get_ir_type(expr.typ)
+                    value = self.emit(ir.FunctionCall(
+                        function.name, ir_arguments, 'result', ir_typ))
             else:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.FunctionCall(
-                    function.name, ir_arguments, 'result', ir_typ))
+                value = None
         elif isinstance(expr, nodes.Constant):
             # TODO: handle more types
             v = int(expr.value)
             expr.typ = self.get_type(['int'])
             expr.lvalue = False
-            if const_eval:
+            if purpose is self.CONST_EVAL:
                 value = v
-            else:
+            elif purpose is self.CODEGEN:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Const(v, 'constant', ir_typ))
+            else:
+                value = None
         elif isinstance(expr, nodes.Cast):
             # TODO: is the cast valid?
-            a = self.gen_expr(expr.expr, rvalue=True, const_eval=const_eval)
+            a = self.gen_expr(expr.expr, rvalue=True, purpose=purpose)
             expr.typ = expr.to_typ
             expr.lvalue = False  # or expr.expr.lvalue?
-            if const_eval:
+            if purpose is self.CONST_EVAL:
                 # TODO: handle some form of casting?
                 value = a
-            else:
+            elif purpose is self.CODEGEN:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Cast(a, 'typecast', ir_typ))
+            else:
+                value = None
         elif isinstance(expr, nodes.Sizeof):
             expr.typ = self.get_type(['int'])
             expr.lvalue = False
-            type_size = self.sizeof(expr.sizeof_typ)
-            if const_eval:
-                value = type_size
+            if isinstance(expr.sizeof_typ, nodes.CType):
+                # Get size of the given type:
+                type_size = self.sizeof(expr.sizeof_typ)
             else:
+                # Check the type of expression:
+                self.gen_expr(expr.sizeof_typ, purpose=self.TYPECHECK)
+                # And get its size:
+                type_size = self.sizeof(expr.sizeof_typ.typ)
+            if purpose is self.CONST_EVAL:
+                value = type_size
+            elif purpose is self.CODEGEN:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Const(type_size, 'type_size', ir_typ))
+            else:
+                value = None
         elif isinstance(expr, nodes.FieldSelect):
-            if const_eval:
+            if purpose is self.CONST_EVAL:
                 self.error('Not a constant expression', expr)
-            base = self.gen_expr(expr.base, rvalue=False, const_eval=False)
+            base = self.gen_expr(expr.base, rvalue=False, purpose=purpose)
             if not expr.base.lvalue:
                 self.error('Expected lvalue', expr.base)
             base_type = self.resolve_type(expr.base.typ)
@@ -560,10 +623,14 @@ class CCodeGenerator:
             expr.typ = field.typ
             expr.lvalue = True
             self.logger.warning('implement offset from field select')
-            offset = 0
-            # TODO: calculate offset into struct
-            offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
-            value = self.emit(ir.Binop(base, '+', offset, 'offset', ir.ptr))
+            if purpose is self.CODEGEN:
+                offset = 0
+                # TODO: calculate offset into struct
+                offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
+                value = self.emit(
+                    ir.Binop(base, '+', offset, 'offset', ir.ptr))
+            else:
+                value = None
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
@@ -571,8 +638,14 @@ class CCodeGenerator:
         assert isinstance(expr.typ, nodes.CType)
         assert isinstance(expr.lvalue, bool)
 
+        if purpose is self.CODEGEN:
+            # assert isinstance(value, ir.Value)
+            pass
+        elif purpose is self.TYPECHECK:
+            assert value is None
+
         # If we need an rvalue, load it!
-        if rvalue and expr.lvalue and not const_eval:
+        if rvalue and expr.lvalue and (purpose is self.CODEGEN):
             ir_typ = self.get_ir_type(expr.typ)
             value = self.emit(ir.Load(value, 'load', ir_typ))
         return value
@@ -653,7 +726,7 @@ class CCodeGenerator:
 
     def coerce(
             self, expr: nodes.Expression, value, typ: nodes.CType,
-            const_eval):
+            purpose):
         """ Try to fit the given expression into the given type """
         do_cast = False
         from_type = self.resolve_type(expr.typ)
@@ -678,11 +751,13 @@ class CCodeGenerator:
             self.error('Cannot convert {} to {}'.format(expr.typ, typ), expr)
 
         if do_cast:
-            if const_eval:
+            if purpose is self.CONST_EVAL:
                 raise NotImplementedError()
-            else:
+            elif purpose is self.CODEGEN:
                 ir_typ = self.get_ir_type(to_type)
                 value = self.emit(ir.Cast(value, 'casting', ir_typ))
+            else:
+                pass
         return value
 
     def sizeof(self, typ: nodes.CType):
@@ -690,7 +765,7 @@ class CCodeGenerator:
         assert isinstance(typ, nodes.CType)
         if isinstance(typ, nodes.ArrayType):
             element_size = self.sizeof(typ.element_type)
-            array_size = self.gen_expr(typ.size, const_eval=True)
+            array_size = self.gen_expr(typ.size, purpose=self.CONST_EVAL)
             return element_size * array_size
         elif isinstance(typ, nodes.BareType):
             return self.ir_type_map[typ.type_id][1]

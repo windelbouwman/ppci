@@ -564,7 +564,8 @@ SubRmReg = make_rm_reg('sub', 0x29)
 SubRegRm = make_reg_rm('sub', 0x2b)
 XorRmReg = make_rm_reg('xor', 0x31)  # opcode = 0x31  # XOR r/m64, r64
 XorRegRm = make_reg_rm('xor', 0x33)
-CmpRmReg = make_rm_reg('cmp', 0x39, write_op1=False)
+CmpRmReg8 = make_rm_reg8('cmp', 0x38, write_op1=False)  # cmp r/m8 r8
+CmpRmReg = make_rm_reg('cmp', 0x39, write_op1=False)  # cmp r/m64 r64
 MovRmReg8 = make_rm_reg8('mov', 0x88, read_op1=False)  # mov r/m8, r8
 MovRmReg = make_rm_reg('mov', 0x89, read_op1=False)  # mov r/m64, r64
 MovRegRm8 = make_reg_rm8('mov', 0x8a, read_op1=False)  # mov r8, r/m8
@@ -733,6 +734,17 @@ def pattern_cjmp(context, tree, c0, c1):
     opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge}
     Bop = opnames[op]
     context.emit(CmpRmReg(RmReg(c0), c1))
+    jmp_ins = NearJump(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+
+@isa.pattern('stm', 'CJMP(reg8, reg8)', size=2)
+def pattern_cjmp_8(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge}
+    Bop = opnames[op]
+    context.emit(CmpRmReg8(RmReg8(c0), c1))
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)

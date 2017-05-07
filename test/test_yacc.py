@@ -6,16 +6,16 @@ except ImportError:
     from mock import patch
 
 import io
-from ppci.pcc.grammar import Grammar, print_grammar
-from ppci.pcc.common import ParserGenerationException
-from ppci.pcc.lr import Item
-from ppci.pcc.common import ParserException
-from ppci.pcc.yacc import load_as_module, transform
-from ppci.pcc.lr import calculate_first_sets
+from ppci.lang.tools.grammar import Grammar, print_grammar
+from ppci.lang.tools.common import ParserGenerationException
+from ppci.lang.tools.lr import Item
+from ppci.lang.tools.common import ParserException
+from ppci.lang.tools.yacc import load_as_module, transform
+from ppci.lang.tools.lr import calculate_first_sets
 from ppci.common import Token, SourceLocation, CompilerError
-from ppci.pcc.lr import LrParserBuilder
-from ppci.pcc.earley import EarleyParser
-from ppci.pcc.baselex import EOF
+from ppci.lang.tools.lr import LrParserBuilder
+from ppci.lang.tools.earley import EarleyParser
+from ppci.lang.tools.baselex import EOF
 
 
 class gen_tokens:

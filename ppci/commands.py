@@ -10,7 +10,7 @@ import logging
 import importlib
 import io
 
-from .pcc.yacc import transform
+from .lang.tools.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
 from .build.tasks import TaskError

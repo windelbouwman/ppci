@@ -3,6 +3,10 @@
 from . import nodes
 
 
+def type_tuple(*args):
+    return tuple(sorted(args))
+
+
 class CContext:
     """ A context as a substitute for global data """
     def __init__(self, coptions, march):
@@ -10,34 +14,40 @@ class CContext:
         self.march = march
 
         self.atomic_types = {
-            ('void',): nodes.BareType.VOID,
-            ('char',): nodes.BareType.CHAR,
-            ('signed', 'char'): nodes.BareType.SCHAR,
-            ('unsigned', 'char'): nodes.BareType.UCHAR,
-            ('short',): nodes.BareType.SHORT,
-            ('short', 'int'): nodes.BareType.SHORT,
-            ('unsigned', 'short'): nodes.BareType.USHORT,
-            ('unsigned', 'short', 'int'): nodes.BareType.USHORT,
-            ('int',): nodes.BareType.INT,
-            ('signed', 'int',): nodes.BareType.INT,
-            ('unsigned', 'int',): nodes.BareType.UINT,
-            ('unsigned',): nodes.BareType.UINT,
-            ('long',): nodes.BareType.LONG,
-            ('long', 'int'): nodes.BareType.LONG,
-            ('unsigned', 'long'): nodes.BareType.ULONG,
-            ('unsigned', 'long', 'int'): nodes.BareType.ULONG,
-            ('long', 'long',): nodes.BareType.LONGLONG,
-            ('unsigned', 'long', 'long'): nodes.BareType.ULONGLONG,
-            ('float',): nodes.BareType.FLOAT,
-            ('double',): nodes.BareType.DOUBLE,
-            ('long', 'double'): nodes.BareType.LONGDOUBLE,
+            type_tuple('void'): nodes.BareType.VOID,
+            type_tuple('char',): nodes.BareType.CHAR,
+            type_tuple('signed', 'char'): nodes.BareType.SCHAR,
+            type_tuple('unsigned', 'char'): nodes.BareType.UCHAR,
+            type_tuple('short',): nodes.BareType.SHORT,
+            type_tuple('short', 'int'): nodes.BareType.SHORT,
+            type_tuple('signed', 'short', 'int'): nodes.BareType.SHORT,
+            type_tuple('unsigned', 'short'): nodes.BareType.USHORT,
+            type_tuple('unsigned', 'short', 'int'): nodes.BareType.USHORT,
+            type_tuple('int',): nodes.BareType.INT,
+            type_tuple('signed', 'int',): nodes.BareType.INT,
+            type_tuple('unsigned', 'int',): nodes.BareType.UINT,
+            type_tuple('unsigned',): nodes.BareType.UINT,
+            type_tuple('long',): nodes.BareType.LONG,
+            type_tuple('long', 'int'): nodes.BareType.LONG,
+            type_tuple('unsigned', 'long'): nodes.BareType.ULONG,
+            type_tuple('unsigned', 'long', 'int'): nodes.BareType.ULONG,
+            type_tuple('long', 'long',): nodes.BareType.LONGLONG,
+            type_tuple('long', 'long', 'int'): nodes.BareType.LONGLONG,
+            type_tuple('signed', 'long', 'long', 'int'):
+                nodes.BareType.LONGLONG,
+            type_tuple('unsigned', 'long', 'long'): nodes.BareType.ULONGLONG,
+            type_tuple('unsigned', 'long', 'long', 'int'):
+                nodes.BareType.ULONGLONG,
+            type_tuple('float',): nodes.BareType.FLOAT,
+            type_tuple('double',): nodes.BareType.DOUBLE,
+            type_tuple('long', 'double'): nodes.BareType.LONGDOUBLE,
         }
 
     def is_valid(self, type_specifiers):
-        key = tuple(type_specifiers)
+        key = type_tuple(*type_specifiers)
         return key in self.atomic_types
 
     def get_type(self, type_specifiers):
-        key = tuple(type_specifiers)
+        key = type_tuple(*type_specifiers)
         a = self.atomic_types[key]
         return nodes.BareType(a)

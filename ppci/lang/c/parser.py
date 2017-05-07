@@ -9,7 +9,7 @@ The following parts can be distinguished:
 """
 
 import logging
-from ...pcc.recursivedescent import RecursiveDescentParser
+from ..tools.recursivedescent import RecursiveDescentParser
 from . import nodes
 
 
@@ -105,6 +105,7 @@ class CParser(RecursiveDescentParser):
         self.logger.debug('Parsing some nice C code!')
         self.init_lexer(tokens)
         self.typedefs = set()
+        self.typedefs.add('__builtin_va_list')
         self.struct_tags = dict()
         cu = self.parse_translation_unit()
         self.logger.debug('Parsing finished')
@@ -268,6 +269,7 @@ class CParser(RecursiveDescentParser):
     def parse_enum(self):
         """ Parse an enum definition """
         loc = self.consume('enum').loc
+        print(loc)
         self.consume('{')
         enum_values = []
         while self.peak != '}':
@@ -275,8 +277,10 @@ class CParser(RecursiveDescentParser):
             if self.has_consumed('='):
                 value = self.parse_expression()
                 enum_values.append((name.val, value))
+            if not self.has_consumed(','):
+                break
         self.consume('}')
-        return nodes.Enum(enum_values, loc)
+        return nodes.EnumType(enum_values)
 
     def parse_decl_group(self, ds):
         """ Parse the rest after the first declaration spec.
@@ -345,6 +349,12 @@ class CParser(RecursiveDescentParser):
         else:
             initializer = None
 
+        # Handle optional struct field size:
+        if self.peak == ':':
+            self.consume(':')
+            self.parse_constant_expression()
+            # TODO: move this somewhere else?
+
         # Create declaration entity:
         if ds.storage_class == 'typedef':
             self.typedefs.add(name)
@@ -359,6 +369,7 @@ class CParser(RecursiveDescentParser):
             assert isinstance(d.typ, nodes.CType), str(d.typ)
         return d
 
+    # def parse_struct_
     def parse_function_declarator(self):
         """ Parse function postfix. We have type and name, now parse
             function arguments """
@@ -371,11 +382,16 @@ class CParser(RecursiveDescentParser):
             pass
         else:
             while True:
-                ds = self.parse_decl_specifiers()
-                d = self.parse_declarator(ds, abstract=True)
-                args.append(d)
-                if not self.has_consumed(','):
+                if self.peak == '...':
+                    self.consume('...')
+                    # TODO mark var args..
                     break
+                else:
+                    ds = self.parse_decl_specifiers()
+                    d = self.parse_declarator(ds, abstract=True)
+                    args.append(d)
+                    if not self.has_consumed(','):
+                        break
             # self.consume(')')
         return args
 
@@ -706,15 +722,21 @@ class CParser(RecursiveDescentParser):
             expr = nodes.Constant(n.val, n.loc)
         elif self.peak in ['!', '*', '+', '-', '~', '&']:
             op = self.consume()
-            expr = self.parse_expression()
+            expr = self.parse_primary_expression()
             expr = nodes.Unop(op.typ, expr, op.loc)
         elif self.peak == 'sizeof':
             loc = self.consume('sizeof').loc
-            # TODO: handle sizeof of expressions
-            self.consume('(')
-            typ = self.parse_typename()
-            self.consume(')')
-            expr = nodes.Sizeof(typ, loc)
+            if self.peak == '(':
+                self.consume('(')
+                if self.is_declaration_statement():
+                    typ = self.parse_typename()
+                else:
+                    typ = self.parse_expression()
+                self.consume(')')
+                expr = nodes.Sizeof(typ, loc)
+            else:
+                sizeof_expr = self.parse_primary_expression()
+                expr = nodes.Sizeof(sizeof_expr, loc)
         elif self.peak == '(':
             loc = self.consume('(').loc
             # Is this a type cast?

@@ -26,6 +26,8 @@ def explain(x):
         return '{} is {}'.format(x.name, explain(x.typ))
     elif isinstance(x, nodes.PointerType):
         return 'a pointer to {}'.format(explain(x.pointed_type))
+    elif isinstance(x, nodes.ArrayType):
+        return 'an array of {}'.format(explain(x.element_type))
     elif isinstance(x, nodes.BareType):
         return '{}'.format(x.type_id)
     else:
