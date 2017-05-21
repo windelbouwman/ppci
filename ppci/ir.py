@@ -397,6 +397,9 @@ class Typ:
         """ Test if this type is of integer type """
         return isinstance(self, IntegerTyp)
 
+    def __repr__(self):
+        return 'ir-typ {}'.format(self.name)
+
 
 class IntegerTyp(Typ):
     """ Integer type """

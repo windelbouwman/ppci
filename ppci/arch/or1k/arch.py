@@ -54,11 +54,29 @@ class Or1kArch(Architecture):
         """ Generate the prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
-        yield instructions.Push(registers.r9)
+        yield instructions.Sw(-4, registers.r1, registers.r2)  # Save FP
+        yield instructions.Addi(registers.r2, registers.r1, 0)  # setup FP
+
+        # Adjust stack
+        yield instructions.Addi(registers.r1, registers.r1, -20)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. """
-        yield instructions.Ret()
+        # Restore stack pointer:
+        yield instructions.Ori(registers.r1, registers.r2, 0)
+        yield instructions.Jr(registers.r9)
+
+    def gen_save_registers(self, registers):
+        if False:
+            yield 1
+
+    def gen_restore_registers(self, registers):
+        if False:
+            yield 1
 
     def gen_call(self, frame, vcall):
         yield instructions.Jal(vcall.function_name)
+
+    def move(self, dst, src):
+        """ Generate a move from src to dst """
+        return instructions.mov(dst, src)

@@ -52,5 +52,7 @@ all_regs = (
 Or1kRegister.registers = all_regs
 
 register_classes = [
-    RegisterClass('reg', [ir.i32, ir.u32], Or1kRegister, all_regs),
+    RegisterClass(
+        'reg', [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.u32, ir.ptr],
+        Or1kRegister, all_regs),
     ]

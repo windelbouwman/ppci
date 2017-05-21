@@ -485,9 +485,9 @@ def mov(src, dst):
 # -- for instruction selection:
 
 @isa.pattern('stm', 'JMP', size=4)
-def pattern_jmp(self, tree):
+def pattern_jmp(context, tree):
     tgt = tree.value
-    self.emit(Jmp(tgt.name, jumps=[tgt]))
+    context.emit(Jmp(tgt.name, jumps=[tgt]))
 
 
 @isa.pattern('stm', 'CJMP(reg, reg)', size=10)
@@ -507,43 +507,43 @@ def pattern_cjmp(context, tree, lhs, rhs):
 
 
 @isa.pattern('reg', 'MOVI16(reg)', size=2)
-def pattern_mov16(self, tree, c0):
+def pattern_mov16(context, tree, c0):
     dst = tree.value
-    self.emit(mov(c0, dst))
+    context.emit(mov(c0, dst))
 
 
 @isa.pattern('reg', 'MOVI8(reg)', size=2)
 @isa.pattern('reg', 'MOVU8(reg)', size=2)
-def pattern_mov8(self, tree, c0):
+def pattern_mov8(context, tree, c0):
     dst = tree.value
-    self.emit(mov(c0, dst))
+    context.emit(mov(c0, dst))
 
 
 @isa.pattern('reg', 'CONSTI16', size=4)
-def pattern_const16(self, tree):
-    dst = self.new_reg(Msp430Register)
+def pattern_const16(context, tree):
+    dst = context.new_reg(Msp430Register)
     cnst = tree.value
-    self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
+    context.emit(Mov(ConstSrc(cnst), RegDst(dst)))
     return dst
 
 
 @isa.pattern('reg', 'CONSTI8', size=4)
 @isa.pattern('reg', 'CONSTU8', size=4)
-def pattern_const8(self, tree):
-    dst = self.new_reg(Msp430Register)
+def pattern_const8(context, tree):
+    dst = context.new_reg(Msp430Register)
     cnst = tree.value
-    self.emit(Mov(ConstSrc(cnst), RegDst(dst)))
+    context.emit(Mov(ConstSrc(cnst), RegDst(dst)))
     return dst
 
 
 @isa.pattern('reg', 'REGI16', size=0, cycles=0, energy=0)
-def pattern_reg16(self, tree):
+def pattern_reg16(context, tree):
     return tree.value
 
 
 @isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
-def pattern_reg8(self, tree):
+def pattern_reg8(context, tree):
     return tree.value
 
 

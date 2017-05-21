@@ -51,6 +51,12 @@ class ExampleArch(Architecture):
         live_out.add(rv)
         return rv, tuple(live_out)
 
+    def gen_save_registers(self, registers):
+        return []
+
+    def gen_restore_registers(self, registers):
+        return []
+
 
 class ExampleRegister(Register):
     """ Example register class """

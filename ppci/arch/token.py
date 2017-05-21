@@ -138,7 +138,7 @@ class Token(metaclass=TokenMeta):
             # assert value >= 0, value
             if value >= limit:
                 raise ValueError(
-                    '{} cannot be fit into {} bits'.format(value, bits))
+                    'value {} cannot be fit into {} bits'.format(value, bits))
             assert value < limit
             mask = self.mask ^ ((limit - 1) << key.start)
             self.bit_value &= mask

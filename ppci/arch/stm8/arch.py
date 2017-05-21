@@ -27,6 +27,12 @@ class Stm8Arch(Architecture):
     def gen_epilogue(self, frame):
         pass
 
+    def gen_save_registers(self, registers):
+        return []
+
+    def gen_restore_registers(self, registers):
+        return []
+
     def determine_arg_locations(self, arg_types):
         ''' Calling convention in priority order:
         - Pointers in index registers;

@@ -96,17 +96,120 @@ class Or1kOrbisTestCase(AsmTestCaseBase):
         self.feed("l.jr r2")
         self.check('44 00 10 00')
 
+    def test_lbs(self):
+        self.feed("l.lbs r1, 30000(r2)")
+        self.check('90 22 75 30')
+
+    def test_lbz(self):
+        self.feed("l.lbz r1, 30000(r2)")
+        self.check('8c 22 75 30')
+
+    def test_lhs(self):
+        self.feed("l.lhs r1, 30000(r2)")
+        self.check('98 22 75 30')
+
+    def test_lhz(self):
+        self.feed("l.lhz r1, 30000(r2)")
+        self.check('94 22 75 30')
+
+    def test_lwa(self):
+        self.feed("l.lwa r1, 30000(r2)")
+        self.check('6c 22 75 30')
+
+    def test_lws(self):
+        self.feed("l.lws r1, 30000(r2)")
+        self.check('88 22 75 30')
+
+    def test_lwz(self):
+        self.feed("l.lwz r1, 30000(r2)")
+        self.check('84 22 75 30')
+
+    def test_movhi(self):
+        self.feed("l.movhi r3, 0xcafe")
+        self.check('18 60 ca fe')
+
+    def test_mul(self):
+        self.feed("l.mul r1, r2, r3")
+        self.check('e0 22 1b 06')
+
+    def test_mulu(self):
+        """ Check unsigned multiplication """
+        self.feed("l.mulu r1, r2, r3")
+        self.check('e0 22 1b 0b')
+
     def test_or(self):
+        """ Check or """
         self.feed("l.or r1, r2, r3")
         self.check('e0 22 18 04')
 
     def test_ori(self):
+        """ Test or with immediate """
         self.feed("l.ori r1, r2, 200")
         self.check('a8 22 00 c8')
+
+    def test_sfeq(self):
+        self.feed("l.sfeq r1, r2")
+        self.check('e4 01 10 00')
+
+    def test_sfne(self):
+        self.feed("l.sfne r1, r2")
+        self.check('e4 21 10 00')
+
+    def test_sfgtu(self):
+        self.feed("l.sfgtu r1, r2")
+        self.check('e4 41 10 00')
+
+    def test_sfgeu(self):
+        self.feed("l.sfgeu r1, r2")
+        self.check('e4 61 10 00')
+
+    def test_sfltu(self):
+        self.feed("l.sfltu r1, r2")
+        self.check('e4 81 10 00')
+
+    def test_sfleu(self):
+        self.feed("l.sfleu r1, r2")
+        self.check('e4 a1 10 00')
+
+    def test_sfgts(self):
+        self.feed("l.sfgts r1, r2")
+        self.check('e5 41 10 00')
+
+    def test_sfges(self):
+        self.feed("l.sfges r1, r2")
+        self.check('e5 61 10 00')
+
+    def test_sflts(self):
+        self.feed("l.sflts r1, r2")
+        self.check('e5 81 10 00')
+
+    def test_sfles(self):
+        self.feed("l.sfles r1, r2")
+        self.check('e5 a1 10 00')
+
+    def test_sb(self):
+        """ Test store byte """
+        self.feed("l.sb 30000(r1), r2")
+        self.check('d9 c1 15 30')
+
+    def test_sh(self):
+        """ Test store half word """
+        self.feed("l.sh 30000(r1), r2")
+        self.check('dd c1 15 30')
 
     def test_sub(self):
         self.feed("l.sub r1, r2, r3")
         self.check('e0 22 18 02')
+
+    def test_sw(self):
+        """ Test store word """
+        self.feed("l.sw 30000(r1), r2")
+        self.check('d5 c1 15 30')
+
+    def test_swa(self):
+        """ Test store word atomic """
+        self.feed("l.swa 30000(r1), r2")
+        self.check('cd c1 15 30')
 
     def test_xor(self):
         self.feed("l.xor r1, r2, r3")

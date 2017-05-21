@@ -1,7 +1,7 @@
 """ Machine architecture description module """
 
-import logging
 import abc
+import logging
 from functools import lru_cache
 from .registers import Register
 from .stack import Frame
@@ -149,6 +149,7 @@ class Architecture(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError('Implement this')
 
+    @abc.abstractmethod
     def gen_save_registers(self, registers):  # pragma: no cover
         """ Generate a code sequence to save the specified registers.
 
@@ -160,6 +161,7 @@ class Architecture(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError('Implement this')
 
+    @abc.abstractmethod
     def gen_restore_registers(self, registers):  # pragma: no cover
         """ Generate a code sequence to restore the specified registers. """
         raise NotImplementedError('Implement this')
@@ -253,8 +255,12 @@ class Architecture(metaclass=abc.ABCMeta):
         """ Retrieve a relocation identified by a name """
         return self.isa.relocation_map[name]
 
-    def get_runtime(self):  # pragma: no cover
-        raise NotImplementedError('Implement this')
+    def get_runtime(self):
+        """ Create an object with an optional runtime. """
+        import io
+        from ..api import asm
+        asm_src = ''
+        return asm(io.StringIO(asm_src), self)
 
     @lru_cache(maxsize=30)
     def get_compiler_rt_lib(self):

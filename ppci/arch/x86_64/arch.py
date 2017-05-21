@@ -10,7 +10,6 @@ http://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64
 
 """
 
-import io
 from ... import ir
 from ..arch import Architecture
 from ..generic_instructions import Label, RegisterUseDef
@@ -121,11 +120,6 @@ class X86_64Arch(Architecture):
             return PopXmm(register)
         else:
             return Pop(register)
-
-    def get_runtime(self):
-        from ...api import asm
-        asm_src = ''
-        return asm(io.StringIO(asm_src), self)
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
