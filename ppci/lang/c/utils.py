@@ -21,7 +21,7 @@ class Visitor:
             self.visit(node.b)
         elif isinstance(node, nodes.Unop):
             self.visit(node.a)
-        elif isinstance(node, nodes.Constant):
+        elif isinstance(node, nodes.Literal):
             pass
         elif isinstance(node, nodes.Cast):
             self.visit(node.to_typ)
@@ -37,6 +37,8 @@ class Visitor:
         elif isinstance(node, nodes.FunctionCall):
             for argument in node.args:
                 self.visit(argument)
+        elif isinstance(node, nodes.QualifiedType):
+            self.visit(node.typ)
         elif isinstance(node, nodes.FunctionType):
             for parameter in node.arguments:
                 self.visit(parameter)
@@ -46,7 +48,7 @@ class Visitor:
         elif isinstance(node, nodes.ArrayType):
             self.visit(node.element_type)
             self.visit(node.size)
-        elif isinstance(node, nodes.StructType):
+        elif isinstance(node, (nodes.StructType, nodes.UnionType)):
             pass
         elif isinstance(node, (nodes.IdentifierType, nodes.BareType)):
             pass
@@ -198,7 +200,7 @@ class CPrinter:
         elif isinstance(expr, nodes.FunctionCall):
             args = ', '.join(map(self.gen_expr, expr.args))
             return '{}({})'.format(expr.name, args)
-        elif isinstance(expr, nodes.Constant):
+        elif isinstance(expr, nodes.Literal):
             return str(expr.value)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))

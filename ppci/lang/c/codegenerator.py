@@ -11,19 +11,22 @@ class CCodeGenerator:
 
     def __init__(self, context):
         self.context = context
-        self.march = context.march
         self.builder = None
         self.scope = None
         self.ir_var_map = {}
-        # TODO: make int size depending on machine
+        self.constant_values = {}
+        self.evaluating_constants = set()
+        int_types = {4: ir.i32, 8: ir.i64}
+        uint_types = {4: ir.u32, 8: ir.u64}
+        int_size = self.context.march.byte_sizes['int']
         self.ir_type_map = {
             nodes.BareType.CHAR: (ir.i8, 1),
             nodes.BareType.SCHAR: (ir.i8, 1),
             nodes.BareType.UCHAR: (ir.u8, 1),
-            # nodes.BareType.SHORT: (ir.i16, 2),
-            # nodes.BareType.USHORT: (ir.u16, 2),
-            nodes.BareType.INT: (ir.i64, 8),
-            nodes.BareType.UINT: (ir.u64, 8),
+            nodes.BareType.SHORT: (ir.i16, 2),
+            nodes.BareType.USHORT: (ir.u16, 2),
+            nodes.BareType.INT: (int_types[int_size], int_size),
+            nodes.BareType.UINT: (uint_types[int_size], int_size),
             nodes.BareType.LONG: (ir.i64, 8),
             nodes.BareType.ULONG: (ir.u64, 8),
             nodes.BareType.FLOAT: (ir.f32, 4),
@@ -34,7 +37,7 @@ class CCodeGenerator:
         """ Initial entry point for the code generator """
         self.builder = irutils.Builder()
         self.type_scope = Scope()
-        self.scope = Scope(self.type_scope)
+        self.scope = compile_unit.scope
         self.ir_var_map = {}
         self.logger.debug('Generating IR-code')
         ir_mod = ir.Module('c_compilation_unit')
@@ -53,6 +56,13 @@ class CCodeGenerator:
                     self.error("Invalid redefinition", declaration)
             else:
                 self.scope.insert(declaration)
+
+            if isinstance(declaration.typ, nodes.StructOrUnionType):
+                struct_typ = declaration.typ
+                if struct_typ.tag:
+                    self.logger.debug(
+                        'Registering struct tag %s', struct_typ.tag)
+                    self.scope.struct_tags[struct_typ.tag] = struct_typ
 
             # Generate code:
             if isinstance(declaration, nodes.Typedef):
@@ -233,6 +243,22 @@ class CCodeGenerator:
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(final_block)
 
+    def gen_return(self, stmt: nodes.Return):
+        """ Generate return statement code """
+        return_type = self.current_function.typ.return_type
+        if stmt.value:
+            if return_type.is_void:
+                self.error('Cannot return a value from this function', stmt)
+            value = self.gen_expr(stmt.value, rvalue=True)
+            value = self.coerce(stmt.value, value, return_type, self.CODEGEN)
+            self.emit(ir.Return(value))
+        else:
+            if not return_type.is_void:
+                self.error('Must return a value from this function', stmt)
+            self.emit(ir.Exit())
+        new_block = self.builder.new_block()
+        self.builder.set_block(new_block)
+
     def gen_condition(
             self, condition: nodes.Expression, yes_block, no_block,
             purpose):
@@ -325,22 +351,6 @@ class CCodeGenerator:
         else:
             pass
 
-    def gen_return(self, stmt: nodes.Return):
-        """ Generate return statement code """
-        return_type = self.current_function.typ.return_type
-        if stmt.value:
-            if return_type.is_void:
-                self.error('Cannot return a value from this function', stmt)
-            value = self.gen_expr(stmt.value, rvalue=True)
-            value = self.coerce(stmt.value, value, return_type, self.CODEGEN)
-            self.emit(ir.Return(value))
-        else:
-            if not return_type.is_void:
-                self.error('Must return a value from this function', stmt)
-            self.emit(ir.Exit())
-        new_block = self.builder.new_block()
-        self.builder.set_block(new_block)
-
     def gen_local_var(self, variable: nodes.VariableDeclaration):
         """ Generate a local variable """
         if self.scope.is_defined(variable.name, all_scopes=False):
@@ -356,6 +366,20 @@ class CCodeGenerator:
     CODEGEN = 'cgen'
     CONST_EVAL = 'eval'
     TYPECHECK = 'typecheck'
+
+    def get_const_value(self, constant):
+        """ Retrieve the calculated value for the given constant """
+        if constant in self.constant_values:
+            value = self.constant_values[constant]
+        else:
+            # Evaluate the constant now!
+            if constant in self.evaluating_constants:
+                self.error('Circular constant evaluation')
+            self.evaluating_constants.add(constant)
+            value = self.gen_expr(constant.value, purpose=self.CONST_EVAL)
+            self.constant_values[constant] = value
+            self.evaluating_constants.remove(constant)
+        return value
 
     def gen_expr(self, expr, rvalue=False, purpose=CODEGEN):
         """ Generate code for an expression, evaluate it or typecheck.
@@ -469,22 +493,26 @@ class CCodeGenerator:
                 if purpose is self.CONST_EVAL:
                     # TODO: implement constant
                     self.error('Not a constant expression', expr)
-                yes_block = self.builder.new_block()
-                no_block = self.builder.new_block()
-                end_block = self.builder.new_block()
-                self.gen_condition(expr, yes_block, no_block)
-                self.builder.set_block(yes_block)
-                ir_typ = self.get_ir_type(expr.typ)
-                yes_value = self.emit(ir.Const(1, 'one', ir_typ))
-                self.emit(ir.Jump(end_block))
-                self.builder.set_block(no_block)
-                no_value = self.emit(ir.Const(0, 'zero', ir_typ))
-                self.emit(ir.Jump(end_block))
-                self.builder.set_block(end_block)
-                value = self.emit(ir.Phi('phi', ir_typ))
-                value.set_incoming(yes_block, yes_value)
-                value.set_incoming(no_block, no_value)
+
                 expr.lvalue = False
+                if purpose is self.CODEGEN:
+                    yes_block = self.builder.new_block()
+                    no_block = self.builder.new_block()
+                    end_block = self.builder.new_block()
+                    self.gen_condition(expr, yes_block, no_block, purpose)
+                    self.builder.set_block(yes_block)
+                    ir_typ = self.get_ir_type(expr.typ)
+                    yes_value = self.emit(ir.Const(1, 'one', ir_typ))
+                    self.emit(ir.Jump(end_block))
+                    self.builder.set_block(no_block)
+                    no_value = self.emit(ir.Const(0, 'zero', ir_typ))
+                    self.emit(ir.Jump(end_block))
+                    self.builder.set_block(end_block)
+                    value = self.emit(ir.Phi('phi', ir_typ))
+                    value.set_incoming(yes_block, yes_value)
+                    value.set_incoming(no_block, no_value)
+                else:
+                    value = None
             elif expr.op in ['=', '+=', '-=', '*=']:
                 if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
@@ -512,18 +540,32 @@ class CCodeGenerator:
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, nodes.VariableAccess):
-            if purpose is self.CONST_EVAL:
-                # TODO: handle const int values?
-                self.error('Not a constant expression', expr)
             if not self.scope.is_defined(expr.name):
                 self.error('Who is this?', expr)
             variable = self.scope.get(expr.name)
             expr.typ = variable.typ
-            expr.lvalue = True
-            if purpose is self.CODEGEN:
-                value = self.ir_var_map[variable]
+            if isinstance(variable, nodes.VariableDeclaration):
+                if purpose is self.CONST_EVAL:
+                    # TODO: handle const int values?
+                    self.error('Not a constant expression', expr)
+                expr.lvalue = True
+                if purpose is self.CODEGEN:
+                    value = self.ir_var_map[variable]
+                else:
+                    value = None
+            elif isinstance(variable, nodes.ConstantDeclaration):
+                expr.lvalue = False
+                constant_value = self.get_const_value(variable)
+                if purpose is self.CONST_EVAL:
+                    value = constant_value
+                elif purpose is self.CODEGEN:
+                    ir_typ = self.get_ir_type(expr.typ)
+                    value = self.emit(ir.Const(
+                        constant_value, variable.name, ir_typ))
+                else:
+                    raise NotImplementedError()
             else:
-                value = None
+                raise NotImplementedError()
         elif isinstance(expr, nodes.FunctionCall):
             if purpose is self.CONST_EVAL:
                 self.error('Not a constant expression', expr)
@@ -562,7 +604,7 @@ class CCodeGenerator:
                         function.name, ir_arguments, 'result', ir_typ))
             else:
                 value = None
-        elif isinstance(expr, nodes.Constant):
+        elif isinstance(expr, nodes.Literal):
             # TODO: handle more types
             v = int(expr.value)
             expr.typ = self.get_type(['int'])
@@ -665,6 +707,8 @@ class CCodeGenerator:
             return self.get_ir_type(self.resolve_type(typ))
         elif isinstance(typ, nodes.PointerType):
             return ir.ptr
+        elif isinstance(typ, nodes.EnumType):
+            return self.ir_type_map[nodes.BareType.INT][0]
         else:
             raise NotImplementedError(str(typ))
 
@@ -744,7 +788,7 @@ class CCodeGenerator:
                 isinstance(to_type, nodes.PointerType):
             do_cast = True
         elif isinstance(from_type, nodes.BareType) and \
-                isinstance(to_type, nodes.BareType):
+                isinstance(to_type, (nodes.BareType, nodes.EnumType)):
             # TODO: implement stricter checks
             do_cast = True
         else:
@@ -772,16 +816,25 @@ class CCodeGenerator:
         elif isinstance(typ, nodes.IdentifierType):
             return self.sizeof(self.resolve_type(typ))
         elif isinstance(typ, nodes.StructType):
+            if not typ.complete:
+                self.error('Storage size unknown', typ)
             return sum(self.sizeof(part.typ) for part in typ.fields)
         elif isinstance(typ, nodes.UnionType):
+            if not typ.complete:
+                self.error('Storage size unknown', typ)
             return max(self.sizeof(part.typ) for part in typ.fields)
+        elif isinstance(typ, nodes.EnumType):
+            if not typ.complete:
+                self.error('Storage size unknown', typ)
+            # For enums take int as the type
+            return self.context.march.byte_sizes['int']
         elif isinstance(typ, nodes.PointerType):
-            return self.march.byte_sizes['ptr']
+            return self.context.march.byte_sizes['ptr']
         elif isinstance(typ, nodes.FunctionType):
             # TODO: can we determine size of a function type? Should it not
             # be pointer to a function?
-            return self.march.byte_sizes['ptr']
-        # elif isinstance(typ, nodes.QualifiedType):
-        #    return self.sizeof(typ.typ)
+            return self.context.march.byte_sizes['ptr']
+        elif isinstance(typ, nodes.QualifiedType):
+            return self.sizeof(typ.typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))

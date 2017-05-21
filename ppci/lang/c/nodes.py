@@ -28,6 +28,7 @@ class DeclSpec:
 
 class Declaration:
     def __init__(self, typ, loc):
+        assert isinstance(typ, CType)
         self.typ = typ
         self.loc = loc
 
@@ -60,6 +61,16 @@ class VariableDeclaration(NamedDeclaration):
             self.typ, self.name, self.storage_class)
 
 
+class ConstantDeclaration(NamedDeclaration):
+    def __init__(self, typ, name, value, loc):
+        super().__init__(typ, name, loc)
+        self.value = value
+
+    def __repr__(self):
+        return 'Const [typ={} name={}, {}]'.format(
+            self.typ, self.name, self.value)
+
+
 class ParameterDeclaration(Declaration):
     pass
 
@@ -84,6 +95,16 @@ class CType:
     @property
     def is_void(self):
         return isinstance(self, BareType) and self.type_id == BareType.VOID
+
+
+class QualifiedType(CType):
+    """ A qualified type """
+    def __init__(self, qualifiers, typ):
+        self.qualifiers = qualifiers
+        self.typ = typ
+
+    def __repr__(self):
+        return 'Qualified type'
 
 
 class FunctionType(CType):
@@ -111,29 +132,41 @@ class ArrayType(CType):
 
 class EnumType(CType):
     """ Enum type """
-    def __init__(self, values):
+    def __init__(self, values=None):
         super().__init__()
         self.values = values
+
+    @property
+    def complete(self):
+        return self.values is not None
 
 
 class StructOrUnionType(CType):
     """ Common base for struct and union types """
-    def __init__(self, fields=None):
+    def __init__(self, tag=None, fields=None):
         super().__init__()
-        if fields:
-            self.set_fields(fields)
-        else:
-            self.fields = fields
-        # self.name = name
+        self._fields = None
+        self.tag = tag
+        self.fields = fields
 
     @property
     def incomplete(self):
         """ Check whether this type is incomplete or not """
         return self.fields is None
 
+    @property
+    def complete(self):
+        return not self.incomplete
+
+    def get_fields(self):
+        return self._fields
+
     def set_fields(self, fields):
-        self.fields = fields
-        self.field_map = {f.name: f for f in fields}
+        self._fields = fields
+        if fields:
+            self.field_map = {f.name: f for f in fields}
+
+    fields = property(get_fields, set_fields)
 
     def has_field(self, name):
         return name in self.field_map
@@ -353,6 +386,8 @@ class Binop(Expression):
     """ Binary operator """
     def __init__(self, a, op, b, loc):
         super().__init__(loc)
+        assert isinstance(a, Expression)
+        assert isinstance(b, Expression)
         self.a = a
         self.op = op
         self.b = b
@@ -365,6 +400,7 @@ class Unop(Expression):
     """ Unary operator """
     def __init__(self, op, a, loc):
         super().__init__(loc)
+        assert isinstance(a, Expression)
         self.a = a
         self.op = op
 
@@ -423,10 +459,10 @@ class VariableAccess(Expression):
         return 'Id {}'.format(self.name)
 
 
-class Constant(Expression):
+class Literal(Expression):
     def __init__(self, value, loc):
         super().__init__(loc)
         self.value = value
 
     def __repr__(self):
-        return 'Const {}'.format(self.value)
+        return 'Literal {}'.format(self.value)

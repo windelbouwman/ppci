@@ -11,6 +11,7 @@ The following parts can be distinguished:
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
 from . import nodes
+from .scope import Scope
 
 
 class CParser(RecursiveDescentParser):
@@ -106,7 +107,6 @@ class CParser(RecursiveDescentParser):
         self.init_lexer(tokens)
         self.typedefs = set()
         self.typedefs.add('__builtin_va_list')
-        self.struct_tags = dict()
         cu = self.parse_translation_unit()
         self.logger.debug('Parsing finished')
         return cu
@@ -114,10 +114,14 @@ class CParser(RecursiveDescentParser):
     def parse_translation_unit(self):
         """ Top level start of parsing """
         declarations = []
+        self.scope = Scope()
         while not self.at_end:
             for declaration in self.parse_external_declaration():
                 declarations.append(declaration)
-        return nodes.CompilationUnit(declarations)
+
+        cu = nodes.CompilationUnit(declarations)
+        cu.scope = self.scope
+        return cu
 
     # Declarations part:
     def parse_external_declaration(self):
@@ -207,7 +211,9 @@ class CParser(RecursiveDescentParser):
         if not ds.typ:
             # Determine the type based on type specifiers
             if not type_specifiers:
-                self.error('Expected at least one type specifier')
+                self.error(
+                    'Expected at least one type specifier, got {}'.format(
+                        self.peak))
             if self.context.is_valid(type_specifiers):
                 ds.typ = self.context.get_type(type_specifiers)
             else:
@@ -222,65 +228,104 @@ class CParser(RecursiveDescentParser):
     def parse_struct_or_union(self):
         """ Parse a struct or union """
         keyword = self.consume(['struct', 'union'])
+        if keyword.val == 'struct':
+            klass = nodes.StructType
+        else:
+            klass = nodes.UnionType
 
         # We might have an optional tag:
         if self.peak == 'ID':
-            tag = self.consume('ID')
+            tag = self.consume('ID').val
+            if tag in self.scope.tags:
+                typ = self.scope.tags[tag]
+                if not isinstance(typ, klass):
+                    self.error('Wrong tag kind', keyword.loc)
+                if typ.complete and self.peak == '{':
+                    self.error('Multiple definitions', keyword.loc)
+            else:
+                typ = klass(tag=tag)
+                self.scope.tags[tag] = typ
+        elif self.peak == '{':
+            typ = klass()
         else:
-            tag = None
+            self.error('Expected tag name or struct declaration', keyword.loc)
 
-        # We might have struct declarations:
         if self.peak == '{':
+            # We have a struct declarations:
             self.consume('{')
             fields = []
             while self.peak != '}':
-                declarations = self.parse_declaration()
-                # field_name = self.parse_id()
-                # self.consume(';')
-                for declaration in declarations:
+                ds = self.parse_decl_specifiers()
+                while True:
+                    declaration = self.parse_struct_field_declarator(ds)
                     fields.append(declaration)
+                    if self.has_consumed(','):
+                        continue
+                    else:
+                        break
+                self.consume(';')
             self.consume('}')
 
-            # Handle tag registration:
-            if tag:
-                if tag.val in self.struct_tags:
-                    typ = self.struct_tags[tag.val]
-                    if typ.incomplete:
-                        typ.set_fields(fields)
-                    else:
-                        self.error('Illegal redefine of tag', tag.loc)
-                else:
-                    typ = nodes.StructType(fields)
-                    self.struct_tags[tag.val] = typ
-            else:
-                typ = nodes.StructType(fields)
-        elif tag:
-            if tag.val in self.struct_tags:
-                typ = self.struct_tags[tag.val]
-            else:
-                # Forward declaration
-                typ = nodes.StructType()
-                self.struct_tags[tag.val] = typ
-        else:
-            self.error('Expected tag name or struct declaration', keyword.loc)
+            # Determine size and offset of elements at this point.
+            # TODO
+            typ.fields = fields
 
         return typ
 
     def parse_enum(self):
         """ Parse an enum definition """
-        loc = self.consume('enum').loc
-        print(loc)
-        self.consume('{')
-        enum_values = []
-        while self.peak != '}':
-            name = self.consume('ID')
-            if self.has_consumed('='):
-                value = self.parse_expression()
-                enum_values.append((name.val, value))
-            if not self.has_consumed(','):
-                break
-        self.consume('}')
-        return nodes.EnumType(enum_values)
+        keyword = self.consume('enum')
+
+        # We might have an optional tag:
+        if self.peak == 'ID':
+            tag = self.consume('ID').val
+            if tag in self.scope.tags:
+                typ = self.scope.tags[tag]
+                if not isinstance(typ, nodes.EnumType):
+                    self.error('Wrong tag kind', keyword.loc)
+                if typ.complete and self.peak == '{':
+                    self.error('Multiple definitions', keyword.loc)
+            else:
+                typ = nodes.EnumType()
+                self.scope.tags[tag] = typ
+        elif self.peak == '{':
+            typ = nodes.EnumType()
+        else:
+            self.error('Expected tag name or enum declaration', keyword.loc)
+
+        # If we have a body:
+        if self.peak == '{':
+            self.consume('{')
+            if self.has_consumed('}'):
+                self.error('Empty enum is not allowed')
+            enum_values = []
+            while self.peak != '}':
+                name = self.consume('ID')
+                if self.has_consumed('='):
+                    value = self.parse_constant_expression()
+                else:
+                    value = None
+                enum_values.append((name, value))
+                if not self.has_consumed(','):
+                    break
+            self.consume('}')
+
+            # handle all values of the enum:
+            previous_value = nodes.Literal(0, keyword.loc)
+            one = nodes.Literal(1, keyword.loc)
+            for name, constant_expression in enum_values:
+                # Declare constant values:
+                if constant_expression is None:
+                    value = nodes.Binop(previous_value, '+', one, name.loc)
+                else:
+                    value = constant_expression
+                const = nodes.ConstantDeclaration(
+                    self.context.get_type(['int']), name.val, value, name.loc)
+                self.scope.insert(const)
+                previous_value = value
+
+            typ.values = enum_values
+        return typ
 
     def parse_decl_group(self, ds):
         """ Parse the rest after the first declaration spec.
@@ -349,11 +394,39 @@ class CParser(RecursiveDescentParser):
         else:
             initializer = None
 
+        # Create declaration entity:
+        if ds.storage_class == 'typedef':
+            self.typedefs.add(name)
+            d = nodes.Typedef(typ, name, loc)
+        else:
+            if isinstance(typ, nodes.FunctionType):
+                d = nodes.FunctionDeclaration(typ, name, loc)
+                # d.arguments = args
+            else:
+                d = nodes.VariableDeclaration(
+                    typ, name, initializer, loc)
+            assert isinstance(d.typ, nodes.CType), str(d.typ)
+        return d
+
+    def parse_struct_field_declarator(self, ds):
+        """ Given a declaration specifier, parse a struct field. """
+        if ds.typ is None:
+            self.error("Expected type")
+
+        type_modifiers, name = self.parse_type_modifiers(abstract=False)
+        typ = self.apply_type_modifiers(type_modifiers, ds.typ)
+        name, loc = name.val, name.loc
+
+        assert isinstance(typ, nodes.CType)
+
         # Handle optional struct field size:
         if self.peak == ':':
             self.consume(':')
             self.parse_constant_expression()
             # TODO: move this somewhere else?
+
+        # Handle the initial value:
+        initializer = None
 
         # Create declaration entity:
         if ds.storage_class == 'typedef':
@@ -369,7 +442,6 @@ class CParser(RecursiveDescentParser):
             assert isinstance(d.typ, nodes.CType), str(d.typ)
         return d
 
-    # def parse_struct_
     def parse_function_declarator(self):
         """ Parse function postfix. We have type and name, now parse
             function arguments """
@@ -529,9 +601,7 @@ class CParser(RecursiveDescentParser):
             return True
         elif self.peak in self.type_specifiers:
             return True
-        elif self.peak in ['struct', 'union', 'enum']:
-            return True
-        elif self.peak in ['TYPE-ID']:
+        elif self.peak in ('struct', 'union', 'enum', 'TYPE-ID'):
             return True
         else:
             return False
@@ -578,12 +648,12 @@ class CParser(RecursiveDescentParser):
         self.consume('(')
         condition = self.parse_expression()
         self.consume(')')
-        yes = self.parse_statement()
+        then_statement = self.parse_statement()
         if self.has_consumed('else'):
             no = self.parse_statement()
         else:
             no = nodes.Empty(None)
-        return nodes.If(condition, yes, no, loc)
+        return nodes.If(condition, then_statement, no, loc)
 
     def parse_switch_statement(self):
         """ Parse an switch statement """
@@ -716,10 +786,10 @@ class CParser(RecursiveDescentParser):
                 expr = nodes.VariableAccess(identifier.val, identifier.loc)
         elif self.peak == 'NUMBER':
             n = self.consume()
-            expr = nodes.Constant(n.val, n.loc)
+            expr = nodes.Literal(n.val, n.loc)
         elif self.peak == 'CHAR':
             n = self.consume()
-            expr = nodes.Constant(n.val, n.loc)
+            expr = nodes.Literal(n.val, n.loc)
         elif self.peak in ['!', '*', '+', '-', '~', '&']:
             op = self.consume()
             expr = self.parse_primary_expression()
