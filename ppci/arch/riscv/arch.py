@@ -134,7 +134,7 @@ class RiscvArch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         # Caller save registers:
         i = (len(registers)+1)*4
         yield Subi(SP, SP, i)
@@ -148,7 +148,7 @@ class RiscvArch(Architecture):
         """ Implement actual call and save / restore live registers """
         yield self.branch(LR, vcall.function_name)
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         # Restore caller save registers:
         i = 0
         yield self.load(LR, i, SP)

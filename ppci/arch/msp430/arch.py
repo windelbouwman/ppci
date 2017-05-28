@@ -37,7 +37,7 @@ class Msp430Arch(Architecture):
         """ Generate a move from src to dst """
         return mov(src, dst)
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         """ Save caller save registers """
         for register in registers:
             if register in self.caller_save:
@@ -46,7 +46,7 @@ class Msp430Arch(Architecture):
     def gen_call(self, frame, vcall):
         yield call(vcall.function_name)
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         """ Restore caller save registers """
         for register in reversed(registers):
             if register in self.caller_save:

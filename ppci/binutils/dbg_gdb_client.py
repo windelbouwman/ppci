@@ -29,6 +29,9 @@ class GdbDebugDriver(DebugDriver):
         if(constat == RUNNING):
             self.stop()
 
+    def __str__(self):
+        return 'Gdb debug driver via {}'.format(self.transport)
+
     @staticmethod
     def rsp_pack(data):
         """ formats data into a RSP packet """
@@ -214,7 +217,10 @@ class GdbDebugDriver(DebugDriver):
             reg_data = data[offset:offset+size]
             res[register] = self._unpack_register(register, reg_data)
             offset += size
-        assert len(data) == offset, '%x %x' % (len(data), offset)
+        if len(data) != offset:
+            self.logger.error(
+                'Received %x bytes register data, processed %x' % (
+                    len(data), offset))
         return res
 
     def set_registers(self, regvalues):

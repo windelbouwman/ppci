@@ -75,7 +75,7 @@ class ArmArch(Architecture):
             return arm_instructions.Mov2(
                 dst, src, arm_instructions.NoShift(), ismove=True)
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         register_set = set(registers)
         if self.has_option('thumb'):
             # Caller save registers:
@@ -93,7 +93,7 @@ class ArmArch(Architecture):
         else:
             yield arm_instructions.Bl(vcall.function_name)
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         register_set = set(registers)
         if self.has_option('thumb'):
             # Restore caller save registers:

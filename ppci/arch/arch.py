@@ -150,20 +150,27 @@ class Architecture(metaclass=abc.ABCMeta):
         raise NotImplementedError('Implement this')
 
     @abc.abstractmethod
-    def gen_save_registers(self, registers):  # pragma: no cover
+    def gen_save_registers(self, frame, registers):  # pragma: no cover
         """ Generate a code sequence to save the specified registers.
 
         Implement this function for a new backend.
 
         Args:
+            frame: The function frame in which the call is made.
             registers: An iterable of registers that is live over
                        the call.
         """
         raise NotImplementedError('Implement this')
 
     @abc.abstractmethod
-    def gen_restore_registers(self, registers):  # pragma: no cover
-        """ Generate a code sequence to restore the specified registers. """
+    def gen_restore_registers(self, frame, registers):  # pragma: no cover
+        """ Generate a code sequence to restore the specified registers.
+
+        Args:
+            frame: The function frame in which the call is made.
+            registers: An iterable of registers that is live over
+                       the call.
+        """
         raise NotImplementedError('Implement this')
 
     def gen_fill_arguments(self, arg_types, args):  # pragma: no cover

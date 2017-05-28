@@ -2,6 +2,7 @@
 """
 
 from ...common import SourceLocation
+from ..generic.nodes import Statement, Compound
 
 
 class CompilationUnit:
@@ -258,20 +259,6 @@ class BareType(CType):
 
 
 # Statements:
-class Statement:
-    def __init__(self, loc):
-        self.loc = loc
-
-
-class Compound(Statement):
-    def __init__(self, statements, loc):
-        super().__init__(loc)
-        self.statements = statements
-
-    def __repr__(self):
-        return 'Compound'
-
-
 class If(Statement):
     """ If statement """
     def __init__(self, condition, yes, no, loc):
@@ -466,3 +453,6 @@ class Literal(Expression):
 
     def __repr__(self):
         return 'Literal {}'.format(self.value)
+
+
+__all__ = ['If', 'Compound']

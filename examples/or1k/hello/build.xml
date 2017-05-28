@@ -7,7 +7,7 @@
             arch="or1k"
             output="boot.oj" />
         <compile
-            arch="or1k"
+            arch="or1k" optimize="2"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
             report="report.html"/>
@@ -15,5 +15,9 @@
             output="hello.oj"
             layout="../layout.mmp"
             objects="boot.oj;rest.oj" />
+        <objcopy objectfile="hello.oj"
+            imagename="flash"
+            format="bin"
+            output="hello.bin" />
     </target>
 </project>

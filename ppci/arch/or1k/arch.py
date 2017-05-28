@@ -1,8 +1,8 @@
 
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
-from ..generic_instructions import Label
-from ..data_instructions import data_isa
+from ..generic_instructions import Label, Alignment, SectionInstruction
+from ..data_instructions import data_isa, Db
 from .isa import orbis32
 from . import instructions, registers
 
@@ -35,6 +35,8 @@ class Or1kArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.byte_sizes['int'] = 4
         self.byte_sizes['ptr'] = 4
+        self.gdb_registers = registers.gdb_registers
+        self.gdb_pc = registers.PC
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
@@ -54,28 +56,105 @@ class Or1kArch(Architecture):
         """ Generate the prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
-        yield instructions.Sw(-4, registers.r1, registers.r2)  # Save FP
-        yield instructions.Addi(registers.r2, registers.r1, 0)  # setup FP
+
+        # Save frame pointer:
+        yield instructions.Sw(-8, registers.r1, registers.r2)
+
+        # setup frame pointer:
+        yield instructions.Addi(
+            registers.r2, registers.r1, instructions.Immediate(0))
+
+        # Save link register:
+        yield instructions.Sw(-4, registers.r2, registers.r9)
+
+        # Save callee save registers:
+        saved_registers_space = 0
+        for register in registers.callee_save:
+            if register in frame.used_regs:
+                saved_registers_space += 4
+                offset = -8 - frame.stacksize - saved_registers_space
+                yield instructions.Sw(offset, registers.r2, register)
+
+        assert saved_registers_space <= len(frame.used_regs) * 4
 
         # Adjust stack
-        yield instructions.Addi(registers.r1, registers.r1, -20)
+        stack_size = 8 + frame.stacksize + len(frame.used_regs) * 4
+        yield instructions.Addi(
+            registers.r1, registers.r1, instructions.Immediate(-stack_size))
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. """
         # Restore stack pointer:
-        yield instructions.Ori(registers.r1, registers.r2, 0)
+        yield instructions.Ori(
+            registers.r1, registers.r2, instructions.Immediate(0))
+
+        # Restore callee saved registers:
+        saved_registers_space = 0
+        for register in registers.callee_save:
+            if register in frame.used_regs:
+                saved_registers_space += 4
+                offset = -8 - frame.stacksize - saved_registers_space
+                yield instructions.Lwz(register, offset, registers.r1)
+
+        # Restore frame pointer:
+        yield instructions.Lwz(registers.r2, -8, registers.r1)
+
+        # Restore link register:
+        yield instructions.Lwz(registers.r9, -4, registers.r1)
+
+        # Return:
         yield instructions.Jr(registers.r9)
 
-    def gen_save_registers(self, registers):
-        if False:
-            yield 1
+        # Fill delay slot:
+        yield instructions.Nop(0)
 
-    def gen_restore_registers(self, registers):
-        if False:
-            yield 1
+        # Add final literal pool:
+        for instruction in self.litpool(frame):
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes
+
+    def litpool(self, frame):
+        """ Generate instructions for literals """
+        if frame.constants:
+            # Align at 4 bytes
+            yield SectionInstruction('rodata')
+            yield Alignment(4)
+
+            # Add constant literals:
+            for label, value in frame.constants:
+                yield Label(label)
+                if isinstance(value, bytes):
+                    for byte in value:
+                        yield Db(byte)
+                    yield Alignment(4)   # Align at 4 bytes
+                else:  # pragma: no cover
+                    raise NotImplementedError(
+                        'Constant of type {}'.format(value))
+
+            yield SectionInstruction('code')
+
+    def gen_save_registers(self, frame, regs):
+        """ Save caller saved registers """
+        # Save registers at end of frame
+        offset = -8 - frame.stacksize - len(frame.used_regs) * 4
+        for register in regs:
+            if register in registers.caller_save:
+                yield instructions.Sw(offset, registers.r2, register)
+                offset += 4
+
+    def gen_restore_registers(self, frame, regs):
+        """ Restore caller saved registers """
+        offset = -8 - frame.stacksize - len(frame.used_regs) * 4
+        for register in regs:
+            if register in registers.caller_save:
+                yield instructions.Lwz(register, offset, registers.r2)
+                offset += 4
 
     def gen_call(self, frame, vcall):
         yield instructions.Jal(vcall.function_name)
+
+        # Fill delay slot:
+        yield instructions.Nop(0)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

@@ -24,7 +24,9 @@ class DebugCli(cmd.Cmd):
 
     def do_info(self, _):
         """ Show some info about the debugger """
+        print('Architecture: ', self.debugger.arch)
         print('Debugger:     ', self.debugger)
+        print('Debug driver: ', self.debugger.driver)
         print('ppci version: ', ppci_version)
         text_status = {
             STOPPED: 'Stopped', RUNNING: 'Running'

@@ -83,14 +83,14 @@ class XtensaArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         for register in registers:
             yield instructions.Push(register)
 
     def gen_call(self, frame, vcall):
         yield instructions.Call0(vcall.function_name)
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         for register in reversed(registers):
             yield instructions.Pop(register)
 

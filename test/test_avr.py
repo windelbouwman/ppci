@@ -21,10 +21,10 @@ class AvrArchitectureTestCase(unittest.TestCase):
         vcall.live_in = {r17, r19r18}
         vcall.live_out = {r17, r19r18}
         regs = [r17, r19r18, r20, r25, r26]
-        for instruction in arch.gen_save_registers(regs):
+        for instruction in arch.gen_save_registers(frame, regs):
             if isinstance(instruction, Push):
                 pushed.append(instruction.rd)
-        for instruction in arch.gen_restore_registers(regs):
+        for instruction in arch.gen_restore_registers(frame, regs):
             if isinstance(instruction, Pop):
                 popped.append(instruction.rd)
         self.assertTrue(pushed)

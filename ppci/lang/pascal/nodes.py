@@ -1,9 +1,6 @@
 """ Pascal nodes """
 
-
-class Node:
-    """ Base class of all nodes in a AST """
-    pass
+from ..generic.nodes import Node, Type, Statement, Compound
 
 
 # Variables, parameters, local variables, constants and named types:
@@ -57,11 +54,6 @@ class Constant(Symbol):
 
     def __repr__(self):
         return 'CONSTANT {0} = {1}'.format(self.name, self.value)
-
-
-class Type(Node):
-    """ Base class of all types """
-    pass
 
 
 class NamedType(Type, Symbol):
@@ -394,12 +386,6 @@ class FunctionCall(Expression):
 
 
 # Statements
-class Statement(Node):
-    """ Base class of all statements """
-    def __init__(self, loc):
-        self.loc = loc
-
-
 class Empty(Statement):
     """ Empty statement which does nothing! """
     def __init__(self):
@@ -407,17 +393,6 @@ class Empty(Statement):
 
     def __repr__(self):
         return 'NOP'
-
-
-class Compound(Statement):
-    """ Statement consisting of a sequence of other statements """
-    def __init__(self, statements):
-        super().__init__(None)
-        self.statements = statements
-        assert all(isinstance(s, Statement) for s in self.statements)
-
-    def __repr__(self):
-        return 'COMPOUND STATEMENT'
 
 
 class Return(Statement):
@@ -547,3 +522,6 @@ class Writeln(Statement):
 
     def __repr__(self):
         return 'WRITELN-statement'
+
+
+__all__ = ['If', 'Compound']

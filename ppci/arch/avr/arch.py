@@ -117,7 +117,7 @@ class AvrArch(Architecture):
                 s.add(register)
         return s
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         live_registers = self.expand_word_regs(registers)
 
         # Caller save registers:
@@ -129,7 +129,7 @@ class AvrArch(Architecture):
         """ Implement actual call and save / restore live registers """
         yield Call(vcall.function_name)
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         live_registers = self.expand_word_regs(registers)
 
         for register in reversed(caller_save):

@@ -20,10 +20,10 @@ class Mcs6500Arch(Architecture):
     def gen_epilogue(self, frame):
         pass
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         return []
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         return []
 
     def determine_arg_locations(self, arg_types):

@@ -258,14 +258,14 @@ class X86_64Arch(Architecture):
         yield RegisterUseDef(defs=(retval_loc,))
         yield self.move(rv, retval_loc)
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         """ If registers must be saved, this is the time! """
         # Caller save registers:
         for register in registers:
             if register not in [rsp, rbp]:
                 yield self.push(register)
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         """ If registers were saved, restore them """
         # Restore caller save registers:
         for register in reversed(registers):

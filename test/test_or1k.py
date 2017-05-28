@@ -124,9 +124,19 @@ class Or1kOrbisTestCase(AsmTestCaseBase):
         self.feed("l.lwz r1, 30000(r2)")
         self.check('84 22 75 30')
 
+    def test_nop(self):
+        self.feed("l.nop 0x1234")
+        self.check('15 00 12 34')
+
     def test_movhi(self):
         self.feed("l.movhi r3, 0xcafe")
         self.check('18 60 ca fe')
+
+    def test_movhi_label(self):
+        self.feed("l.movhi r3, hi(foo)")
+        self.feed("l.movhi r3, lo(foo)")
+        self.feed("foo: db 1")
+        self.check('18 60 00 00 18 60 00 08 01')
 
     def test_mul(self):
         self.feed("l.mul r1, r2, r3")

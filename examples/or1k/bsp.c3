@@ -1,6 +1,6 @@
 module bsp;
 
-const byte* DR = 0x900001;
+const byte* DR = 0x90000000;
 
 public function void putc(byte c)
 {

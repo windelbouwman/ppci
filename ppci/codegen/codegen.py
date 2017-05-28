@@ -208,11 +208,11 @@ class CodeGenerator:
                 elif isinstance(instruction, VSaveRegisters):
                     regs = frame.live_regs_over(instruction.vcall)
                     output_stream.emit_all(
-                        self.arch.gen_save_registers(regs))
+                        self.arch.gen_save_registers(frame, regs))
                 elif isinstance(instruction, VRestoreRegisters):
                     regs = frame.live_regs_over(instruction.vcall)
                     output_stream.emit_all(
-                        self.arch.gen_restore_registers(regs))
+                        self.arch.gen_restore_registers(frame, regs))
                 elif isinstance(instruction, RegisterUseDef):
                     pass
                 elif isinstance(instruction, ArtificialInstruction):

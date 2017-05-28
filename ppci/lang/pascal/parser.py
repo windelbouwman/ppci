@@ -352,14 +352,14 @@ class Parser(RecursiveDescentParser):
 
     def parse_compound_statement(self):
         """ Parse a compound statement """
-        self.consume('begin')
+        loc = self.consume('begin').loc
         statements = []
         statements.append(self.parse_statement())
         while self.has_consumed(';'):
             statements.append(self.parse_statement())
         self.consume('end')
 
-        return nodes.Compound(statements)
+        return nodes.Compound(statements, loc)
 
     def parse_statement(self) -> nodes.Statement:
         """ Determine statement type based on the pending token """

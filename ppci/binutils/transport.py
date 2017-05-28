@@ -2,22 +2,26 @@
     Communication channel for debug client.
 """
 
+import abc
 import socket
 import select
 
 
-class Transport:
+class Transport(metaclass=abc.ABCMeta):
     """
         Inherit this for each debug communication channel
     """
 
-    def rx_avail(self):
+    @abc.abstractmethod
+    def rx_avail(self):  # pragma: no cover
         raise NotImplementedError()
 
-    def recv(self):
+    @abc.abstractmethod
+    def recv(self):  # pragma: no cover
         raise NotImplementedError()
 
-    def send(self):
+    @abc.abstractmethod
+    def send(self):  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -25,6 +29,10 @@ class TCP(Transport):
     def __init__(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(("localhost", port))
+        self._port = port
+
+    def __str__(self):
+        return 'Tcp localhost:{}'.format(self._port)
 
     def rx_avail(self):
         readable, _, _ = select.select([self.sock], [], [], 0)

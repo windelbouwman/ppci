@@ -37,7 +37,7 @@ def enable_report_logger(filename):
 
 def only_bf(txt):
     """ Strip a string from all characters, except brainfuck chars """
-    return re.sub('[^\.,<>\+-\]\[]', '', txt)
+    return re.sub(r'[^\.,<>\+-\]\[]', '', txt)
 
 
 def create_test_function(source, output):
@@ -642,7 +642,7 @@ class TestSamplesOnXtensa(unittest.TestCase):
 @add_samples('simple')
 class OpenRiscSamplesTestCase(unittest.TestCase):
     march = "or1k"
-    opt_level = 0
+    opt_level = 2
 
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
@@ -655,12 +655,12 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
         binfile = base_filename + '.bin'
         # img_filename = base_filename + '.img'
         # self.make_image(binfile, img_filename)
-        if False:  # has_qemu():
+        if has_qemu() and False:
             # TODO:
             output = qemu([
                 'qemu-system-or1k', '-nographic',
-                '-M', 'lx60', '-m', '16',
-                '-pflash', img_filename])
+                '-M', 'or1k-sim', '-m', '16',
+                '-kernel', binfile])
             self.assertEqual(expected_output, output)
 
 

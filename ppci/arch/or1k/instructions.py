@@ -1,7 +1,7 @@
 
 from .isa import orbis32, Orbis32Token, Orbis32StoreToken
 from .registers import Or1kRegister
-from ..encoding import Instruction, Syntax, Operand
+from ..encoding import Instruction, Syntax, Operand, Constructor
 from ..encoding import Relocation
 from ...utils.bitfun import wrap_negative
 from . import registers
@@ -25,6 +25,26 @@ class JumpRelocation(Relocation):
         offset = sym_value - reloc_value
         # assert offset in range(-256, 254, 4), str(offset)
         return wrap_negative(offset // 4, 26)
+
+
+@orbis32.register_relocation
+class ConstRelocation(Relocation):
+    name = 'OR32_CONST'
+    token = Orbis32Token
+    field = 'k'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value & 0xffff
+
+
+@orbis32.register_relocation
+class ConsthRelocation(Relocation):
+    name = 'OR32_CONSTH'
+    token = Orbis32Token
+    field = 'k'
+
+    def calc(self, sym_value, reloc_value):
+        return (sym_value >> 16) & 0xffff
 
 
 # Utility functions:
@@ -52,13 +72,45 @@ def regreg(mnemonic, opcode, opcode2):
     return type(class_name, (Orbis32Instruction,), members)
 
 
+class HighAddressImmediate(Constructor):
+    """ Sort of macro for a high address half """
+    label = Operand('label', str)
+    syntax = Syntax(['hi', '(', label, ')'])
+    patterns = {'imm': 0}
+
+    def gen_relocations(self):
+        # TODO: hack for now with offset=-4
+        # this offset is needed because the constructor is set at
+        # position 4 inside the entire instruction bytes.
+        yield ConsthRelocation(self.label, offset=-4)
+
+
+class LowAddressImmediate(Constructor):
+    """ Sort of macro for a high address half """
+    label = Operand('label', str)
+    syntax = Syntax(['lo', '(', label, ')'])
+    patterns = {'imm': 0}
+
+    def gen_relocations(self):
+        yield ConstRelocation(self.label, offset=-4)
+
+
+class Immediate(Constructor):
+    imm = Operand('imm', int)
+    syntax = Syntax([imm])
+    patterns = {'imm': imm}
+
+
+immediates = (HighAddressImmediate, LowAddressImmediate, Immediate)
+
+
 def regregimm(mnemonic, opcode):
     rd = Operand('rd', Or1kRegister, write=True)
     ra = Operand('ra', Or1kRegister, read=True)
-    imm = Operand('imm', int)
+    imm = Operand('imm', immediates)
     syntax = Syntax(['l', '.', mnemonic, ' ', rd, ',', ' ', ra, ',', ' ', imm])
     patterns = {
-        'opcode': opcode, 'rd': rd, 'ra': ra, 'imm': imm}
+        'opcode': opcode, 'rd': rd, 'ra': ra}
     members = {
         'rd': rd, 'ra': ra, 'imm': imm, 'syntax': syntax, 'patterns': patterns}
     class_name = mnemonic.title()
@@ -171,9 +223,9 @@ Lwz = load('lwz', 0b100001)
 class Movhi(Orbis32Instruction):
     """ Mov immediate high """
     rd = Operand('rd', Or1kRegister, write=True)
-    imm = Operand('imm', int)
+    imm = Operand('imm', immediates)
     syntax = Syntax(['l', '.', 'movhi', ' ', rd, ',', ' ', imm])
-    patterns = {'opcode': 0b000110, 'rd': rd, 'ra': 0, 'k': imm}
+    patterns = {'opcode': 0b000110, 'rd': rd, 'ra': 0}
 
 
 class Macrc(Orbis32Instruction):
@@ -185,6 +237,15 @@ class Macrc(Orbis32Instruction):
 
 Mul = regregreg('mul', 0b111000, 0b01100000110)
 Mulu = regregreg('mulu', 0b111000, 0b01100001011)
+
+
+class Nop(Orbis32Instruction):
+    """ No operation """
+    imm = Operand('imm', int)
+    syntax = Syntax(['l', '.', 'nop', ' ', imm])
+    patterns = {'opcode': 0b000101, 'rd': 8, 'k': imm}
+
+
 Or = regregreg('or', 0b111000, 0b0000100)
 Ori = regregimm('ori', 0b101010)
 Sb = store('sb', 0b110110)
@@ -211,7 +272,7 @@ Xori = regregimm('xori', 0b101011)
 
 # Helpers:
 def mov(dst, src):
-    return Addi(dst, src, 0, ismove=True)
+    return Addi(dst, src, Immediate(0), ismove=True)
 
 
 # Arithmatic patterns:
@@ -220,7 +281,7 @@ def pattern_addi8(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Add(d, c0, c1))
     # TODO: or use sign extend here?
-    context.emit(Andi(d, d, 0xff))
+    context.emit(Andi(d, d, Immediate(0xff)))
     return d
 
 
@@ -294,7 +355,7 @@ def pattern_subi8(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Sub(d, c0, c1))
     # TODO: or use sign extend here?
-    context.emit(Andi(d, d, 0xff))
+    context.emit(Andi(d, d, Immediate(0xff)))
     return d
 
 
@@ -323,7 +384,7 @@ def pattern_str8(context, tree, c0, c1):
 @orbis32.pattern('stm', 'STRI8(FPRELI32, reg)', size=4, cycles=1, energy=1)
 @orbis32.pattern('stm', 'STRU8(FPRELI32, reg)', size=4, cycles=1, energy=1)
 def pattern_str8_fprel(context, tree, c0):
-    offset = tree[0].value
+    offset = tree[0].value - 8
     context.emit(Sb(offset, registers.r2, c0))
 
 
@@ -336,7 +397,7 @@ def pattern_ldru8(context, tree, c0):
 
 @orbis32.pattern('reg', 'LDRU8(FPRELI32)', size=4)
 def pattern_ldru8_fprel(context, tree):
-    offset = tree[0].value
+    offset = tree[0].value - 8
     d = context.new_reg(Or1kRegister)
     context.emit(Lbz(d, offset, registers.r2))
     return d
@@ -351,7 +412,7 @@ def pattern_ldri8(context, tree, c0):
 
 @orbis32.pattern('reg', 'LDRI8(FPRELI32)', size=4)
 def pattern_ldri8_fprel(context, tree):
-    offset = tree[0].value
+    offset = tree[0].value - 8
     d = context.new_reg(Or1kRegister)
     context.emit(Lbs(d, offset, registers.r2))
     return d
@@ -366,7 +427,7 @@ def pattern_str32(context, tree, c0, c1):
 @orbis32.pattern('stm', 'STRI32(FPRELI32, reg)', size=4, cycles=1, energy=1)
 @orbis32.pattern('stm', 'STRU32(FPRELI32, reg)', size=4, cycles=1, energy=1)
 def pattern_str32_fprel(context, tree, c0):
-    offset = tree[0].value
+    offset = tree[0].value - 8
     context.emit(Sw(offset, registers.r2, c0))
 
 
@@ -387,16 +448,16 @@ def pattern_ldri32(context, tree, c0):
 @orbis32.pattern('reg', 'LDRI32(FPRELI32)', size=4, cycles=1, energy=1)
 def pattern_ldri32_fprel(context, tree):
     d = context.new_reg(Or1kRegister)
-    offset = tree[0].value
+    offset = tree[0].value - 8
     context.emit(Lws(d, offset, registers.r2))
     return d
 
 
 @orbis32.pattern('reg', 'FPRELI32', size=4, cycles=1, energy=1)
 def pattern_fprel(context, tree):
-    offset = tree.value
+    offset = tree.value - 8
     d = context.new_reg(Or1kRegister)
-    context.emit(Addi(d, registers.r2, offset))
+    context.emit(Addi(d, registers.r2, Immediate(offset)))
     return d
 
 
@@ -410,6 +471,7 @@ def pattern_call(context, tree):
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(J(tgt.name, jumps=[tgt]))
+    context.emit(Nop(0))  # Fill delay slot
 
 
 @orbis32.pattern('stm', 'CJMP(reg, reg)', size=10)
@@ -422,26 +484,46 @@ def pattern_cjmp(context, tree, lhs, rhs):
     context.emit(op_ins(lhs, rhs))
     jmp_ins = J(false_tgt.name, jumps=[false_tgt])
     context.emit(Bf(true_tgt.name, jumps=[true_tgt, jmp_ins]))
+    context.emit(Nop(0))  # Fill delay slot
     context.emit(jmp_ins)
+    context.emit(Nop(0))  # Fill delay slot
 
 
 # Other patterns:
 @orbis32.pattern('reg', 'LABEL', size=2)
 def pattern_label(context, tree):
     d = context.new_reg(Or1kRegister)
-    # ln = context.frame.add_constant(tree.value)
-    # TODO!
-    # context.emit(Mov(AdrSrc(ln), RegDst(d)))
+    ln = tree.value
+    context.emit(Movhi(d, HighAddressImmediate(ln)))
+    context.emit(Ori(d, d, LowAddressImmediate(ln)))
     return d
 
 
+@orbis32.pattern('reg', 'CONSTU8', size=8, cycles=2, energy=2)
 @orbis32.pattern('reg', 'CONSTU32', size=8, cycles=2, energy=2)
 @orbis32.pattern('reg', 'CONSTI32', size=8, cycles=2, energy=2)
 def pattern_const32(context, tree):
     d = context.new_reg(Or1kRegister)
     cnst = tree.value
-    context.emit(Movhi(d, cnst >> 16))
-    context.emit(Ori(d, d, cnst & 0xffff))
+    context.emit(Movhi(d, Immediate(cnst >> 16)))
+    context.emit(Ori(d, d, Immediate(cnst & 0xffff)))
+    return d
+
+
+@orbis32.pattern(
+    'reg', 'CONSTU8', size=4, cycles=1, energy=1,
+    condition=lambda t: t.value in range(0, 0xffff))
+@orbis32.pattern(
+    'reg', 'CONSTU32', size=4, cycles=1, energy=1,
+    condition=lambda t: t.value in range(0, 0xffff))
+@orbis32.pattern(
+    'reg', 'CONSTI32', size=4, cycles=1, energy=1,
+    condition=lambda t: t.value in range(0, 0xffff))
+def pattern_const16(context, tree):
+    # Play clever with the r0 register (always assumed 0)
+    d = context.new_reg(Or1kRegister)
+    cnst = tree.value
+    context.emit(Addi(d, registers.r0, Immediate(cnst)))
     return d
 
 
@@ -451,7 +533,7 @@ def pattern_const32(context, tree):
 @orbis32.pattern('reg', 'MOVU32(reg)', size=4, cycles=1, energy=1)
 def pattern_mov(context, tree, c0):
     dst = tree.value
-    context.emit(Addi(dst, c0, 0))
+    context.emit(mov(dst, c0))
     return dst
 
 

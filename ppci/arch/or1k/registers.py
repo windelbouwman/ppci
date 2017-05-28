@@ -8,6 +8,21 @@ class Or1kRegister(Register):
     """ An open risc register """
     bitsize = 32
 
+    def __repr__(self):
+        if self.is_colored:
+            return 'R{}'.format(self.color)
+        else:
+            return self.name
+
+
+class Or1kPcRegister(Register):
+    """ The program counter """
+    bitsize = 32
+
+
+class Or1kOtherRegister(Register):
+    bitsize = 32
+
 
 r0 = Or1kRegister('r0', num=0)
 r1 = Or1kRegister('r1', num=1)
@@ -43,16 +58,37 @@ r29 = Or1kRegister('r29', num=29)
 r30 = Or1kRegister('r30', num=30)
 r31 = Or1kRegister('r31', num=31)
 
-all_regs = (
+PC = Or1kPcRegister('pc', num=32)
+MisteryReg1 = Or1kOtherRegister('mistery1', num=33)
+MisteryReg2 = Or1kOtherRegister('mistery2', num=34)
+
+usable_regs = (
+    r3, r4, r5, r6, r7,
+    r8, r10, r11, r12, r13, r14, r15,
+    r16, r17, r18, r19, r20, r21, r22, r23,
+    r24, r25, r26, r27, r28, r29, r30, r31)
+
+all_regs = (r0, r1, r2, r9) + usable_regs
+
+gdb_registers = (
     r0, r1, r2, r3, r4, r5, r6, r7,
     r8, r9, r10, r11, r12, r13, r14, r15,
     r16, r17, r18, r19, r20, r21, r22, r23,
-    r24, r25, r26, r27, r28, r29, r30, r31)
+    r24, r25, r26, r27, r28, r29, r30, r31,
+    PC, MisteryReg1)
 
 Or1kRegister.registers = all_regs
 
 register_classes = [
     RegisterClass(
         'reg', [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.u32, ir.ptr],
-        Or1kRegister, all_regs),
+        Or1kRegister, usable_regs),
     ]
+
+callee_save = (
+    r10, r14,
+    r16, r18, r20, r22, r24, r26, r28, r30)
+caller_save = (
+    r3, r4, r5, r6, r7, r8, r11,  # arguments and return value
+    r13, r15,
+    r17, r19, r21, r23, r25, r27, r29, r31)
