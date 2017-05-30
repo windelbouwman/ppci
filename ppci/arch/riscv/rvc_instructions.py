@@ -188,13 +188,13 @@ class CJalr(RiscvcInstruction):
 class CBeqz(RiscvcInstruction):
     rn = Operand('rn', RiscvRegister, read=True)
     target = Operand('target', str)
-    syntax = Syntax(['c', '.', 'beqz', ' ', rn, ' ', target])
+    syntax = Syntax(['c', '.', 'beqz', ' ', rn, ',', ' ', target])
+    patterns = {'op': 0b01, 'funct3': 0b110}
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][0:2] = 0b01
+        self.set_all_patterns(tokens)
         tokens[0][7:10] = self.rn.num - 8
-        tokens[0][13:16] = 0b110
         return tokens[0].encode()
 
     def relocations(self):
@@ -205,12 +205,12 @@ class CBnez(RiscvcInstruction):
     rn = Operand('rn', RiscvRegister, read=True)
     target = Operand('target', str)
     syntax = Syntax(['c', '.', 'bneqz', ' ', rn, ',', ' ', target])
+    patterns = {'op': 0b01, 'funct3': 0b111}
 
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0][0:2] = 0b01
+        self.set_all_patterns(tokens)
         tokens[0][7:10] = self.rn.num-8
-        tokens[0][13:16] = 0b111
         return tokens[0].encode()
 
     def relocations(self):

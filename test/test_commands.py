@@ -2,14 +2,10 @@ import unittest
 import tempfile
 import io
 import os
-
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
+from unittest.mock import patch
 
 from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
-from ppci.commands import link
+from ppci.commands import link, opt
 from ppci import commands
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
@@ -162,6 +158,21 @@ class ObjcopyTestCase(unittest.TestCase):
         with open(bin_file, 'rb') as f:
             exported_data = f.read()
         self.assertEqual(data, exported_data)
+
+
+class OptimizeCommandTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            opt(['-h'])
+        self.assertEqual(0, cm.exception.code)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_optimize_command(self, mock_stdout, mock_stderr):
+        in_file = relpath('data', 'add.pi')
+        out = new_temp_file('.ir')
+        opt([in_file, out])
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')

@@ -31,9 +31,11 @@ def val2bit(v, bits):
 
 
 class _p2(property):
-    def __init__(self, getter, setter, bitsize):
-        assert bitsize > 0
+    def __init__(self, getter, setter, bitsize, signed):
+        if bitsize < 1:
+            raise TypeError('Cannot create field with less than 1 bit')
         self._bitsize = bitsize
+        self._signed = signed
         self._mask = (1 << bitsize) - 1
         super().__init__(getter, setter)
 
@@ -41,14 +43,15 @@ class _p2(property):
         return bit_concat(self, other)
 
 
-def bit_range(b, e):
-    """ Property generator function """
+def bit_range(b, e, signed=False):
+    """ Create a property which sets a bit range """
     def getter(s):
         return s[b:e]
 
     def setter(s, v):
         s[b:e] = v
-    return _p2(getter, setter, e - b)
+
+    return _p2(getter, setter, e - b, signed)
 
 
 def bit(b):
@@ -70,7 +73,8 @@ def bit_concat(*partials):
             at.__set__(s, v & at._mask)
             v = v >> at._bitsize
     bitsize = sum(at._bitsize for at in partials)
-    return _p2(getter, setter, bitsize)
+    signed = partials[0]._signed
+    return _p2(getter, setter, bitsize, signed)
 
 
 class TokenMeta(type):
@@ -87,6 +91,10 @@ class TokenMeta(type):
                         if not hasattr(cls.Info, k):
                             # print(k, v)
                             setattr(cls.Info, k, v)
+
+
+# def two_complement(value, bits):
+#    mask = 1 << (bits - 1)
 
 
 class Token(metaclass=TokenMeta):
@@ -139,7 +147,12 @@ class Token(metaclass=TokenMeta):
             if value >= limit:
                 raise ValueError(
                     'value {} cannot be fit into {} bits'.format(value, bits))
-            assert value < limit
+            # TODO: move negative value to field property?
+            if value < 0:
+                # Assume signed value here, and wrap around
+                value = limit + value
+                # value = two_complement(value, bits)
+            assert (value >= 0) and (value < limit)
             mask = self.mask ^ ((limit - 1) << key.start)
             self.bit_value &= mask
             self.bit_value |= value << key.start

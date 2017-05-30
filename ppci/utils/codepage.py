@@ -117,7 +117,7 @@ def load_code_as_module(source_file):
     if march is None:
         raise NotImplementedError(sys.platform)
 
-    obj1 = c3c([source_file], [], march, debug=True)
+    obj1 = c3c([source_file], [], march, debug=True, opt_level=2)
     # print(obj1)
     obj = link([obj1], debug=True)
     # print(obj)

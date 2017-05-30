@@ -16,7 +16,8 @@ class Or1kOrbisTestCase(AsmTestCaseBase):
 
     def test_addi(self):
         self.feed("l.addi r1, r2, 200")
-        self.check('9c 22 00 c8')
+        self.feed("l.addi r1, r1, -28")
+        self.check('9c 22 00 c8 9c 21 ff e4')
 
     def test_addic(self):
         self.feed("l.addic r1, r2, 200")
@@ -206,6 +207,36 @@ class Or1kOrbisTestCase(AsmTestCaseBase):
         """ Test store half word """
         self.feed("l.sh 30000(r1), r2")
         self.check('dd c1 15 30')
+
+    def test_sll(self):
+        """ Test shift left logical """
+        self.feed("l.sll r1, r2, r3")
+        self.check('e0 22 18 08')
+
+    def test_slli(self):
+        """ Test shift left logical """
+        self.feed("l.slli r1, r2, 33")
+        self.check('b8 22 00 21')
+
+    def test_srl(self):
+        """ Test shift right logical """
+        self.feed("l.srl r1, r2, r3")
+        self.check('e0 22 18 48')
+
+    def test_srli(self):
+        """ Test shift right logical with immediate """
+        self.feed("l.srli r1, r2, 33")
+        self.check('b8 22 00 61')
+
+    def test_sra(self):
+        """ Test shift right arithmatic """
+        self.feed("l.sra r1, r2, r3")
+        self.check('e0 22 18 88')
+
+    def test_srai(self):
+        """ Test shift right arithmatic """
+        self.feed("l.srai r1, r2, 33")
+        self.check('b8 22 00 a1')
 
     def test_sub(self):
         self.feed("l.sub r1, r2, r3")

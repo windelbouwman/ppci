@@ -92,11 +92,11 @@ class Transform:
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
-    def forwards(self, val):  # pragma: no cover
+    def forwards(self, value):  # pragma: no cover
         """ Implement the forward transform here """
         raise NotImplementedError()
 
-    def backwards(self, val):  # pragma: no cover
+    def backwards(self, value):  # pragma: no cover
         """ Implement the backward transform here """
         raise NotImplementedError()
 

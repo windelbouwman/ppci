@@ -24,7 +24,7 @@ class Imm8Token(Token):
     class Info:
         size = 8
 
-    disp8 = bit_range(0, 8)
+    disp8 = bit_range(0, 8, signed=True)
 
 
 class PrefixToken(Token):
@@ -135,7 +135,7 @@ class Rel32JmpRelocation(Relocation):
 
     def calc(self, sym_value, reloc_value):
         offset = (sym_value - (reloc_value + 4))
-        return wrap_negative(offset, 32)
+        return offset
 
 
 @isa.register_relocation
@@ -146,7 +146,7 @@ class Jmp8Relocation(Relocation):
 
     def calc(self, sym_value, reloc_value):
         offset = (sym_value - (reloc_value + 1))
-        return wrap_negative(offset, 8)
+        return offset
 
 
 @isa.register_relocation
@@ -341,10 +341,10 @@ class RmMemDisp(Constructor):
     def set_user_patterns(self, tokens):
         if self.disp <= 255 and self.disp >= -128:
             tokens.set_field('mod', 1)
-            tokens.set_field('disp8', wrap_negative(self.disp, 8))
+            tokens.set_field('disp8', self.disp)
         else:
             tokens.set_field('mod', 2)
-            tokens.set_field('disp32', wrap_negative(self.disp, 32))
+            tokens.set_field('disp32', self.disp)
 
         if self.reg.regbits == 4:
             # SIB mode:
@@ -377,7 +377,7 @@ class RmMemDisp2(Constructor):
         tokens.set_field('x', self.regi.rexbit)
         tokens.set_field('index', self.regi.regbits)
         tokens.set_field('base', self.regb.regbits)
-        tokens.set_field('disp8', wrap_negative(self.disp, 8))
+        tokens.set_field('disp8', self.disp)
 
 
 class RmRip(Constructor):
@@ -387,7 +387,7 @@ class RmRip(Constructor):
     patterns = {'mod': 0, 'rm': 5, 'b': 0}
 
     def set_user_patterns(self, tokens):
-        tokens.set_field('disp32', wrap_negative(self.disp, 32))
+        tokens.set_field('disp32', self.disp)
 
 
 class RmAbsLabel(Constructor):
@@ -408,7 +408,7 @@ class RmAbs(Constructor):
     patterns = {'mod': 0, 'rm': 4, 'index': 4, 'base': 5, 'x': 0, 'b': 0}
 
     def set_user_patterns(self, tokens):
-        tokens.set_field('disp32', wrap_negative(self.l, 32))
+        tokens.set_field('disp32', self.l)
 
 
 class RmReg(Constructor):

@@ -639,7 +639,7 @@ class TestSamplesOnXtensa(unittest.TestCase):
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
-@add_samples('simple')
+@add_samples('simple', 'medium')
 class OpenRiscSamplesTestCase(unittest.TestCase):
     march = "or1k"
     opt_level = 2
@@ -655,7 +655,7 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
         binfile = base_filename + '.bin'
         # img_filename = base_filename + '.img'
         # self.make_image(binfile, img_filename)
-        if has_qemu() and False:
+        if has_qemu():
             # TODO:
             output = qemu([
                 'qemu-system-or1k', '-nographic',

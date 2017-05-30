@@ -5,7 +5,7 @@ from ..generic_instructions import ArtificialInstruction
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
 from .registers import Msp430Register, r2, r3, r4, SP, PC
-from ...utils.bitfun import align, wrap_negative
+from ...utils.bitfun import align
 from ...ir import i16
 
 # pylint: disable=no-member,invalid-name
@@ -14,10 +14,12 @@ from ...ir import i16
 isa = Isa()
 
 
-class Msp430SingleOperandToken(Token):
+class Msp430Token(Token):
     class Info:
         size = 16
 
+
+class Msp430SingleOperandToken(Msp430Token):
     prefix = bit_range(10, 16)
     opcode = bit_range(7, 10)
     bw = bit(6)
@@ -25,19 +27,13 @@ class Msp430SingleOperandToken(Token):
     source = bit_range(0, 4)
 
 
-class Msp430JumpToken(Token):
-    class Info:
-        size = 16
-
+class Msp430JumpToken(Msp430Token):
     opcode = bit_range(13, 16)
     condition = bit_range(10, 13)
     offset = bit_range(0, 10)
 
 
-class Msp430TwoOperandToken(Token):
-    class Info:
-        size = 16
-
+class Msp430TwoOperandToken(Msp430Token):
     opcode = bit_range(12, 16)
     source = bit_range(8, 12)
     Ad = bit(7)
@@ -46,17 +42,11 @@ class Msp430TwoOperandToken(Token):
     destination = bit_range(0, 4)
 
 
-class SrcImmToken(Token):
-    class Info:
-        size = 16
-
+class SrcImmToken(Msp430Token):
     srcimm = bit_range(0, 16)
 
 
-class DstImmToken(Token):
-    class Info:
-        size = 16
-
+class DstImmToken(Msp430Token):
     dstimm = bit_range(0, 16)
 
 
@@ -72,7 +62,7 @@ class Rel10Relocation(Relocation):
         assert sym_value % 2 == 0
         offset = (sym_value - (align(reloc_value, 2)) - 2) >> 1
         assert offset in range(-511, 511, 1), str(offset)
-        return wrap_negative(offset, 10)
+        return offset
 
 
 @isa.register_relocation
@@ -257,7 +247,7 @@ def create_jump_instruction(name, condition):
     patterns = {'condition': condition, 'opcode': 1}
     members = {
         'syntax': syntax, 'target': target, 'patterns': patterns}
-    return type(name + '_ins', (JumpInstruction, ), members)
+    return type(name.title(), (JumpInstruction, ), members)
 
 
 Jne = create_jump_instruction('jne', 0)
@@ -294,15 +284,6 @@ def one_op_instruction(mne, opcode, b=0, src_write=True):
     members = {
         'opcode': opcode, 'syntax': syntax, 'src': src, 'patterns': patterns}
     return type(class_name.title(), (OneOpArith,), members)
-
-
-def make_one_op_base(mne, opcode, b=0):
-    members = {
-        'tokens': [Msp430SingleOperandToken],
-        'patterns': {'prefix': 0b000100, 'opcode': opcode, 'bw': b},
-        'syntax': Syntax([mne, ' '])
-        }
-    return type(mne.title(), (Instruction,), members)
 
 
 class MemByReg(Instruction):

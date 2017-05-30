@@ -1,9 +1,9 @@
 
 from .isa import orbis32, Orbis32Token, Orbis32StoreToken
+from .isa import Orbis32ShiftImmediateToken
 from .registers import Or1kRegister
 from ..encoding import Instruction, Syntax, Operand, Constructor
 from ..encoding import Relocation
-from ...utils.bitfun import wrap_negative
 from . import registers
 
 
@@ -24,7 +24,7 @@ class JumpRelocation(Relocation):
         assert reloc_value % 4 == 0
         offset = sym_value - reloc_value
         # assert offset in range(-256, 254, 4), str(offset)
-        return wrap_negative(offset // 4, 26)
+        return offset // 4
 
 
 @orbis32.register_relocation
@@ -163,6 +163,21 @@ def load(mnemonic, opcode):
     return type(class_name, (Orbis32Instruction,), members)
 
 
+def shiftimm(mnemonic, opcode):
+    """ Create a shift with immediate instruction """
+    rd = Operand('rd', Or1kRegister, write=True)
+    ra = Operand('ra', Or1kRegister, read=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['l', '.', mnemonic, ' ', rd, ',', ' ', ra, ',', ' ', imm])
+    patterns = {
+        'opcode': 0x2e, 'opcode2': opcode, 'rd': rd, 'ra': ra, 'l': imm}
+    members = {
+        'rd': rd, 'ra': ra, 'imm': imm, 'syntax': syntax,
+        'patterns': patterns, 'tokens': [Orbis32ShiftImmediateToken]}
+    class_name = mnemonic.title()
+    return type(class_name, (Orbis32Instruction,), members)
+
+
 def store(mnemonic, opcode):
     """ Create a store instruction """
     ra = Operand('ra', Or1kRegister, read=True)
@@ -260,9 +275,12 @@ Sfges = setflag('sfges', 0b01011)
 Sflts = setflag('sflts', 0b01100)
 Sfles = setflag('sfles', 0b01101)
 Sh = store('sh', 0b110111)
-Sll = regregreg('sll', 0b111000, 0b0001000)
-Srl = regregreg('srl', 0b111000, 0b0011000)
-Sra = regregreg('sra', 0b111000, 0b0101000)
+Sll = regregreg('sll', 0b111000, 0b000001000)
+Slli = shiftimm('slli', 0b0)
+Srl = regregreg('srl', 0b111000, 0b001001000)
+Srli = shiftimm('srli', 0b1)
+Sra = regregreg('sra', 0b111000, 0b010001000)
+Srai = shiftimm('srai', 0b10)
 Sub = regregreg('sub', 0b111000, 0b0000010)
 Sw = store('sw', 0b110101)
 Swa = store('swa', 0b110011)

@@ -28,9 +28,9 @@ class OptTestCase(unittest.TestCase):
         self.debug_db = DebugDb()
 
     def dump(self):
-        writer = irutils.Writer()
         iof = io.StringIO()
-        writer.write(self.module, iof)
+        writer = irutils.Writer(iof)
+        writer.write(self.module)
         print(iof.getvalue())
 
     def tearDown(self):

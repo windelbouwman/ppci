@@ -1,11 +1,7 @@
 import unittest
-
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
+from unittest.mock import patch
 import io
+
 from ppci.lang.tools.grammar import Grammar, print_grammar
 from ppci.lang.tools.common import ParserGenerationException
 from ppci.lang.tools.lr import Item

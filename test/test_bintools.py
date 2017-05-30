@@ -1,12 +1,7 @@
 import unittest
 import io
+from unittest.mock import patch
 
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
-from ppci.arch.arm.arm_instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
@@ -15,18 +10,6 @@ from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
 from ppci.arch.example import Mov, R0, R1, ExampleArch
-
-
-class TokenTestCase(unittest.TestCase):
-    def test_set_bits(self):
-        at = ArmToken()
-        at[2:4] = 0b11
-        self.assertEqual(0xc, at.bit_value)
-
-    def test_set_bits2(self):
-        at = ArmToken()
-        at[4:8] = 0b1100
-        self.assertEqual(0xc0, at.bit_value)
 
 
 class OutstreamTestCase(unittest.TestCase):

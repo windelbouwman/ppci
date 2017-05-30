@@ -51,10 +51,10 @@ class ExampleArch(Architecture):
         live_out.add(rv)
         return rv, tuple(live_out)
 
-    def gen_save_registers(self, registers):
+    def gen_save_registers(self, frame, registers):
         return []
 
-    def gen_restore_registers(self, registers):
+    def gen_restore_registers(self, frame, registers):
         return []
 
 

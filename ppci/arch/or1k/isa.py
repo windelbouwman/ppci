@@ -27,3 +27,8 @@ class Orbis32Token(Orbis32BaseToken):
 
 class Orbis32StoreToken(Orbis32BaseToken):
     imm = bit_range(21, 26) + bit_range(0, 11)
+
+
+class Orbis32ShiftImmediateToken(Orbis32BaseToken):
+    opcode2 = bit_range(6, 8)
+    l = bit_range(0, 6)

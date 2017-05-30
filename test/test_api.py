@@ -1,12 +1,8 @@
-import unittest
 import io
+import unittest
+from unittest.mock import patch
+
 from ppci.api import construct, asm, c3c, objcopy, disasm, link
-
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
 from ppci.build.tasks import TaskError
 import ppci.build.buildtasks
 

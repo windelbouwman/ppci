@@ -5,6 +5,7 @@
 from .isa import arm_isa, ArmToken, ArmImmToken, Isa
 from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
 from ...utils.bitfun import encode_imm32
+from ...utils.tree import Tree
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
 from .arm_relocations import Imm24Relocation
 from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
@@ -774,7 +775,7 @@ def pattern_and(context, tree, c0, c1):
     return d
 
 
-@arm_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', Tree('ORI32', Tree('reg'), Tree('reg')), size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Orr(d, c0, c1, NoShift()))
@@ -788,7 +789,7 @@ def pattern_shr32(context, tree, c0, c1):
     return d
 
 
-@arm_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', Tree('SHLI32', Tree('reg'), Tree('reg')), size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsl1(d, c0, c1))

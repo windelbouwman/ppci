@@ -37,6 +37,7 @@ class Architecture(metaclass=abc.ABCMeta):
         self.byte_sizes['ptr'] = 4  # For ir to dag
         self.byte_sizes['byte'] = 1
         self.byte_sizes['u8'] = 1
+        self.endianness = 'little'
         self.FrameClass = Frame
 
     def has_option(self, name):

@@ -421,7 +421,7 @@ def opt(args=None):
     module = irutils.Reader().read(args.input)
     with LogSetup(args):
         api.optimize(module, level=args.O)
-    irutils.Writer().write(module, args.output)
+    irutils.Writer(file=args.output).write(module)
 
 
 def yacc_cmd(args=None):

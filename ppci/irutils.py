@@ -367,8 +367,7 @@ class Builder:
     def emit(self, instruction):
         """ Append an instruction to the current block """
         assert isinstance(instruction, ir.Instruction), str(instruction)
-        if self.block is None:
-            raise Exception('No basic block')
+        assert self.block is not None
         self.block.add_instruction(instruction)
         return instruction
 

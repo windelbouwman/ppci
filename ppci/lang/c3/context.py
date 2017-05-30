@@ -19,6 +19,7 @@ class Context:
         self.const_map = {}
         self.var_map = {}    # Maps variables to storage locations.
         self.const_workset = set()
+        self.arch = arch
         self.pointerSize = arch.byte_sizes['ptr']
 
     def has_module(self, name):
@@ -144,11 +145,18 @@ class Context:
     def pack_int(self, v, bits=None, signed=True):
         if bits is None:
             bits = self.get_type('int').byte_size * 8
-        mapping = {
-            (8, False): '<B', (8, True): '<b',
-            (16, False): '<H', (16, True): '<h',
-            (32, False): '<I', (32, True): '<i',
-            (64, False): '<Q', (64, True): '<q'}
+        if self.arch.endianness == 'little':
+            mapping = {
+                (8, False): '<B', (8, True): '<b',
+                (16, False): '<H', (16, True): '<h',
+                (32, False): '<I', (32, True): '<i',
+                (64, False): '<Q', (64, True): '<q'}
+        else:
+            mapping = {
+                (8, False): '>B', (8, True): '>b',
+                (16, False): '>H', (16, True): '>h',
+                (32, False): '>I', (32, True): '>i',
+                (64, False): '>Q', (64, True): '>q'}
         fmt = mapping[(bits, signed)]
         return struct.pack(fmt, v)
 

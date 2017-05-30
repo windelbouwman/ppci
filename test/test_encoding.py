@@ -1,9 +1,36 @@
 import unittest
 from ppci.arch.encoding import Syntax
+from ppci.arch.token import bit_range, Token
 from ppci.arch.avr import instructions as avr_instructions
 from ppci.arch.avr import registers as avr_registers
 from ppci.arch.arm import arm_instructions
 from ppci.arch.arm import registers as arm_registers
+from ppci.arch.arm.arm_instructions import ArmToken
+
+
+class TokenTestCase(unittest.TestCase):
+    def test_set_bits(self):
+        at = ArmToken()
+        at[2:4] = 0b11
+        self.assertEqual(0xc, at.bit_value)
+
+    def test_set_bits2(self):
+        at = ArmToken()
+        at[4:8] = 0b1100
+        self.assertEqual(0xc0, at.bit_value)
+
+    def test_signed_field(self):
+        info = type('Info', (object,), {'size': 16})
+        members = {
+            'field1': bit_range(4, 8),
+            'field2': bit_range(8, 12, signed=True),
+            'Info': info}
+        MyToken = type('MyToken', (Token,), members)
+        my_token = MyToken()
+        self.assertEqual(0, my_token.bit_value)
+        my_token.field1 = 1
+        my_token.field2 = -3
+        self.assertEqual(0x0d10, my_token.bit_value)
 
 
 class SyntaxTestCase(unittest.TestCase):

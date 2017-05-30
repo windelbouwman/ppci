@@ -35,6 +35,7 @@ class Or1kArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.byte_sizes['int'] = 4
         self.byte_sizes['ptr'] = 4
+        self.endianness = 'big'
         self.gdb_registers = registers.gdb_registers
         self.gdb_pc = registers.PC
 
