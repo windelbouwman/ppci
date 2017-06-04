@@ -83,6 +83,15 @@ class CLexerTestCase(unittest.TestCase):
         numbers = list(map(lambda t: cnum(t.val), tokens))
         self.assertSequenceEqual([212, 215, 4078, 59, 26, 30, 30], numbers)
 
+    def test_assignment_operators(self):
+        operators = [
+            '+=', '-=', '*=', '/=', '%=', '|=', '<<=', '>>=',
+            '&=', '^=', '~=']
+        src = " ".join(operators)
+        tokens = self.tokenize(src)
+        lexed_values = [t.val for t in tokens]
+        self.assertSequenceEqual(operators, lexed_values)
+
     def test_dotdotdot(self):
         """ Test the lexing of the triple dot """
         src = ". .. ... ....."
@@ -260,6 +269,20 @@ class CParserTestCase(unittest.TestCase):
         self.assertIsInstance(expr, nodes.Binop)
         self.assertEqual('&&', expr.op)
 
+    def test_ternary_expression_precedence(self):
+        self.given_source('a ? b ? c : d : e')
+        expr = self.parser.parse_expression()
+        self.assertIsInstance(expr, nodes.Ternop)
+        self.assertEqual('?', expr.op)
+        self.assertEqual('c', expr.b.b.name)
+
+    def test_ternary_expression_precedence(self):
+        self.given_source('a ? b : c ? d : e')
+        expr = self.parser.parse_expression()
+        self.assertIsInstance(expr, nodes.Ternop)
+        self.assertEqual('?', expr.op)
+        self.assertEqual('c', expr.c.a.name)
+
 
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
@@ -276,6 +299,22 @@ class CFrontendTestCase(unittest.TestCase):
             raise
         assert isinstance(ir_module, ir.Module)
         Verifier().verify(ir_module)
+
+    def expect_errors(self, src, errors):
+        with self.assertRaises(CompilerError) as cm:
+            self.do(src)
+        for row, message in errors:
+            self.assertEqual(row, cm.exception.loc.row)
+            self.assertRegex(cm.exception.msg, message)
+
+    def test_hello_world(self):
+        src = r"""
+        void printf(char*);
+        void main(int b) {
+          printf("Hello world\n");
+        }
+        """
+        self.do(src)
 
     def test_1(self):
         src = """
@@ -321,10 +360,9 @@ class CFrontendTestCase(unittest.TestCase):
           }
           else
           {
-            for (i=i;i<10;i++)
-            {
-
-            }
+            for (i=i;i<10;i++) { }
+            for (i=0;;) { }
+            for (;;) { }
           }
           return d;
         }
@@ -335,8 +373,13 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test expressions """
         src = """
         int main(int, int c) {
+          int stack[2];
+          struct { int ptr;} *s;
           int d;
           d = 20 + c * 10 + c >> 2 - 123;
+          d = stack[--s->ptr];
+          --d;
+          d--;
           return d;
         }
         """
@@ -396,14 +439,26 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    @unittest.skip('todo')
+    def test_array(self):
+        """ Test array types """
+        src = """
+        int a[10];
+        int b[] = {1, 2};
+        void main() {
+         int c[10];
+         int d[] = {1, 2};
+         a[2] = b[10] + c[2] + d[1];
+        }
+        """
+        self.do(src)
+
     def test_size_outside_struct(self):
         """ Assert error when using bitsize indicator outside struct """
         src = """
          int b:2+5, c:9, d;
         """
-        with self.assertRaises(CompilerError) as cm:
-            self.do(src)
-        # self.assertEqual('Error', cm.exception.msg)
+        self.expect_errors(src, [(2, 'Expected ";"')])
 
     def test_wrong_tag_kind(self):
         """ Assert error when using wrong tag kind """
@@ -411,9 +466,7 @@ class CFrontendTestCase(unittest.TestCase):
         union S { int x;};
         int B = sizeof(struct S);
         """
-        with self.assertRaises(CompilerError) as cm:
-            self.do(src)
-        # self.assertEqual('Error', cm.exception.msg)
+        self.expect_errors(src, [(3, 'Wrong tag kind')])
 
     def test_enum(self):
         """ Test enum usage """
@@ -423,6 +476,21 @@ class CFrontendTestCase(unittest.TestCase):
          enum E e = A;
          e = B;
          e = 2;
+        }
+        """
+        self.do(src)
+
+    def test_assignment_operators(self):
+        """ Test assignment operators """
+        src = """
+        void main() {
+         int a, b, c;
+         a += b - c;
+         a -= b - c;
+         a /= b - c;
+         a %= b - c;
+         a |= b - c;
+         a &= b - c;
         }
         """
         self.do(src)
@@ -442,6 +510,77 @@ class CFrontendTestCase(unittest.TestCase):
         }
         """
         self.do(src)
+
+    def test_goto(self):
+        """ Test goto statements """
+        src = """
+        void main() {
+          goto part2;
+          part2: goto part2;
+          switch(0) {
+           case 34: break;
+           default: break;
+          }
+        }
+        """
+        self.do(src)
+
+    def test_continue(self):
+        """ Test continue statement """
+        src = """
+        void main() {
+          while (1) {
+            continue;
+          }
+        }
+        """
+        self.do(src)
+
+    def test_break(self):
+        """ Test break statement """
+        src = """
+        void main() {
+          while (1) {
+            break;
+          }
+        }
+        """
+        self.do(src)
+
+    def test_switch(self):
+        """ Test switch statement """
+        src = """
+        void main() {
+          int a;
+          switch (33+1) {
+            case 34:
+              a -= 5;
+              break;
+            default:
+              a += 2;
+              break;
+          }
+        }
+        """
+        self.do(src)
+
+    def test_loose_case(self):
+        """ Test loose case statement """
+        src = """
+        void main() {
+          case 34: break;
+        }
+        """
+        self.expect_errors(src, [(3, 'Case statement outside')])
+
+    def test_loose_default(self):
+        """ Test loose default statement """
+        src = """
+        void main() {
+          default: break;
+        }
+        """
+        self.expect_errors(src, [(3, 'Default statement outside')])
 
 
 class CastXmlTestCase(unittest.TestCase):

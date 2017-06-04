@@ -273,10 +273,13 @@ class If(Statement):
 
 class Switch(Statement):
     """ Switch statement """
-    def __init__(self, condition, body, loc):
+    def __init__(self, expression, statement, loc):
         super().__init__(loc)
-        self.condition = condition
-        self.body = body
+        self.expression = expression
+        self.statement = statement
+
+    def __repr__(self):
+        return 'Switch'
 
 
 class While(Statement):
@@ -317,23 +320,52 @@ class Break(Statement):
         return 'Break'
 
 
-class Case:
+class Continue(Statement):
+    """ Continue statement """
+    def __repr__(self):
+        return 'Continue'
+
+
+class Case(Statement):
     """ Case statement """
-    def __init__(self, value, loc):
-        # super().__init__(loc)
+    def __init__(self, value, statement, loc):
+        super().__init__(loc)
         self.value = value
+        self.statement = statement
 
     def __repr__(self):
         return 'Case'
+
+
+class Default(Statement):
+    """ Default statement """
+    def __init__(self, statement, loc):
+        super().__init__(loc)
+        self.statement = statement
+
+    def __repr__(self):
+        return 'Default'
+
+
+class Label(Statement):
+    """ A label """
+    def __init__(self, name, statement, loc):
+        super().__init__(loc)
+        self.name = name
+        self.statement = statement
+
+    def __repr__(self):
+        return '{}:'.format(self.name)
 
 
 class Goto(Statement):
     """ Goto statement """
     def __init__(self, label, loc):
         super().__init__(loc)
+        self.label = label
 
     def __repr__(self):
-        return 'Goto'
+        return 'Goto {}'.format(self.label)
 
 
 class Return(Statement):
@@ -367,6 +399,23 @@ class FunctionCall(Expression):
 
     def __repr__(self):
         return 'FunctionCall {}'.format(self.name)
+
+
+class Ternop(Expression):
+    """ Ternary operator """
+    def __init__(self, a, op, b, c, loc):
+        super().__init__(loc)
+        assert isinstance(a, Expression)
+        assert isinstance(b, Expression)
+        assert isinstance(c, Expression)
+        assert op == '?'
+        self.a = a
+        self.op = op
+        self.b = b
+        self.c = c
+
+    def __repr__(self):
+        return 'TernOp {}'.format(self.op)
 
 
 class Binop(Expression):

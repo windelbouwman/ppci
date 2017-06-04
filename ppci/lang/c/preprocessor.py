@@ -767,6 +767,28 @@ class Expander:
         """ Evaluate an expression """
         return self.parse_expression()
 
+    OP_MAP = {
+        '*': (11, False, operator.mul),
+        '/': (11, False, operator.floordiv),
+        '%': (11, False, operator.mod),
+        '+': (10, False, operator.add),
+        '-': (10, False, operator.sub),
+        '<<': (9, False, operator.lshift),
+        '>>': (9, False, operator.rshift),
+        '<': (8, False, lambda x, y: int(x < y)),
+        '>': (8, False, lambda x, y: int(x > y)),
+        '<=': (8, False, lambda x, y: int(x <= y)),
+        '>=': (8, False, lambda x, y: int(x >= y)),
+        '==': (7, False, lambda x, y: int(x == y)),
+        '!=': (7, False, lambda x, y: int(x != y)),
+        '&': (6, False, operator.and_),
+        '^': (5, False, operator.xor),
+        '|': (4, False, operator.or_),
+        '&&': (3, False, lambda x, y: int(bool(x) and bool(y))),
+        '||': (2, False, lambda x, y: int(bool(x) or bool(y))),
+        '?': (1, True, None),
+    }
+
     def parse_expression(self, priority=0):
         """ Parse an expression in an #if
 
@@ -808,36 +830,14 @@ class Expander:
         else:
             raise NotImplementedError(token.val)
 
-        op_map = {
-            '*': (11, False, operator.mul),
-            '/': (11, False, operator.floordiv),
-            '%': (11, False, operator.mod),
-            '+': (10, False, operator.add),
-            '-': (10, False, operator.sub),
-            '<<': (9, False, operator.lshift),
-            '>>': (9, False, operator.rshift),
-            '<': (8, False, lambda x, y: int(x < y)),
-            '>': (8, False, lambda x, y: int(x > y)),
-            '<=': (8, False, lambda x, y: int(x <= y)),
-            '>=': (8, False, lambda x, y: int(x >= y)),
-            '==': (7, False, lambda x, y: int(x == y)),
-            '!=': (7, False, lambda x, y: int(x != y)),
-            '&': (6, False, operator.and_),
-            '^': (5, False, operator.xor),
-            '|': (4, False, operator.or_),
-            '&&': (3, False, lambda x, y: int(bool(x) and bool(y))),
-            '||': (2, False, lambda x, y: int(bool(x) or bool(y))),
-            '?': (1, True, None),
-        }
-
         while True:
             # This would be the next operator:
             token = self.consume()
             op = token.typ
 
             # Determine if the operator has a low enough priority:
-            if op in op_map:
-                op_prio, right_associative = op_map[op][:2]
+            if op in self.OP_MAP:
+                op_prio, right_associative = self.OP_MAP[op][:2]
                 left_associative = not right_associative
                 if left_associative and (op_prio >= priority):
                     pass
@@ -860,15 +860,15 @@ class Expander:
             # We are go, eat the right hand side
             rhs = self.parse_expression(op_prio)
 
-            if op in op_map:
-                func = op_map[op][2]
+            if op in self.OP_MAP:
+                func = self.OP_MAP[op][2]
                 if func:
                     lhs = func(lhs, rhs)
                 elif op == '?':
                     lhs = middle if lhs != 0 else rhs
-                else:
+                else:  # pragma: no cover
                     raise NotImplementedError(op)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(op)
 
         return lhs

@@ -50,7 +50,7 @@ class CParser(RecursiveDescentParser):
         self.keywords = [
             'true', 'false',
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
-            'switch', 'case', 'default', 'break',
+            'switch', 'case', 'default', 'break', 'continue',
             'sizeof', 'struct', 'union', 'enum']
 
         # Some additions from C99:
@@ -70,10 +70,15 @@ class CParser(RecursiveDescentParser):
             '-=': (self.RIGHT_ASSOCIATIVE, 10),
             '*=': (self.RIGHT_ASSOCIATIVE, 10),
             '/=': (self.RIGHT_ASSOCIATIVE, 10),
+            '%=': (self.RIGHT_ASSOCIATIVE, 10),
             '>>=': (self.RIGHT_ASSOCIATIVE, 10),
             '<<=': (self.RIGHT_ASSOCIATIVE, 10),
+            '|=': (self.RIGHT_ASSOCIATIVE, 10),
+            '&=': (self.RIGHT_ASSOCIATIVE, 10),
+            '^=': (self.RIGHT_ASSOCIATIVE, 10),
             # '++': (LEFT_ASSOCIATIVE, 50),
             # '--': (LEFT_ASSOCIATIVE, 50),
+            '?': (self.LEFT_ASSOCIATIVE, 17),
             '||': (self.LEFT_ASSOCIATIVE, 20),
             '&&': (self.LEFT_ASSOCIATIVE, 30),
             '|': (self.LEFT_ASSOCIATIVE, 40),
@@ -108,7 +113,7 @@ class CParser(RecursiveDescentParser):
         self.typedefs = set()
         self.typedefs.add('__builtin_va_list')
         cu = self.parse_translation_unit()
-        self.logger.debug('Parsing finished')
+        self.logger.info('Parsing finished')
         return cu
 
     def parse_translation_unit(self):
@@ -390,7 +395,7 @@ class CParser(RecursiveDescentParser):
         # Handle the initial value:
         if self.peak == '=':
             self.consume('=')
-            initializer = self.parse_expression()
+            initializer = self.parse_variable_initializer()
         else:
             initializer = None
 
@@ -407,6 +412,20 @@ class CParser(RecursiveDescentParser):
                     typ, name, initializer, loc)
             assert isinstance(d.typ, nodes.CType), str(d.typ)
         return d
+
+    def parse_variable_initializer(self):
+        """ Parse the C-style array or struct initializer stuff """
+        if self.peak == '{':
+            self.consume('{')
+            series = []
+            series.append(self.parse_variable_initializer())
+            while self.has_consumed(','):
+                series.append(self.parse_variable_initializer())
+            self.consume('}')
+            initializer = series
+        else:
+            initializer = self.parse_expression()
+        return initializer
 
     def parse_struct_field_declarator(self, ds):
         """ Given a declaration specifier, parse a struct field. """
@@ -528,6 +547,8 @@ class CParser(RecursiveDescentParser):
                 if self.peak == '*':
                     # Handle VLA arrays:
                     amount = 'vla'
+                elif self.peak == ']':
+                    amount = None
                 else:
                     amount = self.parse_expression()
                 self.consume(']')
@@ -615,7 +636,9 @@ class CParser(RecursiveDescentParser):
             'while': self.parse_while_statement,
             'switch': self.parse_switch_statement,
             'case': self.parse_case_statement,
+            'default': self.parse_default_statement,
             'break': self.parse_break_statement,
+            'continue': self.parse_continue_statement,
             'goto': self.parse_goto_statement,
             'return': self.parse_return_statement,
             '{': self.parse_compound_statement,
@@ -624,9 +647,20 @@ class CParser(RecursiveDescentParser):
         if self.peak in m:
             statement = m[self.peak]()
         else:
-            statement = self.parse_expression()
-            self.consume(';')
+            # Expression statement!
+            if self.peak == 'ID' and self.look_ahead(1).val == ':':
+                statement = self.parse_label()
+            else:
+                statement = self.parse_expression()
+                self.consume(';')
         return statement
+
+    def parse_label(self):
+        """ Parse a label """
+        name = self.consume('ID')
+        self.consume(':')
+        statement = self.parse_statement()
+        return nodes.Label(name.val, statement, name.loc)
 
     def parse_empty_statement(self):
         """ Parse a statement that does nothing! """
@@ -652,35 +686,44 @@ class CParser(RecursiveDescentParser):
         if self.has_consumed('else'):
             no = self.parse_statement()
         else:
-            no = nodes.Empty(None)
+            no = None
         return nodes.If(condition, then_statement, no, loc)
 
     def parse_switch_statement(self):
         """ Parse an switch statement """
-        self.consume('switch')
+        loc = self.consume('switch').loc
         self.consume('(')
-        condition = self.parse_expression()
+        expression = self.parse_expression()
         self.consume(')')
-        # self.consume('{')
-        # self.consume('case')
-        # self.not_impl()
-        # self.consume('default')
-        # self.consume('}')
-        # TODO: can we simply parse a compound here??
-        body = self.parse_statement()
-        return nodes.Switch(condition, body)
+        statement = self.parse_statement()
+        return nodes.Switch(expression, statement, loc)
 
     def parse_case_statement(self):
         """ Parse a case """
-        self.consume('case')
-        self.parse_expression()
+        loc = self.consume('case').loc
+        value = self.parse_expression()
         self.consume(':')
+        statement = self.parse_statement()
+        return nodes.Case(value, statement, loc)
+
+    def parse_default_statement(self):
+        """ Parse the default case """
+        loc = self.consume('default').loc
+        self.consume(':')
+        statement = self.parse_statement()
+        return nodes.Default(statement, loc)
 
     def parse_break_statement(self):
         """ Parse a break """
         loc = self.consume('break').loc
         self.consume(';')
         return nodes.Break(loc)
+
+    def parse_continue_statement(self):
+        """ Parse a continue statement """
+        loc = self.consume('continue').loc
+        self.consume(';')
+        return nodes.Continue(loc)
 
     def parse_goto_statement(self):
         """ Parse a goto """
@@ -713,20 +756,24 @@ class CParser(RecursiveDescentParser):
         """ Parse a for statement """
         loc = self.consume('for').loc
         self.consume('(')
-        if self.has_consumed(';'):
-            initial = nodes.Empty(loc)
+        if self.peak == ';':
+            initial = None
         else:
             initial = self.parse_expression()
-            self.consume(';')
+        self.consume(';')
 
-        if self.has_consumed(';'):
-            condition = nodes.Empty(loc)
+        if self.peak == ';':
+            condition = None
         else:
             condition = self.parse_expression()
-            self.consume(';')
+        self.consume(';')
 
-        post = self.parse_expression()
+        if self.peak == ')':
+            post = None
+        else:
+            post = self.parse_expression()
         self.consume(')')
+
         body = self.parse_statement()
         return nodes.For(initial, condition, post, body, loc)
 
@@ -752,9 +799,6 @@ class CParser(RecursiveDescentParser):
         """ Parse an expression """
         return self.parse_binop_with_precedence(0)
 
-    def parse_cast_expression(self):
-        self.not_impl()
-
     def parse_binop_with_precedence(self, prio):
         lhs = self.parse_primary_expression()
 
@@ -763,8 +807,16 @@ class CParser(RecursiveDescentParser):
                 self.prio_map[self.peak][1] >= prio:
             op = self.consume()
             op_associativity, op_prio = self.prio_map[op.val]
+            if op.val == '?':
+                # Eat middle part:
+                middle = self.parse_expression()
+                self.consume(':')
             rhs = self.parse_binop_with_precedence(op_prio)
-            lhs = nodes.Binop(lhs, op.val, rhs, op.loc)
+
+            if op.val == '?':
+                lhs = nodes.Ternop(lhs, op.val, middle, rhs, op.loc)
+            else:
+                lhs = nodes.Binop(lhs, op.val, rhs, op.loc)
             # print(lhs)
         return lhs
 
@@ -790,10 +842,18 @@ class CParser(RecursiveDescentParser):
         elif self.peak == 'CHAR':
             n = self.consume()
             expr = nodes.Literal(n.val, n.loc)
-        elif self.peak in ['!', '*', '+', '-', '~', '&']:
+        elif self.peak == 'STRING':
+            txt = self.consume()
+            # print(txt)
+            expr = nodes.Literal(txt.val, txt.loc)
+        elif self.peak in ['!', '*', '+', '-', '~', '&', '--', '++']:
             op = self.consume()
+            if op.val in ['--', '++']:
+                operator = op.val + 'x'
+            else:
+                operator = op.val
             expr = self.parse_primary_expression()
-            expr = nodes.Unop(op.typ, expr, op.loc)
+            expr = nodes.Unop(operator, expr, op.loc)
         elif self.peak == 'sizeof':
             loc = self.consume('sizeof').loc
             if self.peak == '(':
@@ -821,13 +881,12 @@ class CParser(RecursiveDescentParser):
                 self.consume(')')
         else:
             self.not_impl()
-            raise NotImplementedError(str(self.peak))
 
         # Postfix operations:
-        while self.peak in ['++', '[', '.', '->']:
-            if self.peak == '++':
-                op = self.consume('++')
-                expr = nodes.Unop(op.val, expr, op.loc)
+        while self.peak in ['--', '++', '[', '.', '->']:
+            if self.peak in ['--', '++']:
+                op = self.consume()
+                expr = nodes.Unop('x' + op.val, expr, op.loc)
             elif self.peak == '[':
                 loc = self.consume('[').loc
                 index = self.parse_expression()

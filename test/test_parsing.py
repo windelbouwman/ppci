@@ -46,6 +46,16 @@ class RecursiveDescentParserTestCase(unittest.TestCase):
         self.assertEqual('bar', token.val)
         self.assertTrue(self.parser.at_end)
 
+    def test_look_ahead(self):
+        """ Test consumption look ahead function """
+        tokens = [('NUM', '100'), ('ID', 'bar'), (':', ':')]
+        self.parser.init_lexer(gen_tokens(tokens))
+        self.assertEqual('bar', self.parser.look_ahead(1).val)
+        self.parser.consume('NUM')
+        self.assertEqual('ID', self.parser.peak)
+        self.assertEqual(':', self.parser.look_ahead(1).val)
+        self.assertEqual(None, self.parser.look_ahead(2))
+
 
 if __name__ == '__main__':
     unittest.main()

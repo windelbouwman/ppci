@@ -13,6 +13,7 @@ import io
 from .lang.tools.yacc import transform
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
+from .binutils.outstream import TextOutputStream
 from .build.tasks import TaskError
 from . import __version__, api, irutils
 from .common import logformat, CompilerError
@@ -23,8 +24,9 @@ from .lang.c.options import COptions, coptions_parser
 from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
 
 
-version_text = 'ppci {} compiler on {} {}'.format(
-    __version__, platform.python_implementation(), platform.python_version())
+version_text = 'ppci {} compiler on {} {} on {}'.format(
+    __version__, platform.python_implementation(), platform.python_version(),
+    platform.platform())
 
 
 def log_level(s):
@@ -77,6 +79,15 @@ out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
     default='f.out',
     type=argparse.FileType('w'))
+
+compile_parser = argparse.ArgumentParser(add_help=False)
+compile_parser.add_argument(
+    '-g', help='create debug information', action='store_true', default=False)
+compile_parser.add_argument(
+    '-S', help='Do not assemble, but output assembly language',
+    action='store_true', default=False)
+compile_parser.add_argument(
+    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
 def get_arch_from_args(args):
@@ -135,16 +146,12 @@ result in any code.
 """
 c3c_parser = argparse.ArgumentParser(
     description=c3c_description,
-    parents=[base_parser, march_parser, out_parser])
+    parents=[base_parser, march_parser, out_parser, compile_parser])
 c3c_parser.add_argument(
     '-i', '--include', action='append', metavar='include',
     help='include file', default=[])
 c3c_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
-c3c_parser.add_argument(
-    '-g', help='create debug information', action='store_true', default=False)
-c3c_parser.add_argument(
-    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
 def c3c(args=None):
@@ -160,10 +167,16 @@ def c3c(args=None):
         args.output.close()
 
 
-cc_description = """ C compiler. """
+cc_description = """ C compiler.
+
+Use this compiler to compile C source code to machine code for different
+computer architectures.
+"""
 cc_parser = argparse.ArgumentParser(
     description=cc_description,
-    parents=[base_parser, march_parser, out_parser, coptions_parser])
+    parents=[
+        base_parser, march_parser, out_parser, compile_parser,
+        coptions_parser])
 cc_parser.add_argument(
     '-E', action='store_true', default=False,
     help="Stop after preprocessing")
@@ -185,23 +198,30 @@ def cc(args=None):
         coptions.process_args(args)
 
         for src in args.sources:
-            if args.E:
+            if args.E:  # Only pre process
                 api.preprocess(src, args.output, coptions)
+            elif args.S:  # Output assembly code
+                stream = TextOutputStream()
+                module = api.c_to_ir(src, march, coptions=coptions)
+                api.ir_to_stream(module, march, stream)
+            elif args.c:  # Compile only
+                obj = api.cc(
+                    src, march, coptions=coptions,
+                    reporter=log_setup.reporter)
+
+                # Write object file to disk:
+                obj.save(args.output)
+                args.output.close()
             else:
                 obj = api.cc(
                     src, march, coptions=coptions,
                     reporter=log_setup.reporter)
 
-                if args.c:
-                    # Write object file to disk:
-                    obj.save(args.output)
-                    args.output.close()
-                else:
-                    # TODO: link objects together?
-                    logging.warning('TODO: Linking with stdlibs')
-                    obj.save(args.output)
-                    args.output.close()
-                    # raise NotImplementedError('Linking not implemented')
+                # TODO: link objects together?
+                logging.warning('TODO: Linking with stdlibs')
+                obj.save(args.output)
+                args.output.close()
+                # raise NotImplementedError('Linking not implemented')
 
 
 pascal_description = """ Pascal compiler.

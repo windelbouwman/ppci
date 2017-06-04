@@ -304,6 +304,28 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
     reporter.dump_ir(ir_module)
 
 
+def ir_to_stream(
+        ir_module, march, output_stream, debug_db=None, reporter=None,
+        debug=False, opt='speed'):
+    """ Translate IR module to output stream.
+    """
+    march = get_arch(march)
+
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
+
+    if not debug_db:  # pragma: no cover
+        debug_db = DebugDb()
+
+    code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
+    verifier = Verifier()
+    verifier.verify(ir_module)
+
+    # Code generation:
+    code_generator.generate(
+        ir_module, output_stream, reporter=reporter, debug=debug)
+
+
 def ir_to_object(
         ir_modules, march, debug_db=None, reporter=None, debug=False,
         opt='speed'):
@@ -320,6 +342,8 @@ def ir_to_object(
     Returns:
         ObjectFile: An object file
     """
+    march = get_arch(march)
+
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
@@ -328,9 +352,6 @@ def ir_to_object(
 
     reporter.heading(2, 'Code generation')
     reporter.message("Target: {}".format(march))
-    march = get_arch(march)
-    code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
-    verifier = Verifier()
 
     obj = ObjectFile(march)
     if debug:
@@ -342,11 +363,9 @@ def ir_to_object(
         binary_output_stream])
 
     for ir_module in ir_modules:
-        verifier.verify(ir_module)
-
-        # Code generation:
-        code_generator.generate(
-            ir_module, output_stream, reporter=reporter, debug=debug)
+        ir_to_stream(
+            ir_module, march, output_stream,
+            debug_db=debug_db, reporter=reporter, debug=debug, opt=opt)
 
     # TODO: refactor polishing?
     obj.polish()
@@ -375,12 +394,14 @@ def preprocess(f, output_file, coptions=None):
     CTokenPrinter().dump(tokens, file=output_file)
 
 
-def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
-    """ C compiler. compiles a single source file into an object file """
+def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
+    """ C to ir translation. """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
+
     if not coptions:
         coptions = COptions()
+
     march = get_arch(march)
     cbuilder = CBuilder(march, coptions)
     assert isinstance(source, io.TextIOBase)
@@ -389,6 +410,18 @@ def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
     else:
         filename = None
     ir_module = cbuilder.build(source, filename, reporter=reporter)
+    return ir_module
+
+
+def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
+    """ C compiler. compiles a single source file into an object file """
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
+
+    if not coptions:
+        coptions = COptions()
+
+    ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
     reporter.message('{} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     return ir_to_object([ir_module], march, reporter=reporter)

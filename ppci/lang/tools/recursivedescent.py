@@ -15,13 +15,15 @@ def make_comma_or(parts):
 class RecursiveDescentParser:
     """ Base class for recursive descent parsers """
     def __init__(self):
-        self.token = None
-        self.tokens = None
+        self.token = None  # The current token under cursor
+        self.tokens = None  # Iterable of tokens
+        self._look_ahead = []
 
     def init_lexer(self, tokens):
         """ Initialize the parser with the given tokens (an iterator) """
         self.tokens = tokens
         self.token = next(self.tokens, None)
+        self._look_ahead = []
 
     def error(self, msg, loc=None):
         """ Raise an error at the current location """
@@ -63,7 +65,10 @@ class RecursiveDescentParser:
     def next_token(self):
         """ Advance to the next token """
         tok = self.token
-        self.token = next(self.tokens, None)
+        if self._look_ahead:
+            self.token = self._look_ahead.pop(0)
+        else:
+            self.token = next(self.tokens, None)
         return tok
 
     def not_impl(self):  # pragma: no cover
@@ -75,6 +80,18 @@ class RecursiveDescentParser:
         """ Look at the next token to parse without popping it """
         if self.token:
             return self.token.typ
+
+    def look_ahead(self, amount):
+        """ Take a look at x tokens ahead """
+        if amount > 0:
+            while len(self._look_ahead) < amount:
+                next_token = next(self.tokens, None)
+                if next_token is None:
+                    return
+                self._look_ahead.append(next_token)
+            return self._look_ahead[amount - 1]
+        else:
+            return self.token
 
     @property
     def at_end(self):

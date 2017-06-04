@@ -16,8 +16,12 @@ class CCodeGenerator:
         self.ir_var_map = {}
         self.constant_values = {}
         self.evaluating_constants = set()
-        int_types = {4: ir.i32, 8: ir.i64}
-        uint_types = {4: ir.u32, 8: ir.u64}
+        self.break_block_stack = []  # A stack of while or switch loops
+        self.continue_block_stack = []  # A stack of for loops
+        self.labeled_blocks = {}
+        self.switch_options = None
+        int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
+        uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.march.byte_sizes['int']
         self.ir_type_map = {
             nodes.BareType.CHAR: (ir.i8, 1),
@@ -32,6 +36,17 @@ class CCodeGenerator:
             nodes.BareType.FLOAT: (ir.f32, 4),
             nodes.BareType.DOUBLE: (ir.f64, 8),
         }
+        # Define the type for a string:
+        self.cstr_type = nodes.PointerType(self.get_type(['char']))
+
+    def get_label_block(self, name):
+        """ Get the ir block for a given label, and create it if necessary """
+        if name in self.labeled_blocks:
+            block = self.labeled_blocks[name]
+        else:
+            block = self.builder.new_block()
+            self.labeled_blocks[name] = block  # TODO: use name
+        return block
 
     def gen_code(self, compile_unit):
         """ Initial entry point for the code generator """
@@ -73,7 +88,7 @@ class CCodeGenerator:
                 self.gen_global_variable(declaration)
             else:  # pragma: no cover
                 raise NotImplementedError()
-        self.logger.debug('Finished code generation')
+        self.logger.info('Finished IR-code generation')
         return ir_mod
 
     def emit(self, instruction):
@@ -90,6 +105,7 @@ class CCodeGenerator:
         raise CompilerError(message, loc=node.loc)
 
     def gen_global_variable(self, var_decl):
+        # if typ is array, use initializer to determine size
         size = self.sizeof(var_decl.typ)
         ir_var = ir.Variable(var_decl.name, size)
         self.builder.module.add_variable(ir_var)
@@ -97,6 +113,10 @@ class CCodeGenerator:
 
     def gen_function(self, function):
         """ Generate code for a function """
+        assert len(self.break_block_stack) == 0
+        assert len(self.continue_block_stack) == 0
+        assert not self.labeled_blocks
+        self.unreachable = False
         if not function.body:
             return
 
@@ -156,26 +176,31 @@ class CCodeGenerator:
                             function.typ.return_type),
                         function)
 
+        # TODO: maybe generate only code which is reachable?
         ir_function.delete_unreachable()
         self.builder.set_function(None)
         self.current_function = None
         self.scope = self.scope.parent
+        assert len(self.break_block_stack) == 0
+        assert len(self.continue_block_stack) == 0
 
     def gen_stmt(self, statement):
-        # fn_map = {
-        #    nodes.If: self.gen_if, nodes.While: self.gen_while,
-        #    nodes.Return: self.gen_return
-        # }
-        if isinstance(statement, nodes.If):
-            self.gen_if(statement)
-        elif isinstance(statement, nodes.While):
-            self.gen_while(statement)
-        elif isinstance(statement, nodes.DoWhile):
-            self.gen_do_while(statement)
-        elif isinstance(statement, nodes.For):
-            self.gen_for(statement)
-        elif isinstance(statement, nodes.Return):
-            self.gen_return(statement)
+        fn_map = {
+            nodes.If: self.gen_if,
+            nodes.While: self.gen_while,
+            nodes.DoWhile: self.gen_do_while,
+            nodes.For: self.gen_for,
+            nodes.Switch: self.gen_switch,
+            nodes.Goto: self.gen_goto,
+            nodes.Break: self.gen_break,
+            nodes.Continue: self.gen_continue,
+            nodes.Return: self.gen_return,
+            nodes.Label: self.gen_label,
+            nodes.Case: self.gen_case,
+            nodes.Default: self.gen_default,
+        }
+        if type(statement) in fn_map:
+            fn_map[type(statement)](statement)
         elif isinstance(statement, nodes.Compound):
             for inner_statement in statement.statements:
                 self.gen_stmt(inner_statement)
@@ -190,23 +215,80 @@ class CCodeGenerator:
 
     def gen_if(self, stmt: nodes.If):
         """ Generate if-statement code """
-        yes_block = self.builder.new_block()
-        no_block = self.builder.new_block()
         final_block = self.builder.new_block()
+        yes_block = self.builder.new_block()
+        if stmt.no:
+            no_block = self.builder.new_block()
+        else:
+            no_block = final_block
         self.gen_condition(stmt.condition, yes_block, no_block, self.CODEGEN)
         self.builder.set_block(yes_block)
         self.gen_stmt(stmt.yes)
         self.emit(ir.Jump(final_block))
-        self.builder.set_block(no_block)
-        self.gen_stmt(stmt.no)
-        self.emit(ir.Jump(final_block))
+        if stmt.no:
+            self.builder.set_block(no_block)
+            self.gen_stmt(stmt.no)
+            self.emit(ir.Jump(final_block))
         self.builder.set_block(final_block)
+
+    def gen_switch(self, stmt: nodes.Switch):
+        """ Generate switch-case-statement code.
+        See also:
+            https://www.codeproject.com/Articles/100473/
+            Something-You-May-Not-Know-About-the-Switch-Statem
+
+        For now, implemented as a gigantic if-then forest.
+        """
+        backup = self.switch_options
+        self.switch_options = {}
+        test_block = self.builder.new_block()
+        body_block = self.builder.new_block()
+        final_block = self.builder.new_block()
+
+        # First execute the test code:
+        self.emit(ir.Jump(test_block))
+
+        # Implement the switch body:
+        self.break_block_stack.append(final_block)
+        self.builder.set_block(body_block)
+        self.gen_stmt(stmt.statement)
+        self.emit(ir.Jump(final_block))
+        self.break_block_stack.pop(-1)
+
+        # Implement switching logic, now that we have the branches:
+        # TODO: implement jump tables and other performance related stuff.
+        self.builder.set_block(test_block)
+        test_value = self.gen_expr(stmt.expression)
+        for option, target_block in self.switch_options.items():
+            print(option)
+            if option == 'default':
+                pass
+            else:
+                option = self.emit(ir.Const(option, 'case', ir.i32))
+                next_test_block = self.builder.new_block()
+                self.emit(ir.CJump(
+                    test_value, '==', option, target_block, next_test_block))
+                self.builder.set_block(next_test_block)
+
+        # If all else fails, jump to the default case if we have it.
+        if 'default' in self.switch_options:
+            self.emit(ir.Jump(self.switch_options['default']))
+        else:
+            self.emit(ir.Jump(final_block))
+
+        # Set continuation point:
+        self.builder.set_block(final_block)
+
+        # Restore state:
+        self.switch_options = backup
 
     def gen_while(self, stmt: nodes.While):
         """ Generate while statement code """
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
+        self.break_block_stack.append(final_block)
+        self.continue_block_stack.append(condition_block)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
         self.gen_condition(
@@ -215,33 +297,111 @@ class CCodeGenerator:
         self.gen_stmt(stmt.body)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(final_block)
+        self.break_block_stack.pop(-1)
+        self.continue_block_stack.pop(-1)
 
     def gen_do_while(self, stmt: nodes.DoWhile):
         """ Generate do-while-statement code """
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
+        self.break_block_stack.append(final_block)
+        self.continue_block_stack.append(body_block)
         self.emit(ir.Jump(body_block))
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
         self.gen_condition(
             stmt.condition, body_block, final_block, self.CODEGEN)
         self.builder.set_block(final_block)
+        self.break_block_stack.pop(-1)
+        self.continue_block_stack.pop(-1)
 
     def gen_for(self, stmt: nodes.For):
         """ Generate code for for-statement """
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
-        self.gen_stmt(stmt.init)
+        self.break_block_stack.append(final_block)
+        self.continue_block_stack.append(condition_block)
+        if stmt.init:
+            self.gen_stmt(stmt.init)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
-        self.gen_condition(
-            stmt.condition, body_block, final_block, self.CODEGEN)
+        if stmt.condition:
+            self.gen_condition(
+                stmt.condition, body_block, final_block, self.CODEGEN)
+        else:
+            self.emit(ir.Jump(body_block))
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
-        self.gen_stmt(stmt.post)
+        if stmt.post:
+            self.gen_stmt(stmt.post)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(final_block)
+        self.break_block_stack.pop(-1)
+        self.continue_block_stack.pop(-1)
+
+    def gen_label(self, stmt: nodes.Label):
+        """ Generate code for a label """
+        block = self.get_label_block(stmt.name)
+        self.emit(ir.Jump(block))  # fall through
+        self.builder.set_block(block)
+        self.gen_stmt(stmt.statement)
+
+    def gen_case(self, stmt: nodes.Case):
+        """ Generate code for case label inside a switch statement """
+        case_value = self.gen_expr(stmt.value, purpose=self.CONST_EVAL)
+        block = self.builder.new_block()
+        if self.switch_options is None:
+            self.error('Case statement outside of a switch!', stmt)
+        if case_value in self.switch_options:
+            self.error('Case defined multiple times', stmt)
+        self.switch_options[case_value] = block
+        self.emit(ir.Jump(block))  # fall through
+        self.builder.set_block(block)
+        self.gen_stmt(stmt.statement)
+
+    def gen_default(self, stmt: nodes.Default):
+        """ Generate code for case label inside a switch statement """
+        block = self.builder.new_block()
+        if self.switch_options is None:
+            self.error('Default statement outside of a switch!', stmt)
+        self.switch_options['default'] = block
+        self.emit(ir.Jump(block))  # fall through
+        self.builder.set_block(block)
+        self.gen_stmt(stmt.statement)
+
+    def gen_goto(self, stmt: nodes.Goto):
+        """ Generate code for a goto statement """
+        block = self.get_label_block(stmt.label)
+        self.emit(ir.Jump(block))
+        new_block = self.builder.new_block()
+        self.builder.set_block(new_block)
+        self.unreachable = True
+
+    def gen_continue(self, stmt: nodes.Continue):
+        """ Generate code for the continue statement """
+        # block = self.get_label_block(stmt.label)
+        if self.continue_block_stack:
+            block = self.continue_block_stack[-1]
+            self.emit(ir.Jump(block))
+        else:
+            self.error('Cannot continue here!', stmt)
+        new_block = self.builder.new_block()
+        self.builder.set_block(new_block)
+        # TODO: unreachable code after here!
+        self.unreachable = True
+
+    def gen_break(self, stmt: nodes.Break):
+        """ Generate code to break out of something. """
+        # block = self.get_label_block(stmt.label)
+        if self.break_block_stack:
+            block = self.break_block_stack[-1]
+            self.emit(ir.Jump(block))
+        else:
+            self.error('Cannot break here!', stmt)
+        new_block = self.builder.new_block()
+        self.builder.set_block(new_block)
+        self.unreachable = True
 
     def gen_return(self, stmt: nodes.Return):
         """ Generate return statement code """
@@ -390,7 +550,8 @@ class CCodeGenerator:
         assert isinstance(expr, nodes.Expression)
 
         if isinstance(expr, nodes.Unop):
-            if expr.op in ['++', '--']:
+            if expr.op in ['x++', 'x--', '--x', '++x']:
+                # Increment and decrement in pre and post form
                 if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
                 ir_a = self.gen_expr(expr.a, rvalue=False, purpose=purpose)
@@ -400,7 +561,6 @@ class CCodeGenerator:
                 expr.lvalue = False
 
                 if purpose is self.CODEGEN:
-                    op = expr.op[0]
                     ir_typ = self.get_ir_type(expr.typ)
                     loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
                     # for pointers, this is not one, but sizeof
@@ -409,9 +569,19 @@ class CCodeGenerator:
                         one = self.emit(ir.Const(size, 'one_element', ir_typ))
                     else:
                         one = self.emit(ir.Const(1, 'one', ir_typ))
-                    value = self.emit(ir.Binop(
+
+                    # Determine increment or decrement:
+                    op = expr.op[1]
+                    changed = self.emit(ir.Binop(
                         loaded, op, one, 'inc', ir_typ))
-                    self.emit(ir.Store(value, ir_a))
+                    self.emit(ir.Store(changed, ir_a))
+
+                    # Determine pre or post form:
+                    pre = expr.op[0] == 'x'
+                    if pre:
+                        value = loaded
+                    else:
+                        value = changed
                 else:
                     value = None
             elif expr.op == '*':
@@ -513,7 +683,10 @@ class CCodeGenerator:
                     value.set_incoming(no_block, no_value)
                 else:
                     value = None
-            elif expr.op in ['=', '+=', '-=', '*=']:
+            elif expr.op in [
+                    '=', '+=', '-=', '*=', '%=', '/=',
+                    '>>=', '<<=',
+                    '&=', '|=', '~=', '^=']:
                 if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
                 lhs = self.gen_expr(expr.a, rvalue=False, purpose=purpose)
@@ -606,16 +779,30 @@ class CCodeGenerator:
                 value = None
         elif isinstance(expr, nodes.Literal):
             # TODO: handle more types
-            v = int(expr.value)
-            expr.typ = self.get_type(['int'])
-            expr.lvalue = False
-            if purpose is self.CONST_EVAL:
-                value = v
-            elif purpose is self.CODEGEN:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.Const(v, 'constant', ir_typ))
+            if isinstance(expr.value, str) and len(expr.value) > 3:
+                # String literal:
+                expr.typ = self.cstr_type
+                expr.lvalue = False
+                if purpose is self.CONST_EVAL:
+                    self.error('A string is no constant expression')
+                elif purpose is self.CODEGEN:
+                    # Construct nifty 0-terminated string into memory!
+                    data = expr.value.encode('ascii') + bytes([0])
+                    value = self.emit(ir.LiteralData(data, 'cstr'))
+                else:
+                    value = None
             else:
-                value = None
+                # TODO: get value from string
+                v = int(expr.value)
+                expr.typ = self.get_type(['int'])
+                expr.lvalue = False
+                if purpose is self.CONST_EVAL:
+                    value = v
+                elif purpose is self.CODEGEN:
+                    ir_typ = self.get_ir_type(expr.typ)
+                    value = self.emit(ir.Const(v, 'constant', ir_typ))
+                else:
+                    value = None
         elif isinstance(expr, nodes.Cast):
             # TODO: is the cast valid?
             a = self.gen_expr(expr.expr, rvalue=True, purpose=purpose)
@@ -671,6 +858,41 @@ class CCodeGenerator:
                 offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
                 value = self.emit(
                     ir.Binop(base, '+', offset, 'offset', ir.ptr))
+            else:
+                value = None
+        elif isinstance(expr, nodes.ArrayIndex):
+            if purpose is self.CONST_EVAL:
+                self.error('Not a constant expression', expr)
+            base = self.gen_expr(expr.base, rvalue=False, purpose=purpose)
+            index = self.gen_expr(expr.index, rvalue=True, purpose=purpose)
+            index = self.coerce(
+                expr.index, index, self.get_type(['int']), purpose)
+            if not expr.base.lvalue:
+                # TODO: must array base be an lvalue?
+                self.error('Expected lvalue', expr.base)
+            base_type = self.resolve_type(expr.base.typ)
+            if not isinstance(base_type, nodes.ArrayType):
+                self.error(
+                    'Cannot index non array type {}'.format(
+                        base_type), expr)
+
+            expr.typ = self.resolve_type(base_type.element_type)
+            expr.lvalue = True
+
+            if purpose is self.CODEGEN:
+                # Generate constant for element size:
+                element_type_size = self.sizeof(expr.typ)
+                element_size = self.emit(
+                    ir.Const(element_type_size, 'element_size', ir.ptr))
+
+                # Calculate offset:
+                index = self.emit(ir.Cast(index, 'index', ir.ptr))
+                offset = self.emit(
+                    ir.mul(index, element_size, "element_offset", ir.ptr))
+
+                # Calculate address:
+                value = self.emit(
+                    ir.add(base, offset, "element_address", ir.ptr))
             else:
                 value = None
         else:  # pragma: no cover

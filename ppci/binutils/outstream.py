@@ -6,7 +6,7 @@
 import logging
 import abc
 from ..arch.encoding import Instruction
-from ..arch.generic_instructions import Alignment, DebugData
+from ..arch.generic_instructions import Alignment, DebugData, Label
 from ..arch.generic_instructions import SectionInstruction
 from ..arch.generic_instructions import ArtificialInstruction
 
@@ -43,7 +43,10 @@ class TextOutputStream(OutputStream):
     """ Output stream that writes terminal """
     def do_emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
-        print(str(item))
+        if isinstance(item, Label):
+            print(str(item))
+        else:
+            print('  ', str(item))
 
 
 class BinaryOutputStream(OutputStream):

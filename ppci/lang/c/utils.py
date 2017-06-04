@@ -16,6 +16,10 @@ class Visitor:
                 self.visit(node.body)
         elif isinstance(node, nodes.Typedef):
             self.visit(node.typ)
+        elif isinstance(node, nodes.Ternop):
+            self.visit(node.a)
+            self.visit(node.b)
+            self.visit(node.c)
         elif isinstance(node, nodes.Binop):
             self.visit(node.a)
             self.visit(node.b)
@@ -33,7 +37,7 @@ class Visitor:
             self.visit(node.index)
         elif isinstance(node, nodes.FieldSelect):
             self.visit(node.base)
-            self.visit(node.field)
+            # self.visit(node.field)
         elif isinstance(node, nodes.FunctionCall):
             for argument in node.args:
                 self.visit(argument)
@@ -47,8 +51,10 @@ class Visitor:
             self.visit(node.pointed_type)
         elif isinstance(node, nodes.ArrayType):
             self.visit(node.element_type)
-            self.visit(node.size)
+            # self.visit(node.size)
         elif isinstance(node, (nodes.StructType, nodes.UnionType)):
+            pass
+        elif isinstance(node, (nodes.EnumType,)):
             pass
         elif isinstance(node, (nodes.IdentifierType, nodes.BareType)):
             pass
@@ -56,20 +62,34 @@ class Visitor:
             for statement in node.statements:
                 self.visit(statement)
         elif isinstance(node, nodes.For):
-            self.visit(node.init)
-            self.visit(node.condition)
-            self.visit(node.post)
+            if node.init:
+                self.visit(node.init)
+            if node.condition:
+                self.visit(node.condition)
+            if node.post:
+                self.visit(node.post)
             self.visit(node.body)
         elif isinstance(node, nodes.If):
             self.visit(node.condition)
             self.visit(node.yes)
-            self.visit(node.no)
+            if node.no:
+                self.visit(node.no)
         elif isinstance(node, nodes.While):
             self.visit(node.condition)
             self.visit(node.body)
         elif isinstance(node, nodes.DoWhile):
             self.visit(node.body)
             self.visit(node.condition)
+        elif isinstance(node, nodes.Switch):
+            self.visit(node.expression)
+            self.visit(node.statement)
+        elif isinstance(node, (nodes.Goto, nodes.Break, nodes.Continue)):
+            pass
+        elif isinstance(node, (nodes.Label, nodes.Default)):
+            self.visit(node.statement)
+        elif isinstance(node, (nodes.Case,)):
+            self.visit(node.value)
+            self.visit(node.statement)
         elif isinstance(node, nodes.Return):
             if node.value:
                 self.visit(node.value)
