@@ -1,4 +1,4 @@
-lui sp, 0xF000 			;16*1024
+lui sp, 0x1F000 			;16*1024
 dd 0x0600000b  ; naskirq x0,x0
 j start
 sbreak
@@ -43,8 +43,8 @@ sw x28, 112(x1)
 sw x29, 116(x1)
 sw x30, 120(x1)
 sw x31, 124(x1)
-mov a1, x1
-dd 0x0000860b ; getq a2, q1
+mov x12, x1
+dd 0x0000868b ; getq x13, q1
 jal ra, irq_irq
 beq x10, x0, nostepping
 dd 0x0c05000b ; delint

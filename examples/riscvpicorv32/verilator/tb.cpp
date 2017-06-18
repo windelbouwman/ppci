@@ -1,10 +1,6 @@
-#include "svdpi.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include "Vsystem.h"
-#include "Vsystem__Dpi.h"
-
-
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -16,14 +12,13 @@ double sc_time_stamp () {	// Called by $time in Verilog
   return main_time;		// Note does conversion to real, to match SystemC
 } 
 
-Vsystem* top = new Vsystem;
-
 
 int main(int argc, char **argv, char **env) {
   int i;
   int clk;
   int trace = 0;
   Verilated::commandArgs(argc, argv);
+  Vsystem* top = new Vsystem;
   // init top verilog instance
    if(argc==2 && strcmp(argv[1],"vcd")==0) trace = 1;
   // init trace dump

@@ -7,6 +7,8 @@ import logging
 import struct
 from .dbg import DebugDriver, STOPPED, RUNNING
 
+INTERRUPT = 1
+BRKPOINT = 2
 
 class GdbDebugDriver(DebugDriver):
     """ Implement debugging via the GDB remote interface.
@@ -21,11 +23,14 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
+
+
     def __init__(self, arch, transport, constat=STOPPED, pcresval=0):
         self.arch = arch
         self.transport = transport
         self.status = constat
         self.pcresval = pcresval
+        self.stopreason = INTERRUPT
         if(constat == RUNNING):
             self.stop()
 
@@ -149,6 +154,9 @@ class GdbDebugDriver(DebugDriver):
     def run(self):
         """ start the device """
         if self.status == STOPPED:
+            if(self.stopreason == BRKPOINT):
+                pc = self.get_pc()
+                self.set_pc(pc-4)
             self.sendpkt("c")
             # res = self.readpkt()
             # print(res)
@@ -187,12 +195,13 @@ class GdbDebugDriver(DebugDriver):
             code = int(res[1:3], 16)
         elif res.startswith('T'):
             code = int(res[1:3], 16)
+            self.stopreason = code
             rest = res[3:]
             print('TODO', rest.split(';'))
         else:
             raise NotImplementedError(res)
 
-        if code == 5:
+        if True:
             self.logger.debug("Target stopped..")
             self.status = STOPPED
         else:

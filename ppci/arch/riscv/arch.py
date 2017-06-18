@@ -85,29 +85,29 @@ class RiscvArch(Architecture):
         from ...api import asm
         asm_src = """
         __sdiv:
-        ; Divide x11 by x12
-        ; x13 is a work register.
+        ; Divide x12 by x13
+        ; x14 is a work register.
         ; x10 is the quotient
 
         mov x10, x0     ; Initialize the result
-        mov x13, 1      ; mov divisor into temporary register.
+        mov x14, 1      ; mov divisor into temporary register.
 
         ; Blow up part: blow up divisor until it is larger than the divident.
         __shiftl:
-        bge x12, x11, __cont1
-        slli x12, x12, 1
+        bge x13, x12, __cont1
         slli x13, x13, 1
+        slli x14, x14, 1
         j __shiftl
 
         ; Repeatedly substract shifted versions of divisor
         __cont1:
-        beq x13, x0, __exit
-        blt x11, x12, __skip
-        sub x11, x11, x12
-        or x10, x10, x13
+        beq x14, x0, __exit
+        blt x12, x13, __skip
+        sub x12, x12, x13
+        or x10, x10, x14
         __skip:
-        srli x12, x12, 1
         srli x13, x13, 1
+        srli x14, x14, 1
         j __cont1
 
         __exit:
@@ -162,11 +162,11 @@ class RiscvArch(Architecture):
         """
             Given a set of argument types, determine location for argument
             ABI:
-            pass args in R10-R17
+            pass args in R12-R17
             return values in R10
         """
         l = []
-        regs = [R11, R12, R13, R14, R15, R16, R17]
+        regs = [R12, R13, R14, R15, R16, R17]
         for a in arg_types:
             r = regs.pop(0)
             l.append(r)
