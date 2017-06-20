@@ -1,8 +1,9 @@
 import logging
 from ... import ir, irutils
 from ...common import CompilerError
-from . import nodes
+from . import nodes, utils, types, declarations
 from .scope import Scope
+from .types import BareType
 
 
 class CCodeGenerator:
@@ -24,20 +25,20 @@ class CCodeGenerator:
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.march.byte_sizes['int']
         self.ir_type_map = {
-            nodes.BareType.CHAR: (ir.i8, 1),
-            nodes.BareType.SCHAR: (ir.i8, 1),
-            nodes.BareType.UCHAR: (ir.u8, 1),
-            nodes.BareType.SHORT: (ir.i16, 2),
-            nodes.BareType.USHORT: (ir.u16, 2),
-            nodes.BareType.INT: (int_types[int_size], int_size),
-            nodes.BareType.UINT: (uint_types[int_size], int_size),
-            nodes.BareType.LONG: (ir.i64, 8),
-            nodes.BareType.ULONG: (ir.u64, 8),
-            nodes.BareType.FLOAT: (ir.f32, 4),
-            nodes.BareType.DOUBLE: (ir.f64, 8),
+            BareType.CHAR: (ir.i8, 1),
+            BareType.SCHAR: (ir.i8, 1),
+            BareType.UCHAR: (ir.u8, 1),
+            BareType.SHORT: (ir.i16, 2),
+            BareType.USHORT: (ir.u16, 2),
+            BareType.INT: (int_types[int_size], int_size),
+            BareType.UINT: (uint_types[int_size], int_size),
+            BareType.LONG: (ir.i64, 8),
+            BareType.ULONG: (ir.u64, 8),
+            BareType.FLOAT: (ir.f32, 4),
+            BareType.DOUBLE: (ir.f64, 8),
         }
         # Define the type for a string:
-        self.cstr_type = nodes.PointerType(self.get_type(['char']))
+        self.cstr_type = types.PointerType(self.get_type(['char']))
 
     def get_label_block(self, name):
         """ Get the ir block for a given label, and create it if necessary """
@@ -52,44 +53,250 @@ class CCodeGenerator:
         """ Initial entry point for the code generator """
         self.builder = irutils.Builder()
         self.type_scope = Scope()
-        self.scope = compile_unit.scope
+        self.scope = self.type_scope
         self.ir_var_map = {}
         self.logger.debug('Generating IR-code')
         ir_mod = ir.Module('c_compilation_unit')
         self.builder.module = ir_mod
-        for declaration in compile_unit.declarations:
-            assert isinstance(declaration, nodes.Declaration)
-            # Insert into the current scope:
-            if self.scope.is_defined(declaration.name):
-                sym = self.scope.get(declaration.name)
-                # The symbol might be a forward declaration:
-                if self.equal_types(sym.typ, declaration.typ) and \
-                        declaration.is_function:
-                    self.logger.debug('okay, forward declaration implemented')
-                else:
-                    self.info('First defined here', sym)
-                    self.error("Invalid redefinition", declaration)
-            else:
-                self.scope.insert(declaration)
-
-            if isinstance(declaration.typ, nodes.StructOrUnionType):
-                struct_typ = declaration.typ
-                if struct_typ.tag:
-                    self.logger.debug(
-                        'Registering struct tag %s', struct_typ.tag)
-                    self.scope.struct_tags[struct_typ.tag] = struct_typ
-
-            # Generate code:
-            if isinstance(declaration, nodes.Typedef):
-                self.type_scope.insert(declaration)
-            elif isinstance(declaration, nodes.FunctionDeclaration):
-                self.gen_function(declaration)
-            elif isinstance(declaration, nodes.VariableDeclaration):
-                self.gen_global_variable(declaration)
-            else:  # pragma: no cover
-                raise NotImplementedError()
+        for ds in compile_unit.declarations:
+            typ = self.get_type_from_declaration(ds)
+            for declarator in ds.declarators:
+                declaration = self.build_foo(ds, typ, declarator)
+                self.gen_object(declaration)
         self.logger.info('Finished IR-code generation')
         return ir_mod
+
+    def get_type_from_declaration(self, ds):
+        """ Convert parse node into proper C type.
+
+        This function has the side effect of updating tags for enums and
+        structs. As well as evaluating enum values.
+        """
+        if isinstance(ds.typ, nodes.IdentifierType):
+            # Lookup typedef
+            typedef = self.scope.get(ds.typ.name)
+            assert isinstance(typedef, declarations.Typedef)
+            ctyp = typedef.typ
+        elif isinstance(ds.typ, nodes.BasicType):
+            if self.context.is_valid(ds.typ.type_specifiers):
+                ctyp = self.context.get_type(ds.typ.type_specifiers)
+            else:
+                self.error('Invalid type specifiers')
+        elif isinstance(ds.typ, nodes.Struct):
+            # Layout the struct here!
+            tag, fields = ds.typ.tag, ds.typ.fields
+            assert tag or fields
+
+            if tag:
+                # Get the tag, or register it
+                if self.scope.has_tag(tag):
+                    ctyp = self.scope.get_tag(tag)
+                    if not isinstance(ctyp, types.StructType):
+                        self.error('Wrong tag kind', ds.typ)
+                else:
+                    ctyp = types.StructType()
+                    self.scope.add_tag(tag, ctyp)
+            else:
+                # Anonymous struct
+                ctyp = types.StructType()
+
+            if fields:
+                if ctyp.complete:
+                    self.error('Multiple definitions', ds.typ)
+                # Layout the fields in the struct:
+                offset = 0
+                cfields = []
+                for field_ds in fields:
+                    ctyp_base = self.get_type_from_declaration(field_ds)
+                    for field_declarator in field_ds.declarators:
+                        field_typ = self.apply_type_modifiers(
+                            field_declarator.modifiers, ctyp_base)
+
+                        # Calculate bit size:
+                        if field_declarator.bitsize:
+                            bitsize = self.gen_expr(
+                                field_declarator.bitsize,
+                                purpose=self.CONST_EVAL)
+                        else:
+                            bitsize = self.sizeof(field_typ)
+
+                        cfield = types.Field(
+                            field_declarator.name, field_typ, offset, bitsize)
+                        cfields.append(cfield)
+                        offset += bitsize
+                ctyp.fields = cfields
+        elif isinstance(ds.typ, nodes.Union):
+            tag, fields = ds.typ.tag, ds.typ.fields
+            assert tag or fields
+
+            if tag:
+                # Get the tag, or register it
+                if self.scope.has_tag(tag):
+                    ctyp = self.scope.get_tag(tag)
+                    if not isinstance(ctyp, types.UnionType):
+                        self.error('Wrong tag kind', ds.typ)
+                else:
+                    ctyp = types.UnionType()
+                    self.scope.add_tag(tag, ctyp)
+            else:
+                ctyp = types.UnionType()
+
+            if fields:
+                if ctyp.complete:
+                    self.error('Multiple definitions', ds.typ)
+                offset = 0
+                cfields = []
+                for field_ds in fields:
+                    ctyp_base = self.get_type_from_declaration(field_ds)
+                    for field_declarator in field_ds.declarators:
+                        field_typ = self.apply_type_modifiers(
+                            field_declarator.modifiers, ctyp_base)
+
+                        # Calculate bit size:
+                        if field_declarator.bitsize:
+                            bitsize = self.gen_expr(
+                                field_declarator.bitsize,
+                                purpose=self.CONST_EVAL)
+                        else:
+                            bitsize = self.sizeof(field_typ)
+
+                        cfield = types.Field(
+                            field_declarator.name, field_typ, offset, bitsize)
+                        cfields.append(cfield)
+                ctyp.fields = cfields
+        elif isinstance(ds.typ, nodes.Enum):
+            tag = ds.typ.tag
+            if tag:
+                if self.scope.has_tag(tag):
+                    ctyp = self.scope.get_tag(tag)
+                    if not isinstance(ctyp, types.EnumType):
+                        self.error('This tag does not refer to an enum')
+                else:
+                    ctyp = types.EnumType()
+                    self.scope.add_tag(tag, ctyp)
+            else:
+                ctyp = types.EnumType()
+
+            if ds.typ.values:
+                if ctyp.complete:
+                    self.error('Enum defined multiple times')
+
+                # Calculate values for the different enumerators:
+                enum_values = []
+                current_value = 0
+                for value in ds.typ.values:
+                    if value.value:
+                        current_value = self.gen_expr(
+                            value.value, purpose=self.CONST_EVAL)
+                    enum_values.append(current_value)
+                    new_value = declarations.ValueDeclaration(
+                        ctyp, value.name, current_value, value.location)
+                    self.scope.insert(new_value)
+
+                    # Increase for next enum value:
+                    current_value += 1
+                ctyp.values = enum_values
+                # TODO: determine min and max enum values
+                min(enum_values)
+                max(enum_values)
+                # TODO: determine storage type!
+        else:  # pragma: no cover
+            raise NotImplementedError(str(ds.typ))
+
+        # Apply any qualifiers:
+        if ds.type_qualifiers:
+            ctyp = types.QualifiedType(ds.type_qualifiers, ctyp)
+        return ctyp
+
+    def build_foo(self, ds, typ, declarator):
+        """ Given a declaration, and a declarator, create the proper object """
+        assert isinstance(typ, types.CType), str(typ)
+
+        typ = self.apply_type_modifiers(declarator.modifiers, typ)
+
+        # Create declaration entity:
+        if ds.storage_class == 'typedef':
+            declaration = declarations.Typedef(
+                typ, declarator.name, declarator.loc)
+        else:
+            if isinstance(typ, types.FunctionType):
+                declaration = declarations.FunctionDeclaration(
+                    typ, declarator.name, declarator.loc)
+                if hasattr(declarator, 'body'):
+                    declaration.body = declarator.body
+                # d.arguments = args
+            else:
+                # Evaluate constant initializer:
+                if declarator.initializer:
+                    initializer = self.gen_expr(
+                        declarator.initializer, purpose=self.CONST_EVAL)
+                else:
+                    initializer = None
+
+                declaration = declarations.VariableDeclaration(
+                    typ, declarator.name, initializer,
+                    declarator.loc)
+        return declaration
+
+    def apply_type_modifiers(self, type_modifiers, typ):
+        """ Apply the set of type modifiers to the given type """
+        # Apply type modifiers in reversed order, starting outwards, going
+        # from the outer type to the inside name.
+        for modifier in reversed(type_modifiers):
+            if modifier[0] == 'POINTER':
+                typ = types.PointerType(typ)
+                type_qualifiers = modifier[1]
+                if type_qualifiers:
+                    typ = types.QualifiedType(type_qualifiers, typ)
+            elif modifier[0] == 'ARRAY':
+                size = modifier[1]
+                typ = types.ArrayType(typ, size)
+            elif modifier[0] == 'FUNCTION':
+                arguments = modifier[1]
+                arg_types = []
+                func_arguments = []
+                for argument_ds in arguments:
+                    arg_ctyp = self.get_type_from_declaration(argument_ds)
+                    assert len(argument_ds.declarators) == 1
+                    arg_decl = argument_ds.declarators[0]
+                    arg_ctyp = self.apply_type_modifiers(
+                        arg_decl.modifiers, arg_ctyp)
+                    arg_types.append(arg_ctyp)
+                    carg = declarations.ParameterDeclaration(
+                        arg_ctyp, arg_decl.name, arg_decl.loc)
+                    func_arguments.append(carg)
+                typ = types.FunctionType(arg_types, typ)
+                typ.arguments = func_arguments
+            else:  # pragma: no cover
+                raise NotImplementedError(str(modifier))
+        return typ
+
+    def gen_object(self, declaration):
+        """ Generate code for a single object """
+        assert isinstance(declaration, declarations.Declaration)
+        # Insert into the current scope:
+        if self.scope.is_defined(declaration.name):
+            sym = self.scope.get(declaration.name)
+            # The symbol might be a forward declaration:
+            if self.equal_types(sym.typ, declaration.typ) and \
+                    declaration.is_function:
+                self.logger.debug('okay, forward declaration implemented')
+            else:
+                self.info('First defined here', sym)
+                self.error("Invalid redefinition", declaration)
+        else:
+            self.scope.insert(declaration)
+
+        # Generate code:
+        if isinstance(declaration, declarations.Typedef):
+            pass
+            # self.type_scope.insert(declaration)
+        elif isinstance(declaration, declarations.FunctionDeclaration):
+            self.gen_function(declaration)
+        elif isinstance(declaration, declarations.VariableDeclaration):
+            self.gen_global_variable(declaration)
+        else:  # pragma: no cover
+            raise NotImplementedError()
 
     def emit(self, instruction):
         """ Helper function to emit a single instruction """
@@ -102,10 +309,13 @@ class CCodeGenerator:
 
     def error(self, message, node):
         """ Trigger an error at the given node """
-        raise CompilerError(message, loc=node.loc)
+        raise CompilerError(message, loc=node.location)
 
     def gen_global_variable(self, var_decl):
         # if typ is array, use initializer to determine size
+        if var_decl.initial_value:
+            # TODO: determine initializer value
+            pass
         size = self.sizeof(var_decl.typ)
         ir_var = ir.Variable(var_decl.name, size)
         self.builder.module.add_variable(ir_var)
@@ -113,12 +323,13 @@ class CCodeGenerator:
 
     def gen_function(self, function):
         """ Generate code for a function """
+        if not function.body:
+            return
+        self.logger.debug('Generating IR-code for %s', function.name)
         assert len(self.break_block_stack) == 0
         assert len(self.continue_block_stack) == 0
         assert not self.labeled_blocks
         self.unreachable = False
-        if not function.body:
-            return
 
         # Save current function for later on..
         self.current_function = function
@@ -157,7 +368,8 @@ class CCodeGenerator:
             self.ir_var_map[argument] = ir_var
 
         # Generate code for body:
-        self.gen_stmt(function.body)
+        assert isinstance(function.body, nodes.Compound)
+        self.gen_compound(function.body)
 
         if not self.builder.block.is_closed:
             # In case of void function, introduce exit instruction:
@@ -198,20 +410,41 @@ class CCodeGenerator:
             nodes.Label: self.gen_label,
             nodes.Case: self.gen_case,
             nodes.Default: self.gen_default,
+            nodes.Empty: self.gen_empty_statement,
+            nodes.Compound: self.gen_compound,
+            nodes.ExpressionStatement: self.gen_expression_statement,
+            nodes.DeclarationStatement: self.gen_declaration_statement,
         }
         if type(statement) in fn_map:
             fn_map[type(statement)](statement)
-        elif isinstance(statement, nodes.Compound):
-            for inner_statement in statement.statements:
-                self.gen_stmt(inner_statement)
-        elif isinstance(statement, nodes.Empty):
-            pass
-        elif isinstance(statement, nodes.Expression):
-            self.gen_expr(statement)
-        elif isinstance(statement, nodes.VariableDeclaration):
-            self.gen_local_var(statement)
         else:  # pragma: no cover
             raise NotImplementedError(str(statement))
+
+    def gen_empty_statement(self, statement):
+        """ Generate code for empty statement """
+        pass
+
+    def gen_compound(self, statement):
+        """ Generate code for a compound statement """
+        for inner_statement in statement.statements:
+            self.gen_stmt(inner_statement)
+
+    def gen_declaration_statement(self, statement):
+        """ Generate code for a declaration statement """
+        ds = statement.declaration
+        typ = self.get_type_from_declaration(ds)
+        for declarator in ds.declarators:
+            declaration = self.build_foo(ds, typ, declarator)
+            # self.gen_object(declaration)
+            if isinstance(declaration, declarations.VariableDeclaration):
+                self.gen_local_variable(declaration)
+            else:
+                raise NotImplementedError(str(declaration))
+
+    def gen_expression_statement(self, statement):
+        """ Generate code for an expression statement """
+        self.gen_expr(statement.expression)
+        # TODO: issue a warning when expression result is non void?
 
     def gen_if(self, stmt: nodes.If):
         """ Generate if-statement code """
@@ -260,7 +493,6 @@ class CCodeGenerator:
         self.builder.set_block(test_block)
         test_value = self.gen_expr(stmt.expression)
         for option, target_block in self.switch_options.items():
-            print(option)
             if option == 'default':
                 pass
             else:
@@ -323,7 +555,7 @@ class CCodeGenerator:
         self.break_block_stack.append(final_block)
         self.continue_block_stack.append(condition_block)
         if stmt.init:
-            self.gen_stmt(stmt.init)
+            self.gen_expr(stmt.init)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
         if stmt.condition:
@@ -334,7 +566,7 @@ class CCodeGenerator:
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
         if stmt.post:
-            self.gen_stmt(stmt.post)
+            self.gen_expr(stmt.post)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(final_block)
         self.break_block_stack.pop(-1)
@@ -511,7 +743,7 @@ class CCodeGenerator:
         else:
             pass
 
-    def gen_local_var(self, variable: nodes.VariableDeclaration):
+    def gen_local_variable(self, variable: declarations.VariableDeclaration):
         """ Generate a local variable """
         if self.scope.is_defined(variable.name, all_scopes=False):
             self.error('Illegal redefine', variable)
@@ -564,8 +796,8 @@ class CCodeGenerator:
                     ir_typ = self.get_ir_type(expr.typ)
                     loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
                     # for pointers, this is not one, but sizeof
-                    if isinstance(expr.typ, nodes.PointerType):
-                        size = self.sizeof(expr.typ.pointed_type)
+                    if isinstance(expr.typ, types.PointerType):
+                        size = self.sizeof(expr.typ.element_type)
                         one = self.emit(ir.Const(size, 'one_element', ir_typ))
                     else:
                         one = self.emit(ir.Const(1, 'one', ir_typ))
@@ -588,10 +820,10 @@ class CCodeGenerator:
                 if purpose is self.CONST_EVAL:
                     self.error('Not a constant expression', expr)
                 a = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
-                if not isinstance(expr.a.typ, nodes.PointerType):
+                if not isinstance(expr.a.typ, types.PointerType):
                     self.error('Cannot derefence non-pointer type', expr)
                 value = a
-                expr.typ = expr.a.typ.pointed_type
+                expr.typ = expr.a.typ.element_type
                 expr.lvalue = True
             elif expr.op == '&':
                 if purpose is self.CONST_EVAL:
@@ -600,7 +832,7 @@ class CCodeGenerator:
                 if not expr.a.lvalue:
                     self.error('Expected lvalue', expr.a)
                 value = a
-                expr.typ = nodes.PointerType(expr.a.typ)
+                expr.typ = types.PointerType(expr.a.typ)
                 expr.lvalue = False
             elif expr.op == '-':
                 a = self.gen_expr(expr.a, rvalue=True, purpose=purpose)
@@ -717,7 +949,10 @@ class CCodeGenerator:
                 self.error('Who is this?', expr)
             variable = self.scope.get(expr.name)
             expr.typ = variable.typ
-            if isinstance(variable, nodes.VariableDeclaration):
+            if isinstance(
+                    variable,
+                    (declarations.VariableDeclaration,
+                     declarations.ParameterDeclaration)):
                 if purpose is self.CONST_EVAL:
                     # TODO: handle const int values?
                     self.error('Not a constant expression', expr)
@@ -726,9 +961,21 @@ class CCodeGenerator:
                     value = self.ir_var_map[variable]
                 else:
                     value = None
-            elif isinstance(variable, nodes.ConstantDeclaration):
+            elif isinstance(variable, declarations.ConstantDeclaration):
                 expr.lvalue = False
                 constant_value = self.get_const_value(variable)
+                if purpose is self.CONST_EVAL:
+                    value = constant_value
+                elif purpose is self.CODEGEN:
+                    ir_typ = self.get_ir_type(expr.typ)
+                    value = self.emit(ir.Const(
+                        constant_value, variable.name, ir_typ))
+                else:
+                    raise NotImplementedError()
+            elif isinstance(variable, declarations.ValueDeclaration):
+                # Enum value declaration!
+                expr.lvalue = False
+                constant_value = variable.value
                 if purpose is self.CONST_EVAL:
                     value = constant_value
                 elif purpose is self.CODEGEN:
@@ -742,11 +989,12 @@ class CCodeGenerator:
         elif isinstance(expr, nodes.FunctionCall):
             if purpose is self.CONST_EVAL:
                 self.error('Not a constant expression', expr)
+
             # Lookup the function:
             if not self.scope.is_defined(expr.name):
                 self.error('Who is this?', expr)
             function = self.scope.get(expr.name)
-            if not isinstance(function, nodes.FunctionDeclaration):
+            if not isinstance(function, declarations.FunctionDeclaration):
                 self.error('Calling a non-function', expr)
 
             # Determine expression properties:
@@ -754,7 +1002,7 @@ class CCodeGenerator:
             expr.lvalue = False
 
             # Check argument count:
-            num_expected = len(function.typ.arg_types)
+            num_expected = len(function.typ.argument_types)
             num_given = len(expr.args)
             if num_given != num_expected:
                 self.error('Expected {} arguments, but got {}'.format(
@@ -762,9 +1010,10 @@ class CCodeGenerator:
 
             # Evaluate arguments:
             ir_arguments = []
-            for argument, arg_type in zip(expr.args, function.typ.arg_types):
+            for argument, argument_type in zip(
+                    expr.args, function.typ.argument_types):
                 value = self.gen_expr(argument, rvalue=True, purpose=purpose)
-                value = self.coerce(argument, value, arg_type, purpose)
+                value = self.coerce(argument, value, argument_type, purpose)
                 ir_arguments.append(value)
 
             if purpose is self.CODEGEN:
@@ -777,32 +1026,55 @@ class CCodeGenerator:
                         function.name, ir_arguments, 'result', ir_typ))
             else:
                 value = None
-        elif isinstance(expr, nodes.Literal):
-            # TODO: handle more types
-            if isinstance(expr.value, str) and len(expr.value) > 3:
-                # String literal:
-                expr.typ = self.cstr_type
-                expr.lvalue = False
-                if purpose is self.CONST_EVAL:
-                    self.error('A string is no constant expression')
-                elif purpose is self.CODEGEN:
-                    # Construct nifty 0-terminated string into memory!
-                    data = expr.value.encode('ascii') + bytes([0])
-                    value = self.emit(ir.LiteralData(data, 'cstr'))
-                else:
-                    value = None
+        elif isinstance(expr, nodes.StringLiteral):
+            # String literal:
+            expr.typ = self.cstr_type
+            expr.lvalue = False
+            if purpose is self.CONST_EVAL:
+                self.error('A string is no constant expression')
+            elif purpose is self.CODEGEN:
+                # Construct nifty 0-terminated string into memory!
+                data = expr.value.encode('ascii') + bytes([0])
+                value = self.emit(ir.LiteralData(data, 'cstr'))
             else:
-                # TODO: get value from string
-                v = int(expr.value)
-                expr.typ = self.get_type(['int'])
-                expr.lvalue = False
-                if purpose is self.CONST_EVAL:
-                    value = v
-                elif purpose is self.CODEGEN:
-                    ir_typ = self.get_ir_type(expr.typ)
-                    value = self.emit(ir.Const(v, 'constant', ir_typ))
-                else:
-                    value = None
+                value = None
+        elif isinstance(expr, nodes.CharLiteral):
+            # Get value from string:
+            v = utils.charval(expr.value)
+            # TODO: implement wide characters!
+            expr.typ = self.get_type(['char'])
+            expr.lvalue = False
+            if purpose is self.CONST_EVAL:
+                value = v
+            elif purpose is self.CODEGEN:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Const(v, 'constant', ir_typ))
+            else:
+                value = None
+        elif isinstance(expr, nodes.NumericLiteral):
+            # Get value from string:
+            v = utils.cnum(expr.value)
+            # TODO: this does not have to be int!
+            expr.typ = self.get_type(['int'])
+            expr.lvalue = False
+            if purpose is self.CONST_EVAL:
+                value = v
+            elif purpose is self.CODEGEN:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Const(v, 'constant', ir_typ))
+            else:
+                value = None
+        elif isinstance(expr, nodes.InitializerList):
+            expr.lvalue = True
+            if purpose is self.CONST_EVAL:
+                value = []
+                for element in expr.elements:
+                    value.append(self.gen_expr(
+                        element, purpose=self.CONST_EVAL))
+                # TODO: make this correct:
+                expr.typ = types.ArrayType(self.get_type(['int']), len(value))
+            else:
+                self.error('Illegal initializer list', expr)
         elif isinstance(expr, nodes.Cast):
             # TODO: is the cast valid?
             a = self.gen_expr(expr.expr, rvalue=True, purpose=purpose)
@@ -819,9 +1091,16 @@ class CCodeGenerator:
         elif isinstance(expr, nodes.Sizeof):
             expr.typ = self.get_type(['int'])
             expr.lvalue = False
-            if isinstance(expr.sizeof_typ, nodes.CType):
+            if isinstance(expr.sizeof_typ, nodes.DeclSpec):
+                # Assert no declarators:
+                assert len(expr.sizeof_typ.declarators) == 1
+
+                ctyp = self.get_type_from_declaration(expr.sizeof_typ)
+                declarator = expr.sizeof_typ.declarators[0]
+                ctyp = self.apply_type_modifiers(declarator.modifiers, ctyp)
+
                 # Get size of the given type:
-                type_size = self.sizeof(expr.sizeof_typ)
+                type_size = self.sizeof(ctyp)
             else:
                 # Check the type of expression:
                 self.gen_expr(expr.sizeof_typ, purpose=self.TYPECHECK)
@@ -841,7 +1120,10 @@ class CCodeGenerator:
             if not expr.base.lvalue:
                 self.error('Expected lvalue', expr.base)
             base_type = self.resolve_type(expr.base.typ)
-            if not isinstance(base_type, nodes.StructType):
+            if isinstance(base_type, types.QualifiedType):
+                # TODO: handle qualifiers?
+                base_type = base_type.typ
+            if not isinstance(base_type, types.StructType):
                 self.error(
                     'Cannot index field of non struct type {}'.format(
                         base_type), expr)
@@ -853,8 +1135,7 @@ class CCodeGenerator:
             expr.lvalue = True
             self.logger.warning('implement offset from field select')
             if purpose is self.CODEGEN:
-                offset = 0
-                # TODO: calculate offset into struct
+                offset = field.offset
                 offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
                 value = self.emit(
                     ir.Binop(base, '+', offset, 'offset', ir.ptr))
@@ -871,7 +1152,7 @@ class CCodeGenerator:
                 # TODO: must array base be an lvalue?
                 self.error('Expected lvalue', expr.base)
             base_type = self.resolve_type(expr.base.typ)
-            if not isinstance(base_type, nodes.ArrayType):
+            if not isinstance(base_type, types.IndexableType):
                 self.error(
                     'Cannot index non array type {}'.format(
                         base_type), expr)
@@ -899,7 +1180,7 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr))
 
         # Check for given attributes:
-        assert isinstance(expr.typ, nodes.CType)
+        assert isinstance(expr.typ, types.CType)
         assert isinstance(expr.lvalue, bool)
 
         if purpose is self.CODEGEN:
@@ -919,18 +1200,23 @@ class CCodeGenerator:
         assert isinstance(type_specifiers, list)
         return self.context.get_type(type_specifiers)
 
-    def get_ir_type(self, typ: nodes.CType):
+    def get_ir_type(self, typ: types.CType):
         """ Given a C type, get the fitting ir type """
-        assert isinstance(typ, nodes.CType)
+        assert isinstance(typ, types.CType)
 
-        if isinstance(typ, nodes.BareType):
+        if isinstance(typ, types.BareType):
             return self.ir_type_map[typ.type_id][0]
-        elif isinstance(typ, nodes.IdentifierType):
+        elif isinstance(typ, types.IdentifierType):
             return self.get_ir_type(self.resolve_type(typ))
-        elif isinstance(typ, nodes.PointerType):
+        elif isinstance(typ, types.PointerType):
             return ir.ptr
-        elif isinstance(typ, nodes.EnumType):
-            return self.ir_type_map[nodes.BareType.INT][0]
+        elif isinstance(typ, types.EnumType):
+            return self.get_ir_type(self.get_type(['int']))
+        elif isinstance(typ, types.UnionType):
+            size = self.sizeof(typ)
+            # TODO: this may be a hack?
+            m = {8: ir.u64}
+            return m[size]
         else:
             raise NotImplementedError(str(typ))
 
@@ -951,21 +1237,30 @@ class CCodeGenerator:
         # elif isinstance(typ2, nodes.QualifiedType):
         #    # Handle qualified types (we know that typ1 unqualified)
         #    return (not typ2.qualifiers) and self.equal_types(typ1, typ2.typ)
-        elif isinstance(typ1, nodes.BareType):
-            if isinstance(typ2, nodes.BareType):
+        elif isinstance(typ1, types.BareType):
+            if isinstance(typ2, types.BareType):
                 return typ1.type_id == typ2.type_id
-        elif isinstance(typ1, nodes.IdentifierType):
-            if isinstance(typ2, nodes.IdentifierType):
+        elif isinstance(typ1, types.IdentifierType):
+            if isinstance(typ2, types.IdentifierType):
                 return typ1.name == typ2.name
-        elif isinstance(typ1, nodes.FunctionType):
-            if isinstance(typ2, nodes.FunctionType):
+        elif isinstance(typ1, types.FunctionType):
+            if isinstance(typ2, types.FunctionType):
                 return len(typ1.arg_types) == len(typ2.arg_types) and \
                     self.equal_types(typ1.return_type, typ2.return_type) and \
                     all(self.equal_types(a1, a2) for a1, a2 in zip(
                         typ1.arg_types, typ2.arg_types))
-        elif isinstance(typ1, nodes.PointerType):
-            if isinstance(typ2, nodes.PointerType):
-                return self.equal_types(typ1.pointed_type, typ2.pointed_type)
+        elif isinstance(typ1, types.PointerType):
+            if isinstance(typ2, types.PointerType):
+                return self.equal_types(typ1.element_type, typ2.element_type)
+        elif isinstance(typ1, types.UnionType):
+            if isinstance(typ2, types.UnionType):
+                return typ1 is typ2
+        elif isinstance(typ1, types.StructType):
+            if isinstance(typ2, types.StructType):
+                return typ1 is typ2
+        elif isinstance(typ1, types.EnumType):
+            if isinstance(typ2, types.EnumType):
+                return typ1 is typ2
         else:
             raise NotImplementedError(str(typ1))
         return False
@@ -977,9 +1272,9 @@ class CCodeGenerator:
         # TODO!
         return typ1
 
-    def resolve_type(self, typ: nodes.IdentifierType):
+    def resolve_type(self, typ: types.IdentifierType):
         """ Given a type, look behind the identifiertype """
-        if isinstance(typ, nodes.IdentifierType):
+        if isinstance(typ, types.IdentifierType):
             if self.type_scope.is_defined(typ.name):
                 # Typedef type!
                 typedef = self.type_scope.get(typ.name)
@@ -991,7 +1286,7 @@ class CCodeGenerator:
             return typ
 
     def coerce(
-            self, expr: nodes.Expression, value, typ: nodes.CType,
+            self, expr: nodes.Expression, value, typ: types.CType,
             purpose):
         """ Try to fit the given expression into the given type """
         do_cast = False
@@ -1000,17 +1295,17 @@ class CCodeGenerator:
 
         if self.equal_types(from_type, to_type):
             pass
-        elif isinstance(from_type, nodes.PointerType) and \
-                isinstance(to_type, nodes.BareType):
+        elif isinstance(from_type, types.PointerType) and \
+                isinstance(to_type, types.BareType):
             do_cast = True
-        elif isinstance(from_type, nodes.PointerType) and \
-                isinstance(to_type, nodes.PointerType):
+        elif isinstance(from_type, types.PointerType) and \
+                isinstance(to_type, types.PointerType):
             do_cast = True
-        elif isinstance(from_type, nodes.BareType) and \
-                isinstance(to_type, nodes.PointerType):
+        elif isinstance(from_type, types.BareType) and \
+                isinstance(to_type, types.PointerType):
             do_cast = True
-        elif isinstance(from_type, nodes.BareType) and \
-                isinstance(to_type, (nodes.BareType, nodes.EnumType)):
+        elif isinstance(from_type, types.BareType) and \
+                isinstance(to_type, (types.BareType, types.EnumType)):
             # TODO: implement stricter checks
             do_cast = True
         else:
@@ -1026,37 +1321,40 @@ class CCodeGenerator:
                 pass
         return value
 
-    def sizeof(self, typ: nodes.CType):
+    def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
-        assert isinstance(typ, nodes.CType)
-        if isinstance(typ, nodes.ArrayType):
+        assert isinstance(typ, types.CType)
+        if isinstance(typ, types.ArrayType):
             element_size = self.sizeof(typ.element_type)
+            if typ.size is None:
+                self.error('Size of array could not be determined!', typ)
             array_size = self.gen_expr(typ.size, purpose=self.CONST_EVAL)
             return element_size * array_size
-        elif isinstance(typ, nodes.BareType):
+        elif isinstance(typ, types.BareType):
             return self.ir_type_map[typ.type_id][1]
-        elif isinstance(typ, nodes.IdentifierType):
+        elif isinstance(typ, types.IdentifierType):  # TODO: is this needed?
             return self.sizeof(self.resolve_type(typ))
-        elif isinstance(typ, nodes.StructType):
+        elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error('Storage size unknown', typ)
+            # TODO: round up somewhat?
             return sum(self.sizeof(part.typ) for part in typ.fields)
-        elif isinstance(typ, nodes.UnionType):
+        elif isinstance(typ, types.UnionType):
             if not typ.complete:
-                self.error('Storage size unknown', typ)
+                self.error('Type is incomplete, size unknown', typ)
             return max(self.sizeof(part.typ) for part in typ.fields)
-        elif isinstance(typ, nodes.EnumType):
+        elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error('Storage size unknown', typ)
             # For enums take int as the type
             return self.context.march.byte_sizes['int']
-        elif isinstance(typ, nodes.PointerType):
+        elif isinstance(typ, types.PointerType):
             return self.context.march.byte_sizes['ptr']
-        elif isinstance(typ, nodes.FunctionType):
+        elif isinstance(typ, types.FunctionType):
             # TODO: can we determine size of a function type? Should it not
             # be pointer to a function?
             return self.context.march.byte_sizes['ptr']
-        elif isinstance(typ, nodes.QualifiedType):
+        elif isinstance(typ, types.QualifiedType):
             return self.sizeof(typ.typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))

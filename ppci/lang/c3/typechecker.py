@@ -234,7 +234,7 @@ class TypeChecker:
 
         if not default_block:
             raise SemanticError(
-                'No default case specified in switch-case', switch.loc)
+                'No default case specified in switch-case', switch.location)
 
     def check_return_stmt(self, code):
         """ Check a return statement """
@@ -242,14 +242,15 @@ class TypeChecker:
             if self.context.equal_types(
                     'void', self.current_function.typ.returntype):
                 raise SemanticError(
-                    'Cannot return value from void function', code.expr.loc)
+                    'Cannot return value from void function',
+                    code.expr.loc)
             self.check_expr(code.expr, rvalue=True)
             code.expr = self.do_coerce(
                 code.expr, self.current_function.typ.returntype)
         else:
             if not self.context.equal_types(
                     'void', self.current_function.typ.returntype):
-                raise SemanticError('Cannot return nothing', code.loc)
+                raise SemanticError('Cannot return nothing', code.location)
 
     def check_assignment_stmt(self, code):
         """ Check code for assignment statement """
@@ -260,7 +261,7 @@ class TypeChecker:
         if not self.context.is_simple_type(code.lval.typ):
             raise SemanticError(
                 'Cannot assign to complex type {}'.format(code.lval.typ),
-                code.loc)
+                code.location)
 
         # Check that left hand is an lvalue:
         if not code.lval.lvalue:

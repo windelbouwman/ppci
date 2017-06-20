@@ -45,7 +45,7 @@ class RecursiveDescentParser:
         if typ is None:
             typ = self.peak
 
-        expected_types = typ if isinstance(typ, (list, tuple)) else [typ]
+        expected_types = typ if isinstance(typ, (list, tuple, set)) else [typ]
 
         if self.peak in expected_types:
             return self.next_token()

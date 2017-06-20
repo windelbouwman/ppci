@@ -26,6 +26,13 @@ Overview
    41 -> 50 [label="parsed program"]
    }
 
+The C compilers task is to take C code, and produce intermediate code for
+the backend. The first step is pre processing, during which a sequence of
+tokens is transformed into another sequence of tokens. Next comes parsing and
+code generation. There are two options here: split the parser and code
+generation passes, such that there is a clean seperation, or do it all at
+once. Maybe the best choice is to do it all in one pass, and transform a
+sequence of tokens into IR-code in a single go.
 
 Pre-processor
 -------------

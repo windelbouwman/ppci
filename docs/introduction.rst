@@ -13,7 +13,9 @@ The project contains:
 - Backends for various target architectures, such as
   :ref:`6500<mcs6500>`, :ref:`arm`,
   :ref:`avr`,
-  :ref:`msp430`, :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`,
+  :ref:`msp430`,
+  :ref:`or1k`,
+  :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`,
   :ref:`xtensa`
 - A :ref:`pythonic api<api>` and
   a set of :ref:`command line utilities<commandline>` build around it.

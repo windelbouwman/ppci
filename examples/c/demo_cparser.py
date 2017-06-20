@@ -17,6 +17,12 @@ if __name__ == '__main__':
     args = arg_parser.parse_args()
     filename = args.source
 
+    print("============= [ {} ] ===============".format(args.source))
+    with open(args.source, 'r') as f:
+        for row, line in enumerate(f, 1):
+            print(row, ':', line.rstrip())
+    print("====================================")
+
     # Parsing:
     coptions = COptions()
     context = CContext(coptions, None)
@@ -32,5 +38,9 @@ if __name__ == '__main__':
         ex.print()
         raise
     else:
+        print("================ AST ===============")
         CAstPrinter().print(ast)
+        print("====================================")
+        print("=== Re-rendered source==============")
         CPrinter().print(ast)
+        print("====================================")

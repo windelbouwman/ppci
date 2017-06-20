@@ -1,4 +1,5 @@
 
+import re
 from . import nodes
 
 
@@ -10,6 +11,8 @@ class Visitor:
                 self.visit(d)
         elif isinstance(node, nodes.VariableDeclaration):
             self.visit(node.typ)
+            if node.initial_value:
+                self.visit(node.initial_value)
         elif isinstance(node, nodes.FunctionDeclaration):
             self.visit(node.typ)
             if node.body:
@@ -27,6 +30,9 @@ class Visitor:
             self.visit(node.a)
         elif isinstance(node, nodes.Literal):
             pass
+        elif isinstance(node, nodes.InitializerList):
+            for element in node.elements:
+                self.visit(element)
         elif isinstance(node, nodes.Cast):
             self.visit(node.to_typ)
             self.visit(node.expr)
@@ -37,7 +43,6 @@ class Visitor:
             self.visit(node.index)
         elif isinstance(node, nodes.FieldSelect):
             self.visit(node.base)
-            # self.visit(node.field)
         elif isinstance(node, nodes.FunctionCall):
             for argument in node.args:
                 self.visit(argument)
@@ -48,7 +53,7 @@ class Visitor:
                 self.visit(parameter)
             self.visit(node.return_type)
         elif isinstance(node, nodes.PointerType):
-            self.visit(node.pointed_type)
+            self.visit(node.element_type)
         elif isinstance(node, nodes.ArrayType):
             self.visit(node.element_type)
             # self.visit(node.size)
@@ -133,8 +138,13 @@ class CPrinter:
     def gen_declaration(self, declaration):
         """ Spit out a declaration """
         if isinstance(declaration, nodes.VariableDeclaration):
-            self._print('{} {};'.format(
-                self.gen_type(declaration.typ), declaration.name))
+            if declaration.initial_value:
+                self._print('{} {} = {};'.format(
+                    self.gen_type(declaration.typ), declaration.name,
+                    self.gen_expr(declaration.initial_value)))
+            else:
+                self._print('{} {};'.format(
+                    self.gen_type(declaration.typ), declaration.name))
         elif isinstance(declaration, nodes.FunctionDeclaration):
             if declaration.body:
                 self._print('{} {}'.format(
@@ -154,13 +164,17 @@ class CPrinter:
         if isinstance(typ, nodes.BareType):
             return typ.type_id
         elif isinstance(typ, nodes.PointerType):
-            return '{}*'.format(self.gen_type(typ.pointed_type))
+            return '{}*'.format(self.gen_type(typ.element_type))
+        elif isinstance(typ, nodes.ArrayType):
+            return '{}[]'.format(self.gen_type(typ.element_type))
         elif isinstance(typ, nodes.FunctionType):
             parameters = ', '.join(
                 self.gen_type(p.typ) for p in typ.arguments)
             return '{}({})'.format(self.gen_type(typ.return_type), parameters)
         elif isinstance(typ, nodes.IdentifierType):
             return typ.name
+        elif isinstance(typ, nodes.EnumType):
+            return '{}'.format(typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
@@ -264,6 +278,57 @@ def cnum(txt: str):
     return int(num, base)
 
 
+def replace_escape_codes(txt: str):
+    """ Replace escape codes inside the given text """
+    prog = re.compile(
+        r'(\\[0-7]{1,3})|(\\x[0-9a-fA-F]+)|'
+        r'(\\[\'"?\\abfnrtv])|(\\u[0-9a-fA-F]{4})|(\\U[0-9a-fA-F]{8})')
+    pos = 0
+    endpos = len(txt)
+    parts = []
+    while pos != endpos:
+        # Find next match:
+        mo = prog.search(txt, pos)
+        if mo:
+            # We have an escape code:
+            if mo.start() > pos:
+                parts.append(txt[pos:mo.start()])
+            # print(mo.groups())
+            octal, hx, ch, uni1, uni2 = mo.groups()
+            if octal:
+                char = chr(int(octal[1:], 8))
+            elif hx:
+                char = chr(int(hx[2:], 16))
+            elif ch:
+                mp = {
+                    'a': '\a',
+                    'b': '\b',
+                    'f': '\f',
+                    'n': '\n',
+                    'r': '\r',
+                    't': '\t',
+                    'v': '\v',
+                    '\\': '\\',
+                    '"': '"',
+                    "'": "'",
+                    '?': '?',
+                }
+                char = mp[ch[1:]]
+            elif uni1:
+                char = chr(int(uni1[2:], 16))
+            elif uni2:
+                char = chr(int(uni2[2:], 16))
+            else:  # pragma: no cover
+                raise RuntimeError()
+            parts.append(char)
+            pos = mo.end()
+        else:
+            # No escape code found:
+            parts.append(txt[pos:])
+            pos = endpos
+    return ''.join(parts)
+
+
 def charval(txt: str):
     """ Get the character value of a char literal """
     # Wide char?
@@ -279,7 +344,15 @@ def charval(txt: str):
         if txt[1] in '0123456789':
             return int(txt[1:])
         else:
-            mp = {'n': 13}
+            mp = {
+                'a': '\a',
+                'b': '\b',
+                'f': '\f',
+                'n': '\n',
+                'r': '\r',
+                't': '\t',
+                'v': '\v',
+            }
             return mp[txt[1]]
     else:
         assert len(txt) == 1

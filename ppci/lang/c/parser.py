@@ -11,7 +11,6 @@ The following parts can be distinguished:
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
 from . import nodes
-from .scope import Scope
 
 
 class CParser(RecursiveDescentParser):
@@ -39,28 +38,28 @@ class CParser(RecursiveDescentParser):
     def __init__(self, context):
         super().__init__()
         self.context = context
-        self.coptions = context.coptions
-        self.type_qualifiers = ['volatile', 'const']
-        self.storage_classes = [
-            'typedef', 'static', 'extern', 'register', 'auto']
-        self.type_specifiers = [
+        self.type_qualifiers = {'volatile', 'const'}
+        self.storage_classes = {
+            'typedef', 'static', 'extern', 'register', 'auto'}
+        self.type_specifiers = {
             'void', 'char', 'int', 'float', 'double',
-            'short', 'long', 'signed', 'unsigned']
+            'short', 'long', 'signed', 'unsigned'}
 
-        self.keywords = [
+        self.keywords = {
             'true', 'false',
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
             'switch', 'case', 'default', 'break', 'continue',
-            'sizeof', 'struct', 'union', 'enum']
+            'sizeof', 'struct', 'union', 'enum'}
 
         # Some additions from C99:
-        if self.coptions['std'] == 'c99':
-            self.type_qualifiers.append('restrict')
-            self.keywords.append('inline')
+        if self.context.coptions['std'] == 'c99':
+            self.type_qualifiers.add('restrict')
+            self.keywords.add('inline')
 
-        self.keywords += self.storage_classes
-        self.keywords += self.type_qualifiers
-        self.keywords += self.type_specifiers
+        # Complete the set of keywords:
+        self.keywords |= self.storage_classes
+        self.keywords |= self.type_qualifiers
+        self.keywords |= self.type_specifiers
 
         # Define a priority map for operators:
         self.prio_map = {
@@ -119,13 +118,11 @@ class CParser(RecursiveDescentParser):
     def parse_translation_unit(self):
         """ Top level start of parsing """
         declarations = []
-        self.scope = Scope()
         while not self.at_end:
-            for declaration in self.parse_external_declaration():
-                declarations.append(declaration)
+            declaration = self.parse_external_declaration()
+            declarations.append(declaration)
 
         cu = nodes.CompilationUnit(declarations)
-        cu.scope = self.scope
         return cu
 
     # Declarations part:
@@ -136,10 +133,11 @@ class CParser(RecursiveDescentParser):
         """ Parse a function definition or a list of object declarations """
         ds = self.parse_decl_specifiers()
         if self.has_consumed(';'):
-            return []
+            ds.declarators = []
         else:
             # print(ds)
-            return self.parse_decl_group(ds)
+            ds.declarators = self.parse_decl_group(ds)
+        return ds
 
     def parse_declaration(self):
         """ Parse normal declaration inside function """
@@ -147,21 +145,22 @@ class CParser(RecursiveDescentParser):
         # print(ds)
         # TODO: perhaps not parse functions here?
         if self.has_consumed(';'):
-            return []
+            ds.declarators = []
         else:
-            return self.parse_decl_group(ds)
+            ds.declarators = self.parse_decl_group(ds)
+        return ds
 
     def parse_decl_specifiers(self, allow_storage_class=True):
         """ Parse declaration specifiers.
 
-        At the end of this function we know type and storage class.
+        At the end we know type, storage class and qualifiers.
 
         Gathers storage classes:
         - typedef
         - extern
         - static
 
-        Type specifiers:
+        One of the following type specifiers:
         - void, char, int, unsigned, long, ...
         - typedef-ed type
         - struct, union or enum
@@ -172,110 +171,96 @@ class CParser(RecursiveDescentParser):
         """
 
         ds = nodes.DeclSpec()
-        type_qualifiers = set()
-        type_specifiers = []
+
         while True:
             if self.peak == 'TYPE-ID':
                 # We got a typedef type!
                 typ = self.consume()
-                if ds.typ or type_specifiers:
+                if ds.typ:
                     self.error('Type already defined', typ.loc)
                 else:
-                    ds.typ = nodes.IdentifierType(typ.val)
+                    ds.typ = nodes.IdentifierType(typ.val, typ.loc)
             elif self.peak in self.type_specifiers:
                 type_specifier = self.consume(self.type_specifiers)
                 if ds.typ:
-                    self.error('Type already determined', type_specifier)
+                    if isinstance(ds.typ, nodes.BasicType):
+                        ds.typ.type_specifiers.append(type_specifier.val)
+                    else:
+                        self.error('Type already determined', type_specifier)
                 else:
-                    type_specifiers.append(type_specifier.val)
+                    ds.typ = nodes.BasicType(
+                        [type_specifier.val], type_specifier.loc)
             elif self.peak == 'enum':
-                ds.typ = self.parse_enum()
+                if ds.typ:
+                    self.error('Type already determined')
+                else:
+                    ds.typ = self.parse_enum()
             elif self.peak in ['struct', 'union']:
-                ds.typ = self.parse_struct_or_union()
+                if ds.typ:
+                    self.error('Type already determined')
+                else:
+                    ds.typ = self.parse_struct_or_union()
             elif self.peak in self.storage_classes:
                 storage_class = self.consume(self.storage_classes)
                 if not allow_storage_class:
-                    self.error('Unexpected storage class', storage_class)
+                    self.error('Unexpected storage class', storage_class.loc)
                 elif ds.storage_class:
-                    self.error('Multiple storage classes', storage_class)
+                    self.error('Multiple storage classes', storage_class.loc)
                 else:
                     ds.storage_class = storage_class.val
             elif self.peak in self.type_qualifiers:
                 type_qualifier = self.consume(self.type_qualifiers)
-                if type_qualifier.val in type_qualifiers:
-                    self.error('Double type qualifier', type_qualifier)
+                if type_qualifier.val in ds.type_qualifiers:
+                    self.error('Double type qualifier', type_qualifier.loc)
                 else:
-                    type_qualifiers.add(type_qualifier.val)
+                    ds.type_qualifiers.add(type_qualifier.val)
             elif self.peak in ['inline']:
                 self.consume('inline')
-                self.logger.warning('Ignoring inline for now')
+                # inline is a compiler hint. For now, ignore this hint :)
+                self.logger.debug('Ignoring inline for now')
             else:
                 break
 
-        # Now that we are here, determine the type
+        # Now that we are here, the type must be determined
         if not ds.typ:
-            # Determine the type based on type specifiers
-            if not type_specifiers:
-                self.error(
-                    'Expected at least one type specifier, got {}'.format(
-                        self.peak))
-            if self.context.is_valid(type_specifiers):
-                ds.typ = self.context.get_type(type_specifiers)
-            else:
-                self.error(
-                    'Invalid type specifier {}'.format(type_specifiers))
-
-        # Copy type qualifiers:
-        ds.typ.qualifiers |= type_qualifiers
+            self.error('Expected at least one type specifier')
 
         return ds
 
     def parse_struct_or_union(self):
         """ Parse a struct or union """
-        keyword = self.consume(['struct', 'union'])
-        if keyword.val == 'struct':
-            klass = nodes.StructType
-        else:
-            klass = nodes.UnionType
+        keyword = self.consume({'struct', 'union'})
 
         # We might have an optional tag:
         if self.peak == 'ID':
             tag = self.consume('ID').val
-            if tag in self.scope.tags:
-                typ = self.scope.tags[tag]
-                if not isinstance(typ, klass):
-                    self.error('Wrong tag kind', keyword.loc)
-                if typ.complete and self.peak == '{':
-                    self.error('Multiple definitions', keyword.loc)
-            else:
-                typ = klass(tag=tag)
-                self.scope.tags[tag] = typ
         elif self.peak == '{':
-            typ = klass()
+            tag = None
         else:
-            self.error('Expected tag name or struct declaration', keyword.loc)
+            self.error('Expected tag name or "{"', keyword.loc)
 
         if self.peak == '{':
             # We have a struct declarations:
             self.consume('{')
             fields = []
             while self.peak != '}':
-                ds = self.parse_decl_specifiers()
+                ds = self.parse_decl_specifiers(allow_storage_class=False)
                 while True:
-                    declaration = self.parse_struct_field_declarator(ds)
-                    fields.append(declaration)
+                    declarator = self.parse_struct_field_declarator(ds)
+                    ds.declarators.append(declarator)
                     if self.has_consumed(','):
                         continue
                     else:
                         break
+                fields.append(ds)
                 self.consume(';')
             self.consume('}')
+        else:
+            fields = None
 
-            # Determine size and offset of elements at this point.
-            # TODO
-            typ.fields = fields
-
-        return typ
+        mp = {'struct': nodes.Struct, 'union': nodes.Union}
+        klass = mp[keyword.val]
+        return klass(tag, fields, keyword.loc)
 
     def parse_enum(self):
         """ Parse an enum definition """
@@ -284,21 +269,12 @@ class CParser(RecursiveDescentParser):
         # We might have an optional tag:
         if self.peak == 'ID':
             tag = self.consume('ID').val
-            if tag in self.scope.tags:
-                typ = self.scope.tags[tag]
-                if not isinstance(typ, nodes.EnumType):
-                    self.error('Wrong tag kind', keyword.loc)
-                if typ.complete and self.peak == '{':
-                    self.error('Multiple definitions', keyword.loc)
-            else:
-                typ = nodes.EnumType()
-                self.scope.tags[tag] = typ
         elif self.peak == '{':
-            typ = nodes.EnumType()
+            tag = None
         else:
             self.error('Expected tag name or enum declaration', keyword.loc)
 
-        # If we have a body:
+        # If we have a body, either after tag or directly, parse it:
         if self.peak == '{':
             self.consume('{')
             if self.has_consumed('}'):
@@ -310,27 +286,14 @@ class CParser(RecursiveDescentParser):
                     value = self.parse_constant_expression()
                 else:
                     value = None
-                enum_values.append((name, value))
+                enum_values.append(nodes.Enumerator(name.val, value, name.loc))
                 if not self.has_consumed(','):
                     break
             self.consume('}')
+        else:
+            enum_values = None
 
-            # handle all values of the enum:
-            previous_value = nodes.Literal(0, keyword.loc)
-            one = nodes.Literal(1, keyword.loc)
-            for name, constant_expression in enum_values:
-                # Declare constant values:
-                if constant_expression is None:
-                    value = nodes.Binop(previous_value, '+', one, name.loc)
-                else:
-                    value = constant_expression
-                const = nodes.ConstantDeclaration(
-                    self.context.get_type(['int']), name.val, value, name.loc)
-                self.scope.insert(const)
-                previous_value = value
-
-            typ.values = enum_values
-        return typ
+        return nodes.Enum(tag, enum_values, keyword.loc)
 
     def parse_decl_group(self, ds):
         """ Parse the rest after the first declaration spec.
@@ -343,14 +306,7 @@ class CParser(RecursiveDescentParser):
 
         declarations = []
         d = self.parse_declarator(ds)
-        if ds.storage_class == 'typedef':
-            # Skip typedef 'storage class'
-            declarations.append(d)
-            while self.has_consumed(','):
-                d = self.parse_declarator(ds)
-                declarations.append(d)
-            self.consume(';')
-        elif d.is_function and not self.is_decl_following():
+        if self.peak == '{':
             # if function, parse implementation.
             # func_def = None
             body = self.parse_compound_statement()
@@ -368,29 +324,21 @@ class CParser(RecursiveDescentParser):
             self.consume(';')
         return declarations
 
-    def is_decl_following(self):
-        if self.peak in [',', ';', '=']:
-            return True
-        return False
-
     def parse_declarator(self, ds, abstract=False):
         """ Given a declaration specifier, parse the rest.
 
         This involves parsing optionally pointers and qualifiers
         and next the declaration itself.
         """
-        if ds.typ is None:
-            self.error("Expected type")
+        assert ds.typ is not None
 
+        print(ds)
         type_modifiers, name = self.parse_type_modifiers(abstract=abstract)
-        typ = self.apply_type_modifiers(type_modifiers, ds.typ)
         if name:
             name, loc = name.val, name.loc
         else:
             name = None
             loc = None
-
-        assert isinstance(typ, nodes.CType)
 
         # Handle the initial value:
         if self.peak == '=':
@@ -399,67 +347,43 @@ class CParser(RecursiveDescentParser):
         else:
             initializer = None
 
-        # Create declaration entity:
+        # Handle typedefs:
         if ds.storage_class == 'typedef':
+            assert name is not None
             self.typedefs.add(name)
-            d = nodes.Typedef(typ, name, loc)
-        else:
-            if isinstance(typ, nodes.FunctionType):
-                d = nodes.FunctionDeclaration(typ, name, loc)
-                # d.arguments = args
-            else:
-                d = nodes.VariableDeclaration(
-                    typ, name, initializer, loc)
-            assert isinstance(d.typ, nodes.CType), str(d.typ)
-        return d
+
+        return nodes.Declarator(name, type_modifiers, initializer, loc)
 
     def parse_variable_initializer(self):
         """ Parse the C-style array or struct initializer stuff """
         if self.peak == '{':
-            self.consume('{')
+            loc = self.consume('{').loc
             series = []
             series.append(self.parse_variable_initializer())
             while self.has_consumed(','):
                 series.append(self.parse_variable_initializer())
             self.consume('}')
-            initializer = series
+            initializer = nodes.InitializerList(series, loc)
         else:
-            initializer = self.parse_expression()
+            initializer = self.parse_constant_expression()
         return initializer
 
     def parse_struct_field_declarator(self, ds):
         """ Given a declaration specifier, parse a struct field. """
-        if ds.typ is None:
-            self.error("Expected type")
+        assert ds.typ is not None
 
         type_modifiers, name = self.parse_type_modifiers(abstract=False)
-        typ = self.apply_type_modifiers(type_modifiers, ds.typ)
         name, loc = name.val, name.loc
-
-        assert isinstance(typ, nodes.CType)
 
         # Handle optional struct field size:
         if self.peak == ':':
             self.consume(':')
-            self.parse_constant_expression()
+            bitsize = self.parse_constant_expression()
             # TODO: move this somewhere else?
-
-        # Handle the initial value:
-        initializer = None
-
-        # Create declaration entity:
-        if ds.storage_class == 'typedef':
-            self.typedefs.add(name)
-            d = nodes.Typedef(typ, name, loc)
         else:
-            if isinstance(typ, nodes.FunctionType):
-                d = nodes.FunctionDeclaration(typ, name, loc)
-                # d.arguments = args
-            else:
-                d = nodes.VariableDeclaration(
-                    typ, name, initializer, loc)
-            assert isinstance(d.typ, nodes.CType), str(d.typ)
-        return d
+            bitsize = None
+
+        return nodes.StructFieldDeclarator(name, type_modifiers, bitsize, loc)
 
     def parse_function_declarator(self):
         """ Parse function postfix. We have type and name, now parse
@@ -474,13 +398,15 @@ class CParser(RecursiveDescentParser):
         else:
             while True:
                 if self.peak == '...':
+                    # Variable arguments found!
                     self.consume('...')
-                    # TODO mark var args..
+                    args.append('...')
                     break
                 else:
                     ds = self.parse_decl_specifiers()
                     d = self.parse_declarator(ds, abstract=True)
-                    args.append(d)
+                    ds.declarators.append(d)
+                    args.append(ds)
                     if not self.has_consumed(','):
                         break
             # self.consume(')')
@@ -571,36 +497,17 @@ class CParser(RecursiveDescentParser):
         ds = self.parse_decl_specifiers()
         if ds.storage_class:
             self.error('Storage class cannot be used here')
-        typ = self.parse_abstract_declarator(ds.typ)
-        return typ
+        declarator = self.parse_abstract_declarator()
+        ds.declarators.append(declarator)
+        return ds
 
-    def parse_abstract_declarator(self, typ):
+    def parse_abstract_declarator(self):
         """ Parse a declarator without a variable name """
+        location = self.current_location
         type_modifiers, name = self.parse_type_modifiers(abstract=True)
         if name:
             self.error('Unexpected name for type declaration', name)
-        typ = self.apply_type_modifiers(type_modifiers, typ)
-        return typ
-
-    @staticmethod
-    def apply_type_modifiers(type_modifiers, typ):
-        """ Apply the set of type modifiers to the given type """
-        # Apply type modifiers in reversed order, starting outwards, going
-        # from the outer type to the inside name.
-        for modifier in reversed(type_modifiers):
-            if modifier[0] == 'POINTER':
-                typ = nodes.PointerType(typ)
-                type_qualifiers = modifier[1]
-                typ.qualifiers |= type_qualifiers
-            elif modifier[0] == 'ARRAY':
-                size = modifier[1]
-                typ = nodes.ArrayType(typ, size)
-            elif modifier[0] == 'FUNCTION':
-                arguments = modifier[1]
-                typ = nodes.FunctionType(arguments, typ)
-            else:  # pragma: no cover
-                raise NotImplementedError(str(modifier))
-        return typ
+        return nodes.Declarator(None, type_modifiers, None, location)
 
     # Statement part:
     def parse_statement_or_declaration(self):
@@ -609,10 +516,12 @@ class CParser(RecursiveDescentParser):
         Returns: a list of statements """
 
         if self.is_declaration_statement():
-            statements = self.parse_declaration()
+            location = self.current_location
+            declaration = self.parse_declaration()
+            statement = nodes.DeclarationStatement(declaration, location)
         else:
-            statements = [self.parse_statement()]
-        return statements
+            statement = self.parse_statement()
+        return statement
 
     def is_declaration_statement(self):
         """ Determine whether we are facing a declaration or not """
@@ -651,12 +560,13 @@ class CParser(RecursiveDescentParser):
             if self.peak == 'ID' and self.look_ahead(1).val == ':':
                 statement = self.parse_label()
             else:
-                statement = self.parse_expression()
+                expression = self.parse_expression()
+                statement = nodes.ExpressionStatement(expression)
                 self.consume(';')
         return statement
 
     def parse_label(self):
-        """ Parse a label """
+        """ Parse a label statement """
         name = self.consume('ID')
         self.consume(':')
         statement = self.parse_statement()
@@ -672,7 +582,7 @@ class CParser(RecursiveDescentParser):
         statements = []
         loc = self.consume('{').loc
         while self.peak != '}':
-            statements.extend(self.parse_statement_or_declaration())
+            statements.append(self.parse_statement_or_declaration())
         self.consume('}')
         return nodes.Compound(statements, loc)
 
@@ -838,14 +748,13 @@ class CParser(RecursiveDescentParser):
                 expr = nodes.VariableAccess(identifier.val, identifier.loc)
         elif self.peak == 'NUMBER':
             n = self.consume()
-            expr = nodes.Literal(n.val, n.loc)
+            expr = nodes.NumericLiteral(n.val, n.loc)
         elif self.peak == 'CHAR':
             n = self.consume()
-            expr = nodes.Literal(n.val, n.loc)
+            expr = nodes.CharLiteral(n.val, n.loc)
         elif self.peak == 'STRING':
             txt = self.consume()
-            # print(txt)
-            expr = nodes.Literal(txt.val, txt.loc)
+            expr = nodes.StringLiteral(txt.val, txt.loc)
         elif self.peak in ['!', '*', '+', '-', '~', '&', '--', '++']:
             op = self.consume()
             if op.val in ['--', '++']:

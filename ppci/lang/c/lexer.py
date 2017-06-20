@@ -41,9 +41,9 @@ class Char:
 
 def create_characters(f, filename):
     """ Create a sequence of characters """
-    for row, line in enumerate(f):
-        for col, char in enumerate(line):
-            loc = SourceLocation(filename, row + 1, col + 1, 1)
+    for row, line in enumerate(f, 1):
+        for col, char in enumerate(line, 1):
+            loc = SourceLocation(filename, row, col, 1)
             yield Char(char, loc)
 
 
@@ -470,6 +470,16 @@ class CLexer(HandLexerBase):
                 self.accept(self.octal_numbers)
                 self.accept(self.octal_numbers)
             elif self.accept('x'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+            elif self.accept('u'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+            elif self.accept('U'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
                 self.accept(self.hex_numbers)
                 self.accept(self.hex_numbers)
             else:

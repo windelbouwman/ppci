@@ -356,7 +356,7 @@ class CodeGenerator:
         # And make it rightly typed:
         rval = self.do_coerce(code.rval, code.lval.typ, rval)
 
-        return self.emit(ir.Store(rval, lval), loc=code.loc)
+        return self.emit(ir.Store(rval, lval), loc=code.location)
 
     def gen_local_var_init(self, var):
         """ Initialize a local variable """

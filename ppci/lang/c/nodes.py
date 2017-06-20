@@ -1,8 +1,10 @@
 """ Classes for the abstract syntax tree (AST) nodes for the C language.
+
+The goal is to be able to recreate source from this ast as close to
+the original source as possible.
 """
 
-from ...common import SourceLocation
-from ..generic.nodes import Statement, Compound
+from ..generic.nodes import Statement, Compound, Expression
 
 
 class CompilationUnit:
@@ -18,251 +20,101 @@ class CompilationUnit:
 class DeclSpec:
     """ Contains a type and a set of modifiers """
     def __init__(self):
-        self.typ = None
+        self.typ = None  # The later determined type!
         self.storage_class = None
-        # self.type_specifiers = []
-        # self.type_qualifiers = set()
+        self.type_qualifiers = set()
+        self.declarators = []
 
     def __repr__(self):
-        return '[decl-spec mod={}]'.format(self.storage_class)
+        return '[decl-spec storage={}, qualifiers={}, type={}, {}]'.format(
+            self.storage_class, self.type_qualifiers, self.typ,
+            self.declarators)
 
 
-class Declaration:
-    def __init__(self, typ, loc):
-        assert isinstance(typ, CType)
-        self.typ = typ
+class Declarator:
+    def __init__(self, name, modifiers, initializer, loc):
+        self.name = name
+        self.modifiers = modifiers
+        self.initializer = initializer
         self.loc = loc
 
-    @property
-    def is_function(self):
-        return isinstance(self, FunctionDeclaration)
+
+# Type parse nodes:
+class TypeNode:
+    def __init__(self, location):
+        self.location = location
 
 
-class NamedDeclaration(Declaration):
-    """ A single declaration """
-    def __init__(self, typ, name, loc):
-        super().__init__(typ, loc)
-        self.storage_class = None
+class IdentifierType(TypeNode):
+    """ A type given by a series of type specifiers """
+    def __init__(self, name, location):
+        super().__init__(location)
         self.name = name
 
 
-class Typedef(NamedDeclaration):
-    """ Type definition """
-    def __repr__(self):
-        return 'Typedef {}'.format(self.name)
-
-
-class VariableDeclaration(NamedDeclaration):
-    def __init__(self, typ, name, initial_value, loc):
-        super().__init__(typ, name, loc)
-        self.initial_value = initial_value
+class BasicType(TypeNode):
+    """ Basic type specification """
+    def __init__(self, type_specifiers, location):
+        super().__init__(location)
+        self.type_specifiers = type_specifiers
 
     def __repr__(self):
-        return 'Variable [decl typ={} name={}, {}]'.format(
-            self.typ, self.name, self.storage_class)
+        return 'Basic type "{}"'.format(' '.join(self.type_specifiers))
 
 
-class ConstantDeclaration(NamedDeclaration):
-    def __init__(self, typ, name, value, loc):
-        super().__init__(typ, name, loc)
-        self.value = value
-
-    def __repr__(self):
-        return 'Const [typ={} name={}, {}]'.format(
-            self.typ, self.name, self.value)
-
-
-class ParameterDeclaration(Declaration):
-    pass
+class StructFieldDeclarator(TypeNode):
+    """ A declaration of a field inside a struct or union """
+    def __init__(self, name, type_modifiers, bitsize, location):
+        super().__init__(location)
+        self.name = name
+        self.modifiers = type_modifiers
+        self.bitsize = bitsize
 
 
-class FunctionDeclaration(NamedDeclaration):
-    """ A function declaration """
-    def __init__(self, typ, name, loc):
-        super().__init__(typ, name, loc)
-        self.body = None
-
-    def __repr__(self):
-        return 'FunctionDeclaration typ={} name={}'.format(
-            self.typ, self.name)
-
-
-# A type system:
-class CType:
-    """ Base class for all types """
-    def __init__(self):
-        self.qualifiers = set()
-
-    @property
-    def is_void(self):
-        return isinstance(self, BareType) and self.type_id == BareType.VOID
-
-
-class QualifiedType(CType):
-    """ A qualified type """
-    def __init__(self, qualifiers, typ):
-        self.qualifiers = qualifiers
-        self.typ = typ
-
-    def __repr__(self):
-        return 'Qualified type'
-
-
-class FunctionType(CType):
-    def __init__(self, arguments, return_type):
-        super().__init__()
-        self.arguments = arguments
-        assert all(isinstance(a, VariableDeclaration) for a in arguments)
-        self.arg_types = [a.typ for a in arguments]
-        self.return_type = return_type
-
-    def __repr__(self):
-        return 'Function-type'
-
-
-class ArrayType(CType):
-    """ Array type """
-    def __init__(self, element_type, size):
-        super().__init__()
-        self.element_type = element_type
-        self.size = size
-
-    def __repr__(self):
-        return 'Array-type'
-
-
-class EnumType(CType):
-    """ Enum type """
-    def __init__(self, values=None):
-        super().__init__()
-        self.values = values
-
-    @property
-    def complete(self):
-        return self.values is not None
-
-
-class StructOrUnionType(CType):
-    """ Common base for struct and union types """
-    def __init__(self, tag=None, fields=None):
-        super().__init__()
-        self._fields = None
+class StructOrUnion(TypeNode):
+    """ A struct or a union """
+    def __init__(self, tag, fields, location):
+        super().__init__(location)
         self.tag = tag
         self.fields = fields
 
-    @property
-    def incomplete(self):
-        """ Check whether this type is incomplete or not """
-        return self.fields is None
 
-    @property
-    def complete(self):
-        return not self.incomplete
-
-    def get_fields(self):
-        return self._fields
-
-    def set_fields(self, fields):
-        self._fields = fields
-        if fields:
-            self.field_map = {f.name: f for f in fields}
-
-    fields = property(get_fields, set_fields)
-
-    def has_field(self, name):
-        return name in self.field_map
-
-    def get_field(self, name):
-        return self.field_map[name]
-
-
-class StructType(StructOrUnionType):
-    """ Structure type """
+class Struct(StructOrUnion):
+    """ Struct """
     def __repr__(self):
-        return 'Structured-type'
+        return 'Struct declaration'
 
 
-# class StructReferenceType(CType):
-#    """ Refering to a tagged struct """
-#    def __init__(self, name):
-#        super().__init__()
-#        self.name = name
-#
-#    def __repr__(self):
-#        return 'IdentifierType: {}'.format(self.name)
-
-
-class UnionType(StructOrUnionType):
-    """ Union type """
+class Union(StructOrUnion):
+    """ Union """
     def __repr__(self):
-        return 'Union-type'
+        return 'Union declaration'
 
 
-class PointerType(CType):
-    """ The famous pointer! """
-    def __init__(self, pointed_type):
-        super().__init__()
-        self.pointed_type = pointed_type
-
-    def __repr__(self):
-        return 'Pointer-type'
+class Enum(TypeNode):
+    """ A declaration of an enum """
+    def __init__(self, tag, values, location):
+        super().__init__(location)
+        self.tag = tag
+        self.values = values
 
 
-class IdentifierType(CType):
-    """ Refering to a typedef type """
-    def __init__(self, name):
-        super().__init__()
+class Enumerator(TypeNode):
+    """ A single enum value """
+    def __init__(self, name, value, location):
+        super().__init__(location)
         self.name = name
+        self.value = value
 
     def __repr__(self):
-        return 'IdentifierType: {}'.format(self.name)
-
-
-class BareType(CType):
-    """ This type is one of: int, unsigned int, float or void """
-    VOID = 'void'
-    CHAR = 'char'
-    SCHAR = 'signed char'
-    UCHAR = 'unsigned char'
-    SHORT = 'short'
-    USHORT = 'unsigned short'
-    INT = 'int'
-    UINT = 'unsigned int'
-    LONG = 'long'
-    ULONG = 'unsigned long'
-    LONGLONG = 'long long'
-    ULONGLONG = 'unsigned long long'
-    FLOAT = 'float'
-    DOUBLE = 'double'
-    LONGDOUBLE = 'long double'
-
-    def __init__(self, type_id):
-        super().__init__()
-        self.type_id = type_id
-
-    def __repr__(self):
-        return 'Basetype {}'.format(self.type_id)
-
-
-# class VoidType(NamedType):
-#    """ Type representing no value """
-#    def __init__(self):
-#        super().__init__('void')
-
-
-# class IntegerType(NamedType):
-#    pass
-
-
-# class FloatingPointType(NamedType):
-#    pass
+        return 'Enumerator: {}'.format(self.name)
 
 
 # Statements:
 class If(Statement):
     """ If statement """
-    def __init__(self, condition, yes, no, loc):
-        super().__init__(loc)
+    def __init__(self, condition, yes, no, location):
+        super().__init__(location)
         self.condition = condition
         self.yes = yes
         self.no = no
@@ -273,8 +125,8 @@ class If(Statement):
 
 class Switch(Statement):
     """ Switch statement """
-    def __init__(self, expression, statement, loc):
-        super().__init__(loc)
+    def __init__(self, expression, statement, location):
+        super().__init__(location)
         self.expression = expression
         self.statement = statement
 
@@ -284,16 +136,16 @@ class Switch(Statement):
 
 class While(Statement):
     """ While statement """
-    def __init__(self, condition, body, loc):
-        super().__init__(loc)
+    def __init__(self, condition, body, location):
+        super().__init__(location)
         self.condition = condition
         self.body = body
 
 
 class DoWhile(Statement):
     """ Do-while statement """
-    def __init__(self, body, condition, loc):
-        super().__init__(loc)
+    def __init__(self, body, condition, location):
+        super().__init__(location)
         self.condition = condition
         self.body = body
 
@@ -303,8 +155,8 @@ class DoWhile(Statement):
 
 class For(Statement):
     """ For statement """
-    def __init__(self, init, condition, post, body, loc):
-        super().__init__(loc)
+    def __init__(self, init, condition, post, body, location):
+        super().__init__(location)
         self.init = init
         self.condition = condition
         self.post = post
@@ -328,8 +180,8 @@ class Continue(Statement):
 
 class Case(Statement):
     """ Case statement """
-    def __init__(self, value, statement, loc):
-        super().__init__(loc)
+    def __init__(self, value, statement, location):
+        super().__init__(location)
         self.value = value
         self.statement = statement
 
@@ -339,8 +191,8 @@ class Case(Statement):
 
 class Default(Statement):
     """ Default statement """
-    def __init__(self, statement, loc):
-        super().__init__(loc)
+    def __init__(self, statement, location):
+        super().__init__(location)
         self.statement = statement
 
     def __repr__(self):
@@ -349,8 +201,8 @@ class Default(Statement):
 
 class Label(Statement):
     """ A label """
-    def __init__(self, name, statement, loc):
-        super().__init__(loc)
+    def __init__(self, name, statement, location):
+        super().__init__(location)
         self.name = name
         self.statement = statement
 
@@ -360,8 +212,8 @@ class Label(Statement):
 
 class Goto(Statement):
     """ Goto statement """
-    def __init__(self, label, loc):
-        super().__init__(loc)
+    def __init__(self, label, location):
+        super().__init__(location)
         self.label = label
 
     def __repr__(self):
@@ -370,8 +222,8 @@ class Goto(Statement):
 
 class Return(Statement):
     """ Return statement """
-    def __init__(self, value, loc):
-        super().__init__(loc)
+    def __init__(self, value, location):
+        super().__init__(location)
         self.value = value
 
     def __repr__(self):
@@ -384,16 +236,28 @@ class Empty(Statement):
         return 'Empty'
 
 
-class Expression:
-    """ Some nice common base class for expressions """
-    def __init__(self, loc: SourceLocation):
-        self.loc = loc
+class ExpressionStatement(Statement):
+    def __init__(self, expression):
+        super().__init__(expression.location)
+        self.expression = expression
+
+    def __repr__(self):
+        return 'Expression statement'
+
+
+class DeclarationStatement(Statement):
+    def __init__(self, declaration, location):
+        super().__init__(location)
+        self.declaration = declaration
+
+    def __repr__(self):
+        return 'Declaration statement'
 
 
 class FunctionCall(Expression):
     """ Function call """
-    def __init__(self, name, args, loc):
-        super().__init__(loc)
+    def __init__(self, name, args, location):
+        super().__init__(location)
         self.name = name
         self.args = args
 
@@ -403,8 +267,8 @@ class FunctionCall(Expression):
 
 class Ternop(Expression):
     """ Ternary operator """
-    def __init__(self, a, op, b, c, loc):
-        super().__init__(loc)
+    def __init__(self, a, op, b, c, location):
+        super().__init__(location)
         assert isinstance(a, Expression)
         assert isinstance(b, Expression)
         assert isinstance(c, Expression)
@@ -420,8 +284,8 @@ class Ternop(Expression):
 
 class Binop(Expression):
     """ Binary operator """
-    def __init__(self, a, op, b, loc):
-        super().__init__(loc)
+    def __init__(self, a, op, b, location):
+        super().__init__(location)
         assert isinstance(a, Expression)
         assert isinstance(b, Expression)
         self.a = a
@@ -434,8 +298,8 @@ class Binop(Expression):
 
 class Unop(Expression):
     """ Unary operator """
-    def __init__(self, op, a, loc):
-        super().__init__(loc)
+    def __init__(self, op, a, location):
+        super().__init__(location)
         assert isinstance(a, Expression)
         self.a = a
         self.op = op
@@ -445,8 +309,8 @@ class Unop(Expression):
 
 
 class Cast(Expression):
-    def __init__(self, to_typ, expr, loc):
-        super().__init__(loc)
+    def __init__(self, to_typ, expr, location):
+        super().__init__(location)
         self.to_typ = to_typ
         self.expr = expr
 
@@ -456,8 +320,8 @@ class Cast(Expression):
 
 class Sizeof(Expression):
     """ Sizeof operator """
-    def __init__(self, sizeof_typ, loc):
-        super().__init__(loc)
+    def __init__(self, sizeof_typ, location):
+        super().__init__(location)
         self.sizeof_typ = sizeof_typ
 
     def __repr__(self):
@@ -466,8 +330,8 @@ class Sizeof(Expression):
 
 class ArrayIndex(Expression):
     """ Array indexing """
-    def __init__(self, base, index, loc):
-        super().__init__(loc)
+    def __init__(self, base, index, location):
+        super().__init__(location)
         self.base = base
         self.index = index
 
@@ -477,8 +341,8 @@ class ArrayIndex(Expression):
 
 class FieldSelect(Expression):
     """ Select a field in a struct """
-    def __init__(self, base, field, loc):
-        super().__init__(loc)
+    def __init__(self, base, field, location):
+        super().__init__(location)
         self.base = base
         self.field = field
 
@@ -487,8 +351,8 @@ class FieldSelect(Expression):
 
 
 class VariableAccess(Expression):
-    def __init__(self, name, loc):
-        super().__init__(loc)
+    def __init__(self, name, location):
+        super().__init__(location)
         self.name = name
 
     def __repr__(self):
@@ -496,12 +360,39 @@ class VariableAccess(Expression):
 
 
 class Literal(Expression):
-    def __init__(self, value, loc):
-        super().__init__(loc)
+    def __init__(self, value, location):
+        super().__init__(location)
         self.value = value
 
     def __repr__(self):
         return 'Literal {}'.format(self.value)
+
+
+class CharLiteral(Literal):
+    """ A character literal """
+    def __repr__(self):
+        return 'Char literal {}'.format(self.value)
+
+
+class NumericLiteral(Literal):
+    def __repr__(self):
+        return 'Numeric literal {}'.format(self.value)
+
+
+class StringLiteral(Literal):
+    """ A string literal """
+    def __repr__(self):
+        return 'String literal {}'.format(self.value)
+
+
+class InitializerList(Expression):
+    """ A c style initializer list """
+    def __init__(self, elements, loc):
+        super().__init__(loc)
+        self.elements = elements
+
+    def __repr__(self):
+        return 'Initializer list'
 
 
 __all__ = ['If', 'Compound']

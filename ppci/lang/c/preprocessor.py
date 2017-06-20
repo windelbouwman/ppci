@@ -19,7 +19,7 @@ import time
 
 from ...common import CompilerError, SourceLocation
 from .lexer import CLexer, CToken, lex_text
-from .utils import cnum, charval
+from .utils import cnum, charval, replace_escape_codes
 
 
 class CPreProcessor:
@@ -960,6 +960,41 @@ def skip_ws(tokens):
             yield token
 
 
+def string_convert(tokens):
+    """ Phase 5 of compilation.
+
+    Process escaped string constants into unicode. """
+    # TODO: do something here!
+    # Process
+    for token in tokens:
+        if token.typ == 'STRING':
+            token.val = replace_escape_codes(token.val)
+        elif token.typ == 'CHAR':
+            token.val = replace_escape_codes(token.val)
+        yield token
+
+
+def string_concat(tokens):
+    """ Merge adjacent string literals into single tokens.
+
+    This is phase 6 of compilation. """
+    string_token = None
+    for token in tokens:
+        if token.typ == 'STRING':
+            if string_token:
+                string_token.val += token.val
+            else:
+                string_token = token
+        else:
+            if string_token:
+                yield string_token
+                string_token = None
+            yield token
+
+    if string_token:
+        yield string_token
+
+
 def prepare_for_parsing(tokens, keywords):
     """ Strip out tokens on the way from preprocessor to parser.
 
@@ -969,8 +1004,9 @@ def prepare_for_parsing(tokens, keywords):
     This involves:
     - Removal of whitespace
     - Changing some id's into keywords
+    - Concatenation of adjacent string literals.
     """
-    for token in skip_ws(tokens):
+    for token in string_concat(string_convert(skip_ws(tokens))):
         if token.typ == 'ID':
             if token.val in keywords:
                 token.typ = token.val

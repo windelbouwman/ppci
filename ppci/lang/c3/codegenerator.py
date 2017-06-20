@@ -341,16 +341,19 @@ class CodeGenerator:
 
             # We know, the left hand side is an lvalue, so load it:
             lhs_ld = self.emit(
-                ir.Load(lval, 'assign_op_load', load_ty), loc=code.loc)
+                ir.Load(lval, 'assign_op_load', load_ty),
+                loc=code.location)
 
             # Now construct the rvalue:
             oper = code.shorthand_operator
             rval = self.emit(
-                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty), loc=code.loc)
+                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty),
+                loc=code.location)
 
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
-        return self.emit(ir.Store(rval, lval, volatile=volatile), loc=code.loc)
+        return self.emit(ir.Store(
+            rval, lval, volatile=volatile), loc=code.location)
 
     def gen_local_var_init(self, var):
         """ Initialize a local variable """
