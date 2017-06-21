@@ -7,11 +7,9 @@ module system (
         output reg [7:0] out_byte,
 	output reg       out_byte_en
 );
-	// set this to 0 for better timing but less performance/MHz
-	parameter FAST_MEMORY = 0;
 
-	// 4096 32bit words = 16kB memory
-	parameter MEM_SIZE = 16384;
+	// 32768 32bit words = 128kB memory
+	parameter MEM_SIZE = 32768;
 
         integer            tb_idx;
 
@@ -22,12 +20,6 @@ module system (
 	wire [31:0] mem_wdata;
 	wire [3:0] mem_wstrb;
 	reg [31:0] mem_rdata;
-
-	wire mem_la_read;
-	wire mem_la_write;
-	wire [31:0] mem_la_addr;
-	wire [31:0] mem_la_wdata;
-	wire [3:0] mem_la_wstrb;
 
         wire uart_cs;
        	wire [3:0] uart_wstrb;
@@ -46,11 +38,6 @@ module system (
 		.mem_wdata   (mem_wdata   ),
 		.mem_wstrb   (mem_wstrb   ),
 		.mem_rdata   (mem_rdata   ),
-		.mem_la_read (mem_la_read ),
-		.mem_la_write(mem_la_write),
-		.mem_la_addr (mem_la_addr ),
-		.mem_la_wdata(mem_la_wdata),
-		.mem_la_wstrb(mem_la_wstrb),
                 .irq(irqs),
                 .eoi(eois)
 	);
@@ -92,22 +79,7 @@ module system (
 	reg [31:0] m_read_data;
 	reg m_read_en;
 
-	generate if (FAST_MEMORY) begin
-		always @(posedge clk) begin
-			mem_ready <= 1;
-			mem_rdata <= memory[mem_la_addr >> 2];
-			if (mem_la_write && (mem_la_addr >> 2) < MEM_SIZE) begin
-				if (mem_la_wstrb[0]) memory[mem_la_addr >> 2][ 7: 0] <= mem_la_wdata[ 7: 0];
-				if (mem_la_wstrb[1]) memory[mem_la_addr >> 2][15: 8] <= mem_la_wdata[15: 8];
-				if (mem_la_wstrb[2]) memory[mem_la_addr >> 2][23:16] <= mem_la_wdata[23:16];
-				if (mem_la_wstrb[3]) memory[mem_la_addr >> 2][31:24] <= mem_la_wdata[31:24];
-			end
-			else
-			if (mem_la_write && mem_la_addr == 32'h1000_0000) begin				
-			end
-		end
-	end else begin
-		always @(posedge clk) begin
+	always @(posedge clk) begin
 			m_read_en <= 0;
 			mem_ready <= mem_valid && !mem_ready && m_read_en;
 
@@ -146,5 +118,4 @@ module system (
 			   $write("%c", out_byte);
 		        end
 		end
-	end endgenerate
 endmodule

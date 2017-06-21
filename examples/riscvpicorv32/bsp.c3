@@ -3,6 +3,7 @@ type struct {
     int DR; // 0x0
     int SR; // 0x4
     int ACK; //0x8
+    int INT; //0xc
 } uart_t; 
 
 var uart_t* UART0;
@@ -12,7 +13,7 @@ public function void putc(byte c)
 {
     UART0 = 0x10000000;
     // Wait for busy:
-    while (UART0->SR & 0x1 == 0x1)
+    while ((UART0->SR & 0x1) == 0x1)
     {
     }
     // Transmit char:
@@ -24,7 +25,7 @@ public function byte getc()
     var int c;
     UART0 = 0x10000000;
     // Wait for RX-available:
-    while (UART0->SR & 0x2 == 0x0)
+    while ((UART0->SR & 0x2) == 0x0)
     {
     }
     // Receive char:
@@ -36,6 +37,12 @@ public function void ackint()
 {
    UART0 = 0x10000000;
    UART0->ACK = 1;
+}
+
+public function void setint()
+{
+   UART0 = 0x10000000;
+   UART0->INT = 1;
 }
 
 public function void putcmon(byte c)

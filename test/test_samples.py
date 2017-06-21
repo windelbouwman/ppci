@@ -300,16 +300,16 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
-    LUI sp, 0xF000        ; setup stack pointer
+    LUI sp, 0x1F000        ; setup stack pointer
     JAL ra, main_main    ; Branch to sample start LR
     JAL ra, bsp_exit     ; do exit stuff LR
     SBREAK
     """
     arch_mmap = """
-    MEMORY flash LOCATION=0x0000 SIZE=0x2000 {
+    MEMORY flash LOCATION=0x0000 SIZE=0x4000 {
          SECTION(code)
     }
-    MEMORY ram LOCATION=0x2000 SIZE=0x2000 {
+    MEMORY ram LOCATION=0x4000 SIZE=0x4000 {
         SECTION(data)
     }
     """
@@ -344,7 +344,7 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
         data = obj.get_image('ram')
         rom = merge_memories(flash, data, 'rom')
         rom_data = rom.data
-        filewordsize = 0x4000
+        filewordsize = 0x8000
         datawordlen = len(rom_data) // 4
 
         mem_file = base_filename + '.mem'
