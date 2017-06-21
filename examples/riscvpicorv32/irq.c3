@@ -18,7 +18,7 @@ function int irq(byte* regs,int irqs)
  var int res = 0;
  var int steps = 0;
 
- gdbstub.status(irqs, regs, &outbuffer[0]);
+ gdbstub.status((irqs<<1)+(irqs>>1), regs, &outbuffer[0]);
  gdbstub.put_packet(&outbuffer);
 
  while(debug == true) {

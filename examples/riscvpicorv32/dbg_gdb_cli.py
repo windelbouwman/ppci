@@ -16,7 +16,7 @@ if __name__ == "__main__":
     arch = get_arch("riscv")
     transport = TCP(4567)
     time.sleep(1)
-    debugger = Debugger(arch, GdbDebugDriver(arch, transport=transport, constat=RUNNING, pcresval=0))
+    debugger = Debugger(arch, GdbDebugDriver(arch, transport=transport, constat=RUNNING, pcresval=0, swbrkpt=True))
     obj = get_object("firmware.tlf")
     debugger.load_symbols(obj, validate=False)
     DebugCli(debugger).cmdloop()
