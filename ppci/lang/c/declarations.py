@@ -25,6 +25,7 @@ class Typedef(Declaration):
 
 
 class VariableDeclaration(Declaration):
+    """ Variable declaration, be it local or global """
     def __init__(self, typ, name, initial_value, loc):
         super().__init__(typ, name, loc)
         self.initial_value = initial_value

@@ -644,27 +644,27 @@ class CParser(RecursiveDescentParser):
 
     def parse_while_statement(self):
         """ Parse a while statement """
-        loc = self.consume('while').loc
+        location = self.consume('while').loc
         self.consume('(')
         condition = self.parse_expression()
         self.consume(')')
         body = self.parse_statement()
-        return nodes.While(condition, body, loc)
+        return nodes.While(condition, body, location)
 
     def parse_do_statement(self):
         """ Parse a do-while statement """
-        loc = self.consume('do').loc
+        location = self.consume('do').loc
         body = self.parse_statement()
         self.consume('while')
         self.consume('(')
         condition = self.parse_expression()
         self.consume(')')
         self.consume(';')
-        return nodes.DoWhile(body, condition, loc)
+        return nodes.DoWhile(body, condition, location)
 
     def parse_for_statement(self):
         """ Parse a for statement """
-        loc = self.consume('for').loc
+        location = self.consume('for').loc
         self.consume('(')
         if self.peak == ';':
             initial = None
@@ -685,17 +685,17 @@ class CParser(RecursiveDescentParser):
         self.consume(')')
 
         body = self.parse_statement()
-        return nodes.For(initial, condition, post, body, loc)
+        return nodes.For(initial, condition, post, body, location)
 
     def parse_return_statement(self):
         """ Parse a return statement """
-        loc = self.consume('return').loc
+        location = self.consume('return').loc
         if self.peak == ';':
             value = None
         else:
             value = self.parse_expression()
         self.consume(';')
-        return nodes.Return(value, loc)
+        return nodes.Return(value, location)
 
     # Expression parts:
     def parse_constant_expression(self):

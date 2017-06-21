@@ -121,7 +121,7 @@ class IrToPython:
                     ins.name, ins.src.name))
             elif ins.ty in [ir.f32, ir.f64]:
                 self.print(3, '{} = float({})'.format(ins.name, ins.src.name))
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(str(ins))
         elif isinstance(ins, ir.Store):
             store_formats = {

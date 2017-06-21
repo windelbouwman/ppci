@@ -9,6 +9,7 @@ from ppci.build.tasks import TaskError
 from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
+from ppci.utils.exefile import ExeWriter
 from ppci.arch.example import Mov, R0, R1, ExampleArch
 
 
@@ -191,6 +192,15 @@ class ElfFileTestCase(unittest.TestCase):
         ef1.save(f, ObjectFile(arch))
         f2 = io.BytesIO(f.getvalue())
         ElfFile.load(f2)
+
+
+class ExeFileTestCase(unittest.TestCase):
+    def test_save(self):
+        """ Test the generation of a windows exe file """
+        arch = ExampleArch()
+        obj = ObjectFile(arch)
+        f = io.BytesIO()
+        ExeWriter().write(obj, f)
 
 
 class LayoutFileTestCase(unittest.TestCase):

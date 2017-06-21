@@ -72,6 +72,10 @@ http://www.anarres.org/projects/jcpp/
 
 https://github.com/shevek/jcpp
 
+
+CDT preprocessor:
+http://git.eclipse.org/c/cdt/org.eclipse.cdt.git/tree/core/org.eclipse.cdt.core/parser/org/eclipse/cdt/internal/core/parser/scanner/CPreprocessor.java
+
 The lcc preprocessor part:
 
 https://github.com/drh/lcc/blob/master/cpp/cpp.h
@@ -82,5 +86,34 @@ C compiler
 The c compiler consists of the classical stages: parsing and codegeneration.
 Code generation is done to ir-code.
 
+
+Other C compilers
+-----------------
+
+
 A c99 frontend for libfirm:
 https://github.com/libfirm/cparser
+
+
+tcc
+~~~
+tcc: tiny c compiler
+
+This compiler is tiny and uses a single pass to parse and generate code.
+
+
+lcc
+~~~
+
+https://github.com/drh/lcc
+
+This compiler does parsing and type checking in one go.
+
+
+cdt
+~~~
+
+CDT is an eclipse c/c++ ide.
+
+http://wiki.eclipse.org/CDT/designs/Overview_of_Parsing
+
