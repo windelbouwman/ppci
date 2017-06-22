@@ -19,4 +19,4 @@ if __name__ == "__main__":
     debugger = Debugger(arch, GdbDebugDriver(arch, transport=transport, constat=RUNNING, pcresval=0, swbrkpt=True))
     obj = get_object("firmware.tlf")
     debugger.load_symbols(obj, validate=False)
-    DebugCli(debugger).cmdloop()
+    DebugCli(debugger, showsource=True).cmdloop()

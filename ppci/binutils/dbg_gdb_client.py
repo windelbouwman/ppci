@@ -176,12 +176,20 @@ class GdbDebugDriver(DebugDriver):
     def step(self):
         """ restart the device """
         if self.status == STOPPED:
+            if(self.swbrkpt == True and self.stopreason == BRKPOINT):
+                pc = self.get_pc()
+                self.clear_breakpoint(pc)
+                self.set_pc(pc-4)
             self.sendpkt("s")
             self.process_stop_status()
 
     def nstep(self, count):
         """ restart the device """
         if self.status == STOPPED:
+            if(self.swbrkpt == True and self.stopreason == BRKPOINT):
+                pc = self.get_pc()
+                self.clear_breakpoint(pc)
+                self.set_pc(pc-4)
             self.sendpkt("n %x" % count)
             self.process_stop_status()
 
@@ -200,12 +208,17 @@ class GdbDebugDriver(DebugDriver):
         else:
             raise NotImplementedError(res)
 
-        if code == BRKPOINT or code == INTERRUPT:
+        if (code & (BRKPOINT | INTERRUPT) != 0):
             self.logger.debug("Target stopped..")
             self.status = STOPPED
         else:
             self.logger.debug("Target running..")
             self.status = RUNNING
+
+    def update_status(self):
+        readable = self.transport.rx_avail()
+        if readable:
+            self.process_stop_status()
     
     def get_status(self):
         return self.status

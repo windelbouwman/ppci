@@ -5,16 +5,49 @@ import binascii
 from .. import __version__ as ppci_version
 from ..common import str2int, CompilerError
 from .dbg import STOPPED, RUNNING
+import os
+if os.name == 'nt':
+    from colorama import init
 
+def clearscreen():
+    print("\033[2J\033[1;1H")
+
+def print_file_line(filename, lineno):
+    clearscreen()
+    lines = open(filename).read().splitlines()
+
+    #show file and line number
+    print("\033[37m\033[1mFile:", filename)
+    print("Line:", "[", lineno, "of", len(lines), "]")
+    print("\033[0m")
+    print("\033[39m")
+
+    #Print a fragment of the file to show in context
+    for i in range(lineno - 3, lineno + 3):
+        if i < 1:
+            print()
+        elif i > len(lines):
+            print()
+        elif i == lineno:
+            print("\033[33m\033[1m", str(i).rjust(4), "\033[32m->", lines[i-1], "\033[0m\033[39m")
+        else:
+            print("\033[33m\033[1m", str(i).rjust(4), "\033[0m\033[39m  ", lines[i-1])
 
 class DebugCli(cmd.Cmd):
     """ Implement a console-based debugger interface. """
     prompt = '(ppci-dbg)> '
     intro = "ppci interactive debugger"
 
-    def __init__(self, debugger):
+    def __init__(self, debugger, showsource=False):
         super().__init__()
         self.debugger = debugger
+        self.showsource = showsource
+        if self.showsource == True:
+            if os.name == 'nt':
+                init()
+            clearscreen()
+            file, col = self.debugger.find_pc()
+            print_file_line(file, col)
 
     def do_quit(self, _):
         """ Quit the debugger """
@@ -129,3 +162,23 @@ class DebugCli(cmd.Cmd):
         instructions = self.debugger.get_disasm()
         for instruction in instructions:
             print(instruction)
+            
+    def do_stepl(self, line):
+        """ step one line """
+        lastfunc = self.debugger.current_function()
+        curfunc = lastfunc
+        file, lastrow = self.debugger.find_pc()
+        currow = lastrow
+        while currow==lastrow or curfunc!=lastfunc:
+            self.do_stepi("")
+            curfunc = self.debugger.current_function()
+            file, currow = self.debugger.find_pc()
+
+    do_sl = do_stepl
+
+    def postcmd(self, stop, line):
+        if self.showsource == True and self.debugger.is_halted: 
+            file, row = self.debugger.find_pc()
+            print_file_line(file, row)
+        return cmd.Cmd.postcmd(self, stop, line)
+        

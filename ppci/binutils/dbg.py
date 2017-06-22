@@ -26,6 +26,8 @@ RUNNING = 1
 FINISHED = 2
 
 
+
+
 class TmpValue:
     """ Evaluated expression value.
         It has a value
@@ -154,6 +156,7 @@ class Debugger:
 
     @property
     def is_running(self):
+        self.driver.update_status()
         return self.status == RUNNING
 
     @property
@@ -202,11 +205,12 @@ class Debugger:
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
-        if pc in self.addr_map:
-            debug = self.addr_map[pc]
-            self.logger.info('Found program counter at %s', debug)
-            loc = debug.loc
-            return loc.filename, loc.row
+        #if pc in self.addr_map:
+        mindelta = min(self.addr_map.keys(), key=lambda k: abs(k-pc))
+        debug = self.addr_map[mindelta]
+        self.logger.info('Found program counter at %s with delta %u' % (debug, mindelta))
+        loc = debug.loc
+        return loc.filename, loc.row
 
     def current_function(self):
         """ Determine the PC and then determine which function we are in """
