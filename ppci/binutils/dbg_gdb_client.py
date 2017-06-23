@@ -30,6 +30,7 @@ class GdbDebugDriver(DebugDriver):
         self.transport = transport
         self.status = constat
         self.pcresval = pcresval
+        self.pcstopval = None
         self.swbrkpt =  swbrkpt
         self.stopreason = INTERRUPT
         if(constat == RUNNING):
@@ -136,9 +137,12 @@ class GdbDebugDriver(DebugDriver):
 
     def get_pc(self):
         """ read the PC of the device """
-        pc = self._get_register(self.arch.gdb_pc)
-        self.logger.debug("PC value read:%x", pc)
-        return pc
+        if(self.pcstopval != None):
+            return self.pcstopval
+        else:
+            pc = self._get_register(self.arch.gdb_pc)
+            self.logger.debug("PC value read:%x", pc)
+            return pc
 
     def set_pc(self, value):
         """ set the PC of the device """
@@ -178,7 +182,7 @@ class GdbDebugDriver(DebugDriver):
         if self.status == STOPPED:
             if(self.swbrkpt == True and self.stopreason == BRKPOINT):
                 pc = self.get_pc()
-                self.clear_breakpoint(pc)
+                self.clear_breakpoint(pc-4)
                 self.set_pc(pc-4)
             self.sendpkt("s")
             self.process_stop_status()
@@ -188,7 +192,7 @@ class GdbDebugDriver(DebugDriver):
         if self.status == STOPPED:
             if(self.swbrkpt == True and self.stopreason == BRKPOINT):
                 pc = self.get_pc()
-                self.clear_breakpoint(pc)
+                self.clear_breakpoint(pc-4)
                 self.set_pc(pc-4)
             self.sendpkt("n %x" % count)
             self.process_stop_status()
@@ -204,7 +208,11 @@ class GdbDebugDriver(DebugDriver):
             code = int(res[1:3], 16)
             self.stopreason = code
             rest = res[3:]
-            print('TODO', rest.split(';'))
+            if(int(rest[0:2],16) == self.arch.gdb_registers.index(self.arch.gdb_pc)):
+                data = bytes.fromhex(rest[3:-1])
+                self.pcstopval, = struct.unpack('<I', data)
+            else:
+                self.pcstopval = None
         else:
             raise NotImplementedError(res)
 
