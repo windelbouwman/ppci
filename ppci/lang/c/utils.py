@@ -1,6 +1,6 @@
 
 import re
-from . import nodes
+from . import nodes, types, declarations, expressions, statements
 
 
 class Visitor:
@@ -9,64 +9,68 @@ class Visitor:
         if isinstance(node, nodes.CompilationUnit):
             for d in node.declarations:
                 self.visit(d)
-        elif isinstance(node, nodes.VariableDeclaration):
+        elif isinstance(node, declarations.VariableDeclaration):
             self.visit(node.typ)
             if node.initial_value:
                 self.visit(node.initial_value)
-        elif isinstance(node, nodes.FunctionDeclaration):
+        elif isinstance(node, declarations.FunctionDeclaration):
             self.visit(node.typ)
             if node.body:
                 self.visit(node.body)
-        elif isinstance(node, nodes.Typedef):
+        elif isinstance(node, declarations.ParameterDeclaration):
             self.visit(node.typ)
-        elif isinstance(node, nodes.Ternop):
+        elif isinstance(node, declarations.ValueDeclaration):
+            pass
+        elif isinstance(node, declarations.Typedef):
+            self.visit(node.typ)
+        elif isinstance(node, expressions.Ternop):
             self.visit(node.a)
             self.visit(node.b)
             self.visit(node.c)
-        elif isinstance(node, nodes.Binop):
+        elif isinstance(node, expressions.Binop):
             self.visit(node.a)
             self.visit(node.b)
-        elif isinstance(node, nodes.Unop):
+        elif isinstance(node, expressions.Unop):
             self.visit(node.a)
-        elif isinstance(node, nodes.Literal):
+        elif isinstance(node, expressions.Literal):
             pass
-        elif isinstance(node, nodes.InitializerList):
+        elif isinstance(node, expressions.InitializerList):
             for element in node.elements:
                 self.visit(element)
-        elif isinstance(node, nodes.Cast):
+        elif isinstance(node, expressions.Cast):
             self.visit(node.to_typ)
             self.visit(node.expr)
-        elif isinstance(node, nodes.Sizeof):
+        elif isinstance(node, expressions.Sizeof):
             self.visit(node.sizeof_typ)
-        elif isinstance(node, nodes.ArrayIndex):
+        elif isinstance(node, expressions.ArrayIndex):
             self.visit(node.base)
             self.visit(node.index)
-        elif isinstance(node, nodes.FieldSelect):
+        elif isinstance(node, expressions.FieldSelect):
             self.visit(node.base)
-        elif isinstance(node, nodes.FunctionCall):
+        elif isinstance(node, expressions.FunctionCall):
             for argument in node.args:
                 self.visit(argument)
-        elif isinstance(node, nodes.QualifiedType):
+        elif isinstance(node, types.QualifiedType):
             self.visit(node.typ)
-        elif isinstance(node, nodes.FunctionType):
+        elif isinstance(node, types.FunctionType):
             for parameter in node.arguments:
                 self.visit(parameter)
             self.visit(node.return_type)
-        elif isinstance(node, nodes.PointerType):
+        elif isinstance(node, types.PointerType):
             self.visit(node.element_type)
-        elif isinstance(node, nodes.ArrayType):
+        elif isinstance(node, types.ArrayType):
             self.visit(node.element_type)
             # self.visit(node.size)
-        elif isinstance(node, (nodes.StructType, nodes.UnionType)):
+        elif isinstance(node, (types.StructType, types.UnionType)):
             pass
-        elif isinstance(node, (nodes.EnumType,)):
+        elif isinstance(node, (types.EnumType,)):
             pass
-        elif isinstance(node, (nodes.IdentifierType, nodes.BareType)):
+        elif isinstance(node, (types.IdentifierType, types.BareType)):
             pass
         elif isinstance(node, nodes.Compound):
             for statement in node.statements:
                 self.visit(statement)
-        elif isinstance(node, nodes.For):
+        elif isinstance(node, statements.For):
             if node.init:
                 self.visit(node.init)
             if node.condition:
@@ -74,33 +78,39 @@ class Visitor:
             if node.post:
                 self.visit(node.post)
             self.visit(node.body)
-        elif isinstance(node, nodes.If):
+        elif isinstance(node, statements.If):
             self.visit(node.condition)
             self.visit(node.yes)
             if node.no:
                 self.visit(node.no)
-        elif isinstance(node, nodes.While):
+        elif isinstance(node, statements.While):
             self.visit(node.condition)
             self.visit(node.body)
-        elif isinstance(node, nodes.DoWhile):
+        elif isinstance(node, statements.DoWhile):
             self.visit(node.body)
             self.visit(node.condition)
-        elif isinstance(node, nodes.Switch):
+        elif isinstance(node, statements.Switch):
             self.visit(node.expression)
             self.visit(node.statement)
-        elif isinstance(node, (nodes.Goto, nodes.Break, nodes.Continue)):
+        elif isinstance(
+                node,
+                (statements.Goto, statements.Break, statements.Continue)):
             pass
-        elif isinstance(node, (nodes.Label, nodes.Default)):
+        elif isinstance(node, (statements.Label, statements.Default)):
             self.visit(node.statement)
-        elif isinstance(node, (nodes.Case,)):
+        elif isinstance(node, (statements.Case,)):
             self.visit(node.value)
             self.visit(node.statement)
-        elif isinstance(node, nodes.Return):
+        elif isinstance(node, statements.Return):
             if node.value:
                 self.visit(node.value)
-        elif isinstance(node, nodes.Empty):
+        elif isinstance(node, statements.Empty):
             pass
-        elif isinstance(node, nodes.VariableAccess):
+        elif isinstance(node, statements.DeclarationStatement):
+            self.visit(node.declaration)
+        elif isinstance(node, statements.ExpressionStatement):
+            self.visit(node.expression)
+        elif isinstance(node, expressions.VariableAccess):
             pass
         else:
             raise NotImplementedError(str(type(node)))
@@ -137,43 +147,49 @@ class CPrinter:
 
     def gen_declaration(self, declaration):
         """ Spit out a declaration """
-        if isinstance(declaration, nodes.VariableDeclaration):
+        if isinstance(declaration, declarations.VariableDeclaration):
             if declaration.initial_value:
-                self._print('{} {} = {};'.format(
-                    self.gen_type(declaration.typ), declaration.name,
+                self._print('{} = {};'.format(
+                    self.render_type(declaration.typ, declaration.name),
                     self.gen_expr(declaration.initial_value)))
             else:
-                self._print('{} {};'.format(
-                    self.gen_type(declaration.typ), declaration.name))
-        elif isinstance(declaration, nodes.FunctionDeclaration):
+                self._print('{};'.format(
+                    self.render_type(declaration.typ, declaration.name)))
+        elif isinstance(declaration, declarations.FunctionDeclaration):
             if declaration.body:
-                self._print('{} {}'.format(
-                    self.gen_type(declaration.typ), declaration.name))
+                self._print('{}'.format(
+                    self.render_type(declaration.typ, declaration.name)))
                 self.gen_statement(declaration.body)
+                self._print()
             else:
-                self._print('{} {};'.format(
-                    self.gen_type(declaration.typ), declaration.name))
-        elif isinstance(declaration, nodes.Typedef):
-            self._print('typedef {} {};'.format(
-                self.gen_type(declaration.typ), declaration.name))
+                self._print('{};'.format(
+                    self.render_type(declaration.typ, declaration.name)))
+        elif isinstance(declaration, declarations.Typedef):
+            self._print('typedef {};'.format(
+                self.render_type(declaration.typ, declaration.name)))
         else:  # pragma: no cover
             raise NotImplementedError(str(declaration))
 
-    def gen_type(self, typ):
+    def render_type(self, typ, name):
         """ Generate a proper C-string for the given type """
-        if isinstance(typ, nodes.BareType):
-            return typ.type_id
-        elif isinstance(typ, nodes.PointerType):
-            return '{}*'.format(self.gen_type(typ.element_type))
-        elif isinstance(typ, nodes.ArrayType):
-            return '{}[]'.format(self.gen_type(typ.element_type))
-        elif isinstance(typ, nodes.FunctionType):
+        if isinstance(typ, types.BareType):
+            return '{} {}'.format(typ.type_id, name)
+        elif isinstance(typ, types.PointerType):
+            return self.render_type(typ.element_type, '* {}'.format(name))
+        elif isinstance(typ, types.ArrayType):
+            return self.render_type(typ.element_type, '{}[]'.format(name))
+        elif isinstance(typ, types.FunctionType):
             parameters = ', '.join(
-                self.gen_type(p.typ) for p in typ.arguments)
-            return '{}({})'.format(self.gen_type(typ.return_type), parameters)
-        elif isinstance(typ, nodes.IdentifierType):
-            return typ.name
-        elif isinstance(typ, nodes.EnumType):
+                self.render_type(p.typ, p.name) for p in typ.arguments)
+            return self.render_type(
+                typ.return_type, '{}({})'.format(name, parameters))
+        elif isinstance(typ, types.IdentifierType):
+            return '{} {}'.format(typ.name, name)
+        elif isinstance(typ, types.QualifiedType):
+            qualifiers = ' '.join(typ.qualifiers)
+            return self.render_type(
+                typ.typ, '{} {}'.format(qualifiers, name))
+        elif isinstance(typ, types.EnumType):
             return '{}'.format(typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
@@ -186,60 +202,60 @@ class CPrinter:
                 self.gen_statement(inner_statement)
             self.indent -= 1
             self._print('}')
-        elif isinstance(statement, nodes.If):
+        elif isinstance(statement, statements.If):
             self._print('if ({})'.format(self.gen_expr(statement.condition)))
             self.gen_statement(statement.yes)
             if statement.no:
                 self._print('else')
                 self.gen_statement(statement.no)
-        elif isinstance(statement, nodes.Empty):
+        elif isinstance(statement, statements.Empty):
             pass
-        elif isinstance(statement, nodes.While):
+        elif isinstance(statement, statements.While):
             self._print('while ({})'.format(
                 self.gen_expr(statement.condition)))
             self.gen_statement(statement.body)
-        elif isinstance(statement, nodes.DoWhile):
+        elif isinstance(statement, statements.DoWhile):
             self._print('do')
             self.gen_statement(statement.body)
             self._print('while ({})'.format(
                 self.gen_expr(statement.condition)))
-        elif isinstance(statement, nodes.For):
+        elif isinstance(statement, statements.For):
             self._print('for ({}; {}; {})'.format(
                 self.gen_expr(statement.init),
                 self.gen_expr(statement.condition),
                 self.gen_expr(statement.post)))
             self.gen_statement(statement.body)
-        elif isinstance(statement, nodes.Return):
+        elif isinstance(statement, statements.Return):
             if statement.value:
                 self._print('return {};'.format(
                     self.gen_expr(statement.value)))
             else:
                 self._print('return;')
-        elif isinstance(statement, nodes.Declaration):
-            self.gen_declaration(statement)
-        elif isinstance(statement, nodes.Expression):
-            self._print('{};'.format(self.gen_expr(statement)))
+        elif isinstance(statement, statements.DeclarationStatement):
+            self.gen_declaration(statement.declaration)
+        elif isinstance(statement, statements.ExpressionStatement):
+            self._print('{};'.format(self.gen_expr(statement.expression)))
         else:  # pragma: no cover
             raise NotImplementedError(str(statement))
 
     def gen_expr(self, expr):
-        if isinstance(expr, nodes.Binop):
+        if isinstance(expr, expressions.Binop):
             return '({}) {} ({})'.format(
                 self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
-        elif isinstance(expr, nodes.Unop):
+        elif isinstance(expr, expressions.Unop):
             return '({}){}'.format(
                 self.gen_expr(expr.a), expr.op)
-        elif isinstance(expr, nodes.VariableAccess):
+        elif isinstance(expr, expressions.VariableAccess):
             return expr.name
-        elif isinstance(expr, nodes.FunctionCall):
+        elif isinstance(expr, expressions.FunctionCall):
             args = ', '.join(map(self.gen_expr, expr.args))
             return '{}({})'.format(expr.name, args)
-        elif isinstance(expr, nodes.Literal):
+        elif isinstance(expr, expressions.Literal):
             return str(expr.value)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
-    def _print(self, txt):
+    def _print(self, txt=''):
         print(self.indent * '  ' + txt)
 
 

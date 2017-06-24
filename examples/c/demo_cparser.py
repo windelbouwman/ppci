@@ -8,6 +8,7 @@ from ppci.common import CompilerError
 from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
 from ppci.lang.c import CContext
 from ppci.lang.c.preprocessor import prepare_for_parsing
+from ppci.api import get_current_platform
 
 
 if __name__ == '__main__':
@@ -25,7 +26,7 @@ if __name__ == '__main__':
 
     # Parsing:
     coptions = COptions()
-    context = CContext(coptions, None)
+    context = CContext(coptions, get_current_platform())
     preprocessor = CPreProcessor(coptions)
     parser = CParser(context)
 

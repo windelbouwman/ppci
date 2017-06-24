@@ -10,6 +10,7 @@ class Scope:
         self.var_map = {}
         self.tags = {}
         self.labels = {}
+        self.declarations = []
 
     def is_defined(self, name, all_scopes=True):
         """ Check if the name is defined """

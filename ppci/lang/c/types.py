@@ -9,6 +9,7 @@ class CType:
         return isinstance(self, BareType) and self.type_id == BareType.VOID
 
 
+# TODO: maybe merge qualifiers into a type itself?
 class QualifiedType(CType):
     """ A qualified type """
     def __init__(self, qualifiers, typ):
@@ -100,10 +101,11 @@ class StructOrUnionType(CType):
 
     fields = property(get_fields, set_fields)
 
-    def has_field(self, name):
+    def has_field(self, name: str):
         return name in self.field_map
 
-    def get_field(self, name):
+    def get_field(self, name: str):
+        assert isinstance(name, str)
         return self.field_map[name]
 
 
@@ -115,10 +117,10 @@ class StructType(StructOrUnionType):
 
 class Field:
     """ A field inside a union or struct """
-    def __init__(self, name, typ, offset, bitsize):
-        self.name = name
+    def __init__(self, typ, name, offset, bitsize):
         self.typ = typ
         assert isinstance(typ, CType)
+        self.name = name
         self.bitsize = bitsize
         self.offset = offset
 
@@ -141,9 +143,10 @@ class UnionType(StructOrUnionType):
 
 class IdentifierType(CType):
     """ Refering to a typedef type """
-    def __init__(self, name):
+    def __init__(self, name, typ):
         super().__init__()
         self.name = name
+        self.typ = typ
 
     def __repr__(self):
         return 'IdentifierType: {}'.format(self.name)
