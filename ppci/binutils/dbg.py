@@ -465,6 +465,9 @@ class DebugDriver:  # pragma: no cover
         """ Get the values for a range of registers """
         raise NotImplementedError()
 
+    def update_status(self):
+        raise NotImplementedError()
+
 
 class DummyDebugDriver(DebugDriver):
     def __init__(self):
@@ -504,4 +507,7 @@ class DummyDebugDriver(DebugDriver):
         return bytes(size)
 
     def write_mem(self, address, data):
+        pass
+
+    def update_status(self):
         pass
