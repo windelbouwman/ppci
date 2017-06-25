@@ -208,7 +208,8 @@ class GdbDebugDriver(DebugDriver):
             code = int(res[1:3], 16)
             self.stopreason = code
             rest = res[3:]
-            if(int(rest[0:2],16) == self.arch.gdb_registers.index(self.arch.gdb_pc)):
+            if(res.startswith('T') and
+            int(rest[0:2],16) == self.arch.gdb_registers.index(self.arch.gdb_pc)):
                 data = bytes.fromhex(rest[3:-1])
                 self.pcstopval, = struct.unpack('<I', data)
             else:
