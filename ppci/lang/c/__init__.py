@@ -5,11 +5,13 @@ from .builder import CBuilder
 from .lexer import CLexer
 from .parser import CParser
 from .semantics import CSemantics
+from .synthesize import CSynthesizer
 from .preprocessor import CPreProcessor
-from .utils import CAstPrinter, CPrinter
+from .utils import CAstPrinter
+from .printer import CPrinter
 from .options import COptions
 
 
 __all__ = [
     'CBuilder', 'CContext', 'CLexer', 'COptions', 'CPreProcessor', 'CParser',
-    'CAstPrinter', 'CSemantics', 'CPrinter']
+    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter']

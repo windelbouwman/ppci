@@ -6,7 +6,7 @@ import argparse
 import io
 from ppci.common import CompilerError
 from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
-from ppci.lang.c import CContext
+from ppci.lang.c import CContext, CSemantics
 from ppci.lang.c.preprocessor import prepare_for_parsing
 from ppci.api import get_current_platform
 
@@ -28,7 +28,8 @@ if __name__ == '__main__':
     coptions = COptions()
     context = CContext(coptions, get_current_platform())
     preprocessor = CPreProcessor(coptions)
-    parser = CParser(context)
+    semantics = CSemantics(context)
+    parser = CParser(context, semantics)
 
     try:
         with open(filename, 'r') as f:
@@ -39,9 +40,10 @@ if __name__ == '__main__':
         ex.print()
         raise
     else:
-        print("================ AST ===============")
-        CAstPrinter().print(ast)
-        print("====================================")
         print("=== Re-rendered source==============")
         CPrinter().print(ast)
+        print("====================================")
+
+        print("================ AST ===============")
+        CAstPrinter().print(ast)
         print("====================================")

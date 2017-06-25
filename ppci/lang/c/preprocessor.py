@@ -826,7 +826,7 @@ class Expander:
         elif token.typ == 'NUMBER':
             lhs = cnum(token.val)
         elif token.typ == 'CHAR':
-            lhs = charval(token.val)
+            lhs, _ = charval(replace_escape_codes(token.val))
         else:
             raise NotImplementedError(token.val)
 
@@ -964,12 +964,9 @@ def string_convert(tokens):
     """ Phase 5 of compilation.
 
     Process escaped string constants into unicode. """
-    # TODO: do something here!
     # Process
     for token in tokens:
-        if token.typ == 'STRING':
-            token.val = replace_escape_codes(token.val)
-        elif token.typ == 'CHAR':
+        if token.typ in ['STRING', 'CHAR']:
             token.val = replace_escape_codes(token.val)
         yield token
 

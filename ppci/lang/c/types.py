@@ -4,21 +4,12 @@
 # A type system:
 class CType:
     """ Base class for all types """
+    def __init__(self, qualifiers=None):
+        self.qualifiers = qualifiers
+
     @property
     def is_void(self):
         return isinstance(self, BareType) and self.type_id == BareType.VOID
-
-
-# TODO: maybe merge qualifiers into a type itself?
-class QualifiedType(CType):
-    """ A qualified type """
-    def __init__(self, qualifiers, typ):
-        self.qualifiers = qualifiers
-        assert isinstance(typ, CType)
-        self.typ = typ
-
-    def __repr__(self):
-        return 'Qualified type'
 
 
 class FunctionType(CType):
@@ -100,6 +91,7 @@ class StructOrUnionType(CType):
         if fields:
             self.field_map = {f.name: f for f in fields}
 
+    # TODO: is using a property here the best way to do this?
     fields = property(get_fields, set_fields)
 
     def has_field(self, name: str):
@@ -126,33 +118,13 @@ class Field:
         self.offset = offset
 
 
-# class StructReferenceType(CType):
-#    """ Refering to a tagged struct """
-#    def __init__(self, name):
-#        super().__init__()
-#        self.name = name
-#
-#    def __repr__(self):
-#        return 'IdentifierType: {}'.format(self.name)
-
-
 class UnionType(StructOrUnionType):
     """ Union type """
     def __repr__(self):
         return 'Union-type'
 
 
-class IdentifierType(CType):
-    """ Refering to a typedef type """
-    def __init__(self, name, typ):
-        super().__init__()
-        self.name = name
-        self.typ = typ
-
-    def __repr__(self):
-        return 'IdentifierType: {}'.format(self.name)
-
-
+# TODO: what to call this type? Options: AtomicType, NativeType
 class BareType(CType):
     """ This type is one of: int, unsigned int, float or void """
     VOID = 'void'
@@ -177,17 +149,3 @@ class BareType(CType):
 
     def __repr__(self):
         return 'Native type {}'.format(self.type_id)
-
-
-# class VoidType(NamedType):
-#    """ Type representing no value """
-#    def __init__(self):
-#        super().__init__('void')
-
-
-# class IntegerType(NamedType):
-#    pass
-
-
-# class FloatingPointType(NamedType):
-#    pass

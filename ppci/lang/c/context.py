@@ -1,5 +1,6 @@
 """ A context where other parts share global state """
 
+from ...common import CompilerError
 from .types import BareType
 from . import types
 
@@ -63,15 +64,17 @@ class CContext:
         }
 
     def is_valid(self, type_specifiers):
+        """ Check if the type specifiers refer to a valid basic type """
         key = type_tuple(*type_specifiers)
         return key in self.atomic_types
 
     def get_type(self, type_specifiers):
+        """ Create a new instance for the given type specifiers """
         key = type_tuple(*type_specifiers)
         a = self.atomic_types[key]
         return BareType(a)
 
-    def equal_types(self, typ1, typ2):
+    def equal_types(self, typ1, typ2, unqualified=False):
         """ Check for type equality """
         # TODO: enhance!
         if typ1 is typ2:
@@ -85,17 +88,9 @@ class CContext:
         #    else:
         #        return (not typ1.qualifiers) and \
         #            self.equal_types(typ1.typ, typ2)
-        elif isinstance(typ1, types.QualifiedType):
-            if isinstance(typ2, types.QualifiedType):
-                # Handle qualified types
-                return typ1.qualifiers == typ2.qualifiers and \
-                    self.equal_types(typ1.typ, typ2.typ)
         elif isinstance(typ1, types.BareType):
             if isinstance(typ2, types.BareType):
                 return typ1.type_id == typ2.type_id
-        elif isinstance(typ1, types.IdentifierType):
-            if isinstance(typ2, types.IdentifierType):
-                return typ1.name == typ2.name
         elif isinstance(typ1, types.FunctionType):
             if isinstance(typ2, types.FunctionType):
                 return \
@@ -122,12 +117,12 @@ class CContext:
             raise NotImplementedError(str(typ1))
         return False
 
-    def resolve_type(self, typ: types.IdentifierType):
+    def deprecated_resolve_type(self, typ):
         """ Given a type, look behind the identifiertype """
         # TODO: redesign qualifiers for sure.
+        return typ
         while isinstance(typ, (types.IdentifierType, types.QualifiedType)):
             typ = typ.typ
-        return typ
 
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
@@ -135,17 +130,16 @@ class CContext:
         if isinstance(typ, types.ArrayType):
             element_size = self.sizeof(typ.element_type)
             if typ.size is None:
-                self.error('Size of array could not be determined!', typ)
+                self.error(
+                    'Size of array could not be determined!', typ.location)
             assert isinstance(typ.size, int)
             array_size = typ.size
             return element_size * array_size
         elif isinstance(typ, types.BareType):
             return self.type_size_map[typ.type_id]
-        elif isinstance(typ, types.IdentifierType):  # TODO: is this needed?
-            return self.sizeof(self.resolve_type(typ))
         elif isinstance(typ, types.StructType):
             if not typ.complete:
-                self.error('Storage size unknown', typ)
+                self.error('Storage size unknown', typ.location)
             # TODO: round up somewhat?
             return sum(self.sizeof(part.typ) for part in typ.fields)
         elif isinstance(typ, types.UnionType):
@@ -163,7 +157,9 @@ class CContext:
             # TODO: can we determine size of a function type? Should it not
             # be pointer to a function?
             return self.march.byte_sizes['ptr']
-        elif isinstance(typ, types.QualifiedType):
-            return self.sizeof(typ.typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+
+    def error(self, message, location):
+        """ Trigger an error at the given location """
+        raise CompilerError(message, loc=location)

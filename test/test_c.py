@@ -77,8 +77,13 @@ class CLexerTestCase(unittest.TestCase):
 
     def test_block_comment(self):
         src = "/* bla bla */"
-        tokens = self.tokenize(src)
-        self.assertEqual([], tokens)
+        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
+        self.assertEqual([('BOL', '')], tokens)
+
+    def test_block_comments_and_values(self):
+        src = "1/* bla bla */0/*w00t*/"
+        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
+        self.assertEqual([('NUMBER', '1'), ('NUMBER', '0')], tokens)
 
     def test_line_comment(self):
         src = """
@@ -142,11 +147,10 @@ class CLexerTestCase(unittest.TestCase):
 
 def gen_tokens(tokens):
     """ Helper function which creates a token iterator """
-    col = 1
-    for typ, val in tokens:
+    for col, token in enumerate(tokens, start=1):
+        typ, val = token
         loc = lexer.SourceLocation('test.c', 1, col, 1)
         yield lexer.CToken(typ, val, '', False, loc)
-        col += 1
 
 
 class CParserTestCase(unittest.TestCase):
@@ -258,6 +262,17 @@ class CParserTestCase(unittest.TestCase):
         self.given_source('*l==*r && *l')
         expr = self.parser.parse_expression()
         self.semantics.on_binop.assert_called()
+        self.semantics.on_unop.assert_called()
+
+    def test_expression_precedence_comma_casting(self):
+        self.semantics.on_cast.side_effect = ['cast']
+        self.semantics.on_number.side_effect = [1, 2]
+        self.semantics.on_binop.side_effect = [',']
+        self.given_source('(int)1,2')
+        expr = self.parser.parse_expression()
+        # TODO: assert precedence in some clever way
+        self.semantics.on_binop.assert_called()
+        self.semantics.on_cast.assert_called()
 
     def test_ternary_expression_precedence_case1(self):
         self.given_source('a ? b ? c : d : e')
@@ -420,6 +435,7 @@ class CFrontendTestCase(unittest.TestCase):
         int (*p)[3];
         n = sizeof(int (*)[3]);
         n = sizeof(int *(void));
+        volatile const int * volatile vc;
         }
         int *f(void);
         """
@@ -436,20 +452,21 @@ class CFrontendTestCase(unittest.TestCase):
          struct s *next;
          int b:2+5, c:9, d;
          struct z Z;
+         int *g;
         };
         struct s AllocS;
         void main() {
          volatile div_t x, *y;
          x.rem = 2;
          y = &x;
-         y->quot = x.rem;
+         y->quot = x.rem = sizeof *AllocS.g;
          struct s S;
          S.next->next->b = 1;
         }
         """
         self.do(src)
 
-    @unittest.skip('todo')
+    # @unittest.skip('todo')
     def test_array(self):
         """ Test array types """
         src = """
@@ -492,7 +509,7 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test enum usage """
         src = """
         void main() {
-         enum E { A, B, C };
+         enum E { A, B, C=A+10 };
          enum E e = A;
          e = B;
          e = 2;
@@ -625,6 +642,15 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_function_arguments(self):
+        """ Test calling of functions """
+        src = """
+        void add(int a, int b, int c);
+        void main() {
+          add((int)22, 2, 3);
+        }
+        """
+        self.do(src)
 
 class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """

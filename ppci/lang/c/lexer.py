@@ -448,6 +448,7 @@ class CLexer(HandLexerBase):
         while True:
             if self.accept('*'):
                 if self.accept('/'):
+                    self.emit('WS')
                     break
             else:
                 self.next_char()

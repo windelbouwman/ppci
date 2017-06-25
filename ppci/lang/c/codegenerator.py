@@ -503,7 +503,7 @@ class CCodeGenerator:
                 loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
                 # for pointers, this is not one, but sizeof
                 if isinstance(expr.typ, types.PointerType):
-                    size = self.sizeof(expr.typ.element_type)
+                    size = self.context.sizeof(expr.typ.element_type)
                     one = self.emit(ir.Const(size, 'one_element', ir_typ))
                 else:
                     one = self.emit(ir.Const(1, 'one', ir_typ))
@@ -532,9 +532,10 @@ class CCodeGenerator:
                 value = self.emit(ir.Binop(zero, '-', a, 'neg', ir_typ))
             elif expr.op == '~':
                 a = self.gen_expr(expr.a, rvalue=True)
-                # TODO: implement operator
-                raise NotImplementedError()
-                value = a
+                ir_typ = self.get_ir_type(expr.typ)
+                # TODO: use 0xff for all bits!
+                mx = self.emit(ir.Const(0xff, 'ffff', ir_typ))
+                value = self.emit(ir.Binop(a, '^', mx, 'xor', ir_typ))
             elif expr.op in ['!']:
                 value = self.gen_condition_to_integer(expr)
             else:  # pragma: no cover
@@ -639,10 +640,10 @@ class CCodeGenerator:
         elif isinstance(expr, expressions.ArrayIndex):
             base = self.gen_expr(expr.base, rvalue=False)
             index = self.gen_expr(expr.index, rvalue=True)
-            base_type = self.context.resolve_type(expr.base.typ)
 
             # Generate constant for element size:
-            element_type_size = self.context.sizeof(base_type.element_type)
+            element_type_size = self.context.sizeof(
+                expr.base.typ.element_type)
             element_size = self.emit(
                 ir.Const(element_type_size, 'element_size', ir.ptr))
 
@@ -673,8 +674,6 @@ class CCodeGenerator:
 
         if isinstance(typ, types.BareType):
             return self.ir_type_map[typ.type_id][0]
-        elif isinstance(typ, types.IdentifierType):
-            return self.get_ir_type(self.context.resolve_type(typ))
         elif isinstance(typ, types.PointerType):
             return ir.ptr
         elif isinstance(typ, types.EnumType):

@@ -11,19 +11,14 @@ Overview
 .. graphviz::
 
    digraph x {
-   rankdir="LR"
-   10 [label="source"]
-   20 [label="lexer" ]
-   30 [label="preprocessor" ]
-   40 [label="output of preprocessor" ]
-   41 [label="parser" ]
-   50 [label="code generator" ]
-   10 -> 20 [label="text"]
-   20 -> 30 [label="tokens"]
-   30 -> 40 [label="tokens"]
-   30 -> 41 [label="tokens"]
-   30 -> 10 [label="include"]
-   41 -> 50 [label="parsed program"]
+   codegen [label="code generator" ]
+   source -> lexer [label="text"]
+   lexer -> preprocessor [label="tokens"]
+   preprocessor -> parser [label="tokens"]
+   preprocessor -> source [label="include"]
+   parser -> semantics [label="callback functions"]
+   semantics -> scope
+   semantics -> codegen [label="parsed program (AST)"]
    }
 
 The C compilers task is to take C code, and produce intermediate code for
@@ -51,34 +46,6 @@ The top level design of the preprocessor is the following:
 - Feed to compiler: The token stream might be fed into the rest of the
   compiler.
 
-Good resources about preprocessors:
-
-Cpp internal description:
-
-https://gcc.gnu.org/onlinedocs/cppinternals/
-
-A portable C preprocessor:
-
-http://mcpp.sourceforge.net
-
-
-The boost wave preprocessor:
-
-http://www.boost.org/doc/libs/1_63_0/libs/wave/
-
-A java implementation of the preprocessor:
-
-http://www.anarres.org/projects/jcpp/
-
-https://github.com/shevek/jcpp
-
-
-CDT preprocessor:
-http://git.eclipse.org/c/cdt/org.eclipse.cdt.git/tree/core/org.eclipse.cdt.core/parser/org/eclipse/cdt/internal/core/parser/scanner/CPreprocessor.java
-
-The lcc preprocessor part:
-
-https://github.com/drh/lcc/blob/master/cpp/cpp.h
 
 C compiler
 ----------
@@ -112,6 +79,10 @@ literals and the results of addition are not lvalues. Variables are lvalues.
 The lvalue property is used during code generation to check whether the value
 must be loaded from memory or not.
 
+Types
+~~~~~
+
+
 Code generation
 ~~~~~~~~~~~~~~~
 
@@ -123,6 +94,10 @@ code generators.
 References
 ----------
 
+This section contains some links to other compilers. These were used to draw
+inspiration from. In the spirit of: it is better to steal ideas then invent
+something bad yourself :).
+
 Other C compilers
 ~~~~~~~~~~~~~~~~~
 
@@ -132,14 +107,13 @@ https://github.com/libfirm/cparser
 
 
 tcc
-~~~
+
 tcc: tiny c compiler
 
 This compiler is tiny and uses a single pass to parse and generate code.
 
 
 lcc
-~~~
 
 https://github.com/drh/lcc
 
@@ -147,9 +121,37 @@ This compiler does parsing and type checking in one go.
 
 
 cdt
-~~~
 
 CDT is an eclipse c/c++ ide.
 
 http://wiki.eclipse.org/CDT/designs/Overview_of_Parsing
 
+Good resources about preprocessors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cpp internal description:
+
+https://gcc.gnu.org/onlinedocs/cppinternals/
+
+A portable C preprocessor:
+
+http://mcpp.sourceforge.net
+
+
+The boost wave preprocessor:
+
+http://www.boost.org/doc/libs/1_63_0/libs/wave/
+
+A java implementation of the preprocessor:
+
+http://www.anarres.org/projects/jcpp/
+
+https://github.com/shevek/jcpp
+
+
+CDT preprocessor:
+http://git.eclipse.org/c/cdt/org.eclipse.cdt.git/tree/core/org.eclipse.cdt.core/parser/org/eclipse/cdt/internal/core/parser/scanner/CPreprocessor.java
+
+The lcc preprocessor part:
+
+https://github.com/drh/lcc/blob/master/cpp/cpp.h

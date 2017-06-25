@@ -50,8 +50,6 @@ class Visitor:
         elif isinstance(node, expressions.FunctionCall):
             for argument in node.args:
                 self.visit(argument)
-        elif isinstance(node, types.QualifiedType):
-            self.visit(node.typ)
         elif isinstance(node, types.FunctionType):
             for parameter in node.arguments:
                 self.visit(parameter)
@@ -60,14 +58,13 @@ class Visitor:
             self.visit(node.element_type)
         elif isinstance(node, types.ArrayType):
             self.visit(node.element_type)
-            # self.visit(node.size)
         elif isinstance(node, (types.StructType, types.UnionType)):
             pass
         elif isinstance(node, (types.EnumType,)):
             pass
-        elif isinstance(node, (types.IdentifierType, types.BareType)):
+        elif isinstance(node, types.BareType):
             pass
-        elif isinstance(node, nodes.Compound):
+        elif isinstance(node, statements.Compound):
             for statement in node.statements:
                 self.visit(statement)
         elif isinstance(node, statements.For):
@@ -99,7 +96,6 @@ class Visitor:
         elif isinstance(node, (statements.Label, statements.Default)):
             self.visit(node.statement)
         elif isinstance(node, (statements.Case,)):
-            self.visit(node.value)
             self.visit(node.statement)
         elif isinstance(node, statements.Return):
             if node.value:
@@ -133,130 +129,6 @@ class CAstPrinter(Visitor):
         self.indent += 1
         super().visit(node)
         self.indent -= 1
-
-
-class CPrinter:
-    """ Generate a C program """
-    def __init__(self):
-        self.indent = 0
-
-    def print(self, cu):
-        """ Render compilation unit as C """
-        for declaration in cu.declarations:
-            self.gen_declaration(declaration)
-
-    def gen_declaration(self, declaration):
-        """ Spit out a declaration """
-        if isinstance(declaration, declarations.VariableDeclaration):
-            if declaration.initial_value:
-                self._print('{} = {};'.format(
-                    self.render_type(declaration.typ, declaration.name),
-                    self.gen_expr(declaration.initial_value)))
-            else:
-                self._print('{};'.format(
-                    self.render_type(declaration.typ, declaration.name)))
-        elif isinstance(declaration, declarations.FunctionDeclaration):
-            if declaration.body:
-                self._print('{}'.format(
-                    self.render_type(declaration.typ, declaration.name)))
-                self.gen_statement(declaration.body)
-                self._print()
-            else:
-                self._print('{};'.format(
-                    self.render_type(declaration.typ, declaration.name)))
-        elif isinstance(declaration, declarations.Typedef):
-            self._print('typedef {};'.format(
-                self.render_type(declaration.typ, declaration.name)))
-        else:  # pragma: no cover
-            raise NotImplementedError(str(declaration))
-
-    def render_type(self, typ, name):
-        """ Generate a proper C-string for the given type """
-        if isinstance(typ, types.BareType):
-            return '{} {}'.format(typ.type_id, name)
-        elif isinstance(typ, types.PointerType):
-            return self.render_type(typ.element_type, '* {}'.format(name))
-        elif isinstance(typ, types.ArrayType):
-            return self.render_type(typ.element_type, '{}[]'.format(name))
-        elif isinstance(typ, types.FunctionType):
-            parameters = ', '.join(
-                self.render_type(p.typ, p.name) for p in typ.arguments)
-            return self.render_type(
-                typ.return_type, '{}({})'.format(name, parameters))
-        elif isinstance(typ, types.IdentifierType):
-            return '{} {}'.format(typ.name, name)
-        elif isinstance(typ, types.QualifiedType):
-            qualifiers = ' '.join(typ.qualifiers)
-            return self.render_type(
-                typ.typ, '{} {}'.format(qualifiers, name))
-        elif isinstance(typ, types.EnumType):
-            return '{}'.format(typ)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(typ))
-
-    def gen_statement(self, statement):
-        if isinstance(statement, nodes.Compound):
-            self._print('{')
-            self.indent += 1
-            for inner_statement in statement.statements:
-                self.gen_statement(inner_statement)
-            self.indent -= 1
-            self._print('}')
-        elif isinstance(statement, statements.If):
-            self._print('if ({})'.format(self.gen_expr(statement.condition)))
-            self.gen_statement(statement.yes)
-            if statement.no:
-                self._print('else')
-                self.gen_statement(statement.no)
-        elif isinstance(statement, statements.Empty):
-            pass
-        elif isinstance(statement, statements.While):
-            self._print('while ({})'.format(
-                self.gen_expr(statement.condition)))
-            self.gen_statement(statement.body)
-        elif isinstance(statement, statements.DoWhile):
-            self._print('do')
-            self.gen_statement(statement.body)
-            self._print('while ({})'.format(
-                self.gen_expr(statement.condition)))
-        elif isinstance(statement, statements.For):
-            self._print('for ({}; {}; {})'.format(
-                self.gen_expr(statement.init),
-                self.gen_expr(statement.condition),
-                self.gen_expr(statement.post)))
-            self.gen_statement(statement.body)
-        elif isinstance(statement, statements.Return):
-            if statement.value:
-                self._print('return {};'.format(
-                    self.gen_expr(statement.value)))
-            else:
-                self._print('return;')
-        elif isinstance(statement, statements.DeclarationStatement):
-            self.gen_declaration(statement.declaration)
-        elif isinstance(statement, statements.ExpressionStatement):
-            self._print('{};'.format(self.gen_expr(statement.expression)))
-        else:  # pragma: no cover
-            raise NotImplementedError(str(statement))
-
-    def gen_expr(self, expr):
-        if isinstance(expr, expressions.Binop):
-            return '({}) {} ({})'.format(
-                self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
-        elif isinstance(expr, expressions.Unop):
-            return '({}){}'.format(
-                self.gen_expr(expr.a), expr.op)
-        elif isinstance(expr, expressions.VariableAccess):
-            return expr.name
-        elif isinstance(expr, expressions.FunctionCall):
-            args = ', '.join(map(self.gen_expr, expr.args))
-            return '{}({})'.format(expr.name, args)
-        elif isinstance(expr, expressions.Literal):
-            return str(expr.value)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(expr))
-
-    def _print(self, txt=''):
-        print(self.indent * '  ' + txt)
 
 
 def cnum(txt: str):
@@ -355,21 +227,6 @@ def charval(txt: str):
     assert txt[0] == "'"
     assert txt[-1] == "'"
     txt = txt[1:-1]
-
-    if txt.startswith('\\'):
-        if txt[1] in '0123456789':
-            return int(txt[1:])
-        else:
-            mp = {
-                'a': '\a',
-                'b': '\b',
-                'f': '\f',
-                'n': '\n',
-                'r': '\r',
-                't': '\t',
-                'v': '\v',
-            }
-            return mp[txt[1]]
-    else:
-        assert len(txt) == 1
-    return ord(txt)
+    assert len(txt) == 1
+    # TODO: implement wide characters!
+    return ord(txt), ['char']

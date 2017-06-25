@@ -274,24 +274,25 @@ class CParser(RecursiveDescentParser):
         else:
             self.error('Expected tag name or enum declaration', keyword.loc)
 
+        ctyp = self.semantics.on_enum(tag, keyword.loc)
+
         # If we have a body, either after tag or directly, parse it:
         if self.peak == '{':
             self.consume('{')
-            enum_values = []
+            self.semantics.enter_enum_values(ctyp, keyword.loc)
             while self.peak != '}':
                 name = self.consume('ID')
                 if self.has_consumed('='):
                     value = self.parse_constant_expression()
                 else:
                     value = None
-                enum_values.append((name.val, value, name.loc))
+                self.semantics.on_enum_value(ctyp, name.val, value, name.loc)
                 if not self.has_consumed(','):
                     break
             self.consume('}')
-        else:
-            enum_values = None
+            self.semantics.exit_enum_values(ctyp, keyword.loc)
 
-        return self.semantics.on_enum(tag, enum_values, keyword.loc)
+        return ctyp
 
     def parse_decl_group(self, ds):
         """ Parse the rest after the first declaration spec.
@@ -569,6 +570,7 @@ class CParser(RecursiveDescentParser):
         """ Parse a series of statements surrounded by '{' and '}' """
         statements = []
         location = self.consume('{').loc
+        self.semantics.enter_compound_statement(location)
         while self.peak != '}':
             statements.extend(self.parse_statement_or_declaration())
         self.consume('}')
@@ -577,15 +579,14 @@ class CParser(RecursiveDescentParser):
     def parse_if_statement(self):
         """ Parse an if statement """
         location = self.consume('if').loc
-        self.consume('(')
-        condition = self.parse_expression()
-        self.consume(')')
+        condition = self.parse_condition()
         then_statement = self.parse_statement()
         if self.has_consumed('else'):
-            no = self.parse_statement()
+            else_statement = self.parse_statement()
         else:
-            no = None
-        return self.semantics.on_if(condition, then_statement, no, location)
+            else_statement = None
+        return self.semantics.on_if(
+            condition, then_statement, else_statement, location)
 
     def parse_switch_statement(self):
         """ Parse an switch statement """
@@ -633,9 +634,7 @@ class CParser(RecursiveDescentParser):
     def parse_while_statement(self):
         """ Parse a while statement """
         location = self.consume('while').loc
-        self.consume('(')
-        condition = self.parse_expression()
-        self.consume(')')
+        condition = self.parse_condition()
         body = self.parse_statement()
         return self.semantics.on_while(condition, body, location)
 
@@ -644,9 +643,7 @@ class CParser(RecursiveDescentParser):
         location = self.consume('do').loc
         body = self.parse_statement()
         self.consume('while')
-        self.consume('(')
-        condition = self.parse_expression()
-        self.consume(')')
+        condition = self.parse_condition()
         self.consume(';')
         return self.semantics.on_do(body, condition, location)
 
@@ -686,6 +683,13 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_return(value, location)
 
     # Expression parts:
+    def parse_condition(self):
+        """ Parse an expression between parenthesis """
+        self.consume('(')
+        condition = self.parse_expression()
+        self.consume(')')
+        return condition
+
     def parse_constant_expression(self):
         """ Parse a constant expression """
         return self.parse_binop_with_precedence(17)
@@ -694,15 +698,18 @@ class CParser(RecursiveDescentParser):
         return self.parse_binop_with_precedence(10)
 
     def parse_expression(self):
-        """ Parse an expression """
+        """ Parse an expression.
+
+        See also: http://en.cppreference.com/w/c/language/operator_precedence
+        """
         return self.parse_binop_with_precedence(0)
 
-    def parse_binop_with_precedence(self, prio):
+    def parse_binop_with_precedence(self, priority):
         lhs = self.parse_primary_expression()
 
         # print('prio=', prio, self.peak)
         while self.peak in self.prio_map and \
-                self.prio_map[self.peak][1] >= prio:
+                self.prio_map[self.peak][1] >= priority:
             op = self.consume()
             op_associativity, op_prio = self.prio_map[op.val]
             if op.val == '?':
@@ -716,6 +723,12 @@ class CParser(RecursiveDescentParser):
                 rhs = self.parse_binop_with_precedence(op_prio)
                 lhs = self.semantics.on_binop(lhs, op.val, rhs, op.loc)
         return lhs
+
+    def parse_unary_expression(self):
+        return self.parse_postfix_expression()
+
+    def parse_postfix_expression(self):
+        return self.parse_primary_expression()
 
     def parse_primary_expression(self):
         """ Parse a primary expression """
@@ -772,15 +785,16 @@ class CParser(RecursiveDescentParser):
                 # Cast!
                 to_typ = self.parse_typename()
                 self.consume(')')
-                casted_expr = self.parse_expression()
+                casted_expr = self.parse_primary_expression()
                 expr = self.semantics.on_cast(to_typ, casted_expr, loc)
             else:
+                # Parenthized expression (reset precedence)
                 expr = self.parse_expression()
                 self.consume(')')
         else:
             self.not_impl()
 
-        # Postfix operations:
+        # Postfix operations (have the highest precedence):
         while self.peak in ['--', '++', '[', '.', '->']:
             if self.peak in ['--', '++']:
                 op = self.consume()
