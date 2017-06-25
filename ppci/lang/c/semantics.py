@@ -10,7 +10,7 @@ from . import nodes, types, declarations, statements, expressions, utils
 from .scope import Scope
 
 
-class Semantics:
+class CSemantics:
     """ This class handles the C semantics """
     logger = logging.getLogger('semantics')
 
@@ -19,11 +19,13 @@ class Semantics:
         self.scope = None
 
         # Define the type for a string:
+        self.int_type = self.get_type(['int'])
         self.cstr_type = types.PointerType(self.get_type(['char']))
 
     def begin(self):
-        self.type_scope = Scope()
-        self.scope = self.type_scope
+        self.scope = Scope()
+        self.scope.insert(
+            declarations.Typedef(self.int_type, '__builtin_va_list', None))
         self.declarations = []
 
     def finish_compilation_unit(self):
@@ -31,18 +33,16 @@ class Semantics:
         return cu
 
     def enter_function(self, function):
+        self.logger.debug('Entering function %s', function.name)
         # Nice clean slate:
         self.current_function = function
         self.scope = Scope(self.scope)
 
         for argument in function.typ.arguments:
-            arg_name = argument.name
-            if arg_name is None:
-                arg_name = 'no_name'
-            else:
-                if self.scope.is_defined(arg_name, all_scopes=False):
-                    self.error('Illegal redefine', argument)
-            self.scope.insert(argument)
+            if argument.name:
+                if self.scope.is_defined(argument.name, all_scopes=False):
+                    self.error('Illegal redefine', argument.location)
+                self.scope.insert(argument)
 
     def end_function(self, body):
         """ Called at the end of a function """
@@ -68,9 +68,13 @@ class Semantics:
                 typ = types.ArrayType(typ, size)
             elif modifier[0] == 'FUNCTION':
                 arguments = modifier[1]
-                arg_types = [a.typ for a in arguments]
-                typ = types.FunctionType(arg_types, typ)
-                typ.arguments = arguments
+                # print(arguments)
+                if arguments and arguments[-1] == '...':
+                    arguments = arguments[:-1]
+                    is_vararg = True
+                else:
+                    is_vararg = False
+                typ = types.FunctionType(arguments, typ, is_vararg=is_vararg)
             else:  # pragma: no cover
                 raise NotImplementedError(str(modifier))
         assert isinstance(typ, types.CType), str(typ)
@@ -84,7 +88,7 @@ class Semantics:
         return parameter
 
     def on_variable_declaration(
-            self, storage_class, typ, name, modifiers, initializer, location):
+            self, storage_class, typ, name, modifiers, location):
         """ Given a declaration, and a declarator, create the proper object """
         typ = self.apply_type_modifiers(modifiers, typ)
         if isinstance(typ, types.FunctionType):
@@ -92,9 +96,13 @@ class Semantics:
                 storage_class, typ, name, location)
         else:
             declaration = declarations.VariableDeclaration(
-                storage_class, typ, name, initializer, location)
+                storage_class, typ, name, None, location)
         self.add_declaration(declaration)
         return declaration
+
+    def on_variable_initialization(self, variable, expression):
+        """ Handle a variable initialized to some value """
+        variable.initial_value = expression
 
     def on_typedef(self, typ, name, modifiers, location):
         """ Handle typedef declaration """
@@ -112,6 +120,9 @@ class Semantics:
         self.add_declaration(declaration)
         return declaration
 
+    def add_global_declaration(self, declaration):
+        self.declarations.append(declaration)
+
     def add_declaration(self, declaration):
         """ Add the given declaration to current scope """
 
@@ -122,14 +133,14 @@ class Semantics:
             sym = self.scope.get(declaration.name)
             if self.context.equal_types(sym.typ, declaration.typ) and \
                     declaration.is_function:
-                self.logger.debug('okay, forward declaration implemented')
+                self.logger.debug(
+                    'okay, forward declaration for %s implemented',
+                    declaration.name)
             else:
                 self.logger.info('First defined here %s', sym.location)
                 self.error("Invalid redefinition", declaration.location)
         else:
             self.scope.insert(declaration)
-
-        # self.declarations.append(declaration)
 
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """
@@ -279,26 +290,32 @@ class Semantics:
             # Increase for next enum value:
             current_value += 1
 
-    def on_type_qualifiers(self, type_qualifiers, ctyp):
+    @staticmethod
+    def on_type_qualifiers(type_qualifiers, ctyp):
         """ Handle type qualifiers """
         if type_qualifiers:
             ctyp = types.QualifiedType(type_qualifiers, ctyp)
         return ctyp
 
     # Statements!
-    def do_declaration_statement(self, declaration, location):
+    @staticmethod
+    def on_declaration_statement(declaration, location):
         return statements.DeclarationStatement(declaration, location)
 
-    def do_expression_statement(self, expression):
+    @staticmethod
+    def on_expression_statement(expression):
         return statements.ExpressionStatement(expression)
 
-    def do_label(self, name, statement, location):
+    @staticmethod
+    def on_label(name, statement, location):
         return statements.Label(name, statement, location)
 
-    def do_empty(self, location):
+    @staticmethod
+    def on_empty(location):
         return statements.Empty(location)
 
-    def on_compound_statement(self, inner_statements, location):
+    @staticmethod
+    def on_compound_statement(inner_statements, location):
         return statements.Compound(inner_statements, location)
 
     def on_if(self, condition, then_statement, no, location):
@@ -314,33 +331,37 @@ class Semantics:
         value = self.eval_expr(value)
         return statements.Case(value, statement, location)
 
-    def on_default(self, statement, location):
+    @staticmethod
+    def on_default(statement, location):
         return statements.Default(statement, location)
 
-    def on_break(self, location):
+    @staticmethod
+    def on_break(location):
         return statements.Break(location)
 
-    def on_continue(self, location):
+    @staticmethod
+    def on_continue(location):
         return statements.Continue(location)
 
-    def on_goto(self, label, location):
+    @staticmethod
+    def on_goto(label, location):
         return statements.Goto(label, location)
 
     def on_while(self, condition, body, location):
         condition = self.coerce(condition, self.get_type(['int']))
         return statements.While(condition, body, location)
 
-    def do_do(self, body, condition, location):
+    def on_do(self, body, condition, location):
         """ The almost extinct dodo! """
         condition = self.coerce(condition, self.get_type(['int']))
         return statements.DoWhile(body, condition, location)
 
-    def do_for(self, initial, condition, post, body, location):
+    def on_for(self, initial, condition, post, body, location):
         if condition:
             condition = self.coerce(condition, self.get_type(['int']))
         return statements.For(initial, condition, post, body, location)
 
-    def do_return(self, value, location):
+    def on_return(self, value, location):
         return_type = self.current_function.typ.return_type
         if value:
             if return_type.is_void:
@@ -383,9 +404,10 @@ class Semantics:
         expr.lvalue = False
         return expr
 
+    @staticmethod
     def on_ternop(lhs, op, middle, rhs, location):
         """ Handle ternary operator 'a ? b : c' """
-        expr = expressions.Ternop(lhs, op.val, middle, rhs, op.loc)
+        expr = expressions.Ternop(lhs, op, middle, rhs, location)
         return expr
 
     def on_binop(self, lhs, op, rhs, location):
@@ -418,30 +440,38 @@ class Semantics:
         expr.lvalue = False
         return expr
 
-    def on_unop(self, op, expr, location):
+    def on_unop(self, op, a, location):
         """ Check unary operator semantics """
-        expr = expressions.Unop(op, expr, location)
-        if expr.op in ['x++', 'x--', '--x', '++x']:
+        if op in ['x++', 'x--', '--x', '++x']:
             # Increment and decrement in pre and post form
-            if not expr.a.lvalue:
-                self.error('Expected lvalue', expr.a.location)
+            if not a.lvalue:
+                self.error('Expected lvalue', a.location)
+            expr = expressions.Unop(op, a, location)
             expr.typ = expr.a.typ
             expr.lvalue = False
-        elif expr.op in ['-', '~']:
+        elif op in ['-', '~']:
+            expr = expressions.Unop(op, a, location)
             expr.typ = expr.a.typ
             expr.lvalue = False
-        elif expr.op == '*':
-            if not isinstance(expr.a.typ, types.PointerType):
-                self.error('Cannot derefence non-pointer type', expr.location)
+        elif op == '*':
+            if not isinstance(a.typ, types.PointerType):
+                self.error('Cannot derefence non-pointer type', a.location)
+            expr = expressions.Unop(op, a, location)
             expr.typ = expr.a.typ.element_type
             expr.lvalue = True
-        elif expr.op == '&':
-            if not expr.a.lvalue:
-                self.error('Expected lvalue', expr.a)
+        elif op == '&':
+            if not a.lvalue:
+                self.error('Expected lvalue', a.location)
+            expr = expressions.Unop(op, a, location)
             expr.typ = types.PointerType(expr.a.typ)
             expr.lvalue = False
+        elif op == '!':
+            a = self.coerce(a, self.get_type(['int']))
+            expr = expressions.Unop(op, a, location)
+            expr.typ = self.get_type(['int'])
+            expr.lvalue = False
         else:  # pragma: no cover
-            raise NotImplementedError(str(expr.op))
+            raise NotImplementedError(str(op))
         return expr
 
     def on_sizeof(self, typ, loc):
@@ -535,8 +565,11 @@ class Semantics:
             expr.lvalue = False
         elif isinstance(variable, declarations.ParameterDeclaration):
             expr.lvalue = True
+        elif isinstance(variable, declarations.FunctionDeclaration):
+            # Function pointer?
+            expr.lvalue = True
         else:  # pragma: no cover
-            raise NotImplementedError(str(variable))
+            self.not_impl('Access to {}'.format(variable), location)
         return expr
 
     # Helpers!
@@ -548,10 +581,12 @@ class Semantics:
 
         if self.context.equal_types(from_type, to_type):
             pass
-        elif isinstance(from_type, types.PointerType) and \
+        elif isinstance(from_type, (types.PointerType, types.EnumType)) and \
                 isinstance(to_type, types.BareType):
             do_cast = True
-        elif isinstance(from_type, types.PointerType) and \
+        elif isinstance(
+                from_type,
+                (types.PointerType, types.ArrayType, types.FunctionType)) and \
                 isinstance(to_type, types.PointerType):
             do_cast = True
         elif isinstance(from_type, types.BareType) and \
@@ -563,10 +598,12 @@ class Semantics:
             do_cast = True
         else:
             self.error(
-                'Cannot convert {} to {}'.format(expr.typ, typ), expr.location)
+                'Cannot convert {} to {}'.format(from_type, to_type),
+                expr.location)
 
         if do_cast:
-            assert not expr.lvalue
+            # TODO: is it true that the source must an lvalue?
+            # assert not expr.lvalue
             expr = expressions.ImplicitCast(typ, expr, expr.location)
             expr.typ = typ
             expr.lvalue = False
@@ -575,3 +612,7 @@ class Semantics:
     def error(self, message, location):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
+
+    def not_impl(self, message, location):
+        self.error(message, location)
+        raise NotImplementedError(message)

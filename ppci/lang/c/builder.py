@@ -3,6 +3,7 @@ import logging
 import io
 from .context import CContext
 from .parser import CParser
+from .semantics import CSemantics
 from .preprocessor import CPreProcessor, prepare_for_parsing
 from .codegenerator import CCodeGenerator
 from .utils import CAstPrinter
@@ -26,7 +27,8 @@ class CBuilder:
         context = CContext(self.coptions, self.march)
         preprocessor = CPreProcessor(self.coptions)
         tokens = preprocessor.process(src, filename)
-        parser = CParser(context)
+        semantics = CSemantics(context)
+        parser = CParser(context, semantics)
         tokens = prepare_for_parsing(tokens, parser.keywords)
 
         compile_unit = parser.parse(tokens)

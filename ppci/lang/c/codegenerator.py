@@ -467,6 +467,25 @@ class CCodeGenerator:
             self.evaluating_constants.remove(constant)
         return value
 
+    def gen_condition_to_integer(self, expr):
+        """ Generate code that takes a boolean and convert it to integer """
+        yes_block = self.builder.new_block()
+        no_block = self.builder.new_block()
+        end_block = self.builder.new_block()
+        self.gen_condition(expr, yes_block, no_block)
+        self.builder.set_block(yes_block)
+        ir_typ = self.get_ir_type(expr.typ)
+        yes_value = self.emit(ir.Const(1, 'one', ir_typ))
+        self.emit(ir.Jump(end_block))
+        self.builder.set_block(no_block)
+        no_value = self.emit(ir.Const(0, 'zero', ir_typ))
+        self.emit(ir.Jump(end_block))
+        self.builder.set_block(end_block)
+        value = self.emit(ir.Phi('phi', ir_typ))
+        value.set_incoming(yes_block, yes_value)
+        value.set_incoming(no_block, no_value)
+        return value
+
     def gen_expr(self, expr, rvalue=False):
         """ Generate code for an expression.
 
@@ -516,6 +535,8 @@ class CCodeGenerator:
                 # TODO: implement operator
                 raise NotImplementedError()
                 value = a
+            elif expr.op in ['!']:
+                value = self.gen_condition_to_integer(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, expressions.Binop):
@@ -532,21 +553,7 @@ class CCodeGenerator:
                 rhs = self.gen_expr(expr.b, rvalue=True)
                 value = rhs
             elif expr.op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
-                yes_block = self.builder.new_block()
-                no_block = self.builder.new_block()
-                end_block = self.builder.new_block()
-                self.gen_condition(expr, yes_block, no_block)
-                self.builder.set_block(yes_block)
-                ir_typ = self.get_ir_type(expr.typ)
-                yes_value = self.emit(ir.Const(1, 'one', ir_typ))
-                self.emit(ir.Jump(end_block))
-                self.builder.set_block(no_block)
-                no_value = self.emit(ir.Const(0, 'zero', ir_typ))
-                self.emit(ir.Jump(end_block))
-                self.builder.set_block(end_block)
-                value = self.emit(ir.Phi('phi', ir_typ))
-                value.set_incoming(yes_block, yes_value)
-                value.set_incoming(no_block, no_value)
+                value = self.gen_condition_to_integer(expr)
             elif expr.op in [
                     '=', '+=', '-=', '*=', '%=', '/=',
                     '>>=', '<<=',

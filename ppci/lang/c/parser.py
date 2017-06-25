@@ -10,7 +10,6 @@ The following parts can be distinguished:
 
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
-from .semantics import Semantics
 from . import nodes
 
 
@@ -36,10 +35,10 @@ class CParser(RecursiveDescentParser):
     LEFT_ASSOCIATIVE = 'left-associative'
     RIGHT_ASSOCIATIVE = 'right-associative'
 
-    def __init__(self, context):
+    def __init__(self, context, semantics):
         super().__init__()
         self.context = context
-        self.semantics = Semantics(context)
+        self.semantics = semantics
         self.type_qualifiers = {'volatile', 'const'}
         self.storage_classes = {
             'typedef', 'static', 'extern', 'register', 'auto'}
@@ -121,16 +120,15 @@ class CParser(RecursiveDescentParser):
         """ Top level start of parsing """
         self.semantics.begin()
         while not self.at_end:
-            for declaration in self.parse_declaration():
-                print('decl', declaration)
-                self.semantics.declarations.append(declaration)
+            for declaration in self.parse_declarations():
+                # print('decl', declaration)
+                self.semantics.add_global_declaration(declaration)
         return self.semantics.finish_compilation_unit()
 
     # Declarations part:
-    def parse_declaration(self):
-        """ Parse normal declaration inside function """
+    def parse_declarations(self):
+        """ Parse normal declarations """
         ds = self.parse_decl_specifiers()
-        # print(ds)
         # TODO: perhaps not parse functions here?
         if self.has_consumed(';'):
             declarations = []
@@ -335,15 +333,15 @@ class CParser(RecursiveDescentParser):
         return function
 
     def parse_variable_declaration(self, ds, d):
+        # Create the variable:
+        variable = self.semantics.on_variable_declaration(
+            ds.storage_class, ds.typ, d.name, d.type_modifiers, d.location)
+
         # Handle the initial value:
         if self.has_consumed('='):
             initializer = self.parse_variable_initializer()
-        else:
-            initializer = None
-
-        return self.semantics.on_variable_declaration(
-            ds.storage_class, ds.typ, d.name, d.type_modifiers, initializer,
-            d.location)
+            self.semantics.on_variable_initialization(variable, initializer)
+        return variable
 
     def parse_typedef(self, ds, d):
         """ Process typedefs """
@@ -505,8 +503,8 @@ class CParser(RecursiveDescentParser):
             # TODO: do not use current location member.
             location = self.current_location
             statements = []
-            for declaration in self.parse_declaration():
-                statement = self.semantics.do_declaration_statement(
+            for declaration in self.parse_declarations():
+                statement = self.semantics.on_declaration_statement(
                     declaration, location)
                 statements.append(statement)
         else:
@@ -551,7 +549,7 @@ class CParser(RecursiveDescentParser):
                 statement = self.parse_label()
             else:
                 expression = self.parse_expression()
-                statement = self.semantics.do_expression_statement(expression)
+                statement = self.semantics.on_expression_statement(expression)
                 self.consume(';')
         return statement
 
@@ -560,12 +558,12 @@ class CParser(RecursiveDescentParser):
         name = self.consume('ID')
         self.consume(':')
         statement = self.parse_statement()
-        return self.semantics.do_label(name.val, statement, name.loc)
+        return self.semantics.on_label(name.val, statement, name.loc)
 
     def parse_empty_statement(self):
         """ Parse a statement that does nothing! """
         location = self.consume(';').loc
-        return self.semantics.do_empty(location)
+        return self.semantics.on_empty(location)
 
     def parse_compound_statement(self):
         """ Parse a series of statements surrounded by '{' and '}' """
@@ -650,7 +648,7 @@ class CParser(RecursiveDescentParser):
         condition = self.parse_expression()
         self.consume(')')
         self.consume(';')
-        return self.semantics.do_do(body, condition, location)
+        return self.semantics.on_do(body, condition, location)
 
     def parse_for_statement(self):
         """ Parse a for statement """
@@ -675,7 +673,7 @@ class CParser(RecursiveDescentParser):
         self.consume(')')
 
         body = self.parse_statement()
-        return self.semantics.do_for(initial, condition, post, body, location)
+        return self.semantics.on_for(initial, condition, post, body, location)
 
     def parse_return_statement(self):
         """ Parse a return statement """
@@ -685,7 +683,7 @@ class CParser(RecursiveDescentParser):
         else:
             value = self.parse_expression()
         self.consume(';')
-        return self.semantics.do_return(value, location)
+        return self.semantics.on_return(value, location)
 
     # Expression parts:
     def parse_constant_expression(self):
@@ -711,14 +709,12 @@ class CParser(RecursiveDescentParser):
                 # Eat middle part:
                 middle = self.parse_expression()
                 self.consume(':')
-            rhs = self.parse_binop_with_precedence(op_prio)
-
-            if op.val == '?':
+                rhs = self.parse_binop_with_precedence(op_prio)
                 lhs = self.semantics.on_ternop(
                     lhs, op.val, middle, rhs, op.loc)
             else:
+                rhs = self.parse_binop_with_precedence(op_prio)
                 lhs = self.semantics.on_binop(lhs, op.val, rhs, op.loc)
-            # print(lhs)
         return lhs
 
     def parse_primary_expression(self):
@@ -812,13 +808,11 @@ class CParser(RecursiveDescentParser):
     def next_token(self):
         """ Advance to the next token """
         tok = super().next_token()
-        # print('parse', tok)
 
         # Implement lexer hack here:
         if tok and tok.typ == 'ID' and tok.val in self.typedefs:
             tok.typ = 'TYPE-ID'
 
-        # print('parse', tok)
         return tok
 
     @property

@@ -55,8 +55,11 @@ class CContext:
             BareType.UINT: int_size,
             BareType.LONG: 8,
             BareType.ULONG: 8,
+            BareType.LONGLONG: 8,
+            BareType.ULONGLONG: 8,
             BareType.FLOAT: 4,
             BareType.DOUBLE: 8,
+            BareType.LONGDOUBLE: 10,
         }
 
     def is_valid(self, type_specifiers):
@@ -82,9 +85,11 @@ class CContext:
         #    else:
         #        return (not typ1.qualifiers) and \
         #            self.equal_types(typ1.typ, typ2)
-        # elif isinstance(typ2, nodes.QualifiedType):
-        #    # Handle qualified types (we know that typ1 unqualified)
-        #    return (not typ2.qualifiers) and self.equal_types(typ1, typ2.typ)
+        elif isinstance(typ1, types.QualifiedType):
+            if isinstance(typ2, types.QualifiedType):
+                # Handle qualified types
+                return typ1.qualifiers == typ2.qualifiers and \
+                    self.equal_types(typ1.typ, typ2.typ)
         elif isinstance(typ1, types.BareType):
             if isinstance(typ2, types.BareType):
                 return typ1.type_id == typ2.type_id
@@ -93,12 +98,16 @@ class CContext:
                 return typ1.name == typ2.name
         elif isinstance(typ1, types.FunctionType):
             if isinstance(typ2, types.FunctionType):
-                return len(typ1.arg_types) == len(typ2.arg_types) and \
+                return \
+                    len(typ1.argument_types) == len(typ2.argument_types) and \
                     self.equal_types(typ1.return_type, typ2.return_type) and \
                     all(self.equal_types(a1, a2) for a1, a2 in zip(
-                        typ1.arg_types, typ2.arg_types))
+                        typ1.argument_types, typ2.argument_types))
         elif isinstance(typ1, types.PointerType):
             if isinstance(typ2, types.PointerType):
+                return self.equal_types(typ1.element_type, typ2.element_type)
+        elif isinstance(typ1, types.ArrayType):
+            if isinstance(typ2, types.ArrayType):
                 return self.equal_types(typ1.element_type, typ2.element_type)
         elif isinstance(typ1, types.UnionType):
             if isinstance(typ2, types.UnionType):
@@ -115,10 +124,10 @@ class CContext:
 
     def resolve_type(self, typ: types.IdentifierType):
         """ Given a type, look behind the identifiertype """
-        if isinstance(typ, types.IdentifierType):
-            return typ.typ
-        else:
-            return typ
+        # TODO: redesign qualifiers for sure.
+        while isinstance(typ, (types.IdentifierType, types.QualifiedType)):
+            typ = typ.typ
+        return typ
 
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """

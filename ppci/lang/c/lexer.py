@@ -42,6 +42,7 @@ class Char:
 def create_characters(f, filename):
     """ Create a sequence of characters """
     for row, line in enumerate(f, 1):
+        line = line.expandtabs()
         for col, char in enumerate(line, 1):
             loc = SourceLocation(filename, row, col, 1)
             yield Char(char, loc)

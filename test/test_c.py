@@ -1,8 +1,9 @@
 import unittest
+from unittest import mock
 import io
 import os
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CLexer, lexer, CParser, nodes
+from ppci.lang.c import CBuilder, CLexer, lexer, CParser, CSemantics, nodes
 from ppci.lang.c import CContext
 from ppci.lang.c.preprocessor import CTokenPrinter, prepare_for_parsing
 from ppci.lang.c.options import COptions
@@ -148,11 +149,16 @@ def gen_tokens(tokens):
         col += 1
 
 
-@unittest.skip('TODO')
 class CParserTestCase(unittest.TestCase):
-    """ Test the C parser """
+    """ Test the C parser.
+
+    Since the C parser uses the C semantics class, we use a mock for
+    the semantics and assert that the proper functions are called on it.
+    """
     def setUp(self):
-        self.parser = CParser(CContext(COptions(), ExampleArch()))
+        context = CContext(COptions(), ExampleArch())
+        self.semantics = mock.Mock(spec=CSemantics, name='semantics')
+        self.parser = CParser(context, self.semantics)
 
     def parse(self, tokens):
         cu = self.parser.parse(gen_tokens(tokens))
@@ -173,15 +179,20 @@ class CParserTestCase(unittest.TestCase):
     def test_empty(self):
         """ Test the obvious empty case! """
         cu = self.parse([])
-        self.assertEqual(0, len(cu.declarations))
+        self.assertSequenceEqual(
+            [
+                mock.call.begin(),
+                mock.call.finish_compilation_unit()
+            ],
+            self.semantics.mock_calls
+        )
 
     def test_global_int(self):
         """ Test the parsing of a global integer """
         tokens = [('int', 'int'), ('ID', 'A'), (';', ';')]
         cu = self.parse(tokens)
-        self.assertEqual(1, len(cu.declarations))
-        decl = cu.declarations[0].declarators[0]
-        self.assertEqual('A', decl.name)
+        self.semantics.on_variable_declaration.assert_called()
+        self.semantics.add_global_declaration.assert_called()
 
     def test_function(self):
         """ Test the parsing of a function """
@@ -191,24 +202,15 @@ class CParserTestCase(unittest.TestCase):
             ('{', '{'), ('return', 'return'), ('ID', 'x'), ('+', '+'),
             ('ID', 'y'), (';', ';'), ('}', '}')]
         cu = self.parse(tokens)
-        self.assertEqual(1, len(cu.declarations))
-        decl = cu.declarations[0].declarators[0]
-        # self.assertIsInstance(decl.typ, nodes.FunctionType)
-        # self.assertIsInstance(decl.typ.return_type, nodes.BareType)
-        # stmt = decl.body.statements[0]
-        # self.assertIsInstance(stmt, nodes.Return)
-        # self.assertIsInstance(stmt.value, nodes.Binop)
-        # self.assertEqual('+', stmt.value.op)
+        self.semantics.add_global_declaration.assert_called()
+        self.semantics.on_binop.assert_called()
+        self.semantics.on_return.assert_called()
 
     def test_pointer_declaration(self):
         """ Test the proper parsing of a pointer to an integer """
         self.given_source('int *a;')
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('a', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.PointerType)
-        # self.assertIsInstance(declaration.typ.pointed_type, nodes.BareType)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_cdecl_example1(self):
         """ Test the proper parsing of 'int (*(*foo)(void))[3]'.
@@ -217,90 +219,57 @@ class CParserTestCase(unittest.TestCase):
         """
         src = 'int (*(*foo)(void))[3];'
         self.given_source(src)
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('foo', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.PointerType)
-        # self.assertIsInstance(
-        #    declaration.typ.pointed_type, nodes.FunctionType)
-        # function_type = declaration.typ.pointed_type
-        # self.assertEqual(None, function_type.arguments[0].name)
-        # self.assertEqual('void', function_type.arguments[0].typ.type_id)
-        # self.assertEqual('void', function_type.arguments[0].typ.type_id)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_function_returning_pointer(self):
         """ Test the proper parsing of a pointer to a function """
         self.given_source('int *a(int x);')
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('a', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.FunctionType)
-        # function_type = declaration.typ
-        # self.assertEqual('x', function_type.arguments[0].name)
-        # self.assertIsInstance(function_type.return_type, nodes.PointerType)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_function_pointer(self):
         """ Test the proper parsing of a pointer to a function """
         self.given_source('int (*a)(int x);')
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('a', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.PointerType)
-        # self.assertIsInstance(
-        #    declaration.typ.pointed_type, nodes.FunctionType)
-        # self.assertEqual('x', declaration.typ.pointed_type.arguments[0].name)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_array_pointer(self):
         """ Test the proper parsing of a pointer to an array """
         self.given_source('int (*a)[3];')
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('a', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.PointerType)
-        # self.assertIsInstance(declaration.typ.pointed_type, nodes.ArrayType)
-        # self.assertEqual('3', declaration.typ.pointed_type.size.value)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_struct_declaration(self):
         """ Test struct declaration parsing """
         self.given_source('struct {int g; } a;')
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('a', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.StructType)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_struct_or_union.assert_called()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_union_declaration(self):
         """ Test union declaration parsing """
         self.given_source('union {int g; } a;')
-        declaration = self.parser.parse_declaration()
-        # TODO: return a single declaration here?
-        declaration = declaration.declarators[0]
-        self.assertEqual('a', declaration.name)
-        # self.assertIsInstance(declaration.typ, nodes.UnionType)
+        declarations = self.parser.parse_declarations()
+        self.semantics.on_struct_or_union.assert_called()
+        self.semantics.on_variable_declaration.assert_called()
 
     def test_expression_precedence(self):
         self.given_source('*l==*r && *l')
         expr = self.parser.parse_expression()
-        self.assertIsInstance(expr, nodes.Binop)
-        self.assertEqual('&&', expr.op)
+        self.semantics.on_binop.assert_called()
 
-    def test_ternary_expression_precedence(self):
+    def test_ternary_expression_precedence_case1(self):
         self.given_source('a ? b ? c : d : e')
         expr = self.parser.parse_expression()
-        self.assertIsInstance(expr, nodes.Ternop)
-        self.assertEqual('?', expr.op)
-        self.assertEqual('c', expr.b.b.name)
+        self.assertEquals(5, self.semantics.on_variable_access.call_count)
+        self.assertEquals(2, self.semantics.on_ternop.call_count)
 
-    def test_ternary_expression_precedence(self):
+    def test_ternary_expression_precedence_case2(self):
         self.given_source('a ? b : c ? d : e')
         expr = self.parser.parse_expression()
-        self.assertIsInstance(expr, nodes.Ternop)
-        self.assertEqual('?', expr.op)
-        self.assertEqual('c', expr.c.a.name)
+        self.assertEquals(5, self.semantics.on_variable_access.call_count)
+        self.assertEquals(2, self.semantics.on_ternop.call_count)
 
 
 class CFrontendTestCase(unittest.TestCase):
@@ -393,6 +362,18 @@ class CFrontendTestCase(unittest.TestCase):
             for (;;) { }
           }
           return d;
+        }
+        """
+        self.do(src)
+
+    def test_expressions(self):
+        """ Test various expression constructions """
+        src = """
+        void main() {
+          int a,b,c,d;
+          c = 2;
+          d = a + b - c / a * b;
+          d = !a;
         }
         """
         self.do(src)
@@ -491,6 +472,7 @@ class CFrontendTestCase(unittest.TestCase):
         }
         """
         self.do(src)
+
     def test_size_outside_struct(self):
         """ Assert error when using bitsize indicator outside struct """
         src = """
@@ -558,6 +540,7 @@ class CFrontendTestCase(unittest.TestCase):
          x = sizeof *y;
          x = sizeof(*y);
          x = sizeof(union U);
+         int w = sizeof w;  // Sizeof works on the expression before the '='
         }
         """
         self.do(src)
@@ -641,6 +624,7 @@ class CFrontendTestCase(unittest.TestCase):
         }
         """
         self.do(src)
+
 
 class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """

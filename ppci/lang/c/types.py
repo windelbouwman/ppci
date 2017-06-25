@@ -23,11 +23,12 @@ class QualifiedType(CType):
 
 class FunctionType(CType):
     """ Function type """
-    def __init__(self, argument_types, return_type):
+    def __init__(self, arguments, return_type, is_vararg=False):
         super().__init__()
-        # self.arguments = arguments
+        self.is_vararg = is_vararg
         # assert all(isinstance(a, VariableDeclaration) for a in arguments)
-        self.argument_types = argument_types
+        self.arguments = arguments
+        self.argument_types = [a.typ for a in arguments]
         assert all(isinstance(t, CType) for t in self.argument_types)
         self.return_type = return_type
         assert isinstance(return_type, CType)
