@@ -1,4 +1,0 @@
-The following files in this directory have been modified to be usable
-with the verilator simulator:
-sp_ram.sv
-The modified lines in these files are marked with the comment: // modified for verilator-simulation purpose
