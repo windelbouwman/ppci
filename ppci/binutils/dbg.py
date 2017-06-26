@@ -19,13 +19,10 @@ from ..lang.c3.builder import C3ExprParser
 from ..lang.c3 import astnodes as c3nodes
 from ..lang.c3 import Context as C3Context
 
-
 # States:
 STOPPED = 0
 RUNNING = 1
 FINISHED = 2
-
-
 
 
 class TmpValue:
@@ -35,6 +32,7 @@ class TmpValue:
         when lval is True, the value is a location,
         else it is the value itself
     """
+
     def __init__(self, value, lval, typ):
         self.value = value
         self.lval = lval
@@ -62,6 +60,7 @@ class Debugger:
         Give it a target architecture for which it must debug
         and driver plugin to connect to hardware.
     """
+
     def __init__(self, arch, driver):
         self.arch = get_arch(arch)
         self.expr_parser = C3ExprParser(self.arch)
@@ -205,8 +204,8 @@ class Debugger:
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
-        #if pc in self.addr_map:
-        mindelta = min(self.addr_map.keys(), key=lambda k: abs(k-pc))
+        # if pc in self.addr_map:
+        mindelta = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
         debug = self.addr_map[mindelta]
         self.logger.info('Found program counter at %s with delta %u' % (debug, mindelta))
         loc = debug.loc
@@ -440,6 +439,7 @@ class DebugDriver:  # pragma: no cover
         Inherit this class to expose a target interface. This class implements
         primitives for a given hardware target.
     """
+
     def run(self):
         raise NotImplementedError()
 

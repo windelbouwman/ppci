@@ -10,6 +10,7 @@ from .dbg import DebugDriver, STOPPED, RUNNING
 INTERRUPT = 2
 BRKPOINT = 5
 
+
 class GdbDebugDriver(DebugDriver):
     """ Implement debugging via the GDB remote interface.
 
@@ -23,17 +24,15 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
-
-
     def __init__(self, arch, transport, constat=STOPPED, pcresval=0, swbrkpt=False):
         self.arch = arch
         self.transport = transport
         self.status = constat
         self.pcresval = pcresval
         self.pcstopval = None
-        self.swbrkpt =  swbrkpt
+        self.swbrkpt = swbrkpt
         self.stopreason = INTERRUPT
-        if(constat == RUNNING):
+        if (constat == RUNNING):
             self.stop()
 
     def __str__(self):
@@ -137,7 +136,7 @@ class GdbDebugDriver(DebugDriver):
 
     def get_pc(self):
         """ read the PC of the device """
-        if(self.pcstopval != None):
+        if (self.pcstopval != None):
             return self.pcstopval
         else:
             pc = self._get_register(self.arch.gdb_pc)
@@ -159,9 +158,9 @@ class GdbDebugDriver(DebugDriver):
     def run(self):
         """ start the device """
         if self.status == STOPPED:
-            if(self.swbrkpt == True and self.stopreason == BRKPOINT):
+            if (self.swbrkpt == True and self.stopreason == BRKPOINT):
                 pc = self.get_pc()
-                self.set_pc(pc-4)
+                self.set_pc(pc - 4)
             self.sendpkt("c")
             # res = self.readpkt()
             # print(res)
@@ -180,20 +179,20 @@ class GdbDebugDriver(DebugDriver):
     def step(self):
         """ restart the device """
         if self.status == STOPPED:
-            if(self.swbrkpt == True and self.stopreason == BRKPOINT):
+            if (self.swbrkpt == True and self.stopreason == BRKPOINT):
                 pc = self.get_pc()
-                self.clear_breakpoint(pc-4)
-                self.set_pc(pc-4)
+                self.clear_breakpoint(pc - 4)
+                self.set_pc(pc - 4)
             self.sendpkt("s")
             self.process_stop_status()
 
     def nstep(self, count):
         """ restart the device """
         if self.status == STOPPED:
-            if(self.swbrkpt == True and self.stopreason == BRKPOINT):
+            if (self.swbrkpt == True and self.stopreason == BRKPOINT):
                 pc = self.get_pc()
-                self.clear_breakpoint(pc-4)
-                self.set_pc(pc-4)
+                self.clear_breakpoint(pc - 4)
+                self.set_pc(pc - 4)
             self.sendpkt("n %x" % count)
             self.process_stop_status()
 
@@ -208,8 +207,8 @@ class GdbDebugDriver(DebugDriver):
             code = int(res[1:3], 16)
             self.stopreason = code
             rest = res[3:]
-            if(res.startswith('T') and
-            int(rest[0:2],16) == self.arch.gdb_registers.index(self.arch.gdb_pc)):
+            if (res.startswith('T') and
+                        int(rest[0:2], 16) == self.arch.gdb_registers.index(self.arch.gdb_pc)):
                 data = bytes.fromhex(rest[3:-1])
                 self.pcstopval, = struct.unpack('<I', data)
             else:
@@ -228,7 +227,7 @@ class GdbDebugDriver(DebugDriver):
         readable = self.transport.rx_avail()
         if readable:
             self.process_stop_status()
-    
+
     def get_status(self):
         return self.status
 
@@ -244,7 +243,7 @@ class GdbDebugDriver(DebugDriver):
         offset = 0
         for register in self.arch.gdb_registers:
             size = register.bitsize // 8
-            reg_data = data[offset:offset+size]
+            reg_data = data[offset:offset + size]
             res[register] = self._unpack_register(register, reg_data)
             offset += size
         if len(data) != offset:
@@ -260,7 +259,7 @@ class GdbDebugDriver(DebugDriver):
         for register in self.arch.gdb_registers:
             reg_data = self._pack_register(register, regvalues[register])
             size = register.bitsize // 8
-            data[offset:offset+size] = reg_data
+            data[offset:offset + size] = reg_data
             offset += size
         data = binascii.b2a_hex(data).decode('ascii')
         self.sendpkt("G %s" % data)
@@ -298,7 +297,7 @@ class GdbDebugDriver(DebugDriver):
             4: '<I',
             2: '<H',
             1: '<B',
-            }
+        }
         size = register.bitsize // 8
         assert len(data) == size
         if size == 3:
@@ -315,7 +314,7 @@ class GdbDebugDriver(DebugDriver):
             4: '<I',
             2: '<H',
             1: '<B',
-            }
+        }
         size = register.bitsize // 8
         data = struct.pack(fmts[size], value)
         return data

@@ -9,8 +9,6 @@ from ppci.binutils.dbg_cli import DebugCli
 from ppci.binutils.dbg_gdb_client import GdbDebugDriver
 from ppci.binutils.transport import TCP
 
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     arch = get_arch("riscv")

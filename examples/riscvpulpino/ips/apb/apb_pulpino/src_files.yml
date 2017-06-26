@@ -1,4 +1,0 @@
-apb_pulpino:
-  files: [
-    apb_pulpino.sv,
-  ]
