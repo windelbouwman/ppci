@@ -574,6 +574,32 @@ class CCodeGenerator:
                 self.emit(ir.Store(value, lhs))
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
+        elif isinstance(expr, expressions.Ternop):
+            if expr.op in ['?']:
+                # TODO: merge maybe with conditional logic?
+                yes_block = self.builder.new_block()
+                no_block = self.builder.new_block()
+                end_block = self.builder.new_block()
+
+                self.gen_condition(expr.a, yes_block, no_block)
+
+                # The true path:
+                self.builder.set_block(yes_block)
+                yes_value = self.gen_expr(expr.b, rvalue=True)
+                self.emit(ir.Jump(end_block))
+
+                # The false path:
+                self.builder.set_block(no_block)
+                no_value = self.gen_expr(expr.c, rvalue=True)
+                self.emit(ir.Jump(end_block))
+
+                self.builder.set_block(end_block)
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Phi('phi', ir_typ))
+                value.set_incoming(yes_block, yes_value)
+                value.set_incoming(no_block, no_value)
+            else:  # pragma: no cover
+                raise NotImplementedError(str(expr.op))
         elif isinstance(expr, expressions.VariableAccess):
             variable = expr.variable
             if isinstance(

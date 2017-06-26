@@ -172,6 +172,7 @@ class CParser(RecursiveDescentParser):
                         type_name.val, type_name.loc)
             elif self.peak in self.type_specifiers:
                 type_specifier = self.consume(self.type_specifiers)
+                location = type_specifier.loc
                 if typ:
                     self.error('Type already determined', type_specifier)
                 else:
@@ -209,7 +210,7 @@ class CParser(RecursiveDescentParser):
 
         # Now that we are here, the type must be determined
         if not typ and type_specifiers:
-            typ = self.semantics.on_basic_type(type_specifiers, None)
+            typ = self.semantics.on_basic_type(type_specifiers, location)
 
         if not typ:
             self.error('Expected at least one type specifier')

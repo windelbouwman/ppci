@@ -7,30 +7,41 @@ class CSynthesizer:
 
     This does essentially the opposite of the codegenerator. """
     def __init__(self):
-        pass
+        self.var_map = {}
+        self.block_map = {}
 
     def syn_module(self, ir_module):
-        pass
+        for function in ir_module.functions:
+            self.syn_function(function)
 
-    def syn_function(self, ir_function):
-        pass
+    def syn_function(self, function):
+        for block in function:
+            self.syn_block(block)
 
     def syn_block(self, block):
         """ Synthesize an ir block into C """
+        inner_statements = []
         for instruction in block:
-            self.syn_instruction(instruction)
-        compund = statements.Compund()
-        statements.Label()
+            inner_statements.append(self.syn_instruction(instruction))
+        compound = statements.Compund(inner_statements)
+        statements.Label(block.name, compound)
 
     def syn_instruction(self, instruction):
         """ Convert ir instruction to its corresponding C counterpart """
         if isinstance(instruction, ir.Alloc):
+            ctyp = types.BareType(types.BareType.INT)
+            declaration = declarations.VariableDeclaration(
+                None, ctyp, instruction.name, None, None)
+            statement = statements.DeclarationStatement(declaration, None)
+        elif isinstance(instruction, ir.Store):
             pass
         elif isinstance(instruction, ir.Binop):
             lhs = instruction.name
-            rhs = expressions.Binop(insutrction.a, op, instruction.b)
-            expression = expressions.Binop('=', a, b, d)
-            statement = statements.ExpressionStatement(expression)
+            op = instruction.op
+            rhs = expressions.Binop(instruction.a, op, instruction.b)
+            print(lhs, rhs)
+            # expression = expressions.Binop('=', a, b, d)
+            # statement = statements.ExpressionStatement(expression)
         elif isinstance(instruction, ir.Exit):
             statement = statements.Return()
         elif isinstance(instruction, ir.Return):

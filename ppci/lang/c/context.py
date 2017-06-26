@@ -21,6 +21,7 @@ class CContext:
             type_tuple('signed', 'char'): BareType.SCHAR,
             type_tuple('unsigned', 'char'): BareType.UCHAR,
             type_tuple('short',): BareType.SHORT,
+            type_tuple('signed', 'short',): BareType.SHORT,
             type_tuple('short', 'int'): BareType.SHORT,
             type_tuple('signed', 'short', 'int'): BareType.SHORT,
             type_tuple('unsigned', 'short'): BareType.USHORT,
@@ -30,10 +31,13 @@ class CContext:
             type_tuple('unsigned', 'int',): BareType.UINT,
             type_tuple('unsigned',): BareType.UINT,
             type_tuple('long',): BareType.LONG,
+            type_tuple('signed', 'long',): BareType.LONG,
             type_tuple('long', 'int'): BareType.LONG,
+            type_tuple('signed', 'long', 'int'): BareType.LONG,
             type_tuple('unsigned', 'long'): BareType.ULONG,
             type_tuple('unsigned', 'long', 'int'): BareType.ULONG,
             type_tuple('long', 'long',): BareType.LONGLONG,
+            type_tuple('signed', 'long', 'long',): BareType.LONGLONG,
             type_tuple('long', 'long', 'int'): BareType.LONGLONG,
             type_tuple('signed', 'long', 'long', 'int'):
                 BareType.LONGLONG,
@@ -98,11 +102,8 @@ class CContext:
                     self.equal_types(typ1.return_type, typ2.return_type) and \
                     all(self.equal_types(a1, a2) for a1, a2 in zip(
                         typ1.argument_types, typ2.argument_types))
-        elif isinstance(typ1, types.PointerType):
-            if isinstance(typ2, types.PointerType):
-                return self.equal_types(typ1.element_type, typ2.element_type)
-        elif isinstance(typ1, types.ArrayType):
-            if isinstance(typ2, types.ArrayType):
+        elif isinstance(typ1, types.IndexableType):
+            if isinstance(typ2, types.IndexableType):
                 return self.equal_types(typ1.element_type, typ2.element_type)
         elif isinstance(typ1, types.UnionType):
             if isinstance(typ2, types.UnionType):

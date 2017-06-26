@@ -4,7 +4,7 @@ import io
 import os
 from ppci.common import CompilerError
 from ppci.lang.c import CBuilder, CLexer, lexer, CParser, CSemantics, nodes
-from ppci.lang.c import CContext
+from ppci.lang.c import CContext, CSynthesizer
 from ppci.lang.c.preprocessor import CTokenPrinter, prepare_for_parsing
 from ppci.lang.c.options import COptions
 from ppci.lang.c.castxml import CastXmlReader
@@ -389,6 +389,7 @@ class CFrontendTestCase(unittest.TestCase):
           c = 2;
           d = a + b - c / a * b;
           d = !a;
+          d = a ? b : c + 2;
         }
         """
         self.do(src)
@@ -652,11 +653,36 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+
 class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """
     def test_test8(self):
         reader = CastXmlReader()
         cu = reader.process(relpath('data', 'c', 'test8.xml'))
+
+
+class CSynthesizerTestCase(unittest.TestCase):
+    @unittest.skip('todo')
+    def test_hello(self):
+        """ Convert C to Ir, and then this IR to C """
+        src = r"""
+        void printf(char*);
+        void main(int b) {
+          printf("Hello" "world\n");
+        }
+        """
+        builder = CBuilder(ExampleArch(), COptions())
+        f = io.StringIO(src)
+        try:
+            ir_module = builder.build(f, None)
+        except CompilerError as compiler_error:
+            lines = src.split('\n')
+            compiler_error.render(lines)
+            raise
+        assert isinstance(ir_module, ir.Module)
+        Verifier().verify(ir_module)
+        synthesizer = CSynthesizer()
+        synthesizer.syn_module(ir_module)
 
 
 if __name__ == '__main__':
