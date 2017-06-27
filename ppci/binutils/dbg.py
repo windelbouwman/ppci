@@ -207,7 +207,8 @@ class Debugger:
         # if pc in self.addr_map:
         mindelta = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
         debug = self.addr_map[mindelta]
-        self.logger.info('Found program counter at %s with delta %u' % (debug, mindelta))
+        self.logger.info('Found program counter at %s with delta %u'
+                         % (debug, mindelta))
         loc = debug.loc
         return loc.filename, loc.row
 

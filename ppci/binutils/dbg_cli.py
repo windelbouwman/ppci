@@ -32,9 +32,11 @@ def print_file_line(filename, lineno):
         elif i > len(lines):
             print()
         elif i == lineno:
-            print("\033[33m\033[1m", str(i).rjust(4), "\033[32m->", lines[i - 1], "\033[0m\033[39m")
+            print("\033[33m\033[1m", str(i).rjust(4),
+                  "\033[32m->", lines[i - 1], "\033[0m\033[39m")
         else:
-            print("\033[33m\033[1m", str(i).rjust(4), "\033[0m\033[39m  ", lines[i - 1])
+            print("\033[33m\033[1m", str(i).rjust(4),
+                  "\033[0m\033[39m  ", lines[i - 1])
 
 
 class DebugCli(cmd.Cmd):
@@ -46,7 +48,7 @@ class DebugCli(cmd.Cmd):
         super().__init__()
         self.debugger = debugger
         self.showsource = showsource
-        if self.showsource == True:
+        if self.showsource is True:
             if os.name == 'nt':
                 init()
             clearscreen()
@@ -181,7 +183,7 @@ class DebugCli(cmd.Cmd):
     do_sl = do_stepl
 
     def postcmd(self, stop, line):
-        if self.showsource == True and self.debugger.is_halted:
+        if self.showsource is True and self.debugger.is_halted:
             file, row = self.debugger.find_pc()
             print_file_line(file, row)
         return cmd.Cmd.postcmd(self, stop, line)
