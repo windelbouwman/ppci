@@ -824,9 +824,11 @@ class Expander:
                     self.logger.warning('Attention: undefined "%s"', name)
                 lhs = 0
         elif token.typ == 'NUMBER':
-            lhs = cnum(token.val)
+            lhs, _ = cnum(token.val)
+            # TODO: check type specifier?
         elif token.typ == 'CHAR':
             lhs, _ = charval(replace_escape_codes(token.val))
+            # TODO: check type specifier?
         else:
             raise NotImplementedError(token.val)
 

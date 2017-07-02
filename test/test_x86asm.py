@@ -209,6 +209,11 @@ class AssemblerTestCase(AsmTestCaseBase):
         # This also works: 4D0FAFFE (another variant?? )
         # assert(assembler.imulreg64('r15', 'r14') == [0x4d, 0x0f, 0xaf, 0xfe])
 
+    def test_shl(self):
+        self.feed('shl ah, cl')
+        self.feed('shl bl, cl')
+        self.check('40d2e4 40d2e3')
+
 
 class X87TestCase(AsmTestCaseBase):
     """ Checks floating point x87 instructions """

@@ -65,7 +65,7 @@ class CSemantics:
             elif modifier[0] == 'ARRAY':
                 size = modifier[1]
                 if size:
-                    size = self.eval_expr(size)
+                    size = self.context.eval_expr(size)
                 typ = types.ArrayType(typ, size)
             elif modifier[0] == 'FUNCTION':
                 arguments = modifier[1]
@@ -101,29 +101,108 @@ class CSemantics:
         self.add_declaration(declaration)
         return declaration
 
+    # Variable initialization!
     def on_variable_initialization(self, variable, expression):
         """ Handle a variable initialized to some value """
         # This is a good point to determine array size and check
         # initial values
-        if isinstance(expression, expressions.InitializerList):
-            if isinstance(variable.typ, types.ArrayType):
-                if variable.typ.size is None:
-                    # Determine size from initializer list:
-                    variable.typ.size = len(expression.elements)
-                else:
-                    if variable.typ.size != len(expression.elements):
-                        self.error(
-                            'Wrong amount of initial values',
-                            expression.location)
-                for element in expression.elements:
-                    print(element)
-            elif isinstance(variable.typ, types.StructOrUnionType):
-                raise NotImplementedError()
-            else:
-                raise NotImplementedError()
-        else:
-            expression = self.coerce(expression, variable.typ)
+        expression = self._sub_init(variable.typ, expression, top_level=True)
         variable.initial_value = expression
+
+        # Fill array size from elements!
+        if isinstance(variable.typ, types.ArrayType) and \
+                variable.typ.size is None:
+            if isinstance(expression, expressions.InitializerList):
+                variable.typ.size = len(expression.elements)
+            elif isinstance(expression, expressions.StringLiteral):
+                variable.typ.size = len(expression.value) + 1
+            else:
+                pass
+
+    def _sub_init(self, typ, initializer, top_level=False):
+        """ Check if expression can be used to initialize the given type.
+
+        This function should try to fit the initializer list onto the
+        initialized type. In some way, it is a bad ass auto cast function.
+
+        This involves constructions such as:
+        - int a = 9;
+        - int b[2][2] = {{1,2}, {3,4}};
+        - int c[][2] = {1,2,3,4}; // equivalent to: {{1,2},{3,4}}
+        """
+        if isinstance(initializer, expressions.InitializerList):
+            initializer = InitEnv(initializer)
+
+        if typ.is_scalar or isinstance(typ, types.PointerType) or \
+                isinstance(typ, types.EnumType):
+            if isinstance(initializer, InitEnv):
+                result = self.coerce(initializer.take(), typ)
+            else:
+                result = self.coerce(initializer, typ)
+        elif isinstance(typ, types.ArrayType):
+            if isinstance(initializer, expressions.StringLiteral):
+                result = initializer
+            elif isinstance(initializer, InitEnv):
+                if typ.size is None and not top_level:
+                    self.error(
+                        'Unknown array size',
+                        initializer.initializer.location)
+
+                il = []
+                n = 0
+                while ((typ.size is None) and not initializer.at_end()) \
+                        or ((typ.size is not None) and (n < typ.size)):
+                    if initializer.at_end():
+                        i = 0
+                    elif initializer.at_list():
+                        i = self._sub_init(
+                            typ.element_type, initializer.take())
+                    else:
+                        i = self._sub_init(typ.element_type, initializer)
+                    il.append(i)
+                    n += 1
+                    # self._sub_init(typ.element_type, element))
+
+                result = expressions.InitializerList(
+                    il, initializer.initializer.location)
+                # result = self.init_array(typ, initializer)
+            else:
+                self.error('Cannot initialize array with non init list')
+        elif isinstance(typ, types.StructType):
+            if not isinstance(initializer, InitEnv):
+                self.error('Cannot initialize struct with non init list')
+
+            if not typ.complete:
+                self.error('Struct not fully defined!')
+
+            # Grab all fields from the initializer list:
+            il = []
+            for field in typ.fields:
+                if initializer.at_end():
+                    # Implicit initialization:
+                    i = 0
+                elif initializer.at_list():
+                    # Enter new '{' part
+                    i = self._sub_init(field.typ, initializer.take())
+                else:
+                    i = self._sub_init(field.typ, initializer)
+                il.append(i)
+            result = expressions.InitializerList(
+                il, initializer.initializer.location)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+
+        return result
+
+    def init_var():
+        pass
+
+    def init_array(self, typ, init_env):
+        """ Process array initializers """
+        pass
+
+    def init_struct(self):
+        pass
 
     def on_typedef(self, typ, name, modifiers, location):
         """ Handle typedef declaration """
@@ -162,59 +241,6 @@ class CSemantics:
                 self.error("Invalid redefinition", declaration.location)
         else:
             self.scope.insert(declaration)
-
-    def get_type(self, type_specifiers):
-        """ Retrieve a type by type specifiers """
-        assert isinstance(type_specifiers, list)
-        return self.context.get_type(type_specifiers)
-
-    def get_common_type(self, typ1, typ2):
-        """ Given two types, determine the common type.
-
-        The common type is a type they can both be cast to. """
-        # TODO!
-        return typ1
-
-    def eval_expr(self, expr):
-        """ Evaluate an expression right now! (=at compile time) """
-        if isinstance(expr, expressions.Binop):
-            lhs = self.eval_expr(expr.a)
-            rhs = self.eval_expr(expr.b)
-            op = expr.op
-
-            op_map = {
-                '+': lambda x, y: x + y,
-                '-': lambda x, y: x - y,
-                '*': lambda x, y: x * y,
-                '/': lambda x, y: x / y,
-                '>>': lambda x, y: x >> y,
-                '<<': lambda x, y: x << y,
-            }
-            value = op_map[op](lhs, rhs)
-        elif isinstance(expr, expressions.Unop):
-            if expr.op in ['-']:
-                a = self.eval_expr(expr.a)
-                op_map = {
-                    '-': lambda x: -x,
-                }
-                value = op_map[expr.op](a)
-            else:  # pragma: no cover
-                raise NotImplementedError(str(expr))
-        elif isinstance(expr, expressions.VariableAccess):
-            if isinstance(expr.variable, declarations.ValueDeclaration):
-                value = expr.variable.value
-            else:
-                raise NotImplementedError(str(expr.variable))
-        elif isinstance(expr, expressions.NumericLiteral):
-            value = expr.value
-        elif isinstance(expr, expressions.CharLiteral):
-            value = expr.value
-        elif isinstance(expr, expressions.Cast):
-            # TODO: do some real casting!
-            value = self.eval_expr(expr.expr)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(expr))
-        return value
 
     def on_initializer_list(self, values, location):
         return expressions.InitializerList(values, location)
@@ -276,7 +302,7 @@ class CSemantics:
 
             # Calculate bit size:
             if bitsize:
-                bitsize = self.eval_expr(bitsize)
+                bitsize = self.context.eval_expr(bitsize)
             else:
                 bitsize = self.context.sizeof(ctyp)
             cfield = types.Field(ctyp, name, offset, bitsize)
@@ -307,7 +333,7 @@ class CSemantics:
     def on_enum_value(self, ctyp, name, value, location):
         """ Handle a single enum value definition """
         if value:
-            self.current_enum_value = self.eval_expr(value)
+            self.current_enum_value = self.context.eval_expr(value)
         new_value = declarations.ValueDeclaration(
             ctyp, name, self.current_enum_value, location)
         self.add_declaration(new_value)
@@ -370,7 +396,7 @@ class CSemantics:
         return statements.Switch(expression, statement, location)
 
     def on_case(self, value, statement, location):
-        value = self.eval_expr(value)
+        value = self.context.eval_expr(value)
         return statements.Case(value, statement, location)
 
     @staticmethod
@@ -399,11 +425,13 @@ class CSemantics:
         return statements.DoWhile(body, condition, location)
 
     def on_for(self, initial, condition, post, body, location):
+        """ Check for loop construction """
         if condition:
             condition = self.coerce(condition, self.get_type(['int']))
         return statements.For(initial, condition, post, body, location)
 
     def on_return(self, value, location):
+        """ Check return statement """
         return_type = self.current_function.typ.return_type
         if value:
             if return_type.is_void:
@@ -418,32 +446,24 @@ class CSemantics:
     # Expressions!
     def on_string(self, value, location):
         """ React on string literal """
-        expr = expressions.StringLiteral(value, location)
-        expr.typ = self.cstr_type
-        expr.lvalue = False
-        return expr
+        return expressions.StringLiteral(value, self.cstr_type, location)
 
     def on_number(self, value, location):
         """ React on numeric literal """
         # Get value from string:
-        v = utils.cnum(value)
+        v, type_specifiers = utils.cnum(value)
         # TODO: this does not have to be int!
         assert isinstance(v, int)
 
-        expr = expressions.NumericLiteral(v, location)
-        # TODO: handle other types such as long long
-        expr.typ = self.get_type(['int'])
-        expr.lvalue = False
-        return expr
+        typ = self.get_type(type_specifiers)
+        return expressions.NumericLiteral(v, typ, location)
 
     def on_char(self, value, location):
         """ Process a character literal """
         # Get value from string:
         char_value, kind = utils.charval(value)
-        expr = expressions.CharLiteral(char_value, location)
-        expr.typ = self.get_type(kind)
-        expr.lvalue = False
-        return expr
+        typ = self.get_type(kind)
+        return expressions.CharLiteral(char_value, typ, location)
 
     def on_ternop(self, lhs, op, mid, rhs, location):
         """ Handle ternary operator 'a ? b : c' """
@@ -453,40 +473,51 @@ class CSemantics:
         common_type = self.get_common_type(mid.typ, rhs.typ)
         mid = self.coerce(mid, common_type)
         rhs = self.coerce(rhs, common_type)
-        expr = expressions.Ternop(lhs, op, mid, rhs, location)
-        expr.typ = common_type
-        expr.lvalue = False
-        return expr
+        return expressions.Ternop(
+            lhs, op, mid, rhs, common_type, False, location)
 
     def on_binop(self, lhs, op, rhs, location):
         """ Check binary operator """
         if op in ['||', '&&']:
-            common_typ = self.get_type(['int'])
+            result_typ = self.get_type(['int'])
+            lhs = self.coerce(lhs, result_typ)
+            rhs = self.coerce(rhs, result_typ)
         elif op in [
                 '=', '+=', '-=', '*=', '%=', '/=',
                 '>>=', '<<=',
                 '&=', '|=', '~=', '^=']:
-            common_typ = lhs.typ
+            # TODO: recurse twice (as '+' and as '=')?
+            result_typ = lhs.typ
             if not lhs.lvalue:
                 self.error('Expected lvalue', lhs.location)
-        else:
+            rhs = self.coerce(rhs, result_typ)
+        elif op == ',':
+            result_typ = rhs.typ
+        elif op == '+':
+            # Handle pointer arithmatic
+            if isinstance(lhs.typ, types.IndexableType):
+                rhs = self.coerce(rhs, self.int_type)
+                result_typ = lhs.typ
+            elif isinstance(rhs.typ, types.IndexableType):
+                lhs = self.coerce(lhs, self.int_type)
+                result_typ = rhs.typ
+            else:
+                result_typ = self.get_common_type(lhs.typ, rhs.typ)
+                lhs = self.coerce(lhs, result_typ)
+                rhs = self.coerce(rhs, result_typ)
+        elif op in ['<', '>', '==', '!=', '<=', '>=']:
+            # Booleans are integer type:
+            # TODO: assert types are of base arithmatic type
             common_typ = self.get_common_type(lhs.typ, rhs.typ)
-
-        # Coerce always, except when comma operator is used:
-        if op == ',':
-            common_typ = rhs.typ
-        else:
             lhs = self.coerce(lhs, common_typ)
             rhs = self.coerce(rhs, common_typ)
-
-        expr = expressions.Binop(lhs, op, rhs, location)
-        if op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
-            # Booleans are integer type:
-            expr.typ = self.get_type(['int'])
+            result_typ = self.int_type
         else:
-            expr.typ = common_typ
-        expr.lvalue = False
-        return expr
+            result_typ = self.get_common_type(lhs.typ, rhs.typ)
+            lhs = self.coerce(lhs, result_typ)
+            rhs = self.coerce(rhs, result_typ)
+
+        return expressions.Binop(lhs, op, rhs, result_typ, False, location)
 
     def on_unop(self, op, a, location):
         """ Check unary operator semantics """
@@ -494,39 +525,31 @@ class CSemantics:
             # Increment and decrement in pre and post form
             if not a.lvalue:
                 self.error('Expected lvalue', a.location)
-            expr = expressions.Unop(op, a, location)
-            expr.typ = expr.a.typ
-            expr.lvalue = False
+            expr = expressions.Unop(op, a, a.typ, False, location)
         elif op in ['-', '~']:
-            expr = expressions.Unop(op, a, location)
-            expr.typ = expr.a.typ
-            expr.lvalue = False
+            expr = expressions.Unop(op, a, a.typ, False, location)
         elif op == '*':
             if not isinstance(a.typ, types.IndexableType):
                 self.error(
                     'Cannot pointer derefence type {}'.format(a.typ),
                     a.location)
-            expr = expressions.Unop(op, a, location)
-            expr.typ = expr.a.typ.element_type
-            expr.lvalue = True
+            typ = a.typ.element_type
+            expr = expressions.Unop(op, a, typ, True, location)
         elif op == '&':
             if not a.lvalue:
                 self.error('Expected lvalue', a.location)
-            expr = expressions.Unop(op, a, location)
-            expr.typ = types.PointerType(expr.a.typ)
-            expr.lvalue = False
+            typ = types.PointerType(a.typ)
+            expr = expressions.Unop(op, a, typ, False, location)
         elif op == '!':
-            a = self.coerce(a, self.get_type(['int']))
-            expr = expressions.Unop(op, a, location)
-            expr.typ = self.get_type(['int'])
-            expr.lvalue = False
+            a = self.coerce(a, self.int_type)
+            expr = expressions.Unop(op, a, self.int_type, False, location)
         else:  # pragma: no cover
             raise NotImplementedError(str(op))
         return expr
 
-    def on_sizeof(self, typ, loc):
-        expr = expressions.Sizeof(typ, loc)
-        expr.typ = self.get_type(['int'])
+    def on_sizeof(self, typ, location):
+        expr = expressions.Sizeof(typ, location)
+        expr.typ = self.int_type
         expr.lvalue = False
         return expr
 
@@ -539,8 +562,7 @@ class CSemantics:
 
     def on_array_index(self, base, index, location):
         """ Check array indexing """
-        int_type = self.get_type(['int'])
-        index = self.coerce(index, int_type)
+        index = self.coerce(index, self.int_type)
         if not base.lvalue:
             # TODO: must array base be an lvalue?
             self.error('Expected lvalue', base)
@@ -549,10 +571,8 @@ class CSemantics:
                 'Cannot index non array type {}'.format(
                     base.typ), location)
 
-        expr = expressions.ArrayIndex(base, index, location)
-        expr.typ = base.typ.element_type
-        expr.lvalue = True
-        return expr
+        typ = base.typ.element_type
+        return expressions.ArrayIndex(base, index, typ, True, location)
 
     def on_field_select(self, base, field, location):
         """ Check field select expression """
@@ -582,13 +602,19 @@ class CSemantics:
         # Check for funky-ness:
         if not isinstance(function, declarations.FunctionDeclaration):
             self.error('Calling a non-function', location)
+        function_type = function.typ
 
         # Check argument count:
-        num_expected = len(function.typ.argument_types)
+        num_expected = len(function_type.argument_types)
         num_given = len(arguments)
-        if num_given != num_expected:
-            self.error('Expected {} arguments, but got {}'.format(
-                num_expected, num_given), location)
+        if function_type.is_vararg:
+            if num_given < num_expected:
+                self.error('Expected at least {} arguments, but got {}'.format(
+                    num_expected, num_given), location)
+        else:
+            if num_given != num_expected:
+                self.error('Expected {} arguments, but got {}'.format(
+                    num_expected, num_given), location)
 
         # Check argument types:
         coerced_arguments = []
@@ -624,6 +650,8 @@ class CSemantics:
     # Helpers!
     def coerce(self, expr: expressions.Expression, typ: types.CType):
         """ Try to fit the given expression into the given type """
+        assert isinstance(typ, types.CType)
+        assert isinstance(expr, expressions.Expression)
         do_cast = False
         from_type = expr.typ
         to_type = typ
@@ -640,6 +668,12 @@ class CSemantics:
             do_cast = True
         elif isinstance(from_type, types.BareType) and \
                 isinstance(to_type, types.PointerType):
+            do_cast = True
+        elif isinstance(from_type, types.IndexableType) and \
+                isinstance(to_type, types.IndexableType):
+                # and \
+                # self.context.equal_types(
+                #    from_type.element_type, to_type.element_type):
             do_cast = True
         elif isinstance(from_type, types.BareType) and \
                 isinstance(to_type, (types.BareType, types.EnumType)):
@@ -658,6 +692,17 @@ class CSemantics:
             expr.lvalue = False
         return expr
 
+    def get_type(self, type_specifiers):
+        """ Retrieve a type by type specifiers """
+        return self.context.get_type(type_specifiers)
+
+    def get_common_type(self, typ1, typ2):
+        """ Given two types, determine the common type.
+
+        The common type is a type they can both be cast to. """
+        # TODO!
+        return typ1
+
     def error(self, message, location):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
@@ -665,3 +710,23 @@ class CSemantics:
     def not_impl(self, message, location):
         self.error(message, location)
         raise NotImplementedError(message)
+
+
+class InitEnv:
+    """ Helper data structure for array initialization """
+    def __init__(self, initializer, position=0):
+        self.initializer = initializer
+        self.position = position
+
+    def at_list(self):
+        return isinstance(
+            self.initializer.elements[self.position],
+            expressions.InitializerList)
+
+    def take(self):
+        e = self.initializer.elements[self.position]
+        self.position += 1
+        return e
+
+    def at_end(self):
+        return self.position == len(self.initializer.elements)

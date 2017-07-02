@@ -102,7 +102,7 @@ class CLexerTestCase(unittest.TestCase):
         src = "212 215u 0xFeeL 073 032U 30l 30ul"
         tokens = self.tokenize(src)
         self.assertTrue(all(t.typ == 'NUMBER' for t in tokens))
-        numbers = list(map(lambda t: cnum(t.val), tokens))
+        numbers = list(map(lambda t: cnum(t.val)[0], tokens))
         self.assertSequenceEqual([212, 215, 4078, 59, 26, 30, 30], numbers)
 
     def test_assignment_operators(self):
@@ -312,9 +312,9 @@ class CFrontendTestCase(unittest.TestCase):
 
     def test_hello_world(self):
         src = r"""
-        void printf(char*);
+        void printf(char*, ...);
         void main(int b) {
-          printf("Hello world\n");
+          printf("Hello \x81 world %i\n", 42);
         }
         """
         self.do(src)
@@ -324,6 +324,8 @@ class CFrontendTestCase(unittest.TestCase):
         void printf(char*);
         void main(int b) {
           printf("Hello" "world\n");
+          static unsigned char msg[]= "Woooot\n";
+          printf(msg);
         }
         """
         self.do(src)
@@ -467,16 +469,18 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    # @unittest.skip('todo')
     def test_array(self):
         """ Test array types """
         src = """
         int a[10];
         int b[] = {1, 2};
+        int bbb[] = {1, 2,}; // Trailing comma
         void main() {
          int c[10];
-         int d[] = {1, 2};
+         unsigned long long d[] = {1ULL, 2ULL};
          a[2] = b[10] + c[2] + d[1];
+         int* p = a + 2;
+         int A[][3] = {1,2,3,4,5,6,7,8,9};
         }
         """
         self.do(src)

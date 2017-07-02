@@ -1,6 +1,7 @@
 
 import logging
 import io
+from .options import COptions
 from .context import CContext
 from .parser import CParser
 from .semantics import CSemantics
@@ -41,3 +42,18 @@ class CBuilder:
             reporter.dump_raw_text(f.getvalue())
         cgen = CCodeGenerator(context)
         return cgen.gen_code(compile_unit)
+
+
+def create_ast(src):
+    """ Create a C ast from the given source """
+    from ...api import get_current_platform
+    coptions = COptions()
+    march = get_current_platform()
+    context = CContext(coptions, march)
+    preprocessor = CPreProcessor(coptions)
+    tokens = preprocessor.process(src, '<snippet>')
+    semantics = CSemantics(context)
+    parser = CParser(context, semantics)
+    tokens = prepare_for_parsing(tokens, parser.keywords)
+    ast = parser.parse(tokens)
+    return ast

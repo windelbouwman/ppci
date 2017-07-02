@@ -48,7 +48,8 @@ from .arch.target_list import create_arch
 
 # When using 'from ppci.api import *' include the following:
 __all__ = [
-    'asm', 'c3c', 'link', 'objcopy', 'bfcompile', 'construct', 'optimize',
+    'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
+    'optimize',
     'get_arch', 'ir_to_object']
 
 
@@ -414,7 +415,26 @@ def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
 
 
 def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
-    """ C compiler. compiles a single source file into an object file """
+    """ C compiler. compiles a single source file into an object file.
+
+    Args:
+        source: file like object from which text can be read
+        march: The architecture for which to compile
+        coptions: options for the C frontend
+
+    Returns:
+        an object file
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import cc
+        >>> source_file = io.StringIO("void main() { int a; }")
+        >>> obj = cc(source_file, 'x86_64')
+        >>> print(obj)
+        CodeObject of 25 bytes
+
+    """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 

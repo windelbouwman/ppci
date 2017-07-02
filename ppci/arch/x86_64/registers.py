@@ -63,18 +63,25 @@ al = LowRegister('al', 0)
 cl = LowRegister('cl', 1)
 dl = LowRegister('dl', 2)
 bl = LowRegister('bl', 3)
+ah = LowRegister('ah', 4)
+ch = LowRegister('ch', 5)
+dh = LowRegister('dh', 6)
+bh = LowRegister('bh', 7)
 
-LowRegister.registers = [al, bl, cl, dl]
+LowRegister.registers = [al, bl, cl, dl, ah, ch, dh, bh]
+
+# TODO
+ax = None
 
 # regs64 = {'rax': 0,'rcx':1,'rdx':2,'rbx':3,'rsp':4,'rbp':5,'rsi':6,'rdi':7,
 # 'r8':0,'r9':1,'r10':2,'r11':3,'r12':4,'r13':5,'r14':6,'r15':7}
 # regs32 = {'eax': 0, 'ecx':1, 'edx':2, 'ebx': 3, 'esp': 4, 'ebp': 5, 'esi':6,
 # 'edi':7}
 # regs8 = {'al':0,'cl':1,'dl':2,'bl':3,'ah':4,'ch':5,'dh':6,'bh':7}
-rax = X86Register('rax', 0, aliases=(al,))
-rcx = X86Register('rcx', 1, aliases=(cl,))
-rdx = X86Register('rdx', 2, aliases=(dl,))
-rbx = X86Register('rbx', 3, aliases=(bl,))
+rax = X86Register('rax', 0, aliases=(al, ah))
+rcx = X86Register('rcx', 1, aliases=(cl, ch))
+rdx = X86Register('rdx', 2, aliases=(dl, dh))
+rbx = X86Register('rbx', 3, aliases=(bl, bh))
 rsp = X86Register('rsp', 4)
 rbp = X86Register('rbp', 5)
 rsi = X86Register('rsi', 6)

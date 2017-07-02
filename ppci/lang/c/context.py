@@ -2,7 +2,7 @@
 
 from ...common import CompilerError
 from .types import BareType
-from . import types
+from . import types, expressions, declarations
 
 
 def type_tuple(*args):
@@ -69,11 +69,13 @@ class CContext:
 
     def is_valid(self, type_specifiers):
         """ Check if the type specifiers refer to a valid basic type """
+        assert isinstance(type_specifiers, (list, tuple))
         key = type_tuple(*type_specifiers)
         return key in self.atomic_types
 
     def get_type(self, type_specifiers):
         """ Create a new instance for the given type specifiers """
+        assert isinstance(type_specifiers, (list, tuple))
         key = type_tuple(*type_specifiers)
         a = self.atomic_types[key]
         return BareType(a)
@@ -164,3 +166,44 @@ class CContext:
     def error(self, message, location):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
+
+    def eval_expr(self, expr):
+        """ Evaluate an expression right now! (=at compile time) """
+        if isinstance(expr, expressions.Binop):
+            lhs = self.eval_expr(expr.a)
+            rhs = self.eval_expr(expr.b)
+            op = expr.op
+
+            op_map = {
+                '+': lambda x, y: x + y,
+                '-': lambda x, y: x - y,
+                '*': lambda x, y: x * y,
+                '/': lambda x, y: x / y,
+                '>>': lambda x, y: x >> y,
+                '<<': lambda x, y: x << y,
+            }
+            value = op_map[op](lhs, rhs)
+        elif isinstance(expr, expressions.Unop):
+            if expr.op in ['-']:
+                a = self.eval_expr(expr.a)
+                op_map = {
+                    '-': lambda x: -x,
+                }
+                value = op_map[expr.op](a)
+            else:  # pragma: no cover
+                raise NotImplementedError(str(expr))
+        elif isinstance(expr, expressions.VariableAccess):
+            if isinstance(expr.variable, declarations.ValueDeclaration):
+                value = expr.variable.value
+            else:
+                raise NotImplementedError(str(expr.variable))
+        elif isinstance(expr, expressions.NumericLiteral):
+            value = expr.value
+        elif isinstance(expr, expressions.CharLiteral):
+            value = expr.value
+        elif isinstance(expr, expressions.Cast):
+            # TODO: do some real casting!
+            value = self.eval_expr(expr.expr)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr))
+        return value

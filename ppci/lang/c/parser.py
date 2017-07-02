@@ -27,9 +27,10 @@ class CParser(RecursiveDescentParser):
     [1] http://clang.org/
     [2] https://en.wikipedia.org/wiki/The_lexer_hack
     [3] https://raw.githubusercontent.com/gcc-mirror/gcc/master/gcc/c/
-        c-parser.c
+    c-parser.c
+
     [4] https://github.com/libfirm/cparser/blob/
-        0cc43ed4bb4d475728583eadcf9e9726682a838b/src/parser/parser.c
+    0cc43ed4bb4d475728583eadcf9e9726682a838b/src/parser/parser.c
     """
     logger = logging.getLogger('cparser')
     LEFT_ASSOCIATIVE = 'left-associative'
@@ -377,11 +378,22 @@ class CParser(RecursiveDescentParser):
             values = []
             values.append(self.parse_variable_initializer())
             while self.has_consumed(','):
+                if self.peak == '}':
+                    break
                 values.append(self.parse_variable_initializer())
             self.consume('}')
             initializer = self.semantics.on_initializer_list(values, location)
         else:
-            initializer = self.parse_constant_expression()
+            if self.peak == '[' and self.options['std'] == 'c99':
+                # Parse designators like: int a[10] = {[1]=5, [4]=3, 4}
+                self.consume('[')
+                index = self.parse_constant_expression()
+                self.consume(']')
+                self.consume('=')
+                initializer = self.parse_constant_expression()
+                initializer = (index, initializer)
+            else:
+                initializer = self.parse_constant_expression()
         return initializer
 
     def parse_function_arguments(self):

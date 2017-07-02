@@ -23,6 +23,11 @@ class COptions:
         """ Add a path to the list of include paths """
         self.include_directories.append(path)
 
+    def add_include_paths(self, paths):
+        """ Add all the given include paths """
+        for path in paths:
+            self.add_include_path(path)
+
     def enable(self, setting):
         self.settings[setting] = True
 

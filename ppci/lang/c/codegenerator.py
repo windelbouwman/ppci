@@ -32,6 +32,8 @@ class CCodeGenerator:
             BareType.UINT: (uint_types[int_size], int_size),
             BareType.LONG: (ir.i64, 8),
             BareType.ULONG: (ir.u64, 8),
+            BareType.LONGLONG: (ir.i64, 8),
+            BareType.ULONGLONG: (ir.u64, 8),
             BareType.FLOAT: (ir.f32, 4),
             BareType.DOUBLE: (ir.f64, 8),
         }
@@ -541,7 +543,7 @@ class CCodeGenerator:
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, expressions.Binop):
-            if expr.op in ['+', '-', '*', '/', '%', '|', '&', '>>', '<<']:
+            if expr.op in ['-', '*', '/', '%', '^', '|', '&', '>>', '<<']:
                 lhs = self.gen_expr(expr.a, rvalue=True)
                 rhs = self.gen_expr(expr.b, rvalue=True)
                 op = expr.op
@@ -553,6 +555,35 @@ class CCodeGenerator:
                 lhs = self.gen_expr(expr.a, rvalue=True)
                 rhs = self.gen_expr(expr.b, rvalue=True)
                 value = rhs
+            elif expr.op in ['+']:
+                lhs = self.gen_expr(expr.a, rvalue=True)
+                rhs = self.gen_expr(expr.b, rvalue=True)
+                # Handle pointer arithmatic!
+                # Pointer arithmatic is an old artifact from the days
+                # when an integer refered always to a array cell!
+                if isinstance(expr.a.typ, types.IndexableType):
+                    # TODO: assert is_integer(expr.b.typ)
+                    esize = self.emit(
+                        ir.Const(
+                            self.context.sizeof(expr.a.typ.element_type),
+                            'esize', rhs.ty))
+                    rhs = self.emit(ir.mul(rhs, esize, 'rhs', rhs.ty))
+                    rhs = self.emit(ir.Cast(rhs, 'ptr_arith', ir.ptr))
+                elif isinstance(expr.b.typ, types.IndexableType):
+                    # TODO: assert is_integer(expr.a.typ)
+                    esize = self.emit(
+                        ir.Const(
+                            self.context.sizeof(expr.b.typ.element_type),
+                            'esize', lhs.ty))
+                    lhs = self.emit(ir.mul(lhs, esize, 'lhs', lhs.ty))
+                    lhs = self.emit(ir.Cast(lhs, 'ptr_arith', ir.ptr))
+                else:
+                    pass
+
+                op = expr.op
+
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
             elif expr.op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
                 value = self.gen_condition_to_integer(expr)
             elif expr.op in [
@@ -632,7 +663,8 @@ class CCodeGenerator:
                     function.name, ir_arguments, 'result', ir_typ))
         elif isinstance(expr, expressions.StringLiteral):
             # Construct nifty 0-terminated string into memory!
-            data = expr.value.encode('ascii') + bytes([0])
+            encoding = 'latin1'
+            data = expr.value.encode(encoding) + bytes([0])
             value = self.emit(ir.LiteralData(data, 'cstr'))
         elif isinstance(expr, expressions.CharLiteral):
             ir_typ = self.get_ir_type(expr.typ)
@@ -700,7 +732,8 @@ class CCodeGenerator:
 
         if isinstance(typ, types.BareType):
             return self.ir_type_map[typ.type_id][0]
-        elif isinstance(typ, types.PointerType):
+        elif isinstance(typ, types.IndexableType):
+            # Pointers and arrays are seen as pointers:
             return ir.ptr
         elif isinstance(typ, types.EnumType):
             return self.get_ir_type(self.context.get_type(['int']))

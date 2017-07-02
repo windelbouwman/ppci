@@ -162,8 +162,11 @@ def cnum(txt: str):
         else:
             raise NotImplementedError()
 
+    if not type_specifiers:
+        type_specifiers.append('int')
+
     # Take the integer:
-    return int(num, base)
+    return int(num, base), type_specifiers
 
 
 def replace_escape_codes(txt: str):

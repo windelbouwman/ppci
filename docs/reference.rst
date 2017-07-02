@@ -7,6 +7,7 @@ Reference
     api
     usage
     c3
+    reference/c
     buildxml
     ir
     debug

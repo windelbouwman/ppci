@@ -8,7 +8,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u64, bit_range, bit
-from .registers import X86Register, rcx, LowRegister, al, rax, rdx, rbp
+from .registers import X86Register, rcx, LowRegister, al, cl, rax, rdx, rbp
 
 isa = Isa()
 
@@ -560,9 +560,13 @@ AndRmReg8 = make_rm_reg8('and', 0x20)
 AndRmReg = make_rm_reg('and', 0x21)
 AndRegRm8 = make_reg_rm8('and', 0x22)
 AndRegRm = make_reg_rm('and', 0x23)
+SubRmReg8 = make_rm_reg8('sub', 0x28)
 SubRmReg = make_rm_reg('sub', 0x29)
+SubRegRm8 = make_reg_rm8('sub', 0x2a)
 SubRegRm = make_reg_rm('sub', 0x2b)
+XorRmReg8 = make_rm_reg8('xor', 0x30)
 XorRmReg = make_rm_reg('xor', 0x31)  # opcode = 0x31  # XOR r/m64, r64
+XorRegRm8 = make_reg_rm8('xor', 0x32)
 XorRegRm = make_reg_rm('xor', 0x33)
 CmpRmReg8 = make_rm_reg8('cmp', 0x38, write_op1=False)  # cmp r/m8 r8
 CmpRmReg = make_rm_reg('cmp', 0x39, write_op1=False)  # cmp r/m64 r64
@@ -634,6 +638,39 @@ class ShlCl(shift_cl_base):
 class SarCl(shift_cl_base):
     r = 7
     syntax = Syntax(['sar', ' ', shift_cl_base.rm, ',', ' ', 'cl'])
+
+
+class shift8_cl_base(X86Instruction):
+    rm = Operand('rm', rm8_modes)
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+    patterns = {'opcode': 0xd2}
+    opcode = 0xd2
+
+    def encode(self):
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[2].reg = self.r
+        return tokens.encode()
+
+
+class RolCl8(shift8_cl_base):
+    r = 0
+    syntax = Syntax(['rol', ' ', shift8_cl_base.rm, ',', ' ', 'cl'])
+
+
+class RorCl8(shift8_cl_base):
+    r = 1
+    syntax = Syntax(['ror', ' ', shift8_cl_base.rm, ',', ' ', 'cl'])
+
+
+class ShlCl8(shift8_cl_base):
+    r = 4
+    syntax = Syntax(['shl', ' ', shift8_cl_base.rm, ',', ' ', 'cl'])
+
+
+class ShrCl8(shift8_cl_base):
+    r = 5
+    syntax = Syntax(['shr', ' ', shift8_cl_base.rm, ',', ' ', 'cl'])
 
 
 class Imul(X86Instruction):
@@ -728,11 +765,13 @@ def pattern_jmp(context, tree):
     context.emit(NearJump(tgt.name, jumps=[tgt]))
 
 
+jump_opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge, '<=': Jle}
+
+
 @isa.pattern('stm', 'CJMP(reg64, reg64)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge}
-    Bop = opnames[op]
+    Bop = jump_opnames[op]
     context.emit(CmpRmReg(RmReg(c0), c1))
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
@@ -742,8 +781,7 @@ def pattern_cjmp(context, tree, c0, c1):
 @isa.pattern('stm', 'CJMP(reg8, reg8)', size=2)
 def pattern_cjmp_8(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge}
-    Bop = opnames[op]
+    Bop = jump_opnames[op]
     context.emit(CmpRmReg8(RmReg8(c0), c1))
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
@@ -819,7 +857,9 @@ def pattern_cast64_to8(context, tree, c0):
     return d
 
 
+# TODO: differentiate between u64 and i64?
 @isa.pattern('stm', 'STRI64(reg64, reg64)', size=2)
+@isa.pattern('stm', 'STRU64(reg64, reg64)', size=2)
 def pattern_str64(context, tree, c0, c1):
     context.emit(MovRmReg(RmMem(c0), c1))
 
@@ -831,6 +871,7 @@ def pattern_str64_2(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'STRI64(FPRELI64, reg64)', size=4)
+@isa.pattern('stm', 'STRU64(FPRELI64, reg64)', size=4)
 def pattern_str64_fprel64(context, tree, c0):
     cnst = tree[0].value
     context.emit(MovRmReg(RmMemDisp(rbp, cnst), c0))
@@ -860,6 +901,7 @@ def pattern_add64_fprel_const(context, tree):
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, CONSTI64)', size=8, cycles=3, energy=2)
+@isa.pattern('reg64', 'ADDU64(reg64, CONSTU64)', size=8, cycles=3, energy=2)
 def pattern_add64_const_2(context, tree, c0):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -881,6 +923,14 @@ def pattern_sub64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(SubRegRm(d, RmReg(c1)))
+    return d
+
+
+@isa.pattern('reg8', 'SUBI8(reg8, reg8)', size=4)
+def pattern_sub8(context, tree, c0, c1):
+    d = context.new_reg(LowRegister)
+    context.move(d, c0)
+    context.emit(SubRegRm8(d, RmReg8(c1)))
     return d
 
 
@@ -933,6 +983,7 @@ def pattern_and64(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'ANDI64(reg64, CONSTI64)', size=10)
+@isa.pattern('reg64', 'ANDU64(reg64, CONSTU64)', size=10)
 def pattern_and64_const(context, tree, c0):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -949,7 +1000,26 @@ def pattern_or64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg64', 'XORU64(reg64, reg64)', size=4)
+@isa.pattern('reg64', 'XORI64(reg64, reg64)', size=4)
+def pattern_xor64(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(XorRegRm(d, RmReg(c1)))
+    return d
+
+
+@isa.pattern('reg8', 'XORU8(reg8, reg8)', size=3, energy=3)
+@isa.pattern('reg8', 'XORI8(reg8, reg8)', size=3, energy=3)
+def pattern_xor8(context, tree, c0, c1):
+    d = context.new_reg(LowRegister)
+    context.move(d, c0)
+    context.emit(XorRegRm8(d, RmReg8(c1)))
+    return d
+
+
 @isa.pattern('reg64', 'SHRI64(reg64, reg64)', size=2)
+@isa.pattern('reg64', 'SHRU64(reg64, reg64)', size=2)
 def pattern_shr64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
@@ -958,12 +1028,33 @@ def pattern_shr64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg8', 'SHRI8(reg8, reg8)', size=2)
+@isa.pattern('reg8', 'SHRU8(reg8, reg8)', size=2)
+def pattern_shr8(context, tree, c0, c1):
+    d = context.new_reg(LowRegister)
+    context.move(d, c0)
+    context.move(cl, c1)
+    context.emit(ShrCl8(RmReg8(d)))
+    return d
+
+
 @isa.pattern('reg64', 'SHLI64(reg64, reg64)', size=2)
+@isa.pattern('reg64', 'SHLU64(reg64, reg64)', size=2)
 def pattern_shl64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.move(rcx, c1)
     context.emit(ShlCl(RmReg(d)))
+    return d
+
+
+@isa.pattern('reg8', 'SHLI8(reg8, reg8)', size=2)
+@isa.pattern('reg8', 'SHLU8(reg8, reg8)', size=2)
+def pattern_shl8(context, tree, c0, c1):
+    d = context.new_reg(LowRegister)
+    context.move(d, c0)
+    context.move(cl, c1)
+    context.emit(ShlCl8(RmReg8(d)))
     return d
 
 
@@ -982,12 +1073,23 @@ def pattern_reg8(context, tree):
 @isa.pattern('reg64', 'I64TOI64(reg64)', size=0)
 @isa.pattern('reg64', 'I64TOU64(reg64)', size=0)
 @isa.pattern('reg64', 'U64TOI64(reg64)', size=0)
+@isa.pattern('reg64', 'U64TOU64(reg64)', size=0)
 def pattern_i64toi64(context, tree, c0):
+    return c0
+
+
+@isa.pattern('reg8', 'I8TOI8(reg8)', size=0)
+@isa.pattern('reg8', 'I8TOU8(reg8)', size=0)
+@isa.pattern('reg8', 'U8TOU8(reg8)', size=0)
+@isa.pattern('reg8', 'U8TOI8(reg8)', size=0)
+def pattern_8to8(context, tree, c0):
     return c0
 
 
 @isa.pattern('reg8', 'I64TOI8(reg64)', size=4)
 @isa.pattern('reg8', 'I64TOU8(reg64)', size=4)
+@isa.pattern('reg8', 'U64TOU8(reg64)', size=4)
+@isa.pattern('reg8', 'U64TOI8(reg64)', size=4)
 def pattern_i64toi8(context, tree, c0):
     context.move(rax, c0)
     # raise Warning()
@@ -1001,7 +1103,11 @@ def pattern_i64toi8(context, tree, c0):
     return d
 
 
+# TODO: remove widening and sign conversion in one step?
+@isa.pattern('reg64', 'I8TOI64(reg8)', size=4)
 @isa.pattern('reg64', 'U8TOI64(reg8)', size=4)
+@isa.pattern('reg64', 'U8TOU64(reg8)', size=4)
+@isa.pattern('reg64', 'I8TOU64(reg8)', size=4)
 def pattern_u8toi64(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
@@ -1036,6 +1142,7 @@ def pattern_reg64_label(context, tree):
 
 
 @isa.pattern('reg64', 'CONSTI64', size=11, cycles=3, energy=3)
+@isa.pattern('reg64', 'CONSTU64', size=11, cycles=3, energy=3)
 def pattern_const64(context, tree):
     d = context.new_reg(X86Register)
     context.emit(MovImm(d, tree.value))

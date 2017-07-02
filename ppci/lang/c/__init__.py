@@ -1,7 +1,7 @@
 """ C front end. """
 
 from .context import CContext
-from .builder import CBuilder
+from .builder import CBuilder, create_ast
 from .lexer import CLexer
 from .parser import CParser
 from .semantics import CSemantics
@@ -14,4 +14,5 @@ from .options import COptions
 
 __all__ = [
     'CBuilder', 'CContext', 'CLexer', 'COptions', 'CPreProcessor', 'CParser',
-    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter']
+    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter',
+    'create_ast']

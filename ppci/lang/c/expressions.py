@@ -1,12 +1,16 @@
 """ Expression nodes """
 
 from ..generic.nodes import Expression
+from . import types
 
 
-class CExpr:
+class CExpression(Expression):
     # TODO: every expression must have a type.
-    typ = None
-    lvalue = None
+    def __init__(self, typ, lvalue, location):
+        super().__init__(location)
+        assert isinstance(typ, types.CType)
+        self.typ = typ
+        self.lvalue = lvalue
 
 
 class FunctionCall(Expression):
@@ -21,10 +25,10 @@ class FunctionCall(Expression):
         return 'FunctionCall {}'.format(self.name)
 
 
-class Ternop(Expression):
+class Ternop(CExpression):
     """ Ternary operator """
-    def __init__(self, a, op, b, c, location):
-        super().__init__(location)
+    def __init__(self, a, op, b, c, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         assert isinstance(a, Expression)
         assert isinstance(b, Expression)
         assert isinstance(c, Expression)
@@ -38,10 +42,10 @@ class Ternop(Expression):
         return 'TernOp {}'.format(self.op)
 
 
-class Binop(Expression):
+class Binop(CExpression):
     """ Binary operator """
-    def __init__(self, a, op, b, location):
-        super().__init__(location)
+    def __init__(self, a, op, b, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         assert isinstance(a, Expression)
         assert isinstance(b, Expression)
         self.a = a
@@ -52,10 +56,10 @@ class Binop(Expression):
         return 'BinaryOp {}'.format(self.op)
 
 
-class Unop(Expression):
+class Unop(CExpression):
     """ Unary operator """
-    def __init__(self, op, a, location):
-        super().__init__(location)
+    def __init__(self, op, a, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         assert isinstance(a, Expression)
         self.a = a
         self.op = op
@@ -88,10 +92,10 @@ class Sizeof(Expression):
         return 'Sizeof {}'.format(self.sizeof_typ)
 
 
-class ArrayIndex(Expression):
+class ArrayIndex(CExpression):
     """ Array indexing """
-    def __init__(self, base, index, location):
-        super().__init__(location)
+    def __init__(self, base, index, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         self.base = base
         self.index = index
 
@@ -120,9 +124,9 @@ class VariableAccess(Expression):
         return 'Id {}'.format(self.name)
 
 
-class Literal(Expression):
-    def __init__(self, value, location):
-        super().__init__(location)
+class Literal(CExpression):
+    def __init__(self, value, typ, location):
+        super().__init__(typ, False, location)
         self.value = value
 
     def __repr__(self):
@@ -154,3 +158,6 @@ class InitializerList(Expression):
 
     def __repr__(self):
         return 'Initializer list'
+
+    def __len__(self):
+        return len(self.elements)

@@ -278,6 +278,8 @@ class CLexer(HandLexerBase):
             return self.lex_c
         elif r.char == '/':
             if self.accept('/'):
+                if self.coptions['std'] == 'c89':
+                    self.error('C++ style comments are not allowed in C90')
                 return self.lex_linecomment
             elif self.accept('*'):
                 return self.lex_blockcomment
@@ -427,6 +429,8 @@ class CLexer(HandLexerBase):
 
         # Accept some suffixes:
         self.accept('LlUu')
+        self.accept('LlUu')
+        # TODO: handle suffixes better
         self.accept('LlUu')
 
         # self.accept('

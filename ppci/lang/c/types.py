@@ -1,6 +1,16 @@
 """ This module contains internal representations of types. """
 
 
+def is_scalar(typ):
+    """ Determine whether the given type is of scalar kind """
+    return isinstance(typ, BareType) and not is_void(typ)
+
+
+def is_void(typ):
+    """ Check if the given type is void """
+    return isinstance(typ, BareType) and typ.type_id == BareType.VOID
+
+
 # A type system:
 class CType:
     """ Base class for all types """
@@ -9,7 +19,19 @@ class CType:
 
     @property
     def is_void(self):
-        return isinstance(self, BareType) and self.type_id == BareType.VOID
+        return is_void(self)
+
+    @property
+    def is_scalar(self):
+        return is_scalar(self)
+
+    @property
+    def is_struct(self):
+        return isinstance(self, StructType)
+
+    @property
+    def is_union(self):
+        return isinstance(self, UnionType)
 
 
 class FunctionType(CType):

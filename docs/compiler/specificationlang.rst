@@ -102,7 +102,9 @@ Specific Language (DSL). Examples of these are:
 * cgen (gnu)
 * LISA (Aachen)
 * nML (Berlin)
-* SLED (Specifying representations of machine instructions (norman ramsey and Mary F. Fernandez)) [sled]_
+* SLED (Specifying representations of machine instructions (norman ramsey and Mary F. Fernandez))
+
+http://www.cs.tufts.edu/~nr/toolkit/
 
 Concepts to use in this language:
 
@@ -264,5 +266,4 @@ nML
 
 
 
-.. [sled] http://www.cs.tufts.edu/~nr/toolkit/
 .. [overview]   http://esl.cise.ufl.edu/Publications/iee05.pdf
