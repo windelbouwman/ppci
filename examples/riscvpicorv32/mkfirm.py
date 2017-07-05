@@ -1,11 +1,12 @@
 import io
 from ppci.api import asm, c3c, link, objcopy
-from ppci.utils.reporting import HtmlReportGenerator, complete_report
+from ppci.utils.reporting import HtmlReportGenerator, AsmReportGenerator, complete_report
 
-report_generator = HtmlReportGenerator(open("report.html", 'w'))
+# report_generator = HtmlReportGenerator(open("report.html", 'w'))
+report_generator = AsmReportGenerator(open("report.asm", 'w'))
 with complete_report(report_generator) as reporter:
     o1 = asm("starterirq.asm", "riscv")
-    o2 = c3c(["bsp.c3", "io.c3", "gdbstub.c3", "main.c3", "irq.c3"], [], "riscv", reporter=reporter, debug=True,
+    o2 = c3c(["bsp.c3", "io.c3", "gdbstub.c3", "main.c3", "irq.c3"], [], "riscv", reporter=reporter, debug=False,
              opt_level=2)
     obj = link([o1, o2], "firmware.mmap", use_runtime=False, reporter=reporter, debug=True)
 

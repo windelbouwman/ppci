@@ -7,6 +7,7 @@ from .arch import Architecture
 from .encoding import Instruction, Syntax, Operand
 from .registers import Register, RegisterClass
 from ..import ir
+from .isa import Isa
 
 
 class ExampleArch(Architecture):
@@ -26,6 +27,7 @@ class ExampleArch(Architecture):
                 'hreg', [ir.i16], HalfExampleRegister, [R10l]),
             ]
         self.gdb_registers = gdb_registers
+        self.isa = Isa()
 
     def gen_prologue(self, frame):
         return []

@@ -35,12 +35,13 @@ class PseudoRiscvInstruction(ArtificialInstruction):
 
 class OpcRegReg(RiscvcInstruction):
     """ c.sub rd, rn """
+
     def encode(self):
         tokens = self.get_tokens()
         tokens[0].op = 0b01
-        tokens[0][2:5] = self.rn.num-8
+        tokens[0][2:5] = self.rn.num - 8
         tokens[0][5:7] = self.func
-        tokens[0][7:10] = self.rd.num-8
+        tokens[0][7:10] = self.rd.num - 8
         tokens[0][10:16] = 0b100011
         return tokens[0].encode()
 
@@ -80,7 +81,7 @@ class CiBase(RiscvcInstruction):
         tokens = self.get_tokens()
         tokens[0][0:2] = 0b01
         tokens[0][2:7] = self.imm
-        tokens[0][7:10] = self.rd.num-8
+        tokens[0][7:10] = self.rd.num - 8
         tokens[0][10:12] = self.func
         tokens[0][12:16] = 0b1000
         return tokens[0].encode()
@@ -210,7 +211,7 @@ class CBnez(RiscvcInstruction):
     def encode(self):
         tokens = self.get_tokens()
         self.set_all_patterns(tokens)
-        tokens[0][7:10] = self.rn.num-8
+        tokens[0][7:10] = self.rn.num - 8
         return tokens[0].encode()
 
     def relocations(self):
@@ -246,7 +247,7 @@ class CSw(RiscvcInstruction):
     def encode(self):
         tokens = self.get_tokens()
         tokens[0].op = 0b00
-        tokens[0][2:5] = self.rs2.num-8
+        tokens[0][2:5] = self.rs2.num - 8
         tokens[0][5:6] = self.offset >> 6 & 1
         tokens[0][6:7] = self.offset >> 2 & 1
         tokens[0][7:10] = self.rs1.num - 8
@@ -301,10 +302,7 @@ class CLui(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'lui', ' ', rd, ',', ' ', imm])
 
     def encode(self):
-        if self.imm < 0:
-            imm6 = wrap_negative(self.imm >> 12, 6)
-        else:
-            imm6 = self.imm >> 12 & 0x3F
+        imm6 = wrap_negative(self.imm, 6)
         tokens = self.get_tokens()
         tokens[0].op = 0b01
         tokens[0][2:7] = imm6 & 0x1F
@@ -322,7 +320,7 @@ class Andv(PseudoRiscvInstruction):
 
     def render(self):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                self.rm.num in range(8, 16) and \
+                        self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
             yield CAnd(self.rd, self.rm)
         else:
@@ -337,7 +335,7 @@ class Orv(PseudoRiscvInstruction):
 
     def render(self):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                self.rm.num in range(8, 16) and \
+                        self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
             yield COr(self.rd, self.rm)
         else:
@@ -352,7 +350,7 @@ class Xorv(PseudoRiscvInstruction):
 
     def render(self):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                self.rm.num in range(8, 16) and \
+                        self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
             yield CXor(self.rd, self.rm)
         else:
@@ -367,7 +365,7 @@ class Subv(PseudoRiscvInstruction):
 
     def render(self):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                self.rm.num in range(8, 16) and \
+                        self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num):
             yield CSub(self.rd, self.rm)
         else:
@@ -408,7 +406,7 @@ class Srliv(PseudoRiscvInstruction):
 
     def render(self):
         if self.rd.num == self.rs1.num and self.rd.num in range(8, 16) and \
-                self.imm < 16:
+                        self.imm < 16:
             yield CSrli(self.rd, self.rs1, self.imm)
         else:
             yield Srli(self.rd, self.rs1, self.imm)
@@ -418,11 +416,11 @@ class Lwv(PseudoRiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['lw', ' ', rd, ',', ' ', offset, '(',  rs1, ')'])
+    syntax = Syntax(['lw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
 
     def render(self):
         if self.rd.num in range(8, 16) and self.rs1.num in range(8, 16) and \
-                self.offset in range(0, 128):
+                        self.offset in range(0, 128):
             yield CLw(self.rd, self.offset, self.rs1)
         elif self.rs1.num == 2 and self.offset >= 0 and self.offset < 256:
             yield CLwsp(self.rd, self.offset, self.rs1)
@@ -434,7 +432,7 @@ class Swv(PseudoRiscvInstruction):
     rs2 = Operand('rs2', RiscvRegister, read=True)
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['sw', ' ', rs2, ',', ' ', offset, '(',  rs1, ')'])
+    syntax = Syntax(['sw', ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
 
     def render(self):
         if (self.rs2.num <= 15) and (self.rs2.num >= 8) and \
@@ -492,8 +490,8 @@ def pattern_consti32_2(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
     if (c0 & 0x800) != 0:
-        c0 -= 0xFFFFF000
-    context.emit(CLui(d, c0))
+        c0 += 0x1000
+    context.emit(CLui(d, c0 >> 12))
     context.emit(Addi(d, d, c0))
     return d
 
@@ -623,7 +621,7 @@ def pattern_cjmp(context, tree, c0, c1):
     opnames = {
         "<": Blt, ">": Bgt, "==": Beq, "!=": Bne,
         ">=": Bge, '<=': Bgt
-        }
+    }
     Bop = opnames[op]
     if op == "<=":
         jmp_ins = B(yes_label.name, jumps=[yes_label])

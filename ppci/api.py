@@ -177,7 +177,7 @@ def asm(source, march, debug=False):
         obj.debug_info = DebugInfo()
     logger.debug('Assembling into code section')
     ostream = BinaryOutputStream(obj)
-    ostream.select_section('code')
+    ostream.select_section('code', march)
     try:
         assembler.prepare()
         assembler.assemble(source, ostream, diag, debug=debug)
@@ -371,7 +371,7 @@ def ir_to_object(
     # TODO: refactor polishing?
     obj.polish()
     reporter.message('All modules generated!')
-    reporter.dump_instructions(instruction_list)
+    reporter.dump_allinstructions(instruction_list)
     return obj
 
 

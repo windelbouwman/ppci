@@ -2,8 +2,8 @@
 
 import io
 from ..arch import Architecture
-from ..generic_instructions import Label, Alignment, RegisterUseDef
-from .instructions import isa
+from ..generic_instructions import Label, RegisterUseDef
+from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
@@ -16,7 +16,7 @@ from ... import ir
 from ..registers import RegisterClass
 from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
-from .instructions import dcd, Addi, Subi, Movr, Bl, Sw, Lw, Blr, Mov
+from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr
 from .rvc_instructions import CSwsp, CLwsp, CJal, CJr
 
 
@@ -58,6 +58,7 @@ class RiscvArch(Architecture):
             self.isa = isa + data_isa
             self.store = Sw
             self.load = Lw
+        self.isa.sectinst = Section
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
         self.assembler = RiscvAssembler()
@@ -89,8 +90,8 @@ class RiscvArch(Architecture):
         ; x14 is a work register.
         ; x10 is the quotient
 
-        mov x10, x0     ; Initialize the result
-        mov x14, 1      ; mov divisor into temporary register.
+        mv x10, x0     ; Initialize the result
+        li x14, 1      ; mov divisor into temporary register.
 
         ; Blow up part: blow up divisor until it is larger than the divident.
         __shiftl:
@@ -137,7 +138,7 @@ class RiscvArch(Architecture):
     def gen_save_registers(self, frame, registers):
         # Caller save registers:
         i = (len(registers)+1)*4
-        yield Subi(SP, SP, i)
+        yield Addi(SP, SP, -i)
         i -= 4
         for register in registers:
             yield self.store(register, i, SP)
@@ -181,11 +182,11 @@ class RiscvArch(Architecture):
         # Label indication function:
         yield Label(frame.name)
 
-        yield Mov(FP, SP)                 # Setup frame pointer
+        yield Movr(FP, SP)                 # Setup frame pointer
 
         if frame.stacksize > 0:
             ssize = round_up(frame.stacksize)
-            yield Subi(SP, SP, ssize)     # Reserve stack space
+            yield Addi(SP, SP, -ssize)     # Reserve stack space
 
         # Callee save registers:
         i = 0
@@ -198,7 +199,7 @@ class RiscvArch(Architecture):
         """ Generate instruction for the current literals """
         # Align at 4 bytes
         if frame.constants:
-            yield Alignment(4)
+            yield Align(4)
 
         # Add constant literals:
         while frame.constants:
@@ -209,7 +210,7 @@ class RiscvArch(Architecture):
             elif isinstance(value, bytes):
                 for byte in value:
                     yield Db(byte)
-                yield Alignment(4)   # Align at 4 bytes
+                yield Align(4)   # Align at 4 bytes
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
 
@@ -241,7 +242,7 @@ class RiscvArch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
-        yield Alignment(4)   # Align at 4 bytes
+        yield Align(4)   # Align at 4 bytes
 
 
 def round_up(s):

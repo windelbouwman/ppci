@@ -11,16 +11,16 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
         self.check('73 00 10 00')
 
     def test_mov_alias(self):
-        self.feed('mov x4, sp')
-        self.feed('mov x4, x2')
+        self.feed('mv x4, sp')
+        self.feed('mv x4, x2')
         self.check('13 02 01 00 13 02 01 00')
 
     def test_mov_reg_reg(self):
-        self.feed('mov x4, x5')
+        self.feed('mv x4, x5')
         self.check('13 82 02 00')
 
     def test_mov_reg_imm(self):
-        self.feed('mov x5, 5')
+        self.feed('li x5, 5')
         self.check('93 02 50 00')
 
     def test_add_reg_imm(self):

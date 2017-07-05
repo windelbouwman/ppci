@@ -57,7 +57,7 @@ class CodeGenerator:
             'Generating %s code for module %s', str(self.arch), ircode.name)
 
         # Generate code for global variables:
-        output_stream.select_section('data')
+        output_stream.select_section('data', self.arch)
         for var in ircode.variables:
             label_name = make_label_name(var)
             # TODO: alignment?
@@ -80,7 +80,7 @@ class CodeGenerator:
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
         # Each frame has a flat list of abstract instructions.
-        output_stream.select_section('code')
+        output_stream.select_section('code', self.arch)
         for function in ircode.functions:
             self.generate_function(
                 function, output_stream, reporter, debug=debug)

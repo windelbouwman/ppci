@@ -1,12 +1,12 @@
-lui sp, 0x1F000 			;16*1024
+.align 4
+lui sp, 0x1F
 dd 0x0600000b  ; naskirq x0,x0
 j start
-sbreak
+ebreak
 irq_vec:
 dd 0x0200810b ; setq q2, x1
 dd 0x0201018b ; setq q3, x2
-lui x1, irq_regs
-addi x1, x1, irq_regs
+la x1, irq_regs
 sw x0, 0(x1)
 dd 0x0000010b ; getq x2, q0    ; pc
 sw x2, 128(x1)
@@ -43,14 +43,13 @@ sw x28, 112(x1)
 sw x29, 116(x1)
 sw x30, 120(x1)
 sw x31, 124(x1)
-mov x12, x1
+mv x12, x1
 dd 0x0000868b ; getq x13, q1
 jal ra, irq_irq
 beq x10, x0, nostepping
 dd 0x0c05000b ; delint
 nostepping:
-lui x1, irq_regs
-addi x1, x1, irq_regs
+la x1, irq_regs
 lw x2, 128(x1)
 dd 0x0201000b ; set q0, x2   ; pc
 lw x2, 8(x1)
@@ -90,37 +89,37 @@ repeat 33
 nop
 endrepeat
 start:
-mov x1, x0
+mv x1, x0
 ;not SP
-mov x3, x0
-mov x4, x0
-mov x5, x0
-mov x6, x0
-mov x7, x0
-mov x8, x0
-mov x9, x0
-mov x10, x0
-mov x11, x0
-mov x12, x0
-mov x13, x0
-mov x14, x0
-mov x15, x0
-mov x16, x0
-mov x17, x0
-mov x18, x0
-mov x19, x0
-mov x20, x0
-mov x21, x0
-mov x21, x0
-mov x22, x0
-mov x23, x0
-mov x24, x0
-mov x25, x0
-mov x26, x0
-mov x27, x0
-mov x28, x0
-mov x29, x0
-mov x30, x0
-mov x31, x0
+mv x3, x0
+mv x4, x0
+mv x5, x0
+mv x6, x0
+mv x7, x0
+mv x8, x0
+mv x9, x0
+mv x10, x0
+mv x11, x0
+mv x12, x0
+mv x13, x0
+mv x14, x0
+mv x15, x0
+mv x16, x0
+mv x17, x0
+mv x18, x0
+mv x19, x0
+mv x20, x0
+mv x21, x0
+mv x21, x0
+mv x22, x0
+mv x23, x0
+mv x24, x0
+mv x25, x0
+mv x26, x0
+mv x27, x0
+mv x28, x0
+mv x29, x0
+mv x30, x0
+mv x31, x0
 jal ra, main_main
-sbreak
+ebreak

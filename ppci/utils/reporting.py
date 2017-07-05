@@ -19,6 +19,7 @@ from ..arch.generic_instructions import Label
 
 class ReportGenerator(metaclass=abc.ABCMeta):
     """ Implement all these function to create a custom reporting generator """
+
     def header(self):
         pass
 
@@ -61,6 +62,9 @@ class ReportGenerator(metaclass=abc.ABCMeta):
     def dump_instructions(self, instruction_list):
         pass
 
+    def dump_allinstructions(self, instruction_list):
+        pass
+
     def dump_compiler_error(self, compiler_error):
         self.heading(3, 'Error')
         f = io.StringIO()
@@ -70,6 +74,7 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
 class DummyReportGenerator(ReportGenerator):
     """ Report generator which reports into the void """
+
     def __init__(self):
         self.dump_file = io.StringIO()
 
@@ -90,6 +95,13 @@ class TextWritingReporter(ReportGenerator):
     def print(self, *args):
         """ Convenience helper for printing to dumpfile """
         print(*args, file=self.dump_file)
+
+    def dumpins(self, instruction_list):
+        for ins in instruction_list:
+            if isinstance(ins, Label):
+                self.print('{}'.format(ins))
+            else:
+                self.print('    {}'.format(ins))
 
 
 @contextmanager
@@ -144,8 +156,31 @@ class TextReportGenerator(TextWritingReporter):
     def function_footer(self, instruction_list):
         for ins in instruction_list:
             self.print(ins)
-
         self.print("===============================")
+
+
+class AsmReportGenerator(TextWritingReporter):
+    """ Report generator which reports into the void """
+
+    def __init__(self, dump_file):
+        super().__init__(dump_file)
+        self.nr = 0
+        self.backlog = []
+
+    def heading(self, level, title):
+        pass
+
+    def message(self, msg):
+        pass
+
+    def dump_raw_text(self, text):
+        pass
+
+    def dump_instructions(self, instruction_list):
+        pass
+
+    def dump_allinstructions(self, instruction_list):
+        self.dumpins(instruction_list)
 
 
 @contextmanager
@@ -319,12 +354,10 @@ class HtmlReportGenerator(TextWritingReporter):
     def dump_instructions(self, instruction_list):
         with collapseable(self, 'Instructions'):
             self.print('<pre>')
-            for ins in instruction_list:
-                if isinstance(ins, Label):
-                    self.print('{}'.format(ins))
-                else:
-                    self.print('    {}'.format(ins))
+            self.dumpins(instruction_list)
             self.print('</pre>')
+
+    dump_allinstructions = dump_instructions
 
     def render_graph(self, graph):
         LayeredLayout().generate(graph)
@@ -347,7 +380,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 SGValue.CONTROL: 'red',
                 SGValue.DATA: 'black',
                 SGValue.MEMORY: 'blue'
-                }
+            }
             edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
             edge2.set_color(color_map[edge.kind])
         # self.render_graph(graph)

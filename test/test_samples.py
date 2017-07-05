@@ -49,11 +49,13 @@ def create_test_function(source, output):
 
     def tst_func(slf):
         slf.do(snippet, res)
+
     return tst_func
 
 
 def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
+
     def deco(cls):
         for folder in folders:
             for source in source_files(
@@ -65,12 +67,14 @@ def add_samples(*folders):
                 assert not hasattr(cls, func_name)
                 setattr(cls, func_name, tf)
         return cls
+
     return deco
 
 
 @add_samples('32bit')
 class I32Samples:
     """ 32-bit samples """
+
     def test_bug1(self):
         """ Strange bug was found here """
         snippet = """
@@ -102,6 +106,7 @@ class I32Samples:
         """
         res = ""
         self.do(snippet, res)
+
     @unittest.skip('too large codesize')
     def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
@@ -219,7 +224,7 @@ class BuildMixin:
     opt_level = 0
 
     def build(self, src, lang='c3', bin_format=None,
-    elf_format=None, code_image='code'):
+              elf_format=None, code_image='code'):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
 
@@ -300,10 +305,10 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
-    LUI sp, 0x1F000        ; setup stack pointer
+    LUI sp, 0x1F        ; setup stack pointer
     JAL ra, main_main    ; Branch to sample start LR
     JAL ra, bsp_exit     ; do exit stuff LR
-    SBREAK
+    EBREAK
     """
     arch_mmap = """
     MEMORY flash LOCATION=0x0000 SIZE=0x4000 {
@@ -338,7 +343,7 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
         obj, base_filename = self.build(src, lang, bin_format='bin',
-        elf_format='elf', code_image='flash')
+                                        elf_format='elf', code_image='flash')
 
         flash = obj.get_image('flash')
         data = obj.get_image('ram')
@@ -350,8 +355,8 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
         mem_file = base_filename + '.mem'
         with open(mem_file, 'w') as f:
             for i in range(filewordsize):
-                if(i<datawordlen):
-                    w = rom_data[4*i:4*i+4]
+                if (i < datawordlen):
+                    w = rom_data[4 * i:4 * i + 4]
                     print('%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]), file=f)
                 else:
                     print('00000000', file=f)
@@ -360,6 +365,7 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
         if has_iverilog():
             res = run_picorv32(mem_file)
             self.assertEqual(expected_output, res)
+
 
 class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
@@ -553,7 +559,7 @@ class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
         mem_file = base_filename + '.mem'
         with open(mem_file, 'w') as f:
             for i in range(len(rom_data) // 2):
-                w = rom_data[2*i:2*i+2]
+                w = rom_data[2 * i:2 * i + 2]
                 print('%02x%02x' % (w[1], w[0]), file=f)
         if has_iverilog():
             res = run_msp430(mem_file)
@@ -736,6 +742,7 @@ def has_linux():
 @unittest.skipIf(not has_linux(), 'no 64 bit linux found')
 class LinuxTests(unittest.TestCase):
     """ Run tests against the linux syscall api """
+
     def test_exit42(self):
         """
             ; exit with code 42:

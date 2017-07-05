@@ -5,8 +5,10 @@
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd
-from ...utils.bitfun import wrap_negative
-from .registers import RiscvRegister, FP
+from ...utils.bitfun import wrap_negative, inrange
+from ..generic_instructions import ArtificialInstruction, Alignment
+from ..generic_instructions import SectionInstruction
+from .registers import RiscvRegister, FP, R0
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
@@ -14,7 +16,6 @@ from .relocations import Abs32Imm12Relocation, RelImm20Relocation
 from .relocations import RelImm12Relocation
 from .tokens import RiscvToken, RiscvIToken
 from ...ir import i32
-
 
 isa = Isa()
 
@@ -30,6 +31,29 @@ isa.register_relocation(RelImm12Relocation)
 class RiscvInstruction(Instruction):
     tokens = [RiscvToken]
     isa = isa
+
+
+class PseudoRiscvInstruction(ArtificialInstruction):
+    isa = isa
+    pass
+
+
+class Align(PseudoRiscvInstruction):
+    imm = Operand('imm', int)
+    syntax = Syntax(['.', 'align', ' ', imm])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield Alignment(self.imm, self.rep)
+
+
+class Section(PseudoRiscvInstruction):
+    sec = Operand('sec', str)
+    syntax = Syntax(['.', 'section', ' ', sec])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield SectionInstruction(self.sec, self.rep)
 
 
 def dcd(v):
@@ -54,35 +78,10 @@ class Dcd2(RiscvInstruction):
         return [AbsAddr32Relocation(self.v)]
 
 
-def Mov(*args):
-    if len(args) == 2:
-        if isinstance(args[1], int):
-            return Movi(*args)
-        elif isinstance(args[1], RiscvRegister):
-            return Movr(*args)
-    raise Exception()
-
-
-class Movi(RiscvInstruction):
-    """ Mov Rd, imm16 """
-    rd = Operand('rd', RiscvRegister, write=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['mov', rd, ',', imm])
-
-    def encode(self):
-        tokens = self.get_tokens()
-        imm12 = wrap_negative(self.imm, 12)
-        tokens[0][0:7] = 0b0010011
-        tokens[0][7:12] = self.rd.num
-        tokens[0][12:20] = 0
-        tokens[0][20:32] = imm12
-        return tokens[0].encode()
-
-
 class Movr(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
     rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['mov', rd, ',', rm])
+    syntax = Syntax(['mv', ' ', rd, ',', ' ', rm])
     patterns = {
         'opcode': 0b0010011, 'rd': rd, 'funct3': 0, 'rs1': rm,
         'rs2': 0, 'funct7': 0}
@@ -145,36 +144,28 @@ class IBase(RiscvInstruction):
         tokens[0][7:12] = self.rd.num
         tokens[0][12:15] = self.func
         tokens[0][15:20] = self.rs1.num
-        if self.invert:
-            self.imm = -self.imm
-        if self.imm < 0:
-            imm12 = wrap_negative(self.imm, 12)
-        else:
-            imm12 = self.imm & 0xFFF
+        imm12 = wrap_negative(self.imm, 12)
         tokens[0][20:32] = imm12
         return tokens[0].encode()
 
 
-def make_i(mnemonic, func, invert):
+def make_i(mnemonic, func):
     rd = Operand('rd', RiscvRegister, write=True)
     rs1 = Operand('rs1', RiscvRegister, read=True)
     imm = Operand('imm', int)
-    syntax = Syntax([mnemonic, rd, ',', rs1, ',', imm])
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rs1, ',', ' ', imm])
     members = {
         'syntax': syntax, 'func': func,
-        'rd': rd, 'rs1': rs1, 'imm': imm,
-        'invert': invert}
+        'rd': rd, 'rs1': rs1, 'imm': imm}
     return type(mnemonic + '_ins', (IBase,), members)
 
 
-Addi = make_i('add', 0b000, False)
-Addi2 = make_i('addi', 0b000, False)
-Subi = make_i('sub', 0b000, True)
-Slti = make_i('slti', 0b010, False)
-Sltiu = make_i('sltiu', 0b011, False)
-Xori = make_i('xori', 0b100, False)
-Ori = make_i('ori', 0b110, False)
-Andi = make_i('andi', 0b111, False)
+Addi = make_i('addi', 0b000)
+Slti = make_i('slti', 0b010)
+Sltiu = make_i('sltiu', 0b011)
+Xori = make_i('xori', 0b100)
+Ori = make_i('ori', 0b110)
+Andi = make_i('andi', 0b111)
 
 
 # Branches:
@@ -212,8 +203,8 @@ Rdinstreti = make_sm('rdinstret', 0b110000000010)
 Rdinstrethi = make_sm('rdinstreth', 0b110010000010)
 
 
-class Sbreak(RiscvInstruction):
-    syntax = Syntax(['sbreak'])
+class Ebreak(RiscvInstruction):
+    syntax = Syntax(['ebreak'])
     patterns = {
         'opcode': 0b1110011, 'rd': 0, 'funct3': 0, 'rs1': 0,
         'rs2': 0b1, 'funct7': 0}
@@ -271,10 +262,7 @@ class Lui(RiscvInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        if self.imm < 0:
-            imm20 = wrap_negative(self.imm >> 12, 20)
-        else:
-            imm20 = self.imm >> 12
+        imm20 = wrap_negative(self.imm, 20)
         tokens[0][0:7] = 0b0110111
         tokens[0][7:12] = self.rd.num
         tokens[0][12:32] = imm20
@@ -364,6 +352,31 @@ class Auipc(RiscvInstruction):
         return tokens[0].encode()
 
 
+class La(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    label = Operand('label', str)
+    syntax = Syntax(['la', ' ', rd, ',', ' ', label])
+
+    def render(self):
+        yield Adrurel(self.rd, self.label)
+        yield Adrlrel(self.rd, self.rd, self.label)
+
+
+class Li(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['li', ' ', rd, ',', ' ', imm])
+
+    def render(self):
+        if (inrange(self.imm, 12)) is False:
+            if (self.imm & 0x800) != 0:
+                self.imm += 0x1000
+            yield Lui(self.rd, self.imm >> 12)
+            yield Addi(self.rd, self.rd, self.imm)
+        else:
+            yield Addi(self.rd, R0, self.imm)
+
+
 class BranchBase(RiscvInstruction):
     target = Operand('target', str)
 
@@ -449,7 +462,7 @@ def make_ldr(mnemonic, func):
     rd = Operand('rd', RiscvRegister, write=True)
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', offset, '(',  rs1, ')'])
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', offset, '(', rs1, ')'])
     tokens = [RiscvIToken]
     patterns = {
         'opcode': 0b0000011, 'rd': rd,
@@ -569,36 +582,17 @@ def pattern_reg8(context, tree):
 
 
 @isa.pattern('reg', 'CONSTI32', size=4)
-def pattern_const_i32(context, tree):
-    d = context.new_reg(RiscvRegister)
-    c0 = tree.value
-    if (c0 & 0x800) != 0:
-        c0 -= 0xFFFFF000
-    context.emit(Lui(d, c0))
-    context.emit(Addi(d, d, c0))
-    return d
-
-
 @isa.pattern(
     'reg', 'CONSTI32', size=2,
     condition=lambda t: t.value in range(-2048, 2048))
-def pattern_const_i32_small(context, tree):
+@isa.pattern('reg', 'CONSTI8', size=2,
+             condition=lambda t: t.value in range(-128, 128))
+@isa.pattern('reg', 'CONSTU8', size=2,
+             condition=lambda t: t.value < 256)
+def pattern_const_i32(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
-    assert isinstance(c0, int)
-    assert c0 < 2048 and c0 >= -2048
-    context.emit(Movi(d, c0))
-    return d
-
-
-@isa.pattern('reg', 'CONSTI8', size=2, condition=lambda t: t.value < 256)
-@isa.pattern('reg', 'CONSTU8', size=2, condition=lambda t: t.value < 256)
-def pattern_const8(context, tree):
-    d = context.new_reg(RiscvRegister)
-    c0 = tree.value
-    assert isinstance(c0, int)
-    assert c0 < 256 and c0 >= 0
-    context.emit(Movi(d, c0))
+    context.emit(Li(d, c0))
     return d
 
 
@@ -681,21 +675,17 @@ def pattern_label1(context, tree):
 def pattern_label2(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
-    context.emit(Adrurel(d, ln))
-    context.emit(Adrlrel(d, d, ln))
+    context.emit(La(d, ln))
     return d
 
 
 @isa.pattern(
     'reg', 'FPRELI32', size=8,
-    condition=lambda t: t.value in range(-2000, 2048))
+    condition=lambda t: t.value in range(-2048, 2048))
 def pattern_fpreli32(context, tree):
     d = context.new_reg(RiscvRegister)
     c1 = tree.value
-    if c1 < 0:
-        context.emit(Subi(d, FP, -c1))
-    else:
-        context.emit(Addi(d, FP, c1))
+    context.emit(Addi(d, FP, c1))
     return d
 
 
@@ -903,5 +893,6 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     c1 = tree.children[0].value
     context.emit(Xori(d, c0, c1))
     return d
+
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?

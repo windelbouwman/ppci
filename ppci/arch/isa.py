@@ -6,7 +6,7 @@ These can be used to define an instruction set.
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
 from .encoding import Relocation
-
+from .generic_instructions import SectionInstruction
 
 Pattern = namedtuple(
     'Pattern',
@@ -28,6 +28,7 @@ class Isa:
         self.relocation_map = {}
         self.patterns = []
         self.peepholes = []
+        self.sectinst = SectionInstruction
 
     def __add__(self, other):
         assert isinstance(other, Isa)

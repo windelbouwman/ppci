@@ -86,9 +86,9 @@ def qemu(args):
     logger.debug('Listening on {} for data'.format(ser_port))
 
     args = args + [
-            '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
-            '-serial', 'tcp:localhost:{}'.format(ser_port),
-            '-S']
+        '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
+        '-serial', 'tcp:localhost:{}'.format(ser_port),
+        '-S']
     if hasattr(subprocess, 'DEVNULL'):
         qemu_process = subprocess.Popen(args)  # stderr=subprocess.DEVNULL)
     else:
@@ -207,6 +207,7 @@ def run_msp430(pmem):
         chars.append(ch)
     data = ''.join(chars)
     return data
+
 
 def run_picorv32(pmem):
     """ Run the given memory file in the riscvpicorv32 iverilog project. """

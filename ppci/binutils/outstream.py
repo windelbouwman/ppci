@@ -34,9 +34,9 @@ class OutputStream(metaclass=abc.ABCMeta):
         for item in items:
             self.emit(item)
 
-    def select_section(self, name):
+    def select_section(self, name, arch):
         """ Switch output to certain section """
-        self.emit(SectionInstruction(name))
+        self.emit(arch.isa.sectinst(name))
 
 
 class TextOutputStream(OutputStream):
