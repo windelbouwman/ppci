@@ -7,7 +7,7 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
     march = 'riscv'
 
     def test_sbreak(self):
-        self.feed('sbreak')
+        self.feed('ebreak')
         self.check('73 00 10 00')
 
     def test_mov_alias(self):
@@ -24,11 +24,11 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
         self.check('93 02 50 00')
 
     def test_add_reg_imm(self):
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.check('93 02 52 00')
 
     def test_sub_reg_imm(self):
-        self.feed('sub x6, x4, 5')
+        self.feed('addi x6, x4, -5')
         self.check('13 03 B2 FF')
 
     def test_add_imm_pc(self):
@@ -36,7 +36,7 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
         self.check('97 51 00 00')
 
     def test_loadupper_imm(self):
-        self.feed('lui x6, 0x5000')
+        self.feed('lui x6, 0x5')
         self.check('37 53 00 00')
 
     def test_jump_link_reg_imm(self):
@@ -45,14 +45,14 @@ class RiscvAssemblerTestCase(AsmTestCaseBase):
 
     def test_jump_link_label(self):
         self.feed('l1:')
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.feed('jal x4, l1')
         self.check('93 02 52 00 6F F2 DF FF')
 
     def test_branch_equal(self):
         self.feed('beq x4, x5, l1')
         self.feed('l1:')
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.check('63 02 52 00 93 02 52 00')
 
     def test_branch_notequal(self):

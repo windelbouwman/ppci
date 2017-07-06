@@ -1,4 +1,3 @@
-
 """ Contains instruction set for creating binary data.
 
 For example:
@@ -46,6 +45,13 @@ class Db(DataInstruction):
     v = Operand('v', int)
     syntax = Syntax(['db', ' ', v])
     patterns = {'value': v}
+
+
+def Dbwrap(self, arg):
+    if self.dbinst:
+        return (self.dbinst(arg))
+    else:
+        return (Db(arg))
 
 
 class Dw(DataInstruction):
@@ -114,3 +120,10 @@ class Ds(DataInstruction):
 
     def encode(self):
         return bytes([0] * self.v)
+
+
+def Dswrap(self, arg):
+    if self.dsinst:
+        return (self.dsinst(arg))
+    else:
+        return (Ds(arg))

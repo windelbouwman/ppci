@@ -4,7 +4,7 @@
 
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
-from ..data_instructions import Dd
+from ..data_instructions import Dd, DataInstruction, ByteToken, WordToken
 from ...utils.bitfun import wrap_negative, inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
@@ -78,6 +78,23 @@ class Dcd2(RiscvInstruction):
         return [AbsAddr32Relocation(self.v)]
 
 
+class DByte(DataInstruction):
+    tokens = [ByteToken]
+    v = Operand('v', int)
+    syntax = Syntax(['.', 'byte', ' ', v])
+    patterns = {'value': v}
+
+
+class DZero(DataInstruction):
+    """ Reserve an amount of space """
+    tokens = []
+    v = Operand('v', int)
+    syntax = Syntax(['.', 'zero', ' ', v])
+
+    def encode(self):
+        return bytes([0] * self.v)
+
+
 class Movr(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
     rm = Operand('rm', RiscvRegister, read=True)
@@ -144,8 +161,8 @@ class IBase(RiscvInstruction):
         tokens[0][7:12] = self.rd.num
         tokens[0][12:15] = self.func
         tokens[0][15:20] = self.rs1.num
-        imm12 = wrap_negative(self.imm, 12)
-        tokens[0][20:32] = imm12
+        self.imm = wrap_negative(self.imm, 12)
+        tokens[0][20:32] = self.imm
         return tokens[0].encode()
 
 
@@ -321,17 +338,16 @@ class Adrl(RiscvInstruction):
 
 
 class Adrlrel(RiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True, read=True)
     label = Operand('label', str)
-    syntax = Syntax(['lw', ' ', rd, ' ', ',', rs1, ' ', ',', ' ', label])
+    syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
 
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0000011
         tokens[0][7:12] = self.rd.num
         tokens[0][12:15] = 0b010
-        tokens[0][15:20] = self.rs1.num
+        tokens[0][15:20] = self.rd.num
         tokens[0][20:32] = 0
         return tokens[0].encode()
 
@@ -359,7 +375,7 @@ class La(PseudoRiscvInstruction):
 
     def render(self):
         yield Adrurel(self.rd, self.label)
-        yield Adrlrel(self.rd, self.rd, self.label)
+        yield Adrlrel(self.rd, self.label)
 
 
 class Li(PseudoRiscvInstruction):
@@ -372,6 +388,7 @@ class Li(PseudoRiscvInstruction):
             if (self.imm & 0x800) != 0:
                 self.imm += 0x1000
             yield Lui(self.rd, self.imm >> 12)
+            self.imm = wrap_negative(self.imm, 12)
             yield Addi(self.rd, self.rd, self.imm)
         else:
             yield Addi(self.rd, R0, self.imm)

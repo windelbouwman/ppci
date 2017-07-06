@@ -3,7 +3,7 @@
 import io
 from ..arch import Architecture
 from ..generic_instructions import Label, RegisterUseDef
-from .instructions import isa, Align, Section
+from .instructions import isa, Align, Section, DByte, DZero
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
@@ -59,6 +59,8 @@ class RiscvArch(Architecture):
             self.store = Sw
             self.load = Lw
         self.isa.sectinst = Section
+        self.isa.dbinst = DByte
+        self.isa.dsinst = DZero
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
         self.assembler = RiscvAssembler()
@@ -209,7 +211,7 @@ class RiscvArch(Architecture):
                 yield dcd(value)
             elif isinstance(value, bytes):
                 for byte in value:
-                    yield Db(byte)
+                    yield DByte(byte)
                 yield Align(4)   # Align at 4 bytes
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))

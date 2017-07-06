@@ -39,7 +39,7 @@ def wrap_negative(value, bits):
     """ Make a bitmask of a value, even if it is a negative value ! """
     mx = 2 ** bits - 1
     mn = -(2 ** (bits - 1))
-    #assert value in range(mn, mx)
+    # assert value in range(mn, mx)
     b = struct.unpack('<I', struct.pack('<i', value))[0]
     mask = (1 << bits) - 1
     return b & mask

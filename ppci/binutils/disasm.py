@@ -31,7 +31,7 @@ class Disassembler:
 
         # For now, all is bytes!
         for byte in data:
-            ins = Db(byte)
+            ins = Dbwrap(self.arch.isa, byte)
             ins.address = address
             outs.emit(ins)
             address += len(ins.encode())

@@ -48,13 +48,13 @@ class RiscvrvcAssemblerTestCase(AsmTestCaseBase):
 
     def test_cjal(self):
         self.feed('l1:')
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.feed('c.jal l1')
         self.check('93 02 52 00 F5 3F')
 
     def test_cj(self):
         self.feed('l1:')
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.feed('c.j l1')
         self.check('93 02 52 00 F5 BF')
 
@@ -70,14 +70,14 @@ class RiscvrvcAssemblerTestCase(AsmTestCaseBase):
         """ Test compressed branch when equal to zero """
         self.feed('c.beqz x9, l1')
         self.feed('l1:')
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.check('89 C0 93 02 52 00')
 
     def test_cbnez(self):
         """ Test compressed branch when not equal to zero """
         self.feed('c.bneqz x9, l1')
         self.feed('l1:')
-        self.feed('add x5, x4, 5')
+        self.feed('addi x5, x4, 5')
         self.check('89 E0 93 02 52 00')
 
     def test_cloadword(self):

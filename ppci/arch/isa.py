@@ -29,6 +29,8 @@ class Isa:
         self.patterns = []
         self.peepholes = []
         self.sectinst = SectionInstruction
+        self.dbinst = None
+        self.dsinst = None
 
     def __add__(self, other):
         assert isinstance(other, Isa)

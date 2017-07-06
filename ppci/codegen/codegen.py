@@ -12,7 +12,7 @@ from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction
 from ..arch.generic_instructions import VSaveRegisters, VRestoreRegisters
 from ..arch.encoding import Instruction
-from ..arch.data_instructions import Ds, Db
+from ..arch.data_instructions import Dswrap, Dbwrap
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder, make_label_name
@@ -66,9 +66,9 @@ class CodeGenerator:
             if var.amount > 0:
                 if var.value:
                     for byte in var.value:
-                        output_stream.emit(Db(byte))
+                        output_stream.emit(Dbwrap(self.arch.isa, byte))
                 else:
-                    output_stream.emit(Ds(var.amount))
+                    output_stream.emit(Dswrap(self.arch.isa, var.amount))
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.debug_db.map(var, label)
