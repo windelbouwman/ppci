@@ -70,11 +70,15 @@ class CSemantics:
             elif modifier[0] == 'FUNCTION':
                 arguments = modifier[1]
                 # print(arguments)
+                is_vararg = False
                 if arguments and arguments[-1] == '...':
+                    # Variadic function!
                     arguments = arguments[:-1]
                     is_vararg = True
-                else:
-                    is_vararg = False
+                elif len(arguments) == 1 and arguments[0].typ.is_void:
+                    # Special case 'int function1(void);'
+                    arguments = []
+
                 typ = types.FunctionType(arguments, typ, is_vararg=is_vararg)
             else:  # pragma: no cover
                 raise NotImplementedError(str(modifier))
@@ -189,6 +193,28 @@ class CSemantics:
                 il.append(i)
             result = expressions.InitializerList(
                 il, initializer.initializer.location)
+        elif isinstance(typ, types.UnionType):
+            if not isinstance(initializer, InitEnv):
+                self.error('Cannot initialize union with non init list')
+
+            if not typ.complete:
+                self.error('Union not fully defined!')
+
+            il = []
+            # Initialize the first element:
+            field = typ.fields[0]
+            if initializer.at_end():
+                # Implicit initialization:
+                i = 0
+            elif initializer.at_list():
+                # Enter new '{' part
+                i = self._sub_init(field.typ, initializer.take())
+            else:
+                i = self._sub_init(field.typ, initializer)
+            il.append(i)
+
+            result = expressions.InitializerList(
+                il, initializer.initializer.location)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
@@ -231,11 +257,16 @@ class CSemantics:
         if self.scope.is_defined(declaration.name, all_scopes=False):
             # The symbol might be a forward declaration:
             sym = self.scope.get(declaration.name)
-            if self.context.equal_types(sym.typ, declaration.typ) and \
-                    declaration.is_function:
-                self.logger.debug(
-                    'okay, forward declaration for %s implemented',
-                    declaration.name)
+            if self.context.equal_types(sym.typ, declaration.typ):
+                if declaration.is_function:
+                    self.logger.debug(
+                        'okay, forward declaration for %s implemented',
+                        declaration.name)
+                elif sym.storage_class == 'extern':
+                    # Redefine previous extern is OK!
+                    pass
+                else:
+                    self.error("Invalid redefinition", declaration.location)
             else:
                 self.logger.info('First defined here %s', sym.location)
                 self.error("Invalid redefinition", declaration.location)

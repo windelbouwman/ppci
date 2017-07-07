@@ -3,6 +3,7 @@
 import io
 from ..arch import Architecture
 from ..generic_instructions import Label, RegisterUseDef
+from .asm_printer import RiscvAsmPrinter
 from .instructions import isa, Align, Section, DByte, DZero
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister, gdb_registers, Register
@@ -63,6 +64,7 @@ class RiscvArch(Architecture):
         self.isa.dsinst = DZero
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
+        self.asm_printer = RiscvAsmPrinter()
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
 

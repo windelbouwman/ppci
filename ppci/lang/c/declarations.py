@@ -11,7 +11,7 @@ class Declaration:
         self.name = name
         self.location = location
         self.typ = typ
-        self.storage_class = None
+        self.storage_class = storage_class
 
     @property
     def is_function(self):

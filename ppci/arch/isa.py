@@ -6,7 +6,7 @@ These can be used to define an instruction set.
 from collections import namedtuple
 from ..utils.tree import Tree, from_string
 from .encoding import Relocation
-from .generic_instructions import SectionInstruction
+
 
 Pattern = namedtuple(
     'Pattern',
@@ -14,23 +14,20 @@ Pattern = namedtuple(
 
 
 class Isa:
-    """
-        Container type for an instruction set.
-        Contains a list of instructions, mappings from intermediate code
-        to instructions.
+    """ Container type for an instruction set.
 
-        Isa's can be merged into new isa's which can be used to define target.
-        For example the arm without FPU can be combined with the FPU isa
-        to expand the supported functions.
+    Contains a list of instructions, mappings from intermediate code
+    to instructions.
+
+    Isa's can be merged into new isa's which can be used to define target.
+    For example the arm without FPU can be combined with the FPU isa
+    to expand the supported functions.
     """
     def __init__(self):
         self.instructions = []
         self.relocation_map = {}
         self.patterns = []
         self.peepholes = []
-        self.sectinst = SectionInstruction
-        self.dbinst = None
-        self.dsinst = None
 
     def __add__(self, other):
         assert isinstance(other, Isa)

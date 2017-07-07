@@ -6,6 +6,10 @@ def is_scalar(typ):
     return isinstance(typ, BareType) and not is_void(typ)
 
 
+def is_integer(typ):
+    return isinstance(typ, BareType) and typ.type_id in BareType.INTEGER_TYPES
+
+
 def is_void(typ):
     """ Check if the given type is void """
     return isinstance(typ, BareType) and typ.type_id == BareType.VOID
@@ -24,6 +28,10 @@ class CType:
     @property
     def is_scalar(self):
         return is_scalar(self)
+
+    @property
+    def is_integer(self):
+        return is_integer(self)
 
     @property
     def is_struct(self):
@@ -164,6 +172,14 @@ class BareType(CType):
     FLOAT = 'float'
     DOUBLE = 'double'
     LONGDOUBLE = 'long double'
+
+    INTEGER_TYPES = {
+        CHAR, SCHAR, UCHAR,
+        SHORT, USHORT,
+        INT, UINT,
+        LONG, ULONG,
+        LONGLONG, ULONGLONG
+        }
 
     def __init__(self, type_id):
         super().__init__()

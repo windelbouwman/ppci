@@ -69,6 +69,14 @@ class CPreProcessor:
         self.define(FunctionMacro('__DATE__', self.special_macro_date))
         self.define(FunctionMacro('__TIME__', self.special_macro_time))
 
+        # Macro's defines by options:
+        for macro in self.coptions.macros:
+            logging.debug('Setting predefined macro %s', macro)
+            self.define(
+                Macro(
+                    macro,
+                    [CToken('NUMBER', '1', '', False, internal_loc)]))
+
     def special_macro_line(self, macro_token):
         """ Invoked when the __LINE__ macro is expanded """
         return [CToken(
@@ -443,10 +451,17 @@ class Expander:
                     self.undo(token)
                     return False
                 args = self.gatherargs()
-                if len(args) != len(macro.args):
-                    self.error(
-                        'Got {} arguments ({}), but expected {}'.format(
-                            len(args), args, len(macro.args)))
+                if macro.variadic:
+                    if len(args) < len(macro.args):
+                        self.error(
+                            'Got {} arguments ({})'
+                            ', but required at least {}'.format(
+                                len(args), args, len(macro.args)))
+                else:
+                    if len(args) != len(macro.args):
+                        self.error(
+                            'Got {} arguments ({}), but expected {}'.format(
+                                len(args), args, len(macro.args)))
 
                 expansion = self.substitute_arguments(macro, args)
 
@@ -685,14 +700,27 @@ class Expander:
                 name = self.consume('ID', expand=False, stop_eol=True)
 
                 # Handle function like macros:
+                variadic = False
                 token = self.consume(expand=False)
                 if token.typ == '(' and not token.space:
                     args = []
-                    if not self.has_consumed(')', expand=False):
-                        args.append(self.consume('ID', expand=False).val)
-                        while self.has_consumed(',', expand=False):
+                    # if not self.has_consumed(')', expand=False):
+                    while True:
+                        if self.token.typ == '...':
+                            self.consume('...')
+                            variadic = True
+                            break
+                        elif self.token.typ == 'ID':
                             args.append(self.consume('ID', expand=False).val)
-                        self.consume(')', expand=False)
+                        else:
+                            break
+
+                        # Eat comma, and get other arguments
+                        if self.has_consumed(','):
+                            continue
+                        else:
+                            break
+                    self.consume(')', expand=False)
                 else:
                     self.undo(token)
                     args = None
@@ -703,7 +731,7 @@ class Expander:
                     # Patch first token spaces:
                     value[0] = value[0].copy(space='')
                 value_txt = ''.join(map(str, value))
-                macro = Macro(name.val, value, args=args)
+                macro = Macro(name.val, value, args=args, variadic=variadic)
                 if self.verbose:
                     self.logger.debug('Defining %s=%s', name.val, value_txt)
                 self.preprocessor.define(macro)
@@ -885,10 +913,11 @@ class BaseMacro:
 
 class Macro(BaseMacro):
     """ Macro define """
-    def __init__(self, name, value, args=None, protected=False):
+    def __init__(self, name, value, args=None, protected=False, variadic=False):
         super().__init__(name, protected=protected)
         self.value = value
         self.args = args
+        self.variadic = variadic
 
 
 class FunctionMacro(BaseMacro):

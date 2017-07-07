@@ -34,13 +34,17 @@ class OutputStream(metaclass=abc.ABCMeta):
         for item in items:
             self.emit(item)
 
-    def select_section(self, name, arch):
+    def select_section(self, name):
         """ Switch output to certain section """
-        self.emit(arch.isa.sectinst(name))
+        self.emit(SectionInstruction(name))
 
 
 class TextOutputStream(OutputStream):
     """ Output stream that writes terminal """
+    def __init__(self, printer=None, f=None):
+        self.f = f
+        self.printer = printer
+
     def do_emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
         if isinstance(item, Label):

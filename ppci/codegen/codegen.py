@@ -12,7 +12,7 @@ from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction
 from ..arch.generic_instructions import VSaveRegisters, VRestoreRegisters
 from ..arch.encoding import Instruction
-from ..arch.data_instructions import Dswrap, Dbwrap
+from ..arch.data_instructions import DZero, DByte
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder, make_label_name
@@ -57,7 +57,7 @@ class CodeGenerator:
             'Generating %s code for module %s', str(self.arch), ircode.name)
 
         # Generate code for global variables:
-        output_stream.select_section('data', self.arch)
+        output_stream.select_section('data')
         for var in ircode.variables:
             label_name = make_label_name(var)
             # TODO: alignment?
@@ -66,9 +66,9 @@ class CodeGenerator:
             if var.amount > 0:
                 if var.value:
                     for byte in var.value:
-                        output_stream.emit(Dbwrap(self.arch.isa, byte))
+                        output_stream.emit(DByte(byte))
                 else:
-                    output_stream.emit(Dswrap(self.arch.isa, var.amount))
+                    output_stream.emit(DZero(var.amount))
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.debug_db.map(var, label)
@@ -80,7 +80,7 @@ class CodeGenerator:
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
         # Each frame has a flat list of abstract instructions.
-        output_stream.select_section('code', self.arch)
+        output_stream.select_section('code')
         for function in ircode.functions:
             self.generate_function(
                 function, output_stream, reporter, debug=debug)

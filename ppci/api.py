@@ -177,7 +177,7 @@ def asm(source, march, debug=False):
         obj.debug_info = DebugInfo()
     logger.debug('Assembling into code section')
     ostream = BinaryOutputStream(obj)
-    ostream.select_section('code', march)
+    ostream.select_section('code')
     try:
         assembler.prepare()
         assembler.assemble(source, ostream, diag, debug=debug)

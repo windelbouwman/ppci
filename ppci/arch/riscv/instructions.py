@@ -5,6 +5,7 @@
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd, DataInstruction, ByteToken, WordToken
+from ..data_instructions import DByte, DZero
 from ...utils.bitfun import wrap_negative, inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
@@ -76,23 +77,6 @@ class Dcd2(RiscvInstruction):
 
     def relocations(self):
         return [AbsAddr32Relocation(self.v)]
-
-
-class DByte(DataInstruction):
-    tokens = [ByteToken]
-    v = Operand('v', int)
-    syntax = Syntax(['.', 'byte', ' ', v])
-    patterns = {'value': v}
-
-
-class DZero(DataInstruction):
-    """ Reserve an amount of space """
-    tokens = []
-    v = Operand('v', int)
-    syntax = Syntax(['.', 'zero', ' ', v])
-
-    def encode(self):
-        return bytes([0] * self.v)
 
 
 class Movr(RiscvInstruction):

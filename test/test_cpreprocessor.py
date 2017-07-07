@@ -1,5 +1,6 @@
 import unittest
 import io
+from unittest import mock
 from ppci.common import CompilerError
 from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
 from ppci.lang.c import CContext, COptions
@@ -290,13 +291,13 @@ class CPreProcessorTestCase(unittest.TestCase):
         3;"dummy.t"'''
         self.preprocess(src, expected)
 
-    @unittest.skip('TODO, fix time mock?')
+    @mock.patch('time.strftime', lambda fmt: 'mastah')
     def test_builtin_time_macros(self):
         src = r"""
         __DATE__;__TIME__;"""
         expected = '''# 1 "dummy.t"
 
-        "19 apr 2017";"12:34:56"'''
+        "mastah";"mastah";'''
         self.preprocess(src, expected)
 
     def test_token_glue(self):
@@ -325,6 +326,17 @@ class CPreProcessorTestCase(unittest.TestCase):
         """ Check the behavior of macro arguments when used in stringify """
         src = r"""#define A(x) # x x
         #define B 55 - 3
+        A(B)"""
+        expected = """# 1 "dummy.t"
+
+
+        "B" 55 - 3"""
+        self.preprocess(src, expected)
+
+    @unittest.skip('TODO!')
+    def test_variable_arguments(self):
+        """ Check the behavior of variable arguments """
+        src = r"""#define A(...) a __VA_ARGS__ b
         A(B)"""
         expected = """# 1 "dummy.t"
 

@@ -61,7 +61,7 @@ class OustreamTestCase(unittest.TestCase):
         arch = get_arch('example')
         obj = ObjectFile(arch)
         o = BinaryOutputStream(obj)
-        o.select_section('.text', arch)
+        o.select_section('.text')
         o.emit(Label('a'))
         self.assertSequenceEqual(bytes(), obj.get_section('.text').data)
 
@@ -72,7 +72,7 @@ class AssemblerTestCase(unittest.TestCase):
         arch = get_arch('example')
         obj = ObjectFile(arch)
         ostream = BinaryOutputStream(obj)
-        ostream.select_section('code', arch)
+        ostream.select_section('code')
         diag = DiagnosticsManager()
         assembler = BaseAssembler()
         with self.assertRaises(CompilerError):
@@ -87,7 +87,7 @@ class AsmTestCaseBase(unittest.TestCase):
         arch = get_arch(self.march)
         self.obj = ObjectFile(arch)
         self.ostream = BinaryOutputStream(self.obj)
-        self.ostream.select_section('code', arch)
+        self.ostream.select_section('code')
         self.diag = DiagnosticsManager()
 
         # Prep assembler!

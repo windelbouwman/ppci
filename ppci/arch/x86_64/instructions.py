@@ -926,6 +926,7 @@ def pattern_sub64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg8', 'SUBU8(reg8, reg8)', size=4)
 @isa.pattern('reg8', 'SUBI8(reg8, reg8)', size=4)
 def pattern_sub8(context, tree, c0, c1):
     d = context.new_reg(LowRegister)
@@ -944,6 +945,7 @@ def pattern_mul64_(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'DIVI64(reg64, reg64)', size=14)
+@isa.pattern('reg64', 'DIVU64(reg64, reg64)', size=14)
 def pattern_div64(context, tree, c0, c1):
     context.move(rax, c0)
     context.emit(MovImm(rdx, 0))
@@ -959,6 +961,7 @@ def pattern_div64(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'REMI64(reg64, reg64)', size=14)
+@isa.pattern('reg64', 'REMU64(reg64, reg64)', size=14)
 def pattern_remi64(context, tree, c0, c1):
     context.move(rax, c0)
     context.emit(MovImm(rdx, 0))
@@ -997,6 +1000,15 @@ def pattern_or64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(OrRegRm(d, RmReg(c1)))
+    return d
+
+
+@isa.pattern('reg8', 'ORU8(reg8, reg8)', size=4)
+@isa.pattern('reg8', 'ORI8(reg8, reg8)', size=4)
+def pattern_or8(context, tree, c0, c1):
+    d = context.new_reg(LowRegister)
+    context.move(d, c0)
+    context.emit(OrRegRm8(d, RmReg8(c1)))
     return d
 
 

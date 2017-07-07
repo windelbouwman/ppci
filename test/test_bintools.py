@@ -17,7 +17,7 @@ class OutstreamTestCase(unittest.TestCase):
     def test_dummy_stream(self):
         arch = ExampleArch()
         stream = DummyOutputStream()
-        stream.select_section('code', arch)
+        stream.select_section('code')
         stream.emit(Mov(R1, R0))
 
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -25,14 +25,14 @@ class OutstreamTestCase(unittest.TestCase):
         """ Test output to stdout """
         arch = ExampleArch()
         stream = TextOutputStream()
-        stream.select_section('code', arch)
+        stream.select_section('code')
         stream.emit(Mov(R1, R0))
 
     def test_binary_and_logstream(self):
         arch = ExampleArch()
         object1 = ObjectFile(arch)
         stream = binary_and_logging_stream(object1)
-        stream.select_section('code', arch)
+        stream.select_section('code')
         stream.emit(Mov(R1, R0))
 
 

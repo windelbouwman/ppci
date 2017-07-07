@@ -1,7 +1,7 @@
 
 """ Contains disassembler stuff. """
 
-from ..arch.data_instructions import Db
+from ..arch.data_instructions import DByte
 
 
 class Disassembler:
@@ -31,7 +31,7 @@ class Disassembler:
 
         # For now, all is bytes!
         for byte in data:
-            ins = Dbwrap(self.arch.isa, byte)
+            ins = DByte(byte)
             ins.address = address
             outs.emit(ins)
             address += len(ins.encode())

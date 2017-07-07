@@ -135,7 +135,7 @@ class CContext:
             if typ.size is None:
                 self.error(
                     'Size of array could not be determined!', typ.location)
-            assert isinstance(typ.size, int)
+            assert isinstance(typ.size, int), str(type(typ.size))
             array_size = typ.size
             return element_size * array_size
         elif isinstance(typ, types.BareType):
@@ -167,6 +167,19 @@ class CContext:
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
 
+    def is_const_expr(self, expr):
+        """ Test if an expression can be evaluated at compile time """
+        if isinstance(expr, expressions.Binop):
+            return self.is_const_expr(expr.a) and self.is_const_expr(expr.b)
+        elif isinstance(expr, expressions.NumericLiteral):
+            return True
+        elif isinstance(expr, expressions.CharLiteral):
+            return True
+        elif isinstance(expr, expressions.Sizeof):
+            return True
+        else:
+            return False
+
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """
         if isinstance(expr, expressions.Binop):
@@ -178,10 +191,16 @@ class CContext:
                 '+': lambda x, y: x + y,
                 '-': lambda x, y: x - y,
                 '*': lambda x, y: x * y,
-                '/': lambda x, y: x / y,
-                '>>': lambda x, y: x >> y,
-                '<<': lambda x, y: x << y,
             }
+
+            # Ensure division is integer division:
+            if expr.typ.is_integer:
+                op_map['/'] = lambda x, y: x // y
+                op_map['>>'] = lambda x, y: x >> y
+                op_map['<<'] = lambda x, y: x << y
+            else:
+                op_map['/'] = lambda x, y: x / y
+
             value = op_map[op](lhs, rhs)
         elif isinstance(expr, expressions.Unop):
             if expr.op in ['-']:
@@ -204,6 +223,8 @@ class CContext:
         elif isinstance(expr, expressions.Cast):
             # TODO: do some real casting!
             value = self.eval_expr(expr.expr)
+        elif isinstance(expr, expressions.Sizeof):
+            value = self.sizeof(expr.sizeof_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value

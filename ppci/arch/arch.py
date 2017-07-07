@@ -7,6 +7,7 @@ from .registers import Register
 from .stack import Frame
 from .generic_instructions import VCall, RegisterUseDef
 from .generic_instructions import VSaveRegisters, VRestoreRegisters
+from .asm_printer import AsmPrinter
 from .. import ir
 
 
@@ -39,6 +40,7 @@ class Architecture(metaclass=abc.ABCMeta):
         self.byte_sizes['u8'] = 1
         self.endianness = 'little'
         self.FrameClass = Frame
+        self.asm_printer = AsmPrinter()
 
     def has_option(self, name):
         """ Check for an option setting selected """

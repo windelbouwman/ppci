@@ -230,7 +230,10 @@ class CParser(RecursiveDescentParser):
         elif self.peak == '{':
             tag = None
         else:
-            self.error('Expected tag name or "{"', keyword.loc)
+            print(self.typedefs)
+            self.error(
+                'Expected tag name or "{{", but got {}'.format(self.peak),
+                keyword.loc)
 
         if self.peak == '{':
             # We have a struct declarations:
@@ -274,7 +277,10 @@ class CParser(RecursiveDescentParser):
         elif self.peak == '{':
             tag = None
         else:
-            self.error('Expected tag name or enum declaration', keyword.loc)
+            self.error(
+                'Expected tag name or enum declaration, but got {}'.format(
+                    self.peak),
+                keyword.loc)
 
         ctyp = self.semantics.on_enum(tag, keyword.loc)
 

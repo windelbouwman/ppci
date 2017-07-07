@@ -469,6 +469,17 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_union(self):
+        """ Test union usage """
+        src = """
+        union z { int foo; struct { int b, a, r; } bar;};
+        union z myZ[2] = {1, 2, 3};
+        void main() {
+          union z localZ[2] = {1, 2, 3};
+        }
+        """
+        self.do(src)
+
     def test_array(self):
         """ Test array types """
         src = """
@@ -476,7 +487,7 @@ class CFrontendTestCase(unittest.TestCase):
         int b[] = {1, 2};
         int bbb[] = {1, 2,}; // Trailing comma
         void main() {
-         int c[10];
+         int c[sizeof(long int)/sizeof(char)];
          unsigned long long d[] = {1ULL, 2ULL};
          a[2] = b[10] + c[2] + d[1];
          int* p = a + 2;
@@ -641,7 +652,7 @@ class CFrontendTestCase(unittest.TestCase):
     def test_void_function(self):
         """ Test calling of a void function """
         src = """
-        void main() {
+        void main(void) {
           main();
         }
         """
@@ -654,6 +665,14 @@ class CFrontendTestCase(unittest.TestCase):
         void main() {
           add((int)22, 2, 3);
         }
+        """
+        self.do(src)
+
+    def test_forward_declaration(self):
+        """ Test forward declarations """
+        src = """
+        extern char a;
+        char a = 2;
         """
         self.do(src)
 
