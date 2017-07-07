@@ -6,6 +6,7 @@
 import logging
 import abc
 from ..arch.encoding import Instruction
+from ..arch.asm_printer import AsmPrinter
 from ..arch.generic_instructions import Alignment, DebugData, Label
 from ..arch.generic_instructions import SectionInstruction
 from ..arch.generic_instructions import ArtificialInstruction
@@ -43,14 +44,18 @@ class TextOutputStream(OutputStream):
     """ Output stream that writes terminal """
     def __init__(self, printer=None, f=None):
         self.f = f
-        self.printer = printer
+        if printer:
+            self.printer = printer
+        else:
+            self.printer = AsmPrinter()
 
     def do_emit(self, item):
         assert isinstance(item, Instruction), str(item) + str(type(item))
+        txt = self.printer.print_instruction(item)
         if isinstance(item, Label):
-            print(str(item))
+            print(txt, file=self.f)
         else:
-            print('  ', str(item))
+            print('   ', txt, file=self.f)
 
 
 class BinaryOutputStream(OutputStream):

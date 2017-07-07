@@ -371,7 +371,7 @@ def ir_to_object(
     # TODO: refactor polishing?
     obj.polish()
     reporter.message('All modules generated!')
-    reporter.dump_allinstructions(instruction_list)
+    reporter.dump_instructions(instruction_list, march)
     return obj
 
 

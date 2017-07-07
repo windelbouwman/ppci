@@ -14,7 +14,7 @@ from .. import ir
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
-from ..arch.generic_instructions import Label
+from ..binutils.outstream import TextOutputStream
 
 
 class ReportGenerator(metaclass=abc.ABCMeta):
@@ -59,11 +59,9 @@ class ReportGenerator(metaclass=abc.ABCMeta):
     def dump_ig(self, ig):
         pass
 
-    def dump_instructions(self, instruction_list):
-        pass
-
-    def dump_allinstructions(self, instruction_list):
-        pass
+    @abc.abstractmethod
+    def dump_instructions(self, instructions, arch):
+        raise NotImplementedError()
 
     def dump_compiler_error(self, compiler_error):
         self.heading(3, 'Error')
@@ -87,6 +85,9 @@ class DummyReportGenerator(ReportGenerator):
     def dump_raw_text(self, text):
         pass
 
+    def dump_instructions(self, instructions, arch):
+        pass
+
 
 class TextWritingReporter(ReportGenerator):
     def __init__(self, dump_file):
@@ -96,12 +97,10 @@ class TextWritingReporter(ReportGenerator):
         """ Convenience helper for printing to dumpfile """
         print(*args, file=self.dump_file)
 
-    def dumpins(self, instruction_list):
-        for ins in instruction_list:
-            if isinstance(ins, Label):
-                self.print('{}'.format(ins))
-            else:
-                self.print('    {}'.format(ins))
+    def dump_instructions(self, instructions, arch):
+        asm_printer = arch.asm_printer
+        text_stream = TextOutputStream(asm_printer, f=self.dump_file)
+        text_stream.emit_all(instructions)
 
 
 @contextmanager
@@ -175,12 +174,6 @@ class AsmReportGenerator(TextWritingReporter):
 
     def dump_raw_text(self, text):
         pass
-
-    def dump_instructions(self, instruction_list):
-        pass
-
-    def dump_allinstructions(self, instruction_list):
-        self.dumpins(instruction_list)
 
 
 @contextmanager
@@ -351,13 +344,11 @@ class HtmlReportGenerator(TextWritingReporter):
         self.print(text)
         self.print('</pre>')
 
-    def dump_instructions(self, instruction_list):
+    def dump_instructions(self, instructions, arch):
         with collapseable(self, 'Instructions'):
             self.print('<pre>')
-            self.dumpins(instruction_list)
+            super().dump_instructions(instructions, arch)
             self.print('</pre>')
-
-    dump_allinstructions = dump_instructions
 
     def render_graph(self, graph):
         LayeredLayout().generate(graph)

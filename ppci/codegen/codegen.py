@@ -148,7 +148,7 @@ class CodeGenerator:
             dd = DebugData(d)
             output_stream.emit(dd)
 
-        reporter.dump_instructions(instruction_list)
+        reporter.dump_instructions(instruction_list, self.arch)
 
     def select_and_schedule(self, ir_function, frame, reporter):
         """ Perform instruction selection and scheduling """
