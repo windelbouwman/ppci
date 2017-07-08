@@ -106,6 +106,7 @@ class CCodeGenerator:
         self.logger.debug('Generating IR-code for %s', function.name)
         assert not self.break_block_stack
         assert len(self.continue_block_stack) == 0
+        self.labeled_blocks = {}
         assert not self.labeled_blocks
         self.unreachable = False
 
@@ -257,12 +258,13 @@ class CCodeGenerator:
         # Implement switching logic, now that we have the branches:
         # TODO: implement jump tables and other performance related stuff.
         self.builder.set_block(test_block)
-        test_value = self.gen_expr(stmt.expression)
+        test_value = self.gen_expr(stmt.expression, rvalue=True)
+        switch_ir_typ = self.get_ir_type(stmt.expression.typ)
         for option, target_block in self.switch_options.items():
             if option == 'default':
                 pass
             else:
-                option = self.emit(ir.Const(option, 'case', ir.i32))
+                option = self.emit(ir.Const(option, 'case', switch_ir_typ))
                 next_test_block = self.builder.new_block()
                 self.emit(ir.CJump(
                     test_value, '==', option, target_block, next_test_block))
@@ -345,8 +347,7 @@ class CCodeGenerator:
     def gen_case(self, stmt: statements.Case):
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
-        if self.switch_options is None:
-            self.error('Case statement outside of a switch!', stmt.location)
+        assert self.switch_options is not None
         if stmt.value in self.switch_options:
             self.error('Case defined multiple times', stmt.location)
         self.switch_options[stmt.value] = block
@@ -357,8 +358,7 @@ class CCodeGenerator:
     def gen_default(self, stmt: statements.Default):
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
-        if self.switch_options is None:
-            self.error('Default statement outside of a switch!', stmt.location)
+        assert self.switch_options is not None
         self.switch_options['default'] = block
         self.emit(ir.Jump(block))  # fall through
         self.builder.set_block(block)
@@ -474,14 +474,18 @@ class CCodeGenerator:
         yes_block = self.builder.new_block()
         no_block = self.builder.new_block()
         end_block = self.builder.new_block()
+
         self.gen_condition(expr, yes_block, no_block)
+
         self.builder.set_block(yes_block)
         ir_typ = self.get_ir_type(expr.typ)
         yes_value = self.emit(ir.Const(1, 'one', ir_typ))
         self.emit(ir.Jump(end_block))
+
         self.builder.set_block(no_block)
         no_value = self.emit(ir.Const(0, 'zero', ir_typ))
         self.emit(ir.Jump(end_block))
+
         self.builder.set_block(end_block)
         value = self.emit(ir.Phi('phi', ir_typ))
         value.set_incoming(yes_block, yes_value)
@@ -617,18 +621,21 @@ class CCodeGenerator:
                 # The true path:
                 self.builder.set_block(yes_block)
                 yes_value = self.gen_expr(expr.b, rvalue=True)
+                # Fetch current block, because it might have changed!
+                final_yes_block = self.builder.block
                 self.emit(ir.Jump(end_block))
 
                 # The false path:
                 self.builder.set_block(no_block)
                 no_value = self.gen_expr(expr.c, rvalue=True)
+                final_no_block = self.builder.block
                 self.emit(ir.Jump(end_block))
 
                 self.builder.set_block(end_block)
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Phi('phi', ir_typ))
-                value.set_incoming(yes_block, yes_value)
-                value.set_incoming(no_block, no_value)
+                value.set_incoming(final_yes_block, yes_value)
+                value.set_incoming(final_no_block, no_value)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
         elif isinstance(expr, expressions.VariableAccess):
@@ -742,5 +749,8 @@ class CCodeGenerator:
             # TODO: this IS a hack!
             m = {8: ir.u64}
             return m[size]
+        elif isinstance(typ, types.StructType):
+            self.logger.warning('Struct not implemented!')
+            return ir.u64
         else:
             raise NotImplementedError(str(typ))

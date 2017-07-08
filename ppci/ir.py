@@ -198,6 +198,9 @@ class Block:
     def __str__(self):
         return '{0}:'.format(self.name)
 
+    def __repr__(self):
+        return str(self)
+
     def __iter__(self):
         for instruction in self.instructions:
             yield instruction

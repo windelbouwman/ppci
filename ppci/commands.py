@@ -11,6 +11,7 @@ import importlib
 import io
 
 from .lang.tools.yacc import transform
+from .lang.c import create_ast, CAstPrinter
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
 from .binutils.outstream import TextOutputStream
@@ -87,6 +88,9 @@ compile_parser.add_argument(
     '-S', help='Do not assemble, but output assembly language',
     action='store_true', default=False)
 compile_parser.add_argument(
+    '--ir', help='Output ppci ir-code, do not generate code',
+    action='store_true', default=False)
+compile_parser.add_argument(
     '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
@@ -160,10 +164,17 @@ def c3c(args=None):
     with LogSetup(args):
         # Compile sources:
         march = get_arch_from_args(args)
-        obj = api.c3c(args.sources, args.include, march, debug=args.g)
+        if args.S:
+            txtstream = TextOutputStream(
+                printer=march.asm_printer, f=args.output)
+            api.c3c(
+                args.sources, args.include, march, debug=args.g,
+                outstream=txtstream)
+        else:
+            obj = api.c3c(args.sources, args.include, march, debug=args.g)
 
-        # Write object file to disk:
-        obj.save(args.output)
+            # Write object file to disk:
+            obj.save(args.output)
         args.output.close()
 
 
@@ -180,6 +191,9 @@ cc_parser = argparse.ArgumentParser(
 cc_parser.add_argument(
     '-E', action='store_true', default=False,
     help="Stop after preprocessing")
+cc_parser.add_argument(
+    '--ast', action='store_true', default=False,
+    help="Stop parsing and output the C abstract syntax tree (ast)")
 cc_parser.add_argument(
     '-c', action="store_true", default=False,
     help="Compile, but do not link")
@@ -200,8 +214,20 @@ def cc(args=None):
         for src in args.sources:
             if args.E:  # Only pre process
                 api.preprocess(src, args.output, coptions)
+            elif args.ast:
+                # Stop after ast generation:
+                filename = src.name if hasattr(src, 'name') else None
+                ast = create_ast(
+                    src, march, filename=filename, coptions=coptions)
+                printer = CAstPrinter(file=args.output)
+                printer.print(ast)
+            elif args.ir:
+                # Stop after ir code generation
+                module = api.c_to_ir(src, march, coptions=coptions)
+                irutils.Writer(file=args.output).write(module)
             elif args.S:  # Output assembly code
-                stream = TextOutputStream()
+                stream = TextOutputStream(
+                    printer=march.asm_printer, f=args.output)
                 module = api.c_to_ir(src, march, coptions=coptions)
                 api.ir_to_stream(module, march, stream)
             elif args.c:  # Compile only
@@ -211,7 +237,6 @@ def cc(args=None):
 
                 # Write object file to disk:
                 obj.save(args.output)
-                args.output.close()
             else:
                 obj = api.cc(
                     src, march, coptions=coptions,
@@ -220,9 +245,10 @@ def cc(args=None):
                 # TODO: link objects together?
                 logging.warning('TODO: Linking with stdlibs')
                 obj.save(args.output)
-                args.output.close()
                 # raise NotImplementedError('Linking not implemented')
 
+        # Close output file:
+        args.output.close()
 
 pascal_description = """ Pascal compiler.
 

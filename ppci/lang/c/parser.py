@@ -613,8 +613,9 @@ class CParser(RecursiveDescentParser):
         self.consume('(')
         expression = self.parse_expression()
         self.consume(')')
+        self.semantics.on_switch_enter(expression)
         statement = self.parse_statement()
-        return self.semantics.on_switch(expression, statement, location)
+        return self.semantics.on_switch_exit(expression, statement, location)
 
     def parse_case_statement(self):
         """ Parse a case """

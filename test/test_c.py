@@ -383,6 +383,16 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_conditionals(self):
+        src = """
+        int main() {
+          int d, i, c;
+          c = (( (d < 10) || (i != c) ) | 22) != 0;
+          return c;
+        }
+        """
+        self.do(src)
+
     def test_expressions(self):
         """ Test various expression constructions """
         src = """
@@ -619,9 +629,12 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         void main() {
           int a;
-          switch (33+1) {
+          short b = 23L;
+          switch (b) {
             case 34:
               a -= 5;
+              break;
+            case 342LL:
               break;
             default:
               a += 2;
@@ -673,6 +686,67 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         extern char a;
         char a = 2;
+        """
+        self.do(src)
+
+    def test_softfloat_bug(self):
+        """ Bug encountered in softfloat library """
+        src = """
+        #define INLINE
+        typedef short int16;
+        typedef unsigned int bits32;
+        typedef char int8;
+
+        INLINE void
+         shift64ExtraRightJamming(
+             bits32 a0,
+             bits32 a1,
+             bits32 a2,
+             int16 count,
+             bits32 *z0Ptr,
+             bits32 *z1Ptr,
+             bits32 *z2Ptr
+         )
+        {
+            bits32 z0, z1, z2;
+            int8 negCount = ( - count ) & 31;
+
+            if ( count == 0 ) {
+                z2 = a2;
+                z1 = a1;
+                z0 = a0;
+            }
+            else {
+                if ( count < 32 ) {
+                    z2 = a1<<negCount;
+                    z1 = ( a0<<negCount ) | ( a1>>count );
+                    z0 = a0>>count;
+                }
+                else {
+                    if ( count == 32 ) {
+                        z2 = a1;
+                        z1 = a0;
+                    }
+                    else {
+                        a2 |= a1;
+                        if ( count < 64 ) {
+                            z2 = a0<<negCount;
+                            z1 = a0>>( count & 31 );
+                        }
+                        else {
+                            z2 = ( count == 64 ) ? a0 : ( a0 != 0 );
+                            z1 = 0;
+                        }
+                    }
+                    z0 = 0;
+                }
+                z2 |= ( a2 != 0 );
+            }
+            *z2Ptr = z2;
+            *z1Ptr = z1;
+            *z0Ptr = z0;
+
+        }
         """
         self.do(src)
 

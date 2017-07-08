@@ -44,14 +44,13 @@ class CBuilder:
         return cgen.gen_code(compile_unit)
 
 
-def create_ast(src):
+def create_ast(src, march, filename='<snippet>', coptions=None):
     """ Create a C ast from the given source """
-    from ...api import get_current_platform
-    coptions = COptions()
-    march = get_current_platform()
+    if coptions is None:
+        coptions = COptions()
     context = CContext(coptions, march)
     preprocessor = CPreProcessor(coptions)
-    tokens = preprocessor.process(src, '<snippet>')
+    tokens = preprocessor.process(src, filename)
     semantics = CSemantics(context)
     parser = CParser(context, semantics)
     tokens = prepare_for_parsing(tokens, parser.keywords)

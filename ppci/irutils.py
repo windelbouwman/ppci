@@ -41,6 +41,7 @@ class Writer:
             for ins in block:
                 self.print(2, '{};'.format(ins))
             self.print(1, '}')
+            self.print(0, '')
         self.print(0, '}')
 
 
@@ -464,7 +465,9 @@ class Verifier:
             for inp_val in instruction.inputs.values():
                 assert instruction.ty is inp_val.ty
         elif isinstance(instruction, ir.CJump):
-            assert instruction.a.ty is instruction.b.ty
+            if instruction.a.ty is not instruction.b.ty:
+                raise IrFormError('Type {} is not {} in {}'.format(
+                    instruction.a.ty, instruction.b.ty, instruction))
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:

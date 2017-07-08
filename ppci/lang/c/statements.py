@@ -72,9 +72,10 @@ class Continue(Statement):
 
 class Case(Statement):
     """ Case statement """
-    def __init__(self, value, statement, location):
+    def __init__(self, value, typ, statement, location):
         super().__init__(location)
         self.value = value
+        self.typ = typ
         self.statement = statement
 
     def __repr__(self):

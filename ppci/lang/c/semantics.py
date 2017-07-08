@@ -22,6 +22,9 @@ class CSemantics:
         self.int_type = self.get_type(['int'])
         self.cstr_type = types.PointerType(self.get_type(['char']))
 
+        # Working variables:
+        self.switch_stack = []  # switch case levels
+
     def begin(self):
         self.scope = Scope()
         self.scope.insert(
@@ -30,6 +33,7 @@ class CSemantics:
 
     def finish_compilation_unit(self):
         cu = nodes.CompilationUnit(self.declarations)
+        assert not self.switch_stack
         return cu
 
     def enter_function(self, function):
@@ -422,16 +426,26 @@ class CSemantics:
         condition = self.coerce(condition, self.get_type(['int']))
         return statements.If(condition, then_statement, no, location)
 
-    def on_switch(self, expression, statement, location):
+    def on_switch_enter(self, expression):
+        self.switch_stack.append(expression.typ)
+
+    def on_switch_exit(self, expression, statement, location):
         """ Handle switch statement """
+        self.switch_stack.pop(-1)
         return statements.Switch(expression, statement, location)
 
     def on_case(self, value, statement, location):
-        value = self.context.eval_expr(value)
-        return statements.Case(value, statement, location)
+        if not self.switch_stack:
+            self.error('Case statement outside of a switch!', location)
 
-    @staticmethod
-    def on_default(statement, location):
+        value = self.coerce(value, self.switch_stack[-1])
+        const_value = self.context.eval_expr(value)
+        return statements.Case(const_value, value.typ, statement, location)
+
+    def on_default(self, statement, location):
+        if not self.switch_stack:
+            self.error('Default statement outside of a switch!', location)
+
         return statements.Default(statement, location)
 
     @staticmethod
