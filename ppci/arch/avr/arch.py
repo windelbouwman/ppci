@@ -96,14 +96,14 @@ class AvrArch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-    def gen_extract_retval(self, res_type, res_var):
+    def gen_extract_retval(self, retval_type, vreg):
         # Copy return value:
-        retval_loc = self.determine_rv_location(res_type)
+        retval_loc = self.determine_rv_location(retval_type)
 
         yield RegisterUseDef(defs=(retval_loc,))
 
-        if isinstance(res_var, AvrWordRegister):
-            yield self.move(res_var, retval_loc)
+        if isinstance(vreg, AvrWordRegister):
+            yield self.move(vreg, retval_loc)
         else:  # pragma: no cover
             raise NotImplementedError('Parameters in memory not impl')
 

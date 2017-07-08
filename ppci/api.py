@@ -329,7 +329,7 @@ def ir_to_stream(
 
 def ir_to_object(
         ir_modules, march, debug_db=None, reporter=None, debug=False,
-        opt='speed'):
+        opt='speed', outstream=None):
     """ Translate IR-modules into code for the given architecture.
 
     Args:
@@ -339,6 +339,7 @@ def ir_to_object(
         reporter: reporter to write compilation report to
         debug (bool): include debugging information
         opt (str): optimization goal. Can be 'speed', 'size' or 'co2'.
+        outstream: instruction stream to write instructions to
 
     Returns:
         ObjectFile: An object file
@@ -354,14 +355,19 @@ def ir_to_object(
     reporter.heading(2, 'Code generation')
     reporter.message("Target: {}".format(march))
 
+    # Construct output object:
     obj = ObjectFile(march)
     if debug:
         obj.debug_info = DebugInfo()
+
+    # Construct the various instruction streams:
     binary_output_stream = BinaryOutputStream(obj)
+    sub_streams = [binary_output_stream]
     instruction_list = []
-    output_stream = MasterOutputStream([
-        FunctionOutputStream(instruction_list.append),
-        binary_output_stream])
+    sub_streams.append(FunctionOutputStream(instruction_list.append))
+    if outstream:
+        sub_streams.append(outstream)
+    output_stream = MasterOutputStream(sub_streams)
 
     for ir_module in ir_modules:
         ir_to_stream(
@@ -462,7 +468,8 @@ def llc(source, march):
     return ir_to_object([ir_module], march)
 
 
-def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
+def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
+        outstream=None):
     """ Compile a set of sources into binary format for the given target.
 
     Args:
@@ -499,7 +506,7 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False):
     return ir_to_object(
         ir_modules, march,
         debug_db=debug_db, debug=debug, reporter=reporter,
-        opt=opt_cg)
+        opt=opt_cg, outstream=outstream)
 
 
 def pascal(sources, march, opt_level=0, reporter=None):
@@ -583,9 +590,9 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
     return ir_to_object(ir_modules, target, reporter=reporter)
 
 
-def llvmir2ir():
+def llvmir2ir(f):
     """ Parse llvm IR-code into a ppci ir-module """
-    return LlvmIrFrontend().compile()
+    return LlvmIrFrontend().compile(f)
 
 
 def link(

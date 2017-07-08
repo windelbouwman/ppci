@@ -41,7 +41,7 @@ class OutputStream(metaclass=abc.ABCMeta):
 
 
 class TextOutputStream(OutputStream):
-    """ Output stream that writes terminal """
+    """ Output stream that writes instruction as text. """
     def __init__(self, printer=None, f=None):
         self.f = f
         if printer:

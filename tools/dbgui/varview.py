@@ -27,7 +27,7 @@ class PartialVariable:
                 pass
             elif isinstance(self.typ, DebugArrayType):
                 for row in range(self.typ.size):
-                    name = '[{1}]'.format(self.name, row)
+                    name = '[{}]'.format(row)
                     offset = row * self.typ.element_type.sizeof()
                     addr = self.address + offset
                     pv = PartialVariable(
@@ -35,7 +35,7 @@ class PartialVariable:
                     self._children.append(pv)
             elif isinstance(self.typ, DebugStructType):
                 for row, field in enumerate(self.typ.fields):
-                    name = '{1}'.format(self.name, field.name)
+                    name = '{}'.format(field.name)
                     addr = self.address + field.offset
                     pv = PartialVariable(name, field.typ, addr, row, self)
                     self._children.append(pv)

@@ -11,4 +11,4 @@ pipelines:
         script: # Modify the commands below to build your repository.
           - pip install -q -U tox wheel codecov
           - pip --version
-          - tox -e ut,py3,flake8
+          - tox -e ut,py3
