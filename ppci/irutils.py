@@ -396,7 +396,12 @@ class Verifier:
             self.verify_block_termination(block)
             if isinstance(block.last_instruction, ir.Return):
                 assert isinstance(function, ir.Function)
-                assert block.last_instruction.result.ty is function.return_ty
+                if block.last_instruction.result.ty is not function.return_ty:
+                    raise IrFormError(
+                        'Last instruction returns {}, while function '
+                        'returns {}'.format(
+                            block.last_instruction.result.ty,
+                            function.return_ty))
             if isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
 

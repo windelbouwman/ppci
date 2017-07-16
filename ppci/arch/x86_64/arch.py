@@ -158,7 +158,9 @@ class X86_64Arch(Architecture):
 
         for arg_type in arg_types:
             # Determine register:
-            if arg_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
+            if arg_type in [
+                    ir.i8, ir.i64, ir.u8, ir.u64,
+                    ir.i16, ir.u16, ir.ptr]:
                 if int_regs:
                     reg = int_regs.pop(0)
                 else:

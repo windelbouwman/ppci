@@ -280,6 +280,29 @@ class MyHandler(logging.Handler):
         print(self, self.backlog[-1])
 
 
+def selection_graph_to_graph(sgraph):
+    graph = Graph()
+    node_map = {}  # Mapping from SGNode to Node
+    for node in sgraph.nodes:
+        name = str(node).replace("'", "")
+        node_map[node] = graph.create_node(name)
+
+    for edge in sgraph.edges:
+        from_node = node_map[edge.src]
+        to_node = node_map[edge.dst]
+        color_map = {
+            SGValue.CONTROL: 'red',
+            SGValue.DATA: 'black',
+            SGValue.MEMORY: 'blue'
+        }
+
+        if not graph.has_edge(from_node, to_node):
+            edge2 = graph.create_edge(from_node, to_node)
+            edge2.label = edge.name
+            edge2.color = color_map[edge.kind]
+    return graph
+
+
 class HtmlReportGenerator(TextWritingReporter):
     def __init__(self, dump_file):
         super().__init__(dump_file)
@@ -355,27 +378,17 @@ class HtmlReportGenerator(TextWritingReporter):
         graph.to_svg(self.dump_file)
 
     def dump_sgraph(self, sgraph):
-        graph = Graph()
-        node_map = {}  # Mapping from SGNode to id of vis
-        node_nr = 0
-        for node in sgraph.nodes:
-            node_nr += 1
-            nid = node_nr
-            node_map[node] = nid
-            name = str(node).replace("'", "")
-            graph.add_node(nid, name)
-        for edge in sgraph.edges:
-            from_nid = node_map[edge.src]
-            to_nid = node_map[edge.dst]
-            color_map = {
-                SGValue.CONTROL: 'red',
-                SGValue.DATA: 'black',
-                SGValue.MEMORY: 'blue'
-            }
-            edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
-            edge2.set_color(color_map[edge.kind])
-        # self.render_graph(graph)
         with collapseable(self, 'Selection graph'):
+            self.print(
+                '<div>'
+                '<p>Selection graph.</p><ul>'
+                '<li>red=control dependency</li>'
+                '<li>blue=memory dependency</li>'
+                '<li>black=data dependency</li>'
+                '</ul>')
+            graph = selection_graph_to_graph(sgraph)
+            self.render_graph(graph)
+            self.print('</div>')
             self.print('<p><b>To be implemented</b></p>')
 
     def dump_dag(self, dags):

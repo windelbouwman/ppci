@@ -151,9 +151,12 @@ def get8reg(num):
 
 
 # Register classes:
+# TODO: should 16 and 32 bit values have its own class?
 register_classes = [
     RegisterClass(
-        'reg64', [ir.i64, ir.u64, ir.ptr], X86Register,
+        'reg64',
+        [ir.i64, ir.u64, ir.ptr, ir.i16, ir.u16],
+        X86Register,
         [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
     RegisterClass('reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
     RegisterClass(

@@ -746,11 +746,14 @@ class CCodeGenerator:
             return self.get_ir_type(self.context.get_type(['int']))
         elif isinstance(typ, types.UnionType):
             size = self.context.sizeof(typ)
+            return ir.BlobDataTyp(size)
             # TODO: this IS a hack!
             m = {8: ir.u64}
             return m[size]
         elif isinstance(typ, types.StructType):
-            self.logger.warning('Struct not implemented!')
-            return ir.u64
+            size = self.context.sizeof(typ)
+            # self.logger.warning('Struct not implemented!')
+            return ir.BlobDataTyp(size)
+            # return ir.u64
         else:
             raise NotImplementedError(str(typ))

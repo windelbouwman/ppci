@@ -555,6 +555,7 @@ class Mrc(McrBase):
 
 # Instruction selection patterns:
 @arm_isa.pattern('stm', 'STRI32(reg, reg)', size=4)
+@arm_isa.pattern('stm', 'STRU32(reg, reg)', size=4)
 def pattern_str32(self, tree, c0, c1):
     self.emit(Str1(c1, c0, 0))
 
@@ -596,6 +597,7 @@ def pattern_jmp(context, tree):
 
 
 @arm_isa.pattern('reg', 'REGI32', size=0, cycles=0, energy=0)
+@arm_isa.pattern('reg', 'REGU32', size=0, cycles=0, energy=0)
 def pattern_reg32(context, tree):
     return tree.value
 
@@ -756,7 +758,17 @@ def pattern_ld8(context, tree, c0):
     return d2
 
 
+@arm_isa.pattern('reg', 'LDRU16(reg)', size=4, energy=8)
+def pattern_ld16(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    context.emit(Ldr1(d, c0, 0))
+    # context.emit(Shl
+    raise NotImplementedError()
+    return d
+
+
 @arm_isa.pattern('reg', 'LDRI32(reg)', size=4)
+@arm_isa.pattern('reg', 'LDRU32(reg)', size=4)
 def pattern_ld32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.emit(Ldr1(d, c0, 0))

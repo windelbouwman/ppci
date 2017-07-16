@@ -421,6 +421,19 @@ class UnsignedIntegerTyp(IntegerTyp):
     signed = False
 
 
+# TODO: what is the type of a larger slab of data?
+class BlobDataTyp(Typ):
+    def __init__(self, size):
+        super().__init__('blob')
+        self.size = size
+
+    def __eq__(self, other):
+        return (self.name, self.size) == (other.name, other.size)
+
+    def __hash__(self):
+        return hash((self.name, self.size))
+
+
 # The builtin types:
 f64 = Typ('f64')  #: 64-bit floating point type
 f32 = Typ('f32')  #: 32-bit floating point type

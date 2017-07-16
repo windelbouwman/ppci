@@ -223,13 +223,17 @@ def cc(args=None):
                 printer.print(ast)
             elif args.ir:
                 # Stop after ir code generation
-                module = api.c_to_ir(src, march, coptions=coptions)
+                module = api.c_to_ir(
+                    src, march, coptions=coptions,
+                    reporter=log_setup.reporter)
                 irutils.Writer(file=args.output).write(module)
             elif args.S:  # Output assembly code
                 stream = TextOutputStream(
                     printer=march.asm_printer, f=args.output)
-                module = api.c_to_ir(src, march, coptions=coptions)
-                api.ir_to_stream(module, march, stream)
+                module = api.c_to_ir(
+                    src, march, coptions=coptions, reporter=log_setup.reporter)
+                api.ir_to_stream(
+                    module, march, stream, reporter=log_setup.reporter)
             elif args.c:  # Compile only
                 obj = api.cc(
                     src, march, coptions=coptions,
