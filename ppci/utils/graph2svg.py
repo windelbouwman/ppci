@@ -8,6 +8,8 @@ class Node:
         self.nid = id(self)
         self.label = ''
         self.color = None
+        self.width = 0
+        self.height = 0
         self.children = []
         self.parents = []
 

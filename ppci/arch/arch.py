@@ -125,7 +125,7 @@ class Architecture(metaclass=abc.ABCMeta):
 
         # Setup parameters:
         for instr in self.gen_fill_arguments(arg_types, args):
-            yield instr
+           yield instr
 
         # Emit placeholder for later:
         yield vcall
@@ -194,28 +194,6 @@ class Architecture(metaclass=abc.ABCMeta):
 
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
-
-    def gen_extract_arguments(self, arg_types, args):
-        """ Generate code to extract arguments from the proper locations
-
-        The default implementation tries to use registers and move
-        instructions.
-
-        Arguments:
-            arg_types: an iterable of ir-types of the arguments
-            args: an iterable of virtual registers in which the arguments
-                  must be placed.
-        """
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(defs=arg_regs)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, Register):
-                yield self.move(arg, arg_loc)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
 
     def gen_fill_retval(self, retval_type, res_var):
         """ Generate a instructions to fill the return value.

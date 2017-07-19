@@ -215,19 +215,6 @@ class ArmArch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-    def gen_extract_arguments(self, arg_types, args):
-        """ Extract parameters from function call """
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(defs=arg_regs)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, ArmRegister):
-                yield self.move(arg, arg_loc)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
     def determine_arg_locations(self, arg_types):
         """
             Given a set of argument types, determine location for argument

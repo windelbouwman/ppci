@@ -14,6 +14,7 @@ import logging
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
+from ..arch.encoding import Instruction
 from .burg import BurgSystem
 from .irdag import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
@@ -207,12 +208,6 @@ class InstructionSelector1:
         function_info = FunctionInfo(frame)
         prepare_function_info(self.arch, function_info, ir_function)
 
-        # Fetch arguments from all sorts of locations like stack, registers
-        # etc... depending on calling convention!
-        for instruction in self.arch.gen_extract_arguments(
-                function_info.arg_types, function_info.arg_vregs):
-            frame.emit(instruction)
-
         # Create a context that can emit instructions:
         context = InstructionContext(frame, self.arch, self.debug_db)
 
@@ -220,22 +215,18 @@ class InstructionSelector1:
         sgraph = self.dag_builder.build(ir_function, function_info)
         reporter.dump_sgraph(sgraph)
 
-        # Split the selection graph into trees:
-        self.dag_splitter.split_into_trees(sgraph, ir_function, function_info)
-        reporter.dump_trees(ir_function, function_info)
+        # Split the selection graph into a forest of trees:
+        forest = self.dag_splitter.split_into_trees(
+            sgraph, ir_function, function_info)
+        reporter.dump_trees(forest)
 
-        # Process one basic block at a time:
-        for ir_block in ir_function:
-            # emit label of block:
-            context.emit(function_info.label_map[ir_block])
+        # Generate proper instructions:
+        self.munch_trees(context, forest)
 
-            # Eat dag:
-            trees = function_info.block_trees[ir_block]
-            self.munch_trees(context, trees)
-
-            # Emit code between blocks:
-            for instruction in self.arch.between_blocks(frame):
-                frame.emit(instruction)
+        # TODO!!!
+        # Emit code between blocks:
+        # for instruction in self.arch.between_blocks(frame):
+        #    frame.emit(instruction)
 
         # Emit epilog label here, return and exit instructions jump to it
         frame.emit(function_info.epilog_label)
@@ -262,7 +253,11 @@ class InstructionSelector1:
         # Match all splitted trees:
         for tree in trees:
             # Invoke dynamic programming matcher machinery:
-            self.gen_tree(context, tree)
+            if isinstance(tree, Instruction):
+                context.emit(tree)
+            else:
+                assert isinstance(tree, Tree)
+                self.gen_tree(context, tree)
 
     def gen_tree(self, context, tree):
         """ Generate code from a tree """

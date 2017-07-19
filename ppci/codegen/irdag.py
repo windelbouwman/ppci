@@ -20,6 +20,8 @@ series of tree patterns. This is often referred to as a forest of trees.
 import logging
 from .. import ir
 from ..arch.generic_instructions import Label
+from ..arch.stack import StackLocation
+from ..arch.registers import Register
 from ..binutils.debuginfo import FpOffsetAddress
 from ..utils.tree import Tree
 from .selectiongraph import SGNode, SGValue, SelectionGraph
@@ -65,7 +67,6 @@ class FunctionInfo:
         self.label_map = {}
         self.epilog_label = None
         self.phi_map = {}  # mapping from phi node to vreg
-        self.block_trees = {}  # Mapping from block to tree serie for block
         self.block_tails = {}
 
 
@@ -142,20 +143,7 @@ class SelectionGraphBuilder:
             val.value = make_label_name(variable)
             self.add_map(variable, val.new_output(variable.name))
 
-        # Create start node:
-        self.current_token = self.new_node('ENTRY', None).new_output(
-            'token', kind=SGValue.CONTROL)
-
-        # Create temporary registers for aruments:
-        for arg, vreg in zip(ir_function.arguments, function_info.arg_vregs):
-            param_node = self.new_node('REG', arg.ty, value=vreg)
-            output = param_node.new_output(arg.name)
-            output.vreg = vreg
-
-            # When refering the paramater, use the copied value:
-            self.add_map(arg, output)
-
-            self.chain(param_node)
+        self.load_arguments(ir_function, function_info)
 
         # Generate nodes for all blocks:
         for ir_block in depth_first_order(ir_function):
@@ -163,6 +151,87 @@ class SelectionGraphBuilder:
 
         self.sgraph.check()
         return self.sgraph
+
+    def load_arguments(self, ir_function, function_info):
+        # HACK to enter this into entry block:
+        self.current_block = 'foo'
+
+        # Create start node:
+        entry = self.new_node('ENTRY', None)
+        self.current_token = entry.new_output('token', kind=SGValue.CONTROL)
+
+        # Copy arguments:
+        # TODO: this is now hardcoded for x86:
+        stack_offset = 16
+
+        args = ir_function.arguments
+        arg_types = [a.ty for a in args]
+        arg_locs = self.arch.determine_arg_locations(arg_types)
+        arg_vregs = function_info.arg_vregs
+        for arg, arg_loc, vreg in zip(args, arg_locs, arg_vregs):
+            # if isinstance(arg_loc, Register):
+            # TODO: implement memory copy
+            if isinstance(arg_loc, Register):
+                if arg_loc.bitsize != vreg.bitsize:
+                    # Argument is a register, but requires a cast
+                    # Determine proper code for register argument:
+                    ty = arg.ty
+                    if ty is ir.ptr:
+                        ty = self.ptr_ty
+                    x = '{}{}'.format(str(ty).upper()[0], arg_loc.bitsize)
+
+                    # Convert to proper size using casting:
+                    assert arg_loc.bitsize > vreg.bitsize
+                    fp_node1 = self.new_node(
+                        'REG', ir.get_ty(x), value=arg_loc)
+                    fp_output1 = fp_node1.new_output(arg.name)
+                    fp_output1.vreg = arg_loc
+                    self.chain(fp_node1)
+
+                    # Create conversion node:
+                    fp_node2 = self.new_node(
+                        '{}TO'.format(x), arg.ty, fp_output1)
+                    fp_output = fp_node2.new_output(arg.name)
+                    self.chain(fp_node2)
+                else:
+                    fp_node = self.new_node('REG', arg.ty, value=arg_loc)
+                    fp_output = fp_node.new_output(arg.name)
+                    fp_output.vreg = arg_loc
+                    self.chain(fp_node)
+            elif isinstance(arg_loc, StackLocation):
+                # Argument is passed on stack, load it!
+                sgnode = self.new_node('FPREL', ir.ptr, value=stack_offset)
+                # TODO: hard coded for x86:
+                stack_offset += 8
+                bp = sgnode.new_output(arg.name)
+
+                # Load it:
+                fp_node = self.new_node('LDR', arg.ty, bp)
+                fp_output = fp_node.new_output(arg.name)
+                self.chain(fp_node)
+
+                # TODO: This is a good place to copy stack passed structs
+            else:
+                raise NotImplementedError()
+
+            # Move into new temp register:
+            mov_node = self.new_node('MOV', arg.ty, fp_output, value=vreg)
+            self.chain(mov_node)
+
+            # Create temporary registers for aruments:
+            param_node = self.new_node('REG', arg.ty, value=vreg)
+            output = param_node.new_output(arg.name)
+            output.vreg = vreg
+            self.chain(param_node)
+
+            # When refering the paramater, use the copied value:
+            self.add_map(arg, output)
+
+        # Hack hack hack:
+        function_info.block_tails['foo'] = self.current_token.node
+
+        sgnode = self.new_node('EXIT', None)
+        sgnode.add_input(self.current_token)
 
     def block_to_sgraph(self, ir_block: ir.Block, function_info):
         """ Create dag (directed acyclic graph) from a basic block.
@@ -356,15 +425,25 @@ class SelectionGraphBuilder:
         # This is the moment to move all parameters to new temp registers.
         args = []
         inputs = []
+        regouts = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
             loc = self.new_vreg(argument.ty)
             args.append(loc)
             arg_sgnode = self.new_node('MOV', argument.ty, arg_val, value=loc)
             self.chain(arg_sgnode)
+            # reg_out = arg_sgnode.new_output('arg')
+            # reg_out.vreg = loc
+            # regouts.append(reg_out)
             # inputs.append(arg_sgnode.new_output('x'))
 
-        arg_types = [argument.ty for argument in node.arguments]
+        # Store vregs into proper locations (according to calling convention):
+        arg_types = [a.ty for a in node.arguments]
+        #arg_locs = self.arch.determine_arg_locations(arg_types)
+        #for arg, arg_loc, reg_out in zip(node.arguments, arg_locs, regouts):
+        #    sgnode = self.new_node('MOV', arg.ty, reg_out, value=arg_loc)
+        #    self.chain(sgnode)
+
         return args, inputs, arg_types
 
     def do_procedure_call(self, node):
@@ -500,9 +579,11 @@ def topological_sort_modified(nodes, start):
 
 
 class DagSplitter:
-    """ Class that splits a DAG into a series of trees. This series is sorted
-        such that data dependencies are met. The trees can henceforth be
-        used to match trees.
+    """ Class that splits a DAG into a forest of trees.
+
+    This series is sorted
+    such that data dependencies are met. The trees can henceforth be
+    used to match trees.
     """
     logger = logging.getLogger('dag-splitter')
 
@@ -514,17 +595,31 @@ class DagSplitter:
         """ Split a forest of trees into a sorted series of trees for each
             block.
         """
+        forest = []
         self.assign_vregs(sgraph, function_info)
-        for ir_block in ir_function:
-            nodes = sgraph.get_group(ir_block)
-            # Get rid of ENTRY and EXIT:
-            nodes = set(
-                filter(
-                    lambda x: x.name.op not in ['ENTRY', 'EXIT'], nodes))
 
-            tail_node = function_info.block_tails[ir_block]
-            trees = self.make_trees(nodes, tail_node)
-            function_info.block_trees[ir_block] = trees
+        # Process special case entry:
+        block_trees = self.split_group_into_trees(
+            sgraph, function_info, 'foo')
+        forest.extend(block_trees)
+
+        # Process other blocks:
+        for ir_block in ir_function:
+            block_trees = self.split_group_into_trees(
+                sgraph, function_info, ir_block)
+            forest.append(function_info.label_map[ir_block])
+            forest.extend(block_trees)
+        return forest
+
+    def split_group_into_trees(self, sgraph, function_info, group):
+        nodes = sgraph.get_group(group)
+        # Get rid of ENTRY and EXIT:
+        nodes = set(
+            filter(
+                lambda x: x.name.op not in ['ENTRY', 'EXIT'], nodes))
+
+        tail_node = function_info.block_tails[group]
+        return self.make_trees(nodes, tail_node)
 
     def assign_vregs(self, sgraph, function_info):
         """ Give vreg values to values that cross block boundaries """

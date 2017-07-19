@@ -23,6 +23,7 @@ from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
 from .lang.c.options import COptions, coptions_parser
 from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
+from .utils.reporting import TextReportGenerator
 
 
 version_text = 'ppci {} compiler on {} {} on {}'.format(
@@ -57,6 +58,10 @@ base_parser.add_argument(
 base_parser.add_argument(
     '--html-report', metavar='html-report-file', action=OnceAction,
     help='Write html report file',
+    type=argparse.FileType('w'))
+base_parser.add_argument(
+    '--text-report', metavar='text-report-file', action=OnceAction,
+    help='Write a report into a text file',
     type=argparse.FileType('w'))
 base_parser.add_argument(
     '--verbose', '-v', action='count', default=0,
@@ -161,17 +166,20 @@ c3c_parser.add_argument(
 def c3c(args=None):
     """ Run c3 compile task """
     args = c3c_parser.parse_args(args)
-    with LogSetup(args):
+    with LogSetup(args) as log_setup:
         # Compile sources:
         march = get_arch_from_args(args)
         if args.S:
             txtstream = TextOutputStream(
                 printer=march.asm_printer, f=args.output)
             api.c3c(
-                args.sources, args.include, march, debug=args.g,
-                outstream=txtstream)
+                args.sources, args.include, march,
+                reporter=log_setup.reporter,
+                debug=args.g, outstream=txtstream)
         else:
-            obj = api.c3c(args.sources, args.include, march, debug=args.g)
+            obj = api.c3c(
+                args.sources, args.include, march,
+                reporter=log_setup.reporter, debug=args.g)
 
             # Write object file to disk:
             obj.save(args.output)
@@ -253,6 +261,7 @@ def cc(args=None):
 
         # Close output file:
         args.output.close()
+
 
 pascal_description = """ Pascal compiler.
 
@@ -614,8 +623,12 @@ class LogSetup:
         if self.args.html_report:
             self.reporter = HtmlReportGenerator(self.args.html_report)
             self.reporter.header()
+        elif self.args.text_report:
+            self.reporter = TextReportGenerator(self.args.text_report)
+            self.reporter.header()
         else:
             self.reporter = DummyReportGenerator()
+        self.logger.debug('Reporting to %s', self.reporter)
         self.logger.debug('Loggers attached')
         self.logger.info(version_text)
         return self
@@ -653,6 +666,9 @@ class LogSetup:
 
         if self.args.html_report:
             self.args.html_report.close()
+
+        if self.args.text_report:
+            self.args.text_report.close()
 
         self.logger.removeHandler(self.console_handler)
 

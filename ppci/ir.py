@@ -449,6 +449,12 @@ ptr = Typ('ptr')  #: Pointer type
 
 value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
 all_types = value_types + [ptr]
+value_map = {t.name.lower(): t for t in value_types}
+
+
+def get_ty(name):
+    """ Get an ir type by name """
+    return value_map[name.lower()]
 
 
 class Value(Instruction):

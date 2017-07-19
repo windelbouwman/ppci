@@ -141,12 +141,15 @@ Now print the optimized module:
         i32 y = 2;
         jmp a;
       }
+    <BLANKLINE>
       a: {
         jmp c;
       }
+    <BLANKLINE>
       c: {
         return x;
       }
+    <BLANKLINE>
     }
     <BLANKLINE>
 

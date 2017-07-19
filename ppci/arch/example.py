@@ -39,19 +39,15 @@ class ExampleArch(Architecture):
         """ Given a set of argument types, determine locations
         """
         arg_locs = []
-        live_in = set()
         regs = [R0, R1, R2, R3]
         for a in arg_types:
             r = regs.pop(0)
             arg_locs.append(r)
-            live_in.add(r)
-        return arg_locs, tuple(live_in)
+        return arg_locs
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
         rv = R0
-        live_out.add(rv)
-        return rv, tuple(live_out)
+        return rv
 
     def gen_save_registers(self, frame, registers):
         return []

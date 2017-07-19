@@ -47,8 +47,9 @@ class ReportGenerator(metaclass=abc.ABCMeta):
     def dump_dag(self, dags):
         pass
 
-    def dump_trees(self, ir_function, function_info):
-        pass
+    @abc.abstractmethod
+    def dump_trees(self, trees):
+        raise NotImplementedError()
 
     def dump_frame(self, frame):
         pass
@@ -85,6 +86,9 @@ class DummyReportGenerator(ReportGenerator):
     def dump_raw_text(self, text):
         pass
 
+    def dump_trees(self, trees):
+        pass
+
     def dump_instructions(self, instructions, arch):
         pass
 
@@ -119,13 +123,35 @@ def complete_report(reporter):
 
 
 class TextReportGenerator(TextWritingReporter):
+    def header(self):
+        self.print('Report!')
+
     def dump_ir(self, ir_module):
-        self.print('Before optimization {} {}'.format(
-            ir_module, ir_module.stats()))
-        writer = Writer()
-        self.print('==========================')
-        writer.write(ir_module, self.dump_file)
-        self.print('==========================')
+        writer = Writer(file=self.dump_file)
+        if isinstance(ir_module, ir.Module):
+            self.print('==========================')
+            writer.write(ir_module)
+            self.print('==========================')
+        elif isinstance(ir_module, ir.SubRoutine):
+            self.print('==========================')
+            writer.write_function(ir_module)
+            self.print('==========================')
+        else:  # pragma: no cover
+            raise NotImplementedError(str(ir_module))
+
+    def heading(self, level, title):
+        self.print()
+        self.print(title)
+        markers = {1: '=', 2: '-'}
+        marker = markers[level] if level in markers else '~'
+        self.print(marker * len(title))
+        self.print()
+
+    def message(self, msg):
+        self.print(msg)
+
+    def dump_raw_text(self, text):
+        self.print(text)
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
@@ -134,6 +160,11 @@ class TextReportGenerator(TextWritingReporter):
             self.print('Dag:')
             for root in dag:
                 self.print("- {}".format(root))
+
+    def dump_trees(self, trees):
+        self.print("Selection trees:")
+        for tree in trees:
+            self.print('  {}'.format(tree))
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
@@ -156,24 +187,6 @@ class TextReportGenerator(TextWritingReporter):
         for ins in instruction_list:
             self.print(ins)
         self.print("===============================")
-
-
-class AsmReportGenerator(TextWritingReporter):
-    """ Report generator which reports into the void """
-
-    def __init__(self, dump_file):
-        super().__init__(dump_file)
-        self.nr = 0
-        self.backlog = []
-
-    def heading(self, level, title):
-        pass
-
-    def message(self, msg):
-        pass
-
-    def dump_raw_text(self, text):
-        pass
 
 
 @contextmanager
@@ -358,7 +371,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 writer = Writer(f)
                 writer.write_function(ir_module)
                 self.dump_raw_text(f.getvalue())
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError()
 
     def dump_raw_text(self, text):
@@ -398,15 +411,12 @@ class HtmlReportGenerator(TextWritingReporter):
             for root in dag:
                 self.print("- {}".format(root))
 
-    def dump_trees(self, ir_function, function_info):
+    def dump_trees(self, trees):
         with collapseable(self, 'Selection trees'):
-            self.message('Selection trees for {}'.format(ir_function))
             self.print('<hr>')
             self.print('<pre>')
-            for ir_block in ir_function:
-                self.print(str(ir_block))
-                for tree in function_info.block_trees[ir_block]:
-                    self.print('  {}'.format(tree))
+            for tree in trees:
+                self.print('  {}'.format(tree))
             self.print('</pre>')
 
     def dump_frame(self, frame):

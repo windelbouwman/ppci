@@ -391,7 +391,7 @@ class Bw(LongThumbInstruction):
 class Bl(LongThumbInstruction):
     """ Branch with link """
     target = Operand('target', str)
-    syntax = Syntax(['bl', target])
+    syntax = Syntax(['bl', ' ', target])
 
     def encode(self):
         j1 = 1  # TODO: what do these mean?
@@ -536,12 +536,14 @@ class addspsp_base(ThumbInstruction):
 
 
 class AddSp(addspsp_base):
-    syntax = Syntax(['add', 'sp', ',', 'sp', ',', addspsp_base.imm7])
+    syntax = Syntax(
+        ['add', ' ', 'sp', ',', ' ', 'sp', ',', ' ', addspsp_base.imm7])
     opcode = 0b101100000
 
 
 class SubSp(addspsp_base):
-    syntax = Syntax(['sub', 'sp', ',', 'sp', ',', addspsp_base.imm7])
+    syntax = Syntax(
+        ['sub', ' ', 'sp', ',', ' ', 'sp', ',', ' ', addspsp_base.imm7])
     opcode = 0b101100001
 
 
