@@ -6,7 +6,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Transform
 from ..encoding import Relocation
 from ..generic_instructions import ArtificialInstruction
-from .registers import AddressRegister, FloatRegister, a1, a15
+from .registers import AddressRegister, FloatRegister, a1, a2, a3, a15
 from ...utils.bitfun import wrap_negative
 from ... import ir
 
@@ -893,20 +893,28 @@ def pattern_sub_i32(context, tree, c0, c1):
     return d
 
 
+def call_internal(context, label, args):
+    c0, c1 = args
+    d = context.new_reg(AddressRegister)
+    context.move(a2, c0)
+    context.move(a3, c1)
+    context.emit(VSaveRegisters([a2, a3]))
+    context.emit(Call0(label), clobbers=[saved])
+    context.emit(VRestoreRegisters([a2]))
+    context.move(d, a2)
+    return d
+
+
 @core_isa.pattern('reg', 'MULI32(reg, reg)', size=10, cycles=10, energy=10)
 def pattern_mul32(context, tree, c0, c1):
-    d = context.new_reg(AddressRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('swmuldiv_mul', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
-    return d
+    return call_internal(context, 'swmuldiv_mul', (c0, c1))
 
 
 @core_isa.pattern('reg', 'DIVI32(reg, reg)')
 def pattern_div32(context, tree, c0, c1):
-    d = context.new_reg(AddressRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('swmuldiv_div', [ir.i32, ir.i32], ir.i32, [c0, c1], d))
-    return d
+    return call_internal(context, 'swmuldiv_div', (c0, c1))
 
 
 @core_isa.pattern('reg', 'ANDI32(reg,reg)')
@@ -1010,4 +1018,4 @@ def pattern_cjmp(context, tree, c0, c1):
 
 @core_isa.pattern('stm', 'CALL', size=10)
 def pattern_call(context, tree):
-    context.gen_call(tree.value)
+    context.emit(Call0(tree.value))

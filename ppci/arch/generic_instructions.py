@@ -90,32 +90,6 @@ class VCall(VirtualInstruction):
         return 'VCALL {}'.format(self.function_name)
 
 
-class VSaveRegisters(VirtualInstruction):
-    """ Placeholder for a place to save caller saved registers.
-
-    Will invoke some hook on the architecture """
-
-    def __init__(self, vcall):
-        super().__init__()
-        self.vcall = vcall
-
-    def __repr__(self):
-        return 'VSAVEREGS {}'.format(self.vcall.function_name)
-
-
-class VRestoreRegisters(VirtualInstruction):
-    """ Placeholder for a place to restore caller saved registers.
-
-    Will invoke some hook on the architecture """
-
-    def __init__(self, vcall):
-        super().__init__()
-        self.vcall = vcall
-
-    def __repr__(self):
-        return 'VRESTOREREGS {}'.format(self.vcall.function_name)
-
-
 class Comment(PseudoInstruction):
     """ Assembly language comment """
 

@@ -480,11 +480,6 @@ def pattern_fprel(context, tree):
 
 
 # Control flow patterns:
-@orbis32.pattern('reg', 'CALL')
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
-
-
 @orbis32.pattern('stm', 'JMP', size=4)
 def pattern_jmp(context, tree):
     tgt = tree.value

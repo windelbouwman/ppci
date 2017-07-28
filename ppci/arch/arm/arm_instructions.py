@@ -7,6 +7,7 @@ from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
 from ...utils.bitfun import encode_imm32
 from ...utils.tree import Tree
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
+from .registers import R0, R1, R2
 from .arm_relocations import Imm24Relocation
 from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
 from ...ir import i32
@@ -775,11 +776,6 @@ def pattern_ld32(context, tree, c0):
     return d
 
 
-@arm_isa.pattern('reg', 'CALL', size=10)
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
-
-
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
@@ -828,7 +824,10 @@ def pattern_ldr32(context, tree, c0):
 def pattern_div32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
+    context.move(R1, c0)
+    context.move(R2, c1)
+    context.emit(Bl('__sdiv'))
+    context.move(d, R0)
     return d
 
 
@@ -836,7 +835,10 @@ def pattern_div32(context, tree, c0, c1):
 def pattern_rem32(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(ArmRegister)
-    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
+    context.move(R1, c0)
+    context.move(R2, c1)
+    context.emit(Bl('__sdiv'))
+    context.move(d, R0)
     d2 = context.new_reg(ArmRegister)
     context.emit(Mls(d2, d, c1, c0))
     return d2

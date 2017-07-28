@@ -10,14 +10,16 @@ trees.
 Another solution may be: PBQP (Partitioned Boolean Quadratic Programming)
 """
 
+import abc
 import logging
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
 from ..arch.encoding import Instruction
 from .burg import BurgSystem
-from .irdag import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
+from .dagsplit import DagSplitter
+from ..arch.generic_instructions import RegisterUseDef
 
 
 data_types = [str(t).upper() for t in ir.all_types]
@@ -29,7 +31,7 @@ ops = [
     'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
     'U8TO', 'U16TO', 'U32TO', 'U64TO',
     'F32TO', 'F64TO',
-    'FPREL',  # Frame pointer relative
+    'FPREL', 'SPREL',  # Frame/stack pointer relative
     ]
 
 # Add all possible terminals:
@@ -37,11 +39,14 @@ ops = [
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
              "JMP", "CJMP",
-             "EXIT", "ENTRY")
+             "EXIT", "ENTRY",
+             'VENTER', 'VEXIT',
+             'ALLOCA', 'FREEA')
 
 
-class ContextInterface:
-    def emit(self, *args, **kwargs):  # pragma: no cover
+class ContextInterface(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def emit(self, instruction):  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -65,17 +70,9 @@ class InstructionContext(ContextInterface):
         """ Generate move """
         self.emit(self.arch.move(dst, src))
 
-    def gen_call(self, value):
-        """ generate call for function into self """
-        for instruction in self.arch.gen_vcall(value):
-            self.emit(instruction)
-        if len(value) == 5:
-            res_var = value[-1]
-            return res_var
-
-    def emit(self, *args, **kwargs):
+    def emit(self, instruction):
         """ Abstract instruction emitter proxy """
-        instruction = self.frame.emit(*args, **kwargs)
+        self.frame.emit(instruction)
         if self.tree:
             self.debug_db.map(self.tree, instruction)
         return instruction
@@ -187,6 +184,14 @@ class InstructionSelector1:
         for terminal in terminals:
             self.sys.add_terminal(terminal)
 
+        # Add special case nodes:
+        self.sys.add_rule(
+            'stm', Tree('VENTER'), 0, None, self.enter_func)
+        self.sys.add_rule(
+            'stm', Tree('VEXIT'), 0, None, self.exit_func)
+        self.sys.add_rule(
+            'stm', Tree('CALL'), 0, None, self.call_function)
+
         # Add all isa patterns:
         for pattern in arch.isa.patterns:
             cost = pattern.size * weights[0] + \
@@ -198,6 +203,19 @@ class InstructionSelector1:
 
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
+
+    def call_function(self, context, tree):
+        label, args, rv = tree.value
+        for instruction in self.arch.gen_call(label, args, rv):
+            context.emit(instruction)
+
+    @staticmethod
+    def enter_func(context, tree):
+        context.emit(RegisterUseDef(defs=tree.value))
+
+    @staticmethod
+    def exit_func(context, tree):
+        context.emit(RegisterUseDef(uses=tree.value))
 
     def select(self, ir_function: ir.SubRoutine, frame, reporter):
         """ Select instructions of function into a frame """
@@ -227,15 +245,6 @@ class InstructionSelector1:
         # Emit code between blocks:
         # for instruction in self.arch.between_blocks(frame):
         #    frame.emit(instruction)
-
-        # Emit epilog label here, return and exit instructions jump to it
-        frame.emit(function_info.epilog_label)
-
-        # Emit copy return value loc here:
-        if isinstance(ir_function, ir.Function):
-            for instruction in self.arch.gen_fill_retval(
-                    ir_function.return_ty, function_info.rv_vreg):
-                frame.emit(instruction)
 
     def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.

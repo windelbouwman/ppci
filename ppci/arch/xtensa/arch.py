@@ -57,25 +57,9 @@ class XtensaArch(Architecture):
             raise NotImplementedError(str(ret_type))
         return rv
 
-    def gen_fill_arguments(self, arg_types, args):
-        """ This function moves arguments in the proper locations. """
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, registers.AddressRegister):
-                yield self.move(arg_loc, arg)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(uses=arg_regs)
-
     def gen_save_registers(self, frame, registers):
         for register in registers:
             yield instructions.Push(register)
-
-    def gen_call(self, frame, vcall):
-        yield instructions.Call0(vcall.function_name)
 
     def gen_restore_registers(self, frame, registers):
         for register in reversed(registers):

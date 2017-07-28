@@ -4,7 +4,8 @@ import unittest
 import io
 from ppci import ir
 from ppci.irutils import Builder, Writer
-from ppci.codegen.irdag import SelectionGraphBuilder, DagSplitter
+from ppci.codegen.dagsplit import DagSplitter
+from ppci.codegen.irdag import SelectionGraphBuilder
 from ppci.codegen.irdag import FunctionInfo, prepare_function_info
 from ppci.arch.example import ExampleArch
 from ppci.binutils.debuginfo import DebugDb

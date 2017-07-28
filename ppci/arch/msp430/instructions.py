@@ -2,9 +2,10 @@
 
 from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
 from ..generic_instructions import ArtificialInstruction
+from ..generic_instructions import RegisterUseDef
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
-from .registers import Msp430Register, r2, r3, r4, SP, PC
+from .registers import Msp430Register, r2, r3, r4, r12, r13, SP, PC
 from ...utils.bitfun import align
 from ...ir import i16
 
@@ -555,13 +556,34 @@ def pattern_i8toi16(context, tree, c0):
     return d
 
 
-@isa.pattern('reg', 'CALL')
+@isa.pattern('stm', 'CALL')
 def pattern_call(context, tree):
-    return context.gen_call(tree.value)
+    context.emit(call(tree.value))
+
+
+def call_intrinsic(context, label, args, safe_regs=False):
+    """ Generate a call to an intrinsic function """
+    c0, c1 = args
+    context.move(r12, c0)
+    context.move(r13, c1)
+    if safe_regs:
+        context.emit(VSaveRegisters([r12, r13]))
+    else:
+        context.emit(RegisterUseDef(uses=(r12, r13)))
+    context.emit(call(label))
+    if safe_regs:
+        context.emit(VRestoreRegisters([r12]))
+    else:
+        context.emit(RegisterUseDef(defs=(r12,)))
+    d = context.new_reg(Msp430Register)
+    context.move(d, r12)
+    return d
 
 
 @isa.pattern('reg', 'MULI16(reg, reg)', size=10)
 def pattern_mul16(context, tree, c0, c1):
+    return call_intrinsic(
+        context, 'msp430_runtime___div', (c0, c1), safe_regs=True)
     d = context.new_reg(Msp430Register)
     context.gen_call(('msp430_runtime___mul', [i16, i16], i16, [c0, c1], d))
     return d
@@ -569,9 +591,8 @@ def pattern_mul16(context, tree, c0, c1):
 
 @isa.pattern('reg', 'DIVI16(reg, reg)', size=10)
 def pattern_div16(context, tree, c0, c1):
-    d = context.new_reg(Msp430Register)
-    context.gen_call(('msp430_runtime___div', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_intrinsic(
+        context, 'msp430_runtime___div', (c0, c1), safe_regs=True)
 
 
 @isa.pattern('reg', 'ANDI16(reg, reg)', size=4)
@@ -592,16 +613,12 @@ def pattern_or16(context, tree, c0, c1):
 
 @isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
 def pattern_shr16(context, tree, c0, c1):
-    d = context.new_reg(Msp430Register)
-    context.gen_call(('__shr', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_intrinsic(context, '__shr', (c0, c1))
 
 
 @isa.pattern('reg', 'SHLI16(reg, reg)', size=4)
 def pattern_shl16(context, tree, c0, c1):
-    d = context.new_reg(Msp430Register)
-    context.gen_call(('__shl', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_intrinsic(context, '__shl', (c0, c1))
 
 
 @isa.pattern('reg', 'ADDI16(reg, reg)', size=4)

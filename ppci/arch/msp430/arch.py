@@ -11,7 +11,7 @@ from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes
 from .instructions import isa, mov, Ret, Pop
-from .instructions import push, call, Add, Sub, ConstSrc, RegDst
+from .instructions import push, Add, Sub, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
@@ -36,21 +36,6 @@ class Msp430Arch(Architecture):
     def move(self, dst, src):
         """ Generate a move from src to dst """
         return mov(src, dst)
-
-    def gen_save_registers(self, frame, registers):
-        """ Save caller save registers """
-        for register in registers:
-            if register in self.caller_save:
-                yield push(register)
-
-    def gen_call(self, frame, vcall):
-        yield call(vcall.function_name)
-
-    def gen_restore_registers(self, frame, registers):
-        """ Restore caller save registers """
-        for register in reversed(registers):
-            if register in self.caller_save:
-                yield Pop(register)
 
     @staticmethod
     def round_upwards(v):
@@ -99,6 +84,10 @@ class Msp430Arch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
+
+    def gen_call(self, label, args, rv):
+        
+        yield call(tree.value, clobbers=1)
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """

@@ -150,6 +150,10 @@ def get8reg(num):
     return mp[num]
 
 
+callee_save = (rbx, r12, r13, r14, r15)
+caller_save = (rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11)
+
+
 # Register classes:
 # TODO: should 16 and 32 bit values have its own class?
 register_classes = [

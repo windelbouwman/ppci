@@ -319,6 +319,9 @@ class Instruction(Constructor, metaclass=InsMeta):
         self.jumps = []
         self.ismove = False
 
+        # A list of clobbered registers:
+        self.clobbers = []
+
         # TODO: some instructions, like call, use several registers.
         # Probably this can be handled better:
         self.extra_uses = []

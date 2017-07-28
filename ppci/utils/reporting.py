@@ -428,7 +428,7 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print('<table border="1">')
             self.print('<tr>')
             self.print('<th>#</th><th>instruction</th>')
-            self.print('<th>use</th><th>def</th>')
+            self.print('<th>use</th><th>def</th><th>clobber</th>')
             self.print('<th>jump</th><th>move</th>')
             self.print('<th>gen</th><th>kill</th>')
             self.print('<th>live_in</th><th>live_out</th>')
@@ -439,6 +439,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print('<td>{}</td>'.format(ins))
                 self.print('<td>{}</td>'.format(str2(ins.used_registers)))
                 self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
+                self.print('<td>{}</td>'.format(str2(ins.clobbers)))
                 self.print('<td>')
                 if ins.jumps:
                     self.print(str2(ins.jumps))

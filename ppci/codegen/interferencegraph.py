@@ -63,6 +63,11 @@ class InterferenceGraph(Graph):
                         n2 = self.get_node(tmp2)
                         self.add_edge(n1, n2)
 
+                    # Add clobbered interfering edges:
+                    for tmp2 in ins.clobbers:
+                        n2 = self.get_node(tmp2)
+                        self.add_edge(n1, n2)
+
                 # Generate usage info:
                 for reg in ins.defined_registers:
                     self._def_map[reg].append(ins)

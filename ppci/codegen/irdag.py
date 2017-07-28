@@ -23,7 +23,6 @@ from ..arch.generic_instructions import Label
 from ..arch.stack import StackLocation
 from ..arch.registers import Register
 from ..binutils.debuginfo import FpOffsetAddress
-from ..utils.tree import Tree
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 
 
@@ -149,6 +148,8 @@ class SelectionGraphBuilder:
         for ir_block in depth_first_order(ir_function):
             self.block_to_sgraph(ir_block, function_info)
 
+        self.store_return_value(ir_function, function_info)
+
         self.sgraph.check()
         return self.sgraph
 
@@ -160,13 +161,20 @@ class SelectionGraphBuilder:
         entry = self.new_node('ENTRY', None)
         self.current_token = entry.new_output('token', kind=SGValue.CONTROL)
 
+        # Determine argument properties:
+        args = ir_function.arguments
+        arg_types = [a.ty for a in args]
+        arg_locs = self.arch.determine_arg_locations(arg_types)
+
+        # Mark incoming registers live:
+        live_in = [l for l in arg_locs if isinstance(l, Register)]
+        mark_node = self.new_node('VENTER', None, value=live_in)
+        self.chain(mark_node)
+
         # Copy arguments:
         # TODO: this is now hardcoded for x86:
         stack_offset = 16
 
-        args = ir_function.arguments
-        arg_types = [a.ty for a in args]
-        arg_locs = self.arch.determine_arg_locations(arg_types)
         arg_vregs = function_info.arg_vregs
         for arg, arg_loc, vreg in zip(args, arg_locs, arg_vregs):
             # if isinstance(arg_loc, Register):
@@ -261,6 +269,41 @@ class SelectionGraphBuilder:
         function_info.block_tails[ir_block] = self.current_token.node
 
         # Create end node:
+        sgnode = self.new_node('EXIT', None)
+        sgnode.add_input(self.current_token)
+
+    def store_return_value(self, ir_function, function_info):
+        self.current_block = 'bar'
+
+        # Create start node:
+        entry = self.new_node('ENTRY', None)
+        self.current_token = entry.new_output('token', kind=SGValue.CONTROL)
+
+        if isinstance(ir_function, ir.Function):
+            # Determine return value location:
+            ty = ir_function.return_ty
+            rv = self.arch.determine_rv_location(ty)
+
+            # Fetch register containing return value:
+            vreg = function_info.rv_vreg
+            rv_node = self.new_node('REG', ty, value=vreg)
+            rv_output = rv_node.new_output('rv')
+            rv_output.vreg = vreg
+
+            # Move return value into register:
+            mov_node = self.new_node('MOV', ty, rv_output, value=rv)
+            self.chain(mov_node)
+            live_out = [rv]
+        else:
+            live_out = []
+
+        # Mark outgoing registers live:
+        mark_node = self.new_node('VEXIT', None, value=live_out)
+        self.chain(mark_node)
+
+        # End current group:
+        function_info.block_tails['bar'] = self.current_token.node
+
         sgnode = self.new_node('EXIT', None)
         sgnode.add_input(self.current_token)
 
@@ -420,8 +463,8 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(op, node.ty, a)
         self.add_map(node, sgnode.new_output(node.name))
 
-    def prep_call_arguments(self, node):
-        """ Prepare call arguments into new temporaries """
+    def _prep_call_arguments(self, node):
+        """ Prepare call arguments into proper locations """
         # This is the moment to move all parameters to new temp registers.
         args = []
         inputs = []
@@ -429,7 +472,7 @@ class SelectionGraphBuilder:
         for argument in node.arguments:
             arg_val = self.get_value(argument)
             loc = self.new_vreg(argument.ty)
-            args.append(loc)
+            args.append((argument.ty, loc))
             arg_sgnode = self.new_node('MOV', argument.ty, arg_val, value=loc)
             self.chain(arg_sgnode)
             # reg_out = arg_sgnode.new_output('arg')
@@ -437,42 +480,113 @@ class SelectionGraphBuilder:
             # regouts.append(reg_out)
             # inputs.append(arg_sgnode.new_output('x'))
 
-        # Store vregs into proper locations (according to calling convention):
-        arg_types = [a.ty for a in node.arguments]
-        #arg_locs = self.arch.determine_arg_locations(arg_types)
-        #for arg, arg_loc, reg_out in zip(node.arguments, arg_locs, regouts):
-        #    sgnode = self.new_node('MOV', arg.ty, reg_out, value=arg_loc)
-        #    self.chain(sgnode)
+        return args
 
-        return args, inputs, arg_types
+        # TODO: remove below legacy:
+        arg_locs = self.arch.determine_arg_locations(arg_types)
+
+        # Determine stack size for arguments:
+        stack_size = 8 * len([
+            l for l in arg_locs if isinstance(l, StackLocation)])
+
+        if stack_size:
+            alloc_node = self.new_node('ALLOCA', None, value=stack_size)
+            self.chain(alloc_node)
+
+        stack_offset = 0
+        # Store vregs into proper locations (according to calling convention):
+        arg_regs = []
+        for arg, arg_loc, vreg in zip(node.arguments, arg_locs, args):
+            param_node = self.new_node('REG', arg.ty, value=vreg)
+            output = param_node.new_output(arg.name)
+            output.vreg = vreg
+
+            if isinstance(arg_loc, Register):
+                arg_regs.append(arg_loc)
+                if arg_loc.bitsize != vreg.bitsize:
+                    # Argument is a register, but requires a cast
+                    ty = arg.ty
+                    if ty is ir.ptr:
+                        ty = self.ptr_ty
+                    y = str(ty).upper()
+                    x = '{}{}'.format(y[0], arg_loc.bitsize)
+
+                    # Create conversion node:
+                    cv_node2 = self.new_node(
+                        '{}TO'.format(y), ir.get_ty(x), output)
+                    fp_output = cv_node2.new_output(arg.name)
+
+                    # Mov into position:
+                    fp_node = self.new_node(
+                        'MOV', ir.get_ty(x), fp_output, value=arg_loc)
+                    self.chain(fp_node)
+                else:
+                    fp_node = self.new_node(
+                        'MOV', arg.ty, output, value=arg_loc)
+                    self.chain(fp_node)
+            elif isinstance(arg_loc, StackLocation):
+                # Argument is passed on stack, load it!
+                sgnode = self.new_node('SPREL', ir.ptr, value=stack_offset)
+                bp = sgnode.new_output(arg.name)
+                stack_offset += 8
+
+                # Store it on stack:
+                str_node = self.new_node('STR', arg.ty, bp, output)
+                self.chain(str_node)
+            else:
+                raise NotImplementedError()
+
+        return arg_regs, stack_size
+
+    def _make_call(self, node, args, rv):
+        # Perform the actual call:
+        # TODO: save/restore registers here?
+        # sgnode = self.new_node('VBEFORECALL', None)
+        # sgnode.value = arg_regs
+        # self.chain(sgnode)
+
+        sgnode = self.new_node('CALL', None)
+        sgnode.value = (node.function_name, args, rv)
+        self.debug_db.map(node, sgnode)
+        # for i in inputs:
+        #    sgnode.add_input(i)
+        self.chain(sgnode)
+
+    def _clean_call(self, returns, stacksize):
+        # TODO: remove this legacy!
+        sgnode = self.new_node('VAFTERCALL', None)
+        sgnode.value = returns
+        self.chain(sgnode)
 
     def do_procedure_call(self, node):
         """ Transform a procedure call """
-        args, inputs, arg_types = self.prep_call_arguments(node)
-
-        # Perform the actual call:
-        sgnode = self.new_node('CALL', None)
-        sgnode.value = (node.function_name, arg_types, args)
-        self.debug_db.map(node, sgnode)
-        for i in inputs:
-            sgnode.add_input(i)
-        self.chain(sgnode)
+        args = self._prep_call_arguments(node)
+        self._make_call(node, args, None)
+        # self._clean_call([], stack_size)
 
     def do_function_call(self, node):
         """ Transform a function call """
-        args, inputs, arg_types = self.prep_call_arguments(node)
+        args = self._prep_call_arguments(node)
 
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
             self.arch.value_classes[node.ty], '{}_result'.format(node.name))
 
-        # Perform the actual call:
-        sgnode = self.new_node('CALL', node.ty)
-        sgnode.value = (node.function_name, arg_types, node.ty, args, ret_val)
-        self.debug_db.map(node, sgnode)
-        for i in inputs:
-            sgnode.add_input(i)
-        self.chain(sgnode)
+        # retval_loc = self.arch.determine_rv_location(node.ty)
+
+        rv = (node.ty, ret_val)
+        self._make_call(node, args, rv)
+
+        # self._clean_call([retval_loc], stack_size)
+
+        # TODO: if a return value is passed on the stack? What then?
+        # Move return reg into new temporary:
+        # sgnode = self.new_node('REG', node.ty, value=retval_loc)
+        # output = sgnode.new_output('res')
+        # o utput.vreg = retval_loc
+
+        # sgnode = self.new_node('MOV', node.ty, output, value=ret_val)
+        # self.chain(sgnode)
 
         # When using the call as an expression, use the return value vreg:
         sgnode = self.new_node('REG', node.ty, value=ret_val)
@@ -532,181 +646,3 @@ def make_label_name(dut):
         return dut.name
     else:  # pragma: no cover
         raise NotImplementedError(str(dut) + str(type(dut)))
-
-
-def topological_sort_modified(nodes, start):
-    """ Modified topological sort, start at the end and work back """
-    unmarked = set(nodes)
-    marked = set()
-    temp_marked = set()
-    L = []
-
-    def visit(n):
-        if n not in nodes:
-            return
-        assert n not in temp_marked, 'DAG has cycles'
-        if n in unmarked:
-            temp_marked.add(n)
-
-            # 1 satisfy control dependencies:
-            for inp in n.control_inputs:
-                visit(inp.node)
-
-            # 2 memory dependencies:
-            for inp in n.memory_inputs:
-                visit(inp.node)
-
-            # 3 data dependencies:
-            for inp in n.data_inputs:
-                visit(inp.node)
-            temp_marked.remove(n)
-            marked.add(n)
-            unmarked.remove(n)
-            L.append(n)
-
-    # Start to visit with pre-knowledge of the last node!
-    visit(start)
-    while unmarked:
-        node = next(iter(unmarked))
-        visit(node)
-
-    # Hack: move tail again to tail:
-    if L:
-        if L[-1] is not start:
-            L.remove(start)
-            L.append(start)
-    return L
-
-
-class DagSplitter:
-    """ Class that splits a DAG into a forest of trees.
-
-    This series is sorted
-    such that data dependencies are met. The trees can henceforth be
-    used to match trees.
-    """
-    logger = logging.getLogger('dag-splitter')
-
-    def __init__(self, arch, debug_db):
-        self.arch = arch
-        self.debug_db = debug_db
-
-    def split_into_trees(self, sgraph, ir_function, function_info):
-        """ Split a forest of trees into a sorted series of trees for each
-            block.
-        """
-        forest = []
-        self.assign_vregs(sgraph, function_info)
-
-        # Process special case entry:
-        block_trees = self.split_group_into_trees(
-            sgraph, function_info, 'foo')
-        forest.extend(block_trees)
-
-        # Process other blocks:
-        for ir_block in ir_function:
-            block_trees = self.split_group_into_trees(
-                sgraph, function_info, ir_block)
-            forest.append(function_info.label_map[ir_block])
-            forest.extend(block_trees)
-        return forest
-
-    def split_group_into_trees(self, sgraph, function_info, group):
-        nodes = sgraph.get_group(group)
-        # Get rid of ENTRY and EXIT:
-        nodes = set(
-            filter(
-                lambda x: x.name.op not in ['ENTRY', 'EXIT'], nodes))
-
-        tail_node = function_info.block_tails[group]
-        return self.make_trees(nodes, tail_node)
-
-    def assign_vregs(self, sgraph, function_info):
-        """ Give vreg values to values that cross block boundaries """
-        frame = function_info.frame
-        for node in sgraph:
-            if node.group:
-                self.check_vreg(node, frame)
-
-    def check_vreg(self, node, frame):
-        """ Determine whether node outputs need a virtual register """
-        assert node.group is not None
-
-        for data_output in node.data_outputs:
-            if (len(data_output.users) > 1) or node.volatile or \
-                    any(u.group is not node.group
-                        for u in data_output.users):
-                if data_output.wants_vreg and not data_output.vreg:
-                    cls = self.get_reg_class(data_output)
-                    vreg = frame.new_reg(cls, data_output.name)
-                    data_output.vreg = vreg
-
-    def make_trees(self, nodes, tail_node):
-        """ Create a tree from a list of sorted nodes. """
-        sorted_nodes = topological_sort_modified(nodes, tail_node)
-        trees = []
-        node_map = {}
-
-        def mk_tr(inp):
-            if inp.vreg:
-                # If the input value has a vreg, use it
-                child_tree = Tree(
-                    self.make_op('REG', inp.ty), value=inp.vreg)
-            elif inp.node in node_map:
-                child_tree = node_map[inp.node]
-            elif inp.node.name.op == 'LABEL':
-                child_tree = Tree(str(inp.node.name), value=inp.node.value)
-            else:  # inp.node.name.startswith('CONST'):
-                # If the node is a constant, use that
-                assert not inp.wants_vreg
-                children = [mk_tr(i) for i in inp.node.inputs]
-                child_tree = Tree(
-                    str(inp.node.name), *children, value=inp.node.value)
-            return child_tree
-
-        for node in sorted_nodes:
-            assert len(node.data_outputs) <= 1
-
-            # Determine data dependencies:
-            children = []
-            for inp in node.data_inputs:
-                child_tree = mk_tr(inp)
-                children.append(child_tree)
-
-            # Create a tree node:
-            tree = Tree(str(node.name), *children, value=node.value)
-            self.debug_db.map(node, tree)
-
-            # Handle outputs:
-            if len(node.data_outputs) == 0:
-                # If the tree was volatile, it must be emitted
-                if node.volatile:
-                    trees.append(tree)
-            else:
-                # If the output has a vreg, put the value in:
-                data_output = node.data_outputs[0]
-                if data_output.vreg:
-                    vreg = data_output.vreg
-                    typ = data_output.ty
-                    if typ is None:
-                        print(node)
-                    tree = Tree(self.make_op('MOV', typ), tree, value=vreg)
-                    trees.append(tree)
-                    tree = Tree(self.make_op('REG', typ), value=vreg)
-                elif node.volatile:
-                    trees.append(tree)
-
-            # Store for later:
-            node_map[node] = tree
-        return trees
-
-    def make_op(self, op, typ):
-        """ Construct a string opcode from an operation and a type """
-        assert isinstance(typ, ir.Typ), str(typ)
-        return '{}{}'.format(op, typ).upper()
-
-    def get_reg_class(self, data_flow):
-        """ Determine the register class suited for this data flow line """
-        op = data_flow.node.name
-        assert isinstance(op.ty, ir.Typ)
-        return self.arch.get_reg_class(ty=op.ty)

@@ -7,7 +7,7 @@ from ...ir import i16
 from .registers import AvrRegister, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister, SuperHighAvrWordRegister
-from .registers import r0, r1, r1r0
+from .registers import r0, r1, r1r0, r23r22, W
 
 
 class AvrToken(Token):
@@ -682,9 +682,9 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins_yes)
 
 
-@avr_isa.pattern('reg16', 'CALL', size=2)
+@avr_isa.pattern('stm', 'CALL', size=2)
 def pattern_call(context, tree):
-    return context.gen_call(tree.value)
+    context.emit(Call(tree.value))
 
 
 @avr_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
@@ -787,32 +787,43 @@ def pattern_or16(context, tree, c0, c1):
 
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
 def pattern_div16(context, tree, c0, c1):
-    d = context.new_reg(AvrWordRegister)
-    context.gen_call(('swmuldiv_div', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_function(context, 'swmuldiv_div', (c0, c1), save_regs=True)
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
+    return call_function(context, 'swmuldiv_mul', (c0, c1), save_regs=True)
+
+
+def call_function(context, label, args, save_regs=False):
+    """ Helper to emit calling sequence """
+    c0, c1 = args
+    context.move(W, c0)
+    context.move(r23r22, c1)
+    if save_regs:
+        context.emit(VSaveRegisters([W, r23r22]))
+    else:
+        context.emit(RegisterUseDef(uses=(W, r23r22)))
+    context.emit(Call(label))
+    if save_regs:
+        context.emit(VRestoreRegisters([W]))
+    else:
+        context.emit(RegisterUseDef(defs=(W,)))
     d = context.new_reg(AvrWordRegister)
-    context.gen_call(('swmuldiv_mul', [i16, i16], i16, [c0, c1], d))
+    context.move(d, W)
     return d
 
 
 @avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', size=8)
 def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
-    d = context.new_reg(AvrWordRegister)
-    context.gen_call(('__shr16', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_function(context, '__shr16', (c0, c1))
 
 
 @avr_isa.pattern('reg16', 'SHLI16(reg16, reg16)', size=8)
 def pattern_shl16(context, tree, c0, c1):
     """ invoke runtime """
-    d = context.new_reg(AvrWordRegister)
-    context.gen_call(('__shl16', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_function(context, '__shl16', (c0, c1))
 
 
 @avr_isa.pattern('reg', 'LDRI8(reg16)', size=4, cycles=2)

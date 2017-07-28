@@ -75,38 +75,6 @@ class AvrArch(Architecture):
         rv = W
         return rv
 
-    def gen_fill_arguments(self, arg_types, args):
-        """ Step 1 code for call sequence. This function moves arguments
-            in the proper locations.
-        """
-        # Setup parameters:
-        # TODO: variable return type
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        # Copy parameters:
-        for arg_loc, arg in zip(arg_locs, args):
-            # assert type(arg_loc) is type(arg)
-            if isinstance(arg_loc, AvrRegister):
-                yield self.move(arg_loc, arg)
-            elif isinstance(arg_loc, AvrWordRegister):
-                yield self.move(arg_loc, arg)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(uses=arg_regs)
-
-    def gen_extract_retval(self, retval_type, vreg):
-        # Copy return value:
-        retval_loc = self.determine_rv_location(retval_type)
-
-        yield RegisterUseDef(defs=(retval_loc,))
-
-        if isinstance(vreg, AvrWordRegister):
-            yield self.move(vreg, retval_loc)
-        else:  # pragma: no cover
-            raise NotImplementedError('Parameters in memory not impl')
-
     def expand_word_regs(self, registers):
         s = set()
         for register in registers:
@@ -124,10 +92,6 @@ class AvrArch(Architecture):
         for register in caller_save:
             if register in live_registers:
                 yield Push(register)
-
-    def gen_call(self, frame, vcall):
-        """ Implement actual call and save / restore live registers """
-        yield Call(vcall.function_name)
 
     def gen_restore_registers(self, frame, registers):
         live_registers = self.expand_word_regs(registers)

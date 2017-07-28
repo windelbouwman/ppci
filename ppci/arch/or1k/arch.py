@@ -2,6 +2,7 @@
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..generic_instructions import Label, Alignment, SectionInstruction
+from ..generic_instructions import RegisterUseDef
 from ..data_instructions import data_isa, Db
 from .isa import orbis32
 from . import instructions, registers
@@ -114,6 +115,30 @@ class Or1kArch(Architecture):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
 
+    def gen_call(self, label, args, rv):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, registers.Or1kRegister):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        yield RegisterUseDef(uses=arg_regs)
+
+        yield instructions.Jal(label, clobbers=registers.caller_save)
+        # Fill delay slot:
+        yield instructions.Nop(0)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
+
     def litpool(self, frame):
         """ Generate instructions for literals """
         if frame.constants:
@@ -133,29 +158,6 @@ class Or1kArch(Architecture):
                         'Constant of type {}'.format(value))
 
             yield SectionInstruction('code')
-
-    def gen_save_registers(self, frame, regs):
-        """ Save caller saved registers """
-        # Save registers at end of frame
-        offset = -8 - frame.stacksize - len(frame.used_regs) * 4
-        for register in regs:
-            if register in registers.caller_save:
-                yield instructions.Sw(offset, registers.r2, register)
-                offset += 4
-
-    def gen_restore_registers(self, frame, regs):
-        """ Restore caller saved registers """
-        offset = -8 - frame.stacksize - len(frame.used_regs) * 4
-        for register in regs:
-            if register in registers.caller_save:
-                yield instructions.Lwz(register, offset, registers.r2)
-                offset += 4
-
-    def gen_call(self, frame, vcall):
-        yield instructions.Jal(vcall.function_name)
-
-        # Fill delay slot:
-        yield instructions.Nop(0)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

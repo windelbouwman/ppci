@@ -10,7 +10,6 @@ from ..arch.arch import Architecture
 from ..arch.generic_instructions import VCall, Label, Comment, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction
-from ..arch.generic_instructions import VSaveRegisters, VRestoreRegisters
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
 from ..binutils.debuginfo import DebugType, DebugLocation
@@ -200,20 +199,7 @@ class CodeGenerator:
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions
-                if isinstance(instruction, VCall):
-                    # We now know what variables are live at this point
-                    # and possibly need to be saved.
-                    output_stream.emit_all(
-                        self.arch.gen_call(frame, instruction))
-                elif isinstance(instruction, VSaveRegisters):
-                    regs = frame.live_regs_over(instruction.vcall)
-                    output_stream.emit_all(
-                        self.arch.gen_save_registers(frame, regs))
-                elif isinstance(instruction, VRestoreRegisters):
-                    regs = frame.live_regs_over(instruction.vcall)
-                    output_stream.emit_all(
-                        self.arch.gen_restore_registers(frame, regs))
-                elif isinstance(instruction, RegisterUseDef):
+                if isinstance(instruction, RegisterUseDef):
                     pass
                 elif isinstance(instruction, ArtificialInstruction):
                     output_stream.emit(instruction)

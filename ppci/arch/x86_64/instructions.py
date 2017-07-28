@@ -9,6 +9,7 @@ from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u64, bit_range, bit
 from .registers import X86Register, rcx, LowRegister, al, cl, rax, rdx, rbp
+from .registers import rsp
 
 isa = Isa()
 
@@ -788,9 +789,16 @@ def pattern_cjmp_8(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('stm', 'CALL', size=10)
+@isa.pattern('stm', 'ALLOCA', size=10)
 def pattern_call(context, tree):
-    context.gen_call(tree.value)
+    size = tree.value
+    context.emit(SubImm(rsp, size))
+
+
+@isa.pattern('stm', 'FREEA', size=10)
+def pattern_call(context, tree):
+    size = tree.value
+    context.emit(AddImm(rsp, size))
 
 
 @isa.pattern('stm', 'MOVI8(reg8)', size=2)
@@ -877,6 +885,13 @@ def pattern_str64_fprel64(context, tree, c0):
     context.emit(MovRmReg(RmMemDisp(rbp, cnst), c0))
 
 
+@isa.pattern('stm', 'STRU64(SPRELI64, reg64)', size=1, cycles=1, energy=1)
+@isa.pattern('stm', 'STRI64(SPRELI64, reg64)', size=1, cycles=1, energy=1)
+def pattern_sprel64(context, tree, c0):
+    cnst = tree[0].value
+    context.emit(MovRmReg(RmMemDisp(rsp, cnst), c0))
+
+
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
 @isa.pattern('stm', 'STRU8(reg64, reg8)', size=2)
 def pattern_str8(context, tree, c0, c1):
@@ -898,6 +913,14 @@ def pattern_add64_fprel_const(context, tree):
     context.move(d, rbp)
     context.emit(AddImm(d, tree.value))
     return d
+
+
+# @isa.pattern('reg64', 'SPRELI64', size=8, cycles=3, energy=2)
+# def pattern_sprel64(context, tree):
+#    d = context.new_reg(X86Register)
+#    context.move(d, rsp)
+#    context.emit(AddImm(d, tree.value))
+#    return d
 
 
 @isa.pattern('reg64', 'ADDI64(reg64, CONSTI64)', size=8, cycles=3, energy=2)
