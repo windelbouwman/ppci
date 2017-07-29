@@ -37,6 +37,7 @@ class AvrArch(Architecture):
         self.fp = Y
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
+        self.caller_save = caller_save
 
     def get_runtime(self):
         from ...api import asm, c3c, link
@@ -84,21 +85,6 @@ class AvrArch(Architecture):
             else:
                 s.add(register)
         return s
-
-    def gen_save_registers(self, frame, registers):
-        live_registers = self.expand_word_regs(registers)
-
-        # Caller save registers:
-        for register in caller_save:
-            if register in live_registers:
-                yield Push(register)
-
-    def gen_restore_registers(self, frame, registers):
-        live_registers = self.expand_word_regs(registers)
-
-        for register in reversed(caller_save):
-            if register in live_registers:
-                yield Pop(register)
 
     def gen_prologue(self, frame):
         """ Generate the prologue instruction sequence """
@@ -151,6 +137,36 @@ class AvrArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
+
+    def gen_call(self, label, args, rv):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        # Copy parameters:
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            # assert type(arg_loc) is type(arg)
+            if isinstance(arg_loc, AvrRegister):
+                yield self.move(arg_loc, arg)
+            elif isinstance(arg_loc, AvrWordRegister):
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(uses=arg_regs)
+
+        yield Call(label, clobbers=self.caller_save)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+
+            yield RegisterUseDef(defs=(retval_loc,))
+
+            if isinstance(rv[1], AvrWordRegister):
+                yield self.move(rv[1], retval_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """

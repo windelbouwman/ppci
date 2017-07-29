@@ -74,22 +74,6 @@ class RegisterUseDef(VirtualInstruction):
             self.add_def(df)
 
 
-class VCall(VirtualInstruction):
-    """ An instruction call before register allocation.
-
-    After register
-    allocation, this instruction is replaced by the correct calling
-    sequence for a function.
-    """
-
-    def __init__(self, function_name, **kwargs):
-        super().__init__(**kwargs)
-        self.function_name = function_name
-
-    def __repr__(self):
-        return 'VCALL {}'.format(self.function_name)
-
-
 class Comment(PseudoInstruction):
     """ Assembly language comment """
 

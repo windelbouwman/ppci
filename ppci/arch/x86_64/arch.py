@@ -228,10 +228,6 @@ class X86_64Arch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-        #@isa.pattern('stm', 'CALL', size=10)
-        #def pattern_call(context, tree):
-        #    context.emit(Call(tree.value))
-
         yield Call(label, clobbers=caller_save)
 
         if rv:

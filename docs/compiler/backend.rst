@@ -59,6 +59,8 @@ From IR-code a tree is generated which can be used to select instructions.
 
 .. automodule:: ppci.codegen.irdag
 
+.. automodule:: ppci.codegen.dagsplit
+
 
 Instruction selection
 ~~~~~~~~~~~~~~~~~~~~~

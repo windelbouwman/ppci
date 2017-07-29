@@ -5,7 +5,7 @@ from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from ..registers import RegisterClass, Register
+from ..registers import RegisterClass
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8

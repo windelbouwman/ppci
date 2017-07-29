@@ -49,12 +49,6 @@ class ExampleArch(Architecture):
         rv = R0
         return rv
 
-    def gen_save_registers(self, frame, registers):
-        return []
-
-    def gen_restore_registers(self, frame, registers):
-        return []
-
 
 class ExampleRegister(Register):
     """ Example register class """

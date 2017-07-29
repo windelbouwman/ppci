@@ -22,8 +22,8 @@ class XtensaArch(Architecture):
         self.fp = registers.a15  # The frame pointer in call0 abi mode
 
         # TODO: a15 is also callee save
-        self.callee_save = (
-            registers.a12, registers.a13, registers.a14)
+        self.callee_save = registers.callee_save
+        self.caller_save = registers.caller_save
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -56,14 +56,6 @@ class XtensaArch(Architecture):
         else:  # pragma: no cover
             raise NotImplementedError(str(ret_type))
         return rv
-
-    def gen_save_registers(self, frame, registers):
-        for register in registers:
-            yield instructions.Push(register)
-
-    def gen_restore_registers(self, frame, registers):
-        for register in reversed(registers):
-            yield instructions.Pop(register)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
@@ -122,6 +114,28 @@ class XtensaArch(Architecture):
 
         # Return
         yield instructions.Ret()
+
+    def gen_call(self, label, args, rv):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, registers.AddressRegister):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        yield RegisterUseDef(uses=arg_regs)
+
+        yield instructions.Call0(label, clobbers=self.caller_save)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
 
 
 def round_up(s):

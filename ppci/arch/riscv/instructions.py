@@ -705,11 +705,6 @@ def pattern_ldr_i32(context, tree, c0):
     return d
 
 
-@isa.pattern('reg', 'CALL', size=2)
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
-
-
 @isa.pattern('reg', 'ANDI32(reg, reg)', size=2)
 def pattern_and_i32_(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)

@@ -3,9 +3,7 @@
 import abc
 import logging
 from functools import lru_cache
-from .registers import Register
 from .stack import Frame
-from .generic_instructions import VCall, RegisterUseDef
 from .asm_printer import AsmPrinter
 from .. import ir
 

@@ -5,12 +5,12 @@ from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture
-from ..generic_instructions import Label, Alignment
+from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9
-from .registers import r1, register_classes
-from .instructions import isa, mov, Ret, Pop
+from .registers import r1, register_classes, Msp430Register
+from .instructions import isa, mov, Ret, Pop, call
 from .instructions import push, Add, Sub, ConstSrc, RegDst
 
 
@@ -29,9 +29,7 @@ class Msp430Arch(Architecture):
         # Allocatable registers:
         self.fp = r4
         self.callee_save = (r4, r5, r6, r7, r8, r9, r10)
-        self.caller_save = (r11, r13, r14, r15)  # TODO: fix r12 reg!!
-        # TODO: r12 is given as argument and is return value
-        # so it is detected live falsely.
+        self.caller_save = (r11, r12, r13, r14, r15)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -86,8 +84,26 @@ class Msp430Arch(Architecture):
             yield instruction
 
     def gen_call(self, label, args, rv):
-        
-        yield call(tree.value, clobbers=1)
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, Msp430Register):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        yield RegisterUseDef(uses=arg_regs)
+
+        yield call(label, clobbers=self.caller_save)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """

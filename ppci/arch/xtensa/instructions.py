@@ -5,7 +5,7 @@ from ..token import Token, bit_range
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Transform
 from ..encoding import Relocation
-from ..generic_instructions import ArtificialInstruction
+from ..generic_instructions import ArtificialInstruction, RegisterUseDef
 from .registers import AddressRegister, FloatRegister, a1, a2, a3, a15
 from ...utils.bitfun import wrap_negative
 from ... import ir
@@ -898,9 +898,10 @@ def call_internal(context, label, args):
     d = context.new_reg(AddressRegister)
     context.move(a2, c0)
     context.move(a3, c1)
-    context.emit(VSaveRegisters([a2, a3]))
-    context.emit(Call0(label), clobbers=[saved])
-    context.emit(VRestoreRegisters([a2]))
+    context.emit(RegisterUseDef(uses=[a2, a3]))
+    clobbers = context.arch.caller_save
+    context.emit(Call0(label, clobbers=clobbers))
+    context.emit(RegisterUseDef(defs=[a2]))
     context.move(d, a2)
     return d
 
@@ -1014,8 +1015,3 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)  # The false label
     context.emit(tmp_label)
     context.emit(J(yes_label.name, jumps=[yes_label]))
-
-
-@core_isa.pattern('stm', 'CALL', size=10)
-def pattern_call(context, tree):
-    context.emit(Call0(tree.value))

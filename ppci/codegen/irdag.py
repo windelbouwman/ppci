@@ -12,9 +12,6 @@ series of tree patterns. This is often referred to as a forest of trees.
 .. autoclass:: ppci.codegen.irdag.SelectionGraphBuilder
     :members: build
 
-.. autoclass:: ppci.codegen.irdag.DagSplitter
-    :members: split_into_trees
-
 """
 
 import logging
@@ -479,72 +476,10 @@ class SelectionGraphBuilder:
             # reg_out.vreg = loc
             # regouts.append(reg_out)
             # inputs.append(arg_sgnode.new_output('x'))
-
         return args
-
-        # TODO: remove below legacy:
-        arg_locs = self.arch.determine_arg_locations(arg_types)
-
-        # Determine stack size for arguments:
-        stack_size = 8 * len([
-            l for l in arg_locs if isinstance(l, StackLocation)])
-
-        if stack_size:
-            alloc_node = self.new_node('ALLOCA', None, value=stack_size)
-            self.chain(alloc_node)
-
-        stack_offset = 0
-        # Store vregs into proper locations (according to calling convention):
-        arg_regs = []
-        for arg, arg_loc, vreg in zip(node.arguments, arg_locs, args):
-            param_node = self.new_node('REG', arg.ty, value=vreg)
-            output = param_node.new_output(arg.name)
-            output.vreg = vreg
-
-            if isinstance(arg_loc, Register):
-                arg_regs.append(arg_loc)
-                if arg_loc.bitsize != vreg.bitsize:
-                    # Argument is a register, but requires a cast
-                    ty = arg.ty
-                    if ty is ir.ptr:
-                        ty = self.ptr_ty
-                    y = str(ty).upper()
-                    x = '{}{}'.format(y[0], arg_loc.bitsize)
-
-                    # Create conversion node:
-                    cv_node2 = self.new_node(
-                        '{}TO'.format(y), ir.get_ty(x), output)
-                    fp_output = cv_node2.new_output(arg.name)
-
-                    # Mov into position:
-                    fp_node = self.new_node(
-                        'MOV', ir.get_ty(x), fp_output, value=arg_loc)
-                    self.chain(fp_node)
-                else:
-                    fp_node = self.new_node(
-                        'MOV', arg.ty, output, value=arg_loc)
-                    self.chain(fp_node)
-            elif isinstance(arg_loc, StackLocation):
-                # Argument is passed on stack, load it!
-                sgnode = self.new_node('SPREL', ir.ptr, value=stack_offset)
-                bp = sgnode.new_output(arg.name)
-                stack_offset += 8
-
-                # Store it on stack:
-                str_node = self.new_node('STR', arg.ty, bp, output)
-                self.chain(str_node)
-            else:
-                raise NotImplementedError()
-
-        return arg_regs, stack_size
 
     def _make_call(self, node, args, rv):
         # Perform the actual call:
-        # TODO: save/restore registers here?
-        # sgnode = self.new_node('VBEFORECALL', None)
-        # sgnode.value = arg_regs
-        # self.chain(sgnode)
-
         sgnode = self.new_node('CALL', None)
         sgnode.value = (node.function_name, args, rv)
         self.debug_db.map(node, sgnode)
@@ -552,17 +487,10 @@ class SelectionGraphBuilder:
         #    sgnode.add_input(i)
         self.chain(sgnode)
 
-    def _clean_call(self, returns, stacksize):
-        # TODO: remove this legacy!
-        sgnode = self.new_node('VAFTERCALL', None)
-        sgnode.value = returns
-        self.chain(sgnode)
-
     def do_procedure_call(self, node):
         """ Transform a procedure call """
         args = self._prep_call_arguments(node)
         self._make_call(node, args, None)
-        # self._clean_call([], stack_size)
 
     def do_function_call(self, node):
         """ Transform a function call """
@@ -572,21 +500,8 @@ class SelectionGraphBuilder:
         ret_val = self.function_info.frame.new_reg(
             self.arch.value_classes[node.ty], '{}_result'.format(node.name))
 
-        # retval_loc = self.arch.determine_rv_location(node.ty)
-
         rv = (node.ty, ret_val)
         self._make_call(node, args, rv)
-
-        # self._clean_call([retval_loc], stack_size)
-
-        # TODO: if a return value is passed on the stack? What then?
-        # Move return reg into new temporary:
-        # sgnode = self.new_node('REG', node.ty, value=retval_loc)
-        # output = sgnode.new_output('res')
-        # o utput.vreg = retval_loc
-
-        # sgnode = self.new_node('MOV', node.ty, output, value=ret_val)
-        # self.chain(sgnode)
 
         # When using the call as an expression, use the return value vreg:
         sgnode = self.new_node('REG', node.ty, value=ret_val)

@@ -682,11 +682,6 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins_yes)
 
 
-@avr_isa.pattern('stm', 'CALL', size=2)
-def pattern_call(context, tree):
-    context.emit(Call(tree.value))
-
-
 @avr_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
 @avr_isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
 def pattern_reg8(context, tree):
@@ -787,28 +782,24 @@ def pattern_or16(context, tree, c0, c1):
 
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
 def pattern_div16(context, tree, c0, c1):
-    return call_function(context, 'swmuldiv_div', (c0, c1), save_regs=True)
+    return call_function(
+        context, 'swmuldiv_div', (c0, c1), clobbers=context.arch.caller_save)
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
-    return call_function(context, 'swmuldiv_mul', (c0, c1), save_regs=True)
+    return call_function(
+        context, 'swmuldiv_mul', (c0, c1), clobbers=context.arch.caller_save)
 
 
-def call_function(context, label, args, save_regs=False):
+def call_function(context, label, args, clobbers=()):
     """ Helper to emit calling sequence """
     c0, c1 = args
     context.move(W, c0)
     context.move(r23r22, c1)
-    if save_regs:
-        context.emit(VSaveRegisters([W, r23r22]))
-    else:
-        context.emit(RegisterUseDef(uses=(W, r23r22)))
-    context.emit(Call(label))
-    if save_regs:
-        context.emit(VRestoreRegisters([W]))
-    else:
-        context.emit(RegisterUseDef(defs=(W,)))
+    context.emit(RegisterUseDef(uses=(W, r23r22)))
+    context.emit(Call(label, clobbers=clobbers))
+    context.emit(RegisterUseDef(defs=(W,)))
     d = context.new_reg(AvrWordRegister)
     context.move(d, W)
     return d

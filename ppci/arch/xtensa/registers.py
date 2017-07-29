@@ -33,6 +33,9 @@ AddressRegister.registers = (
     a0, a1, a2, a3, a4, a5, a6, a7,
     a8, a9, a10, a11, a12, a13, a14, a15)
 
+callee_save = (a12, a13, a14)
+caller_save = (a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
+
 f0 = FloatRegister('f0', num=0)
 f1 = FloatRegister('f1', num=1)
 

@@ -1,3 +1,12 @@
+""" DAG splitting into trees.
+
+The selection dag is splitted into trees by this module.
+
+.. autoclass:: ppci.codegen.dagsplit.DagSplitter
+    :members: split_into_trees
+
+"""
+
 import logging
 from .. import ir
 from ..utils.tree import Tree

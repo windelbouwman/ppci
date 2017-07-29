@@ -76,14 +76,16 @@ class RiscvArch(Architecture):
                  R21, R22, R23, R24, R25, R26, R27])
             ]
         self.fp = FP
-        self.callee_save = ()
+        self.callee_save = (
+            R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27)
+        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17)
         # (LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
     def branch(self, reg, lab):
         if self.has_option('rvc'):
-            return CJal(lab)
+            return CJal(lab, clobbers=self.caller_save)
         else:
-            return Bl(reg, lab)
+            return Bl(reg, lab, clobbers=self.caller_save)
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
@@ -124,13 +126,14 @@ class RiscvArch(Architecture):
         """ Generate a move from src to dst """
         return Movr(dst, src, ismove=True)
 
-    def gen_fill_arguments(self, arg_types, args):
-        """ This function moves arguments in the proper locations.
-        """
+    def gen_call(self, label, args, rv):
+        """ Implement actual call and save / restore live registers """
+        arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
         # Setup parameters:
-        for arg_loc, arg in zip(arg_locs, args):
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
             if isinstance(arg_loc, RiscvRegister):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
@@ -139,29 +142,12 @@ class RiscvArch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-    def gen_save_registers(self, frame, registers):
-        # Caller save registers:
-        i = (len(registers)+1)*4
-        yield Addi(SP, SP, -i)
-        i -= 4
-        for register in registers:
-            yield self.store(register, i, SP)
-            i -= 4
-        yield self.store(LR, i, SP)
+        yield self.branch(LR, label)
 
-    def gen_call(self, frame, vcall):
-        """ Implement actual call and save / restore live registers """
-        yield self.branch(LR, vcall.function_name)
-
-    def gen_restore_registers(self, frame, registers):
-        # Restore caller save registers:
-        i = 0
-        yield self.load(LR, i, SP)
-        for register in reversed(registers):
-            i += 4
-            yield self.load(register, i, SP)
-        i += 4
-        yield Addi(SP, SP, i)
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
 
     def determine_arg_locations(self, arg_types):
         """

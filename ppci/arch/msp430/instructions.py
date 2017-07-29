@@ -454,9 +454,9 @@ def push(reg):
     return Push(RegSrc(reg))
 
 
-def call(label):
+def call(label, clobbers=()):
     assert isinstance(label, str)
-    return Call(ConstLabelSrc(label))
+    return Call(ConstLabelSrc(label), clobbers=clobbers)
 
 
 def mov(src, dst):
@@ -556,25 +556,14 @@ def pattern_i8toi16(context, tree, c0):
     return d
 
 
-@isa.pattern('stm', 'CALL')
-def pattern_call(context, tree):
-    context.emit(call(tree.value))
-
-
-def call_intrinsic(context, label, args, safe_regs=False):
+def call_intrinsic(context, label, args, clobbers=()):
     """ Generate a call to an intrinsic function """
     c0, c1 = args
     context.move(r12, c0)
     context.move(r13, c1)
-    if safe_regs:
-        context.emit(VSaveRegisters([r12, r13]))
-    else:
-        context.emit(RegisterUseDef(uses=(r12, r13)))
-    context.emit(call(label))
-    if safe_regs:
-        context.emit(VRestoreRegisters([r12]))
-    else:
-        context.emit(RegisterUseDef(defs=(r12,)))
+    context.emit(RegisterUseDef(uses=(r12, r13)))
+    context.emit(call(label, clobbers=clobbers))
+    context.emit(RegisterUseDef(defs=(r12,)))
     d = context.new_reg(Msp430Register)
     context.move(d, r12)
     return d
@@ -583,16 +572,15 @@ def call_intrinsic(context, label, args, safe_regs=False):
 @isa.pattern('reg', 'MULI16(reg, reg)', size=10)
 def pattern_mul16(context, tree, c0, c1):
     return call_intrinsic(
-        context, 'msp430_runtime___div', (c0, c1), safe_regs=True)
-    d = context.new_reg(Msp430Register)
-    context.gen_call(('msp430_runtime___mul', [i16, i16], i16, [c0, c1], d))
-    return d
+        context, 'msp430_runtime___div', (c0, c1),
+        clobbers=context.arch.caller_save)
 
 
 @isa.pattern('reg', 'DIVI16(reg, reg)', size=10)
 def pattern_div16(context, tree, c0, c1):
     return call_intrinsic(
-        context, 'msp430_runtime___div', (c0, c1), safe_regs=True)
+        context, 'msp430_runtime___div', (c0, c1),
+        clobbers=context.arch.caller_save)
 
 
 @isa.pattern('reg', 'ANDI16(reg, reg)', size=4)
@@ -613,12 +601,12 @@ def pattern_or16(context, tree, c0, c1):
 
 @isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
 def pattern_shr16(context, tree, c0, c1):
-    return call_intrinsic(context, '__shr', (c0, c1))
+    return call_intrinsic(context, '__shr', (c0, c1), clobbers=[r13])
 
 
 @isa.pattern('reg', 'SHLI16(reg, reg)', size=4)
 def pattern_shl16(context, tree, c0, c1):
-    return call_intrinsic(context, '__shl', (c0, c1))
+    return call_intrinsic(context, '__shl', (c0, c1), clobbers=[r13])
 
 
 @isa.pattern('reg', 'ADDI16(reg, reg)', size=4)

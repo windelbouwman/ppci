@@ -89,6 +89,6 @@ callee_save = (
     r10, r14,
     r16, r18, r20, r22, r24, r26, r28, r30)
 caller_save = (
-    r3, r4, r5, r6, r7, r8, r11, r12, # arguments and return value
+    r3, r4, r5, r6, r7, r8, r11, r12,  # arguments and return value
     r13, r15,
     r17, r19, r21, r23, r25, r27, r29, r31)

@@ -7,7 +7,7 @@ import logging
 from .. import ir
 from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
-from ..arch.generic_instructions import VCall, Label, Comment, DebugData
+from ..arch.generic_instructions import Label, Comment, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction
 from ..arch.encoding import Instruction
