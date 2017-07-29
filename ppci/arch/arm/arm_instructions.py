@@ -579,6 +579,7 @@ def pattern_str8(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'MOVI32(reg)', size=4)
+@arm_isa.pattern('reg', 'MOVU32(reg)', size=4)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -609,7 +610,10 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
+@arm_isa.pattern('reg', 'U32TOU32(reg)', size=0)
+@arm_isa.pattern('reg', 'U32TOI32(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOI32(reg)', size=0)
+@arm_isa.pattern('reg', 'I32TOU32(reg)', size=0)
 def pattern_i32toi32(self, tree, c0):
     return c0
 
@@ -638,6 +642,8 @@ def pattern_const32(context, tree):
     return d
 
 
+@arm_isa.pattern(
+    'reg', 'CONSTU32', size=4, condition=lambda t: t.value in range(256))
 @arm_isa.pattern(
     'reg', 'CONSTI32', size=4, condition=lambda t: t.value in range(256))
 def pattern_const32_1(context, tree):
@@ -672,6 +678,7 @@ def pattern_cjmp(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
+@arm_isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add(d, c0, c1, NoShift()))
@@ -679,6 +686,7 @@ def pattern_add32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ADDU8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add(d, c0, c1, NoShift()))
@@ -732,7 +740,7 @@ def pattern_label(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'FPRELI32', size=4, cycles=2, energy=2)
+@arm_isa.pattern('reg', 'FPRELU32', size=4, cycles=2, energy=2)
 def pattern_fprel32(context, tree):
     d = context.new_reg(ArmRegister)
     c1 = tree.value

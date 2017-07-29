@@ -11,8 +11,8 @@ class PascalBuilder:
     """ Generates IR-code from pascal source. """
     logger = logging.getLogger('pascal-builder')
 
-    def __init__(self, diag, arch, debug_db):
-        self.arch = arch
+    def __init__(self, diag, arch_info, debug_db):
+        self.arch_info = arch_info
         self.debug_db = debug_db
         self.diag = diag
         self.lexer = Lexer(diag)
@@ -29,7 +29,7 @@ class PascalBuilder:
         self.logger.debug('Building %d sources', len(sources))
 
         # Create a context where the modules can live:
-        context = Context(self.arch)
+        context = Context(self.arch_info)
 
         # Phase 1: Lexing and parsing stage
         for src in sources:

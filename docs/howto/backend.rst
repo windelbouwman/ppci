@@ -351,3 +351,11 @@ The member functions
 are called at the very
 end stage of code generation of a single function.
 
+Architecture information
+++++++++++++++++++++++++
+
+Most frontends also need some information, but not all about the target
+architecture. For this create architecture info into
+:class:`ppci.arch.arch_info.ArchInfo`. This class holds information
+about basic type sizes, alignment and endianness of the architecture.
+

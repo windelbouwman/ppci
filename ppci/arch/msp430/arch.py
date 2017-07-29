@@ -1,10 +1,12 @@
 """ MSP430 architecture description. """
 
 import io
+from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15
@@ -20,8 +22,13 @@ class Msp430Arch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options, register_classes=register_classes)
-        self.byte_sizes['int'] = 2
-        self.byte_sizes['ptr'] = 2
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                'int': ir.i16, 'ptr': ir.u16
+            })
+
         self.isa = isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)

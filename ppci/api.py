@@ -226,7 +226,7 @@ def c3toir(sources, includes, march, reporter=None, debug_db=None):
     sources = [get_file(fn) for fn in sources]
     includes = [get_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = C3Builder(diag, march, debug_db)
+    c3b = C3Builder(diag, march.info, debug_db)
 
     try:
         _, ir_modules = c3b.build(sources, includes)
@@ -410,7 +410,7 @@ def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
         coptions = COptions()
 
     march = get_arch(march)
-    cbuilder = CBuilder(march, coptions)
+    cbuilder = CBuilder(march.info, coptions)
     assert isinstance(source, io.TextIOBase)
     if hasattr(source, 'name'):
         filename = getattr(source, 'name')
@@ -524,7 +524,7 @@ def pascal(sources, march, opt_level=0, reporter=None):
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
     debug_db = DebugDb()
-    pascal_builder = PascalBuilder(diag, march, debug_db)
+    pascal_builder = PascalBuilder(diag, march.info, debug_db)
 
     sources = [get_file(fn) for fn in sources]
     ir_modules = pascal_builder.build(sources)

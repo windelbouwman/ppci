@@ -405,7 +405,7 @@ class Debugger:
         if isinstance(typ, DebugBaseType):
             size = typ.size
         else:
-            size = self.arch.byte_sizes['ptr']  # Pointer size!
+            size = self.arch.info.get_size('ptr')  # Pointer size!
         fmts = {8: '<Q', 4: '<I', 2: '<H', 1: '<B'}
         fmt = fmts[size]
         loaded = self.read_mem(addr, size)

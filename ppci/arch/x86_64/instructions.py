@@ -833,7 +833,7 @@ def pattern_ldr64_2(context, tree, c0):
 
 
 @isa.pattern(
-    'reg64', 'LDRI64(FPRELI64)', size=2, cycles=2, energy=2)
+    'reg64', 'LDRI64(FPRELU64)', size=2, cycles=2, energy=2)
 def pattern_ldr64_fp_rel(context, tree):
     d = context.new_reg(X86Register)
     c1 = tree.children[0].value
@@ -878,8 +878,8 @@ def pattern_str64_2(context, tree, c0, c1):
     context.emit(MovRmReg(RmMemDisp(c0, cnst), c1))
 
 
-@isa.pattern('stm', 'STRI64(FPRELI64, reg64)', size=4)
-@isa.pattern('stm', 'STRU64(FPRELI64, reg64)', size=4)
+@isa.pattern('stm', 'STRI64(FPRELU64, reg64)', size=4)
+@isa.pattern('stm', 'STRU64(FPRELU64, reg64)', size=4)
 def pattern_str64_fprel64(context, tree, c0):
     cnst = tree[0].value
     context.emit(MovRmReg(RmMemDisp(rbp, cnst), c0))
@@ -907,7 +907,7 @@ def pattern_add64(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('reg64', 'FPRELI64', size=8, cycles=3, energy=2)
+@isa.pattern('reg64', 'FPRELU64', size=8, cycles=3, energy=2)
 def pattern_add64_fprel_const(context, tree):
     d = context.new_reg(X86Register)
     context.move(d, rbp)

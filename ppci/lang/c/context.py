@@ -11,9 +11,9 @@ def type_tuple(*args):
 
 class CContext:
     """ A context as a substitute for global data """
-    def __init__(self, coptions, march):
+    def __init__(self, coptions, arch_info):
         self.coptions = coptions
-        self.march = march
+        self.arch_info = arch_info
 
         self.atomic_types = {
             type_tuple('void'): BareType.VOID,
@@ -49,7 +49,7 @@ class CContext:
             type_tuple('long', 'double'): BareType.LONGDOUBLE,
         }
 
-        int_size = self.march.byte_sizes['int']
+        int_size = self.arch_info.get_size('int')
         self.type_size_map = {
             BareType.CHAR: 1,
             BareType.SCHAR: 1,
@@ -153,13 +153,13 @@ class CContext:
             if not typ.complete:
                 self.error('Storage size unknown', typ)
             # For enums take int as the type
-            return self.march.byte_sizes['int']
+            return self.arch_info.get_size('int')
         elif isinstance(typ, types.PointerType):
-            return self.march.byte_sizes['ptr']
+            return self.arch_info.get_size('ptr')
         elif isinstance(typ, types.FunctionType):
             # TODO: can we determine size of a function type? Should it not
             # be pointer to a function?
-            return self.march.byte_sizes['ptr']
+            return self.arch_info.get_size('ptr')
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 

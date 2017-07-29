@@ -340,6 +340,7 @@ class CSemantics:
                 bitsize = self.context.eval_expr(bitsize)
             else:
                 bitsize = self.context.sizeof(ctyp)
+            # TODO: alignment handling
             cfield = types.Field(ctyp, name, offset, bitsize)
             cfields.append(cfield)
             if kind == 'struct':

@@ -119,8 +119,8 @@ class SelectionGraphBuilder:
     def __init__(self, arch, debug_db):
         self.arch = arch
         self.debug_db = debug_db
-        self.size_map = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
-        self.ptr_ty = self.size_map[arch.byte_sizes['ptr'] * 8]
+        # size_map = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
+        self.ptr_ty = arch.info.type_infos['ptr']
 
     def build(self, ir_function: ir.SubRoutine, function_info):
         """ Create a selection graph for the given function.

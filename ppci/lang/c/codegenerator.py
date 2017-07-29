@@ -21,7 +21,7 @@ class CCodeGenerator:
         self.switch_options = None
         int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
-        int_size = self.context.march.byte_sizes['int']
+        int_size = self.context.arch_info.get_size('int')
         self.ir_type_map = {
             BareType.CHAR: (ir.i8, 1),
             BareType.SCHAR: (ir.i8, 1),

@@ -1,4 +1,6 @@
+from ... import ir
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ...binutils.assembler import BaseAssembler
 from .instructions import isa
 from . import registers
@@ -13,12 +15,22 @@ class Mcs6500Arch(Architecture):
         self.isa = isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(isa)
+        self.info = ArchInfo(
+            type_infos={
+            ir.i8: TypeInfo(1, 1),
+            ir.u8: TypeInfo(1, 1),
+            ir.i16: TypeInfo(2, 2),
+            ir.u16: TypeInfo(2, 2),
+            'int': ir.i16, 'ptr': ir.u16})
 
     def gen_prologue(self, frame):
-        pass
+        raise NotImplementedError()
 
     def gen_epilogue(self, frame):
-        pass
+        raise NotImplementedError()
+
+    def gen_call(self, label, args, rv):
+        raise NotImplementedError()
 
     def determine_arg_locations(self, arg_types):
         """ """

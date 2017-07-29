@@ -2,6 +2,7 @@ import logging
 import operator
 import struct
 from .scope import create_top_scope, Scope, SemanticError
+from ...arch.arch_info import Endianness
 from . import astnodes as ast
 
 
@@ -13,14 +14,14 @@ class Context:
     """
     logger = logging.getLogger('c3ctx')
 
-    def __init__(self, arch):
-        self.scope = create_top_scope(arch)
+    def __init__(self, arch_info):
+        self.scope = create_top_scope(arch_info)
         self.module_map = {}
         self.const_map = {}
         self.var_map = {}    # Maps variables to storage locations.
         self.const_workset = set()
-        self.arch = arch
-        self.pointerSize = arch.byte_sizes['ptr']
+        self.arch_info = arch_info
+        self.pointerSize = arch_info.get_size('ptr')
 
     def has_module(self, name):
         """ Check if a module with the given name exists """
@@ -145,7 +146,7 @@ class Context:
     def pack_int(self, v, bits=None, signed=True):
         if bits is None:
             bits = self.get_type('int').byte_size * 8
-        if self.arch.endianness == 'little':
+        if self.arch_info.endianness == Endianness.LITTLE:
             mapping = {
                 (8, False): '<B', (8, True): '<b',
                 (16, False): '<H', (16, True): '<h',

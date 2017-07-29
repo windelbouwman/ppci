@@ -8,13 +8,6 @@ from .asm_printer import AsmPrinter
 from .. import ir
 
 
-class TypeInfo:
-    """ Target specific type information """
-    def __init__(self, size, alignment):
-        self.size = size
-        self.alignment = alignment
-
-
 class Architecture(metaclass=abc.ABCMeta):
     """ Base class for all targets """
     logger = logging.getLogger('arch')
@@ -23,11 +16,10 @@ class Architecture(metaclass=abc.ABCMeta):
     option_names = ()
 
     def __init__(self, options=None, register_classes=()):
-        """
-            Create a new machine instance with possibly some extra machine
-            options.
+        """ Create a new machine instance.
 
-            options is a tuple with which options to enable.
+        Arguments:
+            options: a tuple with which options to enable.
         """
         self.logger.debug('Creating %s arch', self.name)
         self.option_settings = {o: False for o in self.option_names}
@@ -37,12 +29,7 @@ class Architecture(metaclass=abc.ABCMeta):
                 assert option_name in self.option_names
                 self.option_settings[option_name] = True
         self.register_classes = register_classes
-        self.byte_sizes = {}
-        self.byte_sizes['int'] = 4  # For front end!
-        self.byte_sizes['ptr'] = 4  # For ir to dag
-        self.byte_sizes['byte'] = 1
-        self.byte_sizes['u8'] = 1
-        self.endianness = 'little'
+        self.info = None
         self.FrameClass = Frame
         self.asm_printer = AsmPrinter()
 
@@ -68,10 +55,7 @@ class Architecture(metaclass=abc.ABCMeta):
 
     def get_size(self, typ):
         """ Get type of ir type """
-        if typ is ir.ptr:
-            return self.byte_sizes['ptr']
-        else:
-            return {ir.i8: 1, ir.i16: 2, ir.i32: 4, ir.i64: 8}[typ]
+        return self.info.get_size(typ)
 
     @property
     @lru_cache(maxsize=None)
@@ -103,7 +87,16 @@ class Architecture(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def gen_epilogue(self, frame):  # pragma: no cover
-        """ Generate instructions for the epilogue of a frame """
+        """ Generate instructions for the epilogue of a frame.
+
+        Arguments:
+            frame: the function frame for which to create a prologue
+        """
+        raise NotImplementedError('Implement this!')
+
+    @abc.abstractmethod
+    def gen_call(self, label, args, rv):
+        """ Generate instructions for a function call. """
         raise NotImplementedError('Implement this!')
 
     def between_blocks(self, frame):

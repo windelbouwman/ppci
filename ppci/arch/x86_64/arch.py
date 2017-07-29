@@ -11,7 +11,8 @@ http://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64
 """
 
 from ... import ir
-from ..arch import Architecture, TypeInfo
+from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import StackLocation
 from ..cc import CallingConvention
@@ -83,18 +84,14 @@ class X86_64Arch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options, register_classes=register_classes)
-        self.byte_sizes['int'] = 8  # For front end!
-        self.byte_sizes['ptr'] = 8  # For front end!
-        self.type_info = {
-            ir.i8: TypeInfo(1, 1),
-            ir.u8: TypeInfo(1, 1),
-            ir.i16: TypeInfo(2, 2),
-            ir.u16: TypeInfo(2, 2),
-            ir.i32: TypeInfo(4, 4),
-            ir.u32: TypeInfo(4, 4),
-            ir.i64: TypeInfo(8, 8),
-            ir.u64: TypeInfo(8, 8),
-        }
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                ir.i64: TypeInfo(8, 8), ir.u64: TypeInfo(8, 8),
+                'int': ir.i64, 'ptr': ir.u64})
+
         self.isa = isa + data_isa + sse1_isa + sse2_isa
         if self.has_option('x87'):
             # TODO: implement x87 isa also!

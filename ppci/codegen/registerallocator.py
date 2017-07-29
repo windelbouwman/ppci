@@ -177,8 +177,8 @@ class MiniGen:
         return ctx.l
 
     def make_at(self, offset):
-        bitsize = self.arch.byte_sizes['ptr'] * 8
-        offset_tree = Tree('FPRELI{}'.format(bitsize), value=offset)
+        bitsize = self.arch.get_size('ptr') * 8
+        offset_tree = Tree('FPRELU{}'.format(bitsize), value=offset)
         # 'ADDI{}'.format(bitsize),
         #    Tree('REGI{}'.format(bitsize), value=self.arch.fp),
         #    Tree('CONSTI{}'.format(bitsize), value=offset))

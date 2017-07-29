@@ -1,8 +1,10 @@
 """ ARM architecture definition. """
 import io
+from ... import ir
 from ...ir import i8, i32, u8, u32, i16, u16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
 from ..registers import RegisterClass
@@ -58,6 +60,14 @@ class ArmArch(Architecture):
                 ]
         self.assembler.gen_asm_parser(self.isa)
         self.gdb_registers = all_registers
+
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32,
+            })
 
     def get_runtime(self):
         """ Implement compiler runtime functions """

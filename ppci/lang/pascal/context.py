@@ -13,9 +13,8 @@ class Context:
     """
     logger = logging.getLogger('pascal.context')
 
-    def __init__(self, arch):
-        self.arch = arch
-        self.root_scope = create_top_scope(arch)
+    def __init__(self, arch_info):
+        self.root_scope = create_top_scope(arch_info)
         self.var_map = {}
         self.programs = []
         self.units = []
@@ -115,7 +114,7 @@ class Context:
         return struct.pack(fmt, v)
 
 
-def create_top_scope(arch):
+def create_top_scope(arch_info):
     """ Create a scope that is the root of the scope tree.
 
     This includes the built-in types.
@@ -123,13 +122,13 @@ def create_top_scope(arch):
     scope = Scope()
 
     # buildin types:
-    int_type = nodes.SignedIntegerType('integer', arch.byte_sizes['int'])
+    int_type = nodes.SignedIntegerType('integer', arch_info.get_size('int'))
     scope.add_symbol(int_type)
 
     char_type = nodes.SignedIntegerType('char', 1)
     scope.add_symbol(char_type)
 
-    bool_type = nodes.SignedIntegerType('bool', arch.byte_sizes['int'])
+    bool_type = nodes.SignedIntegerType('bool', arch_info.get_size('int'))
     scope.add_symbol(bool_type)
 
     # Construct string type from others:

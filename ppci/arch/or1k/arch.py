@@ -1,6 +1,9 @@
+""" Open risc 1K architecture """
 
+from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo, Endianness
 from ..generic_instructions import Label, Alignment, SectionInstruction
 from ..generic_instructions import RegisterUseDef
 from ..data_instructions import data_isa, Db
@@ -34,9 +37,16 @@ class Or1kArch(Architecture):
         self.isa = orbis32 + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
-        self.byte_sizes['int'] = 4
-        self.byte_sizes['ptr'] = 4
-        self.endianness = 'big'
+
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32,
+            },
+            endianness=Endianness.BIG)
+
         self.gdb_registers = registers.gdb_registers
         self.gdb_pc = registers.PC
 

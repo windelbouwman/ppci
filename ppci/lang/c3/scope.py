@@ -89,7 +89,7 @@ class Scope:
         return 'Scope with {} symbols'.format(len(self.symbols))
 
 
-def create_top_scope(arch):
+def create_top_scope(arch_info):
     """ Create a scope that is the root of the scope tree.
 
     This includes the built-in types.
@@ -107,13 +107,13 @@ def create_top_scope(arch):
     scope.add_symbol(SignedIntegerType('int8_t', 1))
 
     # buildin types:
-    int_type = SignedIntegerType('int', arch.byte_sizes['int'])
+    int_type = SignedIntegerType('int', arch_info.get_size('int'))
     byte_type = UnsignedIntegerType('byte', 1)
     scope.add_symbol(int_type)
     scope.add_symbol(FloatType('double', 8, 52))
     scope.add_symbol(FloatType('float', 4, 23))
     scope.add_symbol(BaseType('void', 0))
-    scope.add_symbol(BaseType('bool', arch.byte_sizes['int']))
+    scope.add_symbol(BaseType('bool', arch_info.get_size('int')))
     scope.add_symbol(byte_type)
 
     # Construct string type from others:

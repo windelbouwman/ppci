@@ -9,6 +9,6 @@ pipelines:
   default:
     - step:
         script: # Modify the commands below to build your repository.
-          - pip install -q -U tox wheel codecov
+          - pip install -q -U tox wheel
           - pip --version
           - tox -e ut,py3

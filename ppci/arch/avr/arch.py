@@ -1,8 +1,10 @@
 """ AVR architecture. """
 
 import io
+from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, SectionInstruction
 from ..generic_instructions import RegisterUseDef
 from ..data_instructions import data_isa
@@ -30,10 +32,13 @@ class AvrArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         # TODO: make it possible to choose between 16 and 8 bit int type size
         # with an option -mint8 every integer is 8 bits wide.
-        self.byte_sizes['int'] = 2
-        self.byte_sizes['i16'] = 2
-        self.byte_sizes['i8'] = 1
-        self.byte_sizes['ptr'] = 2
+        self.info = ArchInfo(
+            type_infos={
+            ir.i8: TypeInfo(1, 1),
+            ir.u8: TypeInfo(1, 1),
+            ir.i16: TypeInfo(2, 2),
+            ir.u16: TypeInfo(2, 2),
+            'int': ir.i16, 'ptr': ir.u16})
         self.fp = Y
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
@@ -53,7 +58,7 @@ class AvrArch(Architecture):
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
         for a in arg_types:
-            s = self.byte_sizes[a.name]
+            s = self.info.get_size(a)
 
             # Round odd registers:
             if s % 2 == 1:

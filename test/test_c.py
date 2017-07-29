@@ -160,7 +160,7 @@ class CParserTestCase(unittest.TestCase):
     the semantics and assert that the proper functions are called on it.
     """
     def setUp(self):
-        context = CContext(COptions(), ExampleArch())
+        context = CContext(COptions(), ExampleArch().info)
         self.semantics = mock.Mock(spec=CSemantics, name='semantics')
         self.parser = CParser(context, self.semantics)
 

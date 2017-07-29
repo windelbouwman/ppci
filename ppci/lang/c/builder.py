@@ -14,8 +14,8 @@ class CBuilder:
     """ C builder that converts C code into ir-code """
     logger = logging.getLogger('cbuilder')
 
-    def __init__(self, march, coptions):
-        self.march = march
+    def __init__(self, arch_info, coptions):
+        self.arch_info = arch_info
         self.coptions = coptions
         self.cgen = None
 
@@ -25,7 +25,7 @@ class CBuilder:
             reporter.message('Welcome to the C building report')
         cdialect = self.coptions['std']
         self.logger.info('Starting C compilation (%s)', cdialect)
-        context = CContext(self.coptions, self.march)
+        context = CContext(self.coptions, self.arch_info)
         preprocessor = CPreProcessor(self.coptions)
         tokens = preprocessor.process(src, filename)
         semantics = CSemantics(context)
@@ -44,11 +44,11 @@ class CBuilder:
         return cgen.gen_code(compile_unit)
 
 
-def create_ast(src, march, filename='<snippet>', coptions=None):
+def create_ast(src, arch_info, filename='<snippet>', coptions=None):
     """ Create a C ast from the given source """
     if coptions is None:
         coptions = COptions()
-    context = CContext(coptions, march)
+    context = CContext(coptions, arch_info)
     preprocessor = CPreProcessor(coptions)
     tokens = preprocessor.process(src, filename)
     semantics = CSemantics(context)

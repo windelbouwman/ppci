@@ -4,9 +4,10 @@
 """
 
 from .arch import Architecture
+from .arch_info import ArchInfo, TypeInfo
 from .encoding import Instruction, Syntax, Operand
 from .registers import Register, RegisterClass
-from ..import ir
+from .. import ir
 from .isa import Isa
 
 
@@ -17,8 +18,6 @@ class ExampleArch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        self.byte_sizes['int'] = 4
-        self.byte_sizes['ptr'] = 4
         self.register_classes = [
             RegisterClass(
                 'reg', [ir.i32, ir.ptr], ExampleRegister,
@@ -28,11 +27,20 @@ class ExampleArch(Architecture):
             ]
         self.gdb_registers = gdb_registers
         self.isa = Isa()
+        self.info = ArchInfo(
+            type_infos={
+            ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+            ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+            ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+            'int': ir.i32, 'ptr': ir.u32})
 
     def gen_prologue(self, frame):
         return []
 
     def gen_epilogue(self, frame):
+        return []
+
+    def gen_call(self, label, args, rv):
         return []
 
     def determine_arg_locations(self, arg_types):

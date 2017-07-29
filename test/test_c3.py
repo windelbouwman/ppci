@@ -65,7 +65,8 @@ class AstPrinterTestCase(unittest.TestCase):
         diag = DiagnosticsManager()
         lexer = Lexer(diag)
         parser = Parser(diag)
-        context = Context(ExampleArch())
+        arch = ExampleArch()
+        context = Context(arch.info)
         tokens = lexer.lex(io.StringIO(snippet))
         ast = parser.parse_source(tokens, context)
         printer = AstPrinter()
@@ -79,7 +80,8 @@ class BuildTestCaseBase(unittest.TestCase):
     """ Test if various snippets build correctly """
     def setUp(self):
         self.diag = DiagnosticsManager()
-        self.builder = C3Builder(self.diag, ExampleArch(), DebugDb())
+        arch = ExampleArch()
+        self.builder = C3Builder(self.diag, arch.info, DebugDb())
         self.diag.clear()
         # Add a null logging handler to disable warning log messages:
         null_handler = logging.NullHandler()

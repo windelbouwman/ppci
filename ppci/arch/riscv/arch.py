@@ -2,6 +2,7 @@
 
 import io
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo, Endianness
 from ..generic_instructions import Label, RegisterUseDef
 from .asm_printer import RiscvAsmPrinter
 from .instructions import isa, Align, Section, DByte, DZero
@@ -67,6 +68,14 @@ class RiscvArch(Architecture):
         self.asm_printer = RiscvAsmPrinter()
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
+
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32,
+            })
 
         # Allocatable registers:
         self.register_classes = [
