@@ -10,7 +10,6 @@ from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
 from .registers import R0, R1, R2
 from .arm_relocations import Imm24Relocation
 from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
-from ...ir import i32
 
 
 # Patterns:

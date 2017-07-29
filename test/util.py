@@ -253,7 +253,9 @@ def has_avr_emulator():
 
 def run_avr(hexfile):
     """ Run hexfile through avr emulator """
-    outs = subprocess.check_output([avr_emu1, hexfile])
+    command = [avr_emu1, hexfile]
+    logger.debug('Running %s', command)
+    outs = subprocess.check_output(command, timeout=10)
     outs = outs.decode('ascii')
     print(outs)
     chars = []

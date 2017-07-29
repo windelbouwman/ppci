@@ -22,11 +22,10 @@ class Stm8Arch(Architecture):
 
         self.info = ArchInfo(
             type_infos={
-            ir.i8: TypeInfo(1, 1),
-            ir.u8: TypeInfo(1, 1),
-            ir.i16: TypeInfo(2, 2),
-            ir.u16: TypeInfo(2, 2),
-            'int': ir.i16, 'ptr': ir.u16})
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                'int': ir.i16, 'ptr': ir.u16
+            })
 
     def gen_prologue(self, frame):
         raise NotImplementedError()

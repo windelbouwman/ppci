@@ -3,7 +3,6 @@ from ..encoding import Instruction, Operand, Syntax, Relocation, Transform
 from ..generic_instructions import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
-from ...ir import i16
 from .registers import AvrRegister, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister, SuperHighAvrWordRegister
@@ -689,6 +688,7 @@ def pattern_reg8(context, tree):
 
 
 @avr_isa.pattern('reg16', 'REGI16', size=0, cycles=0, energy=0)
+@avr_isa.pattern('reg16', 'REGU16', size=0, cycles=0, energy=0)
 def pattern_reg16(context, tree):
     assert isinstance(tree.value, AvrWordRegister)
     return tree.value
@@ -701,11 +701,14 @@ def pattern_mov8(context, tree, c0):
 
 
 @avr_isa.pattern('stm', 'MOVI16(reg16)', size=2)
+@avr_isa.pattern('stm', 'MOVU16(reg16)', size=2)
 def pattern_mov16(context, tree, c0):
     context.move(tree.value, c0)
 
 
 @avr_isa.pattern('reg16', 'I16TOI16(reg16)', size=0)
+@avr_isa.pattern('reg16', 'U16TOI16(reg16)', size=0)
+@avr_isa.pattern('reg16', 'I16TOU16(reg16)', size=0)
 def pattern_i16toi16(context, tree, c0):
     return c0
 
@@ -741,6 +744,7 @@ def pattern_i16toi8(context, tree, c0):
 
 
 @avr_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
+@avr_isa.pattern('reg', 'ADDU8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(AvrRegister)
     context.move(d, c0)
@@ -749,6 +753,7 @@ def pattern_add8(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', size=6)
+@avr_isa.pattern('reg16', 'ADDU16(reg16, reg16)', size=6)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
@@ -757,6 +762,7 @@ def pattern_add16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=6)
+@avr_isa.pattern('reg16', 'SUBU16(reg16, reg16)', size=6)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
@@ -843,6 +849,7 @@ def pattern_ldr8_offset(context, tree, c0):
 
 
 @avr_isa.pattern('reg16', 'LDRI16(reg16)', size=4)
+@avr_isa.pattern('reg16', 'LDRU16(reg16)', size=4)
 def pattern_ldr16(context, tree, c0):
     # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrWordRegister)
@@ -891,6 +898,7 @@ def pattern_str8_offset(context, tree, c0, c1):
 
 
 @avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8)
+@avr_isa.pattern('stm', 'STRU16(reg16, reg16)', size=8)
 def pattern_str16(context, tree, c0, c1):
     # z = context.new_reg(AvrZRegister)
     context.move(Z, c0)
@@ -916,6 +924,7 @@ def pattern_const8(context, tree):
 
 
 @avr_isa.pattern('reg16', 'CONSTI16', size=4)
+@avr_isa.pattern('reg16', 'CONSTU16', size=4)
 def pattern_const16(context, tree):
     d = context.new_reg(HighAvrWordRegister)
     context.emit(Ldiw(d, tree.value))
@@ -930,7 +939,7 @@ def pattern_label(context, tree):
     return d
 
 
-@avr_isa.pattern('reg16', 'FPRELI16', size=6)
+@avr_isa.pattern('reg16', 'FPRELU16', size=6)
 def pattern_fprel16(context, tree):
     d = context.new_reg(AvrWordRegister)
     context.move(d, Y)

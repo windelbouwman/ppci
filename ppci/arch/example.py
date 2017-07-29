@@ -29,10 +29,11 @@ class ExampleArch(Architecture):
         self.isa = Isa()
         self.info = ArchInfo(
             type_infos={
-            ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-            ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-            ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-            'int': ir.i32, 'ptr': ir.u32})
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32
+            })
 
     def gen_prologue(self, frame):
         return []

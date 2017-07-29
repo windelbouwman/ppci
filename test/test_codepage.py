@@ -1,7 +1,6 @@
 
 import unittest
 import io
-import ctypes
 from ppci.utils.codepage import load_code_as_module, platform_supported
 
 

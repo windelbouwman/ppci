@@ -71,7 +71,8 @@ Documentation can be found here:
 |codecov|_
 |docstate|_
 |travis|_
-|codacy|_
+|codacygrade|_
+|codacycoverage|_
 
 .. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
 .. _codecov: https://codecov.io/bb/windel/ppci/branch/default
@@ -89,5 +90,8 @@ Documentation can be found here:
 .. _travis: https://travis-ci.org/windelbouwman/ppci-mirror
 
 
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/a178be14a54243be81c27172031dc82c
-.. _codacy: https://www.codacy.com/app/windel-bouwman/ppci-mirror
+.. |codacygrade| image:: https://api.codacy.com/project/badge/Grade/a178be14a54243be81c27172031dc82c
+.. _codacygrade: https://www.codacy.com/app/windel-bouwman/ppci-mirror
+
+.. |codacycoverage| image:: https://api.codacy.com/project/badge/Coverage/a178be14a54243be81c27172031dc82c
+.. _codacycoverage: https://www.codacy.com/app/windel-bouwman/ppci-mirror

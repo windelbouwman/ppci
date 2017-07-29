@@ -1,4 +1,3 @@
-
 """ The xtensa instructions """
 
 from ..token import Token, bit_range
@@ -8,7 +7,6 @@ from ..encoding import Relocation
 from ..generic_instructions import ArtificialInstruction, RegisterUseDef
 from .registers import AddressRegister, FloatRegister, a1, a2, a3, a15
 from ...utils.bitfun import wrap_negative
-from ... import ir
 
 
 core_isa = Isa()

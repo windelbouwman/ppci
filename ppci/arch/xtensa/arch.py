@@ -7,7 +7,7 @@ from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from .registers import register_classes, Register
+from .registers import register_classes
 from . import registers
 from . import instructions
 
@@ -25,13 +25,11 @@ class XtensaArch(Architecture):
 
         self.info = ArchInfo(
             type_infos={
-            ir.i8: TypeInfo(1, 1),
-            ir.u8: TypeInfo(1, 1),
-            ir.i16: TypeInfo(2, 2),
-            ir.u16: TypeInfo(2, 2),
-            ir.i32: TypeInfo(4, 4),
-            ir.u32: TypeInfo(4, 4),
-            'int': ir.i32, 'ptr': ir.u32})
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32
+            })
 
         # TODO: a15 is also callee save
         self.callee_save = registers.callee_save

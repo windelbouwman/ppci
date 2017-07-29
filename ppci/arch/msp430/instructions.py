@@ -7,7 +7,6 @@ from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
 from .registers import Msp430Register, r2, r3, r4, r12, r13, SP, PC
 from ...utils.bitfun import align
-from ...ir import i16
 
 # pylint: disable=no-member,invalid-name
 

@@ -34,11 +34,10 @@ class AvrArch(Architecture):
         # with an option -mint8 every integer is 8 bits wide.
         self.info = ArchInfo(
             type_infos={
-            ir.i8: TypeInfo(1, 1),
-            ir.u8: TypeInfo(1, 1),
-            ir.i16: TypeInfo(2, 2),
-            ir.u16: TypeInfo(2, 2),
-            'int': ir.i16, 'ptr': ir.u16})
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                'int': ir.i16, 'ptr': ir.u16
+            })
         self.fp = Y
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
@@ -58,7 +57,11 @@ class AvrArch(Architecture):
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
         for a in arg_types:
-            s = self.info.get_size(a)
+            sizes = {
+                ir.i8: 1, ir.u8: 1, ir.i16: 2, ir.u16: 2,
+                ir.ptr: 2
+            }
+            s = sizes[a]
 
             # Round odd registers:
             if s % 2 == 1:

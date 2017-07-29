@@ -790,13 +790,13 @@ def pattern_cjmp_8(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'ALLOCA', size=10)
-def pattern_call(context, tree):
+def pattern_alloca(context, tree):
     size = tree.value
     context.emit(SubImm(rsp, size))
 
 
 @isa.pattern('stm', 'FREEA', size=10)
-def pattern_call(context, tree):
+def pattern_freea(context, tree):
     size = tree.value
     context.emit(AddImm(rsp, size))
 

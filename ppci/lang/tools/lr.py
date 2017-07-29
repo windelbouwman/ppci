@@ -27,7 +27,10 @@ class Reduce(Action):
         return 'Reduce({})'.format(self.rule)
 
 
-class Accept(Reduce):
+class Accept(Action):
+    def __init__(self, rule):
+        self.rule = rule
+
     def __repr__(self):
         return 'Accept({})'.format(self.rule)
 
@@ -121,7 +124,7 @@ class LrParser:
                 raise ParserException(
                     'Error parsing at character {0}'.format(look_ahead))
             action = self.action_table[key]
-            if type(action) is Reduce:
+            if isinstance(action, Reduce):
                 f_args = []
                 prod = self.grammar.productions[action.rule]
                 for s in prod.symbols:
@@ -136,13 +139,13 @@ class LrParser:
                 stack.append(prod.name)
                 stack.append(self.goto_table[(state, prod.name)])
                 r_data_stack.append(r_data)
-            elif type(action) is Shift:
+            elif isinstance(action, Shift):
                 stack.append(look_ahead.typ)
                 stack.append(action.to_state)
                 r_data_stack.append(look_ahead)
                 look_ahead = lexer.next_token()
                 assert type(look_ahead) is Token
-            elif type(action) is Accept:
+            elif isinstance(action, Accept):
                 # Pop last rule data off the stack:
                 f_args = []
                 param = self.grammar.productions[action.rule]
@@ -310,13 +313,13 @@ class LrParserBuilder:
 
     def set_action(self, state, t, action):
         assert isinstance(action, Action)
-        assert type(state) is int
-        assert type(t) is str
+        assert isinstance(state, int)
+        assert isinstance(t, str)
         key = (state, t)
         if key in self.action_table:
             action2 = self.action_table[key]
             if action != action2:
-                if (type(action2) is Reduce) and (type(action) is Shift):
+                if isinstance(action2, Reduce) and isinstance(action, Shift):
                     # Automatically resolve and do the shift action!
                     # Simple, but almost always what you want!!
                     self.action_table[key] = action

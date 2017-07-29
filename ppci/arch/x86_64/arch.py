@@ -29,8 +29,7 @@ from .sse2_instructions import PushXmm, PopXmm
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
 from .registers import X86Register, LowRegister, XmmRegister
-from .registers import rbx, rbp, rsp, al
-from .registers import r12, r13, r14, r15
+from .registers import rbp, rsp, al
 from . import registers
 
 
