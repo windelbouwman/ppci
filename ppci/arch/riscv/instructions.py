@@ -533,6 +533,7 @@ def pattern_stri8(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'MOVI32(reg)', size=2)
+@isa.pattern('reg', 'MOVU32(reg)', size=2)
 def pattern_movi32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -552,6 +553,7 @@ def pattern_jmp(context, tree):
 
 
 @isa.pattern('reg', 'REGI32', size=0)
+@isa.pattern('reg', 'REGU32', size=0)
 @isa.pattern('reg', 'REGI8', size=0)
 @isa.pattern('reg', 'REGU8', size=0)
 def pattern_reg(context, tree):
@@ -559,6 +561,8 @@ def pattern_reg(context, tree):
 
 
 @isa.pattern('reg', 'I32TOI32(reg)', size=0)
+@isa.pattern('reg', 'U32TOI32(reg)', size=0)
+@isa.pattern('reg', 'I32TOU32(reg)', size=0)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -582,6 +586,7 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
+@isa.pattern('reg', 'CONSTU32', size=4)
 @isa.pattern('reg', 'CONSTI32', size=4)
 @isa.pattern(
     'reg', 'CONSTI32', size=2,
@@ -613,6 +618,7 @@ def pattern_cjmp(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
+@isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 def pattern_add_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Addr(d, c0, c1))
@@ -681,7 +687,7 @@ def pattern_label2(context, tree):
 
 
 @isa.pattern(
-    'reg', 'FPRELI32', size=8,
+    'reg', 'FPRELU32', size=8,
     condition=lambda t: t.value in range(-2048, 2048))
 def pattern_fpreli32(context, tree):
     d = context.new_reg(RiscvRegister)

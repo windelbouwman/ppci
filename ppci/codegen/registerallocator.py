@@ -555,7 +555,7 @@ class GraphColoringRegisterAllocator:
         """ Do spilling """
         self.logger.debug('Spilling round %s', self.spill_rounds)
         self.spill_rounds += 1
-        if self.spill_rounds > 10:
+        if self.spill_rounds > 30:
             raise RuntimeError('Give up: more than 10 spill rounds done!')
         # TODO: select a node which is certainly not a node that was
         # introduced during spilling?
@@ -576,8 +576,7 @@ class GraphColoringRegisterAllocator:
     def rewrite_program(self, node):
         """ Rewrite program by creating a load and a store for each use """
         # Generate spill code:
-        if self.verbose:
-            self.logger.debug('Placing %s on stack', node)
+        self.logger.debug('Placing %s on stack', node)
 
         size = node.reg_class.bitsize // 8
         offset = self.frame.alloc(size)

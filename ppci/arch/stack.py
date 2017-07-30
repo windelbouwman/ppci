@@ -26,8 +26,9 @@ class Frame:
         Frames differ per machine. The only thing left to do for a frame
         is register allocation.
     """
-    def __init__(self, name):
+    def __init__(self, name, direction=-1):
         self.name = name
+        self.direction = direction
         self.instructions = []
         self.used_regs = set()
         self.temps = generate_temps()
@@ -46,8 +47,12 @@ class Frame:
         """ Allocate space on the stack frame and return the offset """
         # TODO: determine alignment!
         # TODO: grow down or up?
-        offset = -size - self.stacksize
-        self.stacksize += size
+        if self.direction == -1:
+            offset = -size - self.stacksize
+            self.stacksize += size
+        else:
+            offset = self.stacksize
+            self.stacksize += size
         return offset
 
     def new_name(self, salt):
@@ -69,27 +74,6 @@ class Frame:
     def is_used(self, register):
         """ Check if a register is used by this frame """
         return register in self.used_regs
-
-    def live_regs_over(self, instruction):
-        """ Determine what registers are live along an instruction.
-        Useful to determine if registers must be saved when making a call """
-        # print(self.cfg._map)
-        # assert self.cfg.has_node(instruction)
-        # fg_node = self.cfg.get_node(instruction)
-        # print('live in and out', fg_node.live_in, fg_node.live_out)
-
-        # Get register colors from interference graph:
-        live_regs = []
-        for tmp in (
-                instruction.live_in & instruction.live_out) - instruction.kill:
-            # print(tmp)
-            n = self.ig.get_node(tmp)
-            reg = n.reg
-            live_regs.append(reg)
-        # for tmp in instruction.used_registers:
-        #    if tmp in live_regs:
-        #        live_regs
-        return live_regs
 
     def live_ranges(self, vreg):
         """ Determine the live range of some register """

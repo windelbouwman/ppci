@@ -424,6 +424,7 @@ class HtmlReportGenerator(TextWritingReporter):
         with collapseable(self, 'Frame'):
             self.print('<p><div class="codeblock">')
             self.print(frame)
+            self.print('<p>stack size: {}</p>'.format(frame.stacksize))
             self.print('<p>Used: {}</p>'.format(frame.used_regs))
             self.print('<table border="1">')
             self.print('<tr>')

@@ -1,4 +1,53 @@
-""" AVR architecture. """
+""" AVR architecture.
+
+See for good documentation about AVR ABI:
+
+- https://gcc.gnu.org/wiki/avr-gcc
+
+The stack grows downwards in AVR. The stack pointer points to the current
+empty stack slot. This is somewhat confusing, because on other machines
+the stack pointer points to the latests pushed byte.
+
+The stack frame is layout as follows:
+
++----+-----------------------------+
+| 90 | Incoming arguments          |
+| 89 | for previous frame          |
++----+-----------------------------+
+| 88 | return address              |
+| 87 |                             |
++----+-----------------------------+
+| 86 |                             |
+| 85 | saved registers previous    |
+| 84 | frame                       |
++----+-----------------------------+
+| 83 |                             |
+| 82 | stack for previous frame    |
+| 81 |                             |
++----+-----------------------------+
+| 80 |                             |
+| 79 | Incoming arguments for      |
+| 78 | current frame               |
++----+-----------------------------+
+| 77 | return address              |
+| 76 |                             |
++----+-----------------------------+
+| 75 |                             |
+| 74 | saved registers current     |
+| 73 | frame                       |
++----+-----------------------------+
+| 72 |                             |
+| 71 |                             |
+| 70 | Stack for the current frame |
+| 69 |                             | <- pointed to by Y
++----+-----------------------------+
+| 68 |                             | <- stack pointer
+
+Stack grows
+    ||
+    \/
+
+"""
 
 import io
 from ... import ir
@@ -50,6 +99,11 @@ class AvrArch(Architecture):
         obj = link([obj1, obj2], partial_link=True)
         return obj
 
+    def new_frame(self, frame_name, function):
+        """ Create a new frame with name frame_name for an ir-function """
+        # TODO: temporary override function
+        return self.FrameClass(frame_name, direction=1)
+
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
         l = []
@@ -95,26 +149,9 @@ class AvrArch(Architecture):
         return s
 
     def gen_prologue(self, frame):
-        """ Generate the prologue instruction sequence """
+        """ Generate the prologue instruction sequence. """
         # Label indication function:
         yield Label(frame.name)
-
-        if frame.stacksize > 0:
-            # Save previous frame pointer and fill it from the SP:
-            yield Push(Y.lo)
-            yield Push(Y.hi)
-
-            # Setup frame pointer:
-            yield In(Y.lo, 0x3d)
-            yield In(Y.hi, 0x3e)
-            # ATTENTION: after push, the stackpointer points to the next empty
-            # byte.
-            # Increment entire Y by one:
-            yield Adiw(Y, 1)
-
-            # Push N times to adjust stack:
-            for _ in range(frame.stacksize):
-                yield Push(r0)
 
         # Save some registers:
         used_regs = self.expand_word_regs(frame.used_regs)
@@ -122,16 +159,27 @@ class AvrArch(Architecture):
             if register in used_regs:
                 yield Push(register)
 
+        if frame.stacksize > 0:
+            # Save previous frame pointer and fill it from the SP:
+            yield Push(Y.lo)
+            yield Push(Y.hi)
+
+            # Push N times to adjust stack:
+            for _ in range(frame.stacksize):
+                yield Push(r0)
+
+            # Setup frame pointer:
+            yield In(Y.lo, 0x3d)
+            yield In(Y.hi, 0x3e)
+            # ATTENTION: after push, the stackpointer points to the next empty
+            # byte.
+            # Increment entire Y by one to point to address frame+0:
+            yield Adiw(Y, 1)
+
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        # Restore registers:
-        used_regs = self.expand_word_regs(frame.used_regs)
-        for register in reversed(callee_save):
-            if register in used_regs:
-                yield Pop(register)
-
         if frame.stacksize > 0:
             # Pop x times to adjust stack:
             for _ in range(frame.stacksize):
@@ -139,6 +187,13 @@ class AvrArch(Architecture):
 
             yield Pop(Y.hi)
             yield Pop(Y.lo)
+
+        # Restore registers:
+        used_regs = self.expand_word_regs(frame.used_regs)
+        for register in reversed(callee_save):
+            if register in used_regs:
+                yield Pop(register)
+
         yield Ret()
 
         # Add final literal pool:

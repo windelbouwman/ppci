@@ -43,7 +43,13 @@ int main(int argc, char* argv[])
   }
 
   uint32_t boot_size, boot_base;
+  if (argc < 1) {
+    fprintf(stderr, "Provide the hex file\n");
+  }
+
   char *bootpath = argv[1]; // "test.hex";
+
+  printf("Loading %s\n", bootpath);
 
   uint8_t *boot = read_ihex_file(bootpath, &boot_size, &boot_base);
   if (!boot) {
@@ -60,9 +66,11 @@ int main(int argc, char* argv[])
 
   init_uart(avr);
 
-  //avr->gdb_port = 1234;
-  //avr->state = cpu_Stopped;
-  //avr_gdb_init(avr);
+#ifdef WITH_GDB_DEBUG_SERVER
+  avr->gdb_port = 1234;
+  avr->state = cpu_Stopped;
+  avr_gdb_init(avr);
+#endif
 
   int state = cpu_Running;
   while (!(state == cpu_Done || state == cpu_Crashed)) {
