@@ -12,7 +12,7 @@ from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
 from .registers import R13, R14, R15, R16, R17
 from .registers import PC
-from .registers import R9, R18, R19
+from .registers import FP, R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
@@ -180,19 +180,18 @@ class RiscvArch(Architecture):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
-
+        ssize = round_up(frame.stacksize) + 8
+        yield Sw(LR, -ssize + 4, SP)
+        yield Sw(FP, -ssize, SP)
         yield Movr(FP, SP)                 # Setup frame pointer
-
-        if frame.stacksize > 0:
-            ssize = round_up(frame.stacksize)
-            yield Addi(SP, SP, -ssize)     # Reserve stack space
-
-        # Callee save registers:
+        yield Addi(SP, SP, -ssize)     # Reserve stack space
         i = 0
         for register in self.callee_save:
-            yield Sw(register, i, SP)
-            i -= 4
-        Addi(SP, SP, i)
+            if frame.is_used(register):
+                i -= 4
+                yield Sw(register, i, SP)
+        yield Addi(SP, SP, i)
+
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -224,13 +223,14 @@ class RiscvArch(Architecture):
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):
-            i += 4
-            yield Lw(register, i, SP)
-        Addi(SP, SP, i)
-
-        if frame.stacksize > 0:
-            ssize = round_up(frame.stacksize)
-            yield Addi(SP, SP, ssize)
+            if frame.is_used(register):
+               yield Lw(register, i, SP)
+               i += 4
+        yield Addi(SP, SP, i)
+        ssize = round_up(frame.stacksize) + 8
+        yield Addi(SP, SP, ssize)
+        yield Lw(FP, -ssize, SP)
+        yield Lw(LR, -ssize + 4, SP)
 
         # Return
         if self.has_option('rvc'):

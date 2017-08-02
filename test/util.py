@@ -238,7 +238,7 @@ def run_picorv32(pmem):
     print('======')
 
     # run build vvp simulation:
-    outs = subprocess.check_output([simv], timeout=10)
+    outs = subprocess.check_output([simv], timeout=30)
     outs = outs.decode('ascii')
     print(outs)
     return outs
