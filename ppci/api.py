@@ -263,18 +263,24 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
     """
     logger = logging.getLogger('optimize')
     level = str(level)
-    logger.info('Optimizing module %s level %s', ir_module.name, level)
-    assert level in OPT_LEVELS
-    if level == '0':
-        return
-
-    # TODO: differentiate between optimization levels!
 
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
     if not debug_db:  # pragma: no cover
         debug_db = DebugDb()
+
+    logger.info('Optimizing module %s level %s', ir_module.name, level)
+
+    reporter.message('{} before optimization:'.format(ir_module))
+    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+    reporter.dump_ir(ir_module)
+
+    assert level in OPT_LEVELS
+    if level == '0':
+        return
+
+    # TODO: differentiate between optimization levels!
 
     # Create the verifier:
     verifier = Verifier()

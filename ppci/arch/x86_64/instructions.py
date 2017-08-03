@@ -340,7 +340,7 @@ class RmMemDisp(Constructor):
     syntax = Syntax(['[', reg, ',', ' ', disp, ']'], priority=2)
 
     def set_user_patterns(self, tokens):
-        if self.disp <= 255 and self.disp >= -128:
+        if self.disp <= 127 and self.disp >= -128:
             tokens.set_field('mod', 1)
             tokens.set_field('disp8', self.disp)
         else:
@@ -836,7 +836,7 @@ def pattern_ldr64_2(context, tree, c0):
     'reg64', 'LDRI64(FPRELU64)', size=2, cycles=2, energy=2)
 def pattern_ldr64_fp_rel(context, tree):
     d = context.new_reg(X86Register)
-    c1 = tree.children[0].value
+    c1 = tree.children[0].value.negative
     context.emit(MovRegRm(d, RmMemDisp(rbp, c1)))
     return d
 
@@ -881,7 +881,7 @@ def pattern_str64_2(context, tree, c0, c1):
 @isa.pattern('stm', 'STRI64(FPRELU64, reg64)', size=4)
 @isa.pattern('stm', 'STRU64(FPRELU64, reg64)', size=4)
 def pattern_str64_fprel64(context, tree, c0):
-    cnst = tree[0].value
+    cnst = tree[0].value.negative
     context.emit(MovRmReg(RmMemDisp(rbp, cnst), c0))
 
 
@@ -911,7 +911,7 @@ def pattern_add64(context, tree, c0, c1):
 def pattern_add64_fprel_const(context, tree):
     d = context.new_reg(X86Register)
     context.move(d, rbp)
-    context.emit(AddImm(d, tree.value))
+    context.emit(AddImm(d, tree.value.negative))
     return d
 
 

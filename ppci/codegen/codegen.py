@@ -14,7 +14,7 @@ from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
-from .irdag import SelectionGraphBuilder, make_label_name
+from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
 from .registerallocator import GraphColoringRegisterAllocator
@@ -58,9 +58,8 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            label_name = make_label_name(var)
             # TODO: alignment?
-            label = Label(label_name)
+            label = Label(var.name)
             output_stream.emit(label)
             if var.amount > 0:
                 if var.value:
@@ -110,7 +109,7 @@ class CodeGenerator:
                 _, block = split_block(block, pos=max_block_len)
 
         # Create a frame for this function:
-        frame_name = make_label_name(ir_function)
+        frame_name = ir_function.name
         frame = self.arch.new_frame(frame_name, ir_function)
         self.debug_db.map(ir_function, frame)
 

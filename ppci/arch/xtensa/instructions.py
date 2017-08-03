@@ -785,6 +785,7 @@ class Pop(XtensaMacroInstruction):
 
 
 @core_isa.pattern('stm', 'MOVU8(reg)')
+@core_isa.pattern('stm', 'MOVI8(reg)')
 def pattern_mov_u8(context, tree, c0):
     d = tree.value
     context.emit(Mov(d, c0, ismove=True))
@@ -797,6 +798,7 @@ def pattern_mov_i32(context, tree, c0):
     context.emit(Mov(d, c0, ismove=True))
 
 
+@core_isa.pattern('reg', 'REGI8')
 @core_isa.pattern('reg', 'REGU8')
 @core_isa.pattern('reg', 'REGI32')
 @core_isa.pattern('reg', 'REGU32')
@@ -852,11 +854,13 @@ def pattern_const_8(context, tree):
 @core_isa.pattern('reg', 'I32TOI32(reg)')
 @core_isa.pattern('reg', 'U32TOI32(reg)')
 @core_isa.pattern('reg', 'I32TOU32(reg)')
+@core_isa.pattern('reg', 'U32TOU32(reg)')
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
 
 @core_isa.pattern('reg', 'I32TOU8(reg)')
+@core_isa.pattern('reg', 'I32TOI8(reg)')
 def pattern_i32_to_u8(context, tree, c0):
     return c0
 
@@ -885,11 +889,11 @@ def pattern_add_i32_imm(context, tree, c0):
 
 @core_isa.pattern(
     'reg', 'FPRELU32', size=3, cycles=1, energy=1,
-    condition=lambda t: t.value in range(-128, 127))
+    condition=lambda t: t.value.offset in range(-128, 127))
 def pattern_fprel(context, tree):
     d = context.new_reg(AddressRegister)
     fp = a15
-    context.emit(Addi(d, fp, tree.value))
+    context.emit(Addi(d, fp, tree.value.negative))
     return d
 
 
@@ -960,6 +964,14 @@ def pattern_shr_i32(context, tree, c0, c1):
 def pattern_ldr_u8(context, tree, c0):
     d = context.new_reg(AddressRegister)
     context.emit(L8ui(d, c0, 0))
+    return d
+
+
+@core_isa.pattern('reg', 'LDRI8(reg)')
+def pattern_ldr_i8(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    context.emit(L8ui(d, c0, 0))
+    # TODO: emit sign extension here?
     return d
 
 

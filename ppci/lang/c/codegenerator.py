@@ -52,7 +52,7 @@ class CCodeGenerator:
         self.builder = irutils.Builder()
         self.ir_var_map = {}
         self.logger.debug('Generating IR-code')
-        ir_mod = ir.Module('c_compilation_unit')
+        ir_mod = ir.Module('main')
         self.builder.module = ir_mod
         for declaration in compile_unit.declarations:
             self.gen_object(declaration)
@@ -671,7 +671,7 @@ class CCodeGenerator:
         elif isinstance(expr, expressions.StringLiteral):
             # Construct nifty 0-terminated string into memory!
             encoding = 'latin1'
-            data = expr.value.encode(encoding) + bytes([0])
+            data = expr.value[1:-1].encode(encoding) + bytes([0])
             value = self.emit(ir.LiteralData(data, 'cstr'))
         elif isinstance(expr, expressions.CharLiteral):
             ir_typ = self.get_ir_type(expr.typ)
@@ -746,14 +746,9 @@ class CCodeGenerator:
             return self.get_ir_type(self.context.get_type(['int']))
         elif isinstance(typ, types.UnionType):
             size = self.context.sizeof(typ)
-            return ir.BlobDataTyp(size)
-            # TODO: this IS a hack!
-            m = {8: ir.u64}
-            return m[size]
+            return ir.BlobDataTyp.get(size)
         elif isinstance(typ, types.StructType):
             size = self.context.sizeof(typ)
-            # self.logger.warning('Struct not implemented!')
-            return ir.BlobDataTyp(size)
-            # return ir.u64
+            return ir.BlobDataTyp.get(size)
         else:
             raise NotImplementedError(str(typ))

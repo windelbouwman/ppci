@@ -8,8 +8,16 @@ from .generic_instructions import Label
 
 class StackLocation:
     """ A stack location can store data just like a register """
-    def __init__(self):
-        pass
+    def __init__(self, offset, size):
+        self.offset = offset
+        self.size = size
+
+    def __repr__(self):
+        return 'Stack[{} bytes at {}]'.format(self.size, self.offset)
+
+    @property
+    def negative(self):
+        return -self.offset - self.size
 
 
 def generate_temps():
@@ -26,9 +34,8 @@ class Frame:
         Frames differ per machine. The only thing left to do for a frame
         is register allocation.
     """
-    def __init__(self, name, direction=-1):
+    def __init__(self, name):
         self.name = name
-        self.direction = direction
         self.instructions = []
         self.used_regs = set()
         self.temps = generate_temps()
@@ -47,13 +54,9 @@ class Frame:
         """ Allocate space on the stack frame and return the offset """
         # TODO: determine alignment!
         # TODO: grow down or up?
-        if self.direction == -1:
-            offset = -size - self.stacksize
-            self.stacksize += size
-        else:
-            offset = self.stacksize
-            self.stacksize += size
-        return offset
+        l = StackLocation(self.stacksize, size)
+        self.stacksize += size
+        return l
 
     def new_name(self, salt):
         """ Generate a new unique name """

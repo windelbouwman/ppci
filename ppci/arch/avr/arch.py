@@ -99,11 +99,6 @@ class AvrArch(Architecture):
         obj = link([obj1, obj2], partial_link=True)
         return obj
 
-    def new_frame(self, frame_name, function):
-        """ Create a new frame with name frame_name for an ir-function """
-        # TODO: temporary override function
-        return self.FrameClass(frame_name, direction=1)
-
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
         l = []

@@ -661,9 +661,10 @@ def pattern_ldr8(context, tree, c0):
 @isa.pattern('reg', 'FPRELU16', size=8, cycles=2, energy=2)
 def pattern_fprel(context, tree):
     d = context.new_reg(Msp430Register)
+    offset = tree.value.negative
     # frame pointer is r4:
     context.emit(mov(r4, d))
-    context.emit(Add(ConstSrc(tree.value), RegDst(d)))
+    context.emit(Add(ConstSrc(offset), RegDst(d)))
     return d
 
 

@@ -742,7 +742,7 @@ def pattern_label(context, tree):
 @arm_isa.pattern('reg', 'FPRELU32', size=4, cycles=2, energy=2)
 def pattern_fprel32(context, tree):
     d = context.new_reg(ArmRegister)
-    c1 = tree.value
+    c1 = tree.value.negative
     if c1 in range(-255, 256):
         if c1 >= 0:
             context.emit(AddImm(d, R11, c1))

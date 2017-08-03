@@ -680,7 +680,7 @@ def pattern_jmp(context, tree):
 
 
 @avr_isa.pattern('stm', 'CJMP(reg16, reg16)', size=10)
-def pattern_cjmp(context, tree, c0, c1):
+def pattern_cjmp16(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
         "==": (Breq, False),
@@ -695,6 +695,32 @@ def pattern_cjmp(context, tree, c0, c1):
         context.emit(Cpw(c1, c0))
     else:
         context.emit(Cpw(c0, c1))
+
+    jmp_ins_no = Rjmp(no_label.name, jumps=[no_label])
+    jmp_ins_yes = Rjmp(yes_label.name, jumps=[yes_label])
+    yes_label2 = context.new_label()
+    context.emit(Bop(yes_label2.name, jumps=[yes_label2, jmp_ins_no]))
+    context.emit(jmp_ins_no)
+    context.emit(yes_label2)
+    context.emit(jmp_ins_yes)
+
+
+@avr_isa.pattern('stm', 'CJMP(reg, reg)', size=9)
+def pattern_cjmp8(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "==": (Breq, False),
+        "!=": (Brne, False),
+        '<': (Brlt, False),
+        '>': (Brlt, True),
+        '>=': (Brge, False),
+        '<=': (Brge, True)}
+    Bop, swap = opnames[op]
+
+    if swap:
+        context.emit(Cp(c1, c0))
+    else:
+        context.emit(Cp(c0, c1))
 
     jmp_ins_no = Rjmp(no_label.name, jumps=[no_label])
     jmp_ins_yes = Rjmp(yes_label.name, jumps=[yes_label])
@@ -875,13 +901,13 @@ def pattern_ldr8_offset(context, tree, c0):
 
 @avr_isa.pattern(
     'reg', 'LDRI8(FPRELU16)', size=4, cycles=2,
-    condition=lambda t: t[0].value in range(0, 64))
+    condition=lambda t: t[0].value.offset in range(0, 64))
 @avr_isa.pattern(
     'reg', 'LDRU8(FPRELU16)', size=4, cycles=2,
-    condition=lambda t: t[0].value in range(0, 64))
+    condition=lambda t: t[0].value.offset in range(0, 64))
 def pattern_ldr8_offset(context, tree):
     d = context.new_reg(AvrRegister)
-    offset = tree[0].value
+    offset = tree[0].value.offset
     context.emit(Ldd_y(d, Y, offset))
     return d
 
@@ -914,13 +940,13 @@ def pattern_ldr16_offset(context, tree, c0):
 
 @avr_isa.pattern(
     'reg16', 'LDRU16(FPRELU16)', size=4, cycles=4,
-    condition=lambda t: t[0].value < 63)
+    condition=lambda t: t[0].value.offset < 63)
 @avr_isa.pattern(
     'reg16', 'LDRI16(FPRELU16)', size=4, cycles=4,
-    condition=lambda t: t[0].value < 63)
+    condition=lambda t: t[0].value.offset < 63)
 def pattern_ldr16_fprel(context, tree):
     d = context.new_reg(AvrWordRegister)
-    offset = tree[0].value
+    offset = tree[0].value.offset
     context.emit(LddWord_y(d, Y, offset))
     return d
 
@@ -965,12 +991,12 @@ def pattern_str16_offset(context, tree, c0, c1):
 
 @avr_isa.pattern(
     'stm', 'STRU16(FPRELU16, reg16)', size=6,
-    condition=lambda t: t[0].value < 63)
+    condition=lambda t: t[0].value.offset < 63)
 @avr_isa.pattern(
     'stm', 'STRI16(FPRELU16, reg16)', size=6,
-    condition=lambda t: t[0].value < 63)
+    condition=lambda t: t[0].value.offset < 63)
 def pattern_str16_fprel(context, tree, c0):
-    offset = tree[0].value
+    offset = tree[0].value.offset
     context.emit(StdWord_y(Y, offset, c0))
 
 
@@ -1003,6 +1029,6 @@ def pattern_fprel16(context, tree):
     d = context.new_reg(AvrWordRegister)
     context.move(d, Y)
     d2 = context.new_reg(HighAvrWordRegister)
-    context.emit(Ldiw(d2, tree.value))
+    context.emit(Ldiw(d2, tree.value.offset))
     context.emit(Addw(d, d2))
     return d

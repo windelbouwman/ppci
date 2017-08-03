@@ -11,10 +11,11 @@ from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr
 from util import do_long_tests
-from ppci.api import asm, c3c, link, objcopy, bfcompile
-from ppci.api import c3toir, bf2ir, ir_to_python, optimize
+from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
+from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
 from ppci.binutils.objectfile import merge_memories
+from ppci.lang.c import COptions
 
 
 def make_filename(s):
@@ -40,7 +41,7 @@ def only_bf(txt):
     return re.sub(r'[^\.,<>\+-\]\[]', '', txt)
 
 
-def create_test_function(source, output):
+def create_test_function(source, output, lang):
     """ Create a test function for a source file """
     with open(source) as f:
         snippet = f.read()
@@ -48,7 +49,7 @@ def create_test_function(source, output):
         res = f.read()
 
     def tst_func(slf):
-        slf.do(snippet, res)
+        slf.do(snippet, res, lang=lang)
 
     return tst_func
 
@@ -56,14 +57,17 @@ def create_test_function(source, output):
 def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
 
+    extensions = ('.c3', '.bf', '.c')
     def deco(cls):
         for folder in folders:
             for source in source_files(
-                    relpath('samples', folder), ('.c3', '.bf')):
+                    relpath('samples', folder), extensions):
                 output = os.path.splitext(source)[0] + '.out'
-                tf = create_test_function(source, output)
                 basename = os.path.basename(source)
-                func_name = 'test_' + os.path.splitext(basename)[0]
+                name, lang = os.path.splitext(basename)
+                lang = lang[1:]
+                func_name = 'test_' + name
+                tf = create_test_function(source, output, lang)
                 assert not hasattr(cls, func_name)
                 setattr(cls, func_name, tf)
         return cls
@@ -197,6 +201,20 @@ def build(
             o2 = c3c(
                 [bsp_c3], [], march, reporter=reporter)
             objs = [o1, o2, o3]
+        elif lang == 'c':
+            o2 = c3c(
+                [bsp_c3], [], march, reporter=reporter)
+            coptions = COptions()
+            include_path1 = relpath('..', 'librt', 'libc')
+            coptions.add_include_path(include_path1)
+            with open(relpath('..', 'librt', 'libc', 'lib.c'), 'r') as f:
+                o3 = cc(
+                    f, march, coptions=coptions,
+                    reporter=reporter)
+            o4 = cc(
+                io.StringIO(src), march, coptions=coptions,
+                reporter=reporter)
+            objs = [o1, o2, o3, o4]
         else:
             raise NotImplementedError('language not implemented')
         obj = link(
@@ -450,13 +468,30 @@ class TestSamplesOnPython(unittest.TestCase, I32Samples):
            module bsp;
            public function void putc(byte c);
            // var int global_tick; """)
+        march = 'arm'
         with complete_report(report_generator) as reporter:
             if lang == 'c3':
                 ir_modules = c3toir([
                     relpath('..', 'librt', 'io.c3'), bsp,
-                    io.StringIO(src)], [], "arm", reporter=reporter)
+                    io.StringIO(src)], [], march, reporter=reporter)
             elif lang == 'bf':
-                ir_modules = [bf2ir(src, 'arm')]
+                ir_modules = [bf2ir(src, march)]
+            elif lang == 'c':
+                coptions = COptions()
+                include_path1 = relpath('..', 'librt', 'libc')
+                lib = relpath('..', 'librt', 'libc', 'lib.c')
+                coptions.add_include_path(include_path1)
+                with open(lib, 'r') as f:
+                    mod1 = c_to_ir(
+                        f, march,
+                        coptions=coptions, reporter=reporter)
+                mod2 = c_to_ir(
+                    io.StringIO(src), march,
+                    coptions=coptions, reporter=reporter)
+                ir_modules = [mod1, mod2]
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    'Language {} not implemented'.format(lang))
 
             for ir_module in ir_modules:
                 optimize(ir_module, level=self.opt_level, reporter=reporter)

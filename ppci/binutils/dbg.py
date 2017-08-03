@@ -197,7 +197,7 @@ class Debugger:
             section = self.obj.get_section(address.section)
             return section.address + address.offset
         elif isinstance(address, FpOffsetAddress):
-            return self.get_fp() + address.offset
+            return self.get_fp() + address.offset.offset
         else:  # pragma: no cover
             raise NotImplementedError(str(address))
 

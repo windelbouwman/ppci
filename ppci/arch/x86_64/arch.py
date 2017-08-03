@@ -212,7 +212,10 @@ class X86_64Arch(Architecture):
             elif isinstance(arg_loc, XmmRegister):
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, StackLocation):
-                push_ops.append(Push(arg))
+                if isinstance(arg, Register):
+                    push_ops.append(Push(arg))
+                else:
+                    raise NotImplementedError()
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 

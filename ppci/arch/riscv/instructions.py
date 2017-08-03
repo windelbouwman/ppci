@@ -739,11 +739,11 @@ def pattern_label2(context, tree):
 
 @isa.pattern(
     'reg', 'FPRELU32', size=8,
-    condition=lambda t: t.value in range(-2048, 2048))
+    condition=lambda t: t.value.offset in range(-2048, 2048))
 def pattern_fpreli32(context, tree):
     d = context.new_reg(RiscvRegister)
-    c1 = tree.value
-    context.emit(Addi(d, FP, c1))
+    offset = tree.value.negative
+    context.emit(Addi(d, FP, offset))
     return d
 
 

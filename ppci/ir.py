@@ -404,7 +404,12 @@ class Typ:
         return 'ir-typ {}'.format(self.name)
 
 
-class IntegerTyp(Typ):
+class BasicTyp(Typ):
+    """ Basic arithmatic type """
+    pass
+
+
+class IntegerTyp(BasicTyp):
     """ Integer type """
     def __init__(self, name, bits):
         super().__init__(name)
@@ -421,22 +426,33 @@ class UnsignedIntegerTyp(IntegerTyp):
     signed = False
 
 
+class FloatingPointTyp(BasicTyp):
+    pass
+
+
 # TODO: what is the type of a larger slab of data?
 class BlobDataTyp(Typ):
-    def __init__(self, size):
+    _cache = {}
+
+    def __init__(self, size, alignment=1):
         super().__init__('blob')
         self.size = size
+        self.alignment = alignment
 
-    def __eq__(self, other):
-        return (self.name, self.size) == (other.name, other.size)
-
-    def __hash__(self):
-        return hash((self.name, self.size))
+    @classmethod
+    def get(cls, size, alignment=1):
+        key = (size, alignment)
+        if key in cls._cache:
+            typ = cls._cache[key]
+        else:
+            typ = cls(size, alignment=alignment)
+            cls._cache[key] = typ
+        return typ
 
 
 # The builtin types:
-f64 = Typ('f64')  #: 64-bit floating point type
-f32 = Typ('f32')  #: 32-bit floating point type
+f64 = FloatingPointTyp('f64')  #: 64-bit floating point type
+f32 = FloatingPointTyp('f32')  #: 32-bit floating point type
 i64 = SignedIntegerTyp('i64', 64)  #: Signed 64-bit type
 i32 = SignedIntegerTyp('i32', 32)  #: Signed 32-bit type
 i16 = SignedIntegerTyp('i16', 16)  #: Signed 16-bit type

@@ -287,24 +287,6 @@ class Reader:
 
 # Constructing IR:
 
-class NamedClassGenerator:
-    def __init__(self, prefix, cls):
-        self.prefix = prefix
-        self.cls = cls
-
-        def NumGen():
-            a = 0
-            while True:
-                yield a
-                a = a + 1
-        self.nums = NumGen()
-
-    def gen(self, prefix=None):
-        if not prefix:
-            prefix = self.prefix
-        return self.cls('{0}{1}'.format(prefix, self.nums.__next__()))
-
-
 def split_block(block, pos=None, newname='splitblock'):
     """ Split a basic block into two which are connected """
     if pos is None:
@@ -330,7 +312,6 @@ class Builder:
         self.prepare()
 
     def prepare(self):
-        self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
         self.block = None
         self.module = None
         self.function = None
@@ -343,18 +324,23 @@ class Builder:
         assert self.module is not None
         f = ir.Function(name, return_ty)
         self.module.add_function(f)
+        self.block_number = 0
         return f
 
     def new_procedure(self, name):
         assert self.module is not None
         f = ir.Procedure(name)
         self.module.add_function(f)
+        self.block_number = 0
         return f
 
-    def new_block(self):
+    def new_block(self, name=None):
         """ Create a new block and add it to the current function """
         assert self.function is not None
-        block = self.newBlock2()
+        if name is None:
+            name = '{}_block{}'.format(self.function.name, self.block_number)
+            self.block_number += 1
+        block = ir.Block(name)
         self.function.add_block(block)
         return block
 

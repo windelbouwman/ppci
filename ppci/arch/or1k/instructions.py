@@ -4,6 +4,7 @@ from .isa import Orbis32ShiftImmediateToken
 from .registers import Or1kRegister
 from ..encoding import Instruction, Syntax, Operand, Constructor
 from ..encoding import Relocation
+from ..stack import StackLocation
 from . import registers
 
 
@@ -397,6 +398,11 @@ def pattern_xori32(context, tree, c0, c1):
 
 
 # Memory patterns:
+def fp_offset(location):
+    assert isinstance(location, StackLocation)
+    return location.negative - 8
+
+
 @orbis32.pattern('stm', 'STRI8(reg, reg)', size=4, cycles=1, energy=1)
 @orbis32.pattern('stm', 'STRU8(reg, reg)', size=4, cycles=1, energy=1)
 def pattern_str8(context, tree, c0, c1):
@@ -406,7 +412,7 @@ def pattern_str8(context, tree, c0, c1):
 @orbis32.pattern('stm', 'STRI8(FPRELU32, reg)', size=4, cycles=1, energy=1)
 @orbis32.pattern('stm', 'STRU8(FPRELU32, reg)', size=4, cycles=1, energy=1)
 def pattern_str8_fprel(context, tree, c0):
-    offset = tree[0].value - 8
+    offset = fp_offset(tree[0].value)
     context.emit(Sb(offset, registers.r2, c0))
 
 
@@ -419,7 +425,7 @@ def pattern_ldru8(context, tree, c0):
 
 @orbis32.pattern('reg', 'LDRU8(FPRELU32)', size=4)
 def pattern_ldru8_fprel(context, tree):
-    offset = tree[0].value - 8
+    offset = fp_offset(tree[0].value)
     d = context.new_reg(Or1kRegister)
     context.emit(Lbz(d, offset, registers.r2))
     return d
@@ -434,7 +440,7 @@ def pattern_ldri8(context, tree, c0):
 
 @orbis32.pattern('reg', 'LDRI8(FPRELU32)', size=4)
 def pattern_ldri8_fprel(context, tree):
-    offset = tree[0].value - 8
+    offset = fp_offset(tree[0].value)
     d = context.new_reg(Or1kRegister)
     context.emit(Lbs(d, offset, registers.r2))
     return d
@@ -449,7 +455,7 @@ def pattern_str32(context, tree, c0, c1):
 @orbis32.pattern('stm', 'STRI32(FPRELU32, reg)', size=4, cycles=1, energy=1)
 @orbis32.pattern('stm', 'STRU32(FPRELU32, reg)', size=4, cycles=1, energy=1)
 def pattern_str32_fprel(context, tree, c0):
-    offset = tree[0].value - 8
+    offset = fp_offset(tree[0].value)
     context.emit(Sw(offset, registers.r2, c0))
 
 
@@ -470,14 +476,14 @@ def pattern_ldri32(context, tree, c0):
 @orbis32.pattern('reg', 'LDRI32(FPRELU32)', size=4, cycles=1, energy=1)
 def pattern_ldri32_fprel(context, tree):
     d = context.new_reg(Or1kRegister)
-    offset = tree[0].value - 8
+    offset = fp_offset(tree[0].value)
     context.emit(Lws(d, offset, registers.r2))
     return d
 
 
 @orbis32.pattern('reg', 'FPRELU32', size=4, cycles=1, energy=1)
 def pattern_fprel(context, tree):
-    offset = tree.value - 8
+    offset = fp_offset(tree.value)
     d = context.new_reg(Or1kRegister)
     context.emit(Addi(d, registers.r2, Immediate(offset)))
     return d
@@ -591,4 +597,11 @@ def pattern_u8tou32(context, tree, c0):
 def pattern_i32tou8(context, tree, c0):
     d = context.new_reg(Or1kRegister)
     context.emit(Extbz(d, c0))
+    return c0
+
+
+@orbis32.pattern('reg', 'I32TOI8(reg)', size=4, cycles=1, energy=1)
+def pattern_i32toi8(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Extbs(d, c0))
     return c0

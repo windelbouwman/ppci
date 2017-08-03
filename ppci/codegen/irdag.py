@@ -27,12 +27,11 @@ def prepare_function_info(arch, function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
 
-    function_info.epilog_label = Label(
-        make_label_name(ir_function) + '_epilog')
+    function_info.epilog_label = Label(ir_function.name + '_epilog')
 
     for ir_block in ir_function:
         # Put label into map:
-        function_info.label_map[ir_block] = Label(make_label_name(ir_block))
+        function_info.label_map[ir_block] = Label(ir_block.name)
 
         # Create virtual registers for phi-nodes:
         for phi in ir_block.phis:
@@ -136,7 +135,7 @@ class SelectionGraphBuilder:
         # Create maps for global variables:
         for variable in ir_function.module.variables:
             val = self.new_node('LABEL', ir.ptr)
-            val.value = make_label_name(variable)
+            val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
 
         self.load_arguments(ir_function, function_info)
@@ -396,7 +395,7 @@ class SelectionGraphBuilder:
             # A global variable may be contained in another module
             # That is why it is created here, and not in the prepare step
             sgnode = self.new_node('LABEL', ir.ptr)
-            sgnode.value = make_label_name(ir_address)
+            sgnode.value = ir_address.name
             address = sgnode.new_output('address')
         else:
             address = self.get_value(ir_address)
@@ -549,15 +548,3 @@ class SelectionGraphBuilder:
                 # Create move node:
                 sgnode = self.new_node('MOV', phi.ty, val, value=vreg)
                 self.chain(sgnode)
-
-
-def make_label_name(dut):
-    """ Returns the assembly code label name for the given ir-object """
-    if isinstance(dut, ir.Block):
-        return make_label_name(dut.function) + '_block_' + dut.name
-    elif isinstance(dut, (ir.SubRoutine, ir.Variable)):
-        return make_label_name(dut.module) + '_' + dut.name
-    elif isinstance(dut, ir.Module):
-        return dut.name
-    else:  # pragma: no cover
-        raise NotImplementedError(str(dut) + str(type(dut)))

@@ -33,6 +33,9 @@ class While(Statement):
         self.condition = condition
         self.body = body
 
+    def __repr__(self):
+        return 'While'
+
 
 class DoWhile(Statement):
     """ Do-while statement """

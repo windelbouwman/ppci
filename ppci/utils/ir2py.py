@@ -63,7 +63,7 @@ class IrToPython:
         """ Generate a function to python code """
         self.stack_size = 0
         args = ','.join(a.name for a in fn.arguments)
-        self.print(0, 'def {}_{}({}):'.format(self.mod_name, fn.name, args))
+        self.print(0, 'def {}({}):'.format(fn.name, args))
         self.print(1, "prev_block = None")
         self.print(1, "current_block = '{}'".format(fn.entry.name))
         self.print(1, 'while True:')
@@ -135,8 +135,14 @@ class IrToPython:
                 ir.i8: 'mem[{0}:{0}+1] = struct.pack("b",{1})',
                 ir.u8: 'mem[{0}:{0}+1] = struct.pack("B",{1})',
             }
-            fmt = store_formats[ins.value.ty]
-            self.print(3, fmt.format(ins.address.name, ins.value.name))
+            if isinstance(ins.value.ty, ir.BlobDataTyp):
+                self.print(3, 'mem[{0}:{0}+{1}] = {2}'.format(
+                    ins.address.name,
+                    ins.value.ty.size,
+                    ins.value.name))
+            else:
+                fmt = store_formats[ins.value.ty]
+                self.print(3, fmt.format(ins.address.name, ins.value.name))
         elif isinstance(ins, ir.Load):
             load_formats = {
                 ir.f64: '{0}, = struct.unpack("d", mem[{1}:{1}+8])',
