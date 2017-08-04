@@ -815,29 +815,29 @@ def pattern_mov64(context, tree, c0):
     return tree.value
 
 
-@isa.pattern('reg64', 'LDRI64(reg64)', size=2, cycles=2, energy=2)
-@isa.pattern('reg64', 'LDRU64(reg64)', size=2, cycles=2, energy=2)
+# Memory operations
+@isa.pattern('mem', 'reg64', size=1, cycles=1, energy=1)
+def pattern_mem_reg(context, tree, c0):
+    return RmMem(c0)
+
+
+@isa.pattern('mem', 'FPRELU64', size=1, cycles=1, energy=1)
+def pattern_mem_fp_rel(context, tree):
+    offset = tree.value.negative
+    return RmMemDisp(rbp, offset)
+
+
+@isa.pattern('mem', 'ADDI64(reg64, CONSTI64)', size=1, cycles=1, energy=1)
+def pattern_mem_reg_rel(context, tree, c0):
+    offset = tree[1].value
+    return RmMemDisp(c0, offset)
+
+
+@isa.pattern('reg64', 'LDRI64(mem)', size=2, cycles=2, energy=2)
+@isa.pattern('reg64', 'LDRU64(mem)', size=2, cycles=2, energy=2)
 def pattern_ldr64(context, tree, c0):
     d = context.new_reg(X86Register)
-    context.emit(MovRegRm(d, RmMem(c0)))
-    return d
-
-
-@isa.pattern(
-    'reg64', 'LDRI64(ADDI64(reg64, CONSTI64))', size=2, cycles=2, energy=2)
-def pattern_ldr64_2(context, tree, c0):
-    d = context.new_reg(X86Register)
-    c1 = tree.children[0].children[1].value
-    context.emit(MovRegRm(d, RmMemDisp(c0, c1)))
-    return d
-
-
-@isa.pattern(
-    'reg64', 'LDRI64(FPRELU64)', size=2, cycles=2, energy=2)
-def pattern_ldr64_fp_rel(context, tree):
-    d = context.new_reg(X86Register)
-    c1 = tree.children[0].value.negative
-    context.emit(MovRegRm(d, RmMemDisp(rbp, c1)))
+    context.emit(MovRegRm(d, c0))
     return d
 
 
@@ -866,30 +866,10 @@ def pattern_cast64_to8(context, tree, c0):
 
 
 # TODO: differentiate between u64 and i64?
-@isa.pattern('stm', 'STRI64(reg64, reg64)', size=2)
-@isa.pattern('stm', 'STRU64(reg64, reg64)', size=2)
+@isa.pattern('stm', 'STRI64(mem, reg64)', size=2)
+@isa.pattern('stm', 'STRU64(mem, reg64)', size=2)
 def pattern_str64(context, tree, c0, c1):
-    context.emit(MovRmReg(RmMem(c0), c1))
-
-
-@isa.pattern('stm', 'STRI64(ADDI64(reg64, CONSTI64), reg64)', size=4)
-def pattern_str64_2(context, tree, c0, c1):
-    cnst = tree.children[0].children[1].value
-    context.emit(MovRmReg(RmMemDisp(c0, cnst), c1))
-
-
-@isa.pattern('stm', 'STRI64(FPRELU64, reg64)', size=4)
-@isa.pattern('stm', 'STRU64(FPRELU64, reg64)', size=4)
-def pattern_str64_fprel64(context, tree, c0):
-    cnst = tree[0].value.negative
-    context.emit(MovRmReg(RmMemDisp(rbp, cnst), c0))
-
-
-@isa.pattern('stm', 'STRU64(SPRELI64, reg64)', size=1, cycles=1, energy=1)
-@isa.pattern('stm', 'STRI64(SPRELI64, reg64)', size=1, cycles=1, energy=1)
-def pattern_sprel64(context, tree, c0):
-    cnst = tree[0].value
-    context.emit(MovRmReg(RmMemDisp(rsp, cnst), c0))
+    context.emit(MovRmReg(c0, c1))
 
 
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)
@@ -898,6 +878,7 @@ def pattern_str8(context, tree, c0, c1):
     context.emit(MovRmReg8(RmMem(c0), c1))
 
 
+# Arithmatic:
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', size=2, cycles=2, energy=1)
 @isa.pattern('reg64', 'ADDU64(reg64, reg64)', size=2, cycles=2, energy=1)
 def pattern_add64(context, tree, c0, c1):
@@ -928,7 +909,7 @@ def pattern_add64_fprel_const(context, tree):
 def pattern_add64_const_2(context, tree, c0):
     d = context.new_reg(X86Register)
     context.move(d, c0)
-    context.emit(AddImm(d, tree.children[1].value))
+    context.emit(AddImm(d, tree[1].value))
     return d
 
 

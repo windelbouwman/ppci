@@ -644,7 +644,7 @@ def pattern_label(context, tree):
     'reg', 'FPRELU32', size=9, cycles=9)
 def pattern_fprel32(context, tree):
     d = context.new_reg(LowArmRegister)
-    c1 = tree.value.offset
+    c1 = tree.value.negative
     if c1 >= 0:
         if c1 < 8:
             context.emit(Add2(d, R7, c1))

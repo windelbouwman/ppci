@@ -109,7 +109,7 @@ def get_current_arch():
     return march
 
 
-def load_code_as_module(source_file):
+def load_code_as_module(source_file, reporter=None):
     """ Load c3 code as a module """
 
     # Compile a simple function
@@ -117,7 +117,8 @@ def load_code_as_module(source_file):
     if march is None:
         raise NotImplementedError(sys.platform)
 
-    obj1 = c3c([source_file], [], march, debug=True, opt_level=2)
+    obj1 = c3c(
+        [source_file], [], march, debug=True, opt_level=2, reporter=reporter)
     # print(obj1)
     obj = link([obj1], debug=True)
     # print(obj)

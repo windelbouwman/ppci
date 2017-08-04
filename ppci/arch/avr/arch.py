@@ -203,7 +203,6 @@ class AvrArch(Architecture):
         # Copy parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            # assert type(arg_loc) is type(arg)
             if isinstance(arg_loc, AvrRegister):
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, AvrWordRegister):
@@ -225,6 +224,29 @@ class AvrArch(Architecture):
                 yield self.move(rv[1], retval_loc)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_function_enter(self, args):
+        """ Copy arguments into local temporaries and mark registers live """
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        yield RegisterUseDef(defs=arg_regs)
+
+        # Copy parameters:
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, Register):
+                yield self.move(arg, arg_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_function_exit(self, rv):
+        live_out = set()
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield self.move(retval_loc, rv[1])
+            live_out.add(retval_loc)
+        yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """

@@ -634,6 +634,7 @@ def pattern_i32toi8(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'CONSTI32', size=8)
+@arm_isa.pattern('reg', 'CONSTU32', size=8)
 def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)

@@ -44,6 +44,12 @@ class ExampleArch(Architecture):
     def gen_call(self, label, args, rv):
         return []
 
+    def gen_function_enter(self, args):
+        return []
+
+    def gen_function_exit(self, rv):
+        return []
+
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
         """

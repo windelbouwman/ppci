@@ -35,7 +35,7 @@ class Msp430Arch(Architecture):
 
         # Allocatable registers:
         self.fp = r4
-        self.callee_save = (r4, r5, r6, r7, r8, r9, r10)
+        self.callee_save = (r5, r6, r7, r8, r9, r10)
         self.caller_save = (r11, r12, r13, r14, r15)
 
     def move(self, dst, src):
@@ -111,6 +111,28 @@ class Msp430Arch(Architecture):
             retval_loc = self.determine_rv_location(rv[0])
             yield RegisterUseDef(defs=(retval_loc,))
             yield self.move(rv[1], retval_loc)
+
+    def gen_function_enter(self, args):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, Msp430Register))
+        yield RegisterUseDef(defs=arg_regs)
+
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, Msp430Register):
+                yield self.move(arg, arg_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_function_exit(self, rv):
+        live_out = set()
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield self.move(retval_loc, rv[1])
+            live_out.add(retval_loc)
+        yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """

@@ -8,6 +8,44 @@ strategy is to split the DAG into a forest of trees and match these
 trees.
 
 Another solution may be: PBQP (Partitioned Boolean Quadratic Programming)
+
+The selection process creates operations in a selection DAG. The possible
+operations are listed in the below table:
+
++---------------+---------+-----------------------------------------+
+| operation     | types   | description                             |
++===============+=========+=========================================+
+| ADD(c0,c1)    | I,U     | Add its operands                        |
++---------------+---------+-----------------------------------------+
+| SUB(c0,c1)    | I,U     | Substracts c1 from c0                   |
++---------------+---------+-----------------------------------------+
+| MUL(c0,c1)    | I,U     | Multiplies c0 by c1                     |
++---------------+---------+-----------------------------------------+
+| DIV(c0,c1)    | I,U     | Divides c0 by c1                        |
++---------------+---------+-----------------------------------------+
+| OR(c0,c1)     | I,U     | Bitwise or                              |
++---------------+---------+-----------------------------------------+
+| AND(c0,c1)    | I,U     | Bitwise and                             |
++---------------+---------+-----------------------------------------+
+| XOR(c0,c1)    | I,U     | Bitwise exclusive or                    |
++---------------+---------+-----------------------------------------+
+| LDR(c0)       | I,U     | Load from memory                        |
++---------------+---------+-----------------------------------------+
+| STR(c0,c1)    | I,U     | Store value c1 at memory address c0     |
++---------------+---------+-----------------------------------------+
+| FPREL         | U       | Frame pointer relative location         |
++---------------+---------+-----------------------------------------+
+| CONST         | I,U     | Constant value                          |
++---------------+---------+-----------------------------------------+
+| REG           | I,U     | Value in a specific register            |
++---------------+---------+-----------------------------------------+
+| JMP           | I,U     | Jump to a label                         |
++---------------+---------+-----------------------------------------+
+| CJMP          | I,U     | Conditional jump to a label             |
++---------------+---------+-----------------------------------------+
+
+...
+
 """
 
 import abc
@@ -40,7 +78,6 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
              "JMP", "CJMP",
              "EXIT", "ENTRY",
-             'VENTER', 'VEXIT',
              'ALLOCA', 'FREEA')
 
 
@@ -186,10 +223,6 @@ class InstructionSelector1:
 
         # Add special case nodes:
         self.sys.add_rule(
-            'stm', Tree('VENTER'), 0, None, self.enter_func)
-        self.sys.add_rule(
-            'stm', Tree('VEXIT'), 0, None, self.exit_func)
-        self.sys.add_rule(
             'stm', Tree('CALL'), 0, None, self.call_function)
 
         # Add all isa patterns:
@@ -209,14 +242,6 @@ class InstructionSelector1:
         for instruction in self.arch.gen_call(label, args, rv):
             context.emit(instruction)
 
-    @staticmethod
-    def enter_func(context, tree):
-        context.emit(RegisterUseDef(defs=tree.value))
-
-    @staticmethod
-    def exit_func(context, tree):
-        context.emit(RegisterUseDef(uses=tree.value))
-
     def select(self, ir_function: ir.SubRoutine, frame, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.SubRoutine)
@@ -225,9 +250,6 @@ class InstructionSelector1:
         # Create a object that carries global function info:
         function_info = FunctionInfo(frame)
         prepare_function_info(self.arch, function_info, ir_function)
-
-        # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.arch, self.debug_db)
 
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(ir_function, function_info)
@@ -238,8 +260,23 @@ class InstructionSelector1:
             sgraph, ir_function, function_info)
         reporter.dump_trees(forest)
 
+        # Create a context that can emit instructions:
+        context = InstructionContext(frame, self.arch, self.debug_db)
+
+        args = list(zip(function_info.arg_types, function_info.arg_vregs))
+        for instruction in self.arch.gen_function_enter(args):
+            context.emit(instruction)
+
         # Generate proper instructions:
         self.munch_trees(context, forest)
+
+        # Generate function tail:
+        if isinstance(ir_function, ir.Function):
+            rv = (ir_function.return_ty, function_info.rv_vreg)
+        else:
+            rv = None
+        for instruction in self.arch.gen_function_exit(rv):
+            context.emit(instruction)
 
         # TODO!!!
         # Emit code between blocks:

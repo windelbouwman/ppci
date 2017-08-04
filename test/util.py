@@ -6,10 +6,23 @@ import socket
 import time
 import shutil
 import logging
+import string
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger('util')
+
+
+def make_filename(s):
+    """ Remove all invalid characters from a string for a valid filename.
+        And create a directory if none present.
+    """
+    output_dir = relpath('listings')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    valid_chars = string.ascii_letters + string.digits
+    basename = ''.join(c for c in s if c in valid_chars)
+    return os.path.join(output_dir, basename)
 
 
 def relpath(*args):

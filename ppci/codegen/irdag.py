@@ -138,104 +138,26 @@ class SelectionGraphBuilder:
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
 
-        self.load_arguments(ir_function, function_info)
+        self.current_token = self.new_node('ENTRY', None).new_output(
+            'token', kind=SGValue.CONTROL)
+
+        # Create temporary registers for aruments:
+        for arg, vreg in zip(ir_function.arguments, function_info.arg_vregs):
+            param_node = self.new_node('REG', arg.ty, value=vreg)
+            output = param_node.new_output(arg.name)
+            output.vreg = vreg
+
+            # When refering the paramater, use the copied value:
+            self.add_map(arg, output)
+
+            self.chain(param_node)
 
         # Generate nodes for all blocks:
         for ir_block in depth_first_order(ir_function):
             self.block_to_sgraph(ir_block, function_info)
 
-        self.store_return_value(ir_function, function_info)
-
         self.sgraph.check()
         return self.sgraph
-
-    def load_arguments(self, ir_function, function_info):
-        # HACK to enter this into entry block:
-        self.current_block = 'foo'
-
-        # Create start node:
-        entry = self.new_node('ENTRY', None)
-        self.current_token = entry.new_output('token', kind=SGValue.CONTROL)
-
-        # Determine argument properties:
-        args = ir_function.arguments
-        arg_types = [a.ty for a in args]
-        arg_locs = self.arch.determine_arg_locations(arg_types)
-
-        # Mark incoming registers live:
-        live_in = [l for l in arg_locs if isinstance(l, Register)]
-        mark_node = self.new_node('VENTER', None, value=live_in)
-        self.chain(mark_node)
-
-        # Copy arguments:
-        # TODO: this is now hardcoded for x86:
-        stack_offset = 16
-
-        arg_vregs = function_info.arg_vregs
-        for arg, arg_loc, vreg in zip(args, arg_locs, arg_vregs):
-            # if isinstance(arg_loc, Register):
-            # TODO: implement memory copy
-            if isinstance(arg_loc, Register):
-                if arg_loc.bitsize != vreg.bitsize:
-                    # Argument is a register, but requires a cast
-                    # Determine proper code for register argument:
-                    ty = arg.ty
-                    if ty is ir.ptr:
-                        ty = self.ptr_ty
-                    x = '{}{}'.format(str(ty).upper()[0], arg_loc.bitsize)
-
-                    # Convert to proper size using casting:
-                    assert arg_loc.bitsize > vreg.bitsize
-                    fp_node1 = self.new_node(
-                        'REG', ir.get_ty(x), value=arg_loc)
-                    fp_output1 = fp_node1.new_output(arg.name)
-                    fp_output1.vreg = arg_loc
-                    self.chain(fp_node1)
-
-                    # Create conversion node:
-                    fp_node2 = self.new_node(
-                        '{}TO'.format(x), arg.ty, fp_output1)
-                    fp_output = fp_node2.new_output(arg.name)
-                    self.chain(fp_node2)
-                else:
-                    fp_node = self.new_node('REG', arg.ty, value=arg_loc)
-                    fp_output = fp_node.new_output(arg.name)
-                    fp_output.vreg = arg_loc
-                    self.chain(fp_node)
-            elif isinstance(arg_loc, StackLocation):
-                # Argument is passed on stack, load it!
-                sgnode = self.new_node('FPREL', ir.ptr, value=stack_offset)
-                # TODO: hard coded for x86:
-                stack_offset += 8
-                bp = sgnode.new_output(arg.name)
-
-                # Load it:
-                fp_node = self.new_node('LDR', arg.ty, bp)
-                fp_output = fp_node.new_output(arg.name)
-                self.chain(fp_node)
-
-                # TODO: This is a good place to copy stack passed structs
-            else:
-                raise NotImplementedError()
-
-            # Move into new temp register:
-            mov_node = self.new_node('MOV', arg.ty, fp_output, value=vreg)
-            self.chain(mov_node)
-
-            # Create temporary registers for aruments:
-            param_node = self.new_node('REG', arg.ty, value=vreg)
-            output = param_node.new_output(arg.name)
-            output.vreg = vreg
-            self.chain(param_node)
-
-            # When refering the paramater, use the copied value:
-            self.add_map(arg, output)
-
-        # Hack hack hack:
-        function_info.block_tails['foo'] = self.current_token.node
-
-        sgnode = self.new_node('EXIT', None)
-        sgnode.add_input(self.current_token)
 
     def block_to_sgraph(self, ir_block: ir.Block, function_info):
         """ Create dag (directed acyclic graph) from a basic block.
@@ -265,41 +187,6 @@ class SelectionGraphBuilder:
         function_info.block_tails[ir_block] = self.current_token.node
 
         # Create end node:
-        sgnode = self.new_node('EXIT', None)
-        sgnode.add_input(self.current_token)
-
-    def store_return_value(self, ir_function, function_info):
-        self.current_block = 'bar'
-
-        # Create start node:
-        entry = self.new_node('ENTRY', None)
-        self.current_token = entry.new_output('token', kind=SGValue.CONTROL)
-
-        if isinstance(ir_function, ir.Function):
-            # Determine return value location:
-            ty = ir_function.return_ty
-            rv = self.arch.determine_rv_location(ty)
-
-            # Fetch register containing return value:
-            vreg = function_info.rv_vreg
-            rv_node = self.new_node('REG', ty, value=vreg)
-            rv_output = rv_node.new_output('rv')
-            rv_output.vreg = vreg
-
-            # Move return value into register:
-            mov_node = self.new_node('MOV', ty, rv_output, value=rv)
-            self.chain(mov_node)
-            live_out = [rv]
-        else:
-            live_out = []
-
-        # Mark outgoing registers live:
-        mark_node = self.new_node('VEXIT', None, value=live_out)
-        self.chain(mark_node)
-
-        # End current group:
-        function_info.block_tails['bar'] = self.current_token.node
-
         sgnode = self.new_node('EXIT', None)
         sgnode.add_input(self.current_token)
 
@@ -376,17 +263,17 @@ class SelectionGraphBuilder:
         # fp_output = fp.new_output('fp')
         # fp_output.wants_vreg = False
         # offset = self.new_node("CONST", ir.ptr)
-        offset = self.function_info.frame.alloc(node.amount)
+        slot = self.function_info.frame.alloc(node.amount)
         # offset_output = offset.new_output('offset')
         # offset_output.wants_vreg = False
-        sgnode = self.new_node('FPREL', ir.ptr, value=offset)
+        sgnode = self.new_node('FPREL', ir.ptr, value=slot)
 
         output = sgnode.new_output('alloc')
         output.wants_vreg = False
         self.add_map(node, output)
         if self.debug_db.contains(node):
             dbg_var = self.debug_db.get(node)
-            dbg_var.address = FpOffsetAddress(offset)
+            dbg_var.address = FpOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
 
     def get_address(self, ir_address):

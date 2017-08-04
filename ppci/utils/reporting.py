@@ -422,10 +422,11 @@ class HtmlReportGenerator(TextWritingReporter):
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
         with collapseable(self, 'Frame'):
+            used_regs = list(sorted(frame.used_regs, key=lambda r: r.name))
             self.print('<p><div class="codeblock">')
             self.print(frame)
             self.print('<p>stack size: {}</p>'.format(frame.stacksize))
-            self.print('<p>Used: {}</p>'.format(frame.used_regs))
+            self.print('<p>Used: {}</p>'.format(used_regs))
             self.print('<table border="1">')
             self.print('<tr>')
             self.print('<th>#</th><th>instruction</th>')
@@ -433,6 +434,8 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print('<th>jump</th><th>move</th>')
             self.print('<th>gen</th><th>kill</th>')
             self.print('<th>live_in</th><th>live_out</th>')
+            for ur in used_regs:
+                self.print('<th>{}</th>'.format(ur))
             self.print('</tr>')
             for idx, ins in enumerate(frame.instructions):
                 self.print('<tr>')
@@ -470,6 +473,12 @@ class HtmlReportGenerator(TextWritingReporter):
                 if hasattr(ins, 'live_out'):
                     self.print(str2(ins.live_out))
                 self.print('</td>')
+                for ur in used_regs:
+                    self.print('<td>')
+                    for r2 in ins.live_out:
+                        if r2.color == ur.color:
+                            self.print(r2.name)
+                    self.print('</td>')
                 self.print('</tr>')
             self.print("</table>")
             self.print('</div></p>')

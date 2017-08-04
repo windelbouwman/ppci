@@ -25,7 +25,7 @@ r2 = Msp430Register('r2', num=2, aka=('sr',))
 SR = r2  # Status register
 r3 = Msp430Register('r3', num=3, aka=('cg',))
 CG = r3  # Constant generator
-r4 = Msp430Register('r4', num=4)
+r4 = Msp430Register('r4', num=4)  # Frame pointer
 r5 = Msp430Register('r5', num=5)
 r6 = Msp430Register('r6', num=6)
 r7 = Msp430Register('r7', num=7)
@@ -41,7 +41,7 @@ r15 = Msp430Register('r15', num=15)
 Msp430Register.registers = [
     r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 
-all_registers = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
+all_registers = [r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 
 num2reg = {r.num: r for r in all_registers}
 

@@ -501,33 +501,39 @@ def pattern_mov8(context, tree, c0):
     context.emit(mov(c0, dst))
 
 
-@isa.pattern('reg', 'CONSTI16', size=4, cycles=1, energy=1)
-@isa.pattern('reg', 'CONSTU16', size=4, cycles=1, energy=1)
-def pattern_const16(context, tree):
-    dst = context.new_reg(Msp430Register)
-    cnst = tree.value
-    context.emit(Mov(ConstSrc(cnst), RegDst(dst)))
-    return dst
-
-
-@isa.pattern('reg', 'CONSTI8', size=4)
-@isa.pattern('reg', 'CONSTU8', size=4)
-def pattern_const8(context, tree):
-    dst = context.new_reg(Msp430Register)
-    cnst = tree.value
-    context.emit(Mov(ConstSrc(cnst), RegDst(dst)))
-    return dst
-
-
-@isa.pattern('reg', 'REGI16', size=0, cycles=0, energy=0)
-@isa.pattern('reg', 'REGU16', size=0, cycles=0, energy=0)
-def pattern_reg16(context, tree):
+@isa.pattern('cnst', 'CONSTI8', size=0, cycles=0, energy=0)
+@isa.pattern('cnst', 'CONSTU8', size=0, cycles=0, energy=0)
+@isa.pattern('cnst', 'CONSTI16', size=0, cycles=0, energy=0)
+@isa.pattern('cnst', 'CONSTU16', size=0, cycles=0, energy=0)
+def pattern_cnst(context, tree):
     return tree.value
+
+
+@isa.pattern('cnst', 'I16TOI16(cnst)', size=0, cycles=0, energy=0)
+@isa.pattern('cnst', 'I16TOU16(cnst)', size=0, cycles=0, energy=0)
+@isa.pattern('cnst', 'U16TOU16(cnst)', size=0, cycles=0, energy=0)
+@isa.pattern('cnst', 'U16TOI16(cnst)', size=0, cycles=0, energy=0)
+def pattern_i16toi16_const(context, tree, c0):
+    return c0
+
+
+# @isa.pattern('cnstsrc', 'cnst', size=2, cycles=0, energy=0)
+# def pattern_cnst_src(context, tree, c0):
+#    return ConstSrc(c0)
+
+
+@isa.pattern('reg', 'cnst', size=4, cycles=1, energy=1)
+def pattern_const16(context, tree, c0):
+    dst = context.new_reg(Msp430Register)
+    context.emit(Mov(ConstSrc(c0), RegDst(dst)))
+    return dst
 
 
 @isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
-def pattern_reg8(context, tree):
+@isa.pattern('reg', 'REGI16', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGU16', size=0, cycles=0, energy=0)
+def pattern_reg16(context, tree):
     return tree.value
 
 
@@ -574,7 +580,7 @@ def call_intrinsic(context, label, args, clobbers=()):
 @isa.pattern('reg', 'MULI16(reg, reg)', size=10)
 def pattern_mul16(context, tree, c0, c1):
     return call_intrinsic(
-        context, 'msp430_runtime___div', (c0, c1),
+        context, 'msp430_runtime___mul', (c0, c1),
         clobbers=context.arch.caller_save)
 
 
@@ -613,8 +619,8 @@ def pattern_shl16(context, tree, c0, c1):
     return call_intrinsic(context, '__shl', (c0, c1), clobbers=[r13])
 
 
-@isa.pattern('reg', 'ADDI16(reg, reg)', size=4)
-@isa.pattern('reg', 'ADDU16(reg, reg)', size=4)
+@isa.pattern('reg', 'ADDI16(reg, reg)', size=4, cycles=1, energy=1)
+@isa.pattern('reg', 'ADDU16(reg, reg)', size=4, cycles=1, energy=1)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
@@ -630,31 +636,65 @@ def pattern_sub16(context, tree, c0, c1):
     return d
 
 
-@isa.pattern('stm', 'STRI16(reg, reg)', size=2)
-@isa.pattern('stm', 'STRU16(reg, reg)', size=2)
+@isa.pattern('memdst', 'reg', size=2, cycles=0, energy=0)
+def pattern_mem_dst(context, tree, c0):
+    return MemDst(0, c0)
+
+
+@isa.pattern('memdst', 'ADDU16(reg, cnst)', size=2, cycles=0, energy=0)
+def pattern_mem_dst_const(context, tree, c0, c1):
+    return MemDst(c1, c0)
+
+
+@isa.pattern('memdst', 'FPRELU16', size=2, cycles=0, energy=0)
+def pattern_memdst_fprel(context, tree):
+    offset = tree.value.negative
+    # frame pointer is r4:
+    return MemDst(offset, r4)
+
+
+@isa.pattern('stm', 'STRI16(memdst, reg)', size=2)
+@isa.pattern('stm', 'STRU16(memdst, reg)', size=2)
 def pattern_str16(context, tree, c0, c1):
-    context.emit(Mov(RegSrc(c1), MemDst(0, c0)))
+    context.emit(Mov(RegSrc(c1), c0))
 
 
-@isa.pattern('stm', 'STRI8(reg, reg)', size=2)
-@isa.pattern('stm', 'STRU8(reg, reg)', size=2)
+@isa.pattern('stm', 'STRI8(memdst, reg)', size=2)
+@isa.pattern('stm', 'STRU8(memdst, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
-    context.emit(Movb(RegSrc(c1), MemDst(0, c0)))
+    context.emit(Movb(RegSrc(c1), c0))
 
 
-@isa.pattern('reg', 'LDRI16(reg)', size=2, cycles=3, energy=2)
-@isa.pattern('reg', 'LDRU16(reg)', size=2, cycles=3, energy=2)
+@isa.pattern('memsrc', 'reg', size=0, cycles=0, energy=0)
+def pattern_mem_src(context, tree, c0):
+    return MemSrc(c0)
+
+
+@isa.pattern('memsrc', 'ADDU16(reg, cnst)', size=2, cycles=0, energy=0)
+def pattern_mem_src_offset(context, tree, c0, c1):
+    return MemSrcOffset(c1, c0)
+
+
+@isa.pattern('memsrc', 'FPRELU16', size=2, cycles=0, energy=0)
+def pattern_mem_src_fprel(context, tree):
+    offset = tree.value.negative
+    # frame pointer is r4:
+    return MemSrcOffset(offset, r4)
+
+
+@isa.pattern('reg', 'LDRI16(memsrc)', size=2, cycles=3, energy=2)
+@isa.pattern('reg', 'LDRU16(memsrc)', size=2, cycles=3, energy=2)
 def pattern_ldr16(context, tree, c0):
     d = context.new_reg(Msp430Register)
-    context.emit(Mov(MemSrc(c0), RegDst(d)))
+    context.emit(Mov(c0, RegDst(d)))
     return d
 
 
-@isa.pattern('reg', 'LDRI8(reg)', size=2)
-@isa.pattern('reg', 'LDRU8(reg)', size=2)
+@isa.pattern('reg', 'LDRI8(memsrc)', size=2)
+@isa.pattern('reg', 'LDRU8(memsrc)', size=2)
 def pattern_ldr8(context, tree, c0):
     d = context.new_reg(Msp430Register)
-    context.emit(Movb(MemSrc(c0), RegDst(d)))
+    context.emit(Movb(c0, RegDst(d)))
     return d
 
 

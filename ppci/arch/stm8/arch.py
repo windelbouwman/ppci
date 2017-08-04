@@ -36,6 +36,12 @@ class Stm8Arch(Architecture):
     def gen_call(self, label, args, rv):
         raise NotImplementedError()
 
+    def gen_function_enter(self, args):
+        raise NotImplementedError()
+
+    def gen_function_exit(self, rv):
+        raise NotImplementedError()
+
     def determine_arg_locations(self, arg_types):
         ''' Calling convention in priority order:
         - Pointers in index registers;

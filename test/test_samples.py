@@ -2,7 +2,6 @@ import unittest
 import io
 import logging
 import re
-import string
 import os
 import platform
 import subprocess
@@ -10,24 +9,12 @@ from tempfile import mkstemp
 from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr
-from util import do_long_tests
+from util import do_long_tests, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator, complete_report
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
-
-
-def make_filename(s):
-    """ Remove all invalid characters from a string for a valid filename.
-        And create a directory if none present.
-    """
-    output_dir = relpath('listings')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    valid_chars = string.ascii_letters + string.digits
-    basename = ''.join(c for c in s if c in valid_chars)
-    return os.path.join(output_dir, basename)
 
 
 def enable_report_logger(filename):

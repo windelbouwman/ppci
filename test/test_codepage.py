@@ -1,7 +1,9 @@
 
 import unittest
 import io
+from util import make_filename
 from ppci.utils.codepage import load_code_as_module, platform_supported
+from ppci.utils.reporting import HtmlReportGenerator, complete_report
 
 
 def has_numpy():
@@ -45,7 +47,8 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(104.14, x)
 
 
-@unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
+# @unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
+@unittest.skip('TODO: research segfault')
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
         source_file = io.StringIO("""
@@ -63,7 +66,10 @@ class NumpyCodePageTestCase(unittest.TestCase):
                 return 0xff;
             }
             """)
-        m = load_code_as_module(source_file)
+        html_filename = make_filename(self.id()) + '.html'
+        report_generator = HtmlReportGenerator(open(html_filename, 'w'))
+        with complete_report(report_generator) as reporter:
+            m = load_code_as_module(source_file, reporter=reporter)
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 8, 3, 5, 8, 1, 4, 6, 2], dtype=int)

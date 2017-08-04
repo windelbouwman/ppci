@@ -73,6 +73,7 @@ list of abstract machine instructions.
 To select instruction, a tree rewrite system is used. This is also called
 bottom up rewrite generator (BURG). See pyburg.
 
+.. automodule:: ppci.codegen.instructionselector
 
 Register allocation
 ~~~~~~~~~~~~~~~~~~~

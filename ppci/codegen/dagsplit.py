@@ -32,11 +32,6 @@ class DagSplitter:
         forest = []
         self.assign_vregs(sgraph, function_info)
 
-        # Process special case entry:
-        block_trees = self.split_group_into_trees(
-            sgraph, function_info, 'foo')
-        forest.extend(block_trees)
-
         # Process other blocks:
         for ir_block in ir_function:
             block_trees = self.split_group_into_trees(
@@ -46,9 +41,6 @@ class DagSplitter:
 
         # Emit epilog label here, return and exit instructions jump to it
         forest.append(function_info.epilog_label)
-        block_trees = self.split_group_into_trees(
-            sgraph, function_info, 'bar')
-        forest.extend(block_trees)
 
         return forest
 

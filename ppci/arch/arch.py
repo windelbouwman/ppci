@@ -95,9 +95,26 @@ class Architecture(metaclass=abc.ABCMeta):
         raise NotImplementedError('Implement this!')
 
     @abc.abstractmethod
-    def gen_call(self, label, args, rv):
+    def gen_call(self, label, args, rv):  # pragma: no cover
         """ Generate instructions for a function call. """
         raise NotImplementedError('Implement this!')
+
+    @abc.abstractmethod
+    def gen_function_enter(self, args):  # pragma: no cover
+        """ Generate code to extract arguments from the proper locations
+
+        The default implementation tries to use registers and move
+        instructions.
+
+        Arguments:
+            args: an iterable of virtual registers in which the arguments
+                  must be placed.
+        """
+        raise NotImplementedError('Implement me!')
+
+    @abc.abstractmethod
+    def gen_function_exit(self, rv):  # pragma: no cover
+        raise NotImplementedError('Implement me!')
 
     def between_blocks(self, frame):
         """ Generate any instructions here if needed between two blocks """

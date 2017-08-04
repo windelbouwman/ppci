@@ -116,9 +116,6 @@ class CodeGenerator:
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame, reporter)
 
-        # Define arguments live at first instruction:
-        # self.define_arguments_live(frame)
-
         reporter.dump_frame(frame)
 
         # Do register allocation:
@@ -223,15 +220,3 @@ class CodeGenerator:
                 # print(tmp, di)
                 frame.live_ranges(tmp)
                 # print('live ranges:', lr)
-
-    def define_arguments_live(self, frame):
-        """ Prepend a special instruction in front of the frame """
-        ins0 = RegisterUseDef()
-        frame.instructions.insert(0, ins0)
-        for register in frame.live_in:
-            ins0.add_def(register)
-
-        ins2 = RegisterUseDef()
-        frame.instructions.append(ins2)
-        for register in frame.live_out:
-            ins2.add_use(register)
