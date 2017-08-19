@@ -6,8 +6,9 @@ typedef struct { int a; char b; int c; } foo_t;
 void do3(int x, foo_t y, int z)
 {
   printf("Enter do\n");
-  volatile int g = x + y.a + y.b + y.c + z;
-  // # print(g)
+  int g;
+  g = x + y.a + (int)y.b + y.c + z;
+  myprint("v:", g);
   printf("Exit do\n");
 }
 

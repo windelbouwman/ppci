@@ -407,13 +407,18 @@ def preprocess(f, output_file, coptions=None):
     CTokenPrinter().dump(tokens, file=output_file)
 
 
-def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
+def c_to_ir(
+        source: io.TextIOBase, march, coptions=None, debug_db=None,
+        reporter=None):
     """ C to ir translation. """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    if not coptions:
+    if not coptions:  # pragma: no cover
         coptions = COptions()
+
+    if not debug_db:  # pragma: no cover
+        debug_db = DebugDb()
 
     march = get_arch(march)
     cbuilder = CBuilder(march.info, coptions)
@@ -422,17 +427,20 @@ def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
         filename = getattr(source, 'name')
     else:
         filename = None
-    ir_module = cbuilder.build(source, filename, reporter=reporter)
+    ir_module = cbuilder.build(
+        source, filename, debug_db=debug_db, reporter=reporter)
     return ir_module
 
 
-def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
+def cc(source: io.TextIOBase, march, coptions=None,
+       debug=False, reporter=None):
     """ C compiler. compiles a single source file into an object file.
 
     Args:
         source: file like object from which text can be read
         march: The architecture for which to compile
         coptions: options for the C frontend
+        debug: Create debug info when set to True
 
     Returns:
         an object file
@@ -452,11 +460,17 @@ def cc(source: io.TextIOBase, march, coptions=None, reporter=None):
 
     if not coptions:
         coptions = COptions()
+    debug_db = DebugDb()
 
-    ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
+    ir_module = c_to_ir(
+        source, march, coptions=coptions, debug_db=debug_db,
+        reporter=reporter)
     reporter.message('{} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
-    return ir_to_object([ir_module], march, reporter=reporter)
+    return ir_to_object(
+        [ir_module], march,
+        debug_db=debug_db, debug=debug,
+        reporter=reporter)
 
 
 def llvm_to_ir(source):

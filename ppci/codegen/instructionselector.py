@@ -46,6 +46,12 @@ operations are listed in the below table:
 
 ...
 
+Memory move operations:
+
+- STRI64(REGI32[rax], CONSTI32[1])
+- MOVB()
+
+
 """
 
 import abc
@@ -76,6 +82,7 @@ ops = [
 
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
+             'MOVB', 'BLOB',
              "JMP", "CJMP",
              "EXIT", "ENTRY",
              'ALLOCA', 'FREEA')
@@ -154,12 +161,15 @@ class TreeSelector:
                 if all(x.state.has_goal(y) for x, y in zip(kids, nts)) \
                         and accept:
                     cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
-                    cost = cost + rule.cost
-                    tree.state.set_cost(rule.non_term, cost, rule.nr)
+                    self.mark_tree(tree, rule, cost)
 
-                    # Also set cost for chain rules here:
-                    for cr in self.sys.chain_rules_for_nt(rule.non_term):
-                        tree.state.set_cost(cr.non_term, cost + cr.cost, cr.nr)
+    def mark_tree(self, tree, rule, cost):
+        cost = cost + rule.cost
+        tree.state.set_cost(rule.non_term, cost, rule.nr)
+
+        # Also set cost for chain rules here:
+        for cr in self.sys.chain_rules_for_nt(rule.non_term):
+            self.mark_tree(tree, cr, cost)
 
     def apply_rules(self, context, tree, goal):
         """ Apply all selected instructions to the tree """
@@ -240,6 +250,11 @@ class InstructionSelector1:
     def call_function(self, context, tree):
         label, args, rv = tree.value
         for instruction in self.arch.gen_call(label, args, rv):
+            context.emit(instruction)
+
+    def memcp(self):
+        """ Invoke memcpy arch function """
+        for instruction in self.arch.gen_memcpy(dst, src, size):
             context.emit(instruction)
 
     def select(self, ir_function: ir.SubRoutine, frame, reporter):

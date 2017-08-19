@@ -103,7 +103,9 @@ class TextWritingReporter(ReportGenerator):
 
     def dump_instructions(self, instructions, arch):
         asm_printer = arch.asm_printer
-        text_stream = TextOutputStream(asm_printer, f=self.dump_file)
+        text_stream = TextOutputStream(
+            asm_printer, f=self.dump_file,
+            add_binary=True)
         text_stream.emit_all(instructions)
 
 

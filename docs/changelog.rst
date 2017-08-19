@@ -10,6 +10,10 @@ Release 1.0 (Planned)
 Release 0.5.4 (Upcoming)
 ------------------------
 
+* Addition of open risc (or1k) architecture support
+* Added command line options to emit assembly output
+* Created ppci.lang.tools module with helper classes for parsing and lexing
+
 Release 0.5.3 (Apr 27, 2017)
 ----------------------------
 

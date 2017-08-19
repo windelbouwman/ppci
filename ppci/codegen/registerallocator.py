@@ -141,8 +141,8 @@ class MiniCtx(ContextInterface):
         """ Generate move """
         self.emit(self._arch.move(dst, src))
 
-    def emit(self, ins):
-        self.l.append(ins)
+    def emit(self, instruction):
+        self.l.append(instruction)
 
     def new_reg(self, cls):
         return self._frame.new_reg(cls)

@@ -5,6 +5,7 @@
 
 import logging
 import abc
+import binascii
 from ..arch.encoding import Instruction
 from ..arch.asm_printer import AsmPrinter
 from ..arch.generic_instructions import Alignment, DebugData, Label
@@ -42,8 +43,9 @@ class OutputStream(metaclass=abc.ABCMeta):
 
 class TextOutputStream(OutputStream):
     """ Output stream that writes instruction as text. """
-    def __init__(self, printer=None, f=None):
+    def __init__(self, printer=None, f=None, add_binary=False):
         self.f = f
+        self.add_binary = add_binary
         if printer:
             self.printer = printer
         else:
@@ -55,7 +57,12 @@ class TextOutputStream(OutputStream):
         if isinstance(item, Label):
             print(txt, file=self.f)
         else:
-            print('   ', txt, file=self.f)
+            if self.add_binary:
+                b = binascii.hexlify(item.encode()).decode('ascii')
+                prefix = '   {:16} '.format(b)
+            else:
+                prefix = '   '
+            print(prefix, txt, file=self.f)
 
 
 class BinaryOutputStream(OutputStream):

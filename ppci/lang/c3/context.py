@@ -200,17 +200,46 @@ class Context:
 
         if self.equal_types(typ_a, typ_b):
             return typ_a
+
         # Handle pointers:
         if isinstance(typ_a, ast.PointerType) and \
                 self.equal_types(typ_b, 'int'):
             return typ_a
 
+        if isinstance(typ_b, ast.PointerType) and \
+                self.equal_types(typ_a, 'int'):
+            return typ_b
+
+        # Handle basic types:
+        all_type_names = [
+            # 'int', 'byte',
+            'float', 'double',
+            'int8_t', 'int16_t', 'int32_t', 'int64_t',
+            'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t'
+        ]
+        all_types = [self.get_type(n) for n in all_type_names]
+        type_lu = {(type(t), t.bits): t for t in all_types}
+        type_prios = {
+            ast.UnsignedIntegerType: 1,
+            ast.SignedIntegerType: 2,
+            ast.FloatType: 3
+        }
+        reverz = {v: k for k, v in type_prios.items()}
+        a = type(typ_a)
+        b = type(typ_b)
+        if a in type_prios and b in type_prios:
+            ct = reverz[max(type_prios[a], type_prios[b])]
+            cb = max(typ_a.bits, typ_b.bits)
+            key = (ct, cb)
+            if key in type_lu:
+                return type_lu[key]
+
         # Handle non-pointers:
-        key = (typ_a, typ_b)
-        if key not in table:
-            raise SemanticError(
-                "Types {} and {} do not commute".format(typ_a, typ_b), loc)
-        return table[(typ_a, typ_b)]
+        # key = (typ_a, typ_b)
+        # if key not in table:
+        raise SemanticError(
+            "Types {} and {} do not commute".format(typ_a, typ_b), loc)
+        # return table[(typ_a, typ_b)]
 
     def get_type(self, typ, reveil_defined=True):
         """ Get type given by str, identifier or type.

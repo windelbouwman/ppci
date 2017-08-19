@@ -19,10 +19,14 @@ class CBuilder:
         self.coptions = coptions
         self.cgen = None
 
-    def build(self, src: io.TextIOBase, filename: str, reporter=None):
+    def build(self, src: io.TextIOBase, filename: str, debug_db,
+            reporter=None):
+        if not debug_db:
+            raise ValueError('Please provide a debug db')
         if reporter:
             reporter.heading(2, 'C builder')
-            reporter.message('Welcome to the C building report')
+            reporter.message(
+                'Welcome to the C building report for {}'.format(filename))
         cdialect = self.coptions['std']
         self.logger.info('Starting C compilation (%s)', cdialect)
         context = CContext(self.coptions, self.arch_info)
@@ -40,7 +44,7 @@ class CBuilder:
             reporter.heading(2, 'C-ast')
             reporter.message('Behold the abstract syntax tree of your C-code')
             reporter.dump_raw_text(f.getvalue())
-        cgen = CCodeGenerator(context)
+        cgen = CCodeGenerator(context, debug_db)
         return cgen.gen_code(compile_unit)
 
 

@@ -744,3 +744,10 @@ class Tya(Mcs6500Instruction):
     tokens = [OpcodeToken]
     syntax = Syntax(['tya'])
     patterns = {'opcode': 0x98}
+
+
+# Pattern matching:
+@isa.pattern('stm', 'JMP', size=4)
+def pattern_jmp(context, tree):
+    tgt = tree.value
+    context.emit(Jmp(AbsoluteLabel(tgt.name), jumps=[tgt]))

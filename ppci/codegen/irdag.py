@@ -41,9 +41,13 @@ def prepare_function_info(arch, function_info, ir_function):
 
     function_info.arg_vregs = []
     for arg in ir_function.arguments:
-        # New vreg:
-        vreg = function_info.frame.new_reg(
-            arch.value_classes[arg.ty], twain=arg.name)
+        if arg.ty in arch.value_classes:
+            # New vreg:
+            vreg = function_info.frame.new_reg(
+                arch.value_classes[arg.ty], twain=arg.name)
+        else:
+            # Allocate space on stack for this argument:
+            vreg = function_info.frame.alloc(arg.ty.size)
         function_info.arg_vregs.append(vreg)
 
     if isinstance(ir_function, ir.Function):
@@ -291,7 +295,10 @@ class SelectionGraphBuilder:
     def do_load(self, node):
         """ Create dag node for load operation """
         address = self.get_address(node.address)
-        sgnode = self.new_node('LDR', node.ty, address)
+        if isinstance(node.ty, ir.BlobDataTyp):
+            sgnode = self.new_node('MOVB', None, address)
+        else:
+            sgnode = self.new_node('LDR', node.ty, address)
         # Make sure a data dependence is added to this node
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)

@@ -14,7 +14,7 @@ from ppci.api import get_arch
 
 def print_module(m):
     f = io.StringIO()
-    Writer().write(m, f)
+    Writer(file=f).write(m)
     print(f.getvalue())
 
 

@@ -7,3 +7,4 @@ This section contains several howto documents.
     toy
     backend
     optimizer
+    jitting

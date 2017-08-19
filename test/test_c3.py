@@ -2,6 +2,7 @@ import unittest
 import logging
 import io
 from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter, Context
+from ppci.lang.c3 import astnodes
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
@@ -44,6 +45,36 @@ class LexerTestCase(unittest.TestCase):
         """
         toks = ['var', 'ID', 'ID', '=', 'NUMBER', ';', 'EOF']
         self.check(snippet, toks)
+
+
+class TypesTestCase(unittest.TestCase):
+    def setUp(self):
+        arch = ExampleArch()
+        self.context = Context(arch.info)
+
+    def common_type(self, typ_a, typ_b):
+        a = astnodes.Literal(1, None)
+        a.typ = typ_a
+        b = astnodes.Literal(1, None)
+        b.typ = typ_b
+        return self.context.get_common_type(a, b, None)
+
+    def test_common_type(self):
+        byte_type = self.context.get_type('byte')
+        int_type = self.context.get_type('int')
+        int32_type = self.context.get_type('int32_t')
+        common_type = self.common_type(byte_type, int_type)
+        self.assertIs(int32_type, common_type)
+
+    def test_common_type2(self):
+        arch = ExampleArch()
+        context = Context(arch.info)
+        uint16_type = self.context.get_type('uint16_t')
+        int16_type = self.context.get_type('int16_t')
+        # TODO: tbd, what is the result of uint16_t and int16_t?
+        # int32_type = self.context.get_type('int32_t')
+        common_type = self.common_type(uint16_type, int16_type)
+        self.assertIs(int16_type, common_type)
 
 
 class AstPrinterTestCase(unittest.TestCase):

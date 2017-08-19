@@ -2,7 +2,10 @@ import struct
 
 
 def u16(h):
-    return struct.pack('<H', h)
+    if h < 0:
+        return struct.pack('<h', h)
+    else:
+        return struct.pack('<H', h)
 
 
 def u32(x):

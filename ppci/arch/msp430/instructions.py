@@ -517,15 +517,15 @@ def pattern_i16toi16_const(context, tree, c0):
     return c0
 
 
-# @isa.pattern('cnstsrc', 'cnst', size=2, cycles=0, energy=0)
-# def pattern_cnst_src(context, tree, c0):
-#    return ConstSrc(c0)
+@isa.pattern('cnstsrc', 'cnst', size=2, cycles=0, energy=0)
+def pattern_cnst_src(context, tree, c0):
+    return ConstSrc(c0)
 
 
-@isa.pattern('reg', 'cnst', size=4, cycles=1, energy=1)
+@isa.pattern('reg', 'cnstsrc', size=4, cycles=1, energy=1)
 def pattern_const16(context, tree, c0):
     dst = context.new_reg(Msp430Register)
-    context.emit(Mov(ConstSrc(c0), RegDst(dst)))
+    context.emit(Mov(c0, RegDst(dst)))
     return dst
 
 
@@ -628,11 +628,41 @@ def pattern_add16(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg32', 'ADDI32(reg32, reg32)', size=8, cycles=2, energy=2)
+@isa.pattern('reg32', 'ADDU32(reg32, reg32)', size=8, cycles=2, energy=2)
+def pattern_add32(context, tree, c0, c1):
+    # Add two register pairs into a third register pair!
+    dh = context.new_reg(Msp430Register)
+    dl = context.new_reg(Msp430Register)
+    c0h, c0l = c0
+    c1h, c1l = c1
+    context.emit(mov(c0h, dh))
+    context.emit(mov(c0l, dl))
+    context.emit(Add(RegSrc(c1l), RegDst(dl)))
+    context.emit(Addc(RegSrc(c1h), RegDst(dh)))
+    return (dh, dl)
+
+
 @isa.pattern('reg', 'SUBI16(reg, reg)', size=4)
+@isa.pattern('reg', 'SUBU16(reg, reg)', size=4)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Sub(RegSrc(c1), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg32', 'SUBI32(reg32, reg32)', size=8)
+@isa.pattern('reg32', 'SUBU32(reg32, reg32)', size=8)
+def pattern_sub32(context, tree, c0, c1):
+    dh = context.new_reg(Msp430Register)
+    dl = context.new_reg(Msp430Register)
+    c0h, c0l = c0
+    c1h, c1l = c1
+    context.emit(mov(c0h, dh))
+    context.emit(mov(c0l, dl))
+    context.emit(Sub(RegSrc(c1l), RegDst(dl)))
+    context.emit(Subc(RegSrc(c1h), RegDst(dh)))
     return d
 
 
@@ -648,9 +678,9 @@ def pattern_mem_dst_const(context, tree, c0, c1):
 
 @isa.pattern('memdst', 'FPRELU16', size=2, cycles=0, energy=0)
 def pattern_memdst_fprel(context, tree):
-    offset = tree.value.negative
-    # frame pointer is r4:
-    return MemDst(offset, r4)
+    offset = tree.value.offset
+    # frame pointer is not used, use stack pointer
+    return MemDst(offset, SP)
 
 
 @isa.pattern('stm', 'STRI16(memdst, reg)', size=2)
@@ -677,9 +707,8 @@ def pattern_mem_src_offset(context, tree, c0, c1):
 
 @isa.pattern('memsrc', 'FPRELU16', size=2, cycles=0, energy=0)
 def pattern_mem_src_fprel(context, tree):
-    offset = tree.value.negative
-    # frame pointer is r4:
-    return MemSrcOffset(offset, r4)
+    offset = tree.value.offset
+    return MemSrcOffset(offset, SP)
 
 
 @isa.pattern('reg', 'LDRI16(memsrc)', size=2, cycles=3, energy=2)
@@ -701,9 +730,9 @@ def pattern_ldr8(context, tree, c0):
 @isa.pattern('reg', 'FPRELU16', size=8, cycles=2, energy=2)
 def pattern_fprel(context, tree):
     d = context.new_reg(Msp430Register)
-    offset = tree.value.negative
+    offset = tree.value.offset
     # frame pointer is r4:
-    context.emit(mov(r4, d))
+    context.emit(mov(SP, d))
     context.emit(Add(ConstSrc(offset), RegDst(d)))
     return d
 

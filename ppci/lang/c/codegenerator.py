@@ -1,6 +1,7 @@
 import logging
 from ... import ir, irutils
 from ...common import CompilerError
+from ...binutils import debuginfo
 from . import types, declarations, statements, expressions
 from .types import BareType
 
@@ -9,8 +10,9 @@ class CCodeGenerator:
     """ Converts parsed C code to ir-code """
     logger = logging.getLogger('ccodegen')
 
-    def __init__(self, context):
+    def __init__(self, context, debug_db):
         self.context = context
+        self.debug_db = debug_db
         self.builder = None
         self.ir_var_map = {}
         self.constant_values = {}
@@ -138,6 +140,16 @@ class CCodeGenerator:
                 ir_var = self.emit(ir.Alloc(argument.name + '_alloc', size))
                 self.emit(ir.Store(ir_argument, ir_var))
                 self.ir_var_map[argument] = ir_var
+
+        # Generate debug info for function:
+        dbg_args = [
+            debuginfo.DebugParameter(a.name, self.get_debug_type(a.typ))
+            for a in function.typ.arguments]
+        dfi = debuginfo.DebugFunction(
+            function.name, function.location,
+            self.get_debug_type(function.typ.return_type),
+            dbg_args)
+        self.debug_db.enter(ir_function, dfi)
 
         # Generate code for body:
         assert isinstance(function.body, statements.Compound)
@@ -750,5 +762,27 @@ class CCodeGenerator:
         elif isinstance(typ, types.StructType):
             size = self.context.sizeof(typ)
             return ir.BlobDataTyp.get(size)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+
+    def get_debug_type(self, typ: types.CType):
+        """ Get or create debug type info in the debug information """
+        # Find cached values:
+        if self.debug_db.contains(typ):
+            return self.debug_db.get(typ)
+
+        if isinstance(typ, types.BareType):
+            if typ.is_void:
+                dbg_typ = debuginfo.DebugBaseType(
+                    typ.type_id, 0, 1)
+            else:
+                dbg_typ = debuginfo.DebugBaseType(
+                    typ.type_id, self.context.sizeof(typ), 1)
+            self.debug_db.enter(typ, dbg_typ)
+        elif isinstance(typ, types.PointerType):
+            ptype = self.get_debug_type(typ.element_type)
+            dbg_typ = debuginfo.DebugPointerType(ptype)
+            self.debug_db.enter(typ, dbg_typ)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+        return dbg_typ

@@ -184,8 +184,9 @@ class BurgSystem:
     def tree(self, name, *args):
         return Tree(name, *args)
 
-    def chain_rules_for_nt(self, nt):
-        return self.symbols[nt].chain_rules
+    def chain_rules_for_nt(self, non_terminal):
+        """ Retrieve chain rules for a given non terminal """
+        return self.symbols[non_terminal].chain_rules
 
     def install(self, name, t):
         assert type(name) is str

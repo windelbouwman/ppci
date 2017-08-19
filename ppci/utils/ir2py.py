@@ -155,8 +155,14 @@ class IrToPython:
                 ir.i8: '{0}, = struct.unpack("b", mem[{1}:{1}+1])',
                 ir.u8: '{0}, = struct.unpack("B", mem[{1}:{1}+1])',
             }
-            fmt = load_formats[ins.ty]
-            self.print(3, fmt.format(ins.name, ins.address.name))
+            if isinstance(ins.ty, ir.BlobDataTyp):
+                self.print(3, '{0} = mem[{1}:{1}+{2}]'.format(
+                    ins.name,
+                    ins.address.name,
+                    ins.ty.size))
+            else:
+                fmt = load_formats[ins.ty]
+                self.print(3, fmt.format(ins.name, ins.address.name))
         elif isinstance(ins, ir.FunctionCall):
             args = ', '.join(a.name for a in ins.arguments)
             self.print(3, '{} = {}({})'.format(

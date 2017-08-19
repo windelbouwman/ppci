@@ -22,7 +22,7 @@ from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, RmMemDisp, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
-from .instructions import Call, Ret
+from .instructions import Call, Ret, MovRegRm16, RmReg16
 from .x87_instructions import x87_isa
 from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
 from .sse2_instructions import PushXmm, PopXmm
@@ -30,7 +30,7 @@ from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
 from .registers import X86Register, LowRegister, XmmRegister
 from .registers import rbp, rsp, al
-from . import registers
+from . import instructions, registers
 
 
 # TODO: Use something like the below?
@@ -103,6 +103,9 @@ class X86_64Arch(Architecture):
         """ Generate a move from src to dst """
         if isinstance(dst, LowRegister) and isinstance(src, LowRegister):
             return MovRegRm8(dst, RmReg8(src), ismove=True)
+        elif isinstance(dst, registers.ShortRegister) and \
+                isinstance(src, registers.ShortRegister):
+            return MovRegRm16(dst, RmReg16(src), ismove=True)
         elif isinstance(dst, LowRegister) and isinstance(src, X86Register):
             raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, X86Register) and isinstance(src, LowRegister):
@@ -111,16 +114,30 @@ class X86_64Arch(Architecture):
             return MovRegRm(dst, RmReg(src), ismove=True)
         elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
             return Movss(dst, RmXmmReg(src), ismove=True)
-        else:
-            raise NotImplementedError()  # pragma: no cover
+        else:  # pragma: no cover
+            raise NotImplementedError(str(type(dst))+str(type(src)))
 
     def gen_memcpy(self, dst, src, count):
         """ Generate a memcpy action """
-        yield instructions.Mov(rdi, dst)
-        yield instructions.Mov(rsi, src)
-        yield instructions.Mov(rcx, count)
-        yield instructions.Rep(count)
-        yield instructions.Resb()
+        # Destination pointer:
+        yield instructions.Lea(rdi, RmMemDisp(rbp, dst))
+
+        # Source pointer:
+        yield instructions.Lea(rsi, RmMemDisp(rbp, src))
+
+        yield instructions.MovImm(rcx, count)     # Byte count
+        yield instructions.Rep()
+        yield RegisterUseDef(uses=(rcx,))
+        yield instructions.Movsb()
+
+        # for x in 
+        # Memcopy action!
+        # yield mov(rdi, arg)
+        # yield mov(rsi, arg_loc)
+        # yield mov(rcx, arg_loc.size)
+        # yield rep()
+        # yield movsb()
+        # raise NotImplementedError()
 
     @staticmethod
     def push(register):
@@ -171,6 +188,7 @@ class X86_64Arch(Architecture):
                 registers.xmm3, registers.xmm4, registers.xmm5,
                 registers.xmm6, registers.xmm7]
 
+        offset = 0
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [
@@ -180,9 +198,13 @@ class X86_64Arch(Architecture):
                     reg = int_regs.pop(0)
                 else:
                     # We need stack location!
-                    reg = StackLocation(0, 100)
+                    reg = StackLocation(offset, arg_type.size)
+                    offset += arg_type.size
             elif arg_type in [ir.f32, ir.f64]:
                 reg = float_regs.pop(0)
+            elif isinstance(arg_type, ir.BlobDataTyp):
+                reg = StackLocation(offset, arg_type.size)
+                offset += arg_type.size
             else:  # pragma: no cover
                 raise NotImplementedError(str(arg_type))
             arg_locs.append(reg)
@@ -207,25 +229,42 @@ class X86_64Arch(Architecture):
         yield RegisterUseDef(defs=arg_regs)
 
         stack_offset = 0
+        cps = []
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, X86Register):
-                if isinstance(arg, X86Register):
+            if isinstance(arg_loc, registers.X86Register):
+                if isinstance(arg, registers.X86Register):
                     yield self.move(arg, arg_loc)
-                elif isinstance(arg, LowRegister):
+                elif isinstance(arg, registers.LowRegister):
                     # Extract character part:
                     yield self.move(rax, arg_loc)
                     yield RegisterUseDef(uses=(rax,), defs=(al,))
                     yield self.move(arg, al)
+                elif isinstance(arg, registers.ShortRegister):
+                    # Extract character part:
+                    yield self.move(rax, arg_loc)
+                    yield RegisterUseDef(uses=(rax,), defs=(registers.ax,))
+                    yield self.move(arg, registers.ax)
                 else:  # pragma: no cover
-                    raise NotImplementedError()
+                    raise NotImplementedError(str(type(arg)))
             elif isinstance(arg_loc, XmmRegister):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
-                yield MovRegRm(arg, RmMemDisp(rbp, stack_offset + 16))
-                stack_offset += 8
+                if isinstance(arg, registers.X86Register):
+                    yield MovRegRm(arg, RmMemDisp(rbp, stack_offset + 16))
+                    stack_offset += 8
+                elif isinstance(arg, StackLocation):
+                    # Store memcpy action for later:
+                    cps.append((arg.offset, stack_offset, arg.size))
+                    stack_offset += arg.size
+                else:  # pragma: no cover
+                    raise NotImplementedError()
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
+
+        for dst, src, count in cps:
+            for instruction in self.gen_memcpy(dst, src, count):
+                yield instruction
 
     def gen_function_exit(self, rv):
         live_out = set()

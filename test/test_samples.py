@@ -502,8 +502,8 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', '8bit')
-class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
-    opt_level = 2
+class TestSamplesOnMsp430(unittest.TestCase, BuildMixin):
+    opt_level = 0
     march = "msp430"
     startercode = """
       section reset_vector
@@ -586,6 +586,10 @@ class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
         if has_iverilog():
             res = run_msp430(mem_file)
             self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnMsp430O2(TestSamplesOnMsp430):
+    opt_level = 2
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')

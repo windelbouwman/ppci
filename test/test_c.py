@@ -12,6 +12,7 @@ from ppci.lang.c.utils import cnum, replace_escape_codes
 from ppci.arch.example import ExampleArch
 from ppci import ir
 from ppci.irutils import Verifier
+from ppci.binutils.debuginfo import DebugDb
 
 
 testdir = os.path.dirname(os.path.abspath(__file__))
@@ -295,7 +296,7 @@ class CFrontendTestCase(unittest.TestCase):
     def do(self, src):
         f = io.StringIO(src)
         try:
-            ir_module = self.builder.build(f, None)
+            ir_module = self.builder.build(f, None, DebugDb())
         except CompilerError as compiler_error:
             lines = src.split('\n')
             compiler_error.render(lines)

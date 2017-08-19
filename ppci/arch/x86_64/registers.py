@@ -27,6 +27,10 @@ class X86Register(Register):
         return self.num & 0x7
 
 
+class ShortRegister(Register):
+    bitsize = 16
+
+
 class LowRegister(Register):
     bitsize = 8
 
@@ -70,18 +74,21 @@ bh = LowRegister('bh', 7)
 
 LowRegister.registers = [al, bl, cl, dl, ah, ch, dh, bh]
 
-# TODO
-ax = None
+ax = ShortRegister('ax', 0, aliases=(al, ah))
+cx = ShortRegister('cx', 1, aliases=(cl, ch))
+dx = ShortRegister('dx', 2, aliases=(dl, dh))
+bx = ShortRegister('bx', 3, aliases=(bl, bh))
+ShortRegister.registers = (ax, bx, cx, dx)
 
 # regs64 = {'rax': 0,'rcx':1,'rdx':2,'rbx':3,'rsp':4,'rbp':5,'rsi':6,'rdi':7,
 # 'r8':0,'r9':1,'r10':2,'r11':3,'r12':4,'r13':5,'r14':6,'r15':7}
 # regs32 = {'eax': 0, 'ecx':1, 'edx':2, 'ebx': 3, 'esp': 4, 'ebp': 5, 'esi':6,
 # 'edi':7}
 # regs8 = {'al':0,'cl':1,'dl':2,'bl':3,'ah':4,'ch':5,'dh':6,'bh':7}
-rax = X86Register('rax', 0, aliases=(al, ah))
-rcx = X86Register('rcx', 1, aliases=(cl, ch))
-rdx = X86Register('rdx', 2, aliases=(dl, dh))
-rbx = X86Register('rbx', 3, aliases=(bl, bh))
+rax = X86Register('rax', 0, aliases=(al, ah, ax))
+rcx = X86Register('rcx', 1, aliases=(cl, ch, cx))
+rdx = X86Register('rdx', 2, aliases=(dl, dh, dx))
+rbx = X86Register('rbx', 3, aliases=(bl, bh, bx))
 rsp = X86Register('rsp', 4)
 rbp = X86Register('rbp', 5)
 rsi = X86Register('rsi', 6)
@@ -159,10 +166,13 @@ caller_save = (rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11)
 register_classes = [
     RegisterClass(
         'reg64',
-        [ir.i64, ir.u64, ir.ptr, ir.i16, ir.u16],
+        [ir.i64, ir.u64, ir.ptr, ir.i32, ir.u32],
         X86Register,
         [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
-    RegisterClass('reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
+    RegisterClass(
+        'reg16', [ir.i16, ir.u16], ShortRegister, [ax, bx, cx, dx]),
+    RegisterClass(
+        'reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
     RegisterClass(
         'regfp', [ir.f32, ir.f64], XmmRegister,
         XmmRegister.registers),

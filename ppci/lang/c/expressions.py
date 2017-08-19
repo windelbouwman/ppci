@@ -110,8 +110,8 @@ class FieldSelect(Expression):
         self.base = base
         self.field = field
 
-    def __repr__(self):
-        return 'Field select'
+    def __str__(self):
+        return 'Field select .{}'.format(self.field.name)
 
 
 class VariableAccess(Expression):

@@ -1,9 +1,10 @@
 from ... import ir
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
+from ..generic_instructions import Label
 from ...binutils.assembler import BaseAssembler
 from .instructions import isa
-from . import registers
+from . import registers, instructions
 
 
 class Mcs6500Arch(Architecture):
@@ -23,18 +24,24 @@ class Mcs6500Arch(Architecture):
             })
 
     def gen_prologue(self, frame):
-        raise NotImplementedError()
+        # Label indication function:
+        yield Label(frame.name)
 
     def gen_epilogue(self, frame):
-        raise NotImplementedError()
+        yield instructions.Rts()
 
     def gen_call(self, label, args, rv):
-        raise NotImplementedError()
+        # Put arguments on stack?
+        yield instructions.Jsr(instructions.AbsoluteLabel(label))
+        # Clean stack?
 
     def gen_function_enter(self, args):
-        raise NotImplementedError()
+        # Fetch arguments from stack?
+        return []
 
     def gen_function_exit(self, rv):
+        # Put return value into place.
+        return []
         raise NotImplementedError()
 
     def determine_arg_locations(self, arg_types):
