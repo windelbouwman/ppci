@@ -733,7 +733,8 @@ def pattern_mov8(context, tree, c0):
     return reg
 
 
-@thumb_isa.pattern('stm', 'CJMP(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPI32(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPI8(reg,reg)', size=6)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
@@ -792,6 +793,7 @@ def pattern_sub8(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
 def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -800,6 +802,7 @@ def pattern_shr32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ORU32(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -808,6 +811,7 @@ def pattern_or32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
 def pattern_and32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -816,6 +820,7 @@ def pattern_and32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHLU32(reg, reg)', size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)

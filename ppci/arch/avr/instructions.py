@@ -679,7 +679,8 @@ def pattern_jmp(context, tree):
     context.emit(Rjmp(tgt.name, jumps=[tgt]))
 
 
-@avr_isa.pattern('stm', 'CJMP(reg16, reg16)', size=10)
+@avr_isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=10)
+@avr_isa.pattern('stm', 'CJMPU16(reg16, reg16)', size=10)
 def pattern_cjmp16(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
@@ -705,7 +706,8 @@ def pattern_cjmp16(context, tree, c0, c1):
     context.emit(jmp_ins_yes)
 
 
-@avr_isa.pattern('stm', 'CJMP(reg, reg)', size=9)
+@avr_isa.pattern('stm', 'CJMPI8(reg, reg)', size=9)
+@avr_isa.pattern('stm', 'CJMPU8(reg, reg)', size=9)
 def pattern_cjmp8(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {

@@ -931,6 +931,7 @@ def pattern_div32(context, tree, c0, c1):
 
 
 @core_isa.pattern('reg', 'ANDI32(reg,reg)')
+@core_isa.pattern('reg', 'ANDU32(reg,reg)')
 def pattern_and_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(And(d, c0, c1))
@@ -938,6 +939,7 @@ def pattern_and_i32(context, tree, c0, c1):
 
 
 @core_isa.pattern('reg', 'ORI32(reg,reg)')
+@core_isa.pattern('reg', 'ORU32(reg,reg)')
 def pattern_or_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Or(d, c0, c1))
@@ -945,6 +947,7 @@ def pattern_or_i32(context, tree, c0, c1):
 
 
 @core_isa.pattern('reg', 'SHLI32(reg,reg)')
+@core_isa.pattern('reg', 'SHLU32(reg,reg)')
 def pattern_shl_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Ssl(c1))
@@ -953,6 +956,7 @@ def pattern_shl_i32(context, tree, c0, c1):
 
 
 @core_isa.pattern('reg', 'SHRI32(reg,reg)')
+@core_isa.pattern('reg', 'SHRU32(reg,reg)')
 def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Ssr(c1))
@@ -1016,7 +1020,8 @@ def pattern_jmp(context, tree):
     context.emit(J(tgt.name, jumps=[tgt]))
 
 
-@core_isa.pattern('stm', 'CJMP(reg, reg)')
+@core_isa.pattern('stm', 'CJMPI32(reg, reg)')
+@core_isa.pattern('stm', 'CJMPI8(reg, reg)')
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {

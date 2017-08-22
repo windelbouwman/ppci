@@ -458,7 +458,7 @@ def pattern_ldr_f64(context, tree, c0):
     return d
 
 
-@sse1_isa.pattern('stm', 'CJMP(regfp,regfp)', size=6, cycles=3, energy=3)
+@sse1_isa.pattern('stm', 'CJMPF32(regfp,regfp)', size=6, cycles=3, energy=3)
 def pattern_cjmp_f(context, tree, c0, c1):
     # TODO: is it float32 or float64?
     context.emit(Ucomiss(c0, RmXmmReg(c1)))

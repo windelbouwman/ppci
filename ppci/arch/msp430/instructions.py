@@ -471,7 +471,8 @@ def pattern_jmp(context, tree):
     context.emit(Jmp(tgt.name, jumps=[tgt]))
 
 
-@isa.pattern('stm', 'CJMP(reg, reg)', size=10)
+@isa.pattern('stm', 'CJMPI16(reg, reg)', size=10)
+@isa.pattern('stm', 'CJMPI8(reg, reg)', size=10)
 def pattern_cjmp(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
     opnames = {"<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge}
@@ -561,6 +562,15 @@ def pattern_i8toi16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Sxt(d))
+    return d
+
+
+@isa.pattern('reg', 'U8TOI16(reg)', size=0, cycles=0, energy=0)
+def pattern_u8toi16(context, tree, c0):
+    """ byte to signed short """
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(And(ConstSrc(0xff), RegDst(d)))
     return d
 
 

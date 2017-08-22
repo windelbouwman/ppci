@@ -615,7 +615,7 @@ def pattern_stri32_addi32(context, tree, c0, c1):
     context.emit(Swv(c1, offset, c0))
 
 
-@rvcisa.pattern('stm', 'CJMP(reg, reg)', size=1)
+@rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=1)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {

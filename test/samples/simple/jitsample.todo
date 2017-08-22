@@ -17,14 +17,14 @@ void main_main()
   a[0] = 1;
   a[1] = 2;
   a[2] = 3;
-  int b[3] = {5,4,9}; // TODO!
-  b[0] = 5;
-  b[1] = 4;
-  b[2] = 9;
+  struct {int foo; int b[3];} b = {1927, {5,4,9}}; // TODO!
+  b.b[0] = 5;
+  b.b[1] = 4;
+  b.b[2] = 9;
   myprint("a=", a[2]);
   int count = 3;
   count = 3;
   int res;
-  res = x(a, b, count);
+  res = x(a, b.b, count);
   myprint("x=", res);
 }

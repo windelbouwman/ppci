@@ -20,11 +20,12 @@ function void main()
    b = b - cast<uint8_t>(3);
    io.print2("b=", b);
 
-   var uint32_t c;
-   c = 0xfffffffe;
-   io.print2("c=", cast<int32_t>(c));
-   c = c + cast<uint32_t>(3);
-   io.print2("c=", cast<int32_t>(c));
-   c = c - cast<uint32_t>(3);
-   io.print2("c=", cast<int32_t>(c));
+  // TODO:
+   //var uint32_t c;
+   //c = 0xfffffffe;
+   //io.print2("c=", cast<int32_t>(c));
+   //c = c + cast<uint32_t>(3);
+   //io.print2("c=", cast<int32_t>(c));
+   //c = c - cast<uint32_t>(3);
+   //io.print2("c=", cast<int32_t>(c));
 }

@@ -12,7 +12,7 @@ from util import has_avr_emulator, run_avr
 from util import do_long_tests, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
-from ppci.utils.reporting import HtmlReportGenerator, complete_report
+from ppci.utils.reporting import HtmlReportGenerator
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
 
@@ -170,9 +170,7 @@ def build(
     """ Construct object file from source snippet """
     list_filename = base_filename + '.html'
 
-    report_generator = HtmlReportGenerator(open(list_filename, 'w'))
-
-    with complete_report(report_generator) as reporter:
+    with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
         o1 = asm(crt0_asm, march)
         if lang == 'c3':
             srcs = [
@@ -450,13 +448,12 @@ class TestSamplesOnPython(unittest.TestCase, I32Samples):
         sample_filename = base_filename + '.py'
         list_filename = base_filename + '.html'
 
-        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
         bsp = io.StringIO("""
            module bsp;
            public function void putc(byte c);
            // var int global_tick; """)
         march = 'arm'
-        with complete_report(report_generator) as reporter:
+        with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
             if lang == 'c3':
                 ir_modules = c3toir([
                     relpath('..', 'librt', 'io.c3'), bsp,

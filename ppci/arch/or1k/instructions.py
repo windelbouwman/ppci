@@ -324,6 +324,7 @@ def pattern_andi32(context, tree, c0, c1):
 
 
 @orbis32.pattern('reg', 'SHRI32(reg, reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('reg', 'SHRU32(reg, reg)', size=4, cycles=1, energy=1)
 def pattern_shri32(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Srl(d, c0, c1))
@@ -331,6 +332,7 @@ def pattern_shri32(context, tree, c0, c1):
 
 
 @orbis32.pattern('reg', 'SHLI32(reg, reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('reg', 'SHLU32(reg, reg)', size=4, cycles=1, energy=1)
 def pattern_shli32(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Sll(d, c0, c1))
@@ -352,7 +354,9 @@ def pattern_divu32(context, tree, c0, c1):
 
 
 @orbis32.pattern('reg', 'ORI8(reg, reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('reg', 'ORU8(reg, reg)', size=4, cycles=1, energy=1)
 @orbis32.pattern('reg', 'ORI32(reg, reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('reg', 'ORU32(reg, reg)', size=4, cycles=1, energy=1)
 def pattern_ori32(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Or(d, c0, c1))
@@ -497,7 +501,8 @@ def pattern_jmp(context, tree):
     context.emit(Nop(0))  # Fill delay slot
 
 
-@orbis32.pattern('stm', 'CJMP(reg, reg)', size=10)
+@orbis32.pattern('stm', 'CJMPI32(reg, reg)', size=10)
+@orbis32.pattern('stm', 'CJMPI8(reg, reg)', size=10)
 def pattern_cjmp(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
     opnames = {

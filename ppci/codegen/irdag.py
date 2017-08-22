@@ -247,8 +247,9 @@ class SelectionGraphBuilder:
         """ Process conditional jump into dag """
         lhs = self.get_value(node.a)
         rhs = self.get_value(node.b)
+        assert node.a.ty is node.b.ty
         cond = node.cond
-        sgnode = self.new_node('CJMP', None, lhs, rhs)
+        sgnode = self.new_node('CJMP', node.a.ty, lhs, rhs)
         sgnode.value = cond, self.function_info.label_map[node.lab_yes],\
             self.function_info.label_map[node.lab_no]
         self.chain(sgnode)

@@ -21,7 +21,6 @@ See also: http://www.ti.com/lit/an/slaa534/slaa534.pdf
 import io
 from ... import ir
 from ...binutils.assembler import BaseAssembler
-from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
@@ -211,8 +210,7 @@ class Msp430Arch(Architecture):
             MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
         """)
         # report_generator = HtmlReportGenerator(open('msp430.html', 'w'))
-        report_generator = DummyReportGenerator()
-        with complete_report(report_generator) as reporter:
+        with DummyReportGenerator() as reporter:
             obj1 = asm(io.StringIO(RT_ASM_SRC), march)
             obj2 = c3c([io.StringIO(RT_C3_SRC)], [], march, reporter=reporter)
             obj = link([obj1, obj2], layout, partial_link=True)

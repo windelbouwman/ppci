@@ -6,7 +6,7 @@ from util import make_filename
 from ppci.api import cc, get_current_platform
 from ppci.utils.codepage import load_code_as_module, platform_supported
 from ppci.utils.codepage import load_obj
-from ppci.utils.reporting import HtmlReportGenerator, complete_report
+from ppci.utils.reporting import HtmlReportGenerator
 
 
 def has_numpy():
@@ -72,8 +72,7 @@ class CodePageTestCase(unittest.TestCase):
         """)
         arch = get_current_platform()
         html_filename = make_filename(self.id()) + '.html'
-        report_generator = HtmlReportGenerator(open(html_filename, 'w'))
-        with complete_report(report_generator) as reporter:
+        with HtmlReportGenerator(open(html_filename, 'w')) as reporter:
             obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
         print(m.x.argtypes)

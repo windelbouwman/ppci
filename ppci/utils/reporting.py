@@ -26,6 +26,16 @@ class ReportGenerator(metaclass=abc.ABCMeta):
     def footer(self):
         pass
 
+    def close(self):
+        pass
+
+    def __enter__(self):
+        self.header()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.footer()
+
     @abc.abstractmethod
     def heading(self, level, title):
         raise NotImplementedError()
@@ -73,10 +83,6 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
 class DummyReportGenerator(ReportGenerator):
     """ Report generator which reports into the void """
-
-    def __init__(self):
-        self.dump_file = io.StringIO()
-
     def heading(self, level, title):
         pass
 
@@ -97,6 +103,9 @@ class TextWritingReporter(ReportGenerator):
     def __init__(self, dump_file):
         self.dump_file = dump_file
 
+    def close(self):
+        self.dump_file.close()
+
     def print(self, *args):
         """ Convenience helper for printing to dumpfile """
         print(*args, file=self.dump_file)
@@ -107,21 +116,6 @@ class TextWritingReporter(ReportGenerator):
             asm_printer, f=self.dump_file,
             add_binary=True)
         text_stream.emit_all(instructions)
-
-
-@contextmanager
-def complete_report(reporter):
-    """
-        Context wrapper that adds header and footer to the report
-
-        Use it in a with statement like:
-        with complete_report(generator) as reporter:
-            reporter.message('Woot')
-    """
-    reporter.header()
-    yield reporter
-    reporter.footer()
-    reporter.dump_file.close()
 
 
 class TextReportGenerator(TextWritingReporter):

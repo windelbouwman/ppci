@@ -72,6 +72,7 @@ ops = [
     'ADD', 'SUB', 'MUL', 'DIV', 'REM',  # Arithmatics
     'OR', 'SHL', 'SHR', 'AND', 'XOR',  # bitwise stuff
     'MOV', 'REG', 'LDR', 'STR', 'CONST',  # Data
+    'CJMP',  # Compare and jump
     'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
     'U8TO', 'U16TO', 'U32TO', 'U64TO',
     'F32TO', 'F64TO',
@@ -83,7 +84,7 @@ ops = [
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
              'MOVB', 'BLOB',
-             "JMP", "CJMP",
+             "JMP",
              "EXIT", "ENTRY",
              'ALLOCA', 'FREEA')
 

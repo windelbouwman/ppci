@@ -666,7 +666,8 @@ def pattern_const8_1(context, tree):
     return d
 
 
-@arm_isa.pattern('stm', 'CJMP(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
@@ -785,6 +786,7 @@ def pattern_ld32(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(And(d, c0, c1, NoShift()))
@@ -792,6 +794,7 @@ def pattern_and(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', Tree('ORI32', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('ORU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Orr(d, c0, c1, NoShift()))
@@ -799,6 +802,7 @@ def pattern_or32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
 def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsr1(d, c0, c1))
@@ -806,6 +810,7 @@ def pattern_shr32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', Tree('SHLI32', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('SHLU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsl1(d, c0, c1))

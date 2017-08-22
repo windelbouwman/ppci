@@ -896,7 +896,7 @@ def pattern_jmp(context, tree):
 jump_opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge, '<=': Jle}
 
 
-@isa.pattern('stm', 'CJMP(reg64, reg64)', size=2)
+@isa.pattern('stm', 'CJMPI64(reg64, reg64)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     Bop = jump_opnames[op]
@@ -906,7 +906,7 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('stm', 'CJMP(reg16, reg16)', size=4, cycles=4, energy=2)
+@isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=4, cycles=4, energy=2)
 def pattern_cjmp_16(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     Bop = jump_opnames[op]
@@ -916,7 +916,7 @@ def pattern_cjmp_16(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('stm', 'CJMP(reg8, reg8)', size=2)
+@isa.pattern('stm', 'CJMPI8(reg8, reg8)', size=2)
 def pattern_cjmp_8(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     Bop = jump_opnames[op]

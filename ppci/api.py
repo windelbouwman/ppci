@@ -20,7 +20,7 @@ from .lang.llvmir import LlvmIrFrontend
 from .lang.pascal import PascalBuilder
 from .lang.ws import WhitespaceGenerator
 from .irutils import Verifier
-from .utils.reporting import DummyReportGenerator
+from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
 from .opt import CommonSubexpressionEliminationPass
@@ -78,6 +78,22 @@ def get_arch(arch):
         else:
             return create_arch(arch)
     raise TaskError('Invalid architecture {}'.format(arch))
+
+
+def get_reporter(reporter):
+    if reporter is None:
+        return DummyReportGenerator()
+    elif isinstance(reporter, str):
+        if reporter.endswith('.html'):
+            f = open(reporter, 'w')
+            r = HtmlReportGenerator(f)
+            r.header()
+            return r
+        else:
+            raise ValueError(
+                'Cannot determine report type for {}'.format(reporter))
+    else:
+        return reporter
 
 
 def get_current_platform():
@@ -512,8 +528,7 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
         >>> print(obj)
         CodeObject of 4 bytes
     """
-    if not reporter:  # pragma: no cover
-        reporter = DummyReportGenerator()
+    reporter = get_reporter(reporter)
     march = get_arch(march)
     debug_db = DebugDb()
     ir_modules = \
