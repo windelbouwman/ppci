@@ -9,7 +9,7 @@ from tempfile import mkstemp
 from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr
-from util import do_long_tests, make_filename
+from util import do_long_tests, do_iverilog, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
@@ -365,7 +365,7 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
                     print('00000000', file=f)
         f.close()
 
-        if has_iverilog():
+        if has_iverilog() and do_iverilog():
             res = run_picorv32(mem_file)
             self.assertEqual(expected_output, res)
 
@@ -580,7 +580,7 @@ class TestSamplesOnMsp430(unittest.TestCase, BuildMixin):
             for i in range(len(rom_data) // 2):
                 w = rom_data[2 * i:2 * i + 2]
                 print('%02x%02x' % (w[1], w[0]), file=f)
-        if has_iverilog():
+        if has_iverilog() and do_iverilog():
             res = run_msp430(mem_file)
             self.assertEqual(expected_output, res)
 
@@ -605,7 +605,7 @@ class TestSamplesOnAvr(unittest.TestCase):
             mmap, lang=lang, bin_format='hex', code_image='flash')
         hexfile = base_filename + '.hex'
         print(hexfile)
-        if has_avr_emulator():
+        if has_avr_emulator() and do_iverilog():
             res = run_avr(hexfile)
             self.assertEqual(expected_output, res)
 

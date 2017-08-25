@@ -75,5 +75,5 @@ Next steps
 ----------
 
 If you have checked out the examples, head over to the
-:doc:`api<api>` and :doc:`reference<reference>`
+:doc:`api<reference/api>` and :doc:`reference<reference/index>`
 sections to learn more!

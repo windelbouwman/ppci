@@ -9,8 +9,9 @@ Table of contents
 
     self
     quickstart
-    reference
+    reference/index
+    howto/index
     compiler
-    contributing
     faq
+    contributing
     changelog

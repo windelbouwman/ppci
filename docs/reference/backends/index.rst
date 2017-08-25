@@ -39,12 +39,12 @@ Backend details
 
 .. toctree::
 
-    backends/arm
-    backends/avr
-    backends/mcs6500
-    backends/msp430
-    backends/or1k
-    backends/riscv
-    backends/stm8
-    backends/x86
-    backends/xtensa
+    arm
+    avr
+    mcs6500
+    msp430
+    or1k
+    riscv
+    stm8
+    x86
+    xtensa

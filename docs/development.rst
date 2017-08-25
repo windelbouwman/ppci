@@ -76,6 +76,23 @@ run tox, simply run in the root directory:
 
     $ tox
 
+Long tests
+~~~~~~~~~~
+
+There are a series of test snippets located in the test/samples folder. If
+you want to run these, you can use this:
+
+.. code:: bash
+
+    $ LONGTESTS=1 python -m pytest test/
+
+Some targets need iverilog to emulate a certain processor. If you want to run
+these, use this:
+
+.. code:: bash
+
+    $ LONGTESTS=1 IVERILOG=1 python -m pytest test/
+
 Building the docs
 -----------------
 

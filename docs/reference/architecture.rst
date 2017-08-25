@@ -1,6 +1,6 @@
 
-Architecture
-============
+Processor architecture
+======================
 
 The arch contains processor architecture descriptions.
 

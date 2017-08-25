@@ -7,12 +7,12 @@ Reference
     api
     usage
     c3
-    reference/c
+    c
     buildxml
     ir
     debug
     architecture
-    backends
+    backends/index
     hexfile
     objectformat
     links

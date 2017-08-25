@@ -2,6 +2,12 @@
 Jitting
 =======
 
+.. warning::
+
+    This section is a work in progress. It is outlined as to how things
+    should work, but it is not thorougly tested. Also, keep in mind
+    that C support is very premature. An alternative is c3.
+
 This howto is about how to JIT (just-in-time-compile) code and use it from
 python. It can occur that at some point in time, you have some python code
 that becomes a performance bottleneck. At this point, you have multiple
@@ -21,48 +27,38 @@ as an example:
 .. testcode:: jitting
 
     def x(a, b):
-        return sum(x * y for x,y in zip(a, b))
+        return a + b + 13
 
-This code calculates the sum of the product of all element pairs:
+This function does some magic calculations :)
 
 .. doctest:: jitting
 
-    >>> x([1,2,3], [5,4,9])
-    40
+    >>> x(2, 3)
+    18
 
 Now, after profiling we could potentially discover that this function is
 a major bottleneck. So we decide to rewrite the thing in C:
 
 .. code-block:: c
 
-    int x(int *a, int *b, int count)
+    int x(int a, int b)
     {
-      int sum = 0;
-      int i;
-      for (i = 0; i < count; i++)
-      {
-      }
+      return a + b + 13;
     }
 
 Having this function, we put this function in a python string and compile it.
 
 .. doctest:: jitting
 
-    >>> from ppci.api import cc, get_current_platform
+    >>> from ppci import api
     >>> import io
     >>> src = io.StringIO("""
-    ... int x(int *a, int *b, int count)
-    ... {
-    ...   int sum = 0;
-    ...   int i;
-    ...   for (i = 0; i < count; i++)
-    ...   {
-    ...     sum += a[i] * b[i];
-    ...   }
-    ...   return sum;
+    ... int x(int a, int b) {
+    ...   return a + b + 13;
     ... }""")
-    >>> arch = get_current_platform()
-    >>> obj = cc(src, arch, debug=True)
+    >>> arch = api.get_current_platform()
+    >>> obj1 = api.cc(src, arch, debug=True)
+    >>> obj = api.link([obj1], debug=True)
     >>> obj  # doctest: +ELLIPSIS
     CodeObject of ... bytes
 
@@ -78,19 +74,28 @@ python process:
     >>> m.x  # doctest: +ELLIPSIS
     <CFunctionType object at ...>
 
-Now, lets call the function. For this we need some ctypes extras:
+Now, lets call the function:
 
 .. doctest:: jitting
 
-    >>> import ctypes
-    >>> T = ctypes.c_int * 3
-    >>> a = T()
-    >>> b = T()
-    >>> ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_int))
-    >>> bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_int))
-    >>> s = m.x(ap, bp, 3)
-    >>> s
-    40
+    >>> m.x(2, 3)
+    18
+
+Now for an intersting plot twist, lets compare the two functions in a
+benchmark:
+
+.. code:: python
+
+    >>> import timeit
+    >>> timeit.timeit('x(2,3)', number=100000, globals={'x': x})
+    0.015114138000171806
+    >>> timeit.timeit('x(2,3)', number=100000, globals={'x': m.x})
+    0.07410199400010242
+
+Turns out that the compiled code is actually slower. This can be due to
+the overhead of calling C functions or bad compilation.
+Lessons learned: first profile, then use pypy, then improve python code,
+and lastly: convert your code into C.
 
 .. warning::
     Before optimizing anything, run a profiler. Your

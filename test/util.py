@@ -51,6 +51,10 @@ def do_long_tests():
     return 'LONGTESTS' in os.environ
 
 
+def do_iverilog():
+    return 'IVERILOG' in os.environ
+
+
 def has_qemu():
     """ Determines if qemu is possible """
     if hasattr(shutil, 'which'):
