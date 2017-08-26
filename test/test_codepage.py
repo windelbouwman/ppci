@@ -72,8 +72,9 @@ class CodePageTestCase(unittest.TestCase):
         """)
         arch = get_current_platform()
         html_filename = make_filename(self.id()) + '.html'
-        with HtmlReportGenerator(open(html_filename, 'w')) as reporter:
-            obj = cc(source, arch, debug=True, reporter=reporter)
+        with open(html_filename, 'w') as f:
+            with HtmlReportGenerator(f) as reporter:
+                obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
         print(m.x.argtypes)
         T = ctypes.c_long * 3
@@ -87,8 +88,7 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(40, y)
 
 
-# @unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
-@unittest.skip('TODO: research segfault')
+@unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
         source_file = io.StringIO("""
@@ -107,13 +107,13 @@ class NumpyCodePageTestCase(unittest.TestCase):
             }
             """)
         html_filename = make_filename(self.id()) + '.html'
-        report_generator = HtmlReportGenerator(open(html_filename, 'w'))
-        with complete_report(report_generator) as reporter:
-            m = load_code_as_module(source_file, reporter=reporter)
+        with open(html_filename, 'w') as f:
+            with HtmlReportGenerator(f) as reporter:
+                m = load_code_as_module(source_file, reporter=reporter)
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 8, 3, 5, 8, 1, 4, 6, 2], dtype=int)
-        addr = a.ctypes.data
+        addr = ctypes.cast(a.ctypes.data, ctypes.POINTER(ctypes.c_int))
 
         # Cross fingers
         pos = m.find_first(addr, 42, len(a), a.itemsize)
@@ -142,7 +142,10 @@ class NumpyCodePageTestCase(unittest.TestCase):
         b = np.array([82, 2, 5, 8, 13, 600], dtype=float)
         c = np.array([186, 21, 23, 31, 78, 1310], dtype=float)
 
-        m.mlt(a.ctypes.data, b.ctypes.data, len(a), a.itemsize)
+        ap = ctypes.cast(a.ctypes.data, ctypes.POINTER(ctypes.c_double))
+        bp = ctypes.cast(b.ctypes.data, ctypes.POINTER(ctypes.c_double))
+
+        m.mlt(ap, bp, len(a), a.itemsize)
         # print(a)
         # print(c)
         self.assertTrue(np.allclose(c, a))
