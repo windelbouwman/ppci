@@ -1,5 +1,0 @@
-The following files in this directory have been modified to be usable
-with the verilator simulator:
-axi_node_wrap.sv
-axi_node_wrap_with_slices.sv
-The modified lines in these files are marked with the comment: // modified for verilator-simulation purpose

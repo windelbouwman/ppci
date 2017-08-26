@@ -338,33 +338,24 @@ These functions are for prologue / epilogue:
 * :meth:`ppci.arch.arch.Architecture.gen_prologue`
 * :meth:`ppci.arch.arch.Architecture.gen_epilogue`
 
-And for parameter passing:
-
-* :meth:`ppci.arch.arch.Architecture.gen_fill_arguments`
-* :meth:`ppci.arch.arch.Architecture.gen_extract_arguments`
-
-And for the return value of functions:
-
-* :meth:`ppci.arch.arch.Architecture.gen_fill_retval`
-* :meth:`ppci.arch.arch.Architecture.gen_extract_retval`
-
-And for stack cleaning after a function call:
-
-* :meth:`ppci.arch.arch.Architecture.gen_adjust_stack`
-
 For creating a call:
 
 * :meth:`ppci.arch.arch.Architecture.gen_call`
-* :meth:`ppci.arch.arch.Architecture.gen_save_registers`
-* :meth:`ppci.arch.arch.Architecture.gen_restore_registers`
 
-During instruction selection phase, the gen_fill_arguments member is
-called to generate code moving function arguments into new unallocated
-registers.
+During instruction selection phase, the gen_call function is
+called to generate code for function calls.
 
 The member functions
 :meth:`ppci.arch.arch.Architecture.gen_prologue` and
 :meth:`ppci.arch.arch.Architecture.gen_epilogue`
 are called at the very
 end stage of code generation of a single function.
+
+Architecture information
+++++++++++++++++++++++++
+
+Most frontends also need some information, but not all about the target
+architecture. For this create architecture info into
+:class:`ppci.arch.arch_info.ArchInfo`. This class holds information
+about basic type sizes, alignment and endianness of the architecture.
 

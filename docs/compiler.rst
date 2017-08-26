@@ -36,7 +36,6 @@ The compiler is greatly influenced by the `LLVM`_ design.
 .. toctree::
 
     compiler/frontends
-    compiler/c
     compiler/backend
     compiler/optimization
     compiler/specificationlang
@@ -50,6 +49,6 @@ IR-code
 The intermediate representation (IR) of a program de-couples the front end
 from the backend of the compiler.
 
-See :doc:`ir` for details about all the available instructions.
+See :doc:`reference/ir` for details about all the available instructions.
 
 

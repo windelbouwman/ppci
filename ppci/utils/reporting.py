@@ -5,6 +5,7 @@
     Reports can be written to plain text, or html.
 """
 
+import abc
 from contextlib import contextmanager
 from datetime import datetime
 import logging
@@ -13,22 +14,39 @@ from .. import ir
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
-from ..arch.generic_instructions import Label
+from ..binutils.outstream import TextOutputStream
 
 
-class ReportGenerator:
+class ReportGenerator(metaclass=abc.ABCMeta):
     """ Implement all these function to create a custom reporting generator """
+
     def header(self):
         pass
 
     def footer(self):
         pass
 
-    def heading(self, level, title):
+    def close(self):
         pass
 
+    def __enter__(self):
+        self.header()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.footer()
+
+    @abc.abstractmethod
+    def heading(self, level, title):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def message(self, msg):
-        pass
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def dump_raw_text(self, text):
+        raise NotImplementedError()
 
     def dump_ir(self, ir_module):
         pass
@@ -39,8 +57,9 @@ class ReportGenerator:
     def dump_dag(self, dags):
         pass
 
-    def dump_trees(self, ir_function, function_info):
-        pass
+    @abc.abstractmethod
+    def dump_trees(self, trees):
+        raise NotImplementedError()
 
     def dump_frame(self, frame):
         pass
@@ -51,47 +70,84 @@ class ReportGenerator:
     def dump_ig(self, ig):
         pass
 
-    def dump_instructions(self, instruction_list):
-        pass
+    @abc.abstractmethod
+    def dump_instructions(self, instructions, arch):
+        raise NotImplementedError()
+
+    def dump_compiler_error(self, compiler_error):
+        self.heading(3, 'Error')
+        f = io.StringIO()
+        compiler_error.print(file=f)
+        self.dump_raw_text(f.getvalue())
 
 
 class DummyReportGenerator(ReportGenerator):
-    def __init__(self):
-        self.dump_file = io.StringIO()
+    """ Report generator which reports into the void """
+    def heading(self, level, title):
+        pass
+
+    def message(self, msg):
+        pass
+
+    def dump_raw_text(self, text):
+        pass
+
+    def dump_trees(self, trees):
+        pass
+
+    def dump_instructions(self, instructions, arch):
+        pass
 
 
 class TextWritingReporter(ReportGenerator):
     def __init__(self, dump_file):
         self.dump_file = dump_file
 
+    def close(self):
+        self.dump_file.close()
+
     def print(self, *args):
         """ Convenience helper for printing to dumpfile """
         print(*args, file=self.dump_file)
 
-
-@contextmanager
-def complete_report(reporter):
-    """
-        Context wrapper that adds header and footer to the report
-
-        Use it in a with statement like:
-        with complete_report(generator) as reporter:
-            reporter.message('Woot')
-    """
-    reporter.header()
-    yield reporter
-    reporter.footer()
-    reporter.dump_file.close()
+    def dump_instructions(self, instructions, arch):
+        asm_printer = arch.asm_printer
+        text_stream = TextOutputStream(
+            asm_printer, f=self.dump_file,
+            add_binary=True)
+        text_stream.emit_all(instructions)
 
 
 class TextReportGenerator(TextWritingReporter):
+    def header(self):
+        self.print('Report!')
+
     def dump_ir(self, ir_module):
-        self.print('Before optimization {} {}'.format(
-            ir_module, ir_module.stats()))
-        writer = Writer()
-        self.print('==========================')
-        writer.write(ir_module, self.dump_file)
-        self.print('==========================')
+        writer = Writer(file=self.dump_file)
+        if isinstance(ir_module, ir.Module):
+            self.print('==========================')
+            writer.write(ir_module)
+            self.print('==========================')
+        elif isinstance(ir_module, ir.SubRoutine):
+            self.print('==========================')
+            writer.write_function(ir_module)
+            self.print('==========================')
+        else:  # pragma: no cover
+            raise NotImplementedError(str(ir_module))
+
+    def heading(self, level, title):
+        self.print()
+        self.print(title)
+        markers = {1: '=', 2: '-'}
+        marker = markers[level] if level in markers else '~'
+        self.print(marker * len(title))
+        self.print()
+
+    def message(self, msg):
+        self.print(msg)
+
+    def dump_raw_text(self, text):
+        self.print(text)
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
@@ -100,6 +156,11 @@ class TextReportGenerator(TextWritingReporter):
             self.print('Dag:')
             for root in dag:
                 self.print("- {}".format(root))
+
+    def dump_trees(self, trees):
+        self.print("Selection trees:")
+        for tree in trees:
+            self.print('  {}'.format(tree))
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
@@ -121,7 +182,6 @@ class TextReportGenerator(TextWritingReporter):
     def function_footer(self, instruction_list):
         for ins in instruction_list:
             self.print(ins)
-
         self.print("===============================")
 
 
@@ -229,6 +289,29 @@ class MyHandler(logging.Handler):
         print(self, self.backlog[-1])
 
 
+def selection_graph_to_graph(sgraph):
+    graph = Graph()
+    node_map = {}  # Mapping from SGNode to Node
+    for node in sgraph.nodes:
+        name = str(node).replace("'", "")
+        node_map[node] = graph.create_node(name)
+
+    for edge in sgraph.edges:
+        from_node = node_map[edge.src]
+        to_node = node_map[edge.dst]
+        color_map = {
+            SGValue.CONTROL: 'red',
+            SGValue.DATA: 'black',
+            SGValue.MEMORY: 'blue'
+        }
+
+        if not graph.has_edge(from_node, to_node):
+            edge2 = graph.create_edge(from_node, to_node)
+            edge2.label = edge.name
+            edge2.color = color_map[edge.kind]
+    return graph
+
+
 class HtmlReportGenerator(TextWritingReporter):
     def __init__(self, dump_file):
         super().__init__(dump_file)
@@ -273,32 +356,30 @@ class HtmlReportGenerator(TextWritingReporter):
         if isinstance(ir_module, ir.Module):
             title = 'Module {}'.format(ir_module.name)
             with collapseable(self, title):
-                self.print('<pre>')
-                writer = Writer()
                 f = io.StringIO()
-                writer.write(ir_module, f)
-                self.print(f.getvalue())
-                self.print('</pre>')
+                writer = Writer(f)
+                writer.write(ir_module)
+                self.dump_raw_text(f.getvalue())
         elif isinstance(ir_module, ir.SubRoutine):
             title = 'Function {}'.format(ir_module.name)
             with collapseable(self, title):
-                self.print('<pre>')
-                writer = Writer()
-                writer.f = f = io.StringIO()
+                f = io.StringIO()
+                writer = Writer(f)
                 writer.write_function(ir_module)
-                self.print(f.getvalue())
-                self.print('</pre>')
-        else:
+                self.dump_raw_text(f.getvalue())
+        else:  # pragma: no cover
             raise NotImplementedError()
 
-    def dump_instructions(self, instruction_list):
+    def dump_raw_text(self, text):
+        """ Spitout text not to be formatted """
+        self.print('<pre>')
+        self.print(text)
+        self.print('</pre>')
+
+    def dump_instructions(self, instructions, arch):
         with collapseable(self, 'Instructions'):
             self.print('<pre>')
-            for ins in instruction_list:
-                if isinstance(ins, Label):
-                    self.print('{}'.format(ins))
-                else:
-                    self.print('    {}'.format(ins))
+            super().dump_instructions(instructions, arch)
             self.print('</pre>')
 
     def render_graph(self, graph):
@@ -306,27 +387,17 @@ class HtmlReportGenerator(TextWritingReporter):
         graph.to_svg(self.dump_file)
 
     def dump_sgraph(self, sgraph):
-        graph = Graph()
-        node_map = {}  # Mapping from SGNode to id of vis
-        node_nr = 0
-        for node in sgraph.nodes:
-            node_nr += 1
-            nid = node_nr
-            node_map[node] = nid
-            name = str(node).replace("'", "")
-            graph.add_node(nid, name)
-        for edge in sgraph.edges:
-            from_nid = node_map[edge.src]
-            to_nid = node_map[edge.dst]
-            color_map = {
-                SGValue.CONTROL: 'red',
-                SGValue.DATA: 'black',
-                SGValue.MEMORY: 'blue'
-                }
-            edge2 = graph.add_edge(from_nid, to_nid).set_label(edge.name)
-            edge2.set_color(color_map[edge.kind])
-        # self.render_graph(graph)
         with collapseable(self, 'Selection graph'):
+            self.print(
+                '<div>'
+                '<p>Selection graph.</p><ul>'
+                '<li>red=control dependency</li>'
+                '<li>blue=memory dependency</li>'
+                '<li>black=data dependency</li>'
+                '</ul>')
+            graph = selection_graph_to_graph(sgraph)
+            self.render_graph(graph)
+            self.print('</div>')
             self.print('<p><b>To be implemented</b></p>')
 
     def dump_dag(self, dags):
@@ -336,30 +407,31 @@ class HtmlReportGenerator(TextWritingReporter):
             for root in dag:
                 self.print("- {}".format(root))
 
-    def dump_trees(self, ir_function, function_info):
+    def dump_trees(self, trees):
         with collapseable(self, 'Selection trees'):
-            self.message('Selection trees for {}'.format(ir_function))
             self.print('<hr>')
             self.print('<pre>')
-            for ir_block in ir_function:
-                self.print(str(ir_block))
-                for tree in function_info.block_trees[ir_block]:
-                    self.print('  {}'.format(tree))
+            for tree in trees:
+                self.print('  {}'.format(tree))
             self.print('</pre>')
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
         with collapseable(self, 'Frame'):
+            used_regs = list(sorted(frame.used_regs, key=lambda r: r.name))
             self.print('<p><div class="codeblock">')
             self.print(frame)
-            self.print('<p>Used: {}</p>'.format(frame.used_regs))
+            self.print('<p>stack size: {}</p>'.format(frame.stacksize))
+            self.print('<p>Used: {}</p>'.format(used_regs))
             self.print('<table border="1">')
             self.print('<tr>')
             self.print('<th>#</th><th>instruction</th>')
-            self.print('<th>use</th><th>def</th>')
+            self.print('<th>use</th><th>def</th><th>clobber</th>')
             self.print('<th>jump</th><th>move</th>')
             self.print('<th>gen</th><th>kill</th>')
             self.print('<th>live_in</th><th>live_out</th>')
+            for ur in used_regs:
+                self.print('<th>{}</th>'.format(ur))
             self.print('</tr>')
             for idx, ins in enumerate(frame.instructions):
                 self.print('<tr>')
@@ -367,6 +439,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print('<td>{}</td>'.format(ins))
                 self.print('<td>{}</td>'.format(str2(ins.used_registers)))
                 self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
+                self.print('<td>{}</td>'.format(str2(ins.clobbers)))
                 self.print('<td>')
                 if ins.jumps:
                     self.print(str2(ins.jumps))
@@ -396,6 +469,12 @@ class HtmlReportGenerator(TextWritingReporter):
                 if hasattr(ins, 'live_out'):
                     self.print(str2(ins.live_out))
                 self.print('</td>')
+                for ur in used_regs:
+                    self.print('<td>')
+                    for r2 in ins.live_out:
+                        if r2.color == ur.color:
+                            self.print(r2.name)
+                    self.print('</td>')
                 self.print('</tr>')
             self.print("</table>")
             self.print('</div></p>')

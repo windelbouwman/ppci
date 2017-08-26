@@ -7,15 +7,14 @@ import logging
 from .. import ir
 from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
-from ..arch.generic_instructions import VCall, Label, Comment, DebugData
+from ..arch.generic_instructions import Label, Comment, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction
-from ..arch.generic_instructions import VSaveRegisters, VRestoreRegisters
 from ..arch.encoding import Instruction
-from ..arch.data_instructions import Ds, Db
+from ..arch.data_instructions import DZero, DByte
 from ..binutils.debuginfo import DebugType, DebugLocation
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
-from .irdag import SelectionGraphBuilder, make_label_name
+from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
 from .registerallocator import GraphColoringRegisterAllocator
@@ -59,16 +58,15 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            label_name = make_label_name(var)
             # TODO: alignment?
-            label = Label(label_name)
+            label = Label(var.name)
             output_stream.emit(label)
             if var.amount > 0:
                 if var.value:
                     for byte in var.value:
-                        output_stream.emit(Db(byte))
+                        output_stream.emit(DByte(byte))
                 else:
-                    output_stream.emit(Ds(var.amount))
+                    output_stream.emit(DZero(var.amount))
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.debug_db.map(var, label)
@@ -111,15 +109,12 @@ class CodeGenerator:
                 _, block = split_block(block, pos=max_block_len)
 
         # Create a frame for this function:
-        frame_name = make_label_name(ir_function)
+        frame_name = ir_function.name
         frame = self.arch.new_frame(frame_name, ir_function)
         self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame, reporter)
-
-        # Define arguments live at first instruction:
-        # self.define_arguments_live(frame)
 
         reporter.dump_frame(frame)
 
@@ -148,7 +143,7 @@ class CodeGenerator:
             dd = DebugData(d)
             output_stream.emit(dd)
 
-        reporter.dump_instructions(instruction_list)
+        reporter.dump_instructions(instruction_list, self.arch)
 
     def select_and_schedule(self, ir_function, frame, reporter):
         """ Perform instruction selection and scheduling """
@@ -200,20 +195,7 @@ class CodeGenerator:
 
             if isinstance(instruction, VirtualInstruction):
                 # Process virtual instructions
-                if isinstance(instruction, VCall):
-                    # We now know what variables are live at this point
-                    # and possibly need to be saved.
-                    output_stream.emit_all(
-                        self.arch.gen_call(frame, instruction))
-                elif isinstance(instruction, VSaveRegisters):
-                    regs = frame.live_regs_over(instruction.vcall)
-                    output_stream.emit_all(
-                        self.arch.gen_save_registers(regs))
-                elif isinstance(instruction, VRestoreRegisters):
-                    regs = frame.live_regs_over(instruction.vcall)
-                    output_stream.emit_all(
-                        self.arch.gen_restore_registers(regs))
-                elif isinstance(instruction, RegisterUseDef):
+                if isinstance(instruction, RegisterUseDef):
                     pass
                 elif isinstance(instruction, ArtificialInstruction):
                     output_stream.emit(instruction)
@@ -238,15 +220,3 @@ class CodeGenerator:
                 # print(tmp, di)
                 frame.live_ranges(tmp)
                 # print('live ranges:', lr)
-
-    def define_arguments_live(self, frame):
-        """ Prepend a special instruction in front of the frame """
-        ins0 = RegisterUseDef()
-        frame.instructions.insert(0, ins0)
-        for register in frame.live_in:
-            ins0.add_def(register)
-
-        ins2 = RegisterUseDef()
-        frame.instructions.append(ins2)
-        for register in frame.live_out:
-            ins2.add_use(register)

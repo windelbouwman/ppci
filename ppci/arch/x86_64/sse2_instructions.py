@@ -357,7 +357,7 @@ def pattern_const_f64(context, tree):
 @sse1_isa.pattern('regfp', 'ADDF32(regfp, regfp)', size=6, cycles=2, energy=2)
 def pattern_addf32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
-    context.emit(Movss(d, RmXmmReg(c0)))
+    context.move(d, c0)
     context.emit(Addss(d, RmXmmReg(c1)))
     return d
 
@@ -373,7 +373,7 @@ def pattern_addf64(context, tree, c0, c1):
 @sse1_isa.pattern('regfp', 'SUBF32(regfp, regfp)', size=6, cycles=2, energy=2)
 def pattern_sub_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
-    context.emit(Movss(d, RmXmmReg(c0)))
+    context.move(d, c0)
     context.emit(Subss(d, RmXmmReg(c1)))
     return d
 
@@ -389,7 +389,7 @@ def pattern_sub_f64(context, tree, c0, c1):
 @sse1_isa.pattern('regfp', 'MULF32(regfp, regfp)', size=6, cycles=2, energy=2)
 def pattern_mul_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
-    context.emit(Movss(d, RmXmmReg(c0)))
+    context.move(d, c0)
     context.emit(Mulss(d, RmXmmReg(c1)))
     return d
 
@@ -405,7 +405,7 @@ def pattern_mul_f64(context, tree, c0, c1):
 @sse1_isa.pattern('regfp', 'DIVF32(regfp, regfp)', size=6, cycles=2, energy=2)
 def pattern_div_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
-    context.emit(Movss(d, RmXmmReg(c0)))
+    context.move(d, c0)
     context.emit(Divss(d, RmXmmReg(c1)))
     return d
 
@@ -420,7 +420,7 @@ def pattern_div_f64(context, tree, c0, c1):
 
 @sse1_isa.pattern('stm', 'MOVF32(regfp)', size=3, cycles=2, energy=2)
 def pattern_mov_f32(context, tree, c0):
-    context.emit(Movss(tree.value, RmXmmReg(c0)))
+    context.move(tree.value, c0)
 
 
 @sse2_isa.pattern('stm', 'MOVF64(regfp)', size=3, cycles=3, energy=3)
@@ -458,7 +458,7 @@ def pattern_ldr_f64(context, tree, c0):
     return d
 
 
-@sse1_isa.pattern('stm', 'CJMP(regfp,regfp)', size=6, cycles=3, energy=3)
+@sse1_isa.pattern('stm', 'CJMPF32(regfp,regfp)', size=6, cycles=3, energy=3)
 def pattern_cjmp_f(context, tree, c0, c1):
     # TODO: is it float32 or float64?
     context.emit(Ucomiss(c0, RmXmmReg(c1)))

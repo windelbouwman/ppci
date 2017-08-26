@@ -8,9 +8,8 @@ module
 
 from .tasks import Task, TaskError, register_task
 from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
-from ..utils.reporting import complete_report
 from ..api import c3c, link, asm, construct, objcopy
-from ..pcc.common import ParserException
+from ..lang.tools.common import ParserException
 from ..common import CompilerError
 
 
@@ -103,7 +102,7 @@ class CompileTask(OutputtingTask):
         debug = bool(self.get_argument('debug', default=False))
         opt = int(self.get_argument('optimize', default='0'))
 
-        with complete_report(reporter):
+        with reporter:
             obj = c3c(
                 sources, includes, arch, opt_level=opt,
                 reporter=reporter, debug=debug)

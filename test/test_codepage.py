@@ -2,7 +2,11 @@
 import unittest
 import io
 import ctypes
+from util import make_filename
+from ppci.api import cc, get_current_platform
 from ppci.utils.codepage import load_code_as_module, platform_supported
+from ppci.utils.codepage import load_obj
+from ppci.utils.reporting import HtmlReportGenerator
 
 
 def has_numpy():
@@ -45,6 +49,44 @@ class CodePageTestCase(unittest.TestCase):
         # print(x, type(x))
         self.assertEqual(104.14, x)
 
+    def test_c(self):
+        """ Test loading of C code """
+        source = io.StringIO("int x(int a) { return a + 1 ; }")
+        arch = get_current_platform()
+        obj = cc(source, arch, debug=True)
+        m = load_obj(obj)
+        y = m.x(101)
+        self.assertEqual(102, y)
+
+    @unittest.skip('TODO: research array index handling')
+    def test_jit_example(self):
+        """ Test loading of C code from jit example """
+        source = io.StringIO("""
+        long x(long* a, long* b, long count) {
+          long sum = 0;
+          long i;
+          for (i=0; i < count; i++)
+            sum += a[i] * b[i];
+          return sum;
+        }
+        """)
+        arch = get_current_platform()
+        html_filename = make_filename(self.id()) + '.html'
+        with open(html_filename, 'w') as f:
+            with HtmlReportGenerator(f) as reporter:
+                obj = cc(source, arch, debug=True, reporter=reporter)
+        m = load_obj(obj)
+        print(m.x.argtypes)
+        T = ctypes.c_long * 3
+        a = T()
+        a[:] = 1, 2, 3
+        ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_long))
+        b = T()
+        b[:] = 5, 4, 9
+        bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_long))
+        y = m.x(a, b, 3)
+        self.assertEqual(40, y)
+
 
 @unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
 class NumpyCodePageTestCase(unittest.TestCase):
@@ -64,11 +106,14 @@ class NumpyCodePageTestCase(unittest.TestCase):
                 return 0xff;
             }
             """)
-        m = load_code_as_module(source_file)
+        html_filename = make_filename(self.id()) + '.html'
+        with open(html_filename, 'w') as f:
+            with HtmlReportGenerator(f) as reporter:
+                m = load_code_as_module(source_file, reporter=reporter)
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 8, 3, 5, 8, 1, 4, 6, 2], dtype=int)
-        addr = a.ctypes.data
+        addr = ctypes.cast(a.ctypes.data, ctypes.POINTER(ctypes.c_int))
 
         # Cross fingers
         pos = m.find_first(addr, 42, len(a), a.itemsize)
@@ -97,7 +142,10 @@ class NumpyCodePageTestCase(unittest.TestCase):
         b = np.array([82, 2, 5, 8, 13, 600], dtype=float)
         c = np.array([186, 21, 23, 31, 78, 1310], dtype=float)
 
-        m.mlt(a.ctypes.data, b.ctypes.data, len(a), a.itemsize)
+        ap = ctypes.cast(a.ctypes.data, ctypes.POINTER(ctypes.c_double))
+        bp = ctypes.cast(b.ctypes.data, ctypes.POINTER(ctypes.c_double))
+
+        m.mlt(ap, bp, len(a), a.itemsize)
         # print(a)
         # print(c)
         self.assertTrue(np.allclose(c, a))

@@ -31,6 +31,19 @@ Alternatively a git mirror is also created:
 - https://github.com/windelbouwman/ppci-mirror
 
 
+Coding style
+------------
+
+All code is intended to be pep8 compliant. You can use the pep8 tool, or run:
+
+.. code:: bash
+
+    $ tox -e flake8
+
+This will check the code for pep8 violations.
+
+Future work includes using pylint and mypy for more static code analysis.
+
 Running the testsuite
 ---------------------
 
@@ -48,6 +61,12 @@ Or use the unittest module:
 
     $ python -m unittest discover -s test
 
+Or, yet another way, use tox:
+
+.. code:: bash
+
+    $ tox -e py3
+
 In order to test ppci versus different versions of python, `tox`_ is used. To
 run tox, simply run in the root directory:
 
@@ -56,6 +75,23 @@ run tox, simply run in the root directory:
 .. code:: bash
 
     $ tox
+
+Long tests
+~~~~~~~~~~
+
+There are a series of test snippets located in the test/samples folder. If
+you want to run these, you can use this:
+
+.. code:: bash
+
+    $ LONGTESTS=1 python -m pytest test/
+
+Some targets need iverilog to emulate a certain processor. If you want to run
+these, use this:
+
+.. code:: bash
+
+    $ LONGTESTS=1 IVERILOG=1 python -m pytest test/
 
 Building the docs
 -----------------
@@ -79,6 +115,8 @@ Alternatively the `tox`_ docs environment can be used:
 
 Release procedure
 -----------------
+
+This is more a note to self section on how to create a new release.
 
 #. Determine the version numbers of this release and the next.
 #. Switch to the release branch and merge the default branch into the

@@ -8,15 +8,62 @@ strategy is to split the DAG into a forest of trees and match these
 trees.
 
 Another solution may be: PBQP (Partitioned Boolean Quadratic Programming)
+
+The selection process creates operations in a selection DAG. The possible
+operations are listed in the below table:
+
++---------------+---------+-----------------------------------------+
+| operation     | types   | description                             |
++===============+=========+=========================================+
+| ADD(c0,c1)    | I,U     | Add its operands                        |
++---------------+---------+-----------------------------------------+
+| SUB(c0,c1)    | I,U     | Substracts c1 from c0                   |
++---------------+---------+-----------------------------------------+
+| MUL(c0,c1)    | I,U     | Multiplies c0 by c1                     |
++---------------+---------+-----------------------------------------+
+| DIV(c0,c1)    | I,U     | Divides c0 by c1                        |
++---------------+---------+-----------------------------------------+
+| OR(c0,c1)     | I,U     | Bitwise or                              |
++---------------+---------+-----------------------------------------+
+| AND(c0,c1)    | I,U     | Bitwise and                             |
++---------------+---------+-----------------------------------------+
+| XOR(c0,c1)    | I,U     | Bitwise exclusive or                    |
++---------------+---------+-----------------------------------------+
+| LDR(c0)       | I,U     | Load from memory                        |
++---------------+---------+-----------------------------------------+
+| STR(c0,c1)    | I,U     | Store value c1 at memory address c0     |
++---------------+---------+-----------------------------------------+
+| FPREL         | U       | Frame pointer relative location         |
++---------------+---------+-----------------------------------------+
+| CONST         | I,U     | Constant value                          |
++---------------+---------+-----------------------------------------+
+| REG           | I,U     | Value in a specific register            |
++---------------+---------+-----------------------------------------+
+| JMP           | I,U     | Jump to a label                         |
++---------------+---------+-----------------------------------------+
+| CJMP          | I,U     | Conditional jump to a label             |
++---------------+---------+-----------------------------------------+
+
+...
+
+Memory move operations:
+
+- STRI64(REGI32[rax], CONSTI32[1])
+- MOVB()
+
+
 """
 
+import abc
 import logging
 from ..utils.tree import Tree
 from .treematcher import State
 from .. import ir
+from ..arch.encoding import Instruction
 from .burg import BurgSystem
-from .irdag import DagSplitter
 from .irdag import FunctionInfo, prepare_function_info
+from .dagsplit import DagSplitter
+from ..arch.generic_instructions import RegisterUseDef
 
 
 data_types = [str(t).upper() for t in ir.all_types]
@@ -25,22 +72,26 @@ ops = [
     'ADD', 'SUB', 'MUL', 'DIV', 'REM',  # Arithmatics
     'OR', 'SHL', 'SHR', 'AND', 'XOR',  # bitwise stuff
     'MOV', 'REG', 'LDR', 'STR', 'CONST',  # Data
+    'CJMP',  # Compare and jump
     'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
     'U8TO', 'U16TO', 'U32TO', 'U64TO',
     'F32TO', 'F64TO',
-    'FPREL',  # Frame pointer relative
+    'FPREL', 'SPREL',  # Frame/stack pointer relative
     ]
 
 # Add all possible terminals:
 
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
-             "JMP", "CJMP",
-             "EXIT", "ENTRY")
+             'MOVB', 'BLOB',
+             "JMP",
+             "EXIT", "ENTRY",
+             'ALLOCA', 'FREEA')
 
 
-class ContextInterface:
-    def emit(self, *args, **kwargs):  # pragma: no cover
+class ContextInterface(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def emit(self, instruction):  # pragma: no cover
         raise NotImplementedError()
 
 
@@ -64,17 +115,9 @@ class InstructionContext(ContextInterface):
         """ Generate move """
         self.emit(self.arch.move(dst, src))
 
-    def gen_call(self, value):
-        """ generate call for function into self """
-        for instruction in self.arch.gen_vcall(value):
-            self.emit(instruction)
-        if len(value) == 5:
-            res_var = value[-1]
-            return res_var
-
-    def emit(self, *args, **kwargs):
+    def emit(self, instruction):
         """ Abstract instruction emitter proxy """
-        instruction = self.frame.emit(*args, **kwargs)
+        self.frame.emit(instruction)
         if self.tree:
             self.debug_db.map(self.tree, instruction)
         return instruction
@@ -119,12 +162,15 @@ class TreeSelector:
                 if all(x.state.has_goal(y) for x, y in zip(kids, nts)) \
                         and accept:
                     cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
-                    cost = cost + rule.cost
-                    tree.state.set_cost(rule.non_term, cost, rule.nr)
+                    self.mark_tree(tree, rule, cost)
 
-                    # Also set cost for chain rules here:
-                    for cr in self.sys.chain_rules_for_nt(rule.non_term):
-                        tree.state.set_cost(cr.non_term, cost + cr.cost, cr.nr)
+    def mark_tree(self, tree, rule, cost):
+        cost = cost + rule.cost
+        tree.state.set_cost(rule.non_term, cost, rule.nr)
+
+        # Also set cost for chain rules here:
+        for cr in self.sys.chain_rules_for_nt(rule.non_term):
+            self.mark_tree(tree, cr, cost)
 
     def apply_rules(self, context, tree, goal):
         """ Apply all selected instructions to the tree """
@@ -186,6 +232,10 @@ class InstructionSelector1:
         for terminal in terminals:
             self.sys.add_terminal(terminal)
 
+        # Add special case nodes:
+        self.sys.add_rule(
+            'stm', Tree('CALL'), 0, None, self.call_function)
+
         # Add all isa patterns:
         for pattern in arch.isa.patterns:
             cost = pattern.size * weights[0] + \
@@ -198,6 +248,16 @@ class InstructionSelector1:
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
 
+    def call_function(self, context, tree):
+        label, args, rv = tree.value
+        for instruction in self.arch.gen_call(label, args, rv):
+            context.emit(instruction)
+
+    def memcp(self):
+        """ Invoke memcpy arch function """
+        for instruction in self.arch.gen_memcpy(dst, src, size):
+            context.emit(instruction)
+
     def select(self, ir_function: ir.SubRoutine, frame, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.SubRoutine)
@@ -207,44 +267,37 @@ class InstructionSelector1:
         function_info = FunctionInfo(frame)
         prepare_function_info(self.arch, function_info, ir_function)
 
-        # Fetch arguments from all sorts of locations like stack, registers
-        # etc... depending on calling convention!
-        for instruction in self.arch.gen_extract_arguments(
-                function_info.arg_types, function_info.arg_vregs):
-            frame.emit(instruction)
-
-        # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.arch, self.debug_db)
-
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(ir_function, function_info)
         reporter.dump_sgraph(sgraph)
 
-        # Split the selection graph into trees:
-        self.dag_splitter.split_into_trees(sgraph, ir_function, function_info)
-        reporter.dump_trees(ir_function, function_info)
+        # Split the selection graph into a forest of trees:
+        forest = self.dag_splitter.split_into_trees(
+            sgraph, ir_function, function_info)
+        reporter.dump_trees(forest)
 
-        # Process one basic block at a time:
-        for ir_block in ir_function:
-            # emit label of block:
-            context.emit(function_info.label_map[ir_block])
+        # Create a context that can emit instructions:
+        context = InstructionContext(frame, self.arch, self.debug_db)
 
-            # Eat dag:
-            trees = function_info.block_trees[ir_block]
-            self.munch_trees(context, trees)
+        args = list(zip(function_info.arg_types, function_info.arg_vregs))
+        for instruction in self.arch.gen_function_enter(args):
+            context.emit(instruction)
 
-            # Emit code between blocks:
-            for instruction in self.arch.between_blocks(frame):
-                frame.emit(instruction)
+        # Generate proper instructions:
+        self.munch_trees(context, forest)
 
-        # Emit epilog label here, return and exit instructions jump to it
-        frame.emit(function_info.epilog_label)
-
-        # Emit copy return value loc here:
+        # Generate function tail:
         if isinstance(ir_function, ir.Function):
-            for instruction in self.arch.gen_fill_retval(
-                    ir_function.return_ty, function_info.rv_vreg):
-                frame.emit(instruction)
+            rv = (ir_function.return_ty, function_info.rv_vreg)
+        else:
+            rv = None
+        for instruction in self.arch.gen_function_exit(rv):
+            context.emit(instruction)
+
+        # TODO!!!
+        # Emit code between blocks:
+        # for instruction in self.arch.between_blocks(frame):
+        #    frame.emit(instruction)
 
     def munch_trees(self, context, trees):
         """ Consume a dag and match it using the matcher to the frame.
@@ -262,7 +315,11 @@ class InstructionSelector1:
         # Match all splitted trees:
         for tree in trees:
             # Invoke dynamic programming matcher machinery:
-            self.gen_tree(context, tree)
+            if isinstance(tree, Instruction):
+                context.emit(tree)
+            else:
+                assert isinstance(tree, Tree)
+                self.gen_tree(context, tree)
 
     def gen_tree(self, context, tree):
         """ Generate code from a tree """

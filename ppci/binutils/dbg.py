@@ -19,7 +19,6 @@ from ..lang.c3.builder import C3ExprParser
 from ..lang.c3 import astnodes as c3nodes
 from ..lang.c3 import Context as C3Context
 
-
 # States:
 STOPPED = 0
 RUNNING = 1
@@ -33,6 +32,7 @@ class TmpValue:
         when lval is True, the value is a location,
         else it is the value itself
     """
+
     def __init__(self, value, lval, typ):
         self.value = value
         self.lval = lval
@@ -60,6 +60,7 @@ class Debugger:
         Give it a target architecture for which it must debug
         and driver plugin to connect to hardware.
     """
+
     def __init__(self, arch, driver):
         self.arch = get_arch(arch)
         self.expr_parser = C3ExprParser(self.arch)
@@ -154,6 +155,7 @@ class Debugger:
 
     @property
     def is_running(self):
+        self.driver.update_status()
         return self.status == RUNNING
 
     @property
@@ -195,18 +197,20 @@ class Debugger:
             section = self.obj.get_section(address.section)
             return section.address + address.offset
         elif isinstance(address, FpOffsetAddress):
-            return self.get_fp() + address.offset
+            return self.get_fp() + address.offset.offset
         else:  # pragma: no cover
             raise NotImplementedError(str(address))
 
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
-        if pc in self.addr_map:
-            debug = self.addr_map[pc]
-            self.logger.info('Found program counter at %s', debug)
-            loc = debug.loc
-            return loc.filename, loc.row
+        # if pc in self.addr_map:
+        mindelta = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
+        debug = self.addr_map[mindelta]
+        self.logger.info('Found program counter at %s with delta %u'
+                         % (debug, mindelta))
+        loc = debug.loc
+        return loc.filename, loc.row
 
     def current_function(self):
         """ Determine the PC and then determine which function we are in """
@@ -401,7 +405,7 @@ class Debugger:
         if isinstance(typ, DebugBaseType):
             size = typ.size
         else:
-            size = self.arch.byte_sizes['ptr']  # Pointer size!
+            size = self.arch.info.get_size('ptr')  # Pointer size!
         fmts = {8: '<Q', 4: '<I', 2: '<H', 1: '<B'}
         fmt = fmts[size]
         loaded = self.read_mem(addr, size)
@@ -436,6 +440,7 @@ class DebugDriver:  # pragma: no cover
         Inherit this class to expose a target interface. This class implements
         primitives for a given hardware target.
     """
+
     def run(self):
         raise NotImplementedError()
 
@@ -459,6 +464,9 @@ class DebugDriver:  # pragma: no cover
 
     def get_registers(self, registers):
         """ Get the values for a range of registers """
+        raise NotImplementedError()
+
+    def update_status(self):
         raise NotImplementedError()
 
 
@@ -500,4 +508,7 @@ class DummyDebugDriver(DebugDriver):
         return bytes(size)
 
     def write_mem(self, address, data):
+        pass
+
+    def update_status(self):
         pass

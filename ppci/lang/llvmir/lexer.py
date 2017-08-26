@@ -1,7 +1,7 @@
 
 import re
 # from ...common import make_num
-from ...pcc.baselex import BaseLexer
+from ..tools.baselex import BaseLexer
 from . import nodes
 
 

@@ -41,9 +41,10 @@ class Char:
 
 def create_characters(f, filename):
     """ Create a sequence of characters """
-    for row, line in enumerate(f):
-        for col, char in enumerate(line):
-            loc = SourceLocation(filename, row + 1, col + 1, 1)
+    for row, line in enumerate(f, 1):
+        line = line.expandtabs()
+        for col, char in enumerate(line, 1):
+            loc = SourceLocation(filename, row, col, 1)
             yield Char(char, loc)
 
 
@@ -167,8 +168,29 @@ class HandLexerBase:
         while self.accept(valid):
             pass
 
+    def accept_sequence(self, sequence):
+        """ Munch the exact given sequence of characters """
+        chars = []
+        for valid in sequence:
+            char = self.next_char()
+            chars.append(char)
+            if char and char.char in valid:
+                continue
+            else:
+                # Retreat! Pull back! We are wrong!
+                for char in reversed(chars):
+                    self.backup_char(char)
+                return False
+        return True
+
     def error(self, message):
-        raise CompilerError()
+        char = self.next_char()
+        loc = char.loc
+        raise CompilerError(message, loc)
+
+    def expect(self, valid):
+        if not self.accept(valid):
+            self.error("Expected {}".format(', '.join(valid)))
 
 
 class CLexer(HandLexerBase):
@@ -256,9 +278,14 @@ class CLexer(HandLexerBase):
             return self.lex_c
         elif r.char == '/':
             if self.accept('/'):
+                if self.coptions['std'] == 'c89':
+                    self.error('C++ style comments are not allowed in C90')
                 return self.lex_linecomment
             elif self.accept('*'):
                 return self.lex_blockcomment
+            elif self.accept('='):
+                self.emit('/=')
+                return self.lex_c
             else:
                 self.emit('/')
                 return self.lex_c
@@ -270,7 +297,10 @@ class CLexer(HandLexerBase):
             if self.accept('='):
                 self.emit('<=')
             elif self.accept('<'):
-                self.emit('<<')
+                if self.accept('='):
+                    self.emit('<<')
+                else:
+                    self.emit('<<')
             else:
                 self.emit('<')
             return self.lex_c
@@ -278,7 +308,10 @@ class CLexer(HandLexerBase):
             if self.accept('='):
                 self.emit('>=')
             elif self.accept('>'):
-                self.emit('>>')
+                if self.accept('='):
+                    self.emit('>>=')
+                else:
+                    self.emit('>>')
             else:
                 self.emit('>')
             return self.lex_c
@@ -297,12 +330,16 @@ class CLexer(HandLexerBase):
         elif r.char == '|':
             if self.accept('|'):
                 self.emit('||')
+            elif self.accept('='):
+                self.emit('|=')
             else:
                 self.emit('|')
             return self.lex_c
         elif r.char == '&':
             if self.accept('&'):
                 self.emit('&&')
+            elif self.accept('='):
+                self.emit('&=')
             else:
                 self.emit('&')
             return self.lex_c
@@ -325,6 +362,8 @@ class CLexer(HandLexerBase):
                 self.emit('--')
             elif self.accept('='):
                 self.emit('-=')
+            elif self.accept('>'):
+                self.emit('->')
             else:
                 self.emit('-')
             return self.lex_c
@@ -334,13 +373,37 @@ class CLexer(HandLexerBase):
             else:
                 self.emit('*')
             return self.lex_c
-        elif r.char in ';{}()[],.?%~:^':
+        elif r.char == '%':
+            if self.accept('='):
+                self.emit('%=')
+            else:
+                self.emit('%')
+            return self.lex_c
+        elif r.char == '^':
+            if self.accept('='):
+                self.emit('^=')
+            else:
+                self.emit('^')
+            return self.lex_c
+        elif r.char == '~':
+            if self.accept('='):
+                self.emit('~=')
+            else:
+                self.emit('~')
+            return self.lex_c
+        elif r.char == '.':
+            if self.accept_sequence(['.', '.']):
+                self.emit('...')
+            else:
+                self.emit('.')
+            return self.lex_c
+        elif r.char in ';{}()[],?:':
             self.emit(r.char)
             return self.lex_c
         elif r.char == "\\":
             self.emit(r.char)
             return self.lex_c
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(r)
 
     def lex_identifier(self):
@@ -367,6 +430,8 @@ class CLexer(HandLexerBase):
         # Accept some suffixes:
         self.accept('LlUu')
         self.accept('LlUu')
+        # TODO: handle suffixes better
+        self.accept('LlUu')
 
         # self.accept('
         self.emit('NUMBER')
@@ -387,6 +452,7 @@ class CLexer(HandLexerBase):
         while True:
             if self.accept('*'):
                 if self.accept('/'):
+                    self.emit('WS')
                     break
             else:
                 self.next_char()
@@ -403,12 +469,32 @@ class CLexer(HandLexerBase):
     def lex_char(self):
         """ Scan for a complete character constant """
         if self.accept("\\"):
-            self.next_char()
+            # Escape char!
+            if self.accept("'\"?\\abfnrtv"):
+                pass
+            elif self.accept(self.octal_numbers):
+                self.accept(self.octal_numbers)
+                self.accept(self.octal_numbers)
+            elif self.accept('x'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+            elif self.accept('u'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+            elif self.accept('U'):
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+                self.accept(self.hex_numbers)
+            else:
+                self.error('Unexpected escape character')
         else:
+            # Normal char:
             self.next_char()
 
-        if not self.accept("'"):
-            self.error("Expected ' ")
+        self.expect("'")
 
         self.emit('CHAR')
         return self.lex_c

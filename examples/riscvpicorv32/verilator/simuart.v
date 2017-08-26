@@ -54,6 +54,9 @@ always @(posedge clk) begin
                 if (bus_addr[3:0] == 4'b1000) begin
 			inter<=1'b0;
 		end
+                if (bus_addr[3:0] == 4'b1100) begin
+			inter<=1'b1;
+		end
 	   end else if (cs) begin
 		if (bus_addr[3:0] == 4'b0000) begin
 			bus_data <= {24'b0, uart_buf[7:0]};

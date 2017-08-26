@@ -162,7 +162,7 @@ public function void readreg(byte* cmdptr,byte* regs, byte* dataptr)
   var byte bch;
   var byte* memptr;
   res=hexstring2int(cmdptr,&regnr);
-  regs+=regnr*4;
+  regs+=regnr<<2;
   for(i=0;i<4;i+=1) {
      bch = *regs;
      *dataptr = highhex(bch);
@@ -202,7 +202,7 @@ public function void writereg(byte* cmdptr,byte* regs)
   var byte* memptr;
   res = hexstring2int(cmdptr,&regnr);
   cmdptr += res+1;
-  regs += regnr*4;
+  regs += regnr<<2;
   for(i=0;i<4;i+=1) {
      ch = *cmdptr;
      res = hexchar2int(ch);

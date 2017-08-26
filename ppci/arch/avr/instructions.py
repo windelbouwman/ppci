@@ -3,11 +3,10 @@ from ..encoding import Instruction, Operand, Syntax, Relocation, Transform
 from ..generic_instructions import RegisterUseDef, ArtificialInstruction
 from ..token import Token, bit_range, bit
 from ...utils.bitfun import wrap_negative
-from ...ir import i16
 from .registers import AvrRegister, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister, SuperHighAvrWordRegister
-from .registers import r0, r1, r1r0
+from .registers import r0, r1, r1r0, r23r22, W
 
 
 class AvrToken(Token):
@@ -650,14 +649,39 @@ class StdWord_z(PseudoAvrInstruction):
         yield Std_z(self.z, self.imm + 1, self.rd.hi)
 
 
+class LddWord_y(PseudoAvrInstruction):
+    """ Pseudo instruction for loading a word from y + offset """
+    rd = Operand('rd', AvrWordRegister, write=True)
+    y = Operand('y', AvrYRegister, read=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['ldd_word', ' ', rd, ',', ' ', y, '+', imm])
+
+    def render(self):
+        yield Ldd_y(self.rd.lo, self.y, self.imm)
+        yield Ldd_y(self.rd.hi, self.y, self.imm + 1)
+
+
+class StdWord_y(PseudoAvrInstruction):
+    """ Pseudo instruction for storing a word at y + offset """
+    y = Operand('y', AvrYRegister, read=True)
+    imm = Operand('imm', int)
+    rd = Operand('rd', AvrWordRegister, read=True)
+    syntax = Syntax(['std_word', ' ', y, '+', imm, ',', ' ', rd])
+
+    def render(self):
+        yield Std_y(self.y, self.imm, self.rd.lo)
+        yield Std_y(self.y, self.imm + 1, self.rd.hi)
+
+
 @avr_isa.pattern('stm', 'JMP', size=2)
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(Rjmp(tgt.name, jumps=[tgt]))
 
 
-@avr_isa.pattern('stm', 'CJMP(reg16, reg16)', size=10)
-def pattern_cjmp(context, tree, c0, c1):
+@avr_isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=10)
+@avr_isa.pattern('stm', 'CJMPU16(reg16, reg16)', size=10)
+def pattern_cjmp16(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
         "==": (Breq, False),
@@ -682,9 +706,31 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins_yes)
 
 
-@avr_isa.pattern('reg16', 'CALL', size=2)
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
+@avr_isa.pattern('stm', 'CJMPI8(reg, reg)', size=9)
+@avr_isa.pattern('stm', 'CJMPU8(reg, reg)', size=9)
+def pattern_cjmp8(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "==": (Breq, False),
+        "!=": (Brne, False),
+        '<': (Brlt, False),
+        '>': (Brlt, True),
+        '>=': (Brge, False),
+        '<=': (Brge, True)}
+    Bop, swap = opnames[op]
+
+    if swap:
+        context.emit(Cp(c1, c0))
+    else:
+        context.emit(Cp(c0, c1))
+
+    jmp_ins_no = Rjmp(no_label.name, jumps=[no_label])
+    jmp_ins_yes = Rjmp(yes_label.name, jumps=[yes_label])
+    yes_label2 = context.new_label()
+    context.emit(Bop(yes_label2.name, jumps=[yes_label2, jmp_ins_no]))
+    context.emit(jmp_ins_no)
+    context.emit(yes_label2)
+    context.emit(jmp_ins_yes)
 
 
 @avr_isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
@@ -694,6 +740,7 @@ def pattern_reg8(context, tree):
 
 
 @avr_isa.pattern('reg16', 'REGI16', size=0, cycles=0, energy=0)
+@avr_isa.pattern('reg16', 'REGU16', size=0, cycles=0, energy=0)
 def pattern_reg16(context, tree):
     assert isinstance(tree.value, AvrWordRegister)
     return tree.value
@@ -706,11 +753,14 @@ def pattern_mov8(context, tree, c0):
 
 
 @avr_isa.pattern('stm', 'MOVI16(reg16)', size=2)
+@avr_isa.pattern('stm', 'MOVU16(reg16)', size=2)
 def pattern_mov16(context, tree, c0):
     context.move(tree.value, c0)
 
 
 @avr_isa.pattern('reg16', 'I16TOI16(reg16)', size=0)
+@avr_isa.pattern('reg16', 'U16TOI16(reg16)', size=0)
+@avr_isa.pattern('reg16', 'I16TOU16(reg16)', size=0)
 def pattern_i16toi16(context, tree, c0):
     return c0
 
@@ -746,6 +796,7 @@ def pattern_i16toi8(context, tree, c0):
 
 
 @avr_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
+@avr_isa.pattern('reg', 'ADDU8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(AvrRegister)
     context.move(d, c0)
@@ -754,6 +805,7 @@ def pattern_add8(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'ADDI16(reg16, reg16)', size=6)
+@avr_isa.pattern('reg16', 'ADDU16(reg16, reg16)', size=6)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
@@ -762,6 +814,7 @@ def pattern_add16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=6)
+@avr_isa.pattern('reg16', 'SUBU16(reg16, reg16)', size=6)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
@@ -787,34 +840,42 @@ def pattern_or16(context, tree, c0, c1):
 
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
 def pattern_div16(context, tree, c0, c1):
-    d = context.new_reg(AvrWordRegister)
-    context.gen_call(('swmuldiv_div', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_function(
+        context, 'swmuldiv_div', (c0, c1), clobbers=context.arch.caller_save)
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
+    return call_function(
+        context, 'swmuldiv_mul', (c0, c1), clobbers=context.arch.caller_save)
+
+
+def call_function(context, label, args, clobbers=()):
+    """ Helper to emit calling sequence """
+    c0, c1 = args
+    context.move(W, c0)
+    context.move(r23r22, c1)
+    context.emit(RegisterUseDef(uses=(W, r23r22)))
+    context.emit(Call(label, clobbers=clobbers))
+    context.emit(RegisterUseDef(defs=(W,)))
     d = context.new_reg(AvrWordRegister)
-    context.gen_call(('swmuldiv_mul', [i16, i16], i16, [c0, c1], d))
+    context.move(d, W)
     return d
 
 
 @avr_isa.pattern('reg16', 'SHRI16(reg16, reg16)', size=8)
 def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
-    d = context.new_reg(AvrWordRegister)
-    context.gen_call(('__shr16', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_function(context, '__shr16', (c0, c1))
 
 
 @avr_isa.pattern('reg16', 'SHLI16(reg16, reg16)', size=8)
 def pattern_shl16(context, tree, c0, c1):
     """ invoke runtime """
-    d = context.new_reg(AvrWordRegister)
-    context.gen_call(('__shl16', [i16, i16], i16, [c0, c1], d))
-    return d
+    return call_function(context, '__shl16', (c0, c1))
 
 
+# Memory loads:
 @avr_isa.pattern('reg', 'LDRI8(reg16)', size=4, cycles=2)
 @avr_isa.pattern('reg', 'LDRU8(reg16)', size=4, cycles=2)
 def pattern_ldr8(context, tree, c0):
@@ -840,9 +901,22 @@ def pattern_ldr8_offset(context, tree, c0):
     return d
 
 
-@avr_isa.pattern('reg16', 'LDRI16(reg16)', size=4)
+@avr_isa.pattern(
+    'reg', 'LDRI8(FPRELU16)', size=4, cycles=2,
+    condition=lambda t: t[0].value.offset in range(0, 64))
+@avr_isa.pattern(
+    'reg', 'LDRU8(FPRELU16)', size=4, cycles=2,
+    condition=lambda t: t[0].value.offset in range(0, 64))
+def pattern_ldr8_fprel(context, tree):
+    d = context.new_reg(AvrRegister)
+    offset = tree[0].value.offset
+    context.emit(Ldd_y(d, Y, offset))
+    return d
+
+
+@avr_isa.pattern('reg16', 'LDRI16(reg16)', size=4, cycles=9, energy=3)
+@avr_isa.pattern('reg16', 'LDRU16(reg16)', size=4, cycles=9, energy=3)
 def pattern_ldr16(context, tree, c0):
-    # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrWordRegister)
     context.move(Z, c0)
     context.emit(LddWord_z(d, Z, 0))
@@ -854,9 +928,8 @@ def pattern_ldr16(context, tree, c0):
 
 @avr_isa.pattern(
     'reg16', 'LDRI16(ADDI16(reg16, CONSTI16))', size=4, cycles=4,
-    condition=lambda t: t.children[0].children[1].value < 63)
+    condition=lambda t: t[0][1].value < 63)
 def pattern_ldr16_offset(context, tree, c0):
-    # z = context.new_reg(AvrZRegister)
     d = context.new_reg(AvrWordRegister)
     offset = tree[0][1].value
     context.move(Z, c0)
@@ -867,6 +940,20 @@ def pattern_ldr16_offset(context, tree, c0):
     return d
 
 
+@avr_isa.pattern(
+    'reg16', 'LDRU16(FPRELU16)', size=4, cycles=4,
+    condition=lambda t: t[0].value.offset < 63)
+@avr_isa.pattern(
+    'reg16', 'LDRI16(FPRELU16)', size=4, cycles=4,
+    condition=lambda t: t[0].value.offset < 63)
+def pattern_ldr16_fprel(context, tree):
+    d = context.new_reg(AvrWordRegister)
+    offset = tree[0].value.offset
+    context.emit(LddWord_y(d, Y, offset))
+    return d
+
+
+# Memory storage
 @avr_isa.pattern('stm', 'STRI8(reg16, reg)', size=2)
 @avr_isa.pattern('stm', 'STRU8(reg16, reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
@@ -888,9 +975,9 @@ def pattern_str8_offset(context, tree, c0, c1):
     context.emit(Std_z(Z, offset, c1))
 
 
-@avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8)
+@avr_isa.pattern('stm', 'STRI16(reg16, reg16)', size=8, cycles=6, energy=2)
+@avr_isa.pattern('stm', 'STRU16(reg16, reg16)', size=8, cycles=6, energy=2)
 def pattern_str16(context, tree, c0, c1):
-    # z = context.new_reg(AvrZRegister)
     context.move(Z, c0)
     context.emit(StdWord_z(Z, 0, c1))
 
@@ -899,10 +986,20 @@ def pattern_str16(context, tree, c0, c1):
     'stm', 'STRI16(ADDI16(reg16, CONSTI16), reg16)', size=6,
     condition=lambda t: t[0][1].value < 63)
 def pattern_str16_offset(context, tree, c0, c1):
-    # z = context.new_reg(AvrZRegister)
     offset = tree[0][1].value
     context.move(Z, c0)
     context.emit(StdWord_z(Z, offset, c1))
+
+
+@avr_isa.pattern(
+    'stm', 'STRU16(FPRELU16, reg16)', size=6,
+    condition=lambda t: t[0].value.offset < 63)
+@avr_isa.pattern(
+    'stm', 'STRI16(FPRELU16, reg16)', size=6,
+    condition=lambda t: t[0].value.offset < 63)
+def pattern_str16_fprel(context, tree, c0):
+    offset = tree[0].value.offset
+    context.emit(StdWord_y(Y, offset, c0))
 
 
 @avr_isa.pattern('reg', 'CONSTI8', size=2)
@@ -914,6 +1011,7 @@ def pattern_const8(context, tree):
 
 
 @avr_isa.pattern('reg16', 'CONSTI16', size=4)
+@avr_isa.pattern('reg16', 'CONSTU16', size=4)
 def pattern_const16(context, tree):
     d = context.new_reg(HighAvrWordRegister)
     context.emit(Ldiw(d, tree.value))
@@ -928,11 +1026,11 @@ def pattern_label(context, tree):
     return d
 
 
-@avr_isa.pattern('reg16', 'FPRELI16', size=6)
+@avr_isa.pattern('reg16', 'FPRELU16', size=6, cycles=6, energy=3)
 def pattern_fprel16(context, tree):
     d = context.new_reg(AvrWordRegister)
     context.move(d, Y)
     d2 = context.new_reg(HighAvrWordRegister)
-    context.emit(Ldiw(d2, tree.value))
+    context.emit(Ldiw(d2, tree.value.offset))
     context.emit(Addw(d, d2))
     return d

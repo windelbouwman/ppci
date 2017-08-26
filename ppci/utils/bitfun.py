@@ -5,7 +5,7 @@ import struct
 
 def rotate_right(v, n):
     """ bit-wise Rotate right n times """
-    mask = (2**n) - 1
+    mask = (2 ** n) - 1
     mask_bits = v & mask
     return (v >> n) | (mask_bits << (32 - n))
 
@@ -19,7 +19,7 @@ def rotate_left(v, n):
 def encode_imm32(v):
     """ Bundle 32 bit value into 4 bits rotation and 8 bits value """
     for i in range(0, 16):
-        v2 = rotate_left(v, i*2)
+        v2 = rotate_left(v, i * 2)
         if (v2 & 0xFFFFFF00) == 0:
             rotation = i
             val = v2 & 0xFF
@@ -37,12 +37,19 @@ def align(value, m):
 
 def wrap_negative(value, bits):
     """ Make a bitmask of a value, even if it is a negative value ! """
-    mx = 2**bits - 1
-    mn = -(2**(bits-1))
-    assert value in range(mn, mx)
+    mx = 2 ** bits - 1
+    mn = -(2 ** (bits - 1))
+    # assert value in range(mn, mx)
     b = struct.unpack('<I', struct.pack('<i', value))[0]
     mask = (1 << bits) - 1
     return b & mask
+
+
+def inrange(value, bits):
+    """ Make a bitmask of a value, even if it is a negative value ! """
+    mx = 2 ** (bits - 1)
+    mn = -(2 ** (bits - 1))
+    return value in range(mn, mx)
 
 
 class BitView:
@@ -50,6 +57,7 @@ class BitView:
         construct the bitview on a bytearray at a given start index
         and a given length.
     """
+
     def __init__(self, data, begin, length):
         self.data = data
         self.begin = begin
@@ -96,8 +104,8 @@ class BitView:
                 mask = bitmask << (p1 - bitpos1)
 
                 # Determine the new value of the bits:
-                bits = (bitmask & (value >> (p1 - key.start))) \
-                    << (p1 - bitpos1)
+                bits = (
+                    bitmask & (value >> (p1 - key.start))) << (p1 - bitpos1)
 
                 # print('mask', hex(mask), 'bitsize=', bitsize, hex(bits))
 

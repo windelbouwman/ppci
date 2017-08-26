@@ -1,6 +1,0 @@
-axi2apb:
-  files: [
-    AXI_2_APB.sv,
-    AXI_2_APB_32.sv,
-    axi2apb.sv,
-  ]

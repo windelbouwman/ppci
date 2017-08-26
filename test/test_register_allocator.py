@@ -1,15 +1,11 @@
 import unittest
+from unittest.mock import patch, MagicMock
 from ppci.codegen.registerallocator import GraphColoringRegisterAllocator
 from ppci.api import get_arch
 from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 from ppci.arch.example import R10, R10l, DefHalf, UseHalf
 from ppci.binutils.debuginfo import DebugDb
-
-try:
-    from unittest.mock import patch, MagicMock
-except ImportError:
-    from mock import patch, MagicMock
 
 
 class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 import re
 from ...common import SourceLocation, Token, make_num
-from ...pcc.baselex import BaseLexer
+from ..tools.baselex import BaseLexer
 
 
 class Lexer(BaseLexer):

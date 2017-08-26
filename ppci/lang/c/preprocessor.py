@@ -19,7 +19,7 @@ import time
 
 from ...common import CompilerError, SourceLocation
 from .lexer import CLexer, CToken, lex_text
-from .utils import cnum, charval
+from .utils import cnum, charval, replace_escape_codes
 
 
 class CPreProcessor:
@@ -30,6 +30,7 @@ class CPreProcessor:
     def __init__(self, coptions):
         self.coptions = coptions
         self.defines = {}
+        self.filename = None
 
         # A black list of defines currently being expanded:
         self.blue_list = set()
@@ -68,6 +69,14 @@ class CPreProcessor:
         self.define(FunctionMacro('__DATE__', self.special_macro_date))
         self.define(FunctionMacro('__TIME__', self.special_macro_time))
 
+        # Macro's defines by options:
+        for macro in self.coptions.macros:
+            logging.debug('Setting predefined macro %s', macro)
+            self.define(
+                Macro(
+                    macro,
+                    [CToken('NUMBER', '1', '', False, internal_loc)]))
+
     def special_macro_line(self, macro_token):
         """ Invoked when the __LINE__ macro is expanded """
         return [CToken(
@@ -101,6 +110,8 @@ class CPreProcessor:
     def process(self, f, filename=None):
         """ Process the given open file into expanded lines of tokens """
         self.logger.debug('Processing %s', filename)
+        previous_filename = self.filename
+        self.filename = filename
         clexer = CLexer(self.coptions)
         tokens = clexer.lex(f, filename)
         macro_expander = Expander(self)
@@ -108,6 +119,7 @@ class CPreProcessor:
         for token in macro_expander.process(tokens):
             yield token
         self.logger.debug('Finished %s', filename)
+        self.filename = previous_filename
 
     def define(self, macro):
         """ Register a define """
@@ -129,10 +141,17 @@ class CPreProcessor:
         """ Retrieve the given define! """
         return self.defines[name]
 
-    def include(self, filename):
+    def include(self, filename, loc, use_current_dir=False):
         """ Turn the given filename into a series of lines """
         self.logger.debug('Including %s', filename)
-        for path in self.coptions.include_directories:
+        search_directories = []
+        if use_current_dir:
+            # In the case of: #include "foo.h"
+            current_dir = os.path.dirname(self.filename)
+            search_directories.append(current_dir)
+        search_directories.extend(self.coptions.include_directories)
+        # self.logger.debug((search_directories)
+        for path in search_directories:
             full_path = os.path.join(path, filename)
             if os.path.exists(full_path):
                 self.logger.debug('Including %s', full_path)
@@ -141,7 +160,7 @@ class CPreProcessor:
                         yield line
                 return
         self.logger.error('File not found: %s', filename)
-        raise FileNotFoundError(filename)
+        raise CompilerError('Could not find {}'.format(filename), loc)
 
 
 class LineEater:
@@ -432,10 +451,17 @@ class Expander:
                     self.undo(token)
                     return False
                 args = self.gatherargs()
-                if len(args) != len(macro.args):
-                    self.error(
-                        'Got {} arguments ({}), but expected {}'.format(
-                            len(args), args, len(macro.args)))
+                if macro.variadic:
+                    if len(args) < len(macro.args):
+                        self.error(
+                            'Got {} arguments ({})'
+                            ', but required at least {}'.format(
+                                len(args), args, len(macro.args)))
+                else:
+                    if len(args) != len(macro.args):
+                        self.error(
+                            'Got {} arguments ({}), but expected {}'.format(
+                                len(args), args, len(macro.args)))
 
                 expansion = self.substitute_arguments(macro, args)
 
@@ -644,8 +670,9 @@ class Expander:
             yield new_line_token
         elif directive == 'include':
             if self.enabled:
-                token = self.consume()
+                token = self.consume(('<', 'STRING'))
                 if token.typ == '<':
+                    use_current_dir = False
                     # TODO: this is a bad way of getting the filename:
                     filename = ''
                     token = self.consume()
@@ -654,10 +681,13 @@ class Expander:
                         token = self.consume()
                     include_filename = filename
                 else:
+                    use_current_dir = True
                     include_filename = token.val[1:-1]
 
-                for line in self.preprocessor.include(include_filename):
-                    yield line
+                for token in self.preprocessor.include(
+                        include_filename, directive_token.loc,
+                        use_current_dir=use_current_dir):
+                    yield token
 
                 yield LineInfo(
                     directive_token.loc.row + 1,
@@ -670,14 +700,27 @@ class Expander:
                 name = self.consume('ID', expand=False, stop_eol=True)
 
                 # Handle function like macros:
+                variadic = False
                 token = self.consume(expand=False)
                 if token.typ == '(' and not token.space:
                     args = []
-                    if not self.has_consumed(')', expand=False):
-                        args.append(self.consume('ID', expand=False).val)
-                        while self.has_consumed(',', expand=False):
+                    # if not self.has_consumed(')', expand=False):
+                    while True:
+                        if self.token.typ == '...':
+                            self.consume('...')
+                            variadic = True
+                            break
+                        elif self.token.typ == 'ID':
                             args.append(self.consume('ID', expand=False).val)
-                        self.consume(')', expand=False)
+                        else:
+                            break
+
+                        # Eat comma, and get other arguments
+                        if self.has_consumed(','):
+                            continue
+                        else:
+                            break
+                    self.consume(')', expand=False)
                 else:
                     self.undo(token)
                     args = None
@@ -688,7 +731,7 @@ class Expander:
                     # Patch first token spaces:
                     value[0] = value[0].copy(space='')
                 value_txt = ''.join(map(str, value))
-                macro = Macro(name.val, value, args=args)
+                macro = Macro(name.val, value, args=args, variadic=variadic)
                 if self.verbose:
                     self.logger.debug('Defining %s=%s', name.val, value_txt)
                 self.preprocessor.define(macro)
@@ -717,6 +760,7 @@ class Expander:
             #    flags.append(token.val)
             #    flag_token = self.consume(stop_eol=True)
             # self.undo(flag_token)
+            print(line)
             self.logger.error("#LINE directive not implemented")
             yield new_line_token
         elif directive == 'error':
@@ -750,6 +794,28 @@ class Expander:
     def eval_expr(self):
         """ Evaluate an expression """
         return self.parse_expression()
+
+    OP_MAP = {
+        '*': (11, False, operator.mul),
+        '/': (11, False, operator.floordiv),
+        '%': (11, False, operator.mod),
+        '+': (10, False, operator.add),
+        '-': (10, False, operator.sub),
+        '<<': (9, False, operator.lshift),
+        '>>': (9, False, operator.rshift),
+        '<': (8, False, lambda x, y: int(x < y)),
+        '>': (8, False, lambda x, y: int(x > y)),
+        '<=': (8, False, lambda x, y: int(x <= y)),
+        '>=': (8, False, lambda x, y: int(x >= y)),
+        '==': (7, False, lambda x, y: int(x == y)),
+        '!=': (7, False, lambda x, y: int(x != y)),
+        '&': (6, False, operator.and_),
+        '^': (5, False, operator.xor),
+        '|': (4, False, operator.or_),
+        '&&': (3, False, lambda x, y: int(bool(x) and bool(y))),
+        '||': (2, False, lambda x, y: int(bool(x) or bool(y))),
+        '?': (1, True, None),
+    }
 
     def parse_expression(self, priority=0):
         """ Parse an expression in an #if
@@ -786,33 +852,13 @@ class Expander:
                     self.logger.warning('Attention: undefined "%s"', name)
                 lhs = 0
         elif token.typ == 'NUMBER':
-            lhs = cnum(token.val)
+            lhs, _ = cnum(token.val)
+            # TODO: check type specifier?
         elif token.typ == 'CHAR':
-            lhs = charval(token.val)
+            lhs, _ = charval(replace_escape_codes(token.val))
+            # TODO: check type specifier?
         else:
             raise NotImplementedError(token.val)
-
-        op_map = {
-            '*': (11, False, operator.mul),
-            '/': (11, False, operator.floordiv),
-            '%': (11, False, operator.mod),
-            '+': (10, False, operator.add),
-            '-': (10, False, operator.sub),
-            '<<': (9, False, operator.lshift),
-            '>>': (9, False, operator.rshift),
-            '<': (8, False, lambda x, y: int(x < y)),
-            '>': (8, False, lambda x, y: int(x > y)),
-            '<=': (8, False, lambda x, y: int(x <= y)),
-            '>=': (8, False, lambda x, y: int(x >= y)),
-            '==': (7, False, lambda x, y: int(x == y)),
-            '!=': (7, False, lambda x, y: int(x != y)),
-            '&': (6, False, operator.and_),
-            '^': (5, False, operator.xor),
-            '|': (4, False, operator.or_),
-            '&&': (3, False, lambda x, y: int(bool(x) and bool(y))),
-            '||': (2, False, lambda x, y: int(bool(x) or bool(y))),
-            '?': (1, True, None),
-        }
 
         while True:
             # This would be the next operator:
@@ -820,8 +866,8 @@ class Expander:
             op = token.typ
 
             # Determine if the operator has a low enough priority:
-            if op in op_map:
-                op_prio, right_associative = op_map[op][:2]
+            if op in self.OP_MAP:
+                op_prio, right_associative = self.OP_MAP[op][:2]
                 left_associative = not right_associative
                 if left_associative and (op_prio >= priority):
                     pass
@@ -844,15 +890,15 @@ class Expander:
             # We are go, eat the right hand side
             rhs = self.parse_expression(op_prio)
 
-            if op in op_map:
-                func = op_map[op][2]
+            if op in self.OP_MAP:
+                func = self.OP_MAP[op][2]
                 if func:
                     lhs = func(lhs, rhs)
                 elif op == '?':
                     lhs = middle if lhs != 0 else rhs
-                else:
+                else:  # pragma: no cover
                     raise NotImplementedError(op)
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(op)
 
         return lhs
@@ -867,10 +913,11 @@ class BaseMacro:
 
 class Macro(BaseMacro):
     """ Macro define """
-    def __init__(self, name, value, args=None, protected=False):
+    def __init__(self, name, value, args=None, protected=False, variadic=False):
         super().__init__(name, protected=protected)
         self.value = value
         self.args = args
+        self.variadic = variadic
 
 
 class FunctionMacro(BaseMacro):
@@ -944,6 +991,38 @@ def skip_ws(tokens):
             yield token
 
 
+def string_convert(tokens):
+    """ Phase 5 of compilation.
+
+    Process escaped string constants into unicode. """
+    # Process
+    for token in tokens:
+        if token.typ in ['STRING', 'CHAR']:
+            token.val = replace_escape_codes(token.val)
+        yield token
+
+
+def string_concat(tokens):
+    """ Merge adjacent string literals into single tokens.
+
+    This is phase 6 of compilation. """
+    string_token = None
+    for token in tokens:
+        if token.typ == 'STRING':
+            if string_token:
+                string_token.val += token.val
+            else:
+                string_token = token
+        else:
+            if string_token:
+                yield string_token
+                string_token = None
+            yield token
+
+    if string_token:
+        yield string_token
+
+
 def prepare_for_parsing(tokens, keywords):
     """ Strip out tokens on the way from preprocessor to parser.
 
@@ -953,8 +1032,9 @@ def prepare_for_parsing(tokens, keywords):
     This involves:
     - Removal of whitespace
     - Changing some id's into keywords
+    - Concatenation of adjacent string literals.
     """
-    for token in skip_ws(tokens):
+    for token in string_concat(string_convert(skip_ws(tokens))):
         if token.typ == 'ID':
             if token.val in keywords:
                 token.typ = token.val

@@ -4,13 +4,10 @@ The tree is build by the parser.
 Then it is checked
 Finally code is generated from it.
 """
+from ..generic.nodes import Node, Statement, Compound, Type
+
 
 # pylint: disable=R0903
-
-
-class Node:
-    """ Base class of all nodes in a AST """
-    pass
 
 
 # Variables, parameters, local variables, constants and named types:
@@ -53,11 +50,6 @@ class Module(Symbol):
 
     def __repr__(self):
         return 'MODULE {}'.format(self.name)
-
-
-class Type(Node):
-    """ Base class of all types """
-    pass
 
 
 class NamedType(Type, Symbol):
@@ -403,12 +395,6 @@ class FunctionCall(Expression):
 
 
 # Statements
-class Statement(Node):
-    """ Base class of all statements """
-    def __init__(self, loc):
-        self.loc = loc
-
-
 class Empty(Statement):
     """ Empty statement which does nothing! """
     def __init__(self):
@@ -416,17 +402,6 @@ class Empty(Statement):
 
     def __repr__(self):
         return 'NOP'
-
-
-class Compound(Statement):
-    """ Statement consisting of a sequence of other statements """
-    def __init__(self, statements):
-        super().__init__(None)
-        self.statements = statements
-        assert all(isinstance(s, Statement) for s in self.statements)
-
-    def __repr__(self):
-        return 'COMPOUND STATEMENT'
 
 
 class Return(Statement):
@@ -528,3 +503,6 @@ class For(Statement):
 
     def __repr__(self):
         return 'FOR-statement'
+
+
+__all__ = ['If', 'Compound']

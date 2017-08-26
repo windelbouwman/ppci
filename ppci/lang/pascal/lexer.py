@@ -2,7 +2,7 @@
 
 import re
 from ...common import SourceLocation, Token
-from ...pcc.baselex import SimpleLexer, on
+from ..tools.baselex import SimpleLexer, on
 
 
 class Lexer(SimpleLexer):

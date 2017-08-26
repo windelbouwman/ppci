@@ -1,13 +1,15 @@
+""" Xtensa architecture """
 
 import io
+from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from .registers import register_classes, Register
+from .registers import register_classes
 from . import registers
 from . import instructions
-from ... import ir
 
 
 class XtensaArch(Architecture):
@@ -21,9 +23,17 @@ class XtensaArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.fp = registers.a15  # The frame pointer in call0 abi mode
 
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32
+            })
+
         # TODO: a15 is also callee save
-        self.callee_save = (
-            registers.a12, registers.a13, registers.a14)
+        self.callee_save = registers.callee_save
+        self.caller_save = registers.caller_save
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -56,43 +66,6 @@ class XtensaArch(Architecture):
         else:  # pragma: no cover
             raise NotImplementedError(str(ret_type))
         return rv
-
-    def gen_fill_arguments(self, arg_types, args):
-        """ This function moves arguments in the proper locations. """
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, registers.AddressRegister):
-                yield self.move(arg_loc, arg)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(uses=arg_regs)
-
-    def gen_extract_arguments(self, arg_types, args):
-        """ This function extracts arguments from the proper locations. """
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(defs=arg_regs)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, registers.AddressRegister):
-                yield self.move(arg, arg_loc)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-    def gen_save_registers(self, registers):
-        for register in registers:
-            yield instructions.Push(register)
-
-    def gen_call(self, frame, vcall):
-        yield instructions.Call0(vcall.function_name)
-
-    def gen_restore_registers(self, registers):
-        for register in reversed(registers):
-            yield instructions.Pop(register)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
@@ -151,6 +124,51 @@ class XtensaArch(Architecture):
 
         # Return
         yield instructions.Ret()
+
+    def gen_call(self, label, args, rv):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, registers.AddressRegister):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        yield RegisterUseDef(uses=arg_regs)
+
+        yield instructions.Call0(label, clobbers=self.caller_save)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
+
+    def gen_function_enter(self, args):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = set(l for l in arg_locs if isinstance(
+            l, registers.AddressRegister))
+        yield RegisterUseDef(defs=arg_regs)
+
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, registers.AddressRegister):
+                yield self.move(arg, arg_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_function_exit(self, rv):
+        live_out = set()
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield self.move(retval_loc, rv[1])
+            live_out.add(retval_loc)
+        yield RegisterUseDef(uses=live_out)
 
 
 def round_up(s):

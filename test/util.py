@@ -6,10 +6,23 @@ import socket
 import time
 import shutil
 import logging
+import string
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger('util')
+
+
+def make_filename(s):
+    """ Remove all invalid characters from a string for a valid filename.
+        And create a directory if none present.
+    """
+    output_dir = relpath('listings')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    valid_chars = string.ascii_letters + string.digits
+    basename = ''.join(c for c in s if c in valid_chars)
+    return os.path.join(output_dir, basename)
 
 
 def relpath(*args):
@@ -36,6 +49,10 @@ def tryrm(fn):
 def do_long_tests():
     """ Determine whether to run samples, these take somewhat longer """
     return 'LONGTESTS' in os.environ
+
+
+def do_iverilog():
+    return 'IVERILOG' in os.environ
 
 
 def has_qemu():
@@ -86,9 +103,9 @@ def qemu(args):
     logger.debug('Listening on {} for data'.format(ser_port))
 
     args = args + [
-            '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
-            '-serial', 'tcp:localhost:{}'.format(ser_port),
-            '-S']
+        '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
+        '-serial', 'tcp:localhost:{}'.format(ser_port),
+        '-S']
     if hasattr(subprocess, 'DEVNULL'):
         qemu_process = subprocess.Popen(args)  # stderr=subprocess.DEVNULL)
     else:
@@ -208,6 +225,7 @@ def run_msp430(pmem):
     data = ''.join(chars)
     return data
 
+
 def run_picorv32(pmem):
     """ Run the given memory file in the riscvpicorv32 iverilog project. """
 
@@ -237,7 +255,7 @@ def run_picorv32(pmem):
     print('======')
 
     # run build vvp simulation:
-    outs = subprocess.check_output([simv])
+    outs = subprocess.check_output([simv], timeout=30)
     outs = outs.decode('ascii')
     print(outs)
     return outs
@@ -252,7 +270,9 @@ def has_avr_emulator():
 
 def run_avr(hexfile):
     """ Run hexfile through avr emulator """
-    outs = subprocess.check_output([avr_emu1, hexfile])
+    command = [avr_emu1, hexfile]
+    logger.debug('Running %s', command)
+    outs = subprocess.check_output(command, timeout=10)
     outs = outs.decode('ascii')
     print(outs)
     chars = []

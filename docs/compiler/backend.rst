@@ -59,6 +59,8 @@ From IR-code a tree is generated which can be used to select instructions.
 
 .. automodule:: ppci.codegen.irdag
 
+.. automodule:: ppci.codegen.dagsplit
+
 
 Instruction selection
 ~~~~~~~~~~~~~~~~~~~~~
@@ -71,6 +73,7 @@ list of abstract machine instructions.
 To select instruction, a tree rewrite system is used. This is also called
 bottom up rewrite generator (BURG). See pyburg.
 
+.. automodule:: ppci.codegen.instructionselector
 
 Register allocation
 ~~~~~~~~~~~~~~~~~~~

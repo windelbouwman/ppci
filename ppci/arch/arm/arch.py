@@ -1,11 +1,13 @@
 """ ARM architecture definition. """
 import io
-from ...ir import i8, i32, u8, u32, ptr
+from ... import ir
+from ...ir import i8, i32, u8, u32, i16, u16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
-from ..registers import RegisterClass, Register
+from ..registers import RegisterClass
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
@@ -52,11 +54,20 @@ class ArmArch(Architecture):
                     'loreg', [], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7]),
                 RegisterClass(
-                    'reg', [i8, i32, u8, u32, ptr], ArmRegister,
+                    'reg',
+                    [i8, i32, u8, u32, i16, u16, ptr], ArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11])
                 ]
         self.assembler.gen_asm_parser(self.isa)
         self.gdb_registers = all_registers
+
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32,
+            })
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
@@ -74,35 +85,6 @@ class ArmArch(Architecture):
         else:
             return arm_instructions.Mov2(
                 dst, src, arm_instructions.NoShift(), ismove=True)
-
-    def gen_save_registers(self, registers):
-        register_set = set(registers)
-        if self.has_option('thumb'):
-            # Caller save registers:
-            if register_set:
-                yield thumb_instructions.Push(register_set)
-        else:
-            # Caller save registers:
-            if register_set:
-                yield arm_instructions.Push(RegisterSet(register_set))
-
-    def gen_call(self, frame, vcall):
-        """ Implement actual call and save / restore live registers """
-        if self.has_option('thumb'):
-            yield thumb_instructions.Bl(vcall.function_name)
-        else:
-            yield arm_instructions.Bl(vcall.function_name)
-
-    def gen_restore_registers(self, registers):
-        register_set = set(registers)
-        if self.has_option('thumb'):
-            # Restore caller save registers:
-            if register_set:
-                yield thumb_instructions.Pop(register_set)
-        else:
-            # Restore caller save registers:
-            if register_set:
-                yield arm_instructions.Pop(RegisterSet(register_set))
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
@@ -177,6 +159,54 @@ class ArmArch(Architecture):
         if not self.has_option('thumb'):
             yield Alignment(4)   # Align at 4 bytes
 
+    def gen_call(self, label, args, rv):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, ArmRegister):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        yield RegisterUseDef(uses=arg_regs)
+
+        clobbers = [R0, R1, R2, R3, R4]
+        if self.has_option('thumb'):
+            yield thumb_instructions.Bl(label, clobbers=clobbers)
+        else:
+            yield arm_instructions.Bl(label, clobbers=clobbers)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
+
+    def gen_function_enter(self, args):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, ArmRegister))
+        yield RegisterUseDef(defs=arg_regs)
+
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, ArmRegister):
+                yield self.move(arg, arg_loc)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_function_exit(self, rv):
+        live_out = set()
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield self.move(retval_loc, rv[1])
+            live_out.add(retval_loc)
+        yield RegisterUseDef(uses=live_out)
+
     def litpool(self, frame):
         """ Generate instruction for the current literals """
         # Align at 4 bytes
@@ -201,31 +231,6 @@ class ArmArch(Architecture):
     def between_blocks(self, frame):
         for instruction in self.litpool(frame):
             yield instruction
-
-    def gen_fill_arguments(self, arg_types, args):
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, ArmRegister):
-                yield self.move(arg_loc, arg)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(uses=arg_regs)
-
-    def gen_extract_arguments(self, arg_types, args):
-        """ Extract parameters from function call """
-        arg_locs = self.determine_arg_locations(arg_types)
-
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
-        yield RegisterUseDef(defs=arg_regs)
-
-        for arg_loc, arg in zip(arg_locs, args):
-            if isinstance(arg_loc, ArmRegister):
-                yield self.move(arg, arg_loc)
-            else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
 
     def determine_arg_locations(self, arg_types):
         """
@@ -347,6 +352,7 @@ __sdiv:
    ; Divide r1 by r2
    ; R4 is a work register.
    ; r0 is the quotient
+   push {r4}
    mov r4, r2         ; mov divisor into temporary register.
 
    ; Blow up divisor until it is larger than the divident.
@@ -365,5 +371,6 @@ __sdiv_dec:
    cmp r4, r2         ; Is temp less than divisor?
    bhs __sdiv_dec     ; If so, repeat.
 
+   pop {r4}
    mov pc, lr         ; Return from function.
 """

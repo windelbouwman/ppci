@@ -1,9 +1,0 @@
-apb_event_unit:
-  incdirs: [
-    ./include/,
-  ]
-  files: [
-    apb_event_unit.sv,
-    generic_service_unit.sv,
-    sleep_unit.sv,
-  ]

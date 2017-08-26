@@ -198,6 +198,9 @@ class Block:
     def __str__(self):
         return '{0}:'.format(self.name)
 
+    def __repr__(self):
+        return str(self)
+
     def __iter__(self):
         for instruction in self.instructions:
             yield instruction
@@ -397,12 +400,25 @@ class Typ:
         """ Test if this type is of integer type """
         return isinstance(self, IntegerTyp)
 
+    def __repr__(self):
+        return 'ir-typ {}'.format(str(self))
 
-class IntegerTyp(Typ):
-    """ Integer type """
+
+class PointerTyp(Typ):
+    pass
+
+
+class BasicTyp(Typ):
+    """ Basic arithmatic type """
     def __init__(self, name, bits):
         super().__init__(name)
         self.bits = bits
+        self.size = bits // 8
+
+
+class IntegerTyp(BasicTyp):
+    """ Integer type """
+    pass
 
 
 class SignedIntegerTyp(IntegerTyp):
@@ -415,9 +431,36 @@ class UnsignedIntegerTyp(IntegerTyp):
     signed = False
 
 
+class FloatingPointTyp(BasicTyp):
+    pass
+
+
+# TODO: what is the type of a larger slab of data?
+class BlobDataTyp(Typ):
+    _cache = {}
+
+    def __init__(self, size, alignment=1):
+        super().__init__('blob')
+        self.size = size
+        self.alignment = alignment
+
+    def __str__(self):
+        return 'blob[{}:{}]'.format(self.size, self.alignment)
+
+    @classmethod
+    def get(cls, size, alignment=1):
+        key = (size, alignment)
+        if key in cls._cache:
+            typ = cls._cache[key]
+        else:
+            typ = cls(size, alignment=alignment)
+            cls._cache[key] = typ
+        return typ
+
+
 # The builtin types:
-f64 = Typ('f64')  #: 64-bit floating point type
-f32 = Typ('f32')  #: 32-bit floating point type
+f64 = FloatingPointTyp('f64', 64)  #: 64-bit floating point type
+f32 = FloatingPointTyp('f32', 32)  #: 32-bit floating point type
 i64 = SignedIntegerTyp('i64', 64)  #: Signed 64-bit type
 i32 = SignedIntegerTyp('i32', 32)  #: Signed 32-bit type
 i16 = SignedIntegerTyp('i16', 16)  #: Signed 16-bit type
@@ -426,10 +469,16 @@ u64 = UnsignedIntegerTyp('u64', 64)  #: Unsigned 64-bit type
 u32 = UnsignedIntegerTyp('u32', 32)  #: Unsigned 32-bit type
 u16 = UnsignedIntegerTyp('u16', 16)  #: Unsigned 16-bit type
 u8 = UnsignedIntegerTyp('u8', 8)  #: Unsigned 8-bit type
-ptr = Typ('ptr')  #: Pointer type
+ptr = PointerTyp('ptr')  #: Pointer type
 
 value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
 all_types = value_types + [ptr]
+value_map = {t.name.lower(): t for t in value_types}
+
+
+def get_ty(name):
+    """ Get an ir type by name """
+    return value_map[name.lower()]
 
 
 class Value(Instruction):
@@ -549,7 +598,7 @@ class FunctionCall(Value):
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return '{} {} = {}({})'.format(
+        return '{} {} = call {}({})'.format(
             self.ty, self.name, self.function_name, args)
 
 
@@ -571,7 +620,7 @@ class ProcedureCall(Instruction):
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return '{}({})'.format(self.function_name, args)
+        return 'call {}({})'.format(self.function_name, args)
 
 
 class Binop(Value):
@@ -617,7 +666,7 @@ class Phi(Value):
     def __str__(self):
         inputs = {block.name: value.name
                   for block, value in self.inputs.items()}
-        return '{} {} = Phi {}'.format(self.ty, self.name, inputs)
+        return '{} {} = phi {}'.format(self.ty, self.name, inputs)
 
     def replace_use(self, old, new):
         """ Replace old value reference by new value reference """
@@ -690,6 +739,8 @@ class Load(Value):
     def __init__(self, address, name, ty, volatile=False):
         super().__init__(name, ty)
         assert address.ty is ptr
+        if not isinstance(ty, (BasicTyp, PointerTyp)):
+            raise ValueError('Can only load basic types')
         self.address = address
         self.volatile = volatile
 
@@ -705,6 +756,8 @@ class Store(Instruction):
     def __init__(self, value, address, volatile=False):
         super().__init__()
         assert address.ty is ptr
+        if not isinstance(value.ty, (BasicTyp, PointerTyp)):
+            raise ValueError('Can only store basic types')
         self.address = address
         self.value = value
         self.volatile = volatile

@@ -36,16 +36,16 @@ class FunctionPass(ModulePass):
             self.on_function(function)
 
     @abc.abstractmethod
-    def on_function(self, f):  # pragma: no cover
+    def on_function(self, function):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
 
 class BlockPass(FunctionPass):
     """ Base pass that loops over all blocks """
-    def on_function(self, f):
+    def on_function(self, function):
         """ Loops over each block in the function """
-        for block in f.blocks:
+        for block in function.blocks:
             self.on_block(block)
 
     @abc.abstractmethod
@@ -62,7 +62,7 @@ class InstructionPass(BlockPass):
             self.on_instruction(instruction)
 
     @abc.abstractmethod
-    def on_instruction(self, ins):  # pragma: no cover
+    def on_instruction(self, instruction):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
@@ -119,7 +119,7 @@ class LoadAfterStorePass(BlockPass):
     """
     def find_store_backwards(
             self, i, ty,
-            stop_on=[ir.FunctionCall, ir.ProcedureCall, ir.Store]):
+            stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store)):
         """ Go back from this instruction to beginning """
         block = i.block
         instructions = block.instructions
@@ -132,7 +132,7 @@ class LoadAfterStorePass(BlockPass):
                     return i2
                 else:
                     return None
-            elif type(i2) in stop_on:
+            elif isinstance(i2, stop_on):
                 # A call can change memory, store not found..
                 return None
         return None
@@ -173,7 +173,7 @@ class LoadAfterStorePass(BlockPass):
         for store in store_instructions:
             store_prev = self.find_store_backwards(
                 store, store.value.ty,
-                stop_on=[ir.FunctionCall, ir.ProcedureCall, ir.Store, ir.Load])
+                stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store, ir.Load))
             if store_prev is not None and not store_prev.volatile:
                 store_prev.remove_from_block()
 

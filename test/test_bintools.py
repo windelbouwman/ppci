@@ -1,12 +1,7 @@
 import unittest
 import io
+from unittest.mock import patch
 
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
-from ppci.arch.arm.arm_instructions import ArmToken
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
@@ -14,23 +9,13 @@ from ppci.build.tasks import TaskError
 from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
+from ppci.utils.exefile import ExeWriter
 from ppci.arch.example import Mov, R0, R1, ExampleArch
-
-
-class TokenTestCase(unittest.TestCase):
-    def test_set_bits(self):
-        at = ArmToken()
-        at[2:4] = 0b11
-        self.assertEqual(0xc, at.bit_value)
-
-    def test_set_bits2(self):
-        at = ArmToken()
-        at[4:8] = 0b1100
-        self.assertEqual(0xc0, at.bit_value)
 
 
 class OutstreamTestCase(unittest.TestCase):
     def test_dummy_stream(self):
+        arch = ExampleArch()
         stream = DummyOutputStream()
         stream.select_section('code')
         stream.emit(Mov(R1, R0))
@@ -38,6 +23,7 @@ class OutstreamTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_text_stream(self, mock_stdout):
         """ Test output to stdout """
+        arch = ExampleArch()
         stream = TextOutputStream()
         stream.select_section('code')
         stream.emit(Mov(R1, R0))
@@ -208,6 +194,15 @@ class ElfFileTestCase(unittest.TestCase):
         ef1.save(f, ObjectFile(arch))
         f2 = io.BytesIO(f.getvalue())
         ElfFile.load(f2)
+
+
+class ExeFileTestCase(unittest.TestCase):
+    def test_save(self):
+        """ Test the generation of a windows exe file """
+        arch = ExampleArch()
+        obj = ObjectFile(arch)
+        f = io.BytesIO()
+        ExeWriter().write(obj, f)
 
 
 class LayoutFileTestCase(unittest.TestCase):

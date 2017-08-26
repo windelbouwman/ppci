@@ -4,9 +4,11 @@
 """
 
 from .arch import Architecture
+from .arch_info import ArchInfo, TypeInfo
 from .encoding import Instruction, Syntax, Operand
 from .registers import Register, RegisterClass
-from ..import ir
+from .. import ir
+from .isa import Isa
 
 
 class ExampleArch(Architecture):
@@ -16,8 +18,6 @@ class ExampleArch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        self.byte_sizes['int'] = 4
-        self.byte_sizes['ptr'] = 4
         self.register_classes = [
             RegisterClass(
                 'reg', [ir.i32, ir.ptr], ExampleRegister,
@@ -26,6 +26,14 @@ class ExampleArch(Architecture):
                 'hreg', [ir.i16], HalfExampleRegister, [R10l]),
             ]
         self.gdb_registers = gdb_registers
+        self.isa = Isa()
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                'int': ir.i32, 'ptr': ir.u32
+            })
 
     def gen_prologue(self, frame):
         return []
@@ -33,23 +41,28 @@ class ExampleArch(Architecture):
     def gen_epilogue(self, frame):
         return []
 
+    def gen_call(self, label, args, rv):
+        return []
+
+    def gen_function_enter(self, args):
+        return []
+
+    def gen_function_exit(self, rv):
+        return []
+
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine locations
         """
         arg_locs = []
-        live_in = set()
         regs = [R0, R1, R2, R3]
         for a in arg_types:
             r = regs.pop(0)
             arg_locs.append(r)
-            live_in.add(r)
-        return arg_locs, tuple(live_in)
+        return arg_locs
 
     def determine_rv_location(self, ret_type):
-        live_out = set()
         rv = R0
-        live_out.add(rv)
-        return rv, tuple(live_out)
+        return rv
 
 
 class ExampleRegister(Register):

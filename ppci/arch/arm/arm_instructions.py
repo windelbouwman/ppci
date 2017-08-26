@@ -5,10 +5,11 @@
 from .isa import arm_isa, ArmToken, ArmImmToken, Isa
 from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
 from ...utils.bitfun import encode_imm32
+from ...utils.tree import Tree
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
+from .registers import R0, R1, R2
 from .arm_relocations import Imm24Relocation
 from .arm_relocations import LdrImm12Relocation, AdrImm12Relocation
-from ...ir import i32
 
 
 # Patterns:
@@ -554,6 +555,7 @@ class Mrc(McrBase):
 
 # Instruction selection patterns:
 @arm_isa.pattern('stm', 'STRI32(reg, reg)', size=4)
+@arm_isa.pattern('stm', 'STRU32(reg, reg)', size=4)
 def pattern_str32(self, tree, c0, c1):
     self.emit(Str1(c1, c0, 0))
 
@@ -576,6 +578,7 @@ def pattern_str8(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'MOVI32(reg)', size=4)
+@arm_isa.pattern('reg', 'MOVU32(reg)', size=4)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -595,6 +598,7 @@ def pattern_jmp(context, tree):
 
 
 @arm_isa.pattern('reg', 'REGI32', size=0, cycles=0, energy=0)
+@arm_isa.pattern('reg', 'REGU32', size=0, cycles=0, energy=0)
 def pattern_reg32(context, tree):
     return tree.value
 
@@ -605,7 +609,10 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
+@arm_isa.pattern('reg', 'U32TOU32(reg)', size=0)
+@arm_isa.pattern('reg', 'U32TOI32(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOI32(reg)', size=0)
+@arm_isa.pattern('reg', 'I32TOU32(reg)', size=0)
 def pattern_i32toi32(self, tree, c0):
     return c0
 
@@ -627,6 +634,7 @@ def pattern_i32toi8(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'CONSTI32', size=8)
+@arm_isa.pattern('reg', 'CONSTU32', size=8)
 def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -634,6 +642,8 @@ def pattern_const32(context, tree):
     return d
 
 
+@arm_isa.pattern(
+    'reg', 'CONSTU32', size=4, condition=lambda t: t.value in range(256))
 @arm_isa.pattern(
     'reg', 'CONSTI32', size=4, condition=lambda t: t.value in range(256))
 def pattern_const32_1(context, tree):
@@ -656,7 +666,10 @@ def pattern_const8_1(context, tree):
     return d
 
 
-@arm_isa.pattern('stm', 'CJMP(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
@@ -668,6 +681,7 @@ def pattern_cjmp(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
+@arm_isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add(d, c0, c1, NoShift()))
@@ -675,6 +689,7 @@ def pattern_add32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ADDU8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add(d, c0, c1, NoShift()))
@@ -728,10 +743,10 @@ def pattern_label(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'FPRELI32', size=4, cycles=2, energy=2)
+@arm_isa.pattern('reg', 'FPRELU32', size=4, cycles=2, energy=2)
 def pattern_fprel32(context, tree):
     d = context.new_reg(ArmRegister)
-    c1 = tree.value
+    c1 = tree.value.negative
     if c1 in range(-255, 256):
         if c1 >= 0:
             context.emit(AddImm(d, R11, c1))
@@ -755,26 +770,33 @@ def pattern_ld8(context, tree, c0):
     return d2
 
 
+@arm_isa.pattern('reg', 'LDRU16(reg)', size=4, energy=8)
+def pattern_ld16(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    context.emit(Ldr1(d, c0, 0))
+    # context.emit(Shl
+    raise NotImplementedError()
+    return d
+
+
 @arm_isa.pattern('reg', 'LDRI32(reg)', size=4)
+@arm_isa.pattern('reg', 'LDRU32(reg)', size=4)
 def pattern_ld32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.emit(Ldr1(d, c0, 0))
     return d
 
 
-@arm_isa.pattern('reg', 'CALL', size=10)
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
-
-
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(And(d, c0, c1, NoShift()))
     return d
 
 
-@arm_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', Tree('ORI32', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('ORU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Orr(d, c0, c1, NoShift()))
@@ -782,13 +804,15 @@ def pattern_or32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
 def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsr1(d, c0, c1))
     return d
 
 
-@arm_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', Tree('SHLI32', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('SHLU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsl1(d, c0, c1))
@@ -815,7 +839,10 @@ def pattern_ldr32(context, tree, c0):
 def pattern_div32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
+    context.move(R1, c0)
+    context.move(R2, c1)
+    context.emit(Bl('__sdiv'))
+    context.move(d, R0)
     return d
 
 
@@ -823,7 +850,10 @@ def pattern_div32(context, tree, c0, c1):
 def pattern_rem32(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(ArmRegister)
-    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
+    context.move(R1, c0)
+    context.move(R2, c1)
+    context.emit(Bl('__sdiv'))
+    context.move(d, R0)
     d2 = context.new_reg(ArmRegister)
     context.emit(Mls(d2, d, c1, c0))
     return d2

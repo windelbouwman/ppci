@@ -7,6 +7,7 @@ class VirtualInstruction(Instruction):
     Virtual instructions are instructions used during code generation
     and can never be encoded into a stream.
     """
+
     def encode(self):  # pragma: no cover
         raise RuntimeError('Cannot encode virtual {}'.format(self))
 
@@ -16,6 +17,7 @@ class ArtificialInstruction(VirtualInstruction):
 
     It is actually more a macro, when emitted, the render function is
     called """
+
     def render(self):  # pragma: no cover
         """ Implement this by generating a sequence of actual instructions """
         raise NotImplementedError()
@@ -28,6 +30,7 @@ class PseudoInstruction(Instruction):
     machine instructions. They are instructions like comments, labels
     and debug information alike information.
     """
+
     def __init__(self):
         super().__init__()
 
@@ -37,6 +40,7 @@ class PseudoInstruction(Instruction):
 
 class Nop(Instruction):
     """ Instruction that does nothing and has zero size """
+
     def encode(self):
         return bytes()
 
@@ -46,6 +50,7 @@ class Nop(Instruction):
 
 class RegisterUseDef(VirtualInstruction):
     """ Magic instruction that can be used to define and use registers """
+
     def __init__(self, uses=(), defs=()):
         super().__init__()
         self.add_uses(uses)
@@ -69,47 +74,9 @@ class RegisterUseDef(VirtualInstruction):
             self.add_def(df)
 
 
-class VCall(VirtualInstruction):
-    """ An instruction call before register allocation.
-
-    After register
-    allocation, this instruction is replaced by the correct calling
-    sequence for a function.
-    """
-    def __init__(self, function_name, **kwargs):
-        super().__init__(**kwargs)
-        self.function_name = function_name
-
-    def __repr__(self):
-        return 'VCALL {}'.format(self.function_name)
-
-
-class VSaveRegisters(VirtualInstruction):
-    """ Placeholder for a place to save caller saved registers.
-
-    Will invoke some hook on the architecture """
-    def __init__(self, vcall):
-        super().__init__()
-        self.vcall = vcall
-
-    def __repr__(self):
-        return 'VSAVEREGS {}'.format(self.vcall.function_name)
-
-
-class VRestoreRegisters(VirtualInstruction):
-    """ Placeholder for a place to restore caller saved registers.
-
-    Will invoke some hook on the architecture """
-    def __init__(self, vcall):
-        super().__init__()
-        self.vcall = vcall
-
-    def __repr__(self):
-        return 'VRESTOREREGS {}'.format(self.vcall.function_name)
-
-
 class Comment(PseudoInstruction):
     """ Assembly language comment """
+
     def __init__(self, comment):
         super().__init__()
         self.comment = comment
@@ -120,6 +87,7 @@ class Comment(PseudoInstruction):
 
 class Label(PseudoInstruction):
     """ Assembly language label instruction """
+
     def __init__(self, name):
         super().__init__()
         self.name = name
@@ -137,26 +105,37 @@ class Alignment(PseudoInstruction):
     Encodes to nothing, but is
     used in the linker to enforce multiple of x byte alignment
     """
-    def __init__(self, a):
+
+    def __init__(self, a, rep=None):
         super().__init__()
         self.align = a
+        self.rep = rep
 
     def __repr__(self):
-        return 'ALIGN({})'.format(self.align)
+        if self.rep:
+            return self.rep
+        else:
+            return 'ALIGN({})'.format(self.align)
 
 
 class SectionInstruction(PseudoInstruction):
     """ Select a certain section to emit output into. """
-    def __init__(self, a):
+
+    def __init__(self, a, rep=None):
         super().__init__()
         self.name = a
+        self.rep = rep
 
     def __repr__(self):
-        return 'section {}'.format(self.name)
+        if self.rep:
+            return self.rep
+        else:
+            return 'section {}'.format(self.name)
 
 
 class DebugData(PseudoInstruction):
     """ Carrier instruction of debug information. """
+
     def __init__(self, data):
         super().__init__()
         self.data = data

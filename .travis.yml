@@ -9,5 +9,5 @@ install:
   - pip -q install tox codacy-coverage
 
 script:
-  - tox -e py3,cover,flake8
+  - tox -e cover
   - python-codacy-coverage -r coverage.xml

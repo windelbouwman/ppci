@@ -1,4 +1,0 @@
-apb_fll_if:
-  files: [
-    apb_fll_if.sv,
-  ]

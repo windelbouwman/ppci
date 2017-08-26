@@ -391,7 +391,7 @@ class Bw(LongThumbInstruction):
 class Bl(LongThumbInstruction):
     """ Branch with link """
     target = Operand('target', str)
-    syntax = Syntax(['bl', target])
+    syntax = Syntax(['bl', ' ', target])
 
     def encode(self):
         j1 = 1  # TODO: what do these mean?
@@ -536,12 +536,14 @@ class addspsp_base(ThumbInstruction):
 
 
 class AddSp(addspsp_base):
-    syntax = Syntax(['add', 'sp', ',', 'sp', ',', addspsp_base.imm7])
+    syntax = Syntax(
+        ['add', ' ', 'sp', ',', ' ', 'sp', ',', ' ', addspsp_base.imm7])
     opcode = 0b101100000
 
 
 class SubSp(addspsp_base):
-    syntax = Syntax(['sub', 'sp', ',', 'sp', ',', addspsp_base.imm7])
+    syntax = Syntax(
+        ['sub', ' ', 'sp', ',', ' ', 'sp', ',', ' ', addspsp_base.imm7])
     opcode = 0b101100001
 
 
@@ -574,7 +576,8 @@ class SubSp(addspsp_base):
 #
 ###############
 
-@thumb_isa.pattern('stm', 'STRI32(reg, reg)', size=1)
+@thumb_isa.pattern('stm', 'STRI32(reg, reg)', size=2)
+@thumb_isa.pattern('stm', 'STRU32(reg, reg)', size=2)
 def pattern_str32(context, tree, c0, c1):
     context.emit(Str2(c1, c0, 0))
 
@@ -593,6 +596,8 @@ def pattern_reg32(context, tree):
     return tree.value
 
 
+@thumb_isa.pattern('reg', 'I32TOU32(reg)', size=0)
+@thumb_isa.pattern('reg', 'U32TOI32(reg)', size=0)
 @thumb_isa.pattern('reg', 'I32TOI32(reg)', size=0)
 def pattern_i32toi32(context, tree, c0):
     return c0
@@ -612,8 +617,9 @@ def pattern_i32toi8(context, tree, c0):
     return c0
 
 
-@thumb_isa.pattern('reg', 'ADDI32(reg,reg)', size=1)
-def _(context, tree, c0, c1):
+@thumb_isa.pattern('reg', 'ADDI32(reg,reg)', size=2)
+@thumb_isa.pattern('reg', 'ADDU32(reg,reg)', size=2)
+def pattern_add32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.emit(Add3(d, c0, c1))
     return d
@@ -635,10 +641,10 @@ def pattern_label(context, tree):
 
 
 @thumb_isa.pattern(
-    'reg', 'FPRELI32', size=9, cycles=9)
+    'reg', 'FPRELU32', size=9, cycles=9)
 def pattern_fprel32(context, tree):
     d = context.new_reg(LowArmRegister)
-    c1 = tree.value
+    c1 = tree.value.negative
     if c1 >= 0:
         if c1 < 8:
             context.emit(Add2(d, R7, c1))
@@ -668,6 +674,7 @@ def pattern_fprel32(context, tree):
 
 
 @thumb_isa.pattern('reg', 'CONSTI32', size=6, cycles=4, energy=4)
+@thumb_isa.pattern('reg', 'CONSTU32', size=6, cycles=4, energy=4)
 def pattern_const32(context, tree):
     d = context.new_reg(LowArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -675,6 +682,9 @@ def pattern_const32(context, tree):
     return d
 
 
+@thumb_isa.pattern(
+    'reg', 'CONSTU32', size=2, cycles=1, energy=1,
+    condition=lambda x: x.value in range(256))
 @thumb_isa.pattern(
     'reg', 'CONSTI32', size=2, cycles=1, energy=1,
     condition=lambda x: x.value in range(256))
@@ -707,6 +717,7 @@ def pattern_const8_imm(context, tree):
     return d
 
 
+@thumb_isa.pattern('reg', 'MOVU32(reg)', size=2)
 @thumb_isa.pattern('reg', 'MOVI32(reg)', size=2)
 def pattern_mov32(context, tree, c0):
     reg = tree.value
@@ -722,7 +733,8 @@ def pattern_mov8(context, tree, c0):
     return reg
 
 
-@thumb_isa.pattern('stm', 'CJMP(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPI32(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPI8(reg,reg)', size=6)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
@@ -755,11 +767,7 @@ def pattern_ldr32(context, tree, c0):
     return d
 
 
-@thumb_isa.pattern('reg', 'CALL', size=10)
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
-
-
+@thumb_isa.pattern('reg', 'SUBU32(reg,reg)', size=2)
 @thumb_isa.pattern('reg', 'SUBI32(reg,reg)', size=2)
 def pattern_sub32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
@@ -785,6 +793,7 @@ def pattern_sub8(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
 def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -793,6 +802,7 @@ def pattern_shr32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ORU32(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -801,6 +811,7 @@ def pattern_or32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
 def pattern_and32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -809,6 +820,7 @@ def pattern_and32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHLU32(reg, reg)', size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)

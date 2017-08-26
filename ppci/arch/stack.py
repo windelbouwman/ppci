@@ -8,8 +8,16 @@ from .generic_instructions import Label
 
 class StackLocation:
     """ A stack location can store data just like a register """
-    def __init__(self):
-        pass
+    def __init__(self, offset, size):
+        self.offset = offset
+        self.size = size
+
+    def __repr__(self):
+        return 'Stack[{} bytes at {}]'.format(self.size, self.offset)
+
+    @property
+    def negative(self):
+        return -self.offset - self.size
 
 
 def generate_temps():
@@ -46,9 +54,9 @@ class Frame:
         """ Allocate space on the stack frame and return the offset """
         # TODO: determine alignment!
         # TODO: grow down or up?
-        offset = -size - self.stacksize
+        l = StackLocation(self.stacksize, size)
         self.stacksize += size
-        return offset
+        return l
 
     def new_name(self, salt):
         """ Generate a new unique name """
@@ -69,27 +77,6 @@ class Frame:
     def is_used(self, register):
         """ Check if a register is used by this frame """
         return register in self.used_regs
-
-    def live_regs_over(self, instruction):
-        """ Determine what registers are live along an instruction.
-        Useful to determine if registers must be saved when making a call """
-        # print(self.cfg._map)
-        # assert self.cfg.has_node(instruction)
-        # fg_node = self.cfg.get_node(instruction)
-        # print('live in and out', fg_node.live_in, fg_node.live_out)
-
-        # Get register colors from interference graph:
-        live_regs = []
-        for tmp in (
-                instruction.live_in & instruction.live_out) - instruction.kill:
-            # print(tmp)
-            n = self.ig.get_node(tmp)
-            reg = n.reg
-            live_regs.append(reg)
-        # for tmp in instruction.used_registers:
-        #    if tmp in live_regs:
-        #        live_regs
-        return live_regs
 
     def live_ranges(self, vreg):
         """ Determine the live range of some register """

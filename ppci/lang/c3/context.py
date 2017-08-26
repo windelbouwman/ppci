@@ -2,6 +2,7 @@ import logging
 import operator
 import struct
 from .scope import create_top_scope, Scope, SemanticError
+from ...arch.arch_info import Endianness
 from . import astnodes as ast
 
 
@@ -13,13 +14,14 @@ class Context:
     """
     logger = logging.getLogger('c3ctx')
 
-    def __init__(self, arch):
-        self.scope = create_top_scope(arch)
+    def __init__(self, arch_info):
+        self.scope = create_top_scope(arch_info)
         self.module_map = {}
         self.const_map = {}
         self.var_map = {}    # Maps variables to storage locations.
         self.const_workset = set()
-        self.pointerSize = arch.byte_sizes['ptr']
+        self.arch_info = arch_info
+        self.pointerSize = arch_info.get_size('ptr')
 
     def has_module(self, name):
         """ Check if a module with the given name exists """
@@ -144,11 +146,18 @@ class Context:
     def pack_int(self, v, bits=None, signed=True):
         if bits is None:
             bits = self.get_type('int').byte_size * 8
-        mapping = {
-            (8, False): '<B', (8, True): '<b',
-            (16, False): '<H', (16, True): '<h',
-            (32, False): '<I', (32, True): '<i',
-            (64, False): '<Q', (64, True): '<q'}
+        if self.arch_info.endianness == Endianness.LITTLE:
+            mapping = {
+                (8, False): '<B', (8, True): '<b',
+                (16, False): '<H', (16, True): '<h',
+                (32, False): '<I', (32, True): '<i',
+                (64, False): '<Q', (64, True): '<q'}
+        else:
+            mapping = {
+                (8, False): '>B', (8, True): '>b',
+                (16, False): '>H', (16, True): '>h',
+                (32, False): '>I', (32, True): '>i',
+                (64, False): '>Q', (64, True): '>q'}
         fmt = mapping[(bits, signed)]
         return struct.pack(fmt, v)
 
@@ -191,17 +200,46 @@ class Context:
 
         if self.equal_types(typ_a, typ_b):
             return typ_a
+
         # Handle pointers:
         if isinstance(typ_a, ast.PointerType) and \
                 self.equal_types(typ_b, 'int'):
             return typ_a
 
+        if isinstance(typ_b, ast.PointerType) and \
+                self.equal_types(typ_a, 'int'):
+            return typ_b
+
+        # Handle basic types:
+        all_type_names = [
+            # 'int', 'byte',
+            'float', 'double',
+            'int8_t', 'int16_t', 'int32_t', 'int64_t',
+            'uint8_t', 'uint16_t', 'uint32_t', 'uint64_t'
+        ]
+        all_types = [self.get_type(n) for n in all_type_names]
+        type_lu = {(type(t), t.bits): t for t in all_types}
+        type_prios = {
+            ast.UnsignedIntegerType: 1,
+            ast.SignedIntegerType: 2,
+            ast.FloatType: 3
+        }
+        reverz = {v: k for k, v in type_prios.items()}
+        a = type(typ_a)
+        b = type(typ_b)
+        if a in type_prios and b in type_prios:
+            ct = reverz[max(type_prios[a], type_prios[b])]
+            cb = max(typ_a.bits, typ_b.bits)
+            key = (ct, cb)
+            if key in type_lu:
+                return type_lu[key]
+
         # Handle non-pointers:
-        key = (typ_a, typ_b)
-        if key not in table:
-            raise SemanticError(
-                "Types {} and {} do not commute".format(typ_a, typ_b), loc)
-        return table[(typ_a, typ_b)]
+        # key = (typ_a, typ_b)
+        # if key not in table:
+        raise SemanticError(
+            "Types {} and {} do not commute".format(typ_a, typ_b), loc)
+        # return table[(typ_a, typ_b)]
 
     def get_type(self, typ, reveil_defined=True):
         """ Get type given by str, identifier or type.

@@ -11,7 +11,6 @@ This section is intended for contributors of ppci.
     communication
     development
     todo
-    howto/index
 
 
 Contributors

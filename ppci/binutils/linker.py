@@ -178,7 +178,8 @@ class Linker:
             size = reloc.size()
             end = begin + size
             data = section.data[begin:end]
-            assert len(data) == size
+            assert len(data) == size, \
+                'len({}) ({}-{}) != {}'.format(data, begin, end, size)
             data = reloc.apply(sym_value, data, reloc_value)
             assert len(data) == size
             section.data[begin:end] = data

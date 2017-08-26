@@ -14,14 +14,14 @@ Pattern = namedtuple(
 
 
 class Isa:
-    """
-        Container type for an instruction set.
-        Contains a list of instructions, mappings from intermediate code
-        to instructions.
+    """ Container type for an instruction set.
 
-        Isa's can be merged into new isa's which can be used to define target.
-        For example the arm without FPU can be combined with the FPU isa
-        to expand the supported functions.
+    Contains a list of instructions, mappings from intermediate code
+    to instructions.
+
+    Isa's can be merged into new isa's which can be used to define target.
+    For example the arm without FPU can be combined with the FPU isa
+    to expand the supported functions.
     """
     def __init__(self):
         self.instructions = []

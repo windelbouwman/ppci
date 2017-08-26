@@ -2,7 +2,7 @@
 
 import logging
 from ...common import CompilerError
-from ...pcc.recursivedescent import RecursiveDescentParser
+from ..tools.recursivedescent import RecursiveDescentParser
 from . import astnodes as ast
 from .scope import Scope
 
@@ -278,7 +278,7 @@ class Parser(RecursiveDescentParser):
 
     def parse_compound(self):
         """ Parse a compound statement, which is bounded by '{' and '}' """
-        self.consume('{')
+        loc = self.consume('{').loc
         statements = []
         while self.peak != '}':
             statements.append(self.parse_statement())
@@ -288,7 +288,7 @@ class Parser(RecursiveDescentParser):
         # if cb1.loc.col != cb2.loc.col:
         #    self.error('Braces not in same column!')
 
-        return ast.Compound(statements)
+        return ast.Compound(statements, loc)
 
     def parse_statement(self) -> ast.Statement:
         """ Determine statement type based on the pending token """
@@ -307,7 +307,8 @@ class Parser(RecursiveDescentParser):
         elif self.peak == 'var':
             variables = self.parse_variable_def()
             statements = [ast.VariableDeclaration(v, v.loc) for v in variables]
-            return ast.Compound(statements)
+            loc = variables[0].loc
+            return ast.Compound(statements, loc)
         else:
             expression = self.parse_unary_expression()
             if self.peak in ast.Assignment.operators:

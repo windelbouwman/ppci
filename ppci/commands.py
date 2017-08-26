@@ -10,9 +10,11 @@ import logging
 import importlib
 import io
 
-from .pcc.yacc import transform
+from .lang.tools.yacc import transform
+from .lang.c import create_ast, CAstPrinter
 from .utils.hexfile import HexFile
 from .binutils.objectfile import ObjectFile, print_object
+from .binutils.outstream import TextOutputStream
 from .build.tasks import TaskError
 from . import __version__, api, irutils
 from .common import logformat, CompilerError
@@ -21,10 +23,12 @@ from .binutils.dbg import Debugger
 from .binutils.dbg_cli import DebugCli
 from .lang.c.options import COptions, coptions_parser
 from .utils.reporting import HtmlReportGenerator, DummyReportGenerator
+from .utils.reporting import TextReportGenerator
 
 
-version_text = 'ppci {} compiler on {} {}'.format(
-    __version__, platform.python_implementation(), platform.python_version())
+version_text = 'ppci {} compiler on {} {} on {}'.format(
+    __version__, platform.python_implementation(), platform.python_version(),
+    platform.platform())
 
 
 def log_level(s):
@@ -56,6 +60,10 @@ base_parser.add_argument(
     help='Write html report file',
     type=argparse.FileType('w'))
 base_parser.add_argument(
+    '--text-report', metavar='text-report-file', action=OnceAction,
+    help='Write a report into a text file',
+    type=argparse.FileType('w'))
+base_parser.add_argument(
     '--verbose', '-v', action='count', default=0,
     help='Increase verbosity of the output')
 base_parser.add_argument(
@@ -77,6 +85,18 @@ out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
     default='f.out',
     type=argparse.FileType('w'))
+
+compile_parser = argparse.ArgumentParser(add_help=False)
+compile_parser.add_argument(
+    '-g', help='create debug information', action='store_true', default=False)
+compile_parser.add_argument(
+    '-S', help='Do not assemble, but output assembly language',
+    action='store_true', default=False)
+compile_parser.add_argument(
+    '--ir', help='Output ppci ir-code, do not generate code',
+    action='store_true', default=False)
+compile_parser.add_argument(
+    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
 def get_arch_from_args(args):
@@ -135,38 +155,53 @@ result in any code.
 """
 c3c_parser = argparse.ArgumentParser(
     description=c3c_description,
-    parents=[base_parser, march_parser, out_parser])
+    parents=[base_parser, march_parser, out_parser, compile_parser])
 c3c_parser.add_argument(
     '-i', '--include', action='append', metavar='include',
     help='include file', default=[])
 c3c_parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+')
-c3c_parser.add_argument(
-    '-g', help='create debug information', action='store_true', default=False)
-c3c_parser.add_argument(
-    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
 def c3c(args=None):
     """ Run c3 compile task """
     args = c3c_parser.parse_args(args)
-    with LogSetup(args):
+    with LogSetup(args) as log_setup:
         # Compile sources:
         march = get_arch_from_args(args)
-        obj = api.c3c(args.sources, args.include, march, debug=args.g)
+        if args.S:
+            txtstream = TextOutputStream(
+                printer=march.asm_printer, f=args.output)
+            api.c3c(
+                args.sources, args.include, march,
+                reporter=log_setup.reporter,
+                debug=args.g, outstream=txtstream)
+        else:
+            obj = api.c3c(
+                args.sources, args.include, march,
+                reporter=log_setup.reporter, debug=args.g)
 
-        # Write object file to disk:
-        obj.save(args.output)
+            # Write object file to disk:
+            obj.save(args.output)
         args.output.close()
 
 
-cc_description = """ C compiler. """
+cc_description = """ C compiler.
+
+Use this compiler to compile C source code to machine code for different
+computer architectures.
+"""
 cc_parser = argparse.ArgumentParser(
     description=cc_description,
-    parents=[base_parser, march_parser, out_parser, coptions_parser])
+    parents=[
+        base_parser, march_parser, out_parser, compile_parser,
+        coptions_parser])
 cc_parser.add_argument(
     '-E', action='store_true', default=False,
     help="Stop after preprocessing")
+cc_parser.add_argument(
+    '--ast', action='store_true', default=False,
+    help="Stop parsing and output the C abstract syntax tree (ast)")
 cc_parser.add_argument(
     '-c', action="store_true", default=False,
     help="Compile, but do not link")
@@ -185,23 +220,47 @@ def cc(args=None):
         coptions.process_args(args)
 
         for src in args.sources:
-            if args.E:
+            if args.E:  # Only pre process
                 api.preprocess(src, args.output, coptions)
+            elif args.ast:
+                # Stop after ast generation:
+                filename = src.name if hasattr(src, 'name') else None
+                ast = create_ast(
+                    src, march, filename=filename, coptions=coptions)
+                printer = CAstPrinter(file=args.output)
+                printer.print(ast)
+            elif args.ir:
+                # Stop after ir code generation
+                module = api.c_to_ir(
+                    src, march, coptions=coptions,
+                    reporter=log_setup.reporter)
+                irutils.Writer(file=args.output).write(module)
+            elif args.S:  # Output assembly code
+                stream = TextOutputStream(
+                    printer=march.asm_printer, f=args.output)
+                module = api.c_to_ir(
+                    src, march, coptions=coptions, reporter=log_setup.reporter)
+                api.ir_to_stream(
+                    module, march, stream, reporter=log_setup.reporter)
+            elif args.c:  # Compile only
+                obj = api.cc(
+                    src, march, coptions=coptions,
+                    reporter=log_setup.reporter)
+
+                # Write object file to disk:
+                obj.save(args.output)
             else:
                 obj = api.cc(
                     src, march, coptions=coptions,
                     reporter=log_setup.reporter)
 
-                if args.c:
-                    # Write object file to disk:
-                    obj.save(args.output)
-                    args.output.close()
-                else:
-                    # TODO: link objects together?
-                    logging.warning('TODO: Linking with stdlibs')
-                    obj.save(args.output)
-                    args.output.close()
-                    # raise NotImplementedError('Linking not implemented')
+                # TODO: link objects together?
+                logging.warning('TODO: Linking with stdlibs')
+                obj.save(args.output)
+                # raise NotImplementedError('Linking not implemented')
+
+        # Close output file:
+        args.output.close()
 
 
 pascal_description = """ Pascal compiler.
@@ -421,7 +480,7 @@ def opt(args=None):
     module = irutils.Reader().read(args.input)
     with LogSetup(args):
         api.optimize(module, level=args.O)
-    irutils.Writer().write(module, args.output)
+    irutils.Writer(file=args.output).write(module)
 
 
 def yacc_cmd(args=None):
@@ -564,8 +623,12 @@ class LogSetup:
         if self.args.html_report:
             self.reporter = HtmlReportGenerator(self.args.html_report)
             self.reporter.header()
+        elif self.args.text_report:
+            self.reporter = TextReportGenerator(self.args.text_report)
+            self.reporter.header()
         else:
             self.reporter = DummyReportGenerator()
+        self.logger.debug('Reporting to %s', self.reporter)
         self.logger.debug('Loggers attached')
         self.logger.info(version_text)
         return self
@@ -583,6 +646,9 @@ class LogSetup:
             self.logger.error(str(exc_value.loc))
             exc_value.print()
 
+            # Report the error:
+            self.reporter.dump_compiler_error(exc_value)
+
         if exc_value is not None:
             # Exception happened, close file and remove
             if hasattr(self.args, 'output') and self.args.output:
@@ -596,9 +662,13 @@ class LogSetup:
             self.logger.removeHandler(self.file_handler)
             self.args.report.close()
 
+        self.reporter.footer()
+
         if self.args.html_report:
-            self.reporter.footer()
             self.args.html_report.close()
+
+        if self.args.text_report:
+            self.args.text_report.close()
 
         self.logger.removeHandler(self.console_handler)
 

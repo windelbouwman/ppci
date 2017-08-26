@@ -1,0 +1,26 @@
+
+<project name="Snake" default="snake">
+    <import name="ppci.build.buildtasks" />
+
+    <target name="snake">
+        <assemble
+            source="../crt0.asm"
+            arch="or1k"
+            output="startup.oj" />
+        <compile
+            arch="or1k"
+            sources="../../src/snake/*.c3;../bsp.c3;../../../librt/io.c3"
+            output="rest.oj"
+            report="report.html"/>
+        <link output="snake.oj"
+            layout="../layout.mmp"
+            objects="startup.oj;rest.oj" />
+        <objcopy
+            objectfile="snake.oj"
+            imagename="flash"
+            format="bin"
+            output="snake.bin" />
+    </target>
+
+</project>
+

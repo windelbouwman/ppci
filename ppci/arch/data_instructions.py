@@ -1,4 +1,3 @@
-
 """ Contains instruction set for creating binary data.
 
 For example:
@@ -62,6 +61,23 @@ class Dw2(DataInstruction):
 
     def relocations(self):
         return [U16DataRelocation(self.v)]
+
+
+class DByte(DataInstruction):
+    tokens = [ByteToken]
+    v = Operand('v', int)
+    syntax = Syntax(['.', 'byte', ' ', v])
+    patterns = {'value': v}
+
+
+class DZero(DataInstruction):
+    """ Reserve an amount of space """
+    tokens = []
+    v = Operand('v', int)
+    syntax = Syntax(['.', 'zero', ' ', v])
+
+    def encode(self):
+        return bytes([0] * self.v)
 
 
 @data_isa.register_relocation

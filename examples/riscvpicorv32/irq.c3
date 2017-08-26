@@ -18,15 +18,15 @@ function int irq(byte* regs,int irqs)
  var int res = 0;
  var int steps = 0;
 
- gdbstub.status(5, regs, &outbuffer[0]);
+ gdbstub.status((irqs<<1)+(irqs>>1), regs, &outbuffer[0]);
  gdbstub.put_packet(&outbuffer);
 
- while(debug) {
+ while(debug == true) {
      res = gdbstub.get_packet(&inbuffer);
      bch = inbuffer[0];
      if(bch == 0x6d) {
          gdbstub.readmem(&inbuffer[2],&outbuffer[0]);
-         gdbstub.put_packet(&outbuffer);
+         gdbstub.put_packet(&outbuffer[0]);
          }
      if(bch == 0x4d) {
          gdbstub.writemem(&inbuffer[2]);
@@ -48,7 +48,7 @@ function int irq(byte* regs,int irqs)
          }
      if(bch == 0x67) {
          gdbstub.readregs(regs, &outbuffer[0]);
-         gdbstub.put_packet(&outbuffer);
+         gdbstub.put_packet(&outbuffer[0]);
         }
      if(bch == 0x47) {
         gdbstub.writeregs(&inbuffer[2], regs)
@@ -79,10 +79,12 @@ function int irq(byte* regs,int irqs)
         debug=false;
         }
      if(bch == 0x73) {
+        bsp.setint();
         return(1);
         }
      if(bch == 0x6e) {
         res = gdbstub.hexstring2int(&inbuffer[2],&steps);
+        bsp.setint();
         return(steps);
         }
     }

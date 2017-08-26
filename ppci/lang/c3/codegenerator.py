@@ -97,8 +97,9 @@ class CodeGenerator:
             else:
                 cval = None
 
+            var_name = '{}_{}'.format(module.name, var.name)
             ir_var = ir.Variable(
-                var.name, context.size_of(var.typ), value=cval)
+                var_name, context.size_of(var.typ), value=cval)
             context.var_map[var] = ir_var
             ir_module.add_variable(ir_var)
 
@@ -116,6 +117,10 @@ class CodeGenerator:
         if loc:
             self.debug_db.enter(instruction, debuginfo.DebugLocation(loc))
         return instruction
+
+    def new_block(self):
+        """ Create a new basic block into the current function """
+        return self.builder.new_block()
 
     def get_debug_type(self, typ):
         """ Get or create debug type info in the debug information """
@@ -165,13 +170,14 @@ class CodeGenerator:
             for parameters on the stack, and generating code for the function
             body.
         """
+        name = '{}_{}'.format(self.builder.module.name, function.name)
         if self.context.equal_types('void', function.typ.returntype):
-            ir_function = self.builder.new_procedure(function.name)
+            ir_function = self.builder.new_procedure(name)
         else:
             return_type = self.get_ir_type(function.typ.returntype)
-            ir_function = self.builder.new_function(function.name, return_type)
+            ir_function = self.builder.new_function(name, return_type)
         self.builder.set_function(ir_function)
-        first_block = self.builder.new_block()
+        first_block = self.new_block()
         self.builder.set_block(first_block)
         ir_function.entry = first_block
 
@@ -315,7 +321,7 @@ class CodeGenerator:
             self.emit(ir.Return(ret_val))
         else:
             self.emit(ir.Exit())
-        self.builder.set_block(self.builder.new_block())
+        self.builder.set_block(self.new_block())
 
     def gen_assignment_stmt(self, code):
         """ Generate code for assignment statement """
@@ -341,16 +347,19 @@ class CodeGenerator:
 
             # We know, the left hand side is an lvalue, so load it:
             lhs_ld = self.emit(
-                ir.Load(lval, 'assign_op_load', load_ty), loc=code.loc)
+                ir.Load(lval, 'assign_op_load', load_ty),
+                loc=code.location)
 
             # Now construct the rvalue:
             oper = code.shorthand_operator
             rval = self.emit(
-                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty), loc=code.loc)
+                ir.Binop(lhs_ld, oper, rval, "binop", rval.ty),
+                loc=code.location)
 
         # Determine volatile property from left-hand-side type:
         volatile = code.lval.typ.volatile
-        return self.emit(ir.Store(rval, lval, volatile=volatile), loc=code.loc)
+        return self.emit(ir.Store(
+            rval, lval, volatile=volatile), loc=code.location)
 
     def gen_local_var_init(self, var):
         """ Initialize a local variable """
@@ -386,9 +395,9 @@ class CodeGenerator:
 
     def gen_if_stmt(self, code):
         """ Generate code for if statement """
-        true_block = self.builder.new_block()
-        false_block = self.builder.new_block()
-        final_block = self.builder.new_block()
+        true_block = self.new_block()
+        false_block = self.new_block()
+        final_block = self.new_block()
         self.gen_cond_code(code.condition, true_block, false_block)
         self.builder.set_block(true_block)
         self.gen_stmt(code.truestatement)
@@ -400,9 +409,9 @@ class CodeGenerator:
 
     def gen_while(self, code):
         """ Generate code for while statement """
-        main_block = self.builder.new_block()
-        test_block = self.builder.new_block()
-        final_block = self.builder.new_block()
+        main_block = self.new_block()
+        test_block = self.new_block()
+        final_block = self.new_block()
         self.emit(ir.Jump(test_block))
         self.builder.set_block(test_block)
         self.gen_cond_code(code.condition, main_block, final_block)
@@ -413,9 +422,9 @@ class CodeGenerator:
 
     def gen_for_stmt(self, code):
         """ Generate for-loop code """
-        main_block = self.builder.new_block()
-        test_block = self.builder.new_block()
-        final_block = self.builder.new_block()
+        main_block = self.new_block()
+        test_block = self.new_block()
+        final_block = self.new_block()
         self.gen_stmt(code.init)
         self.emit(ir.Jump(test_block))
         self.builder.set_block(test_block)
@@ -431,15 +440,15 @@ class CodeGenerator:
         ir_val = self.gen_expr_code(switch.expression, rvalue=True)
         assert self.context.equal_types('int', switch.expression.typ)
 
-        final_block = self.builder.new_block()
-        test_block = self.builder.new_block()
+        final_block = self.new_block()
+        test_block = self.new_block()
         self.emit(ir.Jump(test_block))
 
         def_block = None
         # Generate code in linear way:
         for option_val, option_code in switch.options:
             # Generate code for case:
-            code_block = self.builder.new_block()
+            code_block = self.new_block()
             self.builder.set_block(code_block)
             self.gen_stmt(option_code)
             self.emit(ir.Jump(final_block))
@@ -454,7 +463,7 @@ class CodeGenerator:
                 o_val = self.context.eval_const(option_val)
                 ir_val2 = self.emit(ir.Const(
                     o_val, 'cmpval', self.get_ir_int()), loc=loc)
-                tb2 = self.builder.new_block()
+                tb2 = self.new_block()
                 self.emit(
                     ir.CJump(ir_val, '==', ir_val2, code_block, tb2), loc=loc)
                 test_block = tb2
@@ -470,13 +479,13 @@ class CodeGenerator:
         if isinstance(expr, ast.Binop):
             if expr.op == 'or':
                 # Implement sequential logic:
-                second_block = self.builder.new_block()
+                second_block = self.new_block()
                 self.gen_cond_code(expr.a, bbtrue, second_block)
                 self.builder.set_block(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
             elif expr.op == 'and':
                 # Implement sequential logic:
-                second_block = self.builder.new_block()
+                second_block = self.new_block()
                 self.gen_cond_code(expr.a, second_block, bbfalse)
                 self.builder.set_block(second_block)
                 self.gen_cond_code(expr.b, bbtrue, bbfalse)
@@ -611,9 +620,9 @@ class CodeGenerator:
         # 'var bool x = true or false;'
 
         # Use condition machinery:
-        true_block = self.builder.new_block()
-        false_block = self.builder.new_block()
-        final_block = self.builder.new_block()
+        true_block = self.new_block()
+        false_block = self.new_block()
+        final_block = self.new_block()
         self.gen_cond_code(expr, true_block, false_block)
 
         # True path:

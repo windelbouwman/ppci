@@ -18,13 +18,15 @@ def get_ctypes_type(debug_type):
     if isinstance(debug_type, debuginfo.DebugBaseType):
         mapping = {
             'int': ctypes.c_int,
-            'void': ctypes.c_int,
+            'long': ctypes.c_long,
+            'void': ctypes.c_int,  # TODO: what to do?
             'double': ctypes.c_double
             }
         return mapping[debug_type.name]
     elif isinstance(debug_type, debuginfo.DebugPointerType):
-        return ctypes.c_int
-    raise NotImplementedError(str(debug_type) + str(type(debug_type)))
+        return ctypes.POINTER(get_ctypes_type(debug_type.pointed_type))
+    else:  # pragma: no cover
+        raise NotImplementedError(str(debug_type) + str(type(debug_type)))
 
 
 class WinPage:
@@ -61,6 +63,11 @@ class Mod:
     """ Container for machine code """
     def __init__(self, obj):
         size = obj.byte_size
+
+        if not obj.debug_info:
+            raise ValueError(
+                'Unable to load "{}"'
+                ' because it does not contain debug info.'.format(obj))
 
         # Create a code page into memory:
         if sys.platform == 'win32':
@@ -109,7 +116,7 @@ def get_current_arch():
     return march
 
 
-def load_code_as_module(source_file):
+def load_code_as_module(source_file, reporter=None):
     """ Load c3 code as a module """
 
     # Compile a simple function
@@ -117,7 +124,8 @@ def load_code_as_module(source_file):
     if march is None:
         raise NotImplementedError(sys.platform)
 
-    obj1 = c3c([source_file], [], march, debug=True)
+    obj1 = c3c(
+        [source_file], [], march, debug=True, opt_level=2, reporter=reporter)
     # print(obj1)
     obj = link([obj1], debug=True)
     # print(obj)
@@ -125,6 +133,10 @@ def load_code_as_module(source_file):
     # Convert obj to executable module
     m = Mod(obj)
     return m
+
+
+def load_obj(obj):
+    return Mod(obj)
 
 
 if __name__ == '__main__':

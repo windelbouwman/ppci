@@ -3,6 +3,9 @@
 .. autoclass:: ppci.arch.arch.Architecture
     :members:
 
+.. autoclass:: ppci.arch.arch_info.ArchInfo
+    :members:
+
 
 .. autoclass:: ppci.arch.arch.Frame
     :members:

@@ -3,6 +3,7 @@
 import logging
 import itertools
 import io
+from ...arch.arch_info import ArchInfo
 from ...common import DiagnosticsManager
 from ...irutils import Verifier
 from .lexer import Lexer
@@ -20,14 +21,15 @@ class C3Builder:
     """
     logger = logging.getLogger('c3')
 
-    def __init__(self, diag, arch, debug_db):
+    def __init__(self, diag, arch_info, debug_db):
+        assert isinstance(arch_info, ArchInfo)
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
         self.debug_db = debug_db
         self.codegen = CodeGenerator(diag, debug_db)
         self.verifier = Verifier()
-        self.arch = arch
+        self.arch_info = arch_info
 
     def build(self, sources, imps=()):
         """ Create IR-code from sources.
@@ -44,7 +46,7 @@ class C3Builder:
             'Building %d sources and %d includes', len(sources), len(imps))
 
         # Create a context where the modules can live:
-        context = Context(self.arch)
+        context = Context(self.arch_info)
 
         # Phase 1: Lexing and parsing stage
         for src in itertools.chain(sources, imps):
@@ -88,11 +90,11 @@ class C3ExprParser:
         Generates IR-code from c3 source.
         Reports errors to the diagnostics system.
     """
-    def __init__(self, arch):
+    def __init__(self, arch_info):
         self.logger = logging.getLogger('c3')
         diag = DiagnosticsManager()
         self.diag = diag
-        self.arch = arch
+        self.arch_info = arch_info
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
 

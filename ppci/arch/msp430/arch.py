@@ -1,17 +1,37 @@
-""" MSP430 architecture description. """
+""" MSP430 architecture description.
+
+There is no frame pointer concept in msp430.
+
+The stack layout is:
+
+
++---
+| saved registers
++--
+| locals
++---
+| outgoing arguments
++---
+ <- SP
+
+See also: http://www.ti.com/lit/an/slaa534/slaa534.pdf
+
+"""
 
 import io
+from ... import ir
 from ...binutils.assembler import BaseAssembler
-from ...utils.reporting import complete_report
 from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture
-from ..generic_instructions import Label, Alignment
+from ..arch_info import ArchInfo, TypeInfo
+from ..stack import StackLocation
+from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dw2, data_isa
 from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9
-from .registers import r1, register_classes
-from .instructions import isa, mov, Ret, Pop
-from .instructions import push, call, Add, Sub, ConstSrc, RegDst
+from .registers import r1, register_classes, Msp430Register
+from .instructions import isa, mov, Ret, Pop, call
+from .instructions import push, Add, Sub, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
@@ -20,37 +40,26 @@ class Msp430Arch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options, register_classes=register_classes)
-        self.byte_sizes['int'] = 2
-        self.byte_sizes['ptr'] = 2
+        self.info = ArchInfo(
+            type_infos={
+                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 2), ir.u32: TypeInfo(4, 2),
+                ir.i64: TypeInfo(8, 2), ir.u64: TypeInfo(8, 2),
+                'int': ir.i16, 'ptr': ir.u16
+            })
+
         self.isa = isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
         # Allocatable registers:
-        self.fp = r4
         self.callee_save = (r4, r5, r6, r7, r8, r9, r10)
-        self.caller_save = (r11, r13, r14, r15)  # TODO: fix r12 reg!!
-        # TODO: r12 is given as argument and is return value
-        # so it is detected live falsely.
+        self.caller_save = (r11, r12, r13, r14, r15)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
         return mov(src, dst)
-
-    def gen_save_registers(self, registers):
-        """ Save caller save registers """
-        for register in registers:
-            if register in self.caller_save:
-                yield push(register)
-
-    def gen_call(self, frame, vcall):
-        yield call(vcall.function_name)
-
-    def gen_restore_registers(self, registers):
-        """ Restore caller save registers """
-        for register in reversed(registers):
-            if register in self.caller_save:
-                yield Pop(register)
 
     @staticmethod
     def round_upwards(v):
@@ -62,36 +71,30 @@ class Msp430Arch(Architecture):
         # Label indication function:
         yield Label(frame.name)
 
-        # Setup the frame pointer:
-        yield push(r4)
-        yield mov(r1, r4)
+        # Callee save registers:
+        for reg in self.callee_save:
+            if frame.is_used(reg):
+                yield push(reg)
 
         # Adjust stack:
         if frame.stacksize:
             yield Sub(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
-        # Callee save registers:
-        for reg in self.callee_save:
-            if frame.is_used(reg):
-                yield push(reg)
-
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-
-        # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if frame.is_used(reg):
-                yield Pop(reg)
 
         # Adjust stack:
         if frame.stacksize:
             yield Add(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1))
 
-        yield Pop(r4)
+        # Pop save registers back:
+        for reg in reversed(self.callee_save):
+            if frame.is_used(reg):
+                yield Pop(reg)
 
         # Return from function:
         yield Ret()
@@ -99,6 +102,52 @@ class Msp430Arch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
+
+    def gen_call(self, label, args, rv):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, Msp430Register):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        yield RegisterUseDef(uses=arg_regs)
+
+        yield call(label, clobbers=self.caller_save)
+
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
+
+    def gen_function_enter(self, args):
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+
+        arg_regs = set(l for l in arg_locs if isinstance(l, Msp430Register))
+        yield RegisterUseDef(defs=arg_regs)
+
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, Msp430Register):
+                yield self.move(arg, arg_loc)
+            elif isinstance(arg_loc, StackLocation):
+                raise NotImplementedError()
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+    def gen_function_exit(self, rv):
+        live_out = set()
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield self.move(retval_loc, rv[1])
+            live_out.add(retval_loc)
+        yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -127,13 +176,19 @@ class Msp430Arch(Architecture):
             param2 = r13
             param3 = r14
             param4 = r15
+            further parameters are put on stack.
             retval = r12
         """
         l = []
         regs = [r12, r13, r14, r15]
+        offset = 0
         for a in arg_types:
-            reg = regs.pop(0)
-            l.append(reg)
+            if regs:
+                reg = regs.pop(0)
+                l.append(reg)
+            else:
+                l.append(StackLocation(offset, 2))
+                offset += 2
         return l
 
     def determine_rv_location(self, ret_type):
@@ -155,8 +210,7 @@ class Msp430Arch(Architecture):
             MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
         """)
         # report_generator = HtmlReportGenerator(open('msp430.html', 'w'))
-        report_generator = DummyReportGenerator()
-        with complete_report(report_generator) as reporter:
+        with DummyReportGenerator() as reporter:
             obj1 = asm(io.StringIO(RT_ASM_SRC), march)
             obj2 = c3c([io.StringIO(RT_C3_SRC)], [], march, reporter=reporter)
             obj = link([obj1, obj2], layout, partial_link=True)

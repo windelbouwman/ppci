@@ -141,8 +141,8 @@ class MiniCtx(ContextInterface):
         """ Generate move """
         self.emit(self._arch.move(dst, src))
 
-    def emit(self, ins):
-        self.l.append(ins)
+    def emit(self, instruction):
+        self.l.append(instruction)
 
     def new_reg(self, cls):
         return self._frame.new_reg(cls)
@@ -154,17 +154,17 @@ class MiniGen:
         self.arch = arch
         self.selector = selector
 
-    def gen_load(self, frame, vreg, offset):
-        """ Generate instructions to load vreg from offset in stack """
-        at = self.make_at(offset)
+    def gen_load(self, frame, vreg, slot):
+        """ Generate instructions to load vreg from a stack slot """
+        at = self.make_at(slot)
         t = Tree(
             'MOVI{}'.format(vreg.bitsize),
             Tree('LDRI{}'.format(vreg.bitsize), at), value=vreg)
         return self.gen(frame, t)
 
-    def gen_store(self, frame, vreg, offset):
-        """ Generate instructions to store vreg at offset in stack """
-        at = self.make_at(offset)
+    def gen_store(self, frame, vreg, slot):
+        """ Generate instructions to store vreg at a stack slot """
+        at = self.make_at(slot)
         t = Tree(
             'STRI{}'.format(vreg.bitsize), at,
             Tree('REGI{}'.format(vreg.bitsize), value=vreg))
@@ -176,9 +176,9 @@ class MiniGen:
         self.selector.gen_tree(ctx, tree)
         return ctx.l
 
-    def make_at(self, offset):
-        bitsize = self.arch.byte_sizes['ptr'] * 8
-        offset_tree = Tree('FPRELI{}'.format(bitsize), value=offset)
+    def make_at(self, slot):
+        bitsize = self.arch.get_size('ptr') * 8
+        offset_tree = Tree('FPRELU{}'.format(bitsize), value=slot)
         # 'ADDI{}'.format(bitsize),
         #    Tree('REGI{}'.format(bitsize), value=self.arch.fp),
         #    Tree('CONSTI{}'.format(bitsize), value=offset))
@@ -555,7 +555,7 @@ class GraphColoringRegisterAllocator:
         """ Do spilling """
         self.logger.debug('Spilling round %s', self.spill_rounds)
         self.spill_rounds += 1
-        if self.spill_rounds > 10:
+        if self.spill_rounds > 30:
             raise RuntimeError('Give up: more than 10 spill rounds done!')
         # TODO: select a node which is certainly not a node that was
         # introduced during spilling?
@@ -576,12 +576,11 @@ class GraphColoringRegisterAllocator:
     def rewrite_program(self, node):
         """ Rewrite program by creating a load and a store for each use """
         # Generate spill code:
-        if self.verbose:
-            self.logger.debug('Placing %s on stack', node)
+        self.logger.debug('Placing %s on stack', node)
 
         size = node.reg_class.bitsize // 8
-        offset = self.frame.alloc(size)
-        self.logger.debug('Allocating %s bytes at offset %s', size, offset)
+        slot = self.frame.alloc(size)
+        self.logger.debug('Allocating stack slot %s', slot)
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:
             instructions = set(
@@ -591,10 +590,10 @@ class GraphColoringRegisterAllocator:
                 self.logger.debug('tmp: %s, new: %s', tmp, vreg2)
                 instruction.replace_register(tmp, vreg2)
                 if instruction.reads_register(vreg2):
-                    code = self.spill_gen.gen_load(self.frame, vreg2, offset)
+                    code = self.spill_gen.gen_load(self.frame, vreg2, slot)
                     self.frame.insert_code_before(instruction, code)
                 if instruction.writes_register(vreg2):
-                    code = self.spill_gen.gen_store(self.frame, vreg2, offset)
+                    code = self.spill_gen.gen_store(self.frame, vreg2, slot)
                     self.frame.insert_code_after(instruction, code)
 
     def assign_colors(self):

@@ -2,7 +2,6 @@ import unittest
 import io
 import logging
 import re
-import string
 import os
 import platform
 import subprocess
@@ -10,23 +9,12 @@ from tempfile import mkstemp
 from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr
-from util import do_long_tests
-from ppci.api import asm, c3c, link, objcopy, bfcompile
-from ppci.api import c3toir, bf2ir, ir_to_python, optimize
-from ppci.utils.reporting import HtmlReportGenerator, complete_report
+from util import do_long_tests, do_iverilog, make_filename
+from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
+from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
+from ppci.utils.reporting import HtmlReportGenerator
 from ppci.binutils.objectfile import merge_memories
-
-
-def make_filename(s):
-    """ Remove all invalid characters from a string for a valid filename.
-        And create a directory if none present.
-    """
-    output_dir = relpath('listings')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    valid_chars = string.ascii_letters + string.digits
-    basename = ''.join(c for c in s if c in valid_chars)
-    return os.path.join(output_dir, basename)
+from ppci.lang.c import COptions
 
 
 def enable_report_logger(filename):
@@ -37,10 +25,10 @@ def enable_report_logger(filename):
 
 def only_bf(txt):
     """ Strip a string from all characters, except brainfuck chars """
-    return re.sub('[^\.,<>\+-\]\[]', '', txt)
+    return re.sub(r'[^\.,<>\+-\]\[]', '', txt)
 
 
-def create_test_function(source, output):
+def create_test_function(source, output, lang):
     """ Create a test function for a source file """
     with open(source) as f:
         snippet = f.read()
@@ -48,29 +36,36 @@ def create_test_function(source, output):
         res = f.read()
 
     def tst_func(slf):
-        slf.do(snippet, res)
+        slf.do(snippet, res, lang=lang)
+
     return tst_func
 
 
 def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
+
+    extensions = ('.c3', '.bf', '.c')
     def deco(cls):
         for folder in folders:
             for source in source_files(
-                    relpath('samples', folder), ('.c3', '.bf')):
+                    relpath('samples', folder), extensions):
                 output = os.path.splitext(source)[0] + '.out'
-                tf = create_test_function(source, output)
                 basename = os.path.basename(source)
-                func_name = 'test_' + os.path.splitext(basename)[0]
+                name, lang = os.path.splitext(basename)
+                lang = lang[1:]
+                func_name = 'test_' + name
+                tf = create_test_function(source, output, lang)
                 assert not hasattr(cls, func_name)
                 setattr(cls, func_name, tf)
         return cls
+
     return deco
 
 
 @add_samples('32bit')
 class I32Samples:
     """ 32-bit samples """
+
     def test_bug1(self):
         """ Strange bug was found here """
         snippet = """
@@ -102,6 +97,7 @@ class I32Samples:
         """
         res = ""
         self.do(snippet, res)
+
     @unittest.skip('too large codesize')
     def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
@@ -174,9 +170,7 @@ def build(
     """ Construct object file from source snippet """
     list_filename = base_filename + '.html'
 
-    report_generator = HtmlReportGenerator(open(list_filename, 'w'))
-
-    with complete_report(report_generator) as reporter:
+    with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
         o1 = asm(crt0_asm, march)
         if lang == 'c3':
             srcs = [
@@ -192,6 +186,20 @@ def build(
             o2 = c3c(
                 [bsp_c3], [], march, reporter=reporter)
             objs = [o1, o2, o3]
+        elif lang == 'c':
+            o2 = c3c(
+                [bsp_c3], [], march, reporter=reporter)
+            coptions = COptions()
+            include_path1 = relpath('..', 'librt', 'libc')
+            coptions.add_include_path(include_path1)
+            with open(relpath('..', 'librt', 'libc', 'lib.c'), 'r') as f:
+                o3 = cc(
+                    f, march, coptions=coptions,
+                    reporter=reporter)
+            o4 = cc(
+                io.StringIO(src), march, coptions=coptions,
+                reporter=reporter)
+            objs = [o1, o2, o3, o4]
         else:
             raise NotImplementedError('language not implemented')
         obj = link(
@@ -219,7 +227,7 @@ class BuildMixin:
     opt_level = 0
 
     def build(self, src, lang='c3', bin_format=None,
-    elf_format=None, code_image='code'):
+              elf_format=None, code_image='code'):
         """ Construct object file from source snippet """
         base_filename = make_filename(self.id())
 
@@ -300,16 +308,16 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
     march = "riscv"
     startercode = """
-    LUI sp, 0xF000        ; setup stack pointer
+    LUI sp, 0x1F        ; setup stack pointer
     JAL ra, main_main    ; Branch to sample start LR
     JAL ra, bsp_exit     ; do exit stuff LR
-    SBREAK
+    EBREAK
     """
     arch_mmap = """
-    MEMORY flash LOCATION=0x0000 SIZE=0x2000 {
+    MEMORY flash LOCATION=0x0000 SIZE=0x4000 {
          SECTION(code)
     }
-    MEMORY ram LOCATION=0x2000 SIZE=0x2000 {
+    MEMORY ram LOCATION=0x4000 SIZE=0x4000 {
         SECTION(data)
     }
     """
@@ -338,28 +346,29 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
         obj, base_filename = self.build(src, lang, bin_format='bin',
-        elf_format='elf', code_image='flash')
+                                        elf_format='elf', code_image='flash')
 
         flash = obj.get_image('flash')
         data = obj.get_image('ram')
         rom = merge_memories(flash, data, 'rom')
         rom_data = rom.data
-        filewordsize = 0x4000
+        filewordsize = 0x8000
         datawordlen = len(rom_data) // 4
 
         mem_file = base_filename + '.mem'
         with open(mem_file, 'w') as f:
             for i in range(filewordsize):
-                if(i<datawordlen):
-                    w = rom_data[4*i:4*i+4]
+                if (i < datawordlen):
+                    w = rom_data[4 * i:4 * i + 4]
                     print('%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]), file=f)
                 else:
                     print('00000000', file=f)
         f.close()
 
-        if has_iverilog():
+        if has_iverilog() and do_iverilog():
             res = run_picorv32(mem_file)
             self.assertEqual(expected_output, res)
+
 
 class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
@@ -439,18 +448,34 @@ class TestSamplesOnPython(unittest.TestCase, I32Samples):
         sample_filename = base_filename + '.py'
         list_filename = base_filename + '.html'
 
-        report_generator = HtmlReportGenerator(open(list_filename, 'w'))
         bsp = io.StringIO("""
            module bsp;
            public function void putc(byte c);
            // var int global_tick; """)
-        with complete_report(report_generator) as reporter:
+        march = 'arm'
+        with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
             if lang == 'c3':
                 ir_modules = c3toir([
                     relpath('..', 'librt', 'io.c3'), bsp,
-                    io.StringIO(src)], [], "arm", reporter=reporter)
+                    io.StringIO(src)], [], march, reporter=reporter)
             elif lang == 'bf':
-                ir_modules = [bf2ir(src, 'arm')]
+                ir_modules = [bf2ir(src, march)]
+            elif lang == 'c':
+                coptions = COptions()
+                include_path1 = relpath('..', 'librt', 'libc')
+                lib = relpath('..', 'librt', 'libc', 'lib.c')
+                coptions.add_include_path(include_path1)
+                with open(lib, 'r') as f:
+                    mod1 = c_to_ir(
+                        f, march,
+                        coptions=coptions, reporter=reporter)
+                mod2 = c_to_ir(
+                    io.StringIO(src), march,
+                    coptions=coptions, reporter=reporter)
+                ir_modules = [mod1, mod2]
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    'Language {} not implemented'.format(lang))
 
             for ir_module in ir_modules:
                 optimize(ir_module, level=self.opt_level, reporter=reporter)
@@ -474,8 +499,8 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
 @add_samples('simple', '8bit')
-class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
-    opt_level = 2
+class TestSamplesOnMsp430(unittest.TestCase, BuildMixin):
+    opt_level = 0
     march = "msp430"
     startercode = """
       section reset_vector
@@ -553,11 +578,15 @@ class TestSamplesOnMsp430O2(unittest.TestCase, BuildMixin):
         mem_file = base_filename + '.mem'
         with open(mem_file, 'w') as f:
             for i in range(len(rom_data) // 2):
-                w = rom_data[2*i:2*i+2]
+                w = rom_data[2 * i:2 * i + 2]
                 print('%02x%02x' % (w[1], w[0]), file=f)
-        if has_iverilog():
+        if has_iverilog() and do_iverilog():
             res = run_msp430(mem_file)
             self.assertEqual(expected_output, res)
+
+
+class TestSamplesOnMsp430O2(TestSamplesOnMsp430):
+    opt_level = 2
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
@@ -576,7 +605,7 @@ class TestSamplesOnAvr(unittest.TestCase):
             mmap, lang=lang, bin_format='hex', code_image='flash')
         hexfile = base_filename + '.hex'
         print(hexfile)
-        if has_avr_emulator():
+        if has_avr_emulator() and do_iverilog():
             res = run_avr(hexfile)
             self.assertEqual(expected_output, res)
 
@@ -636,6 +665,32 @@ class TestSamplesOnXtensa(unittest.TestCase):
             f.write(hello_bin)
             padding = flash_size - len(hello_bin)
             f.write(bytes(padding))
+
+
+@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@add_samples('simple', 'medium')
+class OpenRiscSamplesTestCase(unittest.TestCase):
+    march = "or1k"
+    opt_level = 2
+
+    def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        bsp_c3 = relpath('..', 'examples', 'or1k', 'bsp.c3')
+        crt0 = relpath('..', 'examples', 'or1k', 'crt0.asm')
+        mmap = relpath('..', 'examples', 'or1k', 'layout.mmp')
+        build(
+            base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
+            mmap, lang=lang, bin_format='bin', code_image='flash')
+        binfile = base_filename + '.bin'
+        # img_filename = base_filename + '.img'
+        # self.make_image(binfile, img_filename)
+        if has_qemu():
+            # TODO:
+            output = qemu([
+                'qemu-system-or1k', '-nographic',
+                '-M', 'or1k-sim', '-m', '16',
+                '-kernel', binfile])
+            self.assertEqual(expected_output, output)
 
 
 @unittest.skipUnless(do_long_tests(), 'skipping slow tests')
@@ -710,6 +765,7 @@ def has_linux():
 @unittest.skipIf(not has_linux(), 'no 64 bit linux found')
 class LinuxTests(unittest.TestCase):
     """ Run tests against the linux syscall api """
+
     def test_exit42(self):
         """
             ; exit with code 42:

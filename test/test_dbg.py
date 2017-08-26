@@ -1,5 +1,6 @@
 import io
 import unittest
+from unittest.mock import MagicMock, patch
 from ppci.common import CompilerError
 from ppci.binutils.dbg import Debugger, DummyDebugDriver, TmpValue
 from ppci.binutils.dbg_cli import DebugCli
@@ -10,11 +11,6 @@ from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
 from ppci.common import SourceLocation
 from ppci.binutils.transport import TCP
-
-try:
-    from unittest.mock import MagicMock, patch
-except ImportError:
-    from mock import MagicMock, patch
 
 
 class DebuggerTestCase(unittest.TestCase):

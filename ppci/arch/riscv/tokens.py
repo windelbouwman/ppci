@@ -54,3 +54,4 @@ class RiscvcToken(Token):
     rd = bit_range(7, 12)
     funct3 = bit_range(13, 16)
     imm = bit(12) + bit_range(2, 7)
+    offset = bit_range(10, 13, signed=True) + bit_range(2, 7)

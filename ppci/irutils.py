@@ -14,18 +14,18 @@ IR_FORMAT_INDENT = 2
 
 class Writer:
     """ Write ir-code to file """
-    def __init__(self, extra_indent=''):
+    def __init__(self, file=None, extra_indent=''):
         self.extra_indent = extra_indent
+        self.file = file
 
     def print(self, level, txt):
         indent = self.extra_indent + ' ' * (level * IR_FORMAT_INDENT)
-        print(indent + txt, file=self.f)
+        print(indent + txt, file=self.file)
 
-    def write(self, module: ir.Module, f):
+    def write(self, module: ir.Module):
         """ Write ir-code to file f """
         assert isinstance(module, ir.Module)
         Verifier().verify(module)
-        self.f = f
         self.print(0, '{};'.format(module))
         for v in module.variables:
             self.print(0, '')
@@ -41,6 +41,7 @@ class Writer:
             for ins in block:
                 self.print(2, '{};'.format(ins))
             self.print(1, '}')
+            self.print(0, '')
         self.print(0, '}')
 
 
@@ -286,24 +287,6 @@ class Reader:
 
 # Constructing IR:
 
-class NamedClassGenerator:
-    def __init__(self, prefix, cls):
-        self.prefix = prefix
-        self.cls = cls
-
-        def NumGen():
-            a = 0
-            while True:
-                yield a
-                a = a + 1
-        self.nums = NumGen()
-
-    def gen(self, prefix=None):
-        if not prefix:
-            prefix = self.prefix
-        return self.cls('{0}{1}'.format(prefix, self.nums.__next__()))
-
-
 def split_block(block, pos=None, newname='splitblock'):
     """ Split a basic block into two which are connected """
     if pos is None:
@@ -329,7 +312,6 @@ class Builder:
         self.prepare()
 
     def prepare(self):
-        self.newBlock2 = NamedClassGenerator('block', ir.Block).gen
         self.block = None
         self.module = None
         self.function = None
@@ -342,18 +324,23 @@ class Builder:
         assert self.module is not None
         f = ir.Function(name, return_ty)
         self.module.add_function(f)
+        self.block_number = 0
         return f
 
     def new_procedure(self, name):
         assert self.module is not None
         f = ir.Procedure(name)
         self.module.add_function(f)
+        self.block_number = 0
         return f
 
-    def new_block(self):
+    def new_block(self, name=None):
         """ Create a new block and add it to the current function """
         assert self.function is not None
-        block = self.newBlock2()
+        if name is None:
+            name = '{}_block{}'.format(self.function.name, self.block_number)
+            self.block_number += 1
+        block = ir.Block(name)
         self.function.add_block(block)
         return block
 
@@ -367,8 +354,7 @@ class Builder:
     def emit(self, instruction):
         """ Append an instruction to the current block """
         assert isinstance(instruction, ir.Instruction), str(instruction)
-        if self.block is None:
-            raise Exception('No basic block')
+        assert self.block is not None
         self.block.add_instruction(instruction)
         return instruction
 
@@ -396,7 +382,12 @@ class Verifier:
             self.verify_block_termination(block)
             if isinstance(block.last_instruction, ir.Return):
                 assert isinstance(function, ir.Function)
-                assert block.last_instruction.result.ty is function.return_ty
+                if block.last_instruction.result.ty is not function.return_ty:
+                    raise IrFormError(
+                        'Last instruction returns {}, while function '
+                        'returns {}'.format(
+                            block.last_instruction.result.ty,
+                            function.return_ty))
             if isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
 
@@ -465,7 +456,9 @@ class Verifier:
             for inp_val in instruction.inputs.values():
                 assert instruction.ty is inp_val.ty
         elif isinstance(instruction, ir.CJump):
-            assert instruction.a.ty is instruction.b.ty
+            if instruction.a.ty is not instruction.b.ty:
+                raise IrFormError('Type {} is not {} in {}'.format(
+                    instruction.a.ty, instruction.b.ty, instruction))
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:

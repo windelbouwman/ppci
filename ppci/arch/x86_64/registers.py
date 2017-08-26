@@ -27,6 +27,10 @@ class X86Register(Register):
         return self.num & 0x7
 
 
+class ShortRegister(Register):
+    bitsize = 16
+
+
 class LowRegister(Register):
     bitsize = 8
 
@@ -53,6 +57,11 @@ class XmmRegister(Register):
     bitsize = 128
     # TODO: actually the register is 128 bit wide, but float is now 32 bit
     # bitsize = 32
+    def __repr__(self):
+        if self.is_colored:
+            return get_xmm_reg(self.color).name
+        else:
+            return self.name
 
 
 # Calculation of the rexb bit:
@@ -63,18 +72,28 @@ al = LowRegister('al', 0)
 cl = LowRegister('cl', 1)
 dl = LowRegister('dl', 2)
 bl = LowRegister('bl', 3)
+ah = LowRegister('ah', 4)
+ch = LowRegister('ch', 5)
+dh = LowRegister('dh', 6)
+bh = LowRegister('bh', 7)
 
-LowRegister.registers = [al, bl, cl, dl]
+LowRegister.registers = [al, bl, cl, dl, ah, ch, dh, bh]
+
+ax = ShortRegister('ax', 0, aliases=(al, ah))
+cx = ShortRegister('cx', 1, aliases=(cl, ch))
+dx = ShortRegister('dx', 2, aliases=(dl, dh))
+bx = ShortRegister('bx', 3, aliases=(bl, bh))
+ShortRegister.registers = (ax, bx, cx, dx)
 
 # regs64 = {'rax': 0,'rcx':1,'rdx':2,'rbx':3,'rsp':4,'rbp':5,'rsi':6,'rdi':7,
 # 'r8':0,'r9':1,'r10':2,'r11':3,'r12':4,'r13':5,'r14':6,'r15':7}
 # regs32 = {'eax': 0, 'ecx':1, 'edx':2, 'ebx': 3, 'esp': 4, 'ebp': 5, 'esi':6,
 # 'edi':7}
 # regs8 = {'al':0,'cl':1,'dl':2,'bl':3,'ah':4,'ch':5,'dh':6,'bh':7}
-rax = X86Register('rax', 0, aliases=(al,))
-rcx = X86Register('rcx', 1, aliases=(cl,))
-rdx = X86Register('rdx', 2, aliases=(dl,))
-rbx = X86Register('rbx', 3, aliases=(bl,))
+rax = X86Register('rax', 0, aliases=(al, ah, ax))
+rcx = X86Register('rcx', 1, aliases=(cl, ch, cx))
+rdx = X86Register('rdx', 2, aliases=(dl, dh, dx))
+rbx = X86Register('rbx', 3, aliases=(bl, bh, bx))
 rsp = X86Register('rsp', 4)
 rbp = X86Register('rbp', 5)
 rsi = X86Register('rsi', 6)
@@ -138,17 +157,35 @@ XmmRegister.registers = [
     xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15]
 
 
+def get_xmm_reg(num):
+    mp = {r.num: r for r in XmmRegister.registers}
+    return mp[num]
+
+
 def get8reg(num):
     mp = {r.num: r for r in [al, bl, cl, dl]}
     return mp[num]
 
 
+callee_save = (rbx, r12, r13, r14, r15,
+    xmm6, xmm7,
+    xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15)
+caller_save = (rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11,
+    xmm0, xmm1, xmm2, xmm3, xmm4, xmm5)
+
+
 # Register classes:
+# TODO: should 16 and 32 bit values have its own class?
 register_classes = [
     RegisterClass(
-        'reg64', [ir.i64, ir.u64, ir.ptr], X86Register,
+        'reg64',
+        [ir.i64, ir.u64, ir.ptr, ir.i32, ir.u32],
+        X86Register,
         [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
-    RegisterClass('reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
+    RegisterClass(
+        'reg16', [ir.i16, ir.u16], ShortRegister, [ax, bx, cx, dx]),
+    RegisterClass(
+        'reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
     RegisterClass(
         'regfp', [ir.f32, ir.f64], XmmRegister,
         XmmRegister.registers),

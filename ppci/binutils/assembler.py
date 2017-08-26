@@ -5,9 +5,9 @@
 """
 
 import re
-from ..pcc.grammar import Grammar
-from ..pcc.earley import EarleyParser
-from ..pcc.baselex import BaseLexer, EPS, EOF
+from ..lang.tools.grammar import Grammar
+from ..lang.tools.earley import EarleyParser
+from ..lang.tools.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
 from ..arch.generic_instructions import Label, Alignment, SectionInstruction
 from ..arch.generic_instructions import DebugData

@@ -6,6 +6,7 @@
 import logging
 from collections import namedtuple
 from ..common import SourceLocation
+from ..arch.stack import StackLocation
 
 
 class DebugDb:
@@ -487,7 +488,7 @@ class DictSerializer:
         elif isinstance(address, FpOffsetAddress):
             return {
                 'kind': 'fprel',
-                'offset': address.offset
+                'offset': address.offset.offset
             }
         elif isinstance(address, UnknownAddress):
             return {
@@ -574,7 +575,7 @@ class DictDeserializer:
         if kind == 'fixed':
             return DebugAddress(x['section'], x['offset'])
         elif kind == 'fprel':
-            return FpOffsetAddress(x['offset'])
+            return FpOffsetAddress(StackLocation(x['offset'], 1))
         elif kind == 'unknown':
             return UnknownAddress()
         else:  # pragma: no cover

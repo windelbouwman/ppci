@@ -4,9 +4,12 @@
 
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
-from ..data_instructions import Dd
-from ...utils.bitfun import wrap_negative
-from .registers import RiscvRegister, FP
+from ..data_instructions import Dd, DataInstruction, ByteToken, WordToken
+from ..data_instructions import DByte, DZero
+from ...utils.bitfun import wrap_negative, inrange
+from ..generic_instructions import ArtificialInstruction, Alignment
+from ..generic_instructions import SectionInstruction
+from .registers import RiscvRegister, FP, LR, R0, R10, R12, R13
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
@@ -14,7 +17,6 @@ from .relocations import Abs32Imm12Relocation, RelImm20Relocation
 from .relocations import RelImm12Relocation
 from .tokens import RiscvToken, RiscvIToken
 from ...ir import i32
-
 
 isa = Isa()
 
@@ -30,6 +32,29 @@ isa.register_relocation(RelImm12Relocation)
 class RiscvInstruction(Instruction):
     tokens = [RiscvToken]
     isa = isa
+
+
+class PseudoRiscvInstruction(ArtificialInstruction):
+    isa = isa
+    pass
+
+
+class Align(PseudoRiscvInstruction):
+    imm = Operand('imm', int)
+    syntax = Syntax(['.', 'align', ' ', imm])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield Alignment(self.imm, self.rep)
+
+
+class Section(PseudoRiscvInstruction):
+    sec = Operand('sec', str)
+    syntax = Syntax(['.', 'section', ' ', sec])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield SectionInstruction(self.sec, self.rep)
 
 
 def dcd(v):
@@ -54,35 +79,10 @@ class Dcd2(RiscvInstruction):
         return [AbsAddr32Relocation(self.v)]
 
 
-def Mov(*args):
-    if len(args) == 2:
-        if isinstance(args[1], int):
-            return Movi(*args)
-        elif isinstance(args[1], RiscvRegister):
-            return Movr(*args)
-    raise Exception()
-
-
-class Movi(RiscvInstruction):
-    """ Mov Rd, imm16 """
-    rd = Operand('rd', RiscvRegister, write=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['mov', rd, ',', imm])
-
-    def encode(self):
-        tokens = self.get_tokens()
-        imm12 = wrap_negative(self.imm, 12)
-        tokens[0][0:7] = 0b0010011
-        tokens[0][7:12] = self.rd.num
-        tokens[0][12:20] = 0
-        tokens[0][20:32] = imm12
-        return tokens[0].encode()
-
-
 class Movr(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
     rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['mov', rd, ',', rm])
+    syntax = Syntax(['mv', ' ', rd, ',', ' ', rm])
     patterns = {
         'opcode': 0b0010011, 'rd': rd, 'funct3': 0, 'rs1': rm,
         'rs2': 0, 'funct7': 0}
@@ -145,36 +145,28 @@ class IBase(RiscvInstruction):
         tokens[0][7:12] = self.rd.num
         tokens[0][12:15] = self.func
         tokens[0][15:20] = self.rs1.num
-        if self.invert:
-            self.imm = -self.imm
-        if self.imm < 0:
-            imm12 = wrap_negative(self.imm, 12)
-        else:
-            imm12 = self.imm & 0xFFF
-        tokens[0][20:32] = imm12
+        self.imm = wrap_negative(self.imm, 12)
+        tokens[0][20:32] = self.imm
         return tokens[0].encode()
 
 
-def make_i(mnemonic, func, invert):
+def make_i(mnemonic, func):
     rd = Operand('rd', RiscvRegister, write=True)
     rs1 = Operand('rs1', RiscvRegister, read=True)
     imm = Operand('imm', int)
-    syntax = Syntax([mnemonic, rd, ',', rs1, ',', imm])
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rs1, ',', ' ', imm])
     members = {
         'syntax': syntax, 'func': func,
-        'rd': rd, 'rs1': rs1, 'imm': imm,
-        'invert': invert}
+        'rd': rd, 'rs1': rs1, 'imm': imm}
     return type(mnemonic + '_ins', (IBase,), members)
 
 
-Addi = make_i('add', 0b000, False)
-Addi2 = make_i('addi', 0b000, False)
-Subi = make_i('sub', 0b000, True)
-Slti = make_i('slti', 0b010, False)
-Sltiu = make_i('sltiu', 0b011, False)
-Xori = make_i('xori', 0b100, False)
-Ori = make_i('ori', 0b110, False)
-Andi = make_i('andi', 0b111, False)
+Addi = make_i('addi', 0b000)
+Slti = make_i('slti', 0b010)
+Sltiu = make_i('sltiu', 0b011)
+Xori = make_i('xori', 0b100)
+Ori = make_i('ori', 0b110)
+Andi = make_i('andi', 0b111)
 
 
 # Branches:
@@ -212,8 +204,8 @@ Rdinstreti = make_sm('rdinstret', 0b110000000010)
 Rdinstrethi = make_sm('rdinstreth', 0b110010000010)
 
 
-class Sbreak(RiscvInstruction):
-    syntax = Syntax(['sbreak'])
+class Ebreak(RiscvInstruction):
+    syntax = Syntax(['ebreak'])
     patterns = {
         'opcode': 0b1110011, 'rd': 0, 'funct3': 0, 'rs1': 0,
         'rs2': 0b1, 'funct7': 0}
@@ -271,10 +263,7 @@ class Lui(RiscvInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        if self.imm < 0:
-            imm20 = wrap_negative(self.imm >> 12, 20)
-        else:
-            imm20 = self.imm >> 12
+        imm20 = wrap_negative(self.imm, 20)
         tokens[0][0:7] = 0b0110111
         tokens[0][7:12] = self.rd.num
         tokens[0][12:32] = imm20
@@ -333,17 +322,16 @@ class Adrl(RiscvInstruction):
 
 
 class Adrlrel(RiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
+    rd = Operand('rd', RiscvRegister, write=True, read=True)
     label = Operand('label', str)
-    syntax = Syntax(['lw', ' ', rd, ' ', ',', rs1, ' ', ',', ' ', label])
+    syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
 
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0000011
         tokens[0][7:12] = self.rd.num
         tokens[0][12:15] = 0b010
-        tokens[0][15:20] = self.rs1.num
+        tokens[0][15:20] = self.rd.num
         tokens[0][20:32] = 0
         return tokens[0].encode()
 
@@ -362,6 +350,32 @@ class Auipc(RiscvInstruction):
         tokens[0][7:12] = self.rd.num
         tokens[0][12:32] = self.imm
         return tokens[0].encode()
+
+
+class La(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    label = Operand('label', str)
+    syntax = Syntax(['la', ' ', rd, ',', ' ', label])
+
+    def render(self):
+        yield Adrurel(self.rd, self.label)
+        yield Adrlrel(self.rd, self.label)
+
+
+class Li(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['li', ' ', rd, ',', ' ', imm])
+
+    def render(self):
+        if (inrange(self.imm, 12)) is False:
+            if (self.imm & 0x800) != 0:
+                self.imm += 0x1000
+            yield Lui(self.rd, self.imm >> 12)
+            self.imm = wrap_negative(self.imm, 12)
+            yield Addi(self.rd, self.rd, self.imm)
+        else:
+            yield Addi(self.rd, R0, self.imm)
 
 
 class BranchBase(RiscvInstruction):
@@ -449,7 +463,7 @@ def make_ldr(mnemonic, func):
     rd = Operand('rd', RiscvRegister, write=True)
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', offset, '(',  rs1, ')'])
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', offset, '(', rs1, ')'])
     tokens = [RiscvIToken]
     patterns = {
         'opcode': 0b0000011, 'rd': rd,
@@ -496,6 +510,7 @@ Div = make_mext('div', 0b100)
 
 
 # Instruction selection patterns:
+@isa.pattern('stm', 'STRU32(reg, reg)', size=2)
 @isa.pattern('stm', 'STRI32(reg, reg)', size=2)
 def pattern_str_i32(self, tree, c0, c1):
     self.emit(Sw(c1, 0, c0))
@@ -504,22 +519,38 @@ def pattern_str_i32(self, tree, c0, c1):
 @isa.pattern(
     'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
     size=2,
-    condition=lambda t: t.children[0].children[1].value < 256)
+    condition=lambda t: t.children[0].children[1].value < 2047)
 def pattern_str_i32_add(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
     # compile correctly...
     offset = tree.children[0].children[1].value
     context.emit(Sw(c1, offset, c0))
 
+@isa.pattern(
+    'stm', 'STRI32(ADDU32(reg, CONSTU32), reg)',
+    size=2,
+    condition=lambda t: t.children[0].children[1].value < 2047)
+def pattern_str_i32_add(context, tree, c0, c1):
+    # TODO: something strange here: when enabeling this rule, programs
+    # compile correctly...
+    offset = tree.children[0].children[1].value
+    context.emit(Sw(c1, offset, c0))
+
+@isa.pattern('stm', 'STRI16(reg, reg)', size=2)
+@isa.pattern('stm', 'STRU16(reg, reg)', size=2)
+def pattern_str16(context, tree, c0, c1):
+    context.emit(Sh(c1, 0, c0))
 
 @isa.pattern('stm', 'STRI8(reg, reg)', size=2)
 @isa.pattern('stm', 'STRU8(reg, reg)', size=2)
-def pattern_stri8(context, tree, c0, c1):
+def pattern_str8(context, tree, c0, c1):
     context.emit(Sb(c1, 0, c0))
 
-
+@isa.pattern('reg', 'MOVI16(reg)', size=2)
+@isa.pattern('reg', 'MOVU16(reg)', size=2)
 @isa.pattern('reg', 'MOVI32(reg)', size=2)
-def pattern_movi32(context, tree, c0):
+@isa.pattern('reg', 'MOVU32(reg)', size=2)
+def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
@@ -538,71 +569,85 @@ def pattern_jmp(context, tree):
 
 
 @isa.pattern('reg', 'REGI32', size=0)
+@isa.pattern('reg', 'REGI16', size=0)
 @isa.pattern('reg', 'REGI8', size=0)
+@isa.pattern('reg', 'REGU32', size=0)
+@isa.pattern('reg', 'REGU16', size=0)
 @isa.pattern('reg', 'REGU8', size=0)
 def pattern_reg(context, tree):
     return tree.value
 
-
 @isa.pattern('reg', 'I32TOI32(reg)', size=0)
+@isa.pattern('reg', 'I32TOU32(reg)', size=0)
+@isa.pattern('reg', 'U32TOI32(reg)', size=0)
+@isa.pattern('reg', 'U32TOU32(reg)', size=0)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
-
-@isa.pattern('reg', 'I8TOI32(reg)', size=0)
-@isa.pattern('reg', 'U8TOI32(reg)', size=0)
+@isa.pattern('reg', 'I8TOI32(reg)', size=4)
 def pattern_i8_to_i32(context, tree, c0):
-    # TODO: do something like sign extend or something else?
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srai(c0, c0, 24))
     return c0
 
+@isa.pattern('reg', 'I16TOI32(reg)', size=4)
+def pattern_i8_to_i32(context, tree, c0):
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srai(c0, c0, 16))
+    return c0
+
+@isa.pattern('reg', 'I8TOU32(reg)', size=4)
+@isa.pattern('reg', 'U8TOU32(reg)', size=4)
+@isa.pattern('reg', 'U8TOI32(reg)', size=4)
+def pattern_8_to_32(context, tree, c0):
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srli(c0, c0, 24))
+    return c0
+
+@isa.pattern('reg', 'I16TOU32(reg)', size=4)
+@isa.pattern('reg', 'U16TOU32(reg)', size=4)
+@isa.pattern('reg', 'U16TOI32(reg)', size=4)
+def pattern_16_to_32(context, tree, c0):
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srli(c0, c0, 16))
+    return c0
 
 @isa.pattern('reg', 'I32TOI8(reg)', size=0)
 @isa.pattern('reg', 'I32TOU8(reg)', size=0)
-def pattern_i32_to_i8(context, tree, c0):
+@isa.pattern('reg', 'I32TOI16(reg)', size=0)
+@isa.pattern('reg', 'I32TOU16(reg)', size=0)
+@isa.pattern('reg', 'U32TOU8(reg)', size=0)
+@isa.pattern('reg', 'U32TOI8(reg)', size=0)
+@isa.pattern('reg', 'U32TOU16(reg)', size=0)
+@isa.pattern('reg', 'U32TOI16(reg)', size=0)
+def pattern_32_to_8_16(context, tree, c0):
     # TODO: do something like sign extend or something else?
     return c0
 
 
-@isa.pattern('reg', 'REGU8', size=0)
-def pattern_reg8(context, tree):
-    return tree.value
-
 
 @isa.pattern('reg', 'CONSTI32', size=4)
-def pattern_const_i32(context, tree):
-    d = context.new_reg(RiscvRegister)
-    c0 = tree.value
-    if (c0 & 0x800) != 0:
-        c0 -= 0xFFFFF000
-    context.emit(Lui(d, c0))
-    context.emit(Addi(d, d, c0))
-    return d
-
-
+@isa.pattern('reg', 'CONSTU32', size=4)
+@isa.pattern('reg', 'CONSTI16', size=4)
 @isa.pattern(
     'reg', 'CONSTI32', size=2,
     condition=lambda t: t.value in range(-2048, 2048))
-def pattern_const_i32_small(context, tree):
+@isa.pattern(
+    'reg', 'CONSTI16', size=2,
+    condition=lambda t: t.value in range(-2048, 2048))
+@isa.pattern('reg', 'CONSTI8', size=2,
+             condition=lambda t: t.value in range(-128, 128))
+@isa.pattern('reg', 'CONSTU8', size=2,
+             condition=lambda t: t.value < 256)
+def pattern_const_i32(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
-    assert isinstance(c0, int)
-    assert c0 < 2048 and c0 >= -2048
-    context.emit(Movi(d, c0))
+    context.emit(Li(d, c0))
     return d
 
 
-@isa.pattern('reg', 'CONSTI8', size=2, condition=lambda t: t.value < 256)
-@isa.pattern('reg', 'CONSTU8', size=2, condition=lambda t: t.value < 256)
-def pattern_const8(context, tree):
-    d = context.new_reg(RiscvRegister)
-    c0 = tree.value
-    assert isinstance(c0, int)
-    assert c0 < 256 and c0 >= 0
-    context.emit(Movi(d, c0))
-    return d
-
-
-@isa.pattern('stm', 'CJMP(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Bgt}
@@ -616,7 +661,7 @@ def pattern_cjmp(context, tree, c0, c1):
         context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
         context.emit(jmp_ins)
 
-
+@isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 @isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def pattern_add_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
@@ -635,6 +680,9 @@ def pattern_add8(context, tree, c0, c1):
 @isa.pattern(
     'reg', 'ADDI32(reg, CONSTI32)', size=2,
     condition=lambda t: t.children[1].value < 2048)
+@isa.pattern(
+    'reg', 'ADDU32(reg, CONSTU32)', size=2,
+    condition=lambda t: t.children[1].value < 2048)
 def pattern_add_i32_reg_const(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value
@@ -645,14 +693,19 @@ def pattern_add_i32_reg_const(context, tree, c0):
 @isa.pattern(
     'reg', 'ADDI32(CONSTI32, reg)', size=2,
     condition=lambda t: t.children[0].value < 2048)
+@isa.pattern(
+    'reg', 'ADDU32(CONSTU32, reg)', size=2,
+    condition=lambda t: t.children[0].value < 2048)
 def pattern_add_i32_const_reg(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].value
     context.emit(Addi(d, c0, c1))
     return d
 
-
+@isa.pattern('reg', 'SUBI16(reg, reg)', size=2)
+@isa.pattern('reg', 'SUBU16(reg, reg)', size=2)
 @isa.pattern('reg', 'SUBI32(reg, reg)', size=2)
+@isa.pattern('reg', 'SUBU32(reg, reg)', size=2)
 def pattern_sub_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Subr(d, c0, c1))
@@ -681,32 +734,45 @@ def pattern_label1(context, tree):
 def pattern_label2(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
-    context.emit(Adrurel(d, ln))
-    context.emit(Adrlrel(d, d, ln))
+    context.emit(La(d, ln))
     return d
 
 
 @isa.pattern(
-    'reg', 'FPRELI32', size=8,
-    condition=lambda t: t.value in range(-2000, 2048))
+    'reg', 'FPRELU32', size=8,
+    condition=lambda t: t.value.offset in range(-2048, 2048))
 def pattern_fpreli32(context, tree):
     d = context.new_reg(RiscvRegister)
-    c1 = tree.value
-    if c1 < 0:
-        context.emit(Subi(d, FP, -c1))
-    else:
-        context.emit(Addi(d, FP, c1))
+    offset = tree.value.negative
+    context.emit(Addi(d, FP, offset))
     return d
 
 
-@isa.pattern('reg', 'LDRI8(reg)', size=2)
 @isa.pattern('reg', 'LDRU8(reg)', size=2)
-def pattern_ldr8(context, tree, c0):
+def pattern_ldru8(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     context.emit(Lbu(d, 0, c0))
     return d
 
+@isa.pattern('reg', 'LDRI8(reg)', size=2)
+def pattern_ldri8(context, tree, c0):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Lb(d, 0, c0))
+    return d
 
+@isa.pattern('reg', 'LDRU16(reg)', size=2)
+def pattern_ldru16(context, tree, c0):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Lhu(d, 0, c0))
+    return d
+
+@isa.pattern('reg', 'LDRI16(reg)', size=2)
+def pattern_ldri16(context, tree, c0):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Lh(d, 0, c0))
+    return d
+
+@isa.pattern('reg', 'LDRU32(reg)', size=2)
 @isa.pattern('reg', 'LDRI32(reg)', size=2)
 def pattern_ldr_i32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
@@ -714,13 +780,11 @@ def pattern_ldr_i32(context, tree, c0):
     return d
 
 
-@isa.pattern('reg', 'CALL', size=2)
-def pattern_call(context, tree):
-    return context.gen_call(tree.value)
-
-
+@isa.pattern('reg', 'ANDI16(reg, reg)', size=2)
+@isa.pattern('reg', 'ANDU16(reg, reg)', size=2)
 @isa.pattern('reg', 'ANDI32(reg, reg)', size=2)
-def pattern_and_i32_(context, tree, c0, c1):
+@isa.pattern('reg', 'ANDU32(reg, reg)', size=2)
+def pattern_and_i(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Andr(d, c0, c1))
     return d
@@ -761,8 +825,12 @@ def pattern_and8_const_reg(context, tree, c0):
     context.emit(Andi(d, c0, c1))
     return d
 
-
+@isa.pattern('reg', 'ORU32(reg, reg)', size=2)
 @isa.pattern('reg', 'ORI32(reg, reg)', size=2)
+@isa.pattern('reg', 'ORU16(reg, reg)', size=2)
+@isa.pattern('reg', 'ORI16(reg, reg)', size=2)
+@isa.pattern('reg', 'ORU8(reg, reg)', size=2)
+@isa.pattern('reg', 'ORI8(reg, reg)', size=2)
 def pattern_or_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Orr(d, c0, c1))
@@ -790,7 +858,8 @@ def pattern_or_i32_const_reg(context, tree, c0):
 
 
 @isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
-def pattern_shr_i32(context, tree, c0, c1):
+@isa.pattern('reg', 'SHRU32(reg, reg)', size=2)
+def pattern_shr_32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Srl(d, c0, c1))
     return d
@@ -815,7 +884,7 @@ def pattern_shr_i32_const_reg(context, tree, c0):
     context.emit(Srli(d, c0, c1))
     return d
 
-
+@isa.pattern('reg', 'SHLU32(reg, reg)', size=2)
 @isa.pattern('reg', 'SHLI32(reg, reg)', size=2)
 def pattern_shl_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
@@ -844,6 +913,7 @@ def pattern_shl_i32_const_reg(context, tree, c0):
 
 
 @isa.pattern('reg', 'MULI32(reg, reg)', size=10)
+@isa.pattern('reg', 'MULU32(reg, reg)', size=10)
 def pattern_mul_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Mul(d, c0, c1))
@@ -860,10 +930,14 @@ def pattern_ldr_i32_add(context, tree, c0):
 
 
 @isa.pattern('reg', 'DIVI32(reg, reg)', size=10)
+@isa.pattern('reg', 'DIVU32(reg, reg)', size=10)
 def pattern_div_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     # Generate call into runtime lib function!
-    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
+    context.move(R12, c0)
+    context.move(R13, c1)
+    context.emit(Bl(LR, '__sdiv'))
+    context.move(d, R10)
     return d
 
 
@@ -871,7 +945,10 @@ def pattern_div_i32(context, tree, c0, c1):
 def pattern_rem_i32(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(RiscvRegister)
-    context.gen_call(('__sdiv', [i32, i32], i32, [c0, c1], d))
+    context.move(R12, c0)
+    context.move(R13, c1)
+    context.emit(Bl(LR, '__sdiv'))
+    context.move(d, R10)
     context.emit(Mul(c1, c1, d))
     d2 = context.new_reg(RiscvRegister)
     context.emit(Subr(d2, c0, c1))
@@ -903,5 +980,6 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     c1 = tree.children[0].value
     context.emit(Xori(d, c0, c1))
     return d
+
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?
