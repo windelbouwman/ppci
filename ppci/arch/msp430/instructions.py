@@ -5,7 +5,7 @@ from ..generic_instructions import ArtificialInstruction
 from ..generic_instructions import RegisterUseDef
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
-from .registers import Msp430Register, r2, r3, r4, r12, r13, SP, PC
+from .registers import Msp430Register, r2, r3, r12, r13, SP, PC
 from ...utils.bitfun import align
 
 # pylint: disable=no-member,invalid-name
@@ -673,7 +673,7 @@ def pattern_sub32(context, tree, c0, c1):
     context.emit(mov(c0l, dl))
     context.emit(Sub(RegSrc(c1l), RegDst(dl)))
     context.emit(Subc(RegSrc(c1h), RegDst(dh)))
-    return d
+    return (dh, dl)
 
 
 @isa.pattern('memdst', 'reg', size=2, cycles=0, energy=0)

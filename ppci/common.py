@@ -34,6 +34,8 @@ class Token:
         Token is used in the lexical analyzer. The lexical analyzer takes
         a text and splits it into tokens.
     """
+    __slots__ = ['typ', 'val', 'loc']
+
     def __init__(self, typ, val, loc):
         self.typ = typ
         self.val = val
@@ -53,6 +55,8 @@ def print_line(row, lines, file=None):
 
 class SourceLocation:
     """ A location that refers to a position in a source file """
+    __slots__ = ['filename', 'row', 'col', 'length', 'source']
+
     def __init__(self, filename, row, col, ln, source=None):
         self.filename = filename
         self.row = row
