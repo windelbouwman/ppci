@@ -36,6 +36,9 @@ This function does some magic calculations :)
     >>> x(2, 3)
     18
 
+C-way
+-----
+
 Now, after profiling we could potentially discover that this function is
 a major bottleneck. So we decide to rewrite the thing in C:
 
@@ -80,6 +83,33 @@ Now, lets call the function:
 
     >>> m.x(2, 3)
     18
+
+Follow-up
+---------
+
+Instead of translating our code to C, we can as well compile
+python directly, by using type hints and a restricted subset of
+the python language. For this we can use the p2p module:
+
+
+.. doctest:: jitting
+
+    >>> from ppci.utils.p2p import load_py
+    >>> f = io.StringIO("""
+    ... def x(a: int, b: int) -> int:
+    ...     return a + b + 13
+    ... """)
+    >>> n = load_py(f)
+    >>> n.x(2, 3)
+    18
+
+By doing this, we do not need to reimplement the function in C,
+but only need to add some type hints to make it work. This might
+be more preferable to C. Please note that integer arithmatic is
+unlimited on python, but not when using compiled code.
+
+Benchmarking
+------------
 
 Now for an intersting plot twist, lets compare the two functions in a
 benchmark:
