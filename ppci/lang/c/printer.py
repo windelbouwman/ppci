@@ -133,7 +133,7 @@ class CPrinter:
 
     def gen_expr(self, expr):
         if isinstance(expr, expressions.Binop):
-            return '({}) {} ({})'.format(
+            return '({} {} {})'.format(
                 self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
         elif isinstance(expr, expressions.Unop):
             return '({}){}'.format(

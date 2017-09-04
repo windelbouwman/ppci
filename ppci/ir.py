@@ -631,7 +631,8 @@ class Binop(Value):
 
     def __init__(self, a, operation, b, name, ty):
         super().__init__(name, ty)
-        assert operation in Binop.ops
+        if operation not in Binop.ops:
+            raise TypeError('operation should be one of {}'.format(Binop.ops))
         assert a.ty is b.ty is ty
         self.a = a
         self.b = b
