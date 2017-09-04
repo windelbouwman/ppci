@@ -7,6 +7,7 @@ linking and assembling.
 import io
 import logging
 import os
+import sys
 import platform
 import stat
 import xml
@@ -99,7 +100,10 @@ def get_reporter(reporter):
 def get_current_platform():
     """ Try to get a platform for the current platform """
     machine = platform.machine()
-    # system = platform.system()
+    if sys.platform.startswith('win'):
+        if machine == 'AMD64':
+            machine = 'x86_64'  # todo: or can this happen on Posix as well?
+        machine += ':wincc'
     arch = get_arch(machine)
     return arch
 
