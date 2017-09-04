@@ -896,34 +896,30 @@ def pattern_jmp(context, tree):
 jump_opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge, '<=': Jle}
 
 
-@isa.pattern('stm', 'CJMPI64(reg64, reg64)', size=2)
-def pattern_cjmp(context, tree, c0, c1):
-    op, yes_label, no_label = tree.value
+def pattern_cjmp(context, value):
+    op, yes_label, no_label = value
     Bop = jump_opnames[op]
-    context.emit(CmpRmReg(RmReg(c0), c1))
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
+
+
+@isa.pattern('stm', 'CJMPI64(reg64, reg64)', size=2)
+def pattern_cjmp_64(context, tree, c0, c1):
+    context.emit(CmpRmReg(RmReg(c0), c1))
+    pattern_cjmp(context, tree.value)
 
 
 @isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=4, cycles=4, energy=2)
 def pattern_cjmp_16(context, tree, c0, c1):
-    op, yes_label, no_label = tree.value
-    Bop = jump_opnames[op]
     context.emit(CmpRmReg16(RmReg16(c0), c1))
-    jmp_ins = NearJump(no_label.name, jumps=[no_label])
-    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
-    context.emit(jmp_ins)
+    pattern_cjmp(context, tree.value)
 
 
 @isa.pattern('stm', 'CJMPI8(reg8, reg8)', size=2)
 def pattern_cjmp_8(context, tree, c0, c1):
-    op, yes_label, no_label = tree.value
-    Bop = jump_opnames[op]
     context.emit(CmpRmReg8(RmReg8(c0), c1))
-    jmp_ins = NearJump(no_label.name, jumps=[no_label])
-    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
-    context.emit(jmp_ins)
+    pattern_cjmp(context, tree.value)
 
 
 @isa.pattern('stm', 'ALLOCA', size=10)
