@@ -40,7 +40,7 @@ def wrap_negative(value, bits):
     mx = 2 ** bits - 1
     mn = -(2 ** (bits - 1))
     # assert value in range(mn, mx)
-    b = struct.unpack('<I', struct.pack('<i', value))[0]
+    b = struct.unpack('<Q', struct.pack('<q', value))[0]
     mask = (1 << bits) - 1
     return b & mask
 
