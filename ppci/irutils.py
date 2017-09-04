@@ -22,10 +22,11 @@ class Writer:
         indent = self.extra_indent + ' ' * (level * IR_FORMAT_INDENT)
         print(indent + txt, file=self.file)
 
-    def write(self, module: ir.Module):
+    def write(self, module: ir.Module, verify=True):
         """ Write ir-code to file f """
         assert isinstance(module, ir.Module)
-        Verifier().verify(module)
+        if verify:
+            Verifier().verify(module)
         self.print(0, '{};'.format(module))
         for v in module.variables:
             self.print(0, '')
