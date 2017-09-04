@@ -11,7 +11,7 @@ import io
 import mmap
 import ctypes
 from ..api import c3c, link, get_arch
-from ..binutils import debuginfo
+from ..binutils import debuginfo, layout
 
 
 def get_ctypes_type(debug_type):
@@ -77,7 +77,17 @@ class Mod:
             self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
             buf = (ctypes.c_char * size).from_buffer(self._page)
             page_addr = ctypes.addressof(buf)
-
+        
+        # Link to e.g. apply offset to global literals
+        layout2 = layout.Layout()
+        layout_mem = layout.Memory('codepage')
+        layout_mem.location = page_addr
+        layout_mem.size = size
+        layout_mem.add_input(layout.Section('code'))
+        layout2.add_memory(layout_mem)
+        obj = link([obj], layout=layout2, debug=True)
+        assert obj.byte_size == size
+        
         # Load the code into the page:
         code = bytes(obj.get_section('code').data)
         self._page.write(code)
