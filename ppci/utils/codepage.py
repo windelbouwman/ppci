@@ -38,8 +38,8 @@ class WinPage:
     def __init__(self, size):
         kern = ctypes.windll.kernel32
         valloc = kern.VirtualAlloc
-        valloc.argtypes = (ctypes.c_uint32,) * 4
-        valloc.restype = ctypes.c_uint32
+        valloc.argtypes = (ctypes.c_uint64,) * 4
+        valloc.restype = ctypes.c_uint64
         self.addr = valloc(0, size, 0x1000 | 0x2000, 0x40)
         self.ptr = 0
         self.size = size
@@ -55,7 +55,7 @@ class WinPage:
     def __del__(self):
         kern = ctypes.windll.kernel32
         vfree = kern.VirtualFree
-        vfree.argtypes = (ctypes.c_uint32,) * 3
+        vfree.argtypes = (ctypes.c_uint64,) * 3
         vfree(self.addr, self.size, 0x8000)
 
 
