@@ -9,7 +9,7 @@ from .instructions import PrefixToken
 from .instructions import RexToken, ModRmToken, SibToken
 from .instructions import Imm32Token, Imm8Token
 from .instructions import RmMem, RmMemDisp, RmReg, RmAbs, MovAdr
-from .instructions import Jb, Jae, NearJump
+from .instructions import Jb, Jbe, Ja, Jae, Je, Jne, NearJump
 from .instructions import SubImm, AddImm
 from .registers import XmmRegister, X86Register, rsp
 from ..generic_instructions import ArtificialInstruction
@@ -262,6 +262,15 @@ class Ucomiss(Sse1Instruction):
     patterns = {'opcode': 0x2e}
 
 
+class Ucomisd(Sse2Instruction):
+    """ Unordered scalar compare double-fp values """
+    r = Operand('r', XmmRegister, read=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['ucomisd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0x66, 'opcode': 0x2e}
+
+
+
 class SsePseudoInstruction(ArtificialInstruction):
     isa = sse1_isa
 
@@ -458,14 +467,24 @@ def pattern_ldr_f64(context, tree, c0):
     return d
 
 
-@sse1_isa.pattern('stm', 'CJMPF32(regfp,regfp)', size=6, cycles=3, energy=3)
-def pattern_cjmp_f(context, tree, c0, c1):
-    # TODO: is it float32 or float64?
-    context.emit(Ucomiss(c0, RmXmmReg(c1)))
+jump_opnames = {"<": Jb, ">": Ja, "==": Je, "!=": Jne, ">=": Jae, '<=': Jbe}
 
-    op, yes_label, no_label = tree.value
-    opnames = {"<": Jb, ">": Jae}
-    Bop = opnames[op]
+
+def pattern_cjmp(context, value):
+    op, yes_label, no_label = value
+    Bop = jump_opnames[op]
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
+
+
+@sse1_isa.pattern('stm', 'CJMPF32(regfp,regfp)', size=6, cycles=3, energy=3)
+def pattern_cjmp_f32(context, tree, c0, c1):
+    context.emit(Ucomiss(c0, RmXmmReg(c1)))
+    pattern_cjmp(context, tree.value)
+
+
+@sse1_isa.pattern('stm', 'CJMPF64(regfp,regfp)', size=6, cycles=3, energy=3)
+def pattern_cjmp_f64(context, tree, c0, c1):
+    context.emit(Ucomisd(c0, RmXmmReg(c1)))
+    pattern_cjmp(context, tree.value)
