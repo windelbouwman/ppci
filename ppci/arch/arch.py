@@ -38,7 +38,11 @@ class Architecture(metaclass=abc.ABCMeta):
         return self.option_settings[name]
 
     def __repr__(self):
-        return '{}-arch'.format(self.name)
+        opstring = ''
+        for n in self.option_names:
+            if self.option_settings[n]:
+                opstring += ':' + n
+        return '{}{}-arch'.format(self.name, opstring)
 
     def make_id_str(self):
         """ Return a string uniquely identifying this machine """
