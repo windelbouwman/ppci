@@ -42,6 +42,7 @@ from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
 from .utils.ir2py import IrToPython
+from .utils.p2p import py_to_ir
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
@@ -620,6 +621,17 @@ def bfcompile(source, target, reporter=None):
     optimize(ir_module, reporter=reporter)
     debug_db = DebugDb()
     return ir_to_object([ir_module], target, debug_db, reporter=reporter)
+
+
+def pycompile(source, march, reporter=None):
+    """ Compile a piece of python code to machine code.
+
+    Note that the python code must be type annotated for this
+    to work.
+    """
+    march = get_arch(march)
+    ir_module = py_to_ir(source)
+    return ir_to_object([ir_module], march)
 
 
 def fortrancompile(sources, target, reporter=DummyReportGenerator()):

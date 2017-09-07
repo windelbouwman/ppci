@@ -53,3 +53,6 @@ activated stand alone.
 
 .. autoprogram:: ppci.commands:cc_parser
     :prog: ppci-cc.py
+
+.. autoprogram:: ppci.commands:pycompile_parser
+    :prog: ppci-pycompile.py
