@@ -829,6 +829,7 @@ def pattern_shl32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'MULI32(reg, reg)', size=5)
+@thumb_isa.pattern('reg', 'MULU32(reg, reg)', size=5)
 def pattern_mul32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)

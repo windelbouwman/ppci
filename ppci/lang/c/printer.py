@@ -155,4 +155,4 @@ class CPrinter:
             raise NotImplementedError(str(expr))
 
     def _print(self, txt=''):
-        print(self.indent * '  ' + txt)
+        print(self.indent * '   ' + txt)

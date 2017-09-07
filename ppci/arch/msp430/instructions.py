@@ -588,6 +588,7 @@ def call_intrinsic(context, label, args, clobbers=()):
 
 
 @isa.pattern('reg', 'MULI16(reg, reg)', size=10)
+@isa.pattern('reg', 'MULU16(reg, reg)', size=10)
 def pattern_mul16(context, tree, c0, c1):
     return call_intrinsic(
         context, 'msp430_runtime___mul', (c0, c1),

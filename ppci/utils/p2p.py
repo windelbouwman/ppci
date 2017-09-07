@@ -9,7 +9,7 @@ from ..common import SourceLocation
 from ..binutils import debuginfo
 
 
-def load_py(f):
+def load_py(f, functions=None):
     """ Load a type annotated python file.
 
     arguments:
@@ -25,9 +25,8 @@ def load_py(f):
     # writer = irutils.Writer(txt)
     # writer.write(mod)
     # print(txt.getvalue())
-    obj1 = api.ir_to_object([mod], 'x86_64', debug_db=debug_db, debug=True)
-    # TODO: remove this link step once link is included in the load_obj function:
-    obj = api.link([obj1], debug=True)
+    arch = api.get_current_platform()
+    obj = api.ir_to_object([mod], arch, debug_db=debug_db, debug=True)
     m2 = load_obj(obj)
     return m2
 
@@ -172,6 +171,8 @@ class P2P:
             assert var.lvalue
             value = self.gen_expr(statement.value)
             self.emit(ir.Store(value, var.value))
+        elif isinstance(statement, ast.Expr):
+            self.gen_expr(statement.value)
         else:  # pragma: no cover
             print(dir(statement))
             raise NotImplementedError('Cannot Do {}'.format(statement))
@@ -192,7 +193,7 @@ class P2P:
             self.emit(ir.CJump(a, op, b, yes_block, no_block))
         else:  # pragma: no cover
             raise NotImplementedError('Cannot Do {}'.format(statement))
-        
+
     def gen_expr(self, expr):
         """ Generate code for a single expression """
         if isinstance(expr, ast.BinOp):
@@ -215,4 +216,4 @@ class P2P:
         elif isinstance(expr, ast.Num):
             return self.emit(ir.Const(expr.n, 'num', ir.i64))
         else:  # pragma: no cover
-            raise NotImplementedError('Todo: {}'.format(e))
+            raise NotImplementedError('Todo: {}'.format(expr))

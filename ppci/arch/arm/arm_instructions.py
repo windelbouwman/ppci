@@ -820,6 +820,7 @@ def pattern_shl32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'MULI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'MULU32(reg, reg)', size=4)
 def pattern_mul32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Mul1(d, c0, c1))

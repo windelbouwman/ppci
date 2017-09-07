@@ -845,6 +845,7 @@ def pattern_div16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
+@avr_isa.pattern('reg16', 'MULU16(reg16, reg16)', size=8)
 def pattern_mul16(context, tree, c0, c1):
     return call_function(
         context, 'swmuldiv_mul', (c0, c1), clobbers=context.arch.caller_save)

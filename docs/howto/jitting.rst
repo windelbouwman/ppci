@@ -60,8 +60,7 @@ Having this function, we put this function in a python string and compile it.
     ...   return a + b + 13;
     ... }""")
     >>> arch = api.get_current_platform()
-    >>> obj1 = api.cc(src, arch, debug=True)
-    >>> obj = api.link([obj1], debug=True)
+    >>> obj = api.cc(src, arch, debug=True)
     >>> obj  # doctest: +ELLIPSIS
     CodeObject of ... bytes
 
@@ -107,6 +106,23 @@ By doing this, we do not need to reimplement the function in C,
 but only need to add some type hints to make it work. This might
 be more preferable to C. Please note that integer arithmatic is
 unlimited on python, but not when using compiled code.
+
+Calling python functions
+------------------------
+
+In order to callback python functions, we can do the following:
+
+.. doctest:: jitting
+
+    >>> func = lambda x: print('x=', x)
+    >>> f = io.StringIO("""
+    ... def x(a: int, b: int) -> int:
+    ...     func(a+3)
+    ...     return a + b + 13
+    ... """)
+    >>> o = load_py(f, functions={'func': func})
+    >>> o.x(2, 3)
+    18
 
 Benchmarking
 ------------

@@ -203,11 +203,11 @@ class CCodeGenerator:
         else:  # pragma: no cover
             raise NotImplementedError(str(statement))
 
-    def gen_empty_statement(self, statement):
+    def gen_empty_statement(self, statement) -> None:
         """ Generate code for empty statement """
         pass
 
-    def gen_compound(self, statement):
+    def gen_compound(self, statement) -> None:
         """ Generate code for a compound statement """
         for inner_statement in statement.statements:
             self.gen_stmt(inner_statement)
@@ -222,10 +222,10 @@ class CCodeGenerator:
 
     def gen_expression_statement(self, statement):
         """ Generate code for an expression statement """
-        self.gen_expr(statement.expression)
+        self.gen_expr(statement.expression, rvalue=True)
         # TODO: issue a warning when expression result is non void?
 
-    def gen_if(self, stmt: statements.If):
+    def gen_if(self, stmt: statements.If) -> None:
         """ Generate if-statement code """
         final_block = self.builder.new_block()
         yes_block = self.builder.new_block()
@@ -243,7 +243,7 @@ class CCodeGenerator:
             self.emit(ir.Jump(final_block))
         self.builder.set_block(final_block)
 
-    def gen_switch(self, stmt: statements.Switch):
+    def gen_switch(self, stmt: statements.Switch) -> None:
         """ Generate switch-case-statement code.
         See also:
             https://www.codeproject.com/Articles/100473/
@@ -294,7 +294,7 @@ class CCodeGenerator:
         # Restore state:
         self.switch_options = backup
 
-    def gen_while(self, stmt: statements.While):
+    def gen_while(self, stmt: statements.While) -> None:
         """ Generate while statement code """
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
@@ -311,7 +311,7 @@ class CCodeGenerator:
         self.break_block_stack.pop(-1)
         self.continue_block_stack.pop(-1)
 
-    def gen_do_while(self, stmt: statements.DoWhile):
+    def gen_do_while(self, stmt: statements.DoWhile) -> None:
         """ Generate do-while-statement code """
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
@@ -325,7 +325,7 @@ class CCodeGenerator:
         self.break_block_stack.pop(-1)
         self.continue_block_stack.pop(-1)
 
-    def gen_for(self, stmt: statements.For):
+    def gen_for(self, stmt: statements.For) -> None:
         """ Generate code for for-statement """
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
@@ -333,7 +333,7 @@ class CCodeGenerator:
         self.break_block_stack.append(final_block)
         self.continue_block_stack.append(condition_block)
         if stmt.init:
-            self.gen_expr(stmt.init)
+            self.gen_expr(stmt.init, rvalue=True)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
         if stmt.condition:
@@ -343,20 +343,20 @@ class CCodeGenerator:
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
         if stmt.post:
-            self.gen_expr(stmt.post)
+            self.gen_expr(stmt.post, rvalue=True)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(final_block)
         self.break_block_stack.pop(-1)
         self.continue_block_stack.pop(-1)
 
-    def gen_label(self, stmt: statements.Label):
+    def gen_label(self, stmt: statements.Label) -> None:
         """ Generate code for a label """
         block = self.get_label_block(stmt.name)
         self.emit(ir.Jump(block))  # fall through
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
 
-    def gen_case(self, stmt: statements.Case):
+    def gen_case(self, stmt: statements.Case) -> None:
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
         assert self.switch_options is not None
@@ -367,7 +367,7 @@ class CCodeGenerator:
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
 
-    def gen_default(self, stmt: statements.Default):
+    def gen_default(self, stmt: statements.Default) -> None:
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
         assert self.switch_options is not None
@@ -376,7 +376,7 @@ class CCodeGenerator:
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
 
-    def gen_goto(self, stmt: statements.Goto):
+    def gen_goto(self, stmt: statements.Goto) -> None:
         """ Generate code for a goto statement """
         block = self.get_label_block(stmt.label)
         self.emit(ir.Jump(block))
@@ -384,7 +384,7 @@ class CCodeGenerator:
         self.builder.set_block(new_block)
         self.unreachable = True
 
-    def gen_continue(self, stmt: statements.Continue):
+    def gen_continue(self, stmt: statements.Continue) -> None:
         """ Generate code for the continue statement """
         # block = self.get_label_block(stmt.label)
         if self.continue_block_stack:
@@ -397,7 +397,7 @@ class CCodeGenerator:
         # TODO: unreachable code after here!
         self.unreachable = True
 
-    def gen_break(self, stmt: statements.Break):
+    def gen_break(self, stmt: statements.Break) -> None:
         """ Generate code to break out of something. """
         # block = self.get_label_block(stmt.label)
         if self.break_block_stack:
@@ -409,7 +409,7 @@ class CCodeGenerator:
         self.builder.set_block(new_block)
         self.unreachable = True
 
-    def gen_return(self, stmt: statements.Return):
+    def gen_return(self, stmt: statements.Return) -> None:
         """ Generate return statement code """
         if stmt.value:
             value = self.gen_expr(stmt.value, rvalue=True)
@@ -540,6 +540,7 @@ class CCodeGenerator:
                     value = changed
             elif expr.op == '*':
                 value = self.gen_expr(expr.a, rvalue=True)
+                assert expr.lvalue
             elif expr.op == '&':
                 assert expr.a.lvalue
                 value = self.gen_expr(expr.a, rvalue=False)
@@ -715,7 +716,8 @@ class CCodeGenerator:
             value = self.emit(
                 ir.Binop(base, '+', offset, 'offset', ir.ptr))
         elif isinstance(expr, expressions.ArrayIndex):
-            base = self.gen_expr(expr.base, rvalue=False)
+            # Load base as an rvalue, to make sure we load pointers values.
+            base = self.gen_expr(expr.base, rvalue=True)
             index = self.gen_expr(expr.index, rvalue=True)
 
             # Generate constant for element size:
@@ -737,12 +739,20 @@ class CCodeGenerator:
 
         # Check for given attributes:
         assert isinstance(expr.typ, types.CType)
-        assert isinstance(expr.lvalue, bool)
+        assert isinstance(expr.lvalue, bool)  # C semantics lvalue
 
         # If we need an rvalue, load it!
         if rvalue and expr.lvalue:
-            ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Load(value, 'load', ir_typ))
+            # Array handling is a special case!
+            # when accessed, arrays turn into pointers to its first element.
+            if isinstance(expr.typ, types.ArrayType):
+                self.logger.debug('Array type accessed %s', expr)
+            else:
+                # self.logger.debug('Non-Array type is indexed %s', expr)
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Load(value, 'load', ir_typ))
+        elif not rvalue:
+            assert expr.lvalue
         return value
 
     def get_ir_type(self, typ: types.CType):

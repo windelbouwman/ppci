@@ -122,7 +122,7 @@ class CAstPrinter(Visitor):
         self.visit(node)
 
     def _print(self, node):
-        print('  ' * self.indent + str(node), file=self.file)
+        print('    ' * self.indent + str(node), file=self.file)
 
     def visit(self, node):
         self._print(node)

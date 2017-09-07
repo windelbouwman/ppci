@@ -21,6 +21,13 @@ def a(x: int, y: int) -> int:
 """
 
 
+src2 = """
+def a(x: int) -> int:
+    myprint(x + 13)
+    return x
+"""
+
+
 class P2pTestCase(unittest.TestCase):
     def test_p2p(self):
         d = {}
@@ -32,6 +39,14 @@ class P2pTestCase(unittest.TestCase):
             v1 = a(x, 2)  # Python variant
             v2 = m2.a(x, 2)  # Compiled variant!
             self.assertEqual(v1, v2)
+
+    @unittest.skip('todo')
+    def test_callback(self):
+        def mp(x: int) -> int:
+            print('x=', x)
+            return x
+        m2 = load_py(io.StringIO(src2), functions={'myprint': mp})
+        m2.a(2)
 
 
 if __name__ == '__main__':
