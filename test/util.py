@@ -46,9 +46,16 @@ def tryrm(fn):
         pass
 
 
-def do_long_tests():
+def do_long_tests(arch=None):
     """ Determine whether to run samples, these take somewhat longer """
-    return 'LONGTESTS' in os.environ
+    if 'LONGTESTS' not in os.environ:
+        return False
+    val = os.environ['LONGTESTS']
+    if val == arch or val == 'all':
+        return True
+    else:
+        return False
+
 
 
 def do_iverilog():

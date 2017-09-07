@@ -245,7 +245,7 @@ class BuildMixin:
         return obj, base_filename
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('arm'), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnVexpress(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
@@ -301,7 +301,7 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('riscv'), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     opt_level = 2
@@ -374,7 +374,7 @@ class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('arm'), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
@@ -438,7 +438,7 @@ class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
             self.assertEqual(expected_output, res)
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('python'), 'skipping slow tests')
 @add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
 class TestSamplesOnPython(unittest.TestCase, I32Samples):
     opt_level = 0
@@ -497,7 +497,7 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('msp430'), 'skipping slow tests')
 @add_samples('simple', '8bit')
 class TestSamplesOnMsp430(unittest.TestCase, BuildMixin):
     opt_level = 0
@@ -589,7 +589,7 @@ class TestSamplesOnMsp430O2(TestSamplesOnMsp430):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('avr'), 'skipping slow tests')
 @add_samples('8bit', 'simple')
 class TestSamplesOnAvr(unittest.TestCase):
     march = "avr"
@@ -631,7 +631,7 @@ class TestSamplesOnStm8(unittest.TestCase):
             mmap, lang=lang, bin_format='hex', code_image='flash')
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('xtensa'), 'skipping slow tests')
 @add_samples('simple')
 class TestSamplesOnXtensa(unittest.TestCase):
     march = "xtensa"
@@ -667,7 +667,7 @@ class TestSamplesOnXtensa(unittest.TestCase):
             f.write(bytes(padding))
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('or1k'), 'skipping slow tests')
 @add_samples('simple', 'medium')
 class OpenRiscSamplesTestCase(unittest.TestCase):
     march = "or1k"
@@ -693,7 +693,7 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
             self.assertEqual(expected_output, output)
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('x86_64'), 'skipping slow tests')
 @add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
 class TestSamplesOnX86Linux(unittest.TestCase, BuildMixin):
     march = "x86_64"
