@@ -1,5 +1,5 @@
-
-from .. import ir
+# WIP
+from ... import ir
 
 
 class IrToWasmConvertor:
