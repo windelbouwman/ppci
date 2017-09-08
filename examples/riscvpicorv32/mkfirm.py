@@ -1,18 +1,14 @@
 import io
 from ppci.api import asm, c3c, link, objcopy, get_arch
-from ppci.utils.reporting import HtmlReportGenerator, AsmReportGenerator, complete_report
+from ppci.utils.reporting import HtmlReportGenerator
 from ppci.binutils.outstream import TextOutputStream
 
-# report_generator = HtmlReportGenerator(open("report.html", 'w'))
-report_generator = AsmReportGenerator(open("report.asm", 'w'))
-with complete_report(report_generator) as reporter:
+with open("report.html", 'w') as f:
+    reporter = HtmlReportGenerator(f)
     arch = get_arch('riscv')
     o1 = asm("starterirq.asm", arch)
-    with open('report2.asm', 'w') as f:
-        printer = arch.asm_printer
-        txtstream = TextOutputStream(printer=printer, f=f)
-        o2 = c3c(["bsp.c3", "io.c3", "gdbstub.c3", "main.c3", "irq.c3"], [], "riscv", reporter=reporter, debug=False,
-                 opt_level=2, outstream=txtstream)
+    o2 = c3c(["bsp.c3", "io.c3", "gdbstub.c3", "main.c3", "irq.c3"], [], "riscv", reporter=reporter, debug=True,
+                 opt_level=2)
     obj = link([o1, o2], "firmware.mmap", use_runtime=False, reporter=reporter, debug=True)
 
     of = open("firmware.tlf", "w")

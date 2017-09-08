@@ -321,7 +321,7 @@ class Adrl(RiscvInstruction):
         return [Abs32Imm12Relocation(self.label)]
 
 
-class Adrlrel(RiscvInstruction):
+class Loadlrel(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True, read=True)
     label = Operand('label', str)
     syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
@@ -338,6 +338,22 @@ class Adrlrel(RiscvInstruction):
     def relocations(self):
         return [RelImm12Relocation(self.label)]
 
+class Adrlrel(RiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True, read=True)
+    label = Operand('label', str)
+    syntax = Syntax(['addi', ' ', rd, ',', ' ', label])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0b000
+        tokens[0][15:20] = self.rd.num
+        tokens[0][20:32] = 0
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [RelImm12Relocation(self.label)]
 
 class Auipc(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
@@ -351,6 +367,15 @@ class Auipc(RiscvInstruction):
         tokens[0][12:32] = self.imm
         return tokens[0].encode()
 
+
+class Labelrel(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    label = Operand('label', str)
+    syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
+
+    def render(self):
+        yield Adrurel(self.rd, self.label)
+        yield Loadlrel(self.rd, self.label)
 
 class La(PseudoRiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
@@ -741,7 +766,7 @@ def pattern_label1(context, tree):
 def pattern_label2(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
-    context.emit(La(d, ln))
+    context.emit(Labelrel(d, ln))
     return d
 
 
