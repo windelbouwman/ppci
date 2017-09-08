@@ -61,7 +61,7 @@ class WinPage:
 
 class Mod:
     """ Container for machine code """
-    def __init__(self, obj):
+    def __init__(self, obj, callbacks=None):
         size = obj.byte_size
 
         if not obj.debug_info:
@@ -78,6 +78,14 @@ class Mod:
             buf = (ctypes.c_char * size).from_buffer(self._page)
             page_addr = ctypes.addressof(buf)
         
+        # Create callback pointers if any:
+        if callbacks:
+            for callback in callbacks:
+                restype = get_ctypes_type(return_type)
+                argtypes = [get_ctypes_type(a) for a in arguments]
+                ftype = ctypes.CFUNCTYPE(restype, *argtypes)
+                cb = ftype(function)
+
         # Link to e.g. apply offset to global literals
         layout2 = layout.Layout()
         layout_mem = layout.Memory('codepage')
@@ -85,6 +93,8 @@ class Mod:
         layout_mem.size = size
         layout_mem.add_input(layout.Section('code'))
         layout2.add_memory(layout_mem)
+
+        # Link the object into memory:
         obj = link([obj], layout=layout2, debug=True)
         assert obj.byte_size == size
         
@@ -134,34 +144,13 @@ def load_code_as_module(source_file, reporter=None):
     if march is None:
         raise NotImplementedError(sys.platform)
 
-    obj1 = c3c(
+    obj = c3c(
         [source_file], [], march, debug=True, opt_level=2, reporter=reporter)
-    # print(obj1)
-    obj = link([obj1], debug=True)
-    # print(obj)
 
     # Convert obj to executable module
     m = Mod(obj)
     return m
 
 
-def load_obj(obj):
-    return Mod(obj)
-
-
-if __name__ == '__main__':
-    source_file = io.StringIO("""
-          module main;
-          function int add(int a, int b) {
-            return a + b;
-          }
-
-          function int sub(int a, int b) {
-            return a - b;
-          }
-        """)
-    m = load_code_as_module(source_file)
-
-    # Cross fingers
-    print(m.add(1, 2))
-    print(m.sub(10, 2))
+def load_obj(obj, callbacks=None):
+    return Mod(obj, callbacks=callbacks)

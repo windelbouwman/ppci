@@ -9,3 +9,14 @@ def a(x: int, y: int) -> int:
         else:
             c = 55 - x
     return c
+
+
+def b(x: int) -> int:
+    y = 100
+    while x != 19:
+        if y + x > 200:
+            break
+        x += 1
+        for z in range(90):
+            y += z
+    return x / y

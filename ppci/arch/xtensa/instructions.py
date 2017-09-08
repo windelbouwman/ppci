@@ -919,6 +919,7 @@ def call_internal(context, label, args):
 
 
 @core_isa.pattern('reg', 'MULI32(reg, reg)', size=10, cycles=10, energy=10)
+@core_isa.pattern('reg', 'MULU32(reg, reg)', size=10, cycles=10, energy=10)
 def pattern_mul32(context, tree, c0, c1):
     # Generate call into runtime lib function!
     return call_internal(context, 'swmuldiv_mul', (c0, c1))

@@ -80,6 +80,16 @@ march_parser.add_argument(
     metavar='option', action='append')
 
 
+def get_arch_from_args(args):
+    """ Determine the intended machine target and select the proper options """
+    if args.machine:
+        machine = args.machine
+    else:
+        machine = platform.machine()
+    options = tuple(args.mtune)
+    return create_arch(machine, options=options)
+
+
 out_parser = argparse.ArgumentParser(add_help=False)
 out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
@@ -99,14 +109,18 @@ compile_parser.add_argument(
     '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 
-def get_arch_from_args(args):
-    """ Determine the intended machine target and select the proper options """
-    if args.machine:
-        machine = args.machine
-    else:
-        machine = platform.machine()
-    options = tuple(args.mtune)
-    return create_arch(machine, options=options)
+def do_compile(module, march, reporter, args):
+    """ Handle the proper output action """
+    if args.ir:  # Stop after ir code generation
+        irutils.Writer(file=args.output).write(module)
+    elif args.S:  # Output assembly code
+        stream = TextOutputStream(
+            printer=march.asm_printer, f=args.output)
+        api.ir_to_stream(
+            module, march, stream, reporter=reporter)
+    else:  # Full object output
+        obj = api.ir_to_object([module], march, reporter=reporter)
+        obj.save(args.output)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -481,6 +495,24 @@ def opt(args=None):
     with LogSetup(args):
         api.optimize(module, level=args.O)
     irutils.Writer(file=args.output).write(module)
+
+
+pycompile_parser = argparse.ArgumentParser(
+    description="Compile python code statically",
+    parents=[base_parser, march_parser, out_parser, compile_parser])
+pycompile_parser.add_argument(
+    'sources', metavar='source', help='source file', nargs='+',
+    type=argparse.FileType('r'))
+
+
+def pycompile(args=None):
+    """ Compile python code statically """
+    args = pycompile_parser.parse_args(args)
+    with LogSetup(args):
+        march = get_arch_from_args(args)
+        for source in args.sources:
+            obj = api.pycompile(source, march)
+            obj.save(args.output)
 
 
 def yacc_cmd(args=None):
