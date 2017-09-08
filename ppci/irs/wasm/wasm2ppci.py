@@ -1,11 +1,11 @@
 """ Convert Web Assembly (WASM) into PPCI IR. """
 
-from ppci import ir
-from ppci import irutils
-from ppci import common
-from ppci.binutils import debuginfo
+from ... import ir
+from ... import irutils
+from ... import common
+from ...binutils import debuginfo
 
-from ppci.irs import wasm
+from . import Module
 
 
 def wasm_to_ppci(wasm_module, debug_db=None):
@@ -27,7 +27,7 @@ class Wasm2PpciCompiler:
         
     def generate(self, wasm_module, debug_db=None):
         
-        assert isinstance(wasm_module, wasm.Module)
+        assert isinstance(wasm_module, Module)
         
         self.builder.module = ir.Module('mainmodule')
         

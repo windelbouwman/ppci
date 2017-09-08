@@ -6,7 +6,7 @@ to WASM.
 from time import time as perf_counter  # cause perf_counter not available in pypy3
 import ast
 
-from ppci.irs import wasm
+from ...irs import wasm
 
 
 class Context:
