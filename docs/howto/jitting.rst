@@ -59,7 +59,7 @@ Having this function, we put this function in a python string and compile it.
     ... int x(int a, int b) {
     ...   return a + b + 13;
     ... }""")
-    >>> arch = api.get_current_platform()
+    >>> arch = api.get_current_arch()
     >>> obj = api.cc(src, arch, debug=True)
     >>> obj  # doctest: +ELLIPSIS
     CodeObject of ... bytes
@@ -93,7 +93,7 @@ the python language. For this we can use the p2p module:
 
 .. doctest:: jitting
 
-    >>> from ppci.utils.p2p import load_py
+    >>> from ppci.lang.python import load_py
     >>> f = io.StringIO("""
     ... def x(a: int, b: int) -> int:
     ...     return a + b + 13

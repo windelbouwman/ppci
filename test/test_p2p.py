@@ -3,7 +3,7 @@ from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 import unittest
 import io
 
-from ppci.lang.python.python2ir import load_py
+from ppci.lang.python.python2ir import load_py, py_to_ir
 
 # Choose between those two:
 
@@ -28,6 +28,7 @@ def a(x: int) -> int:
 """
 
 
+@unittest.skipUnless(api.is_platform_supported(), 'skipping codepage tests')
 class PythonJitLoadingTestCase(unittest.TestCase):
     """ Check the on the fly compiling of python code """
     def test_load_py(self):
@@ -48,6 +49,12 @@ class PythonJitLoadingTestCase(unittest.TestCase):
             return x
         m2 = load_py(io.StringIO(src2), functions={'myprint': mp})
         m2.a(2)
+
+
+class PythonToIrTestCase(unittest.TestCase):
+    """ Check the compilation of python code to ir """
+    def test_load_py(self):
+        mod = py_to_ir(io.StringIO(src))
 
 
 if __name__ == '__main__':

@@ -10,8 +10,8 @@ generate (working!) machine code within python!
 The project contains the following:
 
 - A Compiler, an assembler, a linker and a build system
-- Language front-ends: Brainfuck, c3
-- Backends: 6500, arm, avr, msp430, risc-v, stm8, x86_64, xtensa
+- Language front-ends: Brainfuck, c3, C, WASM
+- Backends: 6500, arm, avr, msp430, openrisc, risc-v, stm8, x86_64, xtensa
 
 .. warning::
 

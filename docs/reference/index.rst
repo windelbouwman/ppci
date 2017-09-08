@@ -15,5 +15,5 @@ Reference
     backends/index
     hexfile
     objectformat
-    p2p
+    python2ir
     links

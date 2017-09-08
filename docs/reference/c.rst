@@ -107,11 +107,11 @@ it to parse C code and analyze its structure like this:
     >>> printer = CAstPrinter()
     >>> printer.print(ast)
     Compilation unit with 2 declarations
-      Variable [storage=None typ=Native type int name=a]
-        Native type int
-      Variable [storage=None typ=Pointer-type name=b]
-        Pointer-type
-          Native type int
+        Variable [storage=None typ=Native type int name=a]
+            Native type int
+        Variable [storage=None typ=Pointer-type name=b]
+            Pointer-type
+                Native type int
     >>> ast.declarations[0].name
     'a'
 
