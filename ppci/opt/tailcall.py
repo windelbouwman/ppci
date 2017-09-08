@@ -1,3 +1,4 @@
+from .. import ir
 from .transform import FunctionPass
 
 
@@ -59,15 +60,22 @@ class TailCallOptimization(FunctionPass):
             if len(block) >= 2 and \
                     isinstance(block[-1], ir.Return) and \
                     isinstance(block[-2], ir.FunctionCall) and \
-                    block[-2] is block[-1].value:
+                    block[-2] is block[-1].result:
+                # TODO: check function calls self in some way?
                 tail_calls.append(block[-1])
 
-        # No tail calls in this function, we are done.
-        if not tail_calls:
-            return
+        if tail_calls:
+            self.rewrite_tailcalls(function, tail_calls)
 
+    def rewrite_tailcalls(self, function, tail_calls):
         z = []
         z.append((function.entry, function.arguments))
+        new_entry = ir.Block('new_entry')
+        function.add_block(new_entry)
+        function.blocks.insert(0, function.blocks.pop())
+        old_entry = function.entry
+        function.entry = new_entry
+        new_entry.add_instruction(ir.Jump(old_entry))
 
         # Insert phi nodes for each argument:
         arg_phis = []
@@ -77,19 +85,19 @@ class TailCallOptimization(FunctionPass):
             arg_phis.append(arg_phi)
 
             # Add the trivial input branch for the phi node from entry:
-            arg_phi.add_input(entry, arg_value)
+            arg_phi.add_input(new_entry, arg_value)
 
-        assert all(isinstance(tc, ir.Call) for tc in tail_calls)
+        # assert all(isinstance(tc, ir.FunctionCall) for tc in tail_calls), str(tail_calls)
 
         # Replace tail calls by call to new block
         for tail in tail_calls:
-            tail_call = tail.value
+            tail_call = tail.result
             block = tail.block
 
             # Replace tail call by jump:
-            tail.remove()
-            tail_call.remove()
-            block.append(ir.Jump(entry2))
+            tail.remove_from_block()
+            tail_call.remove_from_block()
+            block.add_instruction(ir.Jump(old_entry))
 
             # Add input for all arguments to the argument phis:
             for arg_phi, arg_value in zip(arg_phis, tail_call.arguments):

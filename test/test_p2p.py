@@ -1,9 +1,9 @@
 from ppci import api
-from ppci.utils.ir2wasm import IrToWasmConvertor
+from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 import unittest
 import io
 
-from ppci.utils.p2p import load_py
+from ppci.lang.python.python2ir import load_py
 
 # Choose between those two:
 
@@ -28,8 +28,9 @@ def a(x: int) -> int:
 """
 
 
-class P2pTestCase(unittest.TestCase):
-    def test_p2p(self):
+class PythonJitLoadingTestCase(unittest.TestCase):
+    """ Check the on the fly compiling of python code """
+    def test_load_py(self):
         d = {}
         exec(src, d)
         a = d['a']

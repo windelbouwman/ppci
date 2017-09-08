@@ -12,6 +12,10 @@ from .common import IrFormError
 IR_FORMAT_INDENT = 2
 
 
+def print_module(module, file=None, verify=True):
+    Writer(file=file).write(module, verify=verify)
+
+
 class Writer:
     """ Write ir-code to file """
     def __init__(self, file=None, extra_indent=''):

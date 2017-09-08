@@ -3,8 +3,8 @@ import unittest
 import io
 import ctypes
 from util import make_filename
-from ppci.api import cc, get_current_platform
-from ppci.utils.codepage import load_code_as_module, platform_supported
+from ppci.api import cc, get_current_arch, is_platform_supported
+from ppci.utils.codepage import load_code_as_module
 from ppci.utils.codepage import load_obj
 from ppci.utils.reporting import HtmlReportGenerator
 
@@ -17,7 +17,7 @@ def has_numpy():
         return False
 
 
-@unittest.skipUnless(platform_supported(), 'skipping codepage tests')
+@unittest.skipUnless(is_platform_supported(), 'skipping codepage tests')
 class CodePageTestCase(unittest.TestCase):
     def test_add(self):
         source_file = io.StringIO("""
@@ -52,7 +52,7 @@ class CodePageTestCase(unittest.TestCase):
     def test_c(self):
         """ Test loading of C code """
         source = io.StringIO("int x(int a) { return a + 1 ; }")
-        arch = get_current_platform()
+        arch = get_current_arch()
         obj = cc(source, arch, debug=True)
         m = load_obj(obj)
         y = m.x(101)
@@ -70,7 +70,7 @@ class CodePageTestCase(unittest.TestCase):
           return sum;
         }
         """)
-        arch = get_current_platform()
+        arch = get_current_arch()
         html_filename = make_filename(self.id()) + '.html'
         with open(html_filename, 'w') as f:
             with HtmlReportGenerator(f) as reporter:
@@ -88,7 +88,7 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(40, y)
 
 
-@unittest.skipUnless(has_numpy() and platform_supported(), 'skipping codepage')
+@unittest.skipUnless(has_numpy() and is_platform_supported(), 'skipping codepage')
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
         source_file = io.StringIO("""

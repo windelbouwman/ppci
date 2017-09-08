@@ -20,6 +20,7 @@ from .lang.fortran import FortranBuilder
 from .lang.llvmir import LlvmIrFrontend
 from .lang.pascal import PascalBuilder
 from .lang.ws import WhitespaceGenerator
+from .lang.python.python2ir import py_to_ir
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -42,7 +43,6 @@ from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
 from .utils.ir2py import IrToPython
-from .utils.p2p import py_to_ir
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager
@@ -98,15 +98,20 @@ def get_reporter(reporter):
         return reporter
 
 
-def get_current_platform():
-    """ Try to get a platform for the current platform """
-    machine = platform.machine()
+def is_platform_supported():
+    """ Determine if this platform is supported """
+    return get_current_arch() is not None
+
+
+def get_current_arch():
+    """ Try to get the architecture for the current platform """
     if sys.platform.startswith('win'):
+        machine = platform.machine()
         if machine == 'AMD64':
-            machine = 'x86_64'  # todo: or can this happen on Posix as well?
-        machine += ':wincc'
-    arch = get_arch(machine)
-    return arch
+            return get_arch('x86_64:wincc')
+    elif sys.platform == 'linux':
+        if platform.architecture()[0] == '64bit':
+            return get_arch('x86_64')
 
 
 def get_file(f, mode='r'):

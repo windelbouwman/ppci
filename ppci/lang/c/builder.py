@@ -20,7 +20,7 @@ class CBuilder:
         self.cgen = None
 
     def build(self, src: io.TextIOBase, filename: str, debug_db,
-            reporter=None):
+              reporter=None):
         if not debug_db:
             raise ValueError('Please provide a debug db')
         if reporter:

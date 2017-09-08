@@ -11,6 +11,7 @@ from ppci.irutils import Verifier
 from ppci.opt import Mem2RegPromotor
 from ppci.opt import CleanPass
 from ppci.opt.constantfolding import correct
+from ppci.opt.tailcall import TailCallOptimization
 
 
 class OptTestCase(unittest.TestCase):
@@ -152,6 +153,41 @@ class TypedEvalTestCase(unittest.TestCase):
     def test_i16_overflow(self):
         self.assertEqual(-32767, correct(2+32767, ir.i16))
         self.assertEqual(32766, correct(-32767-3, ir.i16))
+
+
+class TailCallTestCase(unittest.TestCase):
+    """ Test the tail call optimization """
+    def setUp(self):
+        self.debug_db = DebugDb()
+        self.opt = TailCallOptimization(self.debug_db)
+
+    def test_function_tailcall(self):
+        """ Test if a tailcall in a function works out nicely """
+        # Prepare an optimizable module:
+        builder = irutils.Builder()
+        module = ir.Module('test')
+        builder.set_module(module)
+        function = builder.new_function('x', ir.i8)
+        builder.set_function(function)
+        entry = builder.new_block()
+        function.entry = entry
+        builder.set_block(entry)
+        result = builder.emit(ir.FunctionCall('x', [], 'rv', ir.i8))
+        builder.emit(ir.Return(result))
+
+        # Verify first version:
+        verifier = Verifier()
+        verifier.verify(module)
+        module.display()
+
+        # Run optimizer:
+        self.opt.run(module)
+
+        module.display()
+
+        # Verify again:
+        verifier.verify(module)
+        # TODO: assert something here?
 
 
 if __name__ == '__main__':

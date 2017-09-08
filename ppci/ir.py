@@ -34,6 +34,11 @@ class Module:
         self._variables.append(variable)
         variable.module = self
 
+    def display(self):
+        """ Display this module """
+        from .irutils import print_module
+        print_module(self, verify=False)
+
     @property
     def variables(self):
         """ Get all variables of this module """
@@ -207,6 +212,9 @@ class Block:
 
     def __len__(self):
         return len(self.instructions)
+
+    def __getitem__(self, key):
+        return self.instructions.__getitem__(key)
 
     def insert_instruction(self, instruction, before_instruction=None):
         """ Insert an instruction at the front of the block """

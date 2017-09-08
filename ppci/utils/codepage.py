@@ -6,11 +6,9 @@ Credits for idea: Luke Campagnola
 """
 
 import sys
-import platform
-import io
 import mmap
 import ctypes
-from ..api import c3c, link, get_arch
+from ..api import c3c, link, get_current_arch
 from ..binutils import debuginfo, layout
 
 
@@ -77,7 +75,7 @@ class Mod:
             self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
             buf = (ctypes.c_char * size).from_buffer(self._page)
             page_addr = ctypes.addressof(buf)
-        
+
         # Create callback pointers if any:
         if callbacks:
             for callback in callbacks:
@@ -97,7 +95,7 @@ class Mod:
         # Link the object into memory:
         obj = link([obj], layout=layout2, debug=True)
         assert obj.byte_size == size
-        
+
         # Load the code into the page:
         code = bytes(obj.get_section('code').data)
         self._page.write(code)
@@ -116,24 +114,6 @@ class Mod:
 
             # Set the attribute:
             setattr(self, function_name, fpointer)
-
-
-def platform_supported():
-    """ Determine if this platform is supported """
-    return get_current_arch() is not None
-
-
-def get_current_arch():
-    """ Determine the correct architecture based on the current machine """
-    if sys.platform == 'linux' and platform.architecture()[0] == '64bit':
-        march = get_arch('x86_64')
-    # TODO: implement mac and windows support!
-    # elif sys.platform == 'win32' and platform.architecture()[0] == '64bit':
-    #    # windows 64 bit
-    #    march = get_arch('x86_64:wincc')
-    else:
-        march = None
-    return march
 
 
 def load_code_as_module(source_file, reporter=None):

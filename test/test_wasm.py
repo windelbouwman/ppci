@@ -2,7 +2,7 @@ import io
 import unittest
 
 from ppci import api
-from ppci.utils.ir2wasm import IrToWasmConvertor
+from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 
 
 class WasmGeneratorTestCase(unittest.TestCase):
