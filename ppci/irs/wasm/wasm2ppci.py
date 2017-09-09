@@ -71,7 +71,7 @@ class Wasm2PpciCompiler:
 
         self.localmap = {}
         for i, local in enumerate(wasm_function.locals):
-            self.localmap[i] = self.emit(ir.Alloc(f'local{i}', 8))
+            self.localmap[i] = self.emit(ir.Alloc('local{}'.format(i), 8))
 
         num = len(wasm_function.instructions)
         for nr, instruction in enumerate(wasm_function.instructions, start=1):
