@@ -75,5 +75,6 @@ Next steps
 ----------
 
 If you have checked out the examples, head over to the
+:doc:`howto<howto/index>`,
 :doc:`api<reference/api>` and :doc:`reference<reference/index>`
 sections to learn more!

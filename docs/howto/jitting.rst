@@ -112,7 +112,10 @@ Calling python functions
 
 In order to callback python functions, we can do the following:
 
-.. doctest:: jitting
+.. warning::
+    Code below is an idea, this does not work yet!
+
+.. code:: python
 
     >>> func = lambda x: print('x=', x)
     >>> f = io.StringIO("""
