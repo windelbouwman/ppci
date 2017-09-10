@@ -321,7 +321,7 @@ class Adrl(RiscvInstruction):
         return [Abs32Imm12Relocation(self.label)]
 
 
-class Adrlrel(RiscvInstruction):
+class Loadlrel(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True, read=True)
     label = Operand('label', str)
     syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
@@ -338,6 +338,22 @@ class Adrlrel(RiscvInstruction):
     def relocations(self):
         return [RelImm12Relocation(self.label)]
 
+class Adrlrel(RiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True, read=True)
+    label = Operand('label', str)
+    syntax = Syntax(['addi', ' ', rd, ',', ' ', label])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0010011
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0b000
+        tokens[0][15:20] = self.rd.num
+        tokens[0][20:32] = 0
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [RelImm12Relocation(self.label)]
 
 class Auipc(RiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
@@ -351,6 +367,15 @@ class Auipc(RiscvInstruction):
         tokens[0][12:32] = self.imm
         return tokens[0].encode()
 
+
+class Labelrel(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    label = Operand('label', str)
+    syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
+
+    def render(self):
+        yield Adrurel(self.rd, self.label)
+        yield Loadlrel(self.rd, self.label)
 
 class La(PseudoRiscvInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
@@ -412,10 +437,13 @@ def make_branch(mnemonic, cond, invert):
 Beq = make_branch('beq', 0b000, False)
 Bne = make_branch('bne', 0b001, False)
 Blt = make_branch('blt', 0b100, False)
-Bltu = make_branch('bltu', 0b110, False)
-Bge = make_branch('bge', 0b101, False)
-Bgeu = make_branch('bgeu', 0b111, False)
 Bgt = make_branch('bgt', 0b100, True)
+Bge = make_branch('bge', 0b101, False)
+Ble = make_branch('bge', 0b101, True)
+Bltu = make_branch('bltu', 0b110, False)
+Bgtu = make_branch('bgtu', 0b110, True)
+Bgeu = make_branch('bgeu', 0b111, False)
+Bleu = make_branch('bleu', 0b111, False)
 
 
 def reg_list_to_mask(reg_list):
@@ -581,6 +609,10 @@ def pattern_reg(context, tree):
 @isa.pattern('reg', 'I32TOU32(reg)', size=0)
 @isa.pattern('reg', 'U32TOI32(reg)', size=0)
 @isa.pattern('reg', 'U32TOU32(reg)', size=0)
+@isa.pattern('reg', 'U16TOU16(reg)', size=0)
+@isa.pattern('reg', 'I16TOU16(reg)', size=0)
+@isa.pattern('reg', 'U8TOI8(reg)', size=0)
+@isa.pattern('reg', 'I8TOU8(reg)', size=0)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -650,16 +682,21 @@ def pattern_const_i32(context, tree):
 @isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Bgt}
+    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Ble}
     Bop = opnames[op]
-    if op == "<=":
-        jmp_ins = B(yes_label.name, jumps=[yes_label])
-        context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
-        context.emit(jmp_ins)
-    else:
-        jmp_ins = B(no_label.name, jumps=[no_label])
-        context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-        context.emit(jmp_ins)
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+@isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+def pattern_cjmpu(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {"<": Bltu, ">": Bgtu, "==": Beq, "!=": Bne, ">=": Bgeu, "<=": Bleu}
+    Bop = opnames[op]
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
 
 @isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 @isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
@@ -702,6 +739,8 @@ def pattern_add_i32_const_reg(context, tree, c0):
     context.emit(Addi(d, c0, c1))
     return d
 
+@isa.pattern('reg', 'SUBI8(reg, reg)', size=2)
+@isa.pattern('reg', 'SUBU8(reg, reg)', size=2)
 @isa.pattern('reg', 'SUBI16(reg, reg)', size=2)
 @isa.pattern('reg', 'SUBU16(reg, reg)', size=2)
 @isa.pattern('reg', 'SUBI32(reg, reg)', size=2)
@@ -711,13 +750,6 @@ def pattern_sub_i32(context, tree, c0, c1):
     context.emit(Subr(d, c0, c1))
     return d
 
-
-@isa.pattern('reg', 'SUBI8(reg, reg)', size=2)
-def pattern_sub_i8(context, tree, c0, c1):
-    # TODO: temporary fix this with an 32 bits sub
-    d = context.new_reg(RiscvRegister)
-    context.emit(Subr(d, c0, c1))
-    return d
 
 
 @isa.pattern('reg', 'LABEL', size=6)
@@ -734,7 +766,7 @@ def pattern_label1(context, tree):
 def pattern_label2(context, tree):
     d = context.new_reg(RiscvRegister)
     ln = context.frame.add_constant(tree.value)
-    context.emit(La(d, ln))
+    context.emit(Labelrel(d, ln))
     return d
 
 
@@ -779,7 +811,8 @@ def pattern_ldr_i32(context, tree, c0):
     context.emit(Lw(d, 0, c0))
     return d
 
-
+@isa.pattern('reg', 'ANDI8(reg, reg)', size=2)
+@isa.pattern('reg', 'ANDU8(reg, reg)', size=2)
 @isa.pattern('reg', 'ANDI16(reg, reg)', size=2)
 @isa.pattern('reg', 'ANDU16(reg, reg)', size=2)
 @isa.pattern('reg', 'ANDI32(reg, reg)', size=2)
@@ -813,17 +846,6 @@ def pattern_and8_reg_const(context, tree, c0):
     return d
 
 
-@isa.pattern(
-    'reg', 'ANDI8(CONSTI8, reg)', size=2,
-    condition=lambda t: t.children[0].value < 256)
-@isa.pattern(
-    'reg', 'ANDU8(CONSTU8, reg)', size=2,
-    condition=lambda t: t.children[0].value < 256)
-def pattern_and8_const_reg(context, tree, c0):
-    d = context.new_reg(RiscvRegister)
-    c1 = tree.children[0].value
-    context.emit(Andi(d, c0, c1))
-    return d
 
 @isa.pattern('reg', 'ORU32(reg, reg)', size=2)
 @isa.pattern('reg', 'ORI32(reg, reg)', size=2)
@@ -856,12 +878,20 @@ def pattern_or_i32_const_reg(context, tree, c0):
     context.emit(Ori(d, c0, c1))
     return d
 
-
-@isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
+@isa.pattern('reg', 'SHRU8(reg, reg)', size=2)
+@isa.pattern('reg', 'SHRU16(reg, reg)', size=2)
 @isa.pattern('reg', 'SHRU32(reg, reg)', size=2)
 def pattern_shr_32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Srl(d, c0, c1))
+    return d
+
+@isa.pattern('reg', 'SHRI8(reg, reg)', size=2)
+@isa.pattern('reg', 'SHRI16(reg, reg)', size=2)
+@isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
+def pattern_shr_32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Sra(d, c0, c1))
     return d
 
 
@@ -871,18 +901,9 @@ def pattern_shr_32(context, tree, c0, c1):
 def pattern_shr_i32_reg_const(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value
-    context.emit(Srli(d, c0, c1))
+    context.emit(Srai(d, c0, c1))
     return d
 
-
-@isa.pattern(
-    'reg', 'SHRI32(CONSTI32, reg)', size=2,
-    condition=lambda t: t.children[0].value < 32)
-def pattern_shr_i32_const_reg(context, tree, c0):
-    d = context.new_reg(RiscvRegister)
-    c1 = tree.children[0].value
-    context.emit(Srli(d, c0, c1))
-    return d
 
 @isa.pattern('reg', 'SHLU32(reg, reg)', size=2)
 @isa.pattern('reg', 'SHLI32(reg, reg)', size=2)
@@ -901,15 +922,6 @@ def pattern_shl_i32_reg_const(context, tree, c0):
     context.emit(Slli(d, c0, c1))
     return d
 
-
-@isa.pattern(
-    'reg', 'SHLI32(CONSTI32, reg)', size=2,
-    condition=lambda t: t.children[0].value < 32)
-def pattern_shl_i32_const_reg(context, tree, c0):
-    d = context.new_reg(RiscvRegister)
-    c1 = tree.children[0].value
-    context.emit(Slli(d, c0, c1))
-    return d
 
 
 @isa.pattern('reg', 'MULI32(reg, reg)', size=10)

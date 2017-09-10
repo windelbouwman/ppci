@@ -8,7 +8,7 @@ from .tokens import RiscvcToken
 from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
 from ..generic_instructions import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
-from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne
+from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne, Ble
 
 
 class RegisterSet(set):
@@ -614,20 +614,12 @@ def pattern_stri32_addi32(context, tree, c0, c1):
     offset = tree.children[0].children[1].value
     context.emit(Swv(c1, offset, c0))
 
-
-@rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=1)
+@rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@rvcisa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {
-        "<": Blt, ">": Bgt, "==": Beq, "!=": Bne,
-        ">=": Bge, '<=': Bgt
-    }
+    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Ble}
     Bop = opnames[op]
-    if op == "<=":
-        jmp_ins = B(yes_label.name, jumps=[yes_label])
-        context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
-        context.emit(jmp_ins)
-    else:
-        jmp_ins = B(no_label.name, jumps=[no_label])
-        context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-        context.emit(jmp_ins)
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
