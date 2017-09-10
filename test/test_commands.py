@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch
 
 from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
-from ppci.commands import link, opt
+from ppci.commands import link, opt, cc
 from ppci import commands
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
@@ -73,6 +73,46 @@ class C3cTestCase(unittest.TestCase):
     def test_c3c_command_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
             c3c(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('compiler', mock_stdout.getvalue())
+
+
+class CcTestCase(unittest.TestCase):
+    """ Test the cc command-line utility """
+    c_file = relpath('..', 'examples', 'c', 'hello', 'std.c')
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command_s(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', '-S', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command_e(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', '-E', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command_ir(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', '--ir', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_cc_command_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            cc(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('compiler', mock_stdout.getvalue())
 

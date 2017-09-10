@@ -4,7 +4,7 @@
 
 import logging
 import ast
-from ... import ir, irutils, api
+from ... import ir, irutils
 from ...common import SourceLocation, CompilerError
 from ...binutils import debuginfo
 

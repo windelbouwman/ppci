@@ -12,8 +12,7 @@ import platform
 import stat
 import xml
 from .arch.arch import Architecture
-from .lang.c import CBuilder, CPreProcessor, COptions
-from .lang.c.preprocessor import CTokenPrinter
+from .lang.c import preprocess, c_to_ir, COptions
 from .lang.c3 import C3Builder
 from .lang.bf import BrainFuckGenerator
 from .lang.fortran import FortranBuilder
@@ -421,41 +420,6 @@ def ir_to_python(ir_modules, f, reporter=None):
     generator.header()
     for ir_module in ir_modules:
         generator.generate(ir_module)
-
-
-def preprocess(f, output_file, coptions=None):
-    """ Pre-process a file into the other file. """
-    if coptions is None:
-        coptions = COptions()
-    preprocessor = CPreProcessor(coptions)
-    filename = f.name if hasattr(f, 'name') else None
-    tokens = preprocessor.process(f, filename=filename)
-    CTokenPrinter().dump(tokens, file=output_file)
-
-
-def c_to_ir(
-        source: io.TextIOBase, march, coptions=None, debug_db=None,
-        reporter=None):
-    """ C to ir translation. """
-    if not reporter:  # pragma: no cover
-        reporter = DummyReportGenerator()
-
-    if not coptions:  # pragma: no cover
-        coptions = COptions()
-
-    if not debug_db:  # pragma: no cover
-        debug_db = DebugDb()
-
-    march = get_arch(march)
-    cbuilder = CBuilder(march.info, coptions)
-    assert isinstance(source, io.TextIOBase)
-    if hasattr(source, 'name'):
-        filename = getattr(source, 'name')
-    else:
-        filename = None
-    ir_module = cbuilder.build(
-        source, filename, debug_db=debug_db, reporter=reporter)
-    return ir_module
 
 
 def cc(source: io.TextIOBase, march, coptions=None,
