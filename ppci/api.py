@@ -31,11 +31,11 @@ from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .opt.cjmp import CJumpPass
 from .codegen import CodeGenerator
-from .binutils.linker import Linker
-from .binutils.layout import Layout
+from .binutils.linker import Linker, link
+from .binutils.layout import Layout, get_layout
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.outstream import MasterOutputStream, FunctionOutputStream
-from .binutils.objectfile import ObjectFile
+from .binutils.objectfile import ObjectFile, get_object
 from .binutils.debuginfo import DebugDb, DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
@@ -44,7 +44,7 @@ from .utils.exefile import ExeWriter
 from .utils.ir2py import IrToPython
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
-from .common import CompilerError, DiagnosticsManager
+from .common import CompilerError, DiagnosticsManager, get_file
 from .arch.target_list import create_arch
 
 # When using 'from ppci.api import *' include the following:
@@ -111,40 +111,6 @@ def get_current_arch():
     elif sys.platform == 'linux':
         if platform.architecture()[0] == '64bit':
             return get_arch('x86_64')
-
-
-def get_file(f, mode='r'):
-    """ Determine if argument is a file like object or make it so! """
-    if hasattr(f, 'read'):
-        # Assume this is a file like object
-        return f
-    elif isinstance(f, str):
-        try:
-            return open(f, mode)
-        except FileNotFoundError:
-            raise TaskError('Cannot open {}'.format(f))
-    else:
-        raise TaskError('Cannot open {}'.format(f))
-
-
-def get_object(obj):
-    """ Try hard to load an object """
-    if not isinstance(obj, ObjectFile):
-        f = get_file(obj)
-        obj = ObjectFile.load(f)
-        f.close()
-    return obj
-
-
-def get_layout(layout):
-    """ Get a layout from object or file """
-    if isinstance(layout, Layout):
-        return layout
-    else:
-        file = get_file(layout)
-        layout = Layout.load(file)
-        file.close()
-        return layout
 
 
 def construct(buildfile, targets=()):
@@ -613,55 +579,6 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 def llvmir2ir(f):
     """ Parse llvm IR-code into a ppci ir-module """
     return LlvmIrFrontend().compile(f)
-
-
-def link(
-        objects, layout=None, use_runtime=False, partial_link=False,
-        reporter=None, debug=False):
-    """ Links the iterable of objects into one using the given layout.
-
-    Args:
-        objects: a collection of objects to be linked together.
-        use_runtime (bool): also link compiler runtime functions
-        debug (bool): when true, keep debug information. Otherwise remove
-            this debug information from the result.
-
-    Returns:
-        The linked object file
-
-    .. doctest::
-
-        >>> import io
-        >>> from ppci.api import asm, c3c, link
-        >>> asm_source = io.StringIO("db 0x77")
-        >>> obj1 = asm(asm_source, 'arm')
-        >>> c3_source = io.StringIO("module main; var int a;")
-        >>> obj2 = c3c([c3_source], [], 'arm')
-        >>> obj = link([obj1, obj2])
-        >>> print(obj)
-        CodeObject of 8 bytes
-    """
-    if not reporter:  # pragma: no cover
-        reporter = DummyReportGenerator()
-
-    objects = [get_object(obj) for obj in objects]
-    if not objects:
-        raise ValueError('Please provide at least one object as input')
-
-    if layout:
-        layout = get_layout(layout)
-
-    march = objects[0].arch
-
-    if use_runtime:
-        objects.append(march.runtime)
-
-    linker = Linker(march, reporter)
-    try:
-        output_obj = linker.link(objects, layout=layout, debug=debug)
-    except CompilerError as err:
-        raise TaskError(err.msg)
-    return output_obj
 
 
 def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):

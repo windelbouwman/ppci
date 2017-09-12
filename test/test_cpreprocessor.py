@@ -15,6 +15,8 @@ class CPreProcessorTestCase(unittest.TestCase):
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
         lines = self.preprocessor.process(f, 'dummy.t')
+        lines = list(lines)
+        print(lines)
 
         f2 = io.StringIO()
         CTokenPrinter().dump(lines, file=f2)
@@ -375,6 +377,15 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
         (1 + (a,b))"""
+        self.preprocess(src, expected)
+
+    def test_single_line_comment(self):
+        """ Line comment issue """
+        src = r"""// error
+        void main() {// ok }
+        """
+        expected = r"""# 1 "dummy.t"
+        void main() {"""
         self.preprocess(src, expected)
 
 

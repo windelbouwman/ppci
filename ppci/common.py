@@ -29,6 +29,17 @@ def make_num(txt):
 str2int = make_num
 
 
+def get_file(f, mode='r'):
+    """ Determine if argument is a file like object or make it so! """
+    if hasattr(f, 'read'):
+        # Assume this is a file like object
+        return f
+    elif isinstance(f, str):
+        return open(f, mode)
+    else:
+        raise FileNotFoundError('Cannot open {}'.format(f))
+
+
 class Token:
     """
         Token is used in the lexical analyzer. The lexical analyzer takes
@@ -119,7 +130,7 @@ SourceRange = namedtuple('SourceRange', ['p1', 'p2'])
 
 class CompilerError(Exception):
     def __init__(self, msg, loc=None):
-        super().__init__()
+        # super().__init__()
         self.msg = msg
         self.loc = loc
         if loc:

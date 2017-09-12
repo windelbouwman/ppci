@@ -17,9 +17,18 @@ The hierarchy is as follows:
 
 import json
 import binascii
-from ..common import CompilerError, make_num
+from ..common import CompilerError, make_num, get_file
 from ..arch.encoding import Relocation
 from . import debuginfo
+
+
+def get_object(obj):
+    """ Try hard to load an object """
+    if not isinstance(obj, ObjectFile):
+        f = get_file(obj)
+        obj = ObjectFile.load(f)
+        f.close()
+    return obj
 
 
 class Symbol:

@@ -153,7 +153,7 @@ class HandLexerBase:
 
     def ignore(self):
         """ Ignore text under cursor """
-        pass
+        self.current_text.clear()
 
     def accept(self, valid):
         """ Accept a single character if it is in the valid set """
@@ -446,6 +446,7 @@ class CLexer(HandLexerBase):
         c = self.next_char()
         while c and c.char != '\n':
             c = self.next_char()
+        self.ignore()
         return self.lex_c
 
     def lex_blockcomment(self):

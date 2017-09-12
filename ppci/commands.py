@@ -680,6 +680,11 @@ class LogSetup:
 
             # Report the error:
             self.reporter.dump_compiler_error(exc_value)
+            err = True
+
+        if isinstance(exc_value, FileNotFoundError):
+            self.logger.error('File not found %s', exc_value)
+            err = True
 
         if exc_value is not None:
             # Exception happened, close file and remove
