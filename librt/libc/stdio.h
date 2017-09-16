@@ -3,7 +3,6 @@
 
 void printf(char*, ...);
 void bsp_putc(char);
-void myprint(char* label, int num);
 
 #endif
 

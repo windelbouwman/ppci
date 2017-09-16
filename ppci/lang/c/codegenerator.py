@@ -229,6 +229,7 @@ class CCodeGenerator:
         ir_function.delete_unreachable()
         self.builder.set_function(None)
         self.current_function = None
+        self._varargz_ptrptr = None
         assert len(self.break_block_stack) == 0
         assert len(self.continue_block_stack) == 0
 
@@ -655,24 +656,9 @@ class CCodeGenerator:
             value = self.emit(
                 ir.Binop(base, '+', offset, 'offset', ir.ptr))
         elif isinstance(expr, expressions.ArrayIndex):
-            # Load base as an rvalue, to make sure we load pointers values.
-            base = self.gen_expr(expr.base, rvalue=True)
-            index = self.gen_expr(expr.index, rvalue=True)
-
-            # Generate constant for element size:
-            element_type_size = self.context.sizeof(
-                expr.base.typ.element_type)
-            element_size = self.emit(
-                ir.Const(element_type_size, 'element_size', ir.ptr))
-
-            # Calculate offset:
-            index = self.emit(ir.Cast(index, 'index', ir.ptr))
-            offset = self.emit(
-                ir.mul(index, element_size, "element_offset", ir.ptr))
-
-            # Calculate address:
-            value = self.emit(
-                ir.add(base, offset, "element_address", ir.ptr))
+            value = self.gen_array_index(expr)
+        elif isinstance(expr, expressions.BuiltIn):
+            value = self.gen_builtin(expr)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
@@ -880,6 +866,42 @@ class CCodeGenerator:
             ir_typ = self.get_ir_type(expr.typ)
             value = self.emit(ir.FunctionCall(
                 function.name, ir_arguments, 'result', ir_typ))
+        return value
+
+    def gen_array_index(self, expr):
+        # Load base as an rvalue, to make sure we load pointers values.
+        base = self.gen_expr(expr.base, rvalue=True)
+        index = self.gen_expr(expr.index, rvalue=True)
+
+        # Generate constant for element size:
+        element_type_size = self.context.sizeof(
+            expr.base.typ.element_type)
+        element_size = self.emit(
+            ir.Const(element_type_size, 'element_size', ir.ptr))
+
+        # Calculate offset:
+        index = self.emit(ir.Cast(index, 'index', ir.ptr))
+        offset = self.emit(
+            ir.mul(index, element_size, "element_offset", ir.ptr))
+
+        # Calculate address:
+        value = self.emit(
+            ir.add(base, offset, "element_address", ir.ptr))
+        return value
+
+    def gen_builtin(self, expr):
+        """ Generate appropriate built-in functionality """
+        if isinstance(expr, expressions.BuiltInVaArg):
+            assert self._varargz_ptrptr
+            va_ptr = self.emit(ir.Load(self._varargz_ptrptr, 'va_ptr', ir.ptr))
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.Load(va_ptr, 'va_arg', ir_typ))
+            size = self.emit(ir.Const(
+                self.context.sizeof(expr.typ), 'size', ir.ptr))
+            va_ptr = self.emit(ir.add(va_ptr, size, 'incptr', ir.ptr))
+            self.emit(ir.Store(va_ptr, self._varargz_ptrptr))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr))
         return value
 
     def get_ir_type(self, typ: types.CType):

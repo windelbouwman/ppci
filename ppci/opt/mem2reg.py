@@ -131,7 +131,7 @@ class Mem2RegPromotor(FunctionPass):
         loads = [i for i in alloc.used_by if isinstance(i, Load)]
         stores = [i for i in alloc.used_by if isinstance(i, Store)]
 
-        self.logger.debug('Alloc {} used by {} load and {} stores'.
+        self.logger.debug('Promoting alloc {} used by {} load and {} stores'.
                           format(alloc, len(loads), len(stores)))
 
         # Determine the type of the phi node:

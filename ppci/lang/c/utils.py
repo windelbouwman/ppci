@@ -108,6 +108,8 @@ class Visitor:
             self.visit(node.expression)
         elif isinstance(node, expressions.VariableAccess):
             pass
+        elif isinstance(node, expressions.BuiltInVaArg):
+            self.visit(node.typ)
         else:
             raise NotImplementedError(str(type(node)))
 

@@ -250,21 +250,20 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
             1: some optimization
             2: more optimization
             s: optimize for size
+        reporter: Report detailed log to this reporter
     """
     logger = logging.getLogger('optimize')
     level = str(level)
-
-    if not reporter:  # pragma: no cover
-        reporter = DummyReportGenerator()
 
     if not debug_db:  # pragma: no cover
         debug_db = DebugDb()
 
     logger.info('Optimizing module %s level %s', ir_module.name, level)
 
-    reporter.message('{} before optimization:'.format(ir_module))
-    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
-    reporter.dump_ir(ir_module)
+    if reporter:
+        reporter.message('{} before optimization:'.format(ir_module))
+        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.dump_ir(ir_module)
 
     assert level in OPT_LEVELS
     if level == '0':
@@ -293,12 +292,14 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
         opt_pass.run(ir_module)
         # reporter.message('{} after {}:'.format(ir_module, opt_pass))
         # reporter.dump_ir(ir_module)
-    verifier.verify(ir_module)
 
-    # Dump report:
-    reporter.message('{} after optimization:'.format(ir_module))
-    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
-    reporter.dump_ir(ir_module)
+    if reporter:
+        # Dump report:
+        reporter.message('{} after optimization:'.format(ir_module))
+        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.dump_ir(ir_module)
+
+    verifier.verify(ir_module)
 
 
 def ir_to_stream(

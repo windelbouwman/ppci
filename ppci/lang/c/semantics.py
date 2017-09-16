@@ -607,9 +607,9 @@ class CSemantics:
         expr.lvalue = False
         return expr
 
-    def on_cast(self, to_typ, casted_expr, loc):
+    def on_cast(self, to_typ, casted_expr, location):
         """ Check explicit casting """
-        expr = expressions.Cast(to_typ, casted_expr, loc)
+        expr = expressions.Cast(to_typ, casted_expr, location)
         expr.typ = expr.to_typ
         expr.lvalue = False  # or expr.expr.lvalue?
         return expr
@@ -645,6 +645,9 @@ class CSemantics:
         expr.typ = field.typ
         expr.lvalue = True
         return expr
+
+    def on_builtin_va_arg(self, typ, location):
+        return expressions.BuiltInVaArg(typ, location)
 
     def on_call(self, name, arguments, location):
         """ Check function call for validity """

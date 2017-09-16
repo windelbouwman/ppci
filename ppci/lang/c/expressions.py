@@ -161,3 +161,14 @@ class InitializerList(Expression):
 
     def __len__(self):
         return len(self.elements)
+
+
+class BuiltIn(CExpression):
+    """ Build in function """
+    pass
+
+
+class BuiltInVaArg(BuiltIn):
+    """ Built-in function va_arg """
+    def __init__(self, typ, location):
+        super().__init__(typ, False, location)

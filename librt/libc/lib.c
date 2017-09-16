@@ -61,7 +61,7 @@ char* itoa(int value, char* str, int base)
 // Variadic argument function!
 void printf(char* txt, ...)
 {
-  // va_list args;
+  va_list args;
   // va_start(args, txt);
   char buffer[20];
 
@@ -73,8 +73,7 @@ void printf(char* txt, ...)
       if (*txt == 'd')
       {
         txt++;
-        // int v = va_arg(args, int);
-        int v = 69;
+        int v = va_arg(args, int);
         itoa(v, buffer, 10);
         printf(buffer);
       }
@@ -96,23 +95,3 @@ void printf(char* txt, ...)
   // va_end(args);
 }
 
-void print_int(unsigned int num)
-{
-  int i, v;
-  for (i = 28; i>=0; i-=4) {
-    v = (num >> i) & 0xF;
-    if (v > 9) {
-      bsp_putc(v + 55);
-    } else {
-      bsp_putc(v + 48);
-    }
-  }
-
-  bsp_putc(10);
-}
-
-void myprint(char* label, int num)
-{
-  printf(label);
-  print_int((unsigned int)num);
-}

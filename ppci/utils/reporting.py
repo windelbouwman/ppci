@@ -129,7 +129,7 @@ class TextReportGenerator(TextWritingReporter):
         writer = Writer(file=self.dump_file)
         if isinstance(ir_module, ir.Module):
             self.print('==========================')
-            writer.write(ir_module)
+            writer.write(ir_module, verify=False)
             self.print('==========================')
         elif isinstance(ir_module, ir.SubRoutine):
             self.print('==========================')
@@ -361,7 +361,7 @@ class HtmlReportGenerator(TextWritingReporter):
             with collapseable(self, title):
                 f = io.StringIO()
                 writer = Writer(f)
-                writer.write(ir_module)
+                writer.write(ir_module, verify=False)
                 self.dump_raw_text(f.getvalue())
         elif isinstance(ir_module, ir.SubRoutine):
             title = 'Function {}'.format(ir_module.name)
