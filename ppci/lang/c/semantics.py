@@ -676,6 +676,12 @@ class CSemantics:
                 arguments, function.typ.argument_types):
             value = self.coerce(argument, argument_type)
             coerced_arguments.append(value)
+
+        # Append evetual variadic arguments:
+        if num_given > num_expected:
+            for argument in arguments[num_expected:]:
+                coerced_arguments.append(argument)
+
         expr = expressions.FunctionCall(function, coerced_arguments, location)
         expr.lvalue = False
         expr.typ = function.typ.return_type

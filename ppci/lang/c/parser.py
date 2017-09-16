@@ -337,7 +337,6 @@ class CParser(RecursiveDescentParser):
             ds.storage_class, ds.typ, d.name, d.type_modifiers, d.location)
         self.semantics.enter_function(function)
         body = self.parse_compound_statement()
-        # d.body = body
         self.semantics.end_function(body)
         return function
 
@@ -724,12 +723,27 @@ class CParser(RecursiveDescentParser):
         """
         return self.parse_binop_with_precedence(0)
 
+    def _binop_take(self, op, priority):
+        """ Decide whether to group.
+
+        This is a helper function that determines whether or not to group
+        a certain operator further, given the current priority.
+        """
+        # TODO: rename this function
+        if op not in self.prio_map:
+            return False
+
+        op_associativity, op_prio = self.prio_map[op]
+        if op_associativity == self.LEFT_ASSOCIATIVE:
+            return op_prio > priority
+        else:
+            return op_prio >= priority
+
     def parse_binop_with_precedence(self, priority):
         lhs = self.parse_primary_expression()
 
         # print('prio=', prio, self.peak)
-        while self.peak in self.prio_map and \
-                self.prio_map[self.peak][1] >= priority:
+        while self._binop_take(self.peak, priority):
             op = self.consume()
             op_associativity, op_prio = self.prio_map[op.val]
             if op.val == '?':

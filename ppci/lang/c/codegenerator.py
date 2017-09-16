@@ -25,6 +25,7 @@ class CCodeGenerator:
         int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.arch_info.get_size('int')
+        self.ptr_size = self.context.arch_info.get_size('ptr')
         self.ir_type_map = {
             BareType.CHAR: (ir.i8, 1),
             BareType.SCHAR: (ir.i8, 1),
@@ -183,6 +184,15 @@ class CCodeGenerator:
                 ir_var = self.emit(ir.Alloc(argument.name + '_alloc', size))
                 self.emit(ir.Store(ir_argument, ir_var))
                 self.ir_var_map[argument] = ir_var
+
+        # In case of a variadic function, add an extra pointer:
+        if function.typ.is_vararg:
+            self.logger.debug('Adding vararg pointer')
+            ir_argument = ir.Parameter('varargz', ir.ptr)
+            ir_function.add_parameter(ir_argument)
+            ir_var = self.emit(ir.Alloc('varargz_alloc', self.ptr_size))
+            self.emit(ir.Store(ir_argument, ir_var))
+            self._varargz_ptrptr = ir_var
 
         # Generate debug info for function:
         dbg_args = [
@@ -831,12 +841,38 @@ class CCodeGenerator:
         return value
 
     def gen_call(self, expr):
+        """ Generate code for a function call """
+        function = expr.function
+        # Determine fixed and variable arguments:
+        if function.typ.is_vararg:
+            x = len(function.typ.arguments)
+            fixed_args = expr.args[:x]
+            var_args = expr.args[x:]
+        else:
+            fixed_args = expr.args
+            var_args = []
+
         # Evaluate arguments:
         ir_arguments = []
-        for argument in expr.args:
+        for argument in fixed_args:
             value = self.gen_expr(argument, rvalue=True)
             ir_arguments.append(value)
-        function = expr.function
+
+        if function.typ.is_vararg:
+            # Allocate a memory slab:
+            size = sum(self.context.sizeof(va.typ) for va in var_args)
+            vararg_ptr = self.emit(ir.Alloc('varargs', size))
+            # Append var arg slot:
+            ir_arguments.append(vararg_ptr)
+
+            for argument in var_args:
+                value = self.gen_expr(argument, rvalue=True)
+                self.emit(ir.Store(value, vararg_ptr))
+                # TODO: handle alignment!
+                s = self.context.sizeof(argument.typ)
+                s2 = self.emit(ir.Const(s, 'size', ir.ptr))
+                vararg_ptr = self.emit(ir.add(vararg_ptr, s2, 'va2', ir.ptr))
+
         if function.typ.return_type.is_void:
             self.emit(ir.ProcedureCall(function.name, ir_arguments))
             value = None

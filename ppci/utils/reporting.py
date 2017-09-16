@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 import io
 from .. import ir
+from ..common import CompilerError
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
@@ -33,7 +34,9 @@ class ReportGenerator(metaclass=abc.ABCMeta):
         self.header()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_value, traceback):
+        if isinstance(exc_value, CompilerError):
+            self.dump_compiler_error(exc_value)
         self.footer()
 
     @abc.abstractmethod
