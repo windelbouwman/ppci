@@ -3,7 +3,8 @@
 import logging
 import io
 
-from ...common import Token, SourceLocation, CompilerError
+from ..common import Token, SourceLocation
+from ...common import CompilerError
 
 
 class CToken(Token):

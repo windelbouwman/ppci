@@ -1,4 +1,5 @@
 import logging
+import struct
 from ... import ir, irutils
 from ...common import CompilerError
 from ...binutils import debuginfo
@@ -94,12 +95,54 @@ class CCodeGenerator:
     def gen_global_variable(self, var_decl):
         # if typ is array, use initializer to determine size
         if var_decl.initial_value:
-            # TODO: determine initializer value
-            pass
+            ivalue = self.gen_global_ival(var_decl.typ, var_decl.initial_value)
+        else:
+            ivalue = None
         size = self.context.sizeof(var_decl.typ)
-        ir_var = ir.Variable(var_decl.name, size)
+        ir_var = ir.Variable(var_decl.name, size, value=ivalue)
         self.builder.module.add_variable(ir_var)
         self.ir_var_map[var_decl] = ir_var
+
+    def gen_global_ival(self, typ, ival):
+        """ Create memory image for initial value of global variable """
+        if isinstance(typ, types.ArrayType):
+            mem = bytes()
+            for iv in ival.elements:
+                mem = mem + self.gen_global_ival(typ.element_type, iv)
+        elif isinstance(typ, types.StructType):
+            mem = bytes()
+            for field, iv in zip(typ.fields, ival.elements):
+                mem = mem + self.gen_global_ival(field.typ, iv)
+        elif isinstance(typ, types.UnionType):
+            mem = bytes()
+            # Initialize the first field!
+            mem = mem + self.gen_global_ival(
+                typ.fields[0].typ, ival.elements[0])
+            size = self.context.sizeof(typ)
+            filling = size - len(mem)
+            assert filling >= 0
+            mem = mem + bytes([0] * filling)
+        elif isinstance(typ, types.BareType):
+            cval = self.context.eval_expr(ival)
+            mem = self.pack(typ, cval)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+        return mem
+
+    def pack(self, typ, value):
+        """ Pack a type into proper memory format """
+        # TODO: is the size of the integer correct? should it be 4 or 8 bytes?
+        ctypes_names = {
+            types.BareType.CHAR: 'b',
+            types.BareType.SCHAR: 'b',
+            types.BareType.UCHAR: 'B',
+            types.BareType.INT: 'i',
+            types.BareType.UINT: 'I',
+        }
+        fmt = ctypes_names[typ.type_id]
+        # Check format with arch options:
+        assert self.context.sizeof(typ) == struct.calcsize(fmt)
+        return struct.pack(fmt, value)
 
     def gen_function(self, function):
         """ Generate code for a function """
@@ -466,6 +509,38 @@ class CCodeGenerator:
         size = self.context.sizeof(variable.typ)
         ir_addr = self.emit(ir.Alloc(name + '_alloc', size))
         self.ir_var_map[variable] = ir_addr
+        if variable.initial_value:
+            # Initialize local variable by a sequence of assignments.
+            self.gen_local_init(ir_addr, variable.typ, variable.initial_value)
+
+    def gen_local_init(self, ptr, typ, expr):
+        """ Initialize a local slab of memory with an initial value """
+        if isinstance(
+                typ, (types.BareType, types.PointerType, types.EnumType)):
+            value = self.gen_expr(expr, rvalue=True)
+            self.emit(ir.Store(value, ptr))
+            # TODO: can we blindly rely on size, or do we need alignment?
+            size = self.emit(
+                ir.Const(self.context.sizeof(typ), 'size', ir.ptr))
+            ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
+        elif isinstance(typ, types.ArrayType):
+            for iv in expr.elements:
+                ptr = self.gen_local_init(ptr, typ.element_type, iv)
+        elif isinstance(typ, types.StructType):
+            for field, iv in zip(typ.fields, expr.elements):
+                ptr = self.gen_local_init(ptr, field.typ, iv)
+        elif isinstance(typ, types.UnionType):
+            # Initialize the first field!
+            field = typ.fields[0]
+            iv = expr.elements[0]
+            self.gen_local_init(ptr, field.typ, expr.elements[0])
+            # Update pointer with size of union:
+            size = self.emit(
+                ir.Const(self.context.sizeof(typ), 'size', ir.ptr))
+            ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+        return ptr
 
     def get_const_value(self, constant):
         """ Retrieve the calculated value for the given constant """
@@ -512,145 +587,11 @@ class CCodeGenerator:
         assert isinstance(expr, expressions.Expression)
 
         if isinstance(expr, expressions.Unop):
-            if expr.op in ['x++', 'x--', '--x', '++x']:
-                # Increment and decrement in pre and post form
-                ir_a = self.gen_expr(expr.a, rvalue=False)
-                assert expr.a.lvalue
-
-                ir_typ = self.get_ir_type(expr.typ)
-                loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
-                # for pointers, this is not one, but sizeof
-                if isinstance(expr.typ, types.PointerType):
-                    size = self.context.sizeof(expr.typ.element_type)
-                    one = self.emit(ir.Const(size, 'one_element', ir_typ))
-                else:
-                    one = self.emit(ir.Const(1, 'one', ir_typ))
-
-                # Determine increment or decrement:
-                op = expr.op[1]
-                changed = self.emit(ir.Binop(
-                    loaded, op, one, 'inc', ir_typ))
-                self.emit(ir.Store(changed, ir_a))
-
-                # Determine pre or post form:
-                pre = expr.op[0] == 'x'
-                if pre:
-                    value = loaded
-                else:
-                    value = changed
-            elif expr.op == '*':
-                value = self.gen_expr(expr.a, rvalue=True)
-                assert expr.lvalue
-            elif expr.op == '&':
-                assert expr.a.lvalue
-                value = self.gen_expr(expr.a, rvalue=False)
-            elif expr.op == '-':
-                a = self.gen_expr(expr.a, rvalue=True)
-                ir_typ = self.get_ir_type(expr.typ)
-                zero = self.emit(ir.Const(0, 'zero', ir_typ))
-                value = self.emit(ir.Binop(zero, '-', a, 'neg', ir_typ))
-            elif expr.op == '~':
-                a = self.gen_expr(expr.a, rvalue=True)
-                ir_typ = self.get_ir_type(expr.typ)
-                # TODO: use 0xff for all bits!
-                mx = self.emit(ir.Const(0xff, 'ffff', ir_typ))
-                value = self.emit(ir.Binop(a, '^', mx, 'xor', ir_typ))
-            elif expr.op in ['!']:
-                value = self.gen_condition_to_integer(expr)
-            else:  # pragma: no cover
-                raise NotImplementedError(str(expr.op))
+            value = self.gen_unop(expr)
         elif isinstance(expr, expressions.Binop):
-            if expr.op in ['-', '*', '/', '%', '^', '|', '&', '>>', '<<']:
-                lhs = self.gen_expr(expr.a, rvalue=True)
-                rhs = self.gen_expr(expr.b, rvalue=True)
-                op = expr.op
-
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
-            elif expr.op == ',':
-                # Handle the comma operator by returning the second result
-                lhs = self.gen_expr(expr.a, rvalue=True)
-                rhs = self.gen_expr(expr.b, rvalue=True)
-                value = rhs
-            elif expr.op in ['+']:
-                lhs = self.gen_expr(expr.a, rvalue=True)
-                rhs = self.gen_expr(expr.b, rvalue=True)
-                # Handle pointer arithmatic!
-                # Pointer arithmatic is an old artifact from the days
-                # when an integer refered always to a array cell!
-                if isinstance(expr.a.typ, types.IndexableType):
-                    # TODO: assert is_integer(expr.b.typ)
-                    esize = self.emit(
-                        ir.Const(
-                            self.context.sizeof(expr.a.typ.element_type),
-                            'esize', rhs.ty))
-                    rhs = self.emit(ir.mul(rhs, esize, 'rhs', rhs.ty))
-                    rhs = self.emit(ir.Cast(rhs, 'ptr_arith', ir.ptr))
-                elif isinstance(expr.b.typ, types.IndexableType):
-                    # TODO: assert is_integer(expr.a.typ)
-                    esize = self.emit(
-                        ir.Const(
-                            self.context.sizeof(expr.b.typ.element_type),
-                            'esize', lhs.ty))
-                    lhs = self.emit(ir.mul(lhs, esize, 'lhs', lhs.ty))
-                    lhs = self.emit(ir.Cast(lhs, 'ptr_arith', ir.ptr))
-                else:
-                    pass
-
-                op = expr.op
-
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
-            elif expr.op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
-                value = self.gen_condition_to_integer(expr)
-            elif expr.op in [
-                    '=', '+=', '-=', '*=', '%=', '/=',
-                    '>>=', '<<=',
-                    '&=', '|=', '~=', '^=']:
-                lhs = self.gen_expr(expr.a, rvalue=False)
-                rhs = self.gen_expr(expr.b, rvalue=True)
-
-                # Handle '+=' and friends:
-                if expr.op != '=':
-                    op = expr.op[:-1]
-                    ir_typ = self.get_ir_type(expr.typ)
-                    loaded = self.emit(ir.Load(lhs, 'lhs', ir_typ))
-                    value = self.emit(ir.Binop(
-                        loaded, op, rhs, 'assign', ir_typ))
-                else:
-                    value = rhs
-                self.emit(ir.Store(value, lhs))
-            else:  # pragma: no cover
-                raise NotImplementedError(str(expr.op))
+            value = self.gen_binop(expr)
         elif isinstance(expr, expressions.Ternop):
-            if expr.op in ['?']:
-                # TODO: merge maybe with conditional logic?
-                yes_block = self.builder.new_block()
-                no_block = self.builder.new_block()
-                end_block = self.builder.new_block()
-
-                self.gen_condition(expr.a, yes_block, no_block)
-
-                # The true path:
-                self.builder.set_block(yes_block)
-                yes_value = self.gen_expr(expr.b, rvalue=True)
-                # Fetch current block, because it might have changed!
-                final_yes_block = self.builder.block
-                self.emit(ir.Jump(end_block))
-
-                # The false path:
-                self.builder.set_block(no_block)
-                no_value = self.gen_expr(expr.c, rvalue=True)
-                final_no_block = self.builder.block
-                self.emit(ir.Jump(end_block))
-
-                self.builder.set_block(end_block)
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.Phi('phi', ir_typ))
-                value.set_incoming(final_yes_block, yes_value)
-                value.set_incoming(final_no_block, no_value)
-            else:  # pragma: no cover
-                raise NotImplementedError(str(expr.op))
+            value = self.gen_ternop(expr)
         elif isinstance(expr, expressions.VariableAccess):
             variable = expr.variable
             if isinstance(
@@ -668,19 +609,7 @@ class CCodeGenerator:
             else:  # pragma: no cover
                 raise NotImplementedError()
         elif isinstance(expr, expressions.FunctionCall):
-            # Evaluate arguments:
-            ir_arguments = []
-            for argument in expr.args:
-                value = self.gen_expr(argument, rvalue=True)
-                ir_arguments.append(value)
-            function = expr.function
-            if function.typ.return_type.is_void:
-                self.emit(ir.ProcedureCall(function.name, ir_arguments))
-                value = None
-            else:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.FunctionCall(
-                    function.name, ir_arguments, 'result', ir_typ))
+            value = self.gen_call(expr)
         elif isinstance(expr, expressions.StringLiteral):
             # Construct nifty 0-terminated string into memory!
             encoding = 'latin1'
@@ -753,6 +682,168 @@ class CCodeGenerator:
                 value = self.emit(ir.Load(value, 'load', ir_typ))
         elif not rvalue:
             assert expr.lvalue
+        return value
+
+    def gen_unop(self, expr):
+        if expr.op in ['x++', 'x--', '--x', '++x']:
+            # Increment and decrement in pre and post form
+            ir_a = self.gen_expr(expr.a, rvalue=False)
+            assert expr.a.lvalue
+
+            ir_typ = self.get_ir_type(expr.typ)
+            loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
+            # for pointers, this is not one, but sizeof
+            if isinstance(expr.typ, types.PointerType):
+                size = self.context.sizeof(expr.typ.element_type)
+                one = self.emit(ir.Const(size, 'one_element', ir_typ))
+            else:
+                one = self.emit(ir.Const(1, 'one', ir_typ))
+
+            # Determine increment or decrement:
+            op = expr.op[1]
+            changed = self.emit(ir.Binop(
+                loaded, op, one, 'inc', ir_typ))
+            self.emit(ir.Store(changed, ir_a))
+
+            # Determine pre or post form:
+            pre = expr.op[0] == 'x'
+            if pre:
+                value = loaded
+            else:
+                value = changed
+        elif expr.op == '*':
+            value = self.gen_expr(expr.a, rvalue=True)
+            assert expr.lvalue
+        elif expr.op == '&':
+            assert expr.a.lvalue
+            value = self.gen_expr(expr.a, rvalue=False)
+        elif expr.op == '-':
+            a = self.gen_expr(expr.a, rvalue=True)
+            ir_typ = self.get_ir_type(expr.typ)
+            zero = self.emit(ir.Const(0, 'zero', ir_typ))
+            value = self.emit(ir.Binop(zero, '-', a, 'neg', ir_typ))
+        elif expr.op == '~':
+            a = self.gen_expr(expr.a, rvalue=True)
+            ir_typ = self.get_ir_type(expr.typ)
+            # TODO: use 0xff for all bits!
+            mx = self.emit(ir.Const(0xff, 'ffff', ir_typ))
+            value = self.emit(ir.Binop(a, '^', mx, 'xor', ir_typ))
+        elif expr.op in ['!']:
+            value = self.gen_condition_to_integer(expr)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr.op))
+        return value
+
+    def gen_binop(self, expr):
+        if expr.op in ['-', '*', '/', '%', '^', '|', '&', '>>', '<<']:
+            lhs = self.gen_expr(expr.a, rvalue=True)
+            rhs = self.gen_expr(expr.b, rvalue=True)
+            op = expr.op
+
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
+        elif expr.op == ',':
+            # Handle the comma operator by returning the second result
+            lhs = self.gen_expr(expr.a, rvalue=True)
+            rhs = self.gen_expr(expr.b, rvalue=True)
+            value = rhs
+        elif expr.op in ['+']:
+            lhs = self.gen_expr(expr.a, rvalue=True)
+            rhs = self.gen_expr(expr.b, rvalue=True)
+            # Handle pointer arithmatic!
+            # Pointer arithmatic is an old artifact from the days
+            # when an integer refered always to a array cell!
+            if isinstance(expr.a.typ, types.IndexableType):
+                # TODO: assert is_integer(expr.b.typ)
+                esize = self.emit(
+                    ir.Const(
+                        self.context.sizeof(expr.a.typ.element_type),
+                        'esize', rhs.ty))
+                rhs = self.emit(ir.mul(rhs, esize, 'rhs', rhs.ty))
+                rhs = self.emit(ir.Cast(rhs, 'ptr_arith', ir.ptr))
+            elif isinstance(expr.b.typ, types.IndexableType):
+                # TODO: assert is_integer(expr.a.typ)
+                esize = self.emit(
+                    ir.Const(
+                        self.context.sizeof(expr.b.typ.element_type),
+                        'esize', lhs.ty))
+                lhs = self.emit(ir.mul(lhs, esize, 'lhs', lhs.ty))
+                lhs = self.emit(ir.Cast(lhs, 'ptr_arith', ir.ptr))
+            else:
+                pass
+
+            op = expr.op
+
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
+        elif expr.op in ['<', '>', '==', '!=', '<=', '>=', '||', '&&']:
+            value = self.gen_condition_to_integer(expr)
+        elif expr.op in [
+                '=', '+=', '-=', '*=', '%=', '/=',
+                '>>=', '<<=',
+                '&=', '|=', '~=', '^=']:
+            lhs = self.gen_expr(expr.a, rvalue=False)
+            rhs = self.gen_expr(expr.b, rvalue=True)
+
+            # Handle '+=' and friends:
+            if expr.op != '=':
+                op = expr.op[:-1]
+                ir_typ = self.get_ir_type(expr.typ)
+                loaded = self.emit(ir.Load(lhs, 'lhs', ir_typ))
+                value = self.emit(ir.Binop(
+                    loaded, op, rhs, 'assign', ir_typ))
+            else:
+                value = rhs
+            self.emit(ir.Store(value, lhs))
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr.op))
+        return value
+
+    def gen_ternop(self, expr):
+        if expr.op in ['?']:
+            # TODO: merge maybe with conditional logic?
+            yes_block = self.builder.new_block()
+            no_block = self.builder.new_block()
+            end_block = self.builder.new_block()
+
+            self.gen_condition(expr.a, yes_block, no_block)
+
+            # The true path:
+            self.builder.set_block(yes_block)
+            yes_value = self.gen_expr(expr.b, rvalue=True)
+            # Fetch current block, because it might have changed!
+            final_yes_block = self.builder.block
+            self.emit(ir.Jump(end_block))
+
+            # The false path:
+            self.builder.set_block(no_block)
+            no_value = self.gen_expr(expr.c, rvalue=True)
+            final_no_block = self.builder.block
+            self.emit(ir.Jump(end_block))
+
+            self.builder.set_block(end_block)
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.Phi('phi', ir_typ))
+            value.set_incoming(final_yes_block, yes_value)
+            value.set_incoming(final_no_block, no_value)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr.op))
+        return value
+
+    def gen_call(self, expr):
+        # Evaluate arguments:
+        ir_arguments = []
+        for argument in expr.args:
+            value = self.gen_expr(argument, rvalue=True)
+            ir_arguments.append(value)
+        function = expr.function
+        if function.typ.return_type.is_void:
+            self.emit(ir.ProcedureCall(function.name, ir_arguments))
+            value = None
+        else:
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.FunctionCall(
+                function.name, ir_arguments, 'result', ir_typ))
         return value
 
     def get_ir_type(self, typ: types.CType):

@@ -31,8 +31,7 @@ from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .opt.cjmp import CJumpPass
 from .codegen import CodeGenerator
-from .binutils.linker import Linker, link
-from .binutils.layout import Layout, get_layout
+from .binutils.linker import link
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .binutils.objectfile import ObjectFile, get_object

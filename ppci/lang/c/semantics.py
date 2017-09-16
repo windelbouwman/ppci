@@ -20,7 +20,8 @@ class CSemantics:
 
         # Define the type for a string:
         self.int_type = self.get_type(['int'])
-        self.cstr_type = types.PointerType(self.get_type(['char']))
+        self.char_type = self.get_type(['char'])
+        self.cstr_type = types.PointerType(self.char_type)
 
         # Working variables:
         self.switch_stack = []  # switch case levels
@@ -122,8 +123,8 @@ class CSemantics:
                 variable.typ.size is None:
             if isinstance(expression, expressions.InitializerList):
                 variable.typ.size = len(expression.elements)
-            elif isinstance(expression, expressions.StringLiteral):
-                variable.typ.size = len(expression.value) + 1
+            # elif isinstance(expression, expressions.StringLiteral):
+            #     variable.typ.size = len(expression.value) + 1
             else:
                 pass
 
@@ -149,7 +150,14 @@ class CSemantics:
                 result = self.coerce(initializer, typ)
         elif isinstance(typ, types.ArrayType):
             if isinstance(initializer, expressions.StringLiteral):
-                result = initializer
+                # Turn into sequence of characters:
+                il = []
+                location = initializer.location
+                for c in initializer.value:
+                    il.append(expressions.CharLiteral(
+                        ord(c), self.char_type, location))
+                il.append(expressions.CharLiteral(0, self.char_type, location))
+                result = expressions.InitializerList(il, location)
             elif isinstance(initializer, InitEnv):
                 if typ.size is None and not top_level:
                     self.error(
