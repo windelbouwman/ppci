@@ -15,5 +15,6 @@ Reference
     backends/index
     hexfile
     objectformat
+    wasm
     python2ir
     links
