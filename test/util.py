@@ -46,12 +46,12 @@ def tryrm(fn):
         pass
 
 
-def do_long_tests(arch=None):
+def do_long_tests(arch):
     """ Determine whether to run samples, these take somewhat longer """
     if 'LONGTESTS' not in os.environ:
         return False
     val = os.environ['LONGTESTS']
-    if val == arch or val == 'all':
+    if arch in val or val == 'all':
         return True
     else:
         return False

@@ -20,7 +20,7 @@ def new_temp_file(suffix):
     return filename
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class BuildTestCase(unittest.TestCase):
     """ Test the build command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -49,7 +49,7 @@ class BuildTestCase(unittest.TestCase):
         self.assertIn('invalid log_level value', mock_stderr.getvalue())
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class C3cTestCase(unittest.TestCase):
     """ Test the c3c command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -150,7 +150,7 @@ class AsmTestCase(unittest.TestCase):
         self.assertIn('assemble', mock_stdout.getvalue())
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -169,7 +169,7 @@ class ObjdumpTestCase(unittest.TestCase):
             self.assertIn('SECTION', mock_stdout.getvalue())
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class ObjcopyTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -215,7 +215,7 @@ class OptimizeCommandTestCase(unittest.TestCase):
         opt([in_file, out])
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class LinkCommandTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -244,7 +244,7 @@ class LinkCommandTestCase(unittest.TestCase):
             ['-o', obj3, '-L', mmap, obj1, obj2])
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class HexutilTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_help(self, mock_stdout):

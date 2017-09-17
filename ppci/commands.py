@@ -243,35 +243,38 @@ def cc(args=None):
                     src, march, filename=filename, coptions=coptions)
                 printer = CAstPrinter(file=args.output)
                 printer.print(ast)
-            elif args.ir:
-                # Stop after ir code generation
-                module = api.c_to_ir(
-                    src, march, coptions=coptions,
-                    reporter=log_setup.reporter)
-                irutils.Writer(file=args.output).write(module)
-            elif args.S:  # Output assembly code
-                stream = TextOutputStream(
-                    printer=march.asm_printer, f=args.output)
-                module = api.c_to_ir(
-                    src, march, coptions=coptions, reporter=log_setup.reporter)
-                api.ir_to_stream(
-                    module, march, stream, reporter=log_setup.reporter)
-            elif args.c:  # Compile only
-                obj = api.cc(
-                    src, march, coptions=coptions,
-                    reporter=log_setup.reporter)
-
-                # Write object file to disk:
-                obj.save(args.output)
             else:
-                obj = api.cc(
-                    src, march, coptions=coptions,
-                    reporter=log_setup.reporter)
+                # Compile and optimize in any case:
+                ir_module = api.c_to_ir(
+                    src, march, coptions=coptions, reporter=log_setup.reporter)
 
-                # TODO: link objects together?
-                logging.warning('TODO: Linking with stdlibs')
-                obj.save(args.output)
-                # raise NotImplementedError('Linking not implemented')
+                # Optimize:
+                api.optimize(
+                    ir_module, level=args.O, reporter=log_setup.reporter)
+
+                if args.ir:  # Stop after ir code generation
+                    irutils.print_module(ir_module, file=args.output)
+                elif args.S:  # Output assembly code
+                    stream = TextOutputStream(
+                        printer=march.asm_printer, f=args.output)
+                    api.ir_to_stream(
+                        ir_module, march, stream, reporter=log_setup.reporter)
+                elif args.c:  # Compile only
+                    obj = api.ir_to_object(
+                        [ir_module], march,
+                        reporter=log_setup.reporter)
+
+                    # Write object file to disk:
+                    obj.save(args.output)
+                else:
+                    obj = api.ir_to_object(
+                        [ir_module], march,
+                        reporter=log_setup.reporter)
+
+                    # TODO: link objects together?
+                    logging.warning('TODO: Linking with stdlibs')
+                    obj.save(args.output)
+                    # raise NotImplementedError('Linking not implemented')
 
         # Close output file:
         args.output.close()

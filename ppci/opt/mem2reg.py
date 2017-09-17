@@ -141,33 +141,35 @@ class Mem2RegPromotor(FunctionPass):
         assert len(all_types) > 0
         phi_ty = all_types[0]
 
-        phis = self.place_phi_nodes(stores, phi_ty, name, cfg_info)
+        # If loads are found, we need phi nodes:
+        if loads:
+            phis = self.place_phi_nodes(stores, phi_ty, name, cfg_info)
 
-        # Preserve debug info:
-        for phi in phis:
-            self.debug_db.map(alloc, phi)
+            # Preserve debug info:
+            for phi in phis:
+                self.debug_db.map(alloc, phi)
 
-        # Create undefined value at start:
-        initial_value = Undefined('und_{}'.format(name), phi_ty)
-        cfg_info.function.entry.insert_instruction(initial_value)
+            # Create undefined value at start:
+            initial_value = Undefined('und_{}'.format(name), phi_ty)
+            cfg_info.function.entry.insert_instruction(initial_value)
 
-        self.rename(initial_value, phis, loads, stores, cfg_info)
+            self.rename(initial_value, phis, loads, stores, cfg_info)
 
-        # Check that all phis have the proper number of inputs.
-        for phi in phis:
-            assert len(phi.inputs) == len(cfg_info.pred[phi.block])
+            # Check that all phis have the proper number of inputs.
+            for phi in phis:
+                assert len(phi.inputs) == len(cfg_info.pred[phi.block])
 
-        # Remove unused instructions:
-        new_instructions = [initial_value] + phis
-        while True:
-            change = False
-            for i in new_instructions:
-                if not i.is_used:
-                    i.remove_from_block()
-                    new_instructions.remove(i)
-                    change = True
-            if not change:
-                break
+            # Remove unused instructions:
+            new_instructions = [initial_value] + phis
+            while True:
+                change = False
+                for i in new_instructions:
+                    if not i.is_used:
+                        i.remove_from_block()
+                        new_instructions.remove(i)
+                        change = True
+                if not change:
+                    break
 
         # Each store instruction can be removed.
         for store in stores:
