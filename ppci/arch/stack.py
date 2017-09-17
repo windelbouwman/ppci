@@ -54,6 +54,10 @@ class Frame:
         """ Allocate space on the stack frame and return the offset """
         # TODO: determine alignment!
         # TODO: grow down or up?
+        if size:
+            misalign = self.stacksize % size
+            if misalign:
+                self.stacksize = self.stacksize - misalign + size
         l = StackLocation(self.stacksize, size)
         self.stacksize += size
         return l
