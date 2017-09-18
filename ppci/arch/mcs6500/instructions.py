@@ -747,7 +747,116 @@ class Tya(Mcs6500Instruction):
 
 
 # Pattern matching:
+@isa.pattern('cnst', 'CONSTI8', size=1)
+def pattern_cnst(context, tree):
+    return Immediate(tree.value)
+
+
+@isa.pattern('a', 'REGI8', size=1)
+def pattern_abs_mem(context, tree):
+    # TODO: use register number?
+    context.emit(Sta(IndirectX(0)))
+
+
+@isa.pattern('cm', 'REGI8', size=1)
+def pattern_tmp_var(context, tree):
+    # TODO: use register number?
+    return IndirectX(0)
+
+
+@isa.pattern('mem', 'LABEL', size=2)
+def pattern_jmp(context, tree):
+    return XRel
+
+
+@isa.pattern('mem', 'FPRELU16', size=1)
+def pattern_fprel(context, tree):
+    return IndirectX(tree.value.offset)
+
+
+@isa.pattern('cm', 'cnst', size=0)
+def pattern_cm_cnst(context, tree, c0):
+    return c0
+
+
+@isa.pattern('cm', 'mem', size=0)
+def pattern_cm_mem(context, tree, c0):
+    return c0
+
+
+# Jumping patterns:
 @isa.pattern('stm', 'JMP', size=4)
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(Jmp(AbsoluteLabel(tgt.name), jumps=[tgt]))
+
+
+@isa.pattern('stm', 'CJMPI8(a, mem)', size=4)
+def pattern_jmp(context, tree, c0, c1):
+    tgt = tree.value
+    op_map = {
+        '>': Bcc,
+        '=': Beq,
+    }
+    op = op_map[tree.value]
+    context.emit(Cmp('a', c1))
+    context.emit(op(AbsoluteLabel(tgt.name), jumps=[tgt]))
+
+
+# Arithmatic patterns:
+@isa.pattern('a', 'ADDI8(a, cm)', size=1)
+@isa.pattern('a', 'ADDU8(a, cm)', size=1)
+def pattern_add8(context, tree, c0, c1):
+    context.emit(Adc(c1))
+    return c0
+
+
+@isa.pattern('a', 'SUBI8(a, cm)', size=1)
+@isa.pattern('a', 'SUBU8(a, cm)', size=1)
+def pattern_sub8(context, tree, c0, c1):
+    context.emit(Sbc(c1))
+    return c0
+
+
+@isa.pattern('a', 'ANDI8(a, cm)', size=1)
+@isa.pattern('a', 'ANDU8(a, cm)', size=1)
+def pattern_and8(context, tree, c0, c1):
+    context.emit(And(c1))
+    return c0
+
+
+@isa.pattern('a', 'ORI8(a, cm)', size=1)
+@isa.pattern('a', 'ORU8(a, cm)', size=1)
+def pattern_or8(context, tree, c0, c1):
+    context.emit(Ora(c1))
+    return c0
+
+
+@isa.pattern('a', 'XORI8(a, cm)', size=1)
+@isa.pattern('a', 'XORU8(a, cm)', size=1)
+def pattern_xor8(context, tree, c0, c1):
+    context.emit(Eor(c1))
+    return c0
+
+
+@isa.pattern('a', 'cnst', size=1)
+@isa.pattern('a', 'cnst', size=1)
+def pattern_const8(context, tree, c0):
+    context.emit(Lda(c0))
+
+
+# Memory transfers:
+@isa.pattern('a', 'LDRI8(mem)', size=2)
+def pattern_ldr8(context, tree, c0):
+    context.emit(Lda(c0))
+
+
+@isa.pattern('stm', 'STRI8(mem, a)', size=2)
+def pattern_str8(context, tree, c0, c1):
+    context.emit(Sta(c0))
+
+
+@isa.pattern('stm', 'MOVI8(a)', size=2)
+def pattern_mov8(context, tree, c0):
+    # TODO!
+    context.emit(Sta(IndirectX(0)))

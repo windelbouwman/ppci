@@ -1,5 +1,4 @@
 import logging
-import struct
 from ... import ir, irutils
 from ...common import CompilerError
 from ...binutils import debuginfo
@@ -96,54 +95,14 @@ class CCodeGenerator:
     def gen_global_variable(self, var_decl):
         # if typ is array, use initializer to determine size
         if var_decl.initial_value:
-            ivalue = self.gen_global_ival(var_decl.typ, var_decl.initial_value)
+            ivalue = self.context.gen_global_ival(
+                var_decl.typ, var_decl.initial_value)
         else:
             ivalue = None
         size = self.context.sizeof(var_decl.typ)
         ir_var = ir.Variable(var_decl.name, size, value=ivalue)
         self.builder.module.add_variable(ir_var)
         self.ir_var_map[var_decl] = ir_var
-
-    def gen_global_ival(self, typ, ival):
-        """ Create memory image for initial value of global variable """
-        if isinstance(typ, types.ArrayType):
-            mem = bytes()
-            for iv in ival.elements:
-                mem = mem + self.gen_global_ival(typ.element_type, iv)
-        elif isinstance(typ, types.StructType):
-            mem = bytes()
-            for field, iv in zip(typ.fields, ival.elements):
-                mem = mem + self.gen_global_ival(field.typ, iv)
-        elif isinstance(typ, types.UnionType):
-            mem = bytes()
-            # Initialize the first field!
-            mem = mem + self.gen_global_ival(
-                typ.fields[0].typ, ival.elements[0])
-            size = self.context.sizeof(typ)
-            filling = size - len(mem)
-            assert filling >= 0
-            mem = mem + bytes([0] * filling)
-        elif isinstance(typ, types.BareType):
-            cval = self.context.eval_expr(ival)
-            mem = self.pack(typ, cval)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(typ))
-        return mem
-
-    def pack(self, typ, value):
-        """ Pack a type into proper memory format """
-        # TODO: is the size of the integer correct? should it be 4 or 8 bytes?
-        ctypes_names = {
-            types.BareType.CHAR: 'b',
-            types.BareType.SCHAR: 'b',
-            types.BareType.UCHAR: 'B',
-            types.BareType.INT: 'i',
-            types.BareType.UINT: 'I',
-        }
-        fmt = ctypes_names[typ.type_id]
-        # Check format with arch options:
-        assert self.context.sizeof(typ) == struct.calcsize(fmt)
-        return struct.pack(fmt, value)
 
     def gen_function(self, function):
         """ Generate code for a function """

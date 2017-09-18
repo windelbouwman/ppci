@@ -1,5 +1,6 @@
 """ A context where other parts share global state """
 
+import struct
 from ...common import CompilerError
 from .types import BareType
 from . import types, expressions, declarations
@@ -50,6 +51,7 @@ class CContext:
         }
 
         int_size = self.arch_info.get_size('int')
+        ptr_size = self.arch_info.get_size('ptr')
         self.type_size_map = {
             BareType.CHAR: 1,
             BareType.SCHAR: 1,
@@ -65,6 +67,25 @@ class CContext:
             BareType.FLOAT: 4,
             BareType.DOUBLE: 8,
             BareType.LONGDOUBLE: 10,
+        }
+
+        int_map = {
+            2: 'h', 4: 'i', 8: 'q'
+        }
+
+        self.ctypes_names = {
+            types.BareType.CHAR: '<b',
+            types.BareType.SCHAR: '<b',
+            types.BareType.UCHAR: '<B',
+            types.BareType.SHORT: '<h',
+            types.BareType.USHORT: '<H',
+            types.BareType.INT: '<' + int_map[int_size].lower(),
+            types.BareType.UINT: '<' + int_map[int_size].upper(),
+            'ptr': '<' + int_map[ptr_size].upper(),
+            types.BareType.LONGLONG: '<q',
+            types.BareType.ULONGLONG: '<Q',
+            types.BareType.FLOAT: '<f',
+            types.BareType.DOUBLE: '<d',
         }
 
     def is_valid(self, type_specifiers):
@@ -162,6 +183,45 @@ class CContext:
             return self.arch_info.get_size('ptr')
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+
+    def pack(self, typ, value):
+        """ Pack a type into proper memory format """
+        # TODO: is the size of the integer correct? should it be 4 or 8 bytes?
+        if isinstance(typ, types.PointerType):
+            tid = 'ptr'
+        else:
+            assert isinstance(typ, types.BareType)
+            tid = typ.type_id
+        fmt = self.ctypes_names[tid]
+        # Check format with arch options:
+        assert self.sizeof(typ) == struct.calcsize(fmt)
+        return struct.pack(fmt, value)
+
+    def gen_global_ival(self, typ, ival):
+        """ Create memory image for initial value of global variable """
+        if isinstance(typ, types.ArrayType):
+            mem = bytes()
+            for iv in ival.elements:
+                mem = mem + self.gen_global_ival(typ.element_type, iv)
+        elif isinstance(typ, types.StructType):
+            mem = bytes()
+            for field, iv in zip(typ.fields, ival.elements):
+                mem = mem + self.gen_global_ival(field.typ, iv)
+        elif isinstance(typ, types.UnionType):
+            mem = bytes()
+            # Initialize the first field!
+            mem = mem + self.gen_global_ival(
+                typ.fields[0].typ, ival.elements[0])
+            size = self.sizeof(typ)
+            filling = size - len(mem)
+            assert filling >= 0
+            mem = mem + bytes([0] * filling)
+        elif isinstance(typ, (types.BareType, types.PointerType)):
+            cval = self.eval_expr(ival)
+            mem = self.pack(typ, cval)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+        return mem
 
     def error(self, message, location):
         """ Trigger an error at the given location """

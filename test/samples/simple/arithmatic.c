@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 
+char *ptr = (char*) 0x1000;
 
 void main_main()
 {

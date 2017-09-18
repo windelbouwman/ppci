@@ -751,6 +751,19 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_initialization(self):
+        """ Test calling of functions """
+        src = """
+        char x = '\2';
+        int* ptr = (int*)0x1000;
+
+        void main() {
+          char x = '\2';
+          int* ptr = (int*)0x1000;
+        }
+        """
+        self.do(src)
+
 
 class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """
