@@ -771,13 +771,56 @@ def pattern_label2(context, tree):
 
 
 @isa.pattern(
-    'reg', 'FPRELU32', size=8,
+    'reg', 'FPRELU32', size=4,
     condition=lambda t: t.value.offset in range(-2048, 2048))
 def pattern_fpreli32(context, tree):
     d = context.new_reg(RiscvRegister)
     offset = tree.value.negative
     context.emit(Addi(d, FP, offset))
     return d
+
+@isa.pattern('stm', 'STRU32(FPRELU32, reg)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+@isa.pattern('stm', 'STRI32(FPRELU32, reg)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+def pattern_sw32_fprel(context, tree, c0):
+    offset = tree.children[0].value.negative
+    context.emit(Sw(c0, offset, FP))
+
+@isa.pattern('stm', 'STRU8(FPRELU32, reg)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+@isa.pattern('stm', 'STRI8(FPRELU32, reg)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+def pattern_sbi8_fprel(context, tree, c0):
+    offset = tree.children[0].value.negative
+    context.emit(Sb(c0, offset, FP))
+
+@isa.pattern('reg', 'LDRI8(FPRELU32)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+def pattern_ldri8_fprel(context, tree):
+    d = context.new_reg(RiscvRegister)
+    offset = tree.children[0].value.negative
+    context.emit(Lb(d, offset, FP))
+    return d
+
+@isa.pattern('reg', 'LDRU8(FPRELU32)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+def pattern_ldru8_fprel(context, tree):
+    d = context.new_reg(RiscvRegister)
+    offset = tree.children[0].value.negative
+    context.emit(Lbu(d, offset, FP))
+    return d
+
+@isa.pattern('reg', 'LDRU32(FPRELU32)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+@isa.pattern('reg', 'LDRI32(FPRELU32)', size=2,
+    condition=lambda t: t.children[0].value.offset in range(-2048, 2048))
+def pattern_ldr32_fprel(context, tree):
+    d = context.new_reg(RiscvRegister)
+    offset = tree.children[0].value.negative
+    context.emit(Lw(d, offset, FP))
+    return d
+
 
 
 @isa.pattern('reg', 'LDRU8(reg)', size=2)
