@@ -244,6 +244,7 @@ class CLexer(HandLexerBase):
                     # Yield an extra start of line
                     yield CToken('BOL', '', '', first, token.loc)
                 first = True
+                space = ''
             elif token.typ == 'WS':
                 space += token.val
             else:
@@ -455,7 +456,8 @@ class CLexer(HandLexerBase):
         while True:
             if self.accept('*'):
                 if self.accept('/'):
-                    self.emit('WS')
+                    self.ignore()
+                    # self.emit('WS')
                     break
             else:
                 self.next_char()
@@ -465,6 +467,8 @@ class CLexer(HandLexerBase):
         """ Scan for a complete string """
         c = self.next_char()
         while c and c.char != '"':
+            if c.char == '\\':
+                self._handle_escape_character()
             c = self.next_char()
         self.emit('STRING')
         return self.lex_c
@@ -472,27 +476,7 @@ class CLexer(HandLexerBase):
     def lex_char(self):
         """ Scan for a complete character constant """
         if self.accept("\\"):
-            # Escape char!
-            if self.accept("'\"?\\abfnrtv"):
-                pass
-            elif self.accept(self.octal_numbers):
-                self.accept(self.octal_numbers)
-                self.accept(self.octal_numbers)
-            elif self.accept('x'):
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-            elif self.accept('u'):
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-            elif self.accept('U'):
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-                self.accept(self.hex_numbers)
-            else:
-                self.error('Unexpected escape character')
+            self._handle_escape_character()
         else:
             # Normal char:
             self.next_char()
@@ -501,3 +485,26 @@ class CLexer(HandLexerBase):
 
         self.emit('CHAR')
         return self.lex_c
+
+    def _handle_escape_character(self):
+        # Escape char!
+        if self.accept("'\"?\\abfnrtv"):
+            pass
+        elif self.accept(self.octal_numbers):
+            self.accept(self.octal_numbers)
+            self.accept(self.octal_numbers)
+        elif self.accept('x'):
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+        elif self.accept('u'):
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+        elif self.accept('U'):
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+            self.accept(self.hex_numbers)
+        else:
+            self.error('Unexpected escape character')

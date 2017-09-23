@@ -186,17 +186,18 @@ class Udiv(ArmInstruction):
     rn = Operand('rn', ArmRegister, read=True)
     rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['udiv', rd, ',', rn, ',', rm])
+    patterns = {'cond': AL}
 
     def encode(self):
         tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
         tokens[0][0:4] = self.rn.num
         tokens[0][4:8] = 0b0001
         tokens[0][8:12] = self.rm.num
         tokens[0][12:16] = 0b1111
         tokens[0][16:20] = self.rd.num
         tokens[0][20:28] = 0b1110011
-        tokens[0].cond = AL
-        return tokens[0].encode()
+        return tokens.encode()
 
 
 class Mls(ArmInstruction):
@@ -209,17 +210,18 @@ class Mls(ArmInstruction):
     rm = Operand('rm', ArmRegister, read=True)
     ra = Operand('ra', ArmRegister, read=True)
     syntax = Syntax(['mls', rd, ',', rn, ',', rm, ',', ra])
+    patterns = {'cond': AL}
 
     def encode(self):
         tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
         tokens[0][0:4] = self.rn.num
         tokens[0][4:8] = 0b1001
         tokens[0][8:12] = self.rm.num
         tokens[0][12:16] = self.ra.num
         tokens[0][16:20] = self.rd.num
         tokens[0][20:28] = 0b00000110
-        tokens[0].cond = AL
-        return tokens[0].encode()
+        return tokens.encode()
 
 
 def make_regregreg(mnemonic, opcode):
@@ -370,6 +372,19 @@ Bhs = make_branch('bhs', CS)  # Hs (higher or same) is synonim for CS
 Blo = make_branch('blo', CC)  # Lo (unsigned lower) is synonim for CC
 
 
+class Blx(ArmInstruction):
+    """ Branch with link to a subroutine pointer to by register """
+    rm = Operand('rm', ArmRegister, read=True)
+    syntax = Syntax(['blx', ' ', rm])
+    patterns = {'cond': AL, 'Rm': rm}
+
+    def encode(self):
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0][4:28] = 0x12fff3
+        return tokens.encode()
+
+
 def reg_list_to_mask(reg_list):
     mask = 0
     for reg in reg_list:
@@ -426,7 +441,7 @@ class LdrStrBase(ArmInstruction):
         else:
             tokens[0][23] = 0
             tokens[0][0:12] = -self.offset
-        return tokens[0].encode()
+        return tokens.encode()
 
 
 class Str1(LdrStrBase):
@@ -719,6 +734,7 @@ def pattern_add32_2(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'SUBU32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Sub(d, c0, c1, NoShift()))

@@ -3,7 +3,7 @@ from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 import unittest
 import io
 
-from ppci.lang.python.python2ir import load_py, py_to_ir
+from ppci.lang.python import load_py, python_to_ir
 
 # Choose between those two:
 
@@ -51,10 +51,14 @@ class PythonJitLoadingTestCase(unittest.TestCase):
         m2.a(2)
 
 
-class PythonToIrTestCase(unittest.TestCase):
+class PythonToIrTranspilerTestCase(unittest.TestCase):
     """ Check the compilation of python code to ir """
-    def test_load_py(self):
-        mod = py_to_ir(io.StringIO(src))
+    def test_snippet1(self):
+        mod = python_to_ir(io.StringIO(src))
+
+    @unittest.skip('todo')
+    def test_snippet2(self):
+        mod = python_to_ir(io.StringIO(src2))
 
 
 if __name__ == '__main__':

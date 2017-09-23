@@ -952,6 +952,19 @@ class CCodeGenerator:
             ptype = self.get_debug_type(typ.element_type)
             dbg_typ = debuginfo.DebugPointerType(ptype)
             self.debug_db.enter(typ, dbg_typ)
+        elif isinstance(typ, types.StructType):
+            dbg_typ = debuginfo.DebugStructType()
+
+            # Ensure to register the type first:
+            self.debug_db.enter(typ, dbg_typ)
+
+            for field in typ.fields:
+                ft = self.get_debug_type(field.typ)
+                dbg_typ.add_field(field.name, ft, field.offset)
+        elif isinstance(typ, types.ArrayType):
+            et = self.get_debug_type(typ.element_type)
+            dbg_typ = debuginfo.DebugArrayType(et, typ.size)
+            self.debug_db.enter(typ, dbg_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return dbg_typ

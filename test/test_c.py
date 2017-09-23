@@ -79,7 +79,7 @@ class CLexerTestCase(unittest.TestCase):
     def test_block_comment(self):
         src = "/* bla bla */"
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
-        self.assertEqual([('BOL', '')], tokens)
+        self.assertEqual([], tokens)
 
     def test_block_comments_and_values(self):
         src = "1/* bla bla */0/*w00t*/"
@@ -136,6 +136,19 @@ class CLexerTestCase(unittest.TestCase):
         self.assertTrue(all(t.typ == 'CHAR' for t in tokens))
         chars = list(map(lambda t: t.val, tokens))
         self.assertSequenceEqual(expected_chars, chars)
+
+    def test_string_literals(self):
+        """ Test various string literals """
+        src = r'"\"|\x7F"'
+        tokens = self.tokenize(src)
+
+        expected_types = ['STRING']
+        types = list(map(lambda t: t.typ, tokens))
+        self.assertSequenceEqual(expected_types, types)
+
+        expected_strings = [r'"\"|\x7F"']
+        strings = list(map(lambda t: t.val, tokens))
+        self.assertSequenceEqual(expected_strings, strings)
 
     def test_token_spacing(self):
         src = "1239hello"

@@ -31,7 +31,7 @@ def load_py(f, functions=None):
     return m2
 
 
-def py_to_ir(f):
+def python_to_ir(f):
     """ Compile a piece of python code to an ir module.
 
     Args:

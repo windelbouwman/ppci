@@ -514,7 +514,7 @@ class Instruction:
             information.
         """
         # TODO: update reference
-        assert old in self._var_map.values()
+        # assert old in self._var_map.values()
         for name in self._var_map:
             if self._var_map[name] is old:
                 self.del_use(old)
@@ -618,10 +618,12 @@ class BaseFunctionCall(LocalValue):
             self.add_use(arg)
 
     def replace_use(self, old, new):
-        idx = self.arguments.index(old)
-        self.del_use(old)
-        self.arguments[idx] = new
-        self.add_use(new)
+        super().replace_use(old, new)
+        if old in self.arguments:
+            idx = self.arguments.index(old)
+            self.del_use(old)
+            self.arguments[idx] = new
+            self.add_use(new)
 
 
 class FunctionCall(BaseFunctionCall):
@@ -639,6 +641,8 @@ class FunctionCall(BaseFunctionCall):
 
 class FunctionPointerCall(BaseFunctionCall):
     """ Call a function with some arguments and a return value """
+    function_ptr = value_use('function_ptr')
+
     def __init__(self, function_ptr, arguments, name, ty):
         super().__init__(arguments, name, ty)
         assert isinstance(function_ptr, Value)
@@ -658,10 +662,12 @@ class BaseProcedureCall(Instruction):
             self.add_use(arg)
 
     def replace_use(self, old, new):
-        idx = self.arguments.index(old)
-        self.del_use(old)
-        self.arguments[idx] = new
-        self.add_use(new)
+        super().replace_use(old, new)
+        if old in self.arguments:
+            idx = self.arguments.index(old)
+            self.del_use(old)
+            self.arguments[idx] = new
+            self.add_use(new)
 
 
 class ProcedureCall(BaseProcedureCall):
@@ -678,6 +684,8 @@ class ProcedureCall(BaseProcedureCall):
 
 class ProcedurePointerCall(BaseProcedureCall):
     """ Call a procedure pointer with some arguments """
+    function_ptr = value_use('function_ptr')
+
     def __init__(self, function_ptr, arguments):
         super().__init__(arguments)
         assert function_ptr.ty is ptr

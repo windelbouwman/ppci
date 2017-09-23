@@ -178,7 +178,10 @@ class ArmArch(Architecture):
         if self.has_option('thumb'):
             yield thumb_instructions.Bl(label, clobbers=clobbers)
         else:
-            yield arm_instructions.Bl(label, clobbers=clobbers)
+            if isinstance(label, ArmRegister):
+                yield arm_instructions.Blx(label, clobbers=clobbers)
+            else:
+                yield arm_instructions.Bl(label, clobbers=clobbers)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

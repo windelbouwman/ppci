@@ -19,14 +19,14 @@ from .lang.fortran import FortranBuilder
 from .lang.llvmir import LlvmIrFrontend
 from .lang.pascal import PascalBuilder
 from .lang.ws import WhitespaceGenerator
-from .lang.python.python2ir import py_to_ir
+from .lang.python import python_to_ir, ir_to_python
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
 from .opt import CommonSubexpressionEliminationPass
 from .opt import ConstantFolder
-from .opt.transform import LoadAfterStorePass
+from .opt import LoadAfterStorePass
 from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .opt.cjmp import CJumpPass
@@ -40,7 +40,6 @@ from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
-from .utils.ir2py import IrToPython
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager, get_file
@@ -376,16 +375,6 @@ def ir_to_object(
     reporter.message('All modules generated!')
     reporter.dump_instructions(instruction_list, march)
     return obj
-
-
-def ir_to_python(ir_modules, f, reporter=None):
-    """ Convert ir-code to python code """
-    if not reporter:  # pragma: no cover
-        reporter = DummyReportGenerator()
-    generator = IrToPython(f)
-    generator.header()
-    for ir_module in ir_modules:
-        generator.generate(ir_module)
 
 
 def cc(source: io.TextIOBase, march, coptions=None,

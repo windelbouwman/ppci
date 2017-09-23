@@ -840,7 +840,7 @@ class CParser(RecursiveDescentParser):
                 expr = self.parse_expression()
                 self.consume(')')
         else:
-            self.not_impl()
+            self.not_impl(self.peak)
 
         # Postfix operations (have the highest precedence):
         while self.peak in ['--', '++', '[', '.', '->']:
