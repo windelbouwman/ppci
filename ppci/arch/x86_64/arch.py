@@ -312,7 +312,11 @@ class X86_64Arch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-        yield Call(label, clobbers=caller_save)
+        if isinstance(label, X86Register):
+            # Call to register pointer
+            yield instructions.CallReg(label, clobbers=caller_save)
+        else:
+            yield Call(label, clobbers=caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

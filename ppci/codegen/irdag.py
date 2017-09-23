@@ -137,7 +137,9 @@ class SelectionGraphBuilder:
         self.current_block = None
 
         # Create maps for global variables:
-        for variable in ir_function.module.variables:
+        global_objects = ir_function.module.variables + \
+            ir_function.module.functions
+        for variable in global_objects:
             val = self.new_node('LABEL', ir.ptr)
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
@@ -283,7 +285,7 @@ class SelectionGraphBuilder:
 
     def get_address(self, ir_address):
         """ Determine address for load or store. """
-        if isinstance(ir_address, ir.Variable):
+        if isinstance(ir_address, ir.GlobalValue):
             # A global variable may be contained in another module
             # That is why it is created here, and not in the prepare step
             sgnode = self.new_node('LABEL', ir.ptr)
@@ -402,6 +404,26 @@ class SelectionGraphBuilder:
         output = sgnode.new_output('res')
         output.vreg = ret_val
         self.add_map(node, output)
+
+    def _make_pointer_call(self, node, args, rv):
+        # Perform the actual call:
+        fptr = self.get_value(node.function_ptr)
+
+        fptr_vreg = self.new_vreg(ir.ptr)
+        fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
+        self.chain(fptr_sgnode)
+
+        sgnode = self.new_node('CALL', None)
+        sgnode.value = (fptr_vreg, args, rv)
+        self.debug_db.map(node, sgnode)
+        # for i in inputs:
+        #    sgnode.add_input(i)
+        self.chain(sgnode)
+
+    def do_procedure_pointer_call(self, node):
+        """ Transform a procedure pointer call """
+        args = self._prep_call_arguments(node)
+        self._make_pointer_call(node, args, None)
 
     def do_phi(self, node):
         """ Refer to the correct copy of the phi node """

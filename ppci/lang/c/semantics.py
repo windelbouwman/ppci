@@ -590,10 +590,16 @@ class CSemantics:
             typ = a.typ.element_type
             expr = expressions.Unop(op, a, typ, True, location)
         elif op == '&':
-            if not a.lvalue:
-                self.error('Expected lvalue', a.location)
-            typ = types.PointerType(a.typ)
-            expr = expressions.Unop(op, a, typ, False, location)
+            if isinstance(a, expressions.VariableAccess) and \
+                    isinstance(a.variable, declarations.FunctionDeclaration):
+                # Function pointer:
+                expr = a
+            else:
+                # L-value access:
+                if not a.lvalue:
+                    self.error('Expected lvalue', a.location)
+                typ = types.PointerType(a.typ)
+                expr = expressions.Unop(op, a, typ, False, location)
         elif op == '!':
             a = self.coerce(a, self.int_type)
             expr = expressions.Unop(op, a, self.int_type, False, location)
@@ -657,9 +663,16 @@ class CSemantics:
         function = self.scope.get(name)
 
         # Check for funky-ness:
-        if not isinstance(function, declarations.FunctionDeclaration):
+        if isinstance(function, declarations.FunctionDeclaration):
+            # Function call
+            function_type = function.typ
+        elif isinstance(function, declarations.VariableDeclaration) and \
+                isinstance(function.typ, types.PointerType) and \
+                isinstance(function.typ.element_type, types.FunctionType):
+            # Function pointer
+            function_type = function.typ.element_type
+        else:
             self.error('Calling a non-function', location)
-        function_type = function.typ
 
         # Check argument count:
         num_expected = len(function_type.argument_types)
@@ -676,7 +689,7 @@ class CSemantics:
         # Check argument types:
         coerced_arguments = []
         for argument, argument_type in zip(
-                arguments, function.typ.argument_types):
+                arguments, function_type.argument_types):
             value = self.coerce(argument, argument_type)
             coerced_arguments.append(value)
 
@@ -687,7 +700,7 @@ class CSemantics:
 
         expr = expressions.FunctionCall(function, coerced_arguments, location)
         expr.lvalue = False
-        expr.typ = function.typ.return_type
+        expr.typ = function_type.return_type
         return expr
 
     def on_variable_access(self, name, location):
@@ -696,16 +709,19 @@ class CSemantics:
             self.error('Who is this?', location)
         variable = self.scope.get(name)
         expr = expressions.VariableAccess(variable, location)
-        expr.typ = variable.typ
         if isinstance(variable, declarations.VariableDeclaration):
+            expr.typ = variable.typ
             expr.lvalue = True
         elif isinstance(variable, declarations.ValueDeclaration):
+            expr.typ = variable.typ
             expr.lvalue = False
         elif isinstance(variable, declarations.ParameterDeclaration):
+            expr.typ = variable.typ
             expr.lvalue = True
         elif isinstance(variable, declarations.FunctionDeclaration):
-            # Function pointer?
-            expr.lvalue = True
+            # Function pointer:
+            expr.typ = types.PointerType(variable.typ)
+            expr.lvalue = False
         else:  # pragma: no cover
             self.not_impl('Access to {}'.format(variable), location)
         return expr

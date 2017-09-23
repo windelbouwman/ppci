@@ -475,7 +475,7 @@ class Verifier:
 
     def instruction_dominates(self, one, another):
         """ Checks if one instruction dominates another instruction """
-        if isinstance(one, (ir.Parameter, ir.Variable)):
+        if isinstance(one, (ir.Parameter, ir.GlobalValue)):
             # TODO: hack, parameters and globals dominate all other
             # instructions..
             return True

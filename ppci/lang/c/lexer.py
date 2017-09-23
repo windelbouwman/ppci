@@ -15,8 +15,8 @@ class CToken(Token):
         self.first = first
 
     def __repr__(self):
-        return 'CToken({}, {}, "{}", {})'.format(
-            self.typ, self.val, self.space, self.loc)
+        return 'CToken({}, {}, {}, "{}", {})'.format(
+            self.typ, self.val, self.first, self.space, self.loc)
 
     def __str__(self):
         return self.space + self.val
@@ -447,6 +447,7 @@ class CLexer(HandLexerBase):
         c = self.next_char()
         while c and c.char != '\n':
             c = self.next_char()
+        self.backup_char(c)
         self.ignore()
         return self.lex_c
 

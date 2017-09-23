@@ -167,9 +167,16 @@ class IrToPython:
             args = ', '.join(a.name for a in ins.arguments)
             self.print(3, '{} = {}({})'.format(
                 ins.name, ins.function_name, args))
+        elif isinstance(ins, ir.FunctionPointerCall):
+            args = ', '.join(a.name for a in ins.arguments)
+            self.print(3, '{} = {}({})'.format(
+                ins.name, ins.function_ptr.name, args))
         elif isinstance(ins, ir.ProcedureCall):
             args = ', '.join(a.name for a in ins.arguments)
             self.print(3, '{}({})'.format(ins.function_name, args))
+        elif isinstance(ins, ir.ProcedurePointerCall):
+            args = ', '.join(a.name for a in ins.arguments)
+            self.print(3, '{}({})'.format(ins.function_ptr.name, args))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')
             self.print(4, 'pass')
@@ -186,4 +193,4 @@ class IrToPython:
             self.print(3, 'return')
         else:  # pragma: no cover
             self.print(3, '{}'.format(ins))
-            raise NotImplementedError()
+            raise NotImplementedError(str(ins))

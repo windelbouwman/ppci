@@ -96,7 +96,11 @@ class CLexerTestCase(unittest.TestCase):
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
         self.assertSequenceEqual(
             [('BOL', ''), ('ID', 'int'), ('ID', 'a'), (';', ';'),
-             ('ID', 'int'), ('ID', 'b'), (';', ';'), ('BOL', '')],
+             # ('BOL', ''),
+             ('ID', 'int'),
+             ('BOL', ''),
+             ('ID', 'b'), (';', ';'),
+             ('BOL', '')],
             tokens)
 
     def test_numbers(self):

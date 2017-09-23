@@ -33,8 +33,8 @@ class CCodeGenerator:
             BareType.USHORT: (ir.u16, 2),
             BareType.INT: (int_types[int_size], int_size),
             BareType.UINT: (uint_types[int_size], int_size),
-            BareType.LONG: (ir.i64, 8),
-            BareType.ULONG: (ir.u64, 8),
+            BareType.LONG: (ir.i32, 4),
+            BareType.ULONG: (ir.u32, 4),
             BareType.LONGLONG: (ir.i64, 8),
             BareType.ULONGLONG: (ir.u64, 8),
             BareType.FLOAT: (ir.f32, 4),
@@ -79,14 +79,19 @@ class CCodeGenerator:
         else:  # pragma: no cover
             raise NotImplementedError()
 
-    def emit(self, instruction):
+    def emit(self, instruction, location=None):
         """ Helper function to emit a single instruction """
         # print(instruction)
+        if location:
+            self.debug_db.enter(instruction, debuginfo.DebugLocation(location))
         return self.builder.emit(instruction)
 
     def info(self, message, node):
         """ Generate information message at the given node """
         node.loc.print_message(message)
+
+    def warning(self, message):
+        self.logger.warning(message)
 
     def error(self, message, location):
         """ Trigger an error at the given node """
@@ -118,11 +123,13 @@ class CCodeGenerator:
         # Save current function for later on..
         self.current_function = function
 
+        # Create ir function:
         if function.typ.return_type.is_void:
             ir_function = self.builder.new_procedure(function.name)
         else:
             return_type = self.get_ir_type(function.typ.return_type)
             ir_function = self.builder.new_function(function.name, return_type)
+        self.ir_var_map[function] = ir_function
 
         # Create entry code:
         self.builder.set_function(ir_function)
@@ -161,6 +168,7 @@ class CCodeGenerator:
             function.name, function.location,
             self.get_debug_type(function.typ.return_type),
             dbg_args)
+
         self.debug_db.enter(ir_function, dfi)
 
         # Generate code for body:
@@ -179,10 +187,17 @@ class CCodeGenerator:
                     assert not last_block.is_used
                     assert last_block not in ir_function
                 else:
-                    self.error(
-                        'Function does not return an {}'.format(
-                            function.typ.return_type),
-                        function)
+                    warn_when_no_return = True
+                    if warn_when_no_return:
+                        self.warning('Function does not return a value')
+                        ir_typ = self.get_ir_type(function.typ.return_type)
+                        zero = self.emit(ir.Const(0, 'zero', ir_typ))
+                        self.emit(ir.Return(zero))
+                    else:
+                        self.error(
+                            'Function does not return an {}'.format(
+                                function.typ.return_type),
+                            function)
 
         # TODO: maybe generate only code which is reachable?
         ir_function.delete_unreachable()
@@ -576,8 +591,10 @@ class CCodeGenerator:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Const(
                     constant_value, variable.name, ir_typ))
+            elif isinstance(variable, declarations.FunctionDeclaration):
+                value = self.ir_var_map[variable]
             else:  # pragma: no cover
-                raise NotImplementedError()
+                raise NotImplementedError(str(variable))
         elif isinstance(expr, expressions.FunctionCall):
             value = self.gen_call(expr)
         elif isinstance(expr, expressions.StringLiteral):
@@ -587,17 +604,22 @@ class CCodeGenerator:
             value = self.emit(ir.LiteralData(data, 'cstr'))
         elif isinstance(expr, expressions.CharLiteral):
             ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Const(expr.value, 'constant', ir_typ))
+            value = self.emit(
+                ir.Const(expr.value, 'constant', ir_typ),
+                location=expr.location)
         elif isinstance(expr, expressions.NumericLiteral):
             ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Const(expr.value, 'constant', ir_typ))
+            value = self.emit(
+                ir.Const(expr.value, 'constant', ir_typ),
+                location=expr.location)
         elif isinstance(expr, expressions.InitializerList):
             expr.lvalue = True
             self.error('Illegal initializer list', expr.location)
         elif isinstance(expr, expressions.Cast):
             a = self.gen_expr(expr.expr, rvalue=True)
             ir_typ = self.get_ir_type(expr.to_typ)
-            value = self.emit(ir.Cast(a, 'typecast', ir_typ))
+            value = self.emit(
+                ir.Cast(a, 'typecast', ir_typ), location=expr.location)
         elif isinstance(expr, expressions.Sizeof):
             if isinstance(expr.sizeof_typ, types.CType):
                 # Get size of the given type:
@@ -696,7 +718,9 @@ class CCodeGenerator:
             op = expr.op
 
             ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Binop(lhs, op, rhs, 'op', ir_typ))
+            value = self.emit(
+                ir.Binop(lhs, op, rhs, 'op', ir_typ),
+                location=expr.location)
         elif expr.op == ',':
             # Handle the comma operator by returning the second result
             lhs = self.gen_expr(expr.a, rvalue=True)
@@ -787,10 +811,14 @@ class CCodeGenerator:
 
     def gen_call(self, expr):
         """ Generate code for a function call """
-        function = expr.function
+        if isinstance(expr.function, declarations.FunctionDeclaration):
+            ftyp = expr.function.typ
+        else:
+            ftyp = expr.function.typ.element_type
+
         # Determine fixed and variable arguments:
-        if function.typ.is_vararg:
-            x = len(function.typ.arguments)
+        if ftyp.is_vararg:
+            x = len(ftyp.arguments)
             fixed_args = expr.args[:x]
             var_args = expr.args[x:]
         else:
@@ -803,7 +831,7 @@ class CCodeGenerator:
             value = self.gen_expr(argument, rvalue=True)
             ir_arguments.append(value)
 
-        if function.typ.is_vararg:
+        if ftyp.is_vararg:
             # Allocate a memory slab:
             size = sum(self.context.sizeof(va.typ) for va in var_args)
             vararg_ptr = self.emit(ir.Alloc('varargs', size))
@@ -818,13 +846,28 @@ class CCodeGenerator:
                 s2 = self.emit(ir.Const(s, 'size', ir.ptr))
                 vararg_ptr = self.emit(ir.add(vararg_ptr, s2, 'va2', ir.ptr))
 
-        if function.typ.return_type.is_void:
-            self.emit(ir.ProcedureCall(function.name, ir_arguments))
-            value = None
-        else:
-            ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.FunctionCall(
-                function.name, ir_arguments, 'result', ir_typ))
+        if isinstance(expr.function, declarations.FunctionDeclaration):
+            name = expr.function.name
+            if ftyp.return_type.is_void:
+                self.emit(ir.ProcedureCall(name, ir_arguments))
+                value = None
+            else:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.FunctionCall(
+                    name, ir_arguments, 'result', ir_typ))
+        elif isinstance(expr.function, declarations.VariableDeclaration):
+            value = self.ir_var_map[expr.function]
+            ptr = self.emit(ir.Load(value, 'fptr', ir.ptr))
+            if ftyp.return_type.is_void:
+                self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
+                value = None
+            else:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.FunctionPointerCall(
+                    ptr, ir_arguments, 'result', ir_typ))
+        else:  # pragma: no cover
+            raise NotImplementedError()
+
         return value
 
     def gen_array_index(self, expr):
@@ -836,16 +879,20 @@ class CCodeGenerator:
         element_type_size = self.context.sizeof(
             expr.base.typ.element_type)
         element_size = self.emit(
-            ir.Const(element_type_size, 'element_size', ir.ptr))
+            ir.Const(element_type_size, 'element_size', ir.ptr),
+            location=expr.location)
 
         # Calculate offset:
-        index = self.emit(ir.Cast(index, 'index', ir.ptr))
+        index = self.emit(
+            ir.Cast(index, 'index', ir.ptr), location=expr.location)
         offset = self.emit(
-            ir.mul(index, element_size, "element_offset", ir.ptr))
+            ir.mul(index, element_size, "element_offset", ir.ptr),
+            location=expr.location)
 
         # Calculate address:
         value = self.emit(
-            ir.add(base, offset, "element_address", ir.ptr))
+            ir.add(base, offset, "element_address", ir.ptr),
+            location=expr.location)
         return value
 
     def gen_builtin(self, expr):
@@ -872,6 +919,8 @@ class CCodeGenerator:
         elif isinstance(typ, types.IndexableType):
             # Pointers and arrays are seen as pointers:
             return ir.ptr
+        elif isinstance(typ, types.FunctionType):
+            return ir.ptr
         elif isinstance(typ, types.EnumType):
             return self.get_ir_type(self.context.get_type(['int']))
         elif isinstance(typ, types.UnionType):
@@ -897,6 +946,8 @@ class CCodeGenerator:
                 dbg_typ = debuginfo.DebugBaseType(
                     typ.type_id, self.context.sizeof(typ), 1)
             self.debug_db.enter(typ, dbg_typ)
+        elif isinstance(typ, types.EnumType):
+            return self.get_debug_type(self.context.get_type(['int']))
         elif isinstance(typ, types.PointerType):
             ptype = self.get_debug_type(typ.element_type)
             dbg_typ = debuginfo.DebugPointerType(ptype)

@@ -214,7 +214,10 @@ class CParser(RecursiveDescentParser):
             typ = self.semantics.on_basic_type(type_specifiers, location)
 
         if not typ:
-            self.error('Expected at least one type specifier')
+            location = self.current_location
+            typ = self.semantics.on_basic_type(['int'], location)
+            self.logger.warning('No type given (%s), assuming int!', location)
+            # self.error('Expected at least one type specifier')
 
         typ = self.semantics.on_type_qualifiers(type_qualifiers, typ)
         ds = nodes.DeclSpec(storage_class, typ)

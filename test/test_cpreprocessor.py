@@ -302,6 +302,19 @@ class CPreProcessorTestCase(unittest.TestCase):
         "mastah";"mastah";'''
         self.preprocess(src, expected)
 
+    def test_empty_arguments(self):
+        """ Check empty arguments """
+        src = r"""#define A(); // comments!
+        #define B();
+        A();
+        B();"""
+        expected = """# 1 "dummy.t"
+
+
+        ;;
+        ;;"""
+        self.preprocess(src, expected)
+
     def test_token_glue(self):
         """ Check various concatenations """
         src = r"""#define A(x,y) x ## y
@@ -385,7 +398,9 @@ class CPreProcessorTestCase(unittest.TestCase):
         void main() {// ok }
         """
         expected = r"""# 1 "dummy.t"
-        void main() {"""
+
+        void main() {
+"""
         self.preprocess(src, expected)
 
 
