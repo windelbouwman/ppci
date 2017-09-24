@@ -5,7 +5,7 @@ void printf(char*, int);
 
 int doit()
 {
-  printf("B\n", 0);
+  printf("B %d\n", 0);
   return 0;
 }
 

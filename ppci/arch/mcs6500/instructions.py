@@ -765,7 +765,7 @@ def pattern_tmp_var(context, tree):
 
 
 @isa.pattern('mem', 'LABEL', size=2)
-def pattern_jmp(context, tree):
+def pattern_label(context, tree):
     return XRel
 
 
@@ -792,7 +792,7 @@ def pattern_jmp(context, tree):
 
 
 @isa.pattern('stm', 'CJMPI8(a, mem)', size=4)
-def pattern_jmp(context, tree, c0, c1):
+def pattern_cjmp(context, tree, c0, c1):
     tgt = tree.value
     op_map = {
         '>': Bcc,

@@ -48,7 +48,7 @@ from .arch.target_list import create_arch
 # When using 'from ppci.api import *' include the following:
 __all__ = [
     'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
-    'optimize',
+    'optimize', 'preprocess',
     'get_arch', 'ir_to_object']
 
 
@@ -554,7 +554,7 @@ def pycompile(source, march, reporter=None):
     to work.
     """
     march = get_arch(march)
-    ir_module = py_to_ir(source)
+    ir_module = python_to_ir(source)
     return ir_to_object([ir_module], march)
 
 

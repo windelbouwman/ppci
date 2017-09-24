@@ -534,9 +534,10 @@ class CCodeGenerator:
         else:
             # Evaluate the constant now!
             if constant in self.evaluating_constants:
-                self.error('Circular constant evaluation')
+                self.error('Circular constant evaluation', constant.location)
             self.evaluating_constants.add(constant)
-            value = self.gen_expr(constant.value, purpose=self.CONST_EVAL)
+            # TODO: refactor const handling
+            value = self.gen_expr(constant.value)
             self.constant_values[constant] = value
             self.evaluating_constants.remove(constant)
         return value
@@ -811,10 +812,10 @@ class CCodeGenerator:
 
     def gen_call(self, expr):
         """ Generate code for a function call """
-        if isinstance(expr.function, declarations.FunctionDeclaration):
-            ftyp = expr.function.typ
+        if isinstance(expr.callee.typ, types.FunctionType):
+            ftyp = expr.callee.typ
         else:
-            ftyp = expr.function.typ.element_type
+            ftyp = expr.callee.typ.element_type
 
         # Determine fixed and variable arguments:
         if ftyp.is_vararg:
@@ -846,8 +847,9 @@ class CCodeGenerator:
                 s2 = self.emit(ir.Const(s, 'size', ir.ptr))
                 vararg_ptr = self.emit(ir.add(vararg_ptr, s2, 'va2', ir.ptr))
 
-        if isinstance(expr.function, declarations.FunctionDeclaration):
-            name = expr.function.name
+        if isinstance(expr.callee.typ, types.FunctionType):
+            # Normal call:
+            name = expr.callee.variable.name
             if ftyp.return_type.is_void:
                 self.emit(ir.ProcedureCall(name, ir_arguments))
                 value = None
@@ -855,9 +857,9 @@ class CCodeGenerator:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.FunctionCall(
                     name, ir_arguments, 'result', ir_typ))
-        elif isinstance(expr.function, declarations.VariableDeclaration):
-            value = self.ir_var_map[expr.function]
-            ptr = self.emit(ir.Load(value, 'fptr', ir.ptr))
+        elif isinstance(expr.callee.typ, types.PointerType) and \
+                isinstance(expr.callee.typ.element_type, types.FunctionType):
+            ptr = self.gen_expr(expr.callee, rvalue=True)
             if ftyp.return_type.is_void:
                 self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
                 value = None

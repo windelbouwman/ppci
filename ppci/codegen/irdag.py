@@ -425,6 +425,22 @@ class SelectionGraphBuilder:
         args = self._prep_call_arguments(node)
         self._make_pointer_call(node, args, None)
 
+    def do_function_pointer_call(self, node):
+        """ Transform a procedure pointer call """
+        args = self._prep_call_arguments(node)
+        # New register for copy of result:
+        ret_val = self.function_info.frame.new_reg(
+            self.arch.value_classes[node.ty], '{}_result'.format(node.name))
+
+        rv = (node.ty, ret_val)
+        self._make_pointer_call(node, args, rv)
+
+        # When using the call as an expression, use the return value vreg:
+        sgnode = self.new_node('REG', node.ty, value=ret_val)
+        output = sgnode.new_output('res')
+        output.vreg = ret_val
+        self.add_map(node, output)
+
     def do_phi(self, node):
         """ Refer to the correct copy of the phi node """
         vreg = self.function_info.phi_map[node]

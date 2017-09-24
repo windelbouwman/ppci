@@ -639,6 +639,7 @@ class FunctionCall(BaseFunctionCall):
             self.ty, self.name, self.function_name, args)
 
 
+# TODO: do we really need a seperate type for a pointer to a function?
 class FunctionPointerCall(BaseFunctionCall):
     """ Call a function with some arguments and a return value """
     function_ptr = value_use('function_ptr')

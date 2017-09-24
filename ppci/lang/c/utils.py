@@ -48,6 +48,7 @@ class Visitor:
         elif isinstance(node, expressions.FieldSelect):
             self.visit(node.base)
         elif isinstance(node, expressions.FunctionCall):
+            self.visit(node.callee)
             for argument in node.args:
                 self.visit(argument)
         elif isinstance(node, types.FunctionType):

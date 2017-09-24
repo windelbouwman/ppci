@@ -51,7 +51,8 @@ class CParser(RecursiveDescentParser):
             'true', 'false',
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
             'switch', 'case', 'default', 'break', 'continue',
-            'sizeof', 'struct', 'union', 'enum'}
+            'sizeof', 'struct', 'union', 'enum',
+            '__builtin_va_arg'}
 
         # Some additions from C99:
         if self.context.coptions['std'] == 'c99':
@@ -767,35 +768,12 @@ class CParser(RecursiveDescentParser):
     def parse_postfix_expression(self):
         return self.parse_primary_expression()
 
-    def parse_call(self, identifier):
-        """ Parse a function call """
-        # Function call!
-        self.consume('(')
-        if identifier.val == '__builtin_va_arg':
-            self.parse_assignment_expression()
-            self.consume(',')
-            typ = self.parse_typename()
-            expr = self.semantics.on_builtin_va_arg(typ, identifier.loc)
-        else:
-            args = []
-            while self.peak != ')':
-                args.append(self.parse_assignment_expression())
-                if self.peak != ')':
-                    self.consume(',')
-            expr = self.semantics.on_call(
-                identifier.val, args, identifier.loc)
-        self.consume(')')
-        return expr
-
     def parse_primary_expression(self):
         """ Parse a primary expression """
         if self.peak == 'ID':
             identifier = self.consume('ID')
-            if self.peak == '(':
-                expr = self.parse_call(identifier)
-            else:
-                expr = self.semantics.on_variable_access(
-                    identifier.val, identifier.loc)
+            expr = self.semantics.on_variable_access(
+                identifier.val, identifier.loc)
         elif self.peak == 'NUMBER':
             n = self.consume()
             expr = self.semantics.on_number(n.val, n.loc)
@@ -813,6 +791,14 @@ class CParser(RecursiveDescentParser):
                 operator = op.val
             expr = self.parse_primary_expression()
             expr = self.semantics.on_unop(operator, expr, op.loc)
+        elif self.peak == '__builtin_va_arg':
+            location = self.consume('__builtin_va_arg').loc
+            self.consume('(')
+            self.parse_assignment_expression()
+            self.consume(',')
+            typ = self.parse_typename()
+            self.consume(')')
+            expr = self.semantics.on_builtin_va_arg(typ, location)
         elif self.peak == 'sizeof':
             location = self.consume('sizeof').loc
             if self.peak == '(':
@@ -843,7 +829,7 @@ class CParser(RecursiveDescentParser):
             self.not_impl(self.peak)
 
         # Postfix operations (have the highest precedence):
-        while self.peak in ['--', '++', '[', '.', '->']:
+        while self.peak in ['--', '++', '[', '.', '->', '(']:
             if self.peak in ['--', '++']:
                 op = self.consume()
                 expr = self.semantics.on_unop('x' + op.val, expr, op.loc)
@@ -852,6 +838,8 @@ class CParser(RecursiveDescentParser):
                 index = self.parse_expression()
                 self.consume(']')
                 expr = self.semantics.on_array_index(expr, index, location)
+            elif self.peak == '(':
+                expr = self.parse_call(expr)
             elif self.peak == '.':
                 location = self.consume('.').loc
                 field = self.consume('ID').val
@@ -864,6 +852,19 @@ class CParser(RecursiveDescentParser):
                 expr = self.semantics.on_field_select(expr, field, location)
             else:  # pragma: no cover
                 self.not_impl()
+        return expr
+
+    def parse_call(self, callee):
+        """ Parse a function call """
+        location = self.consume('(').loc
+        args = []
+        while self.peak != ')':
+            args.append(self.parse_assignment_expression())
+            if self.peak != ')':
+                self.consume(',')
+        expr = self.semantics.on_call(
+            callee, args, location)
+        self.consume(')')
         return expr
 
     # Lexer helpers:

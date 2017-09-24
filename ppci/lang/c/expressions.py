@@ -13,16 +13,15 @@ class CExpression(Expression):
         self.lvalue = lvalue
 
 
-class FunctionCall(Expression):
+class FunctionCall(CExpression):
     """ Function call """
-    def __init__(self, function, args, location):
-        super().__init__(location)
-        self.function = function
-        self.name = function.name
+    def __init__(self, callee, args, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.callee = callee
         self.args = args
 
     def __repr__(self):
-        return 'FunctionCall {}'.format(self.name)
+        return 'FunctionCall'
 
 
 class Ternop(CExpression):

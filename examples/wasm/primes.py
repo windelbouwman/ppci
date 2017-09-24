@@ -10,12 +10,12 @@ from io import StringIO
 from time import perf_counter
 
 from ppci import irutils
-from ppci.api import ir_to_object, get_current_platform, get_arch, link, optimize
-from ppci.utils import codepage, reporting, ir2py
+from ppci.api import ir_to_object, get_arch, link, optimize
+from ppci.utils import codepage, reporting
 from ppci.binutils import debuginfo
 
-from ppci.irs.wasm import wasm_to_ppci
-from ppci.lang.python import py_to_wasm
+from ppci.irs.wasm import wasm_to_ppci, export_wasm_example
+from ppci.lang.python import python_to_wasm, ir_to_python
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -39,7 +39,7 @@ return a
 """
 
 py3 = """
-max = 4000
+max = 40
 n = 0
 i = -1
 gotit = 0
@@ -69,10 +69,10 @@ return i
 
 ## Run in memory 
 
-ARCH = get_arch('x86_64:wincc')  # todo: fix auto detecting arch on Windows
+arch = get_arch('x86_64:wincc')  # todo: fix auto detecting arch on Windows
 
 # Convert Python to wasm
-wasm_module = py_to_wasm(py3)
+wasm_module = python_to_wasm(py3)
 
 # Convert wasm to ppci
 debug_db = debuginfo.DebugDb()
@@ -81,28 +81,36 @@ ppci_module = wasm_to_ppci(wasm_module, debug_db=debug_db)
 # Optimizer fails, or makes it slower ;)
 # optimize(ppci_module, 2)
 
-# Write IR code
-f = StringIO()
-irutils.Writer(f).write(ppci_module, verify=False)
-print(f.getvalue())
+this_dir = os.path.dirname(os.path.abspath(__file__))
+# Generate a report:
+html_report = os.path.join(this_dir, 'compilation_report.html')
+with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
+    # Write IR code
+    f = StringIO()
+    irutils.print_module(ppci_module, file=f, verify=False)
+    print(f.getvalue())
 
-# Compile to native object, while generating a report
-with open(os.path.expanduser('~/ppci_report.html'), 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
-    ob = ir_to_object([ppci_module], ARCH, debug=True, debug_db=debug_db, reporter=reporter)
-native_module = codepage.load_obj(ob)
+    # Compile to native object
+    ob = ir_to_object([ppci_module], arch, debug=True, debug_db=debug_db, reporter=reporter)
 
 # Run in memory
+native_module = codepage.load_obj(ob)
 t0 = perf_counter()
 result = native_module.main()
 etime = perf_counter() - t0
 print(f'native says {result} in {etime} s')
 
+# Generate html page:
+export_wasm_example(
+    os.path.join(this_dir, 'prime_demo_page.html'), py3, wasm_module)
+
 # Convert PPCI IR to (ugly) Python to skip codegen
-if False:
+if True:
     f = StringIO()
-    pythonizer = ir2py.IrToPython(f)
-    pythonizer.header()
-    pythonizer.generate(ppci_module)
+    ir_to_python([ppci_module], f)
     py_code = f.getvalue()
     exec(py_code)
-    print('python says', main())
+    t0 = perf_counter()
+    result = main()
+    etime = perf_counter() - t0
+    print(f'python says {result} in {etime}')

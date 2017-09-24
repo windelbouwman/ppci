@@ -209,8 +209,12 @@ class IrToPythonTranspiler:
                 ins.name, ins.function_name, args))
         elif isinstance(ins, ir.FunctionPointerCall):
             args = ', '.join(a.name for a in ins.arguments)
-            self.print(3, '{} = {}({})'.format(
-                ins.name, ins.function_ptr.name, args))
+            if isinstance(ins.function_ptr, ir.SubRoutine):
+                self.print(3, '_fptr = {}'.format(ins.function_ptr.name))
+            else:
+                self.print(3, '_fptr = func_pointers[{}]'.format(
+                    ins.function_ptr.name))
+            self.print(3, '{} = _fptr({})'.format(ins.name, args))
         elif isinstance(ins, ir.ProcedureCall):
             args = ', '.join(a.name for a in ins.arguments)
             self.print(3, '{}({})'.format(ins.function_name, args))

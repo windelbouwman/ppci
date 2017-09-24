@@ -232,14 +232,8 @@ class CSemantics:
 
         return result
 
-    def init_var():
-        pass
-
     def init_array(self, typ, init_env):
         """ Process array initializers """
-        pass
-
-    def init_struct(self):
         pass
 
     def on_typedef(self, typ, name, modifiers, location):
@@ -655,22 +649,14 @@ class CSemantics:
     def on_builtin_va_arg(self, typ, location):
         return expressions.BuiltInVaArg(typ, location)
 
-    def on_call(self, name, arguments, location):
+    def on_call(self, callee, arguments, location):
         """ Check function call for validity """
-        # Lookup the function:
-        if not self.scope.is_defined(name):
-            self.error('Who is this?', location)
-        function = self.scope.get(name)
-
-        # Check for funky-ness:
-        if isinstance(function, declarations.FunctionDeclaration):
-            # Function call
-            function_type = function.typ
-        elif isinstance(function, declarations.VariableDeclaration) and \
-                isinstance(function.typ, types.PointerType) and \
-                isinstance(function.typ.element_type, types.FunctionType):
+        if isinstance(callee.typ, types.FunctionType):
+            function_type = callee.typ
+        elif isinstance(callee.typ, types.PointerType) and \
+                isinstance(callee.typ.element_type, types.FunctionType):
             # Function pointer
-            function_type = function.typ.element_type
+            function_type = callee.typ.element_type
         else:
             self.error('Calling a non-function', location)
 
@@ -698,9 +684,9 @@ class CSemantics:
             for argument in arguments[num_expected:]:
                 coerced_arguments.append(argument)
 
-        expr = expressions.FunctionCall(function, coerced_arguments, location)
-        expr.lvalue = False
-        expr.typ = function_type.return_type
+        expr = expressions.FunctionCall(
+            callee, coerced_arguments,
+            function_type.return_type, False, location)
         return expr
 
     def on_variable_access(self, name, location):
@@ -720,7 +706,8 @@ class CSemantics:
             expr.lvalue = True
         elif isinstance(variable, declarations.FunctionDeclaration):
             # Function pointer:
-            expr.typ = types.PointerType(variable.typ)
+            expr.typ = variable.typ
+            # expr.typ = types.PointerType(variable.typ)
             expr.lvalue = False
         else:  # pragma: no cover
             self.not_impl('Access to {}'.format(variable), location)
@@ -740,11 +727,15 @@ class CSemantics:
         elif isinstance(from_type, (types.PointerType, types.EnumType)) and \
                 isinstance(to_type, types.BareType):
             do_cast = True
-        elif isinstance(
-                from_type,
-                (types.PointerType, types.ArrayType, types.FunctionType)) and \
+        elif isinstance(from_type, (types.PointerType, types.ArrayType)) and \
                 isinstance(to_type, types.PointerType):
             do_cast = True
+        elif isinstance(from_type, types.FunctionType) and \
+                isinstance(to_type, types.PointerType) and \
+                isinstance(to_type.element_type, types.FunctionType) and \
+                self.context.equal_types(from_type, to_type.element_type):
+            # Function used as value for pointer to function is fine!
+            do_cast = False
         elif isinstance(from_type, types.BareType) and \
                 isinstance(to_type, types.PointerType):
             do_cast = True

@@ -1,6 +1,7 @@
 from ppci import api
 from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 import unittest
+from unittest.mock import Mock
 import io
 
 from ppci.lang.python import load_py, python_to_ir
@@ -22,9 +23,8 @@ def a(x: int, y: int) -> int:
 
 
 src2 = """
-def a(x: int) -> int:
+def a(x: int) -> None:
     myprint(x + 13)
-    return x
 """
 
 
@@ -44,11 +44,12 @@ class PythonJitLoadingTestCase(unittest.TestCase):
 
     @unittest.skip('todo')
     def test_callback(self):
-        def mp(x: int) -> int:
-            print('x=', x)
-            return x
+        mock = Mock()
+        def mp(x: int) -> None:
+            mock(x)
         m2 = load_py(io.StringIO(src2), functions={'myprint': mp})
         m2.a(2)
+        mck.assert_called_with(14)
 
 
 class PythonToIrTranspilerTestCase(unittest.TestCase):

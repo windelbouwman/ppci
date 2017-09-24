@@ -5,7 +5,7 @@ from ppci import api, ir
 from ppci.binutils import debuginfo
 from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 from ppci.irs.wasm.wasm2ppci import wasm_to_ppci
-from ppci.lang.python import py_to_wasm
+from ppci.lang.python import python_to_wasm
 
 
 class WasmGeneratorTestCase(unittest.TestCase):
@@ -58,7 +58,7 @@ class WasmCompilerTestCase(unittest.TestCase):
     """ Test wasm to ir compiler """
     def test_wasm_primes_demo(self):
         """ Convert the primes demo into an ir module """
-        wasm_module = py_to_wasm(py_primes)
+        wasm_module = python_to_wasm(py_primes)
         debug_db = debuginfo.DebugDb()
         ir_mod = wasm_to_ppci(wasm_module, debug_db=debug_db)
         self.assertIsInstance(ir_mod, ir.Module)

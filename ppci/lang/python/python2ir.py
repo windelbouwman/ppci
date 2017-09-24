@@ -1,4 +1,4 @@
-""" Python to ppci conversion.
+""" Python to IR transpilation.
 
 """
 
@@ -9,29 +9,10 @@ from ...common import SourceLocation, CompilerError
 from ...binutils import debuginfo
 
 
-def load_py(f, functions=None):
-    """ Load a type annotated python file.
+def get_fty(fn):
+    pass
 
-    Args:
-        f: a file like object containing the python source code.
-    """
-    from ... import api
-    from ...utils.codepage import load_obj
-
-    logging.basicConfig(level=logging.DEBUG)
-    debug_db = debuginfo.DebugDb()
-    mod = PythonToIrTranspiler(debug_db).compile(f)
-    # txt = io.StringIO()
-    # writer = irutils.Writer(txt)
-    # writer.write(mod)
-    # print(txt.getvalue())
-    arch = api.get_current_arch()
-    obj = api.ir_to_object([mod], arch, debug_db=debug_db, debug=True)
-    m2 = load_obj(obj)
-    return m2
-
-
-def python_to_ir(f):
+def python_to_ir(f, functions=None, debug_db=None):
     """ Compile a piece of python code to an ir module.
 
     Args:
@@ -39,9 +20,19 @@ def python_to_ir(f):
 
     Returns:
         A :class:`ppci.ir.Module` module
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.lang.python import python_to_ir
+        >>> f = io.StringIO("def calc(x: int) -> int: return x + 133")
+        >>> python_to_ir(f) # doctest: +ELLIPSIS
+        <ppci.ir.Module object at ...>
+
     """
-    debug_db = debuginfo.DebugDb()
-    mod = PythonToIrTranspiler(debug_db).compile(f)
+    if debug_db is None:
+        debug_db = debuginfo.DebugDb()
+    mod = PythonToIrTranspiler(debug_db).compile(f, functions=functions)
     return mod
 
 
@@ -59,7 +50,7 @@ class PythonToIrTranspiler:
     def __init__(self, debug_db):
         self.debug_db = debug_db
 
-    def compile(self, f):
+    def compile(self, f, functions=None):
         """ Convert python into IR-code.
 
         Arguments:
@@ -73,6 +64,13 @@ class PythonToIrTranspiler:
         # Parse python code:
         x = ast.parse(src)
 
+        self.function_map = {}
+
+        if functions:
+            # Fill imported functions:
+            for name, fnc in functions.items():
+                self.function_map[name] = ''
+
         self.builder = irutils.Builder()
         self.builder.prepare()
         self.builder.set_module(ir.Module('foo'))
@@ -81,7 +79,7 @@ class PythonToIrTranspiler:
             if isinstance(df, ast.FunctionDef):
                 self.gen_function(df)
             else:
-                raise NotImplementedError('Cannot do!'.format(df))
+                raise NotImplementedError('Cannot do {}!'.format(df))
         mod = self.builder.module
         irutils.Verifier().verify(mod)
         return mod
@@ -92,11 +90,13 @@ class PythonToIrTranspiler:
 
     def get_ty(self, annotation):
         # TODO: assert isinstance(annotation, ast.Annotation)
+        if isinstance(annotation, ast.NameConstant) and annotation.value is None:
+            return
+        type_name = annotation.id
         type_mapping = {
             'int': ir.i64,
             'float': ir.f64,
         }
-        type_name = annotation.id
         if type_name in type_mapping:
             return type_mapping[type_name]
         else:
@@ -115,8 +115,11 @@ class PythonToIrTranspiler:
         self.local_map = {}
 
         dbg_int = debuginfo.DebugBaseType('int', 8, 1)
-        ir_function = self.builder.new_function(
-            df.name, self.get_ty(df.returns))
+        return_type = self.get_ty(df.returns)
+        if return_type:
+            ir_function = self.builder.new_function(df.name, return_type)
+        else:
+            ir_function = self.builder.new_procedure(df.name)
         dbg_args = []
         for arg in df.args.args:
             if not arg.annotation:
@@ -319,19 +322,37 @@ class PythonToIrTranspiler:
             a = self.gen_expr(expr.left)
             b = self.gen_expr(expr.right)
             op = self.binop_map[type(expr.op)]
-            v = self.emit(ir.Binop(a, op, b, 'add', ir.i64))
-            return v
+            value = self.emit(ir.Binop(a, op, b, 'add', ir.i64))
         elif isinstance(expr, ast.Name):
             var = self.local_map[expr.id]
             if var.lvalue:
                 value = self.emit(ir.Load(var.value, 'load', ir.i64))
             else:
                 value = var.value
-            return value
         elif isinstance(expr, ast.Num):
-            return self.emit(ir.Const(expr.n, 'num', ir.i64))
+            value = self.emit(ir.Const(expr.n, 'num', ir.i64))
+        elif isinstance(expr, ast.Call):
+            assert isinstance(expr.func, ast.Name)
+            name = expr.func.id
+
+            # Lookup function and check types:
+            ftyp = self.function_map[name]
+            return_type = self.get_ty(ftyp.returns)
+            self.logger.warning('Function arguments not type checked!')
+
+            # Evaluate arguments:
+            args = [self.gen_expr(a) for a in expr.args]
+
+            # Emit call:
+            if return_type:
+                value = self.emit(ir.FunctionCall(
+                    name, args, 'res', return_type))
+            else:
+                self.emit(ir.ProcedureCall(name, args))
+                value = None
         else:  # pragma: no cover
             self.not_impl(expr)
+        return value
 
     def not_impl(self, node):  # pragma: no cover
         print(dir(node))

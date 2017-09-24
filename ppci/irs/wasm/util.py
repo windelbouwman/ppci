@@ -2,6 +2,7 @@
 Utils for working with WASM and binary data.
 """
 
+import logging
 import os
 import tempfile
 import subprocess
@@ -70,7 +71,7 @@ def export_wasm_example(filename, code, wasm):
     # Export HTML file
     with open(filename, 'wb') as f:
         f.write(html.encode())
-    print('Wrote example HTML to', filename)
+    logging.info('Wrote example HTML to %s', filename)
 
 
 _nb_output = 0
