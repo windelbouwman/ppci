@@ -22,11 +22,15 @@ initial begin
 	bus_ack = 1'b0;
 	bus_data = 32'b0;
         inter = 1'b0;
+   `ifdef DBGUART
         init_socket();
+   `endif
 end
 
 final begin
-     close_socket();
+   `ifdef DBGUART
+        close_socket();
+    `endif
 end
 
 always @(posedge clk) begin

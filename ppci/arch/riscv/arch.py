@@ -19,7 +19,7 @@ from ..registers import RegisterClass
 from ..data_instructions import data_isa, Db
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr
-from .rvc_instructions import CSwsp, CLwsp, CJal, CJr
+from .rvc_instructions import CSwsp, CLwsp, CJal, CJr, CJalr
 
 
 class RiscvAssembler(BaseAssembler):
@@ -83,7 +83,7 @@ class RiscvArch(Architecture):
                 'reg', [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32], RiscvRegister,
                 [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
                  R21, R22, R23, R24, R25, R26, R27])
-            ]
+        ]
         self.fp = FP
         self.callee_save = (
             R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27)
@@ -92,9 +92,15 @@ class RiscvArch(Architecture):
 
     def branch(self, reg, lab):
         if self.has_option('rvc'):
-            return CJal(lab, clobbers=self.caller_save)
+            if isinstance(lab, RiscvRegister):
+                return CJalr(lab, clobbers=self.caller_save)
+            else:
+                return CJal(lab, clobbers=self.caller_save)
         else:
-            return Bl(reg, lab, clobbers=self.caller_save)
+            if isinstance(lab, RiscvRegister):
+                return Blr(reg, lab, 0, clobbers=self.caller_save)
+            else:
+                return Bl(reg, lab, clobbers=self.caller_save)
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
@@ -205,15 +211,14 @@ class RiscvArch(Architecture):
         ssize = round_up(frame.stacksize) + 8
         yield Sw(LR, -ssize + 4, SP)
         yield Sw(FP, -ssize, SP)
-        yield Movr(FP, SP)                 # Setup frame pointer
-        yield Addi(SP, SP, -ssize)     # Reserve stack space
+        yield Movr(FP, SP)  # Setup frame pointer
+        yield Addi(SP, SP, -ssize)  # Reserve stack space
         i = 0
         for register in self.callee_save:
             if frame.is_used(register):
                 i -= 4
                 yield Sw(register, i, SP)
         yield Addi(SP, SP, i)
-
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -230,7 +235,7 @@ class RiscvArch(Architecture):
             elif isinstance(value, bytes):
                 for byte in value:
                     yield DByte(byte)
-                yield Align(4)   # Align at 4 bytes
+                yield Align(4)  # Align at 4 bytes
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
 
@@ -246,8 +251,8 @@ class RiscvArch(Architecture):
         i = 0
         for register in reversed(self.callee_save):
             if frame.is_used(register):
-               yield Lw(register, i, SP)
-               i += 4
+                yield Lw(register, i, SP)
+                i += 4
         yield Addi(SP, SP, i)
         ssize = round_up(frame.stacksize) + 8
         yield Addi(SP, SP, ssize)
@@ -256,14 +261,14 @@ class RiscvArch(Architecture):
 
         # Return
         if self.has_option('rvc'):
-            yield(CJr(LR))
+            yield (CJr(LR))
         else:
-            yield(Blr(R0, LR, 0))
+            yield (Blr(R0, LR, 0))
 
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
-        yield Align(4)   # Align at 4 bytes
+        yield Align(4)  # Align at 4 bytes
 
 
 def round_up(s):

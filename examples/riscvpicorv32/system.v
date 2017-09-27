@@ -8,8 +8,8 @@ module system (
 	output reg       out_byte_en
 );
 
-	// 32768 32bit words = 128kB memory
-	parameter MEM_SIZE = 32768;
+	// 0x2000 32bit words = 0x8000 Byte = 32kByte memory
+        parameter MEMW_SIZE = 16'h8000;
 
         integer            tb_idx;
 
@@ -65,9 +65,9 @@ module system (
        assign uart_cs =  mem_addr[31:4] == 28'h1000000 && mem_valid;
        assign uart_wstrb = mem_wstrb & mem_ready;
    
-	reg [31:0] memory [0:MEM_SIZE-1];
+	reg [31:0] memory [0:MEMW_SIZE-1];
 	initial begin
-                for (tb_idx=0; tb_idx < MEM_SIZE; tb_idx=tb_idx+1)
+                for (tb_idx=0; tb_idx < MEMW_SIZE; tb_idx=tb_idx+1)
                        memory[tb_idx] = 32'b0;
                 `ifdef MEM_FILENAME
                      $readmemh(`MEM_FILENAME, memory);
@@ -87,12 +87,12 @@ module system (
                    			
 			(* parallel_case *)
 			case (1)
-				mem_valid && !mem_ready && !mem_wstrb && (mem_addr >> 2) < MEM_SIZE: begin
+				mem_valid && !mem_ready && !mem_wstrb && (mem_addr >> 2) < MEMW_SIZE: begin
 					m_read_en <= 1;
 				        m_read_data <= memory[mem_addr >> 2];
 				        mem_rdata <= m_read_data;
 				end
-				mem_valid && !mem_ready && |mem_wstrb && (mem_addr >> 2) < MEM_SIZE: begin
+				mem_valid && !mem_ready && |mem_wstrb && (mem_addr >> 2) < MEMW_SIZE: begin
 					if (mem_wstrb[0]) memory[mem_addr >> 2][ 7: 0] <= mem_wdata[ 7: 0];
 					if (mem_wstrb[1]) memory[mem_addr >> 2][15: 8] <= mem_wdata[15: 8];
 					if (mem_wstrb[2]) memory[mem_addr >> 2][23:16] <= mem_wdata[23:16];

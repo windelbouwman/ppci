@@ -614,6 +614,7 @@ def pattern_stri32_addi32(context, tree, c0, c1):
     offset = tree.children[0].children[1].value
     context.emit(Swv(c1, offset, c0))
 
+
 @rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
 @rvcisa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
