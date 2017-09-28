@@ -139,14 +139,12 @@ class Debugger:
         self.logger.info('step')
         self.driver.step()
         self.logger.info('program counter 0x%x', self.get_pc())
-        self.state_event.fire()
 
     def nstep(self, count):
         """ step n instructions of the debugged program """
         self.logger.info('nstep 0x%x', count)
         self.driver.nstep(count)
         self.logger.info('program counter 0x%x', self.get_pc())
-        self.state_event.fire()
 
     def get_status(self):
         return self.driver.get_status()
@@ -205,10 +203,10 @@ class Debugger:
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
         # if pc in self.addr_map:
-        mindelta = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
-        debug = self.addr_map[mindelta]
-        self.logger.info('Found program counter at %s with delta %u'
-                         % (debug, mindelta))
+        minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
+        debug = self.addr_map[minkey]
+        self.logger.info('Found program counter at %s with delta %i'
+                         % (debug, minkey - pc))
         loc = debug.loc
         return loc.filename, loc.row
 

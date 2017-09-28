@@ -1,5 +1,5 @@
 .align 4
-lui sp, 0x1F
+lui sp, 0x1E
 dd 0x0600000b  ; naskirq x0,x0
 j start
 ebreak
@@ -45,6 +45,7 @@ sw x30, 120(x1)
 sw x31, 124(x1)
 mv x12, x1
 dd 0x0000868b ; getq x13, q1
+lui sp, 0x1F
 jal ra, irq_irq
 beq x10, x0, nostepping
 dd 0x0c05000b ; delint
