@@ -10,9 +10,8 @@ class CCodeGenerator:
     """ Converts parsed C code to ir-code """
     logger = logging.getLogger('ccodegen')
 
-    def __init__(self, context, debug_db):
+    def __init__(self, context):
         self.context = context
-        self.debug_db = debug_db
         self.builder = None
         self.ir_var_map = {}
         self.constant_values = {}
@@ -55,7 +54,8 @@ class CCodeGenerator:
         self.builder = irutils.Builder()
         self.ir_var_map = {}
         self.logger.debug('Generating IR-code')
-        ir_mod = ir.Module('main')
+        self.debug_db = debuginfo.DebugDb()
+        ir_mod = ir.Module('main', debug_db=self.debug_db)
         self.builder.module = ir_mod
         for declaration in compile_unit.declarations:
             self.gen_object(declaration)

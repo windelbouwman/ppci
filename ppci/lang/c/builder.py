@@ -19,10 +19,7 @@ class CBuilder:
         self.coptions = coptions
         self.cgen = None
 
-    def build(self, src: io.TextIOBase, filename: str, debug_db,
-              reporter=None):
-        if not debug_db:
-            raise ValueError('Please provide a debug db')
+    def build(self, src: io.TextIOBase, filename: str, reporter=None):
         if reporter:
             reporter.heading(2, 'C builder')
             reporter.message(
@@ -44,7 +41,7 @@ class CBuilder:
             reporter.heading(2, 'C-ast')
             reporter.message('Behold the abstract syntax tree of your C-code')
             reporter.dump_raw_text(f.getvalue())
-        cgen = CCodeGenerator(context, debug_db)
+        cgen = CCodeGenerator(context)
         return cgen.gen_code(compile_unit)
 
 

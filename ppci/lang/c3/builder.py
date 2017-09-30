@@ -21,13 +21,12 @@ class C3Builder:
     """
     logger = logging.getLogger('c3')
 
-    def __init__(self, diag, arch_info, debug_db):
+    def __init__(self, diag, arch_info):
         assert isinstance(arch_info, ArchInfo)
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.debug_db = debug_db
-        self.codegen = CodeGenerator(diag, debug_db)
+        self.codegen = CodeGenerator(diag)
         self.verifier = Verifier()
         self.arch_info = arch_info
 

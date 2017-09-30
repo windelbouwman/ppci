@@ -5,7 +5,6 @@ from ppci.api import get_arch
 from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 from ppci.arch.example import R10, R10l, DefHalf, UseHalf
-from ppci.binutils.debuginfo import DebugDb
 
 
 class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
@@ -15,9 +14,8 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
     """
     def setUp(self):
         arch = get_arch('example')
-        debug_db = DebugDb()
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, None, debug_db)
+            arch, None)
 
     def conflict(self, ta, tb):
         reg_a = self.register_allocator.node(ta).reg

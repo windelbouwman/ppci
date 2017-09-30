@@ -12,8 +12,7 @@ def load_py(f, functions=None, reporter=None):
     from ... import api
     from ...utils.codepage import load_obj
 
-    debug_db = debuginfo.DebugDb()
-    mod = python_to_ir(f, functions=functions, debug_db=debug_db)
+    mod = python_to_ir(f, functions=functions)
     # txt = io.StringIO()
     # writer = irutils.Writer(txt)
     # writer.write(mod)
@@ -27,7 +26,7 @@ def load_py(f, functions=None, reporter=None):
 
     arch = api.get_current_arch()
     obj = api.ir_to_object(
-        [mod], arch, debug_db=debug_db, debug=True, reporter=reporter)
+        [mod], arch, debug=True, reporter=reporter)
     m2 = load_obj(obj, callbacks=callbacks)
     return m2
 

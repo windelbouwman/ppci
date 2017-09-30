@@ -21,6 +21,11 @@ f = io.StringIO("""
 int add(int a, int b) {
  return a + b + 133;
 }
+
+int sub(int a, int b) {
+ return add(a, b) - 133;
+}
+
 """)
 x = c_to_ir(f, arch, coptions=coptions)
 print(x, x.stats())

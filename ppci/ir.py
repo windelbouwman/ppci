@@ -111,8 +111,9 @@ def get_ty(name):
 # Program structure:
 class Module:
     """ Container unit for variables and functions. """
-    def __init__(self, name):
+    def __init__(self, name, debug_db=None):
         self.name = name
+        self.debug_db = debug_db  # Carry along debug info
         self._functions = []
         self._variables = []
 

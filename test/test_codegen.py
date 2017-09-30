@@ -104,9 +104,9 @@ class IrDagTestCase(unittest.TestCase):
         function_info = FunctionInfo(frame)
         debug_db = DebugDb()
         prepare_function_info(target, function_info, function)
-        dag_builder = SelectionGraphBuilder(target, debug_db)
-        sgraph = dag_builder.build(function, function_info)
-        dag_splitter = DagSplitter(target, debug_db)
+        dag_builder = SelectionGraphBuilder(target)
+        sgraph = dag_builder.build(function, function_info, debug_db)
+        dag_splitter = DagSplitter(target)
 
     def test_bug1(self):
         """
@@ -173,9 +173,9 @@ class IrDagTestCase(unittest.TestCase):
         function_info = FunctionInfo(frame)
         debug_db = DebugDb()
         prepare_function_info(target, function_info, function)
-        dag_builder = SelectionGraphBuilder(target, debug_db)
-        sgraph = dag_builder.build(function, function_info)
-        dag_splitter = DagSplitter(target, debug_db)
+        dag_builder = SelectionGraphBuilder(target)
+        sgraph = dag_builder.build(function, function_info, debug_db)
+        dag_splitter = DagSplitter(target)
 
         # print(function_info.value_map)
         for b in function:

@@ -35,7 +35,7 @@ from .binutils.linker import link
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .binutils.objectfile import ObjectFile, get_object
-from .binutils.debuginfo import DebugDb, DebugAddress, DebugInfo
+from .binutils.debuginfo import DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
@@ -200,22 +200,19 @@ def disasm(data, march):
     disassembler.disasm(data, ostream)
 
 
-def c3toir(sources, includes, march, reporter=None, debug_db=None):
+def c3toir(sources, includes, march, reporter=None):
     """ Compile c3 sources to ir-code for the given architecture. """
     logger = logging.getLogger('c3c')
     march = get_arch(march)
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    if not debug_db:  # pragma: no cover
-        debug_db = DebugDb()
-
     logger.debug('C3 compilation started')
     reporter.heading(2, 'c3 compilation')
     sources = [get_file(fn) for fn in sources]
     includes = [get_file(fn) for fn in includes]
     diag = DiagnosticsManager()
-    c3b = C3Builder(diag, march.info, debug_db)
+    c3b = C3Builder(diag, march.info)
 
     try:
         _, ir_modules = c3b.build(sources, includes)
@@ -237,7 +234,7 @@ def c3toir(sources, includes, march, reporter=None, debug_db=None):
 OPT_LEVELS = ('0', '1', '2', 's')
 
 
-def optimize(ir_module, level=0, reporter=None, debug_db=None):
+def optimize(ir_module, level=0, reporter=None):
     """ Run a bag of tricks against the :doc:`ir-code<ir>`.
 
     This is an in-place operation!
@@ -253,9 +250,6 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
     """
     logger = logging.getLogger('optimize')
     level = str(level)
-
-    if not debug_db:  # pragma: no cover
-        debug_db = DebugDb()
 
     logger.info('Optimizing module %s level %s', ir_module.name, level)
 
@@ -274,16 +268,16 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
     verifier = Verifier()
 
     # Optimization passes (bag of tricks) run them three times:
-    opt_passes = [Mem2RegPromotor(debug_db),
-                  RemoveAddZeroPass(debug_db),
-                  ConstantFolder(debug_db),
-                  CommonSubexpressionEliminationPass(debug_db),
-                  LoadAfterStorePass(debug_db),
-                  DeleteUnusedInstructionsPass(debug_db),
-                  CleanPass(debug_db)] * 3
+    opt_passes = [Mem2RegPromotor(),
+                  RemoveAddZeroPass(),
+                  ConstantFolder(),
+                  CommonSubexpressionEliminationPass(),
+                  LoadAfterStorePass(),
+                  DeleteUnusedInstructionsPass(),
+                  CleanPass()] * 3
 
     if level == '3':
-        opt_passes.append(CJumpPass(debug_db))
+        opt_passes.append(CJumpPass())
 
     # Run the passes over the module:
     verifier.verify(ir_module)
@@ -302,7 +296,7 @@ def optimize(ir_module, level=0, reporter=None, debug_db=None):
 
 
 def ir_to_stream(
-        ir_module, march, output_stream, debug_db=None, reporter=None,
+        ir_module, march, output_stream, reporter=None,
         debug=False, opt='speed'):
     """ Translate IR module to output stream.
     """
@@ -311,10 +305,7 @@ def ir_to_stream(
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    if not debug_db:  # pragma: no cover
-        debug_db = DebugDb()
-
-    code_generator = CodeGenerator(march, debug_db, optimize_for=opt)
+    code_generator = CodeGenerator(march, optimize_for=opt)
     verifier = Verifier()
     verifier.verify(ir_module)
 
@@ -324,7 +315,7 @@ def ir_to_stream(
 
 
 def ir_to_object(
-        ir_modules, march, debug_db=None, reporter=None, debug=False,
+        ir_modules, march, reporter=None, debug=False,
         opt='speed', outstream=None):
     """ Translate IR-modules into code for the given architecture.
 
@@ -344,9 +335,6 @@ def ir_to_object(
 
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
-
-    if not debug_db:  # pragma: no cover
-        debug_db = DebugDb()
 
     reporter.heading(2, 'Code generation')
     reporter.message("Target: {}".format(march))
@@ -368,7 +356,7 @@ def ir_to_object(
     for ir_module in ir_modules:
         ir_to_stream(
             ir_module, march, output_stream,
-            debug_db=debug_db, reporter=reporter, debug=debug, opt=opt)
+            reporter=reporter, debug=debug, opt=opt)
 
     # TODO: refactor polishing?
     obj.polish()
@@ -405,17 +393,11 @@ def cc(source: io.TextIOBase, march, coptions=None,
 
     if not coptions:
         coptions = COptions()
-    debug_db = DebugDb()
 
-    ir_module = c_to_ir(
-        source, march, coptions=coptions, debug_db=debug_db,
-        reporter=reporter)
+    ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
     reporter.message('{} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
-    return ir_to_object(
-        [ir_module], march,
-        debug_db=debug_db, debug=debug,
-        reporter=reporter)
+    return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
 
 
 def llvm_to_ir(source):
@@ -459,17 +441,15 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
     """
     reporter = get_reporter(reporter)
     march = get_arch(march)
-    debug_db = DebugDb()
     ir_modules = \
-        c3toir(sources, includes, march, reporter=reporter, debug_db=debug_db)
+        c3toir(sources, includes, march, reporter=reporter)
 
     for ircode in ir_modules:
         optimize(ircode, level=opt_level, reporter=reporter)
 
     opt_cg = 'size' if opt_level == 's' else 'speed'
     return ir_to_object(
-        ir_modules, march,
-        debug_db=debug_db, debug=debug, reporter=reporter,
+        ir_modules, march, debug=debug, reporter=reporter,
         opt=opt_cg, outstream=outstream)
 
 
@@ -487,8 +467,7 @@ def pascal(sources, march, opt_level=0, reporter=None):
     march = get_arch(march)
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
-    debug_db = DebugDb()
-    pascal_builder = PascalBuilder(diag, march.info, debug_db)
+    pascal_builder = PascalBuilder(diag, march.info)
 
     sources = [get_file(fn) for fn in sources]
     ir_modules = pascal_builder.build(sources)
@@ -543,8 +522,7 @@ def bfcompile(source, target, reporter=None):
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
-    debug_db = DebugDb()
-    return ir_to_object([ir_module], target, debug_db, reporter=reporter)
+    return ir_to_object([ir_module], target, reporter=reporter)
 
 
 def pycompile(source, march, reporter=None):

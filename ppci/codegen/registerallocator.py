@@ -196,10 +196,9 @@ class GraphColoringRegisterAllocator:
     logger = logging.getLogger('regalloc')
     verbose = False  # Set verbose to True to get more logging info
 
-    def __init__(self, arch: Architecture, instruction_selector, debug_db):
+    def __init__(self, arch: Architecture, instruction_selector):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
-        self.debug_db = debug_db
         self.spill_gen = MiniGen(arch, instruction_selector)
 
         # Register information:
@@ -631,7 +630,10 @@ class GraphColoringRegisterAllocator:
 
                 # Mark the register as used in this frame:
                 self.frame.used_regs.add(node.reg)
-                # self.debug_db.map(reg, self.arch.get_register(node.reg))
+                # TODO:
+                #if self.frame.debug_db:
+                #    self.frame.debug_db.map(
+                #        reg, self.arch.get_register(node.reg))
 
     def check_invariants(self):  # pragma: no cover
         """ Test invariants """

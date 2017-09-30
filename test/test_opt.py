@@ -17,8 +17,9 @@ from ppci.opt.tailcall import TailCallOptimization
 class OptTestCase(unittest.TestCase):
     """ Base testcase that prepares a module, builder and verifier """
     def setUp(self):
+        self.debug_db = DebugDb()
         self.builder = irutils.Builder()
-        self.module = ir.Module('test')
+        self.module = ir.Module('test', debug_db=self.debug_db)
         self.builder.set_module(self.module)
         self.function = self.builder.new_procedure('testfunction')
         self.builder.set_function(self.function)
@@ -26,7 +27,6 @@ class OptTestCase(unittest.TestCase):
         self.function.entry = entry
         self.builder.set_block(entry)
         self.verifier = Verifier()
-        self.debug_db = DebugDb()
 
     def dump(self):
         iof = io.StringIO()
@@ -42,7 +42,7 @@ class CleanTestCase(OptTestCase):
     """ Test the clean pass for correct function """
     def setUp(self):
         super().setUp()
-        self.clean_pass = CleanPass(self.debug_db)
+        self.clean_pass = CleanPass()
 
     def test_glue_blocks(self):
         epilog = self.builder.new_block()
@@ -82,7 +82,7 @@ class Mem2RegTestCase(OptTestCase):
     """ Test the memory to register lifter """
     def setUp(self):
         super().setUp()
-        self.mem2reg = Mem2RegPromotor(self.debug_db)
+        self.mem2reg = Mem2RegPromotor()
 
     def test_normal_use(self):
         alloc = self.builder.emit(ir.Alloc('A', 4))
@@ -158,8 +158,7 @@ class TypedEvalTestCase(unittest.TestCase):
 class TailCallTestCase(unittest.TestCase):
     """ Test the tail call optimization """
     def setUp(self):
-        self.debug_db = DebugDb()
-        self.opt = TailCallOptimization(self.debug_db)
+        self.opt = TailCallOptimization()
 
     def test_function_tailcall(self):
         """ Test if a tailcall in a function works out nicely """

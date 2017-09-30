@@ -14,7 +14,7 @@ from ppci.api import ir_to_object, get_arch, link, optimize
 from ppci.utils import codepage, reporting
 from ppci.binutils import debuginfo
 
-from ppci.irs.wasm import wasm_to_ppci, export_wasm_example
+from ppci.irs.wasm import wasm_to_ir, export_wasm_example
 from ppci.lang.python import python_to_wasm, ir_to_python
 
 logging.basicConfig(level=logging.DEBUG)
@@ -75,8 +75,7 @@ arch = get_arch('x86_64:wincc')  # todo: fix auto detecting arch on Windows
 wasm_module = python_to_wasm(py3)
 
 # Convert wasm to ppci
-debug_db = debuginfo.DebugDb()
-ppci_module = wasm_to_ppci(wasm_module, debug_db=debug_db)
+ppci_module = wasm_to_ir(wasm_module)
 
 # Optimizer fails, or makes it slower ;)
 # optimize(ppci_module, 2)
@@ -91,7 +90,7 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
     print(f.getvalue())
 
     # Compile to native object
-    ob = ir_to_object([ppci_module], arch, debug=True, debug_db=debug_db, reporter=reporter)
+    ob = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
 
 # Run in memory
 native_module = codepage.load_obj(ob)

@@ -169,9 +169,9 @@ class Module(WASMComponent):
     from which the module will polulate the function-related sections, and
     handle the binding of the function index space.
     """
-    
+
     __slots__ = ['sections', 'func_id_to_index']
-    
+
     def __init__(self, *sections):
         # Process sections, filter out high-level functions
         self.sections = []
@@ -192,10 +192,12 @@ class Module(WASMComponent):
                 elif isinstance(section, ImportSection):
                     import_section = section
                 elif isinstance(section, ExportSection):
+                    if export_section:
+                        raise ValueError('Export section given twice!')
                     export_section = section
             else:
                 raise TypeError('Module expects a Function, ImportedFunction, or a Section.')
-        
+
         # Process high level function desctiptions?
         if functions and has_lowlevel_funcs:
             raise TypeError('Module cannot have both Functions/ImportedFunctions and FunctionDefs/FunctionSigs.')

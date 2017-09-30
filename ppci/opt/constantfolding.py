@@ -19,8 +19,8 @@ def enhance(f):
 
 class ConstantFolder(BlockPass):
     """ Try to fold common constant expressions """
-    def __init__(self, debug_db):
-        super().__init__(debug_db)
+    def __init__(self):
+        super().__init__()
         self.ops = {
             '+': enhance(operator.add),
             '-': enhance(operator.sub),

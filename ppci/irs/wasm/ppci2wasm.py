@@ -1,37 +1,34 @@
-# WIP
 from ... import ir, relooper
 from . import components
 from ...domtree import CfgInfo
 
 
 def ir_to_wasm(ir_module):
-    c = IrToWasmConvertor()
-    return c.do(ir_module)
+    c = IrToWasmCompiler()
+    return c.compile(ir_module)
 
 
-class Gen:
-    def __init__(self, loops):
-        self.loop = 0
-        self.loops = loops
-
-    def gen_block(self, block):
-        print('  ' * self.loop + str(block))
-        # for s in block.successors:
-            # self.gen_block(s)
-
-
-class IrToWasmConvertor:
+class IrToWasmCompiler:
     """ Translates ir-code into wasm """
     def __init__(self):
         pass
 
-    def do(self, ir_module):
-        self.sections = []
+    def compile(self, ir_module):
+        """ Compile an ir-module into a wasm module """
+        self.types = []
+        self.exports = []
+        self.functions = []
+        self.function_defs = []
+        self.function_ids = {}
+
         for ir_function in ir_module.functions:
             self.do_function(ir_function)
 
         wasm_module = components.Module(
-            *self.sections
+            components.TypeSection(*self.types),
+            components.FunctionSection(*self.functions),
+            components.ExportSection(*self.exports),
+            components.CodeSection(*self.function_defs),
         )
         return wasm_module
 
@@ -57,8 +54,11 @@ class IrToWasmConvertor:
         # g.gen_block(function.entry)
 
         # Store incoming arguments:
-        for argument in reversed(ir_function.arguments):
-            self.emit(('set_local', self.get_value(argument)))
+        # Locals are located in local 0, 1, 2 etc..
+        for argument in ir_function.arguments:
+            # Arguments are implicit locals
+            self.get_value(argument)
+        #    self.emit(('set_local', self.get_value(argument)))
 
         # Emulated block jumps!
         #self.emit(('loop',))
@@ -75,15 +75,26 @@ class IrToWasmConvertor:
         else:
             ret_types = []
 
-        self.sections.append(components.Function(
-            function_name, arg_types, ret_types, self.local_vars,
-            self.instructions))
+        nr = len(self.types)
+        self.function_ids[function_name] = nr
+        self.types.append(components.FunctionSig(arg_types, ret_types))
+
+        # Add function type-id:
+        self.functions.append(nr)
+
+        self.function_defs.append(components.FunctionDef(
+            self.local_vars,
+            *self.instructions))
+
+        # Create an export section:
+        self.exports.append(components.Export(function_name, 'function', nr))
 
     def do_block(self, block):
         for instruction in block:
             self.do_instruction(instruction)
 
     def do_instruction(self, ir_instruction):
+        """ Implement proper logic for an ir instruction """
         if isinstance(ir_instruction, ir.Binop):
             op_map = {
                 '+': 'add',
@@ -129,15 +140,18 @@ class IrToWasmConvertor:
         elif isinstance(ir_instruction, ir.FunctionCall):
             for argument in ir_instruction.arguments:
                 self.emit(('get_local', self.get_value(argument)))
-            self.emit(('call', ir_instruction.function.name))
+            func_id = self.function_ids[ir_instruction.function_name]
+            self.emit(('call', func_id))
             self.emit(('set_local', self.get_value(ir_instruction)))
         elif isinstance(ir_instruction, ir.Jump):
             # TODO!
+            raise NotImplementedError()
             block = ir_instruction.block
             self.fill_phis(block, ir_instruction.target)
             self.emit(('break', ))
         elif isinstance(ir_instruction, ir.CJump):
             # TODO!
+            raise NotImplementedError()
             block = ir_instruction.block
             self.emit(('if', ))
             self.fill_phis(block, ir_instruction.lab_yes)
@@ -159,6 +173,7 @@ class IrToWasmConvertor:
                 self.emit(('set_local', self.get_value(i)))
 
     def get_ty(self, ir_ty):
+        """ Get the right wasm type for an ir type """
         ty_map = {
             ir.i8: 'i32',
             ir.i16: 'i32',
@@ -177,5 +192,7 @@ class IrToWasmConvertor:
         return self.local_var_map[value]
 
     def emit(self, instruction):
-        print(instruction)
+        """ Emit a single wasm instruction """
+        instruction = components.Instruction(*instruction)
+        print(instruction.to_text())  # instruction.to_bytes())
         self.instructions.append(instruction)

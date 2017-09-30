@@ -9,14 +9,14 @@ from ...binutils import debuginfo
 from . import Module
 
 
-def wasm_to_ppci(wasm_module, debug_db=None):
+def wasm_to_ir(wasm_module):
     """ Convert a WASM module into a PPCI native module. """
-    compiler = Wasm2PpciCompiler()
-    ppci_module = compiler.generate(wasm_module, debug_db)
+    compiler = WasmToIrCompiler()
+    ppci_module = compiler.generate(wasm_module)
     return ppci_module
 
 
-class Wasm2PpciCompiler:
+class WasmToIrCompiler:
     """ Convert WASM instructions into PPCI IR instructions.
     """
     logger = logging.getLogger('wasm2ir')
@@ -25,10 +25,11 @@ class Wasm2PpciCompiler:
         self.builder = irutils.Builder()
         self.blocknr = 0
 
-    def generate(self, wasm_module, debug_db=None):
+    def generate(self, wasm_module):
         assert isinstance(wasm_module, Module)
 
-        self.builder.module = ir.Module('mainmodule')
+        debug_db = debuginfo.DebugDb()
+        self.builder.module = ir.Module('mainmodule', debug_db=debug_db)
 
         for wasm_function in wasm_module.sections[-1].functiondefs:
             self.generate_function(wasm_function, debug_db)
@@ -63,7 +64,8 @@ class Wasm2PpciCompiler:
         db_function_info = debuginfo.DebugFunction('main',
             common.SourceLocation('main.wasm', 1, 1, 1),
             db_float, ())
-        debug_db.enter(ppci_function, db_function_info)
+        if debug_db:
+            debug_db.enter(ppci_function, db_function_info)
 
         entryblock = self.new_block()
         self.builder.set_block(entryblock)

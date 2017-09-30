@@ -22,11 +22,11 @@ class CodeGenerator:
     """
     logger = logging.getLogger('pascal.codegen')
 
-    def __init__(self, diag, debug_db):
+    def __init__(self, diag):
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
-        self.debug_db = debug_db
+        self.debug_db = debuginfo.DebugDb()
         self.module_ok = False
 
     def gencode(self, unit: nodes.Program, context):
@@ -37,7 +37,7 @@ class CodeGenerator:
         self.builder.prepare()
         self.module_ok = True
         self.logger.info('Generating ir-code for %s', unit.name)
-        self.builder.module = ir.Module(unit.name)
+        self.builder.module = ir.Module(unit.name, debug_db=self.debug_db)
 
         # Generate global variables:
         self.gen_globals(unit)

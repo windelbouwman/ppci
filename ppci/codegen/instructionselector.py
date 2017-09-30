@@ -97,10 +97,10 @@ class ContextInterface(metaclass=abc.ABCMeta):
 
 class InstructionContext(ContextInterface):
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, arch, debug_db):
+    def __init__(self, frame, arch):
         self.frame = frame
         self.arch = arch
-        self.debug_db = debug_db
+        self.debug_db = frame.debug_db
         self.tree = None
 
     def new_reg(self, cls):
@@ -202,7 +202,7 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
+    def __init__(self, arch, sgraph_builder, weights=(1, 1, 1)):
         """ Create a new instruction selector.
 
         Weights can be given to select instructions given more for:
@@ -214,8 +214,7 @@ class InstructionSelector1:
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
         self.arch = arch
-        self.debug_db = debug_db
-        self.dag_splitter = DagSplitter(arch, debug_db)
+        self.dag_splitter = DagSplitter(arch)
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
@@ -268,16 +267,17 @@ class InstructionSelector1:
         prepare_function_info(self.arch, function_info, ir_function)
 
         # Create selection dag (directed acyclic graph):
-        sgraph = self.dag_builder.build(ir_function, function_info)
+        sgraph = self.dag_builder.build(
+            ir_function, function_info, frame.debug_db)
         reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
-            sgraph, ir_function, function_info)
+            sgraph, ir_function, function_info, frame.debug_db)
         reporter.dump_trees(forest)
 
         # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.arch, self.debug_db)
+        context = InstructionContext(frame, self.arch)
 
         args = list(zip(function_info.arg_types, function_info.arg_vregs))
         for instruction in self.arch.gen_function_enter(args):

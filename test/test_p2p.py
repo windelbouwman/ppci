@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import Mock
 import io
 from ppci import api, ir, irutils
-from ppci.irs.wasm.ppci2wasm import IrToWasmConvertor
 from ppci.lang.python import load_py, python_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 

@@ -17,9 +17,9 @@ to native machine code.
 .. code:: python
 
     >>> import api
-    >>> from ppci.irs.wasm import wasm_to_ppci, load_wasm
+    >>> from ppci.irs.wasm import wasm_to_ir, load_wasm
     >>> wasm_module = load_wasm('demo.wast')
-    >>> ir_module = wasm_to_ppci(wasm_module)
+    >>> ir_module = wasm_to_ir(wasm_module)
     >>> obj = api.ir_to_code(ir_module, 'msp430')
     >>> print(obj)
     ...
@@ -28,5 +28,5 @@ to native machine code.
 Module reference
 ----------------
 
-.. autoclass:: ppci.irs.wasm.wasm2ppci.Wasm2PpciCompiler
+.. automodule:: ppci.irs.wasm
     :members:

@@ -12,7 +12,7 @@ from ...binutils import debuginfo
 def get_fty(fn):
     pass
 
-def python_to_ir(f, functions=None, debug_db=None):
+def python_to_ir(f, functions=None):
     """ Compile a piece of python code to an ir module.
 
     Args:
@@ -30,9 +30,7 @@ def python_to_ir(f, functions=None, debug_db=None):
         <ppci.ir.Module object at ...>
 
     """
-    if debug_db is None:
-        debug_db = debuginfo.DebugDb()
-    mod = PythonToIrTranspiler(debug_db).compile(f, functions=functions)
+    mod = PythonToIrTranspiler().compile(f, functions=functions)
     return mod
 
 
@@ -47,9 +45,6 @@ class PythonToIrTranspiler:
     """ Not peer-to-peer but python to ppci :) """
     logger = logging.getLogger('p2p')
 
-    def __init__(self, debug_db):
-        self.debug_db = debug_db
-
     def compile(self, f, functions=None):
         """ Convert python into IR-code.
 
@@ -59,6 +54,7 @@ class PythonToIrTranspiler:
         Returns:
             the ir-module.
         """
+        self.debug_db = debuginfo.DebugDb()
         src = f.read()
         self._filename = getattr(f, 'name', None)
         # Parse python code:
@@ -73,7 +69,7 @@ class PythonToIrTranspiler:
 
         self.builder = irutils.Builder()
         self.builder.prepare()
-        self.builder.set_module(ir.Module('foo'))
+        self.builder.set_module(ir.Module('foo', debug_db=self.debug_db))
         for df in x.body:
             self.logger.debug('Processing %s', df)
             if isinstance(df, ast.FunctionDef):

@@ -34,8 +34,9 @@ class Frame:
         Frames differ per machine. The only thing left to do for a frame
         is register allocation.
     """
-    def __init__(self, name):
+    def __init__(self, name, debug_db=None):
         self.name = name
+        self.debug_db = debug_db  # Eventual debug information
         self.instructions = []
         self.used_regs = set()
         self.temps = generate_temps()

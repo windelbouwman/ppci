@@ -119,17 +119,17 @@ class SelectionGraphBuilder:
     logger = logging.getLogger('selection-graph-builder')
     f_map = {}
 
-    def __init__(self, arch, debug_db):
+    def __init__(self, arch):
         self.arch = arch
-        self.debug_db = debug_db
         # size_map = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
         self.ptr_ty = arch.info.type_infos['ptr']
 
-    def build(self, ir_function: ir.SubRoutine, function_info):
+    def build(self, ir_function: ir.SubRoutine, function_info, debug_db):
         """ Create a selection graph for the given function.
 
         Selection graph is divided into groups for each basic block.
         """
+        self.debug_db = debug_db
         self.sgraph = SelectionGraph()
         self.function_info = function_info
 

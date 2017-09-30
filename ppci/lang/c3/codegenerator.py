@@ -22,11 +22,11 @@ class CodeGenerator:
     """
     logger = logging.getLogger('c3cgen')
 
-    def __init__(self, diag, debug_db):
+    def __init__(self, diag):
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
-        self.debug_db = debug_db
+        self.debug_db = debuginfo.DebugDb()
         self.module_ok = False
 
     def gencode(self, mod: ast.Module, context):
@@ -86,7 +86,7 @@ class CodeGenerator:
     def gen_globals(self, module, context):
         """ Generate global variables and modules """
         self.context = context
-        ir_module = ir.Module(module.name)
+        ir_module = ir.Module(module.name, debug_db=self.debug_db)
         context.var_map[module] = ir_module
 
         # Generate room for global variables:

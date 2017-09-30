@@ -10,9 +10,8 @@ class ModulePass(metaclass=abc.ABCMeta):
 
     Subclass this class to implement your own optimization pass.
     """
-    def __init__(self, debug_db=None):
+    def __init__(self):
         self.logger = logging.getLogger(str(self.__class__.__name__))
-        self.debug_db = debug_db
 
     def __repr__(self):
         return self.__class__.__name__
@@ -31,9 +30,11 @@ class FunctionPass(ModulePass):
     def run(self, ir_module):
         """ Main entry point for the pass """
         self.prepare()
+        self.debug_db = ir_module.debug_db
         assert isinstance(ir_module, ir.Module)
         for function in ir_module.functions:
             self.on_function(function)
+        self.debug_db = None
 
     @abc.abstractmethod
     def on_function(self, function):  # pragma: no cover

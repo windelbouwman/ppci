@@ -3,7 +3,6 @@ from .builder import CBuilder
 from .preprocessor import CTokenPrinter, CPreProcessor
 from .options import COptions
 from ...utils.reporting import DummyReportGenerator
-from ...binutils.debuginfo import DebugDb
 
 
 def preprocess(f, output_file, coptions=None):
@@ -17,17 +16,13 @@ def preprocess(f, output_file, coptions=None):
 
 
 def c_to_ir(
-        source: io.TextIOBase, march, coptions=None, debug_db=None,
-        reporter=None):
+        source: io.TextIOBase, march, coptions=None, reporter=None):
     """ C to ir translation. """
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
     if not coptions:  # pragma: no cover
         coptions = COptions()
-
-    if not debug_db:  # pragma: no cover
-        debug_db = DebugDb()
 
     from ...api import get_arch
     march = get_arch(march)
@@ -37,6 +32,6 @@ def c_to_ir(
         filename = getattr(source, 'name')
     else:
         filename = None
-    ir_module = cbuilder.build(
-        source, filename, debug_db=debug_db, reporter=reporter)
+
+    ir_module = cbuilder.build(source, filename, reporter=reporter)
     return ir_module
