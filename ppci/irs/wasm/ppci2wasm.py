@@ -4,6 +4,14 @@ from ...domtree import CfgInfo
 
 
 def ir_to_wasm(ir_module):
+    """ Compiles ir-code to a wasm module.
+
+    Args:
+        ir_module (ir.Module): The ir-module to compile
+
+    Returns:
+        A wasm module.
+    """
     c = IrToWasmCompiler()
     return c.compile(ir_module)
 
@@ -38,6 +46,7 @@ class IrToWasmCompiler:
         self.instructions = []
         self.local_var_map = {}
         self.local_vars = []
+        self.block_nrs = {}
         print()
         print('function:', ir_function)
         cfg = CfgInfo(ir_function)
@@ -60,18 +69,42 @@ class IrToWasmCompiler:
             self.get_value(argument)
         #    self.emit(('set_local', self.get_value(argument)))
 
+        # Loop 
+        self.block_idx_var = self.get_value(ir.Const(1, 'labelidx', ir.i32))
+        self.emit(('i32.const', 0))
+        self.emit(('set_local', self.block_idx_var))
+
         # Emulated block jumps!
-        #self.emit(('loop',))
-        #self.emit(('block',))
-        # self.emit(('br_table',))  # TODO: branch to the proper block
+        self.emit(('block', 'emptyblock'))  # Outer block, breaks to end
+        self.emit(('loop', 'emptyblock'))  # Loop block, breaks to here.
+
+        depth = 0
+        for ir_block in ir_function:
+            self.emit(('block', 'emptyblock'))
+            self.block_nrs[ir_block] = depth
+            depth += 1
+
+        # branch to the proper block by br_table-ing to the right exit
+        self.emit(('block', 'emptyblock'))
+        self.emit(('get_local', self.block_idx_var))
+        self.emit(('br_table', *list(range(depth)), 0))
+        self.emit(('end',))
+
         for ir_block in ir_function:
             self.do_block(ir_block)
-        #self.emit(('end',))
+            self.emit(('br', depth))  # Branch to loop
+            depth -= 1
+            self.emit(('end',))
+
+        self.emit(('end',))
+        self.emit(('end',))
 
         # Determine function signature:
         arg_types = [self.get_ty(a.ty) for a in ir_function.arguments]
         if isinstance(ir_function, ir.Function):
             ret_types = [self.get_ty(ir_function.return_ty)]
+            # Insert dummy value
+            self.emit((ret_types[0] + '.const', 1))
         else:
             ret_types = []
 
@@ -123,8 +156,13 @@ class IrToWasmCompiler:
             self.emit(('set_local', self.get_value(ir_instruction)))
         elif isinstance(ir_instruction, ir.Exit):
             self.emit(('return',))
+            # Another option might be branching out of all blocks?
+            # nr = self.block_nrs[ir_instruction.block]
+            # self.emit(('br', nr + 2))
         elif isinstance(ir_instruction, ir.Return):
             self.emit(('get_local', self.get_value(ir_instruction.result)))
+            # nr = self.block_nrs[ir_instruction.block]
+            # self.emit(('br', nr + 2))
             self.emit(('return',))
         elif isinstance(ir_instruction, ir.Const):
             ty = self.get_ty(ir_instruction.ty)
@@ -144,21 +182,25 @@ class IrToWasmCompiler:
             self.emit(('call', func_id))
             self.emit(('set_local', self.get_value(ir_instruction)))
         elif isinstance(ir_instruction, ir.Jump):
-            # TODO!
-            raise NotImplementedError()
             block = ir_instruction.block
             self.fill_phis(block, ir_instruction.target)
-            self.emit(('break', ))
+            self.jump_block(ir_instruction.target)
         elif isinstance(ir_instruction, ir.CJump):
-            # TODO!
-            raise NotImplementedError()
+            self.emit(('get_local', self.get_value(ir_instruction.a)))
+            self.emit(('get_local', self.get_value(ir_instruction.b)))
+            cmp_ops = {
+                '>': 'i32.gt_s'
+            }
+            op = cmp_ops[ir_instruction.cond]
+            self.emit((op,))
             block = ir_instruction.block
-            self.emit(('if', ))
+            self.emit(('if', 'emptyblock'))
             self.fill_phis(block, ir_instruction.lab_yes)
+            self.jump_block(ir_instruction.lab_yes)
             self.emit(('else', ))
             self.fill_phis(block, ir_instruction.lab_no)
+            self.jump_block(ir_instruction.lab_no)
             self.emit(('end', ))
-            self.emit(('break', ))
         elif isinstance(ir_instruction, ir.Phi):
             # Phi nodes are handled in jumps to this block!
             pass
@@ -171,6 +213,11 @@ class IrToWasmCompiler:
                 v = i.get_value(from_block)
                 self.emit(('get_local', self.get_value(v)))
                 self.emit(('set_local', self.get_value(i)))
+
+    def jump_block(self, b):
+        nr = self.block_nrs[b]
+        self.emit(('i32.const', nr))
+        self.emit(('set_local', self.block_idx_var))
 
     def get_ty(self, ir_ty):
         """ Get the right wasm type for an ir type """

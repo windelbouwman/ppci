@@ -38,7 +38,7 @@ def hexdump(bb):
         line += 1
 
 
-def export_wasm_example(filename, code, wasm):
+def export_wasm_example(filename, code, wasm, main_js=''):
     """ Generate an html file for the given code and wasm module.
     """
     
@@ -64,6 +64,7 @@ def export_wasm_example(filename, code, wasm):
     
     # Produce HTML
     js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
+    js = js.replace('MAIN_JS_PLACEHOLDER', main_js)
     html = html.replace('<title></title>', '<title>%s</title>' % fname)
     html = html.replace('CODE_PLACEHOLDER', code)
     html = html.replace('JS_PLACEHOLDER', js)

@@ -64,6 +64,9 @@ function compile_my_wasm() {
     print_ln('Initializing wasm module');
     print_ln('Result:');
     var module = new WebAssembly.Instance(module_, {js: providedfuncs});
+
+    MAIN_JS_PLACEHOLDER
+
     print_ln('\n');  // flush
     
 }

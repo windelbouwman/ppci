@@ -3,11 +3,11 @@
 import io
 import os
 from ppci.lang.c import COptions
-from ppci.api import c_to_ir, get_current_arch, optimize
+from ppci.api import c_to_ir, get_arch, optimize
 from ppci.irs.wasm import ir_to_wasm, export_wasm_example
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-arch = get_current_arch()
+arch = get_arch('arm')
 coptions = COptions()
 libc_dir = os.path.join(this_dir, '..', '..', 'librt', 'libc')
 coptions.add_include_path(libc_dir)
@@ -23,7 +23,11 @@ int add(int a, int b) {
 }
 
 int sub(int a, int b) {
- return add(a, b) - 133;
+/*
+  while (a > 2) {
+    a--;
+  }*/
+  return add(a, b) - 133;
 }
 
 """)
@@ -42,4 +46,8 @@ print(wasm_module.to_bytes())
 
 html_filename = os.path.join(this_dir, 'wasm_demo.html')
 src = 'source'
-export_wasm_example(html_filename, src, wasm_module)
+main_js = """
+print_ln(module.exports.add(2,5));
+print_ln(module.exports.sub(2,5));
+"""
+export_wasm_example(html_filename, src, wasm_module, main_js=main_js)
