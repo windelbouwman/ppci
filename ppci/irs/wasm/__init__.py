@@ -6,3 +6,4 @@ from ._opcodes import OPCODES, I
 from .components import *
 from .util import *
 from .wasm2ppci import wasm_to_ppci
+from .ppci2wasm import ir_to_wasm

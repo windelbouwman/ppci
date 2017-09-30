@@ -28,8 +28,6 @@ class CSemantics:
 
     def begin(self):
         self.scope = Scope()
-        self.scope.insert(
-            declarations.Typedef(self.int_type, '__builtin_va_list', None))
         self.declarations = []
 
     def finish_compilation_unit(self):

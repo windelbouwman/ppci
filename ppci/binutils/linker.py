@@ -10,7 +10,7 @@ from .debuginfo import SectionAdjustingReplicator, DebugInfo
 
 def link(
         objects, layout=None, use_runtime=False, partial_link=False,
-        reporter=None, debug=False):
+        reporter=None, debug=False, extra_symbols=None):
     """ Links the iterable of objects into one using the given layout.
 
     Args:
@@ -48,7 +48,8 @@ def link(
         objects.append(march.runtime)
 
     linker = Linker(march, reporter)
-    output_obj = linker.link(objects, layout=layout, debug=debug)
+    output_obj = linker.link(
+        objects, layout=layout, debug=debug, extra_symbols=extra_symbols)
     return output_obj
 
 
@@ -62,12 +63,17 @@ class Linker:
         self.reporter = reporter
 
     def link(self, input_objects, layout=None, partial_link=False,
-             debug=False):
+             debug=False, extra_symbols=None):
         """ Link together the given object files using the layout """
         assert isinstance(input_objects, (list, tuple))
 
         if self.reporter:
             self.reporter.heading(2, 'Linking')
+
+        if extra_symbols:
+            self.extra_symbols = extra_symbols
+        else:
+            self.extra_symbols = {}
 
         # Check all incoming objects for same architecture:
         for input_object in input_objects:
@@ -208,15 +214,21 @@ class Linker:
                     .format(image.size, mem.size))
             dst.add_image(image)
 
+    def get_symbol_value(self, obj, name):
+        """ Get value of a symbol from object or fallback """
+        # Lookup symbol:
+        if obj.has_symbol(name):
+            return obj.get_symbol_value(name)
+        elif name in self.extra_symbols:
+            return self.extra_symbols[name]
+        else:
+            raise CompilerError(
+                'Undefined reference "{}"'.format(name))
+
     def do_relocations(self, dst):
         """ Perform the correct relocation as listed """
         for reloc in dst.relocations:
-            # Lookup symbol:
-            if not dst.has_symbol(reloc.symbol_name):
-                raise CompilerError(
-                    'Undefined reference "{}"'.format(reloc.symbol_name))
-
-            sym_value = dst.get_symbol_value(reloc.symbol_name)
+            sym_value = self.get_symbol_value(dst, reloc.symbol_name)
             section = dst.get_section(reloc.section)
 
             # Determine location in memory of reloc patchup position:

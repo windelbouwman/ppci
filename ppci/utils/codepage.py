@@ -7,6 +7,7 @@ Credits for idea: Luke Campagnola
 
 import sys
 import mmap
+import logging
 import ctypes
 from ..api import c3c, link, get_current_arch
 from ..binutils import debuginfo, layout
@@ -23,6 +24,8 @@ def get_ctypes_type(debug_type):
         return mapping[debug_type.name]
     elif isinstance(debug_type, debuginfo.DebugPointerType):
         return ctypes.POINTER(get_ctypes_type(debug_type.pointed_type))
+    elif debug_type is None:
+        return
     else:  # pragma: no cover
         raise NotImplementedError(str(debug_type) + str(type(debug_type)))
 
@@ -60,6 +63,7 @@ class WinPage:
 class Mod:
     """ Container for machine code """
     def __init__(self, obj, callbacks=None):
+        logger = logging.getLogger('codepage')
         size = obj.byte_size
 
         if not obj.debug_info:
@@ -75,14 +79,18 @@ class Mod:
             self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
             buf = (ctypes.c_char * size).from_buffer(self._page)
             page_addr = ctypes.addressof(buf)
+        logger.debug('Allocated %s bytes at 0x%x', size, page_addr)
 
         # Create callback pointers if any:
+        self.import_symbols = []
         if callbacks:
-            for callback in callbacks:
+            for name, function, return_type, argument_types in callbacks:
                 restype = get_ctypes_type(return_type)
-                argtypes = [get_ctypes_type(a) for a in arguments]
+                argtypes = [get_ctypes_type(a) for a in argument_types]
                 ftype = ctypes.CFUNCTYPE(restype, *argtypes)
                 cb = ftype(function)
+                logger.debug('Import name %s', name)
+                self.import_symbols.append((name, cb))
 
         # Link to e.g. apply offset to global literals
         layout2 = layout.Layout()
@@ -93,7 +101,11 @@ class Mod:
         layout2.add_memory(layout_mem)
 
         # Link the object into memory:
-        obj = link([obj], layout=layout2, debug=True)
+        extra_symbols = {
+            name: ctypes.cast(cb, ctypes.c_void_p).value
+            for name, cb in self.import_symbols}
+        obj = link(
+            [obj], layout=layout2, debug=True, extra_symbols=extra_symbols)
         assert obj.byte_size == size
 
         # Load the code into the page:

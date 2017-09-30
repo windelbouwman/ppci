@@ -113,7 +113,6 @@ class CParser(RecursiveDescentParser):
         self.logger.debug('Parsing some nice C code!')
         self.init_lexer(tokens)
         self.typedefs = set()
-        self.typedefs.add('__builtin_va_list')
         cu = self.parse_translation_unit()
         self.logger.info('Parsing finished')
         return cu

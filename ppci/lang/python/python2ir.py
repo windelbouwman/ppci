@@ -68,8 +68,8 @@ class PythonToIrTranspiler:
 
         if functions:
             # Fill imported functions:
-            for name, fnc in functions.items():
-                self.function_map[name] = ''
+            for name, fnc, return_type, arg_types in functions:
+                self.function_map[name] = (return_type, arg_types)
 
         self.builder = irutils.Builder()
         self.builder.prepare()
@@ -114,24 +114,31 @@ class PythonToIrTranspiler:
         """ Transform a python function into an IR-function """
         self.local_map = {}
 
+        function_name = df.name
         dbg_int = debuginfo.DebugBaseType('int', 8, 1)
         return_type = self.get_ty(df.returns)
         if return_type:
-            ir_function = self.builder.new_function(df.name, return_type)
+            ir_function = self.builder.new_function(function_name, return_type)
         else:
-            ir_function = self.builder.new_procedure(df.name)
+            ir_function = self.builder.new_procedure(function_name)
         dbg_args = []
+        arg_types = []
         for arg in df.args.args:
             if not arg.annotation:
                 raise Exception('Need type annotation for {}'.format(arg.arg))
             aty = self.get_ty(arg.annotation)
-            name = arg.arg
+            arg_types.append(aty)
+            arg_name = arg.arg
 
             # Debug info:
-            param = ir.Parameter(name, aty)
-            dbg_args.append(debuginfo.DebugParameter(name, dbg_int))
+            param = ir.Parameter(arg_name, aty)
+            dbg_args.append(debuginfo.DebugParameter(arg_name, dbg_int))
 
             ir_function.add_parameter(param)
+
+        # Register function as known:
+        self.function_map[function_name] = (return_type, arg_types)
+
         self.logger.debug('Created function %s', ir_function)
         self.builder.block_number = 0
         self.builder.set_function(ir_function)
@@ -156,6 +163,16 @@ class PythonToIrTranspiler:
         self.block_stack = []
         self.gen_statement(df.body)
         assert not self.block_stack
+
+        # Return if not yet done
+        if not self.builder.block.is_closed:
+            if return_type:
+                if self.builder.block.is_empty:
+                    pass
+                else:
+                    raise NotImplementedError()
+            else:
+                self.emit(ir.Exit())
 
         # TODO: ugly:
         ir_function.delete_unreachable()
@@ -336,8 +353,7 @@ class PythonToIrTranspiler:
             name = expr.func.id
 
             # Lookup function and check types:
-            ftyp = self.function_map[name]
-            return_type = self.get_ty(ftyp.returns)
+            return_type, arg_types = self.function_map[name]
             self.logger.warning('Function arguments not type checked!')
 
             # Evaluate arguments:

@@ -5,6 +5,8 @@ from ..token import Token, bit_range, bit
 
 arm_isa = Isa()
 thumb_isa = Isa()
+neon_isa = Isa()
+vfp_isa = Isa()
 
 
 # Tokens:
