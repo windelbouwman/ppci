@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from ppci import commands
+from ppci.cli.hexutil import hexutil
 
 if __name__ == '__main__':
-    commands.hexutil()
+    hexutil()

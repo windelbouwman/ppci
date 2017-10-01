@@ -2,8 +2,8 @@
 
 """ Simple wrapper for the commandline usage. """
 
-from ppci import commands
+from ppci.cli.cc import cc
 
 
 if __name__ == '__main__':
-    commands.cc()
+    cc()

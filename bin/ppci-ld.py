@@ -2,8 +2,8 @@
 
 """ Simple wrapper for the commandline usage. """
 
-from ppci import commands
+from ppci.cli.link import link
 
 
 if __name__ == '__main__':
-    commands.link()
+    link()

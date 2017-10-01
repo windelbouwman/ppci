@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from ppci import commands
+from ppci.cli.opt import opt
 
 if __name__ == '__main__':
-    commands.opt()
+    opt()

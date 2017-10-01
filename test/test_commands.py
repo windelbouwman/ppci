@@ -4,12 +4,20 @@ import io
 import os
 from unittest.mock import patch
 
-from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
-from ppci.commands import link, opt, cc
-from ppci import commands
+from ppci.cli.c3c import c3c
+from ppci.cli.build import build
+from ppci.cli.asm import asm
+from ppci.cli.hexutil import hexutil
+from ppci.cli.yacc import yacc
+from ppci.cli.objdump import objdump
+from ppci.cli.objcopy import objcopy
+from ppci.cli.pascal import pascal
+from ppci.cli.link import link
+from ppci.cli.opt import opt
+from ppci.cli.cc import cc
+from ppci import api
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
-from ppci.api import get_arch
 from util import relpath, do_long_tests
 
 
@@ -125,12 +133,12 @@ class PascalTestCase(unittest.TestCase):
         """ Compile hello world.pas """
         hello_pas = relpath('..', 'examples', 'src', 'pascal', 'hello.pas')
         obj_file = new_temp_file('.obj')
-        commands.pascal(['-m', 'arm', '-o', obj_file, hello_pas])
+        pascal(['-m', 'arm', '-o', obj_file, hello_pas])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
-            commands.pascal(['-h'])
+            pascal(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('compiler', mock_stdout.getvalue())
 
@@ -183,7 +191,7 @@ class ObjcopyTestCase(unittest.TestCase):
     def test_command(self, mock_stdout, mock_stderr):
         obj_file = new_temp_file('.obj')
         bin_file = new_temp_file('.bin')
-        arch = get_arch('arm')
+        arch = api.get_arch('arm')
         obj = ObjectFile(arch)
         data = bytes(range(100))
         section = Section('.text')
@@ -296,7 +304,7 @@ class YaccTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
-            yacc_cmd(['-h'])
+            yacc(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('compiler compiler', mock_stdout.getvalue())
 
@@ -306,7 +314,7 @@ class YaccTestCase(unittest.TestCase):
         """ Test normal yacc use """
         grammar_file = relpath('..', 'ppci', 'codegen', 'burg.grammar')
         file1 = new_temp_file('.py')
-        yacc_cmd([grammar_file, '-o', file1])
+        yacc([grammar_file, '-o', file1])
         with open(file1, 'r') as f:
             content = f.read()
         self.assertIn('Automatically generated', content)

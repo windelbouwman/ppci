@@ -30,29 +30,35 @@ activated stand alone.
     $ ppci-c3c.py --machine arm examples/snake/game.c3
 
 .. _ppci-c3c:
-.. autoprogram:: ppci.commands:c3c_parser
+.. autoprogram:: ppci.cli.c3c:parser
     :prog: ppci-c3c.py
 
 .. _ppci-build:
-.. autoprogram:: ppci.commands:build_parser
+.. autoprogram:: ppci.cli.build:parser
     :prog: ppci-build.py
 
 .. _ppci-asm:
-.. autoprogram:: ppci.commands:asm_parser
+.. autoprogram:: ppci.cli.asm:parser
     :prog: ppci-asm.py
 
 .. _ppci-ld:
-.. autoprogram:: ppci.commands:link_parser
+.. autoprogram:: ppci.cli.link:parser
     :prog: ppci-ld.py
 
-.. autoprogram:: ppci.commands:objcopy_parser
+.. autoprogram:: ppci.cli.objcopy:parser
     :prog: ppci-objcopy.py
 
-.. autoprogram:: ppci.commands:objdump_parser
+.. autoprogram:: ppci.cli.objdump:parser
     :prog: ppci-objdump.py
 
-.. autoprogram:: ppci.commands:cc_parser
+.. autoprogram:: ppci.cli.opt:parser
+    :prog: ppci-opt.py
+
+.. autoprogram:: ppci.cli.cc:parser
     :prog: ppci-cc.py
 
-.. autoprogram:: ppci.commands:pycompile_parser
+.. autoprogram:: ppci.cli.pascal:parser
+    :prog: ppci-pascal.py
+
+.. autoprogram:: ppci.cli.pycompile:parser
     :prog: ppci-pycompile.py

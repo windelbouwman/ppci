@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from ppci import commands
+from ppci.cli.llc import llc
 
 
 if __name__ == '__main__':
-    commands.llc()
+    llc()
