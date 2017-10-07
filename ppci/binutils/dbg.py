@@ -42,16 +42,6 @@ class TmpValue:
         return 'TMP[0x{:X} {} {}]'.format(self.value, self.lval, self.typ)
 
 
-class SubscribleEvent:
-    def __init__(self):
-        self.callbacks = []
-
-    def fire(self, *args):
-        for callback in self.callbacks:
-            callback(*args)
-
-    def subscribe(self, callback):
-        self.callbacks.append(callback)
 
 
 class Debugger:
@@ -67,7 +57,6 @@ class Debugger:
         self.disassembler = Disassembler(self.arch)
         self.driver = driver
         self.logger = logging.getLogger('dbg')
-        self.state_event = SubscribleEvent()
         self.registers = self.get_registers()
         self.num2regmap = {r.num: r for r in self.registers}
         self.register_values = {rn: 0 for rn in self.registers}
@@ -75,38 +64,26 @@ class Debugger:
         self.variable_map = {}
         self.addr_map = {}
 
-        # Subscribe to events:
-        self.state_event.subscribe(self.on_halted)
-
-        # Fire initial change:
-        self.state_event.fire()
-
+        
     def __repr__(self):
         return 'Debugger for {} using {}'.format(self.arch, self.driver)
 
-    def on_halted(self):
-        if self.is_halted:
-            new_values = self.get_register_values(self.registers)
-            self.register_values.update(new_values)
-
+    
     # Start stop parts:
     def run(self):
         """ Run the program """
         self.logger.info('run')
         self.driver.run()
-        self.state_event.fire()
 
     def restart(self):
         self.logger.info('run')
         self.driver.restart()
-        self.state_event.fire()
-
+        
     def stop(self):
         """ Interrupt the currently running program """
         self.logger.info('stop')
         self.driver.stop()
-        self.state_event.fire()
-
+        
     def shutdown(self):
         pass
 
@@ -124,6 +101,8 @@ class Debugger:
         address = self.find_address(filename, row)
         if address is None:
             self.logger.warning('Could not find address for breakpoint')
+            print('Error: breakpoint not set!')
+            return
         self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
@@ -153,7 +132,6 @@ class Debugger:
 
     @property
     def is_running(self):
-        self.driver.update_status()
         return self.status == RUNNING
 
     @property
@@ -464,8 +442,6 @@ class DebugDriver:  # pragma: no cover
         """ Get the values for a range of registers """
         raise NotImplementedError()
 
-    def update_status(self):
-        raise NotImplementedError()
 
 
 class DummyDebugDriver(DebugDriver):
