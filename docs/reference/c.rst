@@ -119,10 +119,7 @@ it to parse C code and analyze its structure like this:
 Module reference
 ----------------
 
-.. autoclass:: ppci.lang.c.CParser
-    :members:
-
-.. autoclass:: ppci.lang.c.CSemantics
+.. automodule:: ppci.lang.c
     :members:
 
 

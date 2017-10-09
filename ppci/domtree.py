@@ -3,7 +3,6 @@ from collections import namedtuple
 
 DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])
 
-Loop = namedtuple('Loop', ['header', 'rest'])
 
 class CfgInfo:
     """ Calculate control flow graph info, such as dominators
@@ -23,6 +22,7 @@ class CfgInfo:
         # From here only succ and pred are relevant:
         self.dom = {}
         self.sdom = {}
+        self.reach = {}
         self.calculate_dominators()
 
         self.idom = {}
@@ -131,16 +131,3 @@ class CfgInfo:
                 for y in self.df[z]:
                     if self.idom[y] != x:
                         self.df[x].add(y)  # upwards rule
-
-    def calc_loops(self):
-        """ Calculate loops by use of the dominator info """
-        loops = []
-        for block in self.N:
-            for s in self.succ[block]:
-                if s in self.dom[block]:
-                    # Back edge!
-                    header = s
-                    print('back edge', block, s)
-                    loop = Loop(header=s, rest=block)
-                    loops.append(loop)
-        return loops

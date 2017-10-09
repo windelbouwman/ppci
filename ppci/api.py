@@ -181,8 +181,9 @@ def asm(source, march, debug=False):
 def disasm(data, march):
     """ Disassemble the given binary data for machine march.
 
-    data can be a filename or a file like object.
-    march can be a machine instance or a string indicating the target.
+    Args:
+        data: a filename or a file like object.
+        march: a machine instance or a string indicating the architecture.
 
     .. doctest::
 

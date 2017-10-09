@@ -18,7 +18,7 @@ to native machine code.
 
     >>> import api
     >>> from ppci.irs.wasm import wasm_to_ir, load_wasm
-    >>> wasm_module = load_wasm('demo.wast')
+    >>> # TODO: wasm_module = load_wasm('demo.wast')
     >>> ir_module = wasm_to_ir(wasm_module)
     >>> obj = api.ir_to_code(ir_module, 'msp430')
     >>> print(obj)

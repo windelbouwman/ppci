@@ -5,7 +5,7 @@ Reference
 .. toctree::
 
     api
-    usage
+    cli
     c3
     c
     buildxml
@@ -17,4 +17,5 @@ Reference
     objectformat
     wasm
     python2ir
+    relooping
     links

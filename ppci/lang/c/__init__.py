@@ -14,6 +14,7 @@ from .api import preprocess, c_to_ir
 
 
 __all__ = [
+    'create_ast', 'preprocess', 'c_to_ir',
     'CBuilder', 'CContext', 'CLexer', 'COptions', 'CPreProcessor', 'CParser',
-    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter',
-    'create_ast', 'preprocess', 'c_to_ir']
+    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter'
+    ]

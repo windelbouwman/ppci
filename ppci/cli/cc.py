@@ -13,6 +13,7 @@ from .. import api, irutils
 from ..binutils.outstream import TextOutputStream
 from ..lang.c import create_ast, CAstPrinter
 from ..lang.c.options import COptions, coptions_parser
+from ..irs.wasm import ir_to_wasm
 
 
 parser = argparse.ArgumentParser(
@@ -64,6 +65,9 @@ def cc(args=None):
 
                 if args.ir:  # Stop after ir code generation
                     irutils.print_module(ir_module, file=args.output)
+                elif args.wasm:  # Output web-assembly code
+                    wasm_module = ir_to_wasm(ir_module)
+                    wasm_module.to_file(args.output)
                 elif args.S:  # Output assembly code
                     stream = TextOutputStream(
                         printer=march.asm_printer, f=args.output)

@@ -106,6 +106,9 @@ compile_parser.add_argument(
     '--ir', help='Output ppci ir-code, do not generate code',
     action='store_true', default=False)
 compile_parser.add_argument(
+    '--wasm', help='Output WASM (WebAssembly)',
+    action='store_true', default=False)
+compile_parser.add_argument(
     '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
 
 

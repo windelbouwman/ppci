@@ -2,10 +2,12 @@
 
 import io
 import os
+import logging
 from ppci.lang.c import COptions
 from ppci.api import c_to_ir, get_arch, optimize
 from ppci.irs.wasm import ir_to_wasm, export_wasm_example
 
+logging.basicConfig(level=logging.DEBUG)
 this_dir = os.path.dirname(os.path.abspath(__file__))
 arch = get_arch('arm')
 coptions = COptions()
@@ -23,10 +25,17 @@ int add(int a, int b) {
 }
 
 int sub(int a, int b) {
-/*
+
   while (a > 2) {
-    a--;
-  }*/
+    if (a -b < 9)
+    {
+     a--;
+    }
+    else
+    {
+     a -= 2;
+    }
+  }
   return add(a, b) - 133;
 }
 
@@ -48,6 +57,6 @@ html_filename = os.path.join(this_dir, 'wasm_demo.html')
 src = 'source'
 main_js = """
 print_ln(module.exports.add(2,5));
-print_ln(module.exports.sub(2,5));
+  print_ln(module.exports.sub(2,5));
 """
 export_wasm_example(html_filename, src, wasm_module, main_js=main_js)
