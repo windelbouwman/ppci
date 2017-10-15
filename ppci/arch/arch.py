@@ -8,6 +8,16 @@ from .asm_printer import AsmPrinter
 from .. import ir
 
 
+# Idea: create several types of architectures.
+# One for real machines, one for virtual machines
+class BaseArchitecture:
+    pass
+
+
+class VirtualArchitecture:
+    pass
+
+
 class Architecture(metaclass=abc.ABCMeta):
     """ Base class for all targets """
     logger = logging.getLogger('arch')

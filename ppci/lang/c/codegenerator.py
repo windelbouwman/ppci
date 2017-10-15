@@ -111,8 +111,16 @@ class CCodeGenerator:
 
     def gen_function(self, function):
         """ Generate code for a function """
-        if not function.body:
-            return
+        if function.body:
+            self.gen_function_def(function)
+        else:
+            # TODO: when to put a function declaration as extern?
+            if function.storage_class == 'extern':
+                xf = ir.ExternalFunction(function.name)
+                self.builder.module.add_external(xf)
+
+    def gen_function_def(self, function):
+        """ Generate code for a function definition """
         self.logger.debug('Generating IR-code for %s', function.name)
         assert not self.break_block_stack
         assert len(self.continue_block_stack) == 0

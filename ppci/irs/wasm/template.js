@@ -53,6 +53,7 @@ function perf_counter() {
 var providedfuncs = {
     print_ln: print_ln,
     print_charcode: print_charcode,
+    bsp_putc: print_charcode,
     alert: alert,
     perf_counter: perf_counter,
 };

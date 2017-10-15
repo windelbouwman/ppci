@@ -32,6 +32,7 @@ class Typ:
 
 
 class PointerTyp(Typ):
+    """ Pointer type """
     pass
 
 
@@ -114,11 +115,16 @@ class Module:
     def __init__(self, name, debug_db=None):
         self.name = name
         self.debug_db = debug_db  # Carry along debug info
+        self.externals = []
         self._functions = []
         self._variables = []
 
     def __str__(self):
         return 'module {0}'.format(self.name)
+
+    def add_external(self, external):
+        """ Add an externally located thing """
+        self.externals.append(external)
 
     def add_function(self, function):
         """ Add a function to this module """
@@ -199,6 +205,22 @@ class GlobalValue(Value):
     """ A global value (with a name and an address) """
     def __init__(self, name):
         super().__init__(name, ptr)
+
+
+class External(GlobalValue):
+    """ External object """
+    def __repr__(self):
+        return 'external {}'.format(self.name)
+
+
+class ExternalSubRoutine(External):
+    """ External object """
+    pass
+
+
+class ExternalFunction(ExternalSubRoutine):
+    """ External function """
+    pass
 
 
 class SubRoutine(GlobalValue):

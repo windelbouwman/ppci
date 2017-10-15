@@ -474,6 +474,11 @@ class SelectionGraphBuilder:
                 from_val = phi.get_value(ir_block)
                 vreg1 = val_map[from_val]
 
+                # TODO: ensure this is valid:
+                # In case phi input is phi itself, do not copy value:
+                # if vreg is vreg1:
+                #    continue
+
                 # Create reg node:
                 sgnode1 = self.new_node('REG', phi.ty, value=vreg1)
                 val = sgnode1.new_output(vreg1.name)

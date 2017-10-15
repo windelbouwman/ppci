@@ -32,11 +32,11 @@ def python_to_wasm(code):
     locals = ['f64' for i in ctx.names]
 
     # Produce wasm
-    module = wasm.Module(
+    module = wasm.Module([
         wasm.ImportedFuncion('print_ln', ['f64'], [], 'js', 'print_ln'),
         wasm.ImportedFuncion('perf_counter', [], ['f64'], 'js', 'perf_counter'),
         wasm.Function('$main', [], [], locals, ctx.instructions),
-        )
+        ])
     return module
 
 
@@ -93,7 +93,7 @@ class PythonToWasmTranspiler:
         elif isinstance(node, ast.UnaryOp):
             self._compile_expr(node.operand, True)
             if isinstance(node.op, ast.USub):
-                self.instructions.append(('f64.neg'))
+                self.instructions.append(('f64.neg',))
             else:
                 self.syntax_error(
                     node, 'Unsupported unary operator: {}'.format(node.op))
@@ -102,29 +102,29 @@ class PythonToWasmTranspiler:
             self._compile_expr(node.left, True)
             self._compile_expr(node.right, True)
             if isinstance(node.op, ast.Add):
-                self.instructions.append(('f64.add'))
+                self.instructions.append(('f64.add',))
             elif isinstance(node.op, ast.Sub):
-                self.instructions.append(('f64.sub'))
+                self.instructions.append(('f64.sub',))
             elif isinstance(node.op, ast.Mult):
-                self.instructions.append(('f64.mul'))
+                self.instructions.append(('f64.mul',))
             elif isinstance(node.op, ast.Div):
-                self.instructions.append(('f64.div'))
+                self.instructions.append(('f64.div',))
             elif isinstance(node.op, ast.Mod):
                 # todo: this is fragile. E.g. for negative numbers
                 self._compile_expr(node.left, True)  # push again
                 self._compile_expr(node.right, True)
-                self.instructions.append(('f64.div'))
-                self.instructions.append(('f64.floor'))
-                self.instructions.append(('f64.mul'))  # consumes last right
-                self.instructions.append(('f64.sub'))  # consumes last left
+                self.instructions.append(('f64.div',))
+                self.instructions.append(('f64.floor',))
+                self.instructions.append(('f64.mul',))  # consumes last right
+                self.instructions.append(('f64.sub',))  # consumes last left
             elif isinstance(node.op, ast.FloorDiv):
-                self.instructions.append(('f64.div'))
-                self.instructions.append(('f64.floor'))  # not trunc
+                self.instructions.append(('f64.div',))
+                self.instructions.append(('f64.floor',))  # not trunc
             else:
                 self.syntax_error(node, 'Unsuppored binary op: %s' % node.op)
 
             if not push_stack:
-                self.instructions.append(('drop'))
+                self.instructions.append(('drop',))
 
         elif isinstance(node, ast.Compare):
             if len(node.ops) != 1:
@@ -134,17 +134,17 @@ class PythonToWasmTranspiler:
             self._compile_expr(node.comparators[0], True)
             op = node.ops[0]
             if isinstance(op, ast.Eq):
-                self.instructions.append(('f64.eq'))
+                self.instructions.append(('f64.eq',))
             elif isinstance(op, ast.NotEq):
-                self.instructions.append(('f64.ne'))
+                self.instructions.append(('f64.ne',))
             elif isinstance(op, ast.Gt):
-                self.instructions.append(('f64.gt'))
+                self.instructions.append(('f64.gt',))
             elif isinstance(op, ast.Lt):
-                self.instructions.append(('f64.lt'))
+                self.instructions.append(('f64.lt',))
             elif isinstance(op, ast.GtE):
-                self.instructions.append(('f64.ge'))
+                self.instructions.append(('f64.ge',))
             elif isinstance(op, ast.LtE):
-                self.instructions.append(('f64.le'))
+                self.instructions.append(('f64.le',))
             else:
                 self.syntax_erorr(node, 'Unsupported operand: %s' % op)
 
@@ -199,15 +199,15 @@ class PythonToWasmTranspiler:
             self.push_block('for')
             for i in [('get_local', start_stub), ('set_local', target), # Init target
                       ('block', 'emptyblock'), ('loop', 'emptyblock'),  # enter loop
-                      ('get_local', target), ('get_local', end_stub), ('f64.ge'), ('br_if', 1),  # break (level 2)
+                      ('get_local', target), ('get_local', end_stub), ('f64.ge',), ('br_if', 1),  # break (level 2)
                       ]:
                 self.instructions.append(i)
             for subnode in node.body:
                 self._compile_expr(subnode, False)
 
-            for i in [('get_local', target), ('get_local', step_stub), ('f64.add'), ('set_local', target),  # next iter
+            for i in [('get_local', target), ('get_local', step_stub), ('f64.add',), ('set_local', target),  # next iter
                       ('br', 0),  # loop
-                      ('end'), ('end'),  # end of loop and outer block
+                      ('end',), ('end',),  # end of loop and outer block
                       ]:
                 self.instructions.append(i)
             self.pop_block('for')
@@ -219,14 +219,14 @@ class PythonToWasmTranspiler:
 
             # Body
             self.push_block('while')
-            for i in [('block', 'emptyblock'), ('loop', 'emptyblock'),  # enter loop (outer block for break)
-                      ]:
+            # enter loop (outer block for break):
+            for i in [('block', 'emptyblock'), ('loop', 'emptyblock')]:
                 self.instructions.append(i)
             for subnode in node.body:
                 self._compile_expr(subnode, False)
             self._compile_expr(node.test, True)
             for i in [('br_if', 0),  # loop
-                      ('end'), ('end'),  # end of loop
+                      ('end',), ('end',),  # end of loop
                       ]:
                 self.instructions.append(i)
             self.pop_block('while')

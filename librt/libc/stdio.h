@@ -2,7 +2,7 @@
 #define STDIO_H
 
 void printf(char*, ...);
-void bsp_putc(char);
+extern void bsp_putc(char);
 
 #endif
 

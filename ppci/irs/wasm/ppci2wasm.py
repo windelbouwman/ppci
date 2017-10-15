@@ -1,6 +1,26 @@
+""" Compile IR-code into Web Assembly (WASM).
+
+IR-code is in SSA-form consisting of a soup of blocks. This means basic
+blocks connected by jumps. Wasm on the other hand requires a stack
+machine and structured control flow.
+
+The compilation strategy is hence as follows:
+- Transform SSA form of a function into expression trees
+- Extract the structured control flow per function
+- Walk over structured control shapes
+- For each shape, evaluate the expression trees in it.
+
+"""
+
 import logging
 from ... import ir, relooper
 from . import components
+from ...codegen.irdag import SelectionGraphBuilder, prepare_function_info
+from ...codegen.irdag import FunctionInfo
+from ...codegen.dagsplit import DagSplitter
+from ...binutils import debuginfo
+from .arch import WasmArchitecture
+from .arch import I32Register, I64Register
 
 
 def ir_to_wasm(ir_module):
@@ -12,35 +32,100 @@ def ir_to_wasm(ir_module):
     Returns:
         A wasm module.
     """
-    c = IrToWasmCompiler()
-    return c.compile(ir_module)
+    ir_to_wasm_compiler = IrToWasmCompiler()
+    ir_to_wasm_compiler.prepare_compilation()
+    if isinstance(ir_module, (list, tuple)):
+        for m in ir_module:
+            ir_to_wasm_compiler.compile(m)
+    else:
+        ir_to_wasm_compiler.compile(ir_module)
+    return ir_to_wasm_compiler.create_wasm_module()
 
 
 class IrToWasmCompiler:
     """ Translates ir-code into wasm """
     logger = logging.getLogger('ir2wasm')
+    STACKSIZE = 1000  # Virtual stack size
 
-    def __init__(self):
-        pass
-
-    def compile(self, ir_module):
-        """ Compile an ir-module into a wasm module """
+    def prepare_compilation(self):
         self.types = []
+        self.type_ids = {}
+        self.imports = []
         self.exports = []
         self.functions = []
         self.function_defs = []
         self.function_ids = {}
+        self.initial_memory = []
+        self.global_vars = []
+        self.global_memory = self.STACKSIZE  # fill up global memory on the go!
 
+    def compile(self, ir_module):
+        """ Compile an ir-module into a wasm module """
+        self.logger.debug('Generating wasm for %s', ir_module)
+
+        # Global variables:
+        # Keep track of virtual stack pointer:
+        self.global_vars.append(
+            components.Global('i32', 'mut', self.STACKSIZE))
+
+        # Check external thingies:
+        for ir_external in ir_module.externals:
+            # TODO: signature:
+            if ir_external.name in self.function_ids:
+                pass
+                # raise ValueError(
+                #     'Function {} already defined'.format(ir_external.name))
+            else:
+                typ_id = self.get_type_id((ir.i32,), ())
+                self.imports.append(
+                    components.Import(
+                        'js', ir_external.name, 'function', typ_id))
+                self.function_ids[ir_external.name] = len(self.function_ids)
+
+        # Global variables:
+        for ir_variable in ir_module.variables:
+            if ir_variable.value:
+                self.initial_memory.append(
+                    (0, self.global_memory, ir_variable.value))
+            self.global_memory += ir_variable.amount
+
+        # Register function numbers (for mutual recursive functions):
+        for func_nr, ir_function in enumerate(
+                ir_module.functions, start=len(self.function_ids)):
+            if ir_function.name in self.function_ids:
+                raise ValueError(
+                    'Function {} already defined'.format(ir_function.name))
+            else:
+                self.function_ids[ir_function.name] = func_nr
+
+        # Functions:
         for ir_function in ir_module.functions:
             self.do_function(ir_function)
 
-        wasm_module = components.Module(
-            components.TypeSection(*self.types),
-            components.FunctionSection(*self.functions),
-            components.ExportSection(*self.exports),
-            components.CodeSection(*self.function_defs),
-        )
+    def create_wasm_module(self):
+        wasm_module = components.Module([
+            components.GlobalSection(self.global_vars),
+            components.MemorySection([10]),  # Start with 10 pages?
+            components.DataSection(self.initial_memory),
+            components.TypeSection(self.types),
+            components.ImportSection(self.imports),
+            components.FunctionSection(self.functions),
+            components.ExportSection(self.exports),
+            components.CodeSection(self.function_defs),
+        ])
         return wasm_module
+
+    def get_type_id(self, arg_types, ret_types):
+        """ Get wasm type id and create a signature if required! """
+        # Get type signature!
+        arg_types = tuple(self.get_ty(t) for t in arg_types)
+        ret_types = tuple(self.get_ty(t) for t in ret_types)
+        key = (arg_types, ret_types)
+        if key not in self.type_ids:
+            # Store it in type map!
+            self.type_ids[key] = len(self.types)
+            self.types.append(components.FunctionSig(arg_types, ret_types))
+        return self.type_ids[key]
 
     def do_function(self, ir_function):
         """ Generate WASM for a single function """
@@ -48,111 +133,126 @@ class IrToWasmCompiler:
         self.instructions = []
         self.local_var_map = {}
         self.local_vars = []
-
-        # Store incoming arguments:
-        # Locals are located in local 0, 1, 2 etc..
-        for argument in ir_function.arguments:
-            # Arguments are implicit locals
-            self.get_value(argument)
-        #    self.emit(('set_local', self.get_value(argument)))
+        self.local_labels = {}
+        self.stack = 0
+        self.logger.debug('Generating wasm for %s', ir_function)
 
         # Generate function code:
+        # Create a selection graph, so that we have expression trees
+        arch = WasmArchitecture()
+        sdagb = SelectionGraphBuilder(arch)
+        frame = arch.new_frame(function_name, None)
+        self.fi = FunctionInfo(frame)
+        prepare_function_info(arch, self.fi, ir_function)
+        dbdb = debuginfo.DebugDb()
+        self.sdag = sdagb.build(ir_function, self.fi, dbdb)
+        self.ds = DagSplitter(arch)
+        self.ds.assign_vregs(self.sdag, self.fi)
+        self.ds.split_into_trees(
+            self.sdag, ir_function, self.fi, dbdb)
+
+        # Place used literals in global memory:
+        for lab, cv in frame.constants:
+            assert isinstance(cv, bytes)
+            addr = self.global_memory
+            self.local_labels[lab] = addr
+            self.initial_memory.append((0, addr, cv))
+            self.global_memory += len(cv)
+
+        self.increment_stack_pointer()
+
+        # Locals are located in local 0, 1, 2 etc..
+        # The first x locals are the function arguments.
+        for i, argument_vreg in enumerate(self.fi.arg_vregs):
+            self.local_var_map[argument_vreg] = i
+
         # Transform ir-code in shaped code:
         self._block_stack = []
         shape, self.rmap = relooper.find_structure(ir_function)
         self.do_shape(shape)
 
-        # Determine function signature:
-        arg_types = [self.get_ty(a.ty) for a in ir_function.arguments]
-        if isinstance(ir_function, ir.Function):
-            ret_types = [self.get_ty(ir_function.return_ty)]
-            # Insert dummy value
-            self.emit((ret_types[0] + '.const', 1))
-        else:
-            ret_types = []
+        self.decrement_stack_pointer()
 
-        nr = len(self.types)
-        self.function_ids[function_name] = nr
-        self.types.append(components.FunctionSig(arg_types, ret_types))
+        if isinstance(ir_function, ir.Function):
+            # Insert dummy value at end of function:
+            # TODO: this is ugly!
+            ret_type = self.get_ty(ir_function.return_ty)
+            self.emit((ret_type + '.const', 0))
+
+        # Determine function signature:
+        arg_types = tuple(a.ty for a in ir_function.arguments)
+        if isinstance(ir_function, ir.Function):
+            ret_types = (ir_function.return_ty,)
+        else:
+            ret_types = ()
+
+        type_nr = self.get_type_id(arg_types, ret_types)
 
         # Add function type-id:
-        self.functions.append(nr)
+        self.functions.append(type_nr)
 
         self.function_defs.append(components.FunctionDef(
             self.local_vars,
-            *self.instructions))
+            self.instructions))
 
+        func_nr = self.function_ids[function_name]
         # Create an export section:
-        self.exports.append(components.Export(function_name, 'function', nr))
+        # TODO: not all functions should be exported, only public ones.
+        self.exports.append(
+            components.Export(function_name, 'function', func_nr))
 
-    def _deprecated_fallback_codegen(self, ir_blocks):
-        # This is emergency code, when we have code with a lot of goto's
-        # we cannot determine the form of the code..
+    def increment_stack_pointer(self):
+        """ Allocate stack if needed """
+        if self.fi.frame.stacksize > 0:
+            self.emit(('get_global', 0))
+            self.emit(('i32.const', self.fi.frame.stacksize))
+            self.emit(('i32.sub',))
+            self.emit(('set_global', 0))
 
-        # This code is kept here as a start for C-code which contains
-        # unstructured goto statements.
-
-        self.block_nrs = {}
-
-        # Loop
-        self.block_idx_var = self.get_value(ir.Const(1, 'labelidx', ir.i32))
-        self.emit(('i32.const', 0))
-        self.emit(('set_local', self.block_idx_var))
-
-        # Emulated block jumps!
-        self.emit(('block', 'emptyblock'))  # Outer block, breaks to end
-        self.emit(('loop', 'emptyblock'))  # Loop block, breaks to here.
-
-        depth = 0
-        for ir_block in ir_blocks:
-            self.emit(('block', 'emptyblock'))
-            self.block_nrs[ir_block] = depth
-            depth += 1
-
-        # branch to the proper block by br_table-ing to the right exit
-        self.emit(('block', 'emptyblock'))
-        self.emit(('get_local', self.block_idx_var))
-        self.emit(('br_table', *list(range(depth)), 0))
-        self.emit(('end',))
-
-        for ir_block in ir_blocks:
-            self.do_block(ir_block)
-            self.emit(('br', depth))  # Branch to loop
-            depth -= 1
-            self.emit(('end',))
-
-        self.emit(('end',))
-        self.emit(('end',))
+    def decrement_stack_pointer(self):
+        if self.fi.frame.stacksize > 0:
+            self.emit(('get_global', 0))
+            self.emit(('i32.const', self.fi.frame.stacksize))
+            self.emit(('i32.add',))
+            self.emit(('set_global', 0))
 
     def do_shape(self, shape):
         """ Generate code for a given code shape """
         if isinstance(shape, relooper.BasicShape):
             ir_block = self.rmap[shape.content]
-            # self.follow_blocks.append(follow)
             self.do_block(ir_block)
-            # self.follow_blocks.pop(-1)
         elif isinstance(shape, relooper.SequenceShape):
             for sub_shape in shape.shapes:
-                self.do_shape(sub_shape)
+                if sub_shape is not None:
+                    self.do_shape(sub_shape)
         elif isinstance(shape, relooper.IfShape):
             ir_block = self.rmap[shape.content]
             self.do_block(ir_block)
+            assert self.stack == 1, str(self.stack)
+            self.stack -= 1
             self.push_block('if')
             self.emit(('if', 'emptyblock'))
-            self.do_shape(shape.yes_shape)
-            self.emit(('else', ))
-            self.do_shape(shape.no_shape)
+            assert self.stack == 0, str(self.stack)
+            if shape.yes_shape is not None:
+                self.do_shape(shape.yes_shape)
+            if shape.no_shape is not None:
+                self.emit(('else', ))
+                self.do_shape(shape.no_shape)
             self.emit(('end', ))
+            assert self.stack == 0, str(self.stack)
             self.pop_block('if')
         elif isinstance(shape, relooper.BreakShape):
             # Break out of the current loop!
             assert shape.level == 0
+            assert self.stack == 0, str(self.stack)
             self.emit(('br', self._get_block_level() + 1))
         elif isinstance(shape, relooper.ContinueShape):
             # Continue the current loop!
             assert shape.level == 0
+            assert self.stack == 0, str(self.stack)
             self.emit(('br', self._get_block_level()))
         elif isinstance(shape, relooper.LoopShape):
+            assert self.stack == 0, str(self.stack)
             self.push_block('loop')
             self.emit(('block', 'emptyblock'))  # Outer block, breaks to end
             self.emit(('loop', 'emptyblock'))  # Loop block, breaks to here.
@@ -160,124 +260,162 @@ class IrToWasmCompiler:
             self.emit(('end',))
             self.emit(('end',))
             self.pop_block('loop')
+            assert self.stack == 0, str(self.stack)
         else:
             raise NotImplementedError(str(shape))
 
-    def do_block(self, block):
+    def do_block(self, ir_block):
         """ Generate code for the given block """
-        self.logger.debug('Generating %s', block)
-        for instruction in block:
-            self.do_instruction(instruction)
+        self.logger.debug('Generating %s', ir_block)
+        block_trees = self.ds.split_group_into_trees(
+            self.sdag, self.fi, ir_block)
+        for tree in block_trees:
+            print(tree)
+            self.do_tree(tree)
+            # if tree.name == 'CALL' and 
 
-    def do_instruction(self, ir_instruction):
+    binop_map = {
+        'ADDI32': 'i32.add',
+        'ADDU32': 'i32.add',
+        'SUBI32': 'i32.sub',
+        'SUBU32': 'i32.sub',
+        'MULI32': 'i32.mul',
+        'MULU32': 'i32.mul',
+        'DIVI32': 'i32.div_s',
+        'DIVU32': 'i32.div_u',
+        'REMI32': 'i32.rem_s',
+        'REMU32': 'i32.rem_u',
+        'ADDI64': 'i64.add',
+        'SUBI64': 'i64.sub',
+        'MULI64': 'i64.mul',
+    }
+
+    cmp_ops = {
+        '>': 'i32.gt_s',
+        '>=': 'i32.ge_s',
+        '<': 'i32.lt_s',
+        '<=': 'i32.le_s',
+        '==': 'i32.eq',
+        '!=': 'i32.ne',
+    }
+
+    store_opcodes = {
+        'STRI8': 'i32.store8',
+        'STRU8': 'i32.store8',
+        'STRI16': 'i32.store16',
+        'STRU16': 'i32.store16',
+        'STRI32': 'i32.store',
+        'STRU32': 'i64.store32',  # TODO
+        'STRI64': 'i64.store',
+    }
+
+    load_opcodes = {
+        'LDRI8': 'i32.load8_s',
+        'LDRU8': 'i32.load8_u',
+        'LDRI16': 'i32.load16_s',
+        'LDRU16': 'i32.load16_u',
+        'LDRI32': 'i32.load',
+        'LDRU32': 'i64.load32_u',
+        'LDRI64': 'i64.load',
+    }
+
+    const_opcodes = {
+        'CONSTI8': 'i32.const',
+        'CONSTU8': 'i32.const',
+        'CONSTI16': 'i32.const',
+        'CONSTU16': 'i32.const',
+        'CONSTI32': 'i32.const',
+        'CONSTI64': 'i64.const',
+        'CONSTU64': 'i64.const',
+        'CONSTF32': 'f32.const',
+        'CONSTF64': 'f64.const',
+    }
+
+    cast_operators = {
+        'I32TOI32', 'I32TOU32', 'U32TOI32', 'U32TOU32',
+        'I32TOI8', 'I8TOI32',
+        'U32TOU8', 'U8TOU32',
+        'I32TOI16', 'I16TOI32',
+    }
+
+    def do_tree(self, tree):
         """ Implement proper logic for an ir instruction """
-        if isinstance(ir_instruction, ir.Binop):
-            op_map = {
-                '+': 'add',
-                '-': 'sub',
-                '/': 'div',
-                '*': 'mul',
-                '%': 'mod',
-            }
-            if ir_instruction.operation in op_map:
-                self.emit(('get_local', self.get_value(ir_instruction.a)))
-                self.emit(('get_local', self.get_value(ir_instruction.b)))
-                opcode = op_map[ir_instruction.operation]
-                ty = self.get_ty(ir_instruction.ty)
-                self.emit(('{}.{}'.format(ty, opcode), ))
-                self.emit(('set_local', self.get_value(ir_instruction)))
-            else:
-                raise NotImplementedError(str(ir_instruction))
-        elif isinstance(ir_instruction, ir.Alloc):
-            heap = 0
-            heap += ir_instruction.amount
-            self.emit(('set_local', 'heap', heap))
-        elif isinstance(ir_instruction, ir.Store):
-            self.emit(('store.i64', self.get_value(ir_instruction.value)))
-        elif isinstance(ir_instruction, ir.Load):
-            self.emit(('load.i64', ))
-            self.emit(('set_local', self.get_value(ir_instruction)))
-        elif isinstance(ir_instruction, ir.Exit):
-            self.emit(('return',))
-            # Another option might be branching out of all blocks?
-            # nr = self.block_nrs[ir_instruction.block]
-            # self.emit(('br', nr + 2))
-        elif isinstance(ir_instruction, ir.Return):
-            self.emit(('get_local', self.get_value(ir_instruction.result)))
-            # nr = self.block_nrs[ir_instruction.block]
-            # self.emit(('br', nr + 2))
-            self.emit(('return',))
-        elif isinstance(ir_instruction, ir.Const):
-            ty = self.get_ty(ir_instruction.ty)
-            self.emit(('{}.const'.format(ty), ir_instruction.value))
-            self.emit(('set_local', self.get_value(ir_instruction)))
-        elif isinstance(ir_instruction, ir.Cast):
-            self.emit(('get_local', self.get_value(ir_instruction.src)))
-            self.emit(('set_local', self.get_value(ir_instruction)))
-        elif isinstance(ir_instruction, ir.ProcedureCall):
-            for argument in ir_instruction.arguments:
+        # TODO: we might have used codegen.treeselector class here...
+        if tree.name in self.binop_map:
+            self.do_tree(tree[0])
+            self.do_tree(tree[1])
+            opcode = self.binop_map[tree.name]
+            self.stack -= 1
+            self.emit((opcode, ))
+        elif tree.name in ['MOVI8', 'MOVI32', 'MOVI64', 'MOVF32', 'MOVF64']:
+            self.do_tree(tree[0])
+            self.emit(('set_local', self.get_value(tree.value)))
+            self.stack -= 1
+        elif tree.name in ['REGI8', 'REGI32', 'REGI64', 'REGF32', 'REGF64']:
+            self.emit(('get_local', self.get_value(tree.value)))
+            self.stack += 1
+        elif tree.name in ['FPRELI32']:
+            addr = tree.value.offset
+            self.emit(('get_global', 0))  # Fetch stack pointer
+            self.emit(('i32.const', addr))
+            self.emit(('i32.add',))
+            self.stack += 1
+        elif tree.name in self.store_opcodes:
+            self.do_tree(tree[0])
+            self.do_tree(tree[1])
+            store_op = self.store_opcodes[tree.name]
+            self.emit((store_op, 0, 0))
+            self.stack -= 2
+        elif tree.name in self.load_opcodes:
+            self.do_tree(tree[0])
+            load_op = self.load_opcodes[tree.name]
+            self.emit((load_op, 0, 0))  # offset, align
+        elif tree.name in self.const_opcodes:
+            opcode = self.const_opcodes[tree.name]
+            self.emit((opcode, tree.value))
+            self.stack += 1
+        elif tree.name == 'LABEL':  # isinstance(tree, ir.LiteralData):
+            addr = self.local_labels[tree.value]
+            self.emit(('i32.const', addr))
+            self.stack += 1
+        elif tree.name in self.cast_operators:
+            self.do_tree(tree[0])
+        elif tree.name == 'CALL':
+            function_name, argv, rv = tree.value
+            for ty, argument in argv:
                 self.emit(('get_local', self.get_value(argument)))
-            self.emit(('call', ir_instruction.function.name))
-        elif isinstance(ir_instruction, ir.FunctionCall):
-            for argument in ir_instruction.arguments:
-                self.emit(('get_local', self.get_value(argument)))
-            func_id = self.function_ids[ir_instruction.function_name]
+            func_id = self.function_ids[function_name]
             self.emit(('call', func_id))
-            self.emit(('set_local', self.get_value(ir_instruction)))
-        elif isinstance(ir_instruction, ir.Jump):
-            self.fill_phis(ir_instruction)
+            if rv:
+                self.emit(('set_local', self.get_value(rv[1])))
+        elif tree.name == 'JMP':
             # Actual jump handled by shapes!
-            # self.jump_block(ir_instruction.target)
-        elif isinstance(ir_instruction, ir.CJump):
-            self.emit(('get_local', self.get_value(ir_instruction.a)))
-            self.emit(('get_local', self.get_value(ir_instruction.b)))
-            cmp_ops = {
-                '>': 'i32.gt_s',
-                '>=': 'i32.ge_s',
-                '<': 'i32.lt_s',
-                '<=': 'i32.le_s',
-                '==': 'i32.eq_s',
-            }
-            op = cmp_ops[ir_instruction.cond]
-            self.emit((op,))
-            # Fill all phis:
-            self.fill_phis(ir_instruction)
+            if tree.value is self.fi.epilog_label:
+                self.decrement_stack_pointer()
+                # We are returning from function!
+                if hasattr(self.fi, 'rv_vreg') and self.fi.rv_vreg:
+                    self.emit(('get_local', self.get_value(self.fi.rv_vreg)))
+                self.emit(('return',))
+        elif tree.name in ['CJMPI32', 'CJMPI8']:
+            # Ensure operands are on stack:
+            self.do_tree(tree[0])
+            self.do_tree(tree[1])
+            opcode = self.cmp_ops[tree.value[0]]
+            self.emit((opcode,))
+            self.stack -= 1
             # Jump is handled by shapes!
-        elif isinstance(ir_instruction, ir.Phi):
-            # Phi nodes are handled in jumps to this block!
-            pass
         else:
-            raise NotImplementedError(str(ir_instruction))
-
-    def fill_phis(self, ins):
-        from_block = ins.block
-        for to_block in from_block.successors:
-            for i in to_block:
-                if isinstance(i, ir.Phi):
-                    v = i.get_value(from_block)
-                    self.emit(('get_local', self.get_value(v)))
-                    self.emit(('set_local', self.get_value(i)))
-
-    def jump_block(self, b):
-        # Lookup branch depth
-        depth = self._block_stack.index(b)
-        self.emit(('br', depth))  # Branch to loop
-
-        # If all else fails, use backup plan:
-        if False:
-            raise NotImplementedError()
-            # nr = self.block_nrs[b]
-            # self.emit(('i32.const', nr))
-            # self.emit(('set_local', self.block_idx_var))
+            raise NotImplementedError(str(tree))
 
     def get_ty(self, ir_ty):
         """ Get the right wasm type for an ir type """
         ty_map = {
-            ir.i8: 'i32',
-            ir.i16: 'i32',
+            ir.i8: 'i32', ir.u8: 'i32',
+            ir.i16: 'i32', ir.u16: 'i32',
             ir.i32: 'i32',
-            ir.i64: 'i64',
-            ir.f64: 'f64',
+            ir.u32: 'i64',  # TODO: Should u32 map to i64?
+            ir.i64: 'i64', ir.u64: 'i64',
+            ir.f64: 'f64', ir.f32: 'f32',
             ir.ptr: 'i32',  # TODO: for now assume we use 32 bit pointers.
         }
         return ty_map[ir_ty]
@@ -286,14 +424,15 @@ class IrToWasmCompiler:
         """ Create a local number for the given value """
         if value not in self.local_var_map:
             self.local_var_map[value] = len(self.local_var_map)
-            ty = self.get_ty(value.ty)
+            ty_map = {I32Register: 'i32', I64Register: 'i64'}
+            ty = ty_map[type(value)]
             self.local_vars.append(ty)
         return self.local_var_map[value]
 
     def emit(self, instruction):
         """ Emit a single wasm instruction """
-        instruction = components.Instruction(*instruction)
-        print(instruction.to_text())  # instruction.to_bytes())
+        instruction = components.Instruction(instruction[0], instruction[1:])
+        print(instruction.to_text())  # , instruction.to_bytes())
         self.instructions.append(instruction)
 
     def push_block(self, kind):

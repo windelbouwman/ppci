@@ -13,6 +13,7 @@ IR_FORMAT_INDENT = 2
 
 
 def print_module(module, file=None, verify=True):
+    """ Print an ir-module as text """
     Writer(file=file).write(module, verify=verify)
 
 
@@ -32,16 +33,22 @@ class Writer:
         if verify:
             Verifier().verify(module)
         self.print(0, '{};'.format(module))
-        for v in module.variables:
+
+        for e in module.externals:
             self.print(0, '')
-            self.print(0, str(v))
+            self.print(0, '{};'.format(e))
+
+        for variable in module.variables:
+            self.print(0, '')
+            self.print(0, str(variable))
+
         for function in module.functions:
             self.print(0, '')
             self.write_function(function)
 
-    def write_function(self, fn):
-        self.print(0, '{} {{'.format(fn))
-        for block in fn.blocks:
+    def write_function(self, function):
+        self.print(0, '{} {{'.format(function))
+        for block in function.blocks:
             self.print(1, '{} {{'.format(block))
             for ins in block:
                 self.print(2, '{};'.format(ins))

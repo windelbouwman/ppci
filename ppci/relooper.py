@@ -56,14 +56,19 @@ def print_shape(shape, indent=0):
             print_shape(sub_shape, indent=indent+1)
     elif isinstance(shape, IfShape):
         print('   ' * indent + 'if-then', shape.content)
-        print_shape(shape.yes_shape, indent=indent+1)
-        print('   ' * indent + 'else')
-        print_shape(shape.no_shape, indent=indent+1)
+        if shape.yes_shape is not None:
+            print_shape(shape.yes_shape, indent=indent+1)
+
+        if shape.no_shape is not None:
+            print('   ' * indent + 'else')
+            print_shape(shape.no_shape, indent=indent+1)
         print('   ' * indent + 'end-if')
     elif isinstance(shape, LoopShape):
         print('   ' * indent + 'loop')
         print_shape(shape.body, indent=indent+1)
         print('   ' * indent + 'end-loop')
+    elif shape is None:
+        pass
     else:
         raise NotImplementedError(str(shape))
 
@@ -101,9 +106,12 @@ class StructureDetector:
 
     def make_shape(self, entry):
         """ Given a set of blocks and an entry block, determine the shape """
+        print(entry, self.cfg.entry_node, self.cfg.exit_node)
 
         # Decide between loop, if-else or straight line code:
-        if self.is_inactive_header(entry):
+        if entry is self.cfg.exit_node:
+            shape = None
+        elif self.is_inactive_header(entry):
             # Loop found!
             loop = self.loop_headers[entry]
             follow_up = self.follows_loop(loop)
@@ -152,7 +160,7 @@ class StructureDetector:
                 s2 = self.make_shape(follow_up)
                 shape = SequenceShape([shape, s2])
         else:  # pragma: no cover
-            raise NotImplementedError()
+            raise NotImplementedError(str(entry))
 
         return shape
 

@@ -2,9 +2,9 @@ import io
 import unittest
 
 from ppci import api, ir
-from ppci.binutils import debuginfo
 from ppci.irs.wasm import wasm_to_ir, ir_to_wasm
 from ppci.lang.python import python_to_wasm
+from ppci.utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 
 
 class WasmGeneratorTestCase(unittest.TestCase):
@@ -65,5 +65,15 @@ class WasmCompilerTestCase(unittest.TestCase):
         self.assertIsInstance(ir_mod, ir.Module)
 
 
+class Leb128TestCase(unittest.TestCase):
+    def test_unsigned_encoding_example(self):
+        data = unsigned_leb128_encode(624485)
+        self.assertEqual(bytes([0xe5, 0x8e, 0x26]), data)
+
+    def test_signed_encoding_example(self):
+        data = signed_leb128_encode(-624485)
+        self.assertEqual(bytes([0x9b, 0xf1, 0x59]), data)
+
+
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=1)
