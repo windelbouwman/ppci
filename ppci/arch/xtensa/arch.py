@@ -17,7 +17,7 @@ class XtensaArch(Architecture):
     name = 'xtensa'
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=register_classes)
+        super().__init__(options=options)
         self.isa = instructions.core_isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
@@ -29,7 +29,7 @@ class XtensaArch(Architecture):
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32
-            })
+            }, register_classes=register_classes)
 
         # TODO: a15 is also callee save
         self.callee_save = registers.callee_save

@@ -13,6 +13,7 @@ from .. import ir
 
 
 class Endianness(enum.Enum):
+    """ Define endianness as little or big """
     LITTLE = 1
     BIG = 1000
 
@@ -26,10 +27,21 @@ class TypeInfo:
 
 class ArchInfo:
     """ A collection of information for language frontends """
-    def __init__(self, type_infos=None, endianness=Endianness.LITTLE):
+    def __init__(
+            self, type_infos=None, endianness=Endianness.LITTLE,
+            register_classes=()):
         self.type_infos = type_infos
-        self.endianness = endianness
         assert isinstance(endianness, Endianness)
+        self.endianness = endianness
+        self.register_classes = register_classes
+
+        mapping = {}
+        for register_class in self.register_classes:
+            for ty in register_class.ir_types:
+                if ty in mapping:
+                    raise ValueError('Duplicate type assignment {}'.format(ty))
+                mapping[ty] = register_class.typ
+        self.value_classes = mapping
 
     def get_type_info(self, typ):
         if isinstance(typ, str):

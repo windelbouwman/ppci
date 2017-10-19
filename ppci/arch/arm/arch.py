@@ -28,7 +28,7 @@ class ArmArch(Architecture):
     option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=[])
+        super().__init__(options=options)
         if self.has_option('thumb'):
             self.assembler = ThumbAssembler()
             self.isa = thumb_isa + data_isa
@@ -37,7 +37,7 @@ class ArmArch(Architecture):
             self.callee_save = (R5, R6)
 
             # Registers usable by register allocator:
-            self.register_classes = [
+            register_classes = [
                 RegisterClass(
                     'loreg', [i8, i32, ptr, u8, u32], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7])
@@ -49,7 +49,7 @@ class ArmArch(Architecture):
             self.callee_save = (R5, R6, R7, R8, R9, R10)
 
             # Registers usable by register allocator:
-            self.register_classes = [
+            register_classes = [
                 RegisterClass(
                     'loreg', [], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7]),
@@ -67,7 +67,8 @@ class ArmArch(Architecture):
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32,
-            })
+            },
+            register_classes=register_classes)
 
     def get_runtime(self):
         """ Implement compiler runtime functions """

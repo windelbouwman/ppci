@@ -116,8 +116,25 @@ class CCodeGenerator:
         else:
             # TODO: when to put a function declaration as extern?
             if function.storage_class == 'extern':
-                xf = ir.ExternalFunction(function.name)
+                ftyp = function.typ
+                argument_types = [
+                    self.get_ir_type(a.typ) for a in ftyp.arguments]
+
+                if ftyp.is_vararg:
+                    argument_types.append(ir.ptr)
+
+                if ftyp.return_type.is_void:
+                    xf = ir.ExternalProcedure(
+                        function.name, argument_types)
+                else:
+                    return_type = self.get_ir_type(ftyp.return_type)
+                    xf = ir.ExternalFunction(
+                        function.name, argument_types, return_type)
+
                 self.builder.module.add_external(xf)
+            else:
+                # Okay, a declaration, no body, what now?
+                pass
 
     def gen_function_def(self, function):
         """ Generate code for a function definition """

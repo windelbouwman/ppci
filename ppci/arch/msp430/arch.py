@@ -39,7 +39,7 @@ class Msp430Arch(Architecture):
     name = 'msp430'
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=register_classes)
+        super().__init__(options=options)
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
@@ -47,7 +47,7 @@ class Msp430Arch(Architecture):
                 ir.i32: TypeInfo(4, 2), ir.u32: TypeInfo(4, 2),
                 ir.i64: TypeInfo(8, 2), ir.u64: TypeInfo(8, 2),
                 'int': ir.i16, 'ptr': ir.u16
-            })
+            }, register_classes=register_classes)
 
         self.isa = isa + data_isa
         self.assembler = BaseAssembler()

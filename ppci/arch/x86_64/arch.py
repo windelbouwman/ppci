@@ -82,14 +82,15 @@ class X86_64Arch(Architecture):
     option_names = ('sse2', 'sse3', 'x87', 'wincc')
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=register_classes)
+        super().__init__(options=options)
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 ir.i64: TypeInfo(8, 8), ir.u64: TypeInfo(8, 8),
-                'int': ir.i64, 'ptr': ir.u64})
+                'int': ir.i64, 'ptr': ir.u64
+            }, register_classes=register_classes)
 
         self.isa = isa + data_isa + sse1_isa + sse2_isa
         if self.has_option('x87'):

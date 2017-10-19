@@ -10,6 +10,8 @@ Release 1.0 (Planned)
 Release 0.5.5 (Upcoming)
 ------------------------
 
+* Addition of WASM support (by Almar)
+
 Release 0.5.4 (Aug 26, 2017)
 ----------------------------
 

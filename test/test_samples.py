@@ -15,6 +15,7 @@ from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
+from ppci.irs.wasm import ir_to_wasm
 
 
 def enable_report_logger(filename):
@@ -495,6 +496,55 @@ class TestSamplesOnPython(unittest.TestCase, I32Samples):
 
 class TestSamplesOnPythonO2(TestSamplesOnPython):
     opt_level = 2
+
+
+@unittest.skipUnless(do_long_tests('wasm'), 'skipping slow tests')
+@add_samples('simple', 'medium', 'fp')
+class TestSamplesOnWasm(unittest.TestCase):
+    opt_level = 0
+
+    def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        sample_filename = base_filename + '.py'
+        list_filename = base_filename + '.html'
+
+        bsp = io.StringIO("""
+           module bsp;
+           public function void putc(byte c);
+           """)
+        march = 'arm'  # TODO: this must be wasm!
+        with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
+            if lang == 'c3':
+                ir_modules = c3toir([
+                    bsp, relpath('..', 'librt', 'io.c3'),
+                    io.StringIO(src)], [], march, reporter=reporter)
+            elif lang == 'bf':
+                ir_modules = [bf2ir(src, march)]
+            elif lang == 'c':
+                coptions = COptions()
+                include_path1 = relpath('..', 'librt', 'libc')
+                lib = relpath('..', 'librt', 'libc', 'lib.c')
+                coptions.add_include_path(include_path1)
+                with open(lib, 'r') as f:
+                    mod1 = c_to_ir(
+                        f, march,
+                        coptions=coptions, reporter=reporter)
+                mod2 = c_to_ir(
+                    io.StringIO(src), march,
+                    coptions=coptions, reporter=reporter)
+                ir_modules = [mod1, mod2]
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    'Language {} not implemented'.format(lang))
+
+            for ir_module in ir_modules:
+                optimize(ir_module, level=self.opt_level, reporter=reporter)
+
+            wasm_module = ir_to_wasm(ir_modules)
+            # with open(sample_filename, 'w') as f:
+
+        # TODO: run node.js here and compare output
+        # self.assertEqual(expected_output, res)
 
 
 @unittest.skipUnless(do_long_tests('msp430'), 'skipping slow tests')

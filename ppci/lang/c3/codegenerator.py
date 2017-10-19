@@ -46,6 +46,8 @@ class CodeGenerator:
                     self.gen_function(func)
                 except SemanticError as ex:
                     self.error(ex.msg, ex.loc)
+            else:
+                self.gen_external_function(func)
 
         if not self.module_ok:
             raise SemanticError("Errors occurred", None)
@@ -164,6 +166,17 @@ class CodeGenerator:
         """ Emit error to diagnostic system and mark package as invalid """
         self.module_ok = False
         self.diag.error(msg, loc)
+
+    def gen_external_function(self, function):
+        """ Generate external function """
+        name = '{}_{}'.format(self.builder.module.name, function.name)
+        arg_types = [self.get_ir_type(p.typ) for p in function.parameters]
+        if self.context.equal_types('void', function.typ.returntype):
+            x = ir.ExternalProcedure(name, arg_types)
+        else:
+            return_type = self.get_ir_type(function.typ.returntype)
+            x = ir.ExternalFunction(name, arg_types, return_type)
+        self.builder.module.add_external(x)
 
     def gen_function(self, function):
         """ Generate code for a function. This involves creating room

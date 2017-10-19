@@ -41,10 +41,10 @@ def prepare_function_info(arch, function_info, ir_function):
 
     function_info.arg_vregs = []
     for arg in ir_function.arguments:
-        if arg.ty in arch.value_classes:
+        if arg.ty in arch.info.value_classes:
             # New vreg:
             vreg = function_info.frame.new_reg(
-                arch.value_classes[arg.ty], twain=arg.name)
+                arch.info.value_classes[arg.ty], twain=arg.name)
         else:
             # Allocate space on stack for this argument:
             vreg = function_info.frame.alloc(arg.ty.size)
@@ -223,7 +223,8 @@ class SelectionGraphBuilder:
 
     def new_vreg(self, ty):
         """ Generate a new temporary fitting for the given type """
-        return self.function_info.frame.new_reg(self.arch.value_classes[ty])
+        return self.function_info.frame.new_reg(
+            self.arch.info.value_classes[ty])
 
     def add_map(self, node, sgvalue):
         assert isinstance(node, ir.Value)
@@ -394,7 +395,8 @@ class SelectionGraphBuilder:
 
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
-            self.arch.value_classes[node.ty], '{}_result'.format(node.name))
+            self.arch.info.value_classes[node.ty],
+            '{}_result'.format(node.name))
 
         rv = (node.ty, ret_val)
         self._make_call(node, args, rv)
@@ -430,7 +432,7 @@ class SelectionGraphBuilder:
         args = self._prep_call_arguments(node)
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
-            self.arch.value_classes[node.ty], '{}_result'.format(node.name))
+            self.arch.info.value_classes[node.ty], '{}_result'.format(node.name))
 
         rv = (node.ty, ret_val)
         self._make_pointer_call(node, args, rv)

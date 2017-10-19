@@ -1,7 +1,7 @@
 """ Architecture description for web assembly """
 
 from ... import ir
-from ...arch.arch import Architecture
+from ...arch.arch import VirtualMachineArchitecture
 from ...arch.registers import Register, RegisterClass
 from ...arch.arch_info import ArchInfo, TypeInfo
 
@@ -40,10 +40,12 @@ register_classes = [
 ]
 
 
-class WasmArchitecture(Architecture):
+class WasmArchitecture(VirtualMachineArchitecture):
     """ Web assembly architecture description """
+    name = 'wasm'
+
     def __init__(self):
-        super().__init__(register_classes=register_classes)
+        super().__init__()
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
@@ -51,23 +53,5 @@ class WasmArchitecture(Architecture):
                 ir.i32: TypeInfo(4, 1), ir.u32: TypeInfo(4, 1),
                 ir.i64: TypeInfo(8, 1), ir.u64: TypeInfo(8, 1),
                 'int': ir.i32, 'ptr': ir.i32
-            })
-
-    # TODO: get rid of below:
-    # The wasm VM does not need all the functions below:
-    def gen_prologue(self, frame):  # pragma: no cover
-        pass
-    def gen_epilogue(self, frame):  # pragma: no cover
-        pass
-    def gen_call(self, label, args, rv):  # pragma: no cover
-        pass
-    def gen_function_enter(self, args):  # pragma: no cover
-        pass
-    def gen_function_exit(self, rv):  # pragma: no cover
-        pass
-    def determine_arg_locations(self, arg_types):  # pragma: no cover
-        pass
-    def determine_rv_location(self, ret_type):  # pragma: no cover
-        pass
-    def get_compiler_rt_lib(self):
-        pass
+            },
+            register_classes=register_classes)

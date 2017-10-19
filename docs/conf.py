@@ -33,6 +33,7 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
+    'sphinxcontrib.spelling',
     'zipexamples',
     'uml',
 ]

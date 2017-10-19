@@ -20,7 +20,7 @@ from ...codegen.irdag import FunctionInfo
 from ...codegen.dagsplit import DagSplitter
 from ...binutils import debuginfo
 from .arch import WasmArchitecture
-from .arch import I32Register, I64Register
+from .arch import I32Register, I64Register, F32Register, F64Register
 
 
 def ir_to_wasm(ir_module):
@@ -57,6 +57,7 @@ class IrToWasmCompiler:
         self.function_ids = {}
         self.initial_memory = []
         self.global_vars = []
+        self.global_labels = {}
         self.global_memory = self.STACKSIZE  # fill up global memory on the go!
 
     def compile(self, ir_module):
@@ -71,22 +72,30 @@ class IrToWasmCompiler:
         # Check external thingies:
         for ir_external in ir_module.externals:
             # TODO: signature:
-            if ir_external.name in self.function_ids:
-                pass
-                # raise ValueError(
-                #     'Function {} already defined'.format(ir_external.name))
-            else:
-                typ_id = self.get_type_id((ir.i32,), ())
-                self.imports.append(
-                    components.Import(
-                        'js', ir_external.name, 'function', typ_id))
-                self.function_ids[ir_external.name] = len(self.function_ids)
+            if isinstance(ir_external, ir.ExternalSubRoutine):
+                if ir_external.name in self.function_ids:
+                    pass
+                    # raise ValueError(
+                    #     'Function {} already defined'.format(ir_external.name))
+                else:
+                    arg_types = tuple(ir_external.argument_types)
+                    if isinstance(ir_external, ir.ExternalFunction):
+                        ret_types = (ir_external.return_type,)
+                    else:
+                        ret_types = ()
+                    typ_id = self.get_type_id(arg_types, ret_types)
+                    self.imports.append(
+                        components.Import(
+                            'js', ir_external.name, 'function', typ_id))
+                    self.function_ids[ir_external.name] = len(self.function_ids)
 
         # Global variables:
         for ir_variable in ir_module.variables:
+            addr = self.global_memory
+            self.global_labels[ir_variable.name] = addr
             if ir_variable.value:
                 self.initial_memory.append(
-                    (0, self.global_memory, ir_variable.value))
+                    (0, addr, ir_variable.value))
             self.global_memory += ir_variable.amount
 
         # Register function numbers (for mutual recursive functions):
@@ -103,6 +112,7 @@ class IrToWasmCompiler:
             self.do_function(ir_function)
 
     def create_wasm_module(self):
+        """ Finalize the wasm module and return it """
         wasm_module = components.Module([
             components.GlobalSection(self.global_vars),
             components.MemorySection([10]),  # Start with 10 pages?
@@ -133,7 +143,6 @@ class IrToWasmCompiler:
         self.instructions = []
         self.local_var_map = {}
         self.local_vars = []
-        self.local_labels = {}
         self.stack = 0
         self.logger.debug('Generating wasm for %s', ir_function)
 
@@ -155,7 +164,7 @@ class IrToWasmCompiler:
         for lab, cv in frame.constants:
             assert isinstance(cv, bytes)
             addr = self.global_memory
-            self.local_labels[lab] = addr
+            self.global_labels[lab] = addr
             self.initial_memory.append((0, addr, cv))
             self.global_memory += len(cv)
 
@@ -270,24 +279,37 @@ class IrToWasmCompiler:
         block_trees = self.ds.split_group_into_trees(
             self.sdag, self.fi, ir_block)
         for tree in block_trees:
-            print(tree)
+            # print(tree)
             self.do_tree(tree)
             # if tree.name == 'CALL' and 
 
     binop_map = {
         'ADDI32': 'i32.add',
-        'ADDU32': 'i32.add',
         'SUBI32': 'i32.sub',
-        'SUBU32': 'i32.sub',
         'MULI32': 'i32.mul',
-        'MULU32': 'i32.mul',
         'DIVI32': 'i32.div_s',
+        'ANDI32': 'i32.and',
+        'ORI32': 'i32.or',
+        'XORI32': 'i32.xor',
+        'SHRI32': 'i32.shr_u',
+        'SHLI32': 'i32.shl',
+        'ADDU32': 'i32.add',
+        'SUBU32': 'i32.sub',
+        'MULU32': 'i32.mul',
         'DIVU32': 'i32.div_u',
         'REMI32': 'i32.rem_s',
         'REMU32': 'i32.rem_u',
         'ADDI64': 'i64.add',
         'SUBI64': 'i64.sub',
         'MULI64': 'i64.mul',
+        'MULF32': 'f32.mul',
+        'ADDF32': 'f32.add',
+        'SUBF32': 'f32.sub',
+        'DIVF32': 'f32.div',
+        'MULF64': 'f64.mul',
+        'ADDF64': 'f64.add',
+        'SUBF64': 'f64.sub',
+        'DIVF64': 'f64.div',
     }
 
     cmp_ops = {
@@ -307,6 +329,8 @@ class IrToWasmCompiler:
         'STRI32': 'i32.store',
         'STRU32': 'i64.store32',  # TODO
         'STRI64': 'i64.store',
+        'STRF32': 'f32.store',
+        'STRF64': 'f64.store',
     }
 
     load_opcodes = {
@@ -317,6 +341,8 @@ class IrToWasmCompiler:
         'LDRI32': 'i32.load',
         'LDRU32': 'i64.load32_u',
         'LDRI64': 'i64.load',
+        'LDRF32': 'f32.load',
+        'LDRF64': 'f64.load',
     }
 
     const_opcodes = {
@@ -333,9 +359,40 @@ class IrToWasmCompiler:
 
     cast_operators = {
         'I32TOI32', 'I32TOU32', 'U32TOI32', 'U32TOU32',
-        'I32TOI8', 'I8TOI32',
+        'I32TOI8', 'I8TOI32', 'I32TOU8', 'U8TOI32',
         'U32TOU8', 'U8TOU32',
         'I32TOI16', 'I16TOI32',
+    }
+
+    cast_operators2 = {
+        'F32TOI32': 'i32.trunc_s/f32',
+        'F32TOU32': 'i32.trunc_u/f32',
+        'F64TOI64': 'i64.trunc_s/f64',
+        'F64TOU64': 'i64.trunc_u/f64',
+        'U64TOF64': 'f64.convert_u/i64',
+        'I64TOF64': 'f64.convert_s/i64',
+        'U32TOF64': 'f64.convert_u/i32',
+        'I32TOF64': 'f64.convert_s/i32',
+        'I32TOF32': 'f32.convert_s/i32',
+        'U32TOF32': 'f32.convert_u/i32',
+        'F64TOF32': 'f32.demote/f64',
+        'F32TOF64': 'f64.promote/f32',
+    }
+
+    reg_operators = {
+        'REGI8', 'REGU8',
+        'REGI16', 'REGU16',
+        'REGI32', 'REGU32',
+        'REGI64', 'REGU32',
+        'REGF32', 'REGF64',
+    }
+
+    mov_operators = {
+        'MOVI8', 'MOVU8',
+        'MOVI16', 'MOVU16',
+        'MOVI32', 'MOVU32',
+        'MOVI64', 'MOVU64',
+        'MOVF32', 'MOVF64',
     }
 
     def do_tree(self, tree):
@@ -347,11 +404,11 @@ class IrToWasmCompiler:
             opcode = self.binop_map[tree.name]
             self.stack -= 1
             self.emit((opcode, ))
-        elif tree.name in ['MOVI8', 'MOVI32', 'MOVI64', 'MOVF32', 'MOVF64']:
+        elif tree.name in self.mov_operators:
             self.do_tree(tree[0])
             self.emit(('set_local', self.get_value(tree.value)))
             self.stack -= 1
-        elif tree.name in ['REGI8', 'REGI32', 'REGI64', 'REGF32', 'REGF64']:
+        elif tree.name in self.reg_operators:
             self.emit(('get_local', self.get_value(tree.value)))
             self.stack += 1
         elif tree.name in ['FPRELI32']:
@@ -375,11 +432,15 @@ class IrToWasmCompiler:
             self.emit((opcode, tree.value))
             self.stack += 1
         elif tree.name == 'LABEL':  # isinstance(tree, ir.LiteralData):
-            addr = self.local_labels[tree.value]
+            addr = self.global_labels[tree.value]
             self.emit(('i32.const', addr))
             self.stack += 1
         elif tree.name in self.cast_operators:
             self.do_tree(tree[0])
+        elif tree.name in self.cast_operators2:
+            self.do_tree(tree[0])
+            opcode = self.cast_operators2[tree.name]
+            self.emit((opcode, ))
         elif tree.name == 'CALL':
             function_name, argv, rv = tree.value
             for ty, argument in argv:
@@ -396,7 +457,7 @@ class IrToWasmCompiler:
                 if hasattr(self.fi, 'rv_vreg') and self.fi.rv_vreg:
                     self.emit(('get_local', self.get_value(self.fi.rv_vreg)))
                 self.emit(('return',))
-        elif tree.name in ['CJMPI32', 'CJMPI8']:
+        elif tree.name in ['CJMPI64', 'CJMPI32', 'CJMPI16', 'CJMPU16', 'CJMPI8', 'CJMPF32', 'CJMPF64']:
             # Ensure operands are on stack:
             self.do_tree(tree[0])
             self.do_tree(tree[1])
@@ -424,7 +485,10 @@ class IrToWasmCompiler:
         """ Create a local number for the given value """
         if value not in self.local_var_map:
             self.local_var_map[value] = len(self.local_var_map)
-            ty_map = {I32Register: 'i32', I64Register: 'i64'}
+            ty_map = {
+                I32Register: 'i32', I64Register: 'i64',
+                F32Register: 'f32', F64Register: 'f64',
+            }
             ty = ty_map[type(value)]
             self.local_vars.append(ty)
         return self.local_var_map[value]
@@ -432,7 +496,7 @@ class IrToWasmCompiler:
     def emit(self, instruction):
         """ Emit a single wasm instruction """
         instruction = components.Instruction(instruction[0], instruction[1:])
-        print(instruction.to_text())  # , instruction.to_bytes())
+        # print(instruction.to_text())  # , instruction.to_bytes())
         self.instructions.append(instruction)
 
     def push_block(self, kind):

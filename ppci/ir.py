@@ -215,12 +215,27 @@ class External(GlobalValue):
 
 class ExternalSubRoutine(External):
     """ External object """
-    pass
+    def __init__(self, name, argument_types):
+        super().__init__(name)
+        self.argument_types = argument_types
+
+
+class ExternalProcedure(ExternalSubRoutine):
+    """ External function """
+    def __repr__(self):
+        args = ', '.join(map(str, self.argument_types))
+        return 'external {}({});'.format(self.name, args)
 
 
 class ExternalFunction(ExternalSubRoutine):
     """ External function """
-    pass
+    def __init__(self, name, argument_types, return_type):
+        super().__init__(name, argument_types)
+        self.return_type = return_type
+
+    def __repr__(self):
+        args = ', '.join(map(str, self.argument_types))
+        return 'external {} {}({});'.format(self.return_type, self.name, args)
 
 
 class SubRoutine(GlobalValue):
