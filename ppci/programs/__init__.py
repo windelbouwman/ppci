@@ -1,0 +1,18 @@
+"""
+Namespace for Program classes to represent languages. This provides a
+high level interface for working with PPCI; Program classes have a
+common API to get reporting, compile into other program representations,
+and export to e.g. textual or binary representations.
+"""
+
+from .base import (get_program_classes, Program,
+                   SourceCodeProgram, IntermediateProgram, MachineProgram)
+from .graph import get_targets, create_program_graph
+
+# Import program classes into this namespace. We could let the Program meta
+# class inject all classes into the namespace, but maybe we do not want
+# every class to appear here, e.g. classes defined by users.
+from ppci.irs.ir import IrProgram
+from ppci.irs.wasm import WasmProgram
+from ppci.lang.python import PythonProgram
+from ppci.arch.x86_64 import X86Program
