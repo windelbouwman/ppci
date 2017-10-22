@@ -10,8 +10,10 @@ def get_targets(program):
     can be compiled to.
     """
     subclasses = get_program_classes()
+    if isinstance(program, str):
+        program = get_program_classes()[program.lower()]
     cls = program
-    if not isinstance(program, type):
+    if not isinstance(cls, type):
         cls = type(program)
     if not issubclass(cls, Program):
         raise TypeError('get_targets() needs Program instance or class.')
