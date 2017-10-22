@@ -34,8 +34,6 @@ def find_structure(ir_function):
     logger = logging.getLogger('structure-detection')
     logger.debug('finding structure for %s', ir_function)
     cfg, block_map = ir_function_to_graph(ir_function)
-    print('block map:', block_map)
-    print('control flow graph', cfg)
     sd = StructureDetector()
     shape = sd.detect(cfg)
     rmap = {c: b for b, c in block_map.items()}
@@ -46,7 +44,6 @@ def find_structure(ir_function):
 
 
 def print_shape(shape, indent=0):
-    # print('   ' * indent + str(shape))
     if isinstance(shape, BasicShape):
         print('   ' * indent + 'code:', str(shape.content))
     elif isinstance(shape, (BreakShape, ContinueShape)):
@@ -78,26 +75,19 @@ class StructureDetector:
 
     def detect(self, cfg):
         """ Find structure in control flow graph """
-        print()
         self.cfg = cfg
         self.cfg.calculate_dominator_tree()
 
         # Loop info:
         self.loops = self.cfg.calculate_loops()
         self.loop_headers = {l.header: l for l in self.loops}
-        print('Loops', self.loops)
-        # print('Dominance frontier', cfg.df)
-        # TODO: use the relooper algorithm to construct a structured
-        # flow graph
-        print()
 
-        # blocks = self.cfg.N
-        # assert ir_function.entry in blocks
         self.marked = {self.cfg.exit_node}
         self.follow_stack = [self.cfg.exit_node]
         top_loop = Loop(
             header=self.cfg.entry_node,
             rest=(self.cfg.nodes - {self.cfg.entry_node}))
+
         # Stack of loops with follow nodes
         self.loop_stack = [(top_loop, None)]
         self.shapes = []
@@ -106,7 +96,6 @@ class StructureDetector:
 
     def make_shape(self, entry):
         """ Given a set of blocks and an entry block, determine the shape """
-        print(entry, self.cfg.entry_node, self.cfg.exit_node)
 
         # Decide between loop, if-else or straight line code:
         if entry is self.cfg.exit_node:
@@ -147,7 +136,6 @@ class StructureDetector:
                 self.marked.add(follow_up)
             else:
                 follow_up = None
-            # print(follow_up)
             yes, no = entry.yes, entry.no  # TODO: major hack for yes and no
             self.logger.debug('--> code %s', entry)
             self.logger.debug('--> if (based on) %s', entry)
@@ -194,7 +182,7 @@ class StructureDetector:
                     reachable_outside_loop.add(s)
 
         if reachable_outside_loop:
-            assert len(reachable_outside_loop) == 1
+            assert len(reachable_outside_loop) == 1, str(reachable_outside_loop)
             return list(reachable_outside_loop)[0]
 
 

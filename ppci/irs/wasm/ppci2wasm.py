@@ -56,9 +56,11 @@ class IrToWasmCompiler:
         self.function_defs = []
         self.function_ids = {}
         self.initial_memory = []
+        self.tables = []  # Tables with function pointers
         self.global_vars = []
         self.global_labels = {}
         self.global_memory = self.STACKSIZE  # fill up global memory on the go!
+        self.pointed_functions = []  # List of referenced
 
     def compile(self, ir_module):
         """ Compile an ir-module into a wasm module """
@@ -113,7 +115,7 @@ class IrToWasmCompiler:
 
     def create_wasm_module(self):
         """ Finalize the wasm module and return it """
-        wasm_module = components.Module([
+        sections = [
             components.GlobalSection(self.global_vars),
             components.MemorySection([10]),  # Start with 10 pages?
             components.DataSection(self.initial_memory),
@@ -122,8 +124,16 @@ class IrToWasmCompiler:
             components.FunctionSection(self.functions),
             components.ExportSection(self.exports),
             components.CodeSection(self.function_defs),
-        ])
-        return wasm_module
+        ]
+
+        if self.pointed_functions:
+            indexes = self.pointed_functions
+            tables = [components.Table(mimimum=len(indexes))]
+            elements = [components.Element(0, 0, indexes)]
+            sections.append(components.TableSection(tables))
+            sections.append(components.ElementSection(elements))
+
+        return components.Module(sections)
 
     def get_type_id(self, arg_types, ret_types):
         """ Get wasm type id and create a signature if required! """
@@ -395,6 +405,14 @@ class IrToWasmCompiler:
         'MOVF32', 'MOVF64',
     }
 
+    cmp_operators = {
+        'CJMPI8', 'CJMPU8',
+        'CJMPI16', 'CJMPU16',
+        'CJMPI32', 'CJMPU32',
+        'CJMPI64', 'CJMPU64',
+        'CJMPF32', 'CJMPF64'
+    }
+
     def do_tree(self, tree):
         """ Implement proper logic for an ir instruction """
         # TODO: we might have used codegen.treeselector class here...
@@ -432,7 +450,16 @@ class IrToWasmCompiler:
             self.emit((opcode, tree.value))
             self.stack += 1
         elif tree.name == 'LABEL':  # isinstance(tree, ir.LiteralData):
-            addr = self.global_labels[tree.value]
+            if tree.value in self.global_labels:
+                addr = self.global_labels[tree.value]
+            elif tree.value in self.function_ids:
+                # Taking pointer of function
+                func_id = self.function_ids[tree.value]
+                addr = len(self.pointed_functions)
+                self.global_labels[tree.value] = addr
+                self.pointed_functions.append(func_id)
+            else:  # pragma: no cover
+                raise NotImplementedError()
             self.emit(('i32.const', addr))
             self.stack += 1
         elif tree.name in self.cast_operators:
@@ -445,8 +472,18 @@ class IrToWasmCompiler:
             function_name, argv, rv = tree.value
             for ty, argument in argv:
                 self.emit(('get_local', self.get_value(argument)))
-            func_id = self.function_ids[function_name]
-            self.emit(('call', func_id))
+
+            if isinstance(function_name, str):
+                func_id = self.function_ids[function_name]
+                self.emit(('call', func_id))
+            else:
+                # Handle function pointers:
+                self.emit(('get_local', self.get_value(function_name)))
+                arg_types = tuple(t for t, a in argv)
+                ret_types = (rv[0],) if rv else tuple()
+                type_idx = self.get_type_id(arg_types, ret_types)
+                self.emit(('call_indirect', type_idx, 0))
+
             if rv:
                 self.emit(('set_local', self.get_value(rv[1])))
         elif tree.name == 'JMP':
@@ -457,7 +494,7 @@ class IrToWasmCompiler:
                 if hasattr(self.fi, 'rv_vreg') and self.fi.rv_vreg:
                     self.emit(('get_local', self.get_value(self.fi.rv_vreg)))
                 self.emit(('return',))
-        elif tree.name in ['CJMPI64', 'CJMPI32', 'CJMPI16', 'CJMPU16', 'CJMPI8', 'CJMPF32', 'CJMPF64']:
+        elif tree.name in self.cmp_operators:
             # Ensure operands are on stack:
             self.do_tree(tree[0])
             self.do_tree(tree[1])

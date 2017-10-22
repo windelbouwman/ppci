@@ -38,6 +38,7 @@ with open(report_html, 'w') as rf, HtmlReportGenerator(rf) as reporter:
         with open(os.path.join(fatfs_path, filename)) as f:
             try:
                 obj = api.cc(f, arch, reporter=reporter, coptions=coptions)
+                logging.info('Compiled %s into %s bytes', filename, obj.byte_size)
             except CompilerError as e:
                 print(e)
                 e.print()

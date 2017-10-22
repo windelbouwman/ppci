@@ -6,7 +6,7 @@ from ... import irutils
 from ... import common
 from ...binutils import debuginfo
 
-from . import Module
+from . import Module, components
 
 
 def wasm_to_ir(wasm_module):
@@ -28,11 +28,16 @@ class WasmToIrCompiler:
     def generate(self, wasm_module):
         assert isinstance(wasm_module, Module)
 
-        debug_db = debuginfo.DebugDb()
-        self.builder.module = ir.Module('mainmodule', debug_db=debug_db)
+        self.debug_db = debuginfo.DebugDb()
+        self.builder.module = ir.Module('mainmodule', debug_db=self.debug_db)
 
-        for wasm_function in wasm_module.sections[-1].functiondefs:
-            self.generate_function(wasm_function, debug_db)
+        # for wasm_function in wasm_module.sections[-1].functiondefs:
+        for section in wasm_module:
+            if isinstance(section, components.CodeSection):
+                for wasm_function in section.functiondefs:
+                    self.generate_function(wasm_function)
+            else:
+                self.logger.error('Section %s not handled', section.id)
 
         return self.builder.module
 
@@ -53,7 +58,7 @@ class WasmToIrCompiler:
         wasm_type = wasm_type.split('.')[0]
         return ir.f64  # todo: temporary hack; map 1-to-1
 
-    def generate_function(self, wasm_function, debug_db):
+    def generate_function(self, wasm_function):
         self.stack = []
         self.block_stack = []
 
@@ -61,11 +66,11 @@ class WasmToIrCompiler:
         self.builder.set_function(ppci_function)
 
         db_float = debuginfo.DebugBaseType('double', 8, 1)
-        db_function_info = debuginfo.DebugFunction('main',
+        db_function_info = debuginfo.DebugFunction(
+            'main',
             common.SourceLocation('main.wasm', 1, 1, 1),
             db_float, ())
-        if debug_db:
-            debug_db.enter(ppci_function, db_function_info)
+        self.debug_db.enter(ppci_function, db_function_info)
 
         entryblock = self.new_block()
         self.builder.set_block(entryblock)

@@ -3,6 +3,11 @@
 Handy online wasm to text conversion:
 
 https://cdn.rawgit.com/WebAssembly/wabt/7e56ca56/demo/wasm2wast/
+
+https://cdn.rawgit.com/WebAssembly/wabt/fb986fbd/demo/wat2wasm/
+
+https://github.com/WebAssembly/wabt
+
 """
 
 import io
@@ -11,6 +16,7 @@ import html
 import traceback
 import glob
 import logging
+import time
 from ppci.lang.c import COptions
 from ppci.api import c_to_ir, get_arch, optimize, c3toir
 from ppci.irs.wasm import ir_to_wasm
@@ -94,6 +100,7 @@ with open(html_filename, 'w') as f:
     <head><title>Samples</title><meta charset="utf-8"></head>
     <body>
     """, file=f)
+    print('Sample generated on {}'.format(time.ctime()), file=f)
 
     fns = []
     for nr, sample in enumerate(samples, 1):
@@ -132,6 +139,9 @@ with open(html_filename, 'w') as f:
         print('<h2>Actual output</h2>', file=f)
         print('<pre id="wasm_output{}">'.format(nr), file=f)
         print('</pre>', file=f)
+
+        with open('example_{}.wasm'.format(nr), 'wb') as f3:
+            wasm_module.to_file(f3)
 
         wasm_text = str(list(wasm_module.to_bytes()))
         print("""<script>
