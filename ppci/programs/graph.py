@@ -31,11 +31,11 @@ def create_program_graph():
     """ Produce a networkx graph where the nodes are language names and the
     (directed) edges represent compilers.
     """
-    import networkx as nx
+    from ppci.utils import graph
     IGNORE = '', 'sourcecode', 'intermediate', 'machine'
     subclasses = get_program_classes()
     
-    g = nx.DiGraph()
+    g = graph.DiGraph()
     for name in subclasses.keys():
         if not name in IGNORE:
             g.add_node(name)
