@@ -7,6 +7,7 @@ import logging
 from struct import pack as spack, unpack as sunpack
 
 from . import OPCODES
+from ._opcodes import OPERANDS, REVERZ, EVAL
 from ...utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ...utils.leb128 import unsigned_leb128_decode
 
@@ -89,6 +90,10 @@ class FileReader:
         return b[0]
 
     def read_int(self):
+        # TODO: use signed leb128?
+        return unsigned_leb128_decode(self)
+
+    def read_uint(self):
         return unsigned_leb128_decode(self)
 
     def read_bytes(self):
@@ -116,11 +121,63 @@ class FileReader:
             maximum = None
         return minimum, maximum
 
+    def read_expression(self):
+        """ Read instructions until an end marker is found """
+        expr = []
+        blocks = 1
+        i = self.read_instruction()
+        # keep track of if/block/loop etc:
+        if i.type == 'end':
+            blocks -= 1
+        elif i.type in ('if', 'block', 'loop'):
+            blocks += 1
+        expr.append(i)
+        while blocks:
+            i = self.read_instruction()
+            if i.type == 'end':
+                blocks -= 1
+            elif i.type in ('if', 'block', 'loop'):
+                blocks += 1
+            expr.append(i)
+        return expr
+
+    def read_instruction(self):
+        """ Read a single instruction """
+        return Instruction.from_reader(self)
+
 
 def read_wasm(f):
     """ Read a wasm file """
     logger.info('Loading wasm module')
     return Module.from_file(f)
+
+
+def eval_expr(expr):
+    """ Evaluate a sequence of instructions """
+    stack = []
+    for i in expr:
+        consumed_types, produced_types, action = EVAL[i.type]
+        if action is None:
+            raise RuntimeError('Cannot evaluate {}'.format(i.type))
+        # Gather stack values:
+        values = []
+        for t in consumed_types:
+            vt, v = stack.pop(-1)
+            assert vt == t
+            values.append(v)
+
+        # Perform magic action of instruction:
+        values = action(i, values)
+
+        # Push results on tha stack:
+        assert len(values) == len(produced_types)
+        for vt, v in zip(produced_types, values):
+            stack.append((vt, v))
+
+    if len(stack) == 1:
+        return stack[0]
+    else:
+        raise ValueError('Expression does not leave value on stack!')
 
 
 class WASMComponent:
@@ -596,6 +653,10 @@ class GlobalSection(Section):
         assert all(isinstance(g, Global) for g in globalz)
         self.globalz = globalz
 
+    def to_text(self):
+        globalz = ', '.join([str(g) for g in self.globalz])
+        return 'GlobalSection({})'.format(globalz)
+
     def get_binary_section(self, f):
         f.write(packvu32(len(self.globalz)))
         for g in self.globalz:
@@ -612,6 +673,7 @@ class GlobalSection(Section):
         globalz = []
         for _ in range(count):
             raise NotImplementedError()
+            reader.read_expression()
         return cls(globalz)
 
 
@@ -712,6 +774,7 @@ class DataSection(Section):
         for chunk in chunks:
             assert len(chunk) == 3  # index, offset, bytes
             assert chunk[0] == 0  # always 0 in MVP
+            assert isinstance(chunk[1], int)
             assert isinstance(chunk[2], bytes)
         self.chunks = chunks
 
@@ -738,12 +801,9 @@ class DataSection(Section):
         chunks = []
         for _ in range(count):
             index = reader.read_int()
-
-            i32const = reader.read(1)
-            assert i32const == bytes([0x41])
-            offset = reader.read_int()
-            end = reader.read(1)
-            assert end == bytes([0x0b])
+            offset_expr = reader.read_expression()
+            offset_type, offset = eval_expr(offset_expr)
+            assert offset_type == 'i32'
             content = reader.read_bytes()
             chunks.append((index, offset, content))
         return cls(chunks)
@@ -948,17 +1008,19 @@ class FunctionDef(WASMComponent):
     def from_reader(cls, reader):
         body_size = reader.read_int()
         body = reader.read(body_size)
-        return cls([], [])
-        # TODO: parse instruction stream
-        # reader.re
-        num_local_pairs = reader.read_int()
+
+        reader2 = FileReader(BytesIO(body))
+        num_local_pairs = reader2.read_int()
         localz = []
-        for _ in range(num_local_pairs):
-            c = reader.read_int()
-            t = next(reader)
-            localz.append()
-        instructions = []
-        return cls(localz, instructions)
+        for tgi in range(num_local_pairs):
+            c = reader2.read_int()
+            t = reader2.read_type()
+            localz.extend([t] * c)
+        instructions = reader2.read_expression()
+        remaining = reader2.f.read()
+        assert remaining == bytes(), str(remaining)
+        assert instructions[-1].type == 'end'
+        return cls(localz, instructions[:-1])
 
 
 class Instruction(WASMComponent):
@@ -968,7 +1030,14 @@ class Instruction(WASMComponent):
 
     def __init__(self, type, args=()):
         self.type = type.lower()
+        if self.type not in OPCODES:
+            raise TypeError('Unknown instruction %r' % self.type)
         self.args = args
+        operands = OPERANDS[self.type]
+        if len(self.args) != len(operands):
+            raise TypeError('Wrong amount of operands for %r' % self.type)
+        for a, o in zip(args, operands):
+            pass
 
     def __repr__(self):
         return '<Instruction %s>' % self.type
@@ -1008,6 +1077,29 @@ class Instruction(WASMComponent):
                 f.write(LANG_TYPES[arg])
             else:
                 raise TypeError('Unknown instruction arg %r' % arg)  # todo: e.g. constants
+
+    @classmethod
+    def from_reader(cls, reader):
+        opcode = next(reader)
+        type = REVERZ[opcode]
+        operands = OPERANDS[type]
+        args = []
+        for o in operands:
+            if o == 'i32':
+                arg = reader.read_int()
+            elif o == 'u32':
+                arg = reader.read_uint()
+            elif o == 'type':
+                arg = reader.read_type()
+            elif o == 'f32':
+                arg = reader.read_f32()
+            elif o == 'f64':
+                arg = reader.read_f64()
+            else:
+                raise NotImplementedError(o)
+            args.append(arg)
+        type = REVERZ[opcode]
+        return cls(type, args)
 
 
 # Collect field classes

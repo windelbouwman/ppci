@@ -128,7 +128,7 @@ class IrToWasmCompiler:
 
         if self.pointed_functions:
             indexes = self.pointed_functions
-            tables = [components.Table(mimimum=len(indexes))]
+            tables = [components.Table(minimum=len(indexes))]
             elements = [components.Element(0, 0, indexes)]
             sections.append(components.TableSection(tables))
             sections.append(components.ElementSection(elements))
@@ -375,18 +375,18 @@ class IrToWasmCompiler:
     }
 
     cast_operators2 = {
-        'F32TOI32': 'i32.trunc_s/f32',
-        'F32TOU32': 'i32.trunc_u/f32',
-        'F64TOI64': 'i64.trunc_s/f64',
-        'F64TOU64': 'i64.trunc_u/f64',
-        'U64TOF64': 'f64.convert_u/i64',
-        'I64TOF64': 'f64.convert_s/i64',
-        'U32TOF64': 'f64.convert_u/i32',
-        'I32TOF64': 'f64.convert_s/i32',
-        'I32TOF32': 'f32.convert_s/i32',
-        'U32TOF32': 'f32.convert_u/i32',
-        'F64TOF32': 'f32.demote/f64',
-        'F32TOF64': 'f64.promote/f32',
+        'F32TOI32': 'i32.trunc_s_f32',
+        'F32TOU32': 'i32.trunc_u_f32',
+        'F64TOI64': 'i64.trunc_s_f64',
+        'F64TOU64': 'i64.trunc_u_f64',
+        'U64TOF64': 'f64.convert_u_i64',
+        'I64TOF64': 'f64.convert_s_i64',
+        'U32TOF64': 'f64.convert_u_i32',
+        'I32TOF64': 'f64.convert_s_i32',
+        'I32TOF32': 'f32.convert_s_i32',
+        'U32TOF32': 'f32.convert_u_i32',
+        'F64TOF32': 'f32.demote_f64',
+        'F32TOF64': 'f64.promote_f32',
     }
 
     reg_operators = {

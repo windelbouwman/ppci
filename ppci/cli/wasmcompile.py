@@ -28,6 +28,10 @@ def wasmcompile(args=None):
         wasm_module = read_wasm(args.wasm)
         print(wasm_module.to_text())
         ir_module = wasm_to_ir(wasm_module)
+
+        # Optimize:
+        api.optimize(ir_module, level=args.O, reporter=log_setup.reporter)
+
         if args.S:
             stream = TextOutputStream(
                 printer=march.asm_printer, f=args.output)
