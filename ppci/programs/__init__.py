@@ -1,13 +1,14 @@
 """
-Namespace for Program classes to represent languages. This provides a
-high level interface for working with PPCI; Program classes have a
+The Program classes provide a high level interface for working with PPCI.
+Each class represents one language / code representation. They have a
 common API to get reporting, compile into other program representations,
 and export to e.g. textual or binary representations.
 """
 
 from .base import (get_program_classes, Program,
                    SourceCodeProgram, IntermediateProgram, MachineProgram)
-from .graph import get_targets, create_program_graph
+from .graph import (get_targets, get_program_graph, get_program_classes_by_group,
+                    get_program_classes_html)
 
 # Import program classes into this namespace. We could let the Program meta
 # class inject all classes into the namespace, but maybe we do not want

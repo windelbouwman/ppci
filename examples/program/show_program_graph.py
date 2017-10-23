@@ -1,19 +1,29 @@
 """ Show graph structure of how programs can be compiled into one another,
-using Matplotlib.
+using HTML.
 """
 
-from ppci.programs import create_program_graph
+import os
+import tempfile
+import webbrowser
 
-import networkx as nx
+from ppci.programs import get_program_classes_html
 
-# Draw in shell, does not work
-# nx.draw_shell(COMPILER_GRAPH, with_labels=True)
-g = create_program_graph()
-print(g.nodes())
-print(g.edges())
 
-# Draw with mpl
-import matplotlib.pyplot as plt
-nx.draw_circular(g, with_labels=True, node_color=(0.7, 0.7, 1.0))
-plt.show()
+total_html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PPCI program class graph</title>
+</head>
+<body>
+{}
+</body>
+</html>
+""".format(get_program_classes_html())
 
+filename = os.path.join(tempfile.gettempdir(), 'ppci_program_graph.html')
+with open(filename, 'wb') as f:
+    f.write(total_html.encode())
+
+webbrowser.open(filename)
