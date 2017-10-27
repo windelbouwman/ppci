@@ -44,32 +44,37 @@ debug_db = debuginfo.DebugDb()
 # Create X86Code instance, specifying all steps
 native1 = PythonProgram(py3).to_wasm().to_ir().to_x86(win=True)
 
-# Create X86Code instance, let PPCI figure out the compile chain
-native2 = PythonProgram(py3, debugdb=debug_db).to('x86', win=True)
+# Compile Python to X86 directly via ir - does not work atm
+# native2 = PythonProgram(py3).to_ir().to_x86(win=True)
+
+# Let PPCI figure out the compile chain
+# native3 = PythonProgram(py3, debugdb=debug_db).to('x86', win=True)
+
+native = native1
 
 # >>> PythonProgram(py3).to('BF')
 # ValueError: No compile chain possible from python to bf.
 
 # Turn IR into Python, for testing
-native2.previous('ir').to('python').run(globals())  # this injects main() in globals
+native.previous('ir').to('python').run(globals())  # this injects main() in globals
 
 
 ## Reporting
 
 # Report chain of representations that the code went through
-print(native2.chain)
+print(native.chain)
 
 # Show source code
 print('========== Python ==========')
-print(native2.source.get_report())
+print(native.source.get_report())
 
 # Show WASM
 print('========== WASM ==========')
-print(native2.previous('wasm').get_report())
+print(native.previous('wasm').get_report())
 
 # Show IR
 print('========== IR ==========')
-print(native2.previous().get_report())
+print(native.previous().get_report())
 
 
 ## Running 
@@ -78,7 +83,7 @@ print(native2.previous().get_report())
 
 t0 = perf_counter()
 
-result = native2.run_in_process()
+result = native.run_in_process()
 
 etime = perf_counter() - t0
 print('native says {} in {} s'.format(result, etime))

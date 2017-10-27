@@ -1,6 +1,8 @@
+import io
+
 from ppci.programs import SourceCodeProgram
 
-from . import python_to_wasm
+from . import python_to_wasm, python_to_ir
 
 
 class PythonProgram(SourceCodeProgram):
@@ -35,10 +37,18 @@ class PythonProgram(SourceCodeProgram):
         code = self.items[0]
         exec(code, namespace)
 
-    def to_wasm(self, **options):
+    def to_wasm(self):
         """ Compile Python to WASM.
         
         Status: can compile a subset of Python, and assumes all floats.
         """
         wasm_modules = [python_to_wasm(c) for c in self.items]
         return self._new('wasm', wasm_modules)
+    
+    def to_ir(self):
+        """ Compile Python to PPCI IR.
+        
+        Status: very preliminary.
+        """
+        ir_modules = [python_to_ir(io.StringIO(c)) for c in self.items]
+        return self._new('ir', ir_modules)
