@@ -3,7 +3,7 @@
 
 from time import perf_counter
 
-from ppci.programs import PythonProgram  # will be from ppci.langs import PythonCode
+from ppci.programs import PythonProgram  # or ppci.lang.python.PythonCode
 from ppci.binutils import debuginfo
 
 

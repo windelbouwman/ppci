@@ -13,7 +13,11 @@ from .graph import (get_targets, get_program_graph, get_program_classes_by_group
 # Import program classes into this namespace. We could let the Program meta
 # class inject all classes into the namespace, but maybe we do not want
 # every class to appear here, e.g. classes defined by users.
+
+from ppci.lang.c3 import C3Program
+from ppci.lang.python import PythonProgram
+
 from ppci.irs.ir import IrProgram
 from ppci.irs.wasm import WasmProgram
-from ppci.lang.python import PythonProgram
+
 from ppci.arch.x86_64 import X86Program
