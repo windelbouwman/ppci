@@ -53,6 +53,22 @@ class IrProgram(IntermediateProgram):
         
         return self._new('x86', [ob])
     
+    def to_arm(self, **options):
+        """ Compile to ARM machine code.
+        
+        Status: ...
+        """
+        arch = get_arch('arm')
+       
+        # todo: don't we want to be able to pass debug_db here?
+        ppci_modules = [m for m in self.items]
+        if self.debugdb:
+            ob = ir_to_object(ppci_modules, arch, debug=True)#, debug_db=self.debugdb
+        else:
+            ob = ir_to_object(ppci_modules, arch, debug=False)
+        
+        return self._new('arm', [ob])
+    
     def to_python(self, **options):
         """ Compile PPCI IR to Python. Not very efficient or pretty code,
         but it can be useful to test the IR code without compiling to machine code.

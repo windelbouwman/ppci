@@ -21,3 +21,4 @@ from ppci.irs.ir import IrProgram
 from ppci.irs.wasm import WasmProgram
 
 from ppci.arch.x86_64 import X86Program
+from ppci.arch.arm import ArmProgram
