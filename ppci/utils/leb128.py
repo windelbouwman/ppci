@@ -35,3 +35,22 @@ def unsigned_leb128_encode(value):
         if value == 0:
             break
     return bytes(bb)
+
+
+def signed_leb128_decode(data):
+    """ Read variable length encoded 128 bits signed integer """
+    raise NotImplementedError()
+    return 0
+
+
+def unsigned_leb128_decode(data):
+    """ Read variable length encoded 128 bits unsigned integer """
+    result = 0
+    shift = 0
+    while True:
+        byte = next(data)
+        result |= ((byte & 0x7f) << shift)
+        if byte & 0x80 == 0:
+            break
+        shift += 7
+    return result

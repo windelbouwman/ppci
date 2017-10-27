@@ -8,3 +8,4 @@ This section contains several howto documents.
     backend
     optimizer
     jitting
+    webassembly

@@ -293,10 +293,11 @@ class ControlFlowGraph(DiGraph):
             for header in self.successors(node):
                 if header.dominates(node):
                     # Back edge!
-                    print('back edge', node, header)
                     # Determine the other nodes in the loop:
                     loop_nodes = [
-                        ln for ln in self._reach[header] if (header.dominates(ln) and ln.can_reach(header) and ln is not header)]
+                        ln for ln in self._reach[header]
+                        if (header.dominates(ln)
+                            and ln.can_reach(header) and ln is not header)]
                     loop = Loop(header=header, rest=loop_nodes)
                     loops.append(loop)
         return loops
