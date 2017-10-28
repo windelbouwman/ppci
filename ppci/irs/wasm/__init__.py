@@ -7,10 +7,8 @@ from .util import *
 from .wasm2ppci import wasm_to_ir, WasmToIrCompiler
 from .ppci2wasm import ir_to_wasm, IrToWasmCompiler
 from .arch import WasmArchitecture
-from .program import WasmProgram
 
 __all__ = [
-    'WasmProgram',
     'wasm_to_ir', 'ir_to_wasm', 'read_wasm',
     'WasmToIrCompiler', 'IrToWasmCompiler',
     'WasmArchitecture']

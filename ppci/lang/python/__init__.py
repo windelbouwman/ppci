@@ -2,6 +2,5 @@ from .python2wasm import python_to_wasm
 from .python2ir import python_to_ir
 from .loadpy import load_py
 from .ir2py import ir_to_python
-from .program import PythonProgram
 
-__all__ = ['PythonProgram', 'python_to_ir', 'ir_to_python', 'load_py', 'python_to_wasm']
+__all__ = ['python_to_ir', 'ir_to_python', 'load_py', 'python_to_wasm']

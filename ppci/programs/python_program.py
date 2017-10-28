@@ -1,8 +1,8 @@
 import io
 
-from ppci.programs import SourceCodeProgram
+from .base import SourceCodeProgram
 
-from . import python_to_wasm, python_to_ir
+from ..lang.python import python_to_wasm, python_to_ir
 
 
 class PythonProgram(SourceCodeProgram):

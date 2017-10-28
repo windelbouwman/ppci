@@ -8,6 +8,5 @@ Arm machine specifics. The arm target has several options:
 """
 
 from .arch import ArmArch
-from .program import ArmProgram
 
-__all__ = ['ArmArch', 'ArmProgram']
+__all__ = ['ArmArch']

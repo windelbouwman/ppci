@@ -10,7 +10,6 @@ Table of contents
     self
     quickstart
     howto/index
-    programs
     reference/index
     compiler
     faq

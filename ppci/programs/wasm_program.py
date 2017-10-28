@@ -1,30 +1,30 @@
 
-from ppci.programs import IntermediateProgram
+from .base import IntermediateProgram
 
-from . import wasm_to_ir
+from ..irs.wasm import wasm_to_ir
 
 
 class WasmProgram(IntermediateProgram):
     """ WASM (a.k.a. Web Assembly) is an open standard to represent
     code in a compact, low level format that can be easily converterted
     to machine code, and run fast as well as safe.
-    
+
     Items in a WasmProgram are WasmModule objects.
     """
-    
+
     def _check_items(self, items):
         # for item in items:
         #     assert isinstance(item, WasmModule)
         return items
-    
+
     def _copy(self):
         return WasmProgram(*[item.copy() for item in self.items],
                            previous=self.previous, debugdb=self.debugdb)
-    
+
     def _get_report(self, html):
         pieces = [m.to_text() for m in self.items]
         return '\n\n==========\n\n'.join(pieces)
-    
+
     def as_hex(self):
         """ Turn into a hex representation (using either the byte representation
         or the text representation).
@@ -41,7 +41,7 @@ class WasmProgram(IntermediateProgram):
             i += 16
             line += 1
         return '\n'.join(lines)
-    
+
     def as_bytes(self):
         """ Convert to WASM binary representation.
         """
@@ -50,9 +50,9 @@ class WasmProgram(IntermediateProgram):
 
     def to_ir(self, **options):
         """ Compile WASM to IR.
-        
+
         Status: very basic.
         """
-        
+
         # todo: cannot pass the debugdb here
         return self._new('ir', [wasm_to_ir(c) for c in self.items])

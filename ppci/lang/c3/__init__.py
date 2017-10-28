@@ -35,8 +35,7 @@ from .visitor import Visitor
 from .visitor import AstPrinter
 from .builder import C3Builder
 from .context import Context
-from .program import C3Program
 
 __all__ = [
     'AstPrinter', 'C3Builder', 'CodeGenerator', 'Context', 'Lexer', 'Parser',
-    'Visitor', 'C3Program']
+    'Visitor']

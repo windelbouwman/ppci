@@ -1,4 +1,5 @@
 import io
+from time import time as perf_counter
 
 from ppci.programs import C3Program
 from ppci.binutils import debuginfo
@@ -16,8 +17,10 @@ c3 = """
 module main;
 import io;
 
+const int grid_size = 5;
+
 function void main()
-{   
+{
     var int i;
     for (i = 0; i < grid_size; i += 1) {
         io.println("hello from c3. ");

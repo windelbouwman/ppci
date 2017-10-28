@@ -389,7 +389,7 @@ class Module(WASMComponent):
         assert version == 1, version
         sections = []
         while True:
-            section = Section.from_reader(r)
+            section = section_from_reader(r)
             if not section:
                 break
             sections.append(section)
@@ -469,32 +469,39 @@ class Section(WASMComponent):
     def get_binary_section(self, f):
         raise NotImplementedError()  # Sections need to implement this
 
-    @classmethod
-    def from_reader(cls, r):
-        # mp = {s.id: s for s in cls.__subclasses__() if hasattr(s, 'id') and s.id > 0}
-        handled_sections = [
-            TypeSection,
-            FunctionSection,
-            TableSection,
-            MemorySection,
-            GlobalSection,
-            ExportSection,
-            CodeSection,
-            DataSection,
-        ]
-        mp = {s.id: s for s in handled_sections}
-        try:
-            section_id = r.read_int()
-        except RuntimeError:
-            return
-        section_size = r.read_int()
-        logger.debug(
-            'Loading section type %s of %s bytes', section_id, section_size)
-        if section_id in mp:
-            return mp[section_id].from_reader(r)
-        else:
-            logger.warning('Unhandled section %s', section_id)
-            r.read(section_size)
+
+def section_from_reader(r):
+    # mp = {s.id: s for s in cls.__subclasses__() if hasattr(s, 'id') and s.id > 0}
+    handled_sections = [
+        TypeSection,
+        ImportSection,
+        FunctionSection,
+        TableSection,
+        MemorySection,
+        GlobalSection,
+        ExportSection,
+        ElementSection,
+        CodeSection,
+        DataSection,
+    ]
+    mp = {s.id: s for s in handled_sections}
+    try:
+        section_id = r.read_int()
+    except RuntimeError:
+        return
+    section_size = r.read_int()
+    section_content = r.read(section_size)
+    f2 = BytesIO(section_content)
+    r2 = FileReader(f2)
+    logger.debug(
+        'Loading section type %s of %s bytes', section_id, section_size)
+    if section_id in mp:
+        shiny_section = mp[section_id].from_reader(r2)
+        assert not f2.read()
+        return shiny_section
+    else:
+        logger.warning('Unhandled section %s', section_id)
+        r.read(section_size)
 
 
 class TypeSection(Section):
@@ -545,6 +552,12 @@ class ImportSection(Section):
         f.write(packvu32(len(self.imports)))  # count
         for imp in self.imports:
             imp.to_file(f)
+
+    @classmethod
+    def from_reader(cls, r):
+        count = r.read_int()
+        imports = [Import.from_reader(r) for _ in range(count)]
+        return cls(imports)
 
 
 class FunctionSection(Section):
@@ -823,7 +836,7 @@ class Import(WASMComponent):
     def __init__(self, modname, fieldname, kind, type):
         self.modname = modname
         self.fieldname = fieldname
-        self.kind = kind
+        self.kind = kind  # function, table, mem or global
         self.type = type  # the signature-index for funcs, the type for table, memory or global
 
     def to_text(self):
@@ -837,6 +850,16 @@ class Import(WASMComponent):
             f.write(packvu32(self.type))
         else:
             raise RuntimeError('Can only import functions for now')
+
+    @classmethod
+    def from_reader(cls, reader):
+        modname = reader.read_str()
+        fieldname = reader.read_str()
+        kind_id = reader.read(1)[0]
+        mp = {0: 'function'}
+        kind = mp[kind_id]
+        index = reader.read_int()
+        return cls(modname, fieldname, kind, index)
 
 
 class Export(WASMComponent):
@@ -868,6 +891,8 @@ class Export(WASMComponent):
     def from_reader(cls, reader):
         name = reader.read_str()
         kind = reader.read(1)[0]
+        mp = {0: 'function', 1: 'table', 2: 'mem'}
+        kind = mp[kind]
         index = reader.read_int()
         return cls(name, kind, index)
 

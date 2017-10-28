@@ -14,11 +14,11 @@ from .graph import (get_targets, get_program_graph, get_program_classes_by_group
 # class inject all classes into the namespace, but maybe we do not want
 # every class to appear here, e.g. classes defined by users.
 
-from ppci.lang.c3 import C3Program
-from ppci.lang.python import PythonProgram
+from .c3_program import C3Program
+from .python_program import PythonProgram
 
-from ppci.irs.ir import IrProgram
-from ppci.irs.wasm import WasmProgram
+from .ir_program import IrProgram
+from .wasm_program import WasmProgram
 
-from ppci.arch.x86_64 import X86Program
-from ppci.arch.arm import ArmProgram
+from .x86_64_program import X86Program
+from .arm_program import ArmProgram
