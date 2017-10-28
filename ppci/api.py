@@ -20,6 +20,7 @@ from .lang.llvmir import LlvmIrFrontend
 from .lang.pascal import PascalBuilder
 from .lang.ws import WhitespaceGenerator
 from .lang.python import python_to_ir, ir_to_python
+from .irs.wasm import wasm_to_ir, read_wasm
 from .irutils import Verifier
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
@@ -399,6 +400,19 @@ def cc(source: io.TextIOBase, march, coptions=None,
     reporter.message('{} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
+
+
+def wasmcompile(source: io.TextIOBase, march, opt_level=2):
+    """ Webassembly compile """
+    march = get_arch(march)
+    wasm_module = read_wasm(source)
+    ir_module = wasm_to_ir(wasm_module)
+
+    # Optimize:
+    optimize(ir_module, level=opt_level)
+
+    obj = ir_to_object([ir_module], march)
+    return obj
 
 
 def llvm_to_ir(source):

@@ -8,7 +8,7 @@ module
 
 from .tasks import Task, TaskError, register_task
 from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
-from ..api import c3c, link, asm, construct, objcopy
+from .. import api
 from ..lang.tools.common import ParserException
 from ..common import CompilerError
 
@@ -42,7 +42,7 @@ class BuildTask(Task):
     """ Builds another build description file (build.xml) """
     def run(self):
         project = self.relpath(self.get_argument('file'))
-        construct(project)
+        api.construct(project)
 
 
 class OutputtingTask(Task):
@@ -70,7 +70,7 @@ class AssembleTask(OutputtingTask):
             debug = False
 
         try:
-            obj = asm(source, arch, debug=debug)
+            obj = api.asm(source, arch, debug=debug)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:
@@ -103,10 +103,23 @@ class CompileTask(OutputtingTask):
         opt = int(self.get_argument('optimize', default='0'))
 
         with reporter:
-            obj = c3c(
+            obj = api.c3c(
                 sources, includes, arch, opt_level=opt,
                 reporter=reporter, debug=debug)
 
+        self.store_object(obj)
+
+
+@register_task
+class WasmCompileTask(OutputtingTask):
+    """ Task that compiles a wasm module into an object file """
+    def run(self):
+        arch = self.get_argument('arch')
+        source = self.open_file_set(self.arguments['source'])
+        opt = int(self.get_argument('optimize', default='0'))
+        self.logger.debug('loading %s', source[0])
+        with open(source[0], 'rb') as f:
+            obj = api.wasmcompile(f, arch, opt_level=opt)
         self.store_object(obj)
 
 
@@ -119,7 +132,7 @@ class LinkTask(OutputtingTask):
         debug = bool(self.get_argument('debug', default=False))
 
         try:
-            obj = link(objects, layout, use_runtime=True, debug=debug)
+            obj = api.link(objects, layout, use_runtime=True, debug=debug)
         except CompilerError as err:
             raise TaskError(err.msg)
 
@@ -135,4 +148,4 @@ class ObjCopyTask(Task):
         object_filename = self.relpath(self.get_argument('objectfile'))
         fmt = self.get_argument('format')
 
-        objcopy(object_filename, image_name, fmt, output_filename)
+        api.objcopy(object_filename, image_name, fmt, output_filename)

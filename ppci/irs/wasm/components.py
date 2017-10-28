@@ -530,7 +530,6 @@ class TypeSection(Section):
     def from_reader(cls, r):
         count = r.read_int()
         functionsigs = [FunctionSig.from_reader(r) for _ in range(count)]
-        print(functionsigs)
         return cls(functionsigs)
 
 

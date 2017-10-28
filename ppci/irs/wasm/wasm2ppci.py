@@ -6,11 +6,18 @@ from ... import ir
 from ... import irutils
 from ... import common
 from ...binutils import debuginfo
-from . import Module, components
+from . import components
 
 
 def wasm_to_ir(wasm_module):
-    """ Convert a WASM module into a PPCI native module. """
+    """ Convert a WASM module into a PPCI native module.
+
+    Args:
+        wasm_module (ppci.irs.wasm.Module): The wasm-module to compile
+
+    Returns:
+        An IR-module.
+    """
     compiler = WasmToIrCompiler()
     ppci_module = compiler.generate(wasm_module)
     return ppci_module
@@ -26,7 +33,7 @@ class WasmToIrCompiler:
         self.blocknr = 0
 
     def generate(self, wasm_module):
-        assert isinstance(wasm_module, Module)
+        assert isinstance(wasm_module, components.Module)
 
         # First read all sections:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
@@ -34,6 +41,7 @@ class WasmToIrCompiler:
         self.globalz = []
         function_sigs = []
         function_defs = []
+        functions = []
         self.function_space = []
         self.function_names = {}
         for section in wasm_module:
@@ -60,10 +68,18 @@ class WasmToIrCompiler:
                         # raise NotImplementedError(x.kind)
             elif isinstance(section, components.CodeSection):
                 function_defs.extend(section.functiondefs)
+                assert len(function_sigs) == len(function_defs)
                 for sig_index, wasm_function in zip(
                         function_sigs, function_defs):
                     signature = self.wasm_types[sig_index]
+                    index = len(self.function_space)
                     self.function_space.append(signature)
+                    if index in self.function_names:
+                        name = self.function_names[index]
+                    else:
+                        name = 'unnamed{}'.format(index)
+                        self.function_names[index] = name
+                    functions.append((name, signature, wasm_function))
             elif isinstance(section, components.GlobalSection):
                 for i, g in enumerate(section.globalz):
                     ir_typ = self.get_ir_type(g.typ)
@@ -88,18 +104,15 @@ class WasmToIrCompiler:
         self.builder.module = ir.Module('mainmodule', debug_db=self.debug_db)
 
         # Generate functions:
-        assert len(function_sigs) == len(function_defs)
-        for sig_index, wasm_function in zip(
-                function_sigs, function_defs):
-            signature = self.wasm_types[sig_index]
-            self.generate_function(signature, wasm_function)
+        for name, signature, wasm_function in functions:
+            self.generate_function(name, signature, wasm_function)
 
         return self.builder.module
 
     def emit(self, ppci_inst):
-        """
-            Emits the given instruction to the builder.
-            Can be muted for constants.
+        """ Emits the given instruction to the builder.
+
+        Can be muted for constants.
         """
         self.builder.emit(ppci_inst)
         return ppci_inst
@@ -107,7 +120,8 @@ class WasmToIrCompiler:
     def new_block(self):
         self.blocknr += 1
         self.logger.debug('creating block %s', self.blocknr)
-        return self.builder.new_block('block' + str(self.blocknr))
+        block_name = self.builder.function.name + '_block' + str(self.blocknr)
+        return self.builder.new_block(block_name)
 
     TYP_MAP = {
         'i32': ir.i32, 'i64': ir.i64,
@@ -118,9 +132,10 @@ class WasmToIrCompiler:
         wasm_type = wasm_type.split('.')[0]
         return self.TYP_MAP[wasm_type]
 
-    def generate_function(self, signature, wasm_function):
+    def generate_function(self, name, signature, wasm_function):
         """ Generate code for a single function """
-        self.logger.debug('Generating wasm function %s', signature.to_text())
+        self.logger.debug(
+            'Generating wasm function %s %s', name, signature.to_text())
         self.stack = []
         self.block_stack = []
 
@@ -130,14 +145,14 @@ class WasmToIrCompiler:
                     'Cannot handle {} return values'.format(
                         len(signature.returns)))
             ret_type = self.get_ir_type(signature.returns[0])
-            ppci_function = self.builder.new_function('main', ret_type)
+            ppci_function = self.builder.new_function(name, ret_type)
         else:
-            ppci_function = self.builder.new_procedure('main')
+            ppci_function = self.builder.new_procedure(name)
         self.builder.set_function(ppci_function)
 
         db_float = debuginfo.DebugBaseType('double', 8, 1)
         db_function_info = debuginfo.DebugFunction(
-            'main',
+            name,
             common.SourceLocation('main.wasm', 1, 1, 1),
             db_float, ())
         self.debug_db.enter(ppci_function, db_function_info)
@@ -193,8 +208,10 @@ class WasmToIrCompiler:
         'i32.eqz', 'i32.eq', 'i32.ne', 'i32.lt_s', 'i32.lt_u',
         'i32.gt_s', 'i32.gt_u', 'i32.le_s', 'i32.le_u',
         'i32.ge_s', 'i32.ge_u',
-        'i64.eqz', 'i64.eq', 'i64.ne', 'i64.lt_s', 'i64.lt_u',
-        'i64.gt_s', 'i64.gt_u', 'i64.le_s', 'i64.le_u',
+        'i64.eqz', 'i64.eq', 'i64.ne',
+        'i64.lt_s', 'i64.lt_u',
+        'i64.gt_s', 'i64.gt_u',
+        'i64.le_s', 'i64.le_u',
         'i64.ge_s', 'i64.ge_u',
     }
 
@@ -213,8 +230,11 @@ class WasmToIrCompiler:
     }
 
     OPMAP = dict(
-        eqz='==', eq='==', ne='!=', ge='>=', le='<=',
-        gt='>', gt_u='>', gt_s='<', lt='<', lt_u='<', lr_s='<')
+        eqz='==', eq='==', ne='!=',
+        ge='>=', ge_u='>=', ge_s='>=',
+        le='<=', le_u='<=', le_s='<=',
+        gt='>', gt_u='>', gt_s='<',
+        lt='<', lt_u='<', lt_s='<')
 
     def get_phi(self, instruction):
         """ Get phi function for the given loop/block/if """
@@ -235,6 +255,7 @@ class WasmToIrCompiler:
             phi.set_incoming(self.builder.block, value)
 
     def generate_instruction(self, instruction):
+        """ Generate ir-code for a single wasm instruction """
         inst = instruction.type
         if inst in self.BINOPS:
             itype, opname = inst.split('.')
@@ -413,4 +434,3 @@ class WasmToIrCompiler:
 
         else:  # pragma: no cover
             raise NotImplementedError(inst)
-

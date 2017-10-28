@@ -69,6 +69,18 @@ class CPreProcessor:
         self.define(FunctionMacro('__DATE__', self.special_macro_date))
         self.define(FunctionMacro('__TIME__', self.special_macro_time))
 
+        # Misc macros:
+        self.define(
+            Macro(
+                '__BYTE_ORDER__',
+                [CToken('NUMBER', '1L', '', False, internal_loc)],
+                protected=True))
+        self.define(
+            Macro(
+                '__ORDER_LITTLE_ENDIAN__',
+                [CToken('NUMBER', '1L', '', False, internal_loc)],
+                protected=True))
+
         # Macro's defines by options:
         for macro in self.coptions.macros:
             logging.debug('Setting predefined macro %s', macro)

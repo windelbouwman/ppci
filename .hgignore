@@ -7,8 +7,10 @@ syntax: glob
 *.bin
 *.lst
 *.hex
+*.flash
 *.elf
 *.wasm
+*.out
 *.m4
 *.log
 *.vcd
