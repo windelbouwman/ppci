@@ -1,6 +1,7 @@
 """ Convert Web Assembly (WASM) into PPCI IR. """
 
 import logging
+import struct
 from ... import ir
 from ... import irutils
 from ... import common
@@ -30,7 +31,8 @@ class WasmToIrCompiler:
         # First read all sections:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
         self.wasm_types = []
-        self.function_sigs = []
+        self.globalz = []
+        function_sigs = []
         function_defs = []
         self.function_space = []
         self.function_names = {}
@@ -59,11 +61,25 @@ class WasmToIrCompiler:
             elif isinstance(section, components.CodeSection):
                 function_defs.extend(section.functiondefs)
                 for sig_index, wasm_function in zip(
-                        self.function_sigs, function_defs):
+                        function_sigs, function_defs):
                     signature = self.wasm_types[sig_index]
                     self.function_space.append(signature)
+            elif isinstance(section, components.GlobalSection):
+                for i, g in enumerate(section.globalz):
+                    ir_typ = self.get_ir_type(g.typ)
+                    fmts = {
+                        ir.i32: '<i', ir.i64: '<q',
+                        ir.f32: 'f', ir.f64: 'd',
+                    }
+                    fmt = fmts[ir_typ]
+                    size = struct.calcsize(fmt)
+                    value = struct.pack(fmt, g.value)
+                    g2 = ir.Variable('global{}'.format(i), size, value=value)
+                    self.globalz.append((ir_typ, g2))
+            elif isinstance(section, components.DataSection):
+                pass
             elif isinstance(section, components.FunctionSection):
-                self.function_sigs.extend(section.indices)
+                function_sigs.extend(section.indices)
             else:
                 self.logger.error('Section %s not handled', section)
 
@@ -72,9 +88,9 @@ class WasmToIrCompiler:
         self.builder.module = ir.Module('mainmodule', debug_db=self.debug_db)
 
         # Generate functions:
-        assert len(self.function_sigs) == len(function_defs)
+        assert len(function_sigs) == len(function_defs)
         for sig_index, wasm_function in zip(
-                self.function_sigs, function_defs):
+                function_sigs, function_defs):
             signature = self.wasm_types[sig_index]
             self.generate_function(signature, wasm_function)
 
@@ -182,6 +198,20 @@ class WasmToIrCompiler:
         'i64.ge_s', 'i64.ge_u',
     }
 
+    STORE_OPS = {
+        'f64.store',
+        'f32.store',
+        'i64.store',
+        'i32.store',
+    }
+
+    LOAD_OPS = {
+        'f64.load',
+        'f32.load',
+        'i64.load',
+        'i32.load',
+    }
+
     OPMAP = dict(
         eqz='==', eq='==', ne='!=', ge='>=', le='<=',
         gt='>', gt_u='>', gt_s='<', lt='<', lt_u='<', lr_s='<')
@@ -218,6 +248,29 @@ class WasmToIrCompiler:
             b, a = self.stack.pop(), self.stack.pop()
             self.stack.append((inst.split('.')[1], a, b))
             # todo: hack; we assume this is the only test in an if
+
+        elif inst in self.STORE_OPS:
+            itype = inst.split('.')[0]
+            ir_typ = self.get_ir_type(itype)
+            offset, align = instruction.args
+            value = self.stack.pop()
+            base = self.stack.pop()
+            assert base.ty is ir.ptr, str(base)
+            offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
+            address = self.emit(ir.add(base, offset, 'address', ir.ptr))
+            self.emit(ir.Store(value, address))
+
+        elif inst in self.LOAD_OPS:
+            itype = inst.split('.')[0]
+            ir_typ = self.get_ir_type(itype)
+            offset, align = instruction.args
+            base = self.stack.pop()
+            assert base.ty is ir.ptr, str(base)
+            offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
+            address = self.emit(ir.add(base, offset, 'address', ir.ptr))
+            value = self.emit(ir.Load(address, 'load', ir_typ))
+            self.stack.append(value)
+
         elif inst == 'f64.floor':
             value1 = self.emit(
                 ir.Cast(self.stack.pop(), 'floor_cast_1', ir.i64))
@@ -232,13 +285,25 @@ class WasmToIrCompiler:
 
         elif inst == 'set_local':
             value = self.stack.pop()
-            _, local_var = self.locals[instruction.args[0]]
+            ty, local_var = self.locals[instruction.args[0]]
+            assert ty is value.ty
             self.emit(ir.Store(value, local_var))
 
         elif inst == 'get_local':
             ty, local_var = self.locals[instruction.args[0]]
             value = self.emit(ir.Load(local_var, 'getlocal', ty))
             self.stack.append(value)
+
+        elif inst == 'get_global':
+            ty, addr = self.globalz[instruction.args[0]]
+            value = self.emit(ir.Load(addr, 'get_global', ty))
+            self.stack.append(value)
+
+        elif inst == 'set_global':
+            value = self.stack.pop()
+            ty, addr = self.globalz[instruction.args[0]]
+            assert ty is value.ty
+            self.emit(ir.Store(value, addr))
 
         elif inst == 'f64.neg':
             zero = self.emit(ir.Const(0, 'zero', self.get_ir_type(inst)))

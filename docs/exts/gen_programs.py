@@ -81,8 +81,8 @@ def write_programs_rst():
         parts.append('.. autoclass:: ppci.programs.{}'.format(program.__name__))
         parts.append('   :members:\n\n')
     
-    files_to_remove.append('programs.rst')
-    with open(os.path.join(DOC_DIR, 'programs.rst'), 'wb') as f:
+    files_to_remove.append(os.path.join('reference', 'programs.rst'))
+    with open(os.path.join(DOC_DIR, 'reference', 'programs.rst'), 'wb') as f:
         f.write('\n'.join(parts).encode())
 
 

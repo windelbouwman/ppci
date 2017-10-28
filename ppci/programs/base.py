@@ -81,11 +81,12 @@ class Program(object, metaclass=ProgramMeta):
         return self._items
     
     def previous(self, which=1):
-        """ Get a previous Program instance, or None. The ``which`` arg can be:
+        """ Get a previous Program instance, or None.
+
+        The ``which`` arg can be:
         * int: Go this many steps back in the compile chain (default 1).
         * str: Get the program in the compile chain that represents the given language.
-        * Program instance/class: Get the program in the compile chain that represents
-          the given Program class.
+        * Program instance/class: Get the program in the compile chain that represents the given Program class.
         """
         # Normalize which arg
         if isinstance(which, Program) or isinstance(which, type) and issubclass(which, Program):

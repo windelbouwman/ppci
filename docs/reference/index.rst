@@ -5,6 +5,7 @@ Reference
 .. toctree::
 
     api
+    programs
     cli
     c3
     c

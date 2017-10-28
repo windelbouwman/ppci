@@ -36,6 +36,7 @@ extensions = [
     'sphinxcontrib.spelling',
     'zipexamples',
     'uml',
+    'gen_programs',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

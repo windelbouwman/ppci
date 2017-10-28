@@ -33,6 +33,11 @@ class IrProgram(IntermediateProgram):
             pieces.append(f.getvalue())
         return '\n\n==========\n\n'.join(pieces)
 
+    def optimize(self, level=2):
+        """ Optimize the ir program """
+        for item in self.items:
+            optimize(item, level=level)
+
     def to_x86(self, **options):
         """ Compile to X86 machine code.
 
