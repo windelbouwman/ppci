@@ -538,6 +538,9 @@ def make_mext(mnemonic, func):
 
 Mul = make_mext('mul', 0b000)
 Div = make_mext('div', 0b100)
+Divu = make_mext('divu', 0b101)
+Rem = make_mext('rem', 0b110)
+Remu = make_mext('remu', 0b111)
 
 
 # Instruction selection patterns:
@@ -613,18 +616,31 @@ def pattern_reg(context, tree):
     return tree.value
 
 
-@isa.pattern('reg', 'I32TOI32(reg)', size=0)
-@isa.pattern('reg', 'I32TOU32(reg)', size=0)
-@isa.pattern('reg', 'U32TOI32(reg)', size=0)
 @isa.pattern('reg', 'U32TOU32(reg)', size=0)
+@isa.pattern('reg', 'U32TOI32(reg)', size=0)
+@isa.pattern('reg', 'I32TOU32(reg)', size=0)
+@isa.pattern('reg', 'I32TOI32(reg)', size=0)
+@isa.pattern('reg', 'U32TOU16(reg)', size=0)
+@isa.pattern('reg', 'U32TOI16(reg)', size=0)
+@isa.pattern('reg', 'I32TOI16(reg)', size=0)
+@isa.pattern('reg', 'I32TOU16(reg)', size=0)
 @isa.pattern('reg', 'U16TOU16(reg)', size=0)
+@isa.pattern('reg', 'U16TOI16(reg)', size=0)
+@isa.pattern('reg', 'I16TOI16(reg)', size=0)
 @isa.pattern('reg', 'I16TOU16(reg)', size=0)
+@isa.pattern('reg', 'U16TOU8(reg)', size=0)
+@isa.pattern('reg', 'U16TOI8(reg)', size=0)
+@isa.pattern('reg', 'I16TOI8(reg)', size=0)
+@isa.pattern('reg', 'I16TOU8(reg)', size=0)
+@isa.pattern('reg', 'U8TOU8(reg)', size=0)
 @isa.pattern('reg', 'U8TOI8(reg)', size=0)
+@isa.pattern('reg', 'I8TOI8(reg)', size=0)
 @isa.pattern('reg', 'I8TOU8(reg)', size=0)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
 
+@isa.pattern('reg', 'I8TOI16(reg)', size=4)
 @isa.pattern('reg', 'I8TOI32(reg)', size=4)
 def pattern_i8_to_i32(context, tree, c0):
     context.emit(Slli(c0, c0, 24))
@@ -639,12 +655,30 @@ def pattern_i8_to_i32(context, tree, c0):
     return c0
 
 
+@isa.pattern('reg', 'I8TOU16(reg)', size=4)
+@isa.pattern('reg', 'U8TOU16(reg)', size=4)
+@isa.pattern('reg', 'U8TOI16(reg)', size=4)
+def pattern_8_to_16(context, tree, c0):
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srli(c0, c0, 24))
+    return c0
+
+
 @isa.pattern('reg', 'I8TOU32(reg)', size=4)
 @isa.pattern('reg', 'U8TOU32(reg)', size=4)
 @isa.pattern('reg', 'U8TOI32(reg)', size=4)
 def pattern_8_to_32(context, tree, c0):
     context.emit(Slli(c0, c0, 24))
     context.emit(Srli(c0, c0, 24))
+    return c0
+
+
+@isa.pattern('reg', 'I16TOU32(reg)', size=4)
+@isa.pattern('reg', 'U16TOU32(reg)', size=4)
+@isa.pattern('reg', 'U16TOI32(reg)', size=4)
+def pattern_16_to_32(context, tree, c0):
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srli(c0, c0, 16))
     return c0
 
 
@@ -673,6 +707,7 @@ def pattern_32_to_8_16(context, tree, c0):
 @isa.pattern('reg', 'CONSTI32', size=4)
 @isa.pattern('reg', 'CONSTU32', size=4)
 @isa.pattern('reg', 'CONSTI16', size=4)
+@isa.pattern('reg', 'CONSTU16', size=4)
 @isa.pattern(
     'reg', 'CONSTI32', size=2,
     condition=lambda t: t.value in range(-2048, 2048))
@@ -691,6 +726,7 @@ def pattern_const_i32(context, tree):
 
 
 @isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
 @isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
@@ -702,6 +738,7 @@ def pattern_cjmp(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
 @isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
 def pattern_cjmpu(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
@@ -715,6 +752,14 @@ def pattern_cjmpu(context, tree, c0, c1):
 @isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 @isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 def pattern_add_i32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Addr(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'ADDU16(reg, reg)', size=2)
+@isa.pattern('reg', 'ADDI16(reg, reg)', size=2)
+def pattern_add_i16(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Addr(d, c0, c1))
     return d
@@ -972,6 +1017,10 @@ def pattern_shr_i32_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern('reg', 'SHLU8(reg, reg)', size=2)
+@isa.pattern('reg', 'SHLI8(reg, reg)', size=2)
+@isa.pattern('reg', 'SHLU16(reg, reg)', size=2)
+@isa.pattern('reg', 'SHLI16(reg, reg)', size=2)
 @isa.pattern('reg', 'SHLU32(reg, reg)', size=2)
 @isa.pattern('reg', 'SHLI32(reg, reg)', size=2)
 def pattern_shl_i32(context, tree, c0, c1):
@@ -990,6 +1039,8 @@ def pattern_shl_i32_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern('reg', 'MULU8(reg, reg)', size=10)
+@isa.pattern('reg', 'MULU16(reg, reg)', size=10)
 @isa.pattern('reg', 'MULI32(reg, reg)', size=10)
 @isa.pattern('reg', 'MULU32(reg, reg)', size=10)
 def pattern_mul_i32(context, tree, c0, c1):
@@ -1008,31 +1059,36 @@ def pattern_ldr_i32_add(context, tree, c0):
 
 
 @isa.pattern('reg', 'DIVI32(reg, reg)', size=10)
-@isa.pattern('reg', 'DIVU32(reg, reg)', size=10)
 def pattern_div_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
-    # Generate call into runtime lib function!
-    context.move(R12, c0)
-    context.move(R13, c1)
-    context.emit(Bl(LR, '__sdiv', clobbers=[R14]))
-    context.move(d, R10)
+    context.emit(Div(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'DIVU16(reg, reg)', size=10)
+@isa.pattern('reg', 'DIVU32(reg, reg)', size=10)
+def pattern_div_u32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Divu(d, c0, c1))
     return d
 
 
 @isa.pattern('reg', 'REMI32(reg, reg)', size=10)
 def pattern_rem_i32(context, tree, c0, c1):
-    # Implement remainder as a combo of div and mls (multiply substract)
     d = context.new_reg(RiscvRegister)
-    context.move(R12, c0)
-    context.move(R13, c1)
-    context.emit(Bl(LR, '__sdiv', clobbers=[R14]))
-    context.move(d, R10)
-    context.emit(Mul(c1, c1, d))
-    d2 = context.new_reg(RiscvRegister)
-    context.emit(Subr(d2, c0, c1))
-    return d2
+    context.emit(Rem(d, c0, c1))
+    return d
 
 
+@isa.pattern('reg', 'REMU16(reg, reg)', size=10)
+@isa.pattern('reg', 'REMU32(reg, reg)', size=10)
+def pattern_rem_u32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Remu(d, c0, c1))
+    return d
+
+
+@isa.pattern('reg', 'XORU32(reg, reg)', size=2)
 @isa.pattern('reg', 'XORI32(reg, reg)', size=2)
 def pattern_xor_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
