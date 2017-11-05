@@ -197,11 +197,15 @@ class ElfFileTestCase(unittest.TestCase):
 
 
 class ExeFileTestCase(unittest.TestCase):
+    @unittest.skip('TODO')
     def test_save(self):
         """ Test the generation of a windows exe file """
-        arch = ExampleArch()
+        arch = get_arch('x86_64')
         obj = ObjectFile(arch)
+        obj.get_section('code', create=True)
+        obj.get_section('data', create=True)
         f = io.BytesIO()
+        # TODO:
         ExeWriter().write(obj, f)
 
 

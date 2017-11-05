@@ -29,6 +29,10 @@ def packf64(x):
     return spack('<d', x)
 
 
+def packf32(x):
+    return spack('<f', x)
+
+
 def packu32(x):
     return spack('<I', x)
 
@@ -1089,6 +1093,8 @@ class Instruction(WASMComponent):
             if isinstance(arg, (float, int)):
                 if self.type.startswith('f64.'):
                     f.write(packf64(arg))
+                elif self.type.startswith('f32.'):
+                    f.write(packf32(arg))
                 elif self.type.startswith('i64.'):
                     f.write(packvs64(arg))
                 elif self.type.startswith('i32.'):

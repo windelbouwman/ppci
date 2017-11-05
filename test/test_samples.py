@@ -8,7 +8,7 @@ import subprocess
 from tempfile import mkstemp
 from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
-from util import has_avr_emulator, run_avr
+from util import has_avr_emulator, run_avr, run_nodejs
 from util import do_long_tests, do_iverilog, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
@@ -505,7 +505,6 @@ class TestSamplesOnWasm(unittest.TestCase):
 
     def do(self, src, expected_output, lang='c3'):
         base_filename = make_filename(self.id())
-        sample_filename = base_filename + '.py'
         list_filename = base_filename + '.html'
 
         bsp = io.StringIO("""
@@ -540,11 +539,49 @@ class TestSamplesOnWasm(unittest.TestCase):
             for ir_module in ir_modules:
                 optimize(ir_module, level=self.opt_level, reporter=reporter)
 
-            wasm_module = ir_to_wasm(ir_modules)
-            # with open(sample_filename, 'w') as f:
+            wasm_module = ir_to_wasm(ir_modules, reporter=reporter)
 
-        # TODO: run node.js here and compare output
-        # self.assertEqual(expected_output, res)
+        # Output wasm file:
+        wasm_filename = base_filename + '.wasm'
+        with open(wasm_filename, 'wb') as f:
+            wasm_module.to_file(f)
+
+        # Dat was 'm:
+        wasm = wasm_module.to_bytes()
+        wasm_text = str(list(wasm))
+        wasm_data = 'var wasm_data = new Uint8Array(' + wasm_text + ');'
+
+        # Output javascript file:
+        js = NODE_JS_TEMPLATE.replace('JS_PLACEHOLDER', wasm_data)
+        js_filename = base_filename + '.js'
+        with open(js_filename, 'w') as f:
+            f.write(js)
+
+        # run node.js and compare output:
+        res = run_nodejs(js_filename)
+        self.assertEqual(expected_output, res)
+
+
+NODE_JS_TEMPLATE = """
+function bsp_putc(i) {
+    var c = String.fromCharCode(i);
+    process.stdout.write(c);
+}
+
+var providedfuncs = {
+    bsp_putc: bsp_putc,
+};
+
+JS_PLACEHOLDER
+
+function compile_my_wasm() {
+    var module_ = new WebAssembly.Module(wasm_data);
+    var module = new WebAssembly.Instance(module_, {js: providedfuncs});
+    module.exports.main_main();
+}
+
+compile_my_wasm();
+"""
 
 
 @unittest.skipUnless(do_long_tests('msp430'), 'skipping slow tests')

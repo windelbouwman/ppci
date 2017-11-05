@@ -187,6 +187,18 @@ def run_python(kernel):
     return outs
 
 
+def run_nodejs(js_filename):
+    """ Run given file in nodejs and capture output """
+    proc = subprocess.Popen(
+        ['node', js_filename], stdout=subprocess.PIPE)
+
+    outs, _ = proc.communicate(timeout=10)
+
+    outs = outs.decode('ascii', errors='ignore')
+    outs = outs.replace(os.linesep, '\n')
+    return outs
+
+
 def has_iverilog():
     """ Determines if iverilog is installed """
     return hasattr(shutil, 'which') and bool(shutil.which(iverilog_app))

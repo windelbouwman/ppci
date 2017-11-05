@@ -23,16 +23,17 @@ from .arch import WasmArchitecture
 from .arch import I32Register, I64Register, F32Register, F64Register
 
 
-def ir_to_wasm(ir_module):
+def ir_to_wasm(ir_module, reporter=None):
     """ Compiles ir-code to a wasm module.
 
     Args:
         ir_module (ir.Module): The ir-module to compile
+        reporter: optionally report compilation steps
 
     Returns:
         A wasm module.
     """
-    ir_to_wasm_compiler = IrToWasmCompiler()
+    ir_to_wasm_compiler = IrToWasmCompiler(reporter=reporter)
     ir_to_wasm_compiler.prepare_compilation()
     if isinstance(ir_module, (list, tuple)):
         for m in ir_module:
@@ -46,6 +47,9 @@ class IrToWasmCompiler:
     """ Translates ir-code into wasm """
     logger = logging.getLogger('ir2wasm')
     STACKSIZE = 1000  # Virtual stack size
+
+    def __init__(self, reporter=None):
+        self.reporter = reporter
 
     def prepare_compilation(self):
         self.types = []
@@ -133,7 +137,10 @@ class IrToWasmCompiler:
             sections.append(components.TableSection(tables))
             sections.append(components.ElementSection(elements))
 
-        return components.Module(sections)
+        module = components.Module(sections)
+        if self.reporter:
+            self.reporter.dump_raw_text(module.to_text())
+        return module
 
     def get_type_id(self, arg_types, ret_types):
         """ Get wasm type id and create a signature if required! """
@@ -195,8 +202,9 @@ class IrToWasmCompiler:
         if isinstance(ir_function, ir.Function):
             # Insert dummy value at end of function:
             # TODO: this is ugly!
-            ret_type = self.get_ty(ir_function.return_ty)
-            self.emit((ret_type + '.const', 0))
+            if self.instructions[-1].type != 'return':
+                ret_type = self.get_ty(ir_function.return_ty)
+                self.emit((ret_type + '.const', 0))
 
         # Determine function signature:
         arg_types = tuple(a.ty for a in ir_function.arguments)
@@ -222,6 +230,7 @@ class IrToWasmCompiler:
 
     def increment_stack_pointer(self):
         """ Allocate stack if needed """
+        self.stack_allocated = True
         if self.fi.frame.stacksize > 0:
             self.emit(('get_global', 0))
             self.emit(('i32.const', self.fi.frame.stacksize))
@@ -229,6 +238,11 @@ class IrToWasmCompiler:
             self.emit(('set_global', 0))
 
     def decrement_stack_pointer(self):
+        # Only decrement stack 1 time:
+        if self.stack_allocated:
+            self.stack_allocated = False
+        else:
+            return
         if self.fi.frame.stacksize > 0:
             self.emit(('get_global', 0))
             self.emit(('i32.const', self.fi.frame.stacksize))

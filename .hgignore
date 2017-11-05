@@ -9,6 +9,7 @@ syntax: glob
 *.hex
 *.flash
 *.elf
+*.exe
 *.wasm
 *.out
 *.m4
