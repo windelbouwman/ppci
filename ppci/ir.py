@@ -238,6 +238,15 @@ class ExternalFunction(ExternalSubRoutine):
         return 'external {} {}({});'.format(self.return_type, self.name, args)
 
 
+class ExternalVariable(External):
+    """ External global variable. """
+    def __init__(self, name):
+        super().__init__(name)
+
+    def __str__(self):
+        return 'External variable {}'.format(self.name)
+
+
 class SubRoutine(GlobalValue):
     """ Base class of function and procedure. These two differ in that
     a function returns a value, where as a procedure does not.

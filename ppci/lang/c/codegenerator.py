@@ -98,16 +98,22 @@ class CCodeGenerator:
         raise CompilerError(message, loc=location)
 
     def gen_global_variable(self, var_decl):
-        # if typ is array, use initializer to determine size
-        if var_decl.initial_value:
-            ivalue = self.context.gen_global_ival(
-                var_decl.typ, var_decl.initial_value)
+        if var_decl.storage_class == 'extern':
+            # create an external variable:
+            ir_var = ir.ExternalVariable(var_decl.name)
+            self.builder.module.add_external(ir_var)
+            self.ir_var_map[var_decl] = ir_var
         else:
-            ivalue = None
-        size = self.context.sizeof(var_decl.typ)
-        ir_var = ir.Variable(var_decl.name, size, value=ivalue)
-        self.builder.module.add_variable(ir_var)
-        self.ir_var_map[var_decl] = ir_var
+            # if typ is array, use initializer to determine size
+            if var_decl.initial_value:
+                ivalue = self.context.gen_global_ival(
+                    var_decl.typ, var_decl.initial_value)
+            else:
+                ivalue = None
+            size = self.context.sizeof(var_decl.typ)
+            ir_var = ir.Variable(var_decl.name, size, value=ivalue)
+            self.builder.module.add_variable(ir_var)
+            self.ir_var_map[var_decl] = ir_var
 
     def gen_function(self, function):
         """ Generate code for a function """
@@ -181,9 +187,9 @@ class CCodeGenerator:
             self.logger.debug('Adding vararg pointer')
             ir_argument = ir.Parameter('varargz', ir.ptr)
             ir_function.add_parameter(ir_argument)
-            ir_var = self.emit(ir.Alloc('varargz_alloc', self.ptr_size))
-            self.emit(ir.Store(ir_argument, ir_var))
-            self._varargz_ptrptr = ir_var
+            # ir_var = self.emit(ir.Alloc('varargz_alloc', self.ptr_size))
+            # self.emit(ir.Store(ir_argument, ir_var))
+            self._varargz_ptr = ir_argument
 
         # Generate debug info for function:
         dbg_args = [
@@ -228,7 +234,7 @@ class CCodeGenerator:
         ir_function.delete_unreachable()
         self.builder.set_function(None)
         self.current_function = None
-        self._varargz_ptrptr = None
+        self._varargz_ptr = None
         assert len(self.break_block_stack) == 0
         assert len(self.continue_block_stack) == 0
 
@@ -925,16 +931,33 @@ class CCodeGenerator:
     def gen_builtin(self, expr):
         """ Generate appropriate built-in functionality """
         if isinstance(expr, expressions.BuiltInVaArg):
-            assert self._varargz_ptrptr
-            va_ptr = self.emit(ir.Load(self._varargz_ptrptr, 'va_ptr', ir.ptr))
-            ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Load(va_ptr, 'va_arg', ir_typ))
-            size = self.emit(ir.Const(
-                self.context.sizeof(expr.typ), 'size', ir.ptr))
-            va_ptr = self.emit(ir.add(va_ptr, size, 'incptr', ir.ptr))
-            self.emit(ir.Store(va_ptr, self._varargz_ptrptr))
+            value = self.gen_va_arg(expr)
+        elif isinstance(expr, expressions.BuiltInVaStart):
+            value = self.gen_va_start(expr)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
+        return value
+
+    def gen_va_start(self, expr: expressions.BuiltInVaStart):
+        """ Generate code for the va_start builtin """
+        assert self._varargz_ptr
+        # Save the arg pointer into the ap_list variable:
+        va_ptr = self._varargz_ptr
+        valist_ptrptr = self.gen_expr(expr.arg_pointer, rvalue=False)
+        self.emit(ir.Store(va_ptr, valist_ptrptr))
+        return va_ptr
+
+    def gen_va_arg(self, expr: expressions.BuiltInVaArg):
+        """ Generate code for a va_arg operation """
+        valist_ptrptr = self.gen_expr(expr.arg_pointer, rvalue=False)
+        va_ptr = self.emit(ir.Load(valist_ptrptr, 'va_ptr', ir.ptr))
+        ir_typ = self.get_ir_type(expr.typ)
+        # Load the variable argument:
+        value = self.emit(ir.Load(va_ptr, 'va_arg', ir_typ))
+        size = self.emit(ir.Const(
+            self.context.sizeof(expr.typ), 'size', ir.ptr))
+        va_ptr = self.emit(ir.add(va_ptr, size, 'incptr', ir.ptr))
+        self.emit(ir.Store(va_ptr, valist_ptrptr))
         return value
 
     def get_ir_type(self, typ: types.CType):
@@ -975,6 +998,11 @@ class CCodeGenerator:
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, types.EnumType):
             return self.get_debug_type(self.context.get_type(['int']))
+        elif isinstance(typ, types.FunctionType):
+            # This is in most cases a pointer to a function type.
+            # Register for now as basetype with 0 size:
+            dbg_typ = debuginfo.DebugBaseType('func', 0, 1)
+            self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, types.PointerType):
             ptype = self.get_debug_type(typ.element_type)
             dbg_typ = debuginfo.DebugPointerType(ptype)

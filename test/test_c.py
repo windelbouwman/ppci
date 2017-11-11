@@ -780,6 +780,26 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_function_pointer_passing(self):
+        """ Test passing of function pointers """
+        src = """
+
+        void callback(void)
+        {
+        }
+
+        static void (*cb)(void);
+        void register_callback(void (*f)())
+        {
+          cb = f;
+        }
+
+        void main() {
+          register_callback(callback);
+        }
+        """
+        self.do(src)
+
 
 class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """

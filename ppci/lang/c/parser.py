@@ -52,7 +52,7 @@ class CParser(RecursiveDescentParser):
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
             'switch', 'case', 'default', 'break', 'continue',
             'sizeof', 'struct', 'union', 'enum',
-            '__builtin_va_arg'}
+            '__builtin_va_arg', '__builtin_va_start'}
 
         # Some additions from C99:
         if self.context.coptions['std'] == 'c99':
@@ -790,14 +790,20 @@ class CParser(RecursiveDescentParser):
                 operator = op.val
             expr = self.parse_primary_expression()
             expr = self.semantics.on_unop(operator, expr, op.loc)
+        elif self.peak == '__builtin_va_start':
+            location = self.consume('__builtin_va_start').loc
+            self.consume('(')
+            ap = self.parse_assignment_expression()
+            self.consume(')')
+            expr = self.semantics.on_builtin_va_start(ap, location)
         elif self.peak == '__builtin_va_arg':
             location = self.consume('__builtin_va_arg').loc
             self.consume('(')
-            self.parse_assignment_expression()
+            ap = self.parse_assignment_expression()
             self.consume(',')
             typ = self.parse_typename()
             self.consume(')')
-            expr = self.semantics.on_builtin_va_arg(typ, location)
+            expr = self.semantics.on_builtin_va_arg(ap, typ, location)
         elif self.peak == 'sizeof':
             location = self.consume('sizeof').loc
             if self.peak == '(':

@@ -45,6 +45,6 @@ with open(report_html, 'w') as rf, HtmlReportGenerator(rf) as reporter:
                 obj = None
         return obj
 
-    file_list = ['loader.c', 'ff.c', 'sdmm.c']
+    file_list = ['xprintf.c', 'loader.c', 'ff.c', 'sdmm.c']
     objs = [cc(f) for f in file_list]
     print(objs)

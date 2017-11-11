@@ -22,6 +22,7 @@ class CSemantics:
         self.int_type = self.get_type(['int'])
         self.char_type = self.get_type(['char'])
         self.cstr_type = types.PointerType(self.char_type)
+        self.intptr_type = types.PointerType(self.int_type)
 
         # Working variables:
         self.switch_stack = []  # switch case levels
@@ -256,25 +257,40 @@ class CSemantics:
     def add_declaration(self, declaration):
         """ Add the given declaration to current scope """
 
-        # print(declaration)
-        # Insert into the current scope:
+        # Check if the declared name is already defined:
         if self.scope.is_defined(declaration.name, all_scopes=False):
-            # The symbol might be a forward declaration:
+            # Get the already declared name and figure out what now!
             sym = self.scope.get(declaration.name)
-            if self.context.equal_types(sym.typ, declaration.typ):
-                if declaration.is_function:
-                    self.logger.debug(
-                        'okay, forward declaration for %s implemented',
-                        declaration.name)
-                elif sym.storage_class == 'extern':
-                    # Redefine previous extern is OK!
-                    pass
-                else:
-                    self.error("Invalid redefinition", declaration.location)
-            else:
+            # The type should match in any case:
+            if not self.context.equal_types(sym.typ, declaration.typ):
                 self.logger.info('First defined here %s', sym.location)
                 self.error("Invalid redefinition", declaration.location)
+
+            # The symbol might be a forward declared function:
+            if isinstance(declaration, declarations.FunctionDeclaration):
+                if not isinstance(sym, declarations.FunctionDeclaration):
+                    self.error('Invalid re-declaration', declaration.location)
+
+                if sym.body:
+                    self.error(
+                        'Cannot redefine function', declaration.location)
+                self.logger.debug(
+                    'okay, forward declaration for %s implemented',
+                    declaration.name)
+                self.scope.update(declaration)
+            elif isinstance(declaration, declarations.VariableDeclaration):
+                if not isinstance(sym, declarations.VariableDeclaration):
+                    self.error('Invalid re-declaration', declaration.location)
+
+                if sym.storage_class != 'extern':
+                    self.error("Invalid redefinition", declaration.location)
+
+                # Redefine previous extern is OK!
+                self.scope.update(declaration)
+            else:
+                raise NotImplementedError(str(declaration))
         else:
+            # Insert into the current scope:
             self.scope.insert(declaration)
 
     def on_initializer_list(self, values, location):
@@ -644,8 +660,21 @@ class CSemantics:
         expr.lvalue = True
         return expr
 
-    def on_builtin_va_arg(self, typ, location):
-        return expressions.BuiltInVaArg(typ, location)
+    def on_builtin_va_start(self, arg_pointer, location):
+        """ Check va_start builtin function """
+        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+            self.error('Invalid type for va_start', arg_pointer.location)
+        if not arg_pointer.lvalue:
+            self.error('Expected lvalue', arg_pointer.location)
+        return expressions.BuiltInVaStart(arg_pointer, location)
+
+    def on_builtin_va_arg(self, arg_pointer, typ, location):
+        """ Check va_arg builtin function """
+        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+            self.error('Invalid type for va_arg', arg_pointer.location)
+        if not arg_pointer.lvalue:
+            self.error('Expected lvalue', arg_pointer.location)
+        return expressions.BuiltInVaArg(arg_pointer, typ, location)
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """

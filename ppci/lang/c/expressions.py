@@ -167,7 +167,15 @@ class BuiltIn(CExpression):
     pass
 
 
+class BuiltInVaStart(BuiltIn):
+    """ Built-in function va_start """
+    def __init__(self, arg_pointer, location):
+        super().__init__(arg_pointer.typ, False, location)
+        self.arg_pointer = arg_pointer
+
+
 class BuiltInVaArg(BuiltIn):
     """ Built-in function va_arg """
-    def __init__(self, typ, location):
+    def __init__(self, arg_pointer, typ, location):
         super().__init__(typ, False, location)
+        self.arg_pointer = arg_pointer

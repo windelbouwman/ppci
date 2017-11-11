@@ -62,7 +62,7 @@ char* itoa(int value, char* str, int base)
 void printf(char* txt, ...)
 {
   va_list args;
-  // va_start(args, txt);
+  va_start(args, txt);
   char buffer[20];
 
   while (*txt != 0)
@@ -92,6 +92,6 @@ void printf(char* txt, ...)
     }
   }
 
-  // va_end(args);
+  va_end(args);
 }
 
