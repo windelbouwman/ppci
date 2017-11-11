@@ -140,6 +140,17 @@ class Rel32JmpRelocation(Relocation):
 
 
 @isa.register_relocation
+class Abs32Relocation(Relocation):
+    """ Absolute 32 bit relocation value """
+    token = Imm32Token
+    field = 'disp32'
+    name = 'abs32'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value
+
+
+@isa.register_relocation
 class Jmp8Relocation(Relocation):
     token = Imm8Token
     field = 'disp8'
@@ -395,11 +406,16 @@ class RmAbsLabel(Constructor):
     """ absolute address access """
     l = Operand('l', str)
     syntax = Syntax(['[', l, ']'], priority=2)
-    patterns = {'mod': 0, 'rm': 4, 'index': 4, 'x': 0, 'b': 0}
+    patterns = {
+        'mod': 0, 'rm': 4, 'index': 4, 'x': 0, 'b': 0, 'ss': 0, 'base': 5
+    }
 
-    # TODO
     def set_user_patterns(self, tokens):
-        raise NotImplementedError('Rm4')
+        pass
+
+    def gen_relocations(self):
+        # TODO: this offset is from the end of all possible tokens..
+        yield Abs32Relocation(self.l, offset=-5)
 
 
 class RmAbs(Constructor):
@@ -462,12 +478,12 @@ class rmregbase(X86Instruction):
     def set_user_patterns(self, tokens):
         tokens.set_field('r', self.reg.rexbit)
         tokens.set_field('reg', self.reg.regbits)
+        tokens.set_field('opcode', self.opcode)
 
     def encode(self):
         # 1. Set patterns:
         tokens = self.get_tokens()
         self.set_all_patterns(tokens)
-        tokens[1][0:8] = self.opcode
 
         # 2. Encode:
         # Rex prefix:
@@ -553,6 +569,29 @@ class rmregbase16(X86Instruction):
             if tokens[3].base == 5:
                 r += tokens[6].encode()
         return r
+
+
+class RmBase(rmregbase):
+    def set_user_patterns(self, tokens):
+        tokens.set_field('reg', self.reg)
+        tokens.set_field('opcode', self.opcode)
+
+
+def make_rm(mnemonic, opcode, o):
+    """ Create an instruction taking an r/m operand """
+    rm = Operand('rm', rm_modes)
+    syntax = Syntax([mnemonic, ' ', rm], priority=2)
+    members = {
+        'syntax': syntax, 'rm': rm, 'opcode': opcode, 'reg': o,
+    }
+    return type(mnemonic.title(), (RmBase,), members)
+
+
+Not = make_rm('not', 0xf7, 2)
+Neg = make_rm('not', 0xf7, 3)
+Dec = make_rm('dec', 0xff, 1)
+Jmp = make_rm('jmp', 0xff, 4)
+# Inc = make_rm('jmp', 0xff, 4)
 
 
 def make_rm_reg(mnemonic, opcode, read_op1=True, write_op1=True):

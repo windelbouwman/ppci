@@ -43,6 +43,7 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.check('41ffd2 40ffd1  e800000000 e8fbffffff e8f6ffffff')
 
     def test_ret(self):
+        """ Test return instruction """
         self.feed('ret')
         self.check('c3')
 
@@ -160,12 +161,18 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('lea rcx, [rbp, -8]')
         self.check('4c8d1d0f000000  488d3507000000 488d4df8')
 
-    @unittest.skip('todo')
     def test_lea_label(self):
         self.feed('lea r11, [a]')
         self.feed('a: lea rsi, [a]')
         self.feed('lea rcx, [a]')
-        self.check('4c8d1d0f000000  488d3507000000 488d4df8')
+        self.check('4c8d1c25 08000000 488d3425 08000000 488d0c25 08000000')
+
+    def test_jmp_indirect(self):
+        """ Test indirect jump to a label """
+        self.feed('jmp [a]')
+        self.feed('a: dd 0x11223344')
+        self.feed('jmp [a]')
+        self.check('48ff2425 0800 0000  44332211 48ff2425 0800 0000')
 
     def test_cmp(self):
         self.feed('cmp rdi, r13')

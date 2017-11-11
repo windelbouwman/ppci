@@ -14,6 +14,7 @@ import time
 from .. import __version_info__
 from ..binutils import layout
 from ..binutils import linker
+from ..binutils.objectfile import ObjectFile
 from .pefile.headers import DosHeader, CoffHeader, PeOptionalHeader64
 from .pefile.headers import ImageSectionHeader, PeHeader, DataDirectoryHeader
 from .pefile.headers import ImportDirectoryTable
@@ -155,6 +156,8 @@ class ExeWriter:
         """
 
         # TODO: We might as well return a relocateable object!
+        obj = ObjectFile(self.arch)
+        import_section = obj.get_section('import', create=True)
         f = io.BytesIO()
         dll_names = sorted(imports.keys())
 
@@ -196,15 +199,23 @@ class ExeWriter:
             # Trailing sentinel:
             f.write(struct.pack('<Q', 0))
 
+        # TODO: use address map to fixup imported calls.
+        address_map = {}
+        obj.add_symbol('_iat_begin', f.tell(), 'import')
+
         # Create thunk table:
         for dll_name, idt in zip(dll_names, idts):
             idt.e_import_address_table_rva = f.tell() + import_rva
             for symbol_name in imports[dll_name]:
+                obj.add_symbol(
+                    'imp_{}'.format(symbol_name), f.tell(), 'import')
+                address_map[symbol_name] = f.tell() + import_rva
                 f.write(struct.pack('<Q', ordinals[symbol_name]))
 
             # Trailing sentinel:
             # TODO: does the thunk table need a null terminator at the end?
             f.write(struct.pack('<Q', 0))
+        obj.add_symbol('_iat_end', f.tell(), 'import')
         assert f.tell() == size_of_headers
 
         # Write out the import directory:
@@ -212,7 +223,9 @@ class ExeWriter:
         for idt in idts:
             f.write(idt.serialize())
         assert f.tell() == size_of_dir
-        return f.getvalue()
+        data = f.getvalue()
+        import_section.add_data(data)
+        return obj
 
     @staticmethod
     def padded_encode(txt):
@@ -222,8 +235,19 @@ class ExeWriter:
         else:
             return data
 
-    def write(self, obj, f, entry='main_main'):
+    def write(self, obj, f, entry='_main'):
         """ Write object to exe file """
+        imports = {
+            'KERNEL32.dll': [
+                'ExitProcess',
+                'Sleep',
+                'GetStdHandle',
+                'WriteFile',
+            ],
+        }
+        self.arch = obj.arch
+        import_obj = self.create_import_table(imports)
+
         # Link object at right position:
         base_address = 0x00400000
         l = layout.Layout()
@@ -236,26 +260,21 @@ class ExeWriter:
         m.add_input(layout.Section('data'))
         m.add_input(layout.Align(4096))
         m.add_input(layout.Section('import'))
-        import_obj = None
-        obj = linker.link([obj], layout=l)
-        import_section = obj.get_section('import')
-        print(hex(import_section.address))
+        obj = linker.link([obj, import_obj], layout=l)
 
         dos_header = DosHeader()
         dos_header.write(f)
         write_dos_stub(f)
-        dos_header.e_lfanew = f.tell()   # Link to new PE header:
+        align(f, 8)
+        pe_header_address = f.tell()
+        assert pe_header_address % 8 == 0
+        dos_header.e_lfanew = pe_header_address   # Link to new PE header:
 
-        # Create import table:
-        imports = {
-            'KERNEL32.dll': [
-                'ExitProcess',
-                'Sleep',
-            ]
-        }
+        # Re-create import table at proper address:
+        import_section = obj.get_section('import')
         import_rva = import_section.address - base_address
-        idata = self.create_import_table(imports, import_rva=import_rva)
-        # print(idata)
+        import_obj2 = self.create_import_table(imports, import_rva=import_rva)
+        idata = import_obj2.get_section('import').data
 
         pe_header = PeHeader()
         pe_header.write(f)
@@ -272,6 +291,12 @@ class ExeWriter:
                     d.e_virtual_address = \
                         import_section.address - base_address
                     d.e_size = len(idata)
+            elif i == 12:
+                d.e_virtual_address = \
+                    obj.get_symbol_value('_iat_begin') - base_address
+                d.e_size = \
+                    obj.get_symbol_value('_iat_end') - base_address \
+                    - d.e_virtual_address
 
             data_directory.append(d)
 
@@ -289,6 +314,7 @@ class ExeWriter:
         coff_header.e_characteristics = \
             CoffHeader.IMAGE_FILE_RELOCS_STRIPPED | \
             CoffHeader.IMAGE_FILE_EXECUTABLE_IMAGE | \
+            CoffHeader.IMAGE_FILE_LINE_NUMS_STRIPPED | \
             CoffHeader.IMAGE_FILE_LARGE_ADDRESS_AWARE
         coff_header_location = f.tell()
         coff_header.write(f)
@@ -378,7 +404,7 @@ class ExeWriter:
         pe_optional_header.e_size_of_headers = header_size
 
         # Fill image size:
-        last_address = data_section.address + data_section.size
+        last_address = import_section.address + import_section.size
         image_size = roundup(last_address - base_address, 4096)
         pe_optional_header.e_size_of_image = image_size
 

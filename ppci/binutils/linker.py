@@ -49,7 +49,8 @@ def link(
 
     linker = Linker(march, reporter)
     output_obj = linker.link(
-        objects, layout=layout, debug=debug, extra_symbols=extra_symbols)
+        objects, layout=layout, partial_link=partial_link,
+        debug=debug, extra_symbols=extra_symbols)
     return output_obj
 
 

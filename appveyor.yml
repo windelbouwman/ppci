@@ -8,6 +8,7 @@ environment:
 install:
   - pip -q install tox wheel codecov"
   - python -c "import sys,platform; print(sys.platform); print(platform.machine())"
+  - python -m zipapp ppci
 
 build: off
 

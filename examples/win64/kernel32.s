@@ -3,34 +3,30 @@ section code
 
 _main:
 ; jmp foo
+; mov rcx, 65
+; call bsp_putchar
 call main_main
 
-mov rax, 42
-push rax
-; TODO:
-; call imp_ExitProcess
+mov rcx, 42
+call kernel32_ExitProcess
 
 section data
 
 db 0xaa
 
-section import
+section code
 
-; create import table
+kernel32_ExitProcess:
+jmp [imp_ExitProcess]
 
-; dcd 0
-; dcd 0 ; timestamp
-; dcd 0
-; dcd 0
-; dcd 0
+kernel32_GetStdHandle:
+jmp [imp_GetStdHandle]
 
-; null end:
-; dcd 0 ; rva
-; dcd 0 ; timestamp
-; dcd 0 ; forward
-; dcd 0 ; name rva
-; dcd 0 ; import table
+kernel32_WriteFile:
+jmp [imp_WriteFile]
 
-; First table:
-
-; _kernel32table:
+bsp_putchar:
+; TODO
+; push rcx  ; first arg
+; jmp [imp__putch]
+ret

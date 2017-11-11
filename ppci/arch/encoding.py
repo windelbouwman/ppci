@@ -402,6 +402,7 @@ class Instruction(Constructor, metaclass=InsMeta):
             positions[nl] = pos
             if hasattr(nl, 'tokens'):
                 tokens = getattr(nl, 'tokens')
+                # TODO: this position might not what is expected!
                 size = sum(t.Info.size for t in tokens) // 8
             else:
                 size = 0
@@ -581,6 +582,9 @@ class Relocation:
         self.addend = addend
         self.section = section
         self.offset = offset
+
+    def __repr__(self):
+        return 'Reloc[{} offset={}]'.format(self.name, self.offset)
 
     def __eq__(self, other):
         s = (
