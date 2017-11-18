@@ -127,12 +127,18 @@ class WasmCompileTask(OutputtingTask):
 class LinkTask(OutputtingTask):
     """ Link together a collection of object files """
     def run(self):
-        layout = self.relpath(self.get_argument('layout'))
+        if 'layout' in self.arguments:
+            layout = self.relpath(self.get_argument('layout'))
+        else:
+            layout = None
         objects = self.open_file_set(self.get_argument('objects'))
         debug = bool(self.get_argument('debug', default=False))
+        partial = bool(self.get_argument('partial', default=False))
 
         try:
-            obj = api.link(objects, layout, use_runtime=True, debug=debug)
+            obj = api.link(
+                objects, layout=layout, use_runtime=True,
+                partial_link=partial, debug=debug)
         except CompilerError as err:
             raise TaskError(err.msg)
 

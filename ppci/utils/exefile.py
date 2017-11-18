@@ -15,6 +15,7 @@ from .. import __version_info__
 from ..binutils import layout
 from ..binutils import linker
 from ..binutils.objectfile import ObjectFile
+from .pefile.pefile import ExeFile
 from .pefile.headers import DosHeader, CoffHeader, PeOptionalHeader64
 from .pefile.headers import ImageSectionHeader, PeHeader, DataDirectoryHeader
 from .pefile.headers import ImportDirectoryTable
@@ -248,6 +249,8 @@ class ExeWriter:
         self.arch = obj.arch
         import_obj = self.create_import_table(imports)
 
+        e = ExeFile()
+
         # Link object at right position:
         base_address = 0x00400000
         l = layout.Layout()
@@ -276,8 +279,7 @@ class ExeWriter:
         import_obj2 = self.create_import_table(imports, import_rva=import_rva)
         idata = import_obj2.get_section('import').data
 
-        pe_header = PeHeader()
-        pe_header.write(f)
+        e.pe_header.write(f)
 
         # Generate the headers:
         coff_header = CoffHeader()

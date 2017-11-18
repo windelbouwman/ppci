@@ -1,6 +1,6 @@
 
 import os
-from ppci.commands import cc
+from ppci.cli.cc import cc
 
 home = os.environ['HOME']
 riscv32_lcc_path = os.path.join(home, 'GIT', 'riscv32_lcc')

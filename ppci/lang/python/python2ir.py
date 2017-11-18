@@ -102,7 +102,7 @@ class PythonToIrTranspiler:
         if name not in self.local_map:
             # Create a variable with the given name
             # TODO: for now i64 is assumed to be the only type!
-            mem = self.emit(ir.Alloc('alloc_{}'.format(name), 8))
+            mem = self.emit(ir.Alloc('alloc_{}'.format(name), 8, 8))
             self.local_map[name] = Var(mem, True, ir.i64)
         return self.local_map[name]
 

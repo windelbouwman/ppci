@@ -100,7 +100,7 @@ it to parse C code and analyze its structure like this:
     >>> from ppci.api import get_arch
     >>> from ppci.lang.c import create_ast
     >>> src = "int a, *b;"
-    >>> ast = create_ast(src, get_arch('msp430'))
+    >>> ast = create_ast(src, get_arch('msp430').info)
     >>> ast
     Compilation unit with 2 declarations
     >>> from ppci.lang.c import CAstPrinter

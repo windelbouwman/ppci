@@ -7,6 +7,7 @@ def is_scalar(typ):
 
 
 def is_integer(typ):
+    """ Test if the given type is of integer type """
     return isinstance(typ, BareType) and typ.type_id in BareType.INTEGER_TYPES
 
 
@@ -23,22 +24,27 @@ class CType:
 
     @property
     def is_void(self):
+        """ See if this type is void """
         return is_void(self)
 
     @property
     def is_scalar(self):
+        """ Check if this is a scalar type """
         return is_scalar(self)
 
     @property
     def is_integer(self):
+        """ Check if this type is an integer type """
         return is_integer(self)
 
     @property
     def is_struct(self):
+        """ Check if this type is a struct """
         return isinstance(self, StructType)
 
     @property
     def is_union(self):
+        """ Check if this type is of union type """
         return isinstance(self, UnionType)
 
 
@@ -125,6 +131,7 @@ class StructOrUnionType(CType):
     fields = property(get_fields, set_fields)
 
     def has_field(self, name: str):
+        """ Check if this type has the given field """
         return name in self.field_map
 
     def get_field(self, name: str):
@@ -146,6 +153,7 @@ class Field:
         self.name = name
         self.bitsize = bitsize
         self.offset = offset
+        self.padded_size = 0
 
 
 class UnionType(StructOrUnionType):
@@ -159,7 +167,6 @@ class BareType(CType):
     """ This type is one of: int, unsigned int, float or void """
     VOID = 'void'
     CHAR = 'char'
-    SCHAR = 'signed char'
     UCHAR = 'unsigned char'
     SHORT = 'short'
     USHORT = 'unsigned short'
@@ -174,7 +181,7 @@ class BareType(CType):
     LONGDOUBLE = 'long double'
 
     INTEGER_TYPES = {
-        CHAR, SCHAR, UCHAR,
+        CHAR, UCHAR,
         SHORT, USHORT,
         INT, UINT,
         LONG, ULONG,

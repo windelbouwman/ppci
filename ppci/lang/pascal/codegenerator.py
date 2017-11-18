@@ -113,8 +113,9 @@ class CodeGenerator:
 
             # TODO
             size = 100  # elf.context.size_of(var.typ)
+            alignment = 4
             ir_var = ir.Variable(
-                var.name, size, value=cval)
+                var.name, size, alignment, value=cval)
             self.context.var_map[var] = ir_var
             self.builder.module.add_variable(ir_var)
 

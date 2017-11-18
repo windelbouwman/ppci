@@ -44,10 +44,16 @@ class ArchInfo:
         self.value_classes = mapping
 
     def get_type_info(self, typ):
+        """ Retrieve type information for the given type """
         if isinstance(typ, str):
             typ = self.type_infos[typ]
         assert isinstance(typ, ir.Typ)
         return self.type_infos[typ]
 
     def get_size(self, typ):
+        """ Get the size (in bytes) of the given type """
         return self.get_type_info(typ).size
+
+    def get_alignment(self, typ):
+        """ Get the alignment for the given type """
+        return self.get_type_info(typ).alignment

@@ -90,7 +90,8 @@ class WasmToIrCompiler:
                     fmt = fmts[ir_typ]
                     size = struct.calcsize(fmt)
                     value = struct.pack(fmt, g.value)
-                    g2 = ir.Variable('global{}'.format(i), size, value=value)
+                    g2 = ir.Variable(
+                        'global{}'.format(i), size, size, value=value)
                     self.globalz.append((ir_typ, g2))
             elif isinstance(section, components.DataSection):
                 pass
@@ -167,7 +168,9 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(a_typ)
             ir_arg = ir.Parameter('param{}'.format(i), ir_typ)
             ppci_function.add_parameter(ir_arg)
-            addr = self.emit(ir.Alloc('local{}'.format(i), ir_typ.size))
+            size = ir_typ.size
+            alignment = size
+            addr = self.emit(ir.Alloc('local{}'.format(i), size, alignment))
             self.locals.append((ir_typ, addr))
             # Store parameter into local variable:
             self.emit(ir.Store(ir_arg, addr))
@@ -175,7 +178,9 @@ class WasmToIrCompiler:
         # Next are the rest of the locals:
         for i, local in enumerate(wasm_function.locals, len(self.locals)):
             ir_typ = self.get_ir_type(local)
-            addr = self.emit(ir.Alloc('local{}'.format(i), ir_typ.size))
+            size = ir_typ.size
+            alignment = size
+            addr = self.emit(ir.Alloc('local{}'.format(i), size, alignment))
             self.locals.append((ir_typ, addr))
 
         num = len(wasm_function.instructions)
@@ -327,9 +332,8 @@ class WasmToIrCompiler:
             self.emit(ir.Store(value, addr))
 
         elif inst == 'f64.neg':
-            zero = self.emit(ir.Const(0, 'zero', self.get_ir_type(inst)))
             value = self.emit(
-                ir.sub(zero, self.stack.pop(), 'neg', self.get_ir_type(inst)))
+                ir.Unop('-', self.stack.pop(), 'neg', self.get_ir_type(inst)))
             self.stack.append(value)
 
         elif inst == 'block':

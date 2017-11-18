@@ -271,7 +271,7 @@ class SelectionGraphBuilder:
         # fp_output = fp.new_output('fp')
         # fp_output.wants_vreg = False
         # offset = self.new_node("CONST", ir.ptr)
-        slot = self.function_info.frame.alloc(node.amount)
+        slot = self.function_info.frame.alloc(node.amount, node.alignment)
         # offset_output = offset.new_output('offset')
         # offset_output.wants_vreg = False
         sgnode = self.new_node('FPREL', ir.ptr, value=slot)
@@ -333,6 +333,15 @@ class SelectionGraphBuilder:
         """ Literal data is stored after a label """
         label = self.function_info.frame.add_constant(node.data)
         sgnode = self.new_node('LABEL', ir.ptr, value=label)
+        self.add_map(node, sgnode.new_output(node.name))
+
+    def do_unop(self, node):
+        """ Visit an unary operator and create a DAG node """
+        names = {'-': 'NEG', '~': 'INV'}
+        op = names[node.operation]
+        a = self.get_value(node.a)
+        sgnode = self.new_node(op, node.ty, a)
+        self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_binop(self, node):

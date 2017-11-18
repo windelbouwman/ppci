@@ -3,6 +3,7 @@ from ... import ir, irutils
 from ...common import CompilerError
 from ...binutils import debuginfo
 from . import types, declarations, statements, expressions
+from .utils import required_padding
 from .types import BareType
 
 
@@ -26,7 +27,6 @@ class CCodeGenerator:
         self.ptr_size = self.context.arch_info.get_size('ptr')
         self.ir_type_map = {
             BareType.CHAR: (ir.i8, 1),
-            BareType.SCHAR: (ir.i8, 1),
             BareType.UCHAR: (ir.u8, 1),
             BareType.SHORT: (ir.i16, 2),
             BareType.USHORT: (ir.u16, 2),
@@ -111,7 +111,8 @@ class CCodeGenerator:
             else:
                 ivalue = None
             size = self.context.sizeof(var_decl.typ)
-            ir_var = ir.Variable(var_decl.name, size, value=ivalue)
+            alignment = self.context.alignment(var_decl.typ)
+            ir_var = ir.Variable(var_decl.name, size, alignment, value=ivalue)
             self.builder.module.add_variable(ir_var)
             self.ir_var_map[var_decl] = ir_var
 
@@ -177,8 +178,10 @@ class CCodeGenerator:
             else:
                 ir_argument = ir.Parameter(argument.name, ir_typ)
                 ir_function.add_parameter(ir_argument)
+                name = argument.name + '_alloc'
                 size = self.context.sizeof(argument.typ)
-                ir_var = self.emit(ir.Alloc(argument.name + '_alloc', size))
+                alignment = self.context.alignment(argument.typ)
+                ir_var = self.emit(ir.Alloc(name, size, alignment))
                 self.emit(ir.Store(ir_argument, ir_var))
                 self.ir_var_map[argument] = ir_var
 
@@ -187,8 +190,6 @@ class CCodeGenerator:
             self.logger.debug('Adding vararg pointer')
             ir_argument = ir.Parameter('varargz', ir.ptr)
             ir_function.add_parameter(ir_argument)
-            # ir_var = self.emit(ir.Alloc('varargz_alloc', self.ptr_size))
-            # self.emit(ir.Store(ir_argument, ir_var))
             self._varargz_ptr = ir_argument
 
         # Generate debug info for function:
@@ -523,7 +524,8 @@ class CCodeGenerator:
         """ Generate a local variable """
         name = variable.name
         size = self.context.sizeof(variable.typ)
-        ir_addr = self.emit(ir.Alloc(name + '_alloc', size))
+        alignment = self.context.alignment(variable.typ)
+        ir_addr = self.emit(ir.Alloc(name + '_alloc', size, alignment))
         self.ir_var_map[variable] = ir_addr
         if variable.initial_value:
             # Initialize local variable by a sequence of assignments.
@@ -535,28 +537,38 @@ class CCodeGenerator:
                 typ, (types.BareType, types.PointerType, types.EnumType)):
             value = self.gen_expr(expr, rvalue=True)
             self.emit(ir.Store(value, ptr))
-            # TODO: can we blindly rely on size, or do we need alignment?
-            size = self.emit(
-                ir.Const(self.context.sizeof(typ), 'size', ir.ptr))
+            inc = self.context.sizeof(typ)
+            size = self.emit(ir.Const(inc, 'size', ir.ptr))
             ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
         elif isinstance(typ, types.ArrayType):
+            inc = 0
             for iv in expr.elements:
-                ptr = self.gen_local_init(ptr, typ.element_type, iv)
+                # TODO: do array elements need to be aligned?
+                ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
+                inc += inc2
         elif isinstance(typ, types.StructType):
+            offset = 0
             for field, iv in zip(typ.fields, expr.elements):
-                ptr = self.gen_local_init(ptr, field.typ, iv)
+                if offset < field.offset:
+                    inc3 = field.offset - offset
+                    padding = self.emit(ir.Const(inc3, 'padding', ir.ptr))
+                    ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
+                    offset += inc3
+                ptr, inc2 = self.gen_local_init(ptr, field.typ, iv)
+                offset += inc2
+            inc = offset
         elif isinstance(typ, types.UnionType):
             # Initialize the first field!
             field = typ.fields[0]
             iv = expr.elements[0]
-            self.gen_local_init(ptr, field.typ, expr.elements[0])
+            ptr, inc = self.gen_local_init(ptr, field.typ, expr.elements[0])
             # Update pointer with size of union:
-            size = self.emit(
-                ir.Const(self.context.sizeof(typ), 'size', ir.ptr))
-            ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
+            # inc = self.context.sizeof(typ)
+            # size = self.emit(ir.Const(inc, 'size', ir.ptr))
+            # ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
-        return ptr
+        return ptr, inc
 
     def get_const_value(self, constant):
         """ Retrieve the calculated value for the given constant """
@@ -568,7 +580,8 @@ class CCodeGenerator:
                 self.error('Circular constant evaluation', constant.location)
             self.evaluating_constants.add(constant)
             # TODO: refactor const handling
-            value = self.gen_expr(constant.value)
+            raise NotImplementedError()
+            value = self.evaluate_expression(constant.value)
             self.constant_values[constant] = value
             self.evaluating_constants.remove(constant)
         return value
@@ -726,17 +739,10 @@ class CCodeGenerator:
         elif expr.op == '&':
             assert expr.a.lvalue
             value = self.gen_expr(expr.a, rvalue=False)
-        elif expr.op == '-':
+        elif expr.op in ['-', '~']:
             a = self.gen_expr(expr.a, rvalue=True)
             ir_typ = self.get_ir_type(expr.typ)
-            zero = self.emit(ir.Const(0, 'zero', ir_typ))
-            value = self.emit(ir.Binop(zero, '-', a, 'neg', ir_typ))
-        elif expr.op == '~':
-            a = self.gen_expr(expr.a, rvalue=True)
-            ir_typ = self.get_ir_type(expr.typ)
-            # TODO: use 0xff for all bits!
-            mx = self.emit(ir.Const(0xff, 'ffff', ir_typ))
-            value = self.emit(ir.Binop(a, '^', mx, 'xor', ir_typ))
+            value = self.emit(ir.Unop(expr.op, a, 'unop', ir_typ))
         elif expr.op in ['!']:
             value = self.gen_condition_to_integer(expr)
         else:  # pragma: no cover
@@ -865,17 +871,39 @@ class CCodeGenerator:
 
         if ftyp.is_vararg:
             # Allocate a memory slab:
-            size = sum(self.context.sizeof(va.typ) for va in var_args)
-            vararg_ptr = self.emit(ir.Alloc('varargs', size))
+            size = 0
+            alignment = 1
+            for va in var_args:
+                va_size = self.context.sizeof(va.typ)
+                va_alignment = self.context.alignment(va.typ)
+                # If not aligned, make it happen:
+                size += required_padding(size, va_alignment)
+                size += va_size
+                alignment = max(alignment, va_alignment)
+            vararg_ptr = self.emit(ir.Alloc('varargs', size, alignment))
             # Append var arg slot:
             ir_arguments.append(vararg_ptr)
 
+            offset = 0
             for argument in var_args:
                 value = self.gen_expr(argument, rvalue=True)
+                va_size = self.context.sizeof(argument.typ)
+                va_alignment = self.context.alignment(va.typ)
+
+                # handle alignment:
+                padding = required_padding(offset, va_alignment)
+                if padding > 0:
+                    cnst = self.emit(ir.Const(padding, 'padding', ir.ptr))
+                    vararg_ptr = self.emit(
+                        ir.add(vararg_ptr, cnst, 'va2', ir.ptr))
+                offset += padding
+
+                # Store value:
                 self.emit(ir.Store(value, vararg_ptr))
-                # TODO: handle alignment!
-                s = self.context.sizeof(argument.typ)
-                s2 = self.emit(ir.Const(s, 'size', ir.ptr))
+
+                # Increase pointer:
+                s2 = self.emit(ir.Const(va_size, 'size', ir.ptr))
+                offset += va_size
                 vararg_ptr = self.emit(ir.add(vararg_ptr, s2, 'va2', ir.ptr))
 
         if isinstance(expr.callee.typ, types.FunctionType):

@@ -7,6 +7,7 @@ from . import types, expressions, declarations
 
 
 def type_tuple(*args):
+    """ Return sorted tuple """
     return tuple(sorted(args))
 
 
@@ -19,7 +20,7 @@ class CContext:
         self.atomic_types = {
             type_tuple('void'): BareType.VOID,
             type_tuple('char',): BareType.CHAR,
-            type_tuple('signed', 'char'): BareType.SCHAR,
+            type_tuple('signed', 'char'): BareType.CHAR,
             type_tuple('unsigned', 'char'): BareType.UCHAR,
             type_tuple('short',): BareType.SHORT,
             type_tuple('signed', 'short',): BareType.SHORT,
@@ -51,22 +52,22 @@ class CContext:
         }
 
         int_size = self.arch_info.get_size('int')
+        int_alignment = self.arch_info.get_alignment('int')
         ptr_size = self.arch_info.get_size('ptr')
         self.type_size_map = {
-            BareType.CHAR: 1,
-            BareType.SCHAR: 1,
-            BareType.UCHAR: 1,
-            BareType.SHORT: 2,
-            BareType.USHORT: 2,
-            BareType.INT: int_size,
-            BareType.UINT: int_size,
-            BareType.LONG: 8,
-            BareType.ULONG: 8,
-            BareType.LONGLONG: 8,
-            BareType.ULONGLONG: 8,
-            BareType.FLOAT: 4,
-            BareType.DOUBLE: 8,
-            BareType.LONGDOUBLE: 10,
+            BareType.CHAR: (1, 1),
+            BareType.UCHAR: (1, 1),
+            BareType.SHORT: (2, 2),
+            BareType.USHORT: (2, 2),
+            BareType.INT: (int_size, int_alignment),
+            BareType.UINT: (int_size, int_alignment),
+            BareType.LONG: (8, 8),
+            BareType.ULONG: (8, 8),
+            BareType.LONGLONG: (8, 8),
+            BareType.ULONGLONG: (8, 8),
+            BareType.FLOAT: (4, 4),
+            BareType.DOUBLE: (8, 8),
+            BareType.LONGDOUBLE: (10, 10),
         }
 
         int_map = {
@@ -75,7 +76,6 @@ class CContext:
 
         self.ctypes_names = {
             types.BareType.CHAR: '<b',
-            types.BareType.SCHAR: '<b',
             types.BareType.UCHAR: '<B',
             types.BareType.SHORT: '<h',
             types.BareType.USHORT: '<H',
@@ -141,13 +141,6 @@ class CContext:
             raise NotImplementedError(str(typ1))
         return False
 
-    def deprecated_resolve_type(self, typ):
-        """ Given a type, look behind the identifiertype """
-        # TODO: redesign qualifiers for sure.
-        return typ
-        while isinstance(typ, (types.IdentifierType, types.QualifiedType)):
-            typ = typ.typ
-
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
         assert isinstance(typ, types.CType)
@@ -160,12 +153,13 @@ class CContext:
             array_size = typ.size
             return element_size * array_size
         elif isinstance(typ, types.BareType):
-            return self.type_size_map[typ.type_id]
+            return self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error('Storage size unknown', typ.location)
-            # TODO: round up somewhat?
-            return sum(self.sizeof(part.typ) for part in typ.fields)
+            # Take offset of last field plus its size:
+            last_field = typ.fields[-1]
+            return last_field.offset + self.sizeof(last_field.typ)
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error('Type is incomplete, size unknown', typ)
@@ -181,6 +175,35 @@ class CContext:
             # TODO: can we determine size of a function type? Should it not
             # be pointer to a function?
             return self.arch_info.get_size('ptr')
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+
+    def alignment(self, typ: types.CType):
+        """ Given a type, determine its alignment in bytes """
+        assert isinstance(typ, types.CType)
+        if isinstance(typ, types.ArrayType):
+            return self.alignment(typ.element_type)
+        elif isinstance(typ, types.BareType):
+            return self.type_size_map[typ.type_id][1]
+        elif isinstance(typ, types.StructType):
+            if not typ.complete:
+                self.error('Storage size unknown', typ.location)
+            return max(self.alignment(part.typ) for part in typ.fields)
+        elif isinstance(typ, types.UnionType):
+            if not typ.complete:
+                self.error('Type is incomplete, size unknown', typ)
+            return max(self.alignment(part.typ) for part in typ.fields)
+        elif isinstance(typ, types.EnumType):
+            if not typ.complete:
+                self.error('Storage size unknown', typ)
+            # For enums take int as the type
+            return self.arch_info.get_alignment('int')
+        elif isinstance(typ, types.PointerType):
+            return self.arch_info.get_alignment('ptr')
+        elif isinstance(typ, types.FunctionType):
+            # TODO: can we determine size of a function type? Should it not
+            # be pointer to a function?
+            return self.arch_info.get_alignment('ptr')
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
@@ -206,6 +229,9 @@ class CContext:
         elif isinstance(typ, types.StructType):
             mem = bytes()
             for field, iv in zip(typ.fields, ival.elements):
+                if len(mem) < field.offset:
+                    padding_count = field.offset - len(mem)
+                    mem = mem + bytes([0] * padding_count)
                 mem = mem + self.gen_global_ival(field.typ, iv)
         elif isinstance(typ, types.UnionType):
             mem = bytes()

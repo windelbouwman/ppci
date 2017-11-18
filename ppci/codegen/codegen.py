@@ -9,7 +9,7 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
 from ..arch.generic_instructions import Label, Comment, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
-from ..arch.generic_instructions import ArtificialInstruction
+from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
 from ..binutils.debuginfo import DebugType, DebugLocation, DebugDb
@@ -61,7 +61,8 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            # TODO: alignment?
+            alignment = Alignment(var.alignment)
+            output_stream.emit(alignment)
             label = Label(var.name)
             output_stream.emit(label)
             if var.amount > 0:

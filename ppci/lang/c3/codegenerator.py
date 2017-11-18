@@ -100,8 +100,9 @@ class CodeGenerator:
                 cval = None
 
             var_name = '{}_{}'.format(module.name, var.name)
-            ir_var = ir.Variable(
-                var_name, context.size_of(var.typ), value=cval)
+            size = context.size_of(var.typ)
+            alignment = 4
+            ir_var = ir.Variable(var_name, size, alignment, value=cval)
             context.var_map[var] = ir_var
             ir_module.add_variable(ir_var)
 
@@ -220,7 +221,9 @@ class CodeGenerator:
         # generate room for locals:
         for sym in function.inner_scope:
             var_name = 'var_{}'.format(sym.name)
-            variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
+            size = self.context.size_of(sym.typ)
+            alignment = size  # TODO: fix this somehow?
+            variable = ir.Alloc(var_name, size, alignment)
             self.emit(variable)
             if sym.isParameter:
                 # Get the parameter from earlier:
@@ -620,10 +623,7 @@ class CodeGenerator:
         elif expr.op == '-':
             rhs = self.gen_expr_code(expr.a, rvalue=True)
             expr.lvalue = False
-
-            # Implement unary operator with sneaky trick using 0 - v binop:
-            zero = self.emit(ir.Const(0, 'zero', rhs.ty))
-            return self.emit(ir.Binop(zero, '-', rhs, 'unary_minus', rhs.ty))
+            return self.emit(ir.Unop('-', rhs, 'unary_minus', rhs.ty))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
 

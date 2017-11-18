@@ -677,6 +677,23 @@ def pattern_sub32(context, tree, c0, c1):
     return (dh, dl)
 
 
+@isa.pattern('reg', 'NEGI16(reg)', size=4)
+@isa.pattern('reg', 'NEGU16(reg)', size=4)
+def pattern_neg16(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(Mov(SmallConstSrc(0), RegDst(d)))
+    context.emit(Sub(RegSrc(c0), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg', 'INVU16(reg)', size=4)
+def pattern_inv16(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Xor(SmallConstSrc(-1), RegDst(d)))
+    return d
+
+
 @isa.pattern('memdst', 'reg', size=2, cycles=0, energy=0)
 def pattern_mem_dst(context, tree, c0):
     return MemDst(0, c0)

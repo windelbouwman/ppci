@@ -158,6 +158,13 @@ class IrToPythonTranspiler:
             assert isinstance(ins.data, bytes)
             self.literals.append(ins)
             self.print(3, '{} = {}'.format(ins.name, literal_label(ins)))
+        elif isinstance(ins, ir.Unop):
+            op = ins.operation
+            self.print(3, '{} = {}{}'.format(
+                ins.name, op, ins.a.name))
+            if ins.ty.is_integer:
+                self.print(3, '{0} = correct({0}, {1}, {2})'.format(
+                    ins.name, ins.ty.bits, ins.ty.signed))
         elif isinstance(ins, ir.Binop):
             # Assume int for now.
             op = ins.operation

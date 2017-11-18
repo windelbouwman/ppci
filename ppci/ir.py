@@ -744,6 +744,20 @@ class ProcedurePointerCall(BaseProcedureCall):
         return 'ptrcall {}({})'.format(self.function_ptr.name, args)
 
 
+class Unop(LocalValue):
+    """ Generic unary operation """
+    ops = ['-', '~']
+    a = value_use('a')
+
+    def __init__(self, operation, a, name, ty):
+        super().__init__(name, ty)
+        if operation not in self.ops:
+            raise TypeError('operation should be one of {}'.format(Binop.ops))
+        assert a.ty is ty
+        self.operation = operation
+        self.a = a
+
+
 class Binop(LocalValue):
     """ Generic binary operation """
     ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
@@ -819,10 +833,12 @@ class Phi(LocalValue):
 
 class Alloc(LocalValue):
     """ Allocates space on the stack. The type of this value is a ptr """
-    def __init__(self, name, amount):
+    def __init__(self, name, amount, alignment):
         super().__init__(name, ptr)
         assert isinstance(amount, int)
         self.amount = amount
+        assert isinstance(alignment, int)
+        self.alignment = alignment
 
     def __str__(self):
         return '{} {} = alloc {} bytes'.format(self.ty, self.name, self.amount)
@@ -830,17 +846,20 @@ class Alloc(LocalValue):
 
 class Variable(GlobalValue):
     """ Global variable, reserves room in the data area. Has name and size """
-    def __init__(self, name, amount, value=None):
+    def __init__(self, name, amount, alignment, value=None):
         super().__init__(name)
         assert isinstance(amount, int)
         self.amount = amount
+        assert isinstance(alignment, int)
+        self.alignment = alignment
         assert value is None or isinstance(value, bytes)
         if isinstance(value, bytes):
             assert len(value) == amount
         self.value = value
 
     def __str__(self):
-        return 'variable {} ({} bytes)'.format(self.name, self.amount)
+        return 'variable {} ({} bytes aligned at {})'.format(
+            self.name, self.amount, self.alignment)
 
 
 class Parameter(LocalValue):

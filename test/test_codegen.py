@@ -141,7 +141,7 @@ class IrDagTestCase(unittest.TestCase):
         """
         builder = Builder()
         module = ir.Module('fuzz')
-        global_tick = ir.Variable('global_tick', 4)
+        global_tick = ir.Variable('global_tick', 4, 4)
         module.add_variable(global_tick)
         builder.module = module
         function = builder.new_procedure('sleep')

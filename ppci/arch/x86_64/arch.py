@@ -194,7 +194,9 @@ class X86_64Arch(Architecture):
             # Determine register:
             if arg_type in [
                     ir.i8, ir.i64, ir.u8, ir.u64,
-                    ir.i16, ir.u16, ir.ptr]:
+                    ir.i16, ir.u16,
+                    ir.i32, ir.u32,  # TODO: maybe use eax and friends?
+                    ir.ptr]:
                 if int_regs:
                     reg = int_regs.pop(0)
                 else:
@@ -214,7 +216,7 @@ class X86_64Arch(Architecture):
 
     def determine_rv_location(self, ret_type):
         """ return value in rax or xmm0 """
-        if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
+        if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.i32, ir.u32, ir.ptr]:
             rv = rax
         elif ret_type in [ir.f32, ir.f64]:
             rv = registers.xmm0

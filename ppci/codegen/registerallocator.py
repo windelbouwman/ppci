@@ -578,7 +578,8 @@ class GraphColoringRegisterAllocator:
         self.logger.debug('Placing %s on stack', node)
 
         size = node.reg_class.bitsize // 8
-        slot = self.frame.alloc(size)
+        alignment = size
+        slot = self.frame.alloc(size, alignment)
         self.logger.debug('Allocating stack slot %s', slot)
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:

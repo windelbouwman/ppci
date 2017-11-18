@@ -8,6 +8,7 @@ import logging
 from ...common import CompilerError
 from . import nodes, types, declarations, statements, expressions, utils
 from .scope import Scope
+from .utils import required_padding
 
 
 class CSemantics:
@@ -355,8 +356,12 @@ class CSemantics:
             if bitsize:
                 bitsize = self.context.eval_expr(bitsize)
             else:
-                bitsize = self.context.sizeof(ctyp)
-            # TODO: alignment handling
+                bitsize = self.context.sizeof(ctyp) * 8
+
+            # alignment handling:
+            alignment = self.context.alignment(ctyp)
+            offset += required_padding(offset, alignment)
+
             cfield = types.Field(ctyp, name, offset, bitsize)
             cfields.append(cfield)
             if kind == 'struct':

@@ -949,6 +949,12 @@ def pattern_cjmp_64(context, tree, c0, c1):
     pattern_cjmp(context, tree.value)
 
 
+@isa.pattern('stm', 'CJMPI32(reg32, reg32)', size=2)
+def pattern_cjmp_32(context, tree, c0, c1):
+    context.emit(CmpRmReg(RmReg(c0), c1))
+    pattern_cjmp(context, tree.value)
+
+
 @isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=4, cycles=4, energy=2)
 def pattern_cjmp_16(context, tree, c0, c1):
     context.emit(CmpRmReg16(RmReg16(c0), c1))
@@ -987,9 +993,16 @@ def pattern_mov16(context, tree, c0):
     return tree.value
 
 
+@isa.pattern('stm', 'MOVI32(reg32)', size=2)
+@isa.pattern('stm', 'MOVU32(reg32)', size=2)
+def pattern_mov_32(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+
 @isa.pattern('stm', 'MOVI64(reg64)', size=2)
 @isa.pattern('stm', 'MOVU64(reg64)', size=2)
-def pattern_mov64(context, tree, c0):
+def pattern_mov_64(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
@@ -1015,6 +1028,14 @@ def pattern_mem_reg_rel(context, tree, c0):
 @isa.pattern('reg64', 'LDRI64(mem64)', size=2, cycles=2, energy=2)
 @isa.pattern('reg64', 'LDRU64(mem64)', size=2, cycles=2, energy=2)
 def pattern_ldr64(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.emit(MovRegRm(d, c0))
+    return d
+
+
+@isa.pattern('reg32', 'LDRI32(mem64)', size=2, cycles=2, energy=2)
+@isa.pattern('reg32', 'LDRU32(mem64)', size=2, cycles=2, energy=2)
+def pattern_ldr_32(context, tree, c0):
     d = context.new_reg(X86Register)
     context.emit(MovRegRm(d, c0))
     return d
@@ -1059,6 +1080,12 @@ def pattern_str64(context, tree, c0, c1):
     context.emit(MovRmReg(c0, c1))
 
 
+@isa.pattern('stm', 'STRI32(mem64, reg32)', size=2)
+@isa.pattern('stm', 'STRU32(mem64, reg32)', size=2)
+def pattern_str32(context, tree, c0, c1):
+    context.emit(MovRmReg(c0, c1))
+
+
 @isa.pattern('stm', 'STRI16(reg64, reg16)', size=3, cycles=2, energy=2)
 @isa.pattern('stm', 'STRU16(reg64, reg16)', size=3, cycles=2, energy=2)
 def pattern_str16(context, tree, c0, c1):
@@ -1075,6 +1102,16 @@ def pattern_str8(context, tree, c0, c1):
 @isa.pattern('reg64', 'ADDI64(reg64, reg64)', size=2, cycles=2, energy=1)
 @isa.pattern('reg64', 'ADDU64(reg64, reg64)', size=2, cycles=2, energy=1)
 def pattern_add64(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AddRegRm(d, RmReg(c1)))
+    return d
+
+
+@isa.pattern('reg32', 'ADDI32(reg32, reg32)', size=2, cycles=2, energy=1)
+@isa.pattern('reg32', 'ADDU32(reg32, reg32)', size=2, cycles=2, energy=1)
+def pattern_add64(context, tree, c0, c1):
+    # TODO: do we need special 32 bit case?
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(AddRegRm(d, RmReg(c1)))
@@ -1141,6 +1178,15 @@ def pattern_sub64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg32', 'SUBI32(reg32, reg32)', size=4)
+@isa.pattern('reg32', 'SUBU32(reg32, reg32)', size=4)
+def pattern_sub_32(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(SubRegRm(d, RmReg(c1)))
+    return d
+
+
 @isa.pattern('reg16', 'SUBU16(reg16, reg16)', size=3, cycles=2, energy=1)
 @isa.pattern('reg16', 'SUBI16(reg16, reg16)', size=3, cycles=2, energy=1)
 def pattern_sub16(context, tree, c0, c1):
@@ -1162,6 +1208,15 @@ def pattern_sub8(context, tree, c0, c1):
 @isa.pattern('reg64', 'MULI64(reg64, reg64)', size=4)
 @isa.pattern('reg64', 'MULU64(reg64, reg64)', size=4)
 def pattern_mul64_(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(Imul(d, c1))
+    return d
+
+
+@isa.pattern('reg32', 'MULI32(reg32, reg32)', size=4)
+@isa.pattern('reg32', 'MULU32(reg32, reg32)', size=4)
+def pattern_mul_32(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(Imul(d, c1))
@@ -1209,6 +1264,15 @@ def pattern_and64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg32', 'ANDI32(reg32, reg32)', size=4)
+@isa.pattern('reg32', 'ANDU32(reg32, reg32)', size=4)
+def pattern_and_32(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(AndRegRm(d, RmReg(c1)))
+    return d
+
+
 @isa.pattern('reg16', 'ANDI16(reg16, reg16)', size=4)
 @isa.pattern('reg16', 'ANDU16(reg16, reg16)', size=4)
 def pattern_and16(context, tree, c0, c1):
@@ -1236,6 +1300,15 @@ def pattern_or64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg32', 'ORU32(reg32, reg32)', size=4)
+@isa.pattern('reg32', 'ORI32(reg32, reg32)', size=4)
+def pattern_or_32(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(OrRegRm(d, RmReg(c1)))
+    return d
+
+
 @isa.pattern('reg16', 'ORU16(reg16, reg16)', size=3)
 @isa.pattern('reg16', 'ORI16(reg16, reg16)', size=3)
 def pattern_or16(context, tree, c0, c1):
@@ -1256,7 +1329,16 @@ def pattern_or8(context, tree, c0, c1):
 
 @isa.pattern('reg64', 'XORU64(reg64, reg64)', size=4)
 @isa.pattern('reg64', 'XORI64(reg64, reg64)', size=4)
-def pattern_xor64(context, tree, c0, c1):
+def pattern_xor_64(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(XorRegRm(d, RmReg(c1)))
+    return d
+
+
+@isa.pattern('reg32', 'XORU32(reg32, reg32)', size=4)
+@isa.pattern('reg32', 'XORI32(reg32, reg32)', size=4)
+def pattern_xor_32(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(XorRegRm(d, RmReg(c1)))
@@ -1291,6 +1373,16 @@ def pattern_shr64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg32', 'SHRI32(reg32, reg32)', size=2)
+@isa.pattern('reg32', 'SHRU32(reg32, reg32)', size=2)
+def pattern_shr_32(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.move(rcx, c1)
+    context.emit(ShrCl(RmReg(d)))
+    return d
+
+
 @isa.pattern('reg8', 'SHRI8(reg8, reg8)', size=2)
 @isa.pattern('reg8', 'SHRU8(reg8, reg8)', size=2)
 def pattern_shr8(context, tree, c0, c1):
@@ -1311,6 +1403,16 @@ def pattern_shl64(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg32', 'SHLI32(reg32, reg32)', size=2)
+@isa.pattern('reg32', 'SHLU32(reg32, reg32)', size=2)
+def pattern_shl_32(context, tree, c0, c1):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.move(rcx, c1)
+    context.emit(ShlCl(RmReg(d)))
+    return d
+
+
 @isa.pattern('reg8', 'SHLI8(reg8, reg8)', size=2)
 @isa.pattern('reg8', 'SHLU8(reg8, reg8)', size=2)
 def pattern_shl8(context, tree, c0, c1):
@@ -1321,9 +1423,47 @@ def pattern_shl8(context, tree, c0, c1):
     return d
 
 
+@isa.pattern('reg64', 'NEGI64(reg64)', size=3)
+def pattern_neg64(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(Neg(RmReg(d)))
+    return d
+
+
+@isa.pattern('reg32', 'NEGI32(reg32)', size=3)
+def pattern_neg_32(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(Neg(RmReg(d)))
+    return d
+
+
+@isa.pattern('reg64', 'INVI64(reg64)', size=3)
+def pattern_inv64(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(Not(RmReg(d)))
+    return d
+
+
+@isa.pattern('reg32', 'INVI32(reg32)', size=3)
+def pattern_inv_32(context, tree, c0):
+    d = context.new_reg(X86Register)
+    context.move(d, c0)
+    context.emit(Not(RmReg(d)))
+    return d
+
+
 @isa.pattern('reg64', 'REGI64', size=0)
 @isa.pattern('reg64', 'REGU64', size=0)
 def pattern_reg64(context, tree):
+    return tree.value
+
+
+@isa.pattern('reg32', 'REGI32', size=0)
+@isa.pattern('reg32', 'REGU32', size=0)
+def pattern_reg_32(context, tree):
     return tree.value
 
 
@@ -1452,6 +1592,14 @@ def pattern_reg64_label(context, tree):
 @isa.pattern('reg64', 'CONSTI64', size=11, cycles=3, energy=3)
 @isa.pattern('reg64', 'CONSTU64', size=11, cycles=3, energy=3)
 def pattern_const64(context, tree):
+    d = context.new_reg(X86Register)
+    context.emit(MovImm(d, tree.value))
+    return d
+
+
+@isa.pattern('reg32', 'CONSTI32', size=11, cycles=3, energy=3)
+@isa.pattern('reg32', 'CONSTU32', size=11, cycles=3, energy=3)
+def pattern_const_32(context, tree):
     d = context.new_reg(X86Register)
     context.emit(MovImm(d, tree.value))
     return d

@@ -1,0 +1,37 @@
+
+<project name="hello" default="hello">
+    <import name="ppci.build.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            arch="x86_64:wincc"
+            source="../kernel32.s"
+            output="glue.oj" />
+
+        <compile
+            arch="x86_64:wincc"
+            sources="../../src/wasm_fac/main.c3;../../../librt/io.c3;../bsp.c3;../kernel32.c3"
+            output="rest.oj"
+            report="c3_report.html"/>
+
+        <wasmcompile
+            arch="x86_64:wincc"
+            source="../../src/wasm_fac/fact.wasm"
+            output="fact.oj"
+            report="wasm_report.html"/>
+
+        <link
+            output="fact.oj"
+            objects="glue.oj;rest.oj;fact.oj"
+            partial="true"
+            debug="true" />
+
+        <objcopy
+            objectfile="fact.oj"
+            imagename="flash"
+            format="exe"
+            output="wasm_fact.exe" />
+    </target>
+
+</project>
+

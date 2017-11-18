@@ -307,7 +307,8 @@ class CParserTestCase(unittest.TestCase):
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
     def setUp(self):
-        self.builder = CBuilder(ExampleArch(), COptions())
+        arch = ExampleArch()
+        self.builder = CBuilder(arch.info, COptions())
 
     def do(self, src):
         f = io.StringIO(src)

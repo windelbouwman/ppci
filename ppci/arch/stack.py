@@ -43,6 +43,7 @@ class Frame:
 
         # Local stack:
         self.stacksize = 0
+        self.alignment = 1
 
         # Literal pool:
         self.constants = []
@@ -51,12 +52,13 @@ class Frame:
     def __repr__(self):
         return 'Frame {}'.format(self.name)
 
-    def alloc(self, size):
+    def alloc(self, size, alignment):
         """ Allocate space on the stack frame and return the offset """
-        # TODO: determine alignment!
+        # determine alignment of whole stack frame as maximum alignment
+        self.alignment = max(self.alignment, alignment)
         # TODO: grow down or up?
         if size:
-            misalign = self.stacksize % size
+            misalign = self.stacksize % alignment
             if misalign:
                 self.stacksize = self.stacksize - misalign + size
         l = StackLocation(self.stacksize, size)

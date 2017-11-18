@@ -118,6 +118,15 @@ class Visitor:
             raise NotImplementedError(str(type(node)))
 
 
+def required_padding(address, alignment):
+    """ Return how many padding bytes are needed to align address """
+    rest = address % alignment
+    if rest:
+        # We need padding bytes:
+        return alignment - rest
+    return 0
+
+
 class CAstPrinter(Visitor):
     """ Print AST of a C program """
     def __init__(self, file=None):
