@@ -899,6 +899,20 @@ def pattern_ldri8(context, tree, c0):
     context.emit(Lb(d, 0, c0))
     return d
 
+@isa.pattern('reg', 'NEGI8(reg)', size=2)
+@isa.pattern('reg', 'NEGI32(reg)', size=2)
+def pattern_negi32(context, tree, c0):
+    context.emit(Subr(c0, R0, c0))
+    return c0
+
+@isa.pattern('reg', 'INVI8(reg)', size=2)
+@isa.pattern('reg', 'INVU8(reg)', size=2)
+@isa.pattern('reg', 'INVU32(reg)', size=2)
+@isa.pattern('reg', 'INVI32(reg)', size=2)
+def pattern_negi32(context, tree, c0):
+    context.emit(Xori(c0, c0, -1))
+    return c0
+
 
 @isa.pattern('reg', 'LDRU16(reg)', size=2)
 def pattern_ldru16(context, tree, c0):
@@ -1087,7 +1101,10 @@ def pattern_rem_u32(context, tree, c0, c1):
     context.emit(Remu(d, c0, c1))
     return d
 
-
+@isa.pattern('reg', 'XORU8(reg, reg)', size=2)
+@isa.pattern('reg', 'XORI8(reg, reg)', size=2)
+@isa.pattern('reg', 'XORU16(reg, reg)', size=2)
+@isa.pattern('reg', 'XORI16(reg, reg)', size=2)
 @isa.pattern('reg', 'XORU32(reg, reg)', size=2)
 @isa.pattern('reg', 'XORI32(reg, reg)', size=2)
 def pattern_xor_i32(context, tree, c0, c1):

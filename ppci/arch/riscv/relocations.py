@@ -91,8 +91,6 @@ class AbsAddr32Relocation(Relocation):
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value):
-        assert sym_value % 2 == 0
-        assert reloc_value % 2 == 0
         offset = sym_value
         bv = BitView(data, 0, 4)
         bv[0:32] = offset
