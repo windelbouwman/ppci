@@ -1015,7 +1015,7 @@ def pattern_mem_reg(context, tree, c0):
 
 @isa.pattern('mem64', 'FPRELU64', size=1, cycles=1, energy=1)
 def pattern_mem_fp_rel(context, tree):
-    offset = tree.value.negative
+    offset = tree.value.offset
     return RmMemDisp(rbp, offset)
 
 
@@ -1140,7 +1140,7 @@ def pattern_add8(context, tree, c0, c1):
 def pattern_add64_fprel_const(context, tree):
     d = context.new_reg(X86Register)
     context.move(d, rbp)
-    context.emit(AddImm(d, tree.value.negative))
+    context.emit(AddImm(d, tree.value.offset))
     return d
 
 

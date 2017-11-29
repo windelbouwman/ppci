@@ -47,7 +47,7 @@ class Operand(property):
         super().__init__(getter, setter)
 
     def __repr__(self):
-        return 'property name={}, cls={}'.format(self._name, self._cls)
+        return 'operand name={}, cls={}'.format(self._name, self._cls)
 
     @property
     def is_constructor(self):

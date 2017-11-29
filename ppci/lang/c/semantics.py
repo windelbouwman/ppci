@@ -352,6 +352,7 @@ class CSemantics:
             storage_class, ctyp, name, modifiers, bitsize, location = field
             ctyp = self.apply_type_modifiers(modifiers, ctyp)
 
+            field_size = self.context.sizeof(ctyp)
             # Calculate bit size:
             if bitsize:
                 bitsize = self.context.eval_expr(bitsize)
@@ -365,7 +366,7 @@ class CSemantics:
             cfield = types.Field(ctyp, name, offset, bitsize)
             cfields.append(cfield)
             if kind == 'struct':
-                offset += bitsize
+                offset += field_size
         return cfields
 
     def on_enum(self, tag, location):
@@ -660,9 +661,7 @@ class CSemantics:
             self.error('Field {} not part of struct'.format(field), location)
 
         field = base.typ.get_field(field)
-        expr = expressions.FieldSelect(base, field, location)
-        expr.typ = field.typ
-        expr.lvalue = True
+        expr = expressions.FieldSelect(base, field, field.typ, True, location)
         return expr
 
     def on_builtin_va_start(self, arg_pointer, location):
@@ -726,23 +725,26 @@ class CSemantics:
         if not self.scope.is_defined(name):
             self.error('Who is this?', location)
         variable = self.scope.get(name)
-        expr = expressions.VariableAccess(variable, location)
+
+        # Determine lvalue and type:
         if isinstance(variable, declarations.VariableDeclaration):
-            expr.typ = variable.typ
-            expr.lvalue = True
+            typ = variable.typ
+            lvalue = True
         elif isinstance(variable, declarations.ValueDeclaration):
-            expr.typ = variable.typ
-            expr.lvalue = False
+            typ = variable.typ
+            lvalue = False
         elif isinstance(variable, declarations.ParameterDeclaration):
-            expr.typ = variable.typ
-            expr.lvalue = True
+            typ = variable.typ
+            lvalue = True
         elif isinstance(variable, declarations.FunctionDeclaration):
             # Function pointer:
-            expr.typ = variable.typ
+            typ = variable.typ
             # expr.typ = types.PointerType(variable.typ)
-            expr.lvalue = False
+            lvalue = False
         else:  # pragma: no cover
             self.not_impl('Access to {}'.format(variable), location)
+
+        expr = expressions.VariableAccess(variable, typ, lvalue, location)
         return expr
 
     # Helpers!
@@ -757,7 +759,7 @@ class CSemantics:
         if self.context.equal_types(from_type, to_type):
             pass
         elif isinstance(from_type, (types.PointerType, types.EnumType)) and \
-                isinstance(to_type, types.BareType):
+                isinstance(to_type, types.BasicType):
             do_cast = True
         elif isinstance(from_type, (types.PointerType, types.ArrayType)) and \
                 isinstance(to_type, types.PointerType):
@@ -768,7 +770,7 @@ class CSemantics:
                 self.context.equal_types(from_type, to_type.element_type):
             # Function used as value for pointer to function is fine!
             do_cast = False
-        elif isinstance(from_type, types.BareType) and \
+        elif isinstance(from_type, types.BasicType) and \
                 isinstance(to_type, types.PointerType):
             do_cast = True
         elif isinstance(from_type, types.IndexableType) and \
@@ -777,8 +779,8 @@ class CSemantics:
                 # self.context.equal_types(
                 #    from_type.element_type, to_type.element_type):
             do_cast = True
-        elif isinstance(from_type, types.BareType) and \
-                isinstance(to_type, (types.BareType, types.EnumType)):
+        elif isinstance(from_type, types.BasicType) and \
+                isinstance(to_type, (types.BasicType, types.EnumType)):
             # TODO: implement stricter checks
             do_cast = True
         else:
@@ -787,8 +789,6 @@ class CSemantics:
                 expr.location)
 
         if do_cast:
-            # TODO: is it true that the source must an lvalue?
-            # assert not expr.lvalue
             expr = expressions.ImplicitCast(typ, expr, expr.location)
             expr.typ = typ
             expr.lvalue = False

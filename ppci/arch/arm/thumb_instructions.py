@@ -333,6 +333,7 @@ Eor = make_regreg('eor', 0b0100000001)
 Cmp = make_regreg('cmp', 0b0100001010)
 Lsl = make_regreg('lsl', 0b0100000010)
 Lsr = make_regreg('lsr', 0b0100000011)
+Rsb = make_regreg('rsb', 0b0100001001)
 
 
 class Cmp2(ThumbInstruction):
@@ -576,10 +577,11 @@ class SubSp(addspsp_base):
 #
 ###############
 
-@thumb_isa.pattern('stm', 'STRI32(reg, reg)', size=2)
-@thumb_isa.pattern('stm', 'STRU32(reg, reg)', size=2)
+@thumb_isa.pattern('stm', 'STRI32(mem, reg)', size=2)
+@thumb_isa.pattern('stm', 'STRU32(mem, reg)', size=2)
 def pattern_str32(context, tree, c0, c1):
-    context.emit(Str2(c1, c0, 0))
+    rg, offset = c0
+    context.emit(Str2(c1, rg, offset))
 
 
 @thumb_isa.pattern('stm', 'JMP', size=2)
@@ -644,7 +646,7 @@ def pattern_label(context, tree):
     'reg', 'FPRELU32', size=9, cycles=9)
 def pattern_fprel32(context, tree):
     d = context.new_reg(LowArmRegister)
-    c1 = tree.value.negative
+    c1 = tree.value.offset
     if c1 >= 0:
         if c1 < 8:
             context.emit(Add2(d, R7, c1))
@@ -745,28 +747,37 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@thumb_isa.pattern('stm', 'STRI8(reg,reg)', size=2)
-@thumb_isa.pattern('stm', 'STRU8(reg,reg)', size=2)
+@thumb_isa.pattern('mem', 'reg', size=0)
+def pattern_mem_reg(context, tree, c0):
+    return c0, 0
+
+
+@thumb_isa.pattern('stm', 'STRI8(mem,reg)', size=2)
+@thumb_isa.pattern('stm', 'STRU8(mem,reg)', size=2)
 def pattern_str8(context, tree, c0, c1):
-    context.emit(Strb(c1, c0, 0))
+    rg, offset = c0
+    context.emit(Strb(c1, rg, offset))
 
 
-@thumb_isa.pattern('reg', 'LDRI8(reg)', size=2)
-@thumb_isa.pattern('reg', 'LDRU8(reg)', size=2)
+@thumb_isa.pattern('reg', 'LDRI8(mem)', size=2)
+@thumb_isa.pattern('reg', 'LDRU8(mem)', size=2)
 def pattern_ldr8(context, tree, c0):
+    rg, offset = c0
     d = context.new_reg(LowArmRegister)
-    context.emit(Ldrb(d, c0, 0))
+    context.emit(Ldrb(d, rg, offset))
     return d
 
 
-@thumb_isa.pattern('reg', 'LDRI32(reg)', size=2)
-@thumb_isa.pattern('reg', 'LDRU32(reg)', size=2)
+@thumb_isa.pattern('reg', 'LDRI32(mem)', size=2)
+@thumb_isa.pattern('reg', 'LDRU32(mem)', size=2)
 def pattern_ldr32(context, tree, c0):
+    rg, offset = c0
     d = context.new_reg(LowArmRegister)
-    context.emit(Ldr2(d, c0, 0))
+    context.emit(Ldr2(d, rg, offset))
     return d
 
 
+# Arithmatic patterns:
 @thumb_isa.pattern('reg', 'SUBU32(reg,reg)', size=2)
 @thumb_isa.pattern('reg', 'SUBI32(reg,reg)', size=2)
 def pattern_sub32(context, tree, c0, c1):
@@ -798,6 +809,14 @@ def pattern_shr32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
     context.emit(Lsr(d, c1))
+    return d
+
+
+@thumb_isa.pattern('reg', 'NEGI32(reg)', size=2)
+@thumb_isa.pattern('reg', 'NEGU32(reg)', size=2)
+def pattern_neg32(context, tree, c0):
+    d = context.new_reg(LowArmRegister)
+    context.emit(Rsb(d, c0))
     return d
 
 

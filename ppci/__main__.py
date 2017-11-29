@@ -1,6 +1,6 @@
 """ Main entry point """
 
-from ppci.cli import c3c, build
+from ppci.cli import build
 
 
 # c3c.c3c()

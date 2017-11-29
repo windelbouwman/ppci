@@ -475,7 +475,6 @@ class Section(WASMComponent):
 
 
 def section_from_reader(r):
-    # mp = {s.id: s for s in cls.__subclasses__() if hasattr(s, 'id') and s.id > 0}
     handled_sections = [
         TypeSection,
         ImportSection,
@@ -549,7 +548,8 @@ class ImportSection(Section):
         self.imports = list(imports)
 
     def to_text(self):
-        return 'ImportSection(\n' + self._get_sub_text(self.imports, True) + '\n)'
+        subtext = self._get_sub_text(self.imports, True)
+        return 'ImportSection(\n' + subtext + '\n)'
 
     def get_binary_section(self, f):
         f.write(packvu32(len(self.imports)))  # count
@@ -795,7 +795,8 @@ class DataSection(Section):
         self.chunks = chunks
 
     def to_text(self):
-        chunkinfo = [(chunk[0], chunk[1], len(chunk[2])) for chunk in self.chunks]
+        chunkinfo = [
+            (chunk[0], chunk[1], len(chunk[2])) for chunk in self.chunks]
         return 'DataSection(' + ', '.join([str(i) for i in chunkinfo]) + ')'
 
     def get_binary_section(self, f):
@@ -843,7 +844,8 @@ class Import(WASMComponent):
         self.type = type  # the signature-index for funcs, the type for table, memory or global
 
     def to_text(self):
-        return 'Import(%r, %r, %r, %r)' % (self.modname, self.fieldname, self.kind, self.type)
+        return 'Import(%r, %r, %r, %r)' % (
+            self.modname, self.fieldname, self.kind, self.type)
 
     def to_file(self, f):
         f.write(packstr(self.modname))
@@ -966,7 +968,8 @@ class FunctionSig(WASMComponent):
         return 'FunctionSig(%r, %r)' % (list(self.params), list(self.returns))
 
     def to_file(self, f):
-        f.write(b'\x60')  # form -> nonfunctions may also be supported in the future
+        # TODO: nonfunctions may also be supported in the future
+        f.write(b'\x60')  # form
         f.write(packvu32(len(self.params)))  # params
         for paramtype in self.params:
             f.write(LANG_TYPES[paramtype])
@@ -1021,7 +1024,8 @@ class FunctionDef(WASMComponent):
                 local_entries.append((1, loc_type))
 
         f3 = BytesIO()
-        f3.write(packvu32(len(local_entries)))  # number of local-entries in this func
+        # number of local-entries in this func
+        f3.write(packvu32(len(local_entries)))
         for localentry in local_entries:
             f3.write(packvu32(localentry[0]))  # number of locals of this type
             f3.write(LANG_TYPES[localentry[1]])
@@ -1100,13 +1104,15 @@ class Instruction(WASMComponent):
                 elif self.type.startswith('i32.'):
                     f.write(packvs32(arg))
                 elif self.type.startswith('i') or self.type.startswith('f'):
-                    raise RuntimeError('Unsupported instruction arg for %s' % self.type)
+                    raise RuntimeError(
+                        'Unsupported instruction arg for %s' % self.type)
                 else:
                     f.write(packvu32(arg))
             elif isinstance(arg, str):
                 f.write(LANG_TYPES[arg])
             else:
-                raise TypeError('Unknown instruction arg %r' % arg)  # todo: e.g. constants
+                # todo: e.g. constants
+                raise TypeError('Unknown instruction arg %r' % arg)
 
     @classmethod
     def from_reader(cls, reader):

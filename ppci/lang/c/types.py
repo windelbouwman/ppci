@@ -3,17 +3,18 @@
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
-    return isinstance(typ, BareType) and not is_void(typ)
+    return isinstance(typ, BasicType) and not is_void(typ)
 
 
 def is_integer(typ):
     """ Test if the given type is of integer type """
-    return isinstance(typ, BareType) and typ.type_id in BareType.INTEGER_TYPES
+    return isinstance(typ, BasicType) and \
+        typ.type_id in BasicType.INTEGER_TYPES
 
 
 def is_void(typ):
     """ Check if the given type is void """
-    return isinstance(typ, BareType) and typ.type_id == BareType.VOID
+    return isinstance(typ, BasicType) and typ.type_id == BasicType.VOID
 
 
 # A type system:
@@ -162,8 +163,7 @@ class UnionType(StructOrUnionType):
         return 'Union-type'
 
 
-# TODO: what to call this type? Options: AtomicType, NativeType
-class BareType(CType):
+class BasicType(CType):
     """ This type is one of: int, unsigned int, float or void """
     VOID = 'void'
     CHAR = 'char'
@@ -193,4 +193,4 @@ class BareType(CType):
         self.type_id = type_id
 
     def __repr__(self):
-        return 'Native type {}'.format(self.type_id)
+        return 'Basic type {}'.format(self.type_id)

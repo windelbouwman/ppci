@@ -70,6 +70,7 @@ class TreeTestCase(unittest.TestCase):
 
 
 class TreeMatchingTestCase(unittest.TestCase):
+    """ Verify tree matching functions """
     def test_simple_match(self):
         """ Test if instruction selection on trees works fine """
         class Ctx:
@@ -130,6 +131,51 @@ class TreeMatchingTestCase(unittest.TestCase):
             None,
             lambda ctx, tree: tree.value)
         system.check()
+        selector = TreeSelector(system)
+        v = selector.gen(context, tree)
+        self.assertEqual((1, '+', 2), v)
+
+    def test_mutual_recurive_chain_rule(self):
+        """ See if circular chained rules work nicely """
+        class Ctx:
+            pass
+        context = Ctx()
+        tree = Tree('ADD', Tree('VAL', value=1), Tree('VAL', value=2))
+        system = BurgSystem()
+        for terminal in ['ADD', 'VAL']:
+            system.add_terminal(terminal)
+        system.add_rule(
+            'stm',
+            Tree('ADD', Tree('expr'), Tree('expr')),
+            1,
+            None,
+            lambda ctx, tree, c0, c1: (c0, '+', c1))
+        system.add_rule(
+            'expr',
+            Tree('val'),
+            0,
+            None,
+            lambda ctx, tree, c0: c0)
+        system.add_rule(
+            'val',
+            Tree('ival'),
+            0,
+            None,
+            lambda ctx, tree, c0: c0)
+        system.add_rule(
+            'val',
+            Tree('VAL'),
+            1,
+            None,
+            lambda ctx, tree: tree.value)
+        system.add_rule(
+            'val',
+            Tree('expr'),
+            1,
+            None,
+            lambda ctx, tree: tree.value)
+        system.check()
+        # print('FOOO', system.chain_rules_for_nt('val'))
         selector = TreeSelector(system)
         v = selector.gen(context, tree)
         self.assertEqual((1, '+', 2), v)

@@ -2,7 +2,7 @@
 
 import struct
 from ...common import CompilerError
-from .types import BareType
+from .types import BasicType
 from . import types, expressions, declarations
 
 
@@ -18,56 +18,56 @@ class CContext:
         self.arch_info = arch_info
 
         self.atomic_types = {
-            type_tuple('void'): BareType.VOID,
-            type_tuple('char',): BareType.CHAR,
-            type_tuple('signed', 'char'): BareType.CHAR,
-            type_tuple('unsigned', 'char'): BareType.UCHAR,
-            type_tuple('short',): BareType.SHORT,
-            type_tuple('signed', 'short',): BareType.SHORT,
-            type_tuple('short', 'int'): BareType.SHORT,
-            type_tuple('signed', 'short', 'int'): BareType.SHORT,
-            type_tuple('unsigned', 'short'): BareType.USHORT,
-            type_tuple('unsigned', 'short', 'int'): BareType.USHORT,
-            type_tuple('int',): BareType.INT,
-            type_tuple('signed', 'int',): BareType.INT,
-            type_tuple('unsigned', 'int',): BareType.UINT,
-            type_tuple('unsigned',): BareType.UINT,
-            type_tuple('long',): BareType.LONG,
-            type_tuple('signed', 'long',): BareType.LONG,
-            type_tuple('long', 'int'): BareType.LONG,
-            type_tuple('signed', 'long', 'int'): BareType.LONG,
-            type_tuple('unsigned', 'long'): BareType.ULONG,
-            type_tuple('unsigned', 'long', 'int'): BareType.ULONG,
-            type_tuple('long', 'long',): BareType.LONGLONG,
-            type_tuple('signed', 'long', 'long',): BareType.LONGLONG,
-            type_tuple('long', 'long', 'int'): BareType.LONGLONG,
+            type_tuple('void'): BasicType.VOID,
+            type_tuple('char',): BasicType.CHAR,
+            type_tuple('signed', 'char'): BasicType.CHAR,
+            type_tuple('unsigned', 'char'): BasicType.UCHAR,
+            type_tuple('short',): BasicType.SHORT,
+            type_tuple('signed', 'short',): BasicType.SHORT,
+            type_tuple('short', 'int'): BasicType.SHORT,
+            type_tuple('signed', 'short', 'int'): BasicType.SHORT,
+            type_tuple('unsigned', 'short'): BasicType.USHORT,
+            type_tuple('unsigned', 'short', 'int'): BasicType.USHORT,
+            type_tuple('int',): BasicType.INT,
+            type_tuple('signed', 'int',): BasicType.INT,
+            type_tuple('unsigned', 'int',): BasicType.UINT,
+            type_tuple('unsigned',): BasicType.UINT,
+            type_tuple('long',): BasicType.LONG,
+            type_tuple('signed', 'long',): BasicType.LONG,
+            type_tuple('long', 'int'): BasicType.LONG,
+            type_tuple('signed', 'long', 'int'): BasicType.LONG,
+            type_tuple('unsigned', 'long'): BasicType.ULONG,
+            type_tuple('unsigned', 'long', 'int'): BasicType.ULONG,
+            type_tuple('long', 'long',): BasicType.LONGLONG,
+            type_tuple('signed', 'long', 'long',): BasicType.LONGLONG,
+            type_tuple('long', 'long', 'int'): BasicType.LONGLONG,
             type_tuple('signed', 'long', 'long', 'int'):
-                BareType.LONGLONG,
-            type_tuple('unsigned', 'long', 'long'): BareType.ULONGLONG,
+                BasicType.LONGLONG,
+            type_tuple('unsigned', 'long', 'long'): BasicType.ULONGLONG,
             type_tuple('unsigned', 'long', 'long', 'int'):
-                BareType.ULONGLONG,
-            type_tuple('float',): BareType.FLOAT,
-            type_tuple('double',): BareType.DOUBLE,
-            type_tuple('long', 'double'): BareType.LONGDOUBLE,
+                BasicType.ULONGLONG,
+            type_tuple('float',): BasicType.FLOAT,
+            type_tuple('double',): BasicType.DOUBLE,
+            type_tuple('long', 'double'): BasicType.LONGDOUBLE,
         }
 
         int_size = self.arch_info.get_size('int')
         int_alignment = self.arch_info.get_alignment('int')
         ptr_size = self.arch_info.get_size('ptr')
         self.type_size_map = {
-            BareType.CHAR: (1, 1),
-            BareType.UCHAR: (1, 1),
-            BareType.SHORT: (2, 2),
-            BareType.USHORT: (2, 2),
-            BareType.INT: (int_size, int_alignment),
-            BareType.UINT: (int_size, int_alignment),
-            BareType.LONG: (8, 8),
-            BareType.ULONG: (8, 8),
-            BareType.LONGLONG: (8, 8),
-            BareType.ULONGLONG: (8, 8),
-            BareType.FLOAT: (4, 4),
-            BareType.DOUBLE: (8, 8),
-            BareType.LONGDOUBLE: (10, 10),
+            BasicType.CHAR: (1, 1),
+            BasicType.UCHAR: (1, 1),
+            BasicType.SHORT: (2, 2),
+            BasicType.USHORT: (2, 2),
+            BasicType.INT: (int_size, int_alignment),
+            BasicType.UINT: (int_size, int_alignment),
+            BasicType.LONG: (8, 8),
+            BasicType.ULONG: (8, 8),
+            BasicType.LONGLONG: (8, 8),
+            BasicType.ULONGLONG: (8, 8),
+            BasicType.FLOAT: (4, 4),
+            BasicType.DOUBLE: (8, 8),
+            BasicType.LONGDOUBLE: (10, 10),
         }
 
         int_map = {
@@ -75,17 +75,17 @@ class CContext:
         }
 
         self.ctypes_names = {
-            types.BareType.CHAR: '<b',
-            types.BareType.UCHAR: '<B',
-            types.BareType.SHORT: '<h',
-            types.BareType.USHORT: '<H',
-            types.BareType.INT: '<' + int_map[int_size].lower(),
-            types.BareType.UINT: '<' + int_map[int_size].upper(),
+            BasicType.CHAR: '<b',
+            BasicType.UCHAR: '<B',
+            BasicType.SHORT: '<h',
+            BasicType.USHORT: '<H',
+            BasicType.INT: '<' + int_map[int_size].lower(),
+            BasicType.UINT: '<' + int_map[int_size].upper(),
             'ptr': '<' + int_map[ptr_size].upper(),
-            types.BareType.LONGLONG: '<q',
-            types.BareType.ULONGLONG: '<Q',
-            types.BareType.FLOAT: '<f',
-            types.BareType.DOUBLE: '<d',
+            BasicType.LONGLONG: '<q',
+            BasicType.ULONGLONG: '<Q',
+            BasicType.FLOAT: '<f',
+            BasicType.DOUBLE: '<d',
         }
 
     def is_valid(self, type_specifiers):
@@ -99,7 +99,7 @@ class CContext:
         assert isinstance(type_specifiers, (list, tuple))
         key = type_tuple(*type_specifiers)
         a = self.atomic_types[key]
-        return BareType(a)
+        return BasicType(a)
 
     def equal_types(self, typ1, typ2, unqualified=False):
         """ Check for type equality """
@@ -115,8 +115,8 @@ class CContext:
         #    else:
         #        return (not typ1.qualifiers) and \
         #            self.equal_types(typ1.typ, typ2)
-        elif isinstance(typ1, types.BareType):
-            if isinstance(typ2, types.BareType):
+        elif isinstance(typ1, BasicType):
+            if isinstance(typ2, BasicType):
                 return typ1.type_id == typ2.type_id
         elif isinstance(typ1, types.FunctionType):
             if isinstance(typ2, types.FunctionType):
@@ -143,7 +143,9 @@ class CContext:
 
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
-        assert isinstance(typ, types.CType)
+        if not isinstance(typ, types.CType):
+            raise TypeError('typ should be CType: {}'.format(typ))
+
         if isinstance(typ, types.ArrayType):
             element_size = self.sizeof(typ.element_type)
             if typ.size is None:
@@ -152,7 +154,7 @@ class CContext:
             assert isinstance(typ.size, int), str(type(typ.size))
             array_size = typ.size
             return element_size * array_size
-        elif isinstance(typ, types.BareType):
+        elif isinstance(typ, types.BasicType):
             return self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
@@ -183,7 +185,7 @@ class CContext:
         assert isinstance(typ, types.CType)
         if isinstance(typ, types.ArrayType):
             return self.alignment(typ.element_type)
-        elif isinstance(typ, types.BareType):
+        elif isinstance(typ, types.BasicType):
             return self.type_size_map[typ.type_id][1]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
@@ -213,7 +215,7 @@ class CContext:
         if isinstance(typ, types.PointerType):
             tid = 'ptr'
         else:
-            assert isinstance(typ, types.BareType)
+            assert isinstance(typ, types.BasicType)
             tid = typ.type_id
         fmt = self.ctypes_names[tid]
         # Check format with arch options:
@@ -242,7 +244,7 @@ class CContext:
             filling = size - len(mem)
             assert filling >= 0
             mem = mem + bytes([0] * filling)
-        elif isinstance(typ, (types.BareType, types.PointerType)):
+        elif isinstance(typ, (types.BasicType, types.PointerType)):
             cval = self.eval_expr(ival)
             mem = self.pack(typ, cval)
         else:  # pragma: no cover
@@ -310,7 +312,10 @@ class CContext:
             # TODO: do some real casting!
             value = self.eval_expr(expr.expr)
         elif isinstance(expr, expressions.Sizeof):
-            value = self.sizeof(expr.sizeof_typ)
+            if isinstance(expr.sizeof_typ, types.CType):
+                value = self.sizeof(expr.sizeof_typ)
+            else:
+                value = self.sizeof(expr.sizeof_typ.typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value

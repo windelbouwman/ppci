@@ -4,7 +4,7 @@ from ...common import CompilerError
 from ...binutils import debuginfo
 from . import types, declarations, statements, expressions
 from .utils import required_padding
-from .types import BareType
+from .types import BasicType
 
 
 class CCodeGenerator:
@@ -26,18 +26,18 @@ class CCodeGenerator:
         int_size = self.context.arch_info.get_size('int')
         self.ptr_size = self.context.arch_info.get_size('ptr')
         self.ir_type_map = {
-            BareType.CHAR: (ir.i8, 1),
-            BareType.UCHAR: (ir.u8, 1),
-            BareType.SHORT: (ir.i16, 2),
-            BareType.USHORT: (ir.u16, 2),
-            BareType.INT: (int_types[int_size], int_size),
-            BareType.UINT: (uint_types[int_size], int_size),
-            BareType.LONG: (ir.i32, 4),
-            BareType.ULONG: (ir.u32, 4),
-            BareType.LONGLONG: (ir.i64, 8),
-            BareType.ULONGLONG: (ir.u64, 8),
-            BareType.FLOAT: (ir.f32, 4),
-            BareType.DOUBLE: (ir.f64, 8),
+            BasicType.CHAR: (ir.i8, 1),
+            BasicType.UCHAR: (ir.u8, 1),
+            BasicType.SHORT: (ir.i16, 2),
+            BasicType.USHORT: (ir.u16, 2),
+            BasicType.INT: (int_types[int_size], int_size),
+            BasicType.UINT: (uint_types[int_size], int_size),
+            BasicType.LONG: (ir.i32, 4),
+            BasicType.ULONG: (ir.u32, 4),
+            BasicType.LONGLONG: (ir.i64, 8),
+            BasicType.ULONGLONG: (ir.u64, 8),
+            BasicType.FLOAT: (ir.f32, 4),
+            BasicType.DOUBLE: (ir.f64, 8),
         }
 
     def get_label_block(self, name):
@@ -534,7 +534,7 @@ class CCodeGenerator:
     def gen_local_init(self, ptr, typ, expr):
         """ Initialize a local slab of memory with an initial value """
         if isinstance(
-                typ, (types.BareType, types.PointerType, types.EnumType)):
+                typ, (BasicType, types.PointerType, types.EnumType)):
             value = self.gen_expr(expr, rvalue=True)
             self.emit(ir.Store(value, ptr))
             inc = self.context.sizeof(typ)
@@ -869,42 +869,49 @@ class CCodeGenerator:
             value = self.gen_expr(argument, rvalue=True)
             ir_arguments.append(value)
 
+        # Handle variable arguments:
         if ftyp.is_vararg:
-            # Allocate a memory slab:
-            size = 0
-            alignment = 1
-            for va in var_args:
-                va_size = self.context.sizeof(va.typ)
-                va_alignment = self.context.alignment(va.typ)
-                # If not aligned, make it happen:
-                size += required_padding(size, va_alignment)
-                size += va_size
-                alignment = max(alignment, va_alignment)
-            vararg_ptr = self.emit(ir.Alloc('varargs', size, alignment))
-            # Append var arg slot:
-            ir_arguments.append(vararg_ptr)
+            if not var_args:
+                # Emit a null pointer when no arguments given:
+                vararg_ptr = self.emit(ir.Const(0, 'varargs', ir.ptr))
+                ir_arguments.append(vararg_ptr)
+            else:
+                # Allocate a memory slab:
+                size = 0
+                alignment = 1
+                for va in var_args:
+                    va_size = self.context.sizeof(va.typ)
+                    va_alignment = self.context.alignment(va.typ)
+                    # If not aligned, make it happen:
+                    size += required_padding(size, va_alignment)
+                    size += va_size
+                    alignment = max(alignment, va_alignment)
+                vararg_ptr = self.emit(ir.Alloc('varargs', size, alignment))
+                # Append var arg slot:
+                ir_arguments.append(vararg_ptr)
 
-            offset = 0
-            for argument in var_args:
-                value = self.gen_expr(argument, rvalue=True)
-                va_size = self.context.sizeof(argument.typ)
-                va_alignment = self.context.alignment(va.typ)
+                offset = 0
+                for argument in var_args:
+                    value = self.gen_expr(argument, rvalue=True)
+                    va_size = self.context.sizeof(argument.typ)
+                    va_alignment = self.context.alignment(va.typ)
 
-                # handle alignment:
-                padding = required_padding(offset, va_alignment)
-                if padding > 0:
-                    cnst = self.emit(ir.Const(padding, 'padding', ir.ptr))
+                    # handle alignment:
+                    padding = required_padding(offset, va_alignment)
+                    if padding > 0:
+                        cnst = self.emit(ir.Const(padding, 'padding', ir.ptr))
+                        vararg_ptr = self.emit(
+                            ir.add(vararg_ptr, cnst, 'va2', ir.ptr))
+                    offset += padding
+
+                    # Store value:
+                    self.emit(ir.Store(value, vararg_ptr))
+
+                    # Increase pointer:
+                    s2 = self.emit(ir.Const(va_size, 'size', ir.ptr))
+                    offset += va_size
                     vararg_ptr = self.emit(
-                        ir.add(vararg_ptr, cnst, 'va2', ir.ptr))
-                offset += padding
-
-                # Store value:
-                self.emit(ir.Store(value, vararg_ptr))
-
-                # Increase pointer:
-                s2 = self.emit(ir.Const(va_size, 'size', ir.ptr))
-                offset += va_size
-                vararg_ptr = self.emit(ir.add(vararg_ptr, s2, 'va2', ir.ptr))
+                        ir.add(vararg_ptr, s2, 'va2', ir.ptr))
 
         if isinstance(expr.callee.typ, types.FunctionType):
             # Normal call:
@@ -992,7 +999,7 @@ class CCodeGenerator:
         """ Given a C type, get the fitting ir type """
         assert isinstance(typ, types.CType)
 
-        if isinstance(typ, types.BareType):
+        if isinstance(typ, types.BasicType):
             return self.ir_type_map[typ.type_id][0]
         elif isinstance(typ, types.IndexableType):
             # Pointers and arrays are seen as pointers:
@@ -1016,7 +1023,7 @@ class CCodeGenerator:
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
 
-        if isinstance(typ, types.BareType):
+        if isinstance(typ, types.BasicType):
             if typ.is_void:
                 dbg_typ = debuginfo.DebugBaseType(
                     typ.type_id, 0, 1)

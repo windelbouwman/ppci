@@ -10,6 +10,7 @@ from .. import api
 
 
 parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
     description=__doc__, parents=[base_parser, out_parser])
 parser.add_argument(
     'obj', type=argparse.FileType('r'), nargs='+',

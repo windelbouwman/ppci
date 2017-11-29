@@ -150,6 +150,10 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('orr r7, r1')
         self.check('0f43')
 
+    def test_rsb(self):
+        self.feed('rsb r7, r1')
+        self.check('4f42')
+
     def test_nop(self):
         self.feed('nop')
         self.check('')

@@ -486,6 +486,10 @@ class Ldrb(LdrStrBase):
         LdrStrBase.offset, ']'])
 
 
+# TODO:
+Ldrsb = Ldrb
+
+
 class Adr(ArmInstruction):
     rd = Operand('rd', ArmRegister, write=True)
     label = Operand('label', str)
@@ -569,27 +573,37 @@ class Mrc(McrBase):
 
 
 # Instruction selection patterns:
-@arm_isa.pattern('stm', 'STRI32(reg, reg)', size=4)
-@arm_isa.pattern('stm', 'STRU32(reg, reg)', size=4)
-def pattern_str32(self, tree, c0, c1):
-    self.emit(Str1(c1, c0, 0))
-
-
 @arm_isa.pattern(
-    'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
-    size=4,
-    condition=lambda t: t.children[0].children[1].value < 256)
-def pattern_str32_1(context, tree, c0, c1):
-    # TODO: something strange here: when enabeling this rule, programs
-    # compile correctly...
+    'mem', 'ADDI32(reg, CONSTI32)', size=0,
+    condition=lambda t: t[1].value < 256)
+def pattern_mem_reg_offset(context, tree, c0):
     offset = tree.children[0].children[1].value
-    context.emit(Str1(c1, c0, offset))
+    return c0, offset
 
 
-@arm_isa.pattern('stm', 'STRI8(reg, reg)', size=4)
-@arm_isa.pattern('stm', 'STRU8(reg, reg)', size=4)
+@arm_isa.pattern('mem', 'FPRELU32', size=0, cycles=0, energy=0)
+def pattern_mem_fprel32(context, tree):
+    offset = tree.value.offset
+    return R11, offset
+
+
+@arm_isa.pattern('mem', 'reg', size=0, cycles=0, energy=0)
+def pattern_mem_fprel32(context, tree, c0):
+    return c0, 0
+
+
+@arm_isa.pattern('stm', 'STRI32(mem, reg)', size=4)
+@arm_isa.pattern('stm', 'STRU32(mem, reg)', size=4)
+def pattern_str32(self, tree, c0, c1):
+    base_reg, offset = c0
+    self.emit(Str1(c1, base_reg, offset))
+
+
+@arm_isa.pattern('stm', 'STRI8(mem, reg)', size=4)
+@arm_isa.pattern('stm', 'STRU8(mem, reg)', size=4)
 def pattern_str8(context, tree, c0, c1):
-    context.emit(Strb(c1, c0, 0))
+    base_reg, offset = c0
+    context.emit(Strb(c1, base_reg, offset))
 
 
 @arm_isa.pattern('reg', 'MOVI32(reg)', size=4)
@@ -683,6 +697,8 @@ def pattern_const8_1(context, tree):
 
 @arm_isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
@@ -762,7 +778,8 @@ def pattern_label(context, tree):
 @arm_isa.pattern('reg', 'FPRELU32', size=4, cycles=2, energy=2)
 def pattern_fprel32(context, tree):
     d = context.new_reg(ArmRegister)
-    c1 = tree.value.negative
+    c1 = tree.value.offset
+    assert isinstance(c1, int)
     if c1 in range(-255, 256):
         if c1 >= 0:
             context.emit(AddImm(d, R11, c1))
@@ -776,33 +793,51 @@ def pattern_fprel32(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'LDRI8(reg)', size=4)
-@arm_isa.pattern('reg', 'LDRU8(reg)', size=4)
-def pattern_ld8(context, tree, c0):
+@arm_isa.pattern('reg', 'LDRI8(mem)', size=4)
+def pattern_ldr_i8(context, tree, c0):
     d = context.new_reg(ArmRegister)
-    context.emit(Ldrb(d, c0, 0))
-    d2 = context.new_reg(ArmRegister)
-    context.emit(AndImm(d2, d, 0xff))
-    return d2
-
-
-@arm_isa.pattern('reg', 'LDRU16(reg)', size=4, energy=8)
-def pattern_ld16(context, tree, c0):
-    d = context.new_reg(ArmRegister)
-    context.emit(Ldr1(d, c0, 0))
-    # context.emit(Shl
-    raise NotImplementedError()
+    base_reg, offset = c0
+    context.emit(Ldrsb(d, base_reg, offset))
     return d
 
 
-@arm_isa.pattern('reg', 'LDRI32(reg)', size=4)
-@arm_isa.pattern('reg', 'LDRU32(reg)', size=4)
+@arm_isa.pattern('reg', 'LDRU8(mem)', size=4)
+def pattern_ldr_u8(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    base_reg, offset = c0
+    context.emit(Ldrb(d, base_reg, offset))
+    return d
+
+
+@arm_isa.pattern('reg', 'LDRI16(mem)', size=4, energy=8)
+def pattern_ldr_i16(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    base_reg, offset = c0
+    context.emit(Ldrsh(d, base_reg, offset))
+    return d
+
+
+@arm_isa.pattern('reg', 'LDRU16(mem)', size=4, energy=8)
+def pattern_ldr_u16(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    base_reg, offset = c0
+    context.emit(Ldrh(d, base_reg, offset))
+    return d
+
+
+@arm_isa.pattern('reg', 'LDRI32(mem)', size=4)
+@arm_isa.pattern('reg', 'LDRU32(mem)', size=4)
 def pattern_ld32(context, tree, c0):
     d = context.new_reg(ArmRegister)
-    context.emit(Ldr1(d, c0, 0))
+    base_reg, offset = c0
+    context.emit(Ldr1(d, base_reg, offset))
     return d
 
 
+@arm_isa.pattern('reg', 'ANDI8(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ANDU8(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ANDI16(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'ANDU16(reg, reg)', size=4)
 @arm_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 @arm_isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
@@ -876,11 +911,32 @@ def pattern_rem32(context, tree, c0, c1):
     return d2
 
 
+@arm_isa.pattern('reg', 'XORI8(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'XORU8(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'XORI16(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'XORU16(reg, reg)', size=4)
 @arm_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
-def pattern_xor32(context, tree, c0, c1):
+@arm_isa.pattern('reg', 'XORU32(reg, reg)', size=4)
+def pattern_xor(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Eor(d, c0, c1, NoShift()))
     return d
+
+
+@arm_isa.pattern('reg', 'NEGI32(reg)', size=4)
+def pattern_neg32(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    # Implement as rsb with immediate value
+    context.emit(RsbImm(d, c0, 0))
+    return d
+
+
+@arm_isa.pattern('reg', 'INVI32(reg)', size=4)
+def pattern_inv32(context, tree, c0):
+    d = context.new_reg(ArmRegister)
+    context.emit(Inv(d, c0, c1, NoShift()))
+    return d
+
 
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?

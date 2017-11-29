@@ -42,7 +42,9 @@ class PythonJitLoadingTestCase(unittest.TestCase):
         d = {}
         exec(src1, d)
         a = d['a']
-        m2 = load_py(io.StringIO(src1))
+        with open('p2p_report.html', 'w') as f, \
+                HtmlReportGenerator(f) as reporter:
+            m2 = load_py(io.StringIO(src1), reporter=reporter)
 
         for x in range(20):
             v1 = a(x, 2)  # Python variant

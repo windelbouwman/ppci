@@ -18,6 +18,7 @@ from ..irs.wasm import ir_to_wasm
 
 parser = argparse.ArgumentParser(
     description=__doc__,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
     parents=[
         base_parser, march_parser, out_parser, compile_parser,
         coptions_parser])

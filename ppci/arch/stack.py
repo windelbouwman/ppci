@@ -1,23 +1,27 @@
 
 """ This module contains all kind of classes to describe the stack """
 
+import enum
 from .encoding import Instruction
 from .registers import Register
 from .generic_instructions import Label
 
 
+class FramePointerLocation(enum.Enum):
+    """ Define where the frame pointer is pointing to """
+    TOP = 1
+    BOTTOM = 2
+
+
 class StackLocation:
     """ A stack location can store data just like a register """
-    def __init__(self, offset, size):
+    def __init__(self, offset: int, size: int):
+        # self.frame = frame  # The frame in which this location lives
         self.offset = offset
         self.size = size
 
     def __repr__(self):
         return 'Stack[{} bytes at {}]'.format(self.size, self.offset)
-
-    @property
-    def negative(self):
-        return -self.offset - self.size
 
 
 def generate_temps():
@@ -34,11 +38,14 @@ class Frame:
         Frames differ per machine. The only thing left to do for a frame
         is register allocation.
     """
-    def __init__(self, name, debug_db=None):
+    def __init__(
+            self, name, debug_db=None, fp_location=FramePointerLocation.TOP):
         self.name = name
         self.debug_db = debug_db  # Eventual debug information
+        self.fp_location = fp_location
         self.instructions = []
         self.used_regs = set()
+        self.is_leaf = False  # TODO: detect leaf functions
         self.temps = generate_temps()
 
         # Local stack:
@@ -52,18 +59,33 @@ class Frame:
     def __repr__(self):
         return 'Frame {}'.format(self.name)
 
-    def alloc(self, size, alignment):
-        """ Allocate space on the stack frame and return the offset """
+    def alloc(self, size: int, alignment: int):
+        """ Allocate space on the stack frame and return a stacklocation """
         # determine alignment of whole stack frame as maximum alignment
         self.alignment = max(self.alignment, alignment)
-        # TODO: grow down or up?
-        if size:
+
+        # Calling alloc with 0 indicates a problem somewhere.
+        if size == 0:
+            raise ValueError('Trying to allocate 0 bytes')
+
+        # grow down or up?
+        if self.fp_location == FramePointerLocation.TOP:
+            # Create a negative offset from framepointer:
+            self.stacksize += size
             misalign = self.stacksize % alignment
             if misalign:
-                self.stacksize = self.stacksize - misalign + size
-        l = StackLocation(self.stacksize, size)
-        self.stacksize += size
-        return l
+                self.stacksize = self.stacksize - misalign + alignment
+            # When frame pointer is located at top of the stackframe,
+            # the offset is negative:
+            offset = -self.stacksize
+        else:
+            misalign = self.stacksize % alignment
+            if misalign:
+                self.stacksize += size - misalign
+            offset = self.stacksize
+            self.stacksize += size
+        location = StackLocation(offset, size)
+        return location
 
     def new_name(self, salt):
         """ Generate a new unique name """

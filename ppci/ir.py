@@ -836,12 +836,15 @@ class Alloc(LocalValue):
     def __init__(self, name, amount, alignment):
         super().__init__(name, ptr)
         assert isinstance(amount, int)
+        if not amount:
+            raise ValueError('Expecting at least 1 byte to allocate')
         self.amount = amount
         assert isinstance(alignment, int)
         self.alignment = alignment
 
     def __str__(self):
-        return '{} {} = alloc {} bytes'.format(self.ty, self.name, self.amount)
+        return '{} {} = alloc {} bytes aligned at {}'.format(
+            self.ty, self.name, self.amount, self.alignment)
 
 
 class Variable(GlobalValue):

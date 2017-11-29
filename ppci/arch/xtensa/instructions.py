@@ -893,7 +893,7 @@ def pattern_add_i32_imm(context, tree, c0):
 def pattern_fprel(context, tree):
     d = context.new_reg(AddressRegister)
     fp = a15
-    context.emit(Addi(d, fp, tree.value.negative))
+    context.emit(Addi(d, fp, tree.value.offset))
     return d
 
 
@@ -969,54 +969,64 @@ def pattern_shr_i32(context, tree, c0, c1):
     return d
 
 
-@core_isa.pattern('reg', 'LDRU8(reg)')
+# Memory patterns:
+@core_isa.pattern(
+    'mem', 'FPRELU32', size=0, cycles=0, energy=0,
+    condition=lambda t: t.value.offset in range(-128, 127))
+def pattern_mem_fprel(context, tree):
+    fp = a15
+    return fp, tree.value.offset
+
+
+@core_isa.pattern('mem', 'reg', size=0, cycles=0, energy=0)
+def pattern_mem_from_reg(context, tree, c0):
+    return c0, 0
+
+
+@core_isa.pattern('reg', 'LDRU8(mem)')
 def pattern_ldr_u8(context, tree, c0):
     d = context.new_reg(AddressRegister)
-    context.emit(L8ui(d, c0, 0))
+    reg, offset = c0
+    context.emit(L8ui(d, reg, offset))
     return d
 
 
-@core_isa.pattern('reg', 'LDRI8(reg)')
+@core_isa.pattern('reg', 'LDRI8(mem)')
 def pattern_ldr_i8(context, tree, c0):
     d = context.new_reg(AddressRegister)
-    context.emit(L8ui(d, c0, 0))
+    reg, offset = c0
+    context.emit(L8ui(d, reg, offset))
     # TODO: emit sign extension here?
     return d
 
 
-@core_isa.pattern('stm', 'STRU8(reg, reg)')
+@core_isa.pattern('stm', 'STRU8(mem, reg)')
 def pattern_str_u8(context, tree, c0, c1):
-    context.emit(S8i(c1, c0, 0))
+    reg, offset = c0
+    context.emit(S8i(c1, reg, offset))
 
 
-@core_isa.pattern('reg', 'LDRU32(reg)', size=3, cycles=2, energy=2)
-@core_isa.pattern('reg', 'LDRI32(reg)', size=3, cycles=2, energy=2)
+@core_isa.pattern('reg', 'LDRU32(mem)', size=3, cycles=2, energy=2)
+@core_isa.pattern('reg', 'LDRI32(mem)', size=3, cycles=2, energy=2)
 def pattern_ldr_i32(context, tree, c0):
     d = context.new_reg(AddressRegister)
-    context.emit(L32i(d, c0, 0))
+    reg, offset = c0
+    context.emit(L32i(d, reg, offset))
     return d
 
 
 @core_isa.pattern(
-    'reg', 'LDRI32(ADDI32(reg, CONSTI32))', size=3, cycles=2, energy=2,
-    condition=lambda t: t[0][1].value in range(0, 1020, 4))
-def pattern_ldr_i32_add_const(context, tree, c0):
-    d = context.new_reg(AddressRegister)
-    context.emit(L32i(d, c0, tree[0][1].value))
-    return d
+    'mem', 'ADDI32(reg, CONSTI32)', size=0, cycles=0, energy=0,
+    condition=lambda t: t[1].value in range(0, 1020, 4))
+def pattern_mem_add_const(context, tree, c0):
+    return c0, tree[1].value
 
 
-@core_isa.pattern('stm', 'STRU32(reg, reg)', size=3, cycles=2, energy=2)
-@core_isa.pattern('stm', 'STRI32(reg, reg)', size=3, cycles=2, energy=2)
+@core_isa.pattern('stm', 'STRU32(mem, reg)', size=3, cycles=2, energy=2)
+@core_isa.pattern('stm', 'STRI32(mem, reg)', size=3, cycles=2, energy=2)
 def pattern_str_i32(context, tree, c0, c1):
-    context.emit(S32i(c1, c0, 0))
-
-
-@core_isa.pattern(
-    'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)', size=3, cycles=2, energy=2,
-    condition=lambda t: t[0][1].value in range(0, 1020, 4))
-def pattern_str_i32_add_const(context, tree, c0, c1):
-    context.emit(S32i(c1, c0, tree[0][1].value))
+    reg, offset = c0
+    context.emit(S32i(c1, reg, offset))
 
 
 @core_isa.pattern('stm', 'JMP')

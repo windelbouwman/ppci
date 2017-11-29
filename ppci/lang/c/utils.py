@@ -63,7 +63,7 @@ class Visitor:
             pass
         elif isinstance(node, (types.EnumType,)):
             pass
-        elif isinstance(node, types.BareType):
+        elif isinstance(node, types.BasicType):
             pass
         elif isinstance(node, statements.Compound):
             for statement in node.statements:

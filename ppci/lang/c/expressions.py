@@ -102,10 +102,10 @@ class ArrayIndex(CExpression):
         return 'Array index'
 
 
-class FieldSelect(Expression):
+class FieldSelect(CExpression):
     """ Select a field in a struct """
-    def __init__(self, base, field, location):
-        super().__init__(location)
+    def __init__(self, base, field, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         self.base = base
         self.field = field
 
@@ -113,9 +113,9 @@ class FieldSelect(Expression):
         return 'Field select .{}'.format(self.field.name)
 
 
-class VariableAccess(Expression):
-    def __init__(self, variable, location):
-        super().__init__(location)
+class VariableAccess(CExpression):
+    def __init__(self, variable, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         self.variable = variable
         self.name = variable.name
 

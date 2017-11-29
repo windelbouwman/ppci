@@ -163,15 +163,18 @@ class TreeSelector:
                 if all(x.state.has_goal(y) for x, y in zip(kids, nts)) \
                         and accept:
                     cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
-                    self.mark_tree(tree, rule, cost)
+                    marked_rules = set()
+                    self.mark_tree(tree, rule, cost, marked_rules)
 
-    def mark_tree(self, tree, rule, cost):
+    def mark_tree(self, tree, rule, cost, marked_rules):
         cost = cost + rule.cost
         tree.state.set_cost(rule.non_term, cost, rule.nr)
+        marked_rules.add(rule)
 
         # Also set cost for chain rules here:
         for cr in self.sys.chain_rules_for_nt(rule.non_term):
-            self.mark_tree(tree, cr, cost)
+            if cr not in marked_rules:
+                self.mark_tree(tree, cr, cost, marked_rules)
 
     def apply_rules(self, context, tree, goal):
         """ Apply all selected instructions to the tree """

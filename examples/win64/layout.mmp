@@ -1,0 +1,7 @@
+MEMORY code LOCATION=0x00401000 SIZE=0x1000000 {
+    SECTION(code)
+    ALIGN(4096)
+    SECTION(data)
+    ALIGN(4096)
+}
+

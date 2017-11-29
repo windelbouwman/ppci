@@ -41,7 +41,7 @@ def hexdump(bb):
 def export_wasm_example(filename, code, wasm, main_js=''):
     """ Generate an html file for the given code and wasm module.
     """
-    
+
     if isinstance(wasm, Module):
         wasm = wasm.to_bytes()
     elif isinstance(wasm, bytes):
@@ -49,11 +49,11 @@ def export_wasm_example(filename, code, wasm, main_js=''):
             raise ValueError('export_wasm_example() given bytes do not look like a wasm module.')
     else:
         raise TypeError('export_wasm_example() expects a wasm module or bytes.')
-    
+
     wasm_text = str(list(wasm))  # [0, 1, 12, ...]
-    
+
     fname = os.path.basename(filename).rsplit('.', 1)[0]
-    
+
     # Read templates
     src_filename_js = os.path.join(os.path.dirname(__file__), 'template.js')
     src_filename_html = os.path.join(os.path.dirname(__file__), 'template.html')
@@ -61,14 +61,14 @@ def export_wasm_example(filename, code, wasm, main_js=''):
         js = f.read().decode()
     with open(src_filename_html, 'rb') as f:
         html = f.read().decode()
-    
+
     # Produce HTML
     js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
     js = js.replace('MAIN_JS_PLACEHOLDER', main_js)
     html = html.replace('<title></title>', '<title>%s</title>' % fname)
     html = html.replace('CODE_PLACEHOLDER', code)
     html = html.replace('JS_PLACEHOLDER', js)
-    
+
     # Export HTML file
     with open(filename, 'wb') as f:
         f.write(html.encode())
@@ -81,7 +81,7 @@ def run_wasm_in_notebook(wasm):
     """ Load a WASM module in the Jupyter notebook.
     """
     from IPython.display import display, HTML, Javascript
-    
+
     if isinstance(wasm, Module):
         wasm = wasm.to_bytes()
     elif isinstance(wasm, bytes):
@@ -89,24 +89,24 @@ def run_wasm_in_notebook(wasm):
             raise ValueError('run_wasm_in_notebook() given bytes do not look like a wasm module.')
     else:
         raise TypeError('run_wasm_in_notebook() expects a wasm module or bytes.')
-    
+
     wasm_text = str(list(wasm))  # [0, 1, 12, ...]
-    
+
     # Read templates
     src_filename_js = os.path.join(os.path.dirname(__file__), 'template.js')
     with open(src_filename_js, 'rb') as f:
         js = f.read().decode()
-    
+
     # Get id
     global _nb_output
     _nb_output += 1
     id = 'wasm_output_%u' % _nb_output
-    
+
     # Produce JS
     js = js.replace('wasm_output', id)
     js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
     js = '(function() {\n%s;\ncompile_my_wasm();\n})();' % js
-    
+
     # Output in current cell
     display(HTML("<div style='border: 2px solid blue;' id='%s'></div>" % id))
     display(Javascript(js))
@@ -116,7 +116,7 @@ def run_wasm_in_node(wasm):
     """ Load a WASM module in node.
     Just make sure that your module has a main function.
     """
-    
+
     if isinstance(wasm, Module):
         wasm = wasm.to_bytes()
     elif isinstance(wasm, bytes):
@@ -124,23 +124,23 @@ def run_wasm_in_node(wasm):
             raise ValueError('run_wasm_in_node() given bytes do not look like a wasm module.')
     else:
         raise TypeError('run_wasm_in_node() expects a wasm module or bytes.')
-    
+
     wasm_text = str(list(wasm))  # [0, 1, 12, ...]
-    
+
     # Read templates
     src_filename_js = os.path.join(os.path.dirname(__file__), 'template.js')
     with open(src_filename_js, 'rb') as f:
         js = f.read().decode()
-    
+
     # Produce JS
     js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
     js += '\nprint_ln("Hello from Nodejs!");\ncompile_my_wasm();\n'
-    
+
     # Write temporary file
     filename = os.path.join(tempfile.gettempdir(), 'pyscript_%i.js' % os.getpid())
     with open(filename, 'wb') as f:
         f.write(js.encode())
-    
+
     # Execute JS in nodejs
     try:
         res = subprocess.check_output([get_node_exe(), '--use_strict', filename])
@@ -156,7 +156,7 @@ def run_wasm_in_node(wasm):
             os.remove(filename)
         except Exception:
             pass
-    
+
     print(res.decode().rstrip())
 
 

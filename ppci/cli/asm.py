@@ -9,6 +9,7 @@ from .. import api
 
 parser = argparse.ArgumentParser(
     description=__doc__,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
     parents=[base_parser, march_parser, out_parser])
 parser.add_argument(
     '-g', '--debug', help='create debug information',

@@ -50,7 +50,7 @@ from .arch.target_list import create_arch
 __all__ = [
     'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
     'optimize', 'preprocess',
-    'get_arch', 'ir_to_object']
+    'get_arch', 'ir_to_object', 'ir_to_python']
 
 
 def get_arch(arch):

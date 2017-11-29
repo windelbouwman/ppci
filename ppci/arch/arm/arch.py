@@ -104,8 +104,8 @@ class ArmArch(Architecture):
             yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
 
         if frame.stacksize:
+            ssize = round_up(frame.stacksize)
             if self.has_option('thumb'):
-                ssize = round_up(frame.stacksize)
 
                 # Reserve stack space:
                 # subSp cannot handle large numbers:
@@ -114,7 +114,7 @@ class ArmArch(Architecture):
                     yield thumb_instructions.SubSp(inc)
                     ssize -= inc
             else:
-                yield arm_instructions.SubImm(SP, SP, frame.stacksize)
+                yield arm_instructions.SubImm(SP, SP, ssize)
 
         # Callee save registers:
         callee_save = {r for r in self.callee_save if r in frame.used_regs}
@@ -138,15 +138,15 @@ class ArmArch(Architecture):
                 yield arm_instructions.Pop(RegisterSet(callee_save))
 
         if frame.stacksize > 0:
+            ssize = round_up(frame.stacksize)
             if self.has_option('thumb'):
-                ssize = round_up(frame.stacksize)
                 # subSp cannot handle large numbers:
                 while ssize > 0:
                     inc = min(124, ssize)
                     yield thumb_instructions.AddSp(inc)
                     ssize -= inc
             else:
-                yield arm_instructions.AddImm(SP, SP, frame.stacksize)
+                yield arm_instructions.AddImm(SP, SP, ssize)
 
         if self.has_option('thumb'):
             yield thumb_instructions.Pop({PC, R7})
