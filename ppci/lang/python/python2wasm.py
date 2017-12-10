@@ -26,7 +26,7 @@ def python_to_wasm(code):
             'py_to_wasm() expecteded root node to be a ast.Module.')
 
     # Compile to instructions
-    ctx = PythonToWasmTranspiler()
+    ctx = PythonToWasmCompiler()
     for node in root.body:
         ctx._compile_expr(node, False)
     locals = ['f64' for i in ctx.names]
@@ -35,12 +35,12 @@ def python_to_wasm(code):
     module = wasm.Module([
         wasm.ImportedFuncion('print_ln', ['f64'], [], 'js', 'print_ln'),
         wasm.ImportedFuncion('perf_counter', [], ['f64'], 'js', 'perf_counter'),
-        wasm.Function('$main', [], [], locals, ctx.instructions),
+        wasm.Function('$main', [], ['f64'], locals, ctx.instructions),
         ])
     return module
 
 
-class PythonToWasmTranspiler:
+class PythonToWasmCompiler:
     """ Transpiler from python wasm """
     def __init__(self):
         self.instructions = []

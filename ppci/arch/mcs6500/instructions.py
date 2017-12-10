@@ -100,17 +100,13 @@ class Absolute(Constructor):
 
 
 class AbsoluteX(Constructor):
-    imm = Operand('imm', int)
-    syntax = Syntax([imm, ',', 'x'])
-    tokens = [WordToken]
-    patterns = {'word': imm}
+    address = Operand('address', (Absolute, AbsoluteLabel))
+    syntax = Syntax([address, ',', 'x'])
 
 
 class AbsoluteY(Constructor):
-    imm = Operand('imm', int)
-    syntax = Syntax([imm, ',', 'y'])
-    tokens = [WordToken]
-    patterns = {'word': imm}
+    address = Operand('address', (Absolute, AbsoluteLabel))
+    syntax = Syntax([address, ',', 'y'])
 
 
 class IndirectX(Constructor):

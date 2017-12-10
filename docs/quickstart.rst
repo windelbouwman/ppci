@@ -5,6 +5,9 @@ Quickstart
 Installation
 ------------
 
+Using pip
+~~~~~~~~~
+
 Install ppci in a `virtualenv`_ environment:
 
 .. _virtualenv: https://virtualenv.readthedocs.io/
@@ -20,6 +23,23 @@ Install ppci in a `virtualenv`_ environment:
 If ppci installed correcly, you will get a help message of the
 :ref:`ppci-build` commandline tool.
 
+Manually
+~~~~~~~~
+
+Alternatively you can download a zip package from
+`PyPI <https://pypi.python.org/pypi/ppci>`_
+or from `BitBucket <https://bitbucket.org/windel/ppci>`_.
+Unpack the source archive and open a console in this directory.
+
+.. code:: bash
+
+    $ virtualenv sandbox
+    $ source sandbox/bin/activate
+    (sandbox) $ python setup.py install
+    (sandbox) $ ppci-build.py -h
+
+If ppci installed correcly, you will get a help message of the
+:ref:`ppci-build` commandline tool.
 
 Example projects
 ----------------

@@ -64,3 +64,4 @@ can compile it to for example native riscv code:
 In this example we compiled C code with one compiler to wasm and took
 this wasm and compiled it to riscv code using ppci.
 
+Please see :ref:`WebAssembly<wasm>` for the python api for using webassembly.

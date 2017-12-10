@@ -514,7 +514,9 @@ def value_use(name):
 
     def setter(self, value):
         """ Sets the value """
-        assert isinstance(value, Value)
+        if not isinstance(value, Value):
+            raise TypeError(
+                'Expecting a Value instance, but got {}'.format(value))
         # If value was already set, remove usage
         if name in self._var_map:
             self.del_use(self._var_map[name])
@@ -756,6 +758,10 @@ class Unop(LocalValue):
         assert a.ty is ty
         self.operation = operation
         self.a = a
+
+    def __str__(self):
+        a, ty = self.a.name, self.ty
+        return '{} {} = {} {}'.format(ty, self.name, self.operation, a)
 
 
 class Binop(LocalValue):

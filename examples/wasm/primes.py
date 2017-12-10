@@ -4,7 +4,6 @@ and run in-process.
 """
 
 import os
-import sys
 import logging
 from io import StringIO
 from time import perf_counter
@@ -39,7 +38,7 @@ return a
 """
 
 py3 = """
-max = 40
+max = 400
 n = 0
 i = -1
 gotit = 0
@@ -95,7 +94,7 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
 # Run in memory
 native_module = codepage.load_obj(ob)
 t0 = perf_counter()
-result = native_module.main()
+result = native_module.unnamed2()
 etime = perf_counter() - t0
 print(f'native says {result} in {etime} s')
 
@@ -110,6 +109,6 @@ if True:
     py_code = f.getvalue()
     exec(py_code)
     t0 = perf_counter()
-    result = main()
+    result = unnamed2()
     etime = perf_counter() - t0
     print(f'python says {result} in {etime}')

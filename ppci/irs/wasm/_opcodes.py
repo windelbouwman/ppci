@@ -21,7 +21,7 @@ instruction_table = [
     ('end', 0x0b, (), (), (), lambda i, v: ()),
     ('br', 0x0c, ('u32',)),
     ('br_if', 0x0d, ('u32',)),
-    ('br_table', 0x0e),
+    ('br_table', 0x0e, ('br_table',)),
     ('return', 0x0f),
 
     ('call', 0x10, ('u32',)),

@@ -102,12 +102,28 @@ class RmXmmReg(Constructor):
 xmm_rm_modes = (RmXmmReg, RmMem, RmMemDisp, RmAbs)
 
 
+class Movups(Sse1Instruction):
+    """ Move unaligned packed single-fp values """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes)
+    syntax = Syntax(['movups', ' ', r, ',', ' ', rm])
+    patterns = {'opcode': 0x10}
+
+
 class Movss(Sse1Instruction):
     """ Move scalar single-fp value """
     r = Operand('r', XmmRegister, write=True)
     rm = Operand('rm', xmm_rm_modes)
     syntax = Syntax(['movss', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf3, 'opcode': 0x10}
+
+
+class Movupd(Sse2Instruction):
+    """ Move unaligned packed double-fp values """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes)
+    syntax = Syntax(['movupd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0x66, 'opcode': 0x10}
 
 
 class Movsd(Sse2Instruction):
@@ -360,6 +376,19 @@ def pattern_const_f64(context, tree):
     context.emit(MovAdr(label_addr, const_label))
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmMem(label_addr)))
+    return d
+
+
+@sse2_isa.pattern('regfp64', 'NEGF64(regfp64)', size=8, cycles=9, energy=4)
+def pattern_neg_f64(context, tree, c0):
+    """ Multiply by -1 """
+    float_const = struct.pack('d', -1)
+    const_label = context.frame.add_constant(float_const)
+    label_addr = context.new_reg(X86Register)
+    context.emit(MovAdr(label_addr, const_label))
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmXmmReg(c0)))
+    context.emit(Mulsd(d, RmMem(label_addr)))
     return d
 
 

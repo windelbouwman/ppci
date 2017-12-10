@@ -9,7 +9,7 @@ from ...binutils import debuginfo
 from . import components
 
 
-def wasm_to_ir(wasm_module):
+def wasm_to_ir(wasm_module: components.Module) -> ir.Module:
     """ Convert a WASM module into a PPCI native module.
 
     Args:
@@ -32,7 +32,7 @@ class WasmToIrCompiler:
         self.builder = irutils.Builder()
         self.blocknr = 0
 
-    def generate(self, wasm_module):
+    def generate(self, wasm_module: components.Module):
         assert isinstance(wasm_module, components.Module)
 
         # First read all sections:
@@ -197,7 +197,7 @@ class WasmToIrCompiler:
                 return_value = self.stack.pop(-1)
                 self.emit(ir.Return(return_value))
 
-        ppci_function.dump()
+        # ppci_function.dump()
         ppci_function.delete_unreachable()
 
     BINOPS = {
@@ -205,6 +205,16 @@ class WasmToIrCompiler:
         'f32.add', 'f32.sub', 'f32.mul', 'f32.div',
         'i64.add', 'i64.sub', 'i64.mul', 'i64.div',
         'i32.add', 'i32.sub', 'i32.mul', 'i32.div',
+        'i64.and', 'i64.or', 'i64.xor', 'i64.shl', 'i64.shr_s', 'i64.shr_u',
+        'i64.rotl', 'i64.rotr',
+        'i32.and', 'i32.or', 'i32.xor', 'i32.shl', 'i32.shr_s', 'i32.shr_u',
+        'i32.rotl', 'i32.rotr',
+    }
+
+    CASTOPS = {
+        'i32.wrap_i64',
+        'i64.extend_s_i32',
+        'i64.extend_u_i32',
     }
 
     CMPOPS = {
@@ -224,14 +234,29 @@ class WasmToIrCompiler:
         'f64.store',
         'f32.store',
         'i64.store',
+        'i64.store8',
+        'i64.store16',
+        'i64.store32',
         'i32.store',
+        'i32.store8',
+        'i32.store16',
     }
 
     LOAD_OPS = {
         'f64.load',
         'f32.load',
         'i64.load',
+        'i64.load8_u',
+        'i64.load8_s',
+        'i64.load16_u',
+        'i64.load16_s',
+        'i64.load32_u',
+        'i64.load32_s',
         'i32.load',
+        'i32.load8_u',
+        'i32.load8_s',
+        'i32.load16_u',
+        'i32.load16_s',
     }
 
     OPMAP = dict(
@@ -259,20 +284,69 @@ class WasmToIrCompiler:
             value = self.stack[-1]
             phi.set_incoming(self.builder.block, value)
 
+    def pop_condition(self):
+        """ Get comparison, a and b of the value stack """
+        value = self.stack.pop()
+        if isinstance(value, ir.Value):
+            a = value
+            b = self.emit(ir.Const(0, 'zero', ir.i32))
+            return '!=', a, b
+        else:
+            return value
+
+    def pop_value(self):
+        """ Pop a value of the stack """
+        value = self.stack.pop()
+        if isinstance(value, ir.Value):
+            return value
+        else:
+            # Emit some sort of weird ternary operation!
+            op, a, b = value
+
+            ja = self.builder.new_block()
+            nein = self.builder.new_block()
+            immer = self.builder.new_block()
+            self.emit(ir.CJump(a, op, b, ja, nein))
+
+            self.builder.set_block(ja)
+            one = self.emit(ir.Const(1, 'one', ir.i32))
+            self.emit(ir.Jump(immer))
+
+            self.builder.set_block(nein)
+            zero = self.emit(ir.Const(0, 'zero', ir.i32))
+            self.emit(ir.Jump(immer))
+
+            self.builder.set_block(immer)
+            phi = ir.Phi('ternary', ir.i32)
+            phi.set_incoming(ja, one)
+            phi.set_incoming(nein, zero)
+            self.emit(phi)
+            return phi
+
     def generate_instruction(self, instruction):
         """ Generate ir-code for a single wasm instruction """
         inst = instruction.type
         if inst in self.BINOPS:
             itype, opname = inst.split('.')
-            op = dict(add='+', sub='-', mul='*', div='/')[opname]
+            op_map = {
+                'add': '+', 'sub': '-', 'mul': '*', 'div': '/',
+                'and': '&', 'or': '|', 'xor': '^', 'shl': '<<',
+                'shr_u': '>>'}
+            op = op_map[opname]
             b, a = self.stack.pop(), self.stack.pop()
             value = self.emit(
                 ir.Binop(a, op, b, opname, self.get_ir_type(itype)))
             self.stack.append(value)
 
         elif inst in self.CMPOPS:
-            b, a = self.stack.pop(), self.stack.pop()
-            self.stack.append((inst.split('.')[1], a, b))
+            itype, opname = inst.split('.')
+            if opname in ['eqz']:
+                b = self.emit(ir.Const(0, 'zero', self.get_ir_type(itype)))
+                a = self.pop_value()
+            else:
+                b, a = self.stack.pop(), self.stack.pop()
+            op = self.OPMAP[opname]
+            self.stack.append((op, a, b))
             # todo: hack; we assume this is the only test in an if
 
         elif inst in self.STORE_OPS:
@@ -281,7 +355,8 @@ class WasmToIrCompiler:
             offset, align = instruction.args
             value = self.stack.pop()
             base = self.stack.pop()
-            assert base.ty is ir.ptr, str(base)
+            if base.ty is not ir.ptr:
+                base = self.emit(ir.Cast(base, 'cast', ir.ptr))
             offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
             address = self.emit(ir.add(base, offset, 'address', ir.ptr))
             self.emit(ir.Store(value, address))
@@ -291,10 +366,17 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(itype)
             offset, align = instruction.args
             base = self.stack.pop()
-            assert base.ty is ir.ptr, str(base)
+            if base.ty is not ir.ptr:
+                base = self.emit(ir.Cast(base, 'cast', ir.ptr))
             offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
             address = self.emit(ir.add(base, offset, 'address', ir.ptr))
             value = self.emit(ir.Load(address, 'load', ir_typ))
+            self.stack.append(value)
+
+        elif inst in self.CASTOPS:
+            value = self.pop_value()
+            ir_typ = self.get_ir_type(inst.split('.')[0])
+            value = self.emit(ir.Cast(value, 'cast', ir_typ))
             self.stack.append(value)
 
         elif inst == 'f64.floor':
@@ -309,11 +391,13 @@ class WasmToIrCompiler:
                     instruction.args[0], 'const', self.get_ir_type(inst)))
             self.stack.append(value)
 
-        elif inst == 'set_local':
-            value = self.stack.pop()
+        elif inst in ['set_local', 'tee_local']:
+            value = self.pop_value()
             ty, local_var = self.locals[instruction.args[0]]
             assert ty is value.ty
             self.emit(ir.Store(value, local_var))
+            if inst == 'tee_local':
+                self.stack.append(value)
 
         elif inst == 'get_local':
             ty, local_var = self.locals[instruction.args[0]]
@@ -367,7 +451,7 @@ class WasmToIrCompiler:
             self.builder.set_block(falseblock)
 
         elif inst == 'br_if':
-            op, a, b = self.stack.pop()
+            op, a, b = self.pop_condition()
             depth = instruction.args[0]
             blocktype, continueblock, innerblock, phi = \
                 self.block_stack[-depth-1]
@@ -376,16 +460,15 @@ class WasmToIrCompiler:
             else:
                 targetblock = continueblock
             falseblock = self.new_block()
-            self.emit(ir.CJump(a, self.OPMAP[op], b, targetblock, falseblock))
+            self.emit(ir.CJump(a, op, b, targetblock, falseblock))
             self.builder.set_block(falseblock)
 
         elif inst == 'if':
             # todo: we assume that the test is a comparison
-            op, a, b = self.stack.pop()
+            op, a, b = self.pop_condition()
             trueblock = self.new_block()
             continueblock = self.new_block()
-            self.emit(
-                ir.CJump(a, self.OPMAP[op], b, trueblock, continueblock))
+            self.emit(ir.CJump(a, op, b, trueblock, continueblock))
             self.builder.set_block(trueblock)
             phi = self.get_phi(instruction)
             self.block_stack.append(('if', continueblock, None, phi))
@@ -431,10 +514,16 @@ class WasmToIrCompiler:
                 self.emit(ir.ProcedureCall(name, args))
 
         elif inst == 'return':
-            self.emit(ir.Return(self.stack.pop()))
-            # after_return_block = self.new_block()
-            # self.builder.set_block(after_return_block)
-            # todo: assert that this was the last instruction
+            if isinstance(self.builder.function, ir.Procedure):
+                self.emit(ir.Exit())
+            else:
+                self.emit(ir.Return(self.stack.pop()))
+            after_return_block = self.new_block()
+            self.builder.set_block(after_return_block)
+            # TODO: assert that this was the last instruction
 
+        elif inst == 'unreachable':
+            # TODO: what to do?
+            pass
         else:  # pragma: no cover
             raise NotImplementedError(inst)

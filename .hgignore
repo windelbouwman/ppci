@@ -3,6 +3,7 @@ syntax: glob
 
 *.pyc
 *.pyz
+*.prg
 *.o
 *.oj
 *.bin

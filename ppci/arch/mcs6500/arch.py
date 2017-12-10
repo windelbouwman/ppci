@@ -2,6 +2,7 @@ from ... import ir
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label
+from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import isa
 from . import registers, instructions
@@ -13,9 +14,9 @@ class Mcs6500Arch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        self.isa = isa
+        self.isa = isa + data_isa
         self.assembler = BaseAssembler()
-        self.assembler.gen_asm_parser(isa)
+        self.assembler.gen_asm_parser(self.isa)
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),

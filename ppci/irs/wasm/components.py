@@ -4,7 +4,7 @@ The field classes to represent a WASM program.
 
 from io import BytesIO
 import logging
-from struct import pack as spack, unpack as sunpack
+import struct
 
 from . import OPCODES
 from ._opcodes import OPERANDS, REVERZ, EVAL
@@ -26,15 +26,15 @@ LANG_TYPES_REVERSE = {v[0]: k for k, v in LANG_TYPES.items()}
 
 
 def packf64(x):
-    return spack('<d', x)
+    return struct.pack('<d', x)
 
 
 def packf32(x):
-    return spack('<f', x)
+    return struct.pack('<f', x)
 
 
 def packu32(x):
-    return spack('<I', x)
+    return struct.pack('<I', x)
 
 
 def packstr(x):
@@ -100,10 +100,20 @@ class FileReader:
     def read_uint(self):
         return unsigned_leb128_decode(self)
 
+    def read_f32(self):
+        data = self.read(4)
+        value, = struct.unpack('f', data)
+        return value
+
+    def read_f64(self):
+        data = self.read(8)
+        value, = struct.unpack('d', data)
+        return value
+
     def read_bytes(self):
         """ Read raw bytes data """
-        l = self.read_int()
-        return self.read(l)
+        amount = self.read_int()
+        return self.read(amount)
 
     def read_str(self):
         """ Read a string """
@@ -388,8 +398,9 @@ class Module(WASMComponent):
     @classmethod
     def from_reader(cls, r):
         data = r.read(4)
-        assert data == b'\x00asm'
-        version = sunpack('<I', r.read(4))[0]
+        if data != b'\x00asm':
+            raise ValueError('Magic wasm marker is invalid')
+        version = struct.unpack('<I', r.read(4))[0]
         assert version == 1, version
         sections = []
         while True:
@@ -485,6 +496,7 @@ def section_from_reader(r):
         ExportSection,
         ElementSection,
         CodeSection,
+        StartSection,
         DataSection,
     ]
     mp = {s.id: s for s in handled_sections}
@@ -736,6 +748,12 @@ class StartSection(Section):
     def get_binary_section(self, f):
         f.write(packvu32(self.index))
 
+    @classmethod
+    def from_reader(cls, reader):
+        """ Read in start section from reader object """
+        index = reader.read_int()
+        return cls(index)
+
 
 class ElementSection(Section):
     """ To initialize table elements. """
@@ -749,6 +767,16 @@ class ElementSection(Section):
         f.write(packvu32(len(self.elements)))
         for element in self.elements:
             element.to_file(f)
+
+    @classmethod
+    def from_reader(cls, reader):
+        """ Read in table element section from reader object """
+        count = reader.read_int()
+        elements = []
+        for _ in range(count):
+            element = Element.from_reader(reader)
+            elements.append(element)
+        return cls(elements)
 
 
 class CodeSection(Section):
@@ -952,6 +980,18 @@ class Element:
         for i in self.indexes:
             f.write(packvu32(i))
 
+    @classmethod
+    def from_reader(cls, reader):
+        """ Read a single element from a reader """
+        table = reader.read(1)[0]
+        offset_expr = reader.read_expression()
+        offset_type, offset = eval_expr(offset_expr)
+        count = reader.read_int()
+        indexes = []
+        for _ in range(count):
+            indexes.append(reader.read_int())
+        return cls(table, offset, indexes)
+
 
 class FunctionSig(WASMComponent):
     """ Defines the signature of a WASM module that is imported or defined in
@@ -1119,14 +1159,24 @@ class Instruction(WASMComponent):
         opcode = next(reader)
         type = REVERZ[opcode]
         operands = OPERANDS[type]
+        # print(opcode, type, operands)
         args = []
         for o in operands:
-            if o == 'i32':
+            if o in ['i32', 'i64']:
                 arg = reader.read_int()
             elif o == 'u32':
                 arg = reader.read_uint()
             elif o == 'type':
                 arg = reader.read_type()
+            elif o == 'br_table':
+                count = reader.read_uint()
+                vec = []
+                for _ in range(count):
+                    idx = reader.read_int()
+                    vec.append(idx)
+                idx = reader.read_int()
+                vec.append(idx)
+                arg = vec
             elif o == 'f32':
                 arg = reader.read_f32()
             elif o == 'f64':
@@ -1135,7 +1185,9 @@ class Instruction(WASMComponent):
                 raise NotImplementedError(o)
             args.append(arg)
         type = REVERZ[opcode]
-        return cls(type, args)
+        instruction = cls(type, args)
+        # print(instruction.to_text())
+        return instruction
 
 
 # Collect field classes
