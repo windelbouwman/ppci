@@ -197,9 +197,6 @@ class HandLexerBase:
 class CLexer(HandLexerBase):
     """ Lexer used for the preprocessor """
     logger = logging.getLogger('clexer')
-    double_glyphs = (
-        '##', '&&', '||', '<<', '>>', '>=', '==', '<=', '::', '!=')
-
     lower_letters = 'abcdefghijklmnopqrstuvwxyz'
     upper_letters = lower_letters.upper()
     binary_numbers = '01'

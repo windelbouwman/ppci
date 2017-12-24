@@ -9,7 +9,7 @@ import struct
 from . import OPCODES
 from ._opcodes import OPERANDS, REVERZ, EVAL
 from ...utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
-from ...utils.leb128 import unsigned_leb128_decode
+from ...utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
 
 
 logger = logging.getLogger('wasm')
@@ -44,13 +44,14 @@ def packstr(x):
 
 def packvs64(x):
     bb = signed_leb128_encode(x)
-    assert len(bb) <= 8
+    # if not len(bb) <= 8:
+    #    raise ValueError('Cannot pack {} into leb128'.format(x))
     return bb
 
 
 def packvs32(x):
     bb = signed_leb128_encode(x)
-    assert len(bb) <= 4
+    # assert len(bb) <= 4
     return bb
 
 
@@ -78,6 +79,8 @@ class FileReader:
         self.f = f
 
     def read(self, amount):
+        if amount < 1:
+            raise ValueError('Cannot read {} bytes'.format(amount))
         data = self.f.read(amount)
         if len(data) != amount:
             raise RuntimeError('Reading beyond end of file')
@@ -93,11 +96,16 @@ class FileReader:
         b = self.read(1)
         return b[0]
 
-    def read_int(self):
-        # TODO: use signed leb128?
-        return unsigned_leb128_decode(self)
+    def read_byte(self):
+        """ Read the value of a single byte """
+        data = self.read(1)
+        return data[0]
 
-    def read_uint(self):
+    def read_int(self):
+        """ Read signed int """
+        return signed_leb128_decode(self)
+
+    def read_u32(self):
         return unsigned_leb128_decode(self)
 
     def read_f32(self):
@@ -112,7 +120,7 @@ class FileReader:
 
     def read_bytes(self):
         """ Read raw bytes data """
-        amount = self.read_int()
+        amount = self.read_u32()
         return self.read(amount)
 
     def read_str(self):
@@ -128,9 +136,9 @@ class FileReader:
         """ Read min and max limits """
         mx_present = self.read(1)[0]
         assert mx_present in [0, 1]
-        minimum = self.read_int()
+        minimum = self.read_u32()
         if mx_present:
-            maximum = self.read_int()
+            maximum = self.read_u32()
         else:
             maximum = None
         return minimum, maximum
@@ -161,7 +169,14 @@ class FileReader:
 
 
 def read_wasm(f):
-    """ Read a wasm file """
+    """ Read a wasm file
+
+    Args:
+        f: The file to read from
+
+    Returns:
+        A wasm module.
+    """
     logger.info('Loading wasm module')
     return Module.from_file(f)
 
@@ -195,9 +210,9 @@ def eval_expr(expr):
 
 
 class WASMComponent:
-    """ Base class for representing components of a WASM module, from the module
-    to sections and instructions. These components can be shown as text or
-    written as bytes.
+    """ Base class for representing components of a WASM module, from the
+    module to sections and instructions. These components can be shown as
+    text or written as bytes.
 
     Methods:
     * `to_bytes()` - Get the bytes that represent the binary WASM for this
@@ -378,6 +393,25 @@ class Module(WASMComponent):
         if auto_start is not None:
             self.sections.append(auto_start)
 
+    def has_section(self, section):
+        """ Determine if the module contains the given section type """
+        section_map = {s.id: s for s in self.sections}
+        return section.id in section_map
+
+    def get_section(self, section):
+        """ Get the given section from this module """
+        return self.get_section_by_id(section.id)
+
+    def get_section_by_id(self, id):
+        """ Get a section given its id """
+        section_map = {s.id: s for s in self.sections}
+        return section_map[id]
+
+    def get_type(self, index):
+        """ Get a type based on index """
+        type_section = self.get_section(TypeSection)
+        return type_section.functionsigs[index]
+
     def to_text(self):
         return 'Module(\n' + self._get_sub_text(self.sections, True) + '\n)'
 
@@ -386,6 +420,7 @@ class Module(WASMComponent):
         f.write(b'\x00asm')
         f.write(packu32(1))  # version, must be 1 for now
         for section in self.sections:
+            logger.debug('Writing section %s to file', section.id)
             section.to_file(f)
 
     @classmethod
@@ -454,7 +489,7 @@ class ImportedFuncion:
         self.export = bool(export)
 
 
-## Sections
+# Sections
 
 
 class Section(WASMComponent):
@@ -501,10 +536,10 @@ def section_from_reader(r):
     ]
     mp = {s.id: s for s in handled_sections}
     try:
-        section_id = r.read_int()
+        section_id = r.read_byte()
     except RuntimeError:
         return
-    section_size = r.read_int()
+    section_size = r.read_u32()
     section_content = r.read(section_size)
     f2 = BytesIO(section_content)
     r2 = FileReader(f2)
@@ -520,7 +555,7 @@ def section_from_reader(r):
 
 
 class TypeSection(Section):
-    """ Defines signatures of functions that are either imported or defined in this module.
+    """ Defines signatures of functions that are either imported or defined.
     """
 
     __slots__ = ['functionsigs']
@@ -530,11 +565,14 @@ class TypeSection(Section):
         for i, functionsig in enumerate(functionsigs):
             assert isinstance(functionsig, FunctionSig)
             # todo: remove this?
-            functionsig.index = i  # so we can resolve the index in Import objects
+
+            # so we can resolve the index in Import objects
+            functionsig.index = i
         self.functionsigs = functionsigs
 
     def to_text(self):
-        return 'TypeSection(\n' + self._get_sub_text(self.functionsigs, True) + '\n)'
+        return 'TypeSection(\n' \
+            + self._get_sub_text(self.functionsigs, True) + '\n)'
 
     def get_binary_section(self, f):
         f.write(packvu32(len(self.functionsigs)))  # count
@@ -543,7 +581,7 @@ class TypeSection(Section):
 
     @classmethod
     def from_reader(cls, r):
-        count = r.read_int()
+        count = r.read_u32()
         functionsigs = [FunctionSig.from_reader(r) for _ in range(count)]
         return cls(functionsigs)
 
@@ -570,7 +608,7 @@ class ImportSection(Section):
 
     @classmethod
     def from_reader(cls, r):
-        count = r.read_int()
+        count = r.read_u32()
         imports = [Import.from_reader(r) for _ in range(count)]
         return cls(imports)
 
@@ -590,7 +628,8 @@ class FunctionSection(Section):
         self.indices = indices  # indices in the Type section
 
     def to_text(self):
-        return 'FunctionSection(' + ', '.join([str(i) for i in self.indices]) + ')'
+        return 'FunctionSection(' \
+            + ', '.join([str(i) for i in self.indices]) + ')'
 
     def get_binary_section(self, f):
         f.write(packvu32(len(self.indices)))
@@ -599,8 +638,8 @@ class FunctionSection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
-        indices = [reader.read_int() for _ in range(count)]
+        count = reader.read_u32()
+        indices = [reader.read_u32() for _ in range(count)]
         return cls(indices)
 
 
@@ -622,7 +661,7 @@ class TableSection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
+        count = reader.read_u32()
         tables = [Table.from_reader(reader) for _ in range(count)]
         return cls(tables)
 
@@ -658,7 +697,7 @@ class MemorySection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
+        count = reader.read_u32()
         entries = []
         for _ in range(count):
             minimum, maximum = reader.read_limits()
@@ -697,7 +736,7 @@ class GlobalSection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
+        count = reader.read_u32()
         globalz = []
         for _ in range(count):
             raise NotImplementedError()
@@ -717,7 +756,8 @@ class ExportSection(Section):
         self.exports = list(exports)
 
     def to_text(self):
-        return 'ExportSection(\n' + self._get_sub_text(self.exports, True) + '\n)'
+        return 'ExportSection(\n' \
+            + self._get_sub_text(self.exports, True) + '\n)'
 
     def get_binary_section(self, f):
         f.write(packvu32(len(self.exports)))
@@ -726,7 +766,7 @@ class ExportSection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
+        count = reader.read_u32()
         exports = [Export.from_reader(reader) for _ in range(count)]
         return cls(exports)
 
@@ -751,7 +791,7 @@ class StartSection(Section):
     @classmethod
     def from_reader(cls, reader):
         """ Read in start section from reader object """
-        index = reader.read_int()
+        index = reader.read_u32()
         return cls(index)
 
 
@@ -771,7 +811,7 @@ class ElementSection(Section):
     @classmethod
     def from_reader(cls, reader):
         """ Read in table element section from reader object """
-        count = reader.read_int()
+        count = reader.read_u32()
         elements = []
         for _ in range(count):
             element = Element.from_reader(reader)
@@ -791,7 +831,8 @@ class CodeSection(Section):
         self.functiondefs = functiondefs
 
     def to_text(self):
-        return 'CodeSection(\n' + self._get_sub_text(self.functiondefs, True) + '\n)'
+        return 'CodeSection(\n' \
+            + self._get_sub_text(self.functiondefs, True) + '\n)'
 
     def get_binary_section(self, f):
         f.write(packvu32(len(self.functiondefs)))
@@ -800,7 +841,7 @@ class CodeSection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
+        count = reader.read_u32()
         function_defs = [
             FunctionDef.from_reader(reader) for _ in range(count)]
         return cls(function_defs)
@@ -822,6 +863,9 @@ class DataSection(Section):
             assert isinstance(chunk[2], bytes)
         self.chunks = chunks
 
+    def __iter__(self):
+        return iter(self.chunks)
+
     def to_text(self):
         chunkinfo = [
             (chunk[0], chunk[1], len(chunk[2])) for chunk in self.chunks]
@@ -842,10 +886,10 @@ class DataSection(Section):
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_int()
+        count = reader.read_u32()
         chunks = []
         for _ in range(count):
-            index = reader.read_int()
+            index = reader.read_u32()
             offset_expr = reader.read_expression()
             offset_type, offset = eval_expr(offset_expr)
             assert offset_type == 'i32'
@@ -869,7 +913,8 @@ class Import(WASMComponent):
         self.modname = modname
         self.fieldname = fieldname
         self.kind = kind  # function, table, mem or global
-        self.type = type  # the signature-index for funcs, the type for table, memory or global
+        # the signature-index for funcs, the type for table, memory or global
+        self.type = type
 
     def to_text(self):
         return 'Import(%r, %r, %r, %r)' % (
@@ -888,10 +933,10 @@ class Import(WASMComponent):
     def from_reader(cls, reader):
         modname = reader.read_str()
         fieldname = reader.read_str()
-        kind_id = reader.read(1)[0]
+        kind_id = reader.read_byte()
         mp = {0: 'function'}
         kind = mp[kind_id]
-        index = reader.read_int()
+        index = reader.read_u32()
         return cls(modname, fieldname, kind, index)
 
 
@@ -903,6 +948,13 @@ class Export(WASMComponent):
     """
 
     __slots__ = ['name', 'kind', 'index']
+    TYPES = (
+        ('function', 0),
+        ('table', 1),
+        ('mem', 2),
+    )
+    ID2TYPE = {t[1]: t[0] for t in TYPES}
+    TYPE2ID = {t[0]: t[1] for t in TYPES}
 
     def __init__(self, name, kind, index):
         self.name = name
@@ -913,20 +965,19 @@ class Export(WASMComponent):
         return 'Export(%r, %r, %i)' % (self.name, self.kind, self.index)
 
     def to_file(self, f):
+        """ Write the export to file """
         f.write(packstr(self.name))
-        if self.kind == 'function':
-            f.write(b'\x00')
-            f.write(packvu32(self.index))
-        else:
-            raise RuntimeError('Can only export functions for now')
+        type_id = self.TYPE2ID[self.kind]
+        f.write(bytes(type_id))
+        f.write(packvu32(self.index))
 
     @classmethod
     def from_reader(cls, reader):
+        """ Read an export """
         name = reader.read_str()
-        kind = reader.read(1)[0]
-        mp = {0: 'function', 1: 'table', 2: 'mem'}
-        kind = mp[kind]
-        index = reader.read_int()
+        kind = reader.read_byte()
+        kind = cls.ID2TYPE[kind]
+        index = reader.read_u32()
         return cls(name, kind, index)
 
 
@@ -986,10 +1037,10 @@ class Element:
         table = reader.read(1)[0]
         offset_expr = reader.read_expression()
         offset_type, offset = eval_expr(offset_expr)
-        count = reader.read_int()
+        count = reader.read_u32()
         indexes = []
         for _ in range(count):
-            indexes.append(reader.read_int())
+            indexes.append(reader.read_u32())
         return cls(table, offset, indexes)
 
 
@@ -1021,9 +1072,9 @@ class FunctionSig(WASMComponent):
     def from_reader(cls, reader):
         form = reader.read(1)
         assert form == b'\x60'
-        num_params = reader.read_int()
+        num_params = reader.read_u32()
         params = tuple(reader.read_type() for _ in range(num_params))
-        num_returns = reader.read_int()
+        num_returns = reader.read_u32()
         returns = tuple(reader.read_type() for _ in range(num_returns))
         return cls(params=params, returns=returns)
 
@@ -1048,12 +1099,14 @@ class FunctionDef(WASMComponent):
         self.module = None
 
     def to_text(self):
+        """ Render function def as text """
         s = 'FunctionDef(' + str(list(self.locals)) + '\n'
         s += self._get_sub_text(self.instructions, True)
         s += '\n)'
         return s
 
     def to_file(self, f):
+        """ Output to file """
 
         # Collect locals by type
         local_entries = []  # list of (count, type) tuples
@@ -1078,14 +1131,15 @@ class FunctionDef(WASMComponent):
 
     @classmethod
     def from_reader(cls, reader):
-        body_size = reader.read_int()
+        """ Deserialize a function definition """
+        body_size = reader.read_u32()
         body = reader.read(body_size)
 
         reader2 = FileReader(BytesIO(body))
-        num_local_pairs = reader2.read_int()
+        num_local_pairs = reader2.read_u32()
         localz = []
         for tgi in range(num_local_pairs):
-            c = reader2.read_int()
+            c = reader2.read_u32()
             t = reader2.read_type()
             localz.extend([t] * c)
         instructions = reader2.read_expression()
@@ -1150,6 +1204,12 @@ class Instruction(WASMComponent):
                     f.write(packvu32(arg))
             elif isinstance(arg, str):
                 f.write(LANG_TYPES[arg])
+            elif isinstance(arg, list):
+                # Assume br_table here
+                assert self.type == 'br_table'
+                f.write(packvu32(len(arg) - 1))
+                for x in arg:
+                    f.write(packvu32(len(arg)))
             else:
                 # todo: e.g. constants
                 raise TypeError('Unknown instruction arg %r' % arg)
@@ -1165,16 +1225,16 @@ class Instruction(WASMComponent):
             if o in ['i32', 'i64']:
                 arg = reader.read_int()
             elif o == 'u32':
-                arg = reader.read_uint()
+                arg = reader.read_u32()
             elif o == 'type':
                 arg = reader.read_type()
             elif o == 'br_table':
-                count = reader.read_uint()
+                count = reader.read_u32()
                 vec = []
                 for _ in range(count):
-                    idx = reader.read_int()
+                    idx = reader.read_u32()
                     vec.append(idx)
-                idx = reader.read_int()
+                idx = reader.read_u32()
                 vec.append(idx)
                 arg = vec
             elif o == 'f32':

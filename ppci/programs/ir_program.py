@@ -7,7 +7,7 @@ from .base import IntermediateProgram
 
 from ..ir import Module as IrModule
 from ..irs.wasm import ir_to_wasm
-from ..api import ir_to_object, get_arch, link, optimize
+from ..api import ir_to_object, get_arch, optimize
 
 from ..lang.python import ir_to_python
 
@@ -52,7 +52,7 @@ class IrProgram(IntermediateProgram):
         # todo: don't we want to be able to pass debug_db here?
         ppci_modules = [m for m in self.items]
         if self.debugdb:
-            ob = ir_to_object(ppci_modules, arch, debug=True)#, debug_db=self.debugdb
+            ob = ir_to_object(ppci_modules, arch, debug=True)
         else:
             ob = ir_to_object(ppci_modules, arch, debug=False)
 
@@ -68,7 +68,7 @@ class IrProgram(IntermediateProgram):
         # todo: don't we want to be able to pass debug_db here?
         ppci_modules = [m for m in self.items]
         if self.debugdb:
-            ob = ir_to_object(ppci_modules, arch, debug=True)#, debug_db=self.debugdb
+            ob = ir_to_object(ppci_modules, arch, debug=True)
         else:
             ob = ir_to_object(ppci_modules, arch, debug=False)
 
@@ -76,14 +76,15 @@ class IrProgram(IntermediateProgram):
 
     def to_python(self, **options):
         """ Compile PPCI IR to Python. Not very efficient or pretty code,
-        but it can be useful to test the IR code without compiling to machine code.
+        but it can be useful to test the IR code without compiling to machine
+        code.
 
         Status: complete: can compile the full IR spec.
         """
 
         # pieces = []
         # for m in self.items:
-        #     
+        #
         #     pythonizer = ir_to_python.IrToPython(f)
         #     pythonizer.header()
         #     pythonizer.generate(m)

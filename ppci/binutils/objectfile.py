@@ -1,9 +1,10 @@
+""" Object files are used to store assembled code.
 
-"""
-Object files are used to store assembled code. Information contained
+Information contained
 is code, symbol table and relocation information.
 
 The hierarchy is as follows:
+
 - an object file contains zero or more sections.
 - an object file may contains memory definitions, which contain a sequence
   of contained sections.
@@ -11,8 +12,8 @@ The hierarchy is as follows:
 - relocations are offset into a section, refer a symbol and have a type
 - symbols are offset into a section and have a name
 - debug data have an offset into a section and contain data.
-
 - sections cannot overlap
+
 """
 
 import json

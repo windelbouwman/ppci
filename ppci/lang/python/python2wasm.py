@@ -34,7 +34,8 @@ def python_to_wasm(code):
     # Produce wasm
     module = wasm.Module([
         wasm.ImportedFuncion('print_ln', ['f64'], [], 'js', 'print_ln'),
-        wasm.ImportedFuncion('perf_counter', [], ['f64'], 'js', 'perf_counter'),
+        wasm.ImportedFuncion(
+            'perf_counter', [], ['f64'], 'js', 'perf_counter'),
         wasm.Function('$main', [], ['f64'], locals, ctx.instructions),
         ])
     return module
@@ -76,7 +77,8 @@ class PythonToWasmCompiler:
             self._compile_expr(node.value, push_stack)
 
         elif isinstance(node, ast.Assign):
-            if not (len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)):
+            if not (len(node.targets) == 1 and
+                    isinstance(node.targets[0], ast.Name)):
                 self.syntax_error(node, 'Unsupported assignment')
             idx = self.name_idx(node.targets[0].id)
             self._compile_expr(node.value, True)
@@ -164,10 +166,13 @@ class PythonToWasmCompiler:
 
         elif isinstance(node, ast.For):
             # Check whether this is the kind of simple for-loop that we support
-            if not (isinstance(node.iter, ast.Call) and node.iter.func.id == 'range'):
+            if not (isinstance(node.iter, ast.Call)
+                    and node.iter.func.id == 'range'):
                 self.syntax_error(node, 'For-loops are limited to range().')
+
             if node.orelse:
                 self.syntax_error(node, 'For-loops do not support orelse.')
+
             if not isinstance(node.target, ast.Name):
                 self.syntax_error(node, 'For-loops support just one iterable.')
 
@@ -191,24 +196,35 @@ class PythonToWasmCompiler:
                 self.syntax_error(
                     node.iter, 'range() should have 1, 2, or 3 args')
 
-            self.instructions.append(('set_local', step_stub))  # reversed order, pop from stack
+            # reversed order, pop from stack
+            self.instructions.append(('set_local', step_stub))
             self.instructions.append(('set_local', end_stub))
             self.instructions.append(('set_local', start_stub))
+
             # Body
             target = self.name_idx(node.target.id)
             self.push_block('for')
-            for i in [('get_local', start_stub), ('set_local', target), # Init target
-                      ('block', 'emptyblock'), ('loop', 'emptyblock'),  # enter loop
-                      ('get_local', target), ('get_local', end_stub), ('f64.ge',), ('br_if', 1),  # break (level 2)
-                      ]:
+            for i in [
+                    ('get_local', start_stub),
+                    ('set_local', target),  # Init target
+                    ('block', 'emptyblock'),
+                    ('loop', 'emptyblock'),  # enter loop
+                    ('get_local', target),
+                    ('get_local', end_stub),
+                    ('f64.ge',), ('br_if', 1),  # break (level 2)
+                    ]:
                 self.instructions.append(i)
             for subnode in node.body:
                 self._compile_expr(subnode, False)
 
-            for i in [('get_local', target), ('get_local', step_stub), ('f64.add',), ('set_local', target),  # next iter
-                      ('br', 0),  # loop
-                      ('end',), ('end',),  # end of loop and outer block
-                      ]:
+            for i in [
+                    ('get_local', target),
+                    ('get_local', step_stub),
+                    ('f64.add',),
+                    ('set_local', target),  # next iter
+                    ('br', 0),  # loop
+                    ('end',), ('end',),  # end of loop and outer block
+                    ]:
                 self.instructions.append(i)
             self.pop_block('for')
 
@@ -254,11 +270,15 @@ class PythonToWasmCompiler:
 
             name = node.func.id
             if name == 'print':
-                assert len(node.args) == 1, 'print() accepts exactly one argument'
+                if len(node.args) != 1:
+                    self.syntax_error(
+                        node, 'print() accepts exactly one argument')
                 self._compile_expr(node.args[0], True)
                 self.instructions.append(('call', 0))
             elif name == 'perf_counter':
-                assert len(node.args) == 0, 'perf_counter() accepts exactly zero arguments'
+                if len(node.args) != 0:
+                    self.syntax_error(
+                        node, 'perf_counter() accepts exactly zero arguments')
                 self.instructions.append(('call', 1))
             else:
                 self.syntax_error(node, 'Not a supported function: %s' % name)

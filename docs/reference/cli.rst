@@ -12,7 +12,7 @@ run ppci-build.py in the project folder:
 .. code:: bash
 
     $ cd examples/blinky
-    $ ppci-build.py
+    $ ppci-build
 
 This command is used to construct :doc:`build files<buildxml>`.
 
@@ -20,48 +20,51 @@ Or specify the buildfile a the command line:
 
 .. code:: bash
 
-    $ ppci-build.py -f examples/blinky/build.xml
+    $ ppci-build -f examples/blinky/build.xml
 
 Instead of relying on a build system, the :doc:`c3<c3>` compiler can also be
 activated stand alone.
 
 .. code:: bash
 
-    $ ppci-c3c.py --machine arm examples/snake/game.c3
+    $ ppci-c3c --machine arm examples/snake/game.c3
 
 .. _ppci-c3c:
 .. autoprogram:: ppci.cli.c3c:parser
-    :prog: ppci-c3c.py
+    :prog: ppci-c3c
 
 .. _ppci-build:
 .. autoprogram:: ppci.cli.build:parser
-    :prog: ppci-build.py
+    :prog: ppci-build
 
 .. _ppci-asm:
 .. autoprogram:: ppci.cli.asm:parser
-    :prog: ppci-asm.py
+    :prog: ppci-asm
 
 .. _ppci-ld:
 .. autoprogram:: ppci.cli.link:parser
-    :prog: ppci-ld.py
+    :prog: ppci-ld
 
 .. autoprogram:: ppci.cli.objcopy:parser
-    :prog: ppci-objcopy.py
+    :prog: ppci-objcopy
 
 .. autoprogram:: ppci.cli.objdump:parser
-    :prog: ppci-objdump.py
+    :prog: ppci-objdump
 
 .. autoprogram:: ppci.cli.opt:parser
-    :prog: ppci-opt.py
+    :prog: ppci-opt
 
 .. autoprogram:: ppci.cli.cc:parser
-    :prog: ppci-cc.py
+    :prog: ppci-cc
 
 .. autoprogram:: ppci.cli.pascal:parser
-    :prog: ppci-pascal.py
+    :prog: ppci-pascal
 
 .. autoprogram:: ppci.cli.pycompile:parser
-    :prog: ppci-pycompile.py
+    :prog: ppci-pycompile
 
 .. autoprogram:: ppci.cli.wasmcompile:parser
-    :prog: ppci-wasmcompile.py
+    :prog: ppci-wasmcompile
+
+.. autoprogram:: ppci.cli.yacc:parser
+    :prog: ppci-yacc

@@ -11,6 +11,7 @@ Reference
     c
     buildxml
     ir
+    langtools
     debug
     architecture
     backends/index
@@ -19,4 +20,5 @@ Reference
     wasm
     python2ir
     relooping
+    utils
     links

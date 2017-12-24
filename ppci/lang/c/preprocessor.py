@@ -1,9 +1,10 @@
 """ C preprocessor.
 
-This file contains an implementation of the C preprocessor. Since the
-preprocessor is working line for line, the data structure of choice is
-a list of tokens per line. Each token also has info about the amount
-of whitespace preceeding the token.
+This file contains an implementation of the C preprocessor.
+
+Each token has info about the amount
+of whitespace preceeding the token and whether it is the first token on
+a line.
 
 Sourcecode of inspiration:
 

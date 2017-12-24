@@ -23,7 +23,7 @@ class C3Program(SourceCodeProgram):
         return items
 
     def _copy(self):
-        return self._newm('c3', [item for item in self.items])
+        return self._new('c3', [item for item in self.items])
 
     def _get_report(self, html):
         return '\n\n## ==========\n\n'.join(self.items)
@@ -32,8 +32,8 @@ class C3Program(SourceCodeProgram):
         """ Compile C3 to PPCI IR for the given architecture.
         """
         # todo: why would we have to specify an arch here?
-
-        from ppci.api import get_arch  # circular ref, maybe move get_arch to utils?
+        # circular ref, maybe move get_arch to utils?
+        from ppci.api import get_arch
         from ppci.api import get_current_arch
 
         includes = [] if includes is None else includes

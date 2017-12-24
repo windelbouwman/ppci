@@ -23,7 +23,7 @@ from .arch import WasmArchitecture
 from .arch import I32Register, I64Register, F32Register, F64Register
 
 
-def ir_to_wasm(ir_module, reporter=None):
+def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
     """ Compiles ir-code to a wasm module.
 
     Args:
@@ -82,7 +82,7 @@ class IrToWasmCompiler:
                 if ir_external.name in self.function_ids:
                     pass
                     # raise ValueError(
-                    #     'Function {} already defined'.format(ir_external.name))
+                    # 'Function {} already defined'.format(ir_external.name))
                 else:
                     arg_types = tuple(ir_external.argument_types)
                     if isinstance(ir_external, ir.ExternalFunction):
@@ -93,7 +93,8 @@ class IrToWasmCompiler:
                     self.imports.append(
                         components.Import(
                             'js', ir_external.name, 'function', typ_id))
-                    self.function_ids[ir_external.name] = len(self.function_ids)
+                    func_id = len(self.function_ids)
+                    self.function_ids[ir_external.name] = func_id
 
         # Global variables:
         for ir_variable in ir_module.variables:
@@ -305,7 +306,7 @@ class IrToWasmCompiler:
         for tree in block_trees:
             # print(tree)
             self.do_tree(tree)
-            # if tree.name == 'CALL' and 
+            # if tree.name == 'CALL' and
 
     binop_map = {
         'ADDI32': 'i32.add',

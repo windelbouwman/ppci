@@ -125,7 +125,8 @@ class FlowGraph(DiGraph):
                 _out = node.live_out
                 node.live_in = node.gen | (node.live_out - node.kill)
                 if node.successors:
-                    node.live_out = set.union(*(s.live_in for s in node.successors))
+                    node.live_out = set.union(
+                        *(s.live_in for s in node.successors))
                 else:
                     node.live_out = set()
 

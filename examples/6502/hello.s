@@ -15,12 +15,6 @@ loop:
     rts
 
 message:
-db 1
-db 2
-db 3
-db 4
-db 5
-db 6
 db 65
 db 66
 db 67

@@ -12,6 +12,7 @@ from ...binutils import debuginfo
 def get_fty(fn):
     pass
 
+
 def python_to_ir(f, functions=None):
     """ Compile a piece of python code to an ir module.
 
@@ -30,7 +31,7 @@ def python_to_ir(f, functions=None):
         <ppci.ir.Module object at ...>
 
     """
-    mod = PythonToIrTranspiler().compile(f, functions=functions)
+    mod = PythonToIrCompiler().compile(f, functions=functions)
     return mod
 
 
@@ -41,9 +42,15 @@ class Var:
         self.ty = ty
 
 
-class PythonToIrTranspiler:
+class PythonToIrCompiler:
     """ Not peer-to-peer but python to ppci :) """
     logger = logging.getLogger('p2p')
+
+    def __init__(self):
+        self.type_mapping = {
+            'int': ir.i64,
+            'float': ir.f64,
+        }
 
     def compile(self, f, functions=None):
         """ Convert python into IR-code.
@@ -80,23 +87,22 @@ class PythonToIrTranspiler:
         irutils.Verifier().verify(mod)
         return mod
 
-    def emit(self, i):
-        self.builder.emit(i)
-        return i
+    def emit(self, instruction):
+        """ Emit an instruction """
+        self.builder.emit(instruction)
+        return instruction
 
     def get_ty(self, annotation):
+        """ Get the type based on type annotation """
         # TODO: assert isinstance(annotation, ast.Annotation)
-        if isinstance(annotation, ast.NameConstant) and annotation.value is None:
+        if isinstance(annotation, ast.NameConstant) and \
+                annotation.value is None:
             return
         type_name = annotation.id
-        type_mapping = {
-            'int': ir.i64,
-            'float': ir.f64,
-        }
-        if type_name in type_mapping:
-            return type_mapping[type_name]
+        if type_name in self.type_mapping:
+            return self.type_mapping[type_name]
         else:
-            raise Exception('Need to return int')
+            self.error(annotation, 'Need to return int')
 
     def get_variable(self, name):
         if name not in self.local_map:
@@ -121,7 +127,7 @@ class PythonToIrTranspiler:
         arg_types = []
         for arg in df.args.args:
             if not arg.annotation:
-                raise Exception('Need type annotation for {}'.format(arg.arg))
+                self.error(arg, 'Need type annotation for {}'.format(arg.arg))
             aty = self.get_ty(arg.annotation)
             arg_types.append(aty)
             arg_name = arg.arg

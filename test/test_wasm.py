@@ -67,6 +67,7 @@ class WasmCompilerTestCase(unittest.TestCase):
 
 
 class Leb128TestCase(unittest.TestCase):
+    """ Test examples from https://en.wikipedia.org/wiki/LEB128 """
     def test_unsigned_encoding_example(self):
         data = unsigned_leb128_encode(624485)
         self.assertEqual(bytes([0xe5, 0x8e, 0x26]), data)
@@ -75,8 +76,17 @@ class Leb128TestCase(unittest.TestCase):
     def test_signed_encoding_example(self):
         data = signed_leb128_encode(-624485)
         self.assertEqual(bytes([0x9b, 0xf1, 0x59]), data)
-        # TODO:
-        # self.assertEqual(-624485, signed_leb128_decode(iter(data)))
+        self.assertEqual(-624485, signed_leb128_decode(iter(data)))
+
+    def test_signed_encoding_two(self):
+        data = signed_leb128_encode(2)
+        self.assertEqual(bytes([0x2]), data)
+        self.assertEqual(2, signed_leb128_decode(iter(data)))
+
+    def test_signed_encoding_minus_two(self):
+        data = signed_leb128_encode(-2)
+        self.assertEqual(bytes([0x7e]), data)
+        self.assertEqual(-2, signed_leb128_decode(iter(data)))
 
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ from ... import irutils
 from ... import common
 from ...binutils import debuginfo
 from . import components
+from ._opcodes import STORE_OPS, LOAD_OPS
 
 
 def wasm_to_ir(wasm_module: components.Module) -> ir.Module:
@@ -27,6 +28,7 @@ class WasmToIrCompiler:
     """ Convert WASM instructions into PPCI IR instructions.
     """
     logger = logging.getLogger('wasm2ir')
+    verbose = True
 
     def __init__(self):
         self.builder = irutils.Builder()
@@ -185,16 +187,17 @@ class WasmToIrCompiler:
 
         num = len(wasm_function.instructions)
         for nr, instruction in enumerate(wasm_function.instructions, start=1):
-            inst = instruction.type
-            self.logger.debug('%s/%s %s', nr, num, inst)
+            if self.verbose:
+                self.logger.debug('%s/%s %s', nr, num, instruction.to_text())
             self.generate_instruction(instruction)
 
-        # Add terminating instruction:
-        if not self.builder.block.is_closed:
+        # Add terminating instruction if block is non empty:
+        if (not self.builder.block.is_empty) and \
+                (not self.builder.block.is_closed):
             if isinstance(ppci_function, ir.Procedure):
                 self.emit(ir.Exit())
             else:
-                return_value = self.stack.pop(-1)
+                return_value = self.pop_value()
                 self.emit(ir.Return(return_value))
 
         # ppci_function.dump()
@@ -203,11 +206,13 @@ class WasmToIrCompiler:
     BINOPS = {
         'f64.add', 'f64.sub', 'f64.mul', 'f64.div',
         'f32.add', 'f32.sub', 'f32.mul', 'f32.div',
-        'i64.add', 'i64.sub', 'i64.mul', 'i64.div',
-        'i32.add', 'i32.sub', 'i32.mul', 'i32.div',
-        'i64.and', 'i64.or', 'i64.xor', 'i64.shl', 'i64.shr_s', 'i64.shr_u',
+        'i64.add', 'i64.sub', 'i64.mul', 'i64.div_s', 'i64.div_u',
+        'i32.add', 'i32.sub', 'i32.mul', 'i32.div_s', 'i32.div_u',
+        'i64.and', 'i64.or', 'i64.xor',
+        'i64.shl', 'i64.shr_s', 'i64.shr_u',
         'i64.rotl', 'i64.rotr',
-        'i32.and', 'i32.or', 'i32.xor', 'i32.shl', 'i32.shr_s', 'i32.shr_u',
+        'i32.and', 'i32.or', 'i32.xor', 'i32.shl',
+        'i32.shr_s', 'i32.shr_u',
         'i32.rotl', 'i32.rotr',
     }
 
@@ -215,6 +220,9 @@ class WasmToIrCompiler:
         'i32.wrap_i64',
         'i64.extend_s_i32',
         'i64.extend_u_i32',
+        'f64.convert_s_i32',
+        'f64.convert_u_i32',
+        'f64.reinterpret_i64',  # TODO: this is not a cast?
     }
 
     CMPOPS = {
@@ -228,35 +236,6 @@ class WasmToIrCompiler:
         'i64.gt_s', 'i64.gt_u',
         'i64.le_s', 'i64.le_u',
         'i64.ge_s', 'i64.ge_u',
-    }
-
-    STORE_OPS = {
-        'f64.store',
-        'f32.store',
-        'i64.store',
-        'i64.store8',
-        'i64.store16',
-        'i64.store32',
-        'i32.store',
-        'i32.store8',
-        'i32.store16',
-    }
-
-    LOAD_OPS = {
-        'f64.load',
-        'f32.load',
-        'i64.load',
-        'i64.load8_u',
-        'i64.load8_s',
-        'i64.load16_u',
-        'i64.load16_s',
-        'i64.load32_u',
-        'i64.load32_s',
-        'i32.load',
-        'i32.load8_u',
-        'i32.load8_s',
-        'i32.load16_u',
-        'i32.load16_s',
     }
 
     OPMAP = dict(
@@ -329,11 +308,13 @@ class WasmToIrCompiler:
         if inst in self.BINOPS:
             itype, opname = inst.split('.')
             op_map = {
-                'add': '+', 'sub': '-', 'mul': '*', 'div': '/',
+                'add': '+', 'sub': '-', 'mul': '*',
+                'div': '/', 'div_s': '/', 'div_u': '/',
                 'and': '&', 'or': '|', 'xor': '^', 'shl': '<<',
-                'shr_u': '>>'}
+                'shr_u': '>>',
+                'rotr': 'ror', 'rotl': 'rol'}
             op = op_map[opname]
-            b, a = self.stack.pop(), self.stack.pop()
+            b, a = self.pop_value(), self.pop_value()
             value = self.emit(
                 ir.Binop(a, op, b, opname, self.get_ir_type(itype)))
             self.stack.append(value)
@@ -349,23 +330,23 @@ class WasmToIrCompiler:
             self.stack.append((op, a, b))
             # todo: hack; we assume this is the only test in an if
 
-        elif inst in self.STORE_OPS:
+        elif inst in STORE_OPS:
             itype = inst.split('.')[0]
             ir_typ = self.get_ir_type(itype)
             offset, align = instruction.args
-            value = self.stack.pop()
-            base = self.stack.pop()
+            value = self.pop_value()
+            base = self.pop_value()
             if base.ty is not ir.ptr:
                 base = self.emit(ir.Cast(base, 'cast', ir.ptr))
             offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
             address = self.emit(ir.add(base, offset, 'address', ir.ptr))
             self.emit(ir.Store(value, address))
 
-        elif inst in self.LOAD_OPS:
+        elif inst in LOAD_OPS:
             itype = inst.split('.')[0]
             ir_typ = self.get_ir_type(itype)
             offset, align = instruction.args
-            base = self.stack.pop()
+            base = self.pop_value()
             if base.ty is not ir.ptr:
                 base = self.emit(ir.Cast(base, 'cast', ir.ptr))
             offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
@@ -381,10 +362,13 @@ class WasmToIrCompiler:
 
         elif inst == 'f64.floor':
             value1 = self.emit(
-                ir.Cast(self.stack.pop(), 'floor_cast_1', ir.i64))
+                ir.Cast(self.pop_value(), 'floor_cast_1', ir.i64))
             value2 = self.emit(ir.Cast(value1, 'floor_cast_2', ir.f64))
             self.stack.append(value2)
 
+        elif inst == 'f64.sqrt':
+            # TODO: implement library call?
+            pass
         elif inst in {'f64.const', 'f32.const', 'i64.const', 'i32.const'}:
             value = self.emit(
                 ir.Const(
@@ -410,14 +394,14 @@ class WasmToIrCompiler:
             self.stack.append(value)
 
         elif inst == 'set_global':
-            value = self.stack.pop()
+            value = self.pop_value()
             ty, addr = self.globalz[instruction.args[0]]
             assert ty is value.ty
             self.emit(ir.Store(value, addr))
 
         elif inst == 'f64.neg':
             value = self.emit(
-                ir.Unop('-', self.stack.pop(), 'neg', self.get_ir_type(inst)))
+                ir.Unop('-', self.pop_value(), 'neg', self.get_ir_type(inst)))
             self.stack.append(value)
 
         elif inst == 'block':
@@ -496,34 +480,89 @@ class WasmToIrCompiler:
                 self.stack.append(phi)
 
         elif inst == 'call':
-            # Call another function!
-            idx = instruction.args[0]
-            sig = self.function_space[idx]
-            name = self.function_names[idx]
-
-            args = []
-            for arg_type in sig.params:
-                args.append(self.stack.pop(-1))
-
-            if sig.returns:
-                assert len(sig.returns) == 1
-                ir_typ = self.get_ir_type(sig.returns[0])
-                value = self.emit(ir.FunctionCall(name, args, 'call', ir_typ))
-                self.stack.append(value)
-            else:
-                self.emit(ir.ProcedureCall(name, args))
-
+            self.gen_call(instruction)
+        elif inst == 'call_indirect':
+            self.gen_call_indirect(instruction)
         elif inst == 'return':
             if isinstance(self.builder.function, ir.Procedure):
                 self.emit(ir.Exit())
             else:
-                self.emit(ir.Return(self.stack.pop()))
+                self.emit(ir.Return(self.pop_value()))
             after_return_block = self.new_block()
             self.builder.set_block(after_return_block)
             # TODO: assert that this was the last instruction
 
         elif inst == 'unreachable':
-            # TODO: what to do?
+            # TODO: what to do? Call a runtime function?
             pass
+        elif inst == 'select':
+            self.gen_select(instruction)
+        elif inst == 'drop':
+            # Drop value on the stack
+            self.pop_value()
         else:  # pragma: no cover
             raise NotImplementedError(inst)
+
+    def gen_call(self, instruction):
+        """ Generate a function call """
+        # Call another function!
+        idx = instruction.args[0]
+        sig = self.function_space[idx]
+        name = self.function_names[idx]
+
+        args = []
+        for arg_type in sig.params:
+            args.append(self.pop_value())
+
+        if sig.returns:
+            assert len(sig.returns) == 1
+            ir_typ = self.get_ir_type(sig.returns[0])
+            value = self.emit(ir.FunctionCall(name, args, 'call', ir_typ))
+            self.stack.append(value)
+        else:
+            self.emit(ir.ProcedureCall(name, args))
+
+    def gen_call_indirect(self, instruction):
+        # Call another function by pointer!
+        type_id = instruction.args[0]
+        signature = self.wasm_types[type_id]
+        func_ptr = self.pop_value()
+        if func_ptr.ty is not ir.ptr:
+            func_ptr = self.emit(ir.Cast(func_ptr, 'ptr', ir.ptr))
+
+        args = []
+        for arg_type in signature.params:
+            args.append(self.pop_value())
+
+        if signature.returns:
+            assert len(signature.returns) == 1
+            ir_typ = self.get_ir_type(signature.returns[0])
+            value = self.emit(
+                ir.FunctionPointerCall(func_ptr, args, 'call', ir_typ))
+            self.stack.append(value)
+        else:
+            self.emit(ir.ProcedurePointerCall(func_ptr, args))
+
+    def gen_select(self, instruction):
+        """ Generate code for the select wasm instruction """
+        # This is roughly equivalent to C-style: a ? b : c
+        op, a, b = self.pop_condition()
+        ja_value, nein_value = self.pop_value(), self.pop_value()
+
+        ja_block = self.builder.new_block()
+        nein_block = self.builder.new_block()
+        immer = self.builder.new_block()
+        self.emit(ir.CJump(a, op, b, ja_block, nein_block))
+
+        self.builder.set_block(ja_block)
+        self.emit(ir.Jump(immer))
+
+        self.builder.set_block(nein_block)
+        self.emit(ir.Jump(immer))
+
+        self.builder.set_block(immer)
+        phi = ir.Phi('ternary', ja_value.ty)
+        phi.set_incoming(ja_block, ja_value)
+        phi.set_incoming(nein_block, nein_value)
+        self.emit(phi)
+        self.stack.append(phi)

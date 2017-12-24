@@ -306,7 +306,7 @@ class YaccTestCase(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             yacc(['-h'])
         self.assertEqual(0, cm.exception.code)
-        self.assertIn('compiler compiler', mock_stdout.getvalue())
+        self.assertIn('Parser generator', mock_stdout.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
     @patch('sys.stderr', new_callable=io.StringIO)

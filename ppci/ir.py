@@ -465,7 +465,10 @@ class Block:
     @property
     def successors(self):
         """ Get the direct successors of this block """
-        return self.last_instruction.targets
+        if self.last_instruction:
+            return self.last_instruction.targets
+        else:
+            return []
 
     @property
     def predecessors(self):
@@ -544,11 +547,12 @@ class Instruction:
         """ Return the function this instruction is part of """
         return self.block.function
 
-    def add_use(self, v):
+    def add_use(self, value):
         """ Add v to the list of values used by this instruction """
-        assert isinstance(v, Value)
-        self.uses.add(v)
-        v.add_user(self)
+        if not isinstance(value, Value):
+            raise TypeError('Expected Value, but got {}'.format(value))
+        self.uses.add(value)
+        value.add_user(self)
 
     def del_use(self, v):
         assert isinstance(v, Value)
@@ -695,7 +699,14 @@ class FunctionPointerCall(BaseFunctionCall):
 
     def __init__(self, function_ptr, arguments, name, ty):
         super().__init__(arguments, name, ty)
-        assert isinstance(function_ptr, Value)
+        if not isinstance(function_ptr, Value):
+            raise TypeError(
+                'Pointer must be a value, not {}'.format(function_ptr))
+
+        if function_ptr.ty is not ptr:
+            raise ValueError(
+                'Pointer must be ptr, not {}'.format(function_ptr.ty))
+
         self.function_ptr = function_ptr
 
     def __str__(self):
@@ -738,7 +749,9 @@ class ProcedurePointerCall(BaseProcedureCall):
 
     def __init__(self, function_ptr, arguments):
         super().__init__(arguments)
-        assert function_ptr.ty is ptr
+        if function_ptr.ty is not ptr:
+            raise ValueError(
+                'Pointer must be ptr, not {}'.format(function_ptr.ty))
         self.function_ptr = function_ptr
 
     def __str__(self):
@@ -766,7 +779,7 @@ class Unop(LocalValue):
 
 class Binop(LocalValue):
     """ Generic binary operation """
-    ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
+    ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>', 'rol', 'ror']
     a = value_use('a')
     b = value_use('b')
 
@@ -821,7 +834,10 @@ class Phi(LocalValue):
 
     def set_incoming(self, block, value):
         """ Set the value for the phi node when entering through block """
-        assert value.ty == self.ty
+        if value.ty != self.ty:
+            raise ValueError(
+                'Type mismatch {} where {} was expected'.format(
+                    value.ty, self.ty))
         if block in self.inputs:
             self.del_use(self.inputs[block])
         self.inputs[block] = value
@@ -904,6 +920,8 @@ class Store(Instruction):
     def __init__(self, value, address, volatile=False):
         super().__init__()
         assert address.ty is ptr
+        if not isinstance(value, Value):
+            raise TypeError('Expected a value, got {}'.format(value))
         if not isinstance(value.ty, (BasicTyp, PointerTyp)):
             raise ValueError('Can only store basic types')
         self.address = address
@@ -1022,7 +1040,8 @@ class CJump(JumpBase):
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()
-        assert cond in CJump.conditions
+        if cond not in CJump.conditions:
+            raise ValueError('Invalid condition {}'.format(cond))
         self.a = a
         self.cond = cond
         self.b = b

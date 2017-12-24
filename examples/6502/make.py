@@ -4,34 +4,10 @@ import struct
 import os
 from ppci import api
 from ppci.utils.reporting import HtmlReportGenerator
+from ppci.lang.basic.c64 import BasicLine, write_basic_program
 
 arch = api.get_arch('mcs6500')
 print('Using arch', arch)
-
-
-class BasicLine:
-    """ A single line in a basic program """
-    def __init__(self, label, command):
-        self.label = label
-        self.command = command
-
-    def encode(self, address) -> bytes:
-        """ Encode the basic line into tokenized basic format """
-        next_address = address + 5 + len(self.command)
-        header = struct.pack('<HH', next_address, self.label)
-        end_marker = bytes([0])
-        return header + self.command + end_marker
-
-
-def write_basic_program(program, f) -> bytes:
-    """ Write a basic program to file """
-    address = 0x0801
-    f.write(struct.pack('<H', address))  # Load address
-    for line in program:
-        encoded = line.encode(address)
-        address += len(encoded)
-        f.write(encoded)
-    f.write(bytes([0x00, 0x00]))  # End of program marker
 
 
 if len(sys.argv) > 1:
@@ -53,6 +29,7 @@ with open('report.html', 'w') as f2, HtmlReportGenerator(f2) as reporter:
 
     with open(os.path.join('c64disk', 'hello.prg'), 'wb') as f:
         # Generate tokenized basic:
+        load_address = 0x801
         basic_program = bytes([
             0x01, 0x08,  # Load address
             0x09, 0x08,  # start of the next line
@@ -83,6 +60,16 @@ with open('report.html', 'w') as f2, HtmlReportGenerator(f2) as reporter:
                 BasicLine(
                     30 + nr,
                     bytes([0x99, 0x20, 0x22]) + line + bytes([0x22])))
+        sys_address = 0x890
+        address_text = str(sys_address).encode('ascii')
+        program.append(BasicLine(1000, bytes([0x9e]) + address_text))
         write_basic_program(program, f)
+        pos = f.tell() - 2
+        max_basic_size = sys_address - load_address
+        if pos < max_basic_size:
+            f.seek(sys_address - load_address + 2)
+            print(pos)
 
-        f.write(oj.get_image('upperram').data)
+            f.write(oj.get_image('upperram').data)
+        else:
+            print('Basic program too large')

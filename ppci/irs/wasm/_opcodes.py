@@ -201,6 +201,35 @@ OPERANDS = {r[0]: r[2] if len(r) > 2 else () for r in instruction_table}
 EVAL = {
     r[0]: (r[3], r[4], r[5]) if len(r) >= 6 else ((), (), None) for r in instruction_table}
 
+STORE_OPS = {
+    'f64.store',
+    'f32.store',
+    'i64.store',
+    'i64.store8',
+    'i64.store16',
+    'i64.store32',
+    'i32.store',
+    'i32.store8',
+    'i32.store16',
+}
+
+LOAD_OPS = {
+    'f64.load',
+    'f32.load',
+    'i64.load',
+    'i64.load8_u',
+    'i64.load8_s',
+    'i64.load16_u',
+    'i64.load16_s',
+    'i64.load32_u',
+    'i64.load32_s',
+    'i32.load',
+    'i32.load8_u',
+    'i32.load8_s',
+    'i32.load16_u',
+    'i32.load16_s',
+}
+
 # Generate an instructionset object that supports autocompletion
 
 class Instructionset:

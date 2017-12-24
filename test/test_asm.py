@@ -106,7 +106,6 @@ class AsmTestCaseBase(unittest.TestCase):
             gnu_assemble(self.source.getvalue(), as_args=self.as_args)
             self.fail('Implement this test-case')
         else:
-            print(data.hex())
             self.assertSequenceEqual(bytes.fromhex(hexstr), data)
 
 

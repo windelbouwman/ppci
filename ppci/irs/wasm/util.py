@@ -46,9 +46,10 @@ def export_wasm_example(filename, code, wasm, main_js=''):
         wasm = wasm.to_bytes()
     elif isinstance(wasm, bytes):
         if not wasm.startswith(b'\x00asm'):
-            raise ValueError('export_wasm_example() given bytes do not look like a wasm module.')
+            raise ValueError(
+                'given bytes do not look like a wasm module.')
     else:
-        raise TypeError('export_wasm_example() expects a wasm module or bytes.')
+        raise TypeError('expects a wasm module or bytes.')
 
     wasm_text = str(list(wasm))  # [0, 1, 12, ...]
 
@@ -56,14 +57,17 @@ def export_wasm_example(filename, code, wasm, main_js=''):
 
     # Read templates
     src_filename_js = os.path.join(os.path.dirname(__file__), 'template.js')
-    src_filename_html = os.path.join(os.path.dirname(__file__), 'template.html')
+    src_filename_html = os.path.join(
+        os.path.dirname(__file__), 'template.html')
     with open(src_filename_js, 'rb') as f:
         js = f.read().decode()
     with open(src_filename_html, 'rb') as f:
         html = f.read().decode()
 
     # Produce HTML
-    js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
+    js = js.replace(
+        'WASM_PLACEHOLDER',
+        'var wasm_data = new Uint8Array(' + wasm_text + ');')
     js = js.replace('MAIN_JS_PLACEHOLDER', main_js)
     html = html.replace('<title></title>', '<title>%s</title>' % fname)
     html = html.replace('CODE_PLACEHOLDER', code)
@@ -77,6 +81,7 @@ def export_wasm_example(filename, code, wasm, main_js=''):
 
 _nb_output = 0
 
+
 def run_wasm_in_notebook(wasm):
     """ Load a WASM module in the Jupyter notebook.
     """
@@ -86,9 +91,9 @@ def run_wasm_in_notebook(wasm):
         wasm = wasm.to_bytes()
     elif isinstance(wasm, bytes):
         if not wasm.startswith(b'\x00asm'):
-            raise ValueError('run_wasm_in_notebook() given bytes do not look like a wasm module.')
+            raise ValueError('given bytes do not look like a wasm module.')
     else:
-        raise TypeError('run_wasm_in_notebook() expects a wasm module or bytes.')
+        raise TypeError('expects a wasm module or bytes.')
 
     wasm_text = str(list(wasm))  # [0, 1, 12, ...]
 
@@ -104,7 +109,9 @@ def run_wasm_in_notebook(wasm):
 
     # Produce JS
     js = js.replace('wasm_output', id)
-    js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
+    js = js.replace(
+        'WASM_PLACEHOLDER',
+        'var wasm_data = new Uint8Array(' + wasm_text + ');')
     js = '(function() {\n%s;\ncompile_my_wasm();\n})();' % js
 
     # Output in current cell
@@ -121,9 +128,9 @@ def run_wasm_in_node(wasm):
         wasm = wasm.to_bytes()
     elif isinstance(wasm, bytes):
         if not wasm.startswith(b'\x00asm'):
-            raise ValueError('run_wasm_in_node() given bytes do not look like a wasm module.')
+            raise ValueError('given bytes do not look like a wasm module.')
     else:
-        raise TypeError('run_wasm_in_node() expects a wasm module or bytes.')
+        raise TypeError('expects a wasm module or bytes.')
 
     wasm_text = str(list(wasm))  # [0, 1, 12, ...]
 
@@ -133,17 +140,21 @@ def run_wasm_in_node(wasm):
         js = f.read().decode()
 
     # Produce JS
-    js = js.replace('WASM_PLACEHOLDER', 'var wasm_data = new Uint8Array(' + wasm_text + ');')
+    js = js.replace(
+        'WASM_PLACEHOLDER',
+        'var wasm_data = new Uint8Array(' + wasm_text + ');')
     js += '\nprint_ln("Hello from Nodejs!");\ncompile_my_wasm();\n'
 
     # Write temporary file
-    filename = os.path.join(tempfile.gettempdir(), 'pyscript_%i.js' % os.getpid())
+    filename = os.path.join(
+        tempfile.gettempdir(), 'pyscript_%i.js' % os.getpid())
     with open(filename, 'wb') as f:
         f.write(js.encode())
 
     # Execute JS in nodejs
     try:
-        res = subprocess.check_output([get_node_exe(), '--use_strict', filename])
+        res = subprocess.check_output(
+            [get_node_exe(), '--use_strict', filename])
     except Exception as err:
         if hasattr(err, 'output'):
             err = err.output.decode()
@@ -161,6 +172,8 @@ def run_wasm_in_node(wasm):
 
 
 NODE_EXE = None
+
+
 def get_node_exe():
     """ Small utility that provides the node exe. The first time this
     is called both 'nodejs' and 'node' are tried. To override the
