@@ -1,4 +1,5 @@
 from ... import ir
+from ...relooper import find_structure
 from . import types, declarations, expressions, statements
 
 
@@ -15,6 +16,7 @@ class CSynthesizer:
             self.syn_function(function)
 
     def syn_function(self, function):
+        shape, block_map = find_structure(function)
         for block in function:
             self.syn_block(block)
 
@@ -23,7 +25,7 @@ class CSynthesizer:
         inner_statements = []
         for instruction in block:
             inner_statements.append(self.syn_instruction(instruction))
-        compound = statements.Compund(inner_statements)
+        compound = statements.Compound(inner_statements)
         statements.Label(block.name, compound, None)
 
     def syn_instruction(self, instruction):

@@ -286,7 +286,6 @@ class Ucomisd(Sse2Instruction):
     patterns = {'prefix': 0x66, 'opcode': 0x2e}
 
 
-
 class SsePseudoInstruction(ArtificialInstruction):
     isa = sse1_isa
 
@@ -392,7 +391,8 @@ def pattern_neg_f64(context, tree, c0):
     return d
 
 
-@sse1_isa.pattern('regfp32', 'ADDF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'ADDF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_addf32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -400,7 +400,8 @@ def pattern_addf32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp64', 'ADDF64(regfp64, regfp64)', size=6, cycles=4, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'ADDF64(regfp64, regfp64)', size=6, cycles=4, energy=3)
 def pattern_addf64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -408,7 +409,8 @@ def pattern_addf64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('regfp32', 'SUBF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'SUBF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_sub_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -416,7 +418,8 @@ def pattern_sub_f32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp64', 'SUBF64(regfp64, regfp64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'SUBF64(regfp64, regfp64)', size=6, cycles=3, energy=3)
 def pattern_sub_f64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -424,7 +427,8 @@ def pattern_sub_f64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('regfp32', 'MULF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'MULF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_mul_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -432,7 +436,8 @@ def pattern_mul_f32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp64', 'MULF64(regfp64, regfp64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'MULF64(regfp64, regfp64)', size=6, cycles=3, energy=3)
 def pattern_mul_f64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -440,7 +445,8 @@ def pattern_mul_f64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('regfp32', 'DIVF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'DIVF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_div_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -448,7 +454,8 @@ def pattern_div_f32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp64', 'DIVF64(regfp64, regfp64)', size=6, cycles=4, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'DIVF64(regfp64, regfp64)', size=6, cycles=4, energy=3)
 def pattern_div_f64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -507,13 +514,15 @@ def pattern_cjmp(context, value):
     context.emit(jmp_ins)
 
 
-@sse1_isa.pattern('stm', 'CJMPF32(regfp32,regfp32)', size=6, cycles=3, energy=3)
+@sse1_isa.pattern(
+    'stm', 'CJMPF32(regfp32,regfp32)', size=6, cycles=3, energy=3)
 def pattern_cjmp_f32(context, tree, c0, c1):
     context.emit(Ucomiss(c0, RmXmmReg(c1)))
     pattern_cjmp(context, tree.value)
 
 
-@sse1_isa.pattern('stm', 'CJMPF64(regfp64,regfp64)', size=6, cycles=3, energy=3)
+@sse1_isa.pattern(
+    'stm', 'CJMPF64(regfp64,regfp64)', size=6, cycles=3, energy=3)
 def pattern_cjmp_f64(context, tree, c0, c1):
     context.emit(Ucomisd(c0, RmXmmReg(c1)))
     pattern_cjmp(context, tree.value)

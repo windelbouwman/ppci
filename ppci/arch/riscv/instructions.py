@@ -4,19 +4,17 @@
 
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
-from ..data_instructions import Dd, DataInstruction, ByteToken, WordToken
-from ..data_instructions import DByte, DZero
+from ..data_instructions import Dd
 from ...utils.bitfun import wrap_negative, inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
-from .registers import RiscvRegister, FP, LR, R0, R10, R12, R13, R14
+from .registers import RiscvRegister, FP, R0
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
 from .relocations import Abs32Imm12Relocation, RelImm20Relocation
 from .relocations import RelImm12Relocation
 from .tokens import RiscvToken, RiscvIToken
-from ...ir import i32
 
 isa = Isa()
 
@@ -544,39 +542,6 @@ Remu = make_mext('remu', 0b111)
 
 
 # Instruction selection patterns:
-@isa.pattern('stm', 'STRU32(reg, reg)', size=2)
-@isa.pattern('stm', 'STRI32(reg, reg)', size=2)
-def pattern_str_i32(self, tree, c0, c1):
-    self.emit(Sw(c1, 0, c0))
-
-
-@isa.pattern(
-    'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)',
-    size=2,
-    condition=lambda t: t.children[0].children[1].value < 2047)
-def pattern_str_i32_add(context, tree, c0, c1):
-    # TODO: something strange here: when enabeling this rule, programs
-    # compile correctly...
-    offset = tree.children[0].children[1].value
-    context.emit(Sw(c1, offset, c0))
-
-
-@isa.pattern(
-    'stm', 'STRI32(ADDU32(reg, CONSTU32), reg)',
-    size=2,
-    condition=lambda t: t.children[0].children[1].value < 2047)
-def pattern_str_i32_add(context, tree, c0, c1):
-    # TODO: something strange here: when enabeling this rule, programs
-    # compile correctly...
-    offset = tree.children[0].children[1].value
-    context.emit(Sw(c1, offset, c0))
-
-
-@isa.pattern('stm', 'STRI16(mem, reg)', size=2)
-@isa.pattern('stm', 'STRU16(mem, reg)', size=2)
-def pattern_str16(context, tree, c0, c1):
-    base_reg, offset = c0
-    context.emit(Sh(c1, offset, base_reg))
 
 
 @isa.pattern('reg', 'MOVI16(reg)', size=2)
@@ -644,7 +609,7 @@ def pattern_i8_to_i32(context, tree, c0):
 
 
 @isa.pattern('reg', 'I16TOI32(reg)', size=4)
-def pattern_i8_to_i32(context, tree, c0):
+def pattern_i16_to_i32(context, tree, c0):
     context.emit(Slli(c0, c0, 16))
     context.emit(Srai(c0, c0, 16))
     return c0
@@ -665,15 +630,6 @@ def pattern_8_to_16(context, tree, c0):
 def pattern_8_to_32(context, tree, c0):
     context.emit(Slli(c0, c0, 24))
     context.emit(Srli(c0, c0, 24))
-    return c0
-
-
-@isa.pattern('reg', 'I16TOU32(reg)', size=4)
-@isa.pattern('reg', 'U16TOU32(reg)', size=4)
-@isa.pattern('reg', 'U16TOI32(reg)', size=4)
-def pattern_16_to_32(context, tree, c0):
-    context.emit(Slli(c0, c0, 16))
-    context.emit(Srli(c0, c0, 16))
     return c0
 
 
@@ -737,7 +693,9 @@ def pattern_cjmp(context, tree, c0, c1):
 @isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
 def pattern_cjmpu(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Bltu, ">": Bgtu, "==": Beq, "!=": Bne, ">=": Bgeu, "<=": Bleu}
+    opnames = {
+        "<": Bltu, ">": Bgtu, "==": Beq, "!=": Bne, ">=": Bgeu, "<=": Bleu
+    }
     Bop = opnames[op]
     jmp_ins = B(no_label.name, jumps=[no_label])
     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
@@ -834,8 +792,9 @@ def pattern_fpreli32(context, tree):
     return d
 
 
+# Memory patterns:
 @isa.pattern(
-    'mem', 'FPRELU32', size=4,
+    'mem', 'FPRELU32', size=0,
     condition=lambda t: t.value.offset in range(-2048, 2048))
 def pattern_mem_fpreli32(context, tree):
     offset = tree.value.offset
@@ -847,11 +806,29 @@ def pattern_mem_reg(context, tree, c0):
     return c0, 0
 
 
+@isa.pattern(
+    'mem', 'ADDI32(reg, CONSTI32)', size=0,
+    condition=lambda t: t[1].value < 2047)
+@isa.pattern(
+    'mem', 'ADDU32(reg, CONSTU32)', size=0,
+    condition=lambda t: t[1].value < 2047)
+def pattern_mem_add_reg_const(context, tree, c0):
+    offset = tree[1].value
+    return c0, offset
+
+
 @isa.pattern('stm', 'STRU32(mem, reg)', size=2)
 @isa.pattern('stm', 'STRI32(mem, reg)', size=2)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
     context.emit(Sw(c1, offset, base_reg))
+
+
+@isa.pattern('stm', 'STRI16(mem, reg)', size=2)
+@isa.pattern('stm', 'STRU16(mem, reg)', size=2)
+def pattern_str16(context, tree, c0, c1):
+    base_reg, offset = c0
+    context.emit(Sh(c1, offset, base_reg))
 
 
 @isa.pattern('stm', 'STRU8(mem, reg)', size=2)
@@ -892,11 +869,12 @@ def pattern_negi32(context, tree, c0):
     context.emit(Subr(c0, R0, c0))
     return c0
 
+
 @isa.pattern('reg', 'INVI8(reg)', size=2)
 @isa.pattern('reg', 'INVU8(reg)', size=2)
 @isa.pattern('reg', 'INVU32(reg)', size=2)
 @isa.pattern('reg', 'INVI32(reg)', size=2)
-def pattern_negi32(context, tree, c0):
+def pattern_inv(context, tree, c0):
     context.emit(Xori(c0, c0, -1))
     return c0
 
@@ -993,7 +971,7 @@ def pattern_or_i32_const_reg(context, tree, c0):
 @isa.pattern('reg', 'SHRU8(reg, reg)', size=2)
 @isa.pattern('reg', 'SHRU16(reg, reg)', size=2)
 @isa.pattern('reg', 'SHRU32(reg, reg)', size=2)
-def pattern_shr_32(context, tree, c0, c1):
+def pattern_shr_u32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Srl(d, c0, c1))
     return d
@@ -1002,7 +980,7 @@ def pattern_shr_32(context, tree, c0, c1):
 @isa.pattern('reg', 'SHRI8(reg, reg)', size=2)
 @isa.pattern('reg', 'SHRI16(reg, reg)', size=2)
 @isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
-def pattern_shr_32(context, tree, c0, c1):
+def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Sra(d, c0, c1))
     return d
@@ -1087,6 +1065,7 @@ def pattern_rem_u32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Remu(d, c0, c1))
     return d
+
 
 @isa.pattern('reg', 'XORU8(reg, reg)', size=2)
 @isa.pattern('reg', 'XORI8(reg, reg)', size=2)

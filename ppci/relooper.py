@@ -19,7 +19,7 @@ They might be the join point between dominator and post dominator nodes.
 """
 
 import logging
-from .cfg import ir_function_to_graph, Loop
+from .utils.cfg import ir_function_to_graph, Loop
 
 
 def find_structure(ir_function):
@@ -182,7 +182,11 @@ class StructureDetector:
                     reachable_outside_loop.add(s)
 
         if reachable_outside_loop:
-            assert len(reachable_outside_loop) == 1, str(reachable_outside_loop)
+            if len(reachable_outside_loop) != 1:
+                reachables = ', '.join(map(str, reachable_outside_loop))
+                raise ValueError(
+                    'Loop followed by more then one node: {}'.format(
+                        reachables))
             return list(reachable_outside_loop)[0]
 
 
@@ -219,7 +223,7 @@ class ContinueShape(Shape):
         self.level = level
 
     def __repr__(self):
-        return 'Continue-shape({})'.format(self.level)
+        return 'Continue-shape {}'.format(self.level)
 
 
 class SequenceShape(Shape):

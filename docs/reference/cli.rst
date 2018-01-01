@@ -51,9 +51,11 @@ activated stand alone.
 .. autoprogram:: ppci.cli.objdump:parser
     :prog: ppci-objdump
 
+.. _ppci-opt:
 .. autoprogram:: ppci.cli.opt:parser
     :prog: ppci-opt
 
+.. _ppci-cc:
 .. autoprogram:: ppci.cli.cc:parser
     :prog: ppci-cc
 

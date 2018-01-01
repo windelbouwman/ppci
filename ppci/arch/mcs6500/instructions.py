@@ -762,7 +762,7 @@ def pattern_tmp_var(context, tree):
 
 @isa.pattern('mem', 'LABEL', size=2)
 def pattern_label(context, tree):
-    return XRel
+    return AbsoluteLabel(tree.value)
 
 
 @isa.pattern('mem', 'FPRELU16', size=1)

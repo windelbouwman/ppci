@@ -5,44 +5,68 @@ https://en.wikipedia.org/wiki/LEB128#Unsigned_LEB128
 
 
 def signed_leb128_encode(value: int) -> bytes:
-    """ Encode the given number as signed leb128 """
-    bb = []
-    if value < 0:
-        unsignedRefValue = (1 - value) * 2
-    else:
-        unsignedRefValue = value * 2
+    """ Encode the given number as signed leb128
+
+    .. doctest::
+
+        >>> from ppci.utils.leb128 import signed_leb128_encode
+        >>> signed_leb128_encode(-1337)
+        b'\xc7u'
+
+    """
+    data = []
 
     while True:
         byte = value & 0x7F
-        value >>= 7
-        unsignedRefValue >>= 7
-        if unsignedRefValue != 0:
-            byte = byte | 0x80
-        bb.append(byte)
-        if unsignedRefValue == 0:
+        value >>= 7  # This is an arithmatic shift right
+
+        # Extract the current sign bit
+        sign_bit = bool(byte & 0x40)
+
+        # Check if we are done
+        if (value == 0 and not sign_bit) or (value == -1 and sign_bit):
+            # We are done!
+            data.append(byte)
             break
-    return bytes(bb)
+        else:
+            data.append(byte | 0x80)
+    return bytes(data)
 
 
 def unsigned_leb128_encode(value: int) -> bytes:
-    """ Encode number as into unsigned leb128 encoding """
+    """ Encode number as into unsigned leb128 encoding
+
+    .. doctest::
+
+        >>> from ppci.utils.leb128 import unsigned_leb128_encode
+        >>> unsigned_leb128_encode(42)
+        b'*'
+    """
     if value < 0:
         raise ValueError('Cannot encode negative number as unsigned leb128')
 
-    bb = []  # ints, really
+    data = []  # ints, really
     while True:
         byte = value & 0x7F
         value >>= 7
-        if value != 0:
-            byte = byte | 0x80
-        bb.append(byte)
         if value == 0:
+            # We are done!
+            data.append(byte)
             break
-    return bytes(bb)
+        else:
+            data.append(byte | 0x80)  # Append data and continuation marker
+    return bytes(data)
 
 
 def signed_leb128_decode(data) -> int:
-    """ Read variable length encoded 128 bits signed integer """
+    """ Read variable length encoded 128 bits signed integer.
+
+    .. doctest::
+
+        >>> from ppci.utils.leb128 import signed_leb128_decode
+        >>> signed_leb128_decode(iter(bytes([0x9b, 0xf1, 0x59])))
+        -624485
+    """
     result = 0
     shift = 0
     while True:
@@ -63,7 +87,14 @@ def signed_leb128_decode(data) -> int:
 
 
 def unsigned_leb128_decode(data) -> int:
-    """ Read variable length encoded 128 bits unsigned integer """
+    """ Read variable length encoded 128 bits unsigned integer
+
+    .. doctest::
+
+        >>> from ppci.utils.leb128 import unsigned_leb128_decode
+        >>> signed_leb128_decode(iter(bytes([0xe5, 0x8e, 0x26])))
+        624485
+    """
     result = 0
     shift = 0
     while True:

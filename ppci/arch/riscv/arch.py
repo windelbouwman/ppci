@@ -2,21 +2,22 @@
 
 import io
 from ..arch import Architecture
-from ..arch_info import ArchInfo, TypeInfo, Endianness
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, RegisterUseDef
+from ..data_instructions import DByte, DZero
 from .asm_printer import RiscvAsmPrinter
-from .instructions import isa, Align, Section, DByte, DZero
+from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
 from .registers import R13, R14, R15, R16, R17
 from .registers import PC
-from .registers import FP, R9, R18, R19
+from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
-from ..data_instructions import data_isa, Db
+from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr
 from .rvc_instructions import CSwsp, CLwsp, CJal, CJr, CJalr
@@ -72,9 +73,12 @@ class RiscvArch(Architecture):
         # Allocatable registers:
         register_classes = [
             RegisterClass(
-                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32], RiscvRegister,
-                [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
-                 R21, R22, R23, R24, R25, R26, R27])
+                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
+                RiscvRegister,
+                [
+                    R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
+                    R21, R22, R23, R24, R25, R26, R27
+                ])
         ]
 
         self.info = ArchInfo(

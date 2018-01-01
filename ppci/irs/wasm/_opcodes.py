@@ -1,10 +1,7 @@
-"""
-A dict with WASM opcodes.
-"""
+""" A table with WASM opcodes. """
 
-# Note: left out 32bit opcodes at first. Added them later, but I might have missed some.
-
-# todo: would be nice to also know how many args the opcode needs, so that we can validate that
+# Note: left out 32bit opcodes at first. Added them later, but I might have
+# missed some.
 
 # Gargantual table with all instructions in it.
 # From this table different dictionaries are created. One for encoding
@@ -57,8 +54,8 @@ instruction_table = [
     ('i64.store', 0x37, ('u32', 'u32')),
     ('f32.store', 0x38, ('u32', 'u32')),
     ('f64.store', 0x39, ('u32', 'u32')),
-    ('current_memory', 0x3f),
-    ('grow_memory', 0x40),
+    ('current_memory', 0x3f, ('byte',)),
+    ('grow_memory', 0x40, ('byte',)),
 
     ('i32.const', 0x41, ('i32',), (), ('i32',), lambda i, v: (i.args[0],)),
     ('i64.const', 0x42, ('i64',), (), ('i64',)),
@@ -165,32 +162,32 @@ instruction_table = [
     ('f64.max', 0xa5),
     ('f64.copysign', 0xa6),
 
-    ('i32.wrap_i64', 0xa7),
-    ('i32.trunc_s_f32', 0xa8),
-    ('i32.trunc_u_f32', 0xa9),
-    ('i32.trunc_s_f64', 0xaa),
-    ('i32.trunc_u_f64', 0xab),
-    ('i64.extend_s_i32', 0xac),
-    ('i64.extend_u_i32', 0xad),
-    ('i64.trunc_s_f32', 0xae),
-    ('i64.trunc_u_f32', 0xaf),
-    ('i64.trunc_s_f64', 0xb0),
-    ('i64.trunc_u_f64', 0xb1),
-    ('f32.convert_s_i32', 0xb2),
-    ('f32.convert_u_i32', 0xb3),
-    ('f32.convert_s_i64', 0xb4),
-    ('f32.convert_u_i64', 0xb5),
-    ('f32.demote_f64', 0xb6),
-    ('f64.convert_s_i32', 0xb7),
-    ('f64.convert_u_i32', 0xb8),
-    ('f64.convert_s_i64', 0xb9),
-    ('f64.convert_u_i64', 0xba),
-    ('f64.promote_f32', 0xbb),
+    ('i32.wrap/i64', 0xa7),
+    ('i32.trunc_s/f32', 0xa8),
+    ('i32.trunc_u/f32', 0xa9),
+    ('i32.trunc_s/f64', 0xaa),
+    ('i32.trunc_u/f64', 0xab),
+    ('i64.extend_s/i32', 0xac),
+    ('i64.extend_u/i32', 0xad),
+    ('i64.trunc_s/f32', 0xae),
+    ('i64.trunc_u/f32', 0xaf),
+    ('i64.trunc_s/f64', 0xb0),
+    ('i64.trunc_u/f64', 0xb1),
+    ('f32.convert_s/i32', 0xb2),
+    ('f32.convert_u/i32', 0xb3),
+    ('f32.convert_s/i64', 0xb4),
+    ('f32.convert_u/i64', 0xb5),
+    ('f32.demote/f64', 0xb6),
+    ('f64.convert_s/i32', 0xb7),
+    ('f64.convert_u/i32', 0xb8),
+    ('f64.convert_s/i64', 0xb9),
+    ('f64.convert_u/i64', 0xba),
+    ('f64.promote/f32', 0xbb),
 
-    ('i32.reinterpret_f32', 0xbc),
-    ('i64.reinterpret_f64', 0xbd),
-    ('f32.reinterpret_i32', 0xbe),
-    ('f64.reinterpret_i64', 0xbf),
+    ('i32.reinterpret/f32', 0xbc),
+    ('i64.reinterpret/f64', 0xbd),
+    ('f32.reinterpret/i32', 0xbe),
+    ('f64.reinterpret/i64', 0xbf),
 
 ]
 
@@ -199,7 +196,8 @@ REVERZ = {r[1]: r[0] for r in instruction_table}
 
 OPERANDS = {r[0]: r[2] if len(r) > 2 else () for r in instruction_table}
 EVAL = {
-    r[0]: (r[3], r[4], r[5]) if len(r) >= 6 else ((), (), None) for r in instruction_table}
+    r[0]: (r[3], r[4], r[5])
+    if len(r) >= 6 else ((), (), None) for r in instruction_table}
 
 STORE_OPS = {
     'f64.store',
@@ -232,6 +230,7 @@ LOAD_OPS = {
 
 # Generate an instructionset object that supports autocompletion
 
+
 class Instructionset:
     pass
 
@@ -240,6 +239,7 @@ def _make_instructionset():
     main_i = Instructionset()
 
     for opcode in OPCODES:
+        opcode = opcode.replace('/', '_')
         parts = opcode.split('.')
         i = main_i
         for part in parts[:-1]:
@@ -248,5 +248,6 @@ def _make_instructionset():
             i = getattr(i, part)
         setattr(i, parts[-1], opcode)
     return main_i
+
 
 I = _make_instructionset()

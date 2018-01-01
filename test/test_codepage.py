@@ -62,9 +62,9 @@ class CodePageTestCase(unittest.TestCase):
     def test_jit_example(self):
         """ Test loading of C code from jit example """
         source = io.StringIO("""
-        long x(long* a, long* b, long count) {
-          long sum = 0;
-          long i;
+        int x(int* a, int* b, int count) {
+          int sum = 0;
+          int i;
           for (i=0; i < count; i++)
             sum += a[i] * b[i];
           return sum;
@@ -72,18 +72,17 @@ class CodePageTestCase(unittest.TestCase):
         """)
         arch = get_current_arch()
         html_filename = make_filename(self.id()) + '.html'
-        with open(html_filename, 'w') as f:
-            with HtmlReportGenerator(f) as reporter:
-                obj = cc(source, arch, debug=True, reporter=reporter)
+        with open(html_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+            obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
         print(m.x.argtypes)
-        T = ctypes.c_long * 3
+        T = ctypes.c_int * 3
         a = T()
         a[:] = 1, 2, 3
-        ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_long))
+        # ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_long))
         b = T()
         b[:] = 5, 4, 9
-        bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_long))
+        # bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_long))
         y = m.x(a, b, 3)
         self.assertEqual(40, y)
 

@@ -52,7 +52,7 @@ class WasmToIrCompiler:
             elif isinstance(section, components.ImportSection):
                 for im in section.imports:
                     name = im.fieldname
-                    if im.kind == 'function':
+                    if im.kind == 'func':
                         sig = self.wasm_types[im.type]
                         self.function_names[len(self.function_space)] = name
                         self.function_space.append(sig)
@@ -60,7 +60,7 @@ class WasmToIrCompiler:
                         raise NotImplementedError(im.kind)
             elif isinstance(section, components.ExportSection):
                 for x in section.exports:
-                    if x.kind == 'function':
+                    if x.kind == 'func':
                         # print(x.index)
                         # f = self.function_space[x.index]
                         # f = x.name, f[1]
@@ -217,12 +217,12 @@ class WasmToIrCompiler:
     }
 
     CASTOPS = {
-        'i32.wrap_i64',
-        'i64.extend_s_i32',
-        'i64.extend_u_i32',
-        'f64.convert_s_i32',
-        'f64.convert_u_i32',
-        'f64.reinterpret_i64',  # TODO: this is not a cast?
+        'i32.wrap/i64',
+        'i64.extend_s/i32',
+        'i64.extend_u/i32',
+        'f64.convert_s/i32',
+        'f64.convert_u/i32',
+        'f64.reinterpret/i64',  # TODO: this is not a cast?
     }
 
     CMPOPS = {

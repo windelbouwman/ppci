@@ -17,7 +17,7 @@ Install ppci in a `virtualenv`_ environment:
     $ virtualenv sandbox
     $ source sandbox/bin/activate
     (sandbox) $ pip install ppci
-    (sandbox) $ ppci-build.py -h
+    (sandbox) $ ppci-build -h
 
 
 If ppci installed correcly, you will get a help message of the
@@ -36,7 +36,7 @@ Unpack the source archive and open a console in this directory.
     $ virtualenv sandbox
     $ source sandbox/bin/activate
     (sandbox) $ python setup.py install
-    (sandbox) $ ppci-build.py -h
+    (sandbox) $ ppci-build -h
 
 If ppci installed correcly, you will get a help message of the
 :ref:`ppci-build` commandline tool.
@@ -56,7 +56,7 @@ To build the blinky project do the following:
 .. code:: bash
 
     $ cd examples/blinky
-    $ ppci-build.py
+    $ ppci-build
 
 Flash the hexfile using your flashtool of choice on the stm32f4discovery board
 and enjoy the magic.
@@ -68,7 +68,7 @@ To build and the arduino blink led example, follow the following commands:
 .. code:: bash
 
     $ cd examples/avr/arduino-blinky
-    $ ppci-build.py
+    $ ppci-build
     $ avrdude -v -P /dev/ttyACM0 -c arduino -p m328p -U flash:w:blinky.hex
 
 
@@ -79,7 +79,7 @@ To build the hello world for 64-bit linux, go here:
 .. code:: bash
 
     $ cd examples/linux64/hello
-    $ ppci-build.py
+    $ ppci-build
     $ ./hello
 
 Or run the snake demo under linux:
@@ -87,7 +87,7 @@ Or run the snake demo under linux:
 .. code:: bash
 
     $ cd examples/linux64/snake
-    $ ppci-build.py
+    $ ppci-build
     $ ./snake
 
 

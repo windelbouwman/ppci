@@ -17,8 +17,6 @@ series of tree patterns. This is often referred to as a forest of trees.
 import logging
 from .. import ir
 from ..arch.generic_instructions import Label
-from ..arch.stack import StackLocation
-from ..arch.registers import Register
 from ..binutils.debuginfo import FpOffsetAddress
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 
@@ -370,8 +368,6 @@ class SelectionGraphBuilder:
         """ Prepare call arguments into proper locations """
         # This is the moment to move all parameters to new temp registers.
         args = []
-        inputs = []
-        regouts = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
             loc = self.new_vreg(argument.ty)
@@ -441,7 +437,8 @@ class SelectionGraphBuilder:
         args = self._prep_call_arguments(node)
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
-            self.arch.info.value_classes[node.ty], '{}_result'.format(node.name))
+            self.arch.info.value_classes[node.ty],
+            '{}_result'.format(node.name))
 
         rv = (node.ty, ret_val)
         self._make_pointer_call(node, args, rv)

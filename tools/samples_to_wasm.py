@@ -100,7 +100,8 @@ with open(html_filename, 'w') as f:
     <head><title>Samples</title><meta charset="utf-8"></head>
     <body>
     """, file=f)
-    print('Sample generated on {}'.format(time.ctime()), file=f)
+    print('<p>Sample generated on {}</p>'.format(time.ctime()), file=f)
+    print('<p>Generator script: <pre>{}</pre></p>'.format(__file__), file=f)
 
     fns = []
     for nr, sample in enumerate(samples, 1):

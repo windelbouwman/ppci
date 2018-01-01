@@ -1,13 +1,10 @@
-"""
-The field classes to represent a WASM program.
-"""
+""" Classes to represent a WASM program. """
 
 from io import BytesIO
 import logging
 import struct
 
-from . import OPCODES
-from ._opcodes import OPERANDS, REVERZ, EVAL
+from ._opcodes import OPERANDS, REVERZ, EVAL, OPCODES
 from ...utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ...utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
 
@@ -44,20 +41,21 @@ def packstr(x):
 
 def packvs64(x):
     bb = signed_leb128_encode(x)
-    # if not len(bb) <= 8:
-    #    raise ValueError('Cannot pack {} into leb128'.format(x))
+    if not len(bb) <= 10:
+        raise ValueError('Cannot pack {} into 10 bytes'.format(x))
     return bb
 
 
 def packvs32(x):
     bb = signed_leb128_encode(x)
-    # assert len(bb) <= 4
+    if not len(bb) <= 5:  # 5 = ceil(32/7)
+        raise ValueError('Cannot pack {} into 5 bytes'.format(x))
     return bb
 
 
 def packvu32(x):
     bb = unsigned_leb128_encode(x)
-    assert len(bb) <= 4
+    assert len(bb) <= 5
     return bb
 
 
@@ -71,6 +69,13 @@ def packvu1(x):
     bb = unsigned_leb128_encode(x)
     assert len(bb) == 1
     return bb
+
+
+def write_vector(f, elements):
+    """ Write a sequence of elements to the given file """
+    f.write(packvu32(len(elements)))  # count
+    for element in elements:
+        element.to_file(f)
 
 
 class FileReader:
@@ -108,17 +113,17 @@ class FileReader:
     def read_u32(self):
         return unsigned_leb128_decode(self)
 
-    def read_f32(self):
+    def read_f32(self) -> float:
         data = self.read(4)
         value, = struct.unpack('f', data)
         return value
 
-    def read_f64(self):
+    def read_f64(self) -> float:
         data = self.read(8)
         value, = struct.unpack('d', data)
         return value
 
-    def read_bytes(self):
+    def read_bytes(self) -> bytes:
         """ Read raw bytes data """
         amount = self.read_u32()
         return self.read(amount)
@@ -129,7 +134,8 @@ class FileReader:
         return data.decode('utf-8')
 
     def read_type(self):
-        tp = next(self)
+        """ Read a wasm type """
+        tp = self.read_byte()
         return LANG_TYPES_REVERSE[tp]
 
     def read_limits(self):
@@ -166,6 +172,22 @@ class FileReader:
     def read_instruction(self):
         """ Read a single instruction """
         return Instruction.from_reader(self)
+
+    def read_vector(self, cls):
+        """ Read a vector of the given types.
+
+        Args:
+            cls: A type with a static or classmethod from_reader which will
+                be used to create the elements from the reader.
+
+        Returns:
+            A list of instances of cls.
+        """
+        count = self.read_u32()
+        elements = []
+        for _ in range(count):
+            elements.append(cls.from_reader(self))
+        return elements
 
 
 def read_wasm(f):
@@ -289,109 +311,29 @@ class Module(WASMComponent):
     handle the binding of the function index space.
     """
 
-    __slots__ = ['sections', 'func_id_to_index']
+    __slots__ = ['sections']
 
     def __init__(self, sections):
-        # Process sections, filter out high-level functions
         self.sections = []
-        has_lowlevel_funcs = False
-        functions = []
-        start_section = None
-        import_section = None
-        export_section = None
+        section_ids = set()
         for section in sections:
-            if isinstance(section, (Function, ImportedFuncion)):
-                functions.append(section)
-            elif isinstance(section, Section):
-                self.sections.append(section)
-                if isinstance(section, (TypeSection, CodeSection)):
-                    has_lowlevel_funcs = True
-                elif isinstance(section, StartSection):
-                    start_section = section
-                elif isinstance(section, ImportSection):
-                    import_section = section
-                elif isinstance(section, ExportSection):
-                    if export_section:
-                        raise ValueError('Export section given twice!')
-                    export_section = section
-            else:
-                raise TypeError('Module expects a Function, ImportedFunction, or a Section.')
+            if not isinstance(section, Section):
+                raise TypeError(
+                    'Module expects a sequence of sections.')
 
-        # Process high level function desctiptions?
-        if functions and has_lowlevel_funcs:
-            raise TypeError('Module cannot have both Functions/ImportedFunctions and FunctionDefs/FunctionSigs.')
-        elif functions:
-            self._process_functions(
-                functions, start_section, import_section, export_section)
+            # Check duplicate sections:
+            if section.id in section_ids:
+                raise ValueError(
+                    'Section {} defined twice!'.format(section.id))
+            section_ids.add(section.id)
+
+            self.sections.append(section)
 
         # Sort the sections
         self.sections.sort(key=lambda x: x.id)
 
-        # Prepare functiondefs
-        for section in reversed(self.sections):
-            if isinstance(section, CodeSection):
-                for funcdef in section.functiondefs:
-                    funcdef.module = self
-                break
-
     def __iter__(self):
         return iter(self.sections)
-
-    def _process_functions(self, functions, start_section, import_section, export_section):
-
-        # Prepare processing functions. In the order of imported and then defined,
-        # because that's the order of the function index space. We use the function
-        # index also for the signature index, though that's not strictly necessary
-        # (e.g. functions can share a signature).
-        # Function index space is used in, calls, exports, elementes, start function.
-        auto_sigs = []
-        auto_defs = []
-        auto_imports = []
-        auto_exports = []
-        auto_start = None
-        function_index = 0
-        self.func_id_to_index = {}
-        # Process imported functions
-        for func in functions:
-            if isinstance(func, ImportedFuncion):
-                auto_sigs.append(FunctionSig(func.params, func.returns))
-                auto_imports.append(Import(func.modname, func.fieldname, 'function', function_index))
-                if func.export:
-                    auto_exports.append((func.idname, 'function', function_index))
-                self.func_id_to_index[func.idname] = function_index
-                function_index += 1
-        # Process defined functions
-        for func in functions:
-            if isinstance(func, Function):
-                auto_sigs.append(FunctionSig(func.params, func.returns))
-                auto_defs.append(FunctionDef(func.locals, func.instructions))
-                if func.export:
-                    auto_exports.append((func.idname, 'function', function_index))
-                if func.idname == '$main' and start_section is None:
-                    auto_start = StartSection(function_index)
-                self.func_id_to_index[func.idname] = function_index
-                function_index += 1
-
-        # Insert auto-generated function sigs and defs
-        self.sections.append(TypeSection(auto_sigs))
-        self.sections.append(CodeSection(auto_defs))
-        # Insert auto-generated imports
-        if import_section is None:
-            import_section = ImportSection([])
-            self.sections.append(import_section)
-        import_section.imports.extend(auto_imports)
-        # Insert auto-generated exports
-        if export_section is None:
-            export_section = ExportSection([])
-            self.sections.append(export_section)
-        export_section.exports.extend(auto_exports)
-        # Insert function section
-        self.sections.append(
-            FunctionSection(list(range(len(auto_imports), function_index))))
-
-        # Insert start section
-        if auto_start is not None:
-            self.sections.append(auto_start)
 
     def has_section(self, section):
         """ Determine if the module contains the given section type """
@@ -402,10 +344,10 @@ class Module(WASMComponent):
         """ Get the given section from this module """
         return self.get_section_by_id(section.id)
 
-    def get_section_by_id(self, id):
+    def get_section_by_id(self, section_id):
         """ Get a section given its id """
         section_map = {s.id: s for s in self.sections}
-        return section_map[id]
+        return section_map[section_id]
 
     def get_type(self, index):
         """ Get a type based on index """
@@ -420,7 +362,6 @@ class Module(WASMComponent):
         f.write(b'\x00asm')
         f.write(packu32(1))  # version, must be 1 for now
         for section in self.sections:
-            logger.debug('Writing section %s to file', section.id)
             section.to_file(f)
 
     @classmethod
@@ -447,48 +388,6 @@ class Module(WASMComponent):
         return cls(sections)
 
 
-class Function:
-    """ High-level description of a function. The linking is resolved
-    by the module.
-    """
-
-    __slots__ = ['idname', 'params', 'returns', 'locals', 'instructions', 'export']
-
-    def __init__(self, idname, params=None, returns=None, locals=None, instructions=None, export=False):
-        assert isinstance(idname, str)
-        assert isinstance(params, (tuple, list))
-        assert isinstance(returns, (tuple, list))
-        assert isinstance(locals, (tuple, list))
-        assert isinstance(instructions, (tuple, list))
-        self.idname = idname
-        self.params = params
-        self.returns = returns
-        self.locals = locals
-        self.instructions = instructions
-        self.export = bool(export)
-
-
-class ImportedFuncion:
-    """ High-level description of an imported function. The linking is resolved
-    by the module.
-    """
-
-    __slots__ = ['idname', 'params', 'returns', 'modname', 'fieldname', 'export']
-
-    def __init__(self, idname, params, returns, modname, fieldname, export=False):
-        assert isinstance(idname, str)
-        assert isinstance(params, (tuple, list))
-        assert isinstance(returns, (tuple, list))
-        assert isinstance(modname, str)
-        assert isinstance(fieldname, str)
-        self.idname = idname
-        self.params = params
-        self.returns = returns
-        self.modname = modname
-        self.fieldname = fieldname
-        self.export = bool(export)
-
-
 # Sections
 
 
@@ -506,14 +405,15 @@ class Section(WASMComponent):
         f2 = BytesIO()
         self.get_binary_section(f2)
         payload = f2.getvalue()
+        logger.debug('Writing section %s of %s bytes', self.id, len(payload))
         id = self.id
         assert id >= 0
         # Write it all
         f.write(packvu7(id))
         f.write(packvu32(len(payload)))
         if id == 0:  # custom section for debugging, future, or extension
-            type = self.__cass__.__name__.lower().split('section')[0]
-            f.write(pack_str(type))
+            type = self.__class__.__name__.lower().split('section')[0]
+            f.write(packstr(type))
         f.write(payload)
 
     def get_binary_section(self, f):
@@ -575,14 +475,11 @@ class TypeSection(Section):
             + self._get_sub_text(self.functionsigs, True) + '\n)'
 
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.functionsigs)))  # count
-        for functionsig in self.functionsigs:
-            functionsig.to_file(f)
+        write_vector(f, self.functionsigs)
 
     @classmethod
-    def from_reader(cls, r):
-        count = r.read_u32()
-        functionsigs = [FunctionSig.from_reader(r) for _ in range(count)]
+    def from_reader(cls, reader):
+        functionsigs = reader.read_vector(FunctionSig)
         return cls(functionsigs)
 
 
@@ -602,15 +499,11 @@ class ImportSection(Section):
         return 'ImportSection(\n' + subtext + '\n)'
 
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.imports)))  # count
-        for imp in self.imports:
-            imp.to_file(f)
+        write_vector(f, self.imports)
 
     @classmethod
-    def from_reader(cls, r):
-        count = r.read_u32()
-        imports = [Import.from_reader(r) for _ in range(count)]
-        return cls(imports)
+    def from_reader(cls, reader):
+        return cls(reader.read_vector(Import))
 
 
 class FunctionSection(Section):
@@ -654,16 +547,15 @@ class TableSection(Section):
         assert len(tables) <= 1   # in MVP
         self.tables = tables
 
+    def __iter__(self):
+        return iter(self.tables)
+
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.tables)))
-        for table in self.tables:
-            table.to_file(f)
+        write_vector(f, self.tables)
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_u32()
-        tables = [Table.from_reader(reader) for _ in range(count)]
-        return cls(tables)
+        return cls(reader.read_vector(Table))
 
 
 class MemorySection(Section):
@@ -676,6 +568,9 @@ class MemorySection(Section):
     def __init__(self, entries):
         assert len(entries) == 1   # in MVP
         self.entries = entries
+
+    def __iter__(self):
+        return iter(self.entries)
 
     def to_text(self):
         entries = ', '.join([str(i) for i in self.entries])
@@ -709,6 +604,7 @@ class MemorySection(Section):
 
 
 MUTABILITY_TYPES = {'const': b'\x00', 'mut': b'\x01'}
+MUTABILITY_TYPES2 = {v[0]: k for k, v in MUTABILITY_TYPES.items()}
 
 
 class GlobalSection(Section):
@@ -721,27 +617,15 @@ class GlobalSection(Section):
         self.globalz = globalz
 
     def to_text(self):
-        globalz = ', '.join([str(g) for g in self.globalz])
-        return 'GlobalSection({})'.format(globalz)
+        subtext = self._get_sub_text(self.globalz, multiline=True)
+        return 'GlobalSection(\n{}\n)'.format(subtext)
 
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.globalz)))
-        for g in self.globalz:
-            f.write(LANG_TYPES[g.typ])
-            f.write(MUTABILITY_TYPES[g.mutability])
-
-            # Encode value as expression followed by end instruction
-            Instruction('i32.const', (g.value,)).to_file(f)
-            Instruction('end').to_file(f)
+        write_vector(f, self.globalz)
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_u32()
-        globalz = []
-        for _ in range(count):
-            raise NotImplementedError()
-            reader.read_expression()
-        return cls(globalz)
+        return cls(reader.read_vector(Global))
 
 
 class ExportSection(Section):
@@ -752,7 +636,8 @@ class ExportSection(Section):
 
     def __init__(self, exports):
         for export in exports:
-            assert isinstance(export, Export)
+            if not isinstance(export, Export):
+                raise TypeError('exports must be a list of Export objects')
         self.exports = list(exports)
 
     def to_text(self):
@@ -760,15 +645,12 @@ class ExportSection(Section):
             + self._get_sub_text(self.exports, True) + '\n)'
 
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.exports)))
-        for export in self.exports:
-            export.to_file(f)
+        write_vector(f, self.exports)
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_u32()
-        exports = [Export.from_reader(reader) for _ in range(count)]
-        return cls(exports)
+        """ Deserialize a single export entry """
+        return cls(reader.read_vector(Export))
 
 
 class StartSection(Section):
@@ -803,20 +685,17 @@ class ElementSection(Section):
     def __init__(self, elements):
         self.elements = elements
 
+    def __iter__(self):
+        return iter(self.elements)
+
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.elements)))
-        for element in self.elements:
-            element.to_file(f)
+        """ Write elements to file """
+        write_vector(f, self.elements)
 
     @classmethod
     def from_reader(cls, reader):
         """ Read in table element section from reader object """
-        count = reader.read_u32()
-        elements = []
-        for _ in range(count):
-            element = Element.from_reader(reader)
-            elements.append(element)
-        return cls(elements)
+        return cls(reader.read_vector(Element))
 
 
 class CodeSection(Section):
@@ -826,8 +705,8 @@ class CodeSection(Section):
     id = 10
 
     def __init__(self, functiondefs):
-        for functiondef in functiondefs:
-            assert isinstance(functiondef, FunctionDef)
+        if not all(isinstance(f, FunctionDef) for f in functiondefs):
+            raise TypeError('function defs must be all be FunctionDef')
         self.functiondefs = functiondefs
 
     def to_text(self):
@@ -835,16 +714,12 @@ class CodeSection(Section):
             + self._get_sub_text(self.functiondefs, True) + '\n)'
 
     def get_binary_section(self, f):
-        f.write(packvu32(len(self.functiondefs)))
-        for functiondef in self.functiondefs:
-            functiondef.to_file(f)
+        """ Write contents to file """
+        write_vector(f, self.functiondefs)
 
     @classmethod
     def from_reader(cls, reader):
-        count = reader.read_u32()
-        function_defs = [
-            FunctionDef.from_reader(reader) for _ in range(count)]
-        return cls(function_defs)
+        return cls(reader.read_vector(FunctionDef))
 
 
 class DataSection(Section):
@@ -909,12 +784,12 @@ class Import(WASMComponent):
 
     __slots__ = ['modname', 'fieldname', 'kind', 'type']
 
-    def __init__(self, modname, fieldname, kind, type):
+    def __init__(self, modname: str, fieldname: str, kind, type_id: int):
         self.modname = modname
         self.fieldname = fieldname
         self.kind = kind  # function, table, mem or global
         # the signature-index for funcs, the type for table, memory or global
-        self.type = type
+        self.type = type_id
 
     def to_text(self):
         return 'Import(%r, %r, %r, %r)' % (
@@ -923,7 +798,7 @@ class Import(WASMComponent):
     def to_file(self, f):
         f.write(packstr(self.modname))
         f.write(packstr(self.fieldname))
-        if self.kind == 'function':
+        if self.kind == 'func':
             f.write(b'\x00')
             f.write(packvu32(self.type))
         else:
@@ -931,13 +806,14 @@ class Import(WASMComponent):
 
     @classmethod
     def from_reader(cls, reader):
+        """ Deserialize import from a reader object """
         modname = reader.read_str()
         fieldname = reader.read_str()
         kind_id = reader.read_byte()
-        mp = {0: 'function'}
+        mp = {0: 'func'}
         kind = mp[kind_id]
-        index = reader.read_u32()
-        return cls(modname, fieldname, kind, index)
+        type_index = reader.read_u32()
+        return cls(modname, fieldname, kind, type_index)
 
 
 class Export(WASMComponent):
@@ -949,15 +825,18 @@ class Export(WASMComponent):
 
     __slots__ = ['name', 'kind', 'index']
     TYPES = (
-        ('function', 0),
+        ('func', 0),
         ('table', 1),
-        ('mem', 2),
+        ('memory', 2),
     )
     ID2TYPE = {t[1]: t[0] for t in TYPES}
     TYPE2ID = {t[0]: t[1] for t in TYPES}
 
     def __init__(self, name, kind, index):
         self.name = name
+        if kind not in self.TYPE2ID:
+            valid_types = ', '.join(self.TYPE2ID)
+            raise ValueError('kind must be one of {}'.format(valid_types))
         self.kind = kind
         self.index = index
 
@@ -968,7 +847,7 @@ class Export(WASMComponent):
         """ Write the export to file """
         f.write(packstr(self.name))
         type_id = self.TYPE2ID[self.kind]
-        f.write(bytes(type_id))
+        f.write(bytes([type_id]))
         f.write(packvu32(self.index))
 
     @classmethod
@@ -981,12 +860,34 @@ class Export(WASMComponent):
         return cls(name, kind, index)
 
 
-class Global:
+class Global(WASMComponent):
     """ Global variable """
     def __init__(self, typ, mutability, value):
         self.typ = typ
         self.mutability = mutability
         self.value = value
+
+    def to_text(self):
+        return 'Global(%r, %r, %i)' % (self.typ, self.mutability, self.value)
+
+    def to_file(self, f):
+        """ Write global to file """
+        f.write(LANG_TYPES[self.typ])
+        f.write(MUTABILITY_TYPES[self.mutability])
+
+        # Encode value as expression followed by end instruction
+        Instruction('i32.const', (self.value,)).to_file(f)
+        Instruction('end').to_file(f)
+
+    @classmethod
+    def from_reader(cls, reader):
+        """ Deserialize a single global from a reader """
+        typ = reader.read_type()
+        mutability = MUTABILITY_TYPES2[reader.read_byte()]
+        value_expr = reader.read_expression()
+        value_type, value = eval_expr(value_expr)
+        assert value_type == 'i32'
+        return cls(typ, mutability, value)
 
 
 class Table:
@@ -1084,7 +985,7 @@ class FunctionDef(WASMComponent):
     Instruction instances or strings/tuples describing the instruction.
     """
 
-    __slots__ = ['locals', 'instructions', 'module']
+    __slots__ = ['locals', 'instructions']
 
     def __init__(self, locals, instructions):
         for loc in locals:
@@ -1096,7 +997,6 @@ class FunctionDef(WASMComponent):
                 instruction = Instruction(instruction[0], instruction[1:])
             assert isinstance(instruction, Instruction), str(instruction)
             self.instructions.append(instruction)
-        self.module = None
 
     def to_text(self):
         """ Render function def as text """
@@ -1111,7 +1011,7 @@ class FunctionDef(WASMComponent):
         # Collect locals by type
         local_entries = []  # list of (count, type) tuples
         for loc_type in self.locals:
-            if local_entries and local_entries[-1] == loc_type:
+            if local_entries and local_entries[-1][1] == loc_type:
                 local_entries[-1] = local_entries[-1][0] + 1, loc_type
             else:
                 local_entries.append((1, loc_type))
@@ -1119,9 +1019,11 @@ class FunctionDef(WASMComponent):
         f3 = BytesIO()
         # number of local-entries in this func
         f3.write(packvu32(len(local_entries)))
-        for localentry in local_entries:
-            f3.write(packvu32(localentry[0]))  # number of locals of this type
-            f3.write(LANG_TYPES[localentry[1]])
+        for count, typ in local_entries:
+            f3.write(packvu32(count))  # number of locals of this type
+            f3.write(LANG_TYPES[typ])
+
+        # Instructions:
         for instruction in self.instructions:
             instruction.to_file(f3)
         f3.write(b'\x0b')  # end
@@ -1176,8 +1078,7 @@ class Instruction(WASMComponent):
             return 'Instruction(' + repr(self.type) + ', ' + subtext + ')'
 
     def to_file(self, f):
-        if self.type not in OPCODES:
-            raise TypeError('Unknown instruction %r' % self.type)
+        """ Spit out instruction to file """
 
         # Our instruction
         f.write(bytes([OPCODES[self.type]]))
@@ -1186,39 +1087,39 @@ class Instruction(WASMComponent):
         if self.type == 'call':
             assert isinstance(self.args[0], int)
 
+        operands = OPERANDS[self.type]
+        assert len(operands) == len(self.args)
+
         # Data comes after
-        for arg in self.args:
-            if isinstance(arg, (float, int)):
-                if self.type.startswith('f64.'):
-                    f.write(packf64(arg))
-                elif self.type.startswith('f32.'):
-                    f.write(packf32(arg))
-                elif self.type.startswith('i64.'):
-                    f.write(packvs64(arg))
-                elif self.type.startswith('i32.'):
-                    f.write(packvs32(arg))
-                elif self.type.startswith('i') or self.type.startswith('f'):
-                    raise RuntimeError(
-                        'Unsupported instruction arg for %s' % self.type)
-                else:
-                    f.write(packvu32(arg))
-            elif isinstance(arg, str):
+        for o, arg in zip(operands, self.args):
+            if o == 'i64':
+                f.write(packvs64(arg))
+            elif o == 'i32':
+                f.write(packvs32(arg))
+            elif o == 'u32':
+                f.write(packvu32(arg))
+            elif o == 'f32':
+                f.write(packf32(arg))
+            elif o == 'f64':
+                f.write(packf64(arg))
+            elif o == 'type':
                 f.write(LANG_TYPES[arg])
-            elif isinstance(arg, list):
-                # Assume br_table here
+            elif o == 'byte':
+                f.write(bytes([arg]))
+            elif o == 'br_table':
                 assert self.type == 'br_table'
                 f.write(packvu32(len(arg) - 1))
                 for x in arg:
-                    f.write(packvu32(len(arg)))
+                    f.write(packvu32(x))
             else:
                 # todo: e.g. constants
-                raise TypeError('Unknown instruction arg %r' % arg)
+                raise TypeError('Unknown instruction arg %r' % o)
 
     @classmethod
     def from_reader(cls, reader):
         opcode = next(reader)
-        type = REVERZ[opcode]
-        operands = OPERANDS[type]
+        typ = REVERZ[opcode]
+        operands = OPERANDS[typ]
         # print(opcode, type, operands)
         args = []
         for o in operands:
@@ -1228,29 +1129,21 @@ class Instruction(WASMComponent):
                 arg = reader.read_u32()
             elif o == 'type':
                 arg = reader.read_type()
+            elif o == 'byte':
+                arg = reader.read_byte()
             elif o == 'br_table':
                 count = reader.read_u32()
                 vec = []
-                for _ in range(count):
+                for _ in range(count + 1):
                     idx = reader.read_u32()
                     vec.append(idx)
-                idx = reader.read_u32()
-                vec.append(idx)
                 arg = vec
             elif o == 'f32':
                 arg = reader.read_f32()
             elif o == 'f64':
                 arg = reader.read_f64()
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(o)
             args.append(arg)
-        type = REVERZ[opcode]
-        instruction = cls(type, args)
-        # print(instruction.to_text())
+        instruction = cls(typ, args)
         return instruction
-
-
-# Collect field classes
-_exportable_classes = WASMComponent, Function, ImportedFuncion
-__all__ = [name for name in globals()
-           if isinstance(globals()[name], type) and issubclass(globals()[name], _exportable_classes)]

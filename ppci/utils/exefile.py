@@ -139,7 +139,7 @@ def read_exe(f):
                     dll_name = f2.read(20)  # TODO: 0 terminated?
                     print(dll_name)
                     f2.seek(idt.e_import_table_rva)
-                    #while True:
+                    # while True:
                     #    Import
                     idt.print()
                     print()
@@ -456,4 +456,3 @@ class ExeWriter:
         f.seek(section_headers_location)
         for section_header in coff_section_headers:
             section_header.write(f)
-

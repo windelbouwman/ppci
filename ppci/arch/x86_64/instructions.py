@@ -1110,7 +1110,7 @@ def pattern_add64(context, tree, c0, c1):
 
 @isa.pattern('reg32', 'ADDI32(reg32, reg32)', size=2, cycles=2, energy=1)
 @isa.pattern('reg32', 'ADDU32(reg32, reg32)', size=2, cycles=2, energy=1)
-def pattern_add64(context, tree, c0, c1):
+def pattern_add32(context, tree, c0, c1):
     # TODO: do we need special 32 bit case?
     d = context.new_reg(X86Register)
     context.move(d, c0)

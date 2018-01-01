@@ -153,6 +153,11 @@ class Module:
         """ Get all functions of this module """
         return self._functions
 
+    def get_function(self, name: str):
+        """ Get a function with the given name """
+        functions = {f.name: f for f in self.functions}
+        return functions[name]
+
     def stats(self):
         """ Returns a string with statistic information such as block count """
         num_functions = len(self.functions)
@@ -169,9 +174,11 @@ class Value:
     def __init__(self, name: str, ty: Typ):
         # Has a name and a type?
         super().__init__()
-        assert isinstance(name, str)
+        if not isinstance(name, str):
+            raise TypeError('name must be a string')
         self.name = name
-        assert isinstance(ty, Typ)
+        if not isinstance(ty, Typ):
+            raise TypeError('ty argument must be an instance of Typ')
         self.ty = ty
         self.used_by = set()
 
@@ -560,7 +567,13 @@ class Instruction:
         v.del_user(self)
 
     def delete(self):
-        assert not self.uses
+        for use in list(self.uses):
+            self.del_use(use)
+        if self.uses:
+            uses = ', '.join(map(str, self.uses))
+            raise ValueError(
+                'Cannot delete {} since it is still used by {}'.format(
+                    self, uses))
 
     def replace_use(self, old, new):
         """ replace value usage 'old' with new value, updating the def-use
@@ -819,8 +832,9 @@ class Phi(LocalValue):
         self.inputs = {}
 
     def __str__(self):
-        inputs = {block.name: value.name
-                  for block, value in self.inputs.items()}
+        inputs = ', '.join(
+            '{}: {}'.format(block.name, value.name)
+            for block, value in self.inputs.items())
         return '{} {} = phi {}'.format(self.ty, self.name, inputs)
 
     def replace_use(self, old, new):

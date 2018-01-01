@@ -10,14 +10,21 @@ import os
 if os.name == 'nt':
     from colorama import init
 
-pos = lambda y, x: print('\x1b[%d;%dH' % (y, x))
-CMDLINE =12
+
+def pos(y, x):
+    print('\x1b[%d;%dH' % (y, x))
+
+
+CMDLINE = 12
+
 
 def clearscreen():
     print("\033[2J\033[1;1H")
 
+
 def cleartocursor():
     print("\033[1J")
+
 
 def clearaftercursor():
     print("\033[J")
@@ -46,7 +53,6 @@ def print_file_line(filename, lineno):
                   "\033[0m\033[39m  ", lines[i - 1])
 
 
-
 class DebugCli(cmd.Cmd):
     """ Implement a console-based debugger interface. """
     prompt = 'DBG>'
@@ -60,18 +66,17 @@ class DebugCli(cmd.Cmd):
             if os.name == 'nt':
                 init()
             clearscreen()
-            pos(1,1)
+            pos(1, 1)
             if self.debugger.is_running:
-                 print('\033[37m\033[1mTarget State: RUNNING')
+                print('\033[37m\033[1mTarget State: RUNNING')
             else:
                 print('\033[37m\033[1mTarget State: STOPPED')
             file, col = self.debugger.find_pc()
-            pos(2,1)
+            pos(2, 1)
             print_file_line(file, col)
-            pos(CMDLINE,1)
+            pos(CMDLINE, 1)
             self.debugger.driver.callbackstop = self.updatesourceview
             self.debugger.driver.callbackstart = self.updatestatus
-            
 
     def do_quit(self, _):
         """ Quit the debugger """
@@ -204,28 +209,27 @@ class DebugCli(cmd.Cmd):
 
     def updatesourceview(self):
         if self.showsource is True and self.debugger.is_halted:
-            pos(CMDLINE,1)
+            pos(CMDLINE, 1)
             cleartocursor()
-            pos(1,1)
+            pos(1, 1)
             print('\033[37m\033[1mTarget State: STOPPED')
             file, row = self.debugger.find_pc()
-            pos(2,1)
+            pos(2, 1)
             print_file_line(file, row)
-            pos(CMDLINE+1,len(DebugCli.prompt))
-    
+            pos(CMDLINE + 1, len(DebugCli.prompt))
+
     def updatestatus(self):
-        pos(1,1)
+        pos(1, 1)
         print('\033[37m\033[1mTarget State: RUNNING')
 
     def precmd(self, line):
         with self.debugger.driver.screenlock:
-            pos(CMDLINE+1,len(DebugCli.prompt))
+            pos(CMDLINE + 1, len(DebugCli.prompt))
             clearaftercursor()
             return cmd.Cmd.precmd(self, line)
 
     def postcmd(self, stop, line):
         time.sleep(0.5)
         with self.debugger.driver.screenlock:
-            pos(CMDLINE+1,len(DebugCli.prompt))
+            pos(CMDLINE + 1, len(DebugCli.prompt))
             return cmd.Cmd.postcmd(self, stop, line)
-

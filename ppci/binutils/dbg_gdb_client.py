@@ -126,7 +126,6 @@ class GdbDebugDriver(DebugDriver):
                 elif data == b'+':
                     self.rxqueue.put(data.decode('ascii'))
 
-
     def sendbrk(self):
         """ sends break command to the device """
         self.logger.debug('Sending RAW stop 0x3')
@@ -172,7 +171,6 @@ class GdbDebugDriver(DebugDriver):
             self.status = RUNNING
             with self.screenlock:
                 self.callbackstart()
-                
 
     def step(self):
         """ restart the device """
@@ -222,7 +220,6 @@ class GdbDebugDriver(DebugDriver):
             self.logger.debug("Target running..")
             self.status = RUNNING
 
-    
     def get_status(self):
         return self.status
 

@@ -42,8 +42,6 @@ class TmpValue:
         return 'TMP[0x{:X} {} {}]'.format(self.value, self.lval, self.typ)
 
 
-
-
 class Debugger:
     """
         Main interface to the debugger.
@@ -64,11 +62,9 @@ class Debugger:
         self.variable_map = {}
         self.addr_map = {}
 
-        
     def __repr__(self):
         return 'Debugger for {} using {}'.format(self.arch, self.driver)
 
-    
     # Start stop parts:
     def run(self):
         """ Run the program """
@@ -78,12 +74,12 @@ class Debugger:
     def restart(self):
         self.logger.info('run')
         self.driver.restart()
-        
+
     def stop(self):
         """ Interrupt the currently running program """
         self.logger.info('stop')
         self.driver.stop()
-        
+
     def shutdown(self):
         pass
 
@@ -441,7 +437,6 @@ class DebugDriver:  # pragma: no cover
     def get_registers(self, registers):
         """ Get the values for a range of registers """
         raise NotImplementedError()
-
 
 
 class DummyDebugDriver(DebugDriver):

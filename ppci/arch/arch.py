@@ -3,7 +3,7 @@
 import abc
 import logging
 from functools import lru_cache
-from .stack import Frame
+from .stack import Frame, FramePointerLocation
 from .asm_printer import AsmPrinter
 from .. import ir
 
@@ -18,10 +18,11 @@ class MachineArchitecture(metaclass=abc.ABCMeta):
 
     def __init__(self):
         self.info = None
+        self.fp_location = FramePointerLocation.TOP
 
     def new_frame(self, frame_name, function):
         """ Create a new frame with name frame_name for an ir-function """
-        frame = Frame(frame_name)
+        frame = Frame(frame_name, fp_location=self.fp_location)
         return frame
 
     def get_reg_class(self, bitsize=None, ty=None):

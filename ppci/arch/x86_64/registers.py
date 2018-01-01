@@ -57,6 +57,7 @@ class XmmRegister(Register):
     bitsize = 128
     # TODO: actually the register is 128 bit wide, but float is now 32 bit
     # bitsize = 32
+
     def __repr__(self):
         if self.is_colored:
             return get_xmm_reg(self.color).name
@@ -167,10 +168,12 @@ def get8reg(num):
     return mp[num]
 
 
-callee_save = (rbx, r12, r13, r14, r15,
+callee_save = (
+    rbx, r12, r13, r14, r15,
     xmm6, xmm7,
     xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15)
-caller_save = (rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11,
+caller_save = (
+    rax, rcx, rdx, rdi, rsi, r8, r9, r10, r11,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5)
 
 

@@ -40,24 +40,24 @@ class WatGenerator:
         for section in module.sections:
             if section.id == TypeSection.id:
                 for idx, t in enumerate(section.functionsigs):
-                    print(
+                    self.print(
                         '  (type (;{};) (func'.format(idx),
-                        end='', file=self.f)
+                        newline=True)
                     self.write_type(t)
-                    self.print('))')
+                    self.print('))', newline=False)
             elif section.id == ImportSection.id:
                 for idx, imp in enumerate(section.imports):
                     self.print(
                         '  (import "{}" "{}" (func (;{};) (type {})))'.format(
-                            imp.modname, imp.fieldname, idx, imp.type))
+                            imp.modname, imp.fieldname, idx, imp.type),
+                        newline=True)
                 current_idx = idx
             elif section.id == TableSection.id:
-                # self.print(section)
                 pass
             elif section.id == MemorySection.id:
-                print(section)
+                pass
             elif section.id == StartSection.id:
-                print(section)
+                pass
             elif section.id == ElementSection.id:
                 print(section)
             elif section.id == DataSection.id:
@@ -76,41 +76,76 @@ class WatGenerator:
                 zip(functions, function_defs),
                 start=current_idx+1):
             function_typ, function_def = func
-            print(
+            self.print(
                 '  (func (;{};) (type {})'.format(idx, function_typ),
-                end='', file=self.f)
+                newline=True)
             typ = module.get_type(function_typ)
             self.write_type(typ)
-            self.print()
 
             if function_def.locals:
                 local_types = ' '.join(function_def.locals)
-                self.print('    (local {})'.format(local_types))
+                self.print('    (local {})'.format(local_types), newline=True)
 
             self.block_nr = 0
             for i in function_def.instructions:
                 self.write_instruction(i)
-            self.print('  )')
+            self.print(')')
+
+        # Print tables:
+        if module.has_section(TableSection):
+            table_section = module.get_section(TableSection)
+            for idx, table in enumerate(table_section):
+                self.print(
+                    '  (table (;{};) {} {} {})'.format(
+                        idx, table.minimum, table.maximum, table.typ),
+                    newline=True)
+
+        # Print memory:
+        if module.has_section(MemorySection):
+            memory_section = module.get_section(MemorySection)
+            for idx, memory in enumerate(memory_section):
+                self.print(
+                    '  (memory (;{};) {})'.format(
+                        idx, memory[0]),
+                    newline=True)
 
         # Printout exports:
         for export in exports:
             self.print(
                 '  (export "{}" ({} {}))'.format(
-                    export.name, export.kind, export.index))
+                    export.name, export.kind, export.index),
+                newline=True)
 
         # Print start point:
         if module.has_section(StartSection):
             start_section = module.get_section(StartSection)
-            self.print('  (start {})'.format(start_section.index))
+            self.print(
+                '  (start {})'.format(start_section.index),
+                newline=True)
+
+        # Print elements:
+        if module.has_section(ElementSection):
+            element_section = module.get_section(ElementSection)
+            for element in element_section:
+                indexes = ' '.join(map(str, element.indexes))
+                self.print(
+                    '  (elem (i32.const {}) {})'.format(
+                        element.offset, indexes),
+                    newline=True)
 
         if module.has_section(DataSection):
             data_section = module.get_section(DataSection)
             for chunk in data_section:
                 _, offset, data = chunk
-                data = str(data)[2:-1].replace('\\x', '\\')
+                data = self.data_as_string(data)
                 self.print(
-                    '  (data (i32.const {}) "{}")'.format(offset, data))
+                    '  (data (i32.const {}) "{}")'.format(offset, data),
+                    newline=True)
         self.print(')')
+
+    def data_as_string(self, data):
+        data = str(data)[2:-1].replace('\\x', '\\')
+        return data
 
     def write_type(self, t):
         """ Print function type """
@@ -167,8 +202,15 @@ class WatGenerator:
             text = '{} {} (;@{};)'.format(
                 instruction.type, instruction.args[0],
                 self.block_nr - instruction.args[0])
+        elif instruction.type == 'br_table':
+            targets = ' '.join(
+                '{} (;@{};)'.format(a, self.block_nr - a)
+                for a in instruction.args[0])
+            text = 'br_table {}'.format(targets)
         elif instruction.type in ['call_indirect']:
             text = '{} {}'.format(instruction.type, instruction.args[0])
+        elif instruction.type in ['current_memory', 'grow_memory']:
+            text = str(instruction.type)
         elif instruction.type in ['f64.const', 'f32.const']:
             text = '{} {} (;={};)'.format(
                 instruction.type,
@@ -187,11 +229,13 @@ class WatGenerator:
 
         # Print the instruction
         indent = '  ' * self.indentation
-        self.print('{}{}'.format(indent, text))
+        self.print('{}{}'.format(indent, text), newline=True)
 
         if instruction.type in ['block', 'loop']:
             self.indentation += 1
 
-    def print(self, *args):
+    def print(self, *args, newline=False):
         """ Print helper """
-        print(*args, file=self.f)
+        if newline:
+            print(file=self.f)
+        print(*args, end='', file=self.f)

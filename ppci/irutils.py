@@ -31,7 +31,7 @@ class Writer:
         """ Write ir-code to file f """
         assert isinstance(module, ir.Module)
         if verify:
-            Verifier().verify(module)
+            verify_module(module)
         self.print(0, '{};'.format(module))
 
         for e in module.externals:
@@ -61,12 +61,24 @@ class IrParseException(Exception):
     pass
 
 
+def read_module(f) -> ir.Module:
+    """ Read an ir-module from file.
+
+    Args:
+        f: A file like object ready to be read in text modus.
+
+    Returns:
+        The loaded ir-module.
+    """
+    return Reader().read(f)
+
+
 class Reader:
     """ Read IR-code from file """
     def __init__(self):
         pass
 
-    def read(self, f):
+    def read(self, f) -> ir.Module:
         """ Read ir code from file f """
         # Read lines from the file:
         lines = [line.rstrip() for line in f]
@@ -170,7 +182,6 @@ class Reader:
         # Setup maps:
         self.val_map = {}
         self.block_map = {}
-        self.resolve_worklist = []
 
         self.consume('(')
         while self.peak != ')':
@@ -178,7 +189,7 @@ class Reader:
             name = self.consume('ID')[1]
             param = ir.Parameter(name, ty)
             function.add_parameter(param)
-            self.add_val(param)
+            self.define_value(param)
             if self.peak != ',':
                 break
             else:
@@ -187,26 +198,30 @@ class Reader:
         self.consume('{')
         while self.peak != '}':
             block = self.parse_block(function)
-            if function.entry is None:
-                function.entry = block
             self.block_map[block.name] = block
         self.consume('}')
 
-        for ins, blocks in self.resolve_worklist:
-            for b in blocks:
-                b2 = self.find_block(b.name)
-                ins.change_target(b, b2)
         return function
 
     def parse_type(self):
+        """ Parse a single type """
         type_map = {t.name: t for t in ir.all_types}
         type_name = self.consume('ID')[1]
         return type_map[type_name]
 
+    def _get_block(self, name):
+        """ Get or create the given block """
+        if name not in self.block_map:
+            self.block_map[name] = ir.Block(name)
+        return self.block_map[name]
+
     def parse_block(self, function):
+        """ Read a single block from file """
         name = self.consume('ID')[1]
-        block = ir.Block(name)
+        block = self._get_block(name)
         function.add_block(block)
+        if function.entry is None:
+            function.entry = block
         self.consume(':')
         self.consume('{')
         while self.peak != '}':
@@ -215,35 +230,57 @@ class Reader:
         self.consume('}')
         return block
 
-    def add_val(self, v):
+    def define_value(self, v):
+        """ Define a value """
+        if v.name in self.val_map:
+            # Now what? Double declaration?
+            old_value = self.val_map[v.name]
+            assert isinstance(old_value, ir.Undefined)
+            old_value.replace_by(v)
         self.val_map[v.name] = v
 
-    def find_val(self, name):
+    def find_val(self, name, ty=ir.i32):
+        if name not in self.val_map:
+            self.val_map[name] = ir.Undefined(name, ty)
         return self.val_map[name]
 
     def find_block(self, name):
         return self.block_map[name]
 
     def parse_assignment(self):
+        """ Parse an instruction with shape 'ty' 'name' '=' ... """
         ty = self.parse_type()
         name = self.consume('ID')[1]
         self.consume('=')
         if self.peak == 'ID':
             a = self.consume('ID')[1]
-            if self.peak in ['+', '-']:
-                # Go for binop
-                op = self.consume(self.peak)[1]
-                b = self.consume('ID')[1]
-                a = self.find_val(a)
-                b = self.find_val(b)
-                ins = ir.Binop(a, op, b, name, ty)
+            if a == 'phi':
+                ins = ir.Phi(name, ty)
+                b1 = self._get_block(self.consume('ID')[1])
+                self.consume(':')
+                v1 = self.find_val(self.consume('ID')[1])
+                ins.set_incoming(b1, v1)
+                while self.peak == ',':
+                    self.consume(',')
+                    b1 = self._get_block(self.consume('ID')[1])
+                    self.consume(':')
+                    v1 = self.find_val(self.consume('ID')[1])
+                    ins.set_incoming(b1, v1)
             else:
-                raise Exception()
+                if self.peak in ['+', '-']:
+                    # Go for binop
+                    op = self.consume(self.peak)[1]
+                    b = self.consume('ID')[1]
+                    a = self.find_val(a)
+                    b = self.find_val(b)
+                    ins = ir.Binop(a, op, b, name, ty)
+                else:
+                    raise NotImplementedError(self.peak)
         elif self.peak == 'NUMBER':
             cn = self.consume('NUMBER')[1]
             ins = ir.Const(cn, name, ty)
-        else:
-            raise Exception()
+        else:  # pragma: no cover
+            raise NotImplementedError(self.peak)
         return ins
 
     def parse_cjmp(self):
@@ -253,22 +290,20 @@ class Reader:
         b = self.consume('ID')[1]
         self.consume('?')
         L1 = self.consume('ID')[1]
-        L1 = ir.Block(L1)
+        L1 = self._get_block(L1)
         self.consume(':')
         L2 = self.consume('ID')[1]
-        L2 = ir.Block(L2)
+        L2 = self._get_block(L2)
         a = self.find_val(a)
         b = self.find_val(b)
         ins = ir.CJump(a, op, b, L1, L2)
-        self.resolve_worklist.append((ins, (L1, L2)))
         return ins
 
     def parse_jmp(self):
         self.consume('jmp')
         L1 = self.consume('ID')[1]
-        L1 = ir.Block(L1)
+        L1 = self._get_block(L1)
         ins = ir.Jump(L1)
-        self.resolve_worklist.append((ins, (L1,)))
         return ins
 
     def parse_return(self):
@@ -292,7 +327,7 @@ class Reader:
             ins = ir.Exit()
         else:
             ins = self.parse_assignment()
-            self.add_val(ins)
+            self.define_value(ins)
         self.consume(';')
         return ins
 
@@ -369,6 +404,11 @@ class Builder:
         assert self.block is not None
         self.block.add_instruction(instruction)
         return instruction
+
+
+def verify_module(module):
+    """ Check if the module is properly constructed """
+    Verifier().verify(module)
 
 
 class Verifier:
@@ -461,9 +501,15 @@ class Verifier:
             assert instruction.ty is instruction.a.ty
             assert instruction.ty is instruction.b.ty
         elif isinstance(instruction, ir.Load):
-            assert instruction.address.ty is ir.ptr
+            if instruction.address.ty is not ir.ptr:
+                raise TypeError(
+                    'Load instruction requires ptr type, not {}'.format(
+                        instruction.address.ty))
         elif isinstance(instruction, ir.Store):
-            assert instruction.address.ty is ir.ptr
+            if instruction.address.ty is not ir.ptr:
+                raise TypeError(
+                    'Store instruction requires ptr type, not {}'.format(
+                        instruction.address.ty))
         elif isinstance(instruction, ir.Phi):
             for inp_val in instruction.inputs.values():
                 assert instruction.ty is inp_val.ty

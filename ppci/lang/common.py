@@ -35,10 +35,11 @@ class SourceLocation:
 
     def get_source_line(self):
         """ Return the source line indicated by this location """
-        if not self.source:
+        if not self.source and self.filename:
             if os.path.exists(self.filename):
                 with open(self.filename, 'r') as f:
                     self.source = f.read()
+
         if self.source:
             lines = self.source.split('\n')
             return lines[self.row-1]
@@ -88,5 +89,3 @@ def print_line(row, lines, file=None):
 
 
 SourceRange = namedtuple('SourceRange', ['p1', 'p2'])
-
-

@@ -813,7 +813,8 @@ def pattern_ldr_u8(context, tree, c0):
 def pattern_ldr_i16(context, tree, c0):
     d = context.new_reg(ArmRegister)
     base_reg, offset = c0
-    context.emit(Ldrsh(d, base_reg, offset))
+    raise NotImplementedError('ldrsh')
+    # context.emit(Ldrsh(d, base_reg, offset))
     return d
 
 
@@ -821,7 +822,8 @@ def pattern_ldr_i16(context, tree, c0):
 def pattern_ldr_u16(context, tree, c0):
     d = context.new_reg(ArmRegister)
     base_reg, offset = c0
-    context.emit(Ldrh(d, base_reg, offset))
+    raise NotImplementedError('ldrh')
+    # context.emit(Ldrh(d, base_reg, offset))
     return d
 
 
@@ -934,7 +936,9 @@ def pattern_neg32(context, tree, c0):
 @arm_isa.pattern('reg', 'INVI32(reg)', size=4)
 def pattern_inv32(context, tree, c0):
     d = context.new_reg(ArmRegister)
-    context.emit(Inv(d, c0, c1, NoShift()))
+    context.move(R1, c0)
+    context.emit(Bl('__inv32'))
+    context.move(d, R0)
     return d
 
 

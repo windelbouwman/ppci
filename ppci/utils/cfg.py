@@ -2,7 +2,7 @@
 """ Control flow graph module """
 
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
-from .utils.graph import DiGraph, DiNode
+from .graph import DiGraph, DiNode
 from collections import namedtuple
 
 DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])

@@ -15,6 +15,7 @@ The compilation strategy is hence as follows:
 import logging
 from ... import ir, relooper
 from . import components
+from .highlevel import WasmModuleBuilder
 from ...codegen.irdag import SelectionGraphBuilder, prepare_function_info
 from ...codegen.irdag import FunctionInfo
 from ...codegen.dagsplit import DagSplitter
@@ -52,13 +53,7 @@ class IrToWasmCompiler:
         self.reporter = reporter
 
     def prepare_compilation(self):
-        self.types = []
-        self.type_ids = {}
-        self.imports = []
-        self.exports = []
-        self.functions = []
-        self.function_defs = []
-        self.function_ids = {}
+        self.builder = WasmModuleBuilder()
         self.initial_memory = []
         self.tables = []  # Tables with function pointers
         self.global_vars = []
@@ -79,7 +74,7 @@ class IrToWasmCompiler:
         for ir_external in ir_module.externals:
             # TODO: signature:
             if isinstance(ir_external, ir.ExternalSubRoutine):
-                if ir_external.name in self.function_ids:
+                if self.builder.has_function(ir_external.name):
                     pass
                     # raise ValueError(
                     # 'Function {} already defined'.format(ir_external.name))
@@ -90,11 +85,8 @@ class IrToWasmCompiler:
                     else:
                         ret_types = ()
                     typ_id = self.get_type_id(arg_types, ret_types)
-                    self.imports.append(
-                        components.Import(
-                            'js', ir_external.name, 'function', typ_id))
-                    func_id = len(self.function_ids)
-                    self.function_ids[ir_external.name] = func_id
+                    self.builder.add_import(
+                        'js', ir_external.name, 'func', typ_id)
 
         # Global variables:
         for ir_variable in ir_module.variables:
@@ -106,13 +98,23 @@ class IrToWasmCompiler:
             self.global_memory += ir_variable.amount
 
         # Register function numbers (for mutual recursive functions):
-        for func_nr, ir_function in enumerate(
-                ir_module.functions, start=len(self.function_ids)):
-            if ir_function.name in self.function_ids:
+        for ir_function in ir_module.functions:
+            if self.builder.has_function(ir_function.name):
                 raise ValueError(
                     'Function {} already defined'.format(ir_function.name))
             else:
-                self.function_ids[ir_function.name] = func_nr
+                # Determine function signature:
+                arg_types = tuple(a.ty for a in ir_function.arguments)
+                if isinstance(ir_function, ir.Function):
+                    ret_types = (ir_function.return_ty,)
+                else:
+                    ret_types = ()
+
+                type_id = self.get_type_id(arg_types, ret_types)
+
+                # TODO: not all functions should be exported:
+                self.builder.declare_function(
+                    ir_function.name, type_id, export=True)
 
         # Functions:
         for ir_function in ir_module.functions:
@@ -124,11 +126,11 @@ class IrToWasmCompiler:
             components.GlobalSection(self.global_vars),
             components.MemorySection([10]),  # Start with 10 pages?
             components.DataSection(self.initial_memory),
-            components.TypeSection(self.types),
-            components.ImportSection(self.imports),
-            components.FunctionSection(self.functions),
-            components.ExportSection(self.exports),
-            components.CodeSection(self.function_defs),
+            components.TypeSection(self.builder.types),
+            components.ImportSection(self.builder.imports),
+            components.FunctionSection(self.builder.functions),
+            components.ExportSection(self.builder.exports),
+            components.CodeSection(self.builder.function_defs),
         ]
 
         if self.pointed_functions:
@@ -148,12 +150,7 @@ class IrToWasmCompiler:
         # Get type signature!
         arg_types = tuple(self.get_ty(t) for t in arg_types)
         ret_types = tuple(self.get_ty(t) for t in ret_types)
-        key = (arg_types, ret_types)
-        if key not in self.type_ids:
-            # Store it in type map!
-            self.type_ids[key] = len(self.types)
-            self.types.append(components.FunctionSig(arg_types, ret_types))
-        return self.type_ids[key]
+        return self.builder.get_type_id(arg_types, ret_types)
 
     def do_function(self, ir_function):
         """ Generate WASM for a single function """
@@ -207,31 +204,10 @@ class IrToWasmCompiler:
                 ret_type = self.get_ty(ir_function.return_ty)
                 self.emit((ret_type + '.const', 0))
 
-        # Determine function signature:
-        arg_types = tuple(a.ty for a in ir_function.arguments)
-        if isinstance(ir_function, ir.Function):
-            ret_types = (ir_function.return_ty,)
-        else:
-            ret_types = ()
-
-        type_nr = self.get_type_id(arg_types, ret_types)
-
-        # Add function type-id:
-        self.functions.append(type_nr)
-
-        self.function_defs.append(components.FunctionDef(
-            self.local_vars,
-            self.instructions))
-
-        func_nr = self.function_ids[function_name]
-        # Create an export section:
-        # TODO: not all functions should be exported, only public ones.
-        self.exports.append(
-            components.Export(function_name, 'function', func_nr))
+        self.builder.define_function(self.local_vars, self.instructions)
 
     def increment_stack_pointer(self):
         """ Allocate stack if needed """
-        self.stack_allocated = True
         if self.fi.frame.stacksize > 0:
             self.emit(('get_global', 0))
             self.emit(('i32.const', self.fi.frame.stacksize))
@@ -239,11 +215,6 @@ class IrToWasmCompiler:
             self.emit(('set_global', 0))
 
     def decrement_stack_pointer(self):
-        # Only decrement stack 1 time:
-        if self.stack_allocated:
-            self.stack_allocated = False
-        else:
-            return
         if self.fi.frame.stacksize > 0:
             self.emit(('get_global', 0))
             self.emit(('i32.const', self.fi.frame.stacksize))
@@ -307,6 +278,10 @@ class IrToWasmCompiler:
             # print(tree)
             self.do_tree(tree)
             # if tree.name == 'CALL' and
+
+    unops = {
+        'NEGI32',
+    }
 
     binop_map = {
         'ADDI32': 'i32.add',
@@ -390,18 +365,18 @@ class IrToWasmCompiler:
     }
 
     cast_operators2 = {
-        'F32TOI32': 'i32.trunc_s_f32',
-        'F32TOU32': 'i32.trunc_u_f32',
-        'F64TOI64': 'i64.trunc_s_f64',
-        'F64TOU64': 'i64.trunc_u_f64',
-        'U64TOF64': 'f64.convert_u_i64',
-        'I64TOF64': 'f64.convert_s_i64',
-        'U32TOF64': 'f64.convert_u_i32',
-        'I32TOF64': 'f64.convert_s_i32',
-        'I32TOF32': 'f32.convert_s_i32',
-        'U32TOF32': 'f32.convert_u_i32',
-        'F64TOF32': 'f32.demote_f64',
-        'F32TOF64': 'f64.promote_f32',
+        'F32TOI32': ['f32.nearest', 'i32.trunc_s/f32'],
+        'F32TOU32': ['f32.nearest', 'i32.trunc_u/f32'],
+        'F64TOI64': ['f64.nearest', 'i64.trunc_s/f64'],
+        'F64TOU64': ['f64.nearest', 'i64.trunc_u/f64'],
+        'U64TOF64': ['f64.convert_u/i64'],
+        'I64TOF64': ['f64.convert_s/i64'],
+        'U32TOF64': ['f64.convert_u/i32'],
+        'I32TOF64': ['f64.convert_s/i32'],
+        'I32TOF32': ['f32.convert_s/i32'],
+        'U32TOF32': ['f32.convert_u/i32'],
+        'F64TOF32': ['f32.demote/f64'],
+        'F32TOF64': ['f64.promote/f32'],
     }
 
     reg_operators = {
@@ -444,6 +419,10 @@ class IrToWasmCompiler:
         elif tree.name in self.reg_operators:
             self.emit(('get_local', self.get_value(tree.value)))
             self.stack += 1
+        elif tree.name == 'NEGI32':
+            self.emit(('i32.const', 0))
+            self.do_tree(tree[0])
+            self.emit(('i32.sub',))
         elif tree.name in ['FPRELI32']:
             addr = tree.value.offset
             self.emit(('get_global', 0))  # Fetch stack pointer
@@ -467,9 +446,9 @@ class IrToWasmCompiler:
         elif tree.name == 'LABEL':  # isinstance(tree, ir.LiteralData):
             if tree.value in self.global_labels:
                 addr = self.global_labels[tree.value]
-            elif tree.value in self.function_ids:
+            elif self.builder.has_function(tree.value):
                 # Taking pointer of function
-                func_id = self.function_ids[tree.value]
+                func_id = self.builder.get_function_id(tree.value)
                 addr = len(self.pointed_functions)
                 self.global_labels[tree.value] = addr
                 self.pointed_functions.append(func_id)
@@ -481,15 +460,16 @@ class IrToWasmCompiler:
             self.do_tree(tree[0])
         elif tree.name in self.cast_operators2:
             self.do_tree(tree[0])
-            opcode = self.cast_operators2[tree.name]
-            self.emit((opcode, ))
+            opcodes = self.cast_operators2[tree.name]
+            for opcode in opcodes:
+                self.emit((opcode, ))
         elif tree.name == 'CALL':
             function_name, argv, rv = tree.value
             for ty, argument in argv:
                 self.emit(('get_local', self.get_value(argument)))
 
             if isinstance(function_name, str):
-                func_id = self.function_ids[function_name]
+                func_id = self.builder.get_function_id(function_name)
                 self.emit(('call', func_id))
             else:
                 # Handle function pointers:
@@ -541,8 +521,8 @@ class IrToWasmCompiler:
                 I32Register: 'i32', I64Register: 'i64',
                 F32Register: 'f32', F64Register: 'f64',
             }
-            ty = ty_map[type(value)]
-            self.local_vars.append(ty)
+            wasm_ty = ty_map[type(value)]
+            self.local_vars.append(wasm_ty)
         return self.local_var_map[value]
 
     def emit(self, instruction):

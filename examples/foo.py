@@ -1,6 +1,8 @@
 
 import logging
-from ppci.utils.p2p import load_py
+from ppci.lang.python import load_py
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Choose between those two:
 import demo1

@@ -1,6 +1,7 @@
 from ... import ir
 from ...binutils import debuginfo
 from .python2ir import python_to_ir
+import inspect
 
 
 def load_py(f, functions=None, reporter=None):

@@ -632,7 +632,7 @@ class GraphColoringRegisterAllocator:
                 # Mark the register as used in this frame:
                 self.frame.used_regs.add(node.reg)
                 # TODO:
-                #if self.frame.debug_db:
+                # if self.frame.debug_db:
                 #    self.frame.debug_db.map(
                 #        reg, self.arch.get_register(node.reg))
 

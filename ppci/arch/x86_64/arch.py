@@ -131,7 +131,7 @@ class X86_64Arch(Architecture):
         yield RegisterUseDef(uses=(rcx,))
         yield instructions.Movsb()
 
-        # for x in 
+        # for x in
         # Memcopy action!
         # yield mov(rdi, arg)
         # yield mov(rsi, arg_loc)

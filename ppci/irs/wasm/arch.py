@@ -2,6 +2,7 @@
 
 from ... import ir
 from ...arch.arch import VirtualMachineArchitecture
+from ...arch.stack import FramePointerLocation
 from ...arch.registers import Register, RegisterClass
 from ...arch.arch_info import ArchInfo, TypeInfo
 
@@ -55,3 +56,4 @@ class WasmArchitecture(VirtualMachineArchitecture):
                 'int': ir.i32, 'ptr': ir.i32
             },
             register_classes=register_classes)
+        self.fp_location = FramePointerLocation.BOTTOM

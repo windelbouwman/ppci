@@ -6,7 +6,7 @@ to WASM.
 import ast
 
 from ...common import SourceLocation, CompilerError
-from ...irs import wasm
+from ...irs.wasm.highlevel import ImportedFuncion, Function, make_module
 
 
 def python_to_wasm(code):
@@ -32,11 +32,11 @@ def python_to_wasm(code):
     locals = ['f64' for i in ctx.names]
 
     # Produce wasm
-    module = wasm.Module([
-        wasm.ImportedFuncion('print_ln', ['f64'], [], 'js', 'print_ln'),
-        wasm.ImportedFuncion(
+    module = make_module([
+        ImportedFuncion('print_ln', ['f64'], [], 'js', 'print_ln'),
+        ImportedFuncion(
             'perf_counter', [], ['f64'], 'js', 'perf_counter'),
-        wasm.Function('$main', [], ['f64'], locals, ctx.instructions),
+        Function('$main', [], ['f64'], locals, ctx.instructions),
         ])
     return module
 

@@ -1,7 +1,5 @@
 """ Module full of bit manipulating helper classes. """
 
-import struct
-
 
 def rotate_right(v, n):
     """ bit-wise Rotate right n times """
@@ -37,12 +35,13 @@ def align(value, m):
 
 def wrap_negative(value, bits):
     """ Make a bitmask of a value, even if it is a negative value ! """
-    mx = 2 ** bits - 1
-    mn = -(2 ** (bits - 1))
-    # assert value in range(mn, mx)
-    b = struct.unpack('<Q', struct.pack('<q', value))[0]
+    mx = (1 << bits) - 1
+    mn = -(1 << (bits - 1))
+    assert value in range(mn, mx)
     mask = (1 << bits) - 1
-    return b & mask
+    bit_value = value & mask  # Performing bitwise and makes it 2 complement.
+    assert bit_value >= 0
+    return bit_value
 
 
 def inrange(value, bits):

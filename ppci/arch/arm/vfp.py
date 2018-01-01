@@ -1,6 +1,9 @@
 """ Vector floating point instructions """
 
+from ..token import Token, bit_range
+from ..encoding import Instruction, Syntax, Operand
 from .isa import vfp_isa
+from .registers import VfpRegister
 
 
 class VfpToken(Token):
