@@ -37,7 +37,7 @@ def wrap_negative(value, bits):
     """ Make a bitmask of a value, even if it is a negative value ! """
     mx = (1 << bits) - 1
     mn = -(1 << (bits - 1))
-    assert value in range(mn, mx)
+    #assert value in range(mn, mx)
     mask = (1 << bits) - 1
     bit_value = value & mask  # Performing bitwise and makes it 2 complement.
     assert bit_value >= 0
