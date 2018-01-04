@@ -58,6 +58,8 @@ from ..generic_instructions import Label, Alignment, SectionInstruction
 from ..generic_instructions import RegisterUseDef
 from ..data_instructions import data_isa
 from ..data_instructions import Db
+from ..runtime import get_runtime_files
+from ..stack import FramePointerLocation
 from .instructions import avr_isa
 from .instructions import Push, Pop, Mov, Call, In, Movw, Ret, Adiw
 from .registers import AvrRegister, Register
@@ -89,6 +91,7 @@ class AvrArch(Architecture):
             },
             register_classes=register_classes)
         self.fp = Y
+        self.fp_location = FramePointerLocation.BOTTOM
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
         self.caller_save = caller_save
@@ -96,7 +99,11 @@ class AvrArch(Architecture):
     def get_runtime(self):
         from ...api import asm, c3c, link
         obj1 = asm(io.StringIO(asm_rt_src), self)
-        obj2 = c3c([io.StringIO(RT_C3_SRC)], [], self)
+        c3_sources = get_runtime_files([
+            'sdiv',
+            'smul',
+        ])
+        obj2 = c3c(c3_sources, [], self)
         obj = link([obj1, obj2], partial_link=True)
         return obj
 
@@ -319,47 +326,4 @@ __shl16_2:
   pop r16
   ret
 
-"""
-
-
-RT_C3_SRC = """
-    module swmuldiv;
-    function int div(int num, int den)
-    {
-      var int res = 0;
-      var int current = 1;
-
-      while (den < num)
-      {
-        den = den << 1;
-        current = current << 1;
-      }
-
-      while (current != 0)
-      {
-        if (num >= den)
-        {
-          num -= den;
-          res = res | current;
-        }
-        den = den >> 1;
-        current = current >> 1;
-      }
-      return res;
-    }
-
-    function int mul(int a, int b)
-    {
-      var int res = 0;
-      while (b > 0)
-      {
-        if ((b & 1) == 1)
-        {
-          res += a;
-        }
-        a = a << 1;
-        b = b >> 1;
-      }
-      return res;
-    }
 """

@@ -13,6 +13,7 @@ core_isa = Isa()
 narrow_isa = core_isa
 floating_point_isa = core_isa
 boolean_isa = core_isa
+integer_divide_isa = Isa()
 
 
 class RrrToken(Token):
@@ -141,6 +142,10 @@ class XtensaCoreInstruction(Instruction):
 
 class XtensaNarrowInstruction(Instruction):
     isa = narrow_isa
+
+
+class XtensaIntegerDivideInstruction(Instruction):
+    isa = integer_divide_isa
 
 
 class XtensaFloatingPointInstruction(Instruction):
@@ -505,6 +510,14 @@ class Call0(XtensaCoreInstruction):
         return [Call0Relocation(self.label)]
 
 
+class Callx0(XtensaCoreInstruction):
+    """ Non windowed call register """
+    tokens = [RrrToken]
+    s = Operand('s', AddressRegister, read=True)
+    patterns = {'op2': 0, 'op1': 0, 'r': 0, 's': s, 't': 0xc, 'op0': 0}
+    syntax = Syntax(['call0', ' ', s])
+
+
 class J(XtensaCoreInstruction):
     """ Unconditional jump """
     tokens = [CallToken]
@@ -621,6 +634,26 @@ class Or(XtensaCoreInstruction):
     t = Operand('t', AddressRegister, read=True)
     patterns = {'op2': 2, 'op1': 0, 'r': r, 's': s, 't': t, 'op0': 0}
     syntax = Syntax(['or', ' ', r, ',', ' ', s, ',', ' ', t])
+
+
+class Rems(XtensaIntegerDivideInstruction):
+    """ Remainder signed """
+    tokens = [RrrToken]
+    r = Operand('r', AddressRegister, write=True)
+    s = Operand('s', AddressRegister, read=True)
+    t = Operand('t', AddressRegister, read=True)
+    patterns = {'op2': 0xf, 'op1': 2, 'r': r, 's': s, 't': t, 'op0': 0}
+    syntax = Syntax(['rems', ' ', r, ',', ' ', s, ',', ' ', t])
+
+
+class Remu(XtensaIntegerDivideInstruction):
+    """ Remainder unsigned """
+    tokens = [RrrToken]
+    r = Operand('r', AddressRegister, write=True)
+    s = Operand('s', AddressRegister, read=True)
+    t = Operand('t', AddressRegister, read=True)
+    patterns = {'op2': 0xe, 'op1': 2, 'r': r, 's': s, 't': t, 'op0': 0}
+    syntax = Syntax(['remu', ' ', r, ',', ' ', s, ',', ' ', t])
 
 
 class Ret(XtensaCoreInstruction):
@@ -865,7 +898,10 @@ def pattern_i32_to_u8(context, tree, c0):
     return c0
 
 
+@core_isa.pattern('reg', 'I8TOI32(reg)')
 @core_isa.pattern('reg', 'U8TOI32(reg)')
+@core_isa.pattern('reg', 'I8TOU32(reg)')
+@core_isa.pattern('reg', 'U8TOU32(reg)')
 def pattern_u8_to_i32(context, tree, c0):
     return c0
 
@@ -905,7 +941,16 @@ def pattern_sub_i32(context, tree, c0, c1):
     return d
 
 
+@core_isa.pattern('reg', 'NEGI8(reg)', size=3, cycles=1, energy=1)
+@core_isa.pattern('reg', 'NEGI32(reg)', size=3, cycles=1, energy=1)
+def pattern_neg(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    context.emit(Neg(d, c0))
+    return d
+
+
 def call_internal(context, label, args):
+    """ Emit a call to a helper routine to perform this operation """
     c0, c1 = args
     d = context.new_reg(AddressRegister)
     context.move(a2, c0)
@@ -919,16 +964,48 @@ def call_internal(context, label, args):
 
 
 @core_isa.pattern('reg', 'MULI32(reg, reg)', size=10, cycles=10, energy=10)
+def pattern_mul_i32(context, tree, c0, c1):
+    # Generate call into runtime lib function!
+    return call_internal(context, 'runtime_mulsi3', (c0, c1))
+
+
 @core_isa.pattern('reg', 'MULU32(reg, reg)', size=10, cycles=10, energy=10)
-def pattern_mul32(context, tree, c0, c1):
-    # Generate call into runtime lib function!
-    return call_internal(context, 'swmuldiv_mul', (c0, c1))
+def pattern_mul_u32(context, tree, c0, c1):
+    return call_internal(context, 'runtime_umulsi3', (c0, c1))
 
 
-@core_isa.pattern('reg', 'DIVI32(reg, reg)')
-def pattern_div32(context, tree, c0, c1):
-    # Generate call into runtime lib function!
-    return call_internal(context, 'swmuldiv_div', (c0, c1))
+@core_isa.pattern('reg', 'DIVI32(reg, reg)', size=10, cycles=10, energy=10)
+def pattern_div_i32(context, tree, c0, c1):
+    return call_internal(context, 'runtime_divsi3', (c0, c1))
+
+
+@core_isa.pattern('reg', 'DIVU32(reg, reg)', size=10, cycles=10, energy=10)
+def pattern_div_u32(context, tree, c0, c1):
+    return call_internal(context, 'runtime_udivsi3', (c0, c1))
+
+
+@core_isa.pattern('reg', 'REMI32(reg, reg)', size=10, cycles=10, energy=10)
+def pattern_rem_i32(context, tree, c0, c1):
+    return call_internal(context, 'runtime_modsi3', (c0, c1))
+
+
+@core_isa.pattern('reg', 'REMU32(reg, reg)', size=10, cycles=10, energy=10)
+def pattern_rem_u32(context, tree, c0, c1):
+    return call_internal(context, 'runtime_umodsi3', (c0, c1))
+
+
+@integer_divide_isa.pattern('reg', 'REMI32(reg, reg)', size=3)
+def pattern_rem_i32_hw(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Rems(d, c0, c1))
+    return d
+
+
+@integer_divide_isa.pattern('reg', 'REMU32(reg, reg)', size=3)
+def pattern_rem_u32_hw(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Remu(d, c0, c1))
+    return d
 
 
 @core_isa.pattern('reg', 'ANDI32(reg,reg)')
@@ -972,7 +1049,7 @@ def pattern_shr_i32(context, tree, c0, c1):
 # Memory patterns:
 @core_isa.pattern(
     'mem', 'FPRELU32', size=0, cycles=0, energy=0,
-    condition=lambda t: t.value.offset in range(-128, 127))
+    condition=lambda t: t.value.offset in range(0, 127))
 def pattern_mem_fprel(context, tree):
     fp = a15
     return fp, tree.value.offset
@@ -1001,6 +1078,7 @@ def pattern_ldr_i8(context, tree, c0):
 
 
 @core_isa.pattern('stm', 'STRU8(mem, reg)')
+@core_isa.pattern('stm', 'STRI8(mem, reg)')
 def pattern_str_u8(context, tree, c0, c1):
     reg, offset = c0
     context.emit(S8i(c1, reg, offset))
@@ -1011,6 +1089,7 @@ def pattern_str_u8(context, tree, c0, c1):
 def pattern_ldr_i32(context, tree, c0):
     d = context.new_reg(AddressRegister)
     reg, offset = c0
+    assert offset in range(0, 1021)
     context.emit(L32i(d, reg, offset))
     return d
 
@@ -1026,6 +1105,7 @@ def pattern_mem_add_const(context, tree, c0):
 @core_isa.pattern('stm', 'STRI32(mem, reg)', size=3, cycles=2, energy=2)
 def pattern_str_i32(context, tree, c0, c1):
     reg, offset = c0
+    assert offset in range(0, 1021)
     context.emit(S32i(c1, reg, offset))
 
 

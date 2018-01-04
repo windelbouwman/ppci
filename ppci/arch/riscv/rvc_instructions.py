@@ -492,7 +492,7 @@ def pattern_consti32_2(context, tree):
     if (c0 & 0x800) != 0:
         c0 += 0x1000
     context.emit(CLui(d, c0 >> 12))
-    context.emit(Addi(d, d, c0))
+    context.emit(Addi(d, d, c0 & 0xfff))
     return d
 
 

@@ -2,7 +2,7 @@ import logging
 import struct
 from textx.metamodel import metamodel_from_file
 from ppci import ir
-from ppci.irutils import Verifier
+from ppci.irutils import verify_module
 from ppci import api
 
 
@@ -44,7 +44,7 @@ class TcfCompiler:
         # Close the procedure:
         self.emit(ir.Exit())
 
-        Verifier().verify(ir_module)
+        verify_module(ir_module)
         return ir_module
 
     def emit(self, instruction):
@@ -67,7 +67,8 @@ class TcfCompiler:
 
         # Create the variable on stack, if not already present:
         if name not in self.variables:
-            self.variables[name] = self.emit(ir.Alloc(name, self.int_size))
+            self.variables[name] = self.emit(
+                ir.Alloc(name, self.int_size, self.int_size))
         mem_loc = self.variables[name]
         value = assignment.expr.ir_value
         self.emit(ir.Store(value, mem_loc))
@@ -122,4 +123,3 @@ with open('example.oj', 'w') as f:
 
 # Create a linux elf file:
 api.objcopy(obj, 'code', 'elf', 'example')
-

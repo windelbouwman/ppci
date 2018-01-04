@@ -27,6 +27,7 @@ from ..arch_info import ArchInfo, TypeInfo
 from ..stack import StackLocation
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dw2, data_isa
+from ..runtime import get_runtime_files
 from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9
 from .registers import r1, register_classes, Msp430Register
@@ -209,10 +210,14 @@ class Msp430Arch(Architecture):
             MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
             MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
         """)
+        c3_sources = get_runtime_files([
+            'divsi3',
+            'mulsi3',
+        ])
         # report_generator = HtmlReportGenerator(open('msp430.html', 'w'))
         with DummyReportGenerator() as reporter:
             obj1 = asm(io.StringIO(RT_ASM_SRC), march)
-            obj2 = c3c([io.StringIO(RT_C3_SRC)], [], march, reporter=reporter)
+            obj2 = c3c(c3_sources, [], march, reporter=reporter)
             obj = link([obj1, obj2], layout, partial_link=True)
         return obj
 
@@ -236,47 +241,4 @@ RT_ASM_SRC = """
       cmp.w #0, r13
       jne __shr_a
       ret
-"""
-
-# TODO: move the code below to shared location? It is not msp430 specific!
-RT_C3_SRC = """
-    module msp430_runtime;
-    function int __div(int num, int den)
-    {
-      var int res = 0;
-      var int current = 1;
-
-      while (den < num)
-      {
-        den = den << 1;
-        current = current << 1;
-      }
-
-      while (current != 0)
-      {
-        if (num >= den)
-        {
-          num -= den;
-          res = res | current;
-        }
-        den = den >> 1;
-        current = current >> 1;
-      }
-      return res;
-    }
-
-    function int __mul(int a, int b)
-    {
-      var int res = 0;
-      while (b > 0)
-      {
-        if ((b & 1) == 1)
-        {
-          res += a;
-        }
-        a = a << 1;
-        b = b >> 1;
-      }
-      return res;
-    }
 """

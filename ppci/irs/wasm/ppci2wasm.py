@@ -200,7 +200,7 @@ class IrToWasmCompiler:
         if isinstance(ir_function, ir.Function):
             # Insert dummy value at end of function:
             # TODO: this is ugly!
-            if self.instructions[-1].type != 'return':
+            if self.instructions[-1].opcode != 'return':
                 ret_type = self.get_ty(ir_function.return_ty)
                 self.emit((ret_type + '.const', 0))
 

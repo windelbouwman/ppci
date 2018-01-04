@@ -98,11 +98,11 @@ class Add(AvrInstruction):
 
 
 class Patch0r(Transform):
-    def forwards(self, val):
-        return (val // 2) - 12
+    def forwards(self, value):
+        return (value // 2) - 12
 
-    def backwards(self, val):
-        return (val + 12) * 2
+    def backwards(self, value):
+        return (value + 12) * 2
 
 
 class Adiw(AvrInstruction):
@@ -149,7 +149,24 @@ class Cpc(AvrInstruction):
     patterns = {'op': 0b1, 'r': rr, 'd': rd}
 
 
+class Neg(AvrInstruction):
+    """ Compute two's complement """
+    tokens = [AvrToken2]
+    rd = Operand('rd', AvrRegister, read=True, write=True)
+    syntax = Syntax(['neg', ' ', rd])
+    patterns = {'op': 0b1001010, 'd': rd, 'op2': 0b001}
+
+
+class Com(AvrInstruction):
+    """ Compute one's complement """
+    tokens = [AvrToken2]
+    rd = Operand('rd', AvrRegister, read=True, write=True)
+    syntax = Syntax(['com', ' ', rd])
+    patterns = {'op': 0b1001010, 'd': rd, 'op2': 0b0}
+
+
 class Sub(AvrInstruction):
+    """ Substract """
     tokens = [AvrArithmaticToken]
     rd = Operand('rd', AvrRegister, read=True, write=True)
     rr = Operand('rr', AvrRegister, read=True)
@@ -158,6 +175,7 @@ class Sub(AvrInstruction):
 
 
 class Sbc(AvrInstruction):
+    """ Substract with carry """
     tokens = [AvrArithmaticToken]
     rd = Operand('rd', AvrRegister, read=True, write=True)
     rr = Operand('rr', AvrRegister, read=True)
@@ -166,6 +184,7 @@ class Sbc(AvrInstruction):
 
 
 class And(AvrInstruction):
+    """ Logical and """
     tokens = [AvrArithmaticToken]
     rd = Operand('rd', AvrRegister, read=True, write=True)
     rr = Operand('rr', AvrRegister, read=True)
@@ -302,9 +321,9 @@ class Mov(AvrInstruction):
 
 
 class PatchDiv2(Transform):
-    def forwards(self, val):
-        assert val in range(0, 32, 2)
-        return val >> 1
+    def forwards(self, value):
+        assert value in range(0, 32, 2)
+        return value >> 1
 
 
 class Movw(AvrInstruction):
@@ -450,8 +469,8 @@ class Reti(AvrInstruction):
 
 
 class PatchedBy16(Transform):
-    def forwards(self, val):
-        return val - 16
+    def forwards(self, value):
+        return value - 16
 
 
 def make_i(mnemonic, opcode, read=False, write=False):
@@ -571,6 +590,19 @@ class Subw(PseudoAvrInstruction):
     def render(self):
         yield Sub(self.rd.lo, self.rr.lo)
         yield Sbc(self.rd.hi, self.rr.hi)
+
+
+class Negw(PseudoAvrInstruction):
+    """ Perform a 16 bit two's complement """
+    rd = Operand('rd', AvrWordRegister, read=True, write=True)
+    syntax = Syntax(['negw', ' ', rd])
+
+    def render(self):
+        yield Eor(r1, r1)  # Zero out r1
+        yield Com(self.rd.hi)  # 1 complement!
+        yield Com(self.rd.lo)  # 1 complement!
+        yield Adc(self.rd.lo, r1)
+        yield Adc(self.rd.hi, r1)
 
 
 class Andw(PseudoAvrInstruction):
@@ -761,6 +793,7 @@ def pattern_mov16(context, tree, c0):
 @avr_isa.pattern('reg16', 'I16TOI16(reg16)', size=0)
 @avr_isa.pattern('reg16', 'U16TOI16(reg16)', size=0)
 @avr_isa.pattern('reg16', 'I16TOU16(reg16)', size=0)
+@avr_isa.pattern('reg16', 'U16TOU16(reg16)', size=0)
 def pattern_i16toi16(context, tree, c0):
     return c0
 
@@ -795,6 +828,22 @@ def pattern_i16toi8(context, tree, c0):
     return d
 
 
+@avr_isa.pattern('reg16', 'I8TOI16(reg)', size=4)
+def pattern_i8toi16(context, tree, c0):
+    context.move(r0, c0)
+    # TODO: how to do sign extend?
+    context.emit(Eor(r1, r1))
+
+    ud1 = RegisterUseDef()
+    ud1.add_defs([r1r0])
+    ud1.add_uses([r0, r1])
+    context.emit(ud1)
+
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, r1r0)
+    return d
+
+
 @avr_isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 @avr_isa.pattern('reg', 'ADDU8(reg, reg)', size=4)
 def pattern_add8(context, tree, c0, c1):
@@ -822,7 +871,24 @@ def pattern_sub16(context, tree, c0, c1):
     return d
 
 
+@avr_isa.pattern('reg', 'NEGI8(reg)', size=4)
+def pattern_neg_i8(context, tree, c0):
+    d = context.new_reg(AvrRegister)
+    context.move(d, c0)
+    context.emit(Neg(d))
+    return d
+
+
+@avr_isa.pattern('reg16', 'NEGI16(reg16)', size=6)
+def pattern_neg_i16(context, tree, c0):
+    d = context.new_reg(AvrWordRegister)
+    context.move(d, c0)
+    context.emit(Negw(d))
+    return d
+
+
 @avr_isa.pattern('reg16', 'ANDI16(reg16, reg16)', size=6)
+@avr_isa.pattern('reg16', 'ANDU16(reg16, reg16)', size=6)
 def pattern_and16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
@@ -831,6 +897,7 @@ def pattern_and16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'ORI16(reg16, reg16)', size=6)
+@avr_isa.pattern('reg16', 'ORU16(reg16, reg16)', size=6)
 def pattern_or16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
@@ -839,16 +906,45 @@ def pattern_or16(context, tree, c0, c1):
 
 
 @avr_isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=8)
-def pattern_div16(context, tree, c0, c1):
+def pattern_div_i16(context, tree, c0, c1):
     return call_function(
-        context, 'swmuldiv_div', (c0, c1), clobbers=context.arch.caller_save)
+        context, 'runtime_divsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@avr_isa.pattern('reg16', 'DIVU16(reg16, reg16)', size=8)
+def pattern_div_u16(context, tree, c0, c1):
+    return call_function(
+        context, 'runtime_udivsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@avr_isa.pattern('reg16', 'REMI16(reg16, reg16)', size=8)
+def pattern_rem_i16(context, tree, c0, c1):
+    return call_function(
+        context, 'runtime_modsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@avr_isa.pattern('reg16', 'REMU16(reg16, reg16)', size=8)
+def pattern_rem_u16(context, tree, c0, c1):
+    return call_function(
+        context, 'runtime_umodsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
 
 
 @avr_isa.pattern('reg16', 'MULI16(reg16, reg16)', size=8)
-@avr_isa.pattern('reg16', 'MULU16(reg16, reg16)', size=8)
-def pattern_mul16(context, tree, c0, c1):
+def pattern_mul_i16(context, tree, c0, c1):
     return call_function(
-        context, 'swmuldiv_mul', (c0, c1), clobbers=context.arch.caller_save)
+        context, 'runtime_mulsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@avr_isa.pattern('reg16', 'MULU16(reg16, reg16)', size=8)
+def pattern_mul_u16(context, tree, c0, c1):
+    return call_function(
+        context, 'runtime_umulsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
 
 
 def call_function(context, label, args, clobbers=()):

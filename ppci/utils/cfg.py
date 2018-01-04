@@ -1,11 +1,20 @@
+""" Control flow graph algorithms.
 
-""" Control flow graph module """
+Functions present:
+
+- dominators
+- post dominators
+- reachability
+- dominator tree
+- dominance frontier
+
+"""
 
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
 from .graph import DiGraph, DiNode
 from collections import namedtuple
 
-DomTreeNode = namedtuple('DomTreeNode', ['block', 'children'])
+DomTreeNode = namedtuple('DomTreeNode', ['node', 'children'])
 Loop = namedtuple('Loop', ['header', 'rest'])
 
 
@@ -82,6 +91,7 @@ class ControlFlowGraph(DiGraph):
         self._spdom = None  # Strict post dominators
         self._ipdom = None  # post dominators
         self._reach = None  # Reach map
+        self.root_tree = None
 
     def validate(self):
         """ Run some sanity checks on the control flow graph """
@@ -93,6 +103,12 @@ class ControlFlowGraph(DiGraph):
         if self._dom is None:
             self.calculate_dominators()
         return one in self._dom[other]
+
+    def strictly_dominates(self, one, other):
+        """ Test whether a node strictly dominates another node """
+        if self._sdom is None:
+            self.calculate_strict_dominators()
+        return one in self._sdom[other]
 
     def post_dominates(self, one, other):
         """ Test whether a node post dominates another node """
@@ -233,6 +249,7 @@ class ControlFlowGraph(DiGraph):
                 node = self.tree_map[node]
                 parent.children.append(node)
         self.root_tree = self.tree_map[self.entry_node]
+        return self.root_tree
 
     def calculate_immediate_post_dominators(self):
         """ Calculate immediate post dominators for all nodes.
@@ -302,6 +319,46 @@ class ControlFlowGraph(DiGraph):
                     loops.append(loop)
         return loops
 
+    def calculate_dominance_frontier(self):
+        """ Calculate the dominance frontier.
+
+        Algorithm from Ron Cytron et al.
+
+        how to calculate the dominance frontier for all nodes using
+        the dominator tree.
+        """
+        if self.root_tree is None:
+            self.calculate_dominator_tree()
+
+        self.df = {}
+        for x in self.bottom_up(self.root_tree):
+            # Initialize dominance frontier to the empty set:
+            self.df[x] = set()
+
+            # Local rule for dominance frontier:
+            for y in self.successors(x):
+                if self.get_immediate_dominator(y) != x:
+                    self.df[x].add(y)
+
+            # upwards rule:
+            for z in self.children(x):
+                for y in self.df[z]:
+                    if self.get_immediate_dominator(y) != x:
+                        self.df[x].add(y)
+
+    def bottom_up(self, tree):
+        """ Generator that yields all nodes in bottom up way """
+        for c in tree.children:
+            for cc in self.bottom_up(c):
+                yield cc
+        yield tree.node
+
+    def children(self, n):
+        """ Return all children for node n """
+        tree = self.tree_map[n]
+        for c in tree.children:
+            yield c.node
+
 
 class ControlFlowNode(DiNode):
     def __init__(self, graph, name=None):
@@ -309,11 +366,11 @@ class ControlFlowNode(DiNode):
         self.name = name
 
     def dominates(self, other):
-        """ Test whether this nodes dominates the other node """
+        """ Test whether this node dominates the other node """
         return self.graph.dominates(self, other)
 
     def post_dominates(self, other):
-        """ Test whether this nodes post-dominates the other node """
+        """ Test whether this node post-dominates the other node """
         return self.graph.post_dominates(self, other)
 
     def can_reach(self, other):
@@ -321,6 +378,7 @@ class ControlFlowNode(DiNode):
         return self.graph.can_reach(self, other)
 
     def reached(self):
+        """ Test if this node is reached """
         return self.graph._reach[self]
 
     def __repr__(self):

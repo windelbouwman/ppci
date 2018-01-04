@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+from ppci.api import construct
+
+construct('build.xml')
+
 with open('hello.bin', 'rb') as f:
     hello_bin = f.read()
 

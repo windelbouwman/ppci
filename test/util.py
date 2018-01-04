@@ -113,6 +113,8 @@ def qemu(args):
         '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
         '-serial', 'tcp:localhost:{}'.format(ser_port),
         '-S']
+    logger.debug('Starting qemu like this: %s', args)
+
     if hasattr(subprocess, 'DEVNULL'):
         qemu_process = subprocess.Popen(args)  # stderr=subprocess.DEVNULL)
     else:

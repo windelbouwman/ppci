@@ -27,7 +27,7 @@ class ModulePass(metaclass=abc.ABCMeta):
 
 class FunctionPass(ModulePass):
     """ Base pass that loops over all functions in a module """
-    def run(self, ir_module):
+    def run(self, ir_module: ir.Module):
         """ Main entry point for the pass """
         self.prepare()
         self.debug_db = ir_module.debug_db
@@ -37,7 +37,7 @@ class FunctionPass(ModulePass):
         self.debug_db = None
 
     @abc.abstractmethod
-    def on_function(self, function):  # pragma: no cover
+    def on_function(self, function: ir.SubRoutine):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 
@@ -50,7 +50,7 @@ class BlockPass(FunctionPass):
             self.on_block(block)
 
     @abc.abstractmethod
-    def on_block(self, block):  # pragma: no cover
+    def on_block(self, block: ir.Block):  # pragma: no cover
         """ Override this virtual method """
         raise NotImplementedError()
 

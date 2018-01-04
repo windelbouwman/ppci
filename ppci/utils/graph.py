@@ -164,9 +164,7 @@ class Graph:
 
 
 class Node:
-    """
-       Node in a graph.
-    """
+    """ Node in a graph. """
     def __init__(self, graph):
         self.graph = graph
         self.graph.add_node(self)

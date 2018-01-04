@@ -6,7 +6,7 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
+from util import has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr, run_nodejs
 from util import do_long_tests, do_iverilog, make_filename
@@ -46,6 +46,7 @@ def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
 
     extensions = ('.c3', '.bf', '.c')
+
     def deco(cls):
         for folder in folders:
             for source in source_files(
@@ -239,7 +240,8 @@ class BuildMixin:
             bsp_c3 = self.bsp_c3
 
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march, self.opt_level,
+            base_filename, src, bsp_c3, startercode, self.march,
+            self.opt_level,
             io.StringIO(self.arch_mmap), lang=lang, bin_format=bin_format,
             elf_format=elf_format, code_image=code_image)
 
@@ -294,7 +296,11 @@ class TestSamplesOnVexpress(unittest.TestCase, I32Samples, BuildMixin):
 
         # Run bin file in emulator:
         if has_qemu():
-            res = run_qemu(sample_filename, machine='realview-pb-a8')
+            res = qemu([
+                'qemu-system-arm', '--machine', 'realview-pb-a8',
+                '-m', '16M', '-nographic',
+                '-kernel', sample_filename
+            ])
             self.assertEqual(expected_output, res)
 
 
@@ -361,7 +367,9 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
             for i in range(filewordsize):
                 if (i < datawordlen):
                     w = rom_data[4 * i:4 * i + 4]
-                    print('%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]), file=f)
+                    print(
+                        '%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]),
+                        file=f)
                 else:
                     print('00000000', file=f)
         f.close()
@@ -434,7 +442,10 @@ class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
 
         # Run bin file in emulator:
         if has_qemu():
-            res = run_qemu(sample_filename, machine='lm3s6965evb')
+            res = qemu([
+                'qemu-system-arm', '-M', 'lm3s6965evb', '-m', '16M',
+                '-nographic', '-kernel', sample_filename
+            ])
             # lm3s811evb
             self.assertEqual(expected_output, res)
 
@@ -739,7 +750,8 @@ class TestSamplesOnXtensa(unittest.TestCase):
             output = qemu([
                 'qemu-system-xtensa', '-nographic',
                 '-M', 'lx60', '-m', '16',
-                '-pflash', img_filename])
+                '-drive',
+                'if=pflash,format=raw,file={}'.format(img_filename)])
             self.assertEqual(expected_output, output)
 
     def make_image(self, bin_filename, image_filename, imagemb=4):
@@ -772,7 +784,6 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
         # img_filename = base_filename + '.img'
         # self.make_image(binfile, img_filename)
         if has_qemu():
-            # TODO:
             output = qemu([
                 'qemu-system-or1k', '-nographic',
                 '-M', 'or1k-sim', '-m', '16',

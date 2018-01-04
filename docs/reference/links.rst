@@ -82,6 +82,11 @@ Other compilers written in python
   Static analysis of binaries.
   https://github.com/bdcht/amoco
 
+* pythran
+
+  http://pythran.readthedocs.io/en/latest/
+
+
 Other C-related tools written in python
 ---------------------------------------
 

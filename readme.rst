@@ -73,6 +73,8 @@ Documentation can be found here:
 |travis|_
 |codacygrade|_
 |codacycoverage|_
+|downloads|_
+|conda|_
 
 .. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
 .. _codecov: https://codecov.io/bb/windel/ppci/branch/default
@@ -95,3 +97,10 @@ Documentation can be found here:
 
 .. |codacycoverage| image:: https://api.codacy.com/project/badge/Coverage/a178be14a54243be81c27172031dc82c
 .. _codacycoverage: https://www.codacy.com/app/windel-bouwman/ppci-mirror
+
+
+.. |downloads| image:: https://anaconda.org/conda-forge/ppci/badges/downloads.svg
+.. _downloads: https://anaconda.org/conda-forge/ppci
+
+.. |conda| image:: https://anaconda.org/conda-forge/ppci/badges/version.svg
+.. _conda: https://anaconda.org/conda-forge/ppci

@@ -201,7 +201,7 @@ class regregimm3_base(ThumbInstruction):
         return tokens[0].encode()
 
 
-class Add2(regregimm3_base):
+class AddImm(regregimm3_base):
     """ add Rd, Rn, imm3 """
     syntax = Syntax([
         'add', ' ', regregimm3_base.rd, ',', ' ', regregimm3_base.rn, ',',
@@ -209,7 +209,7 @@ class Add2(regregimm3_base):
     opcode = 0b0001110
 
 
-class Sub2(regregimm3_base):
+class SubImm(regregimm3_base):
     """ sub Rd, Rn, imm3 """
     syntax = Syntax([
         'sub', ' ', regregimm3_base.rd, ',', ' ', regregimm3_base.rn, ',',
@@ -410,6 +410,19 @@ class Bl(LongThumbInstruction):
         return [BlImm11Relocation(self.target)]
 
 
+class Blx(ThumbInstruction):
+    """ Branch with link with target in a register """
+    rm = Operand('rm', ArmRegister, read=True)
+    syntax = Syntax(['blx', ' ', rm])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][7:16] = 0b010001111
+        tokens[0][3:7] = self.rm.num
+        tokens[0][0:3] = 0
+        return tokens.encode()
+
+
 class cond_base_ins(ThumbInstruction):
     def encode(self):
         imm8 = 0
@@ -577,13 +590,6 @@ class SubSp(addspsp_base):
 #
 ###############
 
-@thumb_isa.pattern('stm', 'STRI32(mem, reg)', size=2)
-@thumb_isa.pattern('stm', 'STRU32(mem, reg)', size=2)
-def pattern_str32(context, tree, c0, c1):
-    rg, offset = c0
-    context.emit(Str2(c1, rg, offset))
-
-
 @thumb_isa.pattern('stm', 'JMP', size=2)
 def pattern_jmp(context, tree):
     label = tree.value
@@ -649,7 +655,7 @@ def pattern_fprel32(context, tree):
     c1 = tree.value.offset
     if c1 >= 0:
         if c1 < 8:
-            context.emit(Add2(d, R7, c1))
+            context.emit(AddImm(d, R7, c1))
         elif c1 < 256:
             d2 = context.new_reg(LowArmRegister)
             context.emit(Mov3(d2, c1))
@@ -662,7 +668,7 @@ def pattern_fprel32(context, tree):
     else:
         c1 = -c1
         if c1 < 8:
-            context.emit(Sub2(d, R7, c1))
+            context.emit(SubImm(d, R7, c1))
         elif c1 < 256:
             d2 = context.new_reg(LowArmRegister)
             context.emit(Mov3(d2, c1))
@@ -759,6 +765,13 @@ def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, rg, offset))
 
 
+@thumb_isa.pattern('stm', 'STRI32(mem, reg)', size=2)
+@thumb_isa.pattern('stm', 'STRU32(mem, reg)', size=2)
+def pattern_str32(context, tree, c0, c1):
+    rg, offset = c0
+    context.emit(Str2(c1, rg, offset))
+
+
 @thumb_isa.pattern('reg', 'LDRI8(mem)', size=2)
 @thumb_isa.pattern('reg', 'LDRU8(mem)', size=2)
 def pattern_ldr8(context, tree, c0):
@@ -788,11 +801,11 @@ def pattern_sub32(context, tree, c0, c1):
 
 @thumb_isa.pattern(
     'reg', 'SUBI32(reg,CONSTI32)', size=2,
-    condition=lambda x: x.children[1].value in range(8))
+    condition=lambda x: x[1].value in range(8))
 def pattern_sub32_imm3(context, tree, c0):
     d = context.new_reg(LowArmRegister)
-    c1 = tree.children[1].value
-    context.emit(Sub2(d, c0, c1))
+    c1 = tree[1].value
+    context.emit(SubImm(d, c0, c1))
     return d
 
 

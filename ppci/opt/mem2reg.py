@@ -1,7 +1,7 @@
-"""
-    This file implements memory to register promotion. When a memory location
-    is only used by store and load, the stored value can also be stored
-    into a register, to improve performance.
+""" This file implements memory to register promotion.
+
+When a memory location is only used by store and load, the stored value can
+also be stored into a register, to improve performance.
 """
 
 from .transform import FunctionPass
@@ -9,10 +9,10 @@ from ..ir import Alloc, Load, Store, Phi, Undefined
 from ..domtree import CfgInfo
 
 
-def is_alloc_promotable(alloc_inst):
+def is_alloc_promotable(alloc_inst: Alloc):
     """ Check if alloc value is only used by load and store operations. """
-    assert type(alloc_inst) is Alloc
-    if len(alloc_inst.used_by) == 0:
+    assert isinstance(alloc_inst, Alloc)
+    if not alloc_inst.used_by:
         return False
 
     # Check if alloc is only used by load and store instructions:
@@ -35,7 +35,7 @@ def is_alloc_promotable(alloc_inst):
     load_types = [load.ty for load in loads]
     store_types = [store.value.ty for store in stores]
     all_types = load_types + store_types
-    assert len(all_types) > 0
+    assert all_types
     if not all(all_types[0] is ty for ty in all_types):
         return False
 
@@ -89,39 +89,51 @@ class Mem2RegPromotor(FunctionPass):
         """
         stack = [initial_value]
 
-        def search(block):
+        def search(tree_node):
+            # Get the cfg node and block from the dominator tree node
+            cfg_node = tree_node.node
+            if not cfg_info.has_block(cfg_node):
+                return
+
+            block = cfg_info.get_block(cfg_node)
+
             # Crawl down block:
             defs = 0
             for instruction in block:
                 if instruction in phis:
                     stack.append(instruction)
                     defs += 1
+
                 if instruction in stores:
                     stack.append(instruction.value)
                     defs += 1
+
                 if instruction in loads:
                     # Replace all uses of a with cur_V
                     instruction.replace_by(stack[-1])
-                    aloc = instruction.address
-                    assert isinstance(aloc, Alloc)
+                    alloc = instruction.address
+                    assert isinstance(alloc, Alloc)
                     # self.debug_db.map(aloc, stack[-1])
 
             # At the end of the block
             # For all successors with phi functions, insert the proper
             # variable:
-            for y in cfg_info.succ[block]:
-                for phi in (p for p in phis if p.block == y):
+            for successor_node in cfg_info.cfg.successors(cfg_node):
+                if not cfg_info.has_block(successor_node):
+                    continue
+                successor_block = cfg_info.get_block(successor_node)
+                for phi in (p for p in phis if p.block == successor_block):
                     phi.set_incoming(block, stack[-1])
 
             # Recurse into children:
-            for y in cfg_info.children(block):
-                search(y)
+            for child_tree_node in tree_node.children:
+                search(child_tree_node)
 
             # Cleanup stack:
             for _ in range(defs):
                 stack.pop(-1)
 
-        search(cfg_info.function.entry)
+        search(cfg_info.cfg.root_tree)
 
     def promote(self, alloc: Alloc, cfg_info):
         """ Promote a single alloc instruction.
@@ -131,14 +143,15 @@ class Mem2RegPromotor(FunctionPass):
         loads = [i for i in alloc.used_by if isinstance(i, Load)]
         stores = [i for i in alloc.used_by if isinstance(i, Store)]
 
-        self.logger.debug('Promoting alloc {} used by {} load and {} stores'.
-                          format(alloc, len(loads), len(stores)))
+        self.logger.debug(
+            'Promoting alloc %s used by %s load and %s stores',
+            alloc, len(loads), len(stores))
 
         # Determine the type of the phi node:
         load_types = [load.ty for load in loads]
         store_types = [store.value.ty for store in stores]
         all_types = load_types + store_types
-        assert len(all_types) > 0
+        assert all_types
         phi_ty = all_types[0]
 
         # If loads are found, we need phi nodes:
@@ -151,13 +164,14 @@ class Mem2RegPromotor(FunctionPass):
 
             # Create undefined value at start:
             initial_value = Undefined('und_{}'.format(name), phi_ty)
-            cfg_info.function.entry.insert_instruction(initial_value)
+            alloc.function.entry.insert_instruction(initial_value)
 
             self.rename(initial_value, phis, loads, stores, cfg_info)
 
             # Check that all phis have the proper number of inputs.
             for phi in phis:
-                assert len(phi.inputs) == len(cfg_info.pred[phi.block])
+                assert len(phi.inputs) == len(
+                    cfg_info.cfg.predecessors(cfg_info.get_node(phi.block)))
 
             # Remove unused instructions:
             new_instructions = [initial_value] + phis
@@ -184,9 +198,9 @@ class Mem2RegPromotor(FunctionPass):
         assert not alloc.is_used
         alloc.remove_from_block()
 
-    def on_function(self, f):
-        cfg_info = CfgInfo(f)
-        for block in f.blocks:
+    def on_function(self, function):
+        cfg_info = CfgInfo(function)
+        for block in function.blocks:
             allocs = [i for i in block if isinstance(i, Alloc)]
             for alloc in allocs:
                 if is_alloc_promotable(alloc):

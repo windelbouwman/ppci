@@ -183,13 +183,19 @@ class CSemantics:
                     il, initializer.initializer.location)
                 # result = self.init_array(typ, initializer)
             else:
-                self.error('Cannot initialize array with non init list')
+                self.error(
+                    'Cannot initialize array with non init list',
+                    initializer.initializer.location)
         elif isinstance(typ, types.StructType):
             if not isinstance(initializer, InitEnv):
-                self.error('Cannot initialize struct with non init list')
+                self.error(
+                    'Cannot initialize struct with non init list',
+                    initializer.initializer.location)
 
             if not typ.complete:
-                self.error('Struct not fully defined!')
+                self.error(
+                    'Struct not fully defined!',
+                    initializer.initializer.location)
 
             # Grab all fields from the initializer list:
             il = []
@@ -207,10 +213,14 @@ class CSemantics:
                 il, initializer.initializer.location)
         elif isinstance(typ, types.UnionType):
             if not isinstance(initializer, InitEnv):
-                self.error('Cannot initialize union with non init list')
+                self.error(
+                    'Cannot initialize union with non init list',
+                    initializer.initializer.location)
 
             if not typ.complete:
-                self.error('Union not fully defined!')
+                self.error(
+                    'Union not fully defined!',
+                    initializer.initializer.location)
 
             il = []
             # Initialize the first element:
@@ -245,6 +255,7 @@ class CSemantics:
 
     def on_function_declaration(
             self, storage_class, typ, name, modifiers, location):
+        """ Handle function declaration """
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.FunctionDeclaration(
             storage_class, typ, name, location)

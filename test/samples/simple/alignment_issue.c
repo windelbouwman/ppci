@@ -21,7 +21,7 @@ void f()
 {
   STR s;
   s.c = 5;
-  s.i = 0x12345678;
+  s.i = 0x1234;
 }
 
 void main_main()

@@ -44,7 +44,7 @@ debug_db = debuginfo.DebugDb()
 # Create X86Code instance, specifying all steps
 native1 = PythonProgram(py3).to_wasm().to_ir().to_x86(win=True)
 
-native_arm = native1.previous().to_arm()
+# native_arm = native1.previous().to_arm()
 
 # Compile Python to X86 directly via ir - does not work atm
 # native2 = PythonProgram(py3).to_ir().to_x86(win=True)

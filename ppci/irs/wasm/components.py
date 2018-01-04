@@ -155,16 +155,16 @@ class FileReader:
         blocks = 1
         i = self.read_instruction()
         # keep track of if/block/loop etc:
-        if i.type == 'end':
+        if i.opcode == 'end':
             blocks -= 1
-        elif i.type in ('if', 'block', 'loop'):
+        elif i.opcode in ('if', 'block', 'loop'):
             blocks += 1
         expr.append(i)
         while blocks:
             i = self.read_instruction()
-            if i.type == 'end':
+            if i.opcode == 'end':
                 blocks -= 1
-            elif i.type in ('if', 'block', 'loop'):
+            elif i.opcode in ('if', 'block', 'loop'):
                 blocks += 1
             expr.append(i)
         return expr
@@ -207,9 +207,9 @@ def eval_expr(expr):
     """ Evaluate a sequence of instructions """
     stack = []
     for i in expr:
-        consumed_types, produced_types, action = EVAL[i.type]
+        consumed_types, produced_types, action = EVAL[i.opcode]
         if action is None:
-            raise RuntimeError('Cannot evaluate {}'.format(i.type))
+            raise RuntimeError('Cannot evaluate {}'.format(i.opcode))
         # Gather stack values:
         values = []
         for t in consumed_types:
@@ -314,6 +314,7 @@ class Module(WASMComponent):
     __slots__ = ['sections']
 
     def __init__(self, sections):
+        super().__init__()
         self.sections = []
         section_ids = set()
         for section in sections:
@@ -412,8 +413,8 @@ class Section(WASMComponent):
         f.write(packvu7(id))
         f.write(packvu32(len(payload)))
         if id == 0:  # custom section for debugging, future, or extension
-            type = self.__class__.__name__.lower().split('section')[0]
-            f.write(packstr(type))
+            type_str = self.__class__.__name__.lower().split('section')[0]
+            f.write(packstr(type_str))
         f.write(payload)
 
     def get_binary_section(self, f):
@@ -462,6 +463,7 @@ class TypeSection(Section):
     id = 1
 
     def __init__(self, functionsigs):
+        super().__init__()
         for i, functionsig in enumerate(functionsigs):
             assert isinstance(functionsig, FunctionSig)
             # todo: remove this?
@@ -490,6 +492,7 @@ class ImportSection(Section):
     id = 2
 
     def __init__(self, imports):
+        super().__init__()
         for imp in imports:
             assert isinstance(imp, Import)
         self.imports = list(imports)
@@ -516,6 +519,7 @@ class FunctionSection(Section):
     id = 3
 
     def __init__(self, indices):
+        super().__init__()
         for i in indices:
             assert isinstance(i, int)
         self.indices = indices  # indices in the Type section
@@ -544,6 +548,7 @@ class TableSection(Section):
     id = 4
 
     def __init__(self, tables):
+        super().__init__()
         assert len(tables) <= 1   # in MVP
         self.tables = tables
 
@@ -566,6 +571,7 @@ class MemorySection(Section):
     id = 5
 
     def __init__(self, entries):
+        super().__init__()
         assert len(entries) == 1   # in MVP
         self.entries = entries
 
@@ -613,6 +619,7 @@ class GlobalSection(Section):
     id = 6
 
     def __init__(self, globalz):
+        super().__init__()
         assert all(isinstance(g, Global) for g in globalz)
         self.globalz = globalz
 
@@ -635,6 +642,7 @@ class ExportSection(Section):
     id = 7
 
     def __init__(self, exports):
+        super().__init__()
         for export in exports:
             if not isinstance(export, Export):
                 raise TypeError('exports must be a list of Export objects')
@@ -662,6 +670,7 @@ class StartSection(Section):
     id = 8
 
     def __init__(self, index):
+        super().__init__()
         self.index = index
 
     def to_text(self):
@@ -683,6 +692,7 @@ class ElementSection(Section):
     id = 9
 
     def __init__(self, elements):
+        super().__init__()
         self.elements = elements
 
     def __iter__(self):
@@ -705,6 +715,7 @@ class CodeSection(Section):
     id = 10
 
     def __init__(self, functiondefs):
+        super().__init__()
         if not all(isinstance(f, FunctionDef) for f in functiondefs):
             raise TypeError('function defs must be all be FunctionDef')
         self.functiondefs = functiondefs
@@ -731,6 +742,7 @@ class DataSection(Section):
     id = 11
 
     def __init__(self, chunks):
+        super().__init__()
         for chunk in chunks:
             assert len(chunk) == 3  # index, offset, bytes
             assert chunk[0] == 0  # always 0 in MVP
@@ -782,25 +794,26 @@ class Import(WASMComponent):
     and a string type for table, memory and global.
     """
 
-    __slots__ = ['modname', 'fieldname', 'kind', 'type']
+    __slots__ = ['modname', 'fieldname', 'kind', 'type_id']
 
     def __init__(self, modname: str, fieldname: str, kind, type_id: int):
+        super().__init__()
         self.modname = modname
         self.fieldname = fieldname
         self.kind = kind  # function, table, mem or global
         # the signature-index for funcs, the type for table, memory or global
-        self.type = type_id
+        self.type_id = type_id
 
     def to_text(self):
         return 'Import(%r, %r, %r, %r)' % (
-            self.modname, self.fieldname, self.kind, self.type)
+            self.modname, self.fieldname, self.kind, self.type_id)
 
     def to_file(self, f):
         f.write(packstr(self.modname))
         f.write(packstr(self.fieldname))
         if self.kind == 'func':
             f.write(b'\x00')
-            f.write(packvu32(self.type))
+            f.write(packvu32(self.type_id))
         else:
             raise RuntimeError('Can only import functions for now')
 
@@ -833,6 +846,7 @@ class Export(WASMComponent):
     TYPE2ID = {t[0]: t[1] for t in TYPES}
 
     def __init__(self, name, kind, index):
+        super().__init__()
         self.name = name
         if kind not in self.TYPE2ID:
             valid_types = ', '.join(self.TYPE2ID)
@@ -863,6 +877,7 @@ class Export(WASMComponent):
 class Global(WASMComponent):
     """ Global variable """
     def __init__(self, typ, mutability, value):
+        super().__init__()
         self.typ = typ
         self.mutability = mutability
         self.value = value
@@ -952,6 +967,7 @@ class FunctionSig(WASMComponent):
     __slots__ = ['params', 'returns', 'index']
 
     def __init__(self, params=(), returns=()):
+        super().__init__()
         self.params = params
         self.returns = returns
         self.index = None
@@ -988,6 +1004,7 @@ class FunctionDef(WASMComponent):
     __slots__ = ['locals', 'instructions']
 
     def __init__(self, locals, instructions):
+        super().__init__()
         for loc in locals:
             assert isinstance(loc, str)  # valuetype
         self.locals = locals
@@ -1040,54 +1057,56 @@ class FunctionDef(WASMComponent):
         reader2 = FileReader(BytesIO(body))
         num_local_pairs = reader2.read_u32()
         localz = []
-        for tgi in range(num_local_pairs):
+        for _ in range(num_local_pairs):
             c = reader2.read_u32()
             t = reader2.read_type()
             localz.extend([t] * c)
         instructions = reader2.read_expression()
         remaining = reader2.f.read()
         assert remaining == bytes(), str(remaining)
-        assert instructions[-1].type == 'end'
+        assert instructions[-1].opcode == 'end'
         return cls(localz, instructions[:-1])
 
 
 class Instruction(WASMComponent):
     """ Class ro represent an instruction. """
 
-    __slots__ = ['type', 'instructions', 'args']
+    __slots__ = ['opcode', 'args']
 
-    def __init__(self, type, args=()):
-        self.type = type.lower()
-        if self.type not in OPCODES:
-            raise TypeError('Unknown instruction %r' % self.type)
+    def __init__(self, opcode, args=()):
+        super().__init__()
+        self.opcode = opcode.lower()
+        if self.opcode not in OPCODES:
+            raise TypeError('Unknown instruction %r' % self.opcode)
         self.args = args
-        operands = OPERANDS[self.type]
+        operands = OPERANDS[self.opcode]
         if len(self.args) != len(operands):
-            raise TypeError('Wrong amount of operands for %r' % self.type)
+            raise TypeError('Wrong amount of operands for %r' % self.opcode)
+
         for a, o in zip(args, operands):
             pass
 
     def __repr__(self):
-        return '<Instruction %s>' % self.type
+        return '<Instruction %s>' % self.opcode
 
     def to_text(self):
         subtext = self._get_sub_text(self.args)
         if '\n' in subtext:
-            return 'Instruction(' + repr(self.type) + ',\n' + subtext + '\n)'
+            return 'Instruction(' + repr(self.opcode) + ',\n' + subtext + '\n)'
         else:
-            return 'Instruction(' + repr(self.type) + ', ' + subtext + ')'
+            return 'Instruction(' + repr(self.opcode) + ', ' + subtext + ')'
 
     def to_file(self, f):
         """ Spit out instruction to file """
 
         # Our instruction
-        f.write(bytes([OPCODES[self.type]]))
+        f.write(bytes([OPCODES[self.opcode]]))
 
         # Prep args
-        if self.type == 'call':
+        if self.opcode == 'call':
             assert isinstance(self.args[0], int)
 
-        operands = OPERANDS[self.type]
+        operands = OPERANDS[self.opcode]
         assert len(operands) == len(self.args)
 
         # Data comes after
@@ -1107,7 +1126,7 @@ class Instruction(WASMComponent):
             elif o == 'byte':
                 f.write(bytes([arg]))
             elif o == 'br_table':
-                assert self.type == 'br_table'
+                assert self.opcode == 'br_table'
                 f.write(packvu32(len(arg) - 1))
                 for x in arg:
                     f.write(packvu32(x))
@@ -1122,28 +1141,28 @@ class Instruction(WASMComponent):
         operands = OPERANDS[typ]
         # print(opcode, type, operands)
         args = []
-        for o in operands:
-            if o in ['i32', 'i64']:
+        for operand in operands:
+            if operand in ['i32', 'i64']:
                 arg = reader.read_int()
-            elif o == 'u32':
+            elif operand == 'u32':
                 arg = reader.read_u32()
-            elif o == 'type':
+            elif operand == 'type':
                 arg = reader.read_type()
-            elif o == 'byte':
+            elif operand == 'byte':
                 arg = reader.read_byte()
-            elif o == 'br_table':
+            elif operand == 'br_table':
                 count = reader.read_u32()
                 vec = []
                 for _ in range(count + 1):
                     idx = reader.read_u32()
                     vec.append(idx)
                 arg = vec
-            elif o == 'f32':
+            elif operand == 'f32':
                 arg = reader.read_f32()
-            elif o == 'f64':
+            elif operand == 'f64':
                 arg = reader.read_f64()
             else:  # pragma: no cover
-                raise NotImplementedError(o)
+                raise NotImplementedError(operand)
             args.append(arg)
         instruction = cls(typ, args)
         return instruction

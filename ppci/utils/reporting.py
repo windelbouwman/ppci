@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 import io
 from .. import ir
+from .. import __version__
 from ..common import CompilerError
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
@@ -338,7 +339,10 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def header(self):
         self.print(HTML_HEADER)
-        self.message(datetime.today().ctime())
+        self.message(
+            'Generated on {} by ppci version {}'.format(
+                datetime.today().ctime(),
+                __version__))
 
     def footer(self):
         self.flush_log()

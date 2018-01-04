@@ -149,6 +149,7 @@ class IBase(RiscvInstruction):
 
 
 def make_i(mnemonic, func):
+    """ Factory function for immediate value instructions """
     rd = Operand('rd', RiscvRegister, write=True)
     rs1 = Operand('rs1', RiscvRegister, read=True)
     imm = Operand('imm', int)
@@ -394,14 +395,15 @@ class Li(PseudoRiscvInstruction):
     syntax = Syntax(['li', ' ', rd, ',', ' ', imm])
 
     def render(self):
-        if (inrange(self.imm, 12)) is False:
+        # If the immediate value fits into 12 bits, do so!
+        if inrange(self.imm, 12):
+            yield Addi(self.rd, R0, self.imm)
+        else:
             if (self.imm & 0x800) != 0:
                 self.imm += 0x1000
             yield Lui(self.rd, self.imm >> 12)
-            self.imm = wrap_negative(self.imm, 12)
-            yield Addi(self.rd, self.rd, self.imm)
-        else:
-            yield Addi(self.rd, R0, self.imm)
+            lower_bits = wrap_negative(self.imm & 0xfff, 12)
+            yield Addi(self.rd, self.rd, lower_bits)
 
 
 class BranchBase(RiscvInstruction):
@@ -456,10 +458,7 @@ def reg_list_to_mask(reg_list):
 
 class StrBase(RiscvInstruction):
     def encode(self):
-        if self.offset < 0:
-            imml5 = wrap_negative(-((-self.offset) & 0x1f), 5)
-        else:
-            imml5 = self.offset & 0x1f
+        imml5 = wrap_negative(self.offset & 0x1f, 5)
         immh7 = wrap_negative(self.offset >> 5, 7)
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0100011
@@ -728,10 +727,10 @@ def pattern_add8(context, tree, c0, c1):
 
 @isa.pattern(
     'reg', 'ADDI32(reg, CONSTI32)', size=2,
-    condition=lambda t: t.children[1].value < 2048)
+    condition=lambda t: t[1].value < 2048)
 @isa.pattern(
     'reg', 'ADDU32(reg, CONSTU32)', size=2,
-    condition=lambda t: t.children[1].value < 2048)
+    condition=lambda t: t[1].value < 2048)
 def pattern_add_i32_reg_const(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value

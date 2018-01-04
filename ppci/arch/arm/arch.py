@@ -177,7 +177,12 @@ class ArmArch(Architecture):
 
         clobbers = [R0, R1, R2, R3, R4]
         if self.has_option('thumb'):
-            yield thumb_instructions.Bl(label, clobbers=clobbers)
+            if isinstance(label, ArmRegister):
+                # Ensure thumb mode!
+                yield thumb_instructions.AddImm(label, label, 1)
+                yield thumb_instructions.Blx(label, clobbers=clobbers)
+            else:
+                yield thumb_instructions.Bl(label, clobbers=clobbers)
         else:
             if isinstance(label, ArmRegister):
                 yield arm_instructions.Blx(label, clobbers=clobbers)

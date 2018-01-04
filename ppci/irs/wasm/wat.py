@@ -49,7 +49,7 @@ class WatGenerator:
                 for idx, imp in enumerate(section.imports):
                     self.print(
                         '  (import "{}" "{}" (func (;{};) (type {})))'.format(
-                            imp.modname, imp.fieldname, idx, imp.type),
+                            imp.modname, imp.fieldname, idx, imp.type_id),
                         newline=True)
                 current_idx = idx
             elif section.id == TableSection.id:
@@ -158,8 +158,8 @@ class WatGenerator:
 
     def write_instruction(self, instruction):
         """ Print a single instruction """
-        if instruction.type in MEM_OPS:
-            text = str(instruction.type)
+        if instruction.opcode in MEM_OPS:
+            text = str(instruction.opcode)
             alignment, offset = instruction.args
             if offset:
                 text += ' offset={}'.format(offset)
@@ -190,40 +190,40 @@ class WatGenerator:
                 'i32.load16_u': 1,
                 'i32.load16_s': 1,
             }
-            default_alignment = natural_alignments[instruction.type]
+            default_alignment = natural_alignments[instruction.opcode]
             if alignment != default_alignment:
                 text += ' align={}'.format(1 << alignment)
-        elif instruction.type in ['block', 'loop']:
+        elif instruction.opcode in ['block', 'loop']:
             self.block_nr += 1
             text = '{}  ;; label = @{}'.format(
-                instruction.type,
+                instruction.opcode,
                 self.block_nr)
-        elif instruction.type in ['br', 'br_if']:
+        elif instruction.opcode in ['br', 'br_if']:
             text = '{} {} (;@{};)'.format(
-                instruction.type, instruction.args[0],
+                instruction.opcode, instruction.args[0],
                 self.block_nr - instruction.args[0])
-        elif instruction.type == 'br_table':
+        elif instruction.opcode == 'br_table':
             targets = ' '.join(
                 '{} (;@{};)'.format(a, self.block_nr - a)
                 for a in instruction.args[0])
             text = 'br_table {}'.format(targets)
-        elif instruction.type in ['call_indirect']:
-            text = '{} {}'.format(instruction.type, instruction.args[0])
-        elif instruction.type in ['current_memory', 'grow_memory']:
-            text = str(instruction.type)
-        elif instruction.type in ['f64.const', 'f32.const']:
+        elif instruction.opcode in ['call_indirect']:
+            text = '{} {}'.format(instruction.opcode, instruction.args[0])
+        elif instruction.opcode in ['current_memory', 'grow_memory']:
+            text = str(instruction.opcode)
+        elif instruction.opcode in ['f64.const', 'f32.const']:
             text = '{} {} (;={};)'.format(
-                instruction.type,
+                instruction.opcode,
                 float.hex(instruction.args[0]),
                 instruction.args[0])
         else:
             if instruction.args:
                 args = ' '.join(map(str, instruction.args))
-                text = '{} {}'.format(instruction.type, args)
+                text = '{} {}'.format(instruction.opcode, args)
             else:
-                text = str(instruction.type)
+                text = str(instruction.opcode)
 
-        if instruction.type in ['end']:
+        if instruction.opcode in ['end']:
             self.indentation -= 1
             self.block_nr -= 1
 
@@ -231,7 +231,7 @@ class WatGenerator:
         indent = '  ' * self.indentation
         self.print('{}{}'.format(indent, text), newline=True)
 
-        if instruction.type in ['block', 'loop']:
+        if instruction.opcode in ['block', 'loop']:
             self.indentation += 1
 
     def print(self, *args, newline=False):

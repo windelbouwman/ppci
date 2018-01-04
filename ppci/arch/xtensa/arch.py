@@ -1,12 +1,12 @@
 """ Xtensa architecture """
 
-import io
 from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
+from ..runtime import get_runtime_files
 from .registers import register_classes
 from . import registers
 from . import instructions
@@ -40,8 +40,13 @@ class XtensaArch(Architecture):
         return instructions.Mov(dst, src, ismove=True)
 
     def get_runtime(self):
+        """ Retrieve the runtime for this target """
         from ...api import c3c
-        obj = c3c([io.StringIO(RT_C3_SRC)], [], self)
+        c3_sources = get_runtime_files([
+            'divsi3',
+            'mulsi3',
+        ])
+        obj = c3c(c3_sources, [], self)
         return obj
 
     def determine_arg_locations(self, arg_types):
@@ -140,7 +145,10 @@ class XtensaArch(Architecture):
 
         yield RegisterUseDef(uses=arg_regs)
 
-        yield instructions.Call0(label, clobbers=self.caller_save)
+        if isinstance(label, registers.AddressRegister):
+            yield instructions.Callx0(label, clobbers=self.caller_save)
+        else:
+            yield instructions.Call0(label, clobbers=self.caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
@@ -176,47 +184,3 @@ def round_up(s):
         return s + (4 - s % 4)
     else:
         return s
-
-
-# TODO: find a common place for this:
-RT_C3_SRC = """
-    module swmuldiv;
-    function int div(int num, int den)
-    {
-      var int res = 0;
-      var int current = 1;
-
-      while (den < num)
-      {
-        den = den << 1;
-        current = current << 1;
-      }
-
-      while (current != 0)
-      {
-        if (num >= den)
-        {
-          num -= den;
-          res = res | current;
-        }
-        den = den >> 1;
-        current = current >> 1;
-      }
-      return res;
-    }
-
-    function int mul(int a, int b)
-    {
-      var int res = 0;
-      while (b > 0)
-      {
-        if ((b & 1) == 1)
-        {
-          res += a;
-        }
-        a = a << 1;
-        b = b >> 1;
-      }
-      return res;
-    }
-"""

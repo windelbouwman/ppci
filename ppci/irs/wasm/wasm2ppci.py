@@ -53,7 +53,7 @@ class WasmToIrCompiler:
                 for im in section.imports:
                     name = im.fieldname
                     if im.kind == 'func':
-                        sig = self.wasm_types[im.type]
+                        sig = self.wasm_types[im.type_id]
                         self.function_names[len(self.function_space)] = name
                         self.function_space.append(sig)
                     else:
@@ -304,7 +304,7 @@ class WasmToIrCompiler:
 
     def generate_instruction(self, instruction):
         """ Generate ir-code for a single wasm instruction """
-        inst = instruction.type
+        inst = instruction.opcode
         if inst in self.BINOPS:
             itype, opname = inst.split('.')
             op_map = {

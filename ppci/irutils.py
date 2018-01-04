@@ -406,7 +406,7 @@ class Builder:
         return instruction
 
 
-def verify_module(module):
+def verify_module(module: ir.Module):
     """ Check if the module is properly constructed """
     Verifier().verify(module)
 
@@ -555,7 +555,9 @@ class Verifier:
             else:
                 return self.block_dominates(one.block, another.block)
 
-    def block_dominates(self, one, another):
+    def block_dominates(self, one: ir.Block, another: ir.Block):
         """ Check if this block dominates other block """
         assert one in one.function
-        return self.cfg_info.strictly_dominates(one, another)
+        one_node = self.cfg_info.get_node(one)
+        another_node = self.cfg_info.get_node(another)
+        return self.cfg_info.cfg.strictly_dominates(one_node, another_node)
