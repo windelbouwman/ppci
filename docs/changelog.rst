@@ -11,6 +11,7 @@ Release 0.5.5 (Upcoming)
 ------------------------
 
 * Addition of WASM support (by Almar)
+* Added compilation of subset of python
 
 Release 0.5.4 (Aug 26, 2017)
 ----------------------------

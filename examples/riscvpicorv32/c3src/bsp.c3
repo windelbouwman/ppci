@@ -18,6 +18,8 @@ public function void putc(byte c)
     }
     // Transmit char:
     UART0->DR = c;
+
+    putcmon(c);
 }
 
 public function byte getc()

@@ -26,11 +26,10 @@ with open("report.html", 'w') as f:
     img = merge_memories(cimg, dimg, 'img')
     imgdata = img.data
 
-    f = open("firmware.hex", "w")
+with open("firmware.hex", "w") as f:
     for i in range(size):
         if i < len(imgdata) // 4:
             w = imgdata[4 * i: 4 * i + 4]
             print("%02x%02x%02x%02x" % (w[3], w[2], w[1], w[0]), file=f)
         else:
             print("00000000", file=f)
-    f.close()

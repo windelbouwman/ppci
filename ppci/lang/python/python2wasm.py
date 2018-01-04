@@ -44,6 +44,7 @@ def python_to_wasm(code):
 class PythonToWasmCompiler:
     """ Transpiler from python wasm """
     def __init__(self):
+        self._filename = None
         self.instructions = []
         self.names = {}
         self._name_counter = 0
@@ -148,7 +149,7 @@ class PythonToWasmCompiler:
             elif isinstance(op, ast.LtE):
                 self.instructions.append(('f64.le',))
             else:
-                self.syntax_erorr(node, 'Unsupported operand: %s' % op)
+                self.syntax_error(node, 'Unsupported operand: %s' % op)
 
         elif isinstance(node, ast.If):
             self._compile_expr(node.test, True)
@@ -217,14 +218,13 @@ class PythonToWasmCompiler:
             for subnode in node.body:
                 self._compile_expr(subnode, False)
 
-            for i in [
-                    ('get_local', target),
-                    ('get_local', step_stub),
-                    ('f64.add',),
-                    ('set_local', target),  # next iter
-                    ('br', 0),  # loop
-                    ('end',), ('end',),  # end of loop and outer block
-                    ]:
+            for i in [('get_local', target),
+                      ('get_local', step_stub),
+                      ('f64.add',),
+                      ('set_local', target),  # next iter
+                      ('br', 0),  # loop
+                      ('end',), ('end',),  # end of loop and outer block
+                      ]:
                 self.instructions.append(i)
             self.pop_block('for')
 

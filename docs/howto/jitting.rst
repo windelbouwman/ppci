@@ -88,7 +88,7 @@ Follow-up
 
 Instead of translating our code to C, we can as well compile
 python directly, by using type hints and a restricted subset of
-the python language. For this we can use the p2p module:
+the python language. For this we can use the :mod:`ppci.lang.python` module:
 
 
 .. doctest:: jitting
@@ -106,6 +106,26 @@ By doing this, we do not need to reimplement the function in C,
 but only need to add some type hints to make it work. This might
 be more preferable to C. Please note that integer arithmatic is
 unlimited on python, but not when using compiled code.
+
+To easily load you code as native code, use the :func:`ppci.lang.python.jit`
+function:
+
+.. testcode:: jitting
+
+    from ppci.lang.python import jit
+
+    @jit
+    def y(a: int, b: int) -> int:
+        return a + b + 13
+
+Now the function can be called as before, except that now native code is
+invoked:
+
+.. doctest:: jitting
+
+   >>> y(2, 3)
+   18
+
 
 Calling python functions
 ------------------------
