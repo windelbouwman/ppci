@@ -446,7 +446,7 @@ Ble = make_branch('bge', 0b101, True)
 Bltu = make_branch('bltu', 0b110, False)
 Bgtu = make_branch('bgtu', 0b110, True)
 Bgeu = make_branch('bgeu', 0b111, False)
-Bleu = make_branch('bleu', 0b111, False)
+Bleu = make_branch('bleu', 0b111, True)
 
 
 def reg_list_to_mask(reg_list):
