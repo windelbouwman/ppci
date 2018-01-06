@@ -44,7 +44,7 @@ class OutputStream(metaclass=abc.ABCMeta):
 class TextOutputStream(OutputStream):
     """ Output stream that writes instruction as text. """
     def __init__(self, printer=None, f=None, add_binary=False):
-        self.f = f
+        self.output_file = f
         self.add_binary = add_binary
         if printer:
             self.printer = printer
@@ -52,17 +52,21 @@ class TextOutputStream(OutputStream):
             self.printer = AsmPrinter()
 
     def do_emit(self, item):
+        """ Emit the given item """
         assert isinstance(item, Instruction), str(item) + str(type(item))
         txt = self.printer.print_instruction(item)
         if isinstance(item, Label):
-            print(txt, file=self.f)
+            if self.add_binary:
+                prefix = 12 * ' '
+            else:
+                prefix = ''
         else:
             if self.add_binary:
                 b = binascii.hexlify(item.encode()).decode('ascii')
-                prefix = '   {:16} '.format(b)
+                prefix = '{:16}  '.format(b)
             else:
-                prefix = '   '
-            print(prefix, txt, file=self.f)
+                prefix = '      '
+        print(prefix, txt, file=self.output_file)
 
 
 class BinaryOutputStream(OutputStream):

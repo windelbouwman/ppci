@@ -14,8 +14,6 @@ For a good list of linux system calls, refer:
 
 http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 
-.. autoclass:: ppci.arch.x86_64.X86_64Arch
-
 """
 
 

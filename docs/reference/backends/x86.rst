@@ -5,3 +5,4 @@ x86_64
 ------
 
 .. automodule:: ppci.arch.x86_64
+    :members:

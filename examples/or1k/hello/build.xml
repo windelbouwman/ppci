@@ -17,7 +17,7 @@
             objects="boot.oj;rest.oj" />
         <objcopy objectfile="hello.oj"
             imagename="flash"
-            format="bin"
+            format="uimage"
             output="hello.bin" />
     </target>
 </project>

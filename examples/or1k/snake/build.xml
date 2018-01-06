@@ -18,7 +18,7 @@
         <objcopy
             objectfile="snake.oj"
             imagename="flash"
-            format="bin"
+            format="uimage"
             output="snake.bin" />
     </target>
 

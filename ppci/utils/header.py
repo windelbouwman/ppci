@@ -8,12 +8,13 @@ class Header:
 
     Inherit this class to define a file header.
     """
+    _byte_order = '<'
     _fields = None
 
     def __init__(self):
         if self._fields is not None:
             # No padding bytes when using < or > endianness
-            fmt = '<' + ''.join(f[1] for f in self._fields)
+            fmt = self._byte_order + ''.join(f[1] for f in self._fields)
             self.s = struct.Struct(fmt)
 
     def write(self, f):
@@ -27,12 +28,16 @@ class Header:
     def serialize(self):
         values = []
         for f in self._fields:
-            name = f[0]
+            name, ty = f
             if name is None:
                 value = 0
             else:
                 value = getattr(self, name, 0)
-            assert isinstance(value, int)
+
+            if ty in 'IiHh' and not isinstance(value, int):
+                raise TypeError(
+                    'Field {} is set to {} which is not of type int'.format(
+                        name, value))
             values.append(value)
         return self.s.pack(*values)
 

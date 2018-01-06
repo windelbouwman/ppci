@@ -1,7 +1,4 @@
-
 """ Open risk architecture target.
-
-.. autoclass:: ppci.arch.or1k.Or1kArch
 
 """
 

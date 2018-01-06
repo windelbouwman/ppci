@@ -23,9 +23,19 @@ class Typ:
         return self.name
 
     @property
-    def is_integer(self):
+    def is_integer(self) -> bool:
         """ Test if this type is of integer type """
         return isinstance(self, IntegerTyp)
+
+    @property
+    def is_unsigned(self) -> bool:
+        """ Test if this type is of unsigned integer type """
+        return isinstance(self, UnsignedIntegerTyp)
+
+    @property
+    def is_signed(self) -> bool:
+        """ Test if this type is of signed integer type """
+        return isinstance(self, SignedIntegerTyp)
 
     def __repr__(self):
         return 'ir-typ {}'.format(str(self))
@@ -231,7 +241,7 @@ class ExternalProcedure(ExternalSubRoutine):
     """ External function """
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
-        return 'external {}({});'.format(self.name, args)
+        return 'external {}({})'.format(self.name, args)
 
 
 class ExternalFunction(ExternalSubRoutine):
@@ -242,7 +252,7 @@ class ExternalFunction(ExternalSubRoutine):
 
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
-        return 'external {} {}({});'.format(self.return_type, self.name, args)
+        return 'external {} {}({})'.format(self.return_type, self.name, args)
 
 
 class ExternalVariable(External):
@@ -251,7 +261,7 @@ class ExternalVariable(External):
         super().__init__(name)
 
     def __str__(self):
-        return 'External variable {}'.format(self.name)
+        return 'external variable {}'.format(self.name)
 
 
 class SubRoutine(GlobalValue):

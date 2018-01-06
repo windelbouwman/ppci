@@ -2,6 +2,7 @@
 
 import struct
 from ...common import CompilerError
+from ...arch.arch_info import Endianness
 from .types import BasicType
 from . import types, expressions, declarations
 
@@ -74,19 +75,26 @@ class CContext:
             2: 'h', 4: 'i', 8: 'q'
         }
 
-        self.ctypes_names = {
-            BasicType.CHAR: '<b',
-            BasicType.UCHAR: '<B',
-            BasicType.SHORT: '<h',
-            BasicType.USHORT: '<H',
-            BasicType.INT: '<' + int_map[int_size].lower(),
-            BasicType.UINT: '<' + int_map[int_size].upper(),
-            'ptr': '<' + int_map[ptr_size].upper(),
-            BasicType.LONGLONG: '<q',
-            BasicType.ULONGLONG: '<Q',
-            BasicType.FLOAT: '<f',
-            BasicType.DOUBLE: '<d',
+        if self.arch_info.endianness == Endianness.LITTLE:
+            byte_order = '<'
+        else:
+            byte_order = '>'
+
+        ctypes = {
+            BasicType.CHAR: 'b',
+            BasicType.UCHAR: 'B',
+            BasicType.SHORT: 'h',
+            BasicType.USHORT: 'H',
+            BasicType.INT: int_map[int_size].lower(),
+            BasicType.UINT: int_map[int_size].upper(),
+            'ptr': int_map[ptr_size].upper(),
+            BasicType.LONGLONG: 'q',
+            BasicType.ULONGLONG: 'Q',
+            BasicType.FLOAT: 'f',
+            BasicType.DOUBLE: 'd',
         }
+
+        self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
 
     def is_valid(self, type_specifiers):
         """ Check if the type specifiers refer to a valid basic type """

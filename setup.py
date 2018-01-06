@@ -34,6 +34,7 @@ setup(
             'ppci-hexutil = ppci.cli.hexutil:hexutil',
             'ppci-ld = ppci.cli.link:link',
             'ppci-llc = ppci.cli.llc:llc',
+            'ppci-mkuimage = ppci.cli.mkuimage:mkuimage',
             'ppci-objcopy = ppci.cli.objcopy:objcopy',
             'ppci-objdump = ppci.cli.objdump:objdump',
             'ppci-opt = ppci.cli.opt:opt',

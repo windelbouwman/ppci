@@ -76,6 +76,7 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def dump_instructions(self, instructions, arch):
+        """ Print instructions """
         raise NotImplementedError()
 
     def dump_compiler_error(self, compiler_error):
@@ -110,11 +111,12 @@ class TextWritingReporter(ReportGenerator):
     def close(self):
         self.dump_file.close()
 
-    def print(self, *args):
+    def print(self, *args, end='\n'):
         """ Convenience helper for printing to dumpfile """
-        print(*args, file=self.dump_file)
+        print(*args, end=end, file=self.dump_file)
 
     def dump_instructions(self, instructions, arch):
+        """ Print instructions """
         asm_printer = arch.asm_printer
         text_stream = TextOutputStream(
             asm_printer, f=self.dump_file,
@@ -447,34 +449,34 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print('<td>{}</td>'.format(str2(ins.used_registers)))
                 self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
                 self.print('<td>{}</td>'.format(str2(ins.clobbers)))
-                self.print('<td>')
+                self.print('<td>', end='')
                 if ins.jumps:
-                    self.print(str2(ins.jumps))
+                    self.print(str2(ins.jumps), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if ins.ismove:
-                    self.print('yes')
+                    self.print('yes', end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'gen'):
-                    self.print(str2(ins.gen))
+                    self.print(str2(ins.gen), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'kill'):
-                    self.print(str2(ins.kill))
+                    self.print(str2(ins.kill), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'live_in'):
-                    self.print(str2(ins.live_in))
+                    self.print(str2(ins.live_in), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'live_out'):
-                    self.print(str2(ins.live_out))
+                    self.print(str2(ins.live_out), end='')
                 self.print('</td>')
                 for ur in used_regs:
                     self.print('<td>')

@@ -3,7 +3,6 @@
 """ A demo showing the usage of the preprocessor and the parser """
 
 import argparse
-import io
 from ppci.common import CompilerError
 from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
 from ppci.lang.c import CContext, CSemantics

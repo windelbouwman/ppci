@@ -41,6 +41,7 @@ from .binutils.disasm import Disassembler
 from .utils.hexfile import HexFile
 from .utils.elffile import ElfFile
 from .utils.exefile import ExeWriter
+from .utils import uboot_image
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager, get_file
@@ -565,7 +566,7 @@ def llvmir2ir(f):
 
 def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
     """ Copy some parts of an object file to an output """
-    fmts = ['bin', 'hex', 'elf', 'exe', 'ldb']
+    fmts = ['bin', 'hex', 'elf', 'exe', 'ldb', 'uimage']
     if fmt not in fmts:
         formats = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
         raise TaskError('Only {} are supported'.format(formats))
@@ -584,13 +585,25 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
     elif fmt == "hex":
         image = obj.get_image(image_name)
         hexfile = HexFile()
-        hexfile.add_region(image.location, image.data)
+        hexfile.add_region(image.address, image.data)
         with open(output_filename, 'w') as output_file:
             hexfile.save(output_file)
     elif fmt == 'ldb':
         # TODO: fix this some other way to extract debug info
         with open(output_filename, 'w') as output_file:
             write_ldb(obj, output_file)
+    elif fmt == 'uimage':
+        image = obj.get_image(image_name)
+        uboot_architectures = {
+            'arm': uboot_image.Architecture.ARM,
+            'or1k': uboot_image.Architecture.OPENRISC,
+            'xtensa': uboot_image.Architecture.XTENSA,
+        }
+        with open(output_filename, 'wb') as f:
+            uboot_image.write_uboot_image(
+                f, image.data,
+                load_address=image.address, entry_point=image.address,
+                arch=uboot_architectures[obj.arch.name])
     elif fmt == 'exe':
         writer = ExeWriter()
         with open(output_filename, 'wb') as output_file:

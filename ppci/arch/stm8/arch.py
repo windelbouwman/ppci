@@ -43,10 +43,12 @@ class Stm8Arch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         ''' Calling convention in priority order:
+
         - Pointers in index registers;
         - 16-bit variables in index registers;
         - 8-bit variables in accumulator register first, afterwards in index
           registers.
+
         '''
         location = []
         live_in = set()

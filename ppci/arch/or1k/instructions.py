@@ -1,3 +1,4 @@
+""" Open risc instruction definitions """
 
 from .isa import orbis32, Orbis32Token, Orbis32StoreToken
 from .isa import Orbis32ShiftImmediateToken

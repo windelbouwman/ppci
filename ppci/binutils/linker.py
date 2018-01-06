@@ -102,7 +102,7 @@ class Linker:
                     '{} at {}'.format(section, section.address))
             for image in dst.images:
                 self.reporter.message(
-                    '{} at {}'.format(image, image.location))
+                    '{} at {}'.format(image, image.address))
         dst.polish()
 
         if self.reporter:
@@ -232,7 +232,7 @@ class Linker:
             sym_value = self.get_symbol_value(dst, reloc.symbol_name)
             section = dst.get_section(reloc.section)
 
-            # Determine location in memory of reloc patchup position:
+            # Determine address in memory of reloc patchup position:
             reloc_value = section.address + reloc.offset
 
             # reloc_function = self.arch.get_reloc(reloc.typ)

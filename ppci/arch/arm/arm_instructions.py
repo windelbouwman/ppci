@@ -588,7 +588,7 @@ def pattern_mem_fprel32(context, tree):
 
 
 @arm_isa.pattern('mem', 'reg', size=0, cycles=0, energy=0)
-def pattern_mem_fprel32(context, tree, c0):
+def pattern_mem_reg(context, tree, c0):
     return c0, 0
 
 

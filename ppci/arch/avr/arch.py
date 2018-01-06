@@ -60,6 +60,7 @@ from ..data_instructions import data_isa
 from ..data_instructions import Db
 from ..runtime import get_runtime_files
 from ..stack import FramePointerLocation
+from . import registers, instructions
 from .instructions import avr_isa
 from .instructions import Push, Pop, Mov, Call, In, Movw, Ret, Adiw
 from .registers import AvrRegister, Register
@@ -67,7 +68,7 @@ from .registers import AvrWordRegister
 from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
-from .registers import r24, r25, W, Y
+from .registers import r24, r25, W, Y, Z
 from .registers import caller_save, callee_save
 from .registers import get16reg, register_classes, gdb_registers
 
@@ -221,7 +222,15 @@ class AvrArch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-        yield Call(label, clobbers=self.caller_save)
+        if isinstance(label, AvrWordRegister):
+            yield self.move(Z, label)
+            # Call to function at Z
+            # Divide Z by two, since PC is pointing to 16 bits words
+            yield instructions.Lsr(registers.r31)
+            yield instructions.Ror(registers.r30)
+            yield instructions.Icall(clobbers=self.caller_save)
+        else:
+            yield Call(label, clobbers=self.caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

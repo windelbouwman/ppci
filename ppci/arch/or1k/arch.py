@@ -140,7 +140,10 @@ class Or1kArch(Architecture):
 
         yield RegisterUseDef(uses=arg_regs)
 
-        yield instructions.Jal(label, clobbers=registers.caller_save)
+        if isinstance(label, registers.Or1kRegister):
+            yield instructions.Jalr(label, clobbers=registers.caller_save)
+        else:
+            yield instructions.Jal(label, clobbers=registers.caller_save)
         # Fill delay slot:
         yield instructions.Nop(0)
 

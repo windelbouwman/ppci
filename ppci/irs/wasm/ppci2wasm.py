@@ -313,12 +313,12 @@ class IrToWasmCompiler:
     }
 
     cmp_ops = {
-        '>': 'i32.gt_s',
-        '>=': 'i32.ge_s',
-        '<': 'i32.lt_s',
-        '<=': 'i32.le_s',
-        '==': 'i32.eq',
-        '!=': 'i32.ne',
+        '>': 'gt',
+        '>=': 'ge',
+        '<': 'lt',
+        '<=': 'le',
+        '==': 'eq',
+        '!=': 'ne',
     }
 
     store_opcodes = {
@@ -396,11 +396,11 @@ class IrToWasmCompiler:
     }
 
     cmp_operators = {
-        'CJMPI8', 'CJMPU8',
-        'CJMPI16', 'CJMPU16',
-        'CJMPI32', 'CJMPU32',
-        'CJMPI64', 'CJMPU64',
-        'CJMPF32', 'CJMPF64'
+        'CJMPI8': ir.i8, 'CJMPU8': ir.u8,
+        'CJMPI16': ir.i16, 'CJMPU16': ir.u16,
+        'CJMPI32': ir.i32, 'CJMPU32': ir.u32,
+        'CJMPI64': ir.i64, 'CJMPU64': ir.u64,
+        'CJMPF32': ir.f32, 'CJMPF64': ir.f64
     }
 
     def do_tree(self, tree):
@@ -493,7 +493,17 @@ class IrToWasmCompiler:
             # Ensure operands are on stack:
             self.do_tree(tree[0])
             self.do_tree(tree[1])
-            opcode = self.cmp_ops[tree.value[0]]
+
+            # Create the opcode
+            op = tree.value[0]
+            ir_ty = self.cmp_operators[tree.name]
+            opcode = self.get_ty(ir_ty) + '.' + self.cmp_ops[op]
+            if op in ['<', '<=', '>', '>=']:
+                if ir_ty.is_signed:
+                    opcode += '_s'
+                if ir_ty.is_unsigned:
+                    opcode += '_u'
+
             self.emit((opcode,))
             self.stack -= 1
             # Jump is handled by shapes!

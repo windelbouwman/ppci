@@ -99,7 +99,7 @@ class ElfFile:
 
             offsets[image] = tmp_offset
             for section in image.sections:
-                a = section.address - image.location
+                a = section.address - image.address
                 offsets[section] = tmp_offset + a
             tmp_offset += image.size
 
@@ -154,7 +154,7 @@ class ElfFile:
             else:
                 p_flags = 6
             self.write_program_header(
-                f, f_offset=offsets[image], vaddr=image.location,
+                f, f_offset=offsets[image], vaddr=image.address,
                 size=image.size, p_flags=p_flags)
 
         # Write actually program data:

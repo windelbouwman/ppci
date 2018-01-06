@@ -9,9 +9,8 @@ from io import StringIO
 from time import perf_counter
 
 from ppci import irutils
-from ppci.api import ir_to_object, get_arch, link, optimize
+from ppci.api import ir_to_object, get_arch
 from ppci.utils import codepage, reporting
-from ppci.binutils import debuginfo
 
 from ppci.irs.wasm import wasm_to_ir, export_wasm_example
 from ppci.lang.python import python_to_wasm, ir_to_python
@@ -19,7 +18,7 @@ from ppci.lang.python import python_to_wasm, ir_to_python
 logging.basicConfig(level=logging.DEBUG)
 
 
-## Example Python code
+# Example Python code
 # A bit silly; they are assumed to be "main functions" so they can return a value
 
 py1 = """

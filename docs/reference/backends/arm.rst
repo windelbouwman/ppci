@@ -5,4 +5,4 @@ arm
 ---
 
 .. automodule:: ppci.arch.arm
-
+    :members:

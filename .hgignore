@@ -35,6 +35,7 @@ ppci.egg-info
 build
 examples/riscvpulpino/jtagserver/.deps
 examples/riscvpulpino/vsim/obj_dir
+examples/riscvpicorv32/verilator/obj_dir
 .spyderproject
 .idea
 junit.xml

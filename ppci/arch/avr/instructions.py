@@ -265,6 +265,13 @@ class Call(AvrInstruction):
         return [TwelveBitAvrRelocation(self.lab, offset=0)]
 
 
+class Icall(AvrInstruction):
+    """ Indirect call. Call function at register Z """
+    tokens = [AvrToken]
+    syntax = Syntax(['icall'])
+    patterns = {'w0': 0x9509}
+
+
 @avr_isa.register_relocation
 class SevenBitAvrRelocation(Relocation):
     """ 7 bit signed relocation """

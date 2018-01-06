@@ -13,6 +13,7 @@ from util import do_long_tests, do_iverilog, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils import uboot_image
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
 from ppci.irs.wasm import ir_to_wasm
@@ -781,13 +782,21 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
             base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
             mmap, lang=lang, bin_format='bin', code_image='flash')
         binfile = base_filename + '.bin'
-        # img_filename = base_filename + '.img'
+
+        # Create a uboot application file:
+        with open(binfile, 'rb') as f:
+            bindata = f.read()
+        img_filename = base_filename + '.img'
+        with open(img_filename, 'wb') as f:
+            uboot_image.write_uboot_image(
+                f, bindata,
+                arch=uboot_image.Architecture.OPENRISC)
         # self.make_image(binfile, img_filename)
         if has_qemu():
             output = qemu([
                 'qemu-system-or1k', '-nographic',
                 '-M', 'or1k-sim', '-m', '16',
-                '-kernel', binfile])
+                '-kernel', img_filename])
             self.assertEqual(expected_output, output)
 
 

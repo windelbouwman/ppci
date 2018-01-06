@@ -24,7 +24,7 @@ from ...binutils.assembler import BaseAssembler
 from ...utils.reporting import DummyReportGenerator
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
-from ..stack import StackLocation
+from ..stack import StackLocation, FramePointerLocation
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dw2, data_isa
 from ..runtime import get_runtime_files
@@ -57,6 +57,9 @@ class Msp430Arch(Architecture):
         # Allocatable registers:
         self.callee_save = (r4, r5, r6, r7, r8, r9, r10)
         self.caller_save = (r11, r12, r13, r14, r15)
+
+        # Frame pointer is located at the bottom of stack frame:
+        self.fp_location = FramePointerLocation.BOTTOM
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
