@@ -142,10 +142,18 @@ class WatGenerator:
                     '  (data (i32.const {}) "{}")'.format(offset, data),
                     newline=True)
         self.print(')')
+        self.print(newline=True)
 
-    def data_as_string(self, data):
-        data = str(data)[2:-1].replace('\\x', '\\')
-        return data
+    @staticmethod
+    def data_as_string(data: bytes):
+        """ Encode data as a string """
+        def mkchar(v):
+            """ Encode a single byte as its ascii printable char (or not) """
+            if v >= 0x20 and v < 0x7f and v != 0x22 and v != 0x5c:
+                return chr(v)
+            else:
+                return '\\{:02x}'.format(v)
+        return ''.join(mkchar(b) for b in data)
 
     def write_type(self, t):
         """ Print function type """

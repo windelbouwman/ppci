@@ -103,6 +103,12 @@ class Linker:
             for image in dst.images:
                 self.reporter.message(
                     '{} at {}'.format(image, image.address))
+            symbols = [
+                (s.name, dst.get_symbol_value(s.name)) for s in dst.symbols]
+            symbols.sort(key=lambda x: x[1])
+            for name, address in symbols:
+                self.reporter.message(
+                    'Symbol {} at 0x{:X}'.format(name, address))
         dst.polish()
 
         if self.reporter:

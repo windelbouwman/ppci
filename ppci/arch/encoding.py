@@ -136,8 +136,8 @@ class Constructor:
             # Set parameters:
             if len(args) != len(formal_args):
                 raise TypeError(
-                    '{} arguments given, but expected {}'.format(
-                        len(args), len(formal_args)))
+                    '{} arguments given, but {} expects {}'.format(
+                        len(args), self.__class__, len(formal_args)))
             for farg, arg in zip(formal_args, args):
                 if not isinstance(arg, farg._cls):  # pragma: no cover
                     # Create some nice looking error:

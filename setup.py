@@ -39,6 +39,7 @@ setup(
             'ppci-objdump = ppci.cli.objdump:objdump',
             'ppci-opt = ppci.cli.opt:opt',
             'ppci-pascal = ppci.cli.pascal:pascal',
+            'ppci-pedump = ppci.cli.pedump:pedump',
             'ppci-pycompile = ppci.cli.pycompile:pycompile',
             'ppci-wasmcompile = ppci.cli.wasmcompile:wasmcompile',
             'ppci-yacc = ppci.cli.yacc:yacc',

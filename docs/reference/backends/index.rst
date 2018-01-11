@@ -43,6 +43,7 @@ Backend details
     avr
     mcs6500
     msp430
+    mips
     or1k
     riscv
     stm8
