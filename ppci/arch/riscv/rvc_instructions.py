@@ -1,6 +1,5 @@
 """ Definitions of Riscv instructions. """
 
-from ...utils.bitfun import wrap_negative
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
@@ -302,7 +301,7 @@ class CLui(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'lui', ' ', rd, ',', ' ', imm])
 
     def encode(self):
-        imm6 = wrap_negative(self.imm, 6)
+        imm6 = self.imm & 0x3f
         tokens = self.get_tokens()
         tokens[0].op = 0b01
         tokens[0][2:7] = imm6 & 0x1F

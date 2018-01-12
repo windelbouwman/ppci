@@ -5,7 +5,7 @@
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd
-from ...utils.bitfun import wrap_negative, inrange
+from ...utils.bitfun import inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
 from .registers import RiscvRegister, FP, R0
@@ -143,7 +143,7 @@ class IBase(RiscvInstruction):
         tokens[0][7:12] = self.rd.num
         tokens[0][12:15] = self.func
         tokens[0][15:20] = self.rs1.num
-        self.imm = wrap_negative(self.imm, 12)
+        self.imm = self.imm & 0xfff
         tokens[0][20:32] = self.imm
         return tokens[0].encode()
 
@@ -262,7 +262,7 @@ class Lui(RiscvInstruction):
 
     def encode(self):
         tokens = self.get_tokens()
-        imm20 = wrap_negative(self.imm, 20)
+        imm20 = self.imm & 0xfffff
         tokens[0][0:7] = 0b0110111
         tokens[0][7:12] = self.rd.num
         tokens[0][12:32] = imm20
@@ -402,7 +402,7 @@ class Li(PseudoRiscvInstruction):
             if (self.imm & 0x800) != 0:
                 self.imm += 0x1000
             yield Lui(self.rd, self.imm >> 12)
-            lower_bits = wrap_negative(self.imm & 0xfff, 12)
+            lower_bits = self.imm & 0xfff
             yield Addi(self.rd, self.rd, lower_bits)
 
 
@@ -458,8 +458,8 @@ def reg_list_to_mask(reg_list):
 
 class StrBase(RiscvInstruction):
     def encode(self):
-        imml5 = wrap_negative(self.offset & 0x1f, 5)
-        immh7 = wrap_negative(self.offset >> 5, 7)
+        imml5 = self.offset & 0x1f
+        immh7 = (self.offset >> 5) & 0x7f
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0100011
         tokens[0][7:12] = imml5
