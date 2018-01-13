@@ -17,6 +17,7 @@ series of tree patterns. This is often referred to as a forest of trees.
 import logging
 from .. import ir
 from ..arch.generic_instructions import Label
+from ..arch.stack import StackLocation
 from ..binutils.debuginfo import FpOffsetAddress
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 
@@ -38,21 +39,27 @@ def prepare_function_info(arch, function_info, ir_function):
             function_info.phi_map[phi] = vreg
 
     function_info.arg_vregs = []
-    for arg in ir_function.arguments:
+    function_info.arg_types = [a.ty for a in ir_function.arguments]
+    if hasattr(arch, 'determine_arg_locations'):
+        arg_locs = arch.determine_arg_locations(function_info.arg_types)
+    else:
+        arg_locs = range(len(ir_function.arguments))
+
+    for arg, phys_loc in zip(ir_function.arguments, arg_locs):
         if arg.ty in arch.info.value_classes:
             # New vreg:
             vreg = function_info.frame.new_reg(
                 arch.info.value_classes[arg.ty], twain=arg.name)
         else:
             # Allocate space on stack for this argument:
-            vreg = function_info.frame.alloc(arg.ty.size)
+            # vreg = function_info.frame.alloc(arg.ty.size, 1)
+            # print(phys_loc)
+            vreg = phys_loc
         function_info.arg_vregs.append(vreg)
 
     if isinstance(ir_function, ir.Function):
         function_info.rv_vreg = function_info.frame.new_reg(
             arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
-
-    function_info.arg_types = [a.ty for a in ir_function.arguments]
 
 
 class FunctionInfo:
@@ -147,9 +154,14 @@ class SelectionGraphBuilder:
 
         # Create temporary registers for aruments:
         for arg, vreg in zip(ir_function.arguments, function_info.arg_vregs):
-            param_node = self.new_node('REG', arg.ty, value=vreg)
-            output = param_node.new_output(arg.name)
-            output.vreg = vreg
+            if isinstance(vreg, StackLocation):
+                param_node = self.new_node('FPREL', ir.ptr, value=vreg)
+                output = param_node.new_output(arg.name)
+                output.wants_vreg = False
+            else:
+                param_node = self.new_node('REG', arg.ty, value=vreg)
+                output = param_node.new_output(arg.name)
+                output.vreg = vreg
 
             # When refering the paramater, use the copied value:
             self.add_map(arg, output)
@@ -262,6 +274,12 @@ class SelectionGraphBuilder:
         sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
+    def do_address_of(self, node):
+        """ Process ir.AddressOf instruction """
+        address = self.get_value(node.src)
+        self.add_map(node, address)
+        return address
+
     def do_alloc(self, node):
         """ Process the alloc instruction """
         # TODO: check alignment?
@@ -370,10 +388,15 @@ class SelectionGraphBuilder:
         args = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
-            loc = self.new_vreg(argument.ty)
-            args.append((argument.ty, loc))
-            arg_sgnode = self.new_node('MOV', argument.ty, arg_val, value=loc)
-            self.chain(arg_sgnode)
+            if argument.ty.is_blob:
+                print(arg_val.node)
+                args.append((argument.ty, arg_val.node.value))
+            else:
+                loc = self.new_vreg(argument.ty)
+                args.append((argument.ty, loc))
+                arg_sgnode = self.new_node(
+                    'MOV', argument.ty, arg_val, value=loc)
+                self.chain(arg_sgnode)
             # reg_out = arg_sgnode.new_output('arg')
             # reg_out.vreg = loc
             # regouts.append(reg_out)

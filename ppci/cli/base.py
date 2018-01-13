@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import cgitb
 import platform
 import sys
 from .. import __version__, api, irutils
@@ -139,6 +140,7 @@ class LogSetup:
         self.console_handler = None
         self.file_handler = None
         self.logger = logging.getLogger()
+        cgitb.enable(format='text')
 
     def __enter__(self):
         self.logger.setLevel(logging.DEBUG)

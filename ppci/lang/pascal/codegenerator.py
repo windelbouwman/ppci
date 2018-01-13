@@ -220,6 +220,7 @@ class CodeGenerator:
             var_name = 'var_{}'.format(sym.name)
             variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
             self.emit(variable)
+            variable = self.emit(ir.AddressOf(variable, var_name))
             if sym.isParameter:
                 # Get the parameter from earlier:
                 parameter = param_map[sym]
@@ -785,23 +786,25 @@ class CodeGenerator:
             if len(expr.val) == 1:
                 expr.typ = self.context.get_type('char')
                 val = ord(expr.val)
-                value = ir.Const(val, 'cnst', self.get_ir_type('char'))
+                value = self.emit(
+                    ir.Const(val, 'cnst', self.get_ir_type('char')))
             else:
                 expr.typ = self.context.get_type('string')
                 cval = self.context.pack_string(expr.val)
-                value = ir.LiteralData(cval, 'strval')
+                value = self.emit(ir.LiteralData(cval, 'strval'))
+                value = self.emit(ir.AddressOf(value, 'addr'))
         elif isinstance(expr.val, int):  # boolean is a subclass of int!
             # For booleans, use the integer as storage class:
             expr.typ = self.context.get_type('integer')
             val = int(expr.val)
-            value = ir.Const(val, 'cnst', self.get_ir_int())
+            value = self.emit(ir.Const(val, 'cnst', self.get_ir_int()))
         elif isinstance(expr.val, float):
             expr.typ = self.context.get_type('float')
             val = float(expr.val)
-            value = ir.Const(val, 'cnst', ir.f64)
+            value = self.emit(ir.Const(val, 'cnst', ir.f64))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.val))
-        return self.emit(value)
+        return value
 
     def gen_type_cast(self, expr):
         """ Generate code for type casting """

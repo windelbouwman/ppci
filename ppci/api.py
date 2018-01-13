@@ -21,7 +21,7 @@ from .lang.pascal import PascalBuilder
 from .lang.ws import WhitespaceGenerator
 from .lang.python import python_to_ir, ir_to_python
 from .irs.wasm import wasm_to_ir, read_wasm
-from .irutils import Verifier
+from .irutils import verify_module
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass
 from .opt.transform import RemoveAddZeroPass
@@ -220,7 +220,7 @@ def c3toir(sources, includes, march, reporter=None):
     try:
         _, ir_modules = c3b.build(sources, includes)
         for ircode in ir_modules:
-            Verifier().verify(ircode)
+            verify_module(ircode)
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
@@ -267,9 +267,6 @@ def optimize(ir_module, level=0, reporter=None):
 
     # TODO: differentiate between optimization levels!
 
-    # Create the verifier:
-    verifier = Verifier()
-
     # Optimization passes (bag of tricks) run them three times:
     opt_passes = [Mem2RegPromotor(),
                   RemoveAddZeroPass(),
@@ -283,7 +280,7 @@ def optimize(ir_module, level=0, reporter=None):
         opt_passes.append(CJumpPass())
 
     # Run the passes over the module:
-    verifier.verify(ir_module)
+    verify_module(ir_module)
     for opt_pass in opt_passes:
         opt_pass.run(ir_module)
         # reporter.message('{} after {}:'.format(ir_module, opt_pass))
@@ -295,7 +292,7 @@ def optimize(ir_module, level=0, reporter=None):
         reporter.message('{} {}'.format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
-    verifier.verify(ir_module)
+    verify_module(ir_module)
 
 
 def ir_to_stream(
@@ -309,8 +306,7 @@ def ir_to_stream(
         reporter = DummyReportGenerator()
 
     code_generator = CodeGenerator(march, optimize_for=opt)
-    verifier = Verifier()
-    verifier.verify(ir_module)
+    verify_module(ir_module)
 
     # Code generation:
     code_generator.generate(

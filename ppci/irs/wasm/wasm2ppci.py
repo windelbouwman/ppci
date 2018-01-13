@@ -172,7 +172,8 @@ class WasmToIrCompiler:
             ppci_function.add_parameter(ir_arg)
             size = ir_typ.size
             alignment = size
-            addr = self.emit(ir.Alloc('local{}'.format(i), size, alignment))
+            alloc = self.emit(ir.Alloc('alloc{}'.format(i), size, alignment))
+            addr = self.emit(ir.AddressOf(alloc, 'local{}'.format(i)))
             self.locals.append((ir_typ, addr))
             # Store parameter into local variable:
             self.emit(ir.Store(ir_arg, addr))
@@ -182,7 +183,8 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(local)
             size = ir_typ.size
             alignment = size
-            addr = self.emit(ir.Alloc('local{}'.format(i), size, alignment))
+            alloc = self.emit(ir.Alloc('alloc{}'.format(i), size, alignment))
+            addr = self.emit(ir.AddressOf(alloc, 'local{}'.format(i)))
             self.locals.append((ir_typ, addr))
 
         num = len(wasm_function.instructions)

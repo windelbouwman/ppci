@@ -52,7 +52,7 @@ class IrToPythonTranspiler:
         self.print(0, 'def _alloc(amount):')
         self.print(1, 'ptr = len(mem)')
         self.print(1, 'mem.extend(bytes(amount))')
-        self.print(1, 'return ptr')
+        self.print(1, 'return (ptr, amount)')
         self.print(0, '')
 
         # Generate load functions:
@@ -152,12 +152,15 @@ class IrToPythonTranspiler:
         elif isinstance(ins, ir.Alloc):
             self.print(3, '{} = _alloc({})'.format(ins.name, ins.amount))
             self.stack_size += ins.amount
+        elif isinstance(ins, ir.AddressOf):
+            self.print(3, '{} = {}[0]'.format(ins.name, ins.src.name))
         elif isinstance(ins, ir.Const):
             self.print(3, '{} = {}'.format(ins.name, ins.value))
         elif isinstance(ins, ir.LiteralData):
             assert isinstance(ins.data, bytes)
             self.literals.append(ins)
-            self.print(3, '{} = {}'.format(ins.name, literal_label(ins)))
+            self.print(3, '{} = ({},{})'.format(
+                ins.name, literal_label(ins), len(ins.data)))
         elif isinstance(ins, ir.Unop):
             op = ins.operation
             self.print(3, '{} = {}{}'.format(
@@ -249,4 +252,4 @@ class IrToPythonTranspiler:
             self.print(3, 'return')
         else:  # pragma: no cover
             self.print(3, '{}'.format(ins))
-            raise NotImplementedError(str(ins))
+            raise NotImplementedError(str(type(ins)))

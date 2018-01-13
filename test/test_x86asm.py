@@ -215,6 +215,10 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('sub rsp, 0x12')
         self.check('4881ec56341200 4881ec12000000')
 
+    def test_neg_16(self):
+        self.feed('neg bx')
+        self.check('66 40 f7 db')
+
     def test_idiv(self):
         """ Test integer divide """
         self.feed('idiv r11')

@@ -178,11 +178,17 @@ class CCodeGenerator:
             else:
                 ir_argument = ir.Parameter(argument.name, ir_typ)
                 ir_function.add_parameter(ir_argument)
-                name = argument.name + '_alloc'
-                size = self.context.sizeof(argument.typ)
-                alignment = self.context.alignment(argument.typ)
-                ir_var = self.emit(ir.Alloc(name, size, alignment))
-                self.emit(ir.Store(ir_argument, ir_var))
+                if isinstance(ir_typ, ir.BlobDataTyp):
+                    ir_var = self.emit(
+                        ir.AddressOf(ir_argument, argument.name + '_addr'))
+                else:
+                    name = argument.name + '_alloc'
+                    size = self.context.sizeof(argument.typ)
+                    alignment = self.context.alignment(argument.typ)
+                    ir_var = self.emit(ir.Alloc(name, size, alignment))
+                    ir_var = self.emit(
+                        ir.AddressOf(ir_var, argument.name + '_addr'))
+                    self.emit(ir.Store(ir_argument, ir_var))
                 self.ir_var_map[argument] = ir_var
 
         # In case of a variadic function, add an extra pointer:
@@ -525,7 +531,8 @@ class CCodeGenerator:
         name = variable.name
         size = self.context.sizeof(variable.typ)
         alignment = self.context.alignment(variable.typ)
-        ir_addr = self.emit(ir.Alloc(name + '_alloc', size, alignment))
+        ir_alloc = self.emit(ir.Alloc(name + '_alloc', size, alignment))
+        ir_addr = self.emit(ir.AddressOf(ir_alloc, name + '_addr'))
         self.ir_var_map[variable] = ir_addr
         if variable.initial_value:
             # Initialize local variable by a sequence of assignments.
@@ -647,6 +654,7 @@ class CCodeGenerator:
             encoding = 'latin1'
             data = expr.value[1:-1].encode(encoding) + bytes([0])
             value = self.emit(ir.LiteralData(data, 'cstr'))
+            value = self.emit(ir.AddressOf(value, 'dptr'))
         elif isinstance(expr, expressions.CharLiteral):
             ir_typ = self.get_ir_type(expr.typ)
             value = self.emit(
@@ -701,7 +709,13 @@ class CCodeGenerator:
             else:
                 # self.logger.debug('Non-Array type is indexed %s', expr)
                 ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.Load(value, 'load', ir_typ))
+                if isinstance(ir_typ, ir.BlobDataTyp):
+                    # If we have a blob pointer and want its content
+                    # We must get the source of the address of:
+                    assert isinstance(value, ir.AddressOf)
+                    value = value.src
+                else:
+                    value = self.emit(ir.Load(value, 'load', ir_typ))
         elif not rvalue:
             assert expr.lvalue
         return value
@@ -887,6 +901,7 @@ class CCodeGenerator:
                     size += va_size
                     alignment = max(alignment, va_alignment)
                 vararg_ptr = self.emit(ir.Alloc('varargs', size, alignment))
+                vararg_ptr = self.emit(ir.AddressOf(vararg_ptr, 'vaptr'))
                 # Append var arg slot:
                 ir_arguments.append(vararg_ptr)
 
@@ -1008,12 +1023,10 @@ class CCodeGenerator:
             return ir.ptr
         elif isinstance(typ, types.EnumType):
             return self.get_ir_type(self.context.get_type(['int']))
-        elif isinstance(typ, types.UnionType):
+        elif isinstance(typ, (types.UnionType, types.StructType)):
             size = self.context.sizeof(typ)
-            return ir.BlobDataTyp.get(size)
-        elif isinstance(typ, types.StructType):
-            size = self.context.sizeof(typ)
-            return ir.BlobDataTyp.get(size)
+            alignment = self.context.alignment(typ)
+            return ir.BlobDataTyp.get(size, alignment=alignment)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 

@@ -37,6 +37,11 @@ class Typ:
         """ Test if this type is of signed integer type """
         return isinstance(self, SignedIntegerTyp)
 
+    @property
+    def is_blob(self) -> bool:
+        """ Test if this type is bytes blob """
+        return isinstance(self, BlobDataTyp)
+
     def __repr__(self):
         return 'ir-typ {}'.format(str(self))
 
@@ -77,16 +82,18 @@ class FloatingPointTyp(BasicTyp):
 class BlobDataTyp(Typ):
     _cache = {}
 
-    def __init__(self, size, alignment=1):
+    def __init__(self, size: int, alignment: int):
         super().__init__('blob')
         self.size = size
         self.alignment = alignment
 
     def __str__(self):
-        return 'blob[{}:{}]'.format(self.size, self.alignment)
+        # More or less the same as 'u8[size]'.
+        return 'blob<{}:{}>'.format(self.size, self.alignment)
 
     @classmethod
-    def get(cls, size, alignment=1):
+    def get(cls, size: int, alignment: int):
+        """ Get instance of blob type for the given size and alignment """
         key = (size, alignment)
         if key in cls._cache:
             typ = cls._cache[key]
@@ -122,7 +129,7 @@ def get_ty(name):
 # Program structure:
 class Module:
     """ Container unit for variables and functions. """
-    def __init__(self, name, debug_db=None):
+    def __init__(self, name: str, debug_db=None):
         self.name = name
         self.debug_db = debug_db  # Carry along debug info
         self.externals = []
@@ -621,7 +628,10 @@ class LocalValue(Value, Instruction):
 
     def __add__(self, other):
         """ Add this value to another one """
-        assert isinstance(other, Value)
+        if not isinstance(other, Value):
+            raise TypeError(
+                'Expected other to be of Value type, not {}'.format(
+                    type(other)))
         assert self.ty is other.ty
         return Binop(self, '+', other, 'add', self.ty)
 
@@ -640,6 +650,22 @@ class LocalValue(Value, Instruction):
     def used_in_blocks(self):
         """ Returns a set of blocks where this value is used """
         return set(i.block for i in self.used_by)
+
+
+class AddressOf(LocalValue):
+    """ This instruction takes the address of a block of data """
+    src = value_use('src')
+
+    def __init__(self, src, name: str):
+        super().__init__(name, ptr)
+        if not isinstance(src, Value):
+            raise TypeError('Expecting a Value as src')
+        if not src.ty.is_blob:
+            raise TypeError('Can only take address of blob data')
+        self.src = src
+
+    def __repr__(self):
+        return '{} {} = &{}'.format(self.ty, self.name, self.src.name)
 
 
 class Cast(LocalValue):
@@ -676,7 +702,7 @@ class LiteralData(LocalValue):
         instruction, a label and its data is emitted in the literal area
     """
     def __init__(self, data, name):
-        super().__init__(name, ptr)
+        super().__init__(name, BlobDataTyp.get(len(data), 1))
         self.data = data
         assert isinstance(data, bytes), str(data)
 
@@ -791,13 +817,16 @@ class Unop(LocalValue):
         super().__init__(name, ty)
         if operation not in self.ops:
             raise TypeError('operation should be one of {}'.format(Binop.ops))
-        assert a.ty is ty
+
+        if a.ty is not ty:
+            raise TypeError('Unop type mismatch {} != {}'.format(a.ty, ty))
+
         self.operation = operation
         self.a = a
 
     def __str__(self):
-        a, ty = self.a.name, self.ty
-        return '{} {} = {} {}'.format(ty, self.name, self.operation, a)
+        return '{} {} = {} {}'.format(
+            self.ty, self.name, self.operation, self.a.name)
 
 
 class Binop(LocalValue):
@@ -810,14 +839,20 @@ class Binop(LocalValue):
         super().__init__(name, ty)
         if operation not in Binop.ops:
             raise TypeError('operation should be one of {}'.format(Binop.ops))
-        assert a.ty is b.ty is ty
+
+        if a.ty is not ty:
+            raise TypeError('Binop type mismatch {} != {}'.format(a.ty, ty))
+
+        if b.ty is not ty:
+            raise TypeError('Binop type mismatch {} != {}'.format(b.ty, ty))
+
         self.a = a
         self.b = b
         self.operation = operation
 
     def __str__(self):
-        a, b, ty = self.a.name, self.b.name, self.ty
-        return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
+        return '{} {} = {} {} {}'.format(
+            self.ty, self.name, self.a.name, self.operation, self.b.name)
 
 
 def add(a, b, name, ty):
@@ -879,13 +914,21 @@ class Phi(LocalValue):
 
 class Alloc(LocalValue):
     """ Allocates space on the stack. The type of this value is a ptr """
-    def __init__(self, name, amount, alignment):
-        super().__init__(name, ptr)
-        assert isinstance(amount, int)
+    def __init__(self, name: str, amount: int, alignment: int):
+        super().__init__(name, BlobDataTyp.get(amount, alignment))
+
+        if not isinstance(amount, int):
+            raise TypeError(
+                'amount must be an int, not {}'.format(type(amount)))
+
         if not amount:
-            raise ValueError('Expecting at least 1 byte to allocate')
+            raise ValueError(
+                'Expecting at least 1 byte to allocate, not {}', amount)
         self.amount = amount
-        assert isinstance(alignment, int)
+
+        if not isinstance(alignment, int):
+            raise TypeError(
+                'alignment must be int, not {}'.format(type(alignment)))
         self.alignment = alignment
 
     def __str__(self):
@@ -928,7 +971,7 @@ class Load(LocalValue):
         super().__init__(name, ty)
         assert address.ty is ptr
         if not isinstance(ty, (BasicTyp, PointerTyp)):
-            raise ValueError('Can only load basic types')
+            raise ValueError('Can only load basic types, not {}'.format(ty))
         self.address = address
         self.volatile = volatile
 
@@ -943,11 +986,17 @@ class Store(Instruction):
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
-        assert address.ty is ptr
+        if address.ty is not ptr:
+            raise TypeError(
+                'Expected address of type ptr, but got {}'.format(address.ty))
+
         if not isinstance(value, Value):
             raise TypeError('Expected a value, got {}'.format(value))
+
         if not isinstance(value.ty, (BasicTyp, PointerTyp)):
-            raise ValueError('Can only store basic types')
+            raise ValueError(
+                'Can only store basic types, not {}'.format(value.ty))
+
         self.address = address
         self.value = value
         self.volatile = volatile

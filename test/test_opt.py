@@ -86,9 +86,10 @@ class Mem2RegTestCase(OptTestCase):
 
     def test_normal_use(self):
         alloc = self.builder.emit(ir.Alloc('A', 4, 4))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i32))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i32))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
@@ -96,9 +97,10 @@ class Mem2RegTestCase(OptTestCase):
     def test_byte_lift(self):
         """ Test byte data type to work """
         alloc = self.builder.emit(ir.Alloc('A', 1, 1))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i8))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
@@ -106,9 +108,10 @@ class Mem2RegTestCase(OptTestCase):
     def test_volatile_not_lifted(self):
         """ Volatile allocs must persist """
         alloc = self.builder.emit(ir.Alloc('A', 1, 1))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8, volatile=True))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i8, volatile=True))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
@@ -116,9 +119,10 @@ class Mem2RegTestCase(OptTestCase):
     def test_different_type_not_lifted(self):
         """ different types must persist """
         alloc = self.builder.emit(ir.Alloc('A', 1, 1))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i8))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
@@ -127,7 +131,8 @@ class Mem2RegTestCase(OptTestCase):
         """ When only stores and loads use the alloc, the store can use the
         alloc as a value. In this case, the store must remain """
         alloc = self.builder.emit(ir.Alloc('A', 4, 4))
-        self.builder.emit(ir.Store(alloc, alloc))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
+        self.builder.emit(ir.Store(addr, addr))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)

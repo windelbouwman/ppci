@@ -863,6 +863,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 
 @isa.pattern('reg', 'NEGI8(reg)', size=2)
+@isa.pattern('reg', 'NEGI16(reg)', size=2)
 @isa.pattern('reg', 'NEGI32(reg)', size=2)
 def pattern_negi32(context, tree, c0):
     context.emit(Subr(c0, R0, c0))

@@ -498,8 +498,14 @@ class Verifier:
 
         # Check that binop operands are of same type:
         if isinstance(instruction, ir.Binop):
-            assert instruction.ty is instruction.a.ty
-            assert instruction.ty is instruction.b.ty
+            if instruction.ty is not instruction.a.ty:
+                raise TypeError(
+                    "Binary operand a's type ({}) is not {}".format(
+                        instruction.a.ty, instruction.ty))
+            if instruction.ty is not instruction.b.ty:
+                raise TypeError(
+                    "Binary operand b's type({}) is not {}".format(
+                        instruction.b.ty, instruction.ty))
         elif isinstance(instruction, ir.Load):
             if instruction.address.ty is not ir.ptr:
                 raise TypeError(

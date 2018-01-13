@@ -5,26 +5,34 @@ also be stored into a register, to improve performance.
 """
 
 from .transform import FunctionPass
-from ..ir import Alloc, Load, Store, Phi, Undefined
+from .. import ir
 from ..domtree import CfgInfo
 
 
-def is_alloc_promotable(alloc_inst: Alloc):
+def is_alloc_promotable(alloc_inst: ir.Alloc):
     """ Check if alloc value is only used by load and store operations. """
-    assert isinstance(alloc_inst, Alloc)
-    if not alloc_inst.used_by:
+    assert isinstance(alloc_inst, ir.Alloc)
+    if len(alloc_inst.used_by) != 1:
+        return False
+
+    addr_inst = list(alloc_inst.used_by)[0]
+    if not isinstance(addr_inst, ir.AddressOf):
+        return False
+
+    if not addr_inst.used_by:
         return False
 
     # Check if alloc is only used by load and store instructions:
-    if not all(isinstance(use, (Load, Store)) for use in alloc_inst.used_by):
+    if not all(
+            isinstance(use, (ir.Load, ir.Store)) for use in addr_inst.used_by):
         return False
 
     # Extract loads and stores:
-    loads = [i for i in alloc_inst.used_by if isinstance(i, Load)]
-    stores = [i for i in alloc_inst.used_by if isinstance(i, Store)]
+    loads = [i for i in addr_inst.used_by if isinstance(i, ir.Load)]
+    stores = [i for i in addr_inst.used_by if isinstance(i, ir.Store)]
 
     # Check if the alloc is used as a value instead of an address:
-    if any(store.value is alloc_inst for store in stores):
+    if any(store.value is addr_inst for store in stores):
         return False
 
     # Check for volatile:
@@ -75,7 +83,7 @@ class Mem2RegPromotor(FunctionPass):
                     block_backlog.add(frontier_block)
                     phi_name = "phi_{}_{}".format(name, idx)
                     idx += 1
-                    phi = Phi(phi_name, phi_ty)
+                    phi = ir.Phi(phi_name, phi_ty)
                     phis.append(phi)
                     frontier_block.insert_instruction(phi)
         return phis
@@ -112,7 +120,7 @@ class Mem2RegPromotor(FunctionPass):
                     # Replace all uses of a with cur_V
                     instruction.replace_by(stack[-1])
                     alloc = instruction.address
-                    assert isinstance(alloc, Alloc)
+                    assert isinstance(alloc, ir.AddressOf)
                     # self.debug_db.map(aloc, stack[-1])
 
             # At the end of the block
@@ -135,13 +143,16 @@ class Mem2RegPromotor(FunctionPass):
 
         search(cfg_info.cfg.root_tree)
 
-    def promote(self, alloc: Alloc, cfg_info):
+    def promote(self, alloc: ir.Alloc, cfg_info):
         """ Promote a single alloc instruction.
-        Find load operations and replace them with assignments """
-        name = alloc.name
 
-        loads = [i for i in alloc.used_by if isinstance(i, Load)]
-        stores = [i for i in alloc.used_by if isinstance(i, Store)]
+        Find load operations and replace them with assignments.
+        """
+        name = alloc.name
+        addr = list(alloc.used_by)[0]
+
+        loads = [i for i in addr.used_by if isinstance(i, ir.Load)]
+        stores = [i for i in addr.used_by if isinstance(i, ir.Store)]
 
         self.logger.debug(
             'Promoting alloc %s used by %s load and %s stores',
@@ -163,7 +174,7 @@ class Mem2RegPromotor(FunctionPass):
                 self.debug_db.map(alloc, phi)
 
             # Create undefined value at start:
-            initial_value = Undefined('und_{}'.format(name), phi_ty)
+            initial_value = ir.Undefined('und_{}'.format(name), phi_ty)
             alloc.function.entry.insert_instruction(initial_value)
 
             self.rename(initial_value, phis, loads, stores, cfg_info)
@@ -194,14 +205,18 @@ class Mem2RegPromotor(FunctionPass):
             assert not load.is_used
             load.remove_from_block()
 
-        # Finally the alloc instruction can be deleted:
+        # Finally the addr instruction can be deleted:
+        assert not addr.is_used
+        addr.remove_from_block()
+
+        # Remove alloc from block:
         assert not alloc.is_used
         alloc.remove_from_block()
 
     def on_function(self, function):
         cfg_info = CfgInfo(function)
         for block in function.blocks:
-            allocs = [i for i in block if isinstance(i, Alloc)]
+            allocs = [i for i in block if isinstance(i, ir.Alloc)]
             for alloc in allocs:
                 if is_alloc_promotable(alloc):
                     self.promote(alloc, cfg_info)

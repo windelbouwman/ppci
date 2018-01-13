@@ -520,6 +520,12 @@ class rmregbase(X86Instruction):
         return r
 
 
+class RmBase(rmregbase):
+    def set_user_patterns(self, tokens):
+        tokens.set_field('reg', self.reg)
+        tokens.set_field('opcode', self.opcode)
+
+
 class rmregbase16(X86Instruction):
     tokens = [
         PrefixToken, RexToken, OpcodeToken, ModRmToken, SibToken,
@@ -571,7 +577,7 @@ class rmregbase16(X86Instruction):
         return r
 
 
-class RmBase(rmregbase):
+class RmBase16(rmregbase16):
     def set_user_patterns(self, tokens):
         tokens.set_field('reg', self.reg)
         tokens.set_field('opcode', self.opcode)
@@ -587,8 +593,20 @@ def make_rm(mnemonic, opcode, o):
     return type(mnemonic.title(), (RmBase,), members)
 
 
+def make_rm16(mnemonic, opcode, o):
+    """ Create an instruction taking an r/m operand """
+    rm = Operand('rm', rm16_modes)
+    syntax = Syntax([mnemonic, ' ', rm], priority=2)
+    members = {
+        'syntax': syntax, 'rm': rm, 'opcode': opcode, 'reg': o,
+    }
+    return type(mnemonic.title(), (RmBase16,), members)
+
+
 Not = make_rm('not', 0xf7, 2)
-Neg = make_rm('not', 0xf7, 3)
+Not16 = make_rm16('not', 0xf7, 2)
+Neg = make_rm('neg', 0xf7, 3)
+Neg16 = make_rm16('neg', 0xf7, 3)
 Dec = make_rm('dec', 0xff, 1)
 Jmp = make_rm('jmp', 0xff, 4)
 # Inc = make_rm('jmp', 0xff, 4)
@@ -944,6 +962,7 @@ def pattern_cjmp(context, value):
 
 
 @isa.pattern('stm', 'CJMPI64(reg64, reg64)', size=2)
+@isa.pattern('stm', 'CJMPU64(reg64, reg64)', size=2)
 def pattern_cjmp_64(context, tree, c0, c1):
     context.emit(CmpRmReg(RmReg(c0), c1))
     pattern_cjmp(context, tree.value)
@@ -1013,6 +1032,14 @@ def pattern_mem_reg(context, tree, c0):
     return RmMem(c0)
 
 
+@isa.pattern('reg64', 'mem64', size=2, cycles=1, energy=1)
+def pattern_lea(context, tree, c0):
+    # Exploit load effective address to do some math like rax = rbx + 3
+    d = context.new_reg(X86Register)
+    context.emit(Lea(d, c0))
+    return d
+
+
 @isa.pattern('mem64', 'FPRELU64', size=1, cycles=1, energy=1)
 def pattern_mem_fp_rel(context, tree):
     offset = tree.value.offset
@@ -1020,6 +1047,7 @@ def pattern_mem_fp_rel(context, tree):
 
 
 @isa.pattern('mem64', 'ADDI64(reg64, CONSTI64)', size=1, cycles=1, energy=1)
+@isa.pattern('mem64', 'ADDU64(reg64, CONSTU64)', size=1, cycles=1, energy=1)
 def pattern_mem_reg_rel(context, tree, c0):
     offset = tree[1].value
     return RmMemDisp(c0, offset)
@@ -1436,6 +1464,15 @@ def pattern_neg_32(context, tree, c0):
     d = context.new_reg(X86Register)
     context.move(d, c0)
     context.emit(Neg(RmReg(d)))
+    return d
+
+
+@isa.pattern('reg16', 'NEGI16(reg16)', size=3)
+def pattern_neg_16(context, tree, c0):
+    """ 16 bits negation """
+    d = context.new_reg(ShortRegister)
+    context.move(d, c0)
+    context.emit(Neg16(RmReg16(d)))
     return d
 
 

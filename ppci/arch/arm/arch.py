@@ -8,6 +8,7 @@ from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
 from ..registers import RegisterClass
+from ..stack import StackLocation
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
@@ -205,6 +206,8 @@ class ArmArch(Architecture):
             arg = arg2[1]
             if isinstance(arg_loc, ArmRegister):
                 yield self.move(arg, arg_loc)
+            elif isinstance(arg_loc, StackLocation):
+                pass
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
@@ -255,8 +258,11 @@ class ArmArch(Architecture):
         # Perhaps follow the arm ABI spec?
         l = []
         regs = [R1, R2, R3, R4]
-        for a in arg_types:
-            r = regs.pop(0)
+        for arg_ty in arg_types:
+            if arg_ty.is_blob:
+                r = StackLocation(0, arg_ty.size)
+            else:
+                r = regs.pop(0)
             l.append(r)
         return l
 

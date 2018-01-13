@@ -189,7 +189,7 @@ class X86_64Arch(Architecture):
                 registers.xmm3, registers.xmm4, registers.xmm5,
                 registers.xmm6, registers.xmm7]
 
-        offset = 0
+        offset = 16
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [
@@ -258,7 +258,7 @@ class X86_64Arch(Architecture):
                     stack_offset += 8
                 elif isinstance(arg, StackLocation):
                     # Store memcpy action for later:
-                    cps.append((arg.offset, stack_offset, arg.size))
+                    # cps.append((arg.offset, stack_offset, arg.size))
                     stack_offset += arg.size
                 else:  # pragma: no cover
                     raise NotImplementedError()
@@ -302,8 +302,10 @@ class X86_64Arch(Architecture):
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, Register):
                     push_ops.append(Push(arg))
+                elif isinstance(arg, StackLocation):
+                    memcpy(a, b, 100)
                 else:
-                    raise NotImplementedError()
+                    raise NotImplementedError(str(arg))
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 

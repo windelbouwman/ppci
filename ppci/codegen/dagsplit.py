@@ -2,9 +2,6 @@
 
 The selection dag is splitted into trees by this module.
 
-.. autoclass:: ppci.codegen.dagsplit.DagSplitter
-    :members: split_into_trees
-
 """
 
 import logging
@@ -91,8 +88,9 @@ class DagSplitter:
                 child_tree = Tree(str(inp.node.name), value=inp.node.value)
             else:  # inp.node.name.startswith('CONST'):
                 # If the node is a constant, use that
-                assert not inp.wants_vreg
-                children = [mk_tr(i) for i in inp.node.inputs]
+                if inp.wants_vreg:
+                    raise ValueError('{} does require vreg'.format(inp))
+                children = [mk_tr(i) for i in inp.node.data_inputs]
                 child_tree = Tree(
                     str(inp.node.name), *children, value=inp.node.value)
             return child_tree

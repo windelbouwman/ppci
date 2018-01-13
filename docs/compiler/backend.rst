@@ -58,8 +58,10 @@ Tree building
 From IR-code a tree is generated which can be used to select instructions.
 
 .. automodule:: ppci.codegen.irdag
+    :members:
 
 .. automodule:: ppci.codegen.dagsplit
+    :members:
 
 
 Instruction selection
@@ -74,11 +76,13 @@ To select instruction, a tree rewrite system is used. This is also called
 bottom up rewrite generator (BURG). See pyburg.
 
 .. automodule:: ppci.codegen.instructionselector
+    :members:
 
 Register allocation
 ~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: ppci.codegen.registerallocator
+    :members:
 
 code emission
 ~~~~~~~~~~~~~
@@ -88,3 +92,4 @@ this class to emit instructions to. The stream can output to object file
 or to a logger.
 
 .. autoclass:: ppci.binutils.outstream.OutputStream
+    :members:

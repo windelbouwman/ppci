@@ -109,7 +109,8 @@ class PythonToIrCompiler:
             # Create a variable with the given name
             # TODO: for now i64 is assumed to be the only type!
             mem = self.emit(ir.Alloc('alloc_{}'.format(name), 8, 8))
-            self.local_map[name] = Var(mem, True, ir.i64)
+            addr = self.emit(ir.AddressOf(mem, 'addr_{}'.format(name)))
+            self.local_map[name] = Var(addr, True, ir.i64)
         return self.local_map[name]
 
     def gen_function(self, df):
