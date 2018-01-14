@@ -205,7 +205,7 @@ class AvrArch(Architecture):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 

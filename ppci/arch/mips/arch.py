@@ -110,7 +110,7 @@ class MipsArch(Architecture):
         # Return
         yield instructions.Jr(registers.lr)
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 

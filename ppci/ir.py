@@ -321,6 +321,23 @@ class SubRoutine(GlobalValue):
         """ Get the names of all the blocks in this function """
         return (b.name for b in self.blocks)
 
+    def is_leaf(self):
+        """ Test if this procedure is a leaf function.
+
+        A leaf function calls no other functions.
+        """
+        return bool(self.get_out_calls())
+
+    def get_out_calls(self):
+        """ Return the calls that leave this function. """
+        out_calls = []
+        for block in self:
+            for instruction in block:
+                if isinstance(
+                        instruction, (BaseProcedureCall, BaseFunctionCall)):
+                    out_calls.append(instruction)
+        return out_calls
+
     def calc_reachable_blocks(self):
         """ Determine all blocks that can be reached """
         blocks = {self.entry}

@@ -32,7 +32,7 @@ class Stm8Arch(Architecture):
     def gen_epilogue(self, frame):
         raise NotImplementedError()
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         raise NotImplementedError()
 
     def gen_function_enter(self, args):

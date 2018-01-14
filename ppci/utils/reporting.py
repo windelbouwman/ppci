@@ -6,6 +6,7 @@
 """
 
 import abc
+import cgitb
 from contextlib import contextmanager
 from datetime import datetime
 import logging
@@ -38,6 +39,10 @@ class ReportGenerator(metaclass=abc.ABCMeta):
     def __exit__(self, exc_type, exc_value, traceback):
         if isinstance(exc_value, CompilerError):
             self.dump_compiler_error(exc_value)
+
+        if exc_type:
+            self.dump_exception((exc_type, exc_value, traceback))
+
         self.footer()
 
     @abc.abstractmethod
@@ -60,6 +65,11 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
     def dump_dag(self, dags):
         pass
+
+    @abc.abstractmethod
+    def dump_exception(self, einfo):
+        """ List the given exception in report """
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def dump_trees(self, trees):
@@ -92,6 +102,9 @@ class DummyReportGenerator(ReportGenerator):
         pass
 
     def message(self, msg):
+        pass
+
+    def dump_exception(self, einfo):
         pass
 
     def dump_raw_text(self, text):
@@ -162,6 +175,9 @@ class TextReportGenerator(TextWritingReporter):
             self.print('Dag:')
             for root in dag:
                 self.print("- {}".format(root))
+
+    def dump_exception(self, einfo):
+        self.print(cgitb.text(einfo))
 
     def dump_trees(self, trees):
         self.print("Selection trees:")
@@ -415,6 +431,9 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print('Dag:')
             for root in dag:
                 self.print("- {}".format(root))
+
+    def dump_exception(self, einfo):
+        self.print(cgitb.html(einfo))
 
     def dump_trees(self, trees):
         with collapseable(self, 'Selection trees'):

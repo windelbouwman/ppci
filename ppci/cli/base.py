@@ -170,6 +170,9 @@ class LogSetup:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type:
+            self.reporter.dump_exception((exc_type, exc_value, traceback))
+
         # Check if a task error was raised:
         if isinstance(exc_value, TaskError):
             self.logger.error(str(exc_value.msg))

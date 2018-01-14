@@ -1,0 +1,26 @@
+
+<project name="structs" default="structs">
+    <import name="ppci.build.buildtasks" />
+
+    <target name="structs">
+        <assemble source="../startup_a9.asm" arch="arm" output="start.oj" />
+        <compile
+            arch="arm"
+            sources='../arch.c3'
+            output="bsp.oj" />
+        <ccompile
+            arch="arm"
+            sources="../../src/structs/structs.c;../../../librt/libc/lib.c"
+            includes="../../../librt/libc"
+            report="ccode.html"
+            output="ccode.oj" />
+        <link objects="start.oj;ccode.oj;bsp.oj" output="structs.oj"
+            layout="../memory.mmap" />
+        <objcopy
+            objectfile="structs.oj"
+            imagename="flash"
+            format="uimage"
+            output="structs.bin" />
+    </target>
+</project>
+

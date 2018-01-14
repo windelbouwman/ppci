@@ -46,6 +46,7 @@ class Frame:
         self.instructions = []
         self.used_regs = set()
         self.is_leaf = False  # TODO: detect leaf functions
+        self.out_calls = []
         self.temps = generate_temps()
 
         # Local stack:
@@ -86,6 +87,14 @@ class Frame:
             self.stacksize += size
         location = StackLocation(offset, size)
         return location
+
+    def add_out_call(self, size):
+        """ Record that we made a call out of this function.
+
+        The size parameter determines how much bytes we needed to reserve
+        on the stack to pass the arguments.
+        """
+        self.out_calls.append(size)
 
     def new_name(self, salt):
         """ Generate a new unique name """

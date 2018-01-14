@@ -111,6 +111,41 @@ class CompileTask(OutputtingTask):
 
 
 @register_task
+class CCompileTask(OutputtingTask):
+    """ Task that compiles C code for some target into an object file """
+    def run(self):
+        arch = self.get_argument('arch')
+        sources = self.open_file_set(self.arguments['sources'])
+        if 'includes' in self.arguments:
+            includes = self.open_file_set(self.arguments['includes'])
+        else:
+            includes = []
+
+        if 'report' in self.arguments:
+            report_file = self.relpath(self.arguments['report'])
+            reporter = HtmlReportGenerator(open(report_file, 'w'))
+        else:
+            reporter = DummyReportGenerator()
+
+        debug = bool(self.get_argument('debug', default=False))
+        coptions = api.COptions()
+        coptions.add_include_paths(includes)
+
+        with reporter:
+            objs = []
+            for source in sources:
+                with open(source, 'r') as f:
+                    obj = api.cc(
+                        f, arch, coptions=coptions,
+                        reporter=reporter, debug=debug)
+                objs.append(obj)
+            obj = api.link(
+                objs, partial_link=True, reporter=reporter, debug=debug)
+
+        self.store_object(obj)
+
+
+@register_task
 class WasmCompileTask(OutputtingTask):
     """ Task that compiles a wasm module into an object file """
     def run(self):

@@ -277,7 +277,7 @@ class X86_64Arch(Architecture):
             live_out.add(retval_loc)
         yield RegisterUseDef(uses=live_out)
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         # def gen_fill_arguments(self, arg_types, args):
         """ This function moves arguments in the proper locations. """
         arg_types = [a[0] for a in args]

@@ -146,7 +146,7 @@ class RiscvArch(Architecture):
         """ Generate a move from src to dst """
         return Movr(dst, src, ismove=True)
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         """ Implement actual call and save / restore live registers """
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)

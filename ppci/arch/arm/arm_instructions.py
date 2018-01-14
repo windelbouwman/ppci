@@ -142,7 +142,7 @@ class Mul1(ArmInstruction):
     rd = Operand('rd', ArmRegister, write=True)
     rn = Operand('rn', ArmRegister, read=True)
     rm = Operand('rm', ArmRegister, read=True)
-    syntax = Syntax(['mul', rd, ',', rn, ',', rm])
+    syntax = Syntax(['mul', ' ', rd, ',', ' ', rn, ',', ' ', rm])
 
     def encode(self):
         tokens = self.get_tokens()

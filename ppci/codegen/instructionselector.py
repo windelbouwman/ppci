@@ -253,7 +253,7 @@ class InstructionSelector1:
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
-        for instruction in self.arch.gen_call(label, args, rv):
+        for instruction in self.arch.gen_call(context.frame, label, args, rv):
             context.emit(instruction)
 
     def memcp(self):
