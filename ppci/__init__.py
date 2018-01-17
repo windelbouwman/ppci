@@ -13,7 +13,7 @@ b'['
 import sys
 
 # Define version here. Used in docs, and setup script:
-__version_info__ = (0, 5, 5)
+__version_info__ = (0, 5, 6)
 __version__ = '.'.join(map(str, __version_info__))
 
 # Assert python version:
