@@ -41,6 +41,7 @@ setup(
             'ppci-pascal = ppci.cli.pascal:pascal',
             'ppci-pedump = ppci.cli.pedump:pedump',
             'ppci-pycompile = ppci.cli.pycompile:pycompile',
+            'ppci-wasm2wat = ppci.cli.wasm2wat:wasm2wat',
             'ppci-wasmcompile = ppci.cli.wasmcompile:wasmcompile',
             'ppci-yacc = ppci.cli.yacc:yacc',
         ]

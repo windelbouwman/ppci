@@ -8,7 +8,8 @@ filename = os.path.join(
     riscv32_lcc_path, 'lcc', 'bin', 'libs', 'softfloat', 'softfloat.c')
 
 # cc([filename, '-S', '-v', '-m', 'riscv'])
-march = 'riscv'
+# march = 'riscv'
+march = 'arm'
 # march = 'x86_64'
 # march = 'msp430'
 cc([

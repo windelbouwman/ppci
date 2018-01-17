@@ -128,6 +128,8 @@ class CCompileTask(OutputtingTask):
             reporter = DummyReportGenerator()
 
         debug = bool(self.get_argument('debug', default=False))
+        opt = int(self.get_argument('optimize', default='0'))
+
         coptions = api.COptions()
         coptions.add_include_paths(includes)
 
@@ -136,7 +138,7 @@ class CCompileTask(OutputtingTask):
             for source in sources:
                 with open(source, 'r') as f:
                     obj = api.cc(
-                        f, arch, coptions=coptions,
+                        f, arch, coptions=coptions, opt_level=opt,
                         reporter=reporter, debug=debug)
                 objs.append(obj)
             obj = api.link(

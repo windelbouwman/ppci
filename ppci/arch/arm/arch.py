@@ -235,9 +235,9 @@ class ArmArch(Architecture):
                         print(arg2, arg_loc)
                         assert arg.size == arg_loc.size
                         # Now start a copy routine to copy some stack:
-                        p1 = ArmRegister('p1')
-                        p2 = ArmRegister('p2')
-                        v3 = ArmRegister('v3')
+                        p1 = frame.new_reg(ArmRegister)
+                        p2 = frame.new_reg(ArmRegister)
+                        v3 = frame.new_reg(ArmRegister)
 
                         # Destination location:
                         # Remember that the LR and FP are pushed in between
@@ -245,7 +245,8 @@ class ArmArch(Architecture):
                         yield arm_instructions.AddImm(
                             p1, SP, arg_loc.offset - 8)
                         # Source location:
-                        yield arm_instructions.SubImm(p2, LR, -arg.offset)
+                        yield arm_instructions.SubImm(
+                            p2, self.fp, -arg.offset)
                         for instruction in self.gen_arm_memcpy(
                                 p1, p2, v3, arg.size):
                             yield instruction

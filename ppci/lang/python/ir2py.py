@@ -39,21 +39,7 @@ class IrToPythonTranspiler:
         self.print(0, 'func_pointers = list()')
         self.print(0, '')
 
-        # Wrap type helper:
-        self.print(0, 'def correct(value, bits, signed):')
-        self.print(1, 'base = 1 << bits')
-        self.print(1, 'value %= base')
-        self.print(1, 'if signed and value.bit_length() == bits:')
-        self.print(2, 'return value - base')
-        self.print(1, 'else:')
-        self.print(2, 'return value')
-        self.print(0, '')
-
-        self.print(0, 'def _alloc(amount):')
-        self.print(1, 'ptr = len(mem)')
-        self.print(1, 'mem.extend(bytes(amount))')
-        self.print(1, 'return (ptr, amount)')
-        self.print(0, '')
+        self.generate_builtins()
 
         # Generate load functions:
         foo = [
@@ -85,6 +71,28 @@ class IrToPythonTranspiler:
                 1,
                 'mem[p:p+{1}] = struct.pack("{0}", v)'.format(fmt, size))
             self.print(0, '')
+
+    def generate_builtins(self):
+        # Wrap type helper:
+        self.print(0, 'def correct(value, bits, signed):')
+        self.print(1, 'base = 1 << bits')
+        self.print(1, 'value %= base')
+        self.print(1, 'if signed and value.bit_length() == bits:')
+        self.print(2, 'return value - base')
+        self.print(1, 'else:')
+        self.print(2, 'return value')
+        self.print(0, '')
+
+        self.print(0, 'def _alloc(amount):')
+        self.print(1, 'ptr = len(mem)')
+        self.print(1, 'mem.extend(bytes(amount))')
+        self.print(1, 'return (ptr, amount)')
+        self.print(0, '')
+
+        self.print(0, 'def _free(amount):')
+        self.print(1, 'for _ in range(amount):')
+        self.print(2, 'mem.pop()')
+        self.print(0, '')
 
     def generate(self, ir_mod):
         """ Write ir-code to file f """
@@ -132,9 +140,8 @@ class IrToPythonTranspiler:
         self.print(0)
 
     def reset_stack(self, level):
-        while self.stack_size > 0:
-            self.stack_size -= 1
-            self.print(level, 'mem.pop()')
+        self.print(level, '_free({})'.format(self.stack_size))
+        self.stack_size = 0
 
     def generate_instruction(self, ins):
         """ Generate python code for this instruction """

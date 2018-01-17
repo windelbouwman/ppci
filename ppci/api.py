@@ -364,7 +364,7 @@ def ir_to_object(
     return obj
 
 
-def cc(source: io.TextIOBase, march, coptions=None,
+def cc(source: io.TextIOBase, march, coptions=None, opt_level=0,
        debug=False, reporter=None):
     """ C compiler. compiles a single source file into an object file.
 
@@ -396,6 +396,7 @@ def cc(source: io.TextIOBase, march, coptions=None,
     ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
     reporter.message('{} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
+    optimize(ir_module, level=opt_level, reporter=reporter)
     return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
 
 

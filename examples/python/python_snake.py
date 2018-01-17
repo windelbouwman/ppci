@@ -11,8 +11,9 @@ def run_it():
     public function bool get_key(int* key);
     """)
 
-    ircode, debug_info = c3toir(
-        ['snake/game.c3', 'snake/main.c3', '../librt/io.c3'], [bsp], arch)
+    ircode = c3toir(
+        ['../src/snake/game.c3', '../src/snake/main.c3', '../../librt/io.c3'],
+        [bsp], arch)
 
     with open('python_snake2.py', 'w') as f:
         print('import time', file=f)

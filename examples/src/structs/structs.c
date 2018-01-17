@@ -11,6 +11,7 @@ typedef struct D {
 int foo(D_t d, int e)
 {
   d.b = 3;  // Modify value in copy of struct. This should be local only.
+  printf("d.c[2] = %d\n", d.c[2]);
   return d.c[2] + e;
 }
 

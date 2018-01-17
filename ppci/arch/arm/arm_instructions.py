@@ -109,8 +109,8 @@ class Mov2(ArmInstruction):
     shift = Operand('shift', shift_modes)
     syntax = Syntax(['mov', ' ', rd, ',', ' ', rm, shift])
     patterns = {
-        'cond': AL, 'opcode': 0b0001101, 'S': 0, 'Rn': 0, 'Rd': rd,
-        'shift_imm': 0, 'shift_typ': 0, 'b4': 0, 'Rm': rm}
+        'cond': AL, 'opcode': 0b0001101, 'S': 0, 'rn': 0, 'rd': rd,
+        'shift_imm': 0, 'shift_typ': 0, 'b4': 0, 'rm': rm}
 
 
 Mov2LS = inter_twine(Mov2, 'ls')
@@ -134,8 +134,8 @@ class Cmp2(ArmInstruction):
     shift = Operand('shift', shift_modes)
     syntax = Syntax(['cmp', ' ', rn, ',', ' ', rm, shift])
     patterns = {
-        'cond': AL, 'opcode': 0b1010, 'S': 1, 'Rm': rm, 'Rd': 0,
-        'b4': 0, 'Rn': rn}
+        'cond': AL, 'opcode': 0b1010, 'S': 1, 'rm': rm, 'rd': 0,
+        'b4': 0, 'rn': rn}
 
 
 class Mul1(ArmInstruction):
@@ -232,8 +232,8 @@ def make_regregreg(mnemonic, opcode):
     shift = Operand('shift', shift_modes)
     syntax = Syntax([mnemonic, ' ', rd, ',', ' ', rn, ',', ' ', rm, shift])
     patterns = {
-        'cond': AL, 'opcode': opcode, 'S': 0, 'Rn': rn, 'Rd': rd, 'b4': 0,
-        'Rm': rm}
+        'cond': AL, 'opcode': opcode, 'S': 0, 'rn': rn, 'rd': rd, 'b4': 0,
+        'rm': rm}
     members = {
         'syntax': syntax, 'rd': rd, 'rn': rn, 'rm': rm,
         'shift': shift, 'patterns': patterns
@@ -295,8 +295,8 @@ class OpRegRegImm(ArmInstruction):
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:12] = encode_imm32(self.imm)
-        tokens[0].Rd = self.rd.num
-        tokens[0].Rn = self.rn.num
+        tokens[0].rd = self.rd.num
+        tokens[0].rn = self.rn.num
         tokens[0].S = 0  # Set flags
         tokens[0][21:28] = self.opcode
         tokens[0].cond = AL
@@ -376,7 +376,7 @@ class Blx(ArmInstruction):
     """ Branch with link to a subroutine pointer to by register """
     rm = Operand('rm', ArmRegister, read=True)
     syntax = Syntax(['blx', ' ', rm])
-    patterns = {'cond': AL, 'Rm': rm}
+    patterns = {'cond': AL, 'rm': rm}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -429,7 +429,7 @@ class LdrStrBase(ArmInstruction):
     def encode(self):
         tokens = self.get_tokens()
         tokens[0].cond = AL
-        tokens[0].Rn = self.rn.num
+        tokens[0].rn = self.rn.num
         tokens[0][25:28] = self.opcode
         tokens[0][22] = self.bit22
         tokens[0][20] = self.bit20
@@ -462,6 +462,32 @@ class Ldr1(LdrStrBase):
     syntax = Syntax([
         'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
         LdrStrBase.offset, ']'])
+
+
+class Strh(ArmInstruction):
+    """ Store half word at register + immediate """
+    rd = Operand('rd', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['strh', ' ', rd, ',', ' ', '[', rn, ',', ' ', imm, ']'])
+    patterns = {'rn': rn, 'rd': rd, 'cond': AL}
+
+    def set_user_patterns(self, tokens):
+        if self.imm < 0:
+            offset = -self.imm
+            u = 0
+        else:
+            offset = self.imm
+            u = 1
+
+        tokens[0][0:4] = offset & 0xf
+        tokens[0][4:8] = 0b1011
+        tokens[0][8:12] = (offset >> 4) & 0xf
+        tokens[0][20] = 0
+        tokens[0][21] = 0  # W
+        tokens[0][22] = 1
+        tokens[0][23] = u
+        tokens[0][24] = 1  # P
 
 
 class Strb(LdrStrBase):
@@ -599,6 +625,13 @@ def pattern_str32(self, tree, c0, c1):
     self.emit(Str1(c1, base_reg, offset))
 
 
+@arm_isa.pattern('stm', 'STRI16(mem, reg)', size=4)
+@arm_isa.pattern('stm', 'STRU16(mem, reg)', size=4)
+def pattern_str16(self, tree, c0, c1):
+    base_reg, offset = c0
+    self.emit(Strh(c1, base_reg, offset))
+
+
 @arm_isa.pattern('stm', 'STRI8(mem, reg)', size=4)
 @arm_isa.pattern('stm', 'STRU8(mem, reg)', size=4)
 def pattern_str8(context, tree, c0, c1):
@@ -606,18 +639,22 @@ def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, base_reg, offset))
 
 
-@arm_isa.pattern('reg', 'MOVI32(reg)', size=4)
-@arm_isa.pattern('reg', 'MOVU32(reg)', size=4)
+@arm_isa.pattern('stm', 'MOVI32(reg)', size=4)
+@arm_isa.pattern('stm', 'MOVU32(reg)', size=4)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
 
 
-@arm_isa.pattern('reg', 'MOVI8(reg)', size=4)
-@arm_isa.pattern('reg', 'MOVU8(reg)', size=4)
+@arm_isa.pattern('stm', 'MOVI16(reg)', size=4)
+@arm_isa.pattern('stm', 'MOVU16(reg)', size=4)
+def pattern_mov16(context, tree, c0):
+    context.move(tree.value, c0)
+
+
+@arm_isa.pattern('stm', 'MOVI8(reg)', size=4)
+@arm_isa.pattern('stm', 'MOVU8(reg)', size=4)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
 
 
 @arm_isa.pattern('stm', 'JMP', size=2)
@@ -629,6 +666,12 @@ def pattern_jmp(context, tree):
 @arm_isa.pattern('reg', 'REGI32', size=0, cycles=0, energy=0)
 @arm_isa.pattern('reg', 'REGU32', size=0, cycles=0, energy=0)
 def pattern_reg32(context, tree):
+    return tree.value
+
+
+@arm_isa.pattern('reg', 'REGI16', size=0, cycles=0, energy=0)
+@arm_isa.pattern('reg', 'REGU16', size=0, cycles=0, energy=0)
+def pattern_reg16(context, tree):
     return tree.value
 
 
