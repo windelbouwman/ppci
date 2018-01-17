@@ -82,6 +82,11 @@ Other compilers written in python
   Static analysis of binaries.
   https://github.com/bdcht/amoco
 
+* pythran
+
+  http://pythran.readthedocs.io/en/latest/
+
+
 Other C-related tools written in python
 ---------------------------------------
 
@@ -118,3 +123,15 @@ Citations
     "Register Allocation and Spilling via Graph Coloring",
     1982,
     G. J. Chaitin.
+
+.. [Cifuentes1998]
+    "Assembly to High-Level Language Translation",
+    1998,
+    Cristina Cifuentes and Doug Simon and Antoine Fraboulet.
+
+.. [Baker1977]
+    "An Algorithm for Structuring Flowgraphs",
+    1977,
+    B.S. Baker.
+    https://dl.acm.org/citation.cfm?id=321999
+

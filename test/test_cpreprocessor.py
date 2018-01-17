@@ -15,6 +15,8 @@ class CPreProcessorTestCase(unittest.TestCase):
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
         lines = self.preprocessor.process(f, 'dummy.t')
+        lines = list(lines)
+        print(lines)
 
         f2 = io.StringIO()
         CTokenPrinter().dump(lines, file=f2)
@@ -197,12 +199,35 @@ class CPreProcessorTestCase(unittest.TestCase):
         bar foo (2)"""
         self.preprocess(src, expected)
 
-    def test_elif(self):
+    def test_if_expression_single_line(self):
+        """ Test if which might roll over to the next line!
+
+        This case requires to stay on the line with the if on it.
+        """
+        src = r"""
+        #define X 1
+        if (1 > 2
+        #if !X
+        &&
+        #else
+        ||
+        #endif"""
+        expected = r"""# 1 "dummy.t"
+
+
+        if (1 > 2
+
+
+        ||
+"""
+        self.preprocess(src, expected)
+    def test_if(self):
         """ Test elif with else """
-        src = r"""#define __WORDSIZE 32
-        #if __WORDSIZE == 32
+        src = r"""/* test with comments */
+        #define __WORDSIZE 32  /* use 32 */
+        #if __WORDSIZE == 32  /* woei */
         int32
-        #elif __WORDSIZE == 64
+        #elif __WORDSIZE == 64 // line comment
         int64
         #else
         int999
@@ -210,8 +235,30 @@ class CPreProcessorTestCase(unittest.TestCase):
         expected = r"""# 1 "dummy.t"
 
 
+
         int32
 
+
+"""
+        self.preprocess(src, expected)
+
+    def test_elif(self):
+        """ Test elif with else """
+        src = r"""/* test with comments */
+        #define __WORDSIZE 64  /* use 64 */
+        #if __WORDSIZE == 32  /* woei */
+        int32
+        #elif __WORDSIZE == 64 // line comment
+        int64
+        #else
+        int999
+        #endif"""
+        expected = r"""# 1 "dummy.t"
+
+
+
+
+        int64
 
 """
         self.preprocess(src, expected)
@@ -300,6 +347,19 @@ class CPreProcessorTestCase(unittest.TestCase):
         "mastah";"mastah";'''
         self.preprocess(src, expected)
 
+    def test_empty_arguments(self):
+        """ Check empty arguments """
+        src = r"""#define A(); // comments!
+        #define B();
+        A();
+        B();"""
+        expected = """# 1 "dummy.t"
+
+
+        ;;
+        ;;"""
+        self.preprocess(src, expected)
+
     def test_token_glue(self):
         """ Check various concatenations """
         src = r"""#define A(x,y) x ## y
@@ -375,6 +435,17 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
         (1 + (a,b))"""
+        self.preprocess(src, expected)
+
+    def test_single_line_comment(self):
+        """ Line comment issue """
+        src = r"""// error
+        void main() {// ok }
+        """
+        expected = r"""# 1 "dummy.t"
+
+        void main() {
+"""
         self.preprocess(src, expected)
 
 

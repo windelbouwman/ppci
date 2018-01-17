@@ -6,7 +6,6 @@ from ppci.lang.c3 import astnodes
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
-from ppci.binutils.debuginfo import DebugDb
 
 
 class LexerTestCase(unittest.TestCase):
@@ -112,7 +111,7 @@ class BuildTestCaseBase(unittest.TestCase):
     def setUp(self):
         self.diag = DiagnosticsManager()
         arch = ExampleArch()
-        self.builder = C3Builder(self.diag, arch.info, DebugDb())
+        self.builder = C3Builder(self.diag, arch.info)
         self.diag.clear()
         # Add a null logging handler to disable warning log messages:
         null_handler = logging.NullHandler()

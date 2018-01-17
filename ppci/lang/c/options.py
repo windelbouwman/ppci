@@ -11,6 +11,7 @@ class COptions:
         # Initialize defaults:
         self.disable('trigraphs')
         self.set('std', 'c99')
+        self.set('verbose', False)
 
         # TODO: temporal default paths:
         # self.add_include_path('/usr/include')
@@ -49,6 +50,13 @@ class COptions:
             self.add_include_path(path)
         for macro in args.define:
             self.add_define(macro)
+        self.set('verbose', args.super_verbose)
+
+    @classmethod
+    def from_args(cls, args):
+        o = cls()
+        o.process_args(args)
+        return o
 
     def add_define(self, macro):
         self.macros.append(macro)
@@ -69,3 +77,6 @@ coptions_parser.add_argument(
 coptions_parser.add_argument(
     '--std', choices=('c89', 'c99'), default='c99',
     help="The C version you want to use")
+coptions_parser.add_argument(
+    '--super-verbose', action='store_true', default=False,
+    help="Add extra verbose output during C compilation")

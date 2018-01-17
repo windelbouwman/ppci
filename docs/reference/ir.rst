@@ -52,7 +52,13 @@ The IR-code is implemented in the ir package.
 Types
 -----
 
-Only simple types are available.
+.. autoclass:: ppci.ir.Typ
+    :members:
+
+.. autoclass:: ppci.ir.BlobDataTyp
+    :members:
+
+These simple types are available:
 
 .. autodata:: ppci.ir.ptr
     :annotation:

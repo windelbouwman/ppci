@@ -9,9 +9,9 @@ public function void putc(int c)
     ITM_PORT  = cast<int*>(0xE0000000);
     // TODO: wait while port[0] == 0
 
-    while (*ITM_PORT == 0)
-    {
-    }
+    //while (*ITM_PORT == 0)
+    //{
+    //}
 
     *ITM_PORT = c;
 

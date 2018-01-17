@@ -31,8 +31,7 @@ class Or1kArch(Architecture):
     name = 'or1k'
 
     def __init__(self, options=None):
-        super().__init__(
-            options=options, register_classes=registers.register_classes)
+        super().__init__(options=options)
         # TODO: extend with architecture options like vector and 64 bit
         self.isa = orbis32 + data_isa
         self.assembler = BaseAssembler()
@@ -45,7 +44,8 @@ class Or1kArch(Architecture):
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32,
             },
-            endianness=Endianness.BIG)
+            endianness=Endianness.BIG,
+            register_classes=registers.register_classes)
 
         self.gdb_registers = registers.gdb_registers
         self.gdb_pc = registers.PC
@@ -125,7 +125,7 @@ class Or1kArch(Architecture):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
@@ -140,7 +140,10 @@ class Or1kArch(Architecture):
 
         yield RegisterUseDef(uses=arg_regs)
 
-        yield instructions.Jal(label, clobbers=registers.caller_save)
+        if isinstance(label, registers.Or1kRegister):
+            yield instructions.Jalr(label, clobbers=registers.caller_save)
+        else:
+            yield instructions.Jal(label, clobbers=registers.caller_save)
         # Fill delay slot:
         yield instructions.Nop(0)
 

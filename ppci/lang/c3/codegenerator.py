@@ -22,11 +22,11 @@ class CodeGenerator:
     """
     logger = logging.getLogger('c3cgen')
 
-    def __init__(self, diag, debug_db):
+    def __init__(self, diag):
         self.builder = irutils.Builder()
         self.diag = diag
         self.context = None
-        self.debug_db = debug_db
+        self.debug_db = debuginfo.DebugDb()
         self.module_ok = False
 
     def gencode(self, mod: ast.Module, context):
@@ -46,6 +46,8 @@ class CodeGenerator:
                     self.gen_function(func)
                 except SemanticError as ex:
                     self.error(ex.msg, ex.loc)
+            else:
+                self.gen_external_function(func)
 
         if not self.module_ok:
             raise SemanticError("Errors occurred", None)
@@ -86,7 +88,7 @@ class CodeGenerator:
     def gen_globals(self, module, context):
         """ Generate global variables and modules """
         self.context = context
-        ir_module = ir.Module(module.name)
+        ir_module = ir.Module(module.name, debug_db=self.debug_db)
         context.var_map[module] = ir_module
 
         # Generate room for global variables:
@@ -98,8 +100,9 @@ class CodeGenerator:
                 cval = None
 
             var_name = '{}_{}'.format(module.name, var.name)
-            ir_var = ir.Variable(
-                var_name, context.size_of(var.typ), value=cval)
+            size = context.size_of(var.typ)
+            alignment = 4
+            ir_var = ir.Variable(var_name, size, alignment, value=cval)
             context.var_map[var] = ir_var
             ir_module.add_variable(ir_var)
 
@@ -165,6 +168,17 @@ class CodeGenerator:
         self.module_ok = False
         self.diag.error(msg, loc)
 
+    def gen_external_function(self, function):
+        """ Generate external function """
+        name = '{}_{}'.format(self.builder.module.name, function.name)
+        arg_types = [self.get_ir_type(p.typ) for p in function.parameters]
+        if self.context.equal_types('void', function.typ.returntype):
+            x = ir.ExternalProcedure(name, arg_types)
+        else:
+            return_type = self.get_ir_type(function.typ.returntype)
+            x = ir.ExternalFunction(name, arg_types, return_type)
+        self.builder.module.add_external(x)
+
     def gen_function(self, function):
         """ Generate code for a function. This involves creating room
             for parameters on the stack, and generating code for the function
@@ -207,8 +221,10 @@ class CodeGenerator:
         # generate room for locals:
         for sym in function.inner_scope:
             var_name = 'var_{}'.format(sym.name)
-            variable = ir.Alloc(var_name, self.context.size_of(sym.typ))
-            self.emit(variable)
+            size = self.context.size_of(sym.typ)
+            alignment = size  # TODO: fix this somehow?
+            alloc = self.emit(ir.Alloc(var_name, size, alignment))
+            variable = self.emit(ir.AddressOf(alloc, var_name))
             if sym.isParameter:
                 # Get the parameter from earlier:
                 parameter = param_map[sym]
@@ -226,7 +242,7 @@ class CodeGenerator:
             # Debug info:
             dbg_typ = self.get_debug_type(sym.typ)
             dv = debuginfo.DebugVariable(sym.name, dbg_typ, sym.loc)
-            self.debug_db.enter(variable, dv)
+            self.debug_db.enter(alloc, dv)
             dfi.add_variable(dv)
 
         # Generate code for body:
@@ -607,10 +623,7 @@ class CodeGenerator:
         elif expr.op == '-':
             rhs = self.gen_expr_code(expr.a, rvalue=True)
             expr.lvalue = False
-
-            # Implement unary operator with sneaky trick using 0 - v binop:
-            zero = self.emit(ir.Const(0, 'zero', rhs.ty))
-            return self.emit(ir.Binop(zero, '-', rhs, 'unary_minus', rhs.ty))
+            return self.emit(ir.Unop('-', rhs, 'unary_minus', rhs.ty))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
 
@@ -767,17 +780,18 @@ class CodeGenerator:
         # Construct correct const value:
         if isinstance(expr.val, str):
             cval = self.context.pack_string(expr.val)
-            value = ir.LiteralData(cval, 'strval')
+            value = self.emit(ir.LiteralData(cval, 'strval'))
+            value = self.emit(ir.AddressOf(value, 'addr'))
         elif isinstance(expr.val, int):  # boolean is a subclass of int!
             # For booleans, use the integer as storage class:
             val = int(expr.val)
-            value = ir.Const(val, 'cnst', self.get_ir_int())
+            value = self.emit(ir.Const(val, 'cnst', self.get_ir_int()))
         elif isinstance(expr.val, float):
             val = float(expr.val)
-            value = ir.Const(val, 'cnst', ir.f64)
+            value = self.emit(ir.Const(val, 'cnst', ir.f64))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.val))
-        return self.emit(value)
+        return value
 
     def gen_type_cast(self, expr):
         """ Generate code for type casting """

@@ -128,6 +128,11 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('bl henkie')
         self.check('00f0 02f8 00f0 00f8 fff7 feff fff7 fcff')
 
+    def test_blx(self):
+        """ Test branch and link with target in a register """
+        self.feed('blx r10')
+        self.check('d047')
+
     def test_cmp_reg_reg(self):
         self.feed('cmp r0, r1')
         self.check('8842')
@@ -149,6 +154,10 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
     def test_or(self):
         self.feed('orr r7, r1')
         self.check('0f43')
+
+    def test_rsb(self):
+        self.feed('rsb r7, r1')
+        self.check('4f42')
 
     def test_nop(self):
         self.feed('nop')

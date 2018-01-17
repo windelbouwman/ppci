@@ -6,10 +6,13 @@ $ qemu-system-or1k -kernel baremetal.bin -M or1k-sim -serial stdio
 
 """
 
+import logging
 import io
 from ppci import api
 from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.uboot_image import write_uboot_image
 
+logging.basicConfig(level=logging.INFO)
 
 boot_src = """
 section reset
@@ -96,9 +99,13 @@ with open('report.html', 'w') as f:
         [io.StringIO(src)], [], march='or1k', opt_level=2,
         reporter=HtmlReportGenerator(f))
 
-print(obj1)
-print(obj2)
+print('Bootcode:', obj1)
+print('Program code:', obj2)
 obj = api.link([obj1, obj2], layout=io.StringIO(layout))
-print(obj)
-api.objcopy(obj, 'flash', 'bin', 'baremetal.bin')
+print('Total:', obj)
+# api.objcopy(obj, 'flash', 'bin', 'baremetal.bin')
 
+# Create uboot image:
+data = obj.get_image('flash').data
+with open('baremetal.bin', 'wb') as f:
+    write_uboot_image(f, data)

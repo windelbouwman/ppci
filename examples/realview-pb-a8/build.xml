@@ -13,7 +13,7 @@
         <objcopy
             objectfile="hello_all.oj"
             imagename="flash"
-            format="bin"
+            format="uimage"
             output="hello.bin" />
     </target>
 </project>

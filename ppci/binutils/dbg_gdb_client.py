@@ -5,6 +5,8 @@
 import binascii
 import logging
 import struct
+from threading import Thread, Lock
+from queue import Queue
 from .dbg import DebugDriver, STOPPED, RUNNING
 
 INTERRUPT = 2
@@ -33,6 +35,12 @@ class GdbDebugDriver(DebugDriver):
         self.pcstopval = None
         self.swbrkpt = swbrkpt
         self.stopreason = INTERRUPT
+        self.rxqueue = Queue()
+        self.rxthread = Thread(target=self.recv)
+        self.rxthread.start()
+        self.callbackstop = None
+        self.callbackstart = None
+        self.screenlock = Lock()
         if (constat == RUNNING):
             self.stop()
 
@@ -61,26 +69,22 @@ class GdbDebugDriver(DebugDriver):
 
     def sendpkt(self, data, retries=10):
         """ sends data via the RSP protocol to the device """
-        readable = self.transport.rx_avail()
-        if readable:
-            self.process_stop_status()
         self.logger.debug('GDB> %s', data)
         wire_data = self.rsp_pack(data).encode()
         self.transport.send(wire_data)
-        res = self.recv()
+        res = self.rxqueue.get()
         while res != '+':
             self.logger.warning('discards %s', res)
             self.logger.debug('resend-GDB> %s', data)
             self.transport.send(wire_data)
-            res = self.recv()
+            res = self.rxqueue.get()
             retries -= 1
             if retries == 0:
                 raise ValueError("retry fail")
 
-    def readpkt(self, retries=10):
+    def decodepkt(self, pkt, retries=10):
         """ blocks until it reads an RSP packet, and returns it's data"""
         while True:
-            pkt = self.recv()
             if pkt.startswith('$'):
                 try:
                     res = self.rsp_unpack(pkt)
@@ -102,33 +106,25 @@ class GdbDebugDriver(DebugDriver):
     def recv(self):
         """ Receive either a packet, or an ack """
         while True:
-            data = self.transport.recv()
-            if data == b'+':
-                return data.decode('ascii')
-            elif data == b'$':
-                res = bytearray()
-                res.extend(data)
-                while True:
-                    res.extend(self.transport.recv())
-                    if res[-1] == ord('#') and res[-2] != ord("'"):
-                        res.extend(self.transport.recv())
-                        res.extend(self.transport.recv())
-                        return res.decode('ascii')
-            else:
-                print('UNKNOWN:', data)
-
-    def process_byte(self, b):
-        pass
-
-    def _process_incoming(self):
-        """ Process all incoming bytes """
-        while True:
             readable = self.transport.rx_avail()
             if readable:
-                b = self.transport.recv()
-                self.process_byte(b)
-            else:
-                break
+                data = self.transport.recv()
+                if data == b'$':
+                    res = bytearray()
+                    res.extend(data)
+                    while True:
+                        res.extend(self.transport.recv())
+                        if res[-1] == ord('#') and res[-2] != ord("'"):
+                            res.extend(self.transport.recv())
+                            res.extend(self.transport.recv())
+                            pkt = self.decodepkt(res.decode('ascii'))
+                            if pkt.startswith('S') or pkt.startswith('T'):
+                                self.process_stop_status(pkt)
+                            else:
+                                self.rxqueue.put(pkt)
+                            break
+                elif data == b'+':
+                    self.rxqueue.put(data.decode('ascii'))
 
     def sendbrk(self):
         """ sends break command to the device """
@@ -163,19 +159,18 @@ class GdbDebugDriver(DebugDriver):
                 pc = self.get_pc()
                 self.set_pc(pc - 4)
             self.sendpkt("c")
-            # res = self.readpkt()
-            # print(res)
             self.status = RUNNING
+            with self.screenlock:
+                self.callbackstart()
 
     def restart(self):
         """ restart the device """
         if self.status == STOPPED:
-            # self.sendpkt("c00000080")
             self.set_pc(self.pcresval)
             self.run()
-            # res = self.readpkt()
-            # print(res)
-        self.status = RUNNING
+            self.status = RUNNING
+            with self.screenlock:
+                self.callbackstart()
 
     def step(self):
         """ restart the device """
@@ -185,7 +180,9 @@ class GdbDebugDriver(DebugDriver):
                 self.clear_breakpoint(pc - 4)
                 self.set_pc(pc - 4)
             self.sendpkt("s")
-            self.process_stop_status()
+            self.status = RUNNING
+            with self.screenlock:
+                self.callbackstart()
 
     def nstep(self, count):
         """ restart the device """
@@ -195,39 +192,33 @@ class GdbDebugDriver(DebugDriver):
                 self.clear_breakpoint(pc - 4)
                 self.set_pc(pc - 4)
             self.sendpkt("n %x" % count)
-            self.process_stop_status()
+            self.status = RUNNING
+            with self.screenlock:
+                self.callbackstart()
 
     def stop(self):
-        self.sendbrk()
-        self.status = STOPPED
-        self.process_stop_status()
+        if self.status == RUNNING:
+            self.sendbrk()
 
-    def process_stop_status(self):
-        res = self.readpkt()
-        if res.startswith('S') or res.startswith('T'):
-            code = int(res[1:3], 16)
-            self.stopreason = code
-            rest = res[3:]
-            if (res.startswith('T') and int(rest[0:2], 16)
-                    == self.arch.gdb_registers.index(self.arch.gdb_pc)):
-                data = bytes.fromhex(rest[3:-1])
-                self.pcstopval, = struct.unpack('<I', data)
-            else:
-                self.pcstopval = None
+    def process_stop_status(self, pkt):
+        code = int(pkt[1:3], 16)
+        self.stopreason = code
+        rest = pkt[3:]
+        if (pkt.startswith('T') and int(rest[0:2], 16)
+                == self.arch.gdb_registers.index(self.arch.gdb_pc)):
+            data = bytes.fromhex(rest[3:-1])
+            self.pcstopval, = struct.unpack('<I', data)
         else:
-            raise NotImplementedError(res)
-
+            self.pcstopval = None
         if (code & (BRKPOINT | INTERRUPT) != 0):
             self.logger.debug("Target stopped..")
             self.status = STOPPED
+            if self.callbackstop:
+                with self.screenlock:
+                    self.callbackstop()
         else:
             self.logger.debug("Target running..")
             self.status = RUNNING
-
-    def update_status(self):
-        readable = self.transport.rx_avail()
-        if readable:
-            self.process_stop_status()
 
     def get_status(self):
         return self.status
@@ -237,58 +228,62 @@ class GdbDebugDriver(DebugDriver):
         return regs
 
     def _get_general_registers(self):
-        self.sendpkt("g")
-        data = self.readpkt()
-        data = binascii.a2b_hex(data.encode('ascii'))
-        res = {}
-        offset = 0
-        for register in self.arch.gdb_registers:
-            size = register.bitsize // 8
-            reg_data = data[offset:offset + size]
-            res[register] = self._unpack_register(register, reg_data)
-            offset += size
-        if len(data) != offset:
-            self.logger.error(
-                'Received %x bytes register data, processed %x' % (
-                    len(data), offset))
-        return res
+        if self.status == STOPPED:
+            self.sendpkt("g")
+            data = self.rxqueue.get()
+            data = binascii.a2b_hex(data.encode('ascii'))
+            res = {}
+            offset = 0
+            for register in self.arch.gdb_registers:
+                size = register.bitsize // 8
+                reg_data = data[offset:offset + size]
+                res[register] = self._unpack_register(register, reg_data)
+                offset += size
+            if len(data) != offset:
+                self.logger.error(
+                    'Received %x bytes register data, processed %x' % (
+                        len(data), offset))
+            return res
 
     def set_registers(self, regvalues):
-        data = bytearray()
-        res = {}
-        offset = 0
-        for register in self.arch.gdb_registers:
-            reg_data = self._pack_register(register, regvalues[register])
-            size = register.bitsize // 8
-            data[offset:offset + size] = reg_data
-            offset += size
-        data = binascii.b2a_hex(data).decode('ascii')
-        self.sendpkt("G %s" % data)
-        res = self.readpkt()
-        if res == 'OK':
-            self.logger.debug('Register written')
-        else:
-            self.logger.warning('Registers writing failed: %s', res)
+        if self.status == STOPPED:
+            data = bytearray()
+            res = {}
+            offset = 0
+            for register in self.arch.gdb_registers:
+                reg_data = self._pack_register(register, regvalues[register])
+                size = register.bitsize // 8
+                data[offset:offset + size] = reg_data
+                offset += size
+            data = binascii.b2a_hex(data).decode('ascii')
+            self.sendpkt("G %s" % data)
+            res = self.rxqueue.get()
+            if res == 'OK':
+                self.logger.debug('Register written')
+            else:
+                self.logger.warning('Registers writing failed: %s', res)
 
     def _get_register(self, register):
         """ Get a single register """
-        idx = self.arch.gdb_registers.index(register)
-        self.sendpkt("p %x" % idx)
-        data = self.readpkt()
-        data = binascii.a2b_hex(data.encode('ascii'))
-        return self._unpack_register(register, data)
+        if self.status == STOPPED:
+            idx = self.arch.gdb_registers.index(register)
+            self.sendpkt("p %x" % idx)
+            data = self.rxqueue.get()
+            data = binascii.a2b_hex(data.encode('ascii'))
+            return self._unpack_register(register, data)
 
     def _set_register(self, register, value):
         """ Set a single register """
-        idx = self.arch.gdb_registers.index(register)
-        value = self._pack_register(register, value)
-        value = binascii.b2a_hex(value).decode('ascii')
-        self.sendpkt("P %x=%s" % (idx, value))
-        res = self.readpkt()
-        if res == 'OK':
-            self.logger.debug('Register written')
-        else:
-            self.logger.warning('Register write failed: %s', res)
+        if self.status == STOPPED:
+            idx = self.arch.gdb_registers.index(register)
+            value = self._pack_register(register, value)
+            value = binascii.b2a_hex(value).decode('ascii')
+            self.sendpkt("P %x=%s" % (idx, value))
+            res = self.rxqueue.get()
+            if res == 'OK':
+                self.logger.debug('Register written')
+            else:
+                self.logger.warning('Register write failed: %s', res)
 
     @staticmethod
     def _unpack_register(register, data):
@@ -322,31 +317,35 @@ class GdbDebugDriver(DebugDriver):
 
     def set_breakpoint(self, address):
         """ Set a breakpoint """
-        self.sendpkt("Z0,%x,4" % address)
-        res = self.readpkt()
-        if res == 'OK':
-            self.logger.debug('Breakpoint set')
-        else:
-            self.logger.warning('Breakpoint not set: %s', res)
+        if self.status == STOPPED:
+            self.sendpkt("Z0,%x,4" % address)
+            res = self.rxqueue.get()
+            if res == 'OK':
+                self.logger.debug('Breakpoint set')
+            else:
+                self.logger.warning('Breakpoint not set: %s', res)
 
     def clear_breakpoint(self, address):
         """ Clear a breakpoint """
-        self.sendpkt("z0,%x,4" % address)
-        self.readpkt()
+        if self.status == STOPPED:
+            self.sendpkt("z0,%x,4" % address)
+            self.rxqueue.get()
 
     def read_mem(self, address, size):
         """ Read memory from address """
-        self.sendpkt("m %x,%x" % (address, size))
-        ret = binascii.a2b_hex(self.readpkt().encode('ascii'))
-        return ret
+        if self.status == STOPPED:
+            self.sendpkt("m %x,%x" % (address, size))
+            ret = binascii.a2b_hex(self.rxqueue.get().encode('ascii'))
+            return ret
 
     def write_mem(self, address, data):
         """ Write memory """
-        length = len(data)
-        data = binascii.b2a_hex(data).decode('ascii')
-        self.sendpkt("M %x,%x:%s" % (address, length, data))
-        res = self.readpkt()
-        if res == 'OK':
-            self.logger.debug('Memory written')
-        else:
-            self.logger.warning('Memory write failed: %s', res)
+        if self.status == STOPPED:
+            length = len(data)
+            data = binascii.b2a_hex(data).decode('ascii')
+            self.sendpkt("M %x,%x:%s" % (address, length, data))
+            res = self.rxqueue.get()
+            if res == 'OK':
+                self.logger.debug('Memory written')
+            else:
+                self.logger.warning('Memory write failed: %s', res)

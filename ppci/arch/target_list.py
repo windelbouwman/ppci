@@ -7,6 +7,7 @@ from .example import ExampleArch
 from .msp430 import Msp430Arch
 from .x86_64 import X86_64Arch
 from .mcs6500 import Mcs6500Arch
+from .mips import MipsArch
 from .or1k import Or1kArch
 from .riscv import RiscvArch
 from .stm8 import Stm8Arch
@@ -18,6 +19,7 @@ target_classes = [
     AvrArch,
     ExampleArch,
     Mcs6500Arch,
+    MipsArch,
     Msp430Arch,
     Or1kArch,
     RiscvArch,

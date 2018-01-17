@@ -1,6 +1,5 @@
 """ Definitions of Riscv instructions. """
 
-from ...utils.bitfun import wrap_negative
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
@@ -8,7 +7,7 @@ from .tokens import RiscvcToken
 from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
 from ..generic_instructions import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
-from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne
+from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne, Ble
 
 
 class RegisterSet(set):
@@ -302,7 +301,7 @@ class CLui(RiscvcInstruction):
     syntax = Syntax(['c', '.', 'lui', ' ', rd, ',', ' ', imm])
 
     def encode(self):
-        imm6 = wrap_negative(self.imm, 6)
+        imm6 = self.imm & 0x3f
         tokens = self.get_tokens()
         tokens[0].op = 0b01
         tokens[0][2:7] = imm6 & 0x1F
@@ -492,7 +491,7 @@ def pattern_consti32_2(context, tree):
     if (c0 & 0x800) != 0:
         c0 += 0x1000
     context.emit(CLui(d, c0 >> 12))
-    context.emit(Addi(d, d, c0))
+    context.emit(Addi(d, d, c0 & 0xfff))
     return d
 
 
@@ -615,19 +614,12 @@ def pattern_stri32_addi32(context, tree, c0, c1):
     context.emit(Swv(c1, offset, c0))
 
 
-@rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=1)
+@rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@rvcisa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {
-        "<": Blt, ">": Bgt, "==": Beq, "!=": Bne,
-        ">=": Bge, '<=': Bgt
-    }
+    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Ble}
     Bop = opnames[op]
-    if op == "<=":
-        jmp_ins = B(yes_label.name, jumps=[yes_label])
-        context.emit(Bop(c0, c1, yes_label.name, jumps=[no_label, jmp_ins]))
-        context.emit(jmp_ins)
-    else:
-        jmp_ins = B(no_label.name, jumps=[no_label])
-        context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-        context.emit(jmp_ins)
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)

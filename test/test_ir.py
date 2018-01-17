@@ -59,8 +59,8 @@ class ConstantFolderTestCase(unittest.TestCase):
     def setUp(self):
         self.b = irutils.Builder()
         debug_db = DebugDb()
-        self.cf = ConstantFolder(debug_db)
-        self.m = ir.Module('test')
+        self.cf = ConstantFolder()
+        self.m = ir.Module('test', debug_db=debug_db)
         self.b.set_module(self.m)
 
     def test_builder(self):

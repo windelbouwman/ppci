@@ -111,10 +111,10 @@ class DigraphTestCase(unittest.TestCase):
         c = DiNode(g)
         g.add_edge(a, b)
         g.add_edge(b, c)
-        self.assertEqual({b}, a.Succ)
-        self.assertEqual({b}, c.Pred)
+        self.assertEqual({b}, a.successors)
+        self.assertEqual({b}, c.predecessors)
         g.del_node(c)
-        self.assertEqual(set(), b.Succ)
+        self.assertEqual(set(), b.successors)
 
 
 class InterferenceGraphTestCase(unittest.TestCase):
@@ -192,14 +192,14 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertEqual(3, len(cfg))
 
         # Check successors:
-        self.assertEqual({b2, b3}, b1.Succ)
-        self.assertEqual({b3}, b2.Succ)
-        self.assertEqual(set(), b3.Succ)
+        self.assertEqual({b2, b3}, b1.successors)
+        self.assertEqual({b3}, b2.successors)
+        self.assertEqual(set(), b3.successors)
 
         # Check predecessors:
-        self.assertEqual(set(), b1.Pred)
-        self.assertEqual({b1}, b2.Pred)
-        self.assertEqual({b2, b1}, b3.Pred)
+        self.assertEqual(set(), b1.predecessors)
+        self.assertEqual({b1}, b2.predecessors)
+        self.assertEqual({b2, b1}, b3.predecessors)
 
         # Check block 1:
         self.assertEqual(5, len(b1.instructions))
@@ -268,8 +268,8 @@ class InterferenceGraphTestCase(unittest.TestCase):
         b2 = cfg.get_node(i2)
 
         # Check that block2 has two successors:
-        self.assertEqual(2, len(b2.Succ))
-        self.assertEqual(2, len(b2.Pred))
+        self.assertEqual(2, len(b2.successors))
+        self.assertEqual(2, len(b2.predecessors))
 
         # Check that x is live at end of block 2
         self.assertEqual({x}, b2.live_out)

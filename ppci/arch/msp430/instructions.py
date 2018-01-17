@@ -5,7 +5,7 @@ from ..generic_instructions import ArtificialInstruction
 from ..generic_instructions import RegisterUseDef
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
-from .registers import Msp430Register, r2, r3, r4, r12, r13, SP, PC
+from .registers import Msp430Register, r2, r3, r12, r13, SP, PC
 from ...utils.bitfun import align
 
 # pylint: disable=no-member,invalid-name
@@ -454,8 +454,13 @@ def push(reg):
 
 
 def call(label, clobbers=()):
-    assert isinstance(label, str)
-    return Call(ConstLabelSrc(label), clobbers=clobbers)
+    """ Helper function which creates a call instruction """
+    if isinstance(label, str):
+        return Call(ConstLabelSrc(label), clobbers=clobbers)
+    elif isinstance(label, Msp430Register):
+        return Call(RegSrc(label), clobbers=clobbers)
+    else:
+        raise TypeError('Expected str or register, got {}'.format(label))
 
 
 def mov(src, dst):
@@ -561,7 +566,7 @@ def pattern_i8toi16(context, tree, c0):
     """ Sign extend signed byte to signed short """
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Sxt(d))
+    context.emit(Sxt(RegSrc(d)))
     return d
 
 
@@ -588,16 +593,44 @@ def call_intrinsic(context, label, args, clobbers=()):
 
 
 @isa.pattern('reg', 'MULI16(reg, reg)', size=10)
-def pattern_mul16(context, tree, c0, c1):
+def pattern_mul_i16(context, tree, c0, c1):
     return call_intrinsic(
-        context, 'msp430_runtime___mul', (c0, c1),
+        context, 'runtime_mulsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@isa.pattern('reg', 'MULU16(reg, reg)', size=10)
+def pattern_mul_u16(context, tree, c0, c1):
+    return call_intrinsic(
+        context, 'runtime_umulsi3', (c0, c1),
         clobbers=context.arch.caller_save)
 
 
 @isa.pattern('reg', 'DIVI16(reg, reg)', size=10)
-def pattern_div16(context, tree, c0, c1):
+def pattern_div_i16(context, tree, c0, c1):
     return call_intrinsic(
-        context, 'msp430_runtime___div', (c0, c1),
+        context, 'runtime_divsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@isa.pattern('reg', 'DIVU16(reg, reg)', size=10)
+def pattern_div_u16(context, tree, c0, c1):
+    return call_intrinsic(
+        context, 'runtime_udivsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@isa.pattern('reg', 'REMI16(reg, reg)', size=10)
+def pattern_rem_i16(context, tree, c0, c1):
+    return call_intrinsic(
+        context, 'runtime_modsi3', (c0, c1),
+        clobbers=context.arch.caller_save)
+
+
+@isa.pattern('reg', 'REMU16(reg, reg)', size=10)
+def pattern_rem_u16(context, tree, c0, c1):
+    return call_intrinsic(
+        context, 'runtime_umodsi3', (c0, c1),
         clobbers=context.arch.caller_save)
 
 
@@ -673,6 +706,23 @@ def pattern_sub32(context, tree, c0, c1):
     context.emit(mov(c0l, dl))
     context.emit(Sub(RegSrc(c1l), RegDst(dl)))
     context.emit(Subc(RegSrc(c1h), RegDst(dh)))
+    return (dh, dl)
+
+
+@isa.pattern('reg', 'NEGI16(reg)', size=4)
+@isa.pattern('reg', 'NEGU16(reg)', size=4)
+def pattern_neg16(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(Mov(SmallConstSrc(0), RegDst(d)))
+    context.emit(Sub(RegSrc(c0), RegDst(d)))
+    return d
+
+
+@isa.pattern('reg', 'INVU16(reg)', size=4)
+def pattern_inv16(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Xor(SmallConstSrc(-1), RegDst(d)))
     return d
 
 

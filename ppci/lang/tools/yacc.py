@@ -8,7 +8,7 @@ import datetime
 import logging
 
 from .baselex import BaseLexer
-from ...common import Token, SourceLocation
+from ..common import Token, SourceLocation
 from .grammar import Grammar
 from .lr import LrParserBuilder
 
@@ -163,7 +163,7 @@ class XaccGenerator:
         self.print('from ppci.lang.tools.grammar import Production, Grammar')
         self.print(
             'from ppci.lang.tools.lr import LrParser, Reduce, Shift, Accept')
-        self.print('from ppci.common import Token')
+        self.print('from ppci.lang.common import Token')
         self.print('')
         for h in self.headers:
             self.print(h)

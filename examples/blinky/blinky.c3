@@ -99,7 +99,8 @@ function void main()
     // Systick control register ( cortex TRM )
     var stm32f4xx.Systick_Type Systick;
     Systick  = cast<stm32f4xx.Systick_Type>(0xE000E010);
-    Systick->LOAD = 1875000;
+    // Systick->LOAD = 1875000;
+    Systick->LOAD = 187500;
     Systick->CTRL = 0x3;
 
     init(12);

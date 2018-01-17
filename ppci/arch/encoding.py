@@ -47,7 +47,7 @@ class Operand(property):
         super().__init__(getter, setter)
 
     def __repr__(self):
-        return 'property name={}, cls={}'.format(self._name, self._cls)
+        return 'operand name={}, cls={}'.format(self._name, self._cls)
 
     @property
     def is_constructor(self):
@@ -136,8 +136,8 @@ class Constructor:
             # Set parameters:
             if len(args) != len(formal_args):
                 raise TypeError(
-                    '{} arguments given, but expected {}'.format(
-                        len(args), len(formal_args)))
+                    '{} arguments given, but {} expects {}'.format(
+                        len(args), self.__class__, len(formal_args)))
             for farg, arg in zip(formal_args, args):
                 if not isinstance(arg, farg._cls):  # pragma: no cover
                     # Create some nice looking error:
@@ -402,6 +402,7 @@ class Instruction(Constructor, metaclass=InsMeta):
             positions[nl] = pos
             if hasattr(nl, 'tokens'):
                 tokens = getattr(nl, 'tokens')
+                # TODO: this position might not what is expected!
                 size = sum(t.Info.size for t in tokens) // 8
             else:
                 size = 0
@@ -581,6 +582,9 @@ class Relocation:
         self.addend = addend
         self.section = section
         self.offset = offset
+
+    def __repr__(self):
+        return 'Reloc[{} offset={}]'.format(self.name, self.offset)
 
     def __eq__(self, other):
         s = (

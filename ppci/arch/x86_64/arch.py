@@ -82,14 +82,15 @@ class X86_64Arch(Architecture):
     option_names = ('sse2', 'sse3', 'x87', 'wincc')
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=register_classes)
+        super().__init__(options=options)
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 ir.i64: TypeInfo(8, 8), ir.u64: TypeInfo(8, 8),
-                'int': ir.i64, 'ptr': ir.u64})
+                'int': ir.i64, 'ptr': ir.u64
+            }, register_classes=register_classes)
 
         self.isa = isa + data_isa + sse1_isa + sse2_isa
         if self.has_option('x87'):
@@ -130,7 +131,7 @@ class X86_64Arch(Architecture):
         yield RegisterUseDef(uses=(rcx,))
         yield instructions.Movsb()
 
-        # for x in 
+        # for x in
         # Memcopy action!
         # yield mov(rdi, arg)
         # yield mov(rsi, arg_loc)
@@ -188,12 +189,14 @@ class X86_64Arch(Architecture):
                 registers.xmm3, registers.xmm4, registers.xmm5,
                 registers.xmm6, registers.xmm7]
 
-        offset = 0
+        offset = 16
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [
                     ir.i8, ir.i64, ir.u8, ir.u64,
-                    ir.i16, ir.u16, ir.ptr]:
+                    ir.i16, ir.u16,
+                    ir.i32, ir.u32,  # TODO: maybe use eax and friends?
+                    ir.ptr]:
                 if int_regs:
                     reg = int_regs.pop(0)
                 else:
@@ -213,7 +216,7 @@ class X86_64Arch(Architecture):
 
     def determine_rv_location(self, ret_type):
         """ return value in rax or xmm0 """
-        if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.ptr]:
+        if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.i32, ir.u32, ir.ptr]:
             rv = rax
         elif ret_type in [ir.f32, ir.f64]:
             rv = registers.xmm0
@@ -255,7 +258,7 @@ class X86_64Arch(Architecture):
                     stack_offset += 8
                 elif isinstance(arg, StackLocation):
                     # Store memcpy action for later:
-                    cps.append((arg.offset, stack_offset, arg.size))
+                    # cps.append((arg.offset, stack_offset, arg.size))
                     stack_offset += arg.size
                 else:  # pragma: no cover
                     raise NotImplementedError()
@@ -274,7 +277,7 @@ class X86_64Arch(Architecture):
             live_out.add(retval_loc)
         yield RegisterUseDef(uses=live_out)
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         # def gen_fill_arguments(self, arg_types, args):
         """ This function moves arguments in the proper locations. """
         arg_types = [a[0] for a in args]
@@ -299,8 +302,10 @@ class X86_64Arch(Architecture):
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, Register):
                     push_ops.append(Push(arg))
+                elif isinstance(arg, StackLocation):
+                    memcpy(a, b, 100)
                 else:
-                    raise NotImplementedError()
+                    raise NotImplementedError(str(arg))
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
@@ -312,7 +317,11 @@ class X86_64Arch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-        yield Call(label, clobbers=caller_save)
+        if isinstance(label, X86Register):
+            # Call to register pointer
+            yield instructions.CallReg(label, clobbers=caller_save)
+        else:
+            yield Call(label, clobbers=caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

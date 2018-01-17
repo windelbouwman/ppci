@@ -51,7 +51,8 @@ class CParser(RecursiveDescentParser):
             'true', 'false',
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
             'switch', 'case', 'default', 'break', 'continue',
-            'sizeof', 'struct', 'union', 'enum'}
+            'sizeof', 'struct', 'union', 'enum',
+            '__builtin_va_arg', '__builtin_va_start'}
 
         # Some additions from C99:
         if self.context.coptions['std'] == 'c99':
@@ -112,7 +113,6 @@ class CParser(RecursiveDescentParser):
         self.logger.debug('Parsing some nice C code!')
         self.init_lexer(tokens)
         self.typedefs = set()
-        self.typedefs.add('__builtin_va_list')
         cu = self.parse_translation_unit()
         self.logger.info('Parsing finished')
         return cu
@@ -214,7 +214,10 @@ class CParser(RecursiveDescentParser):
             typ = self.semantics.on_basic_type(type_specifiers, location)
 
         if not typ:
-            self.error('Expected at least one type specifier')
+            location = self.current_location
+            typ = self.semantics.on_basic_type(['int'], location)
+            self.logger.warning('No type given (%s), assuming int!', location)
+            # self.error('Expected at least one type specifier')
 
         typ = self.semantics.on_type_qualifiers(type_qualifiers, typ)
         ds = nodes.DeclSpec(storage_class, typ)
@@ -337,7 +340,6 @@ class CParser(RecursiveDescentParser):
             ds.storage_class, ds.typ, d.name, d.type_modifiers, d.location)
         self.semantics.enter_function(function)
         body = self.parse_compound_statement()
-        # d.body = body
         self.semantics.end_function(body)
         return function
 
@@ -724,12 +726,27 @@ class CParser(RecursiveDescentParser):
         """
         return self.parse_binop_with_precedence(0)
 
+    def _binop_take(self, op, priority):
+        """ Decide whether to group.
+
+        This is a helper function that determines whether or not to group
+        a certain operator further, given the current priority.
+        """
+        # TODO: rename this function
+        if op not in self.prio_map:
+            return False
+
+        op_associativity, op_prio = self.prio_map[op]
+        if op_associativity == self.LEFT_ASSOCIATIVE:
+            return op_prio > priority
+        else:
+            return op_prio >= priority
+
     def parse_binop_with_precedence(self, priority):
         lhs = self.parse_primary_expression()
 
         # print('prio=', prio, self.peak)
-        while self.peak in self.prio_map and \
-                self.prio_map[self.peak][1] >= priority:
+        while self._binop_take(self.peak, priority):
             op = self.consume()
             op_associativity, op_prio = self.prio_map[op.val]
             if op.val == '?':
@@ -754,20 +771,8 @@ class CParser(RecursiveDescentParser):
         """ Parse a primary expression """
         if self.peak == 'ID':
             identifier = self.consume('ID')
-            if self.peak == '(':
-                # Function call!
-                self.consume('(')
-                args = []
-                while self.peak != ')':
-                    args.append(self.parse_assignment_expression())
-                    if self.peak != ')':
-                        self.consume(',')
-                self.consume(')')
-                expr = self.semantics.on_call(
-                    identifier.val, args, identifier.loc)
-            else:
-                expr = self.semantics.on_variable_access(
-                    identifier.val, identifier.loc)
+            expr = self.semantics.on_variable_access(
+                identifier.val, identifier.loc)
         elif self.peak == 'NUMBER':
             n = self.consume()
             expr = self.semantics.on_number(n.val, n.loc)
@@ -785,6 +790,20 @@ class CParser(RecursiveDescentParser):
                 operator = op.val
             expr = self.parse_primary_expression()
             expr = self.semantics.on_unop(operator, expr, op.loc)
+        elif self.peak == '__builtin_va_start':
+            location = self.consume('__builtin_va_start').loc
+            self.consume('(')
+            ap = self.parse_assignment_expression()
+            self.consume(')')
+            expr = self.semantics.on_builtin_va_start(ap, location)
+        elif self.peak == '__builtin_va_arg':
+            location = self.consume('__builtin_va_arg').loc
+            self.consume('(')
+            ap = self.parse_assignment_expression()
+            self.consume(',')
+            typ = self.parse_typename()
+            self.consume(')')
+            expr = self.semantics.on_builtin_va_arg(ap, typ, location)
         elif self.peak == 'sizeof':
             location = self.consume('sizeof').loc
             if self.peak == '(':
@@ -812,10 +831,10 @@ class CParser(RecursiveDescentParser):
                 expr = self.parse_expression()
                 self.consume(')')
         else:
-            self.not_impl()
+            self.not_impl(self.peak)
 
         # Postfix operations (have the highest precedence):
-        while self.peak in ['--', '++', '[', '.', '->']:
+        while self.peak in ['--', '++', '[', '.', '->', '(']:
             if self.peak in ['--', '++']:
                 op = self.consume()
                 expr = self.semantics.on_unop('x' + op.val, expr, op.loc)
@@ -824,6 +843,8 @@ class CParser(RecursiveDescentParser):
                 index = self.parse_expression()
                 self.consume(']')
                 expr = self.semantics.on_array_index(expr, index, location)
+            elif self.peak == '(':
+                expr = self.parse_call(expr)
             elif self.peak == '.':
                 location = self.consume('.').loc
                 field = self.consume('ID').val
@@ -836,6 +857,19 @@ class CParser(RecursiveDescentParser):
                 expr = self.semantics.on_field_select(expr, field, location)
             else:  # pragma: no cover
                 self.not_impl()
+        return expr
+
+    def parse_call(self, callee):
+        """ Parse a function call """
+        location = self.consume('(').loc
+        args = []
+        while self.peak != ')':
+            args.append(self.parse_assignment_expression())
+            if self.peak != ')':
+                self.consume(',')
+        expr = self.semantics.on_call(
+            callee, args, location)
+        self.consume(')')
         return expr
 
     # Lexer helpers:

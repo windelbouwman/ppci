@@ -1,5 +1,5 @@
 """ Command line interface for the debugger """
-
+import time
 import cmd
 import binascii
 from .. import __version__ as ppci_version
@@ -11,12 +11,26 @@ if os.name == 'nt':
     from colorama import init
 
 
+def pos(y, x):
+    print('\x1b[%d;%dH' % (y, x))
+
+
+CMDLINE = 12
+
+
 def clearscreen():
     print("\033[2J\033[1;1H")
 
 
+def cleartocursor():
+    print("\033[1J")
+
+
+def clearaftercursor():
+    print("\033[J")
+
+
 def print_file_line(filename, lineno):
-    clearscreen()
     lines = open(filename).read().splitlines()
 
     # show file and line number
@@ -41,7 +55,7 @@ def print_file_line(filename, lineno):
 
 class DebugCli(cmd.Cmd):
     """ Implement a console-based debugger interface. """
-    prompt = '(ppci-dbg)> '
+    prompt = 'DBG>'
     intro = "ppci interactive debugger"
 
     def __init__(self, debugger, showsource=False):
@@ -52,8 +66,17 @@ class DebugCli(cmd.Cmd):
             if os.name == 'nt':
                 init()
             clearscreen()
+            pos(1, 1)
+            if self.debugger.is_running:
+                print('\033[37m\033[1mTarget State: RUNNING')
+            else:
+                print('\033[37m\033[1mTarget State: STOPPED')
             file, col = self.debugger.find_pc()
+            pos(2, 1)
             print_file_line(file, col)
+            pos(CMDLINE, 1)
+            self.debugger.driver.callbackstop = self.updatesourceview
+            self.debugger.driver.callbackstart = self.updatestatus
 
     def do_quit(self, _):
         """ Quit the debugger """
@@ -103,8 +126,9 @@ class DebugCli(cmd.Cmd):
         """ Read data from memory: read address,length"""
         address, size = map(str2int, arg.split(','))
         data = self.debugger.read_mem(address, size)
-        data = binascii.hexlify(data).decode('ascii')
-        print('Data @ 0x{:016X}: {}'.format(address, data))
+        if data:
+            data = binascii.hexlify(data).decode('ascii')
+            print('Data @ 0x{:016X}: {}'.format(address, data))
 
     def do_write(self, arg):
         """ Write data to memory: write address,hexdata """
@@ -130,10 +154,11 @@ class DebugCli(cmd.Cmd):
         registers = self.debugger.get_registers()
         self.debugger.register_values = self.debugger.get_register_values(
             registers)
-        for reg in registers:
-            size = reg.bitsize // 4
-            print('{:>5.5s} : 0x{:0{sz}X}'.format(
-                str(reg), self.debugger.register_values[reg], sz=size))
+        if self.debugger.register_values:
+            for reg in registers:
+                size = reg.bitsize // 4
+                print('{:>5.5s} : 0x{:0{sz}X}'.format(
+                    str(reg), self.debugger.register_values[reg], sz=size))
 
     def do_writeregs(self, _):
         """ Write registers """
@@ -182,8 +207,29 @@ class DebugCli(cmd.Cmd):
 
     do_sl = do_stepl
 
-    def postcmd(self, stop, line):
+    def updatesourceview(self):
         if self.showsource is True and self.debugger.is_halted:
+            pos(CMDLINE, 1)
+            cleartocursor()
+            pos(1, 1)
+            print('\033[37m\033[1mTarget State: STOPPED')
             file, row = self.debugger.find_pc()
+            pos(2, 1)
             print_file_line(file, row)
-        return cmd.Cmd.postcmd(self, stop, line)
+            pos(CMDLINE + 1, len(DebugCli.prompt))
+
+    def updatestatus(self):
+        pos(1, 1)
+        print('\033[37m\033[1mTarget State: RUNNING')
+
+    def precmd(self, line):
+        with self.debugger.driver.screenlock:
+            pos(CMDLINE + 1, len(DebugCli.prompt))
+            clearaftercursor()
+            return cmd.Cmd.precmd(self, line)
+
+    def postcmd(self, stop, line):
+        time.sleep(0.5)
+        with self.debugger.driver.screenlock:
+            pos(CMDLINE + 1, len(DebugCli.prompt))
+            return cmd.Cmd.postcmd(self, stop, line)

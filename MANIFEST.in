@@ -1,2 +1,7 @@
 recursive-include ppci *.grammar
+recursive-include doc *
+prune doc/_build
 include *.rst
+
+include license.txt
+include readme.rst

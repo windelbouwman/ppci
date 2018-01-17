@@ -8,6 +8,7 @@ from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dd, Dcd2, data_isa
 from ..registers import RegisterClass
+from ..stack import StackLocation
 from .registers import ArmRegister, register_range, LowArmRegister, RegisterSet
 from .registers import R0, R1, R2, R3, R4, all_registers
 from .registers import R5, R6, R7, R8
@@ -28,7 +29,7 @@ class ArmArch(Architecture):
     option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=[])
+        super().__init__(options=options)
         if self.has_option('thumb'):
             self.assembler = ThumbAssembler()
             self.isa = thumb_isa + data_isa
@@ -37,7 +38,7 @@ class ArmArch(Architecture):
             self.callee_save = (R5, R6)
 
             # Registers usable by register allocator:
-            self.register_classes = [
+            register_classes = [
                 RegisterClass(
                     'loreg', [i8, i32, ptr, u8, u32], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7])
@@ -49,7 +50,7 @@ class ArmArch(Architecture):
             self.callee_save = (R5, R6, R7, R8, R9, R10)
 
             # Registers usable by register allocator:
-            self.register_classes = [
+            register_classes = [
                 RegisterClass(
                     'loreg', [], LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7]),
@@ -67,7 +68,8 @@ class ArmArch(Architecture):
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32,
-            })
+            },
+            register_classes=register_classes)
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
@@ -87,10 +89,18 @@ class ArmArch(Architecture):
                 dst, src, arm_instructions.NoShift(), ismove=True)
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence """
+        """ Returns prologue instruction sequence.
+
+        Reserve stack for this calling frame for:
+
+          - local variables
+          - save registers
+          - parameters to called functions
+        """
         # Label indication function:
         yield Label(frame.name)
 
+        # Save the link register and the frame pointer:
         if self.has_option('thumb'):
             yield thumb_instructions.Push({LR, R7})
         else:
@@ -102,9 +112,13 @@ class ArmArch(Architecture):
         else:
             yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
 
+        # Reserve stack for this calling frame for:
+        # 1. local variables
+        # 2. save registers
+        # 3. parameters to called functions
         if frame.stacksize:
+            ssize = round_up(frame.stacksize)
             if self.has_option('thumb'):
-                ssize = round_up(frame.stacksize)
 
                 # Reserve stack space:
                 # subSp cannot handle large numbers:
@@ -113,7 +127,7 @@ class ArmArch(Architecture):
                     yield thumb_instructions.SubSp(inc)
                     ssize -= inc
             else:
-                yield arm_instructions.SubImm(SP, SP, frame.stacksize)
+                yield arm_instructions.SubImm(SP, SP, ssize)
 
         # Callee save registers:
         callee_save = {r for r in self.callee_save if r in frame.used_regs}
@@ -123,12 +137,37 @@ class ArmArch(Architecture):
             else:
                 yield arm_instructions.Push(RegisterSet(callee_save))
 
+        # Allocate space for outgoing calls:
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            ssize = round_up(extras)
+            if self.has_option('thumb'):
+                raise NotImplementedError()
+            else:
+                yield arm_instructions.SubImm(SP, SP, ssize)
+
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
-        Adjust frame pointer and add constant pool. """
-        # Callee save registers:
+        Adjust frame pointer and add constant pool.
 
+        Also free up space on stack for:
+
+          - Space for parameters passed to called functions.
+          - Space for save registers
+          - Space for local variables
+        """
+
+        # Free space for outgoing calls:
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            ssize = round_up(extras)
+            if self.has_option('thumb'):
+                raise NotImplementedError()
+            else:
+                yield arm_instructions.AddImm(SP, SP, ssize)
+
+        # Callee save registers:
         callee_save = {r for r in self.callee_save if r in frame.used_regs}
         if callee_save:
             if self.has_option('thumb'):
@@ -137,15 +176,15 @@ class ArmArch(Architecture):
                 yield arm_instructions.Pop(RegisterSet(callee_save))
 
         if frame.stacksize > 0:
+            ssize = round_up(frame.stacksize)
             if self.has_option('thumb'):
-                ssize = round_up(frame.stacksize)
                 # subSp cannot handle large numbers:
                 while ssize > 0:
                     inc = min(124, ssize)
                     yield thumb_instructions.AddSp(inc)
                     ssize -= inc
             else:
-                yield arm_instructions.AddImm(SP, SP, frame.stacksize)
+                yield arm_instructions.AddImm(SP, SP, ssize)
 
         if self.has_option('thumb'):
             yield thumb_instructions.Pop({PC, R7})
@@ -159,26 +198,82 @@ class ArmArch(Architecture):
         if not self.has_option('thumb'):
             yield Alignment(4)   # Align at 4 bytes
 
-    def gen_call(self, label, args, rv):
+    def gen_arm_memcpy(self, p1, p2, v3, size):
+        # Called before register allocation
+        # Major crappy memcpy, can be improved!
+        for idx in range(size):
+            yield arm_instructions.Ldrb(v3, p2, idx)
+            yield arm_instructions.Strb(v3, p1, idx)
+            # TODO: yield the below from time to time for really big stuff:
+            # yield arm_instructions.AddImm(p1, 1)
+            # yield arm_instructions.AddImm(p2, 1)
+
+    def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
         arg_regs = []
+        stack_size = 0
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
             if isinstance(arg_loc, ArmRegister):
                 arg_regs.append(arg_loc)
                 yield self.move(arg_loc, arg)
+            elif isinstance(arg_loc, StackLocation):
+                stack_size += arg_loc.size
+                if isinstance(arg, ArmRegister):
+                    # Store register on stack:
+                    if self.has_option('thumb'):
+                        yield thumb_instructions.Str1(arg, SP, arg_loc.offset)
+                    else:
+                        yield arm_instructions.Str1(arg, SP, arg_loc.offset)
+                elif isinstance(arg, StackLocation):
+                    if self.has_option('thumb'):
+                        raise NotImplementedError()
+                    else:
+                        # Generate memcpy now:
+                        print(arg2, arg_loc)
+                        assert arg.size == arg_loc.size
+                        # Now start a copy routine to copy some stack:
+                        p1 = frame.new_reg(ArmRegister)
+                        p2 = frame.new_reg(ArmRegister)
+                        v3 = frame.new_reg(ArmRegister)
+
+                        # Destination location:
+                        # Remember that the LR and FP are pushed in between
+                        # So hence -8:
+                        yield arm_instructions.AddImm(
+                            p1, SP, arg_loc.offset - 8)
+                        # Source location:
+                        yield arm_instructions.SubImm(
+                            p2, self.fp, -arg.offset)
+                        for instruction in self.gen_arm_memcpy(
+                                p1, p2, v3, arg.size):
+                            yield instruction
+
+                else:  # pragma: no cover
+                    raise NotImplementedError(str(arg))
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
+
+        # Record that certain amount of stack is required:
+        frame.add_out_call(stack_size)
 
         yield RegisterUseDef(uses=arg_regs)
 
         clobbers = [R0, R1, R2, R3, R4]
         if self.has_option('thumb'):
-            yield thumb_instructions.Bl(label, clobbers=clobbers)
+            if isinstance(label, ArmRegister):
+                # Ensure thumb mode!
+                yield thumb_instructions.AddImm(label, label, 1)
+                yield thumb_instructions.Blx(label, clobbers=clobbers)
+            else:
+                yield thumb_instructions.Bl(label, clobbers=clobbers)
         else:
-            yield arm_instructions.Bl(label, clobbers=clobbers)
+            if isinstance(label, ArmRegister):
+                yield arm_instructions.Blx(label, clobbers=clobbers)
+            else:
+                yield arm_instructions.Bl(label, clobbers=clobbers)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
@@ -196,6 +291,8 @@ class ArmArch(Architecture):
             arg = arg2[1]
             if isinstance(arg_loc, ArmRegister):
                 yield self.move(arg, arg_loc)
+            elif isinstance(arg_loc, StackLocation):
+                pass
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
@@ -246,8 +343,13 @@ class ArmArch(Architecture):
         # Perhaps follow the arm ABI spec?
         l = []
         regs = [R1, R2, R3, R4]
-        for a in arg_types:
-            r = regs.pop(0)
+        offset = 8
+        for arg_ty in arg_types:
+            if arg_ty.is_blob:
+                r = StackLocation(offset, arg_ty.size)
+                offset += arg_ty.size
+            else:
+                r = regs.pop(0)
             l.append(r)
         return l
 

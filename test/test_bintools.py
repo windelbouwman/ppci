@@ -5,7 +5,7 @@ from unittest.mock import patch
 from ppci.binutils.objectfile import ObjectFile, serialize, deserialize, Image
 from ppci.binutils.outstream import DummyOutputStream, TextOutputStream
 from ppci.binutils.outstream import binary_and_logging_stream
-from ppci.build.tasks import TaskError
+from ppci.common import CompilerError
 from ppci.api import link, get_arch
 from ppci.binutils import layout
 from ppci.utils.elffile import ElfFile
@@ -44,7 +44,7 @@ class LinkerTestCase(unittest.TestCase):
         object1.get_section('.text', create=True)
         object1.gen_relocation('rel8', 'undef', offset=0, section='.text')
         object2 = ObjectFile(arch)
-        with self.assertRaises(TaskError):
+        with self.assertRaises(CompilerError):
             link([object1, object2])
 
     def test_duplicate_symbol(self):
@@ -55,7 +55,7 @@ class LinkerTestCase(unittest.TestCase):
         object2 = ObjectFile(arch)
         object2.get_section('.text', create=True)
         object2.add_symbol('a', 0, '.text')
-        with self.assertRaises(TaskError):
+        with self.assertRaises(CompilerError):
             link([object1, object2])
 
     def test_rel8_relocation(self):
@@ -133,7 +133,7 @@ class LinkerTestCase(unittest.TestCase):
         layout2.add_memory(m)
         object1 = ObjectFile(arch)
         object1.get_section('code', create=True).add_data(bytes([0]*22))
-        with self.assertRaisesRegex(TaskError, 'exceeds'):
+        with self.assertRaisesRegex(CompilerError, 'exceeds'):
             link([object1], layout2)
 
 
@@ -197,11 +197,15 @@ class ElfFileTestCase(unittest.TestCase):
 
 
 class ExeFileTestCase(unittest.TestCase):
+    @unittest.skip('TODO')
     def test_save(self):
         """ Test the generation of a windows exe file """
-        arch = ExampleArch()
+        arch = get_arch('x86_64')
         obj = ObjectFile(arch)
+        obj.get_section('code', create=True)
+        obj.get_section('data', create=True)
         f = io.BytesIO()
+        # TODO:
         ExeWriter().write(obj, f)
 
 

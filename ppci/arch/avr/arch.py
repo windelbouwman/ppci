@@ -58,6 +58,9 @@ from ..generic_instructions import Label, Alignment, SectionInstruction
 from ..generic_instructions import RegisterUseDef
 from ..data_instructions import data_isa
 from ..data_instructions import Db
+from ..runtime import get_runtime_files
+from ..stack import FramePointerLocation
+from . import registers, instructions
 from .instructions import avr_isa
 from .instructions import Push, Pop, Mov, Call, In, Movw, Ret, Adiw
 from .registers import AvrRegister, Register
@@ -65,7 +68,7 @@ from .registers import AvrWordRegister
 from .registers import r0, PC
 from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
-from .registers import r24, r25, W, Y
+from .registers import r24, r25, W, Y, Z
 from .registers import caller_save, callee_save
 from .registers import get16reg, register_classes, gdb_registers
 
@@ -75,7 +78,7 @@ class AvrArch(Architecture):
     name = 'avr'
 
     def __init__(self, options=None):
-        super().__init__(options=options, register_classes=register_classes)
+        super().__init__(options=options)
         self.isa = avr_isa + data_isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
@@ -86,8 +89,10 @@ class AvrArch(Architecture):
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 'int': ir.i16, 'ptr': ir.u16
-            })
+            },
+            register_classes=register_classes)
         self.fp = Y
+        self.fp_location = FramePointerLocation.BOTTOM
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
         self.caller_save = caller_save
@@ -95,7 +100,11 @@ class AvrArch(Architecture):
     def get_runtime(self):
         from ...api import asm, c3c, link
         obj1 = asm(io.StringIO(asm_rt_src), self)
-        obj2 = c3c([io.StringIO(RT_C3_SRC)], [], self)
+        c3_sources = get_runtime_files([
+            'sdiv',
+            'smul',
+        ])
+        obj2 = c3c(c3_sources, [], self)
         obj = link([obj1, obj2], partial_link=True)
         return obj
 
@@ -196,7 +205,7 @@ class AvrArch(Architecture):
             yield instruction
         yield Alignment(4)   # Align at 4 bytes
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
@@ -213,7 +222,15 @@ class AvrArch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-        yield Call(label, clobbers=self.caller_save)
+        if isinstance(label, AvrWordRegister):
+            yield self.move(Z, label)
+            # Call to function at Z
+            # Divide Z by two, since PC is pointing to 16 bits words
+            yield instructions.Lsr(registers.r31)
+            yield instructions.Ror(registers.r30)
+            yield instructions.Icall(clobbers=self.caller_save)
+        else:
+            yield Call(label, clobbers=self.caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
@@ -318,47 +335,4 @@ __shl16_2:
   pop r16
   ret
 
-"""
-
-
-RT_C3_SRC = """
-    module swmuldiv;
-    function int div(int num, int den)
-    {
-      var int res = 0;
-      var int current = 1;
-
-      while (den < num)
-      {
-        den = den << 1;
-        current = current << 1;
-      }
-
-      while (current != 0)
-      {
-        if (num >= den)
-        {
-          num -= den;
-          res = res | current;
-        }
-        den = den >> 1;
-        current = current >> 1;
-      }
-      return res;
-    }
-
-    function int mul(int a, int b)
-    {
-      var int res = 0;
-      while (b > 0)
-      {
-        if ((b & 1) == 1)
-        {
-          res += a;
-        }
-        a = a << 1;
-        b = b >> 1;
-      }
-      return res;
-    }
 """

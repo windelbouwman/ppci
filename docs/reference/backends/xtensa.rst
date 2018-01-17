@@ -4,7 +4,14 @@
 xtensa
 ------
 
+Module
+~~~~~~
+
 .. automodule:: ppci.arch.xtensa
+    :members:
+
+Testing
+~~~~~~~
 
 The xtensa backend
 

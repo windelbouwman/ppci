@@ -9,7 +9,7 @@ from .instructions import PrefixToken
 from .instructions import RexToken, ModRmToken, SibToken
 from .instructions import Imm32Token, Imm8Token
 from .instructions import RmMem, RmMemDisp, RmReg, RmAbs, MovAdr
-from .instructions import Jb, Jae, NearJump
+from .instructions import Jb, Jbe, Ja, Jae, Je, Jne, NearJump
 from .instructions import SubImm, AddImm
 from .registers import XmmRegister, X86Register, rsp
 from ..generic_instructions import ArtificialInstruction
@@ -102,12 +102,28 @@ class RmXmmReg(Constructor):
 xmm_rm_modes = (RmXmmReg, RmMem, RmMemDisp, RmAbs)
 
 
+class Movups(Sse1Instruction):
+    """ Move unaligned packed single-fp values """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes)
+    syntax = Syntax(['movups', ' ', r, ',', ' ', rm])
+    patterns = {'opcode': 0x10}
+
+
 class Movss(Sse1Instruction):
     """ Move scalar single-fp value """
     r = Operand('r', XmmRegister, write=True)
     rm = Operand('rm', xmm_rm_modes)
     syntax = Syntax(['movss', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf3, 'opcode': 0x10}
+
+
+class Movupd(Sse2Instruction):
+    """ Move unaligned packed double-fp values """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', xmm_rm_modes)
+    syntax = Syntax(['movupd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0x66, 'opcode': 0x10}
 
 
 class Movsd(Sse2Instruction):
@@ -262,6 +278,14 @@ class Ucomiss(Sse1Instruction):
     patterns = {'opcode': 0x2e}
 
 
+class Ucomisd(Sse2Instruction):
+    """ Unordered scalar compare double-fp values """
+    r = Operand('r', XmmRegister, read=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['ucomisd', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0x66, 'opcode': 0x2e}
+
+
 class SsePseudoInstruction(ArtificialInstruction):
     isa = sse1_isa
 
@@ -290,49 +314,49 @@ class PopXmm(SsePseudoInstruction):
         yield AddImm(rsp, 16)
 
 
-@sse2_isa.pattern('regfp', 'F64TOF32(regfp)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('regfp32', 'F64TOF32(regfp64)', size=6, cycles=3, energy=3)
 def pattern_f64tof32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsd2ss(d, RmXmmReg(c0)))
     return d
 
 
-@sse2_isa.pattern('regfp', 'F32TOF64(regfp)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('regfp64', 'F32TOF64(regfp32)', size=6, cycles=3, energy=3)
 def pattern_f32tof64(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtss2sd(d, RmXmmReg(c0)))
     return d
 
 
-@sse1_isa.pattern('reg64', 'F32TOI64(regfp)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('reg64', 'F32TOI64(regfp32)', size=6, cycles=2, energy=2)
 def pattern_f32toi64(context, tree, c0):
     d = context.new_reg(X86Register)
     context.emit(Cvtss2si(d, RmXmmReg(c0)))
     return d
 
 
-@sse2_isa.pattern('reg64', 'F64TOI64(regfp)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('reg64', 'F64TOI64(regfp64)', size=6, cycles=3, energy=3)
 def pattern_f64toi64(context, tree, c0):
     d = context.new_reg(X86Register)
     context.emit(Cvtsd2si(d, RmXmmReg(c0)))
     return d
 
 
-@sse1_isa.pattern('regfp', 'I64TOF32(reg64)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('regfp32', 'I64TOF32(reg64)', size=6, cycles=2, energy=2)
 def pattern_i64tof32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2ss(d, RmReg(c0)))
     return d
 
 
-@sse2_isa.pattern('regfp', 'I64TOF64(reg64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('regfp64', 'I64TOF64(reg64)', size=6, cycles=3, energy=3)
 def pattern_i64tof64(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2sd(d, RmReg(c0)))
     return d
 
 
-@sse1_isa.pattern('regfp', 'CONSTF32', size=8, cycles=6, energy=2)
+@sse1_isa.pattern('regfp32', 'CONSTF32', size=8, cycles=6, energy=2)
 def pattern_const_f32(context, tree):
     float_const = struct.pack('f', tree.value)
     const_label = context.frame.add_constant(float_const)
@@ -343,7 +367,7 @@ def pattern_const_f32(context, tree):
     return d
 
 
-@sse2_isa.pattern('regfp', 'CONSTF64', size=8, cycles=9, energy=4)
+@sse2_isa.pattern('regfp64', 'CONSTF64', size=8, cycles=9, energy=4)
 def pattern_const_f64(context, tree):
     float_const = struct.pack('d', tree.value)
     const_label = context.frame.add_constant(float_const)
@@ -354,7 +378,21 @@ def pattern_const_f64(context, tree):
     return d
 
 
-@sse1_isa.pattern('regfp', 'ADDF32(regfp, regfp)', size=6, cycles=2, energy=2)
+@sse2_isa.pattern('regfp64', 'NEGF64(regfp64)', size=8, cycles=9, energy=4)
+def pattern_neg_f64(context, tree, c0):
+    """ Multiply by -1 """
+    float_const = struct.pack('d', -1)
+    const_label = context.frame.add_constant(float_const)
+    label_addr = context.new_reg(X86Register)
+    context.emit(MovAdr(label_addr, const_label))
+    d = context.new_reg(XmmRegister)
+    context.emit(Movsd(d, RmXmmReg(c0)))
+    context.emit(Mulsd(d, RmMem(label_addr)))
+    return d
+
+
+@sse1_isa.pattern(
+    'regfp32', 'ADDF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_addf32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -362,7 +400,8 @@ def pattern_addf32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp', 'ADDF64(regfp, regfp)', size=6, cycles=4, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'ADDF64(regfp64, regfp64)', size=6, cycles=4, energy=3)
 def pattern_addf64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -370,7 +409,8 @@ def pattern_addf64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('regfp', 'SUBF32(regfp, regfp)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'SUBF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_sub_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -378,7 +418,8 @@ def pattern_sub_f32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp', 'SUBF64(regfp, regfp)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'SUBF64(regfp64, regfp64)', size=6, cycles=3, energy=3)
 def pattern_sub_f64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -386,7 +427,8 @@ def pattern_sub_f64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('regfp', 'MULF32(regfp, regfp)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'MULF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_mul_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -394,7 +436,8 @@ def pattern_mul_f32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp', 'MULF64(regfp, regfp)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'MULF64(regfp64, regfp64)', size=6, cycles=3, energy=3)
 def pattern_mul_f64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -402,7 +445,8 @@ def pattern_mul_f64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('regfp', 'DIVF32(regfp, regfp)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern(
+    'regfp32', 'DIVF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_div_f32(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.move(d, c0)
@@ -410,7 +454,8 @@ def pattern_div_f32(context, tree, c0, c1):
     return d
 
 
-@sse2_isa.pattern('regfp', 'DIVF64(regfp, regfp)', size=6, cycles=4, energy=3)
+@sse2_isa.pattern(
+    'regfp64', 'DIVF64(regfp64, regfp64)', size=6, cycles=4, energy=3)
 def pattern_div_f64(context, tree, c0, c1):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
@@ -418,54 +463,66 @@ def pattern_div_f64(context, tree, c0, c1):
     return d
 
 
-@sse1_isa.pattern('stm', 'MOVF32(regfp)', size=3, cycles=2, energy=2)
+@sse1_isa.pattern('stm', 'MOVF32(regfp32)', size=3, cycles=2, energy=2)
 def pattern_mov_f32(context, tree, c0):
     context.move(tree.value, c0)
 
 
-@sse2_isa.pattern('stm', 'MOVF64(regfp)', size=3, cycles=3, energy=3)
+@sse2_isa.pattern('stm', 'MOVF64(regfp64)', size=3, cycles=3, energy=3)
 def pattern_mov_f64(context, tree, c0):
     context.emit(Movsd(tree.value, RmXmmReg(c0)))
 
 
-@sse2_isa.pattern('regfp', 'REGF64', size=0, cycles=0, energy=0)
-@sse1_isa.pattern('regfp', 'REGF32', size=0, cycles=0, energy=0)
+@sse2_isa.pattern('regfp64', 'REGF64', size=0, cycles=0, energy=0)
+@sse1_isa.pattern('regfp32', 'REGF32', size=0, cycles=0, energy=0)
 def pattern_reg_fp(context, tree):
     return tree.value
 
 
-@sse1_isa.pattern('stm', 'STRF32(reg64, regfp)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('stm', 'STRF32(reg64, regfp32)', size=6, cycles=2, energy=2)
 def pattern_str_f32(context, tree, c0, c1):
     context.emit(Movss2(RmMem(c0), c1))
 
 
-@sse2_isa.pattern('stm', 'STRF64(reg64, regfp)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('stm', 'STRF64(reg64, regfp64)', size=6, cycles=3, energy=3)
 def pattern_str_f64(context, tree, c0, c1):
     context.emit(Movsd2(RmMem(c0), c1))
 
 
-@sse1_isa.pattern('regfp', 'LDRF32(reg64)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('regfp32', 'LDRF32(reg64)', size=6, cycles=2, energy=2)
 def pattern_ldr_f32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Movss(d, RmMem(c0)))
     return d
 
 
-@sse2_isa.pattern('regfp', 'LDRF64(reg64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('regfp64', 'LDRF64(reg64)', size=6, cycles=3, energy=3)
 def pattern_ldr_f64(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmMem(c0)))
     return d
 
 
-@sse1_isa.pattern('stm', 'CJMPF32(regfp,regfp)', size=6, cycles=3, energy=3)
-def pattern_cjmp_f(context, tree, c0, c1):
-    # TODO: is it float32 or float64?
-    context.emit(Ucomiss(c0, RmXmmReg(c1)))
+jump_opnames = {"<": Jb, ">": Ja, "==": Je, "!=": Jne, ">=": Jae, '<=': Jbe}
 
-    op, yes_label, no_label = tree.value
-    opnames = {"<": Jb, ">": Jae}
-    Bop = opnames[op]
+
+def pattern_cjmp(context, value):
+    op, yes_label, no_label = value
+    Bop = jump_opnames[op]
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
+
+
+@sse1_isa.pattern(
+    'stm', 'CJMPF32(regfp32,regfp32)', size=6, cycles=3, energy=3)
+def pattern_cjmp_f32(context, tree, c0, c1):
+    context.emit(Ucomiss(c0, RmXmmReg(c1)))
+    pattern_cjmp(context, tree.value)
+
+
+@sse1_isa.pattern(
+    'stm', 'CJMPF64(regfp64,regfp64)', size=6, cycles=3, energy=3)
+def pattern_cjmp_f64(context, tree, c0, c1):
+    context.emit(Ucomisd(c0, RmXmmReg(c1)))
+    pattern_cjmp(context, tree.value)

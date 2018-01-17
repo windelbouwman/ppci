@@ -7,7 +7,7 @@ with ppci:
 
 .. code:: bash
 
-    $ ppci-cc.py -c sample1.c
+    $ ppci-cc -c sample1.c
 
 or with gcc:
 

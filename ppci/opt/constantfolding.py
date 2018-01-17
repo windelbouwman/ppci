@@ -3,6 +3,17 @@ from .transform import BlockPass
 from .. import ir
 
 
+def cast(value, ty):
+    """ Cast a value to the given type """
+    if isinstance(ty, ir.PointerTyp):
+        return int(value)
+    elif ty.is_integer:
+        return correct(int(value), ty)
+    else:
+        assert isinstance(ty, ir.FloatingPointTyp)
+        return value
+
+
 def correct(value, ty):
     """ Correct a value to the given bits """
     bits = ty.bits
@@ -19,8 +30,8 @@ def enhance(f):
 
 class ConstantFolder(BlockPass):
     """ Try to fold common constant expressions """
-    def __init__(self, debug_db):
-        super().__init__(debug_db)
+    def __init__(self):
+        super().__init__()
         self.ops = {
             '+': enhance(operator.add),
             '-': enhance(operator.sub),
@@ -34,7 +45,7 @@ class ConstantFolder(BlockPass):
         """ Determine if a value can be evaluated as a constant value """
         if isinstance(value, ir.Const):
             return True
-        elif isinstance(value, ir.Cast) and value.ty.is_integer:
+        elif isinstance(value, ir.Cast):
             return self.is_const(value.src)
         elif isinstance(value, ir.Binop):
             return value.operation in self.ops and value.ty.is_integer and \
@@ -55,7 +66,8 @@ class ConstantFolder(BlockPass):
             return ir.Const(res, 'new_fold', a.ty)
         elif isinstance(value, ir.Cast):
             c_val = self.eval_const(value.src)
-            return ir.Const(correct(c_val.value, value.ty), 'casted', value.ty)
+            numeric_value = cast(c_val.value, value.ty)
+            return ir.Const(numeric_value, 'casted', value.ty)
         else:  # pragma: no cover
             raise NotImplementedError(str(value))
 
@@ -63,8 +75,11 @@ class ConstantFolder(BlockPass):
         instructions = list(block)
         count = 0
         for instruction in instructions:
-            if not isinstance(instruction, ir.Const) and \
-                    self.is_const(instruction):
+            # First of all, skip values that are const already:
+            if isinstance(instruction, ir.Const):
+                continue
+
+            if self.is_const(instruction):
                 # Now we can replace x = (4+5) with x = 9
                 cnst = self.eval_const(instruction)
                 block.insert_instruction(cnst, before_instruction=instruction)

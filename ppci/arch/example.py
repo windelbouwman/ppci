@@ -18,13 +18,13 @@ class ExampleArch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        self.register_classes = [
+        register_classes = [
             RegisterClass(
                 'reg', [ir.i32, ir.ptr], ExampleRegister,
                 [R0, R1, R2, R3, R10]),
             RegisterClass(
                 'hreg', [ir.i16], HalfExampleRegister, [R10l]),
-            ]
+        ]
         self.gdb_registers = gdb_registers
         self.isa = Isa()
         self.info = ArchInfo(
@@ -33,7 +33,7 @@ class ExampleArch(Architecture):
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32
-            })
+            }, register_classes=register_classes)
 
     def gen_prologue(self, frame):
         return []

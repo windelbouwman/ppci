@@ -3,16 +3,18 @@
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
-    return isinstance(typ, BareType) and not is_void(typ)
+    return isinstance(typ, BasicType) and not is_void(typ)
 
 
 def is_integer(typ):
-    return isinstance(typ, BareType) and typ.type_id in BareType.INTEGER_TYPES
+    """ Test if the given type is of integer type """
+    return isinstance(typ, BasicType) and \
+        typ.type_id in BasicType.INTEGER_TYPES
 
 
 def is_void(typ):
     """ Check if the given type is void """
-    return isinstance(typ, BareType) and typ.type_id == BareType.VOID
+    return isinstance(typ, BasicType) and typ.type_id == BasicType.VOID
 
 
 # A type system:
@@ -23,22 +25,27 @@ class CType:
 
     @property
     def is_void(self):
+        """ See if this type is void """
         return is_void(self)
 
     @property
     def is_scalar(self):
+        """ Check if this is a scalar type """
         return is_scalar(self)
 
     @property
     def is_integer(self):
+        """ Check if this type is an integer type """
         return is_integer(self)
 
     @property
     def is_struct(self):
+        """ Check if this type is a struct """
         return isinstance(self, StructType)
 
     @property
     def is_union(self):
+        """ Check if this type is of union type """
         return isinstance(self, UnionType)
 
 
@@ -125,6 +132,7 @@ class StructOrUnionType(CType):
     fields = property(get_fields, set_fields)
 
     def has_field(self, name: str):
+        """ Check if this type has the given field """
         return name in self.field_map
 
     def get_field(self, name: str):
@@ -146,6 +154,7 @@ class Field:
         self.name = name
         self.bitsize = bitsize
         self.offset = offset
+        self.padded_size = 0
 
 
 class UnionType(StructOrUnionType):
@@ -154,12 +163,10 @@ class UnionType(StructOrUnionType):
         return 'Union-type'
 
 
-# TODO: what to call this type? Options: AtomicType, NativeType
-class BareType(CType):
+class BasicType(CType):
     """ This type is one of: int, unsigned int, float or void """
     VOID = 'void'
     CHAR = 'char'
-    SCHAR = 'signed char'
     UCHAR = 'unsigned char'
     SHORT = 'short'
     USHORT = 'unsigned short'
@@ -174,7 +181,7 @@ class BareType(CType):
     LONGDOUBLE = 'long double'
 
     INTEGER_TYPES = {
-        CHAR, SCHAR, UCHAR,
+        CHAR, UCHAR,
         SHORT, USHORT,
         INT, UINT,
         LONG, ULONG,
@@ -186,4 +193,4 @@ class BareType(CType):
         self.type_id = type_id
 
     def __repr__(self):
-        return 'Native type {}'.format(self.type_id)
+        return 'Basic type {}'.format(self.type_id)

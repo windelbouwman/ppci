@@ -48,6 +48,7 @@ class Visitor:
         elif isinstance(node, expressions.FieldSelect):
             self.visit(node.base)
         elif isinstance(node, expressions.FunctionCall):
+            self.visit(node.callee)
             for argument in node.args:
                 self.visit(argument)
         elif isinstance(node, types.FunctionType):
@@ -62,7 +63,7 @@ class Visitor:
             pass
         elif isinstance(node, (types.EnumType,)):
             pass
-        elif isinstance(node, types.BareType):
+        elif isinstance(node, types.BasicType):
             pass
         elif isinstance(node, statements.Compound):
             for statement in node.statements:
@@ -108,8 +109,22 @@ class Visitor:
             self.visit(node.expression)
         elif isinstance(node, expressions.VariableAccess):
             pass
+        elif isinstance(node, expressions.BuiltInVaStart):
+            self.visit(node.arg_pointer)
+        elif isinstance(node, expressions.BuiltInVaArg):
+            self.visit(node.arg_pointer)
+            self.visit(node.typ)
         else:
             raise NotImplementedError(str(type(node)))
+
+
+def required_padding(address, alignment):
+    """ Return how many padding bytes are needed to align address """
+    rest = address % alignment
+    if rest:
+        # We need padding bytes:
+        return alignment - rest
+    return 0
 
 
 class CAstPrinter(Visitor):
@@ -122,7 +137,7 @@ class CAstPrinter(Visitor):
         self.visit(node)
 
     def _print(self, node):
-        print('  ' * self.indent + str(node), file=self.file)
+        print('    ' * self.indent + str(node), file=self.file)
 
     def visit(self, node):
         self._print(node)

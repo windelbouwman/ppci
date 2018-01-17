@@ -196,10 +196,9 @@ class GraphColoringRegisterAllocator:
     logger = logging.getLogger('regalloc')
     verbose = False  # Set verbose to True to get more logging info
 
-    def __init__(self, arch: Architecture, instruction_selector, debug_db):
+    def __init__(self, arch: Architecture, instruction_selector):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
-        self.debug_db = debug_db
         self.spill_gen = MiniGen(arch, instruction_selector)
 
         # Register information:
@@ -207,7 +206,7 @@ class GraphColoringRegisterAllocator:
         self.K = {}  # type: Dict[Register, int]
         self.cls_regs = {}  # Mapping from class to register set
         self.alias = defaultdict(set)
-        for reg_class in self.arch.register_classes:
+        for reg_class in self.arch.info.register_classes:
             kls, regs = reg_class.typ, reg_class.registers
             if self.verbose:
                 self.logger.debug('Register class "%s" contains %s', kls, regs)
@@ -579,7 +578,8 @@ class GraphColoringRegisterAllocator:
         self.logger.debug('Placing %s on stack', node)
 
         size = node.reg_class.bitsize // 8
-        slot = self.frame.alloc(size)
+        alignment = size
+        slot = self.frame.alloc(size, alignment)
         self.logger.debug('Allocating stack slot %s', slot)
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:
@@ -631,7 +631,10 @@ class GraphColoringRegisterAllocator:
 
                 # Mark the register as used in this frame:
                 self.frame.used_regs.add(node.reg)
-                # self.debug_db.map(reg, self.arch.get_register(node.reg))
+                # TODO:
+                # if self.frame.debug_db:
+                #    self.frame.debug_db.map(
+                #        reg, self.arch.get_register(node.reg))
 
     def check_invariants(self):  # pragma: no cover
         """ Test invariants """

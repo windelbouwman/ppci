@@ -1,12 +1,57 @@
-"""
-    Linker utility.
-"""
+""" Linker utility. """
 
 import logging
-from .objectfile import ObjectFile, Image
+from .objectfile import ObjectFile, Image, get_object
 from ..common import CompilerError
 from .layout import Layout, Section, SectionData, SymbolDefinition, Align
+from .layout import get_layout
 from .debuginfo import SectionAdjustingReplicator, DebugInfo
+
+
+def link(
+        objects, layout=None, use_runtime=False, partial_link=False,
+        reporter=None, debug=False, extra_symbols=None):
+    """ Links the iterable of objects into one using the given layout.
+
+    Args:
+        objects: a collection of objects to be linked together.
+        use_runtime (bool): also link compiler runtime functions
+        debug (bool): when true, keep debug information. Otherwise remove
+            this debug information from the result.
+
+    Returns:
+        The linked object file
+
+    .. doctest::
+
+        >>> import io
+        >>> from ppci.api import asm, c3c, link
+        >>> asm_source = io.StringIO("db 0x77")
+        >>> obj1 = asm(asm_source, 'arm')
+        >>> c3_source = io.StringIO("module main; var int a;")
+        >>> obj2 = c3c([c3_source], [], 'arm')
+        >>> obj = link([obj1, obj2])
+        >>> print(obj)
+        CodeObject of 8 bytes
+    """
+
+    objects = [get_object(obj) for obj in objects]
+    if not objects:
+        raise ValueError('Please provide at least one object as input')
+
+    if layout:
+        layout = get_layout(layout)
+
+    march = objects[0].arch
+
+    if use_runtime:
+        objects.append(march.runtime)
+
+    linker = Linker(march, reporter)
+    output_obj = linker.link(
+        objects, layout=layout, partial_link=partial_link,
+        debug=debug, extra_symbols=extra_symbols)
+    return output_obj
 
 
 class Linker:
@@ -14,16 +59,22 @@ class Linker:
         performs relocation """
     logger = logging.getLogger('linker')
 
-    def __init__(self, arch, reporter):
+    def __init__(self, arch, reporter=None):
         self.arch = arch
         self.reporter = reporter
 
     def link(self, input_objects, layout=None, partial_link=False,
-             debug=False):
+             debug=False, extra_symbols=None):
         """ Link together the given object files using the layout """
         assert isinstance(input_objects, (list, tuple))
 
-        self.reporter.heading(2, 'Linking')
+        if self.reporter:
+            self.reporter.heading(2, 'Linking')
+
+        if extra_symbols:
+            self.extra_symbols = extra_symbols
+        else:
+            self.extra_symbols = {}
 
         # Check all incoming objects for same architecture:
         for input_object in input_objects:
@@ -45,12 +96,23 @@ class Linker:
         if not partial_link:
             self.do_relocations(dst)
 
-        for section in dst.sections:
-            self.reporter.message('{} at {}'.format(section, section.address))
-        for image in dst.images:
-            self.reporter.message('{} at {}'.format(image, image.location))
+        if self.reporter:
+            for section in dst.sections:
+                self.reporter.message(
+                    '{} at {}'.format(section, section.address))
+            for image in dst.images:
+                self.reporter.message(
+                    '{} at {}'.format(image, image.address))
+            symbols = [
+                (s.name, dst.get_symbol_value(s.name)) for s in dst.symbols]
+            symbols.sort(key=lambda x: x[1])
+            for name, address in symbols:
+                self.reporter.message(
+                    'Symbol {} at 0x{:X}'.format(name, address))
         dst.polish()
-        self.reporter.message('Linking complete')
+
+        if self.reporter:
+            self.reporter.message('Linking complete')
         return dst
 
     def merge_objects(self, input_objects, dst, debug):
@@ -159,18 +221,24 @@ class Linker:
                     .format(image.size, mem.size))
             dst.add_image(image)
 
+    def get_symbol_value(self, obj, name):
+        """ Get value of a symbol from object or fallback """
+        # Lookup symbol:
+        if obj.has_symbol(name):
+            return obj.get_symbol_value(name)
+        elif name in self.extra_symbols:
+            return self.extra_symbols[name]
+        else:
+            raise CompilerError(
+                'Undefined reference "{}"'.format(name))
+
     def do_relocations(self, dst):
         """ Perform the correct relocation as listed """
         for reloc in dst.relocations:
-            # Lookup symbol:
-            if not dst.has_symbol(reloc.symbol_name):
-                raise CompilerError(
-                    'Undefined reference "{}"'.format(reloc.symbol_name))
-
-            sym_value = dst.get_symbol_value(reloc.symbol_name)
+            sym_value = self.get_symbol_value(dst, reloc.symbol_name)
             section = dst.get_section(reloc.section)
 
-            # Determine location in memory of reloc patchup position:
+            # Determine address in memory of reloc patchup position:
             reloc_value = section.address + reloc.offset
 
             # reloc_function = self.arch.get_reloc(reloc.typ)

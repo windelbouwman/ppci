@@ -161,7 +161,10 @@ class Mcs6500AssemblerTestCase(AsmTestCaseBase):
         self.feed("lda #$44")
         self.feed("lda $4400")
         self.feed("lda ($44),y")
-        self.check('a944 ad0044 b144')
+        self.feed("lda 0x1234,x")
+        self.feed("lda message,x")
+        self.feed("message: db 0")
+        self.check('a944 ad0044 b144 bd3412 bd0d00 00')
 
     def test_ldx(self):
         """ Test load X register """

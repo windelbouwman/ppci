@@ -10,9 +10,11 @@ from .preprocessor import CPreProcessor
 from .utils import CAstPrinter
 from .printer import CPrinter
 from .options import COptions
+from .api import preprocess, c_to_ir
 
 
 __all__ = [
+    'create_ast', 'preprocess', 'c_to_ir',
     'CBuilder', 'CContext', 'CLexer', 'COptions', 'CPreProcessor', 'CParser',
-    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter',
-    'create_ast']
+    'CAstPrinter', 'CSemantics', 'CSynthesizer', 'CPrinter'
+    ]

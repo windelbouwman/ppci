@@ -1,9 +1,10 @@
 """ C preprocessor.
 
-This file contains an implementation of the C preprocessor. Since the
-preprocessor is working line for line, the data structure of choice is
-a list of tokens per line. Each token also has info about the amount
-of whitespace preceeding the token.
+This file contains an implementation of the C preprocessor.
+
+Each token has info about the amount
+of whitespace preceeding the token and whether it is the first token on
+a line.
 
 Sourcecode of inspiration:
 
@@ -25,10 +26,10 @@ from .utils import cnum, charval, replace_escape_codes
 class CPreProcessor:
     """ A pre-processor for C source code """
     logger = logging.getLogger('preprocessor')
-    verbose = False
 
     def __init__(self, coptions):
         self.coptions = coptions
+        self.verbose = coptions['verbose']
         self.defines = {}
         self.filename = None
 
@@ -68,6 +69,18 @@ class CPreProcessor:
         self.define(FunctionMacro('__FILE__', self.special_macro_file))
         self.define(FunctionMacro('__DATE__', self.special_macro_date))
         self.define(FunctionMacro('__TIME__', self.special_macro_time))
+
+        # Misc macros:
+        self.define(
+            Macro(
+                '__BYTE_ORDER__',
+                [CToken('NUMBER', '1L', '', False, internal_loc)],
+                protected=True))
+        self.define(
+            Macro(
+                '__ORDER_LITTLE_ENDIAN__',
+                [CToken('NUMBER', '1L', '', False, internal_loc)],
+                protected=True))
 
         # Macro's defines by options:
         for macro in self.coptions.macros:
@@ -236,17 +249,18 @@ class Expander:
       and processing continues over there.
     """
     logger = logging.getLogger('preprocessor')
-    verbose = False
 
     def __init__(self, preprocessor):
         super().__init__()
         self.preprocessor = preprocessor
+        self.verbose = preprocessor.verbose
         # If-def stack:
         self.if_stack = []
         self.enabled = True
 
         # A stack of expansion contexts:
         self.expand_stack = []
+        self.paren_level = 0
         self._undo_token = None
 
         # Other state variables:
@@ -640,7 +654,7 @@ class Expander:
             if self.if_stack[-1].in_else:
                 self.error('#elif after #else', directive_token)
 
-            if self.enabled:
+            if self.calc_enabled(self.if_stack[:-1]):
                 can_else = not self.if_stack[-1].was_active
                 condition = bool(self.eval_expr()) and can_else
                 self.if_stack[-1].active = condition
@@ -784,6 +798,12 @@ class Expander:
         """ Create a text from the given tokens """
         return ''.join(map(str, tokens)).strip()
 
+    def calc_enabled(self, stack):
+        if stack:
+            return all(i.active for i in stack)
+        else:
+            return True
+
     def calculate_active(self):
         """ Determine if we may emit code given the current if-stack """
         if self.if_stack:
@@ -824,6 +844,10 @@ class Expander:
             src/main/java/org/anarres/cpp/Preprocessor.java
         """
         token = self.consume()
+        if token.first and self.paren_level == 0:
+            self.undo(token)
+            return
+
         if token.typ == '!':
             lhs = int(not(bool(self.parse_expression(11))))
         elif token.typ == '-':
@@ -833,8 +857,10 @@ class Expander:
         elif token.typ == '~':
             lhs = ~self.parse_expression(11)
         elif token.typ == '(':
+            self.paren_level += 1
             lhs = self.parse_expression()
             self.consume(')')
+            self.paren_level -= 1
         elif token.typ == 'ID':
             name = token.val
             if name == 'defined':
@@ -863,6 +889,12 @@ class Expander:
         while True:
             # This would be the next operator:
             token = self.consume()
+
+            # Stop at end of line:
+            if token.first and self.paren_level == 0:
+                self.undo(token)
+                break
+
             op = token.typ
 
             # Determine if the operator has a low enough priority:

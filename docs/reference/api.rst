@@ -28,7 +28,7 @@ project, the api can be used as follows:
     >>> o3 = link([o2, o1], 'examples/msp430/blinky/msp430.mmap', march)
     >>> objcopy(o3, 'flash', 'hex', 'blinky_msp430.hex')
 
-Instead of using the api, a set of :doc:`commandline tools<usage>` are also
+Instead of using the api, a set of :doc:`commandline tools<cli>` are also
 prodived.
 
 .. automodule:: ppci.api

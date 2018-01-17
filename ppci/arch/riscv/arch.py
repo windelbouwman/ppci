@@ -2,24 +2,25 @@
 
 import io
 from ..arch import Architecture
-from ..arch_info import ArchInfo, TypeInfo, Endianness
+from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, RegisterUseDef
+from ..data_instructions import DByte, DZero
 from .asm_printer import RiscvAsmPrinter
-from .instructions import isa, Align, Section, DByte, DZero
+from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
 from .registers import RiscvRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
 from .registers import R13, R14, R15, R16, R17
 from .registers import PC
-from .registers import FP, R9, R18, R19
+from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
-from ..data_instructions import data_isa, Db
+from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr
-from .rvc_instructions import CSwsp, CLwsp, CJal, CJr
+from .rvc_instructions import CSwsp, CLwsp, CJal, CJr, CJalr
 
 
 class RiscvAssembler(BaseAssembler):
@@ -69,21 +70,25 @@ class RiscvArch(Architecture):
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
+        # Allocatable registers:
+        register_classes = [
+            RegisterClass(
+                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
+                RiscvRegister,
+                [
+                    R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
+                    R21, R22, R23, R24, R25, R26, R27
+                ])
+        ]
+
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32,
-            })
+            }, register_classes=register_classes)
 
-        # Allocatable registers:
-        self.register_classes = [
-            RegisterClass(
-                'reg', [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32], RiscvRegister,
-                [R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
-                 R21, R22, R23, R24, R25, R26, R27])
-            ]
         self.fp = FP
         self.callee_save = (
             R9, R18, R19, R20, R21, R22, R23, R24, R25, R26, R27)
@@ -92,9 +97,15 @@ class RiscvArch(Architecture):
 
     def branch(self, reg, lab):
         if self.has_option('rvc'):
-            return CJal(lab, clobbers=self.caller_save)
+            if isinstance(lab, RiscvRegister):
+                return CJalr(lab, clobbers=self.caller_save)
+            else:
+                return CJal(lab, clobbers=self.caller_save)
         else:
-            return Bl(reg, lab, clobbers=self.caller_save)
+            if isinstance(lab, RiscvRegister):
+                return Blr(reg, lab, 0, clobbers=self.caller_save)
+            else:
+                return Bl(reg, lab, clobbers=self.caller_save)
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
@@ -135,7 +146,7 @@ class RiscvArch(Architecture):
         """ Generate a move from src to dst """
         return Movr(dst, src, ismove=True)
 
-    def gen_call(self, label, args, rv):
+    def gen_call(self, frame, label, args, rv):
         """ Implement actual call and save / restore live registers """
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
@@ -205,15 +216,14 @@ class RiscvArch(Architecture):
         ssize = round_up(frame.stacksize) + 8
         yield Sw(LR, -ssize + 4, SP)
         yield Sw(FP, -ssize, SP)
-        yield Movr(FP, SP)                 # Setup frame pointer
-        yield Addi(SP, SP, -ssize)     # Reserve stack space
+        yield Movr(FP, SP)  # Setup frame pointer
+        yield Addi(SP, SP, -ssize)  # Reserve stack space
         i = 0
         for register in self.callee_save:
             if frame.is_used(register):
                 i -= 4
                 yield Sw(register, i, SP)
         yield Addi(SP, SP, i)
-
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -230,7 +240,7 @@ class RiscvArch(Architecture):
             elif isinstance(value, bytes):
                 for byte in value:
                     yield DByte(byte)
-                yield Align(4)   # Align at 4 bytes
+                yield Align(4)  # Align at 4 bytes
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
 
@@ -246,8 +256,8 @@ class RiscvArch(Architecture):
         i = 0
         for register in reversed(self.callee_save):
             if frame.is_used(register):
-               yield Lw(register, i, SP)
-               i += 4
+                yield Lw(register, i, SP)
+                i += 4
         yield Addi(SP, SP, i)
         ssize = round_up(frame.stacksize) + 8
         yield Addi(SP, SP, ssize)
@@ -256,14 +266,14 @@ class RiscvArch(Architecture):
 
         # Return
         if self.has_option('rvc'):
-            yield(CJr(LR))
+            yield (CJr(LR))
         else:
-            yield(Blr(R0, LR, 0))
+            yield (Blr(R0, LR, 0))
 
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
-        yield Align(4)   # Align at 4 bytes
+        yield Align(4)  # Align at 4 bytes
 
 
 def round_up(s):

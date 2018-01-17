@@ -1,6 +1,7 @@
-"""
-Intermediate representation (IR) code classes. Ir-code is organized into
-modules. Modules may contain functions and global variables. Functions
+""" Intermediate representation (IR) code classes.
+
+Ir-code is organized into modules.
+Modules may contain functions and global variables. Functions
 consist of basic blocks. Each basic block is a linear sequence of instructions.
 
 The only types available are basic integer types and a pointer type.
@@ -12,15 +13,135 @@ from binascii import hexlify
 import logging
 
 
-class Module:
-    """ Container unit for variables and functions. """
+# Types:
+class Typ:
+    """ Built in type representation """
     def __init__(self, name):
         self.name = name
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_integer(self) -> bool:
+        """ Test if this type is of integer type """
+        return isinstance(self, IntegerTyp)
+
+    @property
+    def is_unsigned(self) -> bool:
+        """ Test if this type is of unsigned integer type """
+        return isinstance(self, UnsignedIntegerTyp)
+
+    @property
+    def is_signed(self) -> bool:
+        """ Test if this type is of signed integer type """
+        return isinstance(self, SignedIntegerTyp)
+
+    @property
+    def is_blob(self) -> bool:
+        """ Test if this type is bytes blob """
+        return isinstance(self, BlobDataTyp)
+
+    def __repr__(self):
+        return 'ir-typ {}'.format(str(self))
+
+
+class PointerTyp(Typ):
+    """ Pointer type """
+    pass
+
+
+class BasicTyp(Typ):
+    """ Basic arithmatic type """
+    def __init__(self, name, bits):
+        super().__init__(name)
+        self.bits = bits
+        self.size = bits // 8
+
+
+class IntegerTyp(BasicTyp):
+    """ Integer type """
+    pass
+
+
+class SignedIntegerTyp(IntegerTyp):
+    """ Signed integer type """
+    signed = True
+
+
+class UnsignedIntegerTyp(IntegerTyp):
+    """ Unsigned integer type """
+    signed = False
+
+
+class FloatingPointTyp(BasicTyp):
+    pass
+
+
+# TODO: what is the type of a larger slab of data?
+class BlobDataTyp(Typ):
+    _cache = {}
+
+    def __init__(self, size: int, alignment: int):
+        super().__init__('blob')
+        self.size = size
+        self.alignment = alignment
+
+    def __str__(self):
+        # More or less the same as 'u8[size]'.
+        return 'blob<{}:{}>'.format(self.size, self.alignment)
+
+    @classmethod
+    def get(cls, size: int, alignment: int):
+        """ Get instance of blob type for the given size and alignment """
+        key = (size, alignment)
+        if key in cls._cache:
+            typ = cls._cache[key]
+        else:
+            typ = cls(size, alignment=alignment)
+            cls._cache[key] = typ
+        return typ
+
+
+# The builtin types:
+f64 = FloatingPointTyp('f64', 64)  #: 64-bit floating point type
+f32 = FloatingPointTyp('f32', 32)  #: 32-bit floating point type
+i64 = SignedIntegerTyp('i64', 64)  #: Signed 64-bit type
+i32 = SignedIntegerTyp('i32', 32)  #: Signed 32-bit type
+i16 = SignedIntegerTyp('i16', 16)  #: Signed 16-bit type
+i8 = SignedIntegerTyp('i8', 8)  #: Signed 8-bit type
+u64 = UnsignedIntegerTyp('u64', 64)  #: Unsigned 64-bit type
+u32 = UnsignedIntegerTyp('u32', 32)  #: Unsigned 32-bit type
+u16 = UnsignedIntegerTyp('u16', 16)  #: Unsigned 16-bit type
+u8 = UnsignedIntegerTyp('u8', 8)  #: Unsigned 8-bit type
+ptr = PointerTyp('ptr')  #: Pointer type
+
+value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
+all_types = value_types + [ptr]
+type_name_map = {t.name.lower(): t for t in value_types}
+
+
+def get_ty(name):
+    """ Get an ir type by name """
+    return type_name_map[name.lower()]
+
+
+# Program structure:
+class Module:
+    """ Container unit for variables and functions. """
+    def __init__(self, name: str, debug_db=None):
+        self.name = name
+        self.debug_db = debug_db  # Carry along debug info
+        self.externals = []
         self._functions = []
         self._variables = []
 
     def __str__(self):
         return 'module {0}'.format(self.name)
+
+    def add_external(self, external):
+        """ Add an externally located thing """
+        self.externals.append(external)
 
     def add_function(self, function):
         """ Add a function to this module """
@@ -34,6 +155,11 @@ class Module:
         self._variables.append(variable)
         variable.module = self
 
+    def display(self):
+        """ Display this module """
+        from .irutils import print_module
+        print_module(self, verify=False)
+
     @property
     def variables(self):
         """ Get all variables of this module """
@@ -43,6 +169,11 @@ class Module:
     def functions(self):
         """ Get all functions of this module """
         return self._functions
+
+    def get_function(self, name: str):
+        """ Get a function with the given name """
+        functions = {f.name: f for f in self.functions}
+        return functions[name]
 
     def stats(self):
         """ Returns a string with statistic information such as block count """
@@ -55,7 +186,92 @@ class Module:
                     num_instructions)
 
 
-class SubRoutine:
+class Value:
+    """ Base of all values """
+    def __init__(self, name: str, ty: Typ):
+        # Has a name and a type?
+        super().__init__()
+        if not isinstance(name, str):
+            raise TypeError('name must be a string')
+        self.name = name
+        if not isinstance(ty, Typ):
+            raise TypeError('ty argument must be an instance of Typ')
+        self.ty = ty
+        self.used_by = set()
+
+    def add_user(self, i):
+        """ Add a usage for this value """
+        assert isinstance(i, Instruction)
+        self.used_by.add(i)
+
+    def del_user(self, i):
+        """ Add a usage for this value """
+        assert isinstance(i, Instruction)
+        self.used_by.remove(i)
+
+    @property
+    def is_used(self):
+        """ Determine whether this value is used anywhere """
+        return bool(self.use_count)
+
+    @property
+    def use_count(self):
+        """ Determine how often this values is used """
+        return len(self.used_by)
+
+    def replace_by(self, value):
+        """ Replace all uses of this value by another value """
+        for use in list(self.used_by):
+            use.replace_use(self, value)
+
+
+class GlobalValue(Value):
+    """ A global value (with a name and an address) """
+    def __init__(self, name):
+        super().__init__(name, ptr)
+
+
+class External(GlobalValue):
+    """ External object """
+    def __repr__(self):
+        return 'external {}'.format(self.name)
+
+
+class ExternalSubRoutine(External):
+    """ External object """
+    def __init__(self, name, argument_types):
+        super().__init__(name)
+        self.argument_types = argument_types
+
+
+class ExternalProcedure(ExternalSubRoutine):
+    """ External function """
+    def __repr__(self):
+        args = ', '.join(map(str, self.argument_types))
+        return 'external {}({})'.format(self.name, args)
+
+
+class ExternalFunction(ExternalSubRoutine):
+    """ External function """
+    def __init__(self, name, argument_types, return_type):
+        super().__init__(name, argument_types)
+        self.return_type = return_type
+
+    def __repr__(self):
+        args = ', '.join(map(str, self.argument_types))
+        return 'external {} {}({})'.format(self.return_type, self.name, args)
+
+
+class ExternalVariable(External):
+    """ External global variable. """
+    def __init__(self, name):
+        super().__init__(name)
+
+    def __str__(self):
+        return 'external variable {}'.format(self.name)
+
+
+class SubRoutine(GlobalValue):
     """ Base class of function and procedure. These two differ in that
     a function returns a value, where as a procedure does not.
 
@@ -72,7 +288,7 @@ class SubRoutine:
     logger = logging.getLogger('irfunc')
 
     def __init__(self, name):
-        self.name = name
+        super().__init__(name)
         self.blocks = []
         self.entry = None
         self.defined_names = set()
@@ -104,6 +320,23 @@ class SubRoutine:
     def block_names(self):
         """ Get the names of all the blocks in this function """
         return (b.name for b in self.blocks)
+
+    def is_leaf(self):
+        """ Test if this procedure is a leaf function.
+
+        A leaf function calls no other functions.
+        """
+        return bool(self.get_out_calls())
+
+    def get_out_calls(self):
+        """ Return the calls that leave this function. """
+        out_calls = []
+        for block in self:
+            for instruction in block:
+                if isinstance(
+                        instruction, (BaseProcedureCall, BaseFunctionCall)):
+                    out_calls.append(instruction)
+        return out_calls
 
     def calc_reachable_blocks(self):
         """ Determine all blocks that can be reached """
@@ -208,6 +441,9 @@ class Block:
     def __len__(self):
         return len(self.instructions)
 
+    def __getitem__(self, key):
+        return self.instructions.__getitem__(key)
+
     def insert_instruction(self, instruction, before_instruction=None):
         """ Insert an instruction at the front of the block """
         if before_instruction is not None:
@@ -215,6 +451,7 @@ class Block:
             pos = before_instruction.position
         else:
             pos = 0
+        assert isinstance(instruction, Instruction)
         instruction.block = self
         self.instructions.insert(pos, instruction)
         if isinstance(instruction, Value):
@@ -222,6 +459,7 @@ class Block:
 
     def add_instruction(self, instruction):
         """ Add an instruction to the end of this block """
+        assert isinstance(instruction, Instruction)
         assert not self.is_closed
         instruction.block = self
         self.instructions.append(instruction)
@@ -268,7 +506,10 @@ class Block:
     @property
     def successors(self):
         """ Get the direct successors of this block """
-        return self.last_instruction.targets
+        if self.last_instruction:
+            return self.last_instruction.targets
+        else:
+            return []
 
     @property
     def predecessors(self):
@@ -317,7 +558,9 @@ def value_use(name):
 
     def setter(self, value):
         """ Sets the value """
-        assert isinstance(value, Value)
+        if not isinstance(value, Value):
+            raise TypeError(
+                'Expecting a Value instance, but got {}'.format(value))
         # If value was already set, remove usage
         if name in self._var_map:
             self.del_use(self._var_map[name])
@@ -345,11 +588,12 @@ class Instruction:
         """ Return the function this instruction is part of """
         return self.block.function
 
-    def add_use(self, v):
+    def add_use(self, value):
         """ Add v to the list of values used by this instruction """
-        assert isinstance(v, Value)
-        self.uses.add(v)
-        v.add_user(self)
+        if not isinstance(value, Value):
+            raise TypeError('Expected Value, but got {}'.format(value))
+        self.uses.add(value)
+        value.add_user(self)
 
     def del_use(self, v):
         assert isinstance(v, Value)
@@ -357,14 +601,20 @@ class Instruction:
         v.del_user(self)
 
     def delete(self):
-        assert not self.uses
+        for use in list(self.uses):
+            self.del_use(use)
+        if self.uses:
+            uses = ', '.join(map(str, self.uses))
+            raise ValueError(
+                'Cannot delete {} since it is still used by {}'.format(
+                    self, uses))
 
     def replace_use(self, old, new):
         """ replace value usage 'old' with new value, updating the def-use
             information.
         """
         # TODO: update reference
-        assert old in self._var_map.values()
+        # assert old in self._var_map.values()
         for name in self._var_map:
             if self._var_map[name] is old:
                 self.del_use(old)
@@ -387,113 +637,18 @@ class Instruction:
         return isinstance(self, FinalInstruction)
 
 
-class Typ:
-    """ Built in type representation """
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def is_integer(self):
-        """ Test if this type is of integer type """
-        return isinstance(self, IntegerTyp)
-
-    def __repr__(self):
-        return 'ir-typ {}'.format(str(self))
-
-
-class PointerTyp(Typ):
-    pass
-
-
-class BasicTyp(Typ):
-    """ Basic arithmatic type """
-    def __init__(self, name, bits):
-        super().__init__(name)
-        self.bits = bits
-        self.size = bits // 8
-
-
-class IntegerTyp(BasicTyp):
-    """ Integer type """
-    pass
-
-
-class SignedIntegerTyp(IntegerTyp):
-    """ Signed integer type """
-    signed = True
-
-
-class UnsignedIntegerTyp(IntegerTyp):
-    """ Unsigned integer type """
-    signed = False
-
-
-class FloatingPointTyp(BasicTyp):
-    pass
-
-
-# TODO: what is the type of a larger slab of data?
-class BlobDataTyp(Typ):
-    _cache = {}
-
-    def __init__(self, size, alignment=1):
-        super().__init__('blob')
-        self.size = size
-        self.alignment = alignment
-
-    def __str__(self):
-        return 'blob[{}:{}]'.format(self.size, self.alignment)
-
-    @classmethod
-    def get(cls, size, alignment=1):
-        key = (size, alignment)
-        if key in cls._cache:
-            typ = cls._cache[key]
-        else:
-            typ = cls(size, alignment=alignment)
-            cls._cache[key] = typ
-        return typ
-
-
-# The builtin types:
-f64 = FloatingPointTyp('f64', 64)  #: 64-bit floating point type
-f32 = FloatingPointTyp('f32', 32)  #: 32-bit floating point type
-i64 = SignedIntegerTyp('i64', 64)  #: Signed 64-bit type
-i32 = SignedIntegerTyp('i32', 32)  #: Signed 32-bit type
-i16 = SignedIntegerTyp('i16', 16)  #: Signed 16-bit type
-i8 = SignedIntegerTyp('i8', 8)  #: Signed 8-bit type
-u64 = UnsignedIntegerTyp('u64', 64)  #: Unsigned 64-bit type
-u32 = UnsignedIntegerTyp('u32', 32)  #: Unsigned 32-bit type
-u16 = UnsignedIntegerTyp('u16', 16)  #: Unsigned 16-bit type
-u8 = UnsignedIntegerTyp('u8', 8)  #: Unsigned 8-bit type
-ptr = PointerTyp('ptr')  #: Pointer type
-
-value_types = [f64, f32, i64, i32, i16, i8, u64, u32, u16, u8]
-all_types = value_types + [ptr]
-value_map = {t.name.lower(): t for t in value_types}
-
-
-def get_ty(name):
-    """ Get an ir type by name """
-    return value_map[name.lower()]
-
-
-class Value(Instruction):
+# TODO: hmm, multiple inheritance used..
+class LocalValue(Value, Instruction):
     """ An instruction that results in a value has a type and a name """
     def __init__(self, name: str, ty: Typ):
-        super().__init__()
-        assert isinstance(ty, Typ)
-        assert isinstance(name, str)
-        self.name = name
-        self.ty = ty
-        self.used_by = set()
+        super().__init__(name, ty)
 
     def __add__(self, other):
         """ Add this value to another one """
-        assert isinstance(other, Value)
+        if not isinstance(other, Value):
+            raise TypeError(
+                'Expected other to be of Value type, not {}'.format(
+                    type(other)))
         assert self.ty is other.ty
         return Binop(self, '+', other, 'add', self.ty)
 
@@ -509,35 +664,28 @@ class Value(Instruction):
         assert self.ty is other.ty
         return Binop(self, '*', other, 'mul', self.ty)
 
-    def add_user(self, i):
-        """ Add a usage for this value """
-        self.used_by.add(i)
-
-    def del_user(self, i):
-        """ Add a usage for this value """
-        self.used_by.remove(i)
-
     def used_in_blocks(self):
         """ Returns a set of blocks where this value is used """
         return set(i.block for i in self.used_by)
 
-    @property
-    def is_used(self):
-        """ Determine whether this value is used anywhere """
-        return bool(self.use_count)
 
-    @property
-    def use_count(self):
-        """ Determine how often this values is used """
-        return len(self.used_by)
+class AddressOf(LocalValue):
+    """ This instruction takes the address of a block of data """
+    src = value_use('src')
 
-    def replace_by(self, value):
-        """ Replace all uses of this value by another value """
-        for use in list(self.used_by):
-            use.replace_use(self, value)
+    def __init__(self, src, name: str):
+        super().__init__(name, ptr)
+        if not isinstance(src, Value):
+            raise TypeError('Expecting a Value as src')
+        if not src.ty.is_blob:
+            raise TypeError('Can only take address of blob data')
+        self.src = src
+
+    def __repr__(self):
+        return '{} {} = &{}'.format(self.ty, self.name, self.src.name)
 
 
-class Cast(Value):
+class Cast(LocalValue):
     """ Base type conversion instruction """
     src = value_use('src')
 
@@ -549,13 +697,13 @@ class Cast(Value):
         return '{} {} = cast {}'.format(self.ty, self.name, self.src.name)
 
 
-class Undefined(Value):
+class Undefined(LocalValue):
     """ Undefined value, this value must never be used. """
     def __str__(self):
         return '{} = undefined'.format(self.name)
 
 
-class Const(Value):
+class Const(LocalValue):
     """ Represents a constant value """
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
@@ -566,12 +714,12 @@ class Const(Value):
         return '{} {} = {}'.format(self.ty, self.name, self.value)
 
 
-class LiteralData(Value):
+class LiteralData(LocalValue):
     """ Instruction that contains labeled data. When generating code for this
         instruction, a label and its data is emitted in the literal area
     """
     def __init__(self, data, name):
-        super().__init__(name, ptr)
+        super().__init__(name, BlobDataTyp.get(len(data), 1))
         self.data = data
         assert isinstance(data, bytes), str(data)
 
@@ -580,21 +728,29 @@ class LiteralData(Value):
         return '{} {} = Literal {}'.format(self.ty, self.name, data)
 
 
-class FunctionCall(Value):
-    """ Call a function with some arguments and a return value """
-    def __init__(self, function_name, arguments, name, ty):
+class BaseFunctionCall(LocalValue):
+    """ Base function call """
+    def __init__(self, arguments, name, ty):
         super().__init__(name, ty)
-        assert isinstance(function_name, str)
-        self.function_name = function_name
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
 
     def replace_use(self, old, new):
-        idx = self.arguments.index(old)
-        self.del_use(old)
-        self.arguments[idx] = new
-        self.add_use(new)
+        super().replace_use(old, new)
+        if old in self.arguments:
+            idx = self.arguments.index(old)
+            self.del_use(old)
+            self.arguments[idx] = new
+            self.add_use(new)
+
+
+class FunctionCall(BaseFunctionCall):
+    """ Call a function with some arguments and a return value """
+    def __init__(self, function_name, arguments, name, ty):
+        super().__init__(arguments, name, ty)
+        assert isinstance(function_name, str)
+        self.function_name = function_name
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
@@ -602,44 +758,118 @@ class FunctionCall(Value):
             self.ty, self.name, self.function_name, args)
 
 
-class ProcedureCall(Instruction):
-    """ Call a procedure with some arguments """
-    def __init__(self, function_name, arguments):
+# TODO: do we really need a seperate type for a pointer to a function?
+class FunctionPointerCall(BaseFunctionCall):
+    """ Call a function with some arguments and a return value """
+    function_ptr = value_use('function_ptr')
+
+    def __init__(self, function_ptr, arguments, name, ty):
+        super().__init__(arguments, name, ty)
+        if not isinstance(function_ptr, Value):
+            raise TypeError(
+                'Pointer must be a value, not {}'.format(function_ptr))
+
+        if function_ptr.ty is not ptr:
+            raise ValueError(
+                'Pointer must be ptr, not {}'.format(function_ptr.ty))
+
+        self.function_ptr = function_ptr
+
+    def __str__(self):
+        args = ', '.join(arg.name for arg in self.arguments)
+        return '{} {} = ptrcall {}({})'.format(
+            self.ty, self.name, self.function_ptr.name, args)
+
+
+class BaseProcedureCall(Instruction):
+    def __init__(self, arguments):
         super().__init__()
-        assert isinstance(function_name, str)
-        self.function_name = function_name
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
 
     def replace_use(self, old, new):
-        idx = self.arguments.index(old)
-        self.del_use(old)
-        self.arguments[idx] = new
-        self.add_use(new)
+        super().replace_use(old, new)
+        if old in self.arguments:
+            idx = self.arguments.index(old)
+            self.del_use(old)
+            self.arguments[idx] = new
+            self.add_use(new)
+
+
+class ProcedureCall(BaseProcedureCall):
+    """ Call a procedure with some arguments """
+    def __init__(self, function_name, arguments):
+        super().__init__(arguments)
+        assert isinstance(function_name, str)
+        self.function_name = function_name
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
         return 'call {}({})'.format(self.function_name, args)
 
 
-class Binop(Value):
+class ProcedurePointerCall(BaseProcedureCall):
+    """ Call a procedure pointer with some arguments """
+    function_ptr = value_use('function_ptr')
+
+    def __init__(self, function_ptr, arguments):
+        super().__init__(arguments)
+        if function_ptr.ty is not ptr:
+            raise ValueError(
+                'Pointer must be ptr, not {}'.format(function_ptr.ty))
+        self.function_ptr = function_ptr
+
+    def __str__(self):
+        args = ', '.join(arg.name for arg in self.arguments)
+        return 'ptrcall {}({})'.format(self.function_ptr.name, args)
+
+
+class Unop(LocalValue):
+    """ Generic unary operation """
+    ops = ['-', '~']
+    a = value_use('a')
+
+    def __init__(self, operation, a, name, ty):
+        super().__init__(name, ty)
+        if operation not in self.ops:
+            raise TypeError('operation should be one of {}'.format(Binop.ops))
+
+        if a.ty is not ty:
+            raise TypeError('Unop type mismatch {} != {}'.format(a.ty, ty))
+
+        self.operation = operation
+        self.a = a
+
+    def __str__(self):
+        return '{} {} = {} {}'.format(
+            self.ty, self.name, self.operation, self.a.name)
+
+
+class Binop(LocalValue):
     """ Generic binary operation """
-    ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>']
+    ops = ['+', '-', '*', '/', '%', '|', '&', '^', '<<', '>>', 'rol', 'ror']
     a = value_use('a')
     b = value_use('b')
 
     def __init__(self, a, operation, b, name, ty):
         super().__init__(name, ty)
-        assert operation in Binop.ops
-        assert a.ty is b.ty is ty
+        if operation not in Binop.ops:
+            raise TypeError('operation should be one of {}'.format(Binop.ops))
+
+        if a.ty is not ty:
+            raise TypeError('Binop type mismatch {} != {}'.format(a.ty, ty))
+
+        if b.ty is not ty:
+            raise TypeError('Binop type mismatch {} != {}'.format(b.ty, ty))
+
         self.a = a
         self.b = b
         self.operation = operation
 
     def __str__(self):
-        a, b, ty = self.a.name, self.b.name, self.ty
-        return '{} {} = {} {} {}'.format(ty, self.name, a, self.operation, b)
+        return '{} {} = {} {} {}'.format(
+            self.ty, self.name, self.a.name, self.operation, self.b.name)
 
 
 def add(a, b, name, ty):
@@ -657,15 +887,16 @@ def mul(a, b, name, ty):
     return Binop(a, '*', b, name, ty)
 
 
-class Phi(Value):
+class Phi(LocalValue):
     """ Imaginary phi instruction to make SSA possible. """
     def __init__(self, name, ty):
         super().__init__(name, ty)
         self.inputs = {}
 
     def __str__(self):
-        inputs = {block.name: value.name
-                  for block, value in self.inputs.items()}
+        inputs = ', '.join(
+            '{}: {}'.format(block.name, value.name)
+            for block, value in self.inputs.items())
         return '{} {} = phi {}'.format(self.ty, self.name, inputs)
 
     def replace_use(self, old, new):
@@ -679,7 +910,10 @@ class Phi(Value):
 
     def set_incoming(self, block, value):
         """ Set the value for the phi node when entering through block """
-        assert value.ty == self.ty
+        if value.ty != self.ty:
+            raise ValueError(
+                'Type mismatch {} where {} was expected'.format(
+                    value.ty, self.ty))
         if block in self.inputs:
             self.del_use(self.inputs[block])
         self.inputs[block] = value
@@ -695,35 +929,49 @@ class Phi(Value):
         self.del_use(value)
 
 
-class Alloc(Value):
+class Alloc(LocalValue):
     """ Allocates space on the stack. The type of this value is a ptr """
-    def __init__(self, name, amount):
-        super().__init__(name, ptr)
-        assert isinstance(amount, int)
+    def __init__(self, name: str, amount: int, alignment: int):
+        super().__init__(name, BlobDataTyp.get(amount, alignment))
+
+        if not isinstance(amount, int):
+            raise TypeError(
+                'amount must be an int, not {}'.format(type(amount)))
+
+        if not amount:
+            raise ValueError(
+                'Expecting at least 1 byte to allocate, not {}', amount)
         self.amount = amount
+
+        if not isinstance(alignment, int):
+            raise TypeError(
+                'alignment must be int, not {}'.format(type(alignment)))
+        self.alignment = alignment
 
     def __str__(self):
-        return '{} {} = alloc {} bytes'.format(self.ty, self.name, self.amount)
+        return '{} {} = alloc {} bytes aligned at {}'.format(
+            self.ty, self.name, self.amount, self.alignment)
 
 
-# TODO: Variable now inherits Value and hence Instruction, but it is not an
-# instruction!
-class Variable(Value):
+class Variable(GlobalValue):
     """ Global variable, reserves room in the data area. Has name and size """
-    def __init__(self, name, amount, value=None):
-        super().__init__(name, ptr)
+    def __init__(self, name, amount, alignment, value=None):
+        super().__init__(name)
         assert isinstance(amount, int)
         self.amount = amount
+        assert isinstance(alignment, int)
+        self.alignment = alignment
         assert value is None or isinstance(value, bytes)
         if isinstance(value, bytes):
             assert len(value) == amount
         self.value = value
 
     def __str__(self):
-        return 'variable {} ({} bytes)'.format(self.name, self.amount)
+        return 'variable {} ({} bytes aligned at {})'.format(
+            self.name, self.amount, self.alignment)
 
 
-class Parameter(Value):
+class Parameter(LocalValue):
     """ Parameter of a function """
     def __init__(self, name, ty):
         super().__init__(name, ty)
@@ -732,7 +980,7 @@ class Parameter(Value):
         return 'Parameter {} {}'.format(self.ty, self.name)
 
 
-class Load(Value):
+class Load(LocalValue):
     """ Load a value from memory """
     address = value_use('address')
 
@@ -740,7 +988,7 @@ class Load(Value):
         super().__init__(name, ty)
         assert address.ty is ptr
         if not isinstance(ty, (BasicTyp, PointerTyp)):
-            raise ValueError('Can only load basic types')
+            raise ValueError('Can only load basic types, not {}'.format(ty))
         self.address = address
         self.volatile = volatile
 
@@ -755,9 +1003,17 @@ class Store(Instruction):
 
     def __init__(self, value, address, volatile=False):
         super().__init__()
-        assert address.ty is ptr
+        if address.ty is not ptr:
+            raise TypeError(
+                'Expected address of type ptr, but got {}'.format(address.ty))
+
+        if not isinstance(value, Value):
+            raise TypeError('Expected a value, got {}'.format(value))
+
         if not isinstance(value.ty, (BasicTyp, PointerTyp)):
-            raise ValueError('Can only store basic types')
+            raise ValueError(
+                'Can only store basic types, not {}'.format(value.ty))
+
         self.address = address
         self.value = value
         self.volatile = volatile
@@ -874,7 +1130,8 @@ class CJump(JumpBase):
 
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()
-        assert cond in CJump.conditions
+        if cond not in CJump.conditions:
+            raise ValueError('Invalid condition {}'.format(cond))
         self.a = a
         self.cond = cond
         self.b = b

@@ -33,8 +33,10 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
+    'sphinxcontrib.spelling',
     'zipexamples',
     'uml',
+    'gen_programs',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -51,7 +53,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'ppci'
-copyright = '2017, Windel Bouwman'
+copyright = '2018, Windel Bouwman'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

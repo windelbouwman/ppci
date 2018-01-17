@@ -32,11 +32,12 @@ class BrainFuckGenerator():
 
         # Allocate space on stack for ptr register:
         ptr_var = self.builder.emit(
-            ir.Alloc('ptr_addr', self.arch.get_size(ir.i32)))
+            ir.Alloc('ptr_alloc', self.arch.get_size(ir.i32), 4))
+        ptr_var = self.builder.emit(ir.AddressOf(ptr_var, 'ptr_addr'))
 
         bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable('data', bf_mem_size * self.arch.get_size(ir.i8))
+        data = ir.Variable('data', bf_mem_size * self.arch.get_size(ir.i8), 4)
         self.builder.module.add_variable(data)
 
         # Locate '1' and '0' constants:

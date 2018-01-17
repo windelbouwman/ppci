@@ -10,8 +10,8 @@ generate (working!) machine code within python!
 The project contains the following:
 
 - A Compiler, an assembler, a linker and a build system
-- Language front-ends: Brainfuck, c3
-- Backends: 6500, arm, avr, msp430, risc-v, stm8, x86_64, xtensa
+- Language front-ends: Brainfuck, c3, C, WASM
+- Backends: 6500, arm, avr, msp430, openrisc, risc-v, stm8, x86_64, xtensa
 
 .. warning::
 
@@ -73,6 +73,8 @@ Documentation can be found here:
 |travis|_
 |codacygrade|_
 |codacycoverage|_
+|downloads|_
+|conda|_
 
 .. |codecov| image:: https://codecov.io/bb/windel/ppci/branch/default/graph/badge.svg
 .. _codecov: https://codecov.io/bb/windel/ppci/branch/default
@@ -95,3 +97,10 @@ Documentation can be found here:
 
 .. |codacycoverage| image:: https://api.codacy.com/project/badge/Coverage/a178be14a54243be81c27172031dc82c
 .. _codacycoverage: https://www.codacy.com/app/windel-bouwman/ppci-mirror
+
+
+.. |downloads| image:: https://anaconda.org/conda-forge/ppci/badges/downloads.svg
+.. _downloads: https://anaconda.org/conda-forge/ppci
+
+.. |conda| image:: https://anaconda.org/conda-forge/ppci/badges/version.svg
+.. _conda: https://anaconda.org/conda-forge/ppci

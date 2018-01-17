@@ -20,11 +20,17 @@ class Scope:
         else:
             return False
 
-    def insert(self, variable: Declaration):
+    def insert(self, declaration: Declaration):
         """ Insert a variable into the current scope """
-        assert isinstance(variable, Declaration)
-        assert variable.name not in self.var_map
-        self.var_map[variable.name] = variable
+        assert isinstance(declaration, Declaration)
+        assert declaration.name not in self.var_map
+        self.var_map[declaration.name] = declaration
+
+    def update(self, declaration: Declaration):
+        """ Update an existing name to a new declaration """
+        assert isinstance(declaration, Declaration)
+        assert declaration.name in self.var_map
+        self.var_map[declaration.name] = declaration
 
     def has_tag(self, name):
         if self.parent:

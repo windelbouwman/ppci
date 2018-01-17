@@ -46,9 +46,16 @@ def tryrm(fn):
         pass
 
 
-def do_long_tests():
+def do_long_tests(arch):
     """ Determine whether to run samples, these take somewhat longer """
-    return 'LONGTESTS' in os.environ
+    if 'LONGTESTS' not in os.environ:
+        return False
+    val = os.environ['LONGTESTS']
+    if arch in val or val == 'all':
+        return True
+    else:
+        return False
+
 
 
 def do_iverilog():
@@ -106,6 +113,8 @@ def qemu(args):
         '-monitor', 'tcp:localhost:{}'.format(ctrl_port),
         '-serial', 'tcp:localhost:{}'.format(ser_port),
         '-S']
+    logger.debug('Starting qemu like this: %s', args)
+
     if hasattr(subprocess, 'DEVNULL'):
         qemu_process = subprocess.Popen(args)  # stderr=subprocess.DEVNULL)
     else:
@@ -174,6 +183,18 @@ def run_python(kernel):
         outs, _ = python_proc.communicate()
     else:
         outs, _ = python_proc.communicate(timeout=60)
+
+    outs = outs.decode('ascii', errors='ignore')
+    outs = outs.replace(os.linesep, '\n')
+    return outs
+
+
+def run_nodejs(js_filename):
+    """ Run given file in nodejs and capture output """
+    proc = subprocess.Popen(
+        ['node', js_filename], stdout=subprocess.PIPE)
+
+    outs, _ = proc.communicate(timeout=10)
 
     outs = outs.decode('ascii', errors='ignore')
     outs = outs.replace(os.linesep, '\n')

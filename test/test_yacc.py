@@ -8,7 +8,8 @@ from ppci.lang.tools.lr import Item
 from ppci.lang.tools.common import ParserException
 from ppci.lang.tools.yacc import load_as_module, transform
 from ppci.lang.tools.lr import calculate_first_sets
-from ppci.common import Token, SourceLocation, CompilerError
+from ppci.common import CompilerError
+from ppci.lang.common import Token, SourceLocation
 from ppci.lang.tools.lr import LrParserBuilder
 from ppci.lang.tools.earley import EarleyParser
 from ppci.lang.tools.baselex import EOF

@@ -6,15 +6,17 @@ import os
 import platform
 import subprocess
 from tempfile import mkstemp
-from util import run_qemu, has_qemu, qemu, relpath, run_python, source_files
+from util import has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
-from util import has_avr_emulator, run_avr
+from util import has_avr_emulator, run_avr, run_nodejs
 from util import do_long_tests, do_iverilog, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils import uboot_image
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
+from ppci.irs.wasm import ir_to_wasm
 
 
 def enable_report_logger(filename):
@@ -45,6 +47,7 @@ def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
 
     extensions = ('.c3', '.bf', '.c')
+
     def deco(cls):
         for folder in folders:
             for source in source_files(
@@ -238,14 +241,15 @@ class BuildMixin:
             bsp_c3 = self.bsp_c3
 
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march, self.opt_level,
+            base_filename, src, bsp_c3, startercode, self.march,
+            self.opt_level,
             io.StringIO(self.arch_mmap), lang=lang, bin_format=bin_format,
             elf_format=elf_format, code_image=code_image)
 
         return obj, base_filename
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('arm'), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnVexpress(unittest.TestCase, I32Samples, BuildMixin):
     maxDiff = None
@@ -293,7 +297,11 @@ class TestSamplesOnVexpress(unittest.TestCase, I32Samples, BuildMixin):
 
         # Run bin file in emulator:
         if has_qemu():
-            res = run_qemu(sample_filename, machine='realview-pb-a8')
+            res = qemu([
+                'qemu-system-arm', '--machine', 'realview-pb-a8',
+                '-m', '16M', '-nographic',
+                '-kernel', sample_filename
+            ])
             self.assertEqual(expected_output, res)
 
 
@@ -301,7 +309,7 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('riscv'), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
     opt_level = 2
@@ -360,7 +368,9 @@ class TestSamplesOnRiscv(unittest.TestCase, I32Samples, BuildMixin):
             for i in range(filewordsize):
                 if (i < datawordlen):
                     w = rom_data[4 * i:4 * i + 4]
-                    print('%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]), file=f)
+                    print(
+                        '%02x%02x%02x%02x' % (w[3], w[2], w[1], w[0]),
+                        file=f)
                 else:
                     print('00000000', file=f)
         f.close()
@@ -374,7 +384,7 @@ class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('arm'), 'skipping slow tests')
 @add_samples('simple', 'medium', '8bit')
 class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
     """ The lm3s811 has 64 k memory """
@@ -433,12 +443,15 @@ class TestSamplesOnCortexM3O2(unittest.TestCase, I32Samples, BuildMixin):
 
         # Run bin file in emulator:
         if has_qemu():
-            res = run_qemu(sample_filename, machine='lm3s6965evb')
+            res = qemu([
+                'qemu-system-arm', '-M', 'lm3s6965evb', '-m', '16M',
+                '-nographic', '-kernel', sample_filename
+            ])
             # lm3s811evb
             self.assertEqual(expected_output, res)
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('python'), 'skipping slow tests')
 @add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
 class TestSamplesOnPython(unittest.TestCase, I32Samples):
     opt_level = 0
@@ -497,7 +510,93 @@ class TestSamplesOnPythonO2(TestSamplesOnPython):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('wasm'), 'skipping slow tests')
+@add_samples('simple', 'medium', 'fp')
+class TestSamplesOnWasm(unittest.TestCase):
+    opt_level = 0
+
+    def do(self, src, expected_output, lang='c3'):
+        base_filename = make_filename(self.id())
+        list_filename = base_filename + '.html'
+
+        bsp = io.StringIO("""
+           module bsp;
+           public function void putc(byte c);
+           """)
+        march = 'arm'  # TODO: this must be wasm!
+        with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
+            if lang == 'c3':
+                ir_modules = c3toir([
+                    bsp, relpath('..', 'librt', 'io.c3'),
+                    io.StringIO(src)], [], march, reporter=reporter)
+            elif lang == 'bf':
+                ir_modules = [bf2ir(src, march)]
+            elif lang == 'c':
+                coptions = COptions()
+                include_path1 = relpath('..', 'librt', 'libc')
+                lib = relpath('..', 'librt', 'libc', 'lib.c')
+                coptions.add_include_path(include_path1)
+                with open(lib, 'r') as f:
+                    mod1 = c_to_ir(
+                        f, march,
+                        coptions=coptions, reporter=reporter)
+                mod2 = c_to_ir(
+                    io.StringIO(src), march,
+                    coptions=coptions, reporter=reporter)
+                ir_modules = [mod1, mod2]
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    'Language {} not implemented'.format(lang))
+
+            for ir_module in ir_modules:
+                optimize(ir_module, level=self.opt_level, reporter=reporter)
+
+            wasm_module = ir_to_wasm(ir_modules, reporter=reporter)
+
+        # Output wasm file:
+        wasm_filename = base_filename + '.wasm'
+        with open(wasm_filename, 'wb') as f:
+            wasm_module.to_file(f)
+
+        # Dat was 'm:
+        wasm = wasm_module.to_bytes()
+        wasm_text = str(list(wasm))
+        wasm_data = 'var wasm_data = new Uint8Array(' + wasm_text + ');'
+
+        # Output javascript file:
+        js = NODE_JS_TEMPLATE.replace('JS_PLACEHOLDER', wasm_data)
+        js_filename = base_filename + '.js'
+        with open(js_filename, 'w') as f:
+            f.write(js)
+
+        # run node.js and compare output:
+        res = run_nodejs(js_filename)
+        self.assertEqual(expected_output, res)
+
+
+NODE_JS_TEMPLATE = """
+function bsp_putc(i) {
+    var c = String.fromCharCode(i);
+    process.stdout.write(c);
+}
+
+var providedfuncs = {
+    bsp_putc: bsp_putc,
+};
+
+JS_PLACEHOLDER
+
+function compile_my_wasm() {
+    var module_ = new WebAssembly.Module(wasm_data);
+    var module = new WebAssembly.Instance(module_, {js: providedfuncs});
+    module.exports.main_main();
+}
+
+compile_my_wasm();
+"""
+
+
+@unittest.skipUnless(do_long_tests('msp430'), 'skipping slow tests')
 @add_samples('simple', '8bit')
 class TestSamplesOnMsp430(unittest.TestCase, BuildMixin):
     opt_level = 0
@@ -589,7 +688,7 @@ class TestSamplesOnMsp430O2(TestSamplesOnMsp430):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('avr'), 'skipping slow tests')
 @add_samples('8bit', 'simple')
 class TestSamplesOnAvr(unittest.TestCase):
     march = "avr"
@@ -631,7 +730,7 @@ class TestSamplesOnStm8(unittest.TestCase):
             mmap, lang=lang, bin_format='hex', code_image='flash')
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('xtensa'), 'skipping slow tests')
 @add_samples('simple')
 class TestSamplesOnXtensa(unittest.TestCase):
     march = "xtensa"
@@ -652,7 +751,8 @@ class TestSamplesOnXtensa(unittest.TestCase):
             output = qemu([
                 'qemu-system-xtensa', '-nographic',
                 '-M', 'lx60', '-m', '16',
-                '-pflash', img_filename])
+                '-drive',
+                'if=pflash,format=raw,file={}'.format(img_filename)])
             self.assertEqual(expected_output, output)
 
     def make_image(self, bin_filename, image_filename, imagemb=4):
@@ -667,7 +767,7 @@ class TestSamplesOnXtensa(unittest.TestCase):
             f.write(bytes(padding))
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('or1k'), 'skipping slow tests')
 @add_samples('simple', 'medium')
 class OpenRiscSamplesTestCase(unittest.TestCase):
     march = "or1k"
@@ -682,18 +782,25 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
             base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
             mmap, lang=lang, bin_format='bin', code_image='flash')
         binfile = base_filename + '.bin'
-        # img_filename = base_filename + '.img'
+
+        # Create a uboot application file:
+        with open(binfile, 'rb') as f:
+            bindata = f.read()
+        img_filename = base_filename + '.img'
+        with open(img_filename, 'wb') as f:
+            uboot_image.write_uboot_image(
+                f, bindata,
+                arch=uboot_image.Architecture.OPENRISC)
         # self.make_image(binfile, img_filename)
         if has_qemu():
-            # TODO:
             output = qemu([
                 'qemu-system-or1k', '-nographic',
                 '-M', 'or1k-sim', '-m', '16',
-                '-kernel', binfile])
+                '-kernel', img_filename])
             self.assertEqual(expected_output, output)
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('x86_64'), 'skipping slow tests')
 @add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
 class TestSamplesOnX86Linux(unittest.TestCase, BuildMixin):
     march = "x86_64"

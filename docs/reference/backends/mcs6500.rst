@@ -5,3 +5,4 @@ mcs6500
 -------
 
 .. automodule:: ppci.arch.mcs6500
+    :members:

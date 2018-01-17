@@ -12,7 +12,6 @@ from ppci.lang.c.utils import cnum, replace_escape_codes
 from ppci.arch.example import ExampleArch
 from ppci import ir
 from ppci.irutils import Verifier
-from ppci.binutils.debuginfo import DebugDb
 
 
 testdir = os.path.dirname(os.path.abspath(__file__))
@@ -79,7 +78,7 @@ class CLexerTestCase(unittest.TestCase):
     def test_block_comment(self):
         src = "/* bla bla */"
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
-        self.assertEqual([('BOL', '')], tokens)
+        self.assertEqual([], tokens)
 
     def test_block_comments_and_values(self):
         src = "1/* bla bla */0/*w00t*/"
@@ -96,7 +95,11 @@ class CLexerTestCase(unittest.TestCase):
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
         self.assertSequenceEqual(
             [('BOL', ''), ('ID', 'int'), ('ID', 'a'), (';', ';'),
-             ('ID', 'int'), ('ID', 'b'), (';', ';'), ('BOL', '')],
+             # ('BOL', ''),
+             ('ID', 'int'),
+             ('BOL', ''),
+             ('ID', 'b'), (';', ';'),
+             ('BOL', '')],
             tokens)
 
     def test_numbers(self):
@@ -132,6 +135,19 @@ class CLexerTestCase(unittest.TestCase):
         self.assertTrue(all(t.typ == 'CHAR' for t in tokens))
         chars = list(map(lambda t: t.val, tokens))
         self.assertSequenceEqual(expected_chars, chars)
+
+    def test_string_literals(self):
+        """ Test various string literals """
+        src = r'"\"|\x7F"'
+        tokens = self.tokenize(src)
+
+        expected_types = ['STRING']
+        types = list(map(lambda t: t.typ, tokens))
+        self.assertSequenceEqual(expected_types, types)
+
+        expected_strings = [r'"\"|\x7F"']
+        strings = list(map(lambda t: t.val, tokens))
+        self.assertSequenceEqual(expected_strings, strings)
 
     def test_token_spacing(self):
         src = "1239hello"
@@ -291,12 +307,13 @@ class CParserTestCase(unittest.TestCase):
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
     def setUp(self):
-        self.builder = CBuilder(ExampleArch(), COptions())
+        arch = ExampleArch()
+        self.builder = CBuilder(arch.info, COptions())
 
     def do(self, src):
         f = io.StringIO(src)
         try:
-            ir_module = self.builder.build(f, None, DebugDb())
+            ir_module = self.builder.build(f, None)
         except CompilerError as compiler_error:
             lines = src.split('\n')
             compiler_error.render(lines)
@@ -747,6 +764,39 @@ class CFrontendTestCase(unittest.TestCase):
             *z1Ptr = z1;
             *z0Ptr = z0;
 
+        }
+        """
+        self.do(src)
+
+    def test_initialization(self):
+        """ Test calling of functions """
+        src = """
+        char x = '\2';
+        int* ptr = (int*)0x1000;
+
+        void main() {
+          char x = '\2';
+          int* ptr = (int*)0x1000;
+        }
+        """
+        self.do(src)
+
+    def test_function_pointer_passing(self):
+        """ Test passing of function pointers """
+        src = """
+
+        void callback(void)
+        {
+        }
+
+        static void (*cb)(void);
+        void register_callback(void (*f)())
+        {
+          cb = f;
+        }
+
+        void main() {
+          register_callback(callback);
         }
         """
         self.do(src)

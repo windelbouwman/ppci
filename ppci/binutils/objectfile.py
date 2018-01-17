@@ -1,9 +1,10 @@
+""" Object files are used to store assembled code.
 
-"""
-Object files are used to store assembled code. Information contained
+Information contained
 is code, symbol table and relocation information.
 
 The hierarchy is as follows:
+
 - an object file contains zero or more sections.
 - an object file may contains memory definitions, which contain a sequence
   of contained sections.
@@ -11,15 +12,24 @@ The hierarchy is as follows:
 - relocations are offset into a section, refer a symbol and have a type
 - symbols are offset into a section and have a name
 - debug data have an offset into a section and contain data.
-
 - sections cannot overlap
+
 """
 
 import json
 import binascii
-from ..common import CompilerError, make_num
+from ..common import CompilerError, make_num, get_file
 from ..arch.encoding import Relocation
 from . import debuginfo
+
+
+def get_object(obj):
+    """ Try hard to load an object """
+    if not isinstance(obj, ObjectFile):
+        f = get_file(obj)
+        obj = ObjectFile.load(f)
+        f.close()
+    return obj
 
 
 class Symbol:
@@ -72,18 +82,22 @@ class Image:
 
     A memory image is a piece that can be loaded into memory.
     """
-    def __init__(self, name, location):
-        self.location = location
+    def __init__(self, name: str, address: int):
+        self.address = address
         self.name = name
         self.sections = []
 
     def __eq__(self, other):
-        return (self.location == other.location) \
+        return (self.address == other.address) \
             and (self.sections == other.sections) \
             and (self.name == other.name)
 
     def __repr__(self):
-        return 'IMG {} {} 0x{:08X}'.format(self.name, self.size, self.location)
+        return 'IMG {} {} 0x{:08X}'.format(self.name, self.size, self.address)
+
+    def __str__(self):
+        return 'Image {} of {} bytes at 0x{:X}'.format(
+            self.name, self.size, self.address)
 
     def __hash__(self):
         return id(self)
@@ -92,7 +106,7 @@ class Image:
     def data(self):
         """ Get the data of this memory """
         data = bytearray()
-        current_address = self.location
+        current_address = self.address
         for section in self.sections:
             if section.address < current_address:
                 raise ValueError('sections overlap!!')
@@ -118,8 +132,8 @@ class Image:
 def merge_memories(mem1, mem2, name):
     """ Merge two memories into a new one """
     # TODO: pick location based on address?
-    location = mem1.location
-    mem3 = Image(name, location)
+    address = mem1.address
+    mem3 = Image(name, address)
     for section in mem1.sections:
         mem3.add_section(section)
     for section in mem2.sections:
@@ -278,6 +292,8 @@ def print_object(obj):
         print(symbol)
     for reloc in obj.relocations:
         print(reloc)
+    for image in obj.images:
+        print(image)
 
 
 def chunks(data, size=30):
@@ -333,7 +349,7 @@ def serialize(x):
         res['arch'] = x.arch.make_id_str()
     elif isinstance(x, Image):
         res['name'] = x.name
-        res['location'] = hex(x.location)
+        res['address'] = hex(x.address)
         res['sections'] = []
         for section in x.sections:
             res['sections'].append(section.name)
@@ -379,7 +395,7 @@ def deserialize(data):
     for sym in data['symbols']:
         obj.add_symbol(sym['name'], make_num(sym['value']), sym['section'])
     for image in data['images']:
-        img = Image(image['name'], make_num(image['location']))
+        img = Image(image['name'], make_num(image['address']))
         obj.add_image(img)
         for section_name in image['sections']:
             assert obj.has_section(section_name)

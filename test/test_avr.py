@@ -66,6 +66,16 @@ class AvrAssemblerTestCase(AsmTestCaseBase):
         self.feed("sub r1, r1")
         self.check('1118')
 
+    def test_com(self):
+        """ Test one's complement encoding """
+        self.feed("com r1")
+        self.check('1094')
+
+    def test_neg(self):
+        """ Test two's complement encoding """
+        self.feed("neg r1")
+        self.check('1194')
+
     def test_sbiw(self):
         self.feed("sbiw Y, 20")
         self.check('6497')

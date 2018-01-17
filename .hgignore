@@ -2,12 +2,18 @@
 syntax: glob
 
 *.pyc
+*.pyz
+*.prg
 *.o
 *.oj
 *.bin
 *.lst
 *.hex
+*.flash
 *.elf
+*.exe
+*.wasm
+*.out
 *.m4
 *.log
 *.vcd
@@ -28,7 +34,7 @@ dist
 ppci.egg-info
 build
 examples/riscvpulpino/jtagserver/.deps
-examples/riscvpulpino/vsim/obj_dir
+obj_dir
 .spyderproject
 .idea
 junit.xml

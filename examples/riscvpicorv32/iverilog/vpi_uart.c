@@ -96,7 +96,9 @@ static void uart_register(void)
 
 	assert(data != NULL);
 
+        #ifdef DBGUART
 	data->fd = create_pts();
+        #endif
 	get.user_data = (char *)data;
 	put.user_data = (char *)data;
 
@@ -105,6 +107,6 @@ static void uart_register(void)
 }
 
 void (*vlog_startup_routines[])(void) = {
-	uart_register,
-	NULL
+        uart_register,
+        NULL
 };

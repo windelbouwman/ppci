@@ -39,7 +39,7 @@ class FlowGraphNode(DiNode):
         if self.kill:
             r += ' kill:' + ', '.join(str(d) for d in self.kill)
         r += ' live_out={}, live_in={}'.format(self.live_out, self.live_in)
-        r += ', Succ={}, Pred={}'.format(self.Succ, self.Pred)
+        r += ', Succ={}, Pred={}'.format(self.successors, self.predecessors)
         return r
 
 
@@ -124,8 +124,9 @@ class FlowGraph(DiGraph):
                 _in = node.live_in
                 _out = node.live_out
                 node.live_in = node.gen | (node.live_out - node.kill)
-                if node.Succ:
-                    node.live_out = set.union(*(s.live_in for s in node.Succ))
+                if node.successors:
+                    node.live_out = set.union(
+                        *(s.live_in for s in node.successors))
                 else:
                     node.live_out = set()
 

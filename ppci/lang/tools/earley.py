@@ -1,5 +1,4 @@
-"""
-Implementation of the earley parser strategy.
+""" Implementation of the earley parser strategy.
 
 See also:
 - https://en.wikipedia.org/wiki/Earley_parser
@@ -86,20 +85,24 @@ def make_tokens(tokens):
 
 
 class EarleyParser:
-    """
-        As opposed to an LR parser, the Earley parser does not construct
-        tables from a grammar. It uses the grammar when parsing.
+    """ Earley parser.
 
-        THe Earley parser has 3 key functions:
-        - predict: what have we parsed so far, and what productions can be
-          made with this.
-        - scan: parse the next input symbol, en create a new set of possible
-          parsings
-        - complete: when we have scanned something according to a rule, this
-          rule can be applied.
+    As opposed to an LR parser, the Earley parser does not construct
+    tables from a grammar. It uses the grammar when parsing.
 
-        When an earley parse is complete, the parse can be back-tracked to
-        yield the resulting parse tree or the syntax tree.
+    The Earley parser has 3 key functions:
+
+    - predict: what have we parsed so far, and what productions can be
+      made with this.
+
+    - scan: parse the next input symbol, en create a new set of possible
+      parsings
+
+    - complete: when we have scanned something according to a rule, this
+      rule can be applied.
+
+    When an earley parse is complete, the parse can be back-tracked to
+    yield the resulting parse tree or the syntax tree.
     """
     def __init__(self, grammar):
         self.grammar = grammar

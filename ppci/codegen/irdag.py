@@ -18,7 +18,6 @@ import logging
 from .. import ir
 from ..arch.generic_instructions import Label
 from ..arch.stack import StackLocation
-from ..arch.registers import Register
 from ..binutils.debuginfo import FpOffsetAddress
 from .selectiongraph import SGNode, SGValue, SelectionGraph
 
@@ -40,21 +39,27 @@ def prepare_function_info(arch, function_info, ir_function):
             function_info.phi_map[phi] = vreg
 
     function_info.arg_vregs = []
-    for arg in ir_function.arguments:
-        if arg.ty in arch.value_classes:
+    function_info.arg_types = [a.ty for a in ir_function.arguments]
+    if hasattr(arch, 'determine_arg_locations'):
+        arg_locs = arch.determine_arg_locations(function_info.arg_types)
+    else:
+        arg_locs = range(len(ir_function.arguments))
+
+    for arg, phys_loc in zip(ir_function.arguments, arg_locs):
+        if arg.ty in arch.info.value_classes:
             # New vreg:
             vreg = function_info.frame.new_reg(
-                arch.value_classes[arg.ty], twain=arg.name)
+                arch.info.value_classes[arg.ty], twain=arg.name)
         else:
             # Allocate space on stack for this argument:
-            vreg = function_info.frame.alloc(arg.ty.size)
+            # vreg = function_info.frame.alloc(arg.ty.size, 1)
+            # print(phys_loc)
+            vreg = phys_loc
         function_info.arg_vregs.append(vreg)
 
     if isinstance(ir_function, ir.Function):
         function_info.rv_vreg = function_info.frame.new_reg(
             arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
-
-    function_info.arg_types = [a.ty for a in ir_function.arguments]
 
 
 class FunctionInfo:
@@ -119,17 +124,17 @@ class SelectionGraphBuilder:
     logger = logging.getLogger('selection-graph-builder')
     f_map = {}
 
-    def __init__(self, arch, debug_db):
+    def __init__(self, arch):
         self.arch = arch
-        self.debug_db = debug_db
         # size_map = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
         self.ptr_ty = arch.info.type_infos['ptr']
 
-    def build(self, ir_function: ir.SubRoutine, function_info):
+    def build(self, ir_function: ir.SubRoutine, function_info, debug_db):
         """ Create a selection graph for the given function.
 
         Selection graph is divided into groups for each basic block.
         """
+        self.debug_db = debug_db
         self.sgraph = SelectionGraph()
         self.function_info = function_info
 
@@ -137,7 +142,9 @@ class SelectionGraphBuilder:
         self.current_block = None
 
         # Create maps for global variables:
-        for variable in ir_function.module.variables:
+        global_objects = ir_function.module.variables + \
+            ir_function.module.functions
+        for variable in global_objects:
             val = self.new_node('LABEL', ir.ptr)
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
@@ -147,9 +154,14 @@ class SelectionGraphBuilder:
 
         # Create temporary registers for aruments:
         for arg, vreg in zip(ir_function.arguments, function_info.arg_vregs):
-            param_node = self.new_node('REG', arg.ty, value=vreg)
-            output = param_node.new_output(arg.name)
-            output.vreg = vreg
+            if isinstance(vreg, StackLocation):
+                param_node = self.new_node('FPREL', ir.ptr, value=vreg)
+                output = param_node.new_output(arg.name)
+                output.wants_vreg = False
+            else:
+                param_node = self.new_node('REG', arg.ty, value=vreg)
+                output = param_node.new_output(arg.name)
+                output.vreg = vreg
 
             # When refering the paramater, use the copied value:
             self.add_map(arg, output)
@@ -221,7 +233,8 @@ class SelectionGraphBuilder:
 
     def new_vreg(self, ty):
         """ Generate a new temporary fitting for the given type """
-        return self.function_info.frame.new_reg(self.arch.value_classes[ty])
+        return self.function_info.frame.new_reg(
+            self.arch.info.value_classes[ty])
 
     def add_map(self, node, sgvalue):
         assert isinstance(node, ir.Value)
@@ -261,6 +274,12 @@ class SelectionGraphBuilder:
         sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
+    def do_address_of(self, node):
+        """ Process ir.AddressOf instruction """
+        address = self.get_value(node.src)
+        self.add_map(node, address)
+        return address
+
     def do_alloc(self, node):
         """ Process the alloc instruction """
         # TODO: check alignment?
@@ -268,7 +287,7 @@ class SelectionGraphBuilder:
         # fp_output = fp.new_output('fp')
         # fp_output.wants_vreg = False
         # offset = self.new_node("CONST", ir.ptr)
-        slot = self.function_info.frame.alloc(node.amount)
+        slot = self.function_info.frame.alloc(node.amount, node.alignment)
         # offset_output = offset.new_output('offset')
         # offset_output.wants_vreg = False
         sgnode = self.new_node('FPREL', ir.ptr, value=slot)
@@ -283,7 +302,7 @@ class SelectionGraphBuilder:
 
     def get_address(self, ir_address):
         """ Determine address for load or store. """
-        if isinstance(ir_address, ir.Variable):
+        if isinstance(ir_address, ir.GlobalValue):
             # A global variable may be contained in another module
             # That is why it is created here, and not in the prepare step
             sgnode = self.new_node('LABEL', ir.ptr)
@@ -332,6 +351,15 @@ class SelectionGraphBuilder:
         sgnode = self.new_node('LABEL', ir.ptr, value=label)
         self.add_map(node, sgnode.new_output(node.name))
 
+    def do_unop(self, node):
+        """ Visit an unary operator and create a DAG node """
+        names = {'-': 'NEG', '~': 'INV'}
+        op = names[node.operation]
+        a = self.get_value(node.a)
+        sgnode = self.new_node(op, node.ty, a)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
     def do_binop(self, node):
         """ Visit a binary operator and create a DAG node """
         names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
@@ -358,14 +386,17 @@ class SelectionGraphBuilder:
         """ Prepare call arguments into proper locations """
         # This is the moment to move all parameters to new temp registers.
         args = []
-        inputs = []
-        regouts = []
         for argument in node.arguments:
             arg_val = self.get_value(argument)
-            loc = self.new_vreg(argument.ty)
-            args.append((argument.ty, loc))
-            arg_sgnode = self.new_node('MOV', argument.ty, arg_val, value=loc)
-            self.chain(arg_sgnode)
+            if argument.ty.is_blob:
+                print(arg_val.node)
+                args.append((argument.ty, arg_val.node.value))
+            else:
+                loc = self.new_vreg(argument.ty)
+                args.append((argument.ty, loc))
+                arg_sgnode = self.new_node(
+                    'MOV', argument.ty, arg_val, value=loc)
+                self.chain(arg_sgnode)
             # reg_out = arg_sgnode.new_output('arg')
             # reg_out.vreg = loc
             # regouts.append(reg_out)
@@ -392,10 +423,48 @@ class SelectionGraphBuilder:
 
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
-            self.arch.value_classes[node.ty], '{}_result'.format(node.name))
+            self.arch.info.value_classes[node.ty],
+            '{}_result'.format(node.name))
 
         rv = (node.ty, ret_val)
         self._make_call(node, args, rv)
+
+        # When using the call as an expression, use the return value vreg:
+        sgnode = self.new_node('REG', node.ty, value=ret_val)
+        output = sgnode.new_output('res')
+        output.vreg = ret_val
+        self.add_map(node, output)
+
+    def _make_pointer_call(self, node, args, rv):
+        # Perform the actual call:
+        fptr = self.get_value(node.function_ptr)
+
+        fptr_vreg = self.new_vreg(ir.ptr)
+        fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
+        self.chain(fptr_sgnode)
+
+        sgnode = self.new_node('CALL', None)
+        sgnode.value = (fptr_vreg, args, rv)
+        self.debug_db.map(node, sgnode)
+        # for i in inputs:
+        #    sgnode.add_input(i)
+        self.chain(sgnode)
+
+    def do_procedure_pointer_call(self, node):
+        """ Transform a procedure pointer call """
+        args = self._prep_call_arguments(node)
+        self._make_pointer_call(node, args, None)
+
+    def do_function_pointer_call(self, node):
+        """ Transform a procedure pointer call """
+        args = self._prep_call_arguments(node)
+        # New register for copy of result:
+        ret_val = self.function_info.frame.new_reg(
+            self.arch.info.value_classes[node.ty],
+            '{}_result'.format(node.name))
+
+        rv = (node.ty, ret_val)
+        self._make_pointer_call(node, args, rv)
 
         # When using the call as an expression, use the return value vreg:
         sgnode = self.new_node('REG', node.ty, value=ret_val)
@@ -435,6 +504,11 @@ class SelectionGraphBuilder:
                 vreg = self.function_info.phi_map[phi]
                 from_val = phi.get_value(ir_block)
                 vreg1 = val_map[from_val]
+
+                # TODO: ensure this is valid:
+                # In case phi input is phi itself, do not copy value:
+                # if vreg is vreg1:
+                #    continue
 
                 # Create reg node:
                 sgnode1 = self.new_node('REG', phi.ty, value=vreg1)

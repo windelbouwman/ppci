@@ -9,10 +9,10 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
 from ..arch.generic_instructions import Label, Comment, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
-from ..arch.generic_instructions import ArtificialInstruction
+from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
-from ..binutils.debuginfo import DebugType, DebugLocation
+from ..binutils.debuginfo import DebugType, DebugLocation, DebugDb
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
@@ -24,12 +24,11 @@ class CodeGenerator:
     """ Machine code generator """
     logger = logging.getLogger('codegen')
 
-    def __init__(self, arch, debug_db, optimize_for='size'):
+    def __init__(self, arch, optimize_for='size'):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
-        self.debug_db = debug_db
         self.verifier = Verifier()
-        self.sgraph_builder = SelectionGraphBuilder(arch, debug_db)
+        self.sgraph_builder = SelectionGraphBuilder(arch)
         weights_map = {
             'size': (10, 1, 1),
             'speed': (3, 10, 1),
@@ -41,16 +40,20 @@ class CodeGenerator:
         else:
             selection_weights = (1, 1, 1)
         self.instruction_selector = InstructionSelector1(
-            arch, self.sgraph_builder, debug_db,
+            arch, self.sgraph_builder,
             weights=selection_weights)
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, self.instruction_selector, debug_db)
+            arch, self.instruction_selector)
 
     def generate(
             self, ircode: ir.Module, output_stream, reporter, debug=False):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
+        if ircode.debug_db:
+            self.debug_db = ircode.debug_db
+        else:
+            self.debug_db = DebugDb()
 
         self.logger.info(
             'Generating %s code for module %s', str(self.arch), ircode.name)
@@ -58,7 +61,8 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            # TODO: alignment?
+            alignment = Alignment(var.alignment)
+            output_stream.emit(alignment)
             label = Label(var.name)
             output_stream.emit(label)
             if var.amount > 0:
@@ -102,15 +106,21 @@ class CodeGenerator:
 
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
+        split_block_nr = 1
         for block in ir_function:
             max_block_len = 200
             while len(block) > max_block_len:
                 self.logger.debug('%s too large, splitting up', str(block))
-                _, block = split_block(block, pos=max_block_len)
+                newname = '{}_splitted_block_{}'.format(
+                    ir_function.name, split_block_nr)
+                split_block_nr += 1
+                _, block = split_block(
+                    block, pos=max_block_len, newname=newname)
 
         # Create a frame for this function:
         frame_name = ir_function.name
         frame = self.arch.new_frame(frame_name, ir_function)
+        frame.debug_db = self.debug_db  # Attach debug info
         self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
@@ -218,5 +228,5 @@ class CodeGenerator:
             if self.debug_db.contains(tmp):
                 self.debug_db.get(tmp)
                 # print(tmp, di)
-                frame.live_ranges(tmp)
+                # frame.live_ranges(tmp)
                 # print('live ranges:', lr)

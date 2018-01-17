@@ -7,8 +7,14 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.5.4 (Upcoming)
+Release 0.5.5 (Upcoming)
 ------------------------
+
+* Addition of WASM support (by Almar)
+* Added compilation of subset of python
+
+Release 0.5.4 (Aug 26, 2017)
+----------------------------
 
 * Addition of open risc (or1k) architecture support
 * Added command line options to emit assembly output

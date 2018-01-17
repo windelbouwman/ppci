@@ -3,12 +3,11 @@
 """ A demo showing the usage of the preprocessor and the parser """
 
 import argparse
-import io
 from ppci.common import CompilerError
 from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
 from ppci.lang.c import CContext, CSemantics
 from ppci.lang.c.preprocessor import prepare_for_parsing
-from ppci.api import get_current_platform
+from ppci.api import get_current_arch
 
 
 if __name__ == '__main__':
@@ -26,7 +25,7 @@ if __name__ == '__main__':
 
     # Parsing:
     coptions = COptions()
-    context = CContext(coptions, get_current_platform())
+    context = CContext(coptions, get_current_arch().info)
     preprocessor = CPreProcessor(coptions)
     semantics = CSemantics(context)
     parser = CParser(context, semantics)

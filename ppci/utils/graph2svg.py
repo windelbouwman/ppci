@@ -1,6 +1,5 @@
 """ Implementation of a graph to svg formatter. """
-from collections import defaultdict
-from statistics import mean, median
+from statistics import median
 
 
 class Node:
@@ -116,8 +115,8 @@ class Graph:
 
         # Define an arrow marker:
         self.print(
-            '<marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5"'
-            'markerUnits="strokeWidth" markerWidth="4" markerHeight="5"'
+            '<marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" '
+            'markerUnits="strokeWidth" markerWidth="4" markerHeight="5" '
             'orient="auto">'
             '<path d="M 0 0 L 10 5 L 0 10 z"/>'
             '</marker>')

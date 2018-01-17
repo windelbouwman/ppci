@@ -11,13 +11,12 @@ class PascalBuilder:
     """ Generates IR-code from pascal source. """
     logger = logging.getLogger('pascal-builder')
 
-    def __init__(self, diag, arch_info, debug_db):
+    def __init__(self, diag, arch_info):
         self.arch_info = arch_info
-        self.debug_db = debug_db
         self.diag = diag
         self.lexer = Lexer(diag)
         self.parser = Parser(diag)
-        self.codegenerator = CodeGenerator(diag, debug_db)
+        self.codegenerator = CodeGenerator(diag)
         self.verifier = Verifier()
 
     def build(self, sources):

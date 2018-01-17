@@ -1,6 +1,6 @@
 
 <project name="hello" default="hello">
-    <import name="ppci.buildtasks" />
+    <import name="ppci.build.buildtasks" />
 
     <target name="hello">
         <compile

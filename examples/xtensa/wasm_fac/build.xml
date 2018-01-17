@@ -1,0 +1,37 @@
+
+<project name="hello" default="hello">
+    <import name="ppci.build.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            arch="xtensa"
+            source="../glue.asm"
+            output="glue.oj" />
+
+        <compile
+            arch="xtensa"
+            sources="../../src/wasm_fac/main.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"/>
+
+        <wasmcompile
+            arch="xtensa"
+            source="../../src/wasm_fac/fact.wasm"
+            output="fact.oj"
+            report="report.html"/>
+
+        <link
+            output="fact.oj"
+            layout="../layout.mmp"
+            objects="glue.oj;rest.oj;fact.oj"
+            debug="true" />
+
+        <objcopy
+            objectfile="fact.oj"
+            imagename="flash"
+            format="bin"
+            output="hello.bin" />
+    </target>
+
+</project>
+

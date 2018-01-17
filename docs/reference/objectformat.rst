@@ -8,3 +8,6 @@ information that is also in ELF, but then in more plain text format. You
 can open and even edit an oj-object file with a text editor.
 
 
+.. automodule:: ppci.binutils.objectfile
+    :members:
+

@@ -5,6 +5,8 @@ from ..token import Token, bit_range, bit
 
 arm_isa = Isa()
 thumb_isa = Isa()
+neon_isa = Isa()
+vfp_isa = Isa()
 
 
 # Tokens:
@@ -15,9 +17,9 @@ class ArmToken(Token):
     cond = bit_range(28, 32)
     opcode = bit_range(21, 28)
     S = bit(20)
-    Rd = bit_range(12, 16)
-    Rn = bit_range(16, 20)
-    Rm = bit_range(0, 4)
+    rd = bit_range(12, 16)
+    rn = bit_range(16, 20)
+    rm = bit_range(0, 4)
     b4 = bit(4)
     shift_typ = bit_range(5, 7)
     shift_imm = bit_range(7, 12)

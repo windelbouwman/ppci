@@ -159,14 +159,14 @@ This is more a note to self section on how to create a new release.
         $ hg commit
 
 #. Increase the version number in ppci/__init__.py.
+#. Update docs/changelog.rst
 
 Continuous integration
 ----------------------
 
 The compiler is tested for linux:
 
-- https://drone.io/bitbucket.org/windel/ppci
-
+- https://travis-ci.org/windelbouwman/ppci-mirror
 
 and for windows:
 

@@ -4,12 +4,20 @@ import io
 import os
 from unittest.mock import patch
 
-from ppci.commands import c3c, build, asm, hexutil, yacc_cmd, objdump, objcopy
-from ppci.commands import link, opt
-from ppci import commands
+from ppci.cli.c3c import c3c
+from ppci.cli.build import build
+from ppci.cli.asm import asm
+from ppci.cli.hexutil import hexutil
+from ppci.cli.yacc import yacc
+from ppci.cli.objdump import objdump
+from ppci.cli.objcopy import objcopy
+from ppci.cli.pascal import pascal
+from ppci.cli.link import link
+from ppci.cli.opt import opt
+from ppci.cli.cc import cc
+from ppci import api
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
-from ppci.api import get_arch
 from util import relpath, do_long_tests
 
 
@@ -20,7 +28,7 @@ def new_temp_file(suffix):
     return filename
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class BuildTestCase(unittest.TestCase):
     """ Test the build command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -49,7 +57,7 @@ class BuildTestCase(unittest.TestCase):
         self.assertIn('invalid log_level value', mock_stderr.getvalue())
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class C3cTestCase(unittest.TestCase):
     """ Test the c3c command-line utility """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -77,6 +85,46 @@ class C3cTestCase(unittest.TestCase):
         self.assertIn('compiler', mock_stdout.getvalue())
 
 
+class CcTestCase(unittest.TestCase):
+    """ Test the cc command-line utility """
+    c_file = relpath('..', 'examples', 'c', 'hello', 'std.c')
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command_s(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', '-S', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command_e(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', '-E', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_cc_command_ir(self, mock_stdout, mock_stderr):
+        """ Capture stdout. Important because it is closed by the command! """
+        oj_file = new_temp_file('.oj')
+        cc(['-m', 'arm', '--ir', self.c_file, '-o', oj_file])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_cc_command_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            cc(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('compiler', mock_stdout.getvalue())
+
+
 class PascalTestCase(unittest.TestCase):
     """ Test the pascal command-line program """
     @patch('sys.stdout', new_callable=io.StringIO)
@@ -85,12 +133,12 @@ class PascalTestCase(unittest.TestCase):
         """ Compile hello world.pas """
         hello_pas = relpath('..', 'examples', 'src', 'pascal', 'hello.pas')
         obj_file = new_temp_file('.obj')
-        commands.pascal(['-m', 'arm', '-o', obj_file, hello_pas])
+        pascal(['-m', 'arm', '-o', obj_file, hello_pas])
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
-            commands.pascal(['-h'])
+            pascal(['-h'])
         self.assertEqual(0, cm.exception.code)
         self.assertIn('compiler', mock_stdout.getvalue())
 
@@ -110,7 +158,7 @@ class AsmTestCase(unittest.TestCase):
         self.assertIn('assemble', mock_stdout.getvalue())
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class ObjdumpTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -129,7 +177,7 @@ class ObjdumpTestCase(unittest.TestCase):
             self.assertIn('SECTION', mock_stdout.getvalue())
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class ObjcopyTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -143,7 +191,7 @@ class ObjcopyTestCase(unittest.TestCase):
     def test_command(self, mock_stdout, mock_stderr):
         obj_file = new_temp_file('.obj')
         bin_file = new_temp_file('.bin')
-        arch = get_arch('arm')
+        arch = api.get_arch('arm')
         obj = ObjectFile(arch)
         data = bytes(range(100))
         section = Section('.text')
@@ -175,7 +223,7 @@ class OptimizeCommandTestCase(unittest.TestCase):
         opt([in_file, out])
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class LinkCommandTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
@@ -204,7 +252,7 @@ class LinkCommandTestCase(unittest.TestCase):
             ['-o', obj3, '-L', mmap, obj1, obj2])
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class HexutilTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_hexutil_help(self, mock_stdout):
@@ -256,9 +304,9 @@ class YaccTestCase(unittest.TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_help(self, mock_stdout):
         with self.assertRaises(SystemExit) as cm:
-            yacc_cmd(['-h'])
+            yacc(['-h'])
         self.assertEqual(0, cm.exception.code)
-        self.assertIn('compiler compiler', mock_stdout.getvalue())
+        self.assertIn('Parser generator', mock_stdout.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
     @patch('sys.stderr', new_callable=io.StringIO)
@@ -266,7 +314,7 @@ class YaccTestCase(unittest.TestCase):
         """ Test normal yacc use """
         grammar_file = relpath('..', 'ppci', 'codegen', 'burg.grammar')
         file1 = new_temp_file('.py')
-        yacc_cmd([grammar_file, '-o', file1])
+        yacc([grammar_file, '-o', file1])
         with open(file1, 'r') as f:
             content = f.read()
         self.assertIn('Automatically generated', content)

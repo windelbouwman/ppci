@@ -43,6 +43,7 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.check('41ffd2 40ffd1  e800000000 e8fbffffff e8f6ffffff')
 
     def test_ret(self):
+        """ Test return instruction """
         self.feed('ret')
         self.check('c3')
 
@@ -160,12 +161,18 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('lea rcx, [rbp, -8]')
         self.check('4c8d1d0f000000  488d3507000000 488d4df8')
 
-    @unittest.skip('todo')
     def test_lea_label(self):
         self.feed('lea r11, [a]')
         self.feed('a: lea rsi, [a]')
         self.feed('lea rcx, [a]')
-        self.check('4c8d1d0f000000  488d3507000000 488d4df8')
+        self.check('4c8d1c25 08000000 488d3425 08000000 488d0c25 08000000')
+
+    def test_jmp_indirect(self):
+        """ Test indirect jump to a label """
+        self.feed('jmp [a]')
+        self.feed('a: dd 0x11223344')
+        self.feed('jmp [a]')
+        self.check('48ff2425 0800 0000  44332211 48ff2425 0800 0000')
 
     def test_cmp(self):
         self.feed('cmp rdi, r13')
@@ -207,6 +214,10 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('sub rsp, 0x123456')
         self.feed('sub rsp, 0x12')
         self.check('4881ec56341200 4881ec12000000')
+
+    def test_neg_16(self):
+        self.feed('neg bx')
+        self.check('66 40 f7 db')
 
     def test_idiv(self):
         """ Test integer divide """

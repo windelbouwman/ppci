@@ -1,0 +1,19 @@
+<project name="hello" default="hello">
+    <import name="ppci.build.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            source="../boot.asm"
+            arch="mips"
+            output="boot.oj" />
+        <compile
+            arch="mips"
+            sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"/>
+        <link
+            output="hello.oj"
+            layout="../memory.map"
+            objects="boot.oj;rest.oj" />
+    </target>
+</project>

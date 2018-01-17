@@ -2,6 +2,8 @@
 C compiler
 ==========
 
+This page describes the design of the C compiler. If you want to use the
+compiler, please see :ref:`ppci-cc` or :func:`ppci.api.cc`.
 
 Overview
 --------
@@ -80,6 +82,32 @@ must be loaded from memory or not.
 Types
 ~~~~~
 
+Hosted vs freestanding
+~~~~~~~~~~~~~~~~~~~~~~
+
+A C compiler can be hosted or freestanding. The difference between those two
+is that a hosted C compiler also provides the standard C library. A
+freestanding compiler only contains a few really required header files. As a
+result a hosted compiler is really a combination of a C compiler and a
+C standard library implementation. Also, the standard library depends on the
+operating system which is used, where as a freestanding C compiler can be
+used independent of operating system. Writing an application using a hosted
+compiler is easier since the standard library is available.
+
+.. graphviz::
+
+   digraph x {
+     hosted [label="Hosted C application"]
+     freestanding [label="Freestanding C application"]
+     os [label="Operating system"]
+     libc [label="C standard library"]
+     compiler [label="C compiler"]
+     hosted -> libc
+     freestanding -> compiler
+     libc -> os
+     libc -> compiler
+   }
+
 
 Code generation
 ~~~~~~~~~~~~~~~
@@ -100,18 +128,18 @@ it to parse C code and analyze its structure like this:
     >>> from ppci.api import get_arch
     >>> from ppci.lang.c import create_ast
     >>> src = "int a, *b;"
-    >>> ast = create_ast(src, get_arch('msp430'))
+    >>> ast = create_ast(src, get_arch('msp430').info)
     >>> ast
     Compilation unit with 2 declarations
     >>> from ppci.lang.c import CAstPrinter
     >>> printer = CAstPrinter()
     >>> printer.print(ast)
     Compilation unit with 2 declarations
-      Variable [storage=None typ=Native type int name=a]
-        Native type int
-      Variable [storage=None typ=Pointer-type name=b]
-        Pointer-type
-          Native type int
+        Variable [storage=None typ=Basic type int name=a]
+            Basic type int
+        Variable [storage=None typ=Pointer-type name=b]
+            Pointer-type
+                Basic type int
     >>> ast.declarations[0].name
     'a'
 
@@ -119,10 +147,7 @@ it to parse C code and analyze its structure like this:
 Module reference
 ----------------
 
-.. autoclass:: ppci.lang.c.CParser
-    :members:
-
-.. autoclass:: ppci.lang.c.CSemantics
+.. automodule:: ppci.lang.c
     :members:
 
 

@@ -18,6 +18,10 @@ class LowArmRegister(ArmRegister):
     pass
 
 
+class VfpRegister(Register):
+    bitsize = 32
+
+
 def get_register(n):
     """ Based on a number, get the corresponding register """
     return num2regmap[n]

@@ -11,13 +11,15 @@ from ppci.irutils import Verifier
 from ppci.opt import Mem2RegPromotor
 from ppci.opt import CleanPass
 from ppci.opt.constantfolding import correct
+from ppci.opt.tailcall import TailCallOptimization
 
 
 class OptTestCase(unittest.TestCase):
     """ Base testcase that prepares a module, builder and verifier """
     def setUp(self):
+        self.debug_db = DebugDb()
         self.builder = irutils.Builder()
-        self.module = ir.Module('test')
+        self.module = ir.Module('test', debug_db=self.debug_db)
         self.builder.set_module(self.module)
         self.function = self.builder.new_procedure('testfunction')
         self.builder.set_function(self.function)
@@ -25,7 +27,6 @@ class OptTestCase(unittest.TestCase):
         self.function.entry = entry
         self.builder.set_block(entry)
         self.verifier = Verifier()
-        self.debug_db = DebugDb()
 
     def dump(self):
         iof = io.StringIO()
@@ -41,7 +42,7 @@ class CleanTestCase(OptTestCase):
     """ Test the clean pass for correct function """
     def setUp(self):
         super().setUp()
-        self.clean_pass = CleanPass(self.debug_db)
+        self.clean_pass = CleanPass()
 
     def test_glue_blocks(self):
         epilog = self.builder.new_block()
@@ -81,43 +82,47 @@ class Mem2RegTestCase(OptTestCase):
     """ Test the memory to register lifter """
     def setUp(self):
         super().setUp()
-        self.mem2reg = Mem2RegPromotor(self.debug_db)
+        self.mem2reg = Mem2RegPromotor()
 
     def test_normal_use(self):
-        alloc = self.builder.emit(ir.Alloc('A', 4))
+        alloc = self.builder.emit(ir.Alloc('A', 4, 4))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i32))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i32))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
     def test_byte_lift(self):
         """ Test byte data type to work """
-        alloc = self.builder.emit(ir.Alloc('A', 1))
+        alloc = self.builder.emit(ir.Alloc('A', 1, 1))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i8))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertNotIn(alloc, self.function.entry.instructions)
 
     def test_volatile_not_lifted(self):
         """ Volatile allocs must persist """
-        alloc = self.builder.emit(ir.Alloc('A', 1))
+        alloc = self.builder.emit(ir.Alloc('A', 1, 1))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i8))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8, volatile=True))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i8, volatile=True))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
 
     def test_different_type_not_lifted(self):
         """ different types must persist """
-        alloc = self.builder.emit(ir.Alloc('A', 1))
+        alloc = self.builder.emit(ir.Alloc('A', 1, 1))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
         cnst = self.builder.emit(ir.Const(1, 'cnst', ir.i32))
-        self.builder.emit(ir.Store(cnst, alloc))
-        self.builder.emit(ir.Load(alloc, 'Ld', ir.i8))
+        self.builder.emit(ir.Store(cnst, addr))
+        self.builder.emit(ir.Load(addr, 'Ld', ir.i8))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
@@ -125,8 +130,9 @@ class Mem2RegTestCase(OptTestCase):
     def test_store_uses_alloc_as_value(self):
         """ When only stores and loads use the alloc, the store can use the
         alloc as a value. In this case, the store must remain """
-        alloc = self.builder.emit(ir.Alloc('A', 4))
-        self.builder.emit(ir.Store(alloc, alloc))
+        alloc = self.builder.emit(ir.Alloc('A', 4, 4))
+        addr = self.builder.emit(ir.AddressOf(alloc, 'addr'))
+        self.builder.emit(ir.Store(addr, addr))
         self.builder.emit(ir.Exit())
         self.mem2reg.run(self.module)
         self.assertIn(alloc, self.function.entry.instructions)
@@ -152,6 +158,40 @@ class TypedEvalTestCase(unittest.TestCase):
     def test_i16_overflow(self):
         self.assertEqual(-32767, correct(2+32767, ir.i16))
         self.assertEqual(32766, correct(-32767-3, ir.i16))
+
+
+class TailCallTestCase(unittest.TestCase):
+    """ Test the tail call optimization """
+    def setUp(self):
+        self.opt = TailCallOptimization()
+
+    def test_function_tailcall(self):
+        """ Test if a tailcall in a function works out nicely """
+        # Prepare an optimizable module:
+        builder = irutils.Builder()
+        module = ir.Module('test')
+        builder.set_module(module)
+        function = builder.new_function('x', ir.i8)
+        builder.set_function(function)
+        entry = builder.new_block()
+        function.entry = entry
+        builder.set_block(entry)
+        result = builder.emit(ir.FunctionCall('x', [], 'rv', ir.i8))
+        builder.emit(ir.Return(result))
+
+        # Verify first version:
+        verifier = Verifier()
+        verifier.verify(module)
+        module.display()
+
+        # Run optimizer:
+        self.opt.run(module)
+
+        module.display()
+
+        # Verify again:
+        verifier.verify(module)
+        # TODO: assert something here?
 
 
 if __name__ == '__main__':

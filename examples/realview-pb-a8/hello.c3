@@ -1,4 +1,4 @@
-module hello;
+module main;
 
 function void main()
 {

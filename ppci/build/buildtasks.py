@@ -8,7 +8,7 @@ module
 
 from .tasks import Task, TaskError, register_task
 from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
-from ..api import c3c, link, asm, construct, objcopy
+from .. import api
 from ..lang.tools.common import ParserException
 from ..common import CompilerError
 
@@ -42,7 +42,7 @@ class BuildTask(Task):
     """ Builds another build description file (build.xml) """
     def run(self):
         project = self.relpath(self.get_argument('file'))
-        construct(project)
+        api.construct(project)
 
 
 class OutputtingTask(Task):
@@ -70,7 +70,7 @@ class AssembleTask(OutputtingTask):
             debug = False
 
         try:
-            obj = asm(source, arch, debug=debug)
+            obj = api.asm(source, arch, debug=debug)
         except ParserException as err:
             raise TaskError('Error during assembly:' + str(err))
         except CompilerError as err:
@@ -103,7 +103,7 @@ class CompileTask(OutputtingTask):
         opt = int(self.get_argument('optimize', default='0'))
 
         with reporter:
-            obj = c3c(
+            obj = api.c3c(
                 sources, includes, arch, opt_level=opt,
                 reporter=reporter, debug=debug)
 
@@ -111,15 +111,71 @@ class CompileTask(OutputtingTask):
 
 
 @register_task
+class CCompileTask(OutputtingTask):
+    """ Task that compiles C code for some target into an object file """
+    def run(self):
+        arch = self.get_argument('arch')
+        sources = self.open_file_set(self.arguments['sources'])
+        if 'includes' in self.arguments:
+            includes = self.open_file_set(self.arguments['includes'])
+        else:
+            includes = []
+
+        if 'report' in self.arguments:
+            report_file = self.relpath(self.arguments['report'])
+            reporter = HtmlReportGenerator(open(report_file, 'w'))
+        else:
+            reporter = DummyReportGenerator()
+
+        debug = bool(self.get_argument('debug', default=False))
+        opt = int(self.get_argument('optimize', default='0'))
+
+        coptions = api.COptions()
+        coptions.add_include_paths(includes)
+
+        with reporter:
+            objs = []
+            for source in sources:
+                with open(source, 'r') as f:
+                    obj = api.cc(
+                        f, arch, coptions=coptions, opt_level=opt,
+                        reporter=reporter, debug=debug)
+                objs.append(obj)
+            obj = api.link(
+                objs, partial_link=True, reporter=reporter, debug=debug)
+
+        self.store_object(obj)
+
+
+@register_task
+class WasmCompileTask(OutputtingTask):
+    """ Task that compiles a wasm module into an object file """
+    def run(self):
+        arch = self.get_argument('arch')
+        source = self.open_file_set(self.arguments['source'])
+        opt = int(self.get_argument('optimize', default='0'))
+        self.logger.debug('loading %s', source[0])
+        with open(source[0], 'rb') as f:
+            obj = api.wasmcompile(f, arch, opt_level=opt)
+        self.store_object(obj)
+
+
+@register_task
 class LinkTask(OutputtingTask):
     """ Link together a collection of object files """
     def run(self):
-        layout = self.relpath(self.get_argument('layout'))
+        if 'layout' in self.arguments:
+            layout = self.relpath(self.get_argument('layout'))
+        else:
+            layout = None
         objects = self.open_file_set(self.get_argument('objects'))
         debug = bool(self.get_argument('debug', default=False))
+        partial = bool(self.get_argument('partial', default=False))
 
         try:
-            obj = link(objects, layout, use_runtime=True, debug=debug)
+            obj = api.link(
+                objects, layout=layout, use_runtime=True,
+                partial_link=partial, debug=debug)
         except CompilerError as err:
             raise TaskError(err.msg)
 
@@ -135,4 +191,4 @@ class ObjCopyTask(Task):
         object_filename = self.relpath(self.get_argument('objectfile'))
         fmt = self.get_argument('format')
 
-        objcopy(object_filename, image_name, fmt, output_filename)
+        api.objcopy(object_filename, image_name, fmt, output_filename)

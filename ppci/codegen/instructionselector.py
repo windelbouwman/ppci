@@ -71,6 +71,7 @@ data_types = [str(t).upper() for t in ir.all_types]
 ops = [
     'ADD', 'SUB', 'MUL', 'DIV', 'REM',  # Arithmatics
     'OR', 'SHL', 'SHR', 'AND', 'XOR',  # bitwise stuff
+    'NEG', 'INV',  # Unary operations
     'MOV', 'REG', 'LDR', 'STR', 'CONST',  # Data
     'CJMP',  # Compare and jump
     'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
@@ -97,10 +98,10 @@ class ContextInterface(metaclass=abc.ABCMeta):
 
 class InstructionContext(ContextInterface):
     """ Usable to patterns when emitting code """
-    def __init__(self, frame, arch, debug_db):
+    def __init__(self, frame, arch):
         self.frame = frame
         self.arch = arch
-        self.debug_db = debug_db
+        self.debug_db = frame.debug_db
         self.tree = None
 
     def new_reg(self, cls):
@@ -162,15 +163,18 @@ class TreeSelector:
                 if all(x.state.has_goal(y) for x, y in zip(kids, nts)) \
                         and accept:
                     cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
-                    self.mark_tree(tree, rule, cost)
+                    marked_rules = set()
+                    self.mark_tree(tree, rule, cost, marked_rules)
 
-    def mark_tree(self, tree, rule, cost):
+    def mark_tree(self, tree, rule, cost, marked_rules):
         cost = cost + rule.cost
         tree.state.set_cost(rule.non_term, cost, rule.nr)
+        marked_rules.add(rule)
 
         # Also set cost for chain rules here:
         for cr in self.sys.chain_rules_for_nt(rule.non_term):
-            self.mark_tree(tree, cr, cost)
+            if cr not in marked_rules:
+                self.mark_tree(tree, cr, cost, marked_rules)
 
     def apply_rules(self, context, tree, goal):
         """ Apply all selected instructions to the tree """
@@ -202,7 +206,7 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
-    def __init__(self, arch, sgraph_builder, debug_db, weights=(1, 1, 1)):
+    def __init__(self, arch, sgraph_builder, weights=(1, 1, 1)):
         """ Create a new instruction selector.
 
         Weights can be given to select instructions given more for:
@@ -214,8 +218,7 @@ class InstructionSelector1:
         self.logger = logging.getLogger('instruction-selector')
         self.dag_builder = sgraph_builder
         self.arch = arch
-        self.debug_db = debug_db
-        self.dag_splitter = DagSplitter(arch, debug_db)
+        self.dag_splitter = DagSplitter(arch)
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
@@ -250,7 +253,7 @@ class InstructionSelector1:
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
-        for instruction in self.arch.gen_call(label, args, rv):
+        for instruction in self.arch.gen_call(context.frame, label, args, rv):
             context.emit(instruction)
 
     def memcp(self):
@@ -268,16 +271,17 @@ class InstructionSelector1:
         prepare_function_info(self.arch, function_info, ir_function)
 
         # Create selection dag (directed acyclic graph):
-        sgraph = self.dag_builder.build(ir_function, function_info)
+        sgraph = self.dag_builder.build(
+            ir_function, function_info, frame.debug_db)
         reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
-            sgraph, ir_function, function_info)
+            sgraph, ir_function, function_info, frame.debug_db)
         reporter.dump_trees(forest)
 
         # Create a context that can emit instructions:
-        context = InstructionContext(frame, self.arch, self.debug_db)
+        context = InstructionContext(frame, self.arch)
 
         args = list(zip(function_info.arg_types, function_info.arg_vregs))
         for instruction in self.arch.gen_function_enter(args):

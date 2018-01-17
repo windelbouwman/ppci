@@ -6,11 +6,14 @@
 """
 
 import abc
+import cgitb
 from contextlib import contextmanager
 from datetime import datetime
 import logging
 import io
 from .. import ir
+from .. import __version__
+from ..common import CompilerError
 from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
@@ -33,7 +36,13 @@ class ReportGenerator(metaclass=abc.ABCMeta):
         self.header()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_value, traceback):
+        if isinstance(exc_value, CompilerError):
+            self.dump_compiler_error(exc_value)
+
+        if exc_type:
+            self.dump_exception((exc_type, exc_value, traceback))
+
         self.footer()
 
     @abc.abstractmethod
@@ -58,6 +67,11 @@ class ReportGenerator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def dump_exception(self, einfo):
+        """ List the given exception in report """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def dump_trees(self, trees):
         raise NotImplementedError()
 
@@ -72,6 +86,7 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def dump_instructions(self, instructions, arch):
+        """ Print instructions """
         raise NotImplementedError()
 
     def dump_compiler_error(self, compiler_error):
@@ -87,6 +102,9 @@ class DummyReportGenerator(ReportGenerator):
         pass
 
     def message(self, msg):
+        pass
+
+    def dump_exception(self, einfo):
         pass
 
     def dump_raw_text(self, text):
@@ -106,11 +124,12 @@ class TextWritingReporter(ReportGenerator):
     def close(self):
         self.dump_file.close()
 
-    def print(self, *args):
+    def print(self, *args, end='\n'):
         """ Convenience helper for printing to dumpfile """
-        print(*args, file=self.dump_file)
+        print(*args, end=end, file=self.dump_file)
 
     def dump_instructions(self, instructions, arch):
+        """ Print instructions """
         asm_printer = arch.asm_printer
         text_stream = TextOutputStream(
             asm_printer, f=self.dump_file,
@@ -126,7 +145,7 @@ class TextReportGenerator(TextWritingReporter):
         writer = Writer(file=self.dump_file)
         if isinstance(ir_module, ir.Module):
             self.print('==========================')
-            writer.write(ir_module)
+            writer.write(ir_module, verify=False)
             self.print('==========================')
         elif isinstance(ir_module, ir.SubRoutine):
             self.print('==========================')
@@ -156,6 +175,9 @@ class TextReportGenerator(TextWritingReporter):
             self.print('Dag:')
             for root in dag:
                 self.print("- {}".format(root))
+
+    def dump_exception(self, einfo):
+        self.print(cgitb.text(einfo))
 
     def dump_trees(self, trees):
         self.print("Selection trees:")
@@ -335,7 +357,10 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def header(self):
         self.print(HTML_HEADER)
-        self.message(datetime.today().ctime())
+        self.message(
+            'Generated on {} by ppci version {}'.format(
+                datetime.today().ctime(),
+                __version__))
 
     def footer(self):
         self.flush_log()
@@ -358,7 +383,7 @@ class HtmlReportGenerator(TextWritingReporter):
             with collapseable(self, title):
                 f = io.StringIO()
                 writer = Writer(f)
-                writer.write(ir_module)
+                writer.write(ir_module, verify=False)
                 self.dump_raw_text(f.getvalue())
         elif isinstance(ir_module, ir.SubRoutine):
             title = 'Function {}'.format(ir_module.name)
@@ -407,6 +432,9 @@ class HtmlReportGenerator(TextWritingReporter):
             for root in dag:
                 self.print("- {}".format(root))
 
+    def dump_exception(self, einfo):
+        self.print(cgitb.html(einfo))
+
     def dump_trees(self, trees):
         with collapseable(self, 'Selection trees'):
             self.print('<hr>')
@@ -440,34 +468,34 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print('<td>{}</td>'.format(str2(ins.used_registers)))
                 self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
                 self.print('<td>{}</td>'.format(str2(ins.clobbers)))
-                self.print('<td>')
+                self.print('<td>', end='')
                 if ins.jumps:
-                    self.print(str2(ins.jumps))
+                    self.print(str2(ins.jumps), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if ins.ismove:
-                    self.print('yes')
+                    self.print('yes', end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'gen'):
-                    self.print(str2(ins.gen))
+                    self.print(str2(ins.gen), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'kill'):
-                    self.print(str2(ins.kill))
+                    self.print(str2(ins.kill), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'live_in'):
-                    self.print(str2(ins.live_in))
+                    self.print(str2(ins.live_in), end='')
                 self.print('</td>')
 
-                self.print('<td>')
+                self.print('<td>', end='')
                 if hasattr(ins, 'live_out'):
-                    self.print(str2(ins.live_out))
+                    self.print(str2(ins.live_out), end='')
                 self.print('</td>')
                 for ur in used_regs:
                     self.print('<td>')

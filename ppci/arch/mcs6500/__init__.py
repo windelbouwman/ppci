@@ -1,8 +1,4 @@
-"""
-
-.. autoclass:: ppci.arch.mcs6500.Mcs6500Arch
-
-"""
+""" The famous 6502! """
 
 from .arch import Mcs6500Arch
 

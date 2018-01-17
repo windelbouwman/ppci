@@ -1,7 +1,8 @@
 """ Lexical analyzer part. Splits the input character stream into tokens. """
 
 import re
-from ...common import SourceLocation, Token, make_num
+from ...common import make_num
+from ..common import SourceLocation, Token
 from ..tools.baselex import BaseLexer
 
 

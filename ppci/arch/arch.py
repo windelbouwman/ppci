@@ -3,24 +3,52 @@
 import abc
 import logging
 from functools import lru_cache
-from .stack import Frame
+from .stack import Frame, FramePointerLocation
 from .asm_printer import AsmPrinter
 from .. import ir
 
 
-class Architecture(metaclass=abc.ABCMeta):
-    """ Base class for all targets """
+# Idea: create several types of architectures.
+# One for real machines, one for virtual machines
+class MachineArchitecture(metaclass=abc.ABCMeta):
     logger = logging.getLogger('arch')
     name = None
     desc = None
     option_names = ()
 
-    def __init__(self, options=None, register_classes=()):
+    def __init__(self):
+        self.info = None
+        self.fp_location = FramePointerLocation.TOP
+
+    def new_frame(self, frame_name, function):
+        """ Create a new frame with name frame_name for an ir-function """
+        frame = Frame(frame_name, fp_location=self.fp_location)
+        return frame
+
+    def get_reg_class(self, bitsize=None, ty=None):
+        """ Look for a register class """
+        if bitsize:
+            ty = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}[bitsize]
+        if ty:
+            return self.info.value_classes[ty]
+        raise NotImplementedError()  # pragma: no cover
+
+
+class VirtualMachineArchitecture(MachineArchitecture):
+    """ Virtual machine architecture. """
+    pass
+
+
+class Architecture(MachineArchitecture):
+    """ Base class for all targets """
+
+    def __init__(self, options=None):
         """ Create a new machine instance.
 
         Arguments:
             options: a tuple with which options to enable.
         """
+        super().__init__()
         self.logger.debug('Creating %s arch', self.name)
         self.option_settings = {o: False for o in self.option_names}
         if options:
@@ -28,9 +56,6 @@ class Architecture(metaclass=abc.ABCMeta):
             for option_name in options:
                 assert option_name in self.option_names
                 self.option_settings[option_name] = True
-        self.register_classes = register_classes
-        self.info = None
-        self.FrameClass = Frame
         self.asm_printer = AsmPrinter()
 
     def has_option(self, name):
@@ -38,39 +63,20 @@ class Architecture(metaclass=abc.ABCMeta):
         return self.option_settings[name]
 
     def __repr__(self):
-        return '{}-arch'.format(self.name)
+        opstring = ''
+        for n in self.option_names:
+            if self.option_settings[n]:
+                opstring += ':' + n
+        return '{}{}-arch'.format(self.name, opstring)
 
     def make_id_str(self):
         """ Return a string uniquely identifying this machine """
         options = [n for n, v in self.option_settings.items() if v]
         return ':'.join([self.name] + options)
 
-    def get_reg_class(self, bitsize=None, ty=None):
-        """ Look for a register class """
-        if bitsize:
-            ty = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}[bitsize]
-        if ty:
-            return self.value_classes[ty]
-        raise NotImplementedError()  # pragma: no cover
-
     def get_size(self, typ):
         """ Get type of ir type """
         return self.info.get_size(typ)
-
-    @property
-    @lru_cache(maxsize=None)
-    def value_classes(self):
-        """ Get a mapping from ir-type to the proper register class """
-        mapping = {}
-        for register_class in self.register_classes:
-            for ty in register_class.ir_types:
-                mapping[ty] = register_class.typ
-        return mapping
-
-    def new_frame(self, frame_name, function):
-        """ Create a new frame with name frame_name for an ir-function """
-        frame = self.FrameClass(frame_name)
-        return frame
 
     def move(self, dst, src):  # pragma: no cover
         """ Generate a move from src to dst """

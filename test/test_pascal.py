@@ -4,14 +4,13 @@ from ppci.lang.pascal import PascalBuilder
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
 from ppci.irutils import Verifier
-from ppci.binutils.debuginfo import DebugDb
 
 
 class BuildTestCaseBase(unittest.TestCase):
     """ Test if various snippets build correctly """
     def setUp(self):
         self.diag = DiagnosticsManager()
-        self.builder = PascalBuilder(self.diag, ExampleArch(), DebugDb())
+        self.builder = PascalBuilder(self.diag, ExampleArch())
         self.diag.clear()
 
     def make_file_list(self, snippet):

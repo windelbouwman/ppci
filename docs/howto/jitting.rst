@@ -36,6 +36,9 @@ This function does some magic calculations :)
     >>> x(2, 3)
     18
 
+C-way
+-----
+
 Now, after profiling we could potentially discover that this function is
 a major bottleneck. So we decide to rewrite the thing in C:
 
@@ -56,9 +59,8 @@ Having this function, we put this function in a python string and compile it.
     ... int x(int a, int b) {
     ...   return a + b + 13;
     ... }""")
-    >>> arch = api.get_current_platform()
-    >>> obj1 = api.cc(src, arch, debug=True)
-    >>> obj = api.link([obj1], debug=True)
+    >>> arch = api.get_current_arch()
+    >>> obj = api.cc(src, arch, debug=True)
     >>> obj  # doctest: +ELLIPSIS
     CodeObject of ... bytes
 
@@ -80,6 +82,73 @@ Now, lets call the function:
 
     >>> m.x(2, 3)
     18
+
+Follow-up
+---------
+
+Instead of translating our code to C, we can as well compile
+python directly, by using type hints and a restricted subset of
+the python language. For this we can use the :mod:`ppci.lang.python` module:
+
+
+.. doctest:: jitting
+
+    >>> from ppci.lang.python import load_py
+    >>> f = io.StringIO("""
+    ... def x(a: int, b: int) -> int:
+    ...     return a + b + 13
+    ... """)
+    >>> n = load_py(f)
+    >>> n.x(2, 3)
+    18
+
+By doing this, we do not need to reimplement the function in C,
+but only need to add some type hints to make it work. This might
+be more preferable to C. Please note that integer arithmatic is
+unlimited on python, but not when using compiled code.
+
+To easily load you code as native code, use the :func:`ppci.lang.python.jit`
+function:
+
+.. testcode:: jitting
+
+    from ppci.lang.python import jit
+
+    @jit
+    def y(a: int, b: int) -> int:
+        return a + b + 13
+
+Now the function can be called as before, except that now native code is
+invoked:
+
+.. doctest:: jitting
+
+   >>> y(2, 3)
+   18
+
+
+Calling python functions
+------------------------
+
+In order to callback python functions, we can do the following:
+
+.. warning::
+    Code below is an idea, this does not work yet!
+
+.. code:: python
+
+    >>> func = lambda x: print('x=', x)
+    >>> f = io.StringIO("""
+    ... def x(a: int, b: int) -> int:
+    ...     func(a+3)
+    ...     return a + b + 13
+    ... """)
+    >>> o = load_py(f, functions={'func': func})
+    >>> o.x(2, 3)
+    18
+
+Benchmarking
+------------
 
 Now for an intersting plot twist, lets compare the two functions in a
 benchmark:

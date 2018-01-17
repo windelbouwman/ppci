@@ -8,7 +8,7 @@ from util import relpath, has_qemu, run_qemu, do_long_tests
 EXAMPLE_DIR = relpath('..', 'examples')
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 class EmulationTestCase(unittest.TestCase):
     """ Tests the compiler driver """
 
@@ -54,7 +54,7 @@ def add_examples(cls):
     return cls
 
 
-@unittest.skipUnless(do_long_tests(), 'skipping slow tests')
+@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
 @add_examples
 class ExampleProjectsTestCase(unittest.TestCase):
     """ Check whether the example projects work """

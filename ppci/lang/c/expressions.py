@@ -13,16 +13,15 @@ class CExpression(Expression):
         self.lvalue = lvalue
 
 
-class FunctionCall(Expression):
+class FunctionCall(CExpression):
     """ Function call """
-    def __init__(self, function, args, location):
-        super().__init__(location)
-        self.function = function
-        self.name = function.name
+    def __init__(self, callee, args, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.callee = callee
         self.args = args
 
     def __repr__(self):
-        return 'FunctionCall {}'.format(self.name)
+        return 'FunctionCall'
 
 
 class Ternop(CExpression):
@@ -103,10 +102,10 @@ class ArrayIndex(CExpression):
         return 'Array index'
 
 
-class FieldSelect(Expression):
+class FieldSelect(CExpression):
     """ Select a field in a struct """
-    def __init__(self, base, field, location):
-        super().__init__(location)
+    def __init__(self, base, field, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         self.base = base
         self.field = field
 
@@ -114,9 +113,9 @@ class FieldSelect(Expression):
         return 'Field select .{}'.format(self.field.name)
 
 
-class VariableAccess(Expression):
-    def __init__(self, variable, location):
-        super().__init__(location)
+class VariableAccess(CExpression):
+    def __init__(self, variable, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         self.variable = variable
         self.name = variable.name
 
@@ -161,3 +160,22 @@ class InitializerList(Expression):
 
     def __len__(self):
         return len(self.elements)
+
+
+class BuiltIn(CExpression):
+    """ Build in function """
+    pass
+
+
+class BuiltInVaStart(BuiltIn):
+    """ Built-in function va_start """
+    def __init__(self, arg_pointer, location):
+        super().__init__(arg_pointer.typ, False, location)
+        self.arg_pointer = arg_pointer
+
+
+class BuiltInVaArg(BuiltIn):
+    """ Built-in function va_arg """
+    def __init__(self, arg_pointer, typ, location):
+        super().__init__(typ, False, location)
+        self.arg_pointer = arg_pointer

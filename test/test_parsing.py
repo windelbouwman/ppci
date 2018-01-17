@@ -1,5 +1,6 @@
 
-from ppci.common import Token, SourceLocation, CompilerError
+from ppci.common import CompilerError
+from ppci.lang.common import Token, SourceLocation
 from ppci.lang.tools.recursivedescent import RecursiveDescentParser
 import unittest
 

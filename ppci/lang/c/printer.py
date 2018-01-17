@@ -40,7 +40,7 @@ class CPrinter:
         """ Generate a proper C-string for the given type """
         if name is None:
             name = ''
-        if isinstance(typ, types.BareType):
+        if isinstance(typ, types.BasicType):
             return '{} {}'.format(typ.type_id, name)
         elif isinstance(typ, types.PointerType):
             return self.render_type(typ.element_type, '* {}'.format(name))
@@ -51,10 +51,10 @@ class CPrinter:
                 self.render_type(p.typ, p.name) for p in typ.arguments)
             return self.render_type(
                 typ.return_type, '{}({})'.format(name, parameters))
-        elif isinstance(typ, types.QualifiedType):
-            qualifiers = ' '.join(typ.qualifiers)
-            return self.render_type(
-                typ.typ, '{} {}'.format(qualifiers, name))
+        # elif isinstance(typ, types.QualifiedType):
+        #     qualifiers = ' '.join(typ.qualifiers)
+        #     return self.render_type(
+        #         typ.typ, '{} {}'.format(qualifiers, name))
         elif isinstance(typ, types.EnumType):
             return '{}'.format(typ)
         else:  # pragma: no cover
@@ -133,7 +133,7 @@ class CPrinter:
 
     def gen_expr(self, expr):
         if isinstance(expr, expressions.Binop):
-            return '({}) {} ({})'.format(
+            return '({} {} {})'.format(
                 self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
         elif isinstance(expr, expressions.Unop):
             return '({}){}'.format(
@@ -151,8 +151,14 @@ class CPrinter:
             else:
                 thing = self.gen_expr(expr.sizeof_typ)
             return 'sizeof({})'.format(thing)
+        elif isinstance(expr, expressions.InitializerList):
+            thing = ', '.join(self.gen_expr(e) for e in expr.elements)
+            return '{' + thing + '}'
+        elif isinstance(expr, expressions.Cast):
+            return '({})({})'.format(
+                self.render_type(expr.to_typ), self.gen_expr(expr.expr))
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
 
     def _print(self, txt=''):
-        print(self.indent * '  ' + txt)
+        print(self.indent * '   ' + txt)

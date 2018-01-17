@@ -1,9 +1,8 @@
 #ifndef STDIO_H
 #define STDIO_H
 
-void printf(char*);
-void bsp_putc(char);
-void myprint(char* label, int num);
+void printf(char*, ...);
+extern void bsp_putc(char);
 
 #endif
 

@@ -8,6 +8,7 @@ import logging
 from ...common import CompilerError
 from . import nodes, types, declarations, statements, expressions, utils
 from .scope import Scope
+from .utils import required_padding
 
 
 class CSemantics:
@@ -20,15 +21,15 @@ class CSemantics:
 
         # Define the type for a string:
         self.int_type = self.get_type(['int'])
-        self.cstr_type = types.PointerType(self.get_type(['char']))
+        self.char_type = self.get_type(['char'])
+        self.cstr_type = types.PointerType(self.char_type)
+        self.intptr_type = types.PointerType(self.int_type)
 
         # Working variables:
         self.switch_stack = []  # switch case levels
 
     def begin(self):
         self.scope = Scope()
-        self.scope.insert(
-            declarations.Typedef(self.int_type, '__builtin_va_list', None))
         self.declarations = []
 
     def finish_compilation_unit(self):
@@ -122,8 +123,8 @@ class CSemantics:
                 variable.typ.size is None:
             if isinstance(expression, expressions.InitializerList):
                 variable.typ.size = len(expression.elements)
-            elif isinstance(expression, expressions.StringLiteral):
-                variable.typ.size = len(expression.value) + 1
+            # elif isinstance(expression, expressions.StringLiteral):
+            #     variable.typ.size = len(expression.value) + 1
             else:
                 pass
 
@@ -149,7 +150,14 @@ class CSemantics:
                 result = self.coerce(initializer, typ)
         elif isinstance(typ, types.ArrayType):
             if isinstance(initializer, expressions.StringLiteral):
-                result = initializer
+                # Turn into sequence of characters:
+                il = []
+                location = initializer.location
+                for c in initializer.value:
+                    il.append(expressions.CharLiteral(
+                        ord(c), self.char_type, location))
+                il.append(expressions.CharLiteral(0, self.char_type, location))
+                result = expressions.InitializerList(il, location)
             elif isinstance(initializer, InitEnv):
                 if typ.size is None and not top_level:
                     self.error(
@@ -175,13 +183,19 @@ class CSemantics:
                     il, initializer.initializer.location)
                 # result = self.init_array(typ, initializer)
             else:
-                self.error('Cannot initialize array with non init list')
+                self.error(
+                    'Cannot initialize array with non init list',
+                    initializer.initializer.location)
         elif isinstance(typ, types.StructType):
             if not isinstance(initializer, InitEnv):
-                self.error('Cannot initialize struct with non init list')
+                self.error(
+                    'Cannot initialize struct with non init list',
+                    initializer.initializer.location)
 
             if not typ.complete:
-                self.error('Struct not fully defined!')
+                self.error(
+                    'Struct not fully defined!',
+                    initializer.initializer.location)
 
             # Grab all fields from the initializer list:
             il = []
@@ -199,10 +213,14 @@ class CSemantics:
                 il, initializer.initializer.location)
         elif isinstance(typ, types.UnionType):
             if not isinstance(initializer, InitEnv):
-                self.error('Cannot initialize union with non init list')
+                self.error(
+                    'Cannot initialize union with non init list',
+                    initializer.initializer.location)
 
             if not typ.complete:
-                self.error('Union not fully defined!')
+                self.error(
+                    'Union not fully defined!',
+                    initializer.initializer.location)
 
             il = []
             # Initialize the first element:
@@ -224,14 +242,8 @@ class CSemantics:
 
         return result
 
-    def init_var():
-        pass
-
     def init_array(self, typ, init_env):
         """ Process array initializers """
-        pass
-
-    def init_struct(self):
         pass
 
     def on_typedef(self, typ, name, modifiers, location):
@@ -243,6 +255,7 @@ class CSemantics:
 
     def on_function_declaration(
             self, storage_class, typ, name, modifiers, location):
+        """ Handle function declaration """
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.FunctionDeclaration(
             storage_class, typ, name, location)
@@ -256,25 +269,40 @@ class CSemantics:
     def add_declaration(self, declaration):
         """ Add the given declaration to current scope """
 
-        # print(declaration)
-        # Insert into the current scope:
+        # Check if the declared name is already defined:
         if self.scope.is_defined(declaration.name, all_scopes=False):
-            # The symbol might be a forward declaration:
+            # Get the already declared name and figure out what now!
             sym = self.scope.get(declaration.name)
-            if self.context.equal_types(sym.typ, declaration.typ):
-                if declaration.is_function:
-                    self.logger.debug(
-                        'okay, forward declaration for %s implemented',
-                        declaration.name)
-                elif sym.storage_class == 'extern':
-                    # Redefine previous extern is OK!
-                    pass
-                else:
-                    self.error("Invalid redefinition", declaration.location)
-            else:
+            # The type should match in any case:
+            if not self.context.equal_types(sym.typ, declaration.typ):
                 self.logger.info('First defined here %s', sym.location)
                 self.error("Invalid redefinition", declaration.location)
+
+            # The symbol might be a forward declared function:
+            if isinstance(declaration, declarations.FunctionDeclaration):
+                if not isinstance(sym, declarations.FunctionDeclaration):
+                    self.error('Invalid re-declaration', declaration.location)
+
+                if sym.body:
+                    self.error(
+                        'Cannot redefine function', declaration.location)
+                self.logger.debug(
+                    'okay, forward declaration for %s implemented',
+                    declaration.name)
+                self.scope.update(declaration)
+            elif isinstance(declaration, declarations.VariableDeclaration):
+                if not isinstance(sym, declarations.VariableDeclaration):
+                    self.error('Invalid re-declaration', declaration.location)
+
+                if sym.storage_class != 'extern':
+                    self.error("Invalid redefinition", declaration.location)
+
+                # Redefine previous extern is OK!
+                self.scope.update(declaration)
+            else:
+                raise NotImplementedError(str(declaration))
         else:
+            # Insert into the current scope:
             self.scope.insert(declaration)
 
     def on_initializer_list(self, values, location):
@@ -335,16 +363,21 @@ class CSemantics:
             storage_class, ctyp, name, modifiers, bitsize, location = field
             ctyp = self.apply_type_modifiers(modifiers, ctyp)
 
+            field_size = self.context.sizeof(ctyp)
             # Calculate bit size:
             if bitsize:
                 bitsize = self.context.eval_expr(bitsize)
             else:
-                bitsize = self.context.sizeof(ctyp)
-            # TODO: alignment handling
+                bitsize = self.context.sizeof(ctyp) * 8
+
+            # alignment handling:
+            alignment = self.context.alignment(ctyp)
+            offset += required_padding(offset, alignment)
+
             cfield = types.Field(ctyp, name, offset, bitsize)
             cfields.append(cfield)
             if kind == 'struct':
-                offset += bitsize
+                offset += field_size
         return cfields
 
     def on_enum(self, tag, location):
@@ -582,10 +615,16 @@ class CSemantics:
             typ = a.typ.element_type
             expr = expressions.Unop(op, a, typ, True, location)
         elif op == '&':
-            if not a.lvalue:
-                self.error('Expected lvalue', a.location)
-            typ = types.PointerType(a.typ)
-            expr = expressions.Unop(op, a, typ, False, location)
+            if isinstance(a, expressions.VariableAccess) and \
+                    isinstance(a.variable, declarations.FunctionDeclaration):
+                # Function pointer:
+                expr = a
+            else:
+                # L-value access:
+                if not a.lvalue:
+                    self.error('Expected lvalue', a.location)
+                typ = types.PointerType(a.typ)
+                expr = expressions.Unop(op, a, typ, False, location)
         elif op == '!':
             a = self.coerce(a, self.int_type)
             expr = expressions.Unop(op, a, self.int_type, False, location)
@@ -599,9 +638,9 @@ class CSemantics:
         expr.lvalue = False
         return expr
 
-    def on_cast(self, to_typ, casted_expr, loc):
+    def on_cast(self, to_typ, casted_expr, location):
         """ Check explicit casting """
-        expr = expressions.Cast(to_typ, casted_expr, loc)
+        expr = expressions.Cast(to_typ, casted_expr, location)
         expr.typ = expr.to_typ
         expr.lvalue = False  # or expr.expr.lvalue?
         return expr
@@ -633,22 +672,35 @@ class CSemantics:
             self.error('Field {} not part of struct'.format(field), location)
 
         field = base.typ.get_field(field)
-        expr = expressions.FieldSelect(base, field, location)
-        expr.typ = field.typ
-        expr.lvalue = True
+        expr = expressions.FieldSelect(base, field, field.typ, True, location)
         return expr
 
-    def on_call(self, name, arguments, location):
-        """ Check function call for validity """
-        # Lookup the function:
-        if not self.scope.is_defined(name):
-            self.error('Who is this?', location)
-        function = self.scope.get(name)
+    def on_builtin_va_start(self, arg_pointer, location):
+        """ Check va_start builtin function """
+        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+            self.error('Invalid type for va_start', arg_pointer.location)
+        if not arg_pointer.lvalue:
+            self.error('Expected lvalue', arg_pointer.location)
+        return expressions.BuiltInVaStart(arg_pointer, location)
 
-        # Check for funky-ness:
-        if not isinstance(function, declarations.FunctionDeclaration):
+    def on_builtin_va_arg(self, arg_pointer, typ, location):
+        """ Check va_arg builtin function """
+        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+            self.error('Invalid type for va_arg', arg_pointer.location)
+        if not arg_pointer.lvalue:
+            self.error('Expected lvalue', arg_pointer.location)
+        return expressions.BuiltInVaArg(arg_pointer, typ, location)
+
+    def on_call(self, callee, arguments, location):
+        """ Check function call for validity """
+        if isinstance(callee.typ, types.FunctionType):
+            function_type = callee.typ
+        elif isinstance(callee.typ, types.PointerType) and \
+                isinstance(callee.typ.element_type, types.FunctionType):
+            # Function pointer
+            function_type = callee.typ.element_type
+        else:
             self.error('Calling a non-function', location)
-        function_type = function.typ
 
         # Check argument count:
         num_expected = len(function_type.argument_types)
@@ -665,12 +717,18 @@ class CSemantics:
         # Check argument types:
         coerced_arguments = []
         for argument, argument_type in zip(
-                arguments, function.typ.argument_types):
+                arguments, function_type.argument_types):
             value = self.coerce(argument, argument_type)
             coerced_arguments.append(value)
-        expr = expressions.FunctionCall(function, coerced_arguments, location)
-        expr.lvalue = False
-        expr.typ = function.typ.return_type
+
+        # Append evetual variadic arguments:
+        if num_given > num_expected:
+            for argument in arguments[num_expected:]:
+                coerced_arguments.append(argument)
+
+        expr = expressions.FunctionCall(
+            callee, coerced_arguments,
+            function_type.return_type, False, location)
         return expr
 
     def on_variable_access(self, name, location):
@@ -678,19 +736,26 @@ class CSemantics:
         if not self.scope.is_defined(name):
             self.error('Who is this?', location)
         variable = self.scope.get(name)
-        expr = expressions.VariableAccess(variable, location)
-        expr.typ = variable.typ
+
+        # Determine lvalue and type:
         if isinstance(variable, declarations.VariableDeclaration):
-            expr.lvalue = True
+            typ = variable.typ
+            lvalue = True
         elif isinstance(variable, declarations.ValueDeclaration):
-            expr.lvalue = False
+            typ = variable.typ
+            lvalue = False
         elif isinstance(variable, declarations.ParameterDeclaration):
-            expr.lvalue = True
+            typ = variable.typ
+            lvalue = True
         elif isinstance(variable, declarations.FunctionDeclaration):
-            # Function pointer?
-            expr.lvalue = True
+            # Function pointer:
+            typ = variable.typ
+            # expr.typ = types.PointerType(variable.typ)
+            lvalue = False
         else:  # pragma: no cover
             self.not_impl('Access to {}'.format(variable), location)
+
+        expr = expressions.VariableAccess(variable, typ, lvalue, location)
         return expr
 
     # Helpers!
@@ -705,14 +770,18 @@ class CSemantics:
         if self.context.equal_types(from_type, to_type):
             pass
         elif isinstance(from_type, (types.PointerType, types.EnumType)) and \
-                isinstance(to_type, types.BareType):
+                isinstance(to_type, types.BasicType):
             do_cast = True
-        elif isinstance(
-                from_type,
-                (types.PointerType, types.ArrayType, types.FunctionType)) and \
+        elif isinstance(from_type, (types.PointerType, types.ArrayType)) and \
                 isinstance(to_type, types.PointerType):
             do_cast = True
-        elif isinstance(from_type, types.BareType) and \
+        elif isinstance(from_type, types.FunctionType) and \
+                isinstance(to_type, types.PointerType) and \
+                isinstance(to_type.element_type, types.FunctionType) and \
+                self.context.equal_types(from_type, to_type.element_type):
+            # Function used as value for pointer to function is fine!
+            do_cast = False
+        elif isinstance(from_type, types.BasicType) and \
                 isinstance(to_type, types.PointerType):
             do_cast = True
         elif isinstance(from_type, types.IndexableType) and \
@@ -721,8 +790,8 @@ class CSemantics:
                 # self.context.equal_types(
                 #    from_type.element_type, to_type.element_type):
             do_cast = True
-        elif isinstance(from_type, types.BareType) and \
-                isinstance(to_type, (types.BareType, types.EnumType)):
+        elif isinstance(from_type, types.BasicType) and \
+                isinstance(to_type, (types.BasicType, types.EnumType)):
             # TODO: implement stricter checks
             do_cast = True
         else:
@@ -731,8 +800,6 @@ class CSemantics:
                 expr.location)
 
         if do_cast:
-            # TODO: is it true that the source must an lvalue?
-            # assert not expr.lvalue
             expr = expressions.ImplicitCast(typ, expr, expr.location)
             expr.typ = typ
             expr.lvalue = False

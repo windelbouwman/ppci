@@ -1,7 +1,18 @@
 from ..lang.tools.baselex import BaseLexer, EOF, EPS
 from ..lang.tools.grammar import Grammar
 from ..lang.tools.lr import LrParserBuilder
-from ..common import make_num
+from ..common import make_num, get_file
+
+
+def get_layout(layout):
+    """ Get a layout from object or file """
+    if isinstance(layout, Layout):
+        return layout
+    else:
+        file = get_file(layout)
+        layout = Layout.load(file)
+        file.close()
+        return layout
 
 
 class Layout:

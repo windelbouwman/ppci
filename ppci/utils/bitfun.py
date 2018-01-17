@@ -1,7 +1,5 @@
 """ Module full of bit manipulating helper classes. """
 
-import struct
-
 
 def rotate_right(v, n):
     """ bit-wise Rotate right n times """
@@ -37,19 +35,22 @@ def align(value, m):
 
 def wrap_negative(value, bits):
     """ Make a bitmask of a value, even if it is a negative value ! """
-    mx = 2 ** bits - 1
-    mn = -(2 ** (bits - 1))
-    # assert value in range(mn, mx)
-    b = struct.unpack('<I', struct.pack('<i', value))[0]
+    upper_limit = (1 << (bits)) - 1
+    lower_limit = -(1 << (bits - 1))
+    if value not in range(lower_limit, upper_limit + 1):
+        raise ValueError('Cannot encode {} in {} bits [{},{}]'.format(
+            value, bits, lower_limit, upper_limit))
     mask = (1 << bits) - 1
-    return b & mask
+    bit_value = value & mask  # Performing bitwise and makes it 2 complement.
+    assert bit_value >= 0
+    return bit_value
 
 
 def inrange(value, bits):
-    """ Make a bitmask of a value, even if it is a negative value ! """
-    mx = 2 ** (bits - 1)
-    mn = -(2 ** (bits - 1))
-    return value in range(mn, mx)
+    """ Test if a signed value can be fit into the given number of bits """
+    upper_limit = 1 << (bits - 1)
+    lower_limit = -(1 << (bits - 1))
+    return value in range(lower_limit, upper_limit)
 
 
 class BitView:

@@ -164,9 +164,7 @@ class Graph:
 
 
 class Node:
-    """
-       Node in a graph.
-    """
+    """ Node in a graph. """
     def __init__(self, graph):
         self.graph = graph
         self.graph.add_node(self)
@@ -180,6 +178,10 @@ class Node:
     def degree(self):
         """ Get the degree of this node (the number of neighbours) """
         return self.graph.get_degree(self)
+
+    def add_edge(self, other):
+        """ Create an edge to the other node """
+        self.graph.add_edge(self, other)
 
 
 class DiGraph(Graph):
@@ -211,9 +213,10 @@ class DiGraph(Graph):
 
 class DiNode(Node):
     @property
-    def Succ(self):
+    def successors(self):
         return self.graph.successors(self)
 
     @property
-    def Pred(self):
+    def predecessors(self):
+        """ Get the predecessors of this node """
         return self.graph.predecessors(self)
