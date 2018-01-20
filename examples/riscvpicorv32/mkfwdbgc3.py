@@ -9,14 +9,15 @@ with open("report.html", 'w') as f:
     arch = get_arch('riscv')
     o1 = asm("startdbg.s", arch)
     o2 = c3c(["./c3src/bsp.c3", "./c3src/io.c3", "./c3src/gdbstub.c3",
-              "./c3src/" + argv[1] + "/main.c3", "./c3src/irq.c3"], [], "riscv",
+              "./c3src/" + argv[1] + "/main.c3", "./c3src/irq.c3"], [],
+             "riscv",
              reporter=reporter, debug=True,
              opt_level=2)
-    obj = link([o1, o2], "firmware.mmap", use_runtime=False, reporter=reporter, debug=True)
+    obj = link([o1, o2], "firmware.mmap", use_runtime=False,
+               reporter=reporter, debug=True)
 
-    of = open("firmware.tlf", "w")
-    obj.save(of)
-    of.close()
+    with open("firmware.oj", "w") as of:
+        obj.save(of)
 
     objcopy(obj, "flash", "bin", "code.bin")
     objcopy(obj, "ram", "bin", "data.bin")
@@ -27,11 +28,10 @@ with open("report.html", 'w') as f:
     img = merge_memories(cimg, dimg, 'img')
     imgdata = img.data
 
-    f = open("firmware.hex", "w")
+with open("firmware.hex", "w") as f:
     for i in range(size):
         if i < len(imgdata) // 4:
             w = imgdata[4 * i: 4 * i + 4]
             print("%02x%02x%02x%02x" % (w[3], w[2], w[1], w[0]), file=f)
         else:
             print("00000000", file=f)
-    f.close()

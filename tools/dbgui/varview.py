@@ -4,7 +4,6 @@ from qtwrapper import QtCore, QtWidgets
 from qtwrapper import Qt
 from ppci.binutils.debuginfo import DebugBaseType, DebugArrayType
 from ppci.binutils.debuginfo import DebugStructType, DebugPointerType
-QModelIndex = QtCore.QModelIndex
 
 
 class PartialVariable:
@@ -58,7 +57,7 @@ class VariableModel(QtCore.QAbstractItemModel):
     def __init__(self, debugger, roots):
         super().__init__()
         self.debugger = debugger
-        self.debugger.state_event.subscribe(self.on_state_changed)
+        # self.debugger.state_event.subscribe(self.on_state_changed)
         self.headers = ('Name', 'Value', 'Type', 'Address')
         self.roots = roots
 
@@ -85,7 +84,7 @@ class VariableModel(QtCore.QAbstractItemModel):
     def columnCount(self, parent):
         return len(self.headers)
 
-    def index(self, row, column, parent=QModelIndex()):
+    def index(self, row, column, parent=QtCore.QModelIndex()):
         if parent.isValid():
             ppv = parent.internalPointer()
             pv = ppv.children[row]
@@ -97,10 +96,10 @@ class VariableModel(QtCore.QAbstractItemModel):
 
     def parent(self, index):
         if not index.isValid():
-            return QModelIndex()
+            return QtCore.QModelIndex()
         pv = index.internalPointer()
         if pv.parent is None:
-            return QModelIndex()
+            return QtCore.QModelIndex()
         return self.createIndex(pv.parent.row, 0, pv.parent)
 
     def data(self, index, role):
@@ -153,7 +152,7 @@ class LocalsView(QtWidgets.QTreeView):
         super().__init__()
         self._cur_func = None
         self.debugger = debugger
-        self.debugger.state_event.subscribe(self.on_state_changed)
+        # self.debugger.state_event.subscribe(self.on_state_changed)
         #model = VariableModel(debugger)
         #self.setModel(model)
         # TODO!

@@ -1,28 +1,25 @@
-"""
-    Debugger. The debugger always operates in remote mode like gdb.
+""" Debugger.
 
-    Start the debug server for your target and connect to it using the
-    debugger interface.
+The debugger always operates in remote mode like gdb.
+
+Start the debug server for your target and connect to it using the
+debugger interface.
 """
 
 import logging
 import struct
 import operator
-from ..api import get_arch, get_object
-from ..common import CompilerError
-from .disasm import Disassembler
-from .debuginfo import DebugBaseType, DebugArrayType, DebugStructType
-from .debuginfo import DebugInfo
-from .debuginfo import DebugPointerType, DebugAddress, FpOffsetAddress
-from .outstream import FunctionOutputStream
-from ..lang.c3.builder import C3ExprParser
-from ..lang.c3 import astnodes as c3nodes
-from ..lang.c3 import Context as C3Context
-
-# States:
-STOPPED = 0
-RUNNING = 1
-FINISHED = 2
+from ...api import get_arch, get_object
+from ...common import CompilerError
+from ..disasm import Disassembler
+from ..debuginfo import DebugBaseType, DebugArrayType, DebugStructType
+from ..debuginfo import DebugInfo
+from ..debuginfo import DebugPointerType, DebugAddress, FpOffsetAddress
+from ..outstream import FunctionOutputStream
+from ...lang.c3.builder import C3ExprParser
+from ...lang.c3 import astnodes as c3nodes
+from ...lang.c3 import Context as C3Context
+from .debug_driver import DebugState
 
 
 class TmpValue:
@@ -128,10 +125,12 @@ class Debugger:
 
     @property
     def is_running(self):
-        return self.status == RUNNING
+        """ Test if we are running """
+        return self.status == DebugState.RUNNING
 
     @property
     def is_halted(self):
+        """ Test if we are stopped """
         return not self.is_running
 
     # debug info:
@@ -143,7 +142,7 @@ class Debugger:
         if validate:
             for image in obj.images:
                 vdata = image.data
-                adata = self.read_mem(image.location, len(vdata))
+                adata = self.read_mem(image.address, len(vdata))
                 if vdata == adata:
                     self.logger.info('memory image %s validated!', image)
                 else:
@@ -162,6 +161,11 @@ class Debugger:
             addr = self.calc_address(loc.address)
             self.addr_map[addr] = loc
             self.logger.debug('%s at 0x%x', loc, addr)
+
+    @property
+    def has_symbols(self):
+        """ Check if some debug symbols are loaded """
+        return bool(self.addr_map)
 
     def calc_address(self, address):
         """ Calculate the actual address based on section and offset """
@@ -404,80 +408,4 @@ class Debugger:
 
     def get_mixed(self):
         """ Get source lines and assembly lines """
-        pass
-
-
-class DebugDriver:  # pragma: no cover
-    """
-        Inherit this class to expose a target interface. This class implements
-        primitives for a given hardware target.
-    """
-
-    def run(self):
-        raise NotImplementedError()
-
-    def step(self):
-        raise NotImplementedError()
-
-    def stop(self):
-        raise NotImplementedError()
-
-    def get_status(self):
-        raise NotImplementedError()
-
-    def get_pc(self):
-        raise NotImplementedError()
-
-    def get_fp(self):
-        raise NotImplementedError()
-
-    def set_breakpoint(self, address):
-        raise NotImplementedError()
-
-    def get_registers(self, registers):
-        """ Get the values for a range of registers """
-        raise NotImplementedError()
-
-
-class DummyDebugDriver(DebugDriver):
-    def __init__(self):
-        self.status = STOPPED
-
-    def run(self):
-        self.status = RUNNING
-
-    def restart(self):
-        self.status = RUNNING
-
-    def step(self):
-        pass
-
-    def stop(self):
-        self.status = STOPPED
-
-    def get_status(self):
-        return self.status
-
-    def get_registers(self, registers):
-        return {r: 0 for r in registers}
-
-    def get_pc(self):
-        return 0
-
-    def get_fp(self):
-        return 0
-
-    def set_breakpoint(self, address):
-        pass
-
-    def clear_breakpoint(self, address):
-        pass
-
-    def read_mem(self, address, size):
-        return bytes(size)
-
-    def write_mem(self, address, data):
-        pass
-
-    def update_status(self):
         pass

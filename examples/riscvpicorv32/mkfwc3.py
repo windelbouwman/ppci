@@ -13,9 +13,8 @@ with open("report.html", 'w') as f:
              opt_level=2)
     obj = link([o1, o2], "firmware.mmap", use_runtime=False, reporter=reporter, debug=True)
 
-    of = open("firmware.tlf", "w")
-    obj.save(of)
-    of.close()
+    with open("firmware.oj", "w") as of:
+        obj.save(of)
 
     objcopy(obj, "flash", "bin", "code.bin")
     objcopy(obj, "ram", "bin", "data.bin")

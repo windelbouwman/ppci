@@ -2,9 +2,10 @@
 import time
 import cmd
 import binascii
-from .. import __version__ as ppci_version
-from ..common import str2int, CompilerError
-from .dbg import STOPPED, RUNNING
+from threading import Lock
+from ... import __version__ as ppci_version
+from ...common import str2int, CompilerError
+from .debug_driver import DebugState
 import os
 
 if os.name == 'nt':
@@ -62,6 +63,7 @@ class DebugCli(cmd.Cmd):
         super().__init__()
         self.debugger = debugger
         self.showsource = showsource
+        self.screenlock = Lock()
         if self.showsource is True:
             if os.name == 'nt':
                 init()
@@ -91,7 +93,7 @@ class DebugCli(cmd.Cmd):
         print('Debug driver: ', self.debugger.driver)
         print('ppci version: ', ppci_version)
         text_status = {
-            STOPPED: 'Stopped', RUNNING: 'Running'
+            DebugState.STOPPED: 'Stopped', DebugState.RUNNING: 'Running'
         }
         print('Status:       ', text_status[self.debugger.status])
 
@@ -209,27 +211,29 @@ class DebugCli(cmd.Cmd):
 
     def updatesourceview(self):
         if self.showsource is True and self.debugger.is_halted:
-            pos(CMDLINE, 1)
-            cleartocursor()
-            pos(1, 1)
-            print('\033[37m\033[1mTarget State: STOPPED')
-            file, row = self.debugger.find_pc()
-            pos(2, 1)
-            print_file_line(file, row)
-            pos(CMDLINE + 1, len(DebugCli.prompt))
+            with self.screenlock:
+                pos(CMDLINE, 1)
+                cleartocursor()
+                pos(1, 1)
+                print('\033[37m\033[1mTarget State: STOPPED')
+                file, row = self.debugger.find_pc()
+                pos(2, 1)
+                print_file_line(file, row)
+                pos(CMDLINE + 1, len(DebugCli.prompt))
 
     def updatestatus(self):
-        pos(1, 1)
-        print('\033[37m\033[1mTarget State: RUNNING')
+        with self.screenlock:
+            pos(1, 1)
+            print('\033[37m\033[1mTarget State: RUNNING')
 
     def precmd(self, line):
-        with self.debugger.driver.screenlock:
+        with self.screenlock:
             pos(CMDLINE + 1, len(DebugCli.prompt))
             clearaftercursor()
             return cmd.Cmd.precmd(self, line)
 
     def postcmd(self, stop, line):
         time.sleep(0.5)
-        with self.debugger.driver.screenlock:
+        with self.screenlock:
             pos(CMDLINE + 1, len(DebugCli.prompt))
             return cmd.Cmd.postcmd(self, stop, line)

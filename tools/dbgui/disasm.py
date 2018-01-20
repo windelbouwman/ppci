@@ -6,7 +6,7 @@ class DisAsmModel(QtCore.QAbstractTableModel):
     def __init__(self, debugger):
         super().__init__()
         self.debugger = debugger
-        self.debugger.state_event.subscribe(self.on_state_changed)
+        # self.debugger.state_event.subscribe(self.on_state_changed)
         self.instructions = []
         self.headers = ['Address', 'Bytes', 'Instruction']
         self.txts = []

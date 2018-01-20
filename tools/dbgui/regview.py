@@ -7,7 +7,7 @@ class RegisterModel(QtCore.QAbstractTableModel):
         super().__init__()
         self.debugger = debugger
         self._registers = self.debugger.registers
-        self.debugger.state_event.subscribe(self.on_state_changed)
+        # self.debugger.state_event.subscribe(self.on_state_changed)
         self.headers = ('Register', 'Value')
         self.on_state_changed()
 
@@ -67,7 +67,7 @@ class RegisterView(QtWidgets.QTableView):
         self.mdl = RegisterModel(debugger)
         self.setModel(self.mdl)
         self.debugger = debugger
-        self.debugger.state_event.subscribe(self.update_state)
+        # self.debugger.state_event.subscribe(self.update_state)
         self.update_state()
         self.horizontalHeader().setStretchLastSection(True)
 

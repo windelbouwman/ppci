@@ -15,7 +15,7 @@ import os
 import sys
 import ctypes
 import struct
-from ppci.binutils.dbg import DebugDriver, RUNNING, STOPPED
+from ppci.binutils.dbg.debug_driver import DebugDriver, DebugState
 
 libc = ctypes.CDLL('libc.so.6')
 PTRACE_TRACEME = 0
@@ -82,12 +82,12 @@ class Linux64DebugDriver(DebugDriver):
     def __init__(self):
         super().__init__()
         self.pid = None
-        self.status = STOPPED
+        self.status = DebugState.STOPPED
         self.breakpoint_backup = {}
 
     def go_for_it(self, argz):
         self.pid = fork_spawn_stop(argz)
-        self.status = STOPPED
+        self.status = DebugState.STOPPED
 
     # Api:
     def get_status(self):
@@ -101,13 +101,13 @@ class Linux64DebugDriver(DebugDriver):
             self.step_over_bp()
 
         libc.ptrace(PTRACE_CONT, self.pid, 0, 0)
-        self.status = RUNNING
+        self.status = DebugState.RUNNING
 
         # TODO: for now, block here??
         print('running')
         _, status = os.wait()
 
-        self.status = STOPPED
+        self.status = DebugState.STOPPED
 
         print('stopped at breakpoint!')
         rip = self.get_pc()
@@ -131,10 +131,10 @@ class Linux64DebugDriver(DebugDriver):
 
     @stopped
     def step(self):
-        self.status = RUNNING
+        self.status = DebugState.RUNNING
         libc.ptrace(PTRACE_SINGLESTEP, self.pid, 0, 0)
         _, status = os.wait()
-        self.status = STOPPED
+        self.status = DebugState.STOPPED
         if not wifstopped(status):
             self.pid = None
 
@@ -158,7 +158,7 @@ class Linux64DebugDriver(DebugDriver):
     # Registers
     @stopped
     def get_registers(self, register_names):
-        assert self.status == STOPPED
+        assert self.status == DebugState.STOPPED
         regs = UserRegsStruct()
         libc.ptrace(PTRACE_GETREGS, self.pid, 0, ctypes.byref(regs))
         res = {}

@@ -18,9 +18,9 @@ with open('report.html', 'w') as f:
             obj.append(cc(f, "riscv", coptions=coptions, debug=True, reporter=reporter))
     obj = link([o1] + obj, "firmware.mmap", use_runtime=True, reporter=reporter, debug=True)
 
-    of = open("firmware.tlf", "w")
-    obj.save(of)
-    of.close()
+    with open("firmware.oj", "w") as of:
+        obj.save(of)
+
     objcopy(obj, "flash", "elf", "firmware.elf")
     objcopy(obj, "flash", "bin", "code.bin")
     objcopy(obj, "ram", "bin", "data.bin")
@@ -29,11 +29,11 @@ with open('report.html', 'w') as f:
     dimg = obj.get_image('ram')
     img = merge_memories(cimg, dimg, 'img')
     imgdata = img.data
-    f = open("firmware.hex", "w")
+
+with open("firmware.hex", "w") as f:
     for i in range(size):
         if i < len(imgdata) // 4:
             w = imgdata[4 * i: 4 * i + 4]
             print("%02x%02x%02x%02x" % (w[3], w[2], w[1], w[0]), file=f)
         else:
             print("00000000", file=f)
-    f.close()

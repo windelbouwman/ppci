@@ -12,6 +12,7 @@
             arch="x86_64"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
+            debug="true"
             report="report.html"/>
 
         <link

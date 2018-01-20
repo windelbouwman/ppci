@@ -2,15 +2,16 @@ import io
 import unittest
 from unittest.mock import MagicMock, patch
 from ppci.common import CompilerError
-from ppci.binutils.dbg import Debugger, DummyDebugDriver, TmpValue
-from ppci.binutils.dbg_cli import DebugCli
-from ppci.binutils.dbg_gdb_client import GdbDebugDriver
+from ppci.binutils.dbg.debugger import Debugger, TmpValue
+from ppci.binutils.dbg.debug_driver import DummyDebugDriver, DebugState
+from ppci.binutils.dbg.cli import DebugCli
+from ppci.binutils.dbg.gdb.client import GdbDebugDriver
 from ppci.binutils import debuginfo
 from ppci.binutils.objectfile import ObjectFile
 from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
 from ppci.common import SourceLocation
-from ppci.binutils.transport import TCP
+from ppci.binutils.dbg.gdb.transport import TCP
 
 
 class DebuggerTestCase(unittest.TestCase):
@@ -141,7 +142,7 @@ class DebugCliTestCase(unittest.TestCase):
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_info(self, mock_stdout):
-        self.debugger_mock.configure_mock(status=0)
+        self.debugger_mock.configure_mock(status=DebugState.STOPPED)
         self.cmd('info')
 
     def test_run(self):

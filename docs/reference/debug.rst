@@ -9,6 +9,23 @@ describes the peculiarities of debugging.
 Debugger
 --------
 
+The debugger architecture is depicted below:
+
+.. graphviz::
+
+   digraph x {
+   dbg_cli [label="Debug Command Line Interface"]
+   debugger [label="Debugger"]
+   dbg_cli -> debugger
+   debugger -> debug_interface
+   debug_interface [label="Debug Interface"]
+   debug_interface -> gdb_client
+   debug_interface -> dummy_interface
+   gdb_client -> transport
+   transport -> socket
+   transport -> serial
+   }
+
 The debugger class is the main piece of the debugger. This is created for
 a specific architecture and is given a driver to communicate with the target
 hardware.
@@ -19,7 +36,7 @@ hardware.
 
 One of the classes that uses the debugger is the debug command line interface.
 
-.. autoclass:: ppci.binutils.dbg_cli.DebugCli
+.. autoclass:: ppci.binutils.dbg.cli.DebugCli
 
 To connect to your favorite hardware, subclass the DebugDriver class.
 
@@ -27,7 +44,7 @@ To connect to your favorite hardware, subclass the DebugDriver class.
 
 The following class can be used to connect to a gdb server:
 
-.. autoclass:: ppci.binutils.dbg_gdb_client.GdbDebugDriver
+.. autoclass:: ppci.binutils.dbg.gdb.client.GdbDebugDriver
 
 
 Debug info file formats

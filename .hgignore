@@ -35,6 +35,9 @@ ppci.egg-info
 build
 examples/riscvpulpino/jtagserver/.deps
 obj_dir
+obj_dir_dbg
+Vsystem
+Vsystemdbg
 .spyderproject
 .idea
 junit.xml

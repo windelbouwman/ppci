@@ -99,6 +99,7 @@ class X86_64Arch(Architecture):
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
         self.stack_grows_down = True
+        self.gdb_registers = []
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

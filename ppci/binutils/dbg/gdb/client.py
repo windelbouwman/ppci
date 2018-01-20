@@ -5,9 +5,9 @@
 import binascii
 import logging
 import struct
-from threading import Thread, Lock
+from threading import Thread
 from queue import Queue
-from .dbg import DebugDriver, STOPPED, RUNNING
+from ..debug_driver import DebugDriver, DebugState
 
 INTERRUPT = 2
 BRKPOINT = 5
@@ -26,7 +26,7 @@ class GdbDebugDriver(DebugDriver):
     """
     logger = logging.getLogger('gdbclient')
 
-    def __init__(self, arch, transport, constat=STOPPED, pcresval=0,
+    def __init__(self, arch, transport, constat=DebugState.STOPPED, pcresval=0,
                  swbrkpt=False):
         self.arch = arch
         self.transport = transport
@@ -40,8 +40,7 @@ class GdbDebugDriver(DebugDriver):
         self.rxthread.start()
         self.callbackstop = None
         self.callbackstart = None
-        self.screenlock = Lock()
-        if (constat == RUNNING):
+        if (constat == DebugState.RUNNING):
             self.stop()
 
     def __str__(self):
@@ -154,50 +153,50 @@ class GdbDebugDriver(DebugDriver):
 
     def run(self):
         """ start the device """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             if (self.swbrkpt is True and self.stopreason is BRKPOINT):
                 pc = self.get_pc()
                 self.set_pc(pc - 4)
             self.sendpkt("c")
-            self.status = RUNNING
-            with self.screenlock:
+            self.status = DebugState.RUNNING
+            if self.callbackstart:
                 self.callbackstart()
 
     def restart(self):
         """ restart the device """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             self.set_pc(self.pcresval)
             self.run()
-            self.status = RUNNING
-            with self.screenlock:
+            self.status = DebugState.RUNNING
+            if self.callbackstart:
                 self.callbackstart()
 
     def step(self):
         """ restart the device """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             if (self.swbrkpt is True and self.stopreason is BRKPOINT):
                 pc = self.get_pc()
                 self.clear_breakpoint(pc - 4)
                 self.set_pc(pc - 4)
             self.sendpkt("s")
-            self.status = RUNNING
-            with self.screenlock:
+            self.status = DebugState.RUNNING
+            if self.callbackstart:
                 self.callbackstart()
 
     def nstep(self, count):
         """ restart the device """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             if (self.swbrkpt is True and self.stopreason is BRKPOINT):
                 pc = self.get_pc()
                 self.clear_breakpoint(pc - 4)
                 self.set_pc(pc - 4)
             self.sendpkt("n %x" % count)
-            self.status = RUNNING
-            with self.screenlock:
+            self.status = DebugState.RUNNING
+            if self.callbackstart:
                 self.callbackstart()
 
     def stop(self):
-        if self.status == RUNNING:
+        if self.status == DebugState.RUNNING:
             self.sendbrk()
 
     def process_stop_status(self, pkt):
@@ -212,13 +211,12 @@ class GdbDebugDriver(DebugDriver):
             self.pcstopval = None
         if (code & (BRKPOINT | INTERRUPT) != 0):
             self.logger.debug("Target stopped..")
-            self.status = STOPPED
+            self.status = DebugState.STOPPED
             if self.callbackstop:
-                with self.screenlock:
-                    self.callbackstop()
+                self.callbackstop()
         else:
             self.logger.debug("Target running..")
-            self.status = RUNNING
+            self.status = DebugState.RUNNING
 
     def get_status(self):
         return self.status
@@ -228,7 +226,7 @@ class GdbDebugDriver(DebugDriver):
         return regs
 
     def _get_general_registers(self):
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             self.sendpkt("g")
             data = self.rxqueue.get()
             data = binascii.a2b_hex(data.encode('ascii'))
@@ -246,7 +244,7 @@ class GdbDebugDriver(DebugDriver):
             return res
 
     def set_registers(self, regvalues):
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             data = bytearray()
             res = {}
             offset = 0
@@ -265,7 +263,7 @@ class GdbDebugDriver(DebugDriver):
 
     def _get_register(self, register):
         """ Get a single register """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             idx = self.arch.gdb_registers.index(register)
             self.sendpkt("p %x" % idx)
             data = self.rxqueue.get()
@@ -274,7 +272,7 @@ class GdbDebugDriver(DebugDriver):
 
     def _set_register(self, register, value):
         """ Set a single register """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             idx = self.arch.gdb_registers.index(register)
             value = self._pack_register(register, value)
             value = binascii.b2a_hex(value).decode('ascii')
@@ -317,7 +315,7 @@ class GdbDebugDriver(DebugDriver):
 
     def set_breakpoint(self, address):
         """ Set a breakpoint """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             self.sendpkt("Z0,%x,4" % address)
             res = self.rxqueue.get()
             if res == 'OK':
@@ -327,20 +325,20 @@ class GdbDebugDriver(DebugDriver):
 
     def clear_breakpoint(self, address):
         """ Clear a breakpoint """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             self.sendpkt("z0,%x,4" % address)
             self.rxqueue.get()
 
     def read_mem(self, address, size):
         """ Read memory from address """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             self.sendpkt("m %x,%x" % (address, size))
             ret = binascii.a2b_hex(self.rxqueue.get().encode('ascii'))
             return ret
 
     def write_mem(self, address, data):
         """ Write memory """
-        if self.status == STOPPED:
+        if self.status == DebugState.STOPPED:
             length = len(data)
             data = binascii.b2a_hex(data).decode('ascii')
             self.sendpkt("M %x,%x:%s" % (address, length, data))

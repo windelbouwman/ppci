@@ -75,7 +75,7 @@ class DebugUi(QtWidgets.QMainWindow):
     def __init__(self, debugger, parent=None):
         super().__init__(parent)
         self.debugger = debugger
-        self.debugger.state_event.subscribe(self.on_state_changed)
+        # self.debugger.state_event.subscribe(self.on_state_changed)
         self.logger = logging.getLogger('dbgui')
         self.setWindowTitle('PPCI DBGUI')
 
