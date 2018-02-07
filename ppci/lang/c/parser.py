@@ -233,7 +233,7 @@ class CParser(RecursiveDescentParser):
         elif self.peak == '{':
             tag = None
         else:
-            print(self.typedefs)
+            # print(self.typedefs)
             self.error(
                 'Expected tag name or "{{", but got {}'.format(self.peak),
                 keyword.loc)

@@ -12,10 +12,9 @@ http://python-ptrace.readthedocs.org/en/latest/
 """
 
 import os
-import sys
 import ctypes
-import struct
 from ppci.binutils.dbg.debug_driver import DebugDriver, DebugState
+from ppci.arch.x86_64 import registers as x86_registers
 
 libc = ctypes.CDLL('libc.so.6')
 PTRACE_TRACEME = 0
@@ -101,6 +100,7 @@ class Linux64DebugDriver(DebugDriver):
             self.step_over_bp()
 
         libc.ptrace(PTRACE_CONT, self.pid, 0, 0)
+        self.events.on_start()
         self.status = DebugState.RUNNING
 
         # TODO: for now, block here??
@@ -113,11 +113,12 @@ class Linux64DebugDriver(DebugDriver):
         rip = self.get_pc()
         self.dec_pc()
         print(self.read_mem(rip - 1, 3))
+        self.events.on_stop()
 
     def dec_pc(self):
         """ Decrease pc by 1 """
-        regs = self.get_registers(['rip'])
-        regs['rip'] -= 1
+        regs = self.get_registers([x86_registers.rip])
+        regs[x86_registers.rip] -= 1
         self.set_registers(regs)
 
     def step_over_bp(self):
@@ -131,12 +132,14 @@ class Linux64DebugDriver(DebugDriver):
 
     @stopped
     def step(self):
+        self.events.on_start()
         self.status = DebugState.RUNNING
         libc.ptrace(PTRACE_SINGLESTEP, self.pid, 0, 0)
         _, status = os.wait()
         self.status = DebugState.STOPPED
         if not wifstopped(status):
             self.pid = None
+        self.events.on_stop()
 
     @running
     def stop(self):
@@ -157,14 +160,14 @@ class Linux64DebugDriver(DebugDriver):
 
     # Registers
     @stopped
-    def get_registers(self, register_names):
+    def get_registers(self, registers):
         assert self.status == DebugState.STOPPED
         regs = UserRegsStruct()
         libc.ptrace(PTRACE_GETREGS, self.pid, 0, ctypes.byref(regs))
         res = {}
-        for reg_name in register_names:
-            if hasattr(regs, reg_name):
-                res[reg_name] = getattr(regs, reg_name)
+        for register in registers:
+            if hasattr(regs, register.name):
+                res[register] = getattr(regs, register.name)
         return res
 
     def set_registers(self, new_regs):
@@ -208,12 +211,12 @@ class Linux64DebugDriver(DebugDriver):
 
     # Disasm:
     def get_pc(self):
-        v = self.get_registers(['rip'])
-        return v['rip']
+        v = self.get_registers([x86_registers.rip])
+        return v[x86_registers.rip]
 
     def get_fp(self):
-        v = self.get_registers(['rbp'])
-        return v['rbp']
+        v = self.get_registers([x86_registers.rbp])
+        return v[x86_registers.rbp]
 
 
 def wifstopped(status):
@@ -235,9 +238,3 @@ def fork_spawn_stop(argz):
     else:
         _, status = os.wait()
         return pid
-
-
-if __name__ == '__main__':
-    server = LinuxDebugServer()
-    server.go_for_it(sys.argv[1:])
-    server.serve()

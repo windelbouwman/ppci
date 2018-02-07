@@ -1,7 +1,7 @@
 module main;
 import io;
 
-function void main()
+public function void main()
 {
    io.println("Hello world");
 }

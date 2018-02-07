@@ -61,6 +61,7 @@ class ArmArch(Architecture):
                 ]
         self.assembler.gen_asm_parser(self.isa)
         self.gdb_registers = all_registers
+        self.gdb_pc = PC
 
         self.info = ArchInfo(
             type_infos={

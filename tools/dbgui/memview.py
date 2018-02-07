@@ -31,8 +31,8 @@ class MemoryView(QtWidgets.QWidget):
 
     def refresh(self):
         address = self.address
-        if self.debugger.is_halted:
-            data = self.debugger.read_mem(address, self.block_size)
+        if self.debugger.debugger.is_halted:
+            data = self.debugger.debugger.read_mem(address, self.block_size)
             self.hexEdit.bv.Data = data
             self.hexEdit.bv.Offset = address
 

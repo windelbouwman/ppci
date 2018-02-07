@@ -3,15 +3,16 @@ import unittest
 from unittest.mock import MagicMock, patch
 from ppci.common import CompilerError
 from ppci.binutils.dbg.debugger import Debugger, TmpValue
-from ppci.binutils.dbg.debug_driver import DummyDebugDriver, DebugState
+from ppci.binutils.dbg.debug_driver import DebugState
+from ppci.binutils.dbg.dummy_driver import DummyDebugDriver
 from ppci.binutils.dbg.cli import DebugCli
-from ppci.binutils.dbg.gdb.client import GdbDebugDriver
+from ppci.binutils.dbg.gdb.client import GdbDebugDriver, decoder
+from ppci.binutils.dbg.gdb.transport import Transport
 from ppci.binutils import debuginfo
 from ppci.binutils.objectfile import ObjectFile
 from ppci.api import c3c, link, get_arch
 from ppci.api import write_ldb
 from ppci.common import SourceLocation
-from ppci.binutils.dbg.gdb.transport import TCP
 
 
 class DebuggerTestCase(unittest.TestCase):
@@ -220,21 +221,62 @@ class DebugCliTestCase(unittest.TestCase):
         self.cli.onecmd(cmd)
 
 
-# @patch('ppci.binutils.dbg_gdb_client.select')
-# @patch('select.select')
-@unittest.skip('THREAD ISSUE')
+class GdbDecoderTestCase(unittest.TestCase):
+    def setUp(self):
+        self.decoder = decoder()
+        next(self.decoder)
+
+    def test_decode_plus(self):
+        """ Test that when decoding a + the + is returned """
+        msg = self.decoder.send(b'+')
+        self.assertEqual('+', msg)
+        msg = self.decoder.send(b'+')
+        self.assertEqual('+', msg)
+
+    def test_decode_packet(self):
+        """ Test that the decoding of a packet """
+        msg = self.decoder.send(b'$')
+        self.assertEqual(None, msg)
+        msg = self.decoder.send(b'a')
+        self.assertEqual(None, msg)
+        msg = self.decoder.send(b'b')
+        self.assertEqual(None, msg)
+        msg = self.decoder.send(b'#')
+        self.assertEqual(None, msg)
+        msg = self.decoder.send(b'2')
+        self.assertEqual(None, msg)
+        msg = self.decoder.send(b'5')
+        self.assertEqual('$ab#25', msg)
+        msg = self.decoder.send(b'+')
+        self.assertEqual('+', msg)
+
+
+class TransportMock:
+    """ Test dummy to test the GDB protocol """
+    def __init__(self):
+        self.send_data = bytearray()
+        self.response = None
+
+    def send(self, dt):
+        self.send_data.extend(dt)
+        if self.response:
+            data = self.response
+            self.response = None
+            for byte in data:
+                self.on_byte(bytes([byte]))
+
+    def inject(self, data):
+        for byte in data:
+            self.on_byte(bytes([byte]))
+
+
 class GdbClientTestCase(unittest.TestCase):
     arch = get_arch('example')
 
     def setUp(self):
-        with patch('ppci.binutils.transport.socket.socket'):
-            self.gdbc = GdbDebugDriver(self.arch, transport=TCP(4567))
-        self.sock_mock = self.gdbc.transport.sock
-        self.send_data = bytearray()
-
-        def my_send(dt):
-            self.send_data.extend(dt)
-        self.sock_mock.configure_mock(send=my_send)
+        self.transport_mock = TransportMock()
+        self.gdbc = GdbDebugDriver(self.arch, transport=self.transport_mock)
+        self.gdbc.status = DebugState.STOPPED
 
     def test_rsp_pack(self):
         data = 'abc'
@@ -259,99 +301,74 @@ class GdbClientTestCase(unittest.TestCase):
     def test_read_pkt(self):
         """ Test reading of a pkt """
         self.expect_recv(b'zzz$abc#26hhh')
-        res = self.gdbc.readpkt()
+        res = self.gdbc.recvpkt()
         self.assertEqual('abc', res)
 
-    @patch('select.select')
-    def test_send_pkt(self, select_mock):
+    def test_send_pkt(self):
         """ Test sending of a single packet """
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+')
+        self.prepare_response(b'+')
         self.gdbc.sendpkt('s')
         self.check_send(b'$s#73')
 
-    @patch('select.select')
-    def test_stop(self, select_mock):
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'$S05#b8')
+    def test_stop(self):
+        self.gdbc.status = DebugState.RUNNING
+        self.prepare_response(b'$S05#b8')
         self.gdbc.stop()
         self.check_send(b'\x03+')
 
-    @patch('select.select')
-    def test_step(self, select_mock):
+    def test_step(self):
         """ Test the single step command """
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+$S05#b8')
+        self.prepare_response(b'+$S05#b8')
         self.gdbc.step()
         self.check_send(b'$s#73+')
 
-    @unittest.skip('todo')
     def test_run(self):
+        self.prepare_response(b'+')
         self.gdbc.run()
+        self.check_send(b'$c#63')
 
-    @patch('select.select')
-    def test_get_registers(self, select_mock):
+    def test_get_registers(self):
         """ Test reading of registers """
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+$000000000000000000000000#80')
+        self.prepare_response(b'+$000000000000000000000000#80')
         regs = self.arch.gdb_registers
         reg_vals = self.gdbc.get_registers(regs)
         self.check_send(b'$g#67+')
         self.assertEqual({reg: 0 for reg in regs}, reg_vals)
 
-    @patch('select.select')
-    def test_set_breakpoint(self, select_mock):
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+$OK#9a')
+    def test_set_breakpoint(self):
+        self.prepare_response(b'+$OK#9a')
         self.gdbc.set_breakpoint(98)
         self.check_send(b'$Z0,62,4#7E+')
 
-    @patch('select.select')
-    def test_clear_breakpoint(self, select_mock):
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+$OK#9a')
+    def test_clear_breakpoint(self):
+        self.prepare_response(b'+$OK#9a')
         self.gdbc.clear_breakpoint(98)
         self.check_send(b'$z0,62,4#9E+')
 
-    @patch('select.select')
-    def test_read_mem(self, select_mock):
+    def test_read_mem(self):
         """ Test reading of memory """
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+$01027309#96')
+        self.prepare_response(b'+$01027309#96')
         contents = self.gdbc.read_mem(101, 4)
         self.assertEqual(bytes([1, 2, 0x73, 9]), contents)
         self.check_send(b'$m 65,4#58+')
 
-    @unittest.skip('FIX ME')
-    @patch('select.select')
-    def test_write_mem(self, select_mock):
+    def test_write_mem(self):
         """ Test write to memory """
-        select_mock.side_effect = [(0, 0, 0)]
-        self.expect_recv(b'+$01027309#96')
+        self.prepare_response(b'+$01027309#96')
         self.gdbc.write_mem(100, bytes([1, 2, 0x73, 9]))
-        self.check_send(b'$M 64,4:01027309#07')
+        self.check_send(b'$M 64,4:01027309#07+')
+
+    def prepare_response(self, data):
+        """ Prepare mock that we expect this data to be received """
+        self.transport_mock.response = data
 
     def expect_recv(self, data):
-        recv = make_recv(data)
-        self.sock_mock.configure_mock(recv=recv)
+        """ Prepare mock that we expect this data to be received """
+        self.transport_mock.inject(data)
 
     def check_send(self, data):
-        self.assertEqual(data, self.send_data)
-
-
-def make_recv(data):
-    def loop():
-        for d in data:
-            yield d
-    lp = loop()
-
-    def recv(i):
-        a = bytearray()
-        for _ in range(i):
-            nxt = lp.__next__()
-            a.append(nxt)
-        return bytes(a)
-    return recv
+        """ Check that given data was transmitted """
+        self.assertEqual(data, self.transport_mock.send_data)
 
 
 class DebugFormatTestCase(unittest.TestCase):

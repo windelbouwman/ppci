@@ -607,6 +607,8 @@ class CSemantics:
             expr = expressions.Unop(op, a, a.typ, False, location)
         elif op in ['-', '~']:
             expr = expressions.Unop(op, a, a.typ, False, location)
+        elif op == '+':
+            expr = a
         elif op == '*':
             if not isinstance(a.typ, types.IndexableType):
                 self.error(

@@ -13,7 +13,7 @@ from qtwrapper import QtCore, QtWidgets, Qt
 
 def formatTime(t):
     t2 = datetime.datetime.fromtimestamp(t)
-    return t2.strftime('%H:%M:%S')
+    return t2.strftime('%Y-%m-%d %H:%M:%S')
 
 
 class LogModel(QtCore.QAbstractTableModel):

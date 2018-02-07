@@ -45,17 +45,18 @@ class Debugger:
         Give it a target architecture for which it must debug
         and driver plugin to connect to hardware.
     """
+    logger = logging.getLogger('dbg')
 
     def __init__(self, arch, driver):
         self.arch = get_arch(arch)
         self.expr_parser = C3ExprParser(self.arch)
         self.disassembler = Disassembler(self.arch)
         self.driver = driver
-        self.logger = logging.getLogger('dbg')
         self.registers = self.get_registers()
         self.num2regmap = {r.num: r for r in self.registers}
         self.register_values = {rn: 0 for rn in self.registers}
         self.debug_info = None
+        self.events = driver.events
         self.variable_map = {}
         self.addr_map = {}
 
@@ -69,7 +70,8 @@ class Debugger:
         self.driver.run()
 
     def restart(self):
-        self.logger.info('run')
+        """ Restart the debugged program """
+        self.logger.info('restart')
         self.driver.restart()
 
     def stop(self):
@@ -137,16 +139,10 @@ class Debugger:
     def load_symbols(self, obj, validate=True):
         """ Load debug symbols from object file """
         obj = get_object(obj)
+
         # verify the contents of the object with the memory image
-        assert self.is_halted
-        if validate:
-            for image in obj.images:
-                vdata = image.data
-                adata = self.read_mem(image.address, len(vdata))
-                if vdata == adata:
-                    self.logger.info('memory image %s validated!', image)
-                else:
-                    self.logger.warning('Memory image %s mismatch!', image)
+        if validate and self.is_halted:
+            self.validate_memory(obj)
 
         if obj.debug_info:
             self.debug_info = obj.debug_info
@@ -161,6 +157,16 @@ class Debugger:
             addr = self.calc_address(loc.address)
             self.addr_map[addr] = loc
             self.logger.debug('%s at 0x%x', loc, addr)
+
+    def validate_memory(self, obj):
+        """ Validate memory given an object file """
+        for image in obj.images:
+            vdata = image.data
+            adata = self.read_mem(image.address, len(vdata))
+            if vdata == adata:
+                self.logger.info('memory image %s validated!', image)
+            else:
+                self.logger.warning('Memory image %s mismatch!', image)
 
     @property
     def has_symbols(self):
@@ -180,13 +186,14 @@ class Debugger:
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
-        # if pc in self.addr_map:
-        minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
-        debug = self.addr_map[minkey]
-        self.logger.info('Found program counter at %s with delta %i'
-                         % (debug, minkey - pc))
-        loc = debug.loc
-        return loc.filename, loc.row
+        if pc in self.addr_map:
+            # minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
+            # debug = self.addr_map[minkey]
+            # self.logger.info('Found program counter at %s with delta %i'
+            #                  % (debug, minkey - pc))
+            debug = self.addr_map[pc]
+            loc = debug.loc
+            return loc.filename, loc.row
 
     def current_function(self):
         """ Determine the PC and then determine which function we are in """
@@ -385,8 +392,16 @@ class Debugger:
         fmts = {8: '<Q', 4: '<I', 2: '<H', 1: '<B'}
         fmt = fmts[size]
         loaded = self.read_mem(addr, size)
-        loaded_val = struct.unpack(fmt, loaded)[0]
-        return loaded_val
+        if loaded is None:
+            return 0
+        else:
+            loaded_val = struct.unpack(fmt, loaded)[0]
+            return loaded_val
+
+    def eval_variable(self, variable):
+        """ Evaluate the given debug variable """
+        addr = self.calc_address(variable.address)
+        return self.load_value(addr, variable.typ)
 
     # Disassembly:
     def get_pc(self):

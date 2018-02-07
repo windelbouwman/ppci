@@ -73,12 +73,12 @@ class DebugCli(cmd.Cmd):
                 print('\033[37m\033[1mTarget State: RUNNING')
             else:
                 print('\033[37m\033[1mTarget State: STOPPED')
-            file, col = self.debugger.find_pc()
-            pos(2, 1)
-            print_file_line(file, col)
+            # file, col = self.debugger.find_pc()
+            # pos(2, 1)
+            # print_file_line(file, col)
             pos(CMDLINE, 1)
-            self.debugger.driver.callbackstop = self.updatesourceview
-            self.debugger.driver.callbackstart = self.updatestatus
+            self.debugger.events.on_stop += self.updatesourceview
+            self.debugger.events.on_start += self.updatestatus
 
     def do_quit(self, _):
         """ Quit the debugger """

@@ -2,9 +2,9 @@ from qtwrapper import QtWidgets, Qt
 
 
 class DebugToolbar(QtWidgets.QToolBar):
-    def __init__(self, debugger):
+    def __init__(self, qdebugger):
         super().__init__()
-        self.debugger = debugger
+        self.qdebugger = qdebugger
 
         def genAction(name, callback, shortcut=None):
             a = QtWidgets.QAction(name, self)
@@ -13,31 +13,24 @@ class DebugToolbar(QtWidgets.QToolBar):
                 a.setShortcut(shortcut)
             self.addAction(a)
             return a
-        self.runAction = genAction('Run', self.doRun, Qt.Key_F5)
-        self.stopAction = genAction('Stop', self.doStop)
-        self.stepAction = genAction('Step', self.doStep, Qt.Key_F10)
+
+        self.runAction = genAction('Run', self.qdebugger.run, Qt.Key_F5)
+        self.stopAction = genAction('Stop', self.qdebugger.stop)
+        self.stepAction = genAction('Step', self.qdebugger.step, Qt.Key_F10)
         self.resetAction = genAction('Reset', self.doReset)
+
+        # Attach signals:
+        self.qdebugger.halted.connect(self.runAction.setEnabled)
+        self.qdebugger.halted.connect(self.stepAction.setEnabled)
+        self.qdebugger.started.connect(self.updateEnables)
+        self.qdebugger.stopped.connect(self.updateEnables)
         self.updateEnables()
 
     def updateEnables(self):
         self.resetAction.setEnabled(True)
-        running = self.debugger.is_running
-        self.runAction.setEnabled(not running)
-        self.stepAction.setEnabled(not running)
+        running = self.qdebugger.debugger.is_running
         self.stopAction.setEnabled(running)
 
-    def doRun(self):
-        self.debugger.run()
-        self.updateEnables()
-
-    def doStop(self):
-        self.debugger.stop()
-        self.updateEnables()
-
-    def doStep(self):
-        self.debugger.step()
-        self.updateEnables()
-
     def doReset(self):
-        self.debugger.restart()
+        self.qdebugger.debugger.restart()
         self.updateEnables()

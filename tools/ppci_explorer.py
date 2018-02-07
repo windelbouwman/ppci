@@ -15,6 +15,7 @@ Idea:
 # Idea: maybe this could be a ipython plugin?
 
 import io
+import logging
 
 from prompt_toolkit.interface import CommandLineInterface
 from prompt_toolkit.application import Application
@@ -32,23 +33,45 @@ from prompt_toolkit.layout.dimension import LayoutDimension as D
 from prompt_toolkit.layout.controls import FillControl, BufferControl
 from prompt_toolkit.layout.controls import TokenListControl
 from prompt_toolkit.layout.margins import NumberredMargin, ScrollbarMargin
+from prompt_toolkit.layout.processors import Processor, Transformation
 
 from ppci import __version__ as ppci_version
 from ppci import api
 from ppci.binutils.outstream import TextOutputStream
-from ppci.common import CompilerError
+from ppci.common import CompilerError, logformat
 
 
 def get_title_bar_tokens(cli):
     return [
-        (Token.Title, 'Welcome to the ppci explorer version {}'.format(ppci_version)),
+        (Token.Title,
+         'Welcome to the ppci explorer version {}'.format(ppci_version)),
     ]
 
 
 def get_help_tokens(cli):
-    return [
-        (Token.Toolbar.Status, 'F10=exit '),
-    ]
+    return [(Token.Toolbar.Status, 'F10=exit ')]
+
+
+class MyHandler(logging.Handler):
+    def __init__(self, buf):
+        super().__init__()
+        self._buf = buf
+
+    def emit(self, record):
+        txt = self.format(record)
+        self._buf.text = txt + '\n' + self._buf.text
+
+
+class DisplayErrorsProcessor(Processor):
+    def __init__(self):
+        self.errors = {}
+
+    def apply_transformation(self, cli, document, lineno, source_to_display, tokens):
+        tokens = list(tokens)
+        if lineno + 1 in self.errors:
+            tokens.append((Token.Title,
+                           '// {}'.format(self.errors[lineno + 1])))
+        return Transformation(tokens)
 
 
 def ppci_explorer():
@@ -60,15 +83,17 @@ def ppci_explorer():
         event.cli.set_return_value(None)
 
     src_lexer = PygmentsLexer(CLexer)
+    errors_processor = DisplayErrorsProcessor()
     layout = HSplit([
         Window(content=TokenListControl(get_title_bar_tokens, align_center=True), height=D.exact(1)),
         Window(content=FillControl('='), height=D.exact(1)),
         VSplit([
             Window(content=FillControl('|'), width=D.exact(1)),
-            Window(content=BufferControl('source', lexer=src_lexer), left_margins=[NumberredMargin()], right_margins=[ScrollbarMargin()], cursorline=True),
+            Window(content=BufferControl('source', lexer=src_lexer, input_processors=[errors_processor]), left_margins=[NumberredMargin()], right_margins=[ScrollbarMargin()], cursorline=True),
             Window(content=FillControl('|'), width=D.exact(1)),
             Window(content=BufferControl('output')),
             Window(content=FillControl('|', token=Token.Line), width=D.exact(1)),
+            Window(content=BufferControl('logs')),
         ]),
         Window(content=FillControl('='), height=D.exact(1)),
         Window(content=TokenListControl(get_help_tokens), height=D.exact(1)),
@@ -78,14 +103,18 @@ def ppci_explorer():
     buffers = {
         'source': Buffer(is_multiline=True),
         'output': Buffer(is_multiline=True),
+        'logs': Buffer(is_multiline=True),
     }
-    buffers['source'].text = """
-    int add(int a, int b) {
-      return a + b;
-    }
-    """
+
+    log_handler = MyHandler(buffers['logs'])
+    fmt = logging.Formatter(fmt=logformat)
+    log_handler.setFormatter(fmt)
+    log_handler.setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().addHandler(log_handler)
 
     def on_change(source_buffer):
+        errors_processor.errors.clear()
         try:
             f = io.StringIO(source_buffer.text)
             arch = 'arm'
@@ -94,8 +123,12 @@ def ppci_explorer():
             text_stream = TextOutputStream(f=f2)
             api.ir_to_stream(ir_module, arch, text_stream)
             buffers['output'].text = f2.getvalue()
-        except CompilerError:
-            pass
+        except CompilerError as ex:
+            if ex.loc:
+                errors_processor.errors[ex.loc.row] = ex.msg
+                buffers['output'].text = ''
+            else:
+                buffers['output'].text = str(ex)
 
     buffers['source'].on_text_changed += on_change
 
@@ -103,6 +136,12 @@ def ppci_explorer():
         layout=layout, buffers=buffers, style=style,
         key_bindings_registry=registry, use_alternate_screen=True,
         )
+
+    buffers['source'].text = """
+    int add(int a, int b) {
+      return a + b;
+    }
+    """
 
     loop = create_eventloop()
     cli = CommandLineInterface(application=application, eventloop=loop)
