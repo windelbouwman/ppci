@@ -8,6 +8,14 @@ X86 specific frame for functions.
 See also:
 http://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64
 
+Calling conventions
+
+- Passing a struct by value is done by placing the structure on the stack.
+
+- Returning a complex data type by value is done by implicitly setting the
+  first argument of the function to a memory address where the value should
+  be copied.
+
 """
 
 from ... import ir
@@ -89,7 +97,7 @@ class X86_64Arch(Architecture):
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 ir.i64: TypeInfo(8, 8), ir.u64: TypeInfo(8, 8),
-                'int': ir.i64, 'ptr': ir.u64
+                'int': ir.i64, 'ptr': ir.u64, ir.ptr: ir.u64,
             }, register_classes=register_classes)
 
         self.isa = isa + data_isa + sse1_isa + sse2_isa
@@ -122,10 +130,10 @@ class X86_64Arch(Architecture):
     def gen_memcpy(self, dst, src, count):
         """ Generate a memcpy action """
         # Destination pointer:
-        yield instructions.Lea(rdi, RmMemDisp(rbp, dst))
+        yield instructions.Lea(rdi, dst)
 
         # Source pointer:
-        yield instructions.Lea(rsi, RmMemDisp(rbp, src))
+        yield instructions.Lea(rsi, src)
 
         yield instructions.MovImm(rcx, count)     # Byte count
         yield instructions.Rep()
@@ -202,8 +210,9 @@ class X86_64Arch(Architecture):
                     reg = int_regs.pop(0)
                 else:
                     # We need stack location!
-                    reg = StackLocation(offset, arg_type.size)
-                    offset += arg_type.size
+                    arg_size = self.info.get_size(arg_type)
+                    reg = StackLocation(offset, arg_size)
+                    offset += arg_size
             elif arg_type in [ir.f32, ir.f64]:
                 reg = float_regs.pop(0)
             elif isinstance(arg_type, ir.BlobDataTyp):
@@ -217,7 +226,9 @@ class X86_64Arch(Architecture):
 
     def determine_rv_location(self, ret_type):
         """ return value in rax or xmm0 """
-        if ret_type in [ir.i8, ir.i64, ir.u8, ir.u64, ir.i32, ir.u32, ir.ptr]:
+        if ret_type in [
+                ir.i8, ir.i16, ir.i64, ir.u8, ir.u16, ir.u64,
+                ir.i32, ir.u32, ir.ptr]:
             rv = rax
         elif ret_type in [ir.f32, ir.f64]:
             rv = registers.xmm0
@@ -273,9 +284,11 @@ class X86_64Arch(Architecture):
     def gen_function_exit(self, rv):
         live_out = set()
         if rv:
-            retval_loc = self.determine_rv_location(rv[0])
-            yield self.move(retval_loc, rv[1])
-            live_out.add(retval_loc)
+            print(rv)
+            if rv[1]:
+                retval_loc = self.determine_rv_location(rv[0])
+                yield self.move(retval_loc, rv[1])
+                live_out.add(retval_loc)
         yield RegisterUseDef(uses=live_out)
 
     def gen_call(self, frame, label, args, rv):

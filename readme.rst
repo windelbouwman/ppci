@@ -17,6 +17,8 @@ The project contains the following:
 
     **This project is in alpha state and not ready for production use!**
 
+You can try out ppci at godbolt.org: https://godbolt.org/g/eooaPP
+
 Api
 ---
 

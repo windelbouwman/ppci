@@ -555,14 +555,13 @@ def pattern_const16(context, tree):
     return d
 
 
-@orbis32.pattern('reg', 'MOVI8(reg)', size=4, cycles=1, energy=1)
-@orbis32.pattern('reg', 'MOVU8(reg)', size=4, cycles=1, energy=1)
-@orbis32.pattern('reg', 'MOVI32(reg)', size=4, cycles=1, energy=1)
-@orbis32.pattern('reg', 'MOVU32(reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('stm', 'MOVI8(reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('stm', 'MOVU8(reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('stm', 'MOVI32(reg)', size=4, cycles=1, energy=1)
+@orbis32.pattern('stm', 'MOVU32(reg)', size=4, cycles=1, energy=1)
 def pattern_mov(context, tree, c0):
     dst = tree.value
     context.emit(mov(dst, c0))
-    return dst
 
 
 @orbis32.pattern('reg', 'REGI32', size=0, cycles=0, energy=0)

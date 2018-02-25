@@ -493,15 +493,15 @@ def pattern_cjmp(context, tree, lhs, rhs):
     context.emit(jmp_ins)
 
 
-@isa.pattern('reg', 'MOVI16(reg)', size=2, cycles=1, energy=1)
-@isa.pattern('reg', 'MOVU16(reg)', size=2, cycles=1, energy=1)
+@isa.pattern('stm', 'MOVI16(reg)', size=2, cycles=1, energy=1)
+@isa.pattern('stm', 'MOVU16(reg)', size=2, cycles=1, energy=1)
 def pattern_mov16(context, tree, c0):
     dst = tree.value
     context.emit(mov(c0, dst))
 
 
-@isa.pattern('reg', 'MOVI8(reg)', size=2)
-@isa.pattern('reg', 'MOVU8(reg)', size=2)
+@isa.pattern('stm', 'MOVI8(reg)', size=2)
+@isa.pattern('stm', 'MOVU8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     dst = tree.value
     context.emit(mov(c0, dst))

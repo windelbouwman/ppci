@@ -113,9 +113,25 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('strh r2, [r5, 100]')
         self.check('b426c5e1')
 
+    def test_ldrh(self):
+        self.feed('ldrh r5, [r3, #87]')
+        self.check('b755d3e1')
+
+    def test_ldrsh(self):
+        self.feed('ldrsh r5, [r3, #87]')
+        self.check('f755d3e1')
+
+    def test_ldrsh_register(self):
+        self.feed('ldrsh r5, [r3, r4]')
+        self.check('f45093e1')
+
     def test_ldrb(self):
-        self.feed('ldrb r5, [r3, 87]')
+        self.feed('ldrb r5, [r3, #87]')
         self.check('5750d3e5')
+
+    def test_ldrsb(self):
+        self.feed('ldrsb r5, [r3, #87]')
+        self.check('d755d3e1')
 
     def test_ldr_label(self):
         """ Test if loading from a label works """

@@ -179,3 +179,11 @@ class BuiltInVaArg(BuiltIn):
     def __init__(self, arg_pointer, typ, location):
         super().__init__(typ, False, location)
         self.arg_pointer = arg_pointer
+
+
+class BuiltInOffsetOf(BuiltIn):
+    """ Built-in function offsetof """
+    def __init__(self, typ, member, location):
+        super().__init__(typ, False, location)
+        self.arg_pointer = arg_pointer
+        self.member = member

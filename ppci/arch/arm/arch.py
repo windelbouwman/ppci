@@ -68,7 +68,7 @@ class ArmArch(Architecture):
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                'int': ir.i32, 'ptr': ir.u32,
+                'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
             },
             register_classes=register_classes)
 
@@ -350,7 +350,13 @@ class ArmArch(Architecture):
                 r = StackLocation(offset, arg_ty.size)
                 offset += arg_ty.size
             else:
-                r = regs.pop(0)
+                # Pass non-blob values in registers if possible:
+                if regs:
+                    r = regs.pop(0)
+                else:
+                    arg_size = self.info.get_size(arg_ty)
+                    r = StackLocation(offset, arg_size)
+                    offset += arg_size
             l.append(r)
         return l
 

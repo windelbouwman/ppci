@@ -953,6 +953,11 @@ class Alloc(LocalValue):
             self.ty, self.name, self.amount, self.alignment)
 
 
+class CopyBlob(Instruction):
+    def __str__(self):
+        return 'copyblob'
+
+
 class Variable(GlobalValue):
     """ Global variable, reserves room in the data area. Has name and size """
     def __init__(self, name, amount, alignment, value=None):
@@ -1010,9 +1015,9 @@ class Store(Instruction):
         if not isinstance(value, Value):
             raise TypeError('Expected a value, got {}'.format(value))
 
-        if not isinstance(value.ty, (BasicTyp, PointerTyp)):
-            raise ValueError(
-                'Can only store basic types, not {}'.format(value.ty))
+        #if not isinstance(value.ty, (BasicTyp, PointerTyp)):
+        #    raise ValueError(
+        #        'Can only store basic types, not {}'.format(value.ty))
 
         self.address = address
         self.value = value

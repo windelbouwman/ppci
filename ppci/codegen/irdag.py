@@ -9,9 +9,6 @@ A DAG represents the logic (computation) of a single basic block.
 To do selection with tree matching, the DAG is then splitted into a
 series of tree patterns. This is often referred to as a forest of trees.
 
-.. autoclass:: ppci.codegen.irdag.SelectionGraphBuilder
-    :members: build
-
 """
 
 import logging
@@ -58,8 +55,11 @@ def prepare_function_info(arch, function_info, ir_function):
         function_info.arg_vregs.append(vreg)
 
     if isinstance(ir_function, ir.Function):
-        function_info.rv_vreg = function_info.frame.new_reg(
-            arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
+        if ir_function.return_ty in arch.info.value_classes:
+            function_info.rv_vreg = function_info.frame.new_reg(
+                arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
+        else:
+            function_info.rv_vreg = None
 
 
 class FunctionInfo:
@@ -248,8 +248,13 @@ class SelectionGraphBuilder:
         """ Move result into result register and jump to epilog """
         res = self.get_value(node.result)
         vreg = self.function_info.rv_vreg
-        mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
-        self.chain(mov_node)
+        if vreg:
+            mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
+            self.chain(mov_node)
+        else:
+            mov_node = self.new_node('RETB', None, res, value=vreg)
+            self.chain(mov_node)
+            raise NotImplementedError('Pass pointer as first arg instead')
 
         # Jump to epilog:
         sgnode = self.new_node('JMP', None)
@@ -300,6 +305,9 @@ class SelectionGraphBuilder:
             dbg_var.address = FpOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
 
+    def do_copy_blob(self, node):
+        pass
+
     def get_address(self, ir_address):
         """ Determine address for load or store. """
         if isinstance(ir_address, ir.GlobalValue):
@@ -328,7 +336,11 @@ class SelectionGraphBuilder:
         """ Create a DAG node for the store operation """
         address = self.get_address(node.address)
         value = self.get_value(node.value)
-        sgnode = self.new_node('STR', node.value.ty, address, value)
+        if node.value.ty.is_blob:
+            size = node.value.ty.size
+            sgnode = self.new_node('MOVB', None, address, value, value=size)
+        else:
+            sgnode = self.new_node('STR', node.value.ty, address, value)
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
@@ -389,7 +401,6 @@ class SelectionGraphBuilder:
         for argument in node.arguments:
             arg_val = self.get_value(argument)
             if argument.ty.is_blob:
-                print(arg_val.node)
                 args.append((argument.ty, arg_val.node.value))
             else:
                 loc = self.new_vreg(argument.ty)

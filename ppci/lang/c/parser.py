@@ -52,7 +52,11 @@ class CParser(RecursiveDescentParser):
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
             'switch', 'case', 'default', 'break', 'continue',
             'sizeof', 'struct', 'union', 'enum',
-            '__builtin_va_arg', '__builtin_va_start'}
+            '__builtin_va_arg', '__builtin_va_start',
+            '__builtin_offsetof'}
+
+        # gcc extensions:
+        self.keywords.add('__attribute__')
 
         # Some additions from C99:
         if self.context.coptions['std'] == 'c99':
@@ -161,6 +165,7 @@ class CParser(RecursiveDescentParser):
         type_specifiers = []
         type_qualifiers = set()
         typ = None
+        attributes = []
 
         while True:
             if self.peak == 'TYPE-ID':
@@ -206,6 +211,9 @@ class CParser(RecursiveDescentParser):
                 self.consume('inline')
                 # inline is a compiler hint. For now, ignore this hint :)
                 self.logger.debug('Ignoring inline for now')
+            elif self.peak in ['__attribute__']:
+                attributes = self.parse_attributes()
+                self.logger.error('Ignoring %s', attributes)
             else:
                 break
 
@@ -304,6 +312,41 @@ class CParser(RecursiveDescentParser):
             self.semantics.exit_enum_values(ctyp, keyword.loc)
 
         return ctyp
+
+    def parse_attributes(self):
+        """ Parse some attributes.
+
+        Examples are:
+
+        __attribute__((noreturn))
+        """
+        attributes = []
+        while True:
+            if self.peak == '__attribute__':
+                attribute = self.parse_gnu_attribute()
+            else:
+                break
+            attributes.append(attribute)
+        return attributes
+
+    def parse_gnu_attribute(self):
+        """ Parse a gnu attribute like __attribute__((noreturn)) """
+        self.consume('__attribute__')
+        self.consume('(')
+        self.consume('(')
+        gnu_attribute = {}
+        if self.peak != ')':
+            while True:
+                name = self.consume('ID')
+                # TODO: how use this?
+                gnu_attribute[name.val] = 1
+                if self.has_consumed(','):
+                    continue
+                else:
+                    break
+        self.consume(')')
+        self.consume(')')
+        return gnu_attribute
 
     def parse_decl_group(self, ds):
         """ Parse the rest after the first declaration spec.
@@ -676,7 +719,13 @@ class CParser(RecursiveDescentParser):
         if self.peak == ';':
             initial = None
         else:
-            initial = self.parse_expression()
+            if self.is_declaration_statement():
+                ds = self.parse_decl_specifiers()
+                d = self.parse_declarator()
+                variable_declaration = self.parse_variable_declaration(ds, d)
+                initial = variable_declaration
+            else:
+                initial = self.parse_expression()
         self.consume(';')
 
         if self.peak == ';':
@@ -804,6 +853,14 @@ class CParser(RecursiveDescentParser):
             typ = self.parse_typename()
             self.consume(')')
             expr = self.semantics.on_builtin_va_arg(ap, typ, location)
+        elif self.peak == '__builtin_offsetof':
+            location = self.consume('__builtin_offsetof').loc
+            self.consume('(')
+            typ = self.parse_typename()
+            self.consume(',')
+            member = self.parse_identifier()
+            self.consume(')')
+            expr = self.semantics.on_builtin_offsetof(typ, member, location)
         elif self.peak == 'sizeof':
             location = self.consume('sizeof').loc
             if self.peak == '(':

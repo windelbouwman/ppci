@@ -725,20 +725,18 @@ def pattern_const8_imm(context, tree):
     return d
 
 
-@thumb_isa.pattern('reg', 'MOVU32(reg)', size=2)
-@thumb_isa.pattern('reg', 'MOVI32(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVU32(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVI32(reg)', size=2)
 def pattern_mov32(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
-    return reg
 
 
-@thumb_isa.pattern('reg', 'MOVI8(reg)', size=2)
-@thumb_isa.pattern('reg', 'MOVU8(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVI8(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVU8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
-    return reg
 
 
 @thumb_isa.pattern('stm', 'CJMPI32(reg,reg)', size=6)

@@ -187,30 +187,31 @@ class CSemantics:
                     'Cannot initialize array with non init list',
                     initializer.initializer.location)
         elif isinstance(typ, types.StructType):
-            if not isinstance(initializer, InitEnv):
-                self.error(
-                    'Cannot initialize struct with non init list',
-                    initializer.initializer.location)
-
             if not typ.complete:
                 self.error(
                     'Struct not fully defined!',
                     initializer.initializer.location)
 
-            # Grab all fields from the initializer list:
-            il = []
-            for field in typ.fields:
-                if initializer.at_end():
-                    # Implicit initialization:
-                    i = 0
-                elif initializer.at_list():
-                    # Enter new '{' part
-                    i = self._sub_init(field.typ, initializer.take())
-                else:
-                    i = self._sub_init(field.typ, initializer)
-                il.append(i)
-            result = expressions.InitializerList(
-                il, initializer.initializer.location)
+            if isinstance(initializer, InitEnv):
+                # Struct is initialized like '= { 1, 2, .. }'
+                # Grab all fields from the initializer list:
+                il = []
+                for field in typ.fields:
+                    if initializer.at_end():
+                        # Implicit initialization:
+                        i = 0
+                    elif initializer.at_list():
+                        # Enter new '{' part
+                        i = self._sub_init(field.typ, initializer.take())
+                    else:
+                        i = self._sub_init(field.typ, initializer)
+                    il.append(i)
+                result = expressions.InitializerList(
+                    il, initializer.initializer.location)
+            else:
+                # Struct is initialized with expression '= f();'
+                result = self.coerce(initializer, typ)
+
         elif isinstance(typ, types.UnionType):
             if not isinstance(initializer, InitEnv):
                 self.error(
@@ -692,6 +693,11 @@ class CSemantics:
         if not arg_pointer.lvalue:
             self.error('Expected lvalue', arg_pointer.location)
         return expressions.BuiltInVaArg(arg_pointer, typ, location)
+
+    def on_builtin_offsetof(self, typ, member, location):
+        """ Check offsetof builtin function """
+        # TODO: test if member is a member of the given type now?
+        return expressions.BuiltInOffsetOf(typ, member, location)
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """

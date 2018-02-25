@@ -9,7 +9,7 @@ from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u16, u64, bit_range, bit
 from .registers import X86Register, rcx, LowRegister, al, cl, rax, rdx, rbp
-from .registers import rsp, ShortRegister, ax
+from .registers import rsp, ShortRegister, ax, rdi
 
 isa = Isa()
 
@@ -1002,28 +1002,37 @@ def pattern_freea(context, tree):
 @isa.pattern('stm', 'MOVU8(reg8)', size=2)
 def pattern_mov8(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
 
 
 @isa.pattern('stm', 'MOVI16(reg16)', size=2)
 @isa.pattern('stm', 'MOVU16(reg16)', size=2)
 def pattern_mov16(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
 
 
 @isa.pattern('stm', 'MOVI32(reg32)', size=2)
 @isa.pattern('stm', 'MOVU32(reg32)', size=2)
 def pattern_mov_32(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
 
 
 @isa.pattern('stm', 'MOVI64(reg64)', size=2)
 @isa.pattern('stm', 'MOVU64(reg64)', size=2)
 def pattern_mov_64(context, tree, c0):
     context.move(tree.value, c0)
-    return tree.value
+
+
+@isa.pattern('stm', 'RETB(FPRELU64)', size=22)
+def pattern_retb(context, tree):
+    """ Return piece of stack out of function.
+
+    In case of x86, rdi points to a location where that data can be stored.
+    """
+    stack_slot = tree[0].value
+    offset = stack_slot.offset
+    size = stack_slot.size
+    for instruction in context.arch.gen_memcpy(RmMem(rdi), RmMemDisp(rbp, offset), size):
+        context.emit(instruction)
 
 
 # Memory operations

@@ -9,8 +9,8 @@ filename = os.path.join(
 
 # cc([filename, '-S', '-v', '-m', 'riscv'])
 # march = 'riscv'
-march = 'arm'
-# march = 'x86_64'
+# march = 'arm'
+march = 'x86_64'
 # march = 'msp430'
 cc([
     filename, '-S', '-v',

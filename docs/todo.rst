@@ -8,28 +8,42 @@ Below is a list of features / tasks that need to be done.
 
   - Add support for local variables.
 
-- Create a better/fancier logo
+- Misc
 
-- Implement the disassembler further.
+  - Create a better/fancier logo
 
-- Implement Mac OSX support and add a mac 64-bit example project.
+  - Improve the fuzzer tool that can generate random source code to stress
+    the compiler.
 
-- Add Windows support and add a windows 64-bit example project.
+- Binary utils
 
-- Improve the fuzzer tool that can generate random source code to stress
-  the compiler.
+  - Implement the disassembler further.
 
-- Complete the fortran frontend. The ppci.lang.fortran module contains a start.
+  - Implement Mac OSX support and add a mac 64-bit example project.
 
-- Complete the C frontend, The ppci.lang.c module contains an attempt.
+  - Add Windows support and add a windows 64-bit example project.
 
-- Complete the pascal frontend.
+- Languages
 
-- Add a peephole optimizer.
+  - Complete the fortran frontend. The ppci.lang.fortran module contains a
+    start.
 
-- Complete the front-end for LLVM IR-code, this way, the front-end of LLVM
-  can be used and the backend of ppci.
+  - Complete the C frontend, The ppci.lang.c module contains an attempt.
 
-- Add a backend for LLVM IR-code.
+  - Complete the pascal frontend.
+
+  - Complete the front-end for LLVM IR-code, this way, the front-end of LLVM
+    can be used and the backend of ppci.
+
+  - Add a backend for LLVM IR-code.
+
+  - Investigate regular expression derivatives as described here:
+    https://github.com/MichaelPaddon/epsilon
+
+- Optimizations
+
+  - Add a peephole optimizer.
+
+  - Investigate polyhedral optimization
 
 - Add better support for harvard architecture cpu's like avr, 8051 and PIC.

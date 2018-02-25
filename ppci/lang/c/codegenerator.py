@@ -112,7 +112,11 @@ class CCodeGenerator:
                 ivalue = None
             size = self.context.sizeof(var_decl.typ)
             alignment = self.context.alignment(var_decl.typ)
-            ir_var = ir.Variable(var_decl.name, size, alignment, value=ivalue)
+            if var_decl.storage_class == 'static':
+                name = '__static' + var_decl.name
+            else:
+                name = var_decl.name
+            ir_var = ir.Variable(name, size, alignment, value=ivalue)
             self.builder.module.add_variable(ir_var)
             self.ir_var_map[var_decl] = ir_var
 
@@ -158,6 +162,13 @@ class CCodeGenerator:
         # Create ir function:
         if function.typ.return_type.is_void:
             ir_function = self.builder.new_procedure(function.name)
+        elif function.typ.return_type.is_struct:
+            # Pass implicit first argument to function when complex type
+            # is returned.
+            ir_function = self.builder.new_procedure(function.name)
+            self.return_value_address = ir.Parameter(
+                'return_value_address', ir.ptr)
+            ir_function.add_parameter(self.return_value_address)
         else:
             return_type = self.get_ir_type(function.typ.return_type)
             ir_function = self.builder.new_function(function.name, return_type)
@@ -282,7 +293,10 @@ class CCodeGenerator:
         """ Generate code for a declaration statement """
         declaration = statement.declaration
         if isinstance(declaration, declarations.VariableDeclaration):
-            self.gen_local_variable(declaration)
+            if declaration.storage_class == 'static':
+                self.gen_global_variable(declaration)
+            else:
+                self.gen_local_variable(declaration)
         else:
             raise NotImplementedError(str(declaration))
 
@@ -478,8 +492,17 @@ class CCodeGenerator:
     def gen_return(self, stmt: statements.Return) -> None:
         """ Generate return statement code """
         if stmt.value:
-            value = self.gen_expr(stmt.value, rvalue=True)
-            self.emit(ir.Return(value))
+            if stmt.value.typ.is_struct:
+                # Complex types are copied to pointer passed as
+                # first argument.
+                value = self.gen_expr(stmt.value, rvalue=True)
+                self.emit(ir.Store(value, self.return_value_address))
+                # self.emit(ir.CopyBlob(self.return_value_address))
+                self.emit(ir.Exit())
+            else:
+                # Simple types are returned via ir-value.
+                value = self.gen_expr(stmt.value, rvalue=True)
+                self.emit(ir.Return(value))
         else:
             self.emit(ir.Exit())
         new_block = self.builder.new_block()
@@ -554,16 +577,23 @@ class CCodeGenerator:
                 ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
                 inc += inc2
         elif isinstance(typ, types.StructType):
-            offset = 0
-            for field, iv in zip(typ.fields, expr.elements):
-                if offset < field.offset:
-                    inc3 = field.offset - offset
-                    padding = self.emit(ir.Const(inc3, 'padding', ir.ptr))
-                    ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
-                    offset += inc3
-                ptr, inc2 = self.gen_local_init(ptr, field.typ, iv)
-                offset += inc2
-            inc = offset
+            if isinstance(expr, expressions.InitializerList):
+                # Initializing with list
+                offset = 0
+                for field, iv in zip(typ.fields, expr.elements):
+                    if offset < field.offset:
+                        inc3 = field.offset - offset
+                        padding = self.emit(ir.Const(inc3, 'padding', ir.ptr))
+                        ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
+                        offset += inc3
+                    ptr, inc2 = self.gen_local_init(ptr, field.typ, iv)
+                    offset += inc2
+                inc = offset
+            else:
+                # Store result of function!
+                value = self.gen_expr(expr, rvalue=True)
+                self.emit(ir.Store(value, ptr))
+                inc = value.ty.size
         elif isinstance(typ, types.UnionType):
             # Initialize the first field!
             field = typ.fields[0]
@@ -879,6 +909,16 @@ class CCodeGenerator:
 
         # Evaluate arguments:
         ir_arguments = []
+
+        # If return value is complex, reserve room for it an pass pointer
+        if ftyp.return_type.is_struct:
+            size = self.context.sizeof(ftyp.return_type)
+            alignment = self.context.alignment(ftyp.return_type)
+            rval_alloc = self.emit(ir.Alloc('rval_alloc', size, alignment))
+            rval_ptr = self.emit(ir.AddressOf(rval_alloc, 'rval_ptr'))
+            ir_arguments.append(rval_ptr)
+
+        # Place other arguments:
         for argument in fixed_args:
             value = self.gen_expr(argument, rvalue=True)
             ir_arguments.append(value)
@@ -934,6 +974,9 @@ class CCodeGenerator:
             if ftyp.return_type.is_void:
                 self.emit(ir.ProcedureCall(name, ir_arguments))
                 value = None
+            elif ftyp.return_type.is_struct:
+                self.emit(ir.ProcedureCall(name, ir_arguments))
+                value = rval_alloc
             else:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.FunctionCall(
@@ -944,6 +987,9 @@ class CCodeGenerator:
             if ftyp.return_type.is_void:
                 self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
                 value = None
+            elif ftyp.return_type.is_struct:
+                self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
+                value = rval_alloc
             else:
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.FunctionPointerCall(

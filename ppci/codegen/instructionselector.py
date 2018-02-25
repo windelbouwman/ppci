@@ -84,7 +84,7 @@ ops = [
 
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
-             'MOVB', 'BLOB',
+             'MOVB', 'BLOB', 'RETB',  # Attempts at blob data copies
              "JMP",
              "EXIT", "ENTRY",
              'ALLOCA', 'FREEA')
@@ -223,15 +223,6 @@ class InstructionSelector1:
         # Generate burm table of rules:
         self.sys = BurgSystem()
 
-        # Allow register results as root rule:
-        # by adding a chain rule 'stm -> reg'
-        # TODO: chain rules or register classes as root?
-        self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
-        self.sys.add_rule(
-            'stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
-        self.sys.add_rule(
-            'stm', Tree('reg16'), 0, None, lambda ct, tr, rg: None)
-
         for terminal in terminals:
             self.sys.add_terminal(terminal)
 
@@ -295,6 +286,7 @@ class InstructionSelector1:
             rv = (ir_function.return_ty, function_info.rv_vreg)
         else:
             rv = None
+
         for instruction in self.arch.gen_function_exit(rv):
             context.emit(instruction)
 

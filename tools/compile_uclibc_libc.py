@@ -1,5 +1,5 @@
 
-""" Helper script to help in compilation of the newlib libc.
+""" Helper script to compile uClibc.
 
 """
 
@@ -13,16 +13,15 @@ from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 
 home = os.environ['HOME']
-newlib_folder = os.path.join(home, 'GIT', 'newlib-cygwin', 'newlib')
-cache_filename = os.path.join(newlib_folder, 'ppci_build.cache')
 this_dir = os.path.abspath(os.path.dirname(__file__))
+uclibc_folder = os.path.join(home, 'GIT', 'uClibc')
 libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
-arch = 'msp430'
+arch = 'arm'
 
 
 def do_compile(filename):
     include_paths = [
-        os.path.join(newlib_folder, 'libc', 'include'),
+        os.path.join(uclibc_folder, 'include'),
         libc_includes,
         ]
     coptions = COptions()
@@ -36,13 +35,10 @@ def do_compile(filename):
 
 def main():
     t1 = time.time()
-    print('Using newlib folder:', newlib_folder)
-    crypt_md5_c = os.path.join(newlib_folder, 'src', 'crypt', 'crypt_md5.c')
+    print('Using uclibc folder:', uclibc_folder)
     failed = 0
     passed = 0
-    # file_pattern = os.path.join(newlib_folder, 'src', 'crypt', '*.c')
-    # file_pattern = os.path.join(newlib_folder, 'src', 'string', '*.c')
-    file_pattern = os.path.join(newlib_folder, 'libc', 'string', '*.c')
+    file_pattern = os.path.join(uclibc_folder, 'libc', 'string', '*.c')
     for filename in glob.iglob(file_pattern):
         print('==> Compiling', filename)
         try:
