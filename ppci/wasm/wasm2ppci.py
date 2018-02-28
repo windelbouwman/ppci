@@ -2,19 +2,19 @@
 
 import logging
 import struct
-from ... import ir
-from ... import irutils
-from ... import common
-from ...binutils import debuginfo
+from .. import ir
+from .. import irutils
+from .. import common
+from ..binutils import debuginfo
 from . import components
-from ._opcodes import STORE_OPS, LOAD_OPS
+from .opcodes import STORE_OPS, LOAD_OPS
 
 
 def wasm_to_ir(wasm_module: components.Module) -> ir.Module:
     """ Convert a WASM module into a PPCI native module.
 
     Args:
-        wasm_module (ppci.irs.wasm.Module): The wasm-module to compile
+        wasm_module (ppci.wasm.Module): The wasm-module to compile
 
     Returns:
         An IR-module.
@@ -39,68 +39,58 @@ class WasmToIrCompiler:
 
         # First read all sections:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
-        self.wasm_types = []
-        self.globalz = []
-        function_sigs = []
-        function_defs = []
+        self.wasm_types = {}  # id -> wasm.Type (signature)
+        self.globalz = {}  # id -> (type, ir.Variable)
         functions = []
         self.function_space = []
-        self.function_names = {}
-        for section in wasm_module:
-            if isinstance(section, components.TypeSection):
-                self.wasm_types.extend(section.functionsigs)
-            elif isinstance(section, components.ImportSection):
-                for im in section.imports:
-                    name = im.fieldname
-                    if im.kind == 'func':
-                        sig = self.wasm_types[im.type_id]
-                        self.function_names[len(self.function_space)] = name
-                        self.function_space.append(sig)
-                    else:
-                        raise NotImplementedError(im.kind)
-            elif isinstance(section, components.ExportSection):
-                for x in section.exports:
-                    if x.kind == 'func':
-                        # print(x.index)
-                        # f = self.function_space[x.index]
-                        # f = x.name, f[1]
-                        self.function_names[x.index] = x.name
-                    else:
-                        pass
-                        # raise NotImplementedError(x.kind)
-            elif isinstance(section, components.CodeSection):
-                function_defs.extend(section.functiondefs)
-                assert len(function_sigs) == len(function_defs)
-                for sig_index, wasm_function in zip(
-                        function_sigs, function_defs):
-                    signature = self.wasm_types[sig_index]
-                    index = len(self.function_space)
-                    self.function_space.append(signature)
-                    if index in self.function_names:
-                        name = self.function_names[index]
-                    else:
-                        name = 'unnamed{}'.format(index)
-                        self.function_names[index] = name
-                    functions.append((name, signature, wasm_function))
-            elif isinstance(section, components.GlobalSection):
-                for i, g in enumerate(section.globalz):
-                    ir_typ = self.get_ir_type(g.typ)
-                    fmts = {
-                        ir.i32: '<i', ir.i64: '<q',
-                        ir.f32: 'f', ir.f64: 'd',
-                    }
-                    fmt = fmts[ir_typ]
-                    size = struct.calcsize(fmt)
-                    value = struct.pack(fmt, g.value)
-                    g2 = ir.Variable(
-                        'global{}'.format(i), size, size, value=value)
-                    self.globalz.append((ir_typ, g2))
-            elif isinstance(section, components.DataSection):
-                pass
-            elif isinstance(section, components.FunctionSection):
-                function_sigs.extend(section.indices)
+        self.function_names = {}  # Try to have a nice name
+        for definition in wasm_module:
+            if isinstance(definition, components.Type):
+                self.wasm_types[definition.id] = definition
+            elif isinstance(definition, components.Import):
+                name = definition.name
+                if definition.kind == 'func':
+                    sig = self.wasm_types[definition.info[0]]
+                    self.function_names[len(self.function_space)] = name
+                    self.function_space.append(sig)
+                else:
+                    raise NotImplementedError(definition.kind)
+            elif isinstance(definition, components.Export):
+                if definition.kind == 'func':
+                    # print(x.index)
+                    # f = self.function_space[x.index]
+                    # f = x.name, f[1]
+                    self.function_names[definition.ref] = definition.name
+                else:
+                    pass
+                    # raise NotImplementedError(x.kind)
+            elif isinstance(definition, components.Func):
+                signature = self.wasm_types[definition.ref]
+                index = len(self.function_space)
+                self.function_space.append(signature)
+                # Set name of function. If we have a string id prefer that,
+                # otherwise we may have a name from import/export, otherwise use index
+                if isinstance(definition.id, str):
+                    self.function_names[index] = definition.id.lstrip('$')
+                elif not index in self.function_names:
+                    self.function_names[index] = 'unnamed{}'.format(index)
+                name = self.function_names[index]
+                functions.append((name, signature, definition))
+            elif isinstance(definition, components.Global):
+                ir_typ = self.get_ir_type(definition.typ)
+                fmts = {
+                    ir.i32: '<i', ir.i64: '<q',
+                    ir.f32: 'f', ir.f64: 'd',
+                }
+                fmt = fmts[ir_typ]
+                size = struct.calcsize(fmt)
+                value = struct.pack(fmt, definition.init.args[0])  # assume init is (f64.const xx)
+                g2 = ir.Variable(
+                    'global{}'.format(definition.id), size, size, value=value)
+                self.globalz[definition.id] = (ir_typ, g2)
             else:
-                self.logger.error('Section %s not handled', section)
+                # todo: Table, Element, Memory, Data
+                self.logger.error('Definition %s not implemented', definition.__name__)
 
         # Create module:
         self.debug_db = debuginfo.DebugDb()
@@ -138,16 +128,16 @@ class WasmToIrCompiler:
     def generate_function(self, name, signature, wasm_function):
         """ Generate code for a single function """
         self.logger.debug(
-            'Generating wasm function %s %s', name, signature.to_text())
+            'Generating wasm function %s %s', name, signature.to_string())
         self.stack = []
         self.block_stack = []
 
-        if signature.returns:
-            if len(signature.returns) != 1:
+        if signature.result:
+            if len(signature.result) != 1:
                 raise ValueError(
                     'Cannot handle {} return values'.format(
-                        len(signature.returns)))
-            ret_type = self.get_ir_type(signature.returns[0])
+                        len(signature.result)))
+            ret_type = self.get_ir_type(signature.result[0])
             ppci_function = self.builder.new_function(name, ret_type)
         else:
             ppci_function = self.builder.new_procedure(name)
@@ -164,10 +154,10 @@ class WasmToIrCompiler:
         self.builder.set_block(entryblock)
         ppci_function.entry = entryblock
 
-        self.locals = []
+        self.locals = []  # todo: ak: why store on self?
         # First locals are the function arguments:
         for i, a_typ in enumerate(signature.params):
-            ir_typ = self.get_ir_type(a_typ)
+            ir_typ = self.get_ir_type(a_typ[1])
             ir_arg = ir.Parameter('param{}'.format(i), ir_typ)
             ppci_function.add_parameter(ir_arg)
             size = ir_typ.size
@@ -180,7 +170,9 @@ class WasmToIrCompiler:
 
         # Next are the rest of the locals:
         for i, local in enumerate(wasm_function.locals, len(self.locals)):
-            ir_typ = self.get_ir_type(local)
+            local_id, local_typ = local
+            local_id = i if local_id is None else local_id
+            ir_typ = self.get_ir_type(local_typ)
             size = ir_typ.size
             alignment = size
             alloc = self.emit(ir.Alloc('alloc{}'.format(i), size, alignment))
@@ -190,7 +182,7 @@ class WasmToIrCompiler:
         num = len(wasm_function.instructions)
         for nr, instruction in enumerate(wasm_function.instructions, start=1):
             if self.verbose:
-                self.logger.debug('%s/%s %s', nr, num, instruction.to_text())
+                self.logger.debug('%s/%s %s', nr, num, instruction.to_string())
             self.generate_instruction(instruction)
 
         # Add terminating instruction if block is non empty:
@@ -516,9 +508,9 @@ class WasmToIrCompiler:
         for arg_type in sig.params:
             args.append(self.pop_value())
 
-        if sig.returns:
-            assert len(sig.returns) == 1
-            ir_typ = self.get_ir_type(sig.returns[0])
+        if sig.result:
+            assert len(sig.result) == 1
+            ir_typ = self.get_ir_type(sig.result[0])
             value = self.emit(ir.FunctionCall(name, args, 'call', ir_typ))
             self.stack.append(value)
         else:
@@ -536,9 +528,9 @@ class WasmToIrCompiler:
         for arg_type in signature.params:
             args.append(self.pop_value())
 
-        if signature.returns:
-            assert len(signature.returns) == 1
-            ir_typ = self.get_ir_type(signature.returns[0])
+        if signature.result:
+            assert len(signature.result) == 1
+            ir_typ = self.get_ir_type(signature.result[0])
             value = self.emit(
                 ir.FunctionPointerCall(func_ptr, args, 'call', ir_typ))
             self.stack.append(value)

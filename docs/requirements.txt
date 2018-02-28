@@ -1,4 +1,3 @@
 sphinx
 sphinxcontrib-autoprogram
-sphinxcontrib-spelling
 pylint

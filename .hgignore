@@ -22,6 +22,7 @@ docs/examples.zip
 examples/linux64/hello/hello
 examples/linux64/snake/snake
 examples/toydsl/dslenv
+.pytest_cache/
 test/.coverage
 test/listings
 test/FORTRAN

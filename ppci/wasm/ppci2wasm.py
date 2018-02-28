@@ -13,16 +13,14 @@ The compilation strategy is hence as follows:
 """
 
 import logging
-from ... import ir, relooper
+from .. import ir, relooper
 from . import components
-from .highlevel import WasmModuleBuilder
-from ...codegen.irdag import SelectionGraphBuilder, prepare_function_info
-from ...codegen.irdag import FunctionInfo
-from ...codegen.dagsplit import DagSplitter
-from ...binutils import debuginfo
+from ..codegen.irdag import SelectionGraphBuilder, prepare_function_info
+from ..codegen.irdag import FunctionInfo
+from ..codegen.dagsplit import DagSplitter
+from ..binutils import debuginfo
 from .arch import WasmArchitecture
 from .arch import I32Register, I64Register, F32Register, F64Register
-
 
 def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
     """ Compiles ir-code to a wasm module.
@@ -53,28 +51,32 @@ class IrToWasmCompiler:
         self.reporter = reporter
 
     def prepare_compilation(self):
-        self.builder = WasmModuleBuilder()
+        self.wasm_module = components.Module()
+        self.type_ids = {}  # Track signatures for re-use
         self.initial_memory = []
         self.tables = []  # Tables with function pointers
         self.global_vars = []
         self.global_labels = {}
         self.global_memory = self.STACKSIZE  # fill up global memory on the go!
-        self.pointed_functions = []  # List of referenced
-
+        self.pointed_functions = []  # List of referenced funcs
+        
+        # Global variables:
+        # Keep track of virtual stack pointer:
+        self.wasm_module.add_definition(
+            components.Global(0, 'i32', True, components.Instruction('i32.const', self.STACKSIZE)))
+        self.global_labels['global0'] = 0  # todo: is this correct?
+    
     def compile(self, ir_module):
         """ Compile an ir-module into a wasm module """
         self.logger.debug('Generating wasm for %s', ir_module)
 
-        # Global variables:
-        # Keep track of virtual stack pointer:
-        self.global_vars.append(
-            components.Global('i32', 'mut', self.STACKSIZE))
+        functions_to_do = []
 
         # Check external thingies:
-        for ir_external in ir_module.externals:
+        for i, ir_external in enumerate(ir_module.externals):
             # TODO: signature:
             if isinstance(ir_external, ir.ExternalSubRoutine):
-                if self.builder.has_function(ir_external.name):
+                if self.has_function(ir_external.name):
                     pass
                     # raise ValueError(
                     # 'Function {} already defined'.format(ir_external.name))
@@ -84,9 +86,10 @@ class IrToWasmCompiler:
                         ret_types = (ir_external.return_type,)
                     else:
                         ret_types = ()
-                    typ_id = self.get_type_id(arg_types, ret_types)
-                    self.builder.add_import(
-                        'js', ir_external.name, 'func', typ_id)
+                    typ_id = self.get_type_id(arg_types, ret_types)  # todo: wasm can now also have str ids!
+                    import_id = '$' + ir_external.name  # i
+                    self.wasm_module.add_definition(
+                        components.Import('js', ir_external.name, 'func', import_id, (typ_id, )))
 
         # Global variables:
         for ir_variable in ir_module.variables:
@@ -99,7 +102,7 @@ class IrToWasmCompiler:
 
         # Register function numbers (for mutual recursive functions):
         for ir_function in ir_module.functions:
-            if self.builder.has_function(ir_function.name):
+            if self.has_function(ir_function.name):
                 raise ValueError(
                     'Function {} already defined'.format(ir_function.name))
             else:
@@ -112,47 +115,72 @@ class IrToWasmCompiler:
 
                 type_id = self.get_type_id(arg_types, ret_types)
 
-                # TODO: not all functions should be exported:
-                self.builder.declare_function(
-                    ir_function.name, type_id, export=True)
+                # init func object, locals and instructions are attached later
+                wasm_func = components.Func('$' + ir_function.name, type_id, [], [])
+                functions_to_do.append((ir_function, wasm_func))
+                self.wasm_module.add_definition(wasm_func)
 
         # Functions:
-        for ir_function in ir_module.functions:
-            self.do_function(ir_function)
+        for ir_function, wasm_func in functions_to_do:
+            self.do_function(ir_function, wasm_func)
+            # Export all functions for now
+            # todo: only export subset?
+            self.wasm_module.add_definition(
+                components.Export(ir_function.name, 'func', '$' + ir_function.name))
+
 
     def create_wasm_module(self):
         """ Finalize the wasm module and return it """
-        sections = [
-            components.GlobalSection(self.global_vars),
-            components.MemorySection([10]),  # Start with 10 pages?
-            components.DataSection(self.initial_memory),
-            components.TypeSection(self.builder.types),
-            components.ImportSection(self.builder.imports),
-            components.FunctionSection(self.builder.functions),
-            components.ExportSection(self.builder.exports),
-            components.CodeSection(self.builder.function_defs),
-        ]
+
+        self.wasm_module.add_definition(
+            components.Memory(0, 10, None))  # Start with 10 pages?
+        for memid, addr, data in self.initial_memory:
+            self.wasm_module.add_definition(
+                components.Data(memid,
+                                components.Instruction('i32.const', addr),
+                                data))
 
         if self.pointed_functions:
             indexes = self.pointed_functions
-            tables = [components.Table(minimum=len(indexes))]
-            elements = [components.Element(0, 0, indexes)]
-            sections.append(components.TableSection(tables))
-            sections.append(components.ElementSection(elements))
+            self.wasm_module.add_definition(
+                components.Table(0, 'anyfunc', len(indexes), None))
+            self.wasm_module.add_definition(
+                components.Elem(0, components.Instruction('i32.const', 0), indexes))
 
-        module = components.Module(sections)
+        module = self.wasm_module
         if self.reporter:
-            self.reporter.dump_raw_text(module.to_text())
+            self.reporter.dump_raw_text(module.to_string())
         return module
 
     def get_type_id(self, arg_types, ret_types):
-        """ Get wasm type id and create a signature if required! """
-        # Get type signature!
+        """ Get wasm type id and create a signature if required. """
+        # Get type signature
         arg_types = tuple(self.get_ty(t) for t in arg_types)
         ret_types = tuple(self.get_ty(t) for t in ret_types)
-        return self.builder.get_type_id(arg_types, ret_types)
+        # Add to module if not already present
+        key = arg_types, ret_types
+        if key not in self.type_ids:
+            id = len(self.type_ids)
+            self.type_ids[key] = id
+            self.wasm_module.add_definition(
+                components.Type(id, [(i, a) for i, a in enumerate(arg_types)], ret_types))
+        # Query the id for this sig
+        return self.type_ids[key]
 
-    def do_function(self, ir_function):
+    def has_function(self, function_name):
+        """ Get whether we already created an imported or defined
+        function with the given name.
+        """
+        for d in self.wasm_module:
+            if isinstance(d, components.Import):
+                if d.kind == 'func' and d.id.lstrip('$') == function_name:
+                    return True
+            elif isinstance(d, components.Func):
+                if d.id.lstrip('$') == function_name:
+                    return True
+        return False
+
+    def do_function(self, ir_function, wasm_func):
         """ Generate WASM for a single function """
         function_name = ir_function.name
         self.instructions = []
@@ -204,7 +232,9 @@ class IrToWasmCompiler:
                 ret_type = self.get_ty(ir_function.return_ty)
                 self.emit((ret_type + '.const', 0))
 
-        self.builder.define_function(self.local_vars, self.instructions)
+        # Add locals and instructions to the wasm funcion object
+        wasm_func.locals = [(None, x) for x in self.local_vars]
+        wasm_func.instructions = self.instructions
 
     def increment_stack_pointer(self):
         """ Allocate stack if needed """
@@ -446,9 +476,9 @@ class IrToWasmCompiler:
         elif tree.name == 'LABEL':  # isinstance(tree, ir.LiteralData):
             if tree.value in self.global_labels:
                 addr = self.global_labels[tree.value]
-            elif self.builder.has_function(tree.value):
+            elif self.has_function(tree.value):
                 # Taking pointer of function
-                func_id = self.builder.get_function_id(tree.value)
+                func_id = '$' + tree.value
                 addr = len(self.pointed_functions)
                 self.global_labels[tree.value] = addr
                 self.pointed_functions.append(func_id)
@@ -469,7 +499,7 @@ class IrToWasmCompiler:
                 self.emit(('get_local', self.get_value(argument)))
 
             if isinstance(function_name, str):
-                func_id = self.builder.get_function_id(function_name)
+                func_id = '$' + function_name
                 self.emit(('call', func_id))
             else:
                 # Handle function pointers:
@@ -537,8 +567,8 @@ class IrToWasmCompiler:
 
     def emit(self, instruction):
         """ Emit a single wasm instruction """
-        instruction = components.Instruction(instruction[0], instruction[1:])
-        # print(instruction.to_text())  # , instruction.to_bytes())
+        instruction = components.Instruction(*instruction)
+        # print(instruction.to_string())  # , instruction.to_bytes())
         self.instructions.append(instruction)
 
     def push_block(self, kind):

@@ -33,11 +33,12 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
-    'sphinxcontrib.spelling',
     'zipexamples',
-    'uml',
     'gen_programs',
 ]
+if not sys.platform.startswith('win'):
+    extensions.extend(['uml',  # pyreverse crashes
+                       ])
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -60,7 +61,11 @@ copyright = '2018, Windel Bouwman'
 # built documents.
 #
 # The short X.Y version.
-version = pkg_resources.get_distribution('ppci').version
+try:
+    version = pkg_resources.get_distribution('ppci').version
+except Exception:
+    import ppci
+    version = ppci.__version__
 # The full version, including alpha/beta/rc tags.
 release = version
 

@@ -20,7 +20,7 @@ from .lang.llvmir import LlvmIrFrontend
 from .lang.pascal import PascalBuilder
 from .lang.ws import WhitespaceGenerator
 from .lang.python import python_to_ir, ir_to_python
-from .irs.wasm import wasm_to_ir, read_wasm
+from .wasm import wasm_to_ir, read_wasm
 from .irutils import verify_module
 from .utils.reporting import DummyReportGenerator, HtmlReportGenerator
 from .opt.transform import DeleteUnusedInstructionsPass

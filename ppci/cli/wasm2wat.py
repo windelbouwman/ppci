@@ -6,7 +6,7 @@
 import argparse
 import sys
 from .base import base_parser, LogSetup
-from ..irs.wasm import read_wasm, wasm_to_wat
+from ..wasm import read_wasm
 
 
 parser = argparse.ArgumentParser(
@@ -26,7 +26,7 @@ def wasm2wat(args=None):
     args = parser.parse_args(args)
     with LogSetup(args):
         wasm_module = read_wasm(args.wasm)
-        wasm_to_wat(wasm_module, args.output)
+        args.output.write(wasm_module.to_string())
         args.output.close()
 
 

@@ -19,7 +19,7 @@ import logging
 import time
 from ppci.lang.c import COptions
 from ppci.api import c_to_ir, get_arch, optimize, c3toir
-from ppci.irs.wasm import ir_to_wasm
+from ppci.wasm import ir_to_wasm
 
 logging.basicConfig(level=logging.DEBUG)
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -161,6 +161,7 @@ with open(html_filename, 'w') as f:
           var module = new WebAssembly.Module(wasm_data);
           var inst = new WebAssembly.Instance(module, {{js: providedfuncs{0}}});
           inst.exports.main_main();
+          console.log('calling' + {0});
         }}
         </script>""".format(nr, wasm_text), file=f)
         fns.append('compile_wasm{}'.format(nr))

@@ -3,7 +3,7 @@ import os
 import unittest
 
 from ppci import api, ir
-from ppci.irs.wasm import wasm_to_ir, ir_to_wasm, read_wasm
+from ppci.wasm import wasm_to_ir, ir_to_wasm, read_wasm
 from ppci.lang.python import python_to_wasm
 from ppci.utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ppci.utils.leb128 import signed_leb128_decode, unsigned_leb128_decode
@@ -74,7 +74,7 @@ class WasmLoadAndSaveTestCase(unittest.TestCase):
     def test_load_save(self):
         """ Load program.wasm from disk and save it again. """
         program_filename = os.path.join(
-            THIS_DIR, '..', 'examples', 'wasm', 'program.wasm')
+            THIS_DIR, '..', 'examples', 'program.wasm')
         with open(program_filename, 'rb') as f:
             wasm_module = read_wasm(f)
 

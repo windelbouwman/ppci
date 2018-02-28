@@ -42,7 +42,7 @@ return i
 debug_db = debuginfo.DebugDb()
 
 # Create X86Code instance, specifying all steps
-native1 = PythonProgram(py3).to_wasm().to_ir().to_x86(win=True)
+native1 = PythonProgram(py3, debugdb=debug_db).to_wasm().to_ir().to_x86(win=True)
 
 # native_arm = native1.previous().to_arm()
 

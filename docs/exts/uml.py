@@ -4,6 +4,8 @@ import os
 from sphinx.util.compat import Directive
 from sphinx.ext.graphviz import graphviz
 
+import pylint  # ensure that pyreverse is available
+
 __version__ = '0.1'
 
 

@@ -2,12 +2,12 @@
 Utils for working with WASM and binary data.
 """
 
+import io
 import logging
 import os
 import tempfile
+import struct
 import subprocess
-
-from .components import Module
 
 
 __all__ = ['hexdump', 'export_wasm_example',
@@ -27,20 +27,60 @@ def inspect_bytes_at(bb, offset):
 
 
 def hexdump(bb):
-    """ Do a hexdump of the given bytes.
+    """ Return a string hexdump of the given bytes.
     """
     i = 0
-    line = 0
+    lines = []
     while i < len(bb):
         ints = [hex(j)[2:].rjust(2, '0') for j in bb[i:i+16]]
-        print(str(line).rjust(8, '0'), *ints, sep=' ')
+        chars = [chr(j) if 33 <= j <= 126 else '.' for j in bb[i:i+16]]
+        line = '  '.join([str(len(lines)).rjust(8, '0'),
+                          ' '.join(ints).ljust(47),
+                          ''.join(chars)
+                          ])
+        lines.append(line)
         i += 16
-        line += 1
+    return '\n'.join(lines)
+
+
+def datastring2bytes(s):
+    # return eval('b"' + s + '"')  # can we do this without evil?
+    f = io.BytesIO()
+    i = 0
+    while i < len(s):
+        if s[i] == '\\':
+            try:
+                v = int(s[i+1:i+3], 16)
+                delta = 3
+            except ValueError:
+                # Escape ... we cant do Unicode yet
+                v = {'t': 9, 'n': 10, 'r': 13, '"': 34, '\'': 39, '\\': 92}[s[i+1]]
+                delta = 2
+            f.write(struct.pack('<B', v))
+            i += delta
+        else:
+            f.write(s[i].encode())
+            i += 1
+    return f.getvalue()
+
+
+def bytes2datastring(b):
+    f = io.StringIO()
+    for v in b:
+        if 48 >= v >= 122 and v not in (92, 96):
+            f.write(chr(v))
+        else:
+            f.write('\\' + hex(v)[2:].rjust(2, '0'))
+    return f.getvalue()
 
 
 def export_wasm_example(filename, code, wasm, main_js=''):
     """ Generate an html file for the given code and wasm module.
     """
+    from .components import Module
+
+    if filename.startswith('~/'):
+        filename = os.path.expanduser(filename)
 
     if isinstance(wasm, Module):
         wasm = wasm.to_bytes()
@@ -85,6 +125,7 @@ _nb_output = 0
 def run_wasm_in_notebook(wasm):
     """ Load a WASM module in the Jupyter notebook.
     """
+    from .components import Module
     from IPython.display import display, HTML, Javascript
 
     if isinstance(wasm, Module):
@@ -109,6 +150,7 @@ def run_wasm_in_notebook(wasm):
 
     # Produce JS
     js = js.replace('wasm_output', id)
+    js = js.replace('MAIN_JS_PLACEHOLDER', '')
     js = js.replace(
         'WASM_PLACEHOLDER',
         'var wasm_data = new Uint8Array(' + wasm_text + ');')
@@ -119,10 +161,11 @@ def run_wasm_in_notebook(wasm):
     display(Javascript(js))
 
 
-def run_wasm_in_node(wasm):
+def run_wasm_in_node(wasm, silent=False):
     """ Load a WASM module in node.
     Just make sure that your module has a main function.
     """
+    from .components import Module
 
     if isinstance(wasm, Module):
         wasm = wasm.to_bytes()
@@ -140,6 +183,7 @@ def run_wasm_in_node(wasm):
         js = f.read().decode()
 
     # Produce JS
+    js = js.replace('MAIN_JS_PLACEHOLDER', '')
     js = js.replace(
         'WASM_PLACEHOLDER',
         'var wasm_data = new Uint8Array(' + wasm_text + ');')
@@ -168,7 +212,12 @@ def run_wasm_in_node(wasm):
         except Exception:
             pass
 
-    print(res.decode().rstrip())
+    # Process output
+    output = res.decode()
+    result = output.split('Result:', 1)[-1].strip()
+    if not silent:
+        print(output.rstrip())
+    return result
 
 
 NODE_EXE = None

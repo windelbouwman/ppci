@@ -48,6 +48,20 @@ function perf_counter() {
     }
 }
 
+function test_1_1() {
+    print_ln('test_1_1 called');
+}
+function test_1_0() {
+    print_ln('test_1_0 called');
+}
+function test_0_1() {
+    print_ln('test_0_1 called');
+    return 0;
+}
+function test_0_0() {
+    print_ln('test_0_0 called');
+}
+
 /* Pack importable funcs into a dict */
 
 var providedfuncs = {
@@ -56,6 +70,10 @@ var providedfuncs = {
     bsp_putc: print_charcode,
     alert: alert,
     perf_counter: perf_counter,
+    test_1_1: test_1_1,
+    test_1_0: test_1_0,
+    test_0_1: test_0_1,
+    test_0_0: test_0_0
 };
 
 

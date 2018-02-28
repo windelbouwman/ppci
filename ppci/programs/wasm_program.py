@@ -1,7 +1,7 @@
 
 from .base import IntermediateProgram
 
-from ..irs.wasm import wasm_to_ir
+from ..wasm import wasm_to_ir
 
 
 class WasmProgram(IntermediateProgram):
@@ -22,7 +22,7 @@ class WasmProgram(IntermediateProgram):
                            previous=self.previous, debugdb=self.debugdb)
 
     def _get_report(self, html):
-        pieces = [m.to_text() for m in self.items]
+        pieces = [m.to_string() for m in self.items]
         return '\n\n==========\n\n'.join(pieces)
 
     def as_hex(self):

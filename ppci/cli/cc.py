@@ -13,7 +13,7 @@ from .. import api, irutils
 from ..binutils.outstream import TextOutputStream
 from ..lang.c import create_ast, CAstPrinter
 from ..lang.c.options import COptions, coptions_parser
-from ..irs.wasm import ir_to_wasm
+from ..wasm import ir_to_wasm
 
 
 parser = argparse.ArgumentParser(

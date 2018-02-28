@@ -16,7 +16,7 @@ from ppci.utils.reporting import HtmlReportGenerator
 from ppci.utils import uboot_image
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
-from ppci.irs.wasm import ir_to_wasm
+from ppci.wasm import ir_to_wasm
 
 
 def enable_report_logger(filename):

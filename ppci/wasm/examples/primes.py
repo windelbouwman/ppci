@@ -12,7 +12,7 @@ from ppci import irutils
 from ppci.api import ir_to_object, get_arch
 from ppci.utils import codepage, reporting
 
-from ppci.irs.wasm import wasm_to_ir, export_wasm_example
+from ppci.wasm import wasm_to_ir, export_wasm_example
 from ppci.lang.python import python_to_wasm, ir_to_python
 
 logging.basicConfig(level=logging.DEBUG)
@@ -93,7 +93,7 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
 # Run in memory
 native_module = codepage.load_obj(ob)
 t0 = perf_counter()
-result = native_module.unnamed2()
+result = native_module.main()
 etime = perf_counter() - t0
 print(f'native says {result} in {etime} s')
 
@@ -108,6 +108,6 @@ if True:
     py_code = f.getvalue()
     exec(py_code)
     t0 = perf_counter()
-    result = unnamed2()
+    result = main()
     etime = perf_counter() - t0
     print(f'python says {result} in {etime}')
