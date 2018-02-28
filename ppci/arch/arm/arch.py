@@ -233,7 +233,7 @@ class ArmArch(Architecture):
                         raise NotImplementedError()
                     else:
                         # Generate memcpy now:
-                        print(arg2, arg_loc)
+                        # print(arg2, arg_loc)
                         assert arg.size == arg_loc.size
                         # Now start a copy routine to copy some stack:
                         p1 = frame.new_reg(ArmRegister)

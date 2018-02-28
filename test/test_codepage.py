@@ -58,6 +58,25 @@ class CodePageTestCase(unittest.TestCase):
         y = m.x(101)
         self.assertEqual(102, y)
 
+    def test_callback_from_c(self):
+        """ Test calling a python function from C code """
+        source = io.StringIO("""
+            int add(int x, int y);
+            int x(int a) {
+                return add(a + 1, 13);
+            }
+            """)
+        arch = get_current_arch()
+        obj = cc(source, arch, debug=True)
+        def my_add(x: int, y: int) -> int:
+            return x + y + 2
+        imports = {
+            'add': my_add
+        }
+        m = load_obj(obj, imports=imports)
+        y = m.x(101)
+        self.assertEqual(117, y)
+
     @unittest.skip('TODO: research array index handling')
     def test_jit_example(self):
         """ Test loading of C code from jit example """

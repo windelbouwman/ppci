@@ -4,6 +4,7 @@
 
 import logging
 import ast
+import inspect
 from ... import ir, irutils
 from ...common import SourceLocation, CompilerError
 from ...binutils import debuginfo
@@ -13,11 +14,12 @@ def get_fty(fn):
     pass
 
 
-def python_to_ir(f, functions=None):
+def python_to_ir(f, imports=None):
     """ Compile a piece of python code to an ir module.
 
     Args:
         f (file-like-object): a file like object containing the python code
+        imports: Dictionary with symbols that are present.
 
     Returns:
         A :class:`ppci.ir.Module` module
@@ -31,7 +33,7 @@ def python_to_ir(f, functions=None):
         <ppci.ir.Module object at ...>
 
     """
-    mod = PythonToIrCompiler().compile(f, functions=functions)
+    mod = PythonToIrCompiler().compile(f, imports=imports)
     return mod
 
 
@@ -52,7 +54,7 @@ class PythonToIrCompiler:
             'float': ir.f64,
         }
 
-    def compile(self, f, functions=None):
+    def compile(self, f, imports=None):
         """ Convert python into IR-code.
 
         Arguments:
@@ -69,10 +71,17 @@ class PythonToIrCompiler:
 
         self.function_map = {}
 
-        if functions:
+        if imports:
             # Fill imported functions:
-            for name, fnc, return_type, arg_types in functions:
-                self.function_map[name] = (return_type, arg_types)
+            for name, signature in imports.items():
+                if isinstance(signature, tuple):
+                    return_type, arg_types = signature
+                else:
+                    # Assume that we have a function:
+                    signature = inspect.signature(signature)
+                    return_type = signature.return_annotation
+                    arg_types = [p.annotation for p in signature.parameters.values()]
+                self.function_map[name] = return_type, arg_types
 
         self.builder = irutils.Builder()
         self.builder.prepare()

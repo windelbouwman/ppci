@@ -543,17 +543,17 @@ Remu = make_mext('remu', 0b111)
 # Instruction selection patterns:
 
 
-@isa.pattern('reg', 'MOVI16(reg)', size=2)
-@isa.pattern('reg', 'MOVU16(reg)', size=2)
-@isa.pattern('reg', 'MOVI32(reg)', size=2)
-@isa.pattern('reg', 'MOVU32(reg)', size=2)
+@isa.pattern('stm', 'MOVI16(reg)', size=2)
+@isa.pattern('stm', 'MOVU16(reg)', size=2)
+@isa.pattern('stm', 'MOVI32(reg)', size=2)
+@isa.pattern('stm', 'MOVU32(reg)', size=2)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
 
 
-@isa.pattern('reg', 'MOVU8(reg)', size=2)
-@isa.pattern('reg', 'MOVI8(reg)', size=2)
+@isa.pattern('stm', 'MOVU8(reg)', size=2)
+@isa.pattern('stm', 'MOVI8(reg)', size=2)
 def pattern_movi8(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value

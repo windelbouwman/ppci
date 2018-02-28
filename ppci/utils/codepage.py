@@ -5,6 +5,7 @@ using ctypes
 Credits for idea: Luke Campagnola
 """
 
+import inspect
 import sys
 import mmap
 import logging
@@ -26,6 +27,11 @@ def get_ctypes_type(debug_type):
         return ctypes.POINTER(get_ctypes_type(debug_type.pointed_type))
     elif debug_type is None:
         return
+    elif isinstance(debug_type, type):
+        mapping = {
+            int: ctypes.c_int,
+        }
+        return mapping[debug_type]
     else:  # pragma: no cover
         raise NotImplementedError(str(debug_type) + str(type(debug_type)))
 
@@ -62,7 +68,7 @@ class WinPage:
 
 class Mod:
     """ Container for machine code """
-    def __init__(self, obj, callbacks=None):
+    def __init__(self, obj, imports=None):
         logger = logging.getLogger('codepage')
         size = obj.byte_size
 
@@ -83,8 +89,11 @@ class Mod:
 
         # Create callback pointers if any:
         self.import_symbols = []
-        if callbacks:
-            for name, function, return_type, argument_types in callbacks:
+        if imports:
+            for name, function in imports.items():
+                signature = inspect.signature(function)
+                return_type = signature.return_annotation
+                argument_types = [p.annotation for p in signature.parameters.values()]
                 restype = get_ctypes_type(return_type)
                 argtypes = [get_ctypes_type(a) for a in argument_types]
                 ftype = ctypes.CFUNCTYPE(restype, *argtypes)
@@ -144,5 +153,14 @@ def load_code_as_module(source_file, reporter=None):
     return m
 
 
-def load_obj(obj, callbacks=None):
-    return Mod(obj, callbacks=callbacks)
+def load_obj(obj, imports=None):
+    """ Load an object into memory.
+
+    Args:
+        obj: the code object to load.
+        imports: A dictionary of functions to attach.
+
+    Optionally a dictionary of functions that must be imported can
+    be provided.
+    """
+    return Mod(obj, imports=imports)

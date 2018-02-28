@@ -284,7 +284,6 @@ class X86_64Arch(Architecture):
     def gen_function_exit(self, rv):
         live_out = set()
         if rv:
-            print(rv)
             if rv[1]:
                 retval_loc = self.determine_rv_location(rv[0])
                 yield self.move(retval_loc, rv[1])

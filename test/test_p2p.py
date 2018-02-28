@@ -51,20 +51,19 @@ class PythonJitLoadingTestCase(unittest.TestCase):
             v2 = m2.a(x, 2)  # Compiled variant!
             self.assertEqual(v1, v2)
 
-    @unittest.skip('todo: figure out what goed wrong here!')
     def test_callback(self):
         mock = Mock()
-        def mp(x: int) -> None:
+        def myprint(x: int) -> None:
             mock(x)
-        functions = [
-            ('myprint', mp, None, [ir.i64])
-        ]
-        with open('p2p_report.html', 'w') as f, HtmlReportGenerator(f) as reporter:
+        imports = {
+            'myprint': myprint,
+        }
+        with open('p2p_report_callback.html', 'w') as f, HtmlReportGenerator(f) as reporter:
             m2 = load_py(
-                io.StringIO(src2), functions=functions, reporter=reporter)
+                io.StringIO(src2), imports=imports, reporter=reporter)
         # Segfaults:
         m2.a(2)
-        mck.assert_called_with(14)
+        mock.assert_called_with(15)
 
     def test_multiple_functions(self):
         m2 = load_py(io.StringIO(src3))
@@ -79,10 +78,10 @@ class PythonToIrTranspilerTestCase(unittest.TestCase):
         mod = python_to_ir(io.StringIO(src1))
 
     def test_snippet2(self):
-        functions = [
-            ('myprint', None, None, [ir.i64])
-        ]
-        mod = python_to_ir(io.StringIO(src2), functions=functions)
+        imports = {
+            'myprint': (None, (int,))
+        }
+        mod = python_to_ir(io.StringIO(src2), imports=imports)
         f = io.StringIO()
         irutils.print_module(mod, file=f)
         # print(f.getvalue())
