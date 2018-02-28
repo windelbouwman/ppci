@@ -42,17 +42,16 @@ class WasmToIrCompiler:
         self.wasm_types = {}  # id -> wasm.Type (signature)
         self.globalz = {}  # id -> (type, ir.Variable)
         functions = []
-        self.function_space = []
         self.function_names = {}  # Try to have a nice name
         for definition in wasm_module:
             if isinstance(definition, components.Type):
                 self.wasm_types[definition.id] = definition
             elif isinstance(definition, components.Import):
-                name = definition.name
+                # name = definition.name
                 if definition.kind == 'func':
                     sig = self.wasm_types[definition.info[0]]
-                    self.function_names[len(self.function_space)] = name
-                    self.function_space.append(sig)
+                    name = '{}_{}'.format(definition.modname, definition.name)
+                    self.function_names[definition.info[0]] = name, sig
                 else:
                     raise NotImplementedError(definition.kind)
             elif isinstance(definition, components.Export):
@@ -66,15 +65,16 @@ class WasmToIrCompiler:
                     # raise NotImplementedError(x.kind)
             elif isinstance(definition, components.Func):
                 signature = self.wasm_types[definition.ref]
-                index = len(self.function_space)
-                self.function_space.append(signature)
                 # Set name of function. If we have a string id prefer that,
                 # otherwise we may have a name from import/export, otherwise use index
                 if isinstance(definition.id, str):
-                    self.function_names[index] = definition.id.lstrip('$')
+                    name = definition.id.lstrip('$')
                 elif not index in self.function_names:
-                    self.function_names[index] = 'unnamed{}'.format(index)
-                name = self.function_names[index]
+                    name = 'unnamed{}'.format(index)
+                else:
+                    raise Error()
+                self.function_names[definition.id] = name, signature
+                # name = self.function_names[index]
                 functions.append((name, signature, definition))
             elif isinstance(definition, components.Global):
                 ir_typ = self.get_ir_type(definition.typ)
@@ -501,8 +501,8 @@ class WasmToIrCompiler:
         """ Generate a function call """
         # Call another function!
         idx = instruction.args[0]
-        sig = self.function_space[idx]
-        name = self.function_names[idx]
+        name, sig = self.function_names[idx]
+        # sig = self.wasm_types[function.ref]
 
         args = []
         for arg_type in sig.params:

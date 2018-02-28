@@ -91,7 +91,10 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
     ob = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
 
 # Run in memory
-native_module = codepage.load_obj(ob)
+imports = {
+    'add': my_add
+}
+native_module = codepage.load_obj(ob, imports=imports)
 t0 = perf_counter()
 result = native_module.main()
 etime = perf_counter() - t0
