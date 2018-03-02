@@ -1,6 +1,8 @@
+import io
 from ppci import wasm
 from ppci.api import ir_to_object, get_arch
 from ppci.utils.codepage import load_obj
+from ppci.binutils.outstream import TextOutputStream
 
 from ppci.wasm import wasm_to_ir, export_wasm_example
 
@@ -19,7 +21,10 @@ ppci_module = wasm_to_ir(wasm_module)
 ppci_module.display()
 
 arch = get_arch('x86_64')
-obj = ir_to_object([ppci_module], arch, debug=True)
+f = io.StringIO()
+txt_stream = TextOutputStream(f=f, add_binary=True)
+obj = ir_to_object([ppci_module], arch, debug=True, outstream=txt_stream)
+print(f.getvalue())
 
 def my_add(x: int, y: int) -> int:
     print('my add called')
@@ -33,4 +38,4 @@ imports = {
 native_module = load_obj(obj, imports=imports)
 print(dir(native_module))
 result = getattr(native_module, '0')(42)
-print(result, '(should be 84)')
+print(result, '(should be 85)')

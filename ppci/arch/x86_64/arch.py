@@ -116,6 +116,13 @@ class X86_64Arch(Architecture):
         elif isinstance(dst, registers.ShortRegister) and \
                 isinstance(src, registers.ShortRegister):
             return MovRegRm16(dst, RmReg16(src), ismove=True)
+        elif isinstance(dst, registers.X86Register) and \
+                isinstance(src, registers.ShortRegister):
+            return instructions.MovsxRegRm16(dst, RmReg16(src), ismove=True)
+        elif isinstance(dst, registers.ShortRegister) and \
+                isinstance(src, registers.X86Register):
+            # return instructions.MovsxRegRm16(dst, RmReg16(src), ismove=True)
+            raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, LowRegister) and isinstance(src, X86Register):
             raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, X86Register) and isinstance(src, LowRegister):
@@ -308,6 +315,11 @@ class X86_64Arch(Architecture):
                     yield self.move(al, arg)
                     yield MovsxRegRm(rax, RmReg8(al))
                     yield self.move(arg_loc, rax)
+                elif isinstance(arg, registers.ShortRegister):
+                    # Upcast char!
+                    yield self.move(registers.ax, arg)
+                    yield instructions.MovsxRegRm16(rax, RmReg16(registers.ax))
+                    yield self.move(arg_loc, rax)
                 else:  # pragma: no cover
                     raise NotImplementedError()
             elif isinstance(arg_loc, XmmRegister):
@@ -358,7 +370,8 @@ class X86_64Arch(Architecture):
 
         # Reserve stack space
         if frame.stacksize > 0:
-            yield SubImm(rsp, frame.stacksize)
+            stack_size = round_up16(frame.stacksize)
+            yield SubImm(rsp, stack_size)
 
         # Callee save registers:
         for reg in callee_save:
@@ -376,7 +389,8 @@ class X86_64Arch(Architecture):
 
         # Give free stack space:
         if frame.stacksize > 0:
-            yield AddImm(rsp, frame.stacksize)
+            stack_size = round_up16(frame.stacksize)
+            yield AddImm(rsp, stack_size)
 
         # Restore rbp:
         yield self.pop(rbp)
@@ -390,3 +404,7 @@ class X86_64Arch(Architecture):
                     yield Db(byte)
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
+
+
+def round_up16(s):
+    return s + (16 - s % 16)

@@ -806,7 +806,7 @@ class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """
     def test_test8(self):
         reader = CastXmlReader()
-        cu = reader.process(relpath('data', 'c', 'test8.xml'))
+        reader.process(relpath('..', 'data', 'c', 'test8.xml'))
 
 
 class CSynthesizerTestCase(unittest.TestCase):

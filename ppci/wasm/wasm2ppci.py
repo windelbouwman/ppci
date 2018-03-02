@@ -132,33 +132,39 @@ class WasmToIrCompiler:
         self.stack = []
         self.block_stack = []
 
+        # Create correct debug signature for function:
+        dbg_type_map = {
+            'f32': debuginfo.DebugBaseType('float', 4, 1),
+            'f64': debuginfo.DebugBaseType('double', 8, 1),
+            'i32': debuginfo.DebugBaseType('int', 4, 1),
+            'i64': debuginfo.DebugBaseType('long', 8, 1),
+        }
+
         if signature.result:
             if len(signature.result) != 1:
                 raise ValueError(
                     'Cannot handle {} return values'.format(
                         len(signature.result)))
             ret_type = self.get_ir_type(signature.result[0])
+            dbg_return_type = dbg_type_map[signature.result[0]]
             ppci_function = self.builder.new_function(name, ret_type)
         else:
             ppci_function = self.builder.new_procedure(name)
+            dbg_return_type = debuginfo.DebugBaseType('void', 0, 1)
         self.builder.set_function(ppci_function)
-
-        db_float = debuginfo.DebugBaseType('double', 8, 1)
-        db_function_info = debuginfo.DebugFunction(
-            name,
-            common.SourceLocation('main.wasm', 1, 1, 1),
-            db_float, ())
-        self.debug_db.enter(ppci_function, db_function_info)
 
         entryblock = self.new_block()
         self.builder.set_block(entryblock)
         ppci_function.entry = entryblock
 
+        dbg_arg_types = []
         self.locals = []  # todo: ak: why store on self?
         # First locals are the function arguments:
         for i, a_typ in enumerate(signature.params):
             ir_typ = self.get_ir_type(a_typ[1])
             ir_arg = ir.Parameter('param{}'.format(i), ir_typ)
+            dbg_arg_types.append(debuginfo.DebugParameter(
+                'arg{}'.format(i), dbg_type_map[a_typ[1]]))
             ppci_function.add_parameter(ir_arg)
             size = ir_typ.size
             alignment = size
@@ -167,6 +173,13 @@ class WasmToIrCompiler:
             self.locals.append((ir_typ, addr))
             # Store parameter into local variable:
             self.emit(ir.Store(ir_arg, addr))
+
+        # Enter correct debug info:
+        db_function_info = debuginfo.DebugFunction(
+            name,
+            common.SourceLocation('main.wasm', 1, 1, 1),
+            dbg_return_type, dbg_arg_types)
+        self.debug_db.enter(ppci_function, db_function_info)
 
         # Next are the rest of the locals:
         for i, local in enumerate(wasm_function.locals, len(self.locals)):

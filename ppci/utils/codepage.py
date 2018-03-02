@@ -88,7 +88,7 @@ class Mod:
         logger.debug('Allocated %s bytes at 0x%x', size, page_addr)
 
         # Create callback pointers if any:
-        self.import_symbols = []
+        self._import_symbols = []
         if imports:
             for name, function in imports.items():
                 signature = inspect.signature(function)
@@ -99,7 +99,7 @@ class Mod:
                 ftype = ctypes.CFUNCTYPE(restype, *argtypes)
                 cb = ftype(function)
                 logger.debug('Import name %s', name)
-                self.import_symbols.append((name, cb))
+                self._import_symbols.append((name, cb, ftype))
 
         # Link to e.g. apply offset to global literals
         layout2 = layout.Layout()
@@ -112,7 +112,7 @@ class Mod:
         # Link the object into memory:
         extra_symbols = {
             name: ctypes.cast(cb, ctypes.c_void_p).value
-            for name, cb in self.import_symbols}
+            for name, cb, _ in self._import_symbols}
         obj = link(
             [obj], layout=layout2, debug=True, extra_symbols=extra_symbols)
         assert obj.byte_size == size
@@ -128,6 +128,7 @@ class Mod:
             # Determine the function type:
             restype = get_ctypes_type(function.return_type)
             argtypes = [get_ctypes_type(a.typ) for a in function.arguments]
+            logger.debug('function sig %s %s', restype, argtypes)
             ftype = ctypes.CFUNCTYPE(restype, *argtypes)
 
             # Create a function pointer:

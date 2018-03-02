@@ -678,6 +678,15 @@ class MovsxRegRm(rmregbase):
     opcode2 = 0xbe
 
 
+class MovsxRegRm16(rmregbase):
+    """ Move sign extend, which means take a byte and sign extend it! """
+    reg = Operand('reg', X86Register, write=True)
+    rm = Operand('rm', rm16_modes, read=True)
+    syntax = Syntax(['movsx', ' ', reg, ',', ' ', rm])
+    opcode = 0x0f
+    opcode2 = 0xbf
+
+
 class MovzxRegRm(rmregbase):
     """ Move zero extend """
     reg = Operand('reg', X86Register, write=True)
@@ -1020,6 +1029,15 @@ def pattern_mov_32(context, tree, c0):
 @isa.pattern('stm', 'MOVU64(reg64)', size=2)
 def pattern_mov_64(context, tree, c0):
     context.move(tree.value, c0)
+
+
+@isa.pattern('stm', 'MOVB(reg64, reg64)', size=22)
+def pattern_movb(context, tree, c0, c1):
+    dst = RmMem(c0)
+    src = RmMem(c1)
+    size = tree.value
+    for instruction in context.arch.gen_memcpy(dst, src, size):
+        context.emit(instruction)
 
 
 @isa.pattern('stm', 'RETB(FPRELU64)', size=22)
