@@ -1,5 +1,6 @@
 
 from collections import defaultdict
+from .collections import OrderedSet
 
 
 def topological_sort(nodes):
@@ -37,12 +38,12 @@ class Graph:
     """
 
     def __init__(self):
-        self.nodes = set()
-        self.edges = set()
-        self.masked_nodes = set()
+        self.nodes = OrderedSet()
+        self.edges = OrderedSet()
+        self.masked_nodes = OrderedSet()
 
         # Fast lookup dictionaries:
-        self.adj_map = defaultdict(set)
+        self.adj_map = defaultdict(OrderedSet)
         self.degree_map = defaultdict(int)
 
     def __iter__(self):

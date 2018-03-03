@@ -1,5 +1,6 @@
 """ Implementation of a graph to svg formatter. """
 from statistics import median
+from .collections import OrderedSet
 
 
 class Node:
@@ -47,8 +48,8 @@ class Edge:
 
 class Graph:
     def __init__(self):
-        self.nodes = set()
-        self.edges = set()
+        self.nodes = OrderedSet()
+        self.edges = OrderedSet()
         self.node_map = {}
         self.edge_map = {}
 
@@ -210,11 +211,11 @@ class LayeredLayout:
         -        add to layer
         - Repeat until all nodes are ranked
         """
-        unranked = set(graph.nodes)
+        unranked = OrderedSet(graph.nodes)
         is_ranked = lambda n: n not in unranked
         layers = []
         while unranked:
-            layer = set()
+            layer = OrderedSet()
             for node in unranked:
                 if all(is_ranked(c) for c in node.parents):
                     layer.add(node)

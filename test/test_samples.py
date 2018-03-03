@@ -262,8 +262,8 @@ class TestSamplesOnVexpress(unittest.TestCase, I32Samples, BuildMixin):
     ldr r2, =__data_start
     ldr r3, =__data_end
     __copy_loop:
-    ldrb  r0, [r1, 0]
-    strb r0, [r2, 0]
+    ldrb  r0, [r1, #0]
+    strb r0, [r2, #0]
     add r1, r1, 1
     add r2, r2, 1
     cmp r2, r3

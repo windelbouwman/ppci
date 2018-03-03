@@ -132,19 +132,19 @@ Calling python functions
 
 In order to callback python functions, we can do the following:
 
-.. warning::
-    Code below is an idea, this does not work yet!
+.. doctest:: jitting
 
-.. code:: python
-
-    >>> func = lambda x: print('x=', x)
+    >>> def callback_func(x: int) -> None:
+    ...     print('x=', x)
+    ...
     >>> f = io.StringIO("""
     ... def x(a: int, b: int) -> int:
     ...     func(a+3)
     ...     return a + b + 13
     ... """)
-    >>> o = load_py(f, functions={'func': func})
+    >>> o = load_py(f, imports={'func': callback_func})
     >>> o.x(2, 3)
+    x= 5
     18
 
 Benchmarking

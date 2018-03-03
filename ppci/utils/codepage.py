@@ -93,7 +93,8 @@ class Mod:
             for name, function in imports.items():
                 signature = inspect.signature(function)
                 return_type = signature.return_annotation
-                argument_types = [p.annotation for p in signature.parameters.values()]
+                argument_types = [
+                    p.annotation for p in signature.parameters.values()]
                 restype = get_ctypes_type(return_type)
                 argtypes = [get_ctypes_type(a) for a in argument_types]
                 ftype = ctypes.CFUNCTYPE(restype, *argtypes)

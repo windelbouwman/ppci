@@ -461,7 +461,7 @@ class Ldr1(LdrStrBase):
     bit20 = 1
     bit22 = 0
     syntax = Syntax([
-        'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ', '#',
         LdrStrBase.offset, ']'])
 
 
@@ -470,7 +470,8 @@ class Strh(ArmInstruction):
     rd = Operand('rd', ArmRegister, write=True)
     rn = Operand('rn', ArmRegister, read=True)
     imm = Operand('imm', int)
-    syntax = Syntax(['strh', ' ', rd, ',', ' ', '[', rn, ',', ' ', imm, ']'])
+    syntax = Syntax(
+        ['strh', ' ', rd, ',', ' ', '[', rn, ',', ' ', '#', imm, ']'])
     patterns = {'rn': rn, 'rd': rd, 'cond': AL}
 
     def set_user_patterns(self, tokens):
@@ -498,7 +499,7 @@ class Strb(LdrStrBase):
     bit20 = 0
     bit22 = 1
     syntax = Syntax([
-        'strb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        'strb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ', '#',
         LdrStrBase.offset, ']'])
 
 

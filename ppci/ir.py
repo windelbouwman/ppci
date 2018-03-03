@@ -11,6 +11,7 @@ The only types available are basic integer types and a pointer type.
 
 from binascii import hexlify
 import logging
+from .utils.collections import OrderedSet
 
 
 # Types:
@@ -197,7 +198,7 @@ class Value:
         if not isinstance(ty, Typ):
             raise TypeError('ty argument must be an instance of Typ')
         self.ty = ty
-        self.used_by = set()
+        self.used_by = OrderedSet()
 
     def add_user(self, i):
         """ Add a usage for this value """
@@ -291,7 +292,7 @@ class SubRoutine(GlobalValue):
         super().__init__(name)
         self.blocks = []
         self.entry = None
-        self.defined_names = set()
+        self.defined_names = OrderedSet()
         self.unique_counter = 0
         self.arguments = []
 
@@ -421,7 +422,7 @@ class Block:
         self.name = name
         self.function = None
         self.instructions = list()
-        self.references = set()
+        self.references = OrderedSet()
 
     def dump(self):
         print('  ', self)
@@ -581,7 +582,7 @@ class Instruction:
         # TODO: think of better naming..
         self._var_map = {}
         self.block = None
-        self.uses = set()
+        self.uses = OrderedSet()
 
     @property
     def function(self):
@@ -666,7 +667,7 @@ class LocalValue(Value, Instruction):
 
     def used_in_blocks(self):
         """ Returns a set of blocks where this value is used """
-        return set(i.block for i in self.used_by)
+        return OrderedSet(i.block for i in self.used_by)
 
 
 class AddressOf(LocalValue):

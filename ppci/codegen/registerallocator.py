@@ -120,15 +120,8 @@ from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture, Frame
 from ..arch.registers import Register
 from ..utils.tree import Tree
+from ..utils.collections import OrderedSet, OrderedDict
 from .instructionselector import ContextInterface
-
-
-# Nifty first function:
-def first(x):
-    """ Take the first element of a collection after sorting the things """
-    x = list(x)
-    # x.sort()
-    return next(iter(x))
 
 
 class MiniCtx(ContextInterface):
@@ -205,14 +198,14 @@ class GraphColoringRegisterAllocator:
         # TODO: Improve different register classes
         self.K = {}  # type: Dict[Register, int]
         self.cls_regs = {}  # Mapping from class to register set
-        self.alias = defaultdict(set)
+        self.alias = defaultdict(OrderedSet)
         for reg_class in self.arch.info.register_classes:
             kls, regs = reg_class.typ, reg_class.registers
             if self.verbose:
                 self.logger.debug('Register class "%s" contains %s', kls, regs)
 
             self.K[kls] = len(regs)
-            self.cls_regs[kls] = set(regs)
+            self.cls_regs[kls] = OrderedSet(regs)
             for r in regs:
                 self.alias[r].add(r)  # The trivial alias: itself!
                 for r2 in r.aliases:
@@ -278,11 +271,11 @@ class GraphColoringRegisterAllocator:
         self.select_stack = []
 
         # Move related sets:
-        self.coalescedMoves = set()
-        self.constrainedMoves = set()
-        self.frozenMoves = set()
-        self.activeMoves = set()
-        self.worklistMoves = set()
+        self.coalescedMoves = OrderedSet()
+        self.constrainedMoves = OrderedSet()
+        self.frozenMoves = OrderedSet()
+        self.activeMoves = OrderedSet()
+        self.worklistMoves = OrderedSet()
 
         # Fill initial move set, try to remove all moves:
         for m in self.moves:
@@ -292,7 +285,7 @@ class GraphColoringRegisterAllocator:
         self.spill_worklist = []
         self.freeze_worklist = []
         self.simplify_worklist = []
-        self.precolored = set()
+        self.precolored = OrderedSet()
 
         # Divide nodes into categories:
         for node in self.frame.ig.nodes:
@@ -583,7 +576,7 @@ class GraphColoringRegisterAllocator:
         self.logger.debug('Allocating stack slot %s', slot)
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:
-            instructions = set(
+            instructions = OrderedSet(
                 self.frame.ig.uses(tmp) + self.frame.ig.defs(tmp))
             for instruction in instructions:
                 vreg2 = self.frame.new_reg(type(tmp))
@@ -607,7 +600,7 @@ class GraphColoringRegisterAllocator:
                     takenregs.add(r)
             ok_regs = self.cls_regs[node.reg_class] - takenregs
             assert ok_regs
-            reg = first(ok_regs)
+            reg = ok_regs[0]
 
             if self.verbose:
                 self.logger.debug('Assign %s to node %s', reg, node)
