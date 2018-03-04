@@ -16,6 +16,8 @@ Calling conventions
   first argument of the function to a memory address where the value should
   be copied.
 
+- The end of input arguments must always be aligned on a 16 byte boundary.
+  This means rsp + 8 is aligned on 16 bytes when entering a function.
 """
 
 from ... import ir
@@ -372,6 +374,8 @@ class X86_64Arch(Architecture):
         if frame.stacksize > 0:
             stack_size = round_up16(frame.stacksize)
             yield SubImm(rsp, stack_size)
+
+        # TODO: align stackframe and saved registers on 16 bytes.
 
         # Callee save registers:
         for reg in callee_save:

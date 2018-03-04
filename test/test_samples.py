@@ -10,10 +10,11 @@ from util import has_qemu, qemu, relpath, run_python, source_files
 from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr, run_nodejs
 from util import do_long_tests, do_iverilog, make_filename
-from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
+from ppci.api import asm, c3c, link, objcopy, bfcompile, cc, get_current_arch
 from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.utils import uboot_image
+from ppci.utils.codepage import load_obj
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
 from ppci.wasm import ir_to_wasm
@@ -165,6 +166,44 @@ class I32Samples:
         ++++++++<-]>>>>>]<<<<[-<+>[<-]>[>]<<[>++++++++++++++++++++++
         ++++++++++++++++++++++++<-]<<<]>>[[->>.<<]>>>>]"""
         self.do(quine, only_bf(quine), lang='bf')
+
+
+def partial_build(src, lang, bsp_c3, opt_level, march, reporter):
+    """ Compile source and return an object """
+    if lang == 'c3':
+        srcs = [
+            relpath('..', 'librt', 'io.c3'),
+            bsp_c3,
+            io.StringIO(src)]
+        o2 = c3c(
+            srcs, [], march, opt_level=opt_level,
+            reporter=reporter, debug=True)
+        objs = [o2]
+    elif lang == 'bf':
+        o3 = bfcompile(src, march, reporter=reporter)
+        o2 = c3c(
+            [bsp_c3], [], march, reporter=reporter)
+        objs = [o2, o3]
+    elif lang == 'c':
+        o2 = c3c(
+            [bsp_c3], [], march, reporter=reporter)
+        coptions = COptions()
+        include_path1 = relpath('..', 'librt', 'libc')
+        coptions.add_include_path(include_path1)
+        with open(relpath('..', 'librt', 'libc', 'lib.c'), 'r') as f:
+            o3 = cc(
+                f, march, coptions=coptions, debug=True,
+                reporter=reporter)
+        o4 = cc(
+            io.StringIO(src), march, coptions=coptions, debug=True,
+            reporter=reporter)
+        objs = [o2, o3, o4]
+    else:
+        raise NotImplementedError('language not implemented')
+    obj = link(
+        objs, partial_link=True,
+        use_runtime=True, reporter=reporter, debug=True)
+    return obj
 
 
 def build(
@@ -899,6 +938,44 @@ class LinuxTests(unittest.TestCase):
         else:
             returncode = subprocess.call(exe)
         self.assertEqual(42, returncode)
+
+
+@unittest.skipUnless(do_long_tests('jit'), 'skipping slow tests')
+@add_samples('simple')
+class TestJittedSamples(unittest.TestCase):
+    """ Take each sample, compile it and load it into the current process """
+    def do(self, src, expected_output, lang='c3'):
+        # Compile:
+        bsp_c3_src = """
+        module bsp;
+        public function void putc(byte c);
+        """
+        bsp_c3 = io.StringIO(bsp_c3_src)
+        march = get_current_arch()
+        base_filename = make_filename(self.id())
+        report_filename = base_filename + '.html'
+        with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+            obj = partial_build(src, lang, bsp_c3, 0, march, reporter)
+
+        actual_output = []
+
+        def bsp_putc(c: int) -> None:
+            print('bsp_putc:', chr(c))
+            actual_output.append(chr(c))
+
+        # Dynamically load:
+        imports = {
+            'bsp_putc': bsp_putc,
+        }
+        mod = load_obj(obj, imports=imports)
+        print(dir(mod))
+
+        # Invoke!
+        mod.main()
+        # mod.main_main()
+
+        # Check output:
+        self.assertEqual(expected_output, actual_output)
 
 
 if __name__ == '__main__':

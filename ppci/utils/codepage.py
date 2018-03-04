@@ -18,13 +18,19 @@ def get_ctypes_type(debug_type):
     if isinstance(debug_type, debuginfo.DebugBaseType):
         mapping = {
             'int': ctypes.c_int,
+            'char': ctypes.c_int,  # TODO: how to handle this?
             'long': ctypes.c_long,
             'void': ctypes.c_int,  # TODO: what to do?
             'double': ctypes.c_double
             }
         return mapping[debug_type.name]
     elif isinstance(debug_type, debuginfo.DebugPointerType):
-        return ctypes.POINTER(get_ctypes_type(debug_type.pointed_type))
+        if isinstance(debug_type.pointed_type, debuginfo.DebugStructType):
+            # TODO: treat struct pointers as void pointers for now.
+            # TODO: fix this?
+            return ctypes.c_voidp
+        else:
+            return ctypes.POINTER(get_ctypes_type(debug_type.pointed_type))
     elif debug_type is None:
         return
     elif isinstance(debug_type, type):
