@@ -28,7 +28,7 @@ obj = ir_to_object([ppci_module], arch, debug=True, outstream=txt_stream)
 print(f.getvalue())
 
 def my_add(x: int, y: int) -> int:
-    print('my add called')
+    print('my add called', x, y)
     return x + y + 1
 
 # Run in memory

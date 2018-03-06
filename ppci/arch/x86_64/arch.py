@@ -340,6 +340,12 @@ class X86_64Arch(Architecture):
         for ins in reversed(push_ops):
             yield ins
 
+        wincc = self.has_option('wincc')
+
+        # If windows, reserve space for rcx, rdx, r8 and r9:
+        if wincc:
+            yield SubImm(rsp, 32)
+
         # Mark all dedicated registers as used:
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
@@ -356,6 +362,8 @@ class X86_64Arch(Architecture):
             yield self.move(rv[1], retval_loc)
 
         stack_slots = sum(isinstance(l, StackLocation) for l in arg_locs)
+        if wincc:
+            stack_slots += 4
         if stack_slots:
             yield AddImm(rsp, stack_slots * 8)
 
