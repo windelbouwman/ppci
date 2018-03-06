@@ -1,6 +1,6 @@
 import io
 from ppci import wasm
-from ppci.api import ir_to_object, get_arch
+from ppci.api import ir_to_object, get_current_arch
 from ppci.utils.codepage import load_obj
 from ppci.binutils.outstream import TextOutputStream
 
@@ -20,7 +20,8 @@ print(wasm_module.to_string())
 ppci_module = wasm_to_ir(wasm_module)
 ppci_module.display()
 
-arch = get_arch('x86_64')
+arch = get_current_arch()
+print('using this arch: ', arch)
 f = io.StringIO()
 txt_stream = TextOutputStream(f=f, add_binary=True)
 obj = ir_to_object([ppci_module], arch, debug=True, outstream=txt_stream)

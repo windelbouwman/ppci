@@ -370,30 +370,36 @@ class X86_64Arch(Architecture):
         # Setup frame pointer:
         yield MovRegRm(rbp, RmReg(rsp))
 
+        # Callee save registers:
+        saved_registers = [reg for reg in callee_save if frame.is_used(reg)]
+
+        # Determine how much space already was taken:
+        saved_size = sum(r.bitsize // 8 for r in saved_registers)
+
         # Reserve stack space
         if frame.stacksize > 0:
-            stack_size = round_up16(frame.stacksize)
+            stack_size = round_up16(frame.stacksize, saved_size)
             yield SubImm(rsp, stack_size)
 
         # TODO: align stackframe and saved registers on 16 bytes.
 
-        # Callee save registers:
-        for reg in callee_save:
-            if frame.is_used(reg):
-                yield self.push(reg)
+        for reg in saved_registers:
+            yield self.push(reg)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
+        saved_registers = [reg for reg in callee_save if frame.is_used(reg)]
+        saved_size = sum(r.bitsize // 8 for r in saved_registers)
+
         # Pop save registers back:
-        for reg in reversed(callee_save):
-            if frame.is_used(reg):
-                yield self.pop(reg)
+        for reg in reversed(saved_registers):
+            yield self.pop(reg)
 
         # Give free stack space:
         if frame.stacksize > 0:
-            stack_size = round_up16(frame.stacksize)
+            stack_size = round_up16(frame.stacksize, saved_size)
             yield AddImm(rsp, stack_size)
 
         # Restore rbp:
@@ -410,5 +416,6 @@ class X86_64Arch(Architecture):
                 raise NotImplementedError('Constant of type {}'.format(value))
 
 
-def round_up16(s):
-    return s + (16 - s % 16)
+def round_up16(s, already_taken):
+    total = s + already_taken
+    return s + (16 - total % 16)

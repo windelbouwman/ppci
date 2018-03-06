@@ -112,6 +112,18 @@ Alternatively the `tox`_ docs environment can be used:
 
     $ tox -e docs
 
+Directory structure
+-------------------
+
+- ppci : source code of the ppci library
+  - lang : human readable languages
+    - c : c frontend
+  - cli : command line interface utilities
+  - util : utilities
+- docs : documentation
+- examples : directory with example projects
+- test : tests
+
 
 Release procedure
 -----------------

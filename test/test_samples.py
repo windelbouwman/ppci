@@ -954,13 +954,14 @@ class TestJittedSamples(unittest.TestCase):
         march = get_current_arch()
         base_filename = make_filename(self.id())
         report_filename = base_filename + '.html'
-        with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+        with open(report_filename, 'w') as f, \
+                HtmlReportGenerator(f) as reporter:
             obj = partial_build(src, lang, bsp_c3, 0, march, reporter)
 
         actual_output = []
 
         def bsp_putc(c: int) -> None:
-            print('bsp_putc:', chr(c))
+            # print('bsp_putc:', chr(c))
             actual_output.append(chr(c))
 
         # Dynamically load:
@@ -968,13 +969,16 @@ class TestJittedSamples(unittest.TestCase):
             'bsp_putc': bsp_putc,
         }
         mod = load_obj(obj, imports=imports)
-        print(dir(mod))
+        # print(dir(mod))
 
         # Invoke!
-        mod.main()
-        # mod.main_main()
+        if hasattr(mod, 'main'):
+            mod.main()
+        else:
+            mod.main_main()
 
         # Check output:
+        actual_output = ''.join(actual_output)
         self.assertEqual(expected_output, actual_output)
 
 
