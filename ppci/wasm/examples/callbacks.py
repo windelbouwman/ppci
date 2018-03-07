@@ -5,6 +5,8 @@ from ppci.utils.codepage import load_obj
 from ppci.binutils.outstream import TextOutputStream
 
 from ppci.wasm import wasm_to_ir, export_wasm_example
+from ppci.wasm.instantiate import instantiate
+
 
 wasm_module = wasm.Module(
     ('import', 'py', 'add', ('func', '$add', ('param', 'i64', 'i64'), ('result', 'i64'))),
@@ -40,3 +42,15 @@ native_module = load_obj(obj, imports=imports)
 print(dir(native_module))
 result = getattr(native_module, '0')(42)
 print(result, '(should be 85)')
+
+
+# This way a wasm module can be loaded analog to javascript:
+instance = instantiate(
+    wasm_module,
+    {
+        'py': {
+            'add': my_add,
+        }
+    })
+
+print(instance.exports.main(1337))

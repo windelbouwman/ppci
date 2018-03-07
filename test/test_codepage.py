@@ -77,7 +77,6 @@ class CodePageTestCase(unittest.TestCase):
         y = m.x(101)
         self.assertEqual(117, y)
 
-    @unittest.skip('TODO: research array index handling')
     def test_jit_example(self):
         """ Test loading of C code from jit example """
         source = io.StringIO("""
@@ -94,13 +93,14 @@ class CodePageTestCase(unittest.TestCase):
         with open(html_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
             obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
-        print(m.x.argtypes)
-        T = ctypes.c_int * 3
+        # print(m.x.argtypes)
+        T = ctypes.c_int * 6
         a = T()
-        a[:] = 1, 2, 3
+        # TODO: integers in ctypes are 32 bit, they are 64 bit in ppci?
+        a[:] = 1, 0, 2, 0, 3, 0
         # ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_long))
         b = T()
-        b[:] = 5, 4, 9
+        b[:] = 5, 0, 4, 0, 9, 0
         # bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_long))
         y = m.x(a, b, 3)
         self.assertEqual(40, y)

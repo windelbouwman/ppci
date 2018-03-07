@@ -102,15 +102,15 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.check('219082e5')
 
     def test_ldr(self):
-        self.feed('ldr r5, [r3, 87]')
+        self.feed('ldr r5, [r3, #87]')
         self.check('575093e5')
 
     def test_strb(self):
-        self.feed('strb r2, [r8, 11]')
+        self.feed('strb r2, [r8, #11]')
         self.check('0b20c8e5')
 
     def test_strh(self):
-        self.feed('strh r2, [r5, 100]')
+        self.feed('strh r2, [r5, #100]')
         self.check('b426c5e1')
 
     def test_ldrh(self):

@@ -71,6 +71,7 @@ class WasmCompilerTestCase(unittest.TestCase):
 
 
 class WasmLoadAndSaveTestCase(unittest.TestCase):
+    @unittest.skip('todo: find back program.wasm')
     def test_load_save(self):
         """ Load program.wasm from disk and save it again. """
         program_filename = os.path.join(

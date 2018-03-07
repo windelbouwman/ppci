@@ -22,7 +22,7 @@ setup(
     author='Windel Bouwman',
     include_package_data=True,
     packages=find_packages(exclude=["*.test.*", "test"]),
-    package_data={'': ['*.grammar', "*.rst"]},
+    package_data={'': ['*.grammar', "*.rst", 'template.js', 'template.html']},
     entry_points={
         'console_scripts': [
             'ppci-asm = ppci.cli.asm:asm',
