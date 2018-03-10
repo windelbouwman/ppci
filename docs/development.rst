@@ -93,6 +93,13 @@ these, use this:
 
     $ LONGTESTS=1 IVERILOG=1 python -m pytest test/
 
+3rd party test suites
+~~~~~~~~~~~~~~~~~~~~~
+
+There exist many different compiler validation suites. Some of them are pure validation sets,
+others are part of a compiler toolchain. In order to use these test suites, a series of test
+suite adapter files exist in the directory test/suite_adapters
+
 Building the docs
 -----------------
 

@@ -8,7 +8,7 @@ from ppci.codegen import burg
 from ppci.codegen.burg import BurgSystem
 from ppci.codegen.instructionselector import TreeSelector
 
-brg_file = os.path.join(os.path.dirname(__file__), 'data', 'sample4.brg')
+brg_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'sample4.brg')
 
 
 class BurgTestCase(unittest.TestCase):

@@ -12,7 +12,7 @@
             arch="arm"
             sources="../../src/structs/structs.c;../../../librt/libc/lib.c"
             includes="../../../librt/libc"
-            report="ccode.html"
+            report="ccode_report.html"
             optimize="2"
             output="ccode.oj" />
         <link objects="start.oj;ccode.oj;bsp.oj" output="structs.oj"

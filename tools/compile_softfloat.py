@@ -15,7 +15,7 @@ march = 'x86_64'
 cc([
     filename, '-S', '-v',
     '-m', march,
-    '--html-report', 'softfloat_x86.html'])
-# cc([filename, '-S', '-v', '-m', 'msp430', '--html-report', 'softfloat.html'])
+    '--html-report', 'softfloat_x86_report.html'])
+# cc([filename, '-S', '-v', '-m', 'msp430', '--html-report', 'softfloat_report.html'])
 # cc([filename, '--ast', '-v'])
 # cc([filename, '--ir', '-v'])
