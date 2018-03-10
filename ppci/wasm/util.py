@@ -8,10 +8,13 @@ import os
 import tempfile
 import struct
 import subprocess
+import shutil
+from functools import lru_cache
 
 
 __all__ = ['hexdump', 'export_wasm_example',
-           'run_wasm_in_node', 'run_wasm_in_notebook']
+           'run_wasm_in_node', 'run_wasm_in_notebook',
+           'has_node']
 
 
 def inspect_bytes_at(bb, offset):
@@ -159,6 +162,15 @@ def run_wasm_in_notebook(wasm):
     # Output in current cell
     display(HTML("<div style='border: 2px solid blue;' id='%s'></div>" % id))
     display(Javascript(js))
+
+
+@lru_cache(maxsize=None)
+def has_node() -> bool:
+    """ Check if nodejs is available """
+    if hasattr(shutil, 'which'):
+        return bool(shutil.which('node'))
+    else:
+        return False
 
 
 def run_wasm_in_node(wasm, silent=False):

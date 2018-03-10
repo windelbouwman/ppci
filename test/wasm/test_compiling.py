@@ -56,9 +56,7 @@ return i
 ## Run in memory
 
 
-# disabled for now ...
-
-def xx_test_compiling():
+def test_compiling():
 
     # Convert Python to wasm
     wasm_module = python_to_wasm(py3)
@@ -86,4 +84,4 @@ def xx_test_compiling():
 
 
 if __name__ == '__main__':
-    xx_test_compiling()
+    test_compiling()

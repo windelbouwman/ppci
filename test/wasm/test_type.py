@@ -2,7 +2,7 @@
 Test WASM Type definition class.
 """
 
-from ppci.wasm import Module, Type, run_wasm_in_node
+from ppci.wasm import Module, Type, run_wasm_in_node, has_node
 
 
 def dedent(code):
@@ -47,7 +47,8 @@ def test_type1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
-    assert run_wasm_in_node(m0, True) == '7'
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '7'
 
     # Abbreviation: inline typedefs
     CODE1 = """
@@ -123,7 +124,8 @@ def test_type2():
     assert m0.to_string() == CODE0
 
     b0 = m0.to_bytes()
-    assert run_wasm_in_node(m0, True) == '111\n110\n101\n100'
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '111\n110\n101\n100'
 
     # Abbreviated
     CODE1 = """

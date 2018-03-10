@@ -2,7 +2,7 @@
 Test WASM Table and Element definition classes.
 """
 
-from ppci.wasm import Module, Table, run_wasm_in_node
+from ppci.wasm import Module, Table, run_wasm_in_node, has_node
 
 
 def dedent(code):
@@ -63,7 +63,8 @@ def test_table1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
-    assert run_wasm_in_node(m0, True) == '101\n102'
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '101\n102'
 
     # Abbreviation: imported table
     m3 = Module('(module (table $t1 (import "foo" "bar_table1") anyfunc) )')

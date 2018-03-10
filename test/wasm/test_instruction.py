@@ -2,7 +2,7 @@
 Basic instruction tests, like nesting.
 """
 
-from ppci.wasm import Module, run_wasm_in_node
+from ppci.wasm import Module, run_wasm_in_node, has_node
 
 
 def dedent(code):
@@ -41,8 +41,8 @@ def test_instructions1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
-    assert run_wasm_in_node(m0, True) == '7'
-
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '7'
 
     # Variant 1 - no inentation, nested test for if
     CODE1 = dedent("""
@@ -117,7 +117,8 @@ def test_instructions1():
     m3 = Module(CODE3)
     assert m3.to_string() != CODE0
     assert m3.to_bytes() != b0
-    assert run_wasm_in_node(m3, True) == '7'
+    if has_node():
+        assert run_wasm_in_node(m3, True) == '7'
 
 
 if __name__ == '__main__':

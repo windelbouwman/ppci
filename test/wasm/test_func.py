@@ -2,7 +2,7 @@
 Test WASM Func definition class.
 """
 
-from ppci.wasm import Module, Func, run_wasm_in_node
+from ppci.wasm import Module, Func, run_wasm_in_node, has_node
 
 
 def dedent(code):
@@ -53,7 +53,8 @@ def test_func1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
-    assert run_wasm_in_node(m0, True) == '7'
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '7'
 
     # Abbreviation: inline typedefs
     CODE1 = """

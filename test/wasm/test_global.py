@@ -2,7 +2,7 @@
 Test WASM Global definition class.
 """
 
-from ppci.wasm import Module, Global, Instruction, run_wasm_in_node
+from ppci.wasm import Module, Global, Instruction, run_wasm_in_node, has_node
 
 
 def dedent(code):
@@ -41,7 +41,8 @@ def test_global1():
     assert m0.to_string() == CODE0
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
-    assert run_wasm_in_node(m0, True) == '7'
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '7'
 
 
 if __name__ == '__main__':

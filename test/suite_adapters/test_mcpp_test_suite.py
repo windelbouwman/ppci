@@ -51,6 +51,9 @@ def create_test_function(cls, filename):
         # TODO: check output for correct values:
         print(output_file.getvalue())
 
+    if hasattr(cls, test_function_name):
+        raise ValueError('Duplicate test {}'.format(test_function_name))
+
     setattr(cls, test_function_name, test_function)
 
 
@@ -59,9 +62,7 @@ def mcpp_populate(cls):
         mcpp_directory = os.path.normpath(os.environ['MCPP_DIR'])
         test_t_directory = os.path.join(mcpp_directory, 'test-t')
         for filename in sorted(glob.iglob(os.path.join(test_t_directory, 'n_*.t'))):
-            # for test_case in []:
             create_test_function(cls, filename)
-
     return cls
 
 

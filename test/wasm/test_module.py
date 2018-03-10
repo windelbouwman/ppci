@@ -68,7 +68,8 @@ def test_module1():
     assert m0.to_string() == CODE0
 
     b0 = m0.to_bytes()
-    assert wasm.run_wasm_in_node(m0, True) == '0\n1\n2\n3\n4\n5\n6\n7\n8\n9'
+    if wasm.has_node():
+        assert wasm.run_wasm_in_node(m0, True) == '0\n1\n2\n3\n4\n5\n6\n7\n8\n9'
 
 
     # ----- Abbreviated text

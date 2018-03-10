@@ -2,7 +2,7 @@
 Test WASM Memory and Data definition classes.
 """
 
-from ppci.wasm import Module, Memory, Instruction, run_wasm_in_node
+from ppci.wasm import Module, Memory, Instruction, run_wasm_in_node, has_node
 
 
 def dedent(code):
@@ -23,7 +23,7 @@ def test_memory0():
 
     assert Memory('(memory 1)').id == '$0'
     assert Memory('(memory 1)').min == 1
-    assert Memory('(memory 1)').max == None
+    assert Memory('(memory 1)').max is None
 
     assert Memory('(memory 1 2)').id == '$0'
     assert Memory('(memory 1 2)').min == 1
@@ -63,7 +63,8 @@ def test_memory1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
-    assert run_wasm_in_node(m0, True) == '4\n3'
+    if has_node():
+        assert run_wasm_in_node(m0, True) == '4\n3'
 
     # Abbreviation: imported memory
     m3 = Module('(module (memory $m1 (import "foo" "bar_mem1") 1) )')
