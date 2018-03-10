@@ -6,7 +6,7 @@
             source="../boot.asm"
             arch="mips"
             output="boot.oj" />
-        <compile
+        <c3compile
             arch="mips"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"

@@ -9,7 +9,7 @@ from io import StringIO
 from time import perf_counter
 
 from ppci import irutils
-from ppci.api import ir_to_object, get_arch
+from ppci.api import ir_to_object, get_current_arch
 from ppci.utils import codepage, reporting
 
 from ppci.wasm import wasm_to_ir, export_wasm_example
@@ -67,7 +67,7 @@ return i
 
 ## Run in memory 
 
-arch = get_arch('x86_64:wincc')  # todo: fix auto detecting arch on Windows
+arch = get_current_arch()
 
 # Convert Python to wasm
 wasm_module = python_to_wasm(py3)
@@ -91,10 +91,7 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
     ob = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
 
 # Run in memory
-imports = {
-    'add': my_add
-}
-native_module = codepage.load_obj(ob, imports=imports)
+native_module = codepage.load_obj(ob)
 t0 = perf_counter()
 result = native_module.main()
 etime = perf_counter() - t0

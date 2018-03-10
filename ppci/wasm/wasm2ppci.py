@@ -69,10 +69,10 @@ class WasmToIrCompiler:
                 # otherwise we may have a name from import/export, otherwise use index
                 if isinstance(definition.id, str):
                     name = definition.id.lstrip('$')
-                elif not index in self.function_names:
-                    name = 'unnamed{}'.format(index)
+                elif definition.id in self.function_names:
+                    name = self.function_names[definition.id]
                 else:
-                    raise Error()
+                    name = 'unnamed{}'.format(definition.id)
                 self.function_names[definition.id] = name, signature
                 # name = self.function_names[index]
                 functions.append((name, signature, definition))

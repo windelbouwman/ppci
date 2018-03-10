@@ -4,7 +4,7 @@
 
     <target name="structs">
         <assemble source="../startup_a9.asm" arch="arm" output="start.oj" />
-        <compile
+        <c3compile
             arch="arm"
             sources='../arch.c3'
             output="bsp.oj" />

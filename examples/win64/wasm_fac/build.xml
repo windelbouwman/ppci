@@ -8,7 +8,7 @@
             source="../kernel32.s"
             output="glue.oj" />
 
-        <compile
+        <c3compile
             arch="x86_64:wincc"
             sources="../../src/wasm_fac/main.c3;../../../librt/io.c3;../bsp.c3;../kernel32.c3"
             output="rest.oj"

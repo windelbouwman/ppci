@@ -4,7 +4,7 @@
 
     <target name="hello">
         <assemble source="startup_a9.asm" arch="arm" output="start.oj" />
-        <compile 
+        <c3compile 
             arch="arm"
             sources='hello.c3;arch.c3;../../librt/io.c3'
             output="hello.oj" />

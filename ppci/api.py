@@ -7,18 +7,15 @@ linking and assembling.
 import io
 import logging
 import os
-import sys
-import platform
 import stat
 import xml
-from .arch.arch import Architecture
 from .lang.c import preprocess, c_to_ir, COptions
-from .lang.c3 import C3Builder
-from .lang.bf import BrainFuckGenerator
+from .lang.c3 import c3_to_ir
+from .lang.bf import bf_to_ir
 from .lang.fortran import FortranBuilder
-from .lang.llvmir import LlvmIrFrontend
+from .lang.llvmir import llvm_to_ir
 from .lang.pascal import PascalBuilder
-from .lang.ws import WhitespaceGenerator
+from .lang.ws import ws_to_ir
 from .lang.python import python_to_ir, ir_to_python
 from .wasm import wasm_to_ir, read_wasm
 from .irutils import verify_module
@@ -45,40 +42,15 @@ from .utils import uboot_image
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager, get_file
-from .arch.target_list import create_arch
+from .arch import get_arch, get_current_arch
 
 # When using 'from ppci.api import *' include the following:
 __all__ = [
     'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
     'optimize', 'preprocess',
-    'get_arch', 'ir_to_object', 'ir_to_python']
-
-
-def get_arch(arch):
-    """ Try to return an architecture instance.
-
-    Args:
-        arch: can be a string in the form of arch:option1:option2
-
-    .. doctest::
-
-        >>> from ppci.api import get_arch
-        >>> arch = get_arch('msp430')
-        >>> arch
-        msp430-arch
-        >>> type(arch)
-        <class 'ppci.arch.msp430.arch.Msp430Arch'>
-    """
-    if isinstance(arch, Architecture):
-        return arch
-    elif isinstance(arch, str):
-        if ':' in arch:
-            # We have target with options attached
-            l = arch.split(':')
-            return create_arch(l[0], options=tuple(l[1:]))
-        else:
-            return create_arch(arch)
-    raise TaskError('Invalid architecture {}'.format(arch))
+    'get_arch', 'get_current_arch',
+    'ir_to_object', 'ir_to_python',
+    'bf_to_ir']
 
 
 def get_reporter(reporter):
@@ -100,17 +72,6 @@ def get_reporter(reporter):
 def is_platform_supported():
     """ Determine if this platform is supported """
     return get_current_arch() is not None
-
-
-def get_current_arch():
-    """ Try to get the architecture for the current platform """
-    if sys.platform.startswith('win'):
-        machine = platform.machine()
-        if machine == 'AMD64':
-            return get_arch('x86_64:wincc')
-    elif sys.platform == 'linux':
-        if platform.architecture()[0] == '64bit':
-            return get_arch('x86_64')
 
 
 def construct(buildfile, targets=()):
@@ -201,37 +162,6 @@ def disasm(data, march):
     f.close()
     ostream = TextOutputStream()
     disassembler.disasm(data, ostream)
-
-
-def c3toir(sources, includes, march, reporter=None):
-    """ Compile c3 sources to ir-code for the given architecture. """
-    logger = logging.getLogger('c3c')
-    march = get_arch(march)
-    if not reporter:  # pragma: no cover
-        reporter = DummyReportGenerator()
-
-    logger.debug('C3 compilation started')
-    reporter.heading(2, 'c3 compilation')
-    sources = [get_file(fn) for fn in sources]
-    includes = [get_file(fn) for fn in includes]
-    diag = DiagnosticsManager()
-    c3b = C3Builder(diag, march.info)
-
-    try:
-        _, ir_modules = c3b.build(sources, includes)
-        for ircode in ir_modules:
-            verify_module(ircode)
-    except CompilerError as ex:
-        diag.error(ex.msg, ex.loc)
-        diag.print_errors()
-        raise TaskError('Compile errors')
-
-    reporter.message('C3 compilation listings for {}'.format(sources))
-    for ir_module in ir_modules:
-        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
-        reporter.dump_ir(ir_module)
-
-    return ir_modules
 
 
 OPT_LEVELS = ('0', '1', '2', 's')
@@ -413,18 +343,10 @@ def wasmcompile(source: io.TextIOBase, march, opt_level=2):
     return obj
 
 
-def llvm_to_ir(source):
-    """ Convert llvm assembly code into an IR-module """
-    llvm = LlvmIrFrontend()
-    ir_module = llvm.compile(source)
-    return ir_module
-
-
 def llc(source, march):
     """ Compile llvm assembly source into machine code """
     march = get_arch(march)
-    llvm = LlvmIrFrontend()
-    ir_module = llvm.compile(source)
+    ir_module = llvm_to_ir(source)
     return ir_to_object([ir_module], march)
 
 
@@ -455,7 +377,7 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
     reporter = get_reporter(reporter)
     march = get_arch(march)
     ir_modules = \
-        c3toir(sources, includes, march, reporter=reporter)
+        c3_to_ir(sources, includes, march, reporter=reporter)
 
     for ircode in ir_modules:
         optimize(ircode, level=opt_level, reporter=reporter)
@@ -488,18 +410,6 @@ def pascal(sources, march, opt_level=0, reporter=None):
     return ir_to_object(ir_modules, march, reporter=reporter)
 
 
-def bf2ir(source, target):
-    """ Compile brainfuck source into ir code """
-    target = get_arch(target)
-    ircode = BrainFuckGenerator(target).generate(source)
-    return ircode
-
-
-def ws2ir(source):
-    """ Compile whitespace source """
-    WhitespaceGenerator().compile(source)
-
-
 def fortran_to_ir(source):
     """ Translate fortran source into IR-code """
     builder = FortranBuilder()
@@ -530,7 +440,7 @@ def bfcompile(source, target, reporter=None):
         reporter = DummyReportGenerator()
     reporter.message('brainfuck compilation listings')
     target = get_arch(target)
-    ir_module = bf2ir(source, target)
+    ir_module = bf_to_ir(source, target)
     reporter.message(
         'Before optimization {} {}'.format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
@@ -554,11 +464,6 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
     # TODO!
     ir_modules = fortran_to_ir(sources[0])
     return ir_to_object(ir_modules, target, reporter=reporter)
-
-
-def llvmir2ir(f):
-    """ Parse llvm IR-code into a ppci ir-module """
-    return LlvmIrFrontend().compile(f)
 
 
 def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):

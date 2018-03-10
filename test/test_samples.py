@@ -11,7 +11,7 @@ from util import has_iverilog, run_msp430, run_picorv32
 from util import has_avr_emulator, run_avr, run_nodejs
 from util import do_long_tests, do_iverilog, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc, get_current_arch
-from ppci.api import c3toir, bf2ir, ir_to_python, optimize, c_to_ir
+from ppci.api import c3_to_ir, bf_to_ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.utils import uboot_image
 from ppci.utils.codepage import load_obj
@@ -507,11 +507,11 @@ class TestSamplesOnPython(unittest.TestCase, I32Samples):
         march = 'arm'
         with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
             if lang == 'c3':
-                ir_modules = c3toir([
+                ir_modules = c3_to_ir([
                     relpath('..', 'librt', 'io.c3'), bsp,
                     io.StringIO(src)], [], march, reporter=reporter)
             elif lang == 'bf':
-                ir_modules = [bf2ir(src, march)]
+                ir_modules = [bf_to_ir(src, march)]
             elif lang == 'c':
                 coptions = COptions()
                 include_path1 = relpath('..', 'librt', 'libc')
@@ -565,11 +565,11 @@ class TestSamplesOnWasm(unittest.TestCase):
         march = 'arm'  # TODO: this must be wasm!
         with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
             if lang == 'c3':
-                ir_modules = c3toir([
+                ir_modules = c3_to_ir([
                     bsp, relpath('..', 'librt', 'io.c3'),
                     io.StringIO(src)], [], march, reporter=reporter)
             elif lang == 'bf':
-                ir_modules = [bf2ir(src, march)]
+                ir_modules = [bf_to_ir(src, march)]
             elif lang == 'c':
                 coptions = COptions()
                 include_path1 = relpath('..', 'librt', 'libc')

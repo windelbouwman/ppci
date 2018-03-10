@@ -4,14 +4,48 @@ import logging
 import itertools
 import io
 from ...arch.arch_info import ArchInfo
-from ...common import DiagnosticsManager
-from ...irutils import Verifier
+from ...arch import get_arch
+from ...common import DiagnosticsManager, get_file, CompilerError
+from ...build.tasks import TaskError
+from ...utils.reporting import DummyReportGenerator
+from ...irutils import Verifier, verify_module
 from .lexer import Lexer
 from .parser import Parser
 from .typechecker import TypeChecker
 from .codegenerator import CodeGenerator
 from .scope import SemanticError
 from .context import Context
+
+
+def c3_to_ir(sources, includes, march, reporter=None):
+    """ Compile c3 sources to ir-code for the given architecture. """
+    logger = logging.getLogger('c3c')
+    march = get_arch(march)
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
+
+    logger.debug('C3 compilation started')
+    reporter.heading(2, 'c3 compilation')
+    sources = [get_file(fn) for fn in sources]
+    includes = [get_file(fn) for fn in includes]
+    diag = DiagnosticsManager()
+    c3b = C3Builder(diag, march.info)
+
+    try:
+        _, ir_modules = c3b.build(sources, includes)
+        for ircode in ir_modules:
+            verify_module(ircode)
+    except CompilerError as ex:
+        diag.error(ex.msg, ex.loc)
+        diag.print_errors()
+        raise TaskError('Compile errors')
+
+    reporter.message('C3 compilation listings for {}'.format(sources))
+    for ir_module in ir_modules:
+        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.dump_ir(ir_module)
+
+    return ir_modules
 
 
 class C3Builder:

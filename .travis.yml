@@ -1,12 +1,11 @@
-
+sudo: false
 language: python
 
 python:
   - "3.4"
   - "3.6"
 
-install:
-  - pip -q install tox codacy-coverage
+install: pip -q install tox codacy-coverage
 
 script:
   - tox -e cover

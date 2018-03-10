@@ -13,6 +13,11 @@ import operator
 from ..common import CompilerError
 
 
+def ws_to_ir(source):
+    """ Compile whitespace source """
+    return WhitespaceGenerator().compile(source)
+
+
 class WhitespaceGenerator:
     def compile(self, f):
         prog = WhitespaceParser().compile(f)

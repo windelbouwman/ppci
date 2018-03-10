@@ -9,7 +9,7 @@ from ppci.utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ppci.utils.leb128 import signed_leb128_decode, unsigned_leb128_decode
 
 
-THIS_DIR = os.path.dirname(__file__)
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class WasmGeneratorTestCase(unittest.TestCase):
@@ -71,11 +71,10 @@ class WasmCompilerTestCase(unittest.TestCase):
 
 
 class WasmLoadAndSaveTestCase(unittest.TestCase):
-    @unittest.skip('todo: find back program.wasm')
     def test_load_save(self):
         """ Load program.wasm from disk and save it again. """
         program_filename = os.path.join(
-            THIS_DIR, '..', 'examples', 'program.wasm')
+            THIS_DIR, '..', '..', 'examples', 'wasm', 'program.wasm')
         with open(program_filename, 'rb') as f:
             wasm_module = read_wasm(f)
 

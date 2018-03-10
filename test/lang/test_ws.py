@@ -1,6 +1,6 @@
 import unittest
 import io
-from ppci.api import ws2ir
+from ppci.api import ws_to_ir
 from ppci.common import CompilerError
 
 
@@ -43,13 +43,13 @@ class WhitespaceTestCase(unittest.TestCase):
         src = hello_world_source
         print('src=', src.encode('ascii'))
         f = io.StringIO(src)
-        ws2ir(f)
+        ws_to_ir(f)
 
     @unittest.skip('todo')
     def test_error(self):
         src = ""
         with self.assertRaises(CompilerError):
-            ws2ir(src)
+            ws_to_ir(src)
 
 
 if __name__ == '__main__':

@@ -38,7 +38,7 @@ from collections import OrderedDict
 from .opcodes import OPERANDS, REVERZ, EVAL, OPCODES
 from .abbreviations import normalize_wasm_s_expression
 from .util import datastring2bytes, bytes2datastring
-from .sexpr import parse_sexpr
+from ..lang.sexpr import parse_sexpr
 from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ..utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
 

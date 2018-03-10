@@ -3,6 +3,7 @@
 from ..api import ir_to_object, get_current_arch
 from ..utils.codepage import load_obj
 from . import wasm_to_ir
+from .components import Export
 
 
 def instantiate(module, imports):
@@ -13,7 +14,19 @@ def instantiate(module, imports):
     obj = ir_to_object([ppci_module], arch, debug=True)
     instance = ModuleInstance()
     instance._module = load_obj(obj, imports=flatten_imports(imports))
-    # TODO: figure out which names are exported:
+
+    i = 0
+    for definition in module:
+        if isinstance(definition, Export):
+            if definition.kind != 'func':
+                raise NotImplementedError(definition.kind)
+            # TODO: why are the names numbers? This is incorrect.
+            func_name = str(i)
+            setattr(
+                instance.exports, definition.name,
+                getattr(instance._module, func_name))
+            i += 1
+
     instance.exports.main = getattr(instance._module, '0')
     return instance
 

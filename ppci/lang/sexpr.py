@@ -1,7 +1,8 @@
 """ Functionality to tokenize and parse S-expressions.
 """
 
-# todo: Move this to ppci utils?
+from .common import Token, SourceLocation
+from ..common import CompilerError
 
 
 def tokenize_sexpr(text):
@@ -13,12 +14,14 @@ def tokenize_sexpr(text):
     comment_depth = 0
     word_start = -1
     in_string = ''
+    filename = '?'
 
     i = -1
     while i < len(text):
         i += 1
         c = text[i:i+1]  # is '' last round so we can finish words at end of text
         next = text[i+1:i+2]
+        loc = SourceLocation(filename, 1, i, 1)
 
         if comment_depth > 0:
             if c == '(' and next == ';':
@@ -37,7 +40,8 @@ def tokenize_sexpr(text):
                 in_string = 2
             elif c == '"':
                 in_string = 0
-                yield ('string', text[word_start+1:i])  # drop the quotes
+                # drop the quotes
+                yield Token('string', text[word_start+1:i], loc)
                 word_start = -1
         else:
             token = None
@@ -49,12 +53,12 @@ def tokenize_sexpr(text):
                 for j in range(i+1, len(text)):
                     if text[j] in '\r\n':
                         break
-                token = 'comment', text[i:j]
+                token = Token('comment', text[i:j], loc)
                 i = j
             elif c == '(':
-                token = 'bracket', '('
+                token = Token('bracket', '(', loc)
             elif c == ')':
-                token = 'bracket', ')'
+                token = Token('bracket', ')', loc)
             elif c == '"':
                 in_string = text[i:]
                 word_start = i
@@ -76,7 +80,8 @@ def tokenize_sexpr(text):
                             word = int(word)
                     except ValueError:
                         pass
-                yield ('word', word)  # identifier or number or $xx thingy
+                # identifier or number or $xx thingy
+                yield Token('word', word, loc)
             if token:
                 yield token
 
@@ -92,13 +97,15 @@ def parse_sexpr(text):
     # Check start ok
     tokengen = tokenize_sexpr(text)
     for token in tokengen:
-        if token[0] not in tokens2ignore:
-            assert token[1] == '(', 'Expecting S-expression to open with "(".'
+        if token.typ not in tokens2ignore:
+            if token.val != '(':
+                raise CompilerError(
+                    'Expecting S-expression to open with "(".', token.loc)
             break
     # Parse
     result = _parse_expr(tokengen)
     # Check end ok
-    more = ' '.join([str(token[1]) for token in tokengen if token[0] not in tokens2ignore])
+    more = ' '.join([str(token.val) for token in tokengen if token.typ not in tokens2ignore])
     if more:
         raise EOFError('Unexpected code after expr end: %r' % more)
 
@@ -108,13 +115,13 @@ def parse_sexpr(text):
 def _parse_expr(tokengen):
     val = []
     for token in tokengen:
-        if token[0] in tokens2ignore:
+        if token.typ in tokens2ignore:
             pass
-        elif token[1] == '(':
+        elif token.val == '(':
             val.append(_parse_expr(tokengen))  # recurse
-        elif token[1] == ')':
+        elif token.val == ')':
             return tuple(val)
         else:
-            val.append(token[1])
+            val.append(token.val)
     else:
         raise EOFError('Unexpected end')

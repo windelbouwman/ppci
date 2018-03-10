@@ -5,6 +5,14 @@ import logging
 from .. import ir
 from ..common import CompilerError
 from ..irutils import Builder
+from ..arch import get_arch
+
+
+def bf_to_ir(source, target):
+    """ Compile brainfuck source into ir code """
+    target = get_arch(target)
+    ircode = BrainFuckGenerator(target).generate(source)
+    return ircode
 
 
 class BrainFuckGenerator():

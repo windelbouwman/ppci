@@ -12,7 +12,7 @@
             source="startup_stm32f4.asm"
             arch="arm:thumb"
             output="obj/startup.oj" />
-        <compile
+        <c3compile
             arch="arm:thumb"
             sources="blinky.c3;arch.c3;../../librt/io.c3"
             includes="stm32f4xx.c3"

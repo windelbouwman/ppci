@@ -83,7 +83,7 @@ class AssembleTask(OutputtingTask):
 
 
 @register_task
-class CompileTask(OutputtingTask):
+class C3CompileTask(OutputtingTask):
     """ Task that compiles C3 source for some target into an object file """
     def run(self):
         arch = self.get_argument('arch')

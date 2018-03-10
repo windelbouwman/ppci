@@ -6,7 +6,7 @@
             source="boot.asm"
             arch="msp430"
             output="boot.oj" />
-        <compile
+        <c3compile
             arch="msp430"
             sources="blinky.c3"
             output="main.oj"

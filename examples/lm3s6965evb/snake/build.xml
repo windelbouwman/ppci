@@ -7,7 +7,7 @@
             source="../startup.asm"
             arch="arm:thumb"
             output="startup.oj" />
-        <compile
+        <c3compile
             arch="arm:thumb"
             sources="../../src/snake/*.c3;../bsp.c3;../../../librt/io.c3"
             output="rest.oj"

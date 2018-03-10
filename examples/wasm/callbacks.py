@@ -14,7 +14,12 @@ wasm_module = wasm.Module(
         ('get_local', 0),
         ('i64.const', 42),
         ('call', '$add'),
-    )
+    ),
+    ('func', ('export', 'add'), ('param', 'i64', 'i64'), ('result', 'i64'),
+        ('get_local', 0),
+        ('get_local', 1),
+        ('call', '$add'),
+    ),
 )
 
 print(wasm_module.to_string())
@@ -54,3 +59,4 @@ instance = instantiate(
     })
 
 print(instance.exports.main(1337))
+print(instance.exports.add(1, 1))
