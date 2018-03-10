@@ -22,7 +22,7 @@ TODO: Figure out how these tests are organized
 
 ## LLVM
 
-TODO
+TODO: For sure there are useful tests that could be re-used.
 
 ## WASM
 
@@ -33,4 +33,8 @@ suite.
 
 ## Fortran
 
-TODO: there exists a fortran test suite collection
+There exists a fortran test suite collection "fortran compiler
+validation system" (fcvs21.tar.Z).
+
+For fortran, set the `FCVS_DIR` environment variable to the directory
+where the fortran compiler validation system (fcvs21.tar.Z) files are located.

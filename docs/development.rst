@@ -100,6 +100,18 @@ There exist many different compiler validation suites. Some of them are pure val
 others are part of a compiler toolchain. In order to use these test suites, a series of test
 suite adapter files exist in the directory test/suite_adapters
 
+To run for example wasm test spec tests:
+
+.. code:: bash
+
+    $ WASM_SPEC_DIR=~/GIT/spec python -m pytest test/suite_adapters -v
+
+Available test adapters:
+
+* mcpp (set `MCPP_DIR`)
+* wasm spec (set `WASM_SPEC_DIR`)
+* fortran compiler validation system 2.1 (set `FCVS_DIR`)
+
 Building the docs
 -----------------
 

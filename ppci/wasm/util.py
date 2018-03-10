@@ -167,6 +167,11 @@ def run_wasm_in_notebook(wasm):
 @lru_cache(maxsize=None)
 def has_node() -> bool:
     """ Check if nodejs is available """
+    return 'WASMFUN_NODE_EXE' in os.environ
+
+    # TODO: enable the code below.
+    # On appveyor this failed:
+    # https://ci.appveyor.com/project/WindelBouwman/ppci-786/build/1.0.537
     if hasattr(shutil, 'which'):
         return bool(shutil.which('node'))
     else:

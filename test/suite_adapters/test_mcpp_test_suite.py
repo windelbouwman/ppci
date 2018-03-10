@@ -44,7 +44,6 @@ def create_test_function(cls, filename):
             this_dir, '..', '..', 'librt', 'libc')
         coptions.add_include_path(libc_dir)
 
-        print('Testing snippet:', filename)
         output_file = io.StringIO()
         with open(filename, 'r') as f:
             preprocess(f, output_file, coptions)
@@ -68,8 +67,7 @@ def mcpp_populate(cls):
 
 @mcpp_populate
 class McppTestCase(unittest.TestCase):
-    def setUp(self):
-        pass
+    pass
 
 
 if __name__ == '__main__':
