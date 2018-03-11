@@ -90,6 +90,10 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
     # Compile to native object
     ob = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
 
+
+# Hack: fix the return type
+ob.debug_info.functions[0].return_type = float
+
 # Run in memory
 native_module = codepage.load_obj(ob)
 t0 = perf_counter()
@@ -105,7 +109,7 @@ export_wasm_example(
 if True:
     f = StringIO()
     ir_to_python([ppci_module], f)
-    py_code = f.getvalue()
+    py_code = 'def main():\n' + '\n'.join(['    ' + line for line in py3.splitlines()])
     exec(py_code)
     t0 = perf_counter()
     result = main()
