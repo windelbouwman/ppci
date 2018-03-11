@@ -58,7 +58,7 @@ class PythonJitLoadingTestCase(unittest.TestCase):
         imports = {
             'myprint': myprint,
         }
-        with open('p2p_report_callback.html', 'w') as f, HtmlReportGenerator(f) as reporter:
+        with open('p2p_callback_report.html', 'w') as f, HtmlReportGenerator(f) as reporter:
             m2 = load_py(
                 io.StringIO(src2), imports=imports, reporter=reporter)
         # Segfaults:
@@ -72,7 +72,7 @@ class PythonJitLoadingTestCase(unittest.TestCase):
         self.assertEqual(15, v2)
 
 
-class PythonToIrTranspilerTestCase(unittest.TestCase):
+class PythonToIrCompilerTestCase(unittest.TestCase):
     """ Check the compilation of python code to ir """
     def test_snippet1(self):
         mod = python_to_ir(io.StringIO(src1))

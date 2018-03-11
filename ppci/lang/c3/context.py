@@ -19,6 +19,7 @@ class Context:
         self.module_map = {}
         self.const_map = {}
         self.var_map = {}    # Maps variables to storage locations.
+        self.function_map = {}
         self.const_workset = set()
         self.arch_info = arch_info
         self.pointerSize = arch_info.get_size('ptr')

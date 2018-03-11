@@ -126,7 +126,8 @@ class CCodeGenerator:
             self.gen_function_def(function)
         else:
             # TODO: when to put a function declaration as extern?
-            if function.storage_class == 'extern':
+            # For now just ignore extern keyword?
+            if True:  # function.storage_class == 'extern':
                 ftyp = function.typ
                 argument_types = [
                     self.get_ir_type(a.typ) for a in ftyp.arguments]
@@ -135,14 +136,15 @@ class CCodeGenerator:
                     argument_types.append(ir.ptr)
 
                 if ftyp.return_type.is_void:
-                    xf = ir.ExternalProcedure(
+                    external_function = ir.ExternalProcedure(
                         function.name, argument_types)
                 else:
                     return_type = self.get_ir_type(ftyp.return_type)
-                    xf = ir.ExternalFunction(
+                    external_function = ir.ExternalFunction(
                         function.name, argument_types, return_type)
 
-                self.builder.module.add_external(xf)
+                self.builder.module.add_external(external_function)
+                self.ir_var_map[function] = external_function
             else:
                 # Okay, a declaration, no body, what now?
                 pass
@@ -968,34 +970,27 @@ class CCodeGenerator:
                     vararg_ptr = self.emit(
                         ir.add(vararg_ptr, s2, 'va2', ir.ptr))
 
+        # Get function pointer or label:
         if isinstance(expr.callee.typ, types.FunctionType):
-            # Normal call:
-            name = expr.callee.variable.name
-            if ftyp.return_type.is_void:
-                self.emit(ir.ProcedureCall(name, ir_arguments))
-                value = None
-            elif ftyp.return_type.is_struct:
-                self.emit(ir.ProcedureCall(name, ir_arguments))
-                value = rval_alloc
-            else:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.FunctionCall(
-                    name, ir_arguments, 'result', ir_typ))
+            # Normal call, get global value:
+            ir_function = self.ir_var_map[expr.callee.variable]
         elif isinstance(expr.callee.typ, types.PointerType) and \
                 isinstance(expr.callee.typ.element_type, types.FunctionType):
-            ptr = self.gen_expr(expr.callee, rvalue=True)
-            if ftyp.return_type.is_void:
-                self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
-                value = None
-            elif ftyp.return_type.is_struct:
-                self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
-                value = rval_alloc
-            else:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.FunctionPointerCall(
-                    ptr, ir_arguments, 'result', ir_typ))
+            ir_function = self.gen_expr(expr.callee, rvalue=True)
         else:  # pragma: no cover
             raise NotImplementedError()
+
+        # Use function or procedure call depending on return type:
+        if ftyp.return_type.is_void:
+            self.emit(ir.ProcedureCall(ir_function, ir_arguments))
+            value = None
+        elif ftyp.return_type.is_struct:
+            self.emit(ir.ProcedureCall(ir_function, ir_arguments))
+            value = rval_alloc
+        else:
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.FunctionCall(
+                ir_function, ir_arguments, 'result', ir_typ))
 
         return value
 

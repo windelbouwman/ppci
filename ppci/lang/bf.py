@@ -48,6 +48,10 @@ class BrainFuckGenerator():
         data = ir.Variable('data', bf_mem_size * self.arch.get_size(ir.i8), 4)
         self.builder.module.add_variable(data)
 
+        # bsp puts function:
+        bsp_putc = ir.ExternalProcedure('bsp_putc', [ir.u8])
+        self.builder.module.add_external(bsp_putc)
+
         # Locate '1' and '0' constants:
         one_i32_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
         one_ins = self.builder.emit(ir.Cast(one_i32_ins, "val_inc", ir.i8))
@@ -110,7 +114,7 @@ class BrainFuckGenerator():
             elif char == '.':
                 # putc(data[ptr])
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
-                self.builder.emit(ir.ProcedureCall('bsp_putc', [val_ins]))
+                self.builder.emit(ir.ProcedureCall(bsp_putc, [val_ins]))
             elif char == ',':  # pragma: no cover
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')

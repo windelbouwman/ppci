@@ -176,7 +176,7 @@ class TailCallTestCase(unittest.TestCase):
         entry = builder.new_block()
         function.entry = entry
         builder.set_block(entry)
-        result = builder.emit(ir.FunctionCall('x', [], 'rv', ir.i8))
+        result = builder.emit(ir.FunctionCall(function, [], 'rv', ir.i8))
         builder.emit(ir.Return(result))
 
         # Verify first version:

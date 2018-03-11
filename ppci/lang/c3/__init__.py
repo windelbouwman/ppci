@@ -17,14 +17,6 @@ For the front-end a recursive descent parser is created.
    40 -> 99
    }
 
-.. autoclass:: ppci.lang.c3.C3Builder
-
-.. autoclass:: ppci.lang.c3.Lexer
-
-.. autoclass:: ppci.lang.c3.Parser
-
-.. autoclass:: ppci.lang.c3.CodeGenerator
-
 """
 
 

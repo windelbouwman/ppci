@@ -5,7 +5,7 @@ from ppci.lang.c3 import C3Builder, Lexer, Parser, AstPrinter, Context
 from ppci.lang.c3 import astnodes
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
-from ppci.irutils import Verifier
+from ppci.irutils import verify_module
 
 
 class LexerTestCase(unittest.TestCase):
@@ -133,13 +133,13 @@ class BuildTestCaseBase(unittest.TestCase):
     def build(self, snippet):
         """ Try to build a snippet and also print it to test the printer """
         srcs = self.make_file_list(snippet)
-        context, ir_modules = self.builder.build(srcs)
+        context, ir_module = self.builder.build(srcs)
         printer = AstPrinter()
         for mod in context.modules:
             output_file = io.StringIO()
             printer.print_ast(mod, output_file)
 
-        return ir_modules
+        return ir_module
 
     def expect_errors(self, snippet, rows):
         """ Helper to test for expected errors on rows """
@@ -157,9 +157,7 @@ class BuildTestCaseBase(unittest.TestCase):
         if len(self.diag.diags) > 0:
             self.diag.print_errors()
         self.assertTrue(ircode)
-        verifier = Verifier()
-        for mod in ircode:
-            verifier.verify(mod)
+        verify_module(ircode)
         self.assertEqual(0, len(self.diag.diags))
 
 

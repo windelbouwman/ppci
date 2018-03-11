@@ -11,13 +11,13 @@ def literal_label(lit):
 
 def ir_to_python(ir_modules, f, reporter=None):
     """ Convert ir-code to python code """
-    generator = IrToPythonTranspiler(f)
+    generator = IrToPythonCompiler(f)
     generator.header()
     for ir_module in ir_modules:
         generator.generate(ir_module)
 
 
-class IrToPythonTranspiler:
+class IrToPythonCompiler:
     """ Can generate python script from ir-code """
     def __init__(self, output_file):
         self.output_file = output_file
@@ -222,26 +222,19 @@ class IrToPythonTranspiler:
                     ins.name, ins.ty.name, ins.address.name))
         elif isinstance(ins, ir.FunctionCall):
             args = ', '.join(a.name for a in ins.arguments)
-            self.print(3, '{} = {}({})'.format(
-                ins.name, ins.function_name, args))
-        elif isinstance(ins, ir.FunctionPointerCall):
-            args = ', '.join(a.name for a in ins.arguments)
-            if isinstance(ins.function_ptr, ir.SubRoutine):
-                self.print(3, '_fptr = {}'.format(ins.function_ptr.name))
+            if isinstance(ins.callee, ir.SubRoutine):
+                self.print(3, '_fptr = {}'.format(ins.callee.name))
             else:
                 self.print(3, '_fptr = func_pointers[{}]'.format(
-                    ins.function_ptr.name))
+                    ins.callee.name))
             self.print(3, '{} = _fptr({})'.format(ins.name, args))
         elif isinstance(ins, ir.ProcedureCall):
             args = ', '.join(a.name for a in ins.arguments)
-            self.print(3, '{}({})'.format(ins.function_name, args))
-        elif isinstance(ins, ir.ProcedurePointerCall):
-            args = ', '.join(a.name for a in ins.arguments)
-            if isinstance(ins.function_ptr, ir.SubRoutine):
-                self.print(3, '_fptr = {}'.format(ins.function_ptr.name))
+            if isinstance(ins.callee, (ir.SubRoutine, ir.ExternalSubRoutine)):
+                self.print(3, '_fptr = {}'.format(ins.callee.name))
             else:
                 self.print(3, '_fptr = func_pointers[{}]'.format(
-                    ins.function_ptr.name))
+                    ins.callee.name))
             self.print(3, '_fptr({})'.format(args))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')

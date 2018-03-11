@@ -507,9 +507,9 @@ class TestSamplesOnPython(unittest.TestCase, I32Samples):
         march = 'arm'
         with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
             if lang == 'c3':
-                ir_modules = c3_to_ir([
+                ir_modules = [c3_to_ir([
                     relpath('..', 'librt', 'io.c3'), bsp,
-                    io.StringIO(src)], [], march, reporter=reporter)
+                    io.StringIO(src)], [], march, reporter=reporter)]
             elif lang == 'bf':
                 ir_modules = [bf_to_ir(src, march)]
             elif lang == 'c':
@@ -565,9 +565,9 @@ class TestSamplesOnWasm(unittest.TestCase):
         march = 'arm'  # TODO: this must be wasm!
         with HtmlReportGenerator(open(list_filename, 'w')) as reporter:
             if lang == 'c3':
-                ir_modules = c3_to_ir([
+                ir_modules = [c3_to_ir([
                     bsp, relpath('..', 'librt', 'io.c3'),
-                    io.StringIO(src)], [], march, reporter=reporter)
+                    io.StringIO(src)], [], march, reporter=reporter)]
             elif lang == 'bf':
                 ir_modules = [bf_to_ir(src, march)]
             elif lang == 'c':

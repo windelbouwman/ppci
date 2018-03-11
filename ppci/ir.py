@@ -239,17 +239,17 @@ class External(GlobalValue):
 
 
 class ExternalSubRoutine(External):
-    """ External object """
+    """ External subroutine base class """
     def __init__(self, name, argument_types):
         super().__init__(name)
         self.argument_types = argument_types
 
 
 class ExternalProcedure(ExternalSubRoutine):
-    """ External function """
+    """ External procedure """
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
-        return 'external {}({})'.format(self.name, args)
+        return 'external procedure {}({})'.format(self.name, args)
 
 
 class ExternalFunction(ExternalSubRoutine):
@@ -260,7 +260,8 @@ class ExternalFunction(ExternalSubRoutine):
 
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
-        return 'external {} {}({})'.format(self.return_type, self.name, args)
+        return 'external function {} {}({})'.format(
+            self.return_type, self.name, args)
 
 
 class ExternalVariable(External):
@@ -368,7 +369,9 @@ class SubRoutine(GlobalValue):
 
     def add_block(self, block):
         """ Add a block to this function """
-        assert block.name not in self.block_names
+        if block.name in self.block_names:
+            raise ValueError(
+                'A block with name {} already exists'.format(block.name))
         block.function = self
         self.make_unique_name(block)
         self.blocks.append(block)
@@ -729,10 +732,23 @@ class LiteralData(LocalValue):
         return '{} {} = Literal {}'.format(self.ty, self.name, data)
 
 
-class BaseFunctionCall(LocalValue):
-    """ Base function call """
-    def __init__(self, arguments, name, ty):
+class FunctionCall(LocalValue):
+    """ Call a function with some arguments and a return value """
+    callee = value_use('callee')
+
+    def __init__(self, callee, arguments, name, ty):
         super().__init__(name, ty)
+
+        if not isinstance(callee, Value):
+            raise TypeError(
+                'Callee must be a Value, not {}'.format(type(callee)))
+
+        if callee.ty is not ptr:
+            raise ValueError(
+                'Callee must be ptr, not {}'.format(callee.ty))
+
+        self.callee = callee
+
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
@@ -744,47 +760,28 @@ class BaseFunctionCall(LocalValue):
             self.del_use(old)
             self.arguments[idx] = new
             self.add_use(new)
-
-
-class FunctionCall(BaseFunctionCall):
-    """ Call a function with some arguments and a return value """
-    def __init__(self, function_name, arguments, name, ty):
-        super().__init__(arguments, name, ty)
-        assert isinstance(function_name, str)
-        self.function_name = function_name
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
         return '{} {} = call {}({})'.format(
-            self.ty, self.name, self.function_name, args)
+            self.ty, self.name, self.callee.name, args)
 
 
-# TODO: do we really need a seperate type for a pointer to a function?
-class FunctionPointerCall(BaseFunctionCall):
-    """ Call a function with some arguments and a return value """
-    function_ptr = value_use('function_ptr')
+class ProcedureCall(Instruction):
+    """ Call a procedure with some arguments """
+    callee = value_use('callee')
 
-    def __init__(self, function_ptr, arguments, name, ty):
-        super().__init__(arguments, name, ty)
-        if not isinstance(function_ptr, Value):
-            raise TypeError(
-                'Pointer must be a value, not {}'.format(function_ptr))
-
-        if function_ptr.ty is not ptr:
-            raise ValueError(
-                'Pointer must be ptr, not {}'.format(function_ptr.ty))
-
-        self.function_ptr = function_ptr
-
-    def __str__(self):
-        args = ', '.join(arg.name for arg in self.arguments)
-        return '{} {} = ptrcall {}({})'.format(
-            self.ty, self.name, self.function_ptr.name, args)
-
-
-class BaseProcedureCall(Instruction):
-    def __init__(self, arguments):
+    def __init__(self, callee, arguments):
         super().__init__()
+        if not isinstance(callee, Value):
+            raise TypeError(
+                'Callee must be a Value, not {}'.format(type(callee)))
+
+        if callee.ty is not ptr:
+            raise ValueError(
+                'Pointer must be ptr, not {}'.format(callee.ty))
+        self.callee = callee
+
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
@@ -797,33 +794,9 @@ class BaseProcedureCall(Instruction):
             self.arguments[idx] = new
             self.add_use(new)
 
-
-class ProcedureCall(BaseProcedureCall):
-    """ Call a procedure with some arguments """
-    def __init__(self, function_name, arguments):
-        super().__init__(arguments)
-        assert isinstance(function_name, str)
-        self.function_name = function_name
-
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return 'call {}({})'.format(self.function_name, args)
-
-
-class ProcedurePointerCall(BaseProcedureCall):
-    """ Call a procedure pointer with some arguments """
-    function_ptr = value_use('function_ptr')
-
-    def __init__(self, function_ptr, arguments):
-        super().__init__(arguments)
-        if function_ptr.ty is not ptr:
-            raise ValueError(
-                'Pointer must be ptr, not {}'.format(function_ptr.ty))
-        self.function_ptr = function_ptr
-
-    def __str__(self):
-        args = ', '.join(arg.name for arg in self.arguments)
-        return 'ptrcall {}({})'.format(self.function_ptr.name, args)
+        return 'call {}({})'.format(self.callee.name, args)
 
 
 class Unop(LocalValue):

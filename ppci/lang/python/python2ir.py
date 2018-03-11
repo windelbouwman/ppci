@@ -71,21 +71,31 @@ class PythonToIrCompiler:
 
         self.function_map = {}
 
+        self.builder = irutils.Builder()
+        self.builder.prepare()
+        self.builder.set_module(ir.Module('foo', debug_db=self.debug_db))
+
         if imports:
             # Fill imported functions:
             for name, signature in imports.items():
+                # Determine function type:
                 if isinstance(signature, tuple):
                     return_type, arg_types = signature
                 else:
                     # Assume that we have a function:
                     signature = inspect.signature(signature)
                     return_type = signature.return_annotation
-                    arg_types = [p.annotation for p in signature.parameters.values()]
-                self.function_map[name] = return_type, arg_types
+                    arg_types = [
+                        p.annotation for p in signature.parameters.values()]
 
-        self.builder = irutils.Builder()
-        self.builder.prepare()
-        self.builder.set_module(ir.Module('foo', debug_db=self.debug_db))
+                # Create external function:
+                if return_type:
+                    ir_function = ir.ExternalProcedure(name, [])
+                else:
+                    ir_function = ir.ExternalFunction(name, [], ir.ptr)
+
+                self.function_map[name] = ir_function, return_type, arg_types
+
         for df in x.body:
             self.logger.debug('Processing %s', df)
             if isinstance(df, ast.FunctionDef):
@@ -149,7 +159,7 @@ class PythonToIrCompiler:
             ir_function.add_parameter(param)
 
         # Register function as known:
-        self.function_map[function_name] = (return_type, arg_types)
+        self.function_map[function_name] = ir_function, return_type, arg_types
 
         self.logger.debug('Created function %s', ir_function)
         self.builder.block_number = 0
@@ -365,7 +375,7 @@ class PythonToIrCompiler:
             name = expr.func.id
 
             # Lookup function and check types:
-            return_type, arg_types = self.function_map[name]
+            ir_function, return_type, arg_types = self.function_map[name]
             self.logger.warning('Function arguments not type checked!')
 
             # Evaluate arguments:
@@ -374,9 +384,9 @@ class PythonToIrCompiler:
             # Emit call:
             if return_type:
                 value = self.emit(ir.FunctionCall(
-                    name, args, 'res', return_type))
+                    ir_function, args, 'res', return_type))
             else:
-                self.emit(ir.ProcedureCall(name, args))
+                self.emit(ir.ProcedureCall(ir_function, args))
                 value = None
         else:  # pragma: no cover
             self.not_impl(expr)

@@ -11,6 +11,7 @@ series of tree patterns. This is often referred to as a forest of trees.
 
 """
 
+import itertools
 import logging
 from .. import ir
 from ..arch.generic_instructions import Label
@@ -142,9 +143,8 @@ class SelectionGraphBuilder:
         self.current_block = None
 
         # Create maps for global variables:
-        global_objects = ir_function.module.variables + \
-            ir_function.module.functions
-        for variable in global_objects:
+        for variable in itertools.chain(
+                ir_function.module.variables, ir_function.module.functions):
             val = self.new_node('LABEL', ir.ptr)
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
@@ -415,9 +415,19 @@ class SelectionGraphBuilder:
         return args
 
     def _make_call(self, node, args, rv):
+        if isinstance(node.callee, (ir.SubRoutine, ir.ExternalSubRoutine)):
+            call_target = node.callee.name
+        else:
+            fptr = self.get_value(node.callee)
+
+            fptr_vreg = self.new_vreg(ir.ptr)
+            fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
+            self.chain(fptr_sgnode)
+            call_target = fptr_vreg
+
         # Perform the actual call:
         sgnode = self.new_node('CALL', None)
-        sgnode.value = (node.function_name, args, rv)
+        sgnode.value = (call_target, args, rv)
         self.debug_db.map(node, sgnode)
         # for i in inputs:
         #    sgnode.add_input(i)
@@ -439,43 +449,6 @@ class SelectionGraphBuilder:
 
         rv = (node.ty, ret_val)
         self._make_call(node, args, rv)
-
-        # When using the call as an expression, use the return value vreg:
-        sgnode = self.new_node('REG', node.ty, value=ret_val)
-        output = sgnode.new_output('res')
-        output.vreg = ret_val
-        self.add_map(node, output)
-
-    def _make_pointer_call(self, node, args, rv):
-        # Perform the actual call:
-        fptr = self.get_value(node.function_ptr)
-
-        fptr_vreg = self.new_vreg(ir.ptr)
-        fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
-        self.chain(fptr_sgnode)
-
-        sgnode = self.new_node('CALL', None)
-        sgnode.value = (fptr_vreg, args, rv)
-        self.debug_db.map(node, sgnode)
-        # for i in inputs:
-        #    sgnode.add_input(i)
-        self.chain(sgnode)
-
-    def do_procedure_pointer_call(self, node):
-        """ Transform a procedure pointer call """
-        args = self._prep_call_arguments(node)
-        self._make_pointer_call(node, args, None)
-
-    def do_function_pointer_call(self, node):
-        """ Transform a procedure pointer call """
-        args = self._prep_call_arguments(node)
-        # New register for copy of result:
-        ret_val = self.function_info.frame.new_reg(
-            self.arch.info.value_classes[node.ty],
-            '{}_result'.format(node.name))
-
-        rv = (node.ty, ret_val)
-        self._make_pointer_call(node, args, rv)
 
         # When using the call as an expression, use the return value vreg:
         sgnode = self.new_node('REG', node.ty, value=ret_val)

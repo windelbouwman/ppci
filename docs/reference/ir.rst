@@ -33,6 +33,18 @@ The IR-code is implemented in the ir package.
 .. autoclass:: ppci.ir.Module
     :members:
 
+.. autoclass:: ppci.ir.External
+    :members:
+
+.. autoclass:: ppci.ir.ExternalSubRoutine
+    :members:
+
+.. autoclass:: ppci.ir.ExternalProcedure
+    :members:
+
+.. autoclass:: ppci.ir.ExternalFunction
+    :members:
+
 .. autoclass:: ppci.ir.Variable
 
 .. autoclass:: ppci.ir.SubRoutine

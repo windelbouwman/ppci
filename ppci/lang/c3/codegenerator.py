@@ -29,14 +29,28 @@ class CodeGenerator:
         self.debug_db = debuginfo.DebugDb()
         self.module_ok = False
 
-    def gencode(self, mod: ast.Module, context):
+    def gen(self, context):
+        """ Generate code for a whole context """
+        self.context = context
+        ir_module = ir.Module('c3_code', debug_db=self.debug_db)
+        self.builder = irutils.Builder()
+        self.builder.module = ir_module
+
+        # Create global variables:
+        for module in context.modules:
+            self.gen_globals(module)
+
+        # Generate intermediate code for each package:
+        for module in context.modules:
+            self.gen_module(module)
+
+        return ir_module
+
+    def gen_module(self, mod: ast.Module):
         """ Generate code for a single module """
         assert isinstance(mod, ast.Module)
-        self.context = context
-        self.builder.prepare()
-        self.module_ok = True
         self.logger.info('Generating ir-code for %s', mod.name)
-        self.builder.module = self.context.var_map[mod]
+        self.module_ok = True
 
         # Only generate function if function contains a body:
         for func in mod.functions:
@@ -85,13 +99,8 @@ class CodeGenerator:
             cval = self.context.pack_int(cval, bits=typ.bits, signed=False)
             return cval
 
-    def gen_globals(self, module, context):
+    def gen_globals(self, module):
         """ Generate global variables and modules """
-        self.context = context
-        ir_module = ir.Module(module.name, debug_db=self.debug_db)
-        context.var_map[module] = ir_module
-
-        # Generate room for global variables:
         for var in module.inner_scope.variables:
             assert not var.isLocal
             if var.ival:
@@ -100,11 +109,11 @@ class CodeGenerator:
                 cval = None
 
             var_name = '{}_{}'.format(module.name, var.name)
-            size = context.size_of(var.typ)
+            size = self.context.size_of(var.typ)
             alignment = 4
             ir_var = ir.Variable(var_name, size, alignment, value=cval)
-            context.var_map[var] = ir_var
-            ir_module.add_variable(ir_var)
+            self.context.var_map[var] = ir_var
+            self.builder.module.add_variable(ir_var)
 
             # Create debug infos:
             dbg_typ = self.get_debug_type(var.typ)
@@ -170,26 +179,14 @@ class CodeGenerator:
 
     def gen_external_function(self, function):
         """ Generate external function """
-        name = '{}_{}'.format(self.builder.module.name, function.name)
-        arg_types = [self.get_ir_type(p.typ) for p in function.parameters]
-        if self.context.equal_types('void', function.typ.returntype):
-            x = ir.ExternalProcedure(name, arg_types)
-        else:
-            return_type = self.get_ir_type(function.typ.returntype)
-            x = ir.ExternalFunction(name, arg_types, return_type)
-        self.builder.module.add_external(x)
+        return self.get_ir_function(function)
 
     def gen_function(self, function):
         """ Generate code for a function. This involves creating room
             for parameters on the stack, and generating code for the function
             body.
         """
-        name = '{}_{}'.format(self.builder.module.name, function.name)
-        if self.context.equal_types('void', function.typ.returntype):
-            ir_function = self.builder.new_procedure(name)
-        else:
-            return_type = self.get_ir_type(function.typ.returntype)
-            ir_function = self.builder.new_function(name, return_type)
+        ir_function = self.get_ir_function(function)
         self.builder.set_function(ir_function)
         first_block = self.new_block()
         self.builder.set_block(first_block)
@@ -295,6 +292,35 @@ class CodeGenerator:
             return ir.ptr
         else:  # pragma: no cover
             raise NotImplementedError(str(cty))
+
+    def get_ir_function(self, function):
+        """ Get the proper IR function for the given function.
+
+        A new function will be created if required.
+        """
+        if function in self.context.function_map:
+            ir_function = self.context.function_map[function]
+        else:
+            name = '{}_{}'.format(function.package.name, function.name)
+            if function.body is None:
+                # Functions without body are imported
+                arg_types = [
+                    self.get_ir_type(p.typ) for p in function.parameters]
+                if self.context.equal_types('void', function.typ.returntype):
+                    ir_function = ir.ExternalProcedure(name, arg_types)
+                else:
+                    return_type = self.get_ir_type(function.typ.returntype)
+                    ir_function = ir.ExternalFunction(
+                        name, arg_types, return_type)
+                self.builder.module.add_external(ir_function)
+            else:
+                if self.context.equal_types('void', function.typ.returntype):
+                    ir_function = self.builder.new_procedure(name)
+                else:
+                    return_type = self.get_ir_type(function.typ.returntype)
+                    ir_function = self.builder.new_function(name, return_type)
+            self.context.function_map[function] = ir_function
+        return ir_function
 
     def gen_stmt(self, code: ast.Statement):
         """ Generate code for a statement """
@@ -845,11 +871,10 @@ class CodeGenerator:
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
         assert isinstance(target_func, ast.Function)
-        ftyp = target_func.typ
-        fname = target_func.package.name + '_' + target_func.name
+        ir_function = self.get_ir_function(target_func)
 
         # Check arguments:
-        ptypes = ftyp.parametertypes
+        ptypes = target_func.typ.parametertypes
         assert len(expr.args) == len(ptypes)
 
         # Evaluate the arguments:
@@ -862,15 +887,16 @@ class CodeGenerator:
         # Return type will never be an lvalue:
         expr.lvalue = False
 
-        assert self.context.is_simple_type(ftyp.returntype)
+        assert self.context.is_simple_type(target_func.typ.returntype)
 
         if self.context.equal_types(expr.typ, 'void'):
-            self.emit(ir.ProcedureCall(fname, args), loc=expr.loc)
+            self.emit(ir.ProcedureCall(ir_function, args), loc=expr.loc)
         else:
             # Determine return type:
             ret_typ = self.get_ir_type(expr.typ)
 
             # Emit call:
             return self.emit(
-                ir.FunctionCall(fname, args, fname + '_rv', ret_typ),
+                ir.FunctionCall(
+                    ir_function, args, target_func.name + '_rv', ret_typ),
                 loc=expr.loc)

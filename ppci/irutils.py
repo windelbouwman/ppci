@@ -356,6 +356,7 @@ class Builder:
         self.block = None
         self.module = None
         self.function = None
+        self.block_number = 0
         self.prepare()
 
     def prepare(self):
@@ -371,14 +372,12 @@ class Builder:
         assert self.module is not None
         f = ir.Function(name, return_ty)
         self.module.add_function(f)
-        self.block_number = 0
         return f
 
     def new_procedure(self, name):
         assert self.module is not None
         f = ir.Procedure(name)
         self.module.add_function(f)
-        self.block_number = 0
         return f
 
     def new_block(self, name=None):
@@ -394,6 +393,7 @@ class Builder:
     def set_function(self, f):
         self.function = f
         self.block = f.entry if f else None
+        self.block_number = 0
 
     def set_block(self, block):
         self.block = block

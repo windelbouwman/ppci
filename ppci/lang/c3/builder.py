@@ -32,20 +32,17 @@ def c3_to_ir(sources, includes, march, reporter=None):
     c3b = C3Builder(diag, march.info)
 
     try:
-        _, ir_modules = c3b.build(sources, includes)
-        for ircode in ir_modules:
-            verify_module(ircode)
+        _, ir_module = c3b.build(sources, includes)
+        verify_module(ir_module)
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
         raise TaskError('Compile errors')
 
     reporter.message('C3 compilation listings for {}'.format(sources))
-    for ir_module in ir_modules:
-        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
-        reporter.dump_ir(ir_module)
-
-    return ir_modules
+    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+    reporter.dump_ir(ir_module)
+    return ir_module
 
 
 class C3Builder:
@@ -68,8 +65,8 @@ class C3Builder:
         """ Create IR-code from sources.
 
         Returns:
-            A context where modules are living in and a list of
-            generated ir modules.
+            A context where modules are living in and an
+            ir-module.
 
         Raises compiler error when something goes wrong.
         """
@@ -95,22 +92,14 @@ class C3Builder:
         type_checker = TypeChecker(self.diag, context)
         type_checker.check()
 
-        # Phase 1.9
-        for module in context.modules:
-            self.codegen.gen_globals(module, context)
-
         # Phase 2: Generate intermediate code
-        # Only return ircode when everything is OK
-        ir_modules = []
-        for pkg in context.modules:
-            ir_modules.append(self.codegen.gencode(pkg, context))
+        ir_module = self.codegen.gen(context)
 
         # Check modules
-        for ir_module in ir_modules:
-            self.verifier.verify(ir_module)
+        self.verifier.verify(ir_module)
 
         self.logger.debug('C3 build complete!')
-        return context, ir_modules
+        return context, ir_module
 
     def do_parse(self, src, context):
         """ Lexing and parsing stage (phase 1) """

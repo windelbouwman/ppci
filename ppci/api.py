@@ -376,15 +376,14 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
     """
     reporter = get_reporter(reporter)
     march = get_arch(march)
-    ir_modules = \
+    ir_module = \
         c3_to_ir(sources, includes, march, reporter=reporter)
 
-    for ircode in ir_modules:
-        optimize(ircode, level=opt_level, reporter=reporter)
+    optimize(ir_module, level=opt_level, reporter=reporter)
 
     opt_cg = 'size' if opt_level == 's' else 'speed'
     return ir_to_object(
-        ir_modules, march, debug=debug, reporter=reporter,
+        [ir_module], march, debug=debug, reporter=reporter,
         opt=opt_cg, outstream=outstream)
 
 
