@@ -496,8 +496,8 @@ class Verifier:
             assert instruction.name not in self.name_map
             self.name_map[instruction.name] = instruction
 
-        # Check that binop operands are of same type:
         if isinstance(instruction, ir.Binop):
+            # Check that binop operands are of same type:
             if instruction.ty is not instruction.a.ty:
                 raise TypeError(
                     "Binary operand a's type ({}) is not {}".format(
@@ -523,6 +523,11 @@ class Verifier:
             if instruction.a.ty is not instruction.b.ty:
                 raise IrFormError('Type {} is not {} in {}'.format(
                     instruction.a.ty, instruction.b.ty, instruction))
+        elif isinstance(instruction, (ir.FunctionCall, ir.ProcedureCall)):
+            if isinstance(
+                    instruction.callee,
+                    (ir.SubRoutine, ir.ExternalSubRoutine)):
+                self.verify_subroutine_call(instruction)
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
@@ -531,6 +536,44 @@ class Verifier:
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
                 raise IrFormError('{} is used'.format(value))
+
+    def verify_subroutine_call(self, instruction):
+        """ Check some properties of a function call """
+        # Check if we called function or procedure:
+        callee = instruction.callee
+        if isinstance(instruction, ir.FunctionCall):
+            if not isinstance(callee, (ir.Function, ir.ExternalFunction)):
+                raise IrFormError('{} expected a function, but got: {}'.format(
+                    instruction, callee))
+
+            # Check return type:
+            if callee.return_ty is not instruction.ty:
+                raise IrFormError('Function returns {}, expected {}'.format(
+                    callee.return_ty, instruction.ty))
+        else:
+            if not isinstance(callee, (ir.Procedure, ir.ExternalProcedure)):
+                raise IrFormError('{} expected a procedure, got: {}'.format(
+                    instruction, callee))
+
+        # Check arguments:
+        passed_types = [a.ty for a in instruction.arguments]
+        if isinstance(callee, ir.SubRoutine):
+            arg_types = [a.ty for a in callee.arguments]
+        else:
+            arg_types = callee.argument_types
+        name = instruction.callee.name
+
+        # Check amount of arguments:
+        if len(passed_types) != len(arg_types):
+            raise IrFormError(
+                '{} expects {} arguments, but called with {}'.format(
+                    name, len(arg_types), len(passed_types)))
+
+        for passed_type, arg_type in zip(passed_types, arg_types):
+            if passed_type is not arg_type:
+                raise IrFormError(
+                    '{} expects {}, but got {}'.format(
+                        name, arg_type, passed_type))
 
     def instruction_dominates(self, one, another):
         """ Checks if one instruction dominates another instruction """

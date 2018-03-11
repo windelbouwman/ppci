@@ -89,10 +89,12 @@ class PythonToIrCompiler:
                         p.annotation for p in signature.parameters.values()]
 
                 # Create external function:
-                if return_type:
-                    ir_function = ir.ExternalProcedure(name, [])
+                ir_arg_types = [self.get_ty(t) for t in arg_types]
+                if return_type is None:
+                    ir_function = ir.ExternalProcedure(name, ir_arg_types)
                 else:
-                    ir_function = ir.ExternalFunction(name, [], ir.ptr)
+                    ir_function = ir.ExternalFunction(
+                        name, ir_arg_types, self.get_ty(ir.ptr))
 
                 self.function_map[name] = ir_function, return_type, arg_types
 
@@ -111,17 +113,20 @@ class PythonToIrCompiler:
         self.builder.emit(instruction)
         return instruction
 
-    def get_ty(self, annotation):
+    def get_ty(self, annotation) -> ir.Typ:
         """ Get the type based on type annotation """
-        # TODO: assert isinstance(annotation, ast.Annotation)
-        if isinstance(annotation, ast.NameConstant) and \
-                annotation.value is None:
-            return
-        type_name = annotation.id
+        if isinstance(annotation, type):
+            type_name = annotation.__name__
+        else:
+            if isinstance(annotation, ast.NameConstant) and \
+                    annotation.value is None:
+                return
+            type_name = annotation.id
+
         if type_name in self.type_mapping:
             return self.type_mapping[type_name]
         else:
-            self.error(annotation, 'Need to return int')
+            self.error(annotation, 'Unhandled type: {}'.format(type_name))
 
     def get_variable(self, name):
         if name not in self.local_map:

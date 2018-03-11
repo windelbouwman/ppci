@@ -254,14 +254,14 @@ class ExternalProcedure(ExternalSubRoutine):
 
 class ExternalFunction(ExternalSubRoutine):
     """ External function """
-    def __init__(self, name, argument_types, return_type):
+    def __init__(self, name, argument_types, return_ty):
         super().__init__(name, argument_types)
-        self.return_type = return_type
+        self.return_ty = return_ty
 
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
         return 'external function {} {}({})'.format(
-            self.return_type, self.name, args)
+            self.return_ty, self.name, args)
 
 
 class ExternalVariable(External):

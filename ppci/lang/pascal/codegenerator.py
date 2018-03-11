@@ -40,9 +40,7 @@ class CodeGenerator:
         self.funcion_map = {}
         self.logger.info('Generating ir-code for %s', unit.name)
         self.builder.module = ir.Module(unit.name, debug_db=self.debug_db)
-        self.funcion_map['io_print'] = ir.ExternalProcedure('io_print', [])
-        self.funcion_map['io_print_int'] = ir.ExternalProcedure(
-            'io_print', [])
+        self._define_builtins()
 
         # Generate global variables:
         self.gen_globals(unit)
@@ -72,6 +70,16 @@ class CodeGenerator:
         self.builder.set_function(None)
 
         return self.builder.module
+
+    def _define_builtins(self):
+        io_print = ir.ExternalProcedure('io_print', [ir.ptr])
+        self.builder.module.add_external(io_print)
+        self.funcion_map['io_print'] = io_print
+
+        io_print_int = ir.ExternalProcedure(
+            'io_print_int', [self.get_ir_int()])
+        self.builder.module.add_external(io_print_int)
+        self.funcion_map['io_print_int'] = io_print_int
 
     def gen_global_ival(self, ival, typ):
         """ Create memory image for initial value """
