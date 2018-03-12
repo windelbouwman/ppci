@@ -14,20 +14,22 @@ def instantiate(module, imports):
     obj = ir_to_object([ppci_module], arch, debug=True)
     instance = ModuleInstance()
     instance._module = load_obj(obj, imports=flatten_imports(imports))
-
+    # Export all exported functions
     i = 0
     for definition in module:
         if isinstance(definition, Export):
             if definition.kind != 'func':
                 raise NotImplementedError(definition.kind)
-            # TODO: why are the names numbers? This is incorrect.
-            func_name = str(i)
+            exported_name = definition.name
+            ppci_id = str(i)
+            # wasm_id = definition.ref  # not used here (int or str starting with $)
+            # TODO: why is ppci_id a number? This is incorrect.
+            # AK: Dunno, that's what wasm2ppci does, I guess
             setattr(
-                instance.exports, definition.name,
-                getattr(instance._module, func_name))
+                instance.exports, exported_name,
+                getattr(instance._module, ppci_id))
             i += 1
 
-    instance.exports.main = getattr(instance._module, '0')
     return instance
 
 
