@@ -70,3 +70,9 @@ activated stand alone.
 
 .. autoprogram:: ppci.cli.yacc:parser
     :prog: ppci-yacc
+
+.. autoprogram:: ppci.cli.wasm2wat:parser
+    :prog: ppci-wasm2wat
+
+.. autoprogram:: ppci.cli.wat2wasm:parser
+    :prog: ppci-wat2wasm

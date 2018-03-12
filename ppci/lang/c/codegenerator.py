@@ -14,6 +14,7 @@ class CCodeGenerator:
     def __init__(self, context):
         self.context = context
         self.builder = None
+        self.debug_db = None
         self.ir_var_map = {}
         self.constant_values = {}
         self.evaluating_constants = set()
@@ -153,7 +154,7 @@ class CCodeGenerator:
         """ Generate code for a function definition """
         self.logger.debug('Generating IR-code for %s', function.name)
         assert not self.break_block_stack
-        assert len(self.continue_block_stack) == 0
+        assert not self.continue_block_stack
         self.labeled_blocks = {}
         assert not self.labeled_blocks
         self.unreachable = False
@@ -255,10 +256,11 @@ class CCodeGenerator:
         self.builder.set_function(None)
         self.current_function = None
         self._varargz_ptr = None
-        assert len(self.break_block_stack) == 0
-        assert len(self.continue_block_stack) == 0
+        assert not self.break_block_stack
+        assert not self.continue_block_stack
 
     def gen_stmt(self, statement):
+        """ Generate code for the given statement """
         fn_map = {
             statements.If: self.gen_if,
             statements.While: self.gen_while,
@@ -706,15 +708,7 @@ class CCodeGenerator:
             value = self.emit(
                 ir.Cast(a, 'typecast', ir_typ), location=expr.location)
         elif isinstance(expr, expressions.Sizeof):
-            if isinstance(expr.sizeof_typ, types.CType):
-                # Get size of the given type:
-                type_size = self.context.sizeof(expr.sizeof_typ)
-            else:
-                # And get its size:
-                type_size = self.context.sizeof(expr.sizeof_typ.typ)
-
-            ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Const(type_size, 'type_size', ir_typ))
+            value = self.gen_sizeof(expr)
         elif isinstance(expr, expressions.FieldSelect):
             base = self.gen_expr(expr.base, rvalue=False)
             offset = expr.field.offset
@@ -753,6 +747,7 @@ class CCodeGenerator:
         return value
 
     def gen_unop(self, expr):
+        """ Generate code for unary operator """
         if expr.op in ['x++', 'x--', '--x', '++x']:
             # Increment and decrement in pre and post form
             ir_a = self.gen_expr(expr.a, rvalue=False)
@@ -795,7 +790,8 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_binop(self, expr):
+    def gen_binop(self, expr: expressions.Binop):
+        """ Generate code for binary operation expression """
         if expr.op in ['-', '*', '/', '%', '^', '|', '&', '>>', '<<']:
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
@@ -807,7 +803,7 @@ class CCodeGenerator:
                 location=expr.location)
         elif expr.op == ',':
             # Handle the comma operator by returning the second result
-            lhs = self.gen_expr(expr.a, rvalue=True)
+            self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
             value = rhs
         elif expr.op in ['+']:
@@ -863,6 +859,7 @@ class CCodeGenerator:
         return value
 
     def gen_ternop(self, expr):
+        """ Generate code for ternary operator a ? b : c """
         if expr.op in ['?']:
             # TODO: merge maybe with conditional logic?
             yes_block = self.builder.new_block()
@@ -995,6 +992,7 @@ class CCodeGenerator:
         return value
 
     def gen_array_index(self, expr):
+        """ Generate code for array indexing """
         # Load base as an rvalue, to make sure we load pointers values.
         base = self.gen_expr(expr.base, rvalue=True)
         index = self.gen_expr(expr.index, rvalue=True)
@@ -1025,6 +1023,8 @@ class CCodeGenerator:
             value = self.gen_va_arg(expr)
         elif isinstance(expr, expressions.BuiltInVaStart):
             value = self.gen_va_start(expr)
+        elif isinstance(expr, expressions.BuiltInOffsetOf):
+            value = self.gen_offsetof(expr)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value
@@ -1049,6 +1049,27 @@ class CCodeGenerator:
             self.context.sizeof(expr.typ), 'size', ir.ptr))
         va_ptr = self.emit(ir.add(va_ptr, size, 'incptr', ir.ptr))
         self.emit(ir.Store(va_ptr, valist_ptrptr))
+        return value
+
+    def gen_offsetof(self, expr: expressions.BuiltInOffsetOf):
+        """ Generate code for offsetof """
+        assert isinstance(expr.query_typ, types.StructOrUnionType)
+        field = expr.query_typ.get_field(expr.member)
+        offset = field.offset
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.emit(ir.Const(offset, 'offset', ir_typ))
+        return value
+
+    def gen_sizeof(self, expr: expressions.Sizeof):
+        if isinstance(expr.sizeof_typ, types.CType):
+            # Get size of the given type:
+            type_size = self.context.sizeof(expr.sizeof_typ)
+        else:
+            # And get its size:
+            type_size = self.context.sizeof(expr.sizeof_typ.typ)
+
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.emit(ir.Const(type_size, 'type_size', ir_typ))
         return value
 
     def get_ir_type(self, typ: types.CType):

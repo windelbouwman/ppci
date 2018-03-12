@@ -336,7 +336,7 @@ class SubRoutine(GlobalValue):
         for block in self:
             for instruction in block:
                 if isinstance(
-                        instruction, (BaseProcedureCall, BaseFunctionCall)):
+                        instruction, (ProcedureCall, FunctionCall)):
                     out_calls.append(instruction)
         return out_calls
 

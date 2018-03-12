@@ -866,6 +866,8 @@ def pattern_i16tou32(context, tree, c0):
 
 @arm_isa.pattern('reg', 'CONSTI32', size=8)
 @arm_isa.pattern('reg', 'CONSTU32', size=8)
+@arm_isa.pattern('reg', 'CONSTI16', size=8)
+@arm_isa.pattern('reg', 'CONSTU16', size=8)
 def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -886,8 +888,14 @@ def pattern_const32_1(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'CONSTI8', size=4, condition=lambda t: t.value < 256)
-@arm_isa.pattern('reg', 'CONSTU8', size=4, condition=lambda t: t.value < 256)
+@arm_isa.pattern(
+    'reg', 'CONSTI16', size=4, condition=lambda t: t.value in range(256))
+@arm_isa.pattern(
+    'reg', 'CONSTU16', size=4, condition=lambda t: t.value in range(256))
+@arm_isa.pattern(
+    'reg', 'CONSTI8', size=4, condition=lambda t: t.value in range(256))
+@arm_isa.pattern(
+    'reg', 'CONSTU8', size=4, condition=lambda t: t.value in range(256))
 def pattern_const8_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -920,6 +928,14 @@ def pattern_cjmp(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 @arm_isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    context.emit(Add(d, c0, c1, NoShift()))
+    return d
+
+
+@arm_isa.pattern('reg', 'ADDI16(reg, reg)', size=2)
+@arm_isa.pattern('reg', 'ADDU16(reg, reg)', size=2)
+def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add(d, c0, c1, NoShift()))
     return d
@@ -958,6 +974,14 @@ def pattern_add32_2(context, tree, c0):
 @arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 @arm_isa.pattern('reg', 'SUBU32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    context.emit(Sub(d, c0, c1, NoShift()))
+    return d
+
+
+@arm_isa.pattern('reg', 'SUBI16(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'SUBU16(reg, reg)', size=4)
+def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Sub(d, c0, c1, NoShift()))
     return d
@@ -1072,10 +1096,28 @@ def pattern_shr32(context, tree, c0, c1):
     return d
 
 
+@arm_isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'SHRU16(reg, reg)', size=4)
+def pattern_shr16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Lsr1(d, c0, c1))
+    return d
+
+
 @arm_isa.pattern('reg', Tree('SHLI32', Tree('reg'), Tree('reg')), size=4)
 @arm_isa.pattern('reg', Tree('SHLU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
+    context.emit(Lsl1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', Tree('SHLI16', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('SHLU16', Tree('reg'), Tree('reg')), size=4)
+def pattern_shl16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
     context.emit(Lsl1(d, c0, c1))
     return d
 
@@ -1142,8 +1184,11 @@ def pattern_xor(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'NEGI32(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGU32(reg)', size=4)
 @arm_isa.pattern('reg', 'NEGI16(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGU16(reg)', size=4)
 @arm_isa.pattern('reg', 'NEGI8(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGU8(reg)', size=4)
 def pattern_neg32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     # Implement as rsb with immediate value
@@ -1152,6 +1197,7 @@ def pattern_neg32(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'INVI32(reg)', size=4)
+@arm_isa.pattern('reg', 'INVU32(reg)', size=4)
 def pattern_inv32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.move(R1, c0)

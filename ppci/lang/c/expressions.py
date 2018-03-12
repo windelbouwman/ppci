@@ -5,7 +5,6 @@ from . import types
 
 
 class CExpression(Expression):
-    # TODO: every expression must have a type.
     def __init__(self, typ, lvalue, location):
         super().__init__(location)
         assert isinstance(typ, types.CType)
@@ -81,10 +80,10 @@ class ImplicitCast(Cast):
     pass
 
 
-class Sizeof(Expression):
+class Sizeof(CExpression):
     """ Sizeof operator """
-    def __init__(self, sizeof_typ, location):
-        super().__init__(location)
+    def __init__(self, sizeof_typ, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
         self.sizeof_typ = sizeof_typ
 
     def __repr__(self):
@@ -183,7 +182,7 @@ class BuiltInVaArg(BuiltIn):
 
 class BuiltInOffsetOf(BuiltIn):
     """ Built-in function offsetof """
-    def __init__(self, typ, member, location):
+    def __init__(self, query_typ, member, typ, location):
         super().__init__(typ, False, location)
-        self.arg_pointer = arg_pointer
+        self.query_typ = query_typ
         self.member = member

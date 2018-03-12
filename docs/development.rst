@@ -135,10 +135,26 @@ Directory structure
 -------------------
 
 - ppci : source code of the ppci library
+
   - lang : human readable languages
+
     - c : c frontend
+    - c3 : c3 frontend
+    - python : python compilation code
+    - tools : language tools
+
+  - arch : different machine support
+
+    - arm : arm support
+    - avr : avr support
+    - mips
+    - msp430 : msp430 support
+    - stm8
+    - xtensa : xtensa support
+
   - cli : command line interface utilities
   - util : utilities
+
 - docs : documentation
 - examples : directory with example projects
 - test : tests

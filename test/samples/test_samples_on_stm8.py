@@ -1,6 +1,6 @@
 import unittest
 
-from sample_helpers import add_samples
+from sample_helpers import add_samples, build
 from util import has_qemu, qemu, relpath, source_files
 from util import do_long_tests, do_iverilog, make_filename
 

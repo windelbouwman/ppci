@@ -26,7 +26,7 @@ def get_ctypes_type(debug_type):
         'bool': ctypes.c_int,
         'byte': ctypes.c_int,
         }
-        
+
     if isinstance(debug_type, debuginfo.DebugBaseType):
         return mapping[debug_type.name]
     elif isinstance(debug_type, debuginfo.DebugPointerType):

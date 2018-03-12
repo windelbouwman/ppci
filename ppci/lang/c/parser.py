@@ -858,7 +858,7 @@ class CParser(RecursiveDescentParser):
             self.consume('(')
             typ = self.parse_typename()
             self.consume(',')
-            member = self.parse_identifier()
+            member = self.consume('ID').val
             self.consume(')')
             expr = self.semantics.on_builtin_offsetof(typ, member, location)
         elif self.peak == 'sizeof':

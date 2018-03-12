@@ -3,7 +3,7 @@ Hexfile manipulation
 --------------------
 
 .. automodule:: ppci.utils.hexfile
-
+    :members:
 
 .. doctest::
 

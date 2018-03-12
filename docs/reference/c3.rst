@@ -177,3 +177,9 @@ loop is done.
 
 
 .. _c2lang: http://c2lang.org/
+
+Other
+-----
+
+C3 does not contain a preprocessor. For these kind of things it might be
+better to use a templating engine such as `ninja2 <http://jinja.pocoo.org/>`_.

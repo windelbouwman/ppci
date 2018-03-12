@@ -636,9 +636,7 @@ class CSemantics:
         return expr
 
     def on_sizeof(self, typ, location):
-        expr = expressions.Sizeof(typ, location)
-        expr.typ = self.int_type
-        expr.lvalue = False
+        expr = expressions.Sizeof(typ, self.int_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
@@ -696,8 +694,17 @@ class CSemantics:
 
     def on_builtin_offsetof(self, typ, member, location):
         """ Check offsetof builtin function """
-        # TODO: test if member is a member of the given type now?
-        return expressions.BuiltInOffsetOf(typ, member, location)
+        if not isinstance(typ, types.StructOrUnionType):
+            self.error(
+                'Can only apply offsetof on structs and unions', location)
+
+        # Test if member is a member of the given type now?
+        if not typ.has_field(member):
+            self.error(
+                'Cannot find member {}'.format(member), location)
+
+        return expressions.BuiltInOffsetOf(
+            typ, member, self.int_type, False, location)
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """
