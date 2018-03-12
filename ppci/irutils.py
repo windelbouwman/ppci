@@ -398,7 +398,7 @@ class Builder:
     def set_block(self, block):
         self.block = block
 
-    def emit(self, instruction):
+    def emit(self, instruction: ir.Instruction) -> ir.Instruction:
         """ Append an instruction to the current block """
         assert isinstance(instruction, ir.Instruction), str(instruction)
         assert self.block is not None

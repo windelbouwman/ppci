@@ -90,11 +90,11 @@ class PythonToIrCompiler:
 
                 # Create external function:
                 ir_arg_types = [self.get_ty(t) for t in arg_types]
-                if return_type is None:
-                    ir_function = ir.ExternalProcedure(name, ir_arg_types)
-                else:
+                if return_type:
                     ir_function = ir.ExternalFunction(
                         name, ir_arg_types, self.get_ty(ir.ptr))
+                else:
+                    ir_function = ir.ExternalProcedure(name, ir_arg_types)
 
                 self.function_map[name] = ir_function, return_type, arg_types
 
