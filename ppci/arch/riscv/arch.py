@@ -1,6 +1,6 @@
 """ RISC-V architecture. """
 
-import io
+import io 
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..generic_instructions import Label, RegisterUseDef
@@ -17,9 +17,10 @@ from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
+from ..stack import StackLocation
 from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
-from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr
+from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
 from .rvc_instructions import CSwsp, CLwsp, CJal, CJr, CJalr
 
 
@@ -86,7 +87,7 @@ class RiscvArch(Architecture):
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                'int': ir.i32, 'ptr': ir.u32,
+                'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
             }, register_classes=register_classes)
 
         self.fp = FP
@@ -145,6 +146,13 @@ class RiscvArch(Architecture):
     def move(self, dst, src):
         """ Generate a move from src to dst """
         return Movr(dst, src, ismove=True)
+        
+    def gen_riscv_memcpy(self, dst, src, tmp, size):
+        # Called before register allocation
+        # Major crappy memcpy, can be improved!
+        for idx in range(size):
+            yield Lb(tmp, idx, src)
+            yield Sb(tmp, idx, dst)            
 
     def gen_call(self, frame, label, args, rv):
         """ Implement actual call and save / restore live registers """
@@ -180,6 +188,8 @@ class RiscvArch(Architecture):
             arg = arg2[1]
             if isinstance(arg_loc, Register):
                 yield self.move(arg, arg_loc)
+            elif isinstance(arg_loc, StackLocation):
+                pass 
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
@@ -200,8 +210,18 @@ class RiscvArch(Architecture):
         """
         l = []
         regs = [R12, R13, R14, R15, R16, R17]
+        offset = 0
         for a in arg_types:
-            r = regs.pop(0)
+            if a.is_blob:
+                r = StackLocation(offset, a.size)
+                offset += a.size
+            else:
+                if regs:                    
+                    r = regs.pop(0)
+                else:
+                    arg_size = self.info.get_size(a)
+                    r = StackLocation(offset, arg_size)
+                    offset += arg_size 
             l.append(r)
         return l
 
@@ -224,6 +244,12 @@ class RiscvArch(Architecture):
                 i -= 4
                 yield Sw(register, i, SP)
         yield Addi(SP, SP, i)
+        
+        # Allocate space for outgoing calls:
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            ssize = round_up(extras)
+            yield Addi(SP, SP, -ssize) 
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -252,6 +278,11 @@ class RiscvArch(Architecture):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
+        # Free space for outgoing calls: 
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            ssize = round_up(extras)
+            yield Addi(SP, SP, ssize) 
         # Callee saved registers:
         i = 0
         for register in reversed(self.callee_save):

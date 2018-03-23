@@ -563,7 +563,17 @@ def pattern_movi8(context, tree, c0):
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(B(tgt.name, jumps=[tgt]))
-
+    
+@isa.pattern('stm', 'MOVB(reg, reg)', size=40)
+def pattern_movb(context, tree, c0, c1):
+    # Emit memcpy
+    dst = c0
+    src = c1
+    tmp = context.new_reg(RiscvRegister)
+    size = tree.value
+    for instruction in context.arch.gen_riscv_memcpy(dst, src, tmp, size):
+        context.emit(instruction) 
+	
 
 @isa.pattern('reg', 'REGI32', size=0)
 @isa.pattern('reg', 'REGI16', size=0)
@@ -865,6 +875,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 @isa.pattern('reg', 'NEGI8(reg)', size=2)
 @isa.pattern('reg', 'NEGI16(reg)', size=2)
 @isa.pattern('reg', 'NEGI32(reg)', size=2)
+@isa.pattern('reg', 'NEGU32(reg)', size=2)
 def pattern_negi32(context, tree, c0):
     context.emit(Subr(c0, R0, c0))
     return c0
