@@ -251,9 +251,7 @@ class SelectionGraphBuilder:
         if vreg:
             mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
             self.chain(mov_node)
-        else:
-            mov_node = self.new_node('RETB', None, res, value=vreg)
-            self.chain(mov_node)
+        else:  # pragma: no cover
             raise NotImplementedError('Pass pointer as first arg instead')
 
         # Jump to epilog:

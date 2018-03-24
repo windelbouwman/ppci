@@ -135,10 +135,10 @@ class PtDebugCli:
                 HSplit([
                     Window(content=BufferControl('source', lexer=src_lexer, input_processors=[self.locals_processor]), left_margins=[self.current_address_margin, NumberredMargin()], right_margins=[ScrollbarMargin()], cursorline=True),
                     Window(content=FillControl('='), height=D.exact(1)),
-                    Window(content=BufferControl('logs'), height=D.exact(30)),
+                    Window(content=BufferControl('logs'), height=D.exact(20)),
                 ]),
                 Window(content=FillControl('|'), width=D.exact(1)),
-                Window(content=BufferControl('registers'), width=D.exact(30)),
+                Window(content=BufferControl('registers'), width=D.exact(20)),
                 Window(content=FillControl('|', token=Token.Line), width=D.exact(1)),
             ]),
             Window(content=FillControl('='), height=D.exact(1)),

@@ -8,6 +8,7 @@ import logging
 import struct
 import string
 from queue import Queue
+from threading import Lock
 from ..debug_driver import DebugDriver, DebugState
 
 INTERRUPT = 2
@@ -114,12 +115,17 @@ class GdbDebugDriver(DebugDriver):
         self.swbrkpt = swbrkpt
         self.stopreason = INTERRUPT
         self.transport.on_byte = self.process_byte
+
+        # ACHTUNG: multithreaded code ahead:
         self.rxqueue = Queue()
+        self._lock = Lock()
+
         self.packet_decoder = decoder()
         next(self.packet_decoder)  # Bump decoder to first byte.
 
     def connect(self):
         self.transport.connect()
+        self.send('?')
 
     def disconnect(self):
         self.transport.disconnect()
@@ -149,32 +155,34 @@ class GdbDebugDriver(DebugDriver):
 
     def sendpkt(self, data, retries=10):
         """ sends data via the RSP protocol to the device """
-        # Clean incoming queue:
-        while not self.rxqueue.empty():
-            self.rxqueue.get()
-        self.logger.debug('GDB> %s', data)
-        wire_data = self.rsp_pack(data)
-        self.send(wire_data)
-        res = self.recv()
-        while res != '+':
-            self.logger.warning('discards %s', res)
-            self.logger.debug('resend-GDB> %s', data)
+        with self._lock:
+            # Clean incoming queue:
+            while not self.rxqueue.empty():
+                self.rxqueue.get()
+            self.logger.debug('GDB> %s', data)
+            wire_data = self.rsp_pack(data)
             self.send(wire_data)
             res = self.recv()
-            retries -= 1
-            if retries == 0:
-                raise ValueError("retry fail")
+            while res != '+':
+                self.logger.warning('discards %s', res)
+                self.logger.debug('resend-GDB> %s', data)
+                self.send(wire_data)
+                res = self.recv()
+                retries -= 1
+                if retries == 0:
+                    raise ValueError("retry fail")
 
     def recvpkt(self):
         """ Block until a packet is received """
-        return self.recv()
+        with self._lock:
+            return self.recv()
 
     def recv(self):
-        return self.rxqueue.get(timeout=2)
+        return self.rxqueue.get(timeout=0.2)
 
     def send(self, msg):
         """ Send ascii data to target """
-        # self.logger.debug('--> %s', msg)
+        self.logger.debug('--> %s', msg)
         self.transport.send(msg.encode('ascii'))
 
     def decodepkt(self, pkt, retries=10):
@@ -201,7 +209,7 @@ class GdbDebugDriver(DebugDriver):
     def process_byte(self, byte):
         msg = self.packet_decoder.send(byte)
         if msg:
-            # self.logger.debug('<-- %s', msg)
+            self.logger.debug('<-- %s', msg)
             if msg == '+':
                 self.rxqueue.put(msg)
             else:
@@ -218,12 +226,15 @@ class GdbDebugDriver(DebugDriver):
 
     def get_pc(self):
         """ read the PC of the device """
-        if self.pcstopval is not None:
-            return self.pcstopval
+        if self.status == DebugState.STOPPED:
+            if self.pcstopval is not None:
+                return self.pcstopval
+            else:
+                pc = self._get_register(self.arch.gdb_pc)
+                self.logger.debug("PC value read:%x", pc)
+                return pc
         else:
-            pc = self._get_register(self.arch.gdb_pc)
-            self.logger.debug("PC value read:%x", pc)
-            return pc
+            return 0
 
     def set_pc(self, value):
         """ set the PC of the device """

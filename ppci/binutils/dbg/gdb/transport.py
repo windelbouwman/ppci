@@ -37,6 +37,7 @@ class TCP(ThreadedTransport):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._port = port
         self.on_byte = None
+        self._rxthread = None
 
     def connect(self):
         """ Connect to socket and start thread """
@@ -52,6 +53,7 @@ class TCP(ThreadedTransport):
         self.logger.info('Disconnecting')
         self._running = False
         self._rxthread.join()
+        self._rxthread = None
         self.sock.close()
         self.logger.info('Disconnected')
 

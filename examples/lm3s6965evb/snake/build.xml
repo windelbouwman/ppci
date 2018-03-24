@@ -10,10 +10,12 @@
         <c3compile
             arch="arm:thumb"
             sources="../../src/snake/*.c3;../bsp.c3;../../../librt/io.c3"
+            debug="true"
             output="rest.oj"
             report="snake_report.html"/>
         <link output="snake.oj"
-            layout="../memlayout.mmap" 
+            layout="../memlayout.mmap"
+            debug="true"
             objects="startup.oj;rest.oj" />
         <objcopy
             objectfile="snake.oj"

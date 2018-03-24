@@ -28,6 +28,7 @@ from .opt import LoadAfterStorePass
 from .opt import CleanPass
 from .opt.mem2reg import Mem2RegPromotor
 from .opt.cjmp import CJumpPass
+from .opt.tailcall import TailCallOptimization
 from .codegen import CodeGenerator
 from .binutils.linker import link
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
@@ -202,6 +203,7 @@ def optimize(ir_module, level=0, reporter=None):
                   RemoveAddZeroPass(),
                   ConstantFolder(),
                   CommonSubexpressionEliminationPass(),
+                  TailCallOptimization(),
                   LoadAfterStorePass(),
                   DeleteUnusedInstructionsPass(),
                   CleanPass()] * 3

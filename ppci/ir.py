@@ -328,17 +328,22 @@ class SubRoutine(GlobalValue):
 
         A leaf function calls no other functions.
         """
-        return bool(self.get_out_calls())
+        return not bool(self.get_out_calls())
 
     def get_out_calls(self):
         """ Return the calls that leave this function. """
-        out_calls = []
+        return list(
+            self.get_instructions_of_type((ProcedureCall, FunctionCall)))
+
+    def get_instructions_of_type(self, typ):
+        for instruction in self.get_instructions():
+            if isinstance(instruction, typ):
+                yield instruction
+
+    def get_instructions(self):
         for block in self:
             for instruction in block:
-                if isinstance(
-                        instruction, (ProcedureCall, FunctionCall)):
-                    out_calls.append(instruction)
-        return out_calls
+                yield instruction
 
     def calc_reachable_blocks(self):
         """ Determine all blocks that can be reached """

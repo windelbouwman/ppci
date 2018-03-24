@@ -1,4 +1,4 @@
 #!/bin/bash
 
-qemu-system-arm -M lm3s6965evb -kernel snake.bin -serial stdio
+qemu-system-arm -M lm3s6965evb -kernel snake.bin -serial stdio -gdb tcp::1234
 

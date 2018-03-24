@@ -84,7 +84,7 @@ ops = [
 
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
-             'MOVB', 'BLOB', 'RETB',  # Attempts at blob data copies
+             'MOVB',  # Attempts at blob data copies
              "JMP",
              "EXIT", "ENTRY",
              'ALLOCA', 'FREEA')

@@ -1040,19 +1040,6 @@ def pattern_movb(context, tree, c0, c1):
         context.emit(instruction)
 
 
-@isa.pattern('stm', 'RETB(FPRELU64)', size=22)
-def pattern_retb(context, tree):
-    """ Return piece of stack out of function.
-
-    In case of x86, rdi points to a location where that data can be stored.
-    """
-    stack_slot = tree[0].value
-    offset = stack_slot.offset
-    size = stack_slot.size
-    for instruction in context.arch.gen_memcpy(RmMem(rdi), RmMemDisp(rbp, offset), size):
-        context.emit(instruction)
-
-
 # Memory operations
 @isa.pattern('mem64', 'reg64', size=1, cycles=1, energy=1)
 def pattern_mem_reg(context, tree, c0):

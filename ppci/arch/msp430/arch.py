@@ -29,9 +29,9 @@ from ..generic_instructions import Label, Alignment, RegisterUseDef
 from ..data_instructions import Db, Dw2, data_isa
 from ..runtime import get_runtime_files
 from .registers import r10, r11, r12, r13, r14, r15
-from .registers import r4, r5, r6, r7, r8, r9
+from .registers import r4, r5, r6, r7, r8, r9, SP
 from .registers import r1, register_classes, Msp430Register
-from .instructions import isa, mov, Ret, Pop, call
+from .instructions import isa, mov, Ret, Pop, call, MemSrcOffset, Mov
 from .instructions import push, Add, Sub, ConstSrc, RegDst
 
 
@@ -112,17 +112,24 @@ class Msp430Arch(Architecture):
         arg_locs = self.determine_arg_locations(arg_types)
 
         arg_regs = []
+        saved_space = 0
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
             if isinstance(arg_loc, Msp430Register):
                 arg_regs.append(arg_loc)
                 yield self.move(arg_loc, arg)
+            elif isinstance(arg_loc, StackLocation):
+                yield push(arg)
+                saved_space += 2
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
         yield RegisterUseDef(uses=arg_regs)
 
         yield call(label, clobbers=self.caller_save)
+
+        if saved_space:
+            yield Add(ConstSrc(saved_space), RegDst(SP))
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
@@ -136,12 +143,14 @@ class Msp430Arch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Msp430Register))
         yield RegisterUseDef(defs=arg_regs)
 
+        ofs = 0
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
             if isinstance(arg_loc, Msp430Register):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
-                raise NotImplementedError()
+                yield Mov(MemSrcOffset(2, SP), RegDst(arg))
+                ofs += 2
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 

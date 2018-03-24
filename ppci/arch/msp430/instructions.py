@@ -480,9 +480,11 @@ def pattern_jmp(context, tree):
 @isa.pattern('stm', 'CJMPI8(reg, reg)', size=10)
 def pattern_cjmp(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
-    opnames = {"<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge}
+    opnames = {
+        "<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge, '<=': Jge,
+    }
     op_ins = opnames[op]
-    if op in ['>']:
+    if op in ['>', '<=']:
         # Swap operands here!
         # This is really hairy code, but it should work!
         lhs, rhs = rhs, lhs

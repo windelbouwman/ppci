@@ -173,29 +173,14 @@ class Context:
         """ Determine the greatest common type.
 
         This is used for coercing binary operators.
-        For example
-            int + float -> float
-            byte + int -> int
-            byte + byte -> byte
-            pointer to x + int -> pointer to x
+
+        For example:
+
+        * int + float -> float
+        * byte + int -> int
+        * byte + byte -> byte
+        * pointer to x + int -> pointer to x
         """
-        intType = self.get_type('int')
-        byteType = self.get_type('byte')
-        floatType = self.get_type('float')
-        doubleType = self.get_type('double')
-        table = {
-            (intType, intType): intType,
-            (intType, byteType): intType,
-            (intType, doubleType): doubleType,
-            (intType, floatType): floatType,
-            (floatType, intType): floatType,
-            (floatType, doubleType): doubleType,
-            (doubleType, floatType): doubleType,
-            (doubleType, intType): doubleType,
-            (byteType, intType): intType,
-            (byteType, byteType): byteType,
-            (intType, ast.PointerType): intType,
-            }
         typ_a = self.get_type(a.typ)
         typ_b = self.get_type(b.typ)
 
@@ -237,10 +222,8 @@ class Context:
 
         # Handle non-pointers:
         # key = (typ_a, typ_b)
-        # if key not in table:
         raise SemanticError(
             "Types {} and {} do not commute".format(typ_a, typ_b), loc)
-        # return table[(typ_a, typ_b)]
 
     def get_type(self, typ, reveil_defined=True):
         """ Get type given by str, identifier or type.

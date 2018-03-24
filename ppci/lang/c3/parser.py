@@ -365,11 +365,12 @@ class Parser(RecursiveDescentParser):
             return self.parse_expression()
 
     def parse_expression(self, rbp=0) -> ast.Expression:
-        """ Process expressions with precedence climbing
+        """ Process expressions with precedence climbing.
 
         See also:
+
         http://eli.thegreenplace.net/2012/08/02/
-            parsing-expressions-by-precedence-climbing
+        parsing-expressions-by-precedence-climbing
         """
         lhs = self.parse_cast_expression()
         while self.peak in self.op_binding_powers and \
@@ -387,9 +388,10 @@ class Parser(RecursiveDescentParser):
     # Domain of unary expressions:
 
     def parse_cast_expression(self) -> ast.Expression:
-        """
-          the C-style type cast conflicts with '(' expr ')'
-          so introduce extra keyword 'cast'
+        """ Parse a cast expression.
+
+        The C-style type cast conflicts with '(' expr ')'
+        so introduce extra keyword 'cast'.
         """
         if self.peak == 'cast':
             loc = self.consume('cast').loc
