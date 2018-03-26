@@ -40,6 +40,10 @@ Below is a list of features / tasks that need to be done.
   - Investigate regular expression derivatives as described here:
     https://github.com/MichaelPaddon/epsilon
 
+  - Add ada frontend
+
+  - Add D language frontend
+
 - Optimizations
 
   - Add a peephole optimizer.

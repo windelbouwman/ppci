@@ -21,6 +21,7 @@ if __name__ == "__main__":
     #    logging.basicConfig(level=logging.DEBUG)
     # else:
     #    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.DEBUG, filename='dbg_log.txt')
 
     obj = get_object(args.obj)
     arch = get_arch(obj.arch)

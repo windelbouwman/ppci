@@ -29,13 +29,17 @@ from prompt_toolkit.layout.processors import Processor, Transformation
 
 
 def get_title_bar_tokens(cli):
-    return [
-        (Token.Title, 'Welcome to the ppci debugger version {}'.format(ppci_version)),
-    ]
+    return [(
+        Token.Title,
+        'Welcome to the ppci debugger version {}'.format(ppci_version)
+    )]
 
 
 def get_help_tokens(cli):
-    return [(Token.Title, 'F4=stop F5=run F6=step F10=exit')]
+    return [(
+        Token.Title,
+        'F4=stop F5=run F6=step F7=set breakpoint F8=clear breakpoint F10=exit'
+    )]
 
 
 class StatusToolbar(TokenListControl):
@@ -114,6 +118,14 @@ class PtDebugCli:
         def quit_(event):
             event.cli.set_return_value(None)
 
+        @registry.add_binding(Keys.F8)
+        def clear_breakpoint_(event):
+            self.debugger.clear_breakpoint()
+
+        @registry.add_binding(Keys.F7)
+        def set_breakpoint_(event):
+            self.debugger.set_breakpoint()
+
         @registry.add_binding(Keys.F6)
         def step_(event):
             self.debugger.step()
@@ -135,7 +147,7 @@ class PtDebugCli:
                 HSplit([
                     Window(content=BufferControl('source', lexer=src_lexer, input_processors=[self.locals_processor]), left_margins=[self.current_address_margin, NumberredMargin()], right_margins=[ScrollbarMargin()], cursorline=True),
                     Window(content=FillControl('='), height=D.exact(1)),
-                    Window(content=BufferControl('logs'), height=D.exact(20)),
+                    Window(content=BufferControl('logs'), height=D.exact(2)),
                 ]),
                 Window(content=FillControl('|'), width=D.exact(1)),
                 Window(content=BufferControl('registers'), width=D.exact(20)),
@@ -169,18 +181,24 @@ class PtDebugCli:
             key_bindings_registry=registry,
             use_alternate_screen=True,
             )
+        self._event_loop = create_eventloop()
 
     def cmdloop(self):
-        loop = create_eventloop()
-        cli = CommandLineInterface(
-            application=self.application, eventloop=loop)
-        cli.run()
+        self.cli = CommandLineInterface(
+            application=self.application, eventloop=self._event_loop)
+        self.cli.focus('source')
+        self.cli.run()
 
     def on_stop(self):
         """ Handle stopped event. """
-        self.highlight_source()
-        self.display_registers()
+        def callback():
+            self.display_registers()
+            self.highlight_source()
+            self.evaluate_locals()
+            self.cli.request_redraw()
+        self._event_loop.call_from_executor(callback)
 
+    def evaluate_locals(self):
         # Locals:
         localz = self.debugger.local_vars()
         self.locals_processor.variables.clear()
@@ -203,14 +221,13 @@ class PtDebugCli:
         """ Update register buffer """
         register_buffer = self.buffers['registers']
         registers = self.debugger.get_registers()
-        register_values = self.debugger.get_register_values(
-            registers)
+        register_values = self.debugger.get_register_values(registers)
         lines = ['Register values:']
         if register_values:
-            for reg in registers:
-                size = reg.bitsize // 4
+            for register, value in register_values.items():
+                size = register.bitsize // 4
                 lines.append('{:>5.5s} : 0x{:0{sz}X}'.format(
-                    str(reg), self.debugger.register_values[reg], sz=size))
+                    str(register), value, sz=size))
         register_buffer.text = '\n'.join(lines)
 
     def get_file_source(self, filename):

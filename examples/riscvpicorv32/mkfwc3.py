@@ -8,7 +8,7 @@ from ppci.utils.reporting import HtmlReportGenerator
 parser = argparse.ArgumentParser()
 parser.add_argument('example', help='example name from the c3src directory')
 parser.add_argument(
-    '--debug', action='store_true', default=False,
+    '-g', '--debug', action='store_true', default=False,
     help='Enable debug code')
 args = parser.parse_args()
 

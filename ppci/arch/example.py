@@ -26,6 +26,7 @@ class ExampleArch(Architecture):
                 'hreg', [ir.i16], HalfExampleRegister, [R10l]),
         ]
         self.gdb_registers = gdb_registers
+        self.gdb_pc = R0
         self.isa = Isa()
         self.info = ArchInfo(
             type_infos={

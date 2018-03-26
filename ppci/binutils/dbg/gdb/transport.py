@@ -85,7 +85,7 @@ class TCP(ThreadedTransport):
                             self.on_byte(data)
                     else:  # No data means socket closed.
                         break
-        except Exception as ex:
-            self.logger.error('Receiver thread terminated: %s', ex)
-        else:
+        #except Exception as ex:
+        #    self.logger.error('Receiver thread terminated: %s', ex)
+        finally:
             self.logger.info('Receiver thread finished')

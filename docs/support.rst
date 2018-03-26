@@ -26,12 +26,3 @@ If you find a bug, you can file it here:
 
 https://bitbucket.org/windel/ppci/issues
 
-
-Donate
-------
-
-If you use this project, and want to donate money, you can do this
-through this pledgie campaign:
-
-https://pledgie.com/campaigns/31115
-
