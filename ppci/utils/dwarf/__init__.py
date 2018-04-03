@@ -1,7 +1,6 @@
-"""
-    Implementation of the dwarf debugging format.
+""" Implementation of the dwarf debugging format.
 
-    See also: http://dwarfstd.org/
+See also: http://dwarfstd.org/
 """
 
 # TODO: implement
@@ -30,5 +29,4 @@ class DwarfReader:
     pass
 
 
-class DwarfWriter:
-    pass
+__all__ = ('SubProgram', )

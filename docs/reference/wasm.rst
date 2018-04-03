@@ -14,10 +14,10 @@ Creating a wasm module
 A WASM :class:`Module <ppci.wasm.Module>` can be created from its text
 representation, a corresponding tuple structure, a bytes object or binary file,
 or from another Module object:
-    
-..doctest::
-    
-    >>> from ppci.import wasm
+
+.. doctest:: wasm
+
+    >>> from ppci import wasm
     >>> code = '(module (func $truth (result i32) (i32.const 42) (return)))'
     >>> m1 = wasm.Module(code)
     >>> m2 = wasm.Module(m1.to_bytes())
@@ -29,23 +29,32 @@ Exporting a wasm module
 -----------------------
 
 A wasm module can be exported to text or binary form:
-    
-.. code-block:: python
-    
-    >>> from ppci import wasm
+
+.. doctest:: wasm
+
     >>> code = '(module (func $truth (result i32) (i32.const 42) (return)))'
     >>> m = wasm.Module(code)
     >>> m.to_string()
-    '(module ...)'
+    '(module\n    (type $0 (func (result i32)))\n    (func $truth (type $0)\n        (i32.const 42)\n        (return)\n    )\n)\n'
     >>> m.to_bytes()
-    b'\x00asm\x01\x00\x00 ...'
+    b'\x00asm\x01\x00\x00\x00\x01\x05\x01`\x00\x01\x7f\x03\x02\x01\x00\n\x07\x01\x05\x00A*\x0f\x0b'
 
 And can also be "displayed" in these forms:
 
-.. code-block:: python
-    
+.. doctest:: wasm
+
     >>> m.show()
-    >>> m.show_bytes() 
+    (module
+        (type $0 (func (result i32)))
+        (func $truth (type $0)
+            (i32.const 42)
+            (return)
+        )
+    )
+    <BLANKLINE>
+    >>> m.show_bytes()
+    00000000  00 61 73 6d 01 00 00 00 01 05 01 60 00 01 7f 03  .asm.......`....
+    00000001  02 01 00 0a 07 01 05 00 41 2a 0f 0b              ........A*..
 
 
 Running wasm
@@ -66,14 +75,22 @@ Or in the browser by exporing an html file:
 
 
 Inside a jupyter notebook, the WASM can be run directly:
-    
+
 .. code-block:: python
 
     wasm.run_wasm_in_notebook(m)
 
 
-Todo: running in the Python process ...
+Running in the Python process:
 
+.. doctest:: wasm
+
+    >>> code = '(module (func (export truth) (result i32) (i32.const 42) (return)))'
+    >>> m1 = wasm.Module(code)
+    >>> from ppci.wasm.instantiate import instantiate
+    >>> loaded = instantiate(m1, {})
+    >>> loaded.exports.truth()
+    42
 
 Converting between wasm and ir
 ------------------------------
@@ -88,17 +105,20 @@ This allows, for instance, running C3 on the web, or Web Assembly on a microproc
 The basic functionality is there, but more work is needed e.g. a stdlib
 for this functionality to be generally useful.
 
-.. code-block:: python
+.. doctest:: wasm
 
     >>> from ppci import wasm
-    >>> code = '(module (func $truth (result i32) (i32.const 42) (return)))' 
+    >>> code = '(module (func $truth (result i32) (i32.const 42) (return)))'
     >>> m1 = wasm.Module(code)
-    >>> ir = wasm.wasm2ppci(m1)
-    >>> m2 = wasm.ppci2wasm(ir)
+    >>> ir = wasm.wasm_to_ir(m1)
+    >>> m2 = wasm.ir_to_wasm(ir)
 
 
 Module reference
 ----------------
 
 .. automodule:: ppci.wasm
+    :members:
+
+.. automodule:: ppci.wasm.instantiate
     :members:

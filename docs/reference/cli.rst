@@ -65,6 +65,9 @@ activated stand alone.
 .. autoprogram:: ppci.cli.pycompile:parser
     :prog: ppci-pycompile
 
+.. autoprogram:: ppci.cli.readelf:parser
+    :prog: ppci-readelf
+
 .. autoprogram:: ppci.cli.wasmcompile:parser
     :prog: ppci-wasmcompile
 

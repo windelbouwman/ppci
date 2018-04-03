@@ -5,6 +5,8 @@ import logging
 from ... import __version__ as ppci_version
 from ...common import logformat
 
+# TODO: switch to prompt toolkit 2.0
+
 # from prompt_toolkit import prompt
 from prompt_toolkit.interface import CommandLineInterface
 from prompt_toolkit.application import Application
@@ -23,7 +25,8 @@ from prompt_toolkit.layout.containers import HSplit, Window, VSplit
 from prompt_toolkit.layout.dimension import LayoutDimension as D
 from prompt_toolkit.layout.controls import FillControl, BufferControl
 from prompt_toolkit.layout.controls import TokenListControl
-from prompt_toolkit.layout.margins import NumberredMargin, ScrollbarMargin, Margin, PromptMargin
+from prompt_toolkit.layout.margins import NumberredMargin, ScrollbarMargin
+from prompt_toolkit.layout.margins import Margin, PromptMargin
 from prompt_toolkit.layout.processors import Processor, Transformation
 # from prompt_toolkit.layout.layout import Layout
 
@@ -105,6 +108,7 @@ class PtDebugCli:
     """ Command line interface using prompt_toolkit. """
 
     def __init__(self, debugger):
+        self._filename = None
         self.sources = {}
         self.debugger = debugger
         self.debugger.events.on_stop += self.on_stop
@@ -120,11 +124,15 @@ class PtDebugCli:
 
         @registry.add_binding(Keys.F8)
         def clear_breakpoint_(event):
-            self.debugger.clear_breakpoint()
+            if self.has_source():
+                filename, row = self.get_current_location()
+                self.debugger.clear_breakpoint(filename, row)
 
         @registry.add_binding(Keys.F7)
         def set_breakpoint_(event):
-            self.debugger.set_breakpoint()
+            if self.has_source():
+                filename, row = self.get_current_location()
+                self.debugger.set_breakpoint(filename, row)
 
         @registry.add_binding(Keys.F6)
         def step_(event):
@@ -137,6 +145,16 @@ class PtDebugCli:
         @registry.add_binding(Keys.F4)
         def run_(event):
             self.debugger.stop()
+
+        @registry.add_binding(Keys.PageUp)
+        def scroll_up_(event):
+            source_buffer = self.buffers['source']
+            source_buffer.cursor_up(count=15)
+
+        @registry.add_binding(Keys.PageDown)
+        def scroll_down_(event):
+            source_buffer = self.buffers['source']
+            source_buffer.cursor_down(count=15)
 
         src_lexer = PygmentsLexer(CLexer)
         layout = HSplit([
@@ -204,7 +222,17 @@ class PtDebugCli:
         self.locals_processor.variables.clear()
         for name, var in localz.items():
             value = self.debugger.eval_variable(var)
-            self.locals_processor.variables[var.loc.row] = '{} = {}'.format(name, value)
+            var_text = '{} = {}'.format(name, value)
+            self.locals_processor.variables[var.loc.row] = var_text
+
+    def has_source(self):
+        return self._filename is not None
+
+    def get_current_location(self):
+        assert self.has_source()
+        source_buffer = self.buffers['source']
+        row = source_buffer.document.cursor_position_row + 1
+        return self._filename, row
 
     def highlight_source(self):
         if self.debugger.has_symbols:
@@ -213,6 +241,8 @@ class PtDebugCli:
                 filename, row = loc
                 source_buffer = self.buffers['source']
                 source_buffer.text = self.get_file_source(filename)
+                self._filename = filename
+                source_buffer.cursor_position = 3
                 self.current_address_margin.current_line = row
             else:
                 self.current_address_margin.current_line = None

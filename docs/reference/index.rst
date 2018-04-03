@@ -21,4 +21,5 @@ Reference
     python2ir
     relooping
     utils
+    dwarf
     links

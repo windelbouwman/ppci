@@ -96,9 +96,8 @@ class Debugger:
         address = self.find_address(filename, row)
         if address is None:
             self.logger.warning('Could not find address for breakpoint')
-            print('Error: breakpoint not set!')
-            return
-        self.driver.set_breakpoint(address)
+        else:
+            self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
         """ Remove a breakpoint """
@@ -106,7 +105,8 @@ class Debugger:
         address = self.find_address(filename, row)
         if address is None:
             self.logger.warning('Could not find address for breakpoint')
-        self.driver.clear_breakpoint(address)
+        else:
+            self.driver.clear_breakpoint(address)
 
     def step(self):
         """ Single step the debugged program """

@@ -1,17 +1,9 @@
-import unittest
 from setuptools import setup, find_packages
 import ppci
 
 
 with open('readme.rst') as f:
     long_description = f.read()
-
-
-def ppci_test_suite():
-    """ Load the ppci test suite """
-    test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('test', pattern='test*.py')
-    return test_suite
 
 
 setup(
@@ -41,6 +33,7 @@ setup(
             'ppci-pascal = ppci.cli.pascal:pascal',
             'ppci-pedump = ppci.cli.pedump:pedump',
             'ppci-pycompile = ppci.cli.pycompile:pycompile',
+            'ppci-readelf = ppci.cli.readelf:readelf',
             'ppci-wasm2wat = ppci.cli.wasm2wat:wasm2wat',
             'ppci-wasmcompile = ppci.cli.wasmcompile:wasmcompile',
             'ppci-wat2wasm = ppci.cli.wat2wasm:wat2wasm',
@@ -49,10 +42,10 @@ setup(
     },
     url='https://ppci.readthedocs.io/',
     license='BSD',
-    test_suite="setup.ppci_test_suite",
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Development Status :: 3 - Alpha',
+        'Programming Language :: C',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',

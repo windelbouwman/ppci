@@ -37,9 +37,9 @@ def find_structure(ir_function):
     sd = StructureDetector()
     shape = sd.detect(cfg)
     rmap = {c: b for b, c in block_map.items()}
-    print()
-    print_shape(shape)
-    print()
+    # print()
+    # print_shape(shape)
+    # print()
     return shape, rmap
 
 

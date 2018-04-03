@@ -186,16 +186,6 @@ class ObjectFileTestCase(unittest.TestCase):
             obj.get_image('x').data
 
 
-class ElfFileTestCase(unittest.TestCase):
-    def test_save_load(self):
-        arch = ExampleArch()
-        ef1 = ElfFile()
-        f = io.BytesIO()
-        ef1.save(f, ObjectFile(arch))
-        f2 = io.BytesIO(f.getvalue())
-        ElfFile.load(f2)
-
-
 class ExeFileTestCase(unittest.TestCase):
     @unittest.skip('TODO')
     def test_save(self):

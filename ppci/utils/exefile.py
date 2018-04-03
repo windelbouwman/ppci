@@ -83,7 +83,7 @@ def read_exe(f):
         sig = f.read(4)
         print(sig)
         assert sig == b'PE\x00\x00'
-        coff_header = CoffHeader.deserialize(f)
+        coff_header = CoffHeader.read(f)
         print('### Coff header:')
         coff_header.print()
         print()

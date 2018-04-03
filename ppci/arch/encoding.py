@@ -1,6 +1,7 @@
 """ This module deals with encoding and decoding of instructions """
 
 
+import abc
 from .registers import Register
 from .token import TokenSequence
 
@@ -87,11 +88,12 @@ class Operand(property):
             return value
 
 
-class Transform:
+class Transform(metaclass=abc.ABCMeta):
     """ Wrapper to transform the numeric value of a property """
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
+    @abc.abstractmethod
     def forwards(self, value):  # pragma: no cover
         """ Implement the forward transform here """
         raise NotImplementedError()

@@ -149,7 +149,7 @@ class BurgSystem:
     non_terminals = property(lambda s: s.sym_of_type(Nonterm))
 
     def add_rule(self, non_term, tree, cost, acceptance, template):
-        if type(template) is str:
+        if isinstance(template, str):
             template = template.strip()
         if not template:
             template = 'pass'
@@ -174,22 +174,22 @@ class BurgSystem:
         """ Get only the rules for a given root name """
         return self.rule_map[name]
 
-    def non_term(self, name):
+    def non_term(self, name: str):
         if name in self.terminals:
             raise BurgError('Cannot redefine terminal')
         if not self.goal:
             self.goal = name
         return self.install(name, Nonterm)
 
-    def tree(self, name, *args):
+    def tree(self, name: str, *args):
         return Tree(name, *args)
 
     def chain_rules_for_nt(self, non_terminal):
         """ Retrieve chain rules for a given non terminal """
         return self.symbols[non_terminal].chain_rules
 
-    def install(self, name, t):
-        assert type(name) is str
+    def install(self, name: str, t):
+        assert isinstance(name, str)
         if name in self.symbols:
             assert type(self.symbols[name]) is t
         else:
@@ -290,7 +290,7 @@ class BurgGenerator:
         for rule in self.system.rules:
             kids, dummy = self.compute_kids(rule.tree, 't')
             rule.num_nts = len(dummy)
-            lf = 'lambda t: [{}]'.format(', '.join(kids), rule)
+            lf = 'lambda t: [{}]'.format(', '.join(kids))
             pf = 'self.P{}'.format(rule.nr)
             self.print(0)
             self.print(2, '# {}: {}'.format(rule.nr, rule))

@@ -5,33 +5,77 @@ https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
 """
 
 import struct
+import enum
+from .elf.headers import ElfHeader, SectionHeader, ProgramHeader
 
 
-class ElfHeader:
-    pass
+# ElfIdent = mk_header([
+#    UByte('ei_ident') * 12,
+#    Padding(7)
+# ])
+
+
+# Elf64Header = mk_header([
+#    Half('e_type'),
+#    Padding(7)
+# ])
 
 
 class ElfSection:
     pass
 
 
-SH_FMT = '<IIQQQQIIQQ'
-E_FMT = '<HHIQQQIHHHHHH'
-P_FMT = '<IIQQQQQQ'
+
 SYM_FMT = '<IBBHQQ'
 
 SHN_UNDEF = 0
 
-SHT_NULL = 0x0
-SHT_PROGBITS = 0x1
-SHT_SYMTAB = 0x2
-SHT_STRTAB = 0x3
-SHT_HASH = 0x5
-SHT_NOTE = 0x7
 
-SHF_WRITE = 0x1
-SHF_ALLOC = 0x2
-SHF_EXECINSTR = 0x4
+class SectionHeaderType(enum.IntEnum):
+    NULL = 0x0
+    PROGBITS = 0x1
+    SYMTAB = 0x2
+    STRTAB = 0x3
+    RELA = 0x4
+    HASH = 0x5
+    DYNAMIC = 0x6
+    NOTE = 0x7
+    NOBITS = 0x8
+    REL = 0x9
+    SHLIB = 0xa
+    DYNSYM = 0xb
+    INIT_ARRAY = 0xe
+    FINI_ARRAY = 0xf
+    PREINIT_ARRAY = 0x10
+    GROUP = 0x11
+    SYMTAB_SHNDX = 0x12
+    NUM = 0x13
+
+
+class SectionHeaderFlag(enum.IntFlag):
+    WRITE = 0x1
+    ALLOC = 0x2
+    EXECINSTR = 0x4
+    MERGE = 0x10
+    STRINGS = 0x20
+    INFO_LINK = 0x40
+    LINK_ORDER = 0x80
+    OS_NONCONFORMING = 0x100
+    GROUP = 0x200
+    TLS = 0x400
+
+
+class ElfMachine(enum.IntEnum):
+    SPARC = 0x2
+    X86 = 0x3
+    MIPS = 0x8
+    POWERPC = 0x14
+    S390 = 0x16
+    ARM = 0x28
+    SUPERH = 0x2A
+    X86_64 = 0x3e
+    AARCH64 = 0xb7
+    RISCV = 0xF3
 
 
 class StringTable:
@@ -46,6 +90,11 @@ class StringTable:
         return self.names[name]
 
 
+def read_elf(f):
+    """ Read an ELF file """
+    return ElfFile.load(f)
+
+
 class ElfFile:
     """
         This class can load and save a elf file.
@@ -54,7 +103,7 @@ class ElfFile:
 
     def __init__(self):
         self.e_type = 2  # Executable type
-        self.e_machine = 0x3e  # x86-64 machine
+        self.e_machine = ElfMachine.X86_64.value  # x86-64 machine
 
     @staticmethod
     def load(f):
@@ -66,9 +115,32 @@ class ElfFile:
         assert e_ident[2] == ord('L')
         assert e_ident[3] == ord('F')
         elf_file.ei_class = e_ident[4]
-        # elf_file.e_type, elf_file.e_machine, _, _ \
-        #    = struct.unpack(E_FMT, f.read(48))
+
+        # Read elf header:
+        elf_file.elf_header = ElfHeader.read(f)
+        elf_file.program_headers = []
+        for _ in range(elf_file.elf_header.e_phnum):
+            ph = ProgramHeader.read(f)
+            elf_file.program_headers.append(ph)
+
+        f.seek(elf_file.elf_header['e_shoff'])
+        elf_file.section_headers = []
+        for _ in range(elf_file.elf_header['e_shnum']):
+            sh = SectionHeader.read(f)
+            elf_file.section_headers.append(sh)
+
+        elf_file.read_strtab(f)
         return elf_file
+
+    def read_strtab(self, f):
+        section_header = self.section_headers[self.elf_header.e_shstrndx]
+        f.seek(section_header.sh_offset)
+        self.strtab = f.read(section_header.sh_size)
+
+    def get_str(self, offset):
+        """ Get a string indicated by numeric value """
+        end = self.strtab.find(0, offset)
+        return self.strtab[offset:end].decode('utf8')
 
     def save(self, f, obj):
         # TODO: support 32 bit
@@ -81,12 +153,13 @@ class ElfFile:
         e_ident[7] = 0  # os abi (3 =linux), 0=system V
         f.write(e_ident)
 
-        e_phentsize = struct.calcsize(P_FMT)  # size of 1 program header
-        assert e_phentsize == 56
-        e_phnum = len(obj.images)  # number of program header entries
+        elf_header = ElfHeader()
+        elf_header.e_phentsize = ProgramHeader.size  # size of 1 program header
+        assert elf_header.e_phentsize == 56
+        elf_header.e_phnum = len(obj.images)  # number of program headers
 
         # Determine offsets into file:
-        tmp_offset = 64 + e_phnum * e_phentsize
+        tmp_offset = 64 + elf_header.e_phnum * elf_header.e_phentsize
 
         # Determine offsets into the file of sections and images:
         offsets = {}
@@ -124,28 +197,27 @@ class ElfFile:
         strtab_offset = tmp_offset
         strtab_size = len(string_table.strtab)
         tmp_offset += strtab_size
-        e_shoff = tmp_offset  # section header offset
 
         # Write rest of header
-        e_type = self.e_type
-        e_machine = self.e_machine
-        e_version = 1
-        e_entry = 0x40000
-        e_phoff = 64  # Follows this header
-        e_flags = 0
-        e_ehsize = 16 + struct.calcsize(E_FMT)
-        assert 64 == e_ehsize  # size of this header
-        e_shentsize = struct.calcsize(SH_FMT)  # size of section header
-        assert 64 == e_shentsize
-        e_shnum = len(obj.sections) + 3
-        e_shstrndx = len(obj.sections) + 1  # Index into table with strings
+        elf_header.e_type = self.e_type
+        elf_header.e_machine = self.e_machine
+        elf_header.e_version = 1
+        elf_header.e_entry = 0x40000
+        elf_header.e_phoff = 64  # Follows this header
+        elf_header.e_shoff = tmp_offset  # section header offset
+        elf_header.e_flags = 0
+        elf_header.e_ehsize = 16 + ElfHeader.size
+        assert 64 == elf_header.e_ehsize  # size of this header
+        elf_header.e_shentsize = SectionHeader.size  # size of section header
+        assert 64 == elf_header.e_shentsize
+        elf_header.e_shnum = len(obj.sections) + 3
+
+        # Index into table with strings:
+        elf_header.e_shstrndx = len(obj.sections) + 1
         # symtab is at +2
 
         # Write rest of header:
-        f.write(struct.pack(
-            E_FMT, e_type, e_machine,
-            e_version, e_entry, e_phoff, e_shoff, e_flags, e_ehsize,
-            e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx))
+        elf_header.write(f)
 
         # Program headers:
         for image in obj.images:
@@ -176,20 +248,24 @@ class ElfFile:
         f.write(string_table.strtab)
 
         # Sections:
-        f.write(bytes(e_shentsize))  # Null section all zeros
+        f.write(bytes(elf_header.e_shentsize))  # Null section all zeros
         for section in obj.sections:
             self.write_section_header(
                 f, offsets[section], vaddr=section.address,
-                sh_size=section.size, sh_type=SHT_PROGBITS,
+                sh_size=section.size, sh_type=SectionHeaderType.PROGBITS,
                 name=string_table.get_name(section.name),
-                sh_flags=SHF_EXECINSTR | SHF_ALLOC)
+                sh_flags=SectionHeaderFlag.EXECINSTR | SectionHeaderFlag.ALLOC)
         assert strtab_size == len(string_table.strtab)
         self.write_section_header(
-            f, strtab_offset, sh_size=strtab_size, sh_type=SHT_STRTAB,
-            sh_flags=SHF_ALLOC, name=string_table.get_name('.strtab'))
+            f, strtab_offset, sh_size=strtab_size,
+            sh_type=SectionHeaderType.STRTAB,
+            sh_flags=SectionHeaderFlag.ALLOC,
+            name=string_table.get_name('.strtab'))
         self.write_section_header(
-            f, symtab_offset, sh_size=symtab_size, sh_type=SHT_SYMTAB,
-            sh_entsize=symtab_entsize, sh_flags=SHF_ALLOC, sh_link=e_shstrndx,
+            f, symtab_offset, sh_size=symtab_size,
+            sh_type=SectionHeaderType.SYMTAB,
+            sh_entsize=symtab_entsize, sh_flags=SectionHeaderFlag.ALLOC,
+            sh_link=elf_header.e_shstrndx,
             name=string_table.get_name('.symtab'))
 
     def write_symbol_table_entry(
@@ -201,27 +277,30 @@ class ElfFile:
                 st_value, st_size))
 
     def write_program_header(self, f, f_offset=0, vaddr=0, size=0, p_flags=4):
-        p_type = 1  # 1=load
-        p_offset = f_offset  # Load all file into memory!
-        p_vaddr = vaddr
-        p_paddr = vaddr
-        p_filesz = size
-        p_memsz = size
-        p_align = 0x1000
-        f.write(struct.pack(
-            P_FMT, p_type, p_flags,
-            p_offset, p_vaddr, p_paddr, p_filesz,
-            p_memsz,
-            p_align))
+        program_header = ProgramHeader()
+        program_header.p_type = 1  # 1=load
+        program_header.p_flags = p_flags
+        program_header.p_offset = f_offset  # Load all file into memory!
+        program_header.p_vaddr = vaddr
+        program_header.p_paddr = vaddr
+        program_header.p_filesz = size
+        program_header.p_memsz = size
+        program_header.p_align = 0x1000
+        program_header.write(f)
 
     def write_section_header(
-            self, f, offset, vaddr=0, sh_size=0, sh_type=SHT_NULL,
+            self, f, offset, vaddr=0, sh_size=0,
+            sh_type=SectionHeaderType.NULL,
             name=0, sh_flags=0, sh_entsize=0, sh_link=0):
-        sh_name = name  # Index into string table
-        sh_addr = vaddr  # address in memory, else, 0
-        sh_offset = offset  # Offset in file
-        sh_info = 0
-        sh_addralign = 4
-        f.write(struct.pack(
-            SH_FMT, sh_name, sh_type, sh_flags, sh_addr,
-            sh_offset, sh_size, sh_link, sh_info, sh_addralign, sh_entsize))
+        section_header = SectionHeader()
+        section_header.sh_name = name  # Index into string table
+        section_header.sh_type = sh_type.value
+        section_header.sh_flags = sh_flags
+        section_header.sh_addr = vaddr  # address in memory, else, 0
+        section_header.sh_offset = offset  # Offset in file
+        section_header.sh_size = sh_size
+        section_header.sh_link = sh_link
+        section_header.sh_info = 0
+        section_header.sh_addralign = 4
+        section_header.sh_entsize = sh_entsize
+        section_header.write(f)

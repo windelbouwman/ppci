@@ -5,6 +5,8 @@ from ..utils.codepage import load_obj
 from . import wasm_to_ir
 from .components import Export
 
+__all__ = ('instantiate',)
+
 
 def instantiate(module, imports):
     """ Instantiate a wasm module.

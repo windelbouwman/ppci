@@ -1,5 +1,6 @@
 
 from ..header import Header
+from .. import header
 
 
 class DosHeader(Header):
@@ -71,17 +72,19 @@ class PeHeader(Header):
         return 'PE\x00\x00'.encode('ascii')
 
 
-class CoffHeader(Header):
+_CoffHeader = header.mk_header('CoffHeader', [
+    header.Uint16('e_machine'),
+    header.Uint16('e_number_of_sections'),
+    header.Uint32('e_time_date_stamp'),
+    header.Uint32('e_pointer_to_symbol_table'),
+    header.Uint32('e_number_of_symbols'),
+    header.Uint16('e_size_of_optional_header'),
+    header.Uint16('e_characteristics'),
+])
+
+
+class CoffHeader(_CoffHeader):
     """ Coff header """
-    _fields = (
-        ('e_machine', 'H'),
-        ('e_number_of_sections', 'H'),
-        ('e_time_date_stamp', 'I'),
-        ('e_pointer_to_symbol_table', 'I'),
-        ('e_number_of_symbols', 'I'),
-        ('e_size_of_optional_header', 'H'),
-        ('e_characteristics', 'H'),
-    )
 
     IMAGE_FILE_RELOCS_STRIPPED = 0x0001
     IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002

@@ -101,7 +101,7 @@ class Architecture(MachineArchitecture):
         raise NotImplementedError('Implement this!')
 
     @abc.abstractmethod
-    def gen_call(self, label, args, rv):  # pragma: no cover
+    def gen_call(self, frame, label, args, rv):  # pragma: no cover
         """ Generate instructions for a function call. """
         raise NotImplementedError('Implement this!')
 

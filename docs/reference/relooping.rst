@@ -36,17 +36,6 @@ detected.
     'functions: 1, blocks: 3, instructions: 5'
     >>> ir_function = ir_module.get_function('inc')
     >>> shape, _ = find_structure(ir_function)
-    <BLANKLINE>
-       code: CFG-node(inc_block0)
-          loop
-             if-then CFG-node(inc_block1)
-                Break-shape 0
-             else
-                Continue-shape 0
-             end-if
-          end-loop
-          code: CFG-node(inc_block2)
-    <BLANKLINE>
     >>> print_shape(shape)
        code: CFG-node(inc_block0)
           loop
