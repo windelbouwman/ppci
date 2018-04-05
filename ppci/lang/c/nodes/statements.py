@@ -1,6 +1,6 @@
 """ C Statements """
 
-from ..generic.nodes import Statement, Compound
+from ...generic.nodes import Statement, Compound
 
 
 class If(Statement):

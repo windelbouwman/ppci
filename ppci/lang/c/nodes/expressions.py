@@ -1,6 +1,6 @@
 """ Expression nodes """
 
-from ..generic.nodes import Expression
+from ...generic.nodes import Expression
 from . import types
 
 

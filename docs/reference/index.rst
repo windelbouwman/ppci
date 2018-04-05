@@ -7,19 +7,19 @@ Reference
     api
     programs
     cli
-    c3
-    c
+    lang/c3
+    lang/c
     buildxml
     ir
     langtools
     debug
     architecture
     backends/index
-    hexfile
+    formats/hexfile
+    formats/dwarf
     objectformat
     wasm
     python2ir
     relooping
     utils
-    dwarf
     links

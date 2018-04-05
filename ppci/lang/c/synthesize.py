@@ -1,6 +1,6 @@
 from ... import ir
 from ...relooper import find_structure
-from . import types, declarations, expressions, statements
+from .nodes import types, declarations, expressions, statements
 
 
 class CSynthesizer:

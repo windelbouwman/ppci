@@ -481,8 +481,8 @@ class Module(WASMComponent):
         """ Show the binary representation of this WASM module.
         """
         # if not this_is_js():  (Artifact from trying PyScript)
-        from .util import hexdump
-        print(hexdump(self.to_bytes()))
+        from ..utils.hexdump import hexdump
+        hexdump(self.to_bytes())
 
     def to_file(self, f):
         """ Write this wasm module to file """

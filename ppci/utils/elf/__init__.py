@@ -1,1 +1,0 @@
-""" ELF file format module """

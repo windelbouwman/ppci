@@ -12,7 +12,7 @@ import shutil
 from functools import lru_cache
 
 
-__all__ = ['hexdump', 'export_wasm_example',
+__all__ = ['export_wasm_example',
            'run_wasm_in_node', 'run_wasm_in_notebook',
            'has_node']
 
@@ -27,23 +27,6 @@ def inspect_bytes_at(bb, offset):
     text_offset = len(repr(bytes2skip))
     print(bytes2show)
     print('|'.rjust(text_offset))
-
-
-def hexdump(bb):
-    """ Return a string hexdump of the given bytes.
-    """
-    i = 0
-    lines = []
-    while i < len(bb):
-        ints = [hex(j)[2:].rjust(2, '0') for j in bb[i:i+16]]
-        chars = [chr(j) if 33 <= j <= 126 else '.' for j in bb[i:i+16]]
-        line = '  '.join([str(len(lines)).rjust(8, '0'),
-                          ' '.join(ints).ljust(47),
-                          ''.join(chars)
-                          ])
-        lines.append(line)
-        i += 16
-    return '\n'.join(lines)
 
 
 def datastring2bytes(s):

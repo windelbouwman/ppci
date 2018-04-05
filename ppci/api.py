@@ -36,10 +36,10 @@ from .binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .binutils.objectfile import ObjectFile, get_object
 from .binutils.debuginfo import DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
-from .utils.hexfile import HexFile
-from .utils.elffile import ElfFile
-from .utils.exefile import ExeWriter
-from .utils import uboot_image
+from .formats.hexfile import HexFile
+from .formats.elf import ElfFile
+from .formats.exefile import ExeWriter
+from .formats import uboot_image
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager, get_file

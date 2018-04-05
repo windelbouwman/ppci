@@ -3,8 +3,8 @@
 import struct
 from ...common import CompilerError
 from ...arch.arch_info import Endianness
-from .types import BasicType
-from . import types, expressions, declarations
+from .nodes.types import BasicType
+from .nodes import types, expressions, declarations
 
 
 def type_tuple(*args):

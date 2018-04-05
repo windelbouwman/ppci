@@ -2,7 +2,7 @@ import unittest
 import io
 
 from ppci.binutils.objectfile import ObjectFile
-from ppci.utils.elffile import ElfFile
+from ppci.formats.elf import ElfFile
 from ppci.arch.example import ExampleArch
 
 

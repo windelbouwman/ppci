@@ -6,7 +6,8 @@ between parser and semantics is via a set of function calls.
 
 import logging
 from ...common import CompilerError
-from . import nodes, types, declarations, statements, expressions, utils
+from .nodes import nodes, types, declarations, statements, expressions
+from . import utils
 from .scope import Scope
 from .utils import required_padding
 

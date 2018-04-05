@@ -3,7 +3,7 @@ import unittest
 from sample_helpers import add_samples, build
 from util import has_qemu, qemu, relpath
 from util import do_long_tests, make_filename
-from ppci.utils import uboot_image
+from ppci.formats import uboot_image
 
 
 @unittest.skipUnless(do_long_tests('or1k'), 'skipping slow tests')

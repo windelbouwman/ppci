@@ -1,5 +1,5 @@
 """ C scoping functions """
-from .declarations import Declaration
+from .nodes.declarations import Declaration
 
 
 class Scope:

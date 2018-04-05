@@ -86,6 +86,9 @@ Other compilers written in python
 
   http://pythran.readthedocs.io/en/latest/
 
+* Shivyc - A C compiler implemented in python
+
+  https://github.com/ShivamSarodia/ShivyC
 
 Other C-related tools written in python
 ---------------------------------------

@@ -54,7 +54,7 @@ And can also be "displayed" in these forms:
     <BLANKLINE>
     >>> m.show_bytes()
     00000000  00 61 73 6d 01 00 00 00 01 05 01 60 00 01 7f 03  .asm.......`....
-    00000001  02 01 00 0a 07 01 05 00 41 2a 0f 0b              ........A*..
+    00000010  02 01 00 0a 07 01 05 00 41 2a 0f 0b              ........A*..
 
 
 Running wasm

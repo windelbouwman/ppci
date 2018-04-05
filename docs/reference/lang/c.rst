@@ -154,11 +154,11 @@ Module reference
 Uml
 ---
 
-.. uml:: ppci.lang.c.types
+.. uml:: ppci.lang.c.nodes.types
 
-.. uml:: ppci.lang.c.expressions
+.. uml:: ppci.lang.c.nodes.expressions
 
-.. uml:: ppci.lang.c.statements
+.. uml:: ppci.lang.c.nodes.statements
 
 References
 ----------

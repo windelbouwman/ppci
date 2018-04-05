@@ -1,4 +1,4 @@
-from . import types, declarations, expressions, statements
+from .nodes import types, declarations, expressions, statements
 
 
 class CPrinter:

@@ -6,7 +6,7 @@ https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
 
 import struct
 import enum
-from .elf.headers import ElfHeader, SectionHeader, ProgramHeader
+from .headers import ElfHeader, SectionHeader, ProgramHeader
 
 
 # ElfIdent = mk_header([

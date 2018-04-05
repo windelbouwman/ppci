@@ -2,13 +2,11 @@
 
 This module can be used to work with intel hexfiles.
 
-.. autoclass:: ppci.utils.hexfile.HexFile
-    :members:
-
 """
 
 import struct
 import binascii
+from ..utils.hexdump import hexdump, chunks
 
 
 DATA = 0
@@ -52,14 +50,6 @@ def make_hex_line(address, typ, data=bytes()):
     nums.append(crc)
     line = ':' + binascii.hexlify(nums).decode('ascii')
     return line
-
-
-def chunks(data, csize=16):
-    idx = 0
-    while idx < len(data):
-        s = min(len(data) - idx, csize)
-        yield data[idx:idx+s]
-        idx += s
 
 
 def hexfields(f):
@@ -112,10 +102,11 @@ class HexFile:
         return 'Hexfile containing {} bytes'.format(size)
 
     def dump(self, contents=False):
+        """ Print info about this hexfile """
         print(self)
         for region in self.regions:
             print(region)
-            print(binascii.hexlify(region.data))
+            hexdump(region.data, address=region.address)
 
     def __eq__(self, other):
         regions = self.regions

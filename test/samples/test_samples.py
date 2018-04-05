@@ -1,10 +1,6 @@
 import unittest
-import io
 import logging
 import re
-import os
-import platform
-import subprocess
 from tempfile import mkstemp
 
 from sample_helpers import add_samples
@@ -16,7 +12,6 @@ from util import do_long_tests, do_iverilog, make_filename
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc, get_current_arch
 from ppci.api import c3_to_ir, bf_to_ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
-from ppci.utils import uboot_image
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
 

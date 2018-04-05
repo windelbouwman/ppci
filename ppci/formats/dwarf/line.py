@@ -4,7 +4,7 @@ import abc
 import operator
 import functools
 
-from .. import leb128
+from ...utils import leb128
 from .. import header
 
 

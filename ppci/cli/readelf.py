@@ -3,7 +3,7 @@
 
 import argparse
 from .base import base_parser, LogSetup
-from ..utils.elffile import read_elf, SectionHeaderType
+from ..formats.elf.file import read_elf, SectionHeaderType
 
 
 parser = argparse.ArgumentParser(

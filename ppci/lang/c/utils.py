@@ -1,6 +1,6 @@
 
 import re
-from . import nodes, types, declarations, expressions, statements
+from .nodes import nodes, types, declarations, expressions, statements
 
 
 class Visitor:

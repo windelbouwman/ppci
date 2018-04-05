@@ -2,9 +2,9 @@ import logging
 from ... import ir, irutils
 from ...common import CompilerError
 from ...binutils import debuginfo
-from . import types, declarations, statements, expressions
+from .nodes import types, declarations, statements, expressions
 from .utils import required_padding
-from .types import BasicType
+from .nodes.types import BasicType
 
 
 class CCodeGenerator:

@@ -10,7 +10,7 @@ The following parts can be distinguished:
 
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
-from . import nodes
+from .nodes import nodes
 
 
 class CParser(RecursiveDescentParser):

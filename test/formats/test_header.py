@@ -1,6 +1,6 @@
 import unittest
 
-from ppci.utils import header
+from ppci.formats import header
 
 
 class HeaderTestCase(unittest.TestCase):
