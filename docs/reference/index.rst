@@ -15,8 +15,9 @@ Reference
     debug
     architecture
     backends/index
-    formats/hexfile
+    formats/elf
     formats/dwarf
+    formats/hexfile
     objectformat
     wasm
     python2ir

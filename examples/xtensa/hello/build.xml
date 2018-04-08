@@ -25,6 +25,11 @@
             imagename="flash"
             format="bin"
             output="hello.bin" />
+        <objcopy
+            objectfile="hello.oj"
+            imagename="flash"
+            format="elf"
+            output="hello.elf" />
     </target>
 
 </project>

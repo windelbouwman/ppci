@@ -37,7 +37,7 @@ from .binutils.objectfile import ObjectFile, get_object
 from .binutils.debuginfo import DebugAddress, DebugInfo
 from .binutils.disasm import Disassembler
 from .formats.hexfile import HexFile
-from .formats.elf import ElfFile
+from .formats.elf import write_elf
 from .formats.exefile import ExeWriter
 from .formats import uboot_image
 from .build.tasks import TaskError, TaskRunner
@@ -480,9 +480,8 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
         with open(output_filename, 'wb') as output_file:
             output_file.write(image.data)
     elif fmt == "elf":
-        elf_file = ElfFile()
         with open(output_filename, 'wb') as output_file:
-            elf_file.save(output_file, obj)
+            write_elf(obj, output_file)
         status = os.stat(output_filename)
         os.chmod(output_filename, status.st_mode | stat.S_IEXEC)
     elif fmt == "hex":

@@ -4,78 +4,35 @@ Implementation for the ELF file format.
 https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
 """
 
-import struct
-import enum
-from .headers import ElfHeader, SectionHeader, ProgramHeader
+import io
+import logging
+
+from ...arch.arch_info import Endianness
+from .headers import ElfMachine, HeaderTypes
+from .headers import SectionHeaderType, SectionHeaderFlag
+from .headers import SymbolTableBinding, SymbolTableType
 
 
-# ElfIdent = mk_header([
-#    UByte('ei_ident') * 12,
-#    Padding(7)
-# ])
-
-
-# Elf64Header = mk_header([
-#    Half('e_type'),
-#    Padding(7)
-# ])
+logger = logging.getLogger('elf')
 
 
 class ElfSection:
-    pass
+    def __init__(self, header):
+        self.header = header
 
+    def read_data(self, f):
+        """ Read this elf section's data from file """
+        f.seek(self.header.sh_offset)
+        self.data = f.read(self.header.sh_size)
+        return self.data
 
+    def get_str(self, offset):
+        """ Get a string indicated by numeric value """
+        end = self.data.find(0, offset)
+        return self.data[offset:end].decode('utf8')
 
-SYM_FMT = '<IBBHQQ'
 
 SHN_UNDEF = 0
-
-
-class SectionHeaderType(enum.IntEnum):
-    NULL = 0x0
-    PROGBITS = 0x1
-    SYMTAB = 0x2
-    STRTAB = 0x3
-    RELA = 0x4
-    HASH = 0x5
-    DYNAMIC = 0x6
-    NOTE = 0x7
-    NOBITS = 0x8
-    REL = 0x9
-    SHLIB = 0xa
-    DYNSYM = 0xb
-    INIT_ARRAY = 0xe
-    FINI_ARRAY = 0xf
-    PREINIT_ARRAY = 0x10
-    GROUP = 0x11
-    SYMTAB_SHNDX = 0x12
-    NUM = 0x13
-
-
-class SectionHeaderFlag(enum.IntFlag):
-    WRITE = 0x1
-    ALLOC = 0x2
-    EXECINSTR = 0x4
-    MERGE = 0x10
-    STRINGS = 0x20
-    INFO_LINK = 0x40
-    LINK_ORDER = 0x80
-    OS_NONCONFORMING = 0x100
-    GROUP = 0x200
-    TLS = 0x400
-
-
-class ElfMachine(enum.IntEnum):
-    SPARC = 0x2
-    X86 = 0x3
-    MIPS = 0x8
-    POWERPC = 0x14
-    S390 = 0x16
-    ARM = 0x28
-    SUPERH = 0x2A
-    X86_64 = 0x3e
-    AARCH64 = 0xb7
-    RISCV = 0xF3
 
 
 class StringTable:
@@ -95,71 +52,137 @@ def read_elf(f):
     return ElfFile.load(f)
 
 
+def write_elf(obj, f):
+    """ Save object as an ELF file """
+    mapping = {
+        'x86_64': (64, Endianness.LITTLE),
+        'xtensa': (32, Endianness.LITTLE),
+    }
+    bits, endianity = mapping[obj.arch.name]
+    elf_file = ElfFile(bits=bits, endianness=endianity)
+    elf_file.save(f, obj)
+
+
 class ElfFile:
     """
         This class can load and save a elf file.
     """
     e_version = 1
 
-    def __init__(self):
+    def __init__(self, bits=64, endianness=Endianness.LITTLE):
         self.e_type = 2  # Executable type
         self.e_machine = ElfMachine.X86_64.value  # x86-64 machine
+        self.header_types = HeaderTypes(bits=bits, endianness=endianness)
+        self.sections = []
 
     @staticmethod
     def load(f):
-        elf_file = ElfFile()
+        logger.debug('Loading ELF file')
         # Read header
         e_ident = f.read(16)
         assert e_ident[0] == 0x7F
         assert e_ident[1] == ord('E')
         assert e_ident[2] == ord('L')
         assert e_ident[3] == ord('F')
+
+        bits_map = {
+            1: 32,
+            2: 64
+        }
+        bits = bits_map[e_ident[4]]
+        endianity_map = {
+            1: Endianness.LITTLE,
+            2: Endianness.BIG,
+        }
+        endianity = endianity_map[e_ident[5]]
+        elf_file = ElfFile(bits=bits, endianness=endianity)
         elf_file.ei_class = e_ident[4]
 
         # Read elf header:
-        elf_file.elf_header = ElfHeader.read(f)
+        elf_file.elf_header = elf_file.header_types.ElfHeader.read(f)
+
+        # Read program headers:
         elf_file.program_headers = []
         for _ in range(elf_file.elf_header.e_phnum):
-            ph = ProgramHeader.read(f)
+            ph = elf_file.header_types.ProgramHeader.read(f)
             elf_file.program_headers.append(ph)
 
+        # Read section headers:
         f.seek(elf_file.elf_header['e_shoff'])
-        elf_file.section_headers = []
         for _ in range(elf_file.elf_header['e_shnum']):
-            sh = SectionHeader.read(f)
-            elf_file.section_headers.append(sh)
+            sh = elf_file.header_types.SectionHeader.read(f)
+            elf_file.sections.append(ElfSection(sh))
 
         elf_file.read_strtab(f)
+        for section in elf_file.sections:
+            section.read_data(f)
+            section.name = elf_file.get_str(section.header['sh_name'])
         return elf_file
 
     def read_strtab(self, f):
-        section_header = self.section_headers[self.elf_header.e_shstrndx]
-        f.seek(section_header.sh_offset)
-        self.strtab = f.read(section_header.sh_size)
+        self.strtab = self.sections[self.elf_header.e_shstrndx].read_data(f)
+
+    def read_symbol_table(self, sym_section):
+        table = []
+        f = io.BytesIO(sym_section.data)
+        count = len(sym_section.data) // \
+            self.header_types.SymbolTableEntry.size
+        for _ in range(count):
+            entry = self.header_types.SymbolTableEntry.read(f)
+            table.append(entry)
+        return table
 
     def get_str(self, offset):
         """ Get a string indicated by numeric value """
         end = self.strtab.find(0, offset)
         return self.strtab[offset:end].decode('utf8')
 
+    def has_section(self, name):
+        for section in self.sections:
+            if section.name == name:
+                return True
+        return False
+
+    def get_section(self, name):
+        for section in self.sections:
+            if section.name == name:
+                return section
+        raise KeyError(name)
+
     def save(self, f, obj):
-        # TODO: support 32 bit
+        bits = self.header_types.bits
+        endianness = self.header_types.endianness
+        bit_map = {
+            32: 1, 64: 2
+        }
+        endianity_map = {
+            Endianness.LITTLE: 1,
+            Endianness.BIG: 2
+        }
+        machine_map = {
+            'x86_64': ElfMachine.X86_64,
+            'xtensa': ElfMachine.XTENSA,
+        }
+        self.e_machine = machine_map[obj.arch.name]
 
         # Write identification:
         e_ident = bytearray([0x7F, ord('E'), ord('L'), ord('F')] + [0]*12)
-        e_ident[4] = 2  # 1=32 bit, 2=64 bit
-        e_ident[5] = 1  # 1=little endian, 2=big endian
+        e_ident[4] = bit_map[bits]  # 1=32 bit, 2=64 bit
+        e_ident[5] = endianity_map[endianness]  # 1=little endian, 2=big endian
         e_ident[6] = 1  # elf version = 1
         e_ident[7] = 0  # os abi (3 =linux), 0=system V
         f.write(e_ident)
 
-        elf_header = ElfHeader()
-        elf_header.e_phentsize = ProgramHeader.size  # size of 1 program header
-        assert elf_header.e_phentsize == 56
+        logger.debug('Saving %s bits ELF file', bits)
+
+        elf_header = self.header_types.ElfHeader()
+        # size of 1 program header:
+        elf_header.e_phentsize = self.header_types.ProgramHeader.size
         elf_header.e_phnum = len(obj.images)  # number of program headers
 
         # Determine offsets into file:
-        tmp_offset = 64 + elf_header.e_phnum * elf_header.e_phentsize
+        tmp_offset = 16 + self.header_types.ElfHeader.size
+        tmp_offset += elf_header.e_phnum * elf_header.e_phentsize
 
         # Determine offsets into the file of sections and images:
         offsets = {}
@@ -187,7 +210,7 @@ class ElfFile:
 
         # Create symbol table:
         symtab_offset = tmp_offset
-        symtab_entsize = struct.calcsize(SYM_FMT)
+        symtab_entsize = self.header_types.SymbolTableEntry.size
         symtab_size = (len(obj.symbols) + 1) * symtab_entsize
         for symbol in obj.symbols:
             string_table.get_name(symbol.name)
@@ -203,13 +226,12 @@ class ElfFile:
         elf_header.e_machine = self.e_machine
         elf_header.e_version = 1
         elf_header.e_entry = 0x40000
-        elf_header.e_phoff = 64  # Follows this header
+        elf_header.e_phoff = 16 + self.header_types.ElfHeader.size
         elf_header.e_shoff = tmp_offset  # section header offset
         elf_header.e_flags = 0
-        elf_header.e_ehsize = 16 + ElfHeader.size
-        assert 64 == elf_header.e_ehsize  # size of this header
-        elf_header.e_shentsize = SectionHeader.size  # size of section header
-        assert 64 == elf_header.e_shentsize
+        elf_header.e_ehsize = 16 + self.header_types.ElfHeader.size
+        # size of a single section header:
+        elf_header.e_shentsize = self.header_types.SectionHeader.size
         elf_header.e_shnum = len(obj.sections) + 3
 
         # Index into table with strings:
@@ -238,7 +260,9 @@ class ElfFile:
         f.write(bytes(symtab_entsize))  # Null symtab element
         for symbol in obj.symbols:
             st_name = string_table.get_name(symbol.name)
-            st_info = 0
+            st_bind = SymbolTableBinding.GLOBAL
+            st_type = SymbolTableType.NOTYPE
+            st_info = (int(st_bind) << 4) | int(st_type)
             st_shndx = section_numbers[symbol.section]
             st_value = symbol.value + obj.get_section(symbol.section).address
             self.write_symbol_table_entry(
@@ -271,13 +295,17 @@ class ElfFile:
     def write_symbol_table_entry(
             self, f, st_name, st_info, st_other,
             st_shndx, st_value, st_size=0):
-        f.write(
-            struct.pack(
-                SYM_FMT, st_name, st_info, st_other, st_shndx,
-                st_value, st_size))
+        symbol_table_entry = self.header_types.SymbolTableEntry()
+        symbol_table_entry.st_name = st_name
+        symbol_table_entry.st_info = st_info
+        symbol_table_entry.st_other = st_other
+        symbol_table_entry.st_shndx = st_shndx
+        symbol_table_entry.st_value = st_value
+        symbol_table_entry.st_size = st_size
+        symbol_table_entry.write(f)
 
     def write_program_header(self, f, f_offset=0, vaddr=0, size=0, p_flags=4):
-        program_header = ProgramHeader()
+        program_header = self.header_types.ProgramHeader()
         program_header.p_type = 1  # 1=load
         program_header.p_flags = p_flags
         program_header.p_offset = f_offset  # Load all file into memory!
@@ -292,7 +320,7 @@ class ElfFile:
             self, f, offset, vaddr=0, sh_size=0,
             sh_type=SectionHeaderType.NULL,
             name=0, sh_flags=0, sh_entsize=0, sh_link=0):
-        section_header = SectionHeader()
+        section_header = self.header_types.SectionHeader()
         section_header.sh_name = name  # Index into string table
         section_header.sh_type = sh_type.value
         section_header.sh_flags = sh_flags
