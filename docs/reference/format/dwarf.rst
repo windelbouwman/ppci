@@ -7,6 +7,6 @@ Dwarf is a widely used debugging format.
 Module reference
 ----------------
 
-.. automodule:: ppci.formats.dwarf
+.. automodule:: ppci.format.dwarf
     :members:
 

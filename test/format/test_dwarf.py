@@ -1,6 +1,6 @@
 
 import unittest
-from ppci.formats.dwarf import line as lnp
+from ppci.format.dwarf import line as lnp
 
 
 class LineNumberProgramTestCase(unittest.TestCase):

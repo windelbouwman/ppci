@@ -3,7 +3,7 @@ import unittest
 
 from ppci.api import get_arch
 from ppci.binutils.objectfile import ObjectFile
-from ppci.formats.exefile import ExeWriter
+from ppci.format.exefile import ExeWriter
 
 
 class ExeFileTestCase(unittest.TestCase):

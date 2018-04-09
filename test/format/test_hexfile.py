@@ -1,6 +1,6 @@
 import unittest
 import io
-from ppci.formats.hexfile import HexFile, HexFileException
+from ppci.format.hexfile import HexFile, HexFileException
 
 
 class HexFileTestCase(unittest.TestCase):

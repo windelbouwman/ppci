@@ -9,18 +9,20 @@ Reference
     cli
     lang/c3
     lang/c
+    lang/python
     buildxml
     ir
     langtools
     debug
     architecture
     backends/index
-    formats/elf
-    formats/dwarf
-    formats/hexfile
+    format/elf
+    format/exe
+    format/dwarf
+    format/hexfile
+    format/uboot
     objectformat
     wasm
-    python2ir
     relooping
     utils
     links

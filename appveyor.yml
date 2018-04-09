@@ -1,25 +1,17 @@
 init:
   - set PATH=c:\Python36-x64;C:\Python36-x64\Scripts;%PATH%
 
-environment:
-  CODECOV_TOKEN:
-    secure: f67nOyITJWX7wE2ASpCKz/JOXLd89y5YnDdwmQW+Fs3DEVUBN47DjpKQN3QT0L2G
-
 install:
-  - pip -q install tox wheel codecov"
+  - pip -q install tox wheel
   - python -c "import sys,platform; print(sys.platform); print(platform.machine())"
-  - python -m zipapp ppci
 
 build: off
 
 test_script:
-  - tox -e cover
+  - tox -e py3
 
 after_test:
   - python setup.py -q sdist bdist_wheel bdist_msi bdist_wininst
-  - ps: (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
-  - ps: $env:APPVEYOR_REPO_COMMIT = (hg parent --template '{node}') | Out-String
-  - codecov
 
 artifacts:
   - path: dist\*

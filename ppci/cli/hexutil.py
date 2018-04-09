@@ -1,6 +1,6 @@
 import argparse
 import sys
-from ..formats.hexfile import HexFile
+from ..format.hexfile import HexFile
 
 
 def hex2int(s):

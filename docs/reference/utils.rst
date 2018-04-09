@@ -21,17 +21,8 @@ Reporting
 .. automodule:: ppci.utils.reporting
     :members:
 
+Hexdump
+-------
 
-Exe files
----------
-
-The following module can help when working with exe files.
-
-.. automodule:: ppci.utils.exefile
-   :members:
-
-uboot image files
------------------
-
-.. automodule:: ppci.utils.uboot_image
-   :members:
+.. automodule:: ppci.utils.hexdump
+    :members:

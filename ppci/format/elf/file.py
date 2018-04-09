@@ -55,6 +55,7 @@ def read_elf(f):
 def write_elf(obj, f):
     """ Save object as an ELF file """
     mapping = {
+        'arm': (32, Endianness.LITTLE),
         'x86_64': (64, Endianness.LITTLE),
         'xtensa': (32, Endianness.LITTLE),
     }
@@ -160,6 +161,7 @@ class ElfFile:
             Endianness.BIG: 2
         }
         machine_map = {
+            'arm': ElfMachine.ARM,
             'x86_64': ElfMachine.X86_64,
             'xtensa': ElfMachine.XTENSA,
         }

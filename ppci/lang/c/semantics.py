@@ -471,6 +471,7 @@ class CSemantics:
         return statements.Switch(expression, statement, location)
 
     def on_case(self, value, statement, location):
+        """ Handle a case statement """
         if not self.switch_stack:
             self.error('Case statement outside of a switch!', location)
 
@@ -479,6 +480,7 @@ class CSemantics:
         return statements.Case(const_value, value.typ, statement, location)
 
     def on_default(self, statement, location):
+        """ Handle a default label """
         if not self.switch_stack:
             self.error('Default statement outside of a switch!', location)
 
@@ -486,17 +488,21 @@ class CSemantics:
 
     @staticmethod
     def on_break(location):
+        """ Handle the break statement """
         return statements.Break(location)
 
     @staticmethod
     def on_continue(location):
+        """ Handle continue statement """
         return statements.Continue(location)
 
     @staticmethod
     def on_goto(label, location):
+        """ Handle the dreaded goto statement """
         return statements.Goto(label, location)
 
     def on_while(self, condition, body, location):
+        """ Handle the while statement """
         condition = self.coerce(condition, self.get_type(['int']))
         return statements.While(condition, body, location)
 
