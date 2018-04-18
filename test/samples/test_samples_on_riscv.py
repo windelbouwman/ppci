@@ -87,3 +87,6 @@ class TestSamplesOnRiscv(unittest.TestCase):
 
 class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
+    
+if __name__ == '__main__':
+    unittest.main()  

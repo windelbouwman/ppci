@@ -17,9 +17,10 @@ if __name__ == "__main__":
     transport = TCP(4567)
     time.sleep(1)
     debug_driver = GdbDebugDriver(
-        arch, transport=transport, constat=DebugState.RUNNING, pcresval=0,
+        arch, transport=transport, pcresval=0,
         swbrkpt=True)
     debugger = Debugger(arch, debug_driver)
+    debug_driver.connect()
     obj = get_object("firmware.oj")
     time.sleep(3)
     debugger.load_symbols(obj, validate=False)

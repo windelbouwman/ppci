@@ -194,11 +194,11 @@ class GdbDebugDriver(DebugDriver):
                 if is_hex(name):
                     # We are dealing with a register value here!
                     reg_num = int(name, 16)
-                    self.logger.error('%s', reg_num)
-                    # self.arch.gdb_registers.index(self.arch.gdb_pc)
-                    # TODO: fill a cache of registers
-                    # data = bytes.fromhex(rest[3:-1])
-                    # self.pcstopval, = struct.unpack('<I', data)
+                    #self.logger.error('%s', reg_num)
+                    if reg_num == self.arch.gdb_registers.index(self.arch.gdb_pc):
+                        # TODO: fill a cache of registers
+                        data = bytes.fromhex(rest[3:-1])
+                        self.pcstopval, = struct.unpack('<I', data)
 
         if code & (BRKPOINT | INTERRUPT) != 0:
             self.logger.debug("Target stopped..")

@@ -58,6 +58,7 @@ def write_elf(obj, f):
         'arm': (32, Endianness.LITTLE),
         'x86_64': (64, Endianness.LITTLE),
         'xtensa': (32, Endianness.LITTLE),
+        'riscv': (32, Endianness.LITTLE),
     }
     bits, endianity = mapping[obj.arch.name]
     elf_file = ElfFile(bits=bits, endianness=endianity)
@@ -164,6 +165,7 @@ class ElfFile:
             'arm': ElfMachine.ARM,
             'x86_64': ElfMachine.X86_64,
             'xtensa': ElfMachine.XTENSA,
+            'riscv': ElfMachine.RISCV,
         }
         self.e_machine = machine_map[obj.arch.name]
 

@@ -186,14 +186,14 @@ class Debugger:
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
-        if pc in self.addr_map:
-            # minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
-            # debug = self.addr_map[minkey]
-            # self.logger.info('Found program counter at %s with delta %i'
-            #                  % (debug, minkey - pc))
-            debug = self.addr_map[pc]
-            loc = debug.loc
-            return loc.filename, loc.row
+        #if pc in self.addr_map:
+        minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
+        debug = self.addr_map[minkey]
+        self.logger.info('Found program counter at %s with delta %i'
+                          % (debug, minkey - pc))
+        #debug = self.addr_map[pc]
+        loc = debug.loc
+        return loc.filename, loc.row
 
     def current_function(self):
         """ Determine the PC and then determine which function we are in """
