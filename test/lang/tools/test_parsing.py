@@ -53,7 +53,7 @@ class RecursiveDescentParserTestCase(unittest.TestCase):
         self.parser.init_lexer(gen_tokens(tokens))
         self.assertEqual('bar', self.parser.look_ahead(1).val)
         self.parser.consume('NUM')
-        self.assertEqual('ID', self.parser.peak)
+        self.assertEqual('ID', self.parser.peek)
         self.assertEqual(':', self.parser.look_ahead(1).val)
         self.assertEqual(None, self.parser.look_ahead(2))
 

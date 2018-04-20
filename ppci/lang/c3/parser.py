@@ -44,7 +44,7 @@ class Parser(RecursiveDescentParser):
         self.logger.debug('Parsing package %s', name.val)
         self.mod = context.get_module(name.val)
         self.current_scope = self.mod.inner_scope
-        while self.peak != 'EOF':
+        while self.peek != 'EOF':
             self.parse_top_level()
         self.consume('EOF')
         return self.mod
@@ -55,15 +55,15 @@ class Parser(RecursiveDescentParser):
         public = self.has_consumed('public')
 
         # Handle a toplevel construct
-        if self.peak == 'function':
+        if self.peek == 'function':
             self.parse_function_def(public=public)
-        elif self.peak == 'var':
+        elif self.peek == 'var':
             self.parse_variable_def()
-        elif self.peak == 'const':
+        elif self.peek == 'const':
             self.parse_const_def()
-        elif self.peak == 'type':
+        elif self.peek == 'type':
             self.parse_type_def(public=public)
-        elif self.peak == 'import' and not public:
+        elif self.peek == 'import' and not public:
             self.parse_import()
         else:
             self.error('Expected function, var, const or type')
@@ -99,18 +99,18 @@ class Parser(RecursiveDescentParser):
         creates a pointer to a volatile integer.
         """
         # Parse the first part of a type spec:
-        if self.peak == 'struct':
+        if self.peek == 'struct':
             self.consume('struct')
             self.consume('{')
             mems = []
-            while self.peak != '}':
+            while self.peek != '}':
                 mem_t = self.parse_type_spec()
                 for i in self.parse_id_sequence():
                     mems.append(ast.StructField(i.val, mem_t))
                 self.consume(';')
             self.consume('}')
             the_type = ast.StructureType(mems)
-        elif self.peak == 'enum':
+        elif self.peek == 'enum':
             raise NotImplementedError('enum not yet implemented')
         else:
             # The type is identified by an identifier:
@@ -123,7 +123,7 @@ class Parser(RecursiveDescentParser):
         the_type.volatile = self.has_consumed('volatile')
 
         # Check for pointer or array suffix:
-        while self.peak in ['*', '[']:
+        while self.peek in ['*', '[']:
             if self.has_consumed('*'):
                 the_type = ast.PointerType(the_type)
             elif self.has_consumed('['):
@@ -155,7 +155,7 @@ class Parser(RecursiveDescentParser):
             name = self.consume('ID')
             var = ast.Variable(name.val, var_type, public, name.loc)
             # Munch initial value:
-            if self.peak == '=':
+            if self.peek == '=':
                 self.consume('=')
                 var.ival = self.parse_const_expression()
             self.add_symbol(var)
@@ -232,7 +232,7 @@ class Parser(RecursiveDescentParser):
         self.consume(')')
         options = []
         self.consume('{')
-        while self.peak != '}':
+        while self.peek != '}':
             case_kw = self.consume(['case', 'default'])
             if case_kw.typ == 'case':
                 value = self.parse_expression()
@@ -280,7 +280,7 @@ class Parser(RecursiveDescentParser):
         """ Parse a compound statement, which is bounded by '{' and '}' """
         loc = self.consume('{').loc
         statements = []
-        while self.peak != '}':
+        while self.peek != '}':
             statements.append(self.parse_statement())
         self.consume('}')
 
@@ -300,20 +300,20 @@ class Parser(RecursiveDescentParser):
             'return': self.parse_return,
             '{': self.parse_compound,
         }
-        if self.peak in mapping:
-            return mapping[self.peak]()
+        if self.peek in mapping:
+            return mapping[self.peek]()
         elif self.has_consumed(';'):
             return ast.Empty()
-        elif self.peak == 'var':
+        elif self.peek == 'var':
             variables = self.parse_variable_def()
             statements = [ast.VariableDeclaration(v, v.loc) for v in variables]
             loc = variables[0].loc
             return ast.Compound(statements, loc)
         else:
             expression = self.parse_unary_expression()
-            if self.peak in ast.Assignment.operators:
+            if self.peek in ast.Assignment.operators:
                 # We enter assignment mode here.
-                operator = self.peak
+                operator = self.peek
                 loc = self.consume(operator).loc
                 rhs = self.parse_expression()
                 return ast.Assignment(expression, rhs, loc, operator)
@@ -338,10 +338,10 @@ class Parser(RecursiveDescentParser):
 
     def parse_const_expression(self):
         """ Parse array initializers and other constant values """
-        if self.peak == '{':
+        if self.peek == '{':
             loc = self.consume('{').loc
             elements = []
-            if self.peak == '.':
+            if self.peek == '.':
                 self.consume('.')
                 field = self.consume('ID').val
                 self.consume('=')
@@ -373,8 +373,8 @@ class Parser(RecursiveDescentParser):
         parsing-expressions-by-precedence-climbing
         """
         lhs = self.parse_cast_expression()
-        while self.peak in self.op_binding_powers and \
-                self.op_binding_powers[self.peak][0] >= rbp:
+        while self.peek in self.op_binding_powers and \
+                self.op_binding_powers[self.peek][0] >= rbp:
             operator = self.consume()
             precedence, associativity = self.op_binding_powers[operator.typ]
             if associativity == self.LEFT_ASSOCIATIVITY:
@@ -393,7 +393,7 @@ class Parser(RecursiveDescentParser):
         The C-style type cast conflicts with '(' expr ')'
         so introduce extra keyword 'cast'.
         """
-        if self.peak == 'cast':
+        if self.peek == 'cast':
             loc = self.consume('cast').loc
             self.consume('<')
             to_type = self.parse_type_spec()
@@ -402,7 +402,7 @@ class Parser(RecursiveDescentParser):
             inner_expression = self.parse_expression()
             self.consume(')')
             return ast.TypeCast(to_type, inner_expression, loc)
-        elif self.peak == 'sizeof':
+        elif self.peek == 'sizeof':
             # Compiler internal function to determine size of a type
             loc = self.consume('sizeof').loc
             self.consume('(')
@@ -414,7 +414,7 @@ class Parser(RecursiveDescentParser):
 
     def parse_unary_expression(self):
         """ Handle unary plus, minus and pointer magic """
-        if self.peak in ['&', '*', '-', '+', 'not']:
+        if self.peek in ['&', '*', '-', '+', 'not']:
             operation = self.consume()
             inner_expression = self.parse_cast_expression()
             if operation.val == '*':
@@ -427,7 +427,7 @@ class Parser(RecursiveDescentParser):
     def parse_postfix_expression(self) -> ast.Expression:
         """ Parse postfix expression """
         pfe = self.parse_primary_expression()
-        while self.peak in ['[', '.', '->', '(']:
+        while self.peek in ['[', '.', '->', '(']:
             if self.has_consumed('['):
                 i = self.parse_expression()
                 self.consume(']')
@@ -454,27 +454,27 @@ class Parser(RecursiveDescentParser):
 
     def parse_primary_expression(self) -> ast.Expression:
         """ Literal and parenthesis expression parsing """
-        if self.peak == '(':
+        if self.peek == '(':
             self.consume('(')
             expr = self.parse_expression()
             self.consume(')')
-        elif self.peak == 'NUMBER':
+        elif self.peek == 'NUMBER':
             val = self.consume('NUMBER')
             expr = ast.Literal(val.val, val.loc)
-        elif self.peak == 'REAL':
+        elif self.peek == 'REAL':
             val = self.consume('REAL')
             expr = ast.Literal(val.val, val.loc)
-        elif self.peak == 'true':
+        elif self.peek == 'true':
             val = self.consume('true')
             expr = ast.Literal(True, val.loc)
-        elif self.peak == 'false':
+        elif self.peek == 'false':
             val = self.consume('false')
             expr = ast.Literal(False, val.loc)
-        elif self.peak == 'STRING':
+        elif self.peek == 'STRING':
             val = self.consume('STRING')
             expr = ast.Literal(val.val, val.loc)
-        elif self.peak == 'ID':
+        elif self.peek == 'ID':
             expr = self.parse_designator()
         else:
-            self.error('Expected NUM, ID or (expr), got {0}'.format(self.peak))
+            self.error('Expected NUM, ID or (expr), got {0}'.format(self.peek))
         return expr

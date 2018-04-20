@@ -1,24 +1,13 @@
 import unittest
-from unittest import mock
 import io
-import os
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CLexer, lexer, CParser, CSemantics, nodes
-from ppci.lang.c import CContext, CSynthesizer
-from ppci.lang.c.preprocessor import CTokenPrinter, prepare_for_parsing
+from ppci.lang.c import CBuilder, CPrinter
+from ppci.lang.c import CSynthesizer
 from ppci.lang.c.options import COptions
-from ppci.lang.c.castxml import CastXmlReader
-from ppci.lang.c.utils import cnum, replace_escape_codes
+from ppci.lang.c.utils import replace_escape_codes
 from ppci.arch.example import ExampleArch
 from ppci import ir
 from ppci.irutils import Verifier
-
-
-testdir = os.path.dirname(os.path.abspath(__file__))
-
-
-def relpath(*args):
-    return os.path.normpath(os.path.join(testdir, *args))
 
 
 class CUtilitiesTestCase(unittest.TestCase):
@@ -37,131 +26,6 @@ class CUtilitiesTestCase(unittest.TestCase):
         self.assertEqual(expected, result)
 
 
-class CLexerTestCase(unittest.TestCase):
-    """ Test the behavior of the lexer """
-    def setUp(self):
-        coptions = COptions()
-        self.lexer = CLexer(coptions)
-        coptions.enable('trigraphs')
-
-    def tokenize(self, src):
-        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
-        return tokens
-
-    def test_generate_characters(self):
-        src = "ab\ndf"
-        chars = list(lexer.create_characters(io.StringIO(src), 'a.h'))
-        self.assertSequenceEqual([1, 1, 1, 2, 2], [c.loc.row for c in chars])
-        self.assertSequenceEqual([1, 2, 3, 1, 2], [c.loc.col for c in chars])
-
-    def test_trigraphs(self):
-        src = "??( ??) ??/ ??' ??< ??> ??! ??- ??="
-        chars = list(lexer.create_characters(io.StringIO(src), 'a.h'))
-        chars = list(lexer.trigraph_filter(chars))
-        self.assertSequenceEqual(
-            list(r'[ ] \ ^ { } | ~ #'), [c.char for c in chars])
-        self.assertSequenceEqual([1] * 17, [c.loc.row for c in chars])
-        self.assertSequenceEqual(
-            [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25, 28, 29, 32, 33],
-            [c.loc.col for c in chars])
-
-    def test_trigraph_challenge(self):
-        """ Test a nice example for the lexer including some trigraphs """
-        src = "Hell??/\no world"
-        tokens = self.tokenize(src)
-        self.assertSequenceEqual(['Hello', 'world'], [t.val for t in tokens])
-        self.assertSequenceEqual([1, 2], [t.loc.row for t in tokens])
-        self.assertSequenceEqual([1, 3], [t.loc.col for t in tokens])
-        self.assertSequenceEqual(['', ' '], [t.space for t in tokens])
-        self.assertSequenceEqual([True, False], [t.first for t in tokens])
-
-    def test_block_comment(self):
-        src = "/* bla bla */"
-        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
-        self.assertEqual([], tokens)
-
-    def test_block_comments_and_values(self):
-        src = "1/* bla bla */0/*w00t*/"
-        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
-        self.assertEqual([('NUMBER', '1'), ('NUMBER', '0')], tokens)
-
-    def test_line_comment(self):
-        src = """
-        int a; // my nice int
-        int
-        // ?
-        b;
-        """
-        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
-        self.assertSequenceEqual(
-            [('BOL', ''), ('ID', 'int'), ('ID', 'a'), (';', ';'),
-             # ('BOL', ''),
-             ('ID', 'int'),
-             ('BOL', ''),
-             ('ID', 'b'), (';', ';'),
-             ('BOL', '')],
-            tokens)
-
-    def test_numbers(self):
-        src = "212 215u 0xFeeL 073 032U 30l 30ul"
-        tokens = self.tokenize(src)
-        self.assertTrue(all(t.typ == 'NUMBER' for t in tokens))
-        numbers = list(map(lambda t: cnum(t.val)[0], tokens))
-        self.assertSequenceEqual([212, 215, 4078, 59, 26, 30, 30], numbers)
-
-    def test_assignment_operators(self):
-        operators = [
-            '+=', '-=', '*=', '/=', '%=', '|=', '<<=', '>>=',
-            '&=', '^=', '~=']
-        src = " ".join(operators)
-        tokens = self.tokenize(src)
-        lexed_values = [t.val for t in tokens]
-        self.assertSequenceEqual(operators, lexed_values)
-
-    def test_dotdotdot(self):
-        """ Test the lexing of the triple dot """
-        src = ". .. ... ....."
-        tokens = self.tokenize(src)
-        dots = list(map(lambda t: t.typ, tokens))
-        self.assertSequenceEqual(['.', '.', '.', '...', '...', '.', '.'], dots)
-
-    def test_character_literals(self):
-        """ Test various character literals """
-        src = r"'a' '\n' L'\0' '\\' '\a' '\b' '\f' '\r' '\t' '\v' '\11' '\xee'"
-        expected_chars = [
-            "'a'", r"'\n'", r"L'\0'", r"'\\'", r"'\a'", r"'\b'",
-            r"'\f'", r"'\r'", r"'\t'", r"'\v'", r"'\11'", r"'\xee'"]
-        tokens = self.tokenize(src)
-        self.assertTrue(all(t.typ == 'CHAR' for t in tokens))
-        chars = list(map(lambda t: t.val, tokens))
-        self.assertSequenceEqual(expected_chars, chars)
-
-    def test_string_literals(self):
-        """ Test various string literals """
-        src = r'"\"|\x7F"'
-        tokens = self.tokenize(src)
-
-        expected_types = ['STRING']
-        types = list(map(lambda t: t.typ, tokens))
-        self.assertSequenceEqual(expected_types, types)
-
-        expected_strings = [r'"\"|\x7F"']
-        strings = list(map(lambda t: t.val, tokens))
-        self.assertSequenceEqual(expected_strings, strings)
-
-    def test_token_spacing(self):
-        src = "1239hello"
-        # TODO: should this raise an error?
-        tokens = self.tokenize(src)
-
-    def test_lexical_error(self):
-        src = "'asfdfd'"
-        # TODO: should this raise an error?
-        with self.assertRaises(CompilerError) as cm:
-            tokens = self.tokenize(src)
-        self.assertEqual("Expected '", cm.exception.msg)
-
-
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
     def setUp(self):
@@ -178,6 +42,13 @@ class CFrontendTestCase(unittest.TestCase):
             raise
         assert isinstance(ir_module, ir.Module)
         Verifier().verify(ir_module)
+
+        # Try to parse ast as well:
+        f = io.StringIO(src)
+        tree = self.builder._create_ast(src, None)
+        printer = CPrinter()
+        print(tree)
+        printer.print(tree)
 
     def expect_errors(self, src, errors):
         with self.assertRaises(CompilerError) as cm:
@@ -658,13 +529,6 @@ class CFrontendTestCase(unittest.TestCase):
         }
         """
         self.do(src)
-
-
-class CastXmlTestCase(unittest.TestCase):
-    """ Try out cast xml parsing. """
-    def test_test8(self):
-        reader = CastXmlReader()
-        reader.process(relpath('..', '..', 'data', 'c', 'test8.xml'))
 
 
 class CSynthesizerTestCase(unittest.TestCase):

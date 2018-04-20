@@ -1,11 +1,7 @@
-
-""" Regular expression routines.
-
-Implement regular expressions using derivatives.
-
-"""
+""" Regular expression descriptions """
 
 import abc
+from . import symbol_set
 
 
 class Regex(metaclass=abc.ABCMeta):
@@ -19,16 +15,19 @@ class Regex(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     def __or__(self, other):
+        if not isinstance(other, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(other)))
         return LogicalOr(self, other)
 
     def __and__(self, other):
+        if not isinstance(other, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(other)))
         return LogicalAnd(self, other)
 
     def __add__(self, other):
+        if not isinstance(other, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(other)))
         return Concatenation(self, other)
-
-
-NULL = 0
 
 
 class Epsilon(Regex):
@@ -46,26 +45,34 @@ class Epsilon(Regex):
 EPSILON = Epsilon()
 
 
-class Symbol(Regex):
-    def __init__(self, symbol):
-        self._symbol = symbol
+class SymbolSet(Regex):
+    """ Match a single symbol """
+    def __init__(self, symbols):
+        self._symbols = symbol_set.SymbolSet(symbols)
 
     def nu(self):
         return NULL
 
     def derivative(self, symbol):
-        if symbol == self._symbol:
-            return EPSILON
-        else:
-            return NULL
+        return EPSILON if symbol in self._symbols else NULL
 
     def __str__(self):
-        return self._symbol
+        return str(self._symbols)
+
+
+NULL = SymbolSet([])
+
+
+def Symbol(symbol):
+    """ Special case of a set with one item """
+    return SymbolSet([symbol])
 
 
 class Kleene(Regex):
-    """ Kleene closure r* """
+    """ Kleene closure modifier r* """
     def __init__(self, expr):
+        if not isinstance(expr, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(expr)))
         self._expr = expr
 
     def nu(self):
@@ -81,7 +88,11 @@ class Kleene(Regex):
 class Concatenation(Regex):
     """ Concatenate two regular expressions a . b """
     def __init__(self, lhs, rhs):
+        if not isinstance(lhs, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(lhs)))
         self._lhs = lhs
+        if not isinstance(rhs, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
         self._rhs = rhs
 
     def nu(self):
@@ -100,7 +111,11 @@ class Concatenation(Regex):
 class LogicalOr(Regex):
     """ Alternation operator a | b """
     def __init__(self, lhs, rhs):
+        if not isinstance(lhs, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(lhs)))
         self._lhs = lhs
+        if not isinstance(rhs, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
         self._rhs = rhs
 
     def nu(self):
@@ -116,7 +131,11 @@ class LogicalOr(Regex):
 class LogicalAnd(Regex):
     """ operator a & b """
     def __init__(self, lhs, rhs):
+        if not isinstance(lhs, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
         self._lhs = lhs
+        if not isinstance(rhs, Regex):
+            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
         self._rhs = rhs
 
     def nu(self):
@@ -127,22 +146,3 @@ class LogicalAnd(Regex):
 
     def __str__(self):
         return '({})&({})'.format(self._lhs, self._rhs)
-
-
-ab = Symbol('a') + Symbol('b')
-
-# TODO: work in progress
-print(ab)
-print(ab.derivative('a'))
-print(ab.derivative('b'))
-print(ab.derivative('a').derivative('b'))
-
-
-def parse(r):
-    """ Parse a regular expression """
-    raise NotImplementedError()
-
-
-def compile(r):
-    parse(r)
-    raise NotImplementedError()

@@ -4,10 +4,8 @@ from unittest import mock
 
 
 from ppci.lang.c import CLexer, lexer, CParser, CSemantics
-from ppci.lang.c import CContext
 from ppci.lang.c.preprocessor import prepare_for_parsing
 from ppci.lang.c.options import COptions
-from ppci.arch.example import ExampleArch
 
 
 def gen_tokens(tokens):
@@ -25,9 +23,9 @@ class CParserTestCase(unittest.TestCase):
     the semantics and assert that the proper functions are called on it.
     """
     def setUp(self):
-        context = CContext(COptions(), ExampleArch().info)
+        coptions = COptions()
         self.semantics = mock.Mock(spec=CSemantics, name='semantics')
-        self.parser = CParser(context, self.semantics)
+        self.parser = CParser(coptions, self.semantics)
 
     def parse(self, tokens):
         cu = self.parser.parse(gen_tokens(tokens))

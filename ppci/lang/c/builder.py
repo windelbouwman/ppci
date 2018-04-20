@@ -26,14 +26,10 @@ class CBuilder:
                 'Welcome to the C building report for {}'.format(filename))
         cdialect = self.coptions['std']
         self.logger.info('Starting C compilation (%s)', cdialect)
-        context = CContext(self.coptions, self.arch_info)
-        preprocessor = CPreProcessor(self.coptions)
-        tokens = preprocessor.process(src, filename)
-        semantics = CSemantics(context)
-        parser = CParser(context, semantics)
-        tokens = prepare_for_parsing(tokens, parser.keywords)
 
-        compile_unit = parser.parse(tokens)
+        context = CContext(self.coptions, self.arch_info)
+        compile_unit = _parse(src, filename, context)
+
         if reporter:
             f = io.StringIO()
             printer = CAstPrinter(file=f)
@@ -44,16 +40,24 @@ class CBuilder:
         cgen = CCodeGenerator(context)
         return cgen.gen_code(compile_unit)
 
+    def _create_ast(self, src, filename):
+        return create_ast(
+            src, self.arch_info, filename=filename, coptions=self.coptions)
+
 
 def create_ast(src, arch_info, filename='<snippet>', coptions=None):
     """ Create a C ast from the given source """
     if coptions is None:
         coptions = COptions()
     context = CContext(coptions, arch_info)
-    preprocessor = CPreProcessor(coptions)
+    return _parse(src, filename, context)
+
+
+def _parse(src, filename, context):
+    preprocessor = CPreProcessor(context.coptions)
     tokens = preprocessor.process(src, filename)
     semantics = CSemantics(context)
-    parser = CParser(context, semantics)
+    parser = CParser(context.coptions, semantics)
     tokens = prepare_for_parsing(tokens, parser.keywords)
     ast = parser.parse(tokens)
     return ast

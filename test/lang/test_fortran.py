@@ -1,14 +1,9 @@
 """
     Test fortran front end.
 
-    See for a good test-suite:
-    http://www.itl.nist.gov/div897/ctg/fortran_form.htm
-
 """
 import unittest
-import glob
 from ppci.lang.fortran import FortranParser, Printer
-from util import relpath
 
 example = """
 C234567890
@@ -62,15 +57,6 @@ class FortranTestCase(unittest.TestCase):
     def test_spaced_prog(self):
         """ Test if a program with lots of spacing works correctly """
         self.do(space_ignoring_src)
-
-    @unittest.skip('todo')
-    def test_samples(self):
-        pat = relpath('FORTRAN', '*.FOR')
-        for src in sorted(glob.iglob(pat)):
-            print(src)
-            with open(src) as f:
-                srccode = f.read()
-            self.do(srccode)
 
 
 if __name__ == '__main__':

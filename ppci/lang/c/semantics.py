@@ -12,6 +12,8 @@ from .scope import Scope
 from .utils import required_padding
 
 
+# TODO: should semantics be architecture independent?
+# Can we postpone sizeof(int) stuff until code generation time?
 class CSemantics:
     """ This class handles the C semantics """
     logger = logging.getLogger('semantics')

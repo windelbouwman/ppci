@@ -36,9 +36,8 @@ class CParser(RecursiveDescentParser):
     LEFT_ASSOCIATIVE = 'left-associative'
     RIGHT_ASSOCIATIVE = 'right-associative'
 
-    def __init__(self, context, semantics):
+    def __init__(self, coptions, semantics):
         super().__init__()
-        self.context = context
         self.semantics = semantics
         self.type_qualifiers = {'volatile', 'const'}
         self.storage_classes = {
@@ -59,7 +58,7 @@ class CParser(RecursiveDescentParser):
         self.keywords.add('__attribute__')
 
         # Some additions from C99:
-        if self.context.coptions['std'] == 'c99':
+        if coptions['std'] == 'c99':
             self.type_qualifiers.add('restrict')
             self.keywords.add('inline')
 
@@ -168,7 +167,7 @@ class CParser(RecursiveDescentParser):
         attributes = []
 
         while True:
-            if self.peak == 'TYPE-ID':
+            if self.peek == 'TYPE-ID':
                 # We got a typedef type!
                 type_name = self.consume()
                 if typ:
@@ -176,24 +175,24 @@ class CParser(RecursiveDescentParser):
                 else:
                     typ = self.semantics.on_typename(
                         type_name.val, type_name.loc)
-            elif self.peak in self.type_specifiers:
+            elif self.peek in self.type_specifiers:
                 type_specifier = self.consume(self.type_specifiers)
                 location = type_specifier.loc
                 if typ:
                     self.error('Type already determined', type_specifier)
                 else:
                     type_specifiers.append(type_specifier.val)
-            elif self.peak == 'enum':
+            elif self.peek == 'enum':
                 if typ:
                     self.error('Unexpected enum')
                 else:
                     typ = self.parse_enum()
-            elif self.peak in ['struct', 'union']:
+            elif self.peek in ['struct', 'union']:
                 if typ:
                     self.error('Type already determined')
                 else:
                     typ = self.parse_struct_or_union()
-            elif self.peak in self.storage_classes:
+            elif self.peek in self.storage_classes:
                 klass = self.consume(self.storage_classes)
                 if not allow_storage_class:
                     self.error('Unexpected storage class', klass.loc)
@@ -201,17 +200,17 @@ class CParser(RecursiveDescentParser):
                     self.error('Multiple storage classes', klass.loc)
                 else:
                     storage_class = klass.val
-            elif self.peak in self.type_qualifiers:
+            elif self.peek in self.type_qualifiers:
                 type_qualifier = self.consume(self.type_qualifiers)
                 if type_qualifier.val in type_qualifiers:
                     self.error('Double type qualifier', type_qualifier.loc)
                 else:
                     type_qualifiers.add(type_qualifier.val)
-            elif self.peak in ['inline']:
+            elif self.peek in ['inline']:
                 self.consume('inline')
                 # inline is a compiler hint. For now, ignore this hint :)
                 self.logger.debug('Ignoring inline for now')
-            elif self.peak in ['__attribute__']:
+            elif self.peek in ['__attribute__']:
                 attributes = self.parse_attributes()
                 self.logger.error('Ignoring %s', attributes)
             else:
@@ -236,27 +235,27 @@ class CParser(RecursiveDescentParser):
         keyword = self.consume({'struct', 'union'})
 
         # We might have an optional tag:
-        if self.peak == 'ID':
+        if self.peek == 'ID':
             tag = self.consume('ID').val
-        elif self.peak == '{':
+        elif self.peek == '{':
             tag = None
         else:
             # print(self.typedefs)
             self.error(
-                'Expected tag name or "{{", but got {}'.format(self.peak),
+                'Expected tag name or "{{", but got {}'.format(self.peek),
                 keyword.loc)
 
-        if self.peak == '{':
+        if self.peek == '{':
             # We have a struct declarations:
             self.consume('{')
             fields = []
-            while self.peak != '}':
+            while self.peek != '}':
                 ds = self.parse_decl_specifiers(allow_storage_class=False)
                 while True:
                     type_modifiers, name = self.parse_type_modifiers(
                         abstract=False)
                     # Handle optional struct field size:
-                    if self.peak == ':':
+                    if self.peek == ':':
                         self.consume(':')
                         bitsize = self.parse_constant_expression()
                         # TODO: move this somewhere else?
@@ -283,23 +282,23 @@ class CParser(RecursiveDescentParser):
         keyword = self.consume('enum')
 
         # We might have an optional tag:
-        if self.peak == 'ID':
+        if self.peek == 'ID':
             tag = self.consume('ID').val
-        elif self.peak == '{':
+        elif self.peek == '{':
             tag = None
         else:
             self.error(
                 'Expected tag name or enum declaration, but got {}'.format(
-                    self.peak),
+                    self.peek),
                 keyword.loc)
 
         ctyp = self.semantics.on_enum(tag, keyword.loc)
 
         # If we have a body, either after tag or directly, parse it:
-        if self.peak == '{':
+        if self.peek == '{':
             self.consume('{')
             self.semantics.enter_enum_values(ctyp, keyword.loc)
-            while self.peak != '}':
+            while self.peek != '}':
                 name = self.consume('ID')
                 if self.has_consumed('='):
                     value = self.parse_constant_expression()
@@ -322,7 +321,7 @@ class CParser(RecursiveDescentParser):
         """
         attributes = []
         while True:
-            if self.peak == '__attribute__':
+            if self.peek == '__attribute__':
                 attribute = self.parse_gnu_attribute()
             else:
                 break
@@ -335,7 +334,7 @@ class CParser(RecursiveDescentParser):
         self.consume('(')
         self.consume('(')
         gnu_attribute = {}
-        if self.peak != ')':
+        if self.peek != ')':
             while True:
                 name = self.consume('ID')
                 # TODO: how use this?
@@ -364,7 +363,7 @@ class CParser(RecursiveDescentParser):
                 d = self.parse_declarator()
                 declarations.append(self.parse_typedef(ds, d))
             self.consume(';')
-        elif self.peak == '{':
+        elif self.peek == '{':
             # if function, parse implementation.
             # func_def = None
             declarations.append(self.parse_function_declaration(ds, d))
@@ -424,18 +423,18 @@ class CParser(RecursiveDescentParser):
 
     def parse_variable_initializer(self):
         """ Parse the C-style array or struct initializer stuff """
-        if self.peak == '{':
+        if self.peek == '{':
             location = self.consume('{').loc
             values = []
             values.append(self.parse_variable_initializer())
             while self.has_consumed(','):
-                if self.peak == '}':
+                if self.peek == '}':
                     break
                 values.append(self.parse_variable_initializer())
             self.consume('}')
             initializer = self.semantics.on_initializer_list(values, location)
         else:
-            if self.peak == '[' and self.options['std'] == 'c99':
+            if self.peek == '[' and self.options['std'] == 'c99':
                 # Parse designators like: int a[10] = {[1]=5, [4]=3, 4}
                 self.consume('[')
                 index = self.parse_constant_expression()
@@ -453,9 +452,9 @@ class CParser(RecursiveDescentParser):
         # TODO: allow K&R style arguments
         arguments = []
         # self.consume('(')
-        if self.peak != ')':
+        if self.peek != ')':
             while True:
-                if self.peak == '...':
+                if self.peek == '...':
                     # Variable arguments found!
                     self.consume('...')
                     arguments.append('...')
@@ -485,7 +484,7 @@ class CParser(RecursiveDescentParser):
         # Handle the pointer:
         while self.has_consumed('*'):
             type_qualifiers = set()
-            while self.peak in self.type_qualifiers:
+            while self.peek in self.type_qualifiers:
                 type_qualifier = self.consume(self.type_qualifiers)
                 if type_qualifier.val in type_qualifiers:
                     self.error('Duplicate type qualifier', type_qualifier)
@@ -496,9 +495,9 @@ class CParser(RecursiveDescentParser):
         # First parse some id, or something else
         middle_modifiers = []
         last_modifiers = []  # TODO: maybe move id detection in seperate part?
-        if self.peak == 'ID':
+        if self.peek == 'ID':
             name = self.consume('ID')
-        elif self.peak == '(':
+        elif self.peek == '(':
             # May be pointer to function?
             self.consume('(')
             if self.is_declaration_statement():
@@ -518,22 +517,22 @@ class CParser(RecursiveDescentParser):
             else:
                 self.error('Expected a name')
             # self.not_impl()
-            # raise NotImplementedError(str(self.peak))
+            # raise NotImplementedError(str(self.peek))
 
         # Now we have name, check for function decl:
         while True:
-            if self.peak == '(':
+            if self.peek == '(':
                 self.consume('(')
                 arguments = self.parse_function_arguments()
                 self.consume(')')
                 last_modifiers.append(('FUNCTION', arguments))
-            elif self.peak == '[':
+            elif self.peek == '[':
                 # Handle array type suffix:
                 self.consume('[')
-                if self.peak == '*':
+                if self.peek == '*':
                     # Handle VLA arrays:
                     amount = 'vla'
-                elif self.peak == ']':
+                elif self.peek == ']':
                     amount = None
                 else:
                     amount = self.parse_expression()
@@ -578,13 +577,13 @@ class CParser(RecursiveDescentParser):
 
     def is_declaration_statement(self):
         """ Determine whether we are facing a declaration or not """
-        if self.peak in self.storage_classes:
+        if self.peek in self.storage_classes:
             return True
-        elif self.peak in self.type_qualifiers:
+        elif self.peek in self.type_qualifiers:
             return True
-        elif self.peak in self.type_specifiers:
+        elif self.peek in self.type_specifiers:
             return True
-        elif self.peak in ('struct', 'union', 'enum', 'TYPE-ID'):
+        elif self.peek in ('struct', 'union', 'enum', 'TYPE-ID'):
             return True
         else:
             return False
@@ -606,11 +605,11 @@ class CParser(RecursiveDescentParser):
             '{': self.parse_compound_statement,
             ';': self.parse_empty_statement,
             }
-        if self.peak in m:
-            statement = m[self.peak]()
+        if self.peek in m:
+            statement = m[self.peek]()
         else:
             # Expression statement!
-            if self.peak == 'ID' and self.look_ahead(1).val == ':':
+            if self.peek == 'ID' and self.look_ahead(1).val == ':':
                 statement = self.parse_label()
             else:
                 expression = self.parse_expression()
@@ -635,7 +634,7 @@ class CParser(RecursiveDescentParser):
         statements = []
         location = self.consume('{').loc
         self.semantics.enter_compound_statement(location)
-        while self.peak != '}':
+        while self.peek != '}':
             statements.extend(self.parse_statement_or_declaration())
         self.consume('}')
         return self.semantics.on_compound_statement(statements, location)
@@ -716,7 +715,7 @@ class CParser(RecursiveDescentParser):
         """ Parse a for statement """
         location = self.consume('for').loc
         self.consume('(')
-        if self.peak == ';':
+        if self.peek == ';':
             initial = None
         else:
             if self.is_declaration_statement():
@@ -728,13 +727,13 @@ class CParser(RecursiveDescentParser):
                 initial = self.parse_expression()
         self.consume(';')
 
-        if self.peak == ';':
+        if self.peek == ';':
             condition = None
         else:
             condition = self.parse_expression()
         self.consume(';')
 
-        if self.peak == ')':
+        if self.peek == ')':
             post = None
         else:
             post = self.parse_expression()
@@ -746,7 +745,7 @@ class CParser(RecursiveDescentParser):
     def parse_return_statement(self):
         """ Parse a return statement """
         location = self.consume('return').loc
-        if self.peak == ';':
+        if self.peek == ';':
             value = None
         else:
             value = self.parse_expression()
@@ -794,8 +793,8 @@ class CParser(RecursiveDescentParser):
     def parse_binop_with_precedence(self, priority):
         lhs = self.parse_primary_expression()
 
-        # print('prio=', prio, self.peak)
-        while self._binop_take(self.peak, priority):
+        # print('prio=', prio, self.peek)
+        while self._binop_take(self.peek, priority):
             op = self.consume()
             op_associativity, op_prio = self.prio_map[op.val]
             if op.val == '?':
@@ -818,20 +817,20 @@ class CParser(RecursiveDescentParser):
 
     def parse_primary_expression(self):
         """ Parse a primary expression """
-        if self.peak == 'ID':
+        if self.peek == 'ID':
             identifier = self.consume('ID')
             expr = self.semantics.on_variable_access(
                 identifier.val, identifier.loc)
-        elif self.peak == 'NUMBER':
+        elif self.peek == 'NUMBER':
             n = self.consume()
             expr = self.semantics.on_number(n.val, n.loc)
-        elif self.peak == 'CHAR':
+        elif self.peek == 'CHAR':
             n = self.consume()
             expr = self.semantics.on_char(n.val, n.loc)
-        elif self.peak == 'STRING':
+        elif self.peek == 'STRING':
             txt = self.consume()
             expr = self.semantics.on_string(txt.val, txt.loc)
-        elif self.peak in ['!', '*', '+', '-', '~', '&', '--', '++']:
+        elif self.peek in ['!', '*', '+', '-', '~', '&', '--', '++']:
             op = self.consume()
             if op.val in ['--', '++']:
                 operator = op.val + 'x'
@@ -839,13 +838,13 @@ class CParser(RecursiveDescentParser):
                 operator = op.val
             expr = self.parse_primary_expression()
             expr = self.semantics.on_unop(operator, expr, op.loc)
-        elif self.peak == '__builtin_va_start':
+        elif self.peek == '__builtin_va_start':
             location = self.consume('__builtin_va_start').loc
             self.consume('(')
             ap = self.parse_assignment_expression()
             self.consume(')')
             expr = self.semantics.on_builtin_va_start(ap, location)
-        elif self.peak == '__builtin_va_arg':
+        elif self.peek == '__builtin_va_arg':
             location = self.consume('__builtin_va_arg').loc
             self.consume('(')
             ap = self.parse_assignment_expression()
@@ -853,7 +852,7 @@ class CParser(RecursiveDescentParser):
             typ = self.parse_typename()
             self.consume(')')
             expr = self.semantics.on_builtin_va_arg(ap, typ, location)
-        elif self.peak == '__builtin_offsetof':
+        elif self.peek == '__builtin_offsetof':
             location = self.consume('__builtin_offsetof').loc
             self.consume('(')
             typ = self.parse_typename()
@@ -861,9 +860,9 @@ class CParser(RecursiveDescentParser):
             member = self.consume('ID').val
             self.consume(')')
             expr = self.semantics.on_builtin_offsetof(typ, member, location)
-        elif self.peak == 'sizeof':
+        elif self.peek == 'sizeof':
             location = self.consume('sizeof').loc
-            if self.peak == '(':
+            if self.peek == '(':
                 self.consume('(')
                 if self.is_declaration_statement():
                     typ = self.parse_typename()
@@ -874,7 +873,7 @@ class CParser(RecursiveDescentParser):
             else:
                 sizeof_expr = self.parse_primary_expression()
                 expr = self.semantics.on_sizeof(sizeof_expr, location)
-        elif self.peak == '(':
+        elif self.peek == '(':
             loc = self.consume('(').loc
             # Is this a type cast?
             if self.is_declaration_statement():
@@ -888,25 +887,25 @@ class CParser(RecursiveDescentParser):
                 expr = self.parse_expression()
                 self.consume(')')
         else:
-            self.not_impl(self.peak)
+            self.not_impl(self.peek)
 
         # Postfix operations (have the highest precedence):
-        while self.peak in ['--', '++', '[', '.', '->', '(']:
-            if self.peak in ['--', '++']:
+        while self.peek in ['--', '++', '[', '.', '->', '(']:
+            if self.peek in ['--', '++']:
                 op = self.consume()
                 expr = self.semantics.on_unop('x' + op.val, expr, op.loc)
-            elif self.peak == '[':
+            elif self.peek == '[':
                 location = self.consume('[').loc
                 index = self.parse_expression()
                 self.consume(']')
                 expr = self.semantics.on_array_index(expr, index, location)
-            elif self.peak == '(':
+            elif self.peek == '(':
                 expr = self.parse_call(expr)
-            elif self.peak == '.':
+            elif self.peek == '.':
                 location = self.consume('.').loc
                 field = self.consume('ID').val
                 expr = self.semantics.on_field_select(expr, field, location)
-            elif self.peak == '->':
+            elif self.peek == '->':
                 location = self.consume('->').loc
                 field = self.consume('ID').val
                 # Dereference pointer:
@@ -920,9 +919,9 @@ class CParser(RecursiveDescentParser):
         """ Parse a function call """
         location = self.consume('(').loc
         args = []
-        while self.peak != ')':
+        while self.peek != ')':
             args.append(self.parse_assignment_expression())
-            if self.peak != ')':
+            if self.peek != ')':
                 self.consume(',')
         expr = self.semantics.on_call(
             callee, args, location)
@@ -941,7 +940,7 @@ class CParser(RecursiveDescentParser):
         return tok
 
     @property
-    def peak(self):
+    def peek(self):
         """ Look at the next token to parse without popping it """
         if self.token:
             # Also implement lexer hack here:

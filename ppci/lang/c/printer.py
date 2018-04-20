@@ -1,8 +1,20 @@
 from .nodes import types, declarations, expressions, statements
 
 
+def print_ast(ast):
+    CPrinter().print(ast)
+
+
 class CPrinter:
-    """ Render a C program as text """
+    """ Render a C program as text
+
+    For example:
+
+    >>> from ppci.lang.c import parse, print_ast
+    >>> ast = parse('int a;')
+    >>> print_ast(ast)
+    int a;
+    """
     def __init__(self):
         self.indent = 0
 
@@ -46,6 +58,10 @@ class CPrinter:
             return self.render_type(typ.element_type, '* {}'.format(name))
         elif isinstance(typ, types.ArrayType):
             return self.render_type(typ.element_type, '{}[]'.format(name))
+        elif isinstance(typ, types.UnionType):
+            return str(typ)  # self.render_type()
+        elif isinstance(typ, types.StructType):
+            return str(typ)  # self.render_type()
         elif isinstance(typ, types.FunctionType):
             parameters = ', '.join(
                 self.render_type(p.typ, p.name) for p in typ.arguments)
@@ -132,17 +148,31 @@ class CPrinter:
             raise NotImplementedError(str(statement))
 
     def gen_expr(self, expr):
-        if isinstance(expr, expressions.Binop):
+        if expr is None:
+            return ''
+        elif isinstance(expr, expressions.Binop):
             return '({} {} {})'.format(
                 self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
+        elif isinstance(expr, expressions.Ternop):
+            return '({} ? {} : {})'.format(
+                self.gen_expr(expr.a),
+                self.gen_expr(expr.b),
+                self.gen_expr(expr.c))
         elif isinstance(expr, expressions.Unop):
             return '({}){}'.format(
                 self.gen_expr(expr.a), expr.op)
         elif isinstance(expr, expressions.VariableAccess):
             return expr.name
+        elif isinstance(expr, expressions.FieldSelect):
+            base = self.gen_expr(expr.base)
+            return '{}.{}'.format(base, expr.field)
+        elif isinstance(expr, expressions.ArrayIndex):
+            base = self.gen_expr(expr.base)
+            index = self.gen_expr(expr.index)
+            return '{}[{}]'.format(base, index)
         elif isinstance(expr, expressions.FunctionCall):
             args = ', '.join(map(self.gen_expr, expr.args))
-            return '{}({})'.format(expr.name, args)
+            return '{}({})'.format(self.gen_expr(expr.callee), args)
         elif isinstance(expr, expressions.Literal):
             return str(expr.value)
         elif isinstance(expr, expressions.Sizeof):

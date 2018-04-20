@@ -8,7 +8,7 @@ install:
 build: off
 
 test_script:
-  - tox -e py3
+  - tox -e cover
 
 after_test:
   - python setup.py -q sdist bdist_wheel bdist_msi bdist_wininst

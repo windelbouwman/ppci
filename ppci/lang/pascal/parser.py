@@ -59,13 +59,13 @@ class Parser(RecursiveDescentParser):
         """
 
         # Handle a toplevel construct
-        if self.peak == 'const':
+        if self.peek == 'const':
             self.parse_constant_definitions()
-        if self.peak == 'type':
+        if self.peek == 'type':
             self.parse_type_definitions()
-        if self.peak == 'var':
+        if self.peek == 'var':
             self.parse_variable_declarations()
-        if self.peak == 'aaaaaaaaaaaaaaa':
+        if self.peek == 'aaaaaaaaaaaaaaa':
             self.parse_function_declarations()
         return self.parse_compound_statement()
 
@@ -119,11 +119,11 @@ class Parser(RecursiveDescentParser):
         creates a pointer to a volatile integer.
         """
         # Parse the first part of a type spec:
-        if self.peak == 'struct':
+        if self.peek == 'struct':
             self.consume('struct')
             self.consume('{')
             mems = []
-            while self.peak != '}':
+            while self.peek != '}':
                 mem_t = self.parse_type_spec()
                 for i in self.parse_id_sequence():
                     mems.append(nodes.StructField(i.val, mem_t))
@@ -138,7 +138,7 @@ class Parser(RecursiveDescentParser):
             #    the_type = nodes.Member(the_type, field.val, field.loc)
 
         # Check for pointer or array suffix:
-        while self.peak in ['*', '[']:
+        while self.peek in ['*', '[']:
             if self.has_consumed('*'):
                 the_type = nodes.PointerType(the_type)
             elif self.has_consumed('['):
@@ -165,7 +165,7 @@ class Parser(RecursiveDescentParser):
         self.consume('var')
         variables = []
         variables.extend(self.parse_single_variable_declaration())
-        while self.peak == 'ID':
+        while self.peek == 'ID':
             variables.extend(self.parse_single_variable_declaration())
         return variables
 
@@ -248,7 +248,7 @@ class Parser(RecursiveDescentParser):
         self.consume(')')
         self.consume('of')
         options = []
-        while self.peak not in ['end', 'else']:
+        while self.peek not in ['end', 'else']:
             value = self.parse_expression()
             values = [value]
             while self.has_consumed(','):
@@ -261,7 +261,7 @@ class Parser(RecursiveDescentParser):
             options.append((values, statement))
 
         # Optional else clause:
-        if self.peak == 'else':
+        if self.peek == 'else':
             self.consume('else')
             default_statement = self.parse_statement()
             self.consume(';')
@@ -293,7 +293,7 @@ class Parser(RecursiveDescentParser):
         assert isinstance(loop_var, nodes.Variable)
         self.consume(':=')
         start = self.parse_expression()
-        if self.peak == 'to':
+        if self.peek == 'to':
             self.consume('to')
             up = True
         else:
@@ -363,38 +363,38 @@ class Parser(RecursiveDescentParser):
 
     def parse_statement(self) -> nodes.Statement:
         """ Determine statement type based on the pending token """
-        if self.peak == 'if':
+        if self.peek == 'if':
             return self.parse_if()
-        elif self.peak == 'while':
+        elif self.peek == 'while':
             return self.parse_while()
-        elif self.peak == 'repeat':
+        elif self.peek == 'repeat':
             return self.parse_repeat()
-        elif self.peak == 'for':
+        elif self.peek == 'for':
             return self.parse_for()
-        elif self.peak == 'goto':
+        elif self.peek == 'goto':
             return self.parse_goto()
-        elif self.peak == 'case':
+        elif self.peek == 'case':
             return self.parse_case_of()
-        elif self.peak == 'read':
+        elif self.peek == 'read':
             return self.parse_read()
-        elif self.peak == 'readln':
+        elif self.peek == 'readln':
             return self.parse_readln()
-        elif self.peak == 'write':
+        elif self.peek == 'write':
             return self.parse_write()
-        elif self.peak == 'writeln':
+        elif self.peek == 'writeln':
             return self.parse_writeln()
-        elif self.peak == 'return':
+        elif self.peek == 'return':
             return self.parse_return()
-        elif self.peak == 'begin':
+        elif self.peek == 'begin':
             return self.parse_compound_statement()
-        elif self.peak == 'end':
+        elif self.peek == 'end':
             return nodes.Empty()
-        elif self.peak == ';':
+        elif self.peek == ';':
             self.consume(';')
             return nodes.Empty()
-        elif self.peak == 'ID':
+        elif self.peek == 'ID':
             symbol, loc = self.parse_designator()
-            if self.peak == ':=':
+            if self.peek == ':=':
                 lhs = nodes.VariableAccess(symbol, loc)
                 loc = self.consume(':=').loc
                 rhs = self.parse_expression()
@@ -404,9 +404,9 @@ class Parser(RecursiveDescentParser):
         else:
             self.not_impl()
             expression = self.parse_unary_expression()
-            if self.peak in nodes.Assignment.operators:
+            if self.peek in nodes.Assignment.operators:
                 # We enter assignment mode here.
-                operator = self.peak
+                operator = self.peek
                 loc = self.consume(operator).loc
                 rhs = self.parse_expression()
                 return nodes.Assignment(expression, rhs, loc, operator)
@@ -416,7 +416,7 @@ class Parser(RecursiveDescentParser):
 
     def parse_expression(self) -> nodes.Expression:
         lhs = self.parse_simple_expression()
-        while self.peak in ['=', '<>', '>', '<', '<=', '>=']:
+        while self.peek in ['=', '<>', '>', '<', '<=', '>=']:
             operator = self.consume()
             rhs = self.parse_simple_expression()
             lhs = nodes.Binop(lhs, operator.typ, rhs, operator.loc)
@@ -424,14 +424,14 @@ class Parser(RecursiveDescentParser):
 
     def parse_simple_expression(self) -> nodes.Expression:
         """ Parse [-] term [-/+ term]* """
-        if self.peak in ['+', '-']:
+        if self.peek in ['+', '-']:
             operator = self.consume()
             lhs = self.parse_term()
             lhs = nodes.Unop(operator.typ, lhs, operator.loc)
         else:
             lhs = self.parse_term()
 
-        while self.peak in ['+', '-']:
+        while self.peek in ['+', '-']:
             operator = self.consume()
             rhs = self.parse_term()
             lhs = nodes.Binop(lhs, operator.typ, rhs, operator.loc)
@@ -440,7 +440,7 @@ class Parser(RecursiveDescentParser):
     def parse_term(self):
         """ Parse a term (one or more factors) """
         lhs = self.parse_factor()
-        while self.peak in ['*']:
+        while self.peek in ['*']:
             operator = self.consume()
             rhs = self.parse_factor()
             lhs = nodes.Binop(lhs, operator.typ, rhs, operator.loc)
@@ -449,7 +449,7 @@ class Parser(RecursiveDescentParser):
     def parse_factor(self) -> nodes.Expression:
         """ Parse a factor """
         pfe = self.parse_primary_expression()
-        while self.peak in ['[', '.', '->', '(']:
+        while self.peek in ['[', '.', '->', '(']:
             if self.has_consumed('['):
                 i = self.parse_expression()
                 self.consume(']')
@@ -476,31 +476,31 @@ class Parser(RecursiveDescentParser):
 
     def parse_primary_expression(self) -> nodes.Expression:
         """ Literal and parenthesis expression parsing """
-        if self.peak == '(':
+        if self.peek == '(':
             self.consume('(')
             expr = self.parse_expression()
             self.consume(')')
-        elif self.peak == 'NUMBER':
+        elif self.peek == 'NUMBER':
             val = self.consume('NUMBER')
             expr = nodes.Literal(val.val, val.loc)
-        elif self.peak == 'REAL':
+        elif self.peek == 'REAL':
             val = self.consume('REAL')
             expr = nodes.Literal(val.val, val.loc)
-        elif self.peak == 'true':
+        elif self.peek == 'true':
             val = self.consume('true')
             expr = nodes.Literal(True, val.loc)
-        elif self.peak == 'false':
+        elif self.peek == 'false':
             val = self.consume('false')
             expr = nodes.Literal(False, val.loc)
-        elif self.peak == 'STRING':
+        elif self.peek == 'STRING':
             val = self.consume('STRING')
             expr = nodes.Literal(val.val, val.loc)
-        elif self.peak == 'ID':
+        elif self.peek == 'ID':
             symbol, loc = self.parse_designator()
             if isinstance(symbol, nodes.Variable):
                 expr = nodes.VariableAccess(symbol, loc)
             else:
                 self.not_impl()
         else:
-            self.error('Expected NUM, ID or (expr), got {0}'.format(self.peak))
+            self.error('Expected NUM, ID or (expr), got {0}'.format(self.peek))
         return expr

@@ -7,7 +7,6 @@ from unittest.mock import patch
 from ppci.cli.c3c import c3c
 from ppci.cli.build import build
 from ppci.cli.asm import asm
-from ppci.cli.hexutil import hexutil
 from ppci.cli.yacc import yacc
 from ppci.cli.objdump import objdump
 from ppci.cli.objcopy import objcopy
@@ -250,54 +249,6 @@ class LinkCommandTestCase(unittest.TestCase):
         c3c(['-m', 'arm', '--mtune', 'thumb', '-o', obj2] + c3_srcs)
         link(
             ['-o', obj3, '-L', mmap, obj1, obj2])
-
-
-@unittest.skipUnless(do_long_tests('any'), 'skipping slow tests')
-class HexutilTestCase(unittest.TestCase):
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_hexutil_help(self, mock_stdout):
-        """ Check hexutil help message """
-        with self.assertRaises(SystemExit) as cm:
-            hexutil(['-h'])
-        self.assertEqual(0, cm.exception.code)
-        self.assertIn('info,new,merge', mock_stdout.getvalue())
-
-    @patch('sys.stderr', new_callable=io.StringIO)
-    def test_hexutil_address_format(self, mock_stderr):
-        file1 = new_temp_file('.hex')
-        datafile = relpath('..', 'examples', 'build.xml')
-        with self.assertRaises(SystemExit) as cm:
-            hexutil(['new', file1, '10000000', datafile])
-        self.assertEqual(2, cm.exception.code)
-        self.assertIn('argument address', mock_stderr.getvalue())
-
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_hexutil_no_command(self, mock_stdout):
-        """ No command given """
-        with self.assertRaises(SystemExit) as cm:
-            hexutil([])
-        self.assertNotEqual(0, cm.exception.code)
-
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_hexutil_merge(self, mock_stdout):
-        """ Create three hexfiles and manipulate those """
-        file1 = new_temp_file('file1.hex')
-        file2 = new_temp_file('file2.hex')
-        file3 = new_temp_file('file3.hex')
-        datafile = relpath('..', 'docs', 'logo', 'logo.png')
-        hexutil(['new', file1, '0x10000000', datafile])
-        hexutil(['new', file2, '0x20000000', datafile])
-        hexutil(['merge', file1, file2, file3])
-        hexutil(['info', file3])
-        self.assertIn("Hexfile containing 2832 bytes", mock_stdout.getvalue())
-
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_hexutil_info(self, mock_stdout):
-        file1 = new_temp_file('file1.hex')
-        datafile = relpath('..', 'docs', 'logo', 'logo.png')
-        hexutil(['new', file1, '0x10000000', datafile])
-        hexutil(['info', file1])
-        self.assertIn("Hexfile containing 1416 bytes", mock_stdout.getvalue())
 
 
 class YaccTestCase(unittest.TestCase):

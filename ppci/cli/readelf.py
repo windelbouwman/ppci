@@ -4,9 +4,9 @@
 import argparse
 from .base import base_parser, LogSetup
 from ..utils.hexdump import hexdump
-from ..formats.elf.file import read_elf, SectionHeaderType
-from ..formats.elf.headers import SymbolTableBinding, SymbolTableType
-from ..formats.elf.headers import ProgramHeaderType
+from ..format.elf.file import read_elf, SectionHeaderType
+from ..format.elf.headers import SymbolTableBinding, SymbolTableType
+from ..format.elf.headers import ProgramHeaderType
 
 
 parser = argparse.ArgumentParser(

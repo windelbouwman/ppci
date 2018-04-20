@@ -26,7 +26,6 @@ def wasmcompile(args=None):
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)
         wasm_module = read_wasm(args.wasm)
-        print(wasm_module.to_string())
         ir_module = wasm_to_ir(wasm_module)
 
         # Optimize:

@@ -193,7 +193,7 @@ class Value:
         # Has a name and a type?
         super().__init__()
         if not isinstance(name, str):
-            raise TypeError('name must be a string')
+            raise TypeError('name must be a string, got {}'.format(type(name)))
         self.name = name
         if not isinstance(ty, Typ):
             raise TypeError('ty argument must be an instance of Typ')

@@ -2,6 +2,10 @@
 
 This adapter can check the fortrans suite: '1978 FORTRAN COMPILER VALIDATION SYSTEM' (fcvs21.tar.Z)
 
+See:
+
+http://www.itl.nist.gov/div897/ctg/fortran_form.htm
+
 """
 
 import unittest

@@ -53,7 +53,7 @@ class WasmToIrCompiler:
             elif isinstance(definition, components.Import):
                 # name = definition.name
                 if definition.kind == 'func':
-                    index = definition.info[0]
+                    index = definition.id
                     sig = self.wasm_types[index]
                     name = '{}_{}'.format(definition.modname, definition.name)
                     arg_types = [self.get_ir_type(p[1]) for p in sig.params]
@@ -71,6 +71,9 @@ class WasmToIrCompiler:
                             name, arg_types)
 
                     self.builder.module.add_external(extern_ir_function)
+                    if index in self.function_names:
+                        raise ValueError(
+                            'Index {} already imported'.format(index))
                     self.function_names[index] = extern_ir_function, sig
                 else:
                     raise NotImplementedError(definition.kind)
@@ -115,13 +118,15 @@ class WasmToIrCompiler:
                 }
                 fmt = fmts[ir_typ]
                 size = struct.calcsize(fmt)
-                value = struct.pack(fmt, definition.init.args[0])  # assume init is (f64.const xx)
+                # assume init is (f64.const xx):
+                value = struct.pack(fmt, definition.init.args[0])
                 g2 = ir.Variable(
                     'global{}'.format(definition.id), size, size, value=value)
                 self.globalz[definition.id] = (ir_typ, g2)
             else:
                 # todo: Table, Element, Memory, Data
-                self.logger.error('Definition %s not implemented', definition.__name__)
+                self.logger.error(
+                    'Definition %s not implemented', definition.__name__)
 
         # Generate functions:
         for ppci_function, signature, wasm_function in functions:
@@ -154,7 +159,7 @@ class WasmToIrCompiler:
 
     def generate_function(self, ppci_function, signature, wasm_function):
         """ Generate code for a single function """
-        self.logger.debug(
+        self.logger.info(
             'Generating wasm function %s %s',
             ppci_function.name, signature.to_string())
         self.stack = []
@@ -541,7 +546,6 @@ class WasmToIrCompiler:
         # Call another function!
         idx = instruction.args[0]
         ir_function, sig = self.function_names[idx]
-        # sig = self.wasm_types[function.ref]
 
         args = []
         for arg_type in sig.params:
@@ -550,7 +554,8 @@ class WasmToIrCompiler:
         if sig.result:
             assert len(sig.result) == 1
             ir_typ = self.get_ir_type(sig.result[0])
-            value = self.emit(ir.FunctionCall(ir_function, args, 'call', ir_typ))
+            value = self.emit(ir.FunctionCall(
+                ir_function, args, 'call', ir_typ))
             self.stack.append(value)
         else:
             self.emit(ir.ProcedureCall(ir_function, args))

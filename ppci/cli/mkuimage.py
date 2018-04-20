@@ -6,8 +6,8 @@ Use this utility to create uboot bootable images.
 
 import argparse
 from .base import base_parser, LogSetup
-from ..formats.uboot_image import write_uboot_image, OperatingSystem
-from ..formats.uboot_image import Architecture
+from ..format.uboot_image import write_uboot_image, OperatingSystem
+from ..format.uboot_image import Architecture
 
 
 parser = argparse.ArgumentParser(

@@ -43,21 +43,21 @@ class RecursiveDescentParser:
         If typ is not given, consume the next token.
         """
         if typ is None:
-            typ = self.peak
+            typ = self.peek
 
         expected_types = typ if isinstance(typ, (list, tuple, set)) else [typ]
 
-        if self.peak in expected_types:
+        if self.peek in expected_types:
             return self.next_token()
         else:
             expected = make_comma_or(expected_types)
             self.error(
-                'Expected {0}, got "{1}"'.format(expected, self.peak))
+                'Expected {0}, got "{1}"'.format(expected, self.peek))
 
     def has_consumed(self, typ):
         """ Checks if the look-ahead token is of type typ, and if so
             eats the token and returns true """
-        if self.peak == typ:
+        if self.peek == typ:
             self.consume()
             return True
         return False
@@ -76,7 +76,7 @@ class RecursiveDescentParser:
         raise CompilerError('Not implemented ' + msg, loc=self.token.loc)
 
     @property
-    def peak(self):
+    def peek(self):
         """ Look at the next token to parse without popping it """
         if self.token:
             return self.token.typ
@@ -95,4 +95,4 @@ class RecursiveDescentParser:
 
     @property
     def at_end(self):
-        return self.peak is None
+        return self.peek is None
