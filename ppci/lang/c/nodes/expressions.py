@@ -1,10 +1,14 @@
 """ Expression nodes """
 
+# pylint: disable=R0903
+
+
 from ...generic.nodes import Expression
 from . import types
 
 
 class CExpression(Expression):
+    """ Base C expression with a type and location """
     def __init__(self, typ, lvalue, location):
         super().__init__(location)
         assert isinstance(typ, types.CType)
@@ -23,7 +27,7 @@ class FunctionCall(CExpression):
         return 'FunctionCall'
 
 
-class Ternop(CExpression):
+class TernaryOperator(CExpression):
     """ Ternary operator """
     def __init__(self, a, op, b, c, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -40,7 +44,7 @@ class Ternop(CExpression):
         return 'TernOp {}'.format(self.op)
 
 
-class Binop(CExpression):
+class BinaryOperator(CExpression):
     """ Binary operator """
     def __init__(self, a, op, b, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -51,10 +55,10 @@ class Binop(CExpression):
         self.b = b
 
     def __repr__(self):
-        return 'BinaryOp {}'.format(self.op)
+        return "BinaryOperator {} '{}'".format(self.op, self.typ)
 
 
-class Unop(CExpression):
+class UnaryOperator(CExpression):
     """ Unary operator """
     def __init__(self, op, a, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -63,13 +67,14 @@ class Unop(CExpression):
         self.op = op
 
     def __repr__(self):
-        return 'UnaryOp {}'.format(self.op)
+        return 'UnaryOperator {}'.format(self.op)
 
 
-class Cast(Expression):
-    def __init__(self, to_typ, expr, location):
-        super().__init__(location)
-        self.to_typ = to_typ
+class Cast(CExpression):
+    """ A cast operation """
+    def __init__(self, expr, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.to_typ = typ
         self.expr = expr
 
     def __repr__(self):
@@ -77,6 +82,7 @@ class Cast(Expression):
 
 
 class ImplicitCast(Cast):
+    """ An implicit cast """
     pass
 
 
@@ -113,6 +119,7 @@ class FieldSelect(CExpression):
 
 
 class VariableAccess(CExpression):
+    """ Access to a variable """
     def __init__(self, variable, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
         self.variable = variable
@@ -123,12 +130,13 @@ class VariableAccess(CExpression):
 
 
 class Literal(CExpression):
+    """ Literal value such as 'h' or 1.22 """
     def __init__(self, value, typ, location):
         super().__init__(typ, False, location)
         self.value = value
 
     def __repr__(self):
-        return 'Literal {}'.format(self.value)
+        return "Literal {} '{}'".format(self.value, self.typ)
 
 
 class CharLiteral(Literal):
@@ -138,8 +146,9 @@ class CharLiteral(Literal):
 
 
 class NumericLiteral(Literal):
+    """ A numeric literal """
     def __repr__(self):
-        return 'Numeric literal {}'.format(self.value)
+        return "Numeric literal {} '{}'".format(self.value, self.typ)
 
 
 class StringLiteral(Literal):

@@ -4,6 +4,8 @@ The goal is to be able to recreate source from this ast as close to
 the original source as possible.
 """
 
+# pylint: disable=R0903
+
 
 class CompilationUnit:
     """ A single compilation unit """

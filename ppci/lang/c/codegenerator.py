@@ -1,3 +1,11 @@
+""" IR-code generation.
+
+Walks over the AST of the C sourcecode and generates IR-code.
+
+Most errors and warnings are already detected during the parsing / semantics
+phase.
+
+"""
 import logging
 from ... import ir, irutils
 from ...common import CompilerError
@@ -5,6 +13,7 @@ from ...binutils import debuginfo
 from .nodes import types, declarations, statements, expressions
 from .utils import required_padding
 from .nodes.types import BasicType
+from .scope import RootScope
 
 
 class CCodeGenerator:
@@ -13,6 +22,7 @@ class CCodeGenerator:
 
     def __init__(self, context):
         self.context = context
+        self._root_scope = RootScope()
         self.builder = None
         self.debug_db = None
         self.ir_var_map = {}
@@ -99,6 +109,7 @@ class CCodeGenerator:
         raise CompilerError(message, loc=location)
 
     def gen_global_variable(self, var_decl):
+        """ Generate code for a global variable """
         if var_decl.storage_class == 'extern':
             # create an external variable:
             ir_var = ir.ExternalVariable(var_decl.name)
@@ -444,9 +455,10 @@ class CCodeGenerator:
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
         assert self.switch_options is not None
-        if stmt.value in self.switch_options:
+        value = self.context.eval_expr(stmt.value)
+        if value in self.switch_options:
             self.error('Case defined multiple times', stmt.location)
-        self.switch_options[stmt.value] = block
+        self.switch_options[value] = block
         self.emit(ir.Jump(block))  # fall through
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
@@ -514,7 +526,7 @@ class CCodeGenerator:
 
     def gen_condition(self, condition, yes_block, no_block):
         """ Generate switch based on condition. """
-        if isinstance(condition, expressions.Binop):
+        if isinstance(condition, expressions.BinaryOperator):
             if condition.op == '||':
                 middle_block = self.builder.new_block()
                 self.gen_condition(condition.a, yes_block, middle_block)
@@ -537,7 +549,7 @@ class CCodeGenerator:
                 self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
             else:
                 self.check_non_zero(condition, yes_block, no_block)
-        elif isinstance(condition, expressions.Unop):
+        elif isinstance(condition, expressions.UnaryOperator):
             if condition.op == '!':
                 # Simply swap yes and no here!
                 self.gen_condition(condition.a, no_block, yes_block)
@@ -585,8 +597,9 @@ class CCodeGenerator:
                 # Initializing with list
                 offset = 0
                 for field, iv in zip(typ.fields, expr.elements):
-                    if offset < field.offset:
-                        inc3 = field.offset - offset
+                    field_offset = self.context.offsetof(typ, field)
+                    if offset < field_offset:
+                        inc3 = field_offset - offset
                         padding = self.emit(ir.Const(inc3, 'padding', ir.ptr))
                         ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
                         offset += inc3
@@ -657,11 +670,11 @@ class CCodeGenerator:
         """
         assert isinstance(expr, expressions.Expression)
 
-        if isinstance(expr, expressions.Unop):
+        if isinstance(expr, expressions.UnaryOperator):
             value = self.gen_unop(expr)
-        elif isinstance(expr, expressions.Binop):
+        elif isinstance(expr, expressions.BinaryOperator):
             value = self.gen_binop(expr)
-        elif isinstance(expr, expressions.Ternop):
+        elif isinstance(expr, expressions.TernaryOperator):
             value = self.gen_ternop(expr)
         elif isinstance(expr, expressions.VariableAccess):
             variable = expr.variable
@@ -711,7 +724,7 @@ class CCodeGenerator:
             value = self.gen_sizeof(expr)
         elif isinstance(expr, expressions.FieldSelect):
             base = self.gen_expr(expr.base, rvalue=False)
-            offset = expr.field.offset
+            offset = self.context.offsetof(expr.base.typ, expr.field)
             offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
             value = self.emit(
                 ir.Binop(base, '+', offset, 'offset', ir.ptr))
@@ -746,7 +759,7 @@ class CCodeGenerator:
             assert expr.lvalue
         return value
 
-    def gen_unop(self, expr):
+    def gen_unop(self, expr: expressions.UnaryOperator):
         """ Generate code for unary operator """
         if expr.op in ['x++', 'x--', '--x', '++x']:
             # Increment and decrement in pre and post form
@@ -790,7 +803,7 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_binop(self, expr: expressions.Binop):
+    def gen_binop(self, expr: expressions.BinaryOperator):
         """ Generate code for binary operation expression """
         if expr.op in ['-', '*', '/', '%', '^', '|', '&', '>>', '<<']:
             lhs = self.gen_expr(expr.a, rvalue=True)
@@ -858,7 +871,7 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_ternop(self, expr):
+    def gen_ternop(self, expr: expressions.TernaryOperator):
         """ Generate code for ternary operator a ? b : c """
         if expr.op in ['?']:
             # TODO: merge maybe with conditional logic?
@@ -890,7 +903,7 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_call(self, expr):
+    def gen_call(self, expr: expressions.FunctionCall):
         """ Generate code for a function call """
         if isinstance(expr.callee.typ, types.FunctionType):
             ftyp = expr.callee.typ
@@ -991,7 +1004,7 @@ class CCodeGenerator:
 
         return value
 
-    def gen_array_index(self, expr):
+    def gen_array_index(self, expr: expressions.ArrayIndex):
         """ Generate code for array indexing """
         # Load base as an rvalue, to make sure we load pointers values.
         base = self.gen_expr(expr.base, rvalue=True)
@@ -1055,12 +1068,13 @@ class CCodeGenerator:
         """ Generate code for offsetof """
         assert isinstance(expr.query_typ, types.StructOrUnionType)
         field = expr.query_typ.get_field(expr.member)
-        offset = field.offset
+        offset = self.context.offsetof(expr.query_typ, field)
         ir_typ = self.get_ir_type(expr.typ)
         value = self.emit(ir.Const(offset, 'offset', ir_typ))
         return value
 
     def gen_sizeof(self, expr: expressions.Sizeof):
+        """ Generate code for sizeof construction """
         if isinstance(expr.sizeof_typ, types.CType):
             # Get size of the given type:
             type_size = self.context.sizeof(expr.sizeof_typ)
@@ -1084,7 +1098,7 @@ class CCodeGenerator:
         elif isinstance(typ, types.FunctionType):
             return ir.ptr
         elif isinstance(typ, types.EnumType):
-            return self.get_ir_type(self.context.get_type(['int']))
+            return self.get_ir_type(self._root_scope.get_type(['int']))
         elif isinstance(typ, (types.UnionType, types.StructType)):
             size = self.context.sizeof(typ)
             alignment = self.context.alignment(typ)
@@ -1107,7 +1121,7 @@ class CCodeGenerator:
                     typ.type_id, self.context.sizeof(typ), 1)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, types.EnumType):
-            return self.get_debug_type(self.context.get_type(['int']))
+            return self.get_debug_type(self._root_scope.get_type(['int']))
         elif isinstance(typ, types.FunctionType):
             # This is in most cases a pointer to a function type.
             # Register for now as basetype with 0 size:
@@ -1124,11 +1138,13 @@ class CCodeGenerator:
             self.debug_db.enter(typ, dbg_typ)
 
             for field in typ.fields:
-                ft = self.get_debug_type(field.typ)
-                dbg_typ.add_field(field.name, ft, field.offset)
+                field_typ = self.get_debug_type(field.typ)
+                field_offset = self.context.offsetof(typ, field)
+                dbg_typ.add_field(field.name, field_typ, field_offset)
         elif isinstance(typ, types.ArrayType):
-            et = self.get_debug_type(typ.element_type)
-            dbg_typ = debuginfo.DebugArrayType(et, typ.size)
+            element_typ = self.get_debug_type(typ.element_type)
+            size = self.context.eval_expr(typ.size)
+            dbg_typ = debuginfo.DebugArrayType(element_typ, size)
             self.debug_db.enter(typ, dbg_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))

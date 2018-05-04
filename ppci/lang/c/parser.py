@@ -246,36 +246,41 @@ class CParser(RecursiveDescentParser):
                 keyword.loc)
 
         if self.peek == '{':
-            # We have a struct declarations:
-            self.consume('{')
-            fields = []
-            while self.peek != '}':
-                ds = self.parse_decl_specifiers(allow_storage_class=False)
-                while True:
-                    type_modifiers, name = self.parse_type_modifiers(
-                        abstract=False)
-                    # Handle optional struct field size:
-                    if self.peek == ':':
-                        self.consume(':')
-                        bitsize = self.parse_constant_expression()
-                        # TODO: move this somewhere else?
-                    else:
-                        bitsize = None
-                    field = (
-                        ds.storage_class, ds.typ, name.val, type_modifiers,
-                        bitsize, name.loc)
-                    fields.append(field)
-                    if self.has_consumed(','):
-                        continue
-                    else:
-                        break
-                self.consume(';')
-            self.consume('}')
+            fields = self.parse_struct_fields()
         else:
             fields = None
 
         return self.semantics.on_struct_or_union(
             keyword.val, tag, fields, keyword.loc)
+
+    def parse_struct_fields(self):
+        """ Parse struct or union fields """
+        # We have a struct declarations:
+        self.consume('{')
+        fields = []
+        while self.peek != '}':
+            ds = self.parse_decl_specifiers(allow_storage_class=False)
+            while True:
+                type_modifiers, name = self.parse_type_modifiers(
+                    abstract=False)
+                # Handle optional struct field size:
+                if self.peek == ':':
+                    self.consume(':')
+                    bitsize = self.parse_constant_expression()
+                    # TODO: move this somewhere else?
+                else:
+                    bitsize = None
+                field = self.semantics.on_field_def(
+                    ds.storage_class, ds.typ, name.val, type_modifiers,
+                    bitsize, name.loc)
+                fields.append(field)
+                if self.has_consumed(','):
+                    continue
+                else:
+                    break
+            self.consume(';')
+        self.consume('}')
+        return fields
 
     def parse_enum(self):
         """ Parse an enum definition """

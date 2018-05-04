@@ -1,5 +1,7 @@
 """ This module contains internal representations of types. """
 
+# pylint: disable=R0903
+
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
@@ -97,6 +99,7 @@ class EnumType(CType):
 
     @property
     def complete(self):
+        """ Test if this enum is complete (values are defined) """
         return self.values is not None
 
     def __repr__(self):
@@ -108,6 +111,7 @@ class StructOrUnionType(CType):
     def __init__(self, tag=None, fields=None):
         super().__init__()
         self._fields = None
+        self._field_map = None
         self.tag = tag
         self.fields = fields
 
@@ -118,26 +122,27 @@ class StructOrUnionType(CType):
 
     @property
     def complete(self):
+        """ Test if this type is complete """
         return not self.incomplete
 
-    def get_fields(self):
+    def _get_fields(self):
         return self._fields
 
-    def set_fields(self, fields):
+    def _set_fields(self, fields):
         self._fields = fields
         if fields:
-            self.field_map = {f.name: f for f in fields}
+            self._field_map = {f.name: f for f in fields}
 
-    # TODO: is using a property here the best way to do this?
-    fields = property(get_fields, set_fields)
+    fields = property(_get_fields, _set_fields)
 
     def has_field(self, name: str):
         """ Check if this type has the given field """
-        return name in self.field_map
+        return name in self._field_map
 
     def get_field(self, name: str):
+        """ Get the field with the given name """
         assert isinstance(name, str)
-        return self.field_map[name]
+        return self._field_map[name]
 
 
 class StructType(StructOrUnionType):
@@ -148,13 +153,11 @@ class StructType(StructOrUnionType):
 
 class Field:
     """ A field inside a union or struct """
-    def __init__(self, typ, name, offset, bitsize):
+    def __init__(self, typ, name, bitsize):
         self.typ = typ
         assert isinstance(typ, CType)
         self.name = name
         self.bitsize = bitsize
-        self.offset = offset
-        self.padded_size = 0
 
 
 class UnionType(StructOrUnionType):

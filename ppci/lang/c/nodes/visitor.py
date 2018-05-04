@@ -21,14 +21,14 @@ class Visitor:
             pass
         elif isinstance(node, declarations.Typedef):
             self.visit(node.typ)
-        elif isinstance(node, expressions.Ternop):
+        elif isinstance(node, expressions.TernaryOperator):
             self.visit(node.a)
             self.visit(node.b)
             self.visit(node.c)
-        elif isinstance(node, expressions.Binop):
+        elif isinstance(node, expressions.BinaryOperator):
             self.visit(node.a)
             self.visit(node.b)
-        elif isinstance(node, expressions.Unop):
+        elif isinstance(node, expressions.UnaryOperator):
             self.visit(node.a)
         elif isinstance(node, expressions.Literal):
             pass
@@ -57,6 +57,8 @@ class Visitor:
             self.visit(node.element_type)
         elif isinstance(node, types.ArrayType):
             self.visit(node.element_type)
+            if isinstance(node.size, expressions.CExpression):
+                self.visit(node.size)
         elif isinstance(node, (types.StructType, types.UnionType)):
             pass
         elif isinstance(node, (types.EnumType,)):

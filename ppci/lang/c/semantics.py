@@ -8,8 +8,7 @@ import logging
 from ...common import CompilerError
 from .nodes import nodes, types, declarations, statements, expressions
 from . import utils
-from .scope import Scope
-from .utils import required_padding
+from .scope import Scope, RootScope
 
 
 # TODO: should semantics be architecture independent?
@@ -21,6 +20,7 @@ class CSemantics:
     def __init__(self, context):
         self.context = context
         self.scope = None
+        self._root_scope = RootScope()
 
         # Define the type for a string:
         self.int_type = self.get_type(['int'])
@@ -72,8 +72,11 @@ class CSemantics:
                 typ = self.on_type_qualifiers(type_qualifiers, typ)
             elif modifier[0] == 'ARRAY':
                 size = modifier[1]
-                if size:
-                    size = self.context.eval_expr(size)
+                if size and size != 'vla':
+                    if not self.context.is_const_expr(size):
+                        self.error(
+                            'Array dimension must be constant', size.location)
+                    size = self.coerce(size, self.get_type(['int']))
                 typ = types.ArrayType(typ, size)
             elif modifier[0] == 'FUNCTION':
                 arguments = modifier[1]
@@ -169,8 +172,13 @@ class CSemantics:
 
                 il = []
                 n = 0
-                while ((typ.size is None) and not initializer.at_end()) \
-                        or ((typ.size is not None) and (n < typ.size)):
+                if typ.size:
+                    typ_size = self.context.eval_expr(typ.size)
+                else:
+                    typ_size = None
+
+                while ((typ_size is None) and not initializer.at_end()) \
+                        or ((typ_size is not None) and (n < typ_size)):
                     if initializer.at_end():
                         i = 0
                     elif initializer.at_list():
@@ -315,8 +323,8 @@ class CSemantics:
     # Types!
     def on_basic_type(self, type_specifiers, location):
         """ Handle basic type """
-        if self.context.is_valid(type_specifiers):
-            ctyp = self.context.get_type(type_specifiers)
+        if self._root_scope.is_valid(type_specifiers):
+            ctyp = self._root_scope.get_type(type_specifiers)
         else:
             self.error('Invalid type specifiers', location)
         return ctyp
@@ -356,33 +364,15 @@ class CSemantics:
         if fields:
             if ctyp.complete:
                 self.error('Multiple definitions', location)
-            ctyp.fields = self._layout_struct(kind, fields)
+            ctyp.fields = fields
         return ctyp
 
-    def _layout_struct(self, kind, fields):
-        # Layout the fields in the struct:
-        offset = 0
-        cfields = []
-        for field in fields:
-            storage_class, ctyp, name, modifiers, bitsize, location = field
-            ctyp = self.apply_type_modifiers(modifiers, ctyp)
-
-            field_size = self.context.sizeof(ctyp)
-            # Calculate bit size:
-            if bitsize:
-                bitsize = self.context.eval_expr(bitsize)
-            else:
-                bitsize = self.context.sizeof(ctyp) * 8
-
-            # alignment handling:
-            alignment = self.context.alignment(ctyp)
-            offset += required_padding(offset, alignment)
-
-            cfield = types.Field(ctyp, name, offset, bitsize)
-            cfields.append(cfield)
-            if kind == 'struct':
-                offset += field_size
-        return cfields
+    def on_field_def(
+            self, storage_class, ctyp, name, modifiers, bitsize, location):
+        """ Handle a struct/union field declaration """
+        ctyp = self.apply_type_modifiers(modifiers, ctyp)
+        field = types.Field(ctyp, name, bitsize)
+        return field
 
     def on_enum(self, tag, location):
         if tag:
@@ -478,8 +468,7 @@ class CSemantics:
             self.error('Case statement outside of a switch!', location)
 
         value = self.coerce(value, self.switch_stack[-1])
-        const_value = self.context.eval_expr(value)
-        return statements.Case(const_value, value.typ, statement, location)
+        return statements.Case(value, statement, location)
 
     def on_default(self, statement, location):
         """ Handle a default label """
@@ -562,7 +551,7 @@ class CSemantics:
         common_type = self.get_common_type(mid.typ, rhs.typ)
         mid = self.coerce(mid, common_type)
         rhs = self.coerce(rhs, common_type)
-        return expressions.Ternop(
+        return expressions.TernaryOperator(
             lhs, op, mid, rhs, common_type, False, location)
 
     def on_binop(self, lhs, op, rhs, location):
@@ -606,7 +595,8 @@ class CSemantics:
             lhs = self.coerce(lhs, result_typ)
             rhs = self.coerce(rhs, result_typ)
 
-        return expressions.Binop(lhs, op, rhs, result_typ, False, location)
+        return expressions.BinaryOperator(
+            lhs, op, rhs, result_typ, False, location)
 
     def on_unop(self, op, a, location):
         """ Check unary operator semantics """
@@ -614,9 +604,9 @@ class CSemantics:
             # Increment and decrement in pre and post form
             if not a.lvalue:
                 self.error('Expected lvalue', a.location)
-            expr = expressions.Unop(op, a, a.typ, False, location)
+            expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op in ['-', '~']:
-            expr = expressions.Unop(op, a, a.typ, False, location)
+            expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == '+':
             expr = a
         elif op == '*':
@@ -625,7 +615,7 @@ class CSemantics:
                     'Cannot pointer derefence type {}'.format(a.typ),
                     a.location)
             typ = a.typ.element_type
-            expr = expressions.Unop(op, a, typ, True, location)
+            expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == '&':
             if isinstance(a, expressions.VariableAccess) and \
                     isinstance(a.variable, declarations.FunctionDeclaration):
@@ -636,24 +626,23 @@ class CSemantics:
                 if not a.lvalue:
                     self.error('Expected lvalue', a.location)
                 typ = types.PointerType(a.typ)
-                expr = expressions.Unop(op, a, typ, False, location)
+                expr = expressions.UnaryOperator(op, a, typ, False, location)
         elif op == '!':
             a = self.coerce(a, self.int_type)
-            expr = expressions.Unop(op, a, self.int_type, False, location)
+            expr = expressions.UnaryOperator(
+                op, a, self.int_type, False, location)
         else:  # pragma: no cover
             raise NotImplementedError(str(op))
         return expr
 
     def on_sizeof(self, typ, location):
+        """ Handle sizeof contraption """
         expr = expressions.Sizeof(typ, self.int_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
         """ Check explicit casting """
-        expr = expressions.Cast(to_typ, casted_expr, location)
-        expr.typ = expr.to_typ
-        expr.lvalue = False  # or expr.expr.lvalue?
-        return expr
+        return expressions.Cast(casted_expr, to_typ, False, location)
 
     def on_array_index(self, base, index, location):
         """ Check array indexing """
@@ -713,7 +702,7 @@ class CSemantics:
                 'Cannot find member {}'.format(member), location)
 
         return expressions.BuiltInOffsetOf(
-            typ, member, self.int_type, False, location)
+            typ, member, self.int_type, location)
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """
@@ -824,14 +813,12 @@ class CSemantics:
                 expr.location)
 
         if do_cast:
-            expr = expressions.ImplicitCast(typ, expr, expr.location)
-            expr.typ = typ
-            expr.lvalue = False
+            expr = expressions.ImplicitCast(expr, typ, False, expr.location)
         return expr
 
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """
-        return self.context.get_type(type_specifiers)
+        return self._root_scope.get_type(type_specifiers)
 
     def get_common_type(self, typ1, typ2):
         """ Given two types, determine the common type.
@@ -844,7 +831,7 @@ class CSemantics:
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
 
-    def not_impl(self, message, location):
+    def not_impl(self, message, location):  # pragma: no cover
         self.error(message, location)
         raise NotImplementedError(message)
 

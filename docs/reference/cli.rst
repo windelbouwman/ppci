@@ -22,7 +22,7 @@ Or specify the buildfile a the command line:
 
     $ ppci-build -f examples/blinky/build.xml
 
-Instead of relying on a build system, the :doc:`c3<c3>` compiler can also be
+Instead of relying on a build system, the :doc:`c3<lang/c3>` compiler can also be
 activated stand alone.
 
 .. code:: bash

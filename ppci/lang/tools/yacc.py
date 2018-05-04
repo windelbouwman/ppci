@@ -7,10 +7,11 @@ import io
 import datetime
 import logging
 
-from .baselex import BaseLexer
+from .baselex import BaseLexer, EOF
 from ..common import Token, SourceLocation
 from .grammar import Grammar
 from .lr import LrParserBuilder
+from .recursivedescent import RecursiveDescentParser
 
 
 class XaccLexer(BaseLexer):
@@ -47,66 +48,32 @@ class XaccLexer(BaseLexer):
             elif section == 1:
                 for tk in super().tokenize(line, eof=False):
                     yield tk
+        yield Token(EOF, EOF, loc)
 
 
-class ParseError(Exception):
-    pass
-
-
-class XaccParser:
+class XaccParser(RecursiveDescentParser):
     """ Implements a recursive descent parser to parse grammar rules.
-        We could have made an generated parser, but that would yield a chicken
-        egg issue.
+
+    We could have made an generated parser, but that would yield a chicken
+    egg issue.
     """
-    def __init__(self):
-        pass
-
-    def prepare_peak(self, lexer):
-        self.lexer = lexer
-        self.look_ahead = self.lexer.next_token()
-
-    @property
-    def Peak(self):
-        """ Sneak peak to the next token in line """
-        return self.look_ahead.typ
-
-    def next_token(self):
-        """ Take the next token """
-        token = self.look_ahead
-        self.look_ahead = self.lexer.next_token()
-        return token
-
-    def consume(self, typ):
-        """ Eat next token of type typ or raise an exception """
-        if self.Peak == typ:
-            return self.next_token()
-        else:
-            raise ParseError('Expected {}, but got {}'.format(typ, self.Peak))
-
-    def has_consumed(self, typ):
-        """ Consume typ if possible and return true if so """
-        if self.Peak == typ:
-            self.consume(typ)
-            return True
-        return False
-
-    def parse_grammar(self, lexer):
+    def parse_grammar(self, tokens):
         """ Entry parse function into recursive descent parser """
-        self.prepare_peak(lexer)
+        self.init_lexer(tokens)
         # parse header
         self.headers = []
         terminals = []
-        while self.Peak in ['HEADER', '%tokens']:
-            if self.Peak == '%tokens':
+        while self.peek in ['HEADER', '%tokens']:
+            if self.peek == '%tokens':
                 self.consume('%tokens')
-                while self.Peak == 'ID':
+                while self.peek == 'ID':
                     terminals.append(self.consume('ID').val)
             else:
                 self.headers.append(self.consume('HEADER').val)
         self.consume('%%')
         self.grammar = Grammar()
         self.grammar.add_terminals(terminals)
-        while self.Peak != 'EOF':
+        while self.peek != 'EOF':
             self.parse_rule()
         return self.grammar
 
@@ -116,9 +83,9 @@ class XaccParser:
     def parse_rhs(self):
         """ Parse the right hand side of a rule definition """
         symbols = []
-        while self.Peak not in [';', 'BRACEDCODE', '|']:
+        while self.peek not in [';', 'BRACEDCODE', '|']:
             symbols.append(self.parse_symbol())
-        if self.Peak == 'BRACEDCODE':
+        if self.peek == 'BRACEDCODE':
             action = self.consume('BRACEDCODE').val
             action = action[1:-1].strip()
         else:
@@ -236,8 +203,8 @@ def transform(f_in, f_out):
     generator = XaccGenerator()
 
     # Sequence source through the generator parts:
-    lexer.feed(src)
-    grammar = parser.parse_grammar(lexer)
+    # lexer.feed(src)
+    grammar = parser.parse_grammar(lexer.tokenize(src))
     generator.generate(grammar, parser.headers, f_out)
 
 

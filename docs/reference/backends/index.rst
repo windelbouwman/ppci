@@ -41,6 +41,7 @@ Backend details
 
     arm
     avr
+    microblaze
     mcs6500
     msp430
     mips

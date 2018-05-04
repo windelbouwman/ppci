@@ -1,5 +1,8 @@
 """ The different objects which can be declared. """
 
+# pylint: disable=R0903
+
+
 from .types import CType
 
 
