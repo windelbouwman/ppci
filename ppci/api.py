@@ -51,7 +51,7 @@ __all__ = [
     'optimize', 'preprocess',
     'get_arch', 'get_current_arch',
     'ir_to_object', 'ir_to_python',
-    'bf_to_ir']
+    'bf_to_ir', 'ws_to_ir']
 
 
 def get_reporter(reporter):

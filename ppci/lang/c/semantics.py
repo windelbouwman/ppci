@@ -73,7 +73,7 @@ class CSemantics:
             elif modifier[0] == 'ARRAY':
                 size = modifier[1]
                 if size and size != 'vla':
-                    if not self.context.is_const_expr(size):
+                    if not self._root_scope.is_const_expr(size):
                         self.error(
                             'Array dimension must be constant', size.location)
                     size = self.coerce(size, self.get_type(['int']))
@@ -286,7 +286,7 @@ class CSemantics:
             # Get the already declared name and figure out what now!
             sym = self.scope.get(declaration.name)
             # The type should match in any case:
-            if not self.context.equal_types(sym.typ, declaration.typ):
+            if not self._root_scope.equal_types(sym.typ, declaration.typ):
                 self.logger.info('First defined here %s', sym.location)
                 self.error("Invalid redefinition", declaration.location)
 
@@ -375,6 +375,7 @@ class CSemantics:
         return field
 
     def on_enum(self, tag, location):
+        """ Handle enum declaration """
         if tag:
             if self.scope.has_tag(tag):
                 ctyp = self.scope.get_tag(tag)
@@ -390,33 +391,25 @@ class CSemantics:
     def enter_enum_values(self, ctyp, location):
         if ctyp.complete:
             self.error('Enum defined multiple times', location)
-        self.current_enum_value = 0
-        self.enum_values = []
 
     def on_enum_value(self, ctyp, name, value, location):
         """ Handle a single enum value definition """
         if value:
-            self.current_enum_value = self.context.eval_expr(value)
-        new_value = declarations.ValueDeclaration(
-            ctyp, name, self.current_enum_value, location)
+            if not self._root_scope.is_const_expr(value):
+                self.error('Enum value must be constant value', value.location)
+        new_value = declarations.EnumConstantDeclaration(
+            ctyp, name, value, location)
         self.add_declaration(new_value)
-        self.enum_values.append(new_value)
+        return new_value
 
-        # Increase for next enum value:
-        self.current_enum_value += 1
-
-    def exit_enum_values(self, ctyp, location):
-        if len(self.enum_values) == 0:
+    def exit_enum_values(self, ctyp, constants, location):
+        if len(constants) == 0:
             self.error('Empty enum is not allowed', location)
-        ctyp.values = self.enum_values
+        ctyp.constants = constants
         # TODO: determine min and max enum values
         # min(enum_values)
         # max(enum_values)
         # TODO: determine storage type!
-
-    def _calculate_enum_values(self, ctyp, enum_values):
-        for enum_value in enum_values:
-            name, value, location = enum_value
 
     @staticmethod
     def on_type_qualifiers(type_qualifiers, ctyp):
@@ -676,7 +669,7 @@ class CSemantics:
 
     def on_builtin_va_start(self, arg_pointer, location):
         """ Check va_start builtin function """
-        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self._root_scope.equal_types(arg_pointer.typ, self.intptr_type):
             self.error('Invalid type for va_start', arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error('Expected lvalue', arg_pointer.location)
@@ -684,7 +677,7 @@ class CSemantics:
 
     def on_builtin_va_arg(self, arg_pointer, typ, location):
         """ Check va_arg builtin function """
-        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self._root_scope.equal_types(arg_pointer.typ, self.intptr_type):
             self.error('Invalid type for va_arg', arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error('Expected lvalue', arg_pointer.location)
@@ -754,7 +747,7 @@ class CSemantics:
         if isinstance(variable, declarations.VariableDeclaration):
             typ = variable.typ
             lvalue = True
-        elif isinstance(variable, declarations.ValueDeclaration):
+        elif isinstance(variable, declarations.EnumConstantDeclaration):
             typ = variable.typ
             lvalue = False
         elif isinstance(variable, declarations.ParameterDeclaration):
@@ -780,7 +773,7 @@ class CSemantics:
         from_type = expr.typ
         to_type = typ
 
-        if self.context.equal_types(from_type, to_type):
+        if self._root_scope.equal_types(from_type, to_type):
             pass
         elif isinstance(from_type, (types.PointerType, types.EnumType)) and \
                 isinstance(to_type, types.BasicType):
@@ -791,7 +784,7 @@ class CSemantics:
         elif isinstance(from_type, types.FunctionType) and \
                 isinstance(to_type, types.PointerType) and \
                 isinstance(to_type.element_type, types.FunctionType) and \
-                self.context.equal_types(from_type, to_type.element_type):
+                self._root_scope.equal_types(from_type, to_type.element_type):
             # Function used as value for pointer to function is fine!
             do_cast = False
         elif isinstance(from_type, types.BasicType) and \
@@ -800,7 +793,7 @@ class CSemantics:
         elif isinstance(from_type, types.IndexableType) and \
                 isinstance(to_type, types.IndexableType):
                 # and \
-                # self.context.equal_types(
+                # self._root_scope.equal_types(
                 #    from_type.element_type, to_type.element_type):
             do_cast = True
         elif isinstance(from_type, types.BasicType) and \

@@ -17,8 +17,9 @@ class Visitor:
                 self.visit(node.body)
         elif isinstance(node, declarations.ParameterDeclaration):
             self.visit(node.typ)
-        elif isinstance(node, declarations.ValueDeclaration):
-            pass
+        elif isinstance(node, declarations.EnumConstantDeclaration):
+            if node.value:
+                self.visit(node.value)
         elif isinstance(node, declarations.Typedef):
             self.visit(node.typ)
         elif isinstance(node, expressions.TernaryOperator):

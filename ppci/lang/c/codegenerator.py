@@ -75,7 +75,7 @@ class CCodeGenerator:
 
     def gen_object(self, declaration):
         """ Generate code for a single object """
-        assert isinstance(declaration, declarations.Declaration)
+        assert isinstance(declaration, declarations.CDeclaration)
 
         # Generate code:
         if isinstance(declaration, declarations.Typedef):
@@ -85,10 +85,10 @@ class CCodeGenerator:
             self.gen_function(declaration)
         elif isinstance(declaration, declarations.VariableDeclaration):
             self.gen_global_variable(declaration)
-        elif isinstance(declaration, declarations.ValueDeclaration):
+        elif isinstance(declaration, declarations.EnumConstantDeclaration):
             pass
         else:  # pragma: no cover
-            raise NotImplementedError()
+            raise NotImplementedError(str(declaration))
 
     def emit(self, instruction, location=None):
         """ Helper function to emit a single instruction """
@@ -668,7 +668,7 @@ class CCodeGenerator:
 
         rvalue: if True, then the result of the expression will be an rvalue.
         """
-        assert isinstance(expr, expressions.Expression)
+        assert isinstance(expr, expressions.CExpression)
 
         if isinstance(expr, expressions.UnaryOperator):
             value = self.gen_unop(expr)
@@ -684,9 +684,10 @@ class CCodeGenerator:
                      declarations.ParameterDeclaration,
                      declarations.ConstantDeclaration)):
                 value = self.ir_var_map[variable]
-            elif isinstance(variable, declarations.ValueDeclaration):
+            elif isinstance(variable, declarations.EnumConstantDeclaration):
                 # Enum value declaration!
-                constant_value = variable.value
+                constant_value = self.context.get_enum_value(
+                    variable.typ, variable)
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Const(
                     constant_value, variable.name, ir_typ))
@@ -1102,7 +1103,7 @@ class CCodeGenerator:
         elif isinstance(typ, (types.UnionType, types.StructType)):
             size = self.context.sizeof(typ)
             alignment = self.context.alignment(typ)
-            return ir.BlobDataTyp.get(size, alignment=alignment)
+            return ir.BlobDataTyp(size, alignment=alignment)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 

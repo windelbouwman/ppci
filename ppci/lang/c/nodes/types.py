@@ -93,14 +93,14 @@ class PointerType(IndexableType):
 
 class EnumType(CType):
     """ Enum type """
-    def __init__(self, values=None):
+    def __init__(self, constants=None):
         super().__init__()
-        self.values = values
+        self.constants = constants
 
     @property
     def complete(self):
         """ Test if this enum is complete (values are defined) """
-        return self.values is not None
+        return self.constants is not None
 
     def __repr__(self):
         return 'Enum-type'

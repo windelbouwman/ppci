@@ -160,6 +160,8 @@ Uml
 
 .. uml:: ppci.lang.c.nodes.statements
 
+.. uml:: ppci.lang.c.nodes.declarations
+
 References
 ----------
 

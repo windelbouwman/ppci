@@ -303,17 +303,20 @@ class CParser(RecursiveDescentParser):
         if self.peek == '{':
             self.consume('{')
             self.semantics.enter_enum_values(ctyp, keyword.loc)
+            constants = []
             while self.peek != '}':
                 name = self.consume('ID')
                 if self.has_consumed('='):
                     value = self.parse_constant_expression()
                 else:
                     value = None
-                self.semantics.on_enum_value(ctyp, name.val, value, name.loc)
+                constant = self.semantics.on_enum_value(
+                    ctyp, name.val, value, name.loc)
+                constants.append(constant)
                 if not self.has_consumed(','):
                     break
             self.consume('}')
-            self.semantics.exit_enum_values(ctyp, keyword.loc)
+            self.semantics.exit_enum_values(ctyp, constants, keyword.loc)
 
         return ctyp
 

@@ -18,6 +18,7 @@ class CContext:
         self.arch_info = arch_info
 
         self._field_offsets = {}
+        self._enum_values = {}
         int_size = self.arch_info.get_size('int')
         int_alignment = self.arch_info.get_alignment('int')
         ptr_size = self.arch_info.get_size('ptr')
@@ -61,46 +62,6 @@ class CContext:
         }
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
-
-    def equal_types(self, typ1, typ2, unqualified=False):
-        """ Check for type equality """
-        # TODO: enhance!
-        if typ1 is typ2:
-            # A short circuit:
-            return True
-        # elif isinstance(typ1, nodes.QualifiedType):
-        #    # Handle qualified types:
-        #    if isinstance(typ2, nodes.QualifiedType):
-        #        return typ1.qualifiers == typ2.qualifiers and \
-        #            self.equal_types(typ1.typ, typ2.typ)
-        #    else:
-        #        return (not typ1.qualifiers) and \
-        #            self.equal_types(typ1.typ, typ2)
-        elif isinstance(typ1, BasicType):
-            if isinstance(typ2, BasicType):
-                return typ1.type_id == typ2.type_id
-        elif isinstance(typ1, types.FunctionType):
-            if isinstance(typ2, types.FunctionType):
-                return \
-                    len(typ1.argument_types) == len(typ2.argument_types) and \
-                    self.equal_types(typ1.return_type, typ2.return_type) and \
-                    all(self.equal_types(a1, a2) for a1, a2 in zip(
-                        typ1.argument_types, typ2.argument_types))
-        elif isinstance(typ1, types.IndexableType):
-            if isinstance(typ2, types.IndexableType):
-                return self.equal_types(typ1.element_type, typ2.element_type)
-        elif isinstance(typ1, types.UnionType):
-            if isinstance(typ2, types.UnionType):
-                return typ1 is typ2
-        elif isinstance(typ1, types.StructType):
-            if isinstance(typ2, types.StructType):
-                return typ1 is typ2
-        elif isinstance(typ1, types.EnumType):
-            if isinstance(typ2, types.EnumType):
-                return typ1 is typ2
-        else:
-            raise NotImplementedError(str(typ1))
-        return False
 
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
@@ -205,6 +166,22 @@ class CContext:
         field_offset = self._get_field_offsets(typ)[1][field]
         return field_offset
 
+    def get_enum_value(self, enum_typ, enum_constant):
+        if enum_constant not in self._enum_values:
+            self._calculate_enum_values(enum_typ)
+        return self._enum_values[enum_constant]
+
+    def _calculate_enum_values(self, ctyp):
+        """ Determine enum values """
+        value = 0
+        for constant in ctyp.constants:
+            if constant.value:
+                value = self.eval_expr(constant.value)
+            self._enum_values[constant] = value
+
+            # Increase for next enum value:
+            value += 1
+
     def pack(self, typ, value):
         """ Pack a type into proper memory format """
         # TODO: is the size of the integer correct? should it be 4 or 8 bytes?
@@ -253,19 +230,6 @@ class CContext:
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
 
-    def is_const_expr(self, expr):
-        """ Test if an expression can be evaluated at compile time """
-        if isinstance(expr, expressions.BinaryOperator):
-            return self.is_const_expr(expr.a) and self.is_const_expr(expr.b)
-        elif isinstance(expr, expressions.NumericLiteral):
-            return True
-        elif isinstance(expr, expressions.CharLiteral):
-            return True
-        elif isinstance(expr, expressions.Sizeof):
-            return True
-        else:
-            return False
-
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """
         if isinstance(expr, expressions.BinaryOperator):
@@ -298,8 +262,8 @@ class CContext:
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
         elif isinstance(expr, expressions.VariableAccess):
-            if isinstance(expr.variable, declarations.ValueDeclaration):
-                value = expr.variable.value
+            if isinstance(expr.variable, declarations.EnumConstantDeclaration):
+                value = self.get_enum_value(expr.variable.typ, expr.variable)
             else:
                 raise NotImplementedError(str(expr.variable))
         elif isinstance(expr, expressions.NumericLiteral):

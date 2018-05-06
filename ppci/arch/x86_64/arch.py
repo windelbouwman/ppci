@@ -191,6 +191,15 @@ class X86_64Arch(Architecture):
         return value in rax
 
         self.rv = rax
+
+        On windows a different scheme is used:
+        integers are passed in rcx, rdx, r8 and r9
+        floats are passed in xmm0, xmm1, xmm2 and xmm3
+
+        These examples show how it works:
+
+        func(int a, double b, int c, float d)
+        // a in rcx, b in xmm1, c in r8 and d in xmm3
         """
         arg_locs = []
         if self.has_option('wincc'):
@@ -217,13 +226,23 @@ class X86_64Arch(Architecture):
                     ir.ptr]:
                 if int_regs:
                     reg = int_regs.pop(0)
+                    if self.has_option('wincc'):
+                        float_regs.pop(0)
                 else:
                     # We need stack location!
                     arg_size = self.info.get_size(arg_type)
                     reg = StackLocation(offset, arg_size)
                     offset += arg_size
             elif arg_type in [ir.f32, ir.f64]:
-                reg = float_regs.pop(0)
+                if float_regs:
+                    reg = float_regs.pop(0)
+                    if self.has_option('wincc'):
+                        int_regs.pop(0)
+                else:
+                    # We need stack location!
+                    arg_size = self.info.get_size(arg_type)
+                    reg = StackLocation(offset, arg_size)
+                    offset += arg_size
             elif isinstance(arg_type, ir.BlobDataTyp):
                 reg = StackLocation(offset, arg_type.size)
                 offset += arg_type.size

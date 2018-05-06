@@ -55,7 +55,7 @@ class BinaryOperator(CExpression):
         self.b = b
 
     def __repr__(self):
-        return "BinaryOperator {} '{}'".format(self.op, self.typ)
+        return "BinaryOperator {} <{}>".format(self.op, self.typ)
 
 
 class UnaryOperator(CExpression):
@@ -115,7 +115,7 @@ class FieldSelect(CExpression):
         self.field = field
 
     def __str__(self):
-        return 'Field select .{}'.format(self.field.name)
+        return 'Field select .{} <{}>'.format(self.field.name, self.typ)
 
 
 class VariableAccess(CExpression):
@@ -126,7 +126,7 @@ class VariableAccess(CExpression):
         self.name = variable.name
 
     def __repr__(self):
-        return 'Id {}'.format(self.name)
+        return "Id {} <{}>".format(self.name, self.typ)
 
 
 class Literal(CExpression):
@@ -136,7 +136,7 @@ class Literal(CExpression):
         self.value = value
 
     def __repr__(self):
-        return "Literal {} '{}'".format(self.value, self.typ)
+        return "Literal {} <{}>".format(self.value, self.typ)
 
 
 class CharLiteral(Literal):
@@ -148,7 +148,7 @@ class CharLiteral(Literal):
 class NumericLiteral(Literal):
     """ A numeric literal """
     def __repr__(self):
-        return "Numeric literal {} '{}'".format(self.value, self.typ)
+        return "Numeric literal {} <{}>".format(self.value, self.typ)
 
 
 class StringLiteral(Literal):

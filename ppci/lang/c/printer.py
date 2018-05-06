@@ -190,6 +190,8 @@ class CPrinter:
             return '{}({})'.format(self.gen_expr(expr.callee), args)
         elif isinstance(expr, expressions.Literal):
             return str(expr.value)
+        elif isinstance(expr, int):
+            return str(expr)
         elif isinstance(expr, expressions.Sizeof):
             if isinstance(expr.sizeof_typ, types.CType):
                 thing = self.render_type(expr.sizeof_typ)
@@ -203,7 +205,7 @@ class CPrinter:
             return '({})({})'.format(
                 self.render_type(expr.to_typ), self.gen_expr(expr.expr))
         else:  # pragma: no cover
-            raise NotImplementedError(str(expr))
+            raise NotImplementedError(str(type(expr)))
 
     @contextmanager
     def _indented(self, amount):

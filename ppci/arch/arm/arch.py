@@ -342,7 +342,7 @@ class ArmArch(Architecture):
         """
         # TODO: what ABI to use?
         # Perhaps follow the arm ABI spec?
-        l = []
+        locations = []
         regs = [R1, R2, R3, R4]
         offset = 8
         for arg_ty in arg_types:
@@ -357,8 +357,8 @@ class ArmArch(Architecture):
                     arg_size = self.info.get_size(arg_ty)
                     r = StackLocation(offset, arg_size)
                     offset += arg_size
-            l.append(r)
-        return l
+            locations.append(r)
+        return locations
 
     def determine_rv_location(self, ret_type):
         rv = R0

@@ -54,6 +54,17 @@ class PointerTyp(Typ):
 
 class BasicTyp(Typ):
     """ Basic arithmatic type """
+    _instances = {}
+
+    def __new__(cls, name, bits):
+        key = (name, bits)
+        if key in cls._instances:
+            obj = cls._instances[key]
+        else:
+            obj = super().__new__(cls)
+            cls._instances[key] = obj
+        return obj
+
     def __init__(self, name, bits):
         super().__init__(name)
         self.bits = bits
@@ -79,9 +90,32 @@ class FloatingPointTyp(BasicTyp):
     pass
 
 
-# TODO: what is the type of a larger slab of data?
 class BlobDataTyp(Typ):
+    """ The type of a opaque data blob.
+
+    Note that blob types can be compared by using the is operator:
+
+    .. doctest::
+
+        >>> from ppci.ir import BlobDataTyp
+        >>> typ1 = BlobDataTyp(8, 8)
+        >>> typ2 = BlobDataTyp(8, 8)
+        >>> typ1 is typ2
+        True
+
+    """
     _cache = {}
+
+    def __new__(cls, size, alignment):
+        """ Create instance of blob type for the given size and alignment.
+        """
+        key = (size, alignment)
+        if key in cls._cache:
+            obj = cls._cache[key]
+        else:
+            obj = super().__new__(cls)
+            cls._cache[key] = obj
+        return obj
 
     def __init__(self, size: int, alignment: int):
         super().__init__('blob')
@@ -91,17 +125,6 @@ class BlobDataTyp(Typ):
     def __str__(self):
         # More or less the same as 'u8[size]'.
         return 'blob<{}:{}>'.format(self.size, self.alignment)
-
-    @classmethod
-    def get(cls, size: int, alignment: int):
-        """ Get instance of blob type for the given size and alignment """
-        key = (size, alignment)
-        if key in cls._cache:
-            typ = cls._cache[key]
-        else:
-            typ = cls(size, alignment=alignment)
-            cls._cache[key] = typ
-        return typ
 
 
 # The builtin types:
@@ -728,7 +751,7 @@ class LiteralData(LocalValue):
         instruction, a label and its data is emitted in the literal area
     """
     def __init__(self, data, name):
-        super().__init__(name, BlobDataTyp.get(len(data), 1))
+        super().__init__(name, BlobDataTyp(len(data), 1))
         self.data = data
         assert isinstance(data, bytes), str(data)
 
@@ -911,7 +934,7 @@ class Phi(LocalValue):
 class Alloc(LocalValue):
     """ Allocates space on the stack. The type of this value is a ptr """
     def __init__(self, name: str, amount: int, alignment: int):
-        super().__init__(name, BlobDataTyp.get(amount, alignment))
+        super().__init__(name, BlobDataTyp(amount, alignment))
 
         if not isinstance(amount, int):
             raise TypeError(
@@ -994,7 +1017,7 @@ class Store(Instruction):
         if not isinstance(value, Value):
             raise TypeError('Expected a value, got {}'.format(value))
 
-        #if not isinstance(value.ty, (BasicTyp, PointerTyp)):
+        # if not isinstance(value.ty, (BasicTyp, PointerTyp)):
         #    raise ValueError(
         #        'Can only store basic types, not {}'.format(value.ty))
 

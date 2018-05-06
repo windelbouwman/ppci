@@ -6,7 +6,7 @@
 from .types import CType
 
 
-class Declaration:
+class CDeclaration:
     """ A single declaration """
     def __init__(self, storage_class, typ: CType, name, location):
         assert isinstance(typ, CType)
@@ -21,7 +21,7 @@ class Declaration:
         return isinstance(self, FunctionDeclaration)
 
 
-class Typedef(Declaration):
+class Typedef(CDeclaration):
     """ Type definition """
     def __init__(self, typ, name, location):
         super().__init__('typedef', typ, name, location)
@@ -30,7 +30,7 @@ class Typedef(Declaration):
         return 'Typedef {}'.format(self.name)
 
 
-class VariableDeclaration(Declaration):
+class VariableDeclaration(CDeclaration):
     """ Variable declaration, be it local or global """
     def __init__(self, storage_class, typ, name, initial_value, location):
         super().__init__(storage_class, typ, name, location)
@@ -41,7 +41,7 @@ class VariableDeclaration(Declaration):
             self.storage_class, self.typ, self.name)
 
 
-class ConstantDeclaration(Declaration):
+class ConstantDeclaration(CDeclaration):
     def __init__(self, storage_class, typ, name, value, location):
         super().__init__(storage_class, typ, name, location)
         self.value = value
@@ -51,11 +51,16 @@ class ConstantDeclaration(Declaration):
             self.typ, self.name, self.value)
 
 
-class ValueDeclaration(Declaration):
+class EnumDeclaration(CDeclaration):
+    def __init__(self, constants, location):
+        super().__init__(location)
+        self.constants = constants
+
+
+class EnumConstantDeclaration(CDeclaration):
     """ Declaration of an enum value """
     def __init__(self, typ, name, value, location):
         super().__init__(None, typ, name, location)
-        assert isinstance(value, int)
         self.value = value
 
     def __repr__(self):
@@ -63,14 +68,14 @@ class ValueDeclaration(Declaration):
             self.typ, self.name, self.value)
 
 
-class ParameterDeclaration(Declaration):
+class ParameterDeclaration(CDeclaration):
     """ Function parameter declaration """
     def __repr__(self):
         return 'Parameter [typ={} name={}]'.format(
             self.typ, self.name)
 
 
-class FunctionDeclaration(Declaration):
+class FunctionDeclaration(CDeclaration):
     """ A function declaration """
     def __init__(self, storage_class, typ, name, location):
         super().__init__(storage_class, typ, name, location)
