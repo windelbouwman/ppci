@@ -29,7 +29,7 @@ class MyTest2Program(Program):
         return self._new('nonexistent', [4, 5, 6])
     
     def to_python(self):
-        return self._new('python', ['return 42'])
+        return self._new('python', ['pass'])
 
 
 class ProgramTestCase(unittest.TestCase):

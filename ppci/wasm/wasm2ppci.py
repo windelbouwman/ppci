@@ -47,6 +47,7 @@ class WasmToIrCompiler:
         self.globalz = {}  # id -> (type, ir.Variable)
         functions = []
         self.function_names = {}  # Try to have a nice name
+        self._runtime_functions = {}  # Function required during runtime
         for definition in wasm_module:
             if isinstance(definition, components.Type):
                 self.wasm_types[definition.id] = definition
@@ -70,6 +71,9 @@ class WasmToIrCompiler:
                         extern_ir_function = ir.ExternalProcedure(
                             name, arg_types)
 
+                    self.logger.debug(
+                        'Creating external %s with signature %s',
+                        extern_ir_function, sig.to_string())
                     self.builder.module.add_external(extern_ir_function)
                     if index in self.function_names:
                         raise ValueError(
@@ -226,7 +230,7 @@ class WasmToIrCompiler:
         num = len(wasm_function.instructions)
         for nr, instruction in enumerate(wasm_function.instructions, start=1):
             if self.verbose:
-                self.logger.debug('%s/%s %s', nr, num, instruction.to_string())
+                self.logger.debug('%s/%s %s [stack=%s]', nr, num, instruction.to_string(), len(self.stack))
             self.generate_instruction(instruction)
 
         # Add terminating instruction if block is non empty:
@@ -237,6 +241,8 @@ class WasmToIrCompiler:
             else:
                 return_value = self.pop_value()
                 self.emit(ir.Return(return_value))
+
+        assert not self.stack
 
         # ppci_function.dump()
         ppci_function.delete_unreachable()
@@ -399,14 +405,9 @@ class WasmToIrCompiler:
             self.stack.append(value)
 
         elif inst == 'f64.floor':
-            value1 = self.emit(
-                ir.Cast(self.pop_value(), 'floor_cast_1', ir.i64))
-            value2 = self.emit(ir.Cast(value1, 'floor_cast_2', ir.f64))
-            self.stack.append(value2)
-
+            self._runtime_call(inst)
         elif inst == 'f64.sqrt':
-            # TODO: implement library call?
-            pass
+            self._runtime_call(inst)
         elif inst in {'f64.const', 'f32.const', 'i64.const', 'i32.const'}:
             value = self.emit(
                 ir.Const(
@@ -512,6 +513,7 @@ class WasmToIrCompiler:
             self.fill_phi(phi)
             self.emit(ir.Jump(continueblock))
             self.builder.set_block(continueblock)
+            # assert len(self.stack) == 0
             if phi is not None:
                 # if we close a block that yields a value introduce a phi
                 self.emit(phi)
@@ -546,6 +548,7 @@ class WasmToIrCompiler:
         # Call another function!
         idx = instruction.args[0]
         ir_function, sig = self.function_names[idx]
+        self.logger.debug('Calling function %s with signature %s', ir_function, sig)
 
         args = []
         for arg_type in sig.params:
@@ -604,3 +607,28 @@ class WasmToIrCompiler:
         phi.set_incoming(nein_block, nein_value)
         self.emit(phi)
         self.stack.append(phi)
+
+    def _runtime_call(self, inst):
+        """ Generate runtime function call.
+
+        This is required for functions such 'sqrt' as which do not have
+        a reasonable ppci ir-code equivalent.
+        """
+        # Limit to single argument f64 functions for now:
+        assert inst in ['f64.sqrt', 'f64.floor']
+
+        rt_func_name = inst.replace('.', '_')
+
+        # Get or create the runtime function:
+        if rt_func_name in self._runtime_functions:
+            rt_func = self._runtime_functions[rt_func_name]
+        else:
+            rt_func = ir.ExternalFunction('sqrt', [ir.f64], ir.f64)
+            self._runtime_functions[rt_func_name] = rt_func
+            self.builder.module.add_external(rt_func)
+
+        ir_typ = ir.f64
+        args = [self.pop_value()]
+        value = self.emit(
+            ir.FunctionCall(rt_func, args, 'rtlib_call_result', ir_typ))
+        self.stack.append(value)
