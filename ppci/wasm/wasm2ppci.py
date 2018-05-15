@@ -548,41 +548,38 @@ class WasmToIrCompiler:
         # Call another function!
         idx = instruction.args[0]
         ir_function, sig = self.function_names[idx]
-        self.logger.debug('Calling function %s with signature %s', ir_function, sig)
-
-        args = []
-        for arg_type in sig.params:
-            args.append(self.pop_value())
-
-        if sig.result:
-            assert len(sig.result) == 1
-            ir_typ = self.get_ir_type(sig.result[0])
-            value = self.emit(ir.FunctionCall(
-                ir_function, args, 'call', ir_typ))
-            self.stack.append(value)
-        else:
-            self.emit(ir.ProcedureCall(ir_function, args))
+        self._gen_call_helper(ir_function, sig)
 
     def gen_call_indirect(self, instruction):
-        # Call another function by pointer!
+        """ Call another function by pointer! """
         type_id = instruction.args[0]
         signature = self.wasm_types[type_id]
         func_ptr = self.pop_value()
         if func_ptr.ty is not ir.ptr:
             func_ptr = self.emit(ir.Cast(func_ptr, 'ptr', ir.ptr))
 
+        self._gen_call_helper(func_ptr, signature)
+
+    def _gen_call_helper(self, target, signature):
+        """ Common function calling logic """
+        self.logger.debug(
+            'Calling function %s with signature %s',
+            target, signature.to_string())
         args = []
         for arg_type in signature.params:
-            args.append(self.pop_value())
+            ir_typ = self.get_ir_type(arg_type[1])
+            arg = self.pop_value()
+            assert arg.ty is ir_typ
+            args.append(arg)
 
         if signature.result:
             assert len(signature.result) == 1
             ir_typ = self.get_ir_type(signature.result[0])
             value = self.emit(
-                ir.FunctionCall(func_ptr, args, 'call', ir_typ))
+                ir.FunctionCall(target, args, 'call', ir_typ))
             self.stack.append(value)
         else:
-            self.emit(ir.ProcedureCall(func_ptr, args))
+            self.emit(ir.ProcedureCall(target, args))
 
     def gen_select(self, instruction):
         """ Generate code for the select wasm instruction """
