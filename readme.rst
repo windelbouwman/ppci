@@ -69,6 +69,7 @@ Documentation can be found here:
 - https://ppci.readthedocs.io/
 
 
+|gitter|_
 |appveyor|_
 |codecov|_
 |docstate|_
@@ -106,3 +107,7 @@ Documentation can be found here:
 
 .. |conda| image:: https://anaconda.org/conda-forge/ppci/badges/version.svg
 .. _conda: https://anaconda.org/conda-forge/ppci
+
+
+.. |gitter| image:: https://badges.gitter.im/ppci-chat/Lobby.svg
+.. _gitter: https://gitter.im/ppci-chat/Lobby
