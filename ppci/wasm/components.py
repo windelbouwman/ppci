@@ -1669,7 +1669,7 @@ class Data(Definition):
 
     * ref: the memory id that this data applies to.
     * offset: the byte offset, expressed as an instruction (i.e. i32.const)
-    * data: the binary data encoded as a string.
+    * data: the binary data as a bytes object.
     """
 
     __slots__ = ('ref', 'offset', 'data')

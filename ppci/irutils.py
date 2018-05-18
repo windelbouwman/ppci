@@ -436,9 +436,10 @@ class Verifier:
                 assert isinstance(function, ir.Function)
                 if block.last_instruction.result.ty is not function.return_ty:
                     raise IrFormError(
-                        'Last instruction returns {}, while function '
+                        'Last instruction returns {}, while function {}'
                         'returns {}'.format(
                             block.last_instruction.result.ty,
+                            function,
                             function.return_ty))
             if isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
@@ -473,8 +474,12 @@ class Verifier:
 
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
-        assert not block.is_empty
-        assert block.last_instruction.is_terminator
+        if block.is_empty:
+            raise ValueError('Block is empty: {}'.format(block))
+        if not block.last_instruction.is_terminator:
+            raise ValueError(
+                'The last instruction of {} is not a terminator instruction'
+                .format(block))
         assert all(not i.is_terminator for i in block.instructions[:-1])
         assert all(isinstance(p, ir.Block) for p in block.predecessors)
 

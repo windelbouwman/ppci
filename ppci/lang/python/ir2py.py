@@ -35,11 +35,40 @@ class IrToPythonCompiler:
         self.print(0, '')
         self.print(0, 'import struct')
         self.print(0, '')
-        self.print(0, 'mem = bytearray()')
+        self.print(0, 'heap = bytearray()')
+        self.print(0, 'stack = bytearray()')
+        self.print(0, 'HEAP_START = 0x10000000')
         self.print(0, 'func_pointers = list()')
+        self.print(0, 'externals = {}')
         self.print(0, '')
 
         self.generate_builtins()
+        self.generate_memory_builtins()
+
+    def generate_memory_builtins(self):
+        self.print(0, 'def read_mem(address, size):')
+        self.print(1, 'mem, address = get_memory(address)')
+        self.print(1, 'assert address+size <= len(mem), str(hex(address))')
+        self.print(1, 'return mem[address:address+size]')
+        self.print(0, '')
+
+        self.print(0, 'def write_mem(address, data):')
+        self.print(1, 'mem, address = get_memory(address)')
+        self.print(1, 'size = len(data)')
+        self.print(1, 'assert address+size <= len(mem), str(hex(address))')
+        self.print(1, 'mem[address:address+size] = data')
+        self.print(0, '')
+
+        self.print(0, 'def get_memory(v):')
+        self.print(1, 'if v >= HEAP_START:')
+        self.print(2, 'return heap, v - HEAP_START')
+        self.print(1, 'else:')
+        self.print(2, 'return stack, v')
+        self.print(0, '')
+
+        self.print(0, 'def heap_top():')
+        self.print(1, 'return len(heap) + HEAP_START')
+        self.print(0, '')
 
         # Generate load functions:
         foo = [
@@ -61,7 +90,7 @@ class IrToPythonCompiler:
             self.print(0, 'def load_{}(p):'.format(ty.name))
             self.print(
                 1,
-                'return struct.unpack("{0}", mem[p:p+{1}])[0]'.format(
+                'return struct.unpack("{0}", read_mem(p, {1}))[0]'.format(
                     fmt, size))
             self.print(0, '')
 
@@ -69,7 +98,7 @@ class IrToPythonCompiler:
             self.print(0, 'def store_{}(v, p):'.format(ty.name))
             self.print(
                 1,
-                'mem[p:p+{1}] = struct.pack("{0}", v)'.format(fmt, size))
+                'write_mem(p, struct.pack("{0}", v))'.format(fmt, size))
             self.print(0, '')
 
     def generate_builtins(self):
@@ -83,15 +112,15 @@ class IrToPythonCompiler:
         self.print(2, 'return value')
         self.print(0, '')
 
-        self.print(0, 'def _alloc(amount):')
-        self.print(1, 'ptr = len(mem)')
-        self.print(1, 'mem.extend(bytes(amount))')
+        self.print(0, 'def _alloca(amount):')
+        self.print(1, 'ptr = len(stack)')
+        self.print(1, 'stack.extend(bytes(amount))')
         self.print(1, 'return (ptr, amount)')
         self.print(0, '')
 
         self.print(0, 'def _free(amount):')
         self.print(1, 'for _ in range(amount):')
-        self.print(2, 'mem.pop()')
+        self.print(2, 'stack.pop()')
         self.print(0, '')
 
     def generate(self, ir_mod):
@@ -102,12 +131,12 @@ class IrToPythonCompiler:
         self.print(0, '# Module {}'.format(ir_mod.name))
         # Allocate room for global variables:
         for var in ir_mod.variables:
-            self.print(0, '{} = len(mem)'.format(var.name))
+            self.print(0, '{} = heap_top()'.format(var.name))
             if var.value:
                 for byte in var.value:
-                    self.print(0, 'mem.append({})'.format(byte))
+                    self.print(0, 'heap.append({})'.format(byte))
             else:
-                self.print(0, 'mem.extend(bytes({}))'.format(var.amount))
+                self.print(0, 'heap.extend(bytes({}))'.format(var.amount))
 
         # Generate functions:
         for function in ir_mod.functions:
@@ -115,9 +144,9 @@ class IrToPythonCompiler:
 
         # emit labeled literals:
         for lit in self.literals:
-            self.print(0, "{} = len(mem)".format(literal_label(lit)))
+            self.print(0, "{} = heap_top()".format(literal_label(lit)))
             for val in lit.data:
-                self.print(0, "mem.append({})".format(val))
+                self.print(0, "heap.append({})".format(val))
         self.print(0)
 
     def generate_function(self, fn):
@@ -157,7 +186,7 @@ class IrToPythonCompiler:
             self.print(3, 'prev_block = current_block')
             self.print(3, 'current_block = "{}"'.format(ins.target.name))
         elif isinstance(ins, ir.Alloc):
-            self.print(3, '{} = _alloc({})'.format(ins.name, ins.amount))
+            self.print(3, '{} = _alloca({})'.format(ins.name, ins.amount))
             self.stack_size += ins.amount
         elif isinstance(ins, ir.AddressOf):
             self.print(3, '{} = {}[0]'.format(ins.name, ins.src.name))
@@ -198,7 +227,7 @@ class IrToPythonCompiler:
                 raise NotImplementedError(str(ins))
         elif isinstance(ins, ir.Store):
             if isinstance(ins.value.ty, ir.BlobDataTyp):
-                self.print(3, 'mem[{0}:{0}+{1}] = {2}'.format(
+                self.print(3, 'write_mem({0}, {1}, {2})'.format(
                     ins.address.name,
                     ins.value.ty.size,
                     ins.value.name))
@@ -213,7 +242,7 @@ class IrToPythonCompiler:
                     ins.value.ty.name, ins.address.name, v))
         elif isinstance(ins, ir.Load):
             if isinstance(ins.ty, ir.BlobDataTyp):
-                self.print(3, '{0} = mem[{1}:{1}+{2}]'.format(
+                self.print(3, '{0} = read_mem({1}, {2})'.format(
                     ins.name,
                     ins.address.name,
                     ins.ty.size))
@@ -222,19 +251,11 @@ class IrToPythonCompiler:
                     ins.name, ins.ty.name, ins.address.name))
         elif isinstance(ins, ir.FunctionCall):
             args = ', '.join(a.name for a in ins.arguments)
-            if isinstance(ins.callee, ir.SubRoutine):
-                self.print(3, '_fptr = {}'.format(ins.callee.name))
-            else:
-                self.print(3, '_fptr = func_pointers[{}]'.format(
-                    ins.callee.name))
+            self._fetch_callee(ins.callee)
             self.print(3, '{} = _fptr({})'.format(ins.name, args))
         elif isinstance(ins, ir.ProcedureCall):
             args = ', '.join(a.name for a in ins.arguments)
-            if isinstance(ins.callee, (ir.SubRoutine, ir.ExternalSubRoutine)):
-                self.print(3, '_fptr = {}'.format(ins.callee.name))
-            else:
-                self.print(3, '_fptr = func_pointers[{}]'.format(
-                    ins.callee.name))
+            self._fetch_callee(ins.callee)
             self.print(3, '_fptr({})'.format(args))
         elif isinstance(ins, ir.Phi):
             self.print(3, 'if False:')
@@ -253,3 +274,13 @@ class IrToPythonCompiler:
         else:  # pragma: no cover
             self.print(3, '{}'.format(ins))
             raise NotImplementedError(str(type(ins)))
+
+    def _fetch_callee(self, callee):
+        """ Retrieves a callee and puts it into _fptr variable """
+        if isinstance(callee, ir.SubRoutine):
+            self.print(3, '_fptr = {}'.format(callee.name))
+        elif isinstance(callee, ir.ExternalSubRoutine):
+            self.print(3, '_fptr = {}'.format(callee.name))
+            # self.print(3, '_fptr = externals["{}"]'.format(callee.name))
+        else:
+            self.print(3, '_fptr = func_pointers[{}]'.format(callee.name))
