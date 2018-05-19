@@ -37,7 +37,11 @@ class HandLexerBase:
                 yield self.token_buffer.pop(0)
             state = state()
 
-    def next_char(self) -> Char:
+    def next_char(self, eof=True) -> Char:
+        """ Retrieve next character.
+
+        If eof is False, raise an error when end of file is encountered.
+        """
         if self.pushed_back:
             char = self.pushed_back.pop(0)
         else:
@@ -45,6 +49,9 @@ class HandLexerBase:
 
         if char:
             self.current_text.append(char)
+
+        if not eof and char is None:
+            self.error('Expected a character, but at end of file')
 
         return char
 

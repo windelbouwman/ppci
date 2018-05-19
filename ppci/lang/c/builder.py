@@ -7,7 +7,7 @@ from .parser import CParser
 from .semantics import CSemantics
 from .preprocessor import CPreProcessor, prepare_for_parsing
 from .codegenerator import CCodeGenerator
-from .utils import CAstPrinter
+from .utils import print_ast
 
 
 class CBuilder:
@@ -32,8 +32,7 @@ class CBuilder:
 
         if reporter:
             f = io.StringIO()
-            printer = CAstPrinter(file=f)
-            printer.print(compile_unit)
+            print_ast(compile_unit, file=f)
             reporter.heading(2, 'C-ast')
             reporter.message('Behold the abstract syntax tree of your C-code')
             reporter.dump_raw_text(f.getvalue())
@@ -43,6 +42,16 @@ class CBuilder:
     def _create_ast(self, src, filename):
         return create_ast(
             src, self.arch_info, filename=filename, coptions=self.coptions)
+
+
+def parse_text(text, arch='x86_64'):
+    """ Parse given C sourcecode into an AST """
+    from ...api import get_arch
+    f = io.StringIO(text)
+    arch_info = get_arch(arch).info
+    coptions = COptions()
+    context = CContext(coptions, arch_info)
+    return _parse(f, '?', context)
 
 
 def create_ast(src, arch_info, filename='<snippet>', coptions=None):

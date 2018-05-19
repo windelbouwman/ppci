@@ -7,20 +7,14 @@ Reference
     api
     programs
     cli
-    lang/c3
-    lang/c
-    lang/python
+    lang/index
     buildxml
     ir
     langtools
     debug
     architecture
     backends/index
-    format/elf
-    format/exe
-    format/dwarf
-    format/hexfile
-    format/uboot
+    format/index
     objectformat
     wasm
     relooping

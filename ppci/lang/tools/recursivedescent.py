@@ -18,6 +18,7 @@ class RecursiveDescentParser:
         self.token = None  # The current token under cursor
         self.tokens = None  # Iterable of tokens
         self._look_ahead = []
+        self._last_loc = None
 
     def init_lexer(self, tokens):
         """ Initialize the parser with the given tokens (an iterator) """
@@ -28,7 +29,13 @@ class RecursiveDescentParser:
     def error(self, msg, loc=None):
         """ Raise an error at the current location """
         if loc is None:
-            loc = self.token.loc
+            if self.token is None:
+                if self._last_loc is None:
+                    loc = None
+                else:
+                    loc = self._last_loc
+            else:
+                loc = self.token.loc
         raise CompilerError(msg, loc)
 
     @property
@@ -69,6 +76,10 @@ class RecursiveDescentParser:
             self.token = self._look_ahead.pop(0)
         else:
             self.token = next(self.tokens, None)
+
+        if self.token is None and tok is not None:
+            self._last_loc = tok.loc
+
         return tok
 
     def not_impl(self, msg=''):  # pragma: no cover

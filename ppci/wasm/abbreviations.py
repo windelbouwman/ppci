@@ -139,7 +139,9 @@ def resolve_inline_imports(t, counts):
 
         if defname in ('func', 'table', 'memory', 'global'):
             expr = list(expr)
-            if isinstance(expr[2], tuple) and expr[2][0] == 'import':
+            if len(expr) > 2 and \
+                    isinstance(expr[2], tuple) and \
+                    expr[2][0] == 'import':
                 new_expr = list(expr.pop(2))
                 new_expr.append(tuple(expr))
                 t[i] = tuple(new_expr)

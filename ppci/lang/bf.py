@@ -7,6 +7,8 @@ from ..common import CompilerError
 from ..irutils import Builder
 from ..arch import get_arch
 
+__all__ = ('bf_to_ir', 'BrainFuckGenerator')
+
 
 def bf_to_ir(source, target):
     """ Compile brainfuck source into ir code """

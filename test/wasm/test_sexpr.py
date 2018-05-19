@@ -4,6 +4,7 @@
 from pytest import raises
 
 from ppci.wasm.components import parse_sexpr
+from ppci.common import CompilerError
 
 TEXT = """
 (module
@@ -68,21 +69,21 @@ def test_whitespace_and_comment():
 def test_fail():
 
     # Unterminated
-    with raises(EOFError):
+    with raises(CompilerError):
         parse_sexpr('(foo 3')
 
     # Stuff after terminated
-    with raises(EOFError):
+    with raises(CompilerError):
         parse_sexpr('(foo 3) xx')
-    with raises(EOFError):
+    with raises(ValueError):
         parse_sexpr('(foo 3) (bar 4)')
-    with raises(EOFError):
+    with raises(CompilerError):
         parse_sexpr('(foo 3) ;; xx\n xx')
-    with raises(EOFError):
+    with raises(CompilerError):
         parse_sexpr('(foo 3) (; xx ;) xx')
 
     # But this is ok
-    assert parse_sexpr("(foo 3) (; (nomore 4) :)") == ('foo', 3)
+    assert parse_sexpr("(foo 3) (; (nomore 4) ;)") == ('foo', 3)
     assert parse_sexpr("(foo 3) ;; (nomore 3) :)") == ('foo', 3)
 
 

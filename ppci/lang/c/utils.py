@@ -12,6 +12,12 @@ def required_padding(address, alignment):
     return 0
 
 
+def print_ast(ast, file=None):
+    """ Display an abstract syntax tree.
+    """
+    CAstPrinter(file=file).print(ast)
+
+
 class CAstPrinter(Visitor):
     """ Print AST of a C program """
     def __init__(self, file=None):

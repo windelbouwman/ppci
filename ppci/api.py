@@ -12,7 +12,7 @@ import xml
 from .lang.c import preprocess, c_to_ir, COptions
 from .lang.c3 import c3_to_ir
 from .lang.bf import bf_to_ir
-from .lang.fortran import FortranBuilder
+from .lang.fortran import fortran_to_ir
 from .lang.llvmir import llvm_to_ir
 from .lang.pascal import PascalBuilder
 from .lang.ws import ws_to_ir
@@ -409,13 +409,6 @@ def pascal(sources, march, opt_level=0, reporter=None):
     ir_modules = pascal_builder.build(sources)
 
     return ir_to_object(ir_modules, march, reporter=reporter)
-
-
-def fortran_to_ir(source):
-    """ Translate fortran source into IR-code """
-    builder = FortranBuilder()
-    ir_modules = builder.build(source)
-    return ir_modules
 
 
 def bfcompile(source, target, reporter=None):

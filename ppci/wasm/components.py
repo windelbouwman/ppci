@@ -969,7 +969,9 @@ class Type(Definition):
         for expr in t[2][1:]:
             assert isinstance(expr, tuple)
             if expr[0] == 'param':
-                if isinstance(expr[1], int) or expr[1].startswith('$'):
+                if len(expr) == 1:
+                    pass  # (param,)
+                elif isinstance(expr[1], int) or expr[1].startswith('$'):
                     assert len(expr) == 3
                     params.append((expr[1], expr[2]))  # (param $id i32)
                 else:

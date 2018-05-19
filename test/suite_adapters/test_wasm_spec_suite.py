@@ -25,22 +25,42 @@ import glob
 import os.path
 import io
 
-from ppci.wasm import read_wat
+from ppci.wasm import read_wat, Module
 from ppci.common import CompilerError
+from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
+
+
+def perform_test(filename):
+    with open(filename, 'r') as f:
+        source_text = f.read()
+
+    try:
+        output_file = io.StringIO()
+        s_expressions = parse_multiple_sexpr(source_text)
+        for s_expr in s_expressions:
+            if s_expr[0] == 'module':
+                # m = Module(s_expr)
+                pass
+            else:
+                # print('Unknown directive', s_expr[0])
+                pass
+
+        # TODO: check output for correct values:
+        print(output_file.getvalue())
+    except CompilerError as ex:
+        print('Exception:', ex)
+        lines = list(io.StringIO(source_text))
+        ex.render(lines)
+        raise
 
 
 def create_test_function(cls, filename):
     """ Create a test function for a single snippet """
     core_test_directory, snippet_filename = os.path.split(filename)
-    test_function_name = 'test_' + snippet_filename.replace('.', '_').replace('-', '_')
+    test_function_name = 'test_' + os.path.splitext(snippet_filename)[0].replace('.', '_').replace('-', '_')
 
     def test_function(self):
-        output_file = io.StringIO()
-        with open(filename, 'r') as f:
-            module = read_wat(f)
-
-        # TODO: check output for correct values:
-        print(output_file.getvalue())
+        perform_test(filename)
 
     if hasattr(cls, test_function_name):
         raise ValueError('Duplicate test case {}'.format(test_function_name))

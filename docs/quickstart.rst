@@ -41,6 +41,26 @@ Unpack the source archive and open a console in this directory.
 If ppci installed correcly, you will get a help message of the
 :ref:`ppci-build` commandline tool.
 
+Compile some code!
+------------------
+
+Now lets compile some code via the :ref:`high level api functions<api>`:
+
+.. doctest::
+
+    >>> import io
+    >>> from ppci.api import cc, get_arch
+    >>> source = "int add(int a, int b) { return a + b; }"
+    >>> f = io.StringIO(source)
+    >>> obj = cc(f, get_arch('arm'))
+    >>> obj
+    CodeObject of 44 bytes
+
+Let review what we have just done:
+
+- We defined a simple add function in C
+- We compiled this with the :ref:`cc` function to arm object code
+
 Example projects
 ----------------
 

@@ -346,16 +346,16 @@ class CLexer(HandLexerBase):
                     # self.emit('WS')
                     break
             else:
-                self.next_char()
+                self.next_char(eof=False)
         return self.lex_c
 
     def lex_string(self):
         """ Scan for a complete string """
-        c = self.next_char()
-        while c and c.char != '"':
+        c = self.next_char(eof=False)
+        while c.char != '"':
             if c.char == '\\':
                 self._handle_escape_character()
-            c = self.next_char()
+            c = self.next_char(eof=False)
         self.emit('STRING')
         return self.lex_c
 
@@ -365,7 +365,7 @@ class CLexer(HandLexerBase):
             self._handle_escape_character()
         else:
             # Normal char:
-            self.next_char()
+            self.next_char(eof=False)
 
         self.expect("'")
 

@@ -6,14 +6,18 @@ from contextlib import contextmanager
 from .nodes import types, declarations, expressions, statements
 
 
-def print_ast(ast):
+def render_ast(ast):
     """ Render a C program as text
 
     For example:
 
-    >>> from ppci.lang.c import parse, print_ast
-    >>> ast = parse('int a;')
+    >>> from ppci.lang.c import parse_text, print_ast, render_ast
+    >>> ast = parse_text('int a;')
     >>> print_ast(ast)
+    Compilation unit with 1 declarations
+        Variable [storage=None typ=Basic type int name=a]
+            Basic type int
+    >>> render_ast(ast)
     int a;
     """
     CPrinter().print(ast)
