@@ -10,6 +10,7 @@ Reference
     lang/index
     buildxml
     ir
+    irutils
     langtools
     debug
     architecture

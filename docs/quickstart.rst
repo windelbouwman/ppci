@@ -59,7 +59,7 @@ Now lets compile some code via the :ref:`high level api functions<api>`:
 Let review what we have just done:
 
 - We defined a simple add function in C
-- We compiled this with the :ref:`cc` function to arm object code
+- We compiled this with the :func:`ppci.api.cc` function to arm object code
 
 Example projects
 ----------------

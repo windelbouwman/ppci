@@ -15,3 +15,7 @@ Table of contents
     faq
     contributing
     changelog
+
+
+See also: :ref:`genindex`, :ref:`modindex`
+

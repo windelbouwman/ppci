@@ -889,9 +889,18 @@ def collect_instruction(t):
         if args:
             instructions.append(Instruction('end'))  # implicit end
     else:
+        # br_table special case for number of operands:
+        if opcode == 'br_table':
+            num_operands = 0
+            for x in args:
+                if isinstance(x, tuple):
+                    break
+                num_operands += 1
+        else:
+            num_operands = len(operands)
         # Normal instruction
         # Deal with nested instructions; these come first
-        args, nested_instructions = args[:len(operands)], args[len(operands):]
+        args, nested_instructions = args[:num_operands], args[num_operands:]
         assert all(isinstance(i, tuple) for i in nested_instructions)
         # todo: if we knew how much each instruction popped/pushed,
         # we can do more validation

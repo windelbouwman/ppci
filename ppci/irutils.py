@@ -4,6 +4,7 @@
 """
 import logging
 import re
+from collections import defaultdict
 from . import ir
 from .domtree import CfgInfo
 from .common import IrFormError
@@ -453,9 +454,15 @@ class Verifier:
         for block in function:
             assert block in reachable_blocks
 
+        # Determine predecessors from sucessors:
+        predecessor_map = defaultdict(set)
+        for block in function:
+            for block2 in block.successors:
+                predecessor_map[block2].add(block)
+
         # Verify predecessor and successor:
         for block in function:
-            preds = set(b for b in function if block in b.successors)
+            preds = predecessor_map[block]
             assert preds == set(block.predecessors)
 
         # Check that phi's have inputs for each predecessor:

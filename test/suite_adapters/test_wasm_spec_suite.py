@@ -38,9 +38,15 @@ def perform_test(filename):
         output_file = io.StringIO()
         s_expressions = parse_multiple_sexpr(source_text)
         for s_expr in s_expressions:
+            print(s_expr)
             if s_expr[0] == 'module':
-                # m = Module(s_expr)
-                pass
+                if 'binary' in s_expr:
+                    # We have (module binary "")
+                    # We can pass this to the binary reading
+                    pass
+                else:
+                    m = Module(s_expr)
+                    pass
             else:
                 # print('Unknown directive', s_expr[0])
                 pass

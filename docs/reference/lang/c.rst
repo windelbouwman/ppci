@@ -1,4 +1,6 @@
 
+.. currentmodule:: ppci.lang.c
+
 C compiler
 ==========
 
@@ -39,7 +41,7 @@ and macros.
 The top level design of the preprocessor is the following:
 
 - Context: Contains state that would be global otherwise.
-- Lexer: processes a raw file into a sequence of tokens
+- :class:`CLexer`: processes a raw file into a sequence of tokens
 - Preprocessor: takes the token sequence a does macro expansion,
   resulting in another stream of tokens.
 - Output: The token stream maybe outputted to file.
@@ -56,7 +58,8 @@ Code generation is done to ir-code.
 Parsing
 ~~~~~~~
 
-The C parsing is done by two classes CParser and CSemantics. CParser is
+The C parsing is done by two classes :class:`CParser` and :class:`CSemantics`.
+CParser is
 a recursive descent parser. It dances a tight dance with the CSemantics class.
 This idea is taken from the Clang project. The CParser takes a token sequence
 from the preprocessor and matches the C syntax. Whenever a valid C construct

@@ -622,7 +622,7 @@ class CodeGenerator:
             ir.Const(type_size, 'sizeof', self.get_ir_int()), loc=expr.loc)
 
     def gen_dereference(self, expr: ast.Deref):
-        """ dereference pointer type, which means *(expr) """
+        """ dereference pointer type, which means \\*(expr) """
         assert isinstance(expr, ast.Deref)
 
         # Make sure to have the rvalue of the pointer:
