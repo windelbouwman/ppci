@@ -2,6 +2,7 @@ import io
 import os
 import unittest
 
+from ppci.arch.arch_info import TypeInfo
 from ppci import api, ir
 from ppci.wasm import wasm_to_ir, ir_to_wasm, read_wasm
 from ppci.lang.python import python_to_wasm
@@ -64,7 +65,7 @@ class WasmCompilerTestCase(unittest.TestCase):
     def test_wasm_primes_demo(self):
         """ Convert the primes demo into an ir module """
         wasm_module = python_to_wasm(py_primes)
-        ir_mod = wasm_to_ir(wasm_module)
+        ir_mod = wasm_to_ir(wasm_module, TypeInfo(4, 4))
         self.assertIsInstance(ir_mod, ir.Module)
 
 

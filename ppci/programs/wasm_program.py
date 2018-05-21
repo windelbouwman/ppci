@@ -1,6 +1,7 @@
 
 from .base import IntermediateProgram
 
+from ..arch.arch_info import TypeInfo
 from ..wasm import wasm_to_ir
 
 
@@ -55,4 +56,6 @@ class WasmProgram(IntermediateProgram):
         """
 
         # todo: cannot pass the debugdb here
-        return self._new('ir', [wasm_to_ir(c) for c in self.items])
+        # TODO: It is lame to pass platform dependence information into ir-code.
+        ptr_info = TypeInfo(4, 4)
+        return self._new('ir', [wasm_to_ir(c, ptr_info) for c in self.items])
