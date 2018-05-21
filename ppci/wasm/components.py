@@ -36,7 +36,7 @@ import sys
 from collections import OrderedDict
 
 from .opcodes import OPERANDS, REVERZ, EVAL, OPCODES
-from .abbreviations import normalize_wasm_s_expression
+from .abbreviations import normalize_wasm_s_expression, flatten_instructions
 from .util import datastring2bytes, bytes2datastring
 from ..lang.sexpr import parse_sexpr
 from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
@@ -832,83 +832,17 @@ class BlockInstruction(Instruction):
 
 
 def collect_instructions(t):
-    """ Given a tuple of instructions, produce a flat list of
-    Instruction objects.
+    """ Given a tuple of instruction-tuples, produce a list of Instruction
+    objects.
     """
     instructions = []
-    while t:
-        opcode_or_tuple = t[0]
-        if isinstance(opcode_or_tuple, tuple):
-            # Recurse
-            instructions += collect_instruction(opcode_or_tuple)
-            t = t[1:]
-        elif opcode_or_tuple in ('block', 'loop', 'if'):
-            instructions += collect_instruction((opcode_or_tuple, ))
-            t = t[1:]
+    for i in flatten_instructions(t):
+        if i[0] in ('block', 'loop', 'if'):  # i = (opcode, id, result)
+            instr = BlockInstruction(i[0], i[2])
+            instr.id = i[1]
         else:
-            # Get info on this opcode
-            opcode = opcode_or_tuple
-            operands = OPERANDS[opcode]
-            split = len(operands) + 1
-            args = t[1:split]
-            t = t[split:]
-            instructions.append(Instruction(opcode, *args))
-    return instructions
-
-
-def collect_instruction(t):
-    """ Collect an instruction provided as a tuple. May return multiple
-    instructions if instructions are nested.
-    """
-    instructions = []
-    opcode = t[0]
-    operands = OPERANDS[opcode]
-    args = t[1:]
-    # Is this a block?
-    if opcode in ('block', 'loop', 'if'):
-        id = None
-        result = 'emptyblock'
-        # Get control id and return type (if present)
-        if args and args[-1] == 'emptyblock':
-            args = args[:-1]
-        if args:
-            if isinstance(args[0], str) and args[0].startswith('$'):
-                id, args = args[0], args[1:]
-            if isinstance(args[0], tuple) and args[0][0] == 'result':
-                result, args = args[0][1], args[1:]
-        # Constuct Instruction
-        if opcode == 'if' and len(args) > 0:
-            # If consumes one value from the stack, so if this if-instruction
-            # has nested instructions, the first is the test.
-            instructions += collect_instruction(args[0])
-            args = args[1:]
-        instr = BlockInstruction(opcode, result)
-        instr.id = id
+            instr = Instruction(*i)
         instructions.append(instr)
-        instructions += collect_instructions(args)
-        if args:
-            instructions.append(Instruction('end'))  # implicit end
-    else:
-        # br_table special case for number of operands:
-        if opcode == 'br_table':
-            num_operands = 0
-            for x in args:
-                if isinstance(x, tuple):
-                    break
-                num_operands += 1
-        else:
-            num_operands = len(operands)
-        # Normal instruction
-        # Deal with nested instructions; these come first
-        args, nested_instructions = args[:num_operands], args[num_operands:]
-        assert all(isinstance(i, tuple) for i in nested_instructions)
-        # todo: if we knew how much each instruction popped/pushed,
-        # we can do more validation
-        # assert len(args) == len(operands), ('Number of arguments does not '
-        #                                     'match operands for %s' % opcode)
-        for i in nested_instructions:  # unnest, but order is ok
-            instructions += collect_instruction(i)
-        instructions.append(Instruction(opcode, *args))
     return instructions
 
 
