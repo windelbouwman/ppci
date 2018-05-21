@@ -72,7 +72,6 @@ def test_table1():
     if True:
         printed_numbers = []
         def print_ln(x: int) -> None:
-            print(x)
             printed_numbers.append(x)
         imports = {
             'js': {

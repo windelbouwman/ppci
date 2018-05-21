@@ -118,8 +118,14 @@ def python_instantiate(module, imports, reporter):
                 getattr(instance._module, exported_name))
 
     memories = create_memories(module)
-    assert not memories, 'TODO: memories'
-    # TODO: Load memories.
+    if memories:
+        assert len(memories) == 1
+        memory = list(memories.values())[0]
+
+        mem0_start = instance._module.heap_top()
+        instance._module.heap.extend(memory)
+        mem0_ptr_ptr = instance._module.wasm_mem0_address
+        instance._module.store_i32(mem0_start, mem0_ptr_ptr)
 
     return instance
 

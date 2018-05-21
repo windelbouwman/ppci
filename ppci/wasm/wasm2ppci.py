@@ -235,11 +235,9 @@ class WasmToIrCompiler:
             assert self.ptr_info.size == self.ptr_info.alignment
             ptr_size = self.emit(ir.Const(self.ptr_info.size, 'ptr_size', ir.ptr))
             address = table_variable  # Start at the bottom of the variable table
-            print(len(functions))
             for func in functions:
                 # Lookup function
                 value = self.function_names[func][0]
-                print(value)
                 self.emit(ir.Store(value, address))
                 address = self.emit(ir.add(address, ptr_size, 'table_address', ir.ptr))
 
@@ -381,7 +379,6 @@ class WasmToIrCompiler:
         'i64.extend_u/i32',
         'f64.convert_s/i32',
         'f64.convert_u/i32',
-        'f64.reinterpret/i64',  # TODO: this is not a cast?
     }
 
     CMPOPS = {
@@ -495,20 +492,38 @@ class WasmToIrCompiler:
             # todo: hack; we assume this is the only test in an if
 
         elif inst in STORE_OPS:
-            itype = inst.split('.')[0]
+            itype, store_op = inst.split('.')
             ir_typ = self.get_ir_type(itype)
             # ACHTUNG: alignment and offset are swapped in text:
             _, offset = instruction.args
             value = self.pop_value()
             address = self.get_memory_address(offset)
-            self.emit(ir.Store(value, address))
+            if store_op == 'store':
+                self.emit(ir.Store(value, address))
+            else:
+                store_ir_typ = {
+                    'store8': ir.i8, 'store16': ir.i16, 'store32': ir.i32,
+                }[store_op]
+                value = self.emit(
+                    ir.Cast(value, 'casted_value', store_ir_typ))
+                self.emit(ir.Store(value, address))
 
         elif inst in LOAD_OPS:
-            itype = inst.split('.')[0]
+            itype, load_op = inst.split('.')
             ir_typ = self.get_ir_type(itype)
             _, offset = instruction.args
             address = self.get_memory_address(offset)
-            value = self.emit(ir.Load(address, 'load', ir_typ))
+            if load_op == 'load':
+                value = self.emit(ir.Load(address, 'load', ir_typ))
+            else:
+                # Load different data-type and cast:
+                load_ir_typ = {
+                    'load8_u': ir.u8, 'load8_s': ir.i8,
+                    'load16_u': ir.u16, 'load16_s': ir.i16,
+                    'load32_u': ir.u32, 'load32_s': ir.i32,
+                }[load_op]
+                value = self.emit(ir.Load(address, 'load', load_ir_typ))
+                value = self.emit(ir.Cast(value, 'casted_load', ir_typ))
             self.stack.append(value)
 
         elif inst in self.CASTOPS:
@@ -522,6 +537,9 @@ class WasmToIrCompiler:
 
         elif inst == 'i32.rem_u':
             self._runtime_call(inst, [ir.i32, ir.i32], ir.i32)
+
+        elif inst == 'f64.reinterpret/i64':
+            self._runtime_call(inst, [ir.i64], ir.f64)
 
         elif inst in ['i32.clz', 'i32.ctz', 'grow_memory']:
             self._runtime_call(inst, [ir.i32], ir.i32)
