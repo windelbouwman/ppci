@@ -12,32 +12,30 @@ def dedent(code):
 def test_module1():
 
     instructions1 = [
-        ('loop'),
+        ('loop', None, 'emptyblock'),
             # print iter
             ('get_local', 0), ('call', '$print'),
             # Increase iter
-            ('f64.const', 1), ('get_local', 0), ('f64.add'),
+            ('f64.const', 1), ('get_local', 0), ('f64.add', ),
             ('tee_local', 0), ('f64.const', 10),
-            ('f64.lt'), ('br_if', 0),
-        ('end'),
+            ('f64.lt', ), ('br_if', 0),
+        ('end', ),
         ]
-
-    Instr = wasm.Instruction
-
+    
     instructions2 = [
-        Instr('loop', 'emptyblock'),
+        ('loop', 'emptyblock'),
             # write iter
-            Instr('get_local', 0),
-            Instr('call', '$print'),
+            ('get_local', 0),
+            ('call', '$print'),
             # Increase iter
-            Instr('f64.const', 1),
-            Instr('get_local', 0),
-            Instr('f64.add'),
-            Instr('tee_local', 0),
-            Instr('f64.const', 10),
-            Instr('f64.lt'),
-            Instr('br_if', 0),
-        Instr('end'),
+            ('f64.const', 1),
+            ('get_local', 0),
+            ('f64.add', ),
+            ('tee_local', 0),
+            ('f64.const', 10),
+            ('f64.lt', ),
+            ('br_if', 0),
+        ('end', ),
         ]
 
     CODE0 = dedent("""

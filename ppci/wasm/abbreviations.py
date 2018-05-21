@@ -28,67 +28,96 @@ def normalize_wasm_s_expression(t, SECTION_IDS):
     """ Normalize a given WASM S-expression (in the form of a tuple structure),
     so that it is in a predictable shape.
     """
-
-    # How many (toplevel) elements we have of each of these, for assigning indices
-    # Note that the index that we assign with this does not match the actual
-    # index in binary wasm, because imports also contribute (and offet the indices
-    # of the actual funcs/memories/globals).
-    counts = {'type': 0, 'func': 0, 'table': 0, 'memory': 0, 'global': 0}
-
-    # Basic validation and convert to list so that funcs can work in-place
-    assert isinstance(t, tuple)
-    t = list(t)
-
-    # Allow having implicit first "module" element
-    if t and t[0] == 'module':
-        t.pop(0)
-
-    initial_checkup(t, counts, SECTION_IDS)
-    resolve_type(t, counts)
-    resolve_inline_imports(t, counts)
-    resolve_inline_exports(t, counts)
-    resolve_table(t, counts)
-    resolve_memory(t, counts)
-
-    # Sort the toplevel fields (we may have added fields)
-    t.sort(key=lambda x: (isinstance(x, tuple), SECTION_IDS.get(x[0], 99)))
-
-    t.insert(0, 'module')
-    return tuple(t)
+    resolver = AbbreviationResolver(t, SECTION_IDS)
+    return resolver.resolve()
 
 
-def initial_checkup(t, counts, SECTION_IDS):
-
-    # - Do basic validation of the tuple structure
-    # - Init counts dict
-    # - Ensure that all func, table, memory, global expressions have an id
-
-    for i in range(len(t)):
-        expr = t[i]
+class AbbreviationResolver:
+    
+    def __init__(self, t, section_ids):
+        
+        # Check t
+        assert isinstance(t, tuple)
+        t = list(t)
+        if t and t[0] == 'module':  # Allow having implicit first "module" element
+            t.pop(0)
+        
+        self._t = t
+        self._t_extra = []
+        self._section_ids = section_ids
+        
+        # How many (toplevel) elements we have of each of these, for assigning indices
+        # Note that the index that we assign with this does not match the actual
+        # index in binary wasm, because imports also contribute (and offet the indices
+        # of the actual funcs/memories/globals).
+        self._counts =  {'type': 0, 'func': 0, 'table': 0, 'memory': 0, 'global': 0}
+        
+        self.initial_checkup()
+    
+    def add_root_expression(self, expr):
         assert isinstance(expr, tuple)
         defname = expr[0]
-        assert isinstance(defname, str) and defname in SECTION_IDS
-        if defname in counts:
-            id = '$' + str(counts[defname])
-            counts[defname] += 1
-            # Ensure id
-            expr = list(expr)
-            if isinstance(expr[1], str) and expr[1] not in ('anyfunc', ):
-                assert expr[1].startswith('$'), 'named variables must start with $'
-            elif not isinstance(expr[1], int):
-                expr.insert(1, id)
-            t[i] = tuple(expr)
-
-
-def resolve_type(t, counts):
-
-    # - Move function signatures inside imports to toplevel
-    # - Move function signatures inside funcs to toplevel
-
-    for i in range(len(t)):
-        expr, defname = t[i], t[i][0]
-
-        if defname == 'import':
+        if defname in self._counts:
+            self._counts[defname] += 1
+        self._t_extra.append(expr)
+    
+    def get_implicit_id(self, defname):
+        return '$' + str(self._counts[defname])
+    
+    def initial_checkup(self):
+        
+        # - Do basic validation of the tuple structure
+        # - Init counts dict
+        # - Ensure that all func, table, memory, global expressions have an id
+        
+        t = self._t
+        
+        for i in range(len(t)):
+            expr = t[i]
+            assert isinstance(expr, tuple)
+            defname = expr[0]
+            assert isinstance(defname, str) and defname in self._section_ids
+            if defname in self._counts:
+                id = self.get_implicit_id(defname)
+                self._counts[defname] += 1
+                # Ensure id
+                expr = list(expr)
+                if isinstance(expr[1], str) and expr[1] not in ('anyfunc', ):
+                    assert expr[1].startswith('$'), 'named variables must start with $'
+                elif not isinstance(expr[1], int):
+                    expr.insert(1, id)
+                t[i] = tuple(expr)
+    
+    def resolve(self):
+        
+        for resolver in (self.resolve_type,
+                         self.resolve_inline_imports,
+                         self.resolve_inline_exports,
+                         self.resolve_table,
+                         self.resolve_memory,
+                         self.resolve_instructions,
+                         ):
+            
+            for i in range(len(self._t)):
+                expr = self._t[i]
+                new_expr = resolver(expr)
+                if new_expr is not None and new_expr is not expr:
+                    assert isinstance(new_expr, tuple)
+                    self._t[i] = new_expr
+        
+        t = self._t + self._t_extra
+        t.sort(key=lambda x: (isinstance(x, tuple), self._section_ids.get(x[0], 99)))
+        t.insert(0, 'module')
+        return tuple(t)
+    
+    ##
+    
+    def resolve_type(self, expr):
+    
+        # - Move function signatures inside imports to toplevel
+        # - Move function signatures inside funcs to toplevel
+        
+        if expr[0] == 'import':
             if expr[3][0] == 'func' and not (isinstance(expr[3][-1], tuple) and
                                                 expr[3][-1][0] == 'type'):
                 # (import "foo" "bar" (func [$id] ..))
@@ -100,63 +129,58 @@ def resolve_type(t, counts):
                 if isinstance(expr[3][1], str):  # had id
                     id = expr[3][1]
                 else:
-                    id = '$' + str(counts['type'])
+                    id = self.get_implicit_id('type')
                 expr[3] = ('func', id, ('type', id))  # we use the same id, but ns is different
                 sig_expr.insert(1, id)
-                counts['type'] += 1
                 # Update
-                t.append(tuple(sig_expr))
-                t[i] = tuple(expr)
+                self.add_root_expression(tuple(sig_expr))
+                return tuple(expr)
 
-        elif defname == 'func':
-            new_expr = []
+        elif expr[0] == 'func':
+            new_expr = list(expr[:2])
             type_expr = []
-            for subexpr in expr:
+            for i in range(2, len(expr)):
+                subexpr = expr[i]
                 if isinstance(subexpr, tuple):
                     if subexpr[0] in ('param', 'result'):
                         type_expr.append(subexpr)
                         continue
-                    elif subexpr[0] == 'type':
-                        type_expr = None  # we dont expect param or result
-                new_expr.append(subexpr)
+                    elif subexpr[0] in ('local', 'type', 'import', 'export'):
+                        if subexpr[0] == 'type':
+                            type_expr = None  # we dont expect param or result
+                        new_expr.append(subexpr)
+                        continue
+                new_expr.extend(expr[i:])
+                break
             # Update, maybe add new toplevel type expression
             if type_expr is not None:
-                id = '$' + str(counts['type'])
-                t.append(('type', id, tuple(['func'] + type_expr)))
+                id = self.get_implicit_id('type')
+                self.add_root_expression(('type', id, tuple(['func'] + type_expr)))
                 new_expr.insert(2, ('type', id))
-                counts['type'] += 1
-            t[i] = tuple(new_expr)
+            return tuple(new_expr)
 
+    def resolve_inline_imports(self, expr):
+        
+        # Resolve abbreviated imports of memory, function, gobal, table.
+        # These expressions are written as func/table/memory/global, but
+        # are really an import; the expression is modified.
 
-def resolve_inline_imports(t, counts):
-
-    # Resolve abbreviated imports of memory, function, gobal, table.
-    # These expressions are written as func/table/memory/global, but
-    # are really an import; the expression is modified.
-
-    for i in range(len(t)):
-        expr, defname = t[i], t[i][0]
-
-        if defname in ('func', 'table', 'memory', 'global'):
+        if expr[0] in ('func', 'table', 'memory', 'global'):
             expr = list(expr)
             if len(expr) > 2 and \
                     isinstance(expr[2], tuple) and \
                     expr[2][0] == 'import':
                 new_expr = list(expr.pop(2))
                 new_expr.append(tuple(expr))
-                t[i] = tuple(new_expr)
-
-
-def resolve_inline_exports(t, counts):
-
-    # Resolve abbreviated exports of memory, function, gobal, table.
-    # These expressions are written as func/table/memory/global, and
-    # are marked as exported; export expressions are added.
-
-    for i in range(len(t)):
-        expr, defname = t[i], t[i][0]
-
-        if defname in ('func', 'table', 'memory', 'global'):
+                return tuple(new_expr)
+    
+    def resolve_inline_exports(self, expr):
+        
+        # Resolve abbreviated exports of memory, function, gobal, table.
+        # These expressions are written as func/table/memory/global, and
+        # are marked as exported; export expressions are added.
+        
+        if expr[0] in ('func', 'table', 'memory', 'global'):
             expr = list(expr)
             to_pop = []
             for j in range(2, len(expr)):
@@ -168,25 +192,21 @@ def resolve_inline_exports(t, counts):
                 elif subexpr[0] == 'export':
                     new_expr = list(expr[j])
                     new_expr.append(tuple(expr[:2]))  # kind and id
-                    t.append(tuple(new_expr))
+                    self.add_root_expression(tuple(new_expr))
                     to_pop.append(j)
                 else:
-                    break
+                    break  # We wont iterate over all instructions of a func
             # If we found any export expressions, simplify this definition
             if to_pop:
                 for j in reversed(to_pop):
                     expr.pop(j)
-                t[i] = tuple(expr)
+                return tuple(expr)
 
+    def resolve_table(self, expr):
+        
+        # - Resolve inline elements
 
-def resolve_table(t, counts):
-
-    # - Resolve inline elements
-
-    for i in range(len(t)):
-        expr, defname = t[i], t[i][0]
-
-        if defname == 'table':
+        if expr[0] == 'table':
             expr = list(expr)
 
             # Inline data
@@ -203,19 +223,14 @@ def resolve_table(t, counts):
                         break
             # Update
             if elem_expr:
-                t[i] = tuple(expr)
-                t.append(tuple(elem_expr))
-                continue
+                self.add_root_expression(tuple(elem_expr))
+                return tuple(expr)
 
+    def resolve_memory(self, expr):
+    
+        # - Resolve inline data
 
-def resolve_memory(t, counts):
-
-    # - Resolve inline data
-
-    for i in range(len(t)):
-        expr, defname = t[i], t[i][0]
-
-        if defname == 'memory':
+        if expr[0] == 'memory':
             expr = list(expr)
 
             # Inline data
@@ -233,9 +248,32 @@ def resolve_memory(t, counts):
                         break
             # Update
             if data_expr:
-                t[i] = tuple(expr)
-                t.append(tuple(data_expr))
-                continue
+                self.add_root_expression(tuple(data_expr))
+                return tuple(expr)
+
+    def resolve_instructions(self, expr):
+        
+        # - Flatten instructions
+        # - Move function signatures inside call_indirect to toplevel
+        
+        if expr[0] == 'func':
+            # Get instructions
+            new_expr = list(expr[:2])
+            instructions = []
+            for i in range(2, len(expr)):
+                subexpr = expr[i]
+                if isinstance(subexpr, tuple):
+                    if subexpr[0] in ('param', 'local', 'result', 'type',
+                                      'import', 'export'):
+                        new_expr.append(subexpr)
+                        continue
+                instructions = expr[i:]
+                break
+            
+            # Flatten
+            instructions = flatten_instructions(instructions)
+            
+            return tuple(new_expr + instructions)
 
 
 def flatten_instructions(t):
@@ -280,16 +318,20 @@ def flatten_instruction(t):
         if args and args[-1] == 'emptyblock':
             args = args[:-1]
         if args:
-            if isinstance(args[0], str) and args[0].startswith('$'):
+            if args[0] is None:
                 id, args = args[0], args[1:]
-            if isinstance(args[0], tuple) and args[0][0] == 'result':
-                result, args = args[0][1], args[1:]
+            elif isinstance(args[0], str) and args[0].startswith('$'):
+                id, args = args[0], args[1:]
+        if args and isinstance(args[0], tuple) and args[0][0] == 'result':
+            result, args = args[0][1], args[1:]
         # Constuct Instruction
         if opcode == 'if' and len(args) > 0:
             # If consumes one value from the stack, so if this if-instruction
             # has nested instructions, the first is the test.
             instructions += flatten_instruction(args[0])
             args = args[1:]
+            if args and args[0][0] == 'then':
+                args = args[0][1:] + args[1:]
         instructions.append((opcode, id, result))  # block instruction
         instructions += flatten_instructions(args)
         if args:

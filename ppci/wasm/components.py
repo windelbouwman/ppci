@@ -36,7 +36,7 @@ import sys
 from collections import OrderedDict
 
 from .opcodes import OPERANDS, REVERZ, EVAL, OPCODES
-from .abbreviations import normalize_wasm_s_expression, flatten_instructions
+from .abbreviations import normalize_wasm_s_expression
 from .util import datastring2bytes, bytes2datastring
 from ..lang.sexpr import parse_sexpr
 from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
@@ -824,26 +824,22 @@ class BlockInstruction(Instruction):
 
     __slots__ = ('id', )  # id can be None
 
+    def _from_args(self, opcode, *args):
+        id = None
+        if len(args) == 2:
+            id, *args = args
+        self.id = id
+        return super()._from_args(opcode, *args)
+    
+    def _from_reader(self, reader):
+        self.id = None
+        return super()._from_reader(reader)
+    
     def to_string(self):
         idtext = '' if self.id is None else ' ' + self.id
         a0 = self.args[0]
         subtext = '' if a0 is 'emptyblock' else ' ' + str(a0)
         return '(' + self.opcode + idtext + subtext + ')'
-
-
-def collect_instructions(t):
-    """ Given a tuple of instruction-tuples, produce a list of Instruction
-    objects.
-    """
-    instructions = []
-    for i in flatten_instructions(t):
-        if i[0] in ('block', 'loop', 'if'):  # i = (opcode, id, result)
-            instr = BlockInstruction(i[0], i[2])
-            instr.id = i[1]
-        else:
-            instr = Instruction(*i)
-        instructions.append(instr)
-    return instructions
 
 
 ## Definition classes
@@ -1418,7 +1414,10 @@ class Func(Definition):
         if instructions and isinstance(instructions[0], Instruction):
             self.instructions = instructions  # assume all are instructions
         else:
-            self.instructions = collect_instructions(instructions)
+            blocktypes = ('block', 'loop', 'if')
+            self.instructions = [
+                (BlockInstruction if i[0] in blocktypes else Instruction)(*i)
+                for i in instructions]
 
     def _from_tuple(self, t):
         assert t[0] == 'func'
