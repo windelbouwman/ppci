@@ -54,8 +54,8 @@ instruction_table = [
     ('i64.store', 0x37, ('u32', 'u32')),
     ('f32.store', 0x38, ('u32', 'u32')),
     ('f64.store', 0x39, ('u32', 'u32')),
-    ('current_memory', 0x3f, ('byte',)),
-    ('grow_memory', 0x40, ('byte',)),
+    ('memory.size', 0x3f, ('byte',)),
+    ('memory.grow', 0x40, ('byte',)),
 
     ('i32.const', 0x41, ('i32',), (), ('i32',), lambda i, v: (i.args[0],)),
     ('i64.const', 0x42, ('i64',), (), ('i64',)),
