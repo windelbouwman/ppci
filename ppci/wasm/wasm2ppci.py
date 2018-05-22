@@ -489,10 +489,10 @@ class WasmToIrCompiler:
         elif inst == 'i32.rem_u':
             self._runtime_call(inst, [ir.i32, ir.i32], ir.i32)
 
-        elif inst in ['i32.clz', 'i32.ctz', 'grow_memory']:
+        elif inst in ['i32.clz', 'i32.ctz', 'memory.grow']:
             self._runtime_call(inst, [ir.i32], ir.i32)
 
-        elif inst in ['current_memory']:
+        elif inst in ['memory.size']:
             self._runtime_call(inst, [], ir.i32)
 
         elif inst in {'f64.const', 'f32.const', 'i64.const', 'i32.const'}:
