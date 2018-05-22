@@ -400,7 +400,7 @@ class GdbDebugDriver(DebugDriver):
         self._send_message(command)
         return self._recv_message()
 
-    def _recv_message(self, timeout=1):
+    def _recv_message(self, timeout=3):
         """ Block until a packet is received """
         return self._msg_queue.get(timeout=timeout)
 

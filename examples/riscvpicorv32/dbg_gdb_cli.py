@@ -12,7 +12,7 @@ from ppci.binutils.dbg.gdb.transport import TCP
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.WARNING,format='%(asctime)s (%(threadName)-2s) %(message)s')
     arch = get_arch("riscv")
     transport = TCP(4567)
     time.sleep(1)
@@ -25,6 +25,6 @@ if __name__ == "__main__":
     time.sleep(3)
     debugger.load_symbols(obj, validate=False)
     try:
-        DebugCli(debugger, showsource=True).cmdloop()
-    finally:
-        transport.disconnect()
+        DebugCli(debugger,showsource=True).cmdloop()
+    finally:        
+        debug_driver.disconnect()
