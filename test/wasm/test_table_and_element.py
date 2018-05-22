@@ -67,7 +67,17 @@ def test_table1():
     assert Module(b0).to_bytes() == b0
 
     if is_platform_supported():
-        pass
+        printed_numbers = []
+        def print_ln(x: int) -> None:
+            printed_numbers.append(x)
+        imports = {
+            'js': {
+                'print_ln': print_ln,
+            },
+            '_runtime': create_runtime(),
+        }
+        instantiate(m0, imports, target='native')
+        assert [101, 102] == printed_numbers
 
     if True:
         printed_numbers = []

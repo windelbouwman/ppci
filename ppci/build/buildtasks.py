@@ -154,9 +154,18 @@ class WasmCompileTask(OutputtingTask):
         arch = self.get_argument('arch')
         source = self.open_file_set(self.arguments['source'])
         opt = int(self.get_argument('optimize', default='0'))
+
+        if 'report' in self.arguments:
+            report_file = self.relpath(self.arguments['report'])
+            reporter = HtmlReportGenerator(open(report_file, 'w'))
+        else:
+            reporter = DummyReportGenerator()
+
         self.logger.debug('loading %s', source[0])
-        with open(source[0], 'rb') as f:
-            obj = api.wasmcompile(f, arch, opt_level=opt)
+        with reporter:
+            with open(source[0], 'rb') as f:
+                obj = api.wasmcompile(
+                    f, arch, opt_level=opt, reporter=reporter)
         self.store_object(obj)
 
 

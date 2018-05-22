@@ -9,7 +9,8 @@ def get_register(n):
     return num2regmap[n]
 
 
-class X86Register(Register):
+class Register64(Register):
+    """ 64-bit register like 'rax' """
     bitsize = 64
 
     def __repr__(self):
@@ -27,15 +28,32 @@ class X86Register(Register):
         return self.num & 0x7
 
 
+X86Register = Register64
+
+
 class Register32(Register):
+    """ 32-bit register like 'eax' """
     bitsize = 32
 
+    @property
+    def rexbit(self):
+        return (self.num >> 3) & 0x1
 
-class ShortRegister(Register):
+    @property
+    def regbits(self):
+        return self.num & 0x7
+
+
+class Register16(Register):
+    """ 16-bit register like 'ax' """
     bitsize = 16
 
 
+ShortRegister = Register16
+
+
 class LowRegister(Register):
+    """ 8-bit register like 'al' """
     bitsize = 8
 
     def __repr__(self):
@@ -51,6 +69,9 @@ class LowRegister(Register):
     @property
     def regbits(self):
         return self.num & 0x7
+
+
+Register8 = LowRegister
 
 
 class X87StackRegister(Register):
@@ -73,22 +94,22 @@ class XmmRegister(Register):
 # rexbit = {'rax': 0, 'rcx':0, 'rdx':0, 'rbx': 0, 'rsp': 0, 'rbp': 0, 'rsi':0,
 # 'rdi':0,'r8':1,'r9':1,'r10':1,'r11':1,'r12':1,'r13':1,'r14':1,'r15':1}
 
-al = LowRegister('al', 0)
-cl = LowRegister('cl', 1)
-dl = LowRegister('dl', 2)
-bl = LowRegister('bl', 3)
-ah = LowRegister('ah', 4)
-ch = LowRegister('ch', 5)
-dh = LowRegister('dh', 6)
-bh = LowRegister('bh', 7)
+al = Register8('al', 0)
+cl = Register8('cl', 1)
+dl = Register8('dl', 2)
+bl = Register8('bl', 3)
+ah = Register8('ah', 4)
+ch = Register8('ch', 5)
+dh = Register8('dh', 6)
+bh = Register8('bh', 7)
 
-LowRegister.registers = [al, bl, cl, dl, ah, ch, dh, bh]
+Register8.registers = [al, bl, cl, dl, ah, ch, dh, bh]
 
-ax = ShortRegister('ax', 0, aliases=(al, ah))
-cx = ShortRegister('cx', 1, aliases=(cl, ch))
-dx = ShortRegister('dx', 2, aliases=(dl, dh))
-bx = ShortRegister('bx', 3, aliases=(bl, bh))
-ShortRegister.registers = (ax, bx, cx, dx)
+ax = Register16('ax', 0, aliases=(al, ah))
+cx = Register16('cx', 1, aliases=(cl, ch))
+dx = Register16('dx', 2, aliases=(dl, dh))
+bx = Register16('bx', 3, aliases=(bl, bh))
+Register16.registers = (ax, bx, cx, dx)
 
 eax = Register32('eax', 0, aliases=(ax,))
 ecx = Register32('ecx', 1, aliases=(cx,))
@@ -195,14 +216,15 @@ register_classes = [
     RegisterClass(
         'reg64',
         [ir.i64, ir.u64, ir.ptr],
-        X86Register,
+        Register64,
         [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
     RegisterClass(
-        'reg32', [ir.i32, ir.u32], Register32, [eax, ebx, ecx, edx]),
+        'reg32', [ir.i32, ir.u32], Register32,
+        [eax, ebx, ecx, edx, esi, edi]),
     RegisterClass(
-        'reg16', [ir.i16, ir.u16], ShortRegister, [ax, bx, cx, dx]),
+        'reg16', [ir.i16, ir.u16], Register16, [ax, bx, cx, dx]),
     RegisterClass(
-        'reg8', [ir.i8, ir.u8], LowRegister, [al, bl, cl, dl]),
+        'reg8', [ir.i8, ir.u8], Register8, [al, bl, cl, dl]),
     RegisterClass(
         'regfp', [ir.f32, ir.f64], XmmRegister,
         XmmRegister.registers),

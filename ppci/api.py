@@ -332,16 +332,21 @@ def cc(source: io.TextIOBase, march, coptions=None, opt_level=0,
     return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
 
 
-def wasmcompile(source: io.TextIOBase, march, opt_level=2):
+def wasmcompile(source: io.TextIOBase, march, opt_level=2, reporter=None):
     """ Webassembly compile """
     march = get_arch(march)
+
+    if not reporter:  # pragma: no cover
+        reporter = DummyReportGenerator()
+
     wasm_module = read_wasm(source)
-    ir_module = wasm_to_ir(wasm_module, march.info.get_type_info('ptr'))
+    ir_module = wasm_to_ir(
+        wasm_module, march.info.get_type_info('ptr'), reporter=reporter)
 
     # Optimize:
     optimize(ir_module, level=opt_level)
 
-    obj = ir_to_object([ir_module], march)
+    obj = ir_to_object([ir_module], march, reporter=reporter)
     return obj
 
 

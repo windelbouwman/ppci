@@ -30,9 +30,9 @@ from ..registers import Register
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
 from ..data_instructions import Db
-from .instructions import MovRegRm, RmReg, MovRegRm8, RmReg8, RmMemDisp, isa
+from .instructions import bits64, RmReg, MovRegRm8, RmReg8, RmMemDisp, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
-from .instructions import Call, Ret, MovRegRm16, RmReg16
+from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
 from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
 from .sse2_instructions import PushXmm, PopXmm
@@ -113,24 +113,30 @@ class X86_64Arch(Architecture):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        if isinstance(dst, LowRegister) and isinstance(src, LowRegister):
+        if isinstance(dst, registers.Register8) and \
+                isinstance(src, registers.Register8):
             return MovRegRm8(dst, RmReg8(src), ismove=True)
-        elif isinstance(dst, registers.ShortRegister) and \
-                isinstance(src, registers.ShortRegister):
-            return MovRegRm16(dst, RmReg16(src), ismove=True)
-        elif isinstance(dst, registers.X86Register) and \
-                isinstance(src, registers.ShortRegister):
+        elif isinstance(dst, registers.Register16) and \
+                isinstance(src, registers.Register16):
+            return bits16.MovRegRm(dst, RmReg16(src), ismove=True)
+        elif isinstance(dst, registers.Register32) and \
+                isinstance(src, registers.Register32):
+            return bits32.MovRegRm(dst, RmReg32(src), ismove=True)
+        elif isinstance(dst, registers.Register64) and \
+                isinstance(src, registers.Register16):
             return instructions.MovsxRegRm16(dst, RmReg16(src), ismove=True)
-        elif isinstance(dst, registers.ShortRegister) and \
-                isinstance(src, registers.X86Register):
+        elif isinstance(dst, registers.Register16) and \
+                isinstance(src, registers.Register64):
             # return instructions.MovsxRegRm16(dst, RmReg16(src), ismove=True)
             raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, LowRegister) and isinstance(src, X86Register):
             raise NotImplementedError()  # pragma: no cover
-        elif isinstance(dst, X86Register) and isinstance(src, LowRegister):
+        elif isinstance(dst, X86Register) and \
+                isinstance(src, registers.Register8):
             raise NotImplementedError()  # pragma: no cover
-        elif isinstance(dst, X86Register) and isinstance(src, X86Register):
-            return MovRegRm(dst, RmReg(src), ismove=True)
+        elif isinstance(dst, registers.Register64) and \
+                isinstance(src, registers.Register64):
+            return bits64.MovRegRm(dst, RmReg(src), ismove=True)
         elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
             return Movss(dst, RmXmmReg(src), ismove=True)
         else:  # pragma: no cover
@@ -254,10 +260,10 @@ class X86_64Arch(Architecture):
 
     def determine_rv_location(self, ret_type):
         """ return value in rax or xmm0 """
-        if ret_type in [
-                ir.i8, ir.i16, ir.i64, ir.u8, ir.u16, ir.u64,
-                ir.i32, ir.u32, ir.ptr]:
-            rv = rax
+        if ret_type in [ir.i8, ir.i16, ir.i64, ir.u8, ir.u16, ir.u64, ir.ptr]:
+            rv = registers.rax
+        elif ret_type in [ir.i32, ir.u32]:
+            rv = registers.eax
         elif ret_type in [ir.f32, ir.f64]:
             rv = registers.xmm0
         else:  # pragma: no cover
@@ -288,13 +294,19 @@ class X86_64Arch(Architecture):
                     yield self.move(rax, arg_loc)
                     yield RegisterUseDef(uses=(rax,), defs=(registers.ax,))
                     yield self.move(arg, registers.ax)
+                elif isinstance(arg, registers.Register32):
+                    # Extract character part:
+                    yield self.move(rax, arg_loc)
+                    yield RegisterUseDef(uses=(rax,), defs=(registers.eax,))
+                    yield self.move(arg, registers.eax)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(type(arg)))
             elif isinstance(arg_loc, XmmRegister):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, registers.X86Register):
-                    yield MovRegRm(arg, RmMemDisp(rbp, stack_offset + 16))
+                    yield bits64.MovRegRm(
+                        arg, RmMemDisp(rbp, stack_offset + 16))
                     stack_offset += 8
                 elif isinstance(arg, StackLocation):
                     # Store memcpy action for later:
@@ -328,18 +340,24 @@ class X86_64Arch(Architecture):
         # Setup parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, X86Register):
-                if isinstance(arg, X86Register):
+            if isinstance(arg_loc, registers.Register64):
+                if isinstance(arg, registers.Register64):
                     yield self.move(arg_loc, arg)
-                elif isinstance(arg, LowRegister):
+                elif isinstance(arg, registers.Register8):
                     # Upcast to char!
                     yield self.move(al, arg)
                     yield MovsxRegRm(rax, RmReg8(al))
                     yield self.move(arg_loc, rax)
-                elif isinstance(arg, registers.ShortRegister):
+                elif isinstance(arg, registers.Register16):
                     # Upcast char!
                     yield self.move(registers.ax, arg)
                     yield instructions.MovsxRegRm16(rax, RmReg16(registers.ax))
+                    yield self.move(arg_loc, rax)
+                elif isinstance(arg, registers.Register32):
+                    # Upcast char!
+                    yield self.move(registers.eax, arg)
+                    # TODO: do we need sign extension?
+                    # yield instructions.MovsxRegRm16(rax, RmReg16(registers.ax))
                     yield self.move(arg_loc, rax)
                 else:  # pragma: no cover
                     raise NotImplementedError()
@@ -395,7 +413,7 @@ class X86_64Arch(Architecture):
         yield self.push(rbp)
 
         # Setup frame pointer:
-        yield MovRegRm(rbp, RmReg(rsp))
+        yield bits64.MovRegRm(rbp, RmReg(rsp))
 
         # Callee save registers:
         saved_registers = [reg for reg in callee_save if frame.is_used(reg)]

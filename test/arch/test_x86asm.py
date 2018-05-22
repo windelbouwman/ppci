@@ -109,6 +109,10 @@ class AssemblerTestCase(AsmTestCaseBase):
         self.feed('mov ax, 0x2211')
         self.check('66b81122')
 
+    def test_mov_imm32(self):
+        self.feed('mov ecx, 0x21')
+        self.check('40b9 2100 0000')
+
     def test_mov8(self):
         self.feed('mov dl, al')
         self.check('4888c2')
@@ -237,6 +241,14 @@ class AssemblerTestCase(AsmTestCaseBase):
         # nasm generates this machine code: 0x4d, 0x6b, 0xff, 0xee
         # This also works: 4D0FAFFE (another variant?? )
         # assert(assembler.imulreg64('r15', 'r14') == [0x4d, 0x0f, 0xaf, 0xfe])
+
+    def test_imul32(self):
+        # assert(assembler.imulreg64_rax('rdi') == [0x48, 0xf7, 0xef])
+        # assert(assembler.imulreg64_rax('r10') == [0x49, 0xf7, 0xea])
+        # assert(assembler.imulreg64_rax('rdx') == [0x48, 0xf7, 0xea])
+
+        self.feed('imul ebx, edx')
+        self.check('400fafda ')
 
     def test_shl(self):
         self.feed('shl ah, cl')
