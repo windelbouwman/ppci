@@ -513,7 +513,12 @@ class Module(WASMComponent):
                     xx = 2
                 assert d.id not in id_map, t % (d.id, id_space)
                 id_map[d.id] = len(id_map)
-
+        
+        # Add unit map
+        for id_map in id_maps.values():
+            for i in list(id_map.values()):
+                id_map[i] = i
+        
         # Iterate over (possible) sections
         for section_name, section_id in SECTION_IDS.items():
             if section_name == 'code':

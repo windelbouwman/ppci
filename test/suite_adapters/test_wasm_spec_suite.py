@@ -48,8 +48,11 @@ def perform_test(filename):
                     # We can pass this to the binary reading
                     pass
                 else:
-                    m = Module(s_expr)
-                    pass
+                    m1 = Module(s_expr)
+                    # todo: next step:
+                    # m2 = Module(m1.to_string())
+                    # assert m1.to_bytes() == m2.to_bytes()
+                    
             else:
                 # print('Unknown directive', s_expr[0])
                 pass
