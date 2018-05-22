@@ -72,6 +72,8 @@ class AbbreviationResolver:
         
         t = self._t
         
+        string_but_not_id = 'anyfunc', 'i32', 'i64', 'f32', 'f64'
+        
         for i in range(len(t)):
             expr = t[i]
             assert isinstance(expr, tuple)
@@ -82,7 +84,9 @@ class AbbreviationResolver:
                 self._counts[defname] += 1
                 # Ensure id
                 expr = list(expr)
-                if isinstance(expr[1], str) and expr[1] not in ('anyfunc', ):
+                if len(expr) == 1:
+                    expr.append(id)
+                elif isinstance(expr[1], str) and expr[1] not in string_but_not_id:
                     assert expr[1].startswith('$'), 'named variables must start with $'
                 elif not isinstance(expr[1], int):
                     expr.insert(1, id)
@@ -95,6 +99,7 @@ class AbbreviationResolver:
                          self.resolve_inline_exports,
                          self.resolve_table,
                          self.resolve_memory,
+                         self.resolve_data_elem_offset,
                          self.resolve_instructions,
                          ):
             
@@ -125,8 +130,8 @@ class AbbreviationResolver:
                 expr = list(expr)
                 sig_expr = ['func'] + [x for x in expr[3] if isinstance(x, tuple)]
                 sig_expr = ['type', tuple(sig_expr)]
-                assert not isinstance(expr[3][1], int)  # todo: test no-args
-                if isinstance(expr[3][1], str):  # had id
+                assert not (len(expr[3]) > 1 and isinstance(expr[3][1], int))  # todo: test no-args
+                if len(expr[3]) > 1 and isinstance(expr[3][1], str):  # had id
                     id = expr[3][1]
                 else:
                     id = self.get_implicit_id('type')
@@ -143,7 +148,10 @@ class AbbreviationResolver:
                 subexpr = expr[i]
                 if isinstance(subexpr, tuple):
                     if subexpr[0] in ('param', 'result'):
-                        type_expr.append(subexpr)
+                        if type_expr is not None:
+                            # Apparently, one can do (spec\test\core\func.wast):
+                            #   (func (type $sig-3) (param i32))
+                            type_expr.append(subexpr)
                         continue
                     elif subexpr[0] in ('local', 'type', 'import', 'export'):
                         if subexpr[0] == 'type':
@@ -167,12 +175,18 @@ class AbbreviationResolver:
 
         if expr[0] in ('func', 'table', 'memory', 'global'):
             expr = list(expr)
-            if len(expr) > 2 and \
-                    isinstance(expr[2], tuple) and \
-                    expr[2][0] == 'import':
-                new_expr = list(expr.pop(2))
-                new_expr.append(tuple(expr))
-                return tuple(new_expr)
+            for j in range(2, len(expr)):
+                subexpr = expr[j]
+                if not isinstance(subexpr, tuple):
+                    break
+                elif subexpr[0] in ('type', 'export'):
+                    pass  # allow type and export in funcs to come first
+                elif subexpr[0] == 'import':
+                    new_expr = list(expr.pop(j))
+                    new_expr.append(tuple(expr))
+                    return tuple(new_expr)
+                else:
+                    break  # We wont iterate over all instructions of a func
     
     def resolve_inline_exports(self, expr):
         
@@ -201,6 +215,33 @@ class AbbreviationResolver:
                 for j in reversed(to_pop):
                     expr.pop(j)
                 return tuple(expr)
+    
+        # Deal with  ('import', 'spectest', 'print_i32',
+        #               ('func', '$2', ('type', '$14'), ('export', 'p1')))
+        
+        elif expr[0] == 'import' and len(expr) >= 4:
+            import_expr = list(expr)
+            expr = list(import_expr[-1])
+            to_pop = []
+            for j in range(2, len(expr)):
+                subexpr = expr[j]
+                if not isinstance(subexpr, tuple):
+                    break
+                elif subexpr[0] == 'type':
+                    pass  # allow type refs in funcs to come first
+                elif subexpr[0] == 'export':
+                    new_expr = list(expr[j])
+                    new_expr.append(tuple(expr[:2]))  # kind and id
+                    self.add_root_expression(tuple(new_expr))
+                    to_pop.append(j)
+                else:
+                    break  # We wont iterate over all instructions of a func
+            # If we found any export expressions, simplify this definition
+            if to_pop:
+                for j in reversed(to_pop):
+                    expr.pop(j)
+                import_expr[-1] = tuple(expr)
+                return tuple(import_expr)
 
     def resolve_table(self, expr):
         
@@ -238,7 +279,7 @@ class AbbreviationResolver:
             for j in range(2, len(expr)):
                 subexpr = expr[j]
                 if isinstance(subexpr, tuple):
-                    if subexpr[0] == 'data':
+                    if len(subexpr) > 1 and  subexpr[0] == 'data':
                         data_str = subexpr[1]
                         data_len = len(datastring2bytes(data_str))
                         npages = int(data_len/65536) + 1
@@ -250,6 +291,18 @@ class AbbreviationResolver:
             if data_expr:
                 self.add_root_expression(tuple(data_expr))
                 return tuple(expr)
+    
+    def resolve_data_elem_offset(self, expr):
+        
+        # - Resolve data with explicit offset tuple
+        
+        if expr[0] in ('data', 'elem'):
+            for i in (1, 2):
+                if i < len(expr) and isinstance(expr[i], tuple) and expr[i][0] == 'offset':
+                    expr = list(expr)
+                    assert len(expr[i]) == 2
+                    expr[i] = expr[i][1]
+                    return tuple(expr)
 
     def resolve_instructions(self, expr):
         
@@ -273,12 +326,34 @@ class AbbreviationResolver:
             # Flatten
             instructions = flatten_instructions(instructions)
             
+            # Resolve stuff per-instruction
+            for i, instr in enumerate(instructions):
+                if instr[0] == 'call_indirect':
+                    # call_indirect can have embedded type def
+                    in_type_expr = []
+                    for j in range(1, len(instr)):
+                        subexpr = instr[j] 
+                        if (isinstance(subexpr, tuple) and
+                                subexpr[0] in ('param', 'result')):
+                            in_type_expr.append(j)
+                    if in_type_expr:
+                        id = self.get_implicit_id('type')
+                        type_expr = tuple(instr[j] for j in in_type_expr)
+                        type_expr = ('type', id, (('func',) + type_expr))
+                        self.add_root_expression(type_expr)
+                        instr =list(instr)
+                        for j in reversed(in_type_expr):
+                            instr.pop(j)
+                        instructions[i] = tuple(instr)
+            
             return tuple(new_expr + instructions)
 
 
 def flatten_instructions(t):
     """ Normalize a list of instructions, so that each instruction is
     a tuple. Instructions can be tuples or strings, and can be nested.
+    Or they can just be a series of instructions and we need to pack
+    them into tuples.
     Resulting block instructions will look like (opcode, id, result).
     """ 
     instructions = []
@@ -288,9 +363,29 @@ def flatten_instructions(t):
             # Recurse
             instructions += flatten_instruction(opcode_or_tuple)
             t = t[1:]
+        elif opcode_or_tuple == 'call_indirect':
+            i = 1
+            type_tuples = ('type', 'param', 'result')
+            while i < len(t):
+                if not (isinstance(t[i], tuple) and t[i][0] in type_tuples):
+                    break
+                i += 1
+            sub, t = t[:i], t[i:]
+            instructions += flatten_instruction(sub)
         elif opcode_or_tuple in ('block', 'loop', 'if'):
-            instructions += flatten_instruction((opcode_or_tuple, ))
-            t = t[1:]
+            i = 1
+            if isinstance(t[i], str) and t[i].startswith('$'):
+                i += 1
+            if isinstance(t[i], tuple) and t[i][0] == 'result':
+                i += 1
+            sub, t = t[:i], t[i:]
+            instructions += flatten_instruction(sub)
+        elif opcode_or_tuple in ('else', 'end'):  # these can have a label too
+            if isinstance(t[1], str) and t[1].startswith('$'):
+                sub, t = t[:2], t[2:]
+            else:
+                sub, t = t[:1], t[1:]
+            instructions.append(sub)
         else:
             # Get info on this opcode
             opcode = opcode_or_tuple
@@ -328,20 +423,31 @@ def flatten_instruction(t):
         if opcode == 'if' and len(args) > 0:
             # If consumes one value from the stack, so if this if-instruction
             # has nested instructions, the first is the test.
-            instructions += flatten_instruction(args[0])
-            args = args[1:]
+            if args and args[0][0] != 'then':
+                instructions += flatten_instruction(args[0])
+                args = args[1:]
             if args and args[0][0] == 'then':
                 args = args[0][1:] + args[1:]
         instructions.append((opcode, id, result))  # block instruction
         instructions += flatten_instructions(args)
         if args:
             instructions.append(('end', ))  # implicit end
+    elif opcode in ('else', ):
+        instructions.append((opcode, ))
+        instructions += flatten_instructions(args)
     else:
         # br_table special case for number of operands:
-        if opcode == 'br_table':
+        if opcode in ('br_table', 'memory.grow', 'memory.size'):
             num_operands = 0
             for x in args:
                 if isinstance(x, tuple):
+                    break
+                num_operands += 1
+        elif opcode == 'call_indirect':
+            num_operands = 0
+            type_tuples = ('type', 'param', 'result')
+            for x in args:
+                if isinstance(x, tuple) and x[0] not in type_tuples:
                     break
                 num_operands += 1
         else:
@@ -354,7 +460,16 @@ def flatten_instruction(t):
         # we can do more validation
         # assert len(args) == len(operands), ('Number of arguments does not '
         #                                     'match operands for %s' % opcode)
+        args_after_all = []
         for i in nested_instructions:  # unnest, but order is ok
+            if args_after_all is None:
+                pass
+            elif isinstance(i, tuple) and i[0] not in OPCODES:
+                args_after_all.append(i)
+                continue
+            else:
+                args = args + tuple(args_after_all)
+                args_after_all = None
             instructions += flatten_instruction(i)
         instructions.append((opcode, ) + args)
     return instructions

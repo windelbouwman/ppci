@@ -663,6 +663,10 @@ class Module(WASMComponent):
         return definitions
 
 
+def str2int(x):
+    return int(x, 16) if x.startswith('0x') else int(x)
+
+
 class Instruction(WASMComponent):
     """ Class ro represent an instruction (an opcode plus arguments). """
 
@@ -682,10 +686,20 @@ class Instruction(WASMComponent):
             for arg in args:
                 if isinstance(arg, str):
                     if arg.startswith('align='):
-                        align_arg = int(arg.split('=')[-1])
+                        align_arg = str2int(arg.split('=')[-1])
                     elif arg.startswith('offset='):
-                        offset_arg = int(arg.split('=')[-1])
-            args = (align_arg, offset_arg)
+                        offset_arg = str2int(arg.split('=')[-1])
+            args = align_arg, offset_arg
+        elif opcode == 'call_indirect':
+            # Call indirect has (i.const n) for the table, and (type $foo)
+            type_ref, table_ref = 0, 0
+            for arg in args:
+                if isinstance(arg, tuple):
+                    assert arg[0] == 'type'
+                    type_ref = arg[1]
+                else:
+                    table_ref = arg
+            args = type_ref, table_ref
         else:
             for arg in args:
                 assert isinstance(arg, (str, int, float))
@@ -710,6 +724,11 @@ class Instruction(WASMComponent):
                 args = ('align=%i' % args[0], )
             else:
                 args = ('align=%i' % args[0], 'offset=%i' % args[1])
+        elif self.opcode == 'call_indirect':
+            if args[1] == 0:  # zero'th table
+                args = ('(type %s)' % args[0], ) 
+            else:
+                args = ('(type %s)' % args[0], '(const.i64 %i)' % args[1])
         subtext = self._get_sub_string(args)
         if '\n' in subtext:
             return '(' + self.opcode + '\n' + subtext + '\n)'
@@ -1007,7 +1026,7 @@ class Import(Definition):
             if len(info) == 2:
                 id = info.pop(0)
             else:
-                raise NotImplementedError('does this make sense?')
+                id = info[0][1]
             assert (len(info) == 1 and
                     isinstance(info[0], tuple) and
                     info[0][0] == 'type')
@@ -1037,6 +1056,8 @@ class Import(Definition):
             if len(info) == 1:
                 info.append(None)
         elif kind == 'global':
+            if len(info) == 1:  # cover a case in spec\test\core\globals.wast
+                info.insert(0, 0)  # todo: setting id=0 here, not sure if right
             id = info.pop(0)
             assert len(info) == 1
             if isinstance(info[0], tuple):
@@ -1434,7 +1455,8 @@ class Func(Definition):
         for i in range(i0, len(t)):
             if isinstance(t[i], tuple) and t[i][0] == 'local':
                 expr = t[i]
-                if isinstance(expr[1], int) or expr[1].startswith('$'):
+                if (len(expr) > 1 and
+                        (isinstance(expr[1], int) or expr[1].startswith('$'))):
                     assert len(expr) == 3
                     locals.append((expr[1], expr[2]))  # (local $id i32)
                 else:
@@ -1564,12 +1586,17 @@ class Elem(Definition):
 
     def _from_tuple(self, t):
         assert t[0] == 'elem'
-        assert len(t) >= 3  # at least one element
-        if isinstance(t[1], (int, str)):
-            self._from_args(t[1], t[2], t[3:])
+        assert 2 <= len(t)
+        if not isinstance(t[1], tuple):
+            ref = t[1]
+            offset = t[2]
+            refs = t[3:]
         else:
-            self._from_args('$0', t[1], t[2:])
-
+            ref = 0
+            offset = t[1]
+            refs = t[2:]
+        self._from_args(ref, offset, refs)
+    
     def to_string(self):
         ref = '' if self.ref == '$0' else ' %s' % self.ref
         offset = self.offset.to_string()
@@ -1631,12 +1658,21 @@ class Data(Definition):
 
     def _from_tuple(self, t):
         assert t[0] == 'data'
-        assert 3 <= len(t) <= 4
-        ref = t[1] if len(t) == 4 else '$0'
-        assert isinstance(t[-1], str)
-        assert '"' not in t[-1]  # safety, it really is just a string
-        data = datastring2bytes(t[-1])
-        self._from_args(ref, t[-2], data)
+        assert 2 <= len(t)
+        if not isinstance(t[1], tuple):
+            ref = t[1]
+            offset = t[2]
+            i_data = 3
+        else:
+            ref = 0
+            offset = t[1]
+            i_data = 2
+        datas = []
+        for x in t[i_data:]:
+            assert isinstance(x, str)
+            assert '"' not in x  # safety, it really is just a string
+            datas.append(datastring2bytes(x))
+        self._from_args(ref, offset, b''.join(datas))
 
     def to_string(self):
         ref = '' if self.ref == '$0' else ' %s' % self.ref
