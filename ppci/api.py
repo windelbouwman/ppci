@@ -49,7 +49,7 @@ from .arch import get_arch, get_current_arch
 __all__ = [
     'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
     'optimize', 'preprocess',
-    'get_arch', 'get_current_arch',
+    'get_arch', 'get_current_arch', 'is_platform_supported',
     'ir_to_object', 'ir_to_python',
     'bf_to_ir', 'ws_to_ir']
 
@@ -336,7 +336,7 @@ def wasmcompile(source: io.TextIOBase, march, opt_level=2):
     """ Webassembly compile """
     march = get_arch(march)
     wasm_module = read_wasm(source)
-    ir_module = wasm_to_ir(wasm_module)
+    ir_module = wasm_to_ir(wasm_module, march.info.get_type_info('ptr'))
 
     # Optimize:
     optimize(ir_module, level=opt_level)

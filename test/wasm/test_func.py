@@ -3,6 +3,7 @@ Test WASM Func definition class.
 """
 
 from ppci.wasm import Module, Func, run_wasm_in_node, has_node
+from ppci.wasm.instantiate import instantiate
 
 
 def dedent(code):
@@ -53,6 +54,20 @@ def test_func1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
+
+    # TODO: figure out what is wrong below:
+    if False:
+        printed_numbers = []
+        def print_ln(x: int) -> None:
+            printed_numbers.append(x)
+        imports = {
+            'js': {
+                'print_ln': print_ln,
+            },
+        }
+        instantiate(m0, imports, target='python')
+        assert [7] == printed_numbers
+
     if has_node():
         assert run_wasm_in_node(m0, True) == '7'
 

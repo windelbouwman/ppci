@@ -696,12 +696,33 @@ class MovzxRegRm(rmregbase):
     opcode2 = 0xb6
 
 
+class InstructionCollection:
+    """ Helper class to be able to create instructions in batch """
+    def __init__(self, bits):
+        self.bits = bits
+        self.AddRegRm = self.make_reg_rm('add', 0x3)
+
+    def make_reg_rm(self, mnemonic, opcode):
+        if self.bits == 16:
+            return make_reg_rm16(mnemonic, opcode)
+        elif self.bits == 32:
+            # TODO: invoke 32 bit stuff:
+            return make_reg_rm(mnemonic, opcode)
+        elif self.bits == 64:
+            return make_reg_rm(mnemonic, opcode)
+        else:
+            raise NotImplementedError()
+
+
+bits16 = InstructionCollection(16)
+bits32 = InstructionCollection(32)
+bits64 = InstructionCollection(64)
+
+
 AddRmReg8 = make_rm_reg8('add', 0x0)
 AddRmReg = make_rm_reg('add', 0x1)
 AddRmReg16 = make_rm_reg16('add', 0x1)
 AddRegRm8 = make_reg_rm8('add', 0x2)
-AddRegRm = make_reg_rm('add', 0x3)
-AddRegRm16 = make_reg_rm16('add', 0x3)
 OrRmReg8 = make_rm_reg8('or', 0x8)
 OrRmReg = make_rm_reg('or', 0x9)
 OrRmReg16 = make_rm_reg16('or', 0x9)
@@ -1146,7 +1167,7 @@ def pattern_str8(context, tree, c0, c1):
 def pattern_add64(context, tree, c0, c1):
     d = context.new_reg(X86Register)
     context.move(d, c0)
-    context.emit(AddRegRm(d, RmReg(c1)))
+    context.emit(bits32.AddRegRm(d, RmReg(c1)))
     return d
 
 
@@ -1156,7 +1177,7 @@ def pattern_add32(context, tree, c0, c1):
     # TODO: do we need special 32 bit case?
     d = context.new_reg(X86Register)
     context.move(d, c0)
-    context.emit(AddRegRm(d, RmReg(c1)))
+    context.emit(bits64.AddRegRm(d, RmReg(c1)))
     return d
 
 
@@ -1165,7 +1186,7 @@ def pattern_add32(context, tree, c0, c1):
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(ShortRegister)
     context.move(d, c0)
-    context.emit(AddRegRm16(d, RmReg16(c1)))
+    context.emit(bits16.AddRegRm(d, RmReg16(c1)))
     return d
 
 

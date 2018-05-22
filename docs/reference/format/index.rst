@@ -1,4 +1,5 @@
 
+.. module:: ppci.format
 
 File formats
 ============

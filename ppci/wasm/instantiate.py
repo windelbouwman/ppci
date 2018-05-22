@@ -7,22 +7,62 @@ The wasm runtime contains the following:
 - Implement function like sqrt, floor, bit rotations etc..
 """
 
-from ..api import ir_to_object, get_current_arch
+import io
+from types import ModuleType
+from ..api import ir_to_object, get_current_arch, ir_to_python
+from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj
+from ..utils.reporting import DummyReportGenerator
 from . import wasm_to_ir
-from .components import Export
+from .components import Export, Import
+from .wasm2ppci import create_memories
 
 __all__ = ('instantiate',)
 
 
-def instantiate(module, imports):
+def instantiate(module, imports, target='native', reporter=None):
     """ Instantiate a wasm module.
+
+    Args:
+        module (ppci.wasm.Module): The wasm-module to instantiate
+
     """
-    ppci_module = wasm_to_ir(module)
+    if reporter is None:
+        reporter = DummyReportGenerator()
+
+    # Check if all required imports are given:
+    for definition in module:
+        if isinstance(definition, Import):
+            modname, name = definition.modname, definition.name
+            if modname not in imports:
+                raise ValueError(
+                    'imported module "{}" not found'.format(modname))
+            if name not in imports[modname]:
+                raise ValueError(
+                    'imported object "{}" not found in "{}"'.format(
+                        name, modname))
+
+    imports = flatten_imports(imports)
+
+    if target == 'native':
+        instance = native_instantiate(module, imports, reporter)
+    elif target == 'python':
+        instance = python_instantiate(module, imports, reporter)
+    else:
+        raise ValueError('Unknown instantiation target'.format(target))
+
+    # Call magic function _run_init which optionally initializes tables and calls start
+    instance._run_init()
+    return instance
+
+
+def native_instantiate(module, imports, reporter):
+    """ Load wasm module native """
     arch = get_current_arch()
-    obj = ir_to_object([ppci_module], arch, debug=True)
-    instance = ModuleInstance()
-    instance._module = load_obj(obj, imports=flatten_imports(imports))
+    ppci_module = wasm_to_ir(module, arch.info.get_type_info('ptr'))
+    obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
+    _module = load_obj(obj, imports=imports)
+    instance = NativeModuleInstance(_module)
     # Export all exported functions
     i = 0
     for definition in module:
@@ -39,6 +79,54 @@ def instantiate(module, imports):
                 getattr(instance._module, ppci_id))
             i += 1
 
+    memories = create_memories(module)
+    # TODO: Load memories.
+
+    return instance
+
+
+def python_instantiate(module, imports, reporter):
+    """ Load wasm module as a PythonModuleInstance """
+    ptr_info = TypeInfo(4, 4)
+    ppci_module = wasm_to_ir(module, ptr_info, reporter=reporter)
+    f = io.StringIO()
+    ir_to_python([ppci_module], f, reporter=reporter)
+    pysrc = f.getvalue()
+    # print(pysrc)
+    pycode = compile(pysrc, '<string>', 'exec')
+    _module = ModuleType('gen')
+    exec(pycode, _module.__dict__)
+    instance = PythonModuleInstance(_module)
+
+    # Link all imports:
+    for name, f in imports.items():
+        # TODO: make a choice between those two options:
+        # gen_rocket_wasm.externals[name] = f
+        setattr(instance._module, name, f)
+
+    # Export all exported functions
+    for definition in module:
+        if isinstance(definition, Import):
+            pass
+            # TODO: maybe validate imported functions?
+        elif isinstance(definition, Export):
+            if definition.kind != 'func':
+                raise NotImplementedError(definition.kind)
+            exported_name = definition.name
+            setattr(
+                instance.exports, exported_name,
+                getattr(instance._module, exported_name))
+
+    memories = create_memories(module)
+    if memories:
+        assert len(memories) == 1
+        memory = list(memories.values())[0]
+
+        mem0_start = instance._module.heap_top()
+        instance._module.heap.extend(memory)
+        mem0_ptr_ptr = instance._module.wasm_mem0_address
+        instance._module.store_i32(mem0_start, mem0_ptr_ptr)
+
     return instance
 
 
@@ -52,11 +140,27 @@ def flatten_imports(imports):
 
 
 class ModuleInstance:
-    def __init__(self):
+    """ Instantiated module """
+    def __init__(self, module):
+        self._module = module
         self.exports = Exports()
+
+    def _run_init(self):
+        self._module._run_init()
+
+
+class NativeModuleInstance(ModuleInstance):
+    """ Wasm module loaded as natively compiled code """
+    pass
+
+
+class PythonModuleInstance(ModuleInstance):
+    """ Wasm module loaded a generated python module """
+    pass
 
 
 class Exports:
+    """ Container for exported functions """
     pass
 
 

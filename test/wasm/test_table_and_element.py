@@ -2,7 +2,9 @@
 Test WASM Table and Element definition classes.
 """
 
+from ppci.api import is_platform_supported, get_current_arch
 from ppci.wasm import Module, Table, run_wasm_in_node, has_node
+from ppci.wasm.instantiate import instantiate, create_runtime
 
 
 def dedent(code):
@@ -63,6 +65,23 @@ def test_table1():
 
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
+
+    if is_platform_supported():
+        pass
+
+    if True:
+        printed_numbers = []
+        def print_ln(x: int) -> None:
+            printed_numbers.append(x)
+        imports = {
+            'js': {
+                'print_ln': print_ln,
+            },
+            '_runtime': create_runtime(),
+        }
+        instantiate(m0, imports, target='python')
+        assert [101, 102] == printed_numbers
+
     if has_node():
         assert run_wasm_in_node(m0, True) == '101\n102'
 

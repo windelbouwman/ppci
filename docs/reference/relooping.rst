@@ -56,5 +56,3 @@ Reference
 .. automodule:: ppci.relooper
     :members:
 
-.. automodule:: ppci.utils.cfg
-    :members:

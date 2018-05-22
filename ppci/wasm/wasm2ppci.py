@@ -6,20 +6,23 @@ from .. import ir
 from .. import irutils
 from .. import common
 from ..binutils import debuginfo
+from ..arch.arch_info import TypeInfo
 from . import components
 from .opcodes import STORE_OPS, LOAD_OPS
 
 
-def wasm_to_ir(wasm_module: components.Module) -> ir.Module:
+def wasm_to_ir(wasm_module: components.Module, ptr_info, reporter=None) -> ir.Module:
     """ Convert a WASM module into a PPCI native module.
 
     Args:
         wasm_module (ppci.wasm.Module): The wasm-module to compile
+        ptr_info: :class:`ppci.arch.arch_info.TypeInfo` size and
+                  alignment information for pointers.
 
     Returns:
         An IR-module.
     """
-    compiler = WasmToIrCompiler()
+    compiler = WasmToIrCompiler(ptr_info)
     ppci_module = compiler.generate(wasm_module)
     return ppci_module
 
@@ -57,9 +60,12 @@ class WasmToIrCompiler:
     logger = logging.getLogger('wasm2ir')
     verbose = True
 
-    def __init__(self):
+    def __init__(self, ptr_info):
         self.builder = irutils.Builder()
         self.blocknr = 0
+        if not isinstance(ptr_info, TypeInfo):
+            raise TypeError('Expected ptr_info to be TypeInfo')
+        self.ptr_info = ptr_info
 
     def generate(self, wasm_module: components.Module):
         assert isinstance(wasm_module, components.Module)
@@ -77,9 +83,11 @@ class WasmToIrCompiler:
         self._runtime_functions = {}  # Function required during runtime
         export_names = {}  # mapping of id's to exported function names
         start_function_id = None
+        tables = []  # Function pointer tables
 
         # Create a global pointer to the memory base address:
-        self.memory_base_address = ir.Variable('wasm_mem0_address', 4, 4)
+        self.memory_base_address = ir.Variable(
+            'wasm_mem0_address', self.ptr_info.size, self.ptr_info.alignment)
         self.builder.module.add_variable(self.memory_base_address)
 
         for definition in wasm_module:
@@ -164,13 +172,17 @@ class WasmToIrCompiler:
                 assert definition.id in (0, '$0')
                 if definition.kind != 'anyfunc':
                     raise NotImplementedError('Non function pointer tables')
+                assert definition.min == definition.max
+                size = definition.max * self.ptr_info.size
+                self.table_var = ir.Variable('func_table', size, self.ptr_info.alignment)
+                self.builder.module.add_variable(self.table_var)
+                tables.append((self.table_var, []))
 
             elif isinstance(definition, components.Elem):
                 offset = definition.offset.args[0]
-                for i, ref in enumerate(definition.refs, start=offset):
-                    # print(i, ref)
-                    pass
-                    # TODO, store function pointer in table
+                assert offset == 0
+                for ref in definition.refs:
+                    tables[0][1].append(ref)
 
             elif isinstance(definition, components.Global):
                 ir_typ = self.get_ir_type(definition.typ)
@@ -199,21 +211,41 @@ class WasmToIrCompiler:
         for ppci_function, signature, wasm_function in functions:
             self.generate_function(ppci_function, signature, wasm_function)
 
-        # Generate special start function:
-        if start_function_id is not None:
-            self.gen_start_procedure(start_function_id)
+        # Generate run_init function:
+        self.gen_init_procedure(tables, start_function_id)
 
         return self.builder.module
 
-    def gen_start_procedure(self, start_function_id):
-        """ Generate a procedure which calls the start procedure: """
-        target, _ = self.function_names[start_function_id]
-        ppci_function = self.builder.new_procedure('wasm_start')
+    def gen_init_procedure(self, tables, start_function_id):
+        """ Generate an initialization procedure.
+
+        - Initializes eventual function tables.
+        - Calls an optionalstart procedure.
+        """
+        ppci_function = self.builder.new_procedure('_run_init')
         self.builder.set_function(ppci_function)
         entryblock = self.new_block()
         self.builder.set_block(entryblock)
         ppci_function.entry = entryblock
-        self.emit(ir.ProcedureCall(target, []))
+
+        # Fill function pointer tables:
+        # TODO: we might be able to do this at link time?
+        for table_variable, functions in tables:
+            # TODO: what if alignment is bigger than size?
+            assert self.ptr_info.size == self.ptr_info.alignment
+            ptr_size = self.emit(ir.Const(self.ptr_info.size, 'ptr_size', ir.ptr))
+            address = table_variable  # Start at the bottom of the variable table
+            for func in functions:
+                # Lookup function
+                value = self.function_names[func][0]
+                self.emit(ir.Store(value, address))
+                address = self.emit(ir.add(address, ptr_size, 'table_address', ir.ptr))
+
+        # Call eventual start function:
+        if start_function_id is not None:
+            target, _ = self.function_names[start_function_id]
+            self.emit(ir.ProcedureCall(target, []))
+
         self.emit(ir.Exit())
 
     def emit(self, ppci_inst):
@@ -347,7 +379,6 @@ class WasmToIrCompiler:
         'i64.extend_u/i32',
         'f64.convert_s/i32',
         'f64.convert_u/i32',
-        'f64.reinterpret/i64',  # TODO: this is not a cast?
     }
 
     CMPOPS = {
@@ -461,20 +492,38 @@ class WasmToIrCompiler:
             # todo: hack; we assume this is the only test in an if
 
         elif inst in STORE_OPS:
-            itype = inst.split('.')[0]
+            itype, store_op = inst.split('.')
             ir_typ = self.get_ir_type(itype)
             # ACHTUNG: alignment and offset are swapped in text:
             _, offset = instruction.args
             value = self.pop_value()
             address = self.get_memory_address(offset)
-            self.emit(ir.Store(value, address))
+            if store_op == 'store':
+                self.emit(ir.Store(value, address))
+            else:
+                store_ir_typ = {
+                    'store8': ir.i8, 'store16': ir.i16, 'store32': ir.i32,
+                }[store_op]
+                value = self.emit(
+                    ir.Cast(value, 'casted_value', store_ir_typ))
+                self.emit(ir.Store(value, address))
 
         elif inst in LOAD_OPS:
-            itype = inst.split('.')[0]
+            itype, load_op = inst.split('.')
             ir_typ = self.get_ir_type(itype)
             _, offset = instruction.args
             address = self.get_memory_address(offset)
-            value = self.emit(ir.Load(address, 'load', ir_typ))
+            if load_op == 'load':
+                value = self.emit(ir.Load(address, 'load', ir_typ))
+            else:
+                # Load different data-type and cast:
+                load_ir_typ = {
+                    'load8_u': ir.u8, 'load8_s': ir.i8,
+                    'load16_u': ir.u16, 'load16_s': ir.i16,
+                    'load32_u': ir.u32, 'load32_s': ir.i32,
+                }[load_op]
+                value = self.emit(ir.Load(address, 'load', load_ir_typ))
+                value = self.emit(ir.Cast(value, 'casted_load', ir_typ))
             self.stack.append(value)
 
         elif inst in self.CASTOPS:
@@ -488,6 +537,9 @@ class WasmToIrCompiler:
 
         elif inst == 'i32.rem_u':
             self._runtime_call(inst, [ir.i32, ir.i32], ir.i32)
+
+        elif inst == 'f64.reinterpret/i64':
+            self._runtime_call(inst, [ir.i64], ir.f64)
 
         elif inst in ['i32.clz', 'i32.ctz', 'memory.grow']:
             self._runtime_call(inst, [ir.i32], ir.i32)
@@ -624,9 +676,6 @@ class WasmToIrCompiler:
             # Drop value on the stack
             self.pop_value()
 
-        elif inst == 'br_table':
-            self.gen_br_table(instruction)
-
         else:  # pragma: no cover
             raise NotImplementedError(inst)
 
@@ -650,12 +699,17 @@ class WasmToIrCompiler:
 
     def gen_call_indirect(self, instruction):
         """ Call another function by pointer! """
-        self.gen_unreachable()
         type_id = instruction.args[0]
         signature = self.wasm_types[type_id]
-        func_ptr = self.pop_value()
-        if func_ptr.ty is not ir.ptr:
-            func_ptr = self.emit(ir.Cast(func_ptr, 'ptr', ir.ptr))
+        func_index = self.pop_value()
+        ptr_size = self.emit(ir.Const(self.ptr_info.size, 'ptr_size', ir.i32))
+        element_offset = self.emit(ir.Cast(
+            self.emit(ir.mul(func_index, ptr_size, 'element_offset', ir.i32)),
+            'element_offset', ir.ptr))
+        element_address = self.emit(ir.add(
+            self.table_var, element_offset, 'element_address', ir.ptr))
+        func_ptr = self.emit(ir.Load(element_address, 'func_ptr', ir.ptr))
+        # TODO: how to check function type during runtime?
 
         self._gen_call_helper(func_ptr, signature)
 

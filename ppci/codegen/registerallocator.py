@@ -178,6 +178,17 @@ class MiniGen:
         return offset_tree
 
 
+def dfs_alias(r):
+    """ Do a depth first search on the aliases member.
+
+    This can be used to find aliases of aliases.
+    """
+    for r2 in r.aliases:
+        for r3 in dfs_alias(r2):
+            yield r3
+        yield r2
+
+
 # TODO: implement linear scan allocator and other allocators!
 
 class GraphColoringRegisterAllocator:
@@ -208,7 +219,7 @@ class GraphColoringRegisterAllocator:
             self.cls_regs[kls] = OrderedSet(regs)
             for r in regs:
                 self.alias[r].add(r)  # The trivial alias: itself!
-                for r2 in r.aliases:
+                for r2 in dfs_alias(r):
                     self.alias[r].add(r2)
                     self.alias[r2].add(r)
 

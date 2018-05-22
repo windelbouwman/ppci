@@ -11,6 +11,8 @@ Reference
     buildxml
     ir
     irutils
+    optimization
+    codegen/index
     langtools
     debug
     architecture
@@ -19,5 +21,5 @@ Reference
     objectformat
     wasm
     relooping
-    utils
+    utils/index
     links
