@@ -31,14 +31,17 @@ from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 
 
 def perform_test(filename):
-    with open(filename, 'r') as f:
+    # if not os.path.basename(filename).startswith('z'):
+    #     return
+    print(filename)
+    with open(filename, 'rt', encoding='utf-8') as f:
         source_text = f.read()
 
     try:
         output_file = io.StringIO()
         s_expressions = parse_multiple_sexpr(source_text)
         for s_expr in s_expressions:
-            print(s_expr)
+            # print(s_expr)
             if s_expr[0] == 'module':
                 if 'binary' in s_expr:
                     # We have (module binary "")
@@ -78,6 +81,7 @@ def wasm_spec_populate(cls):
     if 'WASM_SPEC_DIR' in os.environ:
         wasm_spec_directory = os.path.normpath(os.environ['WASM_SPEC_DIR'])
         core_test_directory = os.path.join(wasm_spec_directory, 'test', 'core')
+        assert os.path.isdir(core_test_directory), "WASM_SPEC_DIR is set, but not valid"
         for filename in sorted(glob.iglob(os.path.join(core_test_directory, '*.wast'))):
             create_test_function(cls, filename)
     return cls
@@ -89,4 +93,13 @@ class WasmSpecTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    # Three ways to run this:
+    
+    # unittest.main(verbosity=2)
+    
+    # perform_test(r'C:\dev\wasm\spec\test\core\br_table.wast')
+    
+    testdir = os.path.join(os.environ['WASM_SPEC_DIR'], 'test', 'core')
+    for fname in sorted(os.listdir(testdir)):
+        if fname.endswith('.wast'):
+            perform_test(os.path.join(testdir, fname))
