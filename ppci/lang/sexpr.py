@@ -121,6 +121,8 @@ class SExpressionLexer(HandLexerBase):
                     try:
                         if '.' in token.val or 'e' in token.val.lower():
                             token.val = float(token.val)
+                        elif token.val.startswith('0x'):
+                            token.val = int(token.val, 16)
                         else:
                             token.val = int(token.val)
                     except ValueError:
