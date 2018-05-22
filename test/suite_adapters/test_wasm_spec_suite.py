@@ -26,8 +26,10 @@ import os.path
 import io
 
 from ppci.wasm import read_wat, Module
+from ppci.wasm.instantiate import instantiate, create_runtime
 from ppci.common import CompilerError
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
+from ppci.utils.reporting import HtmlReportGenerator
 
 
 def perform_test(filename):
@@ -37,33 +39,42 @@ def perform_test(filename):
     with open(filename, 'rt', encoding='utf-8') as f:
         source_text = f.read()
 
-    try:
-        output_file = io.StringIO()
-        s_expressions = parse_multiple_sexpr(source_text)
-        for s_expr in s_expressions:
-            # print(s_expr)
-            if s_expr[0] == 'module':
-                if 'binary' in s_expr:
-                    # We have (module binary "")
-                    # We can pass this to the binary reading
-                    pass
+    html_report = os.path.splitext(filename)[0] + '.html'
+    with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
+        try:
+            output_file = io.StringIO()
+            s_expressions = parse_multiple_sexpr(source_text)
+            for s_expr in s_expressions:
+                # print(s_expr)
+                if s_expr[0] == 'module':
+                    if 'binary' in s_expr:
+                        # We have (module binary "")
+                        # We can pass this to the binary reading
+                        pass
+                    else:
+                        m1 = Module(s_expr)
+                        reporter.dump_wasm(m1)
+                        # todo: next step:
+                        imports = {
+                           'rt': create_runtime(),
+                        }
+                        mod_instance = instantiate(
+                            m1, imports, target='python', reporter=reporter)
+                        print(mod_instance)
+                        # m2 = Module(m1.to_string())
+                        # assert m1.to_bytes() == m2.to_bytes()
+                        
                 else:
-                    m1 = Module(s_expr)
-                    # todo: next step:
-                    # m2 = Module(m1.to_string())
-                    # assert m1.to_bytes() == m2.to_bytes()
-                    
-            else:
-                # print('Unknown directive', s_expr[0])
-                pass
+                    # print('Unknown directive', s_expr[0])
+                    pass
 
-        # TODO: check output for correct values:
-        print(output_file.getvalue())
-    except CompilerError as ex:
-        print('Exception:', ex)
-        lines = list(io.StringIO(source_text))
-        ex.render(lines)
-        raise
+            # TODO: check output for correct values:
+            print(output_file.getvalue())
+        except CompilerError as ex:
+            print('Exception:', ex)
+            lines = list(io.StringIO(source_text))
+            ex.render(lines)
+            raise
 
 
 def create_test_function(cls, filename):

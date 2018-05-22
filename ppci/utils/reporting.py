@@ -60,6 +60,10 @@ class ReportGenerator(metaclass=abc.ABCMeta):
     def dump_ir(self, ir_module):
         pass
 
+    def dump_wasm(self, wasm_module):
+        """ Report web assembly module """
+        pass
+
     def dump_sgraph(self, sgraph):
         pass
 
@@ -394,6 +398,11 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.dump_raw_text(f.getvalue())
         else:  # pragma: no cover
             raise NotImplementedError()
+
+    def dump_wasm(self, wasm_module):
+        """ Report web assembly module """
+        with collapseable(self, 'Web assembly module'):
+            self.dump_raw_text(wasm_module.to_string())
 
     def dump_raw_text(self, text):
         """ Spitout text not to be formatted """
