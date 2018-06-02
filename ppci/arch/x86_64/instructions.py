@@ -1294,7 +1294,7 @@ def pattern_str32(context, tree, c0, c1):
 @isa.pattern('stm', 'STRI16(reg64, reg16)', size=3, cycles=2, energy=2)
 @isa.pattern('stm', 'STRU16(reg64, reg16)', size=3, cycles=2, energy=2)
 def pattern_str16(context, tree, c0, c1):
-    context.emit(bits16.MovRmReg16(RmMem(c0), c1))
+    context.emit(bits16.MovRmReg(RmMem(c0), c1))
 
 
 @isa.pattern('stm', 'STRI8(reg64, reg8)', size=2)

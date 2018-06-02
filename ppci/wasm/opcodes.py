@@ -62,9 +62,9 @@ instruction_table = [
     ('memory.grow', 0x40, ('byte',), ('i32',), ('i32',)),
 
     ('i32.const', 0x41, ('i32',), (), ('i32',), lambda i, v: (i.args[0],)),
-    ('i64.const', 0x42, ('i64',), (), ('i64',)),
-    ('f32.const', 0x43, ('f32',), (), ('f32',)),
-    ('f64.const', 0x44, ('f64',), (), ('f64',)),
+    ('i64.const', 0x42, ('i64',), (), ('i64',), lambda i, v: (i.args[0],)),
+    ('f32.const', 0x43, ('f32',), (), ('f32',), lambda i, v: (i.args[0],)),
+    ('f64.const', 0x44, ('f64',), (), ('f64',), lambda i, v: (i.args[0],)),
 
     ('i32.eqz', 0x45),
     ('i32.eq', 0x46),

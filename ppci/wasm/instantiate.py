@@ -64,7 +64,8 @@ def instantiate(module, imports, target='native', reporter=None):
 def native_instantiate(module, imports, reporter):
     """ Load wasm module native """
     arch = get_current_arch()
-    ppci_module = wasm_to_ir(module, arch.info.get_type_info('ptr'))
+    ppci_module = wasm_to_ir(
+        module, arch.info.get_type_info('ptr'), reporter=reporter)
     obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
     _module = load_obj(obj, imports=imports)
     instance = NativeModuleInstance(_module)

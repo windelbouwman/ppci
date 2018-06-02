@@ -1,6 +1,4 @@
-
 """
-
 Run the tests as can be found here
 
 https://github.com/WebAssembly/spec/tree/master/test
@@ -9,27 +7,31 @@ The directory structure of this spec is as follows:
 
 - test
   - core
-    - address.wast  -> test snippet in wasm text format with additional test info
+    - address.wast  -> test snippet in wasm text format with additional
+      test info
 
-To use these tests, clone https://github.com/WebAssembly/spec and set the environment variable WASM_SPEC_DIR
+To use these tests, clone https://github.com/WebAssembly/spec and set
+the environment variable WASM_SPEC_DIR
 to the location where the code was cloned.
 """
 
-# TODO: this is a placeholder for the web assembly spec test suite
-
-# COOL IDEA: use python-requests to download the suite on demand to some temporary folder!
+# COOL IDEA: use python-requests to download the suite on demand to
+# some temporary folder!
 
 
 import unittest
 import glob
 import os.path
 import io
+from functools import reduce
+from operator import add
 
 from ppci.wasm import read_wat, Module
 from ppci.wasm.instantiate import instantiate, create_runtime
 from ppci.common import CompilerError
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator
+from ppci.wasm.util import datastring2bytes
 
 
 def perform_test(filename):
@@ -41,6 +43,7 @@ def perform_test(filename):
 
     html_report = os.path.splitext(filename)[0] + '.html'
     with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
+        reporter.message('Test spec file {}'.format(filename))
         try:
             output_file = io.StringIO()
             s_expressions = parse_multiple_sexpr(source_text)
@@ -49,21 +52,48 @@ def perform_test(filename):
                 if s_expr[0] == 'module':
                     if 'binary' in s_expr:
                         # We have (module binary "")
-                        # We can pass this to the binary reading
-                        pass
+
+                        # Iterate:
+                        elems = iter(s_expr)
+
+                        # Skip to binary tag:
+                        while next(elems) != 'binary':
+                            pass
+
+                        # fetch data from last tuple elements:
+                        parts = []
+                        for elem in elems:
+                            data = datastring2bytes(elem)
+                            parts.append(data)
+                        data = reduce(add, parts)
+
+                        # Load module from binary data:
+                        m1 = Module(data)
                     else:
+                        # Load module from tuples:
                         m1 = Module(s_expr)
-                        reporter.dump_wasm(m1)
-                        # todo: next step:
-                        imports = {
-                           'rt': create_runtime(),
-                        }
-                        mod_instance = instantiate(
-                            m1, imports, target='python', reporter=reporter)
-                        print(mod_instance)
-                        # m2 = Module(m1.to_string())
-                        # assert m1.to_bytes() == m2.to_bytes()
-                        
+
+                        # Convert module to text form and parse again
+                        # This should yield the same binary form:
+                        m2 = Module(m1.to_string())
+                        assert m1.to_bytes() == m2.to_bytes()
+
+                        # NOTE: going to string format and back does not
+                        # guarantee that parsing was correct.
+
+                    reporter.dump_wasm(m1)
+
+                    # Next step: Instantiate:
+                    imports = {
+                       'rt': create_runtime(),
+                    }
+                    mod_instance = instantiate(
+                        m1, imports, target='python', reporter=reporter)
+                    print(mod_instance)
+
+                elif s_expr[0] == 'invoke':
+                    # TODO: invoke test functions defined in wast files
+                    print('Invoking method', s_expr)
                 else:
                     # print('Unknown directive', s_expr[0])
                     pass

@@ -32,7 +32,7 @@ def test_table0():
     assert Table('(table 3 1 2 anyfunc)').max == 2
 
 
-def test_table1(reporter):
+def test_table1():
 
     # The canonical form
     CODE0 = dedent(r"""
@@ -67,31 +67,33 @@ def test_table1(reporter):
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
 
-    if True:
-        printed_numbers = []
-        def print_ln(x: int) -> None:
-            printed_numbers.append(x)
-        imports = {
-            'js': {
-                'print_ln': print_ln,
-            },
-            '_runtime': create_runtime(),
-        }
-        instantiate(m0, imports, target='python', reporter=reporter)
-        assert [101, 102] == printed_numbers
+    html_report = 'table_and_element_compilation_report.html'
+    with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
+        if True:
+            printed_numbers = []
+            def print_ln(x: int) -> None:
+                printed_numbers.append(x)
+            imports = {
+                'js': {
+                    'print_ln': print_ln,
+                },
+                '_runtime': create_runtime(),
+            }
+            instantiate(m0, imports, target='python', reporter=reporter)
+            assert [101, 102] == printed_numbers
 
-    if is_platform_supported():
-        printed_numbers = []
-        def print_ln(x: int) -> None:
-            printed_numbers.append(x)
-        imports = {
-            'js': {
-                'print_ln': print_ln,
-            },
-            '_runtime': create_runtime(),
-        }
-        instantiate(m0, imports, target='native', reporter=reporter)
-        assert [101, 102] == printed_numbers
+        if is_platform_supported():
+            printed_numbers = []
+            def print_ln(x: int) -> None:
+                printed_numbers.append(x)
+            imports = {
+                'js': {
+                    'print_ln': print_ln,
+                },
+                '_runtime': create_runtime(),
+            }
+            instantiate(m0, imports, target='native', reporter=reporter)
+            assert [101, 102] == printed_numbers
 
     if has_node():
         assert run_wasm_in_node(m0, True) == '101\n102'
@@ -130,9 +132,9 @@ def test_table1(reporter):
         )
         (func $main (type $2)
             (i32.const 0)
-            (call_indirect $2)
+            (call_indirect (type $2))
             (i32.const 1)
-            (call_indirect $2)
+            (call_indirect (type $2))
         )
     )
     """
@@ -143,6 +145,4 @@ def test_table1(reporter):
 
 if __name__ == '__main__':
     test_table0()
-    html_report = 'table_and_element_compilation_report.html'
-    with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
-        test_table1(reporter)
+    test_table1()

@@ -11,7 +11,8 @@ from . import components
 from .opcodes import STORE_OPS, LOAD_OPS
 
 
-def wasm_to_ir(wasm_module: components.Module, ptr_info, reporter=None) -> ir.Module:
+def wasm_to_ir(
+        wasm_module: components.Module, ptr_info, reporter=None) -> ir.Module:
     """ Convert a WASM module into a PPCI native module.
 
     Args:
@@ -24,6 +25,8 @@ def wasm_to_ir(wasm_module: components.Module, ptr_info, reporter=None) -> ir.Mo
     """
     compiler = WasmToIrCompiler(ptr_info)
     ppci_module = compiler.generate(wasm_module)
+    if reporter:
+        reporter.dump_ir(ppci_module)
     return ppci_module
 
 
@@ -174,7 +177,8 @@ class WasmToIrCompiler:
                     raise NotImplementedError('Non function pointer tables')
                 assert definition.min == definition.max
                 size = definition.max * self.ptr_info.size
-                self.table_var = ir.Variable('func_table', size, self.ptr_info.alignment)
+                self.table_var = ir.Variable(
+                    'func_table', size, self.ptr_info.alignment)
                 self.builder.module.add_variable(self.table_var)
                 tables.append((self.table_var, []))
 
@@ -233,13 +237,17 @@ class WasmToIrCompiler:
         for table_variable, functions in tables:
             # TODO: what if alignment is bigger than size?
             assert self.ptr_info.size == self.ptr_info.alignment
-            ptr_size = self.emit(ir.Const(self.ptr_info.size, 'ptr_size', ir.ptr))
-            address = table_variable  # Start at the bottom of the variable table
+            ptr_size = self.emit(
+                ir.Const(self.ptr_info.size, 'ptr_size', ir.ptr))
+
+            # Start at the bottom of the variable table:
+            address = table_variable
             for func in functions:
                 # Lookup function
                 value = self.function_names[func][0]
                 self.emit(ir.Store(value, address))
-                address = self.emit(ir.add(address, ptr_size, 'table_address', ir.ptr))
+                address = self.emit(
+                    ir.add(address, ptr_size, 'table_address', ir.ptr))
 
         # Call eventual start function:
         if start_function_id is not None:
@@ -348,7 +356,10 @@ class WasmToIrCompiler:
         num = len(wasm_function.instructions)
         for nr, instruction in enumerate(wasm_function.instructions, start=1):
             if self.verbose:
-                self.logger.debug('%s/%s %s [stack=%s]', nr, num, instruction.to_string(), len(self.stack))
+                self.logger.debug(
+                    '%s/%s %s [stack=%s]',
+                    nr, num,
+                    instruction.to_string(), len(self.stack))
             self.generate_instruction(instruction)
 
         # Add terminating instruction if needed:
@@ -388,6 +399,12 @@ class WasmToIrCompiler:
         'i64.extend_u/i32',
         'f64.convert_s/i32',
         'f64.convert_u/i32',
+        'f64.convert_s/i64',
+        'f64.convert_u/i64',
+        'f32.convert_s/i32',
+        'f32.convert_u/i32',
+        'f32.convert_s/i64',
+        'f32.convert_u/i64',
     }
 
     CMPOPS = {
@@ -477,7 +494,9 @@ class WasmToIrCompiler:
                 'div': '/', 'div_s': '/', 'div_u': '/',
                 'and': '&', 'or': '|', 'xor': '^', 'shl': '<<',
                 'shr_u': '>>',
-                'shr_s': 'asr',  # TODO: arithmatic shift right is not the same as logical shift right.. TBD.
+                # TODO: arithmatic shift right is not the same as
+                # logical shift right.. TBD.
+                'shr_s': 'asr',
                 'rotr': 'ror', 'rotl': 'rol'}
             op = op_map[opname]
             name = 'op_{}'.format(opname)
@@ -501,6 +520,7 @@ class WasmToIrCompiler:
             # todo: hack; we assume this is the only test in an if
 
         elif inst in STORE_OPS:
+            # self.gen_store(inst)
             itype, store_op = inst.split('.')
             ir_typ = self.get_ir_type(itype)
             # ACHTUNG: alignment and offset are swapped in text:
@@ -586,7 +606,7 @@ class WasmToIrCompiler:
             assert ty is value.ty
             self.emit(ir.Store(value, addr))
 
-        elif inst == 'f64.neg':
+        elif inst in ['f64.neg', 'f32.neg']:
             value = self.emit(
                 ir.Unop('-', self.pop_value(), 'neg', self.get_ir_type(inst)))
             self.stack.append(value)
@@ -684,6 +704,9 @@ class WasmToIrCompiler:
         elif inst == 'drop':
             # Drop value on the stack
             self.pop_value()
+
+        elif inst == 'nop':
+            pass  # Easy money :D
 
         else:  # pragma: no cover
             raise NotImplementedError(inst)
