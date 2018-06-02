@@ -25,6 +25,10 @@ def instantiate(module, imports, target='native', reporter=None):
 
     Args:
         module (ppci.wasm.Module): The wasm-module to instantiate
+        imports: A collection of functions available to the wasm module.
+        target: Use 'native' to compile wasm to machine code.
+                Use 'python' to generate python code. This option is slower
+                but more reliable.
 
     """
     if reporter is None:
@@ -49,9 +53,10 @@ def instantiate(module, imports, target='native', reporter=None):
     elif target == 'python':
         instance = python_instantiate(module, imports, reporter)
     else:
-        raise ValueError('Unknown instantiation target'.format(target))
+        raise ValueError('Unknown instantiation target {}'.format(target))
 
-    # Call magic function _run_init which optionally initializes tables and calls start
+    # Call magic function _run_init which initializes tables and optionally
+    # calls start function as defined by the wasm start section.
     instance._run_init()
     return instance
 
@@ -79,6 +84,10 @@ def native_instantiate(module, imports, reporter):
                 getattr(instance._module, ppci_id))
             i += 1
 
+    # Fetch init function:
+    fname = '_run_init'
+    setattr(instance.exports, fname, getattr(instance._module, fname))
+
     memories = create_memories(module)
     # TODO: Load memories.
 
@@ -92,7 +101,6 @@ def python_instantiate(module, imports, reporter):
     f = io.StringIO()
     ir_to_python([ppci_module], f, reporter=reporter)
     pysrc = f.getvalue()
-    # print(pysrc)
     pycode = compile(pysrc, '<string>', 'exec')
     _module = ModuleType('gen')
     exec(pycode, _module.__dict__)
@@ -229,7 +237,7 @@ def create_runtime():
     def i64_ctz(v: int) -> int:
         return ctz(v, 64)
 
-    def unreachable():
+    def unreachable() -> None:
         raise RuntimeError('WASM KERNEL panic!')
 
     # TODO: merge with opcode table?

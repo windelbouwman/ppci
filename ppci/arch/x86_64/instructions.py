@@ -8,7 +8,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u16, u32, u64, bit_range, bit
-from .registers import X86Register, rcx, al, cl, rax, rdx, rbp
+from .registers import X86Register, rcx, al, cl, rax, rdx, rbp, eax
 from .registers import rsp, ax, Register32
 from .registers import Register64, Register16, Register8
 
@@ -1739,6 +1739,28 @@ def pattern_u16toi64(context, tree, c0):
 
     defu2 = RegisterUseDef()
     defu2.add_use(ax)
+    defu2.add_def(rax)
+    context.emit(defu2)
+
+    d = context.new_reg(Register64)
+    context.move(d, rax)
+    return d
+
+
+@isa.pattern('reg64', 'U32TOU64(reg32)', size=4)
+@isa.pattern('reg64', 'U32TOI64(reg32)', size=4)
+@isa.pattern('reg64', 'I32TOU64(reg32)', size=4)  # TODO: sign extend?
+@isa.pattern('reg64', 'I32TOI64(reg32)', size=4)  # TODO: sign extend?
+def pattern_u32toi64(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(rax)
+    context.emit(defu1)
+
+    context.emit(bits64.XorRmReg(RmReg64(rax), rax))
+    context.move(eax, c0)
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(eax)
     defu2.add_def(rax)
     context.emit(defu2)
 

@@ -248,6 +248,15 @@ class WasmToIrCompiler:
 
         self.emit(ir.Exit())
 
+        # Enter correct debug info:
+        dbg_arg_types = []
+        dbg_return_type = debuginfo.DebugBaseType('void', 0, 1)
+        db_function_info = debuginfo.DebugFunction(
+            ppci_function.name,
+            common.SourceLocation('main.wasm', 1, 1, 1),
+            dbg_return_type, dbg_arg_types)
+        self.debug_db.enter(ppci_function, db_function_info)
+
     def emit(self, ppci_inst):
         """ Emits the given instruction to the builder.
 

@@ -27,6 +27,7 @@ test/.coverage
 test/listings
 test/FORTRAN
 .tox
+.mypy_cache
 *report.html
 .cache
 .coverage

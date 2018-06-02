@@ -120,6 +120,9 @@ class Mod:
         if imports:
             for name, function in imports.items():
                 signature = inspect.signature(function)
+                if signature.return_annotation is inspect._empty:
+                    raise ValueError(
+                        '"{}" requires return type annotations'.format(name))
                 return_type = signature.return_annotation
                 argument_types = [
                     p.annotation for p in signature.parameters.values()]

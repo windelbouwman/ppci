@@ -58,8 +58,8 @@ instruction_table = [
     ('i64.store16', 0x3D, ('u32', 'u32')),
     ('i64.store32', 0x3E, ('u32', 'u32')),
     
-    ('memory.size', 0x3f, ('byte'), (), ('i32',)),
-    ('memory.grow', 0x40, ('byte'), ('i32',), ('i32',)),
+    ('memory.size', 0x3f, ('byte',), (), ('i32',)),
+    ('memory.grow', 0x40, ('byte',), ('i32',), ('i32',)),
 
     ('i32.const', 0x41, ('i32',), (), ('i32',), lambda i, v: (i.args[0],)),
     ('i64.const', 0x42, ('i64',), (), ('i64',)),
@@ -255,3 +255,32 @@ def _make_instructionset():
 
 
 I = _make_instructionset()
+
+
+def eval_expr(expr):
+    """ Evaluate a sequence of instructions """
+    stack = []
+    for i in expr:
+        consumed_types, produced_types, action = EVAL[i.opcode]
+        if action is None:
+            raise RuntimeError('Cannot evaluate {}'.format(i.opcode))
+        # Gather stack values:
+        values = []
+        for t in consumed_types:
+            vt, v = stack.pop(-1)
+            assert vt == t
+            values.append(v)
+
+        # Perform magic action of instruction:
+        values = action(i, values)
+
+        # Push results on tha stack:
+        assert len(values) == len(produced_types)
+        for vt, v in zip(produced_types, values):
+            stack.append((vt, v))
+
+    if len(stack) == 1:
+        return stack[0]
+    else:
+        raise ValueError('Expression does not leave value on stack!')
+

@@ -31,16 +31,15 @@ Common attribute names:
 
 from io import BytesIO
 import logging
-import struct
 import sys
 from collections import OrderedDict
 
-from .opcodes import OPERANDS, REVERZ, EVAL, OPCODES
+from .opcodes import OPERANDS, REVERZ, eval_expr, OPCODES
 from .abbreviations import normalize_wasm_s_expression
 from .util import datastring2bytes, bytes2datastring
 from ..lang.sexpr import parse_sexpr
-from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
-from ..utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
+from .io import FileReader, FileWriter
+
 
 this_is_js = lambda: False  # For PyScript
 
@@ -68,210 +67,15 @@ if sys.version_info < (3, 6):
     SECTION_IDS = OrderedDict(sorted(SECTION_IDS.items(), key=lambda i: i[1]))
 
 
-LANG_TYPES = {
-    'i32': b'\x7f',
-    'i64': b'\x7e',
-    'f32': b'\x7d',
-    'f64': b'\x7c',
-    'anyfunc': b'\x70',
-    'func': b'\x60',
-    'emptyblock': b'\x40',  # pseudo type for representing an empty block_type
-    }
-LANG_TYPES_REVERSE = {v[0]: k for k, v in LANG_TYPES.items()}
-
-
-class FileWriter:
-    """ Helper class that can write bytes to a file """
-
-    def __init__(self, f):
-        self.f = f
-
-    def write(self, bb):
-        return self.f.write(bb)
-
-    def write_f64(self, x):
-        self.f.write(struct.pack('<d', x))
-
-    def write_f32(self, x):
-        self.f.write(struct.pack('<f', x))
-
-    def write_u32(self, x):
-        self.f.write(struct.pack('<I', x))
-
-    def write_str(self, x):
-        bb = x.encode('utf-8')
-        self.write_vu32(len(bb))
-        self.f.write(bb)
-
-    def write_vs64(self, x):
-        bb = signed_leb128_encode(x)
-        if not len(bb) <= 10:
-            raise ValueError('Cannot pack {} into 10 bytes'.format(x))
-        self.f.write(bb)
-
-    def write_vs32(self, x):
-        bb = signed_leb128_encode(x)
-        if not len(bb) <= 5:  # 5 = ceil(32/7)
-            raise ValueError('Cannot pack {} into 5 bytes'.format(x))
-        self.f.write(bb)
-
-    def write_vu32(self, x):
-        bb = unsigned_leb128_encode(x)
-        assert len(bb) <= 5
-        self.f.write(bb)
-
-    def write_vu7(self, x):
-        bb = unsigned_leb128_encode(x)
-        assert len(bb) == 1
-        self.f.write(bb)
-
-    def write_vu1(self, x):
-        bb = unsigned_leb128_encode(x)
-        assert len(bb) == 1
-        self.f.write(bb)
-
-    def write_limits(self, min, max):
-        if max is None:
-            self.write(b'\x00')
-            self.write_vu32(min)
-        else:
-            self.write(b'\x01')
-            self.write_vu32(min)
-            self.write_vu32(max)
-
-
-class FileReader:
-    """ Helper class that can read bytes from a file """
-
-    def __init__(self, f):
-        self.f = f
-
-    def read(self, amount):
-        if amount < 1:
-            raise ValueError('Cannot read {} bytes'.format(amount))
-        data = self.f.read(amount)
-        if len(data) != amount:
-            raise EOFError('Reading beyond end of file')
-        return data
-
-    def bytefile(self, f):
-        b = f.read(1)
-        while b:
-            yield b[0]
-            b = f.read(1)
-
-    def __next__(self):
-        b = self.read(1)
-        return b[0]
-
-    def read_byte(self):
-        """ Read the value of a single byte """
-        data = self.read(1)
-        return data[0]
-
-    def read_int(self):
-        """ Read signed int """
-        return signed_leb128_decode(self)
-
-    def read_u32(self):
-        return unsigned_leb128_decode(self)
-
-    def read_f32(self) -> float:
-        data = self.read(4)
-        value, = struct.unpack('f', data)
-        return value
-
-    def read_f64(self) -> float:
-        data = self.read(8)
-        value, = struct.unpack('d', data)
-        return value
-
-    def read_bytes(self) -> bytes:
-        """ Read raw bytes data """
-        amount = self.read_u32()
-        return self.read(amount)
-
-    def read_str(self):
-        """ Read a string """
-        data = self.read_bytes()
-        return data.decode('utf-8')
-
-    def read_type(self):
-        """ Read a wasm type """
-        tp = self.read_byte()
-        return LANG_TYPES_REVERSE[tp]
-
-    def read_limits(self):
-        """ Read min and max limits """
-        mx_present = self.read(1)[0]
-        assert mx_present in [0, 1]
-        minimum = self.read_u32()
-        if mx_present:
-            maximum = self.read_u32()
-        else:
-            maximum = None
-        return minimum, maximum
-
-    def read_expression(self):
-        """ Read instructions until an end marker is found """
-        expr = []
-        blocks = 1
-        i = self.read_instruction()
-        # keep track of if/block/loop etc:
-        if i.opcode == 'end':
-            blocks -= 1
-        elif i.opcode in ('if', 'block', 'loop'):
-            blocks += 1
-        expr.append(i)
-        while blocks:
-            i = self.read_instruction()
-            if i.opcode == 'end':
-                blocks -= 1
-            elif i.opcode in ('if', 'block', 'loop'):
-                blocks += 1
-            expr.append(i)
-        return expr
-
-    def read_instruction(self):
-        """ Read a single instruction """
-        return Instruction(self)
-
-
-def eval_expr(expr):
-    """ Evaluate a sequence of instructions """
-    stack = []
-    for i in expr:
-        consumed_types, produced_types, action = EVAL[i.opcode]
-        if action is None:
-            raise RuntimeError('Cannot evaluate {}'.format(i.opcode))
-        # Gather stack values:
-        values = []
-        for t in consumed_types:
-            vt, v = stack.pop(-1)
-            assert vt == t
-            values.append(v)
-
-        # Perform magic action of instruction:
-        values = action(i, values)
-
-        # Push results on tha stack:
-        assert len(values) == len(produced_types)
-        for vt, v in zip(produced_types, values):
-            stack.append((vt, v))
-
-    if len(stack) == 1:
-        return stack[0]
-    else:
-        raise ValueError('Expression does not leave value on stack!')
-
-
 def check_id(id):
     if isinstance(id, int):
-        assert id >= 0, 'Integer id must be >= 0.'
+        if not id >= 0:
+            raise ValueError('Integer id must be >= 0.')
     elif isinstance(id, str):
-        assert id.startswith('$'), 'String id must start with $.'
+        if not id.startswith('$'):
+            raise ValueError('String id must start with $.')
     else:
-        assert False, 'Id must be int or str.'
+        raise ValueError('Id must be int or str.')
     return id
 
 
@@ -382,6 +186,8 @@ class WASMComponent:
         """ Get the component's tuple representation (by exporting to string
         and parsing the s-expression).
         """
+        # TODO: should we reverse this logic,
+        # by having to_string using to_tuple?
         s = self.to_string()
         return parse_sexpr(s)
 
@@ -464,6 +270,8 @@ class Module(WASMComponent):
         self.definitions = definitions2
 
     def to_string(self):
+        # TODO: idea: first construct tuples, then pretty print these tuples
+        # to strings.
         id_str = ' ' + self.id if self.id else ''
         defs_str = ''
         if self.definitions:
@@ -578,7 +386,7 @@ class Module(WASMComponent):
         data = reader.read(4)
         if data != b'\x00asm':
             raise ValueError('Magic wasm marker is invalid')
-        version = struct.unpack('<I', reader.read(4))[0]
+        version = reader.read_u32()
         assert version == 1, version
 
         # Prepare
@@ -600,19 +408,19 @@ class Module(WASMComponent):
                 section_id = reader.read_byte()
             except EOFError:
                 break
-            section_nbytes = reader.read_u32()  # todo: Validate section nbytes
+            section_nbytes = reader.read_uint()  # todo: Validate section nbytes
             section_name = section_id_to_name[section_id]
 
             if section_name == 'function':
                 # Read mapping of func id to type id (both indexes)
-                nfuncs = reader.read_u32()
+                nfuncs = reader.read_uint()
                 for i in range(nfuncs):
-                    type4func[i] = reader.read_u32()
+                    type4func[i] = reader.read_uint()
             else:
                 if section_name == 'start':  # There is (at most) 1 start def
                     definitions.append(Start(reader))
                 else:
-                    ndefs = reader.read_u32()  # for this section
+                    ndefs = reader.read_uint()  # for this section
                     for i in range(ndefs):
                         Cls = DEFINITION_CLASSES[section_name]
                         d = Cls(reader)
@@ -797,7 +605,7 @@ class Instruction(WASMComponent):
             elif o == 'f64':
                 f.write_f64(arg)
             elif o == 'type':
-                f.write(LANG_TYPES[arg])
+                f.write_type(arg)
             elif o == 'byte':
                 f.write(bytes([arg]))
             elif o == 'br_table':
@@ -818,16 +626,16 @@ class Instruction(WASMComponent):
             if operand in ['i32', 'i64']:
                 arg = reader.read_int()
             elif operand == 'u32':
-                arg = reader.read_u32()
+                arg = reader.read_uint()
             elif operand == 'type':
                 arg = reader.read_type()
             elif operand == 'byte':
                 arg = reader.read_byte()
             elif operand == 'br_table':
-                count = reader.read_u32()
+                count = reader.read_uint()
                 vec = []
                 for _ in range(count + 1):
-                    idx = reader.read_u32()
+                    idx = reader.read_uint()
                     vec.append(idx)
                 arg = vec
             elif operand == 'f32':
@@ -971,17 +779,17 @@ class Type(Definition):
         f.write(b'\x60')  # form
         f.write_vu32(len(self.params))  # params
         for _, paramtype in self.params:
-            f.write(LANG_TYPES[paramtype])
+            f.write_type(paramtype)
         f.write_vu1(len(self.result))  # returns
         for rettype in self.result:
-            f.write(LANG_TYPES[rettype])
+            f.write_type(rettype)
 
     def _from_reader(self, reader):
         form = reader.read(1)
         assert form == b'\x60'
-        num_params = reader.read_u32()
+        num_params = reader.read_uint()
         self.params = [(i, reader.read_type()) for i in range(num_params)]
-        num_returns = reader.read_u32()
+        num_returns = reader.read_uint()
         self.result = [reader.read_type() for _ in range(num_returns)]
 
 
@@ -1104,7 +912,7 @@ class Import(Definition):
         elif self.kind == 'table':
             f.write(b'\x01')
             table_kind, min, max = self.info
-            f.write(LANG_TYPES[table_kind])  # always 0x70 anyfunc in v1
+            f.write_type(table_kind)  # always 0x70 anyfunc in v1
             f.write_limits(min, max)
         elif self.kind == 'memory':
             f.write(b'\x02')
@@ -1113,10 +921,10 @@ class Import(Definition):
         elif self.kind == 'global':
             f.write(b'\x03')
             typ, mutable = self.info
-            f.write(LANG_TYPES[typ])
+            f.write_type(typ)
             f.write(bytes([int(mutable)]))
-        else:
-            assert False
+        else:  # pragma: no cover
+            raise NotImplementedError(self.kind)
 
     def _from_reader(self, reader):
         self.modname = reader.read_str()
@@ -1124,10 +932,10 @@ class Import(Definition):
         kind_id = reader.read_byte()
         if kind_id == 0:
             self.kind = 'func'
-            self.info = (reader.read_u32(), )
+            self.info = (reader.read_uint(), )
         elif kind_id == 1:
             self.kind = 'table'
-            table_kind = LANG_TYPES_REVERSE[reader.read_u32()]
+            table_kind = reader.read_type()
             min, max = reader.read_limits()
             self.info = table_kind, min, max
         elif kind_id == 2:
@@ -1137,6 +945,8 @@ class Import(Definition):
         elif kind_id == 3:
             self.kind = 'global'
             self.info = reader.read_type(), bool(reader.read_byte())
+        else:  # pragma: no cover
+            raise NotImplementedError()
 
 
 class Table(Definition):
@@ -1202,13 +1012,12 @@ class Table(Definition):
         return '(table%s%s %s)' % (id, minmax, self.kind)
 
     def _to_writer(self, f, id_maps):
-        f.write(LANG_TYPES[self.kind])  # always 0x70 anyfunc in v1
+        f.write_type(self.kind)  # always 0x70 anyfunc in v1
         f.write_limits(self.min, self.max)
 
     def _from_reader(self, reader):
-        kind_idx = reader.read(1)[0]
-        assert kind_idx == 0x70
-        self.kind = LANG_TYPES_REVERSE[kind_idx]
+        self.kind = reader.read_type()
+        assert self.kind == 'anyfunc'
         self.min, self.max = reader.read_limits()
 
 
@@ -1304,7 +1113,7 @@ class Global(Definition):
             return '(global %s %s %s)' % (self.id, self.typ, init)
 
     def _to_writer(self, f, id_maps):
-        f.write(LANG_TYPES[self.typ])
+        f.write_type(self.typ)
         f.write(bytes([int(self.mutable)]))
 
         # Encode value as expression followed by end instruction
@@ -1366,7 +1175,7 @@ class Export(Definition):
         self.name = reader.read_str()
         kind_id = reader.read_byte()
         self.kind = ['func', 'table', 'memory', 'global'][kind_id]
-        self.ref = reader.read_u32()
+        self.ref = reader.read_uint()
 
 
 class Start(Definition):
@@ -1398,7 +1207,7 @@ class Start(Definition):
         f.write_vu32(int_ref)
 
     def _from_reader(self, reader):
-        self.ref = reader.read_u32()
+        self.ref = reader.read_uint()
 
 
 class Func(Definition):
@@ -1523,7 +1332,7 @@ class Func(Definition):
         f3.write_vu32(len(local_entries))
         for count, loc_type in local_entries:
             f3.write_vu32(count)  # number of locals of this type
-            f3.write(LANG_TYPES[loc_type])
+            f3.write_type(loc_type)
 
         # Further prepare id_maps. The module has put the params in local ns
         for loc_id, loc_type in self.locals:
@@ -1543,14 +1352,14 @@ class Func(Definition):
         id_maps.pop('label')
 
     def _from_reader(self, reader):
-        body_size = reader.read_u32()
+        body_size = reader.read_uint()
         body = reader.read(body_size)
 
         reader2 = FileReader(BytesIO(body))
-        num_local_pairs = reader2.read_u32()
+        num_local_pairs = reader2.read_uint()
         localz = []
         for _ in range(num_local_pairs):
-            c = reader2.read_u32()
+            c = reader2.read_uint()
             t = reader2.read_type()
             localz.extend([(None, t)] * c)
         instructions = reader2.read_expression()
@@ -1592,18 +1401,18 @@ class Elem(Definition):
     def _from_tuple(self, t):
         assert t[0] == 'elem'
         assert 2 <= len(t)
-        if not isinstance(t[1], tuple):
-            ref = t[1]
-            offset = t[2]
-            refs = t[3:]
-        else:
+        if isinstance(t[1], tuple):
             ref = 0
             offset = t[1]
             refs = t[2:]
+        else:
+            ref = t[1]
+            offset = t[2]
+            refs = t[3:]
         self._from_args(ref, offset, refs)
     
     def to_string(self):
-        ref = '' if self.ref == '$0' else ' %s' % self.ref
+        ref = '' if self.ref in ['$0', 0] else ' %s' % self.ref
         offset = self.offset.to_string()
         refs_as_str = ' '.join(str(i) for i in self.refs)
         return '(elem%s %s %s)' % (ref, offset, refs_as_str)
@@ -1620,16 +1429,16 @@ class Elem(Definition):
             f.write_vu32(id_maps['func'][ref])
 
     def _from_reader(self, reader):
-        self.ref = reader.read_u32()
+        self.ref = reader.read_uint()
         offset_expr = reader.read_expression()
         offset_type, offset = eval_expr(offset_expr)
         assert offset_type == 'i32'
         self.offset = offset_expr[0]
 
-        count = reader.read_u32()
+        count = reader.read_uint()
         indexes = []
         for _ in range(count):
-            indexes.append(reader.read_u32())
+            indexes.append(reader.read_uint())
         self.refs = indexes
 
 
@@ -1655,7 +1464,8 @@ class Data(Definition):
         if isinstance(offset, tuple):
             offset = Instruction(*offset)
         assert isinstance(offset, Instruction)
-        assert isinstance(data, bytes)
+        if not isinstance(data, bytes):
+            raise TypeError('data must be bytes')
         # Set
         self.ref = check_id(ref)
         self.offset = offset
@@ -1680,7 +1490,7 @@ class Data(Definition):
         self._from_args(ref, offset, b''.join(datas))
 
     def to_string(self):
-        ref = '' if self.ref == '$0' else ' %s' % self.ref
+        ref = '' if self.ref in ['$0', 0] else ' %s' % self.ref
         offset = self.offset.to_string()
         data_as_str = bytes2datastring(self.data)  # repr(self.data)[2:-1]
         return '(data%s %s "%s")' % (ref, offset, data_as_str)
@@ -1698,7 +1508,7 @@ class Data(Definition):
         f.write(self.data)
 
     def _from_reader(self, reader):
-        self.ref = reader.read_u32()
+        self.ref = reader.read_uint()
         offset_expr = reader.read_expression()
         offset_type, offset = eval_expr(offset_expr)
         assert offset_type == 'i32'

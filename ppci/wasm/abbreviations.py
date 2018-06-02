@@ -18,8 +18,6 @@ a WASM module:
 # - We may get new toplevel type fields (i.e. function signatures)
 # - We may get new toplevel imports and exports.
 
-import struct
-
 from .util import datastring2bytes
 from .opcodes import OPERANDS, OPCODES
 
@@ -29,6 +27,11 @@ def normalize_wasm_s_expression(t, SECTION_IDS):
     so that it is in a predictable shape.
     """
     resolver = AbbreviationResolver(t, SECTION_IDS)
+    # TODO: suggestion as a simpler solution:
+    # Loop over all tuples, and during resolving construct the wasm.Module
+    # directly. Now we have first one tuple, a simpler tuple, then a module.
+    # We can simplify by directly looking at the tuples and calling
+    # _from_tuple with the resolved tuples.
     return resolver.resolve()
 
 
