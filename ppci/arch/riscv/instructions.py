@@ -685,9 +685,9 @@ def pattern_const_i32(context, tree):
     return d
 
 
-@isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
-@isa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
-@isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPI32(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPI16(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPI8(reg, reg)', size=4)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Ble}
@@ -697,9 +697,9 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
-@isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
-@isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+@isa.pattern('stm', 'CJMPU8(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPU16(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPU32(reg, reg)', size=4)
 def pattern_cjmpu(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {

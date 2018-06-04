@@ -107,7 +107,7 @@ public function void print_intmon(int i)
 
 public function void print2(string label, int value)
 {
-    print(label);
-    print_int(value);
+    printmon(label);
+    print_intmon(value);
 }
 

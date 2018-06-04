@@ -95,6 +95,9 @@ class Linker:
 
         if not partial_link:
             self.do_relocations(dst)
+        
+        for func in dst.arch.isa.postlinkopts:
+            func(self, dst)
 
         if self.reporter:
             for section in dst.sections:
@@ -232,7 +235,7 @@ class Linker:
             raise CompilerError(
                 'Undefined reference "{}"'.format(name))
 
-    def do_relocations(self, dst):
+    def do_relocations(self, dst, opt = False):
         """ Perform the correct relocation as listed """
         for reloc in dst.relocations:
             sym_value = self.get_symbol_value(dst, reloc.symbol_name)
@@ -246,8 +249,15 @@ class Linker:
             size = reloc.size()
             end = begin + size
             data = section.data[begin:end]
-            assert len(data) == size, \
+            if opt:
+                data, size = reloc.apply(sym_value, data, reloc_value, opt)
+                end = begin + size
+                data = data[0:size]
+            else:
+                assert len(data) == size, \
                 'len({}) ({}-{}) != {}'.format(data, begin, end, size)
-            data = reloc.apply(sym_value, data, reloc_value)
+                data = reloc.apply(sym_value, data, reloc_value)
             assert len(data) == size
             section.data[begin:end] = data
+            
+            
