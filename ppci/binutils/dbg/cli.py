@@ -6,82 +6,133 @@ from threading import Lock
 from ... import __version__ as ppci_version
 from ...common import str2int, CompilerError
 from .debug_driver import DebugState
+import logging
 import os
+import sys
+import time
 
 if os.name == 'nt':
     from colorama import init
 
 
-def pos(y, x):
-    print('\x1b[%d;%dH' % (y, x))
+def pos(stdout, y, x):
+    stdout.write('\x1b[%d;%dH' % (y, x))
+    
+def savepos(stdout):
+    stdout.write('\x1b[s')
+
+def restorepos(stdout):
+    stdout.write('\x1b[u')
 
 
 CMDLINE = 12
+screenlock = Lock()
+
+def clearscreen(stdout):
+    stdout.write("\033[2J\033[1;1H")
 
 
-def clearscreen():
-    print("\033[2J\033[1;1H")
+def cleartocursor(stdout):
+    stdout.write("\033[1J")
 
 
-def cleartocursor():
-    print("\033[1J")
+def clearaftercursor(stdout):
+    stdout.write("\033[J")
 
 
-def clearaftercursor():
-    print("\033[J")
-
-
-def print_file_line(filename, lineno):
-    lines = open(filename).read().splitlines()
-
-    # show file and line number
-    print("\033[37m\033[1mFile:", filename)
-    print("Line:", "[", lineno, "of", len(lines), "]")
-    print("\033[0m")
-    print("\033[39m")
+def print_file_line(stdout, filename, lineno):
+    lines = open(filename).read().splitlines()    
+    s = "\033[37m\033[1mFile:{}\n".format(filename)    
+    stdout.write(s)    
+    s = "Line: [{} of {}]\n".format(lineno, len(lines))
+    stdout.write(s)    
+    s = "\033[0m\n"
+    stdout.write(s)    
+    s = "\033[0m\n"
+    stdout.write(s)
 
     # Print a fragment of the file to show in context
     for i in range(lineno - 3, lineno + 3):
-        if i < 1:
-            print()
-        elif i > len(lines):
-            print()
-        elif i == lineno:
-            print("\033[33m\033[1m", str(i).rjust(4),
-                  "\033[32m->", lines[i - 1], "\033[0m\033[39m")
-        else:
-            print("\033[33m\033[1m", str(i).rjust(4),
-                  "\033[0m\033[39m  ", lines[i - 1])
-
+        if i < 1:            
+            stdout.write('\n')
+        elif i > len(lines):            
+            stdout.write('\n')
+        elif i == lineno:            
+            s = "\033[33m\033[1m{}\033[32m->{}\033[0m\033[39m\n".format(str(i).rjust(4),lines[i - 1])
+            stdout.write(s)
+        else:            
+            s = "\033[33m\033[1m{}\033[0m\033[39m  {}\n".format(str(i).rjust(4),lines[i - 1])
+            stdout.write(s)
+                  
+class Proxy(object):
+    logger = logging.getLogger('dbg') 
+    def __init__(self, debugger):
+        self.buffer = []
+        self.debugger = debugger              
+        self.stdout = sys.stdout
+        
+    def write(self, data):
+        if len(data)>0:
+            if data[-1] != '\n':
+                self.buffer.append(data)
+            else:
+                if len(self.buffer):
+                    self.flush()            
+                with screenlock:		
+                    self.stdout.write(data)
+                    self.logger.debug('stdout writing: %s, [%s]', data, data.encode('utf-8').hex()) 
+        
+    
+    def flush(self):                
+        text = ''.join(self.buffer)
+        self.buffer = []
+        with screenlock:
+            self.logger.debug('stdout flushing: %s, [%s] ', text, text.encode('utf-8').hex()) 
+            self.stdout.write(text)
+            self.stdout.flush()
+            
+       
+            
+            
+    
 
 class DebugCli(cmd.Cmd):
     """ Implement a console-based debugger interface. """
     prompt = 'DBG>'
     intro = "ppci interactive debugger"
-
+    
+    
+    
     def __init__(self, debugger, showsource=False):
-        super().__init__()
+        self.Proxy = Proxy(debugger) 
+        self.stdout_ori = sys.stdout                  
+        sys.stdout = self.Proxy
+        super().__init__(stdout=self.Proxy)        		
         self.debugger = debugger
-        self.showsource = showsource
-        self.screenlock = Lock()
+        self.use_rawinput = False
+        self.showsource = showsource            
+        
+        
         if self.showsource is True:
             if os.name == 'nt':
                 init()
-            clearscreen()
-            pos(1, 1)
+            clearscreen(sys.stdout)
+            pos(sys.stdout,1, 1)
             if self.debugger.is_running:
                 print('\033[37m\033[1mTarget State: RUNNING')
             else:
-                print('\033[37m\033[1mTarget State: STOPPED')
-            # file, col = self.debugger.find_pc()
-            # pos(2, 1)
-            # print_file_line(file, col)
-            pos(CMDLINE, 1)
+                print('\033[37m\033[1mTarget State: STOPPED')            
+            pos(sys.stdout, CMDLINE, 1)
             self.debugger.events.on_stop += self.updatesourceview
             self.debugger.events.on_start += self.updatestatus
-
+    
+    
+    
+    
     def do_quit(self, _):
         """ Quit the debugger """
+        sys.stdout = self.stdout_ori
+        raise SystemExit
         return True
 
     do_q = do_quit
@@ -118,7 +169,7 @@ class DebugCli(cmd.Cmd):
 
     def do_stop(self, _):
         """ Stop the running program """
-        self.debugger.stop()
+        self.debugger.stop()        
 
     def do_restart(self, _):
         """ Restart the running program """
@@ -211,29 +262,33 @@ class DebugCli(cmd.Cmd):
 
     def updatesourceview(self):
         if self.showsource is True and self.debugger.is_halted:
-            with self.screenlock:
-                pos(CMDLINE, 1)
-                cleartocursor()
-                pos(1, 1)
-                print('\033[37m\033[1mTarget State: STOPPED')
+            with screenlock:
+                savepos(self.stdout_ori)
+                pos(self.stdout_ori, CMDLINE-1, 1)
+                cleartocursor(self.stdout_ori)
+                pos(self.stdout_ori, 1, 1)
+                self.stdout_ori.write('\033[37m\033[1mTarget State: STOPPED\n')
                 file, row = self.debugger.find_pc()
-                pos(2, 1)
-                print_file_line(file, row)
-                pos(CMDLINE + 1, len(DebugCli.prompt))
+                pos(self.stdout_ori, 2, 1)
+                print_file_line(self.stdout_ori, file, row)                
+                restorepos(self.stdout_ori)
+                self.stdout_ori.flush()            
 
     def updatestatus(self):
-        with self.screenlock:
-            pos(1, 1)
-            print('\033[37m\033[1mTarget State: RUNNING')
+        with screenlock:
+            savepos(self.stdout_ori)
+            pos(self.stdout_ori, 1, 1)
+            self.stdout_ori.write('\033[37m\033[1mTarget State: RUNNING\n')
+            restorepos(self.stdout_ori)
+            self.stdout_ori.flush()
 
-    def precmd(self, line):
-        with self.screenlock:
-            pos(CMDLINE + 1, len(DebugCli.prompt))
-            clearaftercursor()
-            return cmd.Cmd.precmd(self, line)
+    def precmd(self, line):                    
+        pos(sys.stdout, CMDLINE + 1, 0)
+        clearaftercursor(sys.stdout) 
+        pos(sys.stdout, CMDLINE + 2, 0)
+        return cmd.Cmd.precmd(self, line)
 
-    def postcmd(self, stop, line):
-        time.sleep(0.5)
-        with self.screenlock:
-            pos(CMDLINE + 1, len(DebugCli.prompt))
-            return cmd.Cmd.postcmd(self, stop, line)
+    def postcmd(self, stop, line):   
+        pos(sys.stdout, CMDLINE + 1, 0)
+        return cmd.Cmd.postcmd(self, stop, line)
+        
