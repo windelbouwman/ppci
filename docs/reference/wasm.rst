@@ -108,9 +108,11 @@ for this functionality to be generally useful.
 .. doctest:: wasm
 
     >>> from ppci import wasm
+    >>> from ppci.wasm.arch import WasmArchitecture
     >>> code = '(module (func $truth (result i32) (i32.const 42) (return)))'
     >>> m1 = wasm.Module(code)
-    >>> ir = wasm.wasm_to_ir(m1)
+    >>> arch = WasmArchitecture()
+    >>> ir = wasm.wasm_to_ir(m1, arch.info.get_type_info('ptr'))
     >>> m2 = wasm.ir_to_wasm(ir)
 
 

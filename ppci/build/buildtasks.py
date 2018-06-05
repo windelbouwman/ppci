@@ -52,7 +52,7 @@ class OutputtingTask(Task):
         """ Store the object in the specified file """
         output_filename = self.relpath(self.get_argument('output'))
         self.ensure_path(output_filename)
-        with open(output_filename, 'wt', encoding='utf8' as output_file:
+        with open(output_filename, 'wt', encoding='utf8') as output_file:
             obj.save(output_file)
 
 

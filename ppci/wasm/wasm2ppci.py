@@ -37,15 +37,20 @@ def create_memories(wasm_module):
     libraries.
     """
     memories = {}
+    memory_ids = []
     initializations = []
     for definition in wasm_module:
         if isinstance(definition, components.Memory):
             minsize = definition.min
             memories[definition.id] = bytearray(minsize * 65536)
+            memory_ids.append(definition.id)
         elif isinstance(definition, components.Data):
             assert definition.offset.opcode == 'i32.const'
             offset = definition.offset.args[0]
             memory_id = definition.ref
+            # TODO: should ref always be an integer index?
+            if isinstance(memory_id, int):
+                memory_id = memory_ids[memory_id]
             data = definition.data
             initializations.append((memory_id, offset, data))
 
