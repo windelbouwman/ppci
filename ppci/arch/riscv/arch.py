@@ -253,7 +253,8 @@ class RiscvArch(Architecture):
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
-        # Align at 4 bytes
+        yield Section('data')
+        # Align at 4 byte
         if frame.constants:
             yield Align(4)
 
@@ -269,6 +270,8 @@ class RiscvArch(Architecture):
                 yield Align(4)  # Align at 4 bytes
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
+        
+        yield Section('code')
 
     def between_blocks(self, frame):
         for ins in self.litpool(frame):
