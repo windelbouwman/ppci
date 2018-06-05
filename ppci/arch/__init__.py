@@ -63,8 +63,8 @@ def get_arch(arch):
         from .target_list import create_arch
         if ':' in arch:
             # We have target with options attached
-            l = arch.split(':')
-            return create_arch(l[0], options=tuple(l[1:]))
+            parts = arch.split(':')
+            return create_arch(parts[0], options=tuple(parts[1:]))
         else:
             return create_arch(arch)
     raise ValueError('Invalid architecture {}'.format(arch))

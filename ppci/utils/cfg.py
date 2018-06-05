@@ -12,6 +12,7 @@ Functions present:
 
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
 from .graph import DiGraph, DiNode
+from . import lt
 from collections import namedtuple
 
 DomTreeNode = namedtuple('DomTreeNode', ['node', 'children'])
@@ -214,6 +215,8 @@ class ControlFlowGraph(DiGraph):
 
         Do this by choosing n from sdom(x) such that dom(n) == sdom(x).
         """
+        self._idom = lt.calculate_idom(self, self.entry_node)
+        return
         if self._dom is None:
             self.calculate_dominators()
 

@@ -182,14 +182,14 @@ class WhitespaceParser:
 
     def parse_bits(self):
         """ Parse LF terminated series of bits SP=0, tab=1 """
-        l = []
+        bit_values = []
         while not self.has_consumed('\n'):
             if self.has_consumed(' '):
-                l.append(0)
+                bit_values.append(0)
             else:
                 self.consume('\t')
-                l.append(1)
-        return l
+                bit_values.append(1)
+        return bit_values
 
 
 class Push:

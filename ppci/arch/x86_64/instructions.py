@@ -8,7 +8,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u16, u32, u64, bit_range, bit
-from .registers import X86Register, rcx, al, cl, rax, rdx, rbp, eax
+from .registers import X86Register, rcx, al, cl, rax, rdx, rbp, eax, ecx
 from .registers import rsp, ax, Register32
 from .registers import Register64, Register16, Register8
 
@@ -1610,10 +1610,10 @@ def pattern_shl64(context, tree, c0, c1):
 @isa.pattern('reg32', 'SHLI32(reg32, reg32)', size=2)
 @isa.pattern('reg32', 'SHLU32(reg32, reg32)', size=2)
 def pattern_shl_32(context, tree, c0, c1):
-    d = context.new_reg(X86Register)
+    d = context.new_reg(Register32)
     context.move(d, c0)
-    context.move(rcx, c1)
-    context.emit(ShlCl(RmReg(d)))
+    context.move(ecx, c1)
+    context.emit(ShlCl(RmReg32(d)))
     return d
 
 
@@ -1766,6 +1766,84 @@ def pattern_u32toi64(context, tree, c0):
 
     d = context.new_reg(Register64)
     context.move(d, rax)
+    return d
+
+
+@isa.pattern('reg16', 'U32TOU16(reg32)', size=4)
+@isa.pattern('reg16', 'I32TOU16(reg32)', size=4)
+@isa.pattern('reg16', 'I32TOI16(reg32)', size=4)
+def pattern_i32toi16(context, tree, c0):
+    context.move(eax, c0)
+    # raise Warning()
+    defu = RegisterUseDef()
+    defu.add_use(eax)
+    defu.add_def(ax)
+    context.emit(defu)
+
+    d = context.new_reg(Register16)
+    context.move(d, ax)
+    return d
+
+
+@isa.pattern('reg32', 'U16TOU32(reg16)', size=4)
+@isa.pattern('reg32', 'U16TOI32(reg16)', size=4)
+@isa.pattern('reg32', 'I16TOU32(reg16)', size=4)  # TODO: sign extend?
+@isa.pattern('reg32', 'I16TOI32(reg16)', size=4)  # TODO: sign extend?
+def pattern_u16toi32(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(eax)
+    context.emit(defu1)
+
+    context.emit(bits32.XorRmReg(RmReg32(eax), eax))
+    context.move(ax, c0)
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(ax)
+    defu2.add_def(eax)
+    context.emit(defu2)
+
+    d = context.new_reg(Register32)
+    context.move(d, eax)
+    return d
+
+
+@isa.pattern('reg8', 'I32TOI8(reg32)', size=4)
+@isa.pattern('reg8', 'I32TOU8(reg32)', size=4)
+@isa.pattern('reg8', 'U32TOU8(reg32)', size=4)
+@isa.pattern('reg8', 'U32TOI8(reg32)', size=4)
+def pattern_i32toi8(context, tree, c0):
+    context.move(eax, c0)
+    defu = RegisterUseDef()
+    defu.add_use(eax)
+    defu.add_def(al)
+    context.emit(defu)
+
+    d = context.new_reg(Register8)
+    context.move(d, al)
+    return d
+
+
+@isa.pattern('reg32', 'I8TOI32(reg8)', size=4)
+@isa.pattern('reg32', 'U8TOI32(reg8)', size=4)
+@isa.pattern('reg32', 'U8TOU32(reg8)', size=4)
+@isa.pattern('reg32', 'I8TOU32(reg8)', size=4)
+def pattern_u8toi32(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(eax)
+    context.emit(defu1)
+
+    context.emit(bits32.XorRmReg(RmReg32(eax), eax))
+    context.move(al, c0)
+    # raise Warning()
+
+    defu2 = RegisterUseDef()
+    # TODO: how about sign extension?
+    defu2.add_use(al)
+    defu2.add_def(eax)
+    context.emit(defu2)
+
+    d = context.new_reg(Register32)
+    context.move(d, eax)
     return d
 
 
