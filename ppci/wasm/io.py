@@ -89,7 +89,7 @@ class FileReader:
         self.f = f
 
     def read(self, amount):
-        if amount < 1:
+        if amount < 0:
             raise ValueError('Cannot read {} bytes'.format(amount))
         data = self.f.read(amount)
         if len(data) != amount:

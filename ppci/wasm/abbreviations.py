@@ -282,11 +282,15 @@ class AbbreviationResolver:
             for j in range(2, len(expr)):
                 subexpr = expr[j]
                 if isinstance(subexpr, tuple):
-                    if len(subexpr) > 1 and  subexpr[0] == 'data':
-                        data_str = subexpr[1]
-                        data_len = len(datastring2bytes(data_str))
-                        npages = int(data_len/65536) + 1
-                        data_expr = 'data', expr[1], ('i32.const', 0), data_str
+                    if len(subexpr) >= 1 and  subexpr[0] == 'data':
+                        if len(subexpr) == 1:
+                            data_expr = 'data', expr[1], ('i32.const', 0), ''
+                            npages = 0
+                        else:
+                            data_str = subexpr[1]
+                            data_len = len(datastring2bytes(data_str))
+                            npages = int(data_len/65536) + 1
+                            data_expr = 'data', expr[1], ('i32.const', 0), data_str
                         expr.pop(j)
                         expr.extend([npages, npages])
                         break

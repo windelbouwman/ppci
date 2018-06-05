@@ -42,7 +42,7 @@ def perform_test(filename):
         source_text = f.read()
 
     html_report = os.path.splitext(filename)[0] + '.html'
-    with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with open(html_report, 'wt', encoding='utf8') as f, HtmlReportGenerator(f) as reporter:
         reporter.message('Test spec file {}'.format(filename))
         try:
             output_file = io.StringIO()
@@ -69,27 +69,39 @@ def perform_test(filename):
 
                         # Load module from binary data:
                         m1 = Module(data)
+                        
+                        # Go back
+                        data2 = m1.to_bytes()
+                        
+                        # Wont always be the same, e.g. some tests use non-minimal LEB ints
+                        # assert data == data2
+                        
+                        data3 = Module(data2).to_bytes()
+                        
+                        # Check that reading it in result in the same module ...
+                        assert data2 == data3
+                    
                     else:
                         # Load module from tuples:
                         m1 = Module(s_expr)
 
-                        # Convert module to text form and parse again
-                        # This should yield the same binary form:
-                        m2 = Module(m1.to_string())
-                        assert m1.to_bytes() == m2.to_bytes()
+                        # # Convert module to text form and parse again
+                        # # This should yield the same binary form:
+                        # m2 = Module(m1.to_string())
+                        # assert m1.to_bytes() == m2.to_bytes()
 
                         # NOTE: going to string format and back does not
                         # guarantee that parsing was correct.
 
-                    reporter.dump_wasm(m1)
+                        reporter.dump_wasm(m1)
 
-                    # Next step: Instantiate:
-                    imports = {
-                       'rt': create_runtime(),
-                    }
-                    mod_instance = instantiate(
-                        m1, imports, target='python', reporter=reporter)
-                    print(mod_instance)
+                    # # Next step: Instantiate:
+                    # imports = {
+                    #    'rt': create_runtime(),
+                    # }
+                    # mod_instance = instantiate(
+                    #     m1, imports, target='python', reporter=reporter)
+                    # print(mod_instance)
 
                 elif s_expr[0] == 'invoke':
                     # TODO: invoke test functions defined in wast files
@@ -141,7 +153,7 @@ if __name__ == '__main__':
     
     # unittest.main(verbosity=2)
     
-    # perform_test(r'C:\dev\wasm\spec\test\core\br_table.wast')
+    # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     
     testdir = os.path.join(os.environ['WASM_SPEC_DIR'], 'test', 'core')
     for fname in sorted(os.listdir(testdir)):

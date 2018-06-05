@@ -226,7 +226,7 @@ class Msp430Arch(Architecture):
             'divsi3',
             'mulsi3',
         ])
-        # report_generator = HtmlReportGenerator(open('msp430.html', 'w'))
+        # report_generator = HtmlReportGenerator(open('msp430.html', 'wt', encoding='utf8'))
         with DummyReportGenerator() as reporter:
             obj1 = asm(io.StringIO(RT_ASM_SRC), march)
             obj2 = c3c(c3_sources, [], march, reporter=reporter)

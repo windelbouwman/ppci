@@ -354,6 +354,15 @@ class Module(WASMComponent):
                 if section_name == 'start':
                     assert len(section_defs) == 1, 'Expected 0 or 1 start defs'
                     section_defs[0]._to_writer(f2, id_maps)
+                elif section_name == 'custom':
+                    for d in section_defs:
+                        f3 = FileWriter(BytesIO())
+                        d._to_writer(f3, {})
+                        payload = f3.f.getvalue()
+                        #
+                        f2.write_vu7(section_id)  # \x00
+                        f2.write_vu32(len(payload))
+                        f2.write(payload)
                 else:
                     # Write how many definitions, and write each one
                     f2.write_vu32(len(section_defs))  # count
@@ -376,8 +385,9 @@ class Module(WASMComponent):
             payload = f2.f.getvalue()
             logger.debug('Writing section %s of %s bytes' %
                          (section_id, len(payload)))
-            f.write_vu7(section_id)
-            f.write_vu32(len(payload))
+            if section_name != 'custom':
+                f.write_vu7(section_id)
+                f.write_vu32(len(payload))
             f.write(payload)
 
     def _from_reader(self, reader):
@@ -419,6 +429,10 @@ class Module(WASMComponent):
             else:
                 if section_name == 'start':  # There is (at most) 1 start def
                     definitions.append(Start(reader))
+                elif section_name == 'custom':
+                    name_len = reader.read_uint()
+                    definitions.append(Custom(reader.read(name_len).decode(),
+                                              reader.read(section_nbytes - name_len - 1)))
                 else:
                     ndefs = reader.read_uint()  # for this section
                     for i in range(ndefs):
@@ -670,7 +684,7 @@ class BlockInstruction(Instruction):
     def to_string(self):
         idtext = '' if self.id is None else ' ' + self.id
         a0 = self.args[0]
-        subtext = '' if a0 is 'emptyblock' else ' ' + str(a0)
+        subtext = '' if a0 is 'emptyblock' else ' (result ' + str(a0) + ')'
         return '(' + self.opcode + idtext + subtext + ')'
 
 
@@ -1516,6 +1530,32 @@ class Data(Definition):
         self.data = reader.read_bytes()
 
 
+class Custom(Definition):
+    """ Custom binary data.
+    """
+    
+    __slots__ = ('name', 'data')
+    
+    def _from_args(self, name, data):
+        assert isinstance(name, str)
+        assert isinstance(data, bytes)
+        self.name = name
+        self.data = data
+    
+    def _from_tuple(self, t):
+        raise NotImplementedError('Cannot load custom section from tuple.')
+    
+    def to_string(self):
+        raise NotImplementedError('Cannot convert custom section to string.')
+    
+    def _to_writer(self, f, id_maps):
+        f.write_str(self.name)
+        f.write(self.data)
+
+    def _from_reader(self, reader):
+        raise NotImplementedError()  # Module does it, because need nbytes of section
+
+
 # Do some validation on the classes
 DEFINITION_CLASSES = {}  # classes that represent a WASM module definition
 
@@ -1527,7 +1567,7 @@ def _validate():
                 names1.add(name.lower())
                 DEFINITION_CLASSES[name.lower()] = value
 
-    names2 = set(SECTION_IDS).difference(['custom', 'code', 'function'])
+    names2 = set(SECTION_IDS).difference(['code', 'function'])
     if names1 != names2:
         raise RuntimeError('Class validation failed:' +
             '\n  Unknown field clases: %s' % names1.difference(names2) +
