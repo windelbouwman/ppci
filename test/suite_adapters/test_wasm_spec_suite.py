@@ -42,7 +42,7 @@ def perform_test(filename):
         source_text = f.read()
 
     html_report = os.path.splitext(filename)[0] + '.html'
-    with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with open(html_report, 'wt', encoding='utf8') as f, HtmlReportGenerator(f) as reporter:
         reporter.message('Test spec file {}'.format(filename))
         try:
             output_file = io.StringIO()
