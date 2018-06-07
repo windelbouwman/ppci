@@ -207,6 +207,22 @@ class Module(WASMComponent):
     def _from_tuple(self, t):
         """ Initialize from tuple.
         """
+        # Choose implementation:
+
+        # Do everything in one run:
+        # self._from_tuple_1stage(t)
+
+        # Split processing into two stages: flattening and parsing
+        self._from_tuple_2stage(t)
+
+    def _from_tuple_1stage(self, t):
+        # This implementation tries to parse the tuple in one go:
+        from .wat import load_tuple
+        load_tuple(self, t)
+
+    def _from_tuple_2stage(self, t):
+        """ Initialize from tuple.
+        """
 
         # Pop off the "module" name and id, if present
         t = list(t)
