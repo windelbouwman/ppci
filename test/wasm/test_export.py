@@ -77,8 +77,9 @@ def test_export1():
         (table $t1 (export "bar_table1") 2 anyfunc)
         (memory $m1 (export "bar_mem1") 1)
         (global $g1 (export "bar_global") i32 (i32.const 7))
-        (func $f1 (type $sig)
+        (func $f1
             (export "bar_func1") (export "bar_func2")
+            (type $sig)
         )
     )
     """)
