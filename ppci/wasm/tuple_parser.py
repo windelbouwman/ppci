@@ -66,11 +66,6 @@ class TupleParser:
             self._nxt.append(nxt)
         return self._nxt.pop(0)
 
-    def _at_id(self):
-        x = self._lookahead(1)[0]
-        # TODO: is id of None a good plan?
-        return (isinstance(x, str) and x.startswith('$')) or (x is None)
-
 
 class Token(enum.Enum):
     LPAR = 1
