@@ -210,10 +210,10 @@ class Module(WASMComponent):
         # Choose implementation:
 
         # Do everything in one run:
-        # self._from_tuple_1stage(t)
+        self._from_tuple_1stage(t)
 
         # Split processing into two stages: flattening and parsing
-        self._from_tuple_2stage(t)
+        # self._from_tuple_2stage(t)
 
     def _from_tuple_1stage(self, t):
         # This implementation tries to parse the tuple in one go:
