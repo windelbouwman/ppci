@@ -28,9 +28,6 @@ class Register64(Register):
         return self.num & 0x7
 
 
-X86Register = Register64
-
-
 class Register32(Register):
     """ 32-bit register like 'eax' """
     bitsize = 32
@@ -49,10 +46,7 @@ class Register16(Register):
     bitsize = 16
 
 
-ShortRegister = Register16
-
-
-class LowRegister(Register):
+class Register8(Register):
     """ 8-bit register like 'al' """
     bitsize = 8
 
@@ -69,9 +63,6 @@ class LowRegister(Register):
     @property
     def regbits(self):
         return self.num & 0x7
-
-
-Register8 = LowRegister
 
 
 class X87StackRegister(Register):
@@ -117,31 +108,41 @@ edx = Register32('edx', 2, aliases=(dx,))
 ebx = Register32('ebx', 3, aliases=(bx,))
 esi = Register32('esi', 6)
 edi = Register32('edi', 7)
-Register32.registers = [eax, ecx, edx, ebx, esi, edi]
+r8d = Register32('r8d', 8)
+r9d = Register32('r9d', 9)
+r10d = Register32('r10d', 10)
+r11d = Register32('r11d', 11)
+r12d = Register32('r12d', 12)
+r13d = Register32('r13d', 13)
+r14d = Register32('r14d', 14)
+r15d = Register32('r15d', 15)
+Register32.registers = [
+    eax, ecx, edx, ebx, esi, edi,
+    r8d, r9d, r10d, r11d, r12d, r13d, r14d, r15d]
 
 # regs64 = {'rax': 0,'rcx':1,'rdx':2,'rbx':3,'rsp':4,'rbp':5,'rsi':6,'rdi':7,
 # 'r8':0,'r9':1,'r10':2,'r11':3,'r12':4,'r13':5,'r14':6,'r15':7}
 # regs32 = {'eax': 0, 'ecx':1, 'edx':2, 'ebx': 3, 'esp': 4, 'ebp': 5, 'esi':6,
 # 'edi':7}
 # regs8 = {'al':0,'cl':1,'dl':2,'bl':3,'ah':4,'ch':5,'dh':6,'bh':7}
-rax = X86Register('rax', 0, aliases=(eax,))
-rcx = X86Register('rcx', 1, aliases=(ecx,))
-rdx = X86Register('rdx', 2, aliases=(edx,))
-rbx = X86Register('rbx', 3, aliases=(ebx,))
-rsp = X86Register('rsp', 4)
-rbp = X86Register('rbp', 5)
-rsi = X86Register('rsi', 6, aliases=(esi,))
-rdi = X86Register('rdi', 7, aliases=(edi,))
+rax = Register64('rax', 0, aliases=(eax,))
+rcx = Register64('rcx', 1, aliases=(ecx,))
+rdx = Register64('rdx', 2, aliases=(edx,))
+rbx = Register64('rbx', 3, aliases=(ebx,))
+rsp = Register64('rsp', 4)
+rbp = Register64('rbp', 5)
+rsi = Register64('rsi', 6, aliases=(esi,))
+rdi = Register64('rdi', 7, aliases=(edi,))
 
-r8 = X86Register('r8', 8)
-r9 = X86Register('r9', 9)
-r10 = X86Register('r10', 10)
-r11 = X86Register('r11', 11)
-r12 = X86Register('r12', 12)
-r13 = X86Register('r13', 13)
-r14 = X86Register('r14', 14)
-r15 = X86Register('r15', 15)
-rip = X86Register('rip', 999)
+r8 = Register64('r8', 8, aliases=(r8d,))
+r9 = Register64('r9', 9, aliases=(r9d,))
+r10 = Register64('r10', 10, aliases=(r10d,))
+r11 = Register64('r11', 11, aliases=(r11d,))
+r12 = Register64('r12', 12, aliases=(r12d,))
+r13 = Register64('r13', 13, aliases=(r13d,))
+r14 = Register64('r14', 14, aliases=(r14d,))
+r15 = Register64('r15', 15, aliases=(r15d,))
+rip = Register64('rip', 999)
 
 low_regs = {rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi}
 
@@ -151,7 +152,7 @@ full_registers = high_regs | low_regs
 registers64 = [
     rax, rbx, rdx, rcx, rdi, rsi, rsp, rbp,
     r8, r9, r10, r11, r12, r13, r14, r15]
-X86Register.registers = registers64
+Register64.registers = registers64
 
 all_registers = list(sorted(full_registers, key=lambda r: r.num)) + [rip]
 
@@ -220,7 +221,7 @@ register_classes = [
         [rax, rbx, rdx, rcx, rdi, rsi, r8, r9, r10, r11, r14, r15]),
     RegisterClass(
         'reg32', [ir.i32, ir.u32], Register32,
-        [eax, ebx, ecx, edx, esi, edi]),
+        [eax, ebx, ecx, edx, esi, edi, r8d, r9d, r10d, r11d, r14d, r15d]),
     RegisterClass(
         'reg16', [ir.i16, ir.u16], Register16, [ax, bx, cx, dx]),
     RegisterClass(

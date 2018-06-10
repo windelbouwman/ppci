@@ -95,11 +95,11 @@ class WatTupleLoader(TupleParser):
         for name in components.SECTION_IDS:
             for definition in self.definitions[name]:
                 definitions.append(definition)
-        print(definitions)
+        # print(definitions)
         return definitions
 
     def add_definition(self, definition):
-        print(definition.to_string())
+        # print(definition.to_string())
         self.definitions[definition.__name__].append(definition)
 
     def gen_id(self, kind):
@@ -406,8 +406,8 @@ class WatTupleLoader(TupleParser):
             params, results = self._parse_function_signature()
             localz = self._parse_locals()
             instructions = self._load_instruction_list()
-            for i in instructions:
-                print(i.to_string())
+            # for i in instructions:
+            #    print(i.to_string())
             self.expect(Token.RPAR)
             self.add_definition(
                 components.Func(id, ref, localz, instructions))
@@ -420,7 +420,7 @@ class WatTupleLoader(TupleParser):
         instructions = []
         while self.at_instruction():
             instructions.extend(self._load_instruction())
-        print(instructions)
+        # print(instructions)
         return instructions
 
     def _load_instruction(self):

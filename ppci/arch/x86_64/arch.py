@@ -30,7 +30,7 @@ from ..registers import Register
 from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
 from ..data_instructions import Db
-from .instructions import bits64, RmReg, MovRegRm8, RmReg8, RmMemDisp, isa
+from .instructions import bits64, RmReg64, MovRegRm8, RmReg8, RmMemDisp, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
@@ -38,7 +38,7 @@ from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
 from .sse2_instructions import PushXmm, PopXmm
 from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
-from .registers import X86Register, LowRegister, XmmRegister
+from .registers import Register64, XmmRegister
 from .registers import rbp, rsp, al
 from . import instructions, registers
 
@@ -129,14 +129,15 @@ class X86_64Arch(Architecture):
                 isinstance(src, registers.Register64):
             # return instructions.MovsxRegRm16(dst, RmReg16(src), ismove=True)
             raise NotImplementedError()  # pragma: no cover
-        elif isinstance(dst, LowRegister) and isinstance(src, X86Register):
+        elif isinstance(dst, registers.Register8) and \
+                isinstance(src, registers.Register64):
             raise NotImplementedError()  # pragma: no cover
-        elif isinstance(dst, X86Register) and \
+        elif isinstance(dst, Register64) and \
                 isinstance(src, registers.Register8):
             raise NotImplementedError()  # pragma: no cover
         elif isinstance(dst, registers.Register64) and \
                 isinstance(src, registers.Register64):
-            return bits64.MovRegRm(dst, RmReg(src), ismove=True)
+            return bits64.MovRegRm(dst, RmReg64(src), ismove=True)
         elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
             return Movss(dst, RmXmmReg(src), ismove=True)
         else:  # pragma: no cover
@@ -281,15 +282,15 @@ class X86_64Arch(Architecture):
         cps = []
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, registers.X86Register):
-                if isinstance(arg, registers.X86Register):
+            if isinstance(arg_loc, registers.Register64):
+                if isinstance(arg, registers.Register64):
                     yield self.move(arg, arg_loc)
-                elif isinstance(arg, registers.LowRegister):
+                elif isinstance(arg, registers.Register8):
                     # Extract character part:
                     yield self.move(rax, arg_loc)
                     yield RegisterUseDef(uses=(rax,), defs=(al,))
                     yield self.move(arg, al)
-                elif isinstance(arg, registers.ShortRegister):
+                elif isinstance(arg, registers.Register16):
                     # Extract character part:
                     yield self.move(rax, arg_loc)
                     yield RegisterUseDef(uses=(rax,), defs=(registers.ax,))
@@ -304,7 +305,7 @@ class X86_64Arch(Architecture):
             elif isinstance(arg_loc, XmmRegister):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
-                if isinstance(arg, registers.X86Register):
+                if isinstance(arg, registers.Register64):
                     yield bits64.MovRegRm(
                         arg, RmMemDisp(rbp, stack_offset + 16))
                     stack_offset += 8
@@ -387,7 +388,7 @@ class X86_64Arch(Architecture):
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
 
-        if isinstance(label, X86Register):
+        if isinstance(label, Register64):
             # Call to register pointer
             yield instructions.CallReg(label, clobbers=caller_save)
         else:
@@ -413,7 +414,7 @@ class X86_64Arch(Architecture):
         yield self.push(rbp)
 
         # Setup frame pointer:
-        yield bits64.MovRegRm(rbp, RmReg(rsp))
+        yield bits64.MovRegRm(rbp, RmReg64(rsp))
 
         # Callee save registers:
         saved_registers = [reg for reg in callee_save if frame.is_used(reg)]

@@ -3,15 +3,15 @@
 import struct
 from ..isa import Isa
 from ..encoding import Operand, Syntax, Instruction, Constructor
-from .instructions import rm_modes
+from .instructions import rm64_modes, rm32_modes
 from .instructions import OpcodeToken
 from .instructions import PrefixToken
 from .instructions import RexToken, ModRmToken, SibToken
 from .instructions import Imm32Token, Imm8Token
-from .instructions import RmMem, RmMemDisp, RmReg, RmAbs, MovAdr
+from .instructions import RmMem, RmMemDisp, RmReg32, RmReg64, RmAbs, MovAdr
 from .instructions import Jb, Jbe, Ja, Jae, Je, Jne, NearJump
 from .instructions import SubImm, AddImm
-from .registers import XmmRegister, X86Register, rsp
+from .registers import XmmRegister, Register64, Register32, rsp
 from ..generic_instructions import ArtificialInstruction
 
 sse1_isa = Isa()
@@ -216,34 +216,66 @@ class Divsd(Sse2Instruction):
 
 class Cvtss2si(Sse1Instruction):
     """ Convert scalar single-fp to integer """
-    r = Operand('r', X86Register, write=True)
+    r = Operand('r', Register64, write=True)
     rm = Operand('rm', xmm_rm_modes, read=True)
     syntax = Syntax(['cvtss2si', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf3, 'opcode': 0x2d, 'w': 1}
 
 
+class Cvtss2si_32(Sse1Instruction):
+    """ Convert scalar single-fp to integer """
+    r = Operand('r', Register32, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['cvtss2si', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf3, 'opcode': 0x2d, 'w': 0}
+
+
 class Cvtsd2si(Sse2Instruction):
     """ Convert scalar double-fp to integer """
-    r = Operand('r', X86Register, write=True)
+    r = Operand('r', Register64, write=True)
     rm = Operand('rm', xmm_rm_modes, read=True)
     syntax = Syntax(['cvtsd2si', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf2, 'opcode': 0x2d, 'w': 1}
 
 
+class Cvtsd2si_32(Sse2Instruction):
+    """ Convert scalar double-fp to integer """
+    r = Operand('r', Register32, write=True)
+    rm = Operand('rm', xmm_rm_modes, read=True)
+    syntax = Syntax(['cvtsd2si', ' ', r, ',', ' ', rm])
+    patterns = {'prefix': 0xf2, 'opcode': 0x2d, 'w': 0}
+
+
 class Cvtsi2ss(Sse1Instruction):
     """ Convert integer to scalar single-fp """
     r = Operand('r', XmmRegister, write=True)
-    rm = Operand('rm', rm_modes, read=True)
+    rm = Operand('rm', rm64_modes, read=True)
     syntax = Syntax(['cvtsi2ss', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf3, 'opcode': 0x2a, 'w': 1}
+
+
+class Cvtsi2ss_32(Sse1Instruction):
+    """ Convert integer to scalar single-fp """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', rm32_modes, read=True)
+    syntax = Syntax(['cvtsi2ss', ' ', r, ',', ' ', rm], priority=2)
+    patterns = {'prefix': 0xf3, 'opcode': 0x2a, 'w': 0}
 
 
 class Cvtsi2sd(Sse2Instruction):
     """ Convert integer to scalar double-fp """
     r = Operand('r', XmmRegister, write=True)
-    rm = Operand('rm', rm_modes, read=True)
+    rm = Operand('rm', rm64_modes, read=True)
     syntax = Syntax(['cvtsi2sd', ' ', r, ',', ' ', rm])
     patterns = {'prefix': 0xf2, 'opcode': 0x2a, 'w': 1}
+
+
+class Cvtsi2sd_32(Sse2Instruction):
+    """ Convert integer to scalar double-fp """
+    r = Operand('r', XmmRegister, write=True)
+    rm = Operand('rm', rm32_modes, read=True)
+    syntax = Syntax(['cvtsi2sd', ' ', r, ',', ' ', rm], priority=2)
+    patterns = {'prefix': 0xf2, 'opcode': 0x2a, 'w': 0}
 
 
 class Cvtss2sd(Sse2Instruction):
@@ -328,16 +360,17 @@ def pattern_f32tof64(context, tree, c0):
     return d
 
 
+# I64:
 @sse1_isa.pattern('reg64', 'F32TOI64(regfp32)', size=6, cycles=2, energy=2)
 def pattern_f32toi64(context, tree, c0):
-    d = context.new_reg(X86Register)
+    d = context.new_reg(Register64)
     context.emit(Cvtss2si(d, RmXmmReg(c0)))
     return d
 
 
 @sse2_isa.pattern('reg64', 'F64TOI64(regfp64)', size=6, cycles=3, energy=3)
 def pattern_f64toi64(context, tree, c0):
-    d = context.new_reg(X86Register)
+    d = context.new_reg(Register64)
     context.emit(Cvtsd2si(d, RmXmmReg(c0)))
     return d
 
@@ -345,14 +378,43 @@ def pattern_f64toi64(context, tree, c0):
 @sse1_isa.pattern('regfp32', 'I64TOF32(reg64)', size=6, cycles=2, energy=2)
 def pattern_i64tof32(context, tree, c0):
     d = context.new_reg(XmmRegister)
-    context.emit(Cvtsi2ss(d, RmReg(c0)))
+    context.emit(Cvtsi2ss(d, RmReg64(c0)))
     return d
 
 
 @sse2_isa.pattern('regfp64', 'I64TOF64(reg64)', size=6, cycles=3, energy=3)
 def pattern_i64tof64(context, tree, c0):
     d = context.new_reg(XmmRegister)
-    context.emit(Cvtsi2sd(d, RmReg(c0)))
+    context.emit(Cvtsi2sd(d, RmReg64(c0)))
+    return d
+
+
+# I32:
+@sse1_isa.pattern('reg32', 'F32TOI32(regfp32)', size=6, cycles=2, energy=2)
+def pattern_f32toi32(context, tree, c0):
+    d = context.new_reg(Register32)
+    context.emit(Cvtss2si_32(d, RmXmmReg(c0)))
+    return d
+
+
+@sse2_isa.pattern('reg32', 'F64TOI32(regfp64)', size=6, cycles=3, energy=3)
+def pattern_f64toi32(context, tree, c0):
+    d = context.new_reg(Register32)
+    context.emit(Cvtsd2si_32(d, RmXmmReg(c0)))
+    return d
+
+
+@sse1_isa.pattern('regfp32', 'I32TOF32(reg32)', size=6, cycles=2, energy=2)
+def pattern_i32tof32(context, tree, c0):
+    d = context.new_reg(XmmRegister)
+    context.emit(Cvtsi2ss_32(d, RmReg32(c0)))
+    return d
+
+
+@sse2_isa.pattern('regfp64', 'I32TOF64(reg32)', size=6, cycles=3, energy=3)
+def pattern_i32tof64(context, tree, c0):
+    d = context.new_reg(XmmRegister)
+    context.emit(Cvtsi2sd_32(d, RmReg32(c0)))
     return d
 
 
@@ -360,7 +422,7 @@ def pattern_i64tof64(context, tree, c0):
 def pattern_const_f32(context, tree):
     float_const = struct.pack('f', tree.value)
     const_label = context.frame.add_constant(float_const)
-    label_addr = context.new_reg(X86Register)
+    label_addr = context.new_reg(Register64)
     context.emit(MovAdr(label_addr, const_label))
     d = context.new_reg(XmmRegister)
     context.emit(Movss(d, RmMem(label_addr)))
@@ -371,7 +433,7 @@ def pattern_const_f32(context, tree):
 def pattern_const_f64(context, tree):
     float_const = struct.pack('d', tree.value)
     const_label = context.frame.add_constant(float_const)
-    label_addr = context.new_reg(X86Register)
+    label_addr = context.new_reg(Register64)
     context.emit(MovAdr(label_addr, const_label))
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmMem(label_addr)))
@@ -383,7 +445,7 @@ def pattern_neg_f64(context, tree, c0):
     """ Multiply by -1 """
     float_const = struct.pack('d', -1)
     const_label = context.frame.add_constant(float_const)
-    label_addr = context.new_reg(X86Register)
+    label_addr = context.new_reg(Register64)
     context.emit(MovAdr(label_addr, const_label))
     d = context.new_reg(XmmRegister)
     context.emit(Movsd(d, RmXmmReg(c0)))
