@@ -263,7 +263,7 @@ class WasmToIrCompiler:
 
         # Enter correct debug info:
         dbg_arg_types = []
-        dbg_return_type = debuginfo.DebugBaseType('void', 0, 1)
+        dbg_return_type = self.get_debug_type('void')
         db_function_info = debuginfo.DebugFunction(
             ppci_function.name,
             common.SourceLocation('main.wasm', 1, 1, 1),
@@ -293,6 +293,21 @@ class WasmToIrCompiler:
         wasm_type = wasm_type.split('.')[0]
         return self.TYP_MAP[wasm_type]
 
+    def get_debug_type(self, name):
+        if self.debug_db.contains(name):
+            return self.debug_db.get(name)
+        else:
+            dbg_type_map = {
+                'f32': debuginfo.DebugBaseType('float', 4, 1),
+                'f64': debuginfo.DebugBaseType('double', 8, 1),
+                'i32': debuginfo.DebugBaseType('int', 4, 1),
+                'i64': debuginfo.DebugBaseType('long', 8, 1),
+                'void': debuginfo.DebugBaseType('void', 0, 1),
+            }
+            dbg_typ = dbg_type_map[name]
+            self.debug_db.enter(name, dbg_typ)
+            return dbg_typ
+
     def generate_function(self, ppci_function, signature, wasm_function):
         """ Generate code for a single function """
         self.logger.info(
@@ -302,21 +317,15 @@ class WasmToIrCompiler:
         self.block_stack = []
 
         # Create correct debug signature for function:
-        dbg_type_map = {
-            'f32': debuginfo.DebugBaseType('float', 4, 1),
-            'f64': debuginfo.DebugBaseType('double', 8, 1),
-            'i32': debuginfo.DebugBaseType('int', 4, 1),
-            'i64': debuginfo.DebugBaseType('long', 8, 1),
-        }
 
         if signature.result:
             if len(signature.result) != 1:
                 raise ValueError(
                     'Cannot handle {} return values'.format(
                         len(signature.result)))
-            dbg_return_type = dbg_type_map[signature.result[0]]
+            dbg_return_type = self.get_debug_type(signature.result[0])
         else:
-            dbg_return_type = debuginfo.DebugBaseType('void', 0, 1)
+            dbg_return_type = self.get_debug_type('void')
         self.builder.set_function(ppci_function)
 
         entryblock = self.new_block()
@@ -330,7 +339,7 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(a_typ[1])
             ir_arg = ir.Parameter('param{}'.format(i), ir_typ)
             dbg_arg_types.append(debuginfo.DebugParameter(
-                'arg{}'.format(i), dbg_type_map[a_typ[1]]))
+                'arg{}'.format(i), self.get_debug_type(a_typ[1])))
             ppci_function.add_parameter(ir_arg)
             size = ir_typ.size
             alignment = size

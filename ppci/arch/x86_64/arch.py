@@ -36,7 +36,7 @@ from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
 from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
 from .sse2_instructions import PushXmm, PopXmm
-from .registers import rax, rcx, rdx, r8, r9, rdi, rsi
+from .registers import rax, rcx, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
 from .registers import Register64, XmmRegister
 from .registers import rbp, rsp, al
@@ -211,13 +211,16 @@ class X86_64Arch(Architecture):
         arg_locs = []
         if self.has_option('wincc'):
             # Windows calling convention:
-            int_regs = [rcx, rdx, r8, r9]
+            int_regs = [
+                registers.rcx, registers.rdx, registers.r8, registers.r9]
             float_regs = [
                 registers.xmm0, registers.xmm1, registers.xmm2,
                 registers.xmm3]
         else:
             # Sys V ABI calling convention:
-            int_regs = [rdi, rsi, rdx, rcx, r8, r9]
+            int_regs = [
+                registers.rdi, registers.rsi, registers.rdx,
+                registers.rcx, registers.r8, registers.r9]
             float_regs = [
                 registers.xmm0, registers.xmm1, registers.xmm2,
                 registers.xmm3, registers.xmm4, registers.xmm5,
@@ -237,7 +240,8 @@ class X86_64Arch(Architecture):
                         float_regs.pop(0)
                 else:
                     # We need stack location!
-                    arg_size = self.info.get_size(arg_type)
+                    # arg_size = self.info.get_size(arg_type)
+                    arg_size = 8  # All integers are passed in 8 byte memory
                     reg = StackLocation(offset, arg_size)
                     offset += arg_size
             elif arg_type in [ir.f32, ir.f64]:
@@ -308,10 +312,15 @@ class X86_64Arch(Architecture):
                 if isinstance(arg, registers.Register64):
                     yield bits64.MovRegRm(
                         arg, RmMemDisp(rbp, stack_offset + 16))
-                    stack_offset += 8
+                    stack_offset += arg_loc.size
+                elif isinstance(arg, registers.Register32):
+                    yield bits32.MovRegRm(
+                        arg, RmMemDisp(rbp, stack_offset + 16))
+                    stack_offset += arg_loc.size
                 elif isinstance(arg, StackLocation):
                     # Store memcpy action for later:
                     # cps.append((arg.offset, stack_offset, arg.size))
+                    raise NotImplementedError()
                     stack_offset += arg.size
                 else:  # pragma: no cover
                     raise NotImplementedError()
@@ -336,7 +345,7 @@ class X86_64Arch(Architecture):
         """ This function moves arguments in the proper locations. """
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
-        push_ops = []
+        push_regs = []
 
         # Setup parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -352,31 +361,43 @@ class X86_64Arch(Architecture):
                 elif isinstance(arg, registers.Register16):
                     # Upcast char!
                     yield self.move(registers.ax, arg)
-                    yield instructions.MovsxRegRm16(rax, RmReg16(registers.ax))
+                    yield instructions.MovsxRegRm16(
+                        rax, RmReg16(registers.ax))
                     yield self.move(arg_loc, rax)
                 elif isinstance(arg, registers.Register32):
                     # Upcast char!
                     yield self.move(registers.eax, arg)
                     # TODO: do we need sign extension?
-                    # yield instructions.MovsxRegRm16(rax, RmReg16(registers.ax))
+                    # yield instructions.MovsxRegRm16(
+                    # rax, RmReg16(registers.ax))
                     yield self.move(arg_loc, rax)
                 else:  # pragma: no cover
                     raise NotImplementedError()
-            elif isinstance(arg_loc, XmmRegister):
+            elif isinstance(arg_loc, registers.XmmRegister):
+                assert isinstance(arg, XmmRegister)
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, Register):
-                    push_ops.append(Push(arg))
+                    push_regs.append(arg)
                 elif isinstance(arg, StackLocation):
-                    memcpy(a, b, 100)
-                else:
+                    raise NotImplementedError(str(arg))
+                    # memcpy(a, b, 100)
+                else:  # pragma: no cover
                     raise NotImplementedError(str(arg))
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
         # Push arguments in reverse order:
-        for ins in reversed(push_ops):
-            yield ins
+        for push_reg in reversed(push_regs):
+            if isinstance(push_reg, registers.Register64):
+                yield Push(push_reg)
+            elif isinstance(push_reg, registers.Register32):
+                yield self.move(registers.eax, push_reg)
+                yield RegisterUseDef(
+                    uses=(registers.eax,), defs=(registers.rax,))
+                yield Push(rax)
+            else:  # pragma: no cover
+                raise NotImplementedError(str(push_reg))
 
         wincc = self.has_option('wincc')
 
@@ -399,11 +420,13 @@ class X86_64Arch(Architecture):
             yield RegisterUseDef(defs=(retval_loc,))
             yield self.move(rv[1], retval_loc)
 
-        stack_slots = sum(isinstance(l, StackLocation) for l in arg_locs)
+        stack_locs = [l for l in arg_locs if isinstance(l, StackLocation)]
+        # stack_slots = sum(isinstance(l, StackLocation) for l in arg_locs)
+        stack_size = sum(l.size for l in stack_locs)
         if wincc:
-            stack_slots += 4
-        if stack_slots:
-            yield AddImm(rsp, stack_slots * 8)
+            stack_size += 32
+        if stack_size:
+            yield AddImm(rsp, stack_size)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
