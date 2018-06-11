@@ -45,7 +45,8 @@ class WatTupleLoader(TupleParser):
     def __init__(self, module):
         self.module = module
         self.definitions = defaultdict(list)
-
+        self._type_hash = {}  # (params, results) -> ref
+    
     def load_module(self, t):
         """ Load a module from a tuple """
         self._feed(t)
@@ -112,6 +113,7 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.LPAR, 'func')
         params, results = self._parse_function_signature()
         self.expect(Token.RPAR, Token.RPAR)
+        # Note cannot reuse type here unless we remap the id whereever it is used
         self.add_definition(components.Type(id, params, results))
 
     def _parse_optional_id(self, default=None):
@@ -127,7 +129,17 @@ class WatTupleLoader(TupleParser):
             return self.take()
         else:
             return default
-
+    
+    def _add_or_reuse_type_definition(self, params, results):
+        key = tuple(params), tuple(results)
+        ref = self._type_hash.get(key, None)
+        if ref is None:
+            ref = self.gen_id('type')
+            self._type_hash[key] = ref
+            self.add_definition(
+                components.Type(ref, params, results))
+        return ref
+    
     def _parse_type_use(self):
         if self.match(Token.LPAR, 'type'):
             self.expect(Token.LPAR, 'type')
@@ -135,13 +147,9 @@ class WatTupleLoader(TupleParser):
             self.expect(Token.RPAR)
         elif self.match(Token.LPAR, 'param') or self.match(Token.LPAR, 'result'):
             params, results = self._parse_function_signature()
-            ref = self.gen_id('type')
-            self.add_definition(
-                components.Type(ref, params, results))
+            ref = self._add_or_reuse_type_definition(params, results)
         else:
-            ref = self.gen_id('type')
-            self.add_definition(
-                components.Type(ref, [], []))
+            self._add_or_reuse_type_definition([], [])
         return ref
 
     def _parse_function_signature(self):
@@ -191,11 +199,15 @@ class WatTupleLoader(TupleParser):
                 self.expect(Token.RPAR)
             else:
                 params, results = self._parse_function_signature()
-                # TODO: is this correct? taking the id of the func?
-                ref = id
-                # ref = self.gen_id('type')
-                self.add_definition(
-                    components.Type(ref, params, results))
+                if True:
+                    ref = self._add_or_reuse_type_definition(params, results)
+                else:
+                    # TODO: is this correct? taking the id of the func?
+                    # AK: I think it can be convenient, but not necessary, and prob sometimes wrong
+                    ref = id
+                    # ref = self.gen_id('type')
+                    self.add_definition(
+                        components.Type(ref, params, results))
             info = (ref,)
         elif kind == 'table':
             id = self._parse_optional_id(default=self.gen_id('table'))

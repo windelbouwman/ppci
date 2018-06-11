@@ -40,7 +40,7 @@ def testfunc(fname):
                             'assert_malformed', 'assert_exhaustion', 'assert_unlinkable',
                             'assert_return_canonical_nan', 'assert_return_arithmetic_nan',
                             'func', 'memory',  # inline-module.wast
-                            )
+                            ), '{}: unexpected expression in'.format(fname)
         
         # But in this script we only do modules
         if sexpr[0] != 'module':
@@ -51,20 +51,28 @@ def testfunc(fname):
                      ):
             continue
         
-        wasm_bin1 = wabt.wat2wasm(text)
-        wasm_bin2 = Module(wasm_bin1).to_bytes()
-        wasm_bin3 = Module(text).to_bytes()
-        wasm_bin4 = Module(sexpr).to_bytes()
+        wasm_bin0 = wabt.wat2wasm(text)
         
-        assert wasm_bin1 == wasm_bin2
-        assert wasm_bin3 == wasm_bin4
-        assert wasm_bin1 == wasm_bin4
+        m1 = Module(wasm_bin0)
+        m2 = Module(text)
+        m3 = Module(sexpr)
         
-        hexdump(wasm_bin1); print(); hexdump(wasm_bin4)
-
+        wasm_bin1 = m1.to_bytes()
+        wasm_bin2 = m2.to_bytes()
+        wasm_bin3 = m3.to_bytes()
+        
+        assert wasm_bin0 == wasm_bin1, '{}: our binary parsing is broken'.format(fname)
+        assert wasm_bin2 == wasm_bin3, '{}: our text/tuple paring differs'.format(fname)
+        assert wasm_bin0 == wasm_bin2, '{}: our text parsing is broken'.format(fname)
+        
+        if False:  # debug helpers
+            print(len(wasm_bin1), len(wasm_bin2))
+            print(len(m1.definitions), len(m2.definitions))
+            hexdump(wasm_bin1); print(); hexdump(wasm_bin2)
+        
 
 if __name__ == '__main__':
-    testfunc('f64.wast')
+    testfunc('address.wast')
     # testfunc('names.wast')
     
     # test_spec_suite_parsing()
