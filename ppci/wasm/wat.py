@@ -136,25 +136,30 @@ class WatTupleLoader(TupleParser):
         else:
             value = default
 
-        # TODO: enable for all spaces:
-        if space == 'table':
-            value = self._make_ref(space, value)
+        value = self._make_ref(space, value)
         return value
+
+    def _parse_ref(self, space):
+        """ Parse a reference (int or $ref) """
+        assert self._at_ref()
+        value = self.take()
+        return self._make_ref(space, value)
 
     def _add_or_reuse_type_definition(self, params, results):
         key = tuple(params), tuple(results)
         ref = self._type_hash.get(key, None)
         if ref is None:
-            ref = self.gen_id('type')
-            self._type_hash[key] = ref
+            type_id = self.gen_id('type')
             self.add_definition(
-                components.Type(ref, params, results))
+                components.Type(type_id, params, results))
+            ref = self._make_ref('type', type_id)
+            self._type_hash[key] = ref
         return ref
-    
+
     def _parse_type_use(self):
         if self.match(Token.LPAR, 'type'):
             self.expect(Token.LPAR, 'type')
-            ref = self._parse_var()
+            ref = self._parse_ref('type')
             self.expect(Token.RPAR)
         elif self.match(Token.LPAR, 'param') or self.match(Token.LPAR, 'result'):
             params, results = self._parse_function_signature()
@@ -206,7 +211,7 @@ class WatTupleLoader(TupleParser):
             id = self._parse_optional_id(default=self.gen_id('func'))
             if self.match(Token.LPAR, 'type'):
                 self.expect(Token.LPAR, 'type')
-                ref = self._parse_var()  # Type reference
+                ref = self._parse_ref('type')  # Type reference
                 self.expect(Token.RPAR)
             else:
                 params, results = self._parse_function_signature()
@@ -238,14 +243,14 @@ class WatTupleLoader(TupleParser):
         name = self.take()
         self.expect(Token.LPAR)
         kind = self.take()
-        ref = self._parse_var()
+        ref = self._parse_ref(kind)
         self.expect(Token.RPAR, Token.RPAR)
         self.add_definition(
             components.Export(name, kind, ref))
 
     def load_start(self):
         """ Parse a toplevel start """
-        name = self._parse_var()
+        name = self._parse_ref('func')
         self.expect(Token.RPAR)
         self.add_definition(components.Start(name))
 
@@ -407,11 +412,6 @@ class WatTupleLoader(TupleParser):
         if in_offset:
             self.expect(Token.RPAR)
         return offset
-
-    def _parse_var(self):
-        """ Parse a reference (int or $ref) """
-        assert self._at_ref()
-        return self.take()
 
     def load_func(self):
         id = self._parse_optional_id(default=self.gen_id('func'))
@@ -581,7 +581,8 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.RPAR)
         return modname, name
 
-    def _parse_inline_export(self, kind, ref):
+    def _parse_inline_export(self, kind, obj_name):
+        ref = self._make_ref(kind, obj_name)
         while self.match(Token.LPAR, 'export'):
             self.expect(Token.LPAR, 'export')
             name = self.take()

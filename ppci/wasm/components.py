@@ -972,7 +972,8 @@ class Import(Definition):
         f.write_str(self.name)
         if self.kind == 'func':
             f.write(b'\x00')
-            int_ref = id_maps['type'][self.info[0]]  # type-index, not func-
+            # type-index, not func-
+            int_ref = id_maps['type'][self.info[0].index]
             f.write_vu32(int_ref)
         elif self.kind == 'table':
             f.write(b'\x01')
@@ -1214,7 +1215,7 @@ class Export(Definition):
     __slots__ = ('name', 'kind', 'ref')  # (export "name" (func $ref))
 
     def _from_args(self, name, kind, ref):
-        assert isinstance(ref, (str, int))
+        assert isinstance(ref, Ref)
         assert kind in ('func', 'table', 'memory', 'global')
         self.name = name
         self.kind = kind
@@ -1233,14 +1234,14 @@ class Export(Definition):
         f.write_str(self.name)
         type_id = {'func': 0, 'table': 1, 'memory': 2, 'global': 3}[self.kind]
         f.write(bytes([type_id]))
-        int_ref = id_maps[self.kind][self.ref]
+        int_ref = id_maps[self.kind][self.ref.index]
         f.write_vu32(int_ref)
 
     def _from_reader(self, reader):
         self.name = reader.read_str()
         kind_id = reader.read_byte()
         self.kind = ['func', 'table', 'memory', 'global'][kind_id]
-        self.ref = reader.read_uint()
+        self.ref = Ref(self.kind, index=reader.read_uint())
 
 
 class Start(Definition):
@@ -1268,11 +1269,11 @@ class Start(Definition):
         return '(start %s)' % self.ref
 
     def _to_writer(self, f, id_maps):
-        int_ref = id_maps['func'][self.ref]
+        int_ref = id_maps['func'][self.ref.index]
         f.write_vu32(int_ref)
 
     def _from_reader(self, reader):
-        self.ref = reader.read_uint()
+        self.ref = Ref('func', index=reader.read_uint())
 
 
 class Func(Definition):
@@ -1303,7 +1304,8 @@ class Func(Definition):
     __slots__ = ('id', 'ref', 'locals', 'instructions')  # ref to type
 
     def _from_args(self, id, ref, locals, instructions):
-        assert isinstance(ref, (str, int))
+        if not isinstance(ref, Ref):
+            raise TypeError('ref must be of type Ref')
         assert isinstance(locals, (tuple, list))
         assert isinstance(instructions, (tuple, list))
         assert all(isinstance(el, tuple) and len(el) == 2 for el in locals)

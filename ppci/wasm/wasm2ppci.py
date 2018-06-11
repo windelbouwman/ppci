@@ -225,7 +225,7 @@ class WasmToIrCompiler:
 
         return self.builder.module
 
-    def gen_init_procedure(self, tables, start_function_id):
+    def gen_init_procedure(self, tables, start_function_ref):
         """ Generate an initialization procedure.
 
         - Initializes eventual function tables.
@@ -249,14 +249,14 @@ class WasmToIrCompiler:
             address = table_variable
             for func in functions:
                 # Lookup function
-                value = self.function_names[func][0]
+                value = self.function_names[func.index][0]
                 self.emit(ir.Store(value, address))
                 address = self.emit(
                     ir.add(address, ptr_size, 'table_address', ir.ptr))
 
         # Call eventual start function:
-        if start_function_id is not None:
-            target, _ = self.function_names[start_function_id]
+        if start_function_ref is not None:
+            target, _ = self.function_names[start_function_ref.index]
             self.emit(ir.ProcedureCall(target, []))
 
         self.emit(ir.Exit())
