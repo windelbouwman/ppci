@@ -74,6 +74,8 @@ def check_id(id):
     elif isinstance(id, str):
         if not id.startswith('$'):
             raise ValueError('String id must start with $.')
+    elif isinstance(id, Ref):
+        pass
     else:
         raise ValueError('Id must be int or str.')
     return id
@@ -190,6 +192,38 @@ class WASMComponent:
         # by having to_string using to_tuple?
         s = self.to_string()
         return parse_sexpr(s)
+
+
+class Ref:
+    """ This is a reference to an object in one of the 5 spaces.
+
+    space must be one of 'type', 'func', 'memory', 'table', 'global', 'local'
+    index can be none
+    """
+    def __init__(self, space, index=None, name=None):
+        self.space = space
+        if index is None and name is None:
+            raise ValueError('You must provide index or name for a Ref')
+        self.index = index
+        self.name = name
+
+    def __str__(self):
+        # Preferably use a name, if available:
+        if self.name:
+            return self.name
+        else:
+            return str(self.index)
+
+    def __repr__(self):
+        return 'Ref(index={},name={})'.format(self.index, self.name)
+
+    @property
+    def is_null(self):
+        """ Check if we refer to element 0 """
+        if self.name:
+            return self.name == '$0'
+        else:
+            return self.index == 0
 
 
 class Module(WASMComponent):
@@ -1425,6 +1459,7 @@ class Elem(Definition):
         assert isinstance(offset, Instruction)
         assert isinstance(refs, (tuple, list))
         # Set
+        assert isinstance(ref, Ref)
         self.ref = check_id(ref)
         self.offset = offset
         self.refs = refs
@@ -1443,13 +1478,14 @@ class Elem(Definition):
         self._from_args(ref, offset, refs)
     
     def to_string(self):
-        ref = '' if self.ref in ['$0', 0] else ' %s' % self.ref
+        ref = '' if self.ref.is_null else ' %s' % self.ref
         offset = self.offset.to_string()
         refs_as_str = ' '.join(str(i) for i in self.refs)
         return '(elem%s %s %s)' % (ref, offset, refs_as_str)
 
     def _to_writer(self, f, id_maps):
-        f.write_vu32(id_maps['table'][self.ref])
+        # TODO: strictly speaking, the id_maps are no longer needed:
+        f.write_vu32(id_maps['table'][self.ref.index])
         # Encode offset as expression followed by end instruction
         # Instruction('i32.const', (chunk[1],))._to_writer(f, id_maps)
         self.offset._to_writer(f, id_maps)
@@ -1457,10 +1493,10 @@ class Elem(Definition):
         # Encode as u32 length followed by func indices:
         f.write_vu32(len(self.refs))
         for ref in self.refs:
-            f.write_vu32(id_maps['func'][ref])
+            f.write_vu32(id_maps['func'][ref.index])
 
     def _from_reader(self, reader):
-        self.ref = reader.read_uint()
+        self.ref = Ref('table', index=reader.read_uint())
         offset_expr = reader.read_expression()
         offset_type, offset = eval_expr(offset_expr)
         assert offset_type == 'i32'
@@ -1469,7 +1505,7 @@ class Elem(Definition):
         count = reader.read_uint()
         indexes = []
         for _ in range(count):
-            indexes.append(reader.read_uint())
+            indexes.append(Ref('func', index=reader.read_uint()))
         self.refs = indexes
 
 

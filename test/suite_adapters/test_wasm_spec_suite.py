@@ -96,12 +96,13 @@ def perform_test(filename):
                         reporter.dump_wasm(m1)
 
                     # Next step: Instantiate:
-                    imports = {
-                       'rt': create_runtime(),
-                    }
-                    mod_instance = instantiate(
-                        m1, imports, target='python', reporter=reporter)
-                    print(mod_instance)
+                    if False:
+                        imports = {
+                           'rt': create_runtime(),
+                        }
+                        mod_instance = instantiate(
+                            m1, imports, target='python', reporter=reporter)
+                        print(mod_instance)
 
                 elif s_expr[0] == 'invoke':
                     # TODO: invoke test functions defined in wast files

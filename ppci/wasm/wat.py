@@ -46,7 +46,9 @@ class WatTupleLoader(TupleParser):
         self.module = module
         self.definitions = defaultdict(list)
         self._type_hash = {}  # (params, results) -> ref
-    
+
+        self.resolve_backlog = []
+
     def load_module(self, t):
         """ Load a module from a tuple """
         self._feed(t)
@@ -88,6 +90,10 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.RPAR)
         self.expect(Token.EOF)
 
+        for item in self.resolve_backlog:
+            pass
+            # TODO: resolve any unresolved items:
+
         self.module.definitions = self.gather_definitions()
 
     def gather_definitions(self):
@@ -123,13 +129,18 @@ class WatTupleLoader(TupleParser):
             id = default
         return id
 
-    def _parse_optional_ref(self, default=None):
+    def _parse_optional_ref(self, space, default=None):
         """ Parse an optional reference, defaulting to 0 """
         if self._at_ref():
-            return self.take()
+            value = self.take()
         else:
-            return default
-    
+            value = default
+
+        # TODO: enable for all spaces:
+        if space == 'table':
+            value = self._make_ref(space, value)
+        return value
+
     def _add_or_reuse_type_definition(self, params, results):
         key = tuple(params), tuple(results)
         ref = self._type_hash.get(key, None)
@@ -199,15 +210,7 @@ class WatTupleLoader(TupleParser):
                 self.expect(Token.RPAR)
             else:
                 params, results = self._parse_function_signature()
-                if True:
-                    ref = self._add_or_reuse_type_definition(params, results)
-                else:
-                    # TODO: is this correct? taking the id of the func?
-                    # AK: I think it can be convenient, but not necessary, and prob sometimes wrong
-                    ref = id
-                    # ref = self.gen_id('type')
-                    self.add_definition(
-                        components.Type(ref, params, results))
+                ref = self._add_or_reuse_type_definition(params, results)
             info = (ref,)
         elif kind == 'table':
             id = self._parse_optional_id(default=self.gen_id('table'))
@@ -269,7 +272,8 @@ class WatTupleLoader(TupleParser):
             self.add_definition(
                 components.Table(id, 'anyfunc', min, max))
             self.add_definition(
-                components.Elem(id, offset, refs))
+                components.Elem(
+                    components.Ref('table', index=id), offset, refs))
         else:
             min, max = self.parse_limits()
             kind = self.take()
@@ -280,7 +284,7 @@ class WatTupleLoader(TupleParser):
 
     def load_elem(self):
         """ Load an elem element """
-        ref = self._parse_optional_ref(default=0)
+        ref = self._parse_optional_ref('table', default=0)
         offset = self.parse_offset_expression()
         refs = self.parse_ref_list()
         while self._at_id():
@@ -293,8 +297,18 @@ class WatTupleLoader(TupleParser):
         """ Parse $1 $2 $foo $bar """
         refs = []
         while self._at_ref():
-            refs.append(self.take())
+            ref = self._make_ref('func', self.take())
+            refs.append(ref)
         return refs
+
+    def _make_ref(self, space, value):
+        """ Create a reference in a space given a value """
+        if is_dollar(value):
+            ref = components.Ref(space, name=value)
+            self.resolve_backlog.append(ref)
+        else:
+            ref = components.Ref(space, index=value)
+        return ref
 
     def load_memory(self):
         """ Load a memory definition """
@@ -370,7 +384,7 @@ class WatTupleLoader(TupleParser):
 
     def load_data(self):
         """ Load data """
-        ref = self._parse_optional_ref(default=0)
+        ref = self._parse_optional_ref('memory', default=0)
         offset = self.parse_offset_expression()
         data = self.parse_data_blobs()
         self.expect(Token.RPAR)
