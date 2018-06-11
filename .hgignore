@@ -44,3 +44,4 @@ Vsystemdbg
 .idea
 junit.xml
 coverage.xml
+ppci/wasm/libwabt_*.js
