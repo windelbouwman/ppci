@@ -45,3 +45,4 @@ Vsystemdbg
 junit.xml
 coverage.xml
 ppci/wasm/libwabt_*.js
+test/wasm/spec_suite_*/
