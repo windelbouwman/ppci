@@ -149,7 +149,7 @@ class WatTupleLoader(TupleParser):
             params, results = self._parse_function_signature()
             ref = self._add_or_reuse_type_definition(params, results)
         else:
-            self._add_or_reuse_type_definition([], [])
+            ref = self._add_or_reuse_type_definition([], [])
         return ref
 
     def _parse_function_signature(self):

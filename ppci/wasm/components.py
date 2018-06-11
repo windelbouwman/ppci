@@ -530,6 +530,7 @@ class Instruction(WASMComponent):
                 if isinstance(arg, str):
                     if arg.startswith('align='):
                         align_arg = str2int(arg.split('=')[-1])
+                        align_arg -= 1  # todo: WTF? But this matches it with WABT
                     elif arg.startswith('offset='):
                         offset_arg = str2int(arg.split('=')[-1])
             args = align_arg, offset_arg

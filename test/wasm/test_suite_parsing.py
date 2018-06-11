@@ -45,6 +45,8 @@ def testfunc(fname):
         # But in this script we only do modules
         if sexpr[0] != 'module':
             continue
+        if 'binary' in sexpr:
+            continue
         
         # todo: skipping a few here, for now
         if fname in ('names.wast', 'comments.wast',  # because sending Unicode over Pipes seems to go wrong
@@ -70,9 +72,9 @@ def testfunc(fname):
             print(len(m1.definitions), len(m2.definitions))
             hexdump(wasm_bin1); print(); hexdump(wasm_bin2)
         
+        # todo: also test out to_string ... id stuff is iffy
 
 if __name__ == '__main__':
-    testfunc('address.wast')
     # testfunc('names.wast')
     
-    # test_spec_suite_parsing()
+    test_spec_suite_parsing()
