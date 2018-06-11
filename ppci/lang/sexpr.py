@@ -84,7 +84,7 @@ class SExpressionLexer(HandLexerBase):
             c = self.next_char()
             if c is None:
                 break
-            elif c.char in '() \t\r\n':
+            elif c.char in '() \t\r\n;':
                 self.backup_char(c)
                 break
         self.emit('word')

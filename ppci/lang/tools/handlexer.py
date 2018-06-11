@@ -103,7 +103,7 @@ class HandLexerBase:
 
     def error(self, message):
         char = self.next_char()
-        loc = char.loc
+        loc = None if char is None else char.loc
         raise CompilerError(message, loc)
 
     def expect(self, valid):
