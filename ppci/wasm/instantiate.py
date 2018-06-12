@@ -8,7 +8,9 @@ The wasm runtime contains the following:
 """
 
 import io
+import struct
 from types import ModuleType
+
 from ..api import ir_to_object, get_current_arch, ir_to_python
 from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj
@@ -172,6 +174,13 @@ class Exports:
     """ Container for exported functions """
     pass
 
+##
+class Unreachable(RuntimeError):
+    """ WASM kernel panic. Having an exception for this allows catching it
+    in tests.
+    """
+    pass
+
 
 # See also:
 # https://github.com/kanaka/warpy/blob/master/warpy.py
@@ -224,6 +233,10 @@ def create_runtime():
         """ Round to floor """
         raise NotImplementedError()
 
+    def clz(v: int, bits) -> int:
+        """ count leading zeroes """
+        return bits - len(bin(v)[2:])  # todo: the bin (i.e. tostring) is probably inefficient
+
     def ctz(v: int, bits) -> int:
         """ count trailing zeroes """
         count = 0
@@ -231,29 +244,65 @@ def create_runtime():
             count += 1
             v //= 2
         return count
-
+    
+    def i32_clz(v: int) -> int:
+        return ctz(v, 32)
+        
+    def i64_clz(v: int) -> int:
+        return ctz(v, 64)
+    
     def i32_ctz(v: int) -> int:
         return ctz(v, 32)
 
     def i64_ctz(v: int) -> int:
         return ctz(v, 64)
-
+    
+    def i32_shr_s(v: int, s: int) -> int:
+        return v >> s
+    
+    def i32_shr_u(v: int, s: int) -> int:
+        return v >> s  # todo: this is probably wrong?
+    
+    def i32_rem_s(n: int, d: int) -> int:
+        return n % d  # n - d*(n//d)
+    
+    def i32_rem_u(n: int, d: int) -> int:  # todo: different from signed, nan if d is zero?
+        return n % d  # n - d*(n//d)
+    
+    def f64_reinterpret_i64(v: float) -> int:
+        x = struct.pack('<d', v)
+        return struct.unpack('<q', x)[0]
+    
     def unreachable() -> None:
-        raise RuntimeError('WASM KERNEL panic!')
+        raise Unreachable('WASM KERNEL panic!')
 
+    def memory_size() -> int:
+        return 1
+    
+    def memory_grow(s: int) ->int:
+        return 1
+        
     # TODO: merge with opcode table?
     runtime = {
         'f32_sqrt': sqrt,
         'f64_sqrt': sqrt,
-        # 'i32_rotl': i32_rotl,
-        # 'i64_rotl': i64_rotl,
-        #'i32_rotr': i32_rotr,
-        #'i64_rotr': i64_rotr,
-        #'i32_asr': asr,
-        #'i64_asr': asr,
-        #'i32_ctz': i32_ctz,
-        #'i64_ctz': i64_ctz,
+        'i32_rotl': i32_rotl,
+        'i64_rotl': i64_rotl,
+        'i32_rotr': i32_rotr,
+        'i64_rotr': i64_rotr,
+        'i32_asr': asr,
+        'i64_asr': asr,
+        'i32_clz': i32_clz,
+        'i64_clz': i64_clz,
+        'i32_ctz': i32_ctz,
+        'i64_ctz': i64_ctz,
+        'i32_shr_s': i32_shr_s,
+        'i32_rem_u': i32_rem_u,
+        'i32_rem_s': i32_rem_s,
+        'f64_reinterpret/i64': f64_reinterpret_i64,
         'unreachable': unreachable,
+        # todo: 'memory_size': memory_size,
+        # todo: 'memory_grow': memory_grow,
     }
 
     return runtime
