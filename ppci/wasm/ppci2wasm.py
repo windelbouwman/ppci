@@ -114,9 +114,11 @@ class IrToWasmCompiler:
                     ret_types = ()
 
                 type_id = self.get_type_id(arg_types, ret_types)
+                type_ref = components.Ref('type', index=type_id)
 
                 # init func object, locals and instructions are attached later
-                wasm_func = components.Func('$' + ir_function.name, type_id, [], [])
+                wasm_func = components.Func(
+                    '$' + ir_function.name, type_id, [], [])
                 functions_to_do.append((ir_function, wasm_func))
                 self.wasm_module.add_definition(wasm_func)
 
@@ -126,8 +128,8 @@ class IrToWasmCompiler:
             # Export all functions for now
             # todo: only export subset?
             self.wasm_module.add_definition(
-                components.Export(ir_function.name, 'func', '$' + ir_function.name))
-
+                components.Export(
+                    ir_function.name, 'func', '$' + ir_function.name))
 
     def create_wasm_module(self):
         """ Finalize the wasm module and return it """
@@ -144,8 +146,11 @@ class IrToWasmCompiler:
             indexes = self.pointed_functions
             self.wasm_module.add_definition(
                 components.Table(0, 'anyfunc', len(indexes), None))
+            table_ref = components.Ref('table', index=0)
             self.wasm_module.add_definition(
-                components.Elem(0, components.Instruction('i32.const', 0), indexes))
+                components.Elem(
+                    table_ref,
+                    components.Instruction('i32.const', 0), indexes))
 
         module = self.wasm_module
         if self.reporter:

@@ -2,7 +2,7 @@
 Test WASM Func definition class.
 """
 
-from ppci.wasm import Module, Func, run_wasm_in_node, has_node
+from ppci.wasm import Module, Func, run_wasm_in_node, has_node, Ref
 from ppci.wasm.instantiate import instantiate
 
 
@@ -12,7 +12,7 @@ def dedent(code):
 
 def test_func0():
 
-    f = Func('$foo', '$sig', [(None, 'i32'), ('$local1', 'f32')], [])
+    f = Func('$foo', Ref('type', name='$sig'), [(None, 'i32'), ('$local1', 'f32')], [])
     assert f.to_string() == '(func $foo (type $sig) (local i32) (local $local1 f32)\n\n)'
     assert Func(f.to_string()).to_string() == f.to_string()
 
@@ -27,10 +27,10 @@ def test_func1():
     # The canonical form
     CODE0 = dedent("""
     (module
-        (type $print (func (param i32)))
+        (type $0 (func (param i32)))
         (type $1 (func (param i32 i32) (result i32)))
         (type $2 (func))
-        (import "js" "print_ln" (func $print (type $print)))
+        (import "js" "print_ln" (func $print (type $0)))
         (start $main)
         (func $add (type $1)
             (get_local 0)

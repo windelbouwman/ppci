@@ -84,6 +84,7 @@ def perform_test(filename):
                     else:
                         # Load module from tuples:
                         m1 = Module(s_expr)
+                        print(m1)
 
                         # # Convert module to text form and parse again
                         # # This should yield the same binary form:

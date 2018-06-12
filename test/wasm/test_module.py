@@ -117,7 +117,7 @@ def test_module1():
         wasm.Type('$main_sig', [], []),
         wasm.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
         wasm.Start('$main'),
-        wasm.Func('$main', '$main_sig', [(None, 'f64')], instructions1),
+        wasm.Func('$main', wasm.Ref('type', name='$main_sig'), [(None, 'f64')], instructions1),
     )
 
     assert m4.to_bytes() == b0
@@ -129,7 +129,7 @@ def test_module1():
         wasm.Type('$main_sig', [], []),
         wasm.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
         wasm.Start('$main'),
-        wasm.Func('$main', '$main_sig', [(None, 'f64')], instructions2),
+        wasm.Func('$main', wasm.Ref('type', name='$main_sig'), [(None, 'f64')], instructions2),
     )
 
     assert m5.to_bytes() == b0

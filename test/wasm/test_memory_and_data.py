@@ -11,13 +11,13 @@ def dedent(code):
 
 
 def test_memory_instructions():
-    assert Instruction('(i32.load)').to_string() == '(i32.load align=2)'
-    assert Instruction('(i32.load8_u)').to_string() == '(i32.load8_u align=0)'
-    assert Instruction('(i32.load16_u)').to_string() == '(i32.load16_u align=1)'
+    assert Instruction('(i32.load)').to_string() == '(i32.load align=4)'
+    assert Instruction('(i32.load8_u)').to_string() == '(i32.load8_u align=1)'
+    assert Instruction('(i32.load16_u)').to_string() == '(i32.load16_u align=2)'
 
     assert Instruction('(i32.load align=2 offset=3)').to_string() == '(i32.load align=2 offset=3)'
     assert Instruction('(i32.load8_u align=2 offset=3)').to_string() == '(i32.load8_u align=2 offset=3)'
-    assert Instruction('(i32.load16_u offset=3)').to_string() == '(i32.load16_u align=1 offset=3)'
+    assert Instruction('(i32.load16_u offset=3)').to_string() == '(i32.load16_u align=2 offset=3)'
 
 
 def test_memory0():
@@ -48,10 +48,10 @@ def test_memory1():
         (start $main)
         (func $main (type $2)
             (i32.const 0)
-            (i32.load8_u align=0)
+            (i32.load8_u align=1)
             (call $print)
             (i32.const 1)
-            (i32.load8_u align=0)
+            (i32.load8_u align=1)
             (call $print)
         )
         (data (i32.const 0) "\04\03\02")

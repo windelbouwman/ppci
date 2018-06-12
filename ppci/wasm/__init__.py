@@ -5,6 +5,7 @@ and for converting between PPCI-IR and WASM.
 
 from .opcodes import I
 from .components import *
+from .components import Ref
 from .wasm2ppci import wasm_to_ir
 from .ppci2wasm import ir_to_wasm
 from .arch import WasmArchitecture

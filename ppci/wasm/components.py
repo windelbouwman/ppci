@@ -201,6 +201,9 @@ class Ref:
     index can be none
     """
     def __init__(self, space, index=None, name=None):
+        valid_spaces = ['type', 'func', 'memory', 'table', 'global', 'local']
+        if space not in valid_spaces:
+            raise ValueError('space must be one of {}'.format(valid_spaces))
         self.space = space
         if index is None and name is None:
             raise ValueError('You must provide index or name for a Ref')
@@ -215,15 +218,23 @@ class Ref:
             return str(self.index)
 
     def __repr__(self):
-        return 'Ref(index={},name={})'.format(self.index, self.name)
+        return 'Ref(space={},index={},name={})'.format(
+            self.space, self.index, self.name)
 
     @property
-    def is_null(self):
+    def is_zero(self):
         """ Check if we refer to element 0 """
         if self.name:
             return self.name == '$0'
         else:
             return self.index == 0
+
+    @classmethod
+    def from_value(cls, space, value):
+        if isinstance(value, int):
+            return cls(space, index=value)
+        else:
+            return cls(space, name=value)
 
 
 class Module(WASMComponent):
@@ -393,7 +404,7 @@ class Module(WASMComponent):
                 # Special section that binds sigs to imports and implementation
                 f2.write_vu32(len(definitions['func']))
                 for d in definitions['func']:
-                    type_id = id_maps['type'][d.ref]
+                    type_id = d.ref.index
                     f2.write_vu32(type_id)
 
             else:
@@ -421,7 +432,7 @@ class Module(WASMComponent):
                         # Note that id in Type.params can be int/str, not None
                         if section_name == 'func':
                             typedefs = definitions['type']
-                            typedef = typedefs[id_maps['type'][d.ref]]
+                            typedef = typedefs[d.ref.index]
                             id_maps['local'] = dict((param[0], i)
                                                     for i, param in
                                                     enumerate(typedef.params))
@@ -489,7 +500,7 @@ class Module(WASMComponent):
                         Cls = DEFINITION_CLASSES[section_name]
                         d = Cls(reader)
                         if section_name == 'func':
-                            d.ref = type4func[i]
+                            d.ref = Ref('type', index=type4func[i])
                         definitions.append(d)
                         if section_name == 'import':
                             # Resolve import id's
@@ -564,7 +575,15 @@ class Instruction(WASMComponent):
                 if isinstance(arg, str):
                     if arg.startswith('align='):
                         align_arg = str2int(arg.split('=')[-1])
-                        align_arg -= 1  # todo: WTF? But this matches it with WABT
+                        # Store alignment as power of 2:
+                        log2 = {
+                            1: 0,
+                            2: 1,
+                            4: 2,
+                            8: 3,
+                            16: 4
+                        }
+                        align_arg = log2[align_arg]
                     elif arg.startswith('offset='):
                         offset_arg = str2int(arg.split('=')[-1])
             args = align_arg, offset_arg
@@ -580,7 +599,7 @@ class Instruction(WASMComponent):
             args = type_ref, table_ref
         else:
             for arg in args:
-                assert isinstance(arg, (str, int, float))
+                assert isinstance(arg, (str, int, float, Ref))
 
         self.opcode = opcode
         self.args = args
@@ -599,9 +618,9 @@ class Instruction(WASMComponent):
         args = self.args
         if '.load' in self.opcode or '.store' in self.opcode:
             if args[1] == 0:  # zero offset
-                args = ('align=%i' % args[0], )
+                args = ('align=%i' % 2**args[0], )
             else:
-                args = ('align=%i' % args[0], 'offset=%i' % args[1])
+                args = ('align=%i' % 2**args[0], 'offset=%i' % args[1])
         elif self.opcode == 'call_indirect':
             if args[1] == 0:  # zero'th table
                 args = ('(type %s)' % args[0], ) 
@@ -620,20 +639,20 @@ class Instruction(WASMComponent):
 
         # Prep args for accessing named identifiers
         args = list(self.args)
-        if self.opcode == 'call':
-            args[0] = id_maps['func'][args[0]]
-        elif self.opcode == 'call_indirect':
-            args[0] = id_maps['type'][args[0]]
+        # if self.opcode == 'call':
+        #    args[0] = id_maps['func'][args[0]]
+        if self.opcode == 'call_indirect':
+            args[0] = id_maps['type'][args[0].index]
             if len(args) == 1:
                 args = args[0], 0  # reserved byte for future use
-        elif self.opcode in ('set_global', 'get_global'):
-            args[0] = id_maps['global'][args[0]]
+        # elif self.opcode in ('set_global', 'get_global'):
+        #    args[0] = id_maps['global'][args[0]]
         # elif 'memory' in self.opcode:
         #     ... there is just one memory in v1
         # elif 'table' in self.opcode:
         #     ... there is just one table in v1
-        elif self.opcode in ('get_local', 'set_local', 'tee_local'):
-            args[0] = id_maps['local'][args[0]]
+        # elif self.opcode in ('get_local', 'set_local', 'tee_local'):
+        #    args[0] = id_maps['local'][args[0].index]
         elif self.opcode in ('br', 'br_if', 'br_table'):
             if isinstance(args[0], str):
                 args[0] = id_maps['label'][args[0]]
@@ -665,6 +684,8 @@ class Instruction(WASMComponent):
                 f.write_vs32(arg)
             elif o == 'u32':
                 f.write_vu32(arg)
+            elif o.endswith('idx'):
+                f.write_vu32(arg.index)
             elif o == 'f32':
                 f.write_f32(arg)
             elif o == 'f64':
@@ -692,6 +713,9 @@ class Instruction(WASMComponent):
                 arg = reader.read_int()
             elif operand == 'u32':
                 arg = reader.read_uint()
+            elif operand.endswith('idx'):
+                kind = operand[:-3]
+                arg = Ref(kind, index=reader.read_uint())
             elif operand == 'type':
                 arg = reader.read_type()
             elif operand == 'byte':
@@ -973,7 +997,7 @@ class Import(Definition):
         if self.kind == 'func':
             f.write(b'\x00')
             # type-index, not func-
-            int_ref = id_maps['type'][self.info[0].index]
+            int_ref = self.info[0].index
             f.write_vu32(int_ref)
         elif self.kind == 'table':
             f.write(b'\x01')
@@ -998,7 +1022,7 @@ class Import(Definition):
         kind_id = reader.read_byte()
         if kind_id == 0:
             self.kind = 'func'
-            self.info = (reader.read_uint(), )
+            self.info = (Ref('type', index=reader.read_uint()), )
         elif kind_id == 1:
             self.kind = 'table'
             table_kind = reader.read_type()
@@ -1225,7 +1249,9 @@ class Export(Definition):
         assert t[0] == 'export'
         assert len(t) == 3
         assert isinstance(t[2], tuple) and len(t[2]) == 2
-        self._from_args(t[1], t[2][0], t[2][1])
+        kind = t[2][0]
+        ref = Ref.from_value(kind, t[2][1])
+        self._from_args(t[1], kind, ref)
 
     def to_string(self):
         return '(export "%s" (%s %s))' % (self.name, self.kind, self.ref)
@@ -1234,7 +1260,7 @@ class Export(Definition):
         f.write_str(self.name)
         type_id = {'func': 0, 'table': 1, 'memory': 2, 'global': 3}[self.kind]
         f.write(bytes([type_id]))
-        int_ref = id_maps[self.kind][self.ref.index]
+        int_ref = self.ref.index
         f.write_vu32(int_ref)
 
     def _from_reader(self, reader):
@@ -1344,7 +1370,7 @@ class Func(Definition):
                     for loc in expr[1:]:  # anonymous (local i32 i32 i32)
                         locals.append((None, loc))
             elif isinstance(t[i], tuple) and t[i][0] == 'type':
-                ref = t[i][1]
+                ref = Ref.from_value('type', t[i][1])
             elif isinstance(t[i], tuple) and t[i][0] in ('param', 'export'):
                 assert False, 'func seems abbreviated'
             else:
@@ -1480,7 +1506,7 @@ class Elem(Definition):
         self._from_args(ref, offset, refs)
     
     def to_string(self):
-        ref = '' if self.ref.is_null else ' %s' % self.ref
+        ref = '' if self.ref.is_zero else ' %s' % self.ref
         offset = self.offset.to_string()
         refs_as_str = ' '.join(str(i) for i in self.refs)
         return '(elem%s %s %s)' % (ref, offset, refs_as_str)
@@ -1559,13 +1585,13 @@ class Data(Definition):
         self._from_args(ref, offset, b''.join(datas))
 
     def to_string(self):
-        ref = '' if self.ref in ['$0', 0] else ' %s' % self.ref
+        ref = '' if self.ref.is_zero else ' %s' % self.ref
         offset = self.offset.to_string()
         data_as_str = bytes2datastring(self.data)  # repr(self.data)[2:-1]
         return '(data%s %s "%s")' % (ref, offset, data_as_str)
 
     def _to_writer(self, f, id_maps):
-        f.write_vu32(id_maps['memory'][self.ref])
+        f.write_vu32(self.ref.index)
 
         # Encode offset as expression followed by end instruction
         # Instruction('i32.const', (chunk[1],))._to_writer(f, id_maps)
@@ -1577,7 +1603,7 @@ class Data(Definition):
         f.write(self.data)
 
     def _from_reader(self, reader):
-        self.ref = reader.read_uint()
+        self.ref = Ref('memory', index=reader.read_uint())
         offset_expr = reader.read_expression()
         offset_type, offset = eval_expr(offset_expr)
         assert offset_type == 'i32'

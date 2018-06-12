@@ -22,10 +22,10 @@ def test_type1():
     # The canonical form
     CODE0 = dedent("""
     (module
-        (type $print (func (param i32)))
+        (type $0 (func (param i32)))
         (type $1 (func (param i32 i32) (result i32)))
         (type $2 (func))
-        (import "js" "print_ln" (func $print (type $print)))
+        (import "js" "print_ln" (func $print (type $0)))
         (start $main)
         (func $add (type $1)
             (get_local 0)
@@ -80,13 +80,13 @@ def test_type2():
     # Canonical form
     CODE0 = dedent("""
     (module
-        (type $print (func (param i32)))
+        (type $0 (func (param i32)))
         (type $1 (func (param i32) (result i32)))
         (type $2 (func (param i32)))
         (type $3 (func (result i32)))
         (type $4 (func))
         (type $5 (func))
-        (import "js" "print_ln" (func $print (type $print)))
+        (import "js" "print_ln" (func $print (type $0)))
         (start $main)
         (func $test_11 (type $1)
             (i32.const 111)

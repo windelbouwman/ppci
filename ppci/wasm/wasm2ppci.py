@@ -84,7 +84,7 @@ class WasmToIrCompiler:
 
         # First read all sections:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
-        self.wasm_types = {}  # id -> wasm.Type (signature)
+        self.wasm_types = []  # List[wasm.Type] (signature)
         self.globalz = {}  # id -> (type, ir.Variable)
         functions = []
         self.function_names = {}  # Try to have a nice name
@@ -100,13 +100,14 @@ class WasmToIrCompiler:
 
         for definition in wasm_module:
             if isinstance(definition, components.Type):
-                self.wasm_types[definition.id] = definition
+                # assert len(self.wasm_types) == definition.id
+                self.wasm_types.append(definition)
 
             elif isinstance(definition, components.Import):
                 # name = definition.name
                 if definition.kind == 'func':
                     index = definition.id
-                    sig = self.wasm_types[definition.info[0]]
+                    sig = self.wasm_types[definition.info[0].index]
                     name = '{}_{}'.format(definition.modname, definition.name)
                     arg_types = [self.get_ir_type(p[1]) for p in sig.params]
 
@@ -150,7 +151,7 @@ class WasmToIrCompiler:
                 start_function_id = definition.ref
 
             elif isinstance(definition, components.Func):
-                signature = self.wasm_types[definition.ref]
+                signature = self.wasm_types[definition.ref.index]
                 # Set name of function. If we have a string id prefer that,
                 # otherwise we may have a name from import/export,
                 # otherwise use index
@@ -598,25 +599,25 @@ class WasmToIrCompiler:
 
         elif inst in ['set_local', 'tee_local']:
             value = self.pop_value()
-            ty, local_var = self.locals[instruction.args[0]]
+            ty, local_var = self.locals[instruction.args[0].index]
             assert ty is value.ty
             self.emit(ir.Store(value, local_var))
             if inst == 'tee_local':
                 self.stack.append(value)
 
         elif inst == 'get_local':
-            ty, local_var = self.locals[instruction.args[0]]
+            ty, local_var = self.locals[instruction.args[0].index]
             value = self.emit(ir.Load(local_var, 'getlocal', ty))
             self.stack.append(value)
 
         elif inst == 'get_global':
-            ty, addr = self.globalz[instruction.args[0]]
+            ty, addr = self.globalz[instruction.args[0].index]
             value = self.emit(ir.Load(addr, 'get_global', ty))
             self.stack.append(value)
 
         elif inst == 'set_global':
             value = self.pop_value()
-            ty, addr = self.globalz[instruction.args[0]]
+            ty, addr = self.globalz[instruction.args[0].index]
             assert ty is value.ty
             self.emit(ir.Store(value, addr))
 
@@ -745,7 +746,7 @@ class WasmToIrCompiler:
 
     def gen_call_indirect(self, instruction):
         """ Call another function by pointer! """
-        type_id = instruction.args[0]
+        type_id = instruction.args[0].index
         signature = self.wasm_types[type_id]
         func_index = self.pop_value()
         ptr_size = self.emit(ir.Const(self.ptr_info.size, 'ptr_size', ir.i32))

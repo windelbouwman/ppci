@@ -48,6 +48,7 @@ class WatTupleLoader(TupleParser):
         self._type_hash = {}  # (params, results) -> ref
 
         self.resolve_backlog = []
+        self.local_resolve_backlog = []
 
     def load_module(self, t):
         """ Load a module from a tuple """
@@ -90,11 +91,33 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.RPAR)
         self.expect(Token.EOF)
 
-        for item in self.resolve_backlog:
-            pass
-            # TODO: resolve any unresolved items:
-
+        self.resolve_references()
+        assert not self.local_resolve_backlog
         self.module.definitions = self.gather_definitions()
+
+    def resolve_references(self):
+        id_maps = {'type': {}, 'func': {}, 'table': {},
+                   'memory': {}, 'global': {}}
+        for d in self.definitions['import']:
+            id_map = id_maps[d.kind]
+            id_map[d.id] = len(id_map)
+        for space in id_maps:
+            for d in self.definitions[space]:
+                id_maps[space][d.id] = len(id_maps[space])
+
+        # TODO: resolve any unresolved items:
+        for item in self.resolve_backlog:
+            if item.name in id_maps[item.space]:
+                item.index = id_maps[item.space][item.name]
+            else:
+                raise ValueError('Cannot resolve {}'.format(item.name))
+
+    def resolve_locals(self, type_ref, args, localz):
+        print(type_ref, args, localz)
+        for item in self.local_resolve_backlog:
+            # item.index = id_map[item.name]
+            pass
+        self.local_resolve_backlog.clear()
 
     def gather_definitions(self):
         """ Take all definitions by section id order: """
@@ -276,9 +299,9 @@ class WatTupleLoader(TupleParser):
             min = max = len(refs)
             self.add_definition(
                 components.Table(id, 'anyfunc', min, max))
+            table_ref = components.Ref.from_value('table', id)
             self.add_definition(
-                components.Elem(
-                    components.Ref('table', index=id), offset, refs))
+                components.Elem(table_ref, offset, refs))
         else:
             min, max = self.parse_limits()
             kind = self.take()
@@ -310,7 +333,10 @@ class WatTupleLoader(TupleParser):
         """ Create a reference in a space given a value """
         if is_dollar(value):
             ref = components.Ref(space, name=value)
-            self.resolve_backlog.append(ref)
+            if space == 'local':
+                self.local_resolve_backlog.append(ref)
+            else:
+                self.resolve_backlog.append(ref)
         else:
             ref = components.Ref(space, index=value)
         return ref
@@ -337,8 +363,8 @@ class WatTupleLoader(TupleParser):
             self.add_definition(
                 components.Memory(id, min, max))
             offset = components.Instruction('i32.const', 0)
-            self.add_definition(
-                components.Data(id, offset, data))
+            memory_ref = components.Ref.from_value('memory', id)
+            self.add_definition(components.Data(memory_ref, offset, data))
         else:
             min, max = self.parse_limits()
             self.expect(Token.RPAR)
@@ -431,12 +457,14 @@ class WatTupleLoader(TupleParser):
             # TODO: wtf, parse types twice? why?
             params, results = self._parse_function_signature()
             localz = self._parse_locals()
+            assert not self.local_resolve_backlog
             instructions = self._load_instruction_list()
             # for i in instructions:
             #    print(i.to_string())
             self.expect(Token.RPAR)
             self.add_definition(
                 components.Func(id, ref, localz, instructions))
+            self.resolve_locals(ref, params, localz)
 
     def _parse_locals(self):
         return self._parse_type_bound_value_list('local')
@@ -559,6 +587,11 @@ class WatTupleLoader(TupleParser):
                         while isinstance(self._lookahead(1)[0], (int, str)):
                             targets.append(self.take())
                         args.extend(targets)
+                    elif op.endswith('idx'):
+                        kind = op[:-3]
+                        arg = self.take()
+                        arg = self._make_ref(kind, arg)
+                        args.append(arg)
                     else:
                         arg = self.take()
                         args.append(arg)

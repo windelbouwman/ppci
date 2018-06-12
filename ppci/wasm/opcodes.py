@@ -21,17 +21,17 @@ instruction_table = [
     ('br_table', 0x0e, ('br_table',)),
     ('return', 0x0f),
 
-    ('call', 0x10, ('u32',)),  # funcidx
-    ('call_indirect', 0x11, ('u32', 'u32')),  # typeidx, tableidx
+    ('call', 0x10, ('funcidx',)),  # funcidx
+    ('call_indirect', 0x11, ('typeidx', 'tableidx')),  # typeidx, tableidx
 
     ('drop', 0x1a),
     ('select', 0x1b),
 
-    ('get_local', 0x20, ('u32',)),
-    ('set_local', 0x21, ('u32',)),
-    ('tee_local', 0x22, ('u32',)),
-    ('get_global', 0x23, ('u32',)),
-    ('set_global', 0x24, ('u32',)),
+    ('get_local', 0x20, ('localidx',)),
+    ('set_local', 0x21, ('localidx',)),
+    ('tee_local', 0x22, ('localidx',)),
+    ('get_global', 0x23, ('globalidx',)),
+    ('set_global', 0x24, ('globalidx',)),
 
     ('i32.load', 0x28, ('u32', 'u32')),
     ('i64.load', 0x29, ('u32', 'u32')),
