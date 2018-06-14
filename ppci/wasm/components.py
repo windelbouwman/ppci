@@ -200,6 +200,8 @@ class Ref:
     space must be one of 'type', 'func', 'memory', 'table', 'global', 'local'
     index can be none
     """
+    # TODO: idea:
+    # wb: store reference to the object itself instead of an index?
     def __init__(self, space, index=None, name=None):
         valid_spaces = ['type', 'func', 'memory', 'table', 'global', 'local']
         if space not in valid_spaces:
@@ -220,6 +222,16 @@ class Ref:
     def __repr__(self):
         return 'Ref(space={},index={},name={})'.format(
             self.space, self.index, self.name)
+
+    def resolve(self, id_maps):
+        if self.index is None:
+            id_map = id_maps[self.space]
+            if self.name in id_map:
+                return id_map[self.name]
+            else:
+                raise ValueError('Cannot resolve {}'.format(repr(self)))
+        else:
+            return self.index
 
     @property
     def is_zero(self):
@@ -599,7 +611,7 @@ class Instruction(WASMComponent):
             args = type_ref, table_ref
         else:
             for arg in args:
-                assert isinstance(arg, (str, int, float, Ref))
+                assert isinstance(arg, (str, int, float, Ref, list))
 
         self.opcode = opcode
         self.args = args
@@ -625,7 +637,7 @@ class Instruction(WASMComponent):
             if args[1] == 0:  # zero'th table
                 args = ('(type %s)' % args[0], ) 
             else:
-                args = ('(type %s)' % args[0], '(const.i64 %i)' % args[1])
+                args = ('(type %s)' % args[0], '(const.i64 %i)' % args[1].index)
         subtext = self._get_sub_string(args)
         if '\n' in subtext:
             return '(' + self.opcode + '\n' + subtext + '\n)'

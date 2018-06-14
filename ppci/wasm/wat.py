@@ -6,12 +6,17 @@ More or less a python version of this code:
 https://github.com/WebAssembly/wabt/blob/master/src/wast-parser.cc
 """
 
+import logging
+
 from collections import defaultdict
 from ..lang.sexpr import parse_sexpr
 from .opcodes import OPERANDS, OPCODES
 from .util import datastring2bytes
 from .tuple_parser import TupleParser, Token
 from . import components
+
+
+logger = logging.getLogger('wat')
 
 
 def load_tuple(module, t):
@@ -48,10 +53,14 @@ class WatTupleLoader(TupleParser):
         self._type_hash = {}  # (params, results) -> ref
 
         self.resolve_backlog = []
-        self.local_resolve_backlog = []
+        self.func_backlog = []
 
     def load_module(self, t):
         """ Load a module from a tuple """
+        self.id_maps = {
+            'type': {}, 'func': {}, 'table': {},
+            'memory': {}, 'global': {},
+        }
         self._feed(t)
 
         self.expect(Token.LPAR)
@@ -92,32 +101,41 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.EOF)
 
         self.resolve_references()
-        assert not self.local_resolve_backlog
         self.module.definitions = self.gather_definitions()
 
     def resolve_references(self):
-        id_maps = {'type': {}, 'func': {}, 'table': {},
-                   'memory': {}, 'global': {}}
+        # TODO: maybe this is not needed at this point?
+        # Fill imports and other objects:
         for d in self.definitions['import']:
-            id_map = id_maps[d.kind]
+            id_map = self.id_maps[d.kind]
             id_map[d.id] = len(id_map)
-        for space in id_maps:
+
+        for space in ['type', 'global', 'memory', 'table', 'func']:
             for d in self.definitions[space]:
-                id_maps[space][d.id] = len(id_maps[space])
+                self.id_maps[space][d.id] = len(self.id_maps[space])
 
-        # TODO: resolve any unresolved items:
+        # resolve any unresolved items:
         for item in self.resolve_backlog:
-            if item.name in id_maps[item.space]:
-                item.index = id_maps[item.space][item.name]
-            else:
-                raise ValueError('Cannot resolve {}'.format(item.name))
+            item.index = item.resolve(self.id_maps)
 
-    def resolve_locals(self, type_ref, args, localz):
-        print(type_ref, args, localz)
-        for item in self.local_resolve_backlog:
-            # item.index = id_map[item.name]
-            pass
-        self.local_resolve_backlog.clear()
+        # Resolve inside functions:
+        assert len(self.func_backlog) == len(self.definitions['func'])
+        for bl, func in zip(self.func_backlog, self.definitions['func']):
+            # Fill map with local id's:
+            type_idx = func.ref.resolve(self.id_maps)
+            func_type = self.definitions['type'][type_idx]
+            # print(func_type)
+            self.id_maps['local'] = dict(
+                (param[0], i)
+                for i, param in
+                enumerate(func_type.params))
+            for i, lokal in enumerate(
+                    func.locals, start=len(func_type.params)):
+                if is_dollar(lokal[0]):
+                    self.id_maps['local'][lokal[0]] = i
+
+            for item in bl:
+                item.index = item.resolve(self.id_maps)
 
     def gather_definitions(self):
         """ Take all definitions by section id order: """
@@ -130,7 +148,9 @@ class WatTupleLoader(TupleParser):
 
     def add_definition(self, definition):
         # print(definition.to_string())
-        self.definitions[definition.__name__].append(definition)
+        logger.debug('Parsed %s', definition)
+        space = definition.__name__
+        self.definitions[space].append(definition)
 
     def gen_id(self, kind):
         return '${}'.format(len(self.definitions[kind]))
@@ -184,7 +204,8 @@ class WatTupleLoader(TupleParser):
             self.expect(Token.LPAR, 'type')
             ref = self._parse_ref('type')
             self.expect(Token.RPAR)
-        elif self.match(Token.LPAR, 'param') or self.match(Token.LPAR, 'result'):
+        elif self.match(Token.LPAR, 'param') or \
+                self.match(Token.LPAR, 'result'):
             params, results = self._parse_function_signature()
             ref = self._add_or_reuse_type_definition(params, results)
         else:
@@ -325,16 +346,20 @@ class WatTupleLoader(TupleParser):
         """ Parse $1 $2 $foo $bar """
         refs = []
         while self._at_ref():
-            ref = self._make_ref('func', self.take())
+            ref = self.get_ref('func', self.take())
             refs.append(ref)
         return refs
+
+    def get_ref(self, space, value):
+        """ Get a reference to an object """
+        return self._make_ref(space, value)
 
     def _make_ref(self, space, value):
         """ Create a reference in a space given a value """
         if is_dollar(value):
             ref = components.Ref(space, name=value)
             if space == 'local':
-                self.local_resolve_backlog.append(ref)
+                self.func_backlog[-1].append(ref)
             else:
                 self.resolve_backlog.append(ref)
         else:
@@ -457,14 +482,14 @@ class WatTupleLoader(TupleParser):
             # TODO: wtf, parse types twice? why?
             params, results = self._parse_function_signature()
             localz = self._parse_locals()
-            assert not self.local_resolve_backlog
+
+            self.func_backlog.append([])
             instructions = self._load_instruction_list()
             # for i in instructions:
             #    print(i.to_string())
             self.expect(Token.RPAR)
             self.add_definition(
                 components.Func(id, ref, localz, instructions))
-            self.resolve_locals(ref, params, localz)
 
     def _parse_locals(self):
         return self._parse_type_bound_value_list('local')
@@ -537,8 +562,9 @@ class WatTupleLoader(TupleParser):
                         body = self._load_instruction_list()
                         self.expect(Token.RPAR)
                         instructions.extend(body)
-                        # Add implicit end:
-                        instructions.append(components.Instruction('end'))
+
+                    # Add implicit end:
+                    instructions.append(components.Instruction('end'))
             else:
                 instructions.append(
                     components.BlockInstruction(opcode, block_id, result))
@@ -570,7 +596,13 @@ class WatTupleLoader(TupleParser):
                 params, results = self._parse_function_signature()
                 # print(params, results)
                 # TODO: compare unbound func signature with type?
-            elif opcode in ('br_table', 'memory.grow', 'memory.size'):
+            elif opcode == 'br_table':
+                # Simply take all arguments possible:
+                args = []
+                while isinstance(self._lookahead(1)[0], (int, str)):
+                    args.append(self.take())
+                args = [args]
+            elif opcode in ('memory.grow', 'memory.size'):
                 # Simply take all arguments possible:
                 args = []
                 while isinstance(self._lookahead(1)[0], (int, str)):
@@ -590,7 +622,7 @@ class WatTupleLoader(TupleParser):
                     elif op.endswith('idx'):
                         kind = op[:-3]
                         arg = self.take()
-                        arg = self._make_ref(kind, arg)
+                        arg = self.get_ref(kind, arg)
                         args.append(arg)
                     else:
                         arg = self.take()

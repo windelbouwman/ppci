@@ -9,6 +9,7 @@ from ..binutils import debuginfo
 from ..arch.arch_info import TypeInfo
 from . import components
 from .opcodes import STORE_OPS, LOAD_OPS
+from .util import sanitize_name
 
 
 def wasm_to_ir(
@@ -47,10 +48,10 @@ def create_memories(wasm_module):
         elif isinstance(definition, components.Data):
             assert definition.offset.opcode == 'i32.const'
             offset = definition.offset.args[0]
-            memory_id = definition.ref
+            memory_id = definition.ref.index
             # TODO: should ref always be an integer index?
-            if isinstance(memory_id, int):
-                memory_id = memory_ids[memory_id]
+            #if isinstance(memory_id, int):
+            memory_id = memory_ids[memory_id]
             data = definition.data
             initializations.append((memory_id, offset, data))
 
@@ -86,8 +87,8 @@ class WasmToIrCompiler:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
         self.wasm_types = []  # List[wasm.Type] (signature)
         self.globalz = {}  # id -> (type, ir.Variable)
-        functions = []
-        self.function_names = {}  # Try to have a nice name
+        gen_functions = []
+        self.functions = []  # List of ir-function wasm signature pairs
         self._runtime_functions = {}  # Function required during runtime
         export_names = {}  # mapping of id's to exported function names
         start_function_id = None
@@ -127,11 +128,8 @@ class WasmToIrCompiler:
                         'Creating external %s with signature %s',
                         extern_ir_function, sig.to_string())
                     self.builder.module.add_external(extern_ir_function)
-                    if index in self.function_names:
-                        raise ValueError(
-                            'Index {} already imported'.format(index))
-                    assert index not in self.function_names
-                    self.function_names[index] = extern_ir_function, sig
+                    assert len(self.functions) == index
+                    self.functions.append((extern_ir_function, sig))
                 else:
                     raise NotImplementedError(definition.kind)
 
@@ -140,8 +138,13 @@ class WasmToIrCompiler:
                     # print(x.index)
                     # f = self.function_space[x.index]
                     # f = x.name, f[1]
-                    assert definition.ref not in export_names
-                    export_names[definition.ref] = definition.name
+                    name = sanitize_name(definition.name)
+                    if definition.ref.name is not None:
+                        assert definition.ref.name not in export_names
+                        export_names[definition.ref.name] = name
+                    if definition.ref.index is not None:
+                        assert definition.ref.index not in export_names
+                        export_names[definition.ref.index] = name
                 else:
                     pass
                     # raise NotImplementedError(x.kind)
@@ -155,10 +158,12 @@ class WasmToIrCompiler:
                 # Set name of function. If we have a string id prefer that,
                 # otherwise we may have a name from import/export,
                 # otherwise use index
-                if isinstance(definition.id, str):
-                    name = definition.id.lstrip('$')
-                elif definition.id in export_names:
+                # print(export_names, definition.id)
+                if definition.id in export_names:
                     name = export_names[definition.id]
+                elif isinstance(definition.id, str):
+                    name = 'named_{}'.format(
+                        sanitize_name(definition.id.lstrip('$')))
                 else:
                     name = 'unnamed{}'.format(definition.id)
 
@@ -173,9 +178,8 @@ class WasmToIrCompiler:
                 else:
                     ppci_function = self.builder.new_procedure(name)
 
-                assert definition.id not in self.function_names
-                self.function_names[definition.id] = ppci_function, signature
-                functions.append((ppci_function, signature, definition))
+                self.functions.append((ppci_function, signature))
+                gen_functions.append((ppci_function, signature, definition))
 
             elif isinstance(definition, components.Table):
                 assert definition.id in (0, '$0')
@@ -218,7 +222,7 @@ class WasmToIrCompiler:
                 raise NotImplementedError(definition.__name__)
 
         # Generate functions:
-        for ppci_function, signature, wasm_function in functions:
+        for ppci_function, signature, wasm_function in gen_functions:
             self.generate_function(ppci_function, signature, wasm_function)
 
         # Generate run_init function:
@@ -250,14 +254,14 @@ class WasmToIrCompiler:
             address = table_variable
             for func in functions:
                 # Lookup function
-                value = self.function_names[func.index][0]
+                value = self.functions[func.index][0]
                 self.emit(ir.Store(value, address))
                 address = self.emit(
                     ir.add(address, ptr_size, 'table_address', ir.ptr))
 
         # Call eventual start function:
         if start_function_ref is not None:
-            target, _ = self.function_names[start_function_ref.index]
+            target, _ = self.functions[start_function_ref.index]
             self.emit(ir.ProcedureCall(target, []))
 
         self.emit(ir.Exit())
@@ -368,6 +372,19 @@ class WasmToIrCompiler:
             addr = self.emit(ir.AddressOf(alloc, 'local{}'.format(i)))
             self.locals.append((ir_typ, addr))
 
+        # Create an implicit top level block:
+        if isinstance(ppci_function, ir.Procedure):
+            final_phi = None
+        else:
+            final_phi = ir.Phi('function_result', ppci_function.return_ty)
+            self.logger.debug('Created phi %s', final_phi)
+        body_block = self.new_block()
+        final_block = self.new_block()
+        self.emit(ir.Jump(body_block))
+        self.builder.set_block(body_block)
+        self.block_stack.append(('block', final_block, body_block, final_phi))
+
+        # Generate code for each instruction:
         num = len(wasm_function.instructions)
         for nr, instruction in enumerate(wasm_function.instructions, start=1):
             if self.verbose:
@@ -377,17 +394,21 @@ class WasmToIrCompiler:
                     instruction.to_string(), len(self.stack))
             self.generate_instruction(instruction)
 
-        # Add terminating instruction if needed:
-        if not self.builder.block.is_closed:
-            if isinstance(ppci_function, ir.Procedure):
-                self.emit(ir.Exit())
-            else:
-                if not self.builder.block.is_empty:
-                    # if self.stack:
-                    return_value = self.pop_value()
-                    self.emit(ir.Return(return_value))
-                # else:
-                #    raise ValueError('No return value left on stack to pop')
+        self.block_stack.pop()
+        assert not self.block_stack
+
+        # Close of function:
+        if final_phi:
+            # print(self.stack)
+            self.fill_phi(final_phi)
+            self.stack.pop()
+        self.emit(ir.Jump(final_block))
+        self.builder.set_block(final_block)
+        if isinstance(ppci_function, ir.Procedure):
+            self.emit(ir.Exit())
+        else:
+            self.emit(final_phi)
+            self.emit(ir.Return(final_phi))
 
         # Sometimes this assert throws:
         # TODO: enable the below assert:
@@ -450,15 +471,18 @@ class WasmToIrCompiler:
         else:
             ir_typ = self.get_ir_type(result_type)
             phi = ir.Phi('block_result', ir_typ)
+            self.logger.debug('Created phi %s', phi)
         return phi
 
     def fill_phi(self, phi):
         """ Fill phi with current stack value, if phi is needed """
         if phi:
             # TODO: do we require stack 1 high?
-            assert len(self.stack) == 1, str(self.stack)
-            value = self.stack[-1]
+            # assert len(self.stack) == 1, str(self.stack)
+            self.logger.debug('Filling phi %s', phi)
+            value = self.pop_value()
             phi.set_incoming(self.builder.block, value)
+            self.stack.append(value)
 
     def pop_condition(self):
         """ Get comparison, a and b of the value stack """
@@ -576,16 +600,50 @@ class WasmToIrCompiler:
             value = self.emit(ir.Cast(value, 'cast', ir_typ))
             self.stack.append(value)
 
-        elif inst in ['f64.floor', 'f64.sqrt']:
+        elif inst in [
+                'f64.floor', 'f64.sqrt', 'f64.abs', 'f64.ceil', 'f64.trunc',
+                'f64.nearest']:
             self._runtime_call(inst, [ir.f64], ir.f64)
 
-        elif inst == 'i32.rem_u':
-            self._runtime_call(inst, [ir.i32, ir.i32], ir.i32)
+        elif inst in ['f64.min', 'f64.max', 'f64.copysign']:
+            self._runtime_call(inst, [ir.f64, ir.f64], ir.f64)
+
+        elif inst in [
+                'f32.floor', 'f32.sqrt', 'f32.abs', 'f32.ceil', 'f32.trunc',
+                'f32.nearest']:
+            self._runtime_call(inst, [ir.f32], ir.f32)
+
+        elif inst in ['f32.min', 'f32.max', 'f32.copysign']:
+            self._runtime_call(inst, [ir.f32, ir.f32], ir.f32)
+
+        elif inst in ['i64.rem_u', 'i64.rem_s']:
+            self._runtime_call(inst, [ir.i64, ir.i64], ir.i64)
+
+        elif inst in ['i64.clz', 'i64.ctz', 'i64.popcnt']:
+            self._runtime_call(inst, [ir.i64], ir.i64)
 
         elif inst == 'f64.reinterpret/i64':
             self._runtime_call(inst, [ir.i64], ir.f64)
 
-        elif inst in ['i32.clz', 'i32.ctz', 'memory.grow']:
+        elif inst == 'f64.promote/f32':
+            self._runtime_call(inst, [ir.f32], ir.f64)
+
+        elif inst in ['i64.trunc_s/f64', 'i64.trunc_u/f64']:
+            self._runtime_call(inst, [ir.f64], ir.i64)
+
+        elif inst in ['i64.trunc_s/f32', 'i64.trunc_u/f32']:
+            self._runtime_call(inst, [ir.f32], ir.i64)
+
+        elif inst in ['i32.trunc_s/f32', 'i32.trunc_u/f32']:
+            self._runtime_call(inst, [ir.f32], ir.i32)
+
+        elif inst in ['i32.trunc_s/f64', 'i32.trunc_u/f64']:
+            self._runtime_call(inst, [ir.f64], ir.i32)
+
+        elif inst in ['i32.rem_u', 'i32.rem_s']:
+            self._runtime_call(inst, [ir.i32, ir.i32], ir.i32)
+
+        elif inst in ['i32.clz', 'i32.ctz', 'i32.popcnt', 'memory.grow']:
             self._runtime_call(inst, [ir.i32], ir.i32)
 
         elif inst in ['memory.size']:
@@ -643,18 +701,7 @@ class WasmToIrCompiler:
             self.block_stack.append(('loop', continueblock, innerblock, phi))
 
         elif inst == 'br':
-            depth = instruction.args[0]
-            # TODO: can we break out of if-blocks?
-            blocktype, continueblock, innerblock, phi = \
-                self.block_stack[-depth-1]
-            if blocktype == 'loop':
-                targetblock = innerblock
-            else:
-                targetblock = continueblock
-                self.fill_phi(phi)
-            self.emit(ir.Jump(targetblock))
-            falseblock = self.new_block()  # unreachable
-            self.builder.set_block(falseblock)
+            self.gen_br(instruction)
 
         elif inst == 'br_if':
             self.gen_br_if(instruction)
@@ -677,8 +724,8 @@ class WasmToIrCompiler:
             assert blocktype == 'if'
             elseblock = continueblock  # continueblock becomes elseblock
             continueblock = self.new_block()
-            self.fill_phi(phi)
-            if phi is not None:
+            if phi:
+                self.fill_phi(phi)
                 self.stack.pop()
             self.emit(ir.Jump(continueblock))
             self.builder.set_block(elseblock)
@@ -686,11 +733,14 @@ class WasmToIrCompiler:
 
         elif inst == 'end':
             blocktype, continueblock, innerblock, phi = self.block_stack.pop()
-            self.fill_phi(phi)
+            if phi:
+                self.fill_phi(phi)
+                self.stack.pop()
             self.emit(ir.Jump(continueblock))
             self.builder.set_block(continueblock)
-            # assert len(self.stack) == 0
-            if phi is not None:
+            # TODO: Do we need to have an empty stack at end of block??
+            # assert len(self.stack) == 0, str(self.stack)
+            if phi:
                 # if we close a block that yields a value introduce a phi
                 self.emit(phi)
                 self.stack.append(phi)
@@ -702,13 +752,7 @@ class WasmToIrCompiler:
             self.gen_call_indirect(instruction)
 
         elif inst == 'return':
-            if isinstance(self.builder.function, ir.Procedure):
-                self.emit(ir.Exit())
-            else:
-                self.emit(ir.Return(self.pop_value()))
-            after_return_block = self.new_block()
-            self.builder.set_block(after_return_block)
-            # TODO: assert that this was the last instruction
+            self.gen_return(instruction)
 
         elif inst == 'unreachable':
             self.gen_unreachable()
@@ -740,8 +784,8 @@ class WasmToIrCompiler:
     def gen_call(self, instruction):
         """ Generate a function call """
         # Call another function!
-        idx = instruction.args[0]
-        ir_function, signature = self.function_names[idx]
+        idx = instruction.args[0].index
+        ir_function, signature = self.functions[idx]
         self._gen_call_helper(ir_function, signature)
 
     def gen_call_indirect(self, instruction):
@@ -824,6 +868,35 @@ class WasmToIrCompiler:
         after_return_block = self.new_block()
         self.builder.set_block(after_return_block)
 
+    def gen_return(self, instruction):
+        """ Generate code for return instruction.
+
+        Treat return as a break to the top level block.
+        """
+        # TODO: can we break out of if-blocks?
+        _, continueblock, _, phi = \
+            self.block_stack[0]
+        targetblock = continueblock
+        self.fill_phi(phi)
+        self.emit(ir.Jump(targetblock))
+        falseblock = self.new_block()  # unreachable
+        self.builder.set_block(falseblock)
+
+    def gen_br(self, instruction):
+        """ Generate code for br instruction """
+        depth = instruction.args[0]
+        # TODO: can we break out of if-blocks?
+        blocktype, continueblock, innerblock, phi = \
+            self.block_stack[-depth-1]
+        if blocktype == 'loop':
+            targetblock = innerblock
+        else:
+            targetblock = continueblock
+            self.fill_phi(phi)
+        self.emit(ir.Jump(targetblock))
+        falseblock = self.new_block()  # unreachable
+        self.builder.set_block(falseblock)
+
     def gen_br_if(self, instruction):
         """ Generate code for br_if instruction """
         op, a, b = self.pop_condition()
@@ -833,6 +906,7 @@ class WasmToIrCompiler:
         if blocktype == 'loop':
             targetblock = innerblock
         else:
+            self.fill_phi(phi)
             targetblock = continueblock
         falseblock = self.new_block()
         self.emit(ir.CJump(a, op, b, targetblock, falseblock))
@@ -845,6 +919,8 @@ class WasmToIrCompiler:
         This is called a jump table. Implement for now by chain of
         if else.
         """
+
+        # TODO: when ir supports jump table, use it!
         test_value = self.pop_value()
         assert test_value.ty in [ir.i32, ir.i64]
         ir_typ = test_value.ty
@@ -855,10 +931,11 @@ class WasmToIrCompiler:
             depth = option_label
             blocktype, continueblock, innerblock, phi = \
                 self.block_stack[-depth-1]
-            assert not phi
             if blocktype == 'loop':
+                assert not phi
                 target_block = innerblock
             else:
+                self.fill_phi(phi)
                 target_block = continueblock
             ja_block = target_block
             nein_block = self.new_block()
@@ -869,10 +946,11 @@ class WasmToIrCompiler:
         # Determine default block:
         depth = default_label
         blocktype, continueblock, innerblock, phi = self.block_stack[-depth-1]
-        assert not phi
         if blocktype == 'loop':
+            assert not phi
             target_block = innerblock
         else:
+            self.fill_phi(phi)
             target_block = continueblock
         default_block = target_block
         new_block = self.new_block()

@@ -17,6 +17,11 @@ __all__ = ['export_wasm_example',
            'has_node']
 
 
+def sanitize_name(name):
+    """ Strip illegal characters from name, such as '.' and '-' """
+    return name.replace('.', '_').replace('-', '_')
+
+
 def inspect_bytes_at(bb, offset):
     """ Inspect bytes at the specified offset.
     """

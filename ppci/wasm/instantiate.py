@@ -18,6 +18,7 @@ from ..utils.reporting import DummyReportGenerator
 from . import wasm_to_ir
 from .components import Export, Import
 from .wasm2ppci import create_memories
+from .util import sanitize_name
 
 __all__ = ('instantiate',)
 
@@ -123,7 +124,7 @@ def python_instantiate(module, imports, reporter):
         elif isinstance(definition, Export):
             if definition.kind != 'func':
                 raise NotImplementedError(definition.kind)
-            exported_name = definition.name
+            exported_name = sanitize_name(definition.name)
             setattr(
                 instance.exports, exported_name,
                 getattr(instance._module, exported_name))

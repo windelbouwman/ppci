@@ -22,6 +22,7 @@ to the location where the code was cloned.
 import unittest
 import glob
 import os.path
+import logging
 import io
 from functools import reduce
 from operator import add
@@ -33,6 +34,7 @@ from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.wasm.util import datastring2bytes
 
+logging.getLogger().setLevel(logging.DEBUG)
 
 def perform_test(filename):
     # if not os.path.basename(filename).startswith('z'):
@@ -97,7 +99,7 @@ def perform_test(filename):
                         reporter.dump_wasm(m1)
 
                     # Next step: Instantiate:
-                    if False:
+                    if True:
                         imports = {
                            'rt': create_runtime(),
                         }
@@ -108,6 +110,9 @@ def perform_test(filename):
                 elif s_expr[0] == 'invoke':
                     # TODO: invoke test functions defined in wast files
                     print('Invoking method', s_expr)
+                elif s_expr[0] == 'assert_return':
+                    print('Invoking method', s_expr)
+                    # raise NotImplementedError()
                 else:
                     # print('Unknown directive', s_expr[0])
                     pass
