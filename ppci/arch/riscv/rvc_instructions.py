@@ -5,10 +5,10 @@ from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
 from .tokens import RiscvToken, RiscvcToken
 from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
-from .rvc_relocations import CBImm11Relocation, CRel
+from .rvc_relocations import CBImm11Relocation, CBlImm11Relocation, CRel
 from ..generic_instructions import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
-from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne, Ble
+from .instructions import Lw, Sw, Blt, Bgt, Bge, B, Beq, Bne, Ble, Blr, Bgtu, Bltu, Bgeu, Bleu
 import logging
 
 class RegisterSet(set):
@@ -23,6 +23,7 @@ rvcisa.register_relocation(CRel)
 rvcisa.register_relocation(BcImm11Relocation)
 rvcisa.register_relocation(BcImm8Relocation)
 rvcisa.register_relocation(CBImm11Relocation)
+rvcisa.register_relocation(CBlImm11Relocation)
 
 
 class RiscvcInstruction(Instruction):
@@ -139,6 +140,19 @@ class CEbreak(RiscvcInstruction):
         tokens[0][0:16] = 0b1001000000000010
         return tokens[0].encode()
 
+class CBl(RiscvInstruction):
+    target = Operand('target', str)
+    rd = Operand('rd', RiscvRegister, write=True)
+    syntax = Syntax(['jal', ' ', rd, ',', ' ', target])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1101111
+        tokens[0][7:12] = self.rd.num
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [CBlImm11Relocation(self.target)] 
 
 class CJal(RiscvcInstruction):
     target = Operand('target', str)
@@ -193,6 +207,18 @@ class CJr(RiscvcInstruction):
         tokens[0][12:16] = 0b1000
         return tokens[0].encode()
 
+class CBlr(PseudoRiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    rs1 = Operand('rs1', RiscvRegister, read=True)
+    offset = Operand('offset', int)
+    syntax = Syntax(['jalr', ' ', rd, ',', rs1, ',', ' ', offset]) 
+    
+    def render(self):
+        if self.rd.num == 1 and not self.offset:                        
+            yield CJalr(self.rs1)
+        else:
+            yield Blr(self.rd, self.rs1, self.offset)
+    
 
 class CJalr(RiscvcInstruction):
     rs1 = Operand('rs1', RiscvRegister, read=True)
@@ -636,6 +662,7 @@ def pattern_stri32_addi32(context, tree, c0, c1):
 
 
 @rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
+@rvcisa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
 @rvcisa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
@@ -645,10 +672,31 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
 
+@rvcisa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
+@rvcisa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
+@rvcisa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+def pattern_cjmpu(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<": Bltu, ">": Bgtu, "==": Beq, "!=": Bne, ">=": Bgeu, "<=": Bleu
+    }
+    Bop = opnames[op]
+    jmp_ins = CB(no_label.name, jumps=[no_label])
+    context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins) 
+    
+    
+@rvcisa.pattern('stm', 'JMP', size=2)
+def pattern_jmp(context, tree):
+    tgt = tree.value
+    context.emit(CB(tgt.name, jumps=[tgt]))    
+    
 @rvcisa.postlink
 def opt(cls, dst):
     logger = logging.getLogger('linker')
     lst = dst.arch.isa.relocation_map['c_base'].l
+    s = ", ".join(format(x, '08x') for x in lst)
+    logger.debug('Relocation list: %s\n' %s)
     lst.append(-1)
     
     def countdiff(adrdst, adrofs):
@@ -661,7 +709,7 @@ def opt(cls, dst):
         return inddst - indofs
     
     def getsection(adr, image):
-        if adr>=image.address and adr<=image.address+image.size:
+        if adr>=imageadr and adr<=imageadr+imagesize:
             for section in image.sections:
                 if adr>=sectionadr[section.name] and \
                 adr<=sectionadr[section.name]+sectionsize[section.name]:
@@ -673,6 +721,8 @@ def opt(cls, dst):
         sectionnames = []
         sectionadr = {}
         sectionsize = {}
+        imagesize = image.size
+        imageadr = image.address
         for s in image.sections:
             sectionnames.append(s.name)
             sectionadr[s.name] = s.address
@@ -695,20 +745,20 @@ def opt(cls, dst):
         
         for se in image.sections:
             delta = countdiff(se.address, image.address)
-            logger.debug('RVC-sectororchanging %s at %08x with -%08x' %(se.name, se.address, 2*delta))
+            logger.debug('RVC-sectororchanging %s at %08x with -%08x to %08x' %(se.name, se.address, 2*delta, se.address-2*delta))
             se.address -= 2*delta
         
         for s in symbols:
             sym = s[0]
             delta = countdiff(s[1], sectionadr[sym.section])
-            logger.debug('RVC-symbolchanging %s at %08x with -%08x' %(sym.name, sym.value, 2*delta))
+            logger.debug('RVC-symbolchanging %s at %08x with -%08x to %08x' %(sym.name, sym.value, 2*delta, sym.value-2*delta))
             sym.value -= 2*delta
             
         
         for r in relocs:
             reloc = r[0]
             delta = countdiff(r[1], sectionadr[reloc.section])
-            logger.debug('RVC-relocationchanging %s at %08x with -%08x' %(reloc.symbol_name, r[1], 2*delta))
+            logger.debug('RVC-relocationchanging %s at %08x with -%08x to %08x' %(reloc.symbol_name, r[1], 2*delta, r[1]-2*delta))
             reloc.offset -= delta*2
         
         lst2 = lst[:-1]

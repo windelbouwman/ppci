@@ -21,7 +21,7 @@ from ..stack import StackLocation
 from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
-from .rvc_instructions import CSwsp, CLwsp, CJal, CJr, CJalr
+from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr
 
 
 class RiscvAssembler(BaseAssembler):
@@ -99,9 +99,9 @@ class RiscvArch(Architecture):
     def branch(self, reg, lab):
         if self.has_option('rvc'):
             if isinstance(lab, RiscvRegister):
-                return CJalr(lab, clobbers=self.caller_save)
+                return CBlr(reg, lab, 0, clobbers=self.caller_save)
             else:
-                return CJal(lab, clobbers=self.caller_save)
+                return CBl(reg, lab, clobbers=self.caller_save)
         else:
             if isinstance(lab, RiscvRegister):
                 return Blr(reg, lab, 0, clobbers=self.caller_save)

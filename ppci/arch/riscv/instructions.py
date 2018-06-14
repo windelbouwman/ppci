@@ -559,7 +559,7 @@ def pattern_movi8(context, tree, c0):
     return tree.value
 
 
-@isa.pattern('stm', 'JMP', size=2)
+@isa.pattern('stm', 'JMP', size=4)
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(B(tgt.name, jumps=[tgt]))

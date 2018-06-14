@@ -16,6 +16,7 @@ module system (
 	wire mem_valid;
 	wire mem_instr;
 	reg mem_ready;
+	reg mem_ready_last; 
 	wire [31:0] mem_addr;
 	wire [31:0] mem_wdata;
 	wire [3:0] mem_wstrb;
@@ -81,8 +82,8 @@ module system (
 
 	always @(posedge clk) begin
 			m_read_en <= 0;
-			mem_ready <= mem_valid && !mem_ready && m_read_en;
-
+			mem_ready <= mem_valid && !mem_ready_last && !mem_ready && m_read_en;
+			mem_ready_last <= mem_ready; 
                         out_byte_en <= 0;
                    			
 			(* parallel_case *)
