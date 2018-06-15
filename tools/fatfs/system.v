@@ -22,6 +22,7 @@ module system (
 	wire mem_valid;
 	wire mem_instr;
 	reg mem_ready;
+    reg mem_ready_last;
 	wire [31:0] mem_addr;
 	wire [31:0] mem_wdata;
 	wire [3:0] mem_wstrb;
@@ -121,21 +122,21 @@ module system (
 
 	always @(posedge clk) begin
 			m_read_en <= 0;
-			mem_ready <= mem_valid && !mem_ready && m_read_en;
-
+			mem_ready <= mem_valid && !mem_ready_last && !mem_ready && m_read_en;
+            mem_ready_last <= mem_ready;
 			(* parallel_case *)
 			case (1)
 				mem_cs:
                                 begin
                                 if(wr) begin
                                         if (mem_wstrb[0]) memory[mem_addr >> 2][0] <= mem_wdata[ 7: 0];
-					if (mem_wstrb[1]) memory[mem_addr >> 2][1] <= mem_wdata[15: 8];
-					if (mem_wstrb[2]) memory[mem_addr >> 2][2] <= mem_wdata[23:16];
-					if (mem_wstrb[3]) memory[mem_addr >> 2][3] <= mem_wdata[31:24];
-					mem_ready <= 1;
+										if (mem_wstrb[1]) memory[mem_addr >> 2][1] <= mem_wdata[15: 8];
+										if (mem_wstrb[2]) memory[mem_addr >> 2][2] <= mem_wdata[23:16];
+										if (mem_wstrb[3]) memory[mem_addr >> 2][3] <= mem_wdata[31:24];
+                                        mem_ready <= 1;
                                 end
                                        	m_read_en <= 1;
-				        m_read_data <= memory[mem_addr >> 2];
+				        m_read_data[31:0]<= memory[mem_addr >> 2];						
 				        mem_rdata <= m_read_data;
 				end
 				
