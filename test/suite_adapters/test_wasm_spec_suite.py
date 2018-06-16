@@ -35,6 +35,7 @@ from ppci.utils.reporting import HtmlReportGenerator
 from ppci.wasm.util import datastring2bytes
 
 logging.getLogger().setLevel(logging.DEBUG)
+# logging.basicConfig(level=logging.INFO)
 
 def perform_test(filename):
     # if not os.path.basename(filename).startswith('z'):

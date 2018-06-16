@@ -277,8 +277,6 @@ class WasmToIrCompiler:
 
     def emit(self, ppci_inst):
         """ Emits the given instruction to the builder.
-
-        Can be muted for constants.
         """
         self.builder.emit(ppci_inst)
         return ppci_inst
@@ -382,7 +380,8 @@ class WasmToIrCompiler:
         final_block = self.new_block()
         self.emit(ir.Jump(body_block))
         self.builder.set_block(body_block)
-        self.block_stack.append(('block', final_block, body_block, final_phi))
+        self.block_stack.append(
+            BlockLevel('block', final_block, body_block, final_phi, 0))
 
         # Generate code for each instruction:
         num = len(wasm_function.instructions)
@@ -394,14 +393,14 @@ class WasmToIrCompiler:
                     instruction.to_string(), len(self.stack))
             self.generate_instruction(instruction)
 
-        self.block_stack.pop()
-        assert not self.block_stack
-
         # Close of function:
         if final_phi:
             # print(self.stack)
             self.fill_phi(final_phi)
-            self.stack.pop()
+
+        self.block_stack.pop()
+        assert not self.block_stack
+
         self.emit(ir.Jump(final_block))
         self.builder.set_block(final_block)
         if isinstance(ppci_function, ir.Procedure):
@@ -480,48 +479,82 @@ class WasmToIrCompiler:
             # TODO: do we require stack 1 high?
             # assert len(self.stack) == 1, str(self.stack)
             self.logger.debug('Filling phi %s', phi)
-            value = self.pop_value()
+            value = self.pop_value(ir_typ=phi.ty)
             phi.set_incoming(self.builder.block, value)
-            self.stack.append(value)
+            self.push_value(value)
 
     def pop_condition(self):
         """ Get comparison, a and b of the value stack """
-        value = self.stack.pop()
-        if isinstance(value, ir.Value):
-            a = value
-            b = self.emit(ir.Const(0, 'zero', ir.i32))
-            return '!=', a, b
+        if len(self.stack) > self.block_stack[-1].stack_start:
+            value = self.stack.pop()
+            if isinstance(value, ir.Value):
+                a = value
+                b = self.emit(ir.Const(0, 'zero', ir.i32))
+                return '!=', a, b
+            else:
+                return value
         else:
-            return value
+            if self.block_stack[-1].unreachable:
+                a = self.emit(ir.Undefined('undef', ir.i32))
+                b = self.emit(ir.Undefined('undef', ir.i32))
+                return '!=', a, b
+            else:
+                raise ValueError('Value stack underflow')
 
-    def pop_value(self):
+    def pop_value(self, ir_typ=None):
         """ Pop a value of the stack """
-        value = self.stack.pop()
-        if isinstance(value, ir.Value):
-            return value
+        if len(self.stack) > self.block_stack[-1].stack_start:
+            value = self.stack.pop()
+            if isinstance(value, ir.Value):
+                if ir_typ:
+                    assert value.ty is ir_typ
+                return value
+            else:
+                # Emit some sort of weird ternary operation!
+                op, a, b = value
+
+                ja = self.builder.new_block()
+                nein = self.builder.new_block()
+                immer = self.builder.new_block()
+                self.emit(ir.CJump(a, op, b, ja, nein))
+
+                self.builder.set_block(ja)
+                one = self.emit(ir.Const(1, 'one', ir.i32))
+                self.emit(ir.Jump(immer))
+
+                self.builder.set_block(nein)
+                zero = self.emit(ir.Const(0, 'zero', ir.i32))
+                self.emit(ir.Jump(immer))
+
+                self.builder.set_block(immer)
+                phi = ir.Phi('ternary', ir.i32)
+                phi.set_incoming(ja, one)
+                phi.set_incoming(nein, zero)
+                self.emit(phi)
+                if ir_typ:
+                    assert phi.ty is ir_typ
+                return phi
         else:
-            # Emit some sort of weird ternary operation!
-            op, a, b = value
+            if self.block_stack[-1].unreachable:
+                if ir_typ is None:
+                    ir_typ = ir.i32
+                return self.emit(ir.Undefined('undefined', ir_typ))
+            else:
+                raise ValueError('Value stack underflow')
 
-            ja = self.builder.new_block()
-            nein = self.builder.new_block()
-            immer = self.builder.new_block()
-            self.emit(ir.CJump(a, op, b, ja, nein))
+    def push_value(self, value):
+        """ Put a value on top of the stack """
+        self.stack.append(value)
 
-            self.builder.set_block(ja)
-            one = self.emit(ir.Const(1, 'one', ir.i32))
-            self.emit(ir.Jump(immer))
+    def mark_unreachable(self):
+        """ Mark coming code as unreachable """
+        self.block_stack[-1].unreachable = True
+        self.unwind(self.block_stack[-1])
 
-            self.builder.set_block(nein)
-            zero = self.emit(ir.Const(0, 'zero', ir.i32))
-            self.emit(ir.Jump(immer))
-
-            self.builder.set_block(immer)
-            phi = ir.Phi('ternary', ir.i32)
-            phi.set_incoming(ja, one)
-            phi.set_incoming(nein, zero)
-            self.emit(phi)
-            return phi
+    def unwind(self, block):
+        # Unwind stack:
+        while len(self.stack) > block.stack_start:
+            self.stack.pop()
 
     def generate_instruction(self, instruction):
         """ Generate ir-code for a single wasm instruction """
@@ -543,19 +576,22 @@ class WasmToIrCompiler:
             if op in ['ror', 'rol', 'asr']:
                 self._runtime_call(inst, [ir_typ, ir_typ], ir_typ)
             else:
-                b, a = self.pop_value(), self.pop_value()
+                b = self.pop_value(ir_typ=ir_typ)
+                a = self.pop_value(ir_typ=ir_typ)
                 value = self.emit(ir.Binop(a, op, b, name, ir_typ))
-                self.stack.append(value)
+                self.push_value(value)
 
         elif inst in self.CMPOPS:
             itype, opname = inst.split('.')
+            ir_typ = self.get_ir_type(itype)
             if opname in ['eqz']:
-                b = self.emit(ir.Const(0, 'zero', self.get_ir_type(itype)))
-                a = self.pop_value()
+                b = self.emit(ir.Const(0, 'zero', ir_typ))
+                a = self.pop_value(ir_typ=ir_typ)
             else:
-                b, a = self.stack.pop(), self.stack.pop()
+                b = self.pop_value(ir_typ=ir_typ)
+                a = self.pop_value(ir_typ=ir_typ)
             op = self.OPMAP[opname]
-            self.stack.append((op, a, b))
+            self.push_value((op, a, b))
             # todo: hack; we assume this is the only test in an if
 
         elif inst in STORE_OPS:
@@ -592,13 +628,13 @@ class WasmToIrCompiler:
                 }[load_op]
                 value = self.emit(ir.Load(address, 'load', load_ir_typ))
                 value = self.emit(ir.Cast(value, 'casted_load', ir_typ))
-            self.stack.append(value)
+            self.push_value(value)
 
         elif inst in self.CASTOPS:
             value = self.pop_value()
             ir_typ = self.get_ir_type(inst.split('.')[0])
             value = self.emit(ir.Cast(value, 'cast', ir_typ))
-            self.stack.append(value)
+            self.push_value(value)
 
         elif inst in [
                 'f64.floor', 'f64.sqrt', 'f64.abs', 'f64.ceil', 'f64.trunc',
@@ -653,36 +689,35 @@ class WasmToIrCompiler:
             value = self.emit(
                 ir.Const(
                     instruction.args[0], 'const', self.get_ir_type(inst)))
-            self.stack.append(value)
+            self.push_value(value)
 
         elif inst in ['set_local', 'tee_local']:
-            value = self.pop_value()
             ty, local_var = self.locals[instruction.args[0].index]
-            assert ty is value.ty
+            value = self.pop_value(ir_typ=ty)
             self.emit(ir.Store(value, local_var))
             if inst == 'tee_local':
-                self.stack.append(value)
+                self.push_value(value)
 
         elif inst == 'get_local':
             ty, local_var = self.locals[instruction.args[0].index]
             value = self.emit(ir.Load(local_var, 'getlocal', ty))
-            self.stack.append(value)
+            self.push_value(value)
 
         elif inst == 'get_global':
             ty, addr = self.globalz[instruction.args[0].index]
             value = self.emit(ir.Load(addr, 'get_global', ty))
-            self.stack.append(value)
+            self.push_value(value)
 
         elif inst == 'set_global':
-            value = self.pop_value()
             ty, addr = self.globalz[instruction.args[0].index]
-            assert ty is value.ty
+            value = self.pop_value(ir_typ=ty)
             self.emit(ir.Store(value, addr))
 
         elif inst in ['f64.neg', 'f32.neg']:
+            ir_typ = self.get_ir_type(inst)
             value = self.emit(
-                ir.Unop('-', self.pop_value(), 'neg', self.get_ir_type(inst)))
-            self.stack.append(value)
+                ir.Unop('-', self.pop_value(ir_typ), 'neg', ir_typ))
+            self.push_value(value)
 
         elif inst == 'block':
             phi = self.get_phi(instruction)
@@ -690,7 +725,9 @@ class WasmToIrCompiler:
             continueblock = self.new_block()
             self.emit(ir.Jump(innerblock))
             self.builder.set_block(innerblock)
-            self.block_stack.append(('block', continueblock, innerblock, phi))
+            self.block_stack.append(
+                BlockLevel(
+                    'block', continueblock, innerblock, phi, len(self.stack)))
 
         elif inst == 'loop':
             phi = self.get_phi(instruction)
@@ -698,7 +735,9 @@ class WasmToIrCompiler:
             continueblock = self.new_block()
             self.emit(ir.Jump(innerblock))
             self.builder.set_block(innerblock)
-            self.block_stack.append(('loop', continueblock, innerblock, phi))
+            self.block_stack.append(
+                BlockLevel(
+                    'loop', continueblock, innerblock, phi, len(self.stack)))
 
         elif inst == 'br':
             self.gen_br(instruction)
@@ -717,33 +756,44 @@ class WasmToIrCompiler:
             self.emit(ir.CJump(a, op, b, trueblock, continueblock))
             self.builder.set_block(trueblock)
             phi = self.get_phi(instruction)
-            self.block_stack.append(('if', continueblock, None, phi))
+            self.block_stack.append(
+                BlockLevel('if', continueblock, None, phi, len(self.stack)))
 
         elif inst == 'else':
-            blocktype, continueblock, innerblock, phi = self.block_stack.pop()
-            assert blocktype == 'if'
-            elseblock = continueblock  # continueblock becomes elseblock
+            if_block = self.block_stack[-1]
+            assert if_block.typ == 'if'
+            elseblock = if_block.continue_block  # continueblock becomes elseblock
             continueblock = self.new_block()
-            if phi:
-                self.fill_phi(phi)
+            if if_block.phi:
+                self.fill_phi(if_block.phi)
                 self.stack.pop()
+
+            self.block_stack.pop()
+
             self.emit(ir.Jump(continueblock))
             self.builder.set_block(elseblock)
-            self.block_stack.append(('else', continueblock, innerblock, phi))
+            self.block_stack.append(
+                BlockLevel(
+                    'else', continueblock, None, if_block.phi,
+                    if_block.stack_start))
 
         elif inst == 'end':
-            blocktype, continueblock, innerblock, phi = self.block_stack.pop()
-            if phi:
-                self.fill_phi(phi)
+            if self.block_stack[-1].phi:
+                self.fill_phi(self.block_stack[-1].phi)
                 self.stack.pop()
-            self.emit(ir.Jump(continueblock))
-            self.builder.set_block(continueblock)
+
+            block = self.block_stack.pop()
+            self.unwind(block)
+
+            self.emit(ir.Jump(block.continue_block))
+            self.builder.set_block(block.continue_block)
             # TODO: Do we need to have an empty stack at end of block??
             # assert len(self.stack) == 0, str(self.stack)
-            if phi:
+            if block.phi:
                 # if we close a block that yields a value introduce a phi
-                self.emit(phi)
-                self.stack.append(phi)
+                self.logger.debug('Put %s on stack', block.phi)
+                self.emit(block.phi)
+                self.push_value(block.phi)
 
         elif inst == 'call':
             self.gen_call(instruction)
@@ -822,7 +872,7 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(signature.result[0])
             value = self.emit(
                 ir.FunctionCall(target, args, 'call', ir_typ))
-            self.stack.append(value)
+            self.push_value(value)
         else:
             self.emit(ir.ProcedureCall(target, args))
 
@@ -848,7 +898,7 @@ class WasmToIrCompiler:
         phi.set_incoming(ja_block, ja_value)
         phi.set_incoming(nein_block, nein_value)
         self.emit(phi)
-        self.stack.append(phi)
+        self.push_value(phi)
 
     def gen_unreachable(self):
         """ Generate appropriate code for an unreachable instruction.
@@ -867,6 +917,7 @@ class WasmToIrCompiler:
             self.emit(ir.Return(v))
         after_return_block = self.new_block()
         self.builder.set_block(after_return_block)
+        self.mark_unreachable()
 
     def gen_return(self, instruction):
         """ Generate code for return instruction.
@@ -874,43 +925,45 @@ class WasmToIrCompiler:
         Treat return as a break to the top level block.
         """
         # TODO: can we break out of if-blocks?
-        _, continueblock, _, phi = \
-            self.block_stack[0]
-        targetblock = continueblock
-        self.fill_phi(phi)
+        targetblock = self.block_stack[0].continue_block
+        self.fill_phi(self.block_stack[0].phi)
         self.emit(ir.Jump(targetblock))
         falseblock = self.new_block()  # unreachable
         self.builder.set_block(falseblock)
+        self.mark_unreachable()
 
     def gen_br(self, instruction):
         """ Generate code for br instruction """
         depth = instruction.args[0]
         # TODO: can we break out of if-blocks?
-        blocktype, continueblock, innerblock, phi = \
-            self.block_stack[-depth-1]
-        if blocktype == 'loop':
-            targetblock = innerblock
-        else:
-            targetblock = continueblock
-            self.fill_phi(phi)
+        targetblock = self.do_jump(depth)
         self.emit(ir.Jump(targetblock))
         falseblock = self.new_block()  # unreachable
         self.builder.set_block(falseblock)
+        self.mark_unreachable()
 
     def gen_br_if(self, instruction):
         """ Generate code for br_if instruction """
         op, a, b = self.pop_condition()
         depth = instruction.args[0]
-        blocktype, continueblock, innerblock, phi = \
-            self.block_stack[-depth-1]
-        if blocktype == 'loop':
-            targetblock = innerblock
-        else:
-            self.fill_phi(phi)
-            targetblock = continueblock
+        targetblock = self.do_jump(depth)
         falseblock = self.new_block()
         self.emit(ir.CJump(a, op, b, targetblock, falseblock))
         self.builder.set_block(falseblock)
+
+    def do_jump(self, depth):
+        """ Lookup the branch target and fill its optional value.
+
+        Note: the name of this function is not ideal.
+        """
+        block = self.block_stack[-depth-1]
+        if block.typ == 'loop':
+            # assert not block.phi
+            targetblock = block.inner_block
+        else:
+            self.fill_phi(block.phi)
+            targetblock = block.continue_block
+        return targetblock
 
     def gen_br_table(self, instruction):
         """ Generate code for br_table instruction.
@@ -929,14 +982,7 @@ class WasmToIrCompiler:
         for i, option_label in enumerate(option_labels):
             # Figure which block we must jump to:
             depth = option_label
-            blocktype, continueblock, innerblock, phi = \
-                self.block_stack[-depth-1]
-            if blocktype == 'loop':
-                assert not phi
-                target_block = innerblock
-            else:
-                self.fill_phi(phi)
-                target_block = continueblock
+            target_block = self.do_jump(depth)
             ja_block = target_block
             nein_block = self.new_block()
             c = self.emit(ir.Const(i, 'label', ir_typ))
@@ -945,18 +991,12 @@ class WasmToIrCompiler:
 
         # Determine default block:
         depth = default_label
-        blocktype, continueblock, innerblock, phi = self.block_stack[-depth-1]
-        if blocktype == 'loop':
-            assert not phi
-            target_block = innerblock
-        else:
-            self.fill_phi(phi)
-            target_block = continueblock
+        target_block = self.do_jump(depth)
         default_block = target_block
         new_block = self.new_block()
         self.emit(ir.Jump(default_block))
         self.builder.set_block(new_block)
-        # raise NotImplementedError(inst)
+        self.mark_unreachable()
 
     def _runtime_call(self, rt_func_name, arg_types, ir_typ):
         """ Generate runtime function call.
@@ -978,9 +1018,9 @@ class WasmToIrCompiler:
             self.builder.module.add_external(rt_func)
 
         args = []
-        for arg_typ in reversed(arg_types):
-            arg = self.pop_value()
-            assert arg.ty is arg_typ
+        for arg_ir_typ in reversed(arg_types):
+            arg = self.pop_value(ir_typ=arg_ir_typ)
+            assert arg.ty is arg_ir_typ
             args.append(arg)
         args.reverse()
         if ir_typ is None:
@@ -989,4 +1029,14 @@ class WasmToIrCompiler:
         else:
             value = self.emit(
                 ir.FunctionCall(rt_func, args, 'rtlib_call_result', ir_typ))
-            self.stack.append(value)
+            self.push_value(value)
+
+
+class BlockLevel:
+    def __init__(self, typ, continue_block, inner_block, phi, stack_start):
+        self.typ = typ
+        self.continue_block = continue_block
+        self.inner_block = inner_block
+        self.phi = phi
+        self.stack_start = stack_start
+        self.unreachable = False

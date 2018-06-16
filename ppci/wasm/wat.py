@@ -596,12 +596,6 @@ class WatTupleLoader(TupleParser):
                 params, results = self._parse_function_signature()
                 # print(params, results)
                 # TODO: compare unbound func signature with type?
-            elif opcode == 'br_table':
-                # Simply take all arguments possible:
-                args = []
-                while isinstance(self._lookahead(1)[0], (int, str)):
-                    args.append(self.take())
-                args = [args]
             elif opcode in ('memory.grow', 'memory.size'):
                 # Simply take all arguments possible:
                 args = []
@@ -618,7 +612,7 @@ class WatTupleLoader(TupleParser):
                         targets = []
                         while isinstance(self._lookahead(1)[0], (int, str)):
                             targets.append(self.take())
-                        args.extend(targets)
+                        args.append(targets)
                     elif op.endswith('idx'):
                         kind = op[:-3]
                         arg = self.take()

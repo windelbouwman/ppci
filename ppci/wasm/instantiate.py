@@ -9,18 +9,23 @@ The wasm runtime contains the following:
 
 import io
 import struct
+import logging
 from types import ModuleType
 
 from ..api import ir_to_object, get_current_arch, ir_to_python
 from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj
 from ..utils.reporting import DummyReportGenerator
+from ..irutils import verify_module
 from . import wasm_to_ir
 from .components import Export, Import
 from .wasm2ppci import create_memories
 from .util import sanitize_name
 
 __all__ = ('instantiate',)
+
+
+logger = logging.getLogger('instantiate')
 
 
 def instantiate(module, imports, target='native', reporter=None):
@@ -66,9 +71,11 @@ def instantiate(module, imports, target='native', reporter=None):
 
 def native_instantiate(module, imports, reporter):
     """ Load wasm module native """
+    logger.info('Instantiating wasm module as native code')
     arch = get_current_arch()
     ppci_module = wasm_to_ir(
         module, arch.info.get_type_info('ptr'), reporter=reporter)
+    verify_module(ppci_module)
     obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
     _module = load_obj(obj, imports=imports)
     instance = NativeModuleInstance(_module)
@@ -100,8 +107,10 @@ def native_instantiate(module, imports, reporter):
 
 def python_instantiate(module, imports, reporter):
     """ Load wasm module as a PythonModuleInstance """
+    logger.info('Instantiating wasm module as python')
     ptr_info = TypeInfo(4, 4)
     ppci_module = wasm_to_ir(module, ptr_info, reporter=reporter)
+    verify_module(ppci_module)
     f = io.StringIO()
     ir_to_python([ppci_module], f, reporter=reporter)
     pysrc = f.getvalue()

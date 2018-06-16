@@ -595,7 +595,8 @@ class Verifier:
             return True
 
         # All other instructions must have a containing block:
-        assert one.block is not None, '{} has no block'.format(one)
+        if one.block is None:
+            raise ValueError('{} has no block'.format(one))
         assert one in one.block.instructions
 
         # Phis are special case:

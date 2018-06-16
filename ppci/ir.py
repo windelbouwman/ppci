@@ -397,9 +397,9 @@ class SubRoutine(GlobalValue):
 
     def add_block(self, block):
         """ Add a block to this function """
-        if block.name in self.block_names:
-            raise ValueError(
-                'A block with name {} already exists'.format(block.name))
+        # if block.name in self.block_names:
+        #    raise ValueError(
+        #        'A block with name {} already exists'.format(block.name))
         block.function = self
         self.make_unique_name(block)
         self.blocks.append(block)

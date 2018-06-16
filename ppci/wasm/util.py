@@ -8,6 +8,7 @@ import os
 import tempfile
 import struct
 import subprocess
+import keyword
 import shutil
 from functools import lru_cache
 
@@ -19,7 +20,12 @@ __all__ = ['export_wasm_example',
 
 def sanitize_name(name):
     """ Strip illegal characters from name, such as '.' and '-' """
-    return name.replace('.', '_').replace('-', '_')
+    name = name.replace('.', '_').replace('-', '_')
+    # To allow access by python attribute, check if the name is a
+    # python keyword:
+    if keyword.iskeyword(name):
+        name = name + '_'
+    return name
 
 
 def inspect_bytes_at(bb, offset):
