@@ -11,7 +11,7 @@ import logging
 from collections import defaultdict
 from ..lang.sexpr import parse_sexpr
 from .opcodes import OPERANDS, OPCODES
-from .util import datastring2bytes
+from .util import datastring2bytes, make_int, make_float
 from .tuple_parser import TupleParser, Token
 from . import components
 
@@ -320,7 +320,7 @@ class WatTupleLoader(TupleParser):
             min = max = len(refs)
             self.add_definition(
                 components.Table(id, 'anyfunc', min, max))
-            table_ref = components.Ref.from_value('table', id)
+            table_ref = self._make_ref('table', id)
             self.add_definition(
                 components.Elem(table_ref, offset, refs))
         else:
@@ -360,6 +360,12 @@ class WatTupleLoader(TupleParser):
             ref = components.Ref(space, name=value)
             if space == 'local':
                 self.func_backlog[-1].append(ref)
+            elif space == 'label':
+                # Lookup depth now:
+                # TODO: include if statements as branch targets?
+                pos = self.block_stack.index(value)
+                depth = len(self.block_stack) - pos
+                ref.index = depth
             else:
                 self.resolve_backlog.append(ref)
         else:
@@ -388,7 +394,7 @@ class WatTupleLoader(TupleParser):
             self.add_definition(
                 components.Memory(id, min, max))
             offset = components.Instruction('i32.const', 0)
-            memory_ref = components.Ref.from_value('memory', id)
+            memory_ref = self._make_ref('memory', id)
             self.add_definition(components.Data(memory_ref, offset, data))
         else:
             min, max = self.parse_limits()
@@ -484,7 +490,9 @@ class WatTupleLoader(TupleParser):
             localz = self._parse_locals()
 
             self.func_backlog.append([])
+            self.block_stack = []
             instructions = self._load_instruction_list()
+            assert not self.block_stack
             # for i in instructions:
             #    print(i.to_string())
             self.expect(Token.RPAR)
@@ -512,6 +520,7 @@ class WatTupleLoader(TupleParser):
 
         if opcode in ('block', 'loop', 'if'):
             block_id = self._parse_optional_id()
+            self.block_stack.append(block_id)
             # Result type:
             if self.munch(Token.LPAR, 'result'):
                 result = self.take()
@@ -552,6 +561,7 @@ class WatTupleLoader(TupleParser):
                             self.expect(Token.RPAR)
 
                             # Add implicit end:
+                            self.block_stack.pop()
                             instructions.append(components.Instruction('end'))
                 else:
                     instructions.append(
@@ -564,6 +574,7 @@ class WatTupleLoader(TupleParser):
                         instructions.extend(body)
 
                     # Add implicit end:
+                    self.block_stack.pop()
                     instructions.append(components.Instruction('end'))
             else:
                 instructions.append(
@@ -578,8 +589,10 @@ class WatTupleLoader(TupleParser):
                     instructions.extend(self._load_instruction_list())
                     self.expect(Token.RPAR)
         elif opcode in ('end',):
-            # TODO: we can check this label with the start label
             block_id = self._parse_optional_id()
+            matching_id = self.block_stack.pop()
+            # lo(matching_id)
+            # TODO: we can check this label with the start label
             if is_braced:
                 self.expect(Token.RPAR)
             instructions.append(components.Instruction(opcode))
@@ -591,7 +604,8 @@ class WatTupleLoader(TupleParser):
                     args.append(self.take())
             elif opcode == 'call_indirect':
                 ref = self._parse_type_use()
-                args = (('type', ref), 0)
+                table_ref = components.Ref('table', index=0)
+                args = (('type', ref), table_ref)
                 # TODO: wtf, parse types twice? why?
                 params, results = self._parse_function_signature()
                 # print(params, results)
@@ -611,16 +625,20 @@ class WatTupleLoader(TupleParser):
                         # Take all ints and strings as jump labels:
                         targets = []
                         while isinstance(self._lookahead(1)[0], (int, str)):
-                            targets.append(self.take())
-                        args.append(targets)
+                            targets.append(self.get_ref('label', self.take()))
+                        arg = targets
                     elif op.endswith('idx'):
                         kind = op[:-3]
                         arg = self.take()
                         arg = self.get_ref(kind, arg)
-                        args.append(arg)
+                    elif op in ['i32', 'i64']:
+                        arg = make_int(self.take())
+                    elif op in ['f32', 'f64']:
+                        arg = make_float(self.take())
                     else:
                         arg = self.take()
-                        args.append(arg)
+
+                    args.append(arg)
 
             # Nested instruction!
             if is_braced:

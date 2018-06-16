@@ -118,7 +118,7 @@ class IrToWasmCompiler:
 
                 # init func object, locals and instructions are attached later
                 wasm_func = components.Func(
-                    '$' + ir_function.name, type_id, [], [])
+                    '$' + ir_function.name, type_ref, [], [])
                 functions_to_do.append((ir_function, wasm_func))
                 self.wasm_module.add_definition(wasm_func)
 
@@ -127,9 +127,10 @@ class IrToWasmCompiler:
             self.do_function(ir_function, wasm_func)
             # Export all functions for now
             # todo: only export subset?
+            func_ref = components.Ref('func', name='$' + ir_function.name)
             self.wasm_module.add_definition(
                 components.Export(
-                    ir_function.name, 'func', '$' + ir_function.name))
+                    ir_function.name, 'func', func_ref))
 
     def create_wasm_module(self):
         """ Finalize the wasm module and return it """

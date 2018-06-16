@@ -384,12 +384,23 @@ class SubRoutine(GlobalValue):
         """ Calculate all reachable blocks from entry and delete all others """
         reachable = self.calc_reachable_blocks()
         unreachable = {b for b in self if b not in reachable}
+
         for block in unreachable:
+            # Important! Loop over successors first, since last instruction
+            # determines the successors:
+            for successor in block.successors:
+                self.logger.debug('updating successor %s', successor)
+                for phi in successor.phis:
+                    self.logger.debug('updating phi %s', phi)
+                    phi.del_incoming(block)
+
+            # Now remove instructions:
             il = list(block)
             for instruction in il:
                 block.remove_instruction(instruction)
                 self.logger.debug('deleting %s', instruction)
                 instruction.delete()
+
         for block in unreachable:
             self.logger.debug('deleting block %s', block.name)
             self.remove_block(block)

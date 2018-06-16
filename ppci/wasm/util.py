@@ -5,6 +5,8 @@ Utils for working with WASM and binary data.
 import io
 import logging
 import os
+import math
+import re
 import tempfile
 import struct
 import subprocess
@@ -18,13 +20,54 @@ __all__ = ['export_wasm_example',
            'has_node']
 
 
+hex_prog = re.compile(r'-?0x[0-9a-fA-F]+')
+hex_float_prog = re.compile(r'[-+]?0x[0-9a-fA-F]+')
+hex_nan_prog = re.compile(r'[-+]?nan:.+')
+
+
+def make_int(s):
+    """ Try to make an integer """
+    if isinstance(s, int):
+        return s
+    elif isinstance(s, str):
+        if hex_prog.match(s):
+            return int(s, 16)
+        else:
+            return int(s)
+    else:
+        raise NotImplementedError(str(s))
+
+
+def make_float(s):
+    """ Try to make an integer """
+    if isinstance(s, float):
+        return s
+    elif isinstance(s, int):
+        return float(s)
+    elif isinstance(s, str):
+        if hex_nan_prog.match(s):
+            return math.nan
+        elif hex_float_prog.match(s):
+            return float.fromhex(s.replace('_', ''))
+        else:
+            return float(s)
+    else:
+        raise NotImplementedError(str(s))
+
+
 def sanitize_name(name):
     """ Strip illegal characters from name, such as '.' and '-' """
     name = name.replace('.', '_').replace('-', '_')
+
     # To allow access by python attribute, check if the name is a
     # python keyword:
     if keyword.iskeyword(name):
         name = name + '_'
+
+    # No identifiers starting with a digit:
+    if name and name[0].isdigit():
+        name = '_' + name
+
     return name
 
 

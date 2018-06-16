@@ -10,6 +10,7 @@ Functions present:
 
 """
 
+import logging
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
 from .graph import DiGraph, DiNode
 from . import lt
@@ -17,6 +18,7 @@ from collections import namedtuple
 
 DomTreeNode = namedtuple('DomTreeNode', ['node', 'children'])
 Loop = namedtuple('Loop', ['header', 'rest'])
+logger = logging.getLogger('cfg')
 
 
 def ir_function_to_graph(ir_function):
@@ -27,43 +29,47 @@ def ir_function_to_graph(ir_function):
 
 class IrToCfg:
     """ Convert ir function into a control flow graph """
-    def __init__(self):
-        self.block_map = None
-
     def convert(self, ir_function):
         """ Convert ir function into a control flow graph """
-        self.block_map = {}
-        self.cfg = ControlFlowGraph()
-        self.cfg.exit_node = self.new_node(None)
-        self.cfg.entry_node = self.get_node(ir_function.entry)
-        return self.cfg, self.block_map
+        block_map = {}
+        cfg = ControlFlowGraph()
+        cfg.exit_node = ControlFlowNode(cfg, name=None)
 
-    def new_node(self, name):
-        node = ControlFlowNode(self.cfg, name=name)
-        return node
+        # Create nodes:
+        block_list = []
+        worklist = [ir_function.entry]
+        while worklist:
+            block = worklist.pop(0)
+            block_list.append(block)
+            node = ControlFlowNode(cfg, name=block.name)
+            assert block not in block_map
+            block_map[block] = node
+            for successor_block in block.successors:
+                if successor_block not in block_map:
+                    if successor_block not in worklist:
+                        worklist.append(successor_block)
 
-    def get_node(self, block):
-        if block in self.block_map:
-            return self.block_map[block]
-        else:
-            # Create a new node:
-            node = self.new_node(block.name)
-            self.block_map[block] = node
+        cfg.entry_node = block_map[ir_function.entry]
 
+        # Add edges:
+        for block in block_list:
             # Add proper edges:
             if len(block.successors) == 0:
                 # Exit or return!
-                node.add_edge(self.cfg.exit_node)
+                node.add_edge(cfg.exit_node)
             else:
                 for successor_block in block.successors:
-                    successor_node = self.get_node(successor_block)
+                    successor_node = block_map[successor_block]
                     node.add_edge(successor_node)
 
                 # TODO: hack to store yes and no blocks:
                 if len(block.successors) == 2:
-                    node.yes = self.get_node(block.last_instruction.lab_yes)
-                    node.no = self.get_node(block.last_instruction.lab_no)
-            return node
+                    node.yes = block_map[block.last_instruction.lab_yes]
+                    node.no = block_map[block.last_instruction.lab_no]
+
+        logger.debug(
+            'created cfg for %s with %s nodes', ir_function.name, len(cfg))
+        return cfg, block_map
 
 
 class ControlFlowGraph(DiGraph):

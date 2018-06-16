@@ -203,7 +203,8 @@ class Ref:
     # TODO: idea:
     # wb: store reference to the object itself instead of an index?
     def __init__(self, space, index=None, name=None):
-        valid_spaces = ['type', 'func', 'memory', 'table', 'global', 'local']
+        valid_spaces = [
+            'type', 'func', 'memory', 'table', 'global', 'local', 'label']
         if space not in valid_spaces:
             raise ValueError('space must be one of {}'.format(valid_spaces))
         self.space = space
@@ -634,7 +635,7 @@ class Instruction(WASMComponent):
             else:
                 args = ('align=%i' % 2**args[0], 'offset=%i' % args[1])
         elif self.opcode == 'call_indirect':
-            if args[1] == 0:  # zero'th table
+            if args[1].index == 0:  # zero'th table
                 args = ('(type %s)' % args[0], ) 
             else:
                 args = ('(type %s)' % args[0], '(const.i64 %i)' % args[1].index)
@@ -653,10 +654,10 @@ class Instruction(WASMComponent):
         args = list(self.args)
         # if self.opcode == 'call':
         #    args[0] = id_maps['func'][args[0]]
-        if self.opcode == 'call_indirect':
-            args[0] = id_maps['type'][args[0].index]
-            if len(args) == 1:
-                args = args[0], 0  # reserved byte for future use
+        #if self.opcode == 'call_indirect':
+        #    args[0] = id_maps['type'][args[0].index]
+        #    if len(args) == 1:
+        #        args = args[0], 0  # reserved byte for future use
         # elif self.opcode in ('set_global', 'get_global'):
         #    args[0] = id_maps['global'][args[0]]
         # elif 'memory' in self.opcode:
@@ -665,9 +666,9 @@ class Instruction(WASMComponent):
         #     ... there is just one table in v1
         # elif self.opcode in ('get_local', 'set_local', 'tee_local'):
         #    args[0] = id_maps['local'][args[0].index]
-        elif self.opcode in ('br', 'br_if', 'br_table'):
-            if isinstance(args[0], str):
-                args[0] = id_maps['label'][args[0]]
+        #elif self.opcode in ('br', 'br_if', 'br_table'):
+        #    if isinstance(args[0], str):
+        #        args[0] = id_maps['label'][args[0]]
 
         # Update labels
         if self.opcode in ('block', 'loop', 'if'):
@@ -710,7 +711,7 @@ class Instruction(WASMComponent):
                 assert self.opcode == 'br_table'
                 f.write_vu32(len(arg) - 1)
                 for x in arg:
-                    f.write_vu32(x)
+                    f.write_vu32(x.index)
             else:
                 raise TypeError('Unknown instruction arg %r' % o)
 
@@ -736,7 +737,7 @@ class Instruction(WASMComponent):
                 count = reader.read_uint()
                 vec = []
                 for _ in range(count + 1):
-                    idx = reader.read_uint()
+                    idx = Ref('label', index=reader.read_uint())
                     vec.append(idx)
                 arg = vec
             elif operand == 'f32':

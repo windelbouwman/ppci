@@ -16,8 +16,8 @@ instruction_table = [
     ('if', 0x04, ('type',)),
     ('else', 0x05),
     ('end', 0x0b, (), (), (), lambda i, v: ()),
-    ('br', 0x0c, ('u32',)),
-    ('br_if', 0x0d, ('u32',)),
+    ('br', 0x0c, ('labelidx',)),
+    ('br_if', 0x0d, ('labelidx',)),
     ('br_table', 0x0e, ('br_table',)),
     ('return', 0x0f),
 

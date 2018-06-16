@@ -45,7 +45,7 @@ def test_module1():
         (import "js" "print_ln" (func $print (type $print)))
         (start $main)
         (func $main (type $1) (local f64)
-            (loop)
+            loop
                 (get_local 0)
                 (call $print)
                 (f64.const 1)

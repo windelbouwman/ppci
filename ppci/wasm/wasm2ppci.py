@@ -94,10 +94,7 @@ class WasmToIrCompiler:
         start_function_id = None
         tables = []  # Function pointer tables
 
-        # Create a global pointer to the memory base address:
-        self.memory_base_address = ir.Variable(
-            'wasm_mem0_address', self.ptr_info.size, self.ptr_info.alignment)
-        self.builder.module.add_variable(self.memory_base_address)
+        self.memory_base_address = None
 
         for definition in wasm_module:
             if isinstance(definition, components.Type):
@@ -107,7 +104,7 @@ class WasmToIrCompiler:
             elif isinstance(definition, components.Import):
                 # name = definition.name
                 if definition.kind == 'func':
-                    index = definition.id
+                    # index = definition.id
                     sig = self.wasm_types[definition.info[0].index]
                     name = '{}_{}'.format(definition.modname, definition.name)
                     arg_types = [self.get_ir_type(p[1]) for p in sig.params]
@@ -128,8 +125,14 @@ class WasmToIrCompiler:
                         'Creating external %s with signature %s',
                         extern_ir_function, sig.to_string())
                     self.builder.module.add_external(extern_ir_function)
-                    assert len(self.functions) == index
+                    # assert len(self.functions) == index, str(self.functions) + str(index)
                     self.functions.append((extern_ir_function, sig))
+                elif definition.kind == 'memory':
+                    assert self.memory_base_address is None
+                    self.memory_base_address = ir.ExternalVariable(
+                        'wasm_mem0_address')
+                    self.builder.module.add_external(self.memory_base_address)
+
                 else:
                     raise NotImplementedError(definition.kind)
 
@@ -211,8 +214,19 @@ class WasmToIrCompiler:
                 g2 = ir.Variable(
                     'global{}'.format(definition.id), size, size, value=value)
                 self.globalz[definition.id] = (ir_typ, g2)
-            elif isinstance(definition, (components.Memory, components.Data)):
-                # Data and memory are intended for the runtime to handle.
+            elif isinstance(definition, components.Memory):
+                # Create a global pointer to the memory base address:
+                assert self.memory_base_address is None
+                self.memory_base_address = ir.Variable(
+                    'wasm_mem0_address', self.ptr_info.size,
+                    self.ptr_info.alignment)
+                self.builder.module.add_variable(self.memory_base_address)
+
+            elif isinstance(definition, components.Data):
+                # Data is intended for the runtime to handle.
+                pass
+
+            elif isinstance(definition, components.Custom):
                 pass
 
             else:
@@ -283,8 +297,8 @@ class WasmToIrCompiler:
 
     def new_block(self):
         self.blocknr += 1
-        self.logger.debug('creating block %s', self.blocknr)
         block_name = self.builder.function.name + '_block' + str(self.blocknr)
+        self.logger.debug('creating block %s', block_name)
         return self.builder.new_block(block_name)
 
     TYP_MAP = {
@@ -401,7 +415,8 @@ class WasmToIrCompiler:
         self.block_stack.pop()
         assert not self.block_stack
 
-        self.emit(ir.Jump(final_block))
+        if self.is_reachable:
+            self.emit(ir.Jump(final_block))
         self.builder.set_block(final_block)
         if isinstance(ppci_function, ir.Procedure):
             self.emit(ir.Exit())
@@ -475,11 +490,12 @@ class WasmToIrCompiler:
 
     def fill_phi(self, phi):
         """ Fill phi with current stack value, if phi is needed """
-        if phi:
+        if phi and self.is_reachable:
             # TODO: do we require stack 1 high?
             # assert len(self.stack) == 1, str(self.stack)
             self.logger.debug('Filling phi %s', phi)
             value = self.pop_value(ir_typ=phi.ty)
+            assert self.builder.block is not None
             phi.set_incoming(self.builder.block, value)
             self.push_value(value)
 
@@ -494,12 +510,7 @@ class WasmToIrCompiler:
             else:
                 return value
         else:
-            if self.block_stack[-1].unreachable:
-                a = self.emit(ir.Undefined('undef', ir.i32))
-                b = self.emit(ir.Undefined('undef', ir.i32))
-                return '!=', a, b
-            else:
-                raise ValueError('Value stack underflow')
+            raise ValueError('Value stack underflow')
 
     def pop_value(self, ir_typ=None):
         """ Pop a value of the stack """
@@ -535,100 +546,54 @@ class WasmToIrCompiler:
                     assert phi.ty is ir_typ
                 return phi
         else:
-            if self.block_stack[-1].unreachable:
-                if ir_typ is None:
-                    ir_typ = ir.i32
-                return self.emit(ir.Undefined('undefined', ir_typ))
-            else:
-                raise ValueError('Value stack underflow')
+            raise ValueError('Value stack underflow')
 
     def push_value(self, value):
         """ Put a value on top of the stack """
         self.stack.append(value)
 
-    def mark_unreachable(self):
-        """ Mark coming code as unreachable """
-        self.block_stack[-1].unreachable = True
-        self.unwind(self.block_stack[-1])
-
     def unwind(self, block):
-        # Unwind stack:
+        """ Unwind the value stack """
         while len(self.stack) > block.stack_start:
             self.stack.pop()
 
     def generate_instruction(self, instruction):
         """ Generate ir-code for a single wasm instruction """
         inst = instruction.opcode
-        if inst in self.BINOPS:
-            itype, opname = inst.split('.')
-            op_map = {
-                'add': '+', 'sub': '-', 'mul': '*',
-                'div': '/', 'div_s': '/', 'div_u': '/',
-                'and': '&', 'or': '|', 'xor': '^', 'shl': '<<',
-                'shr_u': '>>',
-                # TODO: arithmatic shift right is not the same as
-                # logical shift right.. TBD.
-                'shr_s': 'asr',
-                'rotr': 'ror', 'rotl': 'rol'}
-            op = op_map[opname]
-            name = 'op_{}'.format(opname)
-            ir_typ = self.get_ir_type(itype)
-            if op in ['ror', 'rol', 'asr']:
-                self._runtime_call(inst, [ir_typ, ir_typ], ir_typ)
-            else:
-                b = self.pop_value(ir_typ=ir_typ)
-                a = self.pop_value(ir_typ=ir_typ)
-                value = self.emit(ir.Binop(a, op, b, name, ir_typ))
-                self.push_value(value)
+
+        # IMPORTANT: handle block instructions first
+        # Then check if we are in unreachable code, and do not generate
+        # instructions in the unreachable space:
+        if inst == 'block':
+            self.gen_block(instruction)
+
+        elif inst == 'loop':
+            self.gen_loop(instruction)
+
+        elif inst == 'if':
+            self.gen_if(instruction)
+
+        elif inst == 'else':
+            self.gen_else()
+
+        elif inst == 'end':
+            self.gen_end()
+
+        elif not self.is_reachable:
+            # This is a guarding condition for the other instructions
+            pass
+
+        elif inst in self.BINOPS:
+            self.gen_binop(instruction)
 
         elif inst in self.CMPOPS:
-            itype, opname = inst.split('.')
-            ir_typ = self.get_ir_type(itype)
-            if opname in ['eqz']:
-                b = self.emit(ir.Const(0, 'zero', ir_typ))
-                a = self.pop_value(ir_typ=ir_typ)
-            else:
-                b = self.pop_value(ir_typ=ir_typ)
-                a = self.pop_value(ir_typ=ir_typ)
-            op = self.OPMAP[opname]
-            self.push_value((op, a, b))
-            # todo: hack; we assume this is the only test in an if
+            self.gen_cmpop(instruction)
 
         elif inst in STORE_OPS:
-            # self.gen_store(inst)
-            itype, store_op = inst.split('.')
-            ir_typ = self.get_ir_type(itype)
-            # ACHTUNG: alignment and offset are swapped in text:
-            _, offset = instruction.args
-            value = self.pop_value()
-            address = self.get_memory_address(offset)
-            if store_op == 'store':
-                self.emit(ir.Store(value, address))
-            else:
-                store_ir_typ = {
-                    'store8': ir.i8, 'store16': ir.i16, 'store32': ir.i32,
-                }[store_op]
-                value = self.emit(
-                    ir.Cast(value, 'casted_value', store_ir_typ))
-                self.emit(ir.Store(value, address))
+            self.gen_store(instruction)
 
         elif inst in LOAD_OPS:
-            itype, load_op = inst.split('.')
-            ir_typ = self.get_ir_type(itype)
-            _, offset = instruction.args
-            address = self.get_memory_address(offset)
-            if load_op == 'load':
-                value = self.emit(ir.Load(address, 'load', ir_typ))
-            else:
-                # Load different data-type and cast:
-                load_ir_typ = {
-                    'load8_u': ir.u8, 'load8_s': ir.i8,
-                    'load16_u': ir.u16, 'load16_s': ir.i16,
-                    'load32_u': ir.u32, 'load32_s': ir.i32,
-                }[load_op]
-                value = self.emit(ir.Load(address, 'load', load_ir_typ))
-                value = self.emit(ir.Cast(value, 'casted_load', ir_typ))
-            self.push_value(value)
+            self.gen_load(instruction)
 
         elif inst in self.CASTOPS:
             value = self.pop_value()
@@ -652,6 +617,12 @@ class WasmToIrCompiler:
         elif inst in ['f32.min', 'f32.max', 'f32.copysign']:
             self._runtime_call(inst, [ir.f32, ir.f32], ir.f32)
 
+        elif inst == 'f32.demote/f64':
+            self._runtime_call(inst, [ir.f64], ir.f32)
+
+        elif inst == 'f32.reinterpret/i32':
+            self._runtime_call(inst, [ir.i32], ir.f32)
+
         elif inst in ['i64.rem_u', 'i64.rem_s']:
             self._runtime_call(inst, [ir.i64, ir.i64], ir.i64)
 
@@ -664,13 +635,15 @@ class WasmToIrCompiler:
         elif inst == 'f64.promote/f32':
             self._runtime_call(inst, [ir.f32], ir.f64)
 
-        elif inst in ['i64.trunc_s/f64', 'i64.trunc_u/f64']:
+        elif inst in [
+                'i64.trunc_s/f64', 'i64.trunc_u/f64', 'i64.reinterpret/f64']:
             self._runtime_call(inst, [ir.f64], ir.i64)
 
         elif inst in ['i64.trunc_s/f32', 'i64.trunc_u/f32']:
             self._runtime_call(inst, [ir.f32], ir.i64)
 
-        elif inst in ['i32.trunc_s/f32', 'i32.trunc_u/f32']:
+        elif inst in [
+                'i32.trunc_s/f32', 'i32.trunc_u/f32', 'i32.reinterpret/f32']:
             self._runtime_call(inst, [ir.f32], ir.i32)
 
         elif inst in ['i32.trunc_s/f64', 'i32.trunc_u/f64']:
@@ -719,26 +692,6 @@ class WasmToIrCompiler:
                 ir.Unop('-', self.pop_value(ir_typ), 'neg', ir_typ))
             self.push_value(value)
 
-        elif inst == 'block':
-            phi = self.get_phi(instruction)
-            innerblock = self.new_block()
-            continueblock = self.new_block()
-            self.emit(ir.Jump(innerblock))
-            self.builder.set_block(innerblock)
-            self.block_stack.append(
-                BlockLevel(
-                    'block', continueblock, innerblock, phi, len(self.stack)))
-
-        elif inst == 'loop':
-            phi = self.get_phi(instruction)
-            innerblock = self.new_block()
-            continueblock = self.new_block()
-            self.emit(ir.Jump(innerblock))
-            self.builder.set_block(innerblock)
-            self.block_stack.append(
-                BlockLevel(
-                    'loop', continueblock, innerblock, phi, len(self.stack)))
-
         elif inst == 'br':
             self.gen_br(instruction)
 
@@ -747,53 +700,6 @@ class WasmToIrCompiler:
 
         elif inst == 'br_table':
             self.gen_br_table(instruction)
-
-        elif inst == 'if':
-            # todo: we assume that the test is a comparison
-            op, a, b = self.pop_condition()
-            trueblock = self.new_block()
-            continueblock = self.new_block()
-            self.emit(ir.CJump(a, op, b, trueblock, continueblock))
-            self.builder.set_block(trueblock)
-            phi = self.get_phi(instruction)
-            self.block_stack.append(
-                BlockLevel('if', continueblock, None, phi, len(self.stack)))
-
-        elif inst == 'else':
-            if_block = self.block_stack[-1]
-            assert if_block.typ == 'if'
-            elseblock = if_block.continue_block  # continueblock becomes elseblock
-            continueblock = self.new_block()
-            if if_block.phi:
-                self.fill_phi(if_block.phi)
-                self.stack.pop()
-
-            self.block_stack.pop()
-
-            self.emit(ir.Jump(continueblock))
-            self.builder.set_block(elseblock)
-            self.block_stack.append(
-                BlockLevel(
-                    'else', continueblock, None, if_block.phi,
-                    if_block.stack_start))
-
-        elif inst == 'end':
-            if self.block_stack[-1].phi:
-                self.fill_phi(self.block_stack[-1].phi)
-                self.stack.pop()
-
-            block = self.block_stack.pop()
-            self.unwind(block)
-
-            self.emit(ir.Jump(block.continue_block))
-            self.builder.set_block(block.continue_block)
-            # TODO: Do we need to have an empty stack at end of block??
-            # assert len(self.stack) == 0, str(self.stack)
-            if block.phi:
-                # if we close a block that yields a value introduce a phi
-                self.logger.debug('Put %s on stack', block.phi)
-                self.emit(block.phi)
-                self.push_value(block.phi)
 
         elif inst == 'call':
             self.gen_call(instruction)
@@ -820,6 +726,78 @@ class WasmToIrCompiler:
         else:  # pragma: no cover
             raise NotImplementedError(inst)
 
+    def gen_binop(self, instruction):
+        inst = instruction.opcode
+        itype, opname = inst.split('.')
+        op_map = {
+            'add': '+', 'sub': '-', 'mul': '*',
+            'div': '/', 'div_s': '/', 'div_u': '/',
+            'and': '&', 'or': '|', 'xor': '^', 'shl': '<<',
+            'shr_u': '>>',
+            # TODO: arithmatic shift right is not the same as
+            # logical shift right.. TBD.
+            'shr_s': 'asr',
+            'rotr': 'ror', 'rotl': 'rol'}
+        op = op_map[opname]
+        name = 'op_{}'.format(opname)
+        ir_typ = self.get_ir_type(itype)
+        if op in ['ror', 'rol', 'asr']:
+            self._runtime_call(inst, [ir_typ, ir_typ], ir_typ)
+        else:
+            b = self.pop_value(ir_typ=ir_typ)
+            a = self.pop_value(ir_typ=ir_typ)
+            value = self.emit(ir.Binop(a, op, b, name, ir_typ))
+            self.push_value(value)
+
+    def gen_cmpop(self, instruction):
+        inst = instruction.opcode
+        itype, opname = inst.split('.')
+        ir_typ = self.get_ir_type(itype)
+        if opname in ['eqz']:
+            b = self.emit(ir.Const(0, 'zero', ir_typ))
+            a = self.pop_value(ir_typ=ir_typ)
+        else:
+            b = self.pop_value(ir_typ=ir_typ)
+            a = self.pop_value(ir_typ=ir_typ)
+        op = self.OPMAP[opname]
+        self.push_value((op, a, b))
+        # todo: hack; we assume this is the only test in an if
+
+    def gen_load(self, instruction):
+        itype, load_op = instruction.opcode.split('.')
+        ir_typ = self.get_ir_type(itype)
+        _, offset = instruction.args
+        address = self.get_memory_address(offset)
+        if load_op == 'load':
+            value = self.emit(ir.Load(address, 'load', ir_typ))
+        else:
+            # Load different data-type and cast:
+            load_ir_typ = {
+                'load8_u': ir.u8, 'load8_s': ir.i8,
+                'load16_u': ir.u16, 'load16_s': ir.i16,
+                'load32_u': ir.u32, 'load32_s': ir.i32,
+            }[load_op]
+            value = self.emit(ir.Load(address, 'load', load_ir_typ))
+            value = self.emit(ir.Cast(value, 'casted_load', ir_typ))
+        self.push_value(value)
+
+    def gen_store(self, instruction):
+        itype, store_op = instruction.opcode.split('.')
+        ir_typ = self.get_ir_type(itype)
+        # ACHTUNG: alignment and offset are swapped in text:
+        _, offset = instruction.args
+        value = self.pop_value(ir_typ=ir_typ)
+        address = self.get_memory_address(offset)
+        if store_op == 'store':
+            self.emit(ir.Store(value, address))
+        else:
+            store_ir_typ = {
+                'store8': ir.i8, 'store16': ir.i16, 'store32': ir.i32,
+            }[store_op]
+            value = self.emit(
+                ir.Cast(value, 'casted_value', store_ir_typ))
+            self.emit(ir.Store(value, address))
+
     def get_memory_address(self, offset):
         """ Emit code to retrieve a memory address """
         base = self.pop_value()
@@ -830,6 +808,112 @@ class WasmToIrCompiler:
         mem0 = self.emit(ir.Load(self.memory_base_address, 'mem0', ir.ptr))
         address = self.emit(ir.add(mem0, address, 'address', ir.ptr))
         return address
+
+    @property
+    def is_reachable(self):
+        # Attention:
+        # Since block implements iter, one cannot check for bool(block) if
+        # the block is empty.. So we have to check for None here:
+        return self.builder.block is not None
+
+    def gen_block(self, instruction):
+        """ Generate start of block """
+        if self.is_reachable:
+            self.logger.debug('start of block')
+            phi = self.get_phi(instruction)
+            inner_block = self.new_block()
+            continue_block = self.new_block()
+            self.emit(ir.Jump(inner_block))
+            self.builder.set_block(inner_block)
+        else:
+            self.logger.debug('start of unreachable block')
+            phi = None
+            inner_block = None
+            continue_block = None
+        self.block_stack.append(
+            BlockLevel(
+                'block', continue_block, inner_block, phi, len(self.stack)))
+
+    def gen_loop(self, instruction):
+        if self.is_reachable:
+            phi = self.get_phi(instruction)
+            inner_block = self.new_block()
+            continue_block = self.new_block()
+            self.emit(ir.Jump(inner_block))
+            self.builder.set_block(inner_block)
+        else:
+            phi = None
+            inner_block = None
+            continue_block = None
+        self.block_stack.append(
+            BlockLevel(
+                'loop', continue_block, inner_block, phi, len(self.stack)))
+
+    def gen_end(self):
+        """ Generate code for end instruction.
+
+        This is a more or less complex task. It has to deal with unreachable
+        code as well.
+        """
+        block = self.block_stack[-1]
+        if block.phi and self.is_reachable:
+            self.fill_phi(block.phi)
+
+        self.block_stack.pop()
+        self.unwind(block)
+
+        # If we are not unreachable:
+        if self.is_reachable:
+            assert block.continue_block is not None
+            self.emit(ir.Jump(block.continue_block))
+        self.builder.set_block(block.continue_block)
+        # TODO: Do we need to have an empty stack at end of block??
+        # assert len(self.stack) == 0, str(self.stack)
+        if block.phi:
+            # if we close a block that yields a value introduce a phi
+            self.logger.debug('Put %s on stack', block.phi)
+            self.emit(block.phi)
+            self.push_value(block.phi)
+
+    def gen_if(self, instruction):
+        if self.is_reachable:
+            # todo: we assume that the test is a comparison
+            op, a, b = self.pop_condition()
+            true_block = self.new_block()
+            continue_block = self.new_block()
+            self.emit(ir.CJump(a, op, b, true_block, continue_block))
+            self.builder.set_block(true_block)
+            phi = self.get_phi(instruction)
+        else:
+            continue_block = None
+            phi = None
+        self.block_stack.append(
+            BlockLevel('if', continue_block, None, phi, len(self.stack)))
+
+    def gen_else(self):
+        """ Generate code for else instruction """
+        if_block = self.block_stack[-1]
+        assert if_block.typ == 'if'
+        if if_block.phi:
+            self.fill_phi(if_block.phi)
+
+        self.block_stack.pop()
+        self.unwind(if_block)
+
+        # continueblock becomes elseblock
+        else_block = if_block.continue_block
+        if else_block is not None:
+            continue_block = self.new_block()
+        else:
+            continue_block = None
+
+        if self.is_reachable:
+            self.emit(ir.Jump(continue_block))
+        self.builder.set_block(else_block)
+        self.block_stack.append(
+            BlockLevel(
+                'else', continue_block, None, if_block.phi,
+                if_block.stack_start))
 
     def gen_call(self, instruction):
         """ Generate a function call """
@@ -915,32 +999,24 @@ class WasmToIrCompiler:
             v = self.emit(ir.Const(
                 0, 'unreachable', self.builder.function.return_ty))
             self.emit(ir.Return(v))
-        after_return_block = self.new_block()
-        self.builder.set_block(after_return_block)
-        self.mark_unreachable()
+        self.builder.set_block(None)
 
     def gen_return(self, instruction):
         """ Generate code for return instruction.
 
         Treat return as a break to the top level block.
         """
-        # TODO: can we break out of if-blocks?
         targetblock = self.block_stack[0].continue_block
         self.fill_phi(self.block_stack[0].phi)
         self.emit(ir.Jump(targetblock))
-        falseblock = self.new_block()  # unreachable
-        self.builder.set_block(falseblock)
-        self.mark_unreachable()
+        self.builder.set_block(None)
 
     def gen_br(self, instruction):
         """ Generate code for br instruction """
         depth = instruction.args[0]
-        # TODO: can we break out of if-blocks?
         targetblock = self.do_jump(depth)
         self.emit(ir.Jump(targetblock))
-        falseblock = self.new_block()  # unreachable
-        self.builder.set_block(falseblock)
-        self.mark_unreachable()
+        self.builder.set_block(None)
 
     def gen_br_if(self, instruction):
         """ Generate code for br_if instruction """
@@ -956,6 +1032,9 @@ class WasmToIrCompiler:
 
         Note: the name of this function is not ideal.
         """
+        # TODO: can we break out of if-blocks?
+        assert isinstance(depth, components.Ref)
+        depth = depth.index
         block = self.block_stack[-depth-1]
         if block.typ == 'loop':
             # assert not block.phi
@@ -993,10 +1072,8 @@ class WasmToIrCompiler:
         depth = default_label
         target_block = self.do_jump(depth)
         default_block = target_block
-        new_block = self.new_block()
         self.emit(ir.Jump(default_block))
-        self.builder.set_block(new_block)
-        self.mark_unreachable()
+        self.builder.set_block(None)
 
     def _runtime_call(self, rt_func_name, arg_types, ir_typ):
         """ Generate runtime function call.
@@ -1039,4 +1116,3 @@ class BlockLevel:
         self.inner_block = inner_block
         self.phi = phi
         self.stack_start = stack_start
-        self.unreachable = False

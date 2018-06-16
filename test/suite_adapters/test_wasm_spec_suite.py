@@ -35,7 +35,8 @@ from ppci.utils.reporting import HtmlReportGenerator
 from ppci.wasm.util import datastring2bytes
 
 logging.getLogger().setLevel(logging.DEBUG)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 def perform_test(filename):
     # if not os.path.basename(filename).startswith('z'):
@@ -103,6 +104,9 @@ def perform_test(filename):
                     if True:
                         imports = {
                            'rt': create_runtime(),
+                           'spectest': {
+                            'memory': True,  # TODO?
+                           }
                         }
                         mod_instance = instantiate(
                             m1, imports, target='python', reporter=reporter)
@@ -142,18 +146,34 @@ def create_test_function(cls, filename):
 
 def wasm_spec_populate(cls):
     """ Decorator function which can populate a unittest.TestCase class """
+    for filename in get_wast_files():
+        create_test_function(cls, filename)
+    return cls
+
+
+def get_wast_files():
+    """ Retrieve wast files if WASM_SPEC_DIR was set """
     if 'WASM_SPEC_DIR' in os.environ:
         wasm_spec_directory = os.path.normpath(os.environ['WASM_SPEC_DIR'])
-        core_test_directory = os.path.join(wasm_spec_directory, 'test', 'core')
-        assert os.path.isdir(core_test_directory), "WASM_SPEC_DIR is set, but not valid"
-        for filename in sorted(glob.iglob(os.path.join(core_test_directory, '*.wast'))):
-            create_test_function(cls, filename)
-    return cls
+        core_test_directory = os.path.join(
+            wasm_spec_directory, 'test', 'core')
+        if not os.path.isdir(core_test_directory):
+            raise ValueError(
+                "WASM_SPEC_DIR is set, but {} not found".format(
+                    core_test_directory))
+        for filename in sorted(glob.iglob(os.path.join(
+                core_test_directory, '*.wast'))):
+            yield filename
 
 
 @wasm_spec_populate
 class WasmSpecTestCase(unittest.TestCase):
     pass
+
+
+def do_now():
+    for filename in get_wast_files():
+        perform_test(filename)
 
 
 if __name__ == '__main__':
@@ -163,7 +183,4 @@ if __name__ == '__main__':
     
     # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     
-    testdir = os.path.join(os.environ['WASM_SPEC_DIR'], 'test', 'core')
-    for fname in sorted(os.listdir(testdir)):
-        if fname.endswith('.wast'):
-            perform_test(os.path.join(testdir, fname))
+    do_now()
