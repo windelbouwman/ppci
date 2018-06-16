@@ -202,7 +202,7 @@ class Mem2RegPromotor(FunctionPass):
 
         # Remove all load instructions:
         for load in loads:
-            assert not load.is_used
+            assert not load.is_used, str(load.used_by) + str(load)
             load.remove_from_block()
 
         # Finally the addr instruction can be deleted:

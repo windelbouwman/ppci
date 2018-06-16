@@ -153,7 +153,9 @@ class NumpyCodePageTestCase(unittest.TestCase):
                 }
             }
             """)
-        m = load_code_as_module(source_file)
+        html_filename = make_filename(self.id()) + '.html'
+        with open(html_filename, 'w') as f, HtmlReportGenerator(f) as r:
+            m = load_code_as_module(source_file, reporter=r)
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 100], dtype=float)

@@ -53,6 +53,9 @@ class IrToCfg:
 
         # Add edges:
         for block in block_list:
+            # Fetch node:
+            node = block_map[block]
+
             # Add proper edges:
             if len(block.successors) == 0:
                 # Exit or return!

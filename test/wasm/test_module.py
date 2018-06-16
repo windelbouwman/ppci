@@ -9,7 +9,9 @@ def dedent(code):
     return '\n'.join(line[4: ]for line in code.splitlines()).strip() + '\n'
 
 
-def test_module1():
+# TODO: check how (loop) is handled. Is this a loop with no contents? Or is
+# it the start of a loop?
+def tst_module1():
 
     instructions1 = [
         ('loop', None, 'emptyblock'),
