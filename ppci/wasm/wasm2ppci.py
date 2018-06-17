@@ -86,7 +86,7 @@ class WasmToIrCompiler:
         # First read all sections:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
         self.wasm_types = []  # List[wasm.Type] (signature)
-        self.globalz = {}  # id -> (type, ir.Variable)
+        self.globalz = []  # id -> (type, ir.Variable)
         gen_functions = []
         self.functions = []  # List of ir-function wasm signature pairs
         self._runtime_functions = {}  # Function required during runtime
@@ -188,8 +188,11 @@ class WasmToIrCompiler:
                 assert definition.id in (0, '$0')
                 if definition.kind != 'anyfunc':
                     raise NotImplementedError('Non function pointer tables')
-                assert definition.min == definition.max
-                size = definition.max * self.ptr_info.size
+                if definition.max is not None:
+                    max_size = max(definition.min, definition.max)
+                else:
+                    max_size = definition.min
+                size = max_size * self.ptr_info.size
                 self.table_var = ir.Variable(
                     'func_table', size, self.ptr_info.alignment)
                 self.builder.module.add_variable(self.table_var)
@@ -211,9 +214,11 @@ class WasmToIrCompiler:
                 size = struct.calcsize(fmt)
                 # assume init is (f64.const xx):
                 value = struct.pack(fmt, definition.init.args[0])
-                g2 = ir.Variable(
-                    'global{}'.format(definition.id), size, size, value=value)
-                self.globalz[definition.id] = (ir_typ, g2)
+                name = 'global_{}'.format(
+                    str(definition.id).replace('$', '_'))
+                g2 = ir.Variable(name, size, size, value=value)
+                self.builder.module.add_variable(g2)
+                self.globalz.append((ir_typ, g2))
             elif isinstance(definition, components.Memory):
                 # Create a global pointer to the memory base address:
                 assert self.memory_base_address is None

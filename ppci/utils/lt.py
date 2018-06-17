@@ -5,8 +5,13 @@ Dominators in graphs are handy informations.
 Lengauer and Tarjan developed a fast algorithm to calculate dominators
 from a graph.
 
-Algorithm as can be found on page 448 of Appel 
+Algorithm as can be found on page 448 of Appel.
 """
+
+import logging
+
+
+logger = logging.getLogger('lt')
 
 
 def calculate_idom(graph, entry):
@@ -26,11 +31,13 @@ class LengauerTarjan:
 
         # Filled later:
         self.ancestor = {}
+        self.best = {}
         self.semi = {}
         self.idom = {}
         self.samedom = {}
 
     def compute(self, graph, entry):
+        logger.debug('Computing dominator tree from %s nodes', len(graph))
         bucket = {}
         # Fill maps:
         for n in graph:
@@ -41,8 +48,10 @@ class LengauerTarjan:
             bucket[n] = set()
 
         # Step 1: calculate semi dominators
-        self.dfs(None, entry)
+        logger.debug('Computing dfs')
+        self.dfs(entry)
 
+        logger.debug('Step 2')
         # Loop over nodes in reversed dfs order:
         for n in reversed(self.vertex[1:]):
             p = self.parent[n]
@@ -76,26 +85,68 @@ class LengauerTarjan:
         for n in self.vertex:
             if self.samedom[n]:
                 self.idom[n] = self.idom[self.samedom[n]]
+        logger.debug('Done')
         return self.idom
 
-    def dfs(self, p, node):
+    def dfs(self, start_node):
         """ Depth first search nodes """
-        if node not in self.dfnum:
+        for parent, node in dfs(start_node):
+            assert node not in self.dfnum
             self.dfnum[node] = self.N
             self.vertex.append(node)
-            self.parent[node] = p
+            self.parent[node] = parent
             self.N += 1
-            for s in node.successors:
-                self.dfs(node, s)
 
     def link(self, p, n):
         """ Mark p as parent from n """
         self.ancestor[n] = p
+        self.best[n] = n
 
     def ancestor_with_lowest_semi(self, v):
+        # TODO: this is a slow algorithm, path compression can help
+        # to increase the speed.
         u = v
         while self.ancestor[v]:
             if self.dfnum[self.semi[v]] < self.dfnum[self.semi[u]]:
                 u = v
+
+            # Traverse upwards:
             v = self.ancestor[v]
         return u
+
+    def ancestor_with_lowest_semi_new(self, v):
+        """ Modified algorithm. Sort of with path compression. """
+        raise NotImplementedError('appears to have a bug?')
+        x = v
+        while self.ancestor[x]:
+            if self.dfnum[self.semi[x]] < self.dfnum[self.semi[self.best[v]]]:
+                self.best[v] = x
+            self.ancestor[v] = self.ancestor[x]
+
+            # Iterate:
+            x = self.ancestor[x]
+        return self.best[v]
+
+    def ancestor_with_lowest_semi_fast(self, v):
+        """ The O(log N) implementation """
+        # TODO: this version suffers from a recursion limit
+        a = self.ancestor[v]
+        if self.ancestor[a]:
+            b = self.ancestor_with_lowest_semi(a)
+            self.ancestor[v] = self.ancestor[a]
+            if self.dfnum[self.semi[b]] < self.dfnum[self.semi[self.best[v]]]:
+                self.best[v] = b
+        return self.best[v]
+
+
+def dfs(start_node):
+    """ Visit nodes in depth-first-search order """
+    visited = set()
+    worklist = [(None, start_node)]
+    while worklist:
+        parent, node = worklist.pop()
+        if node not in visited:
+            visited.add(node)
+            yield parent, node
+            for s in node.successors:
+                worklist.append((node, s))

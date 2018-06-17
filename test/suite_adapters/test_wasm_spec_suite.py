@@ -29,14 +29,14 @@ from operator import add
 
 from ppci.wasm import read_wat, Module
 from ppci.wasm.instantiate import instantiate, create_runtime
-from ppci.common import CompilerError
+from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.wasm.util import datastring2bytes
 
+
 logging.getLogger().setLevel(logging.DEBUG)
-# logging.basicConfig(level=logging.DEBUG)
-logging.basicConfig(level=logging.INFO)
+
 
 def perform_test(filename):
     # if not os.path.basename(filename).startswith('z'):
@@ -102,10 +102,19 @@ def perform_test(filename):
 
                     # Next step: Instantiate:
                     if True:
+                        def my_print():
+                            pass
+
+                        def print_i32(x):
+                            pass
+
                         imports = {
                            'rt': create_runtime(),
                            'spectest': {
                             'memory': True,  # TODO?
+                            'global_i32': 1337,  # TODO?
+                            'print_i32': print_i32,
+                            'print': my_print,
                            }
                         }
                         mod_instance = instantiate(
@@ -177,6 +186,9 @@ def do_now():
 
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG, format=logformat)
+    # logging.basicConfig(level=logging.INFO)
     # Three ways to run this:
     
     # unittest.main(verbosity=2)

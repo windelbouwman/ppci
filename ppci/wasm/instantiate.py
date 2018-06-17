@@ -131,12 +131,15 @@ def python_instantiate(module, imports, reporter):
             pass
             # TODO: maybe validate imported functions?
         elif isinstance(definition, Export):
-            if definition.kind != 'func':
+            if definition.kind == 'func':
+                exported_name = sanitize_name(definition.name)
+                setattr(
+                    instance.exports, exported_name,
+                    getattr(instance._module, exported_name))
+            elif definition.kind == 'global':
+                logger.error('global not exported')
+            else:
                 raise NotImplementedError(definition.kind)
-            exported_name = sanitize_name(definition.name)
-            setattr(
-                instance.exports, exported_name,
-                getattr(instance._module, exported_name))
 
     memories = create_memories(module)
     if memories:

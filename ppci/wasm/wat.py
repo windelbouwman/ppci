@@ -11,7 +11,7 @@ import logging
 from collections import defaultdict
 from ..lang.sexpr import parse_sexpr
 from .opcodes import OPERANDS, OPCODES
-from .util import datastring2bytes, make_int, make_float
+from .util import datastring2bytes, make_int, make_float, is_int
 from .tuple_parser import TupleParser, Token
 from . import components
 
@@ -364,12 +364,12 @@ class WatTupleLoader(TupleParser):
                 # Lookup depth now:
                 # TODO: include if statements as branch targets?
                 pos = self.block_stack.index(value)
-                depth = len(self.block_stack) - pos
+                depth = len(self.block_stack) - pos - 1
                 ref.index = depth
             else:
                 self.resolve_backlog.append(ref)
         else:
-            ref = components.Ref(space, index=value)
+            ref = components.Ref(space, index=make_int(value))
         return ref
 
     def load_memory(self):
@@ -403,12 +403,10 @@ class WatTupleLoader(TupleParser):
                 components.Memory(id, min, max))
 
     def parse_limits(self):
-        if isinstance(self._lookahead(1)[0], int):
-            min = self.take()
-            assert isinstance(min, int)
-            if isinstance(self._lookahead(1)[0], int):
-                max = self.take()
-                assert isinstance(max, int)
+        if is_int(self._lookahead(1)[0]):
+            min = make_int(self.take())
+            if is_int(self._lookahead(1)[0]):
+                max = make_int(self.take())
             else:
                 max = None
         else:
@@ -690,7 +688,7 @@ def is_id(x):
 
 def is_ref(x):
     """ Is the given value a reference """
-    return is_dollar(x) or isinstance(x, int)
+    return is_dollar(x) or is_int(x)
 
 
 def is_dollar(x):

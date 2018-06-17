@@ -360,16 +360,37 @@ class ControlFlowGraph(DiGraph):
 
     def bottom_up(self, tree):
         """ Generator that yields all nodes in bottom up way """
-        for c in tree.children:
-            for cc in self.bottom_up(c):
-                yield cc
-        yield tree.node
+        for t in bottom_up(tree):
+            yield t.node
 
     def children(self, n):
         """ Return all children for node n """
         tree = self.tree_map[n]
         for c in tree.children:
             yield c.node
+
+
+def bottom_up_recursive(tree):
+    """ Generator that yields all nodes in bottom up way """
+    for c in tree.children:
+        for cc in bottom_up_recursive(c):
+            yield cc
+    yield tree
+
+
+def bottom_up(tree):
+    """ Generator that yields all nodes in bottom up way """
+    worklist = [tree]
+    visited = set()
+    while worklist:
+        n = worklist[-1]
+        if id(n) in visited:
+            worklist.pop()
+            yield n
+        else:
+            visited.add(id(n))
+            for c in n.children:
+                worklist.append(c)
 
 
 class ControlFlowNode(DiNode):

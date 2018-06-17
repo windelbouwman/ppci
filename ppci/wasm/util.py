@@ -25,6 +25,16 @@ hex_float_prog = re.compile(r'[-+]?0x[0-9a-fA-F]+')
 hex_nan_prog = re.compile(r'[-+]?nan:.+')
 
 
+def is_int(s):
+    """ Check if the given s is integer or can be converted to int """
+    if isinstance(s, int):
+        return True
+    elif isinstance(s, str):
+        return hex_prog.match(s)
+    else:
+        return False
+
+
 def make_int(s):
     """ Try to make an integer """
     if isinstance(s, int):
