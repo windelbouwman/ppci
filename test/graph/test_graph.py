@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.utils.graph import Graph, Node, DiGraph, DiNode
+from ppci.graph import Graph, Node, DiGraph, DiNode
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
 from ppci.arch.generic_instructions import Nop

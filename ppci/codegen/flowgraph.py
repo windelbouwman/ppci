@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from ..utils.graph import DiGraph, DiNode
+from ..graph.digraph import DiGraph, DiNode
 
 
 class FlowGraphNode(DiNode):

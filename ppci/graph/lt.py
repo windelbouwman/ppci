@@ -1,4 +1,3 @@
-
 """
 Dominators in graphs are handy informations.
 
@@ -9,6 +8,7 @@ Algorithm as can be found on page 448 of Appel.
 """
 
 import logging
+from .digraph import dfs
 
 
 logger = logging.getLogger('lt')
@@ -137,16 +137,3 @@ class LengauerTarjan:
             if self.dfnum[self.semi[b]] < self.dfnum[self.semi[self.best[v]]]:
                 self.best[v] = b
         return self.best[v]
-
-
-def dfs(start_node):
-    """ Visit nodes in depth-first-search order """
-    visited = set()
-    worklist = [(None, start_node)]
-    while worklist:
-        parent, node = worklist.pop()
-        if node not in visited:
-            visited.add(node)
-            yield parent, node
-            for s in node.successors:
-                worklist.append((node, s))

@@ -2,13 +2,13 @@
 Graphs
 ======
 
-The :mod:`ppci.utils.graph` module can be used to work with graphs.
+The :mod:`ppci.graph` module can be used to work with graphs.
 
 For example:
 
 .. doctest::
 
-    >>> from ppci.utils.graph import Graph, Node
+    >>> from ppci.graph import Graph, Node
     >>> g = Graph()
     >>> n1 = Node(g)
     >>> n2 = Node(g)
@@ -30,8 +30,8 @@ For example:
 Reference
 ---------
 
-.. automodule:: ppci.utils.graph
+.. automodule:: ppci.graph.graph
     :members:
 
-.. automodule:: ppci.utils.lt
+.. automodule:: ppci.graph.lt
     :members:

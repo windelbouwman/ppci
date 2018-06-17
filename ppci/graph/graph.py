@@ -1,6 +1,6 @@
 
 from collections import defaultdict
-from .collections import OrderedSet
+from ..utils.collections import OrderedSet
 
 
 def topological_sort(nodes):
@@ -183,41 +183,3 @@ class Node:
     def add_edge(self, other):
         """ Create an edge to the other node """
         self.graph.add_edge(self, other)
-
-
-class DiGraph(Graph):
-    """ Directed graph. """
-    def __init__(self):
-        super().__init__()
-        self.suc_map = defaultdict(set)
-        self.pre_map = defaultdict(set)
-
-    def add_edge(self, n, m):
-        """ Add a directed edge from n to m """
-        assert n in self.nodes
-        assert m in self.nodes
-        if (n, m) not in self.edges:
-            self.edges.add((n, m))
-            self.suc_map[n].add(m)
-            self.pre_map[m].add(n)
-            self.adj_map[n].add(m)
-            self.adj_map[m].add(n)
-            self.degree_map[m] += 1
-            self.degree_map[n] += 1
-
-    def successors(self, n):
-        return self.suc_map[n] & self.nodes
-
-    def predecessors(self, n):
-        return self.pre_map[n] & self.nodes
-
-
-class DiNode(Node):
-    @property
-    def successors(self):
-        return self.graph.successors(self)
-
-    @property
-    def predecessors(self):
-        """ Get the predecessors of this node """
-        return self.graph.predecessors(self)

@@ -7,7 +7,7 @@
 
 import logging
 from collections import defaultdict
-from ..utils.graph import Graph, Node
+from ..graph.graph import Graph, Node
 from ..arch.registers import Register
 
 

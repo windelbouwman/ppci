@@ -5,5 +5,5 @@ Control flow graph
 Reference
 ---------
 
-.. automodule:: ppci.utils.cfg
+.. automodule:: ppci.graph.cfg
     :members:

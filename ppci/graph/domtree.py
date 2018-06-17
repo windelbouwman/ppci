@@ -1,5 +1,5 @@
 
-from .utils.cfg import ir_function_to_graph
+from .cfg import ir_function_to_graph
 
 
 class CfgInfo:

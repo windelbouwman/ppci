@@ -1,8 +1,8 @@
 """ Test Lengauer Tarjan algorithm """
 
 import unittest
-from ppci.utils.graph import DiGraph, DiNode
-from ppci.utils.lt import calculate_idom
+from ppci.graph import DiGraph, DiNode
+from ppci.graph.lt import calculate_idom
 
 
 class LengauerTarjanTestCase(unittest.TestCase):

@@ -19,7 +19,7 @@ They might be the join point between dominator and post dominator nodes.
 """
 
 import logging
-from .utils.cfg import ir_function_to_graph, Loop
+from .graph.cfg import ir_function_to_graph, Loop
 
 
 def find_structure(ir_function):

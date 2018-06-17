@@ -6,7 +6,7 @@ also be stored into a register, to improve performance.
 
 from .transform import FunctionPass
 from .. import ir
-from ..domtree import CfgInfo
+from ..graph.domtree import CfgInfo
 
 
 def is_alloc_promotable(alloc_inst: ir.Alloc):

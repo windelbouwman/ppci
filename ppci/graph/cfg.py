@@ -12,7 +12,7 @@ Functions present:
 
 import logging
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
-from .graph import DiGraph, DiNode
+from .digraph import DiGraph, DiNode
 from . import lt
 from collections import namedtuple
 

@@ -6,7 +6,7 @@ import logging
 import re
 from collections import defaultdict
 from . import ir
-from .domtree import CfgInfo
+from .graph.domtree import CfgInfo
 from .common import IrFormError
 
 
