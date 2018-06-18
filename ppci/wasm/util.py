@@ -67,7 +67,8 @@ def make_float(s):
 
 def sanitize_name(name):
     """ Strip illegal characters from name, such as '.' and '-' """
-    name = name.replace('.', '_').replace('-', '_')
+    # TODO: we need to escape many things..
+    name = name.replace('.', '_').replace('-', '_').replace('/', '_')
 
     # To allow access by python attribute, check if the name is a
     # python keyword:

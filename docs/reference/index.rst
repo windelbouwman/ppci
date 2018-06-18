@@ -13,7 +13,6 @@ Reference
     irutils
     optimization
     codegen/index
-    langtools
     debug
     architecture
     backends/index
@@ -22,4 +21,5 @@ Reference
     wasm
     relooping
     utils/index
+    graph/index
     links

@@ -1160,3 +1160,23 @@ class CJump(JumpBase):
         return 'cjmp {} {} {} ? {} : {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)
+
+
+class JumpTable(JumpBase):
+    """ Jump table.
+
+    In the worst case, this is expanded to a whole bunch of CJump statements.
+    """
+    v = value_use('v')
+    lab_default = block_use('lab_default')
+
+    def __init__(self, v, table, default):
+        super().__init__()
+        self.v = v
+        self.table = table
+        self.lab_default = default
+        raise NotImplementedError('TODO')
+
+    def __str__(self):
+        return 'jmp_table {}'\
+               .format(self.v.name)

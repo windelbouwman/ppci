@@ -281,10 +281,41 @@ def create_runtime():
     
     def i32_rem_u(n: int, d: int) -> int:  # todo: different from signed, nan if d is zero?
         return n % d  # n - d*(n//d)
-    
+
+    def i32_trunc_s_f32(v: float) -> int:
+        return int(v)
+
+    def i32_trunc_u_f32(v: float) -> int:
+        return int(v)
+
+    def i32_trunc_s_f64(v: float) -> int:
+        return int(v)
+
+    def i32_trunc_u_f64(v: float) -> int:
+        return int(v)
+
+    def i64_trunc_s_f32(v: float) -> int:
+        return int(v)
+
+    def i64_trunc_u_f32(v: float) -> int:
+        return int(v)
+
+    def i64_trunc_s_f64(v: float) -> int:
+        return int(v)
+
+    def i64_trunc_u_f64(v: float) -> int:
+        return int(v)
+
+    def f64_promote_f32(v: float) -> float:
+        return v
+
     def f64_reinterpret_i64(v: float) -> int:
         x = struct.pack('<d', v)
         return struct.unpack('<q', x)[0]
+
+    def f32_reinterpret_i32(v: float) -> int:
+        x = struct.pack('<f', v)
+        return struct.unpack('<i', x)[0]
     
     def unreachable() -> None:
         raise Unreachable('WASM KERNEL panic!')
@@ -294,7 +325,7 @@ def create_runtime():
     
     def memory_grow(s: int) ->int:
         return 1
-        
+
     # TODO: merge with opcode table?
     runtime = {
         'f32_sqrt': sqrt,
@@ -312,7 +343,17 @@ def create_runtime():
         'i32_shr_s': i32_shr_s,
         'i32_rem_u': i32_rem_u,
         'i32_rem_s': i32_rem_s,
-        'f64_reinterpret/i64': f64_reinterpret_i64,
+        'i32_trunc_s_f32': i32_trunc_s_f32,
+        'i32_trunc_u_f32': i32_trunc_u_f32,
+        'i32_trunc_s_f64': i32_trunc_s_f64,
+        'i32_trunc_u_f64': i32_trunc_u_f64,
+        'i64_trunc_s_f32': i64_trunc_s_f32,
+        'i64_trunc_u_f32': i64_trunc_u_f32,
+        'i64_trunc_s_f64': i64_trunc_s_f64,
+        'i64_trunc_u_f64': i64_trunc_u_f64,
+        'f64_promote_f32': f64_promote_f32,
+        'f64_reinterpret_i64': f64_reinterpret_i64,
+        'f32_reinterpret_i32': f32_reinterpret_i32,
         'unreachable': unreachable,
         # todo: 'memory_size': memory_size,
         # todo: 'memory_grow': memory_grow,

@@ -8,7 +8,7 @@ from .. import common
 from ..binutils import debuginfo
 from ..arch.arch_info import TypeInfo
 from . import components
-from .opcodes import STORE_OPS, LOAD_OPS
+from .opcodes import STORE_OPS, LOAD_OPS, BINOPS, CASTOPS, CMPOPS
 from .util import sanitize_name
 
 
@@ -435,46 +435,6 @@ class WasmToIrCompiler:
 
         ppci_function.delete_unreachable()
 
-    BINOPS = {
-        'f64.add', 'f64.sub', 'f64.mul', 'f64.div',
-        'f32.add', 'f32.sub', 'f32.mul', 'f32.div',
-        'i64.add', 'i64.sub', 'i64.mul', 'i64.div_s', 'i64.div_u',
-        'i32.add', 'i32.sub', 'i32.mul', 'i32.div_s', 'i32.div_u',
-        'i64.and', 'i64.or', 'i64.xor',
-        'i64.shl', 'i64.shr_s', 'i64.shr_u',
-        'i64.rotl', 'i64.rotr',
-        'i32.and', 'i32.or', 'i32.xor', 'i32.shl',
-        'i32.shr_s', 'i32.shr_u',
-        'i32.rotl', 'i32.rotr',
-    }
-
-    CASTOPS = {
-        'i32.wrap/i64',
-        'i64.extend_s/i32',
-        'i64.extend_u/i32',
-        'f64.convert_s/i32',
-        'f64.convert_u/i32',
-        'f64.convert_s/i64',
-        'f64.convert_u/i64',
-        'f32.convert_s/i32',
-        'f32.convert_u/i32',
-        'f32.convert_s/i64',
-        'f32.convert_u/i64',
-    }
-
-    CMPOPS = {
-        'f64.eq', 'f64.ne', 'f64.ge', 'f64.gt', 'f64.le', 'f64.lt',
-        'f32.eq', 'f32.ne', 'f32.ge', 'f32.gt', 'f32.le', 'f32.lt',
-        'i32.eqz', 'i32.eq', 'i32.ne', 'i32.lt_s', 'i32.lt_u',
-        'i32.gt_s', 'i32.gt_u', 'i32.le_s', 'i32.le_u',
-        'i32.ge_s', 'i32.ge_u',
-        'i64.eqz', 'i64.eq', 'i64.ne',
-        'i64.lt_s', 'i64.lt_u',
-        'i64.gt_s', 'i64.gt_u',
-        'i64.le_s', 'i64.le_u',
-        'i64.ge_s', 'i64.ge_u',
-    }
-
     OPMAP = dict(
         eqz='==', eq='==', ne='!=',
         ge='>=', ge_u='>=', ge_s='>=',
@@ -509,6 +469,7 @@ class WasmToIrCompiler:
         if len(self.stack) > self.block_stack[-1].stack_start:
             value = self.stack.pop()
             if isinstance(value, ir.Value):
+                assert value.ty is ir.i32
                 a = value
                 b = self.emit(ir.Const(0, 'zero', ir.i32))
                 return '!=', a, b
@@ -588,10 +549,10 @@ class WasmToIrCompiler:
             # This is a guarding condition for the other instructions
             pass
 
-        elif inst in self.BINOPS:
+        elif inst in BINOPS:
             self.gen_binop(instruction)
 
-        elif inst in self.CMPOPS:
+        elif inst in CMPOPS:
             self.gen_cmpop(instruction)
 
         elif inst in STORE_OPS:
@@ -600,7 +561,7 @@ class WasmToIrCompiler:
         elif inst in LOAD_OPS:
             self.gen_load(instruction)
 
-        elif inst in self.CASTOPS:
+        elif inst in CASTOPS:
             value = self.pop_value()
             ir_typ = self.get_ir_type(inst.split('.')[0])
             value = self.emit(ir.Cast(value, 'cast', ir_typ))
@@ -969,7 +930,7 @@ class WasmToIrCompiler:
         """ Generate code for the select wasm instruction """
         # This is roughly equivalent to C-style: a ? b : c
         op, a, b = self.pop_condition()
-        ja_value, nein_value = self.pop_value(), self.pop_value()
+        nein_value, ja_value = self.pop_value(), self.pop_value()
 
         ja_block = self.builder.new_block()
         nein_block = self.builder.new_block()
@@ -1086,7 +1047,7 @@ class WasmToIrCompiler:
         This is required for functions such 'sqrt' as which do not have
         a reasonable ppci ir-code equivalent.
         """
-        rt_func_name = rt_func_name.replace('.', '_')
+        rt_func_name = 'wasm_rt_' + sanitize_name(rt_func_name)
 
         # Get or create the runtime function:
         if rt_func_name in self._runtime_functions:

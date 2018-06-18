@@ -16,3 +16,4 @@ languages.
     pascal
     python
     sexpr
+    tools

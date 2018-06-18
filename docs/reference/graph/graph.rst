@@ -33,5 +33,8 @@ Reference
 .. automodule:: ppci.graph.graph
     :members:
 
+.. automodule:: ppci.graph.digraph
+    :members:
+
 .. automodule:: ppci.graph.lt
     :members:

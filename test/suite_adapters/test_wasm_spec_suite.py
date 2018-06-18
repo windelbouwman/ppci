@@ -21,6 +21,7 @@ to the location where the code was cloned.
 
 import unittest
 import glob
+import math
 import os.path
 import logging
 import io
@@ -33,6 +34,7 @@ from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.wasm.util import datastring2bytes, sanitize_name
+from ppci.wasm.util import make_int, make_float
 
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -66,6 +68,7 @@ def perform_test(filename):
 class WastExecutor:
     def __init__(self, reporter):
         self.reporter = reporter
+        self.mod_instance = None
 
     def execute(self, s_expressions):
         for s_expr in s_expressions:
@@ -78,13 +81,15 @@ class WastExecutor:
 
         elif s_expr[0] == 'invoke':
             # TODO: invoke test functions defined in wast files
-            self.invoke(s_expr)
+            if self.mod_instance:
+                self.invoke(s_expr)
 
         elif s_expr[0] == 'assert_return':
-            result = self.invoke(s_expr[1])
-            if len(s_expr) > 2:
-                expected_value = self.parse_expr(s_expr[2])
-                assert result == expected_value
+            if self.mod_instance:
+                result = self.invoke(s_expr[1])
+                if len(s_expr) > 2:
+                    expected_value = self.parse_expr(s_expr[2])
+                    self.assert_equal(result, expected_value)
         else:
             # print('Unknown directive', s_expr[0])
             pass
@@ -145,7 +150,7 @@ class WastExecutor:
                 pass
 
             imports = {
-               'rt': create_runtime(),
+               'wasm_rt': create_runtime(),
                'spectest': {
                    'memory': True,  # TODO?
                    'global_i32': 1337,  # TODO?
@@ -167,12 +172,32 @@ class WastExecutor:
         return getattr(self.mod_instance.exports, func_name)(*args)
 
     def parse_expr(self, s_expr):
-        if s_expr[0] == 'i32.const':
-            return s_expr[1]
-        elif s_expr[0] == 'i32.const':
-            return s_expr[1]
+        if s_expr[0] in ['i32.const', 'i64.const']:
+            v = make_int(s_expr[1])
+            if s_expr[0].startswith('i32'):
+                if v >= 0x80000000:
+                    return v - 0x100000000
+                else:
+                    return v
+            else:
+                return v
+        elif s_expr[0] in ['f32.const', 'f64.const']:
+            return make_float(s_expr[1])
         else:
             raise NotImplementedError(str(s_expr))
+
+    def assert_equal(self, v1, v2):
+        print(v1, v2, type(v1), type(v2))
+        if isinstance(v1, int) and isinstance(v2, int):
+            assert v1 == v2
+        elif isinstance(v1, float) and isinstance(v2, float):
+            # TODO: is this margin acceptable?
+            if math.isnan(v1):
+                assert math.isnan(v2)
+            else:
+                assert math.isclose(v1, v2, rel_tol=0.0001)
+        else:
+            raise NotImplementedError(str(v1) + '=' + str(v2))
 
 
 def create_test_function(cls, filename):
@@ -231,4 +256,6 @@ if __name__ == '__main__':
     # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     
     for filename in get_wast_files():
+        if filename.endswith('br_table.wast'):
+            continue
         perform_test(filename)

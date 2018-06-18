@@ -10,5 +10,3 @@ Utilities
     hexdump
     codepage
     reporting
-    cfg
-    graph

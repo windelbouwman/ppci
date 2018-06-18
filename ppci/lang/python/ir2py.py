@@ -1,5 +1,6 @@
 """ Python back-end. Generates python code from ir-code. """
 
+import io
 import time
 from ... import ir
 
@@ -11,10 +12,19 @@ def literal_label(lit):
 
 def ir_to_python(ir_modules, f, reporter=None):
     """ Convert ir-code to python code """
+    if reporter:
+        f2 = f
+        f = io.StringIO()
+
     generator = IrToPythonCompiler(f)
     generator.header()
     for ir_module in ir_modules:
         generator.generate(ir_module)
+
+    if reporter:
+        source_code = f.getvalue()
+        f2.write(source_code)
+        reporter.dump_source('Python code', source_code)
 
 
 class IrToPythonCompiler:
