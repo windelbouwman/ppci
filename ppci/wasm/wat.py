@@ -11,7 +11,7 @@ import logging
 from collections import defaultdict
 from ..lang.sexpr import parse_sexpr
 from .opcodes import OPERANDS, OPCODES
-from .util import datastring2bytes, make_int, make_float, is_int
+from .util import datastring2bytes, make_int, make_float, is_int, PAGE_SIZE
 from .tuple_parser import TupleParser, Token
 from . import components
 
@@ -387,9 +387,8 @@ class WatTupleLoader(TupleParser):
             data = self.parse_data_blobs()
             self.expect(Token.RPAR)
             self.expect(Token.RPAR)
-            pagesize = 65535
             max = 1
-            assert len(data) < max * pagesize, 'TODO: round upward'
+            assert len(data) < max * PAGE_SIZE, 'TODO: round upward'
             min = max
             self.add_definition(
                 components.Memory(id, min, max))
@@ -630,7 +629,8 @@ class WatTupleLoader(TupleParser):
                         arg = self.take()
                         arg = self.get_ref(kind, arg)
                     elif op in ['i32', 'i64']:
-                        arg = make_int(self.take())
+                        bits = int(op[1:])
+                        arg = make_int(self.take(), bits=bits)
                     elif op in ['f32', 'f64']:
                         arg = make_float(self.take())
                     else:

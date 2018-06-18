@@ -20,6 +20,7 @@ __all__ = ['export_wasm_example',
            'has_node']
 
 
+PAGE_SIZE = 64 * 1024  # 64 KiB
 hex_prog = re.compile(r'-?0x[0-9a-fA-F]+')
 hex_float_prog = re.compile(r'[-+]?0x[0-9a-fA-F]+')
 hex_nan_prog = re.compile(r'[-+]?nan:.+')
@@ -35,17 +36,24 @@ def is_int(s):
         return False
 
 
-def make_int(s):
+def make_int(s, bits=None):
     """ Try to make an integer """
     if isinstance(s, int):
-        return s
+        v = s
     elif isinstance(s, str):
         if hex_prog.match(s):
-            return int(s, 16)
+            v = int(s, 16)
         else:
-            return int(s)
+            v = int(s)
     else:
         raise NotImplementedError(str(s))
+
+    if bits is not None:
+        # Wrap sign if needed:
+        if v >= (1 << (bits - 1)):
+            v -= (1 << bits)
+
+    return v
 
 
 def make_float(s):

@@ -846,15 +846,15 @@ class WasmToIrCompiler:
             # todo: we assume that the test is a comparison
             op, a, b = self.pop_condition()
             true_block = self.new_block()
-            continue_block = self.new_block()
-            self.emit(ir.CJump(a, op, b, true_block, continue_block))
+            else_block = self.new_block()
+            self.emit(ir.CJump(a, op, b, true_block, else_block))
             self.builder.set_block(true_block)
             phi = self.get_phi(instruction)
         else:
-            continue_block = None
+            else_block = None
             phi = None
         self.block_stack.append(
-            BlockLevel('if', continue_block, None, phi, len(self.stack)))
+            BlockLevel('if', else_block, None, phi, len(self.stack)))
 
     def gen_else(self):
         """ Generate code for else instruction """

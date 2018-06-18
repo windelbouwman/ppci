@@ -20,7 +20,7 @@ from ..irutils import verify_module
 from . import wasm_to_ir
 from .components import Export, Import
 from .wasm2ppci import create_memories
-from .util import sanitize_name
+from .util import sanitize_name, PAGE_SIZE
 
 __all__ = ('instantiate',)
 
@@ -119,6 +119,10 @@ def python_instantiate(module, imports, reporter):
     exec(pycode, _module.__dict__)
     instance = PythonModuleInstance(_module)
 
+    # Magical python memory interface, add it now:
+    imports['wasm_rt_memory_grow'] = instance.memory_grow
+    imports['wasm_rt_memory_size'] = instance.memory_size
+
     # Link all imports:
     for name, f in imports.items():
         # TODO: make a choice between those two options:
@@ -146,10 +150,10 @@ def python_instantiate(module, imports, reporter):
         assert len(memories) == 1
         memory = list(memories.values())[0]
 
-        mem0_start = instance._module.heap_top()
+        instance.mem0_start = instance._module.heap_top()
         instance._module.heap.extend(memory)
         mem0_ptr_ptr = instance._module.wasm_mem0_address
-        instance._module.store_i32(mem0_start, mem0_ptr_ptr)
+        instance._module.store_i32(instance.mem0_start, mem0_ptr_ptr)
 
     return instance
 
@@ -175,12 +179,31 @@ class ModuleInstance:
 
 class NativeModuleInstance(ModuleInstance):
     """ Wasm module loaded as natively compiled code """
-    pass
+    def memory_grow(self, amount):
+        """ Grow memory and return the old size """
+        raise NotImplementedError()
+
+    def memory_size(self):
+        """ return memory size in pages """
+        raise NotImplementedError()
 
 
 class PythonModuleInstance(ModuleInstance):
     """ Wasm module loaded a generated python module """
-    pass
+    def __init__(self, module):
+        super().__init__(module)
+        self.mem_end = self._module.heap_top()
+
+    def memory_grow(self, amount):
+        """ Grow memory and return the old size """
+        old_size = self.memory_size()
+        self._module.heap.extend(bytes(amount * PAGE_SIZE))
+        return old_size
+
+    def memory_size(self):
+        """ return memory size in pages """
+        size = (self._module.heap_top() - self.mem0_start) // PAGE_SIZE
+        return size
 
 
 class Exports:
@@ -282,6 +305,20 @@ def create_runtime():
     def i32_rem_u(n: int, d: int) -> int:  # todo: different from signed, nan if d is zero?
         return n % d  # n - d*(n//d)
 
+    # i64:
+    def i64_rem_s(n: int, d: int) -> int:
+        return n % d  # n - d*(n//d)
+
+    def i64_rem_u(n: int, d: int) -> int:
+        return n % d  # n - d*(n//d)
+
+    def i64_shr_s(v: int, s: int) -> int:
+        return v >> s
+
+    def i64_shr_u(v: int, s: int) -> int:
+        return v >> s  # todo: this is probably wrong?
+
+    # Conversions:
     def i32_trunc_s_f32(v: float) -> int:
         return int(v)
 
@@ -343,6 +380,10 @@ def create_runtime():
         'i32_shr_s': i32_shr_s,
         'i32_rem_u': i32_rem_u,
         'i32_rem_s': i32_rem_s,
+        'i64_rem_u': i64_rem_u,
+        'i64_rem_s': i64_rem_s,
+        'i64_shr_s': i64_shr_s,
+        'i64_shr_u': i64_shr_u,
         'i32_trunc_s_f32': i32_trunc_s_f32,
         'i32_trunc_u_f32': i32_trunc_u_f32,
         'i32_trunc_s_f64': i32_trunc_s_f64,

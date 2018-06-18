@@ -173,14 +173,8 @@ class WastExecutor:
 
     def parse_expr(self, s_expr):
         if s_expr[0] in ['i32.const', 'i64.const']:
-            v = make_int(s_expr[1])
-            if s_expr[0].startswith('i32'):
-                if v >= 0x80000000:
-                    return v - 0x100000000
-                else:
-                    return v
-            else:
-                return v
+            bits = int(s_expr[0][1:3])
+            return make_int(s_expr[1], bits=bits)
         elif s_expr[0] in ['f32.const', 'f64.const']:
             return make_float(s_expr[1])
         else:
