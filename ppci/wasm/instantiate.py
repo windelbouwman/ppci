@@ -353,15 +353,9 @@ def create_runtime():
     def f32_reinterpret_i32(v: float) -> int:
         x = struct.pack('<f', v)
         return struct.unpack('<i', x)[0]
-    
+
     def unreachable() -> None:
         raise Unreachable('WASM KERNEL panic!')
-
-    def memory_size() -> int:
-        return 1
-    
-    def memory_grow(s: int) ->int:
-        return 1
 
     # TODO: merge with opcode table?
     runtime = {

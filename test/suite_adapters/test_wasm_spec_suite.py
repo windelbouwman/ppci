@@ -66,6 +66,8 @@ def perform_test(filename):
 
 
 class WastExecutor:
+    logger = logging.getLogger('wast-exe')
+
     def __init__(self, reporter):
         self.reporter = reporter
         self.mod_instance = None
@@ -129,7 +131,6 @@ class WastExecutor:
         else:
             # Load module from tuples:
             m1 = Module(s_expr)
-            print(m1)
 
             # # Convert module to text form and parse again
             # # This should yield the same binary form:
@@ -140,6 +141,8 @@ class WastExecutor:
             # guarantee that parsing was correct.
 
             self.reporter.dump_wasm(m1)
+
+        self.logger.debug('loaded wasm module %s', m1)
 
         # Next step: Instantiate:
         if True:
@@ -160,15 +163,15 @@ class WastExecutor:
             }
             self.mod_instance = instantiate(
                 m1, imports, target='python', reporter=self.reporter)
-            print(self.mod_instance)
+            self.logger.debug('Instantiated wasm module %s', self.mod_instance)
 
     def invoke(self, target):
-        print(target)
+        # print(target)
         assert target[0] == 'invoke'
         # TODO: how to handle names like @#$%^&*?
         func_name = sanitize_name(target[1])
         args = [self.parse_expr(a) for a in target[2:]]
-        print('Invoking method', func_name, args)
+        self.logger.debug('Invoking method %s(%s)', func_name, args)
         return getattr(self.mod_instance.exports, func_name)(*args)
 
     def parse_expr(self, s_expr):
@@ -181,7 +184,7 @@ class WastExecutor:
             raise NotImplementedError(str(s_expr))
 
     def assert_equal(self, v1, v2):
-        print(v1, v2, type(v1), type(v2))
+        # print(v1, v2, type(v1), type(v2))
         if isinstance(v1, int) and isinstance(v2, int):
             assert v1 == v2
         elif isinstance(v1, float) and isinstance(v2, float):

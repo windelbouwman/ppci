@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import unittest
-from ppci.graph import Graph, Node, DiGraph, DiNode
+from ppci.graph import Graph, Node, DiGraph, DiNode, MaskableGraph
 from ppci.codegen.interferencegraph import InterferenceGraph
 from ppci.codegen.flowgraph import FlowGraph
 from ppci.arch.generic_instructions import Nop
@@ -64,7 +64,7 @@ class GraphTestCase(unittest.TestCase):
         self.assertEqual(1, n2.degree)
 
     def test_degree_mask_unMask(self):
-        g = Graph()
+        g = MaskableGraph()
         n1 = Node(g)
         n2 = Node(g)
         n3 = Node(g)
@@ -83,7 +83,7 @@ class GraphTestCase(unittest.TestCase):
         """ Test the combination of masking and combining
             difficult case!
         """
-        g = Graph()
+        g = MaskableGraph()
         n1 = Node(g)
         n2 = Node(g)
         n3 = Node(g)

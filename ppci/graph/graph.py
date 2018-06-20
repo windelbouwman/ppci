@@ -65,25 +65,10 @@ class Graph:
 
     def del_node(self, n):
         """ Remove a node from the graph """
-        assert n not in self.masked_nodes, 'Unable to delete masked node'
         self.nodes.remove(n)
         for neighbour in self.adj_map[n]:
             self.degree_map[neighbour] -= 1
             self.adj_map[neighbour].remove(n)
-
-    def mask_node(self, node):
-        """ Add the node into the masked set """
-        self.masked_nodes.add(node)
-        for neighbour in self.adj_map[node]:
-            self.degree_map[neighbour] -= 1
-            self.get_degree(neighbour)  # FOr check
-
-    def unmask_node(self, node):
-        """ Unmask a node (put it back into the graph """
-        self.masked_nodes.remove(node)
-        for neighbour in self.adj_map[node]:
-            self.degree_map[neighbour] += 1
-            self.get_degree(neighbour)  # FOr check
 
     def is_masked(self, node):
         return node in self.masked_nodes
@@ -137,11 +122,6 @@ class Graph:
         # if self.has_edge(n, m):
         #    self.degree_map[n] += 1
 
-        # node m is going away, make sure to unmask it first:
-        if self.is_masked(m):
-            self.unmask_node(m)
-
-        assert not self.is_masked(n), 'Combining only allowed for non-masked'
         # assert not self.has_edge(n, m)
 
         # Reroute all edges:

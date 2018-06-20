@@ -8,7 +8,7 @@ from .. import common
 from ..binutils import debuginfo
 from ..arch.arch_info import TypeInfo
 from . import components
-from .opcodes import STORE_OPS, LOAD_OPS, BINOPS, CASTOPS, CMPOPS
+from .opcodes import STORE_OPS, LOAD_OPS, BINOPS, CASTOPS, CMPOPS, STACK_IO
 from .util import sanitize_name
 
 
@@ -562,67 +562,41 @@ class WasmToIrCompiler:
             self.gen_load(instruction)
 
         elif inst in CASTOPS:
-            value = self.pop_value()
+            from_ir_typ = self.get_ir_type(inst.split('/')[1])
             ir_typ = self.get_ir_type(inst.split('.')[0])
+            value = self.pop_value(ir_typ=from_ir_typ)
+            if '_u' in inst:
+                # First cast to unsigned value:
+                mp = {
+                    '_u/i32': ir.u32,
+                    '_u/i64': ir.u32,
+                }
+                unsigned_ir_typ = mp[inst[-6:]]
+                value = self.emit(ir.Cast(value, 'unsigned', unsigned_ir_typ))
             value = self.emit(ir.Cast(value, 'cast', ir_typ))
             self.push_value(value)
 
         elif inst in [
                 'f64.floor', 'f64.sqrt', 'f64.abs', 'f64.ceil', 'f64.trunc',
-                'f64.nearest']:
-            self._runtime_call(inst, [ir.f64], ir.f64)
-
-        elif inst in ['f64.min', 'f64.max', 'f64.copysign']:
-            self._runtime_call(inst, [ir.f64, ir.f64], ir.f64)
-
-        elif inst in [
+                'f64.nearest',
+                'f64.min', 'f64.max', 'f64.copysign',
                 'f32.floor', 'f32.sqrt', 'f32.abs', 'f32.ceil', 'f32.trunc',
-                'f32.nearest']:
-            self._runtime_call(inst, [ir.f32], ir.f32)
-
-        elif inst in ['f32.min', 'f32.max', 'f32.copysign']:
-            self._runtime_call(inst, [ir.f32, ir.f32], ir.f32)
-
-        elif inst == 'f32.demote/f64':
-            self._runtime_call(inst, [ir.f64], ir.f32)
-
-        elif inst == 'f32.reinterpret/i32':
-            self._runtime_call(inst, [ir.i32], ir.f32)
-
-        elif inst in ['i64.rem_u', 'i64.rem_s']:
-            self._runtime_call(inst, [ir.i64, ir.i64], ir.i64)
-
-        elif inst in ['i64.clz', 'i64.ctz', 'i64.popcnt']:
-            self._runtime_call(inst, [ir.i64], ir.i64)
-
-        elif inst == 'f64.reinterpret/i64':
-            self._runtime_call(inst, [ir.i64], ir.f64)
-
-        elif inst == 'f64.promote/f32':
-            self._runtime_call(inst, [ir.f32], ir.f64)
-
-        elif inst in [
-                'i64.trunc_s/f64', 'i64.trunc_u/f64', 'i64.reinterpret/f64']:
-            self._runtime_call(inst, [ir.f64], ir.i64)
-
-        elif inst in ['i64.trunc_s/f32', 'i64.trunc_u/f32']:
-            self._runtime_call(inst, [ir.f32], ir.i64)
-
-        elif inst in [
-                'i32.trunc_s/f32', 'i32.trunc_u/f32', 'i32.reinterpret/f32']:
-            self._runtime_call(inst, [ir.f32], ir.i32)
-
-        elif inst in ['i32.trunc_s/f64', 'i32.trunc_u/f64']:
-            self._runtime_call(inst, [ir.f64], ir.i32)
-
-        elif inst in ['i32.rem_u', 'i32.rem_s']:
-            self._runtime_call(inst, [ir.i32, ir.i32], ir.i32)
-
-        elif inst in ['i32.clz', 'i32.ctz', 'i32.popcnt', 'memory.grow']:
-            self._runtime_call(inst, [ir.i32], ir.i32)
-
-        elif inst in ['memory.size']:
-            self._runtime_call(inst, [], ir.i32)
+                'f32.nearest',
+                'f32.demote/f64',
+                'f32.min', 'f32.max', 'f32.copysign',
+                'f32.reinterpret/i32',
+                'i64.rem_u', 'i64.rem_s',
+                'i64.clz', 'i64.ctz', 'i64.popcnt',
+                'f64.reinterpret/i64',
+                'f64.promote/f32',
+                'i64.trunc_s/f64', 'i64.trunc_u/f64', 'i64.reinterpret/f64',
+                'i64.trunc_s/f32', 'i64.trunc_u/f32',
+                'i32.trunc_s/f32', 'i32.trunc_u/f32', 'i32.reinterpret/f32',
+                'i32.trunc_s/f64', 'i32.trunc_u/f64',
+                'i32.rem_u', 'i32.rem_s',
+                'i32.clz', 'i32.ctz', 'i32.popcnt', 'memory.grow',
+                'memory.size']:
+            self._runtime_call(inst)
 
         elif inst in {'f64.const', 'f32.const', 'i64.const', 'i32.const'}:
             value = self.emit(
@@ -708,7 +682,7 @@ class WasmToIrCompiler:
         name = 'op_{}'.format(opname)
         ir_typ = self.get_ir_type(itype)
         if op in ['ror', 'rol', 'asr']:
-            self._runtime_call(inst, [ir_typ, ir_typ], ir_typ)
+            self._runtime_call(inst)
         else:
             b = self.pop_value(ir_typ=ir_typ)
             a = self.pop_value(ir_typ=ir_typ)
@@ -832,6 +806,12 @@ class WasmToIrCompiler:
         if self.is_reachable:
             assert block.continue_block is not None
             self.emit(ir.Jump(block.continue_block))
+
+        if block.typ == 'if' and block.inner_block is not None:
+            # We should connect empty else to end block.
+            self.builder.set_block(block.inner_block)
+            self.emit(ir.Jump(block.continue_block))
+
         self.builder.set_block(block.continue_block)
         # TODO: Do we need to have an empty stack at end of block??
         # assert len(self.stack) == 0, str(self.stack)
@@ -846,15 +826,18 @@ class WasmToIrCompiler:
             # todo: we assume that the test is a comparison
             op, a, b = self.pop_condition()
             true_block = self.new_block()
+            continue_block = self.new_block()
             else_block = self.new_block()
             self.emit(ir.CJump(a, op, b, true_block, else_block))
             self.builder.set_block(true_block)
             phi = self.get_phi(instruction)
         else:
+            continue_block = None
             else_block = None
             phi = None
+        # Store else block as inner block to allow break:
         self.block_stack.append(
-            BlockLevel('if', else_block, None, phi, len(self.stack)))
+            BlockLevel('if', continue_block, else_block, phi, len(self.stack)))
 
     def gen_else(self):
         """ Generate code for else instruction """
@@ -866,12 +849,9 @@ class WasmToIrCompiler:
         self.block_stack.pop()
         self.unwind(if_block)
 
-        # continueblock becomes elseblock
-        else_block = if_block.continue_block
-        if else_block is not None:
-            continue_block = self.new_block()
-        else:
-            continue_block = None
+        # else_block was stored in inner block
+        else_block = if_block.inner_block
+        continue_block = if_block.continue_block
 
         if self.is_reachable:
             self.emit(ir.Jump(continue_block))
@@ -956,7 +936,7 @@ class WasmToIrCompiler:
         What we will do, is we call an external function to handle this
         exception. Also we will return from the subroutine.
         """
-        self._runtime_call('unreachable', [], None)
+        self._runtime_call('unreachable')
         if isinstance(self.builder.function, ir.Procedure):
             self.emit(ir.Exit())
         else:
@@ -1041,13 +1021,22 @@ class WasmToIrCompiler:
         self.emit(ir.Jump(default_block))
         self.builder.set_block(None)
 
-    def _runtime_call(self, rt_func_name, arg_types, ir_typ):
+    def _runtime_call(self, inst):
         """ Generate runtime function call.
 
         This is required for functions such 'sqrt' as which do not have
         a reasonable ppci ir-code equivalent.
         """
-        rt_func_name = 'wasm_rt_' + sanitize_name(rt_func_name)
+        rt_func_name = 'wasm_rt_' + sanitize_name(inst)
+
+        # Determine argument and return types:
+        stack_in, stack_out = STACK_IO[inst]
+        arg_types = [self.get_ir_type(t) for t in stack_in]
+        if stack_out:
+            assert len(stack_out) == 1
+            ir_typ = self.get_ir_type(stack_out[0])
+        else:
+            ir_typ = None
 
         # Get or create the runtime function:
         if rt_func_name in self._runtime_functions:

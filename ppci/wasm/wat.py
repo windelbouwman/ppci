@@ -362,9 +362,9 @@ class WatTupleLoader(TupleParser):
                 self.func_backlog[-1].append(ref)
             elif space == 'label':
                 # Lookup depth now:
-                # TODO: include if statements as branch targets?
-                pos = self.block_stack.index(value)
-                depth = len(self.block_stack) - pos - 1
+                # Search backwards from top:
+                depth = list(reversed(self.block_stack)).index(value)
+                # depth = len(self.block_stack) - pos - 1
                 ref.index = depth
             else:
                 self.resolve_backlog.append(ref)
