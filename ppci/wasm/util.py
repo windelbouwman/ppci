@@ -40,6 +40,8 @@ def make_int(s, bits=None):
     """ Try to make an integer """
     if isinstance(s, int):
         v = s
+    elif isinstance(s, float):
+        v = int(s)
     elif isinstance(s, str):
         if hex_prog.match(s):
             v = int(s, 16)

@@ -44,6 +44,7 @@ class IrToPythonCompiler:
         self.print(0, '# Generator {}'.format(__file__))
         self.print(0, '')
         self.print(0, 'import struct')
+        self.print(0, 'import math')
         self.print(0, '')
         self.print(0, 'heap = bytearray()')
         self.print(0, 'stack = bytearray()')
@@ -120,6 +121,11 @@ class IrToPythonCompiler:
         self.print(2, 'return value - base')
         self.print(1, 'else:')
         self.print(2, 'return value')
+        self.print(0, '')
+
+        # Truncating integer divide
+        self.print(0, 'def idiv(x, y):')
+        self.print(1, 'return int(math.trunc(x/y))')
         self.print(0, '')
 
         self.print(0, 'def _alloca(amount):')
@@ -218,9 +224,11 @@ class IrToPythonCompiler:
             # Assume int for now.
             op = ins.operation
             if op == '/' and ins.ty.is_integer:
-                op = '//'
-            self.print(3, '{} = {} {} {}'.format(
-                ins.name, ins.a.name, op, ins.b.name))
+                self.print(3, '{} = idiv({}, {})'.format(
+                    ins.name, ins.a.name, ins.b.name))
+            else:
+                self.print(3, '{} = {} {} {}'.format(
+                    ins.name, ins.a.name, op, ins.b.name))
             if ins.ty.is_integer:
                 self.print(3, '{0} = correct({0}, {1}, {2})'.format(
                     ins.name, ins.ty.bits, ins.ty.signed))

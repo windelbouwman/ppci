@@ -439,7 +439,7 @@ class WasmToIrCompiler:
         eqz='==', eq='==', ne='!=',
         ge='>=', ge_u='>=', ge_s='>=',
         le='<=', le_u='<=', le_s='<=',
-        gt='>', gt_u='>', gt_s='<',
+        gt='>', gt_u='>', gt_s='>',
         lt='<', lt_u='<', lt_s='<')
 
     def get_phi(self, instruction):
@@ -561,7 +561,19 @@ class WasmToIrCompiler:
         elif inst in LOAD_OPS:
             self.gen_load(instruction)
 
-        elif inst in CASTOPS:
+        elif inst in {
+                'i32.wrap/i64',
+                'i64.extend_s/i32',
+                'i64.extend_u/i32',
+                'f64.convert_s/i32',
+                'f64.convert_u/i32',
+                'f64.convert_s/i64',
+                'f64.convert_u/i64',
+                'f32.convert_s/i32',
+                'f32.convert_u/i32',
+                'f32.convert_s/i64',
+                'f32.convert_u/i64',
+                }:
             from_ir_typ = self.get_ir_type(inst.split('/')[1])
             ir_typ = self.get_ir_type(inst.split('.')[0])
             value = self.pop_value(ir_typ=from_ir_typ)
@@ -569,12 +581,55 @@ class WasmToIrCompiler:
                 # First cast to unsigned value:
                 mp = {
                     '_u/i32': ir.u32,
-                    '_u/i64': ir.u32,
+                    '_u/i64': ir.u64,
                 }
                 unsigned_ir_typ = mp[inst[-6:]]
                 value = self.emit(ir.Cast(value, 'unsigned', unsigned_ir_typ))
             value = self.emit(ir.Cast(value, 'cast', ir_typ))
             self.push_value(value)
+
+        elif inst in {
+                'i32.trunc_s/f32',
+                'i32.trunc_u/f32',
+                'i32.trunc_s/f64',
+                'i32.trunc_u/f64',
+                'i64.trunc_s/f32',
+                'i64.trunc_u/f32',
+                'i64.trunc_s/f64',
+                'i64.trunc_u/f64',
+                }:
+            # TODO: in theory this should be solvable in ir-code.
+            if True:
+                self._runtime_call(inst)
+            else:
+                from_ir_typ = self.get_ir_type(inst.split('/')[1])
+                ir_typ = self.get_ir_type(inst.split('.')[0])
+                value = self.pop_value(ir_typ=from_ir_typ)
+                if '_u' in inst:
+                    # First cast to unsigned value:
+                    mp = {
+                        'i32.trunc_u': ir.u32,
+                        'i64.trunc_u': ir.u64,
+                    }
+                    unsigned_ir_typ = mp[inst.split('/')[0]]
+                    value = self.emit(ir.Cast(
+                        value, 'unsigned', unsigned_ir_typ))
+                value = self.emit(ir.Cast(value, 'cast', ir_typ))
+                self.push_value(value)
+
+        elif inst in {
+                'f64.promote/f32',
+                'f32.demote/f64',
+                }:
+            # TODO: in theory this should be solvable in ir-code.
+            if True:
+                self._runtime_call(inst)
+            else:
+                from_ir_typ = self.get_ir_type(inst.split('/')[1])
+                ir_typ = self.get_ir_type(inst.split('.')[0])
+                value = self.pop_value(ir_typ=from_ir_typ)
+                value = self.emit(ir.Cast(value, 'cast', ir_typ))
+                self.push_value(value)
 
         elif inst in [
                 'f64.floor', 'f64.sqrt', 'f64.abs', 'f64.ceil', 'f64.trunc',
@@ -582,17 +637,13 @@ class WasmToIrCompiler:
                 'f64.min', 'f64.max', 'f64.copysign',
                 'f32.floor', 'f32.sqrt', 'f32.abs', 'f32.ceil', 'f32.trunc',
                 'f32.nearest',
-                'f32.demote/f64',
                 'f32.min', 'f32.max', 'f32.copysign',
                 'f32.reinterpret/i32',
                 'i64.rem_u', 'i64.rem_s',
                 'i64.clz', 'i64.ctz', 'i64.popcnt',
                 'f64.reinterpret/i64',
-                'f64.promote/f32',
-                'i64.trunc_s/f64', 'i64.trunc_u/f64', 'i64.reinterpret/f64',
-                'i64.trunc_s/f32', 'i64.trunc_u/f32',
-                'i32.trunc_s/f32', 'i32.trunc_u/f32', 'i32.reinterpret/f32',
-                'i32.trunc_s/f64', 'i32.trunc_u/f64',
+                'i64.reinterpret/f64',
+                'i32.reinterpret/f32',
                 'i32.rem_u', 'i32.rem_s',
                 'i32.clz', 'i32.ctz', 'i32.popcnt', 'memory.grow',
                 'memory.size']:
@@ -686,6 +737,11 @@ class WasmToIrCompiler:
         else:
             b = self.pop_value(ir_typ=ir_typ)
             a = self.pop_value(ir_typ=ir_typ)
+            if '_u' in opname:
+                # Unsigned operation, first cast to unsigned:
+                # unsigned_typ = 
+                # b = self.emit(
+                pass
             value = self.emit(ir.Binop(a, op, b, name, ir_typ))
             self.push_value(value)
 

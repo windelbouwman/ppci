@@ -20,7 +20,7 @@ from ..irutils import verify_module
 from . import wasm_to_ir
 from .components import Export, Import
 from .wasm2ppci import create_memories
-from .util import sanitize_name, PAGE_SIZE
+from .util import sanitize_name, PAGE_SIZE, make_int
 
 __all__ = ('instantiate',)
 
@@ -196,9 +196,13 @@ class PythonModuleInstance(ModuleInstance):
 
     def memory_grow(self, amount):
         """ Grow memory and return the old size """
-        old_size = self.memory_size()
-        self._module.heap.extend(bytes(amount * PAGE_SIZE))
-        return old_size
+        # Limit the bounds of memory somewhat:
+        if amount > 2**12:
+            return -1
+        else:
+            old_size = self.memory_size()
+            self._module.heap.extend(bytes(amount * PAGE_SIZE))
+            return old_size
 
     def memory_size(self):
         """ return memory size in pages """
@@ -323,36 +327,95 @@ def create_runtime():
         return int(v)
 
     def i32_trunc_u_f32(v: float) -> int:
-        return int(v)
+        return make_int(v, 32)
 
     def i32_trunc_s_f64(v: float) -> int:
         return int(v)
 
     def i32_trunc_u_f64(v: float) -> int:
-        return int(v)
+        return make_int(v, 32)
 
     def i64_trunc_s_f32(v: float) -> int:
         return int(v)
 
     def i64_trunc_u_f32(v: float) -> int:
-        return int(v)
+        return make_int(v, 64)
 
     def i64_trunc_s_f64(v: float) -> int:
         return int(v)
 
     def i64_trunc_u_f64(v: float) -> int:
-        return int(v)
+        return make_int(v, 64)
 
     def f64_promote_f32(v: float) -> float:
         return v
 
-    def f64_reinterpret_i64(v: float) -> int:
+    def f32_demote_f64(v: float) -> float:
+        return v
+
+    def f64_reinterpret_i64(v: int) -> float:
+        x = struct.pack('<q', v)
+        return struct.unpack('<d', x)[0]
+
+    def i64_reinterpret_f64(v: float) -> int:
         x = struct.pack('<d', v)
         return struct.unpack('<q', x)[0]
 
-    def f32_reinterpret_i32(v: float) -> int:
+    def f32_reinterpret_i32(v: int) -> float:
+        x = struct.pack('<i', v)
+        return struct.unpack('<f', x)[0]
+
+    def i32_reinterpret_f32(v: float) -> int:
         x = struct.pack('<f', v)
         return struct.unpack('<i', x)[0]
+
+    def f32_copysign(x: float, y: float) -> float:
+        return math.copysign(x, y)
+
+    def f64_copysign(x: float, y: float) -> float:
+        return math.copysign(x, y)
+
+    def f32_min(x: float, y: float) -> float:
+        return min(x, y)
+
+    def f64_min(x: float, y: float) -> float:
+        return min(x, y)
+
+    def f32_max(x: float, y: float) -> float:
+        return max(x, y)
+
+    def f64_max(x: float, y: float) -> float:
+        return max(x, y)
+
+    def f32_abs(x: float) -> float:
+        return math.fabs(x)
+
+    def f64_abs(x: float) -> float:
+        return math.fabs(x)
+
+    def f32_floor(x: float) -> float:
+        return float(math.floor(x))
+
+    def f64_floor(x: float) -> float:
+        return float(math.floor(x))
+
+    def f32_ceil(x: float) -> float:
+        return float(math.ceil(x))
+
+    def f64_ceil(x: float) -> float:
+        return float(math.ceil(x))
+
+    def f32_nearest(x: float) -> float:
+        return float(round(x))
+
+    def f64_nearest(x: float) -> float:
+        return float(round(x))
+
+    def f32_trunc(x: float) -> float:
+        return float(math.trunc(x))
+
+    def f64_trunc(x: float) -> float:
+        return float(math.trunc(x))
 
     def unreachable() -> None:
         raise Unreachable('WASM KERNEL panic!')
@@ -387,8 +450,27 @@ def create_runtime():
         'i64_trunc_s_f64': i64_trunc_s_f64,
         'i64_trunc_u_f64': i64_trunc_u_f64,
         'f64_promote_f32': f64_promote_f32,
+        'f32_demote_f64': f32_demote_f64,
         'f64_reinterpret_i64': f64_reinterpret_i64,
+        'i64_reinterpret_f64': i64_reinterpret_f64,
         'f32_reinterpret_i32': f32_reinterpret_i32,
+        'i32_reinterpret_f32': i32_reinterpret_f32,
+        'f32_copysign': f32_copysign,
+        'f64_copysign': f64_copysign,
+        'f32_min': f32_min,
+        'f32_max': f32_max,
+        'f64_min': f64_min,
+        'f64_max': f64_max,
+        'f32_abs': f32_abs,
+        'f64_abs': f64_abs,
+        'f32_floor': f32_floor,
+        'f64_floor': f64_floor,
+        'f32_nearest': f32_nearest,
+        'f64_nearest': f64_nearest,
+        'f32_ceil': f32_ceil,
+        'f64_ceil': f64_ceil,
+        'f32_trunc': f32_trunc,
+        'f64_trunc': f64_trunc,
         'unreachable': unreachable,
         # todo: 'memory_size': memory_size,
         # todo: 'memory_grow': memory_grow,

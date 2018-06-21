@@ -387,8 +387,8 @@ class WatTupleLoader(TupleParser):
             data = self.parse_data_blobs()
             self.expect(Token.RPAR)
             self.expect(Token.RPAR)
-            max = 1
-            assert len(data) < max * PAGE_SIZE, 'TODO: round upward'
+            max = round_up(len(data), PAGE_SIZE) // PAGE_SIZE
+            assert len(data) <= max * PAGE_SIZE, 'TODO: round upward'
             min = max
             self.add_definition(
                 components.Memory(id, min, max))
@@ -693,3 +693,11 @@ def is_ref(x):
 
 def is_dollar(x):
     return isinstance(x, str) and x.startswith('$')
+
+
+def round_up(value, multiple):
+    rest = value % multiple
+    if rest:
+        return value + (multiple - rest)
+    else:
+        return value
