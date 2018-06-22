@@ -415,7 +415,7 @@ class ArmAssembler(BaseAssembler):
     def add_literal(self, v):
         """ For use in the pseudo instruction LDR r0, =SOMESYM """
         # Invent some label for the literal and store it.
-        assert type(v) is str
+        assert isinstance(v, str)
         self.lit_counter += 1
         label_name = "_lit_{}".format(self.lit_counter)
         self.lit_pool.append(Label(label_name))

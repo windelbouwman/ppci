@@ -24,10 +24,10 @@ wasm_module = wasm.Module(
 
 print(wasm_module.to_string())
 
-ppci_module = wasm_to_ir(wasm_module)
+arch = get_current_arch()
+ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info('ptr'))
 ppci_module.display()
 
-arch = get_current_arch()
 print('using this arch: ', arch)
 f = io.StringIO()
 txt_stream = TextOutputStream(f=f, add_binary=True)
@@ -45,7 +45,7 @@ imports = {
 
 native_module = load_obj(obj, imports=imports)
 print(dir(native_module))
-result = getattr(native_module, '0')(42)
+result = getattr(native_module, 'add')(42, 42)
 print(result, '(should be 85)')
 
 
@@ -58,5 +58,5 @@ instance = instantiate(
         }
     })
 
-print(instance.exports.main(1337))
-print(instance.exports.add(1, 1))
+print(instance.exports.main(1337), '(should be 1380)')
+print(instance.exports.add(1, 1), '(should be 3)')

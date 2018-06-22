@@ -109,7 +109,7 @@ class IrToPythonCompiler:
             self.print(0, 'def store_{}(v, p):'.format(ty.name))
             self.print(
                 1,
-                'write_mem(p, struct.pack("{0}", v))'.format(fmt, size))
+                'write_mem(p, struct.pack("{0}", v))'.format(fmt))
             self.print(0, '')
 
     def generate_builtins(self):

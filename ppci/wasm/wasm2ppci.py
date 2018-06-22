@@ -8,7 +8,7 @@ from .. import common
 from ..binutils import debuginfo
 from ..arch.arch_info import TypeInfo
 from . import components
-from .opcodes import STORE_OPS, LOAD_OPS, BINOPS, CASTOPS, CMPOPS, STACK_IO
+from .opcodes import STORE_OPS, LOAD_OPS, BINOPS, CMPOPS, STACK_IO
 from .util import sanitize_name
 
 
@@ -50,7 +50,7 @@ def create_memories(wasm_module):
             offset = definition.offset.args[0]
             memory_id = definition.ref.index
             # TODO: should ref always be an integer index?
-            #if isinstance(memory_id, int):
+            # if isinstance(memory_id, int):
             memory_id = memory_ids[memory_id]
             data = definition.data
             initializations.append((memory_id, offset, data))
@@ -125,7 +125,6 @@ class WasmToIrCompiler:
                         'Creating external %s with signature %s',
                         extern_ir_function, sig.to_string())
                     self.builder.module.add_external(extern_ir_function)
-                    # assert len(self.functions) == index, str(self.functions) + str(index)
                     self.functions.append((extern_ir_function, sig))
                 elif definition.kind == 'memory':
                     assert self.memory_base_address is None
@@ -719,6 +718,7 @@ class WasmToIrCompiler:
             raise NotImplementedError(inst)
 
     def gen_binop(self, instruction):
+        """ Generate code for binary operator """
         inst = instruction.opcode
         itype, opname = inst.split('.')
         op_map = {
@@ -727,10 +727,8 @@ class WasmToIrCompiler:
             'div_s': '/', 'div_u': '/',
             'rem_s': '%', 'rem_u': '%',
             'and': '&', 'or': '|', 'xor': '^',
-            'shl': '<<', 'shr_u': '>>',
-            # TODO: arithmatic shift right is not the same as
-            # logical shift right.. TBD.
-            'shr_s': '>>'}
+            'shl': '<<', 'shr_u': '>>', 'shr_s': '>>',
+        }
         op = op_map[opname]
         name = 'op_{}'.format(opname)
         ir_typ = self.get_ir_type(itype)
@@ -739,8 +737,6 @@ class WasmToIrCompiler:
         do_unsigned = '_u' in opname
         if do_unsigned:
             # Unsigned operation, first cast to unsigned:
-            # unsigned_typ = 
-            # b = self.emit(
             u_ir_typ = {
                 ir.i32: ir.u32,
                 ir.i64: ir.u64,
@@ -754,6 +750,7 @@ class WasmToIrCompiler:
         self.push_value(value)
 
     def gen_cmpop(self, instruction):
+        """ Generate code for a comparison operation """
         inst = instruction.opcode
         itype, opname = inst.split('.')
         ir_typ = self.get_ir_type(itype)
@@ -778,6 +775,7 @@ class WasmToIrCompiler:
         # todo: hack; we assume this is the only test in an if
 
     def gen_load(self, instruction):
+        """ Generate code for load instruction """
         itype, load_op = instruction.opcode.split('.')
         ir_typ = self.get_ir_type(itype)
         _, offset = instruction.args
@@ -796,6 +794,7 @@ class WasmToIrCompiler:
         self.push_value(value)
 
     def gen_store(self, instruction):
+        """ Generate code for store instruction """
         itype, store_op = instruction.opcode.split('.')
         ir_typ = self.get_ir_type(itype)
         # ACHTUNG: alignment and offset are swapped in text:
@@ -825,6 +824,7 @@ class WasmToIrCompiler:
 
     @property
     def is_reachable(self):
+        """ Determine if the current position is reachable """
         # Attention:
         # Since block implements iter, one cannot check for bool(block) if
         # the block is empty.. So we have to check for None here:
@@ -849,6 +849,7 @@ class WasmToIrCompiler:
                 'block', continue_block, inner_block, phi, len(self.stack)))
 
     def gen_loop(self, instruction):
+        """ Generate code for a loop start """
         if self.is_reachable:
             phi = self.get_phi(instruction)
             inner_block = self.new_block()
@@ -873,6 +874,7 @@ class WasmToIrCompiler:
         if block.phi and self.is_reachable:
             self.fill_phi(block.phi)
 
+        # The value stack may contain more items, clear them off
         self.block_stack.pop()
         self.unwind(block)
 
@@ -887,8 +889,7 @@ class WasmToIrCompiler:
             self.emit(ir.Jump(block.continue_block))
 
         self.builder.set_block(block.continue_block)
-        # TODO: Do we need to have an empty stack at end of block??
-        # assert len(self.stack) == 0, str(self.stack)
+
         if block.phi:
             # if we close a block that yields a value introduce a phi
             self.logger.debug('Put %s on stack', block.phi)
@@ -896,6 +897,7 @@ class WasmToIrCompiler:
             self.push_value(block.phi)
 
     def gen_if(self, instruction):
+        """ Generate code for an if start """
         if self.is_reachable:
             # todo: we assume that the test is a comparison
             op, a, b = self.pop_condition()
@@ -1052,7 +1054,6 @@ class WasmToIrCompiler:
 
         Note: the name of this function is not ideal.
         """
-        # TODO: can we break out of if-blocks?
         assert isinstance(depth, components.Ref)
         depth = depth.index
         block = self.block_stack[-depth-1]

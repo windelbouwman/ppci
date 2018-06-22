@@ -9,7 +9,8 @@ from .components import Ref
 from .wasm2ppci import wasm_to_ir
 from .ppci2wasm import ir_to_wasm
 from .arch import WasmArchitecture
-from .util import run_wasm_in_node, export_wasm_example, run_wasm_in_notebook, has_node
+from .util import run_wasm_in_node, export_wasm_example
+from .util import run_wasm_in_notebook, has_node
 
 
 def read_wasm(input) -> Module:

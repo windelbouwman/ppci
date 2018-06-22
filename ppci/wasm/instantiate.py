@@ -10,6 +10,7 @@ The wasm runtime contains the following:
 import io
 import struct
 import logging
+import math
 from types import ModuleType
 
 from ..api import ir_to_object, get_current_arch, ir_to_python
@@ -81,21 +82,19 @@ def native_instantiate(module, imports, reporter):
     obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
     _module = load_obj(obj, imports=imports)
     instance = NativeModuleInstance(_module)
+
     # Export all exported functions
-    i = 0
     for definition in module:
         if isinstance(definition, Export):
             if definition.kind != 'func':
                 raise NotImplementedError(definition.kind)
             exported_name = definition.name
-            ppci_id = str(i)
             # wasm_id = definition.ref  # not used here (int or str starting with $)
             # TODO: why is ppci_id a number? This is incorrect.
             # AK: Dunno, that's what wasm2ppci does, I guess
             setattr(
                 instance.exports, exported_name,
-                getattr(instance._module, ppci_id))
-            i += 1
+                getattr(instance._module, exported_name))
 
     # Fetch init function:
     fname = '_run_init'
@@ -144,6 +143,8 @@ def python_instantiate(module, imports, reporter):
                     getattr(instance._module, exported_name))
             elif definition.kind == 'global':
                 logger.error('global not exported')
+            elif definition.kind == 'memory':
+                logger.error('memory not exported')
             else:
                 raise NotImplementedError(definition.kind)
 
@@ -232,7 +233,6 @@ def create_runtime():
     These are functions required by some wasm instructions which cannot
     be code generated directly or are too complex.
     """
-    import math
 
     def sqrt(v: float) -> float:
         return math.sqrt(v)
