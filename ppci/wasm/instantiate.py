@@ -15,6 +15,8 @@ from types import ModuleType
 from ..api import ir_to_object, get_current_arch, ir_to_python
 from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj
+from ..utils.bitfun import rotr, rotl, to_signed, to_unsigned
+from ..utils.bitfun import clz, ctz, popcnt
 from ..utils.reporting import DummyReportGenerator
 from ..irutils import verify_module
 from . import wasm_to_ir
@@ -224,19 +226,6 @@ class Unreachable(RuntimeError):
 
 # See also:
 # https://github.com/kanaka/warpy/blob/master/warpy.py
-# TODO: merge with ppci.utils.bitfun
-def rotl(v, count, bits):
-    mask = (1 << bits) - 1
-    count = count % bits
-    return (((v << count) & mask) | (v >> (bits - count)))
-
-
-def rotr(v, count, bits):
-    mask = (1 << bits) - 1
-    count = count % bits
-    return ((v >> count) | ((v << (bits - count)) & mask))
-
-
 def create_runtime():
     """ Create runtime functions.
 
@@ -250,7 +239,7 @@ def create_runtime():
 
     def i32_rotr(v: int, cnt: int) -> int:
         """ Rotate right """
-        return rotr(v, cnt, 32)
+        return to_signed(rotr(to_unsigned(v, 32), cnt, 32), 32)
 
     def i64_rotr(v: int, cnt: int) -> int:
         """ Rotate right """
@@ -258,69 +247,34 @@ def create_runtime():
 
     def i32_rotl(v: int, cnt: int) -> int:
         """ Rotate left """
-        return rotl(v, cnt, 32)
+        return to_signed(rotl(to_unsigned(v, 32), cnt, 32), 32)
 
     def i64_rotl(v: int, cnt: int) -> int:
         """ Rotate left """
         return rotl(v, cnt, 64)
 
-    def asr(v: int, b: int) -> int:
-        """ Arithmatic shift right """
-        raise NotImplementedError()
-        return v >> b
-
     def floor(v: int) -> int:
         """ Round to floor """
         raise NotImplementedError()
 
-    def clz(v: int, bits) -> int:
-        """ count leading zeroes """
-        return bits - len(bin(v)[2:])  # todo: the bin (i.e. tostring) is probably inefficient
-
-    def ctz(v: int, bits) -> int:
-        """ count trailing zeroes """
-        count = 0
-        while count < bits and (v % 2) == 0:
-            count += 1
-            v //= 2
-        return count
-    
+    # Bit counting:
     def i32_clz(v: int) -> int:
-        return ctz(v, 32)
-        
+        return clz(v, 32)
+
     def i64_clz(v: int) -> int:
-        return ctz(v, 64)
-    
+        return clz(v, 64)
+
     def i32_ctz(v: int) -> int:
         return ctz(v, 32)
 
     def i64_ctz(v: int) -> int:
         return ctz(v, 64)
-    
-    def i32_shr_s(v: int, s: int) -> int:
-        return v >> s
-    
-    def i32_shr_u(v: int, s: int) -> int:
-        return v >> s  # todo: this is probably wrong?
-    
-    def i32_rem_s(n: int, d: int) -> int:
-        return n % d  # n - d*(n//d)
-    
-    def i32_rem_u(n: int, d: int) -> int:  # todo: different from signed, nan if d is zero?
-        return n % d  # n - d*(n//d)
 
-    # i64:
-    def i64_rem_s(n: int, d: int) -> int:
-        return n % d  # n - d*(n//d)
+    def i32_popcnt(v: int) -> int:
+        return popcnt(v, 32)
 
-    def i64_rem_u(n: int, d: int) -> int:
-        return n % d  # n - d*(n//d)
-
-    def i64_shr_s(v: int, s: int) -> int:
-        return v >> s
-
-    def i64_shr_u(v: int, s: int) -> int:
-        return v >> s  # todo: this is probably wrong?
+    def i64_popcnt(v: int) -> int:
+        return popcnt(v, 64)
 
     # Conversions:
     def i32_trunc_s_f32(v: float) -> int:
@@ -428,19 +382,12 @@ def create_runtime():
         'i64_rotl': i64_rotl,
         'i32_rotr': i32_rotr,
         'i64_rotr': i64_rotr,
-        'i32_asr': asr,
-        'i64_asr': asr,
         'i32_clz': i32_clz,
         'i64_clz': i64_clz,
         'i32_ctz': i32_ctz,
         'i64_ctz': i64_ctz,
-        'i32_shr_s': i32_shr_s,
-        'i32_rem_u': i32_rem_u,
-        'i32_rem_s': i32_rem_s,
-        'i64_rem_u': i64_rem_u,
-        'i64_rem_s': i64_rem_s,
-        'i64_shr_s': i64_shr_s,
-        'i64_shr_u': i64_shr_u,
+        'i32_popcnt': i32_popcnt,
+        'i64_popcnt': i64_popcnt,
         'i32_trunc_s_f32': i32_trunc_s_f32,
         'i32_trunc_u_f32': i32_trunc_u_f32,
         'i32_trunc_s_f64': i32_trunc_s_f64,

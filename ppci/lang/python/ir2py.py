@@ -128,6 +128,26 @@ class IrToPythonCompiler:
         self.print(1, 'return int(math.trunc(x/y))')
         self.print(0, '')
 
+        # More c like remainder:
+        self.print(0, 'def irem(x, y):')
+        self.print(1, 'sign = x < 0')
+        self.print(1, 'v = abs(x) % abs(y)')
+        self.print(1, 'if sign:')
+        self.print(2, 'return -v')
+        self.print(1, 'else:')
+        self.print(2, 'return v')
+        self.print(0, '')
+
+        # More c like shift left:
+        self.print(0, 'def ishl(x, amount, bits):')
+        self.print(1, 'amount = amount % bits')
+        self.print(1, 'return x << amount')
+
+        # More c like shift right:
+        self.print(0, 'def ishr(x, amount, bits):')
+        self.print(1, 'amount = amount % bits')
+        self.print(1, 'return x >> amount')
+
         self.print(0, 'def _alloca(amount):')
         self.print(1, 'ptr = len(stack)')
         self.print(1, 'stack.extend(bytes(amount))')
@@ -223,9 +243,24 @@ class IrToPythonCompiler:
         elif isinstance(ins, ir.Binop):
             # Assume int for now.
             op = ins.operation
-            if op == '/' and ins.ty.is_integer:
-                self.print(3, '{} = idiv({}, {})'.format(
-                    ins.name, ins.a.name, ins.b.name))
+            int_ops = {
+                '/': 'idiv',
+                '%': 'irem',
+            }
+
+            shift_ops = {
+                '>>': 'ishr',
+                '<<': 'ishl',
+            }
+
+            if op in int_ops and ins.ty.is_integer:
+                fname = int_ops[op]
+                self.print(3, '{} = {}({}, {})'.format(
+                    ins.name, fname, ins.a.name, ins.b.name))
+            elif op in shift_ops and ins.ty.is_integer:
+                fname = shift_ops[op]
+                self.print(3, '{} = {}({}, {}, {})'.format(
+                    ins.name, fname, ins.a.name, ins.b.name, ins.ty.bits))
             else:
                 self.print(3, '{} = {} {} {}'.format(
                     ins.name, ins.a.name, op, ins.b.name))

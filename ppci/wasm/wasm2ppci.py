@@ -639,13 +639,14 @@ class WasmToIrCompiler:
                 'f32.nearest',
                 'f32.min', 'f32.max', 'f32.copysign',
                 'f32.reinterpret/i32',
-                'i64.rem_u', 'i64.rem_s',
                 'i64.clz', 'i64.ctz', 'i64.popcnt',
+                'i64.rotl', 'i64.rotr',
                 'f64.reinterpret/i64',
                 'i64.reinterpret/f64',
                 'i32.reinterpret/f32',
-                'i32.rem_u', 'i32.rem_s',
-                'i32.clz', 'i32.ctz', 'i32.popcnt', 'memory.grow',
+                'i32.clz', 'i32.ctz', 'i32.popcnt',
+                'i32.rotl', 'i32.rotr',
+                'memory.grow',
                 'memory.size']:
             self._runtime_call(inst)
 
@@ -722,28 +723,35 @@ class WasmToIrCompiler:
         itype, opname = inst.split('.')
         op_map = {
             'add': '+', 'sub': '-', 'mul': '*',
-            'div': '/', 'div_s': '/', 'div_u': '/',
-            'and': '&', 'or': '|', 'xor': '^', 'shl': '<<',
-            'shr_u': '>>',
+            'div': '/',
+            'div_s': '/', 'div_u': '/',
+            'rem_s': '%', 'rem_u': '%',
+            'and': '&', 'or': '|', 'xor': '^',
+            'shl': '<<', 'shr_u': '>>',
             # TODO: arithmatic shift right is not the same as
             # logical shift right.. TBD.
-            'shr_s': 'asr',
-            'rotr': 'ror', 'rotl': 'rol'}
+            'shr_s': '>>'}
         op = op_map[opname]
         name = 'op_{}'.format(opname)
         ir_typ = self.get_ir_type(itype)
-        if op in ['ror', 'rol', 'asr']:
-            self._runtime_call(inst)
+        b = self.pop_value(ir_typ=ir_typ)
+        a = self.pop_value(ir_typ=ir_typ)
+        do_unsigned = '_u' in opname
+        if do_unsigned:
+            # Unsigned operation, first cast to unsigned:
+            # unsigned_typ = 
+            # b = self.emit(
+            u_ir_typ = {
+                ir.i32: ir.u32,
+                ir.i64: ir.u64,
+            }[ir_typ]
+            a = self.emit(ir.Cast(a, 'cast', u_ir_typ))
+            b = self.emit(ir.Cast(b, 'cast', u_ir_typ))
+            value = self.emit(ir.Binop(a, op, b, name, u_ir_typ))
+            value = self.emit(ir.Cast(value, 'cast', ir_typ))
         else:
-            b = self.pop_value(ir_typ=ir_typ)
-            a = self.pop_value(ir_typ=ir_typ)
-            if '_u' in opname:
-                # Unsigned operation, first cast to unsigned:
-                # unsigned_typ = 
-                # b = self.emit(
-                pass
             value = self.emit(ir.Binop(a, op, b, name, ir_typ))
-            self.push_value(value)
+        self.push_value(value)
 
     def gen_cmpop(self, instruction):
         inst = instruction.opcode
@@ -755,6 +763,16 @@ class WasmToIrCompiler:
         else:
             b = self.pop_value(ir_typ=ir_typ)
             a = self.pop_value(ir_typ=ir_typ)
+        is_unsigned = '_u' in inst
+        if is_unsigned:
+            # Cast to unsigned
+            u_ir_typ = {
+                ir.i32: ir.u32,
+                ir.i64: ir.u64,
+            }[ir_typ]
+            a = self.emit(ir.Cast(a, 'cast', u_ir_typ))
+            b = self.emit(ir.Cast(b, 'cast', u_ir_typ))
+
         op = self.OPMAP[opname]
         self.push_value((op, a, b))
         # todo: hack; we assume this is the only test in an if
