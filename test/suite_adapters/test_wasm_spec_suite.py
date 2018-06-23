@@ -25,6 +25,7 @@ import math
 import os.path
 import logging
 import io
+import sys
 from functools import reduce
 from operator import add
 
@@ -150,24 +151,25 @@ class WastExecutor:
         self.logger.debug('loaded wasm module %s', m1)
 
         # Next step: Instantiate:
-        if True:
-            def my_print():
+        # target = 'python'
+        target = 'native'
+        # target = None
+        if target:
+            def my_print() -> None:
                 pass
 
-            def print_i32(x):
+            def print_i32(x: int) -> None:
                 pass
 
             imports = {
                'wasm_rt': create_runtime(),
                'spectest': {
-                   'memory': True,  # TODO?
-                   'global_i32': 1337,  # TODO?
                    'print_i32': print_i32,
                    'print': my_print,
                }
             }
             self.mod_instance = instantiate(
-                m1, imports, target='python', reporter=self.reporter)
+                m1, imports, target=target, reporter=self.reporter)
             self.logger.debug('Instantiated wasm module %s', self.mod_instance)
 
     def invoke(self, target):
@@ -272,6 +274,9 @@ class WasmSpecTestCase(unittest.TestCase):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     verbose = False
+    if len(sys.argv) > 1:
+        verbose = True
+
     if verbose:
         loglevel = logging.DEBUG
     else:

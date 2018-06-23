@@ -93,6 +93,20 @@ these, use this:
 
     $ LONGTESTS=1 IVERILOG=1 python -m pytest test/
 
+Profiling
+~~~~~~~~~
+
+If some part is slow, it can be handy to run a profiler. To do this, run
+the slow script with the cProfile. The output can be viewed with
+pyprof2calltree.
+
+.. code:: bash
+
+    $ python -m cProfile -o profiled.out slow_script.py
+    $ pip install pyprof2calltree
+    $ pyprof2calltree -i profiled.out -k
+
+
 3rd party test suites
 ~~~~~~~~~~~~~~~~~~~~~
 

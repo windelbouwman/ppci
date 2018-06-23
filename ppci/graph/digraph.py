@@ -49,8 +49,13 @@ class DiNode(Node):
         return self.graph.predecessors(self)
 
 
-def dfs(start_node):
-    """ Visit nodes in depth-first-search order """
+def dfs(start_node, reverse=False):
+    """ Visit nodes in depth-first-search order.
+
+    Args:
+        - start_node: node to start with
+        - reverse: traverse the graph by reversing the edge directions.
+    """
     visited = set()
     worklist = [(None, start_node)]
     while worklist:
@@ -58,5 +63,9 @@ def dfs(start_node):
         if node not in visited:
             visited.add(node)
             yield parent, node
-            for successor in node.successors:
-                worklist.append((node, successor))
+            if reverse:
+                for predecessor in node.predecessors:
+                    worklist.append((node, predecessor))
+            else:
+                for successor in node.successors:
+                    worklist.append((node, successor))

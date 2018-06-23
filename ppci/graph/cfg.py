@@ -14,6 +14,9 @@ import logging
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
 from .digraph import DiGraph, DiNode
 from . import lt
+from .algorithm.fixed_point_dominator import calculate_dominators
+from .algorithm.fixed_point_dominator import calculate_post_dominators
+from .algorithm.fixed_point_dominator import calculate_immediate_post_dominators
 from collections import namedtuple
 
 DomTreeNode = namedtuple('DomTreeNode', ['node', 'children'])
@@ -23,56 +26,48 @@ logger = logging.getLogger('cfg')
 
 def ir_function_to_graph(ir_function):
     """ Take an ir function and create a cfg of it """
-    i2c = IrToCfg()
-    return i2c.convert(ir_function)
+    block_map = {}
+    cfg = ControlFlowGraph()
+    cfg.exit_node = ControlFlowNode(cfg, name=None)
 
+    # Create nodes:
+    block_list = []
+    worklist = [ir_function.entry]
+    while worklist:
+        block = worklist.pop(0)
+        block_list.append(block)
+        node = ControlFlowNode(cfg, name=block.name)
+        assert block not in block_map
+        block_map[block] = node
+        for successor_block in block.successors:
+            if successor_block not in block_map:
+                if successor_block not in worklist:
+                    worklist.append(successor_block)
 
-class IrToCfg:
-    """ Convert ir function into a control flow graph """
-    def convert(self, ir_function):
-        """ Convert ir function into a control flow graph """
-        block_map = {}
-        cfg = ControlFlowGraph()
-        cfg.exit_node = ControlFlowNode(cfg, name=None)
+    cfg.entry_node = block_map[ir_function.entry]
 
-        # Create nodes:
-        block_list = []
-        worklist = [ir_function.entry]
-        while worklist:
-            block = worklist.pop(0)
-            block_list.append(block)
-            node = ControlFlowNode(cfg, name=block.name)
-            assert block not in block_map
-            block_map[block] = node
+    # Add edges:
+    for block in block_list:
+        # Fetch node:
+        node = block_map[block]
+
+        # Add proper edges:
+        if len(block.successors) == 0:
+            # Exit or return!
+            node.add_edge(cfg.exit_node)
+        else:
             for successor_block in block.successors:
-                if successor_block not in block_map:
-                    if successor_block not in worklist:
-                        worklist.append(successor_block)
+                successor_node = block_map[successor_block]
+                node.add_edge(successor_node)
 
-        cfg.entry_node = block_map[ir_function.entry]
+            # TODO: hack to store yes and no blocks:
+            if len(block.successors) == 2:
+                node.yes = block_map[block.last_instruction.lab_yes]
+                node.no = block_map[block.last_instruction.lab_no]
 
-        # Add edges:
-        for block in block_list:
-            # Fetch node:
-            node = block_map[block]
-
-            # Add proper edges:
-            if len(block.successors) == 0:
-                # Exit or return!
-                node.add_edge(cfg.exit_node)
-            else:
-                for successor_block in block.successors:
-                    successor_node = block_map[successor_block]
-                    node.add_edge(successor_node)
-
-                # TODO: hack to store yes and no blocks:
-                if len(block.successors) == 2:
-                    node.yes = block_map[block.last_instruction.lab_yes]
-                    node.no = block_map[block.last_instruction.lab_no]
-
-        logger.debug(
-            'created cfg for %s with %s nodes', ir_function.name, len(cfg))
-        return cfg, block_map
+    logger.debug(
+        'created cfg for %s with %s nodes', ir_function.name, len(cfg))
+    return cfg, block_map
 
 
 class ControlFlowGraph(DiGraph):
@@ -94,9 +89,13 @@ class ControlFlowGraph(DiGraph):
         super().__init__()
         self.entry_node = None
         self.exit_node = None
+
+        # Dominator info:
         self._dom = None  # dominators
         self._sdom = None  # Strict dominators
         self._idom = None  # immediate_dominators
+
+        # Post dominator info:
         self._pdom = None  # post dominators
         self._spdom = None  # Strict post dominators
         self._ipdom = None  # post dominators
@@ -111,31 +110,31 @@ class ControlFlowGraph(DiGraph):
     def dominates(self, one, other):
         """ Test whether a node dominates another node """
         if self._dom is None:
-            self.calculate_dominators()
+            self._calculate_dominator_info()
         return one in self._dom[other]
 
     def strictly_dominates(self, one, other):
         """ Test whether a node strictly dominates another node """
         if self._sdom is None:
-            self.calculate_strict_dominators()
+            self._calculate_dominator_info()
         return one in self._sdom[other]
 
     def post_dominates(self, one, other):
         """ Test whether a node post dominates another node """
         if self._pdom is None:
-            self.calculate_post_dominators()
+            self._calculate_post_dominator_info()
         return one in self._pdom[other]
 
     def get_immediate_dominator(self, node):
         """ Retrieve a nodes immediate dominator """
         if self._idom is None:
-            self.calculate_immediate_dominators()
+            self._calculate_dominator_info()
         return self._idom[node]
 
     def get_immediate_post_dominator(self, node):
         """ Retrieve a nodes immediate post dominator """
         if self._ipdom is None:
-            self.calculate_immediate_post_dominators()
+            self._calculate_post_dominator_info()
         return self._ipdom[node]
 
     def can_reach(self, one, other):
@@ -143,109 +142,33 @@ class ControlFlowGraph(DiGraph):
             self.calculate_reach()
         return other in self._reach[one]
 
-    def calculate_dominators(self):
-        """ Calculate the dominator sets iteratively """
+    def _calculate_dominator_info(self):
+        """ Calculate dominator information """
         self.validate()
 
-        # Initialize dominator map:
+        # First calculate the dominator tree:
+        self._idom = lt.calculate_idom(self, self.entry_node)
+        self._calculate_dominator_tree()
+
+        # Now calculate dominator sets:
+        # Old method used the fixed point iteration:
+        # self._dom = calculate_dominators(self.nodes, self.entry_node)
         self._dom = {}
-        for node in self.nodes:
-            if node is self.entry_node:
-                self._dom[node] = {node}
+        for parent, t in pre_order(self.root_tree):
+            if parent:
+                self._dom[t.node] = {t.node} | self._dom[parent.node]
             else:
-                self._dom[node] = set(self.nodes)
-
-        # Run fixed point iteration:
-        change = True
-        while change:
-            change = False
-            for node in self.nodes:
-                # A node is dominated by itself and by the intersection of
-                # the dominators of its predecessors
-                pred_doms = list(
-                    self._dom[p] for p in self.predecessors(node))
-                if pred_doms:
-                    new_dom_n = set.union({node}, set.intersection(*pred_doms))
-                    if new_dom_n != self._dom[node]:
-                        change = True
-                        self._dom[node] = new_dom_n
-
-    def calculate_post_dominators(self):
-        """ Calculate the post dominator sets iteratively.
-
-        Post domination is the same as domination, but then starting at
-        the exit node.
-        """
-        self.validate()
-
-        # Initialize dominator map:
-        self._pdom = {}
-        for node in self.nodes:
-            if node is self.exit_node:
-                self._pdom[node] = {node}
-            else:
-                self._pdom[node] = set(self.nodes)
-
-        # Run fixed point iteration:
-        change = True
-        while change:
-            change = False
-            for node in self.nodes:
-                # A node is post dominated by itself and by the intersection
-                # of the post dominators of its successors
-                succ_pdoms = list(
-                    self._pdom[s] for s in self.successors(node))
-                if succ_pdoms:
-                    new_pdom_n = set.union(
-                        {node}, set.intersection(*succ_pdoms))
-                    if new_pdom_n != self._pdom[node]:
-                        change = True
-                        self._pdom[node] = new_pdom_n
-
-    def calculate_strict_dominators(self):
-        """ Calculate the strict dominators.
-
-        Strict domination is the dominance set minus the node itself.
-        """
-        if self._dom is None:
-            self.calculate_dominators()
-
-        if self._pdom is None:
-            self.calculate_post_dominators()
+                self._dom[t.node] = {t.node}
 
         self._sdom = {}
-        self._spdom = {}
         for node in self.nodes:
-            self._sdom[node] = self._dom[node] - {node}
-            self._spdom[node] = self._pdom[node] - {node}
-
-    def calculate_immediate_dominators(self):
-        """ Calculate immediate dominators for all nodes.
-
-        Do this by choosing n from sdom(x) such that dom(n) == sdom(x).
-        """
-        self._idom = lt.calculate_idom(self, self.entry_node)
-        return
-        if self._dom is None:
-            self.calculate_dominators()
-
-        if self._sdom is None:
-            self.calculate_strict_dominators()
-
-        self._idom = {}
-
-        for node in self.nodes:
-            if self._sdom[node]:
-                for x in self._sdom[node]:
-                    if self._dom[x] == self._sdom[node]:
-                        # This must be the only definition of idom:
-                        assert node not in self._idom
-                        self._idom[node] = x
+            if node not in self._dom:
+                self._dom[node] = {node}
+                self._sdom[node] = set()
             else:
-                # No strict dominators, hence also no immediate dominator:
-                self._idom[node] = None
+                self._sdom[node] = self._dom[node] - {node}
 
-    def calculate_dominator_tree(self):
+    def _calculate_dominator_tree(self):
         # Create a tree:
         if self._idom is None:
             self.calculate_immediate_dominators()
@@ -260,33 +183,26 @@ class ControlFlowGraph(DiGraph):
                 parent = self.tree_map[self._idom[node]]
                 node = self.tree_map[node]
                 parent.children.append(node)
+
         self.root_tree = self.tree_map[self.entry_node]
-        return self.root_tree
 
-    def calculate_immediate_post_dominators(self):
-        """ Calculate immediate post dominators for all nodes.
+    def _calculate_post_dominator_info(self):
+        """ Calculate the post dominator sets iteratively.
 
-        Do this by choosing n from spdom(x) such that pdom(n) == spdom(x).
+        Post domination is the same as domination, but then starting at
+        the exit node.
         """
-        if self._pdom is None:
-            self.calculate_post_dominators()
+        self.validate()
 
-        if self._spdom is None:
-            self.calculate_strict_dominators()
+        self._pdom = calculate_post_dominators(self.nodes, self.exit_node)
 
-        self._ipdom = {}
-
+        # Determine strict post dominators:
+        self._spdom = {}
         for node in self.nodes:
-            if self._spdom[node]:
-                for x in self._spdom[node]:
-                    if self._pdom[x] == self._spdom[node]:
-                        # This must be the only definition of ipdom:
-                        assert node not in self._ipdom
-                        self._ipdom[node] = x
-            else:
-                # No strict post dominators, hence also no
-                # immediate post dominator:
-                self._ipdom[node] = None
+            self._spdom[node] = self._pdom[node] - {node}
+
+        self._ipdom = calculate_immediate_post_dominators(
+            self.nodes, self._pdom, self._spdom)
 
     def calculate_reach(self):
         """ Calculate which nodes can reach what other nodes """
@@ -340,7 +256,7 @@ class ControlFlowGraph(DiGraph):
         the dominator tree.
         """
         if self.root_tree is None:
-            self.calculate_dominator_tree()
+            self._calculate_dominator_info()
 
         self.df = {}
         for x in self.bottom_up(self.root_tree):
@@ -383,14 +299,24 @@ def bottom_up(tree):
     worklist = [tree]
     visited = set()
     while worklist:
-        n = worklist[-1]
-        if id(n) in visited:
+        node = worklist[-1]
+        if id(node) in visited:
             worklist.pop()
-            yield n
+            yield node
         else:
-            visited.add(id(n))
-            for c in n.children:
-                worklist.append(c)
+            visited.add(id(node))
+            for child in node.children:
+                worklist.append(child)
+
+
+def pre_order(tree):
+    """ Traverse tree in pre-order """
+    worklist = [(None, tree)]
+    while worklist:
+        parent, node = worklist.pop(0)
+        yield parent, node
+        for child in node.children:
+            worklist.append((node, child))
 
 
 class ControlFlowNode(DiNode):

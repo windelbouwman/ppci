@@ -14,15 +14,17 @@ from .digraph import dfs
 logger = logging.getLogger('lt')
 
 
-def calculate_idom(graph, entry):
-    x = LengauerTarjan()
+def calculate_idom(graph, entry, reverse=False):
+    x = LengauerTarjan(reverse)
     x.compute(graph, entry)
     return x.idom
 
 
 class LengauerTarjan:
     """ The lengauer Tarjan algorithm for calculating dominators """
-    def __init__(self):
+    def __init__(self, reverse):
+        self._reverse = reverse
+
         # Filled during dfs:
         self.N = 0
         self.dfnum = {}

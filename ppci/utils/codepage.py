@@ -176,6 +176,10 @@ class Mod:
             # Set the attribute:
             setattr(self, function_name, fpointer)
 
+    def get_symbol_address(self, name):
+        """ Get the memory address of a symbol """
+        pass
+
 
 def load_code_as_module(source_file, reporter=None):
     """ Load c3 code as a module """

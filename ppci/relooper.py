@@ -76,7 +76,7 @@ class StructureDetector:
     def detect(self, cfg):
         """ Find structure in control flow graph """
         self.cfg = cfg
-        self.cfg.calculate_dominator_tree()
+        # self.cfg.calculate_dominator_tree()
 
         # Loop info:
         self.loops = self.cfg.calculate_loops()

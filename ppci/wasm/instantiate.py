@@ -15,7 +15,7 @@ from types import ModuleType
 
 from ..api import ir_to_object, get_current_arch, ir_to_python
 from ..arch.arch_info import TypeInfo
-from ..utils.codepage import load_obj
+from ..utils.codepage import load_obj, MemoryPage
 from ..utils.bitfun import rotr, rotl, to_signed, to_unsigned
 from ..utils.bitfun import clz, ctz, popcnt
 from ..utils.reporting import DummyReportGenerator
@@ -86,22 +86,38 @@ def native_instantiate(module, imports, reporter):
     # Export all exported functions
     for definition in module:
         if isinstance(definition, Export):
-            if definition.kind != 'func':
+            if definition.kind == 'func':
+                exported_name = sanitize_name(definition.name)
+                setattr(
+                    instance.exports, exported_name,
+                    getattr(instance._module, exported_name))
+            elif definition.kind == 'global':
+                logger.error('global not exported')
+            elif definition.kind == 'memory':
+                logger.error('memory not exported')
+            else:
                 raise NotImplementedError(definition.kind)
-            exported_name = definition.name
-            # wasm_id = definition.ref  # not used here (int or str starting with $)
-            # TODO: why is ppci_id a number? This is incorrect.
-            # AK: Dunno, that's what wasm2ppci does, I guess
-            setattr(
-                instance.exports, exported_name,
-                getattr(instance._module, exported_name))
 
     # Fetch init function:
     fname = '_run_init'
     setattr(instance.exports, fname, getattr(instance._module, fname))
 
-    memories = create_memories(module)
     # TODO: Load memories.
+    memories = create_memories(module)
+    if memories:
+        assert len(memories) == 1
+        memory = list(memories.values())[0]
+        instance._data_page = MemoryPage(len(memory))
+        instance._data_page.write(memory)
+
+        baseptr = instance._module.get_symbol_address('wasm_mem0_address')
+        print(baseptr)
+        base_addr = instance._data_page.addr
+        # TODO: major hack:
+        # TODO: too many assumptions made here ...
+        instance._module._data_page._page.seek(0)
+        instance._module._data_page.write(struct.pack('Q', base_addr))
+        # raise NotImplementedError()
 
     return instance
 
@@ -217,7 +233,7 @@ class Exports:
     """ Container for exported functions """
     pass
 
-##
+
 class Unreachable(RuntimeError):
     """ WASM kernel panic. Having an exception for this allows catching it
     in tests.
