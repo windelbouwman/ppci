@@ -1170,18 +1170,21 @@ def pattern_cjmp_64(context, tree, c0, c1):
 
 
 @isa.pattern('stm', 'CJMPI32(reg32, reg32)', size=2)
+@isa.pattern('stm', 'CJMPU32(reg32, reg32)', size=2)
 def pattern_cjmp_32(context, tree, c0, c1):
     context.emit(bits32.CmpRmReg(RmReg32(c0), c1))
     pattern_cjmp(context, tree.value)
 
 
 @isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=4, cycles=4, energy=2)
+@isa.pattern('stm', 'CJMPU16(reg16, reg16)', size=4, cycles=4, energy=2)
 def pattern_cjmp_16(context, tree, c0, c1):
     context.emit(bits16.CmpRmReg(RmReg16(c0), c1))
     pattern_cjmp(context, tree.value)
 
 
 @isa.pattern('stm', 'CJMPI8(reg8, reg8)', size=2)
+@isa.pattern('stm', 'CJMPU8(reg8, reg8)', size=2)
 def pattern_cjmp_8(context, tree, c0, c1):
     context.emit(CmpRmReg8(RmReg8(c0), c1))
     pattern_cjmp(context, tree.value)
@@ -1520,7 +1523,7 @@ def pattern_div32(context, tree, c0, c1):
 def pattern_remi32(context, tree, c0, c1):
     context.move(eax, c0)
     context.emit(MovImm32(edx, 0))
-    context.emit(Idiv(c1))
+    context.emit(Idiv32(c1))
     defu2 = RegisterUseDef()
     defu2.add_use(eax)
     defu2.add_use(edx)
@@ -1764,12 +1767,28 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
-# Conversions:
+# Unit conversions:
 @isa.pattern('reg64', 'I64TOI64(reg64)', size=0)
 @isa.pattern('reg64', 'I64TOU64(reg64)', size=0)
 @isa.pattern('reg64', 'U64TOI64(reg64)', size=0)
 @isa.pattern('reg64', 'U64TOU64(reg64)', size=0)
 def pattern_i64toi64(context, tree, c0):
+    return c0
+
+
+@isa.pattern('reg32', 'I32TOI32(reg32)', size=0)
+@isa.pattern('reg32', 'I32TOU32(reg32)', size=0)
+@isa.pattern('reg32', 'U32TOI32(reg32)', size=0)
+@isa.pattern('reg32', 'U32TOU32(reg32)', size=0)
+def pattern_i32toi32(context, tree, c0):
+    return c0
+
+
+@isa.pattern('reg16', 'I16TOI16(reg16)', size=0)
+@isa.pattern('reg16', 'I16TOU16(reg16)', size=0)
+@isa.pattern('reg16', 'U16TOI16(reg16)', size=0)
+@isa.pattern('reg16', 'U16TOU16(reg16)', size=0)
+def pattern_i16toi16(context, tree, c0):
     return c0
 
 
@@ -1781,6 +1800,7 @@ def pattern_8to8(context, tree, c0):
     return c0
 
 
+# Conversions:
 @isa.pattern('reg16', 'U64TOU16(reg64)', size=4)
 @isa.pattern('reg16', 'I64TOU16(reg64)', size=4)
 @isa.pattern('reg16', 'I64TOI16(reg64)', size=4)

@@ -41,7 +41,7 @@ from ppci.wasm.util import make_int, make_float
 logging.getLogger().setLevel(logging.DEBUG)
 
 
-def perform_test(filename):
+def perform_test(filename, target):
     # if not os.path.basename(filename).startswith('z'):
     #     return
     print(filename)
@@ -203,7 +203,8 @@ class WastExecutor:
                 assert math.isnan(v2)
             elif math.isinf(v1) or math.isinf(v2):
                 # TODO: implement better checking here
-                self.logger.warning('assuming inf is equal to other large value')
+                self.logger.warning(
+                    'assuming inf is equal to other large value')
                 return True
             else:
                 assert math.isclose(v1, v2, rel_tol=0.0001, abs_tol=0.0000001)
@@ -217,13 +218,15 @@ def nan_or_inf(x):
     return math.isnan(x) or math.isinf(x)
 
 
-def create_test_function(cls, filename):
+def create_test_function(cls, filename, target):
     """ Create a test function for a single snippet """
     core_test_directory, snippet_filename = os.path.split(filename)
-    test_function_name = 'test_' + os.path.splitext(snippet_filename)[0].replace('.', '_').replace('-', '_')
+    test_function_name = 'test_' + target + '_' \
+        + os.path.splitext(snippet_filename)[0] \
+        .replace('.', '_').replace('-', '_')
 
     def test_function(self):
-        perform_test(filename)
+        perform_test(filename, target)
 
     if hasattr(cls, test_function_name):
         raise ValueError('Duplicate test case {}'.format(test_function_name))
@@ -232,8 +235,9 @@ def create_test_function(cls, filename):
 
 def wasm_spec_populate(cls):
     """ Decorator function which can populate a unittest.TestCase class """
-    for filename in get_wast_files():
-        create_test_function(cls, filename)
+    for target in ['python', 'native']:
+        for filename in get_wast_files():
+            create_test_function(cls, filename, target)
     return cls
 
 
@@ -289,7 +293,6 @@ if __name__ == '__main__':
     
     # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     
-    for filename in get_wast_files():
-        if filename.endswith('br_table.wast'):
-            continue
-        perform_test(filename)
+    for target in ['python', 'native']:
+        for filename in get_wast_files():
+            perform_test(filename, target)

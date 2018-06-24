@@ -362,6 +362,7 @@ def pattern_f32tof64(context, tree, c0):
 
 # I64:
 @sse1_isa.pattern('reg64', 'F32TOI64(regfp32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('reg64', 'F32TOU64(regfp32)', size=6, cycles=2, energy=2)
 def pattern_f32toi64(context, tree, c0):
     d = context.new_reg(Register64)
     context.emit(Cvtss2si(d, RmXmmReg(c0)))
@@ -369,6 +370,7 @@ def pattern_f32toi64(context, tree, c0):
 
 
 @sse2_isa.pattern('reg64', 'F64TOI64(regfp64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('reg64', 'F64TOU64(regfp64)', size=6, cycles=3, energy=3)
 def pattern_f64toi64(context, tree, c0):
     d = context.new_reg(Register64)
     context.emit(Cvtsd2si(d, RmXmmReg(c0)))
@@ -376,6 +378,7 @@ def pattern_f64toi64(context, tree, c0):
 
 
 @sse1_isa.pattern('regfp32', 'I64TOF32(reg64)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('regfp32', 'U64TOF32(reg64)', size=6, cycles=2, energy=2)
 def pattern_i64tof32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2ss(d, RmReg64(c0)))
@@ -383,6 +386,7 @@ def pattern_i64tof32(context, tree, c0):
 
 
 @sse2_isa.pattern('regfp64', 'I64TOF64(reg64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('regfp64', 'U64TOF64(reg64)', size=6, cycles=3, energy=3)
 def pattern_i64tof64(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2sd(d, RmReg64(c0)))
@@ -391,6 +395,7 @@ def pattern_i64tof64(context, tree, c0):
 
 # I32:
 @sse1_isa.pattern('reg32', 'F32TOI32(regfp32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('reg32', 'F32TOU32(regfp32)', size=6, cycles=2, energy=2)
 def pattern_f32toi32(context, tree, c0):
     d = context.new_reg(Register32)
     context.emit(Cvtss2si_32(d, RmXmmReg(c0)))
@@ -398,6 +403,7 @@ def pattern_f32toi32(context, tree, c0):
 
 
 @sse2_isa.pattern('reg32', 'F64TOI32(regfp64)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('reg32', 'F64TOU32(regfp64)', size=6, cycles=3, energy=3)
 def pattern_f64toi32(context, tree, c0):
     d = context.new_reg(Register32)
     context.emit(Cvtsd2si_32(d, RmXmmReg(c0)))
@@ -405,6 +411,7 @@ def pattern_f64toi32(context, tree, c0):
 
 
 @sse1_isa.pattern('regfp32', 'I32TOF32(reg32)', size=6, cycles=2, energy=2)
+@sse1_isa.pattern('regfp32', 'U32TOF32(reg32)', size=6, cycles=2, energy=2)
 def pattern_i32tof32(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2ss_32(d, RmReg32(c0)))
@@ -412,6 +419,7 @@ def pattern_i32tof32(context, tree, c0):
 
 
 @sse2_isa.pattern('regfp64', 'I32TOF64(reg32)', size=6, cycles=3, energy=3)
+@sse2_isa.pattern('regfp64', 'U32TOF64(reg32)', size=6, cycles=3, energy=3)
 def pattern_i32tof64(context, tree, c0):
     d = context.new_reg(XmmRegister)
     context.emit(Cvtsi2sd_32(d, RmReg32(c0)))
