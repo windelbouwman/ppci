@@ -63,7 +63,7 @@ class GraphTestCase(unittest.TestCase):
         self.assertEqual(2, n1.degree)
         self.assertEqual(1, n2.degree)
 
-    def test_degree_mask_unMask(self):
+    def test_degree_mask_unmask(self):
         g = MaskableGraph()
         n1 = Node(g)
         n2 = Node(g)

@@ -4,36 +4,59 @@ In a directed graph, the edges have a direction.
 """
 
 from collections import defaultdict
-from .graph import Graph, Node
+from .graph import BaseGraph, Node
 
 
-class DiGraph(Graph):
+class DiGraph(BaseGraph):
     """ Directed graph. """
     def __init__(self):
         super().__init__()
         self.suc_map = defaultdict(set)
         self.pre_map = defaultdict(set)
 
+    def del_node(self, node):
+        """ Remove a node from the graph """
+        s = list(self.successors(node))
+        for m in s:
+            self.del_edge(node, m)
+
+        p = list(self.predecessors(node))
+        for m in p:
+            self.del_edge(m, node)
+        self.nodes.remove(node)
+
     def add_edge(self, n, m):
         """ Add a directed edge from n to m """
         assert n in self.nodes
         assert m in self.nodes
-        if (n, m) not in self.edges:
-            self.edges.add((n, m))
+        if not self.has_edge(n, m):
             self.suc_map[n].add(m)
             self.pre_map[m].add(n)
             self.adj_map[n].add(m)
             self.adj_map[m].add(n)
-            self.degree_map[m] += 1
-            self.degree_map[n] += 1
 
-    def successors(self, n):
+    def del_edge(self, n, m):
+        """ Delete a directed edge """
+        assert n != m
+        assert n in self.nodes
+        assert m in self.nodes
+        if self.has_edge(n, m):
+            self.suc_map[n].remove(m)
+            self.pre_map[m].remove(n)
+            self.adj_map[m].remove(n)
+            self.adj_map[n].remove(m)
+
+    def has_edge(self, n, m):
+        """ Test if there exist and edge between n and m """
+        return m in self.suc_map[n]
+
+    def successors(self, node):
         """ Get the successors of the node """
-        return self.suc_map[n] & self.nodes
+        return self.suc_map[node]
 
-    def predecessors(self, n):
+    def predecessors(self, node):
         """ Get the predecessors of the node """
-        return self.pre_map[n] & self.nodes
+        return self.pre_map[node]
 
 
 class DiNode(Node):

@@ -1,4 +1,8 @@
+""" Graph package.
 
+"""
+
+import abc
 from collections import defaultdict
 from ..utils.collections import OrderedSet
 
@@ -31,47 +35,58 @@ def topological_sort(nodes):
     return L
 
 
-class Graph:
-    """ Generic graph base class.
-
-    Can dump to graphviz dot format for example!
-    """
-
+class BaseGraph(abc.ABC):
+    """ Base graph class """
     def __init__(self):
         self.nodes = OrderedSet()
-        self.edges = OrderedSet()
-        self.masked_nodes = OrderedSet()
 
         # Fast lookup dictionaries:
         self.adj_map = defaultdict(OrderedSet)
-        self.degree_map = defaultdict(int)
 
     def __iter__(self):
-        for node in self.current_nodes:
+        for node in self.nodes:
             yield node
 
     def __len__(self):
-        return len(self.current_nodes)
-
-    @property
-    def current_nodes(self):
-        return self.nodes - self.masked_nodes
+        return len(self.nodes)
 
     def add_node(self, node):
         """ Add a node to the graph """
         self.nodes.add(node)
-        for neighbour in self.adj_map[node]:
-            self.degree_map[neighbour] += 1
 
-    def del_node(self, n):
+    @abc.abstractmethod
+    def del_node(self, node):  # pragma: no cover
         """ Remove a node from the graph """
-        self.nodes.remove(n)
-        for neighbour in self.adj_map[n]:
-            self.degree_map[neighbour] -= 1
-            self.adj_map[neighbour].remove(n)
+        raise NotImplementedError()
 
-    def is_masked(self, node):
-        return node in self.masked_nodes
+    @abc.abstractmethod
+    def add_edge(self, n, m):  # pragma: no cover
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def del_edge(self, n, m):  # pragma: no cover
+        raise NotImplementedError()
+
+    def get_degree(self, node):
+        """ Get the degree of a certain node """
+        return len(self.adj_map[node])
+
+    def adjecent(self, n):
+        """ Return all unmasked nodes with edges to n """
+        return self.adj_map[n]
+
+
+class Graph(BaseGraph):
+    """ Generic graph base class.
+
+    Can dump to graphviz dot format for example!
+    """
+    def del_node(self, node):
+        """ Remove a node from the graph """
+        # Delete edges:
+        for neighbour in list(self.adj_map[node]):
+            self.del_edge(node, neighbour)
+        self.nodes.remove(node)
 
     def add_edge(self, n, m):
         """ Add an edge between n and m """
@@ -79,41 +94,24 @@ class Graph:
             return
         assert n in self.nodes
         assert m in self.nodes
-        if (n, m) not in self.edges:
-            self.edges.add((n, m))
-            self.edges.add((m, n))
+        if not self.has_edge(n, m):
             self.adj_map[n].add(m)
             self.adj_map[m].add(n)
-            if not self.is_masked(n):
-                self.degree_map[m] += 1
-            if not self.is_masked(m):
-                self.degree_map[n] += 1
-
-    def has_edge(self, n, m):
-        return (n, m) in self.edges
-
-    def get_degree(self, node):
-        """ Get the degree of a certain node """
-        # deg = len(self.adjecent(node))
-        deg2 = self.degree_map[node]
-        # TODO: use the degree_map here!
-        # assert deg == deg2, '{} != {}'.format(deg, deg2)
-        return deg2
 
     def del_edge(self, n, m):
         """ Delete edge between n and m """
         assert n != m
         assert n in self.nodes
         assert m in self.nodes
-        if (n, m) in self.edges:
-            self.edges.remove((n, m))
-            self.edges.remove((m, n))
+        if self.has_edge(n, m):
             self.adj_map[m].remove(n)
             self.adj_map[n].remove(m)
-            if not self.is_masked(n):
-                self.degree_map[m] -= 1
-            if not self.is_masked(m):
-                self.degree_map[n] -= 1
+
+    def has_edge(self, n, m):
+        """ Test if there exist and edge between n and m """
+        assert n in self.nodes
+        assert m in self.nodes
+        return m in self.adj_map[n]
 
     def combine(self, n, m):
         """ Merge nodes n and m into node n """
@@ -132,12 +130,7 @@ class Graph:
 
         # Remove node m:
         assert len(self.adj_map[m]) == 0  # Node should not have neighbours
-        assert 0 == self.degree_map[m], '{} != 0'.format(self.degree_map[m])
         self.del_node(m)
-
-    def adjecent(self, n):
-        """ Return all unmasked nodes with edges to n """
-        return self.adj_map[n] - self.masked_nodes
 
     def to_dot(self):
         """ Render current graph to dot format """
