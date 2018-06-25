@@ -12,6 +12,7 @@ import struct
 import logging
 import ctypes
 from ..api import c3c, link, get_current_arch
+from .. import ir
 from ..binutils import debuginfo, layout
 
 
@@ -42,6 +43,13 @@ def get_ctypes_type(debug_type):
         mapping = {
             int: ctypes.c_int,
             float: ctypes.c_double,
+        }
+        return mapping[debug_type]
+    elif isinstance(debug_type, ir.BasicTyp):
+        mapping = {
+            ir.f32: ctypes.c_float,
+            ir.f64: ctypes.c_double,
+            ir.i32: ctypes.c_int,
         }
         return mapping[debug_type]
     else:  # pragma: no cover
@@ -87,6 +95,7 @@ logger = logging.getLogger('codepage')
 class MemoryPage:
     """ Allocate a memory slab in the current process. """
     def __init__(self, size):
+        self.size = size
         if sys.platform == 'win32':
             self._page = WinPage(size)
             self.addr = self._page.addr

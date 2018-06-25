@@ -1129,6 +1129,13 @@ class MovAdr(X86Instruction):
         return [Abs64Relocation(self.imm, offset=2)]
 
 
+class Cdqe(X86Instruction):
+    """ Convert with sign extension to double size """
+    syntax = Syntax(['cdqe'])
+    tokens = [RexToken, OpcodeToken]
+    patterns = {'w': 1, 'opcode': 0x98}
+
+
 class Rep(X86Instruction):
     """ Repeat string operation prefix """
     syntax = Syntax(['rep'])
@@ -1859,7 +1866,6 @@ def pattern_i64toi32(context, tree, c0):
 @isa.pattern('reg64', 'U32TOU64(reg32)', size=4)
 @isa.pattern('reg64', 'U32TOI64(reg32)', size=4)
 @isa.pattern('reg64', 'I32TOU64(reg32)', size=4)  # TODO: sign extend?
-@isa.pattern('reg64', 'I32TOI64(reg32)', size=4)  # TODO: sign extend?
 def pattern_u32toi64(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
@@ -1872,6 +1878,28 @@ def pattern_u32toi64(context, tree, c0):
     defu2.add_use(eax)
     defu2.add_def(rax)
     context.emit(defu2)
+
+    d = context.new_reg(Register64)
+    context.move(d, rax)
+    return d
+
+
+@isa.pattern('reg64', 'I32TOI64(reg32)', size=4)
+def pattern_i32toi64(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(rax)
+    context.emit(defu1)
+
+    context.emit(bits64.XorRmReg(RmReg64(rax), rax))
+    context.move(eax, c0)
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(eax)
+    defu2.add_def(rax)
+    context.emit(defu2)
+
+    # Sign extend:
+    context.emit(Cdqe())
 
     d = context.new_reg(Register64)
     context.move(d, rax)

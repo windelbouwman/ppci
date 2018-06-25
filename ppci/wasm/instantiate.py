@@ -19,6 +19,7 @@ from ..utils.codepage import load_obj, MemoryPage
 from ..utils.bitfun import rotr, rotl, to_signed, to_unsigned
 from ..utils.bitfun import clz, ctz, popcnt
 from ..utils.reporting import DummyReportGenerator
+from .. import ir
 from ..irutils import verify_module
 from . import wasm_to_ir
 from .components import Export, Import
@@ -80,8 +81,7 @@ def native_instantiate(module, imports, reporter):
         module, arch.info.get_type_info('ptr'), reporter=reporter)
     verify_module(ppci_module)
     obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
-    _module = load_obj(obj, imports=imports)
-    instance = NativeModuleInstance(_module)
+    instance = NativeModuleInstance(obj, imports)
 
     # Export all exported functions
     for definition in module:
@@ -188,8 +188,7 @@ def flatten_imports(imports):
 
 class ModuleInstance:
     """ Instantiated module """
-    def __init__(self, module):
-        self._module = module
+    def __init__(self):
         self.exports = Exports()
 
     def _run_init(self):
@@ -198,19 +197,66 @@ class ModuleInstance:
 
 class NativeModuleInstance(ModuleInstance):
     """ Wasm module loaded as natively compiled code """
-    def memory_grow(self, amount):
-        """ Grow memory and return the old size """
-        raise NotImplementedError()
+    def __init__(self, obj, imports):
+        super().__init__()
+        imports['wasm_rt_memory_grow'] = self.memory_grow
+        imports['wasm_rt_memory_size'] = self.memory_size
+        self._module = load_obj(obj, imports=imports)
 
-    def memory_size(self):
+    def memory_grow(self, amount: int) -> int:
+        """ Grow memory and return the old size.
+
+        Current strategy:
+        - claim new memory
+        - copy all data
+        - free old memory
+        - update wasm memory base pointer
+        """
+        old_size = self.memory_size()
+        new_size = (old_size + amount) * PAGE_SIZE
+
+        # Read old data:
+        self._data_page._page.seek(0)
+        old_data = self._data_page._page.read()
+
+        # Create new page and fill with old data:
+        self._data_page = MemoryPage(new_size)
+        self._data_page.write(old_data)
+
+        # Update pointer:
+        self.set_mem_base_ptr(self._data_page.addr)
+        return old_size
+
+    def memory_size(self) -> int:
         """ return memory size in pages """
-        raise NotImplementedError()
+        return self._data_page.size // PAGE_SIZE
+
+    def load_memory(self, module):
+        memories = create_memories(module)
+        if memories:
+            assert len(memories) == 1
+            memory = list(memories.values())[0]
+            self._data_page = MemoryPage(len(memory))
+            self._data_page.write(memory)
+            base_addr = self._data_page.addr
+            self.set_mem_base_ptr(base_addr)
+
+    def set_mem_base_ptr(self, base_addr):
+        """ Set memory base address """
+        # TODO:
+        baseptr = self._module.get_symbol_address('wasm_mem0_address')
+        print(baseptr)
+        # TODO: major hack:
+        # TODO: too many assumptions made here ...
+        self._module._data_page._page.seek(0)
+        self._module._data_page.write(struct.pack('Q', base_addr))
 
 
 class PythonModuleInstance(ModuleInstance):
     """ Wasm module loaded a generated python module """
     def __init__(self, module):
-        super().__init__(module)
+        super().__init__()
+        self._module = module
         self.mem_end = self._module.heap_top()
 
     def memory_grow(self, amount):
@@ -293,10 +339,10 @@ def create_runtime():
         return popcnt(v, 64)
 
     # Conversions:
-    def i32_trunc_s_f32(v: float) -> int:
+    def i32_trunc_s_f32(v: ir.f32) -> ir.i32:
         return int(v)
 
-    def i32_trunc_u_f32(v: float) -> int:
+    def i32_trunc_u_f32(v: ir.f32) -> ir.i32:
         return make_int(v, 32)
 
     def i32_trunc_s_f64(v: float) -> int:
@@ -305,10 +351,10 @@ def create_runtime():
     def i32_trunc_u_f64(v: float) -> int:
         return make_int(v, 32)
 
-    def i64_trunc_s_f32(v: float) -> int:
+    def i64_trunc_s_f32(v: ir.f32) -> int:
         return int(v)
 
-    def i64_trunc_u_f32(v: float) -> int:
+    def i64_trunc_u_f32(v: ir.f32) -> int:
         return make_int(v, 64)
 
     def i64_trunc_s_f64(v: float) -> int:
@@ -317,10 +363,10 @@ def create_runtime():
     def i64_trunc_u_f64(v: float) -> int:
         return make_int(v, 64)
 
-    def f64_promote_f32(v: float) -> float:
+    def f64_promote_f32(v: ir.f32) -> ir.f64:
         return v
 
-    def f32_demote_f64(v: float) -> float:
+    def f32_demote_f64(v: float) -> ir.f32:
         return v
 
     def f64_reinterpret_i64(v: int) -> float:

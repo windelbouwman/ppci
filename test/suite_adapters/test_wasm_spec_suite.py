@@ -48,13 +48,13 @@ def perform_test(filename, target):
     with open(filename, 'rt', encoding='utf-8') as f:
         source_text = f.read()
 
-    html_report = os.path.splitext(filename)[0] + '.html'
+    html_report = os.path.splitext(filename)[0] + '_' + target + '.html'
     with open(html_report, 'wt', encoding='utf8') as f, HtmlReportGenerator(f) as reporter:
         reporter.message('Test spec file {}'.format(filename))
         try:
             output_file = io.StringIO()
             s_expressions = parse_multiple_sexpr(source_text)
-            executor = WastExecutor(reporter)
+            executor = WastExecutor(target, reporter)
             executor.execute(s_expressions)
 
             # TODO: check output for correct values:
@@ -69,7 +69,8 @@ def perform_test(filename, target):
 class WastExecutor:
     logger = logging.getLogger('wast-exe')
 
-    def __init__(self, reporter):
+    def __init__(self, target, reporter):
+        self.target = target
         self.reporter = reporter
         self.mod_instance = None
 
@@ -151,10 +152,7 @@ class WastExecutor:
         self.logger.debug('loaded wasm module %s', m1)
 
         # Next step: Instantiate:
-        # target = 'python'
-        target = 'native'
-        # target = None
-        if target:
+        if self.target:
             def my_print() -> None:
                 pass
 
@@ -169,7 +167,7 @@ class WastExecutor:
                }
             }
             self.mod_instance = instantiate(
-                m1, imports, target=target, reporter=self.reporter)
+                m1, imports, target=self.target, reporter=self.reporter)
             self.logger.debug('Instantiated wasm module %s', self.mod_instance)
 
     def invoke(self, target):
@@ -250,6 +248,13 @@ def get_wast_files():
         'linking',  # Requires linking. This does not work yet.
         'imports',  # Import support is too limited for now.
         'globals',  # Import of globals not implemented
+        'data',  # Importing of memory not implemented
+        'elem',  # Importing of table not implemented
+        'exports',  # TODO: what goes wrong here?
+        'float_exprs',  # TODO: what is the issue here?
+        'float_literals',  # TODO: what is the issue here?
+        'skip-stack-guard-page',  # This is some stack overflow stuff?
+        'resizing',  # TODO: limit the amount of memory with a max
     ]
     if 'WASM_SPEC_DIR' in os.environ:
         wasm_spec_directory = os.path.normpath(os.environ['WASM_SPEC_DIR'])
@@ -293,6 +298,7 @@ if __name__ == '__main__':
     
     # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     
-    for target in ['python', 'native']:
+    # for target in ['python', 'native']:
+    for target in ['native', 'python']:
         for filename in get_wast_files():
             perform_test(filename, target)

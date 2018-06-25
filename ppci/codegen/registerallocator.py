@@ -256,6 +256,21 @@ class GraphColoringRegisterAllocator:
         self.remove_redundant_moves()
         self.apply_colors()
 
+    def link_move(self, move):
+        """ Associate move with its source and destination """
+        src = self.node(move.used_registers[0])
+        dst = self.node(move.defined_registers[0])
+        src.moves.add(move)
+        dst.moves.add(move)
+
+    def unlink_move(self, move):
+        src = self.node(move.used_registers[0])
+        dst = self.node(move.defined_registers[0])
+        if move in src.moves:
+            src.moves.remove(move)
+        if move in dst.moves:
+            dst.moves.remove(move)
+
     def init_data(self, frame):
         """ Initialize data structures """
         self.frame = frame
@@ -274,10 +289,7 @@ class GraphColoringRegisterAllocator:
 
         self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
-            src = self.node(mv.used_registers[0])
-            dst = self.node(mv.defined_registers[0])
-            src.moves.add(mv)
-            dst.moves.add(mv)
+            self.link_move(mv)
 
         self.select_stack = []
 
@@ -373,7 +385,7 @@ class GraphColoringRegisterAllocator:
         return num_blocked < self.K[B]
 
     def NodeMoves(self, n):
-        return n.moves & (self.activeMoves | self.worklistMoves)
+        return n.moves
 
     def is_move_related(self, n):
         """ Check if a node is used by move instructions """
@@ -431,6 +443,7 @@ class GraphColoringRegisterAllocator:
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
+            self.unlink_move(m)
             self.add_worklist(u)
             if self.verbose:
                 self.logger.debug('Move was an identity move')
@@ -439,6 +452,7 @@ class GraphColoringRegisterAllocator:
             # or there is an interfering edge
             # between the two nodes:
             self.constrainedMoves.add(m)
+            self.unlink_move(m)
             self.add_worklist(u)
             self.add_worklist(v)
             if self.verbose:
@@ -449,6 +463,7 @@ class GraphColoringRegisterAllocator:
             # Check if v can be given the class of u, in other words:
             # is u a subclass of v?
             self.coalescedMoves.add(m)
+            self.unlink_move(m)
             self.combine(u, v)
             self.add_worklist(u)
         else:
@@ -538,11 +553,12 @@ class GraphColoringRegisterAllocator:
         self.simplify_worklist.append(u)
 
         # Freeze moves for node u
-        for m in self.NodeMoves(u):
+        for m in list(self.NodeMoves(u)):
             if m in self.activeMoves:
                 self.activeMoves.remove(m)
             else:
                 self.worklistMoves.remove(m)
+            self.unlink_move(m)
             self.frozenMoves.add(m)
             # Check other part of the move for still being move related:
             src = self.node(m.used_registers[0])
