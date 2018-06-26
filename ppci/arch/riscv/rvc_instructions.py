@@ -140,6 +140,20 @@ class CEbreak(RiscvcInstruction):
         tokens[0][0:16] = 0b1001000000000010
         return tokens[0].encode()
 
+class CMovr(RiscvcInstruction):    
+    rd = Operand('rd', RiscvRegister, write=True)
+    rm = Operand('rm', RiscvRegister, read=True)
+    syntax = Syntax(['c', '.','mv', ' ', rd, ',', ' ', rm])
+    
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b10
+        tokens[0][2:7] = self.rm.num
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:16] = 0b1000
+        return tokens[0].encode()
+
+        
 class CBl(RiscvInstruction):
     target = Operand('target', str)
     rd = Operand('rd', RiscvRegister, write=True)
@@ -305,8 +319,8 @@ class CSw(RiscvcInstruction):
 class CLwsp(RiscvcInstruction):
     rd = Operand('rd', RiscvRegister, write=True)
     offset = Operand('offset', int)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'lwsp', ' ', rd, ',', offset, '(', rs1, ')'])
+    #rs1 = Operand('rs1', RiscvRegister, read=True)
+    syntax = Syntax(['c', '.', 'lwsp', ' ', rd, ',', offset, '(', 'x2', ')'])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -322,8 +336,8 @@ class CLwsp(RiscvcInstruction):
 class CSwsp(RiscvcInstruction):
     rs2 = Operand('rs2', RiscvRegister, read=True)
     offset = Operand('offset', int)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'swsp', ' ', rs2, ',', offset, '(', rs1, ')'])
+    #rs1 = Operand('rs1', RiscvRegister, read=True)
+    syntax = Syntax(['c', '.', 'swsp', ' ', rs2, ',', offset, '(', 'x2', ')'])
 
     def encode(self):
         tokens = self.get_tokens()
