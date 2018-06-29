@@ -39,6 +39,7 @@ Backend details
 
 .. toctree::
 
+    architecture
     arm
     avr
     microblaze

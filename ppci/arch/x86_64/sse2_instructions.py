@@ -461,6 +461,19 @@ def pattern_neg_f64(context, tree, c0):
     return d
 
 
+@sse1_isa.pattern('regfp32', 'NEGF32(regfp32)', size=8, cycles=9, energy=4)
+def pattern_neg_f32(context, tree, c0):
+    """ Multiply by -1 """
+    float_const = struct.pack('f', -1)
+    const_label = context.frame.add_constant(float_const)
+    label_addr = context.new_reg(Register64)
+    context.emit(MovAdr(label_addr, const_label))
+    d = context.new_reg(XmmRegister)
+    context.emit(Movss(d, RmXmmReg(c0)))
+    context.emit(Mulss(d, RmMem(label_addr)))
+    return d
+
+
 @sse1_isa.pattern(
     'regfp32', 'ADDF32(regfp32, regfp32)', size=6, cycles=2, energy=2)
 def pattern_addf32(context, tree, c0, c1):

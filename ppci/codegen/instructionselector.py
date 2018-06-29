@@ -206,6 +206,8 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
+    verbose = False
+
     def __init__(self, arch, sgraph_builder, weights=(1, 1, 1)):
         """ Create a new instruction selector.
 
@@ -264,7 +266,11 @@ class InstructionSelector1:
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(
             ir_function, function_info, frame.debug_db)
-        reporter.dump_sgraph(sgraph)
+
+        if self.verbose:
+            # Graph drawing takes considerable time
+            # only do this in verbose mode.
+            reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(

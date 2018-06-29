@@ -79,6 +79,12 @@ class WinPage:
         self.mem[self.ptr:self.ptr+len(data)] = data
         self.ptr += len(data)
 
+    def seek(self, pos):
+        self.ptr = pos
+
+    def read(self):
+        return bytes(self.mem[self.ptr:self.size])
+
     def __len__(self):
         return self.size
 
@@ -108,6 +114,12 @@ class MemoryPage:
     def write(self, data):
         """ Fill page with the given data """
         self._page.write(data)
+
+    def seek(self, pos):
+        self._page.seek(pos)
+
+    def read(self):
+        return self._page.read()
 
 
 class Mod:

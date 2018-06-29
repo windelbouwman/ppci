@@ -12,7 +12,7 @@ detected.
 .. doctest::
 
     >>> import io
-    >>> from ppci.relooper import find_structure, print_shape
+    >>> from ppci.graph.relooper import find_structure, print_shape
     >>> from ppci.irutils import read_module, verify_module
     >>> ir_source = """
     ... module demo;
@@ -53,6 +53,6 @@ As can be seen, the program contains one loop.
 Reference
 ---------
 
-.. automodule:: ppci.relooper
+.. automodule:: ppci.graph.relooper
     :members:
 

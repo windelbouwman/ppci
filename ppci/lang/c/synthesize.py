@@ -1,5 +1,5 @@
 from ... import ir
-from ...relooper import find_structure
+from ...graph.relooper import find_structure
 from .nodes import types, declarations, expressions, statements
 
 

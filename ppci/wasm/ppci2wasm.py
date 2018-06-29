@@ -13,7 +13,8 @@ The compilation strategy is hence as follows:
 """
 
 import logging
-from .. import ir, relooper
+from .. import ir
+from ..graph import relooper
 from . import components
 from ..codegen.irdag import SelectionGraphBuilder, prepare_function_info
 from ..codegen.irdag import FunctionInfo

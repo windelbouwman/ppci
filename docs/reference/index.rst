@@ -14,12 +14,10 @@ Reference
     optimization
     codegen/index
     debug
-    architecture
     backends/index
     format/index
     objectformat
     wasm
-    relooping
     utils/index
     graph/index
     links
