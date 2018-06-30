@@ -18,10 +18,20 @@ from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
 from ..stack import StackLocation
+from ..stack import FramePointerLocation 
 from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
-from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr, CMovr, CLwsp, CSwsp
+from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr, CMovr
+from .rvc_instructions import CLwsp, CSwsp, CAddi16sp, CAddi4spn
+
+def isinsrange(bits, val):
+        msb = 1<<(bits-1)
+        ll = -msb
+        if (val<=(msb-1) and (val >=ll)):
+            return True
+        else:    
+            return False
 
 
 class RiscvAssembler(BaseAssembler):
@@ -62,6 +72,7 @@ class RiscvArch(Architecture):
             self.isa = isa + data_isa
             self.store = Sw
             self.load = Lw
+        self.fp_location = FramePointerLocation.BOTTOM 
         self.isa.sectinst = Section
         self.isa.dbinst = DByte
         self.isa.dsinst = DZero
@@ -236,34 +247,52 @@ class RiscvArch(Architecture):
         """ Returns prologue instruction sequence """
         # Label indication function:
         yield Label(frame.name)
-        ssize = round_up(frame.stacksize) + 8
-        yield Sw(LR, -ssize + 4, SP)
-        yield Sw(FP, -ssize, SP) 
-        if self.has_option('rvc'):
-            yield CMovr(FP, SP)  # Setup frame pointer
+        ssize = round_up(frame.stacksize + 8)
+        if self.has_option('rvc') and isinsrange(10, -ssize):
+            yield CAddi16sp(-ssize)  # Reserve stack space
         else:
-            yield Movr(FP, SP)  # Setup frame pointer
-        yield Addi(SP, SP, -ssize)  # Reserve stack space
+            yield Addi(SP, SP, -ssize)  # Reserve stack space            
+        
+        if self.has_option('rvc'):
+            yield CSwsp(LR, 4)
+            yield CSwsp(FP, 0)
+        else:
+            yield Sw(LR, 4, SP)
+            yield Sw(FP, 0, SP)
+        
+        if self.has_option('rvc'):
+            yield CAddi4spn(FP, 8)  # Setup frame pointer
+        else:
+            yield Addi(FP, SP, 8)  # Setup frame pointer        
+        #yield Addi(FP, SP, 8)  # Setup frame pointer        
+        
         rsize = 0
         for register in self.callee_save:
             if frame.is_used(register):
-                rsize -= 4
-        yield Addi(SP, SP, rsize)
+                rsize += 4 
+        rsize = round_up(rsize)         
+        if self.has_option('rvc') and isinsrange(10, rsize):
+            yield CAddi16sp(-rsize)  # Reserve stack space
+        else:
+            yield Addi(SP, SP, -rsize)  # Reserve stack space
         i = 0
         for register in self.callee_save:
             if frame.is_used(register):
                 i -= 4
                 if self.has_option('rvc'):
-                    yield CSwsp(register,i - rsize)
+                    yield CSwsp(register,i + rsize)
                 else:
-                    yield Sw(register, i - rsize, SP)
+                    yield Sw(register, i + rsize, SP)
         
 
         # Allocate space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
             ssize = round_up(extras)
-            yield Addi(SP, SP, -ssize)
+            if self.has_option('rvc') and isinsrange(10, ssize):
+                yield CAddi16sp(-ssize)  # Reserve stack space
+            else:
+                yield Addi(SP, SP, -ssize)  # Reserve stack space            
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -298,22 +327,45 @@ class RiscvArch(Architecture):
         # Free space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
-            ssize = round_up(extras)
-            yield Addi(SP, SP, ssize)
+            ssize = round_up(extras)            
+            if self.has_option('rvc') and isinsrange(10, ssize):
+                yield CAddi16sp(ssize)  # Reserve stack space
+            else:
+                yield Addi(SP, SP, ssize)  # Reserve stack space            
         # Callee saved registers:
-        i = 0
-        for register in reversed(self.callee_save):
+        rsize = 0
+        for register in self.callee_save:
             if frame.is_used(register):
+                rsize += 4 
+        rsize = round_up(rsize)
+        
+        i = 0
+        for register in self.callee_save:
+            if frame.is_used(register):
+                i -= 4
                 if self.has_option('rvc'):
-                    yield CLwsp(register, i)
+                    yield CLwsp(register, i + rsize)
                 else:
-                    yield Lw(register, i, SP)
-                i += 4
-        ssize = round_up(frame.stacksize) + 8   
-        yield Addi(SP, SP, i + ssize)
-        yield Lw(FP, -ssize, SP)
-        yield Lw(LR, -ssize + 4, SP)
-
+                    yield Lw(register, i + rsize, SP)              
+               
+        if self.has_option('rvc') and isinsrange(10, rsize):
+            yield CAddi16sp(rsize)  # Reserve stack space
+        else:
+            yield Addi(SP, SP, rsize)  # Reserve stack space              
+        
+        if self.has_option('rvc'):
+            yield CLwsp(LR, 4)
+            yield CLwsp(FP, 0)
+        else:
+            yield Lw(LR, 4, SP)
+            yield Lw(FP, 0, SP)
+        
+        ssize = round_up(frame.stacksize + 8) 
+        if self.has_option('rvc') and isinsrange(10, ssize):
+            yield CAddi16sp(ssize)  # Free stack space
+        else:
+            yield Addi(SP, SP, ssize)  # Free stack space
+            
         # Return
         if self.has_option('rvc'):
             yield CJr(LR)
@@ -327,4 +379,4 @@ class RiscvArch(Architecture):
 
 
 def round_up(s):
-    return s + (4 - s % 4)
+    return s + (16 - s % 16)

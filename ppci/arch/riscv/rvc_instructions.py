@@ -332,6 +332,37 @@ class CLwsp(RiscvcInstruction):
         tokens[0][13:16] = 0b010
         return tokens[0].encode()
 
+class CAddi4spn(RiscvcInstruction): 
+    rd = Operand('rd', RiscvRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['c', '.', 'addi4spn', ' ', rd,  ' ', imm])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b00
+        tokens[0][2:5] = self.rd.num - 8
+        tokens[0][5:6] = self.imm >> 3 & 1        
+        tokens[0][6:7] = self.imm >> 2 & 1 
+        tokens[0][7:11] = self.imm >> 6 & 0xf
+        tokens[0][11:13] = self.imm >> 4 & 0x3
+        tokens[0][13:16] = 0b000
+        return tokens[0].encode()
+        
+class CAddi16sp(RiscvcInstruction):    
+    imm = Operand('imm', int)
+    syntax = Syntax(['c', '.', 'addi16sp', ' ', imm])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:2] = 0b01
+        tokens[0][2:3] = self.imm >> 5 & 1
+        tokens[0][3:5] = self.imm >> 7 & 3        
+        tokens[0][5:6] = self.imm >> 6 & 1
+        tokens[0][6:7] = self.imm >> 4 & 1
+        tokens[0][7:12] = 2
+        tokens[0][12:13] = self.imm >> 9 & 1
+        tokens[0][13:16] = 0b011
+        return tokens[0].encode()
 
 class CSwsp(RiscvcInstruction):
     rs2 = Operand('rs2', RiscvRegister, read=True)
@@ -643,11 +674,12 @@ def pattern_stri32_const(context, tree, c0):
     context.emit(Srliv(d, c0, c1))
     return d
 
-
-@rvcisa.pattern('reg', 'LDRI32(reg)', size=1)
+@rvcisa.pattern('reg', 'LDRU32(mem)', size=1)
+@rvcisa.pattern('reg', 'LDRI32(mem)', size=1)
 def pattern_ldri32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
-    context.emit(Lwv(d, 0, c0))
+    base_reg, offset = c0 
+    context.emit(Lwv(d, offset, base_reg))
     return d
 
 
@@ -659,10 +691,11 @@ def pattern_ldri32_addi32(context, tree, c0):
     context.emit(Lwv(d, c1, c0))
     return d
 
-
-@rvcisa.pattern('stm', 'STRI32(reg, reg)', size=1)
+@rvcisa.pattern('stm', 'STRU32(mem, reg)', size=1)
+@rvcisa.pattern('stm', 'STRI32(mem, reg)', size=1)
 def pattern_stri32(self, tree, c0, c1):
-    self.emit(Swv(c1, 0, c0))
+    base_reg, offset = c0 
+    self.emit(Swv(c1, offset, base_reg))
 
 
 @rvcisa.pattern(
