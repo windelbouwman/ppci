@@ -21,7 +21,7 @@ from ..stack import StackLocation
 from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
-from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr
+from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr, CMovr, CLwsp, CSwsp
 
 
 class RiscvAssembler(BaseAssembler):
@@ -145,7 +145,10 @@ class RiscvArch(Architecture):
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        return Movr(dst, src, ismove=True)
+        if self.has_option('rvc'):
+            return CMovr(dst, src, ismove=True)
+        else:
+            return Movr(dst, src, ismove=True)
 
     def gen_riscv_memcpy(self, dst, src, tmp, size):
         # Called before register allocation
@@ -235,15 +238,26 @@ class RiscvArch(Architecture):
         yield Label(frame.name)
         ssize = round_up(frame.stacksize) + 8
         yield Sw(LR, -ssize + 4, SP)
-        yield Sw(FP, -ssize, SP)
-        yield Movr(FP, SP)  # Setup frame pointer
+        yield Sw(FP, -ssize, SP) 
+        if self.has_option('rvc'):
+            yield CMovr(FP, SP)  # Setup frame pointer
+        else:
+            yield Movr(FP, SP)  # Setup frame pointer
         yield Addi(SP, SP, -ssize)  # Reserve stack space
+        rsize = 0
+        for register in self.callee_save:
+            if frame.is_used(register):
+                rsize -= 4
+        yield Addi(SP, SP, rsize)
         i = 0
         for register in self.callee_save:
             if frame.is_used(register):
                 i -= 4
-                yield Sw(register, i, SP)
-        yield Addi(SP, SP, i)
+                if self.has_option('rvc'):
+                    yield CSwsp(register,i - rsize)
+                else:
+                    yield Sw(register, i - rsize, SP)
+        
 
         # Allocate space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
@@ -290,11 +304,13 @@ class RiscvArch(Architecture):
         i = 0
         for register in reversed(self.callee_save):
             if frame.is_used(register):
-                yield Lw(register, i, SP)
+                if self.has_option('rvc'):
+                    yield CLwsp(register, i)
+                else:
+                    yield Lw(register, i, SP)
                 i += 4
-        yield Addi(SP, SP, i)
-        ssize = round_up(frame.stacksize) + 8
-        yield Addi(SP, SP, ssize)
+        ssize = round_up(frame.stacksize) + 8   
+        yield Addi(SP, SP, i + ssize)
         yield Lw(FP, -ssize, SP)
         yield Lw(LR, -ssize + 4, SP)
 
