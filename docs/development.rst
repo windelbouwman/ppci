@@ -106,6 +106,16 @@ pyprof2calltree.
     $ pip install pyprof2calltree
     $ pyprof2calltree -i profiled.out -k
 
+Debugging
+~~~~~~~~~
+
+Sometimes, the python interpreter might crash due to playing with dynamically
+injected code. To debug this, we can use gdb for example.
+
+.. code:: bash
+
+    $ gdb --args python script.py
+    (gdb) run
 
 3rd party test suites
 ~~~~~~~~~~~~~~~~~~~~~

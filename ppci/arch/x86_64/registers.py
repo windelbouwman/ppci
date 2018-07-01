@@ -81,6 +81,16 @@ class XmmRegister(Register):
             return self.name
 
 
+class XmmRegisterSingle(Register):
+    bitsize = 32
+
+    def __repr__(self):
+        if self.is_colored:
+            return get_xmm_reg(self.color).name
+        else:
+            return self.name
+
+
 # Calculation of the rexb bit:
 # rexbit = {'rax': 0, 'rcx':0, 'rdx':0, 'rbx': 0, 'rsp': 0, 'rbp': 0, 'rsi':0,
 # 'rdi':0,'r8':1,'r9':1,'r10':1,'r11':1,'r12':1,'r13':1,'r14':1,'r15':1}
@@ -188,8 +198,63 @@ xmm14 = XmmRegister('xmm14', 14)
 xmm15 = XmmRegister('xmm15', 15)
 
 XmmRegister.registers = [
-    xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7,
-    xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15]
+    xmm0,
+    xmm1,
+    xmm2,
+    xmm3,
+    xmm4,
+    xmm5,
+    xmm6,
+    xmm7,
+    xmm8,
+    xmm9,
+    xmm10,
+    xmm11,
+    xmm12,
+    xmm13,
+    xmm14,
+    xmm15
+]
+
+XmmRegisterDouble = XmmRegister
+
+# Single precision scalar registers:
+xmm0_single = XmmRegisterSingle('xmm0', 0, aliases=(xmm0,))
+xmm1_single = XmmRegisterSingle('xmm1', 1, aliases=(xmm1,))
+xmm2_single = XmmRegisterSingle('xmm2', 2, aliases=(xmm2,))
+xmm3_single = XmmRegisterSingle('xmm3', 3, aliases=(xmm3,))
+xmm4_single = XmmRegisterSingle('xmm4', 4, aliases=(xmm4,))
+xmm5_single = XmmRegisterSingle('xmm5', 5, aliases=(xmm5,))
+xmm6_single = XmmRegisterSingle('xmm6', 6, aliases=(xmm6,))
+xmm7_single = XmmRegisterSingle('xmm7', 7, aliases=(xmm7,))
+
+xmm8_single = XmmRegisterSingle('xmm8', 8, aliases=(xmm8,))
+xmm9_single = XmmRegisterSingle('xmm9', 9, aliases=(xmm9,))
+xmm10_single = XmmRegisterSingle('xmm10', 10, aliases=(xmm10,))
+xmm11_single = XmmRegisterSingle('xmm11', 11, aliases=(xmm11,))
+xmm12_single = XmmRegisterSingle('xmm12', 12, aliases=(xmm12,))
+xmm13_single = XmmRegisterSingle('xmm13', 13, aliases=(xmm13,))
+xmm14_single = XmmRegisterSingle('xmm14', 14, aliases=(xmm14,))
+xmm15_single = XmmRegisterSingle('xmm15', 15, aliases=(xmm15,))
+
+XmmRegisterSingle.registers = [
+    xmm0_single,
+    xmm1_single,
+    xmm2_single,
+    xmm3_single,
+    xmm4_single,
+    xmm5_single,
+    xmm6_single,
+    xmm7_single,
+    xmm8_single,
+    xmm9_single,
+    xmm10_single,
+    xmm11_single,
+    xmm12_single,
+    xmm13_single,
+    xmm14_single,
+    xmm15_single,
+]
 
 
 def get_xmm_reg(num):
@@ -227,6 +292,9 @@ register_classes = [
     RegisterClass(
         'reg8', [ir.i8, ir.u8], Register8, [al, bl, cl, dl]),
     RegisterClass(
-        'regfp', [ir.f32, ir.f64], XmmRegister,
-        XmmRegister.registers),
+        'regfp32', [ir.f32], XmmRegisterSingle,
+        XmmRegisterSingle.registers),
+    RegisterClass(
+        'regfp64', [ir.f64], XmmRegisterDouble,
+        XmmRegisterDouble.registers),
     ]

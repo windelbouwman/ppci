@@ -55,6 +55,11 @@ def instantiate(module, imports, target='native', reporter=None):
                     'imported object "{}" not found in "{}"'.format(
                         name, modname))
 
+    # Inject wasm runtime functions:
+    if 'wasm_rt' in imports:
+        raise ValueError('wasm_rt is a special import section')
+    imports['wasm_rt'] = create_runtime()
+
     imports = flatten_imports(imports)
 
     if target == 'native':
@@ -63,6 +68,8 @@ def instantiate(module, imports, target='native', reporter=None):
         instance = python_instantiate(module, imports, reporter)
     else:
         raise ValueError('Unknown instantiation target {}'.format(target))
+
+    instance.load_memory(module)
 
     # Call magic function _run_init which initializes tables and optionally
     # calls start function as defined by the wasm start section.
@@ -85,21 +92,14 @@ def native_instantiate(module, imports, reporter):
         if isinstance(definition, Export):
             if definition.kind == 'func':
                 exported_name = sanitize_name(definition.name)
-                setattr(
-                    instance.exports, exported_name,
-                    getattr(instance._module, exported_name))
+                instance.exports._function_map[definition.name] = \
+                    getattr(instance._code_module, exported_name)
             elif definition.kind == 'global':
                 logger.error('global not exported')
             elif definition.kind == 'memory':
                 logger.error('memory not exported')
             else:
                 raise NotImplementedError(definition.kind)
-
-    # Fetch init function:
-    fname = '_run_init'
-    setattr(instance.exports, fname, getattr(instance._module, fname))
-
-    instance.load_memory(module)
 
     return instance
 
@@ -114,19 +114,9 @@ def python_instantiate(module, imports, reporter):
     ir_to_python([ppci_module], f, reporter=reporter)
     pysrc = f.getvalue()
     pycode = compile(pysrc, '<string>', 'exec')
-    _module = ModuleType('gen')
-    exec(pycode, _module.__dict__)
-    instance = PythonModuleInstance(_module)
-
-    # Magical python memory interface, add it now:
-    imports['wasm_rt_memory_grow'] = instance.memory_grow
-    imports['wasm_rt_memory_size'] = instance.memory_size
-
-    # Link all imports:
-    for name, f in imports.items():
-        # TODO: make a choice between those two options:
-        # gen_rocket_wasm.externals[name] = f
-        setattr(instance._module, name, f)
+    _py_module = ModuleType('gen')
+    exec(pycode, _py_module.__dict__)
+    instance = PythonModuleInstance(_py_module, imports)
 
     # Export all exported functions
     for definition in module:
@@ -136,25 +126,14 @@ def python_instantiate(module, imports, reporter):
         elif isinstance(definition, Export):
             if definition.kind == 'func':
                 exported_name = sanitize_name(definition.name)
-                setattr(
-                    instance.exports, exported_name,
-                    getattr(instance._module, exported_name))
+                instance.exports._function_map[definition.name] = \
+                    getattr(instance._py_module, exported_name)
             elif definition.kind == 'global':
                 logger.error('global not exported')
             elif definition.kind == 'memory':
                 logger.error('memory not exported')
             else:
                 raise NotImplementedError(definition.kind)
-
-    memories = create_memories(module)
-    if memories:
-        assert len(memories) == 1
-        memory = list(memories.values())[0]
-
-        instance.mem0_start = instance._module.heap_top()
-        instance._module.heap.extend(memory)
-        mem0_ptr_ptr = instance._module.wasm_mem0_address
-        instance._module.store_i32(instance.mem0_start, mem0_ptr_ptr)
 
     return instance
 
@@ -173,9 +152,14 @@ class ModuleInstance:
     """ Instantiated module """
     def __init__(self):
         self.exports = Exports()
+        self._memories = []
 
-    def _run_init(self):
-        self._module._run_init()
+    def memory_size(self) -> int:
+        """ return memory size in pages """
+        # TODO: idea is to have multiple memories and query the memory:
+        memory_index = 0
+        memory = self._memories[memory_index]
+        return memory.memory_size()
 
 
 class NativeModuleInstance(ModuleInstance):
@@ -184,7 +168,14 @@ class NativeModuleInstance(ModuleInstance):
         super().__init__()
         imports['wasm_rt_memory_grow'] = self.memory_grow
         imports['wasm_rt_memory_size'] = self.memory_size
-        self._module = load_obj(obj, imports=imports)
+        self._code_module = load_obj(obj, imports=imports)
+
+    def _run_init(self):
+        self._code_module._run_init()
+
+    def memory_size(self) -> int:
+        """ return memory size in pages """
+        return self._data_page.size // PAGE_SIZE
 
     def memory_grow(self, amount: int) -> int:
         """ Grow memory and return the old size.
@@ -195,69 +186,125 @@ class NativeModuleInstance(ModuleInstance):
         - free old memory
         - update wasm memory base pointer
         """
+        max_size = self._memories[0].max_size
         old_size = self.memory_size()
-        new_size = (old_size + amount) * PAGE_SIZE
+        new_size = old_size + amount
+        if max_size is not None and new_size > max_size:
+            return -1
 
         # Read old data:
         self._data_page.seek(0)
         old_data = self._data_page.read()
 
         # Create new page and fill with old data:
-        self._data_page = MemoryPage(new_size)
+        self._data_page = MemoryPage(new_size * PAGE_SIZE)
         self._data_page.write(old_data)
 
         # Update pointer:
         self.set_mem_base_ptr(self._data_page.addr)
         return old_size
 
-    def memory_size(self) -> int:
-        """ return memory size in pages """
-        return self._data_page.size // PAGE_SIZE
-
     def load_memory(self, module):
         memories = create_memories(module)
         if memories:
             assert len(memories) == 1
-            memory = list(memories.values())[0]
+            memory, min_size, max_size = memories[0]
             self._data_page = MemoryPage(len(memory))
             self._data_page.write(memory)
+            self._memories.append(NativeWasmMemory(min_size, max_size))
             base_addr = self._data_page.addr
             self.set_mem_base_ptr(base_addr)
 
     def set_mem_base_ptr(self, base_addr):
         """ Set memory base address """
-        # TODO:
-        baseptr = self._module.get_symbol_address('wasm_mem0_address')
+        baseptr = self._code_module.get_symbol_offset('wasm_mem0_address')
         print(baseptr)
         # TODO: major hack:
         # TODO: too many assumptions made here ...
-        self._module._data_page.seek(0)
-        self._module._data_page.write(struct.pack('Q', base_addr))
+        self._code_module._data_page.seek(baseptr)
+        self._code_module._data_page.write(struct.pack('Q', base_addr))
+
+
+class WasmMemory:
+    def __init__(self, min_size, max_size):
+        self.min_size = min_size
+        self.max_size = max_size
+
+
+class NativeWasmMemory(WasmMemory):
+    def memory_size(self) -> int:
+        """ return memory size in pages """
+        return self._data_page.size // PAGE_SIZE
+
+
+class PythonWasmMemory(WasmMemory):
+    pass
 
 
 class PythonModuleInstance(ModuleInstance):
     """ Wasm module loaded a generated python module """
-    def __init__(self, module):
+    def __init__(self, module, imports):
         super().__init__()
-        self._module = module
-        self.mem_end = self._module.heap_top()
+        self._py_module = module
+        self.mem_end = self._py_module.heap_top()
+
+        # Magical python memory interface, add it now:
+        imports['wasm_rt_memory_grow'] = self.memory_grow
+        imports['wasm_rt_memory_size'] = self.memory_size
+
+        # Link all imports:
+        for name, f in imports.items():
+            # TODO: make a choice between those two options:
+            # gen_rocket_wasm.externals[name] = f
+            setattr(self._py_module, name, f)
+
+    def _run_init(self):
+        self._py_module._run_init()
+
+    def load_memory(self, module):
+        memories = create_memories(module)
+        if memories:
+            assert len(memories) == 1
+            memory, min_size, max_size = memories[0]
+
+            self.mem0_start = self._py_module.heap_top()
+            self._py_module.heap.extend(memory)
+            mem0_ptr_ptr = self._py_module.wasm_mem0_address
+            self._py_module.store_i32(self.mem0_start, mem0_ptr_ptr)
+            self._memories.append(PythonWasmMemory(min_size, max_size))
 
     def memory_grow(self, amount):
         """ Grow memory and return the old size """
         # Limit the bounds of memory somewhat:
-        if amount > 2**12:
+        if amount >= 0x10000:
             return -1
         else:
+            max_size = self._memories[0].max_size
             old_size = self.memory_size()
-            self._module.heap.extend(bytes(amount * PAGE_SIZE))
-            return old_size
+            new_size = old_size + amount
+            if max_size is not None and new_size > max_size:
+                return -1
+            else:
+                self._py_module.heap.extend(bytes(amount * PAGE_SIZE))
+                return old_size
 
     def memory_size(self):
         """ return memory size in pages """
-        size = (self._module.heap_top() - self.mem0_start) // PAGE_SIZE
+        size = (self._py_module.heap_top() - self.mem0_start) // PAGE_SIZE
         return size
 
 
 class Exports:
+    def __init__(self):
+        self._function_map = {}
+
     """ Container for exported functions """
-    pass
+    def __getitem__(self, key):
+        assert isinstance(key, str)
+        return self._function_map[key]
+
+    def __getattr__(self, name):
+        if name in self._function_map:
+            return self._function_map[name]
+        else:
+            raise AttributeError()

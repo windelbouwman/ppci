@@ -35,7 +35,6 @@ import sys
 from collections import OrderedDict
 
 from .opcodes import OPERANDS, REVERZ, eval_expr, OPCODES
-from .abbreviations import normalize_wasm_s_expression
 from .util import datastring2bytes, bytes2datastring
 from ..lang.sexpr import parse_sexpr
 from .io import FileReader, FileWriter
@@ -265,83 +264,9 @@ class Module(WASMComponent):
     def _from_tuple(self, t):
         """ Initialize from tuple.
         """
-        # Choose implementation:
 
-        # Do everything in one run:
-        self._from_tuple_1stage(t)
-
-        # Split processing into two stages: flattening and parsing
-        # self._from_tuple_2stage(t)
-
-    def _from_tuple_1stage(self, t):
-        # This implementation tries to parse the tuple in one go:
         from .wat import load_tuple
         load_tuple(self, t)
-
-    def _from_tuple_2stage(self, t):
-        """ Initialize from tuple.
-        """
-
-        # Pop off the "module" name and id, if present
-        t = list(t)
-        if t and t[0] == 'module':
-            t.pop(0)
-        if t and isinstance(t[0], str) and t[0].startswith('$'):
-            self.id = t.pop(0)
-        else:
-            self.id = None
-
-        # Check given items. Convert string elements, and count Definitions.
-        definition_count = 0
-        for i in range(len(t)):
-            expr = t[i]
-            if isinstance(expr, Definition):
-                definition_count += 1
-            elif isinstance(expr, str):
-                if expr.startswith('('):
-                    t[i] = parse_sexpr(expr)
-            elif not isinstance(expr, tuple):
-                raise TypeError('Expected str/tuple/Definition, not %r.' %
-                                 expr.__class__.__name__)
-
-        t = tuple(t)
-
-        if definition_count:
-            # Passing Definition objects is fine, but then *all* must be
-            if definition_count != len(t):
-                raise TypeError('Cannot mix tuples with Definition objects.')
-        else:
-            # Tuples need more checks and normalization
-            if t and isinstance(t[0], str) and t[0] != 'module':
-                raise TypeError('Expected "module", not %r' % t[0])
-
-            # Normalize the tuple structure to get a predicatable shape without
-            # abbreviations, for easier parsing. Important to do *here*, not
-            # in parse_sexpr; the input may have been given as a tuple.
-            t = normalize_wasm_s_expression(t, SECTION_IDS)
-            t = t[1:]  # skip "module"
-
-        # Turn into Definition objects and put in categories
-        definitions = dict([(name, []) for name in SECTION_IDS])
-        for expr in t:
-            if isinstance(expr, tuple):
-                Cls = DEFINITION_CLASSES.get(expr[0], None)
-                if Cls is not None:
-                    expr = Cls(expr)
-                else:
-                    raise TypeError('Unknown WAT expression: %s' % expr[0])
-            assert isinstance(expr, Definition)
-            definitions[expr.__name__].append(expr)
-
-        # Flatten the structure, they are now in a nice predictable order
-        definitions2 = []
-        for name in SECTION_IDS:
-            for d in definitions[name]:
-                definitions2.append(d)
-
-        logger.info('Loaded WASM module from text/tuple with %i definitions' %
-                    len(definitions2))
-        self.definitions = definitions2
 
     def to_string(self):
         # TODO: idea: first construct tuples, then pretty print these tuples

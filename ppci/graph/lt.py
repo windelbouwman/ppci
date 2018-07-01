@@ -50,10 +50,8 @@ class LengauerTarjan:
             bucket[n] = set()
 
         # Step 1: calculate semi dominators
-        logger.debug('Computing dfs')
         self.dfs(entry)
 
-        logger.debug('Step 2')
         # Loop over nodes in reversed dfs order:
         for n in reversed(self.vertex[1:]):
             p = self.parent[n]
@@ -87,7 +85,6 @@ class LengauerTarjan:
         for n in self.vertex:
             if self.samedom[n]:
                 self.idom[n] = self.idom[self.samedom[n]]
-        logger.debug('Done')
         return self.idom
 
     def dfs(self, start_node):

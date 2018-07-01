@@ -34,7 +34,8 @@ from .instructions import bits64, RmReg64, MovRegRm8, RmReg8, RmMemDisp, isa
 from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
 from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
-from .sse2_instructions import sse1_isa, sse2_isa, Movss, RmXmmReg
+from .sse2_instructions import sse1_isa, sse2_isa, Movss, Movsd
+from .sse2_instructions import RmXmmRegSingle, RmXmmRegDouble
 from .sse2_instructions import PushXmm, PopXmm
 from .registers import rax, rcx, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
@@ -139,7 +140,10 @@ class X86_64Arch(Architecture):
                 isinstance(src, registers.Register64):
             return bits64.MovRegRm(dst, RmReg64(src), ismove=True)
         elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
-            return Movss(dst, RmXmmReg(src), ismove=True)
+            return Movsd(dst, RmXmmRegDouble(src), ismove=True)
+        elif isinstance(dst, registers.XmmRegisterSingle) and \
+                isinstance(src, registers.XmmRegisterSingle):
+            return Movss(dst, RmXmmRegSingle(src), ismove=True)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(dst))+str(type(src)))
 
@@ -214,17 +218,26 @@ class X86_64Arch(Architecture):
             int_regs = [
                 registers.rcx, registers.rdx, registers.r8, registers.r9]
             float_regs = [
-                registers.xmm0, registers.xmm1, registers.xmm2,
-                registers.xmm3]
+                (registers.xmm0_single, registers.xmm0),
+                (registers.xmm1_single, registers.xmm1),
+                (registers.xmm2_single, registers.xmm2),
+                (registers.xmm3_single, registers.xmm3),
+            ]
         else:
             # Sys V ABI calling convention:
             int_regs = [
                 registers.rdi, registers.rsi, registers.rdx,
                 registers.rcx, registers.r8, registers.r9]
             float_regs = [
-                registers.xmm0, registers.xmm1, registers.xmm2,
-                registers.xmm3, registers.xmm4, registers.xmm5,
-                registers.xmm6, registers.xmm7]
+                (registers.xmm0_single, registers.xmm0),
+                (registers.xmm1_single, registers.xmm1),
+                (registers.xmm2_single, registers.xmm2),
+                (registers.xmm3_single, registers.xmm3),
+                (registers.xmm4_single, registers.xmm4),
+                (registers.xmm5_single, registers.xmm5),
+                (registers.xmm6_single, registers.xmm6),
+                (registers.xmm7_single, registers.xmm7),
+            ]
 
         offset = 16
         for arg_type in arg_types:
@@ -246,7 +259,11 @@ class X86_64Arch(Architecture):
                     offset += arg_size
             elif arg_type in [ir.f32, ir.f64]:
                 if float_regs:
-                    reg = float_regs.pop(0)
+                    if arg_type is ir.f32:
+                        reg = float_regs.pop(0)[0]
+                    else:
+                        reg = float_regs.pop(0)[1]
+
                     if self.has_option('wincc'):
                         int_regs.pop(0)
                 else:
@@ -269,8 +286,10 @@ class X86_64Arch(Architecture):
             rv = registers.rax
         elif ret_type in [ir.i32, ir.u32]:
             rv = registers.eax
-        elif ret_type in [ir.f32, ir.f64]:
+        elif ret_type is ir.f64:
             rv = registers.xmm0
+        elif ret_type is ir.f32:
+            rv = registers.xmm0_single
         else:  # pragma: no cover
             raise NotImplementedError(str(ret_type))
         return rv
@@ -306,7 +325,9 @@ class X86_64Arch(Architecture):
                     yield self.move(arg, registers.eax)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(type(arg)))
-            elif isinstance(arg_loc, XmmRegister):
+            elif isinstance(arg_loc, registers.XmmRegister):
+                yield self.move(arg, arg_loc)
+            elif isinstance(arg_loc, registers.XmmRegisterSingle):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, registers.Register64):
@@ -373,8 +394,11 @@ class X86_64Arch(Architecture):
                     yield self.move(arg_loc, rax)
                 else:  # pragma: no cover
                     raise NotImplementedError()
-            elif isinstance(arg_loc, registers.XmmRegister):
-                assert isinstance(arg, XmmRegister)
+            elif isinstance(arg_loc, registers.XmmRegisterDouble):
+                assert isinstance(arg, registers.XmmRegisterDouble)
+                yield self.move(arg_loc, arg)
+            elif isinstance(arg_loc, registers.XmmRegisterSingle):
+                assert isinstance(arg, registers.XmmRegisterSingle)
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, Register):

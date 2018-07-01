@@ -37,28 +37,25 @@ def create_memories(wasm_module):
     This function is intended to be called from the wasm runtime support
     libraries.
     """
-    memories = {}
-    memory_ids = []
+    memories = []
     initializations = []
     for definition in wasm_module:
         if isinstance(definition, components.Memory):
-            minsize = definition.min
-            memories[definition.id] = bytearray(minsize * 65536)
-            memory_ids.append(definition.id)
+            min_size = definition.min
+            memories.append(
+                (bytearray(min_size * 65536), min_size, definition.max))
         elif isinstance(definition, components.Data):
             assert definition.offset.opcode == 'i32.const'
             offset = definition.offset.args[0]
-            memory_id = definition.ref.index
-            # TODO: should ref always be an integer index?
-            # if isinstance(memory_id, int):
-            memory_id = memory_ids[memory_id]
+            memory_index = definition.ref.index
+            assert isinstance(memory_index, int)
             data = definition.data
-            initializations.append((memory_id, offset, data))
+            initializations.append((memory_index, offset, data))
 
     # Initialize various parts:
-    for memory_id, offset, data in initializations:
-        memory = memories[memory_id]
-        memory[offset:offset+len(data)] = data
+    for memory_index, offset, data in initializations:
+        memory = memories[memory_index]
+        memory[0][offset:offset+len(data)] = data
 
     return memories
 
@@ -386,6 +383,11 @@ class WasmToIrCompiler:
             alignment = size
             alloc = self.emit(ir.Alloc('alloc{}'.format(i), size, alignment))
             addr = self.emit(ir.AddressOf(alloc, 'local{}'.format(i)))
+
+            # Initialize local variable to zero:
+            zero_init = self.emit(ir.Const(0, 'local_init', ir_typ))
+            self.emit(ir.Store(zero_init, addr))
+
             self.locals.append((ir_typ, addr))
 
         # Create an implicit top level block:
@@ -455,8 +457,6 @@ class WasmToIrCompiler:
     def fill_phi(self, phi):
         """ Fill phi with current stack value, if phi is needed """
         if phi and self.is_reachable:
-            # TODO: do we require stack 1 high?
-            # assert len(self.stack) == 1, str(self.stack)
             self.logger.debug('Filling phi %s', phi)
             value = self.pop_value(ir_typ=phi.ty)
             assert self.builder.block is not None

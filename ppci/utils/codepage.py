@@ -50,6 +50,7 @@ def get_ctypes_type(debug_type):
             ir.f32: ctypes.c_float,
             ir.f64: ctypes.c_double,
             ir.i32: ctypes.c_int,
+            ir.i64: ctypes.c_int,  # TODO: which one of 32 and 64 is int?
         }
         return mapping[debug_type]
     else:  # pragma: no cover
@@ -180,6 +181,7 @@ class Mod:
         self._code_page.write(code)
         data = bytes(obj.get_section('data').data)
         self._data_page.write(data)
+        # TODO: we might have more sections!
 
         # Get a function pointer
         for function in obj.debug_info.functions:
@@ -197,9 +199,12 @@ class Mod:
             # Set the attribute:
             setattr(self, function_name, fpointer)
 
-    def get_symbol_address(self, name):
+        # Store object for later usage:
+        self._obj = obj
+
+    def get_symbol_offset(self, name):
         """ Get the memory address of a symbol """
-        pass
+        return self._obj.get_symbol(name).value
 
 
 def load_code_as_module(source_file, reporter=None):

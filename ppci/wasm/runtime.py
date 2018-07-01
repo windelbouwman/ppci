@@ -26,48 +26,48 @@ def f64_sqrt(v: ir.f64) -> ir.f64:
     return math.sqrt(v)
 
 
-def i32_rotr(v: int, cnt: int) -> int:
+def i32_rotr(v: ir.i32, cnt: ir.i32) -> ir.i32:
     """ Rotate right """
     return to_signed(rotr(to_unsigned(v, 32), cnt, 32), 32)
 
 
-def i64_rotr(v: int, cnt: int) -> int:
+def i64_rotr(v: ir.i64, cnt: ir.i64) -> ir.i64:
     """ Rotate right """
     return rotr(v, cnt, 64)
 
 
-def i32_rotl(v: int, cnt: int) -> int:
+def i32_rotl(v: ir.i32, cnt: ir.i32) -> ir.i32:
     """ Rotate left """
     return to_signed(rotl(to_unsigned(v, 32), cnt, 32), 32)
 
 
-def i64_rotl(v: int, cnt: int) -> int:
+def i64_rotl(v: ir.i64, cnt: ir.i64) -> ir.i64:
     """ Rotate left """
     return rotl(v, cnt, 64)
 
 
 # Bit counting:
-def i32_clz(v: int) -> int:
+def i32_clz(v: ir.i32) -> ir.i32:
     return clz(v, 32)
 
 
-def i64_clz(v: int) -> int:
+def i64_clz(v: ir.i64) -> ir.i64:
     return clz(v, 64)
 
 
-def i32_ctz(v: int) -> int:
+def i32_ctz(v: ir.i32) -> ir.i32:
     return ctz(v, 32)
 
 
-def i64_ctz(v: int) -> int:
+def i64_ctz(v: ir.i64) -> ir.i64:
     return ctz(v, 64)
 
 
-def i32_popcnt(v: int) -> int:
+def i32_popcnt(v: ir.i32) -> ir.i32:
     return popcnt(v, 32)
 
 
-def i64_popcnt(v: int) -> int:
+def i64_popcnt(v: ir.i64) -> ir.i64:
     return popcnt(v, 64)
 
 
@@ -80,27 +80,27 @@ def i32_trunc_u_f32(v: ir.f32) -> ir.i32:
     return make_int(v, 32)
 
 
-def i32_trunc_s_f64(v: ir.f64) -> int:
+def i32_trunc_s_f64(v: ir.f64) -> ir.i32:
     return int(v)
 
 
-def i32_trunc_u_f64(v: ir.f64) -> int:
+def i32_trunc_u_f64(v: ir.f64) -> ir.i32:
     return make_int(v, 32)
 
 
-def i64_trunc_s_f32(v: ir.f32) -> int:
+def i64_trunc_s_f32(v: ir.f32) -> ir.i64:
     return int(v)
 
 
-def i64_trunc_u_f32(v: ir.f32) -> int:
+def i64_trunc_u_f32(v: ir.f32) -> ir.i64:
     return make_int(v, 64)
 
 
-def i64_trunc_s_f64(v: ir.f64) -> int:
+def i64_trunc_s_f64(v: ir.f64) -> ir.i64:
     return int(v)
 
 
-def i64_trunc_u_f64(v: ir.f64) -> int:
+def i64_trunc_u_f64(v: ir.f64) -> ir.i64:
     return make_int(v, 64)
 
 
@@ -112,22 +112,22 @@ def f32_demote_f64(v: ir.f64) -> ir.f32:
     return v
 
 
-def f64_reinterpret_i64(v: int) -> ir.f64:
+def f64_reinterpret_i64(v: ir.i64) -> ir.f64:
     x = struct.pack('<q', v)
     return struct.unpack('<d', x)[0]
 
 
-def i64_reinterpret_f64(v: ir.f64) -> int:
+def i64_reinterpret_f64(v: ir.f64) -> ir.i64:
     x = struct.pack('<d', v)
     return struct.unpack('<q', x)[0]
 
 
-def f32_reinterpret_i32(v: int) -> ir.f32:
+def f32_reinterpret_i32(v: ir.i32) -> ir.f32:
     x = struct.pack('<i', v)
     return struct.unpack('<f', x)[0]
 
 
-def i32_reinterpret_f32(v: ir.f32) -> int:
+def i32_reinterpret_f32(v: ir.f32) -> ir.i32:
     x = struct.pack('<f', v)
     return struct.unpack('<i', x)[0]
 

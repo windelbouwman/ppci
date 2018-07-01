@@ -30,7 +30,7 @@ from functools import reduce
 from operator import add
 
 from ppci.wasm import read_wat, Module
-from ppci.wasm.instantiate import instantiate, create_runtime
+from ppci.wasm.instantiate import instantiate
 from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator
@@ -158,7 +158,6 @@ class WastExecutor:
                 pass
 
             imports = {
-               'wasm_rt': create_runtime(),
                'spectest': {
                    'print_i32': print_i32,
                    'print': my_print,
@@ -172,13 +171,13 @@ class WastExecutor:
         # print(target)
         assert target[0] == 'invoke'
         # TODO: how to handle names like @#$%^&*?
-        func_name = sanitize_name(target[1])
+        func_name = target[1]
         args = [self.parse_expr(a) for a in target[2:]]
         if any(nan_or_inf(a) for a in args):
             self.logger.warning('Not invoking method %s(%s)', func_name, args)
         else:
             self.logger.debug('Invoking method %s(%s)', func_name, args)
-            return getattr(self.mod_instance.exports, func_name)(*args)
+            return self.mod_instance.exports[func_name](*args)
 
     def parse_expr(self, s_expr):
         if s_expr[0] in ['i32.const', 'i64.const']:
@@ -253,7 +252,6 @@ def get_wast_files():
         'float_memory',  # TODO: handle signalling nan's
         'float_literals',  # TODO: what is the issue here?
         'skip-stack-guard-page',  # This is some stack overflow stuff?
-        'resizing',  # TODO: limit the amount of memory with a max
         'memory_trap',  # TODO: limit upper memory
         'func',  # TODO: this function is malformed!
     ]
@@ -297,6 +295,9 @@ if __name__ == '__main__':
     
     # unittest.main(verbosity=2)
     
+    perform_test(
+        '/home/windel/GIT/spec/test/core/left-to-right.wast',
+        'native')
     # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     
     # for target in ['python', 'native']:
