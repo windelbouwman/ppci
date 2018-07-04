@@ -32,6 +32,12 @@ class Register32(Register):
     """ 32-bit register like 'eax' """
     bitsize = 32
 
+    def __repr__(self):
+        if self.is_colored:
+            return get32reg(self.color).name
+        else:
+            return self.name
+
     @property
     def rexbit(self):
         return (self.num >> 3) & 0x1
@@ -264,6 +270,11 @@ def get_xmm_reg(num):
 
 def get8reg(num):
     mp = {r.num: r for r in [al, bl, cl, dl]}
+    return mp[num]
+
+
+def get32reg(num):
+    mp = {r.num: r for r in Register32.registers}
     return mp[num]
 
 

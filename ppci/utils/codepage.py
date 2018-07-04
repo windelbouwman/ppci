@@ -49,8 +49,8 @@ def get_ctypes_type(debug_type):
         mapping = {
             ir.f32: ctypes.c_float,
             ir.f64: ctypes.c_double,
-            ir.i32: ctypes.c_int,
-            ir.i64: ctypes.c_int,  # TODO: which one of 32 and 64 is int?
+            ir.i32: ctypes.c_int32,
+            ir.i64: ctypes.c_int64,  # TODO: which one of 32 and 64 is int?
         }
         return mapping[debug_type]
     else:  # pragma: no cover

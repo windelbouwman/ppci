@@ -216,7 +216,11 @@ class X86_64Arch(Architecture):
         if self.has_option('wincc'):
             # Windows calling convention:
             int_regs = [
-                registers.rcx, registers.rdx, registers.r8, registers.r9]
+                (registers.rcx, registers.ecx),
+                (registers.rdx, registers.edx),
+                (registers.r8, registers.r8d),
+                (registers.r9, registers.r9d),
+            ]
             float_regs = [
                 (registers.xmm0_single, registers.xmm0),
                 (registers.xmm1_single, registers.xmm1),
@@ -226,8 +230,13 @@ class X86_64Arch(Architecture):
         else:
             # Sys V ABI calling convention:
             int_regs = [
-                registers.rdi, registers.rsi, registers.rdx,
-                registers.rcx, registers.r8, registers.r9]
+                (registers.rdi, registers.edi),
+                (registers.rsi, registers.esi),
+                (registers.rdx, registers.edx),
+                (registers.rcx, registers.ecx),
+                (registers.r8, registers.r8d),
+                (registers.r9, registers.r9d),
+            ]
             float_regs = [
                 (registers.xmm0_single, registers.xmm0),
                 (registers.xmm1_single, registers.xmm1),
@@ -248,7 +257,11 @@ class X86_64Arch(Architecture):
                     ir.i32, ir.u32,  # TODO: maybe use eax and friends?
                     ir.ptr]:
                 if int_regs:
-                    reg = int_regs.pop(0)
+                    if arg_type in [ir.i32, ir.u32]:
+                        reg = int_regs.pop(0)[1]
+                    else:
+                        reg = int_regs.pop(0)[0]
+
                     if self.has_option('wincc'):
                         float_regs.pop(0)
                 else:
@@ -282,10 +295,14 @@ class X86_64Arch(Architecture):
 
     def determine_rv_location(self, ret_type):
         """ return value in rax or xmm0 """
-        if ret_type in [ir.i8, ir.i16, ir.i64, ir.u8, ir.u16, ir.u64, ir.ptr]:
+        if ret_type in [ir.i64, ir.u64, ir.ptr]:
             rv = registers.rax
         elif ret_type in [ir.i32, ir.u32]:
             rv = registers.eax
+        elif ret_type in [ir.i16, ir.u16]:
+            rv = registers.ax
+        elif ret_type in [ir.i8, ir.u8]:
+            rv = registers.al
         elif ret_type is ir.f64:
             rv = registers.xmm0
         elif ret_type is ir.f32:
@@ -323,6 +340,11 @@ class X86_64Arch(Architecture):
                     yield self.move(rax, arg_loc)
                     yield RegisterUseDef(uses=(rax,), defs=(registers.eax,))
                     yield self.move(arg, registers.eax)
+                else:  # pragma: no cover
+                    raise NotImplementedError(str(type(arg)))
+            elif isinstance(arg_loc, registers.Register32):
+                if isinstance(arg, registers.Register32):
+                    yield self.move(arg, arg_loc)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(type(arg)))
             elif isinstance(arg_loc, registers.XmmRegister):
@@ -385,13 +407,11 @@ class X86_64Arch(Architecture):
                     yield instructions.MovsxRegRm16(
                         rax, RmReg16(registers.ax))
                     yield self.move(arg_loc, rax)
-                elif isinstance(arg, registers.Register32):
-                    # Upcast char!
-                    yield self.move(registers.eax, arg)
-                    # TODO: do we need sign extension?
-                    # yield instructions.MovsxRegRm16(
-                    # rax, RmReg16(registers.ax))
-                    yield self.move(arg_loc, rax)
+                else:  # pragma: no cover
+                    raise NotImplementedError()
+            elif isinstance(arg_loc, registers.Register32):
+                if isinstance(arg, registers.Register32):
+                    yield self.move(arg_loc, arg)
                 else:  # pragma: no cover
                     raise NotImplementedError()
             elif isinstance(arg_loc, registers.XmmRegisterDouble):

@@ -113,8 +113,10 @@ class Frame:
         return lab_name
 
     def is_used(self, register):
-        """ Check if a register is used by this frame """
-        return register in self.used_regs
+        """ Check if a register or one of its aliases is used by this frame.
+        """
+        return register in self.used_regs or \
+            any(self.is_used(a) for a in register.aliases)
 
     def live_ranges(self, vreg):
         """ Determine the live range of some register """

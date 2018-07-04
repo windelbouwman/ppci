@@ -787,6 +787,16 @@ class MovsxRegRm16(rmregbase64):
     opcode2 = 0xbf
 
 
+class MovsxRegRm32_16(rmregbase64):
+    """ Move sign extend, which means take a byte and sign extend it! """
+    reg = Operand('reg', Register32, write=True)
+    rm = Operand('rm', rm16_modes, read=True)
+    syntax = Syntax(['movsx', ' ', reg, ',', ' ', rm])
+    patterns = {'w': 0}
+    opcode = 0x0f
+    opcode2 = 0xbf
+
+
 class MovzxRegRm(rmregbase64):
     """ Move zero extend """
     reg = Operand('reg', Register64, write=True)
@@ -1010,6 +1020,23 @@ class Imul32(X86Instruction):
         return tokens.encode()
 
 
+class Div(X86Instruction):
+    """ div r/m64 divide rdx:rax by the operand, leaving the remainder in
+    rdx and the quotient in rax.
+    """
+    reg1 = Operand('reg1', Register64, read=True)
+    syntax = Syntax(['div', ' ', reg1])
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+    patterns = {'opcode': 0xf7, 'reg': 6, 'w': 1, 'mod': 3}
+
+    def encode(self):
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg1.rexbit
+        tokens[2].rm = self.reg1.regbits
+        return tokens.encode()
+
+
 class Idiv(X86Instruction):
     """ idiv r/m64 divide rdx:rax by the operand, leaving the remainder in
     rdx and the quotient in rax.
@@ -1018,6 +1045,23 @@ class Idiv(X86Instruction):
     syntax = Syntax(['idiv', ' ', reg1])
     tokens = [RexToken, OpcodeToken, ModRmToken]
     patterns = {'opcode': 0xf7, 'reg': 7, 'w': 1, 'mod': 3}
+
+    def encode(self):
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[0].b = self.reg1.rexbit
+        tokens[2].rm = self.reg1.regbits
+        return tokens.encode()
+
+
+class Div32(X86Instruction):
+    """ idiv r/m32 divide rdx:rax by the operand, leaving the remainder in
+    rdx and the quotient in rax.
+    """
+    reg1 = Operand('reg1', Register32, read=True)
+    syntax = Syntax(['div', ' ', reg1])
+    tokens = [RexToken, OpcodeToken, ModRmToken]
+    patterns = {'opcode': 0xf7, 'reg': 6, 'w': 0, 'mod': 3}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -1134,6 +1178,20 @@ class Cdqe(X86Instruction):
     syntax = Syntax(['cdqe'])
     tokens = [RexToken, OpcodeToken]
     patterns = {'w': 1, 'opcode': 0x98}
+
+
+class Cdq(X86Instruction):
+    """ Convert with sign extension to double size into edx:eax """
+    syntax = Syntax(['cdq'])
+    tokens = [RexToken, OpcodeToken]
+    patterns = {'w': 0, 'opcode': 0x99}
+
+
+class Cqo(X86Instruction):
+    """ Convert with sign extension to double size into rdx:rax """
+    syntax = Syntax(['cqo'])
+    tokens = [RexToken, OpcodeToken]
+    patterns = {'w': 1, 'opcode': 0x99}
 
 
 class Rep(X86Instruction):
@@ -1301,22 +1359,6 @@ def pattern_ldr8(context, tree, c0):
     return d
 
 
-@isa.pattern('reg8', 'reg64', size=9)
-def pattern_cast64_to8(context, tree, c0):
-    # TODO: This more or less sucks?
-    # But it is needed to convert byte parameters that are passed as
-    # registers to byte registers.
-    context.move(rax, c0)
-    # raise Warning()
-    defu = RegisterUseDef()
-    defu.add_use(rax)
-    defu.add_def(al)
-    context.emit(defu)
-    d = context.new_reg(Register8)
-    context.move(d, al)
-    return d
-
-
 # TODO: differentiate between u64 and i64?
 @isa.pattern('stm', 'STRI64(mem64, reg64)', size=2)
 @isa.pattern('stm', 'STRU64(mem64, reg64)', size=2)
@@ -1462,83 +1504,139 @@ def pattern_sub8(context, tree, c0, c1):
 @isa.pattern('reg64', 'MULI64(reg64, reg64)', size=4)
 @isa.pattern('reg64', 'MULU64(reg64, reg64)', size=4)
 def pattern_mul64_(context, tree, c0, c1):
-    d = context.new_reg(Register64)
-    context.move(d, c0)
-    context.emit(Imul(d, c1))
-    return d
+    dst = context.new_reg(Register64)
+    context.move(dst, c0)
+    context.emit(Imul(dst, c1))
+    return dst
 
 
 @isa.pattern('reg32', 'MULI32(reg32, reg32)', size=4)
 @isa.pattern('reg32', 'MULU32(reg32, reg32)', size=4)
 def pattern_mul_32(context, tree, c0, c1):
-    d = context.new_reg(Register32)
-    context.move(d, c0)
-    context.emit(Imul32(d, c1))
-    return d
+    dst = context.new_reg(Register32)
+    context.move(dst, c0)
+    context.emit(Imul32(dst, c1))
+    return dst
 
 
 @isa.pattern('reg64', 'DIVI64(reg64, reg64)', size=14)
-@isa.pattern('reg64', 'DIVU64(reg64, reg64)', size=14)
-def pattern_div64(context, tree, c0, c1):
+def pattern_div_i64(context, tree, c0, c1):
     context.move(rax, c0)
-    context.emit(MovImm(rdx, 0))
+    context.emit(Cqo())  # Extend sign of rax into rdx
     context.emit(Idiv(c1))
     defu2 = RegisterUseDef()
     defu2.add_use(rax)
     defu2.add_use(rdx)
     defu2.add_def(rax)
     context.emit(defu2)
-    d = context.new_reg(Register64)
-    context.move(d, rax)
-    return d
+    dst = context.new_reg(Register64)
+    context.move(dst, rax)
+    return dst
+
+
+@isa.pattern('reg64', 'DIVU64(reg64, reg64)', size=14)
+def pattern_div_u64(context, tree, c0, c1):
+    context.move(rax, c0)
+    context.emit(MovImm(rdx, 0))
+    context.emit(Div(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(rax)
+    defu2.add_use(rdx)
+    defu2.add_def(rax)
+    context.emit(defu2)
+    dst = context.new_reg(Register64)
+    context.move(dst, rax)
+    return dst
 
 
 @isa.pattern('reg64', 'REMI64(reg64, reg64)', size=14)
-@isa.pattern('reg64', 'REMU64(reg64, reg64)', size=14)
-def pattern_remi64(context, tree, c0, c1):
+def pattern_rem_i64(context, tree, c0, c1):
     context.move(rax, c0)
-    context.emit(MovImm(rdx, 0))
+    context.emit(Cqo())
     context.emit(Idiv(c1))
     defu2 = RegisterUseDef()
     defu2.add_use(rax)
     defu2.add_use(rdx)
     defu2.add_def(rdx)
     context.emit(defu2)
-    d = context.new_reg(Register64)
-    context.move(d, rdx)
-    return d
+    dst = context.new_reg(Register64)
+    context.move(dst, rdx)
+    return dst
+
+
+@isa.pattern('reg64', 'REMU64(reg64, reg64)', size=14)
+def pattern_rem_u64(context, tree, c0, c1):
+    context.move(rax, c0)
+    context.emit(MovImm(rdx, 0))
+    context.emit(Div(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(rax)
+    defu2.add_use(rdx)
+    defu2.add_def(rdx)
+    context.emit(defu2)
+    dst = context.new_reg(Register64)
+    context.move(dst, rdx)
+    return dst
 
 
 @isa.pattern('reg32', 'DIVI32(reg32, reg32)', size=14)
-@isa.pattern('reg32', 'DIVU32(reg32, reg32)', size=14)
-def pattern_div32(context, tree, c0, c1):
+def pattern_div_i32(context, tree, c0, c1):
     context.move(eax, c0)
-    context.emit(MovImm32(edx, 0))
+    context.emit(Cdq())  # Sign extend eax into edx
     context.emit(Idiv32(c1))
     defu2 = RegisterUseDef()
     defu2.add_use(eax)
     defu2.add_use(edx)
     defu2.add_def(eax)
     context.emit(defu2)
-    d = context.new_reg(Register32)
-    context.move(d, eax)
-    return d
+    dst = context.new_reg(Register32)
+    context.move(dst, eax)
+    return dst
+
+
+@isa.pattern('reg32', 'DIVU32(reg32, reg32)', size=14)
+def pattern_div_u32(context, tree, c0, c1):
+    context.move(eax, c0)
+    context.emit(MovImm32(edx, 0))
+    context.emit(Div32(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(eax)
+    defu2.add_use(edx)
+    defu2.add_def(eax)
+    context.emit(defu2)
+    dst = context.new_reg(Register32)
+    context.move(dst, eax)
+    return dst
 
 
 @isa.pattern('reg32', 'REMI32(reg32, reg32)', size=14)
-@isa.pattern('reg32', 'REMU32(reg32, reg32)', size=14)
 def pattern_remi32(context, tree, c0, c1):
     context.move(eax, c0)
-    context.emit(MovImm32(edx, 0))
+    context.emit(Cdq())  # Sign extend eax into edx
     context.emit(Idiv32(c1))
     defu2 = RegisterUseDef()
     defu2.add_use(eax)
     defu2.add_use(edx)
     defu2.add_def(edx)
     context.emit(defu2)
-    d = context.new_reg(Register32)
-    context.move(d, edx)
-    return d
+    dst = context.new_reg(Register32)
+    context.move(dst, edx)
+    return dst
+
+
+@isa.pattern('reg32', 'REMU32(reg32, reg32)', size=14)
+def pattern_rem_u32(context, tree, c0, c1):
+    context.move(eax, c0)
+    context.emit(MovImm32(edx, 0))
+    context.emit(Div32(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(eax)
+    defu2.add_use(edx)
+    defu2.add_def(edx)
+    context.emit(defu2)
+    dst = context.new_reg(Register32)
+    context.move(dst, edx)
+    return dst
 
 
 @isa.pattern('reg64', 'ANDI64(reg64, reg64)', size=4)
@@ -1824,10 +1922,17 @@ def pattern_i64toi16(context, tree, c0):
     return d
 
 
+@isa.pattern('reg64', 'I16TOI64(reg16)', size=4)
+def pattern_i16_to_i64(context, tree, c0):
+    dst = context.new_reg(Register64)
+    # sign extend:
+    context.emit(MovsxRegRm16(dst, RmReg16(c0)))
+    return dst
+
+
 @isa.pattern('reg64', 'U16TOU64(reg16)', size=4)
 @isa.pattern('reg64', 'U16TOI64(reg16)', size=4)
-@isa.pattern('reg64', 'I16TOU64(reg16)', size=4)  # TODO: sign extend?
-@isa.pattern('reg64', 'I16TOI64(reg16)', size=4)  # TODO: sign extend?
+@isa.pattern('reg64', 'I16TOU64(reg16)', size=4)
 def pattern_u16toi64(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
@@ -1917,15 +2022,23 @@ def pattern_i32toi16(context, tree, c0):
     defu.add_def(ax)
     context.emit(defu)
 
-    d = context.new_reg(Register16)
-    context.move(d, ax)
-    return d
+    dst = context.new_reg(Register16)
+    context.move(dst, ax)
+    return dst
+
+
+@isa.pattern('reg32', 'I16TOI32(reg16)', size=4)
+def pattern_i16_to_i32(context, tree, c0):
+    dst = context.new_reg(Register32)
+
+    # sign extend:
+    context.emit(MovsxRegRm32_16(dst, RmReg16(c0)))
+    return dst
 
 
 @isa.pattern('reg32', 'U16TOU32(reg16)', size=4)
 @isa.pattern('reg32', 'U16TOI32(reg16)', size=4)
-@isa.pattern('reg32', 'I16TOU32(reg16)', size=4)  # TODO: sign extend?
-@isa.pattern('reg32', 'I16TOI32(reg16)', size=4)  # TODO: sign extend?
+@isa.pattern('reg32', 'I16TOU32(reg16)', size=4)
 def pattern_u16toi32(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(eax)
@@ -1939,9 +2052,9 @@ def pattern_u16toi32(context, tree, c0):
     defu2.add_def(eax)
     context.emit(defu2)
 
-    d = context.new_reg(Register32)
-    context.move(d, eax)
-    return d
+    dst = context.new_reg(Register32)
+    context.move(dst, eax)
+    return dst
 
 
 @isa.pattern('reg8', 'I32TOI8(reg32)', size=4)

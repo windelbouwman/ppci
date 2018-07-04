@@ -117,6 +117,14 @@ injected code. To debug this, we can use gdb for example.
     $ gdb --args python script.py
     (gdb) run
 
+Once the program crashes, one can disassemble and print info:
+
+.. code:: bash
+
+    (gdb) bt
+    (gdb) disassemble /r 0x7fff000, 0x7fff200
+    (gdb) info registers
+
 3rd party test suites
 ~~~~~~~~~~~~~~~~~~~~~
 
