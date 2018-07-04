@@ -295,7 +295,7 @@ if __name__ == '__main__':
     # unittest.main(verbosity=2)
     
     perform_test(
-        '/home/windel/GIT/spec/test/core/i32.wast',
+        '/home/windel/GIT/spec/test/core/i64.wast',
         'native')
     # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
     

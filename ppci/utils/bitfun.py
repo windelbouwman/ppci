@@ -49,7 +49,7 @@ def clz(v: int, bits: int) -> int:
     """ count leading zeroes """
     mask = 1 << (bits - 1)
     count = 0
-    while (count < 32) and (v & mask) == 0:
+    while (count < bits) and (v & mask) == 0:
         count += 1
         v = v * 2
     return count

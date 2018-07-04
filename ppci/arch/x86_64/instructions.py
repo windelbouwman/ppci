@@ -1216,43 +1216,72 @@ def pattern_jmp(context, tree):
     context.emit(NearJump(tgt.name, jumps=[tgt]))
 
 
-jump_opnames = {"<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge, '<=': Jle}
+jump_opnames = {
+    "<": Jl, ">": Jg, "==": Je, "!=": Jne, ">=": Jge, '<=': Jle
+}
+
+unsigned_jump_opnames = {
+    "<": Jb, ">": Ja, "==": Je, "!=": Jne, ">=": Jae, '<=': Jbe
+}
 
 
-def pattern_cjmp(context, value):
+def pattern_cjmp(context, value, signed):
     op, yes_label, no_label = value
-    Bop = jump_opnames[op]
+    if signed:
+        Bop = jump_opnames[op]
+    else:
+        Bop = unsigned_jump_opnames[op]
     jmp_ins = NearJump(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
 
 
 @isa.pattern('stm', 'CJMPI64(reg64, reg64)', size=2)
-@isa.pattern('stm', 'CJMPU64(reg64, reg64)', size=2)
-def pattern_cjmp_64(context, tree, c0, c1):
+def pattern_cjmp_i64(context, tree, c0, c1):
     context.emit(bits64.CmpRmReg(RmReg64(c0), c1))
-    pattern_cjmp(context, tree.value)
+    pattern_cjmp(context, tree.value, True)
+
+
+@isa.pattern('stm', 'CJMPU64(reg64, reg64)', size=2)
+def pattern_cjmp_u64(context, tree, c0, c1):
+    context.emit(bits64.CmpRmReg(RmReg64(c0), c1))
+    pattern_cjmp(context, tree.value, False)
 
 
 @isa.pattern('stm', 'CJMPI32(reg32, reg32)', size=2)
-@isa.pattern('stm', 'CJMPU32(reg32, reg32)', size=2)
-def pattern_cjmp_32(context, tree, c0, c1):
+def pattern_cjmp_i32(context, tree, c0, c1):
     context.emit(bits32.CmpRmReg(RmReg32(c0), c1))
-    pattern_cjmp(context, tree.value)
+    pattern_cjmp(context, tree.value, True)
+
+
+@isa.pattern('stm', 'CJMPU32(reg32, reg32)', size=2)
+def pattern_cjmp_u32(context, tree, c0, c1):
+    context.emit(bits32.CmpRmReg(RmReg32(c0), c1))
+    pattern_cjmp(context, tree.value, False)
 
 
 @isa.pattern('stm', 'CJMPI16(reg16, reg16)', size=4, cycles=4, energy=2)
-@isa.pattern('stm', 'CJMPU16(reg16, reg16)', size=4, cycles=4, energy=2)
-def pattern_cjmp_16(context, tree, c0, c1):
+def pattern_cjmp_i16(context, tree, c0, c1):
     context.emit(bits16.CmpRmReg(RmReg16(c0), c1))
-    pattern_cjmp(context, tree.value)
+    pattern_cjmp(context, tree.value, True)
+
+
+@isa.pattern('stm', 'CJMPU16(reg16, reg16)', size=4, cycles=4, energy=2)
+def pattern_cjmp_u16(context, tree, c0, c1):
+    context.emit(bits16.CmpRmReg(RmReg16(c0), c1))
+    pattern_cjmp(context, tree.value, False)
 
 
 @isa.pattern('stm', 'CJMPI8(reg8, reg8)', size=2)
-@isa.pattern('stm', 'CJMPU8(reg8, reg8)', size=2)
-def pattern_cjmp_8(context, tree, c0, c1):
+def pattern_cjmp_i8(context, tree, c0, c1):
     context.emit(CmpRmReg8(RmReg8(c0), c1))
-    pattern_cjmp(context, tree.value)
+    pattern_cjmp(context, tree.value, True)
+
+
+@isa.pattern('stm', 'CJMPU8(reg8, reg8)', size=2)
+def pattern_cjmp_u8(context, tree, c0, c1):
+    context.emit(CmpRmReg8(RmReg8(c0), c1))
+    pattern_cjmp(context, tree.value, False)
 
 
 @isa.pattern('stm', 'ALLOCA', size=10)
@@ -1748,8 +1777,16 @@ def pattern_xor8(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'SHRI64(reg64, reg64)', size=2)
+def pattern_shr_i64(context, tree, c0, c1):
+    d = context.new_reg(Register64)
+    context.move(d, c0)
+    context.move(rcx, c1)
+    context.emit(bits64.SarCl(RmReg64(d)))
+    return d
+
+
 @isa.pattern('reg64', 'SHRU64(reg64, reg64)', size=2)
-def pattern_shr64(context, tree, c0, c1):
+def pattern_shr_u64(context, tree, c0, c1):
     d = context.new_reg(Register64)
     context.move(d, c0)
     context.move(rcx, c1)
@@ -1758,8 +1795,16 @@ def pattern_shr64(context, tree, c0, c1):
 
 
 @isa.pattern('reg32', 'SHRI32(reg32, reg32)', size=2)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(Register32)
+    context.move(d, c0)
+    context.move(ecx, c1)
+    context.emit(bits32.SarCl(RmReg32(d)))
+    return d
+
+
 @isa.pattern('reg32', 'SHRU32(reg32, reg32)', size=2)
-def pattern_shr_32(context, tree, c0, c1):
+def pattern_shr_u32(context, tree, c0, c1):
     d = context.new_reg(Register32)
     context.move(d, c0)
     context.move(ecx, c1)

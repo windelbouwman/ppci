@@ -33,7 +33,7 @@ def i32_rotr(v: ir.i32, cnt: ir.i32) -> ir.i32:
 
 def i64_rotr(v: ir.i64, cnt: ir.i64) -> ir.i64:
     """ Rotate right """
-    return rotr(v, cnt, 64)
+    return to_signed(rotr(to_unsigned(v, 64), cnt, 64), 64)
 
 
 def i32_rotl(v: ir.i32, cnt: ir.i32) -> ir.i32:
@@ -43,7 +43,7 @@ def i32_rotl(v: ir.i32, cnt: ir.i32) -> ir.i32:
 
 def i64_rotl(v: ir.i64, cnt: ir.i64) -> ir.i64:
     """ Rotate left """
-    return rotl(v, cnt, 64)
+    return to_signed(rotl(to_unsigned(v, 64), cnt, 64), 64)
 
 
 # Bit counting:
