@@ -31,7 +31,7 @@ from ...binutils.assembler import BaseAssembler
 from ..data_instructions import data_isa
 from ..data_instructions import Db
 from .instructions import bits64, RmReg64, MovRegRm8, RmReg8, RmMemDisp, isa
-from .instructions import Push, Pop, SubImm, AddImm, MovsxRegRm
+from .instructions import Push, Pop, SubImm, AddImm, MovsxReg64Rm8
 from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
 from .sse2_instructions import sse1_isa, sse2_isa, Movss, Movsd
@@ -399,7 +399,7 @@ class X86_64Arch(Architecture):
                 elif isinstance(arg, registers.Register8):
                     # Upcast to char!
                     yield self.move(al, arg)
-                    yield MovsxRegRm(rax, RmReg8(al))
+                    yield MovsxReg64Rm8(rax, RmReg8(al))
                     yield self.move(arg_loc, rax)
                 elif isinstance(arg, registers.Register16):
                     # Upcast char!
@@ -431,6 +431,13 @@ class X86_64Arch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
 
+        # Pre align stack to 16 bytes:
+        stack_size = len(push_regs) * 8
+        if stack_size % 16 != 0:
+            extra_padding = stack_size % 16
+            yield SubImm(rsp, extra_padding)
+            stack_size += extra_padding
+
         # Push arguments in reverse order:
         for push_reg in reversed(push_regs):
             if isinstance(push_reg, registers.Register64):
@@ -448,6 +455,7 @@ class X86_64Arch(Architecture):
         # If windows, reserve space for rcx, rdx, r8 and r9:
         if wincc:
             yield SubImm(rsp, 32)
+            stack_size += 32
 
         # Mark all dedicated registers as used:
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
@@ -464,11 +472,6 @@ class X86_64Arch(Architecture):
             yield RegisterUseDef(defs=(retval_loc,))
             yield self.move(rv[1], retval_loc)
 
-        stack_locs = [l for l in arg_locs if isinstance(l, StackLocation)]
-        # stack_slots = sum(isinstance(l, StackLocation) for l in arg_locs)
-        stack_size = sum(l.size for l in stack_locs)
-        if wincc:
-            stack_size += 32
         if stack_size:
             yield AddImm(rsp, stack_size)
 
@@ -493,6 +496,8 @@ class X86_64Arch(Architecture):
         if frame.stacksize > 0:
             stack_size = round_up16(frame.stacksize, saved_size)
             yield SubImm(rsp, stack_size)
+        elif saved_size % 16 != 0:
+            yield SubImm(rsp, saved_size % 16)
 
         # TODO: align stackframe and saved registers on 16 bytes.
 
@@ -514,6 +519,8 @@ class X86_64Arch(Architecture):
         if frame.stacksize > 0:
             stack_size = round_up16(frame.stacksize, saved_size)
             yield AddImm(rsp, stack_size)
+        elif saved_size % 16 != 0:
+            yield AddImm(rsp, saved_size % 16)
 
         # Restore rbp:
         yield self.pop(rbp)

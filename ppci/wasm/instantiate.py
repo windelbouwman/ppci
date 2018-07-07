@@ -43,6 +43,8 @@ def instantiate(module, imports, target='native', reporter=None):
     if reporter is None:
         reporter = DummyReportGenerator()
 
+    reporter.heading(2, 'Wasm instantiation')
+
     # Check if all required imports are given:
     for definition in module:
         if isinstance(definition, Import):
@@ -189,6 +191,11 @@ class NativeModuleInstance(ModuleInstance):
         max_size = self._memories[0].max_size
         old_size = self.memory_size()
         new_size = old_size + amount
+
+        # Keep memory within sensible bounds:
+        if new_size >= 0x10000:
+            return -1
+
         if max_size is not None and new_size > max_size:
             return -1
 

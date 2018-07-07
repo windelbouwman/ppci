@@ -212,6 +212,7 @@ Je = make_cjump('jz', 0x84)
 Jne = make_cjump('jne', 0x85)
 Jbe = make_cjump('jbe', 0x86)
 Ja = make_cjump('ja', 0x87)
+Js = make_cjump('js', 0x88)
 
 Jl = make_cjump('jl', 0x8c)
 Jge = make_cjump('jge', 0x8d)
@@ -686,8 +687,6 @@ def make_rm16(mnemonic, opcode, o):
     return type(mnemonic.title(), (RmBase16,), members)
 
 
-Not = make_rm64('not', 0xf7, 2)
-Not16 = make_rm16('not', 0xf7, 2)
 Dec = make_rm64('dec', 0xff, 1)
 Jmp = make_rm64('jmp', 0xff, 4)
 # Inc = make_rm('jmp', 0xff, 4)
@@ -769,7 +768,7 @@ def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
     return type(mnemonic + '_ins', (rmregbase64,), members)
 
 
-class MovsxRegRm(rmregbase64):
+class MovsxReg64Rm8(rmregbase64):
     """ Move sign extend, which means take a byte and sign extend it! """
     reg = Operand('reg', Register64, write=True)
     rm = Operand('rm', rm8_modes, read=True)
@@ -787,7 +786,17 @@ class MovsxRegRm16(rmregbase64):
     opcode2 = 0xbf
 
 
-class MovsxRegRm32_16(rmregbase64):
+class MovsxReg32Rm8(rmregbase64):
+    """ Move sign extend, which means take a byte and sign extend it! """
+    reg = Operand('reg', Register32, write=True)
+    rm = Operand('rm', rm8_modes, read=True)
+    syntax = Syntax(['movsx', ' ', reg, ',', ' ', rm])
+    patterns = {'w': 0}
+    opcode = 0x0f
+    opcode2 = 0xbe
+
+
+class MovsxReg32Rm16(rmregbase64):
     """ Move sign extend, which means take a byte and sign extend it! """
     reg = Operand('reg', Register32, write=True)
     rm = Operand('rm', rm16_modes, read=True)
@@ -848,13 +857,18 @@ class InstructionCollection:
         # cmp r/m64 r64
         self.CmpRmReg = make_rm_reg('cmp', 0x39, write_op1=False)
 
+        self.TestRmReg = make_rm_reg('test', 0x85, write_op1=False)
+
         # mov r64, r/m64
         self.MovRegRm = make_reg_rm('mov', 0x8b, read_op1=False)
 
         # mov r/m64, r64
         self.MovRmReg = make_rm_reg('mov', 0x89, read_op1=False)
 
-        self.Neg = make_rm('neg', 0xf7, 3)
+        self.ShrRm = make_rm('shr', 0xd1, 5)
+        self.ShlRm = make_rm('shl', 0xd1, 5)
+        self.NotRm = make_rm('not', 0xf7, 2)
+        self.NegRm = make_rm('neg', 0xf7, 3)
 
         if bits == 16:
             bit_tokens = [PrefixToken, RexToken, OpcodeToken, ModRmToken]
@@ -1856,7 +1870,7 @@ def pattern_shl8(context, tree, c0, c1):
 def pattern_neg64(context, tree, c0):
     d = context.new_reg(Register64)
     context.move(d, c0)
-    context.emit(bits64.Neg(RmReg64(d)))
+    context.emit(bits64.NegRm(RmReg64(d)))
     return d
 
 
@@ -1864,7 +1878,7 @@ def pattern_neg64(context, tree, c0):
 def pattern_neg_32(context, tree, c0):
     d = context.new_reg(Register32)
     context.move(d, c0)
-    context.emit(bits32.Neg(RmReg32(d)))
+    context.emit(bits32.NegRm(RmReg32(d)))
     return d
 
 
@@ -1873,7 +1887,7 @@ def pattern_neg_16(context, tree, c0):
     """ 16 bits negation """
     d = context.new_reg(Register16)
     context.move(d, c0)
-    context.emit(bits16.Neg(RmReg16(d)))
+    context.emit(bits16.NegRm(RmReg16(d)))
     return d
 
 
@@ -1881,7 +1895,7 @@ def pattern_neg_16(context, tree, c0):
 def pattern_inv64(context, tree, c0):
     d = context.new_reg(Register64)
     context.move(d, c0)
-    context.emit(Not(RmReg64(d)))
+    context.emit(bits64.NotRm(RmReg64(d)))
     return d
 
 
@@ -1889,7 +1903,7 @@ def pattern_inv64(context, tree, c0):
 def pattern_inv_32(context, tree, c0):
     d = context.new_reg(Register32)
     context.move(d, c0)
-    context.emit(Not(RmReg32(d)))
+    context.emit(bits32.NotRm(RmReg32(d)))
     return d
 
 
@@ -2015,7 +2029,7 @@ def pattern_i64toi32(context, tree, c0):
 
 @isa.pattern('reg64', 'U32TOU64(reg32)', size=4)
 @isa.pattern('reg64', 'U32TOI64(reg32)', size=4)
-@isa.pattern('reg64', 'I32TOU64(reg32)', size=4)  # TODO: sign extend?
+@isa.pattern('reg64', 'I32TOU64(reg32)', size=4)
 def pattern_u32toi64(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
@@ -2077,7 +2091,7 @@ def pattern_i16_to_i32(context, tree, c0):
     dst = context.new_reg(Register32)
 
     # sign extend:
-    context.emit(MovsxRegRm32_16(dst, RmReg16(c0)))
+    context.emit(MovsxReg32Rm16(dst, RmReg16(c0)))
     return dst
 
 
@@ -2119,6 +2133,12 @@ def pattern_i32toi8(context, tree, c0):
 
 
 @isa.pattern('reg32', 'I8TOI32(reg8)', size=4)
+def pattern_i8toi32(context, tree, c0):
+    dst = context.new_reg(Register32)
+    context.emit(MovsxReg32Rm8(dst, RmReg8(c0)))
+    return dst
+
+
 @isa.pattern('reg32', 'U8TOI32(reg8)', size=4)
 @isa.pattern('reg32', 'U8TOU32(reg8)', size=4)
 @isa.pattern('reg32', 'I8TOU32(reg8)', size=4)
@@ -2132,7 +2152,6 @@ def pattern_u8toi32(context, tree, c0):
     # raise Warning()
 
     defu2 = RegisterUseDef()
-    # TODO: how about sign extension?
     defu2.add_use(al)
     defu2.add_def(eax)
     context.emit(defu2)
@@ -2159,8 +2178,13 @@ def pattern_i64toi8(context, tree, c0):
     return d
 
 
-# TODO: remove widening and sign conversion in one step?
 @isa.pattern('reg64', 'I8TOI64(reg8)', size=4)
+def pattern_i8toi64(context, tree, c0):
+    dst = context.new_reg(Register64)
+    context.emit(MovsxReg64Rm8(dst, RmReg8(c0)))
+    return dst
+
+
 @isa.pattern('reg64', 'U8TOI64(reg8)', size=4)
 @isa.pattern('reg64', 'U8TOU64(reg8)', size=4)
 @isa.pattern('reg64', 'I8TOU64(reg8)', size=4)

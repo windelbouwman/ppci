@@ -252,7 +252,6 @@ def get_wast_files():
         'float_memory',  # TODO: handle signalling nan's
         'float_literals',  # TODO: what is the issue here?
         'skip-stack-guard-page',  # This is some stack overflow stuff?
-        'memory_trap',  # TODO: limit upper memory
         'func',  # TODO: this function is malformed!
     ]
     if 'WASM_SPEC_DIR' in os.environ:

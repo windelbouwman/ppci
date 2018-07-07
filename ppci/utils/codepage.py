@@ -103,24 +103,34 @@ class MemoryPage:
     """ Allocate a memory slab in the current process. """
     def __init__(self, size):
         self.size = size
-        if sys.platform == 'win32':
-            self._page = WinPage(size)
-            self.addr = self._page.addr
+        if size > 0:
+            if sys.platform == 'win32':
+                self._page = WinPage(size)
+                self.addr = self._page.addr
+            else:
+                self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
+                buf = (ctypes.c_char * size).from_buffer(self._page)
+                self.addr = ctypes.addressof(buf)
+            logger.debug('Allocated %s bytes at 0x%x', size, self.addr)
         else:
-            self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
-            buf = (ctypes.c_char * size).from_buffer(self._page)
-            self.addr = ctypes.addressof(buf)
-        logger.debug('Allocated %s bytes at 0x%x', size, self.addr)
+            self._page = None
+            self.addr = 0
 
     def write(self, data):
         """ Fill page with the given data """
-        self._page.write(data)
+        if data:
+            assert self._page
+            self._page.write(data)
 
     def seek(self, pos):
-        self._page.seek(pos)
+        if self._page:
+            self._page.seek(pos)
 
     def read(self):
-        return self._page.read()
+        if self._page:
+            return self._page.read()
+        else:
+            return bytes()
 
 
 class Mod:

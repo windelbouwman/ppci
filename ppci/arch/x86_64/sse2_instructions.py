@@ -3,17 +3,17 @@
 import struct
 from ..isa import Isa
 from ..encoding import Operand, Syntax, Instruction, Constructor
-from .instructions import rm64_modes, rm32_modes
+from .instructions import rm64_modes, rm32_modes, bits64  # , bits32
 from .instructions import OpcodeToken
 from .instructions import PrefixToken
 from .instructions import RexToken, ModRmToken, SibToken
 from .instructions import Imm32Token, Imm8Token
 from .instructions import RmMem, RmMemDisp, RmReg32, RmReg64, RmAbs, MovAdr
-from .instructions import Jb, Jbe, Ja, Jae, Je, Jne, NearJump
+from .instructions import Jb, Jbe, Ja, Jae, Je, Jne, Js, NearJump
 from .instructions import SubImm, AddImm
 from .registers import XmmRegister, XmmRegisterSingle, XmmRegisterDouble
-from .registers import Register64, Register32, rsp
-from ..generic_instructions import ArtificialInstruction
+from .registers import Register64, Register32, rsp, eax, rax
+from ..generic_instructions import ArtificialInstruction, RegisterUseDef
 
 sse1_isa = Isa()
 sse2_isa = Isa()
@@ -395,19 +395,71 @@ def pattern_f64toi64(context, tree, c0):
     return dst
 
 
+# See also: https://stackoverflow.com/questions/11406654/
+# how-to-convert-an-unsigned-integer-to-floating-point-in-x86-32-bit-assembly
 @sse1_isa.pattern('regfp32', 'I64TOF32(reg64)', size=6, cycles=2, energy=2)
-@sse1_isa.pattern('regfp32', 'U64TOF32(reg64)', size=6, cycles=2, energy=2)
 def pattern_i64tof32(context, tree, c0):
     dst = context.new_reg(XmmRegisterSingle)
     context.emit(Cvtsi2ss(dst, RmReg64(c0)))
     return dst
 
 
+@sse1_isa.pattern('regfp32', 'U64TOF32(reg64)', size=6, cycles=2, energy=2)
+def pattern_u64tof32(context, tree, c0):
+    dst = context.new_reg(XmmRegisterSingle)
+    # Special case if value is bigger than 2**63.
+    # Strategy:
+    # Divide in half, convert to float and then double the value
+    label_special = context.new_label()
+    label_end = context.new_label()
+    context.emit(bits64.TestRmReg(RmReg64(c0), c0))  # Check sign bit
+    context.emit(Js(label_special.name))  # If larger than 2**63
+
+    # Happy case:
+    context.emit(Cvtsi2ss(dst, RmReg64(c0)))
+    context.emit(NearJump(label_end.name))
+
+    # Special case:
+    context.emit(label_special)
+    tmp = context.new_reg(Register64)
+    context.move(tmp, c0)
+    context.emit(bits64.ShrRm(RmReg64(tmp)))  # Divide in half
+    context.emit(Cvtsi2ss(dst, RmReg64(tmp)))  # Convert
+    context.emit(Addss(dst, RmXmmRegSingle(dst)))  # Double
+    context.emit(label_end)
+    return dst
+
+
 @sse2_isa.pattern('regfp64', 'I64TOF64(reg64)', size=6, cycles=3, energy=3)
-@sse2_isa.pattern('regfp64', 'U64TOF64(reg64)', size=6, cycles=3, energy=3)
 def pattern_i64tof64(context, tree, c0):
     dst = context.new_reg(XmmRegisterDouble)
     context.emit(Cvtsi2sd(dst, RmReg64(c0)))
+    return dst
+
+
+@sse2_isa.pattern('regfp64', 'U64TOF64(reg64)', size=6, cycles=3, energy=3)
+def pattern_u64tof64(context, tree, c0):
+    dst = context.new_reg(XmmRegisterDouble)
+    # Special case if value is bigger than 2**63.
+    # Strategy:
+    # Divide in half, convert to float and then double the value
+    label_special = context.new_label()
+    label_end = context.new_label()
+    context.emit(bits64.TestRmReg(RmReg64(c0), c0))  # Check sign bit
+    context.emit(Js(label_special.name))  # If larger than 2**63
+
+    # Happy case:
+    context.emit(Cvtsi2sd(dst, RmReg64(c0)))
+    context.emit(NearJump(label_end.name))
+
+    # Special case:
+    context.emit(label_special)
+    tmp = context.new_reg(Register64)
+    context.move(tmp, c0)
+    context.emit(bits64.ShrRm(RmReg64(tmp)))  # Divide in half
+    context.emit(Cvtsi2sd(dst, RmReg64(tmp)))  # Convert
+    context.emit(Addsd(dst, RmXmmRegDouble(dst)))  # Double
+    context.emit(label_end)
     return dst
 
 
@@ -429,18 +481,50 @@ def pattern_f64toi32(context, tree, c0):
 
 
 @sse1_isa.pattern('regfp32', 'I32TOF32(reg32)', size=6, cycles=2, energy=2)
-@sse1_isa.pattern('regfp32', 'U32TOF32(reg32)', size=6, cycles=2, energy=2)
 def pattern_i32tof32(context, tree, c0):
     dst = context.new_reg(XmmRegisterSingle)
     context.emit(Cvtsi2ss_32(dst, RmReg32(c0)))
     return dst
 
 
+@sse1_isa.pattern('regfp32', 'U32TOF32(reg32)', size=6, cycles=2, energy=2)
+def pattern_u32tof32(context, tree, c0):
+    dst = context.new_reg(XmmRegisterSingle)
+
+    # Special case for unsigned 32 bits integers
+    context.emit(bits64.XorRmReg(RmReg64(rax), rax))
+    context.move(eax, c0)
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(eax)
+    defu2.add_def(rax)
+    context.emit(defu2)
+
+    context.emit(Cvtsi2ss(dst, RmReg64(rax)))
+    return dst
+
+
 @sse2_isa.pattern('regfp64', 'I32TOF64(reg32)', size=6, cycles=3, energy=3)
-@sse2_isa.pattern('regfp64', 'U32TOF64(reg32)', size=6, cycles=3, energy=3)
 def pattern_i32tof64(context, tree, c0):
     dst = context.new_reg(XmmRegisterDouble)
     context.emit(Cvtsi2sd_32(dst, RmReg32(c0)))
+    return dst
+
+
+@sse2_isa.pattern('regfp64', 'U32TOF64(reg32)', size=6, cycles=3, energy=3)
+def pattern_u32tof64(context, tree, c0):
+    dst = context.new_reg(XmmRegisterDouble)
+
+    # Special case for unsigned 32 bits integers
+    context.emit(bits64.XorRmReg(RmReg64(rax), rax))
+    context.move(eax, c0)
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(eax)
+    defu2.add_def(rax)
+    context.emit(defu2)
+
+    context.emit(Cvtsi2sd(dst, RmReg64(rax)))
     return dst
 
 
@@ -604,7 +688,9 @@ def pattern_ldr_f64(context, tree, c0):
     return dst
 
 
-jump_opnames = {"<": Jb, ">": Ja, "==": Je, "!=": Jne, ">=": Jae, '<=': Jbe}
+jump_opnames = {
+    "<": Jb, ">": Ja, "==": Je, "!=": Jne, ">=": Jae, '<=': Jbe
+}
 
 
 def pattern_cjmp(context, value):
