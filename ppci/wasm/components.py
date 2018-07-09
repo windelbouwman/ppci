@@ -487,6 +487,37 @@ class Module(WASMComponent):
         assert not definitions.pop('code')  # use func instead
         assert not definitions.pop('function')  # this section is implicit
         return definitions
+    
+    def show_interface(self):
+        """ Show the (signature of) imports and exports in a human friendly manner.
+        """
+        types =  self['type']
+        imports = self['import']
+        exports = self['export']
+        functions = self['func']
+        
+        print('Imports:')
+        for c in imports:
+            if c.kind == 'func':
+                sig = types[c.info[0].index]
+                params_s = ', '.join([p[1] for p in sig.params])
+                result_s = ', '.join([r for r in sig.result])
+                print(f'  {c.modname}.{c.name}:'.ljust(20), f'[{params_s}] -> [{result_s}]')
+            else:
+                #print('  ' + c.to_string())
+                print(f'  {c.kind}:'.ljust(20), f'"{c.name}"')
+        
+        print('Exports:')
+        for c in exports:
+            if c.kind == 'func':
+                func = functions[c.ref.index - functions[0].id]
+                sig = types[func.ref.index]
+                params_s = ', '.join([p[1] for p in sig.params])
+                result_s = ', '.join([r for r in sig.result])
+                print(f'  {c.name}:'.ljust(20), f'[{params_s}] -> [{result_s}]')
+            else:
+                #print('  ' + c.to_string())
+                print(f'  {c.kind}:'.ljust(20), f'"{c.name}"')
 
 
 def str2int(x):
