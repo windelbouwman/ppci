@@ -64,6 +64,7 @@ function test_0_0() {
 
 /* Pack importable funcs into a dict */
 
+/* old mechanics */
 var providedfuncs = {
     print_ln: print_ln,
     print_charcode: print_charcode,
@@ -76,14 +77,20 @@ var providedfuncs = {
     test_0_0: test_0_0
 };
 
+/* Newer style */
+var envfuncs = {
+    f64_print: function (x) { console.log(x); }
+};
+
 
 function compile_my_wasm() {
     print_ln('Compiling wasm module');
     var module_ = new WebAssembly.Module(wasm_data);
     print_ln('Initializing wasm module');
     print_ln('Result:');
-    var module = new WebAssembly.Instance(module_, {js: providedfuncs});
-
+    var t0 = perf_counter();
+    var module = new WebAssembly.Instance(module_, {js: providedfuncs, env: envfuncs});
+    print_ln('(in ' + (perf_counter() - t0) + ' s)');  // flush
     MAIN_JS_PLACEHOLDER
 
     print_ln('\n');  // flush
