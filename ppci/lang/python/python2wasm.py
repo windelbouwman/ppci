@@ -23,6 +23,11 @@ def python_to_wasm(*sources):
     are float64. Each source can be a string, a function, or AST.
     """
     
+    # Allow simple code snippet as main() (legacy behavior)
+    if len(sources) == 1 and isinstance(sources[0], str) and not 'def ' in sources[0]:
+        lines = ['def main():'] + ['    ' + line for line in sources[0].splitlines()]
+        sources = ['\n'.join(lines)]
+    
     # Collect funcdefs
     funcdefs = []
     for source in sources:
@@ -68,11 +73,11 @@ def _python_to_wasm_funcdefs(source):
         # join lines and rename
         root = ast.parse(''.join(lines))
     else:
-        raise TypeError('py_to_wasm() requires func, str, or AST.')
+        raise TypeError('python_to_wasm() requires func, str, or AST.')
 
     if not isinstance(root, ast.Module):
         raise ValueError(
-            'py_to_wasm() expecteded root node to be a ast.Module.')
+            'python_to_wasm() expecteded root node to be a ast.Module.')
     
     funcdefs = []
     
