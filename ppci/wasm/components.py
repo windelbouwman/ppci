@@ -495,7 +495,7 @@ class Module(WASMComponent):
         imports = self['import']
         exports = self['export']
         functions = self['func']
-        
+        n_func_imports = sum(c.kind == 'func' for c in imports)
         print('Imports:')
         for c in imports:
             if c.kind == 'func':
@@ -510,7 +510,7 @@ class Module(WASMComponent):
         print('Exports:')
         for c in exports:
             if c.kind == 'func':
-                func = functions[c.ref.index - functions[0].id]
+                func = functions[c.ref.index - n_func_imports]
                 sig = types[func.ref.index]
                 params_s = ', '.join([p[1] for p in sig.params])
                 result_s = ', '.join([r for r in sig.result])
