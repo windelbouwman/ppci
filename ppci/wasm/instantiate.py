@@ -60,6 +60,7 @@ def instantiate(module, imports, target='native', reporter=None):
     # Inject wasm runtime functions:
     if 'wasm_rt' in imports:
         raise ValueError('wasm_rt is a special import section')
+    imports = imports.copy() # otherwise we'd render the imports unsuable
     imports['wasm_rt'] = create_runtime()
 
     imports = flatten_imports(imports)
