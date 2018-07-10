@@ -4,51 +4,115 @@ to WASM.
 """
 
 import ast
+import inspect
+import types
 
 from ...common import SourceLocation, CompilerError
 from ...wasm import Module, Func
 
 
+def syntax_error(filename, node, message):
+    """ Raise a nice error message as feedback """
+    location = SourceLocation(filename, node.lineno, node.col_offset + 1, 1)
+    raise CompilerError(message, location)
+
+
 def python_to_wasm(code):
-    """ Compile Python code to wasm, by using Python's ast parser
-    and compiling a very specific subset to WASM instructions.
+    """ Compile Python functions to wasm, by using Python's ast parser
+    and compiling a very specific subset to WASM instructions. All values 
+    are float64.
+    
+    Code can be a string, a function, or AST.
     """
+    filename = None
     # Verify / convert input
     if isinstance(code, ast.AST):
         root = code
     elif isinstance(code, str):
         root = ast.parse(code)
+    elif isinstance(code, (types.FunctionType, types.MethodType)):
+        try:
+            filename = inspect.getsourcefile(code)
+            lines, linenr = inspect.getsourcelines(code)
+        except Exception as err:
+            raise ValueError('Could not get source for %r: %s' % (code, err))
+        if getattr(code, '__name__', '') in ('', '<lambda>'):
+            raise ValueError('Got anonymous function from '
+                             '"%s", line %i, %r.' % (filename, linenr, code))
+        # Normalize indentation, based on first line
+        indent = len(lines[0]) - len(lines[0].lstrip())
+        for i in range(len(lines)):
+            line = lines[i]
+            line_indent = len(line) - len(line.lstrip())
+            if line_indent < indent and line.strip():
+                assert line.lstrip().startswith('#')  # only possible for comments
+                lines[i] = indent * ' ' + line.lstrip()
+            else:
+                lines[i] = line[indent:]
+        # Skip any decorators
+        while not lines[0].lstrip().startswith('def '):
+            lines.pop(0)
+        # join lines and rename
+        root = ast.parse(''.join(lines))
     else:
-        raise TypeError('py_to_wasm() requires (str) code or AST.')
+        raise TypeError('py_to_wasm() requires func, str, or AST.')
 
     if not isinstance(root, ast.Module):
         raise ValueError(
             'py_to_wasm() expecteded root node to be a ast.Module.')
-
-    # Compile to instructions
-    ctx = PythonToWasmCompiler()
+    
+    module_parts = []
+    
+    # Iterate over content
     for node in root.body:
-        ctx._compile_expr(node, False)
-    locals = ['f64' for i in ctx.names]
-
-    # Produce wasm
+        if not isinstance(node, ast.FunctionDef):
+            syntax_error(filename, node,
+                'python_to_wasm() expects only func as toplevel nodes.')
+        # Checks
+        if node.args.defaults or node.args.vararg:
+            syntax_error(filename, node,
+                'python_to_wasm() func args cannot have defaults.')
+        if node.args.kwonlyargs or node.args.kwonlyargs:
+            syntax_error(filename, node,
+                'python_to_wasm() func cannot have keyword wargs.')
+        # Get instructions, params, results, and export
+        ctx = PythonFuncToWasmCompiler([a.arg for a in node.args.args], filename)
+        ctx.compile_body(node.body)
+        # Compose
+        params = [('param', 'f64') for a in node.args.args]
+        results = [('result', 'f64')] if ctx.returns else []
+        locals = [('local', 'f64')
+                  for i in range(len(ctx.names) - len(node.args.args))]
+        exports = [('export', '"{}"'.format(node.name))]
+        module_parts.append(tuple(
+            ['func'] + exports + params + results + locals + ctx.instructions))
+    
+    # Produce wasm module
     module = Module(
-        '(import "js" "print_ln" (func $print_ln (param f64)))',
-        '(import "js" "perf_counter" (func $perf_counter (result f64)))',
-        tuple(['func', '$main'] + [('local', 'f64') for i in ctx.names] + ctx.instructions),
-        )
+        '(import "env" "f64_print" (func $print (param f64)))',
+        *module_parts)
     return module
 
 
-class PythonToWasmCompiler:
-    """ Transpiler from python wasm """
-    def __init__(self):
-        self._filename = None
+class PythonFuncToWasmCompiler:
+    """ Compiles one Python function body to wasm instructions.
+    """
+    
+    def __init__(self, args, filename=None):
+        self._filename = filename
         self.instructions = []
         self.names = {}
         self._name_counter = 0
         self._block_stack = []
-
+        self.returns = False  # Whether this function returns something
+        # Init args
+        for name in args:
+            self.name_idx(name)
+    
+    def compile_body(self, body):
+        for node in body:
+            self._compile_expr(node, False)
+    
     def name_idx(self, name):
         if name not in self.names:
             self.names[name] = self._name_counter
@@ -73,6 +137,7 @@ class PythonToWasmCompiler:
 
     def _compile_expr(self, node, push_stack):
         """ Generate wasm instruction for the given ast node """
+        
         if isinstance(node, ast.Expr):
             self._compile_expr(node.value, push_stack)
 
@@ -154,7 +219,8 @@ class PythonToWasmCompiler:
             self._compile_expr(node.test, True)
             assert not push_stack  # Python is not an expression lang
             self.push_block('if')
-            self.instructions.append(('if', 'emptyblock'))
+            #self.instructions.append(('if', 'emptyblock'))
+            self.instructions.append('if')
             for e in node.body:
                 self._compile_expr(e, False)
             if node.orelse:
@@ -207,8 +273,8 @@ class PythonToWasmCompiler:
             for i in [
                     ('get_local', start_stub),
                     ('set_local', target),  # Init target
-                    ('block', 'emptyblock'),
-                    ('loop', 'emptyblock'),  # enter loop
+                    'block',  #('block', 'emptyblock'),
+                    'loop',  #('loop', 'emptyblock'),  # enter loop
                     ('get_local', target),
                     ('get_local', end_stub),
                     ('f64.ge',), ('br_if', 1),  # break (level 2)
@@ -235,7 +301,8 @@ class PythonToWasmCompiler:
             # Body
             self.push_block('while')
             # enter loop (outer block for break):
-            for i in [('block', 'emptyblock'), ('loop', 'emptyblock')]:
+            #for i in [('block', 'emptyblock'), ('loop', 'emptyblock')]:
+            for i in ['block', 'loop']:
                 self.instructions.append(i)
             for subnode in node.body:
                 self._compile_expr(subnode, False)
@@ -259,6 +326,7 @@ class PythonToWasmCompiler:
             assert node.value is not None
             self._compile_expr(node.value, True)
             self.instructions.append(('return', ))
+            self.returns = True
 
         elif isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name):
@@ -286,7 +354,4 @@ class PythonToWasmCompiler:
                 node, 'Unsupported syntax: %s' % node.__class__.__name__)
 
     def syntax_error(self, node, message):
-        """ Raise a nice error message as feedback """
-        location = SourceLocation(
-            self._filename, node.lineno, node.col_offset + 1, 1)
-        raise CompilerError(message, location)
+        syntax_error(self._filename, node, message)
