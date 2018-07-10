@@ -17,28 +17,41 @@ def syntax_error(filename, node, message):
     raise CompilerError(message, location)
 
 
-def python_to_wasm(code):
+def python_to_wasm(*sources):
     """ Compile Python functions to wasm, by using Python's ast parser
     and compiling a very specific subset to WASM instructions. All values 
-    are float64.
-    
-    Code can be a string, a function, or AST.
+    are float64. Each source can be a string, a function, or AST.
     """
+    
+    # Collect funcdefs
+    funcdefs = []
+    for source in sources:
+        funcdefs.extend(_python_to_wasm_funcdefs(source))
+    
+    # Produce wasm module
+    module = Module(
+        '(import "env" "f64_print" (func $print (param f64)))',
+        *funcdefs)
+    return module
+
+
+def _python_to_wasm_funcdefs(source):
+    
     filename = None
     # Verify / convert input
-    if isinstance(code, ast.AST):
-        root = code
-    elif isinstance(code, str):
-        root = ast.parse(code)
-    elif isinstance(code, (types.FunctionType, types.MethodType)):
+    if isinstance(source, ast.AST):
+        root = source
+    elif isinstance(source, str):
+        root = ast.parse(source)
+    elif isinstance(source, (types.FunctionType, types.MethodType)):
         try:
-            filename = inspect.getsourcefile(code)
-            lines, linenr = inspect.getsourcelines(code)
+            filename = inspect.getsourcefile(source)
+            lines, linenr = inspect.getsourcelines(source)
         except Exception as err:
-            raise ValueError('Could not get source for %r: %s' % (code, err))
-        if getattr(code, '__name__', '') in ('', '<lambda>'):
+            raise ValueError('Could not get source for %r: %s' % (source, err))
+        if getattr(source, '__name__', '') in ('', '<lambda>'):
             raise ValueError('Got anonymous function from '
-                             '"%s", line %i, %r.' % (filename, linenr, code))
+                             '"%s", line %i, %r.' % (filename, linenr, source))
         # Normalize indentation, based on first line
         indent = len(lines[0]) - len(lines[0].lstrip())
         for i in range(len(lines)):
@@ -61,7 +74,7 @@ def python_to_wasm(code):
         raise ValueError(
             'py_to_wasm() expecteded root node to be a ast.Module.')
     
-    module_parts = []
+    funcdefs = []
     
     # Iterate over content
     for node in root.body:
@@ -75,6 +88,7 @@ def python_to_wasm(code):
         if node.args.kwonlyargs or node.args.kwonlyargs:
             syntax_error(filename, node,
                 'python_to_wasm() func cannot have keyword wargs.')
+        assert node.name.isidentifier()
         # Get instructions, params, results, and export
         ctx = PythonFuncToWasmCompiler([a.arg for a in node.args.args], filename)
         ctx.compile_body(node.body)
@@ -83,15 +97,11 @@ def python_to_wasm(code):
         results = [('result', 'f64')] if ctx.returns else []
         locals = [('local', 'f64')
                   for i in range(len(ctx.names) - len(node.args.args))]
-        exports = [('export', '"{}"'.format(node.name))]
-        module_parts.append(tuple(
-            ['func'] + exports + params + results + locals + ctx.instructions))
+        exports = [('export', node.name)]
+        funcdefs.append(tuple(['func', '$' + node.name] +
+            exports + params + results + locals + ctx.instructions))
     
-    # Produce wasm module
-    module = Module(
-        '(import "env" "f64_print" (func $print (param f64)))',
-        *module_parts)
-    return module
+    return funcdefs
 
 
 class PythonFuncToWasmCompiler:
@@ -331,24 +341,15 @@ class PythonFuncToWasmCompiler:
         elif isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name):
                 self.syntax_error(node, 'Only support simple function names')
-
             if node.keywords:
                 self.syntax_error(node, 'No support for keyword args')
-
+            # We assume that the function is known. Can be imported or
+            # compiled along with this function.
+            # Push args on stack, then call
+            for arg in node.args:
+                self._compile_expr(arg, True)
             name = node.func.id
-            if name == 'print':
-                if len(node.args) != 1:
-                    self.syntax_error(
-                        node, 'print() accepts exactly one argument')
-                self._compile_expr(node.args[0], True)
-                self.instructions.append(('call', 0))
-            elif name == 'perf_counter':
-                if len(node.args) != 0:
-                    self.syntax_error(
-                        node, 'perf_counter() accepts exactly zero arguments')
-                self.instructions.append(('call', 1))
-            else:
-                self.syntax_error(node, 'Not a supported function: %s' % name)
+            self.instructions.append(('call', '$' + name))
         else:
             self.syntax_error(
                 node, 'Unsupported syntax: %s' % node.__class__.__name__)
