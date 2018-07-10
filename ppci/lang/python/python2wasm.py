@@ -100,6 +100,9 @@ def _python_to_wasm_funcdefs(source):
         exports = [('export', node.name)]
         funcdefs.append(tuple(['func', '$' + node.name] +
             exports + params + results + locals + ctx.instructions))
+        # Main?
+        if node.name == 'main':
+            funcdefs.append(('start', '$main'))
     
     return funcdefs
 
