@@ -11,9 +11,10 @@ import mmap
 import struct
 import logging
 import ctypes
-from ..api import c3c, link, get_current_arch
+from ..arch import get_current_arch
 from .. import ir
 from ..binutils import debuginfo, layout
+from ..binutils.linker import link
 
 
 def get_ctypes_type(debug_type):
@@ -220,6 +221,7 @@ class Mod:
 def load_code_as_module(source_file, reporter=None):
     """ Load c3 code as a module """
 
+    from ..api import c3c
     # Compile a simple function
     march = get_current_arch()
     if march is None:

@@ -4,7 +4,7 @@ Test WASM Table and Element definition classes.
 
 from ppci.api import is_platform_supported, get_current_arch
 from ppci.wasm import Module, Table, run_wasm_in_node, has_node
-from ppci.wasm.instantiate import instantiate, create_runtime
+from ppci.wasm import instantiate
 from ppci.utils.reporting import HtmlReportGenerator
 
 
@@ -77,7 +77,6 @@ def test_table1():
                 'js': {
                     'print_ln': print_ln,
                 },
-                '_runtime': create_runtime(),
             }
             instantiate(m0, imports, target='python', reporter=reporter)
             assert [101, 102] == printed_numbers
@@ -90,7 +89,6 @@ def test_table1():
                 'js': {
                     'print_ln': print_ln,
                 },
-                '_runtime': create_runtime(),
             }
             instantiate(m0, imports, target='native', reporter=reporter)
             assert [101, 102] == printed_numbers

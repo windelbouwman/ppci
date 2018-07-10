@@ -12,7 +12,6 @@ import struct
 import logging
 from types import ModuleType
 
-from ..api import ir_to_object, get_current_arch, ir_to_python
 from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj, MemoryPage
 from ..utils.reporting import DummyReportGenerator
@@ -82,6 +81,7 @@ def instantiate(module, imports, target='native', reporter=None):
 
 def native_instantiate(module, imports, reporter):
     """ Load wasm module native """
+    from ..api import ir_to_object, get_current_arch
     logger.info('Instantiating wasm module as native code')
     arch = get_current_arch()
     ppci_module = wasm_to_ir(
@@ -109,6 +109,7 @@ def native_instantiate(module, imports, reporter):
 
 def python_instantiate(module, imports, reporter):
     """ Load wasm module as a PythonModuleInstance """
+    from ..api import ir_to_python
     logger.info('Instantiating wasm module as python')
     ptr_info = TypeInfo(4, 4)
     ppci_module = wasm_to_ir(module, ptr_info, reporter=reporter)

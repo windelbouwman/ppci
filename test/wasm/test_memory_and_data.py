@@ -3,7 +3,7 @@ Test WASM Memory and Data definition classes.
 """
 
 from ppci.wasm import Module, Memory, Instruction, run_wasm_in_node, has_node
-from ppci.wasm.instantiate import instantiate, create_runtime
+from ppci.wasm import instantiate
 
 
 def dedent(code):
@@ -72,8 +72,7 @@ def test_memory1():
         imports = {
             'js': {
                 'print_ln': print_ln,
-            },
-            '_runtime': create_runtime(),
+            }
         }
         instantiate(m0, imports, target='python')
         assert [4, 3] == printed_numbers

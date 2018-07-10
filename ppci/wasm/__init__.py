@@ -11,6 +11,7 @@ from .ppci2wasm import ir_to_wasm
 from .arch import WasmArchitecture
 from .util import run_wasm_in_node, export_wasm_example
 from .util import run_wasm_in_notebook, has_node
+from ._instantiate import instantiate
 
 
 def read_wasm(input) -> Module:
@@ -33,7 +34,7 @@ def wasmify(func, target='native'):
     """
     
     from ppci.lang.python import python_to_wasm
-    from ppci.wasm.instantiate import instantiate
+    from ppci.wasm import instantiate
     
     def f64_print(x: float) -> None:
         print(x)

@@ -29,8 +29,7 @@ import sys
 from functools import reduce
 from operator import add
 
-from ppci.wasm import read_wat, Module
-from ppci.wasm.instantiate import instantiate
+from ppci.wasm import read_wat, Module, instantiate
 from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator

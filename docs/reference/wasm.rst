@@ -87,7 +87,7 @@ Running in the Python process:
 
     >>> code = '(module (func (export truth) (result i32) (i32.const 42) (return)))'
     >>> m1 = wasm.Module(code)
-    >>> from ppci.wasm.instantiate import instantiate
+    >>> from ppci.wasm import instantiate
     >>> loaded = instantiate(m1, {})
     >>> loaded.exports.truth()
     42

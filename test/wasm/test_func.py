@@ -3,7 +3,7 @@ Test WASM Func definition class.
 """
 
 from ppci.wasm import Module, Func, run_wasm_in_node, has_node, Ref
-from ppci.wasm.instantiate import instantiate
+from ppci.wasm import instantiate
 
 
 def dedent(code):
