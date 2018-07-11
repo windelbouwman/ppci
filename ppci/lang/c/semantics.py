@@ -522,12 +522,9 @@ class CSemantics:
     def on_number(self, value, location):
         """ React on numeric literal """
         # Get value from string:
-        v, type_specifiers = utils.cnum(value)
-        # TODO: this does not have to be int!
-        assert isinstance(v, int)
-
+        value, type_specifiers = utils.cnum(value)
         typ = self.get_type(type_specifiers)
-        return expressions.NumericLiteral(v, typ, location)
+        return expressions.NumericLiteral(value, typ, location)
 
     def on_char(self, value, location):
         """ Process a character literal """

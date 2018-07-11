@@ -305,16 +305,18 @@ class CLexer(HandLexerBase):
 
         # Accept a series of number characters:
         self.accept_run(number_chars)
+        if self.accept('.'):
+            return self.lex_float()
+        else:
+            # Accept some suffixes:
+            self.accept('LlUu')
+            self.accept('LlUu')
+            # TODO: handle suffixes better
+            self.accept('LlUu')
 
-        # Accept some suffixes:
-        self.accept('LlUu')
-        self.accept('LlUu')
-        # TODO: handle suffixes better
-        self.accept('LlUu')
-
-        # self.accept('
-        self.emit('NUMBER')
-        return self.lex_c
+            # self.accept('
+            self.emit('NUMBER')
+            return self.lex_c
 
     def lex_float(self):
         self.accept_run(self.numbers)

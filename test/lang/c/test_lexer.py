@@ -142,11 +142,12 @@ class CLexerTestCase(unittest.TestCase):
         test_cases = [
             ('.12e+2', 12.0),
             # TODO ('1.2e3', 1200.0),
-            # TODO ("1.", 1.0),
+            ("3.14", 3.14),
+            ("1.", 1.0),
             (".1", 0.1),
         ]
         for src, value in test_cases:
-            print(src)
+            # print(src)
             tokens = self.tokenize(src)
             self.assertEqual(1, len(tokens))
             self.assertEqual('NUMBER', tokens[0].typ)

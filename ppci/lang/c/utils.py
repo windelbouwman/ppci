@@ -44,35 +44,42 @@ def cnum(txt: str):
     # Lower tha casing:
     num = txt.lower()
 
-    # Determine base:
-    if num.startswith('0x'):
-        num = num[2:]
-        base = 16
-    elif num.startswith('0b'):
-        num = num[2:]
-        base = 2
-    elif num.startswith('0'):
-        base = 8
+    if '.' in txt:
+        # Floating point
+        type_specifiers = ['double']
+        return float(num), type_specifiers
     else:
-        base = 10
+        # Integer:
 
-    # Determine suffix:
-    type_specifiers = []
-    while num.endswith(('l', 'u')):
-        if num.endswith('u'):
-            num = num[:-1]
-            type_specifiers.append('unsigned')
-        elif num.endswith('l'):
-            num = num[:-1]
-            type_specifiers.append('long')
+        # Determine base:
+        if num.startswith('0x'):
+            num = num[2:]
+            base = 16
+        elif num.startswith('0b'):
+            num = num[2:]
+            base = 2
+        elif num.startswith('0'):
+            base = 8
         else:
-            raise NotImplementedError()
+            base = 10
 
-    if not type_specifiers:
-        type_specifiers.append('int')
+        # Determine suffix:
+        type_specifiers = []
+        while num.endswith(('l', 'u')):
+            if num.endswith('u'):
+                num = num[:-1]
+                type_specifiers.append('unsigned')
+            elif num.endswith('l'):
+                num = num[:-1]
+                type_specifiers.append('long')
+            else:
+                raise NotImplementedError()
 
-    # Take the integer:
-    return int(num, base), type_specifiers
+        if not type_specifiers:
+            type_specifiers.append('int')
+
+        # Take the integer:
+        return int(num, base), type_specifiers
 
 
 def replace_escape_codes(txt: str):
