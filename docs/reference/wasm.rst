@@ -87,8 +87,8 @@ Running in the Python process:
 
     >>> code = '(module (func (export truth) (result i32) (i32.const 42) (return)))'
     >>> m1 = wasm.Module(code)
-    >>> from ppci.wasm import instantiate
-    >>> loaded = instantiate(m1, {})
+    >>> imports = {}  # Python function imports can be added here
+    >>> loaded = wasm.instantiate(m1, imports)
     >>> loaded.exports.truth()
     42
 
@@ -120,7 +120,4 @@ Module reference
 ----------------
 
 .. automodule:: ppci.wasm
-    :members:
-
-.. automodule:: ppci.wasm.instantiate
     :members:
