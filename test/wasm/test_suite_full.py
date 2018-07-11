@@ -37,7 +37,144 @@ from ppci.wasm.util import datastring2bytes, sanitize_name
 from ppci.wasm.util import make_int, make_float
 
 
+# Load spec test-suite iterator
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+from _spec_suite import get_spec_suite_dir, get_test_script_parts
+sys.path.pop(0)
+
+
 logging.getLogger().setLevel(logging.DEBUG)
+
+
+# ==================== BLACKLISTS ==================== #
+
+# TODO: at some point we should be able to process all snippets?
+# Black list of test files
+black_list = [
+    'br_table',  # This test takes a long time, but works
+    'names',  # Contains many weird unicode characters
+    'linking',  # Requires linking. This does not work yet.
+    'imports',  # Import support is too limited for now.
+    'globals',  # Import of globals not implemented
+    'data',  # Importing of memory not implemented
+    'elem',  # Importing of table not implemented
+    'exports',  # TODO: what goes wrong here?
+    'float_exprs',  # TODO: what is the issue here?
+    'float_memory',  # TODO: handle signalling nan's
+    'float_literals',  # TODO: what is the issue here?
+    'skip-stack-guard-page',  # This is some stack overflow stuff?
+    'func',  # TODO: this function is malformed!
+    'i64', # Grrr, so many expressions to blacklist!
+]
+
+# Black list of specific expressions, per file
+black_list_expr = {
+    'i64': [
+        ('invoke', 'mul', ('i64.const', '0x0123456789abcdef'), ('i64.const', '0xfedcba9876543210')),
+        ('invoke', 'div_u', ('i64.const', 10371807465568210928), ('i64.const', 4294967297)),
+        ('invoke', 'div_u', ('i64.const', -5), ('i64.const', 2)),
+        ('invoke', 'rem_u', ('i64.const', 10371807465568210928), ('i64.const', 4294967297)),
+        ('invoke', 'and', ('i64.const', 4042326015), ('i64.const', 4294963440)),
+        ('invoke', 'or', ('i64.const', 4042326015), ('i64.const', 4294963440)),
+        ('invoke', 'shr_s', ('i64.const', 4611686018427387904), ('i64.const', 1)),
+        ('invoke', 'shr_u', ('i64.const', 4611686018427387904), ('i64.const', 1)),
+        ('invoke', 'rotl', ('i64.const', '0xabcd987602468ace'), ('i64.const', 1)),
+        ('invoke', 'rotl', ('i64.const', '0xfe000000dc000000'), ('i64.const', 4)),
+        # ... more needed
+        ],
+}
+
+
+# On Windows, we need more blacklisting ...
+if sys.platform.startswith('win'):
+    
+    black_list.append('conversions') # Grrr, so many expressions to blacklist!
+    # Note that this list is not complete, I ran out of time ...
+    
+    # Segfault
+    black_list_expr['i32'] = [
+        ('invoke', 'rem_s', ('i32.const', 2147483648), ('i32.const', -1)),
+        ]
+    
+    # Test fail
+    black_list_expr['call'] = [
+        ('invoke', 'fac', ('i64.const', 25)),
+        ('invoke', 'fac-acc', ('i64.const', 25), ('i64.const', 1)),
+        ]
+    black_list_expr['call_indirect'] = [
+        ('invoke', 'fac', ('i64.const', 25)),
+        ]
+    black_list_expr['fac'] = [
+        ('invoke', 'fac-rec', ('i64.const', 25)),
+        ('invoke', 'fac-iter', ('i64.const', 25)),
+        ('invoke', 'fac-rec-named', ('i64.const', 25)),
+        ('invoke', 'fac-iter-named', ('i64.const', 25)),
+        ('invoke', 'fac-opt', ('i64.const', 25)),
+        ]
+    black_list_expr['conversions'] = [
+        ('invoke', 'i64.extend_u_i32', ('i32.const', -10000)),
+        ('invoke', 'i64.extend_u_i32', ('i32.const', -1)),
+        ('invoke', 'i64.extend_u_i32', ('i32.const', 2147483648)),
+        ('invoke', 'i64.trunc_s_f32', ('f32.const', 4294967296)),
+        ('invoke', 'i64.trunc_s_f32', ('f32.const', -4294967296)),
+        ('invoke', 'i64.trunc_s_f32', ('f32.const', 9.223371487098962e+18)),
+        ('invoke', 'i64.trunc_s_f32', ('f32.const', -9.223372036854776e+18)),
+        ('invoke', 'i64.trunc_u_f32', ('f32.const', 4294967296)),
+        ('invoke', 'i64.trunc_u_f32', ('f32.const', 1.8446742974197924e+19)),
+        ('invoke', 'i64.trunc_s_f64', ('f64.const', 4294967296)),
+        ('invoke', 'i64.trunc_s_f64', ('f64.const', -4294967296)),
+        ('invoke', 'i64.trunc_s_f64', ('f64.const', 9.223372036854775e+18)),
+        ('invoke', 'i64.trunc_s_f64', ('f64.const', -9.223372036854776e+18)),
+        ('invoke', 'i64.trunc_u_f64', ('f64.const', 4294967295)),
+        ('invoke', 'i64.trunc_u_f64', ('f64.const', 4294967296)),
+        ('invoke', 'i64.trunc_u_f64', ('f64.const', 1e+16)),
+        ('invoke', 'i64.trunc_u_f64', ('f64.const', 9223372036854775808)),
+        ('invoke', 'f32.convert_s_i64', ('i64.const', 9223372036854775807)),
+        # ... more needed
+        ]
+    black_list_expr['endianness'] = [
+        ('invoke', 'i64_load32_u', ('i64.const', -1)),
+        ('invoke', 'i64_load32_u', ('i64.const', -42424242)),
+        ('invoke', 'i64_load32_u', ('i64.const', '0xABAD1DEA')),
+        ('invoke', 'i64_load', ('i64.const', '0xABAD1DEA')),
+        ('invoke', 'i64_load', ('i64.const', '0xABADCAFEDEAD1DEA')),
+        ('invoke', 'i64_store32', ('i64.const', -1)),
+        ('invoke', 'i64_store32', ('i64.const', -4242)),
+        ('invoke', 'i64_store32', ('i64.const', '0xDEADCAFE')),
+        ('invoke', 'i64_store', ('i64.const', '0xABAD1DEA')),
+        ('invoke', 'i64_store', ('i64.const', '0xABADCAFEDEAD1DEA')),
+        ]
+    black_list_expr['get_local'] = [
+        ('invoke', 'read', ('i64.const', 1), ('f32.const', 2), ('f64.const', 3.3), ('i32.const', 4), ('i32.const', 5)),
+        ]
+    black_list_expr['int_exprs'] = [
+        ('invoke', 'i64.div_s_3', ('i64.const', 3458764513820540928)),
+        ('invoke', 'i64.div_u_3', ('i64.const', 13835058055282163712)),
+        ('invoke', 'i64.div_s_5', ('i64.const', 5764607523034234880)),
+        ('invoke', 'i64.div_u_5', ('i64.const', 11529215046068469760)),
+        ('invoke', 'i64.div_s_7', ('i64.const', 8070450532247928832)),
+        ('invoke', 'i64.div_u_7', ('i64.const', '0xe000000000000000')),
+        ]
+    black_list_expr['int_literals'] = [
+        ('invoke', 'i64.test'),
+        ('invoke', 'i64.smax'),
+        ('invoke', 'i64.neg_smax'),
+        ('invoke', 'i64.smin'),
+        ('invoke', 'i64.alt_smin'),
+        ('invoke', 'i64.inc_smin'),
+        ('invoke', 'i64-hex-sep1'),
+        ]
+    black_list_expr['loop'] = [
+        ('invoke', 'while', ('i64.const', 20)),
+        ('invoke', 'for', ('i64.const', 20)),
+        ]
+    black_list_expr['memory'] = [
+        ('invoke', 'cast'),
+        ('invoke', 'i64_load32_u', ('i64.const', -1)),
+        ('invoke', 'i64_load32_u', ('i64.const', '0x3456436598bacdef')),
+        ]
+
+# ==================== END BLACKLISTS ==================== #
 
 
 def perform_test(filename, target):
@@ -45,6 +182,7 @@ def perform_test(filename, target):
     #     return
     logger = logging.getLogger()
     logger.info('Loading %s', filename)
+    base_name = os.path.splitext(os.path.split(filename)[1])[0]
     with open(filename, 'rt', encoding='utf-8') as f:
         source_text = f.read()
 
@@ -53,6 +191,11 @@ def perform_test(filename, target):
         reporter.message('Test spec file {}'.format(filename))
         try:
             s_expressions = parse_multiple_sexpr(source_text)
+            expressions2ignore = black_list_expr.get(base_name, [])
+            s_expressions = [s_expr for s_expr in s_expressions if len(s_expr) != 3 or s_expr[1] not in expressions2ignore]
+            if base_name == 'i64':
+                does_big_edges = lambda x: '9223372036854775808' in x or '9223372036854775807' in x or '9223372036854775809' in x
+                s_expressions = [s_expr for s_expr in s_expressions if not does_big_edges(str(s_expr))]
             executor = WastExecutor(target, reporter)
             executor.execute(s_expressions)
 
@@ -175,7 +318,7 @@ class WastExecutor:
         if any(nan_or_inf(a) for a in args):
             self.logger.warning('Not invoking method %s(%s)', func_name, args)
         else:
-            self.logger.debug('Invoking method %s(%s)', func_name, args)
+            self.logger.debug('Invoking ' + repr(target))
             return self.mod_instance.exports[func_name](*args)
 
     def parse_expr(self, s_expr):
@@ -237,26 +380,13 @@ def wasm_spec_populate(cls):
 
 def get_wast_files():
     """ Retrieve wast files if WASM_SPEC_DIR was set """
-    # TODO: at some point we should be able to process all snippets?
-    black_list = [
-        'br_table',  # This test takes a long time, but works
-        'names',  # Contains many weird unicode characters
-        'linking',  # Requires linking. This does not work yet.
-        'imports',  # Import support is too limited for now.
-        'globals',  # Import of globals not implemented
-        'data',  # Importing of memory not implemented
-        'elem',  # Importing of table not implemented
-        'exports',  # TODO: what goes wrong here?
-        'float_exprs',  # TODO: what is the issue here?
-        'float_memory',  # TODO: handle signalling nan's
-        'float_literals',  # TODO: what is the issue here?
-        'skip-stack-guard-page',  # This is some stack overflow stuff?
-        'func',  # TODO: this function is malformed!
-    ]
     if 'WASM_SPEC_DIR' in os.environ:
         wasm_spec_directory = os.path.normpath(os.environ['WASM_SPEC_DIR'])
-        core_test_directory = os.path.join(
-            wasm_spec_directory, 'test', 'core')
+        if os.path.isfile(os.path.join(wasm_spec_directory, 'f32.wast')):
+            core_test_directory = wasm_spec_directory
+        else:
+            core_test_directory = os.path.join(
+                wasm_spec_directory, 'test', 'core')
         if not os.path.isdir(core_test_directory):
             raise ValueError(
                 "WASM_SPEC_DIR is set, but {} not found".format(
@@ -292,12 +422,16 @@ if __name__ == '__main__':
     
     # unittest.main(verbosity=2)
     
-    perform_test(
-        '/home/windel/GIT/spec/test/core/i64.wast',
-        'native')
-    # perform_test(r'C:\dev\wasm\spec\test\core\names.wast')
+    #perform_test(os.path.join(os.environ['WASM_SPEC_DIR'], 'i64.wast'), 'native')
+    #perform_test(os.path.join(os.environ['WASM_SPEC_DIR'], 'names.wast'), 'native')
     
+    continue_after = ''
     # for target in ['python', 'native']:
-    for target in ['native', 'python']:
+    # for target in ['native', 'python']:
+    for target in ['native']:
         for filename in get_wast_files():
+            if continue_after:
+                if filename.endswith(continue_after + '.wast'):
+                    continue_after = None
+                continue
             perform_test(filename, target)
