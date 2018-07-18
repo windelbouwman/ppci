@@ -631,10 +631,10 @@ class WasmToIrCompiler:
                 self.push_value(value)
 
         elif inst in [
-                'f64.floor', 'f64.sqrt', 'f64.abs', 'f64.ceil', 'f64.trunc',
+                'f64.sqrt', 'f64.abs', 'f64.ceil', 'f64.trunc',
                 'f64.nearest',
                 'f64.min', 'f64.max', 'f64.copysign',
-                'f32.floor', 'f32.sqrt', 'f32.abs', 'f32.ceil', 'f32.trunc',
+                'f32.sqrt', 'f32.abs', 'f32.ceil', 'f32.trunc',
                 'f32.nearest',
                 'f32.min', 'f32.max', 'f32.copysign',
                 'f32.reinterpret/i32',
@@ -676,6 +676,18 @@ class WasmToIrCompiler:
             ty, addr = self.globalz[instruction.args[0].index]
             value = self.pop_value(ir_typ=ty)
             self.emit(ir.Store(value, addr))
+
+        elif inst in ['f64.floor', 'f32.floor']:
+            ir_typ = self.get_ir_type(inst)
+            value = self.pop_value(ir_typ)
+            value = self.emit(ir.Cast(value, 'cast', ir.u64))
+            value = self.emit(ir.Cast(value, 'cast', ir_typ))
+            self.push_value(value)
+            # Someday we may have a Unary op for this,
+            # or a call into a native runtime lib?
+            # value = self.emit(
+            #     ir.Unop('floor', self.pop_value(ir_typ), 'floor', ir_typ))
+            # self.push_value(value)
 
         elif inst in ['f64.neg', 'f32.neg']:
             ir_typ = self.get_ir_type(inst)

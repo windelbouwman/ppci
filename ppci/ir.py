@@ -840,7 +840,7 @@ class ProcedureCall(Instruction):
 
 class Unop(LocalValue):
     """ Generic unary operation """
-    ops = ['-', '~']
+    ops = ['-', '~']  # someday perhaps: 'floor', 'sqrt'
     a = value_use('a')
 
     def __init__(self, operation, a, name, ty):
