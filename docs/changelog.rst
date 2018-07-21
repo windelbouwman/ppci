@@ -12,6 +12,8 @@ Release 0.5.6 (Upcoming)
 
 * Compilation is now reproducible: recompiling the same source yields exactly the same machine code
 * Added support for webassembly WAT file format (by Almar)
+* Improved compilation speed
+* Separation of the graph algorithms in ppci.graph.
 
 Release 0.5.5 (Jan 17, 2018)
 ----------------------------

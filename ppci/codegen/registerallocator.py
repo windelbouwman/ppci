@@ -305,9 +305,9 @@ class GraphColoringRegisterAllocator:
             self.worklistMoves.add(m)
 
         # Make worklists for nodes:
-        self.spill_worklist = []
-        self.freeze_worklist = []
-        self.simplify_worklist = []
+        self.spill_worklist = OrderedSet()
+        self.freeze_worklist = OrderedSet()
+        self.simplify_worklist = OrderedSet()
         self.precolored = OrderedSet()
 
         # Divide nodes into categories:
@@ -318,11 +318,12 @@ class GraphColoringRegisterAllocator:
 
                 self.precolored.add(node)
             elif not self.is_colorable(node):
-                self.spill_worklist.append(node)
+                self.spill_worklist.add(node)
             elif self.is_move_related(node):
-                self.freeze_worklist.append(node)
+                self.freeze_worklist.add(node)
             else:
-                self.simplify_worklist.append(node)
+                self.simplify_worklist.add(node)
+        self.logger.debug('%s node in spill list, %s in freeze list and %s in simplify list', len(self.spill_worklist), len(self.freeze_worklist), len(self.simplify_worklist))
 
     def node(self, vreg):
         return self.frame.ig.get_node(vreg)
@@ -414,9 +415,9 @@ class GraphColoringRegisterAllocator:
             self.enable_moves({m} | m.adjecent)
             self.spill_worklist.remove(m)
             if self.is_move_related(m):
-                self.freeze_worklist.append(m)
+                self.freeze_worklist.add(m)
             else:
-                self.simplify_worklist.append(m)
+                self.simplify_worklist.add(m)
 
     def enable_moves(self, nodes):
         for node in nodes:
@@ -474,7 +475,7 @@ class GraphColoringRegisterAllocator:
         if (u not in self.precolored) and (not self.is_move_related(u))\
                 and self.is_colorable(u):
             self.freeze_worklist.remove(u)
-            self.simplify_worklist.append(u)
+            self.simplify_worklist.add(u)
 
     def ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
@@ -523,7 +524,7 @@ class GraphColoringRegisterAllocator:
         # Move node to spill worklist if higher degree is reached:
         if (not self.is_colorable(u)) and u in self.freeze_worklist:
             self.freeze_worklist.remove(u)
-            self.spill_worklist.append(u)
+            self.spill_worklist.add(u)
 
     @lru_cache(maxsize=None)
     def common_reg_class(self, u, v):
@@ -550,7 +551,7 @@ class GraphColoringRegisterAllocator:
         if self.verbose:
             self.logger.debug('freezing %s', u)
 
-        self.simplify_worklist.append(u)
+        self.simplify_worklist.add(u)
 
         # Freeze moves for node u
         for m in list(self.NodeMoves(u)):
@@ -568,7 +569,7 @@ class GraphColoringRegisterAllocator:
                     and self.is_colorable(v):
                 assert v in self.freeze_worklist
                 self.freeze_worklist.remove(v)
-                self.simplify_worklist.append(v)
+                self.simplify_worklist.add(v)
 
     def spill(self):
         """ Do spilling """
