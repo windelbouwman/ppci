@@ -502,10 +502,11 @@ class Module(WASMComponent):
                 sig = types[c.info[0].index]
                 params_s = ', '.join([p[1] for p in sig.params])
                 result_s = ', '.join([r for r in sig.result])
-                print(f'  {c.modname}.{c.name}:'.ljust(20), f'[{params_s}] -> [{result_s}]')
+                print(
+                    '  {}.{}:'.format(c.modname, c.name).ljust(20),
+                    '[{}] -> [{}]'.format(params_s, result_s))
             else:
-                #print('  ' + c.to_string())
-                print(f'  {c.kind}:'.ljust(20), f'"{c.name}"')
+                print('  {}:'.format(c.kind).ljust(20), '"{}"'.format(c.name))
         
         print('Exports:')
         for c in exports:
@@ -514,10 +515,11 @@ class Module(WASMComponent):
                 sig = types[func.ref.index]
                 params_s = ', '.join([p[1] for p in sig.params])
                 result_s = ', '.join([r for r in sig.result])
-                print(f'  {c.name}:'.ljust(20), f'[{params_s}] -> [{result_s}]')
+                print(
+                    '  {}:'.format(c.name).ljust(20),
+                    '[{}] -> [{}]'.format(params_s, result_s))
             else:
-                #print('  ' + c.to_string())
-                print(f'  {c.kind}:'.ljust(20), f'"{c.name}"')
+                print('  {}:'.format(c.kind).ljust(20), '"{}"'.format(c.name))
 
 
 def str2int(x):

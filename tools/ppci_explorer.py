@@ -17,23 +17,24 @@ Idea:
 import io
 import logging
 
-from prompt_toolkit.interface import CommandLineInterface
-from prompt_toolkit.application import Application
+from prompt_toolkit import Application
+import prompt_toolkit as pt
 from pygments.styles import get_style_by_name
-from prompt_toolkit.styles.from_pygments import style_from_pygments
+from prompt_toolkit.styles import style_from_pygments_cls
 from pygments.token import Token
-from prompt_toolkit.key_binding.manager import KeyBindingManager
+from prompt_toolkit.key_binding import KeyBindings
 from pygments.lexers import CLexer
-from prompt_toolkit.layout.lexers import PygmentsLexer
+from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.shortcuts import create_eventloop
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout.containers import HSplit, Window, VSplit
 from prompt_toolkit.layout.containers import ConditionalContainer
 from prompt_toolkit.layout.dimension import LayoutDimension as D
-from prompt_toolkit.layout.controls import FillControl, BufferControl
-from prompt_toolkit.layout.controls import TokenListControl
-from prompt_toolkit.layout.margins import NumberredMargin, ScrollbarMargin
+from prompt_toolkit.layout.controls import BufferControl
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout import ScrollbarMargin, NumberedMargin
+from prompt_toolkit.widgets import TextArea, Frame
+from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.processors import Processor, Transformation
 from prompt_toolkit.filters import Condition
 
@@ -43,21 +44,15 @@ from ppci.binutils.outstream import TextOutputStream
 from ppci.common import CompilerError, logformat
 
 
-def get_title_bar_tokens(cli):
-    return [
-        (Token.Title,
-         'Welcome to the ppci explorer version {}'.format(ppci_version)),
-        (Token.Title,
-         ' [Arch = {} (F7)] '.format(compiler.arch)),
-        (Token.Title,
-         ' [Optimize = {} (F8)] '.format(compiler.optimize)),
-    ]
+def get_title_bar_tokens():
+    return \
+         'Welcome to the ppci explorer version {} (prompt_toolkit {})'.format(ppci_version, pt.__version__) + \
+         ' [Arch = {} (F7)] '.format(compiler.arch) + \
+         ' [Optimize = {} (F8)] '.format(compiler.optimize)
 
 
-def get_help_tokens(cli):
-    return [
-        (Token.Toolbar.Status,
-         'F9=toggle log F10=exit ')]
+def get_help_tokens():
+    return 'F9=toggle log F10=exit '
 
 
 class MyHandler(logging.Handler):
@@ -87,6 +82,24 @@ def arch_gen(archs):
     while True:
         for a in archs:
             yield a
+
+
+class CodeEdit:
+    def __init__(self):
+        self.buffer = Buffer()
+        src_lexer = PygmentsLexer(CLexer)
+        self.control = BufferControl(
+            buffer=self.buffer,
+            lexer=src_lexer,
+        )
+        self.window = Window(
+            content=self.control,
+            left_margins=[NumberedMargin()],
+            right_margins=[ScrollbarMargin(display_arrows=True)],
+        )
+
+    def __pt_container__(self):
+        return self.window
 
 
 class Compiler:
@@ -121,56 +134,53 @@ compiler = Compiler()
 
 
 def ppci_explorer():
-    key_binding_manager = KeyBindingManager()
-    registry = key_binding_manager.registry
+    kb = KeyBindings()
 
-    @registry.add_binding(Keys.F10, eager=True)
+    @kb.add(Keys.F10, eager=True)
     def quit_(event):
-        event.cli.set_return_value(None)
+        event.app.exit()
 
-    @registry.add_binding(Keys.F7, eager=True)
+    @kb.add(Keys.F7, eager=True)
     def next_arch_(event):
         compiler.next_architecture()
         do_compile()
 
-    @registry.add_binding(Keys.F9, eager=True)
+    @kb.add(Keys.F9, eager=True)
     def toggle_log_(event):
         compiler.toggle_log()
 
-    @registry.add_binding(Keys.F8, eager=True)
+    @kb.add(Keys.F8, eager=True)
     def toggle_optimize_(event):
         compiler.toggle_optimize()
         do_compile()
 
-    show_log = Condition(lambda cli: compiler.show_log)
-    src_lexer = PygmentsLexer(CLexer)
-    errors_processor = DisplayErrorsProcessor()
-    layout = HSplit([
-        Window(content=TokenListControl(get_title_bar_tokens, align_center=True), height=D.exact(1)),
-        Window(content=FillControl('='), height=D.exact(1)),
-        VSplit([
-            Window(content=FillControl('|'), width=D.exact(1)),
-            Window(content=BufferControl(
-                'source', lexer=src_lexer, input_processors=[errors_processor]), left_margins=[NumberredMargin()], right_margins=[ScrollbarMargin()], cursorline=True),
-            Window(content=FillControl('|'), width=D.exact(1)),
-            Window(content=BufferControl('output')),
-            Window(content=FillControl(
-                '|', token=Token.Line), width=D.exact(1)),
-            ConditionalContainer(
-                Window(content=BufferControl('logs')),
-                filter=show_log),
-        ]),
-        Window(content=FillControl('='), height=D.exact(1)),
-        Window(content=TokenListControl(get_help_tokens), height=D.exact(1)),
-    ])
-
-    style = style_from_pygments(get_style_by_name('vim'))
     buffers = {
-        'source': Buffer(is_multiline=True),
-        'output': Buffer(is_multiline=True),
-        'logs': Buffer(is_multiline=True),
+        'output': Buffer(multiline=True),
+        'logs': Buffer(multiline=True),
     }
 
+    show_log = Condition(lambda: compiler.show_log)
+    errors_processor = DisplayErrorsProcessor()
+    code_edit = CodeEdit()
+    source_buffer = code_edit.buffer
+    layout = Layout(HSplit([
+        Window(FormattedTextControl(get_title_bar_tokens), height=1),
+        VSplit([
+            Frame(
+                body=code_edit, title="source code",
+            ),
+            Frame(
+                body=Window(content=BufferControl(buffers['output'])),
+                title='assembly output'
+            ),
+            ConditionalContainer(
+                Window(content=BufferControl(buffers['logs'])),
+                filter=show_log),
+        ]),
+        Window(FormattedTextControl(get_help_tokens), height=1),
+    ]))
+
+    style = style_from_pygments_cls(get_style_by_name('vim'))
     log_handler = MyHandler(buffers['logs'])
     fmt = logging.Formatter(fmt=logformat)
     log_handler.setFormatter(fmt)
@@ -184,7 +194,7 @@ def ppci_explorer():
     def do_compile():
         errors_processor.errors.clear()
         try:
-            buffers['output'].text = compiler.compile(buffers['source'].text)
+            buffers['output'].text = compiler.compile(source_buffer.text)
         except CompilerError as ex:
             if ex.loc:
                 errors_processor.errors[ex.loc.row] = ex.msg
@@ -192,25 +202,22 @@ def ppci_explorer():
             else:
                 buffers['output'].text = str(ex)
 
-    buffers['source'].on_text_changed += on_change
+    source_buffer.on_text_changed += on_change
 
     application = Application(
-        layout=layout, buffers=buffers, style=style,
-        key_bindings_registry=registry, use_alternate_screen=True,
-        )
+        layout=layout,
+        key_bindings=kb,
+        full_screen=True)
 
-    buffers['source'].text = """
-    int g;
+    source_buffer.text = """
+    int g=23;
 
     int add(int a, int b) {
       return a + b - g;
     }
     """
 
-    loop = create_eventloop()
-    cli = CommandLineInterface(application=application, eventloop=loop)
-    cli.focus('source')
-    cli.run()
+    application.run()
 
 
 if __name__ == '__main__':
