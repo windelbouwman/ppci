@@ -139,14 +139,10 @@ class BurgSystem:
     def __init__(self):
         self.rules = []
         self.symbols = {}
+        self.terminals = set()
+        self.non_terminals = set()
         self.rule_map = {}
         self.goal = None
-
-    def sym_of_type(self, t):
-        return (s.name for s in self.symbols.values() if type(s) is t)
-
-    terminals = property(lambda s: s.sym_of_type(Term))
-    non_terminals = property(lambda s: s.sym_of_type(Nonterm))
 
     def add_rule(self, non_term, tree, cost, acceptance, template):
         if isinstance(template, str):
@@ -194,6 +190,11 @@ class BurgSystem:
             assert type(self.symbols[name]) is t
         else:
             self.symbols[name] = t(name)
+            if t is Term:
+                self.terminals.add(name)
+            else:
+                assert t is Nonterm
+                self.non_terminals.add(name)
             self.rule_map[name] = list()
         return self.symbols[name]
 
