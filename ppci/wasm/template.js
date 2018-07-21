@@ -79,7 +79,7 @@ var providedfuncs = {
 
 /* Newer style */
 var envfuncs = {
-    f64_print: function (x) { console.log(x); }
+    f64_print: print_ln
 };
 
 
