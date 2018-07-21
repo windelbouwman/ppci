@@ -65,7 +65,9 @@ class CodeGenerator:
             output_stream.emit(alignment)
             label = Label(var.name)
             output_stream.emit(label)
-            if var.amount > 0:
+            if var.amount == 0 and var.value is None and not var.used_by:
+                pass  # E.g. empty WASM func_table
+            elif var.amount > 0:
                 if var.value:
                     for byte in var.value:
                         output_stream.emit(DByte(byte))
