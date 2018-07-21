@@ -30,46 +30,6 @@ class WasmGeneratorTestCase(unittest.TestCase):
         # Idea: maybe convert the wasm back to ir, and run that?
 
 
-py_primes = """
-max = 4000
-n = 0
-i = -1
-gotit = 0
-j = 0
-# t0 = perf_counter()
-
-while n < max:
-    i = i + 1
-    
-    if i <= 1:
-        continue  # nope
-    elif i == 2:
-        n = n + 1
-    else:
-        gotit = 1
-        for j in range(2, i//2 + 1):
-            if i % j == 0:
-                gotit = 0
-                break
-        if gotit == 1:
-            n = n + 1
-
-# print(perf_counter() - t0)
-# print(i)
-# return i
-"""
-
-
-class WasmCompilerTestCase(unittest.TestCase):
-    """ Test wasm to ir compiler """
-    @unittest.skip('TODO: Fix this test')
-    def test_wasm_primes_demo(self):
-        """ Convert the primes demo into an ir module """
-        wasm_module = python_to_wasm(py_primes)
-        ir_mod = wasm_to_ir(wasm_module, TypeInfo(4, 4))
-        self.assertIsInstance(ir_mod, ir.Module)
-
-
 class WasmLoadAndSaveTestCase(unittest.TestCase):
     def test_load_save(self):
         """ Load program.wasm from disk and save it again. """
