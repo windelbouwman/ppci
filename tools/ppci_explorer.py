@@ -116,7 +116,7 @@ class Compiler:
         f2 = io.StringIO()
         if self.optimize:
             api.optimize(ir_module, level=2)
-        text_stream = TextOutputStream(f=f2)
+        text_stream = TextOutputStream(f=f2, add_binary=True)
         api.ir_to_stream(ir_module, self.arch, text_stream)
         return f2.getvalue()
 
