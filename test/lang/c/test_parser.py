@@ -1,6 +1,10 @@
 import io
 import unittest
-from unittest import mock
+try:
+    # Use mock library for assert_called method
+    import mock
+except:
+    from unittest import mock
 
 
 from ppci.lang.c import CLexer, lexer, CParser, CSemantics
@@ -58,6 +62,11 @@ class CParserTestCase(unittest.TestCase):
         """ Test the parsing of a global integer """
         tokens = [('int', 'int'), ('ID', 'A'), (';', ';')]
         cu = self.parse(tokens)
+        # TODO: this would be nice, but is very hard as of now:
+        # self.semantics.on_variable_declaration.assert_called_with(
+        #    None, None, 'A', [],
+        #    ('test1.c', 1, 2)
+        # )
         self.semantics.on_variable_declaration.assert_called()
         self.semantics.add_global_declaration.assert_called()
 

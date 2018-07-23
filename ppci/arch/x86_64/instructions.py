@@ -885,7 +885,9 @@ class InstructionCollection:
         class shift_cl_base(X86Instruction):
             rm = Operand('rm', rm_modes)
             tokens = bit_tokens
-            patterns = {'opcode': 0xd3, **extra_patterns}
+            patterns = {'opcode': 0xd3}
+            for k, v in extra_patterns.items():
+                patterns[k] = v
 
             def encode(self):
                 tokens = self.get_tokens()
