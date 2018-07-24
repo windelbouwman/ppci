@@ -13,6 +13,7 @@ The compilation strategy is hence as follows:
 """
 
 import logging
+from collections import defaultdict
 from .. import ir
 from ..graph import relooper
 from . import components
@@ -52,45 +53,63 @@ class IrToWasmCompiler:
         self.reporter = reporter
 
     def prepare_compilation(self):
-        self.wasm_module = components.Module()
-        self.type_ids = {}  # Track signatures for re-use
+        self.type_refs = {}  # Track signatures for re-use
+        self.definitions = defaultdict(list)
         self.initial_memory = []
         self.tables = []  # Tables with function pointers
         self.global_vars = []
         self.global_labels = {}
         self.global_memory = self.STACKSIZE  # fill up global memory on the go!
+        self.function_refs = {}
         self.pointed_functions = []  # List of referenced funcs
         
         # Global variables:
         # Keep track of virtual stack pointer:
-        self.wasm_module.add_definition(
+        self.add_definition(
             components.Global(0, 'i32', True, components.Instruction('i32.const', self.STACKSIZE)))
         self.global_labels['global0'] = 0  # todo: is this correct?
+        self.sp_ref = components.Ref('global', index=0)
     
+    def add_definition(self, definition):
+        # print(definition.to_string())
+        self.logger.debug('Create %s', definition)
+        space = definition.__name__
+        self.definitions[space].append(definition)
+
+    def gather_definitions(self):
+        """ Take all definitions by section id order: """
+        definitions = []
+        for name in components.SECTION_IDS:
+            for definition in self.definitions[name]:
+                definitions.append(definition)
+        # print(definitions)
+        return definitions
+
     def compile(self, ir_module):
         """ Compile an ir-module into a wasm module """
         self.logger.debug('Generating wasm for %s', ir_module)
 
-        functions_to_do = []
-
         # Check external thingies:
         for i, ir_external in enumerate(ir_module.externals):
-            # TODO: signature:
             if isinstance(ir_external, ir.ExternalSubRoutine):
                 if self.has_function(ir_external.name):
                     pass
-                    # raise ValueError(
-                    # 'Function {} already defined'.format(ir_external.name))
+                    #raise ValueError(
+                    #    'Function {} already defined'.format(ir_external.name))
                 else:
                     arg_types = tuple(ir_external.argument_types)
                     if isinstance(ir_external, ir.ExternalFunction):
                         ret_types = (ir_external.return_type,)
                     else:
                         ret_types = ()
-                    typ_id = self.get_type_id(arg_types, ret_types)  # todo: wasm can now also have str ids!
+                    type_ref = self.get_type_id(arg_types, ret_types)
                     import_id = '$' + ir_external.name  # i
-                    self.wasm_module.add_definition(
-                        components.Import('js', ir_external.name, 'func', import_id, (typ_id, )))
+                    func_ref = components.Ref('func', index=i, name=import_id)
+                    self.function_refs[ir_external.name] = func_ref
+                    self.add_definition(
+                        components.Import('js', ir_external.name, 'func', func_ref, (type_ref, )))
+            else:
+                raise NotImplementedError(str(ir_external))
 
         # Global variables:
         for ir_variable in ir_module.variables:
@@ -101,8 +120,10 @@ class IrToWasmCompiler:
                     (0, addr, ir_variable.value))
             self.global_memory += ir_variable.amount
 
+        functions_to_do = []
+
         # Register function numbers (for mutual recursive functions):
-        for ir_function in ir_module.functions:
+        for idx, ir_function in enumerate(ir_module.functions, len(self.function_refs)):
             if self.has_function(ir_function.name):
                 raise ValueError(
                     'Function {} already defined'.format(ir_function.name))
@@ -114,47 +135,48 @@ class IrToWasmCompiler:
                 else:
                     ret_types = ()
 
-                type_id = self.get_type_id(arg_types, ret_types)
-                type_ref = components.Ref('type', index=type_id)
+                type_ref = self.get_type_id(arg_types, ret_types)
 
                 # init func object, locals and instructions are attached later
                 wasm_func = components.Func(
                     '$' + ir_function.name, type_ref, [], [])
                 functions_to_do.append((ir_function, wasm_func))
-                self.wasm_module.add_definition(wasm_func)
+
+                # Export all functions for now
+                # todo: only export subset?
+                func_ref = components.Ref('func', index=idx, name='$' + ir_function.name)
+                self.function_refs[ir_function.name] = func_ref
+                self.add_definition(
+                    components.Export(
+                        ir_function.name, 'func', func_ref))
 
         # Functions:
         for ir_function, wasm_func in functions_to_do:
             self.do_function(ir_function, wasm_func)
-            # Export all functions for now
-            # todo: only export subset?
-            func_ref = components.Ref('func', name='$' + ir_function.name)
-            self.wasm_module.add_definition(
-                components.Export(
-                    ir_function.name, 'func', func_ref))
 
     def create_wasm_module(self):
         """ Finalize the wasm module and return it """
 
-        self.wasm_module.add_definition(
+        self.add_definition(
             components.Memory(0, 10, None))  # Start with 10 pages?
         for memid, addr, data in self.initial_memory:
-            self.wasm_module.add_definition(
-                components.Data(memid,
+            self.add_definition(
+                components.Data(components.Ref('memory', index=memid),
                                 components.Instruction('i32.const', addr),
                                 data))
 
         if self.pointed_functions:
             indexes = self.pointed_functions
-            self.wasm_module.add_definition(
+            self.add_definition(
                 components.Table(0, 'anyfunc', len(indexes), None))
             table_ref = components.Ref('table', index=0)
-            self.wasm_module.add_definition(
+            self.add_definition(
                 components.Elem(
                     table_ref,
                     components.Instruction('i32.const', 0), indexes))
 
-        module = self.wasm_module
+        module = components.Module()
+        module.definitions = self.gather_definitions()
         if self.reporter:
             self.reporter.dump_raw_text(module.to_string())
         return module
@@ -166,26 +188,20 @@ class IrToWasmCompiler:
         ret_types = tuple(self.get_ty(t) for t in ret_types)
         # Add to module if not already present
         key = arg_types, ret_types
-        if key not in self.type_ids:
-            id = len(self.type_ids)
-            self.type_ids[key] = id
-            self.wasm_module.add_definition(
-                components.Type(id, [(i, a) for i, a in enumerate(arg_types)], ret_types))
+        if key not in self.type_refs:
+            type_id = len(self.type_refs)
+            type_ref = components.Ref('type', index=type_id)
+            self.type_refs[key] = type_ref
+            self.add_definition(
+                components.Type(type_id, [(i, a) for i, a in enumerate(arg_types)], ret_types))
         # Query the id for this sig
-        return self.type_ids[key]
+        return self.type_refs[key]
 
     def has_function(self, function_name):
         """ Get whether we already created an imported or defined
         function with the given name.
         """
-        for d in self.wasm_module:
-            if isinstance(d, components.Import):
-                if d.kind == 'func' and d.id.lstrip('$') == function_name:
-                    return True
-            elif isinstance(d, components.Func):
-                if d.id.lstrip('$') == function_name:
-                    return True
-        return False
+        return function_name in self.function_refs
 
     def do_function(self, ir_function, wasm_func):
         """ Generate WASM for a single function """
@@ -223,7 +239,7 @@ class IrToWasmCompiler:
         # Locals are located in local 0, 1, 2 etc..
         # The first x locals are the function arguments.
         for i, argument_vreg in enumerate(self.fi.arg_vregs):
-            self.local_var_map[argument_vreg] = i
+            self.local_var_map[argument_vreg] = components.Ref('local', index=i)
 
         # Transform ir-code in shaped code:
         self._block_stack = []
@@ -242,21 +258,22 @@ class IrToWasmCompiler:
         # Add locals and instructions to the wasm funcion object
         wasm_func.locals = [(None, x) for x in self.local_vars]
         wasm_func.instructions = self.instructions
+        self.add_definition(wasm_func)
 
     def increment_stack_pointer(self):
         """ Allocate stack if needed """
         if self.fi.frame.stacksize > 0:
-            self.emit(('get_global', 0))
+            self.emit(('get_global', self.sp_ref))
             self.emit(('i32.const', self.fi.frame.stacksize))
             self.emit(('i32.sub',))
-            self.emit(('set_global', 0))
+            self.emit(('set_global', self.sp_ref))
 
     def decrement_stack_pointer(self):
         if self.fi.frame.stacksize > 0:
-            self.emit(('get_global', 0))
+            self.emit(('get_global', self.sp_ref))
             self.emit(('i32.const', self.fi.frame.stacksize))
             self.emit(('i32.add',))
-            self.emit(('set_global', 0))
+            self.emit(('set_global', self.sp_ref))
 
     def do_shape(self, shape):
         """ Generate code for a given code shape """
@@ -287,12 +304,14 @@ class IrToWasmCompiler:
             # Break out of the current loop!
             assert shape.level == 0
             assert self.stack == 0, str(self.stack)
-            self.emit(('br', self._get_block_level() + 1))
+            label_ref = components.Ref('label', index=(self._get_block_level() + 1))
+            self.emit(('br', label_ref))
         elif isinstance(shape, relooper.ContinueShape):
             # Continue the current loop!
             assert shape.level == 0
             assert self.stack == 0, str(self.stack)
-            self.emit(('br', self._get_block_level()))
+            label_ref = components.Ref('label', index=(self._get_block_level()))
+            self.emit(('br', label_ref))
         elif isinstance(shape, relooper.LoopShape):
             assert self.stack == 0, str(self.stack)
             self.push_block('loop')
@@ -462,7 +481,7 @@ class IrToWasmCompiler:
             self.emit(('i32.sub',))
         elif tree.name in ['FPRELI32']:
             addr = tree.value.offset
-            self.emit(('get_global', 0))  # Fetch stack pointer
+            self.emit(('get_global', self.sp_ref))  # Fetch stack pointer
             self.emit(('i32.const', addr))
             self.emit(('i32.add',))
             self.stack += 1
@@ -506,15 +525,16 @@ class IrToWasmCompiler:
                 self.emit(('get_local', self.get_value(argument)))
 
             if isinstance(function_name, str):
-                func_id = '$' + function_name
-                self.emit(('call', func_id))
+                func_ref = self.function_refs[function_name]
+                self.emit(('call', func_ref))
             else:
                 # Handle function pointers:
                 self.emit(('get_local', self.get_value(function_name)))
                 arg_types = tuple(t for t, a in argv)
                 ret_types = (rv[0],) if rv else tuple()
-                type_idx = self.get_type_id(arg_types, ret_types)
-                self.emit(('call_indirect', type_idx, 0))
+                type_ref = self.get_type_id(arg_types, ret_types)
+                table_ref = components.Ref('table', index=0)
+                self.emit(('call_indirect', type_ref, table_ref))
 
             if rv:
                 self.emit(('set_local', self.get_value(rv[1])))
@@ -563,7 +583,7 @@ class IrToWasmCompiler:
     def get_value(self, value):
         """ Create a local number for the given value """
         if value not in self.local_var_map:
-            self.local_var_map[value] = len(self.local_var_map)
+            self.local_var_map[value] = components.Ref('local', index=len(self.local_var_map))
             ty_map = {
                 I32Register: 'i32', I64Register: 'i64',
                 F32Register: 'f32', F64Register: 'f64',

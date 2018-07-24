@@ -1534,6 +1534,7 @@ class Data(Definition):
             raise TypeError('data must be bytes')
         # Set
         self.ref = check_id(ref)
+        assert isinstance(self.ref, Ref)
         self.offset = offset
         self.data = data
 

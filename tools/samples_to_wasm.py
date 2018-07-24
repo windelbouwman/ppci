@@ -18,7 +18,7 @@ import glob
 import logging
 import time
 from ppci.lang.c import COptions
-from ppci.api import c_to_ir, get_arch, optimize, c3toir
+from ppci.api import c_to_ir, get_arch, optimize, c3_to_ir
 from ppci.wasm import ir_to_wasm
 
 logging.basicConfig(level=logging.DEBUG)
@@ -69,16 +69,16 @@ def c3_to_wasm(filename):
        module bsp;
        public function void putc(byte c);
        """)
-    ir_modules = c3toir([bsp, libio_filename, filename], [], arch)
+    ir_module = c3_to_ir([bsp, libio_filename, filename], [], arch)
 
     # ir_modules.insert(0, ir_modules.pop(-1))  # Shuffle bsp forwards
-    print(','.join(map(str, ir_modules)))
+    print(str(ir_module))
     # optimize(x, level='2')
     # print(x, x.stats())
 
     # x.display()
 
-    wasm_module = ir_to_wasm(ir_modules)
+    wasm_module = ir_to_wasm([ir_module])
 
     print('Completed generating wasm module', wasm_module)
     wasm_module.show()
