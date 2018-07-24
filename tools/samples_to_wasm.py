@@ -20,6 +20,7 @@ import time
 from ppci.lang.c import COptions
 from ppci.api import c_to_ir, get_arch, optimize, c3_to_ir
 from ppci.wasm import ir_to_wasm
+from ppci.ir_link import ir_link
 
 logging.basicConfig(level=logging.DEBUG)
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +54,7 @@ def c_to_wasm(filename):
 
     x.display()
 
-    wasm_module = ir_to_wasm([ir_libc, x])
+    wasm_module = ir_to_wasm(ir_link([ir_libc, x]))
 
     print('Completed generating wasm module', wasm_module)
     wasm_module.show()
@@ -78,7 +79,7 @@ def c3_to_wasm(filename):
 
     # x.display()
 
-    wasm_module = ir_to_wasm([ir_module])
+    wasm_module = ir_to_wasm(ir_module)
 
     print('Completed generating wasm module', wasm_module)
     wasm_module.show()

@@ -36,11 +36,7 @@ def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
     """
     ir_to_wasm_compiler = IrToWasmCompiler(reporter=reporter)
     ir_to_wasm_compiler.prepare_compilation()
-    if isinstance(ir_module, (list, tuple)):
-        for m in ir_module:
-            ir_to_wasm_compiler.compile(m)
-    else:
-        ir_to_wasm_compiler.compile(ir_module)
+    ir_to_wasm_compiler.compile(ir_module)
     return ir_to_wasm_compiler.create_wasm_module()
 
 
@@ -170,6 +166,7 @@ class IrToWasmCompiler:
             self.add_definition(
                 components.Table(0, 'anyfunc', len(indexes), None))
             table_ref = components.Ref('table', index=0)
+            print(indexes)
             self.add_definition(
                 components.Elem(
                     table_ref,
@@ -504,10 +501,10 @@ class IrToWasmCompiler:
                 addr = self.global_labels[tree.value]
             elif self.has_function(tree.value):
                 # Taking pointer of function
-                func_id = '$' + tree.value
+                func_ref = self.function_refs[tree.value]
                 addr = len(self.pointed_functions)
                 self.global_labels[tree.value] = addr
-                self.pointed_functions.append(func_id)
+                self.pointed_functions.append(func_ref)
             else:  # pragma: no cover
                 raise NotImplementedError()
             self.emit(('i32.const', addr))

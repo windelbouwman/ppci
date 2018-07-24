@@ -9,6 +9,7 @@ from ppci.api import c3_to_ir, bf_to_ir, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.lang.c import COptions
 from ppci.wasm import ir_to_wasm
+from ppci.ir_link import ir_link
 
 
 @unittest.skipUnless(do_long_tests('wasm'), 'skipping slow tests')
@@ -52,7 +53,7 @@ class TestSamplesOnWasm(unittest.TestCase):
             for ir_module in ir_modules:
                 optimize(ir_module, level=self.opt_level, reporter=reporter)
 
-            wasm_module = ir_to_wasm(ir_modules, reporter=reporter)
+            wasm_module = ir_to_wasm(ir_link(ir_modules), reporter=reporter)
 
         # Output wasm file:
         wasm_filename = base_filename + '.wasm'
