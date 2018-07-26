@@ -73,7 +73,7 @@ arch = get_current_arch()
 wasm_module = python_to_wasm(py3)
 
 # Convert wasm to ppci
-ppci_module = wasm_to_ir(wasm_module)
+ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info('ptr'))
 
 # Optimizer fails, or makes it slower ;)
 # optimize(ppci_module, 2)

@@ -419,6 +419,7 @@ class Module(WASMComponent):
                 break
             section_nbytes = reader.read_uint()  # todo: Validate section nbytes
             section_name = section_id_to_name[section_id]
+            logger.debug('Loading %s section', section_name)
 
             if section_name == 'function':
                 # Read mapping of func id to type id (both indexes)
@@ -558,16 +559,6 @@ class Instruction(WASMComponent):
                     elif arg.startswith('offset='):
                         offset_arg = str2int(arg.split('=')[-1])
             args = align_arg, offset_arg
-        elif opcode == 'call_indirect':
-            # Call indirect has (i.const n) for the table, and (type $foo)
-            type_ref, table_ref = 0, 0
-            for arg in args:
-                if isinstance(arg, tuple):
-                    assert arg[0] == 'type'
-                    type_ref = arg[1]
-                else:
-                    table_ref = arg
-            args = type_ref, table_ref
         else:
             for arg in args:
                 assert isinstance(arg, (str, int, float, Ref, list))
@@ -610,23 +601,6 @@ class Instruction(WASMComponent):
 
         # Prep args for accessing named identifiers
         args = list(self.args)
-        # if self.opcode == 'call':
-        #    args[0] = id_maps['func'][args[0]]
-        #if self.opcode == 'call_indirect':
-        #    args[0] = id_maps['type'][args[0].index]
-        #    if len(args) == 1:
-        #        args = args[0], 0  # reserved byte for future use
-        # elif self.opcode in ('set_global', 'get_global'):
-        #    args[0] = id_maps['global'][args[0]]
-        # elif 'memory' in self.opcode:
-        #     ... there is just one memory in v1
-        # elif 'table' in self.opcode:
-        #     ... there is just one table in v1
-        # elif self.opcode in ('get_local', 'set_local', 'tee_local'):
-        #    args[0] = id_maps['local'][args[0].index]
-        #elif self.opcode in ('br', 'br_if', 'br_table'):
-        #    if isinstance(args[0], str):
-        #        args[0] = id_maps['label'][args[0]]
 
         # Update labels
         if self.opcode in ('block', 'loop', 'if'):

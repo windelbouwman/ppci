@@ -600,9 +600,9 @@ class WatTupleLoader(TupleParser):
                 while isinstance(self._lookahead(1)[0], str):
                     args.append(self.take())
             elif opcode == 'call_indirect':
-                ref = self._parse_type_use()
+                type_ref = self._parse_type_use()
                 table_ref = components.Ref('table', index=0)
-                args = (('type', ref), table_ref)
+                args = (type_ref, table_ref)
                 # TODO: wtf, parse types twice? why?
                 params, results = self._parse_function_signature()
                 # print(params, results)
