@@ -1,5 +1,33 @@
 """ A table with WASM opcodes. """
 
+import enum
+
+class ArgType(enum.Enum):
+    TYPE = 1
+    BYTE = 2
+    U32 = 3
+    I32 = 10
+    I64 = 11
+    F32 = 12
+    F64 = 13
+    TYPEIDX = 20
+    TABLEIDX = 21
+    LOCALIDX = 22
+    BLOCKIDX = 23
+    FUNCIDX = 24
+    LABELIDX = 25
+    GLOBALIDX = 26
+
+
+class Space(enum.Enum):
+    TYPE = 0
+    TABLE = 1
+    LOCAL = 2
+    BLOCK = 3
+    FUNC = 4
+    LABEL = 5
+
+
 # Note: left out 32bit opcodes at first. Added them later, but I might have
 # missed some.
 
@@ -11,60 +39,60 @@
 instruction_table = [
     ('unreachable', 0x00, (), (), ()),
     ('nop', 0x01),
-    ('block', 0x02, ('type',)),
-    ('loop', 0x03, ('type',)),
-    ('if', 0x04, ('type',)),
+    ('block', 0x02, (ArgType.TYPE,)),
+    ('loop', 0x03, (ArgType.TYPE,)),
+    ('if', 0x04, (ArgType.TYPE,)),
     ('else', 0x05),
     ('end', 0x0b, (), (), (), lambda i, v: ()),
-    ('br', 0x0c, ('labelidx',)),
-    ('br_if', 0x0d, ('labelidx',)),
+    ('br', 0x0c, (ArgType.LABELIDX,)),
+    ('br_if', 0x0d, (ArgType.LABELIDX,)),
     ('br_table', 0x0e, ('br_table',)),
     ('return', 0x0f),
 
-    ('call', 0x10, ('funcidx',)),  # funcidx
-    ('call_indirect', 0x11, ('typeidx', 'tableidx')),  # typeidx, tableidx
+    ('call', 0x10, (ArgType.FUNCIDX,)),  # funcidx
+    ('call_indirect', 0x11, (ArgType.TYPEIDX, ArgType.TABLEIDX)),  # typeidx, tableidx
 
     ('drop', 0x1a),
     ('select', 0x1b),
 
-    ('get_local', 0x20, ('localidx',)),
-    ('set_local', 0x21, ('localidx',)),
-    ('tee_local', 0x22, ('localidx',)),
-    ('get_global', 0x23, ('globalidx',)),
-    ('set_global', 0x24, ('globalidx',)),
+    ('get_local', 0x20, (ArgType.LOCALIDX,)),
+    ('set_local', 0x21, (ArgType.LOCALIDX,)),
+    ('tee_local', 0x22, (ArgType.LOCALIDX,)),
+    ('get_global', 0x23, (ArgType.GLOBALIDX,)),
+    ('set_global', 0x24, (ArgType.GLOBALIDX,)),
 
-    ('i32.load', 0x28, ('u32', 'u32')),
-    ('i64.load', 0x29, ('u32', 'u32')),
-    ('f32.load', 0x2a, ('u32', 'u32')),
-    ('f64.load', 0x2b, ('u32', 'u32')),
-    ('i32.load8_s', 0x2c, ('u32', 'u32')),
-    ('i32.load8_u', 0x2d, ('u32', 'u32')),
-    ('i32.load16_s', 0x2e, ('u32', 'u32')),
-    ('i32.load16_u', 0x2f, ('u32', 'u32')),
-    ('i64.load8_s', 0x30, ('u32', 'u32')),
-    ('i64.load8_u', 0x31, ('u32', 'u32')),
-    ('i64.load16_s', 0x32, ('u32', 'u32')),
-    ('i64.load16_u', 0x33, ('u32', 'u32')),
-    ('i64.load32_s', 0x34, ('u32', 'u32')),
-    ('i64.load32_u', 0x35, ('u32', 'u32')),
+    ('i32.load', 0x28, (ArgType.U32, ArgType.U32)),
+    ('i64.load', 0x29, (ArgType.U32, ArgType.U32)),
+    ('f32.load', 0x2a, (ArgType.U32, ArgType.U32)),
+    ('f64.load', 0x2b, (ArgType.U32, ArgType.U32)),
+    ('i32.load8_s', 0x2c, (ArgType.U32, ArgType.U32)),
+    ('i32.load8_u', 0x2d, (ArgType.U32, ArgType.U32)),
+    ('i32.load16_s', 0x2e, (ArgType.U32, ArgType.U32)),
+    ('i32.load16_u', 0x2f, (ArgType.U32, ArgType.U32)),
+    ('i64.load8_s', 0x30, (ArgType.U32, ArgType.U32)),
+    ('i64.load8_u', 0x31, (ArgType.U32, ArgType.U32)),
+    ('i64.load16_s', 0x32, (ArgType.U32, ArgType.U32)),
+    ('i64.load16_u', 0x33, (ArgType.U32, ArgType.U32)),
+    ('i64.load32_s', 0x34, (ArgType.U32, ArgType.U32)),
+    ('i64.load32_u', 0x35, (ArgType.U32, ArgType.U32)),
 
-    ('i32.store', 0x36, ('u32', 'u32')),
-    ('i64.store', 0x37, ('u32', 'u32')),
-    ('f32.store', 0x38, ('u32', 'u32')),
-    ('f64.store', 0x39, ('u32', 'u32')),
-    ('i32.store8', 0x3A, ('u32', 'u32')),
-    ('i32.store16', 0x3B, ('u32', 'u32')),
-    ('i64.store8', 0x3C, ('u32', 'u32')),
-    ('i64.store16', 0x3D, ('u32', 'u32')),
-    ('i64.store32', 0x3E, ('u32', 'u32')),
+    ('i32.store', 0x36, (ArgType.U32, ArgType.U32)),
+    ('i64.store', 0x37, (ArgType.U32, ArgType.U32)),
+    ('f32.store', 0x38, (ArgType.U32, ArgType.U32)),
+    ('f64.store', 0x39, (ArgType.U32, ArgType.U32)),
+    ('i32.store8', 0x3A, (ArgType.U32, ArgType.U32)),
+    ('i32.store16', 0x3B, (ArgType.U32, ArgType.U32)),
+    ('i64.store8', 0x3C, (ArgType.U32, ArgType.U32)),
+    ('i64.store16', 0x3D, (ArgType.U32, ArgType.U32)),
+    ('i64.store32', 0x3E, (ArgType.U32, ArgType.U32)),
     
     ('memory.size', 0x3f, ('byte',), (), ('i32',)),
     ('memory.grow', 0x40, ('byte',), ('i32',), ('i32',)),
 
-    ('i32.const', 0x41, ('i32',), (), ('i32',), lambda i, v: (i.args[0],)),
-    ('i64.const', 0x42, ('i64',), (), ('i64',), lambda i, v: (i.args[0],)),
-    ('f32.const', 0x43, ('f32',), (), ('f32',), lambda i, v: (i.args[0],)),
-    ('f64.const', 0x44, ('f64',), (), ('f64',), lambda i, v: (i.args[0],)),
+    ('i32.const', 0x41, (ArgType.I32,), (), ('i32',), lambda i, v: (i.args[0],)),
+    ('i64.const', 0x42, (ArgType.I64,), (), ('i64',), lambda i, v: (i.args[0],)),
+    ('f32.const', 0x43, (ArgType.F32,), (), ('f32',), lambda i, v: (i.args[0],)),
+    ('f64.const', 0x44, (ArgType.F64,), (), ('f64',), lambda i, v: (i.args[0],)),
 
     ('i32.eqz', 0x45),
     ('i32.eq', 0x46),

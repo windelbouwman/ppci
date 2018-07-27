@@ -10,7 +10,7 @@ import logging
 
 from collections import defaultdict
 from ..lang.sexpr import parse_sexpr
-from .opcodes import OPERANDS, OPCODES
+from .opcodes import OPERANDS, OPCODES, ArgType
 from .util import datastring2bytes, make_int, make_float, is_int, PAGE_SIZE
 from .tuple_parser import TupleParser, Token
 from . import components
@@ -624,15 +624,44 @@ class WatTupleLoader(TupleParser):
                         while isinstance(self._lookahead(1)[0], (int, str)):
                             targets.append(self.get_ref('label', self.take()))
                         arg = targets
+                    elif op == ArgType.LABELIDX:
+                        kind = 'label'
+                        arg = self.take()
+                        arg = self.get_ref(kind, arg)
+                    elif op == ArgType.LOCALIDX:
+                        kind = 'local'
+                        arg = self.take()
+                        arg = self.get_ref(kind, arg)
+                    elif op == ArgType.GLOBALIDX:
+                        kind = 'global'
+                        arg = self.take()
+                        arg = self.get_ref(kind, arg)
+                    elif op == ArgType.FUNCIDX:
+                        kind = 'func'
+                        arg = self.take()
+                        arg = self.get_ref(kind, arg)
+                    elif op == ArgType.TYPEIDX:
+                        kind = 'type'
+                        arg = self.take()
+                        arg = self.get_ref(kind, arg)
+                    elif op == ArgType.TABLEIDX:
+                        kind = 'table'
+                        arg = self.take()
+                        arg = self.get_ref(kind, arg)
+                    elif op == ArgType.I32:
+                        arg = make_int(self.take(), bits=32)
+                    elif op == ArgType.I64:
+                        arg = make_int(self.take(), bits=64)
+                    elif op == ArgType.F32:
+                        arg = make_float(self.take())
+                    elif op == ArgType.F64:
+                        arg = make_float(self.take())
+                    elif op == ArgType.U32:
+                        arg = self.take()
                     elif op.endswith('idx'):
                         kind = op[:-3]
                         arg = self.take()
                         arg = self.get_ref(kind, arg)
-                    elif op in ['i32', 'i64']:
-                        bits = int(op[1:])
-                        arg = make_int(self.take(), bits=bits)
-                    elif op in ['f32', 'f64']:
-                        arg = make_float(self.take())
                     else:
                         arg = self.take()
 

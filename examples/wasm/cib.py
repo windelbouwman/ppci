@@ -1,3 +1,10 @@
+"""
+See this impressive demo:
+
+https://tbfleming.github.io/cib/
+
+"""
+
 import os
 import math
 import logging
@@ -22,10 +29,16 @@ def download_file(url, filename):
             f.write(data)
 
 
-url = 'https://tbfleming.github.io/cib/clang.wasm'
-local_filename = 'clang.wasm'
-if not os.path.exists(local_filename):
-    download_file(url, local_filename)
+files = [
+    'clang.wasm',
+    'clang-format.wasm',
+    'runtime.wasm',
+]
+
+for local_filename in files:
+    url = 'https://tbfleming.github.io/cib/{}'.format(local_filename)
+    if not os.path.exists(local_filename):
+        download_file(url, local_filename)
 
 with open('clang.wasm', 'rb') as f:
     m = Module(f.read())

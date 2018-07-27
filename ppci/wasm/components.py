@@ -34,7 +34,7 @@ import logging
 import sys
 from collections import OrderedDict
 
-from .opcodes import OPERANDS, REVERZ, eval_expr, OPCODES
+from .opcodes import OPERANDS, REVERZ, eval_expr, OPCODES, ArgType
 from .util import datastring2bytes, bytes2datastring
 from ..lang.sexpr import parse_sexpr
 from .io import FileReader, FileWriter
@@ -594,6 +594,22 @@ class Instruction(WASMComponent):
         else:
             return '(' + self.opcode + ' ' * bool(subtext) + subtext + ')'
 
+    # This is a list of functions to write argument of different types:
+    wfm = {
+        ArgType.TYPE: lambda writer, arg: writer.write_type(arg),
+        ArgType.U32: lambda writer, arg: writer.write_vu32(arg),
+        ArgType.LABELIDX: lambda writer, arg: writer.write_vu32(arg.index),
+        ArgType.LOCALIDX: lambda writer, arg: writer.write_vu32(arg.index),
+        ArgType.GLOBALIDX: lambda writer, arg: writer.write_vu32(arg.index),
+        ArgType.FUNCIDX: lambda writer, arg: writer.write_vu32(arg.index),
+        ArgType.TYPEIDX: lambda writer, arg: writer.write_vu32(arg.index),
+        ArgType.TABLEIDX: lambda writer, arg: writer.write_vu32(arg.index),
+        ArgType.I32: lambda writer, arg: writer.write_vs32(arg),
+        ArgType.I64: lambda writer, arg: writer.write_vs64(arg),
+        ArgType.F32: lambda writer, arg: writer.write_f32(arg),
+        ArgType.F64: lambda writer, arg: writer.write_f64(arg),
+    }
+
     def _to_writer(self, f, id_maps):
 
         # Our instruction
@@ -623,20 +639,8 @@ class Instruction(WASMComponent):
 
         # Data comes after
         for o, arg in zip(operands, args):
-            if o == 'i64':
-                f.write_vs64(arg)
-            elif o == 'i32':
-                f.write_vs32(arg)
-            elif o == 'u32':
-                f.write_vu32(arg)
-            elif o.endswith('idx'):
-                f.write_vu32(arg.index)
-            elif o == 'f32':
-                f.write_f32(arg)
-            elif o == 'f64':
-                f.write_f64(arg)
-            elif o == 'type':
-                f.write_type(arg)
+            if o in self.wfm:
+                self.wfm[o](f, arg)
             elif o == 'byte':
                 f.write(bytes([arg]))
             elif o == 'br_table':
@@ -647,6 +651,22 @@ class Instruction(WASMComponent):
             else:
                 raise TypeError('Unknown instruction arg %r' % o)
 
+    # This is a list of functions to read specific argument types:
+    rfm = {
+        ArgType.TYPE: lambda reader: reader.read_type(),
+        ArgType.U32: lambda reader: reader.read_uint(),
+        ArgType.LABELIDX: lambda reader: Ref('label', index=reader.read_uint()),
+        ArgType.LOCALIDX: lambda reader: Ref('local', index=reader.read_uint()),
+        ArgType.GLOBALIDX: lambda reader: Ref('global', index=reader.read_uint()),
+        ArgType.FUNCIDX: lambda reader: Ref('func', index=reader.read_uint()),
+        ArgType.TYPEIDX: lambda reader: Ref('type', index=reader.read_uint()),
+        ArgType.TABLEIDX: lambda reader: Ref('table', index=reader.read_uint()),
+        ArgType.I32: lambda reader: reader.read_int(),
+        ArgType.I64: lambda reader: reader.read_int(),
+        ArgType.F32: lambda reader: reader.read_f32(),
+        ArgType.F64: lambda reader: reader.read_f64(),
+    }
+
     def _from_reader(self, reader):
         binopcode = next(reader)
         self.opcode = REVERZ[binopcode]
@@ -654,15 +674,8 @@ class Instruction(WASMComponent):
         # print(opcode, type, operands)
         args = []
         for operand in operands:
-            if operand in ['i32', 'i64']:
-                arg = reader.read_int()
-            elif operand == 'u32':
-                arg = reader.read_uint()
-            elif operand.endswith('idx'):
-                kind = operand[:-3]
-                arg = Ref(kind, index=reader.read_uint())
-            elif operand == 'type':
-                arg = reader.read_type()
+            if operand in self.rfm:
+                arg = self.rfm[operand](reader)
             elif operand == 'byte':
                 arg = reader.read_byte()
             elif operand == 'br_table':
@@ -672,10 +685,6 @@ class Instruction(WASMComponent):
                     idx = Ref('label', index=reader.read_uint())
                     vec.append(idx)
                 arg = vec
-            elif operand == 'f32':
-                arg = reader.read_f32()
-            elif operand == 'f64':
-                arg = reader.read_f64()
             else:  # pragma: no cover
                 raise NotImplementedError(operand)
             args.append(arg)
