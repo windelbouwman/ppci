@@ -27,6 +27,7 @@ class WhitespaceGenerator:
 
 class WhitespaceRunner:
     """ Run some whitespace source """
+
     def run(self, f):
         prog = WhitespaceParser().compile(f)
         WhitespaceInterpreter().run(prog)
@@ -35,6 +36,7 @@ class WhitespaceRunner:
 
 class WhitespaceParser:
     """ Parse whitespace sourcecode """
+
     def __init__(self):
         self.tokens = None
         self.token = None
@@ -51,7 +53,7 @@ class WhitespaceParser:
 
     def tokenize(self, txt):
         for c in txt:
-            if c in [' ', '\t', '\n']:
+            if c in [" ", "\t", "\n"]:
                 yield c
 
     def next_token(self):
@@ -88,79 +90,79 @@ class WhitespaceParser:
 
     def parse_instruction(self):
         """ Parse a new command """
-        if self.has_consumed(' '):
+        if self.has_consumed(" "):
             return self.parse_stack_manipulation()
-        elif self.has_consumed('\t'):
-            if self.has_consumed(' '):
+        elif self.has_consumed("\t"):
+            if self.has_consumed(" "):
                 return self.parse_arithmatic()
-            elif self.has_consumed('\t'):
+            elif self.has_consumed("\t"):
                 return self.parse_heap_access()
-            elif self.has_consumed('\n'):
+            elif self.has_consumed("\n"):
                 return self.parse_io()
             else:
-                self.error('Expected  , \t or \n but got {}'.format(self.peak))
-        elif self.has_consumed('\n'):
+                self.error("Expected  , \t or \n but got {}".format(self.peak))
+        elif self.has_consumed("\n"):
             return self.parse_flow_control()
         else:
-            self.error('Expected  , \t or \n but got {}'.format(self.peak))
+            self.error("Expected  , \t or \n but got {}".format(self.peak))
 
     def parse_stack_manipulation(self):
-        if self.has_consumed(' '):
+        if self.has_consumed(" "):
             return Push(self.parse_number())
         else:
             raise NotImplementedError()
 
     def parse_arithmatic(self):
         """ Parse an arithmatic code """
-        if self.has_consumed(' '):
-            if self.has_consumed(' '):
+        if self.has_consumed(" "):
+            if self.has_consumed(" "):
                 return Add()
-            elif self.has_consumed('\t'):
+            elif self.has_consumed("\t"):
                 return Substract()
-            elif self.has_consumed('\n'):
+            elif self.has_consumed("\n"):
                 return Multiply()
             else:
-                self.error('Expected  , \t or \n')
-        elif self.has_consumed('\t'):
-            if self.has_consumed(' '):
+                self.error("Expected  , \t or \n")
+        elif self.has_consumed("\t"):
+            if self.has_consumed(" "):
                 return Division()
-            elif self.has_consumed('\t'):
+            elif self.has_consumed("\t"):
                 return Modulo()
             else:
-                self.error('Expected  or \t')
+                self.error("Expected  or \t")
         else:
-            self.error('Expected  or \t')
+            self.error("Expected  or \t")
 
     def parse_io(self):
         """ Parse io action """
-        if self.has_consumed(' '):
-            if self.has_consumed(' '):
+        if self.has_consumed(" "):
+            if self.has_consumed(" "):
                 return OutputCharacter()
-            elif self.has_consumed('\t'):
+            elif self.has_consumed("\t"):
                 return OutputNumber()
             else:
-                self.error('Expected  or \t')
-        elif self.has_consumed('\t'):
-            if self.has_consumed(' '):
+                self.error("Expected  or \t")
+        elif self.has_consumed("\t"):
+            if self.has_consumed(" "):
                 raise NotImplementedError()
-            elif self.has_consumed('\t'):
+            elif self.has_consumed("\t"):
                 raise NotImplementedError()
             else:
-                self.error('Expected  or \t')
+                self.error("Expected  or \t")
         else:
             raise NotImplementedError()
 
     def parse_flow_control(self):
         """ Parse flow control constructs """
-        if self.has_consumed(' '):
+        if self.has_consumed(" "):
             raise NotImplementedError()
-        elif self.has_consumed('\t'):
+        elif self.has_consumed("\t"):
             raise NotImplementedError()
-        elif self.has_consumed('\n'):
-            self.consume('\n')
+        elif self.has_consumed("\n"):
+            self.consume("\n")
             return EndProgram()
         else:
-            self.error('Expected  , \t or \n')
+            self.error("Expected  , \t or \n")
 
     def parse_number(self):
         """ Parse a number """
@@ -183,11 +185,11 @@ class WhitespaceParser:
     def parse_bits(self):
         """ Parse LF terminated series of bits SP=0, tab=1 """
         bit_values = []
-        while not self.has_consumed('\n'):
-            if self.has_consumed(' '):
+        while not self.has_consumed("\n"):
+            if self.has_consumed(" "):
                 bit_values.append(0)
             else:
-                self.consume('\t')
+                self.consume("\t")
                 bit_values.append(1)
         return bit_values
 
@@ -197,7 +199,7 @@ class Push:
         self.value = value
 
     def __repr__(self):
-        return 'Push({})'.format(self.value)
+        return "Push({})".format(self.value)
 
     def execute(self, context):
         context.stack.append(self.value)
@@ -233,7 +235,7 @@ class Modulo:
 class OutputCharacter:
     def execute(self, context):
         char = chr(context.stack[-1])
-        print(char, end='')
+        print(char, end="")
 
 
 class OutputNumber:
@@ -255,12 +257,13 @@ class WhitespaceContext:
 
 class WhitespaceInterpreter:
     """ Interpreter for the whitespace language """
+
     def run(self, program):
         context = WhitespaceContext()
         while context.running:
             instruction = program[context.pc]
             new_pc = instruction.execute(context)
             if new_pc:
-                raise NotImplementedError('jumping around')
+                raise NotImplementedError("jumping around")
             else:
                 context.pc += 1

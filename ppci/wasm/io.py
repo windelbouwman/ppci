@@ -87,6 +87,8 @@ class FileReader:
 
     def __init__(self, f):
         self.f = f
+        self._buffer = bytes()
+        self._pos = 0
 
     def read(self, amount):
         if amount < 0:

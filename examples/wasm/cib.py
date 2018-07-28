@@ -13,6 +13,8 @@ import requests
 import tqdm
 
 from ppci.wasm import Module
+from ppci.wasm import wasm_to_ir
+from ppci.api import get_arch
 
 logging.basicConfig(level=logging.DEBUG)
 # Download this file:
@@ -40,11 +42,14 @@ for local_filename in files:
     if not os.path.exists(local_filename):
         download_file(url, local_filename)
 
-with open('clang.wasm', 'rb') as f:
-    m = Module(f.read())
+with open('runtime.wasm', 'rb') as f:
+    wasm_module = Module(f.read())
 
 
-print(m)
+print(wasm_module)
 
-m.show_interface()
+wasm_module.show_interface()
+
+ptr_info = get_arch('x86_64').info.get_type_info('ptr')
+ir_module = wasm_to_ir(wasm_module, ptr_info)
 
