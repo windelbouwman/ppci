@@ -8,13 +8,15 @@ from ..data_instructions import Dd
 from ...utils.bitfun import inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
-from .registers import RiscvRegister, FP, R0
+from ..generic_instructions import RegisterUseDef 
+from .registers import RiscvRegister, FP, LR, R0, R10, R12, R13
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
 from .relocations import Abs32Imm12Relocation, RelImm20Relocation
 from .relocations import RelImm12Relocation
 from .tokens import RiscvToken, RiscvIToken
+import struct
 
 isa = Isa()
 
@@ -539,14 +541,14 @@ Divu = make_mext('divu', 0b101)
 Rem = make_mext('rem', 0b110)
 Remu = make_mext('remu', 0b111)
 
-
 # Instruction selection patterns:
-
 
 @isa.pattern('stm', 'MOVI16(reg)', size=2)
 @isa.pattern('stm', 'MOVU16(reg)', size=2)
 @isa.pattern('stm', 'MOVI32(reg)', size=2)
 @isa.pattern('stm', 'MOVU32(reg)', size=2)
+@isa.pattern('stm', 'MOVF32(reg)', size=2)
+@isa.pattern('stm', 'MOVF64(reg)', size=2)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -579,10 +581,13 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern('reg', 'REGI16', size=0)
 @isa.pattern('reg', 'REGI8', size=0)
 @isa.pattern('reg', 'REGU32', size=0)
+@isa.pattern('reg', 'REGF32', size=0)
+@isa.pattern('reg', 'REGF64', size=0)
 @isa.pattern('reg', 'REGU16', size=0)
 @isa.pattern('reg', 'REGU8', size=0)
 def pattern_reg(context, tree):
     return tree.value
+
 
 
 @isa.pattern('reg', 'U32TOU32(reg)', size=0)
@@ -605,6 +610,8 @@ def pattern_reg(context, tree):
 @isa.pattern('reg', 'U8TOI8(reg)', size=0)
 @isa.pattern('reg', 'I8TOI8(reg)', size=0)
 @isa.pattern('reg', 'I8TOU8(reg)', size=0)
+@isa.pattern('reg', 'F32TOF64(reg)', size=0)
+@isa.pattern('reg', 'F64TOF32(reg)', size=0)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -663,7 +670,6 @@ def pattern_32_to_8_16(context, tree, c0):
     # TODO: do something like sign extend or something else?
     return c0
 
-
 @isa.pattern('reg', 'CONSTI32', size=4)
 @isa.pattern('reg', 'CONSTU32', size=4)
 @isa.pattern('reg', 'CONSTI16', size=4)
@@ -684,6 +690,14 @@ def pattern_const_i32(context, tree):
     context.emit(Li(d, c0))
     return d
 
+@isa.pattern('reg', 'CONSTF32', size=4)
+@isa.pattern('reg', 'CONSTF64', size=4)
+def pattern_const_f32(context, tree):
+    float_const = struct.pack('f', tree.value)
+    c0, = struct.unpack('i', float_const)
+    d = context.new_reg(RiscvRegister)    
+    context.emit(Li(d, c0))
+    return d
 
 @isa.pattern('stm', 'CJMPI32(reg, reg)', size=4)
 @isa.pattern('stm', 'CJMPI16(reg, reg)', size=4)
@@ -828,6 +842,8 @@ def pattern_mem_add_reg_const(context, tree, c0):
 
 @isa.pattern('stm', 'STRU32(mem, reg)', size=2)
 @isa.pattern('stm', 'STRI32(mem, reg)', size=2)
+@isa.pattern('stm', 'STRF32(mem, reg)', size=2)
+@isa.pattern('stm', 'STRF64(mem, reg)', size=2)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
     context.emit(Sw(c1, offset, base_reg))
@@ -865,6 +881,8 @@ def pattern_ldru8_fprel(context, tree, c0):
 
 @isa.pattern('reg', 'LDRU32(mem)', size=2)
 @isa.pattern('reg', 'LDRI32(mem)', size=2)
+@isa.pattern('reg', 'LDRF32(mem)', size=2)
+@isa.pattern('reg', 'LDRF64(mem)', size=2)
 def pattern_ldr32_fprel(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg, offset = c0
@@ -1029,6 +1047,7 @@ def pattern_shl_i32_reg_const(context, tree, c0):
     return d
 
 
+@isa.pattern('reg', 'MULI8(reg, reg)', size=10)
 @isa.pattern('reg', 'MULU8(reg, reg)', size=10)
 @isa.pattern('reg', 'MULU16(reg, reg)', size=10)
 @isa.pattern('reg', 'MULI32(reg, reg)', size=10)
@@ -1108,6 +1127,73 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     c1 = tree.children[0].value
     context.emit(Xori(d, c0, c1))
     return d
+    
 
+def call_internal2(context, name, a, b, clobbers=()):
+    d = context.new_reg(RiscvRegister)
+    context.move(R12, a)
+    context.move(R13, b)
+    context.emit(RegisterUseDef(uses=(R12, R13))) 
+    context.emit(Bl(LR, name, clobbers=clobbers)) 
+    context.emit(RegisterUseDef(uses=(R10,)))     
+    context.move(d, R10)
+    return d 
+
+def call_internal1(context, name, a, clobbers=()):
+    d = context.new_reg(RiscvRegister)
+    context.move(R12, a)    
+    context.emit(RegisterUseDef(uses=(R12,))) 
+    context.emit(Bl(LR, name, clobbers=clobbers)) 
+    context.emit(RegisterUseDef(uses=(R10,)))     
+    context.move(d, R10)
+    return d 
+
+@isa.pattern('reg', 'ADDF64(reg, reg)', size=10)    
+@isa.pattern('reg', 'ADDF32(reg, reg)', size=10)
+def pattern_add_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_add', c0, c1, clobbers=context.arch.caller_save)
+
+@isa.pattern('reg', 'SUBF64(reg, reg)', size=10)    
+@isa.pattern('reg', 'SUBF32(reg, reg)', size=10)
+def pattern_sub_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_sub', c0, c1, clobbers=context.arch.caller_save)
+    
+@isa.pattern('reg', 'MULF64(reg, reg)', size=10)
+@isa.pattern('reg', 'MULF32(reg, reg)', size=10)
+def pattern_mul_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_mul', c0, c1, clobbers=context.arch.caller_save)
+    
+@isa.pattern('reg', 'DIVF64(reg, reg)', size=10)
+@isa.pattern('reg', 'DIVF32(reg, reg)', size=10)
+def pattern_div_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_div', c0, c1, clobbers=context.arch.caller_save)
+    
+@isa.pattern('reg', 'NEGF64(reg)', size=10)
+@isa.pattern('reg', 'NEGF32(reg)', size=10)
+def pattern_neg_f32(context, tree, c0):    
+    return call_internal1(context,'float32_neg', c0, clobbers=context.arch.caller_save)
+    
+@isa.pattern('reg', 'F32TOI32(reg)', size=10)
+@isa.pattern('reg', 'F64TOI32(reg)', size=10)
+def pattern_ftoi_f32(context, tree, c0):    
+    return call_internal1(context,'float32_to_int32', c0, clobbers=context.arch.caller_save)
+    
+@isa.pattern('reg', 'I32TOF32(reg)', size=10)
+@isa.pattern('reg', 'I32TOF64(reg)', size=10)
+def pattern_itof_f32(context, tree, c0):    
+    return call_internal1(context,'int32_to_float32', c0, clobbers=context.arch.caller_save)
+
+@isa.pattern('stm', 'CJMPF32(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPF64(reg, reg)', size=4)
+def pattern_cjmp(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {"<": "float32_lt", ">": "float32_gt", "==": "float32_eq", "!=": "float32_ne", ">=": "float32_ge", "<=": "float32_le"}
+    Bop = opnames[op]
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    call_internal2(context, Bop, c0, c1, clobbers=context.arch.caller_save)
+    context.emit(Bne(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+    
+    
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?

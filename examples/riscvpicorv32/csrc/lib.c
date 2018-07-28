@@ -57,7 +57,7 @@ char* itoa(int value, char* str, int base)
 }
 
 // Variadic argument function!
-void printf(char* txt, ...)
+void printfdbg(char* txt, ...)
 {
   va_list args;
   va_start(args, txt);
@@ -73,7 +73,7 @@ void printf(char* txt, ...)
         txt++;
         int v = va_arg(args, int);
         itoa(v, buffer, 10);
-        printf(buffer);
+        printfdbg(buffer);
       }
       else
       {

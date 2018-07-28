@@ -85,7 +85,7 @@ class RiscvArch(Architecture):
         # Allocatable registers:
         register_classes = [
             RegisterClass(
-                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
+                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32, ir.f64],
                 RiscvRegister,
                 [
                     R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
@@ -98,6 +98,7 @@ class RiscvArch(Architecture):
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
+                ir.f32: TypeInfo(4, 4), ir.f64: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
             }, register_classes=register_classes)
 

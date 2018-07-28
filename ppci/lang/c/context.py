@@ -29,12 +29,12 @@ class CContext:
             BasicType.USHORT: (2, 2),
             BasicType.INT: (int_size, int_alignment),
             BasicType.UINT: (int_size, int_alignment),
-            BasicType.LONG: (8, 8),
-            BasicType.ULONG: (8, 8),
+            BasicType.LONG: (4, 4),
+            BasicType.ULONG: (4, 4),
             BasicType.LONGLONG: (8, 8),
             BasicType.ULONGLONG: (8, 8),
             BasicType.FLOAT: (4, 4),
-            BasicType.DOUBLE: (8, 8),
+            BasicType.DOUBLE: (4, 4),
             BasicType.LONGDOUBLE: (10, 10),
         }
 
@@ -55,10 +55,12 @@ class CContext:
             BasicType.INT: int_map[int_size].lower(),
             BasicType.UINT: int_map[int_size].upper(),
             'ptr': int_map[ptr_size].upper(),
+            BasicType.LONG: 'l',
+            BasicType.ULONG: 'L',
             BasicType.LONGLONG: 'q',
             BasicType.ULONGLONG: 'Q',
             BasicType.FLOAT: 'f',
-            BasicType.DOUBLE: 'd',
+            BasicType.DOUBLE: 'f',
         }
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
