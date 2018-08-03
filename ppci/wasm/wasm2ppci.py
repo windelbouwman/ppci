@@ -45,8 +45,9 @@ def create_memories(wasm_module):
             memories.append(
                 (bytearray(min_size * 65536), min_size, definition.max))
         elif isinstance(definition, components.Data):
-            assert definition.offset.opcode == 'i32.const'
-            offset = definition.offset.args[0]
+            assert len(definition.offset) == 1
+            assert definition.offset[0].opcode == 'i32.const'
+            offset = definition.offset[0].args[0]
             memory_index = definition.ref.index
             assert isinstance(memory_index, int)
             data = definition.data
@@ -90,6 +91,7 @@ class WasmToIrCompiler:
         export_names = {}  # mapping of id's to exported function names
         start_function_id = None
         tables = []  # Function pointer tables
+        global_inits = []  # List of global variable initialization expressions
 
         self.memory_base_address = None
 
@@ -129,6 +131,22 @@ class WasmToIrCompiler:
                         'wasm_mem0_address')
                     self.builder.module.add_external(self.memory_base_address)
 
+                elif definition.kind == 'table':
+                    self.logger.debug('table import')
+                    assert definition.info[0] == 'anyfunc'
+                    assert definition.id == 0
+                    self.table_var = ir.ExternalVariable(
+                        'func_table')
+                    self.builder.module.add_external(self.table_var)
+                    tables.append((self.table_var, []))
+                elif definition.kind == 'global':
+                    self.logger.debug('global import')
+                    # TODO: think of nicer names:
+                    global_var = ir.ExternalVariable(
+                        'global0')
+                    self.builder.module.add_external(global_var)
+                    ir_typ = self.get_ir_type(definition.info[0])
+                    self.globalz.append((ir_typ, global_var))
                 else:
                     raise NotImplementedError(definition.kind)
 
@@ -142,8 +160,12 @@ class WasmToIrCompiler:
                         assert definition.ref.name not in export_names
                         export_names[definition.ref.name] = name
                     if definition.ref.index is not None:
-                        assert definition.ref.index not in export_names
-                        export_names[definition.ref.index] = name
+                        if definition.ref.index in export_names:
+                            pass
+                            # TODO: we can export a single item twice!
+                            # raise ValueError('Index {} already exported {}'.format(definition.ref.index, export_names))
+                        else:
+                            export_names[definition.ref.index] = name
                 else:
                     pass
                     # raise NotImplementedError(x.kind)
@@ -195,10 +217,11 @@ class WasmToIrCompiler:
                 tables.append((self.table_var, []))
 
             elif isinstance(definition, components.Elem):
-                offset = definition.offset.args[0]
-                assert offset == 0
-                for ref in definition.refs:
-                    tables[0][1].append(ref)
+                offset = definition.offset
+                # TODO: what to do when offset is non-negative?
+                # assert offset == 0
+                refs = definition.refs
+                tables[0][1].append((offset, refs))
 
             elif isinstance(definition, components.Global):
                 ir_typ = self.get_ir_type(definition.typ)
@@ -209,12 +232,13 @@ class WasmToIrCompiler:
                 fmt = fmts[ir_typ]
                 size = struct.calcsize(fmt)
                 # assume init is (f64.const xx):
-                value = struct.pack(fmt, definition.init.args[0])
+                # value = struct.pack(fmt, definition.init.args[0])
                 name = 'global_{}'.format(
                     str(definition.id).replace('$', '_'))
-                g2 = ir.Variable(name, size, size, value=value)
+                g2 = ir.Variable(name, size, size)
                 self.builder.module.add_variable(g2)
                 self.globalz.append((ir_typ, g2))
+                global_inits.append((g2, definition.init))
             elif isinstance(definition, components.Memory):
                 # Create a global pointer to the memory base address:
                 assert self.memory_base_address is None
@@ -241,11 +265,11 @@ class WasmToIrCompiler:
             self.generate_function(ppci_function, signature, wasm_function)
 
         # Generate run_init function:
-        self.gen_init_procedure(tables, start_function_id)
+        self.gen_init_procedure(tables, global_inits, start_function_id)
 
         return self.builder.module
 
-    def gen_init_procedure(self, tables, start_function_ref):
+    def gen_init_procedure(self, tables, global_inits, start_function_ref):
         """ Generate an initialization procedure.
 
         - Initializes eventual function tables.
@@ -257,22 +281,38 @@ class WasmToIrCompiler:
         self.builder.set_block(entryblock)
         ppci_function.entry = entryblock
 
+        # Initialize global values:
+        # (This must be done here, since initial values may contain imported globals)
+        for g2, init in global_inits:
+            value = self.gen_expression(init)
+            self.emit(ir.Store(value, g2))
+            
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
-        for table_variable, functions in tables:
+        for table_variable, elems in tables:
             # TODO: what if alignment is bigger than size?
             assert self.ptr_info.size == self.ptr_info.alignment
             ptr_size = self.emit(
                 ir.Const(self.ptr_info.size, 'ptr_size', ir.ptr))
 
-            # Start at the bottom of the variable table:
-            address = table_variable
-            for func in functions:
-                # Lookup function
-                value = self.functions[func.index][0]
-                self.emit(ir.Store(value, address))
+            # Loop over elems which initialize table:
+            for offset, functions in elems:
+                # Start at the bottom of the variable table:
+                address = table_variable
+
+                # Add offset:
+                offset_value = self.gen_expression(offset)
+                assert offset_value.ty is ir.i32
+                offset_value = self.emit(ir.Cast(offset_value, 'offset', ir.ptr))
                 address = self.emit(
-                    ir.add(address, ptr_size, 'table_address', ir.ptr))
+                    ir.add(address, offset_value, 'table_address', ir.ptr))
+
+                for func in functions:
+                    # Lookup function
+                    value = self.functions[func.index][0]
+                    self.emit(ir.Store(value, address))
+                    address = self.emit(
+                        ir.add(address, ptr_size, 'table_address', ir.ptr))
 
         # Call eventual start function:
         if start_function_ref is not None:
@@ -326,6 +366,13 @@ class WasmToIrCompiler:
             self.debug_db.enter(name, dbg_typ)
             return dbg_typ
 
+    def gen_expression(self, expression):
+        self.stack = []
+        for instruction in expression:
+            self.generate_instruction(instruction)
+        assert len(self.stack) == 1
+        return self.stack[-1]
+        
     def generate_function(self, ppci_function, signature, wasm_function):
         """ Generate code for a single function """
         self.logger.info(

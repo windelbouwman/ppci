@@ -34,7 +34,7 @@ import logging
 import sys
 from collections import OrderedDict
 
-from .opcodes import OPERANDS, REVERZ, eval_expr, OPCODES, ArgType
+from .opcodes import OPERANDS, REVERZ, OPCODES, ArgType
 from .util import datastring2bytes, bytes2datastring
 from ..lang.sexpr import parse_sexpr
 from .io import FileReader, FileWriter
@@ -352,7 +352,7 @@ class Module(WASMComponent):
 
                 if section_name == 'start':
                     assert len(section_defs) == 1, 'Expected 0 or 1 start defs'
-                    section_defs[0]._to_writer(f2, id_maps)
+                    section_defs[0]._to_writer(f2)
                 elif section_name == 'custom':
                     for d in section_defs:
                         f3 = FileWriter(BytesIO())
@@ -371,14 +371,8 @@ class Module(WASMComponent):
                         if section_name == 'func':
                             typedefs = definitions['type']
                             typedef = typedefs[d.ref.index]
-                            id_maps['local'] = dict((param[0], i)
-                                                    for i, param in
-                                                    enumerate(typedef.params))
                         # Write it!
-                        d._to_writer(f2, id_maps)
-                        # Cleanup
-                        if section_name == 'func':
-                            id_maps.pop('local', None)
+                        d._to_writer(f2)
 
             # Write this section to our main file object
             payload = f2.f.getvalue()
@@ -419,25 +413,27 @@ class Module(WASMComponent):
                 break
             section_nbytes = reader.read_uint()  # todo: Validate section nbytes
             section_name = section_id_to_name[section_id]
+            section_data = reader.read(section_nbytes)
             logger.debug('Loading %s section', section_name)
+            reader2 = FileReader(BytesIO(section_data))
 
             if section_name == 'function':
                 # Read mapping of func id to type id (both indexes)
-                nfuncs = reader.read_uint()
+                nfuncs = reader2.read_uint()
                 for i in range(nfuncs):
-                    type4func[i] = reader.read_uint()
+                    type4func[i] = reader2.read_uint()
             else:
                 if section_name == 'start':  # There is (at most) 1 start def
-                    definitions.append(Start(reader))
+                    definitions.append(Start(reader2))
                 elif section_name == 'custom':
-                    name_len = reader.read_uint()
-                    definitions.append(Custom(reader.read(name_len).decode(),
-                                              reader.read(section_nbytes - name_len - 1)))
+                    name_len = reader2.read_uint()
+                    definitions.append(Custom(reader2.read(name_len).decode(),
+                                              reader2.read()))
                 else:
-                    ndefs = reader.read_uint()  # for this section
+                    ndefs = reader2.read_uint()  # for this section
                     for i in range(ndefs):
                         Cls = DEFINITION_CLASSES[section_name]
-                        d = Cls(reader)
+                        d = Cls(reader2)
                         if section_name == 'func':
                             d.ref = Ref('type', index=type4func[i])
                         definitions.append(d)
@@ -610,29 +606,13 @@ class Instruction(WASMComponent):
         ArgType.F64: lambda writer, arg: writer.write_f64(arg),
     }
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
 
         # Our instruction
         f.write(bytes([OPCODES[self.opcode]]))
 
         # Prep args for accessing named identifiers
         args = list(self.args)
-
-        # Update labels
-        if self.opcode in ('block', 'loop', 'if'):
-            label_map = id_maps['label']
-            for label in label_map:
-                label_map[label] += 1
-            if getattr(self, 'id', None):
-                label_map[self.id] = 0
-        elif self.opcode == 'end':
-            label_map = id_maps.get('label', {})  # can be a "loose end"
-            for label in list(label_map):
-                i = label_map[label] - 1
-                if i < 0:
-                    label_map.pop(label)
-                else:
-                    label_map[label] = i
 
         operands = OPERANDS[self.opcode]
         assert len(operands) == len(args)
@@ -818,7 +798,7 @@ class Type(Definition):
             s += ' (result ' + ' '.join(self.result) + ')'
         return s + '))'
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write(b'\x60')  # form
         f.write_vu32(len(self.params))  # params
         for _, paramtype in self.params:
@@ -945,7 +925,7 @@ class Import(Definition):
         return '(import "%s" "%s" (%s %s))' % (
             self.modname, self.name, self.kind, ' '.join(str(i) for i in desc))
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write_str(self.modname)
         f.write_str(self.name)
         if self.kind == 'func':
@@ -1055,7 +1035,7 @@ class Table(Definition):
             minmax = ' %i %i' % (self.min, self.max)
         return '(table%s%s %s)' % (id, minmax, self.kind)
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write_type(self.kind)  # always 0x70 anyfunc in v1
         f.write_limits(self.min, self.max)
 
@@ -1109,7 +1089,7 @@ class Memory(Definition):
         max = '' if self.max is None else ' %i' % self.max
         return '(memory%s%s%s)' % (id, min, max)
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write_limits(self.min, self.max)
 
     def _from_reader(self, reader):
@@ -1131,7 +1111,7 @@ class Global(Definition):
     __slots__ = ('id', 'typ', 'mutable', 'init')
 
     def _from_args(self, id, typ, mutable, init):
-        assert isinstance(init, Instruction)
+        assert isinstance(init, list)
         self.id = check_id(id)
         self.typ = typ
         self.mutable = bool(mutable)
@@ -1150,26 +1130,26 @@ class Global(Definition):
             self._from_args(t[1], t[2], False, Instruction(*t[3]))
 
     def to_string(self):
-        init = self.init.to_string()
+        init = ' '.join(i.to_string() for i in self.init)
         if self.mutable:
             return '(global %s (mut %s) %s)' % (self.id, self.typ, init)
         else:
             return '(global %s %s %s)' % (self.id, self.typ, init)
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write_type(self.typ)
         f.write(bytes([int(self.mutable)]))
 
         # Encode value as expression followed by end instruction
-        self.init._to_writer(f, id_maps)
-        Instruction('end')._to_writer(f, id_maps)
+        f.write_expression(self.init)
+        Instruction('end')._to_writer(f)
 
     def _from_reader(self, reader):
         self.typ = reader.read_type()
         self.mutable = bool(reader.read_byte())
-        self.init = reader.read_expression()[0]
-        value_type, value = eval_expr([self.init])
-        # assert value_type == 'i32'
+        init = reader.read_expression()
+        assert init[-1].opcode == 'end'
+        self.init = init[:-1]
 
 
 class Export(Definition):
@@ -1210,10 +1190,11 @@ class Export(Definition):
     def to_string(self):
         return '(export "%s" (%s %s))' % (self.name, self.kind, self.ref)
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write_str(self.name)
         type_id = {'func': 0, 'table': 1, 'memory': 2, 'global': 3}[self.kind]
         f.write(bytes([type_id]))
+        assert self.ref.space == self.kind
         int_ref = self.ref.index
         f.write_vu32(int_ref)
 
@@ -1248,9 +1229,9 @@ class Start(Definition):
     def to_string(self):
         return '(start %s)' % self.ref
 
-    def _to_writer(self, f, id_maps):
-        int_ref = id_maps['func'][self.ref.index]
-        f.write_vu32(int_ref)
+    def _to_writer(self, f):
+        assert self.ref.space == 'func'
+        f.write_vu32(self.ref.index)
 
     def _from_reader(self, reader):
         self.ref = Ref('func', index=reader.read_uint())
@@ -1361,7 +1342,7 @@ class Func(Definition):
         s += '\n)'
         return s
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
 
         # You would expect the ref to be used here, but the WASM spec has a
         # separate function section for that. Not sure why.
@@ -1381,22 +1362,13 @@ class Func(Definition):
             f3.write_vu32(count)  # number of locals of this type
             f3.write_type(loc_type)
 
-        # Further prepare id_maps. The module has put the params in local ns
-        for loc_id, loc_type in self.locals:
-            index = len(id_maps['local'])
-            id_maps['local'][index if loc_id is None else loc_id] = index
-        id_maps['label'] = {}
-
         # Instructions:
         for instruction in self.instructions:
-            instruction._to_writer(f3, id_maps)
+            instruction._to_writer(f3)
         f3.write(b'\x0b')  # end
         body = f3.f.getvalue()
         f.write_vu32(len(body))  # number of bytes in body
         f.write(body)
-
-        # Clean
-        id_maps.pop('label')
 
     def _from_reader(self, reader):
         body_size = reader.read_uint()
@@ -1428,7 +1400,7 @@ class Elem(Definition):
     Attributes:
 
     * ref: the table id that this element applies to.
-    * offset: the element offset, expressed as an instruction (i.e. i32.const)
+    * offset: the element offset, expressed as an instruction list (i.e. [i32.const, end])
     * refs: a list of function references.
     """
 
@@ -1436,9 +1408,7 @@ class Elem(Definition):
 
     def _from_args(self, ref, offset, refs):
         # Check
-        if isinstance(offset, tuple):
-            offset = Instruction(*offset)
-        assert isinstance(offset, Instruction)
+        assert isinstance(offset, list)
         assert isinstance(refs, (tuple, list))
         # Set
         assert isinstance(ref, Ref)
@@ -1461,28 +1431,26 @@ class Elem(Definition):
     
     def to_string(self):
         ref = '' if self.ref.is_zero else ' %s' % self.ref
-        offset = self.offset.to_string()
+        offset = ' '.join(i.to_string() for i in self.offset)
         refs_as_str = ' '.join(str(i) for i in self.refs)
         return '(elem%s %s %s)' % (ref, offset, refs_as_str)
 
-    def _to_writer(self, f, id_maps):
-        # TODO: strictly speaking, the id_maps are no longer needed:
-        f.write_vu32(id_maps['table'][self.ref.index])
+    def _to_writer(self, f):
+        assert self.ref.space == 'table'
+        f.write_vu32(self.ref.index)
         # Encode offset as expression followed by end instruction
-        # Instruction('i32.const', (chunk[1],))._to_writer(f, id_maps)
-        self.offset._to_writer(f, id_maps)
-        Instruction('end')._to_writer(f, id_maps)
+        f.write_expression(self.offset)
         # Encode as u32 length followed by func indices:
         f.write_vu32(len(self.refs))
         for ref in self.refs:
-            f.write_vu32(id_maps['func'][ref.index])
+            assert ref.space == 'func'
+            f.write_vu32(ref.index)
 
     def _from_reader(self, reader):
         self.ref = Ref('table', index=reader.read_uint())
-        offset_expr = reader.read_expression()
-        offset_type, offset = eval_expr(offset_expr)
-        assert offset_type == 'i32'
-        self.offset = offset_expr[0]
+        offset = reader.read_expression()
+        assert offset[-1].opcode == 'end'
+        self.offset = offset[:-1]
 
         count = reader.read_uint()
         indexes = []
@@ -1510,9 +1478,7 @@ class Data(Definition):
 
     def _from_args(self, ref, offset, data):
         # Check
-        if isinstance(offset, tuple):
-            offset = Instruction(*offset)
-        assert isinstance(offset, Instruction)
+        assert isinstance(offset, list)
         if not isinstance(data, bytes):
             raise TypeError('data must be bytes')
         # Set
@@ -1541,17 +1507,16 @@ class Data(Definition):
 
     def to_string(self):
         ref = '' if self.ref.is_zero else ' %s' % self.ref
-        offset = self.offset.to_string()
+        offset = ' '.join(i.to_string() for i in self.offset)
         data_as_str = bytes2datastring(self.data)  # repr(self.data)[2:-1]
         return '(data%s %s "%s")' % (ref, offset, data_as_str)
 
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
+        assert self.ref.space == 'memory'
         f.write_vu32(self.ref.index)
 
         # Encode offset as expression followed by end instruction
-        # Instruction('i32.const', (chunk[1],))._to_writer(f, id_maps)
-        self.offset._to_writer(f, id_maps)
-        Instruction('end')._to_writer(f, id_maps)
+        f.write_expression(self.offset)
 
         # Encode as u32 length followed by data:
         f.write_vu32(len(self.data))
@@ -1559,10 +1524,9 @@ class Data(Definition):
 
     def _from_reader(self, reader):
         self.ref = Ref('memory', index=reader.read_uint())
-        offset_expr = reader.read_expression()
-        offset_type, offset = eval_expr(offset_expr)
-        assert offset_type == 'i32'
-        self.offset = offset_expr[0]
+        offset = reader.read_expression()
+        assert offset[-1].opcode == 'end'
+        self.offset = offset[:-1]
         self.data = reader.read_bytes()
 
 
@@ -1584,7 +1548,7 @@ class Custom(Definition):
     def to_string(self):
         raise NotImplementedError('Cannot convert custom section to string.')
     
-    def _to_writer(self, f, id_maps):
+    def _to_writer(self, f):
         f.write_str(self.name)
         f.write(self.data)
 

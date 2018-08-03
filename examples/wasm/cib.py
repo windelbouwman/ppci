@@ -14,11 +14,10 @@ import tqdm
 
 from ppci.wasm import Module
 from ppci.wasm import wasm_to_ir
-from ppci.api import get_arch
+from ppci.api import get_arch, ir_to_object
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 # Download this file:
-# https://www.funkykarts.rocks/demo.wasm
 
 def download_file(url, filename):
     r = requests.get(url, stream=True)
@@ -43,6 +42,7 @@ for local_filename in files:
         download_file(url, local_filename)
 
 with open('runtime.wasm', 'rb') as f:
+# with open('clang-format.wasm', 'rb') as f:
     wasm_module = Module(f.read())
 
 
@@ -50,6 +50,11 @@ print(wasm_module)
 
 wasm_module.show_interface()
 
-ptr_info = get_arch('x86_64').info.get_type_info('ptr')
+arch = get_arch('x86_64')
+ptr_info = arch.info.get_type_info('ptr')
 ir_module = wasm_to_ir(wasm_module, ptr_info)
 
+print(ir_module)
+print(ir_module.stats())
+
+obj = ir_to_object([ir_module], arch)

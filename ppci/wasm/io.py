@@ -81,6 +81,14 @@ class FileWriter:
             self.write_vu32(min)
             self.write_vu32(max)
 
+    def write_expression(self, expression):
+        """ Write an expression (a list of instructions) """
+        for instruction in expression:
+            instruction._to_writer(self)
+        # Encode explicit end:
+        from .components import Instruction
+        Instruction('end')._to_writer(self)
+
 
 class FileReader:
     """ Helper class that can read bytes from a file """
@@ -90,11 +98,11 @@ class FileReader:
         self._buffer = bytes()
         self._pos = 0
 
-    def read(self, amount):
-        if amount < 0:
+    def read(self, amount=None):
+        if amount is not None and amount < 0:
             raise ValueError('Cannot read {} bytes'.format(amount))
         data = self.f.read(amount)
-        if len(data) != amount:
+        if amount is not None and len(data) != amount:
             raise EOFError('Reading beyond end of file')
         return data
 
@@ -173,6 +181,7 @@ class FileReader:
         expr.append(i)
         while blocks:
             i = self.read_instruction()
+            # print(i)
             if i.opcode == 'end':
                 blocks -= 1
             elif i.opcode in ('if', 'block', 'loop'):

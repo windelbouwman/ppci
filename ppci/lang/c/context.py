@@ -34,7 +34,7 @@ class CContext:
             BasicType.LONGLONG: (8, 8),
             BasicType.ULONGLONG: (8, 8),
             BasicType.FLOAT: (4, 4),
-            BasicType.DOUBLE: (4, 4),
+            BasicType.DOUBLE: (8, 8),
             BasicType.LONGDOUBLE: (10, 10),
         }
 
@@ -60,7 +60,7 @@ class CContext:
             BasicType.LONGLONG: 'q',
             BasicType.ULONGLONG: 'Q',
             BasicType.FLOAT: 'f',
-            BasicType.DOUBLE: 'f',
+            BasicType.DOUBLE: 'd',
         }
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}

@@ -316,7 +316,7 @@ class WatTupleLoader(TupleParser):
             refs = self.parse_ref_list()
             self.expect(Token.RPAR)
             self.expect(Token.RPAR)
-            offset = components.Instruction('i32.const', 0)
+            offset = [components.Instruction('i32.const', 0)]
             min = max = len(refs)
             self.add_definition(
                 components.Table(id, 'anyfunc', min, max))
@@ -392,7 +392,7 @@ class WatTupleLoader(TupleParser):
             min = max
             self.add_definition(
                 components.Memory(id, min, max))
-            offset = components.Instruction('i32.const', 0)
+            offset = [components.Instruction('i32.const', 0)]
             memory_ref = self._make_ref('memory', id)
             self.add_definition(components.Data(memory_ref, offset, data))
         else:
@@ -436,7 +436,7 @@ class WatTupleLoader(TupleParser):
                 components.Import(modname, name, 'global', id, info))
         else:
             typ, mutable = self.parse_global_type()
-            init = self._load_instruction_list()[0]
+            init = self._load_instruction_list()
             self.expect(Token.RPAR)
             self.add_definition(
                 components.Global(id, typ, mutable, init))
@@ -462,7 +462,7 @@ class WatTupleLoader(TupleParser):
     def parse_offset_expression(self):
         in_offset = self.munch(Token.LPAR, 'offset')
         assert self.at_instruction()
-        offset = self._load_instruction_list()[0]
+        offset = self._load_instruction_list()
         if in_offset:
             self.expect(Token.RPAR)
         return offset
