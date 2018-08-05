@@ -30,7 +30,7 @@ __all__ = ('instantiate',)
 logger = logging.getLogger('instantiate')
 
 
-def instantiate(module, imports, target='native', reporter=None):
+def instantiate(module, imports, target='native', reporter=None, cache_file=None):
     """ Instantiate a wasm module.
 
     Args:
@@ -39,6 +39,8 @@ def instantiate(module, imports, target='native', reporter=None):
         target: Use 'native' to compile wasm to machine code.
                 Use 'python' to generate python code. This option is slower
                 but more reliable.
+        reporter: A reporter which can record detailed compilation information.
+        cache_file: a file to use as cache
 
     """
     if reporter is None:
@@ -67,9 +69,9 @@ def instantiate(module, imports, target='native', reporter=None):
     imports = flatten_imports(imports)
 
     if target == 'native':
-        instance = native_instantiate(module, imports, reporter)
+        instance = native_instantiate(module, imports, reporter, cache_file)
     elif target == 'python':
-        instance = python_instantiate(module, imports, reporter)
+        instance = python_instantiate(module, imports, reporter, cache_file)
     else:
         raise ValueError('Unknown instantiation target {}'.format(target))
 
@@ -79,11 +81,16 @@ def instantiate(module, imports, target='native', reporter=None):
     return instance
 
 
-def native_instantiate(module, imports, reporter):
+def native_instantiate(module, imports, reporter, cache_file):
     """ Load wasm module native """
     from ..api import ir_to_object, get_current_arch
     logger.info('Instantiating wasm module as native code')
     arch = get_current_arch()
+    key = (arch, module)
+    # TODO: use cache here to short circuit re-compilation
+    # hash(key)
+    # print(hash(key))
+    # hgkfdg
     ppci_module = wasm_to_ir(
         module, arch.info.get_type_info('ptr'), reporter=reporter)
     verify_module(ppci_module)
@@ -114,7 +121,7 @@ def native_instantiate(module, imports, reporter):
     return instance
 
 
-def python_instantiate(module, imports, reporter):
+def python_instantiate(module, imports, reporter, cache_file):
     """ Load wasm module as a PythonModuleInstance """
     from ..api import ir_to_python
     logger.info('Instantiating wasm module as python')
