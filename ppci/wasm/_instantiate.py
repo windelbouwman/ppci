@@ -7,9 +7,11 @@ The wasm runtime contains the following:
 - Implement function like sqrt, floor, bit rotations etc..
 """
 
+import abc
 import io
 import struct
 import logging
+import ctypes
 from types import ModuleType
 
 from ..arch.arch_info import TypeInfo
@@ -71,8 +73,6 @@ def instantiate(module, imports, target='native', reporter=None):
     else:
         raise ValueError('Unknown instantiation target {}'.format(target))
 
-    instance.load_memory(module)
-
     # Call magic function _run_init which initializes tables and optionally
     # calls start function as defined by the wasm start section.
     instance._run_init()
@@ -90,17 +90,24 @@ def native_instantiate(module, imports, reporter):
     obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
     instance = NativeModuleInstance(obj, imports)
 
+    instance.load_memory(module)
+
     # Export all exported functions
     for definition in module:
         if isinstance(definition, Export):
             if definition.kind == 'func':
-                exported_name = sanitize_name(definition.name)
+                exported_name = ppci_module._wasm_function_names[definition.ref.index]
                 instance.exports._function_map[definition.name] = \
                     getattr(instance._code_module, exported_name)
             elif definition.kind == 'global':
-                logger.error('global not exported')
+                global_name = ppci_module._wasm_globals[definition.ref.index]
+                instance.exports._function_map[definition.name] = \
+                    NativeWasmGlobal(global_name, instance._code_module)
+                logger.debug('global exported')
             elif definition.kind == 'memory':
-                logger.error('memory not exported')
+                memory = instance._memories[definition.ref.index]
+                instance.exports._function_map[definition.name] = memory
+                logger.debug('memory exported')
             else:
                 raise NotImplementedError(definition.kind)
 
@@ -122,6 +129,9 @@ def python_instantiate(module, imports, reporter):
     exec(pycode, _py_module.__dict__)
     instance = PythonModuleInstance(_py_module, imports)
 
+    # Initialize memory:
+    instance.load_memory(module)
+
     # Export all exported functions
     for definition in module:
         if isinstance(definition, Import):
@@ -129,13 +139,18 @@ def python_instantiate(module, imports, reporter):
             # TODO: maybe validate imported functions?
         elif isinstance(definition, Export):
             if definition.kind == 'func':
-                exported_name = sanitize_name(definition.name)
+                exported_name = ppci_module._wasm_function_names[definition.ref.index]
                 instance.exports._function_map[definition.name] = \
                     getattr(instance._py_module, exported_name)
             elif definition.kind == 'global':
-                logger.error('global not exported')
+                global_name = ppci_module._wasm_globals[definition.ref.index]
+                instance.exports._function_map[definition.name] = \
+                    PythonWasmGlobal(global_name, instance)
+                logger.debug('global exported')
             elif definition.kind == 'memory':
-                logger.error('memory not exported')
+                memory = instance._memories[definition.ref.index]
+                instance.exports._function_map[definition.name] = memory
+                logger.debug('memory exported')
             else:
                 raise NotImplementedError(definition.kind)
 
@@ -220,7 +235,10 @@ class NativeModuleInstance(ModuleInstance):
             memory, min_size, max_size = memories[0]
             self._data_page = MemoryPage(len(memory))
             self._data_page.write(memory)
-            self._memories.append(NativeWasmMemory(min_size, max_size))
+            mem0 = NativeWasmMemory(min_size, max_size)
+            # mem0._data_page = self._data_page
+            mem0._instance = self
+            self._memories.append(mem0)
             base_addr = self._data_page.addr
             self.set_mem_base_ptr(base_addr)
 
@@ -234,20 +252,139 @@ class NativeModuleInstance(ModuleInstance):
         self._code_module._data_page.write(struct.pack('Q', base_addr))
 
 
-class WasmMemory:
+class WasmGlobal(metaclass=abc.ABCMeta):
+    def __init__(self, name):
+        self.name = name
+
+    @abc.abstractmethod
+    def read(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def write(self, value):
+        raise NotImplementedError()
+
+
+# TODO: we might implement the descriptor protocol in some way?
+class PythonWasmGlobal(WasmGlobal):
+    def __init__(self, name, memory):
+        super().__init__(name)
+        self.instance = memory
+
+    def _get_ptr(self):
+        addr = getattr(self.instance._py_module, self.name[1].name)
+        return addr
+
+    def read(self):
+        addr = self._get_ptr()
+        # print('Reading', self.name, addr)
+        mp = {
+            ir.i32: self.instance._py_module.load_i32,
+            ir.i64: self.instance._py_module.load_i64,
+        }
+        f = mp[self.name[0]]
+        return f(addr)
+
+    def write(self, value):
+        addr = self._get_ptr()
+        # print('Writing', self.name, addr)
+        mp = {
+            ir.i32: self.instance._py_module.write_i32,
+            ir.i64: self.instance._py_module.write_i64,
+        }
+        f = mp[self.name[0]]
+        f(addr, value)
+
+
+class NativeWasmGlobal(WasmGlobal):
+    def __init__(self, name, memory):
+        super().__init__(name)
+        self._code_obj = memory
+
+    def _get_ptr(self):
+        # print('Getting address of', self.name)
+        vpointer = getattr(self._code_obj, self.name[1].name)
+        return vpointer
+
+    def read(self):
+        addr = self._get_ptr()
+        # print('Reading', self.name, addr)
+        value = addr.contents.value
+        return value
+
+    def write(self, value):
+        addr = self._get_ptr()
+        # print('Writing', self.name, addr, value)
+        addr.contents.value = value
+
+
+class WasmMemory(metaclass=abc.ABCMeta):
     def __init__(self, min_size, max_size):
         self.min_size = min_size
         self.max_size = max_size
 
+    def __setitem__(self, location, data):
+        assert isinstance(location, slice)
+        assert location.step is None
+        if location.start is None:
+            address = location.stop
+            size = 1
+        else:
+            address = location.start
+            size = location.stop - location.start
+        assert len(data) == size
+        self.write(address, data)
+
+    def __getitem__(self, location):
+        assert isinstance(location, slice)
+        assert location.step is None
+        if location.start is None:
+            address = location.stop
+            size = 1
+        else:
+            address = location.start
+            size = location.stop - location.start
+        data = self.read(address, size)
+        assert len(data) == size
+        return data
+
+    @abc.abstractmethod
+    def write(self, address, data):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def read(self, address, size):
+        raise NotImplementedError()
+
 
 class NativeWasmMemory(WasmMemory):
+    """ Native wasm memory emulation """
     def memory_size(self) -> int:
         """ return memory size in pages """
         return self._data_page.size // PAGE_SIZE
 
+    def write(self, address, data):
+        self._instance._data_page.seek(address)
+        self._instance._data_page.write(data)
+
+    def read(self, address, size):
+        self._instance._data_page.seek(address)
+        data = self._instance._data_page.read(size)
+        assert len(data) == size
+        return data
+
 
 class PythonWasmMemory(WasmMemory):
-    pass
+    """ Python wasm memory emulation """
+    def write(self, address, data):
+        address = self._module.mem0_start + address
+        self._module._py_module.write_mem(address, data)
+
+    def read(self, address, size):
+        address = self._module.mem0_start + address
+        data = self._module._py_module.read_mem(address, size)
+        assert len(data) == size
+        return data
 
 
 class PythonModuleInstance(ModuleInstance):
@@ -280,7 +417,10 @@ class PythonModuleInstance(ModuleInstance):
             self._py_module.heap.extend(memory)
             mem0_ptr_ptr = self._py_module.wasm_mem0_address
             self._py_module.store_i32(self.mem0_start, mem0_ptr_ptr)
-            self._memories.append(PythonWasmMemory(min_size, max_size))
+            mem0 = PythonWasmMemory(min_size, max_size)
+            # TODO: HACK HACK HACK:
+            mem0._module = self
+            self._memories.append(mem0)
 
     def memory_grow(self, amount):
         """ Grow memory and return the old size """
@@ -316,4 +456,4 @@ class Exports:
         if name in self._function_map:
             return self._function_map[name]
         else:
-            raise AttributeError()
+            raise AttributeError('Name "{}" was not exported'.format(name))

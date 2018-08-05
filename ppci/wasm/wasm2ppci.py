@@ -159,11 +159,10 @@ class WasmToIrCompiler:
                     if definition.ref.name is not None:
                         assert definition.ref.name not in export_names
                         export_names[definition.ref.name] = name
+
                     if definition.ref.index is not None:
                         if definition.ref.index in export_names:
-                            pass
-                            # TODO: we can export a single item twice!
-                            # raise ValueError('Index {} already exported {}'.format(definition.ref.index, export_names))
+                            self.logger.debug('Exporting function twice, now with name %s', name)
                         else:
                             export_names[definition.ref.index] = name
                 else:
@@ -239,6 +238,16 @@ class WasmToIrCompiler:
                 self.builder.module.add_variable(g2)
                 self.globalz.append((ir_typ, g2))
                 global_inits.append((g2, definition.init))
+
+                # Enter correct debug info:
+                dbg_typ = self.get_debug_type(definition.typ)
+                db_variable_info = debuginfo.DebugVariable(
+                    g2.name,
+                    dbg_typ,
+                    common.SourceLocation('main.wasm', 1, 1, 1)
+                )
+                self.debug_db.enter(g2, db_variable_info)
+
             elif isinstance(definition, components.Memory):
                 # Create a global pointer to the memory base address:
                 assert self.memory_base_address is None
@@ -266,6 +275,13 @@ class WasmToIrCompiler:
 
         # Generate run_init function:
         self.gen_init_procedure(tables, global_inits, start_function_id)
+
+        function_names = [f[0].name for f in self.functions]
+        global_names = [g for g in self.globalz]
+
+        # TODO: hack to pass this information alongside module
+        self.builder.module._wasm_function_names = function_names
+        self.builder.module._wasm_globals = global_names
 
         return self.builder.module
 

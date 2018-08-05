@@ -127,9 +127,9 @@ class MemoryPage:
         if self._page:
             self._page.seek(pos)
 
-    def read(self):
+    def read(self, size=None):
         if self._page:
-            return self._page.read()
+            return self._page.read(size)
         else:
             return bytes()
 
@@ -209,6 +209,17 @@ class Mod:
 
             # Set the attribute:
             setattr(self, function_name, fpointer)
+
+        # Get a variable pointers
+        for variable in obj.debug_info.variables:
+            variable_name = variable.name
+            assert variable.address.section == 'data'
+            vaddress = self._data_page.addr + variable.address.offset
+            var_ctyp = ctypes.POINTER(get_ctypes_type(variable.typ))
+            vpointer = ctypes.cast(vaddress, var_ctyp)
+
+            # Set the attribute:
+            setattr(self, variable_name, vpointer)
 
         # Store object for later usage:
         self._obj = obj

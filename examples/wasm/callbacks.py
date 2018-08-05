@@ -5,20 +5,25 @@ from ppci.utils.codepage import load_obj
 from ppci.binutils.outstream import TextOutputStream
 
 from ppci.wasm import wasm_to_ir, export_wasm_example
-from ppci.wasm.instantiate import instantiate
+from ppci.wasm import instantiate
 
 
 wasm_module = wasm.Module(
     ('import', 'py', 'add', ('func', '$add', ('param', 'i64', 'i64'), ('result', 'i64'))),
+    ('global', '$g1', ('export', 'var1'), ('mut', 'i64'), ('i64.const', 42)),
     ('func', ('export', 'main'), ('param', 'i64'), ('result', 'i64'),
         ('get_local', 0),
-        ('i64.const', 42),
+        # ('i64.const', 42),
+        ('get_global', '$g1'),
         ('call', '$add'),
     ),
     ('func', ('export', 'add'), ('param', 'i64', 'i64'), ('result', 'i64'),
         ('get_local', 0),
         ('get_local', 1),
         ('call', '$add'),
+    ),
+    ('memory', ('export', 'mem0ry'),
+        ('data', 'abcd'),
     ),
 )
 
@@ -60,3 +65,10 @@ instance = instantiate(
 
 print(instance.exports.main(1337), '(should be 1380)')
 print(instance.exports.add(1, 1), '(should be 3)')
+print('global var', instance.exports.var1.read())
+instance.exports.var1.write(7)
+print('global var', instance.exports.var1.read())
+print(instance.exports.main(1337), '(should be 1345)')
+print('mem[0:4]=', instance.exports.mem0ry[0:4])
+instance.exports.mem0ry[1:3] = bytes([1,2])
+print('mem[0:4]=', instance.exports.mem0ry[0:4])

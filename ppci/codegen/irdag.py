@@ -144,7 +144,7 @@ class SelectionGraphBuilder:
 
         # Create maps for global variables:
         for variable in itertools.chain(
-                ir_function.module.variables, ir_function.module.functions):
+                ir_function.module.variables, ir_function.module.functions, ir_function.module.externals):
             val = self.new_node('LABEL', ir.ptr)
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
