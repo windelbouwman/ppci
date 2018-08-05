@@ -11,7 +11,7 @@ import time
 import argparse
 
 import pygame
-from pygame.locals import QUIT, KEYDOWN
+from pygame.locals import QUIT
 
 from ppci.wasm import Module, instantiate
 from ppci.wasm import wasm_to_ir
@@ -60,11 +60,12 @@ wasm_boy.exports.config(
 pygame.init()
 resolution = (160, 144)
 screen = pygame.display.set_mode(resolution)
+clock = pygame.time.Clock()
 
 while True:
     # Handle some events:
     for event in pygame.event.get():
-        if event.type in (QUIT, KEYDOWN):
+        if event.type == QUIT:
             sys.exit()
 
     # Run emulator wasm:
@@ -73,6 +74,18 @@ while True:
     # print('num audio samples', num_samples)
     # TODO: emit sound to pygame
     wasm_boy.exports.clearAudioBuffer()
+
+    # Update keys:
+    wasm_boy.exports.setJoypadState(
+        pygame.key.get_pressed()[pygame.K_UP],
+        pygame.key.get_pressed()[pygame.K_RIGHT],
+        pygame.key.get_pressed()[pygame.K_DOWN],
+        pygame.key.get_pressed()[pygame.K_LEFT],
+        pygame.key.get_pressed()[pygame.K_a],
+        pygame.key.get_pressed()[pygame.K_b],
+        False,  # start  # TODO
+        False  # select  # TODO
+    )
     res = wasm_boy.exports.executeFrame()
     if res != 0:
         raise RuntimeError('Gameboy died')
@@ -86,5 +99,5 @@ while True:
     img = pygame.image.frombuffer(data, resolution, 'RGB')
     screen.blit(img, (0, 0))
     pygame.display.update()
-    pygame.time.delay(1)
+    clock.tick(60)
 
