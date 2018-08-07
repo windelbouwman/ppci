@@ -7,7 +7,9 @@ The wasm runtime contains the following:
 - Implement function like sqrt, floor, bit rotations etc..
 """
 
+import os
 import abc
+import shelve
 import io
 import struct
 import logging
@@ -18,6 +20,7 @@ from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj, MemoryPage
 from ..utils.reporting import DummyReportGenerator
 from ..irutils import verify_module
+from ..binutils.objectfile import ObjectFile
 from . import wasm_to_ir
 from .components import Export, Import
 from .wasm2ppci import create_memories
@@ -87,14 +90,27 @@ def native_instantiate(module, imports, reporter, cache_file):
     logger.info('Instantiating wasm module as native code')
     arch = get_current_arch()
     key = (arch, module)
-    # TODO: use cache here to short circuit re-compilation
-    # hash(key)
-    # print(hash(key))
-    # hgkfdg
-    ppci_module = wasm_to_ir(
-        module, arch.info.get_type_info('ptr'), reporter=reporter)
-    verify_module(ppci_module)
-    obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
+    # TODO: think of clever caching trickery:
+    cache_file = None
+    if cache_file and os.path.exists(cache_file):
+        logger.info('Using cached object from %s', cache_file)
+        with shelve.open(cache_file) as s:
+            obj = s['obj']
+            ppci_module = s['ppci_module']
+    else:
+        # TODO: use cache here to short circuit re-compilation
+        # hash(key)
+        # print(hash(key))
+        # hgkfdg
+        ppci_module = wasm_to_ir(
+            module, arch.info.get_type_info('ptr'), reporter=reporter)
+        verify_module(ppci_module)
+        obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
+        if cache_file:
+            logger.info('Saving object to %s for later use', cache_file)
+            with shelve.open(cache_file) as s:
+                s['obj'] = obj
+                s['ppci_module'] = ppci_module
     instance = NativeModuleInstance(obj, imports)
 
     instance.load_memory(module)

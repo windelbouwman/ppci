@@ -741,11 +741,14 @@ class WasmToIrCompiler:
             self.emit(ir.Store(value, addr))
 
         elif inst in ['f64.floor', 'f32.floor']:
-            ir_typ = self.get_ir_type(inst)
-            value = self.pop_value(ir_typ)
-            value = self.emit(ir.Cast(value, 'cast', ir.u64))
-            value = self.emit(ir.Cast(value, 'cast', ir_typ))
-            self.push_value(value)
+            self._runtime_call(inst)
+
+            # TODO: this does not work for all cases:
+            #ir_typ = self.get_ir_type(inst)
+            #value = self.pop_value(ir_typ)
+            #value = self.emit(ir.Cast(value, 'cast', ir.u64))
+            #value = self.emit(ir.Cast(value, 'cast', ir_typ))
+            #self.push_value(value)
             # Someday we may have a Unary op for this,
             # or a call into a native runtime lib?
             # value = self.emit(

@@ -356,7 +356,7 @@ class Module(WASMComponent):
                 elif section_name == 'custom':
                     for d in section_defs:
                         f3 = FileWriter(BytesIO())
-                        d._to_writer(f3, {})
+                        d._to_writer(f3)
                         payload = f3.f.getvalue()
                         #
                         f2.write_vu7(section_id)  # \x00

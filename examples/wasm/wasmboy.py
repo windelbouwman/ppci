@@ -10,6 +10,7 @@ import os
 import time
 import argparse
 
+import numpy as np
 import pygame
 from pygame.locals import QUIT
 
@@ -24,7 +25,7 @@ args = parser.parse_args()
 logging.basicConfig(level=logging.INFO)
 
 with open('wasmboy.wasm', 'rb') as f:
-    wasm_module = Module(f.read())
+    wasm_module = Module(f)
 
 def log(a: int, b: int, c: int, d: int, e: int, f: int, g: int) -> None:
     print('Log:', a, b, c, d, e, f, g)
@@ -57,9 +58,12 @@ wasm_boy.exports.config(
 )
 
 # Run pygame loop:
+pygame.mixer.pre_init(48000)
 pygame.init()
+print('audio settings:', pygame.mixer.get_init())
 resolution = (160, 144)
 screen = pygame.display.set_mode(resolution)
+channel = pygame.mixer.find_channel()
 clock = pygame.time.Clock()
 
 while True:
@@ -71,19 +75,35 @@ while True:
     # Run emulator wasm:
     # 1. Check audio:
     num_samples = wasm_boy.exports.getNumberOfSamplesInAudioBuffer()
-    # print('num audio samples', num_samples)
-    # TODO: emit sound to pygame
-    wasm_boy.exports.clearAudioBuffer()
+    if num_samples > 4096:
+        audio_buffer_location = wasm_boy.exports.AUDIO_BUFFER_LOCATION.read()
+        audio_data = wasm_boy.exports.memory[audio_buffer_location:audio_buffer_location+num_samples*2]
+        wasm_boy.exports.clearAudioBuffer()
+
+        # Do some random conversions on the audio:
+        audio = np.array([(s - 127)*250 for s in audio_data], dtype=np.int16).reshape((-1, 2))
+        sound = pygame.sndarray.make_sound(audio)
+        # print(num_samples, time.time())
+
+        # Let last sample move out of queue:
+        while channel.get_queue():
+            pygame.time.delay(5)
+            
+        if channel.get_busy():
+            channel.queue(sound)
+        else:
+            channel.play(sound)
 
     # Update keys:
+    pressed_keys = pygame.key.get_pressed()
     wasm_boy.exports.setJoypadState(
-        pygame.key.get_pressed()[pygame.K_UP],
-        pygame.key.get_pressed()[pygame.K_RIGHT],
-        pygame.key.get_pressed()[pygame.K_DOWN],
-        pygame.key.get_pressed()[pygame.K_LEFT],
-        pygame.key.get_pressed()[pygame.K_a],
-        pygame.key.get_pressed()[pygame.K_b],
-        False,  # start  # TODO
+        pressed_keys[pygame.K_UP],
+        pressed_keys[pygame.K_RIGHT],
+        pressed_keys[pygame.K_DOWN],
+        pressed_keys[pygame.K_LEFT],
+        pressed_keys[pygame.K_a],
+        pressed_keys[pygame.K_b],
+        pressed_keys[pygame.K_RETURN],  # start
         False  # select  # TODO
     )
     res = wasm_boy.exports.executeFrame()
@@ -99,5 +119,7 @@ while True:
     img = pygame.image.frombuffer(data, resolution, 'RGB')
     screen.blit(img, (0, 0))
     pygame.display.update()
-    clock.tick(60)
+
+    # Use deliberate higher framerate here, we will use audio to sync time
+    clock.tick(65)
 
