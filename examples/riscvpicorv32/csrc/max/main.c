@@ -25,8 +25,7 @@ void main_main()
 
   max_elem = find_max(arr, 5);
 
-  printf("%d\n",max_elem);
+  printfdbg("%d\n",max_elem);
 
-
-  while(1) {}
+  
 }

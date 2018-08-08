@@ -31,7 +31,7 @@ int main(int argc, char **argv, char **env) {
   top->resetn = 1;
     // run simulation for 100 clock periods
   i = 0;
-  while(1) {
+  while(!top->trap) {
     // dump variables into VCD file and toggle clock
     for (clk=0; clk<2; clk++) {
       if(trace) tfp->dump (2*i+clk);
