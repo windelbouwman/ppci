@@ -52,7 +52,7 @@ def cc(args=None):
                 # Stop after ast generation:
                 filename = src.name if hasattr(src, 'name') else None
                 ast = create_ast(
-                    src, march, filename=filename, coptions=coptions)
+                    src, march.info, filename=filename, coptions=coptions)
                 printer = CAstPrinter(file=args.output)
                 printer.print(ast)
             else:

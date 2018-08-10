@@ -718,9 +718,12 @@ class CCodeGenerator:
             self.error('Illegal initializer list', expr.location)
         elif isinstance(expr, expressions.Cast):
             a = self.gen_expr(expr.expr, rvalue=True)
-            ir_typ = self.get_ir_type(expr.to_typ)
-            value = self.emit(
-                ir.Cast(a, 'typecast', ir_typ), location=expr.location)
+            if expr.to_typ.is_void:
+                value = None
+            else:
+                ir_typ = self.get_ir_type(expr.to_typ)
+                value = self.emit(
+                    ir.Cast(a, 'typecast', ir_typ), location=expr.location)
         elif isinstance(expr, expressions.Sizeof):
             value = self.gen_sizeof(expr)
         elif isinstance(expr, expressions.FieldSelect):

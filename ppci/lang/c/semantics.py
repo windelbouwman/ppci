@@ -538,7 +538,7 @@ class CSemantics:
         lhs = self.coerce(lhs, self.int_type)
         # TODO: For now, we use the common type of b and c as the result
         # But is this correct?
-        common_type = self.get_common_type(mid.typ, rhs.typ)
+        common_type = self.get_common_type(mid.typ, rhs.typ, location)
         mid = self.coerce(mid, common_type)
         rhs = self.coerce(rhs, common_type)
         return expressions.TernaryOperator(
@@ -570,18 +570,18 @@ class CSemantics:
                 lhs = self.coerce(lhs, self.int_type)
                 result_typ = rhs.typ
             else:
-                result_typ = self.get_common_type(lhs.typ, rhs.typ)
+                result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
                 lhs = self.coerce(lhs, result_typ)
                 rhs = self.coerce(rhs, result_typ)
         elif op in ['<', '>', '==', '!=', '<=', '>=']:
             # Booleans are integer type:
             # TODO: assert types are of base arithmatic type
-            common_typ = self.get_common_type(lhs.typ, rhs.typ)
+            common_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, common_typ)
             rhs = self.coerce(rhs, common_typ)
             result_typ = self.int_type
         else:
-            result_typ = self.get_common_type(lhs.typ, rhs.typ)
+            result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, result_typ)
             rhs = self.coerce(rhs, result_typ)
 
@@ -810,12 +810,40 @@ class CSemantics:
         """ Retrieve a type by type specifiers """
         return self._root_scope.get_type(type_specifiers)
 
-    def get_common_type(self, typ1, typ2):
+    def get_common_type(self, typ1, typ2, location):
         """ Given two types, determine the common type.
 
-        The common type is a type they can both be cast to. """
-        # TODO!
-        return typ1
+        The common type is a type they can both be cast to.
+        """
+        return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
+
+    def _get_rank(self, typ, location):
+        basic_ranks = {
+            types.BasicType.LONGDOUBLE: 110,
+            types.BasicType.DOUBLE: 100,
+            types.BasicType.FLOAT: 90,
+            types.BasicType.ULONGLONG: 71,
+            types.BasicType.LONGLONG: 70,
+            types.BasicType.ULONG: 61,
+            types.BasicType.LONG: 60,
+            types.BasicType.UINT: 51,
+            types.BasicType.INT: 50,
+            types.BasicType.USHORT: 41,
+            types.BasicType.SHORT: 40,
+            types.BasicType.UCHAR: 31,
+            types.BasicType.CHAR: 30,
+        }
+        if isinstance(typ, types.BasicType):
+            if typ.type_id in basic_ranks:
+                return basic_ranks[typ.type_id]
+            else:
+                self.error(
+                    'Cannot determine type rank for {}'.format(typ), location)
+        elif isinstance(typ, types.EnumType):
+            return 80
+        else:
+            self.error(
+                'Cannot determine type rank for {}'.format(typ), location)
 
     def error(self, message, location):
         """ Trigger an error at the given location """

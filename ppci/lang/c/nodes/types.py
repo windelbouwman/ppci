@@ -19,6 +19,16 @@ def is_void(typ):
     return isinstance(typ, BasicType) and typ.type_id == BasicType.VOID
 
 
+def is_double(typ):
+    """ Check if the given type is double """
+    return isinstance(typ, BasicType) and typ.type_id == BasicType.DOUBLE
+
+
+def is_float(typ):
+    """ Check if the given type is float """
+    return isinstance(typ, BasicType) and typ.type_id == BasicType.FLOAT
+
+
 # A type system:
 class CType:
     """ Base class for all types """
@@ -29,6 +39,16 @@ class CType:
     def is_void(self):
         """ See if this type is void """
         return is_void(self)
+
+    @property
+    def is_float(self):
+        """ See if this type is float """
+        return is_float(self)
+
+    @property
+    def is_double(self):
+        """ See if this type is double """
+        return is_double(self)
 
     @property
     def is_scalar(self):

@@ -83,7 +83,7 @@ class CParser(RecursiveDescentParser):
             '^=': (self.RIGHT_ASSOCIATIVE, 10),
             # '++': (LEFT_ASSOCIATIVE, 50),
             # '--': (LEFT_ASSOCIATIVE, 50),
-            '?': (self.LEFT_ASSOCIATIVE, 17),
+            '?': (self.RIGHT_ASSOCIATIVE, 17),
             '||': (self.LEFT_ASSOCIATIVE, 20),
             '&&': (self.LEFT_ASSOCIATIVE, 30),
             '|': (self.LEFT_ASSOCIATIVE, 40),
