@@ -26,7 +26,10 @@ def wasmcompile(args=None):
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)
         wasm_module = read_wasm(args.wasm)
-        ir_module = wasm_to_ir(wasm_module)
+        ir_module = wasm_to_ir(
+            wasm_module,
+            march.info.get_type_info('ptr'),
+            reporter=log_setup.reporter)
 
         # Optimize:
         api.optimize(ir_module, level=args.O, reporter=log_setup.reporter)

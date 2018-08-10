@@ -80,25 +80,30 @@ Instr = wasm.components.Instruction
 instructions = [
     Instr('loop', 'emptyblock'),
         # write iter
-        Instr('get_local', 0),
-        Instr('call', '$print'),
+        Instr('get_local', wasm.components.Ref('local', index=0)),
+        Instr('call', wasm.components.Ref('func', name='$print', index=0)),
         # Increase iter
         Instr('f64.const', 1),
-        Instr('get_local', 0),
+        Instr('get_local', wasm.components.Ref('local', index=0)),
         Instr('f64.add'),
-        Instr('tee_local', 0),
+        Instr('tee_local', wasm.components.Ref('local', index=0)),
         Instr('f64.const', 10),
         Instr('f64.lt'),
-        Instr('br_if', 0),
+        Instr('br_if', wasm.components.Ref('label', index=0)),
     Instr('end'),
     ]
 
 wa3 = wasm.Module(
     wasm.components.Type('$print_sig', [(0, 'f64')], []),
     wasm.components.Type('$main_sig', [], []),
-    wasm.components.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
-    wasm.components.Start('$main'),
-    wasm.components.Func('$main', '$main_sig', [(None, 'f64')], instructions),
+    wasm.components.Import(
+        'js', 'print_ln', 'func', '$print',
+        (wasm.components.Ref('type', name='$print_sig', index=0), ), ),
+    wasm.components.Start(wasm.components.Ref('func', name='$main', index=1)),
+    wasm.components.Func(
+        '$main',
+        wasm.components.Ref('type', name='$main_sig', index=1),
+        [(None, 'f64')], instructions),
 )
 
 # Result is exactly the same!
