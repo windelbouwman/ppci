@@ -95,6 +95,10 @@ class AssemblerTestCase(AsmTestCaseBase):
                    '4c8b4dcd 488b18 4c8b1d0f000000 488b042500b00000'
                    '4c8b1c25a0000000 4d8bb1efcdab00')
 
+    def test_mem16_loads(self):
+        self.feed('mov cx, [rbp, -52]')
+        self.check('66408b4dcc')
+
     def test_mov_imm(self):
         self.feed('mov r8, 91')
         self.feed('mov r9, 100')

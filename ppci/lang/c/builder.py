@@ -70,3 +70,17 @@ def _parse(src, filename, context):
     tokens = prepare_for_parsing(tokens, parser.keywords)
     ast = parser.parse(tokens)
     return ast
+
+
+def parse_type(text, context, filename='foo.c'):
+    """ Parse given C-type AST """
+    # TODO: fix + ; hack below:
+    src = io.StringIO(text + ';')
+    preprocessor = CPreProcessor(context.coptions)
+    tokens = preprocessor.process(src, filename)
+    semantics = CSemantics(context)
+    parser = CParser(context.coptions, semantics)
+    tokens = prepare_for_parsing(tokens, parser.keywords)
+    parser.init_lexer(tokens)
+    parser.typedefs = set()
+    return parser.parse_typename()

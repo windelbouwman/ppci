@@ -1,11 +1,12 @@
 import unittest
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CPrinter
-from ppci.lang.c import CSynthesizer
+from ppci.lang.c import CBuilder, CPrinter, CContext
+from ppci.lang.c import CSynthesizer, parse_type
 from ppci.lang.c.options import COptions
 from ppci.lang.c.utils import replace_escape_codes
 from ppci.arch.example import ExampleArch
+from ppci.arch import get_arch
 from ppci import ir
 from ppci.irutils import Verifier
 
@@ -225,6 +226,33 @@ class CFrontendTestCase(unittest.TestCase):
         }
         """
         self.do(src)
+
+    def test_bad_bitfield_type(self):
+        """ Test bad bitfield type """
+        src = """
+        struct z { float foo : 3; };
+        """
+        self.expect_errors(src, [(2, 'Invalid type for bit-field')])
+
+    def test_offsetof(self):
+        """ Test offsetof """
+        src = """
+        struct z { int foo; };
+        void main() {
+         __builtin_offsetof(struct z, foo);
+        }
+        """
+        self.do(src)
+
+    def test_offsetof_bitfields(self):
+        """ Test offsetof on bitfields returns an error """
+        src = """
+        struct z { int foo : 23; };
+        void main() {
+         __builtin_offsetof(struct z, foo);
+        }
+        """
+        self.expect_errors(src, [(4, 'address of bit-field "foo"')])
 
     def test_union(self):
         """ Test union usage """
@@ -530,6 +558,16 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_not_all_paths_return_value(self):
+        """ Test what happens when not all code paths return a value """
+        src = """
+        int f(int a)
+        {
+          if(a == 0) return(1);
+        }
+        """
+        self.do(src)
+
 
 class CSynthesizerTestCase(unittest.TestCase):
     @unittest.skip('todo')
@@ -553,6 +591,37 @@ class CSynthesizerTestCase(unittest.TestCase):
         Verifier().verify(ir_module)
         synthesizer = CSynthesizer()
         synthesizer.syn_module(ir_module)
+
+
+class CTypeInitializerTestCase(unittest.TestCase):
+    """ Test if C-types are correctly initialized """
+    def setUp(self):
+        arch = get_arch('x86_64')
+        coptions = COptions()
+        self.context = CContext(coptions, arch.info)
+
+    def test_int_array(self):
+        """ Test array initialization """
+        src = "short[4]"
+        ty = parse_type(src, self.context)
+        self.assertEqual(8, self.context.sizeof(ty))
+        mem = self.context.gen_global_ival(ty, [1, 2, 3, 4])
+        self.assertEqual(bytes([1, 0, 2, 0, 3, 0, 4, 0]), mem)
+
+    def test_struct(self):
+        src = "struct { char x; short y; }"
+        ty = parse_type(src, self.context)
+        self.assertEqual(4, self.context.sizeof(ty))
+        mem = self.context.gen_global_ival(ty, [3, 4])
+        self.assertEqual(bytes([3, 0, 4, 0]), mem)
+
+    def test_packed_struct(self):
+        """ Check how a packed struct is initialized """
+        src = "struct { unsigned x: 5; short y : 10; }"
+        ty = parse_type(src, self.context)
+        self.assertEqual(2, self.context.sizeof(ty))
+        mem = self.context.gen_global_ival(ty, [5, 2])
+        self.assertEqual(bytes([69, 0]), mem)
 
 
 if __name__ == '__main__':

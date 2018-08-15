@@ -51,6 +51,12 @@ class Register16(Register):
     """ 16-bit register like 'ax' """
     bitsize = 16
 
+    def __repr__(self):
+        if self.is_colored:
+            return get16reg(self.color).name
+        else:
+            return self.name
+
 
 class Register8(Register):
     """ 8-bit register like 'al' """
@@ -263,19 +269,24 @@ XmmRegisterSingle.registers = [
 ]
 
 
+xmm_mp = {r.num: r for r in XmmRegister.registers}
 def get_xmm_reg(num):
-    mp = {r.num: r for r in XmmRegister.registers}
-    return mp[num]
+    return xmm_mp[num]
 
 
+reg8_mp = {r.num: r for r in [al, bl, cl, dl]}
 def get8reg(num):
-    mp = {r.num: r for r in [al, bl, cl, dl]}
-    return mp[num]
+    return reg8_mp[num]
 
 
+reg16_mp = {r.num: r for r in Register16.registers}
+def get16reg(num):
+    return reg16_mp[num]
+
+
+reg32_mp = {r.num: r for r in Register32.registers}
 def get32reg(num):
-    mp = {r.num: r for r in Register32.registers}
-    return mp[num]
+    return reg32_mp[num]
 
 
 callee_save = (

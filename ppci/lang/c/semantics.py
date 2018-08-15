@@ -371,6 +371,16 @@ class CSemantics:
             self, storage_class, ctyp, name, modifiers, bitsize, location):
         """ Handle a struct/union field declaration """
         ctyp = self.apply_type_modifiers(modifiers, ctyp)
+        if bitsize is None:
+            pass
+        else:
+            # Bit fields must be of integer type:
+            if not ctyp.is_integer:
+                self.error('Invalid type for bit-field', location)
+
+            # TODO: idea, use a bitfield type with bitsize stored in it.
+            # ctyp = types.BitFieldType(ctyp, bitsize)
+
         field = types.Field(ctyp, name, bitsize)
         return field
 
@@ -691,6 +701,13 @@ class CSemantics:
             self.error(
                 'Cannot find member {}'.format(member), location)
 
+        # Test if field is a bitfield:
+        field = typ.get_field(member)
+        if field.is_bitfield:
+            self.error(
+                'Attempt to take address of bit-field "{}"'.format(member),
+                location)
+
         return expressions.BuiltInOffsetOf(
             typ, member, self.int_type, location)
 
@@ -785,7 +802,7 @@ class CSemantics:
             # Function used as value for pointer to function is fine!
             do_cast = False
         elif isinstance(from_type, types.BasicType) and \
-                isinstance(to_type, types.PointerType):
+                isinstance(to_type, (types.PointerType, types.BitFieldType)):
             do_cast = True
         elif isinstance(from_type, types.IndexableType) and \
                 isinstance(to_type, types.IndexableType):

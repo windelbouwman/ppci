@@ -26,13 +26,6 @@ def u8(x):
     return struct.pack('<B', x)
 
 
-def val2bit(v, bits):
-    b = []
-    for i in range(bits):
-        b.append(bool((1 << i) & v))
-    return b
-
-
 class _p2(property):
     def __init__(self, getter, setter, bitsize, signed):
         if bitsize < 1:

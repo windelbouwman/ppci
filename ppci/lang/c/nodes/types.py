@@ -5,7 +5,13 @@
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
-    return isinstance(typ, BasicType) and not is_void(typ)
+    return (isinstance(typ, BasicType) and not is_void(typ)) \
+        or is_bitfield(typ)
+
+
+def is_bitfield(typ):
+    """ Check if this type is a bitfield type in a struct """
+    return isinstance(typ, BitFieldType)
 
 
 def is_integer(typ):
@@ -59,6 +65,11 @@ class CType:
     def is_integer(self):
         """ Check if this type is an integer type """
         return is_integer(self)
+
+    @property
+    def is_bitfield(self):
+        """ Check if this type is a struct bitfield """
+        return is_bitfield(self)
 
     @property
     def is_struct(self):
@@ -178,6 +189,22 @@ class Field:
         assert isinstance(typ, CType)
         self.name = name
         self.bitsize = bitsize
+
+    @property
+    def is_bitfield(self):
+        """ Test if this field is a bitfield (or not) """
+        return self.bitsize is not None
+
+
+class BitFieldType(CType):
+    """ Type for struct fields with specified bit size """
+    def __init__(self, ctyp, bitsize):
+        super().__init__()
+        self.typ = ctyp
+        self.bitsize = bitsize
+
+    def __repr__(self):
+        return 'Bitfield-type ({})'.format(self.bitsize)
 
 
 class UnionType(StructOrUnionType):

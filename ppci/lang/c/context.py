@@ -5,6 +5,7 @@
 
 import struct
 from ...common import CompilerError
+from ...utils.bitfun import value_to_bits, bits_to_bytes
 from ...arch.arch_info import Endianness
 from .nodes.types import BasicType
 from .nodes import types, expressions, declarations
@@ -95,11 +96,7 @@ class CContext:
                 self.error('Storage size unknown', typ)
             # For enums take int as the type
             return self.arch_info.get_size('int')
-        elif isinstance(typ, types.PointerType):
-            return self.arch_info.get_size('ptr')
-        elif isinstance(typ, types.FunctionType):
-            # TODO: can we determine size of a function type? Should it not
-            # be pointer to a function?
+        elif isinstance(typ, (types.PointerType, types.FunctionType)):
             return self.arch_info.get_size('ptr')
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
@@ -124,35 +121,38 @@ class CContext:
                 self.error('Storage size unknown', typ)
             # For enums take int as the type
             return self.arch_info.get_alignment('int')
-        elif isinstance(typ, types.PointerType):
+        elif isinstance(typ, (types.PointerType, types.FunctionType)):
             return self.arch_info.get_alignment('ptr')
-        elif isinstance(typ, types.FunctionType):
-            # TODO: can we determine size of a function type? Should it not
-            # be pointer to a function?
-            return self.arch_info.get_alignment('ptr')
+        elif isinstance(typ, types.BitFieldType):
+            return 1
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
     def layout_struct(self, kind, fields):
-        """ Layout the fields in the struct: """
+        """ Layout the fields in the struct """
         offsets = {}
-        offset = 0
+        offset = 0  # Offset in bits
         for field in fields:
-            field_size = self.sizeof(field.typ)
-
             # Calculate bit size:
             if field.bitsize:
                 bitsize = self.eval_expr(field.bitsize)
+                alignment = 1  # Bitfields are 1 bit aligned
             else:
                 bitsize = self.sizeof(field.typ) * 8
+                alignment = self.alignment(field.typ) * 8
 
             # alignment handling:
-            alignment = self.alignment(field.typ)
             offset += required_padding(offset, alignment)
 
             offsets[field] = offset
             if kind == 'struct':
-                offset += field_size
+                offset += bitsize
+
+        # TODO: should we take care here of maximum alignment as well?
+        # Finally align at 8 bits:
+        offset += required_padding(offset, 8)
+        assert offset % 8 == 0
+        offset //= 8
         return offset, offsets
 
     def _get_field_offsets(self, typ):
@@ -166,7 +166,8 @@ class CContext:
     def offsetof(self, typ, field):
         """ Returns the offset of a field in a struct/union in bytes """
         field_offset = self._get_field_offsets(typ)[1][field]
-        return field_offset
+        assert field_offset % 8 == 0
+        return field_offset // 8
 
     def get_enum_value(self, enum_typ, enum_constant):
         if enum_constant not in self._enum_values:
@@ -186,7 +187,6 @@ class CContext:
 
     def pack(self, typ, value):
         """ Pack a type into proper memory format """
-        # TODO: is the size of the integer correct? should it be 4 or 8 bytes?
         if isinstance(typ, types.PointerType):
             tid = 'ptr'
         else:
@@ -197,21 +197,31 @@ class CContext:
         assert self.sizeof(typ) == struct.calcsize(fmt)
         return struct.pack(fmt, value)
 
+    def _make_ival(self, ival):
+        """ Try to make ival a proper initializer """
+        if isinstance(ival, list):
+            elements = [self._make_ival(i) for i in ival]
+            ival = expressions.InitializerList(elements, None)
+        elif isinstance(ival, int):
+            int_type = types.BasicType(types.BasicType.INT)
+            ival = expressions.NumericLiteral(ival, int_type, None)
+        return ival
+
     def gen_global_ival(self, typ, ival):
         """ Create memory image for initial value of global variable """
+        # Handle arguments:
+        ival = self._make_ival(ival)
+
+        # Check initial value type:
+        if not isinstance(ival, expressions.Expression):
+            raise TypeError('ival must be an Expression')
+
         if isinstance(typ, types.ArrayType):
             mem = bytes()
             for iv in ival.elements:
                 mem = mem + self.gen_global_ival(typ.element_type, iv)
         elif isinstance(typ, types.StructType):
-            mem = bytes()
-            field_offsets = self._get_field_offsets(typ)[1]
-            for field, iv in zip(typ.fields, ival.elements):
-                field_offset = field_offsets[field]
-                if len(mem) < field_offset:
-                    padding_count = field_offset - len(mem)
-                    mem = mem + bytes([0] * padding_count)
-                mem = mem + self.gen_global_ival(field.typ, iv)
+            mem = self._initialize_struct(typ, ival)
         elif isinstance(typ, types.UnionType):
             mem = bytes()
             # Initialize the first field!
@@ -227,6 +237,37 @@ class CContext:
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return mem
+
+    def _initialize_struct(self, typ, ival):
+        """ Properly fill global struct variable with content """
+        mem = bytearray()
+        bits = []  # A working list of bytes
+
+        def flush_bits():
+            if bits:
+                mem.extend(bits_to_bytes(bits))
+                bits.clear()
+
+        field_offsets = self._get_field_offsets(typ)[1]
+        for field, iv in zip(typ.fields, ival.elements):
+            if field.is_bitfield:
+                # Special case for bitfields
+                cval = self.eval_expr(iv)
+                bitsize = self.eval_expr(field.bitsize)
+                new_bits = value_to_bits(cval, bitsize)
+                bits.extend(new_bits)
+            else:
+                flush_bits()
+                field_offset = field_offsets[field] // 8
+                # TODO: how to handle bit fields?
+                if len(mem) < field_offset:
+                    padding_count = field_offset - len(mem)
+                    mem.extend(bytes([0] * padding_count))
+                mem.extend(self.gen_global_ival(field.typ, iv))
+
+        # Purge last remaining bits:
+        flush_bits()
+        return bytes(mem)
 
     def error(self, message, location):
         """ Trigger an error at the given location """

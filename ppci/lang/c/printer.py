@@ -93,6 +93,8 @@ class CPrinter:
         #         typ.typ, '{} {}'.format(qualifiers, name))
         elif isinstance(typ, types.EnumType):
             return '{}'.format(typ)
+        elif isinstance(typ, types.BitFieldType):
+            return '{}'.format(typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
@@ -208,6 +210,9 @@ class CPrinter:
         elif isinstance(expr, expressions.Cast):
             return '({})({})'.format(
                 self.render_type(expr.to_typ), self.gen_expr(expr.expr))
+        elif isinstance(expr, expressions.BuiltInOffsetOf):
+            return 'offsetof({}, {})'.format(
+                self.render_type(expr.query_typ), expr.member)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(expr)))
 

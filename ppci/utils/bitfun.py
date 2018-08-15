@@ -73,6 +73,29 @@ def popcnt(v: int, bits: int) -> int:
     return count
 
 
+def value_to_bits(v, bits):
+    """ Convert a value to a list of booleans """
+    b = []
+    for i in range(bits):
+        b.append(bool((1 << i) & v))
+    return b
+
+
+def bits_to_bytes(bits):
+    """ Convert a sequence of booleans into bytes """
+    while len(bits) % 8 != 0:
+        bits.append(False)
+
+    m = bytearray()
+    for i in range(0, len(bits), 8):
+        v = 0
+        for j in range(8):
+            if bits[i+j]:
+                v = v | (1 << j)
+        m.append(v)
+    return bytes(m)
+
+
 def encode_imm32(v):
     """ Bundle 32 bit value into 4 bits rotation and 8 bits value """
     for i in range(0, 16):
