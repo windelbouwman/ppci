@@ -1,7 +1,6 @@
 """ ARM architecture definition. """
 import io
 from ... import ir
-from ...ir import i8, i32, u8, u32, i16, u16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
@@ -40,7 +39,9 @@ class ArmArch(Architecture):
             # Registers usable by register allocator:
             register_classes = [
                 RegisterClass(
-                    'loreg', [i8, i32, ptr, u8, u32], LowArmRegister,
+                    'loreg',
+                    [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32, ir.i16, ir.u16],
+                    LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7])
                 ]
         else:
@@ -56,7 +57,8 @@ class ArmArch(Architecture):
                     [R0, R1, R2, R3, R4, R5, R6, R7]),
                 RegisterClass(
                     'reg',
-                    [i8, i32, u8, u32, i16, u16, ptr], ArmRegister,
+                    [ir.i8, ir.i32, ir.u8, ir.u32, ir.i16, ir.u16, ir.ptr],
+                    ArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11])
                 ]
         self.assembler.gen_asm_parser(self.isa)

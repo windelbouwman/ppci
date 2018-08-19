@@ -122,14 +122,16 @@ ax = Register16('ax', 0, aliases=(al, ah))
 cx = Register16('cx', 1, aliases=(cl, ch))
 dx = Register16('dx', 2, aliases=(dl, dh))
 bx = Register16('bx', 3, aliases=(bl, bh))
-Register16.registers = (ax, bx, cx, dx)
+si = Register16('si', 6)
+di = Register16('di', 7)
+Register16.registers = (ax, bx, cx, dx, si, di)
 
 eax = Register32('eax', 0, aliases=(ax,))
 ecx = Register32('ecx', 1, aliases=(cx,))
 edx = Register32('edx', 2, aliases=(dx,))
 ebx = Register32('ebx', 3, aliases=(bx,))
-esi = Register32('esi', 6)
-edi = Register32('edi', 7)
+esi = Register32('esi', 6, aliases=(si,))
+edi = Register32('edi', 7, aliases=(di,))
 r8d = Register32('r8d', 8)
 r9d = Register32('r9d', 9)
 r10d = Register32('r10d', 10)
@@ -310,7 +312,7 @@ register_classes = [
         'reg32', [ir.i32, ir.u32], Register32,
         [eax, ebx, ecx, edx, esi, edi, r8d, r9d, r10d, r11d, r14d, r15d]),
     RegisterClass(
-        'reg16', [ir.i16, ir.u16], Register16, [ax, bx, cx, dx]),
+        'reg16', [ir.i16, ir.u16], Register16, [ax, bx, cx, dx, si, di]),
     RegisterClass(
         'reg8', [ir.i8, ir.u8], Register8, [al, bl, cl, dl]),
     RegisterClass(

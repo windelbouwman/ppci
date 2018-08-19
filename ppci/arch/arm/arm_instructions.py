@@ -275,8 +275,9 @@ class ShiftBase(ArmInstruction):
 
 class Lsr1(ShiftBase):
     opcode = 0b0011
-    syntax = Syntax(
-        ['lsr', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
+    syntax = Syntax([
+        'lsr', ' ', ShiftBase.rd, ',', ' ',
+        ShiftBase.rn, ',', ' ', ShiftBase.rm])
 
 
 Lsr = Lsr1
@@ -285,10 +286,16 @@ Lsr = Lsr1
 class Lsl1(ShiftBase):
     opcode = 0b0001
     syntax = Syntax(
-        ['lsl', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
+        ['lsl', ' ', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
 
 
 Lsl = Lsl1
+
+
+class Asr(ShiftBase):
+    opcode = 0b0101
+    syntax = Syntax(
+        ['asr', ' ', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
 
 
 class OpRegRegImm(ArmInstruction):
@@ -825,12 +832,16 @@ def pattern_i32toi32(self, tree, c0):
 
 @arm_isa.pattern('reg', 'I8TOI32(reg)', size=0)
 @arm_isa.pattern('reg', 'U8TOI32(reg)', size=0)
+@arm_isa.pattern('reg', 'I8TOU32(reg)', size=0)
+@arm_isa.pattern('reg', 'U8TOU32(reg)', size=0)
 def pattern_i8toi32(self, tree, c0):
     # TODO: do something?
     # Sign extend for example?
     return c0
 
 
+@arm_isa.pattern('reg', 'U32TOI8(reg)', size=0)
+@arm_isa.pattern('reg', 'U32TOU8(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOI8(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOU8(reg)', size=0)
 def pattern_i32toi8(context, tree, c0):
@@ -850,8 +861,6 @@ def pattern_i32toi16(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'I16TOI32(reg)', size=4)
-@arm_isa.pattern('reg', 'U16TOI32(reg)', size=4)
-@arm_isa.pattern('reg', 'U16TOU32(reg)', size=4)
 def pattern_i16toi32(context, tree, c0):
     # d2 = context.new_reg(ArmRegister)
     # TODO:
@@ -860,6 +869,8 @@ def pattern_i16toi32(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'I16TOU32(reg)', size=4)
+@arm_isa.pattern('reg', 'U16TOI32(reg)', size=4)
+@arm_isa.pattern('reg', 'U16TOU32(reg)', size=4)
 def pattern_i16tou32(context, tree, c0):
     return c0
 
@@ -906,12 +917,9 @@ def pattern_const8_1(context, tree):
 
 
 @arm_isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
-@arm_isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
-@arm_isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
-@arm_isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
-def pattern_cjmp(context, tree, c0, c1):
+def pattern_cjmp_signed(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
         "<": Blt, ">": Bgt,
@@ -920,6 +928,26 @@ def pattern_cjmp(context, tree, c0, c1):
     }
     Bop = opnames[op]
     context.emit(Cmp2(c0, c1, NoShift()))
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+
+@arm_isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
+def pattern_cjmp_unsigned(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<": (Blo, False), ">": (Blo, True),
+        "==": (Beq, False), "!=": (Bne, False),
+        '<=': (Bhs, True), ">=": (Bhs, False)
+    }
+    Bop, do_swap = opnames[op]
+    if do_swap:
+        context.emit(Cmp2(c1, c0, NoShift()))
+    else:
+        context.emit(Cmp2(c0, c1, NoShift()))
     jmp_ins = B(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
@@ -1089,16 +1117,45 @@ def pattern_or32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    context.emit(Asr(d, c0, c1))
+    return d
+
+
 @arm_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
-def pattern_shr32(context, tree, c0, c1):
+def pattern_shr_u32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Lsr1(d, c0, c1))
     return d
 
 
 @arm_isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
+def pattern_shr_i16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Asr(d, c0, c1))
+    return d
+
+
 @arm_isa.pattern('reg', 'SHRU16(reg, reg)', size=4)
-def pattern_shr16(context, tree, c0, c1):
+def pattern_shr_u16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Lsr1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRI8(reg, reg)', size=4)
+def pattern_shr8(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Asr(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRU8(reg, reg)', size=4)
+def pattern_shr_u8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # TODO: mask with 0xffff at some point?
     context.emit(Lsr1(d, c0, c1))
@@ -1116,6 +1173,15 @@ def pattern_shl32(context, tree, c0, c1):
 @arm_isa.pattern('reg', Tree('SHLI16', Tree('reg'), Tree('reg')), size=4)
 @arm_isa.pattern('reg', Tree('SHLU16', Tree('reg'), Tree('reg')), size=4)
 def pattern_shl16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Lsl1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', Tree('SHLI8', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('SHLU8', Tree('reg'), Tree('reg')), size=4)
+def pattern_shl8(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     # TODO: mask with 0xffff at some point?
     context.emit(Lsl1(d, c0, c1))

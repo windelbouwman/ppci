@@ -5,19 +5,19 @@
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
-    return (isinstance(typ, BasicType) and not is_void(typ)) \
-        or is_bitfield(typ)
-
-
-def is_bitfield(typ):
-    """ Check if this type is a bitfield type in a struct """
-    return isinstance(typ, BitFieldType)
+    return isinstance(typ, BasicType) and not is_void(typ)
 
 
 def is_integer(typ):
     """ Test if the given type is of integer type """
     return isinstance(typ, BasicType) and \
         typ.type_id in BasicType.INTEGER_TYPES
+
+
+def is_signed_integer(typ):
+    """ Test if the given type is of signed integer type """
+    return isinstance(typ, BasicType) and \
+        typ.type_id in BasicType.SIGNED_INTEGER_TYPES
 
 
 def is_void(typ):
@@ -67,9 +67,9 @@ class CType:
         return is_integer(self)
 
     @property
-    def is_bitfield(self):
-        """ Check if this type is a struct bitfield """
-        return is_bitfield(self)
+    def is_signed(self):
+        """ Check if this type is of signed integer type """
+        return is_signed_integer(self)
 
     @property
     def is_struct(self):
@@ -196,17 +196,6 @@ class Field:
         return self.bitsize is not None
 
 
-class BitFieldType(CType):
-    """ Type for struct fields with specified bit size """
-    def __init__(self, ctyp, bitsize):
-        super().__init__()
-        self.typ = ctyp
-        self.bitsize = bitsize
-
-    def __repr__(self):
-        return 'Bitfield-type ({})'.format(self.bitsize)
-
-
 class UnionType(StructOrUnionType):
     """ Union type """
     def __repr__(self):
@@ -230,13 +219,23 @@ class BasicType(CType):
     DOUBLE = 'double'
     LONGDOUBLE = 'long double'
 
-    INTEGER_TYPES = {
-        CHAR, UCHAR,
-        SHORT, USHORT,
-        INT, UINT,
-        LONG, ULONG,
-        LONGLONG, ULONGLONG
-        }
+    SIGNED_INTEGER_TYPES = {
+        CHAR,
+        SHORT,
+        INT,
+        LONG,
+        LONGLONG,
+    }
+
+    UNSIGNED_INTEGER_TYPES = {
+        UCHAR,
+        USHORT,
+        UINT,
+        ULONG,
+        ULONGLONG
+    }
+
+    INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
 
     def __init__(self, type_id):
         super().__init__()

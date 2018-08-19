@@ -66,8 +66,6 @@ class Visitor:
             pass
         elif isinstance(node, types.BasicType):
             pass
-        elif isinstance(node, types.BitFieldType):
-            pass
         elif isinstance(node, statements.Compound):
             for statement in node.statements:
                 self.visit(statement)

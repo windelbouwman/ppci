@@ -620,7 +620,7 @@ class CCodeGenerator:
                     value = self.gen_expr(iv, rvalue=True)
                     bitsize = self.context.eval_expr(field.bitsize)
                     bitshift = field_offsets[field] % 8
-                    signed = False  # TODO
+                    signed = field.typ.is_signed
                     access = BitFieldAccess(ptr, bitshift, bitsize, signed)
                     self._store_bitfield(value, access)
                     # TODO: how much to increase now?
@@ -756,7 +756,7 @@ class CCodeGenerator:
                 value = self.emit(
                     ir.Binop(base, '+', offset, 'offset', ir.ptr))
                 bitsize = self.context.eval_expr(expr.field.bitsize)
-                signed = False
+                signed = expr.field.typ.is_signed
                 value = BitFieldAccess(value, bitshift, bitsize, signed)
             else:
                 assert offset % 8 == 0
@@ -814,32 +814,58 @@ class CCodeGenerator:
 
     def _load_bitfield(self, access, target_ir_typ):
         """ Dark voo-doo code generated here """
-        # Load some data from memory:
-        ir_typ = self._get_bitfield_ir_typ(access)
-        loaded = self.emit(ir.Load(access.address, 'loaded', ir_typ))
-        mask = ((1 << access.bitsize) - 1) << access.bitshift
-        mask = self.emit(ir.Const(mask, 'mask', ir_typ))
-        value = self.emit(ir.Binop(loaded, '&', mask, 'value', ir_typ))
+        assert target_ir_typ.is_integer
 
-        # Shift value:
-        if access.bitshift:
+        ir_typ = self._get_bitfield_ir_typ(access, True)
+        full_bitsize = ir_typ.bits
+        # TODO: if this is the case, we need more work to be done:
+        assert access.bitshift + access.bitsize <= full_bitsize
+
+        # Load some data from memory:
+        loaded = self.emit(ir.Load(access.address, 'loaded', ir_typ))
+
+        if access.signed:
+            # Shift left, then right, this to ensure sign extension
+            assert loaded.ty.is_signed
+            left_shift = full_bitsize - access.bitshift - access.bitsize
+            right_shift = access.bitshift + left_shift
             shift_amount = self.emit(
-                ir.Const(access.bitshift, 'shift', ir_typ))
+                ir.Const(left_shift, 'left_shift', ir_typ))
+            value = self.emit(
+                ir.Binop(loaded, '<<', shift_amount, 'value', ir_typ))
+            shift_amount = self.emit(
+                ir.Const(right_shift, 'right_shift', ir_typ))
             value = self.emit(
                 ir.Binop(value, '>>', shift_amount, 'value', ir_typ))
+        else:
+            assert not loaded.ty.is_signed
+            mask = ((1 << access.bitsize) - 1) << access.bitshift
+            mask = self.emit(ir.Const(mask, 'mask', ir_typ))
+            value = self.emit(ir.Binop(loaded, '&', mask, 'value', ir_typ))
 
+            # Shift value:
+            if access.bitshift:
+                shift_amount = self.emit(
+                    ir.Const(access.bitshift, 'shift', ir_typ))
+                value = self.emit(
+                    ir.Binop(value, '>>', shift_amount, 'value', ir_typ))
+
+        # Finally convert to target type:
         if value.ty is not target_ir_typ:
             value = self.emit(ir.Cast(value, 'cast', target_ir_typ))
+
         return value
 
     def _store_bitfield(self, value, access):
         """ inject evil bitfield manipulation code """
-        ir_typ = self._get_bitfield_ir_typ(access)
+        ir_typ = self._get_bitfield_ir_typ(access, False)
         full_bitsize = ir_typ.bits
         assert access.bitshift + access.bitsize <= full_bitsize
         mask = ((1 << access.bitsize) - 1) << access.bitshift
         full_mask = (1 << full_bitsize) - 1
         inv_mask = full_mask ^ mask
+
+        assert value.ty.is_integer
 
         # Optionally cast value:
         if value.ty is not ir_typ:
@@ -873,16 +899,24 @@ class CCodeGenerator:
         # Store modified value back:
         self.emit(ir.Store(value, access.address))
 
-    def _get_bitfield_ir_typ(self, access):
-        assert not access.signed
-        mp = {
-            8: ir.u8,
-            16: ir.u16,
-            32: ir.u32,
-            64: ir.u64,
-        }
+    def _get_bitfield_ir_typ(self, access, signed):
+        required_bits = access.bitshift + access.bitsize
+        if signed and access.signed:
+            mp = {
+                8: ir.i8,
+                16: ir.i16,
+                32: ir.i32,
+                64: ir.i64,
+            }
+        else:
+            mp = {
+                8: ir.u8,
+                16: ir.u16,
+                32: ir.u32,
+                64: ir.u64,
+            }
         for b, v in mp.items():
-            if access.bitsize <= b:
+            if required_bits <= b:
                 return v
         raise NotImplementedError('Bitfields larger than 64 bits')
 

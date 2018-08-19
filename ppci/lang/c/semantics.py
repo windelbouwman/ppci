@@ -378,9 +378,6 @@ class CSemantics:
             if not ctyp.is_integer:
                 self.error('Invalid type for bit-field', location)
 
-            # TODO: idea, use a bitfield type with bitsize stored in it.
-            # ctyp = types.BitFieldType(ctyp, bitsize)
-
         field = types.Field(ctyp, name, bitsize)
         return field
 
@@ -802,7 +799,7 @@ class CSemantics:
             # Function used as value for pointer to function is fine!
             do_cast = False
         elif isinstance(from_type, types.BasicType) and \
-                isinstance(to_type, (types.PointerType, types.BitFieldType)):
+                isinstance(to_type, types.PointerType):
             do_cast = True
         elif isinstance(from_type, types.IndexableType) and \
                 isinstance(to_type, types.IndexableType):
