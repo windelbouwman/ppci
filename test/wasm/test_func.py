@@ -12,14 +12,18 @@ def dedent(code):
 
 def test_func0():
 
-    f = Func('$foo', Ref('type', name='$sig'), [(None, 'i32'), ('$local1', 'f32')], [])
+    f = Func(
+        '$foo', Ref('type', name='$sig'),
+        [(None, 'i32'), ('$local1', 'f32')], []
+    )
     assert f.to_string() == '(func $foo (type $sig) (local i32) (local $local1 f32)\n\n)'
-    assert Func(f.to_string()).to_string() == f.to_string()
 
     # Locals can be (and are) combined
-    f = Func('(func $foo (type $sig) (local i32) (local f32)\n\n)')
+    f = Func(
+        '$foo', Ref('type', name='$sig'),
+        [(None, 'i32'), (None, 'f32')], []
+    )
     assert f.to_string() == '(func $foo (type $sig) (local i32 f32)\n\n)'
-    assert Func(f.to_string()).to_string() == f.to_string()
 
 
 def test_func1():

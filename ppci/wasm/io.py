@@ -187,7 +187,10 @@ class FileReader:
             elif i.opcode in ('if', 'block', 'loop'):
                 blocks += 1
             expr.append(i)
-        return expr
+
+        # Strip of last end opcode:
+        assert expr[-1].opcode == 'end'
+        return expr[:-1]
 
     def read_instruction(self):
         """ Read a single instruction """

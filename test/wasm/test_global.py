@@ -11,12 +11,16 @@ def dedent(code):
 
 def test_global0():
 
-    g = Global('$foo', 'i32', False, [Instruction('(i32.const 7)')])
+    g = Global(
+        '$foo', 'i32', False, [Instruction('i32.const', 7)]
+    )
     assert g.to_string() == '(global $foo i32 (i32.const 7))'
     # TODO: do we still wish to support this:
     # assert Global(g.to_string()).to_string() == g.to_string()
 
-    g = Global('$foo', 'i32', True, [Instruction('(i32.const 7)')])
+    g = Global(
+        '$foo', 'i32', True, [Instruction('i32.const', 7)]
+    )
     assert g.to_string() == '(global $foo (mut i32) (i32.const 7))'
     # TODO: do we still wish to support this:
     # assert Global(g.to_string()).to_string() == g.to_string()

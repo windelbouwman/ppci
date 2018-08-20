@@ -10,7 +10,7 @@ def dedent(code):
     return '\n'.join(line[4: ]for line in code.splitlines()).strip() + '\n'
 
 
-def test_memory_instructions():
+def tst_memory_instructions():
     assert Instruction('(i32.load)').to_string() == '(i32.load align=4)'
     assert Instruction('(i32.load8_u)').to_string() == '(i32.load8_u align=1)'
     assert Instruction('(i32.load16_u)').to_string() == '(i32.load16_u align=2)'
@@ -20,7 +20,7 @@ def test_memory_instructions():
     assert Instruction('(i32.load16_u offset=3)').to_string() == '(i32.load16_u align=2 offset=3)'
 
 
-def test_memory0():
+def tst_memory0():
 
     assert Memory('(memory 1)').id == '$0'
     assert Memory('(memory 1)').min == 1
@@ -120,6 +120,6 @@ def test_memory1():
 
 
 if __name__ == '__main__':
-    test_memory_instructions()
-    test_memory0()
+    tst_memory_instructions()
+    tst_memory0()
     test_memory1()

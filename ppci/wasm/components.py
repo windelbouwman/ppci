@@ -35,7 +35,7 @@ import sys
 from collections import OrderedDict
 
 from .opcodes import OPERANDS, REVERZ, OPCODES, ArgType
-from .util import datastring2bytes, bytes2datastring
+from .util import bytes2datastring
 from ..lang.sexpr import parse_sexpr
 from .io import FileReader, FileWriter
 
@@ -306,26 +306,6 @@ class Module(WASMComponent):
         # probably already good because we read it as such, but better be safe.
         definitions = self.get_definitions_per_section()
 
-        # Populate the index space mappings, imported stuff first!
-        id_maps = {'type': {}, 'func': {}, 'table': {},
-                   'memory': {}, 'global': {}}
-        for d in definitions['import']:
-            if d.kind in id_maps:
-                id_map = id_maps[d.kind]
-                id_map[d.id] = len(id_map)
-        for id_space, id_map in id_maps.items():
-            for d in definitions[id_space]:
-                t = "Multiple elements with same id %r in namespace %s"
-                if d.id in id_map:
-                    xx = 2
-                assert d.id not in id_map, t % (d.id, id_space)
-                id_map[d.id] = len(id_map)
-        
-        # Add unit map
-        for id_map in id_maps.values():
-            for i in list(id_map.values()):
-                id_map[i] = i
-        
         # Iterate over (possible) sections
         for section_name, section_id in SECTION_IDS.items():
             if section_name == 'code':
@@ -398,8 +378,6 @@ class Module(WASMComponent):
             if name != 'code':  # use "func" instead
                 section_id_to_name[id] = name
         type4func = {}
-        id_imaps = {'type': {}, 'func': {}, 'table': {},
-                   'memory': {}, 'global': {}}
 
         # todo: we may assign id's inside the _from_reader() methods,
         # revisit when implementing the custom name section.
@@ -411,7 +389,8 @@ class Module(WASMComponent):
                 section_id = reader.read_byte()
             except EOFError:
                 break
-            section_nbytes = reader.read_uint()  # todo: Validate section nbytes
+            # TODO: Validate section nbytes
+            section_nbytes = reader.read_uint()
             section_name = section_id_to_name[section_id]
             section_data = reader.read(section_nbytes)
             logger.debug('Loading %s section', section_name)
@@ -422,31 +401,20 @@ class Module(WASMComponent):
                 nfuncs = reader2.read_uint()
                 for i in range(nfuncs):
                     type4func[i] = reader2.read_uint()
+            elif section_name == 'start':  # There is (at most) 1 start def
+                definitions.append(Start(reader2))
+            elif section_name == 'custom':
+                name_len = reader2.read_uint()
+                definitions.append(Custom(reader2.read(name_len).decode(),
+                                          reader2.read()))
             else:
-                if section_name == 'start':  # There is (at most) 1 start def
-                    definitions.append(Start(reader2))
-                elif section_name == 'custom':
-                    name_len = reader2.read_uint()
-                    definitions.append(Custom(reader2.read(name_len).decode(),
-                                              reader2.read()))
-                else:
-                    ndefs = reader2.read_uint()  # for this section
-                    for i in range(ndefs):
-                        Cls = DEFINITION_CLASSES[section_name]
-                        d = Cls(reader2)
-                        if section_name == 'func':
-                            d.ref = Ref('type', index=type4func[i])
-                        definitions.append(d)
-                        if section_name == 'import':
-                            # Resolve import id's
-                            if d.kind in id_imaps:
-                                id_imap = id_imaps[d.kind]
-                                d.id = len(id_imap)
-                                id_imap[d.id] = d.id
-                        elif section_name in id_imaps:
-                            id_imap = id_imaps[section_name]
-                            d.id = len(id_imap)
-                            id_imap[d.id] = d.id
+                ndefs = reader2.read_uint()  # for this section
+                for i in range(ndefs):
+                    Cls = DEFINITION_CLASSES[section_name]
+                    d = Cls(reader2)
+                    if section_name == 'func':
+                        d.ref = Ref('type', index=type4func[i])
+                    definitions.append(d)
 
         logger.info('Loaded WASM module from binary with %i definitions' %
                     len(definitions))
@@ -484,11 +452,12 @@ class Module(WASMComponent):
         assert not definitions.pop('code')  # use func instead
         assert not definitions.pop('function')  # this section is implicit
         return definitions
-    
+
     def show_interface(self):
-        """ Show the (signature of) imports and exports in a human friendly manner.
+        """ Show the (signature of) imports and exports in a human
+        friendly manner.
         """
-        types =  self['type']
+        types = self['type']
         imports = self['import']
         exports = self['export']
         functions = self['func']
@@ -504,7 +473,7 @@ class Module(WASMComponent):
                     '[{}] -> [{}]'.format(params_s, result_s))
             else:
                 print('  {}:'.format(c.kind).ljust(20), '"{}"'.format(c.name))
-        
+
         print('Exports:')
         for c in exports:
             if c.kind == 'func':
@@ -561,9 +530,6 @@ class Instruction(WASMComponent):
 
         self.opcode = opcode
         self.args = args
-
-    def _from_tuple(self, t):
-        self._from_args(*t)
 
     def __repr__(self):
         return '<Instruction %s>' % self.opcode
@@ -752,31 +718,6 @@ class Type(Definition):
         self.result = tuple(result)
         assert len(self.result) <= 1  # for now
 
-    def _from_tuple(self, t):
-        # (type id? (func ..)
-        assert t[0] == 'type'
-        assert len(t) == 3
-
-        params = []
-        result = []
-        assert t[2][0] == 'func'
-        for expr in t[2][1:]:
-            assert isinstance(expr, tuple)
-            if expr[0] == 'param':
-                if len(expr) == 1:
-                    pass  # (param,)
-                elif isinstance(expr[1], int) or expr[1].startswith('$'):
-                    assert len(expr) == 3
-                    params.append((expr[1], expr[2]))  # (param $id i32)
-                else:
-                    for p in expr[1:]:  # anonymous (param i32 i32 i32)
-                        params.append((len(params), p))
-            elif expr[0] == 'result':
-                result.extend(expr[1:])
-            else:
-                assert False, 'Unexpected expression: %s' % expr[0]
-        self._from_args(t[1], params, result)
-
     def to_string(self):
         s = '(type %s (func' % self.id
         last_anon = False
@@ -850,58 +791,6 @@ class Import(Definition):
         self.kind = kind
         self.id = check_id(id)
         self.info = info
-
-    def _from_tuple(self, t):
-        assert t[0] == 'import'
-        assert len(t) == 4
-        # assert len(t[3]) == 2 fail for ('global', '$stdoutPtr', 'i32'))
-        id = None
-        kind = t[3][0]
-        info = list(t[3][1:])
-        if kind == 'func':
-            if len(info) == 2:
-                id = info.pop(0)
-            else:
-                id = info[0][1]
-            assert (len(info) == 1 and
-                    isinstance(info[0], tuple) and
-                    info[0][0] == 'type')
-            info = [info[0][1]]
-        elif kind == 'table':
-            # Its common for table to not have an id, since in the POV
-            # there's only one memory
-            id = '$0'  # dummy id that we won't show
-            if len(info) == 4 or (isinstance(info[0], str) and
-                                  info[0][0] == '$'):
-                id = info.pop(0)
-            assert 1 <= len(info) <= 3
-            if len(info) == 1:
-                info = info[0], 0, None
-            elif len(info) == 2:
-                info = info[1], info[0], None
-            elif len(info) == 3:
-                info = info[2], info[0], info[1]
-            assert info[0] == 'anyfunc'
-        elif kind == 'memory':
-            # Its common for memory to not have an id, since in the POV
-            # there's only one memory
-            # If info consists of two ints we assume its the limits (not an id)
-            id = '$0'  # dummy id that we won't show
-            if isinstance(info[0], str) or len(info) == 3:
-                id = info.pop(0)
-            if len(info) == 1:
-                info.append(None)
-        elif kind == 'global':
-            if len(info) == 1:  # cover a case in spec\test\core\globals.wast
-                info.insert(0, 0)  # todo: setting id=0 here, not sure if right
-            id = info.pop(0)
-            assert len(info) == 1
-            if isinstance(info[0], tuple):
-                assert info[0][0] == 'mut'
-                info = info[0][1], True
-            else:
-                info = info[0], False
-        self._from_args(t[1], t[2], kind, id, tuple(info))
 
     def to_string(self):
         # Get description
@@ -1007,26 +896,6 @@ class Table(Definition):
         self.min = min
         self.max = max
 
-    def _from_tuple(self, t):
-        # Note that in text form, anyfunc comes last, while in this class
-        # and in binary form it comes before the limits.
-        assert t[0] == 'table'
-        assert 2 <= len(t) <= 5
-        if len(t) == 2:
-            self._from_args('$0', t[1], 0, None)
-        elif len(t) == 3:
-            if isinstance(t[1], str) and t[1][0] == '$':
-                self._from_args(t[1], t[2], 0, None)
-            else:
-                self._from_args('$0', t[2], t[1], None)
-        elif len(t) == 4:
-            if isinstance(t[1], str) and t[1][0] == '$':
-                self._from_args(t[1], t[3], t[2], None)
-            else:
-                self._from_args('$0', t[3], t[1], t[2])
-        else:
-            self._from_args(t[1], t[4], t[2], t[3])
-
     def to_string(self):
         id = '' if self.id == '$0' else ' %s' % self.id
         if self.max is None:
@@ -1070,19 +939,6 @@ class Memory(Definition):
         self.min = min
         self.max = max
 
-    def _from_tuple(self, t):
-        assert t[0] == 'memory'
-        assert 2 <= len(t) <= 4
-        if len(t) == 2:
-            self._from_args('$0', t[1], None)
-        elif len(t) == 3:
-            if isinstance(t[1], str):
-                self._from_args(t[1], t[2], None)
-            else:
-                self._from_args('$0', t[1], t[2])
-        else:
-            self._from_args(t[1], t[2], t[3])
-
     def to_string(self):
         id = '' if self.id == '$0' else ' %s' % self.id
         min = ' %i' % self.min
@@ -1117,18 +973,6 @@ class Global(Definition):
         self.mutable = bool(mutable)
         self.init = init
 
-    def _from_tuple(self, t):
-        assert t[0] == 'global'
-        if len(t) == 3:
-            t = (t[0], 0) + t[1:]  # insert default id 0
-        assert len(t) == 4
-
-        if isinstance(t[2], tuple):
-            assert len(t[2]) == 2 and t[2][0] == 'mut'
-            self._from_args(t[1], t[2][1], True, Instruction(*t[3]))
-        else:
-            self._from_args(t[1], t[2], False, Instruction(*t[3]))
-
     def to_string(self):
         init = ' '.join(i.to_string() for i in self.init)
         if self.mutable:
@@ -1142,14 +986,11 @@ class Global(Definition):
 
         # Encode value as expression followed by end instruction
         f.write_expression(self.init)
-        Instruction('end')._to_writer(f)
 
     def _from_reader(self, reader):
         self.typ = reader.read_type()
         self.mutable = bool(reader.read_byte())
-        init = reader.read_expression()
-        assert init[-1].opcode == 'end'
-        self.init = init[:-1]
+        self.init = reader.read_expression()
 
 
 class Export(Definition):
@@ -1178,14 +1019,6 @@ class Export(Definition):
         self.name = name
         self.kind = kind
         self.ref = ref
-
-    def _from_tuple(self, t):
-        assert t[0] == 'export'
-        assert len(t) == 3
-        assert isinstance(t[2], tuple) and len(t[2]) == 2
-        kind = t[2][0]
-        ref = Ref.from_value(kind, t[2][1])
-        self._from_args(t[1], kind, ref)
 
     def to_string(self):
         return '(export "%s" (%s %s))' % (self.name, self.kind, self.ref)
@@ -1219,12 +1052,7 @@ class Start(Definition):
     __slots__ = ('ref', )
 
     def _from_args(self, ref):
-         self.ref = check_id(ref)
-
-    def _from_tuple(self, t):
-        assert t[0] == 'start'
-        assert len(t) == 2
-        self._from_args(t[1])
+        self.ref = check_id(ref)
 
     def to_string(self):
         return '(start %s)' % self.ref
@@ -1281,40 +1109,6 @@ class Func(Definition):
             self.instructions = [
                 (BlockInstruction if i[0] in blocktypes else Instruction)(*i)
                 for i in instructions]
-
-    def _from_tuple(self, t):
-        assert t[0] == 'func'
-        # Get id
-        id = None
-        i0 = 1
-        if isinstance(t[1], (int, str)):
-            id = t[1]
-            i0 = 2
-        # Separate ref and locals from instructions
-        ref = None
-        locals = []
-        instructions = []
-        for i in range(i0, len(t)):
-            if isinstance(t[i], tuple) and t[i][0] == 'local':
-                expr = t[i]
-                if (len(expr) > 1 and
-                        (isinstance(expr[1], int) or expr[1].startswith('$'))):
-                    assert len(expr) == 3
-                    locals.append((expr[1], expr[2]))  # (local $id i32)
-                else:
-                    for loc in expr[1:]:  # anonymous (local i32 i32 i32)
-                        locals.append((None, loc))
-            elif isinstance(t[i], tuple) and t[i][0] == 'type':
-                ref = Ref.from_value('type', t[i][1])
-            elif isinstance(t[i], tuple) and t[i][0] in ('param', 'export'):
-                assert False, 'func seems abbreviated'
-            else:
-                break
-        else:
-            i += 1
-        assert ref is not None, 'func definition needs a ref to a type def'
-        # Collect instructions
-        self._from_args(id, ref, locals, t[i:])
 
     def to_string(self):
         """ Render function def as text """
@@ -1384,9 +1178,8 @@ class Func(Definition):
         instructions = reader2.read_expression()
         remaining = reader2.f.read()
         assert remaining == bytes(), str(remaining)
-        assert instructions[-1].opcode == 'end'
         self.locals = localz
-        self.instructions = instructions[:-1]
+        self.instructions = instructions
 
 
 class Elem(Definition):
@@ -1416,19 +1209,6 @@ class Elem(Definition):
         self.offset = offset
         self.refs = refs
 
-    def _from_tuple(self, t):
-        assert t[0] == 'elem'
-        assert 2 <= len(t)
-        if isinstance(t[1], tuple):
-            ref = 0
-            offset = t[1]
-            refs = t[2:]
-        else:
-            ref = t[1]
-            offset = t[2]
-            refs = t[3:]
-        self._from_args(ref, offset, refs)
-    
     def to_string(self):
         ref = '' if self.ref.is_zero else ' %s' % self.ref
         offset = ' '.join(i.to_string() for i in self.offset)
@@ -1448,9 +1228,7 @@ class Elem(Definition):
 
     def _from_reader(self, reader):
         self.ref = Ref('table', index=reader.read_uint())
-        offset = reader.read_expression()
-        assert offset[-1].opcode == 'end'
-        self.offset = offset[:-1]
+        self.offset = reader.read_expression()
 
         count = reader.read_uint()
         indexes = []
@@ -1487,24 +1265,6 @@ class Data(Definition):
         self.offset = offset
         self.data = data
 
-    def _from_tuple(self, t):
-        assert t[0] == 'data'
-        assert 2 <= len(t)
-        if not isinstance(t[1], tuple):
-            ref = t[1]
-            offset = t[2]
-            i_data = 3
-        else:
-            ref = 0
-            offset = t[1]
-            i_data = 2
-        datas = []
-        for x in t[i_data:]:
-            assert isinstance(x, str)
-            assert '"' not in x  # safety, it really is just a string
-            datas.append(datastring2bytes(x))
-        self._from_args(ref, offset, b''.join(datas))
-
     def to_string(self):
         ref = '' if self.ref.is_zero else ' %s' % self.ref
         offset = ' '.join(i.to_string() for i in self.offset)
@@ -1524,9 +1284,7 @@ class Data(Definition):
 
     def _from_reader(self, reader):
         self.ref = Ref('memory', index=reader.read_uint())
-        offset = reader.read_expression()
-        assert offset[-1].opcode == 'end'
-        self.offset = offset[:-1]
+        self.offset = reader.read_expression()
         self.data = reader.read_bytes()
 
 
@@ -1541,10 +1299,7 @@ class Custom(Definition):
         assert isinstance(data, bytes)
         self.name = name
         self.data = data
-    
-    def _from_tuple(self, t):
-        raise NotImplementedError('Cannot load custom section from tuple.')
-    
+
     def to_string(self):
         raise NotImplementedError('Cannot convert custom section to string.')
     

@@ -16,14 +16,12 @@ def test_import0():
     assert i.modname == 'foo' and i.name == 'bar'
     assert i.id == '$func1'
     assert i.to_string() == '(import "foo" "bar" (func $func1 (type $type1)))'
-    assert i.to_string() == Import(i.to_string()).to_string()
 
     # Table (default id is omitted as is common)
     i = Import('foo', 'bar', 'table', '$table1', ('anyfunc', 2, 3))
     assert i.modname == 'foo' and i.name == 'bar'
     assert i.id == '$table1'
     assert i.to_string() == '(import "foo" "bar" (table $table1 2 3 anyfunc))'
-    assert i.to_string() == Import(i.to_string()).to_string()
     #
     i = Import('foo', 'bar', 'memory', '$0', (1, None))
     assert i.to_string() == '(import "foo" "bar" (memory 1))'
@@ -33,7 +31,6 @@ def test_import0():
     assert i.modname == 'foo' and i.name == 'bar'
     assert i.id == '$mem1'
     assert i.to_string() == '(import "foo" "bar" (memory $mem1 1 2))'
-    assert i.to_string() == Import(i.to_string()).to_string()
     #
     i = Import('foo', 'bar', 'memory', '$0', (1, None))
     assert i.to_string() == '(import "foo" "bar" (memory 1))'
@@ -43,7 +40,6 @@ def test_import0():
     assert i.modname == 'foo' and i.name == 'bar'
     assert i.id == '$global1'
     assert i.to_string() == '(import "foo" "bar" (global $global1 i32))'
-    assert i.to_string() == Import(i.to_string()).to_string()
     #
     i = Import('foo', 'bar', 'global', '$global1', ('i32', True))
     assert i.to_string() == '(import "foo" "bar" (global $global1 (mut i32)))'

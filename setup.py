@@ -37,6 +37,7 @@ setup(
             'ppci-wasm2wat = ppci.cli.wasm2wat:wasm2wat',
             'ppci-wasmcompile = ppci.cli.wasmcompile:wasmcompile',
             'ppci-wat2wasm = ppci.cli.wat2wasm:wat2wasm',
+            'ppci-wabt = ppci.cli.wabt:wabt',
             'ppci-yacc = ppci.cli.yacc:yacc',
         ]
     },

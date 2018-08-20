@@ -12,7 +12,7 @@ def dedent(code):
     return '\n'.join(line[4: ]for line in code.splitlines()).strip() + '\n'
 
 
-def test_table0():
+def tst_table0():
 
     assert Table('(table anyfunc)').id == '$0'
     assert Table('(table anyfunc)').min == 0
@@ -142,5 +142,5 @@ def test_table1():
 
 
 if __name__ == '__main__':
-    test_table0()
+    tst_table0()
     test_table1()

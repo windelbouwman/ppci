@@ -62,7 +62,9 @@ class IrToWasmCompiler:
         # Global variables:
         # Keep track of virtual stack pointer:
         self.add_definition(
-            components.Global(0, 'i32', True, [components.Instruction('i32.const', self.STACKSIZE)]))
+            components.Global(0, 'i32', True, [
+                components.Instruction('i32.const', self.STACKSIZE)
+            ]))
         self.global_labels['global0'] = 0  # todo: is this correct?
         self.sp_ref = components.Ref('global', index=0)
     
@@ -156,7 +158,9 @@ class IrToWasmCompiler:
         self.add_definition(
             components.Memory(0, 10, None))  # Start with 10 pages?
         for memid, addr, data in self.initial_memory:
-            offset = [components.Instruction('i32.const', addr)]
+            offset = [
+                components.Instruction('i32.const', addr),
+            ]
             self.add_definition(
                 components.Data(components.Ref('memory', index=memid),
                                 offset, data))
@@ -167,7 +171,9 @@ class IrToWasmCompiler:
                 components.Table(0, 'anyfunc', len(indexes), None))
             table_ref = components.Ref('table', index=0)
             print(indexes)
-            offset = [components.Instruction('i32.const', 0)]
+            offset = [
+                components.Instruction('i32.const', 0),
+            ]
             self.add_definition(
                 components.Elem(
                     table_ref, offset, indexes))

@@ -23,10 +23,12 @@ class WasmGeneratorTestCase(unittest.TestCase):
         # For now optimize to the allocation of a variable on heap:
         api.optimize(mod, level='2')
         wasm_module = ir_to_wasm(mod)
+
         # W00t! Convert back to ir again! (because it is possible)
-        # TODO, make below work:
-        # mod2 = wasm_to_ir(wasm_module)
+        mod2 = wasm_to_ir(
+            wasm_module, api.get_arch('x86_64').info.get_type_info('ptr'))
         # TODO: find a way to execute this wasm code.
+        ir_to_wasm(mod2)
         # Idea: maybe convert the wasm back to ir, and run that?
 
 
