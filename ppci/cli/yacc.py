@@ -53,3 +53,7 @@ def yacc(args=None):
     with LogSetup(args):
         transform(args.source, args.output)
         args.output.close()
+
+
+if __name__ == '__main__':
+    yacc()

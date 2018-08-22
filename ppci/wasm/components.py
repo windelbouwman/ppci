@@ -378,6 +378,10 @@ class Module(WASMComponent):
             if name != 'code':  # use "func" instead
                 section_id_to_name[id] = name
         type4func = {}
+        id_maps = {
+            'type': {}, 'func': {}, 'table': {}, 'memory': {},
+            'global': {},
+        }
 
         # todo: we may assign id's inside the _from_reader() methods,
         # revisit when implementing the custom name section.
@@ -415,6 +419,14 @@ class Module(WASMComponent):
                     if section_name == 'func':
                         d.ref = Ref('type', index=type4func[i])
                     definitions.append(d)
+                    if section_name == 'import':
+                        id_map = id_maps[d.kind]
+                        d.id = len(id_map)
+                        id_map[d.id] = d.id
+                    elif section_name in id_maps:
+                        id_map = id_maps[section_name]
+                        d.id = len(id_map)
+                        id_map[d.id] = d.id
 
         logger.info('Loaded WASM module from binary with %i definitions' %
                     len(definitions))

@@ -5,7 +5,7 @@ import argparse
 import importlib
 from .base import base_parser, march_parser, get_arch_from_args, LogSetup
 from ..binutils.dbg import Debugger
-from ..binutils.dbg_cli import DebugCli
+from ..binutils.dbg.cli import DebugCli
 
 
 parser = argparse.ArgumentParser(
